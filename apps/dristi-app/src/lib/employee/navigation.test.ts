@@ -17,6 +17,7 @@ import {
   isCourtNavCombinedActive,
   isCourtNavCombinedRow,
 } from "./navigation";
+import { REGISTERS_PAGE } from "./registers";
 
 /**
  * Two contracts, set a day apart.
@@ -170,10 +171,10 @@ describe("the court's standalone rows", () => {
      are now built and internal. Configurations used to lead them; it now closes the rail
      instead (`COURT_NAV_TRAILING`, owner 2026-09-23), because it is the one row here that
      is not somewhere the bench works. */
-  it("are the dashboard and the register, all internal and built", () => {
+  it("are the dashboard, all cases and the registers, all internal and built", () => {
     assert.deepEqual(
       COURT_NAV_LINKS.map((row) => row.href),
-      [COURT_DASHBOARD.href, COURT_CASES_PAGE.href],
+      [COURT_DASHBOARD.href, COURT_CASES_PAGE.href, REGISTERS_PAGE.href],
     );
     for (const row of [...COURT_NAV_LINKS, ...COURT_NAV_TRAILING]) {
       assert.ok(row.href, `${row.id} still goes nowhere`);
@@ -184,10 +185,44 @@ describe("the court's standalone rows", () => {
     }
   });
 
-  it("carry no trail, because nothing nests under them", () => {
+  it("carry no trail on their own pages", () => {
     assert.deepEqual(courtTrail("/employee/configurations"), []);
     assert.deepEqual(courtTrail(COURT_DASHBOARD.href), []);
     assert.deepEqual(courtTrail(COURT_CASES_PAGE.href), []);
+    assert.deepEqual(courtTrail(REGISTERS_PAGE.href), []);
+  });
+});
+
+describe("the registers row", () => {
+  it("sits after All cases, and is not the Register cases queue", () => {
+    const ids = COURT_NAV_LINKS.map((row) => row.id);
+    assert.equal(ids.indexOf("registers"), ids.indexOf("all-cases") + 1);
+    const registers = COURT_NAV_LINKS.find((row) => row.id === "registers")!;
+    const queue = COURT_NAV_GROUPS.flatMap((g) => g.items).find(
+      (row) => row.id === "register-cases",
+    )!;
+    assert.notEqual(registers.label, queue.label);
+    assert.notEqual(registers.href, queue.href);
+    assert.notEqual(registers.icon, queue.icon);
+  });
+
+  it("stays lit on a register's own page, and only for a register that exists", () => {
+    assert.ok(isCourtNavActive(REGISTERS_PAGE.href, REGISTERS_PAGE.href));
+    assert.ok(isCourtNavActive("/employee/registers/statements", REGISTERS_PAGE.href));
+    assert.ok(!isCourtNavActive("/employee/registers/nope", REGISTERS_PAGE.href));
+    assert.ok(!isCourtNavActive("/employee/register-cases", REGISTERS_PAGE.href));
+  });
+
+  it("gives a register a trail back to the index, ending at its number", () => {
+    assert.deepEqual(courtTrail("/employee/registers/statements"), [
+      { label: "Registers", href: REGISTERS_PAGE.href },
+      { label: "Register 3" },
+    ]);
+    assert.deepEqual(courtTrail("/employee/registers/batta-orders/"), [
+      { label: "Registers", href: REGISTERS_PAGE.href },
+      { label: "Register 18" },
+    ]);
+    assert.deepEqual(courtTrail("/employee/registers/nope"), []);
   });
 });
 
