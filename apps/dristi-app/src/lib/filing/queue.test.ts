@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { after, before, describe, it } from "node:test";
 
 import { createBlankDraft } from "./blank";
+import { setSigningRules } from "./config";
 import { addDays } from "./format";
 import {
   applyQueueFilters,
@@ -182,6 +183,9 @@ describe("each tab has its own order, and the default is the useful one", () => 
 });
 
 describe("pendingSignatureRows and pendingPaymentRows — where a draft goes once drafting is done", () => {
+  // Checked under Gujarat's rules, where everyone signs and swears (`config.ts`).
+  before(() => setSigningRules({ oath: true, everyAdvocate: true }));
+  after(() => setSigningRules({ oath: false, everyAdvocate: false }));
   function sentForSignature(id: string): FilingDraft {
     const draft = createBlankDraft(id);
     draft.sign.requestedAt = "2026-08-20T10:00:00.000Z";
@@ -221,8 +225,9 @@ describe("pendingSignatureRows and pendingPaymentRows — where a draft goes onc
     assert.equal(before.youPending, true);
     assert.match(before.info.sub ?? "", /waiting on you/i);
 
-    // Sign for "you" — whoever is left, if anyone, is someone else's signature to give.
+    // Sign and swear for "you" — whoever is left, if anyone, is someone else's to give.
     draft.sign.signed[you!.id] = { at: "2026-08-20T10:05:00.000Z", with: "aadhaar" };
+    draft.sign.oaths[you!.id] = { at: "2026-08-20T10:06:00.000Z", video: null };
     const after = pendingSignatureRows([draft], null)[0];
     if (after) {
       assert.equal(after.youPending, false);
@@ -255,6 +260,7 @@ describe("pendingSignatureRows and pendingPaymentRows — where a draft goes onc
     const everyone = [...signatories(draft, null).complainants, ...signatories(draft, null).advocates];
     for (const s of everyone) {
       draft.sign.signed[s.id] = { at: "2026-08-20T10:05:00.000Z", with: "aadhaar" };
+      draft.sign.oaths[s.id] = { at: "2026-08-20T10:06:00.000Z", video: null };
     }
     assert.equal(pendingSignatureRows([draft], null).length, 0);
     const [row] = pendingPaymentRows([draft], null);

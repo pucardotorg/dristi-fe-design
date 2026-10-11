@@ -740,7 +740,7 @@ export function AppSidebar() {
       <SidebarHeader className="h-14 flex-row items-center justify-between border-b border-(--rail-seam) px-3 py-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
         {/* The ON Courts glyph alone, in both states. The full lockup stacks its
             wordmark under the mark, and at the size a 56px bar can spare, "24×7 ON
-            COURTS" cannot be read. Gujarat's Saras is one line of text, so it is named
+            COURTS" cannot be read. Gujarat's SARAS 2.0 is one line of text, so it is named
             beside its mark until the rail folds. `onDark` follows the plate, not the
             app's mode. */}
         <BrandGlyph

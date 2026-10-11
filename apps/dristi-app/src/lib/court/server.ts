@@ -8,6 +8,7 @@
 
 import { cookies } from "next/headers";
 
+import { BRAND_HUE_COOKIE, resolveBrandHue, type BrandHue } from "./brand-hue";
 import { localizeCourtText } from "./localize";
 import { COURT_COOKIE, DEFAULT_COURT, isCourtId, type CourtId } from "./profiles";
 
@@ -20,4 +21,9 @@ export async function serverCourt(): Promise<CourtId> {
 export async function serverCourtText(): Promise<(text: string) => string> {
   const court = await serverCourt();
   return (text) => localizeCourtText(text, court);
+}
+
+/** The brand colour `court` is painted in, or `null` for the DS teal (`brand-hue.ts`). */
+export async function serverBrandHue(court: CourtId): Promise<BrandHue | null> {
+  return resolveBrandHue(court, (await cookies()).get(BRAND_HUE_COOKIE)?.value);
 }

@@ -12,8 +12,8 @@
  *
  * What changes, and from which source (owner's documents, 2026-10-08):
  *
- * - **Court and product names.** "24×7 ON Court(s)" becomes the state's placeholder,
- *   "Gujarat Court(s)", until the states send their own; a bench gains its state
+ * - **Court and product names.** In Gujarat "24×7 ON Courts" becomes SARAS 2.0 and
+ *   "24×7 ON Court" the SARAS Court, and DRISTI is never named (owner, 2026-10-09); a bench gains its state
  *   ("JMFC Court 1, Gujarat") where Kerala's demo left the district out.
  * - **Filing number.** Kerala's `KL-000049-2025` — Gujarat's e-filing number keeps the
  *   platform's shape with its own tenant; Punjab & Haryana's is `NACT/49/2025`.
@@ -73,15 +73,15 @@ type Rule = [RegExp, (profile: CourtProfile, ...groups: string[]) => string];
 
 /**
  * The product, "24×7 ON Courts", and the court it runs, "24×7 ON Court". Punjab and
- * Haryana run as ON Courts, so both stay as they are. Gujarat's product is Saras; its
- * court keeps the state's placeholder name until Gujarat gives one (owner, 2026-10-08).
+ * Haryana run as ON Courts, so both stay as they are. Gujarat's product is SARAS 2.0; its
+ * court is the SARAS Court (owner, 2026-10-09).
  */
 function productName(p: CourtProfile, short = false): string {
   return p.brandName ?? (short ? "ON Courts" : "24×7 ON Courts");
 }
 
 function courtName(p: CourtProfile, short = false): string {
-  return p.brandName ? `${p.state} Court` : short ? "ON Court" : "24×7 ON Court";
+  return p.courtName ?? (short ? "ON Court" : "24×7 ON Court");
 }
 
 const NAME_RULES: Rule[] = [
@@ -94,14 +94,13 @@ const NAME_RULES: Rule[] = [
   [/24[×x]7 ON COURTS/g, (p) => productName(p).toUpperCase()],
   [/24[×x]7 ON COURT/g, (p) => courtName(p).toUpperCase()],
   [/\bON Courts\b/g, (p) => productName(p, true)],
+  // The platform's own name, where a state ships it as its own product: Gujarat's
+  // screens never say DRISTI (owner, 2026-10-09). Elsewhere it stays as it is.
+  [/\bDRISTI\b/g, (p) => p.brandName ?? "DRISTI"],
+  [/\bDristi\b/g, (p) => p.brandName ?? "Dristi"],
   [/\bON Court\b/g, (p) => courtName(p, true)],
   // Punjab's filing is signed, not sworn: its step is "Sign" (owner, 2026-10-08).
   [/\bSign and oath\b/g, (p) => (p.signWithOath ? "Sign and oath" : "Sign")],
-  // The complaint's own label for its registration number, before one is allotted.
-  [
-    /Criminal Complaint \(CMP\) No\./g,
-    (p) => `Criminal Complaint (${p.numbering.kind === "nact" ? "NACT" : "eCC"}) No.`,
-  ],
   // A bench names its state; one that already names a place is left alone.
   [/\bJMFC Court (\d+)\b(?!,)/g, (p, n) => `JMFC Court ${n}, ${p.state}`],
   [/\bJMFC COURT (\d+)\b(?!,)/g, (p, n) => `JMFC COURT ${n}, ${p.state.toUpperCase()}`],
@@ -200,6 +199,23 @@ const NUMBER_RULES: Rule[] = [
   ],
 ];
 
+const ROMAN: Record<string, number> = {
+  I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8, IX: 9, X: 10,
+};
+
+/**
+ * A numbered bench, for a state that does not call it a JMFC court — Gujarat's are
+ * "SARAS Court 1, 2, 3…" (owner, 2026-10-09). Applied before the name rules, so the
+ * bench is renamed before any of them would add the state to it. The fixtures' district
+ * suffix goes with it: the state's bench is named by its number alone.
+ */
+const BENCH_RULES: Rule[] = [
+  [/\bJMFC Court (\d+)(?:, (?:Gujarat|Sample District))?/g, (p, n) => `${p.benchName} ${n}`],
+  [/\bJMFC COURT (\d+)(?:, (?:GUJARAT|SAMPLE DISTRICT))?/g, (p, n) => `${p.benchName?.toUpperCase()} ${n}`],
+  [/\bJMFC-(X|IX|VIII|VII|VI|V|IV|III|II|I)\b/g, (p, r) => `${p.benchName} ${ROMAN[r] ?? r}`],
+  [/\bJMFC Court\b/g, (p) => p.benchName ?? "JMFC Court"],
+];
+
 function apply(text: string, rules: Rule[], profile: CourtProfile): string {
   let out = text;
   for (const [pattern, to] of rules) {
@@ -224,8 +240,9 @@ export function localizeCaseNumber(value: string, court: CourtId): string {
 export function localizeCourtText(text: string, court: CourtId): string {
   const profile = courtProfile(court);
   if (profile.numbering.kind === "kerala") return text;
+  const benched = profile.benchName ? apply(text, BENCH_RULES, profile) : text;
   return apply(
-    voiceNames(apply(apply(text, NAME_RULES, profile), PLACE_RULES, profile), court),
+    voiceNames(apply(apply(benched, NAME_RULES, profile), PLACE_RULES, profile), court),
     NUMBER_RULES,
     profile,
   );

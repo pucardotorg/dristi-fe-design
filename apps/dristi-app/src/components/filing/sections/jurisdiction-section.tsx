@@ -49,6 +49,16 @@ export function JurisdictionSection() {
     });
 
   const limitation = limitationView(draft);
+  /** Clears a typed cause date, so it follows the demand notice again. */
+  const noticeDateButton = (
+    <button
+      type="button"
+      onClick={() => set("causeDate", "")}
+      className="font-medium text-foreground underline underline-offset-2"
+    >
+      Use that date
+    </button>
+  );
   const { elapsed: delay, withinLimit, overBy } = limitation;
   // Shown in the derivation line, so the date it counts from is checkable.
   const serviceDate = draft.notices
@@ -244,10 +254,26 @@ export function JurisdictionSection() {
               label="Date of cause of action"
               name="causeDate"
               required
+              error={
+                limitation.causeIssue ? (
+                  <>
+                    {limitation.causeIssue} {noticeDateButton}
+                  </>
+                ) : undefined
+              }
               help={
-                limitation.causeDerived
-                  ? `15 days after the demand notice was served on ${toLongDate(serviceDate)}.`
-                  : undefined
+                limitation.causeDerived ? (
+                  `15 days after the demand notice was served on ${toLongDate(serviceDate)}.`
+                ) : limitation.derivedCause &&
+                  limitation.derivedCause !== limitation.causeDate &&
+                  !limitation.causeIssue ? (
+                  // A typed date stops following the notice; say what the notice gives,
+                  // and let the filer go back to it in one step.
+                  <>
+                    The demand notice gives {toLongDate(limitation.derivedCause)}.{" "}
+                    {noticeDateButton}
+                  </>
+                ) : undefined
               }
             >
               <DateField
@@ -258,6 +284,7 @@ export function JurisdictionSection() {
             <FormField
               label="Date of complaint filing"
               name="filingDate"
+              error={limitation.filingIssue}
               help={j.filingDate ? undefined : "Today."}
             >
               <DateField

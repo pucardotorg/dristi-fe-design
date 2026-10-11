@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 import { createBlankDraft, migrateDraft } from "./blank";
 import { FINAL_RELIEF_TEMPLATE } from "./options";
-import { draftProgress, sectionComplete } from "./selectors";
+import { draftProgress, sectionComplete, sectionState } from "./selectors";
 import type { FilingDraft } from "./types";
 
 /**
@@ -132,5 +132,31 @@ describe("migrateDraft — the two-level signing model", () => {
   it("drops a signatory whose signature was recorded as false", () => {
     const draft = migrateDraft(signShaped("esign", { "sig-a-1": false }));
     assert.equal("sig-a-1" in draft.sign.signed, false);
+  });
+});
+
+describe("draftProgress — only what the person has done", () => {
+  it("starts a blank draft at 0%, though the prayer and witnesses are complete by default", () => {
+    const draft = createBlankDraft("draft-blank-progress");
+    assert.equal(sectionComplete(draft, "adr-prayer"), true);
+    assert.equal(draftProgress(draft), 0);
+    assert.equal(sectionState(draft, "adr-prayer"), "untouched");
+  });
+
+  it("counts a default-complete section once it has been opened", () => {
+    const draft = createBlankDraft("draft-opened-progress");
+    draft.visited = ["complainant", "adr-prayer"];
+    assert.equal(sectionState(draft, "complainant"), "started");
+    assert.equal(sectionState(draft, "adr-prayer"), "done");
+    assert.ok(draftProgress(draft) > 0);
+  });
+
+  it("reads a draft saved before sections were tracked as walked up to where it was left", () => {
+    const draft = createBlankDraft("draft-legacy-progress");
+    delete draft.visited;
+    draft.lastStep = "adr-prayer";
+    assert.equal(sectionState(draft, "adr-prayer"), "done");
+    assert.equal(sectionState(draft, "complainant"), "started");
+    assert.equal(sectionState(draft, "documents"), "untouched");
   });
 });

@@ -53,11 +53,11 @@ import {
   StagedOverlay,
   useStagedFlow,
 } from "@/components/chrome/staged-overlay";
-import { ADVOCATE_OATH } from "@/lib/filing/config";
+import { signingRules } from "@/lib/filing/config";
 import { getRepository, storeUpload } from "@/lib/filing/data";
 import { forgetFile, formatBytes } from "@/lib/filing/files";
 import { useProfile } from "@/lib/filing/profile";
-import { isOutstanding, phoneConfirmers, signatories } from "@/lib/filing/selectors";
+import { isOutstanding, oathTakerName, phoneConfirmers, signatories } from "@/lib/filing/selectors";
 import { useFiling } from "@/lib/filing/store";
 import type {
   OathVideoUpload,
@@ -214,18 +214,23 @@ function SignFlowBody({
   const yous = everyone.filter((s) => s.you);
   const youSigned = yous.length > 0 && yous.every((s) => s.status === "signed");
   const pending = everyone.filter((s) => s.status === "pending").length;
-  /** Signatures and advocates' oaths still to come — what the court fee waits on. */
+  /** Signatures and oaths still to come — what the court fee waits on. */
   const outstanding = everyone.filter(isOutstanding).length;
 
   /*
-   * The advocate's second act. One person can hold the advocate slot for more than one
-   * complainant; one oath covers every slot they sign in, as one signature does.
+   * The second act, after the signature — complainants and advocates both take it. One
+   * person can sign in more than one slot; one oath covers every slot they sign in, as
+   * one signature does.
    */
-  const yourAdvocateSlots = advocates.filter((s) => s.you);
-  const oathYours = ADVOCATE_OATH && yourAdvocateSlots.length > 0;
-  const oathOwed = oathYours && yourAdvocateSlots.some((s) => !s.oathTaken);
+  const yourOathSlots = yous.filter((s) => s.oathTaken !== undefined);
+  const oathYours = signingRules().oath && yourOathSlots.length > 0;
+  const oathOwed = oathYours && yourOathSlots.some((s) => !s.oathTaken);
   const yourOath: OathVideoUpload | null =
-    yourAdvocateSlots.map((s) => sign.oaths[s.id]?.video).find(Boolean) ?? null;
+    yourOathSlots.map((s) => sign.oaths[s.id]?.video).find(Boolean) ?? null;
+  /** Whose name the oath is read in: the person at this keyboard. */
+  const oathName =
+    profile?.name.trim() ||
+    (yourOathSlots[0] ? oathTakerName(draft, yourOathSlots[0].id) : "");
   const onPaperPath = start === "paper" || sign.mode === "upload";
   /** The two acts, named for an advocate before the first one starts. */
   const trail = (current: "sign" | "oath"): TrailStep[] => [
@@ -432,20 +437,20 @@ function SignFlowBody({
     update((d) => {
       for (const s of everyone) d.sign.signed[s.id] = { at, with: "paper" };
       d.sign.mode = "upload";
-      // Paper carries the signatures, not the oath. Every other advocate still takes
-      // theirs, so their link goes out now — for the oath alone.
-      for (const s of advocates) {
+      // Paper carries the signatures, not the oath. Everyone else still takes theirs,
+      // so their link goes out now — for the oath alone.
+      for (const s of everyone) {
         if (!s.you && !s.oathTaken) d.sign.notified[s.id] = at;
       }
     });
     flow.go("uploaded");
   };
 
-  /** One oath, written to every advocate slot this person signs in. */
+  /** One oath, written to every slot this person signs in. */
   const saveOath = (video: OathVideoUpload) => {
     const at = new Date().toISOString();
     update((d) => {
-      for (const s of yourAdvocateSlots) d.sign.oaths[s.id] = { at, video };
+      for (const s of yourOathSlots) d.sign.oaths[s.id] = { at, video };
     });
   };
 
@@ -697,7 +702,7 @@ function SignFlowBody({
                   ? "Your oath is next. The court fee opens once every signature and oath is in."
                   : outstanding === 0
                     ? "You can pay the court fee now."
-                    : `It waits in your pending tasks until every signature${advocates.length > 0 ? (ADVOCATE_OATH ? " and oath" : "") : ""} is in.`
+                    : `It waits in your pending tasks until every signature${signingRules().oath ? " and oath" : ""} is in.`
               }
             />
           </StageColumn>
@@ -734,7 +739,7 @@ function SignFlowBody({
                   ? "Your oath is next. The court fee opens once every advocate has taken theirs."
                   : outstanding === 0
                     ? "You can pay the court fee now."
-                    : ADVOCATE_OATH
+                    : signingRules().oath
                       ? "The court fee opens once every advocate has taken their oath."
                       : "The court fee opens once every signature is in."
               }
@@ -743,7 +748,7 @@ function SignFlowBody({
         ) : flow.stage === "oath" ? (
           <StageColumn>
             <StepTrail steps={trail("oath")} />
-            <OathCapture value={yourOath} onChange={saveOath} />
+            <OathCapture name={oathName} value={yourOath} onChange={saveOath} />
           </StageColumn>
         ) : (
           <StageColumn>
@@ -753,7 +758,7 @@ function SignFlowBody({
               footnote={
                 outstanding === 0
                   ? "You can pay the court fee now."
-                  : `It waits in your pending tasks until every signature${advocates.length > 0 ? (ADVOCATE_OATH ? " and oath" : "") : ""} is in.`
+                  : `It waits in your pending tasks until every signature${signingRules().oath ? " and oath" : ""} is in.`
               }
             />
           </StageColumn>

@@ -17,11 +17,18 @@
  *    signed in does that first, and someone new registers through the same flow as
  *    everywhere else (`SignInBlock`).
  * 3. **E-sign** — Aadhaar OTP or DSC, the same cards as the filer's.
- * 4. **The oath** — advocates only, straight after their signature (`OathCapture`).
+ * 4. **The oath** — complainants and advocates alike, straight after their signature
+ *    (`OathCapture`), read in their own name.
  *
- * An advocate is shown both acts from the start ("E-sign", then "Oath") so the second
- * never arrives as a surprise. A complaint signed on paper skips the e-signature: the
- * advocate's link is for the oath alone.
+ * Both acts are shown from the start ("E-sign", then "Oath") so the second never
+ * arrives as a surprise. A complaint signed on paper skips the e-signature: the link is
+ * for the oath alone.
+ *
+ * **A complainant goes into File a case.** Once a litigant has signed in or registered,
+ * the complaint opens inside the product's shell, under File a case
+ * (`/filings/sign-request`, `inShell`), with the signing window over it — not on this
+ * standalone page — and their home lists it among their cases (`linked-complaints.ts`).
+ * An advocate's link goes the same way, into their own File a case.
  *
  * Sandbox: no SMS is sent and no session is real. The filer opens this from the Sign
  * step, and signing in here only marks this tab as signed in. The page reads and writes
@@ -29,9 +36,8 @@
  */
 
 import * as React from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
-  FileTextIcon,
   LogInIcon,
   SignatureIcon,
   VideoIcon,
@@ -40,10 +46,11 @@ import {
 import { useStagedFlow, StagedOverlay } from "@/components/chrome/staged-overlay";
 import { BrandLockup } from "@/components/brand-lockup";
 import { SignInBlock } from "@/components/sign-in-block";
-import { ADVOCATE_OATH } from "@/lib/filing/config";
+import { signingRules } from "@/lib/filing/config";
 import { money } from "@/lib/filing/format";
 import { COURT } from "@/lib/filing/options";
-import { draftTitle, signatories } from "@/lib/filing/selectors";
+import { draftTitle, oathTakerName, signatories } from "@/lib/filing/selectors";
+import { useLocalStorageValue } from "@/hooks/use-local-storage-value";
 import { FilingProvider, useFiling } from "@/lib/filing/store";
 import type {
   OathVideoUpload,
@@ -67,6 +74,16 @@ import {
   type TrailStep,
 } from "@/components/filing/sign-stages";
 import { useCourtText } from "@/components/court/court-provider";
+import { Breadcrumbs } from "@/components/shell/chrome";
+import {
+  ACCOUNT_NAME_KEY,
+  ADVOCATE_AVAILABLE_KEY,
+  PROFILE_ROLE_KEY,
+} from "@/components/shell/profile";
+import {
+  linkedComplaintHref,
+  rememberLinkedComplaint,
+} from "@/lib/filing/linked-complaints";
 
 type Stage = "why" | "account" | "sign" | "otp" | "dsc" | "signed" | "oath" | "done";
 type Start = "why" | "sign" | "oath" | "done";
@@ -110,27 +127,41 @@ function readSession(key: string): boolean {
   }
 }
 
-export function SignLinkScreen() {
+/**
+ * `inShell` is the same complaint inside a signed-in litigant's home: the shell gives it
+ * its frame and breadcrumb, and there is no sign-in step left to take.
+ */
+export function SignLinkScreen({ inShell = false }: { inShell?: boolean }) {
   const params = useSearchParams();
   const draftId = params.get("draft") ?? "";
   const signatoryId = params.get("as") ?? "";
 
-  if (!draftId || !signatoryId) return <LinkUnavailable />;
+  if (!draftId || !signatoryId) return <LinkUnavailable inShell={inShell} />;
   return (
     <FilingProvider
       draftId={draftId}
       fallback={<LinkLoading />}
-      notFound={<LinkUnavailable />}
+      notFound={<LinkUnavailable inShell={inShell} />}
     >
-      <SignLinkBody draftId={draftId} signatoryId={signatoryId} />
+      <SignLinkBody draftId={draftId} signatoryId={signatoryId} inShell={inShell} />
     </FilingProvider>
   );
 }
 
-function SignLinkBody({ draftId, signatoryId }: { draftId: string; signatoryId: string }) {
+function SignLinkBody({
+  draftId,
+  signatoryId,
+  inShell,
+}: {
+  draftId: string;
+  signatoryId: string;
+  inShell: boolean;
+}) {
   const courtText = useCourtText();
+  const router = useRouter();
   const { draft, update } = useFiling();
   const [locale, setLocale] = React.useState<Locale>("en");
+  const accountName = useLocalStorageValue(ACCOUNT_NAME_KEY);
 
   const me: Signatory | undefined = React.useMemo(() => {
     const { complainants, advocates } = signatories(draft, null);
@@ -140,7 +171,8 @@ function SignLinkBody({ draftId, signatoryId }: { draftId: string; signatoryId: 
   const key = sessionKey(draftId, signatoryId);
   // Read once, as the state is made: this page only ever renders in the browser (the link's
   // query bails it out of prerendering), so there is no server value to disagree with.
-  const [signedIn, setSignedIn] = React.useState(() => readSession(key));
+  // Inside the shell the person is already signed in — that is how they got there.
+  const [signedIn] = React.useState(() => inShell || readSession(key));
 
   /** Signing in is a different page — the product's own sign-in and registration. */
   const [view, setView] = React.useState<"document" | "auth">("document");
@@ -149,13 +181,18 @@ function SignLinkBody({ draftId, signatoryId }: { draftId: string; signatoryId: 
   const [opening, setOpening] = React.useState(0);
 
   const isAdvocate = !!me?.id.startsWith("sig-a-");
-  /** An advocate who also takes the oath — only while the oath is switched on. */
-  const sworn = isAdvocate && ADVOCATE_OATH;
+  /** Everyone who signs also takes the oath — only while the oath is switched on. */
+  const sworn = signingRules().oath;
   const onPaper = draft.sign.mode === "upload";
   const needsSign = !!me && !onPaper && me.status !== "signed";
   const needsOath = !!me && sworn && !me.oathTaken;
   const owed = needsSign || needsOath;
   const filed = draft.status === "filed";
+
+  // Opened inside the home, the complaint is the litigant's from now on.
+  React.useEffect(() => {
+    if (inShell && me) rememberLinkedComplaint({ draftId, signatoryId });
+  }, [inShell, me, draftId, signatoryId]);
 
   const openAt = React.useCallback((at: Start) => {
     setStart(at);
@@ -172,12 +209,14 @@ function SignLinkBody({ draftId, signatoryId }: { draftId: string; signatoryId: 
     if (greeted.current || !canGreet) return;
     const timer = window.setTimeout(() => {
       greeted.current = true;
-      openAt(owed ? "why" : "done");
+      // Arriving from sign-in, the person has read why already; go to what is next.
+      const act: Start = needsSign ? "sign" : needsOath ? "oath" : "done";
+      openAt(owed ? (inShell ? act : "why") : "done");
     }, 500);
     return () => window.clearTimeout(timer);
-  }, [canGreet, owed, openAt]);
+  }, [canGreet, owed, openAt, inShell, needsSign, needsOath]);
 
-  if (!me) return <LinkUnavailable />;
+  if (!me) return <LinkUnavailable inShell={inShell} />;
 
   const nextAct: Start = needsSign ? "sign" : needsOath ? "oath" : "done";
 
@@ -187,9 +226,19 @@ function SignLinkBody({ draftId, signatoryId }: { draftId: string; signatoryId: 
     } catch {
       /* private mode — this tab stays signed in until it is closed either way */
     }
-    setSignedIn(true);
-    setView("document");
-    openAt(nextAct);
+    // Signed in, the person is in the product: the complaint opens under File a case,
+    // in their own shell, with the signing window over it.
+    try {
+      window.localStorage.setItem(PROFILE_ROLE_KEY, isAdvocate ? "advocate" : "litigant");
+      window.localStorage.setItem(ADVOCATE_AVAILABLE_KEY, isAdvocate ? "true" : "false");
+      const name = oathTakerName(draft, me.id, accountName ?? "");
+      if (name) window.localStorage.setItem(ACCOUNT_NAME_KEY, name);
+    } catch {
+      /* storage blocked — the shell still opens, under the demo account */
+    }
+    const link = { draftId, signatoryId };
+    rememberLinkedComplaint(link);
+    router.push(linkedComplaintHref(link));
   };
 
   if (view === "auth") {
@@ -203,18 +252,25 @@ function SignLinkBody({ draftId, signatoryId }: { draftId: string; signatoryId: 
         }}
         onSignedIn={finishSignIn}
         onRegistered={finishSignIn}
+        toSign
       />
     );
   }
 
   const filer = draft.advocates[0]?.name.trim() || "An advocate";
   const parties = draftTitle(draft);
+  /** The oath is read in the signer's own name; where the slot names no one, the account's. */
+  const oathName = oathTakerName(draft, me.id, accountName ?? "");
 
   return (
-    <div className="flex min-h-dvh flex-col bg-background">
-      <header className="flex h-14 shrink-0 items-center border-b border-hairline px-4 md:px-6">
-        <BrandLockup className="h-9" />
-      </header>
+    <div className={inShell ? "flex flex-1 flex-col" : "flex min-h-dvh flex-col bg-background"}>
+      {inShell ? (
+        <Breadcrumbs crumbs={[{ label: parties }]} />
+      ) : (
+        <header className="flex h-14 shrink-0 items-center border-b border-hairline px-4 md:px-6">
+          <BrandLockup className="h-9" />
+        </header>
+      )}
 
       <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 py-8 md:py-12">
         <div className="flex flex-col gap-2">
@@ -234,10 +290,10 @@ function SignLinkBody({ draftId, signatoryId }: { draftId: string; signatoryId: 
           <div className="flex flex-col gap-3 rounded-xl border border-hairline bg-card p-4 shadow-raised sm:flex-row sm:items-center sm:justify-between">
             <p className="text-body-compact text-muted-foreground">
               {needsSign && needsOath
-                ? "Your e-signature and your oath are still needed."
+                ? "You still need to sign and record your oath."
                 : needsSign
-                  ? "Your e-signature is still needed."
-                  : "Your oath is still needed."}
+                  ? "You still need to sign."
+                  : "You still need to record your oath."}
             </p>
             <Button
               type="button"
@@ -250,8 +306,8 @@ function SignLinkBody({ draftId, signatoryId }: { draftId: string; signatoryId: 
         ) : (
           <SectionNotice variant="success" announce="polite">
             {sworn
-              ? "You have signed and taken the oath. Nothing more is needed from you."
-              : "You have signed. Nothing more is needed from you."}
+              ? "You have signed and recorded your oath. Nothing more is needed."
+              : "You have signed. Nothing more is needed."}
           </SectionNotice>
         )}
 
@@ -285,6 +341,7 @@ function SignLinkBody({ draftId, signatoryId }: { draftId: string; signatoryId: 
             needsOath={needsOath}
             isAdvocate={isAdvocate}
             oath={draft.sign.oaths[me.id]?.video ?? null}
+            oathName={oathName}
             onSign={(instrument) =>
               update((d) => {
                 d.sign.signed[me.id] = { at: new Date().toISOString(), with: instrument };
@@ -318,11 +375,13 @@ function SignLinkWizard({
   needsOath,
   isAdvocate,
   oath,
+  oathName,
   onSign,
   onOath,
   onSignIn,
   onClose,
 }: {
+  oathName: string;
   start: Start;
   me: Signatory;
   filer: string;
@@ -340,8 +399,8 @@ function SignLinkWizard({
 }) {
   const courtText = useCourtText();
   const flow = useStagedFlow<Stage>({ order: ORDER[start], scene: SCENES, arrival: "forward" });
-  /** An advocate who also takes the oath — only while the oath is switched on. */
-  const sworn = isAdvocate && ADVOCATE_OATH;
+  /** Everyone who signs also takes the oath — only while the oath is switched on. */
+  const sworn = signingRules().oath;
 
   const [otp, setOtp] = React.useState("");
   const [resent, setResent] = React.useState(false);
@@ -403,29 +462,26 @@ function SignLinkWizard({
     else flow.go(needsSign ? "sign" : needsOath ? "oath" : "done");
   };
 
-  const capacity = isAdvocate
-    ? `the advocate for ${me.name.replace(/^Advocate for /, "")}`
-    : `${me.name}, ${me.role.split(" · ")[0]}`;
 
   const title = {
-    why: "Why you got this link",
-    account: "Sign in to continue",
-    sign: "E-sign the complaint",
+    why: "You have been asked to sign",
+    account: "Sign in first",
+    sign: "Sign the complaint",
     otp: "Enter the OTP",
     dsc: "Sign with your DSC",
-    signed: signedWith ? INSTRUMENT_LABEL[signedWith] : "Signature added",
-    oath: "Take your oath",
-    done: sworn ? "Signed and sworn" : "Signature added",
+    signed: signedWith ? INSTRUMENT_LABEL[signedWith] : "Signed",
+    oath: "Record your oath",
+    done: "All done",
   }[flow.stage];
 
   const description = {
     why: null,
     account: null,
-    sign: "Either one is your own signature. Use whichever you have.",
+    sign: "Use whichever you have.",
     otp: "Sent to your Aadhaar-linked mobile.",
-    dsc: "Your certificate has to be plugged in, with the signing utility running on this computer.",
+    dsc: "Plug in your certificate and keep the signing utility running.",
     signed: null,
-    oath: "Record yourself reading the oath. It is filed with the complaint.",
+    oath: "Read the words below on camera.",
     done: null,
   }[flow.stage];
 
@@ -433,10 +489,10 @@ function SignLinkWizard({
     why: (
       <>
         <Button type="button" variant="ghost" onClick={onClose}>
-          Read the complaint first
+          Read the complaint
         </Button>
         <Button type="button" onClick={proceed}>
-          Continue
+          {signedIn ? "Start" : "Sign in to start"}
         </Button>
       </>
     ),
@@ -446,7 +502,7 @@ function SignLinkWizard({
           Back
         </Button>
         <Button type="button" onClick={onSignIn}>
-          Sign in or register
+          Sign in
         </Button>
       </>
     ),
@@ -477,7 +533,7 @@ function SignLinkWizard({
     ),
     signed: sworn ? (
       <Button type="button" onClick={() => flow.go("oath")}>
-        Continue to the oath
+        Record my oath
       </Button>
     ) : (
       <Button type="button" onClick={onClose}>
@@ -521,10 +577,28 @@ function SignLinkWizard({
       {flow.stage === "why" ? (
         <StageColumn>
           <p className="text-body">
-            {filer} is filing a cheque-bounce complaint under S-138, Negotiable Instruments
-            Act, and has named you as {capacity}. It cannot be filed
-            until you have {sworn ? "signed it and taken the oath" : "signed it"}.
+            {filer} is filing your cheque bounce case. Before it can go to court:
           </p>
+
+          <ol className="flex flex-col gap-3">
+            {[
+              ...(signedIn ? [] : [{ icon: LogInIcon, title: "Sign in, or create an account" }]),
+              ...(needsSign ? [{ icon: SignatureIcon, title: "Sign the complaint with Aadhaar OTP or DSC" }] : []),
+              ...(sworn && needsOath ? [{ icon: VideoIcon, title: "Record your oath on video" }] : []),
+            ].map(({ icon: Icon, title: t }, i) => (
+              <li key={t} className="flex items-center gap-3">
+                <span
+                  aria-hidden
+                  className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-sunken text-muted-foreground"
+                >
+                  <Icon className="size-4" />
+                </span>
+                <span className="text-body-compact">
+                  <span className="tabular-nums">{i + 1}.</span> {t}
+                </span>
+              </li>
+            ))}
+          </ol>
 
           <dl className="grid grid-cols-1 gap-x-6 gap-y-3 rounded-lg border border-hairline bg-surface-sunken p-4 sm:grid-cols-2">
             <div className="flex min-w-0 flex-col gap-0.5">
@@ -550,70 +624,12 @@ function SignLinkWizard({
               </dd>
             </div>
           </dl>
-
-          <section aria-labelledby="sign-link-steps" className="flex flex-col gap-3">
-            <h3 id="sign-link-steps" className="text-body font-semibold">
-              What you will do
-            </h3>
-            <ol className="flex flex-col gap-3">
-              {[
-                ...(signedIn
-                  ? []
-                  : [{
-                      icon: LogInIcon,
-                      title: "Sign in",
-                      text: "Or register, if you are new to DRISTI. Your signature is tied to your account.",
-                    }]),
-                ...(needsSign
-                  ? [{
-                      icon: SignatureIcon,
-                      title: "E-sign the complaint",
-                      text: "With an Aadhaar OTP or your DSC.",
-                    }]
-                  : []),
-                ...(sworn && needsOath
-                  ? [{
-                      icon: VideoIcon,
-                      title: "Take the oath",
-                      text: "Record yourself on video reading a short affirmation.",
-                    }]
-                  : []),
-              ].map(({ icon: Icon, title: t, text }, i) => (
-                <li key={t} className="flex items-start gap-3">
-                  <span
-                    aria-hidden
-                    className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-sunken text-muted-foreground"
-                  >
-                    <Icon className="size-4" />
-                  </span>
-                  <span className="flex min-w-0 flex-col gap-0.5">
-                    <span className="text-body-compact font-semibold">
-                      <span className="tabular-nums">{i + 1}.</span> {t}
-                    </span>
-                    <span className="text-body-compact text-muted-foreground">{text}</span>
-                  </span>
-                </li>
-              ))}
-            </ol>
-          </section>
-
-          <p className="flex items-center gap-2 text-caption text-muted-foreground">
-            <FileTextIcon aria-hidden className="size-4 shrink-0" />
-            You can read the full complaint on this page before you sign.
-          </p>
         </StageColumn>
       ) : flow.stage === "account" ? (
         <StageColumn>
           <p className="text-body">
-            Your e-signature{sworn ? " and oath are" : " is"} recorded against your
-            DRISTI account, so you need to be signed in.
-          </p>
-          <p className="text-body-compact text-muted-foreground">
-            New to DRISTI? Choose to register on the next screen. It takes a few minutes, and
-            this link brings you back here when you are done.
-          </p>
-          <p className="text-caption text-muted-foreground">
-            Sandbox — no real account is created or checked.
+            Sign in, or create an account if you are new. You will come straight back to
+            this complaint.
           </p>
         </StageColumn>
       ) : flow.stage === "sign" ? (
@@ -644,23 +660,21 @@ function SignLinkWizard({
             headline={signedWith ? INSTRUMENT_LABEL[signedWith] : "Signature added"}
             rows={[{ ...me, status: "signed" }]}
             footnote={
-              sworn
-                ? "Your oath is next."
-                : "Nothing more is needed from you."
+              sworn ? "Next, record your oath." : "Nothing more is needed from you."
             }
           />
         </StageColumn>
       ) : flow.stage === "oath" ? (
         <StageColumn>
           {acts.length > 1 ? <StepTrail steps={trail("oath")} /> : null}
-          <OathCapture value={oath} onChange={onOath} />
+          <OathCapture name={oathName} value={oath} onChange={onOath} />
         </StageColumn>
       ) : (
         <StageColumn>
           <SettledCard
-            headline={sworn ? "Signed and sworn" : "Signature added"}
+            headline={sworn ? "Signed and oath recorded" : "Signed"}
             rows={[settledRow]}
-            footnote="Nothing more is needed from you."
+            footnote={`Nothing more is needed from you. ${filer} will file the case.`}
           />
         </StageColumn>
       )}
@@ -679,12 +693,14 @@ function LinkLoading() {
 }
 
 /** A link that no longer leads anywhere — expired, recalled, or mistyped. */
-function LinkUnavailable() {
+function LinkUnavailable({ inShell = false }: { inShell?: boolean }) {
   return (
-    <div className="flex min-h-dvh flex-col bg-background">
-      <header className="flex h-14 shrink-0 items-center border-b border-hairline px-4 md:px-6">
-        <BrandLockup className="h-9" />
-      </header>
+    <div className={inShell ? "flex flex-1 flex-col" : "flex min-h-dvh flex-col bg-background"}>
+      {inShell ? null : (
+        <header className="flex h-14 shrink-0 items-center border-b border-hairline px-4 md:px-6">
+          <BrandLockup className="h-9" />
+        </header>
+      )}
       <main className="mx-auto flex w-full max-w-2xl flex-col gap-3 px-4 py-12">
         <h1 className="text-title text-balance font-semibold">This link is no longer active</h1>
         <p className="text-body text-muted-foreground">

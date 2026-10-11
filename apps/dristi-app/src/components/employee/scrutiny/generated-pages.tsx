@@ -24,8 +24,8 @@ function Synopsis() {
     <div className={PAGE}>
       <h4 className={HEADING}>{courtText("IN THE 24×7 ON COURT AT AHMEDABAD")}</h4>
       <div className={SUB}>
-        {courtText("Criminal Complaint (CMP) No.")} ______ of 2026 · Under Section 138, Negotiable
-        Instruments Act, 1881
+        {/* No number before scrutiny: none is allotted until registration. */}
+        Under Section 138, Negotiable Instruments Act, 1881
         <br />
         Prateek Agrawal (Complainant) v. Deepak Choudhary (Accused)
       </div>

@@ -15,10 +15,11 @@
  * Sources: "Case Numbering System" sheets for Kerala, Gujarat and Punjab & Haryana, and
  * "Payment Logic" (schedule 1 Kerala, 2 Gujarat, 3 Punjab and Haryana), shared in the
  * owner's chat on 2026-10-08. Punjab and Haryana run as 24×7 ON Courts, like Kerala;
- * Gujarat's product is Saras, with a placeholder logo until it sends its own (owner,
- * 2026-10-08).
+ * Gujarat's product is SARAS 2.0, with a placeholder logo until it sends its own (owner,
+ * 2026-10-08, renamed 2026-10-09).
  */
 
+import type { SigningRules } from "@/lib/filing/config";
 import type { FeeSchedule } from "./fees";
 import { GUJARAT_FEES, KERALA_FEES, PUNJAB_HARYANA_FEES } from "./fees";
 
@@ -51,8 +52,20 @@ export type CourtProfile = {
    * and name; a name is shown beside a placeholder logo, and replaces "ON Courts" in text.
    */
   brandName: string | null;
+  /**
+   * The court's own name where it is not "24×7 ON Court" — what "In the …" heads a
+   * complaint with. `null` keeps ON Court; Kerala, Punjab and Haryana run as ON Courts.
+   */
+  courtName: string | null;
+  /**
+   * What the state calls a numbered bench, where it is not a JMFC court: Gujarat's are
+   * "SARAS Court 1, 2, 3…" (owner, 2026-10-09). `null` keeps "JMFC Court N".
+   */
+  benchName: string | null;
   /** Whether the filing's signing step carries an oath — Punjab's does not. */
   signWithOath: boolean;
+  /** Who signs and who swears (`lib/filing/config.ts`). Gujarat only, for now. */
+  signing: SigningRules;
   fees: FeeSchedule;
 };
 
@@ -63,7 +76,10 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     numbering: { kind: "kerala" },
     cnrPrefix: "KLKM52",
     brandName: null,
+    courtName: null,
+    benchName: null,
     signWithOath: true,
+    signing: { oath: false, everyAdvocate: false },
     fees: KERALA_FEES,
   },
   gujarat: {
@@ -72,8 +88,13 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     numbering: { kind: "gujarat" },
     // GJAH + 2-digit court ID, per the Gujarat sheet's example (GJAH010001252026).
     cnrPrefix: "GJAH01",
-    brandName: "Saras",
+    // Gujarat's product is SARAS 2.0 and its court is the SARAS Court (owner,
+    // 2026-10-09). The exact court wording is still to be confirmed with Gujarat.
+    brandName: "SARAS 2.0",
+    courtName: "SARAS Court",
+    benchName: "SARAS Court",
     signWithOath: true,
+    signing: { oath: true, everyAdvocate: true },
     fees: GUJARAT_FEES,
   },
   punjab: {
@@ -85,7 +106,10 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     // the establishment code mirrors Panchkula's until Punjab supplies its own.
     cnrPrefix: "PBLD03",
     brandName: null,
+    courtName: null,
+    benchName: null,
     signWithOath: false,
+    signing: { oath: false, everyAdvocate: false },
     fees: PUNJAB_HARYANA_FEES,
   },
   haryana: {
@@ -95,7 +119,10 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     // Panchkula Special NI Act Court, per the Punjab & Haryana sheet.
     cnrPrefix: "HRPK03",
     brandName: null,
+    courtName: null,
+    benchName: null,
     signWithOath: true,
+    signing: { oath: false, everyAdvocate: false },
     fees: PUNJAB_HARYANA_FEES,
   },
 };

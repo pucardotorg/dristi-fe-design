@@ -372,8 +372,8 @@ export type Signatory = {
   signedWith?: SignInstrument;
   you?: boolean;
   /**
-   * Advocates only: whether the oath is in. Advocates sign *and* take the oath; a
-   * complainant only signs, so this is absent on their rows.
+   * Whether the oath is in. Complainants and advocates both sign *and* take the oath;
+   * absent while the oath is switched off, when nothing waits on it.
    */
   oathTaken?: boolean;
 };
@@ -543,6 +543,16 @@ export type FilingDraft = {
   status: "draft" | "filed";
   /** Where the person last was — "Continue draft" resumes here. */
   lastStep: StepId;
+  /**
+   * Every section the person has opened. A section counts towards progress, and earns
+   * its tick in the rail, only once it has been opened: some sections are complete before
+   * anyone touches them (the prayer is pre-written, witnesses are optional), and a blank
+   * draft must not read as part-done.
+   *
+   * Absent on drafts written before this was recorded — the samples and older saves —
+   * which are read as every section up to `lastStep` opened.
+   */
+  visited?: StepId[];
   intake: Intake;
   complainants: Complainant[];
   advocates: Advocate[];

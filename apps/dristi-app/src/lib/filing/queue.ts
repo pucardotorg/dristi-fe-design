@@ -315,16 +315,16 @@ function pendingSummary(everyone: Signatory[]): {
   sub: string;
   action: string;
 } {
-  // An advocate who has signed but not yet taken the oath is still owed.
+  // Anyone who has signed but not yet taken the oath is still owed.
   const pending = everyone.filter(isOutstanding);
   const yours = pending.filter((s) => s.you);
   const youOwe = yours.length > 0;
   // Only a signature can be batched — an oath is a recording of its own.
   const youPending = yours.some((s) => s.status === "pending");
-  // Only an advocate's row carries `oathTaken`, and it stays false until they swear.
+  // `oathTaken` stays false until the signatory swears; absent while the oath is off.
   const yourOath = yours.some((s) => s.oathTaken === false);
   const others = pending.filter((s) => !s.you).length;
-  // The row says what is left for you: sign and oath are one act for an advocate.
+  // The row says what is left for you: sign and oath are one act.
   const action = youPending
     ? yourOath
       ? "Sign and take oath"

@@ -236,14 +236,6 @@ export function finalReliefSummary(draft: FilingDraft): string {
   return `Conviction under S-138, ${compensation}, and process/summons`;
 }
 
-/** The year the complaint is numbered in — the year it was filed, else this year. */
-export function complaintYear(draft: FilingDraft): number {
-  const filed = draft.filedAt ? new Date(draft.filedAt) : null;
-  return filed && !Number.isNaN(filed.getTime())
-    ? filed.getFullYear()
-    : new Date().getFullYear();
-}
-
 /** "₹52,05,000 (2 cheques)" — the filing summary's headline figure. */
 export function totalChequeText(draft: FilingDraft): string {
   const total = chequeTotal(draft);

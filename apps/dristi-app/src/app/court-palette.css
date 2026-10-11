@@ -1,0 +1,108 @@
+/*
+ * EXPERIMENT — a state's own brand colour, in place of the DS teal.
+ *
+ * Gujarat's stakeholders read the teal as not theirs and asked for a navy (owner,
+ * 2026-10-09). The root layout sets `data-brand-hue` on <html> for Gujarat only, from
+ * the court switch's "Brand colour" choice; every other state carries no attribute and
+ * renders exactly as the DS ships it. "teal" is offered too, so the two can be compared
+ * side by side.
+ *
+ * Only the brand family moves. Every semantic role the product reads (primary, ring,
+ * brand-muted, brand-canvas, sidebar-*) aliases these in `globals.css`, so overriding
+ * the ramp and the handful of off-ramp literals re-colours them all; status colours stay
+ * as they are, which keeps "brand" and "success" apart.
+ *
+ * NOT DS tokens. A navy ramp belongs in the DS before this ships for real — this file
+ * is app-owned (globals.css is synced from the DS and must not be edited) so it can be
+ * tried in a demo first.
+ *
+ * Measured (WCAG relative luminance):
+ *   light solids on white — navy #1f3a68 11.6:1 · royal #23449a 8.8:1 · ink #182c4f 13.9:1
+ *   white text on each solid — the same ratios (solid-foreground is white in light)
+ *   dark solid #5a7fd0 with dark ink #0a0a0a — 5.1:1
+ *   brand-9 #3b5ea8 (non-text marks) on white — 6.3:1
+ *   canvas muted text on each canvas — ≥ 7:1
+ */
+
+/* Shared blue ramp, light. */
+html[data-brand-hue="navy"],
+html[data-brand-hue="royal"],
+html[data-brand-hue="ink"] {
+  --brand-1: #fbfcfe;
+  --brand-2: #f5f8fc;
+  --brand-3: #e8eef8;
+  --brand-4: #dce5f4;
+  --brand-5: #cdd9ef;
+  --brand-6: #bccbe7;
+  --brand-7: #a5b8dc;
+  --brand-8: #859dcc;
+  --brand-9: #3b5ea8;
+  --brand-10: #34549a;
+  --brand-11: #2c4a8a;
+  --brand-12: #14244a;
+  --brand-canvas-muted-foreground: #a9bde3;
+}
+
+/* Shared blue ramp, dark. The solid aliases brand-10 here, as the DS teal does. */
+html.dark[data-brand-hue="navy"],
+html.dark[data-brand-hue="royal"],
+html.dark[data-brand-hue="ink"] {
+  --brand-1: #0e121b;
+  --brand-2: #121826;
+  --brand-3: #172238;
+  --brand-4: #1b2a49;
+  --brand-5: #213357;
+  --brand-6: #293d66;
+  --brand-7: #344a7a;
+  --brand-8: #405a95;
+  --brand-9: #3b5ea8;
+  --brand-10: #5a7fd0;
+  --brand-11: #9db6ee;
+  --brand-12: #d6e1f8;
+  --brand-canvas-muted-foreground: #a9bde3;
+}
+
+/*
+ * Per hue: the light solid, its tinted text, the sign-in canvas (fixed in both modes,
+ * like the DS's), and `--court-brand-on-white` — the brand mark the navigation rails pin
+ * on their always-white selected card (`chrome/rail-plate.ts`, `shell/rail-theme.tsx`).
+ */
+html[data-brand-hue="navy"] {
+  --brand-solid: #1f3a68;
+  --brand-tint-foreground: #1b335c;
+  --court-brand-on-white: #1f3a68;
+}
+html[data-brand-hue="royal"] {
+  --brand-solid: #23449a;
+  --brand-tint-foreground: #1f3a7e;
+  --court-brand-on-white: #23449a;
+}
+html[data-brand-hue="ink"] {
+  --brand-solid: #182c4f;
+  --brand-tint-foreground: #182c4f;
+  --court-brand-on-white: #182c4f;
+}
+
+html[data-brand-hue="navy"],
+html.dark[data-brand-hue="navy"] {
+  --brand-canvas: #14294f;
+  --brand-canvas-deep: #060d1d;
+}
+html[data-brand-hue="royal"],
+html.dark[data-brand-hue="royal"] {
+  --brand-canvas: #172f66;
+  --brand-canvas-deep: #070f26;
+}
+html[data-brand-hue="ink"],
+html.dark[data-brand-hue="ink"] {
+  --brand-canvas: #0f1d38;
+  --brand-canvas-deep: #050a16;
+}
+
+/* In dark mode the solid comes back off the ramp; the light-only literal must not win. */
+html.dark[data-brand-hue="navy"],
+html.dark[data-brand-hue="royal"],
+html.dark[data-brand-hue="ink"] {
+  --brand-solid: var(--brand-10);
+  --brand-tint-foreground: var(--brand-11);
+}

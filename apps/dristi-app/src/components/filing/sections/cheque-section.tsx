@@ -19,6 +19,8 @@ import type { IfscResult } from "@/lib/filing/lookups";
 import { RETURN_REASONS, S138_SAFE_REASONS } from "@/lib/filing/options";
 import {
   chequeComplete,
+  chequePresentIssue,
+  chequeReturnIssue,
   chequeSourceSlot,
   firstReadField,
 } from "@/lib/filing/selectors";
@@ -443,7 +445,7 @@ export function ChequeSection() {
               name="presentDate"
               required
               tip="Date on which the cheque was presented in the bank for clearance."
-              error={cheque.presentDate && cheque.dateOnCheque && cheque.presentDate < cheque.dateOnCheque ? "Cannot be before the date on the cheque." : undefined}
+              error={chequePresentIssue(cheque)}
             >
               <DateField
                 value={cheque.presentDate}
@@ -458,7 +460,7 @@ export function ChequeSection() {
               name="returnDate"
               required
               tip="Date on which the cheque was dishonoured / returned, as written on the return memo."
-              error={cheque.returnDate && cheque.presentDate && cheque.returnDate < cheque.presentDate ? "Cannot be before the date of presentation." : undefined}
+              error={chequeReturnIssue(cheque)}
             >
               <DateField
                 value={cheque.returnDate}

@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { LandmarkIcon } from "lucide-react";
 
 import { useCourt } from "@/components/court/court-provider";
@@ -10,6 +11,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -19,6 +21,37 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { COURT_IDS, courtProfile, isCourtId } from "@/lib/court/profiles";
+import {
+  BRAND_HUE_COOKIE,
+  BRAND_HUES,
+  courtHasHue,
+  isBrandHue,
+  resolveBrandHue,
+  type BrandHue,
+} from "@/lib/court/brand-hue";
+
+const ONE_YEAR = 60 * 60 * 24 * 365;
+
+/**
+ * EXPERIMENT — the brand colour, for a court that may run in its own (Gujarat). The root
+ * layout paints the first frame from the cookie; a change here re-paints at once by
+ * moving `data-brand-hue` on <html>, with no reload — only CSS variables move.
+ */
+function useBrandHue(): [BrandHue | null, (hue: BrandHue) => void] {
+  const { court } = useCourt();
+  // Read lazily: the menu that shows it only renders once opened, on the client.
+  const [hue, setHue] = React.useState<BrandHue | null>(() =>
+    typeof document === "undefined"
+      ? null
+      : resolveBrandHue(court, document.documentElement.dataset.brandHue)
+  );
+  const choose = React.useCallback((next: BrandHue) => {
+    setHue(next);
+    document.documentElement.dataset.brandHue = next;
+    document.cookie = `${BRAND_HUE_COOKIE}=${next}; path=/; max-age=${ONE_YEAR}; samesite=lax`;
+  }, []);
+  return [hue, choose];
+}
 
 /**
  * Which state's court the whole app runs as — one quiet icon beside the Settings title in
@@ -33,6 +66,9 @@ import { COURT_IDS, courtProfile, isCourtId } from "@/lib/court/profiles";
  * The visible button is 32px, small enough to stay quiet; the `after:` inset widens its
  * hit area to the 40px the DS asks of a touch target.
  *
+ * For Gujarat the same menu also offers the brand colour (`useBrandHue`), so the owner
+ * can try the navies against the teal in place.
+ *
  * `data-court-raw` keeps the text layer from re-voicing the other states' names into the
  * selected one's.
  */
@@ -46,6 +82,7 @@ export function CourtSwitch({
   align?: "start" | "end";
 }) {
   const { court, setCourt } = useCourt();
+  const [hue, setHue] = useBrandHue();
   return (
     <DropdownMenu>
       <Tooltip>
@@ -79,6 +116,30 @@ export function CourtSwitch({
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>
+        {courtHasHue(court) && hue ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Brand colour</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={hue}
+              onValueChange={(next) => {
+                if (isBrandHue(next)) setHue(next);
+              }}
+            >
+              {BRAND_HUES.map((h) => (
+                <DropdownMenuRadioItem key={h.id} value={h.id} className="gap-2">
+                  <span
+                    aria-hidden
+                    className="size-4 shrink-0 rounded-full border border-hairline"
+                    // A swatch is the colour itself, shown as data — not a styling choice.
+                    style={{ backgroundColor: h.swatch }}
+                  />
+                  {h.label}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );

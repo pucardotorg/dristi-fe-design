@@ -39,7 +39,7 @@ export const QUEUE: Filing[] = [
   {
     no: "F/AHM/2026/00327",
     parties: "Sunil Trivedi v. Anand Motors",
-    type: "Money suit",
+    type: "S25 of PSA",
     stage: "Awaiting scrutiny",
     ball: "registry",
     reason: "Low AI confidence",
@@ -72,7 +72,7 @@ export const QUEUE: Filing[] = [
   {
     no: "F/AHM/2026/00335",
     parties: "Hetal Modi v. Jayesh Solanki",
-    type: "Rent",
+    type: "S.138 NI Act",
     stage: "Under scrutiny",
     ball: "registry",
     reason: "Not AI-reviewed",
@@ -94,7 +94,7 @@ export const QUEUE: Filing[] = [
   {
     no: "F/AHM/2026/00302",
     parties: "Kavita Sharma v. Rakesh Doshi",
-    type: "Money suit",
+    type: "S25 of PSA",
     stage: "Sent back",
     ball: "advocate",
     reason: "1 item open",
@@ -127,7 +127,7 @@ export const QUEUE: Filing[] = [
   {
     no: "F/AHM/2026/00265",
     parties: "Ila Pandya v. Mahendra Shah",
-    type: "Rent",
+    type: "S.138 NI Act",
     stage: "Withdrawn",
     ball: "closed",
     reason: "—",

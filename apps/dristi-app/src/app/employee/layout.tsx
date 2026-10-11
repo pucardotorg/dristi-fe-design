@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 
+import { serverCourtText } from "@/lib/court/server";
+
 /**
  * `/employee/*` — the court-staff area: magistrate, bench clerk, scrutiny officer,
  * typist.
@@ -13,12 +15,15 @@ import type { Metadata } from "next";
  * level down, to the `(court)` group, so that `/employee/login` can be an `/employee`
  * route without wearing the bench's rail — see `(court)/layout.tsx`.
  */
-export const metadata: Metadata = {
-  title: {
-    default: "Court staff",
-    template: "%s · DRISTI",
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const courtText = await serverCourtText();
+  return {
+    title: {
+      default: "Court staff",
+      template: `%s · ${courtText("DRISTI")}`,
+    },
+  };
+}
 
 export default function EmployeeLayout({
   children,

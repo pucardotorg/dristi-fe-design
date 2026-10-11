@@ -40,7 +40,7 @@ export type RailTheme = {
 const CARD = {
   "--rail-card": "#ffffff", //                          brand-canvas-foreground
   "--rail-card-ink": "#1c1a18", //                      neutral-12 (light) — 17.4:1 on white
-  "--rail-card-icon": "#007e7e", //                     brand-solid — 4.9:1 on white (mark ≥3:1)
+  "--rail-card-icon": "var(--court-brand-on-white, #007e7e)", //                     brand-solid — 4.9:1 on white (mark ≥3:1)
   "--rail-card-muted": "#6a6661", //                    neutral-11 (light) — 5.7:1 on white
   "--rail-badge": "#c1232a", //                         destructive (light) — white numeral 5.9:1
   "--rail-badge-ink": "#ffffff",
@@ -66,7 +66,7 @@ export const RAIL_THEMES: RailTheme[] = [
       "--sidebar-accent-foreground": "#1c1a18",
       "--rail-seam": LIGHT_SEAM,
       "--sidebar-border": LIGHT_SEAM,
-      "--sidebar-ring": "#007e7e",
+      "--sidebar-ring": "var(--court-brand-on-white, #007e7e)",
       // a white card on a near-white plate needs the shadow to exist at all
       "--rail-active-shadow": LIFT,
     },
@@ -85,7 +85,7 @@ export const RAIL_THEMES: RailTheme[] = [
       "--sidebar-accent-foreground": "#1c1a18",
       "--rail-seam": LIGHT_SEAM,
       "--sidebar-border": LIGHT_SEAM,
-      "--sidebar-ring": "#007e7e",
+      "--sidebar-ring": "var(--court-brand-on-white, #007e7e)",
       "--rail-active-shadow": LIFT,
     },
   },
