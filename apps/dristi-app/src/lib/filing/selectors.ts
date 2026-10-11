@@ -1,7 +1,7 @@
 /** Derived reads over the draft — pure functions so screens and the shell agree. */
 
-import { ADVOCATE_OATH } from "./config";
-import { addDays, addressToString, daysBetween, nameList, plural, toLongDate, todayIso } from "./format";
+import { signingRules } from "./config";
+import { addDays, addMonths, addressToString, daysBetween, nameList, plural, toLongDate, todayIso } from "./format";
 import { KERALA_FEES, type FeeSchedule } from "@/lib/court/fees";
 import {
   CHANNEL_FEE,
@@ -22,6 +22,7 @@ import type {
   Intake,
   IntakeSlot,
   PhoneConfirmer,
+  SignInstrument,
   Signatory,
   StepId,
   UserProfile,
@@ -165,7 +166,42 @@ export function chequeComplete(c: ChequeDetails): boolean {
 
 export function chequeFullyComplete(c: ChequeDetails, index: number): boolean {
   const bank = index > 0 && c.sameAsPrev === "yes" ? true : !!(c.ifsc && c.bankName);
-  return chequeComplete(c) && bank && !!(c.presentDate && c.returnDate && c.returnReason);
+  return (
+    chequeComplete(c) &&
+    bank &&
+    !!(c.presentDate && c.returnDate && c.returnReason) &&
+    !chequePresentIssue(c) &&
+    !chequeReturnIssue(c)
+  );
+}
+
+/** Months a cheque stays valid for presentation, from the date on it. */
+export const CHEQUE_VALIDITY_MONTHS = 3;
+
+/** The last day the cheque could be presented — the day before three months run out. */
+export function chequeValidUntil(c: ChequeDetails): ISODate {
+  return addDays(addMonths(c.dateOnCheque, CHEQUE_VALIDITY_MONTHS), -1);
+}
+
+/**
+ * What is wrong with the presentation date, if anything. The first link of the
+ * limitation chain: a cheque presented before its date, or after its three-month
+ * validity ran out, cannot found a complaint under section 138.
+ */
+export function chequePresentIssue(c: ChequeDetails): string | undefined {
+  if (!c.presentDate || !c.dateOnCheque) return undefined;
+  if (c.presentDate < c.dateOnCheque) return "Cannot be before the date on the cheque.";
+  const lastDay = chequeValidUntil(c);
+  if (lastDay && c.presentDate > lastDay) {
+    return `After the cheque expired. It was valid for presentation until ${toLongDate(lastDay)}, ${CHEQUE_VALIDITY_MONTHS} months from its date.`;
+  }
+  return undefined;
+}
+
+/** What is wrong with the return date, if anything: it cannot predate presentation. */
+export function chequeReturnIssue(c: ChequeDetails): string | undefined {
+  if (!c.returnDate || !c.presentDate || c.returnDate >= c.presentDate) return undefined;
+  return "Cannot be before the date of presentation.";
 }
 
 export function noticeComplete(n: DemandNotice): boolean {
@@ -217,8 +253,10 @@ function sameMobile(a: string, b: string): boolean {
 export function signatories(
   draft: FilingDraft,
   profile: UserProfile | null,
-  /** Whether signatories take the oath — the deployment's switch unless a test says otherwise. */
-  oath: boolean = ADVOCATE_OATH
+  /** Whether signatories take the oath — the deployment's rule unless a test says otherwise. */
+  oath: boolean = signingRules().oath,
+  /** Whether every advocate signs as themselves, or one per complainant (`config.ts`). */
+  everyAdvocate: boolean = signingRules().everyAdvocate
 ): { complainants: Signatory[]; advocates: Signatory[] } {
   const signedOf = (id: string): Signatory["status"] =>
     draft.sign.signed[id] ? "signed" : "pending";
@@ -255,33 +293,35 @@ export function signatories(
   const myBar = profile?.barNumber.trim().toUpperCase() ?? "";
 
   /*
-   * Every advocate on record signs and takes the oath themselves, and each gets their own
-   * link (owner, 2026-10-09). It used to be one slot per complainant that any one of
-   * their advocates could fill; with several advocates, all of them sign now.
+   * Where every advocate signs (Gujarat, owner 2026-10-09), each advocate on record is a
+   * signatory of their own, with their own link and oath. Elsewhere it is one slot per
+   * complainant that any one of their advocates may fill: the row names the slot, and
+   * the system does not know which of them will sign.
    */
-  const represented = draft.complainants
-    .map((c, i) => ({ c, i }))
-    .filter(({ c }) => !isPartyInPerson(c));
-  const advocates: Signatory[] = draft.advocates.flatMap((a, n) => {
-    if (!advocateNamed(a)) return [];
-    const forWhom = represented.filter(({ i }) => a.forComplainants.includes(i));
-    if (!forWhom.length) return [];
-    const id = `sig-a-${a.id}`;
-    const names = forWhom.map(({ c, i }) => complainantLabel(c, i));
-    const you = !!myBar && a.barNumber.trim().toUpperCase() === myBar;
-    return [
-      {
-        id,
-        name: a.name.trim() || `Advocate ${n + 1}`,
-        role: `Advocate for ${nameList(names)}`,
-        status: signedOf(id),
-        signedWith: signedWith(id),
-        you,
-        // No oath state at all while the oath is switched off: nothing waits on it.
-        oathTaken: oath ? !!draft.sign.oaths?.[id] : undefined,
-      },
-    ];
-  });
+  const advocates: Signatory[] = everyAdvocate
+    ? everyAdvocateRows(draft, myBar, oath, signedOf, signedWith)
+    : draft.complainants.flatMap((c, i) => {
+        if (isPartyInPerson(c)) return [];
+        const acting = advocatesForComplainant(draft.advocates, i);
+        if (!acting.length) return [];
+        const id = `sig-a-${c.id}`;
+        const role =
+          acting.length === 1
+            ? "Advocate on record"
+            : `Any one of ${acting.length} advocates on record`;
+        const you = !!myBar && acting.some((a) => a.barNumber.trim().toUpperCase() === myBar);
+        return [
+          {
+            id,
+            name: `Advocate for Complainant ${i + 1}`,
+            role,
+            status: signedOf(id),
+            signedWith: signedWith(id),
+            you,
+            oathTaken: oath ? !!draft.sign.oaths?.[id] : undefined,
+          },
+        ];
+      });
 
   const anyYou = [...complainants, ...advocates].some((s) => s.you);
   if (!anyYou) {
@@ -289,6 +329,37 @@ export function signatories(
     else if (complainants[0]) complainants[0].you = true;
   }
   return { complainants, advocates };
+}
+
+/** One signatory per advocate on record — the Gujarat rule (`signatories`). */
+function everyAdvocateRows(
+  draft: FilingDraft,
+  myBar: string,
+  oath: boolean,
+  signedOf: (id: string) => Signatory["status"],
+  signedWith: (id: string) => SignInstrument | undefined
+): Signatory[] {
+  const represented = draft.complainants
+    .map((c, i) => ({ c, i }))
+    .filter(({ c }) => !isPartyInPerson(c));
+  return draft.advocates.flatMap((a, n) => {
+    if (!advocateNamed(a)) return [];
+    const forWhom = represented.filter(({ i }) => a.forComplainants.includes(i));
+    if (!forWhom.length) return [];
+    const id = `sig-a-${a.id}`;
+    const names = forWhom.map(({ c, i }) => complainantLabel(c, i));
+    return [
+      {
+        id,
+        name: a.name.trim() || `Advocate ${n + 1}`,
+        role: `Advocate for ${nameList(names)}`,
+        status: signedOf(id),
+        signedWith: signedWith(id),
+        you: !!myBar && a.barNumber.trim().toUpperCase() === myBar,
+        oathTaken: oath ? !!draft.sign.oaths?.[id] : undefined,
+      },
+    ];
+  });
 }
 
 /**
@@ -299,7 +370,12 @@ export function signatories(
 export function oathTakerName(draft: FilingDraft, signatoryId: string, fallback = ""): string {
   const ref = signatoryId.replace(/^sig-[ca]-/, "");
   if (signatoryId.startsWith("sig-a-")) {
-    return draft.advocates.find((a) => a.id === ref)?.name.trim() || fallback;
+    const own = draft.advocates.find((a) => a.id === ref);
+    if (own) return own.name.trim() || fallback;
+    // A per-complainant slot: read by its one advocate, else by whoever is signed in.
+    const i = draft.complainants.findIndex((c) => c.id === ref);
+    const acting = i < 0 ? [] : advocatesForComplainant(draft.advocates, i);
+    return acting.length === 1 ? acting[0].name.trim() || fallback : fallback;
   }
   const c = draft.complainants.find((x) => x.id === ref);
   if (!c) return fallback;
@@ -324,9 +400,10 @@ export function isOutstanding(s: Signatory): boolean {
 export function signingComplete(
   draft: FilingDraft,
   profile: UserProfile | null,
-  oath: boolean = ADVOCATE_OATH
+  oath: boolean = signingRules().oath,
+  everyAdvocate: boolean = signingRules().everyAdvocate
 ): boolean {
-  const { complainants, advocates } = signatories(draft, profile, oath);
+  const { complainants, advocates } = signatories(draft, profile, oath, everyAdvocate);
   const everyone = [...complainants, ...advocates];
   return everyone.length > 0 && !everyone.some(isOutstanding);
 }

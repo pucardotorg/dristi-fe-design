@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useLocalStorageValue } from "@/hooks/use-local-storage-value";
-import { ADVOCATE_OATH } from "@/lib/filing/config";
+import { signingRules } from "@/lib/filing/config";
 import { getRepository } from "@/lib/filing/data";
 import {
   linkedComplaintHref,
@@ -30,7 +30,7 @@ function standing({ link, draft }: Loaded) {
   }
   const { complainants, advocates } = signatories(draft, null);
   const me = [...complainants, ...advocates].find((s) => s.id === link.signatoryId);
-  const sworn = !!me?.id.startsWith("sig-a-") && ADVOCATE_OATH;
+  const sworn = signingRules().oath;
   const owed =
     !!me &&
     ((draft.sign.mode !== "upload" && me.status !== "signed") || (sworn && !me.oathTaken));

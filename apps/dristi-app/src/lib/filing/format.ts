@@ -106,6 +106,20 @@ export function addDays(iso: ISODate, days: number): ISODate {
   return dateToIso(out);
 }
 
+/**
+ * `iso` moved on by whole calendar months, clamped to the month's last day (31 Nov is
+ * 30 Nov). Empty in, empty out.
+ */
+export function addMonths(iso: ISODate, months: number): ISODate {
+  const d = isoToDate(iso);
+  if (!d) return "";
+  const day = d.getDate();
+  const out = new Date(d.getFullYear(), d.getMonth() + months, 1);
+  const last = new Date(out.getFullYear(), out.getMonth() + 1, 0).getDate();
+  out.setDate(Math.min(day, last));
+  return dateToIso(out);
+}
+
 /** Today, as an ISO date. */
 export function todayIso(): ISODate {
   return dateToIso(new Date());

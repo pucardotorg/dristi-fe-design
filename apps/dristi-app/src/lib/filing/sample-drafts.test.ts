@@ -1,12 +1,21 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { after, before, describe, it } from "node:test";
+
+import { setSigningRules } from "./config";
 
 import { ADVOCATE_LINK_SAMPLES, buildSampleDraft } from "./sample-drafts";
 import { signatories } from "./selectors";
 
+/* The oath and per-advocate signing are Gujarat's rules (`config.ts`); this sample is
+   checked under them. */
 describe("the two-advocate sample", () => {
+  const gujarat = { oath: true, everyAdvocate: true };
+  setSigningRules(gujarat);
   const draft = buildSampleDraft(ADVOCATE_LINK_SAMPLES[0], "2026-10-07");
-  const { complainants, advocates } = signatories(draft, null);
+  const { complainants, advocates } = signatories(draft, null, true, true);
+  setSigningRules({ oath: false, everyAdvocate: false });
+  before(() => setSigningRules(gujarat));
+  after(() => setSigningRules({ oath: false, everyAdvocate: false }));
 
   it("has two complainants, each with their own advocate", () => {
     assert.equal(complainants.length, 2);

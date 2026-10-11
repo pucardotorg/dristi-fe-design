@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { after, before, describe, it } from "node:test";
 
 import { createBlankDraft } from "./blank";
+import { setSigningRules } from "./config";
 import { addDays } from "./format";
 import {
   applyQueueFilters,
@@ -182,6 +183,9 @@ describe("each tab has its own order, and the default is the useful one", () => 
 });
 
 describe("pendingSignatureRows and pendingPaymentRows — where a draft goes once drafting is done", () => {
+  // Checked under Gujarat's rules, where everyone signs and swears (`config.ts`).
+  before(() => setSigningRules({ oath: true, everyAdvocate: true }));
+  after(() => setSigningRules({ oath: false, everyAdvocate: false }));
   function sentForSignature(id: string): FilingDraft {
     const draft = createBlankDraft(id);
     draft.sign.requestedAt = "2026-08-20T10:00:00.000Z";

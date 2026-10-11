@@ -682,10 +682,10 @@ function migrateAdr(draft: FilingDraft) {
 }
 
 /**
- * Advocates used to sign in one slot per complainant (`sig-a-<complainant id>`); every
- * advocate now signs as themselves (`sig-a-<advocate id>`, owner 2026-10-09). A draft
- * saved under the old key gives what was recorded to each advocate who was on record
- * for that complainant, so nothing already signed or sworn is lost.
+ * Outside Gujarat an advocate signs in one slot per complainant (`sig-a-<complainant
+ * id>`); in Gujarat every advocate signs as themselves (`sig-a-<advocate id>`, owner
+ * 2026-10-09). What a slot recorded is copied to each advocate who was on record for
+ * that complainant, and the slot keeps it too, so a draft reads right under either rule.
  */
 function migrateAdvocateSignatures(draft: FilingDraft) {
   const maps = [draft.sign.signed, draft.sign.oaths, draft.sign.notified] as Record<
@@ -697,8 +697,8 @@ function migrateAdvocateSignatures(draft: FilingDraft) {
     const acting = draft.advocates.filter((a) => a.forComplainants.includes(i));
     for (const map of maps) {
       if (!map || !(old in map)) continue;
+      // Kept as well: outside Gujarat advocates still sign in the per-complainant slot.
       for (const a of acting) map[`sig-a-${a.id}`] ??= map[old];
-      delete map[old];
     }
   });
 }

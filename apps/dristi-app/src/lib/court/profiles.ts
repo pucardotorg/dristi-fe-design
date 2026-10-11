@@ -19,6 +19,7 @@
  * 2026-10-08, renamed 2026-10-09).
  */
 
+import type { SigningRules } from "@/lib/filing/config";
 import type { FeeSchedule } from "./fees";
 import { GUJARAT_FEES, KERALA_FEES, PUNJAB_HARYANA_FEES } from "./fees";
 
@@ -63,6 +64,8 @@ export type CourtProfile = {
   benchName: string | null;
   /** Whether the filing's signing step carries an oath — Punjab's does not. */
   signWithOath: boolean;
+  /** Who signs and who swears (`lib/filing/config.ts`). Gujarat only, for now. */
+  signing: SigningRules;
   fees: FeeSchedule;
 };
 
@@ -76,6 +79,7 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     courtName: null,
     benchName: null,
     signWithOath: true,
+    signing: { oath: false, everyAdvocate: false },
     fees: KERALA_FEES,
   },
   gujarat: {
@@ -90,6 +94,7 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     courtName: "SARAS Court",
     benchName: "SARAS Court",
     signWithOath: true,
+    signing: { oath: true, everyAdvocate: true },
     fees: GUJARAT_FEES,
   },
   punjab: {
@@ -104,6 +109,7 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     courtName: null,
     benchName: null,
     signWithOath: false,
+    signing: { oath: false, everyAdvocate: false },
     fees: PUNJAB_HARYANA_FEES,
   },
   haryana: {
@@ -116,6 +122,7 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     courtName: null,
     benchName: null,
     signWithOath: true,
+    signing: { oath: false, everyAdvocate: false },
     fees: PUNJAB_HARYANA_FEES,
   },
 };

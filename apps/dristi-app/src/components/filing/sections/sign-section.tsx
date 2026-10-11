@@ -38,7 +38,7 @@ import {
   UploadIcon,
 } from "lucide-react";
 
-import { ADVOCATE_OATH } from "@/lib/filing/config";
+import { signingRules } from "@/lib/filing/config";
 import { getRepository, newCaseFileNumber, newPaymentRef } from "@/lib/filing/data";
 import { forgetFile } from "@/lib/filing/files";
 import { money, toLongDate } from "@/lib/filing/format";
@@ -481,8 +481,8 @@ export function SignSection() {
     : onPaper
       ? `${opens} once the signed copy is in.`
       : requested
-        ? `${opens} once ${pending === 1 ? "the last signature is" : `all ${everyone.length} signatures are`} in${ADVOCATE_OATH ? ", with every oath" : ""}.`
-        : `${opens} once every signature${ADVOCATE_OATH ? " and oath is" : " is"} in.`;
+        ? `${opens} once ${pending === 1 ? "the last signature is" : `all ${everyone.length} signatures are`} in${signingRules().oath ? ", with every oath" : ""}.`
+        : `${opens} once every signature${signingRules().oath ? " and oath is" : " is"} in.`;
 
   /**
    * Every signature on this screen belongs to *this* version of the complaint. Going back
@@ -886,7 +886,7 @@ export function SignSection() {
     <div className="flex flex-col gap-3">
       <SectionNotice variant="success" announce="polite">
         {onPaper ? "The uploaded copy carries every signature" : "Every party has signed"}
-        {ADVOCATE_OATH ? ", and everyone has taken the oath." : "."}{" "}
+        {signingRules().oath ? ", and everyone has taken the oath." : "."}{" "}
         {returned ? "You can send the corrections to scrutiny now." : "You can pay the court fee now."}
       </SectionNotice>
       {onPaper ? (

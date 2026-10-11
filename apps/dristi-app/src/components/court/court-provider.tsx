@@ -15,6 +15,8 @@ import {
   localizeDeep,
 } from "@/lib/court/localize";
 
+import { setSigningRules } from "@/lib/filing/config";
+
 import { CourtTextLayer } from "./court-text-layer";
 
 /**
@@ -44,6 +46,9 @@ export function CourtProvider({
   initialCourt?: CourtId;
 }) {
   const [court, setCourtState] = React.useState<CourtId>(initialCourt);
+  // The state's signing rules, read by the filing selectors. Set in render, before any
+  // child reads them; a change of court reloads the page, so this never goes stale.
+  setSigningRules(courtProfile(court).signing);
 
   const value = React.useMemo<CourtValue>(
     () => ({

@@ -3,6 +3,8 @@ import { describe, it } from "node:test";
 
 import { createBlankDraft } from "./blank";
 import {
+  chequePresentIssue,
+  chequeValidUntil,
   isDelayed,
   limitationView,
   noticeDispatchIssue,
@@ -78,5 +80,25 @@ describe("the limitation chain — return, notice, service, cause of action, fil
     const d = dated();
     d.jurisdiction.deposited = "no";
     assert.equal(sectionComplete(d, "jurisdiction"), true);
+  });
+});
+
+describe("the cheque's own validity — the first link of the chain", () => {
+  it("is valid for presentation for three months from its date", () => {
+    const c = createBlankDraft("draft-validity").cheques[0];
+    c.dateOnCheque = "2026-05-15";
+    assert.equal(chequeValidUntil(c), "2026-08-14");
+    c.presentDate = "2026-08-14";
+    assert.equal(chequePresentIssue(c), undefined);
+    c.presentDate = "2026-08-20";
+    assert.match(chequePresentIssue(c) ?? "", /After the cheque expired/);
+    c.presentDate = "2026-05-10";
+    assert.match(chequePresentIssue(c) ?? "", /before the date on the cheque/);
+  });
+
+  it("clamps to the month's end for a cheque dated on the 30th or 31st", () => {
+    const c = createBlankDraft("draft-validity-end").cheques[0];
+    c.dateOnCheque = "2026-11-30";
+    assert.equal(chequeValidUntil(c), "2027-02-27");
   });
 });

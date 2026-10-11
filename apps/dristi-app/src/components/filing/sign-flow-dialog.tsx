@@ -53,7 +53,7 @@ import {
   StagedOverlay,
   useStagedFlow,
 } from "@/components/chrome/staged-overlay";
-import { ADVOCATE_OATH } from "@/lib/filing/config";
+import { signingRules } from "@/lib/filing/config";
 import { getRepository, storeUpload } from "@/lib/filing/data";
 import { forgetFile, formatBytes } from "@/lib/filing/files";
 import { useProfile } from "@/lib/filing/profile";
@@ -223,7 +223,7 @@ function SignFlowBody({
    * one signature does.
    */
   const yourOathSlots = yous.filter((s) => s.oathTaken !== undefined);
-  const oathYours = ADVOCATE_OATH && yourOathSlots.length > 0;
+  const oathYours = signingRules().oath && yourOathSlots.length > 0;
   const oathOwed = oathYours && yourOathSlots.some((s) => !s.oathTaken);
   const yourOath: OathVideoUpload | null =
     yourOathSlots.map((s) => sign.oaths[s.id]?.video).find(Boolean) ?? null;
@@ -702,7 +702,7 @@ function SignFlowBody({
                   ? "Your oath is next. The court fee opens once every signature and oath is in."
                   : outstanding === 0
                     ? "You can pay the court fee now."
-                    : `It waits in your pending tasks until every signature${ADVOCATE_OATH ? " and oath" : ""} is in.`
+                    : `It waits in your pending tasks until every signature${signingRules().oath ? " and oath" : ""} is in.`
               }
             />
           </StageColumn>
@@ -739,7 +739,7 @@ function SignFlowBody({
                   ? "Your oath is next. The court fee opens once every advocate has taken theirs."
                   : outstanding === 0
                     ? "You can pay the court fee now."
-                    : ADVOCATE_OATH
+                    : signingRules().oath
                       ? "The court fee opens once every advocate has taken their oath."
                       : "The court fee opens once every signature is in."
               }
@@ -758,7 +758,7 @@ function SignFlowBody({
               footnote={
                 outstanding === 0
                   ? "You can pay the court fee now."
-                  : `It waits in your pending tasks until every signature${ADVOCATE_OATH ? " and oath" : ""} is in.`
+                  : `It waits in your pending tasks until every signature${signingRules().oath ? " and oath" : ""} is in.`
               }
             />
           </StageColumn>

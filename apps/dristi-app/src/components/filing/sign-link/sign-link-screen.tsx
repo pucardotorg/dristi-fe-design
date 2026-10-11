@@ -46,7 +46,7 @@ import {
 import { useStagedFlow, StagedOverlay } from "@/components/chrome/staged-overlay";
 import { BrandLockup } from "@/components/brand-lockup";
 import { SignInBlock } from "@/components/sign-in-block";
-import { ADVOCATE_OATH } from "@/lib/filing/config";
+import { signingRules } from "@/lib/filing/config";
 import { money } from "@/lib/filing/format";
 import { COURT } from "@/lib/filing/options";
 import { draftTitle, oathTakerName, signatories } from "@/lib/filing/selectors";
@@ -182,7 +182,7 @@ function SignLinkBody({
 
   const isAdvocate = !!me?.id.startsWith("sig-a-");
   /** Everyone who signs also takes the oath — only while the oath is switched on. */
-  const sworn = ADVOCATE_OATH;
+  const sworn = signingRules().oath;
   const onPaper = draft.sign.mode === "upload";
   const needsSign = !!me && !onPaper && me.status !== "signed";
   const needsOath = !!me && sworn && !me.oathTaken;
@@ -400,7 +400,7 @@ function SignLinkWizard({
   const courtText = useCourtText();
   const flow = useStagedFlow<Stage>({ order: ORDER[start], scene: SCENES, arrival: "forward" });
   /** Everyone who signs also takes the oath — only while the oath is switched on. */
-  const sworn = ADVOCATE_OATH;
+  const sworn = signingRules().oath;
 
   const [otp, setOtp] = React.useState("");
   const [resent, setResent] = React.useState(false);
