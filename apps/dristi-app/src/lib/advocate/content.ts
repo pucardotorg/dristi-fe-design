@@ -146,6 +146,16 @@ export const BAR_DIRECTORY: BarAdvocate[] = [
   { barId: "K/3104/2019", name: "Adv. Divya Nair" },
 ];
 
+/** Sandbox: the advocates this office has been on vakalatnamas with — the only names the
+ *  co-advocate field suggests. Anyone else is added by their full mobile number and never
+ *  resolved to a name (owner, 2026-10-13, as the Share field). */
+export const VAKALATNAMA_CO_ADVOCATES: { name: string; phone: string; barId: string }[] = [
+  { ...BAR_DIRECTORY[1], phone: "94471 20486" },
+  { ...BAR_DIRECTORY[2], phone: "98950 08762" },
+  { ...BAR_DIRECTORY[0], phone: "94460 11230" },
+  { ...BAR_DIRECTORY[5], phone: "97450 27651" },
+];
+
 /** Sandbox: the advocate who already named this one on a paid vakalatnama. */
 export const VAKALATNAMA_INVITER = BAR_DIRECTORY[1].name;
 
@@ -705,11 +715,16 @@ export const advDialog = {
     "Add the other advocates on this vakalatnama",
     "ഈ വക്കാലത്തിലെ മറ്റ് അഭിഭാഷകരെ ചേർക്കുക",
   ),
-  vkAddPlaceholder: t(
-    "Search by Bar registration ID or name",
-    "ബാർ രജിസ്‌ട്രേഷൻ ID അല്ലെങ്കിൽ പേര് ഉപയോഗിച്ച് തിരയുക",
+  vkAddFieldLabel: t("Other advocates on the vakalatnama", "വക്കാലത്തിലെ മറ്റ് അഭിഭാഷകർ"),
+  vkAddSuggested: t("Advocates you often add", "നിങ്ങൾ പതിവായി ചേർക്കുന്ന അഭിഭാഷകർ"),
+  vkAddNewNumber: t(
+    "They'll get an SMS to join the case.",
+    "കേസിൽ ചേരാൻ അവർക്ക് SMS ലഭിക്കും.",
   ),
-  vkAddEmpty: t("No advocates found.", "അഭിഭാഷകരെ കണ്ടെത്തിയില്ല."),
+  vkAddKeepTyping: t(
+    "No advocate you've added matches. Enter their full mobile number or Bar ID.",
+    "നിങ്ങൾ ചേർത്ത അഭിഭാഷകരിൽ ആരും പൊരുത്തപ്പെടുന്നില്ല. അവരുടെ മൊബൈൽ നമ്പർ അല്ലെങ്കിൽ ബാർ ഐഡി മുഴുവൻ നൽകുക.",
+  ),
   vkAddHelp: t(
     "Only advocates registered on the platform can be added.",
     "പ്ലാറ്റ്‌ഫോമിൽ രജിസ്റ്റർ ചെയ്ത അഭിഭാഷകരെ മാത്രമേ ചേർക്കാനാകൂ.",

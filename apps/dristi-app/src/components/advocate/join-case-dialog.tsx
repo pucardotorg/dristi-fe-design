@@ -95,7 +95,7 @@ import {
 } from "@/lib/join/content";
 import {
   advDialog,
-  BAR_DIRECTORY,
+  VAKALATNAMA_CO_ADVOCATES,
   VAKALATNAMA_INVITER,
   COMPLAINANT_PARTIES,
   VAKALATNAMA_FEE_PAISE,
@@ -353,9 +353,7 @@ export function AdvocateJoinCaseDialog({
   const [verifyTouched, setVerifyTouched] = React.useState(false);
 
   const [vkOthers, setVkOthers] = React.useState<YesNo>("");
-  const [vkAdvocates, setVkAdvocates] = React.useState<string[]>([]);
-  const [vkAdvOpen, setVkAdvOpen] = React.useState(false);
-  const vkAdvAnchor = useComboboxAnchor();
+  const [vkAdvocates, setVkAdvocates] = React.useState<InvitePerson[]>([]);
   const [vkFile, setVkFile] = React.useState<File | null>(null);
   const [vkTouched, setVkTouched] = React.useState(false);
 
@@ -442,7 +440,6 @@ export function AdvocateJoinCaseDialog({
     setVerifyTouched(false);
     setVkOthers("");
     setVkAdvocates([]);
-    setVkAdvOpen(false);
     setVkFile(null);
     setVkTouched(false);
     setAlreadyAdded(false);
@@ -1076,44 +1073,25 @@ export function AdvocateJoinCaseDialog({
                   <FieldLabel className={cn(VK_QUESTION, "block w-full")}>
                     {pick(advDialog.vkAddLegend, locale)}
                   </FieldLabel>
-                  <Combobox
-                    multiple
-                    open={vkAdvOpen}
-                    onOpenChange={setVkAdvOpen}
-                    items={BAR_DIRECTORY.map((adv) => `${adv.name} · ${adv.barId}`)}
+                  {/* As Share (owner, 2026-10-13): only advocates this office has added
+                      before are suggested; anyone else is their full number, never
+                      resolved to a name. */}
+                  <PeopleInviteField
+                    id="adv-vk-advocates"
+                    label={pick(advDialog.vkAddFieldLabel, locale)}
+                    known={VAKALATNAMA_CO_ADVOCATES}
                     value={vkAdvocates}
-                    onValueChange={(names: string[]) => {
-                      setVkAdvocates(names);
+                    onValueChange={(next) => {
+                      setVkAdvocates(next);
                       setVkTouched(false);
                     }}
-                  >
-                    <ComboboxChips ref={vkAdvAnchor}>
-                      <ComboboxValue>
-                        {(value: string[]) => (
-                          <>
-                            {value.map((name) => (
-                              <ComboboxChip key={name}>{name}</ComboboxChip>
-                            ))}
-                            <ComboboxChipsInput
-                              placeholder={
-                                value.length ? undefined : pick(advDialog.vkAddPlaceholder, locale)
-                              }
-                            />
-                          </>
-                        )}
-                      </ComboboxValue>
-                    </ComboboxChips>
-                    <ComboboxContent anchor={vkAdvAnchor} className="pointer-events-auto">
-                      <ComboboxEmpty>{pick(advDialog.vkAddEmpty, locale)}</ComboboxEmpty>
-                      <ComboboxList>
-                        {(item: string) => (
-                          <ComboboxItem key={item} value={item}>
-                            {item}
-                          </ComboboxItem>
-                        )}
-                      </ComboboxList>
-                    </ComboboxContent>
-                  </Combobox>
+                    locale={locale}
+                    copy={{
+                      suggested: advDialog.vkAddSuggested,
+                      newNumber: advDialog.vkAddNewNumber,
+                      keepTyping: advDialog.vkAddKeepTyping,
+                    }}
+                  />
                   <FieldDescription>{pick(advDialog.vkAddHelp, locale)}</FieldDescription>
                   <FieldError>
                     {vkTouched && !coAdvocatesComplete ? pick(advDialog.vkAddError, locale) : null}

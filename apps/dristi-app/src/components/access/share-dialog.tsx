@@ -112,7 +112,7 @@ export function ShareDialog({
      legitimate. */
   /* Named only as you know them: an unknown number stays a number. */
   const advocateNames = chips
-    .filter((chip) => PHONE_DIRECTORY[chip.phone.replace(/\D/g, "")]?.advocate)
+    .filter((chip) => chip.phone && PHONE_DIRECTORY[chip.phone.replace(/\D/g, "")]?.advocate)
     .map(inviteLabel);
 
   function handleOpenChange(nextOpen: boolean) {
@@ -130,7 +130,7 @@ export function ShareDialog({
   function send() {
     const batch = chips;
     if (!batch.length) return;
-    setResult(invite(batch.map((c) => c.phone), cases.map((c) => c.id)));
+    setResult(invite(batch.map((c) => c.phone ?? c.barId ?? ""), cases.map((c) => c.id)));
     setChips([]);
   }
 
