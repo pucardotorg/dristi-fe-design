@@ -87,6 +87,7 @@ import {
 } from "@/lib/advocate/content";
 import { rupees } from "@/lib/tasks/format";
 import { Identifier } from "@/components/chrome/identifier";
+import { JoinedCaseBail } from "@/components/join/joined-case-bail";
 import { cn } from "@/lib/utils";
 
 /**
@@ -329,7 +330,10 @@ export function AdvocateJoinCaseDialog({
   const [teamInput, setTeamInput] = React.useState("");
   const [teamTouched, setTeamTouched] = React.useState(false);
 
-  const [doneNotice, setDoneNotice] = React.useState<"" | "case" | "bail">("");
+  const [doneNotice, setDoneNotice] = React.useState<"" | "case">("");
+  /* File bail application opens the application form at Bail, in place of
+     this window (the join is done; this window closes when the form does). */
+  const [bailOpen, setBailOpen] = React.useState(false);
   const [downloadNotice, setDownloadNotice] = React.useState(false);
 
   const sideParties: CaseParty[] =
@@ -572,7 +576,8 @@ export function AdvocateJoinCaseDialog({
                 : { title: pick(advDialog.vkTitle, locale), body: pick(advDialog.vkBody, locale) };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <>
+    <Dialog open={open && !bailOpen} onOpenChange={handleOpenChange}>
       <FlowDialogContent
         lang={locale}
         rise
@@ -1250,12 +1255,7 @@ export function AdvocateJoinCaseDialog({
 
               {doneNotice ? (
                 <Banner variant="info" className="items-start">
-                  {pick(
-                    doneNotice === "bail"
-                      ? joinDialog.fileBailPrototype
-                      : joinDialog.viewCasePrototype,
-                    locale,
-                  )}
+                  {pick(joinDialog.viewCasePrototype, locale)}
                 </Banner>
               ) : null}
             </div>
@@ -1445,7 +1445,7 @@ export function AdvocateJoinCaseDialog({
                 </Button>
                 <Button
                   type="button"
-                  onClick={() => setDoneNotice("bail")}
+                  onClick={() => setBailOpen(true)}
                   data-icon="inline-end"
                 >
                   {pick(joinDialog.fileBail, locale)}
@@ -1471,5 +1471,17 @@ export function AdvocateJoinCaseDialog({
         </footer>
       </FlowDialogContent>
     </Dialog>
+    {bailOpen && joinCase ? (
+      <JoinedCaseBail
+        joinCase={joinCase}
+        accused={selectedParties.map((party) => party.name)}
+        as="advocate"
+        onClose={() => {
+          setBailOpen(false);
+          handleOpenChange(false);
+        }}
+      />
+    ) : null}
+    </>
   );
 }

@@ -27,10 +27,6 @@ import { advocateFor } from "./seat-names";
 
 type Counters = { temporary: number; number: number; order: number };
 
-function rich(text: string) {
-  return { html: `<p>${text}</p>`, text };
-}
-
 type Sample = {
   caseId: string;
   side: Side;
@@ -56,8 +52,8 @@ const SAMPLES: Sample[] = [
     type: "postpone",
     filedDaysAgo: 1,
     form: {
-      requestReason: "The complainant is admitted in hospital and cannot depose.",
-      partiesAgreed: "no",
+      rescheduleReason: "Illness",
+      otherDetails: "The complainant is admitted in hospital and cannot depose.",
     },
   },
   {
@@ -66,10 +62,8 @@ const SAMPLES: Sample[] = [
     type: "condonation-of-delay",
     filedDaysAgo: 4,
     form: {
-      delayDays: "18",
-      delayReason: rich(
+      delayReason:
         "The demand notice was returned unclaimed and the complainant learnt of it only after the period had run.",
-      ),
     },
   },
   {
@@ -80,9 +74,8 @@ const SAMPLES: Sample[] = [
     reviewAgainIn: 4,
     form: {
       title: "Exemption from personal appearance",
-      details: rich(
+      details:
         "The accused is the managing partner and is travelling abroad on business until the end of the month.",
-      ),
     },
   },
   /* Decide on applications */
@@ -99,7 +92,7 @@ const SAMPLES: Sample[] = [
         "No settlement has been reached. The accused has not agreed to the instalments the complainant describes.",
     },
     form: {
-      comments: rich("The parties have agreed to settle the cheque amount in three instalments."),
+      settlementReason: "The parties have agreed to settle the cheque amount in three instalments.",
     },
   },
   {
@@ -109,7 +102,7 @@ const SAMPLES: Sample[] = [
     filedDaysAgo: 3,
     onboard: { daysAgo: 2 },
     form: {
-      withdrawalReason: rich("The cheque amount has been paid in full."),
+      withdrawalReason: "The cheque amount has been paid in full.",
     },
   },
   {
@@ -119,9 +112,8 @@ const SAMPLES: Sample[] = [
     filedDaysAgo: 8,
     onboard: { daysAgo: 5, decideIn: 2, invite: true },
     form: {
-      applicationReason: rich(
+      productionReason:
         "The bank's statement of account for the period is needed to show the cheque was issued as security.",
-      ),
     },
   },
 ];
@@ -141,7 +133,7 @@ export function sampleApplications(
     const draft: ApplicationDraft = {
       ...EMPTY_APPLICATION_DRAFT,
       type: sample.type,
-      applicationDate: new Date(`${filedOn}T00:00:00`),
+      filedForSide: sample.side,
       ...sample.form,
     };
     let app: LifecycleApplication = {
@@ -208,7 +200,8 @@ export function sampleApplications(
           form: encodeDraft({
             ...EMPTY_APPLICATION_DRAFT,
             type: "objection",
-            details: rich(sample.onboard.objection),
+            filedForSide: otherSide,
+            objectionReason: sample.onboard.objection,
           }),
           documents: [],
           history: [{ on, text: "Draft started" }],

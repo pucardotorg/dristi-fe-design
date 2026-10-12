@@ -59,7 +59,11 @@ export type ApplicationTypeId =
   | "settlement"
   | "transfer"
   | "warrant-by-hand"
-  /** Not one of the PRD's seventeen; kept (owner, Sept 24) and flagged to the PM. */
+  /**
+   * Certified copy and Warrant recall are not types in the Application
+   * Lifecycle PRD and are never offered; the ids stay so anything already
+   * filed under them still has a label.
+   */
   | "warrant-recall"
   | "withdrawal"
   | "application-others"
@@ -110,40 +114,6 @@ export const APPLICATION_TYPES: {
   { id: "application-others", label: "Generic" },
   { id: "objection", label: "Objection" },
 ];
-
-/**
- * Types the picker shows as cards but whose form is not built yet. Choosing one
- * lands on a "not built" notice instead of a form: the card says what the type
- * is for; the flow behind it is still to come. Kept out of the fields switch and
- * the generate path so a card can never reach a form it does not have.
- */
-export const UNBUILT_APPLICATION_TYPE_IDS: ReadonlySet<ApplicationTypeId> =
-  new Set<ApplicationTypeId>([
-    "absent-application",
-    /* The PRD documents no fields for it yet, and it is open to anyone, even
-       without signing in, which is a flow of its own. */
-    "certified-copy",
-    "reopen-evidence",
-    "warrant-by-hand",
-    "warrant-recall",
-  ]);
-
-export function isUnbuiltApplicationType(id: ApplicationTypeId): boolean {
-  return UNBUILT_APPLICATION_TYPE_IDS.has(id);
-}
-
-/**
- * Types filed from the Parties tab, not from a form here: each acts on one
- * party the filer picks there first, and the PM put every case addition
- * behind the one Add people door (Sept 1). The picker still lists them, so
- * the catalogue is whole, and sends the filer to where they are raised.
- */
-export const PARTIES_APPLICATION_TYPE_IDS: ReadonlySet<ApplicationTypeId> =
-  new Set<ApplicationTypeId>(["edit-litigant-details", "poa-change"]);
-
-export function isRaisedFromParties(id: ApplicationTypeId): boolean {
-  return PARTIES_APPLICATION_TYPE_IDS.has(id);
-}
 
 /** Submission-flow buckets — the register's document heads live in documents.ts. */
 export const SUBMISSION_DOCUMENT_TYPES: {

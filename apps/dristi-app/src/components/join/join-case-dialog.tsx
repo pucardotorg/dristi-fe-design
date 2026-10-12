@@ -50,6 +50,7 @@ import {
 } from "@/components/join/case-details";
 import { cn } from "@/lib/utils";
 import { DownloadCaseFileButton } from "@/components/join/download-case-file-button";
+import { JoinedCaseBail } from "@/components/join/joined-case-bail";
 import {
   isValidMobile,
   PoaJoinFields,
@@ -189,7 +190,10 @@ export function JoinCaseDialog({
   const [pipFile, setPipFile] = React.useState<File | null>(null);
   const pipInputRef = React.useRef<HTMLInputElement>(null);
 
-  const [doneNotice, setDoneNotice] = React.useState<"" | "case" | "bail" | "advocate">("");
+  const [doneNotice, setDoneNotice] = React.useState<"" | "case" | "advocate">("");
+  /* File bail application opens the application form at Bail, in place of
+     this window (the join is done; this window closes when the form does). */
+  const [bailOpen, setBailOpen] = React.useState(false);
   const [downloadNotice, setDownloadNotice] = React.useState(false);
 
   const party = joinCase?.accused.find((entry) => entry.id === partyId);
@@ -312,7 +316,8 @@ export function JoinCaseDialog({
   const isSummonsIntro = mode === "summons" && stage === "details";
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <>
+    <Dialog open={open && !bailOpen} onOpenChange={handleOpenChange}>
       <FlowDialogContent
         lang={locale}
         rise
@@ -765,11 +770,9 @@ export function JoinCaseDialog({
               {doneNotice ? (
                 <Banner variant="info" className="items-start">
                   {pick(
-                    doneNotice === "bail"
-                      ? joinDialog.fileBailPrototype
-                      : doneNotice === "advocate"
-                        ? joinDialog.addAdvocatePrototype
-                        : joinDialog.viewCasePrototype,
+                    doneNotice === "advocate"
+                      ? joinDialog.addAdvocatePrototype
+                      : joinDialog.viewCasePrototype,
                     locale,
                   )}
                 </Banner>
@@ -916,7 +919,9 @@ export function JoinCaseDialog({
                 </Button>
                 <Button
                   type="button"
-                  onClick={() => setDoneNotice(doneAction)}
+                  onClick={() =>
+                    doneAction === "bail" ? setBailOpen(true) : setDoneNotice(doneAction)
+                  }
                   data-icon="inline-end"
                 >
                   {pick(
@@ -931,5 +936,17 @@ export function JoinCaseDialog({
         </footer>
       </FlowDialogContent>
     </Dialog>
+    {bailOpen && joinCase && party ? (
+      <JoinedCaseBail
+        joinCase={joinCase}
+        accused={[party.name]}
+        as="pip"
+        onClose={() => {
+          setBailOpen(false);
+          handleOpenChange(false);
+        }}
+      />
+    ) : null}
+    </>
   );
 }
