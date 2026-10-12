@@ -6,7 +6,7 @@
  * fixtures, documents and fees already speak Kerala. The other three re-voice the same
  * screens with what the stakeholders' documents say differs (owner, 2026-10-08): the
  * product's name and logo, the case numbers, the fees, and — for Punjab only — that the
- * filing step is signing alone, with no oath.
+ * filing step is signing alone, with no oath, and that scrutiny runs without AI.
  *
  * The interface does not change between them. Nothing here adds a step, a field or a
  * queue; a Gujarat case already carries its eCC / eCR type rather than asking the clerk
@@ -36,6 +36,14 @@ export type NumberingScheme =
   | { kind: "gujarat" }
   /** Punjab & Haryana: NACT filing and case numbers; the case number holds after cognizance. */
   | { kind: "nact" };
+
+/**
+ * Whether AI assistance is part of a court's scrutiny workbench, and whether it worked.
+ * `unavailable` — the court uses AI, but it could not read this file, so the officer is
+ * told the readings are missing. `off` — the court never enabled it, so there is nothing
+ * missing to announce. Both hide every machine reading; only `unavailable` says so.
+ */
+export type AiMode = "on" | "unavailable" | "off";
 
 export type CourtProfile = {
   id: CourtId;
@@ -67,6 +75,8 @@ export type CourtProfile = {
   /** Who signs and who swears (`lib/filing/config.ts`). Gujarat only, for now. */
   signing: SigningRules;
   fees: FeeSchedule;
+  /** Whether scrutiny opens with AI assistance — never `unavailable`, which is per file. */
+  aiMode: Exclude<AiMode, "unavailable">;
 };
 
 export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
@@ -81,6 +91,7 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     signWithOath: true,
     signing: { oath: false, everyAdvocate: false },
     fees: KERALA_FEES,
+    aiMode: "on",
   },
   gujarat: {
     id: "gujarat",
@@ -96,6 +107,7 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     signWithOath: true,
     signing: { oath: true, everyAdvocate: true },
     fees: GUJARAT_FEES,
+    aiMode: "on",
   },
   punjab: {
     id: "punjab",
@@ -111,6 +123,8 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     signWithOath: false,
     signing: { oath: false, everyAdvocate: false },
     fees: PUNJAB_HARYANA_FEES,
+    // Punjab's scrutiny runs without AI (owner, 2026-10-12).
+    aiMode: "off",
   },
   haryana: {
     id: "haryana",
@@ -124,6 +138,7 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     signWithOath: true,
     signing: { oath: false, everyAdvocate: false },
     fees: PUNJAB_HARYANA_FEES,
+    aiMode: "on",
   },
 };
 

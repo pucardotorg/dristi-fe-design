@@ -213,8 +213,10 @@ function ValueLines({ field }: { field: FlatField }) {
  *
  * Once a human has acted, the machine goes quiet: every machine-origin observation moves
  * inside the item's well as grey provenance, so a settled row carries one cue, not three.
- * `nodoc` is the exception because it is not a machine reading — it is a standing fact
- * about the bundle that renders with AI off and is already grey.
+ * `nodoc` is the exception because it is not a machine reading — an empty upload slot is
+ * a standing fact about the bundle that renders without AI and is already grey.
+ * `unfound` looks the same but is a machine reading (the bundle was searched), and
+ * `scannote` is poor-scan detection, so like `docread` and `ocrfail` they need AI on.
  */
 function Hints({
   field,
@@ -267,7 +269,14 @@ function Hints({
       </HintLine>,
     );
   }
-  if (field.scannote && !flagged) {
+  if (aiOn && field.unfound) {
+    lines.push(
+      <HintLine key="unfound" tone="muted" icon={<FileTextIcon />}>
+        {field.unfound}
+      </HintLine>,
+    );
+  }
+  if (aiOn && field.scannote && !flagged) {
     lines.push(
       <HintLine key="scannote" tone="warning" icon={<TriangleAlertIcon />}>
         {field.scannote}
