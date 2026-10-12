@@ -154,15 +154,19 @@ export function SignFlowDialog({
   onOpenChange,
   onPrint,
   statusActions,
+  completeNote,
 }: {
   open: boolean;
   /** Where to open — computed by the step from the draft, once, as the window opens. */
   start: SignFlowStart;
   onOpenChange: (open: boolean) => void;
   onPrint: () => void;
-  /** Extra controls for the status stage's footer, beside Done — a host's reminder and
-   *  sandbox controls (the scrutiny correction screen). */
+  /** The status stage's footer, in place of Done — a host's own controls (the scrutiny
+   *  correction screen: reminder, sandbox, then the send). */
   statusActions?: React.ReactNode;
+  /** The roster's footnote once everyone has signed, where "pay the court fee" is not
+   *  what comes next (a corrected complaint goes back to scrutiny). */
+  completeNote?: string;
 }) {
   /* A fresh opening is a fresh act: the body remounts so it starts on the stage the
      complaint is actually at, with nothing typed into it from last time. */
@@ -182,6 +186,7 @@ export function SignFlowDialog({
           onClose={() => onOpenChange(false)}
           onPrint={onPrint}
           statusActions={statusActions}
+          completeNote={completeNote}
         />
       ) : null}
     </Dialog>
@@ -193,11 +198,13 @@ function SignFlowBody({
   onClose,
   onPrint,
   statusActions,
+  completeNote,
 }: {
   start: SignFlowStart;
   onClose: () => void;
   onPrint: () => void;
   statusActions?: React.ReactNode;
+  completeNote?: string;
 }) {
   const { draft, update, hrefFor } = useFiling();
   const { profile } = useProfile();
@@ -536,12 +543,7 @@ function SignFlowBody({
           </Button>
         </>
       ) : statusActions ? (
-        <>
-          {statusActions}
-          <Button type="button" onClick={onClose}>
-            Done
-          </Button>
-        </>
+        statusActions
       ) : (
         <Button type="button" onClick={onClose}>
           Done
@@ -599,7 +601,8 @@ function SignFlowBody({
         </Button>
       </>
     ),
-    sworn: (
+    // The oath settles on the same roster, so the host's controls follow it here too.
+    sworn: statusActions ?? (
       <Button type="button" onClick={onClose}>
         Done
       </Button>
@@ -718,7 +721,7 @@ function SignFlowBody({
                 youSigned && oathOwed
                   ? "Your oath is next. The court fee opens once every signature and oath is in."
                   : outstanding === 0
-                    ? "You can pay the court fee now."
+                    ? completeNote ?? "You can pay the court fee now."
                     : `It waits in your pending tasks until every signature${signingRules().oath ? " and oath" : ""} is in.`
               }
             />
@@ -755,7 +758,7 @@ function SignFlowBody({
                 oathOwed
                   ? "Your oath is next. The court fee opens once every advocate has taken theirs."
                   : outstanding === 0
-                    ? "You can pay the court fee now."
+                    ? completeNote ?? "You can pay the court fee now."
                     : signingRules().oath
                       ? "The court fee opens once every advocate has taken their oath."
                       : "The court fee opens once every signature is in."
@@ -774,7 +777,7 @@ function SignFlowBody({
               rows={everyone}
               footnote={
                 outstanding === 0
-                  ? "You can pay the court fee now."
+                  ? completeNote ?? "You can pay the court fee now."
                   : `It waits in your pending tasks until every signature${signingRules().oath ? " and oath" : ""} is in.`
               }
             />

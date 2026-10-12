@@ -619,7 +619,6 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
     everyoneSigning.length > 0 && !everyoneSigning.some(isOutstanding);
   const [confirmSignOpen, setConfirmSignOpen] = React.useState(false);
   const [signOpen, setSignOpen] = React.useState(false);
-  const [sendOpen, setSendOpen] = React.useState(false);
   /** The old signatures are already off: this round is being signed. */
   const signing = !!draft.scrutinyReturn && draft.lastStep === "sign";
 
@@ -660,9 +659,16 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
         ? "oath"
         : "status";
 
+  /* Fixed when the window opens. Recomputed live, it changed the moment an oath was
+     saved, and the window restarted on the roster mid-oath (owner, 2026-10-13). */
+  const [openedAt, setOpenedAt] = React.useState<SignFlowStart>("choose");
+  const openSigning = (start: SignFlowStart) => {
+    setOpenedAt(start);
+    setSignOpen(true);
+  };
+
   const submit = async () => {
-    if (signing && signaturesComplete) setSendOpen(true);
-    else if (signing) setSignOpen(true);
+    if (signing) openSigning(signStart);
     else setConfirmSignOpen(true);
   };
 
@@ -694,47 +700,10 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
         if (s.oathTaken === false) d.sign.oaths[s.id] = { at, video: null };
       }
     });
-    setSignOpen(false);
-    setSendOpen(true);
+    // The window stays: the roster turns to everyone signed and offers the send.
   };
 
-  const statusActions = (
-    <div className="flex items-center gap-2 sm:mr-auto">
-      <DropdownMenu>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                aria-label="Sandbox: mark the other signatures"
-                className="text-muted-foreground"
-              >
-                <FlaskConicalIcon aria-hidden />
-              </Button>
-            </DropdownMenuTrigger>
-          </TooltipTrigger>
-          <TooltipContent>Sandbox: mark the other signatures</TooltipContent>
-        </Tooltip>
-        <DropdownMenuContent align="start" className="w-64">
-          <DropdownMenuLabel>No link is sent in the sandbox</DropdownMenuLabel>
-          <DropdownMenuItem onSelect={sandboxEveryoneDone}>
-            {signingRules().oath ? "Mark everyone as signed and sworn" : "Mark everyone as signed"}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      {othersWaiting.length ? (
-        <Button type="button" variant="outline" disabled={reminded} onClick={remindOthers}>
-          <BellIcon data-icon="inline-start" aria-hidden />
-          {reminded ? "Reminder sent" : "Send a reminder"}
-        </Button>
-      ) : null}
-    </div>
-  );
-
   const sendBack = async () => {
-    setSendOpen(false);
     const done = await act(task.id, refile, "Corrections sent to scrutiny");
     if (!done) return;
     update((d) => {
@@ -742,6 +711,59 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
     });
     router.push(back);
   };
+
+  /* The roster's footer: while others are still to sign, the sandbox and a reminder;
+     once everyone has, the send itself — in this same window. */
+  const statusActions = signaturesComplete ? (
+    <>
+      <Button type="button" variant="ghost" className="sm:mr-auto" onClick={() => setSignOpen(false)}>
+        Not yet
+      </Button>
+      <Button type="button" disabled={!online || !!busy} onClick={() => void sendBack()}>
+        <SendIcon data-icon="inline-start" aria-hidden />
+        Send to scrutiny
+      </Button>
+    </>
+  ) : (
+    <>
+      <div className="flex items-center gap-2 sm:mr-auto">
+        <DropdownMenu>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Sandbox: mark the other signatures"
+                  className="text-muted-foreground"
+                >
+                  <FlaskConicalIcon aria-hidden />
+                </Button>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent>Sandbox: mark the other signatures</TooltipContent>
+          </Tooltip>
+          <DropdownMenuContent align="start" className="w-64">
+            <DropdownMenuLabel>No link is sent in the sandbox</DropdownMenuLabel>
+            <DropdownMenuItem onSelect={sandboxEveryoneDone}>
+              {signingRules().oath ? "Mark everyone as signed and sworn" : "Mark everyone as signed"}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        {othersWaiting.length ? (
+          <Button type="button" variant="outline" disabled={reminded} onClick={remindOthers}>
+            <BellIcon data-icon="inline-start" aria-hidden />
+            {reminded ? "Reminder sent" : "Send a reminder"}
+          </Button>
+        ) : null}
+      </div>
+      <Button type="button" onClick={() => setSignOpen(false)}>
+        Done
+      </Button>
+    </>
+  );
+
 
   const reason = submitReason(resolved, total, online);
 
@@ -813,11 +835,6 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
 
   const submitBlock = (
     <div className="flex flex-col gap-3">
-      {complete ? (
-        <p className="text-caption text-muted-foreground">
-          Next, everyone signs the corrected complaint again, as when it was filed.
-        </p>
-      ) : null}
       <Button
         type="button"
         size="lg"
@@ -1187,31 +1204,19 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
         onConfirm={() => {
           setConfirmSignOpen(false);
           void prepareSigning().then((ok) => {
-            if (ok) setSignOpen(true);
+            if (ok) openSigning("choose");
           });
         }}
       />
       <SignFlowDialog
         open={signOpen}
-        start={signStart}
+        start={openedAt}
         statusActions={statusActions}
-        onOpenChange={(open) => {
-          setSignOpen(open);
-          // Every signature in: the send is the next and last act.
-          if (!open && signaturesComplete) setSendOpen(true);
-        }}
+        completeNote="Everyone has signed. The corrected complaint can go back to scrutiny."
+        onOpenChange={setSignOpen}
         onPrint={() => window.print()}
       />
-      <ConfirmDialog
-        open={sendOpen}
-        onOpenChange={setSendOpen}
-        title="Send these corrections to scrutiny?"
-        description="The re-signed complaint goes back to the Registry. A re-submission cannot be recalled, and limitation runs from the Registry's receipt."
-        confirmLabel="Send to scrutiny"
-        cancelLabel="Not yet"
-        destructive={false}
-        onConfirm={() => void sendBack()}
-      />
+
 
     </CorrectionProvider>
     </FilingChromeContext.Provider>
