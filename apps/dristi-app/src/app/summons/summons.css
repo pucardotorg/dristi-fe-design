@@ -87,8 +87,18 @@
   padding-top: 5.2mm;
   line-height: 1.1;
 }
-.summons .courtmark { display: flex; align-items: center; gap: 4mm; }
-.summons .courtmark .emblem { flex: none; }
+.summons .masthead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4mm;
+}
+.summons .masthead .emblem {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 4mm;
+  font-weight: 400;
+}
 .summons .turnarrow {
   display: inline-block;
   width: 1.1em;
