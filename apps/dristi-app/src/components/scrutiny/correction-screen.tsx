@@ -51,9 +51,13 @@ import { useRoomInRem } from "@/hooks/use-min-width";
 import { cn } from "@/lib/utils";
 import { useFiling } from "@/lib/filing/store";
 import { intakeSlot, readTarget, writeTarget } from "@/lib/filing/targets";
-import type { StepId } from "@/lib/filing/types";
+import type { StepId, StoredFileRef } from "@/lib/filing/types";
 import type { Ctx } from "@/lib/tasks/transitions";
-import { resolveDefect } from "@/lib/tasks/transitions";
+import { refile, resolveDefect } from "@/lib/tasks/transitions";
+import { useProfile } from "@/lib/filing/profile";
+import { isOutstanding, signatories } from "@/lib/filing/selectors";
+import { ConfirmDialog } from "@/components/filing/confirm-dialog";
+import { SignFlowDialog } from "@/components/filing/sign-flow-dialog";
 import type { Case, Defect, Resolution, Task } from "@/lib/tasks/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -401,8 +405,44 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
    * but the slot owns the upload, so it registers its own `onChoose` here.
    */
   const replacers = React.useRef(new Map<string, () => void>());
+  /* A Replace pressed while the document's section was not on screen: opened when its
+     slot mounts and lends its picker. */
+  const replaceWhenReady = React.useRef<string | null>(null);
+  /* The copy scrutiny saw, kept when it is replaced, so Undo can put it back. Before,
+     Undo on a replaced document only cleared the mark (owner, 2026-10-12). */
+  const originals = React.useRef(new Map<string, StoredFileRef>());
+  const originalsKey = `dristi:scrutiny-originals:${draft.id}`;
+  /* Kept with the draft (it lives in local storage too), so Undo still works after a
+     reload. Storage refused: it holds for this visit only. */
+  React.useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(originalsKey);
+      if (saved) {
+        for (const [k, f] of Object.entries(JSON.parse(saved) as Record<string, StoredFileRef>)) {
+          if (!originals.current.has(k)) originals.current.set(k, f);
+        }
+      }
+    } catch {
+      /* nothing to restore */
+    }
+  }, [originalsKey]);
+  const rememberOriginal = (slotKey: string, file: StoredFileRef) => {
+    originals.current.set(slotKey, file);
+    try {
+      window.localStorage.setItem(
+        originalsKey,
+        JSON.stringify(Object.fromEntries(originals.current)),
+      );
+    } catch {
+      /* storage refused */
+    }
+  };
   const registerReplace = React.useCallback((slotKey: string, choose: () => void) => {
     replacers.current.set(slotKey, choose);
+    if (replaceWhenReady.current === slotKey) {
+      replaceWhenReady.current = null;
+      choose();
+    }
     return () => {
       if (replacers.current.get(slotKey) === choose) replacers.current.delete(slotKey);
     };
@@ -453,15 +493,44 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
         : undefined,
     undo: defect.resolution
       ? () => {
-          if (defect.target.kind === "field") {
-            update((d) => writeTarget(d, defect.target, defect.valueAtReturn ?? ""));
+          const target = defect.target;
+          if (target.kind === "field") {
+            update((d) => writeTarget(d, target, defect.valueAtReturn ?? ""));
+          } else {
+            /* The filed copy back if it was kept; otherwise the replacement comes off
+               and the card asks for a document again. Either way Undo visibly undoes. */
+            const original = originals.current.get(target.slotKey) ?? null;
+            update((d) => {
+              const slot = intakeSlot(d, target.slotKey);
+              if (slot) slot.file = original;
+            });
           }
           setKeep(defect.n, false);
           commitSoon.current = true;
         }
       : undefined,
+    /* Looked up when pressed, not when the card renders: the picker belongs to the
+       document's slot, which is only mounted while its section is on screen. Before,
+       Replace did nothing from any other section (owner, 2026-10-12). */
     replace:
-      defect.target.kind === "doc" ? replaceFor(defect.target.slotKey) : undefined,
+      defect.target.kind === "doc"
+        ? () => {
+            const target = defect.target;
+            if (target.kind !== "doc") return;
+            const current = intakeSlot(draft, target.slotKey)?.file;
+            if (current && current.id === defect.valueAtReturn) {
+              rememberOriginal(target.slotKey, current);
+            }
+            const choose = replacers.current.get(target.slotKey);
+            if (choose) {
+              choose();
+              return;
+            }
+            replaceWhenReady.current = target.slotKey;
+            setActiveDefect(defect.n);
+            setStep(target.step);
+          }
+        : undefined,
   });
 
   const correction: CorrectionValue = {
@@ -497,18 +566,38 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
   const origin = useOrigin();
   const back = origin?.href ?? `/tasks?task=${encodeURIComponent(task.id)}`;
 
-  /**
-   * The corrections do not go back from here. Every edit invalidates every signature
-   * (`LIFE-13`), so the corrected complaint goes through the same Sign step as at
-   * e-filing (`SIG-07`) and is sent to scrutiny from there. This records what was
-   * fixed on the task, takes the old signatures off, and opens Sign.
+  /*
+   * Sending back, in windows over this screen (owner, 2026-10-12: it used to jump to the
+   * e-filing Sign page, which changed the whole screen). Every edit invalidates every
+   * signature (`LIFE-13`), so the corrected complaint is signed again first (`SIG-07`):
+   *
+   *   1. a confirmation says so;
+   *   2. e-filing's own signing window (`SignFlowDialog`) opens on top;
+   *   3. once every signature and oath is in, the send itself is confirmed, as on Sign.
+   *
+   * If others still have to sign, the window closes and this button reopens it; their
+   * signatures arrive through their links as at e-filing.
    */
-  const submit = async () => {
+  const { profile } = useProfile();
+  const everyoneSigning = React.useMemo(() => {
+    const { complainants, advocates } = signatories(draft, profile);
+    return [...complainants, ...advocates];
+  }, [draft, profile]);
+  const signaturesComplete =
+    everyoneSigning.length > 0 && !everyoneSigning.some(isOutstanding);
+  const [confirmSignOpen, setConfirmSignOpen] = React.useState(false);
+  const [signOpen, setSignOpen] = React.useState(false);
+  const [sendOpen, setSendOpen] = React.useState(false);
+  /** The old signatures are already off: this round is being signed. */
+  const signing = !!draft.scrutinyReturn && draft.lastStep === "sign";
+
+  /** Record what was fixed on the task and take the old signatures off. */
+  const prepareSigning = async () => {
     if (pending.length > 0) {
       const done = await act(task.id, (t, c: Ctx) =>
         pending.reduce((acc, ch) => resolveDefect(acc, c, ch.n, ch.resolution), t)
       );
-      if (!done) return;
+      if (!done) return false;
     }
     update((d) => {
       d.sign.requestedAt = null;
@@ -520,7 +609,23 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
       d.scrutinyReturn = { resubmittedAt: null };
       d.lastStep = "sign";
     });
-    router.push(`/filings/${encodeURIComponent(draft.id)}/sign`);
+    return true;
+  };
+
+  const submit = async () => {
+    if (signing && signaturesComplete) setSendOpen(true);
+    else if (signing) setSignOpen(true);
+    else setConfirmSignOpen(true);
+  };
+
+  const sendBack = async () => {
+    setSendOpen(false);
+    const done = await act(task.id, refile, "Corrections sent to scrutiny");
+    if (!done) return;
+    update((d) => {
+      d.scrutinyReturn = { resubmittedAt: new Date().toISOString() };
+    });
+    router.push(back);
   };
 
   const reason = submitReason(resolved, total, online);
@@ -577,6 +682,11 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
           defect={item.defect}
           value={item.value}
           actions={defectActions(item.defect)}
+          file={
+            item.defect.target.kind === "doc"
+              ? intakeSlot(draft, item.defect.target.slotKey)?.file ?? undefined
+              : undefined
+          }
           index={index}
           total={total}
           onFocusCapture={() => setActiveDefect(item.defect.n)}
@@ -821,7 +931,12 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
                       ? "The filing as scrutiny received it."
                       : "The flagged parts of the filing, as scrutiny received them."}
                   </p>
-                  <SectionBody step={step} />
+                  {/* With only the flagged fields shown, the groups whose fields are all
+                      hidden are left empty, and each still took the form's gap — the
+                      blank band above "Drawer's bank details" (owner, 2026-10-12). */}
+                  <div className="[&_div.grid:empty]:hidden [&_div.w-full:empty]:hidden">
+                    <SectionBody step={step} />
+                  </div>
                 </div>
               </main>
             </ResizablePanel>
@@ -930,6 +1045,43 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
           </div>
         </DrawerContent>
       </Drawer>
+
+      {/* ── Sending back: confirm, sign over this screen, then send ── */}
+      <ConfirmDialog
+        open={confirmSignOpen}
+        onOpenChange={setConfirmSignOpen}
+        title="Sign the corrected complaint?"
+        description="Corrections change the complaint, so its signatures are taken off. It is signed again here before it goes back to scrutiny."
+        confirmLabel="Continue to sign"
+        cancelLabel="Not yet"
+        destructive={false}
+        onConfirm={() => {
+          setConfirmSignOpen(false);
+          void prepareSigning().then((ok) => {
+            if (ok) setSignOpen(true);
+          });
+        }}
+      />
+      <SignFlowDialog
+        open={signOpen}
+        start="choose"
+        onOpenChange={(open) => {
+          setSignOpen(open);
+          // Every signature in: the send is the next and last act.
+          if (!open && signaturesComplete) setSendOpen(true);
+        }}
+        onPrint={() => window.print()}
+      />
+      <ConfirmDialog
+        open={sendOpen}
+        onOpenChange={setSendOpen}
+        title="Send these corrections to scrutiny?"
+        description="The re-signed complaint goes back to the Registry. A re-submission cannot be recalled, and limitation runs from the Registry's receipt."
+        confirmLabel="Send to scrutiny"
+        cancelLabel="Not yet"
+        destructive={false}
+        onConfirm={() => void sendBack()}
+      />
 
     </CorrectionProvider>
     </FilingChromeContext.Provider>
