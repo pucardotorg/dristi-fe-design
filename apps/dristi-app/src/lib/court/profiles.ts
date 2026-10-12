@@ -46,6 +46,14 @@ export type NumberingScheme =
  */
 export type AiMode = "on" | "unavailable" | "off";
 
+/**
+ * Who registers a case once it clears scrutiny — the `registrationPoint` config of the
+ * e-filing handover (`SCR-11`, §20.3a). `magistrate`: scrutiny forwards the case, and the
+ * magistrate registers it from Register cases. `scrutiny`: the scrutiny officer registers
+ * it, the case goes straight to Take cognizance, and Register cases does not exist.
+ */
+export type RegistrationPoint = "magistrate" | "scrutiny";
+
 export type CourtProfile = {
   id: CourtId;
   /** What the court switch calls this deployment. */
@@ -83,6 +91,7 @@ export type CourtProfile = {
   fees: FeeSchedule;
   /** Whether scrutiny opens with AI assistance — never `unavailable`, which is per file. */
   aiMode: Exclude<AiMode, "unavailable">;
+  registrationPoint: RegistrationPoint;
 };
 
 export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
@@ -99,6 +108,8 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     signing: { oath: false, everyAdvocate: false },
     fees: KERALA_FEES,
     aiMode: "on",
+    // Registration is the magistrate's own step in Kerala (owner, 2026-10-12).
+    registrationPoint: "magistrate",
   },
   gujarat: {
     id: "gujarat",
@@ -116,6 +127,8 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     signing: { oath: true, everyAdvocate: true },
     fees: GUJARAT_FEES,
     aiMode: "on",
+    // No separate registration step by the magistrate (owner, 2026-10-12).
+    registrationPoint: "scrutiny",
   },
   /*
    * One deployment under the Punjab and Haryana High Court (owner, 2026-10-12). It took
@@ -136,6 +149,8 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     signing: { oath: false, everyAdvocate: false },
     fees: PUNJAB_HARYANA_FEES,
     aiMode: "off",
+    // No separate registration step by the magistrate (owner, 2026-10-12).
+    registrationPoint: "scrutiny",
   },
 };
 
