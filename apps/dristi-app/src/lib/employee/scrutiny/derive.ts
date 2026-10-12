@@ -695,11 +695,20 @@ function deriveHistory(
     title: "Filed",
     meta: `${filedShort} · ${filing.advocate}`,
   };
-  const routed: HistoryEvent = {
-    status: "past",
-    title: "Routed to scrutiny",
-    meta: `${filedShort} · ${filing.reason}`,
-  };
+  /* "Filer skipped an AI warning", "Low AI confidence", "Not AI-reviewed": a routing
+     reason that names AI is only said where the court runs it (`aiNote`). */
+  const routed: HistoryEvent = /\bAI\b/.test(filing.reason)
+    ? {
+        status: "past",
+        title: "Routed to scrutiny",
+        meta: filedShort,
+        aiNote: filing.reason,
+      }
+    : {
+        status: "past",
+        title: "Routed to scrutiny",
+        meta: `${filedShort} · ${filing.reason}`,
+      };
 
   const stage = filing.stage.toLowerCase();
 

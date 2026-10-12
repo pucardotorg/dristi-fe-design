@@ -195,6 +195,11 @@ export interface HistoryEvent {
   status: "past" | "current" | "future";
   title: string;
   meta: string;
+  /**
+   * The part of the line that only AI could have produced — "Filer skipped an AI
+   * warning". Shown after `meta` with AI on; without AI the event never had it.
+   */
+  aiNote?: string;
   items?: HistoryItem[];
 }
 

@@ -214,7 +214,8 @@ function ValueLines({ field }: { field: FlatField }) {
  * Once a human has acted, the machine goes quiet: every machine-origin observation moves
  * inside the item's well as grey provenance, so a settled row carries one cue, not three.
  * `nodoc` is the exception because it is not a machine reading — it is a standing fact
- * about the bundle that renders with AI off and is already grey.
+ * about the bundle that renders without AI and is already grey. `scannote` is a machine
+ * reading (poor-scan detection), so like `docread` and `ocrfail` it needs AI on.
  */
 function Hints({
   field,
@@ -267,7 +268,7 @@ function Hints({
       </HintLine>,
     );
   }
-  if (field.scannote && !flagged) {
+  if (aiOn && field.scannote && !flagged) {
     lines.push(
       <HintLine key="scannote" tone="warning" icon={<TriangleAlertIcon />}>
         {field.scannote}

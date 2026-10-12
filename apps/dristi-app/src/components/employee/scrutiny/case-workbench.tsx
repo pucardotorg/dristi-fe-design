@@ -10,6 +10,7 @@ import {
 
 import { useRoomInRem } from "@/hooks/use-min-width";
 import { nextFilingAfter } from "@/lib/employee/scrutiny/queue";
+import type { AiMode } from "@/lib/court/profiles";
 import type { Rect, ScrutinyCase } from "@/lib/employee/scrutiny/types";
 import { useScrutinyState } from "@/lib/employee/scrutiny/use-scrutiny-state";
 import { ScrutinyCaseProvider } from "@/components/employee/scrutiny/scrutiny-case-context";
@@ -74,12 +75,13 @@ import {
  */
 export function CaseWorkbench({
   caseData,
-  aiOn = true,
+  ai = "on",
 }: {
   caseData: ScrutinyCase;
-  /** With AI off the workbench still works; it just stops asserting readings. */
-  aiOn?: boolean;
+  /** Without AI the workbench still works; it just stops asserting readings (`AiMode`). */
+  ai?: AiMode;
 }) {
+  const aiOn = ai === "on";
   const arrival = useArrival();
 
   /*
@@ -322,7 +324,7 @@ export function CaseWorkbench({
       </div>
 
       {/* A standing condition, not feedback on an action → Banner. */}
-      {aiOn ? null : (
+      {ai === "unavailable" ? (
         <Banner variant="warning">
           <TriangleAlertIcon />
           <div className="min-w-0 flex-1 leading-snug">
@@ -330,7 +332,7 @@ export function CaseWorkbench({
             on this file.
           </div>
         </Banner>
-      )}
+      ) : null}
 
       {threePane ? (
         /* The floors are in `rem`, not percentages: a percentage floor is a floor on
@@ -365,6 +367,7 @@ export function CaseWorkbench({
           <ResizablePanel defaultSize="14%" minSize="10rem" maxSize="20rem">
             <IndexRail
               relatedDocId={aiOn ? relatedDocId : null}
+              aiOn={aiOn}
               onGoToDoc={goToDoc}
             />
           </ResizablePanel>
@@ -419,6 +422,7 @@ export function CaseWorkbench({
       <HistorySheet
         open={historyOpen}
         onOpenChange={setHistoryOpen}
+        aiOn={aiOn}
         onGoToItem={goToItem}
       />
       {/* The index, as a detour, only where there is no room for it as a column. */}
@@ -427,6 +431,7 @@ export function CaseWorkbench({
           open={indexOpen}
           onOpenChange={setIndexOpen}
           relatedDocId={aiOn ? relatedDocId : null}
+          aiOn={aiOn}
           onGoToDoc={(docId) => {
             setIndexOpen(false);
             showDoc(docId);

@@ -13,7 +13,8 @@ export const HISTORY: HistoryEvent[] = [
   {
     status: "past",
     title: "Routed to scrutiny",
-    meta: "4 Jul 2026 · Filer skipped an AI warning",
+    meta: "4 Jul 2026",
+    aiNote: "Filer skipped an AI warning",
   },
   { status: "past", title: "Scrutiny started", meta: "6 Jul 2026 · Biju B" },
   {
