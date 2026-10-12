@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 import { SummonsDocument } from "@/components/summons/summons-document";
 import { SummonsFit, SummonsToolbar } from "@/components/summons/summons-toolbar";
-import { isCourtId } from "@/lib/court/profiles";
+import { toCourtId } from "@/lib/court/profiles";
 import { serverCourt } from "@/lib/court/server";
 
 import "./summons.css";
@@ -24,7 +24,7 @@ export default async function SummonsPage({
   searchParams: Promise<{ court?: string }>;
 }) {
   const params = await searchParams;
-  const court = isCourtId(params.court) ? params.court : await serverCourt();
+  const court = toCourtId(params.court) ?? (await serverCourt());
 
   return (
     <main className="summons-desk flex flex-1 flex-col items-center gap-6 bg-muted px-4 py-6 md:px-8 md:py-8">

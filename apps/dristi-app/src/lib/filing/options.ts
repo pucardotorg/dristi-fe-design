@@ -427,7 +427,7 @@ const PUNJAB_AND_HARYANA_STATIONS: string[] = ["Panchkula Police Station"];
 
 /** The police stations a court's dropdowns offer. */
 export function policeStationsFor(court: CourtId): string[] {
-  return court === "punjab" || court === "haryana"
+  return court === "punjab-haryana"
     ? [...POLICE_STATIONS, ...PUNJAB_AND_HARYANA_STATIONS]
     : POLICE_STATIONS;
 }

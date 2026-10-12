@@ -23,7 +23,7 @@
  *   number was allotted at registration and carries on.
  * - **CNR.** The state, district and establishment prefix changes; the sequence and
  *   year do not.
- * - **Signing.** Punjab's filing step is "Sign", where the others' is "Sign and oath".
+ * - **Signing.** Punjab & Haryana's filing step is "Sign", where the others' is "Sign and oath".
  */
 
 import {
@@ -99,7 +99,7 @@ const NAME_RULES: Rule[] = [
   [/\bDRISTI\b/g, (p) => p.brandName ?? "DRISTI"],
   [/\bDristi\b/g, (p) => p.brandName ?? "Dristi"],
   [/\bON Court\b/g, (p) => courtName(p, true)],
-  // Punjab's filing is signed, not sworn: its step is "Sign" (owner, 2026-10-08).
+  // Punjab & Haryana's filing is signed, not sworn: its step is "Sign" (owner, 2026-10-08).
   [/\bSign and oath\b/g, (p) => (p.signWithOath ? "Sign and oath" : "Sign")],
   // A bench names its state; one that already names a place is left alone.
   [/\bJMFC Court (\d+)\b(?!,)/g, (p, n) => `JMFC Court ${n}, ${p.state}`],
@@ -128,7 +128,7 @@ const PLACE_RULES: Rule[] = [
   [
     /\bPanchkula\b/g,
     (p) =>
-      p.id === "haryana" || p.id === "punjab"
+      p.id === "punjab-haryana"
         ? "Panchkula"
         : (PLACES[p.id]?.Kollam ?? "Panchkula"),
   ],
@@ -199,10 +199,10 @@ const NUMBER_RULES: Rule[] = [
   [/\bKL([A-Z]{2})(?=[0-9-])/g, (p, district) => `${STATE_CODE[p.id] ?? "KL"}${districtCode(p.id, district)}`],
   [/\bKL(?=[-/][A-Z0-9])/g, (p) => STATE_CODE[p.id] ?? "KL"],
   // A few long-pending numbers in the data are Panchkula's already (HR-PKL-…): right
-  // for Haryana, the state's demo district everywhere else.
+  // for Punjab & Haryana, the state's demo district everywhere else.
   [
     /\bHR-PKL(?=-\d)/g,
-    (p) => (p.id === "haryana" ? "HR-PKL" : `${STATE_CODE[p.id] ?? "HR"}-${p.id === "gujarat" ? "AHM" : "LDH"}`),
+    (p) => (p.id === "punjab-haryana" ? "HR-PKL" : `${STATE_CODE[p.id] ?? "HR"}-AHM`),
   ],
   // The scrutiny queue's filing numbers are Ahmedabad's (`F/AHM/2026/00319`) — right for
   // Gujarat as they stand, and the platform's NACT filing number for Punjab and Haryana.

@@ -73,8 +73,8 @@ const PLACEHOLDER = {
 } as const;
 
 /*
- * The language line, translated from the Malayalam one v14 carried. The Gujarati,
- * Punjabi and Hindi lines need a native speaker's check before they are printed.
+ * The language line, translated from the Malayalam one v14 carried. The Gujarati and
+ * Hindi lines need a native speaker's check before they are printed.
  */
 export const SUMMONS_COURT: Record<CourtId, SummonsCourt> = {
   kerala: {
@@ -99,18 +99,9 @@ export const SUMMONS_COURT: Record<CourtId, SummonsCourt> = {
       font: '"Noto Sans Gujarati", "Gujarati Sangam MN", sans-serif',
     },
   },
-  punjab: {
+  "punjab-haryana": {
     ...PLACEHOLDER,
-    portal: "[ON Courts Punjab portal address]",
-    language: {
-      lang: "pa",
-      line: "ਆਪਣੇ ਕੇਸ ਵਿੱਚ ਸ਼ਾਮਲ ਹੋਣ ਲਈ ਇਹ ਕੋਡ ਸਕੈਨ ਕਰੋ। ਤੁਹਾਡੀ ਭਾਸ਼ਾ ਵਿੱਚ ਮਦਦ ਉਪਲਬਧ ਹੈ।",
-      font: '"Noto Sans Gurmukhi", "Gurmukhi Sangam MN", "Gurmukhi MN", sans-serif',
-    },
-  },
-  haryana: {
-    ...PLACEHOLDER,
-    portal: "[ON Courts Haryana portal address]",
+    portal: "[ON Courts Punjab & Haryana portal address]",
     language: {
       lang: "hi",
       line: "अपने केस से जुड़ने के लिए यह कोड स्कैन करें। आपकी भाषा में सहायता उपलब्ध है।",

@@ -7,7 +7,7 @@
  */
 
 import { localizeCourtText, localizeDeep } from "./localize";
-import { COURT_COOKIE, DEFAULT_COURT, isCourtId, type CourtId } from "./profiles";
+import { COURT_COOKIE, DEFAULT_COURT, toCourtId, type CourtId } from "./profiles";
 
 export function browserCourt(): CourtId {
   if (typeof document === "undefined") return DEFAULT_COURT;
@@ -16,7 +16,7 @@ export function browserCourt(): CourtId {
     .map((part) => part.trim())
     .find((part) => part.startsWith(`${COURT_COOKIE}=`));
   const value = entry?.slice(COURT_COOKIE.length + 1);
-  return isCourtId(value) ? value : DEFAULT_COURT;
+  return toCourtId(value) ?? DEFAULT_COURT;
 }
 
 /** A downloaded document's text, in the selected court's names and numbers. */
