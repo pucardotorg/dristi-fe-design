@@ -155,6 +155,7 @@ export function SignFlowDialog({
   onPrint,
   statusActions,
   completeNote,
+  outcome,
 }: {
   open: boolean;
   /** Where to open — computed by the step from the draft, once, as the window opens. */
@@ -167,6 +168,9 @@ export function SignFlowDialog({
   /** The roster's footnote once everyone has signed, where "pay the court fee" is not
    *  what comes next (a corrected complaint goes back to scrutiny). */
   completeNote?: string;
+  /** What the host has done since, shown on the roster in place of the signing outcome —
+   *  the corrections sent to scrutiny. */
+  outcome?: { title: string; headline: string; footnote: string };
 }) {
   /* A fresh opening is a fresh act: the body remounts so it starts on the stage the
      complaint is actually at, with nothing typed into it from last time. */
@@ -187,6 +191,7 @@ export function SignFlowDialog({
           onPrint={onPrint}
           statusActions={statusActions}
           completeNote={completeNote}
+          outcome={outcome}
         />
       ) : null}
     </Dialog>
@@ -199,12 +204,14 @@ function SignFlowBody({
   onPrint,
   statusActions,
   completeNote,
+  outcome,
 }: {
   start: SignFlowStart;
   onClose: () => void;
   onPrint: () => void;
   statusActions?: React.ReactNode;
   completeNote?: string;
+  outcome?: { title: string; headline: string; footnote: string };
 }) {
   const { draft, update, hrefFor } = useFiling();
   const { profile } = useProfile();
@@ -473,7 +480,7 @@ function SignFlowBody({
 
   /* ── the window ────────────────────────────────────────────────────────── */
 
-  const title = {
+  const baseTitle = {
     choose: "How will this complaint be signed?",
     sign: "Add your e-signature",
     otp: "Enter the OTP",
@@ -485,6 +492,9 @@ function SignFlowBody({
     oath: "Take your oath",
     sworn: "Oath recorded",
   }[flow.stage];
+  /* Once the host has acted (sent to scrutiny), the roster stages say so. */
+  const settledStage = flow.stage === "done" || flow.stage === "sworn";
+  const title = outcome && settledStage ? outcome.title : baseTitle;
 
   const description = {
     choose:
@@ -712,13 +722,17 @@ function SignFlowBody({
           <StageColumn>
             <SettledCard
               headline={
-                youSigned && signedWith
-                  ? INSTRUMENT_LABEL[signedWith]
-                  : "Sent for signature"
+                outcome
+                  ? outcome.headline
+                  : youSigned && signedWith
+                    ? INSTRUMENT_LABEL[signedWith]
+                    : "Sent for signature"
               }
               rows={everyone}
               footnote={
-                youSigned && oathOwed
+                outcome
+                  ? outcome.footnote
+                  : youSigned && oathOwed
                   ? "Your oath is next. The court fee opens once every signature and oath is in."
                   : outstanding === 0
                     ? completeNote ?? "You can pay the court fee now."
@@ -773,10 +787,12 @@ function SignFlowBody({
         ) : (
           <StageColumn>
             <SettledCard
-              headline="Oath recorded"
+              headline={outcome ? outcome.headline : "Oath recorded"}
               rows={everyone}
               footnote={
-                outstanding === 0
+                outcome
+                  ? outcome.footnote
+                  : outstanding === 0
                   ? completeNote ?? "You can pay the court fee now."
                   : `It waits in your pending tasks until every signature${signingRules().oath ? " and oath" : ""} is in.`
               }

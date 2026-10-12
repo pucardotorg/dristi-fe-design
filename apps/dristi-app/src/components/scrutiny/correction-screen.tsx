@@ -661,9 +661,12 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
 
   /* Fixed when the window opens. Recomputed live, it changed the moment an oath was
      saved, and the window restarted on the roster mid-oath (owner, 2026-10-13). */
+  /** The send happened in the signing window, which then says so and stays open. */
+  const [sent, setSent] = React.useState(false);
   const [openedAt, setOpenedAt] = React.useState<SignFlowStart>("choose");
   const openSigning = (start: SignFlowStart) => {
     setOpenedAt(start);
+    setSent(false);
     setSignOpen(true);
   };
 
@@ -703,23 +706,37 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
     // The window stays: the roster turns to everyone signed and offers the send.
   };
 
+  /* The flask's menu item unmounts with the footer it sat in, so focus would fall to the
+     page; it lands on the send instead, which is the next act. */
+  const sendRef = React.useRef<HTMLButtonElement>(null);
+  React.useEffect(() => {
+    if (signOpen && signaturesComplete && !sent) sendRef.current?.focus();
+  }, [signOpen, signaturesComplete, sent]);
+
   const sendBack = async () => {
     const done = await act(task.id, refile, "Corrections sent to scrutiny");
     if (!done) return;
     update((d) => {
       d.scrutinyReturn = { resubmittedAt: new Date().toISOString() };
     });
-    router.push(back);
+    /* No jump: the window says it went, and the advocate leaves when they choose
+       (owner, 2026-10-13). */
+    setSent(true);
   };
 
   /* The roster's footer: while others are still to sign, the sandbox and a reminder;
      once everyone has, the send itself — in this same window. */
-  const statusActions = signaturesComplete ? (
+  /* The window's own close stays for staying here; the one act is the way out. */
+  const statusActions = sent ? (
+    <Button type="button" onClick={() => router.push(back)}>
+      Back to dashboard
+    </Button>
+  ) : signaturesComplete ? (
     <>
       <Button type="button" variant="ghost" className="sm:mr-auto" onClick={() => setSignOpen(false)}>
         Not yet
       </Button>
-      <Button type="button" disabled={!online || !!busy} onClick={() => void sendBack()}>
+      <Button ref={sendRef} type="button" disabled={!online || !!busy} onClick={() => void sendBack()}>
         <SendIcon data-icon="inline-start" aria-hidden />
         Send to scrutiny
       </Button>
@@ -727,7 +744,9 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
   ) : (
     <>
       <div className="flex items-center gap-2 sm:mr-auto">
-        <DropdownMenu>
+        {/* Not modal: a modal menu inside the dialog left the page pointer-locked after
+            its item was chosen, so the next click went nowhere. */}
+        <DropdownMenu modal={false}>
           <Tooltip>
             <TooltipTrigger asChild>
               <DropdownMenuTrigger asChild>
@@ -766,6 +785,19 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
 
 
   const reason = submitReason(resolved, total, online);
+  /* Closing the window after the send leaves the advocate here; the screen says it went. */
+  const isSent = sent || task.status === "awaiting-court";
+  const submitLabel = isSent ? (
+    <>
+      <CircleCheckIcon data-icon="inline-start" aria-hidden />
+      Sent to scrutiny
+    </>
+  ) : (
+    <>
+      <SendIcon data-icon="inline-start" aria-hidden />
+      Send corrections back
+    </>
+  );
 
   /*
    * The correction screen is a filing chrome host in its own right: it owns the sections
@@ -842,11 +874,10 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
            in any pane this screen has, and a clipped label is the loss of content
            `ACCESSIBILITY.md` §10 forbids. Height follows the words. */
         className={SUBMIT_CLASS}
-        disabled={!complete || !online || !!busy}
+        disabled={!complete || !online || !!busy || isSent}
         onClick={() => void submit()}
       >
-        <SendIcon data-icon="inline-start" aria-hidden />
-        Send corrections back
+        {submitLabel}
       </Button>
       {complete ? null : <p className="text-caption text-muted-foreground">{reason}</p>}
     </div>
@@ -1139,11 +1170,10 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
             type="button"
             size="lg"
             className={SUBMIT_CLASS}
-            disabled={!complete || !online || !!busy}
+            disabled={!complete || !online || !!busy || isSent}
             onClick={() => void submit()}
           >
-            <SendIcon data-icon="inline-start" aria-hidden />
-            Send corrections back
+            {submitLabel}
           </Button>
           <p className="text-caption text-muted-foreground">{reason}</p>
         </div>
@@ -1213,6 +1243,15 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
         start={openedAt}
         statusActions={statusActions}
         completeNote="Everyone has signed. The corrected complaint can go back to scrutiny."
+        outcome={
+          sent
+            ? {
+                title: "Sent to scrutiny",
+                headline: "Corrections sent",
+                footnote: "The scrutiny officer reviews the corrected complaint next.",
+              }
+            : undefined
+        }
         onOpenChange={setSignOpen}
         onPrint={() => window.print()}
       />
