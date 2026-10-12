@@ -16,6 +16,7 @@
  */
 
 import * as React from "react";
+import { ArrowDownIcon, ArrowRightIcon } from "lucide-react";
 
 import { localizeCourtText } from "@/lib/court/localize";
 import type { CourtId } from "@/lib/court/profiles";
@@ -63,13 +64,15 @@ export function SummonsDocument({ court, version }: Props) {
         <table>
           <tbody>
             <tr>
-              <td style={{ width: "20mm" }}>
-                <div className="emblem" aria-hidden>
-                  EMBLEM
+              {/* Emblem and court name centre on each other, as one mark. Split across
+                  cells, each aligned to a row the title block makes taller. */}
+              <td>
+                <div className="courtmark">
+                  <div className="emblem" aria-hidden>
+                    EMBLEM
+                  </div>
+                  <div className="t5">In the {t(f.court)}</div>
                 </div>
-              </td>
-              <td style={{ verticalAlign: "middle" }}>
-                <div className="t5">In the {t(f.court)}</div>
               </td>
               <td style={{ width: "60mm" }}>
                 <div className="t4 caps title">
@@ -213,7 +216,7 @@ export function SummonsDocument({ court, version }: Props) {
                   // eslint-disable-next-line @next/next/no-img-element -- print facsimile
                   <img className="qr" src="/summons/qr_portal.png" alt="QR code: join your case" style={{ width: "30mm", height: "30mm" }} />
                 )}
-                <div className="s2" />
+                <div className="s4" />
                 <div className="qrcap">
                   <b>{digital ? "Scan or tap to join your case." : "Scan to join your case."}</b>
                   <br />
@@ -256,8 +259,14 @@ export function SummonsDocument({ court, version }: Props) {
                 <td className="right">
                   <div className="strong">
                     {digital
-                      ? "Options for closing this case are on page 2 ↓"
-                      : "Options for closing this case are on the reverse ➔"}
+                      ? "Options for closing this case are on page 2"
+                      : "Options for closing this case are on the reverse"}
+                    {/* One arrow family for both versions: only the direction differs. */}
+                    {digital ? (
+                      <ArrowDownIcon className="turnarrow" aria-hidden />
+                    ) : (
+                      <ArrowRightIcon className="turnarrow" aria-hidden />
+                    )}
                   </div>
                 </td>
               </tr>
@@ -312,7 +321,7 @@ export function SummonsDocument({ court, version }: Props) {
               <td style={{ width: "30mm", verticalAlign: "middle" }}>
                 {/* eslint-disable-next-line @next/next/no-img-element -- print facsimile */}
                 <img className="qr" src="/summons/qr_pay.png" alt="QR code: pay the court" style={{ width: "26mm", height: "26mm" }} />
-                <div className="s2" />
+                <div className="s4" />
                 <div className="qrcap">
                   <b>Pay the court</b>
                 </div>
