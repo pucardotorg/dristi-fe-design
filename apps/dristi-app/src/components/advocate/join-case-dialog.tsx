@@ -97,7 +97,6 @@ import {
   advDialog,
   BAR_DIRECTORY,
   COMPLAINANT_PARTIES,
-  SIDE_ADVOCATES,
   VAKALATNAMA_FEE_PAISE,
   ADVOCATE_JOIN_CASE,
 } from "@/lib/advocate/content";
@@ -349,8 +348,8 @@ export function AdvocateJoinCaseDialog({
   const [contacts, setContacts] = React.useState<Record<string, string>>({});
   const [verifyTouched, setVerifyTouched] = React.useState(false);
 
+  const [vkWho, setVkWho] = React.useState<"" | "solo" | "group">("");
   const [vkAnother, setVkAnother] = React.useState<YesNo>("");
-  const [vkCount, setVkCount] = React.useState("");
   const [vkAdvocates, setVkAdvocates] = React.useState<string[]>([]);
   const [vkAdvOpen, setVkAdvOpen] = React.useState(false);
   const vkAdvAnchor = useComboboxAnchor();
@@ -387,24 +386,22 @@ export function AdvocateJoinCaseDialog({
   // already holds one for anyone who has joined.
   const contactParties = selectedParties.filter((party) => !party.hasJoined);
 
-  // The "another advocate already uploaded a vakalatnama" question only makes sense
-  // once some advocate is already on the case; the first advocate to join skips it.
-  const otherAdvocatesOnCase =
-    SIDE_ADVOCATES.complainant.length + SIDE_ADVOCATES.accused.length > 0;
-  const effectiveAnother: YesNo = otherAdvocatesOnCase ? vkAnother : "no";
-  // "No" (or first advocate) means this is a fresh vakalatnama the advocate names the
-  // co-advocates on and pays for; "yes" means another advocate already paid for it, so
-  // this advocate uploads it but does not pay (JOIN-51).
-  const needsCoAdvocates = effectiveAnother === "no";
-  const feeDue = effectiveAnother === "no";
-  const vkCountValid = /^[1-9]\d*$/.test(vkCount.trim());
-  const vkCountN = vkCountValid ? Number.parseInt(vkCount.trim(), 10) : 0;
-  const vkAdvAtCapacity = vkCountValid && vkAdvocates.length >= vkCountN;
-  const coAdvocatesComplete = !needsCoAdvocates || (vkCountValid && vkAdvocates.length === vkCountN);
+  /*
+   * Who pays for the vakalatnama (owner, 2026-10-12), asked as three questions:
+   *   1. Who is named on it — only me, or me and other advocates.
+   *   2. With others: has one of them already paid for it? Yes → join without paying.
+   *   3. No (the first to join): add the others, and pay for everyone added.
+   * The count is the advocates added, so there is no number to type. A partner the
+   * first advocate missed can still join on their own and pay for themselves.
+   */
+  const needsCoAdvocates = vkWho === "group" && vkAnother === "no";
+  const feeDue = vkWho === "solo" || needsCoAdvocates;
+  const advocatesPaidFor = 1 + (needsCoAdvocates ? vkAdvocates.length : 0);
+  const coAdvocatesComplete = !needsCoAdvocates || vkAdvocates.length > 0;
 
   const vkAttached = Boolean(vkFile);
   const unpaidOutcome = stage === "done" && outcome === "unpaid";
-  const fee = rupees(VAKALATNAMA_FEE_PAISE);
+  const fee = rupees(VAKALATNAMA_FEE_PAISE * advocatesPaidFor);
   const isSummonsIntro = mode === "summons" && stage === "details";
 
   React.useEffect(() => () => {
@@ -437,8 +434,8 @@ export function AdvocateJoinCaseDialog({
     setRoleTouched(false);
     setContacts({});
     setVerifyTouched(false);
+    setVkWho("");
     setVkAnother("");
-    setVkCount("");
     setVkAdvocates([]);
     setVkAdvOpen(false);
     setVkFile(null);
@@ -561,7 +558,8 @@ export function AdvocateJoinCaseDialog({
     event.preventDefault();
     setVkTouched(true);
     if (!joinCase || !side) return;
-    if (otherAdvocatesOnCase && !vkAnother) return;
+    if (!vkWho) return;
+    if (vkWho === "group" && !vkAnother) return;
     if (needsCoAdvocates && !coAdvocatesComplete) return;
     if (!vkAttached) return;
     if (feeDue) {
@@ -1025,89 +1023,86 @@ export function AdvocateJoinCaseDialog({
                 </Field>
               </div>
 
-              {/* Only asked once another advocate is already on the case. When
-                  the answer is yes, the advocate is joining a vakalatnama that
-                  already names them, so the co-advocate questions are skipped. */}
-              {otherAdvocatesOnCase || needsCoAdvocates ? (
-                <div className="flex flex-col gap-3">
-                  {otherAdvocatesOnCase ? (
-                    <Field data-invalid={vkTouched && !vkAnother}>
-                      <FieldLabel className={cn(VK_QUESTION, "block w-full")}>
-                        {pick(advDialog.vkAnotherLegend, locale)}
-                      </FieldLabel>
-                      <RadioGroup
-                        value={vkAnother}
-                        onValueChange={(value) => {
-                          setVkAnother(value as YesNo);
-                          setVkTouched(false);
-                        }}
-                        className="flex flex-col gap-1"
-                      >
-                        <div className="flex min-h-10 items-center gap-2">
-                          <RadioGroupItem value="yes" id="adv-vk-yes" />
-                          <Label htmlFor="adv-vk-yes">{pick(advDialog.yes, locale)}</Label>
-                        </div>
-                        <div className="flex min-h-10 items-center gap-2">
-                          <RadioGroupItem value="no" id="adv-vk-no" />
-                          <Label htmlFor="adv-vk-no">{pick(advDialog.no, locale)}</Label>
-                        </div>
-                      </RadioGroup>
-                      <FieldError>
-                        {vkTouched && !vkAnother ? pick(advDialog.vkAnotherError, locale) : null}
-                      </FieldError>
-                    </Field>
-                  ) : null}
-                  {needsCoAdvocates ? (
-                    <Banner variant="info" className="items-start">{pick(advDialog.vkFeeNote, locale)}</Banner>
-                  ) : null}
-                </div>
-              ) : null}
+              {/* 1. Who is named on it. */}
+              <Field data-invalid={vkTouched && !vkWho}>
+                <FieldLabel className={cn(VK_QUESTION, "block w-full")}>
+                  {pick(advDialog.vkWhoLegend, locale)}
+                </FieldLabel>
+                <RadioGroup
+                  value={vkWho}
+                  onValueChange={(value) => {
+                    setVkWho(value as "solo" | "group");
+                    setVkTouched(false);
+                  }}
+                  className="flex flex-col gap-1"
+                >
+                  <div className="flex min-h-10 items-center gap-2">
+                    <RadioGroupItem value="solo" id="adv-vk-solo" />
+                    <Label htmlFor="adv-vk-solo">{pick(advDialog.vkWhoSolo, locale)}</Label>
+                  </div>
+                  <div className="flex min-h-10 items-center gap-2">
+                    <RadioGroupItem value="group" id="adv-vk-group" />
+                    <Label htmlFor="adv-vk-group">{pick(advDialog.vkWhoGroup, locale)}</Label>
+                  </div>
+                </RadioGroup>
+                <FieldError>
+                  {vkTouched && !vkWho ? pick(advDialog.vkWhoError, locale) : null}
+                </FieldError>
+                {vkWho === "solo" ? (
+                  <Banner variant="info" className="items-start">
+                    {fill(advDialog.vkFeeNote, locale, { amount: fee })}
+                  </Banner>
+                ) : null}
+              </Field>
 
-              {needsCoAdvocates ? (
-                <Field data-invalid={vkTouched && !vkCountValid}>
-                  <FieldLabel htmlFor="adv-vk-count" className={VK_QUESTION}>{pick(advDialog.vkCountLabel, locale)}</FieldLabel>
-                  <Input
-                    id="adv-vk-count"
-                    inputMode="numeric"
-                    value={vkCount}
-                    onChange={(event) => {
-                      setVkCount(event.target.value.replace(/\D/g, ""));
-                      // Trim any picks beyond the new count.
-                      setVkAdvocates((current) => {
-                        const next = event.target.value.replace(/\D/g, "");
-                        const n = /^[1-9]\d*$/.test(next) ? Number.parseInt(next, 10) : 0;
-                        return current.slice(0, n);
-                      });
+              {/* 2. With others: has one of them already paid? */}
+              {vkWho === "group" ? (
+                <Field data-invalid={vkTouched && !vkAnother}>
+                  <FieldLabel className={cn(VK_QUESTION, "block w-full")}>
+                    {pick(advDialog.vkAnotherLegend, locale)}
+                  </FieldLabel>
+                  <RadioGroup
+                    value={vkAnother}
+                    onValueChange={(value) => {
+                      setVkAnother(value as YesNo);
                       setVkTouched(false);
                     }}
-                  />
+                    className="flex flex-col gap-1"
+                  >
+                    <div className="flex min-h-10 items-center gap-2">
+                      <RadioGroupItem value="yes" id="adv-vk-yes" />
+                      <Label htmlFor="adv-vk-yes">{pick(advDialog.vkAnotherYes, locale)}</Label>
+                    </div>
+                    <div className="flex min-h-10 items-center gap-2">
+                      <RadioGroupItem value="no" id="adv-vk-no" />
+                      <Label htmlFor="adv-vk-no">{pick(advDialog.vkAnotherNo, locale)}</Label>
+                    </div>
+                  </RadioGroup>
                   <FieldError>
-                    {vkTouched && !vkCountValid
-                      ? pick(advDialog.vkCountError, locale)
-                      : null}
+                    {vkTouched && !vkAnother ? pick(advDialog.vkAnotherError, locale) : null}
                   </FieldError>
+                  {vkAnother === "yes" ? (
+                    <Banner variant="info" className="items-start">
+                      {pick(advDialog.vkPaidNote, locale)}
+                    </Banner>
+                  ) : null}
                 </Field>
               ) : null}
 
-              {needsCoAdvocates && vkCountValid ? (
-                <Field data-invalid={vkTouched && vkAdvocates.length !== vkCountN}>
+              {/* 3. The first to join: add the others, and pay for everyone added. */}
+              {needsCoAdvocates ? (
+                <Field data-invalid={vkTouched && !coAdvocatesComplete}>
                   <FieldLabel className={cn(VK_QUESTION, "block w-full")}>
                     {pick(advDialog.vkAddLegend, locale)}
                   </FieldLabel>
                   <Combobox
                     multiple
-                    // At the stated count the list closes and the input
-                    // stops inviting more; removing a chip reopens it.
-                    open={vkAdvOpen && !vkAdvAtCapacity}
+                    open={vkAdvOpen}
                     onOpenChange={setVkAdvOpen}
                     items={BAR_DIRECTORY.map((adv) => `${adv.name} · ${adv.barId}`)}
                     value={vkAdvocates}
                     onValueChange={(names: string[]) => {
-                      const capped = names.slice(0, vkCountN);
-                      setVkAdvocates(capped);
-                      // Closed once the count is met; reopened the moment a
-                      // chip is removed and there is room again.
-                      setVkAdvOpen(capped.length < vkCountN);
+                      setVkAdvocates(names);
                       setVkTouched(false);
                     }}
                   >
@@ -1119,7 +1114,6 @@ export function AdvocateJoinCaseDialog({
                               <ComboboxChip key={name}>{name}</ComboboxChip>
                             ))}
                             <ComboboxChipsInput
-                              disabled={vkAdvAtCapacity}
                               placeholder={
                                 value.length ? undefined : pick(advDialog.vkAddPlaceholder, locale)
                               }
@@ -1139,18 +1133,17 @@ export function AdvocateJoinCaseDialog({
                       </ComboboxList>
                     </ComboboxContent>
                   </Combobox>
-                  <FieldDescription>
-                    {fill(
-                      vkAdvAtCapacity ? advDialog.vkAddCap : advDialog.vkAddHint,
-                      locale,
-                      { n: String(vkCountN) },
-                    )}
-                  </FieldDescription>
                   <FieldError>
-                    {vkTouched && vkAdvocates.length !== vkCountN
-                      ? fill(advDialog.vkAddError, locale, { n: String(vkCountN) })
-                      : null}
+                    {vkTouched && !coAdvocatesComplete ? pick(advDialog.vkAddError, locale) : null}
                   </FieldError>
+                  {vkAdvocates.length ? (
+                    <Banner variant="info" className="items-start">
+                      {fill(advDialog.vkGroupFeeNote, locale, {
+                        n: String(advocatesPaidFor),
+                        amount: fee,
+                      })}
+                    </Banner>
+                  ) : null}
                 </Field>
               ) : null}
             </form>
@@ -1443,7 +1436,10 @@ export function AdvocateJoinCaseDialog({
               </Button>
               <Button type="submit" form="adv-vakalatnama" data-icon="inline-end">
                 {/* With a fee due, the next step is payment, not the join itself. */}
-                {pick(feeDue ? joinDialog.continue : joinDialog.joinSubmit, locale)}
+                {pick(
+                  vkWho === "group" && vkAnother === "yes" ? joinDialog.joinSubmit : joinDialog.continue,
+                  locale,
+                )}
                 <ArrowRightIcon aria-hidden />
               </Button>
             </>

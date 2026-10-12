@@ -665,43 +665,47 @@ export const advDialog = {
     "Attach the vakalatnama that authorises you to act for these litigants.",
     "ഈ കക്ഷികൾക്ക് വേണ്ടി പ്രവർത്തിക്കാൻ അധികാരം നൽകുന്ന വക്കാലത്ത് ചേർക്കുക.",
   ),
+  /* Three questions (owner, 2026-10-12): who is named, whether a partner already paid,
+     and — only for the first to join — who the others are. The count comes from the
+     advocates added; there is no number to type. Malayalam drafted — needs review. */
+  vkWhoLegend: t("Who is named on this vakalatnama?", "ഈ വക്കാലത്തിൽ ആരുടെയൊക്കെ പേരുണ്ട്?"),
+  vkWhoSolo: t("Only me", "ഞാൻ മാത്രം"),
+  vkWhoGroup: t("Me and other advocates", "ഞാനും മറ്റ് അഭിഭാഷകരും"),
+  vkWhoError: t(
+    "Choose who is named on this vakalatnama.",
+    "ഈ വക്കാലത്തിൽ ആരുടെ പേരുണ്ടെന്ന് തിരഞ്ഞെടുക്കുക.",
+  ),
   vkAnotherLegend: t(
-    "Has another advocate already uploaded and paid for this vakalatnama?",
-    "മറ്റൊരു അഭിഭാഷകൻ ഈ വക്കാലത്ത് ഇതിനകം അപ്‌ലോഡ് ചെയ്ത് പണമടച്ചിട്ടുണ്ടോ?",
+    "Has another advocate on this vakalatnama already paid for it?",
+    "ഈ വക്കാലത്തിലെ മറ്റൊരു അഭിഭാഷകൻ ഇതിനകം ഫീസ് അടച്ചിട്ടുണ്ടോ?",
   ),
-  vkAnotherError: t("Choose yes or no.", "അതെ അല്ലെങ്കിൽ അല്ല തിരഞ്ഞെടുക്കുക."),
+  vkAnotherYes: t("Yes, it's already paid", "അതെ, ഇതിനകം അടച്ചു"),
+  vkAnotherNo: t("No, I'm the first", "ഇല്ല, ഞാനാണ് ആദ്യം"),
+  vkAnotherError: t("Choose one.", "ഒന്ന് തിരഞ്ഞെടുക്കുക."),
   vkFeeNote: t(
-    "You pay the vakalatnama fee in the next step. You get access to the case once it is paid.",
-    "അടുത്ത ഘട്ടത്തിൽ വക്കാലത്ത് ഫീസ് അടയ്ക്കണം. ഫീസ് അടച്ചാൽ കേസിലേക്ക് ആക്‌സസ് ലഭിക്കും.",
+    "You pay the vakalatnama fee in the next step ({amount}). You get access to the case once it is paid.",
+    "അടുത്ത ഘട്ടത്തിൽ വക്കാലത്ത് ഫീസ് അടയ്ക്കണം ({amount}). ഫീസ് അടച്ചാൽ കേസിലേക്ക് ആക്‌സസ് ലഭിക്കും.",
   ),
-  vkCountLabel: t(
-    "How many advocates are part of this vakalatnama?",
-    "ഈ വക്കാലത്തിൽ എത്ര അഭിഭാഷകർ ഉൾപ്പെടുന്നു?",
+  vkPaidNote: t(
+    "You won't pay again. You get access to the case once you join.",
+    "നിങ്ങൾ വീണ്ടും അടയ്ക്കേണ്ടതില്ല. ചേർന്നാൽ കേസിലേക്ക് ആക്‌സസ് ലഭിക്കും.",
   ),
-  vkCountError: t(
-    "Enter how many advocates are on the vakalatnama.",
-    "വക്കാലത്തിലെ അഭിഭാഷകരുടെ എണ്ണം നൽകുക.",
+  vkGroupFeeNote: t(
+    "You pay for {n} advocates in the next step ({amount}).",
+    "അടുത്ത ഘട്ടത്തിൽ {n} അഭിഭാഷകർക്കുള്ള ഫീസ് അടയ്ക്കണം ({amount}).",
   ),
   vkAddLegend: t(
-    "Add the advocates on this vakalatnama",
-    "ഈ വക്കാലത്തിലെ അഭിഭാഷകരെ ചേർക്കുക",
+    "Add the other advocates on this vakalatnama",
+    "ഈ വക്കാലത്തിലെ മറ്റ് അഭിഭാഷകരെ ചേർക്കുക",
   ),
   vkAddPlaceholder: t(
     "Search by Bar registration ID or name",
     "ബാർ രജിസ്‌ട്രേഷൻ ID അല്ലെങ്കിൽ പേര് ഉപയോഗിച്ച് തിരയുക",
   ),
   vkAddEmpty: t("No advocates found.", "അഭിഭാഷകരെ കണ്ടെത്തിയില്ല."),
-  vkAddHint: t(
-    "Add {n} advocate(s), matching the number above.",
-    "മുകളിലെ എണ്ണത്തിന് അനുസൃതമായി {n} അഭിഭാഷകരെ ചേർക്കുക.",
-  ),
-  vkAddCap: t(
-    "Only {n} advocate(s) can be added — that is the number you entered above.",
-    "{n} അഭിഭാഷകരെ മാത്രമേ ചേർക്കാനാകൂ — അതാണ് നിങ്ങൾ മുകളിൽ നൽകിയ എണ്ണം.",
-  ),
   vkAddError: t(
-    "Add {n} advocate(s) to match the number above.",
-    "മുകളിലെ എണ്ണത്തിന് അനുസൃതമായി {n} അഭിഭാഷകരെ ചേർക്കുക.",
+    "Add at least one other advocate, or choose “Only me”.",
+    "കുറഞ്ഞത് ഒരു അഭിഭാഷകനെ കൂടി ചേർക്കുക, അല്ലെങ്കിൽ “ഞാൻ മാത്രം” തിരഞ്ഞെടുക്കുക.",
   ),
   vkSearchLabel: t(
     "Search your generated vakalatnamas",
