@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { CheckCircle2Icon, SearchIcon } from "lucide-react";
+import { toast } from "sonner";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ import { useAccess, type InviteResult } from "@/components/access/access-state";
 import { RemoveAdvocateDialog } from "@/components/cases/remove-advocate-dialog";
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 import { pick, type Locale } from "@/lib/onboarding/content";
+import { fill } from "@/lib/join/content";
 import {
   FREQUENT_COLLABORATORS,
   PHONE_DIRECTORY,
@@ -112,7 +114,7 @@ export function ShareDialog({
      legitimate. */
   /* Named only as you know them: an unknown number stays a number. */
   const advocateNames = chips
-    .filter((chip) => PHONE_DIRECTORY[chip.phone.replace(/\D/g, "")]?.advocate)
+    .filter((chip) => chip.phone && PHONE_DIRECTORY[chip.phone.replace(/\D/g, "")]?.advocate)
     .map(inviteLabel);
 
   function handleOpenChange(nextOpen: boolean) {
@@ -130,7 +132,9 @@ export function ShareDialog({
   function send() {
     const batch = chips;
     if (!batch.length) return;
-    setResult(invite(batch.map((c) => c.phone), cases.map((c) => c.id)));
+    const result = invite(batch.map((c) => c.phone ?? c.barId ?? ""), cases.map((c) => c.id));
+    setResult(result);
+    toast.success(fill(shareCopy.inviteToast, locale, { names: result.names.join(", ") }));
     setChips([]);
   }
 
@@ -200,9 +204,6 @@ export function ShareDialog({
                   locale={locale}
                   disabled={readOnly}
                 />
-                <p className="text-caption text-muted-foreground">
-                  {pick(shareCopy.demoProfiles, locale)}
-                </p>
               </div>
               <Button type="button" disabled={readOnly || !chips.length} onClick={send}>
                 {pick(shareCopy.send, locale)}

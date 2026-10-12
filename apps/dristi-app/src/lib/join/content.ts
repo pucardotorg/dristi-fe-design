@@ -163,6 +163,14 @@ export const summonsModal = {
 /* -------------------------------------------------------------------- join dialog */
 
 export const joinDialog = {
+  /* Closing partway through asks first (owner, 2026-10-13). Malayalam drafted. */
+  leaveTitle: t("Leave without joining?", "ചേരാതെ പുറത്തുകടക്കണോ?"),
+  leaveBody: t(
+    "What you have entered so far will not be kept.",
+    "ഇതുവരെ നൽകിയ വിവരങ്ങൾ സൂക്ഷിക്കില്ല.",
+  ),
+  leaveStay: t("Keep going", "തുടരുക"),
+  leaveGo: t("Leave", "പുറത്തുകടക്കുക"),
   title: t("Join your case", "നിങ്ങളുടെ കേസിൽ ചേരുക"),
 
   /* lookup — manual entry only */
@@ -373,7 +381,6 @@ export const joinDialog = {
     "{numbers} എന്ന നമ്പറുകളിലേക്ക് SMS അയച്ചു. ഓരോരുത്തരും സൈൻ ഇൻ ചെയ്ത് സ്ഥിരീകരിച്ചാൽ കേസ് അവരുടെ അക്കൗണ്ടുമായി ബന്ധിപ്പിക്കും.",
   ),
   viewCase: t("View case", "കേസ് കാണുക"),
-  viewCasePrototype: t("The case file will open here.", "കേസ് ഫയൽ ഇവിടെ തുറക്കും."),
   fileBail: t("File bail application", "ജാമ്യാപേക്ഷ നൽകുക"),
   addAdvocate: t("Add advocate", "അഭിഭാഷകനെ ചേർക്കുക"),
   addAdvocatePrototype: t(

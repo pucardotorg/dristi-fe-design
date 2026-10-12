@@ -146,6 +146,19 @@ export const BAR_DIRECTORY: BarAdvocate[] = [
   { barId: "K/3104/2019", name: "Adv. Divya Nair" },
 ];
 
+/** Sandbox: the advocates this office has been on vakalatnamas with — the only names the
+ *  co-advocate field suggests. Anyone else is added by their full mobile number and never
+ *  resolved to a name (owner, 2026-10-13, as the Share field). */
+export const VAKALATNAMA_CO_ADVOCATES: { name: string; phone: string; barId: string }[] = [
+  { ...BAR_DIRECTORY[1], phone: "94471 20486" },
+  { ...BAR_DIRECTORY[2], phone: "98950 08762" },
+  { ...BAR_DIRECTORY[0], phone: "94460 11230" },
+  { ...BAR_DIRECTORY[5], phone: "97450 27651" },
+];
+
+/** Sandbox: the advocate who already named this one on a paid vakalatnama. */
+export const VAKALATNAMA_INVITER = BAR_DIRECTORY[1].name;
+
 /* ------------------------------------------------------------------- app shell */
 
 export const advShell = {
@@ -584,6 +597,29 @@ export const advDialog = {
     "കേസ് നമ്പർ അല്ലെങ്കിൽ ഫയലിംഗ് നമ്പർ നൽകുക.",
   ),
   findAndJoin: t("Find case and join", "കേസ് കണ്ടെത്തി ചേരുക"),
+  /* Closing partway through asks first (owner, 2026-10-13). Malayalam drafted. */
+  leaveTitle: t("Leave without joining?", "ചേരാതെ പുറത്തുകടക്കണോ?"),
+  leaveBody: t(
+    "What you have entered so far will not be kept.",
+    "ഇതുവരെ നൽകിയ വിവരങ്ങൾ സൂക്ഷിക്കില്ല.",
+  ),
+  leaveStay: t("Keep going", "തുടരുക"),
+  leaveGo: t("Leave", "പുറത്തുകടക്കുക"),
+  lookupSandboxTip: t("Sandbox: who you are on this case", "സാൻഡ്‌ബോക്സ്: ഈ കേസിൽ നിങ്ങൾ ആര്"),
+  lookupSandboxLabel: t("For the case you look up", "നിങ്ങൾ തിരയുന്ന കേസിന്"),
+  lookupSandboxNew: t("You are not on it yet", "നിങ്ങൾ ഇതുവരെ ഇതിലില്ല"),
+  lookupSandboxAdded: t(
+    "Another advocate already added you",
+    "മറ്റൊരു അഭിഭാഷകൻ നിങ്ങളെ ഇതിനകം ചേർത്തു",
+  ),
+
+  /* Already added: another advocate named this one on the vakalatnama and paid for
+     everyone on it (owner, 2026-10-13). Malayalam drafted — needs review. */
+  invitedTitle: t("You're already on this case", "നിങ്ങൾ ഇതിനകം ഈ കേസിലുണ്ട്"),
+  invitedBody: t(
+    "{name} named you on the vakalatnama and paid the fee, and you were sent an invite. There is nothing to upload or pay.",
+    "{name} വക്കാലത്തിൽ നിങ്ങളുടെ പേര് ചേർത്ത് ഫീസ് അടച്ചു; നിങ്ങൾക്ക് ക്ഷണം അയച്ചിട്ടുണ്ട്. ഒന്നും അപ്‌ലോഡ് ചെയ്യുകയോ അടയ്ക്കുകയോ വേണ്ട.",
+  ),
 
   /* details */
   detailsBody: t(
@@ -665,47 +701,49 @@ export const advDialog = {
     "Attach the vakalatnama that authorises you to act for these litigants.",
     "ഈ കക്ഷികൾക്ക് വേണ്ടി പ്രവർത്തിക്കാൻ അധികാരം നൽകുന്ന വക്കാലത്ത് ചേർക്കുക.",
   ),
-  /* Three questions (owner, 2026-10-12): who is named, whether a partner already paid,
-     and — only for the first to join — who the others are. The count comes from the
-     advocates added; there is no number to type. Malayalam drafted — needs review. */
-  vkWhoLegend: t("Who is named on this vakalatnama?", "ഈ വക്കാലത്തിൽ ആരുടെയൊക്കെ പേരുണ്ട്?"),
-  vkWhoSolo: t("Only me", "ഞാൻ മാത്രം"),
-  vkWhoGroup: t("Me and other advocates", "ഞാനും മറ്റ് അഭിഭാഷകരും"),
-  vkWhoError: t(
-    "Choose who is named on this vakalatnama.",
-    "ഈ വക്കാലത്തിൽ ആരുടെ പേരുണ്ടെന്ന് തിരഞ്ഞെടുക്കുക.",
+  /* One question (team decision, owner 2026-10-13): is anyone else named on it? The
+     first advocate adds the others and pays for everyone; the count comes from the
+     advocates added. Malayalam drafted — needs review. */
+  vkOthersLegend: t(
+    "Apart from you, is anyone else named on this vakalatnama?",
+    "നിങ്ങളെ കൂടാതെ, ഈ വക്കാലത്തിൽ മറ്റാരുടെയെങ്കിലും പേരുണ്ടോ?",
   ),
-  vkAnotherLegend: t(
-    "Has another advocate on this vakalatnama already paid for it?",
-    "ഈ വക്കാലത്തിലെ മറ്റൊരു അഭിഭാഷകൻ ഇതിനകം ഫീസ് അടച്ചിട്ടുണ്ടോ?",
-  ),
-  vkAnotherYes: t("Yes, it's already paid", "അതെ, ഇതിനകം അടച്ചു"),
-  vkAnotherNo: t("No, I'm the first", "ഇല്ല, ഞാനാണ് ആദ്യം"),
-  vkAnotherError: t("Choose one.", "ഒന്ന് തിരഞ്ഞെടുക്കുക."),
+  vkOthersNo: t("No, only me", "ഇല്ല, ഞാൻ മാത്രം"),
+  vkOthersYes: t("Yes, other advocates too", "ഉണ്ട്, മറ്റ് അഭിഭാഷകരും"),
+  vkOthersError: t("Choose one.", "ഒന്ന് തിരഞ്ഞെടുക്കുക."),
   vkFeeNote: t(
     "You pay the vakalatnama fee in the next step ({amount}). You get access to the case once it is paid.",
     "അടുത്ത ഘട്ടത്തിൽ വക്കാലത്ത് ഫീസ് അടയ്ക്കണം ({amount}). ഫീസ് അടച്ചാൽ കേസിലേക്ക് ആക്‌സസ് ലഭിക്കും.",
   ),
-  vkPaidNote: t(
-    "You won't pay again. You get access to the case once you join.",
-    "നിങ്ങൾ വീണ്ടും അടയ്ക്കേണ്ടതില്ല. ചേർന്നാൽ കേസിലേക്ക് ആക്‌സസ് ലഭിക്കും.",
-  ),
   vkGroupFeeNote: t(
-    "You pay for {n} advocates in the next step ({amount}).",
-    "അടുത്ത ഘട്ടത്തിൽ {n} അഭിഭാഷകർക്കുള്ള ഫീസ് അടയ്ക്കണം ({amount}).",
+    "You pay for {n} advocates in the next step ({amount}). The others get an invite to join the case and don't pay again.",
+    "അടുത്ത ഘട്ടത്തിൽ {n} അഭിഭാഷകർക്കുള്ള ഫീസ് അടയ്ക്കണം ({amount}). മറ്റുള്ളവർക്ക് കേസിൽ ചേരാൻ ക്ഷണം ലഭിക്കും; അവർ വീണ്ടും അടയ്ക്കേണ്ടതില്ല.",
   ),
   vkAddLegend: t(
     "Add the other advocates on this vakalatnama",
     "ഈ വക്കാലത്തിലെ മറ്റ് അഭിഭാഷകരെ ചേർക്കുക",
   ),
-  vkAddPlaceholder: t(
-    "Search by Bar registration ID or name",
-    "ബാർ രജിസ്‌ട്രേഷൻ ID അല്ലെങ്കിൽ പേര് ഉപയോഗിച്ച് തിരയുക",
+  vkInviteToast: t(
+    "Invite to join the case sent to {names}",
+    "കേസിൽ ചേരാൻ {names} എന്നവർക്ക് ക്ഷണം അയച്ചു",
   ),
-  vkAddEmpty: t("No advocates found.", "അഭിഭാഷകരെ കണ്ടെത്തിയില്ല."),
+  vkAddFieldLabel: t("Other advocates on the vakalatnama", "വക്കാലത്തിലെ മറ്റ് അഭിഭാഷകർ"),
+  vkAddSuggested: t("Advocates you often add", "നിങ്ങൾ പതിവായി ചേർക്കുന്ന അഭിഭാഷകർ"),
+  vkAddNewNumber: t(
+    "They'll get an invite to join the case.",
+    "കേസിൽ ചേരാൻ അവർക്ക് ക്ഷണം ലഭിക്കും.",
+  ),
+  vkAddKeepTyping: t(
+    "No advocate you've added matches. Enter their full mobile number or Bar ID.",
+    "നിങ്ങൾ ചേർത്ത അഭിഭാഷകരിൽ ആരും പൊരുത്തപ്പെടുന്നില്ല. അവരുടെ മൊബൈൽ നമ്പർ അല്ലെങ്കിൽ ബാർ ഐഡി മുഴുവൻ നൽകുക.",
+  ),
+  vkAddHelp: t(
+    "Only advocates registered on the platform can be added.",
+    "പ്ലാറ്റ്‌ഫോമിൽ രജിസ്റ്റർ ചെയ്ത അഭിഭാഷകരെ മാത്രമേ ചേർക്കാനാകൂ.",
+  ),
   vkAddError: t(
-    "Add at least one other advocate, or choose “Only me”.",
-    "കുറഞ്ഞത് ഒരു അഭിഭാഷകനെ കൂടി ചേർക്കുക, അല്ലെങ്കിൽ “ഞാൻ മാത്രം” തിരഞ്ഞെടുക്കുക.",
+    "Add at least one other advocate, or choose “No, only me”.",
+    "കുറഞ്ഞത് ഒരു അഭിഭാഷകനെ കൂടി ചേർക്കുക, അല്ലെങ്കിൽ “ഇല്ല, ഞാൻ മാത്രം” തിരഞ്ഞെടുക്കുക.",
   ),
   vkSearchLabel: t(
     "Search your generated vakalatnamas",
