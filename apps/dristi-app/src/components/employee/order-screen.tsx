@@ -39,6 +39,8 @@ import {
 import { useSignatureChoice } from "@/components/employee/sign-signature-fields";
 import { useCourtToday } from "@/components/employee/use-court-today";
 import { useHearingSession } from "@/components/employee/use-hearing-session";
+import { useOrderSigning } from "@/components/employee/use-order-signing";
+import { markOrderReady, markOrdersSigned } from "@/lib/employee/order-signing";
 import { useOrderDraft } from "@/components/employee/use-order-draft";
 import { PANEL_CLASS } from "@/components/shell/panel";
 import { Badge } from "@/components/ui/badge";
@@ -502,14 +504,15 @@ function OrderReady({ hearing }: { hearing: CourtHearing }) {
   const [bodyWrites, setBodyWrites] = React.useState(0);
   const [signOpen, setSignOpen] = React.useState(false);
   /**
-   * Where the footer's own act stands — never written back to `order-drafts.ts`, because
-   * nothing here is issued and a reload is honestly meant to lose it, same as the draft
-   * itself. `"added"` is **Add to signing list**; `"signed"` is Submit from the read-then-
-   * sign overlay Preview opens, which also counts as added — see the footer, below.
+   * Where the footer's own act stands. `"added"` is **Add to signing list**; `"signed"`
+   * is Submit from the read-then-sign overlay Preview opens, which also counts as added.
+   * Held in `order-signing.ts` rather than here, so today's hearings can sort the day's
+   * orders into Drafts, Ready to sign and Signed — and, like the draft itself, it dies on
+   * a reload because nothing here is issued.
    */
-  const [signingStatus, setSigningStatus] = React.useState<
-    "draft" | "added" | "signed"
-  >("draft");
+  const signed = useOrderSigning()[hearing.id];
+  const signingStatus: "draft" | "added" | "signed" =
+    signed === "signed" ? "signed" : signed === "ready" ? "added" : "draft";
   const [announcement, setAnnouncement] = React.useState("");
   /** A process order named through the editor's `/` search, awaiting its pop-up. */
   const [typedProcess, setTypedProcess] = React.useState<OrderItemTypeId | null>(null);
@@ -1610,7 +1613,7 @@ function OrderReady({ hearing }: { hearing: CourtHearing }) {
             className="w-full sm:w-fit"
             disabled={signingStatus !== "draft"}
             onClick={() => {
-              setSigningStatus("added");
+              markOrderReady(hearing.id);
               setAnnouncement(
                 "Added to the signing list. Nothing has been filed or published.",
               );
@@ -1701,7 +1704,7 @@ function OrderReady({ hearing }: { hearing: CourtHearing }) {
                 onBack={() => signFlow.go("read")}
                 onSubmit={() => {
                   setSignOpen(false);
-                  setSigningStatus("signed");
+                  markOrdersSigned([hearing.id]);
                   setAnnouncement(
                     "Signature recorded for this sitting. Nothing has been filed or published.",
                   );

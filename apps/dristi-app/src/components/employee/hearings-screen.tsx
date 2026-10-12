@@ -1,9 +1,27 @@
 "use client";
 
 import * as React from "react";
-import { CalendarX2Icon, SearchXIcon, VideoIcon } from "lucide-react";
+import {
+  CalendarX2Icon,
+  FilePenLineIcon,
+  SearchXIcon,
+  VideoIcon,
+} from "lucide-react";
 
+import {
+  PILL_COUNT,
+  PILL_ITEM,
+  PILL_ROW,
+} from "@/components/chrome/pill-plate";
 import { CounselCell } from "@/components/employee/counsel-cell";
+import {
+  HearingOrdersItemList,
+  HearingOrdersTable,
+} from "@/components/employee/hearing-orders-table";
+import { SignBulkConfirmDialog } from "@/components/employee/sign-bulk-confirm-dialog";
+import { useOrderDrafts } from "@/components/employee/use-order-draft";
+import { useOrderSigning } from "@/components/employee/use-order-signing";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { HearingOverviewDialog } from "@/components/employee/hearing-overview-dialog";
 import {
   HearingCaseButton,
@@ -33,6 +51,13 @@ import {
 } from "@/components/ui/tooltip";
 import type { CourtRole } from "@/lib/employee/content";
 import {
+  HEARING_ORDER_STATUSES,
+  ordersForSitting,
+  type HearingOrder,
+  type HearingOrderStatus,
+} from "@/lib/employee/hearing-orders";
+import { markOrdersSigned } from "@/lib/employee/order-signing";
+import {
   markHearingEnded,
   markHearingOngoing,
   markHearingPassedOver,
@@ -49,13 +74,13 @@ import {
   isoDay,
   parseIsoDay,
   COURT_HEARING_PURPOSES,
-  TODAYS_CAUSE_STATUSES,
   EMPTY_FILTERS,
   PAGE_SIZE,
   withHearingSession,
   type CourtHearing,
   type HearingFilters,
   type HearingsPageSize,
+  type TodaysCauseStatus,
 } from "@/lib/employee/hearings";
 import { Identifier } from "@/components/chrome/identifier";
 import { QueueItemRow } from "@/components/employee/queue-item-row";
@@ -80,7 +105,37 @@ const HEARING_SORTS: CourtSortSpec<CourtHearing, HearingSort>[] = [
 ];
 
 /**
+ * The Hearings view's status pills, in the owner's order (2026-10-12). "Not started" is
+ * the pill's word for a scheduled listing — the row's chip still says Scheduled.
+ */
+const HEARING_PILLS: { id: TodaysCauseStatus; label: string }[] = [
+  { id: "scheduled", label: "Not started" },
+  { id: "passed-over", label: "Passed over" },
+  { id: "completed", label: "Completed" },
+  { id: "ongoing", label: "Ongoing" },
+];
+
+type ScreenView = "hearings" | "orders";
+type OrderPill = HearingOrderStatus | "all";
+
+/* Which view the bench last chose, held past the screen so Edit → composer → back lands
+   on the Orders view it left from. Dies on a reload, like the sitting's other marks. */
+let rememberedView: ScreenView = "hearings";
+function rememberView(next: ScreenView) {
+  rememberedView = next;
+}
+
+function plural(count: number, one: string, many: string): string {
+  return count === 1 ? one : many;
+}
+
+/**
  * Today's hearings — the court's cause list for the day it is sitting.
+ *
+ * **Two views of the same day** (owner, 2026-10-12): the cause list, and the orders that
+ * came out of it. A toggle in the header switches between them; inside each, pills
+ * narrow by status — the sign process and pending-tasks row. On Orders, an order Ready to
+ * sign can be selected and signed in bulk from here.
  *
  * Composed the way the advocate's cases list is composed (`CasesListScreen`), because it
  * is the same kind of screen and the bench should not have to learn a second layout: the
@@ -126,6 +181,81 @@ export function HearingsScreen() {
   const [sort, setSort] = React.useState<HearingSort>("item");
 
   const rows = sortRows(filterHearings(listed, filters), HEARING_SORTS, sort);
+
+  const [view, setViewState] = React.useState<ScreenView>(() => rememberedView);
+  function setView(next: ScreenView) {
+    rememberView(next);
+    setViewState(next);
+    setSelectedIds(new Set());
+    setNotice("");
+  }
+
+  /* The Orders view: the same board, read through the composer's two stores. The
+     hearing status pill does not apply here — Orders has its own. */
+  const drafts = useOrderDrafts();
+  const signing = useOrderSigning();
+  const [orderPill, setOrderPill] = React.useState<OrderPill>("all");
+  const [selectedIds, setSelectedIds] = React.useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const [bulkOpen, setBulkOpen] = React.useState(false);
+  const [notice, setNotice] = React.useState("");
+  const signRef = React.useRef<HTMLButtonElement>(null);
+  const searchRef = React.useRef<HTMLInputElement>(null);
+
+  const allOrders = ordersForSitting(listed, drafts, signing, today);
+  const orderSortKey = new Map(
+    sortRows(listed, HEARING_SORTS, sort).map((hearing, index) => [hearing.id, index]),
+  );
+  const orderRows = filterHearings(
+    allOrders.map((order) => order.hearing),
+    { ...filters, status: "all" },
+  )
+    .map((hearing) => allOrders.find((order) => order.hearing.id === hearing.id)!)
+    .filter((order) => orderPill === "all" || order.status === orderPill)
+    .sort(
+      (a, b) =>
+        (orderSortKey.get(a.hearing.id) ?? 0) - (orderSortKey.get(b.hearing.id) ?? 0),
+    );
+  const ordersReady = allOrders.filter((order) => order.status === "ready");
+  const selectedOrders = ordersReady.filter((order) =>
+    selectedIds.has(order.hearing.id),
+  );
+  const readyInView = orderRows.some((order) => order.status === "ready");
+
+  function toggleOrder(order: HearingOrder) {
+    setNotice("");
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(order.hearing.id)) next.delete(order.hearing.id);
+      else next.add(order.hearing.id);
+      return next;
+    });
+  }
+
+  function toggleAllOrders(select: boolean) {
+    setNotice("");
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      for (const order of orderRows) {
+        if (order.status !== "ready") continue;
+        if (select) next.add(order.hearing.id);
+        else next.delete(order.hearing.id);
+      }
+      return next;
+    });
+  }
+
+  /** Marks the selection signed in this sitting's store. Nothing is published. */
+  function signOrders() {
+    const ids = selectedOrders.map((order) => order.hearing.id);
+    if (ids.length === 0) return;
+    markOrdersSigned(ids);
+    setSelectedIds(new Set());
+    setNotice(
+      `${ids.length} ${plural(ids.length, "order is", "orders are")} marked signed on this screen. Nothing was published.`,
+    );
+  }
 
   /**
    * Reading a matter without calling it — the cause title on the row, and the row
@@ -244,7 +374,15 @@ export function HearingsScreen() {
             {formatCourtDay(activeDay)}
           </p>
         </div>
-        <JoinVideoCourt />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <ViewToggle
+            value={view}
+            onChange={setView}
+            hearings={listed.length}
+            orders={allOrders.length}
+          />
+          <JoinVideoCourt />
+        </div>
       </header>
 
       {/* One panel: filters, list and footer are one unit of work, so they share one
@@ -252,6 +390,43 @@ export function HearingsScreen() {
           uses. Nothing inside draws a second frame. */}
       <div className="flex min-w-0 flex-col gap-6 rounded-xl border border-hairline bg-card p-6 shadow-raised">
         <HearingsFilters
+          searchRef={searchRef}
+          leading={
+            view === "hearings" ? (
+              <StatusPills
+                label="Hearing status"
+                value={filters.status}
+                onChange={(status) =>
+                  changeFilters({ status: status as HearingFilters["status"] })
+                }
+                total={listed.length}
+                options={HEARING_PILLS.map((pill) => ({
+                  value: pill.id,
+                  label: pill.label,
+                  count: listed.filter((hearing) => hearing.status === pill.id)
+                    .length,
+                }))}
+              />
+            ) : (
+              <StatusPills
+                label="Order status"
+                value={orderPill}
+                onChange={(next) => {
+                  setOrderPill(next as OrderPill);
+                  setSelectedIds(new Set());
+                  setNotice("");
+                }}
+                total={allOrders.length}
+                options={HEARING_ORDER_STATUSES.map((status) => ({
+                  value: status.id,
+                  label: status.pill,
+                  hint: status.hint,
+                  count: allOrders.filter((order) => order.status === status.id)
+                    .length,
+                }))}
+              />
+            )
+          }
           filters={filters}
           onChange={changeFilters}
           day={activeDay}
@@ -278,6 +453,41 @@ export function HearingsScreen() {
           }
         />
 
+        {view === "orders" ? (
+          <>
+            <QueueAnnouncer from={1} to={orderRows.length} total={orderRows.length} />
+            {orderRows.length === 0 ? (
+              <OrdersEmpty
+                hasAny={allOrders.length > 0}
+                onClear={() => {
+                  setOrderPill("all");
+                  clearFilters();
+                }}
+              />
+            ) : (
+              /* No pager: one day of one court's orders, and the bulk act picks across
+                 the whole view — the Sign process rule. */
+              <div className="min-w-0">
+                <div className="hidden min-w-0 md:block">
+                  <HearingOrdersTable
+                    rows={orderRows}
+                    selectedIds={selectedIds}
+                    onToggle={toggleOrder}
+                    onToggleAll={toggleAllOrders}
+                  />
+                </div>
+                <div className="md:hidden">
+                  <HearingOrdersItemList
+                    rows={orderRows}
+                    selectedIds={selectedIds}
+                    onToggle={toggleOrder}
+                  />
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
         {/* Mounted whatever the list is doing, including empty — see `QueueAnnouncer`. */}
         <QueueAnnouncer
           from={start + 1}
@@ -343,7 +553,31 @@ export function HearingsScreen() {
             />
           </div>
         )}
+          </>
+        )}
       </div>
+
+      {view === "orders" && (selectedOrders.length > 0 || readyInView || notice) ? (
+        <SignBar
+          count={selectedOrders.length}
+          notice={notice}
+          onRequestSign={() => setBulkOpen(true)}
+          signRef={signRef}
+        />
+      ) : null}
+
+      <SignBulkConfirmDialog
+        noun="order"
+        count={selectedOrders.length}
+        selection={{
+          cases: selectedOrders.map((order) => order.hearing.caseNumber),
+        }}
+        open={bulkOpen}
+        onOpenChange={setBulkOpen}
+        triggerRef={signRef}
+        onConfirm={signOrders}
+        onReturnFocus={() => searchRef.current?.focus()}
+      />
 
       {/* Focus goes back to the cause title that opened it — the only thing that opens
           it now. Radix restores that; nothing here has to. */}
@@ -370,11 +604,14 @@ export function HearingsScreen() {
 /**
  * The filter row: search inline, everything else behind a Filters button (owner,
  * 2026-09-15 — the advocate Cases pattern). The free text filters live where it is typed;
- * Status, Purpose and the hearing date fold into a right-hand sheet, and what is applied is
+ * Purpose and the hearing date fold into a right-hand sheet (status moved to the pills
+ * heading the row, 2026-10-12), and what is applied is
  * spelled out in removable chips on the row, so the folded controls never hide a narrowed
  * list. The court-level action (`JoinVideoCourt`) stays in the page header, not here.
  */
 function HearingsFilters({
+  leading,
+  searchRef,
   filters,
   onChange,
   day,
@@ -384,6 +621,9 @@ function HearingsFilters({
   onClear,
   trailing,
 }: {
+  /** The view's status pills, on a row above the filters. */
+  leading: React.ReactNode;
+  searchRef: React.RefObject<HTMLInputElement | null>;
   filters: HearingFilters;
   /** Merge a change into the filters — a patch, not a whole set. */
   onChange: (patch: Partial<HearingFilters>) => void;
@@ -396,57 +636,50 @@ function HearingsFilters({
   /** The list's sort control (`CourtSortSelect`), at the end of the row. */
   trailing?: React.ReactNode;
 }) {
+  /* The pills take a row of their own above the filters: sharing one, the last pill
+     was clipped off the end at desktop width once there were five of them. */
   return (
-    <CourtFilters
-      search={{
-        label: "Search cases",
-        value: filters.query,
-        onChange: (query) => onChange({ query }),
-        placeholder: "Case name or number",
-      }}
-      fields={[
-        {
-          id: "hearings-status",
-          label: "Status",
-          value: filters.status,
-          all: "all",
-          allLabel: "All statuses",
-          options: TODAYS_CAUSE_STATUSES.map((status) => ({
-            value: status.id,
-            label: status.label,
-          })),
-          onApply: (value) =>
-            onChange({ status: value as HearingFilters["status"] }),
-        },
-        {
-          id: "hearings-purpose",
-          label: "Purpose",
-          value: filters.purpose,
-          all: "all",
-          allLabel: "All purposes",
-          options: COURT_HEARING_PURPOSES.map((purpose) => ({
-            value: purpose.id,
-            label: purpose.label,
-          })),
-          onApply: (value) =>
-            onChange({ purpose: value as HearingFilters["purpose"] }),
-        },
-      ]}
-      date={{
-        label: "Hearing date",
-        value: parseIsoDay(day),
-        active: day !== today,
-        chipLabel: formatCourtDay(day),
-        draftActive: (value) => !!value && isoDay(value) !== today,
-        cleared: parseIsoDay(today),
-        onApply: (value) => {
-          if (value && isoDay(value) !== today) onDayChange(isoDay(value));
-          else onClearDay();
-        },
-      }}
-      trailing={trailing}
-      onClearAll={onClear}
-    />
+    <div className="flex min-w-0 flex-col gap-4">
+      {leading}
+      <CourtFilters
+        searchRef={searchRef}
+        search={{
+          label: "Search cases",
+          value: filters.query,
+          onChange: (query) => onChange({ query }),
+          placeholder: "Case name or number",
+        }}
+        fields={[
+          {
+            id: "hearings-purpose",
+            label: "Purpose",
+            value: filters.purpose,
+            all: "all",
+            allLabel: "All purposes",
+            options: COURT_HEARING_PURPOSES.map((purpose) => ({
+              value: purpose.id,
+              label: purpose.label,
+            })),
+            onApply: (value) =>
+              onChange({ purpose: value as HearingFilters["purpose"] }),
+          },
+        ]}
+        date={{
+          label: "Hearing date",
+          value: parseIsoDay(day),
+          active: day !== today,
+          chipLabel: formatCourtDay(day),
+          draftActive: (value) => !!value && isoDay(value) !== today,
+          cleared: parseIsoDay(today),
+          onApply: (value) => {
+            if (value && isoDay(value) !== today) onDayChange(isoDay(value));
+            else onClearDay();
+          },
+        }}
+        trailing={trailing}
+        onClearAll={onClear}
+      />
+    </div>
   );
 }
 
@@ -603,5 +836,227 @@ function HearingsItemList({
         );
       })}
     </ul>
+  );
+}
+
+/**
+ * Hearings or Orders — the screen's own question, so it stands in the page header beside
+ * the court-level action rather than inside the panel it switches. A segmented
+ * `ToggleGroup`: one tab stop, arrow keys between the two, and pressing the side already
+ * chosen is ignored because the screen always shows one of them.
+ */
+function ViewToggle({
+  value,
+  onChange,
+  hearings,
+  orders,
+}: {
+  value: ScreenView;
+  onChange: (view: ScreenView) => void;
+  hearings: number;
+  orders: number;
+}) {
+  return (
+    <ToggleGroup
+      type="single"
+      variant="outline"
+      size="lg"
+      spacing={0}
+      value={value}
+      onValueChange={(next) => {
+        if (next) onChange(next as ScreenView);
+      }}
+      aria-label="Show"
+      className="w-full sm:w-fit"
+    >
+      {(
+        [
+          ["hearings", "Hearings", hearings],
+          ["orders", "Orders", orders],
+        ] as const
+      ).map(([id, label, count]) => (
+        <ToggleGroupItem
+          key={id}
+          value={id}
+          aria-label={`${label}, ${count}`}
+          className="h-10 flex-1 gap-2 px-4 data-[state=on]:bg-brand-muted data-[state=on]:font-semibold data-[state=on]:text-brand-muted-foreground sm:flex-none"
+        >
+          <span>{label}</span>
+          <span aria-hidden className={PILL_COUNT}>
+            {count}
+          </span>
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
+  );
+}
+
+/**
+ * A view's statuses as a single-select pill row, All first — the pending-tasks row
+ * (`chrome/pill-plate.ts`) the sign process already uses. Counts are what each pill holds
+ * before search or filters; an empty status cannot narrow anything, so it is disabled
+ * unless it is the one chosen.
+ */
+function StatusPills({
+  label,
+  value,
+  onChange,
+  total,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  total: number;
+  options: { value: string; label: string; count: number; hint?: string }[];
+}) {
+  return (
+    <TooltipProvider delayDuration={300}>
+      <ToggleGroup
+        type="single"
+        size="lg"
+        variant="default"
+        value={value}
+        onValueChange={(next) => {
+          if (next) onChange(next);
+        }}
+        aria-label={label}
+        className={PILL_ROW}
+      >
+        <Pill value="all" label="All" count={total} />
+        {options.map((option) => (
+          <Pill
+            key={option.value}
+            value={option.value}
+            label={option.label}
+            count={option.count}
+            hint={option.hint}
+            disabled={option.count === 0 && value !== option.value}
+          />
+        ))}
+      </ToggleGroup>
+    </TooltipProvider>
+  );
+}
+
+function Pill({
+  value,
+  label,
+  count,
+  hint,
+  disabled,
+}: {
+  value: string;
+  label: string;
+  count: number;
+  hint?: string;
+  disabled?: boolean;
+}) {
+  const item = (
+    <ToggleGroupItem
+      value={value}
+      disabled={disabled}
+      aria-label={`${label}, ${count}`}
+      className={PILL_ITEM}
+    >
+      <span>{label}</span>
+      <span aria-hidden className={PILL_COUNT}>
+        {count}
+      </span>
+    </ToggleGroupItem>
+  );
+  if (!hint) return item;
+  return (
+    <Tooltip>
+      {/* A wrapper, not the pill: Radix writes its own `data-state` onto the trigger,
+          which would overwrite the pill's `on` — the sign process' note. */}
+      <TooltipTrigger asChild>
+        <span className="inline-flex">{item}</span>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">{hint}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+/**
+ * What is selected, and the act — the Sign orders bar, on the Orders view only. Sticky,
+ * because the list it commits can be longer than a screen; the line beside the button is
+ * live, so the selection and the outcome are heard without going looking.
+ */
+function SignBar({
+  count,
+  notice,
+  onRequestSign,
+  signRef,
+}: {
+  count: number;
+  notice: string;
+  onRequestSign: () => void;
+  signRef: React.Ref<HTMLButtonElement>;
+}) {
+  const summary =
+    notice ||
+    (count === 0
+      ? "Select the orders ready to sign."
+      : `${count} ${plural(count, "order", "orders")} selected.`);
+  return (
+    <div className="sticky bottom-0 z-30 -mx-6 -mb-6 border-t border-hairline bg-card px-6 py-3 md:-mx-8 md:-mb-8 md:px-8 md:py-4">
+      <div className="flex flex-wrap items-center justify-end gap-3">
+        <p
+          className="mr-auto text-body-compact text-muted-foreground tabular-nums"
+          aria-live="polite"
+        >
+          {summary}
+        </p>
+        <Button
+          ref={signRef}
+          type="button"
+          disabled={count === 0}
+          className="w-full sm:w-fit"
+          onClick={onRequestSign}
+        >
+          {count > 0
+            ? `Sign ${count} ${plural(count, "order", "orders")}`
+            : "Sign selected orders"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The Orders view with nothing in it. Two facts: no order has been started today — the
+ * ordinary morning, answered by the Hearings view — or the pill and search matched none.
+ */
+function OrdersEmpty({
+  hasAny,
+  onClear,
+}: {
+  hasAny: boolean;
+  onClear: () => void;
+}) {
+  return (
+    <Empty className="border-0 p-0">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          {hasAny ? <SearchXIcon aria-hidden /> : <FilePenLineIcon aria-hidden />}
+        </EmptyMedia>
+        <EmptyTitle className="text-title-s font-semibold">
+          {hasAny ? "No orders match" : "No orders yet"}
+        </EmptyTitle>
+        <EmptyDescription className="text-body">
+          {hasAny
+            ? "No order matches the status, purpose or search you asked for."
+            : "An order is drawn up at the hearing it belongs to. Start a hearing and open its order, and it appears here."}
+        </EmptyDescription>
+      </EmptyHeader>
+      {hasAny ? (
+        <EmptyContent>
+          <Button variant="outline" onClick={onClear}>
+            Clear filters
+          </Button>
+        </EmptyContent>
+      ) : null}
+    </Empty>
   );
 }
