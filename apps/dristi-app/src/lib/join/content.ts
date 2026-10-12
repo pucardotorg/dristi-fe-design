@@ -163,6 +163,14 @@ export const summonsModal = {
 /* -------------------------------------------------------------------- join dialog */
 
 export const joinDialog = {
+  /* Closing partway through asks first (owner, 2026-10-13). Malayalam drafted. */
+  leaveTitle: t("Leave without joining?", "ചേരാതെ പുറത്തുകടക്കണോ?"),
+  leaveBody: t(
+    "What you have entered so far will not be kept.",
+    "ഇതുവരെ നൽകിയ വിവരങ്ങൾ സൂക്ഷിക്കില്ല.",
+  ),
+  leaveStay: t("Keep going", "തുടരുക"),
+  leaveGo: t("Leave", "പുറത്തുകടക്കുക"),
   title: t("Join your case", "നിങ്ങളുടെ കേസിൽ ചേരുക"),
 
   /* lookup — manual entry only */

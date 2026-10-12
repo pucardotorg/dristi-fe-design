@@ -132,6 +132,7 @@ function HearingOverviewBody({
        is the thing the owner asked to end. `bg-muted` is also what `ui-craft` §1.0 names as
        the product canvas; `surface-sunken` is the DS's *nested well inside a panel*. */
     <StagedOverlay
+      outsideCloses
       className="sm:max-w-4xl"
       /* The chip rides with the cause title, the same thought in the same order as the
          page: this matter, and where it stands on today's list. */

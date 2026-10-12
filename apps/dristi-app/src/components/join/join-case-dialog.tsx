@@ -247,8 +247,22 @@ export function JoinCaseDialog({
     setDownloadNotice(false);
   }
 
+  /* Partway through, the close asks first (owner, 2026-10-13), in this window's own
+     header and footer — never a second modal. */
+  const [leaving, setLeaving] = React.useState(false);
+  const entered =
+    stage === "code" || stage === "identity" || (stage === "details" && mode !== "summons");
+
   function handleOpenChange(next: boolean) {
-    if (!next) reset();
+    if (!next && entered && !leaving) {
+      setLeaving(true);
+      titleRef.current?.focus();
+      return;
+    }
+    if (!next) {
+      setLeaving(false);
+      reset();
+    }
     onOpenChange(next);
   }
 
@@ -324,12 +338,8 @@ export function JoinCaseDialog({
         sheet
         style={panelStyle}
         className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl"
-        // The PoA party combobox portals its list outside this dialog; a click on it
-        // must not read as an outside interaction, and Escape closes the list first.
-        onInteractOutside={(event) => {
-          const target = event.target as Element | null;
-          if (target?.closest?.('[data-slot="combobox-content"]')) event.preventDefault();
-        }}
+        // A click outside never closes it (FlowDialogContent), which also keeps the PoA
+        // party combobox's portalled list clickable. Escape closes the list first.
         onEscapeKeyDown={(event) => {
           if (document.querySelector('[data-slot="combobox-content"]')) event.preventDefault();
         }}
@@ -342,33 +352,45 @@ export function JoinCaseDialog({
             tabIndex={-1}
             className="text-title-s font-semibold text-balance outline-none"
           >
-            {stage === "done"
-              ? pick(joinDialog.joinedTitle, locale)
-              : isSummonsIntro
-                ? pick(summonsModal.heading, locale)
-                : pick(joinDialog.title, locale)}
+            {leaving ? (
+              pick(joinDialog.leaveTitle, locale)
+            ) : (
+              <>
+                {stage === "done"
+                  ? pick(joinDialog.joinedTitle, locale)
+                  : isSummonsIntro
+                    ? pick(summonsModal.heading, locale)
+                    : pick(joinDialog.title, locale)}
+              </>
+            )}
           </DialogTitle>
           <DialogDescription className="text-body-compact text-pretty text-muted-foreground">
-            {stage === "done"
-              ? fill(
-                  kind === "poa" ? joinDialog.poaJoinedBody : joinDialog.joinedBody,
-                  locale,
-                  {
-                    name:
-                      kind === "poa"
-                        ? poaSelected.map((entry) => entry.name).join(", ")
-                        : (party?.name ?? ""),
-                  },
-                )
-              : isSummonsIntro
-                ? pick(summonsModal.body, locale)
-                : stage === "lookup"
-                  ? pick(joinDialog.lookupBody, locale)
-                  : stage === "code"
-                    ? pick(joinDialog.codeBody, locale)
-                    : stage === "details"
-                      ? pick(joinDialog.detailsBody, locale)
-                      : pick(joinDialog.identityBody, locale)}
+            {leaving ? (
+              pick(joinDialog.leaveBody, locale)
+            ) : (
+              <>
+                {stage === "done"
+                  ? fill(
+                      kind === "poa" ? joinDialog.poaJoinedBody : joinDialog.joinedBody,
+                      locale,
+                      {
+                        name:
+                          kind === "poa"
+                            ? poaSelected.map((entry) => entry.name).join(", ")
+                            : (party?.name ?? ""),
+                      },
+                    )
+                  : isSummonsIntro
+                    ? pick(summonsModal.body, locale)
+                    : stage === "lookup"
+                      ? pick(joinDialog.lookupBody, locale)
+                      : stage === "code"
+                        ? pick(joinDialog.codeBody, locale)
+                        : stage === "details"
+                          ? pick(joinDialog.detailsBody, locale)
+                          : pick(joinDialog.identityBody, locale)}
+              </>
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -787,152 +809,165 @@ export function JoinCaseDialog({
         <footer
           className="flex shrink-0 flex-col-reverse gap-2 border-t border-hairline px-6 pt-4 pb-[calc(--spacing(4)+env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between"
         >
-          {stage === "lookup" ? (
+          {leaving ? (
             <>
-              <span aria-hidden className="hidden sm:block" />
-              <Button type="submit" form="join-lookup" data-icon="inline-start">
-                <SearchIcon aria-hidden />
-                {pick(joinDialog.search, locale)}
+              <Button type="button" variant="outline" onClick={() => setLeaving(false)}>
+                {pick(joinDialog.leaveStay, locale)}
+              </Button>
+              <Button type="button" onClick={() => handleOpenChange(false)}>
+                {pick(joinDialog.leaveGo, locale)}
               </Button>
             </>
-          ) : null}
-
-          {stage === "code" ? (
+          ) : (
             <>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setStage("lookup")}
-                data-icon="inline-start"
-              >
-                <ArrowLeftIcon aria-hidden />
-                {pick(joinDialog.back, locale)}
-              </Button>
-              <Button type="submit" form="join-code" data-icon="inline-end">
-                {pick(joinDialog.codeVerify, locale)}
-                <ArrowRightIcon aria-hidden />
-              </Button>
-            </>
-          ) : null}
+              {stage === "lookup" ? (
+                <>
+                  <span aria-hidden className="hidden sm:block" />
+                  <Button type="submit" form="join-lookup" data-icon="inline-start">
+                    <SearchIcon aria-hidden />
+                    {pick(joinDialog.search, locale)}
+                  </Button>
+                </>
+              ) : null}
 
-          {stage === "details" ? (
-            <>
-              {mode === "manual" ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setStage("code")}
-                  data-icon="inline-start"
-                >
-                  <ArrowLeftIcon aria-hidden />
-                  {pick(joinDialog.back, locale)}
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => handleOpenChange(false)}
-                >
-                  {pick(summonsModal.dismiss, locale)}
-                </Button>
-              )}
-              {/* Download sits next to the primary action as a compact icon; the label
-                  rides in its hover tooltip. */}
-              <div className="flex items-center gap-2">
-                <DownloadCaseFileButton
-                  label={pick(joinDialog.downloadCaseFile, locale)}
-                  onClick={() => setDownloadNotice(true)}
-                />
-                {/* Stacked footer on a phone: the primary fills the row beside
-                    the icon, as wide as the Back button under it. */}
-                <Button
-                  type="button"
-                  className="flex-1 sm:flex-none"
-                  onClick={() => setStage("identity")}
-                  data-icon="inline-end"
-                >
-                  {pick(summonsModal.cta, locale)}
-                  <ArrowRightIcon aria-hidden />
-                </Button>
-              </div>
-            </>
-          ) : null}
+              {stage === "code" ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setStage("lookup")}
+                    data-icon="inline-start"
+                  >
+                    <ArrowLeftIcon aria-hidden />
+                    {pick(joinDialog.back, locale)}
+                  </Button>
+                  <Button type="submit" form="join-code" data-icon="inline-end">
+                    {pick(joinDialog.codeVerify, locale)}
+                    <ArrowRightIcon aria-hidden />
+                  </Button>
+                </>
+              ) : null}
 
-          {stage === "identity" ? (
-            <>
-              {mode === "handoff" ? (
-                <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
-                  {pick(joinDialog.close, locale)}
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setStage("details")}
-                  data-icon="inline-start"
-                >
-                  <ArrowLeftIcon aria-hidden />
-                  {pick(joinDialog.back, locale)}
-                </Button>
-              )}
-              <Button
-                type="submit"
-                form="join-identity"
-                disabled={kind === "self" ? blocked : poaBlocked}
-                data-icon="inline-end"
-              >
-                {pick(joinDialog.joinSubmit, locale)}
-                <ArrowRightIcon aria-hidden />
-              </Button>
-            </>
-          ) : null}
-
-          {stage === "done" ? (
-            doneAction === "case" ? (
-              // No further action — Back to home, then View case as the primary.
-              <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => handleOpenChange(false)}
-                >
-                  {pick(joinDialog.backHome, locale)}
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => setDoneNotice("case")}
-                  data-icon="inline-end"
-                >
-                  {pick(joinDialog.viewCase, locale)}
-                  <ArrowRightIcon aria-hidden />
-                </Button>
-              </>
-            ) : (
-              // A next step (bail / add advocate) is the primary; View case is secondary.
-              <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setDoneNotice("case")}
-                >
-                  {pick(joinDialog.viewCase, locale)}
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() =>
-                    doneAction === "bail" ? setBailOpen(true) : setDoneNotice(doneAction)
-                  }
-                  data-icon="inline-end"
-                >
-                  {pick(
-                    doneAction === "bail" ? joinDialog.fileBail : joinDialog.addAdvocate,
-                    locale,
+              {stage === "details" ? (
+                <>
+                  {mode === "manual" ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setStage("code")}
+                      data-icon="inline-start"
+                    >
+                      <ArrowLeftIcon aria-hidden />
+                      {pick(joinDialog.back, locale)}
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => handleOpenChange(false)}
+                    >
+                      {pick(summonsModal.dismiss, locale)}
+                    </Button>
                   )}
-                  <ArrowRightIcon aria-hidden />
-                </Button>
-              </>
-            )
-          ) : null}
+                  {/* Download sits next to the primary action as a compact icon; the label
+                      rides in its hover tooltip. */}
+                  <div className="flex items-center gap-2">
+                    <DownloadCaseFileButton
+                      label={pick(joinDialog.downloadCaseFile, locale)}
+                      onClick={() => setDownloadNotice(true)}
+                    />
+                    {/* Stacked footer on a phone: the primary fills the row beside
+                        the icon, as wide as the Back button under it. */}
+                    <Button
+                      type="button"
+                      className="flex-1 sm:flex-none"
+                      onClick={() => setStage("identity")}
+                      data-icon="inline-end"
+                    >
+                      {pick(summonsModal.cta, locale)}
+                      <ArrowRightIcon aria-hidden />
+                    </Button>
+                  </div>
+                </>
+              ) : null}
+
+              {stage === "identity" ? (
+                <>
+                  {mode === "handoff" ? (
+                    <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
+                      {pick(joinDialog.close, locale)}
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setStage("details")}
+                      data-icon="inline-start"
+                    >
+                      <ArrowLeftIcon aria-hidden />
+                      {pick(joinDialog.back, locale)}
+                    </Button>
+                  )}
+                  <Button
+                    type="submit"
+                    form="join-identity"
+                    disabled={kind === "self" ? blocked : poaBlocked}
+                    data-icon="inline-end"
+                  >
+                    {pick(joinDialog.joinSubmit, locale)}
+                    <ArrowRightIcon aria-hidden />
+                  </Button>
+                </>
+              ) : null}
+
+              {stage === "done" ? (
+                doneAction === "case" ? (
+                  // No further action — Back to home, then View case as the primary.
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => handleOpenChange(false)}
+                    >
+                      {pick(joinDialog.backHome, locale)}
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={() => setDoneNotice("case")}
+                      data-icon="inline-end"
+                    >
+                      {pick(joinDialog.viewCase, locale)}
+                      <ArrowRightIcon aria-hidden />
+                    </Button>
+                  </>
+                ) : (
+                  // A next step (bail / add advocate) is the primary; View case is secondary.
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setDoneNotice("case")}
+                    >
+                      {pick(joinDialog.viewCase, locale)}
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={() =>
+                        doneAction === "bail" ? setBailOpen(true) : setDoneNotice(doneAction)
+                      }
+                      data-icon="inline-end"
+                    >
+                      {pick(
+                        doneAction === "bail" ? joinDialog.fileBail : joinDialog.addAdvocate,
+                        locale,
+                      )}
+                      <ArrowRightIcon aria-hidden />
+                    </Button>
+                  </>
+                )
+              ) : null}
+            </>
+          )}
         </footer>
       </FlowDialogContent>
     </Dialog>
