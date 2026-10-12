@@ -13,7 +13,7 @@
 import { accusedAddressesOnFile } from "./complaint";
 import { applicationsFile, type SubmissionPerson } from "./applications";
 import { participantsFile } from "./parties";
-import type { CaseRecord } from "./types";
+import { counselFor, type CaseRecord } from "./types";
 import type { Address } from "@/lib/filing/types";
 
 export type PersonOption = { id: string; name: string };
@@ -26,6 +26,9 @@ export type CaseLitigant = {
   designation?: string;
   /** "Partnership firm" — institutions only. */
   entityType?: string;
+  /** Advocates on record for this litigant. */
+  advocates: string[];
+  partyInPerson: boolean;
 };
 
 /**
@@ -105,6 +108,8 @@ export function caseLitigants(record: CaseRecord): CaseLitigant[] {
       institution: litigant.kind === "entity",
       designation: litigant.designation,
       entityType: litigant.entityType,
+      advocates: litigant.advocates,
+      partyInPerson: litigant.partyInPerson,
     }));
   } catch {
     // A case the parties register does not know (one just joined): the
@@ -114,6 +119,8 @@ export function caseLitigants(record: CaseRecord): CaseLitigant[] {
       name: record.parties[side],
       side,
       institution: false,
+      advocates: counselFor(record, side),
+      partyInPerson: false,
     }));
   }
 }

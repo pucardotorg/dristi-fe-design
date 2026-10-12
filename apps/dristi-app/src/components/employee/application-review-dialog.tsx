@@ -213,10 +213,14 @@ export function ApplicationFacsimile({
         ))}
       </ol>
 
-      <section className="flex flex-col gap-2">
-        <h4 className="text-body font-semibold">Prayer</h4>
-        <p className="text-body whitespace-pre-wrap">{document.prayer}</p>
-      </section>
+      {/* An application filed through Raise application carries no prayer
+          yet: its content is the values entered, until the text is specified. */}
+      {document.prayer ? (
+        <section className="flex flex-col gap-2">
+          <h4 className="text-body font-semibold">Prayer</h4>
+          <p className="text-body whitespace-pre-wrap">{document.prayer}</p>
+        </section>
+      ) : null}
 
       <footer className="flex flex-col items-end gap-2">
         <p className="text-body-compact text-paper-muted-foreground">
