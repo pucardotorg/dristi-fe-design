@@ -18,6 +18,7 @@ import {
 import { Identifier } from "@/components/chrome/identifier";
 import { CounselCell } from "@/components/employee/counsel-cell";
 import { useOrderDrafts } from "@/components/employee/use-order-draft";
+import { hasDraftFor } from "@/lib/employee/order-drafts";
 import {
   rowActivation,
   rowOpener,
@@ -686,7 +687,7 @@ export function HearingRowActions({
   /* The phone row has no columns to move between, so the state has to be in the control
      itself: this is where "Open order" becomes "Resume draft". */
   const drafts = useOrderDrafts();
-  const drafted = Boolean(drafts[hearing.id]);
+  const drafted = hasDraftFor(drafts, hearing.id);
 
   return (
     <div className={cn("flex items-center gap-2", className)}>
@@ -873,7 +874,7 @@ export function HearingsTable({
                 <HearingOrdersButton
                   hearing={hearing}
                   seat={seat}
-                  drafted={Boolean(drafts[hearing.id])}
+                  drafted={hasDraftFor(drafts, hearing.id)}
                   onOpen={onOpenOrder}
                 />
               </div>
