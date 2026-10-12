@@ -72,7 +72,7 @@ export const SECTIONS: SectionDef[] = [
             id: "a-addr",
             label: "Permanent address",
             value: "12, Shanti Kunj Society, Naroda, Ahmedabad, Gujarat — 382330",
-            nodoc: "Not in any document",
+            unfound: "Not in any document",
           },
         ],
       },

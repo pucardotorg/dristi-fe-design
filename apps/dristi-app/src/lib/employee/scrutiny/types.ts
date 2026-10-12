@@ -76,6 +76,11 @@ export interface Field {
   failnote?: string;
   /** No document exists to verify this against — said plainly, not hidden. */
   nodoc?: string;
+  /**
+   * AI searched the bundle and found no document carrying this value — "Not in any
+   * document". Unlike `nodoc`, saying so takes reading the documents, so it needs AI on.
+   */
+  unfound?: string;
   /** Standing caution about the upload behind this row. */
   scannote?: string;
   /** Where in the document the value sits, when that is not obvious. */

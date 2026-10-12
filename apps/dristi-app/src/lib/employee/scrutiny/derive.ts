@@ -313,7 +313,7 @@ export function deriveScrutinyCase(filing: Filing): DerivedCase {
         value: accused,
         ...(cheque
           ? { doc: "cheque", srcnote: "Signatory on the cheque" }
-          : { nodoc: "Named in the agreement only" }),
+          : { unfound: "Named in the agreement only" }),
       },
       { id: "a-age", label: "Age", value: String(28 + Math.floor(rng() * 35)) },
       { id: "a-mob", label: "Mobile number", value: mobile(rng) },
@@ -321,7 +321,7 @@ export function deriveScrutinyCase(filing: Filing): DerivedCase {
         id: "a-addr",
         label: "Permanent address",
         value: accusedAddr,
-        nodoc: "Not in any document",
+        unfound: "Not in any document",
       },
     ] as Field[],
   };
