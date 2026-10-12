@@ -20,6 +20,7 @@ import {
   COURT_NAV_TRAILING,
   courtNavRowsFor,
   courtNavGroupsFor,
+  courtNavGroupsForCourt,
   courtNavGroupsForSeat,
   courtNavItemsForSeat,
   seatHasNarrowRail,
@@ -1092,7 +1093,11 @@ function CourtIdentityFooter() {
 export function EmployeeNav() {
   const [cognizanceLayout] = useCognizanceLayout();
   const seat = useCourtRole();
-  const groups = courtNavGroupsForSeat(courtNavGroupsFor(cognizanceLayout), seat);
+  const { court } = useCourt();
+  const groups = courtNavGroupsForSeat(
+    courtNavGroupsForCourt(courtNavGroupsFor(cognizanceLayout), court),
+    seat,
+  );
   const { openId, setOpenId, currentId } = useCourtNavDisclosure(groups);
   const [savedLayout] = useCourtNavLayout();
   /* A seat cut down to a few rows has nothing to fold into a combined row, so it shows
@@ -1144,13 +1149,13 @@ export function EmployeeNav() {
                into (`courtNavRowsFor`), flat — the same list primitive the standalone
                links above already use. */
             <SidebarMenu className={RAIL_MENU}>
-              {courtNavRowsFor(layout).map((item) => (
+              {courtNavRowsFor(layout, court).map((item) => (
                 <CourtNavRow
                   key={item.id}
                   item={item}
                   active={
                     isCourtNavCombinedRow(item)
-                      ? isCourtNavCombinedActive(pathname, layout)
+                      ? isCourtNavCombinedActive(pathname, layout, court)
                       : undefined
                   }
                 />

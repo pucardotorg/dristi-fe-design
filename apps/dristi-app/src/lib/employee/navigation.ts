@@ -39,6 +39,7 @@ import { type CognizanceLayout, readCognizanceLayout } from "./cognizance-layout
 import { DELAY_CONDONATION_QUEUE_COUNT } from "./delay-condonation";
 import { hearingById, TODAYS_HEARING_COUNT } from "./hearings";
 import type { CourtNavLayout } from "./nav-layout";
+import { courtProfile, type CourtId } from "../court/profiles";
 import { OTHER_APPLICATIONS_QUEUE_COUNT } from "./other-applications";
 import {
   APPROVE_REGISTRATIONS_TITLE,
@@ -512,6 +513,31 @@ export function courtNavGroupsForSeat(groups: CourtNavGroup[], role: CourtRole):
 }
 
 /**
+ * Whether a deployment has this row at all. Under `registrationPoint: scrutiny` the
+ * scrutiny officer registers the case and it goes straight to Take cognizance, so there
+ * is no Register cases queue (`SCR-11`, e-filing handover §20.3a).
+ *
+ * Unlike the seat rule above, this is not a view of something that exists: the queue is
+ * not there in that state, so every list of rows drops it — the rail, the combined
+ * screens, the dashboard and search.
+ */
+export function courtHasNavRow(court: CourtId, id: string): boolean {
+  return !(id === "register-cases" && courtProfile(court).registrationPoint === "scrutiny");
+}
+
+/** A list of rows, less the ones this deployment does not have. */
+export function courtNavItemsForCourt(items: CourtNavItem[], court: CourtId): CourtNavItem[] {
+  return items.filter((item) => courtHasNavRow(court, item.id));
+}
+
+/** Groups, less the rows this deployment does not have — and less any group left empty. */
+export function courtNavGroupsForCourt(groups: CourtNavGroup[], court: CourtId): CourtNavGroup[] {
+  return groups
+    .map((group) => ({ ...group, items: courtNavItemsForCourt(group.items, court) }))
+    .filter((group) => group.items.length > 0);
+}
+
+/**
  * `COURT_NAV_GROUPS`, with Take cognizance's two rows attached when the "split" setting
  * is live. Read fresh rather than cached: the setting can change without a reload, and
  * the counts are the queue's own and can move with it. Every other row and group is
@@ -557,14 +583,20 @@ const COURT_NAV_KEPT_APART: Record<
   schedule: { leading: [], trailing: ["bulk-reschedule", "sign-process"] },
 };
 
-/** Every group's rows, in the rail's own order — the one pass every function below shares. */
-function courtNavAllItems(): CourtNavItem[] {
-  return COURT_NAV_GROUPS.flatMap((group) => group.items);
+/**
+ * Every group's rows the deployment has, in the rail's own order — the one pass every
+ * function below shares.
+ */
+function courtNavAllItems(court: CourtId): CourtNavItem[] {
+  return courtNavItemsForCourt(
+    COURT_NAV_GROUPS.flatMap((group) => group.items),
+    court,
+  );
 }
 
 /** The rows named by a list of ids, in the order the ids were given — not the source's. */
-function courtNavItemsByIds(ids: string[]): CourtNavItem[] {
-  const all = courtNavAllItems();
+function courtNavItemsByIds(ids: string[], court: CourtId): CourtNavItem[] {
+  const all = courtNavAllItems(court);
   return ids
     .map((id) => all.find((item) => item.id === id))
     .filter((item): item is CourtNavItem => item !== undefined);
@@ -575,23 +607,32 @@ function courtNavItemsByIds(ids: string[]): CourtNavItem[] {
  * `"actions"`: Today's hearings, then Bulk reschedule hearings, then Sign process.
  * `"schedule"`: Bulk reschedule hearings, then Sign process.
  */
-export function courtNavKeptApart(layout: CombinedCourtNavLayout): CourtNavItem[] {
+export function courtNavKeptApart(
+  layout: CombinedCourtNavLayout,
+  court: CourtId,
+): CourtNavItem[] {
   const spec = COURT_NAV_KEPT_APART[layout];
-  return courtNavItemsByIds([...spec.leading, ...spec.trailing]);
+  return courtNavItemsByIds([...spec.leading, ...spec.trailing], court);
 }
 
 /**
  * Everything a layout folds into its one row — every `COURT_NAV_GROUPS` item except
  * what that layout keeps apart, still in the source's own order.
  */
-export function courtNavClubbed(layout: CombinedCourtNavLayout): CourtNavItem[] {
-  const apart = new Set(courtNavKeptApart(layout).map((item) => item.id));
-  return courtNavAllItems().filter((item) => !apart.has(item.id));
+export function courtNavClubbed(
+  layout: CombinedCourtNavLayout,
+  court: CourtId,
+): CourtNavItem[] {
+  const apart = new Set(courtNavKeptApart(layout, court).map((item) => item.id));
+  return courtNavAllItems(court).filter((item) => !apart.has(item.id));
 }
 
 /** The combined row's own count — every clubbed item's, summed, never restated by hand. */
-export function courtNavClubbedTotal(layout: CombinedCourtNavLayout): number {
-  return courtNavClubbed(layout).reduce(
+export function courtNavClubbedTotal(
+  layout: CombinedCourtNavLayout,
+  court: CourtId,
+): number {
+  return courtNavClubbed(layout, court).reduce(
     (total, item) => total + (item.count ?? 0),
     0,
   );
@@ -622,6 +663,7 @@ const COURT_NAV_COMBINED_ROW: Record<CombinedCourtNavLayout, CourtNavItem> = {
  */
 export function courtNavRowsFor(
   layout: CombinedCourtNavLayout,
+  court: CourtId,
 ): CourtNavItem[] {
   const spec = COURT_NAV_KEPT_APART[layout];
   /* A promoted row keeps the mark it already carries in its group. It used to be given a
@@ -631,12 +673,12 @@ export function courtNavRowsFor(
   const combined: CourtNavItem = {
     ...COURT_NAV_COMBINED_ROW[layout],
     icon: CalendarDaysIcon,
-    count: courtNavClubbedTotal(layout),
+    count: courtNavClubbedTotal(layout, court),
   };
   return [
-    ...courtNavItemsByIds(spec.leading),
+    ...courtNavItemsByIds(spec.leading, court),
     combined,
-    ...courtNavItemsByIds(spec.trailing),
+    ...courtNavItemsByIds(spec.trailing, court),
   ];
 }
 
@@ -767,8 +809,9 @@ export function isCourtNavActive(pathname: string, href: string): boolean {
 export function isCourtNavCombinedActive(
   pathname: string,
   layout: CombinedCourtNavLayout,
+  court: CourtId,
 ): boolean {
-  return courtNavClubbed(layout).some(
+  return courtNavClubbed(layout, court).some(
     (item) => item.href !== undefined && isCourtNavActive(pathname, item.href),
   );
 }
@@ -906,8 +949,8 @@ export type CourtWaitingGroup = {
  * a row at zero is waiting on nobody, and a group with nothing left in it is dropped
  * whole rather than printed as an empty heading.
  */
-export function courtWaitingGroups(): CourtWaitingGroup[] {
-  return COURT_NAV_GROUPS.map((group) => {
+export function courtWaitingGroups(court: CourtId): CourtWaitingGroup[] {
+  return courtNavGroupsForCourt(COURT_NAV_GROUPS, court).map((group) => {
     const items = group.items
       .filter(
         (item): item is CourtNavItem & { href: string; count: number } =>

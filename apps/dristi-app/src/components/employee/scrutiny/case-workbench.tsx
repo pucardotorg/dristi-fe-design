@@ -52,7 +52,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useCourtText } from "@/components/court/court-provider";
+import { useCourt, useCourtText } from "@/components/court/court-provider";
 
 /**
  * The case review: filed fields on the left, the bundle in the centre, the document
@@ -129,6 +129,7 @@ export function CaseWorkbench({
   // kind of thing scrutiny exists to catch). Local until a case service owns it.
   // The editable title starts as the heading shows it (Settings' court switch).
   const courtText = useCourtText();
+  const { profile } = useCourt();
   const [title, setTitle] = React.useState(() => ({
     complainant: courtText(party.complainant),
     accused: courtText(party.accused),
@@ -419,7 +420,14 @@ export function CaseWorkbench({
             Send back to advocate
           </Button>
         ) : null}
-        <Button onClick={() => setDecision("register")}>Register case</Button>
+        {/* Forward or Register, by who registers in this state (`SCR-06`, `SCR-11`). */}
+        {profile.registrationPoint === "magistrate" ? (
+          <Button onClick={() => setDecision("forward")}>
+            Forward to magistrate
+          </Button>
+        ) : (
+          <Button onClick={() => setDecision("register")}>Register case</Button>
+        )}
       </div>
 
       <HistorySheet
