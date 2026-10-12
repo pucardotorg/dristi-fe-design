@@ -90,6 +90,17 @@ The choice re-voices the existing screens. No screen, step or field is added.
 
 ## Verification and open work
 
+- **Full and final check, 2026-10-08 (after the Settings icon and Saras changes).**
+  - **Coverage:** every route on both sides, all four court seats, the litigant
+    profile, `/citizen`, phone width and dark mode, explored up to 20 states per route.
+  - **Results:** Gujarat 1,758 captures, Punjab 1,751, Haryana 1,744. No console or
+    hydration errors. The remaining findings (the scrutiny title editor, "Velayudhan")
+    were fixed in `1d3fdeb`, and their 792 screens per state were re-checked clean.
+  - **Method:** detector from `places.ts` and `names.ts`, plus a sweep for any data
+    word not yet reviewed, read by hand. 27 real downloads (nine document types ×
+    three states) were checked: contents and file names clean.
+  - **Allowed by design:** "24×7 ON Courts" in Punjab and Haryana.
+
 - **Second owner review, 2026-10-08.** The owner found the advocate cause list still
   showing Kerala: `KLKL01-…` case numbers and Malayali names. The earlier "0 left" was
   only against my own pattern list, which did not know these.

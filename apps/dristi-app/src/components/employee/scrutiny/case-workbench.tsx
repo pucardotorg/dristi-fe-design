@@ -52,6 +52,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useCourtText } from "@/components/court/court-provider";
 
 /**
  * The case review: filed fields on the left, the bundle in the centre, the document
@@ -126,10 +127,12 @@ export function CaseWorkbench({
 
   // The case title is the officer's to correct (a mis-spelt party name is exactly the
   // kind of thing scrutiny exists to catch). Local until a case service owns it.
-  const [title, setTitle] = React.useState({
-    complainant: party.complainant,
-    accused: party.accused,
-  });
+  // The editable title starts as the heading shows it (Settings' court switch).
+  const courtText = useCourtText();
+  const [title, setTitle] = React.useState(() => ({
+    complainant: courtText(party.complainant),
+    accused: courtText(party.accused),
+  }));
   const [editingTitle, setEditingTitle] = React.useState(false);
 
   const goToDoc = React.useCallback(
