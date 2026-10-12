@@ -11,6 +11,9 @@ import type { Ball, Filing } from "@/lib/employee/scrutiny/types";
  * Fixture data, standing in for the registry service. It is the only thing here that a
  * real API replaces; the selectors in `queue.ts` and the screens above them are written
  * against the types, not against these rows.
+ *
+ * S.138 complaints only (owner, 2026-10-12): the PSA S25 rows were removed, because
+ * there is no e-filing form behind them yet, so nothing filed to scrutinise.
  */
 export const QUEUE: Filing[] = [
   {
@@ -35,17 +38,6 @@ export const QUEUE: Filing[] = [
     advocate: "Adv. R. Mehta",
     who: "—",
     days: 1,
-  },
-  {
-    no: "F/AHM/2026/00327",
-    parties: "Sunil Trivedi v. Anand Motors",
-    type: "S25 of PSA",
-    stage: "Awaiting scrutiny",
-    ball: "registry",
-    reason: "Low AI confidence",
-    advocate: "Adv. P. Joshi",
-    who: "—",
-    days: 9,
   },
   {
     no: "F/AHM/2026/00319",
@@ -90,17 +82,6 @@ export const QUEUE: Filing[] = [
     advocate: "Adv. Bijini Rejen",
     who: "—",
     days: 23,
-  },
-  {
-    no: "F/AHM/2026/00302",
-    parties: "Kavita Sharma v. Rakesh Doshi",
-    type: "S25 of PSA",
-    stage: "Sent back",
-    ball: "advocate",
-    reason: "1 item open",
-    advocate: "Adv. M. Qureshi",
-    who: "—",
-    days: 12,
   },
   {
     no: "F/AHM/2026/00298",

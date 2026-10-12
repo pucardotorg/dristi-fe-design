@@ -387,6 +387,35 @@ export function ensureScrutinyDraft(draftId: string): Promise<FilingDraft | null
   return pending;
 }
 
+/** Is this one of the sandbox's returned filings (Sainaba, Lakshmi, Rafi)? */
+export function isScrutinyDemoDraft(draftId: string): boolean {
+  return draftId in BUILDERS;
+}
+
+/**
+ * Put a sandbox return back the way scrutiny sent it, overwriting any corrections. The
+ * fix page calls this on every opening, so a demo can be run again and again without
+ * resetting the sandbox (owner, 2026-10-12). Mock data only: never for a real draft.
+ */
+export async function reseedScrutinyDraft(draftId: string): Promise<FilingDraft | null> {
+  const build = BUILDERS[draftId];
+  if (!build) return getRepository().getDraft(draftId);
+  try {
+    await Promise.all(Object.values(SCRUTINY_FILES).map(ensureFile));
+    const draft = build();
+    await getRepository().putDraft(draft);
+    seeding.set(draftId, Promise.resolve(draft));
+    try {
+      window.localStorage.removeItem(`dristi:scrutiny-originals:${draftId}`);
+    } catch {
+      /* storage refused: nothing kept to clear */
+    }
+    return draft;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Mark returned filings seeded before returns were marked, so the dashboard keeps them
  * off Drafts without each having to be opened first. Only drafts already in the browser.
