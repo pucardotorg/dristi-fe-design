@@ -3,6 +3,7 @@
 import Link from "next/link";
 
 import { useCourtToday } from "@/components/employee/use-court-today";
+import { useCourt } from "@/components/court/court-provider";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -69,6 +70,13 @@ export function CourtDashboardScreen() {
   const actNow = actNowCases();
   const higher = underHigherCourtCases();
   const cognizance = courtPriorityCount(courtPriorityById("pending-cognizance")!);
+  /* Where a case registered at scrutiny lands: there is no Register cases queue under
+     `registrationPoint: scrutiny` (`SCR-11`), so the way in is Take cognizance. */
+  const { profile } = useCourt();
+  const cognizanceHref =
+    profile.registrationPoint === "scrutiny"
+      ? "/employee/cognizance"
+      : "/employee/register-cases";
 
   return (
     <div className="mx-auto flex w-full max-w-7xl min-w-0 flex-1 flex-col gap-8 p-6 md:p-8">
@@ -150,7 +158,7 @@ export function CourtDashboardScreen() {
                 : `${cognizance} new complaints have cleared scrutiny and need your first order.`}
             </p>
             <Button asChild variant="outline" className="self-start">
-              <Link href="/employee/register-cases">Review complaints</Link>
+              <Link href={cognizanceHref}>Review complaints</Link>
             </Button>
           </section>
 

@@ -24,7 +24,11 @@ import {
 } from "@/components/chrome/staged-overlay";
 import { useScrutinyCase } from "@/components/employee/scrutiny/scrutiny-case-context";
 
-export type Decision = "send-back" | "register";
+/**
+ * `forward` hands the case to the magistrate to register; `register` registers it here.
+ * Which of the two the officer has depends on the state's `registrationPoint` (`SCR-06`).
+ */
+export type Decision = "send-back" | "forward" | "register";
 
 interface Item {
   field: FlatField;
@@ -145,10 +149,19 @@ export function ReviewDialog({
           title: "Send back to advocate",
           body: `Goes to ${party.advocate}.`,
         }
+      : decision === "forward"
+      ? {
+          title: "Forward to magistrate",
+          body: total
+            ? `The case moves to the Magistrate's list for registration. ${total} open item${
+                total > 1 ? "s travel" : " travels"
+              } with it — forwarding does not clear ${total > 1 ? "them" : "it"}.`
+            : "Every field was checked against the bundle. The case moves to the Magistrate's list for registration.",
+        }
       : {
           title: "Register case",
           body: total
-            ? `The case moves to the Magistrate's list. ${total} open item${
+            ? `The case moves to the Magistrate's list for cognizance. ${total} open item${
                 total > 1 ? "s travel" : " travels"
               } with it — registering does not clear ${total > 1 ? "them" : "it"}.`
             : "Every field was checked against the bundle. The case moves to the Magistrate's list for cognizance.",
@@ -194,6 +207,20 @@ export function ReviewDialog({
           tone: "bg-secondary text-secondary-foreground",
           Icon: RotateCcwIcon,
         }
+      : decision === "forward"
+      ? {
+          title: "Forwarded to magistrate",
+          state: "Forwarded",
+          body: total
+            ? `On the Magistrate's list for registration, with ${total} open item${
+                total > 1 ? "s" : ""
+              } attached.`
+            : "On the Magistrate's list for registration.",
+          /* Scrutiny is done with the file, which is this desk's good outcome, so it
+             wears the same mark as registering. */
+          tone: "bg-success-muted text-success-muted-foreground",
+          Icon: CheckIcon,
+        }
       : {
           title: "Case registered",
           state: "Registered",
@@ -208,7 +235,7 @@ export function ReviewDialog({
           Icon: CheckIcon,
         };
 
-  const needsAck = decision === "register" && total > 0;
+  const needsAck = decision !== "send-back" && total > 0;
   const done = flow.stage === "done";
 
   return (
@@ -291,7 +318,11 @@ export function ReviewDialog({
                 disabled={needsAck && !ack}
                 onClick={() => flow.go("done")}
               >
-                {decision === "send-back" ? "Send back" : "Register case"}
+                {decision === "send-back"
+                  ? "Send back"
+                  : decision === "forward"
+                    ? "Forward to magistrate"
+                    : "Register case"}
               </Button>
               {/* The gate on the primary, beside the button it gates. It had its own
                   region above the footer before the frame, which has two regions and not
@@ -314,7 +345,8 @@ export function ReviewDialog({
                     onCheckedChange={(value) => setAck(value === true)}
                   />
                   <FieldLabel htmlFor="ack" className="font-normal">
-                    I have seen the open flags and choose to register.
+                    I have seen the open flags and choose to{" "}
+                    {decision === "forward" ? "forward" : "register"}.
                   </FieldLabel>
                 </Field>
               ) : null}
