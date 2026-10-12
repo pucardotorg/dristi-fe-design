@@ -1,11 +1,11 @@
 # Summons (v15)
 Updated: 2026-10-12
-Status: built on `feature/summons-v15`; static render checked, live route not yet rendered
+Status: built on `feature/summons-v15`; live route rendered and checked (desktop and 375px)
 
 ## Current outcome
 
 `/summons` renders the summons an accused person receives: v14's one-sheet, two-sided
-design with the owner's review fixes, in two versions and for every court.
+design with the owner's review fixes, for every court.
 
 - **One version for paper and screen.** Every address is written in full (paper cannot
   be clicked); on screen the same addresses, phones and the join QR are also links. In
