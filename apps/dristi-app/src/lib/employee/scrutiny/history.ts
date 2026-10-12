@@ -22,13 +22,13 @@ export const HISTORY: HistoryEvent[] = [
     meta: "7 Jul 2026 · Biju B",
     items: [
       {
-        ref: "q-amt",
+        ref: "q1-amt",
         what: "Cheque amount · flag",
         was: "₹52,05,000 → ₹50,25,000",
         status: "corrected 13 Jul",
       },
       {
-        ref: "c-name",
+        ref: "c1-name",
         what: "Complainant full name · flag",
         was: "Aadhaar address side uploaded",
         status: "answered 13 Jul",

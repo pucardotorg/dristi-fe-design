@@ -104,7 +104,7 @@ export const QUEUE: Filing[] = [
   },
   {
     no: "F/AHM/2026/00298",
-    parties: "Bhavna Desai v. Umesh Parmar",
+    parties: "Shree Ganesh Finance Pvt. Ltd. v. Umesh Parmar",
     type: "S.138 NI Act",
     stage: "Sent back",
     ball: "advocate",

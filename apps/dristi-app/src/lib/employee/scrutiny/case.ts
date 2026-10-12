@@ -1,13 +1,9 @@
-import { BUNDLE, DOC_BY_ID, DOC_ROW } from "@/lib/employee/scrutiny/bundle";
-import { deriveScrutinyCase } from "@/lib/employee/scrutiny/derive";
+import { deriveHistory, deriveScrutinyCase } from "@/lib/employee/scrutiny/derive";
+import { caseFromDraft } from "@/lib/employee/scrutiny/from-draft";
 import { CASE, HISTORY, HISTORY_ROUND, HISTORY_SUMMARY } from "@/lib/employee/scrutiny/history";
+import { mockFiling, SCRUTINY_SIGNING } from "@/lib/employee/scrutiny/mock-filings";
 import { findFiling } from "@/lib/employee/scrutiny/queue";
-import {
-  ALL_FIELDS,
-  CHECKS,
-  FIELD_BY_ID,
-  SECTIONS,
-} from "@/lib/employee/scrutiny/sections";
+import { CHECKS } from "@/lib/employee/scrutiny/sections";
 import type {
   BundleDoc,
   Filing,
@@ -40,31 +36,36 @@ function indexBy<T extends { id: string }>(items: T[]): Record<string, T> {
 /**
  * Assemble one filing's workbench.
  *
- * The authored case returns its own rich content; every other filing is derived from its
- * queue row (`derive.ts`). Either way the caller gets one `ScrutinyCase` and the workbench
- * renders identically — which is the whole point of the seam: no row is a dead link, and
- * no screen special-cases "the real one".
+ * A §138 filing is read off its e-filing draft (`from-draft.ts`), so the officer sees
+ * every question the form asked, exactly as the advocate answered it. A Section 25 (PSA)
+ * matter has no e-filing form yet, so it is still derived from its queue row
+ * (`derive.ts`). Either way the caller gets one `ScrutinyCase` and the workbench renders
+ * identically — no screen special-cases where the case came from.
  */
 export function buildScrutinyCase(filing: Filing): ScrutinyCase {
-  if (filing.no === HERO_FILING_NO) {
+  const mock = mockFiling(filing.no);
+  if (mock) {
+    const read = caseFromDraft(mock.draft, {
+      signing: SCRUTINY_SIGNING,
+      pages: mock.pages,
+      poorScans: mock.poorScans,
+    });
+    const allFields = flatten(read.sections);
+    const history =
+      filing.no === HERO_FILING_NO
+        ? { history: HISTORY, historySummary: HISTORY_SUMMARY, historyRound: HISTORY_ROUND }
+        : deriveHistory(filing, read.party);
     return {
       filing,
-      party: {
-        complainant: CASE.complainant,
-        accused: CASE.accused,
-        submitted: CASE.submitted,
-        advocate: CASE.advocate,
-      },
-      sections: SECTIONS,
-      allFields: ALL_FIELDS,
-      fieldById: FIELD_BY_ID,
-      bundle: BUNDLE,
-      docById: DOC_BY_ID,
-      docRow: DOC_ROW,
+      party: read.party,
+      sections: read.sections,
+      allFields,
+      fieldById: indexBy(allFields),
+      bundle: read.bundle,
+      docById: indexBy<BundleDoc>(read.bundle),
+      docRow: read.docRow,
       checks: CHECKS,
-      history: HISTORY,
-      historySummary: HISTORY_SUMMARY,
-      historyRound: HISTORY_ROUND,
+      ...history,
     };
   }
 

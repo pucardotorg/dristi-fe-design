@@ -192,6 +192,9 @@ export function FieldRow({
   );
 }
 
+/** What `from-draft.ts` writes for a question the filer left unanswered. */
+const NOT_PROVIDED = "Not provided";
+
 /** The filed value. A raised item never replaces it — the advocate makes the fix. */
 function ValueLines({ field }: { field: FlatField }) {
   if (!field.value) return null;
@@ -199,7 +202,10 @@ function ValueLines({ field }: { field: FlatField }) {
     <div
       className={cn(
         "text-body-compact break-words",
-        field.long ? "text-muted-foreground" : "font-medium",
+        // Prose keeps the paragraph breaks it was filed with.
+        field.long ? "whitespace-pre-line text-muted-foreground" : "font-medium",
+        // An unanswered optional question is a fact, but not one to read as data.
+        field.value === NOT_PROVIDED && "font-normal text-muted-foreground",
       )}
     >
       <FieldValue field={field} value={field.value} />
