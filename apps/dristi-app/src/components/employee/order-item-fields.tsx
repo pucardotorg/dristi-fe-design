@@ -46,6 +46,7 @@ import {
   channelsFor,
   needsPoliceStation,
   POLICE_STATIONS,
+  selectedAddresses,
   unreachableChannels,
   PROCESS_CHANNELS,
   type ProcessChannel,
@@ -462,7 +463,7 @@ function RecipientsField({
 }) {
   const recipients: ProcessRecipients = block.recipients ?? {
     person: "",
-    addresses: [],
+    destinations: [],
     channels: [],
     policeStations: {},
   };
@@ -472,14 +473,51 @@ function RecipientsField({
   );
   const unreachable = unreachableChannels(person, recipients);
 
-  function toggleAddress(addressId: string, on: boolean) {
+  function toggleDestination(destinationId: string, on: boolean) {
     onChange({
       ...recipients,
-      addresses: on
-        ? [...recipients.addresses, addressId]
-        : recipients.addresses.filter((entry) => entry !== addressId),
+      destinations: on
+        ? [...recipients.destinations, destinationId]
+        : recipients.destinations.filter((entry) => entry !== destinationId),
     });
   }
+
+  /* Every destination on the record, grouped by kind — postal addresses, mobile numbers,
+     email addresses — each its own tick. */
+  const groups = person
+    ? [
+        {
+          id: "postal",
+          label: "Postal addresses",
+          empty: "No postal address on record",
+          items: person.addresses.map((entry) => ({
+            id: entry.id,
+            text: formatStructuredAddress(entry.address),
+            mono: false,
+          })),
+        },
+        {
+          id: "mobile",
+          label: "Mobile numbers",
+          empty: "No mobile number on record",
+          items: person.mobiles.map((entry) => ({
+            id: entry.id,
+            text: entry.value,
+            mono: true,
+          })),
+        },
+        {
+          id: "email",
+          label: "Email addresses",
+          empty: "No email address on record",
+          items: person.emails.map((entry) => ({
+            id: entry.id,
+            text: entry.value,
+            mono: false,
+          })),
+        },
+      ]
+    : [];
 
   function toggleChannel(channel: ProcessChannel, on: boolean) {
     onChange({
@@ -517,42 +555,55 @@ function RecipientsField({
       </div>
 
       {person ? (
-        <fieldset className="flex min-w-0 flex-col gap-2">
+        <fieldset className="flex min-w-0 flex-col gap-3">
           <legend className="mb-1 text-body-compact font-medium">
             Addresses of {person.name}
           </legend>
-          <div className="grid min-w-0 gap-2 @lg:grid-cols-2">
-            {person.addresses.map((entry, index) => {
-              const checked = recipients.addresses.includes(entry.id);
-              const inputId = `${id}-address-${entry.id}`;
-              return (
-                <Label
-                  key={entry.id}
-                  htmlFor={inputId}
-                  className={cn(
-                    "flex min-w-0 cursor-pointer items-start gap-3 rounded-lg border bg-card p-3 font-normal transition-colors hover:bg-accent",
-                    checked ? "border-input" : "border-hairline",
-                  )}
-                >
-                  <Checkbox
-                    id={inputId}
-                    className="mt-0.5"
-                    checked={checked}
-                    disabled={disabled}
-                    onCheckedChange={(next) => toggleAddress(entry.id, next === true)}
-                  />
-                  <span className="flex min-w-0 flex-col gap-0.5">
-                    <span className="text-body-compact font-medium">
-                      Address {index + 1}
-                    </span>
-                    <span className="text-caption text-muted-foreground">
-                      {formatStructuredAddress(entry.address)}
-                    </span>
-                  </span>
-                </Label>
-              );
-            })}
-          </div>
+          {groups.map((group) => (
+            <div key={group.id} className="flex min-w-0 flex-col gap-1">
+              <span className="text-caption font-semibold text-muted-foreground">
+                {group.label}
+              </span>
+              {group.items.length === 0 ? (
+                <p className="text-body-compact text-muted-foreground">{group.empty}</p>
+              ) : (
+                <div className="grid min-w-0 gap-2 @lg:grid-cols-2">
+                  {group.items.map((item) => {
+                    const checked = recipients.destinations.includes(item.id);
+                    const inputId = `${id}-destination-${item.id}`;
+                    return (
+                      <Label
+                        key={item.id}
+                        htmlFor={inputId}
+                        className={cn(
+                          "flex min-h-10 min-w-0 cursor-pointer items-start gap-3 rounded-lg border bg-card p-3 font-normal transition-colors hover:bg-accent",
+                          checked ? "border-input" : "border-hairline",
+                        )}
+                      >
+                        <Checkbox
+                          id={inputId}
+                          className="mt-0.5"
+                          checked={checked}
+                          disabled={disabled}
+                          onCheckedChange={(next) =>
+                            toggleDestination(item.id, next === true)
+                          }
+                        />
+                        <span
+                          className={cn(
+                            "min-w-0 text-body-compact break-words",
+                            item.mono && "tabular-nums",
+                          )}
+                        >
+                          {item.text}
+                        </span>
+                      </Label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ))}
         </fieldset>
       ) : null}
 
@@ -585,16 +636,24 @@ function RecipientsField({
 
       {unreachable.length > 0 && person ? (
         <p className="-mt-2 text-caption text-muted-foreground">
-          {person.name} has no{" "}
-          {unreachable
-            .map((channel) => (channel === "sms" ? "mobile number" : "email address"))
-            .join(" or ")}{" "}
-          on record, so nothing goes by{" "}
-          {unreachable.map((channel) => channelLabel(channel)).join(" or ")}.
+          Nothing goes by {unreachable.map((channel) => channelLabel(channel)).join(" or ")}:
+          no{" "}
+          {[
+            ...new Set(
+              unreachable.map((channel) =>
+                channel === "sms"
+                  ? "mobile number"
+                  : channel === "email"
+                    ? "email address"
+                    : "postal address",
+              ),
+            ),
+          ].join(" or ")}{" "}
+          of {person.name} is ticked.
         </p>
       ) : null}
 
-      {needsPoliceStation(recipients) && person && recipients.addresses.length > 0 ? (
+      {needsPoliceStation(recipients) && person && selectedAddresses(person, recipients).length > 0 ? (
         <fieldset className="flex min-w-0 flex-col gap-3">
           <legend className="mb-1 text-body-compact font-medium">
             Police station, for each address
@@ -605,7 +664,7 @@ function RecipientsField({
           <div className="grid min-w-0 gap-3 @lg:grid-cols-2">
             {person.addresses
               .map((entry, index) => ({ ...entry, index }))
-              .filter((entry) => recipients.addresses.includes(entry.id))
+              .filter((entry) => recipients.destinations.includes(entry.id))
               .map((entry) => {
                 const labelId = `${id}-station-${entry.id}`;
                 const station = recipients.policeStations[entry.id] ?? "";

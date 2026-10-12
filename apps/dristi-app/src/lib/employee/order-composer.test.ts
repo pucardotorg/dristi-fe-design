@@ -223,7 +223,11 @@ describe("process items", () => {
   it("go to the accused, at every address on record, with steps on the complainant", () => {
     const summons = createItemBlock("issue-of-summons", beforeJoining);
     assert.equal(summons.recipients?.person, "accused-1");
-    assert.deepEqual(summons.recipients?.addresses, ["accused-1-address-1"]);
+    assert.deepEqual(summons.recipients?.destinations, [
+      "accused-1-address-1",
+      "accused-1-mobile-1",
+      "accused-1-email-1",
+    ]);
     assert.deepEqual(summons.recipients?.channels, ["sms", "email", "rpad"]);
     assert.equal(summons.values.steps, "complainant");
     assert.deepEqual(blockGaps(summons, beforeJoining), []);
@@ -249,7 +253,11 @@ describe("process items", () => {
       { ...summons.recipients!, person: "complainant" },
       afterJoining,
     );
-    assert.deepEqual(summons.recipients?.addresses, ["complainant-address-1"]);
+    assert.deepEqual(summons.recipients?.destinations, [
+      "complainant-address-1",
+      "complainant-mobile-1",
+      "complainant-email-1",
+    ]);
     assert.equal(summons.values.steps, "accused");
   });
 
@@ -268,7 +276,7 @@ describe("process items", () => {
     const summons = createItemBlock("issue-of-summons", beforeJoining);
     const none = setItemRecipients(
       summons,
-      { ...summons.recipients!, addresses: [] },
+      { ...summons.recipients!, destinations: [] },
       beforeJoining,
     );
     assert.deepEqual(

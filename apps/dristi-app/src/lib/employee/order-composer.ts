@@ -36,7 +36,7 @@ import {
 } from "./order-templates";
 import {
   defaultProcessRecipients,
-  addressesOf,
+  destinationsOf,
   recipientGaps,
   stationsFor,
   stepsFor,
@@ -147,7 +147,9 @@ export function fieldAnswered(
   context: ComposerContext,
 ): boolean {
   if (field.kind === "recipients") {
-    return block.recipients ? recipientGaps(block.recipients).length === 0 : false;
+    return block.recipients
+      ? recipientGaps(block.recipients, addressee(block, context)).length === 0
+      : false;
   }
   return fieldWording(block, field, context) !== "";
 }
@@ -272,7 +274,8 @@ export function setItemValue(
  * New delivery answers for a process item — a person, their addresses, the channels, the
  * station.
  *
- * Choosing a different person brings all of their addresses with them (`AUT-07`). The
+ * Choosing a different person brings every destination on their record with them —
+ * addresses, mobiles, emails (`AUT-07`). The
  * police station and the party taking steps follow the person and addresses while they
  * still hold what the system worked out (`AUT-04`, `AUT-02`); once the drafter has chosen
  * either themselves it is left alone.
@@ -284,7 +287,7 @@ export function setItemRecipients(
 ): ItemBlock {
   const previous = block.recipients ?? {
     person: "",
-    addresses: [],
+    destinations: [],
     channels: [],
     policeStations: {},
   };
@@ -293,21 +296,21 @@ export function setItemRecipients(
   if (!samePerson) {
     recipients = {
       ...recipients,
-      addresses: addressesOf(context.people, recipients.person),
+      destinations: destinationsOf(context.people, recipients.person),
     };
   }
-  /* One station per selected address. A station the drafter chose for an address is kept
-     while the person stays the same; any other address gets the one its locality
+  /* One station per selected postal address. A station the drafter chose for an address
+     is kept while the person stays the same; any other address gets the one its locality
      resolves to (`AUT-04`). */
   const auto = stationsFor(
     context.people,
     recipients.person,
-    recipients.addresses,
+    recipients.destinations,
   );
   recipients = {
     ...recipients,
     policeStations: Object.fromEntries(
-      recipients.addresses.map((id) => [
+      Object.keys(auto).map((id) => [
         id,
         (samePerson ? recipients.policeStations[id] : undefined) || auto[id] || "",
       ]),
@@ -422,7 +425,9 @@ export function blockGaps(
   for (const field of template.fields) {
     if (field.derived) continue;
     if (field.kind === "recipients") {
-      for (const gap of block.recipients ? recipientGaps(block.recipients) : ["Addressed to"]) {
+      for (const gap of block.recipients
+        ? recipientGaps(block.recipients, addressee(block, context))
+        : ["Addressed to"]) {
         gaps.push({ key: `recipients-${gap}`, label: gap });
       }
       continue;

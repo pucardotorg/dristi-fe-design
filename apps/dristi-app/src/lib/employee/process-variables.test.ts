@@ -11,6 +11,8 @@ import {
 import {
   channelsFor,
   defaultProcessRecipients,
+  destinationsOf,
+  processCount,
   stationsFor,
   unreachableChannels,
 } from "./process-variables";
@@ -43,7 +45,14 @@ describe("who a process opens on", () => {
     const { people, accusedJoined } = casePeopleFor(NOT_JOINED);
     const recipients = defaultProcessRecipients("issue-of-summons", people, accusedJoined);
     assert.equal(recipients.person, "accused-1");
-    assert.deepEqual(recipients.addresses, ["accused-1-address-1", "accused-1-address-2"]);
+    assert.deepEqual(recipients.destinations, [
+      "accused-1-address-1",
+      "accused-1-address-2",
+      "accused-1-mobile-1",
+      "accused-1-mobile-2",
+      "accused-1-email-1",
+      "accused-1-email-2",
+    ]);
   });
 
   it("is the one witness not yet examined, once the accused has joined", () => {
@@ -56,7 +65,7 @@ describe("who a process opens on", () => {
     const { people, accusedJoined } = casePeopleFor(TWO_UNEXAMINED);
     const recipients = defaultProcessRecipients("issue-of-summons", people, accusedJoined);
     assert.equal(recipients.person, "");
-    assert.deepEqual(recipients.addresses, []);
+    assert.deepEqual(recipients.destinations, []);
   });
 });
 
@@ -71,14 +80,41 @@ describe("channels", () => {
     assert.ok(channelsFor("issue-of-summons").includes("police-nstep"));
   });
 
-  it("says when the person has no destination for a chosen channel", () => {
+  it("says when no destination of a chosen channel's kind is ticked", () => {
     const { people, accusedJoined } = casePeopleFor(NOT_JOINED);
     const recipients = {
       ...defaultProcessRecipients("issue-of-summons", people, accusedJoined),
       person: "accused-2",
+      destinations: destinationsOf(people, "accused-2"),
     };
     const harpreet = people.find((entry) => entry.id === "accused-2");
     assert.deepEqual(unreachableChannels(harpreet, recipients), ["email"]);
+  });
+});
+
+describe("destinations", () => {
+  it("are every postal address, mobile and email on record, all ticked", () => {
+    const { people, accusedJoined } = casePeopleFor(NOT_JOINED);
+    const recipients = defaultProcessRecipients("issue-of-summons", people, accusedJoined);
+    const gill = people.find((entry) => entry.id === "accused-1");
+    /* SMS to two mobiles, Email to two addresses, RPAD to two postal addresses. */
+    assert.equal(processCount(gill, recipients), 6);
+  });
+
+  it("send a channel only to the ticked destinations of its own kind", () => {
+    const { people, accusedJoined } = casePeopleFor(NOT_JOINED);
+    const recipients = defaultProcessRecipients("issue-of-summons", people, accusedJoined);
+    const gill = people.find((entry) => entry.id === "accused-1");
+    const one = {
+      ...recipients,
+      destinations: recipients.destinations.filter((id) => id !== "accused-1-mobile-2"),
+    };
+    assert.equal(processCount(gill, one), 5);
+    const noMobiles = {
+      ...recipients,
+      destinations: recipients.destinations.filter((id) => !id.includes("mobile")),
+    };
+    assert.deepEqual(unreachableChannels(gill, noMobiles), ["sms"]);
   });
 });
 
@@ -126,7 +162,10 @@ describe("police stations", () => {
       { ...warrant.recipients!, person: "accused-2" },
       context,
     );
-    assert.deepEqual(warrant.recipients?.addresses, ["accused-2-address-1"]);
+    assert.deepEqual(warrant.recipients?.destinations, [
+      "accused-2-address-1",
+      "accused-2-mobile-1",
+    ]);
     assert.deepEqual(warrant.recipients?.policeStations, {
       "accused-2-address-1": "Kilikollur",
     });

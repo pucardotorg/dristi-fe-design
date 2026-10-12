@@ -5,11 +5,15 @@
  * **One person, then their addresses, then the channels** (owner, 2026-10-12: "first, you
  * select one person to issue that process to, and then you select some or all of the
  * addresses associated with them, and then you select the channels"). A process order
- * item goes to one person; summoning two people is two order items (`ITM-06`). The
- * addresses are the ones on that person's record, all pre-selected (`AUT-07`), and every
- * selected address with every selected address channel becomes its own process
- * (`process-handover.md` §3, `PRC-02`) — so on a police channel **each address has its own
- * police station**, pre-selected from that address (`AUT-04`) and changeable on its own.
+ * item goes to one person; summoning two people is two order items (`ITM-06`).
+ *
+ * **Addresses means every destination on the record** (owner, 2026-10-12): postal
+ * addresses, mobile numbers and email addresses, any of which may be several, all
+ * pre-selected (`AUT-07`). Each channel goes to the selected destinations of its own kind —
+ * SMS to each selected mobile, Email to each selected email address, RPAD, e-Post and the
+ * police channels to each selected postal address — and every one of those is its own
+ * process (`process-handover.md` §3, `PRC-02`, `PRC-05`). On a police channel **each postal
+ * address has its own police station**, pre-selected from it (`AUT-04`) and changeable.
  *
  * The people, their addresses, mobiles and emails, and the police-station master come from
  * `case-people.ts`. The rest follows `dristi-be/PRDs/process-handover.md` (v10 and the §5.1
@@ -116,10 +120,13 @@ export function channelLabel(id: ProcessChannel): string {
 export type ProcessRecipients = {
   /** The one person it is addressed to, or `""` until chosen. */
   person: string;
-  /** Which of that person's addresses it goes to. */
-  addresses: string[];
+  /**
+   * Which of that person's destinations it goes to — postal address, mobile number and
+   * email ids from their record, mixed.
+   */
+  destinations: string[];
   channels: ProcessChannel[];
-  /** On a police channel, the station for each selected address, keyed by address id. */
+  /** On a police channel, the station for each selected postal address, keyed by its id. */
   policeStations: Readonly<Record<string, string>>;
 };
 
@@ -142,32 +149,64 @@ export function defaultPerson(
   return pending.length === 1 ? pending[0].id : "";
 }
 
-/** `AUT-07` — every address on the person's record. */
-export function addressesOf(
+/** `AUT-07` — every destination on the person's record: addresses, mobiles, emails. */
+export function destinationsOf(
   people: readonly CasePerson[],
   person: string,
 ): string[] {
-  return (
-    people.find((entry) => entry.id === person)?.addresses.map((entry) => entry.id) ??
-    []
-  );
+  const record = people.find((entry) => entry.id === person);
+  if (!record) return [];
+  return [
+    ...record.addresses.map((entry) => entry.id),
+    ...record.mobiles.map((entry) => entry.id),
+    ...record.emails.map((entry) => entry.id),
+  ];
 }
 
 /**
- * `AUT-04` — the station with jurisdiction over each selected address, by address id, or
- * `""` where an address does not resolve to one and the drafter chooses.
+ * `AUT-04` — the station with jurisdiction over each selected postal address, by its id,
+ * or `""` where an address does not resolve to one and the drafter chooses.
  */
 export function stationsFor(
   people: readonly CasePerson[],
   person: string,
-  addresses: readonly string[],
+  destinations: readonly string[],
 ): Record<string, string> {
   const record = people.find((entry) => entry.id === person);
   return Object.fromEntries(
     (record?.addresses ?? [])
-      .filter((entry) => addresses.includes(entry.id))
+      .filter((entry) => destinations.includes(entry.id))
       .map((entry) => [entry.id, policeStationFor(entry.address) ?? ""]),
   );
+}
+
+/** The selected postal addresses — what RPAD, e-Post and the police channels go to. */
+export function selectedAddresses(
+  person: CasePerson | undefined,
+  recipients: ProcessRecipients,
+): string[] {
+  return (person?.addresses ?? [])
+    .map((entry) => entry.id)
+    .filter((id) => recipients.destinations.includes(id));
+}
+
+/** How many processes this creates: one per channel and selected destination of its kind. */
+export function processCount(
+  person: CasePerson | undefined,
+  recipients: ProcessRecipients,
+): number {
+  if (!person) return 0;
+  const picked = (ids: string[]) =>
+    ids.filter((id) => recipients.destinations.includes(id)).length;
+  const counts: Record<Destination, number> = {
+    address: picked(person.addresses.map((entry) => entry.id)),
+    mobile: picked(person.mobiles.map((entry) => entry.id)),
+    email: picked(person.emails.map((entry) => entry.id)),
+  };
+  return recipients.channels.reduce((sum, id) => {
+    const channel = PROCESS_CHANNELS.find((entry) => entry.id === id);
+    return sum + (channel ? counts[channel.destination] : 0);
+  }, 0);
 }
 
 /**
@@ -192,12 +231,12 @@ export function defaultProcessRecipients(
   accusedJoined: boolean,
 ): ProcessRecipients {
   const person = defaultPerson(people, accusedJoined);
-  const addresses = addressesOf(people, person);
+  const destinations = destinationsOf(people, person);
   return {
     person,
-    addresses,
+    destinations,
     channels: defaultChannelsFor(type),
-    policeStations: stationsFor(people, person, addresses),
+    policeStations: stationsFor(people, person, destinations),
   };
 }
 
@@ -206,37 +245,41 @@ export function needsPoliceStation(recipients: ProcessRecipients): boolean {
 }
 
 /**
- * The selected channels that will send nothing to this person, because their record holds
- * no destination of that kind (`PRC-05`, `AUT-08`) — said beside the channels, and not a
- * gap: the process simply does not go on that channel.
+ * The selected channels that will send nothing, because no destination of their kind is
+ * selected — or none is on the person's record at all (`PRC-05`, `AUT-08`). Said beside
+ * the channels; the process simply does not go on that channel.
  */
 export function unreachableChannels(
   person: CasePerson | undefined,
   recipients: ProcessRecipients,
 ): ProcessChannel[] {
   if (!person) return [];
+  const has = (ids: string[]) => ids.some((id) => recipients.destinations.includes(id));
   return recipients.channels.filter((id) => {
     const channel = PROCESS_CHANNELS.find((entry) => entry.id === id);
     if (!channel) return false;
-    if (channel.destination === "mobile") return !person.mobile;
-    if (channel.destination === "email") return !person.email;
-    return false;
+    if (channel.destination === "mobile") return !has(person.mobiles.map((entry) => entry.id));
+    if (channel.destination === "email") return !has(person.emails.map((entry) => entry.id));
+    return !has(person.addresses.map((entry) => entry.id));
   });
 }
 
 /**
  * What is still missing before the process can run: the person, at least one of their
- * addresses, at least one channel, and on a police channel a station for every selected
- * address (`PRC-03`).
+ * destinations, at least one channel, and on a police channel a station for every
+ * selected postal address (`PRC-03`).
  */
-export function recipientGaps(recipients: ProcessRecipients): string[] {
+export function recipientGaps(
+  recipients: ProcessRecipients,
+  person: CasePerson | undefined,
+): string[] {
   const gaps: string[] = [];
   if (!recipients.person) gaps.push("Addressed to");
-  else if (recipients.addresses.length === 0) gaps.push("Addresses");
+  else if (recipients.destinations.length === 0) gaps.push("Addresses");
   if (recipients.channels.length === 0) gaps.push("Channels");
   if (
     needsPoliceStation(recipients) &&
-    recipients.addresses.some((id) => !recipients.policeStations[id])
+    selectedAddresses(person, recipients).some((id) => !recipients.policeStations[id])
   ) {
     gaps.push("Police station");
   }
