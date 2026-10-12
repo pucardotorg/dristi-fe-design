@@ -101,7 +101,8 @@ import { SectionBody } from "@/components/scrutiny/section-body";
 import { useTaskActions } from "@/components/tasks/use-task-actions";
 import { Identifier } from "@/components/chrome/identifier";
 import { useOrigin } from "@/components/shell/origin";
-import { useCourtText } from "@/components/court/court-provider";
+import { useCourt, useCourtText } from "@/components/court/court-provider";
+import { localizeCourtText } from "@/lib/court/localize";
 
 /** Where the correction round starts when nothing is flagged on a step yet. */
 const FALLBACK_STEP: StepId = "cheque";
@@ -179,6 +180,7 @@ function focusTheAction(scope: HTMLElement): void {
 
 export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
   const courtText = useCourtText();
+  const { court } = useCourt();
   const router = useRouter();
   const { draft, update } = useFiling();
   const { act, busy, online } = useTaskActions();
@@ -186,9 +188,22 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
   /* In form order, not the officer's numbering: the queue is an index of the form, so it
      reads the way the form's pages turn — Documents, Complainant, Cheque 1, Cheque 2 —
      and the screen opens on the first unresolved defect *of the form*, not of the memo. */
+  /*
+   * What scrutiny saw, in the selected court's terms. The filing store opens the draft
+   * re-voiced for the court (`localizeDeep`), so a Kerala value like the IFSC
+   * "KLGB0040231" reads "GJ…" in Gujarat; compared with the Kerala baseline it looked
+   * already corrected before anyone touched it (owner's demo, 2026-10-12).
+   */
   const recorded = React.useMemo(
-    () => [...(task.returned?.defects ?? [])].sort(formOrder),
-    [task.returned]
+    () =>
+      [...(task.returned?.defects ?? [])]
+        .map((d) =>
+          d.target.kind === "field" && d.valueAtReturn
+            ? { ...d, valueAtReturn: localizeCourtText(d.valueAtReturn, court) }
+            : d
+        )
+        .sort(formOrder),
+    [task.returned, court]
   );
   const valueOf = React.useCallback(
     (defect: Defect) => readTarget(draft, defect.target),
