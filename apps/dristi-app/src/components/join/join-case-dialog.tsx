@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { REGEXP_ONLY_DIGITS } from "input-otp";
 import {
   ArrowLeftIcon,
@@ -12,6 +13,7 @@ import {
 } from "lucide-react";
 
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
+import { JOIN_DEMO_CASE_ID } from "@/lib/cases/party-cases";
 import { useStageFade } from "@/components/chrome/stage-fade";
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -190,7 +192,8 @@ export function JoinCaseDialog({
   const [pipFile, setPipFile] = React.useState<File | null>(null);
   const pipInputRef = React.useRef<HTMLInputElement>(null);
 
-  const [doneNotice, setDoneNotice] = React.useState<"" | "case" | "advocate">("");
+  const [doneNotice, setDoneNotice] = React.useState<"" | "advocate">("");
+  const router = useRouter();
   /* File bail application opens the application form at Bail, in place of
      this window (the join is done; this window closes when the form does). */
   const [bailOpen, setBailOpen] = React.useState(false);
@@ -252,6 +255,13 @@ export function JoinCaseDialog({
   const [leaving, setLeaving] = React.useState(false);
   const entered =
     stage === "code" || stage === "identity" || (stage === "details" && mode !== "summons");
+
+  /* View case opens the joined case in Cases, as on the advocate side (owner,
+     2026-10-13) — not a placeholder note. */
+  function viewCase() {
+    handleOpenChange(false);
+    router.push(`/cases/${JOIN_DEMO_CASE_ID}`);
+  }
 
   function handleOpenChange(next: boolean) {
     if (!next && entered && !leaving) {
@@ -792,9 +802,7 @@ export function JoinCaseDialog({
               {doneNotice ? (
                 <Banner variant="info" className="items-start">
                   {pick(
-                    doneNotice === "advocate"
-                      ? joinDialog.addAdvocatePrototype
-                      : joinDialog.viewCasePrototype,
+                    joinDialog.addAdvocatePrototype,
                     locale,
                   )}
                 </Banner>
@@ -933,7 +941,7 @@ export function JoinCaseDialog({
                     </Button>
                     <Button
                       type="button"
-                      onClick={() => setDoneNotice("case")}
+                      onClick={viewCase}
                       data-icon="inline-end"
                     >
                       {pick(joinDialog.viewCase, locale)}
@@ -946,7 +954,7 @@ export function JoinCaseDialog({
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => setDoneNotice("case")}
+                      onClick={viewCase}
                     >
                       {pick(joinDialog.viewCase, locale)}
                     </Button>
@@ -980,6 +988,7 @@ export function JoinCaseDialog({
           setBailOpen(false);
           handleOpenChange(false);
         }}
+        onViewCase={() => router.push(`/cases/${JOIN_DEMO_CASE_ID}`)}
       />
     ) : null}
     </>

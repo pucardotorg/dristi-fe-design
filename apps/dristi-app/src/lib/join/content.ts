@@ -381,7 +381,6 @@ export const joinDialog = {
     "{numbers} എന്ന നമ്പറുകളിലേക്ക് SMS അയച്ചു. ഓരോരുത്തരും സൈൻ ഇൻ ചെയ്ത് സ്ഥിരീകരിച്ചാൽ കേസ് അവരുടെ അക്കൗണ്ടുമായി ബന്ധിപ്പിക്കും.",
   ),
   viewCase: t("View case", "കേസ് കാണുക"),
-  viewCasePrototype: t("The case file will open here.", "കേസ് ഫയൽ ഇവിടെ തുറക്കും."),
   fileBail: t("File bail application", "ജാമ്യാപേക്ഷ നൽകുക"),
   addAdvocate: t("Add advocate", "അഭിഭാഷകനെ ചേർക്കുക"),
   addAdvocatePrototype: t(
