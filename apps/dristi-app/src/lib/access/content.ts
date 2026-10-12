@@ -553,6 +553,21 @@ export const PHONE_DIRECTORY: Record<
 
 /* ------------------------------------------------------------------------ copy */
 
+/* The people field shared by Share access and the join-case team step (owner,
+   2026-10-12). Malayalam drafted — needs review. */
+export const inviteFieldCopy = {
+  placeholder: t("Name or mobile number", "പേര് അല്ലെങ്കിൽ മൊബൈൽ നമ്പർ"),
+  suggested: t("People you often add", "നിങ്ങൾ പതിവായി ചേർക്കുന്നവർ"),
+  newNumber: t(
+    "They'll get an access link by SMS and in DRISTI.",
+    "അവർക്ക് SMS വഴിയും DRISTI-യിലും ആക്‌സസ് ലിങ്ക് ലഭിക്കും.",
+  ),
+  keepTyping: t(
+    "No one you've added matches. Enter the full 10-digit number.",
+    "നിങ്ങൾ ചേർത്തവരിൽ ആരും പൊരുത്തപ്പെടുന്നില്ല. 10 അക്ക നമ്പർ മുഴുവൻ നൽകുക.",
+  ),
+};
+
 export const accessShell = {
   navPeople: t("People", "ആളുകൾ"),
 };
@@ -568,8 +583,8 @@ export const shareCopy = {
   phoneAdd: t("Add number", "നമ്പർ ചേർക്കുക"),
   phoneError: t("Enter a valid 10-digit mobile number.", "സാധുവായ 10 അക്ക മൊബൈൽ നമ്പർ നൽകുക."),
   demoProfiles: t(
-    "Try registered profiles: 99614 72058 or 80890 74136",
-    "രജിസ്റ്റർ ചെയ്ത പ്രൊഫൈലുകൾ പരീക്ഷിക്കുക: 99614 72058 അല്ലെങ്കിൽ 80890 74136",
+    "Sandbox: try “Priya”, “Sameer” or any 10-digit number.",
+    "സാൻഡ്‌ബോക്സ്: “Priya”, “Sameer” അല്ലെങ്കിൽ ഏതെങ്കിലും 10 അക്ക നമ്പർ പരീക്ഷിക്കുക.",
   ),
   removeChip: t("Remove", "നീക്കം ചെയ്യുക"),
   suggestionsLabel: t("People you often add", "നിങ്ങൾ പതിവായി ചേർക്കുന്നവർ"),

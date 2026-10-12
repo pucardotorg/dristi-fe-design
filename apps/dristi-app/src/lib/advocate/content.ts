@@ -652,6 +652,8 @@ export const advDialog = {
     "We'll text each number. The case is linked to a litigant's account once they sign in and confirm it's them.",
     "ഓരോ നമ്പറിലേക്കും SMS അയക്കും. കക്ഷി സൈൻ ഇൻ ചെയ്ത് അത് അവരാണെന്ന് സ്ഥിരീകരിച്ചാൽ കേസ് അവരുടെ അക്കൗണ്ടുമായി ബന്ധിപ്പിക്കും.",
   ),
+  /* Per litigant: whose number this is, said on the field itself (owner, 2026-10-12). */
+  contactMobileLabel: t("Mobile number of {name}", "{name}-ന്റെ മൊബൈൽ നമ്പർ"),
   contactMobileError: t(
     "Enter a valid 10-digit mobile number.",
     "സാധുവായ 10 അക്ക മൊബൈൽ നമ്പർ നൽകുക.",
@@ -755,6 +757,7 @@ export const advDialog = {
   payCase: t("Case", "കേസ്"),
   payAmount: t("Amount", "തുക"),
   payOutcomeLabel: t("Sandbox gateway result", "സാൻഡ്‌ബോക്സ് ഗേറ്റ്‌വേ ഫലം"),
+  paySandboxTip: t("Sandbox: choose the gateway result", "സാൻഡ്‌ബോക്സ്: ഗേറ്റ്‌വേ ഫലം തിരഞ്ഞെടുക്കുക"),
   payOutcomeSuccess: t("Success", "വിജയം"),
   payOutcomeFailed: t("Failed", "പരാജയപ്പെട്ടു"),
   paySandboxNote: t("Sandbox payment — no money moves.", "സാൻഡ്‌ബോക്സ് പേയ്‌മെന്റ് — പണം കൈമാറുന്നില്ല."),
@@ -764,6 +767,19 @@ export const advDialog = {
   ),
   payNow: t("Pay {amount}", "{amount} അടയ്ക്കുക"),
   payLater: t("Pay later", "പിന്നീട് അടയ്ക്കാം"),
+  /* The gateway round trip, as e-filing shows it. Malayalam drafted — needs review. */
+  payProcessingTitle: t("Processing payment…", "പേയ്‌മെന്റ് പ്രോസസ്സ് ചെയ്യുന്നു…"),
+  payProcessingBody: t(
+    "Please don't close or refresh this window while we confirm your payment.",
+    "പേയ്‌മെന്റ് സ്ഥിരീകരിക്കുന്നതുവരെ ഈ വിൻഡോ അടയ്ക്കുകയോ റിഫ്രഷ് ചെയ്യുകയോ ചെയ്യരുത്.",
+  ),
+  paidTitle: t("Payment successful", "പേയ്‌മെന്റ് വിജയകരം"),
+  paidBody: t(
+    "The vakalatnama fee is paid. You now have access to the case.",
+    "വക്കാലത്ത് ഫീസ് അടച്ചു. ഇപ്പോൾ കേസിലേക്ക് ആക്‌സസ് ഉണ്ട്.",
+  ),
+  paidAmount: t("Amount paid", "അടച്ച തുക"),
+  paidRef: t("Payment reference", "പേയ്‌മെന്റ് റഫറൻസ്"),
 
   /* outcomes */
   unpaidTitle: t("Pay the fee to get access", "ആക്‌സസ് ലഭിക്കാൻ ഫീസ് അടയ്ക്കുക"),
@@ -784,8 +800,11 @@ export const advDialog = {
     "ഈ പ്രവർത്തനം കേസ് ഫയൽ തുറക്കും.",
   ),
 
+  bailOpening: t("Opening the bail application…", "ജാമ്യാപേക്ഷ തുറക്കുന്നു…"),
+
   /* add subordinates on the success screen */
-  teamTitle: t("Add your team (optional)", "നിങ്ങളുടെ ടീമിനെ ചേർക്കുക (നിർബന്ധമല്ല)"),
+  teamTitle: t("Add your team", "നിങ്ങളുടെ ടീമിനെ ചേർക്കുക"),
+  teamOptional: t("Optional", "നിർബന്ധമല്ല"),
   teamBody: t(
     "You can add your subordinates to this case (clerks or junior advocates, etc).",
     "നിങ്ങളുടെ കീഴിലുള്ളവരെ (ക്ലർക്കുമാർ അല്ലെങ്കിൽ ജൂനിയർ അഭിഭാഷകർ മുതലായവ) ഈ കേസിൽ ചേർക്കാം.",
@@ -796,8 +815,8 @@ export const advDialog = {
   teamRemove: t("Remove", "നീക്കം ചെയ്യുക"),
   teamError: t("Enter a valid 10-digit mobile number.", "സാധുവായ 10 അക്ക മൊബൈൽ നമ്പർ നൽകുക."),
   teamAddedNote: t(
-    "They'll get a text inviting them to help on this case.",
-    "ഈ കേസിൽ സഹായിക്കാൻ ക്ഷണിച്ചുകൊണ്ട് അവർക്ക് ഒരു സന്ദേശം ലഭിക്കും.",
+    "They'll be notified and invited to help on this case.",
+    "ഈ കേസിൽ സഹായിക്കാൻ ക്ഷണിച്ചുകൊണ്ട് അവർക്ക് ഒരു അറിയിപ്പ് ലഭിക്കും.",
   ),
   teamInviteSentNote: t("Invitation sent to", "ഇവർക്ക് ക്ഷണം അയച്ചു"),
   viewCaseFileWithTeam: t("Add members and view case file", "അംഗങ്ങളെ ചേർത്ത് കേസ് ഫയൽ കാണുക"),

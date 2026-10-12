@@ -12,6 +12,9 @@ test("Kerala is the designed baseline and passes through untouched", () => {
 test("Gujarat numbers each stage the CIS way", () => {
   assert.equal(localizeCaseNumber("ST/6/2025", "gujarat"), "eCC/6/2025");
   assert.equal(localizeCaseNumber("ST 412/2025", "gujarat"), "eCC/412/2025");
+  // A criminal complaint reads as Gujarat's eCC; its CNR keeps "CC" inside it.
+  assert.equal(localizeCaseNumber("CC 847/2026", "gujarat"), "eCC/847/2026");
+  assert.equal(localizeCaseNumber("KL-0423-CC-0847-2026", "gujarat"), "GJ-0423-CC-0847-2026");
   // Registration takes the classification; the sequence picks it, stably.
   assert.equal(localizeCaseNumber("CMP/55/2025", "gujarat"), "eCC/55/2025");
   assert.equal(localizeCaseNumber("CMP/58/2025", "gujarat"), "eCR EN/58/2025");

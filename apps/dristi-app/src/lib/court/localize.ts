@@ -174,6 +174,12 @@ const NUMBER_RULES: Rule[] = [
     (p, seq, year) =>
       p.numbering.kind === "nact" ? `NACT/${seq}/${year}` : `eCC/${seq}/${year}`,
   ],
+  // A criminal complaint (CC) is an eCC in Gujarat's registry (owner, 2026-10-12):
+  // "CC 847/2026" reads "eCC/847/2026". Elsewhere it stays as filed.
+  [
+    /\bCC([ /])(\d+)\/(\d{4})\b/g,
+    (p, sep, seq, year) => (p.id === "gujarat" ? `eCC/${seq}/${year}` : `CC${sep}${seq}/${year}`),
+  ],
   // KLKM + the two-digit establishment code — 52 for the 24×7 court, others for the
   // district's benches — then the sequence and year.
   [/\bKLKM\d{2}(\d{10})\b/g, (p, rest) => `${p.cnrPrefix}${rest}`],

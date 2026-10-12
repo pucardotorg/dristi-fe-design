@@ -315,6 +315,11 @@ export const bailDialog = {
   ),
   payNow: t("Pay {fee} now", "{fee} ഇപ്പോൾ അടയ്ക്കുക"),
   payLater: t("Pay later", "പിന്നീട് അടയ്ക്കാം"),
+  /* Malayalam drafted — needs review. */
+  paidBody: t(
+    "The application fee is paid. Continue to file the application.",
+    "അപേക്ഷാ ഫീസ് അടച്ചു. അപേക്ഷ ഫയൽ ചെയ്യാൻ തുടരുക.",
+  ),
 
   /* submitted */
   doneTitle: t("Bail application submitted", "ജാമ്യാപേക്ഷ സമർപ്പിച്ചു"),
