@@ -231,3 +231,37 @@ export const SCRUTINY_DEFECTS_RAFI: Defect[] = [
   },
 ];
 
+
+/* ───────────────────────── more returns for the demo ───────────────────────── */
+
+/**
+ * More returned filings, so the "Returned from scrutiny" list has enough to show and to
+ * practise on (owner, 2026-10-13). Each reuses one of the three seeded filings under its
+ * own parties and draft id, with that filing's defects: the flagged values are the same,
+ * so nothing reads as corrected before it is touched. Sandbox data.
+ */
+export type ExtraReturn = {
+  id: string;
+  caseId: string;
+  draftId: string;
+  base: "sainaba" | "lakshmi" | "rafi";
+  complainant: string;
+  accused: string;
+  /** Days since scrutiny returned it. Due five days after the return (O7, as assumed). */
+  returnedAgo: number;
+};
+
+export const EXTRA_RETURNS: ExtraReturn[] = [
+  { id: "t-retharsha", caseId: "c-harsha", draftId: "draft-scrutiny-harsha", base: "rafi", complainant: "Harsha Patel", accused: "Dinesh Solanki", returnedAgo: 1 },
+  { id: "t-retfarida", caseId: "c-farida", draftId: "draft-scrutiny-farida", base: "lakshmi", complainant: "Farida Sheikh", accused: "Kamal Traders", returnedAgo: 2 },
+  { id: "t-retvikram", caseId: "c-vikram", draftId: "draft-scrutiny-vikram", base: "sainaba", complainant: "Vikram Desai", accused: "Om Sai Logistics", returnedAgo: 1 },
+  { id: "t-retpriya", caseId: "c-priya", draftId: "draft-scrutiny-priya", base: "rafi", complainant: "Priya Mehta", accused: "Rajesh Bhatt", returnedAgo: 4 },
+  { id: "t-retimran", caseId: "c-imran", draftId: "draft-scrutiny-imran", base: "lakshmi", complainant: "Imran Qureshi", accused: "Shreeji Textiles", returnedAgo: 0 },
+  { id: "t-retgeeta", caseId: "c-geeta", draftId: "draft-scrutiny-geeta", base: "sainaba", complainant: "Geeta Rathod", accused: "Narmada Agro", returnedAgo: 3 },
+];
+
+export const DEFECTS_BY_BASE: Record<ExtraReturn["base"], Defect[]> = {
+  sainaba: SCRUTINY_DEFECTS,
+  lakshmi: SCRUTINY_DEFECTS_LAKSHMI,
+  rafi: SCRUTINY_DEFECTS_RAFI,
+};

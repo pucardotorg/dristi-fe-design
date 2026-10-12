@@ -192,17 +192,52 @@ export function FieldRow({
   );
 }
 
+/** What `from-draft.ts` writes for a question the filer left unanswered. */
+const NOT_PROVIDED = "Not provided";
+
 /** The filed value. A raised item never replaces it — the advocate makes the fix. */
 function ValueLines({ field }: { field: FlatField }) {
+  /*
+   * Prose (the affidavit, the prayer) stops at four lines with Show more. Printed whole,
+   * the affidavit alone ran ~1,400px in the one scrolling fields panel and pushed the
+   * next fields two screens down. The link only appears when there is more to read.
+   */
+  const ref = React.useRef<HTMLDivElement>(null);
+  const [expanded, setExpanded] = React.useState(false);
+  const [overflows, setOverflows] = React.useState(false);
+  React.useLayoutEffect(() => {
+    const el = ref.current;
+    if (!field.long || !el || expanded) return;
+    setOverflows(el.scrollHeight > el.clientHeight + 1);
+  }, [field.long, field.value, expanded]);
+
   if (!field.value) return null;
   return (
-    <div
-      className={cn(
-        "text-body-compact break-words",
-        field.long ? "text-muted-foreground" : "font-medium",
-      )}
-    >
-      <FieldValue field={field} value={field.value} />
+    <div className="flex flex-col items-start gap-1">
+      <div
+        ref={ref}
+        className={cn(
+          "text-body-compact break-words",
+          // Prose keeps the paragraph breaks it was filed with.
+          field.long ? "whitespace-pre-line text-muted-foreground" : "font-medium",
+          field.long && !expanded && "line-clamp-4",
+          // An unanswered optional question is a fact, but not one to read as data.
+          field.value === NOT_PROVIDED && "font-normal text-muted-foreground",
+        )}
+      >
+        <FieldValue field={field} value={field.value} />
+      </div>
+      {field.long && (overflows || expanded) ? (
+        <Button
+          type="button"
+          variant="link"
+          className="h-auto p-0 text-body-compact"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((open) => !open)}
+        >
+          {expanded ? "Show less" : "Show more"}
+        </Button>
+      ) : null}
     </div>
   );
 }

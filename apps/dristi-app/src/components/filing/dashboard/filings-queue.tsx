@@ -66,6 +66,7 @@ import {
 } from "@/components/ui/pagination";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { rowActivation, rowOpener } from "@/lib/employee/row-activation";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { PANEL_CLASS } from "@/components/filing/form-card";
 
@@ -570,9 +571,16 @@ export function FilingsQueue({
                 {slice.map((row) => (
                   <TableRow
                     key={row.id}
+                    /* The whole row opens the filing (owner, 2026-10-13: "don't force me
+                       to click Fix defects"). Delegated in script by the product's row
+                       pattern — a link stretched over a `relative` <tr> does not reach
+                       across the row in every browser. Checkboxes and buttons keep their
+                       own clicks. */
                     // OPEN DECISION (see PR #31): the cards' light teal wash, not the DS
                     // beige `accent-strong` that Cases and Pending tasks still use.
-                    className="relative border-hairline data-[state=selected]:bg-brand-muted/50 data-[state=selected]:hover:bg-brand-muted/75"
+                    {...rowActivation(
+                      "border-hairline data-[state=selected]:bg-brand-muted/50 data-[state=selected]:hover:bg-brand-muted/75",
+                    )}
                     data-state={selected.has(row.id) ? "selected" : undefined}
                   >
                     {selectable ? (
@@ -836,10 +844,9 @@ function renderCell(
       return (
         <div className="flex items-center justify-end gap-1">
           <Button asChild variant="outline" size="sm">
-            {/* The link stretches over the whole row, so the row is the target and the
-                button is only where it is visible. Anything else in the row that must
-                stay clickable sits above it on `z-10`. */}
-            <Link href={withOrigin(row.action.href, here)} className="after:absolute after:inset-0">
+            {/* The row's opener: a click anywhere on the row is handed to it
+                (`rowActivation`), so the button is only where it is visible. */}
+            <Link href={withOrigin(row.action.href, here)} {...rowOpener}>
               {row.action.label}
               <ArrowRightIcon data-icon="inline-end" aria-hidden />
             </Link>

@@ -1,14 +1,19 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { DOC_ROW } from "./bundle";
 import {
   canSaveDraft,
   isLinkedComplete,
   unlocksSentence as unlocksSentenceRaw,
 } from "./field";
-import { FIELD_BY_ID } from "./sections";
+import { buildScrutinyCase, HERO_FILING_NO } from "./case";
+import { findFiling } from "./queue";
 import type { Draft, Field } from "./types";
+
+/** The authored case, read off its e-filing draft. */
+const HERO = buildScrutinyCase(findFiling(HERO_FILING_NO)!);
+const FIELD_BY_ID = HERO.fieldById;
+const DOC_ROW = HERO.docRow;
 
 const unlocksSentence = (field: Field) => unlocksSentenceRaw(field, DOC_ROW);
 
@@ -25,7 +30,7 @@ function draft(over: Partial<Draft> = {}): Draft {
 describe("unlocksSentence — the sentence printed in three places", () => {
   it("document rows grant re-upload", () => {
     assert.equal(
-      unlocksSentence(FIELD_BY_ID["d-aadhaar"]),
+      unlocksSentence(FIELD_BY_ID["d-p1id"]),
       "Lets the advocate re-upload this document.",
     );
     assert.equal(
@@ -36,7 +41,7 @@ describe("unlocksSentence — the sentence printed in three places", () => {
 
   it("a field sourced from an upload says 'only' — the boundary where a mark could mislead", () => {
     assert.equal(
-      unlocksSentence(FIELD_BY_ID["c-name"]),
+      unlocksSentence(FIELD_BY_ID["c1-name"]),
       "Lets the advocate edit this value only.",
     );
   });
@@ -52,15 +57,15 @@ describe("unlocksSentence — the sentence printed in three places", () => {
 
   it("says the plain phrase for a field with no source document", () => {
     assert.equal(
-      unlocksSentence(FIELD_BY_ID["c-mob"]),
+      unlocksSentence(FIELD_BY_ID["c1-mob"]),
       "Lets the advocate edit this value.",
     );
   });
 });
 
 describe("the save gate — an item has to say what is wrong", () => {
-  const field = FIELD_BY_ID["c-name"];
-  const docRow = FIELD_BY_ID["d-aadhaar"];
+  const field = FIELD_BY_ID["c1-name"];
+  const docRow = FIELD_BY_ID["d-p1id"];
 
   it("accepts a note", () => {
     assert.equal(
@@ -82,7 +87,7 @@ describe("the save gate — an item has to say what is wrong", () => {
   });
 
   it("holds the whole save until the linked document item names a reason", () => {
-    const linked = { rowId: "d-aadhaar", docId: "aadhaar", reason: null, note: "" };
+    const linked = { rowId: "d-p1id", docId: "p1id", reason: null, note: "" };
     const d = draft({ text: "Only the address side.", linked });
     assert.equal(isLinkedComplete(d), false);
     assert.equal(canSaveDraft(field, d), false);
