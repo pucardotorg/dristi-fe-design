@@ -127,11 +127,14 @@ export function ScrutinyReturnPage() {
       if (isScrutinyDemoDraft(draftId) && !freshened.current) {
         freshened.current = true;
         await reseedScrutinyDraft(draftId);
-        if (task?.returned?.defects.some((d) => d.resolution)) {
+        /* Sent back in an earlier run of the demo: open again, so it can be sent again. */
+        if (task && (task.status !== "open" || task.returned?.defects.some((d) => d.resolution))) {
           await dispatch(task.id, (t) =>
             t.returned
               ? {
                   ...t,
+                  status: "open",
+                  statusNote: undefined,
                   returned: {
                     ...t.returned,
                     defects: t.returned.defects.map((d) => ({ ...d, resolution: undefined })),

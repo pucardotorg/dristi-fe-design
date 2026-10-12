@@ -91,7 +91,7 @@ import {
 import { pickErrorMessage, useFilePicker } from "@/components/filing/use-file-picker";
 
 /** Where the window opens, decided by what has happened to the complaint so far. */
-export type SignFlowStart = "choose" | "sign" | "fallback" | "paper" | "oath";
+export type SignFlowStart = "choose" | "sign" | "fallback" | "paper" | "oath" | "status";
 
 type Stage =
   | "choose"
@@ -113,6 +113,9 @@ type Stage =
  * first in its own order.
  */
 const ORDER: Record<SignFlowStart, readonly Stage[]> = {
+  /* Reopened where signing stands: the roster, for a complaint already out for
+     signature (the scrutiny correction screen reopens here). */
+  status: ["done", "oath", "sworn", "choose", "sign", "otp", "dsc", "fallback", "paper", "uploaded"],
   choose: ["choose", "sign", "otp", "dsc", "done", "fallback", "paper", "uploaded", "oath", "sworn"],
   sign: ["sign", "otp", "dsc", "done", "fallback", "paper", "uploaded", "oath", "sworn", "choose"],
   fallback: ["fallback", "paper", "uploaded", "oath", "sworn", "choose", "sign", "otp", "dsc", "done"],
@@ -150,12 +153,16 @@ export function SignFlowDialog({
   start,
   onOpenChange,
   onPrint,
+  statusActions,
 }: {
   open: boolean;
   /** Where to open — computed by the step from the draft, once, as the window opens. */
   start: SignFlowStart;
   onOpenChange: (open: boolean) => void;
   onPrint: () => void;
+  /** Extra controls for the status stage's footer, beside Done — a host's reminder and
+   *  sandbox controls (the scrutiny correction screen). */
+  statusActions?: React.ReactNode;
 }) {
   /* A fresh opening is a fresh act: the body remounts so it starts on the stage the
      complaint is actually at, with nothing typed into it from last time. */
@@ -174,6 +181,7 @@ export function SignFlowDialog({
           start={start}
           onClose={() => onOpenChange(false)}
           onPrint={onPrint}
+          statusActions={statusActions}
         />
       ) : null}
     </Dialog>
@@ -184,10 +192,12 @@ function SignFlowBody({
   start,
   onClose,
   onPrint,
+  statusActions,
 }: {
   start: SignFlowStart;
   onClose: () => void;
   onPrint: () => void;
+  statusActions?: React.ReactNode;
 }) {
   const { draft, update, hrefFor } = useFiling();
   const { profile } = useProfile();
@@ -523,6 +533,13 @@ function SignFlowBody({
           </Button>
           <Button type="button" onClick={() => flow.go("oath")}>
             Continue to the oath
+          </Button>
+        </>
+      ) : statusActions ? (
+        <>
+          {statusActions}
+          <Button type="button" onClick={onClose}>
+            Done
           </Button>
         </>
       ) : (

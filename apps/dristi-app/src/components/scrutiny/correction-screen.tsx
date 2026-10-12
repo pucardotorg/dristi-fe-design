@@ -28,8 +28,10 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import {
+  BellIcon,
   CircleCheckIcon,
   ClockIcon,
+  FlaskConicalIcon,
   ListChecksIcon,
   LockIcon,
   PanelLeftIcon,
@@ -57,7 +59,17 @@ import { refile, resolveDefect } from "@/lib/tasks/transitions";
 import { useProfile } from "@/lib/filing/profile";
 import { isOutstanding, signatories } from "@/lib/filing/selectors";
 import { ConfirmDialog } from "@/components/filing/confirm-dialog";
-import { SignFlowDialog } from "@/components/filing/sign-flow-dialog";
+import { SignFlowDialog, type SignFlowStart } from "@/components/filing/sign-flow-dialog";
+import { signingRules } from "@/lib/filing/config";
+import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Case, Defect, Resolution, Task } from "@/lib/tasks/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -632,11 +644,94 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
     return true;
   };
 
+  /*
+   * Coming back to a round already being signed opens where it stands, not at the start
+   * (owner, 2026-10-13): your own signature if it is still owed, then your oath, else the
+   * roster of who is still to sign — with a reminder for them and, in the sandbox, a way
+   * to mark them done.
+   */
+  const yous = everyoneSigning.filter((s) => s.you);
+  const othersWaiting = everyoneSigning.filter((s) => !s.you && isOutstanding(s));
+  const signStart: SignFlowStart = !signing || !draft.sign.requestedAt
+    ? "choose"
+    : yous.some((s) => s.status === "pending")
+      ? "sign"
+      : yous.some((s) => s.oathTaken === false)
+        ? "oath"
+        : "status";
+
   const submit = async () => {
     if (signing && signaturesComplete) setSendOpen(true);
     else if (signing) setSignOpen(true);
     else setConfirmSignOpen(true);
   };
+
+  /** Ask again, for everyone still waiting. The link itself does not change. */
+  const [reminded, setReminded] = React.useState(false);
+  const remindOthers = () => {
+    const now = new Date().toISOString();
+    update((d) => {
+      for (const s of othersWaiting) d.sign.notified[s.id] = now;
+    });
+    setReminded(true);
+    toast.success(
+      othersWaiting.length === 1
+        ? `Reminder sent to ${othersWaiting[0].name}`
+        : `Reminder sent to ${othersWaiting.length} people`,
+    );
+  };
+
+  /**
+   * Sandbox only: the other parties' links go nowhere, so this stands in for them signing
+   * (and, where the court asks for one, swearing the oath). With everyone done, the send
+   * is the next act, so its confirmation follows at once.
+   */
+  const sandboxEveryoneDone = () => {
+    const at = new Date().toISOString();
+    update((d) => {
+      for (const s of everyoneSigning) {
+        if (!d.sign.signed[s.id]) d.sign.signed[s.id] = { at, with: "aadhaar" };
+        if (s.oathTaken === false) d.sign.oaths[s.id] = { at, video: null };
+      }
+    });
+    setSignOpen(false);
+    setSendOpen(true);
+  };
+
+  const statusActions = (
+    <div className="flex items-center gap-2 sm:mr-auto">
+      <DropdownMenu>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label="Sandbox: mark the other signatures"
+                className="text-muted-foreground"
+              >
+                <FlaskConicalIcon aria-hidden />
+              </Button>
+            </DropdownMenuTrigger>
+          </TooltipTrigger>
+          <TooltipContent>Sandbox: mark the other signatures</TooltipContent>
+        </Tooltip>
+        <DropdownMenuContent align="start" className="w-64">
+          <DropdownMenuLabel>No link is sent in the sandbox</DropdownMenuLabel>
+          <DropdownMenuItem onSelect={sandboxEveryoneDone}>
+            {signingRules().oath ? "Mark everyone as signed and sworn" : "Mark everyone as signed"}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {othersWaiting.length ? (
+        <Button type="button" variant="outline" disabled={reminded} onClick={remindOthers}>
+          <BellIcon data-icon="inline-start" aria-hidden />
+          {reminded ? "Reminder sent" : "Send a reminder"}
+        </Button>
+      ) : null}
+    </div>
+  );
 
   const sendBack = async () => {
     setSendOpen(false);
@@ -1098,7 +1193,8 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
       />
       <SignFlowDialog
         open={signOpen}
-        start="choose"
+        start={signStart}
+        statusActions={statusActions}
         onOpenChange={(open) => {
           setSignOpen(open);
           // Every signature in: the send is the next and last act.
