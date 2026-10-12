@@ -60,11 +60,15 @@ export type JoinCase = {
 export const DEMO_JOIN_CASE: JoinCase = {
   title: "South Indian Bank Ltd. vs Rajan Krishnan Nair and 1 other",
   caseNumber: "CC 847/2026",
-  cnr: "KL-0423-CC-0847-2026",
-  filingNumber: "KL-002405-2026",
+  /* Real formats (owner feedback, 12 Oct): a 16-character CNR and a registration
+     number, each re-voiced per state by the court switch — in Gujarat GJAH010008472026
+     and eCC/2405/2026. */
+  cnr: "KLKM520008472026",
+  filingNumber: "CMP/2405/2026",
   caseType: "NIA S138",
   filingDate: "31-07-2026",
-  court: "Court of the Judicial First Class Magistrate I",
+  /* The product's own court, which the court switch names per state ("SARAS Court"). */
+  court: "24×7 ON Court",
   courtroom: "Court No. 3",
   hearingDate: "Friday, 18 September 2026, 10:30 AM",
   chequeAmount: "₹1,85,000",
@@ -505,7 +509,8 @@ export const caseDetails = {
   hearing: t("Next hearing", "അടുത്ത ഹിയറിംഗ്"),
   caseNumber: t("Case number", "കേസ് നമ്പർ"),
   cnr: t("CNR number", "CNR നമ്പർ"),
-  filingNumber: t("Filing number", "ഫയലിംഗ് നമ്പർ"),
+  /* The number the case was registered under, not the e-filing number (owner, 12 Oct). */
+  filingNumber: t("Registration number", "രജിസ്ട്രേഷൻ നമ്പർ"),
   filingDate: t("Filing date", "ഫയലിംഗ് തീയതി"),
   chequeAmount: t("Amount claimed", "ആവശ്യപ്പെടുന്ന തുക"),
   complainant: t("Complainant", "പരാതിക്കാരൻ"),

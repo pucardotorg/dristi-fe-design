@@ -229,7 +229,7 @@ export function CaseDetails({
           {
             label: "filingNumber",
             value: joinCase.filingNumber,
-            idLabel: "filing number",
+            idLabel: "registration number",
           },
         ] as const)
       : []),
