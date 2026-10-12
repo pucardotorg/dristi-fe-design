@@ -96,10 +96,18 @@ export interface FieldGroupDef {
   fields: Field[];
 }
 
+/**
+ * One section of the filing — one e-filing step (Complainant, Cheque & return memo, …).
+ * The workbench lists them down a rail grouped the way the filing's own rail groups
+ * them, and shows one at a time.
+ */
 export interface SectionDef {
   id: string;
   num: string;
   title: string;
+  /** The rail heading it sits under — "Parties", "Case details", "Evidence". */
+  group: string;
+  icon: GroupIcon;
   groups: FieldGroupDef[];
 }
 
@@ -113,7 +121,11 @@ export type GroupIcon =
   | "pin"
   | "doc"
   | "pen"
-  | "wallet";
+  | "wallet"
+  | "userX"
+  | "clipboard"
+  | "message"
+  | "fileCheck";
 
 /* ── what the officer raises ─────────────────────────────────────────────── */
 

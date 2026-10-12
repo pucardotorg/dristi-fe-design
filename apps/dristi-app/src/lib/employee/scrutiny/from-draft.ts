@@ -1068,33 +1068,28 @@ export function caseFromDraft(draft: FilingDraft, options: DraftReadOptions): Dr
   const { bundle, docRow, documentGroups } = buildBundle(draft, options);
   const names = partyName(draft);
 
-  const sections: SectionDef[] = [
-    {
-      id: "party",
-      num: "1",
-      title: "Parties",
-      groups: [...complainantGroups(draft), ...advocateGroups(draft), ...accusedGroups(draft)],
-    },
-    {
-      id: "case",
-      num: "2",
-      title: "Case details",
-      groups: [
-        ...chequeGroups(draft),
-        ...noticeGroups(draft),
-        jurisdictionGroup(draft),
-        prayerGroup(draft),
-      ],
-    },
-    {
-      id: "evid",
-      num: "3",
-      title: "Evidence",
-      groups: [...witnessGroups(draft), ...documentGroups],
-    },
-    { id: "aff", num: "4", title: "Affidavit", groups: [affidavitGroup(draft)] },
-    { id: "sign", num: "5", title: "Sign & pay", groups: signingGroups(draft, options) },
+  // One section per e-filing step, under the filing rail's own headings and glyphs.
+  const steps: Omit<SectionDef, "num">[] = [
+    { id: "complainant", title: "Complainant", group: "Parties", icon: "user", groups: complainantGroups(draft) },
+    { id: "advocate", title: "Advocate", group: "Parties", icon: "scale", groups: advocateGroups(draft) },
+    { id: "accused", title: "Accused", group: "Parties", icon: "userX", groups: accusedGroups(draft) },
+    { id: "cheque", title: "Cheque & return memo", group: "Case details", icon: "cheque", groups: chequeGroups(draft) },
+    { id: "demand-notice", title: "Demand notice & debt", group: "Case details", icon: "mail", groups: noticeGroups(draft) },
+    { id: "jurisdiction", title: "Jurisdiction & limitation", group: "Case details", icon: "pin", groups: [jurisdictionGroup(draft)] },
+    { id: "adr-prayer", title: "ADR, other & prayer", group: "Case details", icon: "clipboard", groups: [prayerGroup(draft)] },
+    { id: "witnesses", title: "Witnesses", group: "Evidence", icon: "message", groups: witnessGroups(draft) },
+    { id: "documents", title: "Documents", group: "Evidence", icon: "doc", groups: documentGroups },
+    { id: "affidavit", title: "Affidavit", group: "Affidavit", icon: "fileCheck", groups: [affidavitGroup(draft)] },
+    ...signingGroups(draft, options).map((g, k) =>
+      k === 0
+        ? { id: "sign", title: "Sign and oath", group: "Sign and oath", icon: "pen" as const, groups: [g] }
+        : { id: "pay-fees", title: "Pay fees", group: "Pay fees", icon: "wallet" as const, groups: [g] },
+    ),
   ];
+  const sections: SectionDef[] = steps
+    // A filing with every complainant in person has no advocate step to show.
+    .filter((step) => step.groups.length > 0)
+    .map((step, i) => ({ ...step, num: String(i + 1) }));
 
   return {
     party: {

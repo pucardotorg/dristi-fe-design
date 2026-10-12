@@ -3,7 +3,6 @@
 import * as React from "react";
 import {
   ClockIcon,
-  FilesIcon,
   PencilIcon,
   TriangleAlertIcon,
 } from "lucide-react";
@@ -31,10 +30,6 @@ import {
   ReviewDialog,
   type Decision,
 } from "@/components/employee/scrutiny/review-dialog";
-import {
-  IndexRail,
-  IndexSheet,
-} from "@/components/employee/scrutiny/index-rail";
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,24 +48,24 @@ import {
 } from "@/components/ui/tooltip";
 
 /**
- * The case review: filed fields on the left, the bundle in the centre, the document
- * index on the right, and the decision along the bottom.
+ * The case review: the filing's sections down a rail and the fields of one section on
+ * the left, the bundle on the right with its index as an overlay, and the decision along
+ * the bottom.
  *
- * The three panes are one `ResizablePanelGroup` rather than the hand-rolled pointer
+ * The two panes are one `ResizablePanelGroup` rather than the hand-rolled pointer
  * dividers the prototype used — the DS ships that primitive, and it brings the keyboard
- * resize and the ARIA separator semantics with it. `horizontal` is the group's default
- * orientation, so it is not restated here. Note that v4 of the underlying library
- * dropped `autoSaveId`: pane widths reset on reload, where the prototype persisted them
- * to localStorage. Worth restoring behind `onLayoutChange` if officers miss it.
+ * resize and the ARIA separator semantics with it. Note that v4 of the underlying
+ * library dropped `autoSaveId`: pane widths reset on reload. Worth restoring behind
+ * `onLayoutChange` if officers miss it.
  *
- * **Three panes are a claim about width, so the width is measured.** Percentage sizes
- * alone gave a 135px index rail and a 270px fields pane on a 800px screen — labels
- * clipped to "ails" and "1 Sy…". Every pane now has a floor in `rem`, and below the room
- * for three the workbench stops pretending: fields and bundle become a two-view switch
- * in the case bar (fields first, because the filed values are what scrutiny is), and the
- * index becomes a sheet off that same bar. `useRoomInRem` rather than a media query,
- * because at 200% text zoom a 1280px viewport holds forty rem, not eighty
- * (`ACCESSIBILITY.md` §10).
+ * The document index was a third pane; the section rail took its width (owner,
+ * 2026-10-12), and the index now opens over the bundle from the bundle's own bar.
+ *
+ * **Side by side is a claim about width, so the width is measured.** Every pane has a
+ * floor in `rem`, and below the room for both the workbench stops pretending: fields and
+ * bundle become a two-view switch in the case bar (fields first, because the filed values
+ * are what scrutiny is). `useRoomInRem` rather than a media query, because at 200% text
+ * zoom a 1280px viewport holds forty rem, not eighty (`ACCESSIBILITY.md` §10).
  */
 export function CaseWorkbench({
   caseData,
@@ -114,13 +109,13 @@ export function CaseWorkbench({
   const [historyOpen, setHistoryOpen] = React.useState(false);
   const [decision, setDecision] = React.useState<Decision | null>(null);
 
-  /* 64rem is `lg` at a default root size: the three panes' own floors (18 + 22 + 11rem)
-     plus the court rail beside them need about that much before any of them is readable.
+  /* 64rem is `lg` at a default root size: the two panes' own floors (30 + 22rem — the
+     fields pane holds the section rail) plus the court rail beside them need about that
+     much before either is readable.
      False before mount, so the narrow layout renders first and never claims room it has
      not measured. */
-  const threePane = useRoomInRem(64);
+  const sideBySide = useRoomInRem(64);
   const [pane, setPane] = React.useState<"fields" | "bundle">("fields");
-  const [indexOpen, setIndexOpen] = React.useState(false);
 
   // The case title is the officer's to correct (a mis-spelt party name is exactly the
   // kind of thing scrutiny exists to catch). Local until a case service owns it.
@@ -170,15 +165,6 @@ export function CaseWorkbench({
       requestAnimationFrame(() => fields.current?.scrollToRow(fieldId));
     },
     [controller, fieldById],
-  );
-
-  /** The mirror of `goToItem`: a document is read on the bundle. */
-  const showDoc = React.useCallback(
-    (docId: string) => {
-      setPane("bundle");
-      requestAnimationFrame(() => goToDoc(docId));
-    },
-    [goToDoc],
   );
 
   React.useEffect(() => {
@@ -275,10 +261,10 @@ export function CaseWorkbench({
           )}
         </div>
         <div className="ms-auto flex shrink-0 flex-wrap items-center gap-3">
-          {/* Below the room for three panes the two document surfaces share one slot,
+          {/* Below the room for two panes the two document surfaces share one slot,
               and the switch between them lives in the bar that already owns this case —
               rather than a second chrome band above a pane that has its own. */}
-          {threePane ? null : (
+          {sideBySide ? null : (
             <>
               <ToggleGroup
                 type="single"
@@ -306,10 +292,6 @@ export function CaseWorkbench({
                   Bundle
                 </ToggleGroupItem>
               </ToggleGroup>
-              <Button variant="outline" onClick={() => setIndexOpen(true)}>
-                <FilesIcon />
-                Documents
-              </Button>
             </>
           )}
           {/* The round count does triage work at rest; the button opens the detour. */}
@@ -332,7 +314,7 @@ export function CaseWorkbench({
         </Banner>
       )}
 
-      {threePane ? (
+      {sideBySide ? (
         /* The floors are in `rem`, not percentages: a percentage floor is a floor on
            nothing, which is how the index rail reached 135px.
  
@@ -343,9 +325,11 @@ export function CaseWorkbench({
            2026-09-17: *"what is this slight difference of color… shouldn't it look
            seamless?"*). The panes carry their own insets, so the frame wants none. */
         <ResizablePanelGroup className="min-h-0 flex-1">
+          {/* The fields pane carries the filing's section rail inside it, so its floor is
+              the rail's 13rem plus room for a record beside it. */}
           <ResizablePanel
-            defaultSize="34%"
-            minSize="18rem"
+            defaultSize="46%"
+            minSize="30rem"
             className="flex flex-col"
           >
             <FieldsPanel
@@ -356,16 +340,12 @@ export function CaseWorkbench({
             />
           </ResizablePanel>
           <ResizableHandle withHandle />
-          <ResizablePanel defaultSize="52%" minSize="22rem">
-            <BundleView ref={bundle} aiOn={aiOn} spot={spot} />
-          </ResizablePanel>
-          <ResizableHandle withHandle />
-          {/* A document index is a short list, so it takes a rail's width, not a pane's:
-              the room it does not need goes to the bundle, which is the thing being read. */}
-          <ResizablePanel defaultSize="14%" minSize="10rem" maxSize="20rem">
-            <IndexRail
+          <ResizablePanel defaultSize="54%" minSize="22rem">
+            <BundleView
+              ref={bundle}
+              aiOn={aiOn}
+              spot={spot}
               relatedDocId={aiOn ? relatedDocId : null}
-              onGoToDoc={goToDoc}
             />
           </ResizablePanel>
         </ResizablePanelGroup>
@@ -382,7 +362,12 @@ export function CaseWorkbench({
               onGoToItem={goToItem}
             />
           ) : (
-            <BundleView ref={bundle} aiOn={aiOn} spot={spot} />
+            <BundleView
+              ref={bundle}
+              aiOn={aiOn}
+              spot={spot}
+              relatedDocId={aiOn ? relatedDocId : null}
+            />
           )}
         </div>
       )}
@@ -421,18 +406,6 @@ export function CaseWorkbench({
         onOpenChange={setHistoryOpen}
         onGoToItem={goToItem}
       />
-      {/* The index, as a detour, only where there is no room for it as a column. */}
-      {threePane ? null : (
-        <IndexSheet
-          open={indexOpen}
-          onOpenChange={setIndexOpen}
-          relatedDocId={aiOn ? relatedDocId : null}
-          onGoToDoc={(docId) => {
-            setIndexOpen(false);
-            showDoc(docId);
-          }}
-        />
-      )}
       <ReviewDialog
         decision={decision}
         flags={controller.flags}

@@ -300,13 +300,6 @@ export function deriveScrutinyCase(filing: Filing): DerivedCase {
     ] as Field[],
   };
 
-  const partySection: SectionDef = {
-    id: "party",
-    num: "1",
-    title: "Party Details",
-    groups: [complainantGroup, advocateGroup, accusedGroup],
-  };
-
   const claimGroup = {
     id: "chq",
     icon: "memo" as const,
@@ -384,13 +377,6 @@ export function deriveScrutinyCase(filing: Filing): DerivedCase {
     ] as Field[],
   };
 
-  const caseSection: SectionDef = {
-    id: "case",
-    num: "2",
-    title: "Case Details",
-    groups: [claimGroup, jurisdictionGroup, prayerGroup],
-  };
-
   const documentsFields: Field[] = [
     {
       id: "d-affidavit",
@@ -413,7 +399,7 @@ export function deriveScrutinyCase(filing: Filing): DerivedCase {
     },
   ];
 
-  const evidenceSection: SectionDef = {
+  const evidenceSection = {
     id: "evid",
     num: "3",
     title: "Evidence",
@@ -441,7 +427,18 @@ export function deriveScrutinyCase(filing: Filing): DerivedCase {
     ],
   };
 
-  const sections = [partySection, caseSection, evidenceSection];
+  // One section per filing step, as a §138 filing is laid out (`from-draft.ts`).
+  const [witnessGroup, documentsGroup] = evidenceSection.groups;
+  const sections: SectionDef[] = [
+    { id: "complainant", title: "Complainant", group: "Parties", icon: "user", groups: [complainantGroup] },
+    { id: "advocate", title: "Advocate", group: "Parties", icon: "scale", groups: [advocateGroup] },
+    { id: "accused", title: "Accused", group: "Parties", icon: "userX", groups: [accusedGroup] },
+    { id: "claim", title: "Claim", group: "Case details", icon: "memo", groups: [claimGroup] },
+    { id: "jurisdiction", title: "Jurisdiction & limitation", group: "Case details", icon: "pin", groups: [jurisdictionGroup] },
+    { id: "adr-prayer", title: "ADR, other & prayer", group: "Case details", icon: "clipboard", groups: [prayerGroup] },
+    { id: "witnesses", title: "Witnesses", group: "Evidence", icon: "message", groups: [witnessGroup] },
+    { id: "documents", title: "Documents", group: "Evidence", icon: "doc", groups: [documentsGroup] },
+  ].map((section, i) => ({ ...section, num: String(i + 1) }) as SectionDef);
 
   /* The bundle, in the complaint-PDF reading order the officer scrolls. Illegible
      facsimiles throughout — each doc names the page *shape* it is drawn as. */

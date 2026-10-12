@@ -12,6 +12,7 @@ import {
 import { cn } from "@/lib/utils";
 import { GENERATED_PAGES } from "@/components/employee/scrutiny/generated-pages";
 import { PageSheet, SHEET_BOX } from "@/components/employee/page-facsimile";
+import { IndexOverlay } from "@/components/employee/scrutiny/index-overlay";
 import { useScrutinyCase } from "@/components/employee/scrutiny/scrutiny-case-context";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,9 +36,12 @@ export interface BundleHandle {
 export function BundleView({
   aiOn,
   spot,
+  relatedDocId,
   ref,
 }: {
   aiOn: boolean;
+  /** Doc the selected field points at — marked in the index overlay. */
+  relatedDocId: string | null;
   /** The AI evidence region for the selected field, if it has one. */
   spot: { doc: string; rect: Rect } | null;
   ref?: React.Ref<BundleHandle>;
@@ -211,6 +215,9 @@ export function BundleView({
         <b className="me-auto min-w-0 flex-1 truncate text-body-compact font-semibold">
           Case bundle
         </b>
+
+        {/* The index opens over the pages rather than standing beside them. */}
+        <IndexOverlay relatedDocId={relatedDocId} onGoToDoc={goToDoc} />
 
         <Tooltip>
           <TooltipTrigger asChild>

@@ -1,16 +1,22 @@
 "use client";
 
+"use client";
+
+import * as React from "react";
+import { FilesIcon } from "lucide-react";
+
 import { shortDocName } from "@/lib/employee/scrutiny/bundle";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Popover,
+  PopoverContent,
+  PopoverDescription,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Tooltip,
   TooltipContent,
@@ -19,20 +25,19 @@ import {
 import { useScrutinyCase } from "@/components/employee/scrutiny/scrutiny-case-context";
 
 /**
- * The bundle's index.
+ * The bundle's index, as an overlay on the bundle — closed until asked for.
  *
- * Deliberately NOT `DocumentSlot`: that component is documented for "a checklist of
- * expected documents where each item has its own upload state", and its own demo runs
- * past 400px. At the width this rail defaults to, its `p-4` + `gap-4` + 40px media
- * leaves ~117px for a filename — three-line wraps and a list that has to scroll.
+ * It used to be a third pane. The filing's section rail took that width (owner,
+ * 2026-10-12), and an index the officer glances at to jump does not need to stand open:
+ * a `Popover` over the pages opens from the bundle's own bar, takes focus, closes on
+ * Escape or a pick, and hands focus back to its trigger — the DS primitive's own wiring.
  *
- * It is a plain `ghost` `Button` list rather than `SidebarMenuButton`, which was the
- * previous answer: that component carries the *navigation rail's* brand-tinted hover and
- * active states, and putting them in a page panel meant two things on screen claiming to
- * be the app's nav. The active document is marked with `accent`, which is the selection
- * role, and the rail spends no brand colour at all.
+ * Deliberately NOT `DocumentSlot`: that component is for "a checklist of expected
+ * documents where each item has its own upload state". The rows are plain `ghost`
+ * buttons; the document the selected field points at is marked with `accent`, the
+ * selection role.
  */
-export function IndexRail({
+export function IndexOverlay({
   relatedDocId,
   onGoToDoc,
 }: {
@@ -40,67 +45,38 @@ export function IndexRail({
   relatedDocId: string | null;
   onGoToDoc: (docId: string) => void;
 }) {
-  return (
-    <aside
-      className="flex h-full flex-col overflow-hidden bg-card"
-      aria-label="Document index"
-    >
-      {/* The same chrome bar the bundle and fields panels carry — `h-14`, a hairline
-          seam below it — so all three pane headers line up across the workbench. */}
-      <div className="flex h-14 shrink-0 items-center border-b border-hairline px-4">
-        <b className="text-body-compact font-semibold">Index</b>
-      </div>
-      {/* The row content sits on the 16px line — aligned with the "Index" header above and
-          the fields panel's own 16px margin — while the row fill is a gentler 8px pill, so
-          the numbers read as balanced rather than pushed in (owner, 2026-09-15). */}
-      <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-2 py-2">
-        <IndexRows
-          relatedDocId={relatedDocId}
-          onGoToDoc={onGoToDoc}
-        />
-      </div>
-    </aside>
-  );
-}
-
-/**
- * The same index, as a detour, for the widths where there is no room for a third pane.
- *
- * A sheet rather than a vanishing rail: the officer asks for the index, reads it, picks a
- * document and it closes behind them — the same shape `HistorySheet` uses one control
- * along in the same bar.
- */
-export function IndexSheet({
-  open,
-  onOpenChange,
-  relatedDocId,
-  onGoToDoc,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  relatedDocId: string | null;
-  onGoToDoc: (docId: string) => void;
-}) {
   const { bundle } = useScrutinyCase();
+  const [open, setOpen] = React.useState(false);
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="data-[side=right]:sm:max-w-100">
-        <SheetHeader>
-          <SheetTitle>Documents</SheetTitle>
-          <SheetDescription>
-            {bundle.length} documents in this bundle. Picking one opens it in the
-            bundle.
-          </SheetDescription>
-        </SheetHeader>
-
-        <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-2 pb-4">
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="outline">
+          <FilesIcon />
+          Documents
+          <span className="text-muted-foreground tabular-nums">{bundle.length}</span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className="flex max-h-[min(32rem,var(--radix-popover-content-available-height))] w-80 flex-col gap-0 p-0"
+      >
+        <PopoverHeader className="border-b border-hairline px-4 py-3">
+          <PopoverTitle>Documents</PopoverTitle>
+          <PopoverDescription>
+            {bundle.length} in this bundle. Picking one scrolls the bundle to it.
+          </PopoverDescription>
+        </PopoverHeader>
+        <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto p-2">
           <IndexRows
-              relatedDocId={relatedDocId}
-            onGoToDoc={onGoToDoc}
+            relatedDocId={relatedDocId}
+            onGoToDoc={(docId) => {
+              setOpen(false);
+              onGoToDoc(docId);
+            }}
           />
         </div>
-      </SheetContent>
-    </Sheet>
+      </PopoverContent>
+    </Popover>
   );
 }
 
