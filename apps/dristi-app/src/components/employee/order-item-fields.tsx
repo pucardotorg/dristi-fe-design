@@ -4,6 +4,7 @@ import * as React from "react";
 import { CalendarDaysIcon } from "lucide-react";
 
 import { formatStructuredAddress } from "@/components/cases/structured-address";
+import { useCourt } from "@/components/court/court-provider";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -45,7 +46,7 @@ import {
   channelLabel,
   channelsFor,
   needsPoliceStation,
-  POLICE_STATIONS,
+  policeStationsFor,
   selectedAddresses,
   unreachableChannels,
   PROCESS_CHANNELS,
@@ -461,6 +462,7 @@ function RecipientsField({
   disabled: boolean;
   onChange: (recipients: ProcessRecipients) => void;
 }) {
+  const { court } = useCourt();
   const recipients: ProcessRecipients = block.recipients ?? {
     person: "",
     destinations: [],
@@ -696,7 +698,7 @@ function RecipientsField({
                         </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
-                        {POLICE_STATIONS.map((option) => (
+                        {policeStationsFor(court).map((option) => (
                           <SelectItem key={option} value={option}>
                             {option}
                           </SelectItem>

@@ -25,12 +25,13 @@
 
 import {
   policeStationFor,
-  POLICE_STATIONS,
+  policeStationsFor,
   type CasePerson,
 } from "./case-people";
 import type { OrderTemplateId } from "./order-templates";
 
-export { POLICE_STATIONS };
+/* The stations a court's dropdowns offer — Panchkula for Punjab and Haryana only. */
+export { policeStationsFor };
 export type { CasePerson };
 
 export type ProcessChannel =
