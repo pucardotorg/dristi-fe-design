@@ -37,9 +37,21 @@ import type { Defect } from "@/lib/tasks/types";
 import type { StoredFileRef } from "@/lib/filing/types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { RESOLVE_IN_PLACE } from "@/components/chrome/motion";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { DateField } from "@/components/filing/date-field";
 import { PrefixInput, TextField } from "@/components/filing/inputs";
+
+/* ───────────────────────────── Pacing ───────────────────────────── */
+
+/** The sandbox upload beat (storing the file locally is near instant). */
+const UPLOAD_MS = 1200;
+/** Height eases over this, on the product's soft curve (`motion.ts`, STAGE_FADE). */
+const HEIGHT_MS = 360;
+const SOFT_EASE = "cubic-bezier(0.45, 0, 0.55, 1)";
+/** A closed queue row's height — where a card opening in its place grows from. */
+const ROW_HEIGHT = 56;
 
 /* ───────────────────────────── What it can do ───────────────────────────── */
 
@@ -143,10 +155,7 @@ export function DefectCard({
   onBlurCapture,
   className,
   file,
-  onResolved,
 }: {
-  /** The defect was just settled here — saved, kept, or its document replaced. */
-  onResolved?: () => void;
   /** Document defects: the copy the slot holds now — the filed one, or its replacement. */
   file?: StoredFileRef;
   defect: Defect;
@@ -218,14 +227,75 @@ export function DefectCard({
   /* A replaced document settles the moment the upload lands: focus stays on the Replace
      button, so waiting for it to leave kept the card open until a click elsewhere
      (owner, 2026-10-12). The wait is for typing, which a document never involves. */
-  const collapsed = resolved && (!engaged || isDoc);
+  /*
+   * Completing a defect (owner, 2026-10-12): a document shows its upload going in, then
+   * the card eases down to its one-line result. The advocate opens the next defect
+   * themselves — moving them on automatically felt jarring. The upload bar is paced for
+   * the sandbox, where storing the file is near instant; against a real server it would
+   * follow the transfer.
+   */
+  const [uploading, setUploading] = React.useState(false);
+  const [uploadPct, setUploadPct] = React.useState(0);
 
-  /* Tell the screen once a document lands, so it can move on to the next defect. */
-  const wasResolved = React.useRef(resolved);
+  const collapsed = resolved && (!engaged || isDoc) && !uploading;
+
+  /* A document landing starts the upload beat — switched in the same render the file
+     lands, so the card never flashes shut for a frame first — then the hold. */
+  const [prevResolved, setPrevResolved] = React.useState(resolved);
+  if (resolved !== prevResolved) {
+    setPrevResolved(resolved);
+    if (isDoc && resolved) {
+      setUploading(true);
+      setUploadPct(8);
+    }
+  }
   React.useEffect(() => {
-    if (isDoc && resolved && !wasResolved.current) onResolved?.();
-    wasResolved.current = resolved;
-  }, [isDoc, resolved, onResolved]);
+    if (!uploading) return;
+    const ids: number[] = [];
+    const steps = 6;
+    for (let i = 1; i <= steps; i += 1) {
+      ids.push(window.setTimeout(() => setUploadPct(Math.round((100 / steps) * i)), (UPLOAD_MS / steps) * i));
+    }
+    ids.push(
+      window.setTimeout(() => {
+        setUploading(false);
+      }, UPLOAD_MS + 150),
+    );
+    return () => ids.forEach((id) => window.clearTimeout(id));
+  }, [uploading]);
+
+  /*
+   * The card's height eases between its states — open, uploading, settled — instead of
+   * snapping, so the eye follows the card shrinking to its result. A card that mounts
+   * open grows from the height of the row it replaces. Skipped for reduced motion.
+   */
+  const body = React.useRef<HTMLDivElement>(null);
+  const lastHeight = React.useRef<number | null>(collapsed ? null : ROW_HEIGHT);
+  React.useEffect(() => {
+    const el = root.current;
+    const inner = body.current;
+    if (!el || !inner) return;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const border = el.offsetHeight - el.clientHeight;
+    /* Watching the content, not guessing a moment to measure: a settled card's result
+       line can fill in a beat after it closes, and the card eases to that too rather
+       than snapping the last few pixels. */
+    const observer = new ResizeObserver(() => {
+      const to = inner.offsetHeight + border;
+      const from = lastHeight.current;
+      lastHeight.current = to;
+      if (from === null || reduced || Math.abs(from - to) < 2) return;
+      const running = el.getAnimations();
+      const start = running.length ? el.getBoundingClientRect().height : from;
+      running.forEach((animation) => animation.cancel());
+      el.animate([{ height: `${start}px` }, { height: `${to}px` }], {
+        duration: HEIGHT_MS,
+        easing: SOFT_EASE,
+      });
+    });
+    observer.observe(inner);
+    return () => observer.disconnect();
+  }, [collapsed]);
   const wasCollapsed = React.useRef(collapsed);
   React.useLayoutEffect(() => {
     if (collapsed && !wasCollapsed.current) {
@@ -248,13 +318,17 @@ export function DefectCard({
         )}
         {...watch}
       >
-        <div className="flex items-start gap-2.5 p-4">
+        <div ref={body} role="status" className={cn("flex items-start gap-2.5 p-4", RESOLVE_IN_PLACE)}>
           <CircleCheckIcon className="mt-0.5 size-4 shrink-0 text-success-ink" aria-hidden />
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             <p className="text-body-compact font-semibold text-foreground">
               {defect.target.label}
             </p>
-            <p className="text-body-compact text-success-ink">{resolutionLabel(defect, value)}</p>
+            {/* The line is held open before the record catches up (it can lag the save by a
+                beat), so the settled card does not grow a line after it has eased shut. */}
+            <p className="min-h-5 text-body-compact text-success-ink">
+              {resolutionLabel(defect, value) || (isDoc ? "Document replaced" : "Corrected")}
+            </p>
             {/* Which file now stands in for the flagged one, so the replacement is
                 visibly done (owner, 2026-10-12). */}
             {isDoc && file ? (
@@ -290,7 +364,8 @@ export function DefectCard({
       )}
       {...watch}
     >
-      <div className="flex items-start gap-2.5 px-4 pt-4">
+      <div ref={body}>
+      <div className={cn("flex items-start gap-2.5 px-4 pt-4", RESOLVE_IN_PLACE)}>
         <CircleDashedIcon className="mt-1 size-4 shrink-0 text-muted-foreground" aria-hidden />
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <h3 className="text-body font-semibold text-foreground">{defect.target.label}</h3>
@@ -305,11 +380,18 @@ export function DefectCard({
         </span>
       </div>
 
-      <div className="flex flex-col gap-3.5 p-4">
+      <div className={cn("flex flex-col gap-3.5 p-4", RESOLVE_IN_PLACE)}>
         <WhyFlagged defect={defect} />
 
         <div data-own-value className="flex flex-col gap-3 border-t border-hairline pt-4">
-          {isDoc ? (
+          {isDoc && uploading ? (
+            <div role="status" className="flex flex-col gap-2">
+              <p className="truncate text-body-compact text-muted-foreground">
+                Uploading <span className="font-medium text-foreground">{file?.name}</span>…
+              </p>
+              <Progress value={uploadPct} aria-label="Upload progress" />
+            </div>
+          ) : isDoc ? (
             <>
               {file ? (
                 <p className="text-body-compact text-muted-foreground">
@@ -343,7 +425,6 @@ export function DefectCard({
                   onClick={() => {
                     actions.setValue(draft);
                     finish();
-                    onResolved?.();
                   }}
                   disabled={!dirty || atReturn}
                   className="flex-1"
@@ -361,7 +442,6 @@ export function DefectCard({
                       if (dirty) actions.setValue(draft);
                       actions.keep?.();
                       finish();
-                      onResolved?.();
                     }}
                     className="shrink-0 text-muted-foreground"
                   >
@@ -372,6 +452,7 @@ export function DefectCard({
             </>
           )}
         </div>
+      </div>
       </div>
     </div>
   );

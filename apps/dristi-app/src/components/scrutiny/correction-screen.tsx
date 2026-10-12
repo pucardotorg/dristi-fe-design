@@ -44,7 +44,6 @@ import {
   firstUnresolved,
   formOrder,
   intendedResolution,
-  isResolved,
   sameResolution,
   targetKey,
 } from "@/lib/tasks/defects";
@@ -409,35 +408,9 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
     [defects, queueColumn]
   );
 
-  /*
-   * After a defect is settled, its card closes to its one-line result, and a beat later
-   * the next defect still open is opened (owner, 2026-10-12) — after this one in the
-   * form's order, else from the top. Read through refs so the timer sees the filing as
-   * it is once the save has landed.
-   */
-  const latest = React.useRef({ defects: [] as Defect[], valueOf, openDefect });
-  const advanceTimer = React.useRef<number | null>(null);
-  React.useEffect(() => () => {
-    if (advanceTimer.current !== null) window.clearTimeout(advanceTimer.current);
-  }, []);
-  const advanceFrom = React.useCallback((n: number) => {
-    if (advanceTimer.current !== null) window.clearTimeout(advanceTimer.current);
-    advanceTimer.current = window.setTimeout(() => {
-      advanceTimer.current = null;
-      const { defects: all, valueOf: read, openDefect: open } = latest.current;
-      const at = all.findIndex((d) => d.n === n);
-      const ordered = [...all.slice(at + 1), ...all.slice(0, Math.max(at, 0))];
-      const next = ordered.find((d) => d.n !== n && !isResolved(d, read(d)));
-      if (next) open(next.n);
-    }, 900);
-  }, []);
-
   /* ── Progress and the gate ───────────────────────────────────────── */
 
   const { resolved, total } = countResolved(defects, valueOf);
-  React.useEffect(() => {
-    latest.current = { defects, valueOf, openDefect };
-  });
   const complete = allResolved(defects, valueOf);
   const items: QueueDefect[] = defects.map((defect) => ({ defect, value: valueOf(defect) }));
   const countFor = React.useCallback(
@@ -736,7 +709,6 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
           }
           index={index}
           total={total}
-          onResolved={() => advanceFrom(item.defect.n)}
           onFocusCapture={() => setActiveDefect(item.defect.n)}
           onBlurCapture={onFrameBlur}
         />
