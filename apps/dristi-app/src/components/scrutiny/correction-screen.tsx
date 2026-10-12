@@ -1242,7 +1242,8 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
         open={signOpen}
         start={openedAt}
         statusActions={statusActions}
-        completeNote="Everyone has signed. The corrected complaint can go back to scrutiny."
+        completeNote="The corrected complaint can go back to scrutiny."
+        unlocks="It can go back to scrutiny"
         outcome={
           sent
             ? {

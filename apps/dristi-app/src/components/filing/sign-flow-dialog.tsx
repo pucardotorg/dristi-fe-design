@@ -155,6 +155,7 @@ export function SignFlowDialog({
   onPrint,
   statusActions,
   completeNote,
+  unlocks,
   outcome,
 }: {
   open: boolean;
@@ -168,6 +169,9 @@ export function SignFlowDialog({
   /** The roster's footnote once everyone has signed, where "pay the court fee" is not
    *  what comes next (a corrected complaint goes back to scrutiny). */
   completeNote?: string;
+  /** What waits on the outstanding signatures, as the footnotes name it: the court fee
+   *  in a filing, the send back to scrutiny in a correction. */
+  unlocks?: string;
   /** What the host has done since, shown on the roster in place of the signing outcome —
    *  the corrections sent to scrutiny. */
   outcome?: { title: string; headline: string; footnote: string };
@@ -191,6 +195,7 @@ export function SignFlowDialog({
           onPrint={onPrint}
           statusActions={statusActions}
           completeNote={completeNote}
+          unlocks={unlocks}
           outcome={outcome}
         />
       ) : null}
@@ -204,6 +209,7 @@ function SignFlowBody({
   onPrint,
   statusActions,
   completeNote,
+  unlocks = "The court fee opens",
   outcome,
 }: {
   start: SignFlowStart;
@@ -211,6 +217,7 @@ function SignFlowBody({
   onPrint: () => void;
   statusActions?: React.ReactNode;
   completeNote?: string;
+  unlocks?: string;
   outcome?: { title: string; headline: string; footnote: string };
 }) {
   const { draft, update, hrefFor } = useFiling();
@@ -485,7 +492,14 @@ function SignFlowBody({
     sign: "Add your e-signature",
     otp: "Enter the OTP",
     dsc: "Sign with your DSC",
-    done: youSigned ? "Signature added" : "Out for signature",
+    /* Reopened with everyone in, nothing was just added or sent out. */
+    done: signedWith
+      ? "Signature added"
+      : outstanding === 0
+        ? "Everyone has signed"
+        : youSigned
+          ? "Signature added"
+          : "Out for signature",
     fallback: "Unable to e-sign?",
     paper: "Upload the signed complaint",
     uploaded: "Signed copy accepted",
@@ -726,14 +740,18 @@ function SignFlowBody({
                   ? outcome.headline
                   : youSigned && signedWith
                     ? INSTRUMENT_LABEL[signedWith]
-                    : "Sent for signature"
+                    : outstanding === 0
+                      ? signingRules().oath
+                        ? "Every signature and oath is in"
+                        : "Every signature is in"
+                      : "Sent for signature"
               }
               rows={everyone}
               footnote={
                 outcome
                   ? outcome.footnote
                   : youSigned && oathOwed
-                  ? "Your oath is next. The court fee opens once every signature and oath is in."
+                  ? `Your oath is next. ${unlocks} once every signature and oath is in.`
                   : outstanding === 0
                     ? completeNote ?? "You can pay the court fee now."
                     : `It waits in your pending tasks until every signature${signingRules().oath ? " and oath" : ""} is in.`
@@ -770,12 +788,12 @@ function SignFlowBody({
               rows={everyone}
               footnote={
                 oathOwed
-                  ? "Your oath is next. The court fee opens once every advocate has taken theirs."
+                  ? `Your oath is next. ${unlocks} once every advocate has taken theirs.`
                   : outstanding === 0
                     ? completeNote ?? "You can pay the court fee now."
                     : signingRules().oath
-                      ? "The court fee opens once every advocate has taken their oath."
-                      : "The court fee opens once every signature is in."
+                      ? `${unlocks} once every advocate has taken their oath.`
+                      : `${unlocks} once every signature is in.`
               }
             />
           </StageColumn>
