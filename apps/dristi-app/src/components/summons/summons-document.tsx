@@ -56,22 +56,22 @@ export function SummonsDocument({ court }: Props) {
     <div className="summons" data-court-raw="">
       {/* ============================ FRONT :: PAGE 1 ============================ */}
       <section className="sheet" aria-label="Summons, page 1">
-        {/* The masthead shares one baseline: the court name and the document's title sit
-            on the same line, the size difference keeping the court first. The emblem is
-            inline and centred on the court name, so it never sets the line. The form
-            reference hangs under the title. (Owner, 2026-10-12: the title floating above
-            the court name's line read as misaligned.) */}
+        {/* Two rows (owner, 2026-10-12). The court name gets the full width, because a
+            state's court name can be long and sharing its line with the title crowded
+            Ahmedabad and Panchkula. The emblem sits beside the court name, centred on it; a long name wraps under its
+            own first line, not under the emblem.
+            The document's title and its form reference share the second row's baseline. */}
         <div className="masthead">
-          <div className="t5 courtname">
-            <span className="emblem" aria-hidden>
+          <div className="courtname">
+            <div className="emblem" aria-hidden>
               EMBLEM
-            </span>
-            In the {t(f.court)}
+            </div>
+            <div className="t5">In the {t(f.court)}</div>
           </div>
           <div className="docid">
             <div className="caps title">Summons to an Accused Person</div>
             {/* Broken by sense, not by width: the Act's name stays whole. */}
-            <div className="t2 right pt2 nowrap">
+            <div className="t2 right nowrap">
               Form No. 1 &nbsp;·&nbsp; See Section 63
               <br />
               Bharatiya Nagarik Suraksha Sanhita, 2023
@@ -154,7 +154,7 @@ export function SummonsDocument({ court }: Props) {
             <tr>
               <td />
               <td style={{ width: "62mm" }}>
-                <div style={{ height: "12mm" }} />
+                <div style={{ height: "10mm" }} />
                 <div className="sigline">Digitally signed by the Magistrate</div>
               </td>
             </tr>
