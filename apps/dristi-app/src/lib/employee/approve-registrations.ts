@@ -131,7 +131,9 @@ export type BarCouncilLookup =
   /** The register holds an entry against this number. */
   | {
       state: "found";
-      entry: RegisteredAdvocate;
+      /* A register that answered names itself, so here the Bar Council is always known —
+         unlike the filing side's advocate search, where `bar` is absent. */
+      entry: RegisteredAdvocate & { bar: string };
       /**
        * BCP 47 tag for `entry.name`, when the register's answer is not written in
        * English.

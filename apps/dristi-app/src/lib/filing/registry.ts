@@ -16,26 +16,28 @@
 export type RegisteredAdvocate = {
   barNumber: string;
   name: string;
-  /** Where they are enrolled — shown to tell two similar numbers apart. */
-  bar: string;
+  /**
+   * Which Bar Council enrolled them, where a register says so. The advocate search does
+   * not know it (owner, 2026-10-12: "we won't actually know"), so it is absent there and
+   * the search shows the name and the bar number only; the bar number's prefix already
+   * says the state (`K`, `G`, `P`).
+   */
+  bar?: string;
 };
 
 const REGISTER: RegisteredAdvocate[] = [
-  { barNumber: "K/0421/2004", name: "Anitha Raveendran", bar: "Bar Council of Kerala" },
-  { barNumber: "K/0876/2007", name: "Deepak Menon", bar: "Bar Council of Kerala" },
-  { barNumber: "K/1109/2009", name: "Fathima Beevi Rasheed", bar: "Bar Council of Kerala" },
-  { barNumber: "K/1204/2011", name: "Ramesh Nair", bar: "Bar Council of Kerala" },
-  { barNumber: "K/1533/2012", name: "Sreelakshmi Pillai", bar: "Bar Council of Kerala" },
-  { barNumber: "K/1877/2014", name: "Joseph Mathew", bar: "Bar Council of Kerala" },
-  { barNumber: "K/2140/2015", name: "Nazeer Muhammed", bar: "Bar Council of Kerala" },
-  { barNumber: "K/2306/2016", name: "Lakshmi Gopinath", bar: "Bar Council of Kerala" },
-  { barNumber: "K/2588/2017", name: "Vishnu Prasad", bar: "Bar Council of Kerala" },
-  { barNumber: "K/2914/2019", name: "Aparna Krishnan", bar: "Bar Council of Kerala" },
-  { barNumber: "K/3077/2020", name: "Thomas Kurian", bar: "Bar Council of Kerala" },
-  { barNumber: "K/3312/2021", name: "Meera Sudhakaran", bar: "Bar Council of Kerala" },
-  { barNumber: "G/60/1992", name: "Prakash Vaidya", bar: "Bar Council of Gujarat" },
-  { barNumber: "D/1450/2013", name: "Ritu Sabharwal", bar: "Bar Council of Delhi" },
-  { barNumber: "MAH/2201/2010", name: "Sandeep Deshmukh", bar: "Bar Council of Maharashtra" },
+  { barNumber: "K/0421/2004", name: "Anitha Raveendran" },
+  { barNumber: "K/0876/2007", name: "Deepak Menon" },
+  { barNumber: "K/1109/2009", name: "Fathima Beevi Rasheed" },
+  { barNumber: "K/1204/2011", name: "Ramesh Nair" },
+  { barNumber: "K/1533/2012", name: "Sreelakshmi Pillai" },
+  { barNumber: "K/1877/2014", name: "Joseph Mathew" },
+  { barNumber: "K/2140/2015", name: "Nazeer Muhammed" },
+  { barNumber: "K/2306/2016", name: "Lakshmi Gopinath" },
+  { barNumber: "K/2588/2017", name: "Vishnu Prasad" },
+  { barNumber: "K/2914/2019", name: "Aparna Krishnan" },
+  { barNumber: "K/3077/2020", name: "Thomas Kurian" },
+  { barNumber: "K/3312/2021", name: "Meera Sudhakaran" },
 ];
 
 /** Matches on number or name, so a half-remembered registration still finds its row. */

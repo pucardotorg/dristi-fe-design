@@ -123,8 +123,15 @@ const PLACE_RULES: Rule[] = [
   // and moved to the state's demo district everywhere else.
   [/\bAhmedabad\b/g, (p) => (p.id === "gujarat" ? "Ahmedabad" : (PLACES[p.id]?.Kollam ?? "Ahmedabad"))],
   [/\bGujarat\b/g, (p) => (p.id === "gujarat" ? "Gujarat" : p.state)],
-  // A few disposed cases are Panchkula's already: right for Haryana, moved elsewhere.
-  [/\bPanchkula\b/g, (p) => (p.id === "haryana" ? "Panchkula" : (PLACES[p.id]?.Kollam ?? "Panchkula"))],
+  // Panchkula is Punjab and Haryana's own — the two share one High Court (owner,
+  // 2026-10-12) — so it stays for both, and moves to the state's district elsewhere.
+  [
+    /\bPanchkula\b/g,
+    (p) =>
+      p.id === "haryana" || p.id === "punjab"
+        ? "Panchkula"
+        : (PLACES[p.id]?.Kollam ?? "Panchkula"),
+  ],
   [/\bKERALA\b/g, (p) => p.state.toUpperCase()],
   [/\bMalayalam\b/g, (p) => COURT_LANGUAGE[p.id] ?? "Malayalam"],
   [
@@ -141,12 +148,13 @@ const PLACE_RULES: Rule[] = [
         ? `${circle}${rest}`
         : `${PIN_PREFIX[p.id] ?? circle}${rest}`,
   ],
-  // Kerala Bar Council enrolments: "KL/1109/2009" and the short "K/1234/2020".
+  // Kerala Bar Council enrolments: "KL/1109/2009" and the short "K/1234/2020" — both
+  // take the state's one prefix: G, or P for Punjab and Haryana's shared Bar Council.
   [/\bKL\/(\d+\/\d{4})\b/g, (p, rest) => `${BAR_PREFIX[p.id]?.long ?? "KL"}/${rest}`],
   [/\bK\/(\d+\/\d{4})\b/g, (p, rest) => `${BAR_PREFIX[p.id]?.short ?? "K"}/${rest}`],
   // The scrutiny queue's advocates are Gujarat's (G/…, GJ/…): kept there, moved elsewhere.
-  [/\bGJ\/(\d+\/\d{4})\b/g, (p, rest) => `${p.id === "gujarat" ? "GJ" : (BAR_PREFIX[p.id]?.long ?? "GJ")}/${rest}`],
-  [/\bG\/(\d+\/\d{4})\b/g, (p, rest) => `${p.id === "gujarat" ? "G" : (BAR_PREFIX[p.id]?.short ?? "G")}/${rest}`],
+  [/\bGJ\/(\d+\/\d{4})\b/g, (p, rest) => `${BAR_PREFIX[p.id]?.long ?? "GJ"}/${rest}`],
+  [/\bG\/(\d+\/\d{4})\b/g, (p, rest) => `${BAR_PREFIX[p.id]?.short ?? "G"}/${rest}`],
   [
     new RegExp(`\\b(${Object.keys(HOUSE_NAMES).join("|")})\\b`, "g"),
     (p, house) => HOUSE_NAMES[house]?.[p.id] ?? house,

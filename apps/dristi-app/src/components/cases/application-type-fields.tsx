@@ -51,11 +51,11 @@ import {
   ACCUSED_ENTITY_TYPES,
   ENTITY_TYPES,
   GENDER_OPTIONS,
-  POLICE_STATIONS,
+  policeStationsFor,
   type Option,
 } from "@/lib/filing/options";
 import type { Address } from "@/lib/filing/types";
-import { useCourtText } from "@/components/court/court-provider";
+import { useCourt, useCourtText } from "@/components/court/court-provider";
 
 export type FieldActions = {
   /** Sets a draft field and clears the errors filed under it. */
@@ -1118,9 +1118,8 @@ function ComplainantInstitution(props: FieldsProps) {
   );
 }
 
-const POLICE_OPTIONS = asOptions(POLICE_STATIONS);
-
 function AccusedDetails(props: FieldsProps & { institution: boolean }) {
+  const { court } = useCourt();
   const { institution } = props;
   const { l, set, error } = useLitigant(props);
   const rows = l.addresses;
@@ -1220,7 +1219,7 @@ function AccusedDetails(props: FieldsProps & { institution: boolean }) {
             <SelectField
               label="Police station"
               value={row.police}
-              options={POLICE_OPTIONS}
+              options={asOptions(policeStationsFor(court))}
               placeholder="Choose the police station"
               error={props.errors.fields[`${row.id}.police`]}
               onChange={(police) => {

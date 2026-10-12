@@ -199,14 +199,16 @@ export const PIN_PREFIX: Partial<Record<CourtId, string>> = {
   haryana: "13",
 };
 
-/** Bar Council enrolment prefixes, long and short form. */
-export const BAR_PREFIX: Partial<Record<CourtId, { long: string; short: string }>> = {
-  gujarat: { long: "GJ", short: "G" },
-  punjab: { long: "PB", short: "P" },
-  haryana: { long: "HR", short: "P" },
-};
-
 /**
+ * Bar Council enrolment prefixes — one per state, whichever form the Kerala data wrote
+ * (owner, 2026-10-12): Kerala's own `K` stays as it is, Gujarat takes `G`, and Punjab and
+ * Haryana, which share the Bar Council of Punjab and Haryana, take `P`.
+ */
+export const BAR_PREFIX: Partial<Record<CourtId, { long: string; short: string }>> = {
+  gujarat: { long: "G", short: "G" },
+  punjab: { long: "P", short: "P" },
+  haryana: { long: "P", short: "P" },
+};/**
  * The approvals queue's names in Malayalam script — the screen's own test of a name in a
  * second script (`approve-registrations.ts`). Each state shows the same people in its
  * own court script, so the case the screen was built to survive still exists there.
