@@ -143,7 +143,10 @@ export function DefectCard({
   onBlurCapture,
   className,
   file,
+  onResolved,
 }: {
+  /** The defect was just settled here — saved, kept, or its document replaced. */
+  onResolved?: () => void;
   /** Document defects: the copy the slot holds now — the filed one, or its replacement. */
   file?: StoredFileRef;
   defect: Defect;
@@ -212,7 +215,17 @@ export function DefectCard({
 
   /* Collapsing removes whatever held focus, and losing focus to `<body>` strands a
      keyboard user — so it lands on the collapsed card itself. */
-  const collapsed = resolved && !engaged;
+  /* A replaced document settles the moment the upload lands: focus stays on the Replace
+     button, so waiting for it to leave kept the card open until a click elsewhere
+     (owner, 2026-10-12). The wait is for typing, which a document never involves. */
+  const collapsed = resolved && (!engaged || isDoc);
+
+  /* Tell the screen once a document lands, so it can move on to the next defect. */
+  const wasResolved = React.useRef(resolved);
+  React.useEffect(() => {
+    if (isDoc && resolved && !wasResolved.current) onResolved?.();
+    wasResolved.current = resolved;
+  }, [isDoc, resolved, onResolved]);
   const wasCollapsed = React.useRef(collapsed);
   React.useLayoutEffect(() => {
     if (collapsed && !wasCollapsed.current) {
@@ -330,6 +343,7 @@ export function DefectCard({
                   onClick={() => {
                     actions.setValue(draft);
                     finish();
+                    onResolved?.();
                   }}
                   disabled={!dirty || atReturn}
                   className="flex-1"
@@ -347,6 +361,7 @@ export function DefectCard({
                       if (dirty) actions.setValue(draft);
                       actions.keep?.();
                       finish();
+                      onResolved?.();
                     }}
                     className="shrink-0 text-muted-foreground"
                   >
