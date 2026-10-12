@@ -34,7 +34,7 @@ design with the owner's review fixes, for every court.
 | 2026-10-12 | The language line follows the court's language: ml, gu, pa, hi. | Owner | Built |
 | 2026-10-12 | Design both a print and a digital version; the state is known from the summons URL. | Owner | Superseded by the next row |
 | 2026-10-12 | Print and digital read the same, so keep one version: "Please turn over" on screen too; links stay tappable on screen. | Owner | Built |
-| 2026-10-12 | "Summons to an Accused Person" at 12pt, a step under the 16pt court name. | Owner | Built |
+| 2026-10-12 | "Summons to an Accused Person" at 10pt (t2), well under the 16pt court name; 12pt was still too large. | Owner | Built |
 | 2026-10-12 | Live in the onboarding modal's "View the original summons", touching no other screen. | Owner | Built |
 
 ## Open

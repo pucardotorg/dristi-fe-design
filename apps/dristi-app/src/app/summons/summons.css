@@ -60,9 +60,10 @@
 .summons .upper { text-transform: uppercase; }
 
 .summons .caps { letter-spacing: 0.11em; text-transform: uppercase; line-height: 1.25; }
-/* 12pt, a step under the 16pt court name: caps and bold read larger than their size,
-   so at 13.5pt it matched the court name (owner, 2026-10-12). */
-.summons .title { font-size: 12pt; text-align: right; font-weight: 700; letter-spacing: 0.06em; line-height: 1.25; }
+/* 10pt, the t2 step: caps and bold read larger than their size, so the title sits well
+   under the 16pt court name and leads the 10pt form lines by weight alone (owner,
+   2026-10-12: 13.5pt, then 12pt, both still too large). */
+.summons .title { font-size: 10pt; text-align: right; font-weight: 700; letter-spacing: 0.08em; line-height: 1.3; }
 .summons .label {
   font-size: 8.5pt;
   letter-spacing: 0.11em;
