@@ -54,12 +54,15 @@ export function JoinedCaseBail({
   accused,
   as,
   onClose,
+  onViewCase,
 }: {
   joinCase: JoinCase;
   /** The accused it is filed for, as the case names them. */
   accused: string[];
   as: "advocate" | "pip";
   onClose: () => void;
+  /** Where the filing ends: the case just joined, when it has a page. */
+  onViewCase?: () => void;
 }) {
   const { accountName } = useProfile();
   const advocate =
@@ -85,7 +88,10 @@ export function JoinedCaseBail({
       record={record}
       initialType="bail"
       filer={filer}
-      inPlace={{ onClose }}
+      inPlace={{
+        onClose,
+        done: onViewCase ? { label: "View case", onClick: onViewCase } : undefined,
+      }}
     />
   );
 }

@@ -1557,6 +1557,7 @@ export function AdvocateJoinCaseDialog({
         joinCase={joinCase}
         accused={selectedParties.map((party) => party.name)}
         as="advocate"
+        onViewCase={() => router.push(`/cases/${JOIN_DEMO_CASE_ID}`)}
         onClose={() => {
           setBailOpen(false);
           handleOpenChange(false);

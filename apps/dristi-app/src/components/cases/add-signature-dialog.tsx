@@ -121,6 +121,7 @@ export function AddSignatureDialog({
   onReturnFocus,
   handoffTo,
   objection,
+  done,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -143,6 +144,12 @@ export function AddSignatureDialog({
    */
   onComplete: (outcome: SigningOutcome) => void;
   onReturnFocus: () => void;
+  /**
+   * The last button, where the filer goes next. Unset it is Done. Filing bail straight
+   * after joining a case ends on View case: the person joined from home, so the case is
+   * where they go next (owner, 2026-10-12).
+   */
+  done?: { label: string; onClick: () => void };
 }) {
   const titleRef = useRef<HTMLHeadingElement>(null);
   const firstStep: SignatureStep = handoffTo ? "pending" : "method";
@@ -406,15 +413,6 @@ export function AddSignatureDialog({
                       setStep("upload");
                     }}
                   />
-                  <Button
-                    type="button"
-                    variant="link"
-                    className="h-auto self-start p-0 has-data-[icon=inline-start]:pl-0"
-                    onClick={() => downloadGeneratedApplication(draft, record)}
-                  >
-                    <DownloadIcon data-icon="inline-start" aria-hidden />
-                    Download this {noun}
-                  </Button>
                 </>
               ) : null}
 
@@ -461,6 +459,19 @@ export function AddSignatureDialog({
                     <FieldDescription>{UPLOAD_HELP}</FieldDescription>
                   </Field>
                   <FieldError>{fileError}</FieldError>
+                  {/* Where e-filing keeps it: the unsigned copy is only needed to
+                      sign on paper, so it is offered on the paper path. */}
+                  <p className="flex flex-wrap items-center gap-1 text-body-compact">
+                    Need the unsigned {noun} to sign on paper?
+                    <Button
+                      type="button"
+                      variant="link"
+                      className="h-auto p-0 underline"
+                      onClick={() => downloadGeneratedApplication(draft, record)}
+                    >
+                      Download it
+                    </Button>
+                  </p>
                 </>
               ) : null}
 
@@ -597,8 +608,14 @@ export function AddSignatureDialog({
                 Sign now
               </Button>
             )}
-            <Button type="button" onClick={finish}>
-              Done
+            <Button
+              type="button"
+              onClick={() => {
+                finish();
+                done?.onClick();
+              }}
+            >
+              {done?.label ?? "Done"}
             </Button>
           </footer>
         ) : null}
@@ -632,8 +649,14 @@ export function AddSignatureDialog({
               Download submission
             </Button>
             {paid ? (
-              <Button type="button" onClick={finish}>
-                Done
+              <Button
+                type="button"
+                onClick={() => {
+                  finish();
+                  done?.onClick();
+                }}
+              >
+                {done?.label ?? "Done"}
               </Button>
             ) : (
               <Button type="button" onClick={() => setStep("processing")}>
