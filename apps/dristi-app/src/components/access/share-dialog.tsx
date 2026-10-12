@@ -134,7 +134,7 @@ export function ShareDialog({
     if (!batch.length) return;
     const result = invite(batch.map((c) => c.phone ?? c.barId ?? ""), cases.map((c) => c.id));
     setResult(result);
-    toast.success(fill(shareCopy.smsToast, locale, { names: result.names.join(", ") }));
+    toast.success(fill(shareCopy.inviteToast, locale, { names: result.names.join(", ") }));
     setChips([]);
   }
 

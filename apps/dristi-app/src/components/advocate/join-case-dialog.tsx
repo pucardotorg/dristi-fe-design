@@ -592,7 +592,7 @@ export function AdvocateJoinCaseDialog({
       // The co-advocates named on the vakalatnama get their SMS once it is paid for.
       if (needsCoAdvocates && vkAdvocates.length) {
         toast.success(
-          fill(advDialog.vkSmsToast, locale, { names: vkAdvocates.map(inviteLabel).join(", ") }),
+          fill(advDialog.vkInviteToast, locale, { names: vkAdvocates.map(inviteLabel).join(", ") }),
         );
       }
     }, GATEWAY_MS);
@@ -614,7 +614,7 @@ export function AdvocateJoinCaseDialog({
     // The confirmation shows the batch just sent and replaces any earlier one — a
     // later send swaps the old notification out rather than growing it.
     setTeamInvited(team.map(inviteLabel));
-    toast.success(fill(shareCopy.smsToast, locale, { names: team.map(inviteLabel).join(", ") }));
+    toast.success(fill(shareCopy.inviteToast, locale, { names: team.map(inviteLabel).join(", ") }));
     setTeam([]);
   }
 

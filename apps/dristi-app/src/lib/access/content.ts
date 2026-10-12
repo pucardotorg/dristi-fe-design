@@ -589,8 +589,8 @@ export const shareCopy = {
   suggestionsLabel: t("People you often add", "നിങ്ങൾ പതിവായി ചേർക്കുന്നവർ"),
   send: t("Share", "പങ്കിടുക"),
   sentNote: t("Invitation sent to", "ഇവർക്ക് ക്ഷണം അയച്ചു"),
-  /* The system sends an SMS on every invite; the toast says so (owner, 2026-10-13). */
-  smsToast: t("SMS invite sent to {names}", "{names} എന്നവർക്ക് SMS ക്ഷണം അയച്ചു"),
+  /* Says an invite went, not how — SMS or in-app is not settled (owner, 2026-10-13). */
+  inviteToast: t("Invite sent to {names}", "{names} എന്നവർക്ക് ക്ഷണം അയച്ചു"),
   sentBulkNote: t(
     "Added to {added} of {total} cases · already had access to {skipped}",
     "{total}-ൽ {added} കേസുകളിൽ ചേർത്തു · {skipped} കേസിൽ നേരത്തേ ആക്‌സസ് ഉണ്ടായിരുന്നു",

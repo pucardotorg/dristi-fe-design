@@ -609,8 +609,8 @@ export const advDialog = {
      everyone on it (owner, 2026-10-13). Malayalam drafted — needs review. */
   invitedTitle: t("You're already on this case", "നിങ്ങൾ ഇതിനകം ഈ കേസിലുണ്ട്"),
   invitedBody: t(
-    "{name} named you on the vakalatnama and paid the fee, and an invite was sent to your mobile number. There is nothing to upload or pay.",
-    "{name} വക്കാലത്തിൽ നിങ്ങളുടെ പേര് ചേർത്ത് ഫീസ് അടച്ചു; നിങ്ങളുടെ മൊബൈൽ നമ്പറിലേക്ക് ക്ഷണം അയച്ചിട്ടുണ്ട്. ഒന്നും അപ്‌ലോഡ് ചെയ്യുകയോ അടയ്ക്കുകയോ വേണ്ട.",
+    "{name} named you on the vakalatnama and paid the fee, and you were sent an invite. There is nothing to upload or pay.",
+    "{name} വക്കാലത്തിൽ നിങ്ങളുടെ പേര് ചേർത്ത് ഫീസ് അടച്ചു; നിങ്ങൾക്ക് ക്ഷണം അയച്ചിട്ടുണ്ട്. ഒന്നും അപ്‌ലോഡ് ചെയ്യുകയോ അടയ്ക്കുകയോ വേണ്ട.",
   ),
 
   /* details */
@@ -708,22 +708,22 @@ export const advDialog = {
     "അടുത്ത ഘട്ടത്തിൽ വക്കാലത്ത് ഫീസ് അടയ്ക്കണം ({amount}). ഫീസ് അടച്ചാൽ കേസിലേക്ക് ആക്‌സസ് ലഭിക്കും.",
   ),
   vkGroupFeeNote: t(
-    "You pay for {n} advocates in the next step ({amount}). The others get an SMS to join the case and don't pay again.",
-    "അടുത്ത ഘട്ടത്തിൽ {n} അഭിഭാഷകർക്കുള്ള ഫീസ് അടയ്ക്കണം ({amount}). മറ്റുള്ളവർക്ക് കേസിൽ ചേരാൻ SMS ലഭിക്കും; അവർ വീണ്ടും അടയ്ക്കേണ്ടതില്ല.",
+    "You pay for {n} advocates in the next step ({amount}). The others get an invite to join the case and don't pay again.",
+    "അടുത്ത ഘട്ടത്തിൽ {n} അഭിഭാഷകർക്കുള്ള ഫീസ് അടയ്ക്കണം ({amount}). മറ്റുള്ളവർക്ക് കേസിൽ ചേരാൻ ക്ഷണം ലഭിക്കും; അവർ വീണ്ടും അടയ്ക്കേണ്ടതില്ല.",
   ),
   vkAddLegend: t(
     "Add the other advocates on this vakalatnama",
     "ഈ വക്കാലത്തിലെ മറ്റ് അഭിഭാഷകരെ ചേർക്കുക",
   ),
-  vkSmsToast: t(
-    "SMS sent to {names} to join the case",
-    "കേസിൽ ചേരാൻ {names} എന്നവർക്ക് SMS അയച്ചു",
+  vkInviteToast: t(
+    "Invite to join the case sent to {names}",
+    "കേസിൽ ചേരാൻ {names} എന്നവർക്ക് ക്ഷണം അയച്ചു",
   ),
   vkAddFieldLabel: t("Other advocates on the vakalatnama", "വക്കാലത്തിലെ മറ്റ് അഭിഭാഷകർ"),
   vkAddSuggested: t("Advocates you often add", "നിങ്ങൾ പതിവായി ചേർക്കുന്ന അഭിഭാഷകർ"),
   vkAddNewNumber: t(
-    "They'll get an SMS to join the case.",
-    "കേസിൽ ചേരാൻ അവർക്ക് SMS ലഭിക്കും.",
+    "They'll get an invite to join the case.",
+    "കേസിൽ ചേരാൻ അവർക്ക് ക്ഷണം ലഭിക്കും.",
   ),
   vkAddKeepTyping: t(
     "No advocate you've added matches. Enter their full mobile number or Bar ID.",
