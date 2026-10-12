@@ -60,7 +60,7 @@ function useBrandHue(): [BrandHue | null, (hue: BrandHue) => void] {
  * It used to be a Settings section of four choice cards, each spelling out what it would
  * change. The owner wanted it kept out of the way (2026-10-08): this is a deployment
  * switch for demos, not something an advocate sets, so it is a court icon beside the
- * Settings title that opens a menu of the four states. The menu names the state alone; the
+ * Settings title that opens a menu of the courts. The menu names the court alone; the
  * screens behind it say the rest the moment the choice is made.
  *
  * The visible button is 32px, small enough to stay quiet; the `after:` inset widens its
@@ -112,7 +112,7 @@ export function CourtSwitch({
         >
           {COURT_IDS.map((id) => (
             <DropdownMenuRadioItem key={id} value={id}>
-              {courtProfile(id).state}
+              {courtProfile(id).name}
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>

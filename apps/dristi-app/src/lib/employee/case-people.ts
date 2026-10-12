@@ -273,7 +273,7 @@ export const POLICE_STATIONS = [
  * share one High Court (owner, 2026-10-12).
  */
 export function policeStationsFor(court: CourtId): readonly string[] {
-  return court === "punjab" || court === "haryana"
+  return court === "punjab-haryana"
     ? POLICE_STATIONS
     : POLICE_STATIONS.filter((station) => station !== "Panchkula");
 }

@@ -1005,7 +1005,7 @@ function CourtSettingsControl() {
         >
           {COURT_IDS.map((id) => (
             <DropdownMenuRadioItem key={id} value={id}>
-              {courtProfile(id).state}
+              {courtProfile(id).name}
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>

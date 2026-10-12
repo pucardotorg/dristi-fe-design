@@ -11,7 +11,7 @@ describe("the generated application's heading", () => {
     const gujarat = localizeCourtText(APPLICATION_COURT_HEADING, "gujarat");
     assert.ok(gujarat.includes("SARAS Court"), gujarat);
     assert.ok(!gujarat.includes("Kollam"), gujarat);
-    for (const court of ["punjab", "haryana"] as const) {
+    for (const court of ["punjab-haryana"] as const) {
       assert.ok(!localizeCourtText(APPLICATION_COURT_HEADING, court).includes("Kollam"), court);
     }
   });
