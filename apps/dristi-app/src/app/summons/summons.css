@@ -87,14 +87,15 @@
   padding-top: 5.2mm;
   line-height: 1.1;
 }
-.summons .masthead { display: flex; flex-direction: column; gap: 4mm; }
-.summons .masthead .docid {
+.summons .masthead {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 4mm;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
 }
-.summons .masthead .courtname { display: flex; align-items: center; gap: 4mm; }
+.summons .masthead .title { margin-top: 4mm; }
+.summons .masthead .t2 { margin-top: 2mm; }
+.summons .masthead .courtname { display: flex; align-items: center; gap: 4mm; text-align: left; }
 .summons .masthead .emblem { flex: none; }
 .summons .turnarrow {
   display: inline-block;

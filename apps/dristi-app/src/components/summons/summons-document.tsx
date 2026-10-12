@@ -56,11 +56,11 @@ export function SummonsDocument({ court }: Props) {
     <div className="summons" data-court-raw="">
       {/* ============================ FRONT :: PAGE 1 ============================ */}
       <section className="sheet" aria-label="Summons, page 1">
-        {/* Two rows (owner, 2026-10-12). The court name gets the full width, because a
-            state's court name can be long and sharing its line with the title crowded
-            Ahmedabad and Panchkula. The emblem sits beside the court name, centred on it; a long name wraps under its
-            own first line, not under the emblem.
-            The document's title and its form reference share the second row's baseline. */}
+        {/* Centred masthead (owner, 2026-10-12), the way court forms set it: the court,
+            then the document, then its form reference, all on the page's centre line.
+            One axis means nothing has to line up with anything else, and a long court
+            name simply grows outward. The emblem stays beside the court name, centred
+            on it; a name too long for one line wraps beside the emblem. */}
         <div className="masthead">
           <div className="courtname">
             <div className="emblem" aria-hidden>
@@ -68,14 +68,9 @@ export function SummonsDocument({ court }: Props) {
             </div>
             <div className="t5">In the {t(f.court)}</div>
           </div>
-          <div className="docid">
-            <div className="caps title">Summons to an Accused Person</div>
-            {/* Broken by sense, not by width: the Act's name stays whole. */}
-            <div className="t2 right nowrap">
-              Form No. 1 &nbsp;·&nbsp; See Section 63
-              <br />
-              Bharatiya Nagarik Suraksha Sanhita, 2023
-            </div>
+          <div className="caps title">Summons to an Accused Person</div>
+          <div className="t2">
+            Form No. 1 &nbsp;·&nbsp; See Section 63, Bharatiya Nagarik Suraksha Sanhita, 2023
           </div>
         </div>
 
