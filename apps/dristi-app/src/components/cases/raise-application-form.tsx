@@ -152,7 +152,11 @@ export function RaiseApplicationForm({
    * the dialog never changes (owner, Sept 24: "a dialog box shouldn't change
    * the page underneath").
    */
-  inPlace?: { onClose: () => void };
+  inPlace?: {
+    onClose: () => void;
+    /** The signing chain's last button, when it leads somewhere other than Done. */
+    done?: { label: string; onClick: () => void };
+  };
   /**
    * Opens straight on this type's fields, as a task that names the
    * application does (the joined case's File bail application).
@@ -714,6 +718,7 @@ export function RaiseApplicationForm({
         }}
         onReturnFocus={returnFocusToGenerate}
         handoffTo={handoffTo}
+        done={inPlace?.done}
         objection={
           objecting && objectionTarget
             ? {

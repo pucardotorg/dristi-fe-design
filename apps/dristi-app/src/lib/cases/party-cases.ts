@@ -21,6 +21,29 @@
 import { CASES } from "./fixtures";
 import type { CaseRecord } from "./types";
 
+/**
+ * The join-a-case demo case (`DEMO_JOIN_CASE`, CC 847/2026), as a record so View case
+ * at the end of joining opens its case page (owner, 2026-10-12). Resolvable by id
+ * only, not listed in Your Cases: the demo joins it fresh every time.
+ */
+export const JOIN_DEMO_CASE_ID = "c-847";
+
+const JOIN_DEMO_CASE: CaseRecord = {
+  id: JOIN_DEMO_CASE_ID,
+  caseNumber: "CC 847/2026",
+  parties: { complainant: "South Indian Bank Ltd.", accused: "Rajan Krishnan Nair and 1 other" },
+  // Seen only after joining, so the viewer is on record for the accused.
+  counsel: { complainant: ["Adv. Meera Pillai"], accused: ["Adv. Anjali Nair"] },
+  court: "JMFC-I",
+  filedOn: "2026-07-31",
+  updatedOn: "2026-08-28",
+  latestUpdate: "Summons issued to the accused",
+  nextHearing: { on: "2026-09-18", purpose: "Appearance of the accused" },
+  stage: "appearance",
+  longPending: false,
+  bookmarked: false,
+};
+
 export const PARTY_CASES: CaseRecord[] = [
   {
     id: "lt-2201",
@@ -80,6 +103,7 @@ export const PARTY_CASES: CaseRecord[] = [
 export function findCaseRecord(caseId: string): CaseRecord | undefined {
   return (
     CASES.find((record) => record.id === caseId) ??
-    PARTY_CASES.find((record) => record.id === caseId)
+    PARTY_CASES.find((record) => record.id === caseId) ??
+    (caseId === JOIN_DEMO_CASE_ID ? JOIN_DEMO_CASE : undefined)
   );
 }

@@ -6,13 +6,25 @@ import {
   ClockIcon,
   DownloadIcon,
   SignatureIcon,
-  UploadIcon,
-  XCircleIcon,
 } from "lucide-react";
 
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 
-import { SignMethodCard } from "@/components/cases/party-application";
+import {
+  ChoiceCard,
+  DscLookup,
+  InstrumentChoice,
+  OtpEntry,
+} from "@/components/filing/sign-stages";
+import { PaperFallbackLink } from "@/components/filing/paper-fallback";
+import {
+  GATEWAY_MS,
+  PAYMENT_PROCESSING_BODY,
+  PAYMENT_PROCESSING_TITLE,
+  PAYMENT_SUCCESS_TITLE,
+  PaymentProcessing,
+  PaymentReceipt,
+} from "@/components/payment/payment-steps";
 import {
   UPLOAD_HELP,
   UploadedDocField,
@@ -38,12 +50,12 @@ import {
   FieldError,
   FieldLabel,
 } from "@/components/ui/field";
-import { Spinner } from "@/components/ui/spinner";
 import {
   COURT_FEE,
   CourtFeeSummary,
 } from "@/components/cases/submission-payment-dialog";
 import { downloadGeneratedApplication } from "@/lib/cases/application-document";
+import { newPaymentRef } from "@/lib/filing/data";
 import { type ApplicationDraft } from "@/lib/cases/application-draft";
 import { applicationTypeGuide } from "@/lib/cases/application-type-guide";
 import { applicationsFile } from "@/lib/cases/applications";
@@ -59,10 +71,16 @@ export type SigningOutcome =
 
 type SignatureStep =
   | "method"
-  | "aadhaar"
+  /** e-filing's signing (owner, 2026-10-12): digitally → Aadhaar OTP or DSC. */
+  | "instrument"
+  | "otp"
+  | "dsc"
   | "upload"
   | "signed"
   | "payment"
+  /** The gateway round trip, then its receipt (owner, 2026-10-12). */
+  | "processing"
+  | "receipt"
   | "success"
   /** Signed by nobody yet — Sign later and Notify senior both land here. */
   | "pending";
@@ -73,10 +91,10 @@ type SignatureStep =
  * confirmation → court-fee payment → submission confirmation. One dialog,
  * one step union — the legacy's separate modals are steps of the same task.
  *
- * The signing step is the party applications' own (owner, Sept 21): method
- * cards that proceed on click, the shared upload slot, the warm footer band.
- * Aadhaar e-sign runs the same labelled sandbox round trip those use, so the
- * screen never claims a real authentication; its failure screen is reachable.
+ * The signing steps are e-filing's (owner, 2026-10-12), built from its own parts
+ * (`sign-stages`): one card to sign digitally, which then asks Aadhaar OTP or DSC, and
+ * a physically signed copy as the way out beneath it. Sign later and Download stay,
+ * as this chain had them. The OTP and the certificate are sandboxed and say so.
  *
  * Sign later leaves the chain early: it does not
  * sign, so it never reaches payment — an unsigned application has nothing to
@@ -103,6 +121,7 @@ export function AddSignatureDialog({
   onReturnFocus,
   handoffTo,
   objection,
+  done,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -125,6 +144,12 @@ export function AddSignatureDialog({
    */
   onComplete: (outcome: SigningOutcome) => void;
   onReturnFocus: () => void;
+  /**
+   * The last button, where the filer goes next. Unset it is Done. Filing bail straight
+   * after joining a case ends on View case: the person joined from home, so the case is
+   * where they go next (owner, 2026-10-12).
+   */
+  done?: { label: string; onClick: () => void };
 }) {
   const titleRef = useRef<HTMLHeadingElement>(null);
   const firstStep: SignatureStep = handoffTo ? "pending" : "method";
@@ -134,22 +159,35 @@ export function AddSignatureDialog({
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | undefined>(undefined);
   const [paid, setPaid] = useState(false);
-  const [aadhaar, setAadhaar] = useState<"authenticating" | "failure">(
-    "authenticating",
-  );
+  const [otp, setOtp] = useState("");
+  const [otpResent, setOtpResent] = useState(false);
+  const [dscFound, setDscFound] = useState(false);
+  const [signedWith, setSignedWith] = useState<"aadhaar" | "dsc" | "paper">("aadhaar");
 
-  /**
-   * Aadhaar e-sign: in the live service the person is taken to the e-sign
-   * provider and the system is told when they finish. Here that round trip is
-   * stood in for, the way the party applications do it, and labelled as a
-   * sandbox on the screen itself. The failure path is reachable so that screen
-   * exists for when the service says no.
-   */
+  /* The certificate utility takes a beat to answer, as in e-filing. */
   useEffect(() => {
-    if (!open || step !== "aadhaar" || aadhaar !== "authenticating") return;
-    const timer = setTimeout(() => setStep("signed"), 2000);
+    if (!open || step !== "dsc" || dscFound) return;
+    const timer = setTimeout(() => setDscFound(true), 1100);
     return () => clearTimeout(timer);
-  }, [open, step, aadhaar]);
+  }, [open, step, dscFound]);
+
+  function signWith(instrument: "aadhaar" | "dsc" | "paper") {
+    setSignedWith(instrument);
+    setStep("signed");
+  }
+
+  /* Paying stands in for the gateway the same way: a moment of processing, then a
+     receipt, as e-filing and joining a case do (owner, 2026-10-12). */
+  const [paymentRef, setPaymentRef] = useState("");
+  useEffect(() => {
+    if (!open || step !== "processing") return;
+    const timer = setTimeout(() => {
+      setPaid(true);
+      setPaymentRef(newPaymentRef());
+      setStep("receipt");
+    }, GATEWAY_MS);
+    return () => clearTimeout(timer);
+  }, [open, step]);
 
   /**
    * The temporary ID this case would allot on submission (ALC-02) — existing
@@ -178,7 +216,9 @@ export function AddSignatureDialog({
     setFile(null);
     setFileError(undefined);
     setPaid(false);
-    setAadhaar("authenticating");
+    setOtp("");
+    setOtpResent(false);
+    setDscFound(false);
   }
 
   function finish() {
@@ -193,11 +233,13 @@ export function AddSignatureDialog({
   }
 
   function handleOpenChange(next: boolean) {
+    // The gateway is confirming; the window holds until it answers.
+    if (!next && step === "processing") return;
     if (!next) {
       // Once a confirmation is up, closing is finishing — dropping back into
       // the filled form after the screen said the application was submitted,
       // saved, or sent to a senior would contradict what was just shown.
-      if (step === "success" || step === "pending") {
+      if (step === "success" || step === "pending" || step === "receipt") {
         finish();
         return;
       }
@@ -206,23 +248,34 @@ export function AddSignatureDialog({
     onOpenChange(next);
   }
 
-  const stepTitle =
-    step === "payment"
-      ? "Payment"
-      : step === "upload"
-        ? "Upload a signed copy"
-        : step === "signed"
-          ? "Your signature"
-          : `How is this ${noun} signed?`;
+  /* e-filing's own words for the shared steps (`sign-flow-dialog`). */
+  const stepTitle = {
+    method: `How is this ${noun} signed?`,
+    instrument: "Add your e-signature",
+    otp: "Enter the OTP",
+    dsc: "Sign with your DSC",
+    upload: "Upload a signed copy",
+    signed: "Your signature",
+    payment: "Payment",
+    processing: PAYMENT_PROCESSING_TITLE,
+    receipt: PAYMENT_SUCCESS_TITLE,
+    success: "",
+    pending: "",
+  }[step];
 
-  const stepDescription =
-    step === "method"
-      ? `An unsigned ${noun} cannot be submitted to the court.`
-      : step === "upload"
-        ? `The ${noun}, signed on paper or with a Digital Signature Certificate.`
-        : step === "signed"
-          ? `The ${noun} is signed and ready to file.`
-          : `Court fee for filing this ${noun}.`;
+  const stepDescription = {
+    method: `An unsigned ${noun} cannot be submitted to the court.`,
+    instrument: "Either one is your own signature — use whichever you have.",
+    otp: "Sent to your Aadhaar-linked mobile.",
+    dsc: "Your certificate has to be plugged in, with the signing utility running on this computer.",
+    upload: `The ${noun}, signed by hand on paper.`,
+    signed: `The ${noun} is signed and ready to file.`,
+    payment: `Court fee for filing this ${noun}.`,
+    processing: PAYMENT_PROCESSING_BODY,
+    receipt: `Court fee of ${COURT_FEE} paid for this ${noun}.`,
+    success: "",
+    pending: "",
+  }[step];
 
   const FOOTER =
     "flex shrink-0 flex-col-reverse gap-2 border-t border-hairline bg-surface-sunken px-6 py-4 sm:flex-row sm:items-center sm:justify-between";
@@ -236,7 +289,10 @@ export function AddSignatureDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <FlowDialogContent
         ownBack
-        className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md"
+        className={cn(
+          "flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md",
+          step === "processing" && "[&_[data-slot=dialog-close]]:hidden",
+        )}
         // Radix's own restore lands on document.body here, so put focus back
         // on the button that opened the chain explicitly.
         onCloseAutoFocus={(event) => {
@@ -311,70 +367,6 @@ export function AddSignatureDialog({
               </div>
             </dl>
           </div>
-        ) : step === "aadhaar" && aadhaar === "authenticating" ? (
-          <div className="flex flex-col items-center gap-4 px-6 py-12 text-center">
-            <Spinner className="size-8 text-primary" />
-            <div className="flex flex-col gap-1.5">
-              <DialogTitle
-                ref={titleRef}
-                tabIndex={-1}
-                className="text-body font-semibold outline-none"
-              >
-                Signing with Aadhaar
-              </DialogTitle>
-              <DialogDescription>
-                Complete the signature in the Aadhaar e-sign service. We record
-                it here as soon as it is done.
-              </DialogDescription>
-            </div>
-            <p className="text-caption text-muted-foreground">
-              Sandbox. This completes automatically in a moment.
-            </p>
-            <Button
-              type="button"
-              variant="link"
-              className="h-auto p-0 text-caption"
-              onClick={() => setAadhaar("failure")}
-            >
-              Simulate a failed signature
-            </Button>
-          </div>
-        ) : step === "aadhaar" ? (
-          <>
-            <div className="flex flex-1 flex-col items-center gap-4 px-6 py-12 text-center">
-              <span
-                aria-hidden
-                className="flex size-14 shrink-0 items-center justify-center rounded-full bg-destructive-muted text-destructive-ink"
-              >
-                <XCircleIcon className="size-7" />
-              </span>
-              <div className="flex flex-col gap-1.5">
-                <DialogTitle
-                  ref={titleRef}
-                  tabIndex={-1}
-                  className="text-body font-semibold text-balance outline-none"
-                >
-                  Signature not completed
-                </DialogTitle>
-                <DialogDescription className="text-balance">
-                  The Aadhaar e-sign service could not complete the signature.
-                  Nothing was recorded. Try again, or upload a signed copy
-                  instead.
-                </DialogDescription>
-              </div>
-            </div>
-            <footer className={FOOTER}>
-              <Button type="button" variant="outline" onClick={backToMethods}>
-                Back
-              </Button>
-              <Button
-                type="button"
-                onClick={() => setAadhaar("authenticating")}
-              >
-                Try again
-              </Button>
-            </footer>
-          </>
         ) : (
           <>
             <DialogHeader className="shrink-0 gap-1.5 border-b border-hairline px-6 py-4 pr-12 text-left">
@@ -401,53 +393,53 @@ export function AddSignatureDialog({
                 // Payment: the body is the well and the fees are the white
                 // sheet on it, as in the View Case payment dialog.
                 step === "payment" && "bg-surface-sunken",
+                // e-filing's choice cards sit on its tinted canvas.
+                (step === "method" || step === "instrument") && "gap-4 bg-muted dark:bg-background",
               )}
             >
               {step === "method" ? (
                 <>
-                  {/* Two ways to sign now, two ways not to. One list, because
-                      they answer one question: what happens to the signature
-                      on this application. Choosing a card is what proceeds. */}
-                  <SignMethodCard
+                  <ChoiceCard
+                    title="Sign digitally"
+                    tone="bg-brand-muted text-brand-muted-foreground"
                     icon={<SignatureIcon className="size-5" />}
-                    tone="info"
-                    title="E-Sign with Aadhaar OTP"
-                    description="You are taken to the Aadhaar e-sign service. The signature is recorded here as soon as it is done."
-                    onClick={() => {
-                      setAadhaar("authenticating");
-                      setStep("aadhaar");
-                    }}
-                  />
-                  <SignMethodCard
-                    icon={<UploadIcon className="size-5" />}
-                    tone="warning"
-                    title="Upload a signed copy"
-                    description="One file that already carries the signature, on paper or by DSC."
+                    onClick={() => setStep("instrument")}
+                  >
+                    You sign the {noun} with your DSC or Aadhaar e-sign.
+                  </ChoiceCard>
+                  <PaperFallbackLink
                     onClick={() => {
                       setFileError(undefined);
                       setStep("upload");
                     }}
                   />
-                  <SignMethodCard
-                    icon={<ClockIcon className="size-5" />}
-                    tone="neutral"
-                    title="Sign later"
-                    description="Saved unsigned. It waits in Applications as Pending signature."
-                    onClick={() => {
-                      setStep("pending");
-                    }}
-                  />
-                  <Button
-                    type="button"
-                    variant="link"
-                    className="mt-3 h-auto self-start p-0"
-                    onClick={() => downloadGeneratedApplication(draft, record)}
-                  >
-                    <DownloadIcon data-icon="inline-start" aria-hidden />
-                    Download this {noun}
-                  </Button>
                 </>
               ) : null}
+
+              {step === "instrument" ? (
+                <InstrumentChoice
+                  onAadhaar={() => {
+                    setOtp("");
+                    setStep("otp");
+                  }}
+                  onDsc={() => {
+                    setDscFound(false);
+                    setStep("dsc");
+                  }}
+                />
+              ) : null}
+
+              {step === "otp" ? (
+                <OtpEntry
+                  id="application-esign-otp"
+                  value={otp}
+                  onChange={setOtp}
+                  resent={otpResent}
+                  onResend={() => setOtpResent(true)}
+                />
+              ) : null}
+
+              {step === "dsc" ? <DscLookup found={dscFound} holder="" /> : null}
 
               {step === "upload" ? (
                 <>
@@ -467,34 +459,109 @@ export function AddSignatureDialog({
                     <FieldDescription>{UPLOAD_HELP}</FieldDescription>
                   </Field>
                   <FieldError>{fileError}</FieldError>
+                  {/* Where e-filing keeps it: the unsigned copy is only needed to
+                      sign on paper, so it is offered on the paper path. */}
+                  <p className="flex flex-wrap items-center gap-1 text-body-compact">
+                    Need the unsigned {noun} to sign on paper?
+                    <Button
+                      type="button"
+                      variant="link"
+                      className="h-auto p-0 underline"
+                      onClick={() => downloadGeneratedApplication(draft, record)}
+                    >
+                      Download it
+                    </Button>
+                  </p>
                 </>
               ) : null}
 
               {step === "signed" ? (
                 <Banner variant="success">
-                  Signature added to this {noun}.
+                  {signedWith === "aadhaar"
+                    ? "Signed with Aadhaar OTP."
+                    : signedWith === "dsc"
+                      ? "Signed with a DSC."
+                      : `Signed copy added to this ${noun}.`}
                 </Banner>
               ) : null}
 
               {/* The register's payment dialog shows the same block. */}
               {step === "payment" ? <CourtFeeSummary /> : null}
+
+              {step === "processing" ? <PaymentProcessing /> : null}
+
+              {step === "receipt" ? (
+                <PaymentReceipt
+                  amount={COURT_FEE}
+                  rows={[
+                    {
+                      label: "Case",
+                      value: <Identifier value={record.caseNumber} label="case number" />,
+                    },
+                    {
+                      label: "Payment reference",
+                      value: <Identifier value={paymentRef} label="payment reference" />,
+                    },
+                  ]}
+                />
+              ) : null}
             </div>
           </>
         )}
 
         {/* The signing flow's warm footer band; see `FLOW_FOOTER` in
             party-application.tsx. */}
-        {step === "method" ? (
+        {step === "method" || step === "instrument" ? (
           <footer className={FOOTER}>
             <Button
               type="button"
               variant="outline"
               onClick={() => {
+                if (step === "instrument") {
+                  setStep("method");
+                  return;
+                }
                 reset();
                 onBack();
               }}
             >
               Back
+            </Button>
+            {/* Sign later stays, as e-filing words it: saved unsigned, waiting in
+                Applications as Pending signature. */}
+            <Button type="button" variant="ghost" onClick={() => setStep("pending")}>
+              I&rsquo;ll sign later
+            </Button>
+          </footer>
+        ) : null}
+
+        {step === "otp" ? (
+          <footer className={FOOTER}>
+            <Button type="button" variant="outline" onClick={() => setStep("instrument")}>
+              Back
+            </Button>
+            <Button type="button" disabled={otp.length < 6} onClick={() => signWith("aadhaar")}>
+              Verify and sign
+            </Button>
+          </footer>
+        ) : null}
+
+        {step === "dsc" ? (
+          <footer className={FOOTER}>
+            <Button type="button" variant="outline" onClick={() => setStep("instrument")}>
+              Back
+            </Button>
+            <Button type="button" disabled={!dscFound} onClick={() => signWith("dsc")}>
+              Sign with this certificate
+            </Button>
+          </footer>
+        ) : null}
+
+        {step === "receipt" ? (
+          <footer className={FOOTER}>
+            <span aria-hidden />
+            <Button type="button" onClick={() => setStep("success")}>
+              Continue
             </Button>
           </footer>
         ) : null}
@@ -511,7 +578,7 @@ export function AddSignatureDialog({
                   setFileError(`Upload the signed ${noun} to continue.`);
                   return;
                 }
-                setStep("signed");
+                signWith("paper");
               }}
             >
               Submit signature
@@ -541,8 +608,14 @@ export function AddSignatureDialog({
                 Sign now
               </Button>
             )}
-            <Button type="button" onClick={finish}>
-              Done
+            <Button
+              type="button"
+              onClick={() => {
+                finish();
+                done?.onClick();
+              }}
+            >
+              {done?.label ?? "Done"}
             </Button>
           </footer>
         ) : null}
@@ -559,13 +632,7 @@ export function AddSignatureDialog({
             >
               Skip
             </Button>
-            <Button
-              type="button"
-              onClick={() => {
-                setPaid(true);
-                setStep("success");
-              }}
-            >
+            <Button type="button" onClick={() => setStep("processing")}>
               Make payment
             </Button>
           </footer>
@@ -582,11 +649,17 @@ export function AddSignatureDialog({
               Download submission
             </Button>
             {paid ? (
-              <Button type="button" onClick={finish}>
-                Done
+              <Button
+                type="button"
+                onClick={() => {
+                  finish();
+                  done?.onClick();
+                }}
+              >
+                {done?.label ?? "Done"}
               </Button>
             ) : (
-              <Button type="button" onClick={() => setPaid(true)}>
+              <Button type="button" onClick={() => setStep("processing")}>
                 Make payment
               </Button>
             )}
