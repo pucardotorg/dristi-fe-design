@@ -1,190 +1,326 @@
 /**
- * The Raise application draft — one shape covering all eight application
- * types, plus the validation each type actually needs.
+ * The Raise application draft — one shape covering every application type,
+ * plus the validation each type actually needs.
  *
- * Fields and their mandatory markers come from a read-only QA review of the
- * Kerala portal shared by product — not from a document in this repo, so the
- * rules below are the only record of it. Where that review found a field
- * present but could not confirm whether the server requires it, the note on
- * the rule says so; those are the rules to relax first when the backend
- * contract lands.
+ * The fields are the Application Lifecycle PRD's "Fields by application type"
+ * (v33). Four of them are on every application whatever its type — Raised by,
+ * Litigant, Supporting documents and Other details — and the rest belong to
+ * one type each. Where the PRD marks a field optional, it is optional here;
+ * everything else is required.
  *
  * One draft holds every type's fields rather than one per type, so switching
  * type to compare forms never destroys what was already typed. Only the
  * selected type is validated, reviewed and filed.
  */
-import { EMPTY_RICH_TEXT, type RichTextValue } from "@/components/cases/rich-text-field";
+import type { Address } from "@/lib/filing/types";
 import {
   isApplicationTypeId,
   submissionTypeLabel,
   type ApplicationTypeId,
   type Submission,
 } from "./applications";
-import { CASES } from "./fixtures";
-
-/** The portal caps the party's proposed availability at five dates. */
-export const MAX_AVAILABILITY_DATES = 5;
 
 export type YesNo = "yes" | "no";
 
+export function blankAddress(): Address {
+  return { line1: "", city: "", pin: "", district: "", state: "" };
+}
+
+/** A document the filer names (PRD "Supporting documents"). */
+export type NamedDocumentDraft = {
+  id: string;
+  name: string;
+  files: File[];
+};
+
+/** A document the filer gives a type (PRD Production of Documents). */
+export type TypedDocumentDraft = {
+  id: string;
+  type: string;
+  files: File[];
+};
+
+/** One surety on a surety bail (PRD Bail; the bail bond form, Form No. 37). */
 export type SuretyDraft = {
   id: string;
   fullName: string;
-  fatherName: string;
+  /** Father's or mother's name. */
+  parentName: string;
   phone: string;
   email: string;
-  addressLine1: string;
-  city: string;
-  pincode: string;
-  district: string;
-  state: string;
+  address: Address;
   identityProof: File[];
   solvencyProof: File[];
-  otherDocuments: File[];
 };
 
-/** Condonation's supporting documents and Production's submission documents. */
-export type DocumentRowDraft = {
+/** One address of an accused, with the police station that serves it. */
+export type AddressWithPoliceDraft = {
   id: string;
-  type: string;
-  title: string;
-  files: File[];
+  addr: Address;
+  police: string;
+};
+
+/**
+ * Edit Litigant Details: the e-filing litigant fields, one flat record across
+ * the four tables (complainant or accused, individual or institution). Which
+ * keys are shown and checked is decided by the litigant's side and type.
+ */
+export type LitigantDetailsDraft = {
+  /* Complainant individual (LIT-3…9), accused individual (ACC-2, 3, 6, 7, 15). */
+  phone: string;
+  fullName: string;
+  age: string;
+  gender: string;
+  differentlyAbled: YesNo | "";
+  email: string;
+  designation: string;
+  permanentAddress: Address;
+  currentSameAsPermanent: YesNo;
+  currentAddress: Address;
+
+  /* Complainant institution (LIT-17…26), accused institution (ACC-4…7). */
+  institutionType: string;
+  institutionName: string;
+  cinPan: string;
+  institutionAddress: Address;
+  repPhone: string;
+  repName: string;
+  repAge: string;
+  repGender: string;
+  repDifferentlyAbled: YesNo | "";
+  repEmail: string;
+  repDesignation: string;
+  repAddress: Address;
+
+  /* Accused, either type (ACC-8…13): as many addresses as needed. */
+  addresses: AddressWithPoliceDraft[];
+};
+
+/** One witness (PRD Addition of Witness; e-filing WIT-1…7). */
+export type WitnessDraft = {
+  id: string;
+  fullName: string;
+  age: string;
+  proves: string;
+  designation: string;
+  mobile: string;
+  email: string;
+  addresses: { id: string; addr: Address }[];
 };
 
 export type ApplicationDraft = {
   type: ApplicationTypeId | "";
   /**
    * The side it is raised for, set from who is filing (never typed). Names
-   * the litigant on the form and in the generated document; empty falls
-   * back to the old rule (bail for the accused, the rest for the
-   * complainant).
+   * the litigant on the form and in the generated document.
    */
   filedForSide: "" | "complainant" | "accused";
 
-  /** Shared by Production, Settlement, Transfer and Withdrawal. */
-  referenceOrderId: string;
-  applicationDate: Date | undefined;
-  comments: RichTextValue;
+  /* Every application. */
+  /** Saved as Application Raised By. A person id from the case file. */
+  raisedById: string;
+  /** Saved as Application Raised On Behalf Of. A person id from the case file. */
+  litigantId: string;
+  supportingDocuments: NamedDocumentDraft[];
+  otherDetails: string;
 
-  /**
-   * Advance (prepone) and Postpone: one form for both (PRD). The reason is a
-   * pick from a list and the date is one day from which the hearing can be
-   * held. `availabilityDates` is the earlier form's up-to-five dates, kept so
-   * nothing typed into an old draft is lost, and no longer asked for.
-   */
-  availabilityDates: Date[];
-  rescheduleReason: string;
-  rescheduleFrom: Date | undefined;
-  partiesAgreed: YesNo;
-  /** The filer's own words on the reason; optional beside the pick. */
-  requestReason: string;
-  supportingFiles: File[];
-
-  /** Bail. */
-  petitionerFather: string;
-  bailGrounds: RichTextValue;
-  addSureties: YesNo;
+  /* Bail. */
+  bailType: "" | "cash" | "surety";
+  bailAmount: string;
+  /** How many sets of surety details follow. Kept as typed. */
+  suretyCount: string;
   sureties: SuretyDraft[];
+  bailReason: string;
 
-  /** Condonation of delay. */
-  delayDays: string;
-  delayReason: RichTextValue;
-  additionalInformation: RichTextValue;
-  supportingDocuments: DocumentRowDraft[];
+  /* Edit Litigant Details. */
+  editLitigantId: string;
+  editReason: string;
+  litigantType: "" | "individual" | "institution";
+  litigant: LitigantDetailsDraft;
 
-  /** Others. Each document carries its type and title (PRD "Generic"). */
-  title: string;
-  details: RichTextValue;
-  otherDocuments: DocumentRowDraft[];
+  /* Case Settlement. */
+  settlementReason: string;
 
-  /** Production of documents. */
-  submissionDocuments: DocumentRowDraft[];
-  applicationReason: RichTextValue;
-
-  /** Transfer. */
+  /* Case Transfer. */
   requestedCourt: string;
-  transferGrounds: string;
+  transferReason: string;
 
-  /** Withdrawal: a reason picked from a list (PRD), then the filer's own words. */
-  withdrawalReasonCode: string;
-  withdrawalReason: RichTextValue;
+  /* Case Withdrawal. */
+  withdrawalReason: string;
+
+  /* Delay Condonation. */
+  delayReason: string;
+
+  /* Generic. */
+  title: string;
+  details: string;
+
+  /* Advance (prepone) / Postpone. */
+  rescheduleReason: string;
+  proposedHearingDate: Date | undefined;
+
+  /* PoA Change. */
+  poaLitigantIds: string[];
+  /** One authorization document per litigant above, keyed by litigant id. */
+  poaAuthorizations: Record<string, File[]>;
+  poaReason: string;
+
+  /* Production of Documents. */
+  productionReason: string;
+  productionDocuments: TypedDocumentDraft[];
+
+  /* Addition of Witness. */
+  witnesses: WitnessDraft[];
+
+  /* Warrant by Hand. */
+  warrantAccusedId: string;
+  deliveryAddress: Address;
+
+  /* Absent Application. */
+  absenceReason: string;
+
+  /* Reopen Evidence. */
+  reopenReason: string;
 
   /**
-   * Objection (Application Lifecycle PRD, ALC-12). The PRD specifies no
-   * fields yet; these are the least an objection needs: what it objects to
-   * (fixed by the File objection task, never chosen here), the grounds, and
-   * anything relied on. WORKING GUESS, flagged for the PM.
+   * Objection (ALC-12, ALC-24). What it objects to is fixed by the File
+   * objection task, never chosen here.
    */
   objectionToId: string;
-  objectionGrounds: RichTextValue;
-  objectionDocuments: DocumentRowDraft[];
+  objectionReason: string;
 };
 
-type ScalarErrors = Partial<Record<keyof ApplicationDraft, string>>;
-type RowErrors = Record<string, string | undefined>;
-
+/**
+ * Every error on the form, keyed by where it shows. Top-level fields use the
+ * draft's own key; a field inside a repeated row uses `<row id>.<field>`; an
+ * Edit Litigant Details field uses `litigant.<field>`.
+ */
 export type ApplicationErrors = {
-  fields: ScalarErrors;
-  sureties: Record<string, RowErrors>;
-  documentRows: Record<string, RowErrors>;
+  fields: Record<string, string | undefined>;
 };
 
-export const EMPTY_APPLICATION_ERRORS: ApplicationErrors = {
-  fields: {},
-  sureties: {},
-  documentRows: {},
-};
+export const EMPTY_APPLICATION_ERRORS: ApplicationErrors = { fields: {} };
+
+export function emptyLitigantDetails(): LitigantDetailsDraft {
+  return {
+    phone: "",
+    fullName: "",
+    age: "",
+    gender: "",
+    differentlyAbled: "",
+    email: "",
+    designation: "",
+    permanentAddress: blankAddress(),
+    currentSameAsPermanent: "yes",
+    currentAddress: blankAddress(),
+    institutionType: "",
+    institutionName: "",
+    cinPan: "",
+    institutionAddress: blankAddress(),
+    repPhone: "",
+    repName: "",
+    repAge: "",
+    repGender: "",
+    repDifferentlyAbled: "",
+    repEmail: "",
+    repDesignation: "",
+    repAddress: blankAddress(),
+    addresses: [],
+  };
+}
 
 export const EMPTY_APPLICATION_DRAFT: ApplicationDraft = {
   type: "",
   filedForSide: "",
-  referenceOrderId: "",
-  applicationDate: undefined,
-  comments: EMPTY_RICH_TEXT,
-  availabilityDates: [],
-  rescheduleReason: "",
-  rescheduleFrom: undefined,
-  partiesAgreed: "yes",
-  requestReason: "",
-  supportingFiles: [],
-  petitionerFather: "",
-  bailGrounds: EMPTY_RICH_TEXT,
-  addSureties: "yes",
-  sureties: [],
-  delayDays: "",
-  delayReason: EMPTY_RICH_TEXT,
-  additionalInformation: EMPTY_RICH_TEXT,
+  raisedById: "",
+  litigantId: "",
   supportingDocuments: [],
-  title: "",
-  details: EMPTY_RICH_TEXT,
-  otherDocuments: [],
-  submissionDocuments: [],
-  applicationReason: EMPTY_RICH_TEXT,
+  otherDetails: "",
+  bailType: "",
+  bailAmount: "",
+  suretyCount: "",
+  sureties: [],
+  bailReason: "",
+  editLitigantId: "",
+  editReason: "",
+  litigantType: "",
+  litigant: emptyLitigantDetails(),
+  settlementReason: "",
   requestedCourt: "",
-  transferGrounds: "",
-  withdrawalReasonCode: "",
-  withdrawalReason: EMPTY_RICH_TEXT,
+  transferReason: "",
+  withdrawalReason: "",
+  delayReason: "",
+  title: "",
+  details: "",
+  rescheduleReason: "",
+  proposedHearingDate: undefined,
+  poaLitigantIds: [],
+  poaAuthorizations: {},
+  poaReason: "",
+  productionReason: "",
+  productionDocuments: [],
+  witnesses: [],
+  warrantAccusedId: "",
+  deliveryAddress: blankAddress(),
+  absenceReason: "",
+  reopenReason: "",
   objectionToId: "",
-  objectionGrounds: EMPTY_RICH_TEXT,
-  objectionDocuments: [],
+  objectionReason: "",
 };
+
+function rowId(prefix: string): string {
+  return `${prefix}-${crypto.randomUUID()}`;
+}
 
 export function emptySurety(): SuretyDraft {
   return {
-    id: `surety-${crypto.randomUUID()}`,
+    id: rowId("surety"),
     fullName: "",
-    fatherName: "",
+    parentName: "",
     phone: "",
     email: "",
-    addressLine1: "",
-    city: "",
-    pincode: "",
-    district: "",
-    state: "",
+    address: blankAddress(),
     identityProof: [],
     solvencyProof: [],
-    otherDocuments: [],
   };
+}
+
+export function emptyNamedDocument(): NamedDocumentDraft {
+  return { id: rowId("doc"), name: "", files: [] };
+}
+
+export function emptyTypedDocument(): TypedDocumentDraft {
+  return { id: rowId("doc"), type: "", files: [] };
+}
+
+export function emptyAddressWithPolice(): AddressWithPoliceDraft {
+  return { id: rowId("addr"), addr: blankAddress(), police: "" };
+}
+
+export function emptyWitness(): WitnessDraft {
+  return {
+    id: rowId("witness"),
+    fullName: "",
+    age: "",
+    proves: "",
+    designation: "",
+    mobile: "",
+    email: "",
+    addresses: [{ id: rowId("addr"), addr: blankAddress() }],
+  };
+}
+
+/** The sureties list resized to the number typed, keeping what was entered. */
+export function resizeSureties(
+  sureties: SuretyDraft[],
+  count: string
+): SuretyDraft[] {
+  const wanted = /^\d+$/.test(count) ? Math.min(Number(count), 10) : 0;
+  if (wanted <= sureties.length) return sureties.slice(0, wanted);
+  return [
+    ...sureties,
+    ...Array.from({ length: wanted - sureties.length }, emptySurety),
+  ];
 }
 
 /**
@@ -201,46 +337,6 @@ export const RESCHEDULE_REASONS = [
 ] as const;
 
 /**
- * Why the complainant withdraws the case. Single select per the PRD, which
- * gives no list: WORKING GUESS, flagged for the PM.
- */
-export const WITHDRAWAL_REASONS = [
-  "The accused has paid the amount",
-  "The parties have settled",
-  "The complainant does not wish to proceed",
-  "Other",
-] as const;
-
-export function emptyDocumentRow(): DocumentRowDraft {
-  return { id: `doc-${crypto.randomUUID()}`, type: "", title: "", files: [] };
-}
-
-/**
- * Courts a case can be asked to move to — the real courts this deployment
- * already knows about, minus the one hearing the case. A hand-written list
- * would be inventing court names.
- */
-export function transferCourtOptions(currentCourt: string): string[] {
-  return [...new Set(CASES.map((record) => record.court))]
-    .filter((court) => court !== currentCourt)
-    .sort((a, b) => a.localeCompare(b));
-}
-
-/**
- * A saved draft, reopened as the form that wrote it.
- *
- * The register keeps a draft as a Submission — which type it is and the
- * prayer in the filer's own words — not as a field-by-field snapshot of the
- * form. So resuming restores the two things that survive that shape: the
- * type, and the ask already written. Everything else the type needs is still
- * blank, which is precisely what makes the draft unfinished.
- *
- * The ask does not land in the same field for every type. Each form carries
- * it in the field that *is* the ask — Settlement in Comments, Bail in
- * Grounds, Withdrawal in Reason — so the mapping is per type rather than one
- * shared "notes" box that none of the eight forms actually has.
- */
-/**
  * Generic's title rule, shared so seeding cannot disagree with validation.
  * The PRD's "alphanumeric text" means plain typed text (it says the same of
  * every reason box), not letters and digits only: titles cite "PW-1" and
@@ -248,6 +344,57 @@ export function transferCourtOptions(currentCourt: string): string[] {
  */
 const TITLE_PATTERN = /^[\p{L}\p{M}\p{N}\p{P}\p{Zs}]+$/u;
 
+/**
+ * The draft field that *is* each type's ask, in the filer's own words. A
+ * saved draft keeps only this text (`Submission.request`), so it is what
+ * `applicationDraftFrom` restores and `draftRequestText` saves. Types whose
+ * own fields are all structured keep the ask in Other details.
+ */
+const ASK_FIELD: Record<
+  ApplicationTypeId,
+  | "bailReason"
+  | "editReason"
+  | "settlementReason"
+  | "transferReason"
+  | "withdrawalReason"
+  | "delayReason"
+  | "details"
+  | "poaReason"
+  | "productionReason"
+  | "absenceReason"
+  | "reopenReason"
+  | "objectionReason"
+  | "otherDetails"
+> = {
+  bail: "bailReason",
+  "edit-litigant-details": "editReason",
+  settlement: "settlementReason",
+  transfer: "transferReason",
+  withdrawal: "withdrawalReason",
+  "condonation-of-delay": "delayReason",
+  "application-others": "details",
+  "advancement-reschedule": "otherDetails",
+  postpone: "otherDetails",
+  "poa-change": "poaReason",
+  "production-of-documents": "productionReason",
+  "addition-of-witness": "otherDetails",
+  "warrant-by-hand": "otherDetails",
+  "absent-application": "absenceReason",
+  "reopen-evidence": "reopenReason",
+  objection: "objectionReason",
+  "certified-copy": "otherDetails",
+  "warrant-recall": "otherDetails",
+};
+
+/**
+ * A saved draft, reopened as the form that wrote it.
+ *
+ * The register keeps a draft as a Submission — its type, who raised it and
+ * for whom, and the ask in the filer's own words — not as a field-by-field
+ * snapshot. So resuming restores what survives that shape. Everything else
+ * the type needs is still blank, which is precisely what makes the draft
+ * unfinished.
+ */
 export function applicationDraftFrom(submission: Submission): ApplicationDraft {
   // A document submission has no application form to resume into, and the
   // caller routes it elsewhere; returning the empty draft keeps this total.
@@ -262,327 +409,369 @@ export function applicationDraftFrom(submission: Submission): ApplicationDraft {
   const draft: ApplicationDraft = {
     ...EMPTY_APPLICATION_DRAFT,
     type,
+    raisedById: submission.submittedById ?? "",
+    litigantId: submission.onBehalfOfId ?? "",
     objectionToId: submission.objectionToId ?? "",
   };
   const ask = submission.request?.trim() ?? "";
-  if (!ask) return draft;
+  if (ask) draft[ASK_FIELD[type]] = ask;
 
-  const rich: RichTextValue = { html: richTextFromPlain(ask), text: ask };
-
-  switch (type) {
-    case "advancement-reschedule":
-    case "postpone":
-      draft.requestReason = ask;
-      break;
-    case "bail":
-      draft.bailGrounds = rich;
-      break;
-    case "condonation-of-delay":
-      draft.delayReason = rich;
-      break;
-    case "production-of-documents":
-      draft.applicationReason = rich;
-      break;
-    case "settlement":
-      draft.comments = rich;
-      break;
-    case "transfer":
-      draft.transferGrounds = ask;
-      break;
-    case "withdrawal":
-      draft.withdrawalReason = rich;
-      break;
-    case "objection":
-      draft.objectionGrounds = rich;
-      break;
-    case "application-others": {
-      draft.details = rich;
-      // Others is the one type that also names itself. A row that was never
-      // titled carries the type label, which is not a title; and the field
-      // rejects punctuation, so a title that could only fail validation is
-      // left blank for the filer rather than seeded pre-broken.
-      const title = submission.title.trim();
-      if (
-        title &&
-        title !== submissionTypeLabel(type) &&
-        TITLE_PATTERN.test(title)
-      ) {
-        draft.title = title;
-      }
-      break;
+  if (type === "application-others") {
+    // Generic is the one type that also names itself. A row that was never
+    // titled carries the type label, which is not a title; a title that
+    // could only fail validation is left blank rather than seeded pre-broken.
+    const title = submission.title.trim();
+    if (
+      title &&
+      title !== submissionTypeLabel(type) &&
+      TITLE_PATTERN.test(title)
+    ) {
+      draft.title = title;
     }
   }
 
   return draft;
 }
 
-/**
- * The editor renders `html` through dangerouslySetInnerHTML, so stored plain
- * text is escaped rather than trusted — fixture copy today, a server's copy
- * tomorrow, and the difference should not be what keeps this safe.
- */
-function richTextFromPlain(value: string): string {
-  const escaped = value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-  return `<p>${escaped}</p>`;
+/** The inverse of `applicationDraftFrom`'s ask mapping, for saving a draft. */
+export function draftRequestText(draft: ApplicationDraft): string {
+  if (!draft.type) return "";
+  return draft[ASK_FIELD[draft.type]].trim();
 }
 
+/**
+ * Whether anything has been typed or attached. Values set for the filer —
+ * the side, Raised by and Litigant preselected, the objection target —
+ * are not work, so opening a form and closing it untouched asks nothing.
+ */
 export function isApplicationDirty(draft: ApplicationDraft): boolean {
-  const { type, partiesAgreed, addSureties, objectionToId, filedForSide, ...rest } =
-    draft;
-  void partiesAgreed;
-  void addSureties;
+  const {
+    type,
+    filedForSide,
+    raisedById,
+    litigantId,
+    objectionToId,
+    litigantType,
+    editLitigantId,
+    litigant,
+    deliveryAddress,
+    warrantAccusedId,
+    ...rest
+  } = draft;
   void filedForSide;
-  // Set by the File objection task, not typed: opening the form is not work.
+  void raisedById;
+  void litigantId;
   void objectionToId;
-  return Boolean(
-    type ||
-      Object.values(rest).some((value) => {
-        if (typeof value === "string") return value.trim().length > 0;
-        if (Array.isArray(value)) return value.length > 0;
-        if (value instanceof Date) return true;
-        if (value && typeof value === "object" && "text" in value) {
-          return (value as RichTextValue).text.trim().length > 0;
-        }
-        return false;
-      })
-  );
+  // Prefilled from the case file when a litigant or accused is picked.
+  void litigantType;
+  void editLitigantId;
+  void litigant;
+  void deliveryAddress;
+  void warrantAccusedId;
+  return Boolean(type) || hasContent(rest);
+}
+
+function hasContent(value: unknown): boolean {
+  if (typeof value === "string") return value.trim().length > 0;
+  if (value instanceof Date) return true;
+  if (typeof File !== "undefined" && value instanceof File) return true;
+  if (Array.isArray(value)) return value.length > 0;
+  if (value && typeof value === "object") {
+    return Object.values(value).some(hasContent);
+  }
+  return false;
 }
 
 export function hasApplicationErrors(errors: ApplicationErrors): boolean {
-  return (
-    Object.values(errors.fields).some(Boolean) ||
-    Object.values(errors.sureties).some((row) =>
-      Object.values(row).some(Boolean)
-    ) ||
-    Object.values(errors.documentRows).some((row) =>
-      Object.values(row).some(Boolean)
-    )
-  );
+  return Object.values(errors.fields).some(Boolean);
 }
 
-function rich(value: RichTextValue): boolean {
-  return value.text.trim().length > 0;
+/* ------------------------------------------------------------- validation -- */
+
+const PHONE = /^\d{10}$/;
+const EMAIL = /^\S+@\S+\.\S+$/;
+const PIN = /^\d{6}$/;
+/** Letters, spaces and the marks names carry: full stops, apostrophes, hyphens. */
+const ALPHABETIC = /^[\p{L}\p{M}\s.'-]+$/u;
+
+type Errors = ApplicationErrors["fields"];
+
+function required(errors: Errors, key: string, value: string, message: string) {
+  if (!value.trim()) errors[key] = message;
 }
 
-/**
- * A document row exists only because someone added it, so every row is
- * validated whole — the same rule the shipped Condonation form already used.
- * Empty rows are removed, not tolerated.
- */
-function validateDocumentRows(
-  rows: DocumentRowDraft[],
-  errors: ApplicationErrors
+function phone(
+  errors: Errors,
+  key: string,
+  value: string,
+  optional = false
 ) {
-  for (const row of rows) {
-    const rowErrors: RowErrors = {};
-    if (!row.type.trim()) rowErrors.type = "Enter the document type.";
-    if (!row.title.trim()) rowErrors.title = "Enter the document title.";
-    if (row.files.length === 0) {
-      rowErrors.files = "Choose at least one file or remove this document.";
-    }
-    if (Object.values(rowErrors).some(Boolean)) {
-      errors.documentRows[row.id] = rowErrors;
-    }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    if (!optional) errors[key] = "Enter the phone number.";
+  } else if (!PHONE.test(trimmed)) {
+    errors[key] = "Enter a 10-digit phone number.";
+  }
+}
+
+function email(errors: Errors, key: string, value: string, optional = true) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    if (!optional) errors[key] = "Enter the email ID.";
+  } else if (!EMAIL.test(trimmed)) {
+    errors[key] = "Enter a valid email ID.";
+  }
+}
+
+function wholeNumber(
+  errors: Errors,
+  key: string,
+  value: string,
+  { optional = false, min = 1 }: { optional?: boolean; min?: number } = {}
+) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    if (!optional) errors[key] = "Enter a number.";
+  } else if (!/^\d+$/.test(trimmed) || Number(trimmed) < min) {
+    errors[key] = `Enter a whole number, ${min} or more.`;
   }
 }
 
 /**
- * Surety rules cover what identifies the person and what the court needs to
- * accept them — name, parentage, a reachable number, and the two proofs. The
- * QA review could not confirm field-level requirements here, so address and
- * email are checked for format when filled but never demanded.
+ * The e-filing address composite: a line, a city, a 6-digit pincode, the
+ * district and the state, every part required. The composite shows one
+ * message under the whole address, so it is one error.
  */
-function validateSureties(sureties: SuretyDraft[], errors: ApplicationErrors) {
-  for (const surety of sureties) {
-    const rowErrors: RowErrors = {};
-    if (!surety.fullName.trim()) rowErrors.fullName = "Enter the full name.";
-    if (!surety.fatherName.trim()) {
-      rowErrors.fatherName = "Enter the father's name.";
+function address(errors: Errors, key: string, value: Address) {
+  const missing = [
+    !value.line1.trim() && "address line",
+    !PIN.test(value.pin.trim()) && "6-digit pincode",
+    !value.city.trim() && "city or town",
+    !value.district.trim() && "district",
+    !value.state.trim() && "state",
+  ].filter(Boolean);
+  if (missing.length) errors[key] = `Enter the ${missing.join(", ")}.`;
+}
+
+function files(errors: Errors, key: string, value: File[], message: string) {
+  if (value.length === 0) errors[key] = message;
+}
+
+/**
+ * The Supporting documents on every application. Adding a row is the only
+ * way one exists, so each row is checked whole; an empty one is removed,
+ * not tolerated.
+ */
+function validateSupportingDocuments(draft: ApplicationDraft, errors: Errors) {
+  for (const row of draft.supportingDocuments) {
+    required(errors, `${row.id}.name`, row.name, "Enter the document name.");
+    files(errors, `${row.id}.files`, row.files, "Choose a file or remove this document.");
+  }
+}
+
+function validateLitigant(draft: ApplicationDraft, side: "complainant" | "accused", errors: Errors) {
+  const l = draft.litigant;
+  const key = (field: string) => `litigant.${field}`;
+  const institution = draft.litigantType === "institution";
+
+  if (side === "complainant" && !institution) {
+    phone(errors, key("phone"), l.phone);
+    if (!l.fullName.trim()) errors[key("fullName")] = "Enter the full name.";
+    else if (!ALPHABETIC.test(l.fullName.trim())) {
+      errors[key("fullName")] = "Use letters only.";
     }
-    if (!surety.phone.trim()) {
-      rowErrors.phone = "Enter the phone number.";
-    } else if (!/^\d{10}$/.test(surety.phone.trim())) {
-      rowErrors.phone = "Enter a 10-digit phone number.";
+    wholeNumber(errors, key("age"), l.age);
+    email(errors, key("email"), l.email);
+    address(errors, key("permanentAddress"), l.permanentAddress);
+    if (l.currentSameAsPermanent === "no") {
+      address(errors, key("currentAddress"), l.currentAddress);
     }
-    if (surety.email.trim() && !/^\S+@\S+\.\S+$/.test(surety.email.trim())) {
-      rowErrors.email = "Enter a valid email address.";
-    }
-    if (surety.pincode.trim() && !/^\d{6}$/.test(surety.pincode.trim())) {
-      rowErrors.pincode = "Enter a 6-digit pincode.";
-    }
-    if (surety.identityProof.length === 0) {
-      rowErrors.identityProof = "Attach an identity proof.";
-    }
-    if (surety.solvencyProof.length === 0) {
-      rowErrors.solvencyProof = "Attach a proof of solvency.";
-    }
-    if (Object.values(rowErrors).some(Boolean)) {
-      errors.sureties[surety.id] = rowErrors;
-    }
+    return;
+  }
+
+  if (side === "complainant") {
+    required(errors, key("institutionType"), l.institutionType, "Choose the type of institution.");
+    required(errors, key("institutionName"), l.institutionName, "Enter the institution name.");
+    phone(errors, key("phone"), l.phone, true);
+    email(errors, key("email"), l.email);
+    address(errors, key("institutionAddress"), l.institutionAddress);
+    phone(errors, key("repPhone"), l.repPhone);
+    required(errors, key("repName"), l.repName, "Enter the representative's full name.");
+    wholeNumber(errors, key("repAge"), l.repAge);
+    email(errors, key("repEmail"), l.repEmail);
+    required(errors, key("repDesignation"), l.repDesignation, "Enter the designation.");
+    address(errors, key("repAddress"), l.repAddress);
+    return;
+  }
+
+  if (!institution) {
+    if (!l.fullName.trim()) errors[key("fullName")] = "Enter the full name.";
+    wholeNumber(errors, key("age"), l.age, { optional: true });
+  } else {
+    required(errors, key("institutionType"), l.institutionType, "Choose the type of institution.");
+    required(errors, key("institutionName"), l.institutionName, "Enter the institution name.");
+  }
+  phone(errors, key("phone"), l.phone);
+  email(errors, key("email"), l.email, false);
+  if (l.addresses.length === 0) {
+    errors[key("addresses")] = "Add at least one address.";
+  }
+  for (const row of l.addresses) {
+    address(errors, row.id, row.addr);
+    required(errors, `${row.id}.police`, row.police, "Choose the police station.");
   }
 }
 
 export function validateApplication(
-  draft: ApplicationDraft
+  draft: ApplicationDraft,
+  /**
+   * What the form knows that the draft does not: the side of the litigant
+   * picked in Edit Litigant Details.
+   */
+  context: { editSide?: "complainant" | "accused" } = {}
 ): ApplicationErrors {
-  const errors: ApplicationErrors = {
-    fields: {},
-    sureties: {},
-    documentRows: {},
-  };
+  const errors: Errors = {};
 
   if (!draft.type) {
-    errors.fields.type = "Select an application type.";
-    return errors;
+    errors.type = "Select an application type.";
+    return { fields: errors };
   }
 
+  // Every application.
+  required(errors, "raisedById", draft.raisedById, "Choose who is raising this application.");
+  required(errors, "litigantId", draft.litigantId, "Choose the litigant.");
+  validateSupportingDocuments(draft, errors);
+
   switch (draft.type) {
-    case "advancement-reschedule":
-    case "postpone": {
-      if (!draft.rescheduleReason) {
-        errors.fields.rescheduleReason = "Choose the reason for rescheduling.";
-      }
-      // Not marked mandatory in the PRD, but a request to move a hearing
-      // with no date asks the court for nothing.
-      if (!draft.rescheduleFrom) {
-        errors.fields.rescheduleFrom =
-          "Choose the date from which the hearing can be held.";
-      }
-      break;
-    }
-
     case "bail": {
-      if (!draft.petitionerFather.trim()) {
-        errors.fields.petitionerFather = "Enter the petitioner's father's name.";
+      if (!draft.bailType) errors.bailType = "Choose the type of bail.";
+      const amount = draft.bailAmount.replace(/,/g, "").trim();
+      if (!amount) errors.bailAmount = "Enter the bail amount.";
+      else if (!/^\d+(\.\d{1,2})?$/.test(amount) || Number(amount) <= 0) {
+        errors.bailAmount = "Enter an amount in rupees.";
       }
-      if (!rich(draft.bailGrounds)) {
-        errors.fields.bailGrounds = "Enter the grounds and reasons for bail.";
-      }
-      if (draft.addSureties === "yes") {
-        if (draft.sureties.length === 0) {
-          errors.fields.sureties = "Add at least one surety, or choose No.";
+      if (draft.bailType === "surety") {
+        wholeNumber(errors, "suretyCount", draft.suretyCount);
+        for (const surety of draft.sureties) {
+          required(errors, `${surety.id}.fullName`, surety.fullName, "Enter the surety's name.");
+          required(errors, `${surety.id}.parentName`, surety.parentName, "Enter the father's or mother's name.");
+          phone(errors, `${surety.id}.phone`, surety.phone);
+          email(errors, `${surety.id}.email`, surety.email);
+          address(errors, `${surety.id}.address`, surety.address);
+          files(errors, `${surety.id}.identityProof`, surety.identityProof, "Attach the surety's ID proof.");
+          files(errors, `${surety.id}.solvencyProof`, surety.solvencyProof, "Attach the proof of solvency.");
         }
-        validateSureties(draft.sureties, errors);
+      }
+      required(errors, "bailReason", draft.bailReason, "Enter the reason for bail.");
+      break;
+    }
+
+    case "edit-litigant-details": {
+      required(errors, "editLitigantId", draft.editLitigantId, "Choose the litigant whose details change.");
+      required(errors, "editReason", draft.editReason, "Enter the reason for editing.");
+      if (draft.editLitigantId) {
+        if (!draft.litigantType) errors.litigantType = "Choose the litigant type.";
+        else validateLitigant(draft, context.editSide ?? "complainant", errors);
       }
       break;
     }
 
-    case "condonation-of-delay": {
-      const days = draft.delayDays.trim();
-      if (!days) {
-        errors.fields.delayDays = "Enter the number of days of delay.";
-      } else if (!/^\d+$/.test(days) || Number(days) < 1) {
-        errors.fields.delayDays = "Enter a positive whole number.";
-      }
-      if (!rich(draft.delayReason)) {
-        errors.fields.delayReason = "Enter the reason for delay.";
-      }
-      if (draft.supportingDocuments.length === 0) {
-        errors.fields.supportingDocuments =
-          "Add at least one supporting document.";
-      }
-      validateDocumentRows(draft.supportingDocuments, errors);
+    case "settlement":
+      required(errors, "settlementReason", draft.settlementReason, "Enter the reason for settlement.");
       break;
-    }
+
+    case "transfer":
+      required(errors, "requestedCourt", draft.requestedCourt, "Enter the court you are asking for.");
+      required(errors, "transferReason", draft.transferReason, "Enter the reason for transfer.");
+      break;
+
+    case "withdrawal":
+      required(errors, "withdrawalReason", draft.withdrawalReason, "Enter the reason for withdrawal.");
+      break;
+
+    case "condonation-of-delay":
+      required(errors, "delayReason", draft.delayReason, "Enter the reasons for delay.");
+      break;
 
     case "application-others": {
       const title = draft.title.trim();
-      if (!title) {
-        errors.fields.title = "Enter an application title.";
-      } else if (!TITLE_PATTERN.test(title)) {
-        errors.fields.title = "Use letters, numbers and punctuation only.";
+      if (!title) errors.title = "Enter an application title.";
+      else if (!TITLE_PATTERN.test(title)) {
+        errors.title = "Use letters, numbers and punctuation only.";
       }
-      if (!rich(draft.details)) {
-        errors.fields.details = "Enter the application details.";
-      }
-      validateDocumentRows(draft.otherDocuments, errors);
+      required(errors, "details", draft.details, "Enter the details.");
       break;
     }
 
-    case "production-of-documents": {
-      if (!draft.applicationDate) {
-        errors.fields.applicationDate = "Choose the date of application.";
-      }
-      if (!rich(draft.applicationReason)) {
-        errors.fields.applicationReason = "Enter the reason for application.";
-      }
-      validateDocumentRows(draft.submissionDocuments, errors);
-      break;
-    }
-
-    case "settlement": {
-      if (!draft.applicationDate) {
-        errors.fields.applicationDate = "Choose the date of application.";
-      }
-      break;
-    }
-
-    case "transfer": {
-      if (!draft.applicationDate) {
-        errors.fields.applicationDate = "Choose the date of application.";
-      }
-      if (!draft.requestedCourt) {
-        errors.fields.requestedCourt = "Select the requested court.";
-      }
-      if (!draft.transferGrounds.trim()) {
-        errors.fields.transferGrounds =
-          "Enter the grounds for seeking transfer.";
-      }
-      break;
-    }
-
-    case "withdrawal": {
-      if (!draft.applicationDate) {
-        errors.fields.applicationDate = "Choose the date of application.";
-      }
-      if (!draft.withdrawalReasonCode) {
-        errors.fields.withdrawalReasonCode = "Choose the reason for withdrawal.";
-      }
-      break;
-    }
-
-    case "objection": {
-      if (!rich(draft.objectionGrounds)) {
-        errors.fields.objectionGrounds = "Enter the grounds of objection.";
-      }
-      validateDocumentRows(draft.objectionDocuments, errors);
-      break;
-    }
-  }
-
-  return errors;
-}
-
-/**
- * The ask in the filer's words, for saving a draft: the one field of each
- * type that `applicationDraftFrom` restores. The inverse of that mapping, so
- * a saved draft reopens with what was written.
- */
-export function draftRequestText(draft: ApplicationDraft): string {
-  switch (draft.type) {
     case "advancement-reschedule":
     case "postpone":
-      return draft.requestReason.trim();
-    case "bail":
-      return draft.bailGrounds.text.trim();
-    case "condonation-of-delay":
-      return draft.delayReason.text.trim();
+      required(errors, "rescheduleReason", draft.rescheduleReason, "Choose the reason for rescheduling.");
+      if (!draft.proposedHearingDate) {
+        errors.proposedHearingDate = "Choose the proposed hearing date.";
+      }
+      break;
+
+    case "poa-change":
+      if (draft.poaLitigantIds.length === 0) {
+        errors.poaLitigantIds = "Choose at least one litigant.";
+      }
+      for (const id of draft.poaLitigantIds) {
+        files(
+          errors,
+          `poa.${id}`,
+          draft.poaAuthorizations[id] ?? [],
+          "Attach the authorization document."
+        );
+      }
+      required(errors, "poaReason", draft.poaReason, "Enter the reason for change.");
+      break;
+
     case "production-of-documents":
-      return draft.applicationReason.text.trim();
-    case "settlement":
-      return draft.comments.text.trim();
-    case "transfer":
-      return draft.transferGrounds.trim();
-    case "withdrawal":
-      return draft.withdrawalReason.text.trim();
+      required(errors, "productionReason", draft.productionReason, "Enter the reason for application.");
+      if (draft.productionDocuments.length === 0) {
+        errors.productionDocuments = "Add at least one document.";
+      }
+      for (const row of draft.productionDocuments) {
+        required(errors, `${row.id}.type`, row.type, "Enter the document type.");
+        files(errors, `${row.id}.files`, row.files, "Choose a file or remove this document.");
+      }
+      break;
+
+    case "addition-of-witness":
+      if (draft.witnesses.length === 0) {
+        errors.witnesses = "Add at least one witness.";
+      }
+      for (const witness of draft.witnesses) {
+        if (!witness.fullName.trim() && !witness.designation.trim()) {
+          errors[`${witness.id}.fullName`] = "Enter a full name or a designation.";
+        }
+        wholeNumber(errors, `${witness.id}.age`, witness.age, { optional: true });
+        phone(errors, `${witness.id}.mobile`, witness.mobile, true);
+        email(errors, `${witness.id}.email`, witness.email);
+        if (witness.addresses.length === 0) {
+          errors[`${witness.id}.addresses`] = "Add at least one address.";
+        }
+        for (const row of witness.addresses) address(errors, row.id, row.addr);
+      }
+      break;
+
+    case "warrant-by-hand":
+      required(errors, "warrantAccusedId", draft.warrantAccusedId, "Choose the accused.");
+      address(errors, "deliveryAddress", draft.deliveryAddress);
+      break;
+
+    case "absent-application":
+      required(errors, "absenceReason", draft.absenceReason, "Enter the reason for absence.");
+      break;
+
+    case "reopen-evidence":
+      required(errors, "reopenReason", draft.reopenReason, "Enter the reason for reopening.");
+      break;
+
     case "objection":
-      return draft.objectionGrounds.text.trim();
-    case "application-others":
-      return draft.details.text.trim();
-    default:
-      return "";
+      required(errors, "objectionReason", draft.objectionReason, "Enter the reason for objection.");
+      break;
   }
+
+  return { fields: errors };
 }

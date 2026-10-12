@@ -607,21 +607,24 @@ export type AvailabilityContext = {
 };
 
 /**
- * "Application types → Available when". Types the specification leaves as `?` stay
- * available, and Objection is never started from the chooser — only from a File
- * objection task.
+ * "Application types → Available when". Objection is never started from the
+ * chooser — only from a File objection task. Edit Litigant Details is governed by a
+ * control on the workflow (who can raise it, whose details they can edit) that is not
+ * built, so it stays open. Certified Copy and Warrant Recall are not types in the
+ * specification and are never offered.
  */
 export function typeAvailable(type: string, context: AvailabilityContext): boolean {
   switch (type) {
     case "bail":
       return context.side === "accused";
-    case "edit-litigant-details":
     case "condonation-of-delay":
       return context.side === "complainant";
     case "advancement-reschedule":
     case "postpone":
       return context.hearingScheduled;
     case "objection":
+    case "certified-copy":
+    case "warrant-recall":
       return false;
     default:
       return true;

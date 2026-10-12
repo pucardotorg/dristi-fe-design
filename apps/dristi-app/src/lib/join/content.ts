@@ -371,10 +371,6 @@ export const joinDialog = {
   viewCase: t("View case", "കേസ് കാണുക"),
   viewCasePrototype: t("The case file will open here.", "കേസ് ഫയൽ ഇവിടെ തുറക്കും."),
   fileBail: t("File bail application", "ജാമ്യാപേക്ഷ നൽകുക"),
-  fileBailPrototype: t(
-    "The bail application flow will open here.",
-    "ജാമ്യാപേക്ഷ ഫ്ലോ ഇവിടെ തുറക്കും.",
-  ),
   addAdvocate: t("Add advocate", "അഭിഭാഷകനെ ചേർക്കുക"),
   addAdvocatePrototype: t(
     "The add-advocate flow will open here.",

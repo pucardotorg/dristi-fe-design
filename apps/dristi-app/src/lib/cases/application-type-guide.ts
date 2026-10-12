@@ -31,11 +31,9 @@ import {
   CalendarClockIcon,
   CalendarDaysIcon,
   SignatureIcon,
-  StampIcon,
   UserPenIcon,
   UserPlusIcon,
   FileSearchIcon,
-  FileX2Icon,
   FolderOpenIcon,
   HourglassIcon,
   LandmarkIcon,
@@ -128,21 +126,6 @@ const GUIDES: ApplicationTypeGuide[] = [
     description: "Ask for a witness to be added to the case.",
     icon: UserPlusIcon,
     keywords: ["witness", "add witness", "new witness", "examine", "summon"],
-  },
-  {
-    id: "certified-copy",
-    label: "Certified copy",
-    description:
-      "Ask for a certified true copy of an order, a document or the case record.",
-    icon: StampIcon,
-    keywords: [
-      "certified copy",
-      "true copy",
-      "copy",
-      "attested",
-      "appeal",
-      "revision", "order copy", "copy of order", "judgment copy",
-    ],
   },
   {
     id: "edit-litigant-details",
@@ -304,21 +287,6 @@ const GUIDES: ApplicationTypeGuide[] = [
     ],
   },
   {
-    id: "warrant-recall",
-    label: "Warrant recall",
-    description:
-      "Ask the court to cancel a warrant it has already issued, with your grounds.",
-    icon: FileX2Icon,
-    keywords: [
-      "warrant recall",
-      "recall warrant",
-      "cancel warrant",
-      "withdraw warrant",
-      "quash warrant",
-      "set aside warrant", "recall", "cancel", "quash",
-    ],
-  },
-  {
     id: "withdrawal",
     label: "Case withdrawal",
     /* The PRD's "Case withdrawal": the complaint itself, which is what the
@@ -391,7 +359,7 @@ const SUGGESTED_BY_STAGE: Record<ActiveStage, ApplicationTypeId[]> = {
   scrutiny: ["condonation-of-delay", "withdrawal"],
   cognizance: ["condonation-of-delay", "advancement-reschedule", "withdrawal"],
   summons: ["warrant-by-hand", "advancement-reschedule", "settlement"],
-  appearance: ["bail", "absent-application", "warrant-recall"],
+  appearance: ["bail", "absent-application", "warrant-by-hand"],
   evidence: ["absent-application", "production-of-documents", "postpone"],
   arguments: ["reopen-evidence", "postpone", "absent-application"],
   judgment: ["reopen-evidence", "settlement"],
