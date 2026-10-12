@@ -223,7 +223,8 @@ export function FormField({
   if (!correction.showAll) return null;
   return (
     <FieldLock locked={locked}>
-      <div className={cn(locked && "opacity-45")}>{field}</div>
+      {/* Receded by the correction screen's record pane, for every section alike. */}
+      <div>{field}</div>
     </FieldLock>
   );
 }

@@ -923,9 +923,23 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
                 className={cn(
                   "flex min-w-0 flex-1 flex-col overflow-y-auto pb-8",
                   "[&_:disabled]:opacity-100! [&_:disabled]:text-muted-foreground",
-                  "[&_:has(:disabled)]:opacity-100! [&_[data-slot=input-group-addon]]:opacity-100!",
+                  "[&_:has(:disabled):not([data-slot=field])]:opacity-100! [&_[data-slot=input-group-addon]]:opacity-100!",
                   "[&_input:disabled]:bg-surface-sunken! [&_textarea:disabled]:bg-surface-sunken!",
                   "[&_:has(>input:disabled)]:bg-surface-sunken! [&_[data-slot=select-trigger]:disabled]:bg-surface-sunken!",
+                  /* An input inside a group (+91, ₹, a date's calendar button) stays clear:
+                     the group carries the fill. Painted itself, its square box ran over the
+                     group's rounded right edge (owner, 2026-10-13). */
+                  "[&_[data-slot=input-group]_input:disabled]:bg-transparent!",
+                  /* Full filing: every field scrutiny did not flag steps back, so the
+                     flagged ones are what the eye finds. One rule here rather than in each
+                     section, because only some sections build their fields with
+                     `FormField` — the rest stayed at full strength (owner, 2026-10-13). */
+                  showAll && "[&_[data-slot=field]]:opacity-45!",
+                  // A field inside another field is already receded with it: no second step.
+                  showAll && "[&_[data-slot=field]_[data-slot=field]]:opacity-100!",
+                  // A flagged field, or a field holding one, stays at full strength.
+                  showAll && "[&_[data-defect]_[data-slot=field]]:opacity-100!",
+                  showAll && "[&_[data-slot=field]:has([data-defect])]:opacity-100!",
                   /* Flagged-only mode: the fields hide themselves (`FormField` returns
                      null), and these rules retire what they leave behind — section cards
                      none of them are in, and group headings ("The parties") whose every
