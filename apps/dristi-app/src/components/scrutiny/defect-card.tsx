@@ -318,7 +318,10 @@ export function DefectCard({
         )}
         {...watch}
       >
-        <div ref={body} role="status" className={cn("flex items-start gap-2.5 p-4", RESOLVE_IN_PLACE)}>
+        {/* Its own element (key), never the open card's reused: the fade preset sets a
+            duration, every property then transitions, and the reused wrapper's padding
+            slid 0→16px over half a second — the jagged close (owner, 2026-10-13). */}
+        <div key="settled" ref={body} role="status" className={cn("flex items-start gap-2.5 p-4", RESOLVE_IN_PLACE)}>
           <CircleCheckIcon className="mt-0.5 size-4 shrink-0 text-success-ink" aria-hidden />
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             <p className="text-body-compact font-semibold text-foreground">
@@ -364,7 +367,7 @@ export function DefectCard({
       )}
       {...watch}
     >
-      <div ref={body}>
+      <div key="open" ref={body}>
       <div className={cn("flex items-start gap-2.5 px-4 pt-4", RESOLVE_IN_PLACE)}>
         <CircleDashedIcon className="mt-1 size-4 shrink-0 text-muted-foreground" aria-hidden />
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
