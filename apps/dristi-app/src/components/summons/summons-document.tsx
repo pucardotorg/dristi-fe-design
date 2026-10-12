@@ -1,11 +1,9 @@
 /**
- * The summons, v15: one A4 sheet, both sides, in two versions (owner, 2026-10-12).
+ * The summons, v15: one A4 sheet, both sides.
  *
- * - **Print** is what the post and the process server carry. Paper cannot be clicked,
- *   so every address is printed in full and nothing is a link.
- * - **Digital** is what the accused opens from SMS, email or the onboarding modal. The
- *   same sheet, with the addresses, phone numbers and QR as links, and "turn over" read
- *   as "scroll down".
+ * **One version for paper and screen** (owner, 2026-10-12). Paper cannot be clicked, so
+ * every address is printed in full; on screen the same address is also a link, which
+ * costs the paper nothing. "Please turn over" reads the same in both.
  *
  * Every string is written in Kerala's terms (`lib/summons/content.ts`) and voiced here
  * for `court`, which the page takes from the summons URL. The root is `data-court-raw`,
@@ -16,26 +14,23 @@
  */
 
 import * as React from "react";
-import { ArrowDownIcon, ArrowRightIcon } from "lucide-react";
+import { ArrowRightIcon } from "lucide-react";
 
 import { localizeCourtText } from "@/lib/court/localize";
 import type { CourtId } from "@/lib/court/profiles";
 import { SUMMONS_COURT, SUMMONS_FACTS } from "@/lib/summons/content";
 
-export type SummonsVersion = "print" | "digital";
+type Props = { court: CourtId };
 
-type Props = { court: CourtId; version: SummonsVersion };
-
-export function SummonsDocument({ court, version }: Props) {
+export function SummonsDocument({ court }: Props) {
   const t = (text: string) => localizeCourtText(text, court);
   const f = SUMMONS_FACTS;
   const local = SUMMONS_COURT[court];
-  const digital = version === "digital";
 
-  /** An address on the portal: a link on screen, the address itself on paper. */
+  /** An address on the portal, written in full. A placeholder is not a link. */
   const portal = (path = "") => {
     const address = `${local.portal}${path}`;
-    if (!digital || !local.portalIsReal) return <b>{address}</b>;
+    if (!local.portalIsReal) return <b>{address}</b>;
     return (
       <a href={`https://${address}`} target="_blank" rel="noreferrer">
         <b>{address}</b>
@@ -44,10 +39,10 @@ export function SummonsDocument({ court, version }: Props) {
   };
 
   const phone = ({ display, tel }: { display: string; tel: string | null }) =>
-    digital && tel ? <a href={`tel:${tel}`}>{display}</a> : display;
+    tel ? <a href={`tel:${tel}`}>{display}</a> : display;
 
   const site = (address: string) =>
-    digital && !address.startsWith("[") ? (
+    !address.startsWith("[") ? (
       <a href={`https://${address}`} target="_blank" rel="noreferrer">
         {address}
       </a>
@@ -58,7 +53,7 @@ export function SummonsDocument({ court, version }: Props) {
   const caseNumber = t(f.caseNumber);
 
   return (
-    <div className="summons" data-court-raw="" data-version={version}>
+    <div className="summons" data-court-raw="">
       {/* ============================ FRONT :: PAGE 1 ============================ */}
       <section className="sheet" aria-label="Summons, page 1">
         <table>
@@ -75,7 +70,7 @@ export function SummonsDocument({ court, version }: Props) {
                 </div>
               </td>
               <td style={{ width: "60mm" }}>
-                <div className="t4 caps title">
+                <div className="caps title">
                   Summons to an
                   <br />
                   Accused Person
@@ -207,7 +202,7 @@ export function SummonsDocument({ court, version }: Props) {
                   {local.language.line}
                 </div>
                 <div className="s4" />
-                {digital && local.portalIsReal ? (
+                {local.portalIsReal ? (
                   <a href={`https://${local.portal}`} target="_blank" rel="noreferrer">
                     {/* eslint-disable-next-line @next/next/no-img-element -- print facsimile */}
                     <img className="qr" src="/summons/qr_portal.png" alt="QR code: join your case" style={{ width: "30mm", height: "30mm" }} />
@@ -218,7 +213,7 @@ export function SummonsDocument({ court, version }: Props) {
                 )}
                 <div className="s4" />
                 <div className="qrcap">
-                  <b>{digital ? "Scan or tap to join your case." : "Scan to join your case."}</b>
+                  <b>Scan to join your case.</b>
                   <br />
                   Help is available in your language.
                 </div>
@@ -253,20 +248,13 @@ export function SummonsDocument({ court, version }: Props) {
               <tr>
                 <td style={{ width: "56mm" }}>
                   <div className="caps turncap">
-                    {digital ? "Please read on" : "Please turn over"}
+                    Please turn over
                   </div>
                 </td>
                 <td className="right">
                   <div className="strong">
-                    {digital
-                      ? "Options for closing this case are on page 2"
-                      : "Options for closing this case are on the reverse"}
-                    {/* One arrow family for both versions: only the direction differs. */}
-                    {digital ? (
-                      <ArrowDownIcon className="turnarrow" aria-hidden />
-                    ) : (
-                      <ArrowRightIcon className="turnarrow" aria-hidden />
-                    )}
+                    Options for closing this case are on the reverse
+                    <ArrowRightIcon className="turnarrow" aria-hidden />
                   </div>
                 </td>
               </tr>

@@ -60,7 +60,9 @@
 .summons .upper { text-transform: uppercase; }
 
 .summons .caps { letter-spacing: 0.11em; text-transform: uppercase; line-height: 1.25; }
-.summons .title { text-align: right; font-weight: 700; letter-spacing: 0.04em; }
+/* 12pt, a step under the 16pt court name: caps and bold read larger than their size,
+   so at 13.5pt it matched the court name (owner, 2026-10-12). */
+.summons .title { font-size: 12pt; text-align: right; font-weight: 700; letter-spacing: 0.06em; line-height: 1.25; }
 .summons .label {
   font-size: 8.5pt;
   letter-spacing: 0.11em;
@@ -143,6 +145,8 @@
   .summons-toolbar { display: none !important; }
   .summons-fit { zoom: 1 !important; }
   .summons { gap: 0; }
+  /* On paper a link is just the address: single-colour, no underline. */
+  .summons a { color: var(--ink); text-decoration: none; }
   .summons .sheet { box-shadow: none; height: 297mm; min-height: 0; break-after: page; }
   .summons .sheet:last-child { break-after: auto; }
   .summons .turnband { print-color-adjust: exact; -webkit-print-color-adjust: exact; }

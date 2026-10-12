@@ -2,46 +2,17 @@
 
 import * as React from "react";
 import { PrinterIcon } from "lucide-react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
-import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 
-import type { SummonsVersion } from "./summons-document";
-
-/**
- * Above the sheet, on screen only: which version is showing, and Print for the paper one.
- * The version lives in the URL (`?version=`), so either can be linked to directly.
- */
-export function SummonsToolbar({ version }: { version: SummonsVersion }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const params = useSearchParams();
-
-  function show(next: string) {
-    if (next !== "print" && next !== "digital") return;
-    const query = new URLSearchParams(params.toString());
-    query.set("version", next);
-    router.replace(`${pathname}?${query.toString()}`, { scroll: false });
-  }
-
+/** Above the sheet, on screen only: Print, which also saves as PDF. */
+export function SummonsToolbar() {
   return (
-    <div className="summons-toolbar flex w-full max-w-[210mm] flex-wrap items-center justify-between gap-3">
-      <SegmentedControl
-        type="single"
-        value={version}
-        onValueChange={show}
-        aria-label="Summons version"
-      >
-        <SegmentedControlItem value="digital">Digital</SegmentedControlItem>
-        <SegmentedControlItem value="print">Print</SegmentedControlItem>
-      </SegmentedControl>
-      {version === "print" && (
-        <Button variant="outline" onClick={() => window.print()}>
-          <PrinterIcon data-icon="inline-start" aria-hidden />
-          Print or save as PDF
-        </Button>
-      )}
+    <div className="summons-toolbar flex w-full max-w-[210mm] justify-end">
+      <Button variant="outline" onClick={() => window.print()}>
+        <PrinterIcon data-icon="inline-start" aria-hidden />
+        Print or save as PDF
+      </Button>
     </div>
   );
 }

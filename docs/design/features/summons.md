@@ -7,10 +7,9 @@ Status: built on `feature/summons-v15`; static render checked, live route not ye
 `/summons` renders the summons an accused person receives: v14's one-sheet, two-sided
 design with the owner's review fixes, in two versions and for every court.
 
-- **Two versions** (`?version=print|digital`, digital by default).
-  - Print: what goes by post. Every address is printed in full, nothing is a link.
-  - Digital: the same sheet with addresses, phones and the join QR as links, and "turn
-    over" read as "read on".
+- **One version for paper and screen.** Every address is written in full (paper cannot
+  be clicked); on screen the same addresses, phones and the join QR are also links. In
+  print, links are plain black. "Please turn over" in both.
 - **The state comes from the URL** (`?court=kerala|gujarat|punjab|haryana`). A real
   summons link is unique to the state that sent it. Without the param, the court picked
   in Settings stands in.
@@ -33,7 +32,9 @@ design with the owner's review fixes, in two versions and for every court.
 | 2026-10-12 | Not appearing does not cost the right to question the complainant. Clause removed. | Owner review of v14 | Built |
 | 2026-10-12 | Fit the summons to the court config (court name, language and so on). | PM, relayed by owner | Built |
 | 2026-10-12 | The language line follows the court's language: ml, gu, pa, hi. | Owner | Built |
-| 2026-10-12 | Design both a print and a digital version; the state is known from the summons URL. | Owner | Built |
+| 2026-10-12 | Design both a print and a digital version; the state is known from the summons URL. | Owner | Superseded by the next row |
+| 2026-10-12 | Print and digital read the same, so keep one version: "Please turn over" on screen too; links stay tappable on screen. | Owner | Built |
+| 2026-10-12 | "Summons to an Accused Person" at 12pt, a step under the 16pt court name. | Owner | Built |
 | 2026-10-12 | Live in the onboarding modal's "View the original summons", touching no other screen. | Owner | Built |
 
 ## Open
