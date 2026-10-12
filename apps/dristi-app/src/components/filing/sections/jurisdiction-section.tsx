@@ -13,7 +13,8 @@ import Link from "next/link";
 import { PlusIcon } from "lucide-react";
 
 import { toLongDate } from "@/lib/filing/format";
-import { POLICE_STATIONS } from "@/lib/filing/options";
+import { useCourt } from "@/components/court/court-provider";
+import { policeStationsFor } from "@/lib/filing/options";
 import { limitationView, noticeServiceDate } from "@/lib/filing/selectors";
 import { neighbours } from "@/lib/filing/steps";
 import { useFiling } from "@/lib/filing/store";
@@ -32,6 +33,7 @@ import { RemoveButton } from "@/components/filing/repeat-lists";
 import { YesNoSegmented } from "@/components/filing/segmented";
 
 export function JurisdictionSection() {
+  const stations = policeStationsFor(useCourt().court);
   const { draft, update, hrefFor } = useFiling();
   const j = draft.jurisdiction;
   const { prev, next } = neighbours("jurisdiction");
@@ -137,7 +139,7 @@ export function JurisdictionSection() {
                   <ComboField
                     value={j.payeePolice}
                     onChange={(v: string) => set("payeePolice", v)}
-                    items={POLICE_STATIONS}
+                    items={stations}
                     placeholder="Search stations"
                     emptyLabel="No station by that name."
                     ariaLabel="Police station of bank branch"
@@ -151,7 +153,7 @@ export function JurisdictionSection() {
                 <ComboField
                   value={j.drawerPolice}
                   onChange={(v: string) => set("drawerPolice", v)}
-                  items={POLICE_STATIONS}
+                  items={stations}
                   placeholder="Search stations"
                   emptyLabel="No station by that name."
                   ariaLabel="Police station of drawer (accused) bank branch"

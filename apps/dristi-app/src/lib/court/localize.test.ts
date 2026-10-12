@@ -110,7 +110,10 @@ test("Kerala's sample places, PIN codes and Bar numbers move to the state", () =
   assert.equal(localizeCourtText("Kollam East police station", "haryana"), "Panchkula East police station");
   assert.equal(localizeCourtText("Kerala Gramin Bank, Punalur", "punjab"), "Punjab Gramin Bank, Khanna");
   assert.equal(localizeCourtText("Court language: Malayalam", "gujarat"), "Court language: Gujarati");
-  assert.equal(localizeCourtText("KL/1109/2009 · K/1234/2020", "haryana"), "HR/1109/2009 · P/1234/2020");
+  assert.equal(localizeCourtText("KL/1109/2009 · K/1234/2020", "haryana"), "P/1109/2009 · P/1234/2020");
+  assert.equal(localizeCourtText("KL/1109/2009 · K/1234/2020", "punjab"), "P/1109/2009 · P/1234/2020");
+  assert.equal(localizeCourtText("KL/1109/2009 · K/1234/2020", "gujarat"), "G/1109/2009 · G/1234/2020");
+  assert.equal(localizeCourtText("KL/1109/2009 · K/1234/2020", "kerala"), "KL/1109/2009 · K/1234/2020");
   // Amounts and longer numbers are not PIN codes.
   assert.equal(localizeCourtText("₹6,91,001 · 6910012345", "gujarat"), "₹6,91,001 · 6910012345");
   assert.equal(localizeCourtText("Cheque number 691234", "gujarat"), "Cheque number 691234");
@@ -140,6 +143,7 @@ test("house names and the scrutiny queue's Gujarat Bar numbers follow the state"
   assert.equal(localizeCourtText("Puthenveedu, Market Road, Kodungallur", "punjab"), "Guru Kripa, Market Road, Kapurthala");
   assert.equal(localizeCourtText("G/111/2011", "haryana"), "P/111/2011");
   assert.equal(localizeCourtText("G/111/2011", "gujarat"), "G/111/2011");
+  assert.equal(localizeCourtText("GJ/111/2011", "gujarat"), "G/111/2011");
 });
 
 test("every Kerala locality in the data has a stand-in, the same one each time", () => {
@@ -193,4 +197,10 @@ test("Kerala Christian and Muslim given names keep their community", () => {
   assert.match(localizeCourtText("Jomon", "punjab"), /^(Samuel|Daniel|Emmanuel|Stephen|Paul|Anthony)$/);
   assert.match(localizeCourtText("Ayisha", "haryana"), /^(Sajida|Mehmuna|Shakila|Asmina|Rubeena|Sabra)$/);
   assert.equal(localizeCourtText("Clappana", "gujarat") === "Clappana", false);
+});
+
+test("Panchkula is Punjab and Haryana's, and moves elsewhere", () => {
+  assert.equal(localizeCourtText("Panchkula Police Station", "haryana"), "Panchkula Police Station");
+  assert.equal(localizeCourtText("Panchkula Police Station", "punjab"), "Panchkula Police Station");
+  assert.notEqual(localizeCourtText("Panchkula Police Station", "gujarat"), "Panchkula Police Station");
 });

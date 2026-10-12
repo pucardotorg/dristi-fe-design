@@ -8,7 +8,8 @@ import {
   blankContact,
   blankRepresentative,
 } from "@/lib/filing/blank";
-import { POLICE_STATIONS } from "@/lib/filing/options";
+import { useCourt } from "@/components/court/court-provider";
+import { policeStationsFor } from "@/lib/filing/options";
 import type { AddressBlock, Contact, Representative } from "@/lib/filing/types";
 import { Button } from "@/components/ui/button";
 import { AddressFields } from "@/components/filing/address-fields";
@@ -129,6 +130,7 @@ export function AddressBlockList({
   onChange: (next: AddressBlock[]) => void;
   addLabel?: string;
 }) {
+  const { court } = useCourt();
   const setAt = (i: number, patch: Partial<AddressBlock>) =>
     onChange(blocks.map((b, k) => (k === i ? { ...b, ...patch } : b)));
 
@@ -161,7 +163,7 @@ export function AddressBlockList({
               <ComboField
                 value={b.police}
                 onChange={(v: string) => setAt(i, { police: v })}
-                items={POLICE_STATIONS}
+                items={policeStationsFor(court)}
                 placeholder="Search stations"
                 emptyLabel="No station by that name."
                 ariaLabel="Police station"

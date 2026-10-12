@@ -20,6 +20,8 @@
 
 import type { StructuredAddress } from "@/components/cases/structured-address";
 
+import type { CourtId } from "@/lib/court/profiles";
+
 import type { CourtCounsel, CourtCaseStage } from "./hearings";
 
 export type CasePersonKind = "accused" | "complainant" | "witness";
@@ -263,7 +265,18 @@ export const POLICE_STATIONS = [
   "Kilikollur",
   "Kundara",
   "Shakthikulangara",
+  "Panchkula",
 ] as const;
+
+/**
+ * The stations a court's dropdowns offer: Panchkula only for Punjab and Haryana, which
+ * share one High Court (owner, 2026-10-12).
+ */
+export function policeStationsFor(court: CourtId): readonly string[] {
+  return court === "punjab" || court === "haryana"
+    ? POLICE_STATIONS
+    : POLICE_STATIONS.filter((station) => station !== "Panchkula");
+}
 
 const STATION_BY_LOCALITY: Partial<Record<string, (typeof POLICE_STATIONS)[number]>> = {
   Chinnakada: "Town East",
