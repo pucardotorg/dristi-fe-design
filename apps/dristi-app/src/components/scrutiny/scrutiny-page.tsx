@@ -17,6 +17,7 @@ import { FileTextIcon, InboxIcon } from "lucide-react";
 
 import { ensureScrutinyDraft } from "@/lib/filing/scrutiny-demo";
 import { FilingProvider } from "@/lib/filing/store";
+import { ProfileProvider } from "@/lib/filing/profile";
 import { canView } from "@/lib/tasks/permissions";
 import { useTasks } from "@/lib/tasks/store";
 import { cn } from "@/lib/utils";
@@ -199,7 +200,11 @@ export function ScrutinyReturnPage() {
         />
       }
     >
-      <CorrectionScreen task={task} kase={kase} />
+      {/* The filer's profile, as the filings area mounts it: the signing window that
+          now opens over this screen reads who is signing from it. */}
+      <ProfileProvider>
+        <CorrectionScreen task={task} kase={kase} />
+      </ProfileProvider>
     </FilingProvider>
   );
 }
