@@ -58,12 +58,13 @@
 .summons .right { text-align: right; }
 .summons .strong { font-weight: 700; }
 .summons .upper { text-transform: uppercase; }
+.summons .nowrap { white-space: nowrap; }
 
 .summons .caps { letter-spacing: 0.11em; text-transform: uppercase; line-height: 1.25; }
 /* 10pt, the t2 step: caps and bold read larger than their size, so the title sits well
    under the 16pt court name and leads the 10pt form lines by weight alone (owner,
    2026-10-12: 13.5pt, then 12pt, both still too large). */
-.summons .title { font-size: 10pt; text-align: right; font-weight: 700; letter-spacing: 0.08em; line-height: 1.3; }
+.summons .title { font-size: 10pt; text-align: right; font-weight: 700; letter-spacing: 0.04em; line-height: 1.3; white-space: nowrap; }
 .summons .label {
   font-size: 8.5pt;
   letter-spacing: 0.11em;
@@ -86,7 +87,7 @@
   padding-top: 5.2mm;
   line-height: 1.1;
 }
-.summons .courtmark { display: flex; align-items: center; gap: 6mm; }
+.summons .courtmark { display: flex; align-items: center; gap: 4mm; }
 .summons .courtmark .emblem { flex: none; }
 .summons .turnarrow {
   display: inline-block;

@@ -60,8 +60,9 @@ export function SummonsDocument({ court }: Props) {
           <tbody>
             <tr>
               {/* Emblem and court name centre on each other, as one mark. Split across
-                  cells, each aligned to a row the title block makes taller. */}
-              <td>
+                  cells, each aligned to a row the title block makes taller. The title
+                  column takes only what it needs; the court name takes the rest. */}
+              <td style={{ width: "99%", paddingRight: "4mm" }}>
                 <div className="courtmark">
                   <div className="emblem" aria-hidden>
                     EMBLEM
@@ -69,16 +70,13 @@ export function SummonsDocument({ court }: Props) {
                   <div className="t5">In the {t(f.court)}</div>
                 </div>
               </td>
-              <td style={{ width: "60mm" }}>
-                <div className="caps title">
-                  Summons to an
+              <td style={{ width: "1%" }}>
+                <div className="caps title">Summons to an Accused Person</div>
+                {/* Broken by sense, not by width: the Act's name stays whole. */}
+                <div className="t2 right pt2 nowrap">
+                  Form No. 1 &nbsp;·&nbsp; See Section 63
                   <br />
-                  Accused Person
-                </div>
-                <div className="t2 right pt2">
-                  Form No. 1
-                  <br />
-                  See Section 63, Bharatiya Nagarik Suraksha Sanhita, 2023
+                  Bharatiya Nagarik Suraksha Sanhita, 2023
                 </div>
               </td>
             </tr>
