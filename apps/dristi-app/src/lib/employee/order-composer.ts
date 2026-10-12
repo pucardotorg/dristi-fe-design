@@ -59,6 +59,12 @@ export type ItemBlock = {
   edited: boolean;
   /** The application this item answers, for an item reached from one. */
   applicationId?: string;
+  /**
+   * Version C only (`order-proceedings.ts`): the item's sentence as the drafter reworded
+   * it — words around locked values, `{ k }` standing for each value. Absent while the
+   * sentence is the catalogue's own.
+   */
+  wording?: readonly (string | { k: string })[];
 };
 
 export type ComposerBlock = TextBlock | ItemBlock;
@@ -202,7 +208,9 @@ export function writeItemText(
 
 /** The block with its text written again from its fields, unless it has been typed into. */
 function rewrite(block: ItemBlock, context: ComposerContext): ItemBlock {
-  return block.edited ? block : { ...block, text: writeItemText(block, context) };
+  return block.edited
+    ? block
+    : { ...block, text: writeItemText(block, context) };
 }
 
 /* ────────────────────────────── making blocks ──────────────────────────────── */
@@ -245,6 +253,23 @@ export function createItemBlock(
     if (witnesses.length === 1) values.witness = witnesses[0].id;
   }
   Object.assign(values, preset.values);
+  /* A party choice is either/or, so it opens on an answer rather than none (owner,
+     2026-10-13): each unanswered party field takes the first side no other party field
+     of the item has taken — a cost is paid by one side to the other, not to itself. The
+     side directed to take a process's steps is left alone: it follows the person the
+     process is addressed to. */
+  for (const field of template.fields) {
+    if (field.kind !== "side" || !field.required || field.derived) continue;
+    if (field.key === "steps" || values[field.key]) continue;
+    const options = field.options ?? [];
+    const taken = template.fields
+      .filter((other) => other.kind === "side" && other.key !== field.key)
+      .map((other) => values[other.key]);
+    values[field.key] =
+      options.find((option) => !taken.includes(option.value))?.value ??
+      options[0]?.value ??
+      "";
+  }
 
   const block: ItemBlock = {
     id: preset.id ?? nextBlockId("item"),
@@ -267,7 +292,10 @@ export function setItemValue(
   value: string,
   context: ComposerContext,
 ): ItemBlock {
-  return rewrite({ ...block, values: { ...block.values, [key]: value } }, context);
+  return rewrite(
+    { ...block, values: { ...block.values, [key]: value } },
+    context,
+  );
 }
 
 /**
@@ -312,7 +340,9 @@ export function setItemRecipients(
     policeStations: Object.fromEntries(
       Object.keys(auto).map((id) => [
         id,
-        (samePerson ? recipients.policeStations[id] : undefined) || auto[id] || "",
+        (samePerson ? recipients.policeStations[id] : undefined) ||
+          auto[id] ||
+          "",
       ]),
     ),
   };
@@ -369,22 +399,29 @@ export function changeBlockType(
   }
   const keys = new Set(orderTemplate(to).fields.map((field) => field.key));
   const carried = Object.fromEntries(
-    Object.entries(block.values).filter(([key, value]) => keys.has(key) && value),
+    Object.entries(block.values).filter(
+      ([key, value]) => keys.has(key) && value,
+    ),
   );
   const merged = rewrite(
     {
       ...fresh,
       values: { ...fresh.values, ...carried },
-      recipients: fresh.recipients && block.recipients
-        ? { ...block.recipients, channels: fresh.recipients.channels }
-        : fresh.recipients,
+      recipients:
+        fresh.recipients && block.recipients
+          ? { ...block.recipients, channels: fresh.recipients.channels }
+          : fresh.recipients,
     },
     context,
   );
   return block.edited ? { ...merged, text: block.text, edited: true } : merged;
 }
 
-export function moveBlock<T>(blocks: readonly T[], index: number, by: -1 | 1): T[] {
+export function moveBlock<T>(
+  blocks: readonly T[],
+  index: number,
+  by: -1 | 1,
+): T[] {
   const to = index + by;
   if (to < 0 || to >= blocks.length) return [...blocks];
   const next = [...blocks];

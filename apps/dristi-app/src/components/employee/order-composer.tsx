@@ -5,6 +5,7 @@ import {
   ArrowRightIcon,
   CheckIcon,
   CircleCheckIcon,
+  EyeIcon,
   PanelRightIcon,
   PlusIcon,
   XIcon,
@@ -155,8 +156,6 @@ export type ComposerNextHearing = {
 export function OrderComposer({
   heading,
   facts,
-  courtLine,
-  subLine,
   navAction,
   context,
   today,
@@ -171,12 +170,15 @@ export function OrderComposer({
   applications,
   nextHearing,
   overview,
+  overviewContent,
+  historyContent,
   panelApplications,
   document,
   notice,
 }: {
   heading: string;
   facts: ComposerFact[];
+  /** The paper's heading — shown by Preview order's facsimile, not in Drafting. */
   courtLine: string;
   subLine: string;
   navAction: React.ReactNode;
@@ -195,6 +197,9 @@ export function OrderComposer({
   applications?: ComposerApplications;
   nextHearing?: ComposerNextHearing;
   overview: { label: string; value: string }[];
+  /** The court's own case overview and history, for the case file's tabs. */
+  overviewContent?: React.ReactNode;
+  historyContent?: React.ReactNode;
   panelApplications?: PanelApplication[];
   document: OrderDocument;
   /** A line under the header — what the act that opened the order does, say. */
@@ -328,55 +333,82 @@ export function OrderComposer({
 
   /* ── the index ──────────────────────────────────────────────────────────────── */
 
-  const indexRows: IndexRow[] = [];
+  /* The index reads by the order's own headings — what a drafter looks for first (owner,
+     2026-10-13, from a user test) — with the steps under each heading second. */
+  const indexGroups: IndexGroup[] = [];
   if (attendance) {
     const marked = attendance.appearances.length - unmarked.length;
     const present = attendance.appearances.filter(
       (appearance) => attendance.marks[appearance.id] === "present",
     ).length;
-    indexRows.push({
+    indexGroups.push({
       target: "order-attendance",
-      state: marked === 0 ? "open" : unmarked.length > 0 ? "open" : "done",
       title: "Attendance",
+      state: unmarked.length > 0 ? "open" : "done",
       detail:
         marked === 0
           ? "Not marked"
           : unmarked.length > 0
             ? `${unmarked.length} not marked`
             : `${present} present, ${attendance.appearances.length - present} absent`,
+      rows: [],
     });
   }
-  for (const application of applications?.list ?? []) {
-    indexRows.push({
-      target: `order-application-${application.id}`,
-      state: application.decision ? "done" : "open",
-      title: `${application.type} · ${application.number}`,
-      detail:
-        application.decision === "allowed"
-          ? "Accepted"
-          : application.decision === "dismissed"
-            ? "Rejected"
-            : "Pending",
+  if (applications && applications.list.length > 0) {
+    const pending = applications.list.filter(
+      (application) => !application.decision,
+    ).length;
+    indexGroups.push({
+      target: "order-applications",
+      title: "Applications",
+      state: pending > 0 ? "open" : "done",
+      detail: pending > 0 ? `${pending} pending` : "All decided",
+      rows: applications.list.map((application) => ({
+        target: `order-application-${application.id}`,
+        state: application.decision ? "done" : "open",
+        title: application.type,
+        detail:
+          application.decision === "allowed"
+            ? "Accepted"
+            : application.decision === "dismissed"
+              ? "Rejected"
+              : "Pending",
+      })),
     });
   }
   let itemNumber = 0;
-  for (const row of blockRows) {
-    const numbered = row.block.kind === "item" ? `${++itemNumber}. ` : "";
-    indexRows.push({
-      target: `block-${row.block.id}`,
-      state: row.gaps.length > 0 ? "todo" : "done",
-      title: `${numbered}${blockLabel(row.block)}`,
-      detail:
-        row.gaps.length > 0
-          ? `${row.gaps.length} to fill`
-          : blockSummary(row.block, context),
-    });
-  }
+  const blockGapCount = blockRows.reduce(
+    (sum, row) => sum + row.gaps.length,
+    0,
+  );
+  indexGroups.push({
+    target: "order-blocks-section",
+    title: "Order",
+    state: blockGapCount > 0 ? "todo" : blocks.length > 0 ? "done" : "open",
+    detail:
+      blocks.length === 0
+        ? "Nothing added yet"
+        : blockGapCount > 0
+          ? `${blockGapCount} to fill`
+          : `${blocks.length} ${blocks.length === 1 ? "part" : "parts"}`,
+    rows: blockRows.map((row) => {
+      const numbered = row.block.kind === "item" ? `${++itemNumber}. ` : "";
+      return {
+        target: `block-${row.block.id}`,
+        state: row.gaps.length > 0 ? "todo" : "done",
+        title: `${numbered}${blockLabel(row.block)}`,
+        detail:
+          row.gaps.length > 0
+            ? `${row.gaps.length} to fill`
+            : blockSummary(row.block, context),
+      };
+    }),
+  });
   if (nextHearing) {
-    indexRows.push({
+    indexGroups.push({
       target: "order-next-hearing",
-      state: posting === "open" ? "todo" : "done",
       title: "Next hearing",
+      state: posting === "open" ? "todo" : "done",
       detail:
         nextHearing.next === "none"
           ? "Not listed again"
@@ -387,6 +419,7 @@ export function OrderComposer({
               : !nextHearing.date
                 ? "Date not set"
                 : "Purpose not set",
+      rows: [],
     });
   }
 
@@ -443,6 +476,10 @@ export function OrderComposer({
         {
           "--order-panel-top": `calc(3.5rem + ${bands.header}px + 2rem)`,
           "--order-panel-height": `calc(100svh - 3.5rem - ${bands.header}px - ${bands.footer}px - 4rem)`,
+          /* The page and the case file run down to the footer: no gap and no rounded
+             foot under them, so the screen's height goes to the order rather than to a
+             strip of canvas (owner, 2026-10-13: "like looking through a peephole"). */
+          "--order-panel-fill": `calc(100svh - 3.5rem - ${bands.header}px - ${bands.footer}px - 2rem)`,
         } as React.CSSProperties
       }
     >
@@ -494,15 +531,15 @@ export function OrderComposer({
 
       <div
         className={cn(
-          "grid min-w-0 flex-1 items-start gap-6 bg-muted p-6 md:p-8 dark:bg-background",
+          "grid min-w-0 flex-1 items-start gap-6 bg-muted p-6 md:p-8 lg:pb-0 dark:bg-background",
           panelOpen
-            ? "lg:grid-cols-[minmax(0,13rem)_minmax(0,1fr)_minmax(0,20rem)] xl:grid-cols-[14rem_minmax(0,1fr)_22rem] 2xl:grid-cols-[16rem_minmax(0,1fr)_24rem]"
+            ? "lg:grid-cols-[minmax(0,13rem)_minmax(0,1fr)_minmax(0,20rem)] xl:grid-cols-[15rem_minmax(0,1fr)_22rem] 2xl:grid-cols-[16rem_minmax(0,1fr)_24rem]"
             : "lg:grid-cols-[minmax(0,15rem)_minmax(0,1fr)]",
         )}
       >
         <OrderIndex
           className="order-2 lg:sticky lg:top-(--order-panel-top) lg:order-none lg:max-h-(--order-panel-height) lg:overflow-y-auto"
-          rows={indexRows}
+          groups={indexGroups}
           toFill={toFill}
           onJump={jumpTo}
         />
@@ -511,139 +548,157 @@ export function OrderComposer({
           aria-label="Order"
           className={cn(
             PANEL_CLASS,
-            "flex min-w-0 flex-col gap-8 rounded-xl border bg-card p-6 text-card-foreground md:p-8",
+            "flex min-w-0 flex-col rounded-xl border bg-card text-card-foreground lg:sticky lg:top-(--order-panel-top) lg:h-(--order-panel-fill) lg:overflow-hidden lg:rounded-b-none lg:border-b-0",
           )}
         >
-          <PageViewSwitch value={view} onChange={setView} />
-          {view === "preview" ? (
-            <OrderDraftFacsimile document={document} />
-          ) : (
-            <>
-              <header className="flex flex-col items-center gap-1 text-center">
-                <p className="text-body-compact font-semibold">{courtLine}</p>
-                <p className="text-body-compact text-muted-foreground">
-                  {subLine}
-                </p>
-              </header>
+          {/* Like the panels either side: a box held in place that scrolls inside
+              itself, so its head stays at the top level with theirs (owner, 2026-10-13)
+              — no band floating over a page that scrolls under it. The view switch sits
+              at the head's right, where a view control belongs. */}
+          <div className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-hairline px-6 md:px-8">
+            {/* Not a heading: the article is named "Order", and the order's own
+                section below carries the heading of that name. */}
+            <p className="text-body-compact font-semibold">Order</p>
+            <PageViewSwitch value={view} onChange={setView} className="" />
+          </div>
+          <div className="flex min-w-0 flex-col gap-8 p-6 md:p-8 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain">
+            {view === "preview" ? (
+              <OrderDraftFacsimile document={document} />
+            ) : (
+              <>
+                {/* No court heading here: Drafting records what happened, and the
+                    heading is the paper's — Preview order shows it (owner,
+                    2026-10-13: it only took height above Attendance). */}
+                {attendance ? (
+                  <>
+                    <AttendanceSection
+                      attendance={attendance}
+                      disabled={locked}
+                    />
+                  </>
+                ) : null}
 
-              {attendance ? (
-                <>
+                {applications && applications.list.length > 0 ? (
+                  <>
+                    {attendance ? <Separator className="bg-hairline" /> : null}
+                    <ApplicationsSection
+                      applications={applications}
+                      disabled={locked}
+                    />
+                  </>
+                ) : null}
+
+                {attendance || (applications && applications.list.length > 0) ? (
                   <Separator className="bg-hairline" />
-                  <AttendanceSection
-                    attendance={attendance}
-                    disabled={locked}
-                  />
-                </>
-              ) : null}
-
-              {applications && applications.list.length > 0 ? (
-                <>
-                  <Separator className="bg-hairline" />
-                  <ApplicationsSection
-                    applications={applications}
-                    disabled={locked}
-                  />
-                </>
-              ) : null}
-
-              <Separator className="bg-hairline" />
-              <section
-                aria-labelledby="order-blocks"
-                className="flex min-w-0 flex-col gap-4"
-              >
-                <h2
-                  id="order-blocks"
-                  className="text-body-compact font-semibold"
+                ) : null}
+                <section
+                  id="order-blocks-section"
+                  tabIndex={-1}
+                  aria-labelledby="order-blocks"
+                  className="flex min-w-0 scroll-mt-40 flex-col gap-4 outline-none"
                 >
-                  Order
-                </h2>
-                {blocks.length === 0 ? (
-                  <p className="text-body-compact text-muted-foreground">
-                    Nothing in the order yet. Add text, or an order item from
-                    the catalogue.
-                  </p>
-                ) : (
-                  <div className="flex min-w-0 flex-col gap-4">
-                    {blocks.map((block, index) => (
-                      <OrderBlockCard
-                        key={block.id}
-                        block={block}
-                        index={index}
-                        count={blocks.length}
-                        context={context}
-                        today={today}
-                        purpose={purpose}
-                        fixed={fixedIds.includes(block.id)}
-                        disabled={locked}
-                        reasonFor={reasonFor}
-                        onChangeType={(choice) => {
-                          update(block.id, (current) =>
-                            changeBlockType(current, choice, context),
-                          );
-                          setAnnouncement(
-                            `This block is now ${choice === "text" ? "text" : orderTemplate(choice).label}.`,
-                          );
-                        }}
-                        onMove={(by) => {
-                          onBlocks((current) => moveBlock(current, index, by));
-                          setAnnouncement(
-                            `${blockLabel(block)} moved ${by < 0 ? "up" : "down"}.`,
-                          );
-                        }}
-                        onRemove={() => remove(index)}
-                        onText={(text) =>
-                          update(block.id, (current) =>
-                            current.kind === "text"
-                              ? { ...current, text }
-                              : setItemText(current, text, context),
-                          )
-                        }
-                        onResetText={() =>
-                          update(block.id, (current) =>
-                            current.kind === "item"
-                              ? resetItemText(current, context)
-                              : current,
-                          )
-                        }
-                        onValue={(key, value) =>
-                          update(block.id, (current) =>
-                            current.kind === "item"
-                              ? setItemValue(current, key, value, context)
-                              : current,
-                          )
-                        }
-                        onRecipients={(recipients) =>
-                          update(block.id, (current) =>
-                            current.kind === "item"
-                              ? setItemRecipients(current, recipients, context)
-                              : current,
-                          )
-                        }
-                      />
-                    ))}
-                  </div>
-                )}
-                {addRow}
-              </section>
+                  <h2
+                    id="order-blocks"
+                    className="text-body-compact font-semibold"
+                  >
+                    Order
+                  </h2>
+                  {blocks.length === 0 ? (
+                    <p className="text-body-compact text-muted-foreground">
+                      Nothing in the order yet. Add text, or an order item from
+                      the catalogue.
+                    </p>
+                  ) : (
+                    <div className="flex min-w-0 flex-col gap-4">
+                      {blocks.map((block, index) => (
+                        <OrderBlockCard
+                          key={block.id}
+                          block={block}
+                          index={index}
+                          count={blocks.length}
+                          context={context}
+                          today={today}
+                          purpose={purpose}
+                          fixed={fixedIds.includes(block.id)}
+                          disabled={locked}
+                          reasonFor={reasonFor}
+                          onChangeType={(choice) => {
+                            update(block.id, (current) =>
+                              changeBlockType(current, choice, context),
+                            );
+                            setAnnouncement(
+                              `This block is now ${choice === "text" ? "text" : orderTemplate(choice).label}.`,
+                            );
+                          }}
+                          onMove={(by) => {
+                            onBlocks((current) =>
+                              moveBlock(current, index, by),
+                            );
+                            setAnnouncement(
+                              `${blockLabel(block)} moved ${by < 0 ? "up" : "down"}.`,
+                            );
+                          }}
+                          onRemove={() => remove(index)}
+                          onText={(text) =>
+                            update(block.id, (current) =>
+                              current.kind === "text"
+                                ? { ...current, text }
+                                : setItemText(current, text, context),
+                            )
+                          }
+                          onResetText={() =>
+                            update(block.id, (current) =>
+                              current.kind === "item"
+                                ? resetItemText(current, context)
+                                : current,
+                            )
+                          }
+                          onValue={(key, value) =>
+                            update(block.id, (current) =>
+                              current.kind === "item"
+                                ? setItemValue(current, key, value, context)
+                                : current,
+                            )
+                          }
+                          onRecipients={(recipients) =>
+                            update(block.id, (current) =>
+                              current.kind === "item"
+                                ? setItemRecipients(
+                                    current,
+                                    recipients,
+                                    context,
+                                  )
+                                : current,
+                            )
+                          }
+                        />
+                      ))}
+                    </div>
+                  )}
+                  {addRow}
+                </section>
 
-              {nextHearing ? (
-                <>
-                  <Separator className="bg-hairline" />
-                  <NextHearingSection
-                    nextHearing={nextHearing}
-                    today={today}
-                    disabled={locked}
-                  />
-                </>
-              ) : null}
-            </>
-          )}
+                {nextHearing ? (
+                  <>
+                    <Separator className="bg-hairline" />
+                    <NextHearingSection
+                      nextHearing={nextHearing}
+                      today={today}
+                      disabled={locked}
+                    />
+                  </>
+                ) : null}
+              </>
+            )}
+          </div>
         </article>
 
         {panelOpen ? (
           <OrderCasePanel
-            className="order-3 lg:sticky lg:top-(--order-panel-top) lg:order-none lg:h-(--order-panel-height)"
+            className="order-3 lg:sticky lg:top-(--order-panel-top) lg:order-none lg:h-(--order-panel-fill) lg:rounded-b-none lg:border-b-0"
             overview={overview}
+            overviewContent={overviewContent}
+            historyContent={historyContent}
             applications={panelApplications}
             links={links}
             onLinksChange={onLinks}
@@ -694,9 +749,11 @@ export type PageView = "drafting" | "preview";
 export function PageViewSwitch({
   value,
   onChange,
+  className = "self-start",
 }: {
   value: PageView;
   onChange: (view: PageView) => void;
+  className?: string;
 }) {
   return (
     <SegmentedControl
@@ -706,7 +763,7 @@ export function PageViewSwitch({
       onValueChange={(next) => {
         if (next) onChange(next as PageView);
       }}
-      className="self-start"
+      className={className}
     >
       <SegmentedControlItem value="drafting">Drafting</SegmentedControlItem>
       <SegmentedControlItem value="preview">Preview order</SegmentedControlItem>
@@ -737,6 +794,7 @@ export function OrderFooter({
   onJumpToGap,
   undo,
   document,
+  className,
 }: {
   footerRef?: React.Ref<HTMLElement>;
   signingStatus: SigningStatus;
@@ -746,6 +804,8 @@ export function OrderFooter({
   onJumpToGap: () => void;
   undo: { label: string; onUndo: () => void } | null;
   document: OrderDocument;
+  /** The screen's own gutter, so the footer lines up with the panels above it. */
+  className?: string;
 }) {
   const [signOpen, setSignOpen] = React.useState(false);
   const previewRef = React.useRef<HTMLButtonElement>(null);
@@ -766,7 +826,10 @@ export function OrderFooter({
     <>
       <footer
         ref={footerRef}
-        className="sticky bottom-0 z-30 border-t border-hairline bg-card px-6 py-3 md:px-8 md:py-4"
+        className={cn(
+          "sticky bottom-0 z-30 border-t border-hairline bg-card px-6 py-3 md:px-8 md:py-4",
+          className,
+        )}
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <div className="flex min-h-10 min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
@@ -920,39 +983,41 @@ export function OrderFooter({
 
 /* ─────────────────────────────────── the index ─────────────────────────────── */
 
-type IndexRow = {
+export type IndexRow = {
   target: string;
   state: "done" | "todo" | "open";
   title: string;
   detail: string;
 };
 
+export type IndexGroup = IndexRow & { rows: IndexRow[] };
+
 /**
- * **This order** — Abhirami's index: every part of the order in page order, each with
- * where it stands, and one count of what is left. A row takes you to the part.
+ * **This order** — the order's own headings, in page order, each with where it stands;
+ * under a heading, its steps (each application, each part of the order). The headings are
+ * what a drafter looks for (owner, 2026-10-13, from a user test): they lead, at the
+ * card's title weight, and the steps sit under them on a guide line, quieter. Any row
+ * takes you to its part.
  *
  * Three marks, each with its words beside it (never colour alone): done, still to fill,
  * and not answered yet — the last for the parts that do not hold the order back
  * (attendance, an application left standing).
  */
-function OrderIndex({
+export function OrderIndex({
   className,
-  rows,
+  groups,
   toFill,
   onJump,
 }: {
   className?: string;
-  rows: IndexRow[];
+  groups: IndexGroup[];
   toFill: number;
   onJump: (id: string) => void;
 }) {
   return (
-    <Card className={cn(PANEL_CLASS, "min-w-0 gap-2 p-4", className)}>
-      <nav
-        aria-labelledby="order-index"
-        className="flex min-w-0 flex-col gap-2"
-      >
-        <div className="flex items-baseline justify-between gap-2 px-2">
+    <Card className={cn(PANEL_CLASS, "min-w-0 gap-0 p-0", className)}>
+      <nav aria-labelledby="order-index" className="flex min-w-0 flex-col">
+        <div className={FRAMED_HEAD}>
           <h2 id="order-index" className="text-body-compact font-semibold">
             This order
           </h2>
@@ -965,38 +1030,76 @@ function OrderIndex({
             {toFill > 0 ? `${toFill} to fill` : "Ready"}
           </span>
         </div>
-        <ul className="flex min-w-0 flex-col">
-          {rows.map((row) => (
-            <li key={row.target}>
-              <button
-                type="button"
-                onClick={() => onJump(row.target)}
-                className="flex min-h-10 w-full min-w-0 items-start gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-              >
-                <IndexMark state={row.state} />
-                <span className="flex min-w-0 flex-col">
-                  <span className="line-clamp-2 text-body-compact font-medium">
-                    {row.title}
-                  </span>
-                  {row.detail ? (
-                    <span
-                      className={cn(
-                        "line-clamp-2 text-body-compact",
-                        row.state === "todo"
-                          ? "text-warning-ink"
-                          : "text-muted-foreground",
-                      )}
-                    >
-                      {row.detail}
-                    </span>
-                  ) : null}
-                </span>
-              </button>
+        <ol className="flex min-w-0 flex-col gap-1 p-2">
+          {groups.map((group) => (
+            <li key={group.target} className="flex min-w-0 flex-col">
+              <IndexButton row={group} heading onJump={onJump} />
+              {group.rows.length > 0 ? (
+                /* The steps hang off the heading on a guide line through its mark's
+                   centre, their words starting where the heading's do. */
+                <ol className="relative ml-4 flex min-w-0 flex-col pl-2 before:absolute before:inset-y-1 before:left-0 before:w-px before:bg-hairline">
+                  {group.rows.map((row) => (
+                    <li key={row.target} className="min-w-0">
+                      <IndexButton row={row} onJump={onJump} />
+                    </li>
+                  ))}
+                </ol>
+              ) : null}
             </li>
           ))}
-        </ul>
+        </ol>
       </nav>
     </Card>
+  );
+}
+
+function IndexButton({
+  row,
+  heading = false,
+  onJump,
+}: {
+  row: IndexRow;
+  heading?: boolean;
+  onJump: (id: string) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onJump(row.target)}
+      title={row.detail ? `${row.title}\n${row.detail}` : row.title}
+      className={cn(
+        "flex min-h-10 w-full min-w-0 items-start gap-2 rounded-lg py-2 pr-2 text-left transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
+        /* The heading's 20px mark 6px in, centred on the steps' guide line; a step's
+           words 10px past the line, so they start where the heading's do. */
+        heading ? "pl-1.5" : "pl-2.5",
+      )}
+    >
+      {heading ? <IndexMark state={row.state} /> : null}
+      {/* One line each, however long the name: every row the same height, the full
+          words in the tooltip. */}
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span
+          className={cn(
+            "truncate text-body-compact",
+            heading ? "font-semibold" : "font-medium",
+          )}
+        >
+          {row.title}
+        </span>
+        {row.detail ? (
+          <span
+            className={cn(
+              "truncate text-body-compact",
+              row.state === "todo"
+                ? "text-warning-ink"
+                : "text-muted-foreground",
+            )}
+          >
+            {row.detail}
+          </span>
+        ) : null}
+      </span>
+    </button>
   );
 }
 
@@ -1031,21 +1134,52 @@ function IndexMark({ state }: { state: IndexRow["state"] }) {
 
 /* ───────────────────────────────── the sections ────────────────────────────── */
 
+/**
+ * A section standing as its own card: its heading sits in a 56px band over a hairline,
+ * so the heading and its action read as the card's head, not as content floating in it.
+ */
+export const FRAMED_HEAD =
+  "flex min-h-14 items-center justify-between gap-4 border-b border-hairline px-4 py-1 md:px-6";
+export const FRAMED_BODY = "p-4 md:p-6";
+
+/**
+ * The role on one line: "Advocate for the complainant" reads as "Complainant's advocate",
+ * the same fact in fewer words.
+ */
+function shortRole(role: string): string {
+  const advocate = /^advocate for the (.+)$/i.exec(role);
+  if (!advocate) return role;
+  const party = advocate[1];
+  return `${party.charAt(0).toUpperCase()}${party.slice(1)}'s advocate`;
+}
+
 export function AttendanceSection({
   attendance,
   disabled,
+  framed = false,
 }: {
   attendance: ComposerAttendance;
   disabled: boolean;
+  /** Standing as its own card, with a head band (version B). */
+  framed?: boolean;
 }) {
   return (
     <section
       id="order-attendance"
       tabIndex={-1}
       aria-labelledby="order-attendance-heading"
-      className="flex min-w-0 scroll-mt-40 flex-col gap-3 outline-none"
+      className={cn(
+        "flex min-w-0 scroll-mt-40 flex-col outline-none",
+        !framed && "gap-3",
+      )}
     >
-      <div className="flex items-center justify-between gap-4">
+      <div
+        className={
+          framed
+            ? FRAMED_HEAD
+            : "flex min-h-10 items-center justify-between gap-4"
+        }
+      >
         <h2
           id="order-attendance-heading"
           className="text-body-compact font-semibold"
@@ -1063,54 +1197,58 @@ export function AttendanceSection({
           </Button>
         )}
       </div>
-      <ul className="flex min-w-0 flex-col divide-y divide-hairline rounded-xl border border-hairline">
-        {attendance.appearances.map((appearance) => {
-          const mark = attendance.marks[appearance.id];
-          return (
-            <li
-              key={appearance.id}
-              className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 py-1 pr-1 pl-3"
-            >
-              <p className="min-w-0 text-body-compact">
-                <span className="font-medium">{appearance.name}</span>{" "}
-                <span className="text-muted-foreground">
-                  {appearance.role.toLowerCase()}
-                </span>
-              </p>
-              <div
-                role="radiogroup"
-                aria-label={appearance.name}
-                className="flex shrink-0 gap-1"
+      {/* A container, so every row changes shape together at the list's width — never
+          one row wrapping because its name happens to be long. */}
+      <div className={cn("min-w-0", framed && FRAMED_BODY)}>
+        <ul className="@container flex min-w-0 flex-col divide-y divide-hairline rounded-xl border border-hairline">
+          {attendance.appearances.map((appearance) => {
+            const mark = attendance.marks[appearance.id];
+            return (
+              <li
+                key={appearance.id}
+                className="flex min-w-0 flex-col gap-2 py-2 pr-2 pl-4 @min-[24rem]:flex-row @min-[24rem]:items-center @min-[24rem]:justify-between @min-[24rem]:gap-3"
               >
-                <MarkButton
-                  label="Present"
-                  checked={mark === "present"}
-                  tone="present"
-                  disabled={disabled}
-                  onClick={() =>
-                    attendance.onMark(
-                      appearance.id,
-                      mark === "present" ? undefined : "present",
-                    )
-                  }
-                />
-                <MarkButton
-                  label="Absent"
-                  checked={mark === "absent"}
-                  tone="absent"
-                  disabled={disabled}
-                  onClick={() =>
-                    attendance.onMark(
-                      appearance.id,
-                      mark === "absent" ? undefined : "absent",
-                    )
-                  }
-                />
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+                <p className="flex min-w-0 flex-col text-body-compact">
+                  <span className="font-medium">{appearance.name}</span>
+                  <span className="text-muted-foreground">
+                    {shortRole(appearance.role)}
+                  </span>
+                </p>
+                <div
+                  role="radiogroup"
+                  aria-label={appearance.name}
+                  className="grid shrink-0 grid-cols-2 gap-1 @min-[24rem]:w-48"
+                >
+                  <MarkButton
+                    label="Present"
+                    checked={mark === "present"}
+                    tone="present"
+                    disabled={disabled}
+                    onClick={() =>
+                      attendance.onMark(
+                        appearance.id,
+                        mark === "present" ? undefined : "present",
+                      )
+                    }
+                  />
+                  <MarkButton
+                    label="Absent"
+                    checked={mark === "absent"}
+                    tone="absent"
+                    disabled={disabled}
+                    onClick={() =>
+                      attendance.onMark(
+                        appearance.id,
+                        mark === "absent" ? undefined : "absent",
+                      )
+                    }
+                  />
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
     </section>
   );
 }
@@ -1141,7 +1279,7 @@ function MarkButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "inline-flex h-10 items-center gap-1.5 rounded-lg px-3 text-body-compact font-medium transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50",
+        "inline-flex h-10 items-center justify-center gap-1.5 rounded-lg px-2 text-body-compact font-medium transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50",
         checked
           ? tone === "present"
             ? "bg-success-muted text-success-muted-foreground hover:bg-success-muted-hover"
@@ -1158,98 +1296,120 @@ function MarkButton({
 export function ApplicationsSection({
   applications,
   disabled,
+  framed = false,
 }: {
   applications: ComposerApplications;
   disabled: boolean;
+  /** Standing as its own card, with a head band (version B). */
+  framed?: boolean;
 }) {
   return (
     <section
+      id="order-applications"
+      tabIndex={-1}
       aria-labelledby="order-applications-heading"
-      className="flex min-w-0 flex-col gap-3"
+      className={cn(
+        "flex min-w-0 scroll-mt-40 flex-col outline-none",
+        !framed && "gap-3",
+      )}
     >
-      <h2
-        id="order-applications-heading"
-        className="text-body-compact font-semibold"
-      >
-        Applications
-      </h2>
-      <ul className="flex min-w-0 flex-col divide-y divide-hairline rounded-xl border border-hairline">
-        {applications.list.map((application) => (
-          <li
-            key={application.id}
-            id={`order-application-${application.id}`}
-            tabIndex={-1}
-            className="flex min-w-0 scroll-mt-40 flex-wrap items-center justify-between gap-x-3 gap-y-2 py-2 pr-2 pl-3 outline-none"
-          >
-            <button
-              type="button"
-              onClick={() => applications.onOpen(application.id)}
-              className="flex min-w-0 flex-col rounded-md text-left focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+      <div className={framed ? FRAMED_HEAD : "flex min-h-10 items-center"}>
+        <h2
+          id="order-applications-heading"
+          className="text-body-compact font-semibold"
+        >
+          Applications
+        </h2>
+      </div>
+      <div className={cn("min-w-0", framed && FRAMED_BODY)}>
+        <ul className="@container flex min-w-0 flex-col divide-y divide-hairline rounded-xl border border-hairline">
+          {applications.list.map((application) => (
+            <li
+              key={application.id}
+              id={`order-application-${application.id}`}
+              tabIndex={-1}
+              className="flex min-w-0 scroll-mt-40 flex-col gap-4 p-4 outline-none @min-[36rem]:flex-row @min-[36rem]:items-center @min-[36rem]:gap-6"
             >
-              <span className="text-body-compact">
-                <span className="font-mono">{application.number}</span>{" "}
-                <span className="font-medium hover:underline">
-                  {application.type}
-                </span>
-              </span>
-              <span className="text-body-compact text-muted-foreground">
-                {application.filed}
-              </span>
-            </button>
-            <div className="flex shrink-0 items-center gap-2">
-              {application.decision ? (
-                <>
-                  <Badge
-                    variant={
-                      application.decision === "allowed"
-                        ? "success"
-                        : "destructive"
-                    }
-                  >
-                    {application.decision === "allowed"
-                      ? "Accepted"
-                      : "Rejected"}
-                  </Badge>
-                  {disabled ? null : (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="text-body-compact"
-                      onClick={() =>
-                        applications.onDecide(application.id, null)
+              {/* What the application is, then where it comes from; View opens it. In a
+                  narrow column the decision sits under it at its natural width — never a
+                  full-width bar; where the list is wide (the block composer's page) it
+                  runs on the same line, at the row's end. */}
+              <div className="flex min-w-0 flex-1 items-start justify-between gap-3 @min-[36rem]:items-center">
+                <div className="flex min-w-0 flex-col gap-1">
+                  <p className="text-body-compact font-medium">
+                    {application.type}
+                  </p>
+                  <p className="flex min-w-0 flex-col text-body-compact text-muted-foreground">
+                    <span className="font-mono">{application.number}</span>
+                    <span>{application.filed}</span>
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="-my-2 -mr-2 shrink-0 text-body-compact @min-[36rem]:my-0 @min-[36rem]:mr-0"
+                  aria-label={`View ${application.type} ${application.number}`}
+                  onClick={() => applications.onOpen(application.id)}
+                >
+                  <EyeIcon data-icon="inline-start" aria-hidden />
+                  View
+                </Button>
+              </div>
+              <div className="flex shrink-0 flex-wrap items-center gap-2">
+                {application.decision ? (
+                  <>
+                    <Badge
+                      variant={
+                        application.decision === "allowed"
+                          ? "success"
+                          : "destructive"
                       }
                     >
-                      Undo
+                      {application.decision === "allowed"
+                        ? "Accepted"
+                        : "Rejected"}
+                    </Badge>
+                    {disabled ? null : (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="text-body-compact"
+                        onClick={() =>
+                          applications.onDecide(application.id, null)
+                        }
+                      >
+                        Undo
+                      </Button>
+                    )}
+                  </>
+                ) : disabled ? null : (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="text-destructive-ink"
+                      onClick={() =>
+                        applications.onDecide(application.id, "dismissed")
+                      }
+                    >
+                      Reject
                     </Button>
-                  )}
-                </>
-              ) : disabled ? null : (
-                <>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="text-destructive-ink"
-                    onClick={() =>
-                      applications.onDecide(application.id, "dismissed")
-                    }
-                  >
-                    Reject
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="success"
-                    onClick={() =>
-                      applications.onDecide(application.id, "allowed")
-                    }
-                  >
-                    Accept
-                  </Button>
-                </>
-              )}
-            </div>
-          </li>
-        ))}
-      </ul>
+                    <Button
+                      type="button"
+                      variant="success"
+                      onClick={() =>
+                        applications.onDecide(application.id, "allowed")
+                      }
+                    >
+                      Accept
+                    </Button>
+                  </>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
     </section>
   );
 }
@@ -1258,20 +1418,33 @@ export function NextHearingSection({
   nextHearing,
   today,
   disabled,
+  framed = false,
 }: {
   nextHearing: ComposerNextHearing;
   today: string;
   disabled: boolean;
+  /** Standing as its own card, with a head band (version B). */
+  framed?: boolean;
 }) {
   const id = "order-next";
+  const listed = nextHearing.next !== "none";
   return (
     <section
       id="order-next-hearing"
       tabIndex={-1}
       aria-labelledby={`${id}-heading`}
-      className="flex min-w-0 scroll-mt-40 flex-col gap-3 outline-none"
+      className={cn(
+        "flex min-w-0 scroll-mt-40 flex-col outline-none",
+        !framed && "gap-3",
+      )}
     >
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+      <div
+        className={cn(
+          "flex flex-wrap items-center justify-between gap-x-4 gap-y-1",
+          /* No rule under the head when nothing follows it. */
+          framed && cn(FRAMED_HEAD, !listed && "border-b-0"),
+        )}
+      >
         <h2 id={`${id}-heading`} className="text-body-compact font-semibold">
           Next hearing
         </h2>
@@ -1292,8 +1465,13 @@ export function NextHearingSection({
           </Label>
         </div>
       </div>
-      {nextHearing.next === "none" ? null : (
-        <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+      {listed ? (
+        <div
+          className={cn(
+            "grid min-w-0 gap-4 sm:grid-cols-2",
+            framed && FRAMED_BODY,
+          )}
+        >
           <OrderDatePicker
             id={`${id}-date`}
             label={
@@ -1345,7 +1523,7 @@ export function NextHearingSection({
             </Select>
           </div>
         </div>
-      )}
+      ) : null}
     </section>
   );
 }

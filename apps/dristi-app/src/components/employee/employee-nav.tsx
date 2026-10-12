@@ -33,7 +33,10 @@ import { useCognizanceLayout } from "@/components/employee/use-cognizance-layout
 import type { CognizanceLayout } from "@/lib/employee/cognizance-layout";
 import { useCourtNavLayout } from "@/components/employee/use-court-nav-layout";
 import { useOrderLayout } from "@/components/employee/use-order-layout";
-import type { OrderLayout } from "@/lib/employee/order-layout";
+import {
+  ORDER_LAYOUT_OPTIONS,
+  type OrderLayout,
+} from "@/lib/employee/order-layout";
 import type { CourtNavLayout } from "@/lib/employee/nav-layout";
 import { BrandGlyph } from "@/components/brand-lockup";
 import { useCourtSearch } from "@/components/employee/court-search";
@@ -1003,8 +1006,11 @@ function CourtSettingsControl() {
           value={orderLayout}
           onValueChange={(next) => setOrderLayout(next as OrderLayout)}
         >
-          <DropdownMenuRadioItem value="blocks">A: Blocks</DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="text">B: Text box</DropdownMenuRadioItem>
+          {ORDER_LAYOUT_OPTIONS.map((option) => (
+            <DropdownMenuRadioItem key={option.id} value={option.id}>
+              {option.label}
+            </DropdownMenuRadioItem>
+          ))}
         </DropdownMenuRadioGroup>
         <DropdownMenuSeparator />
         <DropdownMenuLabel>Court</DropdownMenuLabel>

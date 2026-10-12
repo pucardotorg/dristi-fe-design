@@ -11,12 +11,27 @@
 
 const KEY = "dristi.order-layout";
 
-export type OrderLayout = "blocks" | "text";
+export type OrderLayout = "blocks" | "text" | "proceedings";
 
 /** With nothing stored, version A. */
 export const DEFAULT_ORDER_LAYOUT: OrderLayout = "blocks";
 
-const ORDER_LAYOUTS: readonly OrderLayout[] = ["blocks", "text"];
+/**
+ * Every variant of the order screen, in the order they are offered — the one list the
+ * breadcrumb switch and Court settings both read, so a new variant is one entry here.
+ */
+export const ORDER_LAYOUT_OPTIONS: readonly {
+  id: OrderLayout;
+  label: string;
+}[] = [
+  { id: "blocks", label: "A: Blocks" },
+  { id: "text", label: "B: Text box" },
+  { id: "proceedings", label: "C: Proceedings" },
+];
+
+const ORDER_LAYOUTS: readonly OrderLayout[] = ORDER_LAYOUT_OPTIONS.map(
+  (option) => option.id,
+);
 
 function isOrderLayout(value: string | null): value is OrderLayout {
   return (ORDER_LAYOUTS as readonly (string | null)[]).includes(value);

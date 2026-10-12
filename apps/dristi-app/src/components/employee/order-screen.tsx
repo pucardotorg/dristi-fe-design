@@ -6,12 +6,17 @@ import { useRouter } from "next/navigation";
 import { CalendarX2Icon, ChevronRightIcon } from "lucide-react";
 
 import { useCourt, useCourtText } from "@/components/court/court-provider";
+import {
+  HearingCaseHistory,
+  HearingCaseOverview,
+} from "@/components/employee/hearing-overview-screen";
 import { ListingApplicationDialog } from "@/components/employee/listing-application-dialog";
 import {
   OrderComposer,
   type ComposerApplication,
 } from "@/components/employee/order-composer";
 import { OrderScreenB } from "@/components/employee/order-screen-b";
+import { OrderScreenC } from "@/components/employee/order-screen-c";
 import { useCourtToday } from "@/components/employee/use-court-today";
 import { useHearingSession } from "@/components/employee/use-hearing-session";
 import { useOrderDraft } from "@/components/employee/use-order-draft";
@@ -78,6 +83,8 @@ export function OrderScreen({ hearingId }: { hearingId: string }) {
      itself rather than inheriting this one's transient state. */
   return layout === "text" ? (
     <OrderScreenB key={hearing.id} hearing={hearing} />
+  ) : layout === "proceedings" ? (
+    <OrderScreenC key={hearing.id} hearing={hearing} />
   ) : (
     <HearingOrder key={hearing.id} hearing={hearing} />
   );
@@ -296,9 +303,14 @@ function HearingOrder({ hearing }: { hearing: CourtHearing }) {
             })),
         }}
         overview={hearingOverview(hearing)}
+        overviewContent={<HearingCaseOverview hearing={hearing} />}
+        historyContent={<HearingCaseHistory hearing={hearing} />}
         panelApplications={listing.map((application) => ({
           id: application.id,
-          label: `${listingApplicationLabel(application)} · ${application.number}`,
+          /* Type, number and filing each on a line of their own — never a type and a
+             number wrapping together. */
+          label: listingApplicationLabel(application),
+          number: application.number,
           detail: applicationFiled(application),
           decided: Boolean(draft.applications[application.id]),
           onOpen: () => setOpenApplication(application),

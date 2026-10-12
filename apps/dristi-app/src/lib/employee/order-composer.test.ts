@@ -16,6 +16,7 @@ import {
   type ItemBlock,
 } from "./order-composer";
 import { casePeopleFor } from "./case-people";
+import { stepsFor } from "./process-variables";
 import {
   combinationConflict,
   ORDER_TEMPLATES,
@@ -31,7 +32,10 @@ const matter = {
   parties: { complainant: "Sunil Varghese", accused: "Anand Traders" },
   counsel: [],
 };
-const beforeJoining: ComposerContext = casePeopleFor({ ...matter, stage: "cognizance" });
+const beforeJoining: ComposerContext = casePeopleFor({
+  ...matter,
+  stage: "cognizance",
+});
 const afterJoining: ComposerContext = { ...beforeJoining, accusedJoined: true };
 
 describe("the catalogue", () => {
@@ -51,7 +55,8 @@ describe("the catalogue", () => {
         template.id,
       );
       const keys = new Set(template.fields.map((field) => field.key));
-      for (const slot of template.slots) assert.ok(keys.has(slot), `${template.id}: ${slot}`);
+      for (const slot of template.slots)
+        assert.ok(keys.has(slot), `${template.id}: ${slot}`);
     }
   });
 
@@ -73,7 +78,10 @@ describe("the catalogue", () => {
   it("sets the next date in a hearing's own region, not with scheduling", () => {
     const scheduling = orderTemplate("scheduling-of-hearing");
     assert.ok(unavailableReason(scheduling, { hearingOngoing: true }));
-    assert.equal(unavailableReason(scheduling, { hearingOngoing: false }), null);
+    assert.equal(
+      unavailableReason(scheduling, { hearingOngoing: false }),
+      null,
+    );
   });
 });
 
@@ -116,7 +124,19 @@ describe("an item's text, written from its fields", () => {
     const cost = createItemBlock("cost", beforeJoining);
     assert.equal(
       cost.text,
-      "The [Paying party] is directed to pay [Amount] to the [Receiving party] as costs by [Date by which it must be paid].",
+      "The complainant is directed to pay [Amount] to the accused as costs by [Date by which it must be paid].",
+    );
+  });
+
+  it("opens each party choice on a side, never the same side twice", () => {
+    const cost = createItemBlock("cost", beforeJoining);
+    assert.equal(cost.values.payer, "complainant");
+    assert.equal(cost.values.payee, "accused");
+    const summons = createItemBlock("issue-of-summons", beforeJoining);
+    /* The steps follow the person addressed, so they are not pre-answered here. */
+    assert.equal(
+      summons.values.steps,
+      stepsFor(beforeJoining.people, summons.recipients?.person ?? ""),
     );
   });
 
@@ -182,7 +202,11 @@ describe("loose coupling between fields and text", () => {
   });
 
   it("stops rewriting the text once it has been typed into", () => {
-    const edited = setItemText(filled(), "Costs of ₹5,000 imposed.", beforeJoining);
+    const edited = setItemText(
+      filled(),
+      "Costs of ₹5,000 imposed.",
+      beforeJoining,
+    );
     const changed = setItemValue(edited, "amount", "9000", beforeJoining);
     assert.equal(changed.text, "Costs of ₹5,000 imposed.");
     assert.equal(changed.values.amount, "9000");
@@ -304,7 +328,10 @@ describe("master data", () => {
       for (const field of template.fields) {
         if (field.master) {
           assert.equal(field.kind, "master", `${template.id}: ${field.key}`);
-          assert.ok((field.options ?? []).length > 0, `${template.id}: ${field.key}`);
+          assert.ok(
+            (field.options ?? []).length > 0,
+            `${template.id}: ${field.key}`,
+          );
         }
       }
     }
@@ -314,7 +341,9 @@ describe("master data", () => {
       "DCA",
       beforeJoining,
     );
-    assert.ok(notice.text.startsWith("Issue DCA notice to the accused Anand Traders."));
+    assert.ok(
+      notice.text.startsWith("Issue DCA notice to the accused Anand Traders."),
+    );
   });
 });
 
@@ -330,7 +359,11 @@ describe("blocks", () => {
   it("carry shared answers across a change of order item", () => {
     let cost = createItemBlock("cost", beforeJoining);
     cost = setItemValue(cost, "amount", "700", beforeJoining);
-    const batta = changeBlockType(cost, "witness-batta", beforeJoining) as ItemBlock;
+    const batta = changeBlockType(
+      cost,
+      "witness-batta",
+      beforeJoining,
+    ) as ItemBlock;
     assert.equal(batta.values.amount, "700");
     assert.ok(batta.text.includes("as witness batta"));
   });

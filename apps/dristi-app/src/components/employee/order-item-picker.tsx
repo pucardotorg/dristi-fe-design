@@ -70,6 +70,15 @@ export function BlockIconTile({
   );
 }
 
+/** The category icon on its own, at the size of the text beside it — no tile. */
+export function BlockGlyph({ group }: { group: OrderGroupId | null | "text" }) {
+  return (
+    <span aria-hidden className="flex size-4 shrink-0 text-muted-foreground">
+      {blockIcon(group)}
+    </span>
+  );
+}
+
 export type PickerChoice = OrderTemplateId | "text";
 
 /**

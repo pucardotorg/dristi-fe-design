@@ -83,22 +83,18 @@ export function OrderItemFields({
     (field) => !field.derived,
   );
   if (fields.length === 0) return null;
-  return (
-    <div className="@container grid min-w-0 gap-4">
-      {fields.some((field) => field.kind === "recipients") ? (
-        <RecipientsField
-          id={`${block.id}-recipients`}
-          block={block}
-          context={context}
-          disabled={disabled}
-          onChange={onRecipients}
-        />
-      ) : null}
-      <div className="grid min-w-0 gap-4 @lg:grid-cols-2">
-        {fields.map((field) =>
-          field.kind === "recipients" ? null : (
+  /* In the catalogue's order, so the fields read in the order the sentence uses them: a
+     process's own type first, then who it goes to and how, then who takes the steps. */
+  const split = fields.findIndex((field) => field.kind === "recipients");
+  const before = split < 0 ? fields : fields.slice(0, split);
+  const after = split < 0 ? [] : fields.slice(split + 1);
+  const grid = (group: OrderField[]) =>
+    group.length > 0 ? (
+      <div className="grid min-w-0 gap-x-4 gap-y-6 @lg:grid-cols-2">
+        {group.map((field) => (
+          /* `data-field`: a field found by its key — to open an item on a field. */
+          <div key={field.key} data-field={field.key} className="contents">
             <OrderField
-              key={field.key}
               id={`${block.id}-${field.key}`}
               field={field}
               value={block.values[field.key] ?? ""}
@@ -107,9 +103,25 @@ export function OrderItemFields({
               disabled={disabled}
               onChange={(value) => onValue(field.key, value)}
             />
-          ),
-        )}
+          </div>
+        ))}
       </div>
+    ) : null;
+  return (
+    <div className="@container grid min-w-0 gap-6">
+      {grid(before)}
+      {split < 0 ? null : (
+        <div data-field="recipients" className="contents">
+          <RecipientsField
+            id={`${block.id}-recipients`}
+            block={block}
+            context={context}
+            disabled={disabled}
+            onChange={onRecipients}
+          />
+        </div>
+      )}
+      {grid(after)}
     </div>
   );
 }
@@ -164,7 +176,7 @@ function OrderField({
 
   if (field.kind === "fixed") {
     return (
-      <div className="flex min-w-0 flex-col gap-1">
+      <div className="flex min-w-0 flex-col gap-2">
         <FieldName id={labelId} field={field} />
         <p
           aria-labelledby={labelId}
@@ -182,20 +194,27 @@ function OrderField({
 
   if (field.kind === "side" || field.kind === "choice") {
     return (
-      <div className="flex min-w-0 flex-col gap-1">
+      <div className="flex min-w-0 flex-col gap-2">
         <FieldName id={labelId} field={field} />
         <SegmentedControl
           type="single"
           aria-labelledby={labelId}
           value={value}
           disabled={disabled}
-          /* Radix hands back "" when the chosen segment is pressed again; that is a real
-             answer here — the field goes back to unanswered. */
-          onValueChange={onChange}
-          className="max-w-full flex-wrap"
+          /* Radix hands back "" when the chosen segment is pressed again. A required
+             choice is either/or, so it keeps its answer; an optional one (the plea) can
+             go back to unanswered. */
+          onValueChange={(next) => {
+            if (next || !field.required) onChange(next);
+          }}
+          className="w-full"
         >
           {(field.options ?? []).map((option) => (
-            <SegmentedControlItem key={option.value} value={option.value}>
+            <SegmentedControlItem
+              key={option.value}
+              value={option.value}
+              className="flex-1"
+            >
               {option.label}
             </SegmentedControlItem>
           ))}
@@ -219,7 +238,7 @@ function OrderField({
 
   if (field.kind === "purpose") {
     return (
-      <div className="flex min-w-0 flex-col gap-1">
+      <div className="flex min-w-0 flex-col gap-2">
         <FieldName id={labelId} field={field} />
         <Select
           value={value || undefined}
@@ -250,7 +269,7 @@ function OrderField({
   if (field.kind === "master") {
     const options = field.options ?? [];
     return (
-      <div className="flex min-w-0 flex-col gap-1">
+      <div className="flex min-w-0 flex-col gap-2">
         <FieldName id={labelId} field={field} />
         <Select
           value={value || undefined}
@@ -279,7 +298,7 @@ function OrderField({
       (person) => person.kind === "witness",
     );
     return (
-      <div className="flex min-w-0 flex-col gap-1">
+      <div className="flex min-w-0 flex-col gap-2">
         <FieldName id={labelId} field={field} />
         {witnesses.length === 0 ? (
           <p className="flex min-h-10 items-center text-body-compact text-muted-foreground">
@@ -311,7 +330,7 @@ function OrderField({
 
   if (field.kind === "amount") {
     return (
-      <div className="flex min-w-0 flex-col gap-1">
+      <div className="flex min-w-0 flex-col gap-2">
         <FieldName htmlFor={id} field={field} />
         <InputGroup>
           <InputGroupAddon>
@@ -335,7 +354,7 @@ function OrderField({
 
   /* `text` — free text (Document details is the catalogue's one free-text variable). */
   return (
-    <div className="flex min-w-0 flex-col gap-1">
+    <div className="flex min-w-0 flex-col gap-2">
       <FieldName htmlFor={id} field={field} />
       <Input
         id={id}
@@ -400,7 +419,7 @@ export function OrderDatePicker({
   const [open, setOpen] = React.useState(false);
   const chosen = value ? parseIsoDay(value) : undefined;
   return (
-    <div className="flex min-w-0 flex-col gap-1">
+    <div className="flex min-w-0 flex-col gap-2">
       {label}
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
@@ -531,43 +550,56 @@ function RecipientsField({
   }
 
   return (
-    <div className="flex min-w-0 flex-col gap-4">
-      <div className="flex min-w-0 flex-col gap-1 @lg:max-w-sm">
-        <span id={`${id}-person-label`} className="text-body-compact font-medium">
-          Addressed to
-        </span>
-        <Select
-          value={recipients.person || undefined}
-          disabled={disabled}
-          onValueChange={(value) => onChange({ ...recipients, person: value })}
-        >
-          <SelectTrigger aria-labelledby={`${id}-person-label`} className="w-full">
-            <SelectValue placeholder="Choose a person">
-              {person ? `${person.name} · ${person.role}` : null}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {context.people.map((entry) => (
-              <SelectItem key={entry.id} value={entry.id}>
-                {entry.name} · {entry.role}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+    <div className="flex min-w-0 flex-col gap-6">
+      {/* The same half width as the fields around it. */}
+      <div className="grid min-w-0 gap-4 @lg:grid-cols-2">
+        <div className="flex min-w-0 flex-col gap-2">
+          <span
+            id={`${id}-person-label`}
+            className="text-body-compact font-medium"
+          >
+            Addressed to
+          </span>
+          <Select
+            value={recipients.person || undefined}
+            disabled={disabled}
+            onValueChange={(value) =>
+              onChange({ ...recipients, person: value })
+            }
+          >
+            <SelectTrigger
+              aria-labelledby={`${id}-person-label`}
+              className="w-full"
+            >
+              <SelectValue placeholder="Choose a person">
+                {person ? `${person.name} · ${person.role}` : null}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {context.people.map((entry) => (
+                <SelectItem key={entry.id} value={entry.id}>
+                  {entry.name} · {entry.role}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {person ? (
         <fieldset className="flex min-w-0 flex-col gap-3">
-          <legend className="mb-1 text-body-compact font-medium">
+          <legend className="mb-2 text-body-compact font-medium">
             Addresses of {person.name}
           </legend>
           {groups.map((group) => (
-            <div key={group.id} className="flex min-w-0 flex-col gap-1">
-              <span className="text-caption font-semibold text-muted-foreground">
+            <div key={group.id} className="flex min-w-0 flex-col gap-2">
+              <span className="text-body-compact text-muted-foreground">
                 {group.label}
               </span>
               {group.items.length === 0 ? (
-                <p className="text-body-compact text-muted-foreground">{group.empty}</p>
+                <p className="text-body-compact text-muted-foreground">
+                  {group.empty}
+                </p>
               ) : (
                 <div className="grid min-w-0 gap-2 @lg:grid-cols-2">
                   {group.items.map((item) => {
@@ -610,12 +642,15 @@ function RecipientsField({
       ) : null}
 
       <fieldset className="flex min-w-0 flex-col gap-2">
-        <legend className="mb-1 text-body-compact font-medium">Channels</legend>
+        <legend className="mb-2 text-body-compact font-medium">Channels</legend>
         <div className="flex min-w-0 flex-wrap gap-x-6 gap-y-1">
           {allowed.map((channel) => {
             const inputId = `${id}-channel-${channel.id}`;
             return (
-              <div key={channel.id} className="flex min-h-10 items-center gap-2">
+              <div
+                key={channel.id}
+                className="flex min-h-10 items-center gap-2"
+              >
                 <Checkbox
                   id={inputId}
                   checked={recipients.channels.includes(channel.id)}
@@ -637,9 +672,9 @@ function RecipientsField({
       </fieldset>
 
       {unreachable.length > 0 && person ? (
-        <p className="-mt-2 text-caption text-muted-foreground">
-          Nothing goes by {unreachable.map((channel) => channelLabel(channel)).join(" or ")}:
-          no{" "}
+        <p className="-mt-4 text-body-compact text-muted-foreground">
+          Nothing goes by{" "}
+          {unreachable.map((channel) => channelLabel(channel)).join(" or ")}: no{" "}
           {[
             ...new Set(
               unreachable.map((channel) =>
@@ -655,12 +690,14 @@ function RecipientsField({
         </p>
       ) : null}
 
-      {needsPoliceStation(recipients) && person && selectedAddresses(person, recipients).length > 0 ? (
+      {needsPoliceStation(recipients) &&
+      person &&
+      selectedAddresses(person, recipients).length > 0 ? (
         <fieldset className="flex min-w-0 flex-col gap-3">
-          <legend className="mb-1 text-body-compact font-medium">
+          <legend className="mb-2 text-body-compact font-medium">
             Police station, for each address
           </legend>
-          <p className="-mt-2 text-caption text-muted-foreground">
+          <p className="-mt-2 text-body-compact text-muted-foreground">
             Filled in from each address. Change one if it is wrong.
           </p>
           <div className="grid min-w-0 gap-3 @lg:grid-cols-2">
@@ -671,7 +708,7 @@ function RecipientsField({
                 const labelId = `${id}-station-${entry.id}`;
                 const station = recipients.policeStations[entry.id] ?? "";
                 return (
-                  <div key={entry.id} className="flex min-w-0 flex-col gap-1">
+                  <div key={entry.id} className="flex min-w-0 flex-col gap-2">
                     <span id={labelId} className="text-body-compact">
                       Address {entry.index + 1}
                       <span className="text-muted-foreground">
@@ -692,7 +729,10 @@ function RecipientsField({
                         })
                       }
                     >
-                      <SelectTrigger aria-labelledby={labelId} className="w-full">
+                      <SelectTrigger
+                        aria-labelledby={labelId}
+                        className="w-full"
+                      >
                         <SelectValue placeholder="Choose a police station">
                           {station || null}
                         </SelectValue>
