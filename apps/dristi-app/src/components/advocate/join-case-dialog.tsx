@@ -10,6 +10,7 @@ import {
   FlaskConicalIcon,
   SearchIcon,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 import { useStageFade } from "@/components/chrome/stage-fade";
@@ -111,7 +112,7 @@ import {
   PeopleInviteField,
   type InvitePerson,
 } from "@/components/access/people-invite-field";
-import { FREQUENT_COLLABORATORS } from "@/lib/access/content";
+import { FREQUENT_COLLABORATORS, shareCopy } from "@/lib/access/content";
 import { JOIN_DEMO_CASE_ID } from "@/lib/cases/party-cases";
 import { cn } from "@/lib/utils";
 
@@ -588,6 +589,12 @@ export function AdvocateJoinCaseDialog({
       setOutcome("joined");
       setStage("paid");
       reportJoined(true);
+      // The co-advocates named on the vakalatnama get their SMS once it is paid for.
+      if (needsCoAdvocates && vkAdvocates.length) {
+        toast.success(
+          fill(advDialog.vkSmsToast, locale, { names: vkAdvocates.map(inviteLabel).join(", ") }),
+        );
+      }
     }, GATEWAY_MS);
   }
 
@@ -607,6 +614,7 @@ export function AdvocateJoinCaseDialog({
     // The confirmation shows the batch just sent and replaces any earlier one — a
     // later send swaps the old notification out rather than growing it.
     setTeamInvited(team.map(inviteLabel));
+    toast.success(fill(shareCopy.smsToast, locale, { names: team.map(inviteLabel).join(", ") }));
     setTeam([]);
   }
 

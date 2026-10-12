@@ -715,6 +715,10 @@ export const advDialog = {
     "Add the other advocates on this vakalatnama",
     "ഈ വക്കാലത്തിലെ മറ്റ് അഭിഭാഷകരെ ചേർക്കുക",
   ),
+  vkSmsToast: t(
+    "SMS sent to {names} to join the case",
+    "കേസിൽ ചേരാൻ {names} എന്നവർക്ക് SMS അയച്ചു",
+  ),
   vkAddFieldLabel: t("Other advocates on the vakalatnama", "വക്കാലത്തിലെ മറ്റ് അഭിഭാഷകർ"),
   vkAddSuggested: t("Advocates you often add", "നിങ്ങൾ പതിവായി ചേർക്കുന്ന അഭിഭാഷകർ"),
   vkAddNewNumber: t(

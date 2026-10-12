@@ -585,14 +585,12 @@ export const shareCopy = {
   phonePlaceholder: t("Mobile number", "മൊബൈൽ നമ്പർ"),
   phoneAdd: t("Add number", "നമ്പർ ചേർക്കുക"),
   phoneError: t("Enter a valid 10-digit mobile number.", "സാധുവായ 10 അക്ക മൊബൈൽ നമ്പർ നൽകുക."),
-  demoProfiles: t(
-    "Sandbox: try “Priya”, “Sameer”, any 10-digit number or a Bar ID like K/1234/2020.",
-    "സാൻഡ്‌ബോക്സ്: “Priya”, “Sameer”, ഏതെങ്കിലും 10 അക്ക നമ്പർ അല്ലെങ്കിൽ K/1234/2020 പോലുള്ള ബാർ ഐഡി പരീക്ഷിക്കുക.",
-  ),
   removeChip: t("Remove", "നീക്കം ചെയ്യുക"),
   suggestionsLabel: t("People you often add", "നിങ്ങൾ പതിവായി ചേർക്കുന്നവർ"),
   send: t("Share", "പങ്കിടുക"),
   sentNote: t("Invitation sent to", "ഇവർക്ക് ക്ഷണം അയച്ചു"),
+  /* The system sends an SMS on every invite; the toast says so (owner, 2026-10-13). */
+  smsToast: t("SMS invite sent to {names}", "{names} എന്നവർക്ക് SMS ക്ഷണം അയച്ചു"),
   sentBulkNote: t(
     "Added to {added} of {total} cases · already had access to {skipped}",
     "{total}-ൽ {added} കേസുകളിൽ ചേർത്തു · {skipped} കേസിൽ നേരത്തേ ആക്‌സസ് ഉണ്ടായിരുന്നു",
