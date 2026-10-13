@@ -18,6 +18,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { markArrival, useArrival } from "@/components/employee/use-arrival";
 import { useCourtToday } from "@/components/employee/use-court-today";
 import { useCourt } from "@/components/court/court-provider";
+import { courtProfile } from "@/lib/court/profiles";
 import { rememberCognizanceTab } from "@/components/employee/cognizance-return";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -249,6 +250,7 @@ function CaseBody({ matter }: { matter: CognizanceCase }) {
      split, all three under Gujarat's case-type split (`actsFor`). */
   const { court } = useCourt();
   const [recommended, ...alternatives] = actsFor(matter, court);
+  const caseTypeSplit = courtProfile(court).cognizanceSplit === "case-type";
   /* Back to the queue by any way — the trail included — lands on this complaint's tab. */
   React.useEffect(() => rememberCognizanceTab(tabFor(matter, court)), [matter, court]);
 
@@ -370,7 +372,14 @@ function CaseBody({ matter }: { matter: CognizanceCase }) {
               {/* The alternatives quiet, Dismiss outermost; the recommendation is the
                   one filled button, last, where the eye ends (owner, 2026-10-13). */}
               {[...alternatives].reverse().map((act) => (
-                <Button key={act} asChild variant="outline">
+                <Button
+                  key={act}
+                  asChild
+                  /* Dismissing is the rare act, so in Gujarat it is tertiary — a ghost
+                     button, not a second outline beside the alternative (owner,
+                     2026-10-13). */
+                  variant={act === "dismiss" && caseTypeSplit ? "ghost" : "outline"}
+                >
                   <Link href={orderHref(matter, act)} onClick={openOrder}>
                     {COGNIZANCE_ACTS[act].label}
                   </Link>
