@@ -26,6 +26,7 @@ import {
   caseRecordFor,
   dayKeyOf,
   daySlotsOn,
+  inOneCourt,
   nextHearingDayAfter,
   peopleOptionsOf,
   queueOf,
@@ -47,6 +48,7 @@ import { useTaskAct } from "@/components/tasks/task-act-layer";
 import { CasePeekSurface } from "@/components/cases/case-peek";
 import { CasePeekProvider, useCasePeek } from "@/components/cases/use-case-peek";
 import { HomeGreeting } from "@/components/advocate/home-greeting";
+import { useCourt } from "@/components/court/court-provider";
 import {
   CompanionRail,
   useRailSection,
@@ -211,10 +213,13 @@ function HomeBody({
   );
   const peek = useCasePeek();
 
-  const world = React.useMemo<World>(
-    () => ({ people, cases, tasks, user, now: new Date(now) }),
-    [people, cases, tasks, user, now]
-  );
+  // A deployment that runs one courtroom names it once (the title) rather than
+  // filtering by it and labelling every hearing with it.
+  const singleCourt = useCourt().profile.singleCourt;
+  const world = React.useMemo<World>(() => {
+    const all: World = { people, cases, tasks, user, now: new Date(now) };
+    return singleCourt ? inOneCourt(all, singleCourt) : all;
+  }, [people, cases, tasks, user, now, singleCourt]);
 
   const todayKey = dayKeyOf(now);
   const [selectedDay, setSelectedDay] = React.useState<string>(todayKey);
@@ -245,7 +250,13 @@ function HomeBody({
   // choice made on one tab is never silently missing (or lingering) on another.
   // No selection means everything the viewer can open. It survives a refresh
   // (localStorage) but resets when the day turns.
-  const [dayFilter, setDayFilter] = useStoredFilters(todayKey);
+  const [storedFilter, setDayFilter] = useStoredFilters(todayKey);
+  // With one court there is no court filter, so a court picked under another
+  // deployment must not go on hiding hearings no control can bring back.
+  const dayFilter = React.useMemo(
+    () => (singleCourt && storedFilter.courts.length ? { ...storedFilter, courts: [] } : storedFilter),
+    [singleCourt, storedFilter]
+  );
   const filters = React.useMemo(
     () =>
       Object.fromEntries(
@@ -407,12 +418,12 @@ function HomeBody({
   /** Open the shared case peek for any matter in the world, via the bridge. */
   const openCase = React.useCallback(
     (caseId: string) => {
-      const kase = cases.find((c) => c.id === caseId);
+      const kase = world.cases.find((c) => c.id === caseId);
       if (!kase) return;
       const record = caseRecordFor(kase, kase.nextHearingAt);
       if (record) peek.open(record);
     },
-    [cases, peek]
+    [world.cases, peek]
   );
 
   /** The viewer's verb for a task — what the rail's hover overlay names. */
@@ -483,6 +494,7 @@ function HomeBody({
           <HomeGreeting
             locale={locale}
             firstName={profileFirstName}
+            court={singleCourt}
             now={now}
             week={week}
             selectedDay={selectedDay}
@@ -501,6 +513,7 @@ function HomeBody({
               daySlots={daySlots}
               showTimes={config.showHearingTimes}
               showConflicts={config.showConflicts}
+              singleCourt={singleCourt !== null}
               dayPhase={dayPhase}
               filters={filters}
               onFilterChange={changeFilter}
@@ -589,6 +602,7 @@ function HomeBody({
         world={world}
         now={now}
         day={selectedDay}
+        singleCourt={singleCourt}
         highlight={causeListHighlight}
         onJoin={onJoinHearing}
         locale={locale}
@@ -598,6 +612,7 @@ function HomeBody({
         open={joinOpen}
         onOpenChange={setJoinOpen}
         hearings={nowHearings}
+        showCourt={singleCourt === null}
         onJoin={onJoinFromModal}
         onViewCauseList={() => {
           setJoinOpen(false);

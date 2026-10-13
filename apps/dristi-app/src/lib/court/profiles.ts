@@ -92,6 +92,13 @@ export type CourtProfile = {
   /** Whether scrutiny opens with AI assistance — never `unavailable`, which is per file. */
   aiMode: Exclude<AiMode, "unavailable">;
   registrationPoint: RegistrationPoint;
+  /**
+   * The one courtroom the deployment runs, where it runs only one; `null` where it runs
+   * several. With one court there is nothing to choose between, so the advocate home
+   * names it once in its title instead of filtering by it and labelling every hearing
+   * with it (owner, 2026-10-13).
+   */
+  singleCourt: string | null;
 };
 
 export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
@@ -110,6 +117,7 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     aiMode: "on",
     // Registration is the magistrate's own step in Kerala (owner, 2026-10-12).
     registrationPoint: "magistrate",
+    singleCourt: null,
   },
   gujarat: {
     id: "gujarat",
@@ -129,6 +137,7 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     aiMode: "on",
     // No separate registration step by the magistrate (owner, 2026-10-12).
     registrationPoint: "scrutiny",
+    singleCourt: null,
   },
   /*
    * One deployment under the Punjab and Haryana High Court (owner, 2026-10-12). It took
@@ -151,6 +160,8 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     aiMode: "off",
     // No separate registration step by the magistrate (owner, 2026-10-12).
     registrationPoint: "scrutiny",
+    // One 24×7 ON Court for the whole deployment (owner, 2026-10-12 and 2026-10-13).
+    singleCourt: "24×7 ON Court",
   },
 };
 

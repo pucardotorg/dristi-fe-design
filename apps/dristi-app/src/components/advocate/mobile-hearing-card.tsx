@@ -18,8 +18,10 @@ import "./mobile-hearing.css";
 import { LocateHearingIcon } from "./locate-hearing-icon";
 
 /** A phone matter exposes its actions by tap, keeping the docket scannable. */
-export function MobileHearingCard({ hearing, locale, queue, onOpenCase, onOpenTasks, onViewInCauseList, access, time }: {
+export function MobileHearingCard({ hearing, locale, queue, onOpenCase, onOpenTasks, onViewInCauseList, access, time, showCourt = true }: {
   time?: React.ReactNode;
+  /** Name the hearing's court; off where the deployment runs one court. */
+  showCourt?: boolean;
   /** How the viewer reaches the matter; its button joins the tray. Null hides it. */
   access?: HearingAccess | null;
   hearing: TimelineHearing;
@@ -42,7 +44,7 @@ export function MobileHearingCard({ hearing, locale, queue, onOpenCase, onOpenTa
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="relative min-w-0" data-pointer-motion={pointerMotion}>
       <CollapsibleTrigger
-        aria-label={`${hearing.kase.parties}, ${pick(advHome.colItem, locale)} ${hearing.item}, ${hearing.kase.cnr || hearing.kase.stNumber}, ${hearing.kase.stage}, ${court.name} ${court.number ?? ""}${count ? `, ${pending}` : ""}${hearing.passedOver ? `, ${passedOverLabel(locale)}` : ""}${queue ? `, ${queueSentence(queue, locale)}` : ""}`}
+        aria-label={`${hearing.kase.parties}, ${pick(advHome.colItem, locale)} ${hearing.item}, ${hearing.kase.cnr || hearing.kase.stNumber}, ${hearing.kase.stage}${showCourt ? `, ${court.name} ${court.number ?? ""}` : ""}${count ? `, ${pending}` : ""}${hearing.passedOver ? `, ${passedOverLabel(locale)}` : ""}${queue ? `, ${queueSentence(queue, locale)}` : ""}`}
         onPointerDown={() => setPointerMotion(true)}
         onKeyDown={() => setPointerMotion(false)}
         className={cn("group/hearing relative z-10 flex w-full min-w-0 flex-col gap-4 rounded-xl border bg-card p-4 text-left transition-colors active:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", ongoing ? "border-brand-accent/40" : "border-hairline")}
@@ -85,9 +87,11 @@ export function MobileHearingCard({ hearing, locale, queue, onOpenCase, onOpenTa
             ) : null}
           </span>
           {/* ds-typography-allow: owner asked for the court tag a step under caption (11px); the DS has no role below 12px. */}
-          <span className="shrink-0 rounded-full border border-border bg-accent-strong px-2 py-0.5 text-[0.6875rem] leading-4 font-semibold text-foreground">
-            {court.name} · <span className="tabular-nums">{court.number ?? "N/A"}</span>
-          </span>
+          {showCourt ? (
+            <span className="shrink-0 rounded-full border border-border bg-accent-strong px-2 py-0.5 text-[0.6875rem] leading-4 font-semibold text-foreground">
+              {court.name} · <span className="tabular-nums">{court.number ?? "N/A"}</span>
+            </span>
+          ) : null}
           <span aria-hidden="true" className="flex size-5 shrink-0 items-center justify-center rounded-full border border-border bg-accent-strong text-muted-foreground">
             <ChevronDown className="size-3.5 transition-transform duration-200 group-data-[state=open]/hearing:rotate-180 motion-reduce:transition-none" />
           </span>
