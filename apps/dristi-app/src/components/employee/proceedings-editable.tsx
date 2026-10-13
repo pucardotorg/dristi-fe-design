@@ -352,11 +352,13 @@ export const ProceedingsParagraph = React.forwardRef<
 /* ────────────────────────── an order item's own words ───────────────────────── */
 
 /* A value is a tinted piece of the sentence. Its breathing room is a ring in its own
-   fill, not padding, so the words around it keep their natural spacing. */
+   fill, not padding, so the words around it keep their natural spacing. Filled, it
+   takes the brand's tint — set apart from the words typed around it as plainly as an
+   unfilled one is in yellow (owner, 2026-10-14: the neutral tint read as nothing). */
 const VALUE =
-  "cursor-pointer rounded-sm bg-accent ring-2 ring-accent transition-colors hover:bg-accent-strong hover:ring-accent-strong";
+  "cursor-pointer rounded-sm bg-brand-muted text-brand-muted-foreground ring-2 ring-brand-muted transition-colors hover:bg-brand-muted-hover hover:ring-brand-muted-hover";
 const VALUE_ACTIVE =
-  "cursor-pointer rounded-sm bg-accent-strong ring-4 ring-halo";
+  "cursor-pointer rounded-sm bg-brand-muted text-brand-muted-foreground ring-4 ring-halo";
 const VALUE_GAP =
   "cursor-pointer rounded-sm bg-warning-muted text-warning-muted-foreground ring-2 ring-warning-muted transition-colors hover:underline hover:underline-offset-3";
 

@@ -135,7 +135,7 @@ export function decideApplication(
 }
 
 /**
- * The order screen behind every door: A, B or C by the Court settings toggle
+ * The order screen behind every door: A, B, C or D by the Court settings toggle
  * (`order-layout.ts`), each on its own draft so switching mid-order never shows one
  * composer's half-made order in another.
  */
@@ -243,7 +243,8 @@ export function OrderDoorScreen({ door }: { door: OrderDoor }) {
     );
   }
 
-  if (variant === "proceedings") {
+  /* D is C with Preview order as a live tab in the right panel (owner, 2026-10-14). */
+  if (variant === "proceedings" || variant === "option-d") {
     return (
       <ProceedingsComposer
         draftKey={variantDraftKey(variant, door.draftKey)}
@@ -272,6 +273,7 @@ export function OrderDoorScreen({ door }: { door: OrderDoor }) {
         overview={door.overview}
         overviewContent={door.overviewContent}
         historyContent={door.historyContent}
+        previewInPanel={variant === "option-d"}
       />
     );
   }
