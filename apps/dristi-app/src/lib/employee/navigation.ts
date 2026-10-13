@@ -24,6 +24,7 @@ import {
   SettingsIcon,
   SignatureIcon,
   StampIcon,
+  TableIcon,
   UserCheckIcon,
   UserPenIcon,
   type LucideIcon,
@@ -46,6 +47,7 @@ import {
   REGISTRATIONS_QUEUE_COUNT,
 } from "./approve-registrations";
 import { registerCaseById, REGISTER_QUEUE_COUNT } from "./register-cases";
+import { registerById, registerCrumb, REGISTERS_PAGE } from "./registers";
 import { findFiling, SCRUTINY_QUEUE_COUNT } from "./scrutiny/queue";
 import { RESCHEDULING_QUEUE_COUNT } from "./rescheduling-request";
 import { SCHEDULING_QUEUE_COUNT } from "./schedule";
@@ -224,6 +226,15 @@ export const COURT_NAV_LINKS: CourtNavItem[] = [
     label: COURT_CASES_PAGE.label,
     href: COURT_CASES_PAGE.href,
     icon: FolderIcon,
+  },
+  /* The court's registers (note, section B). A noun, beside the other two places to look
+     at this court — kept apart from "Register cases", the Actions queue that registers a
+     complaint, by its wording, its mark and its place in the rail. */
+  {
+    id: "registers",
+    label: REGISTERS_PAGE.label,
+    href: REGISTERS_PAGE.href,
+    icon: TableIcon,
   },
 ];
 
@@ -780,6 +791,15 @@ const NESTED_ROUTES: {
     pattern: /^\/employee\/register-cases\/([^/]+)\/?$/,
     identify: (id) => registerCaseById(id)?.filingNumber,
   },
+  /* One register under the Registers index, named by its number ("Register 3"). */
+  {
+    queue: REGISTERS_PAGE.href,
+    pattern: /^\/employee\/registers\/([^/]+)\/?$/,
+    identify: (id) => {
+      const register = registerById(id);
+      return register ? registerCrumb(register) : undefined;
+    },
+  },
   {
     queue: "/employee/cognizance",
     pattern: /^\/employee\/cognizance\/([^/]+)\/?$/,
@@ -910,6 +930,17 @@ export function courtTrail(pathname: string): CourtCrumb[] {
         { label: item.label, href: item.href },
         { label: record, mono: true },
       ];
+    }
+  }
+
+  /* A standalone row has no section, so its own page carries no trail — but a record
+     nested under one does: today only a register under Registers. The row is the way
+     back; the register is named by its number, not an identifier, so it is not mono. */
+  for (const item of COURT_NAV_LINKS) {
+    if (!item.href) continue;
+    const record = nestedRecordOf(pathname, item.href);
+    if (record !== undefined) {
+      return [{ label: item.label, href: item.href }, { label: record }];
     }
   }
 
