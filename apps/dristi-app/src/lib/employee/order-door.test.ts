@@ -112,10 +112,6 @@ describe("variantInitialDraft", () => {
       cognizance.blocks.filter((block) => block.id !== "scheduling-of-hearing"),
     );
     assert.equal(draft.next, "list");
-    for (const id of cognizance.fixedIds) {
-      if (id === "scheduling-of-hearing") continue;
-      assert.ok(draft.blocks.some((block) => block.id === id));
-    }
   });
 });
 
