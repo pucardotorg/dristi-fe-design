@@ -4,6 +4,7 @@ import { CASE, HISTORY, HISTORY_ROUND, HISTORY_SUMMARY } from "@/lib/employee/sc
 import { mockFiling, SCRUTINY_SIGNING } from "@/lib/employee/scrutiny/mock-filings";
 import { findFiling } from "@/lib/employee/scrutiny/queue";
 import { CHECKS } from "@/lib/employee/scrutiny/sections";
+import type { SigningRules } from "@/lib/filing/config";
 import type {
   BundleDoc,
   Filing,
@@ -41,12 +42,18 @@ function indexBy<T extends { id: string }>(items: T[]): Record<string, T> {
  * matter has no e-filing form yet, so it is still derived from its queue row
  * (`derive.ts`). Either way the caller gets one `ScrutinyCase` and the workbench renders
  * identically — no screen special-cases where the case came from.
+ *
+ * `signing` is the selected court's rules: they decide whether the affidavit is read with
+ * its oath. The sample filings were generated under Gujarat's, which is the default.
  */
-export function buildScrutinyCase(filing: Filing): ScrutinyCase {
+export function buildScrutinyCase(
+  filing: Filing,
+  signing: SigningRules = SCRUTINY_SIGNING,
+): ScrutinyCase {
   const mock = mockFiling(filing.no);
   if (mock) {
     const read = caseFromDraft(mock.draft, {
-      signing: SCRUTINY_SIGNING,
+      signing,
       pages: mock.pages,
       poorScans: mock.poorScans,
     });
@@ -88,7 +95,10 @@ export function buildScrutinyCase(filing: Filing): ScrutinyCase {
 }
 
 /** The case behind a route param, or `undefined` when the id names no real filing. */
-export function scrutinyCaseFor(filingNo: string): ScrutinyCase | undefined {
+export function scrutinyCaseFor(
+  filingNo: string,
+  signing?: SigningRules,
+): ScrutinyCase | undefined {
   const filing = findFiling(filingNo);
-  return filing ? buildScrutinyCase(filing) : undefined;
+  return filing ? buildScrutinyCase(filing, signing) : undefined;
 }

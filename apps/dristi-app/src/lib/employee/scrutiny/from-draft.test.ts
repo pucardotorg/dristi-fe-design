@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { COURT_PROFILES } from "@/lib/court/profiles";
+
 import { buildScrutinyCase, HERO_FILING_NO } from "./case";
 import { QUEUE } from "./fixtures";
 import { mockFiling } from "./mock-filings";
@@ -108,5 +110,32 @@ describe("provenance comes from the readings on the draft", () => {
   it("puts the paper-signed affidavit in the bundle as a re-uploadable document", () => {
     assert.equal(hero.docRow.affidavit, "d-affidavit");
     assert.equal(hero.docById.affidavit.poorScan, true);
+  });
+
+  it("leaves signing and payment out of what the officer reads", () => {
+    for (const f of S138) {
+      const c = open(f.no);
+      assert.ok(!c.sections.some((section) => section.id === "sign"), f.no);
+      assert.ok(!c.allFields.some((field) => /^s-(mode|paper|sig|conf|proc|paid)/.test(field.id)), f.no);
+    }
+  });
+
+  it("reads the oath under the affidavit where the court records one", () => {
+    const aff = hero.sections.find((section) => section.id === "aff");
+    assert.equal(aff?.title, "Affidavit and oath");
+    assert.deepEqual(aff?.groups.map((g) => g.title), ["Affidavit", "Oath"]);
+    assert.ok(aff?.groups[1].fields.length);
+  });
+
+  it("reads a plain affidavit where the court records no oath", () => {
+    const filing = QUEUE.find((f) => f.no === HERO_FILING_NO)!;
+    for (const court of ["kerala", "punjab-haryana"] as const) {
+      const profile = COURT_PROFILES[court];
+      const aff = buildScrutinyCase(filing, profile.signing).sections.find(
+        (section) => section.id === "aff",
+      );
+      assert.equal(aff?.title, "Affidavit", court);
+      assert.deepEqual(aff?.groups.map((g) => g.title), ["Affidavit"], court);
+    }
   });
 });

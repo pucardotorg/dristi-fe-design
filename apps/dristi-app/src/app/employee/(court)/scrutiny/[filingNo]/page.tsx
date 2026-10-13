@@ -19,7 +19,7 @@ export const metadata: Metadata = { title: "Case review" };
  *
  * The AI mode is the selected court's (`aiMode` in `lib/court/profiles.ts` — off for
  * Punjab). `?ai=on`, `?ai=unavailable` or `?ai=off` overrides it, so every mode can be
- * shown in any court.
+ * shown in any court. Its signing rules decide whether the affidavit is read with an oath.
  */
 export default async function EmployeeScrutinyCasePage({
   params,
@@ -29,14 +29,13 @@ export default async function EmployeeScrutinyCasePage({
   searchParams: Promise<{ ai?: string | string[] }>;
 }) {
   const { filingNo } = await params;
-  const caseData = scrutinyCaseFor(decodeURIComponent(filingNo));
+  const profile = courtProfile(await serverCourt());
+  const caseData = scrutinyCaseFor(decodeURIComponent(filingNo), profile.signing);
   if (!caseData) notFound();
 
   const { ai } = await searchParams;
   const mode: AiMode =
-    ai === "on" || ai === "unavailable" || ai === "off"
-      ? ai
-      : courtProfile(await serverCourt()).aiMode;
+    ai === "on" || ai === "unavailable" || ai === "off" ? ai : profile.aiMode;
 
   return <CaseWorkbench caseData={caseData} ai={mode} />;
 }

@@ -16,9 +16,7 @@ import {
   MODE_OF_SERVICE,
   NATURE_OF_DEBT,
   NON_DELIVERY_REASONS,
-  PAPER_FALLBACK_REASONS,
   PAYMENT_STATUS,
-  PROCESS_OPTIONS,
   RETURN_REASONS,
   WHY_ISSUED,
   type Option,
@@ -28,7 +26,6 @@ import {
   chequeSourceSlot,
   limitationView,
   partySourceSlot,
-  processPlan,
   signatories,
 } from "@/lib/filing/selectors";
 import type {
@@ -914,7 +911,7 @@ function buildBundle(draft: FilingDraft, options: DraftReadOptions): BundleBuild
   return { bundle, docRow, documentGroups };
 }
 
-/* ── affidavit and signing ───────────────────────────────────────────────── */
+/* ── affidavit and oath ──────────────────────────────────────────────────── */
 
 function affidavitGroup(draft: FilingDraft): FieldGroupDef {
   const paper = draft.sign.mode === "upload";
@@ -945,8 +942,6 @@ function affidavitGroup(draft: FilingDraft): FieldGroupDef {
   return group("aff", "doc", "Affidavit", fields);
 }
 
-const INSTRUMENT = { aadhaar: "Aadhaar eSign", dsc: "DSC", paper: "Signed by hand" } as const;
-
 function stamp(iso: string | null | undefined): string {
   if (!iso) return "";
   const d = new Date(iso);
@@ -957,98 +952,30 @@ function stamp(iso: string | null | undefined): string {
   return `${pad(ist.getUTCDate())}/${pad(ist.getUTCMonth() + 1)}/${ist.getUTCFullYear()} · ${pad(ist.getUTCHours())}:${pad(ist.getUTCMinutes())} IST`;
 }
 
-function signingGroups(draft: FilingDraft, options: DraftReadOptions): FieldGroupDef[] {
-  const s = draft.sign;
+/**
+ * Who swore the affidavit, one row per person the court's rules ask an oath of. Only
+ * where the filing records an oath (`signing.oath`: Gujarat, for now); elsewhere there is
+ * nothing to read, so no group.
+ */
+function oathGroup(draft: FilingDraft, options: DraftReadOptions): FieldGroupDef | null {
+  if (!options.signing.oath) return null;
   const { complainants, advocates } = signatories(
     draft,
     null,
     options.signing.oath,
     options.signing.everyAdvocate,
   );
-  const sigFields: Field[] = [
-    {
-      id: "s-mode",
-      label: "How the complaint was signed",
-      value:
-        s.mode === "upload"
-          ? "Printed, signed by hand and uploaded"
-          : "Signed in the system",
-    },
-  ];
-  if (s.mode === "upload") {
-    sigFields.push({
-      id: "s-paper",
-      label: "Why it could not be e-signed",
-      value: shown(
-        s.paperFallback &&
-          PAPER_FALLBACK_REASONS.find((r) => r.id === s.paperFallback?.reason)?.label,
-      ),
-    });
-  }
-  [...complainants, ...advocates].forEach((sig, k) => {
-    const record = s.signed[sig.id];
-    sigFields.push({
-      id: `s-sig${k + 1}`,
-      label: `Signature · ${sig.role}`,
-      value: record
-        ? `${sig.name} · ${INSTRUMENT[record.with]} · ${stamp(record.at)}`
-        : `${sig.name} · Not signed`,
-    });
-    if (options.signing.oath) {
-      const oath = s.oaths[sig.id];
-      sigFields.push({
-        id: `s-oath${k + 1}`,
-        label: `Oath · ${sig.name}`,
-        value: oath
-          ? `${oath.video ? `Video recorded (${oath.video.file.name})` : "Recorded"} · ${stamp(oath.at)}`
-          : "Not taken",
-      });
-    }
+  const fields: Field[] = [...complainants, ...advocates].map((sig, k) => {
+    const oath = draft.sign.oaths[sig.id];
+    return {
+      id: `s-oath${k + 1}`,
+      label: `Oath · ${sig.name}`,
+      value: oath
+        ? `${oath.video ? `Video recorded (${oath.video.file.name})` : "Recorded"} · ${stamp(oath.at)}`
+        : "Not taken",
+    };
   });
-  if (s.mode === "upload") {
-    const confirmers = complainants;
-    confirmers.forEach((sig, k) => {
-      const confirmation = s.confirmed[sig.id];
-      sigFields.push({
-        id: `s-conf${k + 1}`,
-        label: `Phone confirmation · ${sig.name}`,
-        value: confirmation
-          ? `Confirmed on the number ending ${confirmation.mobileTail} · ${stamp(confirmation.at)}`
-          : "Not confirmed",
-      });
-    });
-  }
-
-  const plan = processPlan(draft);
-  const feeFields: Field[] = plan.map((p, k) => ({
-    id: `s-proc${k + 1}`,
-    label: `Process · ${p.label}`,
-    value: [
-      ...PROCESS_OPTIONS.filter((o) => p.rounds[o.key]).map(
-        (o) => `${o.label} × ${p.rounds[o.key]}`,
-      ),
-      `${s.deliveryChannel || "E-post"} × ${p.delivery}`,
-      `to ${p.selected.map((index) => `address ${index + 1}`).join(", ") || NOT_PROVIDED}`,
-    ].join(" · "),
-  }));
-  feeFields.push({
-    id: "s-paid",
-    label: "Fees paid",
-    value: s.paid
-      ? [
-          s.paidAmount !== null ? rupees(s.paidAmount) : "",
-          stamp(s.paidAt),
-          s.paymentRef ? `ref. ${s.paymentRef}` : "",
-        ]
-          .filter(Boolean)
-          .join(" · ")
-      : "Not paid",
-  });
-
-  return [
-    group("sig", "pen", "Signatures", sigFields),
-    group("fees", "wallet", "Process & fees", feeFields),
-  ];
+  return group("oath", "pen", "Oath", fields);
 }
 
 /* ── the whole case ──────────────────────────────────────────────────────── */
@@ -1092,9 +1019,16 @@ export function caseFromDraft(draft: FilingDraft, options: DraftReadOptions): Dr
       title: "Evidence",
       groups: [...witnessGroups(draft), ...documentGroups],
     },
-    { id: "aff", num: "4", title: "Affidavit", groups: [affidavitGroup(draft)] },
-    { id: "sign", num: "5", title: "Sign & pay", groups: signingGroups(draft, options) },
   ];
+  /* Signing and payment are not the scrutiny officer's to check, so they are not read
+     here (owner, 2026-10-13). The oath is part of the affidavit: it is what swears it. */
+  const oath = oathGroup(draft, options);
+  sections.push({
+    id: "aff",
+    num: "4",
+    title: oath ? "Affidavit and oath" : "Affidavit",
+    groups: oath ? [affidavitGroup(draft), oath] : [affidavitGroup(draft)],
+  });
 
   return {
     party: {
