@@ -7,7 +7,6 @@ import {
   tableBodyClass,
   tableRowClass,
 } from "@/components/chrome/table-plate";
-import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
@@ -25,7 +24,6 @@ import {
 } from "@/lib/employee/row-activation";
 import {
   formatSignOrderDate,
-  signOrderStatusLabel,
   signOrderTypeLabel,
   type SignOrder,
 } from "@/lib/employee/sign-orders";
@@ -74,6 +72,7 @@ export function SignOrdersTable({
   onToggle,
   onToggleAll,
   onOpen,
+  signed = false,
 }: {
   rows: SignOrder[];
   selectedIds: ReadonlySet<string>;
@@ -81,6 +80,12 @@ export function SignOrdersTable({
   /** Select or clear every *signable* row currently in view — the header checkbox. */
   onToggleAll: (select: boolean) => void;
   onOpen: (order: SignOrder) => void;
+  /**
+   * The Signed tab: nothing on it can be selected, so the selection column goes, and
+   * the date is the day the signature went on. Status is the tab in both, so neither
+   * spends a column repeating it on every row.
+   */
+  signed?: boolean;
 }) {
   const courtText = useCourtText();
   /* Only a pending order can be signed, so only a pending order can be selected — the
@@ -90,32 +95,33 @@ export function SignOrdersTable({
   const selectedOnPage = signable.filter((order) =>
     selectedIds.has(order.id),
   ).length;
-  const allSelected =
-    signable.length > 0 && selectedOnPage === signable.length;
+  const allSelected = signable.length > 0 && selectedOnPage === signable.length;
   const someSelected = selectedOnPage > 0 && !allSelected;
 
   return (
     <Table className="w-full border-separate border-spacing-0 text-body-compact">
       <TableHeader>
         <TableRow className={TABLE_HEAD_ROW}>
-          <TableHead className={cn(TABLE_HEAD, "w-12")}>
-            <Checkbox
-              checked={
-                allSelected ? true : someSelected ? "indeterminate" : false
-              }
-              disabled={signable.length === 0}
-              onCheckedChange={(next) => onToggleAll(next === true)}
-              /* Names what the control does to what is on screen, not to the whole
+          {signed ? null : (
+            <TableHead className={cn(TABLE_HEAD, "w-12")}>
+              <Checkbox
+                checked={
+                  allSelected ? true : someSelected ? "indeterminate" : false
+                }
+                disabled={signable.length === 0}
+                onCheckedChange={(next) => onToggleAll(next === true)}
+                /* Names what the control does to what is on screen, not to the whole
                  queue — the header checkbox reaches this page of rows only, and a label
                  that said "all orders" would be a promise the control does not keep once
                  the list is paged. */
-              aria-label={
-                allSelected
-                  ? "Clear the orders on this page"
-                  : "Select the orders on this page"
-              }
-            />
-          </TableHead>
+                aria-label={
+                  allSelected
+                    ? "Clear the orders on this page"
+                    : "Select the orders on this page"
+                }
+              />
+            </TableHead>
+          )}
           <TableHead className={cn(TABLE_HEAD, "min-w-56 whitespace-normal")}>
             Case name
           </TableHead>
@@ -126,10 +132,7 @@ export function SignOrdersTable({
             Title
           </TableHead>
           <TableHead className={cn(TABLE_HEAD, "whitespace-nowrap")}>
-            Status
-          </TableHead>
-          <TableHead className={cn(TABLE_HEAD, "whitespace-nowrap")}>
-            Date added
+            {signed ? "Date signed" : "Date added"}
           </TableHead>
         </TableRow>
       </TableHeader>
@@ -139,7 +142,7 @@ export function SignOrdersTable({
             `border-separate` has no per-edge row gap, so the gap is one inert row held
             out of the accessibility tree. */}
         <tr aria-hidden="true">
-          <td colSpan={6} className="h-2 p-0" />
+          <td colSpan={signed ? 4 : 5} className="h-2 p-0" />
         </tr>
         {rows.map((order) => {
           const pending = order.status === "pending-signature";
@@ -151,17 +154,19 @@ export function SignOrdersTable({
               data-state={selected ? "selected" : undefined}
               {...rowActivation(tableRowClass({ selectable: true }))}
             >
-              <TableCell className={cn(TABLE_CELL, "w-12")}>
-                {/* A signed order has nothing to select. The cell stays for the column,
+              {signed ? null : (
+                <TableCell className={cn(TABLE_CELL, "w-12")}>
+                  {/* A signed order has nothing to select. The cell stays for the column,
                     and the status beside it is what says why it is empty. */}
-                {pending ? (
-                  <Checkbox
-                    checked={selected}
-                    onCheckedChange={() => onToggle(order)}
-                    aria-label={`Select ${title} in ${courtText(order.caseNumber)}`}
-                  />
-                ) : null}
-              </TableCell>
+                  {pending ? (
+                    <Checkbox
+                      checked={selected}
+                      onCheckedChange={() => onToggle(order)}
+                      aria-label={`Select ${title} in ${courtText(order.caseNumber)}`}
+                    />
+                  ) : null}
+                </TableCell>
+              )}
               {/* The row's opener, matching Sign forms. Quiet `text-foreground` rather
                   than a teal underline: the teal is rationed for the one strong action
                   on the screen, and eighteen underlined teal names down a column is the
@@ -169,13 +174,16 @@ export function SignOrdersTable({
                   the *row's* hover, wherever the pointer sits, and on this control's
                   own focus — see `rowOpenerClass`. */}
               <TableCell
-                className={cn(TABLE_CELL, "min-w-56 font-medium whitespace-normal")}
+                className={cn(
+                  TABLE_CELL,
+                  "min-w-56 font-medium whitespace-normal",
+                )}
               >
                 <button
                   type="button"
                   onClick={() => onOpen(order)}
                   {...rowOpener}
-                className={rowOpenerClass}
+                  className={rowOpenerClass}
                 >
                   <span className="sr-only">
                     {pending ? "Read and sign " : "Read "}
@@ -184,29 +192,23 @@ export function SignOrdersTable({
                   {causeTitle(order)}
                 </button>
               </TableCell>
-              <TableCell
-                className={cn(TABLE_CELL, "whitespace-nowrap")}
-              >
+              <TableCell className={cn(TABLE_CELL, "whitespace-nowrap")}>
                 <Identifier value={order.caseNumber} label="case number" />
               </TableCell>
               {/* Which decision this is — the fact that tells four rows of one case
                   apart. Plain text, like process type on Sign forms: the opener already
                   carries the row's weight. */}
-              <TableCell className={cn(TABLE_CELL, "min-w-56 whitespace-normal")}>
+              <TableCell
+                className={cn(TABLE_CELL, "min-w-56 whitespace-normal")}
+              >
                 {title}
-              </TableCell>
-              {/* Status is the one tinted mark in the row, and it carries its own word —
-                  never colour alone (ACCESSIBILITY §3). `warning` is the variant the
-                  court-side overlays already spend on a pending state. */}
-              <TableCell className={cn(TABLE_CELL, "whitespace-nowrap")}>
-                <Badge variant={pending ? "warning" : "success"}>
-                  {signOrderStatusLabel(order.status)}
-                </Badge>
               </TableCell>
               <TableCell
                 className={cn(TABLE_CELL, "tabular-nums whitespace-nowrap")}
               >
-                {formatSignOrderDate(order.addedOn)}
+                {formatSignOrderDate(
+                  signed ? (order.signedOn ?? order.addedOn) : order.addedOn,
+                )}
               </TableCell>
             </TableRow>
           );
