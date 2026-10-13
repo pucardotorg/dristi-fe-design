@@ -31,7 +31,10 @@ import {
   sortRows,
   type CourtSortSpec,
 } from "@/lib/employee/court-sort";
-import { useReturnedTab } from "@/components/employee/cognizance-return";
+import {
+  rememberCognizanceTab,
+  useReturnedTab,
+} from "@/components/employee/cognizance-return";
 import { useCourt } from "@/components/court/court-provider";
 import { courtProfile } from "@/lib/court/profiles";
 import {
@@ -98,6 +101,7 @@ export function CognizanceScreen() {
   const [chosenTab, setTab] = React.useState<CognizanceTab>(returned);
   /* A court switched while on the screen leaves a tab the new split does not have. */
   const tab = tabs.some((entry) => entry.id === chosenTab) ? chosenTab : tabs[0].id;
+  React.useEffect(() => rememberCognizanceTab(tab), [tab]);
   const [pageSize, setPageSize] = React.useState<HearingsPageSize>(PAGE_SIZE);
   const [page, setPage] = React.useState(1);
 

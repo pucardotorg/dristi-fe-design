@@ -22,6 +22,19 @@ import { type CognizanceTab, type CognizanceTabSpec } from "@/lib/employee/cogni
  */
 let pending: CognizanceTab | null = null;
 
+/**
+ * The tab the bench was last on, however they leave it — the trail, the rail or a
+ * complaint's own link (owner, 2026-10-13: coming back by the breadcrumb dropped them on
+ * the first tab). One hop's `pending` wins; this is the fallback. Kept for the session's
+ * navigation, not across a reload.
+ */
+let last: CognizanceTab | null = null;
+
+/** Called by the queue whenever its tab changes, and by a complaint as it opens. */
+export function rememberCognizanceTab(tab: CognizanceTab): void {
+  last = tab;
+}
+
 /** Called by the control that navigates back to the queue, just before it does. */
 export function markCognizanceTab(tab: CognizanceTab): void {
   pending = tab;
@@ -33,7 +46,7 @@ export function markCognizanceTab(tab: CognizanceTab): void {
  */
 export function useReturnedTab(tabs: CognizanceTabSpec[]): CognizanceTab {
   const [tab] = React.useState(() => {
-    const returned = pending;
+    const returned = pending ?? last;
     pending = null;
     return returned && tabs.some((entry) => entry.id === returned) ? returned : tabs[0].id;
   });

@@ -18,6 +18,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { markArrival, useArrival } from "@/components/employee/use-arrival";
 import { useCourtToday } from "@/components/employee/use-court-today";
 import { useCourt } from "@/components/court/court-provider";
+import { rememberCognizanceTab } from "@/components/employee/cognizance-return";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -43,6 +44,7 @@ import {
   cognizanceCaseById,
   findingsFor,
   actsFor,
+  tabFor,
   summaryChunksFor,
   type CognizanceAct,
   type CognizanceCase,
@@ -247,6 +249,8 @@ function CaseBody({ matter }: { matter: CognizanceCase }) {
      split, all three under Gujarat's case-type split (`actsFor`). */
   const { court } = useCourt();
   const [recommended, ...alternatives] = actsFor(matter, court);
+  /* Back to the queue by any way — the trail included — lands on this complaint's tab. */
+  React.useEffect(() => rememberCognizanceTab(tabFor(matter, court)), [matter, court]);
 
   /* Which field is lit, and the document and region it opened. `fieldId` is what lights
      the row — keyed on the field, not its document, so two fields that share a document
