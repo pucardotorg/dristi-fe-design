@@ -8,6 +8,8 @@ import {
   ArrowRightIcon,
   CheckCircle2Icon,
   FlaskConicalIcon,
+  MinusIcon,
+  PlusIcon,
   SearchIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -55,6 +57,7 @@ import { Input } from "@/components/ui/input";
 import {
   InputGroup,
   InputGroupAddon,
+  InputGroupButton,
   InputGroupInput,
   InputGroupText,
 } from "@/components/ui/input-group";
@@ -114,6 +117,7 @@ import {
 } from "@/components/access/people-invite-field";
 import { FREQUENT_COLLABORATORS, shareCopy } from "@/lib/access/content";
 import { JOIN_DEMO_CASE_ID } from "@/lib/cases/party-cases";
+import { useCourt } from "@/components/court/court-provider";
 import { cn } from "@/lib/utils";
 
 /**
@@ -358,6 +362,8 @@ export function AdvocateJoinCaseDialog({
 
   const [vkOthers, setVkOthers] = React.useState<YesNo>("");
   const [vkAdvocates, setVkAdvocates] = React.useState<InvitePerson[]>([]);
+  /* How many advocates the vakalatnama names, counting this one. Typed or stepped. */
+  const [vkCount, setVkCount] = React.useState("2");
   const [vkFile, setVkFile] = React.useState<File | null>(null);
   const [vkTouched, setVkTouched] = React.useState(false);
 
@@ -399,13 +405,22 @@ export function AdvocateJoinCaseDialog({
    * Who pays for the vakalatnama (team decision, owner 2026-10-13): the first advocate
    * to join answers one question — is anyone else named on it? — adds the others, and
    * pays for everyone. The others get an SMS to join and are recognised at lookup, so
-   * nobody is asked whether it was already paid. The count is the advocates added;
-   * there is no number to type. Only advocates on the platform can be added. A partner
-   * the first advocate missed joins on their own and pays for themselves.
+   * nobody is asked whether it was already paid. They say how many advocates it names,
+   * counting themselves, and must add exactly that many others before continuing
+   * (owner, 2026-10-13). Only advocates on the platform can be added. A partner the
+   * first advocate missed joins on their own and pays for themselves.
    */
   const needsCoAdvocates = vkOthers === "yes";
-  const advocatesPaidFor = 1 + (needsCoAdvocates ? vkAdvocates.length : 0);
-  const coAdvocatesComplete = !needsCoAdvocates || vkAdvocates.length > 0;
+  const vkCountNumber = Number.parseInt(vkCount, 10) || 0;
+  const vkCountValid = vkCountNumber >= 2;
+  const coAdvocatesNeeded = vkCountValid ? vkCountNumber - 1 : 0;
+  /* Kerala bills per advocate named; Gujarat and Punjab & Haryana charge one flat fee
+     for the vakalatnama (owner, 2026-10-13). */
+  const flatJoinFee = useCourt().profile.fees.joinBilling === "flat";
+  const advocatesPaidFor =
+    !flatJoinFee && needsCoAdvocates && vkCountValid ? vkCountNumber : 1;
+  const coAdvocatesComplete =
+    !needsCoAdvocates || (vkCountValid && vkAdvocates.length === coAdvocatesNeeded);
 
   const vkAttached = Boolean(vkFile);
   const unpaidOutcome = stage === "done" && outcome === "unpaid";
@@ -444,6 +459,7 @@ export function AdvocateJoinCaseDialog({
     setVerifyTouched(false);
     setVkOthers("");
     setVkAdvocates([]);
+    setVkCount("2");
     setVkFile(null);
     setVkTouched(false);
     setAlreadyAdded(false);
@@ -1093,44 +1109,120 @@ export function AdvocateJoinCaseDialog({
                 ) : null}
               </Field>
 
-              {/* Add the others, and pay for everyone added. */}
+              {/* Say how many are named, then add exactly that many others; the fee
+                  follows the number. */}
               {needsCoAdvocates ? (
-                <Field data-invalid={vkTouched && !coAdvocatesComplete}>
-                  <FieldLabel className={cn(VK_QUESTION, "block w-full")}>
-                    {pick(advDialog.vkAddLegend, locale)}
-                  </FieldLabel>
-                  {/* As Share (owner, 2026-10-13): only advocates this office has added
-                      before are suggested; anyone else is their full number, never
-                      resolved to a name. */}
-                  <PeopleInviteField
-                    id="adv-vk-advocates"
-                    label={pick(advDialog.vkAddFieldLabel, locale)}
-                    known={VAKALATNAMA_CO_ADVOCATES}
-                    value={vkAdvocates}
-                    onValueChange={(next) => {
-                      setVkAdvocates(next);
-                      setVkTouched(false);
-                    }}
-                    locale={locale}
-                    copy={{
-                      suggested: advDialog.vkAddSuggested,
-                      newNumber: advDialog.vkAddNewNumber,
-                      keepTyping: advDialog.vkAddKeepTyping,
-                    }}
-                  />
-                  <FieldDescription>{pick(advDialog.vkAddHelp, locale)}</FieldDescription>
-                  <FieldError>
-                    {vkTouched && !coAdvocatesComplete ? pick(advDialog.vkAddError, locale) : null}
-                  </FieldError>
-                  {vkAdvocates.length ? (
-                    <Banner variant="info" className="items-start">
-                      {fill(advDialog.vkGroupFeeNote, locale, {
-                        n: String(advocatesPaidFor),
-                        amount: fee,
-                      })}
-                    </Banner>
-                  ) : null}
-                </Field>
+                <>
+                  <Field data-invalid={vkTouched && !vkCountValid}>
+                    <FieldLabel htmlFor="adv-vk-count" className={cn(VK_QUESTION, "block w-full")}>
+                      {pick(advDialog.vkCountLabel, locale)}
+                    </FieldLabel>
+                    {/* Wrapped: Field stretches its direct children to full width. */}
+                    <div>
+                      <InputGroup className="w-36">
+                        <InputGroupAddon>
+                          <InputGroupButton
+                            size="icon-sm"
+                            aria-label={pick(advDialog.vkCountDecrease, locale)}
+                            aria-controls="adv-vk-count"
+                            aria-disabled={vkCountNumber <= 2}
+                            className="aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
+                            onClick={() => {
+                              setVkCount(String(Math.max(2, vkCountNumber - 1)));
+                              setVkTouched(false);
+                            }}
+                          >
+                            <MinusIcon aria-hidden />
+                          </InputGroupButton>
+                        </InputGroupAddon>
+                        <InputGroupInput
+                          id="adv-vk-count"
+                          inputMode="numeric"
+                          autoComplete="off"
+                          className="text-center tabular-nums"
+                          value={vkCount}
+                          aria-invalid={vkTouched && !vkCountValid}
+                          onChange={(event) => {
+                            setVkCount(event.target.value.replace(/\D/g, "").slice(0, 2));
+                            setVkTouched(false);
+                          }}
+                        />
+                        <InputGroupAddon align="inline-end">
+                          <InputGroupButton
+                            size="icon-sm"
+                            aria-label={pick(advDialog.vkCountIncrease, locale)}
+                            aria-controls="adv-vk-count"
+                            aria-disabled={vkCountNumber >= 99}
+                            className="aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
+                            onClick={() => {
+                              setVkCount(String(Math.min(99, Math.max(2, vkCountNumber + 1))));
+                              setVkTouched(false);
+                            }}
+                          >
+                            <PlusIcon aria-hidden />
+                          </InputGroupButton>
+                        </InputGroupAddon>
+                      </InputGroup>
+                    </div>
+                    <FieldError>
+                      {vkTouched && !vkCountValid ? pick(advDialog.vkCountError, locale) : null}
+                    </FieldError>
+                  </Field>
+
+                  <Field data-invalid={vkTouched && vkCountValid && !coAdvocatesComplete}>
+                    <FieldLabel className={cn(VK_QUESTION, "block w-full")}>
+                      {pick(advDialog.vkAddLegend, locale)}
+                    </FieldLabel>
+                    {/* As Share (owner, 2026-10-13): only advocates this office has added
+                        before are suggested; anyone else is their full number, never
+                        resolved to a name. */}
+                    <PeopleInviteField
+                      id="adv-vk-advocates"
+                      label={pick(advDialog.vkAddFieldLabel, locale)}
+                      known={VAKALATNAMA_CO_ADVOCATES}
+                      value={vkAdvocates}
+                      onValueChange={(next) => {
+                        setVkAdvocates(next);
+                        setVkTouched(false);
+                      }}
+                      locale={locale}
+                      copy={{
+                        suggested: advDialog.vkAddSuggested,
+                        newNumber: advDialog.vkAddNewNumber,
+                        keepTyping: advDialog.vkAddKeepTyping,
+                      }}
+                    />
+                    <FieldDescription>
+                      {vkCountValid ? (
+                        <span className="tabular-nums" aria-live="polite">
+                          {fill(advDialog.vkAddProgress, locale, {
+                            added: String(vkAdvocates.length),
+                            needed: String(coAdvocatesNeeded),
+                          })}
+                          {" · "}
+                        </span>
+                      ) : null}
+                      {pick(advDialog.vkAddHelp, locale)}
+                    </FieldDescription>
+                    <FieldError>
+                      {vkTouched && vkCountValid && !coAdvocatesComplete
+                        ? coAdvocatesNeeded === 1
+                          ? pick(advDialog.vkAddErrorOne, locale)
+                          : fill(advDialog.vkAddErrorMany, locale, { n: String(coAdvocatesNeeded) })
+                        : null}
+                    </FieldError>
+                    {vkCountValid ? (
+                      <Banner variant="info" className="items-start">
+                        {flatJoinFee
+                          ? fill(advDialog.vkFlatFeeNote, locale, { amount: fee })
+                          : fill(advDialog.vkGroupFeeNote, locale, {
+                              n: String(advocatesPaidFor),
+                              amount: fee,
+                            })}
+                      </Banner>
+                    ) : null}
+                  </Field>
+                </>
               ) : null}
             </form>
           ) : null}
