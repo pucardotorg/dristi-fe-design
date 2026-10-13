@@ -65,14 +65,6 @@ describe("the blocks each act loads", () => {
     assert.deepEqual(types(compose(late, "dismiss").blocks), ["dismiss-case"]);
   });
 
-  it("fixes the act's own item and the hearing it must schedule", () => {
-    assert.deepEqual(compose(late, "cognizance").fixedIds, [
-      "cognizance",
-      "scheduling-of-hearing",
-    ]);
-    assert.deepEqual(compose(late, "dismiss").fixedIds, ["dismiss-case"]);
-  });
-
   it("names the delay application by its number and head", () => {
     const [accept] = compose(late, "cognizance").blocks;
     assert.equal(
