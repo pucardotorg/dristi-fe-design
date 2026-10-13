@@ -10,17 +10,12 @@ import {
   HearingCaseHistory,
   HearingCaseOverview,
 } from "@/components/employee/hearing-overview-screen";
-import { ListingApplicationDialog } from "@/components/employee/listing-application-dialog";
 import {
-  OrderComposer,
-  type ComposerApplication,
-} from "@/components/employee/order-composer";
-import { OrderScreenB } from "@/components/employee/order-screen-b";
-import { OrderScreenC } from "@/components/employee/order-screen-c";
+  OrderDoorScreen,
+  type OrderDoor,
+} from "@/components/employee/order-door-screen";
 import { useCourtToday } from "@/components/employee/use-court-today";
 import { useHearingSession } from "@/components/employee/use-hearing-session";
-import { useOrderDraft } from "@/components/employee/use-order-draft";
-import { useOrderLayout } from "@/components/employee/use-order-layout";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -41,39 +36,29 @@ import {
   counselFor,
   courtCaseStageLabel,
   courtHearingPurposeLabel,
-  formatListingDate,
   formatOrderDate,
   hearingById,
-  partySideLabel,
   withHearingSession,
   type CourtHearing,
 } from "@/lib/employee/hearings";
-import {
-  applicationsForListing,
-  listingApplicationLabel,
-  type ListingApplication,
-  type ListingApplicationDecision,
-} from "@/lib/employee/listing-applications";
-import type { ComposerBlock } from "@/lib/employee/order-composer";
-import { composerContextFor, decisionBlock } from "@/lib/employee/order-context";
+import { applicationsForListing } from "@/lib/employee/listing-applications";
+import { composerContextFor } from "@/lib/employee/order-context";
 import { initialOrderDraft } from "@/lib/employee/order-demo";
 import {
   appearancesFor,
-  hearingOrderDocument,
   nextUnhandledListing,
-  type OrderDraft,
 } from "@/lib/employee/order-draft";
+
+/** A hearing's order opens with nothing the drafter cannot remove. */
+const NO_FIXED_ITEMS: readonly string[] = [];
 
 /**
  * The order of one listing — a hearing's door onto the order composer (`ORD-05`).
  *
- * Two composers stand behind it for A/B testing (owner, 2026-10-12), switched in Court
- * settings: **A**, the block composer (`order-composer.tsx`), and **B**, the text-box
- * composer (`order-screen-b.tsx`). Each keeps its own draft, so switching mid-order never
- * shows one composer's half-translated version of the other's.
+ * The door is described once (`useHearingOrderDoor`) and drawn by `OrderDoorScreen`,
+ * which picks composer A, B or C from Court settings.
  */
 export function OrderScreen({ hearingId }: { hearingId: string }) {
-  const [layout] = useOrderLayout();
   const { court } = useCourt();
   /* The listing as this court names it — places, names and numbers voiced for the court
      chosen in settings (`lib/court/localize.ts`). */
@@ -81,13 +66,94 @@ export function OrderScreen({ hearingId }: { hearingId: string }) {
   if (!hearing) return <OrderMissing />;
   /* Keyed on the listing so advancing to the next case opens a composer at the top of
      itself rather than inheriting this one's transient state. */
-  return layout === "text" ? (
-    <OrderScreenB key={hearing.id} hearing={hearing} />
-  ) : layout === "proceedings" ? (
-    <OrderScreenC key={hearing.id} hearing={hearing} />
-  ) : (
-    <HearingOrder key={hearing.id} hearing={hearing} />
+  return <HearingOrder key={hearing.id} hearing={hearing} />;
+}
+
+function HearingOrder({ hearing }: { hearing: CourtHearing }) {
+  const door = useHearingOrderDoor(hearing);
+  return <OrderDoorScreen door={door} />;
+}
+
+/**
+ * A hearing's door: the listing's facts, its roll, the applications on it and the way on
+ * to the next case. A finished listing opens on the order the sitting produced
+ * (`order-demo.ts`); every other one opens empty.
+ */
+export function useHearingOrderDoor(hearing: CourtHearing): OrderDoor {
+  const router = useRouter();
+  const courtText = useCourtText();
+  const session = useHearingSession();
+  const today = useCourtToday();
+  const status = withHearingSession([hearing], session)[0].status;
+  const initial = React.useMemo(
+    () => initialOrderDraft(hearing, status, today),
+    [hearing, status, today],
   );
+  const context = React.useMemo(() => composerContextFor(hearing), [hearing]);
+  const appearances = React.useMemo(() => appearancesFor(hearing), [hearing]);
+  const applications = React.useMemo(
+    () => applicationsForListing(hearing.id),
+    [hearing.id],
+  );
+  const upNext = nextUnhandledListing(hearing, session);
+
+  /** End this listing and call the next one on the board — what Next case does. */
+  function advance() {
+    markHearingEnded(hearing.id);
+    if (!upNext) {
+      router.push("/employee/hearings");
+      return;
+    }
+    markHearingOngoing(upNext.id);
+    router.push(`/employee/hearings/${upNext.id}/order`);
+  }
+
+  return {
+    draftKey: hearing.id,
+    initial,
+    fixedIds: NO_FIXED_ITEMS,
+    heading: causeTitle(hearing),
+    facts: [
+      { label: "Item", value: String(hearing.item) },
+      { label: "Case", value: hearing.caseNumber, identifier: true },
+      { label: "Stage", value: courtCaseStageLabel(hearing.stage) },
+      { label: "Purpose", value: courtHearingPurposeLabel(hearing.purpose) },
+    ],
+    courtLine: courtText(`Before the ${CURRENT_STAFF.court}`),
+    subLine: `${hearing.caseNumber} · ${causeTitle(hearing)} · Hearing on ${formatOrderDate(today)}`,
+    navAction: (
+      <Button
+        type="button"
+        variant="outline"
+        className="w-full shrink-0 sm:w-fit"
+        onClick={advance}
+      >
+        {upNext ? "Next case" : "End hearing"}
+        <ChevronRightIcon data-icon="inline-end" aria-hidden />
+      </Button>
+    ),
+    /* B shipped with its own wording and no chevron; kept so this door changes no
+       label. Which one the court wants is the owner's call. */
+    variantNavAction: {
+      text: (
+        <Button
+          type="button"
+          className="w-full shrink-0 sm:w-fit"
+          variant="outline"
+          onClick={advance}
+        >
+          {upNext ? "Next hearing" : "End hearing"}
+        </Button>
+      ),
+    },
+    context,
+    today,
+    document: { caseNumber: hearing.caseNumber, matter: causeTitle(hearing) },
+    overview: hearingOverview(hearing),
+    overviewContent: <HearingCaseOverview hearing={hearing} />,
+    historyContent: <HearingCaseHistory hearing={hearing} />,
+    hearing: { hearing, appearances, applications, purpose: hearing.purpose },
+  };
 }
 
 export function OrderMissing() {
@@ -118,11 +184,6 @@ export function OrderMissing() {
   );
 }
 
-/** "By the accused, 28 Aug 2026" — who put an application in, and when. */
-export function applicationFiled(application: ListingApplication): string {
-  return `By the ${partySideLabel(application.filedFor)}, ${formatListingDate(application.filedOn)}`;
-}
-
 /** The matter's facts for the case file's Overview tab. */
 export function hearingOverview(hearing: CourtHearing) {
   const side = (which: "complainant" | "accused") => {
@@ -138,197 +199,4 @@ export function hearingOverview(hearing: CourtHearing) {
     { label: "Complainant", value: side("complainant") },
     { label: "Accused", value: side("accused") },
   ];
-}
-
-/**
- * Set or clear the decision on one application, in the draft's record and in its blocks:
- * the decision is an order item (`APL-07`), so deciding adds its block with the other
- * decisions at the head of the order, changing the decision replaces it in place, and
- * Undo takes it out.
- */
-export function decideApplication(
-  draft: OrderDraft,
-  application: ListingApplication,
-  decision: ListingApplicationDecision | null,
-  context: ReturnType<typeof composerContextFor>,
-): OrderDraft {
-  const at = draft.blocks.findIndex(
-    (block) => block.kind === "item" && block.applicationId === application.id,
-  );
-  const without = draft.blocks.filter((_, index) => index !== at);
-  let blocks: ComposerBlock[] = [...without];
-  if (decision) {
-    const block = decisionBlock(application, decision, context);
-    if (at >= 0) {
-      blocks = [...without.slice(0, at), block, ...without.slice(at)];
-    } else {
-      /* After the decisions already made, ahead of everything else: an order disposes
-         of what is pending before it directs what happens next. */
-      let insertAt = 0;
-      while (
-        insertAt < blocks.length &&
-        blocks[insertAt].kind === "item" &&
-        (blocks[insertAt] as { applicationId?: string }).applicationId
-      ) {
-        insertAt += 1;
-      }
-      blocks = [...blocks.slice(0, insertAt), block, ...blocks.slice(insertAt)];
-    }
-  }
-  return {
-    ...draft,
-    applications: { ...draft.applications, [application.id]: decision ?? undefined },
-    blocks,
-  };
-}
-
-/**
- * Version A — the block composer, for an order tied to a hearing: with Attendance and
- * Next hearing (`ORD-08`), and the applications standing on the matter.
- */
-function HearingOrder({ hearing }: { hearing: CourtHearing }) {
-  const router = useRouter();
-  const courtText = useCourtText();
-  const session = useHearingSession();
-  const today = useCourtToday();
-  const status = withHearingSession([hearing], session)[0].status;
-  const initial = React.useMemo(
-    () => initialOrderDraft(hearing, status, today),
-    [hearing, status, today],
-  );
-  const [draft, setDraft] = useOrderDraft(hearing.id, initial);
-  const context = React.useMemo(() => composerContextFor(hearing), [hearing]);
-  const appearances = React.useMemo(() => appearancesFor(hearing), [hearing]);
-  const listing = applicationsForListing(hearing.id);
-  const [openApplication, setOpenApplication] =
-    React.useState<ListingApplication | null>(null);
-  const upNext = nextUnhandledListing(hearing, session);
-
-  function decide(id: string, decision: ListingApplicationDecision | null) {
-    const application = listing.find((entry) => entry.id === id);
-    if (!application) return;
-    setDraft((current) =>
-      decideApplication(current, application, decision, context),
-    );
-  }
-
-  /** End this listing and call the next one on the board — what Next case does. */
-  function advance() {
-    markHearingEnded(hearing.id);
-    if (!upNext) {
-      router.push("/employee/hearings");
-      return;
-    }
-    markHearingOngoing(upNext.id);
-    router.push(`/employee/hearings/${upNext.id}/order`);
-  }
-
-  const applications: ComposerApplication[] = listing.map((application) => ({
-    id: application.id,
-    number: application.number,
-    type: listingApplicationLabel(application),
-    filed: applicationFiled(application),
-    decision: draft.applications[application.id],
-  }));
-
-  return (
-    <>
-      <OrderComposer
-        heading={causeTitle(hearing)}
-        facts={[
-          { label: "Item", value: String(hearing.item) },
-          { label: "Case", value: hearing.caseNumber, identifier: true },
-          { label: "Stage", value: courtCaseStageLabel(hearing.stage) },
-          { label: "Purpose", value: courtHearingPurposeLabel(hearing.purpose) },
-        ]}
-        courtLine={courtText(`Before the ${CURRENT_STAFF.court}`)}
-        subLine={`${hearing.caseNumber} · ${causeTitle(hearing)} · Hearing on ${formatOrderDate(today)}`}
-        navAction={
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full shrink-0 sm:w-fit"
-            onClick={advance}
-          >
-            {upNext ? "Next case" : "End hearing"}
-            <ChevronRightIcon data-icon="inline-end" aria-hidden />
-          </Button>
-        }
-        context={context}
-        today={today}
-        purpose={hearing.purpose}
-        inHearing
-        blocks={draft.blocks}
-        onBlocks={(update) =>
-          setDraft((current) => ({ ...current, blocks: update(current.blocks) }))
-        }
-        links={draft.links}
-        onLinks={(links) => setDraft((current) => ({ ...current, links }))}
-        attendance={{
-          appearances,
-          marks: draft.marks,
-          onMark: (id, mark) =>
-            setDraft((current) => ({
-              ...current,
-              marks: { ...current.marks, [id]: mark },
-            })),
-          onMarkAllPresent: () =>
-            setDraft((current) => ({
-              ...current,
-              marks: Object.fromEntries(
-                appearances.map((appearance) => [
-                  appearance.id,
-                  current.marks[appearance.id] ?? "present",
-                ]),
-              ),
-            })),
-        }}
-        applications={{
-          list: applications,
-          onDecide: decide,
-          onOpen: (id) =>
-            setOpenApplication(listing.find((entry) => entry.id === id) ?? null),
-        }}
-        nextHearing={{
-          next: draft.next,
-          purpose: draft.nextPurpose,
-          date: draft.nextDate,
-          onChange: (change) =>
-            setDraft((current) => ({
-              ...current,
-              next: change.next ?? current.next,
-              nextPurpose:
-                change.purpose !== undefined ? change.purpose : current.nextPurpose,
-              nextDate: change.date !== undefined ? change.date : current.nextDate,
-            })),
-        }}
-        overview={hearingOverview(hearing)}
-        overviewContent={<HearingCaseOverview hearing={hearing} />}
-        historyContent={<HearingCaseHistory hearing={hearing} />}
-        panelApplications={listing.map((application) => ({
-          id: application.id,
-          /* Type, number and filing each on a line of their own — never a type and a
-             number wrapping together. */
-          label: listingApplicationLabel(application),
-          number: application.number,
-          detail: applicationFiled(application),
-          decided: Boolean(draft.applications[application.id]),
-          onOpen: () => setOpenApplication(application),
-        }))}
-        document={hearingOrderDocument(hearing, draft, today)}
-      />
-      <ListingApplicationDialog
-        hearing={hearing}
-        application={openApplication}
-        onOpenChange={setOpenApplication}
-        onAllow={(application) => decide(application.id, "allowed")}
-        onDismiss={(application) => decide(application.id, "dismissed")}
-        onReturnFocus={() =>
-          window.document
-            .getElementById(`order-application-${openApplication?.id ?? ""}`)
-            ?.focus()
-        }
-      />
-    </>
-  );
 }

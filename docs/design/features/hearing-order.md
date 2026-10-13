@@ -1,5 +1,5 @@
 # Hearing order
-Updated: 2026-10-12
+Updated: 2026-10-13
 Status: implemented — A/B versions, render-checked
 
 ## Current outcome
@@ -69,10 +69,31 @@ Built in `apps/dristi-app/src/components/employee/order-screen.tsx` and
 render) and `order-save-indicator.tsx` (the Saved indicator) between them.
 The longer sitting-panel history remains in `docs/design/proposals/hearing-order.md`.
 
+### Adding a workflow that opens the order screen
+
+Every way into the order screen is one door description (`OrderDoor`) drawn by one
+screen ([`order-door-screen.tsx`](../../../apps/dristi-app/src/components/employee/order-door-screen.tsx)),
+which picks A, B or C and adapts the opening draft for each
+([`lib/employee/order-door.ts`](../../../apps/dristi-app/src/lib/employee/order-door.ts)).
+C opens only on hearing orders for now; a door without a hearing shows A under C.
+A new workflow writes three things:
+
+1. **A preset** in `lib/employee/` returning `{ blocks, fixedIds }` — the order items it
+   opens with and which cannot be removed (pattern: `cognizanceComposition` in
+   [`cognizance-order.ts`](../../../apps/dristi-app/src/lib/employee/cognizance-order.ts)).
+2. **A door builder** — a hook returning an `OrderDoor`: draft key, heading, facts,
+   notice, the way back, context and the preset as `initial` / `fixedIds`. Leave out
+   `hearing` for an order outside a hearing. Pattern: `useCognizanceOrderDoor` in
+   [`cognizance-order-screen.tsx`](../../../apps/dristi-app/src/components/employee/cognizance-order-screen.tsx).
+3. **A route page** that looks the subject up and renders
+   `<OrderDoorScreen door={door} />`.
+
 ## Decisions
 
 Date | Decision and reason | Source/person | Status
 ---|---|---|---
+2026-10-13 | Code-only restructuring, no behaviour change: the hearing and cognizance doors onto the order screen are **one door description + one screen** (`OrderDoor`, `OrderDoorScreen`), and all per-variant adaptation (B's opening text, C leaving out decision blocks, each variant's own draft key) is in `lib/employee/order-door.ts`. Draft keys are unchanged. C opens only on hearing orders for now: a door without a hearing falls back to A, as it always has. | owner (chat) | implemented |
+2026-10-13 | No order item should be non-removable; only Attendance and Next hearing should be. Supersedes the rule that a cognizance act's own item and its scheduling item are fixed (`cognizance-order.ts`). | owner (chat) | not implemented — pending its own change |
 2026-10-12 | A process item's **Addresses** are every destination on the person's record — postal addresses, mobile numbers and email addresses, each of which may be several — grouped by kind, each ticked on its own, all pre-selected. Each channel goes to the ticked destinations of its kind (SMS → mobiles, Email → emails, RPAD/e-Post/police → postal addresses), one process each; a channel with none of its kind ticked is noted. `case-people.ts` records now hold several mobiles and emails. | owner (chat) | implemented |
 2026-10-12 | Rebased onto `main` (the `design` branch is retired). The composer now reads the people on a case from main's `case-people.ts` (people with roles, addresses, mobiles, emails, witnesses) and its police-station master, replacing this branch's stand-in people and Kollam station list; channels follow the deployment (Police (NSTEP)); a channel the person has no destination for is noted beside the channels (`PRC-05`). Hearing and complaint data, and the paper, are voiced for the court chosen in settings (main's court switch). Supersedes main's multi-recipient issue-process pop-up with the one-person model above. | owner (chat) | implemented |
 2026-10-12 | **One police station per address**, not one per order item: on a police channel each address is its own process (§3, `PRC-05`), served through the station that covers it, so each selected address gets its own station dropdown, filled from that address (`AUT-04`) and changeable on its own. Corrects the previous build, which filled one station from the first address. | owner (chat) | implemented |
