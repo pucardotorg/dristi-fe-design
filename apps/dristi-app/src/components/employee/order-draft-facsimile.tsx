@@ -1,39 +1,20 @@
+import { useCourtLocalized } from "@/components/court/court-provider";
+import type { OrderDocument } from "@/lib/employee/order-draft";
+
 /**
  * The draft order as paper — the same facsimile treatment the signing queues use
- * (`sign-order-dialog.tsx`'s `OrderFacsimile`), bound to a listing's or a complaint's own
- * draft rather than a queued, already-added order.
+ * (`sign-order-dialog.tsx`'s `OrderFacsimile`), bound to an order still being drafted.
  *
- * Shared between the hearing composer (`order-screen.tsx`, `OrderDocument` from
- * `order-draft.ts`) and the cognizance composite (`cognizance-order-screen.tsx`, which
- * has no `OrderDocument` — a complaint carries no attendance or applications to fold in)
- * on a structural type rather than either one's own: both draw the same six facts and
- * one passage, and duplicating this component per screen would risk the "two answers to
- * what an order says" objection this codebase already states elsewhere.
- *
- * `document.body` is the one passage a composer writes: attendance, applications and the
- * next hearing are folded into it already, where the screen has any of those
- * (`upsertRichTextFact`, `upsertRichTextSentence` in `order-items.ts`), so unlike the
- * signing queue's flat `paragraphs` this only ever has one thing to render, as the rich
- * text it already is.
+ * One component for both doors onto the composer (a hearing, a complaint at
+ * cognizance), reading the one `OrderDocument` shape `order-draft.ts` builds — two
+ * renderings of the same draft would be two answers to what the order says.
  */
-
-import { useCourtLocalized } from "@/components/court/court-provider";
-
-export type DraftFacsimileDocument = {
-  court: string;
-  caseNumber: string;
-  matter: string;
-  title: string;
-  body: { html: string; pending: boolean };
-  dated: string;
-  signature: string;
-};
-
 export function OrderDraftFacsimile({
   document: storedDocument,
 }: {
-  document: DraftFacsimileDocument;
+  document: OrderDocument;
 }) {
+  /* Voiced for the court chosen in settings, as every paper on the court side is. */
   const document = useCourtLocalized(storedDocument);
   return (
     <article className="flex flex-col gap-6 rounded-md bg-paper p-6 text-paper-foreground">
@@ -45,16 +26,18 @@ export function OrderDraftFacsimile({
 
       <h3 className="text-center text-body font-semibold">{document.title}</h3>
 
-      {document.body.pending ? (
+      {document.paragraphs.length === 0 ? (
         <p className="text-body text-paper-muted-foreground">
           No order has been written.
         </p>
       ) : (
-        <div
-          className="text-body [&_p]:mb-3 [&_p:last-child]:mb-0"
-          // The composer's own escaped markup (`richTextFromPlain`), never external HTML.
-          dangerouslySetInnerHTML={{ __html: document.body.html }}
-        />
+        <div className="flex flex-col gap-3">
+          {document.paragraphs.map((paragraph, index) => (
+            <p key={index} className="text-body whitespace-pre-wrap">
+              {paragraph}
+            </p>
+          ))}
+        </div>
       )}
 
       <p className="text-body">Dated this the {document.dated}.</p>

@@ -1,41 +1,38 @@
 /**
- * Who a process goes to and how — what the issue-process pop-up asks for, and what it
- * opens on.
+ * Who a process order goes to, and how — the input a process order item needs beyond its
+ * template (`ITM-11` of `order-generation.md`).
  *
- * `PRC-03` (`handovers/process-handover.md`): the recipient and the delivery channels
- * are entered on the order screen, and for a police channel the police station.
- * `ITM-11` (`handovers/order-generation.md`): that is input the order item needs beyond
- * its template variables, asked for as part of adding the item.
+ * **One person, then their addresses, then the channels** (owner, 2026-10-12: "first, you
+ * select one person to issue that process to, and then you select some or all of the
+ * addresses associated with them, and then you select the channels"). A process order
+ * item goes to one person; summoning two people is two order items (`ITM-06`).
  *
- * **What it opens on is §5.1 of the handover**, and lives here so it is one place to
- * read and one place to test:
+ * **Addresses means every destination on the record** (owner, 2026-10-12): postal
+ * addresses, mobile numbers and email addresses, any of which may be several, all
+ * pre-selected (`AUT-07`). Each channel goes to the selected destinations of its own kind —
+ * SMS to each selected mobile, Email to each selected email address, RPAD, e-Post and the
+ * police channels to each selected postal address — and every one of those is its own
+ * process (`process-handover.md` §3, `PRC-02`, `PRC-05`). On a police channel **each postal
+ * address has its own police station**, pre-selected from it (`AUT-04`) and changeable.
  *
- * - `AUT-05` until the accused has joined, every accused is pre-selected;
- * - `AUT-06` after, the one witness not yet examined is — and if there is not exactly
- *   one, nobody is;
- * - `AUT-07` every address on a selected recipient's record is pre-selected;
- * - `AUT-08` channels by process type — SMS, Email and RPAD for notice and summons,
- *   Police (NSTEP) for warrant, proclamation and attachment;
- * - `AUT-04` the police station, from each address.
- *
- * **Several recipients at once is the screen's convenience only** (`AUT-09`). What the
- * order triggers is still one process per recipient, per channel, per address (§3) —
- * `processesFor` below is that resolution, and the pop-up shows its count so the
- * drafter can see what confirming will create.
+ * The people, their addresses, mobiles and emails, and the police-station master come from
+ * `case-people.ts`. The rest follows `dristi-be/PRDs/process-handover.md` (v10 and the §5.1
+ * pre-selection rules of 2026-10-01): channels permitted per process type and per
+ * deployment (§6.3, `PRC-04`), the person, channels and party taking steps pre-selected
+ * (`AUT-02`, `AUT-05`, `AUT-06`, `AUT-08`), and a channel whose destination the person's
+ * record does not hold sends nothing to them, which the screen says beside it (`PRC-05`).
  */
 
 import {
-  formatStructuredAddress,
-  type StructuredAddress,
-} from "@/components/cases/structured-address";
-
-import {
-  casePeopleFor,
   policeStationFor,
-  type CaseMatter,
+  policeStationsFor,
   type CasePerson,
 } from "./case-people";
 import type { OrderTemplateId } from "./order-templates";
+
+/* The stations a court's dropdowns offer — Panchkula for Punjab and Haryana only. */
+export { policeStationsFor };
+export type { CasePerson };
 
 export type ProcessChannel =
   | "sms"
@@ -46,14 +43,13 @@ export type ProcessChannel =
   | "police-nstep"
   | "police-icops";
 
-/** What on a recipient's record a channel delivers to (`PRC-05`). */
 type Destination = "mobile" | "email" | "address";
 
 export const PROCESS_CHANNELS: {
   id: ProcessChannel;
   label: string;
   destination: Destination;
-  /** A police channel goes to a police station, which is entered alongside (`PRC-03`). */
+  /** A police channel goes through a police station, chosen per address (`PRC-03`). */
   police: boolean;
 }[] = [
   { id: "sms", label: "SMS", destination: "mobile", police: false },
@@ -65,12 +61,7 @@ export const PROCESS_CHANNELS: {
   { id: "police-icops", label: "Police (iCOPS)", destination: "address", police: true },
 ];
 
-/**
- * The channels this deployment offers (`PRC-04`). A deployment runs Police (NSTEP) or
- * Police (iCOPS), not both; this one runs NSTEP, as the owner specified the default
- * (2026-10-01). A Kerala deployment swaps the one for the other here, and `AUT-08`'s
- * police default follows it.
- */
+/** The channels this deployment runs (`PRC-04`). */
 export const DEPLOYMENT_CHANNELS: ProcessChannel[] = [
   "sms",
   "email",
@@ -80,263 +71,233 @@ export const DEPLOYMENT_CHANNELS: ProcessChannel[] = [
   "police-nstep",
 ];
 
-/** The process templates the pop-up is asked for — every one in the Process group. */
-export type ProcessTemplateId = Extract<
-  OrderTemplateId,
-  | "issue-of-notice"
-  | "issue-of-summons"
-  | "issue-of-warrants"
-  | "issue-of-proclamation"
-  | "issue-of-attachment"
-  | "issue-of-miscellaneous-process"
->;
-
 const ALL: ProcessChannel[] = PROCESS_CHANNELS.map((channel) => channel.id);
-const POLICE: ProcessChannel[] = ["police-rpad", "police-nstep", "police-icops"];
-
-/** Which process type allows which channel — §6.3 of the handover. */
-const PERMITTED: Record<ProcessTemplateId, ProcessChannel[]> = {
-  "issue-of-notice": ["sms", "email", "rpad", "epost"],
-  "issue-of-summons": ALL,
-  "issue-of-warrants": POLICE,
-  "issue-of-proclamation": POLICE,
-  "issue-of-attachment": POLICE,
-  "issue-of-miscellaneous-process": ALL,
-};
-
-/** The deployment's digital police channel — whichever of NSTEP and iCOPS it runs. */
+const POLICE: ProcessChannel[] = PROCESS_CHANNELS.filter((channel) => channel.police).map(
+  (channel) => channel.id,
+);
 const DIGITAL_POLICE: ProcessChannel = DEPLOYMENT_CHANNELS.includes("police-icops")
   ? "police-icops"
   : "police-nstep";
 
-/**
- * What each type opens with ticked — `AUT-08`. Custom process has no default in the
- * handover, so it opens with none.
- */
-const PRESELECTED: Record<ProcessTemplateId, ProcessChannel[]> = {
-  "issue-of-notice": ["sms", "email", "rpad"],
-  "issue-of-summons": ["sms", "email", "rpad"],
-  "issue-of-warrants": [DIGITAL_POLICE],
-  "issue-of-proclamation": [DIGITAL_POLICE],
-  "issue-of-attachment": [DIGITAL_POLICE],
-  "issue-of-miscellaneous-process": [],
-};
-
-export function isProcessTemplate(id: string): id is ProcessTemplateId {
-  return id in PERMITTED;
-}
-
-/** The channels the pop-up offers for this type: permitted by type and by deployment. */
-export function channelsFor(template: ProcessTemplateId) {
-  return PROCESS_CHANNELS.filter(
-    (channel) =>
-      PERMITTED[template].includes(channel.id) && DEPLOYMENT_CHANNELS.includes(channel.id),
-  );
-}
-
-export type ProcessAddress = {
-  id: string;
-  address: StructuredAddress;
-  selected: boolean;
-  /** For a police channel. Pre-selected from the address, or empty if it does not
-   *  resolve to one station (`AUT-04`). */
-  policeStation: string;
-};
-
-/** One person the process could go to, and whether this confirmation carries them. */
-export type ProcessRecipient = Omit<CasePerson, "addresses"> & {
-  selected: boolean;
-  addresses: ProcessAddress[];
-};
-
-/** Why the pop-up opened on the recipients it did — said in the pop-up. */
-export type PreselectionReason =
-  | "accused-not-joined"
-  | "one-witness-unexamined"
-  | "open";
-
-/** What the drafter confirmed before the process sentence was written in. */
-export type ProcessVariables = {
-  template: ProcessTemplateId;
-  recipients: ProcessRecipient[];
-  channels: Readonly<Record<ProcessChannel, boolean>>;
-  reason: PreselectionReason;
-};
-
-/** What the pop-up opens on, for this type of process on this case — §5.1. */
-export function defaultProcessVariables(
-  template: ProcessTemplateId,
-  matter: CaseMatter,
-): ProcessVariables {
-  const { people, accusedJoined } = casePeopleFor(matter);
-  const unexamined = people.filter(
-    (entry) => entry.kind === "witness" && entry.examined === false,
-  );
-
-  let reason: PreselectionReason;
-  let chosen: (entry: CasePerson) => boolean;
-  if (!accusedJoined) {
-    reason = "accused-not-joined";
-    chosen = (entry) => entry.kind === "accused";
-  } else if (unexamined.length === 1) {
-    reason = "one-witness-unexamined";
-    chosen = (entry) => entry.id === unexamined[0].id;
-  } else {
-    reason = "open";
-    chosen = () => false;
+function permitted(type: OrderTemplateId): ProcessChannel[] {
+  switch (type) {
+    case "issue-of-notice":
+      return ["sms", "email", "rpad", "epost"];
+    case "issue-of-warrants":
+    case "issue-of-proclamation":
+    case "issue-of-attachment":
+      return POLICE;
+    default:
+      return ALL;
   }
+}
 
-  const offered = channelsFor(template).map((channel) => channel.id);
+/** §6.3 and `PRC-04` — the channels a process type may use in this deployment. */
+export function channelsFor(type: OrderTemplateId): ProcessChannel[] {
+  return permitted(type).filter((channel) => DEPLOYMENT_CHANNELS.includes(channel));
+}
+
+/** `AUT-08` — the channels pre-selected for a process type. */
+export function defaultChannelsFor(type: OrderTemplateId): ProcessChannel[] {
+  switch (type) {
+    case "issue-of-summons":
+    case "issue-of-notice":
+      return ["sms", "email", "rpad"];
+    case "issue-of-warrants":
+    case "issue-of-proclamation":
+    case "issue-of-attachment":
+      return [DIGITAL_POLICE];
+    /* `AUT-08` names no default for a miscellaneous process. */
+    default:
+      return [];
+  }
+}
+
+export function channelLabel(id: ProcessChannel): string {
+  return PROCESS_CHANNELS.find((channel) => channel.id === id)?.label ?? id;
+}
+
+/** What a process order item carries about delivery. */
+export type ProcessRecipients = {
+  /** The one person it is addressed to, or `""` until chosen. */
+  person: string;
+  /**
+   * Which of that person's destinations it goes to — postal address, mobile number and
+   * email ids from their record, mixed.
+   */
+  destinations: string[];
+  channels: ProcessChannel[];
+  /** On a police channel, the station for each selected postal address, keyed by its id. */
+  policeStations: Readonly<Record<string, string>>;
+};
+
+/**
+ * `AUT-05`/`AUT-06` — the person pre-selected: the accused until the accused has joined
+ * the case; after that the one witness not yet examined, if there is exactly one;
+ * otherwise nobody, and the choice is left open. Where the case has more than one accused,
+ * each is a separate order item, so the first is pre-selected here.
+ */
+export function defaultPerson(
+  people: readonly CasePerson[],
+  accusedJoined: boolean,
+): string {
+  if (!accusedJoined) {
+    return people.find((person) => person.kind === "accused")?.id ?? "";
+  }
+  const pending = people.filter(
+    (person) => person.kind === "witness" && person.examined === false,
+  );
+  return pending.length === 1 ? pending[0].id : "";
+}
+
+/** `AUT-07` — every destination on the person's record: addresses, mobiles, emails. */
+export function destinationsOf(
+  people: readonly CasePerson[],
+  person: string,
+): string[] {
+  const record = people.find((entry) => entry.id === person);
+  if (!record) return [];
+  return [
+    ...record.addresses.map((entry) => entry.id),
+    ...record.mobiles.map((entry) => entry.id),
+    ...record.emails.map((entry) => entry.id),
+  ];
+}
+
+/**
+ * `AUT-04` — the station with jurisdiction over each selected postal address, by its id,
+ * or `""` where an address does not resolve to one and the drafter chooses.
+ */
+export function stationsFor(
+  people: readonly CasePerson[],
+  person: string,
+  destinations: readonly string[],
+): Record<string, string> {
+  const record = people.find((entry) => entry.id === person);
+  return Object.fromEntries(
+    (record?.addresses ?? [])
+      .filter((entry) => destinations.includes(entry.id))
+      .map((entry) => [entry.id, policeStationFor(entry.address) ?? ""]),
+  );
+}
+
+/** The selected postal addresses — what RPAD, e-Post and the police channels go to. */
+export function selectedAddresses(
+  person: CasePerson | undefined,
+  recipients: ProcessRecipients,
+): string[] {
+  return (person?.addresses ?? [])
+    .map((entry) => entry.id)
+    .filter((id) => recipients.destinations.includes(id));
+}
+
+/** How many processes this creates: one per channel and selected destination of its kind. */
+export function processCount(
+  person: CasePerson | undefined,
+  recipients: ProcessRecipients,
+): number {
+  if (!person) return 0;
+  const picked = (ids: string[]) =>
+    ids.filter((id) => recipients.destinations.includes(id)).length;
+  const counts: Record<Destination, number> = {
+    address: picked(person.addresses.map((entry) => entry.id)),
+    mobile: picked(person.mobiles.map((entry) => entry.id)),
+    email: picked(person.emails.map((entry) => entry.id)),
+  };
+  return recipients.channels.reduce((sum, id) => {
+    const channel = PROCESS_CHANNELS.find((entry) => entry.id === id);
+    return sum + (channel ? counts[channel.destination] : 0);
+  }, 0);
+}
+
+/**
+ * `AUT-02`/`AUT-03` — the party directed to take steps, worked out from the person: for
+ * the accused, the complainant; for the complainant, the accused; for a witness, the side
+ * that called them. `""` when nobody is chosen, and the drafter chooses.
+ */
+export function stepsFor(
+  people: readonly CasePerson[],
+  person: string,
+): "" | "complainant" | "accused" {
+  const record = people.find((entry) => entry.id === person);
+  if (!record) return "";
+  if (record.kind === "accused") return "complainant";
+  if (record.kind === "complainant") return "accused";
+  return record.side;
+}
+
+export function defaultProcessRecipients(
+  type: OrderTemplateId,
+  people: readonly CasePerson[],
+  accusedJoined: boolean,
+): ProcessRecipients {
+  const person = defaultPerson(people, accusedJoined);
+  const destinations = destinationsOf(people, person);
   return {
-    template,
-    reason,
-    recipients: people.map((entry) => ({
-      ...entry,
-      selected: chosen(entry),
-      addresses: entry.addresses.map((place) => ({
-        ...place,
-        selected: true,
-        policeStation: policeStationFor(place.address) ?? "",
-      })),
-    })),
-    channels: ALL.reduce(
-      (channels, id) => ({
-        ...channels,
-        [id]: offered.includes(id) && PRESELECTED[template].includes(id),
-      }),
-      {} as Record<ProcessChannel, boolean>,
-    ),
+    person,
+    destinations,
+    channels: defaultChannelsFor(type),
+    policeStations: stationsFor(people, person, destinations),
   };
 }
 
-/** The recipients this confirmation actually carries — the ticked rows, not every row. */
-export function selectedRecipients(variables: ProcessVariables): ProcessRecipient[] {
-  return variables.recipients.filter((entry) => entry.selected);
+export function needsPoliceStation(recipients: ProcessRecipients): boolean {
+  return recipients.channels.some((channel) => POLICE.includes(channel));
 }
-
-export function selectedChannels(variables: ProcessVariables) {
-  return channelsFor(variables.template).filter(
-    (channel) => variables.channels[channel.id],
-  );
-}
-
-/** One process the order will create: one recipient, one channel, one destination. */
-export type ResolvedProcess = {
-  recipientId: string;
-  channel: ProcessChannel;
-  /** For an address channel. */
-  addressId?: string;
-  /** For a police channel. */
-  policeStation?: string;
-};
 
 /**
- * What confirming creates — one process per recipient, per channel, per address (§3,
- * `PRC-02`). A recipient whose record holds no destination of a channel's kind gets no
- * process on it (`PRC-05`).
+ * The selected channels that will send nothing, because no destination of their kind is
+ * selected — or none is on the person's record at all (`PRC-05`, `AUT-08`). Said beside
+ * the channels; the process simply does not go on that channel.
  */
-export function processesFor(variables: ProcessVariables): ResolvedProcess[] {
-  const channels = selectedChannels(variables);
-  return selectedRecipients(variables).flatMap((recipient) =>
-    channels.flatMap((channel): ResolvedProcess[] => {
-      if (channel.destination === "mobile") {
-        return recipient.mobile ? [{ recipientId: recipient.id, channel: channel.id }] : [];
-      }
-      if (channel.destination === "email") {
-        return recipient.email ? [{ recipientId: recipient.id, channel: channel.id }] : [];
-      }
-      return recipient.addresses
-        .filter((place) => place.selected)
-        .map((place) => ({
-          recipientId: recipient.id,
-          channel: channel.id,
-          addressId: place.id,
-          ...(channel.police ? { policeStation: place.policeStation } : {}),
-        }));
-    }),
-  );
-}
-
-/** The selected channels this recipient's record cannot take — said beside them. */
 export function unreachableChannels(
-  variables: ProcessVariables,
-  recipient: ProcessRecipient,
-): string[] {
-  return selectedChannels(variables)
-    .filter((channel) =>
-      channel.destination === "mobile"
-        ? !recipient.mobile
-        : channel.destination === "email"
-          ? !recipient.email
-          : !recipient.addresses.some((place) => place.selected),
-    )
-    .map((channel) => channel.label);
-}
-
-/** Whether any selected channel goes through the police, so stations are asked for. */
-export function needsPoliceStation(variables: ProcessVariables): boolean {
-  return selectedChannels(variables).some((channel) => channel.police);
+  person: CasePerson | undefined,
+  recipients: ProcessRecipients,
+): ProcessChannel[] {
+  if (!person) return [];
+  const has = (ids: string[]) => ids.some((id) => recipients.destinations.includes(id));
+  return recipients.channels.filter((id) => {
+    const channel = PROCESS_CHANNELS.find((entry) => entry.id === id);
+    if (!channel) return false;
+    if (channel.destination === "mobile") return !has(person.mobiles.map((entry) => entry.id));
+    if (channel.destination === "email") return !has(person.emails.map((entry) => entry.id));
+    return !has(person.addresses.map((entry) => entry.id));
+  });
 }
 
 /**
- * Whether this confirmation can be saved: at least one recipient and one channel
- * (`PRC-03`), at least one process actually resolving from them, and a police station
- * on every police process.
+ * What is still missing before the process can run: the person, at least one of their
+ * destinations, at least one channel, and on a police channel a station for every
+ * selected postal address (`PRC-03`).
  */
-export function processVariablesComplete(variables: ProcessVariables): boolean {
-  const processes = processesFor(variables);
-  return (
-    selectedRecipients(variables).length > 0 &&
-    selectedChannels(variables).length > 0 &&
-    processes.length > 0 &&
-    processes.every((entry) => entry.policeStation !== "")
-  );
+export function recipientGaps(
+  recipients: ProcessRecipients,
+  person: CasePerson | undefined,
+): string[] {
+  const gaps: string[] = [];
+  if (!recipients.person) gaps.push("Addressed to");
+  else if (recipients.destinations.length === 0) gaps.push("Addresses");
+  if (recipients.channels.length === 0) gaps.push("Channels");
+  if (
+    needsPoliceStation(recipients) &&
+    selectedAddresses(person, recipients).some((id) => !recipients.policeStations[id])
+  ) {
+    gaps.push("Police station");
+  }
+  return gaps;
 }
 
-/** Names joined the way a sentence names more than one party: "A" · "A and B" · "A, B and C". */
-export function joinNames(names: string[]): string {
+/** Names joined the way a sentence names more than one person: "A" · "A and B" · "A, B and C". */
+export function joinNames(names: readonly string[]): string {
   if (names.length === 0) return "";
   if (names.length === 1) return names[0];
   return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
 }
 
-/** The channels chosen, as the "Pulled into this order" row states them. */
-export function channelSummary(variables: ProcessVariables): string {
-  const chosen = selectedChannels(variables).map((channel) => channel.label);
+/** The channels chosen, in the catalogue's order, as one line. */
+export function channelSummary(channels: readonly ProcessChannel[]): string {
+  const chosen = PROCESS_CHANNELS.filter((channel) =>
+    channels.includes(channel.id),
+  ).map((channel) => channel.label);
   return chosen.length > 0 ? chosen.join(", ") : "No channel selected";
 }
-
-/**
- * Who the process is to and who takes steps, for the template's `[Party Type]` and
- * `[Party Name]` tokens (`fillPartyVariables` in `order-templates.ts`).
- *
- * The party taking steps follows `AUT-02`: for the accused, the complainant; for the
- * complainant, the accused; for a witness, their own side. Where the recipients
- * selected resolve to different parties, it is left `undefined` and the token stays in
- * brackets for the drafter (`AUT-03`).
- */
-export function processParties(variables: ProcessVariables): {
-  type?: string;
-  names: string;
-  takingSteps?: string;
-} {
-  const recipients = selectedRecipients(variables);
-  const kinds = new Set(recipients.map((entry) => entry.kind));
-  const steps = new Set(
-    recipients.map((entry) =>
-      entry.kind === "accused"
-        ? "complainant"
-        : entry.kind === "complainant"
-          ? "accused"
-          : entry.side,
-    ),
-  );
-  const [kind] = [...kinds];
-  return {
-    type: kinds.size === 1 ? (kind === "witness" && recipients.length > 1 ? "witnesses" : kind) : undefined,
-    names: joinNames(recipients.map((entry) => entry.name)),
-    takingSteps: steps.size === 1 ? [...steps][0] : undefined,
-  };
-}
-
-export { formatStructuredAddress };

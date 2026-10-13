@@ -67,11 +67,16 @@ import {
  * One set of sections, two dresses — rather than a second composition of the same
  * facts, which is how two surfaces holding one case start disagreeing about it.
  */
-export type HearingOverviewSurface = "page" | "overlay";
+/**
+ * `panel`: inside another panel's tab — the order composer's case file. The tab is the
+ * frame, so the sections carry none of their own.
+ */
+export type HearingOverviewSurface = "page" | "overlay" | "panel";
 
 const PANEL: Record<HearingOverviewSurface, string> = {
   page: "min-w-0 rounded-xl border border-hairline bg-card p-6 shadow-raised",
   overlay: "min-w-0 rounded-lg bg-card p-4",
+  panel: "min-w-0",
 };
 
 /** The one inset inside Last hearing — a sunken well in a white card on both surfaces. */
@@ -86,6 +91,7 @@ const ORDER_WELL = "bg-surface-sunken";
 const INSET_RADIUS: Record<HearingOverviewSurface, string> = {
   page: "rounded-lg",
   overlay: "rounded-md",
+  panel: "rounded-lg",
 };
 
 /**
@@ -699,7 +705,11 @@ function CaseHistoryPanel({
       className={`${PANEL[surface]} @container flex flex-col gap-6 ${className ?? ""}`}
       aria-labelledby="case-history"
     >
-      <h2 id="case-history" className="text-body font-semibold">
+      {/* In the case file's own Case history tab the tab names it already. */}
+      <h2
+        id="case-history"
+        className={surface === "panel" ? "sr-only" : "text-body font-semibold"}
+      >
         Case history
       </h2>
       {/* Two phases, stacked, in the order they happened. Everything in the first
@@ -750,5 +760,42 @@ function CaseHistoryPanel({
         </StepGroup>
       </div>
     </section>
+  );
+}
+
+/**
+ * The case at a glance, for a narrow column — the order composer's case file, Overview
+ * tab: the same Case details and Last hearing the hearing overview shows, stacked.
+ */
+export function HearingCaseOverview({ hearing }: { hearing: CourtHearing }) {
+  const extras = hearingCaseExtras(hearing.id);
+  return (
+    <div className="flex min-w-0 flex-col gap-8">
+      <CaseFactsPanel hearing={hearing} extras={extras} surface="panel" />
+      {extras.lastHearing ? (
+        <LastHearingPanel
+          on={extras.lastHearing.on}
+          purpose={extras.lastHearing.purpose}
+          order={extras.lastHearing.order}
+          directed={extras.lastHearing.directed}
+          surface="panel"
+        />
+      ) : (
+        <NoLastHearingPanel surface="panel" />
+      )}
+    </div>
+  );
+}
+
+/** The case's history, for a narrow column — the order composer's Case history tab. */
+export function HearingCaseHistory({ hearing }: { hearing: CourtHearing }) {
+  const today = useCourtToday();
+  return (
+    <CaseHistoryPanel
+      hearing={hearing}
+      extras={hearingCaseExtras(hearing.id)}
+      today={today}
+      surface="panel"
+    />
   );
 }

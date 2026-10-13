@@ -33,6 +33,11 @@ import {
 import { useCognizanceLayout } from "@/components/employee/use-cognizance-layout";
 import type { CognizanceLayout } from "@/lib/employee/cognizance-layout";
 import { useCourtNavLayout } from "@/components/employee/use-court-nav-layout";
+import { useOrderLayout } from "@/components/employee/use-order-layout";
+import {
+  ORDER_LAYOUT_OPTIONS,
+  type OrderLayout,
+} from "@/lib/employee/order-layout";
 import type { CourtNavLayout } from "@/lib/employee/nav-layout";
 import { BrandGlyph } from "@/components/brand-lockup";
 import { useCourtSearch } from "@/components/employee/court-search";
@@ -930,6 +935,7 @@ function CourtSettingsControl() {
   const { court, setCourt } = useCourt();
   const [layout, setLayout] = useCourtNavLayout();
   const [cognizanceLayout, setCognizanceLayout] = useCognizanceLayout();
+  const [orderLayout, setOrderLayout] = useOrderLayout();
   return (
     <DropdownMenu>
       <Tooltip>
@@ -994,6 +1000,18 @@ function CourtSettingsControl() {
           <DropdownMenuRadioItem value="split">
             Split into two rows
           </DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel>Order screen</DropdownMenuLabel>
+        <DropdownMenuRadioGroup
+          value={orderLayout}
+          onValueChange={(next) => setOrderLayout(next as OrderLayout)}
+        >
+          {ORDER_LAYOUT_OPTIONS.map((option) => (
+            <DropdownMenuRadioItem key={option.id} value={option.id}>
+              {option.label}
+            </DropdownMenuRadioItem>
+          ))}
         </DropdownMenuRadioGroup>
         <DropdownMenuSeparator />
         <DropdownMenuLabel>Court</DropdownMenuLabel>

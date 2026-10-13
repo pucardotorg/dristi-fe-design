@@ -37,7 +37,7 @@
  */
 
 import type { CourtHearing } from "./hearings";
-import type { OrderDrafts } from "./order-drafts";
+import { hasDraftFor, type OrderDrafts } from "./order-drafts";
 
 /** The composer that owns the words — the row's opener, and the way to finish one. */
 export function draftOrderHref(hearing: { id: string }): string {
@@ -54,7 +54,7 @@ export function hasOrderDrawnUp(
   hearing: CourtHearing,
   drafts: OrderDrafts,
 ): boolean {
-  const drafted = Boolean(drafts[hearing.id]);
+  const drafted = hasDraftFor(drafts, hearing.id);
   const recorded = hearing.status === "completed";
   return drafted || recorded;
 }

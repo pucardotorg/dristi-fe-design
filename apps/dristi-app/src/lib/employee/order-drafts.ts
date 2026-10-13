@@ -89,3 +89,26 @@ export function updateOrderDraft(
 ): void {
   writeOrderDraft(hearingId, update(readOrderDraft(hearingId, initial)));
 }
+
+/**
+ * Version B's key for a listing's draft (`lib/employee/order-door.ts`). Its own key, so the block
+ * composer and the text-box composer never share a half-made order while they are A/B
+ * tested side by side.
+ */
+export function textDraftKey(id: string): string {
+  return `text:${id}`;
+}
+
+/** Version C's key for a listing's draft (`lib/employee/order-door.ts`), its own like B's. */
+export function proceedingsDraftKey(id: string): string {
+  return `proceedings:${id}`;
+}
+
+/** Whether a listing has an order started on it, in either version of the composer. */
+export function hasDraftFor(drafts: OrderDrafts, hearingId: string): boolean {
+  return Boolean(
+    drafts[hearingId] ??
+      drafts[textDraftKey(hearingId)] ??
+      drafts[proceedingsDraftKey(hearingId)],
+  );
+}

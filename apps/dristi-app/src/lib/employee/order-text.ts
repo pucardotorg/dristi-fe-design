@@ -1,107 +1,23 @@
 /**
- * The orders a day-order can carry — now the court's catalogue, not this app's.
+ * The order as one body of rich text — version B of the order composer
+ * (`order-door-screen.tsx`), the text-box screen kept beside the block composer for A/B
+ * testing (owner, 2026-10-12).
  *
- * This file used to hold seventeen English sentences written here, with a comment saying
- * so: *"The standing words are this app's, not a court's. No template library was given
- * to us."* One was given to us on 2026-09-13. The words now come from
- * `order-templates.ts`, which transcribes the court's own twenty-seven templates, and
- * this module is the thin layer between that catalogue and the draft the composer holds.
- *
- * **What an order opens on is its BOTD line with the auto-fill pass run over it.**
- * *(Corrected 2026-09-14. This comment used to say none of the twenty-seven references a
- * general variable and there was therefore nothing to fill — read off the six* name *rows
- * of the spec's general-variables table, which has thirteen. `[Application Number]`,
- * `[Hearing Purpose]` and the hearing dates are general or context variables and they are
- * all over the catalogue.)*
- *
- * What is still **not** filled, and this part of the old comment stands: which party is
- * summoned and what a cost is set at are choices, and the spec is explicit that the
- * system cannot make them — *"The system cannot fill a variable when it requires a choice
- * among multiple options."* The old build wrote "Issue summons to Anand Traders" and read
- * as finished while nobody had chosen anything, so `[Party Type]`, `[Party Name]`,
- * `[Amount]` and the discretionary dates keep their brackets and wait for D31's fields.
+ * Each order item's words are marked with the item's id (`ORDER_ITEM_ATTRIBUTE`), so a
+ * re-answered item can write its corrected sentence where the old one stood and a removed
+ * item can take out exactly what it wrote; the attendance and next-hearing lines are
+ * marked as facts of the sitting (`upsertRichTextFact`). Carried over unchanged from the
+ * text-box composer this replaced as version A.
  */
 
 import type { RichTextValue } from "@/components/cases/rich-text-field";
 
-import {
-  fillGeneralVariables,
-  orderTemplate,
-  type OrderTemplateFacts,
-  type OrderTemplateId,
-} from "./order-templates";
-import type { ProcessVariables } from "./process-variables";
+import type { ComposerBlock } from "./order-composer";
+import type { OrderRecitalLine } from "./order-draft";
 
 /**
- * A chosen order, or the one escape from the catalogue.
- *
- * `others` is **not** in the court's catalogue and is marked here rather than smuggled
- * into it. It is what a sitting passed that the twenty-seven have no name for, and the
- * composer needs it because a day the catalogue cannot describe still has to be
- * recorded. How often a typist reaches for it is a reading on the catalogue, not on the
- * typist — if it is often, the catalogue is short and that is worth telling product.
- */
-export type OrderItemTypeId = OrderTemplateId | "others";
-
-export function isOrderItemTypeId(value: string): value is OrderItemTypeId {
-  if (value === "others") return true;
-  try {
-    orderTemplate(value as OrderTemplateId);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-export function orderItemLabel(id: OrderItemTypeId): string {
-  if (id === "others") return "Others";
-  try {
-    return orderTemplate(id).label;
-  } catch {
-    return id;
-  }
-}
-
-/**
- * The words an order opens on: its BOTD line, with the auto-fill pass run over it.
- *
- * **`facts` is what makes this the spec's step 3 rather than a paste of the template.**
- * The spec's resolution order is explicit — the judge selects a type, the system loads
- * the template, *then* "general variables and context variables are filled in", and only
- * what is left becomes a field the judge answers. Without facts this returns the raw
- * template, which is what an order opened on until 2026-09-14 and what
- * `orderItemStandingText(id)` still means for callers that have no case in hand (the
- * catalogue tests, and anything asking "what does this template say").
- *
- * What cannot be resolved stays standing as its own bracketed token — see
- * `fillGeneralVariables`. That is the whole reason auto-fill is safe to do at all: it
- * never has to decide between a value and a blank, because an unresolved slot keeps its
- * name and stays visible in the place the value goes.
- */
-export function orderItemStandingText(
-  id: OrderItemTypeId,
-  facts?: OrderTemplateFacts,
-): string {
-  if (id === "others") return "";
-  try {
-    const botd = orderTemplate(id).botd;
-    return facts ? fillGeneralVariables(botd, facts) : botd;
-  } catch {
-    return "";
-  }
-}
-
-/**
- * The plain sentence as the editor's own markup.
- *
- * The same escape the citizen side makes for the same reason (`lib/cases/
- * application-draft.ts`); the two do not share a function because `/employee` does not
- * import from there (`content.ts`).
- *
- * `item` marks the paragraph as the words one pulled-in order contributed — see
- * `ORDER_ITEM_ATTRIBUTE`. Only a *template's* passage carries it: the disposal sentences
- * an answered application writes are facts of the sitting rather than items of the
- * catalogue, and nothing offers to take them back out.
+ * A plain sentence as the editor's own markup. `item` marks the paragraph as the words
+ * one order item contributed — see `ORDER_ITEM_ATTRIBUTE`.
  */
 export function richTextFromPlain(
   value: string,
@@ -377,29 +293,6 @@ const ORDER_FACT_ATTRIBUTE = "data-order-fact";
 /** Which known fact of the sitting a marked line carries. */
 export type OrderFactId = "attendance" | "next";
 
-/**
- * One line of a recital: what it is, and what the sitting says it is.
- *
- * **The structure is the point** (owner, 2026-09-16: the roll and the posting should be
- * "in a proper structured order, rather than just dumping it in the text box"). The first
- * build recited the roll as four running sentences — *Sunil Varghese, the complainant, is
- * present. Adv. Suresh Menon, advocate for the complainant, is present. …* — which is
- * true, and unreadable: the fact a reader wants out of an appearance line is *who was
- * absent*, and it was buried in the middle of a paragraph by whichever order the offices
- * happen to sit in.
- *
- * So the recital is labelled lines, the way an order sheet has always called a roll:
- * **Present:** and **Absent:** with their offices behind them, and the posting as its
- * date and its purpose. A label rather than a sentence also means the line stays legible
- * when a state translates it, and it is what makes *nobody absent* visible — the Absent
- * line is simply not there.
- *
- * The label is carried apart from the value, rather than as ready-made markup, so that
- * this stays a plain testable value and the escaping happens in exactly one place
- * (`recitalHtml`). A party named "A & B <Traders>" must not be able to write markup into
- * a court order.
- */
-export type OrderRecitalLine = { label: string; value: string };
 
 /** The recital as the order renders it: a bold label, its value, one line each. */
 function recitalHtml(lines: readonly OrderRecitalLine[]): string {
@@ -409,17 +302,6 @@ function recitalHtml(lines: readonly OrderRecitalLine[]): string {
         `<strong>${escapeText(line.label)}:</strong> ${escapeText(line.value)}`,
     )
     .join("<br>");
-}
-
-/**
- * The recital's plain form — the same lines without the markup.
- *
- * `plainTextOfRichText` computes this out of the passage for the draft's own plain half;
- * this is for a caller that holds the lines and not the document, which is how the
- * fixture and its tests state what the order should read.
- */
-export function recitalText(lines: readonly OrderRecitalLine[]): string {
-  return lines.map((line) => `${line.label}: ${line.value}`).join("\n");
 }
 
 /** The one that closes the order, and so the one a new passage is added above. */
@@ -554,65 +436,31 @@ export function upsertRichTextFact(
   return { html, text: plainTextOfRichText(html) };
 }
 
-/** One order in the draft: what it is, and the words it carries. */
-export type OrderItemDraft = {
-  id: string;
-  type: OrderItemTypeId;
-  text: RichTextValue;
-  /**
-   * The addressee and delivery-channel confirmation this item was given, for the
-   * process types that ask for one (`needsProcessVariables`). Absent for every other
-   * type, and absent for a process item added before the confirmation existed — the
-   * catalogue's own "Pulled into this order" row reads this to say whether the
-   * confirmation is still owed.
-   *
-   * Stored as data rather than only as words in `text` (`VAR-08` of
-   * `order-generation.md`): the channels drive the delivery workflow this order
-   * triggers on signature, and that workflow has nothing of its own to parse them back
-   * out of a sentence the drafter is free to edit.
-   */
-  variables?: ProcessVariables;
-};
-
-/*
- * Ids only have to be unique inside one listing's draft, and the drafts die on a reload
- * (`order-drafts.ts`), so a counter is enough and it keeps the module testable — no clock
- * and no randomness in a value the editor is keyed on.
- */
-let sequence = 0;
-
-export function nextOrderItemId(): string {
-  sequence += 1;
-  return `order-item-${sequence}`;
-}
-
 /**
- * An order of this type, opened on the court's words for it with what the screen knows
- * already filled in.
- *
- * `facts` is optional so the catalogue can still be asked what a template *says*
- * independently of any case. Every caller that is composing a real order passes them —
- * an order that opens on `[Application Number]` when the application is on the screen
- * beside it is the screen making the typist retype what it already holds.
- *
- * `resolve` runs over the auto-filled text before it is marked and returned — the
- * delivery-channel confirmation's own pass (`fillPartyVariables`), for the one caller
- * that has just collected an addressee to fill `[Party Name]` with. Left out, a process
- * item opens the way it always has: `[Party Type]` and `[Party Name]` standing in
- * brackets for the drafter.
+ * Version B's opening text: each item's words in order, marked with its id, and — on a
+ * hearing — the attendance and next-hearing lines as facts of the sitting.
  */
-export function createOrderItem(
-  type: OrderItemTypeId,
-  id: string = nextOrderItemId(),
-  facts?: OrderTemplateFacts,
-  resolve?: (text: string) => string,
-): OrderItemDraft {
-  const standing = orderItemStandingText(type, facts);
-  return {
-    id,
-    type,
-    /* Marked with its own id: the passage has to be findable in the body afterwards,
-       both to take it out and to know whether it is still there. */
-    text: richTextFromPlain(resolve ? resolve(standing) : standing, id),
-  };
+export function bodyFromBlocks(
+  blocks: readonly ComposerBlock[],
+  recitals?: {
+    attendance: readonly OrderRecitalLine[];
+    next: readonly OrderRecitalLine[];
+  },
+): RichTextValue {
+  let body = blocks.reduce<RichTextValue>(
+    (passage, block) =>
+      appendRichText(
+        passage,
+        richTextFromPlain(
+          block.text,
+          block.kind === "item" ? block.id : undefined,
+        ),
+      ),
+    { html: "", text: "" },
+  );
+  if (recitals) {
+    body = upsertRichTextFact(body, "attendance", recitals.attendance);
+    body = upsertRichTextFact(body, "next", recitals.next);
+  }
+  return body;
 }
