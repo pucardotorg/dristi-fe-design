@@ -39,6 +39,7 @@ import {
 } from "./places";
 import { MALAYALI_NAME_PATTERN, voiceName } from "./names";
 import { courtProfile, type CourtId, type CourtProfile } from "./profiles";
+import { GUJARAT_CASE_TYPE_BY_CMP } from "./gujarat-case-types";
 
 /** Words that stand before a name without being one. */
 const TITLES = new Set(["Adv", "Advocate", "Mr", "Mrs", "Ms", "Dr", "Sri", "Smt", "Shri", "Before", "In", "Item"]);
@@ -63,6 +64,8 @@ function voiceNames(text: string, court: CourtId): string {
  * case, and mostly eCC, as a cheque-dishonour docket would be.
  */
 function gujaratRegistrationType(sequence: number): GujaratCaseType {
+  const known = GUJARAT_CASE_TYPE_BY_CMP[sequence];
+  if (known) return known;
   const slot = sequence % 5;
   if (slot === 3) return "eCR EN";
   if (slot === 4) return "eCR MA";

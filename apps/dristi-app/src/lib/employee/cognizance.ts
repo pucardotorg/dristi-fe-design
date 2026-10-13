@@ -43,7 +43,7 @@ import {
   parseIsoDay,
   type CourtCounsel,
 } from "./hearings";
-import { caseSearchKey, gujaratCaseTypeOf } from "@/lib/court/localize";
+import { caseSearchKey } from "@/lib/court/localize";
 import { courtProfile, DEFAULT_COURT, type CourtId } from "@/lib/court/profiles";
 
 /* ────────────────────────────────── the row ─────────────────────────────────── */
@@ -1081,10 +1081,11 @@ export const COGNIZANCE_TABS: CognizanceTabSpec[] = [
 ];
 
 /**
- * Gujarat's split (owner, 2026-10-13): by the type the case was registered as, not by
- * delay. A criminal case (`eCC`) recommends taking cognizance; a criminal inquiry
- * (`eCR EN`) and a criminal miscellaneous application (`eCR MA`) recommend a notice, so
- * the parties are heard first. The recommendation is only the primary button — every
+ * Gujarat's split (owner, 2026-10-13): by the type the case was registered as. A file
+ * with neither delay nor a jurisdiction problem is a criminal case (`eCC`) and
+ * recommends taking cognizance; a file outside this court's jurisdiction is a criminal
+ * inquiry (`eCR EN`), a late one a criminal miscellaneous application (`eCR MA`), and
+ * both recommend a notice, so the parties are heard first. The recommendation is only the primary button — every
  * tab offers all three acts, because a judge unsure on an eCC may still want a hearing
  * before cognizance, and (rarely) the other way round.
  */
@@ -1116,12 +1117,12 @@ export function tabFor(
   court: CourtId = DEFAULT_COURT,
 ): CognizanceTab {
   if (courtProfile(court).cognizanceSplit === "case-type") {
-    const type = gujaratCaseTypeOf(matter.caseNumber);
-    return type === "eCR EN"
-      ? "criminal-inquiry"
-      : type === "eCR MA"
-        ? "criminal-misc"
-        : "criminal-case";
+    /* Jurisdiction first where both apply: a complaint in the wrong court is an inquiry
+       whatever its delay. */
+    if (findingsFor(matter).some((finding) => finding.id === "jurisdiction")) {
+      return "criminal-inquiry";
+    }
+    return hasDelay(matter) ? "criminal-misc" : "criminal-case";
   }
   return hasDelay(matter) ? "with-delay" : "without-delay";
 }

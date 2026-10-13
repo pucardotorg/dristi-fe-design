@@ -628,11 +628,23 @@ describe("Gujarat's case-type split (owner, 2026-10-13)", () => {
     }
   });
 
-  it("reads the tab off the type the case number carries, filed or shown", () => {
+  it("files by the facts: jurisdiction → inquiry, delay → misc, neither → case", () => {
     for (const matter of COGNIZANCE_QUEUE) {
-      const type = gujaratCaseTypeOf(matter.caseNumber);
-      const shown = { ...matter, caseNumber: matter.caseNumber.replace(/^CMP/, type) };
-      assert.equal(tabFor(shown, "gujarat"), tabFor(matter, "gujarat"), matter.id);
+      const outside = findingsFor(matter).some((finding) => finding.id === "jurisdiction");
+      const expected = outside
+        ? "criminal-inquiry"
+        : hasDelay(matter)
+          ? "criminal-misc"
+          : "criminal-case";
+      assert.equal(tabFor(matter, "gujarat"), expected, matter.id);
+    }
+  });
+
+  it("shows each complaint's number with the type of the tab it sits on", () => {
+    const prefix = { "criminal-case": "eCC", "criminal-inquiry": "eCR EN", "criminal-misc": "eCR MA" };
+    for (const matter of COGNIZANCE_QUEUE) {
+      const tab = tabFor(matter, "gujarat") as keyof typeof prefix;
+      assert.equal(gujaratCaseTypeOf(matter.caseNumber), prefix[tab], matter.id);
     }
   });
 
