@@ -32,11 +32,13 @@ import {
   type CourtSortSpec,
 } from "@/lib/employee/court-sort";
 import { useReturnedTab } from "@/components/employee/cognizance-return";
+import { useCourt } from "@/components/court/court-provider";
+import { courtProfile } from "@/lib/court/profiles";
 import {
   casesOnTab,
   COGNIZANCE_NOTICE_OPTIONS,
   COGNIZANCE_QUEUE,
-  COGNIZANCE_TABS,
+  cognizanceTabsFor,
   cognizanceTabCount,
   EMPTY_COGNIZANCE_FILTERS,
   filterCognizanceCases,
@@ -88,15 +90,21 @@ export function CognizanceScreen() {
   );
   /* The tab the magistrate left on, when they are coming back from a complaint; the
      first tab otherwise. Taken once on mount, then this screen's own. */
-  const returned = useReturnedTab();
-  const [tab, setTab] = React.useState<CognizanceTab>(returned);
+  /* Kerala splits the queue by delay; Gujarat by the type the case was registered as
+     (`cognizanceTabsFor`, owner 2026-10-13). */
+  const { court } = useCourt();
+  const tabs = cognizanceTabsFor(court);
+  const returned = useReturnedTab(tabs);
+  const [chosenTab, setTab] = React.useState<CognizanceTab>(returned);
+  /* A court switched while on the screen leaves a tab the new split does not have. */
+  const tab = tabs.some((entry) => entry.id === chosenTab) ? chosenTab : tabs[0].id;
   const [pageSize, setPageSize] = React.useState<HearingsPageSize>(PAGE_SIZE);
   const [page, setPage] = React.useState(1);
 
   const [sort, setSort] = React.useState<CognizanceSort>("oldest");
 
   const rows = sortRows(
-    filterCognizanceCases(casesOnTab(COGNIZANCE_QUEUE, tab), filters),
+    filterCognizanceCases(casesOnTab(COGNIZANCE_QUEUE, tab, court), filters),
     cognizanceSorts(tab),
     sort,
   );
@@ -161,10 +169,14 @@ export function CognizanceScreen() {
         <div className="overflow-x-auto border-b border-hairline">
           <TabsList
             variant="line"
-            aria-label="Whether the complaint was filed in time"
+            aria-label={
+              courtProfile(court).cognizanceSplit === "delay"
+                ? "Whether the complaint was filed in time"
+                : "The type the case was registered as"
+            }
             className="h-10 w-max min-w-full justify-start rounded-none p-0 group-data-horizontal/tabs:h-10"
           >
-            {COGNIZANCE_TABS.map((queueTab) => (
+            {tabs.map((queueTab) => (
               <TabsTrigger
                 key={queueTab.id}
                 value={queueTab.id}
@@ -175,14 +187,14 @@ export function CognizanceScreen() {
                     not move as the search box is typed into. It inherits the trigger's
                     colour, so the count and its label read as one thing. */}
                 <span className="font-normal tabular-nums">
-                  {cognizanceTabCount(queueTab.id)}
+                  {cognizanceTabCount(queueTab.id, court)}
                 </span>
               </TabsTrigger>
             ))}
           </TabsList>
         </div>
 
-        {COGNIZANCE_TABS.map((queueTab) => (
+        {tabs.map((queueTab) => (
           <TabsContent
             key={queueTab.id}
             value={queueTab.id}

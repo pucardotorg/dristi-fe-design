@@ -62,11 +62,25 @@ function voiceNames(text: string, court: CourtId): string {
  * such field, so the type is read off the registration sequence — stable for a given
  * case, and mostly eCC, as a cheque-dishonour docket would be.
  */
-function gujaratRegistrationType(sequence: number): string {
+function gujaratRegistrationType(sequence: number): GujaratCaseType {
   const slot = sequence % 5;
   if (slot === 3) return "eCR EN";
   if (slot === 4) return "eCR MA";
   return "eCC";
+}
+
+export type GujaratCaseType = "eCC" | "eCR EN" | "eCR MA";
+
+/**
+ * The type a registered complaint carries in Gujarat, from its case number as filed
+ * (`CMP/2041/2025`) or as Gujarat shows it (`eCR EN/2041/2025`) — the same answer either
+ * way, so a screen and the list it came from cannot disagree.
+ */
+export function gujaratCaseTypeOf(caseNumber: string): GujaratCaseType {
+  const shown = /^(eCR EN|eCR MA|eCC)\//.exec(caseNumber);
+  if (shown) return shown[1] as GujaratCaseType;
+  const filed = /\bCMP[ /](\d+)\//.exec(caseNumber);
+  return filed ? gujaratRegistrationType(Number(filed[1])) : "eCC";
 }
 
 type Rule = [RegExp, (profile: CourtProfile, ...groups: string[]) => string];

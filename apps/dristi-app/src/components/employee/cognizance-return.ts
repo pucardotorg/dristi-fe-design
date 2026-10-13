@@ -2,7 +2,7 @@
 
 import * as React from "react";
 
-import { COGNIZANCE_TABS, type CognizanceTab } from "@/lib/employee/cognizance";
+import { type CognizanceTab, type CognizanceTabSpec } from "@/lib/employee/cognizance";
 
 /**
  * Which tab the queue should open on when a complaint sends the magistrate back to it.
@@ -31,11 +31,11 @@ export function markCognizanceTab(tab: CognizanceTab): void {
  * Taken once, by the queue as it mounts. The first tab on a fresh load, a refresh, a
  * typed URL or a bookmark — none of those has come back from a complaint.
  */
-export function useReturnedTab(): CognizanceTab {
+export function useReturnedTab(tabs: CognizanceTabSpec[]): CognizanceTab {
   const [tab] = React.useState(() => {
     const returned = pending;
     pending = null;
-    return returned ?? COGNIZANCE_TABS[0].id;
+    return returned && tabs.some((entry) => entry.id === returned) ? returned : tabs[0].id;
   });
   return tab;
 }

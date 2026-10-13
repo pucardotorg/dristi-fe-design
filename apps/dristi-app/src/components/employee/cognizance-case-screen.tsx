@@ -17,6 +17,7 @@ import { LabelTip } from "@/components/filing/form-field";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { markArrival, useArrival } from "@/components/employee/use-arrival";
 import { useCourtToday } from "@/components/employee/use-court-today";
+import { useCourt } from "@/components/court/court-provider";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -41,7 +42,7 @@ import {
   cognizanceDocumentsFor,
   cognizanceCaseById,
   findingsFor,
-  primaryActFor,
+  actsFor,
   summaryChunksFor,
   type CognizanceAct,
   type CognizanceCase,
@@ -242,7 +243,10 @@ function CaseBody({ matter }: { matter: CognizanceCase }) {
   /* A cheque and a memo per cheque, then the notice (cheat sheet §5). */
   const documents = React.useMemo(() => cognizanceDocumentsFor(matter), [matter]);
 
-  const primary = primaryActFor(matter);
+  /* The recommended act first, then the rest the deployment offers: two under the delay
+     split, all three under Gujarat's case-type split (`actsFor`). */
+  const { court } = useCourt();
+  const [recommended, ...alternatives] = actsFor(matter, court);
 
   /* Which field is lit, and the document and region it opened. `fieldId` is what lights
      the row — keyed on the field, not its document, so two fields that share a document
@@ -359,14 +363,18 @@ function CaseBody({ matter }: { matter: CognizanceCase }) {
                   <ExternalLinkIcon data-icon="inline-end" aria-hidden />
                 </a>
               </Button>
-              <Button asChild variant="outline">
-                <Link href={orderHref(matter, "dismiss")} onClick={openOrder}>
-                  {COGNIZANCE_ACTS.dismiss.label}
-                </Link>
-              </Button>
+              {/* The alternatives quiet, Dismiss outermost; the recommendation is the
+                  one filled button, last, where the eye ends (owner, 2026-10-13). */}
+              {[...alternatives].reverse().map((act) => (
+                <Button key={act} asChild variant="outline">
+                  <Link href={orderHref(matter, act)} onClick={openOrder}>
+                    {COGNIZANCE_ACTS[act].label}
+                  </Link>
+                </Button>
+              ))}
               <Button asChild>
-                <Link href={orderHref(matter, primary)} onClick={openOrder}>
-                  {COGNIZANCE_ACTS[primary].label}
+                <Link href={orderHref(matter, recommended)} onClick={openOrder}>
+                  {COGNIZANCE_ACTS[recommended].label}
                 </Link>
               </Button>
             </div>

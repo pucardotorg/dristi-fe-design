@@ -19,7 +19,7 @@ import {
   casesOnTab,
   cognizanceTabCount,
   COGNIZANCE_QUEUE,
-  COGNIZANCE_TABS,
+  cognizanceTabSpec,
   EMPTY_COGNIZANCE_FILTERS,
   filterCognizanceCases,
   type CognizanceFilters,
@@ -27,6 +27,9 @@ import {
 } from "@/lib/employee/cognizance";
 import { PAGE_SIZE, type HearingsPageSize } from "@/lib/employee/hearings";
 import { cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
+import { useCourt } from "@/components/court/court-provider";
+import { courtProfile } from "@/lib/court/profiles";
 
 /**
  * One half of Take cognizance, as its own screen — the "split" reading of
@@ -39,6 +42,20 @@ import { cn } from "@/lib/utils";
  * question, the same way any other single-purpose queue in this rail works.
  */
 export function CognizanceTabScreen({ tab }: { tab: CognizanceTab }) {
+  const { court } = useCourt();
+  const router = useRouter();
+  /* The split rows are the delay split's. A deployment that splits by case type keeps
+     its tabs on the one screen (owner, 2026-10-13), so a split row's address leads
+     there. */
+  const delaySplit = courtProfile(court).cognizanceSplit === "delay";
+  React.useEffect(() => {
+    if (!delaySplit) router.replace("/employee/cognizance");
+  }, [delaySplit, router]);
+  if (!delaySplit) return null;
+  return <SplitQueue tab={tab} />;
+}
+
+function SplitQueue({ tab }: { tab: CognizanceTab }) {
   const arrival = useArrival();
   const [filters, setFilters] = React.useState<CognizanceFilters>(
     EMPTY_COGNIZANCE_FILTERS,
@@ -60,7 +77,7 @@ export function CognizanceTabScreen({ tab }: { tab: CognizanceTab }) {
   const isFiltered =
     filters.query !== "" || (filters.notice ?? "all") !== "all";
   const total = cognizanceTabCount(tab);
-  const label = COGNIZANCE_TABS.find((entry) => entry.id === tab)!.label;
+  const label = cognizanceTabSpec(tab).label;
 
   function changeFilters(next: CognizanceFilters) {
     setFilters(next);

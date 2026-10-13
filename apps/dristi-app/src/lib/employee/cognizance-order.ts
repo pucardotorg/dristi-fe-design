@@ -10,7 +10,7 @@
  * | Act | Order items, in order |
  * |---|---|
  * | Take cognizance | acceptance of the delay application *(only when late)* · cognizance · issue of summons · scheduling of hearing |
- * | Issue notice | issue of notice · scheduling of hearing |
+ * | Issue notice | issue of notice (DCA when late) · scheduling of hearing |
  * | Dismiss case | dismiss case |
  *
  * **None of them is fixed** (owner, 2026-10-13). Every item the act loads — the act's own
@@ -79,11 +79,14 @@ export function cognizanceComposition(
     };
   }
   if (act === "notice") {
+    /* A late complaint's notice is the delay-condonation one. Otherwise — a notice before
+       cognizance, which Gujarat offers on every complaint (owner, 2026-10-13) — the type
+       is the judge's to choose. */
     return {
       blocks: [
         createItemBlock("issue-of-notice", context, {
           id: "issue-of-notice",
-          values: { noticeType: "DCA" },
+          ...(hasDelay(matter) ? { values: { noticeType: "DCA" } } : {}),
         }),
         scheduling(),
       ],
@@ -120,7 +123,9 @@ export function cognizanceOrderOutcome(
 ): string {
   if (act === "dismiss") return "This complaint ends here.";
   if (act === "notice") {
-    return "The accused is heard on the delay before the court decides it.";
+    return hasDelay(matter)
+      ? "The accused is heard on the delay before the court decides it."
+      : "The parties are heard before the court decides whether to take cognizance.";
   }
   const late = delayDays(matter);
   return late === null

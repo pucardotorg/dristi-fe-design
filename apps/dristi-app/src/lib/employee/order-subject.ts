@@ -24,7 +24,7 @@
 
 import {
   COGNIZANCE_ACTS,
-  tabFor,
+  hasDelay,
   type CognizanceAct,
   type CognizanceCase,
 } from "./cognizance";
@@ -179,7 +179,7 @@ export function subjectFacts(
     { label: "Filing", value: matter.filingNumber, identifier: true },
     {
       label: "Filed",
-      value: tabFor(matter) === "with-delay" ? "Beyond the month" : "In time",
+      value: hasDelay(matter) ? "Beyond the month" : "In time",
     },
   ];
 }
