@@ -719,6 +719,21 @@ export const advDialog = {
     "You pay for {n} advocates in the next step ({amount}). The others get an invite to join the case and don't pay again.",
     "അടുത്ത ഘട്ടത്തിൽ {n} അഭിഭാഷകർക്കുള്ള ഫീസ് അടയ്ക്കണം ({amount}). മറ്റുള്ളവർക്ക് കേസിൽ ചേരാൻ ക്ഷണം ലഭിക്കും; അവർ വീണ്ടും അടയ്ക്കേണ്ടതില്ല.",
   ),
+  /* How many are named, counting the person filling this in (owner, 2026-10-13). The
+     others added must match it exactly before they can continue. Malayalam drafted —
+     needs review. */
+  vkCountLabel: t(
+    "How many advocates are named on it, including you?",
+    "നിങ്ങൾ ഉൾപ്പെടെ എത്ര അഭിഭാഷകരുടെ പേര് ഇതിലുണ്ട്?",
+  ),
+  vkCountDecrease: t("One fewer advocate", "ഒരു അഭിഭാഷകൻ കുറവ്"),
+  vkCountIncrease: t("One more advocate", "ഒരു അഭിഭാഷകൻ കൂടി"),
+  vkCountError: t("Enter 2 or more.", "2 അല്ലെങ്കിൽ കൂടുതൽ നൽകുക."),
+  vkAddProgress: t("{added} of {needed} added", "{needed}-ൽ {added} ചേർത്തു"),
+  vkFlatFeeNote: t(
+    "You pay the vakalatnama fee in the next step ({amount}). It is the same however many advocates are named. The others get an invite to join the case and don't pay.",
+    "അടുത്ത ഘട്ടത്തിൽ വക്കാലത്ത് ഫീസ് അടയ്ക്കണം ({amount}). എത്ര അഭിഭാഷകരുടെ പേരുണ്ടെങ്കിലും ഫീസ് ഇതുതന്നെ. മറ്റുള്ളവർക്ക് കേസിൽ ചേരാൻ ക്ഷണം ലഭിക്കും; അവർ അടയ്ക്കേണ്ടതില്ല.",
+  ),
   vkAddLegend: t(
     "Add the other advocates on this vakalatnama",
     "ഈ വക്കാലത്തിലെ മറ്റ് അഭിഭാഷകരെ ചേർക്കുക",
@@ -741,9 +756,13 @@ export const advDialog = {
     "Only advocates registered on the platform can be added.",
     "പ്ലാറ്റ്‌ഫോമിൽ രജിസ്റ്റർ ചെയ്ത അഭിഭാഷകരെ മാത്രമേ ചേർക്കാനാകൂ.",
   ),
-  vkAddError: t(
-    "Add at least one other advocate, or choose “No, only me”.",
-    "കുറഞ്ഞത് ഒരു അഭിഭാഷകനെ കൂടി ചേർക്കുക, അല്ലെങ്കിൽ “ഇല്ല, ഞാൻ മാത്രം” തിരഞ്ഞെടുക്കുക.",
+  vkAddErrorOne: t(
+    "Add exactly 1 other advocate, to match the number above.",
+    "മുകളിലെ എണ്ണവുമായി യോജിക്കാൻ കൃത്യം 1 അഭിഭാഷകനെ കൂടി ചേർക്കുക.",
+  ),
+  vkAddErrorMany: t(
+    "Add exactly {n} other advocates, to match the number above.",
+    "മുകളിലെ എണ്ണവുമായി യോജിക്കാൻ കൃത്യം {n} അഭിഭാഷകരെ കൂടി ചേർക്കുക.",
   ),
   vkSearchLabel: t(
     "Search your generated vakalatnamas",

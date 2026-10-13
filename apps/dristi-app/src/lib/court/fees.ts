@@ -25,6 +25,13 @@ export type FeeSchedule = {
   process: { fee: number; name?: string } | null;
   /** What an advocate joining by vakalatnama pays. */
   join: { courtFee: number; welfareFund: number };
+  /**
+   * How the join-a-case vakalatnama fee is billed when it names several advocates.
+   * `per-advocate`: the advocate who joins first pays for everyone named. `flat`: one
+   * fee for the vakalatnama, whatever the number named (owner, 2026-10-13, for Gujarat
+   * and Punjab & Haryana).
+   */
+  joinBilling: "per-advocate" | "flat";
 };
 
 export const KERALA_FEES: FeeSchedule = {
@@ -33,6 +40,7 @@ export const KERALA_FEES: FeeSchedule = {
   process: null,
   // The vakalatnama's own figures (`lib/vakalatnama/data.ts`).
   join: { courtFee: 10, welfareFund: 25 },
+  joinBilling: "per-advocate",
 };
 
 /** Schedule 2. */
@@ -61,6 +69,7 @@ export const GUJARAT_FEES: FeeSchedule = {
   },
   process: { fee: 3 },
   join: { courtFee: 2, welfareFund: 50 },
+  joinBilling: "flat",
 };
 
 /** Schedule 3 — Punjab and Haryana alike. */
@@ -83,4 +92,5 @@ export const PUNJAB_HARYANA_FEES: FeeSchedule = {
   // per process, the way Gujarat's ₹3 is, until the state says otherwise.
   process: { fee: 50, name: "Talwana" },
   join: { courtFee: 2, welfareFund: 50 },
+  joinBilling: "flat",
 };
