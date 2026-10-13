@@ -1,9 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Maximize2Icon } from "lucide-react";
 
-import { DocumentPreviewDialog } from "@/components/document-preview";
+import { DocumentPreviewActions } from "@/components/cases/document-preview";
 import { PageSheet, SHEET_BOX } from "@/components/employee/page-facsimile";
 import type { CaseDocumentKind } from "@/lib/employee/case-review";
 import type { ZoneRect } from "@/lib/employee/document-zones";
@@ -31,9 +30,10 @@ import { cn } from "@/lib/utils";
  * sample scan instead (the scrutiny demo's own), and a fact rings the whole page, since
  * the facsimile's regions do not sit on a real scan.
  *
- * **Every page enlarges** (owner, 2026-10-13): hovering or focusing it shows the expand
- * mark `DocumentThumbnailButton` uses, and a click opens the shared viewer to read it in
- * detail.
+ * **Every scan opens in Full view** (owner, 2026-10-13), by the product's own document
+ * actions — Download and Full view as 40×40 icons on the document's title line
+ * (`DocumentPreviewActions`) — and Full view is the case file's: near window size, with
+ * the viewer's zoom controls.
  */
 export type ScrollerDoc = {
   key: string;
@@ -65,7 +65,6 @@ export function DocumentScroller({
   className?: string;
 }) {
   const scrollRef = React.useRef<HTMLDivElement>(null);
-  const [enlarged, setEnlarged] = React.useState<ScrollerDoc | null>(null);
 
   /* When a fact selects a document, bring it to the top of the column — moving *this*
      scroll box, never the page. `scrollIntoView` bubbles to every scrollable ancestor, so
@@ -121,9 +120,20 @@ export function DocumentScroller({
           >
             {/* The one navigational anchor in a long scroll, so it reads as one: caption
                 size, foreground ink at 600 rather than grey (scrutiny's own rule). */}
-            <h3 className="text-caption font-semibold text-foreground">
-              <span className="tabular-nums">{doc.no}</span> · {doc.title}
-            </h3>
+            {/* The document's actions ride its own title line, as `DocumentPreview`'s
+                header band carries them — never laid over the scan they would cover. */}
+            <div className="flex min-h-10 items-center justify-between gap-2">
+              <h3 className="text-caption font-semibold text-foreground">
+                <span className="tabular-nums">{doc.no}</span> · {doc.title}
+              </h3>
+              {doc.src ? (
+                <DocumentPreviewActions
+                  title={doc.title}
+                  source={{ kind: "src", src: doc.src }}
+                  className="-my-1 flex-nowrap gap-1"
+                />
+              ) : null}
+            </div>
             {/* The page sits on a beige mat, so it separates from the white rail rather
                 than a near-white sheet on white (owner, 2026-09-14). The mat takes the
                 warm sunken fill the court side uses for a well; the page keeps its own
@@ -136,7 +146,7 @@ export function DocumentScroller({
               )}
             >
               <div
-                className="group relative w-full overflow-hidden rounded-lg bg-paper ring-1 ring-hairline"
+                className="relative w-full overflow-hidden rounded-lg bg-paper ring-1 ring-hairline"
                 style={doc.src ? undefined : { aspectRatio: `${box.w} / ${box.h}` }}
               >
                 {doc.src ? (
@@ -145,20 +155,6 @@ export function DocumentScroller({
                 ) : (
                   <PageSheet kind={doc.kind} />
                 )}
-                {doc.src ? (
-                  <button
-                    type="button"
-                    aria-label={`Enlarge ${doc.title}`}
-                    onClick={() => setEnlarged(doc)}
-                    className="absolute inset-0 z-3 flex items-center justify-center outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
-                  >
-                    <span className="absolute inset-0 bg-foreground/0 transition-colors group-hover:bg-foreground/15" />
-                    <Maximize2Icon
-                      className="relative size-5 text-background opacity-0 drop-shadow-sm transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
-                      aria-hidden
-                    />
-                  </button>
-                ) : null}
                 {zone ? (
                   <div
                     aria-hidden
@@ -179,22 +175,6 @@ export function DocumentScroller({
           </section>
         );
       })}
-
-      <DocumentPreviewDialog
-        open={enlarged !== null}
-        onOpenChange={(open) => {
-          if (!open) setEnlarged(null);
-        }}
-        file={enlarged ? { type: "image/jpeg" } : null}
-        url={enlarged?.src ?? ""}
-        locale="en"
-        wide
-        copy={{
-          title: enlarged ? `${enlarged.no} · ${enlarged.title}` : "",
-          description: "Pinch, or pinch on the trackpad, to zoom in.",
-          alt: enlarged?.title ?? "",
-        }}
-      />
 
       {absent.length > 0 ? (
         <section className="flex flex-col gap-2" aria-label="Not filed">

@@ -27,7 +27,13 @@ import {
 import { cn } from "@/lib/utils";
 import { DOCUMENT_GROUND } from "@/components/cases/document-ground";
 
-import { PdfViewer, isPdfSrc, parsePdfSrc } from "./pdf-viewer";
+import {
+  ComposedDocumentViewer,
+  PdfViewer,
+  isImageSrc,
+  isPdfSrc,
+  parsePdfSrc,
+} from "./pdf-viewer";
 
 /**
  * The one document preview in the product: a well, and the two things anyone
@@ -595,6 +601,18 @@ function DocumentWell({
             rather than leaving the previous one's scroll position behind. */}
         {isPdfSrc(source.src) ? (
           <DocumentPdf src={source.src} title={title} />
+        ) : isImageSrc(source.src) ? (
+          /* A scan reads in the PDF viewer's own frame — same well, zoom buttons and
+             pinch — as the application record shows one (owner, Sept 24: one preview
+             pattern), not the browser's bare image in an iframe. */
+          <ComposedDocumentViewer
+            key={source.src}
+            title={title}
+            className="absolute inset-0 rounded-none bg-transparent"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element -- a served scan */}
+            <img src={source.src} alt={title} className="block w-full" />
+          </ComposedDocumentViewer>
         ) : (
           <iframe
             key={source.src}
