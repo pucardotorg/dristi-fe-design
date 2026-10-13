@@ -18,7 +18,6 @@ import {
   idCardName,
   idPhotoLabel,
   identityRows,
-  registerName,
   registrantNoun,
   registrationIdLabel,
   registrationWaitTone,
@@ -30,9 +29,6 @@ import {
   requestRows,
   requestTypeValue,
   comparisonBlocks,
-  registerAnswer,
-  registerFindingRow,
-  mismatchedTerms,
   roleLabel,
   sortByLongestWait,
   submissionDay,
@@ -87,24 +83,6 @@ describe("REGISTRATIONS_QUEUE", () => {
     );
   });
 
-  it("carries all three answers the Bar Council lookup can give, and none for a clerk", () => {
-    const states = new Set(REGISTRATIONS_QUEUE.map((r) => r.lookup.state));
-    assert.deepEqual(
-      [...states].sort(),
-      ["found", "no-entry", "none", "not-checked"].sort(),
-    );
-    // The handover names no register for clerks (`REG-13a`), and the Bar Council's is
-    // an advocate requirement (`REG-13`) — so nothing is looked up for a clerk, and every
-    // advocate is looked up.
-    for (const row of REGISTRATIONS_QUEUE) {
-      assert.equal(
-        row.lookup.state === "none",
-        row.registrantKind === "clerk",
-        `${row.applicationNumber}: a lookup that does not belong to its kind`,
-      );
-    }
-  });
-
   it("exercises the wait escalation at both thresholds and below them", () => {
     const tones = REGISTRATIONS_QUEUE.map((r: RegistrationRequest) =>
       registrationWaitTone(r.daysWaiting),
@@ -122,18 +100,6 @@ describe("REGISTRATIONS_QUEUE", () => {
         row.fullName,
         /[ഀ-ൿ]/,
         `${row.applicationNumber} is tagged ${row.fullNameLang} but is written in Latin script`,
-      );
-    }
-  });
-
-  it("tags the register's own answer, rather than borrowing the claimant's script", () => {
-    for (const row of REGISTRATIONS_QUEUE) {
-      if (row.lookup.state !== "found") continue;
-      const nonLatin = /[ഀ-ൿ]/.test(row.lookup.entry.name);
-      assert.equal(
-        Boolean(row.lookup.entryNameLang),
-        nonLatin,
-        `${row.applicationNumber}: the register name "${row.lookup.entry.name}" and its entryNameLang disagree about script — a screen reader would speak it in the wrong voice`,
       );
     }
   });
@@ -571,64 +537,17 @@ describe("shape one: a term and its value", () => {
   });
 });
 
-describe("the register speaks only when it disagrees", () => {
-  it("says nothing at all when the entry agrees", () => {
-    const clean = REGISTRATIONS_QUEUE.find((r) => r.id === "adv-207");
-    assert.ok(clean);
-    assert.equal(registerAnswer(clean), null);
-    assert.equal(registerFindingRow(clean), null);
-    // …and the Request group is its four facts, with nothing appended.
-    assert.equal(requestRows(clean).length, 4);
-  });
-
-  it("reaches its three answers, each as one row in the Request group", () => {
-    const differs = REGISTRATIONS_QUEUE.find((r) => r.id === "adv-181");
-    const noEntry = REGISTRATIONS_QUEUE.find((r) => r.id === "adv-203");
-    const notChecked = REGISTRATIONS_QUEUE.find((r) => r.id === "adv-164");
-    assert.ok(differs && noEntry && notChecked);
-
-    assert.equal(registerAnswer(differs), "differs");
-    assert.deepEqual(registerFindingRow(differs), {
-      id: "register",
-      // The act, not the institution: a bare register name in a term column says nothing
-      // about why the row is there. The register names itself over the values it claims.
-      term: "Bar Council check",
-      // The row names what is wrong; the disclosure holds the evidence for it.
-      value: "Full name does not match",
-      format: "text",
-      tone: "warning",
-    });
-
-    assert.equal(registerAnswer(noEntry), "no-entry");
-    // The term reads off the registrant, so the clerk queue needs no new row.
-    assert.equal(registerName("advocate"), "Bar Council register");
-    assert.equal(registerName("clerk"), "Clerk register");
-    assert.equal(registerFindingRow(noEntry)?.term, "Bar Council check");
-    assert.equal(
-      registerFindingRow({ ...noEntry, registrantKind: "clerk" })?.term,
-      "Clerk register check",
-    );
-    assert.equal(
-      registerFindingRow(noEntry)?.value,
-      "No entry for this registration ID",
-    );
-
-    assert.equal(registerAnswer(notChecked), "not-checked");
-    assert.equal(registerFindingRow(notChecked)?.value, "Could not be reached");
-  });
-
-  it("never puts the finding anywhere but that one row", () => {
+describe("no Bar Council check", () => {
+  // Nothing looks the registration ID up (owner, 2026-10-13). The officer verifies the
+  // typed values against the photograph (`REG-14`), so the Request group is its four
+  // facts on every request and nothing reports a lookup.
+  it("adds no row to the Request group, on any request", () => {
     for (const request of REGISTRATIONS_QUEUE) {
-      const finding = registerFindingRow(request);
-      const rows = requestRows(request);
-      assert.equal(rows.length, finding ? 5 : 4);
-      // Nothing in the Identity block mentions a register, matching or otherwise.
-      for (const row of identityRows(request)) {
-        assert.ok(
-          !/register|matches|verified|OTP/i.test(row.value),
-          `${request.applicationNumber} ${row.id} narrates a lookup`,
-        );
-      }
+      assert.deepEqual(
+        requestRows(request).map((row) => row.id),
+        ["accountType", "submitted", "waiting", "requestKind"],
+        `${request.applicationNumber} reports something beyond its own facts`,
+      );
     }
   });
 });
@@ -640,45 +559,18 @@ describe("shape two: two values, side by side", () => {
     assert.deepEqual(comparisonBlocks(clean), []);
   });
 
-  it("puts a disagreeing register in its own table, claim first", () => {
-    const differs = REGISTRATIONS_QUEUE.find((r) => r.id === "adv-181");
-    assert.ok(differs);
-    const [block, ...rest] = comparisonBlocks(differs);
-    assert.deepEqual(rest, []);
-    assert.equal(block.id, "register");
-    assert.equal(block.label, "Does not match Bar Council of Kerala");
-    // The register names itself over its own values — that is where "what is on the
-    // system records" belongs, and why the row above it can be called a check.
-    assert.deepEqual(block.columns, ["Submitted", "Bar Council of Kerala"]);
-    assert.equal(block.tone, "warning");
-    assert.equal(block.rows.length, 1);
-    assert.equal(block.rows[0].term, "Full name");
-    // Two names, two scripts, one row: the register's answer carries the register's own
-    // tag, never the claimant's, or a screen reader speaks the disagreement in one voice.
-    assert.deepEqual(block.rows[0].values, [
-      { text: "Meera Suresh", lang: undefined, format: "text" },
-      { text: "മീര സുധാകരൻ", lang: "ml", format: "text" },
-    ]);
-  });
-
   it("shows before and after as two columns, never a struck-through value", () => {
     const edited = REGISTRATIONS_QUEUE.find((r) => r.id === "adv-191");
     assert.ok(edited);
     const blocks = comparisonBlocks(edited);
-    /* Both, now that each sits behind the row that announces it: the register's finding
-       opens what the register holds, and "Edited …" opens what the holder changed. They
-       answer two questions and are never on screen together unless both are opened. */
     assert.deepEqual(
       blocks.map((block) => block.id),
-      ["register", "changed"],
+      ["changed"],
     );
-    assert.equal(registerAnswer(edited), "differs");
-    assert.ok(registerFindingRow(edited));
 
-    const changed = blocks[1];
+    const [changed] = blocks;
     assert.equal(changed.label, "Changed at first login");
     assert.deepEqual(changed.columns, ["Before", "Now"]);
-    assert.equal(changed.tone, "plain");
     // Ordered by the Identity block, not by the edit list.
     assert.deepEqual(
       changed.rows.map((row) => row.id),
@@ -693,38 +585,6 @@ describe("shape two: two values, side by side", () => {
     const [before] = changed.rows[2].values;
     assert.equal(before.text, "Not given");
     assert.equal(before.absent, true);
-  });
-
-  it("folds the register's evidence behind its finding, and leaves the edit open", () => {
-    for (const request of REGISTRATIONS_QUEUE) {
-      const rows = requestRows(request);
-      const built = comparisonBlocks(request).map((block) => block.id);
-      // The register's finding opens the register's comparison — an exception to look into.
-      const register = rows.find((row) => row.id === "register");
-      assert.equal(
-        register?.detail?.id ?? null,
-        built.includes("register") ? "register" : null,
-      );
-      // The edit is never behind a row: on a profile update it *is* the request, and the
-      // screen renders it as a section of its own (owner, 2026-09-11).
-      for (const row of rows) assert.notEqual(row.detail?.id, "changed");
-      // Nothing in the Identity block opens anything: it is what was typed, full stop.
-      for (const row of identityRows(request)) assert.equal(row.detail, undefined);
-    }
-  });
-
-  it("names every attribute the register disagrees with, in the finding itself", () => {
-    for (const request of REGISTRATIONS_QUEUE) {
-      const finding = registerFindingRow(request);
-      if (registerAnswer(request) !== "differs") continue;
-      assert.ok(finding);
-      for (const term of mismatchedTerms(request)) {
-        assert.ok(
-          finding.value.startsWith(term) || finding.value.includes(` ${term}`),
-          `${request.applicationNumber}: the finding does not say which value differs`,
-        );
-      }
-    }
   });
 
   it("gives every row one value per column, on every request", () => {
@@ -776,21 +636,6 @@ describe("an advocate clerk's request", () => {
       for (const row of requestRows(request).slice(1)) {
         assert.equal(row.pill, undefined);
       }
-    }
-  });
-
-  it("asks nothing of a register, so it carries no finding and no comparison", () => {
-    for (const clerk of clerks) {
-      assert.equal(registerAnswer(clerk), null);
-      assert.equal(registerFindingRow(clerk), null);
-      assert.equal(
-        requestRows(clerk).some((row) => row.id === "register"),
-        false,
-      );
-      assert.equal(
-        comparisonBlocks(clerk).some((block) => block.id === "register"),
-        false,
-      );
     }
   });
 
@@ -858,7 +703,6 @@ function row(
     daysWaiting: 1,
     registrantKind: "advocate",
     requestKind: "first",
-    lookup: { state: "not-checked" },
     ...over,
   };
 }
@@ -878,15 +722,6 @@ describe("the Pending filters and order", () => {
     const rows = f({ requestType: "resubmission" });
     assert.ok(rows.length > 0);
     assert.ok(rows.every((r) => r.requestKind === "resubmission"));
-  });
-
-  it("asks the register only of advocates, and matches means it agreed", () => {
-    const matches = f({ register: "matches" });
-    assert.ok(matches.every((r) => r.registrantKind === "advocate"));
-    assert.ok(matches.every((r) => registerAnswer(r) === null));
-    for (const answer of ["differs", "no-entry", "not-checked"] as const) {
-      assert.ok(f({ register: answer }).every((r) => registerAnswer(r) === answer));
-    }
   });
 
   it("bands the wait the way the column colours it", () => {
