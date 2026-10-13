@@ -94,7 +94,7 @@ export function ProceedingsItem({
   return (
     <div
       className={cn(
-        "@container rounded-xl border bg-card transition-[border-color,box-shadow]",
+        "@container overflow-hidden rounded-xl border bg-card transition-[border-color,box-shadow]",
         open
           ? "border-input shadow-raised"
           : "border-hairline hover:border-input",
@@ -108,28 +108,29 @@ export function ProceedingsItem({
           aria-controls={fieldsId}
           aria-label={`${template.label}, ${open ? "close" : "open"} details`}
           onClick={onToggle}
-          className="group/head flex min-h-11 w-full items-center gap-2 rounded-xl px-4 pt-2 pb-1 text-left focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-inset"
+          /* The item's head is a row of its own, ruled off from its words, and opens
+             the way every expanding row in the product does (the DS accordion, the
+             case file's folders): the whole row takes the hover fill, and a chevron at
+             its end says which way it goes (owner, 2026-10-14). */
+          className="group/head flex min-h-12 w-full cursor-pointer items-center gap-2 border-b border-hairline px-4 py-2 text-left transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-inset"
         >
           {head}
-          <span className="ml-auto inline-flex shrink-0 items-center gap-1 text-body-compact text-muted-foreground transition-colors group-hover/head:text-foreground">
-            {open ? "Close" : "Details"}
-            <ChevronDownIcon
-              aria-hidden
-              className={cn(
-                "size-4 transition-transform",
-                open && "rotate-180",
-              )}
-            />
-          </span>
+          <ChevronDownIcon
+            aria-hidden
+            className={cn(
+              "ml-auto size-4 shrink-0 text-muted-foreground transition-transform group-hover/head:text-foreground",
+              open && "rotate-180",
+            )}
+          />
         </button>
       ) : (
-        <div className="flex min-h-11 items-center gap-2 px-4 pt-2 pb-1">
+        <div className="flex min-h-12 items-center gap-2 border-b border-hairline px-4 py-2">
           {head}
         </div>
       )}
 
       {/* The words keep the box's own edge: the glyph above starts there too. */}
-      <div className="flex flex-col gap-1 px-4 pb-3">
+      <div className="flex flex-col gap-1 px-4 pt-3 pb-3">
         {parts.length ? (
           <ItemWording
             id={block.id}
