@@ -13,10 +13,9 @@
  * | Issue notice | issue of notice · scheduling of hearing |
  * | Dismiss case | dismiss case |
  *
- * **Two of those are fixed.** The act's own order item cannot be removed or turned into
- * something else — an order headed *Take cognizance* that does not take it is not this
- * act — and both positive acts must schedule a hearing, so their scheduling item is fixed
- * too. A dismissal schedules nothing: the complaint ends.
+ * **None of them is fixed** (owner, 2026-10-13). Every item the act loads — the act's own
+ * item included — can be removed, in all three order formats; the act only decides what
+ * the order opens with.
  */
 
 import {
@@ -30,7 +29,6 @@ import {
   type ComposerContext,
   type ItemBlock,
 } from "./order-composer";
-import type { OrderTemplateId } from "./order-templates";
 
 /**
  * How the condonation application is named in the order that accepts it — the head
@@ -48,17 +46,8 @@ export function delayApplicationNumber(matter: CognizanceCase): string {
   return `CMP/${serial}/${matter.filingNumber.slice(-4)}`;
 }
 
-/** Which order item heads each act — the one that cannot be removed. */
-const ACT_TEMPLATE: Record<CognizanceAct, OrderTemplateId> = {
-  cognizance: "cognizance",
-  notice: "issue-of-notice",
-  dismiss: "dismiss-case",
-};
-
 export type CognizanceComposition = {
   blocks: ItemBlock[];
-  /** Blocks that cannot be removed or changed into another kind. */
-  fixedIds: string[];
 };
 
 /**
@@ -87,7 +76,6 @@ export function cognizanceComposition(
   if (act === "dismiss") {
     return {
       blocks: [createItemBlock("dismiss-case", context, { id: "dismiss-case" })],
-      fixedIds: ["dismiss-case"],
     };
   }
   if (act === "notice") {
@@ -99,7 +87,6 @@ export function cognizanceComposition(
         }),
         scheduling(),
       ],
-      fixedIds: [ACT_TEMPLATE.notice, "scheduling-of-hearing"],
     };
   }
   return {
@@ -121,7 +108,6 @@ export function cognizanceComposition(
       createItemBlock("issue-of-summons", context, { id: "issue-of-summons" }),
       scheduling(),
     ],
-    fixedIds: [ACT_TEMPLATE.cognizance, "scheduling-of-hearing"],
   };
 }
 
