@@ -125,14 +125,15 @@ export const COURT_ACCOUNTS: Record<CourtRole, CourtAccount> = {
 };
 
 /**
- * Punjab & Haryana's usernames, run into that state's own name for the seat
- * (`courtRoleLabel`): the Reader, the Ahlmad and the Steno (owner, 2026-10-13). Same
- * people, same rooms; only the username a person types changes.
+ * Punjab & Haryana's usernames: the seat's own name and nothing else — the magistrate,
+ * the Reader, the Ahlmad and the Steno (owner, 2026-10-13/14). Same people, same rooms;
+ * only the username a person types changes.
  */
 const PUNJAB_HARYANA_USERNAMES: Partial<Record<CourtRole, string>> = {
-  "bench-clerk": "uddipanReader",
-  "scrutiny-officer": "bijuAhlmad",
-  typist: "sreelathaSteno",
+  magistrate: "magistrate",
+  "bench-clerk": "reader",
+  "scrutiny-officer": "ahlmad",
+  typist: "steno",
 };
 
 /** The demo directory as the selected state's court holds it. */
