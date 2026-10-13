@@ -8,7 +8,7 @@
   <rect x="24" y="24" width="432" height="10" rx="5" fill="#f59e0b"/>
   <rect x="24" y="38" width="432" height="10" rx="5" fill="#16a34a"/>
 
-  <text x="240" y="74" text-anchor="middle" font-size="16" font-weight="bold" fill="#52525b" letter-spacing="2">GOVERNMENT OF INDIA</text>
+  <text x="240" y="74" text-anchor="middle" font-size="16" font-weight="bold" fill="#52525b" letter-spacing="2">SPECIMEN</text>
 
   <!-- photo placeholder -->
   <rect x="24" y="96" width="110" height="132" rx="8" fill="#f4f4f5" stroke="#e4e4e7"/>

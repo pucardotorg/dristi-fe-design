@@ -14,6 +14,7 @@ import {
   ORDERS_COLUMN_CLASS,
 } from "@/components/employee/hearings-table";
 import { useOrderDrafts } from "@/components/employee/use-order-draft";
+import { hasDraftFor } from "@/lib/employee/order-drafts";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -175,7 +176,7 @@ export function DraftOrdersTable({
                 <HearingOrdersButton
                   hearing={hearing}
                   seat={seat}
-                  drafted={Boolean(drafts[hearing.id])}
+                  drafted={hasDraftFor(drafts, hearing.id)}
                   opensExisting
                   isRowOpener
                 />

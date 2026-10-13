@@ -84,6 +84,9 @@ import {
   documentStatusVariant,
   documentTypeLabel,
   documentsFile,
+  documentFromFiling,
+  documentNotSubmitted,
+  documentPeopleFromFilings,
   evidenceStatusLabel,
   isDocumentKind,
   isDocumentsPageSize,
@@ -105,6 +108,7 @@ import {
   REGISTER_CARDS_ONLY,
   REGISTER_CARDS_QUERY,
   REGISTER_FILTER_ROW,
+  REGISTER_ROW_SEARCH,
   REGISTER_SWITCH,
   REGISTER_TABLE_ONLY,
   SHOW_MORE_STEP,
@@ -112,6 +116,18 @@ import {
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { displayName } from "@/lib/cases/names";
 import { Identifier } from "@/components/chrome/identifier";
+import { ApplicationRecordDialog } from "@/components/cases/application-record-dialog";
+import {
+  NeedsAction,
+  SignAndPayDialogs,
+  useFilingsRegister,
+} from "@/components/cases/case-applications";
+import { SignReviewDialog } from "@/components/cases/sign-review-dialog";
+import { localFileSrc } from "@/components/cases/pdf-viewer";
+import {
+  groupActions,
+  type ApplicationRecord,
+} from "@/lib/cases/application-record";
 
 type SubmitterOption = {
   value: string;
@@ -145,10 +161,21 @@ export function CaseDocuments({ record }: { record: CaseRecord }) {
       return null;
     }
   }, [record]);
+  /* Memos and affidavits filed on the case come from the filings record the
+     Applications tab reads, so a step taken on either shows on both. */
+  const { register } = useFilingsRegister(record);
 
   if (!file) return <DocumentsError />;
-  return <DocumentsReady file={file} />;
+  return (
+    <DocumentsReady
+      record={record}
+      file={file}
+      filings={register?.documents ?? NO_FILINGS}
+    />
+  );
 }
+
+const NO_FILINGS: ApplicationRecord[] = [];
 
 export function DocumentsLoading() {
   return (
@@ -189,7 +216,16 @@ function DocumentsError() {
   );
 }
 
-function DocumentsReady({ file }: { file: DocumentsFile }) {
+function DocumentsReady({
+  record,
+  file,
+  filings: filed,
+}: {
+  record: CaseRecord;
+  file: DocumentsFile;
+  /** Memos and affidavits filed through the document submission flow. */
+  filings: ApplicationRecord[];
+}) {
   const [kind, setKind] = useState<DocumentKind>("documents");
   const [typeIds, setTypeIds] = useState<string[]>([]);
   const [submitterIds, setSubmitterIds] = useState<string[]>([]);
@@ -202,8 +238,67 @@ function DocumentsReady({ file }: { file: DocumentsFile }) {
   const [visible, setVisible] = useState(SHOW_MORE_STEP);
   const [recordOpen, setRecordOpen] = useState<CaseDocument | null>(null);
 
-  const peopleById = new Map(file.people.map((person) => [person.id, person]));
-  const kindDocuments = file.documents.filter(
+  /* A memo or affidavit not yet signed can take a new file (owner, Oct 8).
+     Held for this visit, like every demo step. */
+  const [replaced, setReplaced] = useState<Record<string, { label: string; src: string }>>({});
+  const filings = useMemo(
+    () =>
+      filed.map((item) =>
+        replaced[item.id] ? { ...item, documents: [replaced[item.id]] } : item
+      ),
+    [filed, replaced]
+  );
+  function replaceFile(item: ApplicationRecord, picked: File) {
+    setReplaced((all) => ({
+      ...all,
+      [item.id]: { label: picked.name, src: localFileSrc(picked) },
+    }));
+  }
+
+  /* The filed memos and affidavits are rows like any other; theirs open the
+     filing itself, with its step (PM, Oct 8). */
+  const documents = useMemo(
+    () => [...filings.map(documentFromFiling), ...file.documents],
+    [filings, file.documents]
+  );
+  const peopleById = new Map(
+    [...documentPeopleFromFilings(filings), ...file.people].map((person) => [
+      person.id,
+      person,
+    ])
+  );
+  const [filingOpen, setFilingOpen] = useState<string | null>(null);
+  const [reviewing, setReviewing] = useState<ApplicationRecord[]>([]);
+  const [signing, setSigning] = useState<ApplicationRecord[]>([]);
+  const [paying, setPaying] = useState<ApplicationRecord[]>([]);
+  const actions = groupActions(filings);
+  /* The review reads the batch as it is now, replaced files and all. */
+  const reviewingNow = useMemo(
+    () =>
+      reviewing.map(
+        (item) => filings.find((entry) => entry.id === item.id) ?? item
+      ),
+    [reviewing, filings]
+  );
+  const openFiling = filings.find((item) => item.id === filingOpen) ?? null;
+
+  function openRecord(document: CaseDocument) {
+    if (filings.some((item) => item.id === document.id)) setFilingOpen(document.id);
+    else setRecordOpen(document);
+  }
+
+  /** As on Applications: one to sign opens what is signed; several open the
+   *  review; payment goes straight to the fee. */
+  function act(items: ApplicationRecord[]) {
+    const [lead] = items;
+    if (lead.step === "pay") setPaying(items);
+    else if (lead.step === "sign") {
+      if (items.length === 1) setFilingOpen(lead.id);
+      else setReviewing(items);
+    }
+  }
+
+  const kindDocuments = documents.filter(
     (document) => documentKind(document.type) === kind
   );
   const submitterOptions = uniqueSubmitters(kindDocuments, peopleById);
@@ -228,7 +323,7 @@ function DocumentsReady({ file }: { file: DocumentsFile }) {
   const selection = selectDocuments({
     /* The filters take any number of values, so they narrow the list here
        and the selector only handles kind, search and paging. */
-    documents: file.documents.filter(
+    documents: documents.filter(
       (document) =>
         (typeIds.length === 0 || typeIds.includes(document.type)) &&
         (submitterIds.length === 0 ||
@@ -298,7 +393,7 @@ function DocumentsReady({ file }: { file: DocumentsFile }) {
     />
   );
 
-  if (file.documents.length === 0) {
+  if (documents.length === 0) {
     return (
       <DocumentsPanel switcher={switcher}>
         <DocumentsEmpty
@@ -312,8 +407,24 @@ function DocumentsReady({ file }: { file: DocumentsFile }) {
 
   return (
     <>
-      <DocumentsPanel switcher={switcher} search={search}>
-        <div className={REGISTER_FILTER_ROW}>
+      <DocumentsPanel switcher={switcher}>
+        {kind === "documents" && actions.length > 0 ? (
+          <NeedsAction
+            caseId={record.id}
+            entries={actions}
+            onAct={act}
+            onOpen={setFilingOpen}
+          />
+        ) : null}
+        {/* As on Applications: the controls sit on the table they narrow, a
+            step clear of Needs attention, the search at the row's far end
+            (owner, Oct 8). */}
+        <div
+          className={cn(
+            REGISTER_FILTER_ROW,
+            kind === "documents" && actions.length > 0 && "mt-4"
+          )}
+        >
           {showTypeFilter ? (
             <RegisterFilter
               label="Type"
@@ -344,6 +455,7 @@ function DocumentsReady({ file }: { file: DocumentsFile }) {
               Clear filters
             </Button>
           ) : null}
+          <div className={REGISTER_ROW_SEARCH}>{search}</div>
         </div>
 
         {selection.total === 0 ? (
@@ -354,7 +466,8 @@ function DocumentsReady({ file }: { file: DocumentsFile }) {
           />
         ) : (
           <div className="flex flex-col gap-4">
-            <div className="flex flex-wrap items-center gap-2 pt-2">
+            {/* The count sits as far from the filters as from the table. */}
+            <div className="flex flex-wrap items-center gap-2">
               <p
                 aria-live="polite"
                 className="text-caption font-medium tabular-nums text-muted-foreground"
@@ -369,7 +482,7 @@ function DocumentsReady({ file }: { file: DocumentsFile }) {
                   caption={documentKindTitle(kind)}
                   rows={selection.rows}
                   peopleById={peopleById}
-                  onOpenRecord={setRecordOpen}
+                  onOpenRecord={openRecord}
                 />
               </div>
               {/* No inset of its own: the panel already pads it, and a second
@@ -378,7 +491,7 @@ function DocumentsReady({ file }: { file: DocumentsFile }) {
                 <DocumentsItemList
                   rows={selection.rows}
                   peopleById={peopleById}
-                  onOpenRecord={setRecordOpen}
+                  onOpenRecord={openRecord}
                 />
               </div>
             </div>
@@ -461,6 +574,44 @@ function DocumentsReady({ file }: { file: DocumentsFile }) {
         peopleById={peopleById}
         document={recordOpen}
         onOpenChange={setRecordOpen}
+      />
+      <ApplicationRecordDialog
+        caseId={record.id}
+        record={record}
+        application={openFiling}
+        onOpenChange={(open) => {
+          if (!open) setFilingOpen(null);
+        }}
+        onAct={(item) => {
+          setFilingOpen(null);
+          if (item.step === "sign") setSigning([item]);
+          else act([item]);
+        }}
+        onReplaceFile={replaceFile}
+      />
+      <SignReviewDialog
+        record={record}
+        applications={reviewingNow}
+        onOpenChange={(open) => {
+          if (!open) setReviewing([]);
+        }}
+        onSign={(items) => {
+          setReviewing([]);
+          setSigning(items);
+        }}
+        onReplaceFile={replaceFile}
+      />
+      <SignAndPayDialogs
+        caseId={record.id}
+        items={filings}
+        signing={signing}
+        onSigningChange={setSigning}
+        paying={paying}
+        onPayingChange={setPaying}
+        onBack={(batch) => {
+          if (batch.length === 1) setFilingOpen(batch[0].id);
+          else setReviewing(batch);
+        }}
       />
     </>
   );
@@ -689,12 +840,19 @@ function DocumentsTable({
           >
             <TableCell className={cn(cellClass, "min-w-0 whitespace-normal")}>
               <p className="font-medium text-foreground">{document.title}</p>
-              <p className="text-caption font-medium text-muted-foreground">
+              {/* A step below the title, at a note's weight (owner, Oct 8:
+                  the two lines ran together). */}
+              <p className="mt-1 text-caption font-normal text-muted-foreground">
                 {documentSourceLabel(document.source)}
-                <span aria-hidden> · </span>
                 {/* The id the register's search matches — shown so a found
-                    row identifies itself. */}
-                <Identifier value={document.filingId} label="filing number" />
+                    row identifies itself. A filing not yet submitted has
+                    none. */}
+                {document.filingId ? (
+                  <>
+                    <span aria-hidden> · </span>
+                    <Identifier value={document.filingId} label="filing number" />
+                  </>
+                ) : null}
               </p>
             </TableCell>
             <TableCell className={cn(cellClass, "min-w-0 whitespace-normal")}>
@@ -704,7 +862,7 @@ function DocumentsTable({
               <SubmittedByCell document={document} peopleById={peopleById} />
             </TableCell>
             <TableCell className={cn(cellClass, "whitespace-nowrap")}>
-              {formatCaseDate(document.submittedOn)}
+              <SubmittedOn document={document} />
             </TableCell>
             <TableCell className={cn(cellClass, "min-w-0 overflow-hidden")}>
               <Badge
@@ -732,6 +890,16 @@ function DocumentsTable({
         ))}
       </TableBody>
     </Table>
+  );
+}
+
+/** The filing date, or, for a memo or affidavit the filer has yet to sign
+ *  or pay for, that it has not gone in. */
+function SubmittedOn({ document }: { document: CaseDocument }) {
+  return documentNotSubmitted(document) ? (
+    <span className="text-muted-foreground">Not submitted</span>
+  ) : (
+    <>{formatCaseDate(document.submittedOn)}</>
   );
 }
 
@@ -795,8 +963,12 @@ function DocumentsItemList({
           >
             <p className="-mt-2 text-caption text-muted-foreground">
               {/* Under the title's stretched hit area, so the face only. */}
-              <Identifier value={document.id} label="document id" copyable={false} />
-              <span aria-hidden> · </span>
+              {document.filingId ? (
+                <>
+                  <Identifier value={document.filingId} label="filing number" copyable={false} />
+                  <span aria-hidden> · </span>
+                </>
+              ) : null}
               {documentSourceLabel(document.source)}
             </p>
             <div className="flex flex-wrap items-center gap-2">
@@ -812,7 +984,7 @@ function DocumentsItemList({
                 <span className="text-muted-foreground">
                   <span aria-hidden> · </span>
                   <span className="tabular-nums">
-                    {formatCaseDate(document.submittedOn)}
+                    <SubmittedOn document={document} />
                   </span>
                 </span>
               </p>

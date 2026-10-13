@@ -6,7 +6,7 @@
   ],
   "scripts": {
     "postinstall": "node scripts/ensure-ds.mjs",
-    "dev": "npm run dev -w @pucar/dristi-app",
+    "dev": "npm run dev -w @pucar/dristi-app --",
     "build": "npm run build -w @pucar/dristi-app",
     "start": "npm run start -w @pucar/dristi-app",
     "lint": "npm run lint -w @pucar/dristi-app",

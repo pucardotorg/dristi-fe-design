@@ -12,6 +12,13 @@ import { counselFor, type CaseRecord, type CounselSide } from "./types";
 const VIEWER_NAME = "Anjali Nair";
 
 /**
+ * The clerk in the signed-in advocate's office: who the clerk profile acts
+ * as (Application Lifecycle PRD, "Clerk and Junior Advocate"). A demo
+ * identity like the advocate's.
+ */
+export const VIEWER_CLERK_NAME = "Vinod Kumar";
+
+/**
  * Is this counsel name the signed-in advocate? The party screens use it to
  * render the viewer's own row as a fact ("you") rather than a target of the
  * removal actions — you do not remove yourself from a case you are reading.

@@ -28,6 +28,7 @@ import { type ActMode } from "@/components/tasks/use-task-actions";
 import { FileBody } from "@/components/tasks/act/file-page";
 import { PayBody } from "@/components/tasks/act/pay-page";
 import { Identifier } from "@/components/chrome/identifier";
+import { useCourtText } from "@/components/court/court-provider";
 
 /** The one quiet line per flow that says what is not real here. */
 const SANDBOX: Record<ActMode, string> = {
@@ -66,6 +67,7 @@ export function TaskActModal({
   /** Called with the task to flash once a step lands — the created re-filing task, or this one. */
   onFinished?: (taskId: TaskId) => void;
 }) {
+  const courtText = useCourtText();
   const { user, people, online } = useTasks();
 
   const finish = React.useCallback(
@@ -104,7 +106,7 @@ export function TaskActModal({
         " · Not yet numbered"
       )}
       {" · "}
-      {kase.court}
+      {courtText(kase.court)}
     </>
   );
 

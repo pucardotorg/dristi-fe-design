@@ -2,19 +2,20 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { CaseBreadcrumbs } from "@/components/cases/case-breadcrumbs";
-import { RaiseApplicationForm } from "@/components/cases/raise-application-form";
+import { RaiseApplicationEntry } from "@/components/cases/raise-application-form";
 import {
   applicationsFile,
   findDraftSubmission,
 } from "@/lib/cases/applications";
 import { PAGE_GROUND, PAGE_GUTTER } from "@/components/shell/page-frame";
-import { CASES } from "@/lib/cases/fixtures";
+import { findCaseRecord } from "@/lib/cases/party-cases";
 import { Breadcrumbs } from "@/components/shell/chrome";
 import { areaOf, originCrumb, safeOrigin } from "@/lib/nav/origin";
 import { cn } from "@/lib/utils";
+import { serverCourtText } from "@/lib/court/server";
 
 function findCase(caseId: string) {
-  return CASES.find((record) => record.id === caseId);
+  return findCaseRecord(caseId);
 }
 
 /**
@@ -22,6 +23,29 @@ function findCase(caseId: string) {
  * the type picker. Resolving it here rather than in the form keeps the
  * register the one place that knows how a draft is stored.
  */
+/**
+ * ?objectTo=<application id> comes from a File objection task. Honoured only
+ * for an application that is waiting on the court's decision and invited
+ * objections; anything else starts at the type picker, as a stale draft id
+ * does.
+ */
+function objectionTarget(caseId: string, applicationId: string | undefined) {
+  const record = findCase(caseId);
+  if (!record || !applicationId) return undefined;
+  try {
+    const target = applicationsFile(record).submissions.find(
+      (item) => item.id === applicationId
+    );
+    return target &&
+      target.status === "pending-decision" &&
+      target.objectionsInvited === true
+      ? target.id
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function resumedDraft(caseId: string, draftId: string | undefined) {
   const record = findCase(caseId);
   if (!record || !draftId) return null;
@@ -39,8 +63,9 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { caseId } = await params;
   const record = findCase(caseId);
+  const courtText = await serverCourtText();
   return {
-    title: record ? `Raise application · ${record.caseNumber}` : "Raise application",
+    title: record ? `Raise application · ${courtText(record.caseNumber)}` : "Raise application",
   };
 }
 
@@ -49,10 +74,10 @@ export default async function RaiseApplicationPage({
   searchParams,
 }: {
   params: Promise<{ caseId: string }>;
-  searchParams: Promise<{ draft?: string; from?: string; objectionTo?: string }>;
+  searchParams: Promise<{ draft?: string; from?: string; objectTo?: string }>;
 }) {
   const { caseId } = await params;
-  const { draft, from, objectionTo } = await searchParams;
+  const { draft, from, objectTo } = await searchParams;
   const record = findCase(caseId);
   if (!record) notFound();
 
@@ -80,13 +105,11 @@ export default async function RaiseApplicationPage({
       {/* View Case's ground, so this reads as the same place and the white
           cards stand off it. Dark keeps its own background. */}
       <div className={cn("flex min-w-0 flex-1 flex-col", PAGE_GROUND, PAGE_GUTTER)}>
-        <RaiseApplicationForm
+        <RaiseApplicationEntry
           record={record}
+          draftId={draft}
           resume={resumedDraft(caseId, draft)}
-          // A draft raised in this browser lives in the applications store, which
-          // only the client can read; the form resolves it.
-          liveDraftId={draft?.startsWith("app-") ? draft : undefined}
-          objectionToId={objectionTo}
+          objectTo={draft ? undefined : objectionTarget(caseId, objectTo)}
           // The door this was opened from: the rail's case list records itself
           // here, so the way back returns to it rather than to the case.
           backHref={safeOrigin(from) ?? undefined}

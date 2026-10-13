@@ -1,28 +1,30 @@
 import {
-  APPLICATION_STATUSES,
-  applicationStatusLabel,
-  applicationStatusVariant,
-  canCreate,
-  canPay,
-  canSign,
-  isFiled,
-  objectionTaskOpen,
-  sideLabel,
-  visibleToSeat,
-  type ApplicationStatus,
-  type FilerSeat,
-  type LifecycleApplication,
-  type Side,
-  type StatusVariant,
-} from "@/lib/applications/lifecycle";
-import {
   applicationsFile,
-  needsAttention,
+  filingStatusLabel,
+  filingStatusVariant,
+  isSubmittedToCourt,
+  othersTitle,
   submissionDocumentSrc,
   submissionTypeLabel,
   submittedByName,
+  APPLICATION_TYPES,
+  SUBMISSION_DOCUMENT_TYPES,
+  type ApplicationsFile,
+  type FilingStatus,
   type Submission,
 } from "./applications";
+import {
+  applicationStepFor,
+  canSeeApplication,
+  objectionAgainst,
+  objectionDeadline,
+  objectionInvitations,
+  type ObjectionInvitation,
+  submissionSide,
+  waitingOn,
+  type ApplicationStep,
+  type ApplicationViewer,
+} from "./application-access";
 import { dayStamp } from "./peek";
 import { formatCaseDate, type CaseRecord } from "./types";
 import { displayName } from "./names";
@@ -39,284 +41,448 @@ export function applicationSideLabel(side: ApplicationSide): string {
   return SIDE_LABEL[side];
 }
 
+/** Another application this one points at, or is pointed at by. */
+export type LinkedApplication = {
+  id: string;
+  typeLabel: string;
+  statusLabel: string;
+  statusVariant: ReturnType<typeof filingStatusVariant>;
+  /** The number to cite it by: the court's, else the temporary one. */
+  number?: string;
+};
+
 /**
- * An application as the lifecycle document records it ("Application attributes"). The
- * register, the needs-attention list and the record dialog all read this one shape.
- *
- * Two sources feed it: the seeded register (`applications-dummy.json`, the legacy
- * portal's shape, mapped onto the lifecycle's statuses) and applications raised in this
- * browser (`lib/applications/store.ts`), which carry the whole lifecycle.
+ * An application as the PRD records it (Application Lifecycle v20,
+ * "Application attributes"), for one viewer. The register, the Needs
+ * attention list and the record dialog all read this one shape. `source`
+ * stays attached because the signing and payment dialogs still take the
+ * underlying filing.
  */
 export type ApplicationRecord = {
   id: string;
+  /** One flat catalogue; see `APPLICATION_TYPE_OPTIONS`. */
   type: string;
   typeLabel: string;
-  status: ApplicationStatus;
+  title: string;
+  /** What to call it: an Others filer's own title, else the type's name. */
+  name: string;
+  /** An Others filer's own title (the PRD's "Application Title"). */
+  ownTitle?: string;
+  status: FilingStatus;
   statusLabel: string;
-  statusVariant: StatusVariant;
-  /** ISO days; `submittedOn` is absent until the filing is submitted. */
+  statusVariant: ReturnType<typeof filingStatusVariant>;
+  /** The step this viewer can take, if any. Drives Needs attention. */
+  step: ApplicationStep | null;
+  needsAction: boolean;
+  /** Said on the row when the viewer's filing waits on someone else's step. */
+  waitingOn?: string;
+  /** ISO days; each is absent until that step has happened. */
   createdOn: string;
   submittedOn?: string;
+  onboardedOn?: string;
+  decisionOn?: string;
   created: string;
   submitted?: string;
   onboarded?: string;
+  decision?: string;
   /** "8 Sep 2025", for the register, which sets two dates side by side. */
   createdShort: string;
   submittedShort?: string;
+  onboardedShort?: string;
+  decisionShort?: string;
   filedById: string;
+  /** Raised by: the advocate or party in person who signs it. */
   filedBy: string;
-  /** Application Raised On Behalf Of. */
+  /** Who started the draft, when that was someone else (a clerk); only
+   *  until it is submitted. */
+  draftedBy?: string;
+  /** The litigant it is raised for. */
   onBehalfOf?: string;
   side: ApplicationSide;
-  /** Allotted at submission; shown to the filer, never cited in an order. */
+  /** Filed by the other side (the viewer's opponent). */
+  fromOtherSide: boolean;
+  /** Allotted on submission. Shown to the filer, never cited in an order. */
   temporaryId?: string;
-  /** Allotted at onboarding — the number a court recognises. */
+  /** Allotted on onboarding: the number the court knows it by. */
   applicationNumber?: string;
-  /** A seeded order lives in the case's Orders section; a live one is its own text. */
-  linkedOrder?: { id: string; label: string; text?: string };
-  objection?: { id: string; label: string; status: ApplicationStatus };
-  objectionTo?: { id: string; label: string };
+  /** Whether the court invited the other side to object. */
   objectionsInvited?: boolean;
-  objectionDueBy?: string;
-  decisionOn?: string;
-  workflowResult?: string;
+  /** For an application that invited objections: the last day to file one. */
+  objectionDueOn?: string;
+  objectionDue?: string;
+  /** The objection filed against this application, if any. */
+  objection?: LinkedApplication;
+  /** For an objection: the application it objects to. */
+  objectionTo?: LinkedApplication;
+  /**
+   * For an unfiled filing with a known expiry: the day, and days left from
+   * today. Needs attention mentions it only within `EXPIRY_NOTICE_DAYS`.
+   */
+  expiresOn?: string;
+  expiresShort?: string;
+  expiresInDays?: number;
+  /**
+   * The viewer's side is invited to object to this (the other side's)
+   * application, and has not started its one objection: the File objection
+   * task, seen from the record.
+   */
+  objectionInvite?: {
+    dueOn: string;
+    due: string;
+    dueShort: string;
+    /** False for a litigant or PoA holder: their advocate files it. */
+    canFile: boolean;
+  };
+  /** The order's operative line, once decided or dismissed. */
+  courtResult?: string;
+  linkedOrder?: { id: string; label: string };
   documents: { label: string; src?: string }[];
-  /** Set for an application raised in this browser. */
-  live?: LifecycleApplication;
-  /** Set for a seeded row. */
-  source?: Submission;
+  source: Submission;
 };
+
+/** The number a row is cited by: the court's once allotted, else the temporary one. */
+export function applicationNumberLabel(
+  application: Pick<ApplicationRecord, "applicationNumber" | "temporaryId">
+): string | undefined {
+  return application.applicationNumber ?? application.temporaryId;
+}
+
+/** How close an expiry has to be before Needs attention mentions it (owner, Sept 24). */
+export const EXPIRY_NOTICE_DAYS = 3;
+
+/** An expiry worth saying in Needs attention: known, and within the notice window. */
+export function expiringSoon(application: ApplicationRecord): boolean {
+  return (
+    application.expiresInDays !== undefined &&
+    application.expiresInDays >= 0 &&
+    application.expiresInDays <= EXPIRY_NOTICE_DAYS
+  );
+}
 
 /** Whether the viewer has set up the bulk signing tool (APP-10). A working
  *  stand-in until product says how the screen learns this. */
 export const HAS_BULK_SIGNING_TOOL = true;
 
+/** The two catalogues as one list. Each had its own "Others"; one survives. */
+const OTHERS = "others";
+function flatType(id: string): string {
+  return id === "application-others" || id === "document-others" ? OTHERS : id;
+}
+
+/**
+ * The register's Type filter. The document bucket "Objections" is left out:
+ * an objection is an application type now (Objection), and two near-identical
+ * entries would split one kind of filing across two filters.
+ */
+export const APPLICATION_TYPE_OPTIONS: { value: string; label: string }[] = [
+  ...[...APPLICATION_TYPES, ...SUBMISSION_DOCUMENT_TYPES]
+    .filter(
+      (item) => flatType(item.id) !== OTHERS && item.id !== "objections"
+    )
+    .map((item) => ({ value: item.id as string, label: item.label }))
+    .sort((a, b) => a.label.localeCompare(b.label)),
+  { value: OTHERS, label: "Generic" },
+];
+
 export type ApplicationPerson = { id: string; name: string; role: string };
+
+/** A File objection task the viewer's side has open (PRD citizen-side task). */
+export type ObjectionTask = {
+  application: ApplicationRecord;
+  dueOn: string;
+  due: string;
+  /** False for a litigant or PoA holder: a reminder, their advocate files. */
+  canFile: boolean;
+};
+
+/**
+ * What a batch of filings is called in copy: "documents" when every one is a
+ * memo or affidavit, else "applications". Read off the rows, so a screen
+ * shared by both tabs never needs telling.
+ */
+export function filingNoun(
+  items: Pick<ApplicationRecord, "source">[],
+  count = items.length
+): string {
+  const documents =
+    items.length > 0 && items.every((item) => item.source.kind === "document");
+  const noun = documents ? "document" : "application";
+  return count === 1 ? noun : `${noun}s`;
+}
 
 export type ApplicationsRegister = {
   applications: ApplicationRecord[];
-  /** Everyone on the case, for the Filed by filter (APP-03). */
+  /** Memos and affidavits: uploads, not applications, so they live under
+   *  Documents with their sign and pay steps (PM, Oct 8). Same records. */
+  documents: ApplicationRecord[];
+  /** Everyone who raised a row this viewer can see, for the Filed by filter. */
   people: ApplicationPerson[];
-  /** File objection tasks open on the viewer's side (`ALC-12`). */
-  objectionTasks: ApplicationRecord[];
+  /** File objection tasks for the viewer's side, soonest first. */
+  objectionTasks: ObjectionTask[];
 };
 
-export const APPLICATION_STATUS_OPTIONS = APPLICATION_STATUSES.map((item) => ({
-  value: item.id,
-  label: item.label,
-}));
-
 /**
- * The seeded pack speaks the legacy portal's statuses — everything that went through
- * is "Completed", with the court's outcome in a separate note. On the lifecycle, the
- * outcome is the status: an allowed application is Accepted; one with no outcome yet
- * is still with the court.
+ * A step taken in this session. Signing and paying move a filing on in
+ * memory only; the court side that would move it further is not built.
  */
-export function lifecycleStatusOf(submission: Submission): ApplicationStatus {
-  switch (submission.status) {
-    case "completed":
-      if (submission.courtResult?.toLowerCase().startsWith("allowed")) {
-        return "accepted";
-      }
-      return submission.linkedOrder ? "pending-decision" : "pending-review";
-    default:
-      return submission.status;
+export type ApplicationMove = {
+  status: FilingStatus;
+  /** ISO day, for a filing submitted in this session. */
+  submittedOn?: string;
+};
+
+/** Where this visit's moves on a case are kept (see `demo-session.ts`). */
+export function movesKey(caseId: string): string {
+  return `applications-moves:${caseId}`;
+}
+
+export function parseMoves(
+  raw: string | null
+): ReadonlyMap<string, ApplicationMove> {
+  if (!raw) return new Map();
+  try {
+    const value: unknown = JSON.parse(raw);
+    return Array.isArray(value)
+      ? new Map(value as [string, ApplicationMove][])
+      : new Map();
+  } catch {
+    return new Map();
   }
 }
 
-function seededSide(role: string): ApplicationSide {
-  const lower = role.toLowerCase();
-  if (lower.includes("accused")) return "accused";
-  if (lower.includes("complainant")) return "complainant";
-  return "court";
-}
-
 /**
- * Applications only (View Case `CHG-28`): the pack's document submissions — affidavits,
- * memos and the old "Objections" bucket — belong to the Documents register. An
- * objection is now an application of its own, raised from a File objection task.
- */
-function seededRecords(record: CaseRecord): {
-  rows: ApplicationRecord[];
-  people: ApplicationPerson[];
-} {
-  const file = applicationsFile(record);
-  const peopleById = new Map(file.people.map((person) => [person.id, person]));
-  const rows = file.submissions
-    .filter((submission) => submission.kind === "application")
-    .map((source): ApplicationRecord => {
-      const status = lifecycleStatusOf(source);
-      const role = peopleById.get(source.submittedById)?.role ?? "";
-      const submittedOn = isFiled(status) ? dayStamp(source.addedOn) : undefined;
-      const onboarded = status === "accepted" || status === "pending-decision" || status === "rejected";
-      return {
-        id: source.id,
-        type: source.type,
-        typeLabel: submissionTypeLabel(source.type),
-        status,
-        statusLabel: applicationStatusLabel(status),
-        statusVariant: applicationStatusVariant(status),
-        createdOn: dayStamp(source.addedOn),
-        submittedOn,
-        created: formatCaseDate(source.addedOn),
-        submitted: submittedOn ? formatCaseDate(submittedOn) : undefined,
-        createdShort: shortDate(source.addedOn),
-        submittedShort: submittedOn ? shortDate(submittedOn) : undefined,
-        filedById: source.submittedById,
-        filedBy: displayName(submittedByName(source, peopleById)),
-        side: seededSide(role),
-        /* The pack carries one identifier. Before onboarding it can only be the
-           temporary one; once the court has the application, it is its number. */
-        temporaryId: !onboarded ? (source.submissionId ?? undefined) : undefined,
-        applicationNumber: onboarded ? (source.submissionId ?? undefined) : undefined,
-        linkedOrder: source.linkedOrder ?? undefined,
-        documents: source.documents.map((doc) => ({
-          label: doc.label,
-          src: submissionDocumentSrc(doc),
-        })),
-        source,
-      };
-    });
-  return {
-    rows,
-    people: file.people.map((person) => ({
-      id: person.id,
-      name: displayName(person.name),
-      role: person.role,
-    })),
-  };
-}
-
-export function liveRecord(
-  app: LifecycleApplication,
-  all: LifecycleApplication[] = [],
-): ApplicationRecord {
-  const objection = app.objectionId
-    ? all.find((item) => item.id === app.objectionId)
-    : undefined;
-  const objectionTo = app.objectionToId
-    ? all.find((item) => item.id === app.objectionToId)
-    : undefined;
-  return {
-    id: app.id,
-    type: app.type,
-    typeLabel: app.typeLabel,
-    status: app.status,
-    statusLabel: applicationStatusLabel(app.status),
-    statusVariant: applicationStatusVariant(app.status),
-    createdOn: app.createdOn,
-    submittedOn: app.submittedOn,
-    created: formatCaseDate(app.createdOn),
-    submitted: app.submittedOn ? formatCaseDate(app.submittedOn) : undefined,
-    onboarded: app.onboardedOn ? formatCaseDate(app.onboardedOn) : undefined,
-    createdShort: shortDate(app.createdOn),
-    submittedShort: app.submittedOn ? shortDate(app.submittedOn) : undefined,
-    filedById: `live-${app.side}-${app.createdBy}`,
-    filedBy: displayName(app.raisedBy ?? app.createdByName),
-    onBehalfOf: app.onBehalfOf,
-    side: app.side,
-    temporaryId: app.temporaryId,
-    applicationNumber: app.applicationNumber,
-    linkedOrder: app.linkedOrder
-      ? {
-          id: app.linkedOrder.id,
-          label: `Order dated ${formatCaseDate(app.linkedOrder.signedOn)}`,
-          text: app.linkedOrder.text,
-        }
-      : undefined,
-    objection: objection
-      ? {
-          id: objection.id,
-          label: objection.temporaryId ?? "Objection",
-          status: objection.status,
-        }
-      : undefined,
-    objectionTo: objectionTo
-      ? {
-          id: objectionTo.id,
-          label: `${objectionTo.typeLabel}${
-            objectionTo.applicationNumber ? ` (${objectionTo.applicationNumber})` : ""
-          }`,
-        }
-      : undefined,
-    objectionsInvited: app.objectionsInvited,
-    objectionDueBy: app.objectionDueBy
-      ? formatCaseDate(app.objectionDueBy)
-      : undefined,
-    decisionOn: app.decide ? formatCaseDate(app.decide.dueOn) : undefined,
-    workflowResult: app.workflowResult?.replace(/\d{4}-\d{2}-\d{2}/g, (day) =>
-      formatCaseDate(day),
-    ),
-    documents: app.documents.map((label) => ({ label })),
-    live: app,
-  };
-}
-
-/** Seeded rows have no lifecycle record, so visibility reads their status and side. */
-function seededVisible(row: ApplicationRecord, seat: FilerSeat): boolean {
-  if (row.side === "court") return true;
-  return visibleToSeat(
-    {
-      side: row.side,
-      status: row.status,
-      type: row.type,
-      onboardedOn: row.applicationNumber ? row.createdOn : undefined,
-    } as LifecycleApplication,
-    seat,
-  );
-}
-
-/**
- * Sorted by submitted date, newest first, falling back to the created date for
- * filings not yet submitted (working guess for APP-08).
+ * Everything the case's filers have raised, as this viewer may see it. The
+ * pack also tags some filings as document submissions (affidavits, memos):
+ * those are uploads, not applications, and come back separately as
+ * `documents` for the Documents tab (PM, Oct 8; View Case CHG-28).
+ *
+ * Only what `viewer` may see is returned (ALC-17 and "Users and actions").
+ * A null viewer (the account is nobody on this case) sees nothing.
+ *
+ * Sorted by submitted date, newest first, falling back to the created date
+ * for filings not yet submitted (working guess for APP-08).
  */
 export function applicationsRegister(
   record: CaseRecord,
-  live: LifecycleApplication[],
-  seat: FilerSeat,
-): ApplicationsRegister {
-  const seeded = seededRecords(record);
-  const mine = live.filter((app) => app.caseId === record.id);
-  const liveRows = mine
-    .filter((app) => visibleToSeat(app, seat))
-    .map((app) => liveRecord(app, mine));
-  const applications = [
-    ...seeded.rows.filter((row) => seededVisible(row, seat)),
-    ...liveRows,
-  ].sort((a, b) =>
-    (b.submittedOn ?? b.createdOn).localeCompare(a.submittedOn ?? a.createdOn),
-  );
-  const objectionTasks = mine
-    .filter((app) => app.side !== seat.side && objectionTaskOpen(app))
-    .filter(() => canCreate(seat))
-    .map((app) => liveRecord(app, mine));
-  const people = [...seeded.people];
-  for (const row of liveRows) {
-    if (!people.some((person) => person.id === row.filedById)) {
-      people.push({
-        id: row.filedById,
-        name: row.filedBy,
-        role: `${sideLabel(row.side as Side)} side`,
-      });
-    }
+  options: {
+    viewer: ApplicationViewer | null;
+    today: string;
+    moves?: ReadonlyMap<string, ApplicationMove>;
+    /** Filed from the form during this visit (see `saved-application-drafts.ts`). */
+    saved?: Submission[];
   }
-  return { applications, people, objectionTasks };
+): ApplicationsRegister {
+  const base = applicationsFile(record);
+  const file: ApplicationsFile = {
+    ...base,
+    /* A saved draft that reopened a pack draft carries its id and replaces it. */
+    submissions: [
+      ...(options.saved ?? []),
+      ...base.submissions.filter(
+        (item) => !options.saved?.some((saved) => saved.id === item.id)
+      ),
+    ].map((original) => applyMove(original, options.moves?.get(original.id))),
+  };
+  const { viewer, today } = options;
+  if (!viewer)
+    return { applications: [], documents: [], people: [], objectionTasks: [] };
+
+  const byId = new Map(file.submissions.map((item) => [item.id, item]));
+  const invitations = new Map(
+    objectionInvitations(viewer, file, today).map((item) => [
+      item.application.id,
+      item,
+    ])
+  );
+  const toRecord = (source: Submission): ApplicationRecord =>
+    recordFor(source, file, viewer, byId, today, invitations.get(source.id));
+
+  const visible = file.submissions
+    .filter((source) => canSeeApplication(viewer, source, file))
+    .map(toRecord)
+    .sort((a, b) =>
+      (b.submittedOn ?? b.createdOn).localeCompare(a.submittedOn ?? a.createdOn)
+    );
+  const applications = visible.filter(
+    (item) => item.source.kind === "application"
+  );
+  const documents = visible.filter((item) => item.source.kind === "document");
+
+  const seen = new Set(visible.map((item) => item.filedById));
+  const people = file.people
+    .filter((person) => seen.has(person.id))
+    .map((person) => ({
+      id: person.id,
+      name: displayName(person.name),
+      role: person.role,
+    }));
+
+  const objectionTasks = [...invitations].map(([id, { dueOn, canFile }]) => ({
+    application: toRecord(byId.get(id)!),
+    dueOn,
+    due: formatCaseDate(dueOn),
+    canFile,
+  }));
+
+  return { applications, documents, people, objectionTasks };
+}
+
+function applyMove(
+  original: Submission,
+  move: ApplicationMove | undefined
+): Submission {
+  if (!move) return original;
+  const next: Submission = { ...original, status: move.status };
+  if (isSubmittedToCourt(move.status) && !original.submittedOn) {
+    next.submittedOn = move.submittedOn ?? null;
+    next.temporaryId = original.temporaryId ?? sessionTemporaryId(original);
+  }
+  return next;
 }
 
 /**
- * What still needs a step from this seat. Only the filing side's own work, and only
- * the steps this seat can take: a clerk's draft waiting on the advocate's signature is
- * the advocate's to-do, not the clerk's (`ALC-01`, "Users and actions").
+ * A temporary identifier for a filing paid in this session (ALC-02). Shaped
+ * like the pack's, and stable for the row, so the same filing reads the same
+ * after a re-render.
  */
-export function needsActionFrom(
-  row: ApplicationRecord,
-  seat: FilerSeat,
-): boolean {
-  if (row.side !== seat.side || !needsAttention(row.status)) return false;
-  if (row.status === "draft") return canCreate(seat);
-  if (row.status === "pending-signature") return canSign(seat);
-  if (row.status === "pending-payment") return canPay(seat);
-  return false;
+/* From the whole id, not its tail: ids that end alike ("…-signature")
+   all came out as KL-TMP-ATURE. */
+function sessionTemporaryId(submission: Submission): string {
+  let hash = 0;
+  for (const char of submission.id) {
+    hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  }
+  const tail = hash.toString(36).toUpperCase().padStart(5, "0").slice(-5);
+  return `KL-TMP-${tail}`;
+}
+
+function linkedFrom(source: Submission): LinkedApplication {
+  return {
+    id: source.id,
+    typeLabel: submissionTypeLabel(source.type),
+    statusLabel: filingStatusLabel(source.status),
+    statusVariant: filingStatusVariant(source.status),
+    number: source.applicationNumber ?? source.temporaryId ?? undefined,
+  };
+}
+
+function daysBetween(from: string, to: string): number {
+  return Math.round(
+    (Date.parse(`${to.slice(0, 10)}T00:00:00Z`) -
+      Date.parse(`${from.slice(0, 10)}T00:00:00Z`)) /
+      86_400_000
+  );
+}
+
+function recordFor(
+  source: Submission,
+  file: ApplicationsFile,
+  viewer: ApplicationViewer,
+  byId: Map<string, Submission>,
+  today: string,
+  invite?: ObjectionInvitation
+): ApplicationRecord {
+  const peopleById = new Map(file.people.map((person) => [person.id, person]));
+  const step = applicationStepFor(viewer, source, file);
+  const drafter =
+    source.createdById !== source.submittedById
+      ? peopleById.get(source.createdById)
+      : undefined;
+  const party = peopleById.get(source.onBehalfOfId);
+  const objection = objectionAgainst(source, file);
+  const objectionTarget = source.objectionToId
+    ? byId.get(source.objectionToId)
+    : undefined;
+  const invited = source.objectionsInvited === true && source.decisionOn;
+  const dueOn = invited ? objectionDeadline(source.decisionOn!) : undefined;
+
+  return {
+    id: source.id,
+    type: flatType(source.type),
+    typeLabel: submissionTypeLabel(source.type),
+    title: source.title,
+    /* A memo or affidavit goes by its own title ("Memo of calculation of
+       cheque amount and interest"), not its bucket ("Memos"). */
+    name:
+      source.kind === "document" && source.title.trim()
+        ? source.title.trim()
+        : (othersTitle(source) ?? submissionTypeLabel(source.type)),
+    ownTitle: othersTitle(source) ?? undefined,
+    status: source.status,
+    statusLabel: filingStatusLabel(source.status),
+    statusVariant: filingStatusVariant(source.status),
+    step,
+    needsAction: step !== null,
+    waitingOn: waitingFor(viewer, source, file),
+    createdOn: dayStamp(source.addedOn),
+    submittedOn: source.submittedOn ?? undefined,
+    onboardedOn: source.onboardedOn ?? undefined,
+    decisionOn: source.decisionOn ?? undefined,
+    created: formatCaseDate(source.addedOn),
+    submitted: source.submittedOn ? formatCaseDate(source.submittedOn) : undefined,
+    onboarded: source.onboardedOn
+      ? formatCaseDate(source.onboardedOn)
+      : undefined,
+    decision: source.decisionOn ? formatCaseDate(source.decisionOn) : undefined,
+    createdShort: shortDate(source.addedOn),
+    submittedShort: source.submittedOn ? shortDate(source.submittedOn) : undefined,
+    onboardedShort: source.onboardedOn ? shortDate(source.onboardedOn) : undefined,
+    decisionShort: source.decisionOn ? shortDate(source.decisionOn) : undefined,
+    filedById: source.submittedById,
+    filedBy: displayName(submittedByName(source, peopleById)),
+    /* Only until it reaches the court (owner, Sept 24): once submitted it is
+       the signing advocate's application (the PRD's "Raised By"), and who
+       drafted it is theirs to know. */
+    draftedBy:
+      drafter && !isSubmittedToCourt(source.status)
+        ? displayName(drafter.name)
+        : undefined,
+    onBehalfOf:
+      party && party.id !== source.submittedById
+        ? displayName(party.name)
+        : undefined,
+    side: submissionSide(source, peopleById),
+    fromOtherSide: submissionSide(source, peopleById) !== viewer.side,
+    temporaryId: source.temporaryId ?? undefined,
+    applicationNumber: source.applicationNumber ?? undefined,
+    objectionsInvited: source.objectionsInvited ?? undefined,
+    objectionDueOn: dueOn,
+    objectionDue: dueOn ? formatCaseDate(dueOn) : undefined,
+    objection:
+      objection && canSeeApplication(viewer, objection, file)
+        ? linkedFrom(objection)
+        : undefined,
+    objectionTo: objectionTarget ? linkedFrom(objectionTarget) : undefined,
+    expiresOn: source.expiresOn ?? undefined,
+    expiresShort: source.expiresOn ? shortDate(source.expiresOn) : undefined,
+    expiresInDays: source.expiresOn
+      ? daysBetween(today, source.expiresOn)
+      : undefined,
+    objectionInvite: invite
+      ? {
+          dueOn: invite.dueOn,
+          due: formatCaseDate(invite.dueOn),
+          dueShort: shortDate(invite.dueOn),
+          canFile: invite.canFile,
+        }
+      : undefined,
+    courtResult: source.courtResult ?? undefined,
+    linkedOrder: source.linkedOrder ?? undefined,
+    documents: source.documents.map((doc) => ({
+      label: doc.label,
+      src: submissionDocumentSrc(doc),
+    })),
+    source,
+  };
+}
+
+function waitingFor(
+  viewer: ApplicationViewer,
+  source: Submission,
+  file: ApplicationsFile
+): string | undefined {
+  const signer = waitingOn(viewer, source, file);
+  return signer ? `Waiting for ${displayName(signer.name)} to sign` : undefined;
 }
 
 function shortDate(iso: string): string {
@@ -332,41 +498,66 @@ export type ActionEntry =
   | {
       kind: "group";
       key: string;
-      status: ApplicationStatus;
-      filedBy: string;
+      step: Exclude<ApplicationStep, "continue">;
+      status: FilingStatus;
       applications: ApplicationRecord[];
-    };
+    }
+  | { kind: "objection"; key: string; task: ObjectionTask };
 
 /**
- * Two or more applications waiting on the same step from the same filer
- * collapse into one entry with one action (APP-09). Drafts never group: each
- * is continued in its own form.
+ * The viewer's to-do list (APP-09). Every row here is a step this viewer can
+ * take, so two or more waiting on the same step collapse into one entry
+ * with one action, whoever drafted them: an advocate signs their clerk's
+ * drafts in the same sitting as their own. Drafts never group: each is
+ * continued in its own form. File objection tasks lead, because they are the
+ * only entries with a deadline the viewer does not control.
  */
 export function groupActions(
   rows: ApplicationRecord[],
-  seat: FilerSeat,
+  objectionTasks: ObjectionTask[] = []
 ): ActionEntry[] {
   const buckets = new Map<string, ApplicationRecord[]>();
   for (const row of rows) {
-    if (!needsActionFrom(row, seat)) continue;
-    const key = `${row.status}-${row.filedById}`;
-    buckets.set(key, [...(buckets.get(key) ?? []), row]);
+    if (!row.step) continue;
+    buckets.set(row.step, [...(buckets.get(row.step) ?? []), row]);
   }
-  const entries: ActionEntry[] = [];
-  for (const [key, bucket] of buckets) {
-    if (bucket.length > 1 && bucket[0].status !== "draft") {
-      entries.push({
+  const entries: ActionEntry[] = objectionTasks.map((task) => ({
+    kind: "objection",
+    key: `objection-${task.application.id}`,
+    task,
+  }));
+  const rest: ActionEntry[] = [];
+  for (const [step, bucket] of buckets) {
+    if (bucket.length > 1 && step !== "continue") {
+      rest.push({
         kind: "group",
-        key,
+        key: step,
+        step: step as Exclude<ApplicationStep, "continue">,
         status: bucket[0].status,
-        filedBy: bucket[0].filedBy,
         applications: bucket,
       });
     } else {
       for (const application of bucket) {
-        entries.push({ kind: "single", key: application.id, application });
+        rest.push({ kind: "single", key: application.id, application });
       }
     }
   }
-  return entries;
+  /* Objections keep the top: theirs is a deadline set by the court. Then
+     anything about to expire, soonest first, above the rest, which keep
+     their order (owner, Sept 24). */
+  const soonest = (entry: ActionEntry): number => {
+    const members =
+      entry.kind === "group"
+        ? entry.applications
+        : entry.kind === "single"
+          ? [entry.application]
+          : [];
+    const days = members.filter(expiringSoon).map((item) => item.expiresInDays!);
+    return days.length ? Math.min(...days) : Number.POSITIVE_INFINITY;
+  };
+  const ranked = rest
+    .map((entry, index) => ({ entry, index, soon: soonest(entry) }))
+    .sort((a, b) => a.soon - b.soon || a.index - b.index)
+    .map((item) => item.entry);
+  return [...entries, ...ranked];
 }

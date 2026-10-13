@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/command";
 import { Spinner } from "@/components/ui/spinner";
 import { Identifier } from "@/components/chrome/identifier";
+import { useCourtText } from "@/components/court/court-provider";
 
 /**
  * The app's search, opened from the rail.
@@ -55,6 +56,7 @@ function hrefFor(draft: FilingDraft): string {
 }
 
 function Results({ onNavigate }: { onNavigate: () => void }) {
+  const courtText = useCourtText();
   const router = useRouter();
   const { ready, drafts, filed } = useDrafts();
   const [query, setQuery] = React.useState("");
@@ -110,7 +112,7 @@ function Results({ onNavigate }: { onNavigate: () => void }) {
                     {draftTitle(d)}
                   </span>
                   <span className="truncate text-caption text-muted-foreground">
-                    {getStep(d.lastStep).title} · saved{" "}
+                    {courtText(getStep(d.lastStep).title)} · saved{" "}
                     <span className="tabular-nums">
                       {toDisplayDate(d.updatedAt.slice(0, 10))}
                     </span>

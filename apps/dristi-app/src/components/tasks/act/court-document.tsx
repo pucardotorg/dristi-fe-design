@@ -8,6 +8,7 @@ import type { Case, Person, Task } from "@/lib/tasks/types";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { PANEL_CLASS } from "@/components/shell/panel";
+import { useCourtLocalized } from "@/components/court/court-provider";
 
 /** "Sign the vakalatnama for …" → "Vakalatnama for …". */
 export function documentTitleOf(task: Task): string {
@@ -75,7 +76,7 @@ function wordsFor(kind: DocumentKind, court: string, why: string): { opening: st
  */
 export function CourtDocument({
   task,
-  kase,
+  kase: storedKase,
   people,
   className,
 }: {
@@ -84,6 +85,7 @@ export function CourtDocument({
   people: Person[];
   className?: string;
 }) {
+  const kase = useCourtLocalized(storedKase);
   const [complainant, accused] = kase.parties.split(/\s+v\.\s+/);
   const signatories = signatoriesOf(kase, people);
   const signedBy = people.find((p) => p.id === task.completion?.by);
@@ -138,7 +140,7 @@ export function CourtDocument({
           <div className="flex flex-col gap-1">
             <p className="text-caption font-semibold text-paper-muted-foreground">Place · date</p>
             <p>
-              Kollam · <span className="tabular-nums">{longDate(task.completion?.at ?? new Date().toISOString())}</span>
+              Sample District · <span className="tabular-nums">{longDate(task.completion?.at ?? new Date().toISOString())}</span>
             </p>
           </div>
           <div className="flex flex-col gap-1">

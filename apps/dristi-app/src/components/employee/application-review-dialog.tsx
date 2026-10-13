@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { useCourtLocalized } from "@/components/court/court-provider";
 
 /**
  * One application, as paper.
@@ -176,10 +177,11 @@ export function ApplicationReviewOverlay({
  * product, not another panel of it.
  */
 export function ApplicationFacsimile({
-  document,
+  document: storedDocument,
 }: {
   document: CourtApplicationDocument;
 }) {
+  const document = useCourtLocalized(storedDocument);
   return (
     <article className="flex flex-col gap-6 rounded-md bg-paper p-6 text-paper-foreground [&_[data-slot=description-details]]:text-paper-foreground [&_[data-slot=description-term]]:text-paper-muted-foreground">
       <header className="flex flex-col gap-2 text-center">
@@ -211,10 +213,14 @@ export function ApplicationFacsimile({
         ))}
       </ol>
 
-      <section className="flex flex-col gap-2">
-        <h4 className="text-body font-semibold">Prayer</h4>
-        <p className="text-body whitespace-pre-wrap">{document.prayer}</p>
-      </section>
+      {/* An application filed through Raise application carries no prayer
+          yet: its content is the values entered, until the text is specified. */}
+      {document.prayer ? (
+        <section className="flex flex-col gap-2">
+          <h4 className="text-body font-semibold">Prayer</h4>
+          <p className="text-body whitespace-pre-wrap">{document.prayer}</p>
+        </section>
+      ) : null}
 
       <footer className="flex flex-col items-end gap-2">
         <p className="text-body-compact text-paper-muted-foreground">

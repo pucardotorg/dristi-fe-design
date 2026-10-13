@@ -39,6 +39,7 @@ import { FileBody } from "@/components/tasks/act/file-page";
 import { PayBody } from "@/components/tasks/act/pay-page";
 import { SignBody } from "@/components/tasks/act/sign-page";
 import { Identifier } from "@/components/chrome/identifier";
+import { useCourtText } from "@/components/court/court-provider";
 
 export type ActPageAction = "sign" | "continue";
 
@@ -74,6 +75,7 @@ function Body({ ctx, action }: { ctx: ActContext; action: ActPageAction }) {
 }
 
 export function TaskActPage({ action }: { action: ActPageAction }) {
+  const courtText = useCourtText();
   const params = useParams<{ taskId: string }>();
   const router = useRouter();
   const origin = useOrigin();
@@ -176,7 +178,7 @@ export function TaskActPage({ action }: { action: ActPageAction }) {
                 " · Not yet numbered"
               )}
               {" · "}
-              {kase.court}
+              {courtText(kase.court)}
             </p>
           </header>
         </div>

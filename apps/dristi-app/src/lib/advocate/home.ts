@@ -204,6 +204,19 @@ function docketHearingsOn(
   return hearingsFrom(world, world.cases, court, dayKey, now);
 }
 
+/**
+ * The world as a one-court deployment holds it: every case in `court`.
+ *
+ * ENGINEERING SEAM — the sandbox's cases are spread across a court complex so the
+ * multi-court board has something to show. A deployment that runs one courtroom
+ * (`CourtProfile.singleCourt`) only ever holds that court's cases, so the home moves
+ * them all into it here; a real backend returns them that way and this becomes a no-op.
+ */
+export function inOneCourt(world: World, court: string): World {
+  if (world.cases.every((c) => c.court === court)) return world;
+  return { ...world, cases: world.cases.map((c) => (c.court === court ? c : { ...c, court })) };
+}
+
 /** Every court with a matter listed that day — the whole docket, flagship ON first. */
 function docketCourtsOn(world: World, dayKey: string): string[] {
   const courts = new Set<string>();
@@ -251,7 +264,7 @@ export function courtRooms(
 }
 
 export type CourtLabels = {
-  /** The trailing run every court name shares — "Kollam" — or null. */
+  /** The trailing run every court name shares — "Sample District" — or null. */
   establishment: string | null;
   /** The court name with that shared run removed. Identity when there is none. */
   shortOf: (court: string) => string;
@@ -260,15 +273,15 @@ export type CourtLabels = {
 /**
  * The part of the court names that is the same on all of them, said once.
  *
- * Four courts reading "…, Kollam" spend forty characters on one fact, and the
+ * Four courts reading "…, Sample District" spend forty characters on one fact, and the
  * fact belongs above the stack rather than on every heading. This computes it
- * from the data instead of matching a literal: an English `.replace(", Kollam")`
+ * from the data instead of matching a literal: an English `.replace(", Sample District")`
  * silently no-ops in a Malayalam or Gujarati deployment, and how a court is named
  * is a state-layer concern (`product-foundation.md` §2), not a view's edit.
  *
  * The rule is the longest common *trailing* run of `", "`-separated segments that
  * still leaves every court at least one leading segment of its own — so a court
- * called only "Kollam" stops the run rather than being erased by it. No run, one
+ * called only "Sample District" stops the run rather than being erased by it. No run, one
  * court, or unrelated names all fall through to the full label, which is always
  * correct. The `", "` split is itself a punctuation assumption; it is safe rather
  * than durable, and the durable fix is structured court data (brief §15.11 Q7).
@@ -280,7 +293,7 @@ export function courtLabelsOf(courts: string[]): CourtLabels {
 
   const parts = names.map((name) => name.split(", "));
   // Every court keeps a leading segment, so the run is always shorter than the
-  // shortest name — that guard is what makes a bare "Kollam" fall through.
+  // shortest name — that guard is what makes a bare "Sample District" fall through.
   const limit = Math.min(...parts.map((p) => p.length)) - 1;
 
   let run = 0;
@@ -650,11 +663,150 @@ export type DaySlot = {
   window: Sitting;
   /** The window formatted for the tab and the summary's slot stat ("9:00 am – 5:00 pm"). */
   label: string;
+  /** The window's two ends, formatted for the timeline's start and end marks. */
+  startLabel: string;
+  endLabel: string;
   /** A matter is being called in this sitting right now — the tab throbs. */
+  /** The day has moved past this sitting: a past day, or today after its end. */
+  ended: boolean;
   live: boolean;
-  /** The sitting's board — time-grouped or flat per config. */
+  /**
+   * Every matter in the sitting before its filter — what the sitting's own
+   * court and people filters offer their options from.
+   */
+  hearings: TimelineHearing[];
+  /** The sitting's board — time-grouped or flat per config, after its filter. */
   board: DayTimeline;
+  /**
+   * Matters the access filter (kind and people) keeps off the board, courts
+   * aside: the count under the access button speaks for that button only.
+   */
+  hiddenByAccess: number;
 };
+
+/**
+ * Whose hearings a sitting shows. Every matter on the board is already the
+ * viewer's in one of two ways: on its Vakalatnama, or reachable through office
+ * access. "mine" keeps the first; "all" keeps both.
+ */
+export type PeopleScope = "mine" | "office" | "all";
+
+/**
+ * One sitting's filter. Each slot tab carries its own, so narrowing the morning
+ * leaves the afternoon as it was.
+ *
+ * - `courts`: empty means every court.
+ * - `scope`: the Vakalatnama-only view, or everything the viewer can open.
+ * - `people`: empty means everyone; otherwise only matters where at least one
+ *   of the chosen advocates is on the Vakalatnama. Office access never counts
+ *   here, because it is given out widely and would make every name match nearly
+ *   every hearing. The viewer stays the common link: the people narrow the
+ *   viewer's own board, never reach past it.
+ */
+export type SlotFilter = {
+  courts: readonly string[];
+  scope: PeopleScope;
+  people: readonly PersonId[];
+  /**
+   * Colleagues unticked in the people menu. The viewer is always in; a hearing
+   * stays while the viewer or any colleague still ticked is on its Vakalatnama.
+   * Empty means everyone, so a newly listed colleague arrives ticked.
+   */
+  hidden: readonly PersonId[];
+};
+
+export const NO_SLOT_FILTER: SlotFilter = { courts: [], scope: "all", people: [], hidden: [] };
+
+/** Whether a filter narrows anything. */
+export function isFiltered(filter: SlotFilter): boolean {
+  return filter.courts.length > 0 || filter.scope !== "all" || filter.people.length > 0 || filter.hidden.length > 0;
+}
+
+function meOf(world: World): PersonId {
+  return typeof world.user === "string" ? world.user : world.user.id;
+}
+
+/** The matters a scope keeps, before the people and courts narrow it. */
+function inScope(world: World, hearings: TimelineHearing[], scope: PeopleScope): TimelineHearing[] {
+  if (scope === "all") return hearings;
+  const me = meOf(world);
+  // "office" is the complement of "mine": matters the viewer reaches only
+  // through office access, never through their own Vakalatnama.
+  return hearings.filter((h) => h.kase.signatories.includes(me) === (scope === "mine"));
+}
+
+/** Apply one sitting's filter to its matters. */
+export function filterSlotHearings(
+  world: World,
+  hearings: TimelineHearing[],
+  filter: SlotFilter
+): TimelineHearing[] {
+  const courts = filter.courts.length ? new Set(filter.courts) : null;
+  const people = filter.people.length ? new Set(filter.people) : null;
+  const hidden = filter.hidden.length ? new Set(filter.hidden) : null;
+  const me = meOf(world);
+  return inScope(world, hearings, filter.scope).filter(
+    (h) =>
+      (!courts || courts.has(h.court)) &&
+      (!people || h.kase.signatories.some((id) => people.has(id))) &&
+      (!hidden || h.kase.signatories.some((id) => id === me || !hidden.has(id)))
+  );
+}
+
+/** A colleague the people filter offers, with how many of the sitting's matters name them. */
+export type PeopleOption = { person: Person; count: number; me?: boolean };
+
+/**
+ * Everyone else on the Vakalatnama of a sitting's matters, inside the chosen
+ * scope: the names the people filter can tick. The viewer is left out (choosing
+ * yourself is what "My hearings" already does), and the list runs
+ * alphabetically so it does not reorder from day to day.
+ */
+export function peopleOptionsOf(
+  world: World,
+  hearings: TimelineHearing[],
+  scope: PeopleScope,
+  /** Lead with the viewer as a "Me" option (the single people menu offers it). */
+  includeMe = false
+): PeopleOption[] {
+  const me = meOf(world);
+  const tally = new Map<PersonId, PeopleOption>();
+  let mine = 0;
+  for (const h of inScope(world, hearings, scope)) {
+    for (const id of h.kase.signatories) {
+      if (id === me) {
+        mine += 1;
+        continue;
+      }
+      const person = world.people.find((p) => p.id === id);
+      if (!person) continue;
+      const entry = tally.get(id) ?? { person, count: 0 };
+      entry.count += 1;
+      tally.set(id, entry);
+    }
+  }
+  const others = [...tally.values()].sort((a, b) => a.person.name.localeCompare(b.person.name));
+  const self = world.people.find((p) => p.id === me);
+  return includeMe && self && mine ? [{ person: self, count: mine, me: true }, ...others] : others;
+}
+
+/**
+ * How the viewer reaches a matter, and who holds its Vakalatnama — what a
+ * hearing's access button and its popover say. `office` is true when the viewer
+ * is on the case only through office access.
+ */
+export type HearingAccess = { office: boolean; vakalatnama: Person[]; youId: PersonId };
+
+export function accessOf(world: World, kase: Case): HearingAccess {
+  const me = meOf(world);
+  return {
+    youId: me,
+    office: !kase.signatories.includes(me),
+    vakalatnama: kase.signatories
+      .map((id) => world.people.find((p) => p.id === id))
+      .filter(Boolean) as Person[],
+  };
+}
 
 /** Local minutes-past-midnight of a "HH:MM" sitting bound. */
 function minutesOf(hhmm: string): number {
@@ -707,9 +859,9 @@ export function daySlotsOn(
   dayKey: string,
   now: number,
   config: AdvocateHomeConfig,
-  courts?: readonly string[]
+  filters?: Readonly<Record<string, SlotFilter>>
 ): DaySlot[] {
-  const hearings = timelineHearingsFor(world, dayKey, now, courts);
+  const hearings = timelineHearingsFor(world, dayKey, now);
   const sittings = config.sittings.length
     ? config.sittings
     : [{ start: "00:00", end: "23:59" }];
@@ -728,20 +880,46 @@ export function daySlotsOn(
   // day is over and a future one has not begun, so neither throbs a tab.
   const isToday = dayKeyOf(now) === dayKey;
   const nowMinutes = new Date(now).getHours() * 60 + new Date(now).getMinutes();
+  const ended = (i: number) =>
+    dayKey < dayKeyOf(now) || (isToday && nowMinutes > minutesOf(sittings[i].end));
+
+  // A matter an ended sitting never reached (passed over, or not yet called) is
+  // carried into the next sitting, where it is still to come and keeps its
+  // passed-over tag. It cascades until it reaches a sitting still under way; the
+  // day's last sitting keeps what is left.
+  if (isToday) {
+    for (let i = 0; i < sittings.length - 1; i++) {
+      if (!ended(i)) break;
+      const carried = buckets[i].filter((h) => h.status !== "concluded");
+      if (!carried.length) continue;
+      buckets[i] = buckets[i].filter((h) => h.status === "concluded");
+      buckets[i + 1] = [...carried, ...buckets[i + 1]];
+    }
+  }
 
   return sittings.map((window, i) => {
+    const key = `sitting-${i}`;
+    const filter = filters?.[key] ?? NO_SLOT_FILTER;
+    const shown = filterSlotHearings(world, buckets[i], filter);
+    const hiddenByAccess =
+      buckets[i].length - filterSlotHearings(world, buckets[i], { ...filter, courts: [] }).length;
     const board = config.groupByTime
-      ? groupByTimeSlots(buckets[i], now)
-      : buildFlatBoard(buckets[i]);
+      ? groupByTimeSlots(shown, now)
+      : buildFlatBoard(shown);
     return {
-      key: `sitting-${i}`,
+      key,
       window,
       label: labelOfSitting(window),
+      startLabel: formatClock(window.start),
+      endLabel: formatClock(window.end),
+      hearings: buckets[i],
+      ended: ended(i),
       live:
         isToday &&
         nowMinutes >= minutesOf(window.start) &&
         nowMinutes <= minutesOf(window.end),
       board,
+      hiddenByAccess,
     };
   });
 }
@@ -823,6 +1001,30 @@ export function causeListOn(
   return rows;
 }
 
+/** Where a scheduled matter stands in its court's queue today. */
+export type HearingQueue = {
+  /** Matters still waiting before it in the same court (not the one being heard). */
+  ahead: number;
+};
+
+/**
+ * How many matters are still to be called before this one in its court's
+ * cause list. Only matters waiting count; the one being heard now does not, so
+ * "0 ahead" reads as "next". Counted on the whole docket, not just the viewer's.
+ */
+export function queueOf(
+  world: World,
+  court: string,
+  dayKey: string,
+  item: number,
+  now: number = Date.now()
+): HearingQueue {
+  const docket = docketHearingsOn(world, court, dayKey, now);
+  return {
+    ahead: docket.filter((h) => h.status === "upcoming" && h.item < item).length,
+  };
+}
+
 /** Total listed matters on a day across every court — the greeting's number. */
 export function matterCountOn(
   world: World,
@@ -868,13 +1070,12 @@ export function railCaseLineOf(world: World, task: Task): string {
 }
 
 /**
- * The rail's week view: needs-action tasks bucketed by when their consequence
- * lands — overdue, today, tomorrow, then one bucket per day for the rest of the
- * coming week. The bucket header carries the date, so the cards inside do not
- * repeat it. Tasks due beyond the week (or with no date) are left to /tasks;
- * the rail's footer names the full count.
+ * The rail's near view: needs-action tasks bucketed by when their consequence
+ * lands. The bucket header carries the date words, so the cards inside do not
+ * repeat them. Tasks due beyond the next three days (or with no date) are left
+ * to /tasks; the rail's footer names the full count.
  */
-export type RailGroupKey = "today" | "soon" | "week";
+export type RailGroupKey = "today" | "soon";
 
 export type RailGroup = {
   key: RailGroupKey;
@@ -882,25 +1083,23 @@ export type RailGroup = {
 };
 
 /**
- * Three buckets, no more: due today (overdue folded in — an overdue task is due
- * today most of all, and its card keeps the day count), the next three days,
- * and the rest of the week. The bucket header carries the date words, so the
- * cards inside do not repeat them; past the week is /tasks' business.
+ * Two buckets, no more: due today (overdue folded in — an overdue task is due
+ * today most of all, and its card keeps the day count) and the next three days.
+ * Anything later is /tasks' business: a home that lists the whole week reads as
+ * a second task list rather than what needs doing now.
  */
 export function railGroups(world: World, now: number = Date.now()): RailGroup[] {
-  const buckets: Record<RailGroupKey, Task[]> = { today: [], soon: [], week: [] };
+  const buckets: Record<RailGroupKey, Task[]> = { today: [], soon: [] };
   const todayKey = dayKeyOf(now);
   const soonEnd = dayKeyOf(now + 3 * DAY_MS);
-  const weekEnd = dayKeyOf(now + 7 * DAY_MS);
 
   for (const task of railTasks(world)) {
     const at = consequenceAt(task);
     if (!at) continue;
     const key = dayKeyOf(at);
-    if (key > weekEnd) continue;
+    if (key > soonEnd) continue;
     if (key <= todayKey) buckets.today.push(task);
-    else if (key <= soonEnd) buckets.soon.push(task);
-    else buckets.week.push(task);
+    else buckets.soon.push(task);
   }
 
   return (Object.keys(buckets) as RailGroupKey[])

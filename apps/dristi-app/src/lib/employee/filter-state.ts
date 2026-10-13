@@ -13,6 +13,8 @@
  * question with one right answer, so it still lives here rather than being re-derived.
  */
 
+import { caseSearchKey } from "@/lib/court/localize";
+
 /** A filter object as these screens hold one: flat, and only ever text. */
 type FilterShape = Record<string, string | null>;
 
@@ -64,7 +66,7 @@ export function matchesQuery(
   query: string,
   ...parts: (string | undefined)[]
 ): boolean {
-  const tokens = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const tokens = caseSearchKey(query).split(/\s+/).filter(Boolean);
   // An empty box is not a filter; it asks for everything.
   if (tokens.length === 0) return true;
   const haystack = parts.filter(Boolean).join(" ").toLowerCase();

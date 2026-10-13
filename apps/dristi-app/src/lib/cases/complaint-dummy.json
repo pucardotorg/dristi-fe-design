@@ -7,7 +7,7 @@
     "caseNumber": "ST/412/2025",
     "complaintCaseNumber": "CMP/1842/2025",
     "filingNumber": "KL-DUMMY-001386-2025",
-    "court": "Judicial First Class Magistrate Court-I, Kollam",
+    "court": "Judicial First Class Magistrate Court-I",
     "dateOfFiling": {
       "value": "2025-06-12",
       "display": "12 June 2025"
@@ -43,7 +43,7 @@
               "address": {
                 "line1": "14 Example Lane",
                 "locality": "Asramam",
-                "district": "Kollam",
+                "district": "Sample District",
                 "state": "Kerala",
                 "pincode": "691002",
                 "isFictional": true
@@ -83,12 +83,12 @@
               "address": {
                 "line1": "25 Sample Market Road",
                 "locality": "Chinnakada",
-                "district": "Kollam",
+                "district": "Sample District",
                 "state": "Kerala",
                 "pincode": "691001",
                 "isFictional": true
               },
-              "policeStation": "Kollam East Police Station",
+              "policeStation": "Town East Police Station",
               "powerOfAttorneyTransferred": false,
               "companyDocuments": {
                 "applicable": true,
@@ -147,14 +147,14 @@
                 "display": "15 April 2025"
               },
               "payerBankName": "Kerala Mercantile Bank (Fictional)",
-              "payerBankBranchName": "Kollam Market Branch",
+              "payerBankBranchName": "Market Branch",
               "payerIfscCode": "KMBK0000184",
               "chequeAmount": {
                 "value": 450000,
                 "currency": "INR",
                 "display": "Rs. 4,50,000"
               },
-              "policeStationWithJurisdictionOverChequeDepositBank": "Kollam East Police Station",
+              "policeStationWithJurisdictionOverChequeDepositBank": "Town East Police Station",
               "dateOfDeposit": {
                 "value": "2025-04-16",
                 "display": "16 April 2025"

@@ -2,18 +2,15 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { CAUSE_LIST } from "./hearings";
-import { appendRichText, recitalText } from "./order-items";
-import { applicationsForListing } from "./listing-applications";
+import { createTextBlock } from "./order-composer";
 import {
   appearancesFor,
-  assembleApplications,
-  assembleAttendance,
-  assembleBody,
-  assembleNextListing,
-  assembleOrder,
   attendanceRecital,
   EMPTY_ORDER_DRAFT,
+  hearingOrderDocument,
   nextListingRecital,
+  postingSettled,
+  recitalText,
 } from "./order-draft";
 
 const hearing = CAUSE_LIST[0];
@@ -31,51 +28,6 @@ describe("appearancesFor", () => {
     );
     assert.equal(rows[0].role, "Complainant");
     assert.equal(rows[0].name, noAccusedCounsel.parties.complainant);
-  });
-});
-
-describe("assembleAttendance", () => {
-  it("says attendance is unmarked when nothing is marked", () => {
-    const block = assembleAttendance(appearancesFor(hearing), {});
-    assert.equal(block.pending, true);
-    assert.equal(block.body, "Attendance has not been marked.");
-  });
-
-  it("names only the people who were marked, and cannot be both", () => {
-    const appearances = appearancesFor(hearing);
-    const block = assembleAttendance(appearances, {
-      complainant: "present",
-      accused: "absent",
-    });
-    assert.equal(block.pending, false);
-    assert.match(block.body, /Sunil Varghese, the complainant, is present/);
-    assert.match(block.body, /Anand Traders, the accused, is absent/);
-    assert.doesNotMatch(block.body, /Adv\./);
-    assert.equal(block.appearances?.length, 2);
-    assert.equal(block.appearances?.[0]?.name, "Sunil Varghese");
-    assert.equal(block.appearances?.[1]?.mark, "absent");
-  });
-});
-
-describe("assembleNextListing", () => {
-  it("treats skip as a positive sentence, not a missing date", () => {
-    const block = assembleNextListing({
-      next: "none",
-      nextPurpose: "",
-      nextDate: null,
-    });
-    assert.equal(block.pending, false);
-    assert.equal(block.body, "No next date is listed.");
-  });
-
-  it("flags a listed-next order with no date", () => {
-    const block = assembleNextListing({
-      next: "list",
-      nextPurpose: "plea",
-      nextDate: null,
-    });
-    assert.equal(block.pending, true);
-    assert.equal(block.body, "Next date has not been set.");
   });
 });
 
@@ -116,13 +68,13 @@ describe("attendanceRecital", () => {
   it("grows one office at a time, so a part-called roll is still in the order", () => {
     const appearances = appearancesFor(hearing);
     const first = attendanceRecital(appearances, { complainant: "present" });
-    assert.equal(recitalText(first), "Present: Sunil Varghese, the complainant.");
+    assert.equal(first.map(recitalText).join("\n"), "Present: Sunil Varghese, the complainant.");
     const both = attendanceRecital(appearances, {
       complainant: "present",
       accused: "absent",
     });
     assert.equal(
-      recitalText(both),
+      both.map(recitalText).join("\n"),
       "Present: Sunil Varghese, the complainant.\nAbsent: Anand Traders, the accused.",
     );
   });
@@ -170,162 +122,42 @@ describe("nextListingRecital", () => {
   });
 });
 
-describe("assembleBody", () => {
-  it("says so when nothing has been written, rather than printing nothing", () => {
-    const block = assembleBody({ html: "", text: "" });
-    assert.equal(block.pending, true);
-    assert.equal(block.body, "No order has been written.");
-    assert.equal(block.html, "");
-  });
-
-  it("is pending on the text, not the markup — an empty editor still holds a break", () => {
-    const block = assembleBody({ html: "<br>", text: "   " });
-    assert.equal(block.pending, true);
-    assert.equal(block.html, "");
-  });
-
-  it("keeps the formatting the typist put in the box", () => {
-    const block = assembleBody({
-      html: "<ol><li>Notice to the accused.</li></ol>",
-      text: "Notice to the accused.",
-    });
-    assert.equal(block.pending, false);
-    assert.equal(block.html, "<ol><li>Notice to the accused.</li></ol>");
-    assert.equal(block.body, "Notice to the accused.");
-  });
-});
-
-describe("appendRichText", () => {
-  it("joins two directions as separate passages, never as one sentence", () => {
-    const joined = appendRichText(
-      { html: "<p>Cognizance is taken.</p>", text: "Cognizance is taken." },
-      { html: "<p>Issue summons.</p>", text: "Issue summons." },
-    );
+describe("postingSettled", () => {
+  it("takes a date with its purpose, or a decision not to list again", () => {
+    assert.equal(postingSettled({ next: "none", nextPurpose: "", nextDate: null }), true);
     assert.equal(
-      joined.html,
-      "<p>Cognizance is taken.</p><p>Issue summons.</p>",
+      postingSettled({ next: "list", nextPurpose: "plea", nextDate: "2026-10-06" }),
+      true,
     );
-    assert.equal(joined.text, "Cognizance is taken.\n\nIssue summons.");
-  });
-
-  it("leaves the box alone when the template has no standing words", () => {
-    const written = { html: "<p>Heard.</p>", text: "Heard." };
-    assert.deepEqual(appendRichText(written, { html: "", text: "" }), written);
-  });
-
-  it("does not open the order on a blank line", () => {
-    const first = { html: "<p>Heard.</p>", text: "Heard." };
-    assert.deepEqual(appendRichText({ html: "", text: "" }, first), first);
+    assert.equal(postingSettled({ next: "list", nextPurpose: "plea", nextDate: null }), false);
   });
 });
 
-describe("assembleOrder", () => {
-  it("is attendance, then the item, then next listing", () => {
-    /* A listing with nothing pending on it — this claim is about where the item sits,
-       and a matter carrying applications grows a block between the two. That ordering
-       has its own test below. */
-    const bare = CAUSE_LIST.find(
-      (row) => applicationsForListing(row.id).length === 0,
-    );
-    assert.ok(bare);
-    const order = assembleOrder(bare, {
-      ...EMPTY_ORDER_DRAFT,
-      body: {
-        html: "<p>Notice to the accused.</p>",
-        text: "Notice to the accused.",
+describe("hearingOrderDocument", () => {
+  it("is the roll, then the blocks with words, then the posting", () => {
+    const document = hearingOrderDocument(
+      hearing,
+      {
+        ...EMPTY_ORDER_DRAFT,
+        marks: { complainant: "present" },
+        next: "none",
+        blocks: [createTextBlock("The matter is adjourned."), createTextBlock("  ")],
       },
-    });
-    assert.deepEqual(
-      order.blocks.map((block) => block.heading),
-      ["Attendance", "Item text", "Next listing"],
+      "2026-09-07",
     );
-    assert.equal(order.blocks[1].body, "Notice to the accused.");
-  });
-});
-
-describe("assembleApplications", () => {
-  const withApplications = CAUSE_LIST.find(
-    (row) => applicationsForListing(row.id).length > 1,
-  );
-
-  it("gives a listing with nothing pending no block at all", () => {
-    const bare = CAUSE_LIST.find(
-      (row) => applicationsForListing(row.id).length === 0,
-    );
-    assert.ok(bare);
-    assert.equal(assembleApplications(bare, [], {}), undefined);
-  });
-
-  it("says how many are unanswered rather than passing over them", () => {
-    assert.ok(withApplications);
-    const applications = applicationsForListing(withApplications.id);
-    const block = assembleApplications(withApplications, applications, {});
-    assert.ok(block);
-    assert.equal(block.pending, true);
-    /* Nothing is answered, so every line is the pending note — never a silent omission
-       of an application that is on the file. */
-    assert.equal(block.sentences?.length, 1);
-    assert.equal(block.sentences?.[0].pending, true);
-    assert.match(block.body, /have not been answered/);
-  });
-
-  it("records each answer in the court's words, not the button's", () => {
-    assert.ok(withApplications);
-    const [first, second] = applicationsForListing(withApplications.id);
-    const block = assembleApplications(withApplications, [first, second], {
-      [first.id]: "allowed",
-      [second.id]: "dismissed",
-    });
-    assert.ok(block);
-    assert.equal(block.pending, false);
-    assert.equal(block.sentences?.length, 2);
-    assert.match(block.body, /is allowed\./);
-    assert.match(block.body, /is dismissed\./);
-    /* The order names the application by its own serial, never the case number. */
-    assert.ok(block.body.includes(first.number));
-    assert.equal(block.body.includes(withApplications.caseNumber), false);
-  });
-
-  it("keeps the answered ones and still reports the rest", () => {
-    assert.ok(withApplications);
-    const [first, second] = applicationsForListing(withApplications.id);
-    const block = assembleApplications(withApplications, [first, second], {
-      [first.id]: "allowed",
-    });
-    assert.ok(block);
-    assert.equal(block.pending, true);
-    assert.equal(block.sentences?.length, 2);
-    assert.equal(block.sentences?.[0].pending, false);
-    assert.equal(block.sentences?.[1].pending, true);
-    assert.match(block.body, /One application .* has not been answered\./);
-  });
-});
-
-describe("assembleOrder with applications", () => {
-  it("puts the disposals between the roll and the directions", () => {
-    const withApplications = CAUSE_LIST.find(
-      (row) => applicationsForListing(row.id).length > 0,
-    );
-    assert.ok(withApplications);
-    const order = assembleOrder(withApplications, EMPTY_ORDER_DRAFT);
-    const headings = order.blocks.map((block) => block.heading);
-    assert.deepEqual(headings, [
-      "Attendance",
-      "Applications",
-      "Item text",
-      "Next listing",
+    assert.deepEqual(document.paragraphs, [
+      "Present: Sunil Varghese, the complainant.",
+      "The matter is adjourned.",
+      "Next hearing: Not listed again.",
     ]);
   });
 
-  it("leaves a listing with nothing pending exactly as it was", () => {
-    const bare = CAUSE_LIST.find(
-      (row) => applicationsForListing(row.id).length === 0,
+  it("prints nothing for an untouched order", () => {
+    const document = hearingOrderDocument(
+      hearing,
+      { ...EMPTY_ORDER_DRAFT, next: "list" },
+      "2026-09-07",
     );
-    assert.ok(bare);
-    const order = assembleOrder(bare, EMPTY_ORDER_DRAFT);
-    assert.deepEqual(
-      order.blocks.map((block) => block.heading),
-      ["Attendance", "Item text", "Next listing"],
-    );
+    assert.deepEqual(document.paragraphs, []);
   });
 });

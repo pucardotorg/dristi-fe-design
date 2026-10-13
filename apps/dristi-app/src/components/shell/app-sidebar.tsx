@@ -28,7 +28,8 @@ import { ConfirmDialog } from "@/components/shell/confirm-dialog";
 import { YourDetailsItem } from "@/components/filing/your-details-item";
 import { useAppSearch } from "@/components/shell/app-search";
 import { useChrome } from "@/components/shell/chrome";
-import { useProfile } from "@/components/shell/profile";
+import { useProfile, type ProfileRole } from "@/components/shell/profile";
+import { VIEWER_CLERK_NAME } from "@/lib/cases/viewer";
 import { RAIL_THEMES, useRailTheme } from "@/components/shell/rail-theme";
 import { Button } from "@/components/ui/button";
 import {
@@ -56,7 +57,7 @@ import {
 } from "@/components/ui/tooltip";
 
 /** The court identity at the page origin. */
-export const COURT = { brand: "DRISTI", place: "Kollam, Kerala" };
+export const COURT = { brand: "DRISTI" };
 
 /**
  * Re-exported so existing imports keep working. The value itself lives in
@@ -425,6 +426,18 @@ function RailThemePicker() {
   );
 }
 
+const PROFILE_LABEL: Record<ProfileRole, string> = {
+  advocate: "Advocate",
+  litigant: "Litigant",
+  clerk: "Clerk",
+};
+
+const PROFILE_HOME: Record<ProfileRole, string> = {
+  advocate: "/advocate",
+  litigant: "/home",
+  clerk: "/cases",
+};
+
 /**
  * The person, at the foot of the rail.
  *
@@ -435,24 +448,27 @@ function RailThemePicker() {
  */
 function ProfileFooter() {
   const { state, people, user, setUser, resetSandbox } = useTasks();
-  const { profileRole, advocateProfileAvailable, accountName, switchProfile } =
+  const { profileRole, advocateProfileAvailable, accountName, setProfileRole } =
     useProfile();
   const router = useRouter();
-  const roleLabel = profileRole === "advocate" ? "Advocate" : "Litigant";
+  const roleLabel = PROFILE_LABEL[profileRole];
 
   // The name is the account's, fixed — switching profile changes the role label, not the
-  // person. So Anjali stays Anjali whether she is acting as advocate or litigant.
-  const displayName = accountName;
+  // person. So Anjali stays Anjali whether she is acting as advocate or litigant. The
+  // demo clerk profile is the exception: a clerk is someone else in her office, so it
+  // shows the clerk's own name (see `profile.tsx`).
+  const displayName = profileRole === "clerk" ? VIEWER_CLERK_NAME : accountName;
   const nameParts = displayName.replace(/^Adv\.\s*/, "").trim().split(/\s+/);
   const displayInitials = (
     (nameParts[0]?.[0] ?? "") + (nameParts[nameParts.length - 1]?.[0] ?? "")
   ).toUpperCase();
 
   // Switching profile re-frames the whole product, so it lands on that profile's home.
-  function switchTo(role: "litigant" | "advocate") {
+  // The clerk lands on Cases: the advocate's home is her own day, not her office's.
+  function switchTo(role: ProfileRole) {
     if (role === profileRole) return;
-    switchProfile();
-    router.push(role === "advocate" ? "/advocate" : "/home");
+    setProfileRole(role);
+    router.push(PROFILE_HOME[role]);
   }
   const [confirmReset, setConfirmReset] = React.useState(false);
   const onResetSandbox = React.useCallback(() => setConfirmReset(true), []);
@@ -501,7 +517,10 @@ function ProfileFooter() {
                 side="top"
                 align="start"
                 collisionPadding={16}
-                className="w-64 p-2"
+                // Taller than a laptop screen once every sandbox person and the
+                // rail plates are listed: held to the room Radix says is left,
+                // and scrolled, so the top of the list is always reachable.
+                className="max-h-(--radix-popover-content-available-height) w-64 overflow-y-auto overscroll-contain p-2"
               >
                 <p className="px-2 py-1.5 text-caption font-semibold text-muted-foreground">
                   Switch profile
@@ -552,19 +571,50 @@ function ProfileFooter() {
                   <p className="px-2 py-1.5 text-caption font-semibold text-muted-foreground">
                     Viewing as
                   </p>
-                  {people.map((p) => (
-                    <Button
-                      key={p.id}
-                      variant="ghost"
-                      className="w-full justify-start font-normal"
-                      disabled={state !== "ready"}
-                      onClick={() => void setUser(p.id)}
-                    >
-                      <span className="flex-1 truncate text-left">
-                        {p.name}
-                      </span>
-                      {p.id === user.id ? <CheckIcon aria-hidden /> : null}
-                    </Button>
+                  {people.map((p, index) => (
+                    <React.Fragment key={p.id}>
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start font-normal"
+                        disabled={state !== "ready"}
+                        onClick={() => {
+                          // Everyone in the sandbox is an advocate; picking one
+                          // leaves the clerk's seat.
+                          if (profileRole === "clerk") setProfileRole("advocate");
+                          void setUser(p.id);
+                        }}
+                      >
+                        <span className="flex-1 truncate text-left">
+                          {p.name}
+                        </span>
+                        {profileRole !== "clerk" && p.id === user.id ? (
+                          <CheckIcon aria-hidden />
+                        ) : null}
+                      </Button>
+                      {/* The signed-in advocate's clerk, right under the
+                          advocate: a different person, so here among the
+                          people to view as, not among the account's own
+                          profiles (owner, Sept 24). Acting as him shows the
+                          clerk's side of Applications: drafts and pays,
+                          never signs. */}
+                      {index === 0 ? (
+                        <Button
+                          variant="ghost"
+                          className="w-full justify-start font-normal"
+                          onClick={() => setProfileRole("clerk")}
+                        >
+                          <span className="flex-1 truncate text-left">
+                            {VIEWER_CLERK_NAME}
+                          </span>
+                          <span className="text-caption text-muted-foreground">
+                            Clerk
+                          </span>
+                          {profileRole === "clerk" ? (
+                            <CheckIcon aria-hidden />
+                          ) : null}
+                        </Button>
+                      ) : null}
+                    </React.Fragment>
                   ))}
                   <Button
                     variant="ghost"
@@ -657,7 +707,7 @@ export function AppSidebar() {
   // screens on the same shell. The rest of the nav is shared.
   const mainItems = GO.map((item) =>
     item.id === "home"
-      ? { ...item, href: profileRole === "advocate" ? "/advocate" : "/home" }
+      ? { ...item, href: profileRole === "litigant" ? "/home" : "/advocate" }
       : item,
   );
 
@@ -688,10 +738,17 @@ export function AppSidebar() {
        */}
       <RailPlate vars={theme.vars as React.CSSProperties}>
       <SidebarHeader className="h-14 flex-row items-center justify-between border-b border-(--rail-seam) px-3 py-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
-        {/* The glyph alone, in both states. The full lockup stacks its wordmark under
-            the mark, and at the size a 56px bar can spare, "24×7 ON COURTS" cannot be
-            read. `onDark` follows the plate, not the app's mode. */}
-        <BrandGlyph className="h-6" onDark={theme.darkPlate} />
+        {/* The ON Courts glyph alone, in both states. The full lockup stacks its
+            wordmark under the mark, and at the size a 56px bar can spare, "24×7 ON
+            COURTS" cannot be read. Gujarat's SARAS 2.0 is one line of text, so it is named
+            beside its mark until the rail folds. `onDark` follows the plate, not the
+            app's mode. */}
+        <BrandGlyph
+          className="h-6"
+          onDark={theme.darkPlate}
+          named
+          wordmarkClassName="group-data-[collapsible=icon]:hidden"
+        />
         <SidebarTrigger
           aria-label="Collapse main navigation"
           className={`size-8 shrink-0 group-data-[collapsible=icon]:hidden [&_svg]:size-5 ${MUTED} hover:bg-sidebar-accent hover:text-sidebar-accent-foreground`}

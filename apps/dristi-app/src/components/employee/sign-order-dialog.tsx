@@ -31,6 +31,8 @@ import {
 } from "@/lib/employee/sign-orders";
 import { Identifier } from "@/components/chrome/identifier";
 import { DialogDescription } from "@/components/ui/dialog";
+import { useCourtLocalized } from "@/components/court/court-provider";
+import { useCourtText } from "@/components/court/court-provider";
 
 /** What the paper is called in the signature stage's copy. */
 const NOUN = "order";
@@ -117,6 +119,7 @@ function SignOrderBody({
   onSign: (order: SignOrder) => void;
   onReturnFocus: () => void;
 }) {
+  const courtText = useCourtText();
   const flow = useStagedFlow<SignStage>({
     order: SIGN_STAGES,
     scene: SIGN_SCENES,
@@ -200,7 +203,7 @@ function SignOrderBody({
       ) : (
         <SignatureStage
           noun={NOUN}
-          subject={orderSubject(order)}
+          subject={courtText(orderSubject(order))}
           warning="Signing publishes this order and cannot be reversed."
           download={{
             prompt: "Want to read the order again?",
@@ -217,7 +220,8 @@ function SignOrderBody({
  * The order itself as paper — the same facsimile treatment the two other court-side
  * overlays use, bound to this order's own particulars.
  */
-function OrderFacsimile({ document }: { document: SignOrderDocument }) {
+function OrderFacsimile({ document: storedDocument }: { document: SignOrderDocument }) {
+  const document = useCourtLocalized(storedDocument);
   return (
     <article className="flex flex-col gap-6 rounded-md bg-paper p-6 text-paper-foreground">
       <header className="flex flex-col gap-2 text-center">

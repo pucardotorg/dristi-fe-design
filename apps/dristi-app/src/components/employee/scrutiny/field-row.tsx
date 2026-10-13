@@ -3,11 +3,8 @@
 import * as React from "react";
 import { toast } from "sonner";
 import {
-  ArrowUpRightIcon,
-  CheckIcon,
   FileTextIcon,
   FlagIcon,
-  MicIcon,
   TriangleAlertIcon,
 } from "lucide-react";
 
@@ -21,7 +18,6 @@ import { cn } from "@/lib/utils";
 import { FlagComposer } from "@/components/employee/scrutiny/flag-composer";
 import { useScrutinyCase } from "@/components/employee/scrutiny/scrutiny-case-context";
 import { RESOLVE_IN_PLACE } from "@/components/chrome/motion";
-import { MarkThumb } from "@/components/employee/scrutiny/mark-thumb";
 import {
   FieldValue,
   RecordLink,
@@ -56,13 +52,11 @@ export function FieldRow({
   field,
   controller,
   aiOn,
-  onGoToDoc,
   onGoToItem,
 }: {
   field: FlatField;
   controller: ScrutinyController;
   aiOn: boolean;
-  onGoToDoc: (docId: string) => void;
   onGoToItem: (fieldId: string) => void;
 }) {
   const { docById } = useScrutinyCase();
@@ -73,7 +67,7 @@ export function FieldRow({
     ? "Edit this flag"
     : field.docrow
       ? "Flag document"
-      : "Correct or flag";
+      : "Flag";
 
   return (
     <DescriptionRow
@@ -123,7 +117,7 @@ export function FieldRow({
              */}
             {composing ? null : (
               <>
-                <ValueLines field={field} flag={flag} />
+                <ValueLines field={field} />
                 <Hints field={field} flag={flag} aiOn={aiOn} />
               </>
             )}
@@ -191,7 +185,6 @@ export function FieldRow({
           field={field}
           flag={flag}
           controller={controller}
-          onGoToDoc={onGoToDoc}
           onGoToItem={onGoToItem}
         />
       ) : null}
@@ -199,30 +192,52 @@ export function FieldRow({
   );
 }
 
-/**
- * A saved correction shows the proposed value as THE value, with the filed value on one
- * quiet line beneath — no strikethrough noise in the primary position.
- */
-function ValueLines({ field, flag }: { field: FlatField; flag?: FlagType }) {
-  if (flag?.correction) {
-    // Only the proposed value — the current truth of the row. The filed value lives in
-    // the raised item's well below, beside the note and the actions, so the whole
-    // record of "what changed and why" reads as one block instead of three.
-    return (
-      <div className="text-body-compact font-medium break-words">
-        <FieldValue field={field} value={flag.correction} />
-      </div>
-    );
-  }
+/** What `from-draft.ts` writes for a question the filer left unanswered. */
+const NOT_PROVIDED = "Not provided";
+
+/** The filed value. A raised item never replaces it — the advocate makes the fix. */
+function ValueLines({ field }: { field: FlatField }) {
+  /*
+   * Prose (the affidavit, the prayer) stops at four lines with Show more. Printed whole,
+   * the affidavit alone ran ~1,400px in the one scrolling fields panel and pushed the
+   * next fields two screens down. The link only appears when there is more to read.
+   */
+  const ref = React.useRef<HTMLDivElement>(null);
+  const [expanded, setExpanded] = React.useState(false);
+  const [overflows, setOverflows] = React.useState(false);
+  React.useLayoutEffect(() => {
+    const el = ref.current;
+    if (!field.long || !el || expanded) return;
+    setOverflows(el.scrollHeight > el.clientHeight + 1);
+  }, [field.long, field.value, expanded]);
+
   if (!field.value) return null;
   return (
-    <div
-      className={cn(
-        "text-body-compact break-words",
-        field.long ? "text-muted-foreground" : "font-medium",
-      )}
-    >
-      <FieldValue field={field} value={field.value} />
+    <div className="flex flex-col items-start gap-1">
+      <div
+        ref={ref}
+        className={cn(
+          "text-body-compact break-words",
+          // Prose keeps the paragraph breaks it was filed with.
+          field.long ? "whitespace-pre-line text-muted-foreground" : "font-medium",
+          field.long && !expanded && "line-clamp-4",
+          // An unanswered optional question is a fact, but not one to read as data.
+          field.value === NOT_PROVIDED && "font-normal text-muted-foreground",
+        )}
+      >
+        <FieldValue field={field} value={field.value} />
+      </div>
+      {field.long && (overflows || expanded) ? (
+        <Button
+          type="button"
+          variant="link"
+          className="h-auto p-0 text-body-compact"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((open) => !open)}
+        >
+          {expanded ? "Show less" : "Show more"}
+        </Button>
+      ) : null}
     </div>
   );
 }
@@ -233,8 +248,10 @@ function ValueLines({ field, flag }: { field: FlatField; flag?: FlagType }) {
  *
  * Once a human has acted, the machine goes quiet: every machine-origin observation moves
  * inside the item's well as grey provenance, so a settled row carries one cue, not three.
- * `nodoc` is the exception because it is not a machine reading — it is a standing fact
- * about the bundle that renders with AI off and is already grey.
+ * `nodoc` is the exception because it is not a machine reading — an empty upload slot is
+ * a standing fact about the bundle that renders without AI and is already grey.
+ * `unfound` looks the same but is a machine reading (the bundle was searched), and
+ * `scannote` is poor-scan detection, so like `docread` and `ocrfail` they need AI on.
  */
 function Hints({
   field,
@@ -250,11 +267,7 @@ function Hints({
   const flagged = !!flag;
   const thumbId = field.thumb ?? field.docrow;
   const thumbDoc = thumbId ? docById[thumbId] : undefined;
-  // The item's crop is strictly more specific than the row's source thumbnail. Showing
-  // both stacks two sunken boxes of the same document in one row.
-  const croppedHere = flag?.evidence?.doc === thumbId;
-
-  if (thumbDoc?.src && !croppedHere) {
+  if (thumbDoc?.src) {
     lines.push(
       <div
         key="thumb"
@@ -284,13 +297,6 @@ function Hints({
       </HintLine>,
     );
   }
-  if (aiOn && field.aiok && !flagged) {
-    lines.push(
-      <HintLine key="aiok" tone="success" icon={<CheckIcon />}>
-        {field.aiok}
-      </HintLine>,
-    );
-  }
   if (field.nodoc) {
     lines.push(
       <HintLine key="nodoc" tone="muted" icon={<FileTextIcon />}>
@@ -298,7 +304,14 @@ function Hints({
       </HintLine>,
     );
   }
-  if (field.scannote && !flagged) {
+  if (aiOn && field.unfound) {
+    lines.push(
+      <HintLine key="unfound" tone="muted" icon={<FileTextIcon />}>
+        {field.unfound}
+      </HintLine>,
+    );
+  }
+  if (aiOn && field.scannote && !flagged) {
     lines.push(
       <HintLine key="scannote" tone="warning" icon={<TriangleAlertIcon />}>
         {field.scannote}
@@ -312,7 +325,6 @@ function Hints({
 const HINT_TONE = {
   muted: "text-muted-foreground",
   warning: "text-warning-muted-foreground",
-  success: "text-success-muted-foreground",
 } as const;
 
 function HintLine({
@@ -344,24 +356,20 @@ function RaisedItem({
   field,
   flag,
   controller,
-  onGoToDoc,
   onGoToItem,
 }: {
   field: FlatField;
   flag: FlagType;
   controller: ScrutinyController;
-  onGoToDoc: (docId: string) => void;
   onGoToItem: (fieldId: string) => void;
 }) {
   const { docById, docRow, fieldById } = useScrutinyCase();
-  const evidence = flag.evidence;
-  const evidenceDoc = evidence ? docById[evidence.doc] : undefined;
   const partnerId = flag.linkedTo ?? flag.linkedFrom ?? null;
   const partner = partnerId ? fieldById[partnerId] : undefined;
   // A field sourced from an uploaded document could have had a re-upload requested,
   // so the row states the answer either way. Generated pages have nothing to re-upload.
   const reuploadApplies = !field.docrow && !!field.doc && !!docRow[field.doc];
-  const silent = !flag.comment && !flag.correction && !flag.reason;
+  const silent = !flag.comment && !flag.reason;
 
   /*
    * The record is a small table: one label column, one value column, rows only where
@@ -385,12 +393,8 @@ function RaisedItem({
       )}
     >
       <div className="flex items-center gap-2">
-        <Badge variant={flag.correction ? "info" : "destructive"}>
-          {flag.correction
-            ? "FSO’s correction"
-            : field.docrow
-              ? "Document issue"
-              : "Flag"}
+        <Badge variant="destructive">
+          {field.docrow ? "Document issue" : "Flag"}
         </Badge>
         <span className="ms-auto -my-1 flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover/frow:opacity-100 group-focus-within/frow:opacity-100 group-aria-selected/frow:opacity-100 [@media(hover:none)]:opacity-100">
           {/* `xs` is the record's own density — two words inside a well inside a row —
@@ -438,27 +442,6 @@ function RaisedItem({
       </div>
 
       <RecordList>
-        {flag.correction ? (
-          <>
-            {/* Original first, then the correction under it — the reader sees what was
-                filed, then what it becomes (owner, 2026-09-15). */}
-            <RecordRow label="Original value">
-              <span className="text-muted-foreground line-through">
-                {field.value ? (
-                  <FieldValue field={field} value={field.value} copyable={false} />
-                ) : (
-                  "—"
-                )}
-              </span>
-            </RecordRow>
-            <RecordRow label="FSO’s value">
-              <span className="font-medium">
-                <FieldValue field={field} value={flag.correction} />
-              </span>
-            </RecordRow>
-          </>
-        ) : null}
-
         {field.docrow && flag.reason ? (
           <RecordRow label="Reason">{flag.reason}</RecordRow>
         ) : null}
@@ -466,39 +449,10 @@ function RaisedItem({
         {flag.comment ? (
           <RecordRow label="FSO’s comment">
             <span className="break-words">{flag.comment}</span>
-            {flag.voice ? (
-              <span className="ms-2 inline-flex items-center gap-1 text-caption text-muted-foreground">
-                <MicIcon className="size-3" aria-hidden="true" /> voice
-              </span>
-            ) : null}
           </RecordRow>
         ) : silent ? (
           <RecordRow label="FSO’s comment">
             <span className="text-warning-ink">{SILENT_FALLBACK}</span>
-          </RecordRow>
-        ) : null}
-
-        {evidence && evidenceDoc ? (
-          <RecordRow label="Annotation">
-            <button
-              type="button"
-              className="-m-1 flex items-center gap-2 rounded-md p-1 pe-2 text-start transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-              onClick={(event) => {
-                event.stopPropagation();
-                onGoToDoc(evidence.doc);
-              }}
-              aria-label={`Go to the annotation on Doc ${evidenceDoc.no}, ${docName(evidence.doc, docById)}`}
-            >
-              <MarkThumb evidence={evidence} />
-              <span className="min-w-0 truncate">
-                <span className="tabular-nums">Doc {evidenceDoc.no}</span> ·{" "}
-                {docName(evidence.doc, docById)}
-              </span>
-              <ArrowUpRightIcon
-                className="size-3 shrink-0 text-muted-foreground"
-                aria-hidden="true"
-              />
-            </button>
           </RecordRow>
         ) : null}
 

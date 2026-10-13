@@ -36,6 +36,8 @@ import {
   type CourtCounsel,
   type CourtHearingPurposeId,
 } from "./hearings";
+import { caseSearchKey } from "@/lib/court/localize";
+import { localizeForDownload, voicedForDownload } from "@/lib/court/browser";
 
 export type ReschedulingRequest = {
   id: string;
@@ -68,7 +70,7 @@ export type ReschedulingRequest = {
  *
  * Ordered newest application first — that is the scan the application-date
  * column exists for, and the order a review queue is read. Names follow the
- * fixtures the rest of the court side uses: Kollam parties and the same bar,
+ * fixtures the rest of the court side uses: local parties and the same bar,
  * but not the same matters as `CAUSE_LIST`, `SCHEDULING_QUEUE` or
  * `REGISTER_QUEUE`.
  */
@@ -229,7 +231,7 @@ export const RESCHEDULING_QUEUE: ReschedulingRequest[] = [
     filedFor: "complainant",
     createdBy: "Clerk to Adv. Anitha George",
     reason:
-      "The complainant cannot travel to Kollam on the listed date and proposes the following week.",
+      "The complainant cannot travel to the court on the listed date and proposes the following week.",
   },
   {
     id: "rr-304",
@@ -345,7 +347,7 @@ export function filterReschedulingRequests(
   rows: ReschedulingRequest[],
   filters: ReschedulingFilters,
 ): ReschedulingRequest[] {
-  const query = filters.query.trim().toLowerCase();
+  const query = caseSearchKey(filters.query);
   if (!query) return rows;
   return rows.filter((entry) => {
     const haystack = [
@@ -506,11 +508,11 @@ export function downloadReschedulingDocument(
 ): void {
   const document = buildReschedulingDocument(request);
   const url = URL.createObjectURL(
-    new Blob([reschedulingDocumentText(document)], { type: "text/plain" }),
+    new Blob([localizeForDownload(reschedulingDocumentText(document))], { type: "text/plain" }),
   );
   const anchor = window.document.createElement("a");
   anchor.href = url;
-  anchor.download = reschedulingDocumentFilename(request);
+  anchor.download = reschedulingDocumentFilename(voicedForDownload(request));
   anchor.click();
   URL.revokeObjectURL(url);
 }

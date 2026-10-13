@@ -57,6 +57,7 @@ import {
   emptyColumnFilters,
   type ColumnFilter,
 } from "@/lib/employee/court-column-filters";
+import { useCourtText } from "@/components/court/court-provider";
 
 /** No column on this queue divides it — every bond is the same act — so no filters. */
 const BAIL_BOND_COLUMN_FILTERS: ColumnFilter<SignBailBond>[] = [];
@@ -108,6 +109,7 @@ function plural(count: number, one: string, many: string): string {
  * demo queue — see `lib/employee/sign-bail-bonds.ts`.
  */
 export function SignBailBondsScreen() {
+  const courtText = useCourtText();
   /* The queue is state because signing and rejecting change it. One list, so the table,
      the count in the header and the footer can never disagree about what is still
      pending. */
@@ -226,7 +228,7 @@ export function SignBailBondsScreen() {
     });
     setOpenId(null);
     setAnnouncement(
-      `The bail bond of ${bond.litigant} in ${bond.caseNumber} is marked rejected on this screen. Nothing was sent.`,
+      `The bail bond of ${bond.litigant} in ${courtText(bond.caseNumber)} is marked rejected on this screen. Nothing was sent.`,
     );
   }
 
@@ -515,6 +517,7 @@ function SignBailBondsItemList({
   onToggle: (bond: SignBailBond) => void;
   onOpen: (bond: SignBailBond) => void;
 }) {
+  const courtText = useCourtText();
   return (
     <ul className="flex flex-col gap-3">
       {rows.map((bond) => (
@@ -529,7 +532,7 @@ function SignBailBondsItemList({
             <Checkbox
               checked={selectedIds.has(bond.id)}
               onCheckedChange={() => onToggle(bond)}
-              aria-label={`Select the bail bond of ${bond.litigant} in ${bond.caseNumber}`}
+              aria-label={`Select the bail bond of ${bond.litigant} in ${courtText(bond.caseNumber)}`}
             />
           </span>
           <div className="flex min-w-0 flex-1 flex-col gap-2">

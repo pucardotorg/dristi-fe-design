@@ -60,6 +60,7 @@ import {
   hasColumnFilters,
   type ColumnFilter,
 } from "@/lib/employee/court-column-filters";
+import { useCourtText } from "@/components/court/court-provider";
 
 const DEPOSITION_COLUMN_FILTERS: ColumnFilter<WitnessDeposition>[] = [
   {
@@ -539,6 +540,7 @@ function DepositionItemList({
   onToggle: (deposition: WitnessDeposition) => void;
   onOpen: (deposition: WitnessDeposition) => void;
 }) {
+  const courtText = useCourtText();
   return (
     <ul className="flex flex-col gap-3">
       {rows.map((deposition) => {
@@ -555,7 +557,7 @@ function DepositionItemList({
               <Checkbox
                 checked={selectedIds.has(deposition.id)}
                 onCheckedChange={() => onToggle(deposition)}
-                aria-label={`Select the deposition of ${deposition.witness.name}, ${tag}, in ${deposition.caseNumber}`}
+                aria-label={`Select the deposition of ${deposition.witness.name}, ${tag}, in ${courtText(deposition.caseNumber)}`}
               />
             </span>
             <div className="flex min-w-0 flex-1 flex-col gap-2">

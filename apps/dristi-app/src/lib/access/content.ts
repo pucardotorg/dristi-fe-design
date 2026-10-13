@@ -1,4 +1,4 @@
-import type { Locale } from "@/lib/onboarding/content";
+import type { Copy } from "@/lib/onboarding/content";
 
 export { fill as fillCopy } from "@/lib/join/content";
 
@@ -17,7 +17,6 @@ export { fill as fillCopy } from "@/lib/join/content";
  * appear per case ("Joined as Clerk"), never on the person.
  */
 
-type Copy = Record<Locale, string>;
 const t = (en: string, ml: string): Copy => ({ en, ml });
 
 /* ------------------------------------------------------------------- demo data */
@@ -84,13 +83,13 @@ export const SELF = {
   phone: "98460 00000",
 } as const;
 
-/** Demo docket — same world as the join-flow fixtures (NIA 138, Kollam). */
+/** Demo docket — same world as the join-flow fixtures (NIA 138). */
 export const ACCESS_CASES: AccessCase[] = [
   {
     id: "c-847",
     title: "South Indian Bank Ltd. vs Rajan Krishnan Nair and 1 other",
     caseNumber: "CC 847/2026",
-    court: "JFCM I, Kollam · Court No. 3",
+    court: "JFCM I · Court No. 3",
     nextHearing: "28 Aug 2026",
     /* The demo's two office-access cases (owner, Sept 3): the viewer reads
        these but removes nobody, here or on the case's Parties tab. */
@@ -100,14 +99,14 @@ export const ACCESS_CASES: AccessCase[] = [
     id: "c-612",
     title: "Fathima Beevi vs Anil Kumar K.",
     caseNumber: "CC 612 / 2026",
-    court: "24×7 ON Court, Kollam",
+    court: "24×7 ON Court",
     nextHearing: "25 Aug 2026",
   },
   {
     id: "c-533",
     title: "Anitha Joseph vs Latheef M.",
     caseNumber: "CC 533 / 2026",
-    court: "24×7 ON Court, Kollam",
+    court: "24×7 ON Court",
     nextHearing: "2 Sep 2026",
     viewerAccess: "office",
   },
@@ -115,189 +114,189 @@ export const ACCESS_CASES: AccessCase[] = [
     id: "c-410",
     title: "Kerala Traders Co-operative vs Suresh Babu P.",
     caseNumber: "CC 410 / 2026",
-    court: "JFCM I, Kollam · Court No. 3",
+    court: "JFCM I · Court No. 3",
     nextHearing: "9 Sep 2026",
   },
   {
     id: "c-289",
     title: "Malabar Finance Ltd. vs Joseph Mathew",
     caseNumber: "CC 289 / 2026",
-    court: "JFCM II, Kollam",
+    court: "JFCM II",
     nextHearing: "16 Sep 2026",
   },
   {
     id: "c-721",
     title: "Federal Bank Ltd. vs Binu Varghese",
     caseNumber: "CC 721 / 2026",
-    court: "JFCM I, Kollam · Court No. 3",
+    court: "JFCM I · Court No. 3",
     nextHearing: "18 Sep 2026",
   },
   {
     id: "c-698",
     title: "Sreelakshmi Chits Pvt. Ltd. vs Manoj Kumar",
     caseNumber: "CC 698 / 2026",
-    court: "24×7 ON Court, Kollam",
+    court: "24×7 ON Court",
     nextHearing: "21 Sep 2026",
   },
   {
     id: "c-655",
     title: "Jaya Textiles vs Noufal A.",
     caseNumber: "CC 655 / 2026",
-    court: "JFCM II, Kollam",
+    court: "JFCM II",
     nextHearing: "23 Sep 2026",
   },
   {
     id: "c-590",
     title: "Coastal Credit Society vs Mini Thomas",
     caseNumber: "CC 590 / 2026",
-    court: "JFCM I, Kollam · Court No. 3",
+    court: "JFCM I · Court No. 3",
     nextHearing: "25 Sep 2026",
   },
   {
     id: "c-564",
-    title: "Kollam Hardware Mart vs Shaji P.",
+    title: "Lakeside Hardware Mart vs Shaji P.",
     caseNumber: "CC 564 / 2026",
-    court: "24×7 ON Court, Kollam",
+    court: "24×7 ON Court",
     nextHearing: "28 Sep 2026",
   },
   {
     id: "c-501",
     title: "Unity Auto Finance vs Radhakrishnan Nair",
     caseNumber: "CC 501 / 2026",
-    court: "JFCM II, Kollam",
+    court: "JFCM II",
     nextHearing: "30 Sep 2026",
   },
   {
     id: "c-478",
     title: "Aiswarya Agencies vs Deepa Mohan",
     caseNumber: "CC 478 / 2026",
-    court: "JFCM I, Kollam · Court No. 3",
+    court: "JFCM I · Court No. 3",
     nextHearing: "2 Oct 2026",
   },
   {
     id: "c-452",
     title: "Kerala Gramin Bank vs Sajan Philip",
     caseNumber: "CC 452 / 2026",
-    court: "24×7 ON Court, Kollam",
+    court: "24×7 ON Court",
     nextHearing: "5 Oct 2026",
   },
   {
     id: "c-399",
     title: "Grand Motors vs Abdul Salam",
     caseNumber: "CC 399 / 2026",
-    court: "JFCM II, Kollam",
+    court: "JFCM II",
     nextHearing: "7 Oct 2026",
   },
   {
     id: "c-376",
     title: "Navodaya Enterprises vs Reni George",
     caseNumber: "CC 376 / 2026",
-    court: "JFCM I, Kollam · Court No. 3",
+    court: "JFCM I · Court No. 3",
     nextHearing: "9 Oct 2026",
   },
   {
     id: "c-341",
     title: "Muthoot Traders vs Pradeep S.",
     caseNumber: "CC 341 / 2026",
-    court: "24×7 ON Court, Kollam",
+    court: "24×7 ON Court",
     nextHearing: "12 Oct 2026",
   },
   {
     id: "c-318",
     title: "Bharath Distributors vs Latha Kumari",
     caseNumber: "CC 318 / 2026",
-    court: "JFCM II, Kollam",
+    court: "JFCM II",
     nextHearing: "14 Oct 2026",
   },
   {
     id: "c-266",
     title: "Sankars Hospital vs Arun Das",
     caseNumber: "CC 266 / 2026",
-    court: "JFCM I, Kollam · Court No. 3",
+    court: "JFCM I · Court No. 3",
     nextHearing: "16 Oct 2026",
   },
   {
     id: "c-241",
     title: "Oceanic Exports vs Salim K.",
     caseNumber: "CC 241 / 2026",
-    court: "24×7 ON Court, Kollam",
+    court: "24×7 ON Court",
     nextHearing: "19 Oct 2026",
   },
   {
     id: "c-218",
     title: "Devi Medicals vs Suresh Chandran",
     caseNumber: "CC 218 / 2026",
-    court: "JFCM II, Kollam",
+    court: "JFCM II",
     nextHearing: "21 Oct 2026",
   },
   {
     id: "c-194",
     title: "Punalur Service Bank vs Asha Roy",
     caseNumber: "CC 194 / 2026",
-    court: "JFCM I, Kollam · Court No. 3",
+    court: "JFCM I · Court No. 3",
     nextHearing: "23 Oct 2026",
   },
   {
     id: "c-173",
     title: "Kairali Foods vs Navas M.",
     caseNumber: "CC 173 / 2026",
-    court: "24×7 ON Court, Kollam",
+    court: "24×7 ON Court",
     nextHearing: "26 Oct 2026",
   },
   {
     id: "c-151",
     title: "Sree Narayana Stores vs Beena R.",
     caseNumber: "CC 151 / 2026",
-    court: "JFCM II, Kollam",
+    court: "JFCM II",
     nextHearing: "28 Oct 2026",
   },
   {
     id: "c-129",
     title: "Capitol Electronics vs Sunil Babu",
     caseNumber: "CC 129 / 2026",
-    court: "JFCM I, Kollam · Court No. 3",
+    court: "JFCM I · Court No. 3",
     nextHearing: "30 Oct 2026",
   },
   {
     id: "c-108",
     title: "Travancore Ceramics vs Ramesh Pillai",
     caseNumber: "CC 108 / 2026",
-    court: "24×7 ON Court, Kollam",
+    court: "24×7 ON Court",
     nextHearing: "2 Nov 2026",
   },
   {
     id: "c-087",
     title: "Greenline Logistics vs Sumi Rajan",
     caseNumber: "CC 087 / 2026",
-    court: "JFCM II, Kollam",
+    court: "JFCM II",
     nextHearing: "4 Nov 2026",
   },
   {
     id: "c-066",
     title: "Janatha Supermarket vs Faizal H.",
     caseNumber: "CC 066 / 2026",
-    court: "JFCM I, Kollam · Court No. 3",
+    court: "JFCM I · Court No. 3",
     nextHearing: "6 Nov 2026",
   },
   {
     id: "c-045",
     title: "Maya Jewellery vs Vinod Krishnan",
     caseNumber: "CC 045 / 2026",
-    court: "24×7 ON Court, Kollam",
+    court: "24×7 ON Court",
     nextHearing: "9 Nov 2026",
   },
   {
     id: "c-024",
     title: "Royal Furniture vs Sindhu Menon",
     caseNumber: "CC 024 / 2026",
-    court: "JFCM II, Kollam",
+    court: "JFCM II",
     nextHearing: "11 Nov 2026",
   },
   {
     id: "c-011",
     title: "Asramam Builders vs Nikhil Raj",
     caseNumber: "CC 011 / 2026",
-    court: "JFCM I, Kollam · Court No. 3",
+    court: "JFCM I · Court No. 3",
     nextHearing: "13 Nov 2026",
   },
 ];
@@ -554,6 +553,24 @@ export const PHONE_DIRECTORY: Record<
 
 /* ------------------------------------------------------------------------ copy */
 
+/* The people field shared by Share access and the join-case team step (owner,
+   2026-10-12). Malayalam drafted — needs review. */
+export const inviteFieldCopy = {
+  placeholder: t(
+    "Name, mobile number or Bar ID",
+    "പേര്, മൊബൈൽ നമ്പർ അല്ലെങ്കിൽ ബാർ ഐഡി",
+  ),
+  suggested: t("People you often add", "നിങ്ങൾ പതിവായി ചേർക്കുന്നവർ"),
+  newNumber: t(
+    "They'll get an access link by SMS and in DRISTI.",
+    "അവർക്ക് SMS വഴിയും DRISTI-യിലും ആക്‌സസ് ലിങ്ക് ലഭിക്കും.",
+  ),
+  keepTyping: t(
+    "No one you've added matches. Enter the full 10-digit number or Bar ID.",
+    "നിങ്ങൾ ചേർത്തവരിൽ ആരും പൊരുത്തപ്പെടുന്നില്ല. 10 അക്ക നമ്പർ അല്ലെങ്കിൽ ബാർ ഐഡി മുഴുവൻ നൽകുക.",
+  ),
+};
+
 export const accessShell = {
   navPeople: t("People", "ആളുകൾ"),
 };
@@ -568,14 +585,12 @@ export const shareCopy = {
   phonePlaceholder: t("Mobile number", "മൊബൈൽ നമ്പർ"),
   phoneAdd: t("Add number", "നമ്പർ ചേർക്കുക"),
   phoneError: t("Enter a valid 10-digit mobile number.", "സാധുവായ 10 അക്ക മൊബൈൽ നമ്പർ നൽകുക."),
-  demoProfiles: t(
-    "Try registered profiles: 99614 72058 or 80890 74136",
-    "രജിസ്റ്റർ ചെയ്ത പ്രൊഫൈലുകൾ പരീക്ഷിക്കുക: 99614 72058 അല്ലെങ്കിൽ 80890 74136",
-  ),
   removeChip: t("Remove", "നീക്കം ചെയ്യുക"),
   suggestionsLabel: t("People you often add", "നിങ്ങൾ പതിവായി ചേർക്കുന്നവർ"),
   send: t("Share", "പങ്കിടുക"),
   sentNote: t("Invitation sent to", "ഇവർക്ക് ക്ഷണം അയച്ചു"),
+  /* Says an invite went, not how — SMS or in-app is not settled (owner, 2026-10-13). */
+  inviteToast: t("Invite sent to {names}", "{names} എന്നവർക്ക് ക്ഷണം അയച്ചു"),
   sentBulkNote: t(
     "Added to {added} of {total} cases · already had access to {skipped}",
     "{total}-ൽ {added} കേസുകളിൽ ചേർത്തു · {skipped} കേസിൽ നേരത്തേ ആക്‌സസ് ഉണ്ടായിരുന്നു",

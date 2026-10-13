@@ -9,14 +9,21 @@
  */
 
 import * as React from "react";
-import { CheckIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { CheckIcon, TriangleAlertIcon } from "lucide-react";
 
 import { ChromeDialogContent } from "@/components/chrome/app-chrome";
 
 import { blankComplainant } from "@/lib/filing/blank";
 import { ENTITY_TYPES, GENDER_OPTIONS } from "@/lib/filing/options";
 import { fetchOnCourtRecord } from "@/lib/filing/registry";
-import { complainantLabel, partySourceSlot } from "@/lib/filing/selectors";
+import {
+  complainantLabel,
+  complainantsMissingCinPan,
+  isCinOrPan,
+  normaliseCinPan,
+  partySourceSlot,
+} from "@/lib/filing/selectors";
 import { neighbours } from "@/lib/filing/steps";
 import { useFiling } from "@/lib/filing/store";
 import type {
@@ -28,9 +35,11 @@ import type {
   Representative,
 } from "@/lib/filing/types";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -49,12 +58,14 @@ import {
   HalfWidth,
 } from "@/components/filing/form-card";
 import { FormField } from "@/components/filing/form-field";
+import { useLeaveGuard } from "@/components/filing/leave-guard";
 import {
   CorrectionInstance,
   useCorrectionInstanceRequest,
+  useInCorrection,
 } from "@/components/filing/posture";
 import { OptionSelect, PrefixInput, TextField } from "@/components/filing/inputs";
-import { InfoWell } from "@/components/filing/notices";
+import { InfoWell, SectionNotice } from "@/components/filing/notices";
 import { PrefillNotice } from "@/components/filing/prefill-notice";
 import { RichTextEditor } from "@/components/filing/rich-text-editor";
 import { SectionTabs } from "@/components/filing/section-tabs";
@@ -141,6 +152,76 @@ export function ComplainantSection() {
   /** The sandbox stand-in for mobile verification — see the dialog at the foot of the file. */
   const [otpOpen, setOtpOpen] = React.useState(false);
   const [otp, setOtp] = React.useState("");
+
+  /* ── CIN / PAN ───────────────────────────────────────────────────────────── */
+
+  const router = useRouter();
+  /** Complainants whose CIN / PAN field has been left once — the format error waits for that. */
+  const [cinPanVisited, setCinPanVisited] = React.useState<Record<string, boolean>>({});
+  /** Where the person was going when the missing CIN / PAN stopped them. */
+  const [leaveTo, setLeaveTo] = React.useState<string | null>(null);
+  /** Ticked in the warning itself: skipping is allowed once the consequence is understood. */
+  const [skipCinPanUnderstood, setSkipCinPanUnderstood] = React.useState(false);
+  const skipCinPanId = React.useId();
+  const cinPanInput = React.useRef<HTMLInputElement>(null);
+  /** "Add CIN or PAN" closed the question — focus lands on the field, not on Continue. */
+  const focusCinPan = React.useRef(false);
+
+  /**
+   * Every complainant is checked, not just the one on screen: with two tabs open the
+   * question would otherwise wave through whichever one is not being looked at.
+   */
+  const missingCinPan = complainantsMissingCinPan(complainants);
+  const hereHref = hrefFor("complainant");
+  /* A correction round locks every field scrutiny did not flag, so there would be no
+     adding one; the question stands down rather than point at a shut field. */
+  const inCorrection = useInCorrection();
+  const hasMissingCinPan = missingCinPan.length > 0 && !inCorrection;
+
+  /**
+   * The field is mandatory but skippable (handover `LIT-18a`): leaving without it is
+   * allowed only through the declaration below — asked on
+   * Continue and on a jump from the sections rail alike. Back is not moving on, and stays
+   * a plain link.
+   */
+  const askBeforeLeaving = (href: string) => {
+    if (href === hereHref || !hasMissingCinPan) return false;
+    setSkipCinPanUnderstood(false);
+    setLeaveTo(href);
+    return true;
+  };
+  useLeaveGuard(askBeforeLeaving);
+
+  const continueHref = next ? hrefFor(next) : undefined;
+  const handleContinue = () => {
+    if (continueHref && !askBeforeLeaving(continueHref)) router.push(continueHref);
+  };
+
+  /** The dialog's tick is the same declaration as the field's — recorded the same way. */
+  const leaveWithoutCinPan = () => {
+    const href = leaveTo;
+    const at = new Date().toISOString();
+    update((d) => {
+      for (const i of missingCinPan) {
+        d.complainants[i].entCinPanSkippedAt = at;
+        d.complainants[i].entCinPan = "";
+      }
+    });
+    setLeaveTo(null);
+    if (href) router.push(href);
+  };
+
+  /** Back to the first complainant that is actually missing one, on its field. */
+  const addCinPan = () => {
+    focusCinPan.current = true;
+    if (missingCinPan[0] !== undefined) setActiveIndex(missingCinPan[0]);
+    setLeaveTo(null);
+  };
+
+  const cinPanError =
+    cinPanVisited[c.id] && c.entCinPan && !isCinOrPan(c.entCinPan)
+      ? "Enter a 21-character CIN or a 10-character PAN."
+      : undefined;
 
   /* ── writes ──────────────────────────────────────────────────────────────── */
 
@@ -364,8 +445,15 @@ export function ComplainantSection() {
             {/* Contact */}
             <FormCard
               title="Contact"
-              description="How the court reaches the complainant. Use their own number and email, not the advocate's."
+              description="Use the complainant's own number and email, not the advocate's."
             >
+              {/* Why the number matters, said before it is typed. An Alert-based notice,
+                  not a Banner: the DS keeps Banner for page-wide conditions, and this
+                  explains one field. Not dismissible; it governs a required field. */}
+              <SectionNotice variant="info">
+                The complainant verifies this number when signing the complaint. All case
+                updates are sent to it, and it is how they log in to see the case.
+              </SectionNotice>
               {/* Email sat under Basic details, two cards from the number it belongs
                   beside. Both are how this person is reached; they are asked together. */}
               <FormRow>
@@ -597,6 +685,53 @@ export function ComplainantSection() {
                   />
                 </FormField>
               </FormRow>
+              <HalfWidth className="flex flex-col gap-3">
+                <FormField
+                  label="CIN or PAN"
+                  name="entCinPan"
+                  required
+                  help="This will be used to identify cases belonging to the same complainant."
+                  error={c.entCinPanSkippedAt ? undefined : cinPanError}
+                >
+                  <TextField
+                    ref={cinPanInput}
+                    value={c.entCinPan}
+                    onChange={(v) => set("entCinPan", normaliseCinPan(v))}
+                    onBlur={() => setCinPanVisited((v) => ({ ...v, [c.id]: true }))}
+                    placeholder="21-character CIN or 10-character PAN"
+                    autoCapitalize="characters"
+                    autoComplete="off"
+                    spellCheck={false}
+                    disabled={!!c.entCinPanSkippedAt}
+                  />
+                </FormField>
+                {/* Mandatory, but skippable by declaration (`LIT-18a`). The declaration is
+                    the skip — it is recorded on the filing, and it turns the field off.
+                    An option of the field, so it sits in the field's column, quietly. */}
+                <Label
+                  htmlFor={`${skipCinPanId}-${c.id}`}
+                  className="items-start gap-2 text-body-compact font-normal text-muted-foreground"
+                >
+                  <Checkbox
+                    id={`${skipCinPanId}-${c.id}`}
+                    checked={!!c.entCinPanSkippedAt}
+                    onCheckedChange={(checked) =>
+                      update((d) => {
+                        const target = d.complainants[active];
+                        target.entCinPanSkippedAt =
+                          checked === true ? new Date().toISOString() : null;
+                        if (checked === true) target.entCinPan = "";
+                      })
+                    }
+                    className="mt-0.5"
+                  />
+                  {/* Wraps to several lines — the Label's own leading-none would collide. */}
+                  <span className="leading-normal">
+                    Skip — I understand this case won&apos;t be linked to the
+                    complainant&apos;s other cases.
+                  </span>
+                </Label>
+              </HalfWidth>
             </FormCard>
 
             {/* Registered address */}
@@ -697,7 +832,7 @@ export function ComplainantSection() {
 
       <FilingFooter
         backHref={prev ? hrefFor(prev) : undefined}
-        continueHref={next ? hrefFor(next) : undefined}
+        onContinue={continueHref ? handleContinue : undefined}
       />
 
       <SourcePanel
@@ -778,6 +913,68 @@ export function ComplainantSection() {
           >
             Verify &amp; fetch details
           </Button>
+        </ChromeDialogContent>
+      </Dialog>
+
+      {/* Leaving while some institutional complainant has no CIN or PAN. */}
+      <Dialog
+        open={leaveTo !== null}
+        onOpenChange={(open) => {
+          if (!open) setLeaveTo(null);
+        }}
+      >
+        <ChromeDialogContent
+          mobileSheet
+          className="sm:max-w-lg"
+          onCloseAutoFocus={(event) => {
+            if (!focusCinPan.current) return;
+            focusCinPan.current = false;
+            event.preventDefault();
+            cinPanInput.current?.focus();
+          }}
+        >
+          <DialogHeader>
+            <span
+              aria-hidden
+              className="mb-2 flex size-10 shrink-0 items-center justify-center rounded-lg bg-warning-muted text-warning-muted-foreground"
+            >
+              <TriangleAlertIcon className="size-5" />
+            </span>
+            <DialogTitle>Continue without a CIN or PAN?</DialogTitle>
+            <DialogDescription>
+              The CIN or PAN is used to identify cases belonging to the same complainant.
+            </DialogDescription>
+          </DialogHeader>
+          {/* The acknowledgement is its own recessed well — a hairline, since it holds a control. */}
+          <Label
+            htmlFor={skipCinPanId}
+            className="items-start gap-3 rounded-lg border border-hairline bg-surface-sunken p-4 font-normal text-foreground"
+          >
+            <Checkbox
+              id={skipCinPanId}
+              checked={skipCinPanUnderstood}
+              onCheckedChange={(checked) => setSkipCinPanUnderstood(checked === true)}
+              className="mt-0.5"
+            />
+            {/* Wraps to several lines — the Label's own leading-none would collide. */}
+            <span className="leading-normal">
+              I understand that without it, this case will not be linked to the
+              complainant&apos;s other cases.
+            </span>
+          </Label>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={addCinPan}>
+              Add CIN or PAN
+            </Button>
+            <Button
+              type="button"
+              onClick={leaveWithoutCinPan}
+              disabled={!skipCinPanUnderstood}
+              aria-disabled={!skipCinPanUnderstood || undefined}
+            >
+              Continue without it
+            </Button>
+          </DialogFooter>
         </ChromeDialogContent>
       </Dialog>
 

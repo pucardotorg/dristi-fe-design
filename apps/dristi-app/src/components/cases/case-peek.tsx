@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties, ReactNode } from "react";
-import { useRef, useSyncExternalStore } from "react";
+import { useMemo, useRef, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { ExternalLinkIcon, XIcon } from "lucide-react";
@@ -40,9 +40,11 @@ import {
   formatWeekdayDate,
   isSameDay,
   peekExtras,
+  dayStamp,
   peekHistory,
   type CaseTask,
 } from "@/lib/cases/peek";
+import { hearingRecords } from "@/lib/cases/hearing-record";
 import { caseDetailHref, caseSectionHref } from "@/lib/cases/sections";
 import {
   formatCaseDate,
@@ -55,10 +57,12 @@ import {
 } from "@/lib/cases/types";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
+import { BotdText } from "@/components/cases/botd-text";
 
 import { CaseFlags } from "./case-identity";
 import { CASE_PEEK_ID, useCasePeek } from "./use-case-peek";
 import { Identifier } from "@/components/chrome/identifier";
+import { useCourtText } from "@/components/court/court-provider";
 
 /**
  * Card that owns peek state in the tree, floating variant. The panel portals to the
@@ -259,6 +263,7 @@ function CasePeekBody({
   onClose: () => void;
   mobileDrawer?: boolean;
 }) {
+  const courtText = useCourtText();
   const Title = mobileDrawer ? DrawerTitle : "h2";
   const title = partiesLabel(record);
   const extras = peekExtras(record.id);
@@ -306,7 +311,7 @@ function CasePeekBody({
             {/* A step of air and a step of weight, so the court reads as its
                 own fact and not as a third number (owner, Sept 18). */}
             <p className="mt-1.5 text-body-compact font-medium text-foreground">
-              {record.court}
+              {courtText(record.court)}
             </p>
           </div>
           <Button
@@ -397,6 +402,11 @@ function CasePeekOverview({
   extras: ReturnType<typeof peekExtras>;
 }) {
   const tasks = extras.tasks ?? [];
+  // The latest sitting that has a business of the day recorded.
+  const latest = useMemo(
+    () => hearingRecords(record).find((h) => h.summary && h.on <= dayStamp(now)),
+    [record, now]
+  );
   const complainantCounsel = counselFor(record, "complainant");
   const accusedCounsel = counselFor(record, "accused");
 
@@ -447,12 +457,19 @@ function CasePeekOverview({
         </section>
       ) : null}
 
-      {record.previousHearingOn ? (
+      {latest ? (
+        <LastHearingCard
+          on={latest.on}
+          purpose={latest.purpose}
+          order={latest.summary as string}
+          label="Business of the day"
+        />
+      ) : record.previousHearingOn ? (
         <LastHearingCard
           on={record.previousHearingOn}
           purpose={record.substage ?? stageLabel(record.stage)}
           order={extras.orderOfTheDay ?? record.latestUpdate}
-          directed={Boolean(extras.orderOfTheDay)}
+          label={extras.orderOfTheDay ? "Order of the day" : "Latest update"}
         />
       ) : null}
     </div>
@@ -544,12 +561,13 @@ function LastHearingCard({
   on,
   purpose,
   order,
-  directed,
+  label,
 }: {
   on: string;
   purpose: string;
   order: string;
-  directed: boolean;
+  /** What the text is: the business of the day, or a fallback note. */
+  label: string;
 }) {
   const day = new Date(`${on}T00:00:00`).toLocaleDateString("en-IN", {
     day: "numeric",
@@ -561,7 +579,7 @@ function LastHearingCard({
   return (
     <section className="flex flex-col gap-4">
       <SectionHeading>
-        {directed ? "Last direction" : "Last hearing"}
+        Last hearing
       </SectionHeading>
       <Card size="sm">
         <CardHeader>
@@ -590,7 +608,7 @@ function LastHearingCard({
         <CardContent>
           <div className="flex flex-col gap-2 rounded-md bg-surface-sunken p-4">
             <p className="text-body-compact font-medium text-foreground">
-              {directed ? "Order of the day" : "Latest update"}
+              {label}
             </p>
             <p className="text-body-compact text-muted-foreground">{order}</p>
           </div>
@@ -681,27 +699,55 @@ function TaskRow({
   );
 }
 
+/**
+ * The case so far, oldest first: the filing, every hearing with its business
+ * of the day, and the disposal. A long BOTD shows two lines and opens in place.
+ */
 function CasePeekHistory({ record, now }: { record: CaseRecord; now: number }) {
-  const items = peekHistory(record, now);
+  const items = useMemo(() => {
+    const today = dayStamp(now);
+    const milestones = peekHistory(record, now);
+    const filed = milestones[0];
+    const disposal = record.disposal
+      ? milestones.find((item) => item.on === record.disposal?.on)
+      : undefined;
+    const hearings = hearingRecords(record)
+      .filter((h) => !(record.disposal && h.on === dayStamp(record.disposal.on)))
+      .reverse()
+      .map((h) => ({
+        key: h.id,
+        on: h.on,
+        title: h.purpose,
+        botd: h.summary,
+        status: (h.on > today ? "future" : h.on === today ? "current" : "past") as
+          | "past"
+          | "current"
+          | "future",
+      }));
+    return [
+      { key: "filed", on: filed.on, title: filed.title, botd: undefined, status: filed.status },
+      ...hearings,
+      ...(disposal
+        ? [{ key: "disposal", on: disposal.on, title: disposal.title, botd: undefined, status: disposal.status }]
+        : []),
+    ];
+  }, [record, now]);
 
   return (
     <div className="p-6">
       <Timeline>
         {items.map((item) => (
           <TimelineItem
-            key={`${item.on}-${item.title}`}
+            key={item.key}
             status={item.status}
             title={item.title}
             description={formatCaseDate(item.on)}
           >
-            {item.note ? (
-              <p className="mt-1 text-body-compact text-muted-foreground">
-                {item.note}
-              </p>
-            ) : null}
+            {item.botd ? <BotdText text={item.botd} /> : null}
           </TimelineItem>
         ))}
       </Timeline>
     </div>
   );
 }
+

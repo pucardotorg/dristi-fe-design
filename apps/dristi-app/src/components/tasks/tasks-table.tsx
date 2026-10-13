@@ -47,15 +47,12 @@ import { TABLE_QUERY } from "@/components/cases/cases-layout";
 import { COLLAPSE_MOTION } from "@/components/cases/motion";
 import { PANEL_CLASS } from "@/components/shell/panel";
 import { AdvocateStack } from "@/components/tasks/advocate-stack";
+import { useCourtText } from "@/components/court/court-provider";
 
 /* ───────────────────────────── cells ───────────────────────────── */
 
-/** "24×7 ON Court" — the court without the town the whole list shares. */
-function courtShort(court: string): string {
-  return court.replace(/,\s*Kollam$/, "");
-}
-
 function CaseCell({ kase }: { kase: Case }) {
+  const courtText = useCourtText();
   return (
     <div className="flex min-w-0 flex-col gap-0.5">
       <span className="text-body-compact text-foreground">{kase.parties}</span>
@@ -66,7 +63,7 @@ function CaseCell({ kase }: { kase: Case }) {
           "Not yet numbered"
         )}
         <span aria-hidden> · </span>
-        {courtShort(kase.court)}
+        {courtText(kase.court)}
       </span>
     </div>
   );
@@ -769,6 +766,7 @@ function TaskCard({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const courtText = useCourtText();
   const { caseById, indexById, people, user, now, view, selected, offline, fifthHead, actorsShown, onVerb, onToggleSelect } = ctx;
   const kase = caseById.get(task.caseId);
   if (!kase) return null;
@@ -858,7 +856,7 @@ function TaskCard({
                   "Not yet numbered"
                 )}
                 <span aria-hidden> · </span>
-                {courtShort(kase.court)}
+                {courtText(kase.court)}
               </span>
               {fifthHead && fifth ? (
                 <span className="text-caption text-muted-foreground">

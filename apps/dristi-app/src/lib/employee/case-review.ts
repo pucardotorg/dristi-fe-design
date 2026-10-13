@@ -45,7 +45,7 @@
  *
  * **The reference's own values are not copied.** The legacy screen shows placeholder
  * filings — `asdf`, `dfgfdg`, a stylesheet pasted into the cheque-return reason. The
- * court side already speaks Kollam parties and `CMP` numbers
+ * court side already speaks local parties and `CMP` numbers
  * (`docs/design/proposals/register-cases.md` §6), and a third vocabulary would be the
  * first thing a clerk noticed.
  */
@@ -929,7 +929,7 @@ const WITNESS_PROVES = [
  */
 const OTHER_DETAILS = [
   "The complainant is willing to receive the amount in instalments if the accused offers.",
-  "The accused issued cheques to other traders in Kollam which were returned in the same week.",
+  "The accused issued cheques to other traders in the district which were returned in the same week.",
   "The parties are known to each other and the complainant would accept a settlement before trial.",
   "The complainant asks that the matter be heard early, the business being a small one.",
 ] as const;
@@ -1191,7 +1191,7 @@ const BANKS = [
   { name: "Kerala Gramin Bank", ifsc: "KLGB" },
 ] as const;
 
-/** Kollam localities, taken from the parties the court-side fixtures already name. */
+/** Localities, taken from the parties the court-side fixtures already name. */
 const LOCALITIES = [
   "Kadappakada",
   "Thevally",
@@ -1211,8 +1211,8 @@ const PIN_CODES = ["691001", "691008", "691009", "691010", "691020"] as const;
  * House names and post offices, because a Kerala address is not a door number and a
  * town.
  *
- * The demo used to write "171, Mundakkal, Kollam – 691010" — one short line, and a
- * layout tested against it is tested against nothing: a real address on a Kollam file
+ * The demo used to write "171, Mundakkal – 691010" — one short line, and a
+ * layout tested against it is tested against nothing: a real address on a Kerala file
  * carries the house name, the door number with its ward, the locality, the post office,
  * the district and the state before the PIN, and runs to three lines in a card's value
  * column (owner, 2026-09-12, asking for the third time to see one).
@@ -1229,8 +1229,8 @@ const HOUSE_NAMES = [
 ] as const;
 
 const POST_OFFICES = [
-  "Kollam Beach",
-  "Kollam East",
+  "Town Beach",
+  "Town East",
   "Mundakkal",
   "Vadakkevila",
   "Asramam",
@@ -1238,8 +1238,8 @@ const POST_OFFICES = [
 ] as const;
 
 const POLICE_STATIONS = [
-  "Kollam East",
-  "Kollam West",
+  "Town East",
+  "Town West",
   "Chinnakada",
   "Kottiyam",
   "Chavara",
@@ -1270,7 +1270,7 @@ const WHY_ISSUED = [
   "Discharge of an existing debt",
 ] as const;
 
-/** Who signed a company's cheque. Kollam given names, like the parties around them. */
+/** Who signed a company's cheque. Malayali given names, like the parties around them. */
 const SIGNATORIES = [
   "K. Ravindran",
   "Suresh Babu",
@@ -1308,7 +1308,7 @@ const PAYMENT_STATUS = {
 const CONDONATION_GROUNDS = [
   "The complainant was under treatment through the period and could not instruct counsel.",
   "The papers were with a previous advocate and were returned only after the month had run.",
-  "The complainant was away from Kollam on work and returned after the period expired.",
+  "The complainant was away from the district on work and returned after the period expired.",
   "The parties were in settlement talks, which failed only after the month had run.",
 ] as const;
 
@@ -1334,7 +1334,7 @@ function addressFor(seed: number): string {
     `${door}/${1000 + (seed % 900)}`,
     `Ward ${ward}, ${pick(LOCALITIES, seed)}`,
     `${pick(POST_OFFICES, seed + 2)} P.O.`,
-    "Kollam District, Kerala",
+    "Sample District, Kerala",
   ].join(", ");
   return `${lines} – ${pick(PIN_CODES, seed)}`;
 }

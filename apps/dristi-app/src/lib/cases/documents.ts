@@ -9,8 +9,8 @@
  * written.
  */
 import pack from "./documents-dummy.json";
-import { filingStatusVariant, type FilingStatus } from "./applications";
 import { counselFor, type CaseRecord, type Parties } from "./types";
+import type { ApplicationRecord } from "./application-record";
 
 /** Mutually exclusive populations on the documents register. */
 export type DocumentKind = "documents" | "bail-bonds";
@@ -18,6 +18,7 @@ export type DocumentKind = "documents" | "bail-bonds";
 export type DocumentGroupId =
   | "complaint-pack"
   | "affidavits"
+  | "memos"
   | "exhibits"
   | "witness-records"
   | "court-forms"
@@ -34,6 +35,8 @@ export type DocumentTypeId =
   | "affidavit-223-bnss"
   | "affidavit-225-bnss"
   | "affidavit-145-ni"
+  | "affidavit"
+  | "memo"
   | "account-records"
   | "proof-of-debt-or-liability"
   | "proof-of-deposit-of-cheque"
@@ -49,15 +52,25 @@ export type DocumentSourceId =
   | "case-filing"
   | "application"
   | "hearing"
-  | "court";
+  | "court"
+  | "submission";
 
 /**
- * Filing-workflow values — not evidence state. The register shares the
- * Applications workflow but adds the Document Execution step Applications
- * has no equivalent for: every party has signed and the document is with
- * the magistrate.
+ * Filing-workflow values — not evidence state. The register once shared the
+ * Applications workflow outright; Applications now carries the court's
+ * lifecycle (Application Lifecycle PRD), which a document does not go
+ * through, so the two lists are separate. This one keeps the Document
+ * Execution step: every party has signed and the document is with the
+ * magistrate.
  */
-export type DocumentStatus = FilingStatus | "pending-review";
+export type DocumentStatus =
+  | "draft"
+  | "pending-signature"
+  | "pending-review"
+  | "pending-payment"
+  | "completed"
+  | "rejected"
+  | "expired";
 
 /** Court treatment after the document submission workflow is complete. */
 export type EvidenceStatus = "marked" | "void";
@@ -70,6 +83,7 @@ export const DOCUMENT_KINDS: { id: DocumentKind; label: string }[] = [
 export const DOCUMENT_GROUPS: { id: DocumentGroupId; label: string }[] = [
   { id: "complaint-pack", label: "Complaint pack" },
   { id: "affidavits", label: "Affidavits" },
+  { id: "memos", label: "Memos" },
   { id: "exhibits", label: "Exhibits" },
   { id: "witness-records", label: "Witness records" },
   { id: "court-forms", label: "Court forms" },
@@ -123,6 +137,10 @@ export const DOCUMENT_TYPES: {
     label: "Affidavit under section 145 of the Negotiable Instruments Act",
     groupId: "affidavits",
   },
+  /* Filed during the case through the document submission flow (memos and
+     affidavits; PM, Oct 8): the pack names no finer type. */
+  { id: "affidavit", label: "Affidavit", groupId: "affidavits" },
+  { id: "memo", label: "Memo", groupId: "memos" },
   {
     id: "account-records",
     label: "Account records",
@@ -160,12 +178,12 @@ export const DOCUMENT_SOURCES: { id: DocumentSourceId; label: string }[] = [
   { id: "application", label: "Application" },
   { id: "hearing", label: "Hearing" },
   { id: "court", label: "Court" },
+  { id: "submission", label: "Document submission" },
 ];
 
 /**
- * The register's own status list — Applications' FILING_STATUSES plus
- * Pending review, which sits between signature and the magistrate's
- * decision. Keep it in step with FILING_STATUSES for the shared entries.
+ * The register's own status list: the filing steps, Pending review (between
+ * signature and the magistrate's decision), and the endings.
  */
 export const DOCUMENT_STATUSES: { id: DocumentStatus; label: string }[] = [
   { id: "draft", label: "Draft" },
@@ -214,16 +232,21 @@ export function documentStatusLabel(status: DocumentStatus): string {
 }
 
 /**
- * Completed carries the success tint via the shared filing variant; every
+ * Completed carries the success tint (the same one it had when this list was
+ * shared with Applications); every
  * colour remains paired with text. Pending states stay in the amber family.
  * This register has no Needs-attention pinning the way Applications does,
  * so amber here reads "in flight" rather than "you owe a step" — Pending
  * review is waiting on the magistrate, not on you (Laws: colour is never
  * the only carrier).
  */
-export function documentStatusVariant(status: DocumentStatus) {
-  if (status === "pending-review") return "warning";
-  return filingStatusVariant(status);
+export function documentStatusVariant(
+  status: DocumentStatus
+): "warning" | "destructive" | "secondary" | "success" {
+  if (status === "rejected") return "destructive";
+  if (status === "expired") return "secondary";
+  if (status === "completed") return "success";
+  return "warning";
 }
 
 export type DocumentPerson = {
@@ -582,3 +605,77 @@ export function documentPageWindow(
       : [entry]
   );
 }
+
+/**
+ * A memo or affidavit filed through the document submission flow, as a row
+ * of this register (PM, Oct 8: uploads, not applications, so they live here
+ * with their sign and pay steps). The row keeps the filing's id, so the
+ * register can open the filing itself, steps and all.
+ */
+export function documentFromFiling(item: ApplicationRecord): CaseDocument {
+  const file = item.documents.find((doc) => doc.src);
+  return {
+    id: item.id,
+    filingId: item.temporaryId ?? "",
+    title: item.name,
+    type: item.typeLabel.toLowerCase().startsWith("memo") ? "memo" : "affidavit",
+    submissionStatus: documentStatusFromFiling(item.status),
+    // Not yet filed: the day it was started, so it sorts among its peers.
+    submittedOn: item.submittedOn ?? item.createdOn,
+    submittedById: item.filedById,
+    source: "submission",
+    linkedApplication: null,
+    linkedHearing: null,
+    evidenceNumber: null,
+    evidenceStatus: null,
+    href: file?.src,
+  };
+}
+
+/** Who filed them, in this register's people shape. */
+export function documentPeopleFromFilings(
+  items: ApplicationRecord[]
+): DocumentPerson[] {
+  const seen = new Map<string, DocumentPerson>();
+  for (const item of items) {
+    if (seen.has(item.filedById)) continue;
+    const side = item.side === "court" ? "Court" : item.side === "accused" ? "Accused" : "Complainant";
+    seen.set(item.filedById, {
+      id: item.filedById,
+      name: item.filedBy,
+      role: `${side} advocate`,
+      filterLabel: item.filedBy,
+    });
+  }
+  return [...seen.values()];
+}
+
+function documentStatusFromFiling(
+  status: ApplicationRecord["status"]
+): DocumentStatus {
+  switch (status) {
+    case "draft":
+    case "pending-signature":
+    case "pending-payment":
+    case "expired":
+    case "rejected":
+      return status;
+    case "accepted":
+      return "completed";
+    case "dismissed":
+      return "rejected";
+    default:
+      // Submitted, or with the court: filed and waiting on it.
+      return "pending-review";
+  }
+}
+
+/** Still the filer's to finish: nothing has gone to the court yet. */
+export function documentNotSubmitted(document: CaseDocument): boolean {
+  return (
+    document.submissionStatus === "draft" ||
+    document.submissionStatus === "pending-signature" ||
+    document.submissionStatus === "pending-payment"
+  );
+}
+

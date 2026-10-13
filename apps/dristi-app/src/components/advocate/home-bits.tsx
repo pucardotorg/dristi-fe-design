@@ -227,10 +227,13 @@ export function ItemChip({
   item,
   size = "default",
   surface = "card",
+  bare = false,
 }: {
   item: number;
   size?: "default" | "lg";
   surface?: AvatarSurface;
+  /** No well: the label and number stand on the row as they are (desktop board). */
+  bare?: boolean;
 }) {
   return (
     <span
@@ -239,9 +242,11 @@ export function ItemChip({
         "flex shrink-0 flex-col items-center justify-center rounded-md",
         // On a card-surface row the box is a sunken beige well; when the row is
         // hovered it turns white so it separates from the row's hover tint.
-        surface === "card"
-          ? "bg-surface-sunken group-hover/row:bg-card"
-          : "bg-card",
+        bare
+          ? "bg-transparent"
+          : surface === "card"
+            ? "bg-surface-sunken group-hover/row:bg-card"
+            : "bg-card",
         size === "lg" ? "size-11" : "size-11"
       )}
     >

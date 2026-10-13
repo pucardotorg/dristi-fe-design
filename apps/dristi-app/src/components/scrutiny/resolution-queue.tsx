@@ -17,7 +17,7 @@
  */
 
 import * as React from "react";
-import { ChevronRightIcon, CircleCheckIcon, CircleDashedIcon, TriangleAlertIcon } from "lucide-react";
+import { ChevronRightIcon, CircleCheckIcon, CircleDashedIcon } from "lucide-react";
 
 import { breadcrumbOf, defectState, resolutionLabel } from "@/lib/tasks/defects";
 import type { Defect } from "@/lib/tasks/types";
@@ -90,15 +90,13 @@ export function QueueProgress({
 /**
  * How a finished defect was finished — one word at the end of the row.
  *
- * `resolutionLabel` writes the full sentence a card can afford ("Suggestion accepted");
- * a row shares its line with the whole location and cannot. Same four outcomes, said short.
+ * `resolutionLabel` writes the full phrase a card can afford ("Kept as filed"); a row
+ * shares its line with the whole location and cannot. Same three outcomes, said short.
  */
 function doneWord(defect: Defect, value: string | undefined): string {
   switch (resolutionLabel(defect, value)) {
-    case "Suggestion accepted":
-      return "Accepted";
-    case "Kept, with a reason":
-      return "Kept yours";
+    case "Kept as filed":
+      return "Kept";
     case "Document replaced":
       return "Replaced";
     default:
@@ -132,8 +130,6 @@ export function QueueRow({
         <span className="flex pt-0.5">
           {resolved ? (
             <CircleCheckIcon className="size-4 shrink-0 text-success-ink" aria-hidden />
-          ) : state === "needs-justification" ? (
-            <TriangleAlertIcon className="size-4 shrink-0 text-warning-ink" aria-hidden />
           ) : (
             <CircleDashedIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
           )}

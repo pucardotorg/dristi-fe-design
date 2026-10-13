@@ -1,4 +1,4 @@
-import type { Locale } from "@/lib/onboarding/content";
+import type { Copy, Locale } from "@/lib/onboarding/content";
 
 /**
  * Post-login join-a-case — content model.
@@ -13,7 +13,6 @@ import type { Locale } from "@/lib/onboarding/content";
  * who you are joining as, which party you are, and how you will appear.
  */
 
-type Copy = Record<Locale, string>;
 const t = (en: string, ml: string): Copy => ({ en, ml });
 
 /* ------------------------------------------------------------------ case model */
@@ -61,17 +60,21 @@ export type JoinCase = {
 export const DEMO_JOIN_CASE: JoinCase = {
   title: "South Indian Bank Ltd. vs Rajan Krishnan Nair and 1 other",
   caseNumber: "CC 847/2026",
-  cnr: "KL-0423-CC-0847-2026",
-  filingNumber: "KL-002405-2026",
+  /* Real formats (owner feedback, 12 Oct): a 16-character CNR and a registration
+     number, each re-voiced per state by the court switch — in Gujarat GJAH010008472026
+     and eCC/2405/2026. */
+  cnr: "KLKM520008472026",
+  filingNumber: "CMP/2405/2026",
   caseType: "NIA S138",
   filingDate: "31-07-2026",
-  court: "Court of the Judicial First Class Magistrate I, Kollam",
+  /* The product's own court, which the court switch names per state ("SARAS Court"). */
+  court: "24×7 ON Court",
   courtroom: "Court No. 3",
   hearingDate: "Friday, 18 September 2026, 10:30 AM",
   chequeAmount: "₹1,85,000",
   complainant: "South Indian Bank Ltd.",
   complainantAdvocate: "Adv. Meera Pillai",
-  complainantAdvocatePhone: "0474 2761 480",
+  complainantAdvocatePhone: "0000 000 000",
   accusedAdvocate: "Not available",
   accused: [
     { id: "acc-1", name: "Rajan Krishnan Nair" },
@@ -160,6 +163,14 @@ export const summonsModal = {
 /* -------------------------------------------------------------------- join dialog */
 
 export const joinDialog = {
+  /* Closing partway through asks first (owner, 2026-10-13). Malayalam drafted. */
+  leaveTitle: t("Leave without joining?", "ചേരാതെ പുറത്തുകടക്കണോ?"),
+  leaveBody: t(
+    "What you have entered so far will not be kept.",
+    "ഇതുവരെ നൽകിയ വിവരങ്ങൾ സൂക്ഷിക്കില്ല.",
+  ),
+  leaveStay: t("Keep going", "തുടരുക"),
+  leaveGo: t("Leave", "പുറത്തുകടക്കുക"),
   title: t("Join your case", "നിങ്ങളുടെ കേസിൽ ചേരുക"),
 
   /* lookup — manual entry only */
@@ -258,12 +269,12 @@ export const joinDialog = {
     "{name} ആയാണ് നിങ്ങൾ ചേരുന്നത്. കേസ് രേഖയിൽ ആ പേരുമായി നിങ്ങളുടെ അക്കൗണ്ട് ബന്ധിപ്പിക്കും.",
   ),
   alreadyJoined: t(
-    "{name} has already joined this case. If this is you, sign in with the account used earlier, or call the court on 0474 2919099.",
-    "{name} ഇതിനകം ഈ കേസിൽ ചേർന്നിട്ടുണ്ട്. ഇത് നിങ്ങളാണെങ്കിൽ, നേരത്തെ ഉപയോഗിച്ച അക്കൗണ്ടിൽ സൈൻ ഇൻ ചെയ്യുക, അല്ലെങ്കിൽ 0474 2919099 എന്ന നമ്പറിൽ കോടതിയെ വിളിക്കുക.",
+    "{name} has already joined this case. If this is you, sign in with the account used earlier, or call the court on 0000 000000.",
+    "{name} ഇതിനകം ഈ കേസിൽ ചേർന്നിട്ടുണ്ട്. ഇത് നിങ്ങളാണെങ്കിൽ, നേരത്തെ ഉപയോഗിച്ച അക്കൗണ്ടിൽ സൈൻ ഇൻ ചെയ്യുക, അല്ലെങ്കിൽ 0000 000000 എന്ന നമ്പറിൽ കോടതിയെ വിളിക്കുക.",
   ),
   poaAlreadyTaken: t(
-    "Another power of attorney holder is already managing this case for {name}. Only one power of attorney holder can act at a time — call the court on 0474 2919099 if this needs to change.",
-    "{name}-ന് വേണ്ടി മറ്റൊരു പവർ ഓഫ് അറ്റോർണി ഉടമ ഇതിനകം ഈ കേസ് കൈകാര്യം ചെയ്യുന്നു. ഒരു സമയം ഒരു പവർ ഓഫ് അറ്റോർണി ഉടമയ്ക്ക് മാത്രമേ പ്രവർത്തിക്കാനാകൂ — ഇത് മാറ്റണമെങ്കിൽ 0474 2919099 എന്ന നമ്പറിൽ കോടതിയെ വിളിക്കുക.",
+    "Another power of attorney holder is already managing this case for {name}. Only one power of attorney holder can act at a time — call the court on 0000 000000 if this needs to change.",
+    "{name}-ന് വേണ്ടി മറ്റൊരു പവർ ഓഫ് അറ്റോർണി ഉടമ ഇതിനകം ഈ കേസ് കൈകാര്യം ചെയ്യുന്നു. ഒരു സമയം ഒരു പവർ ഓഫ് അറ്റോർണി ഉടമയ്ക്ക് മാത്രമേ പ്രവർത്തിക്കാനാകൂ — ഇത് മാറ്റണമെങ്കിൽ 0000 000000 എന്ന നമ്പറിൽ കോടതിയെ വിളിക്കുക.",
   ),
   appearLegend: t(
     "How will you appear in court?",
@@ -370,12 +381,7 @@ export const joinDialog = {
     "{numbers} എന്ന നമ്പറുകളിലേക്ക് SMS അയച്ചു. ഓരോരുത്തരും സൈൻ ഇൻ ചെയ്ത് സ്ഥിരീകരിച്ചാൽ കേസ് അവരുടെ അക്കൗണ്ടുമായി ബന്ധിപ്പിക്കും.",
   ),
   viewCase: t("View case", "കേസ് കാണുക"),
-  viewCasePrototype: t("The case file will open here.", "കേസ് ഫയൽ ഇവിടെ തുറക്കും."),
   fileBail: t("File bail application", "ജാമ്യാപേക്ഷ നൽകുക"),
-  fileBailPrototype: t(
-    "The bail application flow will open here.",
-    "ജാമ്യാപേക്ഷ ഫ്ലോ ഇവിടെ തുറക്കും.",
-  ),
   addAdvocate: t("Add advocate", "അഭിഭാഷകനെ ചേർക്കുക"),
   addAdvocatePrototype: t(
     "The add-advocate flow will open here.",
@@ -510,7 +516,8 @@ export const caseDetails = {
   hearing: t("Next hearing", "അടുത്ത ഹിയറിംഗ്"),
   caseNumber: t("Case number", "കേസ് നമ്പർ"),
   cnr: t("CNR number", "CNR നമ്പർ"),
-  filingNumber: t("Filing number", "ഫയലിംഗ് നമ്പർ"),
+  /* The number the case was registered under, not the e-filing number (owner, 12 Oct). */
+  filingNumber: t("Registration number", "രജിസ്ട്രേഷൻ നമ്പർ"),
   filingDate: t("Filing date", "ഫയലിംഗ് തീയതി"),
   chequeAmount: t("Amount claimed", "ആവശ്യപ്പെടുന്ന തുക"),
   complainant: t("Complainant", "പരാതിക്കാരൻ"),
@@ -526,6 +533,7 @@ export const caseDetails = {
 export function fill(copy: Copy, locale: Locale, values: Record<string, string>) {
   return Object.entries(values).reduce(
     (text, [key, value]) => text.replaceAll(`{${key}}`, value),
-    copy[locale],
+    // English where no translation exists yet (Hindi, today).
+    copy[locale] ?? copy.en,
   );
 }

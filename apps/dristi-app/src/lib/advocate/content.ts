@@ -1,4 +1,4 @@
-import type { Locale } from "@/lib/onboarding/content";
+import type { Copy } from "@/lib/onboarding/content";
 import { DEMO_JOIN_CASE, type CaseParty, type JoinCase } from "@/lib/join/content";
 
 export { fill as fillCopy } from "@/lib/join/content";
@@ -18,7 +18,6 @@ export { fill as fillCopy } from "@/lib/join/content";
  * that an approver must clear first.
  */
 
-type Copy = Record<Locale, string>;
 const t = (en: string, ml: string): Copy => ({ en, ml });
 
 /* ------------------------------------------------------------------- demo data */
@@ -147,6 +146,19 @@ export const BAR_DIRECTORY: BarAdvocate[] = [
   { barId: "K/3104/2019", name: "Adv. Divya Nair" },
 ];
 
+/** Sandbox: the advocates this office has been on vakalatnamas with — the only names the
+ *  co-advocate field suggests. Anyone else is added by their full mobile number and never
+ *  resolved to a name (owner, 2026-10-13, as the Share field). */
+export const VAKALATNAMA_CO_ADVOCATES: { name: string; phone: string; barId: string }[] = [
+  { ...BAR_DIRECTORY[1], phone: "94471 20486" },
+  { ...BAR_DIRECTORY[2], phone: "98950 08762" },
+  { ...BAR_DIRECTORY[0], phone: "94460 11230" },
+  { ...BAR_DIRECTORY[5], phone: "97450 27651" },
+];
+
+/** Sandbox: the advocate who already named this one on a paid vakalatnama. */
+export const VAKALATNAMA_INVITER = BAR_DIRECTORY[1].name;
+
 /* ------------------------------------------------------------------- app shell */
 
 export const advShell = {
@@ -207,7 +219,7 @@ export const advHome = {
   /** Per-court: the court's full official day cause list, all matters. */
   viewCauseList: t("View cause list", "കോസ് ലിസ്റ്റ് കാണുക"),
   /** Signals it joins one of the advocate's OWN hearings, not a generic courtroom. */
-  joinCourtroom: t("Join your hearing", "നിങ്ങളുടെ വിചാരണയിൽ ചേരുക"),
+  joinCourtroom: t("Join a hearing", "ഒരു വിചാരണയിൽ ചേരുക"),
   /** The "Join your hearing" picker: only the advocate's own hearings being called now. */
   joinDialogTitle: t("Join your hearing", "നിങ്ങളുടെ വിചാരണയിൽ ചേരുക"),
   joinDialogBody: t(
@@ -249,7 +261,11 @@ export const advHome = {
   /* Week strip */
   prevWeek: t("Previous week", "കഴിഞ്ഞ ആഴ്ച"),
   nextWeek: t("Next week", "അടുത്ത ആഴ്ച"),
+  prevDay: t("Previous day", "മുൻ ദിവസം"),
+  nextDay: t("Next day", "അടുത്ത ദിവസം"),
   pickDate: t("Pick a date", "തീയതി തിരഞ്ഞെടുക്കുക"),
+  previewDates: t("Preview nearby dates", "അടുത്തുള്ള തീയതികൾ കാണുക"),
+  previewDateHelp: t("Move across the date to preview. Click to select. With a keyboard, use Left and Right, then Enter or Space. Escape cancels.", "തീയതിക്ക് മുകളിലൂടെ നീങ്ങി നോക്കുക. തിരഞ്ഞെടുക്കാൻ ക്ലിക്ക് ചെയ്യുക. കീബോർഡിൽ ഇടത്, വലത് അമ്പുകൾ ഉപയോഗിച്ച ശേഷം Enter അല്ലെങ്കിൽ Space അമർത്തുക. Escape റദ്ദാക്കും."),
 
   /* Whose matters — the board's advocate switcher. Names, not a permission
      model: "view access" is the system's vocabulary, an advocate says a name. */
@@ -277,11 +293,11 @@ export const advHome = {
 
   /* Companion rail */
   railTitle: t("Pending tasks", "ബാക്കിയുള്ള ജോലികൾ"),
-  /** The panel lists the coming week; the strip's badge counts every open task.
-      The two can never agree, so the header says which one this is. */
+  /** The panel lists today and the next three days; the strip's badge counts every
+      open task. The two can never agree, so the header says which one this is. */
   railScope: t(
-    "Due in the next 7 days",
-    "അടുത്ത 7 ദിവസത്തിനുള്ളിൽ അവസാനിക്കുന്നവ",
+    "Due in the next 3 days",
+    "അടുത്ത 3 ദിവസത്തിനുള്ളിൽ അവസാനിക്കുന്നവ",
   ),
   prepTitle: t(
     "Important upcoming hearings",
@@ -309,7 +325,6 @@ export const advHome = {
   viewCase: t("View case", "കേസ് കാണുക"),
   groupToday: t("Due today", "ഇന്ന് അവസാനം"),
   groupSoon: t("Next 3 days", "അടുത്ത 3 ദിവസം"),
-  groupWeek: t("Later this week", "ഈ ആഴ്ച പിന്നീട്"),
   railResize: t("Resize the pending tasks rail", "പാനലിന്റെ വീതി ക്രമീകരിക്കുക"),
   railOpen: t("Open pending tasks, {n} need action", "ബാക്കിയുള്ള ജോലികൾ തുറക്കുക, {n} എണ്ണം"),
   railCollapse: t("Collapse pending tasks", "ജോലികളുടെ പാനൽ ചുരുക്കുക"),
@@ -388,18 +403,17 @@ export const advHome = {
   colHearingType: t("Hearing type", "ഹിയറിംഗ് തരം"),
   colStatus: t("Status", "സ്ഥിതി"),
   statusCompleted: t("Completed", "പൂർത്തിയായി"),
-  statusOngoing: t("Ongoing", "നടക്കുന്നു"),
+  statusOngoing: t("Live now", "ഇപ്പോൾ നടക്കുന്നു"),
   statusListed: t("Listed", "ലിസ്റ്റ് ചെയ്തു"),
   /* A concluded hearing reached but not taken up. On the home board only the
      passed-over concluded matters carry this tag (completed ones need none, since
      concluded means completed); the cause list makes it a fourth status. */
   statusPassedOver: t("Passed over", "മാറ്റിവെച്ചു"),
-  statusPassedOverOn: t("Passed over on {date}", "{date}-ന് മാറ്റിവെച്ചു"),
   approxNote: t(
     "Times are approximate unless the court has fixed a slot.",
     "കോടതി സമയം നിശ്ചയിച്ചിട്ടില്ലെങ്കിൽ സമയം ഏകദേശമാണ്.",
   ),
-  ongoingTag: t("Ongoing hearings", "നടക്കുന്ന വിചാരണകൾ"),
+  ongoingTag: t("Live now", "ഇപ്പോൾ നടക്കുന്നു"),
   conflictTag: t("Conflicting hearings", "ഒരേസമയത്തെ വിചാരണകൾ"),
   /* The hearing and court nouns are filled already pluralised ({hw}/{cw}), so the
      line reads right at one or many ("1 hearing across 1 court"). */
@@ -421,8 +435,13 @@ export const advHome = {
   /* Slot tabs — the sitting's live tab throbs; this names the state for readers
      who cannot see the dot. */
   slotLive: t("in session", "സെഷനിൽ"),
+  /** The sittings tab row: its accessible name, and the overflow menu's label. */
+  sittingsLabel: t("Sittings", "സിറ്റിങ്ങുകൾ"),
+  moreSittings: t("More", "കൂടുതൽ"),
+  /** Tooltip on a slot tab's pulsing dot. */
+  slotLiveTip: t("This sitting is in session now", "ഈ സിറ്റിങ് ഇപ്പോൾ നടക്കുന്നു"),
   /* Zones */
-  zoneUpcoming: t("Upcoming", "വരാനുള്ളവ"),
+  zoneUpcoming: t("Scheduled next", "അടുത്തതായി"),
   nextHintOne: t("Next: {time} · 1 hearing", "അടുത്തത്: {time} · 1 ഹിയറിംഗ്"),
   nextHintMany: t("Next: {time} · {n} hearings", "അടുത്തത്: {time} · {n} ഹിയറിംഗുകൾ"),
   concludedWord: t("concluded", "കഴിഞ്ഞു"),
@@ -437,7 +456,104 @@ export const advHome = {
     "Nothing is being called right now",
     "ഇപ്പോൾ ഒന്നും വിളിക്കുന്നില്ല",
   ),
-  noUpcoming: t("No upcoming hearings", "വരാനുള്ള ഹിയറിംഗുകളില്ല"),
+  noUpcoming: t("Nothing scheduled next", "അടുത്തതായി ഒന്നുമില്ല"),
+  /* Day header (desktop): the big date and the board's title. */
+  hearingsForDay: t("Your hearings for the day", "ഈ ദിവസത്തെ നിങ്ങളുടെ ഹിയറിംഗുകൾ"),
+  /* A deployment with one court names it here, once, instead of on every hearing. */
+  hearingsInCourt: t("Your hearings in {court}", "{court}-ലെ നിങ്ങളുടെ ഹിയറിംഗുകൾ"),
+  /* Timeline rail: each phase names itself and its count; the sitting's two
+     ends bracket it. "Live now" and "Scheduled next" replaced Ongoing and
+     Upcoming, which readers took for each other. */
+  zoneConcluded: t("Concluded", "കഴിഞ്ഞവ"),
+  zoneLive: t("Live now", "ഇപ്പോൾ നടക്കുന്നു"),
+  phaseCount: t("{n} {hw}", "{n} {hw}"),
+  liveAcross: t("Live now across {c} {cw}", "{c} {cw}-ൽ ഇപ്പോൾ നടക്കുന്നു"),
+  moreScheduledOne: t("1 more scheduled hearing", "1 ഹിയറിംഗ് കൂടി"),
+  moreScheduledMany: t("{n} more scheduled hearings", "{n} ഹിയറിംഗുകൾ കൂടി"),
+  showFewer: t("Show fewer", "കുറച്ച് കാണിക്കുക"),
+  /* People filter, one per slot tab. */
+  peopleFilter: t("People", "ആളുകൾ"),
+  scopeMine: t("My hearings", "എന്റെ ഹിയറിംഗുകൾ"),
+  scopeMineHint: t("Cases where you are on the Vakalatnama", "നിങ്ങൾ വക്കാലത്തിലുള്ള കേസുകൾ"),
+  scopeAll: t("All I can access", "എനിക്ക് കാണാവുന്നവയെല്ലാം"),
+  scopeAllHint: t("Adds cases you see through office access", "ഓഫീസ് ആക്സസ് വഴി കാണുന്ന കേസുകളും"),
+  peopleHeading: t("On the Vakalatnama", "വക്കാലത്തിൽ ഉള്ളവർ"),
+  peopleNone: t("No one else on these Vakalatnamas", "ഈ വക്കാലത്തുകളിൽ മറ്റാരുമില്ല"),
+  clearFilters: t("Clear filters", "ഫിൽട്ടറുകൾ നീക്കുക"),
+  /** Footer of the People menu: untick every name. */
+  clearPeople: t("Clear selection", "തിരഞ്ഞെടുപ്പ് നീക്കുക"),
+  /** The People button once names are ticked: "People · 2". */
+  peopleCount: t("People · {n}", "ആളുകൾ · {n}"),
+  /** The single people menu (option C). */
+  peopleMe: t("Me", "ഞാൻ"),
+  /** The access menu: three views of the sitting, one at a time. */
+  accessMine: t("On my Vakalatnama", "എന്റെ വക്കാലത്തിലുള്ളവ"),
+  accessMineTip: t("Hearings where you are on the Vakalatnama", "നിങ്ങൾ വക്കാലത്തിലുള്ള വിചാരണകൾ"),
+  accessOfficeOnly: t("Office access", "ഓഫീസ് ആക്സസ്"),
+  accessOfficeTip: t("Hearings through office access, not your Vakalatnama", "ഓഫീസ് ആക്സസ് വഴി, നിങ്ങളുടെ വക്കാലത്ത് വഴിയല്ല"),
+  accessAll: t("All hearings", "എല്ലാ വിചാരണകളും"),
+  accessAllTip: t("Everything you can see, both kinds", "നിങ്ങൾക്ക് കാണാവുന്നതെല്ലാം, രണ്ടു തരവും"),
+  /** Advanced filters: the menu entry, the button when people are narrowed, and the sheet. */
+  advancedFilters: t("Custom filters", "ഇഷ്ടാനുസൃത ഫിൽട്ടറുകൾ"),
+  /** Under the filters while any are hiding hearings in the sitting. */
+  hiddenOne: t("1 hearing hidden", "1 വിചാരണ മറച്ചു"),
+  hiddenMany: t("{n} hearings hidden", "{n} വിചാരണകൾ മറച്ചു"),
+  showAllHearings: t("Show all hearings", "എല്ലാ വിചാരണകളും കാണിക്കുക"),
+  /** The access button while people are left out: says how many, not just "custom". */
+  excludedOne: t("1 person excluded", "1 വ്യക്തിയെ ഒഴിവാക്കി"),
+  excludedMany: t("{n} people excluded", "{n} പേരെ ഒഴിവാക്കി"),
+  /** The same on a phone, where the button is half the row. */
+  excludedShort: t("{n} excluded", "{n} ഒഴിവാക്കി"),
+  customFilter: t("Custom filters", "ഇഷ്ടാനുസൃത ഫിൽട്ടറുകൾ"),
+  customBadge: t("On", "ഓൺ"),
+  filtersTitle: t("Filter hearings", "വിചാരണകൾ ഫിൽട്ടർ ചെയ്യുക"),
+  filtersFor: t("For the {sitting} sitting", "{sitting} സിറ്റിങ്ങിന്"),
+  filtersAccess: t("By access", "ആക്സസ് അനുസരിച്ച്"),
+  filtersPeopleHeading: t("By people", "ആളുകൾ അനുസരിച്ച്"),
+  filtersPeople: t("Colleagues", "സഹപ്രവർത്തകർ"),
+  peopleMeAlwaysShort: t("always included", "എപ്പോഴും ഉൾപ്പെടും"),
+  peopleClearAll: t("Unselect everyone", "എല്ലാവരെയും ഒഴിവാക്കുക"),
+  filtersReset: t("Reset", "പുനഃസജ്ജമാക്കുക"),
+  findName: t("Find a name", "പേര് തിരയുക"),
+  noNames: t("No names match.", "പൊരുത്തപ്പെടുന്ന പേരുകളില്ല."),
+  filtersApply: t("Show hearings", "വിചാരണകൾ കാണിക്കുക"),
+  /** The access menu's people sub-menu, and the button's suffix when narrowed. */
+  peopleSub: t("People", "ആളുകൾ"),
+  peopleEveryoneShort: t("Everyone", "എല്ലാവരും"),
+  peopleOnlyMeShort: t("Only me", "ഞാൻ മാത്രം"),
+  peopleMePlusShort: t("Me + {n}", "ഞാൻ + {n}"),
+  /** The people menu's button. */
+  peopleEveryone: t("Everyone's hearings", "എല്ലാവരുടെയും വിചാരണകൾ"),
+  peopleOnlyMe: t("Only my hearings", "എന്റെ വിചാരണകൾ മാത്രം"),
+  peopleMineOne: t("My hearings + 1 person", "എന്റെ വിചാരണകൾ + 1 ആൾ"),
+  peopleMineMany: t("My hearings + {n} people", "എന്റെ വിചാരണകൾ + {n} പേർ"),
+  /** The people menu's last row: tick every colleague. */
+  peopleSelectAll: t("Select everyone", "എല്ലാവരെയും തിരഞ്ഞെടുക്കുക"),
+  peopleMeAlways: t("Your hearings always show", "നിങ്ങളുടെ വിചാരണകൾ എപ്പോഴും കാണിക്കും"),
+  /** Accessible name of the whose-cases switch. */
+  scopeSwitch: t("Whose hearings", "ആരുടെ വിചാരണകൾ"),
+  emptyFilteredTitle: t("No hearings match these filters", "ഈ ഫിൽട്ടറുകൾക്ക് ചേരുന്ന ഹിയറിംഗുകളില്ല"),
+  emptyFilteredBody: t(
+    "Change the people or courts to see more.",
+    "കൂടുതൽ കാണാൻ ആളുകളെയോ കോടതികളെയോ മാറ്റുക.",
+  ),
+  /* Access button on each hearing and its popover. */
+  accessVakalatnama: t("On Vakalatnama", "വക്കാലത്തിൽ"),
+  accessOffice: t("Office access", "ഓഫീസ് ആക്സസ്"),
+  accessYou: t("You", "നിങ്ങൾ"),
+  /** The queue tag on today's scheduled hearings: matters still before yours in court. */
+  queueNext: t("Next", "അടുത്തത്"),
+  queueAheadOne: t("1 hearing before yours in this court.", "ഈ കോടതിയിൽ നിങ്ങളുടേതിന് മുമ്പ് 1 ഹിയറിങ്."),
+  queueAheadMany: t("{n} hearings before yours in this court.", "ഈ കോടതിയിൽ നിങ്ങളുടേതിന് മുമ്പ് {n} ഹിയറിങ്ങുകൾ."),
+  queueIsNext: t("Yours is next in this court.", "ഈ കോടതിയിൽ അടുത്തത് നിങ്ങളുടേതാണ്."),
+  accessMineLabel: t(
+    "You're on the Vakalatnama. See who else is.",
+    "നിങ്ങൾ വക്കാലത്തിലുണ്ട്. മറ്റാരൊക്കെയെന്ന് കാണുക.",
+  ),
+  accessOfficeLabel: t(
+    "You have office access. See who's on the Vakalatnama.",
+    "നിങ്ങൾക്ക് ഓഫീസ് ആക്സസ് ഉണ്ട്. വക്കാലത്തിൽ ആരൊക്കെയെന്ന് കാണുക.",
+  ),
   emptyCourtsTitle: t(
     "No hearings in the selected courts",
     "തിരഞ്ഞെടുത്ത കോടതികളിൽ ഹിയറിംഗുകളില്ല",
@@ -483,6 +599,29 @@ export const advDialog = {
     "കേസ് നമ്പർ അല്ലെങ്കിൽ ഫയലിംഗ് നമ്പർ നൽകുക.",
   ),
   findAndJoin: t("Find case and join", "കേസ് കണ്ടെത്തി ചേരുക"),
+  /* Closing partway through asks first (owner, 2026-10-13). Malayalam drafted. */
+  leaveTitle: t("Leave without joining?", "ചേരാതെ പുറത്തുകടക്കണോ?"),
+  leaveBody: t(
+    "What you have entered so far will not be kept.",
+    "ഇതുവരെ നൽകിയ വിവരങ്ങൾ സൂക്ഷിക്കില്ല.",
+  ),
+  leaveStay: t("Keep going", "തുടരുക"),
+  leaveGo: t("Leave", "പുറത്തുകടക്കുക"),
+  lookupSandboxTip: t("Sandbox: who you are on this case", "സാൻഡ്‌ബോക്സ്: ഈ കേസിൽ നിങ്ങൾ ആര്"),
+  lookupSandboxLabel: t("For the case you look up", "നിങ്ങൾ തിരയുന്ന കേസിന്"),
+  lookupSandboxNew: t("You are not on it yet", "നിങ്ങൾ ഇതുവരെ ഇതിലില്ല"),
+  lookupSandboxAdded: t(
+    "Another advocate already added you",
+    "മറ്റൊരു അഭിഭാഷകൻ നിങ്ങളെ ഇതിനകം ചേർത്തു",
+  ),
+
+  /* Already added: another advocate named this one on the vakalatnama and paid for
+     everyone on it (owner, 2026-10-13). Malayalam drafted — needs review. */
+  invitedTitle: t("You're already on this case", "നിങ്ങൾ ഇതിനകം ഈ കേസിലുണ്ട്"),
+  invitedBody: t(
+    "{name} named you on the vakalatnama and paid the fee, and you were sent an invite. There is nothing to upload or pay.",
+    "{name} വക്കാലത്തിൽ നിങ്ങളുടെ പേര് ചേർത്ത് ഫീസ് അടച്ചു; നിങ്ങൾക്ക് ക്ഷണം അയച്ചിട്ടുണ്ട്. ഒന്നും അപ്‌ലോഡ് ചെയ്യുകയോ അടയ്ക്കുകയോ വേണ്ട.",
+  ),
 
   /* details */
   detailsBody: t(
@@ -551,6 +690,8 @@ export const advDialog = {
     "We'll text each number. The case is linked to a litigant's account once they sign in and confirm it's them.",
     "ഓരോ നമ്പറിലേക്കും SMS അയക്കും. കക്ഷി സൈൻ ഇൻ ചെയ്ത് അത് അവരാണെന്ന് സ്ഥിരീകരിച്ചാൽ കേസ് അവരുടെ അക്കൗണ്ടുമായി ബന്ധിപ്പിക്കും.",
   ),
+  /* Per litigant: whose number this is, said on the field itself (owner, 2026-10-12). */
+  contactMobileLabel: t("Mobile number of {name}", "{name}-ന്റെ മൊബൈൽ നമ്പർ"),
   contactMobileError: t(
     "Enter a valid 10-digit mobile number.",
     "സാധുവായ 10 അക്ക മൊബൈൽ നമ്പർ നൽകുക.",
@@ -562,43 +703,68 @@ export const advDialog = {
     "Attach the vakalatnama that authorises you to act for these litigants.",
     "ഈ കക്ഷികൾക്ക് വേണ്ടി പ്രവർത്തിക്കാൻ അധികാരം നൽകുന്ന വക്കാലത്ത് ചേർക്കുക.",
   ),
-  vkAnotherLegend: t(
-    "Has another advocate already uploaded and paid for this vakalatnama?",
-    "മറ്റൊരു അഭിഭാഷകൻ ഈ വക്കാലത്ത് ഇതിനകം അപ്‌ലോഡ് ചെയ്ത് പണമടച്ചിട്ടുണ്ടോ?",
+  /* One question (team decision, owner 2026-10-13): is anyone else named on it? The
+     first advocate adds the others and pays for everyone; the count comes from the
+     advocates added. Malayalam drafted — needs review. */
+  vkOthersLegend: t(
+    "Apart from you, is anyone else named on this vakalatnama?",
+    "നിങ്ങളെ കൂടാതെ, ഈ വക്കാലത്തിൽ മറ്റാരുടെയെങ്കിലും പേരുണ്ടോ?",
   ),
-  vkAnotherError: t("Choose yes or no.", "അതെ അല്ലെങ്കിൽ അല്ല തിരഞ്ഞെടുക്കുക."),
+  vkOthersNo: t("No, only me", "ഇല്ല, ഞാൻ മാത്രം"),
+  vkOthersYes: t("Yes, other advocates too", "ഉണ്ട്, മറ്റ് അഭിഭാഷകരും"),
+  vkOthersError: t("Choose one.", "ഒന്ന് തിരഞ്ഞെടുക്കുക."),
   vkFeeNote: t(
-    "You pay the vakalatnama fee in the next step. You get access to the case once it is paid.",
-    "അടുത്ത ഘട്ടത്തിൽ വക്കാലത്ത് ഫീസ് അടയ്ക്കണം. ഫീസ് അടച്ചാൽ കേസിലേക്ക് ആക്‌സസ് ലഭിക്കും.",
+    "You pay the vakalatnama fee in the next step ({amount}). You get access to the case once it is paid.",
+    "അടുത്ത ഘട്ടത്തിൽ വക്കാലത്ത് ഫീസ് അടയ്ക്കണം ({amount}). ഫീസ് അടച്ചാൽ കേസിലേക്ക് ആക്‌സസ് ലഭിക്കും.",
   ),
+  vkGroupFeeNote: t(
+    "You pay for {n} advocates in the next step ({amount}). The others get an invite to join the case and don't pay again.",
+    "അടുത്ത ഘട്ടത്തിൽ {n} അഭിഭാഷകർക്കുള്ള ഫീസ് അടയ്ക്കണം ({amount}). മറ്റുള്ളവർക്ക് കേസിൽ ചേരാൻ ക്ഷണം ലഭിക്കും; അവർ വീണ്ടും അടയ്ക്കേണ്ടതില്ല.",
+  ),
+  /* How many are named, counting the person filling this in (owner, 2026-10-13). The
+     others added must match it exactly before they can continue. Malayalam drafted —
+     needs review. */
   vkCountLabel: t(
-    "How many advocates are part of this vakalatnama?",
-    "ഈ വക്കാലത്തിൽ എത്ര അഭിഭാഷകർ ഉൾപ്പെടുന്നു?",
+    "How many advocates are named on it, including you?",
+    "നിങ്ങൾ ഉൾപ്പെടെ എത്ര അഭിഭാഷകരുടെ പേര് ഇതിലുണ്ട്?",
   ),
-  vkCountError: t(
-    "Enter how many advocates are on the vakalatnama.",
-    "വക്കാലത്തിലെ അഭിഭാഷകരുടെ എണ്ണം നൽകുക.",
+  vkCountDecrease: t("One fewer advocate", "ഒരു അഭിഭാഷകൻ കുറവ്"),
+  vkCountIncrease: t("One more advocate", "ഒരു അഭിഭാഷകൻ കൂടി"),
+  vkCountError: t("Enter 2 or more.", "2 അല്ലെങ്കിൽ കൂടുതൽ നൽകുക."),
+  vkAddProgress: t("{added} of {needed} added", "{needed}-ൽ {added} ചേർത്തു"),
+  vkFlatFeeNote: t(
+    "You pay the vakalatnama fee in the next step ({amount}). It is the same however many advocates are named. The others get an invite to join the case and don't pay.",
+    "അടുത്ത ഘട്ടത്തിൽ വക്കാലത്ത് ഫീസ് അടയ്ക്കണം ({amount}). എത്ര അഭിഭാഷകരുടെ പേരുണ്ടെങ്കിലും ഫീസ് ഇതുതന്നെ. മറ്റുള്ളവർക്ക് കേസിൽ ചേരാൻ ക്ഷണം ലഭിക്കും; അവർ അടയ്ക്കേണ്ടതില്ല.",
   ),
   vkAddLegend: t(
-    "Add the advocates on this vakalatnama",
-    "ഈ വക്കാലത്തിലെ അഭിഭാഷകരെ ചേർക്കുക",
+    "Add the other advocates on this vakalatnama",
+    "ഈ വക്കാലത്തിലെ മറ്റ് അഭിഭാഷകരെ ചേർക്കുക",
   ),
-  vkAddPlaceholder: t(
-    "Search by Bar registration ID or name",
-    "ബാർ രജിസ്‌ട്രേഷൻ ID അല്ലെങ്കിൽ പേര് ഉപയോഗിച്ച് തിരയുക",
+  vkInviteToast: t(
+    "Invite to join the case sent to {names}",
+    "കേസിൽ ചേരാൻ {names} എന്നവർക്ക് ക്ഷണം അയച്ചു",
   ),
-  vkAddEmpty: t("No advocates found.", "അഭിഭാഷകരെ കണ്ടെത്തിയില്ല."),
-  vkAddHint: t(
-    "Add {n} advocate(s), matching the number above.",
-    "മുകളിലെ എണ്ണത്തിന് അനുസൃതമായി {n} അഭിഭാഷകരെ ചേർക്കുക.",
+  vkAddFieldLabel: t("Other advocates on the vakalatnama", "വക്കാലത്തിലെ മറ്റ് അഭിഭാഷകർ"),
+  vkAddSuggested: t("Advocates you often add", "നിങ്ങൾ പതിവായി ചേർക്കുന്ന അഭിഭാഷകർ"),
+  vkAddNewNumber: t(
+    "They'll get an invite to join the case.",
+    "കേസിൽ ചേരാൻ അവർക്ക് ക്ഷണം ലഭിക്കും.",
   ),
-  vkAddCap: t(
-    "Only {n} advocate(s) can be added — that is the number you entered above.",
-    "{n} അഭിഭാഷകരെ മാത്രമേ ചേർക്കാനാകൂ — അതാണ് നിങ്ങൾ മുകളിൽ നൽകിയ എണ്ണം.",
+  vkAddKeepTyping: t(
+    "No advocate you've added matches. Enter their full mobile number or Bar ID.",
+    "നിങ്ങൾ ചേർത്ത അഭിഭാഷകരിൽ ആരും പൊരുത്തപ്പെടുന്നില്ല. അവരുടെ മൊബൈൽ നമ്പർ അല്ലെങ്കിൽ ബാർ ഐഡി മുഴുവൻ നൽകുക.",
   ),
-  vkAddError: t(
-    "Add {n} advocate(s) to match the number above.",
-    "മുകളിലെ എണ്ണത്തിന് അനുസൃതമായി {n} അഭിഭാഷകരെ ചേർക്കുക.",
+  vkAddHelp: t(
+    "Only advocates registered on the platform can be added.",
+    "പ്ലാറ്റ്‌ഫോമിൽ രജിസ്റ്റർ ചെയ്ത അഭിഭാഷകരെ മാത്രമേ ചേർക്കാനാകൂ.",
+  ),
+  vkAddErrorOne: t(
+    "Add exactly 1 other advocate, to match the number above.",
+    "മുകളിലെ എണ്ണവുമായി യോജിക്കാൻ കൃത്യം 1 അഭിഭാഷകനെ കൂടി ചേർക്കുക.",
+  ),
+  vkAddErrorMany: t(
+    "Add exactly {n} other advocates, to match the number above.",
+    "മുകളിലെ എണ്ണവുമായി യോജിക്കാൻ കൃത്യം {n} അഭിഭാഷകരെ കൂടി ചേർക്കുക.",
   ),
   vkSearchLabel: t(
     "Search your generated vakalatnamas",
@@ -654,6 +820,7 @@ export const advDialog = {
   payCase: t("Case", "കേസ്"),
   payAmount: t("Amount", "തുക"),
   payOutcomeLabel: t("Sandbox gateway result", "സാൻഡ്‌ബോക്സ് ഗേറ്റ്‌വേ ഫലം"),
+  paySandboxTip: t("Sandbox: choose the gateway result", "സാൻഡ്‌ബോക്സ്: ഗേറ്റ്‌വേ ഫലം തിരഞ്ഞെടുക്കുക"),
   payOutcomeSuccess: t("Success", "വിജയം"),
   payOutcomeFailed: t("Failed", "പരാജയപ്പെട്ടു"),
   paySandboxNote: t("Sandbox payment — no money moves.", "സാൻഡ്‌ബോക്സ് പേയ്‌മെന്റ് — പണം കൈമാറുന്നില്ല."),
@@ -663,6 +830,19 @@ export const advDialog = {
   ),
   payNow: t("Pay {amount}", "{amount} അടയ്ക്കുക"),
   payLater: t("Pay later", "പിന്നീട് അടയ്ക്കാം"),
+  /* The gateway round trip, as e-filing shows it. Malayalam drafted — needs review. */
+  payProcessingTitle: t("Processing payment…", "പേയ്‌മെന്റ് പ്രോസസ്സ് ചെയ്യുന്നു…"),
+  payProcessingBody: t(
+    "Please don't close or refresh this window while we confirm your payment.",
+    "പേയ്‌മെന്റ് സ്ഥിരീകരിക്കുന്നതുവരെ ഈ വിൻഡോ അടയ്ക്കുകയോ റിഫ്രഷ് ചെയ്യുകയോ ചെയ്യരുത്.",
+  ),
+  paidTitle: t("Payment successful", "പേയ്‌മെന്റ് വിജയകരം"),
+  paidBody: t(
+    "The vakalatnama fee is paid. You now have access to the case.",
+    "വക്കാലത്ത് ഫീസ് അടച്ചു. ഇപ്പോൾ കേസിലേക്ക് ആക്‌സസ് ഉണ്ട്.",
+  ),
+  paidAmount: t("Amount paid", "അടച്ച തുക"),
+  paidRef: t("Payment reference", "പേയ്‌മെന്റ് റഫറൻസ്"),
 
   /* outcomes */
   unpaidTitle: t("Pay the fee to get access", "ആക്‌സസ് ലഭിക്കാൻ ഫീസ് അടയ്ക്കുക"),
@@ -683,8 +863,11 @@ export const advDialog = {
     "ഈ പ്രവർത്തനം കേസ് ഫയൽ തുറക്കും.",
   ),
 
+  bailOpening: t("Opening the bail application…", "ജാമ്യാപേക്ഷ തുറക്കുന്നു…"),
+
   /* add subordinates on the success screen */
-  teamTitle: t("Add your team (optional)", "നിങ്ങളുടെ ടീമിനെ ചേർക്കുക (നിർബന്ധമല്ല)"),
+  teamTitle: t("Add your team", "നിങ്ങളുടെ ടീമിനെ ചേർക്കുക"),
+  teamOptional: t("Optional", "നിർബന്ധമല്ല"),
   teamBody: t(
     "You can add your subordinates to this case (clerks or junior advocates, etc).",
     "നിങ്ങളുടെ കീഴിലുള്ളവരെ (ക്ലർക്കുമാർ അല്ലെങ്കിൽ ജൂനിയർ അഭിഭാഷകർ മുതലായവ) ഈ കേസിൽ ചേർക്കാം.",
@@ -695,8 +878,8 @@ export const advDialog = {
   teamRemove: t("Remove", "നീക്കം ചെയ്യുക"),
   teamError: t("Enter a valid 10-digit mobile number.", "സാധുവായ 10 അക്ക മൊബൈൽ നമ്പർ നൽകുക."),
   teamAddedNote: t(
-    "They'll get a text inviting them to help on this case.",
-    "ഈ കേസിൽ സഹായിക്കാൻ ക്ഷണിച്ചുകൊണ്ട് അവർക്ക് ഒരു സന്ദേശം ലഭിക്കും.",
+    "They'll be notified and invited to help on this case.",
+    "ഈ കേസിൽ സഹായിക്കാൻ ക്ഷണിച്ചുകൊണ്ട് അവർക്ക് ഒരു അറിയിപ്പ് ലഭിക്കും.",
   ),
   teamInviteSentNote: t("Invitation sent to", "ഇവർക്ക് ക്ഷണം അയച്ചു"),
   viewCaseFileWithTeam: t("Add members and view case file", "അംഗങ്ങളെ ചേർത്ത് കേസ് ഫയൽ കാണുക"),

@@ -22,6 +22,7 @@ import {
   accusedHasContact,
   accusedLabel,
 } from "@/lib/filing/selectors";
+import { nameList } from "@/lib/filing/format";
 import { neighbours } from "@/lib/filing/steps";
 import { useFiling } from "@/lib/filing/store";
 import type { Accused, AccusedType } from "@/lib/filing/types";
@@ -50,12 +51,6 @@ import {
 } from "@/components/filing/repeat-lists";
 import { SectionTabs } from "@/components/filing/section-tabs";
 import { YesNoSegmented } from "@/components/filing/segmented";
-
-/** "Accused 1 and Rajesh Kumar" — names read as a sentence, not as a list. */
-function nameList(labels: string[]): string {
-  if (labels.length < 2) return labels[0] ?? "";
-  return `${labels.slice(0, -1).join(", ")} and ${labels[labels.length - 1]}`;
-}
 
 export function AccusedSection() {
   const { draft, update, hrefFor } = useFiling();

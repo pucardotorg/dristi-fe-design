@@ -49,6 +49,7 @@ import {
   type SignEvidence,
 } from "@/lib/employee/sign-evidence";
 import { Identifier } from "@/components/chrome/identifier";
+import { useCourtText } from "@/components/court/court-provider";
 
 /**
  * One marking, read and then signed — the single-document path off the evidence queue.
@@ -155,6 +156,7 @@ function SignEvidenceBody({
   onSign: (row: SignEvidence) => void;
   onReturnFocus: () => void;
 }) {
+  const courtText = useCourtText();
   const flow = useStagedFlow({ order: STAGES, scene: SCENE });
 
   /* The marking being typed, held here rather than inside the stage that types it: the
@@ -178,7 +180,7 @@ function SignEvidenceBody({
     parsed === null
       ? "Enter the exhibit number as a whole number, like 1."
       : taken.has(parsed)
-        ? `${series}${parsed} is already marked in ${row.caseNumber}.`
+        ? `${series}${parsed} is already marked in ${courtText(row.caseNumber)}.`
         : undefined;
 
   const line = businessOfTheDay(row);

@@ -43,6 +43,7 @@ import {
   parseIsoDay,
   type CourtCaseStage,
 } from "./hearings";
+import { caseSearchKey } from "@/lib/court/localize";
 
 /**
  * A priority a case carries as a fact about the matter, not as a stage it has reached.
@@ -501,7 +502,7 @@ export function filterCourtCases(
   filters: CourtCaseFilters,
   register: CourtCase[] = COURT_CASES,
 ): CourtCase[] {
-  const query = filters.query.trim().toLowerCase();
+  const query = caseSearchKey(filters.query);
   const priority =
     filters.priority === null ? null : courtPriorityById(filters.priority);
 

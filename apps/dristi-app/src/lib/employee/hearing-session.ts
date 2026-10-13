@@ -21,6 +21,8 @@
  * a render — the hook is what subscribes.
  */
 
+import { SAMPLE_SESSION } from "./sample-sitting";
+
 /** The three marks, in the shape `withHearingSession` applies them. */
 export type HearingSession = {
   /** The one listing being heard. The bench hears one cause at a time. */
@@ -34,13 +36,16 @@ export type HearingSession = {
    read or the list would re-render on every tick of anything. */
 const NO_IDS: ReadonlySet<string> = new Set();
 
-const EMPTY_SESSION: HearingSession = {
+/** An untouched day. Exported so a screen or test can open on it. */
+export const EMPTY_SESSION: HearingSession = {
   ongoingId: null,
   endedIds: NO_IDS,
   passedOverIds: NO_IDS,
 };
 
-let session: HearingSession = EMPTY_SESSION;
+/* Opens on the demo sitting (`sample-sitting.ts`) so every pill has rows; swap back to
+   `EMPTY_SESSION` to open on an untouched day. */
+let session: HearingSession = SAMPLE_SESSION;
 const listeners = new Set<() => void>();
 
 function commit(next: HearingSession): void {

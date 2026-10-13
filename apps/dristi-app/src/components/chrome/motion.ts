@@ -98,6 +98,20 @@ export const STAGE_SLIDE = {
 
 export type StageMotion = keyof typeof STAGE_SLIDE;
 
+/** Interruptible stage travel uses the same timing as the CSS stage recipe. */
+export const STAGE_SLIDE_OPTIONS: KeyframeAnimationOptions = {
+  duration: 300,
+  easing: "cubic-bezier(0.23, 1, 0.32, 1)",
+};
+
+/** Small controls reveal a layer quickly; mirrored pairs can share a stagger. */
+export const CONTROL_REVEAL = {
+  duration: 140,
+  fadeDuration: 125,
+  stagger: 30,
+  easing: STAGE_SLIDE_OPTIONS.easing,
+} as const;
+
 /** Something inside an overlay resolving into its outcome, in place. */
 export const RESOLVE_IN_PLACE =
   "animate-in fade-in-0 slide-in-from-bottom-1 duration-500 motion-reduce:animate-none";

@@ -21,6 +21,7 @@
  */
 
 import { type CourtCounsel } from "./hearings";
+import { caseSearchKey } from "@/lib/court/localize";
 
 /**
  * Where a case has reached in the §138 process — a different axis from a hearing's
@@ -78,7 +79,7 @@ export type SchedulingCase = {
 /**
  * The matters this court owes a date.
  *
- * Names follow the fixtures the rest of the repo uses: Kollam parties and the same bar as
+ * Names follow the fixtures the rest of the repo uses: local parties and the same bar as
  * the day's cause list — one court, one set of advocates practising in it.
  */
 export const SCHEDULING_QUEUE: SchedulingCase[] = [
@@ -147,7 +148,7 @@ export const SCHEDULING_QUEUE: SchedulingCase[] = [
   {
     id: "s-094",
     caseNumber: "ST/94/2026",
-    parties: { complainant: "Noushad Ali", accused: "Kollam Tile Works" },
+    parties: { complainant: "Noushad Ali", accused: "Lakeside Tile Works" },
     counsel: [{ name: "Adv. Saurabh Verma", side: "complainant" }],
     stage: "appearance",
   },
@@ -273,7 +274,7 @@ export function filterSchedulingCases(
   rows: SchedulingCase[],
   filters: ScheduleFilters,
 ): SchedulingCase[] {
-  const query = filters.query.trim().toLowerCase();
+  const query = caseSearchKey(filters.query);
   return rows.filter((entry) => {
     if (filters.stage !== "all" && entry.stage !== filters.stage) return false;
     if (!query) return true;

@@ -9,327 +9,99 @@
  * panel — is the only place a correction is made. That is why nothing here is repeated on
  * the form, and why the form's control is no longer editable at all.
  *
- * At rest the card is three things:
+ * The card is three things, top to bottom:
  *
  *   1. **What it is** — the field, and where it lives.
- *   2. **The comparison** — two labelled rows, *Originally filed* over *Officer's
- *      correction*. No strikethrough, no arrow: the values are right-aligned in
- *      `tabular-nums`, so the character that changed sits directly under its counterpart
- *      and the eye finds the difference without decoration.
- *   3. **One primary action** — *Accept correction*, beside a quiet *Reject correction*.
- *      Both are named for the thing being acted on, the correction, so the pair reads the
- *      same on every card.
+ *   2. **Why it was flagged** — the officer's comment.
+ *   3. **The fix** — the field's own control (or *Replace this document*), Save, and
+ *      *Keep as filed* for a value the advocate believes is already right.
  *
- * Everything else — the officer's comment or voice note, and the marked page — is one line,
- * *Why it was flagged*, opened by the minority who want to check and by everyone about to
- * disagree (so *Reject correction* opens it).
+ * The officer says what is wrong; the advocate makes the fix. There is no proposed value
+ * to accept or reject, no voice note, no marked page, and no reply to scrutiny (owner,
+ * 2026-10-08).
+ * Keeping the filed value asks for no reason — the gate must not force an edit to a value
+ * the advocate believes is correct (owner, 2026-10-08).
  *
- * **Reject is a route, not a resolution.** Choosing it and writing nothing leaves the
- * defect open and the submit gate shut — resolution is derived from the filing (D6), never
- * self-certified, and this is the thing most likely to be built wrong. The same derivation
- * is why the collapse must wait for the *act* to end, not the state to flip: a bare-note
- * defect resolves on its first keystroke, and collapsing then unmounts the input under the
- * advocate's fingers (the one-character bug, owner 2026-08-21).
- *
- * A note and a spoken remark are *alternatives*: an officer leaves one or the other. Where
- * both somehow exist the note sits above the player and the layout is unchanged.
+ * Resolution is derived from the filing (D6), never self-certified: a field counts once
+ * its value differs from what scrutiny saw, or once it is kept as filed. What is typed
+ * stays in the card until Save correction writes it to the filing, so nothing counts as
+ * corrected before Save (owner, 2026-10-12).
  */
 
 import * as React from "react";
-import {
-  ChevronDownIcon,
-  CircleCheckIcon,
-  CircleDashedIcon,
-  InfoIcon,
-  RefreshCwIcon,
-  TriangleAlertIcon,
-  Undo2Icon,
-} from "lucide-react";
+import { CircleCheckIcon, CircleDashedIcon, RefreshCwIcon, Undo2Icon } from "lucide-react";
 
-import {
-  displayTargetValue,
-  isIdentifierTarget,
-  targetControlKind,
-} from "@/lib/filing/targets";
-import { defectState, reasonRequired, resolutionLabel } from "@/lib/tasks/defects";
+import { targetControlKind } from "@/lib/filing/targets";
+import { defectState, resolutionLabel } from "@/lib/tasks/defects";
 import type { Defect } from "@/lib/tasks/types";
+import type { StoredFileRef } from "@/lib/filing/types";
 import { cn } from "@/lib/utils";
-import { useFilePreview } from "@/lib/filing/files";
-import { Identifier } from "@/components/chrome/identifier";
 import { Button } from "@/components/ui/button";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
-import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
+import { RESOLVE_IN_PLACE } from "@/components/chrome/motion";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { DateField } from "@/components/filing/date-field";
 import { PrefixInput, TextField } from "@/components/filing/inputs";
-import { Lightbox } from "@/components/filing/lightbox";
-import { regionFromBox } from "@/components/filing/source-panel";
-import { VoiceNoteRow } from "@/components/scrutiny/voice-note";
+
+/* ───────────────────────────── Pacing ───────────────────────────── */
+
+/** The sandbox upload beat (storing the file locally is near instant). */
+const UPLOAD_MS = 1200;
+/** Height eases over this, on the product's soft curve (`motion.ts`, STAGE_FADE). */
+const HEIGHT_MS = 360;
+const SOFT_EASE = "cubic-bezier(0.45, 0, 0.55, 1)";
+/** A closed queue row's height — where a card opening in its place grows from. */
+const ROW_HEIGHT = 56;
 
 /* ───────────────────────────── What it can do ───────────────────────────── */
 
 export type DefectActions = {
-  /** Take the officer's exact value. Only where there is a suggestion. */
-  accept?: () => void;
-  /** Write the advocate's own value at this defect's target. */
+  /** Write the advocate's value at this defect's target. */
   setValue: (value: string) => void;
+  /** Leave the filed value standing. Field defects only. */
+  keep?: () => void;
   /** Put the filing back the way scrutiny saw it and forget the resolution. */
   undo?: () => void;
-  reason: string;
-  onReasonChange: (text: string) => void;
   /** Document defects: open the file picker for the flagged slot. */
   replace?: () => void;
 };
 
-/* ───────────────────────── The page, cropped to the mark ───────────────────────── */
-
-/**
- * The region the officer drew a box around — cropped, not the whole page.
- *
- * A full cheque scan at panel width is illegible, which makes it decoration rather than
- * evidence. `regionFromBox` already gives the box as fractions of the page, so the image is
- * scaled by the inverse of the region's width and offset to bring that region into the
- * frame. The officer's own outline is then drawn on the frame's edge, because after the
- * crop the region *is* the frame.
- */
-function MarkedRegion({ defect }: { defect: Defect }) {
-  const [open, setOpen] = React.useState(false);
-  const file = defect.annotation?.file ?? defect.suggestion?.evidence;
-  const preview = useFilePreview(file);
-  if (!file) return null;
-
-  const region = defect.annotation
-    ? regionFromBox(defect.annotation.box, defect.annotation.page)
-    : undefined;
-  const imageUrl = preview.status === "ready" ? preview.imageUrl : null;
-  const alt = defect.annotation
-    ? `${file.name} — the part of the page scrutiny marked for ${defect.target.label}`
-    : `${file.name} — the document scrutiny relied on for ${defect.target.label}`;
-
-  /* Percentages from `regionFromBox` ("42.10%"), back to fractions for the crop maths. */
-  const frac = (v: string | undefined) => (v ? parseFloat(v) / 100 : 0);
-  const w = region ? frac(region.width) : 0;
-  const h = region ? frac(region.height) : 0;
-  const page = defect.annotation?.page;
-  const cropped = !!region && !!page && w > 0.02 && h > 0.005;
-
-  /*
-   * The crop, in two moves that each resolve against the right box.
-   *
-   * `width` and `left` are percentages of the *container*, which is what they should be:
-   * blowing the image up to `1/w` of the frame makes the region exactly one frame wide, and
-   * sliding it left by `l/w` brings the region's left edge to the frame's. The vertical
-   * offset cannot work the same way — a `top` percentage resolves against the container's
-   * height, not the image's, so it slid by the wrong distance and threw the region off the
-   * frame. `translateY` resolves against the *element's own* height, which is the image's,
-   * so shifting by `-t` lands the region's top edge exactly whatever the frame's height.
-   *
-   * The region's rendered shape is then known without measuring anything: its width over
-   * its height is `(w · pageWidth) / (h · pageHeight)`. The frame takes that ratio — so the
-   * mark usually fills it exactly — clamped so a near-square region cannot grow a card-tall
-   * image and a hairline one still has something to look at.
-   */
-  const regionAspect = cropped ? (w * page!.width) / (h * page!.height) : 16 / 10;
-  const frameAspect = Math.min(Math.max(regionAspect, 1.5), 7);
-
-  return (
-    <div className="flex flex-col gap-2">
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-label={`Open ${file.name} at full size`}
-        className="group/scan block w-full overflow-hidden rounded-md border border-hairline bg-card outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-      >
-        <span
-          className="relative block w-full overflow-hidden"
-          style={{ aspectRatio: cropped ? `${frameAspect}` : "16 / 10" }}
-        >
-          {imageUrl ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img
-              src={imageUrl}
-              alt={alt}
-              className="absolute"
-              style={
-                cropped
-                  ? {
-                      width: `${100 / w}%`,
-                      maxWidth: "none",
-                      left: `${-frac(region!.left) * (100 / w)}%`,
-                      top: 0,
-                      transform: `translateY(${-frac(region!.top) * 100}%)`,
-                    }
-                  : { inset: 0, width: "100%", height: "100%", objectFit: "contain" }
-              }
-            />
-          ) : (
-            <span className="absolute inset-0 bg-surface-sunken" />
-          )}
-          {/* The officer's own outline, drawn at the region's rendered shape — which is the
-              frame's, wherever the clamp did not bite. */}
-          {cropped ? (
-            <span
-              aria-hidden
-              style={{ aspectRatio: `${regionAspect}` }}
-              className="pointer-events-none absolute left-0 top-0 w-full rounded-sm border-2 border-warning-ink"
-            />
-          ) : null}
-        </span>
-      </button>
-
-      <p className="flex items-center gap-2 text-caption text-muted-foreground">
-        <span className="min-w-0 truncate">
-          {defect.annotation ? "The area the officer marked" : file.name}
-        </span>
-        <span className="ml-auto shrink-0 font-medium text-brand-muted-foreground">
-          Open original document
-        </span>
-      </p>
-
-      {imageUrl ? (
-        <Lightbox
-          open={open}
-          onOpenChange={setOpen}
-          src={imageUrl}
-          alt={alt}
-          region={region}
-          caption={defect.annotation ? `Marked by scrutiny on ${file.name}` : file.name}
-        />
-      ) : null}
-    </div>
-  );
-}
-
 /* ───────────────────────── Why it was flagged ───────────────────────── */
 
-/** The eyebrow above each piece of the officer's material — what a thing *is*, quietly. */
+/** The label above the officer's material — what it *is*, quietly. A sentence-case
+ *  label in the DS's label role; the uppercase, tracked eyebrow it replaces broke the
+ *  type rules (owner, 2026-10-12). */
 function Eyebrow({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="text-caption font-semibold tracking-wide text-muted-foreground uppercase">
-      {children}
-    </p>
-  );
+  return <p className="text-body-compact font-medium text-muted-foreground">{children}</p>;
 }
 
 /**
- * The officer's reason: a typed comment **or** a voice note, and the page it came from.
+ * The officer's reason: the typed comment.
  *
- * Each piece sits under its own eyebrow — *Scrutiny officer's comment* over the words —
+ * The comment sits under its own eyebrow — *Scrutiny officer's comment* over the words —
  * because an unlabelled sentence inside a card reads as system copy, and system copy is
- * what people have learned not to read (owner, 2026-08-21). The comment gets a sunken
- * well of its own for the same reason: it is quoted material, not the card talking.
+ * what people have learned not to read (owner, 2026-08-21). It gets a sunken well of its
+ * own for the same reason: it is quoted material, not the card talking.
  *
  * Who exactly wrote it is still not shown — only scrutiny flags a filing, so a name says
  * nothing the label does not.
  */
 function WhyFlagged({ defect }: { defect: Defect }) {
-  const spoken = defect.voiceNote;
-  /* Alternatives, not a stack: the comment is shown when it is the message, or when an
-     officer has left both — in which case it reads first and the voice note follows. */
-  const showNote = !spoken || !!defect.note.trim();
   return (
     <div className="flex flex-col gap-4">
-      {showNote && defect.note.trim() ? (
+      {defect.note.trim() ? (
         <div className="flex flex-col gap-1.5">
           <Eyebrow>Scrutiny officer&apos;s comment</Eyebrow>
-          <p className="rounded-md bg-surface-sunken p-3 text-body-compact leading-relaxed text-foreground">
+          <p className="rounded-md bg-surface-sunken p-3 text-body-compact text-foreground">
             {defect.note}
           </p>
         </div>
       ) : null}
-      {spoken ? (
-        <div className="flex flex-col gap-1.5">
-          <Eyebrow>Scrutiny officer&apos;s voice note</Eyebrow>
-          <VoiceNoteRow note={spoken} />
-        </div>
-      ) : null}
-      <MarkedRegion defect={defect} />
     </div>
   );
 }
 
-/* ───────────────────────── The comparison ───────────────────────── */
-
-/**
- * *Originally filed* over *Officer's correction* — two labelled rows, values right-aligned
- * in `tabular-nums` so the character that changed lines up with the one it replaced. This
- * is the whole reason the strikethrough and the arrow are gone: alignment carries the
- * difference, and the labels carry who said which.
- */
-function Compare({
-  defect,
-  supersededOnly = false,
-}: {
-  defect: Defect;
-  /** In the Keep-mine view only scrutiny's reading is left, and it stands down. */
-  supersededOnly?: boolean;
-}) {
-  const suggestion = defect.suggestion;
-  if (!suggestion) return null;
-  const filed = displayTargetValue(defect.target, suggestion.from);
-  const reads = displayTargetValue(defect.target, suggestion.to);
-
-  return (
-    <div
-      className={cn(
-        "overflow-hidden rounded-md border border-hairline",
-        supersededOnly && "opacity-60"
-      )}
-    >
-      {supersededOnly ? null : (
-        <div className="flex items-center justify-between gap-4 bg-surface-sunken px-3.5 py-2.5">
-          <span className="shrink-0 text-caption text-muted-foreground">Originally filed</span>
-          <span className="min-w-0 text-right text-body-compact tabular-nums text-muted-foreground">
-            {filed ? <CompareValue defect={defect} value={filed} /> : "Blank"}
-          </span>
-        </div>
-      )}
-      <div
-        className={cn(
-          "flex items-center justify-between gap-4 px-3.5 py-2.5",
-          supersededOnly ? "bg-surface-sunken" : "border-t border-hairline bg-card"
-        )}
-      >
-        <span
-          className={cn(
-            "shrink-0 text-caption font-medium",
-            supersededOnly ? "text-muted-foreground" : "text-brand-muted-foreground"
-          )}
-        >
-          Officer&apos;s correction
-        </span>
-        <span
-          className={cn(
-            "min-w-0 text-right tabular-nums",
-            supersededOnly
-              ? "text-body-compact text-muted-foreground"
-              : "text-body font-semibold text-foreground"
-          )}
-        >
-          <CompareValue defect={defect} value={reads} />
-        </span>
-      </div>
-    </div>
-  );
-}
-
-/**
- * One of the two compared values, set as an identifier where the field holds one.
- *
- * The rows align the values on purpose, and only a monospaced face puts the character
- * that changed directly under the one it replaced — which is the whole mechanism this
- * comparison relies on instead of a strikethrough and an arrow.
- */
-function CompareValue({ defect, value }: { defect: Defect; value: string }) {
-  if (!isIdentifierTarget(defect.target)) return <>{value}</>;
-  return <Identifier value={value} label={defect.target.label} />;
-}
-
-/* ───────────────────────── Keeping your own value ───────────────────────── */
+/* ───────────────────────── The fix ───────────────────────── */
 
 /** The control the field itself uses, so a date is picked and an amount is in rupees. */
 function OwnValue({
@@ -371,58 +143,6 @@ function OwnValue({
   );
 }
 
-/**
- * D7's rule, in one field — now named for what it is.
- *
- * "Why this stands" described a position; *Your reply to scrutiny* names a thing with a
- * reader that travels with the correction. The rule underneath is unchanged: a reason is
- * *required* when the value entered contradicts an explicit suggestion, and when the value
- * that stands is the one already filed against such a suggestion. It is *optional* on a
- * bare-note correction, where a corrected value needs no essay.
- */
-function Reply({
-  defect,
-  value,
-  required,
-  overriding,
-  onChange,
-}: {
-  defect: Defect;
-  value: string;
-  required: boolean;
-  /** The value entered contradicts an explicit suggestion — the reason is already owed. */
-  overriding: boolean;
-  onChange: (text: string) => void;
-}) {
-  const id = `reply-${defect.n}`;
-  /* Required is not the same as wrong: a view that has just opened has a prefilled value
-     and an empty box, and marking that invalid on arrival shouts at someone who has not
-     done anything yet. */
-  const [touched, setTouched] = React.useState(false);
-  const missing = required && !value.trim() && (overriding || touched);
-  return (
-    <Field className="gap-2" data-invalid={missing || undefined}>
-      <FieldLabel htmlFor={id} className="text-body-compact">
-        Your reply to scrutiny
-        {required ? null : (
-          <span className="font-normal text-muted-foreground">optional</span>
-        )}
-      </FieldLabel>
-      <Textarea
-        id={id}
-        rows={3}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onBlur={() => setTouched(true)}
-        aria-invalid={missing || undefined}
-        placeholder="e.g. The cheque leaf reads 14/05/2026, and the return memo at page 7 records the same date."
-      />
-      <FieldDescription>Scrutiny sees this with your corrections.</FieldDescription>
-      {missing ? <FieldError>Say why before this counts as done.</FieldError> : null}
-    </Field>
-  );
-}
-
 /* ───────────────────────── The card ───────────────────────── */
 
 export function DefectCard({
@@ -434,7 +154,10 @@ export function DefectCard({
   onFocusCapture,
   onBlurCapture,
   className,
+  file,
 }: {
+  /** Document defects: the copy the slot holds now — the filed one, or its replacement. */
+  file?: StoredFileRef;
   defect: Defect;
   /** What the filing currently holds at this defect's target. */
   value: string | undefined;
@@ -446,61 +169,41 @@ export function DefectCard({
   onBlurCapture?: (event: React.FocusEvent<HTMLElement>) => void;
   className?: string;
 }) {
-  const state = defectState(defect, value);
-  const resolved = state === "resolved";
-  const needsReason = state === "needs-justification";
+  const resolved = defectState(defect, value) === "resolved";
   const isDoc = defect.target.kind === "doc";
-  const suggestion = defect.suggestion;
 
-  /* Keeping your own value: opened by "Reject correction", and standing open by itself
-     where it is the only route there is — a bare note, or a document with nothing to
-     accept. It is also forced open while a reply is owed, because that is where the reply
-     is written. */
-  const [keeping, setKeeping] = React.useState(false);
-  const ownOpen = keeping || !suggestion || needsReason;
-
-  /* Rejecting is the one moment the evidence is certainly wanted, so "Reject correction"
-     opens it. Otherwise it stays shut. */
-  const [whyOpen, setWhyOpen] = React.useState(false);
+  /*
+   * What the advocate is typing stays in the card until Save correction writes it to the
+   * filing (owner, 2026-10-12: a field was marked corrected on the first keystroke, before
+   * Save). Resolution is still read from the filing — it just only changes on Save.
+   */
+  const [draft, setDraft] = React.useState(value ?? "");
+  const [lastValue, setLastValue] = React.useState(value);
+  if (value !== lastValue) {
+    // The filing moved under the card (Undo, another device): show what it holds now.
+    setLastValue(value);
+    setDraft(value ?? "");
+  }
+  /* Save is for a value that differs from what the filing holds; Keep while it is still
+     the one scrutiny saw. */
+  const dirty = !isDoc && draft.trim() !== (value ?? "").trim();
+  const atReturn = !isDoc && draft.trim() === (defect.valueAtReturn ?? "").trim();
 
   /**
    * Is the advocate mid-act inside the editing area?
    *
-   * The thing this exists to prevent: resolution is *live* — a bare-note defect counts as
+   * The thing this exists to prevent: resolution is *live* — a field defect counts as
    * resolved on the first keystroke that changes the value — and a card that collapsed the
    * moment it resolved unmounted the input under the advocate's fingers, so exactly one
    * character ever landed (owner, 2026-08-21). So the collapse waits for the act to end:
    * touching anything in `[data-own-value]` engages the card, and it disengages only when
-   * focus leaves the card entirely or a named act — Save, Keep, Accept — finishes.
-   * `relatedTarget` is checked against the card root, not the editing area, so moving from
-   * the input to its own Save button (or out to the evidence) never counts as leaving.
+   * focus leaves the card entirely or Save finishes the act. `relatedTarget` is checked
+   * against the card root, not the editing area, so moving from the input to its own Save
+   * button (or out to the evidence) never counts as leaving.
    */
   const [engaged, setEngaged] = React.useState(false);
 
   const root = React.useRef<HTMLDivElement>(null);
-  const landInOwn = React.useRef(false);
-
-  /* Reject reveals a control — so focus goes there. Leaving focus on the button makes a
-     keyboard user tab past everything that just appeared to reach what they asked for. */
-  React.useLayoutEffect(() => {
-    if (!landInOwn.current || !ownOpen) return;
-    landInOwn.current = false;
-    const control = root.current?.querySelector<HTMLElement>(
-      "[data-own-value] [data-defect-focus]:not([disabled]), [data-own-value] input:not([disabled]):not([type=hidden]), [data-own-value] textarea:not([disabled]), [data-own-value] button:not([disabled])"
-    );
-    control?.focus({ preventScroll: true });
-  });
-
-  /* Has the value ever left what scrutiny saw? A prefilled control the advocate has not
-     touched is not yet a kept position — see `reasonRequired`. */
-  const atReturn = (defect.valueAtReturn ?? "").trim();
-  const [everChanged, setEverChanged] = React.useState(
-    () => !isDoc && (value ?? "").trim() !== atReturn
-  );
-  if (!everChanged && !isDoc && (value ?? "").trim() !== atReturn) setEverChanged(true);
-
-  const standing = !isDoc && (value ?? "").trim() === atReturn;
-  const required = reasonRequired(defect, value, everChanged);
 
   const watch = {
     ref: root,
@@ -516,15 +219,83 @@ export function DefectCard({
     },
   };
 
-  /** A named act finished — the card may collapse now. */
-  const finish = () => {
-    setKeeping(false);
-    setEngaged(false);
-  };
+  /** The act finished — the card may collapse now. */
+  const finish = () => setEngaged(false);
 
   /* Collapsing removes whatever held focus, and losing focus to `<body>` strands a
      keyboard user — so it lands on the collapsed card itself. */
-  const collapsed = resolved && !engaged && !keeping;
+  /* A replaced document settles the moment the upload lands: focus stays on the Replace
+     button, so waiting for it to leave kept the card open until a click elsewhere
+     (owner, 2026-10-12). The wait is for typing, which a document never involves. */
+  /*
+   * Completing a defect (owner, 2026-10-12): a document shows its upload going in, then
+   * the card eases down to its one-line result. The advocate opens the next defect
+   * themselves — moving them on automatically felt jarring. The upload bar is paced for
+   * the sandbox, where storing the file is near instant; against a real server it would
+   * follow the transfer.
+   */
+  const [uploading, setUploading] = React.useState(false);
+  const [uploadPct, setUploadPct] = React.useState(0);
+
+  const collapsed = resolved && (!engaged || isDoc) && !uploading;
+
+  /* A document landing starts the upload beat — switched in the same render the file
+     lands, so the card never flashes shut for a frame first — then the hold. */
+  const [prevResolved, setPrevResolved] = React.useState(resolved);
+  if (resolved !== prevResolved) {
+    setPrevResolved(resolved);
+    if (isDoc && resolved) {
+      setUploading(true);
+      setUploadPct(8);
+    }
+  }
+  React.useEffect(() => {
+    if (!uploading) return;
+    const ids: number[] = [];
+    const steps = 6;
+    for (let i = 1; i <= steps; i += 1) {
+      ids.push(window.setTimeout(() => setUploadPct(Math.round((100 / steps) * i)), (UPLOAD_MS / steps) * i));
+    }
+    ids.push(
+      window.setTimeout(() => {
+        setUploading(false);
+      }, UPLOAD_MS + 150),
+    );
+    return () => ids.forEach((id) => window.clearTimeout(id));
+  }, [uploading]);
+
+  /*
+   * The card's height eases between its states — open, uploading, settled — instead of
+   * snapping, so the eye follows the card shrinking to its result. A card that mounts
+   * open grows from the height of the row it replaces. Skipped for reduced motion.
+   */
+  const body = React.useRef<HTMLDivElement>(null);
+  const lastHeight = React.useRef<number | null>(collapsed ? null : ROW_HEIGHT);
+  React.useEffect(() => {
+    const el = root.current;
+    const inner = body.current;
+    if (!el || !inner) return;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const border = el.offsetHeight - el.clientHeight;
+    /* Watching the content, not guessing a moment to measure: a settled card's result
+       line can fill in a beat after it closes, and the card eases to that too rather
+       than snapping the last few pixels. */
+    const observer = new ResizeObserver(() => {
+      const to = inner.offsetHeight + border;
+      const from = lastHeight.current;
+      lastHeight.current = to;
+      if (from === null || reduced || Math.abs(from - to) < 2) return;
+      const running = el.getAnimations();
+      const start = running.length ? el.getBoundingClientRect().height : from;
+      running.forEach((animation) => animation.cancel());
+      el.animate([{ height: `${start}px` }, { height: `${to}px` }], {
+        duration: HEIGHT_MS,
+        easing: SOFT_EASE,
+      });
+    });
+    observer.observe(inner);
+    return () => observer.disconnect();
+  }, [collapsed]);
   const wasCollapsed = React.useRef(collapsed);
   React.useLayoutEffect(() => {
     if (collapsed && !wasCollapsed.current) {
@@ -547,23 +318,34 @@ export function DefectCard({
         )}
         {...watch}
       >
-        <div className="flex items-start gap-2.5 p-4">
+        {/* Its own element (key), never the open card's reused: the fade preset sets a
+            duration, every property then transitions, and the reused wrapper's padding
+            slid 0→16px over half a second — the jagged close (owner, 2026-10-13). */}
+        <div key="settled" ref={body} role="status" className={cn("flex items-start gap-2.5 p-4", RESOLVE_IN_PLACE)}>
           <CircleCheckIcon className="mt-0.5 size-4 shrink-0 text-success-ink" aria-hidden />
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             <p className="text-body-compact font-semibold text-foreground">
               {defect.target.label}
             </p>
-            <p className="text-caption text-success-ink">{resolutionLabel(defect, value)}</p>
+            {/* The line is held open before the record catches up (it can lag the save by a
+                beat), so the settled card does not grow a line after it has eased shut. */}
+            <p className="min-h-5 text-body-compact text-success-ink">
+              {resolutionLabel(defect, value) || (isDoc ? "Document replaced" : "Corrected")}
+            </p>
+            {/* Which file now stands in for the flagged one, so the replacement is
+                visibly done (owner, 2026-10-12). */}
+            {isDoc && file ? (
+              <p className="truncate text-body-compact text-muted-foreground">
+                {file.name}
+              </p>
+            ) : null}
           </div>
           {actions.undo ? (
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              onClick={() => {
-                setKeeping(false);
-                actions.undo?.();
-              }}
+              onClick={() => actions.undo?.()}
               className="-my-1 shrink-0 text-muted-foreground"
             >
               <Undo2Icon data-icon="inline-start" aria-hidden />
@@ -585,160 +367,96 @@ export function DefectCard({
       )}
       {...watch}
     >
-      <div className="flex items-start gap-2.5 px-4 pt-4">
-        {needsReason ? (
-          <TriangleAlertIcon className="mt-1 size-4 shrink-0 text-warning-ink" aria-hidden />
-        ) : (
-          <CircleDashedIcon className="mt-1 size-4 shrink-0 text-muted-foreground" aria-hidden />
-        )}
+      <div key="open" ref={body}>
+      <div className={cn("flex items-start gap-2.5 px-4 pt-4", RESOLVE_IN_PLACE)}>
+        <CircleDashedIcon className="mt-1 size-4 shrink-0 text-muted-foreground" aria-hidden />
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <h3 className="text-body font-semibold text-foreground">{defect.target.label}</h3>
-          <p className="text-caption text-muted-foreground">
+          <p className="text-body-compact text-muted-foreground">
             {defect.target.kind === "field" && defect.target.instanceLabel
               ? defect.target.instanceLabel
               : defect.target.sectionLabel}
           </p>
         </div>
-        <span className="shrink-0 text-caption tabular-nums text-muted-foreground">
+        <span className="shrink-0 text-body-compact tabular-nums text-muted-foreground">
           {index} of {total}
         </span>
       </div>
 
-      <div className="flex flex-col gap-3.5 p-4">
-        {/* Where scrutiny offered a value, the comparison is the reasoning at its most
-            compressed. Where it did not, the officer's words are the instruction and are
-            never hidden — so `WhyFlagged` is promoted out of the disclosure below. */}
-        {suggestion ? (
-          <Compare defect={defect} supersededOnly={ownOpen} />
-        ) : (
-          <WhyFlagged defect={defect} />
-        )}
+      <div className={cn("flex flex-col gap-3.5 p-4", RESOLVE_IN_PLACE)}>
+        <WhyFlagged defect={defect} />
 
-        {suggestion && !ownOpen ? (
-          <div className="flex items-center gap-2">
-            {/* Named for the thing being acted on — the correction — not the value inside
-                it (owner, 2026-08-21): the comparison above already shows the value, and
-                a verb + object pair reads the same on every card. */}
-            <Button
-              type="button"
-              onClick={() => {
-                actions.accept?.();
-                finish();
-              }}
-              data-defect-focus
-              className="h-auto min-h-10 flex-1 whitespace-normal py-2"
-            >
-              Accept correction
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => {
-                setKeeping(true);
-                setWhyOpen(true);
-                landInOwn.current = true;
-              }}
-              className="shrink-0 text-muted-foreground"
-            >
-              Reject correction
-            </Button>
-          </div>
-        ) : null}
-
-        {ownOpen ? (
-          <div data-own-value className="flex flex-col gap-3.5">
-            {isDoc ? (
-              <>
+        <div data-own-value className="flex flex-col gap-3 border-t border-hairline pt-4">
+          {isDoc && uploading ? (
+            <div role="status" className="flex flex-col gap-2">
+              <p className="truncate text-body-compact text-muted-foreground">
+                Uploading <span className="font-medium text-foreground">{file?.name}</span>…
+              </p>
+              <Progress value={uploadPct} aria-label="Upload progress" />
+            </div>
+          ) : isDoc ? (
+            <>
+              {file ? (
+                <p className="text-body-compact text-muted-foreground">
+                  On file: <span className="text-foreground">{file.name}</span>
+                </p>
+              ) : null}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={actions.replace}
+                data-defect-focus
+                className="w-fit"
+              >
+                <RefreshCwIcon data-icon="inline-start" aria-hidden />
+                Replace this document
+              </Button>
+              <p className="text-body-compact text-muted-foreground">
+                Replacing the scan does not re-read it — no other field changes.
+              </p>
+            </>
+          ) : (
+            <>
+              <OwnValue defect={defect} value={draft} onChange={setDraft} focusTarget />
+              {/* The act's own full stop. Resolution is derived, so this button changes
+                  no data — it ends the act, which is what lets the card collapse to its
+                  one-line report. Without it the only way to finish was to click
+                  somewhere else, which nobody trusts as "saved". */}
+              <div className="flex flex-wrap items-center gap-2">
                 <Button
                   type="button"
-                  variant="outline"
-                  onClick={actions.replace}
-                  data-defect-focus
-                  className="w-fit"
+                  onClick={() => {
+                    actions.setValue(draft);
+                    finish();
+                  }}
+                  disabled={!dirty || atReturn}
+                  className="flex-1"
                 >
-                  <RefreshCwIcon data-icon="inline-start" aria-hidden />
-                  Replace this document
+                  Save correction
                 </Button>
-                <p className="text-caption text-muted-foreground">
-                  Replacing the scan does not re-read it — no other field changes.
-                </p>
-              </>
-            ) : (
-              <>
-                <OwnValue
-                  defect={defect}
-                  value={value ?? ""}
-                  onChange={actions.setValue}
-                  focusTarget={!suggestion}
-                />
-                <Reply
-                  defect={defect}
-                  value={actions.reason}
-                  required={required}
-                  overriding={needsReason}
-                  onChange={actions.onReasonChange}
-                />
-                <div className="flex items-center gap-2">
-                  {/* The act's own full stop. Resolution is derived, so this button
-                      changes no data — it ends the act, which is what lets the card
-                      collapse to its one-line report. Without it the only way to finish
-                      was to click somewhere else, which nobody trusts as "saved". */}
+                {/* Never forced to edit a value the advocate believes is right. Only
+                    offered while the value is still the one scrutiny saw. */}
+                {!atReturn ? null : (
                   <Button
                     type="button"
-                    onClick={finish}
-                    disabled={!resolved}
-                    className="flex-1"
+                    variant="ghost"
+                    onClick={() => {
+                      // Typed back to the filed value after a save: put it back first.
+                      if (dirty) actions.setValue(draft);
+                      actions.keep?.();
+                      finish();
+                    }}
+                    className="shrink-0 text-muted-foreground"
                   >
-                    {suggestion
-                      ? standing
-                        ? "Keep my value"
-                        : "Use my value"
-                      : "Save correction"}
+                    Keep as filed
                   </Button>
-                  {suggestion ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() => {
-                        setKeeping(false);
-                        setEngaged(false);
-                        actions.undo?.();
-                      }}
-                      className="shrink-0 text-muted-foreground"
-                    >
-                      Cancel
-                    </Button>
-                  ) : null}
-                </div>
-              </>
-            )}
-          </div>
-        ) : null}
+                )}
+              </div>
+            </>
+          )}
+        </div>
       </div>
-
-      {/* One line for everything the officer said and marked — except on a bare-note
-          defect, where it was the instruction and has already been shown above. */}
-      {suggestion ? (
-        <Collapsible open={whyOpen} onOpenChange={setWhyOpen} className="group/why">
-          <CollapsibleTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              className="h-auto min-h-11 w-full justify-start gap-2 rounded-none border-t border-hairline px-4 py-2.5 text-left font-normal text-muted-foreground"
-            >
-              <InfoIcon className="size-4 shrink-0" aria-hidden />
-              Why it was flagged
-              <ChevronDownIcon
-                aria-hidden
-                className="ml-auto size-4 shrink-0 transition-transform group-data-[state=open]/why:rotate-180"
-              />
-            </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="px-4 pb-4">
-            <WhyFlagged defect={defect} />
-          </CollapsibleContent>
-        </Collapsible>
-      ) : null}
+      </div>
     </div>
   );
 }

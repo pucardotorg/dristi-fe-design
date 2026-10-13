@@ -15,14 +15,17 @@
  * flow survives a missing or expired token, a case not yet in CIS, and the login
  * screen's "Seek help" entry, which carries no case context at all.
  *
- * Copy: sentence case (DS Law). Reconciled against Summons_Kollam_v14.
+ * Copy: sentence case (DS Law). Reconciled against Summons_v14.
  */
 
-export type Locale = "en" | "ml";
+import { LANGUAGE_NAME, SECOND_LANGUAGE } from "@/lib/locale-config";
 
+export type Locale = "en" | "ml" | "hi" | "gu" | "pa";
+
+/** English, and the deployment's second language (`lib/locale-config.ts`). */
 export const LOCALES: { value: Locale; label: string }[] = [
-  { value: "en", label: "English" },
-  { value: "ml", label: "മലയാളം" },
+  { value: "en", label: LANGUAGE_NAME.en },
+  { value: SECOND_LANGUAGE, label: LANGUAGE_NAME[SECOND_LANGUAGE] },
 ];
 
 export type CaseSummary = {
@@ -47,8 +50,9 @@ export const STEP_ORDER: StepId[] = [
   "join",
 ];
 
-type Copy = Record<Locale, string>;
-const t = (en: string, ml: string): Copy => ({ en, ml });
+/** English and Malayalam always; Hindi where a translation exists, else English is shown. */
+export type Copy = { en: string; ml: string; hi?: string; gu?: string; pa?: string };
+const t = (en: string, ml: string, hi?: string): Copy => (hi ? { en, ml, hi } : { en, ml });
 
 export const stepTitles: Record<StepId, Copy> = {
   papers: t("Your papers", "നിങ്ങളുടെ രേഖകൾ"),
@@ -71,8 +75,8 @@ export const ui = {
   ),
   notMe: t("This is not about me", "ഇത് എന്നെക്കുറിച്ചല്ല"),
   notMeBody: t(
-    "Do not join this case. Call the court on 0474 2919099 and tell them the summons reached the wrong person.",
-    "ഈ കേസിൽ ചേരരുത്. 0474 2919099 എന്ന നമ്പറിൽ കോടതിയെ വിളിച്ച് സമൻസ് തെറ്റായ ആൾക്ക് എത്തിയെന്ന് അറിയിക്കുക.",
+    "Do not join this case. Call the court on 0000 000000 and tell them the summons reached the wrong person.",
+    "ഈ കേസിൽ ചേരരുത്. 0000 000000 എന്ന നമ്പറിൽ കോടതിയെ വിളിച്ച് സമൻസ് തെറ്റായ ആൾക്ക് എത്തിയെന്ന് അറിയിക്കുക.",
   ),
   missingCase: t("We could not load your case", "കേസ് കാണാൻ കഴിഞ്ഞില്ല"),
   missingCaseBody: t(
@@ -218,15 +222,15 @@ export const help = {
   ),
   primary: {
     name: t(
-      "District Legal Services Authority, Kollam",
-      "ജില്ലാ ലീഗൽ സർവീസസ് അതോറിറ്റി, കൊല്ലം",
+      "District Legal Services Authority",
+      "ജില്ലാ ലീഗൽ സർവീസസ് അതോറിറ്റി",
     ),
     detail: t(
       "Ask about free legal advice or representation. If you qualify, the DLSA can help you apply and may assign a lawyer.",
       "സൗജന്യ നിയമോപദേശമോ കോടതിയിലെ പ്രതിനിധാനമോ ചോദിക്കാം. നിങ്ങൾക്ക് അർഹതയുണ്ടെങ്കിൽ അപേക്ഷിക്കാൻ DLSA സഹായിക്കുകയും ഒരു അഭിഭാഷകനെ നിയോഗിക്കുകയും ചെയ്തേക്കാം.",
     ),
-    href: "tel:04742794536",
-    linkLabel: t("0474 2794 536", "0474 2794 536"),
+    href: "tel:0000000000",
+    linkLabel: t("0000 000 000", "0000 000 000"),
   },
 };
 
@@ -350,8 +354,8 @@ export const helpPanel: Record<StepId, HelpEntry[]> = {
     {
       q: t("What if my date has passed?", "തീയതി കഴിഞ്ഞുപോയെങ്കിൽ?"),
       a: t(
-        "Do not ignore it. Sign in to see your new date, or call 0474 2919099.",
-        "അവഗണിക്കരുത്. പുതിയ തീയതി അറിയാൻ സൈൻ ഇൻ ചെയ്യുക, അല്ലെങ്കിൽ 0474 2919099 വിളിക്കുക.",
+        "Do not ignore it. Sign in to see your new date, or call 0000 000000.",
+        "അവഗണിക്കരുത്. പുതിയ തീയതി അറിയാൻ സൈൻ ഇൻ ചെയ്യുക, അല്ലെങ്കിൽ 0000 000000 വിളിക്കുക.",
       ),
     },
     {
@@ -432,13 +436,13 @@ export const helpPanel: Record<StepId, HelpEntry[]> = {
     {
       q: t("Help using this website", "ഈ വെബ്സൈറ്റ് ഉപയോഗിക്കാൻ സഹായം"),
       a: t(
-        "Call 0474 2919099, or visit the e-Sewa Kendra at the District Court complex, Kollam. The national legal aid helpline is 15100, toll free in 10 languages.",
-        "0474 2919099 വിളിക്കുക, അല്ലെങ്കിൽ കൊല്ലം ജില്ലാ കോടതി വളപ്പിലെ ഇ-സേവാ കേന്ദ്രം സന്ദർശിക്കുക. ദേശീയ നിയമസഹായ ഹെൽപ്‌ലൈൻ 15100, 10 ഭാഷകളിൽ ടോൾ ഫ്രീ.",
+        "Call 0000 000000, or visit the e-Sewa Kendra at the District Court complex. The national legal aid helpline is 15100, toll free in 10 languages.",
+        "0000 000000 വിളിക്കുക, അല്ലെങ്കിൽ ജില്ലാ കോടതി വളപ്പിലെ ഇ-സേവാ കേന്ദ്രം സന്ദർശിക്കുക. ദേശീയ നിയമസഹായ ഹെൽപ്‌ലൈൻ 15100, 10 ഭാഷകളിൽ ടോൾ ഫ്രീ.",
       ),
       links: [
         {
-          label: t("0474 2919099", "0474 2919099"),
-          href: "tel:+914742919099",
+          label: t("0000 000000", "0000 000000"),
+          href: "tel:+910000000000",
         },
         {
           label: t("15100", "15100"),
@@ -503,6 +507,7 @@ export const videos: Record<StepId, { title: Copy; youtubeId?: string }> = {
   join: { title: t("How do I join my case?", "കേസിൽ എങ്ങനെ ചേരും?") },
 };
 
-export function pick(copy: Copy, locale: Locale) {
-  return copy[locale];
+/** The string in this locale — English where no translation exists yet (Hindi, Gujarati and Punjabi, today). */
+export function pick(copy: Copy, locale: Locale): string {
+  return copy[locale] ?? copy.en;
 }

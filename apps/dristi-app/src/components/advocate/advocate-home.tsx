@@ -17,19 +17,26 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Spinner } from "@/components/ui/spinner";
+import { cn } from "@/lib/utils";
 import type { Locale } from "@/lib/onboarding/content";
 import { pick } from "@/lib/onboarding/content";
 import { advHome, fillCopy } from "@/lib/advocate/content";
 import {
+  accessOf,
   caseRecordFor,
-  courtLabelsOf,
-  courtRooms,
   dayKeyOf,
   daySlotsOn,
+  inOneCourt,
   nextHearingDayAfter,
+  peopleOptionsOf,
+  queueOf,
   weekOf,
+  type PeopleScope,
+  NO_SLOT_FILTER,
+  type SlotFilter,
 } from "@/lib/advocate/home";
-import { ADVOCATE_HOME_CONFIG } from "@/lib/advocate/config";
+import { ADVOCATE_HOME_CONFIG, type AdvocateHomeConfig } from "@/lib/advocate/config";
+import type { Case } from "@/lib/tasks/types";
 import { useTasks } from "@/lib/tasks/store";
 import { TASKS_HOME } from "@/lib/tasks/routes";
 import { caseOf, type World } from "@/lib/tasks/selectors";
@@ -41,24 +48,23 @@ import { useTaskAct } from "@/components/tasks/task-act-layer";
 import { CasePeekSurface } from "@/components/cases/case-peek";
 import { CasePeekProvider, useCasePeek } from "@/components/cases/use-case-peek";
 import { HomeGreeting } from "@/components/advocate/home-greeting";
+import { useCourt } from "@/components/court/court-provider";
 import {
   CompanionRail,
   useRailSection,
 } from "@/components/advocate/companion-rail";
-import {
-  HearingTimeline,
-  type CourtOption,
-} from "@/components/advocate/hearing-timeline";
+import { DayActions, HearingTimeline, type FilterVariant } from "@/components/advocate/hearing-timeline";
+import { HOME_FRAME } from "@/components/advocate/home-layout";
 import { CauseListDialog } from "@/components/advocate/cause-list-dialog";
 import { JoinHearingDialog } from "@/components/advocate/join-hearing-dialog";
 
 /** The shell top bar is `h-14`; the sticky rail hangs below it. */
 const TOP_BAR = "3.5rem";
+/** How far below the top bar the pending-tasks side tab hangs: centred on the
+    greeting block (greeting and title) on a desktop. */
+const TASK_TAB_TOP = 84;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-
-/** Where the court filter is remembered — cleared when the calendar day turns. */
-const COURTS_KEY = "advocate-home:courts";
 
 /**
  * The home's clock. The sandbox lists a normal court day (10:00–17:00); pinning
@@ -77,53 +83,64 @@ function useNow(): number {
   return now;
 }
 
+/** Where the sittings' filters are remembered — cleared when the calendar day turns. */
+const FILTERS_KEY = "advocate-home:day-filter";
+
 /**
- * The court filter, backed by localStorage so it survives a refresh and clears
- * when the day turns.
- *
- * It reads through `useSyncExternalStore` rather than an effect that sets state:
+ * The stored filters read through `useSyncExternalStore` rather than an effect that sets state:
  * that keeps the server render (no selection) and the client's stored value from
  * disagreeing at hydration, and same-tab writes announce themselves with a
  * `storage` event so the read re-runs. The raw string is the stable snapshot;
  * parsing happens in the component, cached against it.
  */
-function subscribeCourts(onChange: () => void): () => void {
+function subscribeFilters(onChange: () => void): () => void {
   window.addEventListener("storage", onChange);
   return () => window.removeEventListener("storage", onChange);
 }
 
-function courtsSnapshot(): string {
+function filtersSnapshot(): string {
   try {
-    return window.localStorage.getItem(COURTS_KEY) ?? "";
+    return window.localStorage.getItem(FILTERS_KEY) ?? "";
   } catch {
     return "";
   }
 }
 
-function useStoredCourts(todayKey: string): [string[], (next: string[]) => void] {
-  const raw = React.useSyncExternalStore(subscribeCourts, courtsSnapshot, () => "");
-  const courts = React.useMemo(() => {
+const strings = (value: unknown): string[] =>
+  Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
+
+/**
+ * Each sitting's filter (courts, people scope, people), backed by localStorage
+ * so it survives a refresh and clears when the day turns. One record, keyed by
+ * sitting, so narrowing the morning leaves the afternoon as it was.
+ */
+function useStoredFilters(todayKey: string): [SlotFilter, (next: SlotFilter) => void] {
+  const raw = React.useSyncExternalStore(subscribeFilters, filtersSnapshot, () => "");
+  const filter = React.useMemo((): SlotFilter => {
     try {
-      const parsed = raw ? (JSON.parse(raw) as { day?: string; courts?: unknown }) : null;
-      if (parsed && parsed.day === todayKey && Array.isArray(parsed.courts)) {
-        return parsed.courts.filter((c): c is string => typeof c === "string");
+      const parsed = raw ? (JSON.parse(raw) as { day?: string; filter?: Record<string, unknown> }) : null;
+      if (parsed && parsed.day === todayKey && parsed.filter && typeof parsed.filter === "object") {
+        const v = parsed.filter;
+        return {
+          courts: strings(v.courts),
+          scope: (v.scope === "mine" || v.scope === "office" ? v.scope : "all") as PeopleScope,
+          people: strings(v.people),
+          hidden: strings(v.hidden),
+        };
       }
     } catch {
       /* A corrupt entry just reads as no filter. */
     }
-    return [];
+    return NO_SLOT_FILTER;
   }, [raw, todayKey]);
 
-  const setCourts = React.useCallback(
-    (next: string[]) => {
+  const setFilter = React.useCallback(
+    (next: SlotFilter) => {
       try {
-        window.localStorage.setItem(
-          COURTS_KEY,
-          JSON.stringify({ day: todayKey, courts: next })
-        );
+        window.localStorage.setItem(FILTERS_KEY, JSON.stringify({ day: todayKey, filter: next }));
         // A same-tab write does not fire `storage` on its own — announce it so
         // the store subscription re-reads and the view updates at once.
-        window.dispatchEvent(new StorageEvent("storage", { key: COURTS_KEY }));
+        window.dispatchEvent(new StorageEvent("storage", { key: FILTERS_KEY }));
       } catch {
         /* No store, no persistence — the selection simply will not survive a refresh. */
       }
@@ -131,7 +148,7 @@ function useStoredCourts(todayKey: string): [string[], (next: string[]) => void]
     [todayKey]
   );
 
-  return [courts, setCourts];
+  return [filter, setFilter];
 }
 
 /**
@@ -146,6 +163,10 @@ function useStoredCourts(todayKey: string): [string[], (next: string[]) => void]
 export function AdvocateHome(props: {
   locale: Locale;
   profileFirstName: string;
+  /** Which sittings and surfaces the board shows; the launch config unless a demo asks. */
+  config?: AdvocateHomeConfig;
+  /** Demo: the people filter as one menu (default) or a scope switch plus names. */
+  filterVariant?: FilterVariant;
 }) {
   const now = useNow();
   return (
@@ -162,10 +183,14 @@ function HomeBody({
   locale,
   profileFirstName,
   now,
+  config = ADVOCATE_HOME_CONFIG,
+  filterVariant = "menu",
 }: {
   locale: Locale;
   profileFirstName: string;
   now: number;
+  config?: AdvocateHomeConfig;
+  filterVariant?: FilterVariant;
 }) {
   const isMobile = useIsMobile();
   const store = useTasks();
@@ -188,10 +213,13 @@ function HomeBody({
   );
   const peek = useCasePeek();
 
-  const world = React.useMemo<World>(
-    () => ({ people, cases, tasks, user, now: new Date(now) }),
-    [people, cases, tasks, user, now]
-  );
+  // A deployment that runs one courtroom names it once (the title) rather than
+  // filtering by it and labelling every hearing with it.
+  const singleCourt = useCourt().profile.singleCourt;
+  const world = React.useMemo<World>(() => {
+    const all: World = { people, cases, tasks, user, now: new Date(now) };
+    return singleCourt ? inOneCourt(all, singleCourt) : all;
+  }, [people, cases, tasks, user, now, singleCourt]);
 
   const todayKey = dayKeyOf(now);
   const [selectedDay, setSelectedDay] = React.useState<string>(todayKey);
@@ -218,10 +246,25 @@ function HomeBody({
     [isMobile, setRailSection]
   );
 
-  // The court filter. No selection means every court; a chosen set narrows the
-  // timeline. It survives a refresh (localStorage) but resets when the day turns:
-  // yesterday's filter is not today's day.
-  const [selectedCourts, changeCourts] = useStoredCourts(todayKey);
+  // One filter for the whole day: every sitting shows it and reads it, so a
+  // choice made on one tab is never silently missing (or lingering) on another.
+  // No selection means everything the viewer can open. It survives a refresh
+  // (localStorage) but resets when the day turns.
+  const [storedFilter, setDayFilter] = useStoredFilters(todayKey);
+  // With one court there is no court filter, so a court picked under another
+  // deployment must not go on hiding hearings no control can bring back.
+  const dayFilter = React.useMemo(
+    () => (singleCourt && storedFilter.courts.length ? { ...storedFilter, courts: [] } : storedFilter),
+    [singleCourt, storedFilter]
+  );
+  const filters = React.useMemo(
+    () =>
+      Object.fromEntries(
+        (config.sittings.length ? config.sittings : [null]).map((_, i) => [`sitting-${i}`, dayFilter])
+      ) as Record<string, SlotFilter>,
+    [config.sittings, dayFilter]
+  );
+  const changeFilter = React.useCallback((_slotKey: string, next: SlotFilter) => setDayFilter(next), [setDayFilter]);
 
   const week = React.useMemo(
     () => weekOf(world, now, weekAnchor),
@@ -271,26 +314,72 @@ function HomeBody({
     [announceJoin]
   );
 
-  // The courts the filter offers: those with a matter listed on the day. A court
-  // with nothing today is not worth offering — selecting it would only empty the
-  // view. Labels share the establishment run so the option reads "CJM Court", not
-  // "CJM Court, Kollam".
-  const courtOptions = React.useMemo<CourtOption[]>(() => {
-    const rooms = courtRooms(world, selectedDay, now).filter((r) => r.count > 0);
-    const labels = courtLabelsOf(rooms.map((r) => r.court));
-    return rooms.map((room) => ({
-      court: room.court,
-      label: labels.shortOf(room.court),
-      count: room.count,
-    }));
-  }, [world, selectedDay, now]);
+  // The board pages between days like a carousel. Before the day changes, a
+  // still copy of the shown board is taken; once the new day has rendered, the
+  // copy slides out one side while the live board slides in from the other, on
+  // the same curve. Translate only, never a fade, and nothing waits on a render
+  // mid-motion. A click mid-slide carries on from where the board is.
+  const boardDay = selectedDay;
+  const boardRef = React.useRef<HTMLDivElement>(null);
+  const boardAnimation = React.useRef<Animation | null>(null);
+  const ghost = React.useRef<{ node: HTMLElement; dir: number; from: string } | null>(null);
+  const liveGhost = React.useRef<HTMLElement | null>(null);
+  function snapshotBoard(nextKey: string) {
+    const el = boardRef.current;
+    if (!el || nextKey === selectedDay || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const from = getComputedStyle(el).transform;
+    ghost.current = {
+      node: el.cloneNode(true) as HTMLElement,
+      dir: nextKey > selectedDay ? 1 : -1,
+      from: from === "none" ? "translateX(0)" : from,
+    };
+  }
+  React.useLayoutEffect(() => {
+    const shot = ghost.current;
+    ghost.current = null;
+    const el = boardRef.current;
+    if (!shot || !el?.parentElement) return;
+    liveGhost.current?.remove();
+    const copy = shot.node;
+    copy.setAttribute("aria-hidden", "true");
+    copy.inert = true;
+    Object.assign(copy.style, { position: "absolute", top: "0", left: "0", right: "0", pointerEvents: "none" });
+    el.parentElement.append(copy);
+    liveGhost.current = copy;
+    const timing = { duration: 720, easing: "cubic-bezier(0.45, 0, 0.15, 1)" };
+    copy.animate([{ transform: shot.from }, { transform: `translateX(${-shot.dir * 100}%)` }], { ...timing, fill: "forwards" })
+      .onfinish = () => {
+        copy.remove();
+        if (liveGhost.current === copy) liveGhost.current = null;
+      };
+    boardAnimation.current?.cancel();
+    boardAnimation.current = el.animate(
+      [{ transform: `translateX(${shot.dir * 100}%)` }, { transform: "translateX(0)" }],
+      timing
+    );
+  }, [selectedDay]);
+  React.useEffect(() => () => boardAnimation.current?.cancel(), []);
 
-  // The day as court sittings — one board each, built to the launch config
-  // (flat lists, no times or conflicts) or the fuller view. One sitting shows no
-  // tab bar; the machinery is there for a day the court splits in two.
+  // The day as court sittings — one board each, built to the config (flat
+  // lists, no times or conflicts at launch) and narrowed by each sitting's own
+  // filter.
   const daySlots = React.useMemo(
-    () => daySlotsOn(world, selectedDay, now, ADVOCATE_HOME_CONFIG, selectedCourts),
-    [world, selectedDay, now, selectedCourts]
+    () => daySlotsOn(world, boardDay, now, config, filters),
+    [world, boardDay, now, config, filters]
+  );
+  const peopleOf = React.useCallback(
+    (hearings: Parameters<typeof peopleOptionsOf>[1], scope: PeopleScope) =>
+      peopleOptionsOf(world, hearings, scope, filterVariant === "menu"),
+    [world, filterVariant]
+  );
+  const accessFor = React.useCallback((kase: Case) => accessOf(world, kase), [world]);
+  // Today's scheduled matters carry how many are still before them in court.
+  const queueFor = React.useCallback(
+    (hearing: TimelineHearing) =>
+      boardDay === todayKey && hearing.status === "upcoming"
+        ? queueOf(world, hearing.court, boardDay, hearing.item, now)
+        : null,
+    [world, boardDay, todayKey, now]
   );
 
   // The advocate's hearings being called now, across every sitting — what the
@@ -305,10 +394,10 @@ function HomeBody({
   // concluded; a future day is wholly upcoming — the timeline drops the
   // "nothing is being called" line off today and opens the concluded pile behind.
   const dayPhase: "past" | "today" | "future" =
-    selectedDay === todayKey ? "today" : selectedDay < todayKey ? "past" : "future";
+    boardDay === todayKey ? "today" : boardDay < todayKey ? "past" : "future";
 
   const jump = React.useMemo(() => {
-    const next = nextHearingDayAfter(world, selectedDay);
+    const next = nextHearingDayAfter(world, boardDay);
     if (!next) return null;
     const label = new Intl.DateTimeFormat(locale === "ml" ? "ml-IN" : "en-IN", {
       weekday: "long",
@@ -316,9 +405,10 @@ function HomeBody({
       month: "short",
     }).format(new Date(`${next.key}T12:00:00`));
     return { ...next, label };
-  }, [world, selectedDay, locale]);
+  }, [world, boardDay, locale]);
 
-  function selectDay(key: string) {
+  function selectDay(key: string, animate = true) {
+    if (animate) snapshotBoard(key);
     setSelectedDay(key);
     peek.close();
     // Selecting a day in another week re-anchors the strip to it.
@@ -328,12 +418,12 @@ function HomeBody({
   /** Open the shared case peek for any matter in the world, via the bridge. */
   const openCase = React.useCallback(
     (caseId: string) => {
-      const kase = cases.find((c) => c.id === caseId);
+      const kase = world.cases.find((c) => c.id === caseId);
       if (!kase) return;
       const record = caseRecordFor(kase, kase.nextHearingAt);
       if (record) peek.open(record);
     },
-    [cases, peek]
+    [world.cases, peek]
   );
 
   /** The viewer's verb for a task — what the rail's hover overlay names. */
@@ -386,43 +476,51 @@ function HomeBody({
     );
   }
 
-  const hasDay = courtOptions.length > 0;
+  const hasDay = daySlots.some((slot) => slot.hearings.length > 0);
 
   return (
     <CasePeekSurface mobileDrawer className="flex min-h-0 min-w-0 flex-1">
       {/* A container, not just a column: the rail narrows the board without
           narrowing the viewport, so what the timeline puts on one line has to
           answer to its own width. */}
-      <main className="@container flex min-w-0 flex-1 flex-col">
-        <div className="px-4 pt-6 pb-0 lg:px-8 lg:pb-6">
+      {/* A desktop sets the board on a grey page (surface-sunken, the nearest
+          token to the wireframe's #f1f1f1) so the white panel and its front tab
+          stand out from it, the other slot tabs behind them. */}
+      <main className="@container flex min-w-0 flex-1 flex-col md:bg-surface-sunken dark:md:bg-background">
+        {/* Header and board share one frame (HOME_FRAME), so the big date sits
+            over the timeline rail and the title, strip and hearings share one
+            left edge, as in the owner's wireframe. */}
+        <div className={cn("px-4 pt-6 pb-0 lg:pt-12 lg:pb-6", HOME_FRAME)}>
           <HomeGreeting
             locale={locale}
             firstName={profileFirstName}
+            court={singleCourt}
             now={now}
             week={week}
             selectedDay={selectedDay}
             onSelectDay={selectDay}
             onShiftWeek={(delta) => setWeekAnchor((a) => a + delta * 7 * DAY_MS)}
-            onPickDate={(date) => selectDay(dayKeyOf(date))}
+            onPickDate={(date, animate) => selectDay(dayKeyOf(date), animate)}
           />
         </div>
 
-        {/* A hairline closes the header off from the board's controls and stats,
-            inset to the content margins rather than running edge to edge. */}
-        <div className="hidden px-4 lg:block lg:px-8" aria-hidden="true">
-          <div className="border-b border-hairline" />
-        </div>
-
+        {/* Clipped sideways so the slide between days never adds a page scrollbar. */}
+        <div className="relative overflow-x-clip">
+        <div ref={boardRef}>
         {hasDay ? (
-          <div className="px-4 pt-0 lg:px-8 lg:pt-4">
+          <div className={cn("px-4 pt-0", HOME_FRAME)}>
             <HearingTimeline
               daySlots={daySlots}
-              showTimes={ADVOCATE_HOME_CONFIG.showHearingTimes}
-              showConflicts={ADVOCATE_HOME_CONFIG.showConflicts}
+              showTimes={config.showHearingTimes}
+              showConflicts={config.showConflicts}
+              singleCourt={singleCourt !== null}
               dayPhase={dayPhase}
-              courts={courtOptions}
-              selectedCourts={selectedCourts}
-              onCourtsChange={changeCourts}
+              filters={filters}
+              onFilterChange={changeFilter}
+              peopleOptionsOf={peopleOf}
+              filterVariant={filterVariant}
+              accessOf={accessFor}
+              queueOf={queueFor}
               onViewCauseList={onViewCauseList}
               onJoinCourt={onJoinCourt}
               onRefresh={() => void reload()}
@@ -430,11 +528,24 @@ function HomeBody({
               onOpenCase={openCase}
               onOpenTasks={openTasksForCase}
               onViewInCauseList={onViewInCauseList}
+              tabActions={
+                hasDay ? (
+                  <div className="hidden lg:block">
+                    <DayActions
+                      onViewCauseList={onViewCauseList}
+                      onJoinCourt={onJoinCourt}
+                      onRefresh={() => void reload()}
+                      fit="roomy"
+                      locale={locale}
+                    />
+                  </div>
+                ) : null
+              }
               locale={locale}
             />
           </div>
         ) : (
-          <div className="px-4 pt-4 pb-8 lg:px-8">
+          <div className={cn("px-4 pt-4 pb-8", HOME_FRAME)}>
             <Empty className="bg-surface-sunken">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
@@ -449,7 +560,7 @@ function HomeBody({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => selectDay(jump.key)}
+                  onClick={(event) => selectDay(jump.key, event.detail > 0)}
                 >
                   {fillCopy(advHome.jumpNext, locale, {
                     day: jump.label,
@@ -460,6 +571,8 @@ function HomeBody({
             </Empty>
           </div>
         )}
+        </div>
+        </div>
       </main>
 
       <CompanionRail
@@ -476,6 +589,8 @@ function HomeBody({
         onAct={actOn}
         onArchive={onArchiveTask}
         onViewAllTasks={() => router.push(TASKS_HOME)}
+        stripless
+        tabTop={TASK_TAB_TOP}
       />
 
       <CauseListDialog
@@ -487,6 +602,7 @@ function HomeBody({
         world={world}
         now={now}
         day={selectedDay}
+        singleCourt={singleCourt}
         highlight={causeListHighlight}
         onJoin={onJoinHearing}
         locale={locale}
@@ -496,6 +612,7 @@ function HomeBody({
         open={joinOpen}
         onOpenChange={setJoinOpen}
         hearings={nowHearings}
+        showCourt={singleCourt === null}
         onJoin={onJoinFromModal}
         onViewCauseList={() => {
           setJoinOpen(false);

@@ -48,10 +48,14 @@ export default function LandingPage() {
     <div className="flex min-h-dvh flex-col bg-linear-160 from-brand-canvas to-brand-canvas-deep text-brand-canvas-foreground">
       <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col justify-center gap-12 px-6 py-12 md:px-8">
         <div className="flex flex-col gap-8">
+          {/* Says what this page is, so nobody mistakes it for the finished site. */}
+          <p className="rounded-lg bg-card px-4 py-3 text-body-compact text-foreground">
+            This is a placeholder page. The 24×7 ON Courts website will appear here.
+          </p>
           <BrandLockup onDark className="h-12" />
           <div className="flex max-w-2xl flex-col gap-4">
             <h1 className="text-title-l font-semibold tracking-tight text-balance sm:text-display-s">
-              The district courts of Kerala, online.
+              The district courts, online.
             </h1>
             <p className="text-body text-brand-canvas-muted-foreground">
               Bring a cheque-bounce case to court, follow it through every hearing, and
@@ -91,7 +95,6 @@ export default function LandingPage() {
       </main>
 
       <footer className="mx-auto flex w-full max-w-4xl flex-col gap-3 px-6 pb-8 text-caption text-brand-canvas-muted-foreground md:px-8">
-        <p>A Government of India digital courts initiative.</p>
         <nav aria-label="About this site" className="flex flex-wrap gap-x-6 gap-y-2">
           {POLICIES.map((item) => (
             <a

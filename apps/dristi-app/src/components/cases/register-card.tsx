@@ -29,6 +29,7 @@ export function RegisterTrayCard({
   title,
   children,
   actions,
+  tray,
   open,
   onOpenChange,
   marked = false,
@@ -40,7 +41,12 @@ export function RegisterTrayCard({
   /** The face, under the title. */
   children?: React.ReactNode;
   /** The tray: buttons, each `flex-1`. */
-  actions: React.ReactNode;
+  actions?: React.ReactNode;
+  /**
+   * A tray that holds more than a row of buttons: the members of a grouped
+   * card, stacked, with the group's own action under them. Replaces `actions`.
+   */
+  tray?: React.ReactNode;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** The record this card stands for is open or was just closed. */
@@ -88,9 +94,15 @@ export function RegisterTrayCard({
         {children}
       </div>
       <CollapsibleContent className={cn(COLLAPSE_MOTION, "mx-3")}>
-        <div className="flex items-center gap-2 rounded-b-xl bg-secondary p-3 [&>*]:flex-1">
-          {actions}
-        </div>
+        {tray ? (
+          <div className="flex flex-col gap-2 rounded-b-xl bg-secondary p-3">
+            {tray}
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 rounded-b-xl bg-secondary p-3 [&>*]:flex-1">
+            {actions}
+          </div>
+        )}
       </CollapsibleContent>
     </Collapsible>
   );

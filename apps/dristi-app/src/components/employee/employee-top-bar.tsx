@@ -12,6 +12,10 @@ import {
   useRailCollapsed,
 } from "@/components/chrome/app-chrome";
 import {
+  isOrderScreenPath,
+  OrderVariantSwitch,
+} from "@/components/employee/order-variant-switch";
+import {
   useApplicationsReady,
   useLifecycleApplications,
 } from "@/lib/applications/store";
@@ -39,7 +43,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
  * switch, a notifications bell and a profile menu; none of the three belongs to the
  * bench. The bell would be a thirteenth live count on a screen whose rail already carries
  * twelve. The switch reads a locale provider that is the citizen shell's and does not
- * exist under `/employee` — what language a Kollam bench works in is a real product
+ * exist under `/employee` — what language a Kerala bench works in is a real product
  * question and not one this bar can answer by reaching across the area split. And the
  * person is already named, in full, at the foot of the rail.
  *
@@ -49,11 +53,21 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
  * both rail widths. Before this the rail's header seam ran out into nothing.
  */
 export function EmployeeTopBar() {
-  const crumbs = courtTrail(usePathname(), useClientRecordResolver());
+  const pathname = usePathname();
+  const crumbs = courtTrail(pathname, useClientRecordResolver());
   // Derived here rather than inside the trail because the divider beside the trigger has
   // to know whether anything follows it. On the court home nothing does.
   return (
-    <ChromeTopBar leading={<CourtNavTrigger hasTrail={crumbs.length > 0} />}>
+    <ChromeTopBar
+      leading={<CourtNavTrigger hasTrail={crumbs.length > 0} />}
+      /* On an order screen, the switch between its variants, at the bar's right end
+         (owner, 2026-10-13). */
+      trailing={
+        isOrderScreenPath(pathname) ? (
+          <OrderVariantSwitch className="text-muted-foreground" />
+        ) : undefined
+      }
+    >
       {crumbs.length > 0 ? <CourtTrail crumbs={crumbs} /> : null}
     </ChromeTopBar>
   );

@@ -27,6 +27,7 @@ import {
   type BucketKey,
   type CaseRecord,
 } from "./types";
+import { caseSearchKey } from "@/lib/court/localize";
 
 /** The offered row counts. Any other whole number is a custom size; `"all"` is every row on one page. */
 export const PAGE_SIZES = [10, 15, 20, 25, 30] as const;
@@ -356,7 +357,7 @@ export function advocateOptions(source: CaseRecord[] = CASES): string[] {
 
 function matchesSearch(record: CaseRecord, search: string): boolean {
   if (!search) return true;
-  const needle = search.toLowerCase();
+  const needle = caseSearchKey(search);
   const haystack = [
     record.caseNumber,
     partiesLabel(record),

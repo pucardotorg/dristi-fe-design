@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { after, before, describe, it } from "node:test";
 
 import { createBlankDraft } from "./blank";
+import { setSigningRules } from "./config";
 import { addDays } from "./format";
 import {
   applyQueueFilters,
@@ -93,12 +94,18 @@ describe("draftClock — the File by column", () => {
     assert.equal(draftClock(draft).lead, "15/09/2026");
   });
 
-  it("carries completion separately, as a number and a save date", () => {
+  it("carries the last-saved date and the case type", () => {
     const [row] = draftRows([draftAt(5)]);
-    assert.ok(row.progress, "a draft row carries progress");
-    assert.ok(row.progress.percent >= 0 && row.progress.percent <= 100);
+    assert.ok(row.progress, "a draft row carries its save date");
     assert.match(row.progress.savedOn, DATE);
+    assert.equal(row.caseType, "S138 of NIA");
     assert.doesNotMatch(row.info.lead, /% complete/);
+  });
+
+  it("sends a PSA draft to the placeholder, since it has no filing flow yet", () => {
+    const [row] = draftRows([{ ...draftAt(5), caseType: "pss25" }]);
+    assert.equal(row.caseType, "S25 of PSA");
+    assert.equal(row.action.href, "/filings/new/pss-act");
   });
 });
 
@@ -176,6 +183,9 @@ describe("each tab has its own order, and the default is the useful one", () => 
 });
 
 describe("pendingSignatureRows and pendingPaymentRows — where a draft goes once drafting is done", () => {
+  // Checked under Gujarat's rules, where everyone signs and swears (`config.ts`).
+  before(() => setSigningRules({ oath: true, everyAdvocate: true }));
+  after(() => setSigningRules({ oath: false, everyAdvocate: false }));
   function sentForSignature(id: string): FilingDraft {
     const draft = createBlankDraft(id);
     draft.sign.requestedAt = "2026-08-20T10:00:00.000Z";
@@ -215,8 +225,9 @@ describe("pendingSignatureRows and pendingPaymentRows — where a draft goes onc
     assert.equal(before.youPending, true);
     assert.match(before.info.sub ?? "", /waiting on you/i);
 
-    // Sign for "you" — whoever is left, if anyone, is someone else's signature to give.
+    // Sign and swear for "you" — whoever is left, if anyone, is someone else's to give.
     draft.sign.signed[you!.id] = { at: "2026-08-20T10:05:00.000Z", with: "aadhaar" };
+    draft.sign.oaths[you!.id] = { at: "2026-08-20T10:06:00.000Z", video: null };
     const after = pendingSignatureRows([draft], null)[0];
     if (after) {
       assert.equal(after.youPending, false);
@@ -224,11 +235,32 @@ describe("pendingSignatureRows and pendingPaymentRows — where a draft goes onc
     }
   });
 
+  it("an advocate's row asks for sign and oath together, then the oath alone — never a bulk sign", () => {
+    const draft = sentForSignature("d1");
+    draft.complainants[0].name = "Zeenath Beevi";
+    draft.advocates[0].name = "Anjali Nair";
+    draft.advocates[0].barNumber = "K/123/2010";
+    const advocate = signatories(draft, null).advocates[0];
+    assert.ok(advocate?.you, "with no profile, the advocate slot is 'you'");
+
+    const [before] = pendingSignatureRows([draft], null);
+    assert.equal(before.action.label, "Sign and take oath");
+    assert.equal(before.youPending, true);
+
+    draft.sign.signed[advocate.id] = { at: "2026-08-20T10:05:00.000Z", with: "aadhaar" };
+    const [after] = pendingSignatureRows([draft], null);
+    assert.equal(after.action.label, "Take oath");
+    assert.equal(after.youPending, false, "an oath is not something a bulk sign can give");
+    assert.match(after.info.sub ?? "", /waiting on you/i);
+    assert.equal(after.info.tone, "warning");
+  });
+
   it("moves to Pending payment once everyone has signed, and drops off it once paid", () => {
     const draft = sentForSignature("d1");
     const everyone = [...signatories(draft, null).complainants, ...signatories(draft, null).advocates];
     for (const s of everyone) {
       draft.sign.signed[s.id] = { at: "2026-08-20T10:05:00.000Z", with: "aadhaar" };
+      draft.sign.oaths[s.id] = { at: "2026-08-20T10:06:00.000Z", video: null };
     }
     assert.equal(pendingSignatureRows([draft], null).length, 0);
     const [row] = pendingPaymentRows([draft], null);
@@ -265,19 +297,19 @@ describe("columns carry information", () => {
     assert.equal(draftRows([draftAt(5)])[0].ref, undefined);
   });
 
-  it("case type is gone from every tab — one type exists", () => {
+  it("every tab names the parties; drafts also name the case type (owner, 2026-10-08)", () => {
     for (const layout of Object.values(TAB_LAYOUT)) {
       assert.equal(layout.columns.includes("parties"), true);
-      assert.equal((layout.columns as string[]).includes("caseType"), false);
     }
+    assert.equal(TAB_LAYOUT.drafts.columns.includes("caseType"), true);
   });
 });
 
 describe("filters and paging", () => {
   const rows: QueueRow[] = [
-    row("a", "JMFC-I, Kollam", "2026-08-01", "meera nair v. anwar s."),
-    row("b", "JMFC-II, Kollam", "2026-08-20", "suresh menon v. k. menon"),
-    row("c", "JMFC-I, Kollam", "2026-08-10", "latha r. v. riya jacob"),
+    row("a", "JMFC-I", "2026-08-01", "meera nair v. anwar s."),
+    row("b", "JMFC-II", "2026-08-20", "suresh menon v. k. menon"),
+    row("c", "JMFC-I", "2026-08-10", "latha r. v. riya jacob"),
   ];
 
   function row(id: string, court: string, at: string, haystack: string): QueueRow {
@@ -309,7 +341,7 @@ describe("filters and paging", () => {
   });
 
   it("search and court filter compose", () => {
-    const out = applyQueueFilters(rows, { q: "menon", court: "JMFC-II, Kollam", sort: asc });
+    const out = applyQueueFilters(rows, { q: "menon", court: "JMFC-II", sort: asc });
     assert.deepEqual(
       out.map((r) => r.id),
       ["b"]

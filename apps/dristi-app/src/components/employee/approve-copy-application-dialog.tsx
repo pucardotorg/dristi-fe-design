@@ -27,6 +27,7 @@ import {
 } from "@/lib/employee/approve-copy-application";
 import { causeTitle } from "@/lib/employee/hearings";
 import { Identifier } from "@/components/chrome/identifier";
+import { useCourtLocalized } from "@/components/court/court-provider";
 
 /**
  * One copy application, read and then allowed or refused — the single-application path
@@ -217,10 +218,11 @@ function ApplicationBody({
  * review overlays use, bound to this application's own particulars.
  */
 function ApplicationFacsimile({
-  document,
+  document: storedDocument,
 }: {
   document: CopyApplicationDocument;
 }) {
+  const document = useCourtLocalized(storedDocument);
   return (
     <article className="flex flex-col gap-6 rounded-md bg-paper p-6 text-paper-foreground [&_[data-slot=description-details]]:text-paper-foreground [&_[data-slot=description-term]]:text-paper-muted-foreground">
       <header className="flex flex-col gap-2 text-center">

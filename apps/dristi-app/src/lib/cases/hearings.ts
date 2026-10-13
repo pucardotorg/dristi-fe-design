@@ -614,6 +614,47 @@ function typeFromStage(record: CaseRecord): HearingTypeId {
   }
 }
 
+const MS_DAY = 24 * 60 * 60 * 1000;
+
+/** The trial's stages in order, for the sittings a synthesised case has had. */
+const STAGE_LADDER: CaseRecord["stage"][] = [
+  "cognizance",
+  "appearance",
+  "evidence",
+  "arguments",
+  "judgment",
+];
+
+const EARLIER_TYPE: Record<string, HearingTypeId> = {
+  cognizance: "cognizance",
+  appearance: "appearance",
+  evidence: "evidence-of-complainant",
+  arguments: "arguments",
+};
+
+/** Demo business of the day for a sitting at each stage (cheque cases). */
+const STAGE_BOTD: Record<string, string> = {
+  cognizance:
+    "Complaint taken on file under Section 138 of the NI Act. Sworn statement of the complainant recorded and verified with the documents produced. Cognizance taken. Issue summons to the accused, returnable on the next date. Complainant to take steps for service within one week and file the process fee.",
+  appearance:
+    "Accused present through counsel and entered appearance. Bail bond executed with two sureties and accepted. Copies of the complaint and documents furnished to the accused. Particulars of the offence read over and explained; the accused pleaded not guilty and claimed to be tried. Posted for the complainant's evidence.",
+  evidence:
+    "PW-1 examined in chief through affidavit under Section 145 of the NI Act; Exts. P1 to P6 marked. Cross-examination by counsel for the accused commenced and deferred at counsel's request. Complainant to keep PW-1 present for further cross-examination on the next date.",
+  arguments:
+    "Evidence closed on both sides. Statement of the accused recorded. Counsel for the complainant heard in part on arguments; written submissions to be filed within two weeks. Counsel for the accused to be heard on the next date.",
+};
+
+/** What the last sitting left the parties to do, after its one-line update. */
+const LAST_STEP: Record<string, string> = {
+  scrutiny: "Defects to be cured before the case is placed for cognizance",
+  cognizance: "Complainant to file the process fee and take steps for service of summons",
+  summons: "Fresh summons to issue; complainant to take steps through the court and by registered post",
+  appearance: "Accused to file the bail bond; case to be posted for plea",
+  evidence: "Complainant to keep the next witness present; no further adjournment will be granted",
+  arguments: "Parties to file written submissions before the next date",
+  judgment: "Posted for pronouncement of judgment",
+};
+
 function defaultHearings(
   record: CaseRecord,
   people: HearingPerson[]
@@ -622,6 +663,30 @@ function defaultHearings(
   const hearings: Hearing[] = [];
 
   if (record.previousHearingOn) {
+    // The sittings that brought the case to its current stage, one per earlier
+    // stage, five weeks apart, each with its business of the day. Never before
+    // the complaint was filed.
+    // Summons sits between cognizance and appearance on the ladder.
+    const reached = record.stage === "summons" ? 1 : STAGE_LADDER.indexOf(record.stage);
+    const ladder = STAGE_LADDER.slice(0, Math.max(0, reached));
+    const last = new Date(`${record.previousHearingOn}T00:00:00`).getTime();
+    const filed = new Date(`${record.filedOn}T00:00:00`).getTime();
+    ladder.forEach((stage, i) => {
+      const on = last - (ladder.length - i) * 35 * MS_DAY;
+      if (on <= filed) return;
+      hearings.push({
+        id: `${record.id}-earlier-${stage}`,
+        type: EARLIER_TYPE[stage] ?? "appearance",
+        on: new Date(on).toISOString().slice(0, 10),
+        status: "completed",
+        participantIds,
+        partiesDisplay: "",
+        transcriptAvailability: "not_available",
+        depositionIds: [],
+        summary: STAGE_BOTD[stage],
+      });
+    });
+
     const type = typeFromStage(record);
     hearings.push({
       id: `${record.id}-prev`,
@@ -632,6 +697,10 @@ function defaultHearings(
       partiesDisplay: "",
       transcriptAvailability: "not_available",
       depositionIds: [],
+      summary: [record.latestUpdate, LAST_STEP[record.stage]]
+        .filter(Boolean)
+        .map((line) => (line as string).replace(/\.?$/, "."))
+        .join(" "),
     });
   }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { Breadcrumbs, type Crumb } from "@/components/shell/chrome";
+import { useCaseNumber } from "@/components/court/court-provider";
 
 /**
  * The trail for anything that lives under one case: `Cases › the case › here`.
@@ -13,7 +14,7 @@ import { Breadcrumbs, type Crumb } from "@/components/shell/chrome";
  */
 export function CaseBreadcrumbs({
   caseId,
-  caseNumber,
+  caseNumber: storedCaseNumber,
   trail = [],
 }: {
   caseId: string;
@@ -21,6 +22,7 @@ export function CaseBreadcrumbs({
   /** Anything under the case — a section, a form. Absent on the case's own overview. */
   trail?: Crumb[];
 }) {
+  const caseNumber = useCaseNumber()(storedCaseNumber);
   const crumbs: Crumb[] = [
     trail.length
       ? {

@@ -1,5 +1,6 @@
 import { QUEUE } from "@/lib/employee/scrutiny/fixtures";
 import type { Ball, Filing, QueueOwner } from "@/lib/employee/scrutiny/types";
+import { caseSearchKey } from "@/lib/court/localize";
 
 export function countByBall(queue: Filing[], ball: Ball): number {
   return queue.filter((r) => r.ball === ball).length;
@@ -27,7 +28,7 @@ export function filterQueue(
   owner: QueueOwner,
   text: string,
 ): Filing[] {
-  const needle = text.trim().toLowerCase();
+  const needle = caseSearchKey(text);
   return queue
     .filter((r) => r.ball === ball)
     .filter((r) =>

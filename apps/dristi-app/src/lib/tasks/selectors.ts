@@ -8,7 +8,7 @@
  *
  * Every count on the screen follows the rows the list is showing, except the four tab
  * counts, which have to be cross-view to be any use. So a pill's number is what
- * pressing it yields — `kindCounts` applies the whole filter set *except* the kind —
+ * pressing it yields — `categoryCounts` applies the whole filter set *except* the kind —
  * and a band's number is the rows under it. The pills used to be six cards counting the
  * tab while the table counted the filters, which is how a card could read 5 above an
  * empty list (2026-09-15).
@@ -17,9 +17,10 @@
  * smaller frame, so grouping and counting live in this module rather than in the screen.
  */
 
-import { canView, canViewTask, cardKindOf, isBinding, TERMINAL, viewOf } from "./permissions";
+import { canView, canViewTask, categoryOf, isBinding, TERMINAL, viewOf } from "./permissions";
 import { compareUrgency, consequenceAt, daysUntil, isOverdue } from "./urgency";
-import type { Case, PillKind, Person, PersonId, Task, TaskView } from "./types";
+import type { Case, TaskCategory, Person, PersonId, Task, TaskView } from "./types";
+import { caseSearchKey } from "@/lib/court/localize";
 
 /** Past its date *and* still binding — the one rule the cell, the filter and the band share. */
 export function readsAsOverdue(task: Task, now: Date | string): boolean {
@@ -36,7 +37,7 @@ export type Filters = {
    * asked for). Within one filter the choices widen (Pay OR File); across
    * filters they narrow (Pay AND overdue).
    */
-  kinds: PillKind[];
+  kinds: TaskCategory[];
   /** Never holds "any": that is the empty set. */
   dues: DueFilter[];
   courts: string[];
@@ -55,20 +56,17 @@ export const DEFAULT_FILTERS: Filters = {
 };
 
 /**
- * Every pill names an act. "Draft" is a state, so it is not one of them — see
- * `cardKindOf`, which files a draft under the act it will become.
+ * The PRD's citizen-side categories, in its order and its words (Pending Tasks
+ * handover, attribute 6; the Coda catalogue's Category column). `categoryOf` decides
+ * which one a task counts under.
  */
-export const KIND_ORDER = ["sign", "pay", "file", "returned", "review", "hearing"] as const satisfies readonly PillKind[];
+export const CATEGORY_ORDER = ["pay", "sign", "file", "others"] as const satisfies readonly TaskCategory[];
 
-export const KIND_LABELS: Record<PillKind, string> = {
-  sign: "To sign",
-  pay: "To pay",
-  file: "To file",
-  returned: "Returned by scrutiny",
-  review: "To review",
-  /* "To submit" over "For a hearing" — the PM's wording (Sept 2026): the pill holds
-     what must be produced or presented at a posting, and "submit" names that act. */
-  hearing: "To submit",
+export const CATEGORY_LABELS: Record<TaskCategory, string> = {
+  pay: "Pay",
+  sign: "Sign",
+  file: "File/Submit",
+  others: "Others",
 };
 
 export const VIEW_LABELS: Record<TaskView, string> = {
@@ -119,7 +117,7 @@ export function tasksInView(world: World, view: TaskView): Task[] {
 }
 
 function matchesSearch(task: Task, kase: Case, q: string): boolean {
-  const needle = q.trim().toLowerCase();
+  const needle = caseSearchKey(q);
   if (!needle) return true;
   const hay = [task.title, kase.parties, kase.stNumber, kase.cnr, kase.court].join(" ").toLowerCase();
   return needle.split(/\s+/).every((word) => hay.includes(word));
@@ -184,26 +182,26 @@ export function sortTasks(world: World, tasks: Task[]): Task[] {
 export function applyFilters(world: World, f: Filters): Task[] {
   const rows = tasksInView(world, f.view).filter((t) => {
     const kase = caseOf(world, t)!;
-    if (f.kinds.length && !f.kinds.includes(cardKindOf(t) as PillKind)) return false;
+    if (f.kinds.length && !f.kinds.includes(categoryOf(t) as TaskCategory)) return false;
     return passesFilters(t, kase, f, world.now);
   });
   return sortTasks(world, rows);
 }
 
 /** One count per pill. `draft` has no pill, so it is not a key here. */
-export type KindCounts = Record<(typeof KIND_ORDER)[number], number>;
+export type CategoryCounts = Record<(typeof CATEGORY_ORDER)[number], number>;
 
 /**
  * What each kind pill counts: the rows pressing it would leave. Every filter applies
  * except the kind itself, so a pill reading 5 always yields five rows — and the pill
  * row stays a control, not a second summary of the tab (2026-09-15).
  */
-export function kindCounts(world: World, f: Filters): KindCounts {
-  const out = Object.fromEntries(KIND_ORDER.map((k) => [k, 0])) as KindCounts;
+export function categoryCounts(world: World, f: Filters): CategoryCounts {
+  const out = Object.fromEntries(CATEGORY_ORDER.map((k) => [k, 0])) as CategoryCounts;
   for (const t of tasksInView(world, f.view)) {
     const kase = caseOf(world, t);
     if (!kase || !passesFilters(t, kase, f, world.now)) continue;
-    out[cardKindOf(t)] += 1;
+    out[categoryOf(t)] += 1;
   }
   return out;
 }

@@ -1,6 +1,5 @@
-import type { Locale } from "@/lib/onboarding/content";
+import type { Copy } from "@/lib/onboarding/content";
 
-type Copy = Record<Locale, string>;
 const t = (en: string, ml: string): Copy => ({ en, ml });
 
 export const registrationUi = {
@@ -91,7 +90,13 @@ export const contactStep = {
  */
 export const passwordStep = {
   title: t("Create a password", "ഒരു പാസ്‌വേഡ് ഉണ്ടാക്കുക"),
-  body: t("You will sign in with your mobile number and this password.", "നിങ്ങളുടെ മൊബൈൽ നമ്പറും ഈ പാസ്‌വേഡും ഉപയോഗിച്ചാണ് സൈൻ ഇൻ ചെയ്യുക."),
+  /* Optional (owner, Oct 8). Sign-in already offers a one-time code, so a skipped
+     password costs nothing; Profile → Password sets one later. */
+  body: t(
+    "Optional. Without a password, you sign in with a one-time code sent to your mobile. You can set one later from your profile.",
+    "ഇത് നിർബന്ധമല്ല. പാസ്‌വേഡ് ഇല്ലെങ്കിൽ, നിങ്ങളുടെ മൊബൈലിലേക്ക് അയയ്ക്കുന്ന ഒറ്റത്തവണ കോഡ് ഉപയോഗിച്ച് സൈൻ ഇൻ ചെയ്യാം. പിന്നീട് പ്രൊഫൈലിൽ നിന്ന് പാസ്‌വേഡ് സജ്ജമാക്കാം.",
+  ),
+  skip: t("Skip for now", "ഇപ്പോൾ ഒഴിവാക്കുക"),
   password: t("Password", "പാസ്‌വേഡ്"),
   passwordPlaceholder: t("Enter a password", "ഒരു പാസ്‌വേഡ് നൽകുക"),
   confirm: t("Confirm password", "പാസ്‌വേഡ് ആവർത്തിക്കുക"),
@@ -127,7 +132,6 @@ export const verificationSteps = {
     title: t("Advocate verification", "അഭിഭാഷക പരിശോധന"),
     body: t("To ensure the authenticity of your profile, share these details for the court to verify.", "നിങ്ങളുടെ പ്രൊഫൈലിന്റെ ആധികാരികത ഉറപ്പാക്കാൻ, കോടതിക്ക് പരിശോധിക്കാനായി ഈ വിവരങ്ങൾ നൽകുക."),
     numberLabel: t("Bar registration number", "ബാർ രജിസ്ട്രേഷൻ നമ്പർ"),
-    numberPlaceholder: t("For example K/1234/2020", "ഉദാഹരണം K/1234/2020"),
     numberError: t("Enter your Bar registration number.", "നിങ്ങളുടെ ബാർ രജിസ്ട്രേഷൻ നമ്പർ നൽകുക."),
     uploadLabel: t("Bar Council ID", "ബാർ കൗൺസിൽ ID"),
     uploadHint: t("Ensure the registration number is clearly visible.", "രജിസ്ട്രേഷൻ നമ്പർ വ്യക്തമായി കാണാമെന്ന് ഉറപ്പാക്കുക."),
@@ -215,6 +219,10 @@ export const successStep = {
   body: t("You can add your address and official ID from your profile after entering the portal.", "പോർട്ടലിൽ പ്രവേശിച്ച ശേഷം പ്രൊഫൈലിൽ നിന്ന് വിലാസവും ഔദ്യോഗിക IDയും ചേർക്കാം."),
   summonedAction: t("Continue to your case", "നിങ്ങളുടെ കേസിലേക്ക് തുടരുക"),
   generalAction: t("Go to your home page", "ഹോം പേജിലേക്ക് പോകുക"),
+  /* Arrived from a signing link: the next place is the complaint, and the button says so
+     (owner, 2026-10-09). Malayalam to be checked by a native reader. */
+  signBody: t("Next, sign your complaint.", "അടുത്തതായി, നിങ്ങളുടെ പരാതിയിൽ ഒപ്പിടുക."),
+  signAction: t("Take me to sign", "ഒപ്പിടാൻ എന്നെ കൊണ്ടുപോകുക"),
 } as const;
 
 /** Advocates and clerks do not get access on submission — the court approves first. */

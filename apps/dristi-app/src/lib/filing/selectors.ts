@@ -1,10 +1,10 @@
 /** Derived reads over the draft — pure functions so screens and the shell agree. */
 
-import { addDays, addressToString, daysBetween, todayIso } from "./format";
+import { signingRules } from "./config";
+import { addDays, addMonths, addressToString, daysBetween, nameList, plural, toLongDate, todayIso } from "./format";
+import { KERALA_FEES, type FeeSchedule } from "@/lib/court/fees";
 import {
   CHANNEL_FEE,
-  CONDONATION_FEE,
-  COURT_FEE_LINES,
   defaultProcessRounds,
   DELIVERY_MIN_ROUNDS,
   PROCESS_OPTIONS,
@@ -22,6 +22,7 @@ import type {
   Intake,
   IntakeSlot,
   PhoneConfirmer,
+  SignInstrument,
   Signatory,
   StepId,
   UserProfile,
@@ -69,6 +70,39 @@ export function extractedFieldCount(slot: IntakeSlot): number {
 
 export function complainantLabel(c: Complainant, index: number): string {
   return c.name || c.entName || `Complainant ${index + 1}`;
+}
+
+/** A company's CIN: listing, industry code, state, year, ownership, registration number. */
+const CIN_PATTERN = /^[LU]\d{5}[A-Z]{2}\d{4}[A-Z]{3}\d{6}$/;
+/** An income-tax PAN: five letters, four digits, one letter. */
+const PAN_PATTERN = /^[A-Z]{5}\d{4}[A-Z]$/;
+
+/** Upper-cased, spaces dropped — how a CIN or PAN is typed is not part of the number. */
+export function normaliseCinPan(value: string): string {
+  return value.replace(/\s+/g, "").toUpperCase();
+}
+
+/** Well-formed as either a CIN or a PAN. Says nothing about whether it is registered. */
+export function isCinOrPan(value: string): boolean {
+  const v = normaliseCinPan(value);
+  return CIN_PATTERN.test(v) || PAN_PATTERN.test(v);
+}
+
+/**
+ * Indexes of institutional complainants with no usable CIN or PAN — empty, or not in
+ * either format — and no declaration skipping it. Individuals are never asked for one.
+ */
+export function complainantsMissingCinPan(complainants: Complainant[]): number[] {
+  return complainants.flatMap((c, i) => (cinPanAnswered(c) ? [] : [i]));
+}
+
+/**
+ * The CIN or PAN is mandatory for an institution, but skippable by declaration
+ * (`LIT-18a`): answered means a valid one, or the declaration on record.
+ */
+export function cinPanAnswered(c: Complainant): boolean {
+  if (c.type !== "institution") return true;
+  return isCinOrPan(c.entCinPan ?? "") || !!c.entCinPanSkippedAt;
 }
 
 /** Complainant names as the advocate multi-select shows them. */
@@ -121,7 +155,7 @@ export function accusedHasContact(a: Accused): boolean {
 export function complainantComplete(c: Complainant): boolean {
   const named = c.type === "institution" ? !!c.entName.trim() : !!c.name.trim();
   const addr = c.type === "institution" ? c.entAddr : c.res;
-  return named && !!c.mobile.trim() && !!addr.line1.trim();
+  return named && !!c.mobile.trim() && !!addr.line1.trim() && cinPanAnswered(c);
 }
 
 /* ───────────────────────────── Case details ────────────────────────── */
@@ -132,7 +166,42 @@ export function chequeComplete(c: ChequeDetails): boolean {
 
 export function chequeFullyComplete(c: ChequeDetails, index: number): boolean {
   const bank = index > 0 && c.sameAsPrev === "yes" ? true : !!(c.ifsc && c.bankName);
-  return chequeComplete(c) && bank && !!(c.presentDate && c.returnDate && c.returnReason);
+  return (
+    chequeComplete(c) &&
+    bank &&
+    !!(c.presentDate && c.returnDate && c.returnReason) &&
+    !chequePresentIssue(c) &&
+    !chequeReturnIssue(c)
+  );
+}
+
+/** Months a cheque stays valid for presentation, from the date on it. */
+export const CHEQUE_VALIDITY_MONTHS = 3;
+
+/** The last day the cheque could be presented — the day before three months run out. */
+export function chequeValidUntil(c: ChequeDetails): ISODate {
+  return addDays(addMonths(c.dateOnCheque, CHEQUE_VALIDITY_MONTHS), -1);
+}
+
+/**
+ * What is wrong with the presentation date, if anything. The first link of the
+ * limitation chain: a cheque presented before its date, or after its three-month
+ * validity ran out, cannot found a complaint under section 138.
+ */
+export function chequePresentIssue(c: ChequeDetails): string | undefined {
+  if (!c.presentDate || !c.dateOnCheque) return undefined;
+  if (c.presentDate < c.dateOnCheque) return "Cannot be before the date on the cheque.";
+  const lastDay = chequeValidUntil(c);
+  if (lastDay && c.presentDate > lastDay) {
+    return `After the cheque expired. It was valid for presentation until ${toLongDate(lastDay)}, ${CHEQUE_VALIDITY_MONTHS} months from its date.`;
+  }
+  return undefined;
+}
+
+/** What is wrong with the return date, if anything: it cannot predate presentation. */
+export function chequeReturnIssue(c: ChequeDetails): string | undefined {
+  if (!c.returnDate || !c.presentDate || c.returnDate >= c.presentDate) return undefined;
+  return "Cannot be before the date of presentation.";
 }
 
 export function noticeComplete(n: DemandNotice): boolean {
@@ -165,16 +234,6 @@ export function documentsProgress(groups: DocumentGroup[]) {
   return { total, done, remaining, pct: total ? Math.round((done / total) * 100) : 0 };
 }
 
-/* ───────────────────────────────── Oath ─────────────────────────────── */
-
-/** Mandatory — every complainant record needs an oath video before the case can proceed. */
-export function oathProgress(complainants: Complainant[]) {
-  const total = complainants.length;
-  const done = complainants.filter((c) => !!c.oathVideo).length;
-  const remaining = total - done;
-  return { total, done, remaining, pct: total ? Math.round((done / total) * 100) : 0 };
-}
-
 /* ───────────────────────────── Sign ────────────────────────────────── */
 
 function sameMobile(a: string, b: string): boolean {
@@ -184,20 +243,20 @@ function sameMobile(a: string, b: string): boolean {
 }
 
 /**
- * Everyone who signs the complaint: each complainant (or the person acting for one), and
- * one advocate signature per complainant who has an advocate.
- *
- * The advocate half is a slot per litigant, not a row per advocate: a complainant may
- * have several advocates on record but only one of them signs for them, so the row is
- * "Advocate for Complainant 1" and the names beneath it say who may fill it. A
- * complainant appearing as a party in person has no advocate row at all.
+ * Everyone who signs the complaint and takes the oath: each complainant (or the person
+ * acting for one), and every advocate on record for them. A complainant appearing as a
+ * party in person brings no advocate.
  *
  * "You" is whoever matches the profile — by bar number for advocates, by mobile for
- * complainants — else the first advocate slot, else the first complainant.
+ * complainants — else the first advocate, else the first complainant.
  */
 export function signatories(
   draft: FilingDraft,
-  profile: UserProfile | null
+  profile: UserProfile | null,
+  /** Whether signatories take the oath — the deployment's rule unless a test says otherwise. */
+  oath: boolean = signingRules().oath,
+  /** Whether every advocate signs as themselves, or one per complainant (`config.ts`). */
+  everyAdvocate: boolean = signingRules().everyAdvocate
 ): { complainants: Signatory[]; advocates: Signatory[] } {
   const signedOf = (id: string): Signatory["status"] =>
     draft.sign.signed[id] ? "signed" : "pending";
@@ -226,33 +285,43 @@ export function signatories(
       status: signedOf(`sig-c-${c.id}`),
       signedWith: signedWith(`sig-c-${c.id}`),
       you,
+      // Complainants take the oath as advocates do (owner, 2026-10-09).
+      oathTaken: oath ? !!draft.sign.oaths?.[`sig-c-${c.id}`] : undefined,
     };
   });
 
   const myBar = profile?.barNumber.trim().toUpperCase() ?? "";
 
-  const advocates: Signatory[] = draft.complainants.flatMap((c, i) => {
-    if (isPartyInPerson(c)) return [];
-    const acting = advocatesForComplainant(draft.advocates, i);
-    if (!acting.length) return [];
-    // The system does not know which specific advocate will sign — any one of those on
-    // record may. So the row names the slot only; no individual name is shown.
-    const role =
-      acting.length === 1
-        ? "Advocate on record"
-        : `Any one of ${acting.length} advocates on record`;
-    const you = !!myBar && acting.some((a) => a.barNumber.trim().toUpperCase() === myBar);
-    return [
-      {
-        id: `sig-a-${c.id}`,
-        name: `Advocate for Complainant ${i + 1}`,
-        role,
-        status: signedOf(`sig-a-${c.id}`),
-        signedWith: signedWith(`sig-a-${c.id}`),
-        you,
-      },
-    ];
-  });
+  /*
+   * Where every advocate signs (Gujarat, owner 2026-10-09), each advocate on record is a
+   * signatory of their own, with their own link and oath. Elsewhere it is one slot per
+   * complainant that any one of their advocates may fill: the row names the slot, and
+   * the system does not know which of them will sign.
+   */
+  const advocates: Signatory[] = everyAdvocate
+    ? everyAdvocateRows(draft, myBar, oath, signedOf, signedWith)
+    : draft.complainants.flatMap((c, i) => {
+        if (isPartyInPerson(c)) return [];
+        const acting = advocatesForComplainant(draft.advocates, i);
+        if (!acting.length) return [];
+        const id = `sig-a-${c.id}`;
+        const role =
+          acting.length === 1
+            ? "Advocate on record"
+            : `Any one of ${acting.length} advocates on record`;
+        const you = !!myBar && acting.some((a) => a.barNumber.trim().toUpperCase() === myBar);
+        return [
+          {
+            id,
+            name: `Advocate for Complainant ${i + 1}`,
+            role,
+            status: signedOf(id),
+            signedWith: signedWith(id),
+            you,
+            oathTaken: oath ? !!draft.sign.oaths?.[id] : undefined,
+          },
+        ];
+      });
 
   const anyYou = [...complainants, ...advocates].some((s) => s.you);
   if (!anyYou) {
@@ -260,6 +329,83 @@ export function signatories(
     else if (complainants[0]) complainants[0].you = true;
   }
   return { complainants, advocates };
+}
+
+/** One signatory per advocate on record — the Gujarat rule (`signatories`). */
+function everyAdvocateRows(
+  draft: FilingDraft,
+  myBar: string,
+  oath: boolean,
+  signedOf: (id: string) => Signatory["status"],
+  signedWith: (id: string) => SignInstrument | undefined
+): Signatory[] {
+  const represented = draft.complainants
+    .map((c, i) => ({ c, i }))
+    .filter(({ c }) => !isPartyInPerson(c));
+  return draft.advocates.flatMap((a, n) => {
+    if (!advocateNamed(a)) return [];
+    const forWhom = represented.filter(({ i }) => a.forComplainants.includes(i));
+    if (!forWhom.length) return [];
+    const id = `sig-a-${a.id}`;
+    const names = forWhom.map(({ c, i }) => complainantLabel(c, i));
+    return [
+      {
+        id,
+        name: a.name.trim() || `Advocate ${n + 1}`,
+        role: `Advocate for ${nameList(names)}`,
+        status: signedOf(id),
+        signedWith: signedWith(id),
+        you: !!myBar && a.barNumber.trim().toUpperCase() === myBar,
+        oathTaken: oath ? !!draft.sign.oaths?.[id] : undefined,
+      },
+    ];
+  });
+}
+
+/**
+ * The person who reads the oath for a signatory slot, by name — it is in the words they
+ * read. A complainant reads it themselves, or through their PoA holder or the
+ * representative who answers for an institution; each advocate reads it in their own.
+ */
+export function oathTakerName(draft: FilingDraft, signatoryId: string, fallback = ""): string {
+  const ref = signatoryId.replace(/^sig-[ca]-/, "");
+  if (signatoryId.startsWith("sig-a-")) {
+    const own = draft.advocates.find((a) => a.id === ref);
+    if (own) return own.name.trim() || fallback;
+    // A per-complainant slot: read by its one advocate, else by whoever is signed in.
+    const i = draft.complainants.findIndex((c) => c.id === ref);
+    const acting = i < 0 ? [] : advocatesForComplainant(draft.advocates, i);
+    return acting.length === 1 ? acting[0].name.trim() || fallback : fallback;
+  }
+  const c = draft.complainants.find((x) => x.id === ref);
+  if (!c) return fallback;
+  if (c.type === "institution") return c.rep.name.trim() || c.entName.trim() || fallback;
+  if (c.poa === "yes" && c.poaHolder.name.trim()) return c.poaHolder.name.trim();
+  return c.name.trim() || fallback;
+}
+
+/**
+ * Something is still owed by this signatory: their signature, or — an advocate — the
+ * oath that follows it.
+ */
+export function isOutstanding(s: Signatory): boolean {
+  return s.status === "pending" || s.oathTaken === false;
+}
+
+/**
+ * Every signature and every advocate's oath is in — the gate to the court fee. One
+ * reading, shared by the Sign step, the dashboard queues and batch payment, so none of
+ * them can open the fee earlier than the others.
+ */
+export function signingComplete(
+  draft: FilingDraft,
+  profile: UserProfile | null,
+  oath: boolean = signingRules().oath,
+  everyAdvocate: boolean = signingRules().everyAdvocate
+): boolean {
+  const { complainants, advocates } = signatories(draft, profile, oath, everyAdvocate);
+  const everyone = [...complainants, ...advocates];
+  return everyone.length > 0 && !everyone.some(isOutstanding);
 }
 
 /**
@@ -342,18 +488,27 @@ export function sectionComplete(draft: FilingDraft, step: StepId): boolean {
     case "cheque":
       return draft.cheques.length > 0 && draft.cheques.every(chequeFullyComplete);
     case "demand-notice":
-      return draft.notices.length > 0 && draft.notices.every(noticeComplete);
-    case "jurisdiction":
       return (
-        !!draft.jurisdiction.causeDate &&
+        draft.notices.length > 0 &&
+        draft.notices.every(
+          (n, i) =>
+            noticeComplete(n) && !noticeDispatchIssue(draft, i) && !noticeServiceIssue(n)
+        )
+      );
+    case "jurisdiction": {
+      const lim = limitationView(draft);
+      return (
+        !!lim.causeDate &&
+        !lim.causeIssue &&
+        !lim.filingIssue &&
+        (lim.withinLimit || !!draft.jurisdiction.condonationReason.trim()) &&
         (draft.jurisdiction.deposited === "no" || !!draft.jurisdiction.payeeBankName.trim())
       );
+    }
     case "adr-prayer":
       return !!draft.adr.finalRelief.trim();
     case "witnesses":
       return true; // optional
-    case "oath":
-      return oathProgress(draft.complainants).remaining === 0;
     case "documents":
       return documentsProgress(draft.documents).remaining === 0;
     case "preview":
@@ -367,12 +522,53 @@ export function sectionComplete(draft: FilingDraft, step: StepId): boolean {
   }
 }
 
-/** 0–100: share of the walkable steps that are complete. */
+/**
+ * Whether the person has opened this section (`FilingDraft.visited`). A draft saved
+ * before that was recorded is read as walked in order up to where it was left.
+ */
+export function sectionOpened(draft: FilingDraft, step: StepId): boolean {
+  if (draft.visited) return draft.visited.includes(step);
+  const reached = WALK_ORDER.indexOf(draft.lastStep);
+  return WALK_ORDER.indexOf(step) <= reached;
+}
+
+/**
+ * Where a section stands in the rail: `done` once it is complete and has been opened,
+ * `started` once opened but not complete, and `untouched` before anyone opens it — a
+ * section that happens to be complete by default (the pre-written prayer, the optional
+ * witnesses) is not done until the person has seen it.
+ */
+export type SectionState = "done" | "started" | "untouched";
+
+export function sectionState(draft: FilingDraft, step: StepId): SectionState {
+  if (step === "sign" && draft.status === "filed") return "done";
+  if (!sectionOpened(draft, step)) return "untouched";
+  return sectionComplete(draft, step) ? "done" : "started";
+}
+
+/**
+ * The sections progress is counted over: the ones that ask the person for something.
+ * Left out are the intake upload (a shortcut the person may skip — the Documents section
+ * holds the same requirements), witnesses (optional), the affidavit (composed for them),
+ * and the preview (a reading of everything else, so counting it would count twice).
+ */
+export const PROGRESS_STEPS: StepId[] = [
+  "complainant",
+  "advocate",
+  "accused",
+  "cheque",
+  "demand-notice",
+  "jurisdiction",
+  "adr-prayer",
+  "documents",
+  "sign",
+];
+
+/** 0–100: share of the sections that ask for input which are done. */
 export function draftProgress(draft: FilingDraft): number {
   if (draft.status === "filed") return 100;
-  const steps = WALK_ORDER;
-  const done = steps.filter((s) => sectionComplete(draft, s)).length;
-  return Math.round((done / steps.length) * 100);
+  const done = PROGRESS_STEPS.filter((s) => sectionState(draft, s) === "done").length;
+  return Math.round((done / PROGRESS_STEPS.length) * 100);
 }
 
 /* ───────────────────────────── Source documents ────────────────────── */
@@ -425,6 +621,7 @@ export type BilledLine = {
   /** How that unit count is arrived at, e.g. "3 addresses × 2 rounds". */
   unitNote: string;
   amount: number;
+  /** What the charge is for, shown under the line on the bill. Absent when unsourced. */
   note?: string;
 };
 
@@ -446,10 +643,14 @@ export type FeeBill = {
   total: number;
 };
 
-/** Is this filing past the limitation period, so a condonation application applies? */
+/**
+ * Is this filing past the limitation period, so a condonation application applies?
+ * Read from the same dates the form shows — derived ones included — so the fee and the
+ * warning can never disagree.
+ */
 export function isDelayed(draft: FilingDraft): boolean {
-  const delay = daysBetween(draft.jurisdiction.causeDate, draft.jurisdiction.filingDate);
-  return delay !== null && delay > LIMITATION_DAYS;
+  const { elapsed } = limitationView(draft);
+  return elapsed !== null && elapsed > LIMITATION_DAYS;
 }
 
 /** One address of one accused, as the choosing screen and the bill both need it. */
@@ -555,28 +756,52 @@ function unitNote(rounds: number, addresses: number | null): string {
  * each accused's own selected addresses. Lines name the accused only when there is more
  * than one, so the ordinary single-accused bill does not repeat a name on every row.
  */
-export function feeBill(draft: FilingDraft): FeeBill {
+export function feeBill(
+  draft: FilingDraft,
+  schedule: FeeSchedule = KERALA_FEES
+): FeeBill {
   const delayed = isDelayed(draft);
+  const advocates = draft.advocates.filter(advocateNamed).length;
+  // One affidavit goes with every complaint (`draft.affidavit`).
+  const affidavits = 1;
 
-  const court: BilledLine[] = COURT_FEE_LINES.map((l) => ({
-    key: l.key,
-    label: l.label,
-    rate: l.amount,
-    units: 1,
-    // Charged once for the filing, so there is no multiplication to explain.
-    unitNote: "",
-    amount: l.amount,
-    note: l.note,
-  }));
-  if (delayed) {
+  const court: BilledLine[] = [];
+  for (const l of schedule.court) {
+    if (l.needsAdvocate && advocates === 0) continue;
+    const units =
+      l.per === "advocate" ? advocates : l.per === "affidavit" ? affidavits : 1;
+    if (units < 1) continue;
     court.push({
-      key: CONDONATION_FEE.key,
-      label: CONDONATION_FEE.label,
-      rate: CONDONATION_FEE.amount,
+      key: l.key,
+      label: l.label,
+      rate: l.amount,
+      units,
+      // Kerala's lines are charged once for the filing, so there is no multiplication to
+      // explain; other schedules price some lines per advocate or per affidavit.
+      unitNote:
+        l.per === "advocate"
+          ? units === 1
+            ? "1 advocate"
+            : `${units} advocates`
+          : l.per === "affidavit"
+            ? units === 1
+              ? "1 affidavit"
+              : `${units} affidavits`
+            : "",
+      amount: l.amount * units,
+      note: l.note,
+    });
+  }
+  if (delayed) {
+    const fee = schedule.condonation;
+    court.push({
+      key: fee.key,
+      label: fee.label,
+      rate: fee.amount,
       units: 1,
       unitNote: "",
-      amount: CONDONATION_FEE.amount,
-      note: CONDONATION_FEE.note,
+      amount: fee.amount,
+      note: fee.note,
     });
   }
 
@@ -593,13 +818,16 @@ export function feeBill(draft: FilingDraft): FeeBill {
       const n = plan.rounds[option.key] ?? 0;
       if (n < 1) continue;
       const units = option.perAddress ? n * addresses : n;
+      const fee = schedule.process?.fee ?? option.fee;
+      const name = schedule.process?.name;
       process.push({
         key: `${plan.accusedId}:${option.key}`,
-        label: `${who}${option.label}`,
-        rate: option.fee,
+        label: `${who}${option.label}${name ? ` (${name})` : ""}`,
+        rate: fee,
         units,
         unitNote: unitNote(n, option.perAddress ? addresses : null),
-        amount: option.fee * units,
+        amount: fee * units,
+        note: option.billNote,
       });
     }
 
@@ -612,7 +840,8 @@ export function feeBill(draft: FilingDraft): FeeBill {
         units,
         unitNote: unitNote(plan.delivery, addresses),
         amount: CHANNEL_FEE.amount * units,
-        note: CHANNEL_FEE.note,
+        // No note: CHANNEL_FEE's says the rate is a placeholder, which is ours to know,
+        // not the filer's. The per-address, per-round count is on the line itself.
       });
     }
   }
@@ -640,6 +869,33 @@ export function feeBill(draft: FilingDraft): FeeBill {
 export const PAYMENT_WINDOW_DAYS = 15;
 /** Days from the cause of action within which the complaint must be filed. */
 export const LIMITATION_DAYS = 30;
+/** Days from the cheque's return within which the demand notice must be sent. */
+export const NOTICE_WINDOW_DAYS = 30;
+
+/**
+ * What is wrong with notice `index`'s dispatch date against its cheque's return memo,
+ * if anything: it cannot predate the return, and must be within 30 days of it.
+ */
+export function noticeDispatchIssue(draft: FilingDraft, index: number): string | undefined {
+  const dispatch = draft.notices[index]?.dispatchDate;
+  const returned = draft.cheques[index]?.returnDate;
+  if (!dispatch || !returned) return undefined;
+  if (dispatch < returned) {
+    return `Cannot be before the cheque was returned on ${toLongDate(returned)}.`;
+  }
+  const late = daysBetween(returned, dispatch);
+  if (late !== null && late > NOTICE_WINDOW_DAYS) {
+    return `${plural(late, "day")} after the cheque was returned on ${toLongDate(returned)}. The notice must be sent within ${NOTICE_WINDOW_DAYS} days.`;
+  }
+  return undefined;
+}
+
+/** What is wrong with a notice's delivery or return date, if anything. */
+export function noticeServiceIssue(n: DemandNotice): string | undefined {
+  const served = noticeServiceDate(n);
+  if (!served || !n.dispatchDate || served >= n.dispatchDate) return undefined;
+  return `Cannot be before the notice was dispatched on ${toLongDate(n.dispatchDate)}.`;
+}
 
 /**
  * The date the notice started the clock — when it reached the accused, or when it came
@@ -697,12 +953,29 @@ export type LimitationView = {
   overBy: number;
   /** True when the dates came from the notices rather than being typed. */
   causeDerived: boolean;
+  /** The date the notices give — what a typed date is checked against. */
+  derivedCause: ISODate;
+  /** A typed cause date earlier than the payment window allows. */
+  causeIssue?: string;
+  /** A filing date before the cause of action — a complaint cannot be filed yet. */
+  filingIssue?: string;
 };
 
 export function limitationView(draft: FilingDraft): LimitationView {
   const causeDate = causeOfActionDate(draft);
   const filingDate = complaintFilingDate(draft);
-  const elapsed = daysBetween(causeDate, filingDate);
+  const derivedCause = derivedCauseDate(draft);
+  // The cause of action cannot arise before the drawer's 15 days to pay have run out.
+  const causeIssue =
+    draft.jurisdiction.causeDate && derivedCause && draft.jurisdiction.causeDate < derivedCause
+      ? `Cannot be before ${toLongDate(derivedCause)}, ${PAYMENT_WINDOW_DAYS} days after the demand notice was served.`
+      : undefined;
+  const filingIssue =
+    causeDate && filingDate && filingDate < causeDate
+      ? `The complaint can only be filed once the cause of action arises, on ${toLongDate(causeDate)}.`
+      : undefined;
+  // With either date wrong there is no delay to count; the error says what is wrong.
+  const elapsed = filingIssue || causeIssue ? null : daysBetween(causeDate, filingDate);
   return {
     causeDate,
     filingDate,
@@ -710,5 +983,8 @@ export function limitationView(draft: FilingDraft): LimitationView {
     withinLimit: elapsed !== null && elapsed <= LIMITATION_DAYS,
     overBy: elapsed === null ? 0 : Math.max(0, elapsed - LIMITATION_DAYS),
     causeDerived: !draft.jurisdiction.causeDate && !!causeDate,
+    derivedCause,
+    causeIssue,
+    filingIssue,
   };
 }

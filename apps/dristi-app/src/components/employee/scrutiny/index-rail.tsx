@@ -1,8 +1,6 @@
 "use client";
 
 import { shortDocName } from "@/lib/employee/scrutiny/bundle";
-import { docMarkCount } from "@/lib/employee/scrutiny/field";
-import type { FlagMap } from "@/lib/employee/scrutiny/types";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,13 +33,14 @@ import { useScrutinyCase } from "@/components/employee/scrutiny/scrutiny-case-co
  * role, and the rail spends no brand colour at all.
  */
 export function IndexRail({
-  flags,
   relatedDocId,
+  aiOn,
   onGoToDoc,
 }: {
-  flags: FlagMap;
   /** Doc the selected field points at — highlighted, not filtered away. */
   relatedDocId: string | null;
+  /** Poor-scan detection is an AI reading; without AI the badge is not shown. */
+  aiOn: boolean;
   onGoToDoc: (docId: string) => void;
 }) {
   return (
@@ -59,8 +58,8 @@ export function IndexRail({
           the numbers read as balanced rather than pushed in (owner, 2026-09-15). */}
       <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-2 py-2">
         <IndexRows
-          flags={flags}
           relatedDocId={relatedDocId}
+          aiOn={aiOn}
           onGoToDoc={onGoToDoc}
         />
       </div>
@@ -78,14 +77,14 @@ export function IndexRail({
 export function IndexSheet({
   open,
   onOpenChange,
-  flags,
   relatedDocId,
+  aiOn,
   onGoToDoc,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  flags: FlagMap;
   relatedDocId: string | null;
+  aiOn: boolean;
   onGoToDoc: (docId: string) => void;
 }) {
   const { bundle } = useScrutinyCase();
@@ -102,8 +101,8 @@ export function IndexSheet({
 
         <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-2 pb-4">
           <IndexRows
-            flags={flags}
             relatedDocId={relatedDocId}
+            aiOn={aiOn}
             onGoToDoc={onGoToDoc}
           />
         </div>
@@ -112,21 +111,23 @@ export function IndexSheet({
   );
 }
 
-/** One row per document: its number, its name, and what is standing against it. */
+/**
+ * One row per document: its number, its name, and — with AI on — whether it is a poor
+ * scan. Poor-scan detection is a machine reading, so without AI the row says nothing.
+ */
 function IndexRows({
-  flags,
   relatedDocId,
+  aiOn,
   onGoToDoc,
 }: {
-  flags: FlagMap;
   relatedDocId: string | null;
+  aiOn: boolean;
   onGoToDoc: (docId: string) => void;
 }) {
   const { bundle } = useScrutinyCase();
   return (
     <>
       {bundle.map((doc) => {
-        const marks = docMarkCount(doc.id, flags);
         const current = relatedDocId === doc.id;
         return (
           <Button
@@ -161,7 +162,7 @@ function IndexRows({
             {/* The badges are marks, so what they mean is said in words for anyone who
                 cannot read a shape — never a `title` attribute, which no touch or
                 keyboard user reaches. */}
-            {doc.poorScan ? (
+            {aiOn && doc.poorScan ? (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Badge variant="warning" className="shrink-0">
@@ -171,21 +172,6 @@ function IndexRows({
                 </TooltipTrigger>
                 <TooltipContent>
                   Poor scan — may be blurred or missing pages
-                </TooltipContent>
-              </Tooltip>
-            ) : null}
-            {marks > 0 ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Badge variant="destructive" className="shrink-0 tabular-nums">
-                    {marks}
-                    <span className="sr-only">
-                      {marks === 1 ? " item raised" : " items raised"}
-                    </span>
-                  </Badge>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {marks === 1 ? "1 item raised on this document" : `${marks} items raised on this document`}
                 </TooltipContent>
               </Tooltip>
             ) : null}

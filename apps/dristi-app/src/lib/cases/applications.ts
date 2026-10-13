@@ -1,45 +1,78 @@
 /**
  * Applications — the case register of submission containers: structured
- * applications and document submissions. Filing status is the electronic
- * workflow; court result exists only when an order is linked. The list
- * carries the scannable facts; the outcome and the filed packet live on the
- * record.
+ * applications and document submissions. The list carries the scannable
+ * facts; the outcome and the filed packet live on the record.
+ *
+ * Status follows the Application Lifecycle PRD (v20, Sept 23): one status
+ * runs from the filer's draft through the court's decision. The filer moves
+ * the first three; the court moves the rest (onboarding, dismissal, the
+ * accept or reject order). The court side is not built here, so every court
+ * move a row shows is authored in `applications-dummy.json`.
  *
  * Featured dummy content comes from `applications-dummy.json`. Labels
  * follow Laws sentence case.
  */
 import pack from "./applications-dummy.json";
 import { counselFor, type CaseRecord, type Parties } from "./types";
+import { isViewer, VIEWER_CLERK_NAME } from "./viewer";
 
 export type SubmissionKind = "application" | "document";
 
+/**
+ * Every status an application passes through (PRD "The workflow").
+ *
+ * - Dismissed and Rejected are two different endings. Dismissed happens
+ *   before onboarding: no application number, no accept or reject order.
+ *   Rejected only happens after onboarding.
+ * - Submitted belongs to Objection: an objection is never accepted or
+ *   rejected on its own, it is read with the application it objects to.
+ *   Document submissions (affidavits, memos) end here too, because they are
+ *   never decided either. That second use is ours, not the PRD's: flagged.
+ * - "Set a date" on the court's Review application task and "move the
+ *   decision date" change no status. There is no "rescheduled" status.
+ */
 export type FilingStatus =
   | "draft"
   | "pending-signature"
   | "pending-payment"
-  | "completed"
+  | "pending-review"
+  | "pending-decision"
+  | "accepted"
   | "rejected"
+  | "dismissed"
+  | "submitted"
   | "expired";
 
 export type ApplicationTypeId =
   | "absent-application"
+  /** Advance (prepone). The id is kept from when one type covered both ways. */
   | "advancement-reschedule"
   | "postpone"
   | "addition-of-witness"
   | "bail"
   | "certified-copy"
-  | "edit-litigant-details"
-  | "objection"
-  | "poa-change"
   | "condonation-of-delay"
+  | "edit-litigant-details"
+  | "poa-change"
   | "production-of-documents"
   | "reopen-evidence"
   | "settlement"
   | "transfer"
   | "warrant-by-hand"
+  /**
+   * Certified copy and Warrant recall are not types in the Application
+   * Lifecycle PRD and are never offered; the ids stay so anything already
+   * filed under them still has a label.
+   */
   | "warrant-recall"
   | "withdrawal"
-  | "application-others";
+  | "application-others"
+  /**
+   * Raised only from a File objection task, against one application of the
+   * opposing side (PRD ALC-12, ALC-24). Never offered in the type picker:
+   * there is no freestanding objection.
+   */
+  | "objection";
 
 /** Submission-flow buckets — the register's document heads live in documents.ts. */
 export type SubmissionDocumentTypeId =
@@ -64,48 +97,23 @@ export const APPLICATION_TYPES: {
 }[] = [
   { id: "absent-application", label: "Absent application" },
   { id: "addition-of-witness", label: "Addition of witness" },
-  { id: "advancement-reschedule", label: "Advance / prepone" },
+  { id: "advancement-reschedule", label: "Advance (prepone)" },
   { id: "bail", label: "Bail" },
   { id: "certified-copy", label: "Certified copy" },
+  { id: "condonation-of-delay", label: "Delay condonation" },
   { id: "edit-litigant-details", label: "Edit litigant details" },
-  { id: "objection", label: "Objection" },
   { id: "poa-change", label: "PoA change" },
   { id: "postpone", label: "Postpone" },
-  { id: "condonation-of-delay", label: "Condonation of delay" },
   { id: "production-of-documents", label: "Production of documents" },
   { id: "reopen-evidence", label: "Reopen evidence" },
-  { id: "settlement", label: "Settlement" },
-  { id: "transfer", label: "Transfer" },
+  { id: "settlement", label: "Case settlement" },
+  { id: "transfer", label: "Case transfer" },
   { id: "warrant-by-hand", label: "Warrant by hand" },
   { id: "warrant-recall", label: "Warrant recall" },
-  { id: "withdrawal", label: "Withdrawal" },
-  { id: "application-others", label: "Others" },
+  { id: "withdrawal", label: "Case withdrawal" },
+  { id: "application-others", label: "Generic" },
+  { id: "objection", label: "Objection" },
 ];
-
-/**
- * Types the picker shows as cards but whose form is not built yet. Choosing one
- * lands on a "not built" notice instead of a form: the card says what the type
- * is for; the flow behind it is still to come. Kept out of the fields switch and
- * the generate path so a card can never reach a form it does not have.
- */
-export const UNBUILT_APPLICATION_TYPE_IDS: ReadonlySet<ApplicationTypeId> =
-  new Set<ApplicationTypeId>([
-    "absent-application",
-    "reopen-evidence",
-    "warrant-by-hand",
-    "warrant-recall",
-    /* In the lifecycle's type list, with no fields specified yet. Edit litigant
-       details, PoA change and Addition of witness still run as their own party
-       actions from the Parties tab. */
-    "addition-of-witness",
-    "certified-copy",
-    "edit-litigant-details",
-    "poa-change",
-  ]);
-
-export function isUnbuiltApplicationType(id: ApplicationTypeId): boolean {
-  return UNBUILT_APPLICATION_TYPE_IDS.has(id);
-}
 
 /** Submission-flow buckets — the register's document heads live in documents.ts. */
 export const SUBMISSION_DOCUMENT_TYPES: {
@@ -118,14 +126,42 @@ export const SUBMISSION_DOCUMENT_TYPES: {
   { id: "document-others", label: "Others" },
 ];
 
+/** In lifecycle order, so the Status filter reads the way a filing moves. */
 export const FILING_STATUSES: { id: FilingStatus; label: string }[] = [
   { id: "draft", label: "Draft" },
   { id: "pending-signature", label: "Pending signature" },
   { id: "pending-payment", label: "Pending payment" },
-  { id: "completed", label: "Completed" },
+  { id: "pending-review", label: "Pending review" },
+  { id: "pending-decision", label: "Pending decision" },
+  { id: "accepted", label: "Accepted" },
   { id: "rejected", label: "Rejected" },
+  { id: "dismissed", label: "Dismissed" },
+  { id: "submitted", label: "Submitted" },
   { id: "expired", label: "Expired" },
 ];
+
+/** Signed and paid: the court has it (PRD ALC-01). */
+export function isSubmittedToCourt(status: FilingStatus): boolean {
+  return !(
+    status === "draft" ||
+    status === "pending-signature" ||
+    status === "pending-payment" ||
+    status === "expired"
+  );
+}
+
+/**
+ * Onboarded: the court has allotted the application number (ALC-04). Only
+ * from here can the other side see it (ALC-17). Dismissed never gets here,
+ * so a dismissed application stays invisible to the other side for good.
+ */
+export function isOnboardedStatus(status: FilingStatus): boolean {
+  return (
+    status === "pending-decision" ||
+    status === "accepted" ||
+    status === "rejected"
+  );
+}
 
 const APPLICATION_TYPE_IDS = new Set<string>(
   APPLICATION_TYPES.map((item) => item.id)
@@ -164,32 +200,77 @@ export function submissionTypeLabel(id: SubmissionTypeId): string {
   return SUBMISSION_DOCUMENT_TYPES.find((item) => item.id === id)?.label ?? id;
 }
 
+/**
+ * An Others application's own title, quoted exactly as the filer typed it
+ * (the PRD's "Application Title" field), for a sentence that names it:
+ * "File objection to “Addition of the firm's accountant as a witness”".
+ * Every other type is named by its type, so this is null for them, and for
+ * an Others filing with no title of its own. Never re-cased: it is free text,
+ * and "PW-2 recall" must not become "pW-2 recall" (owner, Sept 24).
+ */
+export function quotedOthersTitle(
+  submission: Pick<Submission, "type" | "title">
+): string | null {
+  const title = othersTitle(submission);
+  return title ? `\u201c${title}\u201d` : null;
+}
+
+/**
+ * The title an Others filer typed (the PRD's "Application Title"), as typed.
+ * "Others" names no ask, so wherever an application is named this is what
+ * tells two Others apart (owner, Sept 24: "I don't even understand what it
+ * is about"). Null for every other type, and for an Others filing with no
+ * title of its own.
+ */
+export function othersTitle(
+  submission: Pick<Submission, "type" | "title">
+): string | null {
+  if (submission.type !== "application-others") return null;
+  const title = submission.title.trim();
+  if (!title || ["others", "generic"].includes(title.toLowerCase())) return null;
+  return title;
+}
+
 export function filingStatusLabel(status: FilingStatus): string {
   return FILING_STATUSES.find((item) => item.id === status)?.label ?? status;
 }
 
 /**
- * Filing-workflow colour — not court outcome, so no status here takes a
- * solid. Amber stays reserved for the three statuses that still need a step
- * from you, which is what pins them to Needs attention. Completed is outline
- * so it cannot be read as Allowed; Expired takes the neutral fill — terminal
- * like Completed, distinct from it at a glance, and never a defect the way
- * destructive Rejected is (Colors: three treatments per status, no neutral
- * status family; Laws: pair colour with the words).
+ * Status colour, always paired with the words (Laws). Muted tints only, no
+ * solids: a badge in a register is a label, not an action.
+ *
+ * - Amber: the three filer steps (draft, sign, pay), which is what pins a
+ *   row to Needs attention.
+ * - Info: with the court (Pending review, Pending decision). In flight, and
+ *   nothing owed by the filer.
+ * - Green: Accepted. Red: both refusals, Rejected and Dismissed; the words
+ *   tell them apart.
+ * - Neutral: the two endings that are neither a win nor a refusal. Expired
+ *   keeps the grey fill it had; Submitted takes the outline so the two
+ *   still differ at a glance.
  */
 export function filingStatusVariant(
   status: FilingStatus
-): "warning" | "destructive" | "secondary" | "success" {
-  if (status === "rejected") return "destructive";
-  if (status === "expired") return "secondary";
-  /* Success tint, matching the Documents register — the two tables sit two
-     tabs apart and a Completed that is green in one and grey in the other
-     reads as two different states (Aug 31 round). */
-  if (status === "completed") return "success";
-  return "warning";
+): "warning" | "destructive" | "secondary" | "success" | "info" | "outline" {
+  switch (status) {
+    case "pending-review":
+    case "pending-decision":
+      return "info";
+    case "accepted":
+      return "success";
+    case "rejected":
+    case "dismissed":
+      return "destructive";
+    case "submitted":
+      return "outline";
+    case "expired":
+      return "secondary";
+    default:
+      return "warning";
+  }
 }
 
-export function nextStepCopy(status: string): string | null {
+export function nextStepCopy(status: FilingStatus): string | null {
   switch (status) {
     case "draft":
       return "Continue draft";
@@ -207,7 +288,7 @@ export function filingActionLabel(status: FilingStatus): string {
 }
 
 /** Filings that still need a step from you — pin these above the register. */
-export function needsAttention(status: string): boolean {
+export function needsAttention(status: FilingStatus): boolean {
   return nextStepCopy(status) !== null;
 }
 
@@ -306,11 +387,28 @@ export function groupAttention(rows: Submission[]): AttentionEntry[] {
   });
 }
 
+/** What a person is on the case, for who may see and do what (PRD "Users and actions"). */
+export type SubmissionPersonKind =
+  | "party"
+  | "advocate"
+  | "clerk"
+  | "poa-holder";
+
 export type SubmissionPerson = {
   id: string;
   name: string;
   role: string;
   filterLabel: string;
+  kind: SubmissionPersonKind;
+  side: "complainant" | "accused";
+  /**
+   * The advocate whose office this clerk or junior works in. "Associated" in
+   * the PRD: the advocate signs what the clerk drafts, and each sees the
+   * other's drafts.
+   */
+  officeOf?: string;
+  /** For a PoA holder: the party whose power of attorney they hold. */
+  holdsPoaFor?: string;
 };
 
 export type SubmissionDocument = {
@@ -330,10 +428,44 @@ export type Submission = {
   type: SubmissionTypeId;
   title: string;
   status: FilingStatus;
+  /** Date created: when the draft was started. */
   addedOn: string;
+  /**
+   * Raised by: the advocate or party in person who signs it (PRD
+   * "Application Raised By"). On a draft, the one who will sign it.
+   */
   submittedById: string;
-  /** Registry or filing ID once allotted. */
-  submissionId: string | null;
+  /** Who started the draft, when that is not the signer (a clerk or junior). */
+  createdById: string;
+  /** The litigant it is raised for (PRD "Application Raised On Behalf Of"). */
+  onBehalfOfId: string;
+  /**
+   * Allotted on submission, once signed and paid (ALC-02). The filer may see
+   * it; it is never cited in an order or any other document.
+   */
+  temporaryId: string | null;
+  /** Allotted on onboarding (ALC-04). The number the court knows it by. */
+  applicationNumber: string | null;
+  /** ISO day it was signed and paid. */
+  submittedOn: string | null;
+  /** ISO day the court onboarded it. */
+  onboardedOn: string | null;
+  /**
+   * The day the court will decide it (ALC-09). Not a stored attribute in the
+   * PRD: it is the Decide application task's due date. Carried here because
+   * the court's tasks are not built, and the filer is told the date.
+   */
+  decisionOn: string | null;
+  /** Whether the court invited the other side to object (ALC-11). */
+  objectionsInvited: boolean | null;
+  /** For an objection: the application it objects to. */
+  objectionToId: string | null;
+  /**
+   * When an unfiled filing (draft, unsigned, unpaid) expires (PRD: "Expire,
+   * System"). The PRD gives no timer, so the demo pack states a day where it
+   * wants one shown; absent means none is known.
+   */
+  expiresOn: string | null;
   /**
    * The prayer in plain words — what the filer asked the court to do. Only
    * applications ask for something, so document submissions carry null.
@@ -346,7 +478,9 @@ export type Submission = {
    * for the table row. Not dead data; do not re-add it to the dialog.
    */
   request: string | null;
+  /** The order's operative line, once decided or dismissed. */
   courtResult: string | null;
+  /** The order accepting, rejecting or dismissing it. */
   linkedOrder: LinkedOrder | null;
   defects: string[];
   documents: SubmissionDocument[];
@@ -425,14 +559,8 @@ function kindFromPack(value: string): SubmissionKind {
   throw new Error(`Unknown submission kind in dummy pack: ${value}`);
 }
 
-/** Labels the pack was written with before the lifecycle renamed the type. */
-const PACK_LABEL_ALIASES: Record<string, string> = {
-  "advancement/reschedule": "advance / prepone",
-};
-
 function typeFromPack(kind: SubmissionKind, label: string): SubmissionTypeId {
-  const raw = label.trim().toLowerCase();
-  const normalized = PACK_LABEL_ALIASES[raw] ?? raw;
+  const normalized = label.trim().toLowerCase();
   const catalogue =
     kind === "application" ? APPLICATION_TYPES : SUBMISSION_DOCUMENT_TYPES;
   const match = catalogue.find(
@@ -455,17 +583,59 @@ function statusFromPack(value: string): FilingStatus {
   return match.id;
 }
 
+type PackPerson = {
+  id: string;
+  label: string;
+  kind?: string;
+  side?: string;
+  officeOf?: string;
+  holdsPoaFor?: string;
+};
+
+function personKindFromPack(
+  value: string | undefined,
+  role: string
+): SubmissionPersonKind {
+  if (
+    value === "party" ||
+    value === "advocate" ||
+    value === "clerk" ||
+    value === "poa-holder"
+  ) {
+    return value;
+  }
+  const lower = role.toLowerCase();
+  if (lower.includes("counsel")) return "advocate";
+  if (lower.includes("clerk")) return "clerk";
+  if (lower.includes("power of attorney")) return "poa-holder";
+  return "party";
+}
+
+/** Accused is matched first so "Accused counsel" is never read as complainant. */
+function sideFromRole(role: string): "complainant" | "accused" {
+  return role.toLowerCase().includes("accused") ? "accused" : "complainant";
+}
+
+function personFromPack(item: PackPerson): SubmissionPerson {
+  const [left, role = ""] = item.label.split(" — ");
+  const name = left.split(",")[0]?.trim() ?? left;
+  return {
+    id: item.id,
+    name,
+    role,
+    filterLabel: item.label,
+    kind: personKindFromPack(item.kind, role),
+    side:
+      item.side === "accused" || item.side === "complainant"
+        ? item.side
+        : sideFromRole(role),
+    officeOf: item.officeOf,
+    holdsPoaFor: item.holdsPoaFor,
+  };
+}
+
 function featuredPeople(): SubmissionPerson[] {
-  return pack.people.map((item) => {
-    const [left, role] = item.label.split(" — ");
-    const name = left.split(",")[0]?.trim() ?? left;
-    return {
-      id: item.id,
-      name,
-      role: role ?? "",
-      filterLabel: item.label,
-    };
-  });
+  return (pack.people as PackPerson[]).map(personFromPack);
 }
 
 /**
@@ -473,6 +643,11 @@ function featuredPeople(): SubmissionPerson[] {
  * `extraCases` entry. Spelled out rather than inferred off the JSON because
  * the two sources carry different optional fields and both must go through
  * the same throwing validators.
+ *
+ * The lifecycle fields are optional so a row states only what the court has
+ * done to it. What is left out is derived: the drafter is the signer, the
+ * litigant is the filer's own side, and a submitted row was submitted the
+ * day it was added.
  */
 type PackSubmissionRow = {
   id: string;
@@ -482,7 +657,16 @@ type PackSubmissionRow = {
   status: string;
   addedOn: string;
   submittedById: string;
-  submissionId: string | null;
+  createdById?: string;
+  onBehalfOfId?: string;
+  temporaryId: string | null;
+  applicationNumber?: string | null;
+  submittedOn?: string | null;
+  onboardedOn?: string | null;
+  decisionOn?: string | null;
+  objectionsInvited?: boolean | null;
+  objectionToId?: string | null;
+  expiresOn?: string | null;
   request: string | null;
   courtResult: string | null;
   linkedOrder: LinkedOrder | null;
@@ -490,18 +674,39 @@ type PackSubmissionRow = {
   documents: { label: string; href?: string; page?: number }[];
 };
 
-function submissionFromPack(row: PackSubmissionRow): Submission {
+function submissionFromPack(
+  row: PackSubmissionRow,
+  people: SubmissionPerson[]
+): Submission {
   const kind = kindFromPack(row.kind);
   const type = typeFromPack(kind, row.type);
+  const status = statusFromPack(row.status);
+  const filer = people.find((person) => person.id === row.submittedById);
+  const party = people.find(
+    (person) => person.kind === "party" && person.side === filer?.side
+  );
+  const submitted = isSubmittedToCourt(status);
+  const onboarded = isOnboardedStatus(status);
   return {
     id: row.id,
     kind,
     type,
     title: row.title.trim() || submissionTypeLabel(type),
-    status: statusFromPack(row.status),
+    status,
     addedOn: row.addedOn,
     submittedById: row.submittedById,
-    submissionId: row.submissionId,
+    createdById: row.createdById ?? row.submittedById,
+    onBehalfOfId: row.onBehalfOfId ?? party?.id ?? row.submittedById,
+    temporaryId: submitted ? row.temporaryId : null,
+    applicationNumber: onboarded ? (row.applicationNumber ?? null) : null,
+    submittedOn: submitted ? (row.submittedOn ?? dayOf(row.addedOn)) : null,
+    onboardedOn: onboarded
+      ? (row.onboardedOn ?? row.submittedOn ?? dayOf(row.addedOn))
+      : null,
+    decisionOn: row.decisionOn ?? null,
+    objectionsInvited: row.objectionsInvited ?? null,
+    objectionToId: row.objectionToId ?? null,
+    expiresOn: submitted ? null : (row.expiresOn ?? null),
     request: row.request,
     courtResult: row.courtResult,
     linkedOrder: row.linkedOrder,
@@ -514,15 +719,20 @@ function submissionFromPack(row: PackSubmissionRow): Submission {
   };
 }
 
+function dayOf(iso: string): string {
+  return iso.slice(0, 10);
+}
+
 function featuredFile(record: CaseRecord): ApplicationsFile {
+  const people = featuredPeople();
   return {
     caseId: record.id,
     caseNumber: record.caseNumber,
     parties: record.parties,
     court: pack.case.court,
-    people: featuredPeople(),
-    submissions: (pack.submissions as PackSubmissionRow[]).map(
-      submissionFromPack
+    people,
+    submissions: (pack.submissions as PackSubmissionRow[]).map((row) =>
+      submissionFromPack(row, people)
     ),
   };
 }
@@ -532,11 +742,14 @@ function featuredFile(record: CaseRecord): ApplicationsFile {
  * people by the generated ids `peopleFrom` produces (`<case>-complainant`,
  * `<case>-counsel-c-0`, …), so populating a case here needs no people
  * authoring — the fixture's cause title and counsel stay the one source.
+ * People the cause title cannot supply (a clerk, a PoA holder) come from
+ * `extraPeople`.
  */
 const EXTRA_PACKS = pack.extraCases as Record<
   string,
   PackSubmissionRow[] | undefined
 >;
+const EXTRA_PEOPLE = pack.extraPeople as Record<string, PackPerson[] | undefined>;
 
 function peopleFrom(record: CaseRecord): SubmissionPerson[] {
   const people: SubmissionPerson[] = [
@@ -545,12 +758,16 @@ function peopleFrom(record: CaseRecord): SubmissionPerson[] {
       name: record.parties.complainant,
       role: "Complainant",
       filterLabel: `${record.parties.complainant} — Complainant`,
+      kind: "party",
+      side: "complainant",
     },
     {
       id: `${record.id}-accused`,
       name: record.parties.accused,
       role: "Accused",
       filterLabel: `${record.parties.accused} — Accused`,
+      kind: "party",
+      side: "accused",
     },
   ];
 
@@ -560,6 +777,8 @@ function peopleFrom(record: CaseRecord): SubmissionPerson[] {
       name,
       role: "Complainant counsel",
       filterLabel: `${name} — Complainant counsel`,
+      kind: "advocate",
+      side: "complainant",
     });
   });
   counselFor(record, "accused").forEach((name, index) => {
@@ -568,8 +787,32 @@ function peopleFrom(record: CaseRecord): SubmissionPerson[] {
       name,
       role: "Accused counsel",
       filterLabel: `${name} — Accused counsel`,
+      kind: "advocate",
+      side: "accused",
     });
   });
+
+  /* The signed-in advocate's clerk, on every case the advocate holds a
+     vakalatnama in, so the clerk profile has a seat wherever its advocate
+     does. The featured case names its clerk in the pack instead. */
+  const office = people.find(
+    (person) => person.kind === "advocate" && isViewer(person.name)
+  );
+  if (office) {
+    people.push({
+      id: `${record.id}-clerk`,
+      name: VIEWER_CLERK_NAME,
+      role: `Clerk to ${office.name}`,
+      filterLabel: `${VIEWER_CLERK_NAME} — Clerk to ${office.name}`,
+      kind: "clerk",
+      side: office.side,
+      officeOf: office.id,
+    });
+  }
+
+  for (const extra of EXTRA_PEOPLE[record.id] ?? []) {
+    people.push(personFromPack(extra));
+  }
 
   return people;
 }
@@ -578,13 +821,16 @@ const FEATURED_CASE_ID = "c-1001";
 
 export function applicationsFile(record: CaseRecord): ApplicationsFile {
   if (record.id === FEATURED_CASE_ID) return featuredFile(record);
+  const people = peopleFrom(record);
   return {
     caseId: record.id,
     caseNumber: record.caseNumber,
     parties: record.parties,
     court: record.court,
-    people: peopleFrom(record),
-    submissions: (EXTRA_PACKS[record.id] ?? []).map(submissionFromPack),
+    people,
+    submissions: (EXTRA_PACKS[record.id] ?? []).map((row) =>
+      submissionFromPack(row, people)
+    ),
   };
 }
 
@@ -605,6 +851,17 @@ export function resumeDraftHref(
   return submission.kind === "application"
     ? `${base}/application?draft=${encodeURIComponent(submission.id)}`
     : `${base}/documents`;
+}
+
+/**
+ * Where the File objection task leads: the Raise application form, opened on
+ * an Objection already pointed at the other side's application. Objection
+ * is never offered in the type picker (ALC-12), so this is its only way in.
+ */
+export function objectionHref(caseId: string, applicationId: string): string {
+  return `/cases/${caseId}/filings/application?objectTo=${encodeURIComponent(
+    applicationId
+  )}`;
 }
 
 /**
@@ -672,7 +929,9 @@ export function selectApplications(options: {
     // rightly excludes them.
     if (
       query &&
-      !(submission.submissionId ?? "").toLowerCase().includes(query)
+      ![submission.applicationNumber, submission.temporaryId].some((id) =>
+        (id ?? "").toLowerCase().includes(query)
+      )
     ) {
       return false;
     }

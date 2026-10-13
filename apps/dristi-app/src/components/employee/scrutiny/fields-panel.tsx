@@ -38,13 +38,11 @@ export interface FieldsPanelHandle {
 export function FieldsPanel({
   controller,
   aiOn,
-  onGoToDoc,
   onGoToItem,
   ref,
 }: {
   controller: ScrutinyController;
   aiOn: boolean;
-  onGoToDoc: (docId: string) => void;
   /** Selects a row and scrolls to it — how a linked pair reads in both directions. */
   onGoToItem: (fieldId: string) => void;
   ref?: React.Ref<FieldsPanelHandle>;
@@ -225,7 +223,6 @@ export function FieldsPanel({
                           field={fieldById[field.id]}
                           controller={controller}
                           aiOn={aiOn}
-                          onGoToDoc={onGoToDoc}
                           onGoToItem={onGoToItem}
                         />
                       ))}

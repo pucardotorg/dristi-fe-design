@@ -68,19 +68,30 @@ function Heading({ title, body }: { title: string; body: string }) {
   );
 }
 
-function Actions({ locale, onBack, submitLabel }: { locale: Locale; onBack: () => void; submitLabel?: string }) {
+function Actions({ locale, onBack, submitLabel, skip }: {
+  locale: Locale;
+  onBack: () => void;
+  submitLabel?: string;
+  /** An optional step's way past it — sits beside the primary, quieter than it. */
+  skip?: { label: string; onSkip: () => void };
+}) {
   return (
     <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
       <Button type="button" variant="outline" onClick={onBack}>
         <ArrowLeftIcon data-icon="inline-start" aria-hidden />
         {pick(registrationUi.back, locale)}
       </Button>
-      <Button type="submit" className="sm:min-w-40">{submitLabel ?? pick(registrationUi.continue, locale)}</Button>
+      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center">
+        {skip ? <Button type="button" variant="ghost" onClick={skip.onSkip}>{skip.label}</Button> : null}
+        <Button type="submit" className="sm:min-w-40">{submitLabel ?? pick(registrationUi.continue, locale)}</Button>
+      </div>
     </div>
   );
 }
 
-export function RegistrationFlow({ locale, summoned, initialMobile = "", onFinish }: {
+export function RegistrationFlow({ locale, summoned, toSign = false, initialMobile = "", onFinish }: {
+  /** Arrived from a signing link: the success step sends them to sign, and says so. */
+  toSign?: boolean;
   locale: Locale;
   summoned: boolean;
   initialMobile?: string;
@@ -157,9 +168,9 @@ export function RegistrationFlow({ locale, summoned, initialMobile = "", onFinis
         <span className="flex size-14 items-center justify-center rounded-full bg-success-muted text-success-muted-foreground">
           <CheckCircle2Icon className="size-7" aria-hidden />
         </span>
-        <Heading title={pick(successStep.title, locale)} body={pick(successStep.body, locale)} />
+        <Heading title={pick(successStep.title, locale)} body={pick(toSign ? successStep.signBody : successStep.body, locale)} />
         <Button size="lg" onClick={() => onFinish ? onFinish({ idSkipped: true, profileIncomplete: true }) : setDestinationNotice(true)}>
-          {pick(summoned ? successStep.summonedAction : successStep.generalAction, locale)}
+          {pick(toSign ? successStep.signAction : summoned ? successStep.summonedAction : successStep.generalAction, locale)}
         </Button>
         {destinationNotice ? <Alert variant="info" className="text-left"><AlertTitle>Prototype: destination not connected</AlertTitle><AlertDescription>This action will open your portal home.</AlertDescription></Alert> : null}
       </div>
@@ -253,7 +264,7 @@ export function RegistrationFlow({ locale, summoned, initialMobile = "", onFinis
                 )}
               </div>
               {otpVerified ? (
-                <p className="flex items-center gap-1.5 text-body-compact text-success"><CheckCircle2Icon className="size-4" aria-hidden />{pick(contactStep.verified, locale)}</p>
+                <p className="flex items-center gap-1.5 text-body-compact text-success-ink"><CheckCircle2Icon className="size-4" aria-hidden />{pick(contactStep.verified, locale)}</p>
               ) : (
                 <FieldDescription>{pick(contactStep.mobileHint, locale)}</FieldDescription>
               )}
@@ -308,7 +319,7 @@ export function RegistrationFlow({ locale, summoned, initialMobile = "", onFinis
             <Heading title={pick(passwordStep.title, locale)} body={pick(passwordStep.body, locale)} />
 
             <Field data-invalid={touched && Boolean(problem)}>
-              <FieldLabel>{pick(passwordStep.password, locale)} <span className="text-destructive">*</span></FieldLabel>
+              <FieldLabel>{pick(passwordStep.password, locale)}</FieldLabel>
               <Input
                 type={passwordRevealed ? "text" : "password"}
                 autoComplete="new-password"
@@ -355,7 +366,7 @@ export function RegistrationFlow({ locale, summoned, initialMobile = "", onFinis
             </Field>
 
             <Field data-invalid={touched && password !== confirmPassword}>
-              <FieldLabel>{pick(passwordStep.confirm, locale)} <span className="text-destructive">*</span></FieldLabel>
+              <FieldLabel>{pick(passwordStep.confirm, locale)}</FieldLabel>
               {/* The tick inside the box is the match signal; its absence is the
                   mismatch signal. Continue stays live either way — pressing it with a
                   mismatch says so in words below, rather than a button that will not
@@ -378,7 +389,16 @@ export function RegistrationFlow({ locale, summoned, initialMobile = "", onFinis
               <FieldError>{touched && password !== confirmPassword ? pick(passwordStep.confirmError, locale) : null}</FieldError>
             </Field>
 
-            <Actions locale={locale} onBack={() => { setTouched(false); setStep("contact"); }} />
+            {/* Skip drops anything half-typed — an account is created with a password
+                or without one, never with a password nobody confirmed. */}
+            <Actions
+              locale={locale}
+              onBack={() => { setTouched(false); setStep("contact"); }}
+              skip={{
+                label: pick(passwordStep.skip, locale),
+                onSkip: () => { setPassword(""); setConfirmPassword(""); setTouched(false); setStep(needsVerification ? "verification" : "terms"); },
+              }}
+            />
           </form>
         ) : null}
 
@@ -387,7 +407,7 @@ export function RegistrationFlow({ locale, summoned, initialMobile = "", onFinis
             <Heading title={pick(verification.title, locale)} body={pick(verification.body, locale)} />
             <Field data-invalid={touched && !regNumber.trim()}>
               <FieldLabel>{pick(verification.numberLabel, locale)} <span className="text-destructive">*</span></FieldLabel>
-              <Input value={regNumber} placeholder={pick(verification.numberPlaceholder, locale)} onChange={(event) => { setRegNumber(event.target.value); setTouched(false); }} />
+              <Input value={regNumber} onChange={(event) => { setRegNumber(event.target.value); setTouched(false); }} />
               <FieldError>{touched && !regNumber.trim() ? pick(verification.numberError, locale) : null}</FieldError>
             </Field>
             <Field data-invalid={touched && !idFile}>

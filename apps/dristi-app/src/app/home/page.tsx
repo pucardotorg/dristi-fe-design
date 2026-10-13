@@ -4,6 +4,7 @@ import * as React from "react";
 import { useSearchParams } from "next/navigation";
 
 import { HomeScreen } from "@/components/home/home-screen";
+import { SECOND_LANGUAGE } from "@/lib/locale-config";
 import type { Locale } from "@/lib/onboarding/content";
 
 /**
@@ -14,7 +15,7 @@ import type { Locale } from "@/lib/onboarding/content";
  *   `nocase=1` — token present but no case behind it (expired / not yet in CIS).
  *   `noid=1`   — registration finished without an ID upload; shows the reminder.
  *   `profile=missing` — registration finished with an incomplete address profile.
- *   `lang=ml`  — locale continuity from the sign-in screen.
+ *   `lang=hi`  — locale continuity from the sign-in screen (the configured second language).
  *   `join=manual` — open the manual join dialog.
  *   `join=handoff&as=self|poa` — continue a join an advocate account started as a
  *                  litigant or PoA holder; the case is already found and verified.
@@ -41,7 +42,7 @@ function HomePage() {
           : undefined
       }
       pendingLink={searchParams.get("link") === "pending"}
-      initialLocale={lang === "ml" ? ("ml" as Locale) : "en"}
+      initialLocale={lang === SECOND_LANGUAGE ? (SECOND_LANGUAGE as Locale) : "en"}
     />
   );
 }

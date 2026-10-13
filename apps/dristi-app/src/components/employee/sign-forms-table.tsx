@@ -29,6 +29,7 @@ import {
 } from "@/lib/employee/sign-forms";
 import { cn } from "@/lib/utils";
 import { Identifier } from "@/components/chrome/identifier";
+import { useCourtText } from "@/components/court/court-provider";
 
 /**
  * The signing queue as a table: which forms are picked for signature, the cause, its
@@ -66,6 +67,7 @@ export function SignFormsTable({
   onToggleAll: (select: boolean) => void;
   onOpen: (form: SignForm) => void;
 }) {
+  const courtText = useCourtText();
   const selectedOnPage = rows.filter((form) => selectedIds.has(form.id)).length;
   const allSelected = rows.length > 0 && selectedOnPage === rows.length;
   const someSelected = selectedOnPage > 0 && !allSelected;
@@ -123,7 +125,7 @@ export function SignFormsTable({
                 <Checkbox
                   checked={selected}
                   onCheckedChange={() => onToggle(form)}
-                  aria-label={`Select ${causeTitle(form)}, ${form.caseNumber}`}
+                  aria-label={`Select ${causeTitle(form)}, ${courtText(form.caseNumber)}`}
                 />
               </TableCell>
               {/* The row's one emphasised cell, and its only opener. Quiet

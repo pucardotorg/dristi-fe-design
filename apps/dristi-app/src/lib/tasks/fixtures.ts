@@ -28,7 +28,7 @@ export const kase: Case = {
   stNumber: "ST 1/2025",
   cnr: "KLKL01-000001-2025",
   parties: "A v. B",
-  court: "24×7 ON Court, Kollam",
+  court: "24×7 ON Court",
   stage: "Evidence",
   nextHearingAt: at(5, 5),
   signatories: [senior.id, senior2.id],
@@ -40,7 +40,7 @@ export const otherCase: Case = {
   id: "c-2",
   stNumber: "ST 2/2025",
   parties: "C v. D",
-  court: "JMFC Court 1, Kollam",
+  court: "JMFC Court 1",
   signatories: [outsider.id],
   advocates: [outsider.id],
 };

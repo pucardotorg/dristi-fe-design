@@ -45,7 +45,7 @@ const REJECTED: RejectedRegistration[] = [
     idFileName: "bar-council-id.jpg",
     applicationId: "KL-ADV-483920-2026",
     officerMessage:
-      "The name entered does not match the Bar Council record for K/1742/2019: the enrolment register holds the surname as Menon, not as entered. The Bar Council ID uploaded is also not readable; the registration number and photograph cannot be made out from the scan, so the document cannot be verified against the register. Correct the name to match the Bar Council record exactly, upload a clear and complete scan of the Bar Council ID with the registration number visible, and resubmit the registration for approval.",
+      "The name entered does not match the Bar Council record: the enrolment register holds the surname as Menon, not as entered. The Bar Council ID uploaded is also not readable; the registration number and photograph cannot be made out from the scan, so the document cannot be verified against the register. Correct the name to match the Bar Council record exactly, upload a clear and complete scan of the Bar Council ID with the registration number visible, and resubmit the registration for approval.",
     flagged: ["name", "idFile"],
   },
 ];

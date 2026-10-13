@@ -46,6 +46,8 @@
 
 import { CURRENT_STAFF } from "./content";
 import { causeTitle, formatListingDate, parseIsoDay } from "./hearings";
+import { caseSearchKey } from "@/lib/court/localize";
+import { localizeForDownload, voicedForDownload } from "@/lib/court/browser";
 
 /**
  * Which decision the order carries — the reference's "Title" column.
@@ -370,7 +372,7 @@ export const SIGN_ORDER_QUEUE: SignOrder[] = [
   {
     id: "so-1035",
     caseNumber: "CMP/1035/2026",
-    parties: { complainant: "Ajay Menon", accused: "Kollam Steel and Hardware" },
+    parties: { complainant: "Ajay Menon", accused: "Lakeside Steel and Hardware" },
     type: "others",
     status: "signed",
     addedOn: "2026-03-23",
@@ -422,7 +424,7 @@ export function filterSignOrders(
   rows: SignOrder[],
   filters: SignOrderFilters,
 ): SignOrder[] {
-  const query = filters.query.trim().toLowerCase();
+  const query = caseSearchKey(filters.query);
   return rows.filter((order) => {
     if (filters.status !== "all" && order.status !== filters.status) {
       return false;
@@ -608,11 +610,11 @@ export function signOrderDocumentFilename(order: SignOrder): string {
 export function downloadSignOrderDocument(order: SignOrder): void {
   const document = buildSignOrderDocument(order);
   const url = URL.createObjectURL(
-    new Blob([signOrderDocumentText(document)], { type: "text/plain" }),
+    new Blob([localizeForDownload(signOrderDocumentText(document))], { type: "text/plain" }),
   );
   const anchor = window.document.createElement("a");
   anchor.href = url;
-  anchor.download = signOrderDocumentFilename(order);
+  anchor.download = signOrderDocumentFilename(voicedForDownload(order));
   anchor.click();
   URL.revokeObjectURL(url);
 }

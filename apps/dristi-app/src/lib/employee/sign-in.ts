@@ -20,7 +20,7 @@
  * a rule. The field is real, required and masked; what it is not is checked.
  */
 
-import { CURRENT_STAFF, type CourtRole } from "./content";
+import { COURT_DISTRICT, CURRENT_STAFF, type CourtRole } from "./content";
 
 /**
  * The four seats a username can land in, in the order the bench is read: the magistrate
@@ -43,7 +43,7 @@ export const COURT_SIGN_IN_ROLES: CourtRole[] = [
  * document head it, with the district it sits in.
  */
 export type Courtroom = {
-  /** e.g. `JMFC Court 1, Kollam`. */
+  /** e.g. `JMFC Court 1`. */
   name: string;
   district: string;
 };
@@ -66,11 +66,11 @@ export type CourtAccount = {
 };
 
 /**
- * This deployment's establishment — the Kollam JMFC courts, numbered as the bench names
+ * This deployment's establishment — the JMFC courts, numbered as the bench names
  * them. Every fixture in the build belongs to Court 1, so it leads any list it is in.
  */
-function kollamCourt(number: number): Courtroom {
-  return { name: `JMFC Court ${number}, Kollam`, district: "Kollam" };
+function jmfcCourt(number: number): Courtroom {
+  return { name: `JMFC Court ${number}`, district: COURT_DISTRICT };
 }
 
 /**
@@ -91,13 +91,13 @@ export const COURT_ACCOUNTS: Record<CourtRole, CourtAccount> = {
     name: "Michael George",
     role: "magistrate",
     /* 1:1 with the bench — a magistrate presides over one court room. */
-    courtrooms: [kollamCourt(1)],
+    courtrooms: [jmfcCourt(1)],
   },
   "bench-clerk": {
     username: "uddipanBenchClerk",
     name: CURRENT_STAFF.name,
     role: "bench-clerk",
-    courtrooms: [kollamCourt(1)],
+    courtrooms: [jmfcCourt(1)],
   },
   "scrutiny-officer": {
     username: "bijuScrutinyOfficer",
@@ -107,18 +107,18 @@ export const COURT_ACCOUNTS: Record<CourtRole, CourtAccount> = {
        establishment, so the account carries every court room in it. Court 1 leads,
        because that is where this build's cases sit. */
     courtrooms: [
-      kollamCourt(1),
-      kollamCourt(2),
-      kollamCourt(3),
-      kollamCourt(4),
-      kollamCourt(5),
+      jmfcCourt(1),
+      jmfcCourt(2),
+      jmfcCourt(3),
+      jmfcCourt(4),
+      jmfcCourt(5),
     ],
   },
   typist: {
     username: "sreelathaTypist",
     name: "Sreelatha R",
     role: "typist",
-    courtrooms: [kollamCourt(1)],
+    courtrooms: [jmfcCourt(1)],
   },
 };
 

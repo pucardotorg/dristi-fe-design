@@ -18,9 +18,8 @@
  * English follows it. Register matches `lib/onboarding/content.ts`.
  */
 
-import type { Locale } from "@/lib/onboarding/content";
+import type { Copy } from "@/lib/onboarding/content";
 
-type Copy = Record<Locale, string>;
 const t = (en: string, ml: string): Copy => ({ en, ml });
 
 /** Who is signing in. Sent with every attempt — the same person can hold both roles
@@ -44,22 +43,9 @@ export const METHOD_ORDER: Method[] = ["password", "otp"];
  */
 export const brand = {
   wordmark: t("ON Courts", "ON Courts"),
-  wordmarkSub: t("Kerala district courts", "കേരള ജില്ലാ കോടതികൾ"),
   headline: t(
     "File and follow your case, from anywhere, anytime.",
     "എവിടെ നിന്നും, എപ്പോൾ വേണമെങ്കിലും കേസ് ഫയൽ ചെയ്യാം, പിന്തുടരാം.",
-  ),
-  /* Names what is on the right, in the order the three audiences will scan for
-     themselves. The headline gives the promise; this gives the address.
-     PM-approved copy (Sept 3). The court name is per-deployment — each court
-     gets its own build of this line; Kollam is this demo's court. */
-  subline: t(
-    "Secure access for litigants, advocates and clerks to the end-to-end case management system of the Kollam District Court.",
-    "കൊല്ലം ജില്ലാ കോടതിയുടെ സമ്പൂർണ്ണ കേസ് മാനേജ്മെന്റ് സംവിധാനത്തിലേക്ക് കക്ഷികൾക്കും അഭിഭാഷകർക്കും ക്ലർക്കുമാർക്കും സുരക്ഷിത പ്രവേശനം.",
-  ),
-  attribution: t(
-    "A Government of India digital courts initiative.",
-    "ഇന്ത്യാ ഗവൺമെന്റിന്റെ ഡിജിറ്റൽ കോടതി സംരംഭം.",
   ),
 } satisfies Record<string, Copy>;
 
@@ -280,9 +266,6 @@ export const mismatch: Record<Role, { title: Copy; body: Copy; action: Copy }> =
 /* ------------------------------------------------------------------------ footer */
 
 export const footerNavLabel = t("About this site", "ഈ സൈറ്റിനെക്കുറിച്ച്");
-
-/** Sits first in the footer line, as plain text — the owner, then the policies. */
-export const footerOwner = t("Government of India", "ഇന്ത്യാ ഗവൺമെന്റ്");
 
 export const footer: { label: Copy; href: string }[] = [
   { label: t("Terms of use", "ഉപയോഗ നിബന്ധനകൾ"), href: "/terms" },

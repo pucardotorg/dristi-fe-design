@@ -327,8 +327,7 @@ export function AdvocateSection() {
                         <Identifier
                           value={onRegister.barNumber}
                           label="bar registration"
-                        />{" "}
-                        · {onRegister.bar}
+                        />
                       </p>
                     </div>
                     <Button
@@ -379,8 +378,7 @@ export function AdvocateSection() {
                               value={adv.barNumber}
                               label="bar registration"
                               copyable={false}
-                            />{" "}
-                            · {adv.bar}
+                            />
                           </span>
                         </span>
                       );

@@ -37,6 +37,8 @@
  * the trip. Where they are kept changed; what they claim did not.
  */
 
+import { caseSearchKey } from "@/lib/court/localize";
+
 export type CourtHearingStatus =
   | "scheduled"
   | "ongoing"
@@ -382,7 +384,7 @@ export function applicationFiler(
 /**
  * One sitting day, 23 matters — the count the reference screen lists.
  *
- * Names and numbers follow the fixtures the rest of the repo already uses: Kollam parties,
+ * Names and numbers follow the fixtures the rest of the repo already uses: local parties,
  * `Adv.`-prefixed counsel, and the `ST/NNN/YYYY` summary-trial number the reference shows
  * once a complaint has been taken on file.
  */
@@ -727,7 +729,7 @@ export function shiftDay(day: string, delta: number): string {
  * `YYYY-MM-DD` back to a Date at local midnight.
  *
  * Built from parts rather than `new Date(iso)`, which reads a bare date string as UTC and
- * so lands on the previous day for every court west of Greenwich. Kollam is not one of
+ * so lands on the previous day for every court west of Greenwich. Kerala is not one of
  * them, but the bug is silent and the fix is one line.
  */
 /**
@@ -772,7 +774,7 @@ export function parseIsoDay(day: string): Date {
  * appear on 12 August 2025"*, *"Call on 15 September 2025 for Evidence of
  * Complainant"*).
  *
- * The split is the court's, not a preference: `Summons_Kollam_v14.pdf` makes it on one
+ * The split is the court's, not a preference: `Summons_v14.pdf` makes it on one
  * page, writing "18 September 2026" in the sentence that requires the appearance and
  * "Friday, 10:30 AM" in the facts block above it. So a named fact may carry the weekday
  * and a sentence of order text may not.
@@ -848,7 +850,7 @@ export function filterHearings(
   rows: CourtHearing[],
   filters: HearingFilters,
 ): CourtHearing[] {
-  const query = filters.query.trim().toLowerCase();
+  const query = caseSearchKey(filters.query);
   return rows.filter((hearing) => {
     if (filters.status !== "all" && hearing.status !== filters.status) {
       return false;

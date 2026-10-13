@@ -1,10 +1,10 @@
 /**
  * The people on a case a process can be addressed to — every accused, the complainant
- * and the witnesses — with what their records hold for delivery: postal addresses, a
- * mobile number, an email address.
+ * and the witnesses — with what their records hold for delivery: postal addresses, mobile
+ * numbers and email addresses, any of which may be several (owner, 2026-10-12: "even
+ * phone numbers can be multiple").
  *
- * The issue-process pop-up (`process-variables.ts`, `order-variable-dialog.tsx`)
- * pre-selects from this (`AUT-05`–`AUT-08` of `handovers/process-handover.md`), so it
+ * A process order item's delivery answers (`process-variables.ts`) pre-select from this (`AUT-05`–`AUT-08` of `handovers/process-handover.md`), so it
  * has to know more than the one accused name a `CourtHearing` carries: whether there is
  * more than one accused, which witnesses are still to be examined, and whether the
  * accused has joined the case yet.
@@ -20,6 +20,8 @@
 
 import type { StructuredAddress } from "@/components/cases/structured-address";
 
+import type { CourtId } from "@/lib/court/profiles";
+
 import type { CourtCounsel, CourtCaseStage } from "./hearings";
 
 export type CasePersonKind = "accused" | "complainant" | "witness";
@@ -28,6 +30,9 @@ export type CasePersonKind = "accused" | "complainant" | "witness";
 export type CaseSide = "complainant" | "accused";
 
 export type CaseAddress = { id: string; address: StructuredAddress };
+
+/** One mobile number or email address on a person's record. A person may have several. */
+export type CaseContact = { id: string; value: string };
 
 export type CasePerson = {
   id: string;
@@ -39,8 +44,10 @@ export type CasePerson = {
   /** Witnesses only: whether their examination has been recorded. */
   examined?: boolean;
   addresses: CaseAddress[];
-  mobile?: string;
-  email?: string;
+  /** Every mobile number on record — SMS goes to each one selected. */
+  mobiles: CaseContact[];
+  /** Every email address on record — Email goes to each one selected. */
+  emails: CaseContact[];
 };
 
 export type CasePeople = {
@@ -58,7 +65,7 @@ export type CaseMatter = {
   stage?: CourtCaseStage;
 };
 
-const KOLLAM = { city: "Kollam", district: "Kollam", state: "Kerala" };
+const LOCAL_DISTRICT = { city: "Sample District", district: "Sample District", state: "Kerala" };
 
 function address(
   door: string,
@@ -66,7 +73,7 @@ function address(
   locality: string,
   pin: string,
 ): StructuredAddress {
-  return { door, building, locality, pin, ...KOLLAM };
+  return { door, building, locality, pin, ...LOCAL_DISTRICT };
 }
 
 /**
@@ -77,7 +84,7 @@ function address(
 export function demoAddress(name: string): StructuredAddress {
   let hash = 5;
   for (const char of name) hash = (hash * 31 + char.charCodeAt(0)) % 997;
-  const surname = name.trim().split(/\s+/).at(-1) ?? "Kollam";
+  const surname = name.trim().split(/\s+/).at(-1) ?? "Sample";
   return address(String((hash % 48) + 1), `${surname} House`, "Chinnakada", "691001");
 }
 
@@ -94,13 +101,26 @@ function demoEmail(name: string): string {
 }
 
 function person(
-  fields: Omit<CasePerson, "addresses"> & { addresses: StructuredAddress[] },
+  fields: Omit<CasePerson, "addresses" | "mobiles" | "emails"> & {
+    addresses: StructuredAddress[];
+    mobiles?: string[];
+    emails?: string[];
+  },
 ): CasePerson {
+  const { mobiles = [], emails = [], ...rest } = fields;
   return {
-    ...fields,
+    ...rest,
     addresses: fields.addresses.map((entry, index) => ({
       id: `${fields.id}-address-${index + 1}`,
       address: entry,
+    })),
+    mobiles: mobiles.map((value, index) => ({
+      id: `${fields.id}-mobile-${index + 1}`,
+      value,
+    })),
+    emails: emails.map((value, index) => ({
+      id: `${fields.id}-email-${index + 1}`,
+      value,
     })),
   };
 }
@@ -123,8 +143,8 @@ const PACK: Partial<Record<string, CasePerson[]>> = {
         address("14/220", "Industrial Estate", "Kundara", "691501"),
         address("3", "Gill Towers, Main Road", "Chinnakada", "691001"),
       ],
-      mobile: "+91 94470 31206",
-      email: "accounts@gillsteel.example.in",
+      mobiles: ["+91 94470 31206", "+91 94470 31277"],
+      emails: ["accounts@gillsteel.example.in", "legal@gillsteel.example.in"],
     }),
     person({
       id: "accused-2",
@@ -133,7 +153,7 @@ const PACK: Partial<Record<string, CasePerson[]>> = {
       role: "Accused 2 · person in charge",
       side: "accused",
       addresses: [address("7", "Gill Villa", "Kadappakada", "691008")],
-      mobile: "+91 94470 58812",
+      mobiles: ["+91 94470 58812"],
     }),
   ],
   /* Evidence stage, accused represented: exactly one witness still to be examined, so
@@ -147,7 +167,7 @@ const PACK: Partial<Record<string, CasePerson[]>> = {
       side: "complainant",
       examined: true,
       addresses: [address("22", "Varghese Bhavan", "Thevally", "691009")],
-      mobile: "+91 94470 11873",
+      mobiles: ["+91 94470 11873"],
     }),
     person({
       id: "pw-2",
@@ -157,7 +177,7 @@ const PACK: Partial<Record<string, CasePerson[]>> = {
       side: "complainant",
       examined: false,
       addresses: [address("", "Federal Bank, Chinnakada branch", "Chinnakada", "691001")],
-      email: "kollam.chinnakada@example.in",
+      emails: ["chinnakada.office@example.in"],
     }),
   ],
   /* Evidence stage, accused represented: two witnesses still to be examined, so the
@@ -180,7 +200,7 @@ const PACK: Partial<Record<string, CasePerson[]>> = {
       side: "complainant",
       examined: false,
       addresses: [address("41", "Kailas", "Mundakkal", "691001")],
-      mobile: "+91 94470 66021",
+      mobiles: ["+91 94470 66021"],
     }),
     person({
       id: "dw-1",
@@ -190,7 +210,7 @@ const PACK: Partial<Record<string, CasePerson[]>> = {
       side: "accused",
       examined: false,
       addresses: [address("9", "Mathew House", "Kottiyam", "691571")],
-      mobile: "+91 94470 70415",
+      mobiles: ["+91 94470 70415"],
     }),
   ],
 };
@@ -232,8 +252,8 @@ export function casePeopleFor(matter: CaseMatter): CasePeople {
             role: "Accused",
             side: "accused",
             addresses: [demoAddress(matter.parties.accused)],
-            mobile: demoMobile(matter.parties.accused),
-            email: demoEmail(matter.parties.accused),
+            mobiles: [demoMobile(matter.parties.accused)],
+            emails: [demoEmail(matter.parties.accused)],
           }),
         ]),
     person({
@@ -243,8 +263,8 @@ export function casePeopleFor(matter: CaseMatter): CasePeople {
       role: "Complainant",
       side: "complainant",
       addresses: [demoAddress(matter.parties.complainant)],
-      mobile: demoMobile(matter.parties.complainant),
-      email: demoEmail(matter.parties.complainant),
+      mobiles: [demoMobile(matter.parties.complainant)],
+      emails: [demoEmail(matter.parties.complainant)],
     }),
     ...extra.filter((entry) => entry.kind === "witness"),
   ];
@@ -258,18 +278,29 @@ export function casePeopleFor(matter: CaseMatter): CasePeople {
  * (`AUT-04`).
  */
 export const POLICE_STATIONS = [
-  "Kollam East",
-  "Kollam West",
+  "Town East",
+  "Town West",
   "Kilikollur",
   "Kundara",
   "Shakthikulangara",
+  "Panchkula",
 ] as const;
 
+/**
+ * The stations a court's dropdowns offer: Panchkula only for Punjab and Haryana, which
+ * share one High Court (owner, 2026-10-12).
+ */
+export function policeStationsFor(court: CourtId): readonly string[] {
+  return court === "punjab-haryana"
+    ? POLICE_STATIONS
+    : POLICE_STATIONS.filter((station) => station !== "Panchkula");
+}
+
 const STATION_BY_LOCALITY: Partial<Record<string, (typeof POLICE_STATIONS)[number]>> = {
-  Chinnakada: "Kollam East",
-  Thevally: "Kollam West",
-  Pallimukku: "Kollam East",
-  Mundakkal: "Kollam West",
+  Chinnakada: "Town East",
+  Thevally: "Town West",
+  Pallimukku: "Town East",
+  Mundakkal: "Town West",
   Kadappakada: "Kilikollur",
   Kundara: "Kundara",
 };

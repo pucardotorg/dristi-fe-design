@@ -3,9 +3,11 @@ import {
   FileTextIcon,
   MailIcon,
   MapPinIcon,
+  PenToolIcon,
   ScaleIcon,
   UserIcon,
   UserSearchIcon,
+  WalletIcon,
   type LucideIcon,
 } from "lucide-react";
 
@@ -21,4 +23,6 @@ export const GROUP_ICONS: Record<GroupIcon, LucideIcon> = {
   mail: MailIcon,
   pin: MapPinIcon,
   doc: FileTextIcon,
+  pen: PenToolIcon,
+  wallet: WalletIcon,
 };

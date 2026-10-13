@@ -59,6 +59,7 @@ import { formatCaseDate } from "@/lib/cases/types";
 import { cn } from "@/lib/utils";
 import { DOCUMENT_GROUND } from "@/components/cases/document-ground";
 import { Identifier } from "@/components/chrome/identifier";
+import { useCourtLocalized } from "@/components/court/court-provider";
 
 /** The case, as the paper names it — passed down from whoever holds it. */
 export type CaseRef = {
@@ -91,6 +92,9 @@ export function PartyApplicationDocument({
   caseRef: CaseRef;
   doc: PartyApplicationDoc;
 }) {
+  // The download carries what the sheet shows: the selected state's court and numbers.
+  const courtCaseRef = useCourtLocalized(caseRef);
+  const courtDoc = useCourtLocalized(doc);
   const generatedOn = formatCaseDate(new Date().toISOString());
 
   return (
@@ -115,7 +119,7 @@ export function PartyApplicationDocument({
             variant="ghost"
             size="icon-sm"
             aria-label={`Download ${doc.matter}`}
-            onClick={() => downloadPartyApplication(caseRef, doc, generatedOn)}
+            onClick={() => downloadPartyApplication(courtCaseRef, courtDoc, generatedOn)}
           >
             <DownloadIcon aria-hidden />
           </Button>
@@ -196,14 +200,16 @@ function FullViewButton({
  * themes, per the generated-application precedent.
  */
 function PartyApplicationPaper({
-  caseRef,
-  doc,
+  caseRef: storedCaseRef,
+  doc: storedDoc,
   generatedOn,
 }: {
   caseRef: CaseRef;
   doc: PartyApplicationDoc;
   generatedOn: string;
 }) {
+  const caseRef = useCourtLocalized(storedCaseRef);
+  const doc = useCourtLocalized(storedDoc);
   return (
     <article className="flex flex-col gap-6 rounded-md bg-paper p-6 text-paper-foreground [&_[data-slot=description-details]]:text-paper-foreground [&_[data-slot=description-term]]:text-paper-muted-foreground">
       <header className="flex flex-col gap-2 text-center">
@@ -286,14 +292,20 @@ const FLOW_FOOTER = "bg-surface-sunken";
 export function PartySignatureDialog({
   open,
   onClose,
+  onBack,
   onComplete,
   confirmation,
   submitLabel = "Submit application",
   chooseTitle = "How is this application signed?",
+  noun = "application",
+  proceed,
 }: {
   open: boolean;
   /** Dismiss the sign dialog only — the review stays open behind it. */
   onClose: () => void;
+  /** The first step's Back, where the review did not stay open behind it:
+   *  return to it. Defaults to closing. */
+  onBack?: () => void;
   /** Signed and submitted — closes the sign dialog AND the review beneath. */
   onComplete: () => void;
   /** The success screen's copy — the flow's own "sent" message. */
@@ -301,6 +313,15 @@ export function PartySignatureDialog({
   submitLabel?: string;
   /** The first step's heading; callers signing several at once reword it. */
   chooseTitle?: string;
+  /** What is signed, for the step's note: "application" or "document". */
+  noun?: string;
+  /**
+   * A next step straight from the confirmation, beside a way to leave it for
+   * later: the Applications register signs, then goes on to payment, as the
+   * Raise application chain does ("Proceed to payment"). Without it the
+   * confirmation ends on Done, as every party application does.
+   */
+  proceed?: { label: string; laterLabel: string; onClick: () => void };
 }) {
   const [step, setStep] = useState<SignStep>("choose");
   const [aadhaar, setAadhaar] = useState<AadhaarPhase>("authenticating");
@@ -369,10 +390,21 @@ export function PartySignatureDialog({
                 </div>
               </div>
             </DialogHeader>
-            <footer className={cn(FLOW_FOOTER, "flex shrink-0 justify-end border-t border-hairline px-6 py-4")}>
-              <Button type="button" onClick={onComplete}>
-                Done
-              </Button>
+            <footer className={cn(FLOW_FOOTER, "flex shrink-0 justify-end gap-2 border-t border-hairline px-6 py-4")}>
+              {proceed ? (
+                <>
+                  <Button type="button" variant="outline" onClick={onComplete}>
+                    {proceed.laterLabel}
+                  </Button>
+                  <Button type="button" onClick={proceed.onClick}>
+                    {proceed.label}
+                  </Button>
+                </>
+              ) : (
+                <Button type="button" onClick={onComplete}>
+                  Done
+                </Button>
+              )}
             </footer>
           </>
         ) : step === "aadhaar" && aadhaar === "authenticating" ? (
@@ -487,7 +519,7 @@ export function PartySignatureDialog({
                 {chooseTitle}
               </DialogTitle>
               <DialogDescription>
-                An unsigned application cannot be submitted to the court.
+                An unsigned {noun} cannot be submitted to the court.
               </DialogDescription>
             </DialogHeader>
             <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-6 py-5">
@@ -513,7 +545,7 @@ export function PartySignatureDialog({
               />
             </div>
             <footer className={cn(FLOW_FOOTER, "flex shrink-0 items-center border-t border-hairline px-6 py-4")}>
-              <Button type="button" variant="outline" onClick={onClose}>
+              <Button type="button" variant="outline" onClick={onBack ?? onClose}>
                 Back
               </Button>
             </footer>

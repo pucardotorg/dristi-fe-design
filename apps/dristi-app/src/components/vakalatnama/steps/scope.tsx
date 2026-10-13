@@ -22,8 +22,10 @@ import { updateVak } from "@/lib/vakalatnama/store";
 import { COURTS, LITIGANT_CASES, STANDARD_TERMS, configFor, type FiledCase } from "@/lib/vakalatnama/data";
 import type { Scope, Terms, Vakalatnama } from "@/lib/vakalatnama/types";
 import { Identifier } from "@/components/chrome/identifier";
+import { useCourtText } from "@/components/court/court-provider";
 
 export function ScopeStep({ vak }: { vak: Vakalatnama }) {
+  const courtText = useCourtText();
   const setScope = (patch: Partial<Scope>) =>
     updateVak(vak.id, (p) => ({ ...p, scope: { ...p.scope, ...patch } }));
   const setTerms = (t: Terms) => updateVak(vak.id, (p) => ({ ...p, terms: t }));
@@ -44,7 +46,7 @@ export function ScopeStep({ vak }: { vak: Vakalatnama }) {
           <OptionSelect
             value={s.court}
             onValueChange={(v) => setScope({ court: v })}
-            options={COURTS}
+            options={COURTS.map((court) => ({ value: court, label: courtText(court) }))}
             placeholder="Select the court"
             ariaLabel="Court"
           />
@@ -105,7 +107,7 @@ export function ScopeStep({ vak }: { vak: Vakalatnama }) {
                             copyable={false}
                           />
                           <span className="text-caption text-muted-foreground">
-                            {fc.title} · {fc.court}
+                            {fc.title} · {courtText(fc.court)}
                           </span>
                         </div>
                       );

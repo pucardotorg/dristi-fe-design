@@ -51,6 +51,8 @@ import {
   type CounselSide,
   type CourtCounsel,
 } from "./hearings";
+import { caseSearchKey } from "@/lib/court/localize";
+import { localizeForDownload, voicedForDownload } from "@/lib/court/browser";
 
 /**
  * Which record on the file the copy is asked for.
@@ -153,13 +155,13 @@ export type CopyApplication = {
 const COURT = CURRENT_STAFF.court;
 
 /** Where the application is presented. The court's own seat — not a per-row fact. */
-const PLACE = "Kollam";
+const PLACE = "Sample District";
 
 /**
  * The copy applications this bench has not yet dealt with.
  *
  * Ordered newest first — the order the reference showed, and the order a counter queue is
- * worked. Names follow the fixtures the rest of the court side uses: Kollam parties and
+ * worked. Names follow the fixtures the rest of the court side uses: local parties and
  * the same bar practising in this court.
  */
 export const COPY_APPLICATION_QUEUE: CopyApplication[] = [
@@ -255,7 +257,7 @@ export const COPY_APPLICATION_QUEUE: CopyApplication[] = [
     applicationNumber: "CA/307/2026",
     caseNumber: "ST/1186/2026",
     parties: {
-      complainant: "Kollam Port Bunkering and Marine Fuels Private Limited",
+      complainant: "Harbour Bunkering and Marine Fuels Private Limited",
       accused: "Adarsh Vijayan",
     },
     counsel: [
@@ -263,7 +265,7 @@ export const COPY_APPLICATION_QUEUE: CopyApplication[] = [
       { name: "Adv. Feroz Hameed", side: "accused" },
     ],
     applicant: {
-      name: "Kollam Port Bunkering and Marine Fuels Private Limited",
+      name: "Harbour Bunkering and Marine Fuels Private Limited",
       side: "complainant",
       capacity: "Complainant, through its authorised representative",
     },
@@ -1064,7 +1066,7 @@ export function filterCopyApplications(
   rows: CopyApplication[],
   filters: CopyApplicationFilters,
 ): CopyApplication[] {
-  const query = filters.query.trim().toLowerCase();
+  const query = caseSearchKey(filters.query);
   if (!query) return rows;
   return rows.filter((application) => {
     const haystack = [
@@ -1324,11 +1326,11 @@ export function downloadCopyApplicationDocument(
 ): void {
   const document = buildCopyApplicationDocument(application);
   const url = URL.createObjectURL(
-    new Blob([copyApplicationDocumentText(document)], { type: "text/plain" }),
+    new Blob([localizeForDownload(copyApplicationDocumentText(document))], { type: "text/plain" }),
   );
   const anchor = window.document.createElement("a");
   anchor.href = url;
-  anchor.download = copyApplicationDocumentFilename(application);
+  anchor.download = copyApplicationDocumentFilename(voicedForDownload(application));
   anchor.click();
   URL.revokeObjectURL(url);
 }

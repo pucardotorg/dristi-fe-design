@@ -55,6 +55,7 @@
 
 import { CURRENT_STAFF } from "./content";
 import { causeTitle } from "./hearings";
+import { caseSearchKey } from "@/lib/court/localize";
 
 /**
  * Which filed document the marking is about — the reference's "Document" column.
@@ -186,7 +187,7 @@ type EvidenceCase = {
 /**
  * The markings this bench has not yet signed, case by case.
  *
- * Names follow the fixtures the rest of the court side uses: Kollam parties and the same
+ * Names follow the fixtures the rest of the court side uses: local parties and the same
  * bar practising in this court.
  */
 const EVIDENCE_CASES: EvidenceCase[] = [
@@ -367,7 +368,7 @@ const EVIDENCE_CASES: EvidenceCase[] = [
   {
     caseNumber: "ST/716/2026",
     parties: {
-      complainant: "Kollam Coir Exports",
+      complainant: "Lakeside Coir Exports",
       accused: "Devika Ramachandran",
     },
     witnesses: [
@@ -685,7 +686,7 @@ export function filterSignEvidence(
   rows: SignEvidence[],
   filters: SignEvidenceFilters,
 ): SignEvidence[] {
-  const query = filters.query.trim().toLowerCase();
+  const query = caseSearchKey(filters.query);
   if (!query) return rows;
   return rows.filter((row) => {
     const haystack = [

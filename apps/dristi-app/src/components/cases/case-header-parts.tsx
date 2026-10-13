@@ -1,12 +1,12 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { ChevronRightIcon } from "lucide-react";
 
 import { Identifier } from "@/components/chrome/identifier";
 import type { PastCaseNumber } from "@/lib/cases/header";
-import { PageBackButton } from "@/components/shell/page-back-button";
+import { PAGE_BACK_COLUMN, PageBackButton } from "@/components/shell/page-back-button";
 import { cn } from "@/lib/utils";
+import { useCaseReader } from "./case-reader";
 import { CaseNumberHistory } from "./case-number-history";
 
 import { Badge } from "@/components/ui/badge";
@@ -17,9 +17,20 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-/** Back to the cases list: the product's one page-level back control. */
+/**
+ * Back to the cases list: the product's one page-level back control.
+ *
+ * Not for the court. On the court side the top bar's trail is the way back and a page
+ * carries no back control of its own (`lib/employee/navigation.ts`), and the court opens
+ * a case in a tab of its own, where there is nothing to go back to.
+ */
 export function CaseBackButton() {
-  return <PageBackButton href="/cases" label="Back to cases" />;
+  if (useCaseReader() === "court") return null;
+  return (
+    <div className={PAGE_BACK_COLUMN}>
+      <PageBackButton href="/cases" label="Back to cases" />
+    </div>
+  );
 }
 
 /**
@@ -58,9 +69,11 @@ export function CaseNumberLine({
 }
 
 /**
- * The main stage and any sub stages, each naming what it is on hover. The
- * "Stage" label above already says it without a pointer, so the tooltip only
- * tells the two kinds apart.
+ * The main stage and any secondary stages, each naming what it is on hover.
+ * Secondary stages are not inside the main one: there is no hierarchy, and
+ * several can be active at once (PM, Oct 8). So no pointer between them; the
+ * main stage's fill against the secondary stages' outline is the only
+ * difference, and the tooltip names it.
  */
 export function CaseStageBadges({
   stage,
@@ -78,20 +91,12 @@ export function CaseStageBadges({
           </TooltipTrigger>
           <TooltipContent side="bottom">Case stage</TooltipContent>
         </Tooltip>
-        {/* A chevron, not a slash: a slash reads as "either", a chevron as
-            "inside". One is enough; the sub stages after it are siblings. */}
-        {subStages.length > 0 ? (
-          <ChevronRightIcon
-            aria-hidden
-            className="size-3.5 shrink-0 text-muted-foreground"
-          />
-        ) : null}
         {subStages.map((label) => (
           <Tooltip key={label}>
             <TooltipTrigger asChild>
               <Badge variant="outline">{label}</Badge>
             </TooltipTrigger>
-            <TooltipContent side="bottom">Case sub stage</TooltipContent>
+            <TooltipContent side="bottom">Secondary stage</TooltipContent>
           </Tooltip>
         ))}
       </span>

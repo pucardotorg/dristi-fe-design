@@ -61,6 +61,7 @@ import {
   hasColumnFilters,
   type ColumnFilter,
 } from "@/lib/employee/court-column-filters";
+import { useCourtText } from "@/components/court/court-provider";
 
 const EVIDENCE_COLUMN_FILTERS: ColumnFilter<SignEvidence>[] = [
   {
@@ -525,6 +526,7 @@ function SignEvidenceItemList({
   onToggle: (row: SignEvidence) => void;
   onOpen: (row: SignEvidence) => void;
 }) {
+  const courtText = useCourtText();
   return (
     <ul className="flex flex-col gap-3">
       {rows.map((row) => {
@@ -541,7 +543,7 @@ function SignEvidenceItemList({
             <Checkbox
               checked={selectedIds.has(row.id)}
               onCheckedChange={() => onToggle(row)}
-              aria-label={`Select ${document}, ${exhibit}, in ${row.caseNumber}`}
+              aria-label={`Select ${document}, ${exhibit}, in ${courtText(row.caseNumber)}`}
               className="mt-1"
             />
             <div className="flex min-w-0 flex-1 flex-col gap-2">

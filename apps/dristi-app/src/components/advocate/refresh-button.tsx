@@ -97,14 +97,14 @@ export function HomeRefreshButton({
         size="sm"
         onClick={trigger}
         aria-label={pick(advHome.refreshHearings, locale)}
-        className="size-10 border-border px-2.5 lg:h-9 lg:w-auto"
+        className="size-10 border-border px-2.5 lg:size-9"
       >
         <RefreshIcon phase={phase} />
       </Button>
       <span
         aria-hidden="true"
         className={cn(
-          "pointer-events-none absolute top-full right-0 mt-2 whitespace-nowrap text-caption transition-all duration-200 ease-out",
+          "pointer-events-none absolute top-full right-0 mt-2 whitespace-nowrap text-caption lg:top-auto lg:bottom-full lg:mt-0 lg:mb-2 transition-all duration-200 ease-out",
           phase === "done"
             ? "translate-y-0 font-medium text-success-ink opacity-100"
             : "translate-y-1 text-muted-foreground opacity-0 group-hover/refresh:translate-y-0 group-hover/refresh:opacity-100"

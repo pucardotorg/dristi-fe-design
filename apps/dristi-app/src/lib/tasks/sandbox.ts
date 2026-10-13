@@ -10,13 +10,22 @@
  * decides the application. Nothing here has been sent to a real court.
  */
 
-import { SCRUTINY_DEFECTS, SCRUTINY_DRAFT_ID } from "./scrutiny-return";
+import {
+  SCRUTINY_DEFECTS,
+  SCRUTINY_DEFECTS_LAKSHMI,
+  SCRUTINY_DEFECTS_RAFI,
+  SCRUTINY_DRAFT_ID,
+  SCRUTINY_DRAFT_ID_LAKSHMI,
+  SCRUTINY_DRAFT_ID_RAFI,
+  DEFECTS_BY_BASE,
+  EXTRA_RETURNS,
+} from "./scrutiny-return";
 import type { Case, Defect, Person, Task } from "./types";
 
 /** Bump when the seed's shape changes; a browser holding an older seed is re-seeded.
  *  (The seed stamp also folds in the people/case counts, so adding or removing
  *  fixture matters reseeds on its own even without a bump — see store.tsx.) */
-export const SEED_VERSION = 25;
+export const SEED_VERSION = 26;
 
 /**
  * A defect on a filing that was made outside this app, so there is no draft to open and
@@ -82,7 +91,7 @@ function hearing(days: number): string {
 }
 
 /* ─────────────────────────── scale fixture ───────────────────────────
- * The Kollam bench, and the fill that stands in for the court complex's docket.
+ * The bench, and the fill that stands in for the court complex's docket.
  * Anjali's own scale matters (SCALE_CASES) sit in the first few of these courts and
  * reach HER board; the far larger OTHER_CASES set below (other advocates, across
  * every court) is what makes the cause list read like the court's published list —
@@ -91,26 +100,26 @@ function hearing(days: number): string {
  * the board. Demo scaffolding: remove the OTHER_CASES/SCALE blocks to return to the
  * small hand-authored day. */
 const SCALE_COURTS = [
-  "24×7 ON Court, Kollam",
-  "CJM Court, Kollam",
-  "ACJM Court, Kollam",
-  "JMFC Court 1, Kollam",
-  "JMFC Court 2, Kollam",
-  "JMFC Court 3, Kollam",
-  "JMFC Court 4, Kollam",
-  "JMFC Court 5, Kollam",
-  "JMFC Court 6, Kollam",
-  "Sessions Court, Kollam",
-  "Addl. Sessions I, Kollam",
-  "Addl. Sessions II, Kollam",
-  "Sub Court 1, Kollam",
-  "Sub Court 2, Kollam",
-  "Munsiff Court 1, Kollam",
-  "Munsiff Court 2, Kollam",
-  "Munsiff Court 3, Kollam",
-  "Family Court, Kollam",
-  "MACT, Kollam",
-  "NI Act Court, Kollam",
+  "24×7 ON Court",
+  "CJM Court",
+  "ACJM Court",
+  "JMFC Court 1",
+  "JMFC Court 2",
+  "JMFC Court 3",
+  "JMFC Court 4",
+  "JMFC Court 5",
+  "JMFC Court 6",
+  "Sessions Court",
+  "Addl. Sessions I",
+  "Addl. Sessions II",
+  "Sub Court 1",
+  "Sub Court 2",
+  "Munsiff Court 1",
+  "Munsiff Court 2",
+  "Munsiff Court 3",
+  "Family Court",
+  "MACT",
+  "NI Act Court",
 ];
 
 const SCALE_NAMES = [
@@ -129,7 +138,7 @@ const SCALE_ORGS = [
   "Royal Cashews", "Metro Hardwares", "Backwater Foods", "Pearl Marine",
   "Western Ghats Timber", "Shoreline Fisheries", "Cardamom County Estates",
   "Vembanad Traders", "Southern Spices", "Ashirvad Chits", "Meridian Motors",
-  "Palm Grove Resorts", "Kollam Cashew Co.", "Neptune Marine", "Orient Rubbers",
+  "Palm Grove Resorts", "Lakeside Cashew Co.", "Neptune Marine", "Orient Rubbers",
   "Silverline Finance",
 ];
 const SCALE_STAGES = [
@@ -336,7 +345,7 @@ function shortDate(iso: string): string {
 /* ───────────────────────────── cases ───────────────────────────── */
 
 /**
- * How long a scrutiny return leaves to cure the defects.
+ * How long a scrutiny return leaves to fix the defects.
  *
  * Open question O7: the real window is not confirmed — practice is believed to be around
  * three days, and the brief's instruction is to assume five until the rule is known. So
@@ -345,12 +354,12 @@ function shortDate(iso: string): string {
  * running (`docs/product/product-foundation.md` §3).
  */
 const RETURN_WINDOW_NOTE =
-  "Assumed 5 days from the return to cure the defects — the Registry's window is not yet confirmed";
+  "Assumed 5 days from the return to fix the defects — the Registry's window is not yet confirmed";
 
-const ON = "24×7 ON Court, Kollam";
-const JMFC1 = "JMFC Court 1, Kollam";
-const JMFC2 = "JMFC Court 2, Kollam";
-const CJM = "CJM Court, Kollam";
+const ON = "24×7 ON Court";
+const JMFC1 = "JMFC Court 1";
+const JMFC2 = "JMFC Court 2";
+const CJM = "CJM Court";
 
 // Vakalatnamas: the first signatory is the main advocate. Anjali (the default identity)
 // is a signatory on some cases, only on the case on others, and absent from a few.
@@ -364,7 +373,7 @@ export const CASES: Case[] = [
   { id: "c-144", stNumber: "ST 144/2025", cnr: "KLKL02-000144-2025", parties: "K. Radhakrishnan v. Chandy & Sons", court: JMFC1, stage: "Arguments", nextHearingAt: hearing(20), signatories: ["p-an", "p-dv"], advocates: ["p-an", "p-dv", "p-sp"] },
   { id: "c-71", stNumber: "ST 71/2025", cnr: "KLKL03-000071-2025", parties: "Joseph Mathew v. Star Traders", court: JMFC2, stage: "Evidence of the complainant", nextHearingAt: hearing(7), signatories: ["p-dv"], advocates: ["p-dv", "p-ri"] },
   { id: "c-381", stNumber: "ST 381/2025", cnr: "KLKL03-000381-2025", parties: "Rukhiya Beevi v. N. Pillai", court: JMFC2, stage: "Cognizance", nextHearingAt: hearing(30), signatories: ["p-an"], advocates: ["p-an"] },
-  { id: "c-52", stNumber: "ST 52/2025", cnr: "KLKL04-000052-2025", parties: "Shaji P. v. Kollam Cashew Co.", court: CJM, stage: "Evidence of the complainant", nextHearingAt: hearing(3), signatories: ["p-dv", "p-an"], advocates: ["p-dv", "p-an", "p-sp"] },
+  { id: "c-52", stNumber: "ST 52/2025", cnr: "KLKL04-000052-2025", parties: "Shaji P. v. Lakeside Cashew Co.", court: CJM, stage: "Evidence of the complainant", nextHearingAt: hearing(3), signatories: ["p-dv", "p-an"], advocates: ["p-dv", "p-an", "p-sp"] },
   { id: "c-221", stNumber: "ST 221/2025", cnr: "KLKL01-000221-2025", parties: "Ramesh P. v. Coastal Traders", court: ON, stage: "Evidence of the complainant", nextHearingAt: hearing(18), signatories: ["p-rm"], advocates: ["p-rm", "p-an", "p-sp"] },
   { id: "c-377", stNumber: "ST 377/2025", cnr: "KLKL01-000377-2025", parties: "Sujatha R. v. M. Haneefa", court: ON, stage: "Evidence of the complainant", nextHearingAt: hearing(25), signatories: ["p-rm"], advocates: ["p-rm", "p-ri"] },
   { id: "c-633", stNumber: "ST 633/2025", cnr: "KLKL01-000633-2025", parties: "Sheeba Rasheed v. Muhammed Ashraf", court: ON, stage: "Evidence of the complainant", nextHearingAt: hearing(4), signatories: ["p-rm"], advocates: ["p-rm", "p-an", "p-sp"] },
@@ -382,10 +391,10 @@ export const CASES: Case[] = [
   { id: "c-hd4", stNumber: "ST 391/2026", cnr: "KLKL01-000391-2026", parties: "Mariyam Bee v. Anwar Sadath", court: ON, stage: "Appearance", nextHearingAt: listedToday("c-hd4"), signatories: ["p-dv"], advocates: ["p-dv", "p-an"] },
   { id: "c-hd5", stNumber: "ST 129/2026", cnr: "KLKL01-000129-2026", parties: "Ravi Chandran v. Sea Pearl Exports", court: ON, stage: "Evidence of the complainant", nextHearingAt: listedToday("c-hd5"), signatories: ["p-an", "p-dv"], advocates: ["p-an", "p-dv", "p-sp"] },
   { id: "c-hd6", stNumber: "ST 84/2026", cnr: "KLKL02-000084-2026", parties: "Salini Mohan v. Grand Textiles", court: JMFC1, stage: "Plea", nextHearingAt: listedToday("c-hd6"), signatories: ["p-an"], advocates: ["p-an", "p-ri"] },
-  { id: "c-hd7", stNumber: "ST 610/2025", cnr: "KLKL02-000610-2025", parties: "Peter Varghese v. Nila Finance", court: JMFC1, stage: "Arguments", nextHearingAt: listedToday("c-hd7"), passedOver: true, signatories: ["p-rm"], advocates: ["p-rm", "p-an"] },
+  { id: "c-hd7", stNumber: "ST 610/2025", cnr: "KLKL02-000610-2025", parties: "Peter Varghese v. Nila Finance", court: JMFC1, stage: "Arguments", nextHearingAt: listedToday("c-hd7"), signatories: ["p-rm"], advocates: ["p-rm", "p-an"] },
   { id: "c-hd8", stNumber: "ST 233/2025", cnr: "KLKL02-000233-2025", parties: "Asha Kumari v. Vel Murugan Stores", court: JMFC1, stage: "Evidence of the complainant", nextHearingAt: listedToday("c-hd8"), signatories: ["p-an"], advocates: ["p-an", "p-sp"] },
   { id: "c-hd9", stNumber: "ST 47/2025", cnr: "KLKL04-000047-2025", parties: "Krishnan Kutty v. Sree Devi Traders", court: CJM, stage: "Arguments", nextHearingAt: listedToday("c-hd9"), signatories: ["p-an"], advocates: ["p-an"] },
-  { id: "c-hd10", stNumber: "ST 902/2025", cnr: "KLKL04-000902-2025", parties: "Noor Jahan v. Kadavil Motors", court: CJM, stage: "Appearance", nextHearingAt: listedToday("c-hd10"), passedOver: true, signatories: ["p-dv", "p-an"], advocates: ["p-dv", "p-an"] },
+  { id: "c-hd10", stNumber: "ST 902/2025", cnr: "KLKL04-000902-2025", parties: "Noor Jahan v. Kadavil Motors", court: CJM, stage: "Appearance", nextHearingAt: listedToday("c-hd10"), signatories: ["p-dv", "p-an"], advocates: ["p-dv", "p-an"] },
   // Seven more in the ON court, so the flagship board runs twelve deep — enough
   // to see how the day scales, and how a matter reads when three or four
   // advocates share it: some sign together, some only have case access.
@@ -423,8 +432,21 @@ export const CASES: Case[] = [
   ...OTHER_CASES,
   // Matters before filing — no ST number, no CNR yet; the statutory clocks live here.
   { id: "c-sainaba", stNumber: "", cnr: "", parties: "Sainaba K. v. Riyas M.", court: ON, stage: "Pre-filing", signatories: ["p-an"], advocates: ["p-an", "p-sp"] },
+  { id: "c-lakshmi", stNumber: "", cnr: "", parties: "Lakshmi Devi v. Thomas Kurian", court: ON, stage: "Pre-filing", signatories: ["p-an"], advocates: ["p-an", "p-sp"] },
+  { id: "c-rafi", stNumber: "", cnr: "", parties: "Mohammed Rafi v. Suresh Babu", court: ON, stage: "Pre-filing", signatories: ["p-an"], advocates: ["p-an", "p-sp"] },
   { id: "c-arun", stNumber: "", cnr: "", parties: "Arun K. v. Meera Enterprises", court: ON, stage: "Pre-filing", signatories: ["p-rm"], advocates: ["p-rm", "p-sp"] },
   { id: "c-bindu", stNumber: "", cnr: "", parties: "Bindu S. v. Kerala Agro Traders", court: ON, stage: "Pre-filing", signatories: ["p-an"], advocates: ["p-an", "p-sp"] },
+  // More returned filings for the demo (`EXTRA_RETURNS`).
+  ...EXTRA_RETURNS.map((extra): Case => ({
+    id: extra.caseId,
+    stNumber: "",
+    cnr: "",
+    parties: `${extra.complainant} v. ${extra.accused}`,
+    court: ON,
+    stage: "Pre-filing",
+    signatories: ["p-an"],
+    advocates: ["p-an", "p-sp"],
+  })),
 ];
 
 /* ───────────────────────────── tasks ───────────────────────────── */
@@ -895,12 +917,61 @@ export function buildTasks(): Task[] {
       returned: { by: "scrutiny", at: at(-2, 11), defects: SCRUTINY_DEFECTS },
     }),
     task({
+      id: "t-retlakshmi",
+      caseId: "c-lakshmi",
+      kind: "returned",
+      title: "Fix 3 defects and re-file the complaint",
+      why: created(-1, "Scrutiny returned the complaint for compliance with 3 defects"),
+      whatToDo:
+        "Correct each flagged field in the filing and submit the corrections to scrutiny.",
+      dueAt: at(4),
+      dueKind: "court-set",
+      deadlineNote: RETURN_WINDOW_NOTE,
+      draftId: SCRUTINY_DRAFT_ID_LAKSHMI,
+      status: "open",
+      returned: { by: "scrutiny", at: at(-1, 11), defects: SCRUTINY_DEFECTS_LAKSHMI },
+    }),
+    task({
+      id: "t-retrafi",
+      caseId: "c-rafi",
+      kind: "returned",
+      title: "Fix 2 defects and re-file the complaint",
+      why: created(-3, "Scrutiny returned the complaint for compliance with 2 defects"),
+      whatToDo:
+        "Correct the flagged field, replace the flagged document, and submit the corrections to scrutiny.",
+      documentsNeeded: ["Proof of delivery of demand notice (AD card)"],
+      dueAt: at(2),
+      dueKind: "court-set",
+      deadlineNote: RETURN_WINDOW_NOTE,
+      draftId: SCRUTINY_DRAFT_ID_RAFI,
+      status: "open",
+      returned: { by: "scrutiny", at: at(-3, 11), defects: SCRUTINY_DEFECTS_RAFI },
+    }),
+    ...EXTRA_RETURNS.map((extra) => {
+      const defects = DEFECTS_BY_BASE[extra.base];
+      const n = defects.length;
+      return task({
+        id: extra.id,
+        caseId: extra.caseId,
+        kind: "returned",
+        title: `Fix ${n} defect${n === 1 ? "" : "s"} and re-file the complaint`,
+        why: created(-extra.returnedAgo, `Scrutiny returned the complaint for compliance with ${n} defect${n === 1 ? "" : "s"}`),
+        whatToDo: "Correct each flagged item in the filing and submit the corrections to scrutiny.",
+        dueAt: at(5 - extra.returnedAgo),
+        dueKind: "court-set",
+        deadlineNote: RETURN_WINDOW_NOTE,
+        draftId: extra.draftId,
+        status: "open",
+        returned: { by: "scrutiny", at: at(-extra.returnedAgo, 11), defects },
+      });
+    }),
+    task({
       id: "t-ret941",
       caseId: "c-941",
       kind: "returned",
       title: "Fix 2 defects and re-file the application to condone the delay",
       why: created(-3, "Scrutiny returned the application to condone the delay with 2 defects"),
-      whatToDo: "Cure each defect, attach the corrected document where one is needed, and re-file.",
+      whatToDo: "Fix each defect, attach the corrected document where one is needed, and re-file.",
       documentsNeeded: ["Affidavit in support (attested)", "Postal acknowledgement"],
       dueAt: at(2),
       dueKind: "court-set",
@@ -922,7 +993,7 @@ export function buildTasks(): Task[] {
       kind: "returned",
       title: "Fix 1 defect and re-file the affidavit of the complainant",
       why: created(-4, "Scrutiny returned the chief affidavit with 1 defect"),
-      whatToDo: "Cure the defect, attach the corrected affidavit, and re-file.",
+      whatToDo: "Fix the defect, attach the corrected affidavit, and re-file.",
       documentsNeeded: ["Chief affidavit (sworn)"],
       dueAt: at(1),
       dueKind: "court-set",
@@ -956,12 +1027,12 @@ export function buildTasks(): Task[] {
       kind: "returned",
       title: "Fix 2 defects and re-file the application to condone the delay",
       why: created(-20, "Scrutiny returned the application with 2 defects"),
-      whatToDo: "Cure each defect, attach the corrected document where one is needed, and re-file.",
+      whatToDo: "Fix each defect, attach the corrected document where one is needed, and re-file.",
       dueAt: at(-15),
       dueKind: "court-set",
       deadlineNote: RETURN_WINDOW_NOTE,
       status: "expired",
-      statusNote: "cure window lapsed",
+      statusNote: "fix window lapsed",
       returned: {
         by: "scrutiny",
         at: at(-20, 11),
@@ -972,7 +1043,7 @@ export function buildTasks(): Task[] {
       },
       history: [
         { at: at(-20, 11), text: "Created — scrutiny returned the application with 2 defects" },
-        { at: at(-12, 11), text: "Expired — cure window lapsed" },
+        { at: at(-12, 11), text: "Expired — fix window lapsed" },
       ],
     }),
 
@@ -1178,6 +1249,22 @@ export function buildTasks(): Task[] {
       dueKind: "court-set",
       deadlineNote: "Registry: before today's posting",
       hearingAt: listedToday("c-hd3"),
+      status: "open",
+    }),
+    // The one passed-over matter also owes work before it is called again, so
+    // the board shows a row carrying both flags.
+    task({
+      id: "t-memo-hd2",
+      caseId: "c-hd2",
+      kind: "file",
+      title: "File the plea memo before the matter is called again",
+      why: created(-2, order(-2)),
+      whatToDo: "Upload the signed plea memo; the matter was passed over and will be called again today.",
+      documentsNeeded: ["Plea memo"],
+      dueAt: at(0, 15, 0),
+      dueKind: "before-hearing",
+      deadlineNote: "Before the matter is called again",
+      hearingAt: listedToday("c-hd2"),
       status: "open",
     }),
     task({

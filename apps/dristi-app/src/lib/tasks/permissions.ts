@@ -9,7 +9,7 @@
  * everything.
  */
 
-import type { Case, PillKind, Person, PersonId, Task, TaskStatus, TaskView, Verb } from "./types";
+import type { Case, Person, PersonId, Task, TaskCategory, TaskKind, TaskStatus, TaskView, Verb } from "./types";
 
 function idOf(user: Person | PersonId): PersonId {
   return typeof user === "string" ? user : user.id;
@@ -103,22 +103,35 @@ export function whoCanActOn(task: Task, kase: Case, people: Person[]): Person[] 
 }
 
 /**
- * Which kind pill a task counts under — by the **act it still needs**, never by how
+ * Which category pill a task counts under — by the **act it still needs**, never by how
  * far along it is (owner, 2026-08-24).
  *
- * The cards are a list of things to do, so every one of them has to name an act: sign,
- * pay, file, re-file, appear. "Draft" is not an act, it is a state — a half-written filing
- * is still *to file*, and a scrutiny return stays *returned* until it goes back. Counting
+ * "Draft" is not an act, it is a state — a half-written filing is still *File/Submit*,
+ * and a scrutiny return stays there until it goes back. Counting
  * started work under a separate "Drafts" card took it out of the queue it belongs to and
  * made the same task move between cards just because someone opened it.
  *
  * Nothing is lost: that a task is in progress still shows on the row (the second line
  * says who saved it and when) and in its verb, which reads *Continue* rather than *Start*.
  */
-export function cardKindOf(task: Task): PillKind {
-  if (task.kind === "draft") return "file";
-  return task.kind;
+export function categoryOf(task: Task): TaskCategory {
+  return CATEGORY_OF_KIND[task.kind];
 }
+
+/**
+ * Kind → PRD category. A scrutiny return is File/Submit, as the Coda catalogue files
+ * "Correct defects"; a draft is the filing it will become. Review requests and hearing
+ * tasks (being present, producing a witness) are none of pay, sign or file — Others.
+ */
+const CATEGORY_OF_KIND: Record<TaskKind, TaskCategory> = {
+  pay: "pay",
+  sign: "sign",
+  file: "file",
+  returned: "file",
+  draft: "file",
+  review: "others",
+  hearing: "others",
+};
 
 /** Kinds that have their own act flow. Hearing tasks are done in court. */
 export const PAGED_KINDS: ReadonlySet<Task["kind"]> = new Set(["sign", "pay", "file", "returned", "draft"]);

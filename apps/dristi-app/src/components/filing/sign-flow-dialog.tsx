@@ -24,12 +24,17 @@
  *
  * ## The stages
  *
- * `choose` — digital or paper, each card saying what it does to the other parties.
+ * `choose` — e-signing, as the one card, saying what it does to the other parties; paper
+ *   is a link beneath it for when e-signing has not worked (owner, 2026-10-06).
+ * `fallback` — what went wrong with e-signing, one reason, then continue to the upload.
+ *   Nothing changes until they continue, so looking costs nothing.
  * `sign` — the link is out; now the filer's own instrument, Aadhaar OTP or their DSC.
  * `otp` / `dsc` — that instrument, doing its one job.
  * `done` — what just happened, resolving in the same scene as the act.
  * `paper` — the printed copy coming back, with each complainant's own confirmation.
  * `uploaded` — the same, settled.
+ * `oath` — an advocate's second act, straight after their signature (`oath-capture`).
+ * `sworn` — the oath, settled.
  *
  * Signing here writes to the draft and nothing else: no e-sign provider is called, no
  * message is sent, and every screen that stands in for a real service says so in place.
@@ -39,10 +44,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import {
   CheckIcon,
-  ChevronRightIcon,
-  CircleCheckIcon,
   FileTextIcon,
-  ShieldCheckIcon,
   SignatureIcon,
   UploadIcon,
 } from "lucide-react";
@@ -51,32 +53,57 @@ import {
   StagedOverlay,
   useStagedFlow,
 } from "@/components/chrome/staged-overlay";
+import { signingRules } from "@/lib/filing/config";
 import { getRepository, storeUpload } from "@/lib/filing/data";
 import { forgetFile, formatBytes } from "@/lib/filing/files";
 import { useProfile } from "@/lib/filing/profile";
-import { phoneConfirmers, signatories } from "@/lib/filing/selectors";
+import { isOutstanding, oathTakerName, phoneConfirmers, signatories } from "@/lib/filing/selectors";
 import { useFiling } from "@/lib/filing/store";
 import type {
+  OathVideoUpload,
+  PaperFallbackReason,
   PhoneConfirmer,
   SignInstrument,
-  Signatory,
   StoredFileRef,
 } from "@/lib/filing/types";
-import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Label } from "@/components/ui/label";
-import { Spinner } from "@/components/ui/spinner";
-import { RESOLVE_IN_PLACE } from "@/components/chrome/motion";
 import { SectionNotice } from "@/components/filing/notices";
+import { OathCapture } from "@/components/filing/oath-capture";
+import {
+  PaperFallbackLink,
+  PaperFallbackQuestion,
+  paperFallbackReasons,
+} from "@/components/filing/paper-fallback";
+import {
+  ChoiceCard,
+  DscLookup,
+  InstrumentChoice,
+  OtpEntry,
+  SettledCard,
+  StageColumn,
+  StepTrail,
+  type TrailStep,
+} from "@/components/filing/sign-stages";
 import { pickErrorMessage, useFilePicker } from "@/components/filing/use-file-picker";
 
 /** Where the window opens, decided by what has happened to the complaint so far. */
-export type SignFlowStart = "choose" | "sign" | "paper";
+export type SignFlowStart = "choose" | "sign" | "fallback" | "paper" | "oath" | "status";
 
-type Stage = "choose" | "sign" | "otp" | "dsc" | "done" | "paper" | "uploaded";
+type Stage =
+  | "choose"
+  | "sign"
+  | "otp"
+  | "dsc"
+  | "done"
+  | "fallback"
+  | "paper"
+  | "uploaded"
+  | "oath"
+  | "sworn";
 
 /**
  * Every stage, in the order the act moves through them — read by `useStagedFlow` for the
@@ -86,9 +113,14 @@ type Stage = "choose" | "sign" | "otp" | "dsc" | "done" | "paper" | "uploaded";
  * first in its own order.
  */
 const ORDER: Record<SignFlowStart, readonly Stage[]> = {
-  choose: ["choose", "sign", "otp", "dsc", "done", "paper", "uploaded"],
-  sign: ["sign", "otp", "dsc", "done", "paper", "uploaded", "choose"],
-  paper: ["paper", "uploaded", "choose", "sign", "otp", "dsc", "done"],
+  /* Reopened where signing stands: the roster, for a complaint already out for
+     signature (the scrutiny correction screen reopens here). */
+  status: ["done", "oath", "sworn", "choose", "sign", "otp", "dsc", "fallback", "paper", "uploaded"],
+  choose: ["choose", "sign", "otp", "dsc", "done", "fallback", "paper", "uploaded", "oath", "sworn"],
+  sign: ["sign", "otp", "dsc", "done", "fallback", "paper", "uploaded", "oath", "sworn", "choose"],
+  fallback: ["fallback", "paper", "uploaded", "oath", "sworn", "choose", "sign", "otp", "dsc", "done"],
+  paper: ["paper", "uploaded", "oath", "sworn", "choose", "sign", "otp", "dsc", "done", "fallback"],
+  oath: ["oath", "sworn", "choose", "sign", "otp", "dsc", "done", "fallback", "paper", "uploaded"],
 };
 
 /**
@@ -102,8 +134,11 @@ const SCENES: Record<Stage, string> = {
   otp: "act",
   dsc: "act",
   done: "act",
+  fallback: "fallback",
   paper: "paper",
   uploaded: "paper",
+  oath: "oath",
+  sworn: "oath",
 };
 
 /** How a signature names what made it — the whole line, not a fragment. */
@@ -118,12 +153,28 @@ export function SignFlowDialog({
   start,
   onOpenChange,
   onPrint,
+  statusActions,
+  completeNote,
+  unlocks,
+  outcome,
 }: {
   open: boolean;
   /** Where to open — computed by the step from the draft, once, as the window opens. */
   start: SignFlowStart;
   onOpenChange: (open: boolean) => void;
   onPrint: () => void;
+  /** The status stage's footer, in place of Done — a host's own controls (the scrutiny
+   *  correction screen: reminder, sandbox, then the send). */
+  statusActions?: React.ReactNode;
+  /** The roster's footnote once everyone has signed, where "pay the court fee" is not
+   *  what comes next (a corrected complaint goes back to scrutiny). */
+  completeNote?: string;
+  /** What waits on the outstanding signatures, as the footnotes name it: the court fee
+   *  in a filing, the send back to scrutiny in a correction. */
+  unlocks?: string;
+  /** What the host has done since, shown on the roster in place of the signing outcome —
+   *  the corrections sent to scrutiny. */
+  outcome?: { title: string; headline: string; footnote: string };
 }) {
   /* A fresh opening is a fresh act: the body remounts so it starts on the stage the
      complaint is actually at, with nothing typed into it from last time. */
@@ -142,6 +193,10 @@ export function SignFlowDialog({
           start={start}
           onClose={() => onOpenChange(false)}
           onPrint={onPrint}
+          statusActions={statusActions}
+          completeNote={completeNote}
+          unlocks={unlocks}
+          outcome={outcome}
         />
       ) : null}
     </Dialog>
@@ -152,10 +207,18 @@ function SignFlowBody({
   start,
   onClose,
   onPrint,
+  statusActions,
+  completeNote,
+  unlocks = "The court fee opens",
+  outcome,
 }: {
   start: SignFlowStart;
   onClose: () => void;
   onPrint: () => void;
+  statusActions?: React.ReactNode;
+  completeNote?: string;
+  unlocks?: string;
+  outcome?: { title: string; headline: string; footnote: string };
 }) {
   const { draft, update, hrefFor } = useFiling();
   const { profile } = useProfile();
@@ -182,6 +245,29 @@ function SignFlowBody({
   const yous = everyone.filter((s) => s.you);
   const youSigned = yous.length > 0 && yous.every((s) => s.status === "signed");
   const pending = everyone.filter((s) => s.status === "pending").length;
+  /** Signatures and oaths still to come — what the court fee waits on. */
+  const outstanding = everyone.filter(isOutstanding).length;
+
+  /*
+   * The second act, after the signature — complainants and advocates both take it. One
+   * person can sign in more than one slot; one oath covers every slot they sign in, as
+   * one signature does.
+   */
+  const yourOathSlots = yous.filter((s) => s.oathTaken !== undefined);
+  const oathYours = signingRules().oath && yourOathSlots.length > 0;
+  const oathOwed = oathYours && yourOathSlots.some((s) => !s.oathTaken);
+  const yourOath: OathVideoUpload | null =
+    yourOathSlots.map((s) => sign.oaths[s.id]?.video).find(Boolean) ?? null;
+  /** Whose name the oath is read in: the person at this keyboard. */
+  const oathName =
+    profile?.name.trim() ||
+    (yourOathSlots[0] ? oathTakerName(draft, yourOathSlots[0].id) : "");
+  const onPaperPath = start === "paper" || sign.mode === "upload";
+  /** The two acts, named for an advocate before the first one starts. */
+  const trail = (current: "sign" | "oath"): TrailStep[] => [
+    { label: onPaperPath ? "Signed copy" : "E-sign", state: current === "sign" ? "current" : "done" },
+    { label: "Oath", state: current === "oath" ? "current" : "next" },
+  ];
   const otherSigners = Math.max(0, everyone.length - yous.length);
   const others =
     otherSigners === 1 ? "The other party" : `The other ${otherSigners} parties`;
@@ -193,6 +279,18 @@ function SignFlowBody({
   const [dscFound, setDscFound] = React.useState(false);
   const [signedWith, setSignedWith] = React.useState<SignInstrument | null>(null);
   const resendTimer = React.useRef<number | null>(null);
+
+  /* ── turning to paper ──────────────────────────────────────────────────── */
+  /* A filer who already gave a reason and stepped back sees it picked, not a blank —
+     unless it is one the list no longer offers. */
+  const fallbackReasons = paperFallbackReasons(otherSigners);
+  const [fallbackReason, setFallbackReason] = React.useState<PaperFallbackReason | "">(() => {
+    const saved = sign.paperFallback?.reason;
+    return saved && fallbackReasons.some((r) => r.id === saved) ? saved : "";
+  });
+  /** Requests already out on the digital path, which turning to paper withdraws. */
+  const requested = sign.mode === "digital" && sign.requestedAt !== null;
+  const anySigned = sign.mode === "digital" && everyone.some((s) => s.status === "signed");
 
   /* ── the uploaded copy ─────────────────────────────────────────────────── */
   const [uploadError, setUploadError] = React.useState<string | null>(null);
@@ -219,6 +317,9 @@ function SignFlowBody({
     const timer = window.setTimeout(() => setDscFound(true), 1100);
     return () => window.clearTimeout(timer);
   }, [flow.stage, dscFound]);
+
+  /** Whether this opening of the window sent the links out — `choose` was passed through. */
+  const [sentThisOpening, setSentThisOpening] = React.useState(false);
 
   const mobileTail = (profile?.mobile ?? "").replace(/\D/g, "").slice(-4);
   const certHolder = (profile?.name ?? "").trim();
@@ -247,27 +348,37 @@ function SignFlowBody({
     const now = new Date().toISOString();
     update((d) => {
       d.sign.mode = "digital";
+      d.sign.paperFallback = null;
       d.sign.requestedAt = now;
       // Everyone but the people at this keyboard — "you" sign here, not by link.
       d.sign.notified = Object.fromEntries(
         everyone.filter((s) => !s.you).map((s) => [s.id, now])
       );
     });
+    setSentThisOpening(true);
     flow.go(yous.length > 0 ? "sign" : "done");
   };
 
   /**
-   * Paper instead. Nothing is sent to anyone, and anything already outstanding is
-   * recalled — the printed copy has to carry every signature by hand regardless.
+   * Paper instead, once the filer has said why. Nothing is sent to anyone, and anything
+   * already outstanding is recalled — the printed copy has to carry every signature by
+   * hand regardless. A draft already on paper (one from before this question existed)
+   * only gains the reason; its copy and confirmations stay where they are.
    */
-  const choosePaper = () => {
+  const continueToPaper = () => {
+    if (!fallbackReason) return;
+    const paperFallback = { reason: fallbackReason, at: new Date().toISOString() };
+    const alreadyOnPaper = sign.mode === "upload";
     update((d) => {
+      d.sign.paperFallback = paperFallback;
+      if (alreadyOnPaper) return;
       d.sign.mode = "upload";
       d.sign.requestedAt = null;
       d.sign.notified = {};
       d.sign.signed = {};
       d.sign.confirmed = {};
     });
+    setSentThisOpening(false);
     setUploadError(null);
     setOtpFor(null);
     setRowOtp("");
@@ -357,21 +468,47 @@ function SignFlowBody({
     update((d) => {
       for (const s of everyone) d.sign.signed[s.id] = { at, with: "paper" };
       d.sign.mode = "upload";
+      // Paper carries the signatures, not the oath. Everyone else still takes theirs,
+      // so their link goes out now — for the oath alone.
+      for (const s of everyone) {
+        if (!s.you && !s.oathTaken) d.sign.notified[s.id] = at;
+      }
     });
     flow.go("uploaded");
   };
 
+  /** One oath, written to every slot this person signs in. */
+  const saveOath = (video: OathVideoUpload) => {
+    const at = new Date().toISOString();
+    update((d) => {
+      for (const s of yourOathSlots) d.sign.oaths[s.id] = { at, video };
+    });
+  };
+
   /* ── the window ────────────────────────────────────────────────────────── */
 
-  const title = {
+  const baseTitle = {
     choose: "How will this complaint be signed?",
     sign: "Add your e-signature",
     otp: "Enter the OTP",
     dsc: "Sign with your DSC",
-    done: youSigned ? "Signature added" : "Out for signature",
+    /* Reopened with everyone in, nothing was just added or sent out. */
+    done: signedWith
+      ? "Signature added"
+      : outstanding === 0
+        ? "Everyone has signed"
+        : youSigned
+          ? "Signature added"
+          : "Out for signature",
+    fallback: "Unable to e-sign?",
     paper: "Upload the signed complaint",
     uploaded: "Signed copy accepted",
+    oath: "Take your oath",
+    sworn: "Oath recorded",
   }[flow.stage];
+  /* Once the host has acted (sent to scrutiny), the roster stages say so. */
+  const settledStage = flow.stage === "done" || flow.stage === "sworn";
+  const title = outcome && settledStage ? outcome.title : baseTitle;
 
   const description = {
     choose:
@@ -384,8 +521,12 @@ function SignFlowBody({
       : "Sent to your Aadhaar-linked mobile.",
     dsc: "Your certificate has to be plugged in, with the signing utility running on this computer.",
     done: null,
+    fallback:
+      "E-signing is quicker for everyone. On paper, every party signs by hand and each complainant confirms by OTP.",
     paper: null,
     uploaded: null,
+    oath: "Record yourself reading the oath. It is filed with the complaint.",
+    sworn: null,
   }[flow.stage];
 
   const footer = {
@@ -415,10 +556,36 @@ function SignFlowBody({
         </Button>
       </>
     ),
-    done: (
-      <Button type="button" onClick={onClose}>
-        Done
-      </Button>
+    done:
+      youSigned && oathOwed ? (
+        <>
+          <Button type="button" variant="ghost" onClick={onClose}>
+            I&rsquo;ll take it later
+          </Button>
+          <Button type="button" onClick={() => flow.go("oath")}>
+            Continue to the oath
+          </Button>
+        </>
+      ) : statusActions ? (
+        statusActions
+      ) : (
+        <Button type="button" onClick={onClose}>
+          Done
+        </Button>
+      ),
+    fallback: (
+      <>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => (start === "fallback" ? onClose() : flow.go("choose"))}
+        >
+          Keep e-signing
+        </Button>
+        <Button type="button" disabled={!fallbackReason} onClick={continueToPaper}>
+          Continue to upload
+        </Button>
+      </>
     ),
     paper: (
       <>
@@ -434,7 +601,32 @@ function SignFlowBody({
         </Button>
       </>
     ),
-    uploaded: (
+    uploaded: oathOwed ? (
+      <>
+        <Button type="button" variant="ghost" onClick={onClose}>
+          I&rsquo;ll take it later
+        </Button>
+        <Button type="button" onClick={() => flow.go("oath")}>
+          Continue to the oath
+        </Button>
+      </>
+    ) : (
+      <Button type="button" onClick={onClose}>
+        Done
+      </Button>
+    ),
+    oath: (
+      <>
+        <Button type="button" variant="ghost" onClick={onClose}>
+          I&rsquo;ll take it later
+        </Button>
+        <Button type="button" disabled={!yourOath} onClick={() => flow.go("sworn")}>
+          Submit oath
+        </Button>
+      </>
+    ),
+    // The oath settles on the same roster, so the host's controls follow it here too.
+    sworn: statusActions ?? (
       <Button type="button" onClick={onClose}>
         Done
       </Button>
@@ -449,7 +641,7 @@ function SignFlowBody({
         title={title}
         titleRef={flow.titleRef}
         titleAside={
-          flow.stage === "done" || flow.stage === "uploaded" ? (
+          flow.stage === "done" || flow.stage === "uploaded" || flow.stage === "sworn" ? (
             <Badge variant="success">
               <CheckIcon aria-hidden />
               {everyone.length - pending} of {everyone.length} signed
@@ -479,129 +671,90 @@ function SignFlowBody({
               ) : null}
             </ChoiceCard>
 
-            <ChoiceCard
-              title="Upload a physically signed copy"
-              tone="bg-warning-muted text-warning-muted-foreground"
-              icon={<UploadIcon className="size-5" />}
-              onClick={choosePaper}
-            >
-              Upload one PDF that already carries every party&rsquo;s signature.
-            </ChoiceCard>
+            <PaperFallbackLink onClick={() => flow.go("fallback")} />
+          </StageColumn>
+        ) : flow.stage === "fallback" ? (
+          <StageColumn>
+            {/* Said before the act, in the window that does it: other people already
+                hold a request against this complaint, and paper takes it back. */}
+            {requested || anySigned ? (
+              <SectionNotice variant="warning" title="This withdraws the e-sign requests">
+                {otherSigners === 0
+                  ? "Your e-signature is voided. The PDF you upload has to carry your signature by hand instead."
+                  : `${others} ${have} been asked to e-sign. Continuing withdraws ${
+                      otherSigners === 1 ? "that request" : "those requests"
+                    }${
+                      anySigned ? " and voids the signatures already collected" : ""
+                    } — the PDF you upload has to carry every signature by hand.`}
+              </SectionNotice>
+            ) : null}
+            <PaperFallbackQuestion
+              reasons={fallbackReasons}
+              value={fallbackReason}
+              onChange={setFallbackReason}
+            />
           </StageColumn>
         ) : flow.stage === "sign" ? (
           <StageColumn>
-            {otherSigners > 0 ? (
+            {/* Only as the outcome of "Sign digitally" in this same opening. Opened
+                straight on this stage, the request went out on an earlier visit and the
+                line would be stale — and could be false, if the other party has signed. */}
+            {sentThisOpening && otherSigners > 0 ? (
               <SectionNotice variant="success" announce="polite" title="Sent for signature">
                 {others} {have} a link on the mobile number given in the complaint.
               </SectionNotice>
             ) : null}
 
-            <p className="text-body font-medium">How will you e-sign?</p>
+            {oathYours ? <StepTrail steps={trail("sign")} /> : null}
 
-            <ChoiceCard
-              title="Aadhaar OTP"
-              tone="bg-info-muted text-info-muted-foreground"
-              icon={<SignatureIcon className="size-5" />}
-              onClick={() => {
+            <InstrumentChoice
+              onAadhaar={() => {
                 setOtp("");
                 flow.go("otp");
               }}
-            >
-              A six-digit code goes to the mobile number registered with your Aadhaar.
-            </ChoiceCard>
-
-            <ChoiceCard
-              title="My DSC"
-              tone="bg-brand-muted text-brand-muted-foreground"
-              icon={<ShieldCheckIcon className="size-5" />}
-              onClick={() => {
+              onDsc={() => {
                 setDscFound(false);
                 flow.go("dsc");
               }}
-            >
-              The Digital Signature Certificate already set up on this computer.
-            </ChoiceCard>
+            />
           </StageColumn>
         ) : flow.stage === "otp" ? (
           <StageColumn>
-            <div className="flex flex-col items-center gap-3">
-              <InputOTP
-                id="esign-otp"
-                maxLength={6}
-                value={otp}
-                onChange={setOtp}
-                aria-label="One-time password"
-                containerClassName="gap-2"
-                autoFocus
-              >
-                <InputOTPGroup className="gap-2">
-                  {[0, 1, 2, 3, 4, 5].map((i) => (
-                    <InputOTPSlot
-                      key={i}
-                      index={i}
-                      className="size-12 rounded-lg border border-input text-title-s font-semibold tabular-nums"
-                    />
-                  ))}
-                </InputOTPGroup>
-              </InputOTP>
-              <Button
-                type="button"
-                variant="link"
-                className="h-auto p-0 text-body-compact"
-                onClick={resendOtp}
-              >
-                {resent ? "Sent again" : "Send it again"}
-              </Button>
-              <p className="text-body-compact text-muted-foreground">
-                Sandbox — any six digits work.
-              </p>
-            </div>
+            <OtpEntry
+              id="esign-otp"
+              value={otp}
+              onChange={setOtp}
+              resent={resent}
+              onResend={resendOtp}
+            />
           </StageColumn>
         ) : flow.stage === "dsc" ? (
           <StageColumn>
-            {/* The height is held across both states so the footer does not jump. */}
-            <div aria-live="polite" className="flex min-h-20 flex-col justify-center">
-              {dscFound ? (
-                <div className="flex items-start gap-3 rounded-lg border border-hairline bg-card p-4">
-                  <ShieldCheckIcon
-                    aria-hidden
-                    className="mt-0.5 size-5 shrink-0 text-success-ink"
-                  />
-                  <div className="flex min-w-0 flex-col gap-0.5">
-                    <p className="truncate text-body-compact font-medium">
-                      {certHolder || "Certificate found on this computer"}
-                    </p>
-                    <p className="text-body-compact text-muted-foreground">
-                      {certHolder
-                        ? "Class 3 individual certificate, found on this computer"
-                        : "Class 3 individual certificate"}
-                    </p>
-                    <p className="text-body-compact text-muted-foreground">
-                      Sandbox — no certificate store is read.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <p className="flex items-center gap-3 text-body-compact text-muted-foreground">
-                  <Spinner className="size-4 shrink-0" aria-hidden />
-                  Looking for a certificate on this computer&hellip;
-                </p>
-              )}
-            </div>
+            <DscLookup found={dscFound} holder={certHolder} />
           </StageColumn>
         ) : flow.stage === "done" ? (
           <StageColumn>
             <SettledCard
               headline={
-                youSigned && signedWith
-                  ? INSTRUMENT_LABEL[signedWith]
-                  : "Sent for signature"
+                outcome
+                  ? outcome.headline
+                  : youSigned && signedWith
+                    ? INSTRUMENT_LABEL[signedWith]
+                    : outstanding === 0
+                      ? signingRules().oath
+                        ? "Every signature and oath is in"
+                        : "Every signature is in"
+                      : "Sent for signature"
               }
               rows={everyone}
               footnote={
-                pending === 0
-                  ? "You can pay the court fee now."
-                  : "It waits in your pending tasks until every signature is in."
+                outcome
+                  ? outcome.footnote
+                  : youSigned && oathOwed
+                  ? `Your oath is next. ${unlocks} once every signature and oath is in.`
+                  : outstanding === 0
+                    ? completeNote ?? "You can pay the court fee now."
+                    : `It waits in your pending tasks until every signature${signingRules().oath ? " and oath" : ""} is in.`
               }
             />
           </StageColumn>
@@ -628,12 +781,39 @@ function SignFlowBody({
             }}
             onPrint={onPrint}
           />
-        ) : (
+        ) : flow.stage === "uploaded" ? (
           <StageColumn>
             <SettledCard
               headline="Signed copy accepted"
               rows={everyone}
-              footnote="You can pay the court fee now."
+              footnote={
+                oathOwed
+                  ? `Your oath is next. ${unlocks} once every advocate has taken theirs.`
+                  : outstanding === 0
+                    ? completeNote ?? "You can pay the court fee now."
+                    : signingRules().oath
+                      ? `${unlocks} once every advocate has taken their oath.`
+                      : `${unlocks} once every signature is in.`
+              }
+            />
+          </StageColumn>
+        ) : flow.stage === "oath" ? (
+          <StageColumn>
+            <StepTrail steps={trail("oath")} />
+            <OathCapture name={oathName} value={yourOath} onChange={saveOath} />
+          </StageColumn>
+        ) : (
+          <StageColumn>
+            <SettledCard
+              headline={outcome ? outcome.headline : "Oath recorded"}
+              rows={everyone}
+              footnote={
+                outcome
+                  ? outcome.footnote
+                  : outstanding === 0
+                  ? completeNote ?? "You can pay the court fee now."
+                  : `It waits in your pending tasks until every signature${signingRules().oath ? " and oath" : ""} is in.`
+              }
             />
           </StageColumn>
         )}
@@ -643,140 +823,6 @@ function SignFlowBody({
 }
 
 /* ───────────────────────────── Stages ──────────────────────────────────── */
-
-/**
- * A stage's column: reading width, at the top of the canvas.
- *
- * No floor under the canvas and no vertical centring in it. The frame's `floor` holds a
- * short stage at a comfortable height so the window does not resize between stages —
- * right where the stages are of a size, wrong here, where "two cards" and "a file plus a
- * roster of OTP rows" are not. Centring 220px of cards in 448px of canvas left a band of
- * empty tint above and below them, which is what the owner read as the padding being off
- * (2026-09-24). Each stage takes its own height now, with the same 24px around it.
- */
-function StageColumn({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="mx-auto flex w-full max-w-xl flex-col gap-4">{children}</div>
-  );
-}
-
-/**
- * **What just happened, on the thing it happened to.**
- *
- * The product settles an act by stamping the record it acted on — a status strip across
- * the top of the card in the status's own muted pair, with the roster underneath — rather
- * than by swapping the stage for a green box (`approve-registrations-dialog`'s
- * `StatusStrip`, owner-approved 2026-09-11). A signature's record is who has signed and
- * who has not, so that is what the card carries.
- */
-function SettledCard({
-  headline,
-  rows,
-  footnote,
-}: {
-  headline: string;
-  rows: Signatory[];
-  footnote: string;
-}) {
-  return (
-    <div
-      className={cn(
-        "overflow-hidden rounded-xl border border-hairline bg-card shadow-raised",
-        RESOLVE_IN_PLACE
-      )}
-    >
-      <div className="flex items-center gap-2 bg-success-muted px-4 py-2.5 text-body-compact text-success-muted-foreground">
-        <CircleCheckIcon aria-hidden className="size-4 shrink-0" />
-        {/* `role="status"` gets the outcome spoken: focus lands on the header title,
-            which announces itself and nothing below it. */}
-        <span role="status" className="font-medium">
-          {headline}
-        </span>
-      </div>
-
-      <ul className="flex flex-col px-4">
-        {rows.map((s) => (
-          <li
-            key={s.id}
-            className="flex items-center gap-3 border-b border-hairline py-3 last:border-b-0"
-          >
-            <div className="min-w-0 flex-1">
-              <p className="text-body-compact font-semibold text-foreground">
-                {s.name}
-                {s.you ? (
-                  <span className="ps-2 font-medium text-muted-foreground">You</span>
-                ) : null}
-              </p>
-              <p className="text-body-compact text-muted-foreground">{s.role}</p>
-            </div>
-            {s.status === "signed" ? (
-              <Badge variant="success">
-                <CheckIcon aria-hidden />
-                Signed
-              </Badge>
-            ) : (
-              <Badge variant="secondary">Waiting</Badge>
-            )}
-          </li>
-        ))}
-      </ul>
-
-      <p className="border-t border-hairline px-4 py-3 text-body-compact text-muted-foreground">
-        {footnote}
-      </p>
-    </div>
-  );
-}
-
-/**
- * One route, as a card that takes it.
- *
- * The card carries the mark, the name and what the route does to everyone else, and
- * pressing it is the choice — there is no separate confirm below, because the sentence
- * the reader just read *is* the confirmation. This is the shape the owner picked out as
- * the right one (2026-09-23), and it is used for both questions the window asks: how the
- * complaint is signed, and which instrument the filer signs it with.
- */
-function ChoiceCard({
-  icon,
-  tone,
-  title,
-  onClick,
-  children,
-}: {
-  icon: React.ReactNode;
-  /** The tile's fill/foreground pair — a category mark, never a status. */
-  tone: string;
-  title: string;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="group flex w-full items-start gap-4 rounded-xl border border-border bg-card p-4 text-left shadow-raised transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-    >
-      <span
-        aria-hidden
-        className={cn(
-          "flex size-10 shrink-0 items-center justify-center rounded-lg",
-          tone
-        )}
-      >
-        {icon}
-      </span>
-      <span className="flex min-w-0 flex-1 flex-col gap-1">
-        <span className="text-body font-semibold text-foreground">{title}</span>
-        <span className="text-body-compact text-muted-foreground">{children}</span>
-      </span>
-      <ChevronRightIcon
-        aria-hidden
-        className="mt-1 size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"
-      />
-    </button>
-  );
-}
 
 /**
  * The paper path: one file that already carries every signature, and each complainant's

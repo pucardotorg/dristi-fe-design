@@ -31,6 +31,7 @@ import {
 } from "@/lib/employee/sign-orders";
 import { cn } from "@/lib/utils";
 import { Identifier } from "@/components/chrome/identifier";
+import { useCourtText } from "@/components/court/court-provider";
 
 /**
  * The signing queue for orders as a table: which orders are picked for signature, the
@@ -81,6 +82,7 @@ export function SignOrdersTable({
   onToggleAll: (select: boolean) => void;
   onOpen: (order: SignOrder) => void;
 }) {
+  const courtText = useCourtText();
   /* Only a pending order can be signed, so only a pending order can be selected — the
      header box speaks for those rows alone, and a page of already-signed orders has
      nothing for it to do. */
@@ -156,7 +158,7 @@ export function SignOrdersTable({
                   <Checkbox
                     checked={selected}
                     onCheckedChange={() => onToggle(order)}
-                    aria-label={`Select ${title} in ${order.caseNumber}`}
+                    aria-label={`Select ${title} in ${courtText(order.caseNumber)}`}
                   />
                 ) : null}
               </TableCell>

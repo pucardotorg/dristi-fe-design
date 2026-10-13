@@ -29,6 +29,7 @@ import {
 } from "@/lib/employee/sign-evidence";
 import { cn } from "@/lib/utils";
 import { Identifier } from "@/components/chrome/identifier";
+import { useCourtText } from "@/components/court/court-provider";
 
 /**
  * The evidence signing queue as a table: which markings are picked for signature, the
@@ -70,6 +71,7 @@ export function SignEvidenceTable({
   onToggleAll: (select: boolean) => void;
   onOpen: (row: SignEvidence) => void;
 }) {
+  const courtText = useCourtText();
   const selectedOnPage = rows.filter((row) => selectedIds.has(row.id)).length;
   const allSelected = rows.length > 0 && selectedOnPage === rows.length;
   const someSelected = selectedOnPage > 0 && !allSelected;
@@ -131,7 +133,7 @@ export function SignEvidenceTable({
                 <Checkbox
                   checked={selected}
                   onCheckedChange={() => onToggle(row)}
-                  aria-label={`Select ${document}, ${exhibit}, in ${row.caseNumber}`}
+                  aria-label={`Select ${document}, ${exhibit}, in ${courtText(row.caseNumber)}`}
                 />
               </TableCell>
               {/* The row's one emphasised cell, and its only opener. Quiet

@@ -1,0 +1,26 @@
+/* The access button's label while people are left out: "Custom filters" and
+   "1 person excluded" take turns, rolling up slowly, so a filtered board keeps
+   saying so without shouting. Three faces (A, B, A) make the loop seamless:
+   the track ends on the copy of A it started on and jumps back unseen. Each
+   face holds ~3s; the roll itself is a soft 700ms. Paused under the pointer
+   or keyboard focus so it never moves while being read or clicked. */
+
+@keyframes filter-roll {
+  0%, 42% { transform: translateY(0); }
+  50%, 92% { transform: translateY(-33.3333%); }
+  100% { transform: translateY(-66.6667%); }
+}
+
+.filter-roll-track {
+  animation: filter-roll 7.4s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+}
+button:hover .filter-roll-track,
+button:focus-visible .filter-roll-track,
+button[data-state="open"] .filter-roll-track {
+  animation-play-state: paused;
+}
+
+/* No motion: the count stands still, it is the more useful of the two. */
+@media (prefers-reduced-motion: reduce) {
+  .filter-roll-track { animation: none; transform: translateY(-33.3333%); }
+}

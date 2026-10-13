@@ -1,20 +1,25 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { accusedHasJoined } from "./case-people";
-import { fillPartyVariables, orderTemplate } from "./order-templates";
+import { casePeopleFor } from "./case-people";
+import {
+  createItemBlock,
+  setItemRecipients,
+  setItemValue,
+  blockGaps,
+} from "./order-composer";
 import {
   channelsFor,
-  defaultProcessVariables,
-  processesFor,
-  processParties,
-  processVariablesComplete,
-  selectedChannels,
-  selectedRecipients,
-  type ProcessVariables,
+  defaultProcessRecipients,
+  destinationsOf,
+  processCount,
+  stationsFor,
+  unreachableChannels,
 } from "./process-variables";
 
-/* §5.1 of `handovers/process-handover.md` — what the issue-process pop-up opens on. */
+/* §5.1 of `process-handover.md` — what a process order item opens on — and the owner's
+   model (2026-10-12): one person, then their addresses, then the channels, with a police
+   station per address. */
 
 const NOT_JOINED = {
   caseNumber: "ST/249/2026",
@@ -30,133 +35,142 @@ const ONE_UNEXAMINED = {
 };
 const TWO_UNEXAMINED = {
   caseNumber: "ST/250/2026",
-  parties: { complainant: "Fathima Beevi", accused: "Nithin Jose" },
-  counsel: [{ name: "Adv. Feroz Hameed", side: "accused" as const }],
+  parties: { complainant: "Fathima Beevi", accused: "Noor Traders" },
+  counsel: [{ name: "Adv. K. Ramesh", side: "accused" as const }],
   stage: "evidence" as const,
 };
 
-const ids = (variables: ProcessVariables) =>
-  selectedRecipients(variables).map((entry) => entry.id);
-const channels = (variables: ProcessVariables) =>
-  selectedChannels(variables).map((entry) => entry.id);
-
-describe("who the pop-up pre-selects", () => {
-  it("selects every accused until the accused has joined (AUT-05)", () => {
-    const variables = defaultProcessVariables("issue-of-summons", NOT_JOINED);
-    assert.equal(variables.reason, "accused-not-joined");
-    assert.deepEqual(ids(variables), ["accused-1", "accused-2"]);
+describe("who a process opens on", () => {
+  it("is the first accused, at every address, until the accused has joined", () => {
+    const { people, accusedJoined } = casePeopleFor(NOT_JOINED);
+    const recipients = defaultProcessRecipients("issue-of-summons", people, accusedJoined);
+    assert.equal(recipients.person, "accused-1");
+    assert.deepEqual(recipients.destinations, [
+      "accused-1-address-1",
+      "accused-1-address-2",
+      "accused-1-mobile-1",
+      "accused-1-mobile-2",
+      "accused-1-email-1",
+      "accused-1-email-2",
+    ]);
   });
 
-  it("selects the one unexamined witness once the accused has joined (AUT-06)", () => {
-    const variables = defaultProcessVariables("issue-of-summons", ONE_UNEXAMINED);
-    assert.equal(variables.reason, "one-witness-unexamined");
-    assert.deepEqual(ids(variables), ["pw-2"]);
+  it("is the one witness not yet examined, once the accused has joined", () => {
+    const { people, accusedJoined } = casePeopleFor(ONE_UNEXAMINED);
+    const recipients = defaultProcessRecipients("issue-of-summons", people, accusedJoined);
+    assert.equal(recipients.person, "pw-2");
   });
 
-  it("leaves the choice open when more than one witness is unexamined (AUT-06)", () => {
-    const variables = defaultProcessVariables("issue-of-summons", TWO_UNEXAMINED);
-    assert.equal(variables.reason, "open");
-    assert.deepEqual(ids(variables), []);
-  });
-
-  it("selects every address on every recipient (AUT-07)", () => {
-    const variables = defaultProcessVariables("issue-of-summons", NOT_JOINED);
-    for (const recipient of variables.recipients) {
-      assert.ok(recipient.addresses.every((place) => place.selected));
-    }
-  });
-
-  it("never treats the accused as joined at cognizance", () => {
-    assert.equal(accusedHasJoined({ ...ONE_UNEXAMINED, stage: "cognizance" }), false);
+  it("is nobody when two witnesses are still to be examined", () => {
+    const { people, accusedJoined } = casePeopleFor(TWO_UNEXAMINED);
+    const recipients = defaultProcessRecipients("issue-of-summons", people, accusedJoined);
+    assert.equal(recipients.person, "");
+    assert.deepEqual(recipients.destinations, []);
   });
 });
 
-describe("which channels the pop-up pre-selects (AUT-08)", () => {
-  it("SMS, Email and RPAD for notice and summons", () => {
-    for (const template of ["issue-of-notice", "issue-of-summons"] as const) {
-      assert.deepEqual(channels(defaultProcessVariables(template, NOT_JOINED)), [
-        "sms",
-        "email",
-        "rpad",
-      ]);
-    }
+describe("channels", () => {
+  it("keeps a notice off every police channel, and a warrant on police only", () => {
+    assert.ok(channelsFor("issue-of-notice").every((id) => !id.startsWith("police")));
+    assert.ok(channelsFor("issue-of-warrants").every((id) => id.startsWith("police")));
   });
 
-  it("Police (NSTEP) for warrant, proclamation and attachment", () => {
-    for (const template of [
-      "issue-of-warrants",
-      "issue-of-proclamation",
-      "issue-of-attachment",
-    ] as const) {
-      assert.deepEqual(channels(defaultProcessVariables(template, NOT_JOINED)), [
-        "police-nstep",
-      ]);
-    }
+  it("offers only what this deployment runs", () => {
+    assert.ok(!channelsFor("issue-of-summons").includes("police-icops"));
+    assert.ok(channelsFor("issue-of-summons").includes("police-nstep"));
   });
 
-  it("offers a warrant police channels only, and a notice none (§6.3)", () => {
-    assert.ok(channelsFor("issue-of-warrants").every((channel) => channel.police));
-    assert.ok(channelsFor("issue-of-notice").every((channel) => !channel.police));
-  });
-});
-
-describe("what confirming creates (§3, AUT-09)", () => {
-  it("is one process per recipient, per channel, per address", () => {
-    /* Accused 1: two addresses, mobile, email. Accused 2: one address, mobile only.
-       SMS 2 + Email 1 + RPAD 3 = 6. */
-    const variables = defaultProcessVariables("issue-of-summons", NOT_JOINED);
-    const processes = processesFor(variables);
-    assert.equal(processes.length, 6);
-    assert.equal(processes.filter((entry) => entry.channel === "email").length, 1);
-  });
-
-  it("pre-selects a police station from each address, and blocks on one it cannot resolve", () => {
-    const resolved = defaultProcessVariables("issue-of-warrants", NOT_JOINED);
-    assert.ok(processVariablesComplete(resolved));
-    const open = defaultProcessVariables("issue-of-warrants", TWO_UNEXAMINED);
-    const dw = { ...open, recipients: open.recipients.map((entry) => ({ ...entry, selected: entry.id === "dw-1" })) };
-    assert.equal(processesFor(dw)[0].policeStation, "");
-    assert.equal(processVariablesComplete(dw), false);
-  });
-});
-
-describe("the order's words follow who was selected", () => {
-  it("names the selected witness, and their own side takes steps (AUT-02)", () => {
-    const variables = defaultProcessVariables("issue-of-summons", ONE_UNEXAMINED);
-    const text = fillPartyVariables(
-      orderTemplate("issue-of-summons").botd,
-      "issue-of-summons",
-      processParties(variables),
-    );
-    assert.match(text, /Issue summons to the witness Branch Manager, Federal Bank, Chinnakada\./);
-    assert.match(text, /The complainant is directed/);
-  });
-
-  it("names every accused, with the complainant taking steps", () => {
-    const variables = defaultProcessVariables("issue-of-warrants", NOT_JOINED);
-    const text = fillPartyVariables(
-      orderTemplate("issue-of-warrants").botd,
-      "issue-of-warrants",
-      processParties(variables),
-    );
-    assert.match(text, /Issue warrant to the accused Gill Steel Fabricators and Harpreet Gill\./);
-    assert.match(text, /The complainant is directed/);
-  });
-
-  it("leaves the party taking steps in brackets when the selection spans sides (AUT-03)", () => {
-    const open = defaultProcessVariables("issue-of-summons", TWO_UNEXAMINED);
-    const mixed = {
-      ...open,
-      recipients: open.recipients.map((entry) => ({
-        ...entry,
-        selected: entry.id === "pw-2" || entry.id === "dw-1",
-      })),
+  it("says when no destination of a chosen channel's kind is ticked", () => {
+    const { people, accusedJoined } = casePeopleFor(NOT_JOINED);
+    const recipients = {
+      ...defaultProcessRecipients("issue-of-summons", people, accusedJoined),
+      person: "accused-2",
+      destinations: destinationsOf(people, "accused-2"),
     };
-    const text = fillPartyVariables(
-      orderTemplate("issue-of-summons").botd,
-      "issue-of-summons",
-      processParties(mixed),
+    const harpreet = people.find((entry) => entry.id === "accused-2");
+    assert.deepEqual(unreachableChannels(harpreet, recipients), ["email"]);
+  });
+});
+
+describe("destinations", () => {
+  it("are every postal address, mobile and email on record, all ticked", () => {
+    const { people, accusedJoined } = casePeopleFor(NOT_JOINED);
+    const recipients = defaultProcessRecipients("issue-of-summons", people, accusedJoined);
+    const gill = people.find((entry) => entry.id === "accused-1");
+    /* SMS to two mobiles, Email to two addresses, RPAD to two postal addresses. */
+    assert.equal(processCount(gill, recipients), 6);
+  });
+
+  it("send a channel only to the ticked destinations of its own kind", () => {
+    const { people, accusedJoined } = casePeopleFor(NOT_JOINED);
+    const recipients = defaultProcessRecipients("issue-of-summons", people, accusedJoined);
+    const gill = people.find((entry) => entry.id === "accused-1");
+    const one = {
+      ...recipients,
+      destinations: recipients.destinations.filter((id) => id !== "accused-1-mobile-2"),
+    };
+    assert.equal(processCount(gill, one), 5);
+    const noMobiles = {
+      ...recipients,
+      destinations: recipients.destinations.filter((id) => !id.includes("mobile")),
+    };
+    assert.deepEqual(unreachableChannels(gill, noMobiles), ["sms"]);
+  });
+});
+
+describe("police stations", () => {
+  it("are one per address, each from its own address", () => {
+    const { people } = casePeopleFor(NOT_JOINED);
+    assert.deepEqual(
+      stationsFor(people, "accused-1", ["accused-1-address-1", "accused-1-address-2"]),
+      { "accused-1-address-1": "Kundara", "accused-1-address-2": "Town East" },
     );
-    assert.match(text, /The \[Party Type\] is directed/);
+  });
+
+  it("follow a warrant item, and keep one the drafter changed", () => {
+    const context = casePeopleFor(NOT_JOINED);
+    let warrant = createItemBlock("issue-of-warrants", context);
+    assert.deepEqual(warrant.recipients?.policeStations, {
+      "accused-1-address-1": "Kundara",
+      "accused-1-address-2": "Town East",
+    });
+    assert.deepEqual(blockGaps(warrant, context), []);
+    warrant = setItemRecipients(
+      warrant,
+      {
+        ...warrant.recipients!,
+        policeStations: {
+          ...warrant.recipients!.policeStations,
+          "accused-1-address-2": "Town West",
+        },
+      },
+      context,
+    );
+    warrant = setItemRecipients(
+      warrant,
+      { ...warrant.recipients!, channels: ["police-nstep", "police-rpad"] },
+      context,
+    );
+    assert.equal(warrant.recipients?.policeStations["accused-1-address-2"], "Town West");
+  });
+
+  it("bring a new person's addresses and stations, and move the steps with them", () => {
+    const context = casePeopleFor(NOT_JOINED);
+    let warrant = createItemBlock("issue-of-warrants", context);
+    warrant = setItemRecipients(
+      warrant,
+      { ...warrant.recipients!, person: "accused-2" },
+      context,
+    );
+    assert.deepEqual(warrant.recipients?.destinations, [
+      "accused-2-address-1",
+      "accused-2-mobile-1",
+    ]);
+    assert.deepEqual(warrant.recipients?.policeStations, {
+      "accused-2-address-1": "Kilikollur",
+    });
+    assert.equal(warrant.values.steps, "complainant");
+    const text = setItemValue(warrant, "steps", "complainant", context).text;
+    assert.ok(text.startsWith("Issue warrant to the accused Harpreet Gill."));
   });
 });

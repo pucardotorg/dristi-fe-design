@@ -36,6 +36,7 @@ import {
   type ProcessOutcome,
 } from "@/lib/employee/sign-process";
 import { cn } from "@/lib/utils";
+import { useCourtText } from "@/components/court/court-provider";
 
 /** The covers being marked, then what was recorded — one scene, settling in place. */
 type Stage = "record" | "done";
@@ -318,6 +319,7 @@ export function ReturnRow({
   mark: ReturnMark | undefined;
   onMark: (next: ReturnMark) => void;
 }) {
+  const courtText = useCourtText();
   const inline = courtProcessTypeInline(process.type);
   const reasonId = React.useId();
   const radioId = React.useId();
@@ -351,7 +353,7 @@ export function ReturnRow({
             if (next === "served") onMark({ served: true, reason: undefined });
             if (next === "unserved") onMark({ served: false });
           }}
-          aria-label={`What the ${inline} in ${process.caseNumber} came back as`}
+          aria-label={`What the ${inline} in ${courtText(process.caseNumber)} came back as`}
           className="flex flex-wrap gap-x-6 gap-y-1"
         >
           {(["served", "unserved"] as const).map((option) => (

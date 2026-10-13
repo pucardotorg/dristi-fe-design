@@ -127,7 +127,7 @@ describe("completing (signatories only)", () => {
       returned: {
         by: "scrutiny",
         at: at(-1),
-        defects: [makeDefect({ n: 1 }), makeDefect({ n: 2, suggestion: { from: "a", to: "b" } })],
+        defects: [makeDefect({ n: 1 }), makeDefect({ n: 2 })],
       },
     });
     throwsCode(() => refile(returned, ctx()), "invalid");
@@ -135,16 +135,11 @@ describe("completing (signatories only)", () => {
     const one = resolveDefect(returned, ctx(junior), 1, { how: "edited", value: "KLGB0040213", at: at(0) });
     assert.equal(one.status, "draft");
     assert.equal(one.draft?.by, junior.id);
-    // Defect 2 carried an explicit suggestion, so an override without a reason is not resolved.
-    const overridden = resolveDefect(one, ctx(junior), 2, { how: "edited", value: "c", at: at(0) });
-    throwsCode(() => refile(overridden, ctx(senior)), "invalid");
+    // Defect 2 still open, so the corrections cannot go back yet.
+    throwsCode(() => refile(one, ctx(senior)), "invalid");
 
-    const justified = resolveDefect(overridden, ctx(junior), 2, {
-      how: "edited",
-      value: "c",
-      justification: "The memo at page 7 reads c.",
-      at: at(0),
-    });
+    // Keeping the filed value is enough — no reason, no forced edit.
+    const justified = resolveDefect(one, ctx(junior), 2, { how: "kept", value: "KLGB0040231", at: at(0) });
     const filed = refile(justified, ctx(senior));
     assert.equal(filed.status, "awaiting-court");
     assert.match(filed.history.at(-1)!.text, /prepared by S\. Prakash/);
@@ -155,7 +150,7 @@ describe("completing (signatories only)", () => {
       kind: "returned",
       returned: { by: "scrutiny", at: at(-1), defects: [makeDefect({ n: 1 })] },
     });
-    throwsCode(() => resolveDefect(returned, ctx(junior), 9, { how: "accepted", at: at(0) }), "invalid");
+    throwsCode(() => resolveDefect(returned, ctx(junior), 9, { how: "edited", value: "x", at: at(0) }), "invalid");
   });
 
   it("markDone: any open-state task, any kind, by anyone on the case — records the manual close", () => {

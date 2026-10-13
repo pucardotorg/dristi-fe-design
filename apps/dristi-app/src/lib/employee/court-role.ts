@@ -9,9 +9,9 @@
  * store, two doors into it.
  *
  * **It is still not a permission.** The sign-in establishes who the area reports itself
- * as; it authenticates nobody and guards nothing, so this grants nothing and hides
- * nothing. Every queue and screen is reachable in every seat today; what each seat's
- * work actually is comes from product, next.
+ * as; it authenticates nobody and guards nothing, so this grants nothing. Every queue
+ * and screen is reachable in every seat by URL; the rail offers fewer rows to some seats
+ * (`SEAT_ROWS` in `navigation.ts`), which is a view rule, not a permission.
  *
  * Read it through `components/employee/use-court-role.ts`, never directly from a
  * render — the hook is what subscribes.

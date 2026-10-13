@@ -12,6 +12,7 @@
 import {
   applicationsFile,
   filingStatusLabel,
+  isOnboardedStatus,
   type FilingStatus,
 } from "./applications";
 import {
@@ -548,14 +549,24 @@ function collectRegisterUpdates(
       kind: submission.kind === "document" ? "document" : "application",
       on: dayStamp(submission.addedOn),
       title: submission.title,
-      detail: submission.courtResult ?? filingStatusLabel(submission.status),
+      /* The status, not a gist of the order: only the order says why, and
+         it is its own update in this list (owner, Sept 24). */
+      detail: filingStatusLabel(submission.status),
       href: applicationHref(record.id, submission.id),
     });
   }
 }
 
+/**
+ * A filing both sides may see. The overview has no viewer, so it lists only
+ * what the Application Lifecycle PRD shows everyone: an application the court
+ * has onboarded (ALC-17 hides it from the other side until then; a dismissed
+ * one never gets there), and a submission nobody decides (an objection, an
+ * affidavit, a memo). The filer's own not-yet-onboarded filings stay on the
+ * Applications tab, which knows who is looking.
+ */
 function submissionOccurred(status: FilingStatus): boolean {
-  return status === "completed" || status === "rejected";
+  return isOnboardedStatus(status) || status === "submitted";
 }
 
 function inComplaintWindow(

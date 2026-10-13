@@ -259,7 +259,7 @@ describe("buildSignOrderDocument", () => {
   it("writes an order that names its court, its case and the party who moved it", () => {
     const order = SIGN_ORDER_QUEUE.find((entry) => entry.id === "so-611")!;
     const document = buildSignOrderDocument(order);
-    assert.equal(document.court, "Before the JMFC Court 1, Kollam");
+    assert.equal(document.court, "Before the JMFC Court 1");
     assert.equal(document.caseNumber, "ST/611/2026");
     assert.equal(document.matter, "Beena Sasidharan v. Anwar Rasheed");
     assert.equal(document.title, "Bail");
@@ -279,7 +279,7 @@ describe("buildSignOrderDocument", () => {
     );
     assert.equal(
       signed.signature,
-      "Signed by the magistrate, JMFC Court 1, Kollam, on 29 April 2026.",
+      "Signed by the magistrate, JMFC Court 1, on 29 April 2026.",
     );
   });
 
@@ -297,7 +297,7 @@ describe("buildSignOrderDocument", () => {
     const order = SIGN_ORDER_QUEUE.find((entry) => entry.id === "so-1014")!;
     const text = signOrderDocumentText(buildSignOrderDocument(order));
     const lines = text.split("\n");
-    assert.equal(lines[0], "Before the JMFC Court 1, Kollam");
+    assert.equal(lines[0], "Before the JMFC Court 1");
     assert.equal(lines[1], "Case no. CMP/1014/2026");
     assert.ok(text.includes("1. On a reading of the papers"));
     assert.ok(text.includes("2. The case is referred to the mediation centre"));

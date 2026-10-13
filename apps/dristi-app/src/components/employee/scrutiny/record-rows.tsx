@@ -6,6 +6,7 @@ import { Link2Icon } from "lucide-react";
 import type { Field } from "@/lib/employee/scrutiny/types";
 import { cn } from "@/lib/utils";
 import { Identifier } from "@/components/chrome/identifier";
+import { useCourtText } from "@/components/court/court-provider";
 
 /**
  * The grammar a raised item is read in — one label column, one value column, rows only
@@ -87,7 +88,8 @@ export function FieldValue({
    */
   copyable?: boolean;
 }) {
-  if (!field.ident) return <>{value}</>;
+  const courtText = useCourtText();
+  if (!field.ident) return <>{courtText(value)}</>;
   /* Copyable even in the field row, which is an option rather than a button:
      `Identifier` keeps the click from reaching the row and selecting it. */
   return <Identifier value={value} label={field.label} copyable={copyable} />;

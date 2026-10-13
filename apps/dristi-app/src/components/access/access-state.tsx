@@ -34,8 +34,9 @@ export type InviteResult = {
 
 type AccessContextValue = {
   people: AccessPerson[];
-  /** Grant `caseIds` to every phone in `phones` as staff; idempotent per (person, case). */
-  invite: (phones: string[], caseIds: string[]) => InviteResult;
+  /** Grant `caseIds` to everyone in `ids` — each a mobile number or a Bar registration
+   *  number — as staff; idempotent per (person, case). */
+  invite: (ids: string[], caseIds: string[]) => InviteResult;
   removeGrant: (personId: string, caseId: string) => void;
   removeAll: (personId: string) => void;
   personsOnCase: (caseId: string) => AccessPerson[];
@@ -71,7 +72,7 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
   const [people, setPeople] = React.useState<AccessPerson[]>(ACCESS_PEOPLE);
 
   const invite = React.useCallback(
-    (phones: string[], caseIds: string[]): InviteResult => {
+    (ids: string[], caseIds: string[]): InviteResult => {
       // Pure computation over the current state — no side effects inside the
       // setState updater (StrictMode runs updaters twice and would double them).
       const today = displayToday();
@@ -80,11 +81,15 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
       const casesTouched = new Set<string>();
       const next = [...people];
 
-      for (const raw of phones) {
-        const digits = normalizePhone(raw);
-        const pretty = formatPhone(digits);
-        const directory = PHONE_DIRECTORY[digits];
-        const index = next.findIndex((p) => normalizePhone(p.phone) === digits);
+      for (const raw of ids) {
+        // A Bar registration number is the other unique identifier (owner, 2026-10-13).
+        const barId = raw.includes("/") ? raw.toUpperCase() : null;
+        const digits = barId ? "" : normalizePhone(raw);
+        const pretty = barId ? "" : formatPhone(digits);
+        const directory = barId ? undefined : PHONE_DIRECTORY[digits];
+        const index = barId
+          ? next.findIndex((p) => p.barId?.toUpperCase() === barId)
+          : next.findIndex((p) => normalizePhone(p.phone) === digits);
 
         // Share always grants STAFF access — a past staff designation is
         // reused, an unknown person defaults to clerk. Advocates come through
@@ -125,10 +130,12 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
         // A number the system doesn't know at all gets an SMS and a pending row;
         // a directory match shows the registered name right away.
         caseIds.forEach((caseId) => casesTouched.add(caseId));
+        const shown = barId ?? `+91 ${pretty}`;
         next.push({
-          id: `p-${digits}`,
-          name: directory?.name ?? `+91 ${pretty}`,
+          id: barId ? `p-bar-${barId}` : `p-${digits}`,
+          name: directory?.name ?? shown,
           phone: pretty,
+          ...(barId ? { barId } : {}),
           addedBy: "self",
           grants: caseIds.map((caseId) => ({
             caseId,
@@ -138,7 +145,7 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
           })),
           pending: !directory,
         });
-        names.push(directory?.name ?? `+91 ${pretty}`);
+        names.push(directory?.name ?? shown);
       }
 
       setPeople(next);

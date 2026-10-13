@@ -11,13 +11,13 @@ const person = {
 
 describe("password policy", () => {
   it("REG-40: fewer than 8 characters fails, 8 passes", () => {
-    assert.equal(passwordProblem("kollamc", person), "length");
+    assert.equal(passwordProblem("courtro", person), "length");
     assert.equal(passwordProblem("", person), "length");
-    assert.equal(passwordProblem("kollamcourt", person), null);
+    assert.equal(passwordProblem("courtroom12", person), null);
   });
 
   it("REG-40 only: no complexity requirement beyond length", () => {
-    assert.ok(passwordOk("kollamcourt"));
+    assert.ok(passwordOk("courtroom12"));
     assert.ok(passwordOk("        "));
     assert.ok(passwordOk("93748261"));
   });

@@ -442,7 +442,6 @@ export function ResubmissionFlow({
               </FieldLabel>
               <Input
                 value={regNumber}
-                placeholder={pick(verification.numberPlaceholder, locale)}
                 onChange={(event) => {
                   setRegNumber(event.target.value);
                   setTouched(false);

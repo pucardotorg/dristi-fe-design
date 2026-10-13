@@ -11,17 +11,17 @@ import {
   DEFAULT_FILTERS,
   type Filters,
   isNarrowed,
-  kindCounts,
+  categoryCounts,
   summaryOf,
   VIEW_LABELS,
   viewCounts,
   type World,
 } from "@/lib/tasks/selectors";
 import { headerDate, rupees } from "@/lib/tasks/format";
-import { ACTIONABLE, canArchive, cardKindOf, verbFor } from "@/lib/tasks/permissions";
+import { ACTIONABLE, canArchive, categoryOf, verbFor } from "@/lib/tasks/permissions";
 import { useTasks } from "@/lib/tasks/store";
 import { archive, markDone, unarchive } from "@/lib/tasks/transitions";
-import type { PillKind, Task, TaskId, TaskView, Verb } from "@/lib/tasks/types";
+import type { TaskCategory, Task, TaskId, TaskView, Verb } from "@/lib/tasks/types";
 import { cn } from "@/lib/utils";
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
@@ -90,7 +90,7 @@ export function TasksScreen() {
   );
 
   const rows = React.useMemo(() => applyFilters(world, filters), [world, filters]);
-  const counts = React.useMemo(() => kindCounts(world, filters), [world, filters]);
+  const counts = React.useMemo(() => categoryCounts(world, filters), [world, filters]);
   const tabCounts = React.useMemo(() => viewCounts(world, filters.query), [world, filters.query]);
   const summary = React.useMemo(() => summaryOf(world), [world]);
   const courts = React.useMemo(() => courtsOf(world), [world]);
@@ -200,7 +200,7 @@ export function TasksScreen() {
   );
 
   const selectKind = React.useCallback(
-    (kinds: PillKind[]) => setFilters((prev: Filters) => ({ ...prev, kinds })),
+    (kinds: TaskCategory[]) => setFilters((prev: Filters) => ({ ...prev, kinds })),
     [setFilters]
   );
 
@@ -251,7 +251,7 @@ export function TasksScreen() {
     // the selection costs whatever its size, and "Pay ₹40" for one is the same promise
     // as "Pay ₹48" for two. The row's own button remains the other way in.
     if (!selectedTasks.length) return null;
-    const kinds = new Set(selectedTasks.map((t) => cardKindOf(t)));
+    const kinds = new Set(selectedTasks.map((t) => categoryOf(t)));
     if (kinds.size !== 1) return null;
     const [kind] = [...kinds];
     if (kind !== "sign" && kind !== "pay") return null;
@@ -362,7 +362,7 @@ export function TasksScreen() {
           </div>
           <div className="w-full min-w-0 md:pointer-fine:w-auto md:pointer-fine:min-w-72 md:pointer-fine:flex-none">
             <FilterRow
-              kindCounts={state === "ready" ? counts : null}
+              categoryCounts={state === "ready" ? counts : null}
               filters={filters}
               courts={courts}
               people={people}
@@ -413,7 +413,7 @@ export function TasksScreen() {
             count={selectedTasks.length}
             batch={batchKind ? { kind: batchKind, tasks: selectedTasks } : null}
             hasPayOrSign={selectedTasks.some((t) => {
-              const k = cardKindOf(t);
+              const k = categoryOf(t);
               return k === "pay" || k === "sign";
             })}
             disabled={!online || !!busy}

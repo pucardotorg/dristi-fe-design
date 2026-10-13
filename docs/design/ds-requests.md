@@ -26,6 +26,9 @@ Each entry says what is missing, why the product hit it, and what would close it
 | 11 | No selected-on-track pair: `accent-strong` is 1.08:1 on `track` | [e-filing.md](proposals/e-filing.md) | open — **owner auditing** |
 | 12 | `Banner` centres its icon on multi-line text | Join a Case polish (Oct 6) | open |
 | 13 | `ACCESSIBILITY.md` §12 does not say whether an icon-marked search box in a filter row needs a visible label | Sign process (Oct 6) | open |
+| 19 | Autofill rule squares every autofilled input (`border-radius: inherit`) | Pre-demo UI fixes (Oct 9) | open, patched in `chrome.css` |
+| 20 | `InputGroup` control overlaps the group's 1px border | Pre-demo UI fixes (Oct 9) | open, patched in `chrome.css` |
+| 21 | `ChartContainer` hides the keyboard focus ring on the chart surface | [court-dashboard-and-registers.md](features/court-dashboard-and-registers.md) | open |
 
 ---
 
@@ -560,3 +563,44 @@ whole pill row down around it.
 value names its subject ("All process types"), may keep its label for screen readers only,
 or (b) it may not. Under (b), both screens need a visible label again.
 
+
+## 19. The autofill rule squares every autofilled input
+
+`globals.css` neutralises the browser's autofill tint with an opaque inset shadow and
+`border-radius: inherit`. That rule is unlayered, so it beats the field's `rounded-lg`
+utility, and an autofilled field takes its parent's radius, usually 0. Measured on a
+plain `Input`: 10px, then 0px once autofilled. Every autofilled field in the product
+turned square (owner, Oct 9: Full name in registration). The paint also uses
+`--background`, while a dark-mode field is `input/30` over the page, so an autofilled
+field reads darker than its neighbours.
+
+Closes when the rule drops `border-radius: inherit` and paints the field's own fill.
+Until then `apps/dristi-app/src/app/chrome.css` sets `border-radius: revert-layer` and a
+dark-mode paint. The owner asked for this to be noted and kept for now.
+
+## 20. `InputGroup`'s control overlaps the group's border
+
+`InputGroupInput` keeps `Input`'s `h-10` inside an `InputGroup` that is also `h-10` with
+a 1px border, so the control covers the border by 1px top and bottom. That is invisible
+until something paints the control. Autofill did, and the group lost its top, bottom and
+corners wherever the control ran: mobile number beside +91, password beside its eye and
+confirm password beside its tick.
+
+Closes when the group control is inset inside the group's border (`h-full`, or the group
+clips its content). Until then `chrome.css` clips an autofilled group with
+`overflow: hidden` and paints the control in the group's fill.
+
+## 21. `ChartContainer` hides the keyboard focus ring on the chart surface
+
+`chart.tsx` sets `[&_.recharts-surface]:outline-hidden` (and the same on
+`.recharts-layer` and `.recharts-sector`). Recharts makes the chart surface focusable and
+moves its tooltip with the arrow keys, so a keyboard user can tab into a chart and get no
+visible focus indicator: only the tooltip moving shows where focus is. That fails the
+DS's own visible-focus requirement in `ACCESSIBILITY.md`.
+
+Raised by the court dashboard's "Judgements each month" and "Time between hearings" bar
+charts (`/employee`, 2026-10-11). The primitive is synced unedited, so the app cannot add
+the ring without overriding a synced primitive.
+
+Closes when the container keeps `outline-hidden` for pointer focus but shows the DS focus
+ring on `:focus-visible` for the chart surface.

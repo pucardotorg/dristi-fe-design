@@ -5,12 +5,12 @@ import { SearchIcon, SlidersHorizontalIcon, XIcon } from "lucide-react";
 
 import {
   DUE_LABELS,
-  KIND_LABELS,
-  KIND_ORDER,
+  CATEGORY_LABELS,
+  CATEGORY_ORDER,
   type DueFilter,
   type Filters,
 } from "@/lib/tasks/selectors";
-import type { Person, PillKind } from "@/lib/tasks/types";
+import type { Person, TaskCategory } from "@/lib/tasks/types";
 import { cn } from "@/lib/utils";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { CheckGroup } from "@/components/cases/cases-filters";
@@ -120,7 +120,7 @@ export function FilterRow({
   filters,
   courts,
   people,
-  kindCounts,
+  categoryCounts,
   narrowed,
   onChange,
   onClear,
@@ -129,7 +129,7 @@ export function FilterRow({
   courts: string[];
   people: Person[];
   /** What ticking each kind would list, the same numbers the pills carry. */
-  kindCounts: Record<PillKind, number> | null;
+  categoryCounts: Record<TaskCategory, number> | null;
   /** Whether anything (including a pressed card or the search) narrows the view. */
   narrowed: boolean;
   onChange: (patch: Partial<Filters>) => void;
@@ -181,11 +181,11 @@ export function FilterRow({
             <div className={KIND_IN_SHEET_ONLY}>
               <CheckGroup
                 id="tasks-filter-kind"
-                legend="Kind of work"
-                options={KIND_ORDER.map((kind) => ({
+                legend="Category"
+                options={CATEGORY_ORDER.map((kind) => ({
                   value: kind,
-                  label: KIND_LABELS[kind],
-                  count: kindCounts?.[kind],
+                  label: CATEGORY_LABELS[kind],
+                  count: categoryCounts?.[kind],
                 }))}
                 value={filters.kinds}
                 onChange={(kinds) => onChange({ kinds })}
@@ -239,7 +239,7 @@ export function FilterRow({
         : filters.kinds.map((kind) => (
             <AppliedChip
               key={kind}
-              label={KIND_LABELS[kind]}
+              label={CATEGORY_LABELS[kind]}
               onClear={() => onChange({ kinds: without(filters.kinds, kind) })}
             />
           ))}

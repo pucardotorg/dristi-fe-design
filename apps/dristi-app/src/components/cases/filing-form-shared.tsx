@@ -608,15 +608,50 @@ export function PrototypeActions({
   );
 }
 
+/**
+ * Closing a filing midway. Where the flow can keep a draft (`onSaveDraft`),
+ * saving is the main answer and discarding the second (owner, Sept 24):
+ * someone who typed something and closed the dialog more often means "not
+ * now" than "throw it away". Without it, the old discard confirmation.
+ * Escape and the scrim still mean "keep editing".
+ */
 export function DiscardFilingDialog({
   open,
   onOpenChange,
   onDiscard,
+  onSaveDraft,
+  noun = "application",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onDiscard: () => void;
+  onSaveDraft?: () => void;
+  /** What is being filed, for the title: "application", "objection". */
+  noun?: string;
 }) {
+  if (onSaveDraft) {
+    return (
+      <AlertDialog open={open} onOpenChange={onOpenChange}>
+        <ChromeAlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Save this {noun} as a draft?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Finish it later from Applications.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button type="button" variant="outline" onClick={onDiscard}>
+              Discard
+            </Button>
+            <Button type="button" onClick={onSaveDraft}>
+              Save as draft
+            </Button>
+          </AlertDialogFooter>
+        </ChromeAlertDialogContent>
+      </AlertDialog>
+    );
+  }
+
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <ChromeAlertDialogContent>

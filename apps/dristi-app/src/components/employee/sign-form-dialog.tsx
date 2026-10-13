@@ -32,6 +32,8 @@ import {
 } from "@/lib/employee/sign-forms";
 import { Identifier } from "@/components/chrome/identifier";
 import { DialogDescription } from "@/components/ui/dialog";
+import { useCourtLocalized } from "@/components/court/court-provider";
+import { useCourtText } from "@/components/court/court-provider";
 
 /**
  * One form, read and then signed — the single-document path off the signing queue.
@@ -97,6 +99,7 @@ function SignFormBody({
   onSign: (form: SignForm) => void;
   onReturnFocus: () => void;
 }) {
+  const courtText = useCourtText();
   const flow = useStagedFlow<SignStage>({
     order: SIGN_STAGES,
     scene: SIGN_SCENES,
@@ -166,7 +169,7 @@ function SignFormBody({
       ) : (
         <SignatureStage
           noun="form"
-          subject={signatureSubject([form])}
+          subject={courtText(signatureSubject([form]))}
           download={{
             prompt: "Want to read the form again?",
             onDownload: () => downloadSignFormDocument(form),
@@ -182,7 +185,8 @@ function SignFormBody({
  * The form itself as paper — the same facsimile treatment the rescheduling review
  * overlay uses, bound to this form's own particulars.
  */
-function FormFacsimile({ document }: { document: SignFormDocument }) {
+function FormFacsimile({ document: storedDocument }: { document: SignFormDocument }) {
+  const document = useCourtLocalized(storedDocument);
   return (
     <article className="flex flex-col gap-6 rounded-md bg-paper p-6 text-paper-foreground">
       <header className="flex flex-col gap-2 text-center">

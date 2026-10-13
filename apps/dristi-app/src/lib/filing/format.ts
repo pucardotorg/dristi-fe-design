@@ -79,6 +79,12 @@ export function joinDot(...parts: Array<string | null | undefined | false>): str
   return parts.filter(Boolean).join(" · ");
 }
 
+/** "Accused 1 and Rajesh Kumar" — names read as a sentence, not as a list. */
+export function nameList(labels: string[]): string {
+  if (labels.length < 2) return labels[0] ?? "";
+  return `${labels.slice(0, -1).join(", ")} and ${labels[labels.length - 1]}`;
+}
+
 export function plural(n: number, one: string, many = `${one}s`): string {
   return `${n} ${n === 1 ? one : many}`;
 }
@@ -97,6 +103,20 @@ export function addDays(iso: ISODate, days: number): ISODate {
   if (!d) return "";
   const out = new Date(d.getTime());
   out.setDate(out.getDate() + days);
+  return dateToIso(out);
+}
+
+/**
+ * `iso` moved on by whole calendar months, clamped to the month's last day (31 Nov is
+ * 30 Nov). Empty in, empty out.
+ */
+export function addMonths(iso: ISODate, months: number): ISODate {
+  const d = isoToDate(iso);
+  if (!d) return "";
+  const day = d.getDate();
+  const out = new Date(d.getFullYear(), d.getMonth() + months, 1);
+  const last = new Date(out.getFullYear(), out.getMonth() + 1, 0).getDate();
+  out.setDate(Math.min(day, last));
   return dateToIso(out);
 }
 

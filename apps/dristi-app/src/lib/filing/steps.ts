@@ -19,7 +19,6 @@ import {
   ScaleIcon,
   UserRoundIcon,
   UserRoundXIcon,
-  VideoIcon,
   WalletIcon,
 } from "lucide-react";
 
@@ -30,6 +29,8 @@ export type { StepId } from "./types";
 export const FILINGS_HOME = "/filings";
 /** Creates a fresh draft and opens it. */
 export const NEW_FILING = "/filings/new";
+/** Placeholder for the PSS Act case type, which cannot be filed yet. */
+export const NEW_PSS_FILING = "/filings/new/pss-act";
 
 export type FilingStep = {
   id: StepId;
@@ -53,10 +54,9 @@ export const FILING_STEPS: FilingStep[] = [
   { id: "adr-prayer", title: "ADR, other & prayer", group: "Case details", segment: "adr-prayer", icon: ClipboardCheckIcon },
   { id: "witnesses", title: "Witnesses", group: "Evidence", segment: "witnesses", icon: MessageCircleIcon },
   { id: "documents", title: "Documents", group: "Evidence", segment: "documents", icon: FileTextIcon },
-  { id: "oath", title: "Oath", group: "Affidavit", segment: "oath", icon: VideoIcon },
   { id: "affidavit", title: "Affidavit", group: "Affidavit", segment: "affidavit", icon: FileCheckIcon },
   { id: "preview", title: "Preview", group: "Preview", segment: "preview", icon: EyeIcon },
-  { id: "sign", title: "Sign", group: "Sign", segment: "sign", icon: PenToolIcon },
+  { id: "sign", title: "Sign and oath", group: "Sign and oath", segment: "sign", icon: PenToolIcon },
   { id: "pay-fees", title: "Pay fees", group: "Pay fees", segment: "sign", icon: WalletIcon, placeholder: true },
 ];
 
@@ -81,7 +81,6 @@ export const WALK_ORDER: StepId[] = [
   "adr-prayer",
   "witnesses",
   "documents",
-  "oath",
   "affidavit",
   "preview",
   "sign",

@@ -10,7 +10,7 @@ import {
   canMarkDone,
   canView,
   canViewTask,
-  cardKindOf,
+  categoryOf,
   isBinding,
   verbFor,
   viewOf,
@@ -141,7 +141,7 @@ describe("viewOf — viewer-dependent tabs", () => {
   });
 });
 
-describe("cardKindOf", () => {
+describe("categoryOf", () => {
   /*
    * The cards name acts, not states (owner, 2026-08-24). Started work stays in the queue
    * for the act it still needs, so a half-written filing is *to file* and a return being
@@ -149,28 +149,29 @@ describe("cardKindOf", () => {
    * they opened the task.
    */
   it("a task being worked on still counts under the act it needs", () => {
-    assert.equal(cardKindOf(makeTask({ kind: "file", status: "draft" })), "file");
-    assert.equal(cardKindOf(makeTask({ kind: "returned", status: "draft" })), "returned");
-    assert.equal(cardKindOf(makeTask({ kind: "sign", status: "draft" })), "sign");
+    assert.equal(categoryOf(makeTask({ kind: "file", status: "draft" })), "file");
+    assert.equal(categoryOf(makeTask({ kind: "returned", status: "draft" })), "file");
+    assert.equal(categoryOf(makeTask({ kind: "sign", status: "draft" })), "sign");
   });
   it("a draft-kind task is a filing at every stage", () => {
-    assert.equal(cardKindOf(makeTask({ kind: "draft", status: "draft" })), "file");
-    assert.equal(cardKindOf(makeTask({ kind: "draft", status: "ready" })), "file");
-    assert.equal(cardKindOf(makeTask({ kind: "draft", status: "awaiting-court" })), "file");
+    assert.equal(categoryOf(makeTask({ kind: "draft", status: "draft" })), "file");
+    assert.equal(categoryOf(makeTask({ kind: "draft", status: "ready" })), "file");
+    assert.equal(categoryOf(makeTask({ kind: "draft", status: "awaiting-court" })), "file");
   });
   it("an archived task counts by its kind, like any other", () => {
     assert.equal(
-      cardKindOf(makeTask({ kind: "file", status: "archived", archived: { at: at(0), from: "draft" } })),
+      categoryOf(makeTask({ kind: "file", status: "archived", archived: { at: at(0), from: "draft" } })),
       "file"
     );
     assert.equal(
-      cardKindOf(makeTask({ kind: "sign", status: "archived", archived: { at: at(0), from: "open" } })),
+      categoryOf(makeTask({ kind: "sign", status: "archived", archived: { at: at(0), from: "open" } })),
       "sign"
     );
   });
-  it("otherwise the kind is the card", () => {
-    assert.equal(cardKindOf(makeTask({ kind: "returned" })), "returned");
-    assert.equal(cardKindOf(makeTask({ kind: "hearing" })), "hearing");
+  it("kinds fold into the PRD categories", () => {
+    assert.equal(categoryOf(makeTask({ kind: "returned" })), "file");
+    assert.equal(categoryOf(makeTask({ kind: "hearing" })), "others");
+    assert.equal(categoryOf(makeTask({ kind: "review" })), "others");
   });
 });
 

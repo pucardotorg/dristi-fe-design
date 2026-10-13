@@ -28,15 +28,12 @@
  */
 import type { LucideIcon } from "lucide-react";
 import {
-  CalendarCheckIcon,
+  CalendarClockIcon,
   CalendarDaysIcon,
-  KeyRoundIcon,
-  MessageSquareIcon,
-  PencilIcon,
-  StampIcon,
+  SignatureIcon,
+  UserPenIcon,
   UserPlusIcon,
   FileSearchIcon,
-  FileX2Icon,
   FolderOpenIcon,
   HourglassIcon,
   LandmarkIcon,
@@ -66,7 +63,7 @@ export type ApplicationTypeGuide = {
   keywords: string[];
 };
 
-export const APPLICATION_TYPE_GUIDES: ApplicationTypeGuide[] = [
+const GUIDES: ApplicationTypeGuide[] = [
   {
     id: "absent-application",
     label: "Absent application",
@@ -83,41 +80,44 @@ export const APPLICATION_TYPE_GUIDES: ApplicationTypeGuide[] = [
       "unable to attend",
       "not present",
       "personal appearance",
-      "leave of absence",
+      "leave of absence", "sick", "ill", "unwell", "hospital", "medical", "travel", "travelling", "abroad", "out of station", "attend", "cant", "cannot come", "not come", "unavailable",
     ],
   },
+  /* The PRD splits what was one Advancement/reschedule card into two asks.
+     Nothing in its fields tells them apart but the direction, so the two
+     cards share one form (PRD "Advance (Prepone) / Postpone"). */
   {
     id: "advancement-reschedule",
-    label: "Advance / prepone",
-    description:
-      "Ask for an earlier date for a listed hearing, with the dates you can attend.",
+    label: "Advance (prepone)",
+    description: "Ask for a listed hearing to be moved to an earlier date.",
     icon: CalendarDaysIcon,
     keywords: [
       "advance",
       "advancement",
       "prepone",
-      "earlier date",
-      "sooner",
-      "bring forward",
       "reschedule",
       "hearing",
+      "earlier date",
+      "sooner",
+      "change the date", "earlier", "urgent", "bring forward",
     ],
   },
   {
     id: "postpone",
     label: "Postpone",
-    description:
-      "Ask for a later date for a listed hearing, with the dates you can attend.",
-    icon: CalendarCheckIcon,
+    description: "Ask for a listed hearing to be moved to a later date.",
+    icon: CalendarClockIcon,
     keywords: [
       "postpone",
       "postponement",
       "adjourn",
       "adjournment",
       "defer",
-      "later date",
       "reschedule",
       "hearing",
+      "later date",
+      "another date",
+      "next date", "later", "push", "delay the hearing", "not ready",
     ],
   },
   {
@@ -125,29 +125,29 @@ export const APPLICATION_TYPE_GUIDES: ApplicationTypeGuide[] = [
     label: "Addition of witness",
     description: "Ask for a witness to be added to the case.",
     icon: UserPlusIcon,
-    keywords: ["witness", "add witness", "new witness", "examine"],
-  },
-  {
-    id: "certified-copy",
-    label: "Certified copy",
-    description:
-      "Ask for a certified true copy of an order, application or other case paper.",
-    icon: StampIcon,
-    keywords: ["certified", "copy", "true copy", "attested"],
+    keywords: ["witness", "add witness", "new witness", "examine", "summon"],
   },
   {
     id: "edit-litigant-details",
     label: "Edit litigant details",
-    description: "Ask for a litigant's details in the case to be corrected.",
-    icon: PencilIcon,
-    keywords: ["edit", "correct", "correction", "litigant", "details", "address"],
+    description: "Ask for a correction to a litigant's details on the case.",
+    icon: UserPenIcon,
+    keywords: [
+      "correct",
+      "correction",
+      "edit",
+      "change name",
+      "address",
+      "details",
+      "litigant", "wrong", "mistake", "spelling", "phone number",
+    ],
   },
   {
     id: "poa-change",
     label: "PoA change",
-    description: "Ask for the power-of-attorney holder on the case to be changed.",
-    icon: KeyRoundIcon,
-    keywords: ["power of attorney", "poa", "attorney", "change holder"],
+    description: "Ask to change who holds a litigant's power of attorney.",
+    icon: SignatureIcon,
+    keywords: ["power of attorney", "poa", "attorney", "holder", "authorise"],
   },
   {
     id: "bail",
@@ -167,12 +167,12 @@ export const APPLICATION_TYPE_GUIDES: ApplicationTypeGuide[] = [
       "custody",
       "arrest",
       "warrant",
-      "bail bond",
+      "bail bond", "jail", "prison", "remand", "get out",
     ],
   },
   {
     id: "condonation-of-delay",
-    label: "Condonation of delay",
+    label: "Delay condonation",
     // "Sufficient cause" is the standard the court actually applies to a delay
     // beyond the limitation period, and the form asks for exactly that reason.
     description:
@@ -210,7 +210,7 @@ export const APPLICATION_TYPE_GUIDES: ApplicationTypeGuide[] = [
       "bank records",
       "account records",
       "documents from",
-      "bring the documents",
+      "bring the documents", "bank", "statements", "bring",
     ],
   },
   {
@@ -232,7 +232,7 @@ export const APPLICATION_TYPE_GUIDES: ApplicationTypeGuide[] = [
   },
   {
     id: "settlement",
-    label: "Settlement",
+    label: "Case settlement",
     // The offence is compoundable at any stage, so the parties may settle and
     // close the case. The form places the settlement on record; the compounding
     // is the court's, which is why the line says "can be". It is the offence
@@ -256,7 +256,7 @@ export const APPLICATION_TYPE_GUIDES: ApplicationTypeGuide[] = [
   },
   {
     id: "transfer",
-    label: "Transfer",
+    label: "Case transfer",
     description:
       "Ask for the case to be moved to a different court, with your grounds.",
     icon: LandmarkIcon,
@@ -266,7 +266,7 @@ export const APPLICATION_TYPE_GUIDES: ApplicationTypeGuide[] = [
       "another court",
       "different court",
       "move the case",
-      "jurisdiction",
+      "jurisdiction", "move", "different judge",
     ],
   },
   {
@@ -287,25 +287,11 @@ export const APPLICATION_TYPE_GUIDES: ApplicationTypeGuide[] = [
     ],
   },
   {
-    id: "warrant-recall",
-    label: "Warrant recall",
-    description:
-      "Ask the court to cancel a warrant it has already issued, with your grounds.",
-    icon: FileX2Icon,
-    keywords: [
-      "warrant recall",
-      "recall warrant",
-      "cancel warrant",
-      "withdraw warrant",
-      "quash warrant",
-      "set aside warrant",
-    ],
-  },
-  {
     id: "withdrawal",
-    label: "Withdrawal",
-    description:
-      "Take back something already filed, with your reason for withdrawing it.",
+    label: "Case withdrawal",
+    /* The PRD's "Case withdrawal": the complaint itself, which is what the
+       generated document and the order template already said. */
+    description: "Ask to withdraw the complaint, with your reason.",
     icon: Undo2Icon,
     keywords: [
       "withdraw",
@@ -313,19 +299,12 @@ export const APPLICATION_TYPE_GUIDES: ApplicationTypeGuide[] = [
       "take back",
       "drop",
       "do not pursue",
-      "cancel the filing",
+      "cancel the filing", "drop the case", "stop the case", "end the case",
     ],
   },
   {
-    id: "objection",
-    label: "Objection",
-    description: "State your objection to an application the other side has filed.",
-    icon: MessageSquareIcon,
-    keywords: ["objection", "object", "oppose", "reply"],
-  },
-  {
     id: "application-others",
-    label: "Others",
+    label: "Generic",
     // Never "the types above": this same line is read on the second step, where
     // there is no grid, and aloud from the card's aria-label.
     description:
@@ -334,6 +313,19 @@ export const APPLICATION_TYPE_GUIDES: ApplicationTypeGuide[] = [
     keywords: ["other", "others", "something else", "not listed", "general"],
   },
 ];
+
+/**
+ * The catalogue in the order the picker lists it: alphabetical by label,
+ * Others last. Sorted here rather than kept sorted by hand, so a type added
+ * to the list above lands in its place.
+ */
+export const APPLICATION_TYPE_GUIDES: ApplicationTypeGuide[] = [...GUIDES].sort(
+  (a, b) => {
+    if (a.id === "application-others") return 1;
+    if (b.id === "application-others") return -1;
+    return a.label.localeCompare(b.label);
+  }
+);
 
 const GUIDES_BY_ID = new Map(
   APPLICATION_TYPE_GUIDES.map((guide) => [guide.id, guide])
@@ -367,13 +359,9 @@ const SUGGESTED_BY_STAGE: Record<ActiveStage, ApplicationTypeId[]> = {
   scrutiny: ["condonation-of-delay", "withdrawal"],
   cognizance: ["condonation-of-delay", "advancement-reschedule", "withdrawal"],
   summons: ["warrant-by-hand", "advancement-reschedule", "settlement"],
-  appearance: ["bail", "absent-application", "warrant-recall"],
-  evidence: [
-    "absent-application",
-    "production-of-documents",
-    "advancement-reschedule",
-  ],
-  arguments: ["reopen-evidence", "advancement-reschedule", "absent-application"],
+  appearance: ["bail", "absent-application", "warrant-by-hand"],
+  evidence: ["absent-application", "production-of-documents", "postpone"],
+  arguments: ["reopen-evidence", "postpone", "absent-application"],
   judgment: ["reopen-evidence", "settlement"],
 };
 
@@ -485,20 +473,34 @@ function scoreGuide(
   words: string[]
 ): number {
   let score = 0;
+  /* The sentence with its filler gone, so "cancel the warrant" meets the
+     phrase "cancel warrant". */
+  const gist = words.join(" ");
+  /* Only the last word can be half typed; an earlier "set" is a word. */
+  const typing = words.at(-1) ?? "";
 
   for (const keyword of guide.keywords) {
     if (keyword.includes(" ")) {
       // A phrase has to appear as one, or "call for" matches every "for".
-      if (normalized.includes(keyword)) score += 4;
+      const keywordGist = meaningfulWords(normalize(keyword)).join(" ");
+      if (
+        normalized.includes(keyword) ||
+        (keywordGist.includes(" ") && gist.includes(keywordGist))
+      ) {
+        score += 4;
+      }
       continue;
     }
     for (const word of words) {
       if (word === keyword) score += 3;
-      else if (
-        word.length > 3 &&
-        (word.startsWith(keyword) || keyword.startsWith(word))
-      ) {
+      else if (sameWordInflected(word, keyword)) {
         // "settling" and "settle" are the same ask typed differently.
+        score += 2;
+      } else if (word === typing && word.length >= 3 && keyword.startsWith(word)) {
+        // Still being typed: "adjou" is on its way to "adjourn".
+        score += 2;
+      } else if (word.length >= 5 && withinOneEdit(word, keyword)) {
+        // One slip of the finger: "certfied", "postpne".
         score += 2;
       }
     }
@@ -508,8 +510,46 @@ function scoreGuide(
   const description = meaningfulWords(normalize(guide.description));
   for (const word of words) {
     if (label.includes(word)) score += 2;
-    else if (word.length > 4 && description.includes(word)) score += 1;
+    else if (
+      word.length >= 3 &&
+      label.some(
+        (part) =>
+          (word === typing && part.startsWith(word)) || withinOneEdit(word, part)
+      )
+    ) {
+      score += 2;
+    } else if (word.length > 4 && description.includes(word)) score += 1;
   }
 
   return score;
+}
+
+/** The endings an ask takes when typed in a sentence: "settling", "delayed". */
+const INFLECTIONS = ["s", "es", "ed", "d", "ing", "ment", "ments", "ion", "al"];
+
+function sameWordInflected(word: string, keyword: string): boolean {
+  if (keyword.length < 4) return false;
+  const [longer, shorter] =
+    word.length >= keyword.length ? [word, keyword] : [keyword, word];
+  if (!longer.startsWith(shorter.replace(/e$/, ""))) return false;
+  const rest = longer.slice(shorter.replace(/e$/, "").length);
+  return rest === "" || rest === "e" || INFLECTIONS.some((end) => rest === end || rest === `e${end}`);
+}
+
+/** Whether two words are one insertion, deletion or swap of letters apart. */
+function withinOneEdit(a: string, b: string): boolean {
+  if (a === b) return true;
+  if (Math.abs(a.length - b.length) > 1 || Math.min(a.length, b.length) < 4) {
+    return false;
+  }
+  let i = 0;
+  while (i < a.length && i < b.length && a[i] === b[i]) i++;
+  if (a.length === b.length) {
+    if (a.slice(i + 1) === b.slice(i + 1)) return true;
+    // Two neighbouring letters swapped.
+    return a[i] === b[i + 1] && a[i + 1] === b[i] && a.slice(i + 2) === b.slice(i + 2);
+  }
+  return a.length > b.length
+    ? a.slice(i + 1) === b.slice(i)
+    : a.slice(i) === b.slice(i + 1);
 }

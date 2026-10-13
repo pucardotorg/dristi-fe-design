@@ -23,9 +23,9 @@ export type CourtRole =
  *
  * These are shortenings, not the model's names. `docs/product/domain/actors.md` calls the
  * first one *Judicial Magistrate of the First Class* — "Magistrate" drops the class, and
- * it can, because in this rail the label sits directly above "JMFC Court 1, Kollam" and
+ * it can, because in this rail the label sits directly above "JMFC Court 1" and
  * the court supplies what the role leaves out. A label that repeated it would read
- * "Judicial Magistrate of the First Class / JMFC Court 1, Kollam".
+ * "Judicial Magistrate of the First Class / JMFC Court 1".
  *
  * Shortened downwards only. Nothing here adds an honorific, a designation or a rank the
  * model does not carry: what a particular establishment calls the person on this bench
@@ -92,9 +92,13 @@ export const COURT_SEATS: CourtRole[] = [
  */
 export const CURRENT_STAFF: { name: string; court: string; role: CourtRole } = {
   name: "Uddipan",
-  court: "JMFC Court 1, Kollam",
+  court: "JMFC Court 1",
   role: "bench-clerk",
 };
+
+/** The district this court sits in. A placeholder, like `CURRENT_STAFF`; the court
+ * directory supplies the real one. */
+export const COURT_DISTRICT = "Sample District";
 
 /**
  * Who signs the order this court passes.
@@ -106,7 +110,7 @@ export const CURRENT_STAFF: { name: string; court: string; role: CourtRole } = {
  * **The name is the owner's own reference screen's** (2026-09-14), carried here so the
  * signature block has something to print. The designation is written against
  * `CURRENT_STAFF.court` rather than copied from that reference, which names a differently
- * worded Kollam court — one page must not give itself two court names. Fixture, like
+ * worded court — one page must not give itself two court names. Fixture, like
  * `CURRENT_STAFF`: the directory that replaces one replaces both, and nothing keys off
  * it.
  */

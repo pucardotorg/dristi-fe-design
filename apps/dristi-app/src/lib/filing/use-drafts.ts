@@ -4,6 +4,7 @@ import * as React from "react";
 
 import { deleteDraftWithFiles, getRepository } from "./data";
 import { ensureSampleDrafts } from "./sample-drafts";
+import { markScrutinyReturns } from "./scrutiny-demo";
 import type { FilingDraft } from "./types";
 
 /** All drafts and filed cases in this browser, newest first; `ready` once read. */
@@ -21,6 +22,7 @@ export function useDrafts() {
       try {
         // Sandbox: a fresh browser gets a few drafts to look at (once).
         await ensureSampleDrafts();
+        await markScrutinyReturns();
         const all = await getRepository().listDrafts();
         if (cancelled) return;
         setDrafts(all);

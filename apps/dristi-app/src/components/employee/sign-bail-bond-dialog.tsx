@@ -28,6 +28,8 @@ import {
 } from "@/lib/employee/sign-bail-bonds";
 import { Identifier } from "@/components/chrome/identifier";
 import { DialogDescription } from "@/components/ui/dialog";
+import { useCourtLocalized } from "@/components/court/court-provider";
+import { useCourtText } from "@/components/court/court-provider";
 
 /** What the paper is called in the signature stage's copy. */
 const NOUN = "bail bond";
@@ -117,6 +119,7 @@ function SignBailBondBody({
   onReject: (bond: SignBailBond) => void;
   onReturnFocus: () => void;
 }) {
+  const courtText = useCourtText();
   const flow = useStagedFlow<SignStage>({
     order: SIGN_STAGES,
     scene: SIGN_SCENES,
@@ -198,7 +201,7 @@ function SignBailBondBody({
       ) : (
         <SignatureStage
           noun={NOUN}
-          subject={bondSubject(bond)}
+          subject={courtText(bondSubject(bond))}
           warning="Signing publishes this bond and cannot be reversed."
           download={{
             prompt: "Want to read the bond again?",
@@ -221,7 +224,8 @@ function SignBailBondBody({
  * surface — while everything under it stays body copy, which keeps the facsimile to the
  * two weights ui-craft §1.3 allows.
  */
-function BailBondFacsimile({ document }: { document: SignBailBondDocument }) {
+function BailBondFacsimile({ document: storedDocument }: { document: SignBailBondDocument }) {
+  const document = useCourtLocalized(storedDocument);
   return (
     <article className="flex flex-col gap-6 rounded-md bg-paper p-6 text-paper-foreground">
       <header className="flex flex-col gap-4">

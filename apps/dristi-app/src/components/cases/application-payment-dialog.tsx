@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { type ApplicationRecord } from "@/lib/cases/application-record";
+import { filingNoun, type ApplicationRecord } from "@/lib/cases/application-record";
 
 /** Dummy court fee per application, from the legacy portal's payment screen. */
 const FEE_RUPEES = 20;
@@ -81,7 +81,7 @@ function PaymentBody({
         <DialogDescription className="text-caption font-medium text-muted-foreground">
           {count === 1
             ? applications[0].typeLabel
-            : `${count} applications, one payment`}
+            : `${count} ${filingNoun(applications)}, one payment`}
         </DialogDescription>
       </DialogHeader>
 
@@ -93,8 +93,8 @@ function PaymentBody({
           <Banner variant="success">
             Court fee of {total} paid.{" "}
             {count === 1
-              ? "The application is filed with the court."
-              : `All ${count} applications are filed with the court.`}
+              ? `The ${filingNoun(applications)} is submitted.`
+              : `All ${count} ${filingNoun(applications)} are submitted.`}
           </Banner>
         ) : (
           <Banner variant="info">

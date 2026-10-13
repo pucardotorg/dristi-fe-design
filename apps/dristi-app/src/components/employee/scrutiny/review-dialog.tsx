@@ -2,14 +2,8 @@
 
 import * as React from "react";
 import Link from "next/link";
-import {
-  CheckIcon,
-  MicIcon,
-  RotateCcwIcon,
-  TriangleAlertIcon,
-} from "lucide-react";
+import { CheckIcon, ChevronRightIcon, RotateCcwIcon } from "lucide-react";
 
-import { docName } from "@/lib/employee/scrutiny/field";
 import type {
   Filing,
   Flag,
@@ -19,6 +13,7 @@ import type {
 import { markArrival } from "@/components/employee/use-arrival";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog } from "@/components/ui/dialog";
 import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
@@ -27,14 +22,13 @@ import {
   StagedOverlay,
   useStagedFlow,
 } from "@/components/chrome/staged-overlay";
-import { MarkThumb } from "@/components/employee/scrutiny/mark-thumb";
-import {
-  FieldValue,
-  RecordLink,
-} from "@/components/employee/scrutiny/record-rows";
 import { useScrutinyCase } from "@/components/employee/scrutiny/scrutiny-case-context";
 
-export type Decision = "send-back" | "register";
+/**
+ * `forward` hands the case to the magistrate to register; `register` registers it here.
+ * Which of the two the officer has depends on the state's `registrationPoint` (`SCR-06`).
+ */
+export type Decision = "send-back" | "forward" | "register";
 
 interface Item {
   field: FlatField;
@@ -42,24 +36,16 @@ interface Item {
   where: string;
   /** The partner item this one was raised with, if any. */
   linked: FlatField | null;
-  /**
-   * A mark on an uploaded document whose own row carries no item — the one error this
-   * design knows how to detect, and the last place it can still be caught.
-   */
-  stranded: string | null;
 }
 
-const GROUP_ORDER = [
-  "Corrections — advocate confirms",
-  "Flags — advocate fixes",
-  "Document issues — advocate re-uploads",
-] as const;
+/* Named for what the advocate has to do with each, since that is what differs between
+   them (owner, 2026-10-09: "have proper sections for flagged, then document issue"). */
+const GROUP_ORDER = ["Fields to correct", "Documents to re-upload"] as const;
 
 function group(
   flags: FlagMap,
   allFields: FlatField[],
   fieldById: Record<string, FlatField>,
-  docRow: Record<string, string>,
 ): Record<string, Item[]> {
   const out: Record<string, Item[]> = Object.fromEntries(
     GROUP_ORDER.map((g) => [g, []]),
@@ -68,21 +54,14 @@ function group(
     const flag = flags[field.id];
     if (!flag) continue;
     const partnerId = flag.linkedTo ?? flag.linkedFrom ?? null;
-    const markedDoc = flag.evidence?.doc ?? null;
-    const markedRow = markedDoc ? docRow[markedDoc] : null;
     const item: Item = {
       field,
       flag,
       where: `${field.group} · ${field.label}`,
       linked: partnerId ? (fieldById[partnerId] ?? null) : null,
-      stranded:
-        !field.docrow && markedDoc && markedRow && !flags[markedRow]
-          ? markedDoc
-          : null,
     };
-    if (field.docrow) out[GROUP_ORDER[2]].push(item);
-    else if (flag.correction) out[GROUP_ORDER[0]].push(item);
-    else out[GROUP_ORDER[1]].push(item);
+    if (field.docrow) out[GROUP_ORDER[1]].push(item);
+    else out[GROUP_ORDER[0]].push(item);
   }
   return out;
 }
@@ -138,7 +117,7 @@ export function ReviewDialog({
   /** A record you can act on: closes the dialog and lands on the item. */
   onGoToItem: (fieldId: string) => void;
 }) {
-  const { party, allFields, fieldById, docRow } = useScrutinyCase();
+  const { party, allFields, fieldById } = useScrutinyCase();
   const [ack, setAck] = React.useState(false);
 
   /* Opening the dialog for a new decision starts from a clean slate — back to the list,
@@ -157,8 +136,8 @@ export function ReviewDialog({
   });
 
   const groups = React.useMemo(
-    () => group(flags, allFields, fieldById, docRow),
-    [flags, allFields, fieldById, docRow],
+    () => group(flags, allFields, fieldById),
+    [flags, allFields, fieldById],
   );
   const total = Object.values(groups).reduce((n, v) => n + v.length, 0);
 
@@ -168,12 +147,21 @@ export function ReviewDialog({
     decision === "send-back"
       ? {
           title: "Send back to advocate",
-          body: `Goes to ${party.advocate} as recorded. Corrections need confirmation; flags get fixed. Each item unlocks what you marked.`,
+          body: `Goes to ${party.advocate}.`,
+        }
+      : decision === "forward"
+      ? {
+          title: "Forward to magistrate",
+          body: total
+            ? `The case moves to the Magistrate's list for registration. ${total} open item${
+                total > 1 ? "s travel" : " travels"
+              } with it — forwarding does not clear ${total > 1 ? "them" : "it"}.`
+            : "Every field was checked against the bundle. The case moves to the Magistrate's list for registration.",
         }
       : {
           title: "Register case",
           body: total
-            ? `The case moves to the Magistrate's list. ${total} open item${
+            ? `The case moves to the Magistrate's list for cognizance. ${total} open item${
                 total > 1 ? "s travel" : " travels"
               } with it — registering does not clear ${total > 1 ? "them" : "it"}.`
             : "Every field was checked against the bundle. The case moves to the Magistrate's list for cognizance.",
@@ -219,6 +207,20 @@ export function ReviewDialog({
           tone: "bg-secondary text-secondary-foreground",
           Icon: RotateCcwIcon,
         }
+      : decision === "forward"
+      ? {
+          title: "Forwarded to magistrate",
+          state: "Forwarded",
+          body: total
+            ? `On the Magistrate's list for registration, with ${total} open item${
+                total > 1 ? "s" : ""
+              } attached.`
+            : "On the Magistrate's list for registration.",
+          /* Scrutiny is done with the file, which is this desk's good outcome, so it
+             wears the same mark as registering. */
+          tone: "bg-success-muted text-success-muted-foreground",
+          Icon: CheckIcon,
+        }
       : {
           title: "Case registered",
           state: "Registered",
@@ -233,7 +235,7 @@ export function ReviewDialog({
           Icon: CheckIcon,
         };
 
-  const needsAck = decision === "register" && total > 0;
+  const needsAck = decision !== "send-back" && total > 0;
   const done = flow.stage === "done";
 
   return (
@@ -259,7 +261,7 @@ export function ReviewDialog({
            restated). The stage is the overlay's own white, framed by the header and
            footer hairlines, and the insets belong to this file because the confirmation
            centres itself while the list does not. */
-        surface="card"
+        surface={done || !total ? "card" : "canvas"}
         padded={false}
         title={done ? settled.title : head.title}
         titleRef={flow.titleRef}
@@ -316,7 +318,11 @@ export function ReviewDialog({
                 disabled={needsAck && !ack}
                 onClick={() => flow.go("done")}
               >
-                {decision === "send-back" ? "Send back" : "Register case"}
+                {decision === "send-back"
+                  ? "Send back"
+                  : decision === "forward"
+                    ? "Forward to magistrate"
+                    : "Register case"}
               </Button>
               {/* The gate on the primary, beside the button it gates. It had its own
                   region above the footer before the frame, which has two regions and not
@@ -339,7 +345,8 @@ export function ReviewDialog({
                     onCheckedChange={(value) => setAck(value === true)}
                   />
                   <FieldLabel htmlFor="ack" className="font-normal">
-                    I have seen the open flags and choose to register.
+                    I have seen the open flags and choose to{" "}
+                    {decision === "forward" ? "forward" : "register"}.
                   </FieldLabel>
                 </Field>
               ) : null}
@@ -385,47 +392,54 @@ export function ReviewDialog({
              here rather than on the frame because the confirmation above centres itself
              and this does not. */
           <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
-              {GROUP_ORDER.filter((g) => groups[g].length).map((g) => (
-                /*
-                 * **A band per kind, ruled from the next.** What the advocate has to
-                 * *do* differs by band — confirm a correction, fix a flag, re-upload a
-                 * document — and the owner asked for that boundary to be visible
-                 * (2026-09-18). The rule is the band's; items inside one are separated
-                 * by space alone. Two separators would have been one too many, and the
-                 * line that means "a different kind of work" should not look like the
-                 * line that means "the next row".
-                 */
-                <section
-                  key={g}
-                  className="-mx-4 border-t border-hairline px-4 pt-6 first:border-t-0 first:pt-0 sm:-mx-6 sm:px-6"
+            {GROUP_ORDER.filter((g) => groups[g].length).map((g) => (
+              /*
+               * A section per kind of work, on the overlay's tinted stage, its items in
+               * lifted white cards — the registrations overlay's layering (owner,
+               * 2026-10-09: "it reads too flat"). Fields are carded by party, so the
+               * party is said once over its rows rather than under every field.
+               */
+              <section
+                key={g}
+                aria-labelledby={`rv-${g}`}
+                className="flex flex-col gap-2 not-first:mt-6"
+              >
+                <h3
+                  id={`rv-${g}`}
+                  className="flex items-baseline gap-1.5 text-caption font-semibold text-muted-foreground"
                 >
-                  {/*
-                   * The band's name, at the same 14px as everything under it and
-                   * carrying its weight instead of a size of its own. Sticky, because on
-                   * a send-back with twenty items the kind of work you are reading is
-                   * what scrolls away first; it needs the stage's fill behind it, and it
-                   * bleeds to the scroller's insets so its rule runs the full width.
-                   */}
-                  <h3 className="sticky top-0 z-10 -mx-4 bg-card px-4 pb-3 text-body-compact font-semibold text-foreground sm:-mx-6 sm:px-6">
-                    {g.split(" — ")[0]}{" "}
-                    <span className="font-normal text-muted-foreground tabular-nums">
-                      ({groups[g].length})
-                    </span>
-                  </h3>
-                  <ul className="flex flex-col gap-6">
-                    {groups[g].map((item) => (
-                      <SummaryItem
-                        key={item.field.id}
-                        item={item}
-                        onGoToItem={(fieldId) => {
-                          onOpenChange(false);
-                          onGoToItem(fieldId);
-                        }}
-                      />
-                    ))}
-                  </ul>
-                </section>
-              ))}
+                  {g}
+                  <span className="font-normal tabular-nums">
+                    {groups[g].length}
+                  </span>
+                </h3>
+                {byOwner(groups[g]).map(([owner, list]) => (
+                  <Card
+                    key={owner || g}
+                    size="sm"
+                    className="gap-0 border-hairline py-0 shadow-raised"
+                  >
+                    {owner ? (
+                      <p className="border-b border-hairline px-4 py-3 text-body-compact font-semibold text-muted-foreground">
+                        {owner}
+                      </p>
+                    ) : null}
+                    <ul className="flex flex-col divide-y divide-hairline">
+                      {list.map((item) => (
+                        <SummaryItem
+                          key={item.field.id}
+                          item={item}
+                          onGoToItem={(fieldId) => {
+                            onOpenChange(false);
+                            onGoToItem(fieldId);
+                          }}
+                        />
+                      ))}
+                    </ul>
+                  </Card>
+                ))}
+              </section>
+            ))}
           </div>
         ) : (
           /* Nothing raised, which is a state and not an absence: said in the middle of
@@ -443,6 +457,26 @@ export function ReviewDialog({
   );
 }
 
+/**
+ * One correction as a row: the item and whose it is, what the officer said (nothing when
+ * they left no note), what a document was raised with, and a way to it.
+ */
+/** Items under the party they belong to, in file order. Document rows share one card. */
+function byOwner(items: Item[]): [string, Item[]][] {
+  const out = new Map<string, Item[]>();
+  for (const item of items) {
+    const owner = item.field.docrow
+      ? ""
+      : item.field.group.replace(/ Details$/, "");
+    out.set(owner, [...(out.get(owner) ?? []), item]);
+  }
+  return [...out];
+}
+
+/**
+ * One correction: the row is the way to it (the chevron says so, quietly), the field's
+ * name leads, and what the officer said follows it.
+ */
 function SummaryItem({
   item,
   onGoToItem,
@@ -450,155 +484,52 @@ function SummaryItem({
   item: Item;
   onGoToItem: (fieldId: string) => void;
 }) {
-  const { docById, docRow } = useScrutinyCase();
   const { field, flag } = item;
-  const evidenceDoc = flag.evidence ? docById[flag.evidence.doc] : undefined;
-  const reupload =
-    !field.docrow && !!field.doc && !!docRow[field.doc] ? item.linked : null;
+  /* Labelled, so the officer's words read as theirs (owner, 2026-10-09). */
+  const said = [
+    field.docrow && flag.reason ? ["Issue", flag.reason] : null,
+    flag.comment ? ["Comment", flag.comment] : null,
+  ].filter((line): line is [string, string] => line !== null);
+  const also =
+    field.docrow && item.linked
+      ? `Raised with ${item.linked.group.replace(/ Details$/, "").toLowerCase()} ${item.linked.label.toLowerCase()}`
+      : null;
 
-  /*
-   * **One item, read in one pass: where, what changed, what was said, what is attached.**
-   *
-   * This was five labelled rows — Original value, FSO's value, FSO's comment,
-   * Annotation, Re-upload requested — each with its name in an 8rem gutter. On a
-   * send-back of twenty items that is a hundred rows of left-column text weighing more
-   * than the facts beside it, and the owner read it as exactly that (2026-09-18).
-   *
-   * The labels are gone because the *form* now says what each line is, which is cheaper
-   * than a word and faster to scan:
-   *
-   * - the **correction** is one movement, `old → new`, not two rows that the eye has to
-   *   pair up. The superseded value is struck and muted; the new one carries the weight.
-   * - the **comment** is quoted by a rule down its start, the way a note is quoted
-   *   anywhere else. Nothing needs to call it a comment.
-   * - **what is attached** is a row of marks, and a mark only appears when it is true.
-   *   "Re-upload requested — No" used to print on every correction that did not ask for
-   *   one, which is a row spent saying nothing.
-   *
-   * The annotation shows the **crop of the marked region** rather than the words
-   * "Annotation": `MarkThumb` is the same tile the workbench uses, so the officer
-   * recognises the mark they drew instead of reading a document number back.
-   *
-   * ## Why this is not the workbench's `RecordList`
-   *
-   * It was, and the two are still one *vocabulary* — the same facts under the same
-   * names. What differs is the task. The workbench examines one item in a narrow pane,
-   * where a label column is the fastest way to find a value. This window is read the
-   * other way round: twenty items at once, looking for the one that is wrong. A layout
-   * tuned for the first is what made the second a wall.
-   */
   return (
-    <li className="@container flex flex-col gap-1.5 text-body-compact">
-      {/*
-       * **`Complainant: Full name`** — the party, then the field, at one size.
-       *
-       * Naming the group on every item was noise; hiding it left five labels that exist
-       * under two parties reading identically; a chevroned path was a third face in a
-       * list that already had too many (owner, 2026-09-17 and 2026-09-18). A colon
-       * carries containment for two characters and reads as a prefix rather than a
-       * second heading. The trailing " Details" comes off: "Complainant Details: Full
-       * name" says Details twice.
-       */}
-      <h4>
-        <span className="text-muted-foreground">
-          {field.group.replace(/ Details$/, "")}:{" "}
-        </span>
-        <span className="font-semibold">{field.label}</span>
-      </h4>
-
-      {/*
-       * **The correction is the value.** `ValueLines` in the field row settled this
-       * shape already — *"a saved correction shows the proposed value as THE value, with
-       * the filed value on one quiet line beneath — no strikethrough noise in the
-       * primary position"* — and this window kept reinventing it: first as two labelled
-       * rows, then as a struck `old → new` pair, both of which lead with the value that
-       * no longer stands (owner, 2026-09-18: *"you already solved this… why is it
-       * getting so complicated here"*).
-       *
-       * So the corrected value comes first at weight, and what was filed sits under it
-       * as one quiet line. No strike: "was" is the word that says superseded, and a rule
-       * drawn through a value the advocate still has to recognise only makes it harder
-       * to read.
-       */}
-      {flag.correction ? (
-        <>
-          <p className="font-medium">
-            <FieldValue field={field} value={flag.correction} />
-          </p>
-          <p className="text-muted-foreground">
-            was <FieldValue field={field} value={field.value} copyable={false} />
-          </p>
-        </>
-      ) : null}
-
-      {/* A document issue has no before and after — the reason *is* the finding, so it
-          takes the weight the corrected value carries above. */}
-      {field.docrow && flag.reason ? (
-        <p className="font-medium">{flag.reason}</p>
-      ) : null}
-
-      {flag.comment ? (
-        <p className="flex flex-wrap items-center gap-x-2 border-s-2 border-border ps-2.5 text-muted-foreground">
-          <span className="break-words">{flag.comment}</span>
-          {flag.voice ? (
-            <span className="inline-flex items-center gap-1">
-              <MicIcon className="size-3.5" aria-hidden="true" /> voice
-            </span>
-          ) : null}
-        </p>
-      ) : null}
-
-      {/* What is attached to the item, and only what is. */}
-      {evidenceDoc || reupload || (field.docrow && item.linked) ? (
-        <p className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-0.5 text-muted-foreground">
-          {evidenceDoc ? (
-            <span className="inline-flex items-center gap-2">
-              <MarkThumb evidence={flag.evidence!} />
-              <span className="min-w-0">
-                <span className="tabular-nums">Doc {evidenceDoc.no}</span> ·{" "}
-                {docName(flag.evidence!.doc, docById)}
-              </span>
-            </span>
-          ) : null}
-
-          {/* No glyph of its own: `RecordLink` already ends in one, and two icons on a
-              three-word line is the clutter this pass is removing. */}
-          {reupload ? (
-            <RecordLink onClick={() => onGoToItem(reupload.id)}>
-              Re-upload {docName(reupload.docrow ?? "", docById)}
-            </RecordLink>
-          ) : null}
-
-          {field.docrow && item.linked ? (
-            <RecordLink onClick={() => onGoToItem(item.linked!.id)}>
-              Raised with {item.linked.label}
-            </RecordLink>
-          ) : null}
-        </p>
-      ) : null}
-
-      {/*
-       * The last backstop. A mark on an uploaded document with no item on that
-       * document's own row means the advocate gets the value unlocked and no re-upload
-       * button — the exact miss this feature exists to stop, named here rather than
-       * discovered on resubmission. Icon + words + colour, never colour alone.
-       */}
-      {item.stranded ? (
-        <p className="flex flex-wrap items-center gap-2 text-warning-ink">
-          <span className="inline-flex items-center gap-1.5">
-            <TriangleAlertIcon className="size-3.5" aria-hidden="true" />
-            Marked on {docName(item.stranded, docById)} — re-upload is not unlocked.
+    <li>
+      <button
+        type="button"
+        onClick={() => onGoToItem(field.id)}
+        className="group flex w-full items-start gap-3 px-4 py-3 text-left transition-colors outline-none hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset"
+      >
+        <span className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:gap-6">
+          <span className="text-body-compact font-medium break-words sm:w-48 sm:shrink-0">
+            {field.label}
           </span>
-          <Button
-            variant="link"
-            size="xs"
-            className="h-auto p-0 [@media(pointer:coarse)]:h-10"
-            onClick={() => onGoToItem(field.id)}
-          >
-            Open the item
-          </Button>
-        </p>
-      ) : null}
+          {said.length || also ? (
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              {said.map(([label, text]) => (
+                <span key={label} className="text-body-compact break-words">
+                  <span className="text-muted-foreground">{label}: </span>
+                  {text}
+                </span>
+              ))}
+              {also ? (
+                <span className="text-body-compact text-muted-foreground">
+                  {also}
+                </span>
+              ) : null}
+            </span>
+          ) : null}
+        </span>
+        <ChevronRightIcon
+          aria-hidden
+          className="mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"
+        />
+        <span className="sr-only">
+          {field.docrow ? "Go to the document" : "Go to the field"}
+        </span>
+      </button>
     </li>
   );
 }

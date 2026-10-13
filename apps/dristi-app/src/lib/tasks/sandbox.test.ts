@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { cardKindOf, canView, viewOf } from "./permissions";
+import { categoryOf, canView, viewOf } from "./permissions";
 import { buildTasks, CASES, PEOPLE } from "./sandbox";
 import type { Person } from "./types";
 
@@ -59,7 +59,7 @@ describe("sandbox seed — grounded in the 1.0 inventory", () => {
   it("the vakalatnama fee task: pay card, due today, dedup closure rule", () => {
     const t = tasks.find((x) => x.id === "t-vakfee509");
     assert.ok(t);
-    assert.equal(cardKindOf(t), "pay");
+    assert.equal(categoryOf(t), "pay");
     assert.equal(daysBetween(new Date().toISOString(), t.dueAt!), 0);
     assert.equal(t.closesWhen, "Closes when this or any other vakalatnama fee on the case is paid");
     // A signatory on the case holds the verb — it needs their action.
@@ -77,7 +77,7 @@ describe("sandbox seed — grounded in the 1.0 inventory", () => {
     const t = tasks.find((x) => x.id === "t-dates941");
     assert.ok(t);
     assert.equal(t.kind, "hearing");
-    assert.equal(cardKindOf(t), "hearing");
+    assert.equal(categoryOf(t), "others");
     assert.equal(t.dueKind, "court-set");
     assert.equal(t.closesWhen, "Closes when you choose dates, or when the court decides the rescheduling request");
     // Anyone on the case can act on a hearing task — Needs action from every chair.

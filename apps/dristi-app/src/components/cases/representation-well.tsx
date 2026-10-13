@@ -13,6 +13,7 @@
  * real record of a pending request is the tasks service.
  */
 
+import { displayName } from "@/lib/cases/names";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -41,8 +42,10 @@ export function RepresentationWell({
     <>
       <div className="flex min-h-12 min-w-0 items-center gap-2 rounded-md bg-surface-sunken py-2 pr-2 pl-3">
         <span className="flex min-w-0 flex-1 flex-col justify-center gap-1">
-          <span className="block truncate text-body font-medium text-foreground">
-            {advocate}
+          {/* The same name line as every well beside it, "(you)" included:
+              one size, no "Adv." (owner, Oct 8). */}
+          <span className="block truncate text-body-compact font-medium text-foreground">
+            {displayName(advocate)}
           </span>
           {pending ? (
             <span className="block truncate text-caption text-muted-foreground">
@@ -65,7 +68,7 @@ export function RepresentationWell({
       <RemoveAdvocateDialog
         open={open}
         onOpenChange={setOpen}
-        advocateName={advocate}
+        advocateName={displayName(advocate)}
         partyName={partyName}
         caseRef={caseRef}
         onRequested={setPending}

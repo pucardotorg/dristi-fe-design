@@ -280,10 +280,10 @@ describe("buildCopyApplicationDocument", () => {
     assert.equal(document.caseNumber, "ST/1186/2026");
     assert.equal(
       document.matter,
-      "Kollam Port Bunkering and Marine Fuels Private Limited v. Adarsh Vijayan",
+      "Harbour Bunkering and Marine Fuels Private Limited v. Adarsh Vijayan",
     );
-    assert.equal(document.court, "JMFC Court 1, Kollam");
-    assert.equal(document.place, "Kollam");
+    assert.equal(document.court, "JMFC Court 1");
+    assert.equal(document.place, "Sample District");
     assert.ok(
       document.paragraphs.some((paragraph) => paragraph.includes("11 folios")),
     );

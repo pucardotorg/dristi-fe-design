@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRightIcon, DownloadIcon, PlusIcon } from "lucide-react";
+import { ArrowRightIcon, DownloadIcon } from "lucide-react";
 
 import { FILINGS_HOME } from "@/lib/filing/steps";
 import { cn } from "@/lib/utils";
@@ -91,7 +91,7 @@ export function BulkImportCard({ batch }: { batch: BulkBatch | null }) {
         </div>
       </CardHeader>
 
-      <CardContent className="mt-auto flex flex-col gap-4 pt-4">
+      <CardContent className="flex flex-col gap-4 pt-4">
         {batch === null ? (
           <Empty className="items-start gap-0 border-0 p-0 text-left text-wrap">
             <EmptyHeader className="max-w-none items-start">
@@ -116,23 +116,14 @@ export function BulkImportCard({ batch }: { batch: BulkBatch | null }) {
           </div>
         )}
 
-        {/* The pair shares the row half and half at every width (owner, Sept 22). */}
-        <div className="flex flex-wrap items-center gap-2 [&>*]:flex-1">
-          <Button asChild variant="outline">
-            <Link href={`${FILINGS_HOME}/bulk`}>
-              {batch ? "Review batch" : "About bulk filing"}
-              <ArrowRightIcon data-icon="inline-end" aria-hidden />
-            </Link>
-          </Button>
-          {/* Outline, not ghost: sharing a row half and half, a button with no edge read
-              as a stray label beside a real one. */}
-          <Button asChild variant="outline">
-            <Link href={`${FILINGS_HOME}/bulk`}>
-              <PlusIcon data-icon="inline-start" aria-hidden />
-              New import
-            </Link>
-          </Button>
-        </div>
+        {/* New import is gone until bulk filing is built (owner, 2026-10-09); About bulk
+            filing stays, on its own. */}
+        <Button asChild variant="outline" className="self-start">
+          <Link href={`${FILINGS_HOME}/bulk`}>
+            {batch ? "Review batch" : "About bulk filing"}
+            <ArrowRightIcon data-icon="inline-end" aria-hidden />
+          </Link>
+        </Button>
       </CardContent>
     </Card>
   );

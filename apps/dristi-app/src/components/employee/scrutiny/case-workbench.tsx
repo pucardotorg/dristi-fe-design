@@ -10,6 +10,7 @@ import {
 
 import { useRoomInRem } from "@/hooks/use-min-width";
 import { nextFilingAfter } from "@/lib/employee/scrutiny/queue";
+import type { AiMode } from "@/lib/court/profiles";
 import type { Rect, ScrutinyCase } from "@/lib/employee/scrutiny/types";
 import { useScrutinyState } from "@/lib/employee/scrutiny/use-scrutiny-state";
 import { ScrutinyCaseProvider } from "@/components/employee/scrutiny/scrutiny-case-context";
@@ -51,6 +52,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useCourt, useCourtText } from "@/components/court/court-provider";
 
 /**
  * The case review: filed fields on the left, the bundle in the centre, the document
@@ -74,12 +76,13 @@ import {
  */
 export function CaseWorkbench({
   caseData,
-  aiOn = true,
+  ai = "on",
 }: {
   caseData: ScrutinyCase;
-  /** With AI off the workbench still works; it just stops asserting readings. */
-  aiOn?: boolean;
+  /** Without AI the workbench still works; it just stops asserting readings (`AiMode`). */
+  ai?: AiMode;
 }) {
+  const aiOn = ai === "on";
   const arrival = useArrival();
 
   /*
@@ -108,7 +111,7 @@ export function CaseWorkbench({
 
   const { party, allFields, fieldById, historyRound } = caseData;
   const filingNo = caseData.filing.no;
-  const controller = useScrutinyState(aiOn, caseData);
+  const controller = useScrutinyState(caseData);
   const bundle = React.useRef<BundleHandle>(null);
   const fields = React.useRef<FieldsPanelHandle>(null);
   const [historyOpen, setHistoryOpen] = React.useState(false);
@@ -124,10 +127,13 @@ export function CaseWorkbench({
 
   // The case title is the officer's to correct (a mis-spelt party name is exactly the
   // kind of thing scrutiny exists to catch). Local until a case service owns it.
-  const [title, setTitle] = React.useState({
-    complainant: party.complainant,
-    accused: party.accused,
-  });
+  // The editable title starts as the heading shows it (Settings' court switch).
+  const courtText = useCourtText();
+  const { profile } = useCourt();
+  // One line of text, not two names: the officer may correct anything in it.
+  const [title, setTitle] = React.useState(
+    () => `${courtText(party.complainant)} v. ${courtText(party.accused)}`,
+  );
   const [editingTitle, setEditingTitle] = React.useState(false);
 
   const goToDoc = React.useCallback(
@@ -160,7 +166,7 @@ export function CaseWorkbench({
    *
    * It also names which surface the work is on, which matters at the widths where the
    * two share one slot: landing on a field means the fields pane, whether the officer
-   * arrived from a mark on the bundle, the history sheet or the review dialog.
+   * arrived from the history sheet or the review dialog.
    */
   const goToItem = React.useCallback(
     (fieldId: string) => {
@@ -190,18 +196,9 @@ export function CaseWorkbench({
     return () => document.removeEventListener("keydown", onKey);
   }, [controller]);
 
-  const corrections = allFields.filter(
-    (f) => controller.flags[f.id]?.correction,
-  ).length;
-  const flagged = allFields.filter(
-    (f) => controller.flags[f.id] && !controller.flags[f.id].correction,
-  ).length;
-  const raised = corrections + flagged;
+  const raised = allFields.filter((f) => controller.flags[f.id]).length;
 
-  const tally = [
-    corrections && `${corrections} correction${corrections > 1 ? "s" : ""}`,
-    flagged && `${flagged} flag${flagged > 1 ? "s" : ""}`,
-  ].filter(Boolean) as string[];
+  const tally = raised ? [`${raised} flag${raised > 1 ? "s" : ""}`] : [];
 
   return (
     /*
@@ -261,11 +258,7 @@ export function CaseWorkbench({
             /* `items-start` and a `shrink-0` button: on a long cause the title wraps to
                two lines and a centred pencil floated in the middle of them. */
             <div className="flex items-start gap-1">
-              <h1 className="text-title font-semibold">
-                {title.complainant}{" "}
-                <span className="font-normal text-muted-foreground">v.</span>{" "}
-                {title.accused}
-              </h1>
+              <h1 className="text-title font-semibold">{title}</h1>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -331,7 +324,7 @@ export function CaseWorkbench({
       </div>
 
       {/* A standing condition, not feedback on an action → Banner. */}
-      {aiOn ? null : (
+      {ai === "unavailable" ? (
         <Banner variant="warning">
           <TriangleAlertIcon />
           <div className="min-w-0 flex-1 leading-snug">
@@ -339,7 +332,7 @@ export function CaseWorkbench({
             on this file.
           </div>
         </Banner>
-      )}
+      ) : null}
 
       {threePane ? (
         /* The floors are in `rem`, not percentages: a percentage floor is a floor on
@@ -361,27 +354,20 @@ export function CaseWorkbench({
               ref={fields}
               controller={controller}
               aiOn={aiOn}
-              onGoToDoc={goToDoc}
               onGoToItem={goToItem}
             />
           </ResizablePanel>
           <ResizableHandle withHandle />
           <ResizablePanel defaultSize="52%" minSize="22rem">
-            <BundleView
-              ref={bundle}
-              controller={controller}
-              aiOn={aiOn}
-              spot={spot}
-              onOpenFlag={goToItem}
-            />
+            <BundleView ref={bundle} aiOn={aiOn} spot={spot} />
           </ResizablePanel>
           <ResizableHandle withHandle />
           {/* A document index is a short list, so it takes a rail's width, not a pane's:
               the room it does not need goes to the bundle, which is the thing being read. */}
           <ResizablePanel defaultSize="14%" minSize="10rem" maxSize="20rem">
             <IndexRail
-              flags={controller.flags}
               relatedDocId={aiOn ? relatedDocId : null}
+              aiOn={aiOn}
               onGoToDoc={goToDoc}
             />
           </ResizablePanel>
@@ -396,17 +382,10 @@ export function CaseWorkbench({
               ref={fields}
               controller={controller}
               aiOn={aiOn}
-              onGoToDoc={showDoc}
               onGoToItem={goToItem}
             />
           ) : (
-            <BundleView
-              ref={bundle}
-              controller={controller}
-              aiOn={aiOn}
-              spot={spot}
-              onOpenFlag={goToItem}
-            />
+            <BundleView ref={bundle} aiOn={aiOn} spot={spot} />
           )}
         </div>
       )}
@@ -437,12 +416,20 @@ export function CaseWorkbench({
             Send back to advocate
           </Button>
         ) : null}
-        <Button onClick={() => setDecision("register")}>Register case</Button>
+        {/* Forward or Register, by who registers in this state (`SCR-06`, `SCR-11`). */}
+        {profile.registrationPoint === "magistrate" ? (
+          <Button onClick={() => setDecision("forward")}>
+            Forward to magistrate
+          </Button>
+        ) : (
+          <Button onClick={() => setDecision("register")}>Register case</Button>
+        )}
       </div>
 
       <HistorySheet
         open={historyOpen}
         onOpenChange={setHistoryOpen}
+        aiOn={aiOn}
         onGoToItem={goToItem}
       />
       {/* The index, as a detour, only where there is no room for it as a column. */}
@@ -450,8 +437,8 @@ export function CaseWorkbench({
         <IndexSheet
           open={indexOpen}
           onOpenChange={setIndexOpen}
-          flags={controller.flags}
           relatedDocId={aiOn ? relatedDocId : null}
+          aiOn={aiOn}
           onGoToDoc={(docId) => {
             setIndexOpen(false);
             showDoc(docId);
@@ -474,30 +461,29 @@ export function CaseWorkbench({
 }
 
 /**
- * Inline edit of the two party names. Enter saves, Escape cancels, and the fields are
- * plain DS inputs — no dialog for a two-word change.
+ * Inline edit of the case title, as one line of text. Enter saves, Escape cancels, and
+ * the field is a plain DS input — no dialog for a one-line change.
  */
 function TitleEditor({
   value,
   onSave,
   onCancel,
 }: {
-  value: { complainant: string; accused: string };
-  onSave: (next: { complainant: string; accused: string }) => void;
+  value: string;
+  onSave: (next: string) => void;
   onCancel: () => void;
 }) {
   const [draft, setDraft] = React.useState(value);
-  const complainantRef = React.useRef<HTMLInputElement>(null);
+  const inputRef = React.useRef<HTMLInputElement>(null);
   React.useEffect(() => {
-    complainantRef.current?.focus();
-    complainantRef.current?.select();
+    inputRef.current?.focus();
+    inputRef.current?.select();
   }, []);
 
   function commit() {
-    const complainant = draft.complainant.trim();
-    const accused = draft.accused.trim();
-    if (!complainant || !accused) return onCancel();
-    onSave({ complainant, accused });
+    const next = draft.trim();
+    if (!next) return onCancel();
+    onSave(next);
   }
 
   function onKeyDown(event: React.KeyboardEvent) {
@@ -511,25 +497,13 @@ function TitleEditor({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex w-full flex-wrap items-center gap-2">
       <Input
-        ref={complainantRef}
-        aria-label="Complainant"
-        className="w-56"
-        value={draft.complainant}
-        onChange={(event) =>
-          setDraft((d) => ({ ...d, complainant: event.target.value }))
-        }
-        onKeyDown={onKeyDown}
-      />
-      <span className="text-body-compact text-muted-foreground">v.</span>
-      <Input
-        aria-label="Accused"
-        className="w-56"
-        value={draft.accused}
-        onChange={(event) =>
-          setDraft((d) => ({ ...d, accused: event.target.value }))
-        }
+        ref={inputRef}
+        aria-label="Case title"
+        className="min-w-0 flex-1 basis-80"
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
         onKeyDown={onKeyDown}
       />
       <Button onClick={commit}>Save title</Button>

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { PAGE_BACK_COLUMN, PAGE_BACK_ROW } from "@/components/shell/page-back-button";
+import { PAGE_BACK_ROW } from "@/components/shell/page-back-button";
 import { derivedAccessPeople } from "@/lib/access/derived";
 import {
   caseNumberHistory,
@@ -57,8 +57,11 @@ const COUNSEL_LABEL: Record<CounselSide, string> = {
 export function CaseHeader({
   record,
   hideLongPendingFlag = false,
+  orderHref,
 }: {
   record: CaseRecord;
+  /** The court's order screen for this case (`CaseHeaderActions`). */
+  orderHref?: string;
   /** Set when the case detail link was reached from the long pending
    *  register — that register already established the flag, so the
    *  header doesn't need to repeat it. */
@@ -82,9 +85,7 @@ export function CaseHeader({
             number sits UNDER the title (owner, Sept 21): the parties are what
             the person looks for, the number confirms it. */}
         <div className={PAGE_BACK_ROW}>
-          <div className={PAGE_BACK_COLUMN}>
-            <CaseBackButton />
-          </div>
+          <CaseBackButton />
           <div className="flex min-w-0 flex-col gap-1">
             <span className="flex flex-wrap items-center gap-2">
               <h1 className="text-title font-semibold">{title}</h1>
@@ -118,6 +119,7 @@ export function CaseHeader({
           disposed={Boolean(record.disposal)}
           shareReadOnly={viewerAccess(record).kind === "office"}
           shareExtraPeople={derivedAccessPeople(record)}
+          orderHref={orderHref}
         />
       </div>
 
@@ -153,26 +155,36 @@ export function CaseHeader({
             </span>
           </HeaderFact>
         ) : null}
-        {complainantCounsel.length > 0 ? (
-          <HeaderFact label={COUNSEL_LABEL.complainant}>
+        {/* A side with no advocate still gets its row (owner, Sept 24): with the
+            complainant's row simply missing, a party in person read their own
+            case as having only an accused side. The complaint is the
+            complainant's own filing, so no advocate there means they appear in
+            person; the accused may simply not have appeared yet, so theirs
+            says only that none is on record. */}
+        <HeaderFact label={COUNSEL_LABEL.complainant}>
+          {complainantCounsel.length > 0 ? (
             <CaseAdvocates
               record={record}
               side="complainant"
               more="text"
               className="font-medium"
             />
-          </HeaderFact>
-        ) : null}
-        {accusedCounsel.length > 0 ? (
-          <HeaderFact label={COUNSEL_LABEL.accused}>
+          ) : (
+            <span className="text-muted-foreground">Party in person</span>
+          )}
+        </HeaderFact>
+        <HeaderFact label={COUNSEL_LABEL.accused}>
+          {accusedCounsel.length > 0 ? (
             <CaseAdvocates
               record={record}
               side="accused"
               more="text"
               className="font-medium"
             />
-          </HeaderFact>
-        ) : null}
+          ) : (
+            <span className="text-muted-foreground">None on record</span>
+          )}
+        </HeaderFact>
       </dl>
     </header>
   );

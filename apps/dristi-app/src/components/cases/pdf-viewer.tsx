@@ -39,6 +39,19 @@ export function isPdfSrc(src: string): boolean {
   return /\.pdf(?:$|[?#])/i.test(src);
 }
 
+/** A picture rather than a PDF: a replaced file can be either. */
+export function isImageSrc(src: string): boolean {
+  return /\.(?:png|jpe?g)(?:$|[?#])/i.test(src);
+}
+
+/**
+ * A file chosen in this visit, as a src the viewers can read: its object
+ * URL, with its own name after the hash so PDF and picture tell apart.
+ */
+export function localFileSrc(file: File): string {
+  return `${URL.createObjectURL(file)}#${encodeURIComponent(file.name)}`;
+}
+
 function clampZoom(value: number) {
   return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value));
 }
@@ -218,40 +231,123 @@ export function PdfViewer({
         )}
       </div>
 
-      {doc && !thumbnail ? (
-        <div className="absolute right-3 bottom-3 flex items-center gap-0.5 rounded-lg border border-hairline bg-card p-0.5 shadow-raised">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            aria-label="Zoom out"
-            disabled={zoom <= MIN_ZOOM}
-            onClick={() => setZoom((current) => clampZoom(current - ZOOM_STEP))}
-          >
-            <MinusIcon aria-hidden />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="xs"
-            className="w-12 tabular-nums"
-            aria-label={`Zoom ${Math.round(zoom * 100)} percent. Reset to fit`}
-            onClick={() => setZoom(1)}
-          >
-            {Math.round(zoom * 100)}%
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            aria-label="Zoom in"
-            disabled={zoom >= MAX_ZOOM}
-            onClick={() => setZoom((current) => clampZoom(current + ZOOM_STEP))}
-          >
-            <PlusIcon aria-hidden />
-          </Button>
+      {doc && !thumbnail ? <ZoomControl zoom={zoom} onZoom={setZoom} /> : null}
+    </div>
+  );
+}
+
+/** The well's zoom: out, the level (press to reset), in. */
+function ZoomControl({
+  zoom,
+  onZoom,
+}: {
+  zoom: number;
+  onZoom: (next: (current: number) => number) => void;
+}) {
+  return (
+    <div className="absolute right-3 bottom-3 flex items-center gap-0.5 rounded-lg border border-hairline bg-card p-0.5 shadow-raised">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-xs"
+        aria-label="Zoom out"
+        disabled={zoom <= MIN_ZOOM}
+        onClick={() => onZoom((current) => clampZoom(current - ZOOM_STEP))}
+      >
+        <MinusIcon aria-hidden />
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="xs"
+        className="w-12 tabular-nums"
+        aria-label={`Zoom ${Math.round(zoom * 100)} percent. Reset to fit`}
+        onClick={() => onZoom(() => 1)}
+      >
+        {Math.round(zoom * 100)}%
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-xs"
+        aria-label="Zoom in"
+        disabled={zoom >= MAX_ZOOM}
+        onClick={() => onZoom((current) => clampZoom(current + ZOOM_STEP))}
+      >
+        <PlusIcon aria-hidden />
+      </Button>
+    </div>
+  );
+}
+
+/**
+ * A document the app sets out itself (an application composed from its
+ * details, not a file) in the PdfViewer's own frame: the same well, margin,
+ * reading width, scrolling and zoom, so it reads as one kind of thing with
+ * the PDFs beside it (owner, Sept 24: "is this not a doc?").
+ */
+export function ComposedDocumentViewer({
+  title,
+  children,
+  className,
+}: {
+  /** Names the document for assistive tech. */
+  title: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [width, setWidth] = useState(0);
+  const [zoom, setZoom] = useState(1);
+
+  useEffect(() => {
+    const node = scrollRef.current;
+    if (!node) return;
+    const observer = new ResizeObserver(([entry]) => {
+      setWidth(Math.floor(entry.contentRect.width));
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  /* Pinch and ctrl/cmd + scroll zoom the page, as on a PDF. */
+  useEffect(() => {
+    const node = scrollRef.current;
+    if (!node) return;
+    function onWheel(event: WheelEvent) {
+      if (!event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+      setZoom((current) => clampZoom(current * Math.exp(-event.deltaY / 300)));
+    }
+    node.addEventListener("wheel", onWheel, { passive: false });
+    return () => node.removeEventListener("wheel", onWheel);
+  }, []);
+
+  /* The PDF page's width at 100%: the well less p-4 each side, up to the
+     reading width. Zoom scales the laid-out page, so past 100% it scrolls
+     sideways as a PDF page does. */
+  const pageWidth = Math.max(0, Math.min(width - 32, READING_WIDTH));
+
+  return (
+    <div
+      className={cn(
+        "relative min-h-0 overflow-hidden rounded-xl",
+        DOCUMENT_GROUND,
+        className
+      )}
+    >
+      <div
+        ref={scrollRef}
+        role="document"
+        aria-label={title}
+        tabIndex={0}
+        className="absolute inset-0 overflow-auto overscroll-contain rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        <div className="flex w-max min-w-full flex-col items-center p-4">
+          <div style={{ width: pageWidth || undefined, zoom }}>{children}</div>
         </div>
-      ) : null}
+      </div>
+      <ZoomControl zoom={zoom} onZoom={setZoom} />
     </div>
   );
 }

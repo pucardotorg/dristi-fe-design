@@ -1,0 +1,25 @@
+/* The big day number's odometer roll. Each digit slides its old face out and
+   its new face in from the side the day moved toward: up when the day moves
+   later, down when it moves earlier. Ease-in-out so a digit gathers speed and
+   settles rather than snapping; `both` holds each face in place through its
+   digit's stagger delay. */
+
+@keyframes rolling-in-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes rolling-out-up { from { transform: translateY(0); } to { transform: translateY(-100%); } }
+@keyframes rolling-in-down { from { transform: translateY(-100%); } to { transform: translateY(0); } }
+@keyframes rolling-out-down { from { transform: translateY(0); } to { transform: translateY(100%); } }
+
+.rolling-face {
+  animation-duration: 620ms;
+  animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
+  animation-fill-mode: both;
+}
+.rolling-face[data-roll="in-up"] { animation-name: rolling-in-up; }
+.rolling-face[data-roll="out-up"] { animation-name: rolling-out-up; }
+.rolling-face[data-roll="in-down"] { animation-name: rolling-in-down; }
+.rolling-face[data-roll="out-down"] { animation-name: rolling-out-down; }
+
+@media (prefers-reduced-motion: reduce) {
+  .rolling-face { animation: none; }
+  .rolling-face[data-roll^="out"] { display: none; }
+}

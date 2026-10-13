@@ -25,6 +25,7 @@ import {
 import { type ReschedulableHearing } from "@/lib/employee/bulk-reschedule";
 import { cn } from "@/lib/utils";
 import { Identifier } from "@/components/chrome/identifier";
+import { useCourtText } from "@/components/court/court-provider";
 
 /**
  * The matters in range, and which of them the bench has picked.
@@ -89,6 +90,7 @@ export function BulkRescheduleTable({
    */
   caption?: string;
 }) {
+  const courtText = useCourtText();
   const selectedHere = selection
     ? rows.filter((row) => selection.selected.has(row.id)).length
     : 0;
@@ -207,7 +209,7 @@ export function BulkRescheduleTable({
                     onCheckedChange={(next) =>
                       selection.onToggle(row.id, next === true)
                     }
-                    aria-label={`Select ${row.title}, ${row.caseNumber}`}
+                    aria-label={`Select ${row.title}, ${courtText(row.caseNumber)}`}
                   />
                 </TableCell>
               ) : null}

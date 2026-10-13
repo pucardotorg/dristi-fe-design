@@ -1,0 +1,47 @@
+/* The tab moves left by the peek's width less 1px, so its body lies over the
+   peek's 1px edge, the same way it covers the open panel's seam.
+   The fixed trigger footprint stays hit-testable as its tab moves left, so
+   hovering the outer edge cannot repeatedly open and close the glimpse. */
+.pending-rail-tab, .pending-rail-peek {
+  transition: transform var(--rail-peek-duration) var(--rail-peek-easing);
+}
+.pending-rail-peek { transform: translateX(100%); }
+
+@media (hover: hover) and (pointer: fine) {
+  .pending-tasks-rail[data-closed="true"]:has(.pending-rail-trigger:hover) .pending-rail-tab {
+    transform: translateX(calc(var(--spacing) * -4 + 1px));
+  }
+  .pending-tasks-rail[data-closed="true"]:has(.pending-rail-trigger:hover) .pending-rail-peek {
+    transform: translateX(0);
+  }
+}
+
+/* Keyboard focus gives the same spatial cue instantly. Enter/Space still
+   opens the full panel using the existing native button. */
+.pending-tasks-rail[data-closed="true"]:has(.pending-rail-trigger :focus-visible) .pending-rail-tab {
+  transform: translateX(calc(var(--spacing) * -4 + 1px));
+  transition-duration: 0ms;
+}
+.pending-tasks-rail[data-closed="true"]:has(.pending-rail-trigger :focus-visible) .pending-rail-peek {
+  transform: translateX(0);
+  transition-duration: 0ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pending-rail-tab, .pending-rail-peek { transition-duration: 0ms; }
+}
+
+/* The panel's edge, and the side tab's outline that continues it, a step
+   darker than a hairline, with a faint shadow cast onto the page, so the
+   white panel separates from the board. The peek (hovering the closed tab)
+   wears the same edge. Light theme only. */
+:root:not(.dark) {
+  --tasks-edge: color-mix(in srgb, var(--neutral-12) 16%, transparent);
+}
+:root:not(.dark) .pending-tasks-rail:not([data-closed="true"]),
+:root:not(.dark) .pending-rail-peek {
+  border-left-color: var(--tasks-edge);
+  box-shadow: -2px 0 6px -4px color-mix(in srgb, var(--neutral-12) 14%, transparent);
+}
+:root:not(.dark) .task-tab-edge {
+  stroke: var(--tasks-edge);
+}

@@ -2,56 +2,19 @@
 
 import * as React from "react";
 import Link from "next/link";
-import {
-  CalendarDaysIcon,
-  ChevronDownIcon,
-  CircleCheckIcon,
-  FileQuestionIcon,
-  PencilIcon,
-  PlusIcon,
-  ScrollTextIcon,
-  SearchXIcon,
-  TrashIcon,
-} from "lucide-react";
+import { FileQuestionIcon } from "lucide-react";
 
-import { Identifier } from "@/components/chrome/identifier";
 import { ARRIVAL } from "@/components/chrome/motion";
-import {
-  StagedOverlay,
-  useStagedFlow,
-} from "@/components/chrome/staged-overlay";
-import { DocumentPreview } from "@/components/cases/document-preview";
-import {
-  RichTextField,
-  type RichTextValue,
-} from "@/components/cases/rich-text-field";
+import { useCourt, useCourtText } from "@/components/court/court-provider";
 import { markCognizanceTab } from "@/components/employee/cognizance-return";
 import { COGNIZANCE_PATH } from "@/components/employee/cognizance-table";
-import { OrderCaseFile } from "@/components/employee/order-case-file";
-import { OrderDraftFacsimile } from "@/components/employee/order-draft-facsimile";
-import { OrderSaveIndicator } from "@/components/employee/order-save-indicator";
-import { OrderVariableDialog } from "@/components/employee/order-variable-dialog";
-import { QueueSearchField } from "@/components/employee/queue-search-field";
 import {
-  SIGN_SCENES,
-  SIGN_STAGES,
-  SignatureActions,
-  SignatureStage,
-  type SignStage,
-} from "@/components/employee/sign-method-stage";
-import { useSignatureChoice } from "@/components/employee/sign-signature-fields";
+  OrderDoorScreen,
+  type OrderDoor,
+} from "@/components/employee/order-door-screen";
 import { markArrival, useArrival } from "@/components/employee/use-arrival";
 import { useCourtToday } from "@/components/employee/use-court-today";
-import { PANEL_CLASS } from "@/components/shell/panel";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import { Card } from "@/components/ui/card";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import { Dialog } from "@/components/ui/dialog";
 import {
   Empty,
   EmptyContent,
@@ -61,104 +24,36 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  COGNIZANCE_ACTS,
   cognizanceCaseById,
-  nextCognizanceCase,
   primaryActFor,
   tabFor,
   type CognizanceAct,
   type CognizanceCase,
 } from "@/lib/employee/cognizance";
 import {
-  cognizanceComposite,
-  cognizanceOrderBlockers,
+  cognizanceComposition,
   cognizanceOrderOutcome,
-  cognizanceTemplateFacts,
-  composedText,
-  defaultNextPurposeFor,
-  defaultNextPurposeLabel,
-  type CognizanceOrderItem,
 } from "@/lib/employee/cognizance-order";
+import { localizeDeep } from "@/lib/court/localize";
 import { CURRENT_STAFF } from "@/lib/employee/content";
-import {
-  COURT_HEARING_PURPOSES,
-  courtHearingPurposeLabel,
-  formatCourtDay,
-  formatListingDate,
-  isoDay,
-  parseIsoDay,
-  type CourtHearingPurposeId,
-} from "@/lib/employee/hearings";
-import {
-  appendRichText,
-  orderItemsInBody,
-  replaceOrderItemText,
-  richTextFromPlain,
-  richTextWithoutItem,
-  upsertRichTextSentence,
-} from "@/lib/employee/order-items";
-import {
-  browsableTemplates,
-  needsProcessVariables,
-  ORDER_GROUPS,
-  orderTemplate,
-  unavailableReason,
-  type OrderTemplate,
-  type OrderTemplateId,
-} from "@/lib/employee/order-templates";
+import { counselFor, formatOrderDate } from "@/lib/employee/hearings";
+import { composerContextFor } from "@/lib/employee/order-context";
+import { EMPTY_ORDER_DRAFT } from "@/lib/employee/order-draft";
 import {
   subjectCauseTitle,
   subjectFacts,
   subjectReturn,
   type OrderSubject,
 } from "@/lib/employee/order-subject";
-import {
-  channelSummary,
-  defaultProcessVariables,
-  type ProcessTemplateId,
-  type ProcessVariables,
-} from "@/lib/employee/process-variables";
 import { cn } from "@/lib/utils";
 
 /**
- * The order one cognizance act draws up — the PRD's composite, opened for the judge to
- * read, adjust and send.
+ * The order one cognizance act draws up — the composer's **outside-a-hearing** door
+ * (`ORD-06`–`ORD-08`): the same screen as a hearing's order, without Attendance and Next
+ * hearing. The act's own order items arrive loaded (`cognizance-order.ts`), and the next
+ * date is the *Scheduling of hearing date* item's to set.
  *
- * **The hearing composer's screen, not a second design** (owner, 2026-09-25: the two
- * order screens exist separately for now, but the design stays the same, minus what a
- * complaint does not have). So this is that screen's composition, rule for rule: the
- * cause and the way on in a sticky white header, the beige canvas under it split a third
- * to two-thirds, the catalogue in a collapsible card on the left, the order on its own
- * lifted sheet on the right, and one primary in a sticky footer.
- *
- * Three things are taken out or changed, and each is a fact about the subject rather
- * than a preference (`order-subject.ts`):
- *
- * 1. **No attendance.** Nobody appeared — the matter has never been called — so the
- *    sheet's roll would be four Present/Absent pairs about an event that did not happen.
- * 2. **No applications section.** Nothing is pending on a listing that does not exist.
- *    The one application that *is* live at cognizance, the condonation of delay, is
- *    disposed of by an item the act loads into the order itself, not by a strip.
- * 3. **The next hearing cannot be declined.** On a sitting the bench may decide a matter
- *    needs no further date. Both positive acts here schedule a hearing and its date is
- *    required (PRD §6), so the block loses its *List it again* tick; a dismissal loses
- *    the block altogether.
- *
- * **Nothing is issued.** Sending settles the screen and says so. The signing queue
- * (`sign-orders.ts`) is a fixture, so an order that claimed to have reached it would be
- * the one lie this screen cannot afford.
+ * Version A, B or C by the Court settings toggle, as on a hearing (`order-door-screen.tsx`).
  */
 export function CognizanceOrderScreen({
   caseId,
@@ -169,1047 +64,129 @@ export function CognizanceOrderScreen({
   act: CognizanceAct | null;
 }) {
   const arrival = useArrival();
-  const matter = cognizanceCaseById(caseId);
+  const { court } = useCourt();
+  /* The complaint as this court names it (`lib/court/localize.ts`). */
+  const matter = localizeDeep(cognizanceCaseById(caseId), court);
 
   if (!matter) return <OrderMissing />;
 
-  /* No act in the URL means the one this complaint's tab offers — the act the bench
-     would have pressed. A typed or truncated link lands on the right order rather
-     than on an error. */
+  /* No act in the URL means the one this complaint's tab offers. */
   const chosen = act ?? primaryActFor(matter);
 
   return (
     <div className={cn("min-w-0", arrival && ARRIVAL[arrival])}>
-      <OrderBody key={`${matter.id}:${chosen}`} matter={matter} act={chosen} />
+      <CognizanceOrder key={`${matter.id}:${chosen}`} matter={matter} act={chosen} />
     </div>
   );
 }
 
-/** The sheet's own recessed block, as the hearing composer rules it. */
-const WELL_CLASS = "rounded-lg border border-hairline bg-surface-sunken p-4";
-
-function OrderBody({
+function CognizanceOrder({
   matter,
   act,
 }: {
   matter: CognizanceCase;
   act: CognizanceAct;
 }) {
+  const door = useCognizanceOrderDoor(matter, act);
+  return <OrderDoorScreen door={door} />;
+}
+
+/**
+ * A cognizance act's door: the act's order items loaded and the act's own item fixed
+ * (`cognizanceComposition`), the act's outcome under the title, and the way back to the
+ * complaint.
+ */
+export function useCognizanceOrderDoor(
+  matter: CognizanceCase,
+  act: CognizanceAct,
+): OrderDoor {
   const today = useCourtToday();
+  const courtText = useCourtText();
   const subject: OrderSubject = { kind: "cognizance", matter, act };
-  const next = nextCognizanceCase(matter.id);
   const back = subjectReturn(subject);
-
-  const [nextDate, setNextDate] = React.useState<string | null>(null);
-  const [nextPurpose, setNextPurpose] = React.useState<CourtHearingPurposeId | null>(
-    () => defaultNextPurposeFor(act),
+  const context = React.useMemo(
+    () => composerContextFor({ ...matter, stage: "cognizance" }),
+    [matter],
   );
-  /**
-   * Where the footer's own act stands — the same three states `order-screen.tsx` keeps
-   * (owner, 2026-09-26). `"added"` is **Add to signing list**; `"signed"` is Submit from
-   * the read-then-sign overlay Preview opens, which also counts as added. Either state
-   * still means what `sent` meant here before this: the order is settled and its
-   * remaining controls (Next hearing, the catalogue) stop taking edits.
-   */
-  const [signingStatus, setSigningStatus] = React.useState<
-    "draft" | "added" | "signed"
-  >("draft");
-  const sent = signingStatus !== "draft";
-  const signature = useSignatureChoice("order");
-  const signFlow = useStagedFlow<SignStage>({
-    order: SIGN_STAGES,
-    scene: SIGN_SCENES,
-  });
-  const [signOpen, setSignOpen] = React.useState(false);
-  const signRef = React.useRef<HTMLButtonElement>(null);
-  /**
-   * The case file, read in place of the order — the hearing composer's own toggle
-   * (`order-screen.tsx`), missing here until now. Its header button used to be labelled
-   * "View case" while actually being `back.href`, a navigate-away link to the complaint
-   * page; that read as this toggle without being it, which is what looked broken (owner,
-   * 2026-09-27: "not coming up on the right side like it does when I go from the
-   * hearing"). The navigate-away link still exists — it is a real and different act —
-   * but now carries its own name, `back.label`.
-   */
-  const [caseFileOpen, setCaseFileOpen] = React.useState(false);
-
-  /** Preview opens fresh on the paper, whatever stage a previous look left it on. */
-  function openPreview() {
-    signFlow.go("read");
-    signature.reset();
-    setSignOpen(true);
-  }
-
-  /* What the act loaded, and what it is worth saying about each of them. The list is
-     the record of the composition; what the order *carries* is read back off the
-     passage, so a direction the judge deleted in the editor stops being counted
-     (`orderItemsInBody`). */
-  const [items, setItems] = React.useState<CognizanceOrderItem[]>(() =>
-    cognizanceComposite(
-      matter,
-      act,
-      cognizanceTemplateFacts(matter, today, {
-        purpose: defaultNextPurposeLabel(act),
-      }),
-    ),
+  const composition = React.useMemo(
+    () => cognizanceComposition(matter, act, context),
+    [matter, act, context],
+  );
+  const initial = React.useMemo(
+    () => ({ ...EMPTY_ORDER_DRAFT, blocks: composition.blocks }),
+    [composition],
   );
 
-  /* The passage itself, seeded from the composition: one marked block per item, in the
-     order the PRD lists them. The editor owns it from then on. */
-  const [body, setBody] = React.useState<RichTextValue>(() =>
-    items.reduce<RichTextValue>(
-      (passage, item) =>
-        appendRichText(passage, richTextFromPlain(item.text, item.id)),
-      { html: "", text: "" },
-    ),
-  );
-  /** Bumped by every write the screen makes, so the editor re-reads it. */
-  const [bodyWrites, setBodyWrites] = React.useState(0);
-
-  function write(nextBody: RichTextValue) {
-    setBody(nextBody);
-    setBodyWrites((count) => count + 1);
-  }
-
-  /* The scheduling sentence names the date and the purpose, so it follows them. Replaced
-     where it stands rather than removed and re-appended: the posting closes the order,
-     and an order that reshuffled its last line every time a date changed would read as
-     a different document each time. */
-  const scheduling = items.find((item) => item.schedules);
-  const schedulingText = scheduling
-    ? composedText(
-        scheduling.template,
-        matter,
-        cognizanceTemplateFacts(matter, today, {
-          date: nextDate ?? undefined,
-          purpose: nextPurpose
-            ? courtHearingPurposeLabel(nextPurpose)
-            : undefined,
-        }),
-      )
-    : null;
-  const said = React.useRef(scheduling?.text ?? null);
-
-  function postNext(change: {
-    date?: string | null;
-    purpose?: CourtHearingPurposeId;
-  }) {
-    const day = change.date !== undefined ? change.date : nextDate;
-    const purpose = change.purpose ?? nextPurpose;
-    if (change.date !== undefined) setNextDate(change.date);
-    if (change.purpose) setNextPurpose(change.purpose);
-    if (!scheduling) return;
-    const sentence = composedText(
-      scheduling.template,
-      matter,
-      cognizanceTemplateFacts(matter, today, {
-        date: day ?? undefined,
-        purpose: purpose ? courtHearingPurposeLabel(purpose) : undefined,
-      }),
-    );
-    write(
-      upsertRichTextSentence(body, sentence, [said.current ?? ""]),
-    );
-    said.current = sentence;
-  }
-
-  /* What the order says now, not what was pulled into it: the blanks and the blockers
-     are read off the items the passage still carries. */
-  const carried = orderItemsInBody(
-    items.map((item) =>
-      item.schedules && schedulingText
-        ? { ...item, text: schedulingText }
-        : item,
-    ),
-    body.html,
-  );
-  const blockers = cognizanceOrderBlockers(carried, nextDate, today);
-  const schedules = carried.some((item) => item.schedules);
-
-  /**
-   * A process order picked from the catalogue opens the issue-process pop-up first, and
-   * is written in only once it is confirmed — the hearing composer's own rule
-   * (`order-screen.tsx`), so the two doors agree. Everything else lands at once.
-   */
-  const [adding, setAdding] = React.useState<OrderTemplateId | null>(null);
-
-  function addItem(id: OrderTemplateId) {
-    if (items.some((item) => item.id === id)) return;
-    if (needsProcessVariables(id)) {
-      setAdding(id);
-      return;
-    }
-    insertItem(id);
-  }
-
-  function insertItem(id: OrderTemplateId, variables?: ProcessVariables) {
-    const text = composedText(
-      id,
-      matter,
-      cognizanceTemplateFacts(matter, today, {
-        date: nextDate ?? undefined,
-        purpose: nextPurpose ? courtHearingPurposeLabel(nextPurpose) : undefined,
-      }),
-      variables,
-    );
-    setItems((current) => [
-      ...current,
-      {
-        id,
-        template: id,
-        label: orderTemplate(id).label,
-        text,
-        fixed: false,
-        schedules: id === "scheduling-of-hearing" || undefined,
-        ...(variables ? { variables } : {}),
-      },
-    ]);
-    write(appendRichText(body, richTextFromPlain(text, id)));
-  }
-
-  function removeItem(id: string) {
-    setItems((current) => current.filter((item) => item.id !== id));
-    write(richTextWithoutItem(body, id));
-  }
-
-  /**
-   * The delivery-channel confirmation, mid-flight — the item being confirmed, or
-   * `null` while the dialog is closed. `[Party Type]`/`[Party Name]` are already
-   * resolved on every process item the moment the act composes it, to what the pop-up
-   * opens on (`fillPartyVariables` inside `cognizanceComposite`). Confirming records the
-   * recipients and channels and rewrites the passage from them, in place.
-   */
-  const [confirming, setConfirming] = React.useState<CognizanceOrderItem | null>(null);
-
-  function updateItemVariables(id: string, variables: ProcessVariables) {
-    const item = items.find((entry) => entry.id === id);
-    if (!item) return;
-    /* Who it is to may have changed in the pop-up, so the passage is rewritten in place
-       from the confirmed recipients — the hearing composer's own behaviour. */
-    const text = composedText(
-      item.template,
-      matter,
-      cognizanceTemplateFacts(matter, today, {
-        date: nextDate ?? undefined,
-        purpose: nextPurpose ? courtHearingPurposeLabel(nextPurpose) : undefined,
-      }),
-      variables,
-    );
-    setItems((current) =>
-      current.map((entry) => (entry.id === id ? { ...entry, text, variables } : entry)),
-    );
-    write(replaceOrderItemText(body, id, richTextFromPlain(text, id)));
-  }
-
-  return (
-    <div className="flex min-h-svh min-w-0 flex-col">
-      {/* The cause, the complaint it belongs to, and the way back — one header, the
-          hearing composer's own. `top-14` rather than `top-0`: the chrome's bar is
-          `sticky top-0` and 3.5rem tall, so this comes to rest under it. */}
-      <header className="sticky top-14 z-20 flex flex-col gap-3 border-b border-hairline bg-card px-6 py-4 sm:flex-row sm:items-start sm:justify-between md:px-8">
-        <div className="flex min-w-0 flex-col gap-2">
-          {/* No space before the colon, and the cause after it — the sibling screen's
-              heading, word for word. Which act this is rides in the facts row below,
-              where the sitting's own screen puts the item number. */}
-          <h1 className="text-title min-w-0 text-balance font-semibold">
-            Order: {matter.parties.complainant} v. {matter.parties.accused}
-          </h1>
-          <MatterFacts subject={subject} />
-        </div>
-        {/* View Case beside the way back, the hearing composer's own pair — its other
-            control there walks on to the next matter of a sitting; there is no sitting
-            here, so this keeps the return link instead, under its own name. */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full shrink-0 sm:w-fit"
-            onClick={() => setCaseFileOpen((open) => !open)}
-          >
-            {caseFileOpen ? "Back to order" : "View Case"}
-          </Button>
-          <Button
-            asChild
-            variant="outline"
-            className="w-full shrink-0 sm:w-fit"
-          >
-            <Link
-              href={back.href}
-              onClick={() => {
-                markArrival("back");
-                markCognizanceTab(tabFor(matter));
-              }}
-            >
-              {back.label}
-            </Link>
-          </Button>
-        </div>
-      </header>
-
-      {/* The split the hearing composer draws: the catalogue in a third, the order in
-          two. The column between the white header and footer is the scoped work canvas
-          — `bg-muted` in light so the panels read against the rail's tone; dark stays
-          `bg-background`, where muted sits above card. */}
-      <div className="grid min-w-0 flex-1 gap-8 bg-muted p-6 md:p-8 lg:grid-cols-3 dark:bg-background">
-        <div className="flex min-w-0 flex-col gap-4 self-start">
-          <CatalogueCard
-            carried={carried}
-            disabled={sent}
-            onAdd={addItem}
-            onRemove={removeItem}
-            onConfirmDelivery={setConfirming}
-          />
-        </div>
-
-        {/* Same swap the hearing composer makes (`order-screen.tsx`): View Case takes
-            over this slot rather than opening elsewhere, so the typist reads a paper
-            from the case beside the order without leaving the screen it is on. */}
-        {caseFileOpen ? (
-          <OrderCaseFile className="lg:col-span-2" />
-        ) : (
-          <article
-            aria-labelledby="order-paper"
-            className={cn(
-              PANEL_CLASS,
-              "flex min-w-0 flex-col gap-4 self-start rounded-xl bg-card p-6 text-card-foreground md:p-8 lg:col-span-2",
-            )}
-          >
-            <h2
-              id="order-paper"
-              tabIndex={-1}
-              className="text-body-compact font-semibold uppercase tracking-wide"
-            >
-              Order
-            </h2>
-
-            {signingStatus !== "draft" ? (
-              <SentNotice
-                matter={matter}
-                act={act}
-                next={next ?? null}
-                signingStatus={signingStatus}
-              />
-            ) : null}
-
-            {/* One block, full width. On a sitting this row carries attendance beside the
-                posting; with the roll gone there is no pair to hold a two-column grid
-                open, and a half-width block beside empty card is a gap, not a layout. */}
-            {schedules ? (
-              <section
-                aria-labelledby="order-next"
-                className={cn("flex min-w-0 flex-col gap-2", WELL_CLASS)}
-              >
-                <h3
-                  id="order-next"
-                  className="text-caption font-semibold uppercase tracking-wide text-muted-foreground"
-                >
-                  Next hearing
-                </h3>
-                <PaperNextHearing
-                  date={nextDate}
-                  purpose={nextPurpose}
-                  today={today}
-                  disabled={sent}
-                  onDate={(day) => postNext({ date: day })}
-                  onPurpose={(purpose) => postNext({ purpose })}
-                />
-              </section>
-            ) : null}
-
-            {/* The composed region: one box, ruled at the top so the editor reads as the
-                passage this document is for rather than a control that landed on the
-                sheet. The editor's own border closes it below. */}
-            <div className="flex min-w-0 flex-col border-t border-hairline py-6">
-              <RichTextField
-                key={bodyWrites}
-                value={body}
-                onChange={setBody}
-                labelId="order-paper"
-                className="[&_[data-slot=input-group-control]]:min-h-48 [&_[data-slot=input-group-control]>*+*]:mt-6"
-              />
-            </div>
-          </article>
-        )}
-      </div>
-
-      <footer className="sticky bottom-0 z-30 border-t border-hairline bg-card px-6 py-3 md:px-8 md:py-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
-          {/* Why the button is off, beside the button — never a disabled control with
-              its reason somewhere else on the page. */}
-          {signingStatus === "draft" && blockers.length > 0 ? (
-            <p className="text-caption text-warning-muted-foreground">
-              {blockers.join(" ")}
-            </p>
-          ) : null}
-          <OrderSaveIndicator />
-          <Button
-            ref={signRef}
-            type="button"
-            variant="outline"
-            className="w-full sm:w-fit"
-            onClick={openPreview}
-          >
-            Preview
-          </Button>
-          <Button
-            type="button"
-            className="w-full sm:w-fit"
-            disabled={signingStatus !== "draft" || blockers.length > 0}
-            onClick={() => setSigningStatus("added")}
-          >
-            {signingStatus === "signed"
-              ? "Signed"
-              : signingStatus === "added"
-                ? "Added to signing list"
-                : "Add to signing list"}
-          </Button>
-        </div>
-      </footer>
-
-      <OrderVariableDialog
-        open={confirming !== null || adding !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setConfirming(null);
-            setAdding(null);
-          }
-        }}
-        dialogKey={adding ? `add:${adding}` : (confirming?.id ?? null)}
-        label={adding ? orderTemplate(adding).label : (confirming?.label ?? "")}
-        variables={
-          adding
-            ? defaultProcessVariables(adding as ProcessTemplateId, {
-                ...matter,
-                stage: "cognizance",
-              })
-            : confirming
-              ? confirming.variables ??
-                defaultProcessVariables(confirming.template as ProcessTemplateId, {
-                  ...matter,
-                  stage: "cognizance",
-                })
-              : null
-        }
-        onConfirm={(variables) => {
-          if (adding) {
-            insertItem(adding, variables);
-            setAdding(null);
-            return;
-          }
-          if (!confirming) return;
-          updateItemVariables(confirming.id, variables);
-          setConfirming(null);
-        }}
-      />
-
-      {/* Preview: the complaint's order as paper, then the same signature choice the
-          hearing composer offers from its own Preview (`order-screen.tsx`) — one shared
-          overlay component, one shared flow (`sign-method-stage.tsx`), so a bench that
-          signs an order here and one at a hearing answers the same question in the same
-          window. */}
-      <Dialog open={signOpen} onOpenChange={setSignOpen}>
-        <StagedOverlay
-          className="h-[85dvh] sm:max-w-4xl"
-          title={signFlow.stage === "read" ? "Order" : "Add signature"}
-          titleRef={signFlow.titleRef}
-          description={`${subjectCauseTitle(subject)} · ${matter.caseNumber}`}
-          sceneKey={signFlow.sceneKey}
-          motion={signFlow.motion}
-          onCloseAutoFocus={(event) => {
-            event.preventDefault();
-            signRef.current?.focus();
-          }}
-          footer={
-            signFlow.stage === "read" ? (
-              <Button
-                type="button"
-                disabled={blockers.length > 0}
-                onClick={() => signFlow.go("sign")}
-              >
-                Sign now
-              </Button>
-            ) : (
-              <SignatureActions
-                choice={signature}
-                onBack={() => signFlow.go("read")}
-                onSubmit={() => {
-                  setSignOpen(false);
-                  setSigningStatus("signed");
-                }}
-              />
-            )
-          }
-        >
-          {signFlow.stage === "read" ? (
-            <DocumentPreview
-              className="min-h-0 flex-1"
-              height="fill"
-              title="Order"
-              source={{
-                kind: "composed",
-                content: (
-                  <OrderDraftFacsimile
-                    document={{
-                      court: `Before the ${CURRENT_STAFF.court}`,
-                      caseNumber: matter.caseNumber,
-                      matter: subjectCauseTitle(subject),
-                      title: "Order",
-                      body: { html: body.html, pending: !body.text.trim() },
-                      dated: formatCourtDay(today),
-                      signature: "Pending the signature of the magistrate.",
-                    }}
-                  />
-                ),
-              }}
-            />
-          ) : (
-            <SignatureStage
-              noun="order"
-              subject={`You are adding your signature to the order in ${matter.caseNumber}.`}
-              warning="This records how the order is to be signed. Nothing is issued from this screen."
-              choice={signature}
-            />
-          )}
-        </StagedOverlay>
-      </Dialog>
-    </div>
-  );
-}
-
-/* ─────────────────────────────────── the facts ──────────────────────────────── */
-
-/**
- * The facts under the cause — the hearing composer's own row, answering for a complaint.
- *
- * No item and no purpose: a complaint has not been listed and has not been called. What
- * it has instead is the filing it came in as and which half of the register it stands on
- * (`subjectFacts`). One size throughout, hierarchy from colour and weight.
- */
-function MatterFacts({ subject }: { subject: OrderSubject }) {
-  return (
-    <dl className="flex min-w-0 flex-wrap items-baseline gap-x-6 gap-y-1">
-      {subjectFacts(subject).map((fact) => (
-        <div key={fact.label} className="flex min-w-0 items-baseline gap-2">
-          <dt className="text-body-compact font-medium text-muted-foreground">
-            {fact.label}
-          </dt>
-          <dd className="text-body-compact min-w-0">
-            {fact.identifier ? (
-              <Identifier value={fact.value} label={fact.label} />
-            ) : (
-              fact.value
-            )}
-          </dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
-/* ──────────────────────────────── the next hearing ──────────────────────────── */
-
-/**
- * The posting, as the sheet settles it.
- *
- * The hearing composer's block with its first control removed: there, *List it again* is
- * a real question, because a matter that has been heard may need no further date. Here
- * both positive acts schedule a hearing and the date is a required field, so there is
- * nothing to opt out of and a tick that could only ever be ticked would be furniture.
- *
- * `Popover` + `Calendar` rather than the DS `DatePicker`, which is what this screen's
- * sibling already composes — and the reason it matters here is that the picker takes no
- * earliest date, while `Calendar` takes a `disabled` matcher. A next hearing in the past
- * is barred at the control instead of being caught after the fact.
- */
-function PaperNextHearing({
-  date,
-  purpose,
-  today,
-  disabled,
-  onDate,
-  onPurpose,
-}: {
-  date: string | null;
-  purpose: CourtHearingPurposeId | null;
-  today: string;
-  disabled: boolean;
-  onDate: (day: string | null) => void;
-  onPurpose: (purpose: CourtHearingPurposeId) => void;
-}) {
-  const fieldId = React.useId();
-  const [calendarOpen, setCalendarOpen] = React.useState(false);
-  const chosen = date ? parseIsoDay(date) : undefined;
-  const earliest = parseIsoDay(today);
-
-  return (
-    <div className="flex min-w-0 flex-col gap-3">
-      <div className="flex min-w-0 flex-col gap-1">
-        <span
-          id={`${fieldId}-purpose`}
-          className="text-body-compact min-w-0 wrap-break-word"
-        >
-          Purpose of next hearing
-        </span>
-        <Select
-          value={purpose ?? undefined}
-          disabled={disabled}
-          onValueChange={(value) => onPurpose(value as CourtHearingPurposeId)}
-        >
-          <SelectTrigger
-            aria-labelledby={`${fieldId}-purpose`}
-            className="w-full"
-          >
-            {/* Rendered rather than left to the primitive: a trigger with a value
-                server-renders empty and fills in on hydration, and this block arrives
-                with a purpose already chosen. */}
-            <SelectValue placeholder="Choose a purpose">
-              {purpose ? courtHearingPurposeLabel(purpose) : null}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {COURT_HEARING_PURPOSES.map((entry) => (
-              <SelectItem key={entry.id} value={entry.id}>
-                {entry.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="flex min-w-0 flex-col gap-1">
-        <span
-          id={`${fieldId}-date`}
-          className="text-body-compact min-w-0 wrap-break-word"
-        >
-          Date of next hearing
-        </span>
-        <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-          <PopoverTrigger asChild>
-            {/* Named by the label beside it *and* by its own content, the way a combobox
-                is: "Date of next hearing, 6 October 2026". */}
-            <Button
-              id={`${fieldId}-date-trigger`}
-              variant="outline"
-              disabled={disabled}
-              aria-labelledby={`${fieldId}-date ${fieldId}-date-trigger`}
-              className={cn(
-                "w-full justify-start gap-2 text-left font-normal",
-                !chosen && "text-muted-foreground",
-              )}
-            >
-              <CalendarDaysIcon data-icon="inline-start" aria-hidden />
-              <span className="truncate">
-                {date ? formatListingDate(date) : "Pick a date"}
-              </span>
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent
-            side="top"
-            align="start"
-            collisionPadding={16}
-            className="w-auto max-w-(--radix-popover-content-available-width) gap-0 p-0"
-          >
-            <Calendar
-              mode="single"
-              autoFocus
-              selected={chosen}
-              /* Today included: the summons has to go out before the matter is called,
-                 so the earliest date this order can post to is tomorrow. */
-              disabled={{ before: new Date(earliest.getTime() + 86_400_000) }}
-              onSelect={(day) => {
-                onDate(day ? isoDay(day) : null);
-                if (day) setCalendarOpen(false);
-              }}
-            />
-          </PopoverContent>
-        </Popover>
-        {!date ? (
-          <p className="text-caption text-muted-foreground">
-            Required before the order can be sent.
-          </p>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-/* ───────────────────────────────── the catalogue ────────────────────────────── */
-
-/**
- * The orders section, as one collapsible card on the canvas.
- *
- * The hearing composer's left column holds two of these — the applications pending on
- * the listing, then the catalogue. A complaint has no listing and nothing pending on it,
- * so only the catalogue stands, and the card keeps the same metrics: `gap-0 p-2`, a 40px
- * trigger row with a teal tile, the section's own fact on the right of it.
- *
- * It opens on arrival rather than closed. On a sitting the row is navigation — the two
- * sections are the order the work is done in. Here there is one section, and a card that
- * opened to nothing would be a click between the bench and the only thing it holds.
- */
-function CatalogueCard({
-  carried,
-  disabled,
-  onAdd,
-  onRemove,
-  onConfirmDelivery,
-}: {
-  carried: CognizanceOrderItem[];
-  disabled: boolean;
-  onAdd: (id: OrderTemplateId) => void;
-  onRemove: (id: string) => void;
-  onConfirmDelivery: (item: CognizanceOrderItem) => void;
-}) {
-  const [open, setOpen] = React.useState(true);
-  const [query, setQuery] = React.useState("");
-
-  /* Before cognizance and never mid-sitting: the two facts the catalogue's own gates are
-     read against. Long pending is a later life of the case and cannot be true of a
-     complaint that is not yet on file. */
-  const context = { cognizanceDue: true, longPending: false, hearingOngoing: false };
-
-  const needle = query.trim().toLowerCase();
-  const matches = browsableTemplates().filter((template) =>
-    needle ? template.label.toLowerCase().includes(needle) : true,
-  );
-  const groups = ORDER_GROUPS.map((group) => ({
-    ...group,
-    rows: matches.filter((template) => template.group === group.id),
-  })).filter((group) => group.rows.length > 0);
-
-  const chosen = carried.map((item) => item.id);
-
-  return (
-    <Card className={cn(PANEL_CLASS, "min-w-0 gap-0 p-2")}>
-      <Collapsible open={open} onOpenChange={setOpen} className="min-w-0">
-        <h2 id="order-section-orders" tabIndex={-1} className="min-w-0">
-          <CollapsibleTrigger asChild>
-            <button
-              type="button"
-              className="flex min-h-10 w-full min-w-0 items-center gap-3 rounded-lg px-2 text-start transition-colors hover:bg-surface-sunken focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 focus-visible:outline-ring"
-            >
-              <span
-                aria-hidden
-                className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand-muted text-brand-muted-foreground"
-              >
-                <ScrollTextIcon className="size-4" />
-              </span>
-              <span
-                className={cn(
-                  "text-body-compact min-w-0 flex-1",
-                  open ? "font-semibold" : "font-medium",
-                )}
-              >
-                Orders
-              </span>
-              <span className="text-caption shrink-0 text-muted-foreground">
-                {carried.length === 1 ? "1 in this order" : `${carried.length} in this order`}
-              </span>
-              <ChevronDownIcon
-                aria-hidden
-                className={cn(
-                  "size-4 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none",
-                  open && "rotate-180",
-                )}
-              />
-            </button>
-          </CollapsibleTrigger>
-        </h2>
-
-        <CollapsibleContent className="min-w-0">
-          <div className="flex min-w-0 flex-col gap-6 px-2 pt-4 pb-4">
-            <InThisOrder
-              carried={carried}
-              disabled={disabled}
-              onRemove={onRemove}
-              onConfirmDelivery={onConfirmDelivery}
-            />
-
-            <div className="flex min-w-0 flex-col gap-3">
-              <QueueSearchField
-                label="Search the catalogue"
-                value={query}
-                onChange={setQuery}
-                placeholder="Order type"
-                className="w-full"
-              />
-
-              {groups.length === 0 ? (
-                <Empty className="border-0 p-0">
-                  <EmptyHeader>
-                    <EmptyMedia variant="icon">
-                      <SearchXIcon aria-hidden />
-                    </EmptyMedia>
-                    <EmptyTitle className="text-body font-semibold">
-                      No order type matches
-                    </EmptyTitle>
-                  </EmptyHeader>
-                </Empty>
-              ) : (
-                <div className="flex min-w-0 flex-col gap-4 lg:max-h-[50svh] lg:overflow-y-auto">
-                  {groups.map((group) => (
-                    <section key={group.id} className="flex min-w-0 flex-col gap-1">
-                      <h3 className="text-caption font-semibold text-muted-foreground">
-                        {group.label}
-                      </h3>
-                      <ul className="flex min-w-0 flex-col">
-                        {group.rows.map((template) => (
-                          <li key={template.id} className="min-w-0">
-                            <CatalogueRow
-                              template={template}
-                              already={chosen.includes(template.id)}
-                              reason={unavailableReason(template, context)}
-                              disabled={disabled}
-                              onAdd={() => onAdd(template.id)}
-                            />
-                          </li>
-                        ))}
-                      </ul>
-                    </section>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
-    </Card>
-  );
-}
-
-/**
- * What the order carries now, and the way to take one back out.
- *
- * Read off the passage rather than off the record of what was added, so a direction the
- * judge deleted in the editor stops being listed here (`orderItemsInBody`). The act's
- * own item has no remove: an order headed *Take cognizance* with the cognizance
- * direction taken out is an order that does not take cognizance, and the way to not take
- * it is to leave without sending this.
- */
-function InThisOrder({
-  carried,
-  disabled,
-  onRemove,
-  onConfirmDelivery,
-}: {
-  carried: CognizanceOrderItem[];
-  disabled: boolean;
-  onRemove: (id: string) => void;
-  onConfirmDelivery: (item: CognizanceOrderItem) => void;
-}) {
-  if (carried.length === 0) {
-    return (
-      <p className="text-body-compact text-muted-foreground text-pretty">
-        Nothing in this order yet. Add a direction from the catalogue below.
+  return {
+    draftKey: cognizanceDraftKey(matter, act),
+    initial,
+    fixedIds: composition.fixedIds,
+    heading: subjectCauseTitle(subject),
+    facts: subjectFacts(subject),
+    courtLine: courtText(`Before the ${CURRENT_STAFF.court}`),
+    subLine: `${matter.caseNumber} · ${subjectCauseTitle(subject)} · ${formatOrderDate(today)}`,
+    notice: (
+      <p className="text-body-compact text-muted-foreground">
+        {cognizanceOrderOutcome(matter, act)}
       </p>
-    );
-  }
-  return (
-    <div className="flex min-w-0 flex-col gap-2">
-      <h3 className="text-caption font-semibold text-muted-foreground">
-        In this order
-      </h3>
-      <ul className="flex min-w-0 flex-col gap-1">
-        {carried.map((item, index) => {
-          /* Who this goes to and on what channels is not printed in the sentence
-             (`[Party Type]`/`[Party Name]` resolve unconditionally at composite
-             time, and the channels never join the wording at all — `PRC-03` is a
-             separate confirmation, not a template variable) so the row is what says
-             whether it has been given yet, the same way the hearing composer's own
-             catalogue row does (`order-screen.tsx`). */
-          const needsConfirmation = needsProcessVariables(item.template);
-          return (
-            <li
-              key={item.id}
-              className="flex min-h-10 min-w-0 items-center gap-2 rounded-lg bg-surface-sunken px-3 py-1.5"
-            >
-              <span className="text-caption tabular-nums text-muted-foreground">
-                {index + 1}.
-              </span>
-              <div className="min-w-0 flex-1">
-                <span className="text-body-compact block wrap-break-word">
-                  {item.label}
-                </span>
-                {needsConfirmation ? (
-                  <span className="text-caption block text-muted-foreground">
-                    {item.variables
-                      ? `Delivery: ${channelSummary(item.variables)}`
-                      : "Delivery channels not confirmed"}
-                  </span>
-                ) : null}
-              </div>
-              {needsConfirmation ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={`Confirm delivery for ${item.label}`}
-                  onClick={() => onConfirmDelivery(item)}
-                >
-                  <PencilIcon aria-hidden />
-                </Button>
-              ) : null}
-              {item.fixed || disabled ? null : (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={`Remove ${item.label} from this order`}
-                  onClick={() => onRemove(item.id)}
-                >
-                  <TrashIcon aria-hidden />
-                </Button>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-    </div>
-  );
+    ),
+    navAction: (
+      <Button asChild variant="outline" className="w-full shrink-0 sm:w-fit">
+        <Link
+          href={back.href}
+          onClick={() => {
+            markArrival("back");
+            markCognizanceTab(tabFor(matter));
+          }}
+        >
+          {back.label}
+        </Link>
+      </Button>
+    ),
+    context,
+    today,
+    document: {
+      caseNumber: matter.caseNumber,
+      matter: subjectCauseTitle(subject),
+    },
+    overview: cognizanceOverview(matter),
+  };
 }
 
-/**
- * One catalogue row.
- *
- * Three states, each said in words: addable, already in the order, or barred with the
- * gate's own reason. A type the complaint cannot take is listed with the reason beside
- * it rather than hidden — on a screen where the wrong omission is a missed order, a
- * silently shorter list is the worse failure (`order-templates.ts`).
- */
-function CatalogueRow({
-  template,
-  already,
-  reason,
-  disabled,
-  onAdd,
-}: {
-  template: OrderTemplate;
-  already: boolean;
-  reason: string | null;
-  disabled: boolean;
-  onAdd: () => void;
-}) {
-  const note = already ? "Already in this order" : reason;
-
-  if (reason !== null || already || disabled) {
-    return (
-      <div className="flex min-w-0 flex-col gap-0.5 rounded-lg px-3 py-2">
-        <span className="text-body-compact text-muted-foreground wrap-break-word">
-          {template.label}
-        </span>
-        {note ? (
-          <span className="text-caption text-muted-foreground">{note}</span>
-        ) : null}
-      </div>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={onAdd}
-      className="group/row flex w-full min-w-0 items-start gap-2 rounded-lg px-3 py-2 text-left transition-colors hover:bg-surface-sunken focus-visible:bg-surface-sunken focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-    >
-      <PlusIcon
-        aria-hidden
-        className="mt-0.5 size-4 shrink-0 text-muted-foreground transition-colors group-hover/row:text-foreground"
-      />
-      <span className="flex min-w-0 flex-col gap-0.5">
-        <span className="text-body-compact wrap-break-word">{template.label}</span>
-        {template.workflow ? (
-          <span className="text-caption text-muted-foreground">
-            {template.workflow}
-          </span>
-        ) : null}
-      </span>
-    </button>
-  );
+/** The complaint's facts for the case file's Overview tab. */
+export function cognizanceOverview(matter: CognizanceCase) {
+  const side = (which: "complainant" | "accused") => {
+    const counsel = counselFor(matter, which).map((entry) => entry.name);
+    return counsel.length
+      ? `${matter.parties[which]}, represented by ${counsel.join(", ")}`
+      : `${matter.parties[which]}, in person`;
+  };
+  return [
+    { label: "Filing", value: matter.filingNumber },
+    { label: "Case", value: matter.caseNumber },
+    {
+      label: "Filed",
+      value: tabFor(matter) === "with-delay" ? "Beyond the month" : "In time",
+    },
+    { label: "Complainant", value: side("complainant") },
+    { label: "Accused", value: side("accused") },
+  ];
 }
 
-/* ──────────────────────────────────── settled ───────────────────────────────── */
-
-/**
- * What happened, once the order has been sent — at the head of the sheet it was drawn
- * on, not in a dialog that closes over the thing the bench just passed.
- *
- * It says plainly that nothing has been issued, because the signing queue is a fixture
- * and an order that claimed otherwise would be a lie the next screen could not honour.
- */
-function SentNotice({
-  matter,
-  act,
-  next,
-  signingStatus,
-}: {
-  matter: CognizanceCase;
-  act: CognizanceAct;
-  next: CognizanceCase | null;
-  signingStatus: "added" | "signed";
-}) {
-  const spec = COGNIZANCE_ACTS[act];
-  return (
-    <section
-      aria-live="polite"
-      className={cn(
-        "flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-6",
-        WELL_CLASS,
-      )}
-    >
-      <div className="flex min-w-0 items-start gap-3">
-        <CircleCheckIcon
-          aria-hidden
-          className="mt-0.5 size-5 shrink-0 text-success animate-in fade-in-0 zoom-in-50 duration-500 motion-reduce:animate-none"
-        />
-        <div className="flex min-w-0 flex-col gap-1">
-          <p className="text-body-compact font-semibold">{spec.settled}</p>
-          <p className="text-body-compact text-muted-foreground text-pretty">
-            {cognizanceOrderOutcome(matter, act)}{" "}
-            {signingStatus === "signed"
-              ? "A signature has been recorded for this sitting;"
-              : "The order is waiting to be signed;"}{" "}
-            nothing has been issued from this screen.
-          </p>
-        </div>
-      </div>
-      <div className="flex shrink-0 items-center gap-3">
-        <Button asChild variant={next ? "ghost" : "default"}>
-          <Link
-            href={COGNIZANCE_PATH}
-            onClick={() => {
-              markArrival("back");
-              markCognizanceTab(tabFor(matter));
-            }}
-          >
-            Back to take cognizance
-          </Link>
-        </Button>
-        {next ? (
-          <Button asChild>
-            <Link
-              href={`${COGNIZANCE_PATH}/${next.id}`}
-              onClick={() => markArrival("next")}
-            >
-              Next complaint
-            </Link>
-          </Button>
-        ) : null}
-      </div>
-    </section>
-  );
+/** The draft store's key for a complaint's order — one per act. */
+export function cognizanceDraftKey(matter: CognizanceCase, act: CognizanceAct) {
+  return `cognizance:${matter.id}:${act}`;
 }
 
-/* ───────────────────────────────────── the miss ─────────────────────────────── */
-
-/** An id this queue does not hold — a stale link, a typed URL, a complaint decided. */
-function OrderMissing() {
+export function OrderMissing() {
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col p-6 md:p-8">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-8 p-6 md:p-8">
       <Empty className="border-0 p-0">
         <EmptyHeader>
           <EmptyMedia variant="icon">
             <FileQuestionIcon aria-hidden />
           </EmptyMedia>
-          <EmptyTitle className="font-semibold text-title-s">
+          <EmptyTitle className="text-title-s font-semibold">
             This complaint is not waiting for cognizance
           </EmptyTitle>
           <EmptyDescription className="text-body">

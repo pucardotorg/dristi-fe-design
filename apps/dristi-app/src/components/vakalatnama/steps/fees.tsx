@@ -18,6 +18,7 @@ import { reconcileSigners } from "@/lib/vakalatnama/signers";
 import { feesTotal, rupee } from "@/lib/vakalatnama/format";
 import type { Vakalatnama } from "@/lib/vakalatnama/types";
 import { Identifier } from "@/components/chrome/identifier";
+import { useCourt } from "@/components/court/court-provider";
 
 function boundNumber(vak: Vakalatnama): string | undefined {
   if (vak.scope.type !== "specific" || vak.scope.caseState !== "not_filed") return undefined;
@@ -37,7 +38,13 @@ function FeeRow({ label, note, amount }: { label: string; note?: string; amount:
   );
 }
 
-export function FeesStep({ vak }: { vak: Vakalatnama }) {
+export function FeesStep({ vak: stored }: { vak: Vakalatnama }) {
+  /* The vakalatnama carries Kerala's figures from when it was drawn. Another state's
+     court (Settings) charges its own — schedules 2 and 3 of the payment logic — so the
+     step shows and totals those instead. */
+  const { court, profile } = useCourt();
+  const vak: Vakalatnama =
+    court === "kerala" ? stored : { ...stored, fees: { ...stored.fees, ...profile.fees.join } };
   const total = feesTotal(vak);
   const executed = vak.status === "executed";
 

@@ -20,6 +20,10 @@ import {
   COURT_NAV_TRAILING,
   courtNavRowsFor,
   courtNavGroupsFor,
+  courtNavGroupsForCourt,
+  courtNavGroupsForSeat,
+  courtNavItemsForSeat,
+  seatHasNarrowRail,
   isCourtNavActive,
   isCourtNavCombinedActive,
   isCourtNavCombinedRow,
@@ -29,6 +33,11 @@ import {
 import { useCognizanceLayout } from "@/components/employee/use-cognizance-layout";
 import type { CognizanceLayout } from "@/lib/employee/cognizance-layout";
 import { useCourtNavLayout } from "@/components/employee/use-court-nav-layout";
+import { useOrderLayout } from "@/components/employee/use-order-layout";
+import {
+  ORDER_LAYOUT_OPTIONS,
+  type OrderLayout,
+} from "@/lib/employee/order-layout";
 import type { CourtNavLayout } from "@/lib/employee/nav-layout";
 import { BrandGlyph } from "@/components/brand-lockup";
 import { useCourtSearch } from "@/components/employee/court-search";
@@ -80,6 +89,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useCourt, useCourtText } from "@/components/court/court-provider";
+import { COURT_IDS, courtProfile, isCourtId } from "@/lib/court/profiles";
 
 /**
  * The court-side navigation rail — the magistrate's own, not the advocate's.
@@ -816,12 +827,13 @@ function CourtNavGroupSection({
  * "an ellipsis here has nothing behind it", and every order the sign queues produce is
  * headed with the court — so it wrapped and the footer grew. This row is a fixed 56px
  * matched to the top bar, so it cannot grow, and the column here is no wider. The demo
- * value fits ("JMFC Court 1, Kollam" measures ~133px against ~152px available); a longer
+ * value fits ("JMFC Court 1" is well inside the ~152px available); a longer
  * bench truncates, and `title` is what stands behind the ellipsis that the foot had
  * nothing to offer. Folded, it goes `sr-only` rather than disappearing — the same trade
  * every other label in this rail makes when the strip takes over.
  */
 function CourtRailHeader() {
+  const courtText = useCourtText();
   const { isMobile } = useSidebar();
   const { court } = useCourtSession();
   const handoff = useFoldFocusHandoff(
@@ -832,10 +844,10 @@ function CourtRailHeader() {
     <div className={RAIL_BRAND_ROW}>
       <BrandGlyph className="h-6 shrink-0" onDark={CHARCOAL_PLATE.darkPlate} />
       <span
-        title={court}
+        title={courtText(court)}
         className="min-w-0 flex-1 truncate text-body-compact font-medium group-data-[collapsible=icon]:sr-only"
       >
-        {court}
+        {courtText(court)}
       </span>
       {isMobile ? null : (
         <SidebarTrigger
@@ -902,7 +914,12 @@ function initialsOf(name: string): string {
  * one row, not the shape of the whole rail — and the two must stay choosable
  * independently of each other.
  *
- * All three sections are radio groups rather than plain items: each is one mutually
+ * **Court** — which state's court the whole app runs as (`lib/court/profiles.ts`). The
+ * same choice as the court icon on the advocate's Settings page (`CourtSwitch`), through
+ * the same provider: the court side has no settings page to hold it, and a demo moves
+ * between the two halves without signing out.
+ *
+ * All four sections are radio groups rather than plain items: each is one mutually
  * exclusive answer, and the menu has to show which one is live without being opened
  * twice. `w-auto min-w-48` because the primitive otherwise inherits the trigger's
  * width, and a 40px trigger would pinch "Bench clerk" to a column of letters.
@@ -915,8 +932,10 @@ function initialsOf(name: string): string {
  */
 function CourtSettingsControl() {
   const seat = useCourtRole();
+  const { court, setCourt } = useCourt();
   const [layout, setLayout] = useCourtNavLayout();
   const [cognizanceLayout, setCognizanceLayout] = useCognizanceLayout();
+  const [orderLayout, setOrderLayout] = useOrderLayout();
   return (
     <DropdownMenu>
       <Tooltip>
@@ -981,6 +1000,33 @@ function CourtSettingsControl() {
           <DropdownMenuRadioItem value="split">
             Split into two rows
           </DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel>Order screen</DropdownMenuLabel>
+        <DropdownMenuRadioGroup
+          value={orderLayout}
+          onValueChange={(next) => setOrderLayout(next as OrderLayout)}
+        >
+          {ORDER_LAYOUT_OPTIONS.map((option) => (
+            <DropdownMenuRadioItem key={option.id} value={option.id}>
+              {option.label}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel>Court</DropdownMenuLabel>
+        <DropdownMenuRadioGroup
+          data-court-raw=""
+          value={court}
+          onValueChange={(next) => {
+            if (isCourtId(next)) setCourt(next);
+          }}
+        >
+          {COURT_IDS.map((id) => (
+            <DropdownMenuRadioItem key={id} value={id}>
+              {courtProfile(id).name}
+            </DropdownMenuRadioItem>
+          ))}
         </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -1064,9 +1110,17 @@ function CourtIdentityFooter() {
 
 export function EmployeeNav() {
   const [cognizanceLayout] = useCognizanceLayout();
-  const groups = courtNavGroupsFor(cognizanceLayout);
+  const seat = useCourtRole();
+  const { court } = useCourt();
+  const groups = courtNavGroupsForSeat(
+    courtNavGroupsForCourt(courtNavGroupsFor(cognizanceLayout), court),
+    seat,
+  );
   const { openId, setOpenId, currentId } = useCourtNavDisclosure(groups);
-  const [layout] = useCourtNavLayout();
+  const [savedLayout] = useCourtNavLayout();
+  /* A seat cut down to a few rows has nothing to fold into a combined row, so it shows
+     them open whatever layout is saved. */
+  const layout = seatHasNarrowRail(seat) ? "open" : savedLayout;
   const pathname = usePathname();
   return (
     /* Rows that go nowhere explain themselves on hover and on focus; at the DS default of
@@ -1085,7 +1139,7 @@ export function EmployeeNav() {
         <SidebarGroup className="gap-1">
           <SidebarMenu className={RAIL_MENU}>
             <CourtSearchRow />
-            {COURT_NAV_LINKS.map((item) => (
+            {courtNavItemsForSeat(COURT_NAV_LINKS, seat).map((item) => (
               <CourtNavRow key={item.id} item={item} />
             ))}
           </SidebarMenu>
@@ -1113,13 +1167,13 @@ export function EmployeeNav() {
                into (`courtNavRowsFor`), flat — the same list primitive the standalone
                links above already use. */
             <SidebarMenu className={RAIL_MENU}>
-              {courtNavRowsFor(layout).map((item) => (
+              {courtNavRowsFor(layout, court).map((item) => (
                 <CourtNavRow
                   key={item.id}
                   item={item}
                   active={
                     isCourtNavCombinedRow(item)
-                      ? isCourtNavCombinedActive(pathname, layout)
+                      ? isCourtNavCombinedActive(pathname, layout, court)
                       : undefined
                   }
                 />
@@ -1132,7 +1186,7 @@ export function EmployeeNav() {
               from the queues above it; without one it reads as a fifth kind of work. */}
           <CourtNavBreak />
           <SidebarMenu className={RAIL_MENU}>
-            {COURT_NAV_TRAILING.map((item) => (
+            {courtNavItemsForSeat(COURT_NAV_TRAILING, seat).map((item) => (
               <CourtNavRow key={item.id} item={item} />
             ))}
           </SidebarMenu>

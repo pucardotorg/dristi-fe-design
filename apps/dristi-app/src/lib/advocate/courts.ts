@@ -11,15 +11,15 @@ export function courtIdentity(court: string, explicitNumber?: string | null) {
 /** Demo metadata approved for the prototype; not official court numbers.
  * A few missing values deliberately exercise the N/A presentation. */
 export const DEMO_COURT_NUMBERS: Readonly<Record<string, string>> = {
-  "24×7 ON Court, Kollam": "1",
-  "CJM Court, Kollam": "2",
-  "ACJM Court, Kollam": "3",
-  "Sessions Court, Kollam": "4",
-  "Addl. Sessions I, Kollam": "5",
-  "Addl. Sessions II, Kollam": "6",
-  "Family Court, Kollam": "7",
-  "MACT, Kollam": "8",
-  "NI Act Court, Kollam": "9",
+  "24×7 ON Court": "1",
+  "CJM Court": "2",
+  "ACJM Court": "3",
+  "Sessions Court": "4",
+  "Addl. Sessions I": "5",
+  "Addl. Sessions II": "6",
+  "Family Court": "7",
+  "MACT": "8",
+  "NI Act Court": "9",
 };
 
 export function courtNumberFor(court: string, explicitNumber?: string | null) {

@@ -42,7 +42,7 @@ export type CourtConfig = {
 
 /** Kerala pilot default. Amounts and clause set are `[VERIFY]`. */
 export const KERALA_CONFIG: CourtConfig = {
-  court: "24×7 ON Court, Kollam",
+  court: "24×7 ON Court",
   standingEnabled: true,
   fees: { courtFee: 10, welfareFund: 25 },
   standardTerms: STANDARD_TERMS,
@@ -54,7 +54,7 @@ export const KERALA_CONFIG: CourtConfig = {
  */
 export type Notary = { name: string; registration: string; place: string };
 export const NOTARY_REGISTRY: Notary[] = [
-  { name: "Suresh Kumar", registration: "KL/NOT/2014/0231", place: "Kollam" },
+  { name: "Suresh Kumar", registration: "KL/NOT/2014/0231", place: "Sample District" },
   { name: "Latha Nair", registration: "KL/NOT/2009/0117", place: "Ernakulam" },
   { name: "George Mathew", registration: "KL/NOT/2018/0442", place: "Kochi" },
   { name: "Fathima Beevi", registration: "KL/NOT/2011/0088", place: "Thiruvananthapuram" },
@@ -66,14 +66,14 @@ export const NOTARY_REGISTRY: Notary[] = [
  */
 export type FiledCase = { caseNumber: string; title: string; court: string };
 export const LITIGANT_CASES: FiledCase[] = [
-  { caseNumber: "KL-000482-2025", title: "Cheque bounce v. M. Raghavan", court: "24×7 ON Court, Kollam" },
+  { caseNumber: "KL-000482-2025", title: "Cheque bounce v. M. Raghavan", court: "24×7 ON Court" },
   { caseNumber: "KL-001139-2024", title: "Cheque bounce v. Sunrise Traders", court: "JMFC Court, Ernakulam" },
-  { caseNumber: "KL-000917-2026", title: "Cheque bounce v. K. Devan", court: "24×7 ON Court, Kollam" },
+  { caseNumber: "KL-000917-2026", title: "Cheque bounce v. K. Devan", court: "24×7 ON Court" },
 ];
 
-/** Courts offered in the scope step. Only Kollam is configured; others are stubs. */
+/** Courts offered in the scope step. Only the 24×7 ON Court is configured; others are stubs. */
 export const COURTS: string[] = [
-  "24×7 ON Court, Kollam",
+  "24×7 ON Court",
   "JMFC Court, Ernakulam",
   "JMFC Court, Kochi",
 ];
@@ -91,7 +91,7 @@ export type BarAdvocate = { name: string; enrolmentNo: string; place: string };
 export const BAR_REGISTER: BarAdvocate[] = [
   { name: "Pradeesh Chacko", enrolmentNo: "K-305/1996", place: "Ernakulam" },
   { name: "Pratap Nair", enrolmentNo: "K-118/2001", place: "Kochi" },
-  { name: "Anjali Menon", enrolmentNo: "K-742/2011", place: "Kollam" },
+  { name: "Anjali Menon", enrolmentNo: "K-742/2011", place: "Sample District" },
   { name: "Rahul Varma", enrolmentNo: "K-256/2008", place: "Thiruvananthapuram" },
   { name: "Sneha Pillai", enrolmentNo: "K-889/2015", place: "Kottayam" },
 ];

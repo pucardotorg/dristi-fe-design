@@ -26,28 +26,24 @@
  * late. Same for the notice window and the branch: the check and the fact it is read
  * from come from one value, never from two that have to be kept in step.
  *
- * **One fact on this screen has no field behind it yet.** *Date of receipt of information
- * about return* — the day the payee learnt the cheque had bounced — is what the thirty
- * days in §138(b) run from, and `DemandNotice` / `ChequeDetails` in `lib/filing/types.ts`
- * do not carry it. Our own memo reader already hunts for it (`lib/filing/ocr/parse-memo.ts`
- * looks for *intimation date*, *date of receipt*, *informed on*) and drops it on the floor
- * for want of somewhere to put it. Until that field lands, this module derives the date
- * with the rest of the chain and the notice check is computed from the derived value.
- * The owner parked the filing-form change on 2026-09-14; this comment is the marker for
- * when it is picked up.
+ * **The notice check counts from the date on the return memo** (cheat sheet v4), which the
+ * filing carries (`CHQ-9`). The *date of receipt of information about return* the check
+ * used to run from was dropped from the PRD in v3, and from this module with it.
  *
  * Terms are the PRD's own field names, in sentence case because the DS Laws do not keep
- * Title Case. The three checks are the PRD's three, and their sentences are quoted from
- * it rather than rewritten.
+ * Title Case. The limitation and notice checks are the PRD's, and their sentences are
+ * quoted from it rather than rewritten.
  */
 
-import { CURRENT_STAFF } from "./content";
+import type { CaseRecord } from "@/lib/cases/types";
+import { COURT_DISTRICT, CURRENT_STAFF } from "./content";
 import {
   formatListingDate,
   isoDay,
   parseIsoDay,
   type CourtCounsel,
 } from "./hearings";
+import { caseSearchKey } from "@/lib/court/localize";
 
 /* ────────────────────────────────── the row ─────────────────────────────────── */
 
@@ -77,16 +73,15 @@ export type CognizanceCase = {
   /** Grounds pleaded in the condonation application. Only a late complaint has one. */
   grounds: string | null;
   /**
-   * Days the payee took to send the demand notice after learning of the return.
-   * §138(b) allows thirty; past that the complaint is bad on its face.
+   * Days from the date on the (earliest) return memo to the dispatch of the demand notice.
+   * The PRD counts the thirty days from the return memo (cheat sheet v4); past that the
+   * complaint is bad on its face.
    */
   noticeAfterDays: number;
   /** Whether the demand notice reached the drawer. */
   noticeDelivered: boolean;
   /** Why it did not, when it did not. */
   nonDeliveryReason: string | null;
-  /** What the bank wrote on the return memo. */
-  returnReason: string;
   /**
    * Whether the cheque went into the complainant's own account.
    *
@@ -96,20 +91,33 @@ export type CognizanceCase = {
   depositedByComplainant: boolean;
   /** The branch that matters, and the place it stands in. */
   branch: { bank: string; branch: string; place: string };
+  /**
+   * The cheques the complaint is on — one, usually. The PRD repeats the cheque's facts and
+   * files per cheque (cheat sheet §4–§5), so each carries its own. The first is the one
+   * whose memo came back earliest, which is the memo the notice check counts from.
+   */
+  cheques: CognizanceCheque[];
+};
+
+export type CognizanceCheque = {
   /** Days between the date on the cheque and its presentation. Within the three months. */
   presentedAfterDays: number;
+  /** What the bank wrote on the return memo. */
+  returnReason: string;
+  /** Days after the first cheque's memo this one's came back. The first is 0. */
+  returnedAfterFirstDays: number;
 };
 
 /**
  * The place this court sits, read off the one constant that already names it rather
  * than written down a second time — a second copy is a second thing to get wrong.
  */
-export const COURT_PLACE = CURRENT_STAFF.court.split(",").pop()!.trim();
+export const COURT_PLACE = COURT_DISTRICT;
 
 /** The month §142(b) allows for filing, in days. */
 export const LIMITATION_DAYS = 30;
 
-/** The days §138(b) allows for the demand notice, from receipt of information. */
+/** The days the PRD allows for the demand notice, from the date on the return memo. */
 export const NOTICE_WINDOW_DAYS = 30;
 
 /** The days §138(c) gives the drawer to pay, from service of the notice. */
@@ -125,9 +133,6 @@ export const NOTICE_PERIOD_DAYS = 15;
 const FILING_TO_REGISTER_DAYS = 3;
 const DISPATCH_TO_SERVICE_DAYS = 3;
 
-/** Days between the bank writing the memo and the payee being told. */
-const RETURN_TO_INFORMATION_DAYS = 1;
-
 /** Days a cheque sat in clearing before it came back. */
 const PRESENTED_TO_RETURN_DAYS = 2;
 
@@ -136,7 +141,7 @@ const PRESENTED_TO_RETURN_DAYS = 2;
 /**
  * The complaints on this court's register that have not been taken cognizance of.
  *
- * Ordered longest wait first. Names are Kollam parties and the same bar as the rest of
+ * Ordered longest wait first. Names are local parties and the same bar as the rest of
  * the court side — one court, one set of advocates practising in it — and none of these
  * matters appears in another queue.
  *
@@ -168,12 +173,11 @@ export const COGNIZANCE_QUEUE: CognizanceCase[] = [
     noticeAfterDays: 42,
     noticeDelivered: true,
     nonDeliveryReason: null,
-    returnReason: "Funds insufficient",
     depositedByComplainant: true,
-    /* The payee's branch is in Ernakulam, not this court's Kollam — §142(2)(a) puts the
+    /* The payee's branch is in Ernakulam, not this court's district — §142(2)(a) puts the
        complaint where that branch lies, so the jurisdiction check fires. */
     branch: { bank: "South Indian Bank", branch: "Ernakulam South", place: "Ernakulam" },
-    presentedAfterDays: 21,
+    cheques: [{ presentedAfterDays: 21, returnReason: "Funds insufficient", returnedAfterFirstDays: 0 }],
   },
   {
     id: "c-2038",
@@ -187,10 +191,14 @@ export const COGNIZANCE_QUEUE: CognizanceCase[] = [
     noticeAfterDays: 9,
     noticeDelivered: true,
     nonDeliveryReason: null,
-    returnReason: "Funds insufficient",
     depositedByComplainant: true,
-    branch: { bank: "Federal Bank", branch: "Kadappakada", place: "Kollam" },
-    presentedAfterDays: 14,
+    branch: { bank: "Federal Bank", branch: "Kadappakada", place: "Sample District" },
+    /* Two cheques on one complaint, so the per-cheque facts and files have a file to be
+       judged on (cheat sheet §4–§5). The second came back four days after the first. */
+    cheques: [
+      { presentedAfterDays: 14, returnReason: "Funds insufficient", returnedAfterFirstDays: 0 },
+      { presentedAfterDays: 9, returnReason: "Exceeds arrangement", returnedAfterFirstDays: 4 },
+    ],
   },
   {
     id: "c-2030",
@@ -212,10 +220,9 @@ export const COGNIZANCE_QUEUE: CognizanceCase[] = [
     noticeAfterDays: 38,
     noticeDelivered: true,
     nonDeliveryReason: null,
-    returnReason: "Exceeds arrangement",
     depositedByComplainant: true,
-    branch: { bank: "State Bank of India", branch: "Asramam", place: "Kollam" },
-    presentedAfterDays: 33,
+    branch: { bank: "State Bank of India", branch: "Asramam", place: "Sample District" },
+    cheques: [{ presentedAfterDays: 33, returnReason: "Exceeds arrangement", returnedAfterFirstDays: 0 }],
   },
   {
     id: "c-2022",
@@ -229,10 +236,9 @@ export const COGNIZANCE_QUEUE: CognizanceCase[] = [
     noticeAfterDays: 20,
     noticeDelivered: true,
     nonDeliveryReason: null,
-    returnReason: "Funds insufficient",
     depositedByComplainant: true,
-    branch: { bank: "Canara Bank", branch: "Kottiyam", place: "Kollam" },
-    presentedAfterDays: 8,
+    branch: { bank: "Canara Bank", branch: "Kottiyam", place: "Sample District" },
+    cheques: [{ presentedAfterDays: 8, returnReason: "Funds insufficient", returnedAfterFirstDays: 0 }],
   },
   {
     id: "c-2015",
@@ -246,12 +252,11 @@ export const COGNIZANCE_QUEUE: CognizanceCase[] = [
     noticeAfterDays: 14,
     noticeDelivered: true,
     nonDeliveryReason: null,
-    returnReason: "Funds insufficient",
     /* Deposited in the drawer's branch, and that branch is not in this court's place —
        the jurisdiction check the file carries against the branch. */
     depositedByComplainant: false,
     branch: { bank: "IDFC First Bank", branch: "Bandra West", place: "Mumbai" },
-    presentedAfterDays: 19,
+    cheques: [{ presentedAfterDays: 19, returnReason: "Funds insufficient", returnedAfterFirstDays: 0 }],
   },
   {
     id: "c-2009",
@@ -266,10 +271,9 @@ export const COGNIZANCE_QUEUE: CognizanceCase[] = [
     noticeAfterDays: 7,
     noticeDelivered: false,
     nonDeliveryReason: "Addressee moved from the address on record",
-    returnReason: "Account closed",
     depositedByComplainant: true,
-    branch: { bank: "Union Bank of India", branch: "Punalur", place: "Kollam" },
-    presentedAfterDays: 27,
+    branch: { bank: "Union Bank of India", branch: "Punalur", place: "Sample District" },
+    cheques: [{ presentedAfterDays: 27, returnReason: "Account closed", returnedAfterFirstDays: 0 }],
   },
   {
     id: "c-1998",
@@ -283,10 +287,9 @@ export const COGNIZANCE_QUEUE: CognizanceCase[] = [
     noticeAfterDays: 16,
     noticeDelivered: true,
     nonDeliveryReason: null,
-    returnReason: "Funds insufficient",
     depositedByComplainant: true,
-    branch: { bank: "South Indian Bank", branch: "Karunagappally", place: "Kollam" },
-    presentedAfterDays: 12,
+    branch: { bank: "South Indian Bank", branch: "Karunagappally", place: "Sample District" },
+    cheques: [{ presentedAfterDays: 12, returnReason: "Funds insufficient", returnedAfterFirstDays: 0 }],
   },
   {
     id: "c-1987",
@@ -301,10 +304,9 @@ export const COGNIZANCE_QUEUE: CognizanceCase[] = [
     noticeAfterDays: 11,
     noticeDelivered: true,
     nonDeliveryReason: null,
-    returnReason: "Funds insufficient",
     depositedByComplainant: true,
-    branch: { bank: "Federal Bank", branch: "Chinnakada", place: "Kollam" },
-    presentedAfterDays: 16,
+    branch: { bank: "Federal Bank", branch: "Chinnakada", place: "Sample District" },
+    cheques: [{ presentedAfterDays: 16, returnReason: "Funds insufficient", returnedAfterFirstDays: 0 }],
   },
   {
     id: "c-1975",
@@ -318,10 +320,9 @@ export const COGNIZANCE_QUEUE: CognizanceCase[] = [
     noticeAfterDays: 24,
     noticeDelivered: true,
     nonDeliveryReason: null,
-    returnReason: "Exceeds arrangement",
     depositedByComplainant: true,
-    branch: { bank: "Canara Bank", branch: "Kottiyam", place: "Kollam" },
-    presentedAfterDays: 41,
+    branch: { bank: "Canara Bank", branch: "Kottiyam", place: "Sample District" },
+    cheques: [{ presentedAfterDays: 41, returnReason: "Exceeds arrangement", returnedAfterFirstDays: 0 }],
   },
   {
     id: "c-1966",
@@ -338,10 +339,9 @@ export const COGNIZANCE_QUEUE: CognizanceCase[] = [
     noticeAfterDays: 18,
     noticeDelivered: true,
     nonDeliveryReason: null,
-    returnReason: "Funds insufficient",
     depositedByComplainant: true,
-    branch: { bank: "State Bank of India", branch: "Asramam", place: "Kollam" },
-    presentedAfterDays: 23,
+    branch: { bank: "State Bank of India", branch: "Asramam", place: "Sample District" },
+    cheques: [{ presentedAfterDays: 23, returnReason: "Funds insufficient", returnedAfterFirstDays: 0 }],
   },
   {
     id: "c-1954",
@@ -356,10 +356,9 @@ export const COGNIZANCE_QUEUE: CognizanceCase[] = [
     noticeAfterDays: 13,
     noticeDelivered: true,
     nonDeliveryReason: null,
-    returnReason: "Funds insufficient",
     depositedByComplainant: false,
     branch: { bank: "Bank of Baroda", branch: "Kaloor", place: "Ernakulam" },
-    presentedAfterDays: 17,
+    cheques: [{ presentedAfterDays: 17, returnReason: "Funds insufficient", returnedAfterFirstDays: 0 }],
   },
   {
     id: "c-1943",
@@ -373,10 +372,9 @@ export const COGNIZANCE_QUEUE: CognizanceCase[] = [
     noticeAfterDays: 6,
     noticeDelivered: true,
     nonDeliveryReason: null,
-    returnReason: "Funds insufficient",
     depositedByComplainant: true,
-    branch: { bank: "South Indian Bank", branch: "Mundakkal", place: "Kollam" },
-    presentedAfterDays: 9,
+    branch: { bank: "South Indian Bank", branch: "Mundakkal", place: "Sample District" },
+    cheques: [{ presentedAfterDays: 9, returnReason: "Funds insufficient", returnedAfterFirstDays: 0 }],
   },
   {
     id: "c-1931",
@@ -391,10 +389,9 @@ export const COGNIZANCE_QUEUE: CognizanceCase[] = [
     noticeAfterDays: 21,
     noticeDelivered: false,
     nonDeliveryReason: "Refused to accept",
-    returnReason: "Payment stopped by drawer",
     depositedByComplainant: true,
-    branch: { bank: "Federal Bank", branch: "Punalur", place: "Kollam" },
-    presentedAfterDays: 30,
+    branch: { bank: "Federal Bank", branch: "Punalur", place: "Sample District" },
+    cheques: [{ presentedAfterDays: 30, returnReason: "Payment stopped by drawer", returnedAfterFirstDays: 0 }],
   },
   {
     id: "c-1920",
@@ -408,10 +405,9 @@ export const COGNIZANCE_QUEUE: CognizanceCase[] = [
     noticeAfterDays: 10,
     noticeDelivered: true,
     nonDeliveryReason: null,
-    returnReason: "Funds insufficient",
     depositedByComplainant: true,
-    branch: { bank: "Canara Bank", branch: "Chinnakada", place: "Kollam" },
-    presentedAfterDays: 11,
+    branch: { bank: "Canara Bank", branch: "Chinnakada", place: "Sample District" },
+    cheques: [{ presentedAfterDays: 11, returnReason: "Funds insufficient", returnedAfterFirstDays: 0 }],
   },
   {
     id: "c-1912",
@@ -427,10 +423,9 @@ export const COGNIZANCE_QUEUE: CognizanceCase[] = [
     noticeAfterDays: 45,
     noticeDelivered: true,
     nonDeliveryReason: null,
-    returnReason: "Exceeds arrangement",
     depositedByComplainant: true,
-    branch: { bank: "Union Bank of India", branch: "Kottiyam", place: "Kollam" },
-    presentedAfterDays: 25,
+    branch: { bank: "Union Bank of India", branch: "Kottiyam", place: "Sample District" },
+    cheques: [{ presentedAfterDays: 25, returnReason: "Exceeds arrangement", returnedAfterFirstDays: 0 }],
   },
   {
     id: "c-1904",
@@ -444,10 +439,9 @@ export const COGNIZANCE_QUEUE: CognizanceCase[] = [
     noticeAfterDays: 8,
     noticeDelivered: true,
     nonDeliveryReason: null,
-    returnReason: "Funds insufficient",
     depositedByComplainant: true,
-    branch: { bank: "South Indian Bank", branch: "Karunagappally", place: "Kollam" },
-    presentedAfterDays: 6,
+    branch: { bank: "South Indian Bank", branch: "Karunagappally", place: "Sample District" },
+    cheques: [{ presentedAfterDays: 6, returnReason: "Funds insufficient", returnedAfterFirstDays: 0 }],
   },
   {
     id: "c-1893",
@@ -462,10 +456,9 @@ export const COGNIZANCE_QUEUE: CognizanceCase[] = [
     noticeAfterDays: 15,
     noticeDelivered: true,
     nonDeliveryReason: null,
-    returnReason: "Funds insufficient",
     depositedByComplainant: true,
-    branch: { bank: "Federal Bank", branch: "Asramam", place: "Kollam" },
-    presentedAfterDays: 13,
+    branch: { bank: "Federal Bank", branch: "Asramam", place: "Sample District" },
+    cheques: [{ presentedAfterDays: 13, returnReason: "Funds insufficient", returnedAfterFirstDays: 0 }],
   },
   {
     id: "c-1885",
@@ -479,10 +472,9 @@ export const COGNIZANCE_QUEUE: CognizanceCase[] = [
     noticeAfterDays: 25,
     noticeDelivered: true,
     nonDeliveryReason: null,
-    returnReason: "Funds insufficient",
     depositedByComplainant: true,
-    branch: { bank: "State Bank of India", branch: "Chathannoor", place: "Kollam" },
-    presentedAfterDays: 20,
+    branch: { bank: "State Bank of India", branch: "Chathannoor", place: "Sample District" },
+    cheques: [{ presentedAfterDays: 20, returnReason: "Funds insufficient", returnedAfterFirstDays: 0 }],
   },
   {
     id: "c-1877",
@@ -496,10 +488,9 @@ export const COGNIZANCE_QUEUE: CognizanceCase[] = [
     noticeAfterDays: 19,
     noticeDelivered: false,
     nonDeliveryReason: "Door locked on three attempts",
-    returnReason: "Funds insufficient",
     depositedByComplainant: true,
-    branch: { bank: "Canara Bank", branch: "Mundakkal", place: "Kollam" },
-    presentedAfterDays: 15,
+    branch: { bank: "Canara Bank", branch: "Mundakkal", place: "Sample District" },
+    cheques: [{ presentedAfterDays: 15, returnReason: "Funds insufficient", returnedAfterFirstDays: 0 }],
   },
   {
     id: "c-1866",
@@ -514,10 +505,9 @@ export const COGNIZANCE_QUEUE: CognizanceCase[] = [
     noticeAfterDays: 12,
     noticeDelivered: true,
     nonDeliveryReason: null,
-    returnReason: "Exceeds arrangement",
     depositedByComplainant: true,
-    branch: { bank: "Union Bank of India", branch: "Chinnakada", place: "Kollam" },
-    presentedAfterDays: 18,
+    branch: { bank: "Union Bank of India", branch: "Chinnakada", place: "Sample District" },
+    cheques: [{ presentedAfterDays: 18, returnReason: "Exceeds arrangement", returnedAfterFirstDays: 0 }],
   },
   {
     id: "c-1858",
@@ -531,10 +521,9 @@ export const COGNIZANCE_QUEUE: CognizanceCase[] = [
     noticeAfterDays: 27,
     noticeDelivered: true,
     nonDeliveryReason: null,
-    returnReason: "Funds insufficient",
     depositedByComplainant: true,
-    branch: { bank: "South Indian Bank", branch: "Kottiyam", place: "Kollam" },
-    presentedAfterDays: 7,
+    branch: { bank: "South Indian Bank", branch: "Kottiyam", place: "Sample District" },
+    cheques: [{ presentedAfterDays: 7, returnReason: "Funds insufficient", returnedAfterFirstDays: 0 }],
   },
   {
     id: "c-1847",
@@ -551,10 +540,9 @@ export const COGNIZANCE_QUEUE: CognizanceCase[] = [
     noticeAfterDays: 22,
     noticeDelivered: true,
     nonDeliveryReason: null,
-    returnReason: "Funds insufficient",
     depositedByComplainant: false,
     branch: { bank: "Indian Bank", branch: "Vazhuthacaud", place: "Thiruvananthapuram" },
-    presentedAfterDays: 10,
+    cheques: [{ presentedAfterDays: 10, returnReason: "Funds insufficient", returnedAfterFirstDays: 0 }],
   },
   {
     id: "c-1836",
@@ -569,10 +557,9 @@ export const COGNIZANCE_QUEUE: CognizanceCase[] = [
     noticeAfterDays: 9,
     noticeDelivered: true,
     nonDeliveryReason: null,
-    returnReason: "Funds insufficient",
     depositedByComplainant: true,
-    branch: { bank: "Federal Bank", branch: "Kadappakada", place: "Kollam" },
-    presentedAfterDays: 24,
+    branch: { bank: "Federal Bank", branch: "Kadappakada", place: "Sample District" },
+    cheques: [{ presentedAfterDays: 24, returnReason: "Funds insufficient", returnedAfterFirstDays: 0 }],
   },
   {
     id: "c-1825",
@@ -586,10 +573,9 @@ export const COGNIZANCE_QUEUE: CognizanceCase[] = [
     noticeAfterDays: 11,
     noticeDelivered: true,
     nonDeliveryReason: null,
-    returnReason: "Funds insufficient",
     depositedByComplainant: true,
-    branch: { bank: "Canara Bank", branch: "Asramam", place: "Kollam" },
-    presentedAfterDays: 5,
+    branch: { bank: "Canara Bank", branch: "Asramam", place: "Sample District" },
+    cheques: [{ presentedAfterDays: 5, returnReason: "Funds insufficient", returnedAfterFirstDays: 0 }],
   },
 ];
 
@@ -647,11 +633,8 @@ export function hasDelay(matter: CognizanceCase): boolean {
  * check that reads it.
  */
 export type CognizanceChain = {
-  chequeDatedOn: string;
-  presentedOn: string;
-  returnedOn: string;
-  /** The day the payee was told. What the thirty days in §138(b) run from. */
-  informedOn: string;
+  /** One per cheque, in the row's order. The first memo is the earliest. */
+  cheques: CognizanceChequeChain[];
   noticeDispatchedOn: string;
   /** The day it reached the drawer, or `null` when it never did. */
   noticeDeliveredOn: string | null;
@@ -665,6 +648,17 @@ export type CognizanceChain = {
   registeredOn: string;
 };
 
+export type CognizanceChequeChain = {
+  chequeDatedOn: string;
+  presentedOn: string;
+  /** The date on the return memo. The first cheque's is what the notice check counts from. */
+  returnedOn: string;
+};
+
+function plus(day: string, days: number): string {
+  return minus(day, -days);
+}
+
 function minus(day: string, days: number): string {
   const date = parseIsoDay(day);
   date.setDate(date.getDate() - days);
@@ -677,16 +671,16 @@ export function chainFor(matter: CognizanceCase, today: string): CognizanceChain
   const causeOfActionOn = minus(filedOn, matter.filedAfterCauseDays);
   const deemedServedOn = minus(causeOfActionOn, NOTICE_PERIOD_DAYS);
   const noticeDispatchedOn = minus(deemedServedOn, DISPATCH_TO_SERVICE_DAYS);
-  const informedOn = minus(noticeDispatchedOn, matter.noticeAfterDays);
-  const returnedOn = minus(informedOn, RETURN_TO_INFORMATION_DAYS);
-  const presentedOn = minus(returnedOn, PRESENTED_TO_RETURN_DAYS);
-  const chequeDatedOn = minus(presentedOn, matter.presentedAfterDays);
+  const firstReturnedOn = minus(noticeDispatchedOn, matter.noticeAfterDays);
+  const cheques = matter.cheques.map((cheque) => {
+    const returnedOn = plus(firstReturnedOn, cheque.returnedAfterFirstDays);
+    const presentedOn = minus(returnedOn, PRESENTED_TO_RETURN_DAYS);
+    const chequeDatedOn = minus(presentedOn, cheque.presentedAfterDays);
+    return { chequeDatedOn, presentedOn, returnedOn };
+  });
 
   return {
-    chequeDatedOn,
-    presentedOn,
-    returnedOn,
-    informedOn,
+    cheques,
     noticeDispatchedOn,
     noticeDeliveredOn: matter.noticeDelivered ? deemedServedOn : null,
     noticeReturnedOn: matter.noticeDelivered ? null : deemedServedOn,
@@ -750,8 +744,8 @@ export function findingsFor(matter: CognizanceCase): CognizanceFinding[] {
       id: "notice-window",
       weight: "critical",
       statement:
-        "Demand notice not issued within 30 days of the receipt of information from the bank regarding the return of the cheque as unpaid.",
-      consequence: `The notice went out ${matter.noticeAfterDays} days after the complainant was informed.`,
+        "Demand notice not issued within 30 days of the return of the cheque as unpaid.",
+      consequence: `The notice went out ${matter.noticeAfterDays} days after the date on the return memo.`,
       term: NOTICE_DISPATCHED_TERM,
     });
   }
@@ -808,7 +802,7 @@ export function cnrFor(matter: CognizanceCase): string {
 /**
  * One row of the case summary — a labelled field of the reference's left column.
  *
- * `source` is the document the value is read off (a `COGNIZANCE_DOCUMENTS` key); the screen
+ * `source` is the document the value is read off (a `cognizanceDocumentsFor` key); the screen
  * turns it into the region the scroller marks when the row is clicked. `note` is a quiet
  * second line (a branch's place). The findings are not carried here — they are matched to a
  * row by term on the screen and shown inline beneath it (`findingsFor`).
@@ -819,6 +813,8 @@ export type CognizanceField = {
   value: string;
   note?: string;
   source?: string;
+  /** The PRD's tooltip for the term, where it gives one (cheat sheet §4). */
+  tooltip?: string;
 };
 
 /**
@@ -833,6 +829,12 @@ export type CognizanceField = {
 export type CognizanceChunk = {
   id: string;
   label: string;
+  /**
+   * A caption the screen prints over the chunk. The chunks are otherwise unnamed (owner,
+   * 2026-09-15); only a complaint on several cheques needs to say which cheque a run of
+   * dates belongs to, so only there does the first chunk of each cheque carry one.
+   */
+  caption?: string;
   fields: CognizanceField[];
 };
 
@@ -853,15 +855,17 @@ export function summaryChunksFor(
   const chunks: CognizanceChunk[] = [];
   const late = delayDays(matter);
 
+  /* The filing date is on both tabs (cheat sheet §4, field 1); the two delay rows are the
+     With Delay tab's alone (fields 11–12). */
+  const complaint: CognizanceField[] = [
+    { id: "filed", term: FILED_ON_TERM, value: formatListingDate(chain.filedOn) },
+  ];
   if (late !== null) {
-    const complaint: CognizanceField[] = [
-      { id: "filed", term: FILED_ON_TERM, value: formatListingDate(chain.filedOn) },
-      {
-        id: "delay-duration",
-        term: "Duration of delay",
-        value: `${late} ${late === 1 ? "day" : "days"}`,
-      },
-    ];
+    complaint.push({
+      id: "delay-duration",
+      term: "Duration of delay",
+      value: `${late} ${late === 1 ? "day" : "days"}`,
+    });
     if (matter.grounds) {
       complaint.push({
         id: "delay-grounds",
@@ -869,51 +873,53 @@ export function summaryChunksFor(
         value: matter.grounds,
       });
     }
-    chunks.push({ id: "complaint", label: "Complaint", fields: complaint });
   }
+  chunks.push({ id: "complaint", label: "Complaint", fields: complaint });
 
-  chunks.push({
-    id: "cheque",
-    label: "Cheque",
-    fields: [
-      {
-        id: "cheque-dated",
-        term: "Date on cheque",
-        value: formatListingDate(chain.chequeDatedOn),
-        source: "cheque",
-      },
-      {
-        id: "presented",
-        term: "Date of presentation or deposit of cheque",
-        value: formatListingDate(chain.presentedOn),
-        source: "return-memo",
-      },
-    ],
-  });
-
-  chunks.push({
-    id: "dishonour",
-    label: "Dishonour",
-    fields: [
-      {
-        id: "return-memo-date",
-        term: "Date on return memo",
-        value: formatListingDate(chain.returnedOn),
-        source: "return-memo",
-      },
-      {
-        id: "informed",
-        term: "Date of receipt of information about return",
-        value: formatListingDate(chain.informedOn),
-        source: "return-memo",
-      },
-      {
-        id: "return-reason",
-        term: "Return reason",
-        value: matter.returnReason,
-        source: "return-memo",
-      },
-    ],
+  /* Fields 2–5 repeat per cheque (cheat sheet §4). One cheque keeps the plain "Cheque" and
+     "Dishonour"; several are numbered, each cheque followed by its own dishonour. */
+  const several = matter.cheques.length > 1;
+  matter.cheques.forEach((cheque, index) => {
+    const dates = chain.cheques[index];
+    const n = several ? ` ${index + 1}` : "";
+    const docs = chequeDocumentKeys(index);
+    chunks.push({
+      id: several ? `cheque-${index + 1}` : "cheque",
+      label: `Cheque${n}`,
+      caption: several ? `Cheque ${index + 1} of ${matter.cheques.length}` : undefined,
+      fields: [
+        {
+          id: `cheque-dated${several ? `-${index + 1}` : ""}`,
+          term: "Date on cheque",
+          value: formatListingDate(dates.chequeDatedOn),
+          source: docs.cheque,
+        },
+        {
+          id: `presented${several ? `-${index + 1}` : ""}`,
+          term: "Date of presentation or deposit of cheque",
+          value: formatListingDate(dates.presentedOn),
+          source: docs.memo,
+        },
+      ],
+    });
+    chunks.push({
+      id: `dishonour${several ? `-${index + 1}` : ""}`,
+      label: `Dishonour${n}`,
+      fields: [
+        {
+          id: `return-memo-date${several ? `-${index + 1}` : ""}`,
+          term: "Date on return memo",
+          value: formatListingDate(dates.returnedOn),
+          source: docs.memo,
+        },
+        {
+          id: `return-reason${several ? `-${index + 1}` : ""}`,
+          term: "Reason for return of cheque",
+          value: cheque.returnReason,
+          source: docs.memo,
+        },
+      ],
+    });
   });
 
   const notice: CognizanceField[] = [
@@ -937,6 +943,8 @@ export function summaryChunksFor(
       term: "Date of return of demand notice",
       value: formatListingDate(chain.noticeReturnedOn),
       source: "demand-notice",
+      tooltip:
+        "Date on which the demand notice was returned to the post office as undelivered.",
     });
     if (matter.nonDeliveryReason) {
       notice.push({
@@ -971,20 +979,44 @@ export function summaryChunksFor(
 /**
  * The documents the PRD makes reachable from this screen, and the facsimile each wears.
  *
- * Three, and only three: a complaint's whole bundle is the case file's business
- * (`register-case-file.tsx`). These are the three a cognizance decision turns on. They
- * carry a running number like the case file's bundle, so the docked panel reads the same.
+ * The cheque, the return memo and the demand notice, and only those: a complaint's whole
+ * bundle is the case file's business (`register-case-file.tsx`). These are the ones a
+ * cognizance decision turns on. They carry a running number like the case file's bundle,
+ * so the docked panel reads the same.
  */
-export const COGNIZANCE_DOCUMENTS: {
+export type CognizanceDocument = {
   key: string;
   no: number;
   title: string;
   kind: "cheque" | "memo" | "letter";
-}[] = [
-  { key: "cheque", no: 1, title: "Cheque", kind: "cheque" },
-  { key: "return-memo", no: 2, title: "Return memo", kind: "memo" },
-  { key: "demand-notice", no: 3, title: "Demand notice", kind: "letter" },
-];
+};
+
+/**
+ * The document keys for one cheque. The first keeps the plain keys, so a one-cheque file
+ * — nearly every file — reads exactly as it always has.
+ */
+export function chequeDocumentKeys(index: number): { cheque: string; memo: string } {
+  return index === 0
+    ? { cheque: "cheque", memo: "return-memo" }
+    : { cheque: `cheque-${index + 1}`, memo: `return-memo-${index + 1}` };
+}
+
+/**
+ * The documents for one complaint: a cheque and a return memo per cheque, then the one
+ * demand notice (cheat sheet §5). Several cheques are numbered; one is not.
+ */
+export function cognizanceDocumentsFor(matter: CognizanceCase): CognizanceDocument[] {
+  const several = matter.cheques.length > 1;
+  const docs: CognizanceDocument[] = [];
+  matter.cheques.forEach((_, index) => {
+    const keys = chequeDocumentKeys(index);
+    const n = several ? ` ${index + 1}` : "";
+    docs.push({ key: keys.cheque, no: 0, title: `Cheque${n}`, kind: "cheque" });
+    docs.push({ key: keys.memo, no: 0, title: `Return memo${n}`, kind: "memo" });
+  });
+  docs.push({ key: "demand-notice", no: 0, title: "Demand notice", kind: "letter" });
+  return docs.map((doc, index) => ({ ...doc, no: index + 1 }));
+}
 
 /* ─────────────────────────────────── the tabs ───────────────────────────────── */
 
@@ -1071,7 +1103,7 @@ export function filterCognizanceCases(
   rows: CognizanceCase[],
   filters: CognizanceFilters,
 ): CognizanceCase[] {
-  const query = filters.query.trim().toLowerCase();
+  const query = caseSearchKey(filters.query);
   const notice = filters.notice ?? "all";
   return rows.filter((entry) => {
     if (notice === "delivered" && !entry.noticeDelivered) return false;
@@ -1185,3 +1217,44 @@ export const COGNIZANCE_ACTS: Record<
     items: ["Order to dismiss case"],
   },
 };
+
+/* ──────────────────────────────── the case view ─────────────────────────────── */
+
+/**
+ * A complaint in this queue as the case view reads a case (`components/cases/case-detail.tsx`),
+ * for the screen's View case.
+ *
+ * The queue keeps its own rows, so the case view's record is made from one rather than
+ * looked up: the numbers, the parties, the counsel and the filing date are this row's, and
+ * the stage is the one every row here is at. Nothing is added that the row does not carry —
+ * no hearing, no disposal, no update beyond waiting for this act.
+ */
+export function cognizanceCaseRecord(
+  matter: CognizanceCase,
+  today: string,
+): CaseRecord {
+  const { filedOn } = chainFor(matter, today);
+  const counselOf = (side: CourtCounsel["side"]) =>
+    matter.counsel.filter((entry) => entry.side === side).map((entry) => entry.name);
+  const complainant = counselOf("complainant");
+  const accused = counselOf("accused");
+  return {
+    id: matter.id,
+    caseNumber: matter.caseNumber,
+    parties: matter.parties,
+    counsel:
+      complainant.length || accused.length
+        ? {
+            ...(complainant.length ? { complainant } : {}),
+            ...(accused.length ? { accused } : {}),
+          }
+        : undefined,
+    court: CURRENT_STAFF.court,
+    filedOn,
+    updatedOn: minus(today, matter.daysSinceRegistered),
+    latestUpdate: "Registered, awaiting cognizance",
+    stage: "cognizance",
+    longPending: false,
+    bookmarked: false,
+  };
+}

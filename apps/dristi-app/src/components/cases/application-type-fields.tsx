@@ -1,20 +1,18 @@
 "use client";
 
-import { useId, useState } from "react";
-import { PlusIcon, Trash2Icon, XIcon } from "lucide-react";
+import { useId } from "react";
+import { PlusIcon, Trash2Icon } from "lucide-react";
 
+import { AddressFields } from "@/components/filing/address-fields";
 import { FileField } from "@/components/cases/filing-form-shared";
-import { RichTextField } from "@/components/cases/rich-text-field";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
   Field,
   FieldDescription,
   FieldError,
   FieldLabel,
-  FieldLegend,
-  FieldSet,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,45 +26,45 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  MAX_AVAILABILITY_DATES,
-  emptyDocumentRow,
-  emptySurety,
-  transferCourtOptions,
+  RESCHEDULE_REASONS,
+  blankAddress,
+  emptyAddressWithPolice,
+  emptyLitigantDetails,
+  emptyNamedDocument,
+  emptyTypedDocument,
+  emptyWitness,
+  resizeSureties,
   type ApplicationDraft,
   type ApplicationErrors,
-  type DocumentRowDraft,
-  type SuretyDraft,
+  type LitigantDetailsDraft,
   type YesNo,
 } from "@/lib/cases/application-draft";
+import {
+  accusedAddresses,
+  caseLitigants,
+  type CaseLitigant,
+  type PersonOption,
+} from "@/lib/cases/application-options";
+import { applicationsFile, submissionTypeLabel } from "@/lib/cases/applications";
 import { formatCaseDate, type CaseRecord } from "@/lib/cases/types";
-
-/** Formatting markup renders the same in the editor and in the review pane. */
-export const RICH_TEXT_CLASSES =
-  "[&_ol]:list-decimal [&_ol]:ps-6 [&_ul]:list-disc [&_ul]:ps-6";
-
-type ListKey = "supportingDocuments" | "submissionDocuments";
+import {
+  ACCUSED_ENTITY_TYPES,
+  ENTITY_TYPES,
+  GENDER_OPTIONS,
+  policeStationsFor,
+  type Option,
+} from "@/lib/filing/options";
+import type { Address } from "@/lib/filing/types";
+import { useCourt, useCourtText } from "@/components/court/court-provider";
 
 export type FieldActions = {
+  /** Sets a draft field and clears the errors filed under it. */
   update: <Key extends keyof ApplicationDraft>(
     key: Key,
     value: ApplicationDraft[Key],
   ) => void;
-  setFieldError: (
-    key: keyof ApplicationDraft,
-    error: string | undefined,
-  ) => void;
-  updateSurety: (id: string, patch: Partial<Omit<SuretyDraft, "id">>) => void;
-  setSuretyError: (
-    id: string,
-    field: string,
-    error: string | undefined,
-  ) => void;
-  updateRow: (
-    listKey: ListKey,
-    id: string,
-    patch: Partial<Omit<DocumentRowDraft, "id">>,
-  ) => void;
-  setRowError: (id: string, field: string, error: string | undefined) => void;
+  /** Sets or clears one error by its key (see `ApplicationErrors`). */
+  setError: (key: string, error: string | undefined) => void;
 };
 
 type FieldsProps = {
@@ -74,42 +72,95 @@ type FieldsProps = {
   errors: ApplicationErrors;
   record: CaseRecord;
   actions: FieldActions;
+  /** PRD "Every application" → Raised by. */
+  raisedByOptions: PersonOption[];
+  /** PRD "Every application" → Litigant, for the person in Raised by. */
+  litigantOptions: PersonOption[];
 };
 
 /**
- * The fields for the selected application type.
+ * The fields for the selected application type, from the Application
+ * Lifecycle PRD's "Fields by application type".
  *
- * Every type opens with the party the application is filed for, because the
- * portal shows it on all eight and Bail names a different one. Sections are
- * Cards — Laws: grouped content gets a border.
+ * Every type opens with Raised by and Litigant and closes with Supporting
+ * documents and Other details — the four fields on every application. The
+ * type's own fields sit between them. One column, no section headings: the
+ * bail dialog set that for every filing dialog (owner, Sept 21).
  */
 export function ApplicationTypeFields(props: FieldsProps) {
+  const own = typeFields(props);
+  if (own === undefined) return null;
+  return (
+    <div className="flex flex-col gap-6">
+      <EveryApplicationTop {...props} />
+      {own}
+      <EveryApplicationBottom {...props} />
+    </div>
+  );
+}
+
+function typeFields(props: FieldsProps): React.ReactNode | undefined {
   switch (props.draft.type) {
-    case "advancement-reschedule":
-    case "postpone":
-      return <AdvancementFields {...props} />;
     case "bail":
       return <BailFields {...props} />;
-    case "condonation-of-delay":
-      return <CondonationFields {...props} />;
-    case "application-others":
-      return <OthersFields {...props} />;
-    case "production-of-documents":
-      return <ProductionFields {...props} />;
+    case "edit-litigant-details":
+      return <EditLitigantFields {...props} />;
     case "settlement":
-      return <SettlementFields {...props} />;
+      return (
+        <ReasonField {...props} field="settlementReason" label="Reason for settlement" />
+      );
     case "transfer":
       return <TransferFields {...props} />;
     case "withdrawal":
-      return <WithdrawalFields {...props} />;
+      return (
+        <ReasonField {...props} field="withdrawalReason" label="Reason for withdrawal" />
+      );
+    case "condonation-of-delay":
+      return <ReasonField {...props} field="delayReason" label="Reasons for delay" />;
+    case "application-others":
+      return <GenericFields {...props} />;
+    case "advancement-reschedule":
+    case "postpone":
+      return <RescheduleFields {...props} />;
+    case "poa-change":
+      return <PoaChangeFields {...props} />;
+    case "production-of-documents":
+      return <ProductionFields {...props} />;
+    case "addition-of-witness":
+      return <WitnessFields {...props} />;
+    case "warrant-by-hand":
+      return <WarrantByHandFields {...props} />;
+    case "absent-application":
+      return <ReasonField {...props} field="absenceReason" label="Reason for absence" />;
+    case "reopen-evidence":
+      return <ReasonField {...props} field="reopenReason" label="Reason for reopening" />;
     case "objection":
       return <ObjectionFields {...props} />;
     default:
-      return null;
+      return undefined;
   }
 }
 
 /* ---------------------------------------------------------------- shared -- */
+
+/** "(optional)" the way the bail dialog sets it: regular weight, muted. */
+function OptionalTag() {
+  return <span className="font-normal text-muted-foreground">(optional)</span>;
+}
+
+function FieldName({ label, optional }: { label: string; optional?: boolean }) {
+  return (
+    <>
+      {label}
+      {optional ? (
+        <>
+          {" "}
+          <OptionalTag />
+        </>
+      ) : null}
+    </>
+  );
+}
 
 /**
  * A value read off the case that the filer cannot change. Greyed, not the
@@ -120,24 +171,26 @@ export function ApplicationTypeFields(props: FieldsProps) {
  */
 function PrefilledField({
   label,
-  value,
+  value: stored,
   description,
 }: {
   label: string;
   value: string;
   description?: string;
 }) {
+  // Read-only, so it can show the record in the selected court's terms (`CourtSwitch`).
+  const value = useCourtText()(stored);
+  const id = useId();
   return (
     <Field>
-      <FieldLabel>{label}</FieldLabel>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
       <Input
+        id={id}
         readOnly
         aria-readonly
         value={value}
         // The DS read-only fill is `muted`, too near the dialog's white to
-        // read as locked; this is one step under it (owner, Sept 21). Same
-        // `read-only:` variant as the primitive, so it replaces rather than
-        // loses to it.
+        // read as locked; this is one step under it (owner, Sept 21).
         className="read-only:bg-accent read-only:text-muted-foreground focus-visible:ring-0"
       />
       {description ? <FieldDescription>{description}</FieldDescription> : null}
@@ -145,109 +198,38 @@ function PrefilledField({
   );
 }
 
-/**
- * DatePicker takes no id or aria props, so it cannot be wired to a FieldLabel
- * the way an Input is. The group carries the label instead — the same
- * escalation RichTextField makes.
- *
- * Known limit of that workaround: the trigger cannot carry aria-invalid, so a
- * date error is announced by FieldError but never receives focus from
- * focusFirstInvalid. Settlement, whose only rule is the date, therefore fails
- * with no focus move at all. Needs a DS request against date-picker.
- */
-function DateField({
+function TextField({
   label,
   value,
   error,
-  placeholder = "Pick a date",
+  optional,
+  description,
+  inputMode,
+  type,
   onChange,
 }: {
   label: string;
-  value: Date | undefined;
+  value: string;
   error?: string;
-  placeholder?: string;
-  onChange: (value: Date | undefined) => void;
-}) {
-  const labelId = useId();
-
-  return (
-    <Field data-invalid={Boolean(error)}>
-      <FieldLabel id={labelId}>{label}</FieldLabel>
-      <div role="group" aria-labelledby={labelId}>
-        <DatePicker
-          value={value}
-          onValueChange={onChange}
-          placeholder={placeholder}
-          className="w-full sm:w-60"
-        />
-      </div>
-      <FieldError>{error}</FieldError>
-    </Field>
-  );
-}
-
-/** Two mutually exclusive answers, both visible, on the DS radio the bail
- *  dialog uses for its own yes/no. */
-const YES_NO_OPTIONS = [
-  { id: "yes" as const, label: "Yes" },
-  { id: "no" as const, label: "No" },
-];
-
-function YesNoField({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: YesNo;
-  onChange: (value: YesNo) => void;
+  optional?: boolean;
+  description?: string;
+  inputMode?: "numeric" | "tel" | "email" | "decimal";
+  type?: "email" | "tel";
+  onChange: (value: string) => void;
 }) {
   const id = useId();
-
-  return (
-    <Field>
-      <FieldLabel id={`${id}-label`}>{label}</FieldLabel>
-      <RadioGroup
-        aria-labelledby={`${id}-label`}
-        value={value}
-        onValueChange={(next) => onChange(next as YesNo)}
-        className="flex flex-col gap-1"
-      >
-        {YES_NO_OPTIONS.map((option) => (
-          <div key={option.id} className="flex min-h-10 items-center gap-2">
-            <RadioGroupItem value={option.id} id={`${id}-${option.id}`} />
-            <Label htmlFor={`${id}-${option.id}`}>{option.label}</Label>
-          </div>
-        ))}
-      </RadioGroup>
-    </Field>
-  );
-}
-
-function RichField({
-  label,
-  description,
-  value,
-  error,
-  onChange,
-}: {
-  label: string;
-  description?: string;
-  value: ApplicationDraft["comments"];
-  error?: string;
-  onChange: (value: ApplicationDraft["comments"]) => void;
-}) {
-  const labelId = useId();
-
   return (
     <Field data-invalid={Boolean(error)}>
-      <FieldLabel id={labelId}>{labelWithOptional(label)}</FieldLabel>
-      <RichTextField
-        labelId={labelId}
+      <FieldLabel htmlFor={id}>
+        <FieldName label={label} optional={optional} />
+      </FieldLabel>
+      <Input
+        id={id}
         value={value}
-        onChange={onChange}
-        className={RICH_TEXT_CLASSES}
-        compact
+        type={type}
+        inputMode={inputMode}
+        aria-invalid={Boolean(error)}
+        onChange={(event) => onChange(event.target.value)}
       />
       {description ? <FieldDescription>{description}</FieldDescription> : null}
       <FieldError>{error}</FieldError>
@@ -255,791 +237,305 @@ function RichField({
   );
 }
 
-/** "(optional)" the way the bail dialog sets it: regular weight, muted. */
-function OptionalTag() {
-  return <span className="font-normal text-muted-foreground">(optional)</span>;
+function TextAreaField({
+  label,
+  value,
+  error,
+  optional,
+  description,
+  rows = 4,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  error?: string;
+  optional?: boolean;
+  description?: string;
+  rows?: number;
+  onChange: (value: string) => void;
+}) {
+  const id = useId();
+  return (
+    <Field data-invalid={Boolean(error)}>
+      <FieldLabel htmlFor={id}>
+        <FieldName label={label} optional={optional} />
+      </FieldLabel>
+      <Textarea
+        id={id}
+        rows={rows}
+        value={value}
+        aria-invalid={Boolean(error)}
+        onChange={(event) => onChange(event.target.value)}
+      />
+      {description ? <FieldDescription>{description}</FieldDescription> : null}
+      <FieldError>{error}</FieldError>
+    </Field>
+  );
 }
 
-/** A label string ending in " (optional)" rendered with the tag styled. */
-function labelWithOptional(label: string): React.ReactNode {
-  const suffix = " (optional)";
-  if (!label.endsWith(suffix)) return label;
+/** A single pick from a list, on the DS Select, labelled like every field. */
+function SelectField({
+  label,
+  value,
+  options,
+  placeholder,
+  error,
+  optional,
+  description,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: readonly Option[];
+  placeholder: string;
+  error?: string;
+  optional?: boolean;
+  description?: string;
+  onChange: (value: string) => void;
+}) {
+  const id = useId();
   return (
-    <>
-      {label.slice(0, -suffix.length)} <OptionalTag />
-    </>
+    <Field data-invalid={Boolean(error)}>
+      <FieldLabel htmlFor={id}>
+        <FieldName label={label} optional={optional} />
+      </FieldLabel>
+      <Select value={value || undefined} onValueChange={onChange}>
+        <SelectTrigger id={id} className="w-full" aria-invalid={Boolean(error)}>
+          <SelectValue placeholder={placeholder} />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {description ? <FieldDescription>{description}</FieldDescription> : null}
+      <FieldError>{error}</FieldError>
+    </Field>
+  );
+}
+
+function asOptions(values: readonly string[]): Option[] {
+  return values.map((value) => ({ value, label: value }));
+}
+
+function peopleOptions(people: readonly PersonOption[]): Option[] {
+  return people.map((person) => ({ value: person.id, label: person.name }));
+}
+
+/** Mutually exclusive answers, all visible, on the DS radio. */
+function RadioField<Value extends string>({
+  label,
+  value,
+  options,
+  error,
+  optional,
+  onChange,
+}: {
+  label: string;
+  value: Value | "";
+  options: readonly { value: Value; label: string }[];
+  error?: string;
+  optional?: boolean;
+  onChange: (value: Value) => void;
+}) {
+  const id = useId();
+  return (
+    <Field data-invalid={Boolean(error)}>
+      <FieldLabel id={`${id}-label`}>
+        <FieldName label={label} optional={optional} />
+      </FieldLabel>
+      <RadioGroup
+        aria-labelledby={`${id}-label`}
+        value={value}
+        onValueChange={(next) => onChange(next as Value)}
+        className="flex flex-wrap gap-x-6 gap-y-1"
+      >
+        {options.map((option) => (
+          <div key={option.value} className="flex min-h-10 items-center gap-2">
+            <RadioGroupItem
+              value={option.value}
+              id={`${id}-${option.value}`}
+              aria-invalid={Boolean(error)}
+            />
+            <Label htmlFor={`${id}-${option.value}`}>{option.label}</Label>
+          </div>
+        ))}
+      </RadioGroup>
+      <FieldError>{error}</FieldError>
+    </Field>
+  );
+}
+
+const YES_NO: { value: YesNo; label: string }[] = [
+  { value: "yes", label: "Yes" },
+  { value: "no", label: "No" },
+];
+
+/**
+ * DatePicker takes no id or aria props, so it cannot be wired to a FieldLabel
+ * the way an Input is. The group carries the label instead.
+ */
+function DateField({
+  label,
+  value,
+  error,
+  description,
+  onChange,
+}: {
+  label: string;
+  value: Date | undefined;
+  error?: string;
+  description?: string;
+  onChange: (value: Date | undefined) => void;
+}) {
+  const labelId = useId();
+  return (
+    <Field data-invalid={Boolean(error)}>
+      <FieldLabel id={labelId}>{label}</FieldLabel>
+      <div role="group" aria-labelledby={labelId}>
+        <DatePicker
+          value={value}
+          onValueChange={onChange}
+          placeholder="Pick a date"
+          className="w-full sm:w-60"
+        />
+      </div>
+      {description ? <FieldDescription>{description}</FieldDescription> : null}
+      <FieldError>{error}</FieldError>
+    </Field>
   );
 }
 
 /**
- * A run of related fields. It draws nothing: the bail dialog, which is the
- * reference for every filing dialog, runs its fields in one column with no
- * section headings, and a heading over two or three fields only repeated what
- * their labels already said (owner, Sept 21). The title stays in the source as
- * a note on what the fields are about.
+ * The e-filing address composite (PRD: "uses the e-filing address
+ * composite"), under one label, with one message for whatever is missing.
  */
-function SectionCard({
-  children,
+function AddressField({
+  label,
+  value,
+  error,
+  description,
+  onChange,
 }: {
-  title: string;
-  children: React.ReactNode;
+  label: string;
+  value: Address;
+  error?: string;
+  description?: string;
+  onChange: (value: Address) => void;
 }) {
-  return <>{children}</>;
-}
-
-/** Reference order ID + date of application — the four ordinary prayer types. */
-function ReferenceAndDate({ draft, errors, actions }: FieldsProps) {
+  const id = useId();
   return (
-    <>
-      <Field>
-        <FieldLabel>
-          Reference order ID <OptionalTag />
-        </FieldLabel>
-        <Input
-          value={draft.referenceOrderId}
-          onChange={(event) =>
-            actions.update("referenceOrderId", event.target.value)
-          }
-        />
-        <FieldDescription>
-          The order this application responds to, if there is one.
-        </FieldDescription>
-      </Field>
-
-      <DateField
-        label="Date of application"
-        value={draft.applicationDate}
-        error={errors.fields.applicationDate}
-        onChange={(value) => actions.update("applicationDate", value)}
-      />
-    </>
-  );
-}
-
-/* ------------------------------------------------- 1 · advancement -------- */
-
-function AdvancementFields(props: FieldsProps) {
-  const { draft, errors, record, actions } = props;
-  const listedOn = record.nextHearing?.on;
-  const full = draft.availabilityDates.length >= MAX_AVAILABILITY_DATES;
-  // DatePicker holds its own value when uncontrolled, so it is remounted after
-  // every pick — including a rejected duplicate — and returns to its placeholder.
-  // The chips below are the list of record; the trigger is only an entry point.
-  const [pickToken, setPickToken] = useState(0);
-
-  return (
-    <div className="flex flex-col gap-6">
-      <SectionCard title="Hearing">
-        <PrefilledField
-          label="Complainant"
-          value={record.parties.complainant}
-        />
-        <PrefilledField
-          label="Original hearing date"
-          value={
-            listedOn
-              ? `${formatCaseDate(listedOn)}${
-                  record.nextHearing?.purpose
-                    ? ` · ${record.nextHearing.purpose}`
-                    : ""
-                }`
-              : "No hearing is currently listed"
-          }
-          description="Taken from the next listed hearing on this case."
-        />
-      </SectionCard>
-
-      <SectionCard title="Proposed dates">
-        <Field data-invalid={Boolean(errors.fields.availabilityDates)}>
-          <FieldLabel>Dates the party can attend</FieldLabel>
-          <div className="flex flex-col gap-3">
-            <DatePicker
-              key={pickToken}
-              onValueChange={(value) => {
-                setPickToken((token) => token + 1);
-                if (!value || full) return;
-                const day = value.toDateString();
-                const duplicate = draft.availabilityDates.some(
-                  (date) => date.toDateString() === day,
-                );
-                if (duplicate) return;
-                actions.update("availabilityDates", [
-                  ...draft.availabilityDates,
-                  value,
-                ]);
-              }}
-              disabled={full}
-              placeholder="Add a date"
-              className="w-full sm:w-60"
-            />
-
-            {draft.availabilityDates.length ? (
-              <ul className="flex flex-wrap gap-2">
-                {draft.availabilityDates.map((date) => (
-                  <li key={date.toISOString()}>
-                    <Badge variant="secondary" className="gap-1 pe-1">
-                      {formatCaseDate(date.toISOString())}
-                      <button
-                        type="button"
-                        aria-label={`Remove ${formatCaseDate(date.toISOString())}`}
-                        className="relative flex size-4 cursor-pointer items-center justify-center rounded-full outline-none after:absolute after:-inset-2 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring [&_svg]:size-3"
-                        onClick={() =>
-                          actions.update(
-                            "availabilityDates",
-                            draft.availabilityDates.filter(
-                              (item) => item.getTime() !== date.getTime(),
-                            ),
-                          )
-                        }
-                      >
-                        <XIcon aria-hidden />
-                      </button>
-                    </Badge>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
-          <FieldDescription>
-            Choose up to {MAX_AVAILABILITY_DATES} dates.{" "}
-            {draft.availabilityDates.length} of {MAX_AVAILABILITY_DATES} added.
-          </FieldDescription>
-          <FieldError>{errors.fields.availabilityDates}</FieldError>
+    <div
+      role="group"
+      aria-labelledby={`${id}-label`}
+      className="flex flex-col gap-3"
+      data-invalid={Boolean(error) || undefined}
+    >
+      <p id={`${id}-label`} className="text-body-compact font-medium">
+        {label}
+      </p>
+      {description ? (
+        <p className="-mt-2 text-body-compact text-muted-foreground">
+          {description}
+        </p>
+      ) : null}
+      <AddressFields value={value} onChange={onChange} idPrefix={id} />
+      {error ? (
+        <Field data-invalid>
+          <FieldError>{error}</FieldError>
         </Field>
-
-        <YesNoField
-          label="Have the other parties agreed to these dates?"
-          value={draft.partiesAgreed}
-          onChange={(value) => actions.update("partiesAgreed", value)}
-        />
-      </SectionCard>
-
-      <SectionCard title="Reason and documents">
-        <Field>
-          <FieldLabel>
-            Reason for request <OptionalTag />
-          </FieldLabel>
-          <Textarea
-            rows={5}
-            value={draft.requestReason}
-            onChange={(event) =>
-              actions.update("requestReason", event.target.value)
-            }
-          />
-        </Field>
-
-        <FileField
-          label="Supporting documents"
-          description="Choose any material that supports this request."
-          files={draft.supportingFiles}
-          error={errors.fields.supportingFiles}
-          onFilesChange={(files) => actions.update("supportingFiles", files)}
-          onErrorChange={(error) =>
-            actions.setFieldError("supportingFiles", error)
-          }
-        />
-      </SectionCard>
-    </div>
-  );
-}
-
-/* -------------------------------------------------------- 2 · bail -------- */
-
-function BailFields(props: FieldsProps) {
-  const { draft, errors, record, actions } = props;
-
-  return (
-    <div className="flex flex-col gap-6">
-      <SectionCard title="Petitioner">
-        <PrefilledField label="Petitioner" value={record.parties.accused} />
-
-        <Field data-invalid={Boolean(errors.fields.petitionerFather)}>
-          <FieldLabel>Petitioner&apos;s Father</FieldLabel>
-          <Input
-            value={draft.petitionerFather}
-            onChange={(event) =>
-              actions.update("petitionerFather", event.target.value)
-            }
-            aria-invalid={Boolean(errors.fields.petitionerFather)}
-          />
-          <FieldError>{errors.fields.petitionerFather}</FieldError>
-        </Field>
-      </SectionCard>
-
-      <SectionCard title="Grounds">
-        <RichField
-          label="Grounds and reasons for bail"
-          value={draft.bailGrounds}
-          error={errors.fields.bailGrounds}
-          onChange={(value) => actions.update("bailGrounds", value)}
-        />
-        <RichField
-          label="Comments (optional)"
-          value={draft.comments}
-          onChange={(value) => actions.update("comments", value)}
-        />
-      </SectionCard>
-
-      <SectionCard title="Bail bond">
-        <YesNoField
-          label="Add surety details to the bail bond?"
-          value={draft.addSureties}
-          onChange={(value) => {
-            actions.update("addSureties", value);
-            // The portal opens two surety cards when the answer turns Yes.
-            if (value === "yes" && draft.sureties.length === 0) {
-              actions.update("sureties", [emptySurety(), emptySurety()]);
-            }
-          }}
-        />
-        <Field data-invalid={Boolean(errors.fields.sureties)}>
-          <FieldError>{errors.fields.sureties}</FieldError>
-        </Field>
-      </SectionCard>
-
-      {draft.addSureties === "yes" ? (
-        <SuretySection draft={draft} errors={errors} actions={actions} />
       ) : null}
     </div>
   );
 }
 
-function SuretySection({
-  draft,
-  errors,
-  actions,
-}: {
-  draft: ApplicationDraft;
-  errors: ApplicationErrors;
-  actions: FieldActions;
-}) {
-  return (
-    <section className="flex flex-col gap-4" aria-labelledby="sureties-heading">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h3 id="sureties-heading" className="text-body-compact font-semibold">
-            Sureties
-          </h3>
-          <p className="mt-1 text-body-compact text-muted-foreground">
-            Each surety stands security for the petitioner&apos;s appearance.
-          </p>
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          className="w-full sm:w-auto"
-          onClick={() =>
-            actions.update("sureties", [...draft.sureties, emptySurety()])
-          }
-        >
-          <PlusIcon data-icon="inline-start" aria-hidden />
-          Add another surety
-        </Button>
-      </div>
-
-      {draft.sureties.length ? (
-        <div className="flex flex-col gap-6">
-          {draft.sureties.map((surety, index) => (
-            <SuretyCard
-              key={surety.id}
-              surety={surety}
-              index={index}
-              errors={errors.sureties[surety.id] ?? {}}
-              actions={actions}
-              onRemove={() =>
-                actions.update(
-                  "sureties",
-                  draft.sureties.filter((item) => item.id !== surety.id),
-                )
-              }
-            />
-          ))}
-        </div>
-      ) : (
-        <p className="text-body-compact text-muted-foreground">
-          No sureties added yet.
-        </p>
-      )}
-    </section>
-  );
-}
-
-function SuretyCard({
-  surety,
-  index,
-  errors,
-  actions,
+/**
+ * One entry in a repeating list — a surety, a witness, a document. A sunken
+ * well per entry, as the bail dialog groups one person's fields: depth is
+ * fill, never a bordered card inside the dialog.
+ */
+function RowWell({
+  legend,
+  removeLabel,
   onRemove,
+  children,
 }: {
-  surety: SuretyDraft;
-  index: number;
-  errors: Record<string, string | undefined>;
-  actions: FieldActions;
-  onRemove: () => void;
+  legend: string;
+  /** Left out where the entry cannot be removed on its own. */
+  removeLabel?: string;
+  onRemove?: () => void;
+  children: React.ReactNode;
 }) {
-  function text(
-    key: keyof Omit<
-      SuretyDraft,
-      "id" | "identityProof" | "solvencyProof" | "otherDocuments"
-    >,
-    label: string,
-    options?: { inputMode?: "numeric" | "tel"; optional?: boolean },
-  ) {
-    return (
-      <Field data-invalid={Boolean(errors[key])}>
-        <FieldLabel>
-          {label}
-          {options?.optional ? (
-            <>
-              {" "}
-              <OptionalTag />
-            </>
-          ) : null}
-        </FieldLabel>
-        <Input
-          value={surety[key]}
-          inputMode={options?.inputMode}
-          aria-invalid={Boolean(errors[key])}
-          onChange={(event) =>
-            actions.updateSurety(surety.id, { [key]: event.target.value })
-          }
-        />
-        <FieldError>{errors[key]}</FieldError>
-      </Field>
-    );
-  }
-
   return (
-    /* A sunken well per surety, as the bail dialog groups one person's
-       fields: depth is fill, never a bordered card inside the dialog. */
     <fieldset className="flex min-w-0 flex-col gap-6 rounded-lg bg-surface-sunken p-4">
-      <div className="flex items-center justify-between gap-2">
-        <legend className="float-left text-body font-semibold">
-          Surety {index + 1}
-        </legend>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="text-destructive-ink hover:text-destructive-ink"
-          aria-label={`Remove surety ${index + 1}`}
-          onClick={onRemove}
-        >
-          <Trash2Icon aria-hidden />
-        </Button>
+      <div className="flex min-h-10 items-center justify-between gap-2">
+        <legend className="float-left text-body font-semibold">{legend}</legend>
+        {onRemove ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="text-destructive-ink hover:text-destructive-ink"
+            aria-label={removeLabel}
+            onClick={onRemove}
+          >
+            <Trash2Icon aria-hidden />
+          </Button>
+        ) : null}
       </div>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        {text("fullName", "Full name")}
-        {text("fatherName", "Father's name")}
-        {text("phone", "Phone number", { inputMode: "tel" })}
-        {text("email", "Email address", { optional: true })}
-      </div>
-
-      <FieldSet>
-        <FieldLegend className="mb-2">Address</FieldLegend>
-        <div className="grid gap-6 md:grid-cols-2">
-          {text("addressLine1", "Address line 1", { optional: true })}
-          {text("city", "City or town", { optional: true })}
-          {text("pincode", "Pincode", {
-            inputMode: "numeric",
-            optional: true,
-          })}
-          {text("district", "District", { optional: true })}
-          {text("state", "State", { optional: true })}
-        </div>
-      </FieldSet>
-
-      <FileField
-        required
-        label="Identity proof"
-        description="Attach proof of the surety's identity."
-        files={surety.identityProof}
-        error={errors.identityProof}
-        onFilesChange={(files) =>
-          actions.updateSurety(surety.id, { identityProof: files })
-        }
-        onErrorChange={(error) =>
-          actions.setSuretyError(surety.id, "identityProof", error)
-        }
-      />
-      <FileField
-        required
-        label="Proof of solvency"
-        description="Attach proof that the surety can stand security."
-        files={surety.solvencyProof}
-        error={errors.solvencyProof}
-        onFilesChange={(files) =>
-          actions.updateSurety(surety.id, { solvencyProof: files })
-        }
-        onErrorChange={(error) =>
-          actions.setSuretyError(surety.id, "solvencyProof", error)
-        }
-      />
-      <FileField
-        label="Other documents"
-        description="Attach anything else this surety must produce."
-        files={surety.otherDocuments}
-        error={errors.otherDocuments}
-        onFilesChange={(files) =>
-          actions.updateSurety(surety.id, { otherDocuments: files })
-        }
-        onErrorChange={(error) =>
-          actions.setSuretyError(surety.id, "otherDocuments", error)
-        }
-      />
+      {children}
     </fieldset>
   );
 }
 
-/* ------------------------------------------------ 3 · condonation --------- */
-
-function CondonationFields(props: FieldsProps) {
-  const { draft, errors, record, actions } = props;
-
-  return (
-    <div className="flex flex-col gap-6">
-      <SectionCard title="Delay">
-        <PrefilledField
-          label="Complainant"
-          value={record.parties.complainant}
-        />
-
-        <Field data-invalid={Boolean(errors.fields.delayDays)}>
-          <FieldLabel>Number of days of delay</FieldLabel>
-          <Input
-            inputMode="numeric"
-            value={draft.delayDays}
-            aria-invalid={Boolean(errors.fields.delayDays)}
-            onChange={(event) =>
-              actions.update("delayDays", event.target.value.replace(/\D/g, ""))
-            }
-          />
-          <FieldError>{errors.fields.delayDays}</FieldError>
-        </Field>
-
-        <RichField
-          label="Reason for delay"
-          value={draft.delayReason}
-          error={errors.fields.delayReason}
-          onChange={(value) => actions.update("delayReason", value)}
-        />
-        <RichField
-          label="Additional information (optional)"
-          value={draft.additionalInformation}
-          onChange={(value) => actions.update("additionalInformation", value)}
-        />
-      </SectionCard>
-
-      <DocumentRowsSection
-        listKey="supportingDocuments"
-        heading="Supporting documents"
-        description="Attach at least one document supporting the reason for delay."
-        addLabel="Add another"
-        rowLabel="Supporting document"
-        rows={draft.supportingDocuments}
-        errors={errors}
-        groupError={errors.fields.supportingDocuments}
-        actions={actions}
-        onRowsChange={(rows) => actions.update("supportingDocuments", rows)}
-      />
-    </div>
-  );
-}
-
-/* ----------------------------------------------------- 4 · others --------- */
-
-function OthersFields(props: FieldsProps) {
-  const { draft, errors, record, actions } = props;
-
-  return (
-    <div className="flex flex-col gap-6">
-      <SectionCard title="Application information">
-        <PrefilledField
-          label="Complainant"
-          value={record.parties.complainant}
-        />
-
-        <Field data-invalid={Boolean(errors.fields.title)}>
-          <FieldLabel>Application title</FieldLabel>
-          <Input
-            value={draft.title}
-            aria-invalid={Boolean(errors.fields.title)}
-            onChange={(event) => actions.update("title", event.target.value)}
-          />
-          <FieldDescription>
-            Use letters, numbers and spaces only.
-          </FieldDescription>
-          <FieldError>{errors.fields.title}</FieldError>
-        </Field>
-
-        <RichField
-          label="Details"
-          value={draft.details}
-          error={errors.fields.details}
-          onChange={(value) => actions.update("details", value)}
-        />
-
-        <FileField
-          label="Document"
-          description="Attach anything this application relies on."
-          files={draft.supportingFiles}
-          error={errors.fields.supportingFiles}
-          onFilesChange={(files) => actions.update("supportingFiles", files)}
-          onErrorChange={(error) =>
-            actions.setFieldError("supportingFiles", error)
-          }
-        />
-      </SectionCard>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------ objection --------- */
-
 /**
- * The lifecycle document leaves an objection's own fields unspecified. Until they are,
- * it asks for the least an objection can be: what is objected to and why, and anything
- * it relies on. The application it answers is fixed by the File objection task.
+ * A heading over a list the filer adds to, with the add button beside it
+ * while the list is empty and after the last entry once it is not
+ * (owner, Oct 8).
  */
-function ObjectionFields(props: FieldsProps) {
-  const { draft, errors, actions } = props;
-
-  return (
-    <div className="flex flex-col gap-6">
-      <SectionCard title="Objection">
-        <RichField
-          label="Grounds of objection"
-          value={draft.details}
-          error={errors.fields.details}
-          onChange={(value) => actions.update("details", value)}
-        />
-
-        <FileField
-          label="Document"
-          description="Attach anything this objection relies on."
-          files={draft.supportingFiles}
-          error={errors.fields.supportingFiles}
-          onFilesChange={(files) => actions.update("supportingFiles", files)}
-          onErrorChange={(error) =>
-            actions.setFieldError("supportingFiles", error)
-          }
-        />
-      </SectionCard>
-    </div>
-  );
-}
-
-/* ------------------------------------------------- 5 · production --------- */
-
-function ProductionFields(props: FieldsProps) {
-  const { draft, errors, record, actions } = props;
-
-  return (
-    <div className="flex flex-col gap-6">
-      <SectionCard title="Application">
-        <PrefilledField
-          label="Complainant"
-          value={record.parties.complainant}
-        />
-        <ReferenceAndDate {...props} />
-      </SectionCard>
-
-      <DocumentRowsSection
-        listKey="submissionDocuments"
-        heading="Submission documents"
-        optional
-        addLabel="Add another document"
-        rowLabel="Submission document"
-        rows={draft.submissionDocuments}
-        errors={errors}
-        actions={actions}
-        onRowsChange={(rows) => actions.update("submissionDocuments", rows)}
-      />
-
-      <SectionCard title="Reason">
-        <RichField
-          label="Reason for application"
-          value={draft.applicationReason}
-          error={errors.fields.applicationReason}
-          onChange={(value) => actions.update("applicationReason", value)}
-        />
-        <RichField
-          label="Comments (optional)"
-          value={draft.comments}
-          onChange={(value) => actions.update("comments", value)}
-        />
-      </SectionCard>
-    </div>
-  );
-}
-
-/* ------------------------------------------------- 6 · settlement --------- */
-
-function SettlementFields(props: FieldsProps) {
-  const { draft, record, actions } = props;
-
-  return (
-    <div className="flex flex-col gap-6">
-      <SectionCard title="Application">
-        <PrefilledField
-          label="Complainant"
-          value={record.parties.complainant}
-        />
-        <ReferenceAndDate {...props} />
-        <RichField
-          label="Comments (optional)"
-          value={draft.comments}
-          onChange={(value) => actions.update("comments", value)}
-        />
-      </SectionCard>
-    </div>
-  );
-}
-
-/* --------------------------------------------------- 7 · transfer --------- */
-
-function TransferFields(props: FieldsProps) {
-  const { draft, errors, record, actions } = props;
-  const courts = transferCourtOptions(record.court);
-
-  return (
-    <div className="flex flex-col gap-6">
-      <SectionCard title="Application">
-        <PrefilledField
-          label="Complainant"
-          value={record.parties.complainant}
-        />
-        <ReferenceAndDate {...props} />
-      </SectionCard>
-
-      <SectionCard title="Transfer">
-        <PrefilledField label="Current court" value={record.court} />
-
-        <Field data-invalid={Boolean(errors.fields.requestedCourt)}>
-          <FieldLabel htmlFor="requested-court">Requested court</FieldLabel>
-          <Select
-            value={draft.requestedCourt || undefined}
-            onValueChange={(value) => actions.update("requestedCourt", value)}
-          >
-            <SelectTrigger
-              id="requested-court"
-              className="w-full"
-              aria-invalid={Boolean(errors.fields.requestedCourt)}
-            >
-              <SelectValue placeholder="Select the court to transfer to" />
-            </SelectTrigger>
-            <SelectContent>
-              {courts.map((court) => (
-                <SelectItem key={court} value={court}>
-                  {court}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <FieldError>{errors.fields.requestedCourt}</FieldError>
-        </Field>
-
-        <Field data-invalid={Boolean(errors.fields.transferGrounds)}>
-          <FieldLabel>Grounds for seeking transfer</FieldLabel>
-          <Textarea
-            rows={5}
-            value={draft.transferGrounds}
-            aria-invalid={Boolean(errors.fields.transferGrounds)}
-            onChange={(event) =>
-              actions.update("transferGrounds", event.target.value)
-            }
-          />
-          <FieldError>{errors.fields.transferGrounds}</FieldError>
-        </Field>
-
-        <RichField
-          label="Comments (optional)"
-          value={draft.comments}
-          onChange={(value) => actions.update("comments", value)}
-        />
-      </SectionCard>
-    </div>
-  );
-}
-
-/* ------------------------------------------------- 8 · withdrawal --------- */
-
-function WithdrawalFields(props: FieldsProps) {
-  const { draft, errors, record, actions } = props;
-
-  return (
-    <div className="flex flex-col gap-6">
-      <SectionCard title="Application">
-        <PrefilledField
-          label="Complainant"
-          value={record.parties.complainant}
-        />
-        <ReferenceAndDate {...props} />
-      </SectionCard>
-
-      <SectionCard title="Withdrawal">
-        <RichField
-          label="Reason for withdrawal"
-          value={draft.withdrawalReason}
-          error={errors.fields.withdrawalReason}
-          onChange={(value) => actions.update("withdrawalReason", value)}
-        />
-        <RichField
-          label="Comments (optional)"
-          value={draft.comments}
-          onChange={(value) => actions.update("comments", value)}
-        />
-      </SectionCard>
-    </div>
-  );
-}
-
-/* ----------------------------------------------- repeatable rows ---------- */
-
-function DocumentRowsSection({
-  listKey,
+function RepeatingSection({
   heading,
   description,
-  optional = false,
+  optional,
   addLabel,
-  rowLabel,
-  rows,
-  errors,
-  groupError,
-  actions,
-  onRowsChange,
+  emptyLabel,
+  count,
+  error,
+  onAdd,
+  children,
 }: {
-  listKey: ListKey;
   heading: string;
-  /** Left out where the heading says it all. */
   description?: string;
-  /** Marks the heading "(optional)", the way every optional label is marked. */
   optional?: boolean;
   addLabel: string;
-  rowLabel: string;
-  rows: DocumentRowDraft[];
-  errors: ApplicationErrors;
-  groupError?: string;
-  actions: FieldActions;
-  onRowsChange: (rows: DocumentRowDraft[]) => void;
+  emptyLabel: string;
+  count: number;
+  error?: string;
+  onAdd: () => void;
+  children: React.ReactNode;
 }) {
   const headingId = useId();
-
+  const addButton = (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      className={count ? "self-end" : undefined}
+      onClick={onAdd}
+    >
+      <PlusIcon data-icon="inline-start" aria-hidden />
+      {addLabel}
+    </Button>
+  );
   return (
     <section className="flex flex-col gap-4" aria-labelledby={headingId}>
-      {/* Heading and its add button share one row, so the dialog's width is
-          used and the button is there before the first row exists. */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <h3 id={headingId} className="text-body-compact font-medium">
-            {heading}
-            {optional ? (
-              <>
-                {" "}
-                <OptionalTag />
-              </>
-            ) : null}
+            <FieldName label={heading} optional={optional} />
           </h3>
           {description ? (
             <p className="mt-1 text-body-compact text-muted-foreground">
@@ -1047,102 +543,1163 @@ function DocumentRowsSection({
             </p>
           ) : null}
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => onRowsChange([...rows, emptyDocumentRow()])}
-        >
-          <PlusIcon data-icon="inline-start" aria-hidden />
-          {addLabel}
-        </Button>
+        {count ? null : addButton}
       </div>
-
-      {groupError ? (
+      {error ? (
         <Field data-invalid>
-          <FieldError>{groupError}</FieldError>
+          <FieldError>{error}</FieldError>
         </Field>
       ) : null}
+      {count ? (
+        <div className="flex flex-col gap-6">{children}</div>
+      ) : (
+        <p className="text-body-compact text-muted-foreground">{emptyLabel}</p>
+      )}
+      {count ? addButton : null}
+    </section>
+  );
+}
 
-      {rows.length ? (
-        <div className="flex flex-col gap-6">
-          {rows.map((row, index) => {
-            const rowErrors = errors.documentRows[row.id] ?? {};
-            return (
-              <fieldset
-                key={row.id}
-                className="flex min-w-0 flex-col gap-6 rounded-lg bg-surface-sunken p-4"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <legend className="float-left text-body font-semibold">
-                    {rowLabel} {index + 1}
-                  </legend>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="text-destructive-ink hover:text-destructive-ink"
-                    aria-label={`Remove ${rowLabel.toLowerCase()} ${index + 1}`}
-                    onClick={() =>
-                      onRowsChange(rows.filter((item) => item.id !== row.id))
-                    }
-                  >
-                    <Trash2Icon aria-hidden />
-                  </Button>
-                </div>
+/* ---------------------------------------------------- every application -- */
 
-                <div className="grid gap-6 md:grid-cols-2">
-                  <Field data-invalid={Boolean(rowErrors.type)}>
-                    <FieldLabel>Document type</FieldLabel>
-                    <Input
-                      value={row.type}
-                      aria-invalid={Boolean(rowErrors.type)}
-                      onChange={(event) =>
-                        actions.updateRow(listKey, row.id, {
-                          type: event.target.value,
-                        })
-                      }
-                    />
-                    <FieldError>{rowErrors.type}</FieldError>
-                  </Field>
+/**
+ * Raised by and Litigant (PRD "Every application"). Raised by is who signs
+ * (ALC-28); Litigant refreshes when Raised by changes and is preselected
+ * when there is only one.
+ */
+function EveryApplicationTop({
+  draft,
+  errors,
+  actions,
+  raisedByOptions,
+  litigantOptions,
+}: FieldsProps) {
+  return (
+    <>
+      <SelectField
+        label="Raised by"
+        value={draft.raisedById}
+        options={peopleOptions(raisedByOptions)}
+        placeholder="Choose who is raising it"
+        description="The person who signs this application."
+        error={errors.fields.raisedById}
+        onChange={(value) => actions.update("raisedById", value)}
+      />
+      <SelectField
+        label="Litigant"
+        value={draft.litigantId}
+        options={peopleOptions(litigantOptions)}
+        placeholder={
+          draft.raisedById ? "Choose the litigant" : "Choose Raised by first"
+        }
+        description="Whom this application is raised on behalf of."
+        error={errors.fields.litigantId}
+        onChange={(value) => actions.update("litigantId", value)}
+      />
+    </>
+  );
+}
 
-                  <Field data-invalid={Boolean(rowErrors.title)}>
-                    <FieldLabel>Document title</FieldLabel>
-                    <Input
-                      value={row.title}
-                      aria-invalid={Boolean(rowErrors.title)}
-                      onChange={(event) =>
-                        actions.updateRow(listKey, row.id, {
-                          title: event.target.value,
-                        })
-                      }
-                    />
-                    <FieldError>{rowErrors.title}</FieldError>
-                  </Field>
-                </div>
+/** Supporting documents and Other details (PRD "Every application"). */
+function EveryApplicationBottom({ draft, errors, actions }: FieldsProps) {
+  const rows = draft.supportingDocuments;
+  return (
+    <>
+      <RepeatingSection
+        heading="Supporting documents"
+        optional
+        addLabel="Add a document"
+        emptyLabel="No supporting documents added."
+        count={rows.length}
+        onAdd={() =>
+          actions.update("supportingDocuments", [...rows, emptyNamedDocument()])
+        }
+      >
+        {rows.map((row, index) => (
+          <RowWell
+            key={row.id}
+            legend={`Document ${index + 1}`}
+            removeLabel={`Remove document ${index + 1}`}
+            onRemove={() =>
+              actions.update(
+                "supportingDocuments",
+                rows.filter((item) => item.id !== row.id),
+              )
+            }
+          >
+            <TextField
+              label="Document name"
+              value={row.name}
+              error={errors.fields[`${row.id}.name`]}
+              onChange={(name) => {
+                actions.update(
+                  "supportingDocuments",
+                  rows.map((item) => (item.id === row.id ? { ...item, name } : item)),
+                );
+                actions.setError(`${row.id}.name`, undefined);
+              }}
+            />
+            <FileField
+              required
+              label="File"
+              description="PDF or JPEG."
+              files={row.files}
+              error={errors.fields[`${row.id}.files`]}
+              onFilesChange={(files) =>
+                actions.update(
+                  "supportingDocuments",
+                  rows.map((item) => (item.id === row.id ? { ...item, files } : item)),
+                )
+              }
+              onErrorChange={(error) => actions.setError(`${row.id}.files`, error)}
+            />
+          </RowWell>
+        ))}
+      </RepeatingSection>
 
-                <FileField
-                  required
-                  label="Files"
-                  description="Choose one or more files for this document."
-                  files={row.files}
-                  error={rowErrors.files}
-                  onFilesChange={(files) =>
-                    actions.updateRow(listKey, row.id, { files })
-                  }
-                  onErrorChange={(error) =>
-                    actions.setRowError(row.id, "files", error)
-                  }
+      <TextAreaField
+        label="Other details"
+        optional
+        value={draft.otherDetails}
+        description="Anything else the court should know about this application."
+        onChange={(value) => actions.update("otherDetails", value)}
+      />
+    </>
+  );
+}
+
+/** A type whose only own field is one reason, typed. */
+function ReasonField({
+  draft,
+  errors,
+  actions,
+  field,
+  label,
+}: FieldsProps & {
+  field:
+    | "settlementReason"
+    | "withdrawalReason"
+    | "delayReason"
+    | "absenceReason"
+    | "reopenReason";
+  label: string;
+}) {
+  return (
+    <TextAreaField
+      label={label}
+      value={draft[field]}
+      error={errors.fields[field]}
+      onChange={(value) => actions.update(field, value)}
+    />
+  );
+}
+
+/* ---------------------------------------------------------------- bail -- */
+
+const BAIL_TYPES = [
+  { value: "cash" as const, label: "Cash" },
+  { value: "surety" as const, label: "Surety" },
+];
+
+function BailFields({ draft, errors, actions }: FieldsProps) {
+  const surety = draft.bailType === "surety";
+  const sureties = draft.sureties;
+
+  function updateSurety(id: string, patch: Partial<(typeof sureties)[number]>) {
+    actions.update(
+      "sureties",
+      sureties.map((item) => (item.id === id ? { ...item, ...patch } : item)),
+    );
+    for (const key of Object.keys(patch)) actions.setError(`${id}.${key}`, undefined);
+  }
+
+  return (
+    <>
+      <SelectField
+        label="Type of bail"
+        value={draft.bailType}
+        options={BAIL_TYPES}
+        placeholder="Choose cash or surety"
+        error={errors.fields.bailType}
+        onChange={(value) => actions.update("bailType", value as "cash" | "surety")}
+      />
+      {draft.bailType ? (
+        <TextField
+          label="Bail amount (Rs.)"
+          value={draft.bailAmount}
+          inputMode="decimal"
+          error={errors.fields.bailAmount}
+          onChange={(value) =>
+            actions.update("bailAmount", value.replace(/[^\d.,]/g, ""))
+          }
+        />
+      ) : null}
+      {surety ? (
+        <>
+          <TextField
+            label="Number of sureties"
+            value={draft.suretyCount}
+            inputMode="numeric"
+            description="A set of details follows for each surety."
+            error={errors.fields.suretyCount}
+            onChange={(value) => {
+              const count = value.replace(/\D/g, "").slice(0, 2);
+              actions.update("suretyCount", count);
+              actions.update("sureties", resizeSureties(sureties, count));
+            }}
+          />
+          {sureties.map((item, index) => (
+            <RowWell key={item.id} legend={`Surety ${index + 1}`}>
+              <div className="grid gap-6 md:grid-cols-2">
+                <TextField
+                  label="Surety name"
+                  value={item.fullName}
+                  error={errors.fields[`${item.id}.fullName`]}
+                  onChange={(fullName) => updateSurety(item.id, { fullName })}
                 />
-              </fieldset>
+                <TextField
+                  label="Father's / mother's name"
+                  value={item.parentName}
+                  error={errors.fields[`${item.id}.parentName`]}
+                  onChange={(parentName) => updateSurety(item.id, { parentName })}
+                />
+                <TextField
+                  label="Surety phone number"
+                  value={item.phone}
+                  inputMode="tel"
+                  type="tel"
+                  error={errors.fields[`${item.id}.phone`]}
+                  onChange={(phone) => updateSurety(item.id, { phone })}
+                />
+                <TextField
+                  label="Surety email ID"
+                  optional
+                  value={item.email}
+                  type="email"
+                  error={errors.fields[`${item.id}.email`]}
+                  onChange={(email) => updateSurety(item.id, { email })}
+                />
+              </div>
+              <AddressField
+                label="Surety address"
+                value={item.address}
+                error={errors.fields[`${item.id}.address`]}
+                onChange={(address) => updateSurety(item.id, { address })}
+              />
+              <FileField
+                required
+                label="Surety ID proof"
+                description="Proof of the surety's identity."
+                files={item.identityProof}
+                error={errors.fields[`${item.id}.identityProof`]}
+                onFilesChange={(identityProof) => updateSurety(item.id, { identityProof })}
+                onErrorChange={(error) =>
+                  actions.setError(`${item.id}.identityProof`, error)
+                }
+              />
+              <FileField
+                required
+                label="Proof of solvency"
+                description="Proof that the surety can stand security for the bail amount."
+                files={item.solvencyProof}
+                error={errors.fields[`${item.id}.solvencyProof`]}
+                onFilesChange={(solvencyProof) => updateSurety(item.id, { solvencyProof })}
+                onErrorChange={(error) =>
+                  actions.setError(`${item.id}.solvencyProof`, error)
+                }
+              />
+            </RowWell>
+          ))}
+        </>
+      ) : null}
+      <TextAreaField
+        label="Reason for bail"
+        value={draft.bailReason}
+        error={errors.fields.bailReason}
+        onChange={(value) => actions.update("bailReason", value)}
+      />
+    </>
+  );
+}
+
+/* ------------------------------------------------ edit litigant details -- */
+
+const LITIGANT_TYPES = [
+  { value: "individual" as const, label: "Individual" },
+  { value: "institution" as const, label: "Institution" },
+];
+
+/** The litigant's details as the case file holds them, for prefilling. */
+export function litigantDetailsFrom(
+  litigant: CaseLitigant,
+  institution: boolean,
+): LitigantDetailsDraft {
+  const details = emptyLitigantDetails();
+  if (!institution) {
+    details.fullName = litigant.name;
+    details.designation = litigant.designation ?? "";
+    return details;
+  }
+  details.institutionName = litigant.name;
+  const types = litigant.side === "accused" ? ACCUSED_ENTITY_TYPES : ENTITY_TYPES;
+  details.institutionType =
+    types.find(
+      (option) =>
+        option.label.toLowerCase() === litigant.entityType?.toLowerCase(),
+    )?.value ?? "";
+  return details;
+}
+
+function EditLitigantFields(props: FieldsProps) {
+  const { draft, errors, record, actions } = props;
+  const litigants = caseLitigants(record);
+  const selected = litigants.find((item) => item.id === draft.editLitigantId);
+
+  return (
+    <>
+      {/* Whose details each filer may edit is a control on the workflow
+          (PRD) that is not built here; every litigant on the case is
+          offered until it is. */}
+      <SelectField
+        label="Litigant to edit"
+        value={draft.editLitigantId}
+        options={litigants.map((item) => ({
+          value: item.id,
+          label: `${item.name} — ${item.side === "accused" ? "Accused" : "Complainant"}`,
+        }))}
+        placeholder="Choose a litigant"
+        description="Their current details fill the fields below. Change only what is wrong."
+        error={errors.fields.editLitigantId}
+        onChange={(value) => {
+          const litigant = litigants.find((item) => item.id === value);
+          actions.update("editLitigantId", value);
+          if (!litigant) return;
+          const type = litigant.institution ? "institution" : "individual";
+          actions.update("litigantType", type);
+          actions.update("litigant", litigantDetailsFrom(litigant, litigant.institution));
+        }}
+      />
+      <TextAreaField
+        label="Reason for editing"
+        value={draft.editReason}
+        error={errors.fields.editReason}
+        onChange={(value) => actions.update("editReason", value)}
+      />
+      {selected ? (
+        <>
+          <RadioField
+            label="Litigant type"
+            value={draft.litigantType}
+            options={LITIGANT_TYPES}
+            error={errors.fields.litigantType}
+            onChange={(value) => {
+              actions.update("litigantType", value);
+              // The other type's fields start empty (PRD).
+              actions.update(
+                "litigant",
+                value === (selected.institution ? "institution" : "individual")
+                  ? litigantDetailsFrom(selected, selected.institution)
+                  : emptyLitigantDetails(),
+              );
+            }}
+          />
+          {selected.side === "complainant" ? (
+            draft.litigantType === "institution" ? (
+              <ComplainantInstitution {...props} />
+            ) : draft.litigantType === "individual" ? (
+              <ComplainantIndividual {...props} />
+            ) : null
+          ) : draft.litigantType ? (
+            <AccusedDetails {...props} institution={draft.litigantType === "institution"} />
+          ) : null}
+        </>
+      ) : null}
+    </>
+  );
+}
+
+/** One field of the litigant record, wired to `litigant.<key>`. */
+function useLitigant({ draft, errors, actions }: FieldsProps) {
+  const l = draft.litigant;
+  function set<Key extends keyof LitigantDetailsDraft>(
+    key: Key,
+    value: LitigantDetailsDraft[Key],
+  ) {
+    actions.update("litigant", { ...l, [key]: value });
+    actions.setError(`litigant.${key}`, undefined);
+  }
+  const error = (key: keyof LitigantDetailsDraft) => errors.fields[`litigant.${key}`];
+  return { l, set, error };
+}
+
+function ComplainantIndividual(props: FieldsProps) {
+  const { l, set, error } = useLitigant(props);
+  return (
+    <>
+      <div className="grid gap-6 md:grid-cols-2">
+        <TextField
+          label="Phone number"
+          value={l.phone}
+          inputMode="tel"
+          type="tel"
+          description="Must not match anyone else's on the case."
+          error={error("phone")}
+          onChange={(value) => set("phone", value)}
+        />
+        <TextField
+          label="Full name"
+          value={l.fullName}
+          error={error("fullName")}
+          onChange={(value) => set("fullName", value)}
+        />
+        <TextField
+          label="Age"
+          value={l.age}
+          inputMode="numeric"
+          error={error("age")}
+          onChange={(value) => set("age", value.replace(/\D/g, ""))}
+        />
+        <SelectField
+          label="Gender"
+          optional
+          value={l.gender}
+          options={GENDER_OPTIONS}
+          placeholder="Choose"
+          onChange={(value) => set("gender", value)}
+        />
+        <TextField
+          label="Email ID"
+          optional
+          value={l.email}
+          type="email"
+          error={error("email")}
+          onChange={(value) => set("email", value)}
+        />
+      </div>
+      <RadioField
+        label="Differently abled?"
+        optional
+        value={l.differentlyAbled}
+        options={YES_NO}
+        onChange={(value) => set("differentlyAbled", value)}
+      />
+      <AddressField
+        label="Permanent address"
+        value={l.permanentAddress}
+        error={error("permanentAddress")}
+        onChange={(value) => set("permanentAddress", value)}
+      />
+      <RadioField
+        label="Is the current address the same as the permanent address?"
+        value={l.currentSameAsPermanent}
+        options={YES_NO}
+        onChange={(value) => set("currentSameAsPermanent", value)}
+      />
+      {l.currentSameAsPermanent === "no" ? (
+        <AddressField
+          label="Current address"
+          value={l.currentAddress}
+          error={error("currentAddress")}
+          onChange={(value) => set("currentAddress", value)}
+        />
+      ) : null}
+    </>
+  );
+}
+
+function ComplainantInstitution(props: FieldsProps) {
+  const { l, set, error } = useLitigant(props);
+  return (
+    <>
+      <div className="grid gap-6 md:grid-cols-2">
+        <SelectField
+          label="Type of institution"
+          value={l.institutionType}
+          options={ENTITY_TYPES}
+          placeholder="Choose"
+          error={error("institutionType")}
+          onChange={(value) => set("institutionType", value)}
+        />
+        <TextField
+          label="Institution name"
+          value={l.institutionName}
+          error={error("institutionName")}
+          onChange={(value) => set("institutionName", value)}
+        />
+        <TextField
+          label="CIN or PAN"
+          optional
+          value={l.cinPan}
+          onChange={(value) => set("cinPan", value.toUpperCase())}
+        />
+        <TextField
+          label="Phone number"
+          optional
+          value={l.phone}
+          inputMode="tel"
+          type="tel"
+          error={error("phone")}
+          onChange={(value) => set("phone", value)}
+        />
+        <TextField
+          label="Email ID"
+          optional
+          value={l.email}
+          type="email"
+          error={error("email")}
+          onChange={(value) => set("email", value)}
+        />
+      </div>
+      <AddressField
+        label="Institution address"
+        value={l.institutionAddress}
+        error={error("institutionAddress")}
+        onChange={(value) => set("institutionAddress", value)}
+      />
+      <div className="grid gap-6 md:grid-cols-2">
+        <TextField
+          label="Authorised representative phone number"
+          value={l.repPhone}
+          inputMode="tel"
+          type="tel"
+          error={error("repPhone")}
+          onChange={(value) => set("repPhone", value)}
+        />
+        <TextField
+          label="Authorised representative full name"
+          value={l.repName}
+          error={error("repName")}
+          onChange={(value) => set("repName", value)}
+        />
+        <TextField
+          label="Authorised representative age"
+          value={l.repAge}
+          inputMode="numeric"
+          error={error("repAge")}
+          onChange={(value) => set("repAge", value.replace(/\D/g, ""))}
+        />
+        <SelectField
+          label="Authorised representative gender"
+          optional
+          value={l.repGender}
+          options={GENDER_OPTIONS}
+          placeholder="Choose"
+          onChange={(value) => set("repGender", value)}
+        />
+        <TextField
+          label="Authorised representative email ID"
+          optional
+          value={l.repEmail}
+          type="email"
+          error={error("repEmail")}
+          onChange={(value) => set("repEmail", value)}
+        />
+        <TextField
+          label="Authorised representative designation"
+          value={l.repDesignation}
+          error={error("repDesignation")}
+          onChange={(value) => set("repDesignation", value)}
+        />
+      </div>
+      <RadioField
+        label="Authorised representative differently abled?"
+        optional
+        value={l.repDifferentlyAbled}
+        options={YES_NO}
+        onChange={(value) => set("repDifferentlyAbled", value)}
+      />
+      <AddressField
+        label="Authorised representative address"
+        value={l.repAddress}
+        error={error("repAddress")}
+        onChange={(value) => set("repAddress", value)}
+      />
+    </>
+  );
+}
+
+function AccusedDetails(props: FieldsProps & { institution: boolean }) {
+  const { court } = useCourt();
+  const { institution } = props;
+  const { l, set, error } = useLitigant(props);
+  const rows = l.addresses;
+
+  return (
+    <>
+      <div className="grid gap-6 md:grid-cols-2">
+        {institution ? (
+          <>
+            <SelectField
+              label="Type of institution"
+              value={l.institutionType}
+              options={ACCUSED_ENTITY_TYPES}
+              placeholder="Choose"
+              error={error("institutionType")}
+              onChange={(value) => set("institutionType", value)}
+            />
+            <TextField
+              label="Institution name"
+              value={l.institutionName}
+              error={error("institutionName")}
+              onChange={(value) => set("institutionName", value)}
+            />
+          </>
+        ) : (
+          <>
+            <TextField
+              label="Full name"
+              value={l.fullName}
+              error={error("fullName")}
+              onChange={(value) => set("fullName", value)}
+            />
+            <TextField
+              label="Age"
+              optional
+              value={l.age}
+              inputMode="numeric"
+              error={error("age")}
+              onChange={(value) => set("age", value.replace(/\D/g, ""))}
+            />
+            <TextField
+              label="Designation"
+              optional
+              value={l.designation}
+              onChange={(value) => set("designation", value)}
+            />
+          </>
+        )}
+        <TextField
+          label="Mobile number"
+          value={l.phone}
+          inputMode="tel"
+          type="tel"
+          error={error("phone")}
+          onChange={(value) => set("phone", value)}
+        />
+        <TextField
+          label="Email ID"
+          value={l.email}
+          type="email"
+          error={error("email")}
+          onChange={(value) => set("email", value)}
+        />
+      </div>
+      <RepeatingSection
+        heading="Addresses"
+        addLabel="Add an address"
+        emptyLabel="No addresses added."
+        count={rows.length}
+        error={error("addresses")}
+        onAdd={() => set("addresses", [...rows, emptyAddressWithPolice()])}
+      >
+        {rows.map((row, index) => (
+          <RowWell
+            key={row.id}
+            legend={`Address ${index + 1}`}
+            removeLabel={`Remove address ${index + 1}`}
+            onRemove={() =>
+              set(
+                "addresses",
+                rows.filter((item) => item.id !== row.id),
+              )
+            }
+          >
+            <AddressField
+              label="Address"
+              value={row.addr}
+              error={props.errors.fields[row.id]}
+              onChange={(addr) => {
+                set(
+                  "addresses",
+                  rows.map((item) => (item.id === row.id ? { ...item, addr } : item)),
+                );
+                props.actions.setError(row.id, undefined);
+              }}
+            />
+            <SelectField
+              label="Police station"
+              value={row.police}
+              options={asOptions(policeStationsFor(court))}
+              placeholder="Choose the police station"
+              error={props.errors.fields[`${row.id}.police`]}
+              onChange={(police) => {
+                set(
+                  "addresses",
+                  rows.map((item) => (item.id === row.id ? { ...item, police } : item)),
+                );
+                props.actions.setError(`${row.id}.police`, undefined);
+              }}
+            />
+          </RowWell>
+        ))}
+      </RepeatingSection>
+    </>
+  );
+}
+
+/* ------------------------------------------------------------ transfer -- */
+
+function TransferFields({ draft, errors, record, actions }: FieldsProps) {
+  const courtText = useCourtText();
+  return (
+    <>
+      <PrefilledField label="Current court" value={courtText(record.court)} />
+      <TextField
+        label="Requested court"
+        value={draft.requestedCourt}
+        error={errors.fields.requestedCourt}
+        onChange={(value) => actions.update("requestedCourt", value)}
+      />
+      <TextAreaField
+        label="Reason for transfer"
+        value={draft.transferReason}
+        error={errors.fields.transferReason}
+        onChange={(value) => actions.update("transferReason", value)}
+      />
+    </>
+  );
+}
+
+/* ------------------------------------------------------------- generic -- */
+
+function GenericFields({ draft, errors, actions }: FieldsProps) {
+  return (
+    <>
+      <TextField
+        label="Application title"
+        value={draft.title}
+        description="Used as the application's heading."
+        error={errors.fields.title}
+        onChange={(value) => actions.update("title", value)}
+      />
+      <TextAreaField
+        label="Details"
+        value={draft.details}
+        rows={6}
+        error={errors.fields.details}
+        onChange={(value) => actions.update("details", value)}
+      />
+    </>
+  );
+}
+
+/* ------------------------------------------------ advance / postpone ---- */
+
+function RescheduleFields({ draft, errors, record, actions }: FieldsProps) {
+  const hearing = record.nextHearing;
+  return (
+    <>
+      <div className="grid gap-6 md:grid-cols-2">
+        <PrefilledField
+          label="Initial hearing date"
+          value={hearing ? formatCaseDate(hearing.on) : "No hearing is scheduled"}
+        />
+        <PrefilledField
+          label="Purpose of hearing"
+          value={hearing?.purpose ?? "—"}
+        />
+      </div>
+      <SelectField
+        label="Reason for rescheduling"
+        value={draft.rescheduleReason}
+        options={asOptions(RESCHEDULE_REASONS)}
+        placeholder="Choose a reason"
+        error={errors.fields.rescheduleReason}
+        onChange={(value) => actions.update("rescheduleReason", value)}
+      />
+      <DateField
+        label="Proposed hearing date"
+        value={draft.proposedHearingDate}
+        description="The date from which the party is available."
+        error={errors.fields.proposedHearingDate}
+        onChange={(value) => actions.update("proposedHearingDate", value)}
+      />
+    </>
+  );
+}
+
+/* ---------------------------------------------------------- poa change -- */
+
+function PoaChangeFields({ draft, errors, record, actions }: FieldsProps) {
+  const litigants = caseLitigants(record);
+  const labelId = useId();
+  const chosen = litigants.filter((item) => draft.poaLitigantIds.includes(item.id));
+
+  function toggle(id: string, checked: boolean) {
+    actions.update(
+      "poaLitigantIds",
+      checked
+        ? litigants
+            .map((item) => item.id)
+            .filter((item) => item === id || draft.poaLitigantIds.includes(item))
+        : draft.poaLitigantIds.filter((item) => item !== id),
+    );
+  }
+
+  return (
+    <>
+      <Field data-invalid={Boolean(errors.fields.poaLitigantIds)}>
+        <FieldLabel id={labelId}>Litigants appointing the applicant</FieldLabel>
+        <div role="group" aria-labelledby={labelId} className="flex flex-col">
+          {litigants.map((item) => {
+            const id = `${labelId}-${item.id}`;
+            return (
+              <div key={item.id} className="flex min-h-10 items-center gap-3">
+                <Checkbox
+                  id={id}
+                  checked={draft.poaLitigantIds.includes(item.id)}
+                  aria-invalid={Boolean(errors.fields.poaLitigantIds)}
+                  onCheckedChange={(checked) => toggle(item.id, checked === true)}
+                />
+                <Label htmlFor={id} className="font-normal">
+                  {item.name}
+                  <span className="text-muted-foreground">
+                    {" "}
+                    · {item.side === "accused" ? "Accused" : "Complainant"}
+                  </span>
+                </Label>
+              </div>
             );
           })}
         </div>
-      ) : (
-        <p className="text-body-compact text-muted-foreground">
-          No {rowLabel.toLowerCase()}s added.
-        </p>
-      )}
-    </section>
+        <FieldError>{errors.fields.poaLitigantIds}</FieldError>
+      </Field>
+      {chosen.map((item) => (
+        <FileField
+          key={item.id}
+          required
+          label={`Authorization document — ${item.name}`}
+          description="The power of attorney this litigant gave the applicant."
+          files={draft.poaAuthorizations[item.id] ?? []}
+          error={errors.fields[`poa.${item.id}`]}
+          onFilesChange={(files) =>
+            actions.update("poaAuthorizations", {
+              ...draft.poaAuthorizations,
+              [item.id]: files,
+            })
+          }
+          onErrorChange={(error) => actions.setError(`poa.${item.id}`, error)}
+        />
+      ))}
+      <TextAreaField
+        label="Reason for change"
+        value={draft.poaReason}
+        error={errors.fields.poaReason}
+        onChange={(value) => actions.update("poaReason", value)}
+      />
+    </>
+  );
+}
+
+/* ------------------------------------------------ production of documents -- */
+
+function ProductionFields({ draft, errors, actions }: FieldsProps) {
+  const rows = draft.productionDocuments;
+  return (
+    <>
+      <TextAreaField
+        label="Reason for application"
+        value={draft.productionReason}
+        error={errors.fields.productionReason}
+        onChange={(value) => actions.update("productionReason", value)}
+      />
+      <RepeatingSection
+        heading="Documents"
+        description="PDF or JPEG, one entry per document."
+        addLabel="Add a document"
+        emptyLabel="No documents added."
+        count={rows.length}
+        error={errors.fields.productionDocuments}
+        onAdd={() =>
+          actions.update("productionDocuments", [...rows, emptyTypedDocument()])
+        }
+      >
+        {rows.map((row, index) => (
+          <RowWell
+            key={row.id}
+            legend={`Document ${index + 1}`}
+            removeLabel={`Remove document ${index + 1}`}
+            onRemove={() =>
+              actions.update(
+                "productionDocuments",
+                rows.filter((item) => item.id !== row.id),
+              )
+            }
+          >
+            <TextField
+              label="Document type"
+              value={row.type}
+              error={errors.fields[`${row.id}.type`]}
+              onChange={(type) => {
+                actions.update(
+                  "productionDocuments",
+                  rows.map((item) => (item.id === row.id ? { ...item, type } : item)),
+                );
+                actions.setError(`${row.id}.type`, undefined);
+              }}
+            />
+            <FileField
+              required
+              label="File"
+              description="PDF or JPEG."
+              files={row.files}
+              error={errors.fields[`${row.id}.files`]}
+              onFilesChange={(files) =>
+                actions.update(
+                  "productionDocuments",
+                  rows.map((item) => (item.id === row.id ? { ...item, files } : item)),
+                )
+              }
+              onErrorChange={(error) => actions.setError(`${row.id}.files`, error)}
+            />
+          </RowWell>
+        ))}
+      </RepeatingSection>
+    </>
+  );
+}
+
+/* ------------------------------------------------------ addition of witness -- */
+
+function WitnessFields({ draft, errors, actions }: FieldsProps) {
+  const witnesses = draft.witnesses;
+
+  function updateWitness(id: string, patch: Partial<(typeof witnesses)[number]>) {
+    actions.update(
+      "witnesses",
+      witnesses.map((item) => (item.id === id ? { ...item, ...patch } : item)),
+    );
+    for (const key of Object.keys(patch)) actions.setError(`${id}.${key}`, undefined);
+  }
+
+  return (
+    <RepeatingSection
+      heading="Witnesses"
+      description="Give a full name, a designation, or both."
+      addLabel="Add a witness"
+      emptyLabel="No witnesses added."
+      count={witnesses.length}
+      error={errors.fields.witnesses}
+      onAdd={() => actions.update("witnesses", [...witnesses, emptyWitness()])}
+    >
+      {witnesses.map((witness, index) => (
+        <RowWell
+          key={witness.id}
+          legend={`Witness ${index + 1}`}
+          removeLabel={`Remove witness ${index + 1}`}
+          onRemove={() =>
+            actions.update(
+              "witnesses",
+              witnesses.filter((item) => item.id !== witness.id),
+            )
+          }
+        >
+          <div className="grid gap-6 md:grid-cols-2">
+            <TextField
+              label="Full name"
+              optional
+              value={witness.fullName}
+              error={errors.fields[`${witness.id}.fullName`]}
+              onChange={(fullName) => updateWitness(witness.id, { fullName })}
+            />
+            <TextField
+              label="Designation"
+              optional
+              value={witness.designation}
+              onChange={(designation) => {
+                updateWitness(witness.id, { designation });
+                actions.setError(`${witness.id}.fullName`, undefined);
+              }}
+            />
+            <TextField
+              label="Age"
+              optional
+              value={witness.age}
+              inputMode="numeric"
+              error={errors.fields[`${witness.id}.age`]}
+              onChange={(age) => updateWitness(witness.id, { age: age.replace(/\D/g, "") })}
+            />
+            <TextField
+              label="Mobile number"
+              optional
+              value={witness.mobile}
+              inputMode="tel"
+              type="tel"
+              error={errors.fields[`${witness.id}.mobile`]}
+              onChange={(mobile) => updateWitness(witness.id, { mobile })}
+            />
+            <TextField
+              label="Email ID"
+              optional
+              value={witness.email}
+              type="email"
+              error={errors.fields[`${witness.id}.email`]}
+              onChange={(email) => updateWitness(witness.id, { email })}
+            />
+          </div>
+          <TextAreaField
+            label="What will the witness prove"
+            optional
+            rows={3}
+            value={witness.proves}
+            onChange={(proves) => updateWitness(witness.id, { proves })}
+          />
+          {witness.addresses.map((row, addressIndex) => (
+            <div key={row.id} className="flex flex-col gap-2">
+              <AddressField
+                label={
+                  witness.addresses.length > 1
+                    ? `Address ${addressIndex + 1}`
+                    : "Address"
+                }
+                value={row.addr}
+                error={errors.fields[row.id]}
+                onChange={(addr) => {
+                  updateWitness(witness.id, {
+                    addresses: witness.addresses.map((item) =>
+                      item.id === row.id ? { ...item, addr } : item,
+                    ),
+                  });
+                  actions.setError(row.id, undefined);
+                }}
+              />
+              {witness.addresses.length > 1 ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="self-start text-destructive-ink hover:text-destructive-ink"
+                  onClick={() =>
+                    updateWitness(witness.id, {
+                      addresses: witness.addresses.filter((item) => item.id !== row.id),
+                    })
+                  }
+                >
+                  <Trash2Icon data-icon="inline-start" aria-hidden />
+                  Remove address {addressIndex + 1}
+                </Button>
+              ) : null}
+            </div>
+          ))}
+          <FieldError>{errors.fields[`${witness.id}.addresses`]}</FieldError>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="self-start"
+            onClick={() =>
+              updateWitness(witness.id, {
+                addresses: [
+                  ...witness.addresses,
+                  { id: `addr-${crypto.randomUUID()}`, addr: blankAddress() },
+                ],
+              })
+            }
+          >
+            <PlusIcon data-icon="inline-start" aria-hidden />
+            Add another address
+          </Button>
+        </RowWell>
+      ))}
+    </RepeatingSection>
+  );
+}
+
+/* ----------------------------------------------------- warrant by hand -- */
+
+function WarrantByHandFields({ draft, errors, record, actions }: FieldsProps) {
+  const accused = caseLitigants(record).filter((item) => item.side === "accused");
+  const chosen = accused.find((item) => item.id === draft.warrantAccusedId);
+  const onFile = chosen ? accusedAddresses(record, chosen.name) : [];
+  const pickId = useId();
+
+  return (
+    <>
+      <SelectField
+        label="Accused"
+        value={draft.warrantAccusedId}
+        options={accused.map((item) => ({ value: item.id, label: item.name }))}
+        placeholder="Choose the accused"
+        error={errors.fields.warrantAccusedId}
+        onChange={(value) => {
+          actions.update("warrantAccusedId", value);
+          const person = accused.find((item) => item.id === value);
+          const addresses = person ? accusedAddresses(record, person.name) : [];
+          actions.update("deliveryAddress", addresses[0] ?? blankAddress());
+        }}
+      />
+      {onFile.length > 1 ? (
+        <Field>
+          <FieldLabel id={`${pickId}-label`}>Prefill from</FieldLabel>
+          <RadioGroup
+            aria-labelledby={`${pickId}-label`}
+            onValueChange={(index) =>
+              actions.update("deliveryAddress", onFile[Number(index)])
+            }
+            className="flex flex-col gap-1"
+          >
+            {onFile.map((address, index) => (
+              <div key={index} className="flex min-h-10 items-center gap-2">
+                <RadioGroupItem value={String(index)} id={`${pickId}-${index}`} />
+                <Label htmlFor={`${pickId}-${index}`} className="font-normal">
+                  {[address.line1, address.city, address.pin].filter(Boolean).join(", ")}
+                </Label>
+              </div>
+            ))}
+          </RadioGroup>
+        </Field>
+      ) : null}
+      {draft.warrantAccusedId ? (
+        <AddressField
+          label="Address for delivery"
+          value={draft.deliveryAddress}
+          description={
+            onFile.length
+              ? "From the case file. Change it if the warrant should go elsewhere."
+              : "The case file holds no address for this accused. Enter where the warrant should go."
+          }
+          error={errors.fields.deliveryAddress}
+          onChange={(value) => actions.update("deliveryAddress", value)}
+        />
+      ) : null}
+    </>
+  );
+}
+
+/* ----------------------------------------------------------- objection -- */
+
+/**
+ * Raised from the File objection task, against one application of the other
+ * side (ALC-12, ALC-24). What it objects to is fixed, so it is shown locked
+ * rather than chosen.
+ */
+function ObjectionFields({ draft, errors, record, actions }: FieldsProps) {
+  const target = applicationsFile(record).submissions.find(
+    (item) => item.id === draft.objectionToId,
+  );
+  const targetLabel = target
+    ? [submissionTypeLabel(target.type), target.applicationNumber ?? target.temporaryId]
+        .filter(Boolean)
+        .join(" · ")
+    : "";
+
+  return (
+    <>
+      <PrefilledField
+        label="Objection to"
+        value={targetLabel}
+        description={
+          target?.decisionOn
+            ? `The court decides it on ${formatCaseDate(target.decisionOn)}.`
+            : undefined
+        }
+      />
+      <TextAreaField
+        label="Reason for objection"
+        value={draft.objectionReason}
+        error={errors.fields.objectionReason}
+        onChange={(value) => actions.update("objectionReason", value)}
+      />
+    </>
   );
 }

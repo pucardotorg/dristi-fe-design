@@ -51,6 +51,8 @@ import {
   type ProcessDocument,
   type ProcessOutcome,
 } from "@/lib/employee/sign-process";
+import { useCourtLocalized } from "@/components/court/court-provider";
+import { useCourtText } from "@/components/court/court-provider";
 
 /** What the paper is called in the signature stage's copy. */
 const NOUN = "process";
@@ -145,6 +147,7 @@ function SignProcessBody({
   onRecord: (process: CourtProcess, outcome: ProcessOutcome, on: string) => void;
   onReturnFocus: () => void;
 }) {
+  const courtText = useCourtText();
   const flow = useStagedFlow<Stage>({ order: STAGES, scene: SCENES });
   const choice = useSignatureChoice(NOUN);
   const document = React.useMemo(
@@ -402,7 +405,7 @@ function SignProcessBody({
       ) : (
         <SignatureStage
           noun={NOUN}
-          subject={`You are adding your signature to the ${inline} in ${process.caseNumber}.`}
+          subject={`You are adding your signature to the ${inline} in ${courtText(process.caseNumber)}.`}
           warning="Signing this process cannot be reversed."
           download={{
             prompt: "Want to read it again?",
@@ -463,7 +466,8 @@ function ProcessFacts({ process }: { process: CourtProcess }) {
  * overlays use, bound to this row's own particulars. The addressee sits under the title:
  * a process commands a named person, and who it commands is written on its face first.
  */
-function ProcessFacsimile({ document }: { document: ProcessDocument }) {
+function ProcessFacsimile({ document: storedDocument }: { document: ProcessDocument }) {
+  const document = useCourtLocalized(storedDocument);
   return (
     <article className="flex flex-col gap-6 rounded-md bg-paper p-6 text-paper-foreground">
       <header className="flex flex-col gap-2 text-center">

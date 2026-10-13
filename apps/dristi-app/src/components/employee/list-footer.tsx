@@ -4,6 +4,7 @@ import { Label } from "@/components/ui/label";
 import {
   Pagination,
   PaginationContent,
+  PaginationEllipsis,
   PaginationItem,
   PaginationLink,
   PaginationNext,
@@ -34,6 +35,28 @@ import {
  * The page-size vocabulary stays in `lib/employee/hearings.ts`, which the employee area
  * already treats as the owner of the court-side list words.
  */
+
+/** Up to this many pages, every page is a link; past it, the pager windows. */
+const ALL_PAGES_UP_TO = 7;
+
+/**
+ * The pages to offer: every page for a short list, otherwise the ends and the current
+ * page with its neighbours, with a gap wherever pages are skipped. A register runs to
+ * hundreds of pages, and a link for each would push the footer off the screen.
+ */
+export function pageWindow(page: number, pageCount: number): (number | "gap")[] {
+  const all = Array.from({ length: pageCount }, (_, index) => index + 1);
+  if (pageCount <= ALL_PAGES_UP_TO) return all;
+  const wanted = new Set([1, pageCount, page - 1, page, page + 1]);
+  const pages = all.filter((entry) => wanted.has(entry));
+  const out: (number | "gap")[] = [];
+  pages.forEach((entry, index) => {
+    if (index > 0 && entry - pages[index - 1] > 1) out.push("gap");
+    out.push(entry);
+  });
+  return out;
+}
+
 export function ListFooter({
   id,
   from,
@@ -97,7 +120,7 @@ export function ListFooter({
 
       {pageCount > 1 ? (
         <Pagination className="mx-0 w-auto justify-start md:justify-end">
-          <PaginationContent>
+          <PaginationContent className="flex-wrap">
             {page > 1 ? (
               <PaginationItem>
                 <PaginationPrevious
@@ -109,8 +132,12 @@ export function ListFooter({
                 />
               </PaginationItem>
             ) : null}
-            {Array.from({ length: pageCount }, (_, index) => index + 1).map(
-              (entry) => (
+            {pageWindow(page, pageCount).map((entry, index) =>
+              entry === "gap" ? (
+                <PaginationItem key={`gap-${index}`}>
+                  <PaginationEllipsis />
+                </PaginationItem>
+              ) : (
                 <PaginationItem key={entry}>
                   <PaginationLink
                     href="#"

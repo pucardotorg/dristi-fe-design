@@ -1,3 +1,4 @@
+import { hearingRecords } from "./hearing-record";
 import { type CaseSection } from "./sections";
 import { formatCaseDate, type CaseRecord } from "./types";
 
@@ -32,6 +33,8 @@ export type CaseTimelineEvent = {
   type: CaseTimelineEventType;
   label: string;
   ref?: CaseSection;
+  /** A hearing's business of the day, as the case peek shows it. */
+  botd?: string;
 };
 
 export type CaseTimelineDay = {
@@ -61,10 +64,9 @@ export function caseTimelineModel(
   record: CaseRecord,
   now: number
 ): CaseTimelineModel {
-  const events = (
-    record.id === FEATURED_CASE_ID
-      ? featuredEvents(record)
-      : recordEvents(record)
+  const events = withBusinessOfTheDay(
+    record,
+    record.id === FEATURED_CASE_ID ? featuredEvents(record) : recordEvents(record)
   ).filter((event) => hasOccurred(event.on, now));
   const grouped = groupByDate(events);
   const currentDate = latestOccurredDate(grouped, now);
@@ -214,7 +216,21 @@ function recordEvents(record: CaseRecord): DatedEvent[] {
     },
   ];
 
-  if (record.previousHearingOn) {
+  /* Every hearing on record, named by its purpose, as the case peek lists
+     them (owner, Oct 8: History said only "Hearing held"). Without a
+     hearings record, the one sitting the case itself knows of. */
+  const hearings = hearingRecords(record);
+  if (hearings.length > 0) {
+    for (const hearing of hearings) {
+      events.push({
+        id: `${record.id}-hearing-${hearing.id}`,
+        on: hearing.on,
+        type: "hearing.held",
+        label: hearing.purpose,
+        ref: "hearings",
+      });
+    }
+  } else if (record.previousHearingOn) {
     events.push({
       id: `${record.id}-latest-hearing`,
       on: record.previousHearingOn,
@@ -235,6 +251,30 @@ function recordEvents(record: CaseRecord): DatedEvent[] {
   }
 
   return events;
+}
+
+/**
+ * The business of the day on each hearing that has one: on the first
+ * hearing event of that day, read off the same hearing record the case peek
+ * reads, so the two never tell different stories.
+ */
+function withBusinessOfTheDay(
+  record: CaseRecord,
+  events: DatedEvent[]
+): DatedEvent[] {
+  const botdByDay = new Map(
+    hearingRecords(record)
+      .filter((hearing) => hearing.summary)
+      .map((hearing) => [hearing.on, hearing.summary!])
+  );
+  const given = new Set<string>();
+  return events.map((event) => {
+    if (!event.type.startsWith("hearing.") || given.has(event.on)) return event;
+    const botd = botdByDay.get(event.on);
+    if (!botd) return event;
+    given.add(event.on);
+    return { ...event, botd };
+  });
 }
 
 function groupByDate(events: DatedEvent[]): Omit<CaseTimelineDay, "status">[] {

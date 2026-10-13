@@ -54,3 +54,78 @@
 [data-slot="sheet-overlay"][data-state="closed"] {
   animation-fill-mode: forwards;
 }
+
+/* The court switch: another state's court stays hidden until its text layer has made
+   its first pass (`components/court/court-text-layer.tsx`). The reveal is time-boxed,
+   so a script that never runs leaves the page in Kerala's words, never blank. */
+html[data-court-pending] body {
+  visibility: hidden;
+  animation: court-reveal 0s linear 3s forwards;
+}
+@keyframes court-reveal {
+  to {
+    visibility: visible;
+  }
+}
+
+/*
+  Autofill inside an input group keeps the group's border and corners.
+
+  `globals.css` (synced from the DS) hides the browser's pale-blue autofill tint with an
+  opaque inset shadow in the page colour. Inside an `InputGroup` the border belongs to
+  the group, and the control is the group's full 40px height, so it sits over that 1px
+  border. Painted, it broke the group's top, bottom and corners; left unpainted, the
+  browser's tint showed as a square box inside the rounded field (owner, Oct 9). So
+  while a control is autofilled, the group clips its content to inside its own border.
+  The control is then painted in the group's own fill: `card`, or the sunken fill of the
+  locked mobile number. DS request: inset the group control inside the group's border.
+*/
+[data-slot="input-group"]:has(input:-webkit-autofill) {
+  overflow: hidden;
+}
+[data-slot="input-group"] input:-webkit-autofill,
+[data-slot="input-group"] input:-webkit-autofill:hover,
+[data-slot="input-group"] input:-webkit-autofill:focus,
+[data-slot="input-group"] input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px var(--card) inset !important;
+  box-shadow: 0 0 0 1000px var(--card) inset !important;
+}
+[data-slot="input-group"] input:-webkit-autofill:disabled {
+  -webkit-box-shadow: 0 0 0 1000px var(--surface-sunken) inset !important;
+  box-shadow: 0 0 0 1000px var(--surface-sunken) inset !important;
+}
+
+/*
+  Autofilled inputs keep their own corners.
+
+  The synced autofill rule in `globals.css` sets `border-radius: inherit`, so an
+  autofilled field takes its parent's radius, usually 0, and turns into a square box
+  (owner, Oct 9: Full name and every other plain field). That rule is unlayered, so it
+  beats the field's own `rounded-lg` utility. `revert-layer` hands the radius back to
+  the layered value, which is the field's own: 10px on a plain input, none on a group
+  control (the group clips it, above). Measured: 10px → 0px under the DS rule → 10px
+  with this. DS request: drop `border-radius: inherit` from the autofill rule.
+*/
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  border-radius: revert-layer;
+}
+
+/*
+  In dark mode a field's fill is `input` at 30% over the page (`dark:bg-input/30` on
+  Input and InputGroup), not the page itself. The autofill paint follows that fill, so
+  an autofilled field does not read as a darker patch among its neighbours.
+*/
+.dark input:-webkit-autofill,
+.dark input:-webkit-autofill:hover,
+.dark input:-webkit-autofill:focus,
+.dark input:-webkit-autofill:active,
+.dark [data-slot="input-group"] input:-webkit-autofill,
+.dark [data-slot="input-group"] input:-webkit-autofill:hover,
+.dark [data-slot="input-group"] input:-webkit-autofill:focus,
+.dark [data-slot="input-group"] input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px color-mix(in srgb, var(--input) 30%, var(--background)) inset !important;
+  box-shadow: 0 0 0 1000px color-mix(in srgb, var(--input) 30%, var(--background)) inset !important;
+}

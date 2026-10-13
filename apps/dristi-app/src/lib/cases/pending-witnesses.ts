@@ -16,7 +16,7 @@ export const PENDING_WITNESSES: Record<string, string[]> = {
   "c-1001": ["Sreejith Nair"],
   /* tw-c-hd2 seats the viewer on the accused side — a designation-only
      witness, the identity rule's other half. */
-  "tw-c-hd2": ["Bank Manager, SBI Kollam"],
+  "tw-c-hd2": ["Bank Manager, SBI"],
 };
 
 export function pendingWitnessesFor(caseId: string): string[] {

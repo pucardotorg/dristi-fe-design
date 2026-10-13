@@ -16,6 +16,7 @@
  * litigants and gives the other side a plain fact well.
  */
 
+import { displayName } from "@/lib/cases/names";
 import { useMemo, useState } from "react";
 import {
   EllipsisVerticalIcon,
@@ -99,8 +100,8 @@ export function PoaHolderWell({
           into one overflow menu that names its tasks. */}
       <div className="flex min-h-12 min-w-0 items-center gap-2 rounded-md bg-surface-sunken py-2 pr-2 pl-3">
         <span className="flex min-w-0 flex-1 flex-col justify-center gap-1">
-          <span className="block truncate text-body font-medium text-foreground">
-            {holder}
+          <span className="block truncate text-body-compact font-medium text-foreground">
+            {displayName(holder)}
           </span>
           {pending ? (
             <span className="block truncate text-caption text-muted-foreground">

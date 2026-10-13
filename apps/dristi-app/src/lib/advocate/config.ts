@@ -74,5 +74,52 @@ export const V1_TWO_SITTINGS: AdvocateHomeConfig = {
   ],
 };
 
+/**
+ * A v1 day in three sittings, the live one in the middle — for previewing how
+ * the slot tabs stack on both sides of the active one.
+ */
+export const V1_THREE_SITTINGS: AdvocateHomeConfig = {
+  ...V1_LAUNCH,
+  sittings: [
+    // The middle sitting starts at 10:00 so it holds some concluded matters
+    // alongside the live ones and the ones still to come.
+    { start: "09:00", end: "10:00" },
+    { start: "10:00", end: "15:00" },
+    { start: "15:00", end: "17:30" },
+  ],
+};
+
+/**
+ * A v1 day cut into seven sittings — not a real court day, but the stress case
+ * for the slot tabs: closed tabs must give way to the open one. Each window is
+ * drawn around the demo schedule's listed times so no sitting is empty (empty
+ * ones are hidden); the live one holds the 14:10 demo clock.
+ */
+export const V1_SEVEN_SITTINGS: AdvocateHomeConfig = {
+  ...V1_LAUNCH,
+  sittings: [
+    { start: "09:00", end: "09:45" },
+    { start: "09:45", end: "10:45" },
+    { start: "10:45", end: "12:00" },
+    { start: "12:00", end: "14:20" },
+    { start: "14:20", end: "15:00" },
+    { start: "15:00", end: "15:40" },
+    { start: "15:40", end: "17:00" },
+  ],
+};
+
 /** The active configuration. Launch ships v1. */
 export const ADVOCATE_HOME_CONFIG: AdvocateHomeConfig = V1_LAUNCH;
+
+/**
+ * Demo only: which sittings the preview shows. Launch ships ADVOCATE_HOME_CONFIG.
+ */
+export function homeConfigFor(slots: string | null): AdvocateHomeConfig {
+  if (slots === "1") return ADVOCATE_HOME_CONFIG;
+  if (slots === "2") return V1_TWO_SITTINGS;
+  // The tab stress case: closed tabs giving way to the open one.
+  if (slots === "7") return V1_SEVEN_SITTINGS;
+  // Owner review (Oct 7): the demo opens on a three-sitting day so the stacked
+  // slot tabs are always in view. `?slots=1` shows the launch single sitting.
+  return V1_THREE_SITTINGS;
+}

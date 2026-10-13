@@ -45,7 +45,6 @@ import {
   DECIDED_SORTS,
   EMPTY_REGISTRATIONS_FILTERS,
   PENDING_SORTS,
-  REGISTER_OPTIONS,
   REGISTRATIONS_QUEUE,
   REQUEST_TYPE_OPTIONS,
   WAIT_OPTIONS,
@@ -161,7 +160,6 @@ export function ApproveRegistrationsScreen() {
     filters.accountType !== "all" ||
     (tab === "pending" &&
       (filters.requestType !== "all" ||
-        filters.register !== "all" ||
         filters.wait !== "all"));
 
   function changeFilters(next: Partial<RegistrationsFilters>) {
@@ -359,7 +357,7 @@ export function ApproveRegistrationsScreen() {
  * the Filters sheet with chips for what is applied, and the order at the end of the row.
  *
  * **Contextual by tab.** Pending is read by what needs a decision — account type, request
- * type, what the register said, and how long they have waited (the same bands the wait
+ * type and how long they have waited (the same bands the wait
  * column colours by). A decided request is no longer read by any of those but who it was,
  * so Approved and Rejected keep only the account type — one control, which `CourtFilters`
  * shows on the row rather than behind a button.
@@ -408,18 +406,6 @@ function RegistrationFilters({
         options: REQUEST_TYPE_OPTIONS,
         onApply: (value) =>
           onChange({ requestType: value as RegistrationsFilters["requestType"] }),
-      },
-      {
-        /* Advocates only — clerks have no register, so asking for any answer leaves
-           them out by itself. */
-        id: "registrations-register",
-        label: "Bar Council check",
-        value: filters.register,
-        all: "all",
-        allLabel: "Any result",
-        options: REGISTER_OPTIONS,
-        onApply: (value) =>
-          onChange({ register: value as RegistrationsFilters["register"] }),
       },
       {
         id: "registrations-wait",

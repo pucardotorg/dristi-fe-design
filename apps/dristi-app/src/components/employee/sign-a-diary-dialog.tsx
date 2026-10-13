@@ -19,6 +19,8 @@ import {
   type ADiaryEntry,
 } from "@/lib/employee/sign-a-diary";
 import { Identifier } from "@/components/chrome/identifier";
+import { useCourtLocalized } from "@/components/court/court-provider";
+import { useCourtText } from "@/components/court/court-provider";
 
 /**
  * One day's entry, read, corrected, and then signed.
@@ -128,6 +130,7 @@ function SignADiaryBody({
   onSign: (entry: ADiaryEntry, business: string) => void;
   onReturnFocus: () => void;
 }) {
+  const courtText = useCourtText();
   const document = React.useMemo(() => buildADiaryDocument(entry), [entry]);
   /* The draft. It starts as what is recorded and is compared against the entry rather
      than against its own first value, so a Save leaves the editor clean without a second
@@ -310,7 +313,7 @@ function SignADiaryBody({
           }}
           download={{
             onDownload: () => downloadADiaryDocument(entry),
-            label: `Download the order passed on ${formatADiaryDate(entry.dated)} in ${entry.caseNumber}`,
+            label: `Download the order passed on ${formatADiaryDate(entry.dated)} in ${courtText(entry.caseNumber)}`,
           }}
         />
       </div>
@@ -346,7 +349,8 @@ function SignADiaryBody({
  *   not a product surface, so the table and the heading are drawn with the paper palette
  *   rather than the DS `Table` — the same treatment `SignOrderDialog` gives its order.
  */
-function ADiaryOrderFacsimile({ document }: { document: ADiaryDocument }) {
+function ADiaryOrderFacsimile({ document: storedDocument }: { document: ADiaryDocument }) {
+  const document = useCourtLocalized(storedDocument);
   return (
     <article className="flex flex-col gap-6 rounded-md bg-paper p-6 text-paper-foreground">
       <header className="flex flex-col gap-2 text-center">

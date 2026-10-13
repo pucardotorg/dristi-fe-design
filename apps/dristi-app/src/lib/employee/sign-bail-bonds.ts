@@ -46,6 +46,8 @@
 
 import { CURRENT_STAFF } from "./content";
 import { causeTitle, formatListingDate, isoDay, parseIsoDay } from "./hearings";
+import { caseSearchKey } from "@/lib/court/localize";
+import { localizeForDownload, voicedForDownload } from "@/lib/court/browser";
 
 /**
  * Whether the signature is on it yet.
@@ -451,7 +453,7 @@ export function filterSignBailBonds(
   rows: SignBailBond[],
   filters: SignBailBondFilters,
 ): SignBailBond[] {
-  const query = filters.query.trim().toLowerCase();
+  const query = caseSearchKey(filters.query);
   return rows.filter((bond) => {
     if (bond.status !== "pending-signature") return false;
     if (!query) return true;
@@ -667,11 +669,11 @@ export function signBailBondDocumentFilename(bond: SignBailBond): string {
 export function downloadSignBailBondDocument(bond: SignBailBond): void {
   const document = buildSignBailBondDocument(bond);
   const url = URL.createObjectURL(
-    new Blob([signBailBondDocumentText(document)], { type: "text/plain" }),
+    new Blob([localizeForDownload(signBailBondDocumentText(document))], { type: "text/plain" }),
   );
   const anchor = window.document.createElement("a");
   anchor.href = url;
-  anchor.download = signBailBondDocumentFilename(bond);
+  anchor.download = signBailBondDocumentFilename(voicedForDownload(bond));
   anchor.click();
   URL.revokeObjectURL(url);
 }

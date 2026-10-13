@@ -16,9 +16,9 @@ const row = (
 });
 // a & c are the same court by name (two JMFC courtrooms); b is a different court.
 const rows = [
-  row("a", 10, "JMFC Court", "JMFC Court 1, Kollam"),
-  row("b", 2, "CJM Court", "CJM Court, Kollam"),
-  row("c", 2, "JMFC Court", "JMFC Court 2, Kollam", "Arguments"),
+  row("a", 10, "JMFC Court", "JMFC Court 1"),
+  row("b", 2, "CJM Court", "CJM Court"),
+  row("c", 2, "JMFC Court", "JMFC Court 2", "Arguments"),
 ];
 
 test("item groups sort numerically and keep matters across courts together", () => {

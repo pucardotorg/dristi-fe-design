@@ -10,7 +10,7 @@ import {
   DEFAULT_FILTERS,
   dueBucketOf,
   isNarrowed,
-  kindCounts,
+  categoryCounts,
   summaryOf,
   viewCounts,
   type World,
@@ -90,18 +90,18 @@ describe("visibility and views — per viewer", () => {
   });
 });
 
-describe("kindCounts", () => {
+describe("categoryCounts", () => {
   const counts = (f: Partial<typeof DEFAULT_FILTERS> = {}, user = senior) =>
-    kindCounts(world(user), { ...DEFAULT_FILTERS, ...f });
+    categoryCounts(world(user), { ...DEFAULT_FILTERS, ...f });
 
   it("counts each kind in the Needs-action view", () => {
     const c = counts();
     assert.equal(c.pay, 1);
     assert.equal(c.sign, 2);
     // The started filing stays under To file — a draft is a state, not an act.
-    assert.equal(c.file, 2);
-    assert.equal(c.hearing, 1);
-    assert.equal(c.returned, 1);
+    // A scrutiny return is File/Submit too, as the PRD files "Correct defects".
+    assert.equal(c.file, 3);
+    assert.equal(c.others, 1);
   });
 
   it("describes the other views too", () => {
@@ -129,12 +129,10 @@ describe("kindCounts", () => {
 
   it("a search narrows the pills with the list", () => {
     assert.deepEqual(counts({ query: "zzz-no-match" }), {
-      sign: 0,
       pay: 0,
+      sign: 0,
       file: 0,
-      returned: 0,
-      review: 0,
-      hearing: 0,
+      others: 0,
     });
   });
 });
@@ -217,10 +215,11 @@ describe("applyFilters", () => {
     ]);
   });
 
-  it("a card narrows to one kind, and started work stays in its own queue", () => {
+  it("a pill narrows to one category, and started work stays in its own queue", () => {
     assert.deepEqual(ids({ kinds: ["sign"] }), ["today-sign", "ready-sign"]);
-    // The half-written filing sits under To file beside the untouched one.
-    assert.deepEqual(ids({ kinds: ["file"] }), ["week-file", "draft-file"]);
+    // The half-written filing and the scrutiny return sit under File/Submit beside the
+    // untouched filing.
+    assert.deepEqual(ids({ kinds: ["file"] }), ["week-file", "returned", "draft-file"]);
     // The junior sees only the filing they are on; visibility is unchanged by this.
     assert.deepEqual(
       applyFilters(world(junior), { ...DEFAULT_FILTERS, kinds: ["file"] }).map((t) => t.id),
@@ -243,7 +242,7 @@ describe("applyFilters", () => {
   });
 
   it("court, advocate and search", () => {
-    assert.deepEqual(ids({ courts: ["JMFC Court 1, Kollam"] }), []);
+    assert.deepEqual(ids({ courts: ["JMFC Court 1"] }), []);
     assert.equal(ids({ courts: [kase.court] }).length, 7);
     assert.equal(ids({ advocates: [junior.id] }).length, 7);
     assert.deepEqual(ids({ advocates: [outsider.id] }), []);

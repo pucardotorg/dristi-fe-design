@@ -141,7 +141,7 @@ const PACK: Partial<Record<string, ProcessPersonSeed[]>> = {
           channels: [
             {
               type: "Registered post",
-              destination: "14 Market Road, Punalur, Kollam 691305",
+              destination: "14 Market Road, Punalur 691305",
               status: "not-delivered",
               statusOn: "20 March 2026",
               nonDeliveryReason: "Addressee left.",

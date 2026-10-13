@@ -158,7 +158,7 @@ function VakalatnamaPreviewDialog({
                   Vakalatnama
                 </p>
                 <p className="text-caption text-pretty text-muted-foreground">
-                  In the Court of the Judicial First Class Magistrate I, Kollam
+                  In the Court of the Judicial First Class Magistrate I
                 </p>
                 <p className="text-body-compact font-semibold">{item.caseRef}</p>
               </div>

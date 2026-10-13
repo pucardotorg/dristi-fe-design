@@ -164,9 +164,8 @@ export function markReady(task: Task, ctx: Ctx, note?: string, files?: StoredFil
 
 /** What the correction screen writes back when a defect's resolution changes. */
 const RESOLUTION_WORD: Record<Resolution["how"], string> = {
-  accepted: "took scrutiny's suggested value for",
   edited: "corrected",
-  kept: "kept the filed value, with a reason, for",
+  kept: "kept the filed value for",
   replaced: "replaced the document for",
 };
 
@@ -313,8 +312,8 @@ export function file(task: Task, ctx: Ctx, files?: StoredFileRef[]): Task {
 /**
  * Send the corrections back to scrutiny, once every defect is addressed. Signatories only.
  *
- * The gate reads the recorded resolutions rather than a tick: a defect whose suggestion
- * was overridden without a justification does not count (brief D6/D7).
+ * The gate reads the recorded resolutions rather than a tick: a field counts once its
+ * value has changed or the advocate kept it as filed, a document once it is replaced.
  */
 export function refile(task: Task, ctx: Ctx): Task {
   if (task.kind !== "returned") throw new TransitionError("invalid", "Not a returned filing.");
@@ -487,7 +486,7 @@ export function courtReturned(task: Task, ctx: Ctx, defects: string[]): { task: 
     kind: "returned",
     title: `Fix ${plural} and re-file ${object}`,
     why: { event: `Scrutiny returned ${object} for compliance with ${plural}`, at },
-    whatToDo: "Cure each defect, attach the corrected document where one is needed, and re-file.",
+    whatToDo: "Fix each defect, attach the corrected document where one is needed, and re-file.",
     documentsNeeded: task.documentsNeeded,
     dueAt: task.dueAt,
     dueKind: task.dueKind,

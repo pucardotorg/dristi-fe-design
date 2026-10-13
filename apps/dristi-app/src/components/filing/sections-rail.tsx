@@ -3,9 +3,15 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronRightIcon, FilesIcon, PanelLeftOpenIcon } from "lucide-react";
+import {
+  CheckIcon,
+  ChevronRightIcon,
+  CircleDashedIcon,
+  FilesIcon,
+  PanelLeftOpenIcon,
+} from "lucide-react";
 
-import { draftProgress } from "@/lib/filing/selectors";
+import { draftProgress, sectionState, type SectionState } from "@/lib/filing/selectors";
 import {
   FILING_STEPS,
   stepFromPathname,
@@ -30,6 +36,7 @@ import {
   UploadedCountBadge,
   UploadedDocsDrawer,
 } from "@/components/filing/uploaded-docs-drawer";
+import { useCourtText } from "@/components/court/court-provider";
 
 /**
  * A row in the rail. `Button` is the DS control that already meets the 40px metric, so
@@ -61,6 +68,27 @@ function useActiveStep(): FilingStep | undefined {
 
 /* ───────────────────────────── Rows ────────────────────────────────── */
 
+/**
+ * Where a section stands, at the end of its row — supporting information, so it stays
+ * small and quiet: a check for done, a dashed ring for started, nothing for untouched.
+ * The shape carries the meaning and the words are there for a screen reader, so colour
+ * is never the only cue.
+ */
+function SectionMark({ state }: { state: SectionState }) {
+  if (state === "untouched") return null;
+  return state === "done" ? (
+    <>
+      <CheckIcon aria-hidden className="ml-auto text-success-ink" />
+      <span className="sr-only">, complete</span>
+    </>
+  ) : (
+    <>
+      <CircleDashedIcon aria-hidden className="ml-auto text-muted-foreground" />
+      <span className="sr-only">, in progress</span>
+    </>
+  );
+}
+
 function StepRow({
   step,
   active,
@@ -70,7 +98,8 @@ function StepRow({
   active: boolean;
   onNavigate: () => void;
 }) {
-  const { hrefFor } = useFiling();
+  const courtText = useCourtText();
+  const { draft, hrefFor } = useFiling();
   const blocked = useLeaveBlocked();
   const Icon = step.icon;
 
@@ -86,11 +115,11 @@ function StepRow({
               className={cn(ROW, ROW_PLACEHOLDER)}
             >
               <Icon aria-hidden />
-              <span className="min-w-0 truncate">{step.title}</span>
+              <span className="min-w-0 truncate">{courtText(step.title)}</span>
             </Button>
           </TooltipTrigger>
           <TooltipContent side="right">
-            {step.title}: {PLACEHOLDER_NOTE[step.id] ?? "not a screen of its own"}
+            {courtText(step.title)}: {PLACEHOLDER_NOTE[step.id] ?? "not a screen of its own"}
           </TooltipContent>
         </Tooltip>
       </li>
@@ -115,7 +144,8 @@ function StepRow({
         aria-current={active ? "page" : undefined}
       >
         <Icon aria-hidden className={active ? undefined : "text-muted-foreground"} />
-        <span className="min-w-0 truncate">{step.title}</span>
+        <span className="min-w-0 truncate">{courtText(step.title)}</span>
+        <SectionMark state={sectionState(draft, step.id)} />
       </Link>
     </Button>
   );
@@ -148,6 +178,7 @@ function StepList({
   onNavigate: () => void;
   onOpenDocs: () => void;
 }) {
+  const courtText = useCourtText();
   const active = useActiveStep();
 
   return (
@@ -161,7 +192,7 @@ function StepList({
       {stepGroups().map((g) => (
         <div key={g.group} className="flex w-full flex-col gap-1">
           <h2 className="px-2 text-caption font-medium text-muted-foreground">
-            {g.group}
+            {courtText(g.group)}
           </h2>
           <ul className="flex flex-col gap-1">
             {g.steps.map((s) => (

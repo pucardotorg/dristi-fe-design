@@ -58,6 +58,8 @@ import {
 import { partiesLabel, type CaseRecord } from "@/lib/cases/types";
 import { withOrigin } from "@/lib/nav/origin";
 import { cn } from "@/lib/utils";
+import { useCourt, useCourtText } from "@/components/court/court-provider";
+import { localizeCourtText } from "@/lib/court/localize";
 
 /**
  * Step one when Raise application is opened from the rail: which case.
@@ -80,6 +82,8 @@ export function RaiseApplicationCaseChooser({
   /** Server-stable "now" for the peek's due dates. */
   now: number;
 }) {
+  // Search matches the number as shown, in the selected state's terms.
+  const { court } = useCourt();
   const headingId = useId();
   const [query, setQuery] = useState("");
   const typed = query.trim().length > 0;
@@ -95,11 +99,11 @@ export function RaiseApplicationCaseChooser({
     const needle = query.trim().toLowerCase();
     if (!needle) return ordered;
     return ordered.filter((record) =>
-      `${record.caseNumber} ${partiesLabel(record)}`
+      `${localizeCourtText(record.caseNumber, court)} ${partiesLabel(record)}`
         .toLowerCase()
         .includes(needle),
     );
-  }, [ordered, query]);
+  }, [ordered, query, court]);
 
   // One growing list, not pages (owner, Sept 21). Picking a case is a scan down
   // a list on the way somewhere: nobody returns to "page 4" of it, and a pager
@@ -245,12 +249,13 @@ function selectHref(record: CaseRecord) {
 const ROW_SHELL = cn(PANEL_CLASS, "rounded-xl px-4 py-3");
 
 function CaseFacts({ record }: { record: CaseRecord }) {
+  const courtText = useCourtText();
   return (
     <ItemDescription className="line-clamp-none text-caption text-muted-foreground">
       {/* Under the row's own control, so the number is text, not a second one. */}
       <Identifier value={record.caseNumber} copyable={false} />
       <span aria-hidden> · </span>
-      {record.court}
+      {courtText(record.court)}
     </ItemDescription>
   );
 }
@@ -357,6 +362,7 @@ function TouchCaseRow({
   expanded: boolean;
   onExpandedChange: (open: boolean) => void;
 }) {
+  const courtText = useCourtText();
   const { open } = useCasePeek();
 
   return (
@@ -382,7 +388,7 @@ function TouchCaseRow({
           <span className="text-caption text-muted-foreground">
             <Identifier value={record.caseNumber} copyable={false} />
             <span aria-hidden> · </span>
-            {record.court}
+            {courtText(record.court)}
           </span>
           <span className="mt-1">
             <CaseStage record={record} detail={false} />

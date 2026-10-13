@@ -48,7 +48,7 @@ export const DEFAULT_COURT_SESSION: CourtSession = {
   username: "",
   name: CURRENT_STAFF.name,
   role: CURRENT_STAFF.role,
-  district: "Kollam",
+  district: "Sample District",
   court: CURRENT_STAFF.court,
 };
 

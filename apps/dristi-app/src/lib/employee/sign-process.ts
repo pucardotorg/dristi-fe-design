@@ -45,6 +45,7 @@
 import { CURRENT_STAFF } from "./content";
 import { matchesQuery } from "./filter-state";
 import { causeTitle, formatListingDate, parseIsoDay } from "./hearings";
+import { localizeForDownload, voicedForDownload } from "@/lib/court/browser";
 
 /**
  * Which instrument the row is — the "Process type" column.
@@ -1087,7 +1088,7 @@ export const PROCESS_LINE: CourtProcess[] = [
     id: "pr-1346",
     caseNumber: "ST/1346/2026",
     parties: {
-      complainant: "Kollam Beach Road Auto Works",
+      complainant: "Beach Road Auto Works",
       accused: "Manoj Chandran",
     },
     type: "warrant",
@@ -1877,11 +1878,11 @@ export function processDocumentFilename(process: CourtProcess): string {
 export function downloadProcessDocument(process: CourtProcess): void {
   const document = buildProcessDocument(process);
   const url = URL.createObjectURL(
-    new Blob([processDocumentText(document)], { type: "text/plain" }),
+    new Blob([localizeForDownload(processDocumentText(document))], { type: "text/plain" }),
   );
   const anchor = window.document.createElement("a");
   anchor.href = url;
-  anchor.download = processDocumentFilename(process);
+  anchor.download = processDocumentFilename(voicedForDownload(process));
   anchor.click();
   URL.revokeObjectURL(url);
 }
@@ -1903,7 +1904,7 @@ export function downloadProcessBundle(rows: CourtProcess[]): void {
   const body = rows
     .map((process) => processDocumentText(buildProcessDocument(process)))
     .join("\n\n———\n\n");
-  const url = URL.createObjectURL(new Blob([body], { type: "text/plain" }));
+  const url = URL.createObjectURL(new Blob([localizeForDownload(body)], { type: "text/plain" }));
   const anchor = window.document.createElement("a");
   anchor.href = url;
   anchor.download = `process-${rows.length}-documents.txt`;

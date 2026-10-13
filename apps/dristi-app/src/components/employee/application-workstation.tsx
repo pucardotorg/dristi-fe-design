@@ -7,6 +7,7 @@ import { ArrowDownIcon, ArrowLeftIcon, ArrowUpIcon, InboxIcon } from "lucide-rea
 import { toast } from "sonner";
 
 import { DocumentPreview } from "@/components/cases/document-preview";
+import { useCourtText } from "@/components/court/court-provider";
 import { Identifier } from "@/components/chrome/identifier";
 import { ApplicationFacsimile } from "@/components/employee/application-review-dialog";
 import {
@@ -577,7 +578,7 @@ function ApplicationColumn({
             Objection from the {objection.side}
           </h2>
           <p className="text-body whitespace-pre-wrap">
-            {decodeDraft(objection.form).details.text || "No grounds were entered."}
+            {decodeDraft(objection.form).objectionReason || "No grounds were entered."}
           </p>
           <p className="text-body-compact text-muted-foreground">
             Received {formatCaseDate(objection.submittedOn ?? objection.createdOn)}
@@ -805,6 +806,7 @@ function DecisionPanel({
   const hearing = { day: suggestion };
   const queue = queueOf(app, on);
   const filedOn = formatCaseDate(app.submittedOn ?? app.createdOn);
+  const courtText = useCourtText();
 
   const [panel, setPanel] = React.useState<Panel>(() => {
     /* Words edited earlier and not yet saved come back with the choice they were for. */
@@ -847,18 +849,21 @@ function DecisionPanel({
     return true;
   }
 
-  /** The order this panel would draw up, in the configured standard words. */
+  /** The order this panel would draw up, in the configured standard words — written in
+      the selected court's numbers (`CourtSwitch`), since the order is drafted from it as
+      it reads here. */
   const kind: OrderKind =
     app.pendingOrder?.kind ??
     (app.status === "pending-review" ? "dismiss" : panel.order);
-  const standardText =
+  const standardText = courtText(
     kind === "dismiss"
       ? dismissalText(app, filedOn)
       : decisionText(
           app,
           kind,
           panel.newHearing ? formatCaseDate(dayOfDate(panel.newHearing)) : undefined,
-        );
+        ),
+  );
   const orderText = panel.edited ? panel.text : standardText;
   const needsHearing = kind === "accept" && acceptanceNeedsHearingDate(app.type);
 

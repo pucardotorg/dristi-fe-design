@@ -1,17 +1,10 @@
 "use client";
 
 import * as React from "react";
-import {
-  FlagIcon,
-  MousePointer2Icon,
-  SquareDashedIcon,
-  ZoomInIcon,
-  ZoomOutIcon,
-} from "lucide-react";
+import { ZoomInIcon, ZoomOutIcon } from "lucide-react";
 
-import { collectMarks, rectStyle } from "@/lib/employee/scrutiny/field";
-import type { BundleTool, Rect } from "@/lib/employee/scrutiny/types";
-import type { ScrutinyController } from "@/lib/employee/scrutiny/use-scrutiny-state";
+import { rectStyle } from "@/lib/employee/scrutiny/field";
+import type { Rect } from "@/lib/employee/scrutiny/types";
 import {
   useLocalStorageValue,
   writeLocalStorageValue,
@@ -20,10 +13,7 @@ import { cn } from "@/lib/utils";
 import { GENERATED_PAGES } from "@/components/employee/scrutiny/generated-pages";
 import { PageSheet, SHEET_BOX } from "@/components/employee/page-facsimile";
 import { useScrutinyCase } from "@/components/employee/scrutiny/scrutiny-case-context";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Tooltip,
   TooltipContent,
@@ -37,27 +27,24 @@ export interface BundleHandle {
   goToDoc: (docId: string) => void;
 }
 
+/**
+ * The case bundle, read-only. The officer reads and zooms; there is no tool to draw on a
+ * page — annotations are gone from scrutiny (owner, 2026-10-08), so a flag is said in
+ * words on the field it is about.
+ */
 export function BundleView({
-  controller,
   aiOn,
   spot,
-  onOpenFlag,
   ref,
 }: {
-  controller: ScrutinyController;
   aiOn: boolean;
   /** The AI evidence region for the selected field, if it has one. */
   spot: { doc: string; rect: Rect } | null;
-  onOpenFlag: (fieldId: string) => void;
   ref?: React.Ref<BundleHandle>;
 }) {
   const { bundle } = useScrutinyCase();
   const scrollRef = React.useRef<HTMLDivElement>(null);
-  const bundleRef = React.useRef<HTMLDivElement>(null);
   const [zoomBase, setZoomBase] = React.useState(880);
-  const [hint, setHint] = React.useState<string | null>(null);
-
-  const { tool, evidenceTarget, flags, draft } = controller;
 
   /*
    * Zoom is persisted state, so it lives in localStorage and not in `useState`: the
@@ -178,15 +165,15 @@ export function BundleView({
 
   React.useImperativeHandle(ref, () => ({ goToDoc }), [goToDoc]);
 
-  /* ── panning (Select tool, zoomed in) ──────────────────────────────────── */
+  /* ── panning (zoomed in) ───────────────────────────────────────────────── */
 
   const pan = React.useRef<[number, number, number, number] | null>(null);
   const [panning, setPanning] = React.useState(false);
 
   function onScrollPointerDown(event: React.PointerEvent) {
     const sc = scrollRef.current;
-    if (!sc || tool !== "select" || zoom <= 100) return;
-    if ((event.target as HTMLElement).closest("button,[data-mark]")) return;
+    if (!sc || zoom <= 100) return;
+    if ((event.target as HTMLElement).closest("button")) return;
     pan.current = [event.clientX, event.clientY, sc.scrollLeft, sc.scrollTop];
     setPanning(true);
     try {
@@ -213,122 +200,6 @@ export function BundleView({
     }
   }
 
-  /*
-   * Drawing a box. Pointer capture keeps the whole gesture on the bundle even when the
-   * pointer crosses a child, leaves the page, or ends outside the window. `touch-none`
-   * on the pages stops the scroller claiming the gesture as a pan and cancelling it —
-   * the two ways this silently failed on trackpads.
-   */
-  const drag = React.useRef<{
-    x: number;
-    y: number;
-    page: HTMLElement;
-    box: DOMRect;
-  } | null>(null);
-  const [live, setLive] = React.useState<{ page: string; rect: Rect } | null>(
-    null,
-  );
-
-  function pageUnder(event: React.PointerEvent): HTMLElement | null {
-    const el = document.elementFromPoint(event.clientX, event.clientY);
-    return (el as HTMLElement | null)?.closest("[data-page]") ?? null;
-  }
-
-  function onBundlePointerDown(event: React.PointerEvent) {
-    if (tool !== "rect" || event.button !== 0) return;
-    const page =
-      (event.target as HTMLElement).closest<HTMLElement>("[data-page]") ??
-      pageUnder(event);
-    if (!page) return;
-    drag.current = {
-      x: event.clientX,
-      y: event.clientY,
-      page,
-      box: page.getBoundingClientRect(),
-    };
-    try {
-      bundleRef.current?.setPointerCapture(event.pointerId);
-    } catch {
-      /* capture unavailable */
-    }
-    event.preventDefault();
-  }
-
-  function onBundlePointerMove(event: React.PointerEvent) {
-    if (tool !== "rect" || !drag.current) return;
-    setLive({
-      page: drag.current.page.dataset.doc ?? "",
-      rect: rectFrom(drag.current, event),
-    });
-    event.preventDefault();
-  }
-
-  const endDraw = React.useCallback(
-    (event: PointerEvent | React.PointerEvent) => {
-      const d = drag.current;
-      if (!d) return;
-      drag.current = null;
-      setLive(null);
-      try {
-        bundleRef.current?.releasePointerCapture(event.pointerId);
-      } catch {
-        /* already released */
-      }
-
-      const raw = rectFrom(d, event);
-      if (raw[2] < 0.8 || raw[3] < 0.8) return;
-      const left = Math.max(0, Math.min(100, raw[0]));
-      const top = Math.max(0, Math.min(100, raw[1]));
-      const rect: Rect = [
-        round(left),
-        round(top),
-        round(Math.min(raw[2], 100 - left)),
-        round(Math.min(raw[3], 100 - top)),
-      ];
-
-      const docId = d.page.dataset.doc;
-      if (!docId) return;
-      const outcome = controller.commitRect(docId, rect);
-      if (outcome === "declined") {
-        // Generated pages ARE the fields; the refusal stays up until the next tool
-        // action rather than blinking.
-        setHint("Generated page — flag the field instead");
-      } else {
-        setHint(null);
-      }
-    },
-    [controller],
-  );
-
-  React.useEffect(() => {
-    const onUp = (event: PointerEvent) => {
-      if (drag.current) endDraw(event);
-    };
-    window.addEventListener("pointerup", onUp);
-    return () => window.removeEventListener("pointerup", onUp);
-  }, [endDraw]);
-
-  /*
-   * The refusal clears the moment the officer changes tool or re-arms — adjusted during
-   * render against the previous values, which is React's own answer to "reset state when
-   * a prop changes" and avoids a second render pass.
-   */
-  const toolKey = `${tool}:${evidenceTarget ?? ""}`;
-  const [prevToolKey, setPrevToolKey] = React.useState(toolKey);
-  if (toolKey !== prevToolKey) {
-    setPrevToolKey(toolKey);
-    setHint(null);
-  }
-
-  const drawHint =
-    hint ??
-    (evidenceTarget
-      ? "Drag to annotate the error"
-      : "Drag to annotate — this asks the advocate to re-upload the document");
-
-  const marks = React.useMemo(() => collectMarks(flags), [flags]);
-  const drawing = tool === "rect";
-
   return (
     <div className="flex h-full min-w-0 flex-col bg-surface-sunken @container">
       {/* Chrome: white bar, hairline seam. */}
@@ -340,54 +211,6 @@ export function BundleView({
         <b className="me-auto min-w-0 flex-1 truncate text-body-compact font-semibold">
           Case bundle
         </b>
-
-        {/* No segmented outline: the default variant is borderless — transparent at rest,
-            `accent-strong` on the pressed tool — so Select and Mark read as the same plain
-            ghost icon buttons as the zoom controls beside them, the active one filled
-            rather than boxed (owner, 2026-09-15). */}
-        <ToggleGroup
-          type="single"
-          value={tool}
-          onValueChange={(value) => value && controller.setTool(value as BundleTool)}
-          aria-label="Bundle tool"
-        >
-          {/* Icon-only, 40px square — the same compact treatment as the zoom controls
-              beside them. The label lives in the tooltip and the accessible name; 40px is
-              the touch floor the registry's tablets need. */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <ToggleGroupItem
-                value="select"
-                className="size-10"
-                aria-label="Select"
-              >
-                <MousePointer2Icon />
-              </ToggleGroupItem>
-            </TooltipTrigger>
-            <TooltipContent>Select</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <ToggleGroupItem value="rect" className="size-10" aria-label="Mark">
-                <SquareDashedIcon />
-              </ToggleGroupItem>
-            </TooltipTrigger>
-            <TooltipContent>Mark</TooltipContent>
-          </Tooltip>
-        </ToggleGroup>
-
-        {/* `bg-border` is the darkest non-text mark in the system, and a chrome bar is
-            the last place it belongs — hairline is the seam role (ui-craft §1.1). */}
-        {/* `self-center` is not optional: the DS separator ships
-            `data-vertical:self-stretch`, so an explicit height pins the rule to the top
-            of the flex line and it fuses with the bar's own seam. Both need `!`: the
-            primitive's are `data-vertical:` variants, and an attribute selector outranks
-            a plain utility. The court top bar carries the same override, for the same
-            reason. */}
-        <Separator
-          orientation="vertical"
-          className="h-5! self-center! bg-hairline"
-        />
 
         <Tooltip>
           <TooltipTrigger asChild>
@@ -437,18 +260,8 @@ export function BundleView({
         onPointerUp={onScrollPointerUp}
         onPointerCancel={onScrollPointerUp}
       >
-        {drawing ? (
-          <div className="pointer-events-none sticky top-0 z-8 mb-2 flex justify-center">
-            {/* Guidance is neutral. The workbench spends its one teal on Register case
-                (the Ration Teal Law), and a brand-filled pill floating over the bundle
-                was competing with it for the same meaning. */}
-            <Badge variant="secondary">{drawHint}</Badge>
-          </div>
-        ) : null}
-
         <div
-          ref={bundleRef}
-          className={cn("mx-auto flex flex-col gap-4", drawing && "cursor-crosshair")}
+          className="mx-auto flex flex-col gap-4"
           style={
             {
               width: zoomBase,
@@ -456,10 +269,6 @@ export function BundleView({
               zoom: zoom / 100,
             } as React.CSSProperties
           }
-          onPointerDown={onBundlePointerDown}
-          onPointerMove={onBundlePointerMove}
-          onPointerUp={endDraw}
-          onDragStart={(event) => drawing && event.preventDefault()}
         >
           {bundle.map((doc) => {
             /* A derived filing draws every page as an illegible facsimile; the authored
@@ -470,9 +279,6 @@ export function BundleView({
             const sheet = doc.kind === "facsimile" ? doc.sheet : undefined;
             const box = sheet ? SHEET_BOX[sheet] : null;
             const Generated = sheet ? undefined : GENERATED_PAGES[doc.id];
-            const docMarks = marks.filter((m) => m.evidence.doc === doc.id);
-            const draftMark =
-              draft?.evidence?.doc === doc.id ? draft.evidence : null;
             return (
               <div
                 className="flex scroll-mt-3 flex-col gap-1.5"
@@ -485,12 +291,7 @@ export function BundleView({
                   <span className="tabular-nums">{doc.no}</span> · {doc.name}
                 </div>
                 <div
-                  data-page=""
-                  data-doc={doc.id}
-                  className={cn(
-                    "relative overflow-hidden rounded-xl bg-paper shadow-raised",
-                    drawing && "touch-none select-none [&_*]:touch-none",
-                  )}
+                  className="relative overflow-hidden rounded-xl bg-paper shadow-raised"
                   style={box ? { aspectRatio: `${box.w} / ${box.h}` } : undefined}
                 >
                   {doc.kind === "image" && doc.src ? (
@@ -516,62 +317,6 @@ export function BundleView({
                     />
                   ) : null}
 
-                  {docMarks.map((mark) => (
-                    <button
-                      key={mark.fieldId}
-                      type="button"
-                      data-mark=""
-                      className={MARK_CLASS}
-                      style={rectStyle(mark.evidence.rect)}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onOpenFlag(mark.fieldId);
-                      }}
-                      aria-label={
-                        mark.count > 1
-                          ? `Mark on ${doc.name}, ${mark.count} items — open the item it belongs to`
-                          : `Mark on ${doc.name} — open the item it belongs to`
-                      }
-                    >
-                      {/*
-                       * One box per defect. A linked document item copies its field
-                       * item's rectangle, and two identical stacked boxes read as two
-                       * defects — so the tag counts instead. The tag is already
-                       * `min-w-5` for exactly this.
-                       */}
-                      <span className={MARK_TAG} aria-hidden="true">
-                        {mark.count > 1 ? (
-                          <span className="tabular-nums">{mark.count}</span>
-                        ) : (
-                          <FlagIcon className="size-3" strokeWidth={2.4} />
-                        )}
-                      </span>
-                    </button>
-                  ))}
-
-                  {/*
-                   * The mark in the open composer has no saved flag yet — without this,
-                   * the box just drawn disappears on release.
-                   */}
-                  {draftMark ? (
-                    <div
-                      data-mark=""
-                      className={cn(MARK_CLASS, "ring-3 ring-focus-ring-destructive")}
-                      style={rectStyle(draftMark.rect)}
-                      aria-hidden="true"
-                    >
-                      <span className={MARK_TAG}>
-                        <FlagIcon className="size-3" strokeWidth={2.4} />
-                      </span>
-                    </div>
-                  ) : null}
-
-                  {live?.page === doc.id ? (
-                    <div
-                      className="pointer-events-none absolute z-5 border-2 border-dashed border-destructive"
-                      style={rectStyle(live.rect)}
-                    />
-                  ) : null}
                 </div>
               </div>
             );
@@ -581,31 +326,3 @@ export function BundleView({
     </div>
   );
 }
-
-/**
- * A saved mark. The 1px `paper-border` ring inside and out is what keeps a red box
- * legible on both a white generated page and a dark scan — the DS names that ink, so it
- * is not a local invention.
- */
-const MARK_CLASS =
-  "absolute z-2 cursor-pointer rounded-sm border-2 border-destructive bg-transparent ring-1 ring-paper-border transition-shadow hover:ring-3 hover:ring-focus-ring-destructive";
-
-const MARK_TAG =
-  "absolute -top-2.5 -end-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-caption font-semibold text-destructive-foreground shadow-raised";
-
-function round(n: number) {
-  return Math.round(n * 10) / 10;
-}
-
-function rectFrom(
-  d: { x: number; y: number; box: DOMRect },
-  event: { clientX: number; clientY: number },
-): Rect {
-  return [
-    ((Math.min(d.x, event.clientX) - d.box.left) / d.box.width) * 100,
-    ((Math.min(d.y, event.clientY) - d.box.top) / d.box.height) * 100,
-    (Math.abs(event.clientX - d.x) / d.box.width) * 100,
-    (Math.abs(event.clientY - d.y) / d.box.height) * 100,
-  ];
-}
-

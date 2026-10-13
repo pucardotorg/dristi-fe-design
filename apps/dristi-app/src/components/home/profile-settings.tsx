@@ -16,6 +16,8 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { Locale } from "@/lib/onboarding/content";
 import { Identifier } from "@/components/chrome/identifier";
+import { useCourtText } from "@/components/court/court-provider";
+import type { ProfileRole } from "@/components/shell/profile";
 
 const REQUIRED_MARK = <span className="text-destructive">*</span>;
 
@@ -24,18 +26,24 @@ export type AdvocateRequestDetails = {
   idFile: File;
 };
 
+const ACCOUNT_LABEL: Record<ProfileRole, string> = {
+  advocate: "Advocate account",
+  litigant: "Litigant account",
+  clerk: "Clerk account",
+};
+
 export function ProfileSettings({ locale, profileName, idSubmitted, submittedId, advocateRequest, profileRole, advocateProfileAvailable, onIdSubmitted, onProfileCompleted, onAdvocateRequest, onSwitchProfile }: {
   locale: Locale;
   profileName: string;
   idSubmitted: boolean;
   submittedId: SubmittedId | null;
   advocateRequest: AdvocateRequestDetails | null;
-  profileRole: "litigant" | "advocate";
+  profileRole: ProfileRole;
   advocateProfileAvailable: boolean;
   onIdSubmitted: (submission: SubmittedId) => void;
   onProfileCompleted: () => void;
   onAdvocateRequest: (details: AdvocateRequestDetails) => void;
-  onSwitchProfile: () => void;
+  onSwitchProfile: (role: ProfileRole) => void;
 }) {
   const [addressSaved, setAddressSaved] = React.useState(false);
   const [addressOpen, setAddressOpen] = React.useState(false);
@@ -76,19 +84,19 @@ export function ProfileSettings({ locale, profileName, idSubmitted, submittedId,
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" aria-label="Switch profile">
-                  {profileRole === "advocate" ? "Advocate account" : "Litigant account"}
+                  {ACCOUNT_LABEL[profileRole]}
                   <ChevronsUpDownIcon data-icon="inline-end" aria-hidden />
                 </Button>
               </PopoverTrigger>
               <PopoverContent align="center" className="w-64 p-2">
                 <p className="px-2 py-1.5 text-caption font-semibold text-muted-foreground">Switch profile</p>
-                <Button variant="ghost" className="w-full justify-start" onClick={profileRole === "advocate" ? onSwitchProfile : undefined}>
+                <Button variant="ghost" className="w-full justify-start" onClick={() => onSwitchProfile("litigant")}>
                   <Avatar size="sm"><AvatarFallback>L</AvatarFallback></Avatar>
                   <span className="flex-1 text-left">Litigant</span>
                   {profileRole === "litigant" ? <CheckIcon aria-hidden /> : null}
                 </Button>
                 {advocateProfileAvailable ? (
-                  <Button variant="ghost" className="w-full justify-start" onClick={profileRole === "litigant" ? onSwitchProfile : undefined}>
+                  <Button variant="ghost" className="w-full justify-start" onClick={() => onSwitchProfile("advocate")}>
                     <Avatar size="sm"><AvatarFallback>A</AvatarFallback></Avatar>
                     <span className="flex-1 text-left">Advocate</span>
                     {profileRole === "advocate" ? <CheckIcon aria-hidden /> : null}
@@ -200,6 +208,7 @@ export function ProfileSettings({ locale, profileName, idSubmitted, submittedId,
           <Button variant="outline">Set password</Button>
         </div>
       </section>
+
     </main>
   );
 }
@@ -212,7 +221,9 @@ export function ProfileSettings({ locale, profileName, idSubmitted, submittedId,
  */
 function EditableName({ value }: { value: string }) {
   const [editing, setEditing] = React.useState(false);
-  const [name, setName] = React.useState(value);
+  // The field opens on the name as the heading shows it (Settings' court switch).
+  const courtText = useCourtText();
+  const [name, setName] = React.useState(() => courtText(value));
   const inputRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {

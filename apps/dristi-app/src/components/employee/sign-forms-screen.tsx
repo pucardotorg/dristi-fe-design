@@ -50,6 +50,7 @@ import {
   sortRows,
   type CourtSortSpec,
 } from "@/lib/employee/court-sort";
+import { useCourtText } from "@/components/court/court-provider";
 
 type SignFormSort = "oldest-created" | "newest-created" | "name";
 
@@ -506,6 +507,7 @@ function SignFormsItemList({
   onToggle: (form: SignForm) => void;
   onOpen: (form: SignForm) => void;
 }) {
+  const courtText = useCourtText();
   return (
     <ul className="flex flex-col gap-3">
       {rows.map((form) => (
@@ -516,7 +518,7 @@ function SignFormsItemList({
           <Checkbox
             checked={selectedIds.has(form.id)}
             onCheckedChange={() => onToggle(form)}
-            aria-label={`Select ${causeTitle(form)}, ${form.caseNumber}`}
+            aria-label={`Select ${causeTitle(form)}, ${courtText(form.caseNumber)}`}
             className="mt-1"
           />
           <div className="flex min-w-0 flex-1 flex-col gap-2">

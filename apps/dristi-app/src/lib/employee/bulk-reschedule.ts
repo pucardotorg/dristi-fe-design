@@ -35,6 +35,8 @@ import {
   type CourtCaseStage,
   type CourtHearingPurposeId,
 } from "./hearings";
+import { caseSearchKey } from "@/lib/court/localize";
+import { localizeForDownload, voicedForDownload } from "@/lib/court/browser";
 
 export type ReschedulableHearing = {
   id: string;
@@ -206,7 +208,7 @@ const UPCOMING: UpcomingListing[] = [
   {
     id: "r-274",
     caseNumber: "ST/274/2026",
-    title: "Latha Vijayan v. Kollam Marine Foods",
+    title: "Latha Vijayan v. Harbour Marine Foods",
     stage: "plea",
     purpose: "plea",
     offset: 8,
@@ -284,7 +286,7 @@ const BOARD_SITTINGS = 40;
  * nobody can point at twice.
  */
 const FILLER_PARTIES: { complainant: string; respondent: string }[] = [
-  { complainant: "Vijayan Pillai", respondent: "Kollam Coir Traders" },
+  { complainant: "Vijayan Pillai", respondent: "Lakeside Coir Traders" },
   { complainant: "Leela Mohan", respondent: "Ashtamudi Marine Exports" },
   { complainant: "Sabu Chacko", respondent: "Thevally Steel Syndicate" },
   { complainant: "Girija Damodaran", respondent: "Punalur Paper Agencies" },
@@ -498,7 +500,7 @@ export function filterReschedulable(
   rows: ReschedulableHearing[],
   filters: RescheduleFilters,
 ): ReschedulableHearing[] {
-  const query = filters.query.trim().toLowerCase();
+  const query = caseSearchKey(filters.query);
 
   /* ISO days sort as strings, so each bound is a plain comparison — no Date per row.
      A `null` end is not a bound at all rather than a bound at today. */
@@ -586,7 +588,7 @@ export function earliestNewListing(
  * this branch, so the paper does not pretend to order one.
  */
 export type RescheduleOrder = {
-  /** "Before the JMFC Court 1, Kollam". */
+  /** "Before the JMFC Court 1". */
   court: string;
   title: string;
   /** The operative words. */
@@ -670,11 +672,11 @@ export function rescheduleOrderFilename(order: RescheduleOrder): string {
  */
 export function downloadRescheduleOrder(order: RescheduleOrder): void {
   const url = URL.createObjectURL(
-    new Blob([rescheduleOrderText(order)], { type: "text/plain" }),
+    new Blob([localizeForDownload(rescheduleOrderText(order))], { type: "text/plain" }),
   );
   const anchor = window.document.createElement("a");
   anchor.href = url;
-  anchor.download = rescheduleOrderFilename(order);
+  anchor.download = rescheduleOrderFilename(voicedForDownload(order));
   anchor.click();
   URL.revokeObjectURL(url);
 }

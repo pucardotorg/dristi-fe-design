@@ -40,6 +40,8 @@ import {
   parseIsoDay,
   type CourtCounsel,
 } from "./hearings";
+import { caseSearchKey } from "@/lib/court/localize";
+import { localizeForDownload, voicedForDownload } from "@/lib/court/browser";
 
 /**
  * Which process the form belongs to — the reference's "Process type" column.
@@ -104,14 +106,14 @@ export type SignForm = {
 const COURT = CURRENT_STAFF.court;
 
 /** Where the form is sworn. The court's own seat — not a per-row fact. */
-const PLACE = "Kollam";
+const PLACE = "Sample District";
 
 /**
  * The forms this bench has not yet signed.
  *
  * Ordered newest first — a signing queue is worked from what was just drawn up, and
  * that is the order the reference showed. Names follow the fixtures the rest of the
- * court side uses: Kollam parties and the same bar practising in this court.
+ * court side uses: local parties and the same bar practising in this court.
  */
 export const SIGN_FORM_QUEUE: SignForm[] = [
   {
@@ -159,7 +161,7 @@ export const SIGN_FORM_QUEUE: SignForm[] = [
       number: "884210",
       amount: "4,75,000",
       amountInWords: "Four lakh seventy-five thousand rupees",
-      bank: "South Indian Bank, Kollam branch",
+      bank: "South Indian Bank, main branch",
       issuedOn: "2025-11-02",
       dishonouredOn: "2025-11-14",
       reason: "funds insufficient",
@@ -222,7 +224,7 @@ export const SIGN_FORM_QUEUE: SignForm[] = [
       number: "770233",
       amount: "8,40,000",
       amountInWords: "Eight lakh forty thousand rupees",
-      bank: "HDFC Bank, Kollam branch",
+      bank: "HDFC Bank, main branch",
       issuedOn: "2025-06-21",
       dishonouredOn: "2025-07-02",
       reason: "account closed",
@@ -300,7 +302,7 @@ export const SIGN_FORM_QUEUE: SignForm[] = [
       number: "445901",
       amount: "6,80,000",
       amountInWords: "Six lakh eighty thousand rupees",
-      bank: "Indian Bank, Kollam branch",
+      bank: "Indian Bank, main branch",
       issuedOn: "2025-02-05",
       dishonouredOn: "2025-02-17",
       reason: "funds insufficient",
@@ -486,7 +488,7 @@ export const SIGN_FORM_QUEUE: SignForm[] = [
   {
     id: "sf-548",
     caseNumber: "CMP/548/2025",
-    parties: { complainant: "Haridasan", accused: "Kollam Coir Exports" },
+    parties: { complainant: "Haridasan", accused: "Lakeside Coir Exports" },
     counsel: [{ name: "Adv. Rekha Pillai", side: "complainant" }],
     process: "mediation",
     createdOn: "2025-09-26",
@@ -495,7 +497,7 @@ export const SIGN_FORM_QUEUE: SignForm[] = [
       number: "607841",
       amount: "1,70,000",
       amountInWords: "One lakh seventy thousand rupees",
-      bank: "Canara Bank, Kollam branch",
+      bank: "Canara Bank, main branch",
       issuedOn: "2024-04-15",
       dishonouredOn: "2024-04-26",
       reason: "funds insufficient",
@@ -666,7 +668,7 @@ export function filterSignForms(
   rows: SignForm[],
   filters: SignFormFilters,
 ): SignForm[] {
-  const query = filters.query.trim().toLowerCase();
+  const query = caseSearchKey(filters.query);
   return rows.filter((form) => {
     if (filters.process !== "all" && form.process !== filters.process) {
       return false;
@@ -825,11 +827,11 @@ export function signFormDocumentFilename(form: SignForm): string {
 export function downloadSignFormDocument(form: SignForm): void {
   const document = buildSignFormDocument(form);
   const url = URL.createObjectURL(
-    new Blob([signFormDocumentText(document)], { type: "text/plain" }),
+    new Blob([localizeForDownload(signFormDocumentText(document))], { type: "text/plain" }),
   );
   const anchor = window.document.createElement("a");
   anchor.href = url;
-  anchor.download = signFormDocumentFilename(form);
+  anchor.download = signFormDocumentFilename(voicedForDownload(form));
   anchor.click();
   URL.revokeObjectURL(url);
 }

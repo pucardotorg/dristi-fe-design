@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { CaseLink as Link } from "@/components/cases/case-reader";
 import { ChevronRightIcon, HistoryIcon } from "lucide-react";
 
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -30,6 +30,7 @@ import { FIXTURE_TODAY } from "@/lib/cases/fixtures";
 import { type CaseRecord } from "@/lib/cases/types";
 import { PANEL_CLASS } from "@/components/shell/panel";
 import { cn } from "@/lib/utils";
+import { BotdText } from "@/components/cases/botd-text";
 
 export function CaseTimeline({ record }: { record: CaseRecord }) {
   const model = caseTimelineModel(
@@ -131,20 +132,31 @@ function TimelineEvent({
       </ItemTitle>
     </ItemContent>
   );
+  /* A hearing's business of the day sits under it, as in the case peek
+     (owner, Oct 8). Outside the link, so Read more opens in place. */
+  const botd = event.botd ? (
+    <div className="pb-1">
+      <BotdText text={event.botd} />
+    </div>
+  ) : null;
 
   if (!event.ref) {
     return (
-      <Item
-        size="sm"
-        role="listitem"
-        className="-mx-2 w-auto px-2 py-1.5 hover:bg-transparent"
-      >
-        {title}
-      </Item>
+      <>
+        <Item
+          size="sm"
+          role="listitem"
+          className="-mx-2 w-auto px-2 py-1.5 hover:bg-transparent"
+        >
+          {title}
+        </Item>
+        {botd}
+      </>
     );
   }
 
   return (
+    <>
     <Item
       asChild
       size="sm"
@@ -161,6 +173,8 @@ function TimelineEvent({
         </ItemActions>
       </Link>
     </Item>
+    {botd}
+    </>
   );
 }
 

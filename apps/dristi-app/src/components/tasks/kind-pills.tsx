@@ -2,13 +2,13 @@
 
 import * as React from "react";
 
-import { KIND_LABELS, KIND_ORDER } from "@/lib/tasks/selectors";
-import type { PillKind } from "@/lib/tasks/types";
+import { CATEGORY_LABELS, CATEGORY_ORDER } from "@/lib/tasks/selectors";
+import type { TaskCategory } from "@/lib/tasks/types";
 import { PILL_COUNT, PILL_ITEM, PILL_ROW } from "@/components/chrome/pill-plate";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 /**
- * The kind filter: one single-select row of pills, "Everything" first.
+ * The category filter: one row of pills, "Everything" first, then the PRD categories.
  *
  * This replaced six count cards (2026-09-15). The cards were a summary and a control at
  * once — pressing one filtered the table, and the pressed kind was then named a second
@@ -31,13 +31,13 @@ export function KindPills({
   loading,
   onSelect,
 }: {
-  counts: Record<PillKind, number> | null;
+  counts: Record<TaskCategory, number> | null;
   /** The pressed kinds; none pressed is Everything. */
-  active: readonly PillKind[];
+  active: readonly TaskCategory[];
   loading?: boolean;
-  onSelect: (kinds: PillKind[]) => void;
+  onSelect: (kinds: TaskCategory[]) => void;
 }) {
-  const total = counts ? KIND_ORDER.reduce((sum, k) => sum + counts[k], 0) : null;
+  const total = counts ? CATEGORY_ORDER.reduce((sum, k) => sum + counts[k], 0) : null;
   return (
     <ToggleGroup
       type="multiple"
@@ -51,21 +51,21 @@ export function KindPills({
       onValueChange={(values) => {
         // Kinds add up (owner, Sept 21: any combination). Everything is the
         // empty set: pressing it clears the rest, and pressing a kind lifts it.
-        const kinds = values.filter((value) => value !== "all") as PillKind[];
+        const kinds = values.filter((value) => value !== "all") as TaskCategory[];
         const pressedEverything = values.includes("all") && active.length > 0;
         onSelect(pressedEverything ? [] : kinds);
       }}
-      aria-label="Kinds of work"
+      aria-label="Categories"
       /* The row scrolls sideways on a phone; the padding keeps a focus ring off the
          clipping edge and gives the widened touch target room. */
       className={PILL_ROW}
     >
       <Pill value="all" label="Everything" count={total} loading={loading} />
-      {KIND_ORDER.map((kind) => (
+      {CATEGORY_ORDER.map((kind) => (
         <Pill
           key={kind}
           value={kind}
-          label={KIND_LABELS[kind]}
+          label={CATEGORY_LABELS[kind]}
           count={counts?.[kind] ?? null}
           loading={loading}
           /* A kind with nothing in it cannot narrow anything — but the pill you are

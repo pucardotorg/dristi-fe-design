@@ -25,6 +25,7 @@ import {
 import { type SignBailBond } from "@/lib/employee/sign-bail-bonds";
 import { cn } from "@/lib/utils";
 import { Identifier } from "@/components/chrome/identifier";
+import { useCourtText } from "@/components/court/court-provider";
 
 /**
  * The signing queue for bail bonds as a table: which bonds are picked for signature, the
@@ -76,6 +77,7 @@ export function SignBailBondsTable({
   onToggleAll: (select: boolean) => void;
   onOpen: (bond: SignBailBond) => void;
 }) {
+  const courtText = useCourtText();
   const selectedOnPage = rows.filter((bond) => selectedIds.has(bond.id)).length;
   const allSelected = rows.length > 0 && selectedOnPage === rows.length;
   const someSelected = selectedOnPage > 0 && !allSelected;
@@ -135,7 +137,7 @@ export function SignBailBondsTable({
                 <Checkbox
                   checked={selected}
                   onCheckedChange={() => onToggle(bond)}
-                  aria-label={`Select the bail bond of ${bond.litigant} in ${bond.caseNumber}`}
+                  aria-label={`Select the bail bond of ${bond.litigant} in ${courtText(bond.caseNumber)}`}
                 />
               </TableCell>
               {/* The row's one emphasised cell, and its only opener. Quiet

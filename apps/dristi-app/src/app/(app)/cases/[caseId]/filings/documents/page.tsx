@@ -4,12 +4,13 @@ import { notFound } from "next/navigation";
 import { CaseBreadcrumbs } from "@/components/cases/case-breadcrumbs";
 import { SubmitDocumentsForm } from "@/components/cases/submit-documents-form";
 import { PAGE_GROUND, PAGE_GUTTER } from "@/components/shell/page-frame";
-import { CASES } from "@/lib/cases/fixtures";
+import { findCaseRecord } from "@/lib/cases/party-cases";
 import { partiesLabel } from "@/lib/cases/types";
 import { cn } from "@/lib/utils";
+import { serverCourtText } from "@/lib/court/server";
 
 function findCase(caseId: string) {
-  return CASES.find((record) => record.id === caseId);
+  return findCaseRecord(caseId);
 }
 
 export async function generateMetadata({
@@ -19,8 +20,9 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { caseId } = await params;
   const record = findCase(caseId);
+  const courtText = await serverCourtText();
   return {
-    title: record ? `Submit documents · ${record.caseNumber}` : "Submit documents",
+    title: record ? `Submit documents · ${courtText(record.caseNumber)}` : "Submit documents",
   };
 }
 
@@ -32,6 +34,7 @@ export default async function SubmitDocumentsPage({
   const { caseId } = await params;
   const record = findCase(caseId);
   if (!record) notFound();
+  const courtText = await serverCourtText();
 
   return (
     <main className={cn("flex flex-1 flex-col", PAGE_GROUND, PAGE_GUTTER)}>
@@ -42,7 +45,7 @@ export default async function SubmitDocumentsPage({
       />
       <SubmitDocumentsForm
         caseId={record.id}
-        caseLine={`${record.caseNumber} · ${partiesLabel(record)}`}
+        caseLine={`${courtText(record.caseNumber)} · ${partiesLabel(record)}`}
       />
     </main>
   );

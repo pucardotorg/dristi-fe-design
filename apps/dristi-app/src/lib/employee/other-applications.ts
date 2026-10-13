@@ -41,6 +41,8 @@ import {
   type CounselSide,
   type CourtCounsel,
 } from "./hearings";
+import { caseSearchKey } from "@/lib/court/localize";
+import { localizeForDownload, voicedForDownload } from "@/lib/court/browser";
 
 /**
  * Where a case has reached, across the whole §138 journey — the widest stage list on the
@@ -195,7 +197,7 @@ export type OtherApplication = {
  * rows. The first page is deliberately the hard one: it carries both of the very long
  * type labels, the longest corporate accused, and an application with no counsel at all.
  *
- * Names follow the fixtures the rest of the court side uses: Kollam parties and the same
+ * Names follow the fixtures the rest of the court side uses: local parties and the same
  * bar, but not the same matters as `CAUSE_LIST`, `SCHEDULING_QUEUE`, `REGISTER_QUEUE`,
  * `RESCHEDULING_QUEUE` or `DELAY_CONDONATION_QUEUE`.
  */
@@ -315,7 +317,7 @@ export const OTHER_APPLICATIONS_QUEUE: OtherApplication[] = [
     appliedOn: "2025-12-02",
     filedFor: "complainant",
     reason:
-      "The complainant asks that this case be heard along with the connected matter pending in another court at Kollam.",
+      "The complainant asks that this case be heard along with the connected matter pending in another court in the district.",
   },
   {
     id: "oa-2141",
@@ -802,7 +804,7 @@ export function filterOtherApplications(
   rows: OtherApplication[],
   filters: OtherApplicationFilters,
 ): OtherApplication[] {
-  const query = filters.query.trim().toLowerCase();
+  const query = caseSearchKey(filters.query);
   return rows.filter((entry) => {
     if (filters.stage !== "all" && entry.stage !== filters.stage) return false;
     if (filters.type !== "all" && entry.type !== filters.type) return false;
@@ -1058,11 +1060,11 @@ export function downloadOtherApplicationDocument(
 ): void {
   const document = buildOtherApplicationDocument(application);
   const url = URL.createObjectURL(
-    new Blob([otherApplicationDocumentText(document)], { type: "text/plain" }),
+    new Blob([localizeForDownload(otherApplicationDocumentText(document))], { type: "text/plain" }),
   );
   const anchor = window.document.createElement("a");
   anchor.href = url;
-  anchor.download = otherApplicationDocumentFilename(application);
+  anchor.download = otherApplicationDocumentFilename(voicedForDownload(application));
   anchor.click();
   URL.revokeObjectURL(url);
 }

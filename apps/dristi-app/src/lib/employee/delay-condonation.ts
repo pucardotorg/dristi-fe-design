@@ -42,6 +42,8 @@ import {
   type CourtCounsel,
 } from "./hearings";
 import { CASE_STAGES, type CaseStage } from "./schedule";
+import { caseSearchKey } from "@/lib/court/localize";
+import { localizeForDownload, voicedForDownload } from "@/lib/court/browser";
 
 export type DelayCondonationStage = "registration" | CaseStage;
 
@@ -98,7 +100,7 @@ export type DelayCondonationCase = {
  * Ordered Registration first so the opening page matches the reference
  * (every visible row there was at Registration), then the later stages the
  * filter also offers. Names follow the fixtures the rest of the court side
- * uses: Kollam parties and the same bar, but not the same matters as
+ * uses: local parties and the same bar, but not the same matters as
  * `CAUSE_LIST`, `SCHEDULING_QUEUE`, `REGISTER_QUEUE` or `RESCHEDULING_QUEUE`.
  */
 export const DELAY_CONDONATION_QUEUE: DelayCondonationCase[] = [
@@ -197,7 +199,7 @@ export const DELAY_CONDONATION_QUEUE: DelayCondonationCase[] = [
     delayDays: 35,
     delayIn: "filing the complaint",
     reason:
-      "The complainant was in employment outside the country and could reach Kollam to sign the complaint only the following month.",
+      "The complainant was in employment outside the country and could return to sign the complaint only the following month.",
   },
   {
     id: "dc-1258",
@@ -624,7 +626,7 @@ export function filterDelayCondonationCases(
   rows: DelayCondonationCase[],
   filters: DelayCondonationFilters,
 ): DelayCondonationCase[] {
-  const query = filters.query.trim().toLowerCase();
+  const query = caseSearchKey(filters.query);
   return rows.filter((entry) => {
     if (filters.stage !== "all" && entry.stage !== filters.stage) return false;
     if (!query) return true;
@@ -785,11 +787,11 @@ export function downloadDelayCondonationDocument(
 ): void {
   const document = buildDelayCondonationDocument(matter);
   const url = URL.createObjectURL(
-    new Blob([delayCondonationDocumentText(document)], { type: "text/plain" }),
+    new Blob([localizeForDownload(delayCondonationDocumentText(document))], { type: "text/plain" }),
   );
   const anchor = window.document.createElement("a");
   anchor.href = url;
-  anchor.download = delayCondonationDocumentFilename(matter);
+  anchor.download = delayCondonationDocumentFilename(voicedForDownload(matter));
   anchor.click();
   URL.revokeObjectURL(url);
 }

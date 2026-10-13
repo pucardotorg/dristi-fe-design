@@ -1,4 +1,4 @@
-import type { Locale } from "@/lib/onboarding/content";
+import type { Copy } from "@/lib/onboarding/content";
 
 export { fill as fillCopy } from "@/lib/join/content";
 
@@ -20,16 +20,15 @@ export { fill as fillCopy } from "@/lib/join/content";
  * · One consolidated note about surety phone/email use instead of legacy's
  *   per-field warning block.
  *
- * In Kollam practice bail is ordinarily granted on sureties and the magistrate
+ * In this court's practice bail is ordinarily granted on sureties and the magistrate
  * usually asks for two, so the "yes" branch starts with two surety forms.
  */
 
-type Copy = Record<Locale, string>;
 const t = (en: string, ml: string): Copy => ({ en, ml });
 
 /* ------------------------------------------------------------------- demo data */
 
-/** Application fee for a bail application, in rupees (Kollam schedule). */
+/** Application fee for a bail application, in rupees (this court's schedule). */
 export const BAIL_FEE = "₹50";
 
 /** Demo submission identity shown on the success stage. */
@@ -99,14 +98,14 @@ export const BOND_SURETIES: BondSurety[] = [
     father: "Velayudhan",
     phone: "9148498792",
     email: "sunil.kumar@example.in",
-    address: "Kadappakada, Kollam · 691 008, Kerala",
+    address: "Kadappakada · 691 008, Kerala",
   },
   {
     name: "Latha Devi R.",
     father: "Raghavan",
     phone: "9847654321",
     email: "",
-    address: "Asramam, Kollam · 691 002, Kerala",
+    address: "Asramam · 691 002, Kerala",
   },
 ];
 
@@ -117,7 +116,7 @@ export const BOND_THIRD_SURETY: BondSurety = {
   father: "Kesavan",
   phone: "9645011223",
   email: "",
-  address: "Chinnakada, Kollam · 691 001, Kerala",
+  address: "Chinnakada · 691 001, Kerala",
 };
 
 /** The litigant the bond is for (petitioner on the approved application). */
@@ -178,6 +177,30 @@ export const bailDialog = {
   groundsError: t("Set out the grounds for bail.", "ജാമ്യത്തിനുള്ള കാരണങ്ങൾ നൽകുക."),
   commentsLabel: t("Comments", "അഭിപ്രായങ്ങൾ"),
   optional: t("Optional", "നിർബന്ധമല്ല"),
+  /* prayer and supporting documents (Application Lifecycle PRD, Bail) */
+  prayerLabel: t("Prayer", "പ്രാർത്ഥന"),
+  prayerDefault: t(
+    "That the petitioner be released on bail on such terms as this court considers fit.",
+    "ഈ കോടതിക്ക് ഉചിതമെന്ന് തോന്നുന്ന വ്യവസ്ഥകളിൽ ഹർജിക്കാരനെ ജാമ്യത്തിൽ വിട്ടയക്കണമെന്ന്.",
+  ),
+  prayerHint: t(
+    "What you ask the court to order. Change it if you need to.",
+    "കോടതി ഉത്തരവിടണമെന്ന് നിങ്ങൾ ആവശ്യപ്പെടുന്നത്. ആവശ്യമെങ്കിൽ മാറ്റുക.",
+  ),
+  prayerError: t("Enter the prayer.", "പ്രാർത്ഥന നൽകുക."),
+  documentsHeading: t("Supporting documents", "അനുബന്ധ രേഖകൾ"),
+  documentsAdd: t("Add a document", "രേഖ ചേർക്കുക"),
+  documentsAddAnother: t("Add another document", "മറ്റൊരു രേഖ ചേർക്കുക"),
+  documentTitleN: t("Document {n}", "രേഖ {n}"),
+  removeDocument: t("Remove document {n}", "രേഖ {n} നീക്കം ചെയ്യുക"),
+  documentType: t("Document type", "രേഖയുടെ തരം"),
+  documentTitle: t("Document title", "രേഖയുടെ പേര്"),
+  documentFile: t("File", "ഫയൽ"),
+  documentTypeError: t("Enter the document type.", "രേഖയുടെ തരം നൽകുക."),
+  documentTitleError: t("Enter the document title.", "രേഖയുടെ പേര് നൽകുക."),
+  documentFileError: t("Upload the document.", "രേഖ അപ്‌ലോഡ് ചെയ്യുക."),
+  changeFile: t("Change file", "ഫയൽ മാറ്റുക"),
+  removeFile: t("Remove", "നീക്കം ചെയ്യുക"),
 
   /* sureties */
   suretiesTitle: t("Surety details", "ജാമ്യക്കാരുടെ വിവരങ്ങൾ"),
@@ -241,8 +264,8 @@ export const bailDialog = {
   suretiesNone: t("None added", "ചേർത്തിട്ടില്ല"),
   suretiesCount: t("{count} added", "{count} പേരെ ചേർത്തു"),
   draftCourtLine: t(
-    "Before the Special Court of Judicial Magistrate of the First Class for the trial of cases under section 138 of the NI Act, 1881 at Kollam (“24×7 ON Court”)",
-    "NI ആക്ട് 1881 വകുപ്പ് 138 പ്രകാരമുള്ള കേസുകളുടെ വിചാരണയ്ക്കായുള്ള കൊല്ലം ഒന്നാം ക്ലാസ് ജുഡീഷ്യൽ മജിസ്‌ട്രേറ്റിന്റെ പ്രത്യേക കോടതി മുൻപാകെ (“24×7 ON കോടതി”)",
+    "Before the Special Court of Judicial Magistrate of the First Class for the trial of cases under section 138 of the NI Act, 1881 (“24×7 ON Court”)",
+    "NI ആക്ട് 1881 വകുപ്പ് 138 പ്രകാരമുള്ള കേസുകളുടെ വിചാരണയ്ക്കായുള്ള ഒന്നാം ക്ലാസ് ജുഡീഷ്യൽ മജിസ്‌ട്രേറ്റിന്റെ പ്രത്യേക കോടതി മുൻപാകെ (“24×7 ON കോടതി”)",
   ),
   draftCaseLine: t("Case No: {caseNumber}", "കേസ് നമ്പർ: {caseNumber}"),
   draftMatterLine: t("In the matter of: {title}", "വിഷയം: {title}"),
@@ -292,6 +315,11 @@ export const bailDialog = {
   ),
   payNow: t("Pay {fee} now", "{fee} ഇപ്പോൾ അടയ്ക്കുക"),
   payLater: t("Pay later", "പിന്നീട് അടയ്ക്കാം"),
+  /* Malayalam drafted — needs review. */
+  paidBody: t(
+    "The application fee is paid. Continue to file the application.",
+    "അപേക്ഷാ ഫീസ് അടച്ചു. അപേക്ഷ ഫയൽ ചെയ്യാൻ തുടരുക.",
+  ),
 
   /* submitted */
   doneTitle: t("Bail application submitted", "ജാമ്യാപേക്ഷ സമർപ്പിച്ചു"),

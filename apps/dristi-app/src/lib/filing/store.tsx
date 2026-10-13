@@ -15,8 +15,11 @@ import { usePathname } from "next/navigation";
 
 import { buildDocumentGroups } from "./blank";
 import { deleteDraftWithFiles, getRepository } from "./data";
-import { stepFromPathname, stepHref } from "./steps";
+import { sectionOpened } from "./selectors";
+import { stepFromPathname, stepHref, WALK_ORDER } from "./steps";
 import type { FilingDraft, StepId } from "./types";
+import { useCourt } from "@/components/court/court-provider";
+import { localizeDeep } from "@/lib/court/localize";
 
 export type SaveState = "saving" | "saved" | "error";
 
@@ -88,6 +91,7 @@ export function FilingProvider({
   );
   const [saveState, setSaveState] = React.useState<SaveState>("saved");
   const pathname = usePathname();
+  const { court } = useCourt();
 
   // Latest draft for the debounced writer / flush, without re-binding callbacks.
   const draftRef = React.useRef<FilingDraft | null>(null);
@@ -102,8 +106,12 @@ export function FilingProvider({
       .then((d) => {
         if (cancelled) return;
         if (d) {
-          draftRef.current = d;
-          setState({ status: "ready", draft: d });
+          // Sample and prefilled drafts are written in Kerala's terms; a draft opens in
+          // the selected court's (`CourtSwitch`). Nothing is written back until the
+          // filer edits, so the stored draft is unchanged by opening it.
+          const voiced = localizeDeep(d, court);
+          draftRef.current = voiced;
+          setState({ status: "ready", draft: voiced });
         } else {
           setState({ status: "missing" });
         }
@@ -114,7 +122,7 @@ export function FilingProvider({
     return () => {
       cancelled = true;
     };
-  }, [draftId, setState]);
+  }, [draftId, setState, court]);
 
   const write = React.useCallback(async () => {
     const d = draftRef.current;
@@ -179,13 +187,19 @@ export function FilingProvider({
     [schedule, setState]
   );
 
-  // Remember where the person is, so "Continue draft" resumes here.
+  // Remember where the person is, so "Continue draft" resumes here, and that they have
+  // opened this section — which is what lets it count towards progress.
   const step = stepFromPathname(pathname);
   React.useEffect(() => {
     if (state.status !== "ready" || !step) return;
-    if (state.draft.lastStep === step) return;
+    const { visited, lastStep } = state.draft;
+    if (lastStep === step && visited?.includes(step)) return;
     commit((d) => {
+      // A draft from before sections were recorded starts its record from what it had
+      // walked, so moving on from it does not lose the sections before.
+      d.visited ??= WALK_ORDER.filter((s) => sectionOpened(d, s));
       d.lastStep = step;
+      if (!d.visited.includes(step)) d.visited.push(step);
     });
   }, [step, state, commit]);
 

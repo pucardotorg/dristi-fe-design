@@ -87,6 +87,8 @@ export function complainantSummary(c: Complainant | undefined) {
   return {
     name: orNot(institution ? c?.entName : c?.name),
     type: institution ? "Institution" : "Individual",
+    /** Institutions only; empty for an individual, who is never asked. */
+    cinPan: institution ? orNot(c?.entCinPan) : "",
     mobile: orNot(institution ? c?.entPhone : c?.mobile),
     email: orNot(institution ? c?.entEmail : c?.email),
     presentAddress: orNot(addressToString(present)),
@@ -232,14 +234,6 @@ export function finalReliefSummary(draft: FilingDraft): string {
     ? `compensation of ₹${formatINR(total)} together with interest`
     : "compensation equal to the cheque amount together with interest";
   return `Conviction under S-138, ${compensation}, and process/summons`;
-}
-
-/** The year the complaint is numbered in — the year it was filed, else this year. */
-export function complaintYear(draft: FilingDraft): number {
-  const filed = draft.filedAt ? new Date(draft.filedAt) : null;
-  return filed && !Number.isNaN(filed.getTime())
-    ? filed.getFullYear()
-    : new Date().getFullYear();
 }
 
 /** "₹52,05,000 (2 cheques)" — the filing summary's headline figure. */

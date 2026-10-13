@@ -22,6 +22,7 @@ import {
   writeLocalStorageValue,
 } from "@/hooks/use-local-storage-value";
 import { Button } from "@/components/ui/button";
+import { CONTROL_REVEAL } from "@/components/chrome/motion";
 import {
   Collapsible,
   CollapsibleContent,
@@ -44,11 +45,11 @@ import {
   type RailGroup,
 } from "@/lib/advocate/home";
 import { dueCueOf } from "@/lib/tasks/format";
-import { summaryOf, type World } from "@/lib/tasks/selectors";
+import { caseOf, summaryOf, type World } from "@/lib/tasks/selectors";
 import type { Task, TaskKind } from "@/lib/tasks/types";
 import { cn } from "@/lib/utils";
 import "./mobile-hearing.css";
-import { RowAction } from "@/components/advocate/home-bits";
+import "./companion-rail.css";
 
 /**
  * The companion rail — Gmail's model. A persistent icon strip on the far right
@@ -76,7 +77,7 @@ export type RailSection = "tasks";
 /** A request to trace a case's tasks in the rail; the nonce re-triggers it. */
 export type TaskHighlight = { caseId: string; taskIds: string[]; nonce: number } | null;
 
-type TaskPanelGroup = { key: RailGroup["key"] | "related"; tasks: Task[] };
+type TaskPanelGroup = { key: RailGroup["key"] | "related" | "hearing"; tasks: Task[] };
 
 function matchesHighlight(task: Task, highlight: TaskHighlight): boolean {
   return !!highlight && task.caseId === highlight.caseId && highlight.taskIds.includes(task.id);
@@ -125,8 +126,21 @@ function TaskTraceStyles() {
   );
 }
 
-/** The rounded stroke overlay for one traced card; `nonce` re-mounts it to replay. */
+/**
+ * Traces that have already run. A trace plays once per request: collapsing a
+ * bucket unmounts its cards, and reopening it must not replay the stroke. A
+ * new click on a "pending task" chip brings a new nonce, so it plays again.
+ */
+const playedTraces = new Set<number>();
+
+/** The rounded stroke overlay for one traced card; a new `nonce` replays it. */
 function TaskTraceRing({ nonce }: { nonce: number }) {
+  // Read on first render, so every card the same request lights plays together.
+  const [fresh] = React.useState(() => !playedTraces.has(nonce));
+  React.useEffect(() => {
+    playedTraces.add(nonce);
+  }, [nonce]);
+  if (!fresh) return null;
   return (
     <svg
       key={nonce}
@@ -209,23 +223,23 @@ const RAIL_VARIANT: "A" | "B" = "A";
  * the title spans nearly the full width and stops truncating at ~20 characters.
  */
 const CARD_A =
-  "group/row relative flex cursor-pointer items-start gap-3 rounded-lg border border-hairline bg-card px-3 py-2.5 transition dark:bg-surface-raised hover:shadow-raised has-focus-visible:shadow-raised dark:hover:bg-accent dark:has-focus-visible:bg-accent";
+  "group/row relative flex cursor-pointer items-start gap-3.5 px-4 py-4 transition-colors duration-200 hover:bg-muted has-focus-visible:bg-muted dark:hover:bg-accent dark:has-focus-visible:bg-accent";
 
 const ROW_B =
   "group/row relative flex cursor-pointer items-start gap-2.5 px-3 py-2.5 transition-colors hover:bg-accent has-focus-visible:bg-accent";
 
 /** The bucket's item list: gapped cards (A) or one divided panel surface (B). */
-const LIST_A = "flex flex-col gap-2 pb-2";
+const LIST_A = "flex flex-col divide-y divide-hairline";
 const LIST_B =
   "flex flex-col divide-y divide-hairline overflow-hidden rounded-lg border border-hairline bg-card pb-0 dark:bg-surface-raised";
 
 /** Variant A's kind-icon tile — smaller than the old one, a small well inside the card. */
 const CARD_ICON_A =
-  "mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md bg-surface-sunken text-muted-foreground";
+  "flex size-9 shrink-0 items-center justify-center self-center rounded-full bg-surface-sunken text-muted-foreground transition-colors group-hover/row:bg-card";
 
-/** The title owns the whole card hit area; touch layouts show its full text. */
+/** The title owns the whole card hit area and always shows in full, wrapping. */
 const CARD_TITLE =
-  "text-left text-body-compact font-medium whitespace-normal break-words md:truncate md:pointer-coarse:overflow-visible md:pointer-coarse:whitespace-normal after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none focus-visible:after:ring-3 focus-visible:after:ring-ring/50";
+  "text-left text-body-compact font-medium whitespace-normal break-words after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none focus-visible:after:ring-3 focus-visible:after:ring-ring/50";
 
 /**
  * When something matters, in the place every repeated row on this screen puts
@@ -267,11 +281,18 @@ function WhenBlock({
   );
 }
 
+/** The case's number as the hearing card shows it: the CNR, else the ST. */
+function caseNumberOf(world: World, task: Task | undefined): string | undefined {
+  if (!task) return undefined;
+  const found = caseOf(world, task);
+  return found?.cnr || found?.stNumber || undefined;
+}
+
 function groupLabel(locale: Locale, group: TaskPanelGroup): string {
-  if (group.key === "related") return pick({ en: "Other tasks for this hearing", ml: "ഈ ഹിയറിങ്ങിന്റെ മറ്റ് ജോലികൾ" }, locale);
+  if (group.key === "related") return pick({ en: "Other tasks for this case", ml: "ഈ കേസിന്റെ മറ്റ് ജോലികൾ" }, locale);
+  if (group.key === "hearing") return pick({ en: "For this case", ml: "ഈ കേസിന്" }, locale);
   if (group.key === "today") return pick(advHome.groupToday, locale);
-  if (group.key === "soon") return pick(advHome.groupSoon, locale);
-  return pick(advHome.groupWeek, locale);
+  return pick(advHome.groupSoon, locale);
 }
 
 /**
@@ -312,33 +333,66 @@ function PanelHeader({
   );
 }
 
-/** A collapsible bucket header — the Slack move, shared by both panels. */
+/**
+ * A collapsible bucket header: a filled bar, so the buckets read as sections
+ * before the cards do. The nearest bucket ("Due today") is amber, later ones
+ * sunken grey; label in caps with its count in a pill, chevron at the end.
+ */
 function BucketTrigger({
   label,
+  sub,
   count,
   lead,
 }: {
   label: string;
+  /** A quieter line under the label: the case "For this case" means. */
+  sub?: string;
   count: number;
   /** The nearest bucket, whose header carries the warning ink. */
   lead?: boolean;
 }) {
   return (
-    <CollapsibleTrigger className="group/bucket flex min-h-10 w-full shrink-0 md:min-h-9 md:pointer-coarse:min-h-10 items-center gap-1.5 rounded-lg px-1.5 transition-colors hover:bg-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-      <span
-        className={cn(
-          "text-caption font-semibold",
-          lead ? "text-warning-ink" : "text-muted-foreground"
-        )}
-      >
-        {label}
-      </span>
-      <span className="text-caption font-medium tabular-nums text-muted-foreground">
-        {count}
+    <CollapsibleTrigger
+      className={cn(
+        "group/bucket flex min-h-10 w-full shrink-0 items-center gap-2 rounded-lg border px-4 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        lead
+          ? "border-warning/20 bg-warning-muted/40 hover:bg-warning-muted/70"
+          : "border-hairline bg-surface-sunken hover:bg-accent-strong"
+      )}
+    >
+      <span className={cn("flex min-w-0 flex-col items-start", sub && "py-2")}>
+        <span className="flex items-center gap-2">
+          <span
+            className={cn(
+              /* Sentence case, as every heading in the product (owner, Oct 8). */
+              "text-caption font-semibold",
+              lead ? "text-warning-ink" : "text-muted-foreground"
+            )}
+          >
+            {label}
+          </span>
+          <span
+            className={cn(
+              "flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-caption font-semibold tabular-nums",
+              lead ? "bg-warning-muted text-warning-ink" : "bg-accent-strong text-muted-foreground"
+            )}
+          >
+            {count}
+          </span>
+        </span>
+        {/* Which case "this case" is, at a note's weight (owner, Oct 8). */}
+        {sub ? (
+          <span className="truncate font-mono text-caption font-normal text-muted-foreground">
+            {sub}
+          </span>
+        ) : null}
       </span>
       <ChevronDown
         aria-hidden="true"
-        className="ml-auto size-4 text-muted-foreground transition-transform group-data-open/bucket:rotate-180"
+        className={cn(
+          "ml-auto size-4 transition-transform group-data-open/bucket:rotate-180",
+          lead ? "text-warning-ink" : "text-muted-foreground"
+        )}
       />
     </CollapsibleTrigger>
   );
@@ -389,9 +443,9 @@ function TaskCard({
     return (
       <Collapsible open={open} onOpenChange={setOpen}>
         <div className={cn(CARD_A, "relative z-10")} data-task-trace={traceNonce != null ? "1" : undefined}>
-          {traceNonce != null ? <TaskTraceRing nonce={traceNonce} /> : null}
+          {traceNonce != null ? <TaskTraceRing key={traceNonce} nonce={traceNonce} /> : null}
           <span aria-hidden="true" className={CARD_ICON_A}>
-            <Icon className="size-3.5" />
+            <Icon className="size-4" />
           </span>
           <div className="flex min-w-0 flex-1 flex-col items-stretch gap-0.5">
             <CollapsibleTrigger title={task.title} className={cn(CARD_TITLE, "group/task")}>
@@ -431,14 +485,14 @@ function TaskCard({
       className={dense ? ROW_B : CARD_A}
       data-task-trace={traceNonce != null ? "1" : undefined}
     >
-      {traceNonce != null ? <TaskTraceRing nonce={traceNonce} /> : null}
+      {traceNonce != null ? <TaskTraceRing key={traceNonce} nonce={traceNonce} /> : null}
       {dense ? (
         <span aria-hidden="true" className="mt-0.5 shrink-0 text-muted-foreground">
           <Icon className="size-4" />
         </span>
       ) : (
         <span aria-hidden="true" className={CARD_ICON_A}>
-          <Icon className="size-3.5" />
+          <Icon className="size-4" />
         </span>
       )}
 
@@ -463,42 +517,76 @@ function TaskCard({
 
       {/* Overdue is the only time signal on a task card, and it is ink, not a
           badge: a red chip on every overdue row would spend the panel's whole
-          destructive budget before the count is read. The archive control sits
-          to the right of the action, both revealed together on hover. */}
-      <div className="flex shrink-0 items-center gap-1">
-        <div className="hidden md:block md:pointer-coarse:hidden">
-          <RowAction
-            label={verb}
-            onClick={() => onAct(task)}
-            rest={
-              due.overdue ? (
-                dense ? (
-                  <span className="text-caption font-medium whitespace-nowrap tabular-nums text-destructive-ink">
-                    {due.primary}
-                  </span>
-                ) : (
-                  <WhenBlock lead={due.primary} sub={due.date} tone="overdue" />
-                )
-              ) : undefined
-            }
-          />
-        </div>
+          destructive budget before the count is read. At rest the cell holds
+          the overdue ink or a chevron; on hover the action and Archive take the
+          same cell. Both states share one grid cell, so the cell is as wide as
+          the wider of them: the rest state sits flush right and the title never
+          rewraps when the buttons appear. */}
+      <div className="flex shrink-0 items-center self-center">
+        <span className="hidden grid-cols-1 items-center justify-items-end md:grid md:pointer-coarse:hidden">
+          <span className="col-start-1 row-start-1 flex items-center transition-opacity group-hover/row:opacity-0 group-focus-within/row:opacity-0">
+            {due.overdue ? (
+              dense ? (
+                <span className="text-caption font-medium whitespace-nowrap tabular-nums text-destructive-ink">
+                  {due.primary}
+                </span>
+              ) : (
+                <WhenBlock lead={due.primary} sub={due.date} tone="overdue" />
+              )
+            ) : (
+              <ChevronRight aria-hidden="true" className="size-4 text-muted-foreground" />
+            )}
+          </span>
+          <span className="pointer-events-none col-start-1 row-start-1 flex items-center gap-1 opacity-0 transition-opacity group-hover/row:pointer-events-auto group-hover/row:opacity-100 group-focus-within/row:pointer-events-auto group-focus-within/row:opacity-100">
+            <Button
+              variant="outline"
+              size={dense ? "xs" : "sm"}
+              tabIndex={-1}
+              aria-hidden="true"
+              onClick={() => onAct(task)}
+              className="relative z-10"
+            >
+              {verb}
+            </Button>
+            {onArchive ? (
+              <ArchiveButton task={task} onArchive={onArchive} className="size-8" />
+            ) : null}
+          </span>
+        </span>
+        {/* Touch: no hover, so Archive stands on its own. */}
         {onArchive ? (
-          <button
-            type="button"
-            aria-label={`Archive: ${task.title}`}
-            title="Archive"
-            onClick={(event) => {
-              event.stopPropagation();
-              onArchive(task);
-            }}
-            className="relative z-10 flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground md:hidden md:size-7 md:pointer-coarse:flex md:pointer-coarse:size-10 transition-colors group-hover/row:flex group-focus-within/row:flex hover:bg-accent-strong hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
-          >
-            <Archive aria-hidden="true" className="size-4" />
-          </button>
+          <ArchiveButton task={task} onArchive={onArchive} className="size-10 md:hidden md:pointer-coarse:flex" />
         ) : null}
       </div>
     </div>
+  );
+}
+
+function ArchiveButton({
+  task,
+  onArchive,
+  className,
+}: {
+  task: Task;
+  onArchive: (task: Task) => void;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={`Archive: ${task.title}`}
+      title="Archive"
+      onClick={(event) => {
+        event.stopPropagation();
+        onArchive(task);
+      }}
+      className={cn(
+        "relative z-10 flex shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent-strong hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none",
+        className
+      )}
+    >
+      <Archive aria-hidden="true" className="size-4" />
+    </button>
   );
 }
 
@@ -511,6 +599,7 @@ function TaskBucket({
   onAct,
   onArchive,
   highlight,
+  groupTrace = null,
 }: {
   group: TaskPanelGroup;
   world: World;
@@ -519,6 +608,8 @@ function TaskBucket({
   onAct: (task: Task) => void;
   onArchive: (task: Task) => void;
   highlight: TaskHighlight;
+  /** Set on the "For this hearing" group: draw one outline around all of it. */
+  groupTrace?: number | null;
 }) {
   const hasTrace = group.tasks.some((task) => matchesHighlight(task, highlight));
   const traceNonce = hasTrace ? highlight?.nonce : undefined;
@@ -527,23 +618,26 @@ function TaskBucket({
   const [manual, setManual] = React.useState<{ nonce: number | undefined; open: boolean } | null>(null);
   const open = manual && manual.nonce === traceNonce
     ? manual.open
-    : group.key === "today" || hasTrace;
+    : group.key === "today" || group.key === "hearing" || hasTrace;
 
   return (
     <Collapsible
       open={open}
       onOpenChange={(open) => setManual({ nonce: traceNonce, open })}
-      className="flex flex-col gap-2"
+      className="flex flex-col gap-3"
     >
       <BucketTrigger
         label={groupLabel(locale, group)}
+        sub={group.key === "hearing" ? caseNumberOf(world, group.tasks[0]) : undefined}
         count={group.tasks.length}
         lead={group.key === "today"}
       />
       <CollapsibleContent>
-        <ul className={RAIL_VARIANT === "B" ? LIST_B : LIST_A}>
+        <ul className={cn("relative", RAIL_VARIANT === "B" ? LIST_B : LIST_A)}>
+          {/* One outline around the whole group, once its cards have arrived. */}
+          {groupTrace != null ? <TaskTraceRing key={groupTrace} nonce={groupTrace} /> : null}
           {group.tasks.map((task) => (
-            <li key={task.id}>
+            <li key={task.id} data-task-id={task.id}>
               <TaskCard
                 world={world}
                 task={task}
@@ -584,32 +678,94 @@ function TasksPanel({
   highlight: TaskHighlight;
 }) {
   const now = Number(new Date(world.now));
-  const groups: TaskPanelGroup[] = railGroups(world, now);
-  const visibleIds = new Set(groups.flatMap((group) => group.tasks.map((task) => task.id)));
+  const baseGroups: TaskPanelGroup[] = railGroups(world, now);
+  const visibleIds = new Set(baseGroups.flatMap((group) => group.tasks.map((task) => task.id)));
   const related = railTasks(world).filter((task) => matchesHighlight(task, highlight) && !visibleIds.has(task.id));
-  if (related.length) groups.unshift({ key: "related", tasks: related });
   const count = summaryOf(world).action;
   const scrollRef = React.useRef<HTMLDivElement>(null);
+  const nonce = highlight?.nonce ?? null;
 
-  // Once a trace is requested — and its bucket has had a moment to open — bring
-  // the first traced card into view so its stroke is not off-screen.
-  const nonce = highlight?.nonce;
+  /*
+   * A hearing's "N pending tasks" pill gathers its tasks. The panel first shows
+   * the usual urgency order; a beat later the hearing's tasks slide up into a
+   * "For this hearing" group at the top (the others close the gap), and one
+   * outline is drawn around the group. Closing the panel clears the highlight,
+   * and the list falls back to urgency order.
+   */
+  const [pinned, setPinned] = React.useState<number | null>(null);
+  const [groupTrace, setGroupTrace] = React.useState<number | null>(null);
+  const firstRects = React.useRef<Map<string, DOMRect> | null>(null);
+  if (pinned !== null && pinned !== nonce) {
+    setPinned(null);
+    setGroupTrace(null);
+  }
+
   React.useEffect(() => {
     if (nonce == null) return;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const timer = window.setTimeout(() => {
-      scrollRef.current
-        ?.querySelector("[data-task-trace]")
-        ?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "nearest" });
-    }, 120);
+      const box = scrollRef.current;
+      if (box) {
+        box.scrollTop = 0;
+        firstRects.current = reduced
+          ? null
+          : new Map(
+              [...box.querySelectorAll<HTMLElement>("[data-task-id]")].map((el) => [
+                el.dataset.taskId as string,
+                el.getBoundingClientRect(),
+              ])
+            );
+      }
+      setPinned(nonce);
+    }, reduced ? 0 : 450);
     return () => window.clearTimeout(timer);
   }, [nonce]);
 
+  // FLIP: every card that moved glides from where it was to where it is now;
+  // a card that was out of view (a closed bucket) rises in. Then the outline.
+  React.useLayoutEffect(() => {
+    if (pinned == null) return;
+    const box = scrollRef.current;
+    const first = firstRects.current;
+    firstRects.current = null;
+    const DURATION = 520;
+    if (box && first) {
+      box.querySelectorAll<HTMLElement>("[data-task-id]").forEach((el) => {
+        const last = el.getBoundingClientRect();
+        const from = first.get(el.dataset.taskId as string);
+        const keyframes = from
+          ? [{ transform: `translateY(${from.top - last.top}px)` }, { transform: "translateY(0)" }]
+          : [{ transform: "translateY(16px)", opacity: 0 }, { transform: "translateY(0)", opacity: 1 }];
+        if (from && Math.abs(from.top - last.top) < 1) return;
+        el.animate(keyframes, { duration: DURATION, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" });
+      });
+    }
+    const timer = window.setTimeout(() => setGroupTrace(pinned), first ? DURATION : 0);
+    return () => window.clearTimeout(timer);
+  }, [pinned]);
+
+  let groups: TaskPanelGroup[];
+  if (pinned != null && highlight) {
+    const mine = railTasks(world).filter((task) => matchesHighlight(task, highlight));
+    const ids = new Set(mine.map((task) => task.id));
+    groups = [
+      { key: "hearing", tasks: mine },
+      ...baseGroups
+        .map((group) => ({ ...group, tasks: group.tasks.filter((task) => !ids.has(task.id)) }))
+        .filter((group) => group.tasks.length > 0),
+    ];
+  } else {
+    groups = related.length ? [{ key: "related", tasks: related }, ...baseGroups] : baseGroups;
+  }
+
   return (
-    <div className="flex h-full min-w-0 flex-1 flex-col">
+    // min-h-0 lets the panel shrink to its container (the bottom sheet caps its
+    // height), so the list in the middle scrolls instead of being clipped.
+    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
       <TaskTraceStyles />
       <PanelHeader
         title={pick(advHome.railTitle, locale)}
-        caption={related.length ? pick({ en: "Due in the next 7 days and tasks for this hearing", ml: "അടുത്ത 7 ദിവസത്തെ ജോലികളും ഈ ഹിയറിങ്ങിന്റെ ജോലികളും" }, locale) : pick(advHome.railScope, locale)}
+        caption={related.length ? pick({ en: "Due in the next 3 days and tasks for this case", ml: "അടുത്ത 3 ദിവസത്തെ ജോലികളും ഈ കേസിന്റെ ജോലികളും" }, locale) : pick(advHome.railScope, locale)}
         locale={locale}
         onClose={onClose}
       />
@@ -617,7 +773,7 @@ function TasksPanel({
       {groups.length ? (
         <div
           ref={scrollRef}
-          className="flex min-h-0 flex-1 flex-col gap-1 overflow-auto px-3 pb-3"
+          className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto px-3 pb-3"
         >
           {groups.map((group) => (
             <TaskBucket
@@ -628,7 +784,10 @@ function TasksPanel({
               verbOf={verbOf}
               onAct={onAct}
               onArchive={onArchive}
-              highlight={highlight}
+              // Cards are never traced one by one here: the gathered group
+              // gets a single outline once it has formed.
+              highlight={null}
+              groupTrace={group.key === "hearing" ? groupTrace : null}
             />
           ))}
         </div>
@@ -643,8 +802,9 @@ function TasksPanel({
         </div>
       )}
 
-      <div className="border-t border-hairline px-4 py-3">
-        <Button variant="link" size="sm" className="min-h-10 px-0 md:min-h-9 md:pointer-coarse:min-h-10" onClick={onViewAll}>
+      <div className="border-t border-hairline bg-surface-sunken px-4 py-3 dark:bg-transparent">
+        {/* A full-width button, per the lead's wireframe: the way out to /tasks. */}
+        <Button variant="outline" className="h-10 w-full border-hairline" onClick={onViewAll}>
           {fillCopy(advHome.railViewAll, locale, { n: String(count) })}
           <ChevronRight aria-hidden="true" />
         </Button>
@@ -720,6 +880,104 @@ function StripButton({
   );
 }
 
+/**
+ * Pending tasks as a side tab hung off the screen's right edge: white, its top
+ * and bottom leaning in and curving into the edge the way the sitting tabs meet
+ * their panel. Replaces the rail's strip where a screen opts in.
+ */
+function PendingTasksTab({
+  count,
+  label,
+  open,
+  accent = false,
+  onToggle,
+  buttonRef,
+}: {
+  count: number;
+  label: string;
+  open: boolean;
+  /** The panel's resize edge is lit: the outline takes its colour. */
+  accent?: boolean;
+  onToggle: () => void;
+  buttonRef?: React.Ref<HTMLButtonElement>;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          ref={buttonRef}
+          type="button"
+          aria-label={label}
+          aria-pressed={open}
+          onClick={onToggle}
+          className={cn(
+            "group/tasktab relative flex size-12 items-center justify-center transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+            open ? "text-brand-muted-foreground" : "text-muted-foreground"
+          )}
+        >
+          <TaskTabShape accent={accent} />
+          {/* The icon and its count read as the strip's button did. */}
+          {/* Nudged left so the count keeps 8px off the edge. */}
+          <span className="relative mr-2">
+            <ListChecks aria-hidden="true" className="size-5" />
+            {count ? (
+              <span aria-hidden="true" className="absolute -top-2 -right-2.5 flex min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-caption text-destructive-foreground tabular-nums">
+                {count}
+              </span>
+            ) : null}
+          </span>
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="left">{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+/** A soft shadow cast left, following the tab's outline, to lift it a plane. */
+const TASK_TAB_SHADOW =
+  "drop-shadow(-1px 1px 1px color-mix(in oklab, var(--color-foreground) 8%, transparent))";
+
+/**
+ * The side tab's outline, drawn as one piece: a 48px body with a rounded far
+ * side, and a foot above and below that leans in and curves onto the attaching
+ * edge (x = 48). One fill and one hairline stroke, so nothing meets at a seam.
+ * The stroke leaves the attaching edge open; the fill runs to it, covering the
+ * rail's own 1px seam where the tab sits on it.
+ */
+const TASK_TAB_EDGE =
+  "M47.5 0 C47.5 5.5 43.5 8.2 35 8.6 L12 9.4 C3.6 9.8 0.5 13 0.5 20 V68 C0.5 75 3.6 78.2 12 78.6 L35 79.4 C43.5 79.8 47.5 82.5 47.5 88";
+
+/** The side tab's body height and the reach of each foot along the edge. */
+const TASK_TAB_BODY = 48;
+const TASK_TAB_FOOT = 20;
+
+function TaskTabShape({ accent }: { accent: boolean }) {
+  return (
+    // Inline size: an unsized svg in a button can be shrunk by its styles.
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 48 88"
+      style={{ width: 48, height: 88, top: -20 }}
+      className="pointer-events-none absolute left-0 overflow-visible"
+    >
+      <path d={`${TASK_TAB_EDGE} H48 V0 Z`} fill="var(--color-card)" />
+      <path
+        d={TASK_TAB_EDGE}
+        fill="none"
+        stroke={accent ? "var(--color-brand-accent)" : "var(--color-hairline)"}
+        strokeWidth={accent ? 2 : 1}
+        className={cn("transition-[stroke] duration-150", !accent && "task-tab-edge")}
+      />
+    </svg>
+  );
+}
+
+/** Whether the tasks panel opens as a bottom sheet (phone, tablet, touch). */
+export function useTasksAsSheet(): boolean {
+  const isMobile = useIsMobile();
+  return useMediaQuery(SHEET_QUERY) || isMobile;
+}
+
 /** Narrower than xl, or touch-first: the tasks panel is a bottom sheet there. */
 const SHEET_QUERY = "(max-width: 1279px), (pointer: coarse)";
 
@@ -746,6 +1004,8 @@ export function CompanionRail({
   onAct,
   onArchive,
   onViewAllTasks,
+  stripless = false,
+  tabTop = 0,
 }: {
   world: World;
   locale: Locale;
@@ -761,6 +1021,10 @@ export function CompanionRail({
   onAct: (task: Task) => void;
   onArchive: (task: Task) => void;
   onViewAllTasks: () => void;
+  /** No strip: the screen hangs its own opener (a side tab) on its board. */
+  stripless?: boolean;
+  /** Stripless: how far below the rail's top the side tab hangs. */
+  tabTop?: number;
 }) {
   const tasksCount = summaryOf(world).action;
   const isMobile = useIsMobile();
@@ -834,6 +1098,25 @@ export function CompanionRail({
     }
   }
 
+  // The panel slides in and out as one solid piece: the rail's width grows from
+  // nothing with the panel pinned to its left edge, pushing the board aside. No
+  // fade; reduced motion snaps.
+  const asideRef = React.useRef<HTMLDivElement>(null);
+  const taskTabRef = React.useRef<HTMLButtonElement>(null);
+  // The resize edge is lit while hovered, focused or dragged; stripless, the
+  // light runs around the side tab's outline instead of through it.
+  const [edgeHot, setEdgeHot] = React.useState(false);
+  const openedFrom = React.useRef(section);
+  const slide = { duration: 380, easing: "cubic-bezier(0.32, 0.72, 0, 1)" };
+  const reduced = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  React.useLayoutEffect(() => {
+    const was = openedFrom.current;
+    openedFrom.current = section;
+    const el = asideRef.current;
+    if (!stripless || was || !section || asSheet || !el || reduced()) return;
+    el.animate([{ width: "0px" }, { width: `${el.offsetWidth}px` }], slide);
+  });
+
   const toggle = (next: RailSection) => {
     // On a tablet the strip stays, but its button raises the sheet.
     if (asSheet) {
@@ -842,25 +1125,111 @@ export function CompanionRail({
     }
     onSectionChange(section === next ? null : next);
   };
-  const close = () => onSectionChange(null);
+  const finishClose = () => {
+    // The collapsed panel is inert; return a focused close/resize control to
+    // the persistent tab before hiding its subtree.
+    if (panelRef.current?.contains(document.activeElement)) taskTabRef.current?.focus({ preventScroll: true });
+    onSectionChange(null);
+  };
+  const close = () => {
+    const el = asideRef.current;
+    if (!stripless || asSheet || !el || reduced()) return finishClose();
+    el.animate([{ width: `${el.offsetWidth}px` }, { width: "0px" }], { ...slide, duration: 300, fill: "forwards" })
+      .onfinish = (event) => {
+        finishClose();
+        (event.target as Animation).cancel();
+      };
+  };
 
   return (
     <>
     <aside
       aria-label={pick(advHome.railTitle, locale)}
-      style={{ top: topOffset, height: `calc(100svh - ${topOffset})` }}
+      data-closed={stripless && !section}
+      style={{ top: topOffset, height: `calc(100svh - ${topOffset})`, "--rail-peek-duration": `${CONTROL_REVEAL.duration}ms`, "--rail-peek-easing": CONTROL_REVEAL.easing } as React.CSSProperties}
       // The strip, and the panel pushing the board aside, belong to wide mouse-driven
       // screens only; a phone or tablet gets the floating button and the sheet.
-      className={cn("sticky hidden shrink-0 self-start border-l border-hairline bg-surface-sunken dark:bg-background", !asSheet && "md:flex")}
+      className={cn(
+        "pending-tasks-rail sticky hidden shrink-0 self-start bg-card dark:bg-background",
+        !asSheet && (!stripless || section) && "md:flex",
+        // Stripless, the rail is always there, zero wide while closed, so the
+        // side tab on its left edge rests on the screen edge and rides out with
+        // the panel when it opens.
+        stripless ? !asSheet && "z-20 md:flex" : "border-l border-hairline",
+        stripless && section && "border-l border-hairline"
+      )}
     >
-      {section && !asSheet ? (
+      {stripless && !asSheet && section ? (
+        // The lit edge as two runs over the rail's seam, above and below the
+        // side tab; the tab's outline lights in the gap, so the light goes
+        // around the tab rather than through it.
+        <>
+          <span
+            aria-hidden="true"
+            style={{ left: -1, height: tabTop - TASK_TAB_FOOT }}
+            className={cn("pointer-events-none absolute top-0 z-30 w-0.5 transition-colors", edgeHot || dragging !== null ? "bg-brand-accent" : "bg-transparent")}
+          />
+          <span
+            aria-hidden="true"
+            style={{ left: -1, top: tabTop + TASK_TAB_BODY + TASK_TAB_FOOT }}
+            className={cn("pointer-events-none absolute bottom-0 z-30 w-0.5 transition-colors", edgeHot || dragging !== null ? "bg-brand-accent" : "bg-transparent")}
+          />
+        </>
+      ) : null}
+      {stripless && !asSheet ? (
+        // An absolute child is placed from the rail's padding box, which starts
+        // just inside its 1px seam: `right-full` lays the tab's body over the seam
+        // and lands the feet's strokes on the seam's centre line.
+        <div
+          // Above the peek, so the tab covers the peek's edge as it covers the
+          // open panel's seam.
+          className="pending-rail-trigger absolute right-full z-10 cursor-pointer"
+          style={{ top: tabTop, filter: TASK_TAB_SHADOW }}
+          onClick={(event) => {
+            // Keep the original outer-edge hit area clickable after the tab
+            // moves inward. Native button clicks already call onToggle.
+            if (event.target !== event.currentTarget) return;
+            if (section) close();
+            else onSectionChange("tasks");
+          }}
+        >
+          <div className="pending-rail-tab">
+            <PendingTasksTab
+              buttonRef={taskTabRef}
+              count={tasksCount}
+              label={fillCopy(advHome.railOpen, locale, { n: String(tasksCount) })}
+              open={section === "tasks"}
+              accent={(edgeHot || dragging !== null) && section === "tasks"}
+              onToggle={() => (section ? close() : onSectionChange("tasks"))}
+            />
+          </div>
+        </div>
+      ) : null}
+      {stripless && !asSheet && !section ? (
+        // A clipped glimpse of the panel edge. It never reserves layout space,
+        // exposes task actions, or changes the saved open/closed preference.
+        // The clip runs 8px past the sliver so the edge's shadow is not cut off.
+        <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 w-6 overflow-hidden">
+          <div className="pending-rail-peek ml-2 h-full w-4 border-l border-hairline bg-card dark:bg-background" />
+        </div>
+      ) : null}
+      <div
+        ref={asideRef}
+        inert={stripless && !section ? true : undefined}
+        aria-hidden={stripless && !section ? true : undefined}
+        className={cn("flex h-full", stripless && "overflow-hidden")}
+        style={stripless && !section ? { width: 0 } : undefined}
+      >
+      {/* Stripless, the panel stays built while the rail is hidden, so a click
+          starts the slide at once instead of waiting on the list to render. */}
+      {(section || stripless) && !asSheet ? (
         <div
           // Keyed by section so opening the strip — or switching panels — plays a
           // short slide-and-fade rather than snapping in, the same easing the case
           // peek uses. Motion is suppressed for reduced-motion readers.
-          key={section}
+          key={stripless ? "tasks" : section}
           ref={panelRef}
-          className="relative flex h-full duration-200 ease-out animate-in fade-in-0 slide-in-from-right-4 motion-reduce:animate-none"
+          className={cn("relative flex h-full shrink-0", !stripless && "duration-200 ease-out animate-in fade-in-0 slide-in-from-right-4 motion-reduce:animate-none")}
           style={{ width: `calc(var(--spacing) * ${width})` }}
         >
           {/* The resize handle: an invisible grab strip on the panel's edge with
@@ -879,12 +1248,18 @@ export function CompanionRail({
             onPointerCancel={cancelResize}
             onLostPointerCapture={cancelResize}
             onKeyDown={onHandleKeyDown}
+            onPointerEnter={() => setEdgeHot(true)}
+            onPointerLeave={() => setEdgeHot(dragging !== null)}
+            onFocus={() => setEdgeHot(true)}
+            onBlur={() => setEdgeHot(false)}
             className="group/handle absolute inset-y-0 left-0 z-10 w-2 touch-none cursor-col-resize outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
           >
-            <span
-              aria-hidden="true"
-              className="absolute inset-y-0 left-0 w-0.5 bg-transparent transition-colors group-hover/handle:bg-brand-accent group-focus-visible/handle:bg-brand-accent"
-            />
+            {stripless ? null : (
+              <span
+                aria-hidden="true"
+                className="absolute inset-y-0 left-0 w-0.5 bg-transparent transition-colors group-hover/handle:bg-brand-accent group-focus-visible/handle:bg-brand-accent"
+              />
+            )}
           </div>
 
           <TasksPanel
@@ -899,10 +1274,11 @@ export function CompanionRail({
           />
         </div>
       ) : null}
+      </div>
 
       {/* The strip — always present, the one section's icon. The seam only
           appears once the panel stands beside it. */}
-      <div
+      {stripless ? null : <div
         className={cn(
           "flex w-14 flex-col items-center gap-2 pt-4",
           section && "border-l border-hairline"
@@ -916,7 +1292,7 @@ export function CompanionRail({
           active={section === "tasks"}
           onClick={() => toggle("tasks")}
         />
-      </div>
+      </div>}
     </aside>
 
       {/* On a phone the rail has no room to stand beside the board, so it becomes a

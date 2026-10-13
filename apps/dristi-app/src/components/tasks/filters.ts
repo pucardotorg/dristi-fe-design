@@ -3,8 +3,8 @@
 import * as React from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-import { DEFAULT_FILTERS, KIND_ORDER, type DueFilter, type Filters } from "@/lib/tasks/selectors";
-import type { PillKind, TaskView } from "@/lib/tasks/types";
+import { DEFAULT_FILTERS, CATEGORY_ORDER, type DueFilter, type Filters } from "@/lib/tasks/selectors";
+import type { TaskCategory, TaskView } from "@/lib/tasks/types";
 
 const VIEWS: TaskView[] = ["needs-action", "waiting", "completed", "archived"];
 const DUES: DueFilter[] = ["overdue", "today", "week", "before-hearing"];
@@ -25,9 +25,9 @@ function oneOf<T extends string>(v: string | null, allowed: readonly T[], fallba
 export function parseFilters(params: URLSearchParams): Filters {
   return {
     view: oneOf(params.get("view"), VIEWS, DEFAULT_FILTERS.view),
-    kinds: manyOf<PillKind>(params.get("kind"), KIND_ORDER),
+    kinds: manyOf<TaskCategory>(params.get("kind"), CATEGORY_ORDER),
     dues: manyOf(params.get("due"), DUES),
-    // Court names carry commas ("JMFC Court 1, Kollam"), so they repeat the key instead.
+    // Court names may carry commas, so they repeat the key instead.
     courts: [...new Set(params.getAll("court").filter(Boolean))],
     advocates: manyOf(params.get("adv")),
     query: params.get("q") ?? "",

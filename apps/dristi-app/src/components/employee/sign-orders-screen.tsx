@@ -86,6 +86,7 @@ import {
   hasColumnFilters,
   type ColumnFilter,
 } from "@/lib/employee/court-column-filters";
+import { useCourtText } from "@/components/court/court-provider";
 
 const SIGN_ORDER_COLUMN_FILTERS: ColumnFilter<SignOrder>[] = [
   {
@@ -715,6 +716,7 @@ function SignOrdersItemList({
   onToggle: (order: SignOrder) => void;
   onOpen: (order: SignOrder) => void;
 }) {
+  const courtText = useCourtText();
   return (
     <ul className="flex flex-col gap-3">
       {rows.map((order) => {
@@ -730,7 +732,7 @@ function SignOrdersItemList({
                 <Checkbox
                   checked={selectedIds.has(order.id)}
                   onCheckedChange={() => onToggle(order)}
-                  aria-label={`Select ${title} in ${order.caseNumber}`}
+                  aria-label={`Select ${title} in ${courtText(order.caseNumber)}`}
                 />
               </span>
             ) : (

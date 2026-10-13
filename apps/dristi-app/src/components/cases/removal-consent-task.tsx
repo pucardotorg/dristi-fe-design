@@ -67,7 +67,7 @@ const REMOVAL_CONSENT_PACK: Record<string, RemovalConsentFixture> = {
       "The client has consolidated the brief with one counsel ahead of the evidence stage and has asked that co-counsel be relieved.",
     document: "Client_instruction_letter.pdf",
     documentBody: [
-      "I write regarding my complaint pending before the Judicial First Class Magistrate I, Kollam.",
+      "I write regarding my complaint pending before the Judicial First Class Magistrate I.",
       "With the evidence stage ahead, I wish to consolidate my brief with Adv. Ramesh Menon alone, and I request that my other counsel be relieved from the vakalatnama with my thanks for the work done so far.",
       "I make this request of my own accord and have discussed it with both counsel.",
     ],

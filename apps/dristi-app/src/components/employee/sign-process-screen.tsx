@@ -105,6 +105,7 @@ import {
   type SelectedCase,
 } from "@/lib/employee/sign-process";
 import { Identifier } from "@/components/chrome/identifier";
+import { useCourtText } from "@/components/court/court-provider";
 
 function plural(count: number, one: string, many: string): string {
   return count === 1 ? one : many;
@@ -869,6 +870,7 @@ function ProcessSelectionTray({
   onRemoveCase: (caseNumber: string) => void;
   onClearSelection: () => void;
 }) {
+  const courtText = useCourtText();
   return (
     /* The chips and the one control that puts them all down, on one line: no count
        sentence above them (owner, 2026-10-06) — the chips are the count, and the bar
@@ -896,7 +898,7 @@ function ProcessSelectionTray({
                 variant="ghost"
                 size="icon-xs"
                 className="max-md:size-10"
-                aria-label={`Take ${entry.caseNumber} out of the selection`}
+                aria-label={`Take ${courtText(entry.caseNumber)} out of the selection`}
                 onClick={() => onRemoveCase(entry.caseNumber)}
               >
                 <XIcon aria-hidden />
@@ -1130,6 +1132,7 @@ function ProcessItemList({
   onToggle: (process: CourtProcess) => void;
   onOpen: (process: CourtProcess) => void;
 }) {
+  const courtText = useCourtText();
   const bands: { status: ProcessStatus | null; rows: CourtProcess[] }[] = banded
     ? bandByStatus(rows, tab)
     : [{ status: null, rows }];
@@ -1160,7 +1163,7 @@ function ProcessItemList({
                     <Checkbox
                       checked={selectedIds.has(process.id)}
                       onCheckedChange={() => onToggle(process)}
-                      aria-label={`Select the ${inline} in ${process.caseNumber}`}
+                      aria-label={`Select the ${inline} in ${courtText(process.caseNumber)}`}
                     />
                   </span>
                   <div className="flex min-w-0 flex-1 flex-col gap-2">

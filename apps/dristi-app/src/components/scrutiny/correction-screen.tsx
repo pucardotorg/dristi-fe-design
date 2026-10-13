@@ -21,23 +21,23 @@
  * Derivation is live; the *record* is not. What the advocate sees — the frame's state, the
  * queue's count, the submit gate — recomputes on every keystroke from the draft. What the
  * task's history receives is written only when a human act finishes: focus leaves the
- * field, typing pauses, a suggestion is accepted, or the corrections are submitted. A
+ * field, typing pauses, a value is kept as filed, or the corrections are submitted. A
  * history that gained a line per keystroke would be a log of the keyboard, not of the work.
  */
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import {
+  BellIcon,
   CircleCheckIcon,
   ClockIcon,
+  FlaskConicalIcon,
   ListChecksIcon,
   LockIcon,
   PanelLeftIcon,
   SendIcon,
-  TriangleAlertIcon,
 } from "lucide-react";
 
-import { ChromeAlertDialogContent } from "@/components/chrome/app-chrome";
 
 import { dueCueOf, longDate } from "@/lib/tasks/format";
 import {
@@ -53,19 +53,24 @@ import { useRoomInRem } from "@/hooks/use-min-width";
 import { cn } from "@/lib/utils";
 import { useFiling } from "@/lib/filing/store";
 import { intakeSlot, readTarget, writeTarget } from "@/lib/filing/targets";
-import type { StepId } from "@/lib/filing/types";
+import type { StepId, StoredFileRef } from "@/lib/filing/types";
 import type { Ctx } from "@/lib/tasks/transitions";
 import { refile, resolveDefect } from "@/lib/tasks/transitions";
-import type { Case, Defect, Resolution, Task } from "@/lib/tasks/types";
+import { useProfile } from "@/lib/filing/profile";
+import { isOutstanding, signatories } from "@/lib/filing/selectors";
+import { ConfirmDialog } from "@/components/filing/confirm-dialog";
+import { SignFlowDialog, type SignFlowStart } from "@/components/filing/sign-flow-dialog";
+import { signingRules } from "@/lib/filing/config";
+import { toast } from "sonner";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import type { Case, Defect, Resolution, Task } from "@/lib/tasks/types";
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
@@ -95,7 +100,6 @@ import {
   type FilingChromeValue,
 } from "@/components/filing/chrome";
 import { Breadcrumbs } from "@/components/shell/chrome";
-import { useOrigin } from "@/components/shell/origin";
 import { CorrectionProvider, type CorrectionValue } from "@/components/filing/posture";
 import { DefectCard, type DefectActions } from "@/components/scrutiny/defect-card";
 import {
@@ -108,6 +112,9 @@ import { SectionRail } from "@/components/scrutiny/section-rail";
 import { SectionBody } from "@/components/scrutiny/section-body";
 import { useTaskActions } from "@/components/tasks/use-task-actions";
 import { Identifier } from "@/components/chrome/identifier";
+import { useOrigin } from "@/components/shell/origin";
+import { useCourt, useCourtText } from "@/components/court/court-provider";
+import { localizeCourtText } from "@/lib/court/localize";
 
 /** Where the correction round starts when nothing is flagged on a step yet. */
 const FALLBACK_STEP: StepId = "cheque";
@@ -184,6 +191,8 @@ function focusTheAction(scope: HTMLElement): void {
 }
 
 export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
+  const courtText = useCourtText();
+  const { court } = useCourt();
   const router = useRouter();
   const { draft, update } = useFiling();
   const { act, busy, online } = useTaskActions();
@@ -191,9 +200,22 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
   /* In form order, not the officer's numbering: the queue is an index of the form, so it
      reads the way the form's pages turn — Documents, Complainant, Cheque 1, Cheque 2 —
      and the screen opens on the first unresolved defect *of the form*, not of the memo. */
+  /*
+   * What scrutiny saw, in the selected court's terms. The filing store opens the draft
+   * re-voiced for the court (`localizeDeep`), so a Kerala value like the IFSC
+   * "KLGB0040231" reads "GJ…" in Gujarat; compared with the Kerala baseline it looked
+   * already corrected before anyone touched it (owner's demo, 2026-10-12).
+   */
   const recorded = React.useMemo(
-    () => [...(task.returned?.defects ?? [])].sort(formOrder),
-    [task.returned]
+    () =>
+      [...(task.returned?.defects ?? [])]
+        .map((d) =>
+          d.target.kind === "field" && d.valueAtReturn
+            ? { ...d, valueAtReturn: localizeCourtText(d.valueAtReturn, court) }
+            : d
+        )
+        .sort(formOrder),
+    [task.returned, court]
   );
   const valueOf = React.useCallback(
     (defect: Defect) => readTarget(draft, defect.target),
@@ -201,27 +223,27 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
   );
 
   /**
-   * Reasons still being typed, by defect number. They live here rather than in the task
-   * so a half-written sentence never reaches the history; the record catches up on commit.
+   * "Keep as filed", by defect number — set by the advocate's click, cleared the moment
+   * they edit the value instead. It overrides the recorded resolution until the record
+   * catches up on commit.
    */
-  const [reasons, setReasons] = React.useState<Record<number, string>>({});
+  const [keeps, setKeeps] = React.useState<Record<number, boolean>>({});
 
   /**
-   * The defects as the screen sees them: the task's record, with any reason still being
-   * typed folded in. Every derivation below — the frames, the queue, the count, the gate —
-   * reads this, so a disagreement counts the moment it is written rather than the moment
-   * it is committed. `intendedResolution` is the same function the commit uses, so what is
-   * shown and what will be recorded can never disagree.
+   * The defects as the screen sees them: the task's record, with any keep not yet
+   * committed folded in. Every derivation below — the frames, the queue, the count, the
+   * gate — reads this. `intendedResolution` is the same function the commit uses, so what
+   * is shown and what will be recorded can never disagree.
    */
   const defects = React.useMemo(
     () =>
       recorded.map((d) => {
-        const typed = reasons[d.n];
-        if (typed === undefined) return d;
-        const next = intendedResolution(d, readTarget(draft, d.target), typed, d.resolution?.at ?? "");
+        const keep = keeps[d.n];
+        if (keep === undefined) return d;
+        const next = intendedResolution(d, readTarget(draft, d.target), keep, d.resolution?.at ?? "");
         return sameResolution(d.resolution, next) ? d : { ...d, resolution: next };
       }),
-    [recorded, reasons, draft]
+    [recorded, keeps, draft]
   );
 
   /* ── Where we are ────────────────────────────────────────────────── */
@@ -245,7 +267,6 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
   const railColumn = useRoomInRem(RAIL_REM);
   const queueColumn = useRoomInRem(QUEUE_REM);
   const [queueOpen, setQueueOpen] = React.useState(false);
-  const [confirm, setConfirm] = React.useState(false);
   /**
    * Whether the record shows the whole filing or only what scrutiny flagged. Off by
    * default — eight flagged fields scattered through thirteen sections is a
@@ -255,9 +276,9 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
   const [showAll, setShowAll] = React.useState(false);
   const nonce = React.useRef(0);
 
-  /** The reason for a defect: what is being typed, or what the record already holds. */
-  const justificationOf = (defect: Defect) =>
-    reasons[defect.n] ?? defect.resolution?.justification ?? "";
+  /** Has the advocate chosen to keep the filed value — now, or on the record? */
+  const keepOf = (defect: Defect) =>
+    keeps[defect.n] ?? defect.resolution?.how === "kept";
 
   /* ── Recording what was done ─────────────────────────────────────── */
 
@@ -281,13 +302,13 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
         const value = valueOf(defect);
         /* A target this draft cannot resolve is not evidence that nothing was done. */
         if (value === undefined) continue;
-        next = intendedResolution(defect, value, justificationOf(defect), at);
+        next = intendedResolution(defect, value, keepOf(defect), at);
       }
       if (!sameResolution(defect.resolution, next)) changes.push({ n: defect.n, resolution: next });
     }
     return changes;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recorded, draft, reasons, valueOf, task.status]);
+  }, [recorded, draft, keeps, valueOf, task.status]);
 
   /**
    * Write the gap to the task — one dispatch, and one history line per defect actually
@@ -309,7 +330,7 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
   }, [commit]);
 
   /**
-   * Set by an explicit action — accept, undo — which is a finished act the moment it is
+   * Set by an explicit action — keep, undo — which is a finished act the moment it is
    * clicked. It still waits for the next render, because the draft has to settle before
    * there is anything true to write.
    */
@@ -322,11 +343,16 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
    */
   React.useEffect(() => {
     if (pending.length === 0) return;
-    const wait = commitSoon.current ? 0 : COMMIT_QUIET_MS;
+    /* A replaced document is a finished act the moment the upload lands — no typing to
+       wait out — so it is recorded at once and its card settles without a pause. */
+    const docLanded = pending.some(
+      (ch) => recorded.find((d) => d.n === ch.n)?.target.kind === "doc",
+    );
+    const wait = commitSoon.current || docLanded ? 0 : COMMIT_QUIET_MS;
     commitSoon.current = false;
     const id = window.setTimeout(() => commitRef.current(), wait);
     return () => window.clearTimeout(id);
-  }, [pending]);
+  }, [pending, recorded]);
 
   /**
    * Focus leaving a defect — its field *and* its inset, which the layer works out — ends
@@ -411,8 +437,44 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
    * but the slot owns the upload, so it registers its own `onChoose` here.
    */
   const replacers = React.useRef(new Map<string, () => void>());
+  /* A Replace pressed while the document's section was not on screen: opened when its
+     slot mounts and lends its picker. */
+  const replaceWhenReady = React.useRef<string | null>(null);
+  /* The copy scrutiny saw, kept when it is replaced, so Undo can put it back. Before,
+     Undo on a replaced document only cleared the mark (owner, 2026-10-12). */
+  const originals = React.useRef(new Map<string, StoredFileRef>());
+  const originalsKey = `dristi:scrutiny-originals:${draft.id}`;
+  /* Kept with the draft (it lives in local storage too), so Undo still works after a
+     reload. Storage refused: it holds for this visit only. */
+  React.useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(originalsKey);
+      if (saved) {
+        for (const [k, f] of Object.entries(JSON.parse(saved) as Record<string, StoredFileRef>)) {
+          if (!originals.current.has(k)) originals.current.set(k, f);
+        }
+      }
+    } catch {
+      /* nothing to restore */
+    }
+  }, [originalsKey]);
+  const rememberOriginal = (slotKey: string, file: StoredFileRef) => {
+    originals.current.set(slotKey, file);
+    try {
+      window.localStorage.setItem(
+        originalsKey,
+        JSON.stringify(Object.fromEntries(originals.current)),
+      );
+    } catch {
+      /* storage refused */
+    }
+  };
   const registerReplace = React.useCallback((slotKey: string, choose: () => void) => {
     replacers.current.set(slotKey, choose);
+    if (replaceWhenReady.current === slotKey) {
+      replaceWhenReady.current = null;
+      choose();
+    }
     return () => {
       if (replacers.current.get(slotKey) === choose) replacers.current.delete(slotKey);
     };
@@ -439,47 +501,68 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
     }
   }, []);
 
-  /** Forget a reason that is being typed — after an undo, or once a suggestion is taken. */
-  const clearReason = (n: number) =>
-    setReasons((prev) => {
-      if (!(n in prev)) return prev;
-      const next = { ...prev };
-      delete next[n];
-      return next;
-    });
+  const setKeep = (n: number, keep: boolean) =>
+    setKeeps((prev) => (prev[n] === keep ? prev : { ...prev, [n]: keep }));
 
   /**
    * Every write in a correction round goes through here — there is no other route. The
-   * form's control is read-only, so the card's *Use <value>* and its own value control are
-   * the only two things that can change a filed value, and both are named acts.
+   * form's control is read-only, so the card's own value control is the only thing that
+   * can change a filed value, and *Keep as filed* the only way to leave it standing.
    */
   const defectActions = (defect: Defect): DefectActions => ({
-    accept: defect.suggestion
-      ? () => {
-          const to = defect.suggestion!.to;
-          update((d) => writeTarget(d, defect.target, to));
-          clearReason(defect.n);
-          setActiveDefect(defect.n);
-          commitSoon.current = true;
-        }
-      : undefined,
     setValue: (value) => {
       update((d) => writeTarget(d, defect.target, value));
+      setKeep(defect.n, false);
       setActiveDefect(defect.n);
     },
+    keep:
+      defect.target.kind === "field"
+        ? () => {
+            setKeep(defect.n, true);
+            setActiveDefect(defect.n);
+            commitSoon.current = true;
+          }
+        : undefined,
     undo: defect.resolution
       ? () => {
-          if (defect.target.kind === "field") {
-            update((d) => writeTarget(d, defect.target, defect.valueAtReturn ?? ""));
+          const target = defect.target;
+          if (target.kind === "field") {
+            update((d) => writeTarget(d, target, defect.valueAtReturn ?? ""));
+          } else {
+            /* The filed copy back if it was kept; otherwise the replacement comes off
+               and the card asks for a document again. Either way Undo visibly undoes. */
+            const original = originals.current.get(target.slotKey) ?? null;
+            update((d) => {
+              const slot = intakeSlot(d, target.slotKey);
+              if (slot) slot.file = original;
+            });
           }
-          clearReason(defect.n);
+          setKeep(defect.n, false);
           commitSoon.current = true;
         }
       : undefined,
-    reason: justificationOf(defect),
-    onReasonChange: (text) => setReasons((prev) => ({ ...prev, [defect.n]: text })),
+    /* Looked up when pressed, not when the card renders: the picker belongs to the
+       document's slot, which is only mounted while its section is on screen. Before,
+       Replace did nothing from any other section (owner, 2026-10-12). */
     replace:
-      defect.target.kind === "doc" ? replaceFor(defect.target.slotKey) : undefined,
+      defect.target.kind === "doc"
+        ? () => {
+            const target = defect.target;
+            if (target.kind !== "doc") return;
+            const current = intakeSlot(draft, target.slotKey)?.file;
+            if (current && current.id === defect.valueAtReturn) {
+              rememberOriginal(target.slotKey, current);
+            }
+            const choose = replacers.current.get(target.slotKey);
+            if (choose) {
+              choose();
+              return;
+            }
+            replaceWhenReady.current = target.slotKey;
+            setActiveDefect(defect.n);
+            setStep(target.step);
+          }
+        : undefined,
   });
 
   const correction: CorrectionValue = {
@@ -514,20 +597,207 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
    */
   const origin = useOrigin();
   const back = origin?.href ?? `/tasks?task=${encodeURIComponent(task.id)}`;
-  /**
-   * Anything still uncommitted goes in *with* the re-filing, in one transition: `refile`
-   * reads the resolutions off the task, so a reason typed a second before the click has to
-   * be on the task before `refile` looks at it — two dispatches would race.
+
+  /*
+   * Sending back, in windows over this screen (owner, 2026-10-12: it used to jump to the
+   * e-filing Sign page, which changed the whole screen). Every edit invalidates every
+   * signature (`LIFE-13`), so the corrected complaint is signed again first (`SIG-07`):
+   *
+   *   1. a confirmation says so;
+   *   2. e-filing's own signing window (`SignFlowDialog`) opens on top;
+   *   3. once every signature and oath is in, the send itself is confirmed, as on Sign.
+   *
+   * If others still have to sign, the window closes and this button reopens it; their
+   * signatures arrive through their links as at e-filing.
    */
-  const submit = async () => {
-    setConfirm(false);
-    const done = await act(task.id, (t, c: Ctx) =>
-      refile(pending.reduce((acc, ch) => resolveDefect(acc, c, ch.n, ch.resolution), t), c)
-    );
-    if (done) router.push(back);
+  const { profile } = useProfile();
+  const everyoneSigning = React.useMemo(() => {
+    const { complainants, advocates } = signatories(draft, profile);
+    return [...complainants, ...advocates];
+  }, [draft, profile]);
+  const signaturesComplete =
+    everyoneSigning.length > 0 && !everyoneSigning.some(isOutstanding);
+  const [confirmSignOpen, setConfirmSignOpen] = React.useState(false);
+  const [signOpen, setSignOpen] = React.useState(false);
+  /** The old signatures are already off: this round is being signed. */
+  const signing = !!draft.scrutinyReturn && draft.lastStep === "sign";
+
+  /** Record what was fixed on the task and take the old signatures off. */
+  const prepareSigning = async () => {
+    if (pending.length > 0) {
+      const done = await act(task.id, (t, c: Ctx) =>
+        pending.reduce((acc, ch) => resolveDefect(acc, c, ch.n, ch.resolution), t)
+      );
+      if (!done) return false;
+    }
+    update((d) => {
+      d.sign.requestedAt = null;
+      d.sign.notified = {};
+      d.sign.signed = {};
+      d.sign.signedCopy = null;
+      d.sign.confirmed = {};
+      d.sign.oaths = {};
+      d.scrutinyReturn = { resubmittedAt: null };
+      d.lastStep = "sign";
+    });
+    return true;
   };
 
+  /*
+   * Coming back to a round already being signed opens where it stands, not at the start
+   * (owner, 2026-10-13): your own signature if it is still owed, then your oath, else the
+   * roster of who is still to sign — with a reminder for them and, in the sandbox, a way
+   * to mark them done.
+   */
+  const yous = everyoneSigning.filter((s) => s.you);
+  const othersWaiting = everyoneSigning.filter((s) => !s.you && isOutstanding(s));
+  const signStart: SignFlowStart = !signing || !draft.sign.requestedAt
+    ? "choose"
+    : yous.some((s) => s.status === "pending")
+      ? "sign"
+      : yous.some((s) => s.oathTaken === false)
+        ? "oath"
+        : "status";
+
+  /* Fixed when the window opens. Recomputed live, it changed the moment an oath was
+     saved, and the window restarted on the roster mid-oath (owner, 2026-10-13). */
+  /** The send happened in the signing window, which then says so and stays open. */
+  const [sent, setSent] = React.useState(false);
+  const [openedAt, setOpenedAt] = React.useState<SignFlowStart>("choose");
+  const openSigning = (start: SignFlowStart) => {
+    setOpenedAt(start);
+    setSent(false);
+    setSignOpen(true);
+  };
+
+  const submit = async () => {
+    if (signing) openSigning(signStart);
+    else setConfirmSignOpen(true);
+  };
+
+  /** Ask again, for everyone still waiting. The link itself does not change. */
+  const [reminded, setReminded] = React.useState(false);
+  const remindOthers = () => {
+    const now = new Date().toISOString();
+    update((d) => {
+      for (const s of othersWaiting) d.sign.notified[s.id] = now;
+    });
+    setReminded(true);
+    toast.success(
+      othersWaiting.length === 1
+        ? `Reminder sent to ${othersWaiting[0].name}`
+        : `Reminder sent to ${othersWaiting.length} people`,
+    );
+  };
+
+  /**
+   * Sandbox only: the other parties' links go nowhere, so this stands in for them signing
+   * (and, where the court asks for one, swearing the oath). With everyone done, the send
+   * is the next act, so its confirmation follows at once.
+   */
+  const sandboxEveryoneDone = () => {
+    const at = new Date().toISOString();
+    update((d) => {
+      for (const s of everyoneSigning) {
+        if (!d.sign.signed[s.id]) d.sign.signed[s.id] = { at, with: "aadhaar" };
+        if (s.oathTaken === false) d.sign.oaths[s.id] = { at, video: null };
+      }
+    });
+    // The window stays: the roster turns to everyone signed and offers the send.
+  };
+
+  /* The flask's menu item unmounts with the footer it sat in, so focus would fall to the
+     page; it lands on the send instead, which is the next act. */
+  const sendRef = React.useRef<HTMLButtonElement>(null);
+  React.useEffect(() => {
+    if (signOpen && signaturesComplete && !sent) sendRef.current?.focus();
+  }, [signOpen, signaturesComplete, sent]);
+
+  const sendBack = async () => {
+    const done = await act(task.id, refile, "Corrections sent to scrutiny");
+    if (!done) return;
+    update((d) => {
+      d.scrutinyReturn = { resubmittedAt: new Date().toISOString() };
+    });
+    /* No jump: the window says it went, and the advocate leaves when they choose
+       (owner, 2026-10-13). */
+    setSent(true);
+  };
+
+  /* The roster's footer: while others are still to sign, the sandbox and a reminder;
+     once everyone has, the send itself — in this same window. */
+  /* The window's own close stays for staying here; the one act is the way out. */
+  const statusActions = sent ? (
+    <Button type="button" onClick={() => router.push(back)}>
+      Back to dashboard
+    </Button>
+  ) : signaturesComplete ? (
+    <>
+      <Button type="button" variant="ghost" className="sm:mr-auto" onClick={() => setSignOpen(false)}>
+        Not yet
+      </Button>
+      <Button ref={sendRef} type="button" disabled={!online || !!busy} onClick={() => void sendBack()}>
+        <SendIcon data-icon="inline-start" aria-hidden />
+        Send to scrutiny
+      </Button>
+    </>
+  ) : (
+    <>
+      <div className="flex items-center gap-2 sm:mr-auto">
+        {/* Not modal: a modal menu inside the dialog left the page pointer-locked after
+            its item was chosen, so the next click went nowhere. */}
+        <DropdownMenu modal={false}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Sandbox: mark the other signatures"
+                  className="text-muted-foreground"
+                >
+                  <FlaskConicalIcon aria-hidden />
+                </Button>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent>Sandbox: mark the other signatures</TooltipContent>
+          </Tooltip>
+          <DropdownMenuContent align="start" className="w-64">
+            <DropdownMenuLabel>No link is sent in the sandbox</DropdownMenuLabel>
+            <DropdownMenuItem onSelect={sandboxEveryoneDone}>
+              {signingRules().oath ? "Mark everyone as signed and sworn" : "Mark everyone as signed"}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        {othersWaiting.length ? (
+          <Button type="button" variant="outline" disabled={reminded} onClick={remindOthers}>
+            <BellIcon data-icon="inline-start" aria-hidden />
+            {reminded ? "Reminder sent" : "Send a reminder"}
+          </Button>
+        ) : null}
+      </div>
+      <Button type="button" onClick={() => setSignOpen(false)}>
+        Done
+      </Button>
+    </>
+  );
+
+
   const reason = submitReason(resolved, total, online);
+  /* Closing the window after the send leaves the advocate here; the screen says it went. */
+  const isSent = sent || task.status === "awaiting-court";
+  const submitLabel = isSent ? (
+    <>
+      <CircleCheckIcon data-icon="inline-start" aria-hidden />
+      Sent to scrutiny
+    </>
+  ) : (
+    <>
+      <SendIcon data-icon="inline-start" aria-hidden />
+      Send corrections back
+    </>
+  );
 
   /*
    * The correction screen is a filing chrome host in its own right: it owns the sections
@@ -581,6 +851,11 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
           defect={item.defect}
           value={item.value}
           actions={defectActions(item.defect)}
+          file={
+            item.defect.target.kind === "doc"
+              ? intakeSlot(draft, item.defect.target.slotKey)?.file ?? undefined
+              : undefined
+          }
           index={index}
           total={total}
           onFocusCapture={() => setActiveDefect(item.defect.n)}
@@ -592,12 +867,6 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
 
   const submitBlock = (
     <div className="flex flex-col gap-3">
-      {complete ? (
-        <p className="flex gap-2 text-caption text-muted-foreground">
-          <TriangleAlertIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-          Once sent, this cannot be recalled.
-        </p>
-      ) : null}
       <Button
         type="button"
         size="lg"
@@ -605,11 +874,10 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
            in any pane this screen has, and a clipped label is the loss of content
            `ACCESSIBILITY.md` §10 forbids. Height follows the words. */
         className={SUBMIT_CLASS}
-        disabled={!complete || !online || !!busy}
-        onClick={() => setConfirm(true)}
+        disabled={!complete || !online || !!busy || isSent}
+        onClick={() => void submit()}
       >
-        <SendIcon data-icon="inline-start" aria-hidden />
-        Send corrections back
+        {submitLabel}
       </Button>
       {complete ? null : <p className="text-caption text-muted-foreground">{reason}</p>}
     </div>
@@ -650,7 +918,7 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
           " · Not yet numbered"
         )}
         {" · "}
-        {kase.court}
+        {courtText(kase.court)}
         {" · "}
         <span className="tabular-nums">
           Returned {task.returned ? longDate(task.returned.at) : "—"}
@@ -798,9 +1066,23 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
                 className={cn(
                   "flex min-w-0 flex-1 flex-col overflow-y-auto pb-8",
                   "[&_:disabled]:opacity-100! [&_:disabled]:text-muted-foreground",
-                  "[&_:has(:disabled)]:opacity-100! [&_[data-slot=input-group-addon]]:opacity-100!",
+                  "[&_:has(:disabled):not([data-slot=field])]:opacity-100! [&_[data-slot=input-group-addon]]:opacity-100!",
                   "[&_input:disabled]:bg-surface-sunken! [&_textarea:disabled]:bg-surface-sunken!",
                   "[&_:has(>input:disabled)]:bg-surface-sunken! [&_[data-slot=select-trigger]:disabled]:bg-surface-sunken!",
+                  /* An input inside a group (+91, ₹, a date's calendar button) stays clear:
+                     the group carries the fill. Painted itself, its square box ran over the
+                     group's rounded right edge (owner, 2026-10-13). */
+                  "[&_[data-slot=input-group]_input:disabled]:bg-transparent!",
+                  /* Full filing: every field scrutiny did not flag steps back, so the
+                     flagged ones are what the eye finds. One rule here rather than in each
+                     section, because only some sections build their fields with
+                     `FormField` — the rest stayed at full strength (owner, 2026-10-13). */
+                  showAll && "[&_[data-slot=field]]:opacity-45!",
+                  // A field inside another field is already receded with it: no second step.
+                  showAll && "[&_[data-slot=field]_[data-slot=field]]:opacity-100!",
+                  // A flagged field, or a field holding one, stays at full strength.
+                  showAll && "[&_[data-defect]_[data-slot=field]]:opacity-100!",
+                  showAll && "[&_[data-slot=field]:has([data-defect])]:opacity-100!",
                   /* Flagged-only mode: the fields hide themselves (`FormField` returns
                      null), and these rules retire what they leave behind — section cards
                      none of them are in, and group headings ("The parties") whose every
@@ -826,7 +1108,12 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
                       ? "The filing as scrutiny received it."
                       : "The flagged parts of the filing, as scrutiny received them."}
                   </p>
-                  <SectionBody step={step} />
+                  {/* With only the flagged fields shown, the groups whose fields are all
+                      hidden are left empty, and each still took the form's gap — the
+                      blank band above "Drawer's bank details" (owner, 2026-10-12). */}
+                  <div className="[&_div.grid:empty]:hidden [&_div.w-full:empty]:hidden">
+                    <SectionBody step={step} />
+                  </div>
                 </div>
               </main>
             </ResizablePanel>
@@ -883,11 +1170,10 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
             type="button"
             size="lg"
             className={SUBMIT_CLASS}
-            disabled={!complete || !online || !!busy}
-            onClick={() => setConfirm(true)}
+            disabled={!complete || !online || !!busy || isSent}
+            onClick={() => void submit()}
           >
-            <SendIcon data-icon="inline-start" aria-hidden />
-            Send corrections back
+            {submitLabel}
           </Button>
           <p className="text-caption text-muted-foreground">{reason}</p>
         </div>
@@ -936,25 +1222,42 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
         </DrawerContent>
       </Drawer>
 
-      <AlertDialog open={confirm} onOpenChange={setConfirm}>
-        <ChromeAlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Send these corrections back?</AlertDialogTitle>
-            {/* The limitation point lives here rather than under the button: it is the one
-                thing worth a sentence, and a sentence under a button is a sentence nobody
-                reads. */}
-            <AlertDialogDescription>
-              {`All ${total} go back to the Registry. `}
-              A re-submission cannot be recalled, and limitation runs from the
-              Registry&apos;s receipt.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void submit()}>Send them back</AlertDialogAction>
-          </AlertDialogFooter>
-        </ChromeAlertDialogContent>
-      </AlertDialog>
+      {/* ── Sending back: confirm, sign over this screen, then send ── */}
+      <ConfirmDialog
+        open={confirmSignOpen}
+        onOpenChange={setConfirmSignOpen}
+        title="Sign the corrected complaint?"
+        description="Corrections change the complaint, so its signatures are taken off. It is signed again here before it goes back to scrutiny."
+        confirmLabel="Continue to sign"
+        cancelLabel="Not yet"
+        destructive={false}
+        onConfirm={() => {
+          setConfirmSignOpen(false);
+          void prepareSigning().then((ok) => {
+            if (ok) openSigning("choose");
+          });
+        }}
+      />
+      <SignFlowDialog
+        open={signOpen}
+        start={openedAt}
+        statusActions={statusActions}
+        completeNote="The corrected complaint can go back to scrutiny."
+        unlocks="It can go back to scrutiny"
+        outcome={
+          sent
+            ? {
+                title: "Sent to scrutiny",
+                headline: "Corrections sent",
+                footnote: "The scrutiny officer reviews the corrected complaint next.",
+              }
+            : undefined
+        }
+        onOpenChange={setSignOpen}
+        onPrint={() => window.print()}
+      />
+
+
     </CorrectionProvider>
     </FilingChromeContext.Provider>
   );

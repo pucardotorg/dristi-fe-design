@@ -25,6 +25,8 @@ import {
   chequeSourceSlot,
   firstReadField,
   noticeComplete,
+  noticeDispatchIssue,
+  noticeServiceIssue,
 } from "@/lib/filing/selectors";
 import { neighbours } from "@/lib/filing/steps";
 import { useFiling } from "@/lib/filing/store";
@@ -328,6 +330,7 @@ export function DemandNoticeSection() {
               label="Date of dispatch of demand notice"
               name="dispatchDate"
               required
+              error={noticeDispatchIssue(draft, index)}
               tip="The notice must be sent within 30 days of receiving information about the cheque's return."
             >
               <DateField
@@ -384,6 +387,7 @@ export function DemandNoticeSection() {
                 <FormField
                   label="Date of delivery"
                   required
+                  error={noticeServiceIssue(notice)}
                   help="The 15-day payment window runs from this date."
                 >
                   <DateField
@@ -406,7 +410,11 @@ export function DemandNoticeSection() {
           ) : (
             <>
               <FormRow>
-                <FormField label="Date of return as not delivered" required>
+                <FormField
+                  label="Date of return as not delivered"
+                  required
+                  error={noticeServiceIssue(notice)}
+                >
                   <DateField
                     value={notice.returnDate}
                     onChange={(v) => set("returnDate", v)}

@@ -6,6 +6,7 @@ import { CASE_TYPE } from "@/lib/filing/options";
 import { getStep, stepFromPathname } from "@/lib/filing/steps";
 import { Breadcrumbs, type Crumb } from "@/components/shell/chrome";
 import { useFilingChrome } from "@/components/filing/chrome";
+import { useCourtText } from "@/components/court/court-provider";
 
 const CASE_FILING_LABEL = `Case filing under ${CASE_TYPE.short}`;
 
@@ -24,11 +25,15 @@ const CASE_FILING_LABEL = `Case filing under ${CASE_TYPE.short}`;
  * to send anyone to.
  */
 export function FilingBreadcrumbs() {
+  const courtText = useCourtText();
   const pathname = usePathname();
   const { draftLabel } = useFilingChrome();
 
   const first = pathname.replace(/^\/filings\/?/, "").split("/").filter(Boolean)[0];
   const stepId = stepFromPathname(pathname);
+
+  // The signing request publishes its own trail, named for the case it holds.
+  if (first === "sign-request") return null;
 
   const crumbs: Crumb[] = [];
   if (first === "new") {
@@ -40,7 +45,7 @@ export function FilingBreadcrumbs() {
       label:
         draftLabel && draftLabel !== "Untitled filing" ? draftLabel : CASE_FILING_LABEL,
     });
-    crumbs.push({ label: getStep(stepId).title });
+    crumbs.push({ label: courtText(getStep(stepId).title) });
   } else if (first) {
     crumbs.push({ label: CASE_FILING_LABEL });
   }

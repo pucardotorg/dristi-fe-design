@@ -22,6 +22,7 @@ import {
 import { ShareDialog } from "@/components/access/share-dialog";
 import type { AccessPerson } from "@/lib/access/content";
 import { useCaseBail } from "@/components/cases/case-bail-flow";
+import { useCaseReader } from "@/components/cases/case-reader";
 import { Identifier } from "@/components/chrome/identifier";
 import { SubmitDocumentsDialog } from "@/components/cases/submit-documents-form";
 import { caseSectionHref } from "@/lib/cases/sections";
@@ -52,6 +53,9 @@ const WORDED_ON_TABLET =
   "sm:w-auto sm:flex-1 sm:gap-2 sm:px-4 " +
   "md:pointer-fine:w-10 md:pointer-fine:flex-none md:pointer-fine:px-0 " +
   "md:landscape:w-10 md:landscape:flex-none md:landscape:px-0";
+/** The primary's place in the row — Make filings' own, so Generate order lands there too. */
+const GENERATE_ORDER =
+  "order-first flex-1 md:pointer-fine:order-none md:pointer-fine:flex-none md:landscape:order-none md:landscape:flex-none";
 const TABLET_WORD = "hidden sm:inline md:pointer-fine:hidden md:landscape:hidden";
 
 export function CaseHeaderActions({
@@ -59,6 +63,7 @@ export function CaseHeaderActions({
   disposed = false,
   shareReadOnly = false,
   shareExtraPeople,
+  orderHref,
 }: {
   accessCase: AccessCase;
   /** A disposed case still takes applications and documents (certified
@@ -69,6 +74,9 @@ export function CaseHeaderActions({
   shareReadOnly?: boolean;
   /** The case's own nama advocates and staff, derived server-side. */
   shareExtraPeople?: AccessPerson[];
+  /** The court's order screen for this case. Read only by the court, and absent where
+   *  the court has no order screen to open for it yet. */
+  orderHref?: string;
 }) {
   const bail = useCaseBail();
   const [shareOpen, setShareOpen] = React.useState(false);
@@ -76,6 +84,10 @@ export function CaseHeaderActions({
   const [submitOpen, setSubmitOpen] = React.useState(false);
   const router = useRouter();
   const caseId = accessCase.id;
+  /* The court reads this same header with two changes (owner, 2026-10-13): no Share
+     access — case access is the parties' to give — and Generate order where the
+     advocate's Make filings stands. Download stays for both. */
+  const court = useCaseReader() === "court";
 
   return (
     <TooltipProvider>
@@ -83,7 +95,7 @@ export function CaseHeaderActions({
           width, the two icon actions close the line. Left-packed at three
           different widths they read as loose parts (owner, Sept 21). */}
       <div className="flex w-full shrink-0 items-center gap-2 md:pointer-fine:w-auto md:landscape:w-auto">
-        {SHARE_ACCESS_ENABLED ? (
+        {SHARE_ACCESS_ENABLED && !court ? (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -119,6 +131,28 @@ export function CaseHeaderActions({
           <TooltipContent side="bottom">Download case file</TooltipContent>
         </Tooltip>
 
+        {court ? (
+          orderHref ? (
+            <Button asChild className={GENERATE_ORDER}>
+              <Link href={orderHref}>Generate order</Link>
+            </Button>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  aria-disabled
+                  className={`${GENERATE_ORDER} aria-disabled:opacity-50 aria-disabled:hover:bg-primary aria-disabled:active:translate-y-0`}
+                >
+                  Generate order
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" align="end">
+                The order screen is not connected for this case yet
+              </TooltipContent>
+            </Tooltip>
+          )
+        ) : (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button type="button" className="order-first flex-1 md:pointer-fine:order-none md:pointer-fine:flex-none md:landscape:order-none md:landscape:flex-none">
@@ -163,6 +197,7 @@ export function CaseHeaderActions({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        )}
       </div>
 
       <SubmitDocumentsDialog
@@ -185,7 +220,7 @@ export function CaseHeaderActions({
         caseNumber={accessCase.caseNumber}
       />
 
-      {SHARE_ACCESS_ENABLED ? (
+      {SHARE_ACCESS_ENABLED && !court ? (
       <ShareDialog
         open={shareOpen}
         onOpenChange={setShareOpen}

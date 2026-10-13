@@ -20,15 +20,7 @@
   ],
   "src/components/advocate/join-case-dialog.tsx": [
     "gap-5",
-    "gap-5",
-    "gap-5",
-    "pr-14",
-    "pr-14",
-    "pt-5",
-    "pt-5",
-    "py-5",
-    "py-5",
-    "py-5"
+    "gap-5"
   ],
   "src/components/advocate/vakalatnama-picker.tsx": [
     "gap-5",
@@ -103,9 +95,6 @@
   "src/components/document-preview.tsx": [
     "pr-10"
   ],
-  "src/components/employee/scrutiny/flag-composer.tsx": [
-    "pe-11"
-  ],
   "src/components/employee/scrutiny/generated-pages.tsx": [
     "gap-3.5",
     "mb-3.5",
@@ -170,9 +159,6 @@
     "pb-10",
     "pl-9"
   ],
-  "src/components/filing/dashboard/start-filing-card.tsx": [
-    "pl-10"
-  ],
   "src/components/filing/source-panel.tsx": [
     "py-10"
   ],
@@ -195,14 +181,6 @@
     "gap-5",
     "py-10"
   ],
-  "src/components/join/join-case-dialog.tsx": [
-    "gap-5",
-    "pr-14",
-    "pr-14",
-    "py-5",
-    "py-5",
-    "py-5"
-  ],
   "src/components/registration/registration-flow.tsx": [
     "gap-10"
   ],
@@ -214,10 +192,7 @@
     "p-5"
   ],
   "src/components/scrutiny/defect-card.tsx": [
-    "gap-3.5",
-    "gap-3.5",
-    "px-3.5",
-    "px-3.5"
+    "gap-3.5"
   ],
   "src/components/sign-in-block.tsx": [
     "gap-10",

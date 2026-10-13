@@ -26,6 +26,7 @@ import {
 } from "@/lib/employee/sign-a-diary";
 import { cn } from "@/lib/utils";
 import { Identifier } from "@/components/chrome/identifier";
+import { useCourtText } from "@/components/court/court-provider";
 
 /* The A-Diary's rows run to several lines, and centring strands the short
  * cells against them. */
@@ -70,6 +71,7 @@ export function SignADiaryTable({
   rows: ADiaryEntry[];
   onOpen: (entry: ADiaryEntry) => void;
 }) {
+  const courtText = useCourtText();
   return (
     <Table className="w-full border-separate border-spacing-0 text-body-compact">
       <TableHeader>
@@ -114,7 +116,7 @@ export function SignADiaryTable({
                 className={rowOpenerClass}
               >
                 <span className="sr-only">
-                  Read and sign the entry in {entry.caseNumber}.{" "}
+                  Read and sign the entry in {courtText(entry.caseNumber)}.{" "}
                 </span>
                 <span className="line-clamp-2">{entry.business}</span>
               </button>

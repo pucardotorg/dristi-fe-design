@@ -19,24 +19,28 @@ and moves through the statuses below. `draft` / `prepared` record who last saved
 finished the preparation; `returned` carries scrutiny's defects; `completion` records how
 it closed; `history` is the audit trail — every transition appends one line.
 
-### Kinds → kind pills
+### Kinds → category pills
 
-| Kind | Pill | What it is |
+The pills are the four citizen-side categories of the Pending Tasks PRD (attribute 6,
+"Category") and the Coda task catalogue, in their order and words. `kind` still decides
+the verb and the flow; `categoryOf(task)` folds it into a category.
+
+| Kind | Category | What it is |
 | --- | --- | --- |
-| `sign` | To sign | A vakalatnama, affidavit, application or memo needing the advocate's e-sign |
-| `pay` | To pay | A fee: process fee, court fee, copying fee |
-| `file` | To file | A document or application due with the court |
-| `returned` | Returned by scrutiny | A filing sent back for compliance — fix the defects and re-file |
-| `review` | To review | A decision addressed to this advocate — a request for their removal from the case |
-| `hearing` | To submit | Court-initiated, anchored to a posting: the plea, a deposition, the sworn statement, arguments — done in court, marked done by hand |
+| `pay` | Pay | A fee: process fee, court fee, copying fee |
+| `sign` | Sign | A vakalatnama, affidavit, application or memo needing the advocate's e-sign |
+| `file` | File/Submit | A document or application due with the court |
+| `returned` | File/Submit | A filing sent back for compliance — fix the defects and re-file (the catalogue files "Correct defects" here) |
+| `draft` | File/Submit | A filing or application someone started — counted as the filing it will become |
+| `review` | Others | A decision addressed to this advocate — a request for their removal from the case |
+| `hearing` | Others | Court-initiated, anchored to a posting: the plea, a deposition, the sworn statement, arguments — done in court, marked done by hand |
 
-`cardKindOf(task)` decides the pill by **the act still needed**, never by how far along
-the task is: a filing left in draft still counts under **To file**, and a `draft`-kind
-task that has been marked ready or filed counts under **To file** from then on. `draft`
-is a state, so it has no pill of its own.
+The category follows **the act still needed**, never how far along the task is: a
+filing left in draft counts under **File/Submit** from the start, and stays there once
+marked ready or filed.
 
-These were six count cards until 2026-09-15, when they became one single-select row of
-pills (`components/tasks/kind-pills.tsx`). A card that filters is a summary and a control
+These were six count cards until 2026-09-15, when they became one row of
+pills (six kinds until 2026-10-08, then the four PRD categories) (`components/tasks/kind-pills.tsx`). A card that filters is a summary and a control
 at once, and the pressed kind was then named a second time as a chip in the filter row;
 the counts a card carried now sit where each one answers something — the pill's own
 number, the header line's overdue count, and the due bands inside the list.
@@ -134,7 +138,7 @@ attribute lives here:
 | Closure Trigger | event transitions (`transitions.ts`) close it; `closesWhen` declares the rule — auto-closure included ("Closes on payment, or when the hearing passes"; "Closes when the court decides the application"; "Closes when this or any other vakalatnama fee on the case is paid") — and `completion.how` records how it actually closed |
 | Archive Logic | `archive` / `unarchive` (manual, restorable) today; auto-archive rules are a backend seam — open |
 | Users | `Case.signatories` / `Case.advocates` + `verbFor` (per-viewer verb) |
-| Category | `kind` — the six overview cards |
+| Category | `categoryOf(task)` — Pay · Sign · File/Submit · Others |
 | Associated Workflow | verb → surface: Pay / File → the act modal; Sign / Re-file / Continue → the flow pages |
 | Status | ours is richer: open · draft · ready · awaiting-court · payment-confirming · done · expired · obsolete · archived. **Overdue stays derived from the date, never a stored status — it cannot go stale** |
 | Case | `caseId` |
@@ -154,7 +158,7 @@ sort with it.
 narrows and sorts; `summaryOf` feeds the header; `courtsOf` the Court filter.
 
 **One count contract.** Every count follows the rows the list is showing, except the four
-tab counts, which have to be cross-view to be any use. `kindCounts(world, filters)`
+tab counts, which have to be cross-view to be any use. `categoryCounts(world, filters)`
 applies the whole filter set *except* the kind, so a pill reading 5 always yields five
 rows; `bandByDue(rows, now)` cuts the sorted list into Overdue / Due today / This week /
 Later / No date set, and a band's number is the rows under it. `readsAsOverdue` is the one

@@ -47,7 +47,7 @@ describe("the court session", () => {
     setCourtSession({ district: "Ernakulam" });
     assert.equal(changes, 1);
     stop();
-    setCourtSession({ district: "Kollam" });
+    setCourtSession({ district: "Sample District" });
     assert.equal(changes, 1, "a stopped subscriber was still called");
   });
 

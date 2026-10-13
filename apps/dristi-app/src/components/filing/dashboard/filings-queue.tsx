@@ -66,10 +66,10 @@ import {
 } from "@/components/ui/pagination";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { rowActivation, rowOpener } from "@/lib/employee/row-activation";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { PANEL_CLASS } from "@/components/filing/form-card";
 
-import { CompletionRing } from "./completion-ring";
 
 /** The tone words, so a colour is never the only thing saying "this one is late". */
 const TONE_CLASS: Record<QueueRow["info"]["tone"], string> = {
@@ -450,20 +450,20 @@ export function FilingsQueue({
                   <div className="flex items-center justify-between gap-3 border-t border-hairline pt-3">
                     {row.progress ? (
                       <>
-                        <span className="flex items-center gap-2 text-body-compact tabular-nums">
-                          <CompletionRing percent={row.progress.percent} />
-                          {row.progress.percent}% complete
-                        </span>
+                        <span className="text-body-compact">{row.caseType}</span>
                         <span className="text-caption text-muted-foreground tabular-nums">
-                          Saved {row.progress.savedOn}
+                          Last saved {row.progress.savedOn}
                         </span>
                       </>
                     ) : (
-                      <span className="text-caption text-muted-foreground">
-                        {row.ref ? <Identifier value={row.ref} copyable={false} /> : null}
-                        {row.ref && row.court ? <span aria-hidden> · </span> : null}
-                        {row.court || (row.ref ? null : "Court not assigned")}
-                      </span>
+                      <>
+                        <span className="text-body-compact">{row.caseType}</span>
+                        <span className="text-caption text-muted-foreground">
+                          {row.ref ? <Identifier value={row.ref} copyable={false} /> : null}
+                          {row.ref && row.court ? <span aria-hidden> · </span> : null}
+                          {row.court || (row.ref ? null : "Court not assigned")}
+                        </span>
+                      </>
                     )}
                   </div>
                   {/* While picking, the whole card is the toggle, as on Cases. Pointer
@@ -571,9 +571,16 @@ export function FilingsQueue({
                 {slice.map((row) => (
                   <TableRow
                     key={row.id}
+                    /* The whole row opens the filing (owner, 2026-10-13: "don't force me
+                       to click Fix defects"). Delegated in script by the product's row
+                       pattern — a link stretched over a `relative` <tr> does not reach
+                       across the row in every browser. Checkboxes and buttons keep their
+                       own clicks. */
                     // OPEN DECISION (see PR #31): the cards' light teal wash, not the DS
                     // beige `accent-strong` that Cases and Pending tasks still use.
-                    className="relative border-hairline data-[state=selected]:bg-brand-muted/50 data-[state=selected]:hover:bg-brand-muted/75"
+                    {...rowActivation(
+                      "border-hairline data-[state=selected]:bg-brand-muted/50 data-[state=selected]:hover:bg-brand-muted/75",
+                    )}
                     data-state={selected.has(row.id) ? "selected" : undefined}
                   >
                     {selectable ? (
@@ -755,12 +762,14 @@ function headingFor(column: ColumnId, layout: (typeof TAB_LAYOUT)[QueueTab]): Re
       return layout.ref;
     case "parties":
       return "Parties";
+    case "caseType":
+      return "Case type";
     case "court":
       return "Court";
     case "info":
       return layout.info;
     case "progress":
-      return "Completed";
+      return "Last saved";
     case "action":
       return <span className="sr-only">Action</span>;
   }
@@ -783,6 +792,8 @@ function renderCell(
       ) : null;
     case "parties":
       return row.parties;
+    case "caseType":
+      return row.caseType ?? "—";
     case "court":
       return row.court || "—";
     case "info":
@@ -825,15 +836,7 @@ function renderCell(
       );
     case "progress":
       return row.progress ? (
-        <>
-          <span className="flex items-center gap-2 tabular-nums">
-            <CompletionRing percent={row.progress.percent} />
-            {row.progress.percent}% complete
-          </span>
-          <span className="block text-caption text-muted-foreground">
-            Last saved {row.progress.savedOn}
-          </span>
-        </>
+        <span className="tabular-nums">{row.progress.savedOn}</span>
       ) : (
         "—"
       );
@@ -841,10 +844,9 @@ function renderCell(
       return (
         <div className="flex items-center justify-end gap-1">
           <Button asChild variant="outline" size="sm">
-            {/* The link stretches over the whole row, so the row is the target and the
-                button is only where it is visible. Anything else in the row that must
-                stay clickable sits above it on `z-10`. */}
-            <Link href={withOrigin(row.action.href, here)} className="after:absolute after:inset-0">
+            {/* The row's opener: a click anywhere on the row is handed to it
+                (`rowActivation`), so the button is only where it is visible. */}
+            <Link href={withOrigin(row.action.href, here)} {...rowOpener}>
               {row.action.label}
               <ArrowRightIcon data-icon="inline-end" aria-hidden />
             </Link>
@@ -900,7 +902,7 @@ function emptyHint(tab: QueueTab): string {
     case "scrutiny":
       return "Filings waiting on the registry's check will appear here.";
     case "returned":
-      return "If scrutiny sends a filing back, it lands here with the defects to cure.";
+      return "If scrutiny sends a filing back, it lands here with the defects to fix.";
     case "registered":
       return "Cases the court has numbered will appear here with their next hearing.";
   }

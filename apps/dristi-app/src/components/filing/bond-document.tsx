@@ -15,6 +15,7 @@ import {
   fillCopy,
 } from "@/lib/filing/content";
 import { cn } from "@/lib/utils";
+import { useCourtText } from "@/components/court/court-provider";
 
 /**
  * The generated Form No. 37 bond, shared by the advocate dialogs and the
@@ -38,6 +39,7 @@ export function BondDocument({
   onExpand?: () => void;
   onDownload?: () => void;
 }) {
+  const courtText = useCourtText();
   return (
     <div
       className={cn(
@@ -91,7 +93,7 @@ export function BondDocument({
           <p className="text-body-compact italic">{pick(bondCopy.sectionLine, locale)}</p>
         </div>
         <p className="text-center text-body-compact font-semibold text-balance">
-          {pick(bailDialog.draftCourtLine, locale)}
+          {courtText(pick(bailDialog.draftCourtLine, locale))}
         </p>
         <p className="text-center text-body-compact font-medium tabular-nums">
           {fillCopy(bailDialog.draftCaseLine, locale, { caseNumber: accessCase.caseNumber })}

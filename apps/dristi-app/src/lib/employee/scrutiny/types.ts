@@ -74,10 +74,13 @@ export interface Field {
   /** AI could not read the value at all. */
   ocrfail?: boolean;
   failnote?: string;
-  /** A quiet AI consistency confirmation. */
-  aiok?: string;
   /** No document exists to verify this against — said plainly, not hidden. */
   nodoc?: string;
+  /**
+   * AI searched the bundle and found no document carrying this value — "Not in any
+   * document". Unlike `nodoc`, saying so takes reading the documents, so it needs AI on.
+   */
+  unfound?: string;
   /** Standing caution about the upload behind this row. */
   scannote?: string;
   /** Where in the document the value sits, when that is not obvious. */
@@ -113,19 +116,15 @@ export type GroupIcon =
   | "memo"
   | "mail"
   | "pin"
-  | "doc";
+  | "doc"
+  | "pen"
+  | "wallet";
 
 /* ── what the officer raises ─────────────────────────────────────────────── */
 
-/** A rectangle drawn on a bundle page, as evidence for one raised item. */
-export interface Evidence {
-  doc: string;
-  rect: Rect;
-}
-
 /**
- * One raised item against one field. A correction proposes a replacement value (the
- * advocate confirms it); a flag asks the advocate to fix something.
+ * One raised item against one field: it says what is wrong, and the advocate fixes it.
+ * The officer does not propose a value — the advocate enters the correct one.
  *
  * An item is a permission grant, and it grants only what it names: a field item unlocks
  * that value, a document-row item unlocks re-upload of that document. The two pointers
@@ -133,13 +132,9 @@ export interface Evidence {
  * the other.
  */
 export interface Flag {
-  correction: string | null;
   /** Structured reason, only for document rows (Blurry / Wrong document / …). */
   reason: string | null;
   comment: string | null;
-  /** A voice note was recorded; its transcript is folded into `comment`. */
-  voice: boolean;
-  evidence: Evidence | null;
   /** Field item → the document row raised with it. */
   linkedTo?: string | null;
   /** Document item → the field it was raised from. */
@@ -158,18 +153,9 @@ export interface LinkedDoc {
 
 /** The in-progress state of the composer, before it is saved as a `Flag`. */
 export interface Draft {
-  /** Contents of the "Your correction" box. */
-  value: string;
   /** Contents of the note box. */
   text: string;
   reason: string | null;
-  voice: boolean;
-  recording: boolean;
-  /** The correction box was machine-filled and is not yet human-verified. */
-  prefilled: boolean;
-  evidence: Evidence | null;
-  /** Bundle doc id the re-upload question is being asked about, or null. */
-  askReupload: string | null;
   /** The linked document item this save will write alongside the field item. */
   linked: LinkedDoc | null;
 }
@@ -216,6 +202,11 @@ export interface HistoryEvent {
   status: "past" | "current" | "future";
   title: string;
   meta: string;
+  /**
+   * The part of the line that only AI could have produced — "Filer skipped an AI
+   * warning". Shown after `meta` with AI on; without AI the event never had it.
+   */
+  aiNote?: string;
   items?: HistoryItem[];
 }
 
@@ -250,8 +241,6 @@ export interface ScrutinyCase {
   docById: Record<string, BundleDoc>;
   /** Bundle doc id → the Evidence › Documents row that represents it. */
   docRow: Record<string, string>;
-  /** Field id → simulated speech-to-text, for the voice-note affordance. */
-  transcripts: Record<string, string>;
   /** The officer's standing checklist — cheque-shaped or civil, per the matter. */
   checks: string[];
   history: HistoryEvent[];
@@ -271,6 +260,3 @@ export interface ScrutinyLookups {
   docRow: Record<string, string>;
 }
 
-/* ── workbench chrome ────────────────────────────────────────────────────── */
-
-export type BundleTool = "select" | "rect";

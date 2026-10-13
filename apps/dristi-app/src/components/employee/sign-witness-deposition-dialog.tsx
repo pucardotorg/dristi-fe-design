@@ -17,6 +17,7 @@ import {
   type WitnessDepositionDocument,
 } from "@/lib/employee/sign-witness-deposition";
 import { Identifier } from "@/components/chrome/identifier";
+import { useCourtLocalized } from "@/components/court/court-provider";
 
 /**
  * One deposition, read and then signed — the single-sheet path off the evidence queue.
@@ -175,10 +176,11 @@ function SignWitnessDepositionBody({
  * a court paper reads as a document that failed to render.
  */
 function DepositionFacsimile({
-  document,
+  document: storedDocument,
 }: {
   document: WitnessDepositionDocument;
 }) {
+  const document = useCourtLocalized(storedDocument);
   return (
     <article className="flex flex-col gap-6 rounded-md bg-paper p-6 text-paper-foreground">
       <header className="flex flex-col gap-2 text-center">

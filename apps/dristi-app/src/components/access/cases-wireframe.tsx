@@ -43,6 +43,7 @@ import {
 import { ADVOCATE_PROFILE_NAME } from "@/lib/advocate/content";
 import { cn } from "@/lib/utils";
 import { Identifier } from "@/components/chrome/identifier";
+import { useCourtText } from "@/components/court/court-provider";
 
 /**
  * Wireframes of the two screens that HOST access management but are not this
@@ -93,6 +94,7 @@ export function CasesWireframe({
   onApplicationSubmitted?: (result: BailApplicationResult) => void;
   onBondSubmitted?: (result: BailBondResult) => void;
 }) {
+  const courtText = useCourtText();
   const [selected, setSelected] = React.useState<string[]>([]);
   const [shareOpen, setShareOpen] = React.useState(false);
   const [shareCases, setShareCases] = React.useState<AccessCase[]>([]);
@@ -156,7 +158,7 @@ export function CasesWireframe({
               <p className="text-caption text-muted-foreground">
                 <Identifier value={openCase.caseNumber} label="case number" />
                 <span aria-hidden> · </span>
-                {openCase.court}
+                {courtText(openCase.court)}
               </p>
             </div>
             {/* The two real controls on this wireframe. Make filings is the
@@ -412,7 +414,7 @@ export function CasesWireframe({
                   <p className="text-caption text-muted-foreground">
                     <Identifier value={entry.caseNumber} label="case number" />
                     <span aria-hidden> · </span>
-                    {entry.court}
+                    {courtText(entry.court)}
                   </p>
                   <Badge variant="outline" className="mt-1 w-fit">
                     {fillCopy(casesCopy.nextHearing, locale, { date: entry.nextHearing })}

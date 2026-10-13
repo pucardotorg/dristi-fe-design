@@ -72,6 +72,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Identifier } from "@/components/chrome/identifier";
 import { QueueItemRow } from "@/components/employee/queue-item-row";
+import { useCourtText } from "@/components/court/court-provider";
 
 /**
  * The day the bench is standing on is the reader's, not the server's — the same clock
@@ -1237,6 +1238,7 @@ function RescheduleItemList({
   /** The record's rows say where they went as well as where they were. */
   showNewDate?: boolean;
 }) {
+  const courtText = useCourtText();
   return (
     <ul className="flex flex-col gap-3">
       {rows.map((row) => {
@@ -1273,7 +1275,7 @@ function RescheduleItemList({
                   onCheckedChange={(next) =>
                     selection.onToggle(row.id, next === true)
                   }
-                  aria-label={`Select ${row.title}, ${row.caseNumber}`}
+                  aria-label={`Select ${row.title}, ${courtText(row.caseNumber)}`}
                 />
               </span>
             ) : null}

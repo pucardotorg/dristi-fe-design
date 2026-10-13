@@ -31,6 +31,7 @@ import {
 } from "@/lib/employee/sign-witness-deposition";
 import { cn } from "@/lib/utils";
 import { Identifier } from "@/components/chrome/identifier";
+import { useCourtText } from "@/components/court/court-provider";
 
 /**
  * The evidence queue as a table: which sheets are picked for signature, the cause, its
@@ -70,6 +71,7 @@ export function SignWitnessDepositionTable({
   onToggleAll: (select: boolean) => void;
   onOpen: (deposition: WitnessDeposition) => void;
 }) {
+  const courtText = useCourtText();
   const selectedOnPage = rows.filter((row) => selectedIds.has(row.id)).length;
   const allSelected = rows.length > 0 && selectedOnPage === rows.length;
   const someSelected = selectedOnPage > 0 && !allSelected;
@@ -136,7 +138,7 @@ export function SignWitnessDepositionTable({
                   /* The sheet, not the row: one case can put four of these in the list,
                      and a label naming only the cause would read aloud four times
                      identically. */
-                  aria-label={`Select the deposition of ${deposition.witness.name}, ${tag}, in ${deposition.caseNumber}`}
+                  aria-label={`Select the deposition of ${deposition.witness.name}, ${tag}, in ${courtText(deposition.caseNumber)}`}
                 />
               </TableCell>
               {/* The row's one emphasised cell, and its only opener. Quiet

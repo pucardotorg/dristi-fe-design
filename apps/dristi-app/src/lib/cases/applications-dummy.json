@@ -6,38 +6,62 @@
     "complaintCaseNumber": "CMP/1842/2025",
     "caseNumber": "ST/412/2025",
     "filingNumber": "KL-DUMMY-001386-2025",
-    "court": "Judicial First Class Magistrate Court-I, Kollam"
+    "court": "Judicial First Class Magistrate Court-I"
   },
   "people": [
     {
       "id": "PARTY-C-001",
-      "label": "Sunil Varghese — Complainant"
+      "label": "Sunil Varghese — Complainant",
+      "kind": "party",
+      "side": "complainant"
     },
     {
       "id": "PARTY-A-001",
-      "label": "Arun Das, proprietor of Anand Traders — Accused"
+      "label": "Arun Das, proprietor of Anand Traders — Accused",
+      "kind": "party",
+      "side": "accused"
+    },
+    {
+      "id": "ADV-C-000",
+      "label": "Adv. Anjali Nair — Complainant counsel",
+      "kind": "advocate",
+      "side": "complainant"
+    },
+    {
+      "id": "CLK-C-000",
+      "label": "Vinod Kumar — Clerk to Adv. Anjali Nair",
+      "kind": "clerk",
+      "side": "complainant",
+      "officeOf": "ADV-C-000"
     },
     {
       "id": "ADV-C-001",
-      "label": "Adv. Ramesh Menon — Complainant counsel"
+      "label": "Adv. Ramesh Menon — Complainant counsel",
+      "kind": "advocate",
+      "side": "complainant"
     },
     {
       "id": "ADV-A-001",
-      "label": "Adv. P. Balachandran — Accused counsel"
+      "label": "Adv. P. Balachandran — Accused counsel",
+      "kind": "advocate",
+      "side": "accused"
     }
   ],
   "submissions": [
     {
       "id": "sub-1001-exemption",
       "kind": "Application",
-      "type": "Others",
+      "type": "Generic",
       "title": "Exemption from personal appearance",
-      "status": "Completed",
+      "status": "Accepted",
       "addedOn": "2026-07-29",
-      "submittedById": "ADV-C-001",
-      "submissionId": "KL-DUMMY-001386-2026-AP7",
+      "decisionOn": "2026-07-29",
+      "submittedById": "ADV-C-000",
+      "temporaryId": "KL-DUMMY-001386-2026-AP7",
+      "applicationNumber": "CMP/412/2026",
+      "onboardedOn": "2026-07-29",
       "request": null,
-      "courtResult": "Allowed for the day",
+      "courtResult": "Allowed for the day.",
       "linkedOrder": null,
       "defects": [],
       "documents": [
@@ -52,13 +76,21 @@
       "kind": "Application",
       "type": "Production of documents",
       "title": "Summon bank official and produce account records",
-      "status": "Completed",
-      "addedOn": "2026-07-24",
-      "submittedById": "ADV-C-001",
-      "submissionId": "KL-DUMMY-001386-2026-AP6",
+      "status": "Accepted",
+      "addedOn": "2026-07-20",
+      "submittedById": "ADV-C-000",
+      "createdById": "CLK-C-000",
+      "temporaryId": "KL-DUMMY-001386-2026-AP6",
+      "applicationNumber": "CMP/398/2026",
+      "onboardedOn": "2026-07-22",
+      "decisionOn": "2026-07-24",
+      "objectionsInvited": true,
       "request": null,
-      "courtResult": "Allowed",
-      "linkedOrder": null,
+      "courtResult": "Allowed. Summons ordered to the bank official to produce the account records.",
+      "linkedOrder": {
+        "id": "KL-DUMMY-001386-2026-OR14",
+        "label": "Summons to PW-2"
+      },
       "defects": [],
       "documents": [
         {
@@ -68,37 +100,67 @@
       ]
     },
     {
-      "id": "sub-1001-settlement-draft",
+      "id": "sub-1001-clerk-draft",
       "kind": "Application",
-      "type": "Settlement",
-      "title": "Settlement",
+      "type": "Generic",
+      "title": "Exemption from personal appearance on 19 August",
       "status": "Draft",
-      "addedOn": "2025-09-26",
-      "submittedById": "ADV-A-001",
-      "submissionId": null,
-      "request": "Record the settlement reached between the parties and permit the offence to be compounded on payment of Rs. 4,50,000 in three monthly instalments.",
+      "addedOn": "2026-08-11",
+      "submittedById": "ADV-C-000",
+      "createdById": "CLK-C-000",
+      "temporaryId": null,
+      "expiresOn": "2026-08-13",
+      "request": "Excuse the complainant from appearing on 19 August 2026; he is admitted at a hospital in Kochi.",
       "courtResult": null,
       "linkedOrder": null,
       "defects": [],
-      "documents": []
+      "documents": [
+        {
+          "label": "Draft application"
+        }
+      ]
+    },
+    {
+      "id": "sub-1001-pay",
+      "kind": "Application",
+      "type": "Production of documents",
+      "title": "Production of documents — PW-2 account records",
+      "status": "Pending payment",
+      "addedOn": "2026-08-10",
+      "submittedById": "ADV-C-000",
+      "createdById": "CLK-C-000",
+      "temporaryId": null,
+      "expiresOn": "2026-08-25",
+      "request": "Direct Kerala Mercantile Bank, Market Branch to produce the April and May 2025 account records for the cheque, so PW-2 can be examined on them.",
+      "courtResult": null,
+      "linkedOrder": null,
+      "defects": [],
+      "documents": [
+        {
+          "label": "Draft application",
+          "href": "/case-file/12-application-production-pw2-records.pdf"
+        }
+      ]
     },
     {
       "id": "sub-1001-objections-advancement-signature",
-      "kind": "Document submission",
-      "type": "Objections",
-      "title": "Objections to the advancement/reschedule application",
+      "kind": "Application",
+      "type": "Objection",
+      "title": "Objection to the accused's advancement application",
       "status": "Pending signature",
-      "addedOn": "2025-09-25",
-      "submittedById": "ADV-C-001",
-      "submissionId": null,
+      "addedOn": "2026-08-09",
+      "submittedById": "ADV-C-000",
+      "createdById": "CLK-C-000",
+      "temporaryId": null,
+      "objectionToId": "sub-1001-accused-advance",
+      "expiresOn": "2026-08-18",
       "request": null,
       "courtResult": null,
       "linkedOrder": null,
       "defects": [],
       "documents": [
         {
-          "label": "Draft objections",
-          "href": "/case-file/18-objections-to-process.pdf"
+          "label": "Draft objection"
         }
       ]
     },
@@ -108,9 +170,11 @@
       "type": "Memos",
       "title": "Memo of calculation of cheque amount and interest",
       "status": "Pending signature",
-      "addedOn": "2025-09-24",
-      "submittedById": "ADV-C-001",
-      "submissionId": null,
+      "addedOn": "2026-08-08",
+      "submittedById": "ADV-C-000",
+      "createdById": "CLK-C-000",
+      "temporaryId": null,
+      "expiresOn": "2026-08-20",
       "request": null,
       "courtResult": null,
       "linkedOrder": null,
@@ -128,9 +192,10 @@
       "type": "Affidavits",
       "title": "Affidavit of the complainant on the cheque return memo",
       "status": "Pending signature",
-      "addedOn": "2025-09-23",
-      "submittedById": "ADV-C-001",
-      "submissionId": null,
+      "addedOn": "2026-08-07",
+      "submittedById": "ADV-C-000",
+      "temporaryId": null,
+      "expiresOn": "2026-08-14",
       "request": null,
       "courtResult": null,
       "linkedOrder": null,
@@ -143,94 +208,15 @@
       ]
     },
     {
-      "id": "sub-1001-reschedule-expired",
-      "kind": "Application",
-      "type": "Advancement/reschedule",
-      "title": "Advancement/reschedule — early listing request",
-      "status": "Expired",
-      "addedOn": "2025-09-15",
-      "submittedById": "ADV-A-001",
-      "submissionId": null,
-      "request": "Advance the hearing listed for 13 October 2025 to an earlier date; the accused is away from Kollam from the first week of October.",
-      "courtResult": null,
-      "linkedOrder": null,
-      "defects": [],
-      "documents": [
-        {
-          "label": "Draft application",
-          "href": "/case-file/11-application-early-listing.pdf"
-        }
-      ]
-    },
-    {
-      "id": "sub-1001-pay",
-      "kind": "Application",
-      "type": "Production of documents",
-      "title": "Production of documents — PW-2 account records",
-      "status": "Pending payment",
-      "addedOn": "2025-09-22",
-      "submittedById": "ADV-C-001",
-      "submissionId": null,
-      "request": "Direct Kerala Mercantile Bank, Kollam Market Branch to produce the April and May 2025 account records for the cheque, so PW-2 can be examined on them.",
-      "courtResult": null,
-      "linkedOrder": null,
-      "defects": [],
-      "documents": [
-        {
-          "label": "Draft application",
-          "href": "/case-file/12-application-production-pw2-records.pdf"
-        }
-      ]
-    },
-    {
-      "id": "sub-1001-affidavit-pw2",
-      "kind": "Document submission",
-      "type": "Affidavits",
-      "title": "Chief affidavit of PW-2",
-      "status": "Completed",
-      "addedOn": "2025-09-11",
-      "submittedById": "ADV-C-001",
-      "submissionId": "KL-DUMMY-001386-2025-DS3",
-      "request": null,
-      "courtResult": null,
-      "linkedOrder": null,
-      "defects": [],
-      "documents": [
-        {
-          "label": "Filed affidavit",
-          "href": "/case-file/13-affidavit-pw2.pdf"
-        }
-      ]
-    },
-    {
-      "id": "sub-1001-reschedule",
-      "kind": "Application",
-      "type": "Advancement/reschedule",
-      "title": "Advancement/reschedule",
-      "status": "Completed",
-      "addedOn": "2025-09-08",
-      "submittedById": "ADV-C-001",
-      "submissionId": "KL-DUMMY-001386-2025-AP2",
-      "request": "Advance the hearing listed for 29 September 2025 to an earlier date; PW-2 can attend court only until the middle of September.",
-      "courtResult": null,
-      "linkedOrder": null,
-      "defects": [],
-      "documents": [
-        {
-          "label": "Filed application",
-          "href": "/case-file/14-application-advancement.pdf"
-        }
-      ]
-    },
-    {
       "id": "sub-1001-draft",
       "kind": "Application",
-      "type": "Others",
+      "type": "Generic",
       "title": "Application for adding witnesses",
-      "status": "Completed",
-      "addedOn": "2025-08-11",
-      "submittedById": "ADV-C-001",
-      "submissionId": "KL-DUMMY-001386-2025-AP3",
+      "status": "Pending review",
+      "addedOn": "2026-08-10",
+      "submittedById": "ADV-C-000",
+      "temporaryId": "KL-DUMMY-001386-2025-AP3",
+      "submittedOn": "2026-08-10",
       "request": "Permit the complainant to add two witnesses — the accountant who presented the cheque and the supervisor who took the delivery acknowledgement.",
       "courtResult": null,
       "linkedOrder": null,
@@ -243,16 +229,63 @@
       ]
     },
     {
+      "id": "sub-1001-reschedule",
+      "kind": "Application",
+      "type": "Advance (prepone)",
+      "title": "Advance (prepone)",
+      "status": "Pending decision",
+      "addedOn": "2026-08-03",
+      "submittedById": "ADV-C-000",
+      "temporaryId": "KL-DUMMY-001386-2025-AP2",
+      "applicationNumber": "CMP/431/2026",
+      "submittedOn": "2026-08-03",
+      "onboardedOn": "2026-08-04",
+      "decisionOn": "2026-08-19",
+      "objectionsInvited": true,
+      "request": "Advance the hearing listed for 19 August 2026 to an earlier date; PW-2 can attend court only until the middle of August.",
+      "courtResult": null,
+      "linkedOrder": null,
+      "defects": [],
+      "documents": [
+        {
+          "label": "Filed application",
+          "href": "/case-file/14-application-advancement.pdf"
+        }
+      ]
+    },
+    {
+      "id": "sub-1001-affidavit-pw2",
+      "kind": "Document submission",
+      "type": "Affidavits",
+      "title": "Chief affidavit of PW-2",
+      "status": "Submitted",
+      "addedOn": "2026-07-28",
+      "submittedById": "ADV-C-000",
+      "temporaryId": "KL-DUMMY-001386-2025-DS3",
+      "request": null,
+      "courtResult": null,
+      "linkedOrder": null,
+      "defects": [],
+      "documents": [
+        {
+          "label": "Filed affidavit",
+          "href": "/case-file/13-affidavit-pw2.pdf"
+        }
+      ]
+    },
+    {
       "id": "sub-1001-withdrawal",
       "kind": "Application",
-      "type": "Withdrawal",
-      "title": "Withdrawal",
-      "status": "Completed",
-      "addedOn": "2025-08-10",
-      "submittedById": "ADV-C-001",
-      "submissionId": "KL-DUMMY-001386-2025-AP4",
+      "type": "Case withdrawal",
+      "title": "Case withdrawal",
+      "status": "Dismissed",
+      "addedOn": "2026-07-15",
+      "decisionOn": "2026-07-17",
+      "submittedById": "ADV-C-000",
+      "temporaryId": "KL-DUMMY-001386-2025-AP4",
+      "submittedOn": "2026-07-15",
       "request": "Permit the complainant to withdraw the application for production of the cheque return memo; the memo is already on record with the complaint.",
-      "courtResult": null,
+      "courtResult": "Dismissed. The return memo is already on record with the complaint, so there is nothing to withdraw.",
       "linkedOrder": null,
       "defects": [],
       "documents": [
@@ -268,16 +301,18 @@
       "type": "Production of documents",
       "title": "Production of documents — bank return memo",
       "status": "Rejected",
-      "addedOn": "2025-08-08",
-      "submittedById": "ADV-C-001",
-      "submissionId": null,
-      "request": "Direct Kerala Mercantile Bank, Kollam Market Branch to produce the original cheque return memo dated 17 April 2025 and the related dishonour records.",
-      "courtResult": null,
+      "addedOn": "2026-07-08",
+      "submittedById": "ADV-C-000",
+      "temporaryId": "KL-DUMMY-001386-2026-AP5",
+      "applicationNumber": "CMP/377/2026",
+      "submittedOn": "2026-07-08",
+      "onboardedOn": "2026-07-09",
+      "decisionOn": "2026-07-14",
+      "objectionsInvited": false,
+      "request": "Direct Kerala Mercantile Bank, Market Branch to produce the original cheque return memo dated 17 April 2025 and the related dishonour records.",
+      "courtResult": "Rejected. The original return memo is already on record with the complaint.",
       "linkedOrder": null,
-      "defects": [
-        "Court fee is short by ₹200.",
-        "Application is not accompanied by an affidavit."
-      ],
+      "defects": [],
       "documents": [
         {
           "label": "Filed application",
@@ -286,22 +321,62 @@
       ]
     },
     {
-      "id": "sub-1001-objection",
+      "id": "sub-1001-reschedule-expired",
+      "kind": "Application",
+      "type": "Advance (prepone)",
+      "title": "Advance (prepone)",
+      "status": "Expired",
+      "addedOn": "2026-06-20",
+      "submittedById": "ADV-C-000",
+      "temporaryId": null,
+      "request": "Advance the hearing listed for 29 July 2026 to an earlier date.",
+      "courtResult": null,
+      "linkedOrder": null,
+      "defects": [],
+      "documents": [
+        {
+          "label": "Draft application",
+          "href": "/case-file/11-application-early-listing.pdf"
+        }
+      ]
+    },
+    {
+      "id": "sub-1001-affidavit-pw1",
       "kind": "Document submission",
-      "type": "Objections",
-      "title": "Objections to process",
-      "status": "Completed",
-      "addedOn": "2025-08-02",
-      "submittedById": "ADV-A-001",
-      "submissionId": "KL-DUMMY-001386-2025-DS2",
+      "type": "Affidavits",
+      "title": "PW-1 chief affidavit under section 145 of the Negotiable Instruments Act",
+      "status": "Submitted",
+      "addedOn": "2025-06-16",
+      "submittedById": "ADV-C-000",
+      "temporaryId": "KL-DUMMY-001386-2025-DS1",
       "request": null,
       "courtResult": null,
       "linkedOrder": null,
       "defects": [],
       "documents": [
         {
-          "label": "Filed objections",
-          "href": "/case-file/18-objections-to-process.pdf"
+          "label": "Filed affidavit",
+          "href": "/case-file/03-affidavits.pdf",
+          "page": 4
+        }
+      ]
+    },
+    {
+      "id": "sub-1001-cocounsel-draft",
+      "kind": "Application",
+      "type": "Production of documents",
+      "title": "Production of documents — delivery acknowledgement",
+      "status": "Draft",
+      "addedOn": "2026-08-06",
+      "submittedById": "ADV-C-001",
+      "temporaryId": null,
+      "request": "Produce the courier's delivery acknowledgement for the demand notice.",
+      "courtResult": null,
+      "linkedOrder": null,
+      "defects": [],
+      "documents": [
+        {
+          "label": "Draft application"
         }
       ]
     },
@@ -310,12 +385,16 @@
       "kind": "Application",
       "type": "Bail",
       "title": "Bail",
-      "status": "Completed",
+      "status": "Accepted",
       "addedOn": "2025-08-01",
       "submittedById": "ADV-A-001",
-      "submissionId": "KL-DUMMY-001386-2025-AP1",
+      "temporaryId": "KL-DUMMY-001386-2025-AP1",
+      "applicationNumber": "CMP/287/2025",
+      "onboardedOn": "2025-08-01",
+      "decisionOn": "2025-08-04",
+      "objectionsInvited": false,
       "request": "Release Arun Das, proprietor of Anand Traders, on bail on his appearance before the court in answer to the summons in this complaint.",
-      "courtResult": "Allowed",
+      "courtResult": "Allowed. Bail granted on a bond with one surety for the like sum.",
       "linkedOrder": {
         "id": "KL-DUMMY-001386-2025-OR4",
         "label": "Bail order"
@@ -329,23 +408,150 @@
       ]
     },
     {
-      "id": "sub-1001-affidavit-pw1",
-      "kind": "Document submission",
-      "type": "Affidavits",
-      "title": "PW-1 chief affidavit under section 145 of the Negotiable Instruments Act",
-      "status": "Completed",
-      "addedOn": "2025-06-16",
-      "submittedById": "ADV-C-001",
-      "submissionId": "KL-DUMMY-001386-2025-DS1",
+      "id": "sub-1001-objection",
+      "kind": "Application",
+      "type": "Objection",
+      "title": "Objection to the complainant's advancement application",
+      "status": "Submitted",
+      "addedOn": "2026-08-07",
+      "submittedById": "ADV-A-001",
+      "temporaryId": "KL-DUMMY-001386-2026-AP9",
+      "objectionToId": "sub-1001-reschedule",
       "request": null,
       "courtResult": null,
       "linkedOrder": null,
       "defects": [],
       "documents": [
         {
-          "label": "Filed affidavit",
-          "href": "/case-file/03-affidavits.pdf",
-          "page": 4
+          "label": "Filed objection"
+        }
+      ]
+    },
+    {
+      "id": "sub-1001-settlement-draft",
+      "kind": "Application",
+      "type": "Case settlement",
+      "title": "Case settlement",
+      "status": "Draft",
+      "addedOn": "2026-08-05",
+      "submittedById": "ADV-A-001",
+      "temporaryId": null,
+      "request": "Record the settlement reached between the parties and permit the offence to be compounded on payment of Rs. 4,50,000 in three monthly instalments.",
+      "courtResult": null,
+      "linkedOrder": null,
+      "defects": [],
+      "documents": []
+    },
+    {
+      "id": "sub-1001-accused-advance",
+      "kind": "Application",
+      "type": "Advance (prepone)",
+      "title": "Advance (prepone)",
+      "status": "Pending decision",
+      "addedOn": "2026-08-05",
+      "submittedById": "ADV-A-001",
+      "temporaryId": "KL-DUMMY-001386-2026-AP8",
+      "applicationNumber": "CMP/433/2026",
+      "submittedOn": "2026-08-05",
+      "onboardedOn": "2026-08-06",
+      "decisionOn": "2026-08-19",
+      "objectionsInvited": true,
+      "request": "Advance the hearing listed for 19 August 2026; counsel for the accused is engaged before the High Court that week.",
+      "courtResult": null,
+      "linkedOrder": null,
+      "defects": [],
+      "documents": [
+        {
+          "label": "Filed application"
+        }
+      ]
+    },
+    {
+      "id": "sub-1001-accused-production",
+      "kind": "Application",
+      "type": "Production of documents",
+      "title": "Production of documents — complainant's GST returns",
+      "status": "Pending decision",
+      "addedOn": "2026-08-08",
+      "submittedById": "ADV-A-001",
+      "temporaryId": "KL-DUMMY-001386-2026-AP10",
+      "applicationNumber": "CMP/436/2026",
+      "submittedOn": "2026-08-08",
+      "onboardedOn": "2026-08-10",
+      "decisionOn": "2026-08-13",
+      "objectionsInvited": true,
+      "request": "Direct the complainant to produce his GST returns for 2024-25 to test the debt claimed.",
+      "courtResult": null,
+      "linkedOrder": null,
+      "defects": [],
+      "documents": [
+        {
+          "label": "Filed application"
+        }
+      ]
+    },
+    {
+      "id": "sub-1001-accused-video",
+      "kind": "Application",
+      "type": "Generic",
+      "title": "Cross-examination of PW-1 over video link",
+      "status": "Pending decision",
+      "addedOn": "2026-08-09",
+      "submittedById": "ADV-A-001",
+      "temporaryId": "KL-DUMMY-001386-2026-AP11",
+      "applicationNumber": "CMP/438/2026",
+      "submittedOn": "2026-08-09",
+      "onboardedOn": "2026-08-10",
+      "decisionOn": "2026-08-11",
+      "objectionsInvited": false,
+      "request": "Permit counsel for the accused to cross-examine PW-1 over video link on the next date.",
+      "courtResult": null,
+      "linkedOrder": null,
+      "defects": [],
+      "documents": [
+        {
+          "label": "Filed application"
+        }
+      ]
+    },
+    {
+      "id": "sub-1001-accused-review",
+      "kind": "Application",
+      "type": "Generic",
+      "title": "Exemption from appearance of the accused",
+      "status": "Pending review",
+      "addedOn": "2026-08-10",
+      "submittedById": "ADV-A-001",
+      "temporaryId": "KL-DUMMY-001386-2026-AP12",
+      "submittedOn": "2026-08-10",
+      "request": "Excuse the accused from appearing on 19 August 2026.",
+      "courtResult": null,
+      "linkedOrder": null,
+      "defects": [],
+      "documents": [
+        {
+          "label": "Filed application"
+        }
+      ]
+    },
+    {
+      "id": "sub-1001-accused-dismissed",
+      "kind": "Application",
+      "type": "Generic",
+      "title": "Return of the seized cheque book",
+      "status": "Dismissed",
+      "addedOn": "2026-07-20",
+      "decisionOn": "2026-07-22",
+      "submittedById": "ADV-A-001",
+      "temporaryId": "KL-DUMMY-001386-2026-AP6B",
+      "submittedOn": "2026-07-20",
+      "request": null,
+      "courtResult": "Dismissed. No cheque book was seized in this case.",
+      "linkedOrder": null,
+      "defects": [],
+      "documents": [
+        {
+          "label": "Filed application"
         }
       ]
     }
@@ -355,14 +561,17 @@
       {
         "id": "sub-1002-advance",
         "kind": "Application",
-        "type": "Advancement/reschedule",
-        "title": "Advancement/reschedule",
-        "status": "Completed",
+        "type": "Advance (prepone)",
+        "title": "Advance (prepone)",
+        "status": "Pending decision",
         "addedOn": "2026-07-06",
         "submittedById": "c-1002-counsel-c-0",
-        "submissionId": "KL-000342-2026-AP1",
-        "request": "Advance the matter listed for 14 September 2026; the complainant's bank witness is transferring out of Kollam at the end of August.",
-        "courtResult": "Allowed — framing of charge advanced to 2 September 2026.",
+        "temporaryId": "KL-000342-2026-AP1",
+        "applicationNumber": "CMP/507/2026",
+        "decisionOn": "2026-09-02",
+        "objectionsInvited": true,
+        "request": "Advance the matter listed for 14 September 2026; the complainant's bank witness is transferring out of the district at the end of August.",
+        "courtResult": null,
         "linkedOrder": null,
         "defects": [],
         "documents": [
@@ -374,13 +583,14 @@
       },
       {
         "id": "sub-1002-objections",
-        "kind": "Document submission",
-        "type": "Objections",
-        "title": "Objections to the framing of charge",
+        "kind": "Application",
+        "type": "Objection",
+        "title": "Objection to the complainant's advancement application",
         "status": "Pending signature",
         "addedOn": "2026-08-07",
         "submittedById": "c-1002-counsel-a-0",
-        "submissionId": null,
+        "temporaryId": null,
+        "objectionToId": "sub-1002-advance",
         "request": null,
         "courtResult": null,
         "linkedOrder": null,
@@ -394,10 +604,10 @@
         "kind": "Application",
         "type": "Production of documents",
         "title": "Production of documents",
-        "status": "Completed",
+        "status": "Pending review",
         "addedOn": "2026-07-28",
         "submittedById": "c-1004-counsel-c-0",
-        "submissionId": "KL-001204-2026-AP2",
+        "temporaryId": "KL-001204-2026-AP2",
         "request": "Recall PW-1 and permit the complainant to produce the bank's dishonour memo and the ledger extract for the disputed period.",
         "courtResult": null,
         "linkedOrder": null,
@@ -412,12 +622,14 @@
       {
         "id": "sub-1004-reschedule",
         "kind": "Application",
-        "type": "Advancement/reschedule",
-        "title": "Advancement/reschedule",
-        "status": "Completed",
+        "type": "Advance (prepone)",
+        "title": "Advance (prepone)",
+        "status": "Accepted",
         "addedOn": "2026-06-15",
+        "decisionOn": "2026-06-17",
         "submittedById": "c-1004-counsel-c-0",
-        "submissionId": "KL-001204-2026-AP1",
+        "temporaryId": "KL-001204-2026-AP1",
+        "applicationNumber": "CMP/514/2026",
         "request": "Reschedule the hearing listed for 24 June 2026; counsel for the complainant is before the Sessions Court at Ernakulam that day.",
         "courtResult": "Allowed — hearing moved to 23 July 2026.",
         "linkedOrder": null,
@@ -434,10 +646,10 @@
         "kind": "Document submission",
         "type": "Affidavits",
         "title": "PW-1 chief affidavit under section 145 of the Negotiable Instruments Act",
-        "status": "Completed",
+        "status": "Submitted",
         "addedOn": "2026-08-05",
         "submittedById": "c-1004-counsel-c-0",
-        "submissionId": "KL-001204-2026-DS1",
+        "temporaryId": "KL-001204-2026-DS1",
         "request": null,
         "courtResult": null,
         "linkedOrder": null,
@@ -454,12 +666,14 @@
       {
         "id": "sub-1005-condonation",
         "kind": "Application",
-        "type": "Condonation of delay",
-        "title": "Condonation of delay",
-        "status": "Completed",
+        "type": "Delay condonation",
+        "title": "Delay condonation",
+        "status": "Accepted",
         "addedOn": "2023-02-14",
+        "decisionOn": "2023-03-02",
         "submittedById": "c-1005-counsel-c-0",
-        "submissionId": "KL-000221-2023-AP1",
+        "temporaryId": "KL-000221-2023-AP1",
+        "applicationNumber": "CMP/521/2023",
         "request": "Condone the delay of 11 days in filing the complaint; the complainant was hospitalised through the last week of the limitation period.",
         "courtResult": "Allowed — delay condoned; complaint taken on file.",
         "linkedOrder": null,
@@ -476,10 +690,10 @@
         "kind": "Document submission",
         "type": "Memos",
         "title": "Memo on the execution of the non-bailable warrant",
-        "status": "Completed",
+        "status": "Submitted",
         "addedOn": "2026-07-21",
         "submittedById": "c-1005-counsel-c-0",
-        "submissionId": "KL-000221-2023-DS1",
+        "temporaryId": "KL-000221-2023-DS1",
         "request": null,
         "courtResult": null,
         "linkedOrder": null,
@@ -498,10 +712,12 @@
         "kind": "Application",
         "type": "Bail",
         "title": "Bail",
-        "status": "Completed",
+        "status": "Accepted",
         "addedOn": "2026-08-11",
+        "decisionOn": "2026-08-11",
         "submittedById": "tw-c-412-counsel-a-0",
-        "submissionId": "KL-000412-2025-AP2",
+        "temporaryId": "KL-000412-2025-AP2",
+        "applicationNumber": "CMP/528/2026",
         "request": "Enlarge the accused's proprietor on bail on such terms as this court directs; he has appeared and undertakes to attend every posting.",
         "courtResult": "Allowed — bail granted; surety bond of Rs. 50,000 with two sureties ordered by 28 August 2026.",
         "linkedOrder": null,
@@ -516,12 +732,14 @@
       {
         "id": "sub-tw412-advance",
         "kind": "Application",
-        "type": "Advancement/reschedule",
-        "title": "Advancement/reschedule",
-        "status": "Completed",
+        "type": "Advance (prepone)",
+        "title": "Advance (prepone)",
+        "status": "Accepted",
         "addedOn": "2026-06-24",
+        "decisionOn": "2026-06-26",
         "submittedById": "tw-c-412-counsel-c-0",
-        "submissionId": "KL-000412-2025-AP1",
+        "temporaryId": "KL-000412-2025-AP1",
+        "applicationNumber": "CMP/535/2026",
         "request": "Advance the evidence of the complainant; PW-1 is available through the first half of August.",
         "courtResult": "Allowed — evidence advanced to 11 August 2026.",
         "linkedOrder": null,
@@ -538,10 +756,10 @@
         "kind": "Document submission",
         "type": "Affidavits",
         "title": "PW-1 chief affidavit under section 145 of the Negotiable Instruments Act",
-        "status": "Completed",
+        "status": "Submitted",
         "addedOn": "2026-07-30",
         "submittedById": "tw-c-412-counsel-c-0",
-        "submissionId": "KL-000412-2025-DS1",
+        "temporaryId": "KL-000412-2025-DS1",
         "request": null,
         "courtResult": null,
         "linkedOrder": null,
@@ -558,12 +776,14 @@
       {
         "id": "sub-tw88-advance",
         "kind": "Application",
-        "type": "Advancement/reschedule",
-        "title": "Advancement/reschedule",
-        "status": "Completed",
+        "type": "Advance (prepone)",
+        "title": "Advance (prepone)",
+        "status": "Accepted",
         "addedOn": "2026-06-02",
+        "decisionOn": "2026-06-04",
         "submittedById": "tw-c-88-counsel-c-0",
-        "submissionId": "KL-000088-2026-AP1",
+        "temporaryId": "KL-000088-2026-AP1",
+        "applicationNumber": "CMP/542/2026",
         "request": "Advance the appearance posting; the accused has entered appearance and consents to an early plea.",
         "courtResult": "Allowed — plea advanced to 2 September 2026.",
         "linkedOrder": null,
@@ -583,7 +803,7 @@
         "status": "Pending signature",
         "addedOn": "2026-08-08",
         "submittedById": "tw-c-88-counsel-c-0",
-        "submissionId": null,
+        "temporaryId": null,
         "request": null,
         "courtResult": null,
         "linkedOrder": null,
@@ -601,10 +821,10 @@
         "kind": "Document submission",
         "type": "Affidavits",
         "title": "PW-1 chief affidavit under section 145 of the Negotiable Instruments Act",
-        "status": "Completed",
+        "status": "Submitted",
         "addedOn": "2026-07-08",
         "submittedById": "tw-c-941-counsel-c-0",
-        "submissionId": "KL-000941-2025-DS1",
+        "temporaryId": "KL-000941-2025-DS1",
         "request": null,
         "courtResult": null,
         "linkedOrder": null,
@@ -621,10 +841,10 @@
         "kind": "Application",
         "type": "Production of documents",
         "title": "Production of documents",
-        "status": "Completed",
+        "status": "Pending review",
         "addedOn": "2026-07-22",
         "submittedById": "tw-c-941-counsel-c-0",
-        "submissionId": "KL-000941-2025-AP1",
+        "temporaryId": "KL-000941-2025-AP1",
         "request": "Summon the bank official and direct production of the account statement for the cheque period.",
         "courtResult": null,
         "linkedOrder": null,
@@ -641,12 +861,14 @@
       {
         "id": "sub-tw1102-condonation",
         "kind": "Application",
-        "type": "Condonation of delay",
-        "title": "Condonation of delay",
-        "status": "Completed",
+        "type": "Delay condonation",
+        "title": "Delay condonation",
+        "status": "Accepted",
         "addedOn": "2026-03-18",
+        "decisionOn": "2026-04-06",
         "submittedById": "tw-c-1102-counsel-c-0",
-        "submissionId": "KL-001102-2026-AP1",
+        "temporaryId": "KL-001102-2026-AP1",
+        "applicationNumber": "CMP/549/2026",
         "request": "Condone the delay of 6 days in filing the complaint; the complainant was travelling when the notice period ran out.",
         "courtResult": "Allowed — delay condoned; complaint taken on file.",
         "linkedOrder": null,
@@ -663,13 +885,15 @@
       {
         "id": "sub-tw217-reschedule",
         "kind": "Application",
-        "type": "Advancement/reschedule",
-        "title": "Advancement/reschedule",
-        "status": "Completed",
+        "type": "Advance (prepone)",
+        "title": "Advance (prepone)",
+        "status": "Accepted",
         "addedOn": "2026-05-19",
+        "decisionOn": "2026-05-21",
         "submittedById": "tw-c-217-counsel-c-0",
-        "submissionId": "KL-000217-2025-AP1",
-        "request": "Reschedule the plea posting; counsel for the complainant is before the Sessions Court at Kollam that day.",
+        "temporaryId": "KL-000217-2025-AP1",
+        "applicationNumber": "CMP/556/2026",
+        "request": "Reschedule the plea posting; counsel for the complainant is before the Sessions Court that day.",
         "courtResult": "Allowed — plea moved to 2 September 2026.",
         "linkedOrder": null,
         "defects": [],
@@ -679,6 +903,406 @@
             "href": "/case-file/14-application-advancement.pdf"
           }
         ]
+      }
+    ],
+    "lt-2201": [
+      {
+        "id": "sub-lt-2201-draft",
+        "kind": "Application",
+        "type": "Generic",
+        "title": "Exemption from personal appearance on 20 August",
+        "status": "Draft",
+        "addedOn": "2026-08-11",
+        "submittedById": "lt-2201-complainant",
+        "temporaryId": null,
+        "request": "Excuse me from appearing on 20 August 2026; I am travelling for work.",
+        "courtResult": null,
+        "linkedOrder": null,
+        "defects": [],
+        "documents": [
+          {
+            "label": "Draft application"
+          }
+        ]
+      },
+      {
+        "id": "sub-lt-2201-sign",
+        "kind": "Application",
+        "type": "Postpone",
+        "title": "Postpone",
+        "status": "Pending signature",
+        "addedOn": "2026-08-10",
+        "submittedById": "lt-2201-complainant",
+        "temporaryId": null,
+        "expiresOn": "2026-08-12",
+        "request": "Move the hearing of 20 August 2026 to the first week of September.",
+        "courtResult": null,
+        "linkedOrder": null,
+        "defects": [],
+        "documents": [
+          {
+            "label": "Draft application"
+          }
+        ]
+      },
+      {
+        "id": "sub-lt-2201-pay",
+        "kind": "Application",
+        "type": "Production of documents",
+        "title": "Production of documents — bank statement",
+        "status": "Pending payment",
+        "addedOn": "2026-08-09",
+        "submittedById": "lt-2201-complainant",
+        "temporaryId": null,
+        "request": "Direct Kiran Motors to produce its bank statement for March 2026.",
+        "courtResult": null,
+        "linkedOrder": null,
+        "defects": [],
+        "documents": [
+          {
+            "label": "Draft application"
+          }
+        ]
+      },
+      {
+        "id": "sub-lt-2201-review",
+        "kind": "Application",
+        "type": "Generic",
+        "title": "Permission to file the notice's delivery receipt",
+        "status": "Pending review",
+        "addedOn": "2026-08-10",
+        "submittedById": "lt-2201-complainant",
+        "temporaryId": "KL-000221-2026-AP3",
+        "submittedOn": "2026-08-10",
+        "request": null,
+        "courtResult": null,
+        "linkedOrder": null,
+        "defects": [],
+        "documents": [
+          {
+            "label": "Filed application"
+          }
+        ]
+      },
+      {
+        "id": "sub-lt-2201-accused-bail",
+        "kind": "Application",
+        "type": "Bail",
+        "title": "Bail",
+        "status": "Accepted",
+        "addedOn": "2026-06-18",
+        "submittedById": "lt-2201-counsel-a-0",
+        "temporaryId": "KL-000221-2026-AP1",
+        "applicationNumber": "CMP/611/2026",
+        "onboardedOn": "2026-06-18",
+        "decisionOn": "2026-06-23",
+        "objectionsInvited": true,
+        "request": null,
+        "courtResult": "Allowed. Bail granted on a bond for Rs. 50,000.",
+        "linkedOrder": null,
+        "defects": [],
+        "documents": [
+          {
+            "label": "Filed application"
+          }
+        ]
+      },
+      {
+        "id": "sub-lt-2201-accused-transfer",
+        "kind": "Application",
+        "type": "Case transfer",
+        "title": "Transfer to JMFC-I",
+        "status": "Pending decision",
+        "addedOn": "2026-08-06",
+        "submittedById": "lt-2201-counsel-a-0",
+        "temporaryId": "KL-000221-2026-AP2",
+        "applicationNumber": "CMP/640/2026",
+        "submittedOn": "2026-08-06",
+        "onboardedOn": "2026-08-07",
+        "decisionOn": "2026-08-20",
+        "objectionsInvited": true,
+        "request": "Transfer the case to JMFC-I, where the accused's related matters are pending.",
+        "courtResult": null,
+        "linkedOrder": null,
+        "defects": [],
+        "documents": [
+          {
+            "label": "Filed application"
+          }
+        ]
+      },
+      {
+        "id": "sub-lt-2201-accused-review",
+        "kind": "Application",
+        "type": "Generic",
+        "title": "Exemption from appearance of the accused",
+        "status": "Pending review",
+        "addedOn": "2026-08-10",
+        "submittedById": "lt-2201-counsel-a-0",
+        "temporaryId": "KL-000221-2026-AP4",
+        "submittedOn": "2026-08-10",
+        "request": null,
+        "courtResult": null,
+        "linkedOrder": null,
+        "defects": [],
+        "documents": [
+          {
+            "label": "Filed application"
+          }
+        ]
+      }
+    ],
+    "lt-2202": [
+      {
+        "id": "sub-lt-2202-pay",
+        "kind": "Application",
+        "type": "Bail",
+        "title": "Bail",
+        "status": "Pending payment",
+        "addedOn": "2026-08-10",
+        "submittedById": "lt-2202-counsel-a-0",
+        "onBehalfOfId": "lt-2202-accused",
+        "temporaryId": null,
+        "expiresOn": "2026-08-13",
+        "request": "Release the accused on bail on her appearance.",
+        "courtResult": null,
+        "linkedOrder": null,
+        "defects": [],
+        "documents": [
+          {
+            "label": "Draft application"
+          }
+        ]
+      },
+      {
+        "id": "sub-lt-2202-draft",
+        "kind": "Application",
+        "type": "Generic",
+        "title": "Exemption from personal appearance",
+        "status": "Draft",
+        "addedOn": "2026-08-11",
+        "submittedById": "lt-2202-counsel-a-0",
+        "onBehalfOfId": "lt-2202-accused",
+        "temporaryId": null,
+        "request": null,
+        "courtResult": null,
+        "linkedOrder": null,
+        "defects": [],
+        "documents": [
+          {
+            "label": "Draft application"
+          }
+        ]
+      },
+      {
+        "id": "sub-lt-2202-sign",
+        "kind": "Application",
+        "type": "Postpone",
+        "title": "Postpone",
+        "status": "Pending signature",
+        "addedOn": "2026-08-09",
+        "submittedById": "lt-2202-counsel-a-0",
+        "onBehalfOfId": "lt-2202-accused",
+        "temporaryId": null,
+        "request": null,
+        "courtResult": null,
+        "linkedOrder": null,
+        "defects": [],
+        "documents": [
+          {
+            "label": "Draft application"
+          }
+        ]
+      },
+      {
+        "id": "sub-lt-2202-review",
+        "kind": "Application",
+        "type": "Production of documents",
+        "title": "Production of documents — purchase ledger",
+        "status": "Pending review",
+        "addedOn": "2026-08-08",
+        "submittedById": "lt-2202-counsel-a-0",
+        "onBehalfOfId": "lt-2202-accused",
+        "temporaryId": "KL-000302-2026-AP4",
+        "submittedOn": "2026-08-08",
+        "request": null,
+        "courtResult": null,
+        "linkedOrder": null,
+        "defects": [],
+        "documents": [
+          {
+            "label": "Filed application"
+          }
+        ]
+      },
+      {
+        "id": "sub-lt-2202-complainant-witness",
+        "kind": "Application",
+        "type": "Generic",
+        "title": "Addition of the firm's accountant as a witness",
+        "status": "Pending decision",
+        "addedOn": "2026-08-05",
+        "submittedById": "lt-2202-counsel-c-0",
+        "temporaryId": "KL-000302-2026-AP3",
+        "applicationNumber": "CMP/702/2026",
+        "submittedOn": "2026-08-05",
+        "onboardedOn": "2026-08-06",
+        "decisionOn": "2026-08-24",
+        "objectionsInvited": true,
+        "request": null,
+        "courtResult": null,
+        "linkedOrder": null,
+        "defects": [],
+        "documents": [
+          {
+            "label": "Filed application"
+          }
+        ]
+      },
+      {
+        "id": "sub-lt-2202-complainant-review",
+        "kind": "Application",
+        "type": "Delay condonation",
+        "title": "Delay condonation",
+        "status": "Pending review",
+        "addedOn": "2026-08-10",
+        "submittedById": "lt-2202-counsel-c-0",
+        "temporaryId": "KL-000302-2026-AP5",
+        "submittedOn": "2026-08-10",
+        "request": null,
+        "courtResult": null,
+        "linkedOrder": null,
+        "defects": [],
+        "documents": [
+          {
+            "label": "Filed application"
+          }
+        ]
+      },
+      {
+        "id": "sub-lt-2202-rejected",
+        "kind": "Application",
+        "type": "Generic",
+        "title": "Return of the original cheque",
+        "status": "Rejected",
+        "addedOn": "2026-07-12",
+        "submittedById": "lt-2202-counsel-a-0",
+        "onBehalfOfId": "lt-2202-accused",
+        "temporaryId": "KL-000302-2026-AP2",
+        "applicationNumber": "CMP/688/2026",
+        "submittedOn": "2026-07-12",
+        "onboardedOn": "2026-07-13",
+        "decisionOn": "2026-07-27",
+        "objectionsInvited": false,
+        "request": null,
+        "courtResult": "Rejected. The cheque is an exhibit and stays on record until judgment.",
+        "linkedOrder": null,
+        "defects": [],
+        "documents": [
+          {
+            "label": "Filed application"
+          }
+        ]
+      }
+    ],
+    "lt-2203": [
+      {
+        "id": "sub-lt-2203-pay",
+        "kind": "Application",
+        "type": "Production of documents",
+        "title": "Production of documents — delivery acknowledgement",
+        "status": "Pending payment",
+        "addedOn": "2026-08-10",
+        "submittedById": "lt-2203-counsel-c-0",
+        "onBehalfOfId": "lt-2203-complainant",
+        "temporaryId": null,
+        "expiresOn": "2026-08-21",
+        "request": null,
+        "courtResult": null,
+        "linkedOrder": null,
+        "defects": [],
+        "documents": [
+          {
+            "label": "Draft application"
+          }
+        ]
+      },
+      {
+        "id": "sub-lt-2203-sign",
+        "kind": "Application",
+        "type": "Generic",
+        "title": "Substituted service on the accused",
+        "status": "Pending signature",
+        "addedOn": "2026-08-09",
+        "submittedById": "lt-2203-counsel-c-0",
+        "onBehalfOfId": "lt-2203-complainant",
+        "temporaryId": null,
+        "request": null,
+        "courtResult": null,
+        "linkedOrder": null,
+        "defects": [],
+        "documents": [
+          {
+            "label": "Draft application"
+          }
+        ]
+      },
+      {
+        "id": "sub-lt-2203-accepted",
+        "kind": "Application",
+        "type": "Delay condonation",
+        "title": "Delay condonation",
+        "status": "Accepted",
+        "addedOn": "2026-06-03",
+        "submittedById": "lt-2203-counsel-c-0",
+        "onBehalfOfId": "lt-2203-complainant",
+        "temporaryId": "KL-000417-2026-AP1",
+        "applicationNumber": "CMP/655/2026",
+        "onboardedOn": "2026-06-04",
+        "decisionOn": "2026-06-15",
+        "objectionsInvited": false,
+        "request": null,
+        "courtResult": "Allowed. Delay of 12 days condoned; complaint taken on file.",
+        "linkedOrder": null,
+        "defects": [],
+        "documents": [
+          {
+            "label": "Filed application"
+          }
+        ]
+      },
+      {
+        "id": "sub-lt-2203-dismissed",
+        "kind": "Application",
+        "type": "Generic",
+        "title": "Early listing of the complaint",
+        "status": "Dismissed",
+        "addedOn": "2026-06-20",
+        "decisionOn": "2026-06-23",
+        "submittedById": "lt-2203-counsel-c-0",
+        "onBehalfOfId": "lt-2203-complainant",
+        "temporaryId": "KL-000417-2026-AP2",
+        "submittedOn": "2026-06-20",
+        "request": null,
+        "courtResult": "Dismissed. The complaint is already listed for the earliest available date.",
+        "linkedOrder": null,
+        "defects": [],
+        "documents": [
+          {
+            "label": "Filed application"
+          }
+        ]
+      }
+    ]
+  },
+  "extraPeople": {
+    "lt-2203": [
+      {
+        "id": "lt-2203-poa",
+        "label": "Anjali Nair — Power of attorney holder for Leela Nair",
+        "kind": "poa-holder",
+        "side": "complainant",
+        "holdsPoaFor": "lt-2203-complainant"
       }
     ]
   }

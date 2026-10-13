@@ -14,13 +14,14 @@
  * out of a component changed how long it lives on one device; it changed nothing about
  * what it claims.
  *
- * The map opens empty — see `OPENING_DRAFTS` below.
+ * The map opens on the demo sitting — see `OPENING_DRAFTS` below.
  *
  * Read it through `components/employee/use-order-draft.ts`, never directly from a
  * render — the hook is what subscribes.
  */
 
 import { EMPTY_ORDER_DRAFT, type OrderDraft } from "./order-draft";
+import { SAMPLE_DRAFTS } from "./sample-sitting";
 
 /** Every listing that has an order open on it, keyed by hearing id. */
 export type OrderDrafts = Readonly<Record<string, OrderDraft>>;
@@ -34,8 +35,11 @@ export type OrderDrafts = Readonly<Record<string, OrderDraft>>;
    on a seeded set so the Draft orders queue had rows on a cold load; that put the board
    in a state the person using it had not reached, which is the opposite of what the
    screen is for. A key here says an order on this listing has been started and not sent
-   for signature — now only ever because somebody started it. */
-const OPENING_DRAFTS: OrderDrafts = Object.freeze({});
+   for signature.
+
+   **Except the demo sitting** (owner, 2026-10-12): it opens on `sample-sitting.ts` so the
+   Orders view on today's hearings has a draft in it. Empty that file to go back. */
+const OPENING_DRAFTS: OrderDrafts = Object.freeze({ ...SAMPLE_DRAFTS });
 
 let drafts: OrderDrafts = OPENING_DRAFTS;
 const listeners = new Set<() => void>();
@@ -88,4 +92,27 @@ export function updateOrderDraft(
   initial: OrderDraft = EMPTY_ORDER_DRAFT,
 ): void {
   writeOrderDraft(hearingId, update(readOrderDraft(hearingId, initial)));
+}
+
+/**
+ * Version B's key for a listing's draft (`lib/employee/order-door.ts`). Its own key, so the block
+ * composer and the text-box composer never share a half-made order while they are A/B
+ * tested side by side.
+ */
+export function textDraftKey(id: string): string {
+  return `text:${id}`;
+}
+
+/** Version C's key for a listing's draft (`lib/employee/order-door.ts`), its own like B's. */
+export function proceedingsDraftKey(id: string): string {
+  return `proceedings:${id}`;
+}
+
+/** Whether a listing has an order started on it, in either version of the composer. */
+export function hasDraftFor(drafts: OrderDrafts, hearingId: string): boolean {
+  return Boolean(
+    drafts[hearingId] ??
+      drafts[textDraftKey(hearingId)] ??
+      drafts[proceedingsDraftKey(hearingId)],
+  );
 }

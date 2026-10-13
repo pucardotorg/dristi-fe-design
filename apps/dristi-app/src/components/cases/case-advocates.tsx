@@ -42,8 +42,9 @@ const SIDE_COPY: Record<
  * Both sides in one cell — one name each, complainant above accused, so the
  * pair reads in the order the cause title does. `(C)` / `(A)` carries the
  * side; without it a merged column would be an unattributed list of names.
- * A side with no vakalat on record is left out rather than shown empty: the
- * mark on the surviving line already says which side is present.
+ * A side with no vakalat on record still gets its line (owner, Sept 24): with
+ * it left out, a party in person read their own case as having only an
+ * accused side. Worded as the case header words it.
  */
 export function CaseAdvocatesPair({
   record,
@@ -53,27 +54,49 @@ export function CaseAdvocatesPair({
   /** Dense table row — see `dense` on CaseAdvocates. */
   dense?: boolean;
 }) {
-  const sides = SIDES.filter((side) => counselFor(record, side).length > 0);
-  if (sides.length === 0) return null;
-
   /* Comfortable surfaces expand each chip to a 40px-tall target, so the two
      lines need a 40px pitch or the two targets overlap. min-h-6 + gap-4 is
      exactly that. The dense table's chips are their own 24px box and stay
      tight. */
   return (
     <div className={cn("flex flex-col", dense ? "gap-1" : "gap-4")}>
-      {sides.map((side) => (
-        <CaseAdvocates
-          key={side}
-          record={record}
-          side={side}
-          markSide
-          dense={dense}
-          /* The header's dotted text pattern, not a chip (owner, Sept 18);
-             in the dense table it reads "+2" without the word. */
-          more="text"
-        />
-      ))}
+      {SIDES.map((side) =>
+        counselFor(record, side).length > 0 ? (
+          <CaseAdvocates
+            key={side}
+            record={record}
+            side={side}
+            markSide
+            dense={dense}
+            /* The header's dotted text pattern, not a chip (owner, Sept 18);
+               in the dense table it reads "+2" without the word. */
+            more="text"
+          />
+        ) : (
+          <NoCounsel key={side} side={side} />
+        )
+      )}
+    </div>
+  );
+}
+
+/** The case header's wording for a side with no advocate: the complainant
+ *  filed the complaint themselves, so they appear in person; the accused may
+ *  simply not have appeared yet. */
+const NO_COUNSEL: Record<CounselSide, string> = {
+  complainant: "Party in person",
+  accused: "None on record",
+};
+
+function NoCounsel({ side }: { side: CounselSide }) {
+  const copy = SIDE_COPY[side];
+  return (
+    <div className="flex min-h-6 min-w-0 items-center gap-1 text-body-compact text-muted-foreground">
+      <span className="truncate">{NO_COUNSEL[side]}</span>
+      <span aria-hidden className="shrink-0">
+        {copy.mark}
+      </span>
+      <span className="sr-only">{`, ${copy.one}`}</span>
     </div>
   );
 }
