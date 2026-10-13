@@ -1,5 +1,6 @@
 "use client";
 
+import type * as React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlignCenterIcon,
@@ -169,6 +170,9 @@ export function RichTextField({
   className,
   suggestion,
   compact = false,
+  header,
+  footer,
+  pageClassName,
 }: {
   value: RichTextValue;
   onChange: (value: RichTextValue) => void;
@@ -180,6 +184,15 @@ export function RichTextField({
   /** Inside a dialog: a textarea's height and type, and a 32px toolbar. The
    *  full-page size made one optional field fill the whole modal. */
   compact?: boolean;
+  /**
+   * Fixed lines around the editable text, below the toolbar — a document's own heading
+   * and signature block, shown on the page but not typed into (order screen E, owner
+   * 2026-10-14). With either, the three sit in one wrapper that takes `pageClassName`,
+   * so a page can scroll under a toolbar that stays put.
+   */
+  header?: React.ReactNode;
+  footer?: React.ReactNode;
+  pageClassName?: string;
 }) {
   const editorRef = useRef<HTMLDivElement>(null);
   const initialHtmlRef = useRef(value.html);
@@ -449,8 +462,21 @@ export function RichTextField({
      * it: nothing is deleted and the completion is only what they had not reached yet.
      * The second case is the whole reason this stopped feeling forced.
      */
+    /* A slash typed after a space: the space goes with the search and comes back with
+       the answer. Left behind, it is the block's trailing whitespace once the search is
+       deleted, and the browser drops it on the insert — so the shortcut ran into the
+       word before it (2026-10-14). */
+    let lead = "";
     if (mode === "trigger") {
-      const slash = reading.before.length - query.length - 1;
+      let slash = reading.before.length - query.length - 1;
+      if (
+        insertion.kind === "inline" &&
+        slash > 0 &&
+        /\s/.test(reading.before[slash - 1])
+      ) {
+        slash -= 1;
+        lead = " ";
+      }
       const start = pointAt(reading.host, slash);
       if (!start) return false;
       const search = document.createRange();
@@ -465,7 +491,7 @@ export function RichTextField({
     }
 
     if (insertion.kind === "inline") {
-      document.execCommand("insertText", false, insertion.text);
+      document.execCommand("insertText", false, lead + insertion.text);
       emitChange();
       return true;
     }
@@ -497,6 +523,97 @@ export function RichTextField({
     emitChange();
     syncToolbar();
   }
+
+  const editable = (
+    <div
+      {...fieldProps}
+      ref={editorRef}
+      data-slot="input-group-control"
+      role="textbox"
+      aria-multiline="true"
+      aria-labelledby={labelId}
+      contentEditable
+      suppressContentEditableWarning
+      className={cn(
+        "w-full outline-none",
+        compact
+          ? "min-h-24 px-3 py-2 text-body-compact"
+          : "min-h-64 px-4 py-3 text-body",
+        LIST_CLASSES
+      )}
+      onInput={() => {
+        emitChange();
+        paintSuggestion();
+      }}
+      onFocus={syncToolbar}
+      onBlur={clearGhost}
+      /**
+       * The keys the completion answers to, and the one it deliberately does not.
+       *
+       * **Tab accepts; Enter never does.** Enter is a paragraph break in an editor, so
+       * a typist reaching for a new line would otherwise put the court's words into
+       * the order instead of a line into their own writing. Tab is the convention for
+       * accepting an inline completion and it costs this field nothing: a
+       * `contentEditable` region has no tab stop inside it to lose.
+       *
+       * ↓ and ↑ walk the other answers without opening a list, which is the whole
+       * point of completing inline rather than in a menu. Escape puts the preview away
+       * and leaves every character the reader typed, including the slash: taking their
+       * text back out on their behalf would be this field editing a court record
+       * nobody asked it to touch.
+       *
+       * **Only the keys that could edit *into* the node take it down.** Every key used
+       * to, and redrawing on the `input` that followed meant the preview blinked out
+       * and back on every character typed — the jitter that made this read as forced.
+       * A printable key inserts at the caret, which is *before* the node, so the node
+       * is in no danger and stays where it is; `paintSuggestion` then moves it without
+       * a repaint. Backspace and Delete work at exactly the boundary it sits on, and
+       * Enter would split the block around it, so those three clear it first and the
+       * next `input` draws it again.
+       */
+      onKeyDown={(event) => {
+        if (!suggestion) return;
+        if (shown && event.key === "Tab") {
+          event.preventDefault();
+          acceptSuggestion();
+          return;
+        }
+        if (shown && event.key === "Escape") {
+          event.preventDefault();
+          queryRef.current = null;
+          clearGhost();
+          return;
+        }
+        if (shown && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
+          event.preventDefault();
+          indexRef.current = Math.max(
+            0,
+            indexRef.current + (event.key === "ArrowDown" ? 1 : -1),
+          );
+          paintSuggestion();
+          return;
+        }
+        if (
+          event.key === "Backspace" ||
+          event.key === "Delete" ||
+          event.key === "Enter"
+        ) {
+          clearGhost();
+        }
+      }}
+      onPaste={(event) => {
+        // Only ever hold markup this toolbar produced — paste arrives flat.
+        event.preventDefault();
+        document.execCommand(
+          "insertText",
+          false,
+          event.clipboardData.getData("text/plain")
+        );
+        emitChange();
+      }}
+      onDrop={(event) => event.preventDefault()}
+    />
+  );
 
   return (
     <InputGroup className={cn("h-auto flex-col items-stretch", className)}>
@@ -583,94 +700,15 @@ export function RichTextField({
         </ToggleGroup>
       </div>
 
-      <div
-        {...fieldProps}
-        ref={editorRef}
-        data-slot="input-group-control"
-        role="textbox"
-        aria-multiline="true"
-        aria-labelledby={labelId}
-        contentEditable
-        suppressContentEditableWarning
-        className={cn(
-          "w-full outline-none",
-          compact
-            ? "min-h-24 px-3 py-2 text-body-compact"
-            : "min-h-64 px-4 py-3 text-body",
-          LIST_CLASSES
-        )}
-        onInput={() => {
-          emitChange();
-          paintSuggestion();
-        }}
-        onFocus={syncToolbar}
-        onBlur={clearGhost}
-        /**
-         * The keys the completion answers to, and the one it deliberately does not.
-         *
-         * **Tab accepts; Enter never does.** Enter is a paragraph break in an editor, so
-         * a typist reaching for a new line would otherwise put the court's words into
-         * the order instead of a line into their own writing. Tab is the convention for
-         * accepting an inline completion and it costs this field nothing: a
-         * `contentEditable` region has no tab stop inside it to lose.
-         *
-         * ↓ and ↑ walk the other answers without opening a list, which is the whole
-         * point of completing inline rather than in a menu. Escape puts the preview away
-         * and leaves every character the reader typed, including the slash: taking their
-         * text back out on their behalf would be this field editing a court record
-         * nobody asked it to touch.
-         *
-         * **Only the keys that could edit *into* the node take it down.** Every key used
-         * to, and redrawing on the `input` that followed meant the preview blinked out
-         * and back on every character typed — the jitter that made this read as forced.
-         * A printable key inserts at the caret, which is *before* the node, so the node
-         * is in no danger and stays where it is; `paintSuggestion` then moves it without
-         * a repaint. Backspace and Delete work at exactly the boundary it sits on, and
-         * Enter would split the block around it, so those three clear it first and the
-         * next `input` draws it again.
-         */
-        onKeyDown={(event) => {
-          if (!suggestion) return;
-          if (shown && event.key === "Tab") {
-            event.preventDefault();
-            acceptSuggestion();
-            return;
-          }
-          if (shown && event.key === "Escape") {
-            event.preventDefault();
-            queryRef.current = null;
-            clearGhost();
-            return;
-          }
-          if (shown && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
-            event.preventDefault();
-            indexRef.current = Math.max(
-              0,
-              indexRef.current + (event.key === "ArrowDown" ? 1 : -1),
-            );
-            paintSuggestion();
-            return;
-          }
-          if (
-            event.key === "Backspace" ||
-            event.key === "Delete" ||
-            event.key === "Enter"
-          ) {
-            clearGhost();
-          }
-        }}
-        onPaste={(event) => {
-          // Only ever hold markup this toolbar produced — paste arrives flat.
-          event.preventDefault();
-          document.execCommand(
-            "insertText",
-            false,
-            event.clipboardData.getData("text/plain")
-          );
-          emitChange();
-        }}
-        onDrop={(event) => event.preventDefault()}
-      />
+      {header || footer ? (
+        <div className={cn("flex w-full min-w-0 flex-col", pageClassName)}>
+          {header}
+          {editable}
+          {footer}
+        </div>
+      ) : (
+        editable
+      )}
 
       {/* **The preview is decoration; this is the affordance.** The ghost node is
           `aria-hidden`, because an inline completion read out as part of the paragraph

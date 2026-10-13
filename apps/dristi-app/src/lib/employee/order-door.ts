@@ -13,6 +13,9 @@
  *   block, so decision blocks are left out.
  * - **D** is C with the preview live in the right panel, so it opens as C does — on its
  *   own draft.
+ * - **E** (full-page editor) is the order as one body of text, like B, but without the
+ *   attendance and next-hearing lines: those are its workflow, entered apart from the
+ *   words.
  *
  * Each variant keeps its own draft under its own key, so switching mid-order never
  * shows one composer's half-made order in another. The keys are the ones the variants
@@ -30,6 +33,7 @@ import {
   type OrderDraft,
 } from "./order-draft";
 import {
+  editorDraftKey,
   optionDDraftKey,
   proceedingsDraftKey,
   textDraftKey,
@@ -42,6 +46,7 @@ export function variantDraftKey(variant: OrderLayout, base: string): string {
   if (variant === "text") return textDraftKey(base);
   if (variant === "proceedings") return proceedingsDraftKey(base);
   if (variant === "option-d") return optionDDraftKey(base);
+  if (variant === "editor") return editorDraftKey(base);
   return base;
 }
 
@@ -69,6 +74,9 @@ export function variantInitialDraft(
           : undefined,
       ),
     };
+  }
+  if (variant === "editor") {
+    return { ...initial, body: bodyFromBlocks(initial.blocks) };
   }
   if (variant === "proceedings" || variant === "option-d") {
     /* C (and D) lists the next hearing in its own section, never as an item. A door that loads a
@@ -107,7 +115,7 @@ export function variantDocument(
   draft: OrderDraft,
   appearances?: Appearance[],
 ): OrderDocument {
-  if (variant === "text") {
+  if (variant === "text" || variant === "editor") {
     return {
       ...buildOrderDocument({ ...input, blocks: [] }),
       paragraphs: (draft.body?.text ?? "")

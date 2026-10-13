@@ -6,6 +6,7 @@ import {
   CopyIcon,
   EllipsisIcon,
   FileCheckIcon,
+  FileClockIcon,
   FilePenIcon,
   FilePlusIcon,
   FileSearchIcon,
@@ -48,6 +49,7 @@ import {
   REGISTRATIONS_QUEUE_COUNT,
 } from "./approve-registrations";
 import { registerCaseById, REGISTER_QUEUE_COUNT } from "./register-cases";
+import { readPendingOrders } from "./pending-orders";
 import { registerById, registerCrumb, REGISTERS_PAGE } from "./registers";
 import { findFiling, SCRUTINY_QUEUE_COUNT } from "./scrutiny/queue";
 import { RESCHEDULING_QUEUE_COUNT } from "./rescheduling-request";
@@ -254,6 +256,21 @@ export const COURT_NAV_LINKS: CourtNavItem[] = [
  * must not be able to lose it by choosing a different middle.
  */
 export const COURT_NAV_TRAILING: CourtNavItem[] = [
+  /* Scheduling and bulk rescheduling, at the foot of the rail above Configurations
+     (owner, 2026-10-14): the bench reaches for them less often than the day's work. */
+  {
+    id: "schedule-hearing",
+    label: "Schedule hearing",
+    icon: CalendarIcon,
+    href: "/employee/hearings/schedule",
+    count: SCHEDULING_QUEUE_COUNT,
+  },
+  {
+    id: "bulk-reschedule",
+    label: "Bulk reschedule hearings",
+    icon: RefreshCwIcon,
+    href: "/employee/hearings/bulk-reschedule",
+  },
   {
     id: "configurations",
     label: "Configurations",
@@ -281,18 +298,17 @@ export const COURT_NAV_GROUPS: CourtNavGroup[] = [
         href: "/employee/hearings",
         count: TODAYS_HEARING_COUNT,
       },
+      /* Every order not yet through — being typed, waiting for a signature, or signed
+         with its workflows still to trigger — for the magistrate and the steno alike, so
+         each sees where the other's step stands (owner, 2026-10-14). It replaces the
+         Orders toggle on Today's hearings and the steno's workflow queue. No count: the
+         orders live in this browser, so the rail cannot know the number before the
+         screen loads. */
       {
-        id: "schedule-hearing",
-        label: "Schedule hearing",
-        icon: CalendarIcon,
-        href: "/employee/hearings/schedule",
-        count: SCHEDULING_QUEUE_COUNT,
-      },
-      {
-        id: "bulk-reschedule",
-        label: "Bulk reschedule hearings",
-        icon: RefreshCwIcon,
-        href: "/employee/hearings/bulk-reschedule",
+        id: "pending-orders",
+        label: "Pending orders",
+        icon: FileClockIcon,
+        href: "/employee/pending-orders",
       },
     ],
   },
@@ -519,9 +535,35 @@ const HIDDEN_FROM_BENCH: ReadonlySet<string> = new Set([
   "approve-copy",
   "approve-registrations",
 ]);
+/**
+ * What the steno does not see (owner, 2026-10-14): the registry's queues, three of the
+ * review queues, and every Sign row — signing is the bench's act, not the steno's.
+ */
+const HIDDEN_FROM_STENO: ReadonlySet<string> = new Set([
+  "scrutiny",
+  "cognizance",
+  "approve-copy",
+  "approve-registrations",
+  "rescheduling-request",
+  "delay-condonation",
+  "other-applications",
+  "sign-forms",
+  "sign-orders",
+  "sign-process",
+  "sign-bail-bonds",
+  "sign-deposition",
+  "sign-evidence",
+  "sign-a-diary",
+]);
+/* Pending orders covers signing for the magistrate (owner, 2026-10-14). */
+const HIDDEN_FROM_MAGISTRATE: ReadonlySet<string> = new Set([
+  ...HIDDEN_FROM_BENCH,
+  "sign-orders",
+]);
 const SEAT_HIDDEN_ROWS: Partial<Record<CourtRole, ReadonlySet<string>>> = {
-  magistrate: HIDDEN_FROM_BENCH,
+  magistrate: HIDDEN_FROM_MAGISTRATE,
   "bench-clerk": HIDDEN_FROM_BENCH,
+  typist: HIDDEN_FROM_STENO,
 };
 
 /** Whether this seat is offered this row — the one test every seat filter below shares. */
@@ -543,7 +585,6 @@ export function courtNavItemsForSeat(items: CourtNavItem[], role: CourtRole): Co
 
 /** Groups, less the rows this seat does not see — and less any group left empty. */
 export function courtNavGroupsForSeat(groups: CourtNavGroup[], role: CourtRole): CourtNavGroup[] {
-  if (!SEAT_ROWS[role] && !SEAT_HIDDEN_ROWS[role]) return groups;
   return groups
     .map((group) => ({ ...group, items: courtNavItemsForSeat(group.items, role) }))
     .filter((group) => group.items.length > 0);
@@ -614,10 +655,11 @@ const COURT_NAV_KEPT_APART: Record<
   { leading: string[]; trailing: string[] }
 > = {
   actions: {
-    leading: ["todays-hearings"],
-    trailing: ["bulk-reschedule", "sign-process"],
+    leading: ["todays-hearings", "pending-orders"],
+    trailing: ["sign-process"],
   },
-  schedule: { leading: [], trailing: ["bulk-reschedule", "sign-process"] },
+  /* Today's hearings fold into the combined row here, so Pending orders follows it. */
+  schedule: { leading: [], trailing: ["pending-orders", "sign-process"] },
 };
 
 /**
@@ -821,6 +863,21 @@ const NESTED_ROUTES: {
     queue: "/employee/register-cases",
     pattern: /^\/employee\/register-cases\/([^/]+)\/?$/,
     identify: (id) => registerCaseById(id)?.filingNumber,
+  },
+  /* One pending order — named by its case, as the list recorded it (any order, not only
+     a hearing's). */
+  {
+    queue: "/employee/pending-orders",
+    pattern: /^\/employee\/pending-orders\/([^/]+)\/?$/,
+    identify: (segment) => {
+      let key: string;
+      try {
+        key = decodeURIComponent(segment);
+      } catch {
+        return undefined;
+      }
+      return readPendingOrders()[key]?.caseNumber ?? hearingById(key)?.caseNumber;
+    },
   },
   /* One register under the Registers index, named by its number ("Register 3"). */
   {

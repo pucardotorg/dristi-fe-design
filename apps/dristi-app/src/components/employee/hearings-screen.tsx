@@ -118,12 +118,8 @@ const HEARING_PILLS: { id: TodaysCauseStatus; label: string }[] = [
 type ScreenView = "hearings" | "orders";
 type OrderPill = HearingOrderStatus | "all";
 
-/* Which view the bench last chose, held past the screen so Edit → composer → back lands
-   on the Orders view it left from. Dies on a reload, like the sitting's other marks. */
-let rememberedView: ScreenView = "hearings";
-function rememberView(next: ScreenView) {
-  rememberedView = next;
-}
+/* Orders moved to Pending orders (owner, 2026-10-14); this screen shows hearings only. */
+const rememberedView: ScreenView = "hearings";
 
 function plural(count: number, one: string, many: string): string {
   return count === 1 ? one : many;
@@ -182,13 +178,10 @@ export function HearingsScreen() {
 
   const rows = sortRows(filterHearings(listed, filters), HEARING_SORTS, sort);
 
-  const [view, setViewState] = React.useState<ScreenView>(() => rememberedView);
-  function setView(next: ScreenView) {
-    rememberView(next);
-    setViewState(next);
-    setSelectedIds(new Set());
-    setNotice("");
-  }
+  /* The Orders view is no longer offered here: orders have a row of their own, Pending
+     orders, right below this one (owner, 2026-10-14). The view stays on hearings; the
+     Orders branches below are unreachable until they are removed. */
+  const view = rememberedView as ScreenView;
 
   /* The Orders view: the same board, read through the composer's two stores. The
      hearing status pill does not apply here — Orders has its own. */
@@ -375,12 +368,6 @@ export function HearingsScreen() {
           </p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <ViewToggle
-            value={view}
-            onChange={setView}
-            hearings={listed.length}
-            orders={allOrders.length}
-          />
           <JoinVideoCourt />
         </div>
       </header>
@@ -836,58 +823,6 @@ function HearingsItemList({
         );
       })}
     </ul>
-  );
-}
-
-/**
- * Hearings or Orders — the screen's own question, so it stands in the page header beside
- * the court-level action rather than inside the panel it switches. A segmented
- * `ToggleGroup`: one tab stop, arrow keys between the two, and pressing the side already
- * chosen is ignored because the screen always shows one of them.
- */
-function ViewToggle({
-  value,
-  onChange,
-  hearings,
-  orders,
-}: {
-  value: ScreenView;
-  onChange: (view: ScreenView) => void;
-  hearings: number;
-  orders: number;
-}) {
-  return (
-    <ToggleGroup
-      type="single"
-      variant="outline"
-      size="lg"
-      spacing={0}
-      value={value}
-      onValueChange={(next) => {
-        if (next) onChange(next as ScreenView);
-      }}
-      aria-label="Show"
-      className="w-full sm:w-fit"
-    >
-      {(
-        [
-          ["hearings", "Hearings", hearings],
-          ["orders", "Orders", orders],
-        ] as const
-      ).map(([id, label, count]) => (
-        <ToggleGroupItem
-          key={id}
-          value={id}
-          aria-label={`${label}, ${count}`}
-          className="h-10 flex-1 gap-2 px-4 data-[state=on]:bg-brand-muted data-[state=on]:font-semibold data-[state=on]:text-brand-muted-foreground sm:flex-none"
-        >
-          <span>{label}</span>
-          <span aria-hidden className={PILL_COUNT}>
-            {count}
-          </span>
-        </ToggleGroupItem>
-      ))}
-    </ToggleGroup>
   );
 }
 

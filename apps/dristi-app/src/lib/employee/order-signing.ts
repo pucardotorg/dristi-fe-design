@@ -51,6 +51,14 @@ export function markOrderReady(hearingId: string): void {
   write({ ...signing, [hearingId]: "ready" });
 }
 
+/** Off the signing list, back to draft — never once signed. */
+export function returnOrderToDraft(hearingId: string): void {
+  if (signing[hearingId] !== "ready") return;
+  const next: Record<string, OrderSigningStatus> = { ...signing };
+  delete next[hearingId];
+  write(next);
+}
+
 /** Signed — from the composer's own overlay or from the Orders view in bulk. */
 export function markOrdersSigned(hearingIds: Iterable<string>): void {
   const next: Record<string, OrderSigningStatus> = { ...signing };

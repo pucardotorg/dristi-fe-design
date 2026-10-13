@@ -121,6 +121,7 @@ export function useCognizanceOrderDoor(
 
   return {
     draftKey: cognizanceDraftKey(matter, act),
+    origin: "Cognizance",
     initial,
     /* Every item the act loads can be removed, the act's own included (owner, 2026-10-13). */
     fixedIds: [],

@@ -9,11 +9,13 @@ import {
   type ComposerApplication,
   type ComposerFact,
 } from "@/components/employee/order-composer";
+import { OrderEditorComposer } from "@/components/employee/order-editor";
 import { OrderTextComposer } from "@/components/employee/order-text-composer";
 import { ProceedingsComposer } from "@/components/employee/proceedings-composer";
 import { useOrderDraft } from "@/components/employee/use-order-draft";
 import { useOrderLayout } from "@/components/employee/use-order-layout";
 import {
+  courtHearingPurposeLabel,
   formatListingDate,
   partySideLabel,
   type CourtHearing,
@@ -73,6 +75,8 @@ export type OrderDoor = {
   overview: { label: string; value: string }[];
   overviewContent?: React.ReactNode;
   historyContent?: React.ReactNode;
+  /** Where the order comes from, as the steno's queue says it ("Cognizance"). */
+  origin?: string;
   /** Only on a hearing: the roll, the applications on the listing, what it was for. */
   hearing?: OrderDoorHearing;
 };
@@ -135,7 +139,7 @@ export function decideApplication(
 }
 
 /**
- * The order screen behind every door: A, B, C or D by the Court settings toggle
+ * The order screen behind every door: A, B, C, D or E by the Court settings toggle
  * (`order-layout.ts`), each on its own draft so switching mid-order never shows one
  * composer's half-made order in another.
  */
@@ -239,6 +243,46 @@ export function OrderDoorScreen({ door }: { door: OrderDoor }) {
         showNextHearing={Boolean(hearing)}
         applicationDialog={applicationDialog}
         document={document}
+      />
+    );
+  }
+
+  /* E is the order as one full-page document, its workflow a switch away (owner,
+     2026-10-14). */
+  if (variant === "editor") {
+    return (
+      <OrderEditorComposer
+        queue={{
+          key: door.draftKey,
+          heading: door.heading,
+          caseNumber: door.document.caseNumber,
+          origin:
+            door.origin ??
+            (hearing
+              ? `Hearing · ${courtHearingPurposeLabel(hearing.purpose)}`
+              : "Order"),
+        }}
+        heading={door.heading}
+        facts={door.facts}
+        navAction={navAction}
+        frame={{
+          courtLine: door.courtLine,
+          subLine: door.subLine,
+          signatory: courtText("Judicial Magistrate of the First Class"),
+        }}
+        today={today}
+        draft={draft}
+        setDraft={setDraft}
+        appearances={appearances}
+        applications={hearing ? applications : undefined}
+        onOpenApplication={hearing ? openById : undefined}
+        applicationDialog={applicationDialog}
+        overview={door.overview}
+        overviewContent={door.overviewContent}
+        historyContent={door.historyContent}
+        context={context}
+        purpose={hearing?.purpose}
+        fixedIds={door.fixedIds}
       />
     );
   }

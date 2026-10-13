@@ -94,7 +94,7 @@ function counselOf(record: CaseRecord): CourtCounsel[] {
   );
 }
 
-function useApplicationOrderDoor(
+export function useApplicationOrderDoor(
   application: LifecycleApplication,
   record: CaseRecord,
   kind: CourtTaskKind,
@@ -115,6 +115,7 @@ function useApplicationOrderDoor(
 
   return {
     draftKey: `application:${application.id}`,
+    origin: `Application · ${application.typeLabel}`,
     initial: EMPTY_ORDER_DRAFT,
     fixedIds: [],
     heading: matter,

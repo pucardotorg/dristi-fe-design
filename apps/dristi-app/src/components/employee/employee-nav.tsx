@@ -34,6 +34,9 @@ import { useCognizanceLayout } from "@/components/employee/use-cognizance-layout
 import type { CognizanceLayout } from "@/lib/employee/cognizance-layout";
 import { useCourtNavLayout } from "@/components/employee/use-court-nav-layout";
 import { useOrderLayout } from "@/components/employee/use-order-layout";
+import { useOrderSigning } from "@/components/employee/use-order-signing";
+import { usePendingOrders } from "@/components/employee/use-pending-orders";
+import { pendingOrderCountFor } from "@/lib/employee/pending-orders";
 import {
   ORDER_LAYOUT_OPTIONS,
   type OrderLayout,
@@ -1115,19 +1118,47 @@ function CourtIdentityFooter() {
   );
 }
 
+/**
+ * Pending orders' live count, set on its row: the orders live in this browser, so the
+ * rail's data cannot carry the number (`pendingOrderCountFor`).
+ */
+function withPendingCount(
+  groups: CourtNavGroup[],
+  count: number | undefined,
+): CourtNavGroup[] {
+  return groups.map((group) =>
+    group.items.some((item) => item.id === "pending-orders")
+      ? {
+          ...group,
+          items: group.items.map((item) =>
+            item.id === "pending-orders" ? { ...item, count } : item,
+          ),
+        }
+      : group,
+  );
+}
+
 export function EmployeeNav() {
   const [cognizanceLayout] = useCognizanceLayout();
   const seat = useCourtRole();
   const { court } = useCourt();
   /* The split rows are the delay split's; a case-type deployment keeps its tabs. */
-  const groups = courtNavGroupsForSeat(
+  const pendingCount = pendingOrderCountFor(
+    seat,
+    usePendingOrders(),
+    useOrderSigning(),
+  );
+  const groups = withPendingCount(
+    courtNavGroupsForSeat(
     courtNavGroupsForCourt(
       courtNavGroupsFor(
         courtProfile(court).cognizanceSplit === "delay" ? cognizanceLayout : "tabs",
       ),
       court,
     ),
-    seat,
+      seat,
+    ),
+    pendingCount,
   );
   const { openId, setOpenId, currentId } = useCourtNavDisclosure(groups);
   const [savedLayout] = useCourtNavLayout();
@@ -1180,7 +1211,11 @@ export function EmployeeNav() {
                into (`courtNavRowsFor`), flat — the same list primitive the standalone
                links above already use. */
             <SidebarMenu className={RAIL_MENU}>
-              {courtNavRowsFor(layout, court, seat).map((item) => (
+              {courtNavRowsFor(layout, court, seat)
+                .map((item) =>
+                  item.id === "pending-orders" ? { ...item, count: pendingCount } : item,
+                )
+                .map((item) => (
                 <CourtNavRow
                   key={item.id}
                   item={item}
