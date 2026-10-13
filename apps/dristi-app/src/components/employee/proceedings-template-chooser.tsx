@@ -44,7 +44,8 @@ export function ProceedingsTemplateChooser({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  purposeLabel: string;
+  /** The hearing's purpose, in words. Absent outside a hearing, where nothing is suggested. */
+  purposeLabel?: string;
   suggested: readonly ProceedingsTemplate[];
   saved: readonly ProceedingsTemplate[];
   /** Whether there are proceedings on the page to save as a template. */
@@ -133,8 +134,10 @@ export function ProceedingsTemplateChooser({
         <div className="flex flex-col gap-1 p-6 pr-12 pb-4">
           <DialogTitle className="text-title-s font-semibold">Start the proceedings</DialogTitle>
           <DialogDescription>
-            Listed for {purposeLabel.charAt(0).toLowerCase() + purposeLabel.slice(1)}. Pick a
-            starting page, or start blank.
+            {purposeLabel
+              ? `Listed for ${purposeLabel.charAt(0).toLowerCase() + purposeLabel.slice(1)}. `
+              : ""}
+            Pick a starting page, or start blank.
           </DialogDescription>
         </div>
         <div role="radiogroup" aria-label="Templates" className="flex flex-wrap gap-2 px-6 pb-4">
