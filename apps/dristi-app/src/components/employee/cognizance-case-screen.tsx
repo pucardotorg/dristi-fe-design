@@ -244,7 +244,11 @@ function CaseBody({ matter }: { matter: CognizanceCase }) {
   );
   const findings = React.useMemo(() => findingsFor(matter), [matter]);
   /* A cheque and a memo per cheque, then the notice (cheat sheet §5). */
-  const documents = React.useMemo(() => cognizanceDocumentsFor(matter), [matter]);
+  const { court: documentsCourt } = useCourt();
+  const documents = React.useMemo(
+    () => cognizanceDocumentsFor(matter, documentsCourt),
+    [matter, documentsCourt],
+  );
 
   /* The recommended act first, then the rest the deployment offers: two under the delay
      split, all three under Gujarat's case-type split (`actsFor`). */

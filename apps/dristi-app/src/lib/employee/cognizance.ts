@@ -1001,6 +1001,7 @@ export type CognizanceDocument = {
  * Sandbox scans: the scrutiny demo's own cheque, return memo and demand notice
  * (`scrutiny/mock-filings.ts`), shown on every complaint so each file opens on real-looking
  * documents (owner, 2026-10-13). Dummy data — every complaint shows the same three.
+ * Gujarat only for now; the other courts keep the facsimiles (owner, 2026-10-13).
  */
 const SAMPLE_SCANS: Record<CognizanceDocument["kind"], string> = {
   cheque: "/employee/bundle/cheque.jpg",
@@ -1022,7 +1023,11 @@ export function chequeDocumentKeys(index: number): { cheque: string; memo: strin
  * The documents for one complaint: a cheque and a return memo per cheque, then the one
  * demand notice (cheat sheet §5). Several cheques are numbered; one is not.
  */
-export function cognizanceDocumentsFor(matter: CognizanceCase): CognizanceDocument[] {
+export function cognizanceDocumentsFor(
+  matter: CognizanceCase,
+  court: CourtId = DEFAULT_COURT,
+): CognizanceDocument[] {
+  const scans = court === "gujarat";
   const several = matter.cheques.length > 1;
   const docs: CognizanceDocument[] = [];
   matter.cheques.forEach((_, index) => {
@@ -1032,7 +1037,11 @@ export function cognizanceDocumentsFor(matter: CognizanceCase): CognizanceDocume
     docs.push({ key: keys.memo, no: 0, title: `Return memo${n}`, kind: "memo" });
   });
   docs.push({ key: "demand-notice", no: 0, title: "Demand notice", kind: "letter" });
-  return docs.map((doc, index) => ({ ...doc, no: index + 1, src: SAMPLE_SCANS[doc.kind] }));
+  return docs.map((doc, index) => ({
+    ...doc,
+    no: index + 1,
+    ...(scans ? { src: SAMPLE_SCANS[doc.kind] } : {}),
+  }));
 }
 
 /* ─────────────────────────────────── the tabs ───────────────────────────────── */

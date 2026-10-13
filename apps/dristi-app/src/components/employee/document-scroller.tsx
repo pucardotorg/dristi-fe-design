@@ -30,7 +30,7 @@ import { cn } from "@/lib/utils";
  * sample scan instead (the scrutiny demo's own), and a fact rings the whole page, since
  * the facsimile's regions do not sit on a real scan.
  *
- * **Every scan opens in Full view** (owner, 2026-10-13), by the product's own document
+ * **Every document opens in Full view** (owner, 2026-10-13), by the product's own document
  * actions — Download and Full view as 40×40 icons on the document's title line
  * (`DocumentPreviewActions`) — and Full view is the case file's: near window size, with
  * the viewer's zoom controls.
@@ -126,13 +126,27 @@ export function DocumentScroller({
               <h3 className="text-caption font-semibold text-foreground">
                 <span className="tabular-nums">{doc.no}</span> · {doc.title}
               </h3>
-              {doc.src ? (
-                <DocumentPreviewActions
-                  title={doc.title}
-                  source={{ kind: "src", src: doc.src }}
-                  className="-my-1 flex-nowrap gap-1"
-                />
-              ) : null}
+              {/* A scan opens in the viewer with its zoom; a facsimile opens as itself,
+                  large, in the same Full view. */}
+              <DocumentPreviewActions
+                title={doc.title}
+                source={
+                  doc.src
+                    ? { kind: "src", src: doc.src }
+                    : {
+                        kind: "composed",
+                        content: (
+                          <div
+                            className="mx-auto w-full max-w-3xl rounded-lg bg-paper ring-1 ring-hairline"
+                            style={{ aspectRatio: `${box.w} / ${box.h}` }}
+                          >
+                            <PageSheet kind={doc.kind} />
+                          </div>
+                        ),
+                      }
+                }
+                className="-my-1 flex-nowrap gap-1"
+              />
             </div>
             {/* The page sits on a beige mat, so it separates from the white rail rather
                 than a near-white sheet on white (owner, 2026-09-14). The mat takes the
