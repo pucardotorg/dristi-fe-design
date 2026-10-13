@@ -109,6 +109,13 @@ function useShowTimes(): boolean {
 }
 
 /**
+ * Whether the deployment runs one court (`CourtProfile.singleCourt`). The title then
+ * names it, so no row repeats it, no count says "across 1 court", and there is no
+ * court filter to offer.
+ */
+const SingleCourtContext = React.createContext<boolean>(false);
+
+/**
  * Opens the cause list and traces this matter's row there — the per-hearing "where
  * does my matter stand in the docket?" jump. Threaded by context so every row can
  * reach it. Null when the screen wires no handler (the icon then does not render).
@@ -197,10 +204,11 @@ function SlotCount({ slot, locale, className, padded = false }: { slot: TimeSlot
   // mid-phrase; on a narrow slot header it drops to its own line intact. The
   // nouns are pluralised for the counts so it reads right at one ("1 hearing
   // across 1 court").
+  const singleCourt = React.useContext(SingleCourtContext);
   const n = slot.hearings.length;
   const c = slot.courts.length;
   return <span className={cn("text-body-compact text-muted-foreground lg:whitespace-nowrap", className)}>
-    {fillCopy(advHome.slotAcrossCourts, locale, {
+    {fillCopy(singleCourt ? advHome.phaseCount : advHome.slotAcrossCourts, locale, {
       n: padded ? String(n).padStart(2, "0") : String(n),
       hw: pick(n === 1 ? advHome.statHearingOne : advHome.statHearingMany, locale),
       c: padded ? String(c).padStart(2, "0") : String(c),
@@ -954,6 +962,7 @@ function HearingRow({
   className?: string;
 }) {
   const showTimes = useShowTimes();
+  const singleCourt = React.useContext(SingleCourtContext);
   const isMobile = useCompactBoard();
   const canHover = useCanHover();
   const onOpenTasks = React.useContext(OpenTasksContext);
@@ -962,7 +971,7 @@ function HearingRow({
   const access = accessOf ? accessOf(hearing.kase) : null;
   const queueFor = React.useContext(QueueContext);
   const queue = queueFor ? queueFor(hearing) : null;
-  if (isMobile) return <MobileHearingCard hearing={hearing} locale={locale} selected={selected} queue={queue} onOpenCase={onOpenCase} onOpenTasks={onOpenTasks} onViewInCauseList={onViewInCauseList} access={access} time={showTime && showTimes ? <HearingTime at={hearing.at} approx={hearing.approxTime} locale={locale} /> : null} />;
+  if (isMobile) return <MobileHearingCard hearing={hearing} locale={locale} selected={selected} queue={queue} onOpenCase={onOpenCase} onOpenTasks={onOpenTasks} onViewInCauseList={onViewInCauseList} access={access} showCourt={!singleCourt} time={showTime && showTimes ? <HearingTime at={hearing.at} approx={hearing.approxTime} locale={locale} /> : null} />;
   const hasPills = hearing.blockers.length > 0 || hearing.passedOver;
   return (
     <div
@@ -1031,7 +1040,12 @@ function HearingRow({
         {/* On the wide layout the pair is exactly as tall as the name and detail
             lines (24 + 22 + 32 - 6 = 48), so the court sits on the name's line and
             the icons on the detail's, and the row keeps the text's height. */}
-        <CourtLabel court={hearing.court} label={hearing.courtLabel} number={hearing.kase.courtNumber} className="relative z-10 font-medium text-muted-foreground lg:leading-6" />
+        {singleCourt ? (
+          // Holds the court's line so the icons stay on the detail line.
+          <span aria-hidden="true" className="hidden lg:block lg:h-6" />
+        ) : (
+          <CourtLabel court={hearing.court} label={hearing.courtLabel} number={hearing.kase.courtNumber} className="relative z-10 font-medium text-muted-foreground lg:leading-6" />
+        )}
         <div className="flex items-center gap-2">
           {/* Access, then the queue, then the cause-list jump (owner, Oct 8). */}
           {access ? (
@@ -1107,6 +1121,7 @@ function NowSlot({
   locale: Locale;
 }) {
   const showTimes = useShowTimes();
+  const singleCourt = React.useContext(SingleCourtContext);
   const isMobile = useCompactBoard();
   const [pointerMotion, setPointerMotion] = React.useState(true);
   if (isMobile) return (
@@ -1118,10 +1133,12 @@ function NowSlot({
         {showTimes ? <span className="text-body-compact font-semibold tabular-nums">{timeOf(slot.at)}</span> : null}
         {/* The desktop band's wording: "Live now across 3 courts". */}
         <span className="flex-1 text-body-compact font-semibold text-brand-muted-foreground">
-          {fillCopy(advHome.liveAcross, locale, {
-            c: String(slot.courts.length),
-            cw: pick(slot.courts.length === 1 ? advHome.statCourtOne : advHome.statCourtMany, locale),
-          })}
+          {singleCourt
+            ? pick(advHome.zoneLive, locale)
+            : fillCopy(advHome.liveAcross, locale, {
+                c: String(slot.courts.length),
+                cw: pick(slot.courts.length === 1 ? advHome.statCourtOne : advHome.statCourtMany, locale),
+              })}
         </span>
         <ChevronDown aria-hidden="true" className="size-4 shrink-0 transition-transform duration-200 group-data-[state=closed]/ongoing:-rotate-90 motion-reduce:transition-none" />
       </CollapsibleTrigger>
@@ -1141,10 +1158,12 @@ function NowSlot({
           </span>
         ) : null}
         <span className="min-w-0 text-body font-semibold text-brand-muted-foreground">
-          {fillCopy(advHome.liveAcross, locale, {
-            c: String(c),
-            cw: pick(c === 1 ? advHome.statCourtOne : advHome.statCourtMany, locale),
-          })}
+          {singleCourt
+            ? pick(advHome.zoneLive, locale)
+            : fillCopy(advHome.liveAcross, locale, {
+                c: String(c),
+                cw: pick(c === 1 ? advHome.statCourtOne : advHome.statCourtMany, locale),
+              })}
         </span>
         <span aria-hidden="true" className="now-dot ml-auto size-2 shrink-0 rounded-full bg-primary" />
       </div>
@@ -1398,10 +1417,14 @@ function ConcludedBlock({
   const [open, setOpen] = React.useState(isPast);
   const [pointerMotion, setPointerMotion] = React.useState(true);
   const showTimes = useShowTimes();
+  const singleCourt = React.useContext(SingleCourtContext);
   const hearings = slots.flatMap((s) => s.hearings);
   const courts = new Set(hearings.map((h) => h.court)).size;
   const concludedPart = `${hearings.length} ${pick(advHome.concludedWord, locale)}`;
-  const courtsPart = `${courts} ${pick(courts === 1 ? advHome.statCourtOne : advHome.statCourtMany, locale)}`;
+  // With one court the title has named it; a count of it says nothing.
+  const courtsPart = singleCourt
+    ? null
+    : `${courts} ${pick(courts === 1 ? advHome.statCourtOne : advHome.statCourtMany, locale)}`;
   // The full view leads with the time range and slot count; the launch view has
   // neither (no times, one matter per slot), so it states just the two counts.
   const summaryLine = showTimes
@@ -1412,8 +1435,8 @@ function ConcludedBlock({
         concludedPart,
         `${slots.length} ${pick(slots.length === 1 ? advHome.slotOne : advHome.slotMany, locale)}`,
         courtsPart,
-      ].join(" · ")
-    : [concludedPart, courtsPart].join(" · ");
+      ].filter(Boolean).join(" · ")
+    : [concludedPart, courtsPart].filter(Boolean).join(" · ");
 
   return (
     <Collapsible data-pointer-motion={pointerMotion} onPointerDownCapture={() => setPointerMotion(true)} onKeyDownCapture={() => setPointerMotion(false)} open={open} onOpenChange={setOpen} className="relative">
@@ -1688,6 +1711,7 @@ function TabHover({ lean }: { lean: "left" | "right" | null }) {
 export function HearingTimeline({
   daySlots,
   showTimes,
+  singleCourt = false,
   dayPhase,
   filters,
   onFilterChange,
@@ -1711,6 +1735,8 @@ export function HearingTimeline({
   showTimes: boolean;
   /** State conflicts in the summary (full view) or the slot count instead (launch). */
   showConflicts: boolean;
+  /** The deployment runs one court: no court on each row, no court filter. */
+  singleCourt?: boolean;
   /** Where the selected day sits relative to today. */
   dayPhase: "past" | "today" | "future";
   /** Each sitting's own filter, by sitting key. */
@@ -1739,6 +1765,7 @@ export function HearingTimeline({
   return (
     <OpenTasksContext.Provider value={onOpenTasks}>
       <ShowTimesContext.Provider value={showTimes}>
+      <SingleCourtContext.Provider value={singleCourt}>
       <ViewInCauseListContext.Provider value={onViewInCauseList}>
       <AccessContext.Provider value={accessOf}>
       <QueueContext.Provider value={queueOf ?? null}>
@@ -1778,6 +1805,7 @@ export function HearingTimeline({
       </QueueContext.Provider>
       </AccessContext.Provider>
       </ViewInCauseListContext.Provider>
+      </SingleCourtContext.Provider>
       </ShowTimesContext.Provider>
     </OpenTasksContext.Provider>
   );
@@ -1814,6 +1842,7 @@ function SlotTabs({
 }) {
   // Which sitting's advanced-filters sheet is open, if any.
   const [advancedFor, setAdvancedFor] = React.useState<string | null>(null);
+  const singleCourt = React.useContext(SingleCourtContext);
   // A sitting with nothing listed has no tab: a future day with matters only in
   // the afternoon shows just the afternoon.
   const listed = allSlots.filter((s) => s.hearings.length > 0);
@@ -1990,12 +2019,14 @@ function SlotTabs({
             />
             </>
             )}
-            <CourtFilter
-              courts={courts}
-              selected={filter.courts}
-              onChange={(next) => change({ courts: next })}
-              locale={locale}
-            />
+            {singleCourt ? null : (
+              <CourtFilter
+                courts={courts}
+                selected={filter.courts}
+                onChange={(next) => change({ courts: next })}
+                locale={locale}
+              />
+            )}
           </div>
         );
         const empty = slot.board.slots.length === 0;

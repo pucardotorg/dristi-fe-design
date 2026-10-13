@@ -204,6 +204,19 @@ function docketHearingsOn(
   return hearingsFrom(world, world.cases, court, dayKey, now);
 }
 
+/**
+ * The world as a one-court deployment holds it: every case in `court`.
+ *
+ * ENGINEERING SEAM — the sandbox's cases are spread across a court complex so the
+ * multi-court board has something to show. A deployment that runs one courtroom
+ * (`CourtProfile.singleCourt`) only ever holds that court's cases, so the home moves
+ * them all into it here; a real backend returns them that way and this becomes a no-op.
+ */
+export function inOneCourt(world: World, court: string): World {
+  if (world.cases.every((c) => c.court === court)) return world;
+  return { ...world, cases: world.cases.map((c) => (c.court === court ? c : { ...c, court })) };
+}
+
 /** Every court with a matter listed that day — the whole docket, flagship ON first. */
 function docketCourtsOn(world: World, dayKey: string): string[] {
   const courts = new Set<string>();

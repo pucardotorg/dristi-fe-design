@@ -459,6 +459,8 @@ export const advHome = {
   noUpcoming: t("Nothing scheduled next", "അടുത്തതായി ഒന്നുമില്ല"),
   /* Day header (desktop): the big date and the board's title. */
   hearingsForDay: t("Your hearings for the day", "ഈ ദിവസത്തെ നിങ്ങളുടെ ഹിയറിംഗുകൾ"),
+  /* A deployment with one court names it here, once, instead of on every hearing. */
+  hearingsInCourt: t("Your hearings in {court}", "{court}-ലെ നിങ്ങളുടെ ഹിയറിംഗുകൾ"),
   /* Timeline rail: each phase names itself and its count; the sitting's two
      ends bracket it. "Live now" and "Scheduled next" replaced Ongoing and
      Upcoming, which readers took for each other. */

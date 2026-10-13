@@ -28,6 +28,7 @@ export function JoinHearingDialog({
   open,
   onOpenChange,
   hearings,
+  showCourt = true,
   onJoin,
   onViewCauseList,
   locale,
@@ -36,6 +37,8 @@ export function JoinHearingDialog({
   onOpenChange: (open: boolean) => void;
   /** The advocate's own hearings being called now (the timeline's "now" slot). */
   hearings: TimelineHearing[];
+  /** Name each hearing's court; off where the deployment runs one court. */
+  showCourt?: boolean;
   onJoin: (hearing: TimelineHearing) => void;
   onViewCauseList: () => void;
   locale: Locale;
@@ -71,8 +74,8 @@ export function JoinHearingDialog({
                     <div className="min-w-0 flex-1">
                       <p className="text-body font-semibold text-foreground sm:truncate">{hearing.kase.parties}</p>
                       <p className="text-body-compact text-muted-foreground sm:truncate sm:text-caption">
-                        {name}
-                        {number ? ` · ${number}` : ""} · {hearing.kase.stage}
+                        {showCourt ? `${name}${number ? ` · ${number}` : ""} · ` : ""}
+                        {hearing.kase.stage}
                       </p>
                     </div>
                     <Button

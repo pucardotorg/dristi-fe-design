@@ -30,6 +30,7 @@ import {
   daySlotsOn,
   hearingsOn,
   holdsVakalatnama,
+  inOneCourt,
   matterCountOn,
   nextHearingDayAfter,
   prepAhead,
@@ -206,6 +207,30 @@ describe("courtRooms", () => {
       ]
     );
     assert.equal(matterCountOn(w, dayKeyOf(at(0, 12)), NOW_MS), 3);
+  });
+});
+
+describe("inOneCourt", () => {
+  it("lists every matter in the one court, numbered as one cause list", () => {
+    const w = inOneCourt(
+      world([
+        listed("j1", 0, 15, "JMFC Court 1"),
+        listed("on1", 0, 11),
+        listed("cjm1", 0, 13, "CJM Court"),
+      ]),
+      "24×7 ON Court"
+    );
+    const day = dayKeyOf(at(0, 12));
+    assert.deepEqual(courtRooms(w, day, NOW_MS).map((r) => [r.court, r.count]), [["24×7 ON Court", 3]]);
+    assert.deepEqual(
+      hearingsOn(w, "24×7 ON Court", day, NOW_MS).map((h) => [h.kase.id, h.item]),
+      [["on1", 1], ["cjm1", 2], ["j1", 3]]
+    );
+  });
+
+  it("returns the same world when every case is already in the court", () => {
+    const w = world([listed("on1", 0, 11)]);
+    assert.equal(inOneCourt(w, "24×7 ON Court"), w);
   });
 });
 

@@ -53,6 +53,7 @@ function dayNote(cell: WeekCell, locale: Locale): string {
 export function HomeGreeting({
   locale,
   firstName,
+  court = null,
   now,
   week,
   selectedDay,
@@ -63,6 +64,8 @@ export function HomeGreeting({
 }: {
   locale: Locale;
   firstName: string;
+  /** The deployment's one court, named in the title; null where there are several. */
+  court?: string | null;
   now: number;
   week: WeekCell[];
   selectedDay: string;
@@ -160,6 +163,10 @@ export function HomeGreeting({
     onPickDate(new Date(selectedAt.getTime() + delta * 24 * 60 * 60 * 1000), pointer);
   const dayArrow = "relative size-6 text-muted-foreground after:absolute after:-inset-2";
 
+  const title = court
+    ? fillCopy(advHome.hearingsInCourt, locale, { court })
+    : pick(advHome.hearingsForDay, locale);
+
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-0">
       {/* Desktop: the selected day as a big date in a white box, stepped a day
@@ -216,7 +223,7 @@ export function HomeGreeting({
             {fillCopy(greetingCopy(nowDate.getHours()), locale, { name: firstName })}
           </p>
           <h1 className="text-title font-semibold tracking-tight text-balance">
-            {pick(advHome.hearingsForDay, locale)}
+            {title}
           </h1>
           {/* The week strip's per-day dot carries its own text equivalent
               through the tooltip and the sr-only line below. */}
@@ -232,7 +239,7 @@ export function HomeGreeting({
           </p>
           {/* ds-typography-allow: owner asked for the title a step under title-l (28px) so the actions keep its row beside the tasks panel. */}
           <h1 className="text-[1.75rem] leading-9 font-semibold tracking-tight text-balance">
-            {pick(advHome.hearingsForDay, locale)}
+            {title}
           </h1>
         </div>
         {/* The pending-tasks side tab, out on the screen's right edge. */}
