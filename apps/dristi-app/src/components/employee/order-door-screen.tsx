@@ -40,8 +40,9 @@ import type { OrderLayout } from "@/lib/employee/order-layout";
 /**
  * One way into the order screen, described once — whatever composer variant is on.
  *
- * A door says what the order is on and what it opens with. It knows nothing about the
- * variants: `OrderDoorScreen` reads Court settings and draws A, B or C from it, and
+ * A door says what the order is on and what it opens with. Apart from an optional
+ * per-variant nav action (`variantNavAction`), it does not depend on the variants:
+ * `OrderDoorScreen` reads Court settings and draws A, B or C from it, and
  * `lib/employee/order-door.ts` turns the one opening draft into each variant's own.
  * The hearing door (`order-screen.tsx`) and the cognizance door
  * (`cognizance-order-screen.tsx`) are the two today.
@@ -139,9 +140,12 @@ export function decideApplication(
  * composer's half-made order in another.
  */
 export function OrderDoorScreen({ door }: { door: OrderDoor }) {
-  const [variant] = useOrderLayout();
+  const [layout] = useOrderLayout();
   const courtText = useCourtText();
   const { hearing, context, today } = door;
+  // C does not yet open outside a hearing: a door without one shows A, as it always has.
+  const variant: OrderLayout =
+    layout === "proceedings" && !hearing ? "blocks" : layout;
   const appearances = hearing?.appearances;
   const initial = React.useMemo(
     () => variantInitialDraft(variant, door.initial, appearances),
@@ -238,38 +242,31 @@ export function OrderDoorScreen({ door }: { door: OrderDoor }) {
     );
   }
 
-  if (variant === "proceedings") {
+  if (variant === "proceedings" && hearing) {
     return (
       <ProceedingsComposer
         draftKey={variantDraftKey(variant, door.draftKey)}
         heading={door.heading}
         facts={door.facts}
-        notice={door.notice}
         navAction={navAction}
         courtLine={door.courtLine}
         subLine={door.subLine}
         signatory={courtText("Judicial Magistrate of the First Class")}
         context={context}
         today={today}
-        purpose={hearing?.purpose}
-        inHearing={Boolean(hearing)}
-        appearances={appearances}
-        applications={
-          hearing
-            ? listing.map((application, index) => ({
-                ...applications[index],
-                filedBy: partySideLabel(application.filedFor),
-                sentence: (decision) =>
-                  decisionBlock(application, decision, context).text,
-              }))
-            : undefined
-        }
+        purpose={hearing.purpose}
+        inHearing
+        appearances={hearing.appearances}
+        applications={listing.map((application, index) => ({
+          ...applications[index],
+          filedBy: partySideLabel(application.filedFor),
+          sentence: (decision) =>
+            decisionBlock(application, decision, context).text,
+        }))}
         onOpenApplication={openById}
         applicationDialog={applicationDialog}
         draft={draft}
         setDraft={setDraft}
-        fixedIds={door.fixedIds}
-        showNextHearing={Boolean(hearing)}
         overview={door.overview}
         overviewContent={door.overviewContent}
         historyContent={door.historyContent}

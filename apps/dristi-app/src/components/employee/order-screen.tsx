@@ -49,6 +49,9 @@ import {
   nextUnhandledListing,
 } from "@/lib/employee/order-draft";
 
+/** A hearing's order opens with nothing the drafter cannot remove. */
+const NO_FIXED_ITEMS: readonly string[] = [];
+
 /**
  * The order of one listing — a hearing's door onto the order composer (`ORD-05`).
  *
@@ -108,7 +111,7 @@ export function useHearingOrderDoor(hearing: CourtHearing): OrderDoor {
   return {
     draftKey: hearing.id,
     initial,
-    fixedIds: [],
+    fixedIds: NO_FIXED_ITEMS,
     heading: causeTitle(hearing),
     facts: [
       { label: "Item", value: String(hearing.item) },

@@ -18,7 +18,6 @@
  * draft already started read the same.
  */
 
-import type { ComposerBlock } from "./order-composer";
 import {
   attendanceRecital,
   buildOrderDocument,
@@ -31,13 +30,6 @@ import {
 import { proceedingsDraftKey, textDraftKey } from "./order-drafts";
 import type { OrderLayout } from "./order-layout";
 import { bodyFromBlocks } from "./order-text";
-
-/** What a workflow preloads: the order items it opens with, and which cannot go. */
-export type OrderPreset = {
-  blocks: ComposerBlock[];
-  /** Blocks that cannot be removed or changed into another kind. */
-  fixedIds: string[];
-};
 
 /** The draft store's key for one variant of a door's order. */
 export function variantDraftKey(variant: OrderLayout, base: string): string {

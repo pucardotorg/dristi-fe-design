@@ -102,7 +102,7 @@ describe("variantInitialDraft", () => {
     assert.deepEqual(draft.applications, heard.applications);
   });
 
-  it("keeps every preloaded cognizance item in C, fixed ones included", () => {
+  it("leaves a draft without decisions whole in C", () => {
     const draft = variantInitialDraft("proceedings", cognizanceDraft);
     assert.deepEqual(draft.blocks, cognizance.blocks);
     for (const id of cognizance.fixedIds) {

@@ -436,8 +436,6 @@ export function upsertRichTextFact(
   return { html, text: plainTextOfRichText(html) };
 }
 
-/** One order in the draft: what it is, and the words it carries. */
-
 /**
  * Version B's opening text: each item's words in order, marked with its id, and — on a
  * hearing — the attendance and next-hearing lines as facts of the sitting.
