@@ -486,8 +486,14 @@ function CaseSummaryPanel({
   ];
   return (
     <section aria-labelledby="case-summary" className="flex min-w-0 flex-col gap-3">
-      <div className="flex min-h-5 items-center justify-between gap-3">
-        <h2 id="case-summary" className={EYEBROW}>
+      <div className="flex min-h-6 items-center justify-between gap-3">
+        {/* With View case beside it the heading has to outrank a button, so it takes the
+            Documents panel's heading — body, semibold, full ink — not the eyebrow
+            (owner, 2026-10-13). */}
+        <h2
+          id="case-summary"
+          className={viewCase ? "text-body font-semibold text-foreground" : EYEBROW}
+        >
           Case summary
         </h2>
         {/* The case's identity is what View case opens in full, so it rides here rather
