@@ -24,15 +24,13 @@
  * what the screen has to survive: two names in Malayalam script, one name long enough to
  * wrap its column twice, Bar registration IDs from four state bars so the column is sized
  * off the longest rather than off Kerala's short form, waits spread from one day to two
- * months, an edited pre-created account (`REG-18`) whose changed name is also the one the
- * register disagrees with — so a request carrying **both** comparison tables at once
- * exists in the data and not only in the brief — a resubmission at round 2 and one at
- * round 5 with every earlier reason kept, a register that could not be reached, one that
- * holds no entry, one mismatch where the register answers in a different script from the
- * claim, and one card photo that will not load. Between them the rows reach all three
- * `RegisterAnswer` values and the silent fourth case where the register simply agreed,
- * which is the coverage the overlay has to be exercised against.
+ * months, an edited pre-created account (`REG-18`), a resubmission at round 2 and one at
+ * round 5 with every earlier reason kept, and one card photo that will not load.
  * No row is read from a bar council, a register or a person.
+ *
+ * **Nothing looks the registration ID up.** The officer verifies the typed values against
+ * the photograph (`REG-14`) and nothing else; there is no Bar Council check on this screen
+ * (owner, 2026-10-13).
  *
  * **Approve and Reject perform no act.** Neither opens an account, grants access, refuses
  * anyone, sends a reason or writes to a record. Both do exactly one thing: drop the row
@@ -46,17 +44,14 @@
 
 import { matchesQuery } from "./filter-state";
 import { parseIsoDay } from "./hearings";
-import type { RegisteredAdvocate } from "@/lib/filing/registry";
 
 /**
  * Who is asking — an advocate or an advocate's clerk (handover §5, `REG-13a`/`REG-14a`).
  *
  * Both self-register and both wait for the same scrutiny officer, with the same five
- * values in the same order. What differs is words and one absence: a clerk gives a **clerk
+ * values in the same order. What differs is words: a clerk gives a **clerk
  * registration number** and a **photo of their clerk ID card** where an advocate gives the
- * Bar ones, and nothing looks a clerk up — `REG-13`'s Bar Council lookup is an advocate
- * requirement, and the handover names no register for clerks. So a clerk's `lookup` is
- * `none`, and the overlay says nothing about a register rather than inventing one.
+ * Bar ones.
  *
  * Until 2026-09-11 every row here was an advocate and this distinction lived in the model
  * with no column, because a column whose every cell reads the same is the defect D4 was
@@ -105,63 +100,6 @@ export type RejectionRound = {
   reason: string;
 };
 
-/**
- * What the register answered when this Bar registration ID was looked up (`REG-13`).
- *
- * Three answers and nothing else: it either holds an entry against the number, holds
- * none, or could not be reached. **Whether the entry agrees with the claim is not stored
- * here** — it is derived, by comparing the register's name with the submitted one
- * (`identityRows`). Storing "agrees" beside the entry it agrees with is two facts that
- * can drift apart, and the one that drifts is the one the officer reads.
- *
- * It is a **machine reading**, never a verdict: the evidence `REG-14` names is the
- * photograph, and the officer looks at that in every case.
- *
- * `entry` reuses `RegisteredAdvocate` from `lib/filing/registry.ts` — the app already
- * models a bar-council register as `{ barNumber, name, bar }`, and a second shape for the
- * same register is how two screens end up disagreeing about what a lookup returns. That
- * file also says in its own header that "the register will never be complete", which is
- * why `no-entry` below is an ordinary state and not an error.
- *
- * The two absent states carry the same names as the `RegisterAnswer` values they become,
- * because they *are* those answers — the mapping is an identity, not a translation table
- * somebody has to keep in step.
- */
-export type BarCouncilLookup =
-  /** The register holds an entry against this number. */
-  | {
-      state: "found";
-      /* A register that answered names itself, so here the Bar Council is always known —
-         unlike the filing side's advocate search, where `bar` is absent. */
-      entry: RegisteredAdvocate & { bar: string };
-      /**
-       * BCP 47 tag for `entry.name`, when the register's answer is not written in
-       * English.
-       *
-       * The register's name is its own string and carries its own script: the claimant
-       * may have typed Malayalam and the register answered in Latin, or the reverse, and
-       * the whole point of a `differs` row is that the two are *not* the same name.
-       * Tagging the register's name with the claimant's tag hands a screen reader a
-       * Malayalam voice for a Latin string on exactly the row where the officer is being
-       * asked to compare them (ACCESSIBILITY §13). It rides the lookup rather than
-       * `RegisteredAdvocate` itself because that type is `lib/filing/registry.ts`'s,
-       * shared with the filing side, and this is a fact about the lookup's presentation
-       * here.
-       */
-      entryNameLang?: string;
-    }
-  /** The number is not in the register. Ordinary — see above. */
-  | { state: "no-entry" }
-  /** The register could not be reached. **The decision is not blocked.** */
-  | { state: "not-checked" }
-  /**
-   * Nothing is looked up for this registrant — a clerk, for whom the handover names no
-   * register (`REG-13a`). Distinct from `not-checked`, which is a register that exists and
-   * did not answer: saying "could not be reached" about a register that was never asked
-   * would put a system failure on a request that has none.
-   */
-  | { state: "none" };
-
 export type RegistrationRequest = {
   id: string;
   /**
@@ -198,7 +136,6 @@ export type RegistrationRequest = {
   daysWaiting: number;
   registrantKind: RegistrantKind;
   requestKind: RequestKind;
-  lookup: BarCouncilLookup;
   /** `REG-18`. Present only on an `edited` request, and never empty when present. */
   edits?: RegistrationEdit[];
   /** `REG-23`. Present only on a `resubmission`, oldest round first. */
@@ -319,7 +256,7 @@ export function requestKindLabel(request: RegistrationRequest): string | null {
  * question, which is the only way it can be read without a legend.
  *
  * **Why these two hues.** Once the states are neutral, every other hue still has a job
- * here — `warning` is the wait escalation and a register finding, `destructive` an overdue
+ * here — `warning` is the wait escalation, `destructive` an overdue
  * wait and a rejection — so reusing either would say two things at once. `info` and
  * `success` are the two left with nothing to say on the queue or the review. Advocates,
  * the majority, take the calmer `info`; clerks take `success`. The one place green means
@@ -343,26 +280,6 @@ export function accountTypeVariant(kind: RegistrantKind): AccountTypeVariant {
 export function currentRound(request: RegistrationRequest): number {
   return (request.rejections?.length ?? 0) + 1;
 }
-
-/**
- * What the register this registrant is checked against is called, when it has not named
- * itself.
- *
- * A register that answered names itself — `entry.bar` is "Bar Council of Kerala", or
- * Maharashtra's, or Gujarat's, and nothing here is hardcoded to one state. A register
- * that held **no entry**, or could not be reached, has told us nothing at all, so there
- * is no bar name to quote and the generic noun is what is honest. Read off the
- * registrant, so a clerk register (`REG-13a`) names itself without a second code path.
- */
-export function registerName(kind: RegistrantKind): string {
-  return kind === "clerk" ? "Clerk register" : "Bar Council register";
-}
-
-/** What the row reporting the lookup is called — the act, not the institution. */
-export function registerCheckTerm(kind: RegistrantKind): string {
-  return kind === "clerk" ? "Clerk register check" : "Bar Council check";
-}
-
 
 /** What the holder changed in this field at first login, if anything (`REG-18`). */
 export function editFor(
@@ -443,7 +360,7 @@ export type FactRow = {
   /** BCP 47 tag for `value`, when it is not written in English. */
   valueLang?: string;
   format: RowFormat;
-  /** Escalating ink. The wait carries one (D6); so does a register finding. */
+  /** Escalating ink. The wait carries one (D6). */
   tone?: WaitTone;
   /** A dated fact belonging to the row rather than to a source — a round's own date. */
   note?: string;
@@ -452,34 +369,18 @@ export type FactRow = {
    * account type, which the owner wants read before anything else on the screen.
    */
   pill?: AccountTypeVariant;
-  /**
-   * The detail behind this fact, revealed on the row itself (D23).
-   *
-   * A row that reports a finding — "Some details do not match", "Edited Bar Council
-   * account" — states *that* something is so; the table states *what*. Hanging it on the
-   * row is what makes the value clickable and puts the answer where the question was
-   * asked, instead of in a section further down a scrolling column.
-   */
-  detail?: ComparisonBlock;
 };
-
-/** Two names are the same name when only spacing and case separate them. */
-function sameValue(a: string, b: string): boolean {
-  const fold = (value: string) => value.trim().replace(/\s+/g, " ").toLowerCase();
-  return fold(a) === fold(b);
-}
 
 /**
  * The request's own facts: when it arrived, how long it has been kept, which of the
- * three jobs it is (brief D16) — and the register's answer **only when the register did
- * not simply agree** (D19).
+ * three jobs it is (brief D16).
  *
  * They are a group of rows and not a line of header prose, because a header holds two
  * facts before it becomes a paragraph. The application number is **not** here: it is the
  * dialog's description, and carrying it twice would be one fact with two treatments.
  */
 export function requestRows(request: RegistrationRequest): FactRow[] {
-  const rows: FactRow[] = [
+  return [
     /* **First, as a pill** (owner, 2026-09-11: *"what's the first thing you read and then
        you understand, okay, it's a clerk. You don't read the heading… especially when you
        become a power user, you look at the content immediately"*). The title says it too,
@@ -515,19 +416,6 @@ export function requestRows(request: RegistrationRequest): FactRow[] {
       format: "text",
     },
   ];
-
-  /* The register's finding still opens its own evidence (D23). **The edit comparison does
-     not**: it is a section of its own again, on the owner's ruling that what an advocate
-     changed about their profile is the substance of a profile-update request and not a
-     footnote to its type (2026-09-11) — see `ReviewStage`. */
-  const blocks = comparisonBlocks(request);
-  const finding = registerFindingRow(request);
-  if (finding) {
-    const register = blocks.find((block) => block.id === "register");
-    rows.push(register ? { ...finding, detail: register } : finding);
-  }
-
-  return rows;
 }
 
 /**
@@ -551,112 +439,6 @@ export function requestTypeValue(request: RegistrationRequest): string {
   return "New registration";
 }
 
-/* ───────────────────────── what the register answered ─────────────────────── */
-
-/**
- * The register's answer — **a closed set of three, and agreement is not one of them**
- * (D19, owner 2026-09-11).
- *
- * The build this replaces put the register's answer on every attribute it could speak
- * to, including the ones it agreed with: `Bar Council of Kerala: matches` under the
- * name, `OTP: verified` under the mobile. The owner read those on the render and asked
- * the question that retires them — *"is that relevant information in the first place?"*
- * It is not. A queue is scanned for exceptions, and a line that appears on the fourteen
- * ordinary requests to say nothing is wrong is a line the officer stops reading long
- * before the one that says something is.
- *
- * So the register speaks only when it disagrees, is empty, or could not be reached. A
- * silent register means it agreed. `OTP: verified` is gone outright: the mobile is the
- * account's key and is **always** OTP-verified (`REG-10`/`REG-11`), so it distinguishes
- * no request from any other — the same argument that retired the User Type column (D4).
- */
-export type RegisterAnswer = "differs" | "no-entry" | "not-checked";
-
-/**
- * What each answer says, in the officer's terms rather than the system's.
- *
- * `differs` says only *that* something disagrees; **how** it disagrees is the comparison
- * table, because two values side by side is what "how" looks like.
- */
-const REGISTER_FINDING: Record<Exclude<RegisterAnswer, "differs">, string> = {
-  "no-entry": "No entry for this registration ID",
-  "not-checked": "Could not be reached",
-};
-
-/**
- * Which attributes the register holds a different value for.
- *
- * Only the name is compared today, because the lookup is made *on* the registration ID and
- * the register answers with a name — so a second comparison is a second line here and
- * nothing else. Returned as terms rather than field ids because the terms are what the
- * officer reads, and they already know how to name themselves on a clerk queue.
- */
-export function mismatchedTerms(request: RegistrationRequest): string[] {
-  const { lookup } = request;
-  if (lookup.state !== "found") return [];
-  const rows = identityRows(request);
-  const terms: string[] = [];
-  if (!sameValue(lookup.entry.name, request.fullName)) terms.push(rows[0].term);
-  return terms;
-}
-
-/** "Full name", "Full name and Mobile number" — the subject of a finding, in words. */
-function joinTerms(terms: string[]): string {
-  if (terms.length <= 1) return terms[0] ?? "";
-  return `${terms.slice(0, -1).join(", ")} and ${terms[terms.length - 1]}`;
-}
-
-/** The register's answer about this request, or `null` when it simply agreed. */
-export function registerAnswer(
-  request: RegistrationRequest,
-): RegisterAnswer | null {
-  const { lookup } = request;
-  if (lookup.state === "none") return null;
-  if (lookup.state === "no-entry") return "no-entry";
-  if (lookup.state === "not-checked") return "not-checked";
-  return sameValue(lookup.entry.name, request.fullName) ? null : "differs";
-}
-
-/**
- * The one row the register gets — in the Request group, because a lookup the court ran
- * is a fact about the request and not an attribute of the person.
- *
- * `warning`, never `destructive`: a register that disagrees is a finding that needs a
- * human to look at a photograph, not a verdict, and the loud treatment would have the
- * machine reject before anybody looked at the card (the lesson `scrutiny/flag-composer`
- * already records). The words carry it, so the finding is never colour alone.
- */
-export function registerFindingRow(
-  request: RegistrationRequest,
-): FactRow | null {
-  const answer = registerAnswer(request);
-  if (!answer) return null;
-  /* **The finding names what is wrong** (owner, 2026-09-11: *"'some details do not match'
-     is not helping me understand what is actually not matching — just mention full name,
-     and then if they want to see it they can click the dropdown"*). The row is the answer
-     at a glance; the disclosure is the evidence for it. */
-  const value =
-    answer === "differs"
-      ? `${joinTerms(mismatchedTerms(request))} ${
-          mismatchedTerms(request).length === 1 ? "does" : "do"
-        } not match`
-      : REGISTER_FINDING[answer];
-
-  return {
-    id: "register",
-    /* **"Bar Council check", not "Bar Council of Kerala"** (owner, 2026-09-11: *"I don't
-       understand what Bar Council of Kerala here is trying to convey"*). A bare
-       institution name in a term column is a label with no verb — it does not say that
-       this row is the result of the court looking the registration up. The specific
-       register still names itself, in the column header of the table the row opens,
-       which is where a value is being attributed to it. */
-    term: registerCheckTerm(request.registrantKind),
-    value,
-    format: "text",
-    tone: "warning",
-  };
-}
-
 /**
  * The four submitted values — and **nothing about where they came from**.
  *
@@ -666,8 +448,8 @@ export function registerFindingRow(
  * and one column.
  *
  * This is the block the officer reads against the photograph, so it holds what the
- * advocate typed and stops. Every comparison — with the register, with the account before
- * it was edited — is a table of its own below (`comparisonBlocks`).
+ * advocate typed and stops. The comparison with the account before it was edited is a
+ * table of its own (`comparisonBlocks`).
  */
 export function identityRows(request: RegistrationRequest): FactRow[] {
   const rows: FactRow[] = [
@@ -709,7 +491,7 @@ export function identityRows(request: RegistrationRequest): FactRow[] {
 /* ─────────────────────── two values, side by side ─────────────────────────── */
 
 /**
- * One value in a comparison — the claimant's, the register's, or the account's before an
+ * One value in a comparison — the claimant's, or the account's before an
  * edit. They are the same kind of thing, which is why they are the same type.
  */
 export type ComparisonValue = {
@@ -748,77 +530,23 @@ export type ComparisonRow = {
  * all.
  */
 export type ComparisonBlock = {
-  id: "register" | "changed";
+  id: "changed";
   /** The group's own name — what the two columns are a comparison *between*. */
   label: string;
   /** Header over each value column. Same length as every row's `values`. */
   columns: string[];
   rows: ComparisonRow[];
-  /**
-   * Whether this is something to look at or something to know. A register that disagrees
-   * is a finding (`warning`); an edit the account holder made at first login is a fact
-   * about the record (`plain`) — `REG-18` says an edit happened, which is not a status.
-   */
-  tone: "warning" | "plain";
 };
 
 /**
- * Every comparison this request carries, in reading order: the exception first, then the
- * record's own history.
+ * Every comparison this request carries — today only what the holder changed at first
+ * login (`REG-18`).
  */
 export function comparisonBlocks(
   request: RegistrationRequest,
 ): ComparisonBlock[] {
   const blocks: ComparisonBlock[] = [];
   const current = identityRows(request);
-
-  const { lookup } = request;
-  /**
-   * **Both comparisons are kept, even when their values coincide** — revised 2026-09-11
-   * with D23, which reversed the rule that stood for one round.
-   *
-   * On an edited pre-created account the two collide: the account was created from the Bar
-   * Council record, so the value it held before the holder edited it is the value the
-   * register still holds, and for a while only one of them was built. That was right while
-   * both tables sat open in the same column — the same pair under two headings is one
-   * fact with two treatments. It stopped being right when each table moved behind the row
-   * that announces it: they now answer two different questions ("what does the register
-   * hold" and "what did the holder change"), are never on screen together unless the
-   * officer opens both, and the one that is missing is the one they clicked for.
-   */
-  if (lookup.state === "found" && registerAnswer(request) === "differs") {
-    blocks.push({
-      id: "register",
-      label: `Does not match ${lookup.entry.bar}`,
-      /* The register names itself **here**, over the values it is claiming — which is the
-         answer to "what is on the system records" (owner, 2026-09-11) and the reason the
-         row above can be called a check rather than an institution. */
-      columns: ["Submitted", lookup.entry.bar],
-      rows: [
-        {
-          id: "fullName",
-          term: current[0].term,
-          values: [
-            {
-              text: request.fullName,
-              lang: request.fullNameLang,
-              format: "text",
-            },
-            /* The register's answer carries the register's own tag, never the
-               claimant's: the two strings are separate answers and need not share a
-               script, and borrowing the claimant's tag would have a screen reader read
-               the disagreement aloud in one voice (ACCESSIBILITY §13). */
-            {
-              text: lookup.entry.name,
-              lang: lookup.entryNameLang,
-              format: "text",
-            },
-          ],
-        },
-      ],
-      tone: "warning",
-    });
-  }
 
   /* `REG-18`. Ordered by the Identity block rather than by the edit list, so the two
      tables are read in the same order however the data arrives. */
@@ -845,7 +573,6 @@ export function comparisonBlocks(
       label: "Changed at first login",
       columns: ["Before", "Now"],
       rows: changed,
-      tone: "plain",
     });
   }
 
@@ -884,8 +611,6 @@ const PALE_CARD = "/demo/bar-id-card-specimen-pale.svg";
 /** Deliberately not a file. The one row whose photograph will not open. */
 const MISSING_CARD = "/demo/bar-id-card-not-uploaded.svg";
 
-const KERALA = "Bar Council of Kerala";
-
 const PENDING: RegistrationRequest[] = [
   {
     id: "adv-118",
@@ -900,14 +625,6 @@ const PENDING: RegistrationRequest[] = [
     daysWaiting: 61,
     registrantKind: "advocate",
     requestKind: "resubmission",
-    lookup: {
-      state: "found",
-      entry: {
-        barNumber: "KL/1109/2009",
-        name: "Fathima Beevi Abdul Rahman Kunju Rawther",
-        bar: KERALA,
-      },
-    },
     /* Five rounds, so the block has to hold without growing without bound: the last
        reason reads in full, the four before it collapse to one line each. */
     rejections: [
@@ -948,9 +665,6 @@ const PENDING: RegistrationRequest[] = [
     daysWaiting: 19,
     registrantKind: "advocate",
     requestKind: "first",
-    /* Nothing came back from the register. The officer still has the card, which is the
-       evidence REG-14 names, so the decision is not held up. */
-    lookup: { state: "not-checked" },
   },
   {
     id: "adv-181",
@@ -963,20 +677,6 @@ const PENDING: RegistrationRequest[] = [
     daysWaiting: 12,
     registrantKind: "advocate",
     requestKind: "first",
-    /* The mismatch at its worst: the register holds a different name **and** holds it in
-       another script, which is the one row where tagging the register's answer with the
-       claimant's `lang` would have a screen reader read the two as agreeing. `warning`,
-       never destructive — the register disagreeing with the form is a finding that needs
-       a human to look at a photograph, not a verdict. */
-    lookup: {
-      state: "found",
-      entry: {
-        barNumber: "KL/3312/2021",
-        name: "മീര സുധാകരൻ",
-        bar: KERALA,
-      },
-      entryNameLang: "ml",
-    },
   },
   {
     id: "adv-184",
@@ -989,21 +689,12 @@ const PENDING: RegistrationRequest[] = [
     daysWaiting: 11,
     registrantKind: "advocate",
     requestKind: "first",
-    lookup: {
-      state: "found",
-      entry: {
-        barNumber: "MAH/2201/2010",
-        name: "Sandeep Deshmukh",
-        bar: "Bar Council of Maharashtra",
-      },
-    },
   },
   {
     id: "adv-191",
     applicationNumber: "KL-ADV-000191-2026",
-    /* The register was created under the short form and he corrected it to his full legal
-       name at first login — so this row is both `changed` and `differs`, which is the
-       case the overlay has to hold two chips for. */
+    /* The account was created under the short form and he corrected it to his full legal
+       name at first login. */
     fullName: "Thomas Kurian Varghese",
     registrationNumber: "KL/3077/2020",
     /* REG-18: the account was auto-created from the Bar Council record and he changed
@@ -1014,14 +705,6 @@ const PENDING: RegistrationRequest[] = [
     daysWaiting: 8,
     registrantKind: "advocate",
     requestKind: "edited",
-    lookup: {
-      state: "found",
-      entry: {
-        barNumber: "KL/3077/2020",
-        name: "Thomas Kurian",
-        bar: KERALA,
-      },
-    },
     edits: [
       { field: "fullName", was: "Thomas Kurian" },
       { field: "mobile", was: "9847051204" },
@@ -1041,17 +724,6 @@ const PENDING: RegistrationRequest[] = [
     daysWaiting: 6,
     registrantKind: "advocate",
     requestKind: "first",
-    /* The one row where the register answers in Malayalam too, so the tag is on the
-       register's own name and not borrowed from the claimant's. */
-    lookup: {
-      state: "found",
-      entry: {
-        barNumber: "KL/2306/2016",
-        name: "ഷൈലജ രാമകൃഷ്ണൻ",
-        bar: KERALA,
-      },
-      entryNameLang: "ml",
-    },
   },
   {
     id: "adv-198",
@@ -1067,14 +739,6 @@ const PENDING: RegistrationRequest[] = [
     daysWaiting: 5,
     registrantKind: "advocate",
     requestKind: "resubmission",
-    lookup: {
-      state: "found",
-      entry: {
-        barNumber: "KL/2140/2015",
-        name: "Nazeer Muhammed",
-        bar: KERALA,
-      },
-    },
     rejections: [
       {
         round: 1,
@@ -1094,14 +758,6 @@ const PENDING: RegistrationRequest[] = [
     daysWaiting: 4,
     registrantKind: "advocate",
     requestKind: "first",
-    lookup: {
-      state: "found",
-      entry: {
-        barNumber: "G/60/1992",
-        name: "Prakash Vaidya",
-        bar: "Bar Council of Gujarat",
-      },
-    },
   },
   {
     id: "adv-203",
@@ -1116,9 +772,6 @@ const PENDING: RegistrationRequest[] = [
     daysWaiting: 3,
     registrantKind: "advocate",
     requestKind: "first",
-    /* An incomplete register is normal, not a defect — `lib/filing/registry.ts` says so
-       in its own header. The card is what decides this one. */
-    lookup: { state: "no-entry" },
   },
   {
     id: "adv-204",
@@ -1130,14 +783,6 @@ const PENDING: RegistrationRequest[] = [
     daysWaiting: 3,
     registrantKind: "advocate",
     requestKind: "first",
-    lookup: {
-      state: "found",
-      entry: {
-        barNumber: "KL/2588/2017",
-        name: "Vishnu Prasad",
-        bar: KERALA,
-      },
-    },
   },
   {
     id: "adv-206",
@@ -1150,14 +795,6 @@ const PENDING: RegistrationRequest[] = [
     daysWaiting: 2,
     registrantKind: "advocate",
     requestKind: "first",
-    lookup: {
-      state: "found",
-      entry: {
-        barNumber: "D/1450/2013",
-        name: "Ritu Sabharwal",
-        bar: "Bar Council of Delhi",
-      },
-    },
   },
   {
     id: "adv-207",
@@ -1169,14 +806,6 @@ const PENDING: RegistrationRequest[] = [
     daysWaiting: 2,
     registrantKind: "advocate",
     requestKind: "first",
-    lookup: {
-      state: "found",
-      entry: {
-        barNumber: "KL/1877/2014",
-        name: "Joseph Mathew",
-        bar: KERALA,
-      },
-    },
   },
   {
     id: "adv-209",
@@ -1189,14 +818,6 @@ const PENDING: RegistrationRequest[] = [
     daysWaiting: 1,
     registrantKind: "advocate",
     requestKind: "first",
-    lookup: {
-      state: "found",
-      entry: {
-        barNumber: "KL/1533/2012",
-        name: "Sreelakshmi Pillai",
-        bar: KERALA,
-      },
-    },
   },
   {
     id: "adv-211",
@@ -1208,19 +829,10 @@ const PENDING: RegistrationRequest[] = [
     daysWaiting: 1,
     registrantKind: "advocate",
     requestKind: "first",
-    lookup: {
-      state: "found",
-      entry: {
-        barNumber: "KL/0421/2004",
-        name: "Deepak Menon",
-        bar: KERALA,
-      },
-    },
   },
 
   /* ─── Advocate clerks (`REG-13a`, `REG-14a`) ───────────────────────────────────────
-     Same five values, their own identifier, their own card, and **no lookup** — the
-     handover names no register for clerks. Application numbers take the sign-up's own
+     Same five values, their own identifier, their own card. Application numbers take the sign-up's own
      `KL-CLERK-` series (`registration-flow.tsx`, `applicationId`). No clerk is an
      `edited` request: `REG-17`/`REG-18` pre-create accounts from the Bar Council
      database, which holds advocates.
@@ -1240,7 +852,6 @@ const PENDING: RegistrationRequest[] = [
     daysWaiting: 13,
     registrantKind: "clerk",
     requestKind: "resubmission",
-    lookup: { state: "none" },
     rejections: [
       {
         round: 1,
@@ -1261,7 +872,6 @@ const PENDING: RegistrationRequest[] = [
     daysWaiting: 9,
     registrantKind: "clerk",
     requestKind: "first",
-    lookup: { state: "none" },
   },
   {
     id: "clk-210",
@@ -1277,7 +887,6 @@ const PENDING: RegistrationRequest[] = [
     daysWaiting: 3,
     registrantKind: "clerk",
     requestKind: "first",
-    lookup: { state: "none" },
   },
 ];
 
@@ -1348,8 +957,6 @@ export const REGISTRATIONS_QUEUE_COUNT = REGISTRATIONS_QUEUE.length;
 
 export type AccountTypeFilter = "all" | RegistrantKind;
 export type RequestTypeFilter = "all" | RequestKind;
-/** What the register said — `matches` is a register that answered and agreed. */
-export type RegisterFilter = "all" | "matches" | RegisterAnswer;
 /** The wait, in the same bands the days-waiting cell colours by (`registrationWaitTone`). */
 export type WaitFilter = "all" | WaitTone;
 
@@ -1367,8 +974,6 @@ export type RegistrationsFilters = {
   accountType: AccountTypeFilter;
   /** Pending only: a decided request is no longer read by what kind of request it was. */
   requestType: RequestTypeFilter;
-  /** Pending only, and advocates only — clerks have no register (`REG-13a`). */
-  register: RegisterFilter;
   /** Pending only. */
   wait: WaitFilter;
 };
@@ -1377,7 +982,6 @@ export const EMPTY_REGISTRATIONS_FILTERS: RegistrationsFilters = {
   query: "",
   accountType: "all",
   requestType: "all",
-  register: "all",
   wait: "all",
 };
 
@@ -1392,23 +996,11 @@ export const REQUEST_TYPE_OPTIONS: { value: RequestKind; label: string }[] = [
   { value: "resubmission", label: "Resubmitted after rejection" },
 ];
 
-export const REGISTER_OPTIONS: { value: Exclude<RegisterFilter, "all">; label: string }[] = [
-  { value: "matches", label: "Matches the register" },
-  { value: "differs", label: "Differs from the register" },
-  { value: "no-entry", label: "No entry in the register" },
-  { value: "not-checked", label: "Register not reached" },
-];
-
 export const WAIT_OPTIONS: { value: WaitTone; label: string }[] = [
   { value: "destructive", label: "14 days or more" },
   { value: "warning", label: "7 to 13 days" },
   { value: "plain", label: "Under 7 days" },
 ];
-
-function registerState(request: RegistrationRequest): RegisterFilter | null {
-  if (request.lookup.state === "none") return null;
-  return registerAnswer(request) ?? "matches";
-}
 
 /** The waiting queue, narrowed by every filter the Pending tab offers. */
 export function filterRegistrations(
@@ -1422,7 +1014,6 @@ export function filterRegistrations(
         request.registrantKind === filters.accountType) &&
       (filters.requestType === "all" ||
         request.requestKind === filters.requestType) &&
-      (filters.register === "all" || registerState(request) === filters.register) &&
       (filters.wait === "all" ||
         registrationWaitTone(request.daysWaiting) === filters.wait),
   );
@@ -1527,10 +1118,6 @@ function decidedAdvocate(
     daysWaiting: 0,
     registrantKind: "advocate",
     requestKind: "first",
-    lookup: {
-      state: "found",
-      entry: { barNumber: registrationNumber, name: fullName, bar: KERALA },
-    },
     ...rest,
   };
 }
@@ -1545,7 +1132,6 @@ function decidedClerk(
     id: `clk-${serial}`,
     applicationNumber: `KL-CLERK-${String(serial).padStart(6, "0")}-2026`,
     registrantKind: "clerk",
-    lookup: { state: "none" },
   };
 }
 
@@ -1581,6 +1167,6 @@ export const DECIDED_REGISTRATIONS: DecidedRegistration[] = [
     daysAgo: 12,
     request: decidedAdvocate(84, "Rahul Dev Menon", "KL/3155/2020"),
     reason:
-      "The Bar Council register has no entry for KL/3155/2020. Please check the number on your card and submit again.",
+      "The Bar registration ID you typed, KL/3155/2020, is not the number on your card. Please check the number and submit again.",
   },
 ];

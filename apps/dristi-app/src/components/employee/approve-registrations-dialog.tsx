@@ -96,9 +96,6 @@ import { Identifier } from "@/components/chrome/identifier";
  * what tables are for. If you find yourself adding a fourth treatment inside a row, the
  * fact belongs in a table of its own.
  *
- * **The register only speaks when it disagrees** (D19). No `matches`, no `OTP: verified`.
- * See `registerAnswer` for why agreement is not information.
- *
  * **Approve and Reject perform no act.** Both drop the row from the demo queue — see
  * `lib/employee/approve-registrations.ts`. No account is opened, no access is granted or
  * refused, no reason is sent and nobody is told, and the end states say so once.
@@ -491,17 +488,12 @@ function ReviewStage({
         tabIndex={-1}
         className="flex min-w-0 flex-col gap-6 outline-none md:min-h-0 md:overflow-y-auto"
       >
-        {/* Two groups and, on a request that has been sent back, a third. Every
-            comparison is behind the row that announces it (D23), so an ordinary request
-            is eight values and a photograph — and an exceptional one is eight values, a
-            photograph, and a row worth clicking. */}
+        {/* Two groups and, on a request that has been sent back, a third. */}
         <FactGroup label="Request" rows={requestRows(request)} />
         {/* **Under Request, and open.** On a profile update, what changed is the request —
             the owner's ruling after a round with it folded into a disclosure: *"that's a
             separate thing altogether… I don't think this is too important to see hidden
-            away in a drop-down"* (2026-09-11). The register's finding stays a disclosure;
-            this one does not, and the difference is that a finding is an exception to
-            look into while an edit is the content being reviewed. */}
+            away in a drop-down"* (2026-09-11). */}
         {changed ? <ComparisonSection block={changed} /> : null}
         <FactGroup label="Identity" rows={identityRows(request)} />
 
@@ -870,10 +862,7 @@ function StageCard({
  * A group's name, above whatever the group holds.
  *
  * The label is scaffolding and reads as scaffolding — `text-caption` muted — so the
- * values inside are what the eye lands on. A group that reports a finding takes the
- * warning ink and an icon, which is the one place semantic colour appears in the fact
- * column: the DS gives status three treatments and this is the ink one, never colour
- * without the words.
+ * values inside are what the eye lands on.
  */
 function GroupHeading({ label }: { label: string }) {
   return (
@@ -931,8 +920,7 @@ const formatClass: Record<RowFormat, string> = {
  * One fact.
  *
  * A term, a value, and — on a rejection round — the date it belongs to. Nothing else
- * attaches here beyond a `detail` the row opens (D23); the comparison itself is a
- * `ComparisonTable`, which is the whole point of
+ * attaches here; a comparison is a `ComparisonTable`, which is the whole point of
  * having two shapes instead of one row that grows a treatment per scenario.
  */
 function FactRowView({ row }: { row: FactRow }) {
@@ -942,14 +930,12 @@ function FactRowView({ row }: { row: FactRow }) {
     <Badge variant={row.pill}>{row.value}</Badge>
   ) : row.format === "code" ? (
     /* The one identifier among these facts — the registration number, which the officer
-       reads against the card and quotes into the register. It takes the product's one
-       identifier treatment rather than a local mono class; a row carrying a finding puts
-       its value inside the disclosure trigger below, and nothing nests a control there. */
+       reads against the card. It takes the product's one identifier treatment rather
+       than a local mono class. */
     <Identifier
       value={row.value}
       label={row.term.toLowerCase()}
       className={cn("min-w-0", row.tone && toneClass[row.tone])}
-      copyable={!row.detail}
     />
   ) : (
     <span
@@ -963,35 +949,6 @@ function FactRowView({ row }: { row: FactRow }) {
       {row.value}
     </span>
   );
-
-  if (row.detail) {
-    /* The finding opens where it is stated (D23) — and the table it opens takes the
-       **card's** width, not the value column's. Nested inside the `dd` it was 200px wide
-       and clipped its own second column on the render, which is the shape of a table
-       being treated as an annotation again. So the disclosure wraps the row: the term and
-       the value keep the grid every other row uses, and the panel below them spans both
-       tracks. A `div` around a `dt`/`dd` pair is what `DescriptionRow` already is, so the
-       list stays a list. */
-    return (
-      <Collapsible className="border-b border-hairline last:border-b-0">
-        <ReviewRow term={row.term} className="border-0">
-          {/* `min-h-10` keeps the DS's 40px floor on a target an officer reaches on a
-              tablet; `w-fit` keeps the chevron against the words rather than parked at
-              the far edge of the column. */}
-          <CollapsibleTrigger className="group/detail flex min-h-10 w-fit items-center gap-1.5 rounded-lg text-left outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-focus-ring">
-            {value}
-            <ChevronDownIcon
-              aria-hidden
-              className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]/detail:rotate-180"
-            />
-          </CollapsibleTrigger>
-        </ReviewRow>
-        <CollapsibleContent className="pb-1">
-          <ComparisonDetail block={row.detail} />
-        </CollapsibleContent>
-      </Collapsible>
-    );
-  }
 
   return (
     /* Hairline, not the DS row default: `border-border` between rows inside a card would
@@ -1026,49 +983,6 @@ function FactRowView({ row }: { row: FactRow }) {
  * promises an act the row does not perform (`table-plate`).
  */
 /**
- * A comparison whose subject has already been named — the register's finding, which
- * reads "Full name does not match" before it is opened.
- *
- * **Two rows, in the card's own grid, not a table** (owner, 2026-09-11: *"for the dropdown,
- * this is not working well. It looks slightly misaligned… clunky"*). The one-row table it
- * replaces had a header well, an empty corner cell and three columns of its own widths
- * inside a card whose every other row used a different grid — a second geometry wedged
- * into the first. With the subject in the trigger, the table's first column and its
- * header row were both saying something already said. What remains is two facts: what was
- * submitted, and what the register holds, as `term · value` rows that line up with the
- * rows above them because they are the same rows.
- *
- * If a second attribute ever disagrees the subject is no longer single, the pairs would
- * lose which value belongs to which, and it falls back to the table.
- */
-function ComparisonDetail({ block }: { block: ComparisonBlock }) {
-  if (block.rows.length !== 1) return <ComparisonTable block={block} />;
-  const [row] = block.rows;
-
-  return (
-    <DescriptionList>
-      {block.columns.map((column, index) => {
-        const value = row.values[index];
-        return (
-          <ReviewRow key={column} term={column} className="border-hairline">
-            <span
-              lang={value.lang}
-              className={cn(
-                "block min-w-0",
-                formatClass[value.format],
-                value.absent && "text-muted-foreground",
-              )}
-            >
-              {value.text}
-            </span>
-          </ReviewRow>
-        );
-      })}
-    </DescriptionList>
-  );
-}
-
-/**
  * A comparison that is a section of its own: a heading naming the group, a card, a table
  * whose first column names each attribute. Used where several attributes change at once —
  * a profile update touches three of them in the demo data — so a column per source is
@@ -1091,7 +1005,7 @@ function ComparisonTable({ block }: { block: ComparisonBlock }) {
   return (
     <>
       {/* Two values plus a term do not fit 375px, and the `Card` clips what overflows
-          it — measured on the render, the register's answer was cut off the right edge
+          it — measured on the render, the second value was cut off the right edge
           and unreachable. So the table scrolls inside its own container, the way the
           queue's does, and the page never scrolls sideways. */}
       <div className="min-w-0 overflow-x-auto">
