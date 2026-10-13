@@ -52,7 +52,8 @@ export function ProceedingsItem({
   rev: number;
   onToggle: () => void;
   onDone: () => void;
-  onRemove: () => void;
+  /** Absent for a fixed item, which cannot be removed. */
+  onRemove?: () => void;
   onValue: (key: string, value: string) => void;
   onRecipients: (recipients: ProcessRecipients) => void;
   onWording: (parts: WordPart[] | null) => void;
@@ -205,15 +206,19 @@ export function ProceedingsItem({
             onRecipients={onRecipients}
           />
           <div className="flex items-center justify-between gap-3">
-            <Button
-              type="button"
-              variant="destructive-ghost"
-              size="sm"
-              className="-ml-3 text-body-compact"
-              onClick={onRemove}
-            >
-              Remove
-            </Button>
+            {onRemove ? (
+              <Button
+                type="button"
+                variant="destructive-ghost"
+                size="sm"
+                className="-ml-3 text-body-compact"
+                onClick={onRemove}
+              >
+                Remove
+              </Button>
+            ) : (
+              <span aria-hidden />
+            )}
             <Button type="button" variant="outline" onClick={onDone}>
               Done
             </Button>

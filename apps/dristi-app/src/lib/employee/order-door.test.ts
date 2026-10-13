@@ -102,10 +102,18 @@ describe("variantInitialDraft", () => {
     assert.deepEqual(draft.applications, heard.applications);
   });
 
-  it("leaves a draft without decisions whole in C", () => {
+  it("moves a scheduling item into C's next-hearing section, and keeps the rest", () => {
+    /* C lists the next hearing in its own section, so a cognizance order's *Scheduling of
+       hearing date* item becomes that section rather than a second place for the date. */
     const draft = variantInitialDraft("proceedings", cognizanceDraft);
-    assert.deepEqual(draft.blocks, cognizance.blocks);
+    assert.ok(cognizance.blocks.some((block) => block.id === "scheduling-of-hearing"));
+    assert.deepEqual(
+      draft.blocks,
+      cognizance.blocks.filter((block) => block.id !== "scheduling-of-hearing"),
+    );
+    assert.equal(draft.next, "list");
     for (const id of cognizance.fixedIds) {
+      if (id === "scheduling-of-hearing") continue;
       assert.ok(draft.blocks.some((block) => block.id === id));
     }
   });

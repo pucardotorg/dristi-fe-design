@@ -143,9 +143,10 @@ export function OrderDoorScreen({ door }: { door: OrderDoor }) {
   const [layout] = useOrderLayout();
   const courtText = useCourtText();
   const { hearing, context, today } = door;
-  // C does not yet open outside a hearing: a door without one shows A, as it always has.
-  const variant: OrderLayout =
-    layout === "proceedings" && !hearing ? "blocks" : layout;
+  /* Every variant opens on every door. C outside a hearing leaves out what only a sitting
+     has — attendance, the listing's applications, the purpose's templates (owner,
+     2026-10-13; it used to fall back to A without saying so). */
+  const variant: OrderLayout = layout;
   const appearances = hearing?.appearances;
   const initial = React.useMemo(
     () => variantInitialDraft(variant, door.initial, appearances),
@@ -242,7 +243,7 @@ export function OrderDoorScreen({ door }: { door: OrderDoor }) {
     );
   }
 
-  if (variant === "proceedings" && hearing) {
+  if (variant === "proceedings") {
     return (
       <ProceedingsComposer
         draftKey={variantDraftKey(variant, door.draftKey)}
@@ -254,19 +255,20 @@ export function OrderDoorScreen({ door }: { door: OrderDoor }) {
         signatory={courtText("Judicial Magistrate of the First Class")}
         context={context}
         today={today}
-        purpose={hearing.purpose}
-        inHearing
-        appearances={hearing.appearances}
+        purpose={hearing?.purpose}
+        inHearing={Boolean(hearing)}
+        appearances={hearing?.appearances}
         applications={listing.map((application, index) => ({
           ...applications[index],
           filedBy: partySideLabel(application.filedFor),
           sentence: (decision) =>
             decisionBlock(application, decision, context).text,
         }))}
-        onOpenApplication={openById}
+        onOpenApplication={hearing ? openById : undefined}
         applicationDialog={applicationDialog}
         draft={draft}
         setDraft={setDraft}
+        fixedIds={door.fixedIds}
         overview={door.overview}
         overviewContent={door.overviewContent}
         historyContent={door.historyContent}
