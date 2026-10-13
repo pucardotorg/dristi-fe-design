@@ -64,11 +64,27 @@ export function variantInitialDraft(
     };
   }
   if (variant === "proceedings") {
+    /* C lists the next hearing in its own section, never as an item. A door that loads a
+       *Scheduling of hearing date* item (Take cognizance, Issue notice) has it moved there,
+       with whatever date and purpose it carried, so the order asks for the date once. */
+    const scheduling = initial.blocks.find(
+      (block) => block.kind === "item" && block.type === "scheduling-of-hearing",
+    );
     return {
       ...initial,
       blocks: initial.blocks.filter(
-        (block) => !(block.kind === "item" && block.applicationId),
+        (block) =>
+          block !== scheduling && !(block.kind === "item" && block.applicationId),
       ),
+      ...(scheduling && scheduling.kind === "item"
+        ? {
+            next: "list" as const,
+            nextDate: scheduling.values.date || initial.nextDate,
+            nextPurpose:
+              (scheduling.values.purpose as OrderDraft["nextPurpose"]) ||
+              initial.nextPurpose,
+          }
+        : {}),
     };
   }
   return initial;

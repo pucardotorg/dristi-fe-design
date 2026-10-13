@@ -25,6 +25,8 @@ the court's case view: the advocate's case screen, from the same code, read as t
 | 2026-10-13 | The court's case view is the advocate's, minus Share access, with Generate order in place of Make filings — same code, conditional on who the user is, never duplicated | Owner | Implemented |
 | 2026-10-13 | Several cheques are captioned "Cheque n of N"; one-cheque files keep the unnamed chunks (owner, 2026-09-15) | Implementation choice | Implemented |
 | 2026-10-13 | The court view drops the advocate's back arrow; the court top bar's trail is the way back, and a new tab has nothing to go back to | Implementation choice | Implemented |
+| 2026-10-13 | Order variant C opens outside a hearing instead of silently falling back to A: no attendance, applications or automatic template chooser; the act's items fixed as in A and B | Owner | Implemented |
+| 2026-10-13 | In C, a pre-loaded *Scheduling of hearing date* item becomes C's Next hearing section, so the date is asked for once | Implementation choice | Implemented |
 
 ## Changes and tradeoffs
 
@@ -36,6 +38,9 @@ the court's case view: the advocate's case screen, from the same code, read as t
   as a wider change for the same result.
 - A cognizance complaint is not an advocate case record, so the court route builds one
   from the queue row (`cognizanceCaseRecord`).
+- C's composer (`proceedings-composer.tsx`) takes `appearances` and `purpose` as optional;
+  absent means no sitting. It now honours `fixedIds` (no Remove on an act's items). The
+  Templates button still opens the chooser outside a hearing, without suggestions.
 - Generate order opens the cognizance order door, the only order screen outside a hearing
   on `main`. Elsewhere the button is stated as not connected yet.
 
@@ -44,6 +49,8 @@ the court's case view: the advocate's case screen, from the same code, read as t
 - Verified on a dev server for this branch (port 3013): two-cheque rendering, five
   documents, tooltip, v4 notice sentence, court case view (trail, no Share, Generate
   order, tabs staying under `/employee`), advocate view unchanged, no console errors.
+  Variant C on Take cognizance and Dismiss orders, fixed item without Remove, and a
+  hearing order in C unchanged.
   Desktop only.
 - Types, lint, `check:tokens`, `check:typography`, `check:ui-sync`, `check:rails` pass;
   `npm test` 1154/1154.
