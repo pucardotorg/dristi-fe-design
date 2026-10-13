@@ -130,10 +130,10 @@ export function CaseWorkbench({
   // The editable title starts as the heading shows it (Settings' court switch).
   const courtText = useCourtText();
   const { profile } = useCourt();
-  const [title, setTitle] = React.useState(() => ({
-    complainant: courtText(party.complainant),
-    accused: courtText(party.accused),
-  }));
+  // One line of text, not two names: the officer may correct anything in it.
+  const [title, setTitle] = React.useState(
+    () => `${courtText(party.complainant)} v. ${courtText(party.accused)}`,
+  );
   const [editingTitle, setEditingTitle] = React.useState(false);
 
   const goToDoc = React.useCallback(
@@ -258,11 +258,7 @@ export function CaseWorkbench({
             /* `items-start` and a `shrink-0` button: on a long cause the title wraps to
                two lines and a centred pencil floated in the middle of them. */
             <div className="flex items-start gap-1">
-              <h1 className="text-title font-semibold">
-                {title.complainant}{" "}
-                <span className="font-normal text-muted-foreground">v.</span>{" "}
-                {title.accused}
-              </h1>
+              <h1 className="text-title font-semibold">{title}</h1>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -465,30 +461,29 @@ export function CaseWorkbench({
 }
 
 /**
- * Inline edit of the two party names. Enter saves, Escape cancels, and the fields are
- * plain DS inputs — no dialog for a two-word change.
+ * Inline edit of the case title, as one line of text. Enter saves, Escape cancels, and
+ * the field is a plain DS input — no dialog for a one-line change.
  */
 function TitleEditor({
   value,
   onSave,
   onCancel,
 }: {
-  value: { complainant: string; accused: string };
-  onSave: (next: { complainant: string; accused: string }) => void;
+  value: string;
+  onSave: (next: string) => void;
   onCancel: () => void;
 }) {
   const [draft, setDraft] = React.useState(value);
-  const complainantRef = React.useRef<HTMLInputElement>(null);
+  const inputRef = React.useRef<HTMLInputElement>(null);
   React.useEffect(() => {
-    complainantRef.current?.focus();
-    complainantRef.current?.select();
+    inputRef.current?.focus();
+    inputRef.current?.select();
   }, []);
 
   function commit() {
-    const complainant = draft.complainant.trim();
-    const accused = draft.accused.trim();
-    if (!complainant || !accused) return onCancel();
-    onSave({ complainant, accused });
+    const next = draft.trim();
+    if (!next) return onCancel();
+    onSave(next);
   }
 
   function onKeyDown(event: React.KeyboardEvent) {
@@ -502,25 +497,13 @@ function TitleEditor({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex w-full flex-wrap items-center gap-2">
       <Input
-        ref={complainantRef}
-        aria-label="Complainant"
-        className="w-56"
-        value={draft.complainant}
-        onChange={(event) =>
-          setDraft((d) => ({ ...d, complainant: event.target.value }))
-        }
-        onKeyDown={onKeyDown}
-      />
-      <span className="text-body-compact text-muted-foreground">v.</span>
-      <Input
-        aria-label="Accused"
-        className="w-56"
-        value={draft.accused}
-        onChange={(event) =>
-          setDraft((d) => ({ ...d, accused: event.target.value }))
-        }
+        ref={inputRef}
+        aria-label="Case title"
+        className="min-w-0 flex-1 basis-80"
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
         onKeyDown={onKeyDown}
       />
       <Button onClick={commit}>Save title</Button>
