@@ -18,6 +18,7 @@ import {
   isCourtNavActive,
   isCourtNavCombinedActive,
   isCourtNavCombinedRow,
+  seatHasNavRow,
 } from "./navigation";
 import { REGISTERS_PAGE } from "./registers";
 
@@ -410,5 +411,24 @@ describe("registrationPoint", () => {
         assert.ok(group.items.every((item) => item.id !== "register-cases"));
       }
     }
+  });
+});
+
+describe("rows hidden from the bench", () => {
+  const hidden = ["scrutiny", "approve-copy", "approve-registrations"];
+
+  it("hides scrutiny and both approval queues from the magistrate and bench clerk", () => {
+    for (const seat of ["magistrate", "bench-clerk"] as const) {
+      for (const id of hidden) assert.equal(seatHasNavRow(seat, id), false, `${seat} ${id}`);
+      assert.ok(seatHasNavRow(seat, "onboard-applications"));
+      const clubbed = courtNavClubbed("schedule", "kerala", seat).map((item) => item.id);
+      assert.ok(hidden.every((id) => !clubbed.includes(id)));
+    }
+  });
+
+  it("leaves them with the seats that still work them", () => {
+    assert.ok(seatHasNavRow("scrutiny-officer", "scrutiny"));
+    assert.ok(seatHasNavRow("scrutiny-officer", "approve-registrations"));
+    assert.ok(seatHasNavRow("typist", "approve-copy"));
   });
 });

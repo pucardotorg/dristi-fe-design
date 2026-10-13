@@ -6,11 +6,14 @@ import { useRouter } from "next/navigation";
 import {
   COURT_NAV_GROUPS,
   courtNavGroupsForCourt,
+  seatHasNavRow,
   COURT_NAV_LINKS,
   COURT_NAV_TRAILING,
   type CourtNavItem,
 } from "@/lib/employee/navigation";
 import { useCourt } from "@/components/court/court-provider";
+import { useCourtRole } from "@/components/employee/use-court-role";
+import type { CourtRole } from "@/lib/employee/content";
 import type { CourtId } from "@/lib/court/profiles";
 import {
   Command,
@@ -56,14 +59,14 @@ type CourtSearchRow = {
   family: string | null;
 };
 
-function courtSearchRows(court: CourtId): CourtSearchRow[] {
+function courtSearchRows(court: CourtId, seat: CourtRole): CourtSearchRow[] {
   return [
     ...COURT_NAV_LINKS.map((item) => ({ item, family: null })),
     ...courtNavGroupsForCourt(COURT_NAV_GROUPS, court).flatMap((group) =>
       group.items.map((item) => ({ item, family: group.label })),
     ),
     ...COURT_NAV_TRAILING.map((item) => ({ item, family: null })),
-  ];
+  ].filter((row) => seatHasNavRow(seat, row.item.id));
 }
 
 /**
@@ -83,7 +86,8 @@ function Results({ onNavigate }: { onNavigate: () => void }) {
 
   const needle = query.trim().toLowerCase();
   const { court } = useCourt();
-  const rows = courtSearchRows(court).filter(
+  const seat = useCourtRole();
+  const rows = courtSearchRows(court, seat).filter(
     (row) => row.item.href !== undefined && haystack(row).includes(needle),
   );
 

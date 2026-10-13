@@ -505,6 +505,32 @@ const SEAT_ROWS: Partial<Record<CourtRole, ReadonlySet<string>>> = {
   "scrutiny-officer": new Set(["dashboard", "scrutiny", "approve-registrations", "configurations"]),
 };
 
+/**
+ * Rows hidden from a seat that otherwise sees everything (owner, 2026-10-13: the
+ * magistrate and the bench clerk — Punjab & Haryana's Reader — do not see Scrutinise
+ * submitted cases, Approve copy application or Approve registrations).
+ *
+ * Hidden, not removed: the queues and their screens are untouched and still open by URL,
+ * and the scrutiny officer's rail still carries the two that are theirs. Unlike
+ * `SEAT_ROWS` this does not narrow the rail, so the saved layout still applies.
+ */
+const HIDDEN_FROM_BENCH: ReadonlySet<string> = new Set([
+  "scrutiny",
+  "approve-copy",
+  "approve-registrations",
+]);
+const SEAT_HIDDEN_ROWS: Partial<Record<CourtRole, ReadonlySet<string>>> = {
+  magistrate: HIDDEN_FROM_BENCH,
+  "bench-clerk": HIDDEN_FROM_BENCH,
+};
+
+/** Whether this seat is offered this row — the one test every seat filter below shares. */
+export function seatHasNavRow(role: CourtRole, id: string): boolean {
+  const keep = SEAT_ROWS[role];
+  if (keep && !keep.has(id)) return false;
+  return !SEAT_HIDDEN_ROWS[role]?.has(id);
+}
+
 /** Whether this seat's rail is cut down to a named set of rows. */
 export function seatHasNarrowRail(role: CourtRole): boolean {
   return SEAT_ROWS[role] !== undefined;
@@ -512,13 +538,12 @@ export function seatHasNarrowRail(role: CourtRole): boolean {
 
 /** A list of rows, less the ones this seat does not see. */
 export function courtNavItemsForSeat(items: CourtNavItem[], role: CourtRole): CourtNavItem[] {
-  const keep = SEAT_ROWS[role];
-  return keep ? items.filter((item) => keep.has(item.id)) : items;
+  return items.filter((item) => seatHasNavRow(role, item.id));
 }
 
 /** Groups, less the rows this seat does not see — and less any group left empty. */
 export function courtNavGroupsForSeat(groups: CourtNavGroup[], role: CourtRole): CourtNavGroup[] {
-  if (!SEAT_ROWS[role]) return groups;
+  if (!SEAT_ROWS[role] && !SEAT_HIDDEN_ROWS[role]) return groups;
   return groups
     .map((group) => ({ ...group, items: courtNavItemsForSeat(group.items, role) }))
     .filter((group) => group.items.length > 0);
@@ -597,18 +622,19 @@ const COURT_NAV_KEPT_APART: Record<
 
 /**
  * Every group's rows the deployment has, in the rail's own order — the one pass every
- * function below shares.
+ * function below shares. Given a seat, less the rows that seat is not offered.
  */
-function courtNavAllItems(court: CourtId): CourtNavItem[] {
-  return courtNavItemsForCourt(
+function courtNavAllItems(court: CourtId, role?: CourtRole): CourtNavItem[] {
+  const items = courtNavItemsForCourt(
     COURT_NAV_GROUPS.flatMap((group) => group.items),
     court,
   );
+  return role ? courtNavItemsForSeat(items, role) : items;
 }
 
 /** The rows named by a list of ids, in the order the ids were given — not the source's. */
-function courtNavItemsByIds(ids: string[], court: CourtId): CourtNavItem[] {
-  const all = courtNavAllItems(court);
+function courtNavItemsByIds(ids: string[], court: CourtId, role?: CourtRole): CourtNavItem[] {
+  const all = courtNavAllItems(court, role);
   return ids
     .map((id) => all.find((item) => item.id === id))
     .filter((item): item is CourtNavItem => item !== undefined);
@@ -622,9 +648,10 @@ function courtNavItemsByIds(ids: string[], court: CourtId): CourtNavItem[] {
 export function courtNavKeptApart(
   layout: CombinedCourtNavLayout,
   court: CourtId,
+  role?: CourtRole,
 ): CourtNavItem[] {
   const spec = COURT_NAV_KEPT_APART[layout];
-  return courtNavItemsByIds([...spec.leading, ...spec.trailing], court);
+  return courtNavItemsByIds([...spec.leading, ...spec.trailing], court, role);
 }
 
 /**
@@ -634,17 +661,19 @@ export function courtNavKeptApart(
 export function courtNavClubbed(
   layout: CombinedCourtNavLayout,
   court: CourtId,
+  role?: CourtRole,
 ): CourtNavItem[] {
   const apart = new Set(courtNavKeptApart(layout, court).map((item) => item.id));
-  return courtNavAllItems(court).filter((item) => !apart.has(item.id));
+  return courtNavAllItems(court, role).filter((item) => !apart.has(item.id));
 }
 
 /** The combined row's own count — every clubbed item's, summed, never restated by hand. */
 export function courtNavClubbedTotal(
   layout: CombinedCourtNavLayout,
   court: CourtId,
+  role?: CourtRole,
 ): number {
-  return courtNavClubbed(layout, court).reduce(
+  return courtNavClubbed(layout, court, role).reduce(
     (total, item) => total + (item.count ?? 0),
     0,
   );
@@ -676,6 +705,7 @@ const COURT_NAV_COMBINED_ROW: Record<CombinedCourtNavLayout, CourtNavItem> = {
 export function courtNavRowsFor(
   layout: CombinedCourtNavLayout,
   court: CourtId,
+  role?: CourtRole,
 ): CourtNavItem[] {
   const spec = COURT_NAV_KEPT_APART[layout];
   /* A promoted row keeps the mark it already carries in its group. It used to be given a
@@ -685,12 +715,12 @@ export function courtNavRowsFor(
   const combined: CourtNavItem = {
     ...COURT_NAV_COMBINED_ROW[layout],
     icon: CalendarDaysIcon,
-    count: courtNavClubbedTotal(layout, court),
+    count: courtNavClubbedTotal(layout, court, role),
   };
   return [
-    ...courtNavItemsByIds(spec.leading, court),
+    ...courtNavItemsByIds(spec.leading, court, role),
     combined,
-    ...courtNavItemsByIds(spec.trailing, court),
+    ...courtNavItemsByIds(spec.trailing, court, role),
   ];
 }
 

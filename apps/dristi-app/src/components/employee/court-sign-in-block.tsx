@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { EyeIcon, EyeOffIcon, LandmarkIcon } from "lucide-react";
 
 import { BrandLockup } from "@/components/brand-lockup";
+import { useCourt } from "@/components/court/court-provider";
 import { CHARCOAL_PLATE } from "@/components/chrome/rail-plate";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,7 +31,7 @@ import {
 import { setCourtSession } from "@/lib/employee/session";
 import {
   accountFor,
-  COURT_ACCOUNTS,
+  courtAccounts,
   COURT_SIGN_IN_ROLES,
   courtroomsFor,
 } from "@/lib/employee/sign-in";
@@ -92,7 +93,8 @@ export function CourtSignInBlock() {
   const badUsername = touched && !typed;
   /* The account the typed username names, resolved live — it is what the court-room
      field reads from, so it cannot wait for a submit. */
-  const account = accountFor(username);
+  const { court: state } = useCourt();
+  const account = accountFor(username, state);
   /* Said as a fact under the field, the way the citizen screen says it of an unknown
      number. There is no offer to register: nobody registers themselves here. */
   const unknownUsername = touched && Boolean(typed) && !account;
@@ -345,6 +347,8 @@ export function CourtSignInBlock() {
  * chooser that was just taken out, one screen lower down.
  */
 function PrototypeAccounts({ onPick }: { onPick: (username: string) => void }) {
+  const { court } = useCourt();
+  const accounts = courtAccounts(court);
   return (
     <div className="flex flex-col gap-2 rounded-lg bg-surface-sunken p-4">
       <p className="text-caption text-muted-foreground">
@@ -357,9 +361,9 @@ function PrototypeAccounts({ onPick }: { onPick: (username: string) => void }) {
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => onPick(COURT_ACCOUNTS[role].username)}
+            onClick={() => onPick(accounts[role].username)}
           >
-            {COURT_ACCOUNTS[role].username}
+            {accounts[role].username}
           </Button>
         ))}
       </div>
