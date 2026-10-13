@@ -106,9 +106,10 @@ describe("raising an application", () => {
 });
 
 describe("the first gate", () => {
-  it("allows set a date once, magistrate only", () => {
+  it("allows set a date once, magistrate or bench clerk only", () => {
     const app = filed();
-    assert.throws(() => setReviewDate(app, "bench-clerk", "2026-10-09", THU));
+    assert.throws(() => setReviewDate(app, "typist", "2026-10-09", THU));
+    assert.ok(setADateUsed(setReviewDate(app, "bench-clerk", "2026-10-09", THU)));
     const moved = setReviewDate(app, "magistrate", "2026-10-09", THU);
     assert.equal(moved.status, "pending-review");
     assert.ok(setADateUsed(moved));
@@ -131,10 +132,20 @@ describe("the first gate", () => {
     assert.deepEqual(app.decide, { dueOn: "2026-10-21", mode: "date" });
   });
 
-  it("does not let the bench clerk onboard", () => {
-    assert.throws(() =>
-      onboard(filed(), "bench-clerk", "CMP/1/2026", { mode: "now" }, FRI),
-    );
+  it("lets the bench clerk onboard, but not the typist or scrutiny officer", () => {
+    const app = onboard(filed(), "bench-clerk", "CMP/1/2026", { mode: "now" }, FRI);
+    assert.equal(app.status, "pending-decision");
+    for (const seat of ["typist", "scrutiny-officer"] as const) {
+      assert.throws(() => onboard(filed(), seat, "CMP/1/2026", { mode: "now" }, FRI));
+    }
+  });
+
+  it("lets the bench clerk move the decision date and draft, but never sign", () => {
+    const onboarded = onboard(filed(), "bench-clerk", "CMP/1/2026", { mode: "now" }, FRI);
+    const moved = moveDecisionDate(onboarded, "bench-clerk", "2026-10-21", FRI);
+    assert.equal(moved.decide?.dueOn, "2026-10-21");
+    const drafted = draftOrder(moved, "bench-clerk", { kind: "reject", text: "x" }, FRI);
+    assert.throws(() => signOrder(drafted, "bench-clerk", "O-1", FRI));
   });
 
   it("dismisses on the magistrate's signature, without a number", () => {

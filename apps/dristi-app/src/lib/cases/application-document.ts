@@ -92,8 +92,9 @@ export function datedThis(display: string): string {
   return `Dated this ${day}${suffix} day of ${match[2]} ${match[3]}`;
 }
 
-function trimmed(value: string): string {
-  return value.trim();
+/** A stored value as text — see `add` in `applicationEntries` for why it may not be one. */
+function trimmed(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
 }
 
 function addressLine(address: Address): string {
@@ -126,8 +127,16 @@ export function applicationEntries(
   record: CaseRecord
 ): Row[] {
   const rows: Row[] = [];
-  const add = (term: string, value: string | undefined) => {
-    const text = value?.trim();
+  /* The form is read back from storage, so a value is not always the string its type
+     says — a draft saved by an older build, or a number. Text and numbers are shown;
+     anything else is left out rather than failing the whole document. */
+  const add = (term: string, value: unknown) => {
+    const text =
+      typeof value === "string"
+        ? value.trim()
+        : typeof value === "number" && Number.isFinite(value)
+          ? String(value)
+          : "";
     if (text) rows.push({ term, value: text });
   };
   const file = safeFile(record);

@@ -138,12 +138,13 @@ export function canPay(seat: FilerSeat): boolean {
 export type CourtSeat = "magistrate" | "bench-clerk" | "typist" | "scrutiny-officer";
 
 /**
- * `ALC-22`: a system action — onboarding, setting or moving a date — is the
- * magistrate's alone. An order may be drafted by the bench clerk or typist too; only
- * the magistrate signs it.
+ * `ALC-22` gives a system action — onboarding, setting or moving a date — to the
+ * magistrate alone. **For now the bench clerk (Punjab & Haryana's Reader) takes them
+ * too** (owner, 2026-10-13): every step of the application flow except signing. An
+ * order may be drafted by the bench clerk or typist; only the magistrate signs it.
  */
 export function canTakeSystemAction(seat: CourtSeat): boolean {
-  return seat === "magistrate";
+  return seat === "magistrate" || seat === "bench-clerk";
 }
 
 export function canDraftOrder(seat: CourtSeat): boolean {
@@ -379,7 +380,7 @@ export function setReviewDate(
 ): LifecycleApplication {
   expect(app, "pending-review");
   if (!canTakeSystemAction(seat)) {
-    throw new LifecycleError("Only the magistrate sets a date.");
+    throw new LifecycleError("Only the magistrate or bench clerk sets a date.");
   }
   if (setADateUsed(app)) {
     throw new LifecycleError("A date has already been set once.");
@@ -410,7 +411,7 @@ export function onboard(
 ): LifecycleApplication {
   expect(app, "pending-review");
   if (!canTakeSystemAction(seat)) {
-    throw new LifecycleError("Only the magistrate onboards an application.");
+    throw new LifecycleError("Only the magistrate or bench clerk onboards an application.");
   }
   if (choice.mode === "date" && choice.decideOn <= on) {
     throw new LifecycleError("Choose a decision date after today.");
@@ -452,7 +453,7 @@ export function moveDecisionDate(
 ): LifecycleApplication {
   expect(app, "pending-decision");
   if (!canTakeSystemAction(seat)) {
-    throw new LifecycleError("Only the magistrate moves the decision date.");
+    throw new LifecycleError("Only the magistrate or bench clerk moves the decision date.");
   }
   if (decideOn <= on) throw new LifecycleError("Choose a date after today.");
   return stamp(app, on, `Decision moved to ${decideOn}`, {
