@@ -183,7 +183,6 @@ export function SignatureFields({
    */
   noun?: string;
 }) {
-  const inputRef = React.useRef<HTMLInputElement>(null);
   const otpId = React.useId();
   const [resent, setResent] = React.useState(false);
 
@@ -257,73 +256,7 @@ export function SignatureFields({
       ) : null}
 
       {choice.method === "upload" ? (
-        <Field data-invalid={Boolean(choice.fileError)}>
-          <div
-            onDragOver={(event) => event.preventDefault()}
-            onDrop={(event) => {
-              event.preventDefault();
-              choice.chooseFile(Array.from(event.dataTransfer.files));
-            }}
-            className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-input p-6 text-center group-data-[invalid=true]/field:border-destructive"
-          >
-            <UploadIcon className="size-8 text-muted-foreground" aria-hidden />
-            <p className="text-body text-muted-foreground">
-              Drag and drop the signed {noun}, or
-            </p>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => inputRef.current?.click()}
-            >
-              Browse files
-            </Button>
-            <input
-              ref={inputRef}
-              type="file"
-              accept={ACCEPTED_FILE_TYPES}
-              tabIndex={-1}
-              className="sr-only"
-              aria-label={`Choose the signed ${noun}`}
-              onChange={(event) => {
-                choice.chooseFile(Array.from(event.target.files ?? []));
-                event.currentTarget.value = "";
-              }}
-            />
-          </div>
-          <FieldDescription className="text-body-compact">
-            PDF, JPG, JPEG or PNG; maximum 10 MB.
-          </FieldDescription>
-          <FieldError className="text-body-compact">
-            {choice.fileError}
-          </FieldError>
-
-          {choice.file ? (
-            <AttachmentGroup className="flex-col overflow-visible py-0 *:data-[slot=attachment]:w-full">
-              <Attachment className="w-full">
-                <AttachmentMedia variant="icon">
-                  <FileTextIcon aria-hidden />
-                </AttachmentMedia>
-                <AttachmentContent>
-                  <AttachmentTitle>{choice.file.name}</AttachmentTitle>
-                  <AttachmentDescription>
-                    {formatFileSize(choice.file.size)} · selected locally
-                  </AttachmentDescription>
-                </AttachmentContent>
-                <AttachmentActions>
-                  <AttachmentAction
-                    type="button"
-                    variant="destructive-ghost"
-                    size="icon"
-                    aria-label={`Remove ${choice.file.name}`}
-                    onClick={choice.clearFile}
-                  >
-                    <Trash2Icon aria-hidden />
-                  </AttachmentAction>
-                </AttachmentActions>
-              </Attachment>
-            </AttachmentGroup>
-          ) : null}
-        </Field>
+        <SignedCopyUpload choice={choice} noun={noun} />
       ) : null}
 
       {/* The document is off screen on this step, so the reference offers it here. A
@@ -339,5 +272,89 @@ export function SignatureFields({
         </p>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * The signed copy coming back: a drop target, the file once chosen, and what it must be.
+ * The upload route of `SignatureFields`, and the paper route of the order signing window
+ * (`sign-order-flow.tsx`), which reaches it from a link rather than a choice.
+ */
+export function SignedCopyUpload({
+  choice,
+  noun = "form",
+}: {
+  choice: SignatureChoice;
+  noun?: string;
+}) {
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  return (
+    <Field data-invalid={Boolean(choice.fileError)}>
+      <div
+        onDragOver={(event) => event.preventDefault()}
+        onDrop={(event) => {
+          event.preventDefault();
+          choice.chooseFile(Array.from(event.dataTransfer.files));
+        }}
+        className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-input p-6 text-center group-data-[invalid=true]/field:border-destructive"
+      >
+        <UploadIcon className="size-8 text-muted-foreground" aria-hidden />
+        <p className="text-body text-muted-foreground">
+          Drag and drop the signed {noun}, or
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => inputRef.current?.click()}
+        >
+          Browse files
+        </Button>
+        <input
+          ref={inputRef}
+          type="file"
+          accept={ACCEPTED_FILE_TYPES}
+          tabIndex={-1}
+          className="sr-only"
+          aria-label={`Choose the signed ${noun}`}
+          onChange={(event) => {
+            choice.chooseFile(Array.from(event.target.files ?? []));
+            event.currentTarget.value = "";
+          }}
+        />
+      </div>
+      <FieldDescription className="text-body-compact">
+        PDF, JPG, JPEG or PNG; maximum 10 MB.
+      </FieldDescription>
+      <FieldError className="text-body-compact">
+        {choice.fileError}
+      </FieldError>
+
+      {choice.file ? (
+        <AttachmentGroup className="flex-col overflow-visible py-0 *:data-[slot=attachment]:w-full">
+          <Attachment className="w-full">
+            <AttachmentMedia variant="icon">
+              <FileTextIcon aria-hidden />
+            </AttachmentMedia>
+            <AttachmentContent>
+              <AttachmentTitle>{choice.file.name}</AttachmentTitle>
+              <AttachmentDescription>
+                {formatFileSize(choice.file.size)} · selected locally
+              </AttachmentDescription>
+            </AttachmentContent>
+            <AttachmentActions>
+              <AttachmentAction
+                type="button"
+                variant="destructive-ghost"
+                size="icon"
+                aria-label={`Remove ${choice.file.name}`}
+                onClick={choice.clearFile}
+              >
+                <Trash2Icon aria-hidden />
+              </AttachmentAction>
+            </AttachmentActions>
+          </Attachment>
+        </AttachmentGroup>
+      ) : null}
+    </Field>
   );
 }

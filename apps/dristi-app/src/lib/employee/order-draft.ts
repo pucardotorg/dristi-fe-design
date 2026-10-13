@@ -254,7 +254,7 @@ export function nextUnhandledListing(
 /**
  * The order as paper — what Preview shows and what the signing list prints.
  *
- * Shaped as the facsimile the signing queue already prints (`sign-order-dialog.tsx`):
+ * Shaped as the facsimile the signing queue already prints (`sign-order-flow.tsx`):
  * court and cause at the head, the order's paragraphs, the date, then the signature
  * block. **Nothing here is issued**, and the signature block says the order is unsigned.
  */
