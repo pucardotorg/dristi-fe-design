@@ -2,30 +2,23 @@
  * The order a cognizance act draws up, before the judge has touched it.
  *
  * The PRD's bargain (§6): an act does not *perform* anything on its own. It opens the
- * order screen with its items already loaded as one composite order, and the judge edits
- * and issues it. So the act's whole meaning is the list below, and each item's sentence
- * is the register's own catalogue entry (`order-templates.ts`) with the facts of this
- * complaint filled into it — never a sentence written here.
+ * order composer with its order items already loaded as blocks, and the judge edits and
+ * sends it. This is the composer's **outside-a-hearing** door (`ORD-06`–`ORD-08` of
+ * `order-generation.md`): no attendance and no next-hearing region, so the act's own
+ * *Scheduling of hearing date* item is how the next date is set.
  *
- * Three compositions, one per act:
- *
- * | Act | Items, in order |
+ * | Act | Order items, in order |
  * |---|---|
  * | Take cognizance | acceptance of the delay application *(only when late)* · cognizance · issue of summons · scheduling of hearing |
  * | Issue notice | issue of notice · scheduling of hearing |
  * | Dismiss case | dismiss case |
  *
- * **Two of those are automatic and the judge does not add them.** Summons follows
- * cognizance by law, and on a late complaint the acceptance of the condonation
- * application comes *ahead* of the cognizance item, so the delay is disposed of in the
- * same order that takes cognizance rather than in a second one nobody remembers to pass.
- * Its wording is the generic *Accept application* template, which is what the PRD names.
- *
- * **Both positive acts schedule a hearing and neither may decline to.** A dismissal
- * carries no scheduling item at all: the complaint ends, so there is no next date.
+ * **Two of those are fixed.** The act's own order item cannot be removed or turned into
+ * something else — an order headed *Take cognizance* that does not take it is not this
+ * act — and both positive acts must schedule a hearing, so their scheduling item is fixed
+ * too. A dismissal schedules nothing: the complaint ends.
  */
 
-import { CURRENT_STAFF, PRESIDING_MAGISTRATE } from "./content";
 import {
   delayDays,
   hasDelay,
@@ -33,38 +26,20 @@ import {
   type CognizanceCase,
 } from "./cognizance";
 import {
-  causeTitle,
-  courtHearingPurposeLabel,
-  formatOrderDate,
-  type CourtHearingPurposeId,
-} from "./hearings";
-import {
-  fillGeneralVariables,
-  fillPartyVariables as fillPartyRoleVariables,
-  needsProcessVariables,
-  openSlots,
-  orderTemplate,
-  type OrderTemplateFacts,
-  type OrderTemplateId,
-} from "./order-templates";
-import { processParties, type ProcessVariables } from "./process-variables";
-
-/* ──────────────────────────── the delay application ─────────────────────────── */
+  createItemBlock,
+  type ComposerContext,
+  type ItemBlock,
+} from "./order-composer";
+import type { OrderTemplateId } from "./order-templates";
 
 /**
- * How the condonation application is named in the order that accepts it.
+ * How the condonation application is named in the order that accepts it — the head
+ * alone, because the template supplies the rest: *"Application [Application Number] for
+ * [Application Type] is accepted."*
  *
- * The head alone, lower-cased, because the template supplies the rest of the sentence:
- * *"Application [Application Number] for [Application Type] is accepted."* A type that
- * read "Application for condonation of delay" would make the order say *Application
- * CMP/1629/2025 for Application for condonation of delay* — the word twice, which is
- * how the first build of this read.
- *
- * It has no row of its own anywhere: `OtherApplicationType` does not carry condonation
- * of delay, so a late complaint's application cannot be represented as a
- * `ListingApplication` today. The head is written out here and the number is derived
- * from the filing number the way `cnrFor` derives a CNR — fixture arithmetic, stable as
- * the fixture sits, and marked as the gap it is rather than hidden behind a guess.
+ * It has no row of its own anywhere: `OtherApplicationType` does not carry condonation of
+ * delay, so the head is written out here and the number is derived from the filing number
+ * — fixture arithmetic, marked as the gap it is.
  */
 export const DELAY_APPLICATION_TYPE = "condonation of delay";
 
@@ -73,274 +48,85 @@ export function delayApplicationNumber(matter: CognizanceCase): string {
   return `CMP/${serial}/${matter.filingNumber.slice(-4)}`;
 }
 
-/* ─────────────────────────────────── the facts ──────────────────────────────── */
-
-/**
- * The values the catalogue's tokens are filled from, for a complaint at cognizance.
- *
- * The sibling of `orderTemplateFacts`, which builds the same shape from a hearing and
- * its draft. Two of them rather than one function taking both, because the facts differ
- * in kind and not only in source: there is no sitting this order is passed at, so
- * `[Current Hearing Date]` is today — the day the order is drawn — and nothing else.
- */
-export function cognizanceTemplateFacts(
-  matter: CognizanceCase,
-  today: string,
-  next?: { date?: string; purpose?: string },
-): OrderTemplateFacts {
-  return {
-    court: CURRENT_STAFF.court,
-    caseName: causeTitle(matter),
-    caseNumber: matter.caseNumber,
-    currentDate: formatOrderDate(today),
-    judgeName: PRESIDING_MAGISTRATE.name,
-    judgeDesignation: PRESIDING_MAGISTRATE.designation,
-    complainant: matter.parties.complainant,
-    accused: matter.parties.accused,
-    currentHearingDate: formatOrderDate(today),
-    applicationNumber: hasDelay(matter)
-      ? delayApplicationNumber(matter)
-      : undefined,
-    applicationType: hasDelay(matter) ? DELAY_APPLICATION_TYPE : undefined,
-    hearingPurpose: next?.purpose,
-    hearingDate: next?.date ? formatOrderDate(next.date) : undefined,
-  };
-}
-
-/* ─────────────────────────────────── the items ──────────────────────────────── */
-
-/**
- * One item of the composite, as the composer holds it while the judge works on it.
- *
- * `text` starts as the catalogue's sentence with this complaint's facts filled in and
- * becomes whatever the judge makes of it. A token the system could not resolve is left
- * standing in brackets rather than blanked — a hole a reader can see, in the place the
- * value goes (`order-templates.ts`).
- */
-export type CognizanceOrderItem = {
-  id: string;
-  template: OrderTemplateId;
-  label: string;
-  text: string;
-  /**
-   * Whether the item may be taken out.
-   *
-   * The act's own item cannot be: an order headed *Take cognizance* with the cognizance
-   * item removed is an order that does not take cognizance, and the way to not take it
-   * is to leave without passing this. Everything else the act loaded is the judge's.
-   */
-  fixed: boolean;
-  /** The item that carries the next hearing date, and the only one that does. */
-  schedules?: boolean;
-  /**
-   * The addressee and delivery-channel confirmation this item was given
-   * (`process-variables.ts`), for summons and notice — the two templates
-   * `needsProcessVariables` names. Absent until the judge confirms it: `[Party
-   * Type]`/`[Party Name]` are resolved unconditionally at composite time
-   * (`fillPartyVariables`, below), because who is served is not a choice at
-   * cognizance, but the channels it goes out on still are (`PRC-03`), and this is
-   * where that confirmation is recorded.
-   */
-  variables?: ProcessVariables;
-};
-
-/** Which act each composition is headed by — the item that cannot be removed. */
+/** Which order item heads each act — the one that cannot be removed. */
 const ACT_TEMPLATE: Record<CognizanceAct, OrderTemplateId> = {
   cognizance: "cognizance",
   notice: "issue-of-notice",
   dismiss: "dismiss-case",
 };
 
-/** The templates each act loads, in the order the PRD lists them. */
-function templatesFor(
+export type CognizanceComposition = {
+  blocks: ItemBlock[];
+  /** Blocks that cannot be removed or changed into another kind. */
+  fixedIds: string[];
+};
+
+/**
+ * The blocks one act draws up, ready for the judge to edit. Ids are the order item's own,
+ * so composing the same act twice gives the same ids.
+ *
+ * What the act already knows is answered: the delay application's number and head, the
+ * DCA notice this act issues (the one `sign-process.ts` already writes). Who a summons or notice goes to and who takes steps follow the
+ * process pre-selection rules (`AUT-02`, `AUT-05`) — at cognizance that is the accused,
+ * with steps on the complainant. The next hearing's date and purpose are left to the
+ * judge.
+ */
+export function cognizanceComposition(
   matter: CognizanceCase,
   act: CognizanceAct,
-): OrderTemplateId[] {
-  if (act === "dismiss") return ["dismiss-case"];
-  if (act === "notice") return ["issue-of-notice", "scheduling-of-hearing"];
-  return [
-    /* Ahead of cognizance, so the delay is disposed of before the act that depends on
-       it having been. Only on a late complaint — there is no application otherwise. */
-    ...(hasDelay(matter) ? (["accept-application"] as OrderTemplateId[]) : []),
-    "cognizance",
-    "issue-of-summons",
-    "scheduling-of-hearing",
-  ];
-}
+  context: ComposerContext,
+): CognizanceComposition {
+  /* No date and no purpose pre-filled: the catalogue gives *Scheduling of hearing date*
+     no default for either (`order-template-catalogue.md`, 2026-10-06 (2)), which
+     supersedes this act's earlier default purpose. */
+  const scheduling = () =>
+    createItemBlock("scheduling-of-hearing", context, {
+      id: "scheduling-of-hearing",
+    });
 
-/**
- * The party tokens, which at cognizance are not a choice anybody makes.
- *
- * `fillGeneralVariables` resolves the tokens that mean the same thing on every order —
- * the court, the cause, the judge. `[Party Type]` and `[Party Name]` are *locked*
- * variables: on a hearing the composer collects them, because who is being summoned at
- * the fourth hearing of a case is a real question. At cognizance it is not. Summons and
- * notice both go to the accused, and it is the complainant who pays and takes the steps
- * — that is what taking cognizance of a §138 complaint does. Leaving three brackets
- * standing in a sentence the system could finish would make every cognizance order open
- * with blanks the judge has to fill by rote.
- *
- * `[Notice Type]` is the court's own, and it is the notice this act issues: a DCA
- * notice, the one the process line already writes (`sign-process.ts`) — the accused
- * being heard on the condonation application before the delay is decided.
- *
- * Both tokens repeat in their template with different roles, so they are filled in
- * order of appearance rather than by name: the first `[Party Type]` is the person
- * summoned, the second is the party taking steps. The substitution itself is
- * `order-templates.ts`'s own `fillPartyVariables` — the hearing composer's catalogue
- * runs the identical pass once its delivery-channel confirmation is answered
- * (`order-items.ts`), and one function is what keeps the two doors onto it agreeing.
- */
-function fillPartyVariables(
-  text: string,
-  matter: CognizanceCase,
-  template: OrderTemplateId,
-  variables?: ProcessVariables,
-): string {
-  if (!needsProcessVariables(template)) return text;
-  /* Before the pop-up is confirmed, what it opens on: at cognizance the accused has not
-     joined, so the accused (`AUT-05`), with the complainant taking steps (`AUT-02`). */
-  return fillPartyRoleVariables(
-    text.replace(/\[Notice Type\]/g, "DCA"),
-    template,
-    variables
-      ? processParties(variables)
-      : { type: "accused", names: matter.parties.accused, takingSteps: "complainant" },
-  );
-}
-
-/**
- * The composite one act draws up, ready for the judge to edit.
- *
- * Ids are the template's own, so re-composing the same act twice gives the same ids and
- * an edit survives a re-render. No template appears twice in any composition, so there
- * is nothing to disambiguate with a counter.
- */
-export function cognizanceComposite(
-  matter: CognizanceCase,
-  act: CognizanceAct,
-  facts: OrderTemplateFacts,
-): CognizanceOrderItem[] {
-  /* The purpose is the act's own and is set before the judge sees the screen, so the
-     composition carries it from the start. Only the date is genuinely open. */
-  return templatesFor(matter, act).map((id) => ({
-    id,
-    template: id,
-    label: orderTemplate(id).label,
-    text: composedText(id, matter, facts),
-    fixed: id === ACT_TEMPLATE[act],
-    schedules: id === "scheduling-of-hearing" || undefined,
-  }));
-}
-
-/** One item's sentence: the catalogue's line, with everything cognizance knows in it. */
-export function composedText(
-  template: OrderTemplateId,
-  matter: CognizanceCase,
-  facts: OrderTemplateFacts,
-  variables?: ProcessVariables,
-): string {
-  return fillPartyVariables(
-    fillGeneralVariables(orderTemplate(template).botd, facts),
-    matter,
-    template,
-    variables,
-  );
-}
-
-/** The blanks still standing in one item's sentence, for the hint under it. */
-export function itemOpenSlots(item: CognizanceOrderItem): string[] {
-  return openSlots(item.text);
-}
-
-/**
- * What stands between this order and the signing queue.
- *
- * Returned as sentences rather than a boolean, because "you cannot send this yet" is
- * only useful with the reason attached — and there may be two at once. An empty list is
- * an order ready to go.
- *
- * `today` is passed in rather than read from the clock: every date on this side of the
- * app is the court's day, and a module that asked `Date.now()` itself would be the one
- * place that disagreed with it.
- */
-export function cognizanceOrderBlockers(
-  items: CognizanceOrderItem[],
-  nextDate: string | null,
-  today: string,
-): string[] {
-  const blockers: string[] = [];
-  const scheduling = items.find((item) => item.schedules);
-  if (scheduling && !nextDate) {
-    blockers.push("The next hearing needs a date.");
+  if (act === "dismiss") {
+    return {
+      blocks: [createItemBlock("dismiss-case", context, { id: "dismiss-case" })],
+      fixedIds: ["dismiss-case"],
+    };
   }
-  /* The calendar already bars a date that has gone — the screen composes `Popover` +
-     `Calendar` as the hearing composer does, and `Calendar` takes a `disabled` matcher
-     (the DS `DatePicker` does not, which is why neither screen uses it here). This is
-     the backstop: a date can also arrive from state the control never saw, and a rule
-     the order is checked against is worth more than a control that happened to be
-     configured correctly. */
-  if (scheduling && nextDate && nextDate <= today) {
-    blockers.push("The next hearing must be a later date.");
+  if (act === "notice") {
+    return {
+      blocks: [
+        createItemBlock("issue-of-notice", context, {
+          id: "issue-of-notice",
+          values: { noticeType: "DCA" },
+        }),
+        scheduling(),
+      ],
+      fixedIds: [ACT_TEMPLATE.notice, "scheduling-of-hearing"],
+    };
   }
-  /* The scheduling item is never scanned for blanks. Its only tokens are the date and
-     the purpose, and both are owned by the fields under it — the two rules above are
-     what stands over that sentence. Counting its date a second time would tell the
-     bench two things are wrong when one is, and fixing the one would silently fix the
-     other. */
-  const blanks = items.filter(
-    (item) => !item.schedules && itemOpenSlots(item).length > 0,
-  );
-  if (blanks.length > 0) {
-    blockers.push(
-      blanks.length === 1
-        ? `${blanks[0].label} still has a blank to fill.`
-        : `${blanks.length} items still have blanks to fill.`,
-    );
-  }
-  /* `[Party Type]`/`[Party Name]` resolve unconditionally at composite time — who is
-     served is not a choice at cognizance — so a summons or notice item never shows up
-     in `blanks` above. The delivery channels are still the judge's to confirm
-     (`PRC-03`), and nothing else on this screen checks for that, so it is its own
-     blocker rather than a silent gap the "Send to sign order" button would leave. */
-  const unconfirmed = items.filter(
-    (item) => needsProcessVariables(item.template) && !item.variables,
-  );
-  if (unconfirmed.length > 0) {
-    blockers.push(
-      unconfirmed.length === 1
-        ? `${unconfirmed[0].label} needs its delivery channels confirmed.`
-        : `${unconfirmed.length} items need their delivery channels confirmed.`,
-    );
-  }
-  return blockers;
+  return {
+    blocks: [
+      /* Ahead of cognizance, so the delay is disposed of before the act that depends on
+         it. Only on a late complaint — there is no application otherwise. */
+      ...(hasDelay(matter)
+        ? [
+            createItemBlock("accept-application", context, {
+              id: "accept-application",
+              values: {
+                applicationNumber: delayApplicationNumber(matter),
+                applicationType: DELAY_APPLICATION_TYPE,
+              },
+            }),
+          ]
+        : []),
+      createItemBlock("cognizance", context, { id: "cognizance" }),
+      createItemBlock("issue-of-summons", context, { id: "issue-of-summons" }),
+      scheduling(),
+    ],
+    fixedIds: [ACT_TEMPLATE.cognizance, "scheduling-of-hearing"],
+  };
 }
 
 /**
- * What the next hearing is for, before the judge changes it.
- *
- * Cognizance summons the accused, so the next thing the court needs is their
- * appearance. A notice is issued so the accused can be heard on the delay, and the
- * hearing it schedules is the one where that happens.
- */
-export function defaultNextPurposeFor(
-  act: CognizanceAct,
-): CourtHearingPurposeId | null {
-  if (act === "dismiss") return null;
-  return act === "notice" ? "delay-condonation" : "appearance";
-}
-
-/** The default purpose as the order words it — the same value the field is set to. */
-export function defaultNextPurposeLabel(act: CognizanceAct): string | undefined {
-  const purpose = defaultNextPurposeFor(act);
-  return purpose ? courtHearingPurposeLabel(purpose) : undefined;
-}
-
-/**
- * The line that says what this act does to the complaint, under the title.
- *
- * Not the chip's words again: the state is on the chip, and this is what follows from
- * it — the split the file's own act dialog already makes.
+ * The line under the title that says what this act does to the complaint.
  */
 export function cognizanceOrderOutcome(
   matter: CognizanceCase,

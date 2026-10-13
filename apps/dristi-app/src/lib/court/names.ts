@@ -58,7 +58,7 @@ const KERALA: Record<Kind, string[]> = {
     "Sreedhar", "Sajeev", "Sujith", "Sarath", "Krishnakumar", "Sudheesh", "Kunjumon",
     "Prabhakaran", "Bhaskaran", "Ramachandran",
   
-    "Shibu", "Byju", "Thejas", "Prakashan", "Hariharan", "Kochu",
+    "Shibu", "Byju", "Thejas", "Prakashan", "Hariharan", "Kochu", "Velayudhan",
   ],
   woman: [
     "Latha", "Bindu", "Shailaja", "Sreeja", "Bijini", "Salini", "Leena", "Leela",

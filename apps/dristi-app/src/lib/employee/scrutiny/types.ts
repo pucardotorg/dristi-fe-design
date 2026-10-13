@@ -116,7 +116,9 @@ export type GroupIcon =
   | "memo"
   | "mail"
   | "pin"
-  | "doc";
+  | "doc"
+  | "pen"
+  | "wallet";
 
 /* ── what the officer raises ─────────────────────────────────────────────── */
 

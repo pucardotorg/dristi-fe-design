@@ -11,6 +11,10 @@ import {
   useFoldFocusHandoff,
   useRailCollapsed,
 } from "@/components/chrome/app-chrome";
+import {
+  isOrderScreenPath,
+  OrderVariantSwitch,
+} from "@/components/employee/order-variant-switch";
 import { courtTrail, type CourtCrumb } from "@/lib/employee/navigation";
 import { cn } from "@/lib/utils";
 import {
@@ -41,11 +45,21 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
  * both rail widths. Before this the rail's header seam ran out into nothing.
  */
 export function EmployeeTopBar() {
-  const crumbs = courtTrail(usePathname());
+  const pathname = usePathname();
+  const crumbs = courtTrail(pathname);
   // Derived here rather than inside the trail because the divider beside the trigger has
   // to know whether anything follows it. On the court home nothing does.
   return (
-    <ChromeTopBar leading={<CourtNavTrigger hasTrail={crumbs.length > 0} />}>
+    <ChromeTopBar
+      leading={<CourtNavTrigger hasTrail={crumbs.length > 0} />}
+      /* On an order screen, the switch between its variants, at the bar's right end
+         (owner, 2026-10-13). */
+      trailing={
+        isOrderScreenPath(pathname) ? (
+          <OrderVariantSwitch className="text-muted-foreground" />
+        ) : undefined
+      }
+    >
       {crumbs.length > 0 ? <CourtTrail crumbs={crumbs} /> : null}
     </ChromeTopBar>
   );

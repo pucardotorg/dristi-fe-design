@@ -20,6 +20,7 @@ import {
   COURT_NAV_TRAILING,
   courtNavRowsFor,
   courtNavGroupsFor,
+  courtNavGroupsForCourt,
   courtNavGroupsForSeat,
   courtNavItemsForSeat,
   seatHasNarrowRail,
@@ -32,6 +33,11 @@ import {
 import { useCognizanceLayout } from "@/components/employee/use-cognizance-layout";
 import type { CognizanceLayout } from "@/lib/employee/cognizance-layout";
 import { useCourtNavLayout } from "@/components/employee/use-court-nav-layout";
+import { useOrderLayout } from "@/components/employee/use-order-layout";
+import {
+  ORDER_LAYOUT_OPTIONS,
+  type OrderLayout,
+} from "@/lib/employee/order-layout";
 import type { CourtNavLayout } from "@/lib/employee/nav-layout";
 import { BrandGlyph } from "@/components/brand-lockup";
 import { useCourtSearch } from "@/components/employee/court-search";
@@ -929,6 +935,7 @@ function CourtSettingsControl() {
   const { court, setCourt } = useCourt();
   const [layout, setLayout] = useCourtNavLayout();
   const [cognizanceLayout, setCognizanceLayout] = useCognizanceLayout();
+  const [orderLayout, setOrderLayout] = useOrderLayout();
   return (
     <DropdownMenu>
       <Tooltip>
@@ -993,6 +1000,18 @@ function CourtSettingsControl() {
           <DropdownMenuRadioItem value="split">
             Split into two rows
           </DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel>Order screen</DropdownMenuLabel>
+        <DropdownMenuRadioGroup
+          value={orderLayout}
+          onValueChange={(next) => setOrderLayout(next as OrderLayout)}
+        >
+          {ORDER_LAYOUT_OPTIONS.map((option) => (
+            <DropdownMenuRadioItem key={option.id} value={option.id}>
+              {option.label}
+            </DropdownMenuRadioItem>
+          ))}
         </DropdownMenuRadioGroup>
         <DropdownMenuSeparator />
         <DropdownMenuLabel>Court</DropdownMenuLabel>
@@ -1092,7 +1111,11 @@ function CourtIdentityFooter() {
 export function EmployeeNav() {
   const [cognizanceLayout] = useCognizanceLayout();
   const seat = useCourtRole();
-  const groups = courtNavGroupsForSeat(courtNavGroupsFor(cognizanceLayout), seat);
+  const { court } = useCourt();
+  const groups = courtNavGroupsForSeat(
+    courtNavGroupsForCourt(courtNavGroupsFor(cognizanceLayout), court),
+    seat,
+  );
   const { openId, setOpenId, currentId } = useCourtNavDisclosure(groups);
   const [savedLayout] = useCourtNavLayout();
   /* A seat cut down to a few rows has nothing to fold into a combined row, so it shows
@@ -1144,13 +1167,13 @@ export function EmployeeNav() {
                into (`courtNavRowsFor`), flat — the same list primitive the standalone
                links above already use. */
             <SidebarMenu className={RAIL_MENU}>
-              {courtNavRowsFor(layout).map((item) => (
+              {courtNavRowsFor(layout, court).map((item) => (
                 <CourtNavRow
                   key={item.id}
                   item={item}
                   active={
                     isCourtNavCombinedRow(item)
-                      ? isCourtNavCombinedActive(pathname, layout)
+                      ? isCourtNavCombinedActive(pathname, layout, court)
                       : undefined
                   }
                 />

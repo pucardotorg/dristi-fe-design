@@ -17,8 +17,9 @@
  */
 
 import type { HearingSession } from "./hearing-session";
+import type { ItemBlock } from "./order-composer";
 import { EMPTY_ORDER_DRAFT, type OrderDraft } from "./order-draft";
-import { appendRichText, createOrderItem } from "./order-items";
+import { orderTemplate } from "./order-templates";
 import type { OrderSigningStatus } from "./order-signing";
 
 export const SAMPLE_SESSION: HearingSession = {
@@ -37,14 +38,20 @@ export const SAMPLE_SIGNING: Readonly<Record<string, OrderSigningStatus>> = {
 };
 
 /* The matter on the call: summons drafted, addressee and next date not yet given. */
-const summons = createOrderItem("issue-of-summons", "sample-h-243-summons");
+const summons: ItemBlock = {
+  id: "sample-h-243-summons",
+  kind: "item",
+  type: "issue-of-summons",
+  values: {},
+  text: orderTemplate("issue-of-summons").botd,
+  edited: false,
+};
 
 export const SAMPLE_DRAFTS: Readonly<Record<string, OrderDraft>> = {
   "h-243": {
     ...EMPTY_ORDER_DRAFT,
     next: "list",
     nextDate: null,
-    body: appendRichText(EMPTY_ORDER_DRAFT.body, summons.text),
-    items: [summons],
+    blocks: [summons],
   },
 };

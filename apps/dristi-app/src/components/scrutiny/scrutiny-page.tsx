@@ -15,7 +15,11 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { FileTextIcon, InboxIcon } from "lucide-react";
 
-import { ensureScrutinyDraft } from "@/lib/filing/scrutiny-demo";
+import {
+  ensureScrutinyDraft,
+  isScrutinyDemoDraft,
+  reseedScrutinyDraft,
+} from "@/lib/filing/scrutiny-demo";
 import { FilingProvider } from "@/lib/filing/store";
 import { ProfileProvider } from "@/lib/filing/profile";
 import { canView } from "@/lib/tasks/permissions";
@@ -101,24 +105,55 @@ function Loading({ root }: { root?: Crumb | null }) {
 export function ScrutinyReturnPage() {
   const params = useParams<{ taskId: string }>();
   const origin = useOrigin();
-  const { state, tasks, cases, user } = useTasks();
+  const { state, tasks, cases, user, dispatch } = useTasks();
   const id = decodeURIComponent(params.taskId);
   const task = tasks.find((t) => t.id === id) ?? null;
   const kase = task ? (cases.find((c) => c.id === task.caseId) ?? null) : null;
   const draftId = task?.draftId;
 
-  /* The demonstrated return's filing is seeded into this browser on first arrival. */
+  /*
+   * The returned filing is seeded into this browser on first arrival. A sandbox return
+   * starts fresh on every opening instead — its filing reseeded and its corrections
+   * cleared from the task — so a demo always opens at "0 of N done" (owner, 2026-10-12).
+   */
   const [seeded, setSeeded] = React.useState(false);
+  const freshened = React.useRef(false);
+  const ready = state === "ready" && !!task;
   React.useEffect(() => {
     if (!draftId) return;
+    if (isScrutinyDemoDraft(draftId) && !ready) return;
     let live = true;
-    void ensureScrutinyDraft(draftId).then(() => {
+    const open = async () => {
+      if (isScrutinyDemoDraft(draftId) && !freshened.current) {
+        freshened.current = true;
+        await reseedScrutinyDraft(draftId);
+        /* Sent back in an earlier run of the demo: open again, so it can be sent again. */
+        if (task && (task.status !== "open" || task.returned?.defects.some((d) => d.resolution))) {
+          await dispatch(task.id, (t) =>
+            t.returned
+              ? {
+                  ...t,
+                  status: "open",
+                  statusNote: undefined,
+                  returned: {
+                    ...t.returned,
+                    defects: t.returned.defects.map((d) => ({ ...d, resolution: undefined })),
+                  },
+                }
+              : t,
+          ).catch(() => undefined);
+        }
+      } else {
+        await ensureScrutinyDraft(draftId);
+      }
       if (live) setSeeded(true);
-    });
+    };
+    void open();
     return () => {
       live = false;
     };
-  }, [draftId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftId, ready]);
 
   if (state !== "ready") return <Loading root={origin} />;
 

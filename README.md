@@ -23,12 +23,13 @@ No sibling clones, no home-path config. `npm install` places the authoritative D
 
 ## Branches
 
-Three long-lived branches on `pucardotorg/dristi-fe`: `main` (default, dev team),
-`design` (design team), `develop` (dev team). Nothing lands on them except through a PR;
-PRs into `design` need the design owner's approval.
+Work starts on `feature/<kebab-case>` from `origin/main` and returns by PR into `main`,
+with the design owner's approval. Nothing lands on `main` except through a PR. The old
+`design` branch is retired: do not branch from it or merge into it. The product repos
+(`dristi-fe`, `dristi-fe-develop`) pull from this repo's `main`.
 
 ```bash
-git checkout -b feature/<kebab-case> origin/design   # design work
+git checkout -b feature/<kebab-case> origin/main
 ```
 
 ## Layout

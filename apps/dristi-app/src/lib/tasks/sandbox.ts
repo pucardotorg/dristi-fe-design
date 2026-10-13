@@ -17,6 +17,8 @@ import {
   SCRUTINY_DRAFT_ID,
   SCRUTINY_DRAFT_ID_LAKSHMI,
   SCRUTINY_DRAFT_ID_RAFI,
+  DEFECTS_BY_BASE,
+  EXTRA_RETURNS,
 } from "./scrutiny-return";
 import type { Case, Defect, Person, Task } from "./types";
 
@@ -434,6 +436,17 @@ export const CASES: Case[] = [
   { id: "c-rafi", stNumber: "", cnr: "", parties: "Mohammed Rafi v. Suresh Babu", court: ON, stage: "Pre-filing", signatories: ["p-an"], advocates: ["p-an", "p-sp"] },
   { id: "c-arun", stNumber: "", cnr: "", parties: "Arun K. v. Meera Enterprises", court: ON, stage: "Pre-filing", signatories: ["p-rm"], advocates: ["p-rm", "p-sp"] },
   { id: "c-bindu", stNumber: "", cnr: "", parties: "Bindu S. v. Kerala Agro Traders", court: ON, stage: "Pre-filing", signatories: ["p-an"], advocates: ["p-an", "p-sp"] },
+  // More returned filings for the demo (`EXTRA_RETURNS`).
+  ...EXTRA_RETURNS.map((extra): Case => ({
+    id: extra.caseId,
+    stNumber: "",
+    cnr: "",
+    parties: `${extra.complainant} v. ${extra.accused}`,
+    court: ON,
+    stage: "Pre-filing",
+    signatories: ["p-an"],
+    advocates: ["p-an", "p-sp"],
+  })),
 ];
 
 /* ───────────────────────────── tasks ───────────────────────────── */
@@ -933,6 +946,24 @@ export function buildTasks(): Task[] {
       draftId: SCRUTINY_DRAFT_ID_RAFI,
       status: "open",
       returned: { by: "scrutiny", at: at(-3, 11), defects: SCRUTINY_DEFECTS_RAFI },
+    }),
+    ...EXTRA_RETURNS.map((extra) => {
+      const defects = DEFECTS_BY_BASE[extra.base];
+      const n = defects.length;
+      return task({
+        id: extra.id,
+        caseId: extra.caseId,
+        kind: "returned",
+        title: `Fix ${n} defect${n === 1 ? "" : "s"} and re-file the complaint`,
+        why: created(-extra.returnedAgo, `Scrutiny returned the complaint for compliance with ${n} defect${n === 1 ? "" : "s"}`),
+        whatToDo: "Correct each flagged item in the filing and submit the corrections to scrutiny.",
+        dueAt: at(5 - extra.returnedAgo),
+        dueKind: "court-set",
+        deadlineNote: RETURN_WINDOW_NOTE,
+        draftId: extra.draftId,
+        status: "open",
+        returned: { by: "scrutiny", at: at(-extra.returnedAgo, 11), defects },
+      });
     }),
     task({
       id: "t-ret941",

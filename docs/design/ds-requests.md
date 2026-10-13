@@ -28,6 +28,7 @@ Each entry says what is missing, why the product hit it, and what would close it
 | 13 | `ACCESSIBILITY.md` §12 does not say whether an icon-marked search box in a filter row needs a visible label | Sign process (Oct 6) | open |
 | 19 | Autofill rule squares every autofilled input (`border-radius: inherit`) | Pre-demo UI fixes (Oct 9) | open, patched in `chrome.css` |
 | 20 | `InputGroup` control overlaps the group's 1px border | Pre-demo UI fixes (Oct 9) | open, patched in `chrome.css` |
+| 21 | `ChartContainer` hides the keyboard focus ring on the chart surface | [court-dashboard-and-registers.md](features/court-dashboard-and-registers.md) | open |
 
 ---
 
@@ -588,3 +589,18 @@ confirm password beside its tick.
 Closes when the group control is inset inside the group's border (`h-full`, or the group
 clips its content). Until then `chrome.css` clips an autofilled group with
 `overflow: hidden` and paints the control in the group's fill.
+
+## 21. `ChartContainer` hides the keyboard focus ring on the chart surface
+
+`chart.tsx` sets `[&_.recharts-surface]:outline-hidden` (and the same on
+`.recharts-layer` and `.recharts-sector`). Recharts makes the chart surface focusable and
+moves its tooltip with the arrow keys, so a keyboard user can tab into a chart and get no
+visible focus indicator: only the tooltip moving shows where focus is. That fails the
+DS's own visible-focus requirement in `ACCESSIBILITY.md`.
+
+Raised by the court dashboard's "Judgements each month" and "Time between hearings" bar
+charts (`/employee`, 2026-10-11). The primitive is synced unedited, so the app cannot add
+the ring without overriding a synced primitive.
+
+Closes when the container keeps `outline-hidden` for pointer focus but shows the DS focus
+ring on `:focus-visible` for the chart surface.

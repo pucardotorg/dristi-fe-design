@@ -91,7 +91,7 @@ import {
 import { pickErrorMessage, useFilePicker } from "@/components/filing/use-file-picker";
 
 /** Where the window opens, decided by what has happened to the complaint so far. */
-export type SignFlowStart = "choose" | "sign" | "fallback" | "paper" | "oath";
+export type SignFlowStart = "choose" | "sign" | "fallback" | "paper" | "oath" | "status";
 
 type Stage =
   | "choose"
@@ -113,6 +113,9 @@ type Stage =
  * first in its own order.
  */
 const ORDER: Record<SignFlowStart, readonly Stage[]> = {
+  /* Reopened where signing stands: the roster, for a complaint already out for
+     signature (the scrutiny correction screen reopens here). */
+  status: ["done", "oath", "sworn", "choose", "sign", "otp", "dsc", "fallback", "paper", "uploaded"],
   choose: ["choose", "sign", "otp", "dsc", "done", "fallback", "paper", "uploaded", "oath", "sworn"],
   sign: ["sign", "otp", "dsc", "done", "fallback", "paper", "uploaded", "oath", "sworn", "choose"],
   fallback: ["fallback", "paper", "uploaded", "oath", "sworn", "choose", "sign", "otp", "dsc", "done"],
@@ -150,12 +153,28 @@ export function SignFlowDialog({
   start,
   onOpenChange,
   onPrint,
+  statusActions,
+  completeNote,
+  unlocks,
+  outcome,
 }: {
   open: boolean;
   /** Where to open — computed by the step from the draft, once, as the window opens. */
   start: SignFlowStart;
   onOpenChange: (open: boolean) => void;
   onPrint: () => void;
+  /** The status stage's footer, in place of Done — a host's own controls (the scrutiny
+   *  correction screen: reminder, sandbox, then the send). */
+  statusActions?: React.ReactNode;
+  /** The roster's footnote once everyone has signed, where "pay the court fee" is not
+   *  what comes next (a corrected complaint goes back to scrutiny). */
+  completeNote?: string;
+  /** What waits on the outstanding signatures, as the footnotes name it: the court fee
+   *  in a filing, the send back to scrutiny in a correction. */
+  unlocks?: string;
+  /** What the host has done since, shown on the roster in place of the signing outcome —
+   *  the corrections sent to scrutiny. */
+  outcome?: { title: string; headline: string; footnote: string };
 }) {
   /* A fresh opening is a fresh act: the body remounts so it starts on the stage the
      complaint is actually at, with nothing typed into it from last time. */
@@ -174,6 +193,10 @@ export function SignFlowDialog({
           start={start}
           onClose={() => onOpenChange(false)}
           onPrint={onPrint}
+          statusActions={statusActions}
+          completeNote={completeNote}
+          unlocks={unlocks}
+          outcome={outcome}
         />
       ) : null}
     </Dialog>
@@ -184,10 +207,18 @@ function SignFlowBody({
   start,
   onClose,
   onPrint,
+  statusActions,
+  completeNote,
+  unlocks = "The court fee opens",
+  outcome,
 }: {
   start: SignFlowStart;
   onClose: () => void;
   onPrint: () => void;
+  statusActions?: React.ReactNode;
+  completeNote?: string;
+  unlocks?: string;
+  outcome?: { title: string; headline: string; footnote: string };
 }) {
   const { draft, update, hrefFor } = useFiling();
   const { profile } = useProfile();
@@ -456,18 +487,28 @@ function SignFlowBody({
 
   /* ── the window ────────────────────────────────────────────────────────── */
 
-  const title = {
+  const baseTitle = {
     choose: "How will this complaint be signed?",
     sign: "Add your e-signature",
     otp: "Enter the OTP",
     dsc: "Sign with your DSC",
-    done: youSigned ? "Signature added" : "Out for signature",
+    /* Reopened with everyone in, nothing was just added or sent out. */
+    done: signedWith
+      ? "Signature added"
+      : outstanding === 0
+        ? "Everyone has signed"
+        : youSigned
+          ? "Signature added"
+          : "Out for signature",
     fallback: "Unable to e-sign?",
     paper: "Upload the signed complaint",
     uploaded: "Signed copy accepted",
     oath: "Take your oath",
     sworn: "Oath recorded",
   }[flow.stage];
+  /* Once the host has acted (sent to scrutiny), the roster stages say so. */
+  const settledStage = flow.stage === "done" || flow.stage === "sworn";
+  const title = outcome && settledStage ? outcome.title : baseTitle;
 
   const description = {
     choose:
@@ -525,6 +566,8 @@ function SignFlowBody({
             Continue to the oath
           </Button>
         </>
+      ) : statusActions ? (
+        statusActions
       ) : (
         <Button type="button" onClick={onClose}>
           Done
@@ -582,7 +625,8 @@ function SignFlowBody({
         </Button>
       </>
     ),
-    sworn: (
+    // The oath settles on the same roster, so the host's controls follow it here too.
+    sworn: statusActions ?? (
       <Button type="button" onClick={onClose}>
         Done
       </Button>
@@ -692,16 +736,24 @@ function SignFlowBody({
           <StageColumn>
             <SettledCard
               headline={
-                youSigned && signedWith
-                  ? INSTRUMENT_LABEL[signedWith]
-                  : "Sent for signature"
+                outcome
+                  ? outcome.headline
+                  : youSigned && signedWith
+                    ? INSTRUMENT_LABEL[signedWith]
+                    : outstanding === 0
+                      ? signingRules().oath
+                        ? "Every signature and oath is in"
+                        : "Every signature is in"
+                      : "Sent for signature"
               }
               rows={everyone}
               footnote={
-                youSigned && oathOwed
-                  ? "Your oath is next. The court fee opens once every signature and oath is in."
+                outcome
+                  ? outcome.footnote
+                  : youSigned && oathOwed
+                  ? `Your oath is next. ${unlocks} once every signature and oath is in.`
                   : outstanding === 0
-                    ? "You can pay the court fee now."
+                    ? completeNote ?? "You can pay the court fee now."
                     : `It waits in your pending tasks until every signature${signingRules().oath ? " and oath" : ""} is in.`
               }
             />
@@ -736,12 +788,12 @@ function SignFlowBody({
               rows={everyone}
               footnote={
                 oathOwed
-                  ? "Your oath is next. The court fee opens once every advocate has taken theirs."
+                  ? `Your oath is next. ${unlocks} once every advocate has taken theirs.`
                   : outstanding === 0
-                    ? "You can pay the court fee now."
+                    ? completeNote ?? "You can pay the court fee now."
                     : signingRules().oath
-                      ? "The court fee opens once every advocate has taken their oath."
-                      : "The court fee opens once every signature is in."
+                      ? `${unlocks} once every advocate has taken their oath.`
+                      : `${unlocks} once every signature is in.`
               }
             />
           </StageColumn>
@@ -753,11 +805,13 @@ function SignFlowBody({
         ) : (
           <StageColumn>
             <SettledCard
-              headline="Oath recorded"
+              headline={outcome ? outcome.headline : "Oath recorded"}
               rows={everyone}
               footnote={
-                outstanding === 0
-                  ? "You can pay the court fee now."
+                outcome
+                  ? outcome.footnote
+                  : outstanding === 0
+                  ? completeNote ?? "You can pay the court fee now."
                   : `It waits in your pending tasks until every signature${signingRules().oath ? " and oath" : ""} is in.`
               }
             />

@@ -11,8 +11,9 @@
  *   npm run ds:bump -- <commit>  # move to a specific commit
  *   npm run ds:bump -- --dry-run # show what would change, touch nothing
  *
- * Run it on `design`, not on a feature branch. A pin that differs per branch is the
- * problem this file exists to end.
+ * Run it on a dedicated upgrade branch from `origin/main`, reviewed by PR into `main` —
+ * never folded into a feature branch. A pin that differs per branch is the problem this
+ * file exists to end.
  */
 import { execFileSync } from "node:child_process";
 import { writeFileSync, readdirSync, existsSync } from "node:fs";
@@ -133,7 +134,7 @@ git("checkout", "--quiet", "--detach", to);
 /* 2. rewrite the pin */
 const next = {
   _comment:
-    "The one design-system version this repo builds against. Everyone gets this exact commit; npm install checks it out. Change it only via `npm run ds:bump`, on `design`, never by hand on a feature branch.",
+    "The one design-system version this repo builds against. Everyone gets this exact commit; npm install checks it out. Change it only via `npm run ds:bump`, on a dedicated upgrade branch into `main`, never by hand on a feature branch.",
   remote: lock?.remote ?? "pucardotorg/dristi-design-system",
   commit: to,
   bumpedOn: new Date().toISOString().slice(0, 10),

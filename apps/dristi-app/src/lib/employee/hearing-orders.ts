@@ -10,19 +10,20 @@
  * listing whose order has been added to the signing list — pressing that without typing
  * a word leaves no draft key, and the order still exists.
  *
- * **What "in this order" means.** The templates the typist pulled in (`items`, by label)
+ * **What "in this order" means.** The order items the typist pulled in (item `blocks`, by label)
  * and the next date it lists the matter for — the facts, as chips. What is still to fill
- * is read off the order's own text, every `[placeholder]` left in it (`openSlots`), plus a
+ * is read off the order's own text — the body where there is one, else its blocks — every
+ * `[placeholder]` left in it (`openSlots`), plus a
  * next listing chosen with no date. Those are the warning chips and the count under the
  * status. Nothing here is a court record; the words are the composer's.
  */
 
 import { hasOrderDrawnUp } from "./draft-orders";
 import type { CourtHearing } from "./hearings";
+import { blockLabel } from "./order-composer";
 import { initialOrderDraft } from "./order-demo";
 import type { OrderDraft } from "./order-draft";
 import type { OrderDrafts } from "./order-drafts";
-import { orderItemLabel } from "./order-items";
 import type { OrderSigning } from "./order-signing";
 import { openSlots } from "./order-templates";
 
@@ -85,10 +86,15 @@ function gapLabel(slot: string): string {
   return `${name.charAt(0).toUpperCase()}${name.slice(1).toLowerCase()} missing`;
 }
 
+/** The words of the order: B's body, or A's blocks in turn. */
+function orderText(draft: OrderDraft): string {
+  return draft.body?.text ?? draft.blocks.map((block) => block.text).join("\n");
+}
+
 function gapsOf(draft: OrderDraft): string[] {
   /* One chip per distinct placeholder: the same blank twice in a passage is one fact
      to supply. */
-  const gaps = [...new Set(openSlots(draft.body.text))].map(gapLabel);
+  const gaps = [...new Set(openSlots(orderText(draft)))].map(gapLabel);
   if (draft.next === "list" && !draft.nextDate) gaps.push("Next hearing date missing");
   return gaps;
 }
@@ -115,7 +121,9 @@ export function ordersForSitting(
       return {
         hearing,
         status: signed ?? "draft",
-        items: draft.items.map((item) => orderItemLabel(item.type)),
+        items: draft.blocks
+          .filter((block) => block.kind === "item")
+          .map(blockLabel),
         gaps: gapsOf(draft),
         nextDate: draft.next === "list" ? draft.nextDate : null,
       };

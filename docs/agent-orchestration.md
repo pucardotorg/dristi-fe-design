@@ -130,7 +130,7 @@ pending status when an environment is unavailable.
 
 ## Rollout and rollback
 
-Land the cleanup through a PR into `design` with owner approval. Existing Cursor work
+Land the cleanup through a PR into `main` with owner approval. Existing Cursor work
 continues on its own branch until the owner chooses to integrate the change. Do not
 switch an active checkout or restart its server to adopt the new configuration.
 
