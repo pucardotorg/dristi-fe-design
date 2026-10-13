@@ -371,7 +371,7 @@ export function OrderTextComposer({
       <header className="sticky top-14 z-20 flex flex-col gap-3 border-b border-hairline bg-card px-4 py-4 sm:flex-row sm:items-start sm:justify-between md:px-6">
         <div className="flex min-w-0 flex-col gap-2">
           <h1 className="min-w-0 text-title font-semibold text-balance">
-            {heading}
+            Order: {heading}
           </h1>
           <div className="flex min-w-0 flex-wrap items-baseline gap-x-6 gap-y-1">
             {facts.map((fact) => (
@@ -544,7 +544,7 @@ export function OrderTextComposer({
           >
             <div className={cn(FRAMED_HEAD, "flex-wrap")}>
               <h2 id="order-paper" className="text-body-compact font-semibold">
-                Text
+                Order
               </h2>
               <PageViewSwitch value={view} onChange={setView} />
             </div>
