@@ -53,11 +53,11 @@ import {
   StagedOverlay,
   useStagedFlow,
 } from "@/components/chrome/staged-overlay";
-import { ADVOCATE_OATH } from "@/lib/filing/config";
+import { signingRules } from "@/lib/filing/config";
 import { getRepository, storeUpload } from "@/lib/filing/data";
 import { forgetFile, formatBytes } from "@/lib/filing/files";
 import { useProfile } from "@/lib/filing/profile";
-import { isOutstanding, phoneConfirmers, signatories } from "@/lib/filing/selectors";
+import { isOutstanding, oathTakerName, phoneConfirmers, signatories } from "@/lib/filing/selectors";
 import { useFiling } from "@/lib/filing/store";
 import type {
   OathVideoUpload,
@@ -91,7 +91,7 @@ import {
 import { pickErrorMessage, useFilePicker } from "@/components/filing/use-file-picker";
 
 /** Where the window opens, decided by what has happened to the complaint so far. */
-export type SignFlowStart = "choose" | "sign" | "fallback" | "paper" | "oath";
+export type SignFlowStart = "choose" | "sign" | "fallback" | "paper" | "oath" | "status";
 
 type Stage =
   | "choose"
@@ -113,6 +113,9 @@ type Stage =
  * first in its own order.
  */
 const ORDER: Record<SignFlowStart, readonly Stage[]> = {
+  /* Reopened where signing stands: the roster, for a complaint already out for
+     signature (the scrutiny correction screen reopens here). */
+  status: ["done", "oath", "sworn", "choose", "sign", "otp", "dsc", "fallback", "paper", "uploaded"],
   choose: ["choose", "sign", "otp", "dsc", "done", "fallback", "paper", "uploaded", "oath", "sworn"],
   sign: ["sign", "otp", "dsc", "done", "fallback", "paper", "uploaded", "oath", "sworn", "choose"],
   fallback: ["fallback", "paper", "uploaded", "oath", "sworn", "choose", "sign", "otp", "dsc", "done"],
@@ -150,12 +153,28 @@ export function SignFlowDialog({
   start,
   onOpenChange,
   onPrint,
+  statusActions,
+  completeNote,
+  unlocks,
+  outcome,
 }: {
   open: boolean;
   /** Where to open — computed by the step from the draft, once, as the window opens. */
   start: SignFlowStart;
   onOpenChange: (open: boolean) => void;
   onPrint: () => void;
+  /** The status stage's footer, in place of Done — a host's own controls (the scrutiny
+   *  correction screen: reminder, sandbox, then the send). */
+  statusActions?: React.ReactNode;
+  /** The roster's footnote once everyone has signed, where "pay the court fee" is not
+   *  what comes next (a corrected complaint goes back to scrutiny). */
+  completeNote?: string;
+  /** What waits on the outstanding signatures, as the footnotes name it: the court fee
+   *  in a filing, the send back to scrutiny in a correction. */
+  unlocks?: string;
+  /** What the host has done since, shown on the roster in place of the signing outcome —
+   *  the corrections sent to scrutiny. */
+  outcome?: { title: string; headline: string; footnote: string };
 }) {
   /* A fresh opening is a fresh act: the body remounts so it starts on the stage the
      complaint is actually at, with nothing typed into it from last time. */
@@ -174,6 +193,10 @@ export function SignFlowDialog({
           start={start}
           onClose={() => onOpenChange(false)}
           onPrint={onPrint}
+          statusActions={statusActions}
+          completeNote={completeNote}
+          unlocks={unlocks}
+          outcome={outcome}
         />
       ) : null}
     </Dialog>
@@ -184,10 +207,18 @@ function SignFlowBody({
   start,
   onClose,
   onPrint,
+  statusActions,
+  completeNote,
+  unlocks = "The court fee opens",
+  outcome,
 }: {
   start: SignFlowStart;
   onClose: () => void;
   onPrint: () => void;
+  statusActions?: React.ReactNode;
+  completeNote?: string;
+  unlocks?: string;
+  outcome?: { title: string; headline: string; footnote: string };
 }) {
   const { draft, update, hrefFor } = useFiling();
   const { profile } = useProfile();
@@ -214,18 +245,23 @@ function SignFlowBody({
   const yous = everyone.filter((s) => s.you);
   const youSigned = yous.length > 0 && yous.every((s) => s.status === "signed");
   const pending = everyone.filter((s) => s.status === "pending").length;
-  /** Signatures and advocates' oaths still to come — what the court fee waits on. */
+  /** Signatures and oaths still to come — what the court fee waits on. */
   const outstanding = everyone.filter(isOutstanding).length;
 
   /*
-   * The advocate's second act. One person can hold the advocate slot for more than one
-   * complainant; one oath covers every slot they sign in, as one signature does.
+   * The second act, after the signature — complainants and advocates both take it. One
+   * person can sign in more than one slot; one oath covers every slot they sign in, as
+   * one signature does.
    */
-  const yourAdvocateSlots = advocates.filter((s) => s.you);
-  const oathYours = ADVOCATE_OATH && yourAdvocateSlots.length > 0;
-  const oathOwed = oathYours && yourAdvocateSlots.some((s) => !s.oathTaken);
+  const yourOathSlots = yous.filter((s) => s.oathTaken !== undefined);
+  const oathYours = signingRules().oath && yourOathSlots.length > 0;
+  const oathOwed = oathYours && yourOathSlots.some((s) => !s.oathTaken);
   const yourOath: OathVideoUpload | null =
-    yourAdvocateSlots.map((s) => sign.oaths[s.id]?.video).find(Boolean) ?? null;
+    yourOathSlots.map((s) => sign.oaths[s.id]?.video).find(Boolean) ?? null;
+  /** Whose name the oath is read in: the person at this keyboard. */
+  const oathName =
+    profile?.name.trim() ||
+    (yourOathSlots[0] ? oathTakerName(draft, yourOathSlots[0].id) : "");
   const onPaperPath = start === "paper" || sign.mode === "upload";
   /** The two acts, named for an advocate before the first one starts. */
   const trail = (current: "sign" | "oath"): TrailStep[] => [
@@ -432,37 +468,47 @@ function SignFlowBody({
     update((d) => {
       for (const s of everyone) d.sign.signed[s.id] = { at, with: "paper" };
       d.sign.mode = "upload";
-      // Paper carries the signatures, not the oath. Every other advocate still takes
-      // theirs, so their link goes out now — for the oath alone.
-      for (const s of advocates) {
+      // Paper carries the signatures, not the oath. Everyone else still takes theirs,
+      // so their link goes out now — for the oath alone.
+      for (const s of everyone) {
         if (!s.you && !s.oathTaken) d.sign.notified[s.id] = at;
       }
     });
     flow.go("uploaded");
   };
 
-  /** One oath, written to every advocate slot this person signs in. */
+  /** One oath, written to every slot this person signs in. */
   const saveOath = (video: OathVideoUpload) => {
     const at = new Date().toISOString();
     update((d) => {
-      for (const s of yourAdvocateSlots) d.sign.oaths[s.id] = { at, video };
+      for (const s of yourOathSlots) d.sign.oaths[s.id] = { at, video };
     });
   };
 
   /* ── the window ────────────────────────────────────────────────────────── */
 
-  const title = {
+  const baseTitle = {
     choose: "How will this complaint be signed?",
     sign: "Add your e-signature",
     otp: "Enter the OTP",
     dsc: "Sign with your DSC",
-    done: youSigned ? "Signature added" : "Out for signature",
+    /* Reopened with everyone in, nothing was just added or sent out. */
+    done: signedWith
+      ? "Signature added"
+      : outstanding === 0
+        ? "Everyone has signed"
+        : youSigned
+          ? "Signature added"
+          : "Out for signature",
     fallback: "Unable to e-sign?",
     paper: "Upload the signed complaint",
     uploaded: "Signed copy accepted",
     oath: "Take your oath",
     sworn: "Oath recorded",
   }[flow.stage];
+  /* Once the host has acted (sent to scrutiny), the roster stages say so. */
+  const settledStage = flow.stage === "done" || flow.stage === "sworn";
+  const title = outcome && settledStage ? outcome.title : baseTitle;
 
   const description = {
     choose:
@@ -520,6 +566,8 @@ function SignFlowBody({
             Continue to the oath
           </Button>
         </>
+      ) : statusActions ? (
+        statusActions
       ) : (
         <Button type="button" onClick={onClose}>
           Done
@@ -577,7 +625,8 @@ function SignFlowBody({
         </Button>
       </>
     ),
-    sworn: (
+    // The oath settles on the same roster, so the host's controls follow it here too.
+    sworn: statusActions ?? (
       <Button type="button" onClick={onClose}>
         Done
       </Button>
@@ -687,17 +736,25 @@ function SignFlowBody({
           <StageColumn>
             <SettledCard
               headline={
-                youSigned && signedWith
-                  ? INSTRUMENT_LABEL[signedWith]
-                  : "Sent for signature"
+                outcome
+                  ? outcome.headline
+                  : youSigned && signedWith
+                    ? INSTRUMENT_LABEL[signedWith]
+                    : outstanding === 0
+                      ? signingRules().oath
+                        ? "Every signature and oath is in"
+                        : "Every signature is in"
+                      : "Sent for signature"
               }
               rows={everyone}
               footnote={
-                youSigned && oathOwed
-                  ? "Your oath is next. The court fee opens once every signature and oath is in."
+                outcome
+                  ? outcome.footnote
+                  : youSigned && oathOwed
+                  ? `Your oath is next. ${unlocks} once every signature and oath is in.`
                   : outstanding === 0
-                    ? "You can pay the court fee now."
-                    : `It waits in your pending tasks until every signature${advocates.length > 0 ? (ADVOCATE_OATH ? " and oath" : "") : ""} is in.`
+                    ? completeNote ?? "You can pay the court fee now."
+                    : `It waits in your pending tasks until every signature${signingRules().oath ? " and oath" : ""} is in.`
               }
             />
           </StageColumn>
@@ -731,29 +788,31 @@ function SignFlowBody({
               rows={everyone}
               footnote={
                 oathOwed
-                  ? "Your oath is next. The court fee opens once every advocate has taken theirs."
+                  ? `Your oath is next. ${unlocks} once every advocate has taken theirs.`
                   : outstanding === 0
-                    ? "You can pay the court fee now."
-                    : ADVOCATE_OATH
-                      ? "The court fee opens once every advocate has taken their oath."
-                      : "The court fee opens once every signature is in."
+                    ? completeNote ?? "You can pay the court fee now."
+                    : signingRules().oath
+                      ? `${unlocks} once every advocate has taken their oath.`
+                      : `${unlocks} once every signature is in.`
               }
             />
           </StageColumn>
         ) : flow.stage === "oath" ? (
           <StageColumn>
             <StepTrail steps={trail("oath")} />
-            <OathCapture value={yourOath} onChange={saveOath} />
+            <OathCapture name={oathName} value={yourOath} onChange={saveOath} />
           </StageColumn>
         ) : (
           <StageColumn>
             <SettledCard
-              headline="Oath recorded"
+              headline={outcome ? outcome.headline : "Oath recorded"}
               rows={everyone}
               footnote={
-                outstanding === 0
-                  ? "You can pay the court fee now."
-                  : `It waits in your pending tasks until every signature${advocates.length > 0 ? (ADVOCATE_OATH ? " and oath" : "") : ""} is in.`
+                outcome
+                  ? outcome.footnote
+                  : outstanding === 0
+                  ? completeNote ?? "You can pay the court fee now."
+                  : `It waits in your pending tasks until every signature${signingRules().oath ? " and oath" : ""} is in.`
               }
             />
           </StageColumn>

@@ -91,14 +91,15 @@ export function SettledCard({
               <p className="text-body-compact text-muted-foreground">{s.role}</p>
             </div>
             {s.status === "signed" && s.oathTaken === false ? (
-              <Badge variant="secondary">Oath to take</Badge>
+              <Badge variant="secondary">Oath pending</Badge>
             ) : s.status === "signed" ? (
               <Badge variant="success">
                 <CheckIcon aria-hidden />
                 {s.oathTaken ? "Signed and sworn" : "Signed"}
               </Badge>
             ) : (
-              <Badge variant="secondary">Waiting</Badge>
+              /* Says what is waiting, not just that something is (owner, 2026-10-13). */
+              <Badge variant="secondary">Signature pending</Badge>
             )}
           </li>
         ))}

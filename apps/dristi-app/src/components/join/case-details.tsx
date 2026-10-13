@@ -1,7 +1,6 @@
 import * as React from "react";
 import { CircleCheckIcon, InfoIcon, PhoneIcon } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -152,6 +151,50 @@ export function CaseTitleWithOthers({
   );
 }
 
+/** "Friday, 18 September 2026, 10:30 AM" → its parts, or null for any other shape. */
+function hearingParts(value: string) {
+  const match = /^(\w+), (\d{1,2}) (\w+) (\d{4}),\s*(.+)$/.exec(value);
+  if (!match) return null;
+  const [, weekday, day, month, year, time] = match;
+  return { weekday, day, month, year, time };
+}
+
+/**
+ * The date a summoned person acts on, set apart by shape rather than weight (owner,
+ * 2026-10-12): a calendar tile in the sunken well, the same tile the hearing list
+ * uses for the item number, beside the date and time in regular type. Bold under the
+ * bold cause title made the card heavy; plain, the date sank into the rows.
+ */
+function NextHearing({ value, locale }: { value: string; locale: Locale }) {
+  const parts = hearingParts(value);
+  return (
+    <div className="flex items-center gap-4 rounded-lg bg-surface-sunken p-3">
+      {parts ? (
+        <span
+          aria-hidden
+          className="flex size-14 shrink-0 flex-col items-center justify-center rounded-md bg-card leading-none"
+        >
+          <span className="text-caption text-muted-foreground">{parts.month.slice(0, 3)}</span>
+          <span className="text-title-s font-semibold tabular-nums">{parts.day}</span>
+        </span>
+      ) : null}
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <p className="text-body-compact text-muted-foreground">{pick(caseDetails.hearing, locale)}</p>
+        {parts ? (
+          <>
+            <p className="text-body text-foreground tabular-nums">
+              {`${parts.weekday}, ${parts.day} ${parts.month} ${parts.year}`}
+            </p>
+            <p className="text-body-compact text-muted-foreground tabular-nums">{parts.time}</p>
+          </>
+        ) : (
+          <p className="text-body text-foreground tabular-nums">{value}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function CaseDetails({
   joinCase,
   locale,
@@ -178,11 +221,7 @@ export function CaseDetails({
     label: keyof typeof caseDetails;
     value: string;
     idLabel?: string;
-    emphasis?: boolean;
   }[] = [
-    /* The fact a summoned person acts on leads, in the row grid like every
-       other fact, set apart by weight alone. */
-    { label: "hearing", value: joinCase.hearingDate, emphasis: true },
     { label: "caseNumber", value: joinCase.caseNumber, idLabel: "case number" },
     ...(extended
       ? ([
@@ -190,7 +229,7 @@ export function CaseDetails({
           {
             label: "filingNumber",
             value: joinCase.filingNumber,
-            idLabel: "filing number",
+            idLabel: "registration number",
           },
         ] as const)
       : []),
@@ -210,31 +249,8 @@ export function CaseDetails({
       ? ([{ label: "accusedAdvocate", value: joinCase.accusedAdvocate }] as const)
       : []),
   ];
-  const shown = compact
-    ? rows.filter((row) => row.label === "hearing" || row.label === "caseNumber")
-    : rows;
-  const body = (
-    <>
-      <div className="flex flex-col gap-2">
-        {/* Neutral: teal is the dialog's one action, not a label. */}
-        <Badge variant="secondary" className="self-start">{pick(caseDetails.caseTypeBadge, locale)}</Badge>
-        <CaseTitleWithOthers joinCase={joinCase} locale={locale} />
-      </div>
-
-        <DescriptionList className="border-t border-hairline">
-          {shown.map((row) => (
-            <DescriptionRow
-              key={row.label}
-              className={cn(
-                FACT_ROW,
-                row.label === "complainantAdvocate" && "sm:items-center",
-              )}
-            >
-              <DescriptionTerm>
-                {pick(caseDetails[row.label], locale)}
-              </DescriptionTerm>
-              <DescriptionDetails>
-                {row.label === "complainantAdvocate" ? (
+  function valueOf(row: (typeof rows)[number]): React.ReactNode {
+    return row.label === "complainantAdvocate" ? (
                   <span className="flex items-center gap-2">
                     <span>{row.value}</span>
                     <Popover>
@@ -268,19 +284,47 @@ export function CaseDetails({
                   </span>
                 ) : row.idLabel ? (
                   <Identifier value={row.value} label={row.idLabel} />
-                ) : row.emphasis ? (
-                  <span className="font-semibold">{row.value}</span>
                 ) : (
                   row.value
-                )}
-              </DescriptionDetails>
-            </DescriptionRow>
-          ))}
+                );
+  }
+
+  /* One card for every join screen (owner, 2026-10-12: the same information was showing
+     in different shapes within one flow). Which case, its number and type on one muted
+     line — the type a fact after a separator, not a pill — then when it is next heard,
+     in the date tile; the full registry rows only where the case is being reviewed. */
+  const content = (
+    <>
+      <div className="flex flex-col gap-1">
+        <CaseTitleWithOthers joinCase={joinCase} locale={locale} />
+        <p className="text-body-compact text-muted-foreground">
+          <Identifier value={joinCase.caseNumber} label="case number" />
+          <span aria-hidden> · </span>
+          {pick(caseDetails.caseTypeBadge, locale)}
+        </p>
+      </div>
+
+      <NextHearing value={joinCase.hearingDate} locale={locale} />
+
+      {compact ? null : (
+        <DescriptionList className="border-t border-hairline">
+          {rows
+            .filter((row) => row.label !== "caseNumber")
+            .map((row) => (
+              <DescriptionRow
+                key={row.label}
+                className={cn(FACT_ROW, row.label === "complainantAdvocate" && "sm:items-center")}
+              >
+                <DescriptionTerm>{pick(caseDetails[row.label], locale)}</DescriptionTerm>
+                <DescriptionDetails>{valueOf(row)}</DescriptionDetails>
+              </DescriptionRow>
+            ))}
         </DescriptionList>
+      )}
     </>
   );
 
-  if (!outcome) return <div className={cn(JOIN_PANEL, className)}>{body}</div>;
+  if (!outcome) return <div className={cn(JOIN_PANEL, className)}>{content}</div>;
   return (
     <div
       className={cn(
@@ -296,7 +340,7 @@ export function CaseDetails({
           {outcome}
         </span>
       </div>
-      <div className="flex flex-col gap-4 p-4 sm:p-6">{body}</div>
+      <div className="flex flex-col gap-4 p-4 sm:p-6">{content}</div>
     </div>
   );
 }

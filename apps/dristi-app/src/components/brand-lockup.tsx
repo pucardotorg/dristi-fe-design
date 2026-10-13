@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * The 24×7 ON Courts brand marks — or, when the court switch runs the app as a state
- * with a product of its own (Gujarat's Saras), that product's placeholder
+ * with a product of its own (Gujarat's SARAS 2.0), that product's placeholder
  * (`PlaceholderMark`).
  *
  * These are product brand assets, not design-system primitives — the SVGs live in
@@ -54,7 +54,7 @@ function Mark({
 }
 
 /**
- * A product other than ON Courts — Gujarat's Saras — until it sends its own logo (owner,
+ * A product other than ON Courts — Gujarat's SARAS 2.0 — until it sends its own logo (owner,
  * 2026-10-08): a dashed square holding the name's initial where the logo will go, and the
  * name as the wordmark.
  *

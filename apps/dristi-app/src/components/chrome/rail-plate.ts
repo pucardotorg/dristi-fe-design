@@ -46,7 +46,7 @@ export type RailPlate = {
 const CARD = {
   "--rail-card": "#ffffff", //                          brand-canvas-foreground
   "--rail-card-ink": "#1c1a18", //                      neutral-12 (light) — 17.4:1 on white
-  "--rail-card-icon": "#007e7e", //                     brand-solid — 4.9:1 on white (mark ≥3:1)
+  "--rail-card-icon": "var(--court-brand-on-white, #007e7e)", //                     brand-solid — 4.9:1 on white (mark ≥3:1)
   "--rail-card-muted": "#6a6661", //                    neutral-11 (light) — 5.7:1 on white
   "--rail-badge": "#c1232a", //                         destructive (light) — white numeral 5.9:1
   "--rail-badge-ink": "#ffffff",
@@ -59,7 +59,7 @@ const CARD = {
      on it are, and the name is spelled out beside it. (`AGENTS.md` rule 9 makes the same
      move for the neutral ramp, but its exemption is scoped to structural neutrals and
      does not stretch to a saturated brand mark.) */
-  "--rail-avatar": "#007e7e", //                        brand-solid — its initials 4.9:1
+  "--rail-avatar": "var(--court-brand-on-white, #007e7e)", //                        brand-solid — its initials 4.9:1
   "--rail-avatar-ink": "#ffffff",
 };
 

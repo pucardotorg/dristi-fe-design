@@ -16,6 +16,10 @@ in orientation docs until PUCAR confirms them.
 - Which national §138 stages are in-product workflows vs off-platform / integrated systems?
 - What is v1 scope per state (filing only, full trial support, bulk ops, etc.)?
 - How does DRISTI sit relative to CIS, eCourts, NJDG, NSTEP for each role?
+- Joining a case, shared vakalatnama: the first advocate names and pays for the others,
+  who are recognised and let in without paying. If an advocate is added by mistake, how
+  is their access undone? An accept-the-invite step and removal before acceptance were
+  suggested and deferred (owner, 2026-10-13); today the only route is a support ticket.
 
 ## Evidence still needed
 

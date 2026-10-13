@@ -553,6 +553,24 @@ export const PHONE_DIRECTORY: Record<
 
 /* ------------------------------------------------------------------------ copy */
 
+/* The people field shared by Share access and the join-case team step (owner,
+   2026-10-12). Malayalam drafted — needs review. */
+export const inviteFieldCopy = {
+  placeholder: t(
+    "Name, mobile number or Bar ID",
+    "പേര്, മൊബൈൽ നമ്പർ അല്ലെങ്കിൽ ബാർ ഐഡി",
+  ),
+  suggested: t("People you often add", "നിങ്ങൾ പതിവായി ചേർക്കുന്നവർ"),
+  newNumber: t(
+    "They'll get an access link by SMS and in DRISTI.",
+    "അവർക്ക് SMS വഴിയും DRISTI-യിലും ആക്‌സസ് ലിങ്ക് ലഭിക്കും.",
+  ),
+  keepTyping: t(
+    "No one you've added matches. Enter the full 10-digit number or Bar ID.",
+    "നിങ്ങൾ ചേർത്തവരിൽ ആരും പൊരുത്തപ്പെടുന്നില്ല. 10 അക്ക നമ്പർ അല്ലെങ്കിൽ ബാർ ഐഡി മുഴുവൻ നൽകുക.",
+  ),
+};
+
 export const accessShell = {
   navPeople: t("People", "ആളുകൾ"),
 };
@@ -567,14 +585,12 @@ export const shareCopy = {
   phonePlaceholder: t("Mobile number", "മൊബൈൽ നമ്പർ"),
   phoneAdd: t("Add number", "നമ്പർ ചേർക്കുക"),
   phoneError: t("Enter a valid 10-digit mobile number.", "സാധുവായ 10 അക്ക മൊബൈൽ നമ്പർ നൽകുക."),
-  demoProfiles: t(
-    "Try registered profiles: 99614 72058 or 80890 74136",
-    "രജിസ്റ്റർ ചെയ്ത പ്രൊഫൈലുകൾ പരീക്ഷിക്കുക: 99614 72058 അല്ലെങ്കിൽ 80890 74136",
-  ),
   removeChip: t("Remove", "നീക്കം ചെയ്യുക"),
   suggestionsLabel: t("People you often add", "നിങ്ങൾ പതിവായി ചേർക്കുന്നവർ"),
   send: t("Share", "പങ്കിടുക"),
   sentNote: t("Invitation sent to", "ഇവർക്ക് ക്ഷണം അയച്ചു"),
+  /* Says an invite went, not how — SMS or in-app is not settled (owner, 2026-10-13). */
+  inviteToast: t("Invite sent to {names}", "{names} എന്നവർക്ക് ക്ഷണം അയച്ചു"),
   sentBulkNote: t(
     "Added to {added} of {total} cases · already had access to {skipped}",
     "{total}-ൽ {added} കേസുകളിൽ ചേർത്തു · {skipped} കേസിൽ നേരത്തേ ആക്‌സസ് ഉണ്ടായിരുന്നു",

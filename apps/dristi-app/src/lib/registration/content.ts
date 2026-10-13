@@ -219,6 +219,10 @@ export const successStep = {
   body: t("You can add your address and official ID from your profile after entering the portal.", "പോർട്ടലിൽ പ്രവേശിച്ച ശേഷം പ്രൊഫൈലിൽ നിന്ന് വിലാസവും ഔദ്യോഗിക IDയും ചേർക്കാം."),
   summonedAction: t("Continue to your case", "നിങ്ങളുടെ കേസിലേക്ക് തുടരുക"),
   generalAction: t("Go to your home page", "ഹോം പേജിലേക്ക് പോകുക"),
+  /* Arrived from a signing link: the next place is the complaint, and the button says so
+     (owner, 2026-10-09). Malayalam to be checked by a native reader. */
+  signBody: t("Next, sign your complaint.", "അടുത്തതായി, നിങ്ങളുടെ പരാതിയിൽ ഒപ്പിടുക."),
+  signAction: t("Take me to sign", "ഒപ്പിടാൻ എന്നെ കൊണ്ടുപോകുക"),
 } as const;
 
 /** Advocates and clerks do not get access on submission — the court approves first. */

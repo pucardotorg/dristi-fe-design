@@ -5,6 +5,8 @@
  * lookups (IFSC, PIN) live in lookups.ts; there are no mock registries here.
  */
 
+import type { CourtId } from "@/lib/court/profiles";
+
 import type { PaperFallbackReason } from "./types";
 
 export type Option = { value: string; label: string };
@@ -415,3 +417,17 @@ export const POLICE_STATIONS: string[] = [
   "Chadayamangalam Police Station",
   "Pooyappally Police Station",
 ];
+
+/**
+ * Stations only a Punjab and Haryana court lists — the two states share one High Court
+ * (owner, 2026-10-12: "keep Panchkula for Punjab and Haryana, not for Gujarat and
+ * Kerala").
+ */
+const PUNJAB_AND_HARYANA_STATIONS: string[] = ["Panchkula Police Station"];
+
+/** The police stations a court's dropdowns offer. */
+export function policeStationsFor(court: CourtId): string[] {
+  return court === "punjab-haryana"
+    ? [...POLICE_STATIONS, ...PUNJAB_AND_HARYANA_STATIONS]
+    : POLICE_STATIONS;
+}

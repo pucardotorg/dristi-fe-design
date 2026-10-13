@@ -43,11 +43,19 @@ import { SectionNotice } from "@/components/filing/notices";
 import { OathRecorderPanel } from "@/components/filing/oath-recorder";
 import { ChoiceCard } from "@/components/filing/sign-stages";
 
-/** Read as an affirmation (Oaths Act, 1969) — religion-neutral, no invocation required. */
-export const OATH_TEXT =
-  "I solemnly affirm that the contents of this complaint, and everything I have stated " +
-  "in support of it, are true to the best of my knowledge and belief, and that I have " +
-  "not concealed anything material to this case.";
+/**
+ * The words read on camera, in the name of whoever is taking the oath (owner,
+ * 2026-10-09). Both forms are offered — an oath in the name of God, or a solemn
+ * affirmation (Oaths Act, 1969) — and the person reads the one that is theirs.
+ */
+export function oathText(name: string): string {
+  return (
+    `I, ${name.trim() || "[your name]"}, do swear in the name of God / do solemnly affirm ` +
+    "that the contents in the pleadings / application are true to my knowledge and " +
+    "belief, and the relevant supporting documents are genuine and authentic. I am aware " +
+    "that furnishing false or incorrect information is a punishable offence."
+  );
+}
 
 const ACCEPTED_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime"];
 const ACCEPT_ATTR = "video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov";
@@ -117,9 +125,12 @@ function OathVideoPlayer({ file }: { file: StoredFileRef }) {
 }
 
 export function OathCapture({
+  name,
   value,
   onChange,
 }: {
+  /** Who is taking the oath — their name is in the words they read. */
+  name: string;
   /** The oath already on file for this advocate, if any. */
   value: OathVideoUpload | null;
   /** A new clip has been stored. The previous one is released here, not by the caller. */
@@ -210,7 +221,7 @@ export function OathCapture({
           Say these words
         </h3>
         <blockquote className="rounded-lg border border-hairline bg-surface-sunken p-4 text-body text-foreground">
-          {OATH_TEXT}
+          {oathText(name)}
         </blockquote>
       </section>
 

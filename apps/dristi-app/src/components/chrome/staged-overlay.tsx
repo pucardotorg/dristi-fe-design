@@ -133,8 +133,16 @@ export function StagedOverlay({
   /** The footer, which is chrome and therefore does not move. */
   footer,
   onOpenAutoFocus,
+  outsideCloses = false,
+  onInteractOutside,
   ...props
 }: Omit<React.ComponentProps<typeof ChromeDialogContent>, "title"> & {
+  /**
+   * A click outside closes the overlay. Off by default: a misclick beside a half-done
+   * flow lost the work (owner, 2026-10-13); Close and Escape still close it. An overlay
+   * that only shows something passes it.
+   */
+  outsideCloses?: boolean;
   title: React.ReactNode;
   titleRef?: React.RefObject<HTMLHeadingElement | null>;
   titleAside?: React.ReactNode;
@@ -195,6 +203,10 @@ export function StagedOverlay({
           ownTitleRef.current.focus();
         })
       }
+      onInteractOutside={(event) => {
+        onInteractOutside?.(event);
+        if (!outsideCloses) event.preventDefault();
+      }}
       {...props}
     >
       {/* The overlay's chrome: white, above the tinted stage, and on **every** stage,

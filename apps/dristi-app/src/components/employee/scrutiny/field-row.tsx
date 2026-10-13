@@ -192,17 +192,52 @@ export function FieldRow({
   );
 }
 
+/** What `from-draft.ts` writes for a question the filer left unanswered. */
+const NOT_PROVIDED = "Not provided";
+
 /** The filed value. A raised item never replaces it — the advocate makes the fix. */
 function ValueLines({ field }: { field: FlatField }) {
+  /*
+   * Prose (the affidavit, the prayer) stops at four lines with Show more. Printed whole,
+   * the affidavit alone ran ~1,400px in the one scrolling fields panel and pushed the
+   * next fields two screens down. The link only appears when there is more to read.
+   */
+  const ref = React.useRef<HTMLDivElement>(null);
+  const [expanded, setExpanded] = React.useState(false);
+  const [overflows, setOverflows] = React.useState(false);
+  React.useLayoutEffect(() => {
+    const el = ref.current;
+    if (!field.long || !el || expanded) return;
+    setOverflows(el.scrollHeight > el.clientHeight + 1);
+  }, [field.long, field.value, expanded]);
+
   if (!field.value) return null;
   return (
-    <div
-      className={cn(
-        "text-body-compact break-words",
-        field.long ? "text-muted-foreground" : "font-medium",
-      )}
-    >
-      <FieldValue field={field} value={field.value} />
+    <div className="flex flex-col items-start gap-1">
+      <div
+        ref={ref}
+        className={cn(
+          "text-body-compact break-words",
+          // Prose keeps the paragraph breaks it was filed with.
+          field.long ? "whitespace-pre-line text-muted-foreground" : "font-medium",
+          field.long && !expanded && "line-clamp-4",
+          // An unanswered optional question is a fact, but not one to read as data.
+          field.value === NOT_PROVIDED && "font-normal text-muted-foreground",
+        )}
+      >
+        <FieldValue field={field} value={field.value} />
+      </div>
+      {field.long && (overflows || expanded) ? (
+        <Button
+          type="button"
+          variant="link"
+          className="h-auto p-0 text-body-compact"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((open) => !open)}
+        >
+          {expanded ? "Show less" : "Show more"}
+        </Button>
+      ) : null}
     </div>
   );
 }
@@ -213,8 +248,10 @@ function ValueLines({ field }: { field: FlatField }) {
  *
  * Once a human has acted, the machine goes quiet: every machine-origin observation moves
  * inside the item's well as grey provenance, so a settled row carries one cue, not three.
- * `nodoc` is the exception because it is not a machine reading — it is a standing fact
- * about the bundle that renders with AI off and is already grey.
+ * `nodoc` is the exception because it is not a machine reading — an empty upload slot is
+ * a standing fact about the bundle that renders without AI and is already grey.
+ * `unfound` looks the same but is a machine reading (the bundle was searched), and
+ * `scannote` is poor-scan detection, so like `docread` and `ocrfail` they need AI on.
  */
 function Hints({
   field,
@@ -267,7 +304,14 @@ function Hints({
       </HintLine>,
     );
   }
-  if (field.scannote && !flagged) {
+  if (aiOn && field.unfound) {
+    lines.push(
+      <HintLine key="unfound" tone="muted" icon={<FileTextIcon />}>
+        {field.unfound}
+      </HintLine>,
+    );
+  }
+  if (aiOn && field.scannote && !flagged) {
     lines.push(
       <HintLine key="scannote" tone="warning" icon={<TriangleAlertIcon />}>
         {field.scannote}

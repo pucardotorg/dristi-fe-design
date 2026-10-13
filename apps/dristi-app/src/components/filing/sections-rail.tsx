@@ -3,9 +3,15 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronRightIcon, FilesIcon, PanelLeftOpenIcon } from "lucide-react";
+import {
+  CheckIcon,
+  ChevronRightIcon,
+  CircleDashedIcon,
+  FilesIcon,
+  PanelLeftOpenIcon,
+} from "lucide-react";
 
-import { draftProgress } from "@/lib/filing/selectors";
+import { draftProgress, sectionState, type SectionState } from "@/lib/filing/selectors";
 import {
   FILING_STEPS,
   stepFromPathname,
@@ -62,6 +68,27 @@ function useActiveStep(): FilingStep | undefined {
 
 /* ───────────────────────────── Rows ────────────────────────────────── */
 
+/**
+ * Where a section stands, at the end of its row — supporting information, so it stays
+ * small and quiet: a check for done, a dashed ring for started, nothing for untouched.
+ * The shape carries the meaning and the words are there for a screen reader, so colour
+ * is never the only cue.
+ */
+function SectionMark({ state }: { state: SectionState }) {
+  if (state === "untouched") return null;
+  return state === "done" ? (
+    <>
+      <CheckIcon aria-hidden className="ml-auto text-success-ink" />
+      <span className="sr-only">, complete</span>
+    </>
+  ) : (
+    <>
+      <CircleDashedIcon aria-hidden className="ml-auto text-muted-foreground" />
+      <span className="sr-only">, in progress</span>
+    </>
+  );
+}
+
 function StepRow({
   step,
   active,
@@ -72,7 +99,7 @@ function StepRow({
   onNavigate: () => void;
 }) {
   const courtText = useCourtText();
-  const { hrefFor } = useFiling();
+  const { draft, hrefFor } = useFiling();
   const blocked = useLeaveBlocked();
   const Icon = step.icon;
 
@@ -118,6 +145,7 @@ function StepRow({
       >
         <Icon aria-hidden className={active ? undefined : "text-muted-foreground"} />
         <span className="min-w-0 truncate">{courtText(step.title)}</span>
+        <SectionMark state={sectionState(draft, step.id)} />
       </Link>
     </Button>
   );

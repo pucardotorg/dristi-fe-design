@@ -18,6 +18,7 @@ import {
 import { formatChequeAmount } from "./peek";
 import { caseSectionHref } from "./sections";
 import { formatCaseDate } from "./types";
+import type { Address } from "@/lib/filing/types";
 
 export type ComplaintNode = {
   id: string;
@@ -725,4 +726,25 @@ export function complaintPane(
 ): ComplaintPane | undefined {
   if (caseId !== "c-1001") return undefined;
   return COMPLAINT_PANES[partId];
+}
+
+/**
+ * Each accused's address as the complaint records it, for forms that prefill
+ * from the case file (Warrant by Hand's address for delivery). Only the
+ * review case carries a complaint; every other case returns nothing.
+ */
+export function accusedAddressesOnFile(
+  caseId: string
+): { name: string; address: Address }[] {
+  if (caseId !== "c-1001") return [];
+  return accusedGroup.parties.map((party) => ({
+    name: party.name,
+    address: {
+      line1: party.address.line1,
+      city: party.address.locality,
+      pin: party.address.pincode,
+      district: party.address.district,
+      state: party.address.state,
+    },
+  }));
 }

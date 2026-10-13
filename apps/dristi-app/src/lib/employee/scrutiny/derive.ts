@@ -1,4 +1,3 @@
-import { CHECKS } from "@/lib/employee/scrutiny/sections";
 import type {
   BundleDoc,
   Field,
@@ -23,14 +22,13 @@ const CIVIL_CHECKS = [
 ];
 
 /**
- * A scrutiny, derived from one queue row.
+ * A scrutiny, derived from one queue row — for a Section 25 (PSA) matter only.
  *
- * The workbench was built around a single hand-authored case: its fields, its bundle and
- * its history all lived in module constants, so only that one filing could be opened and
- * every other row in the queue was a dead link. This derives the same shapes for any
- * filing from what the queue already knows about it — the parties, the advocate, the
- * instrument type, the reason it is in scrutiny and how long it has waited — so the whole
- * queue opens a real, working review rather than a 404.
+ * A §138 filing is read off its e-filing draft (`from-draft.ts`). PSA has no e-filing
+ * form yet, so there is no draft to read, and its review is derived from what the queue
+ * already knows about it — the parties, the advocate, the reason it is in scrutiny and
+ * how long it has waited — so the row still opens a working review rather than a 404.
+ * When PSA gets a form, this file goes.
  *
  * **Two rules hold this honest.** The documents are illegible facsimiles
  * (`kind: "facsimile"`, drawn by `page-facsimile.tsx`), never legible pages, because a
@@ -88,15 +86,6 @@ function makePicker(rng: () => number) {
 }
 
 /* ── synthetic pools ─────────────────────────────────────────────────────── */
-
-const BANKS = [
-  { name: "State Bank of India", ifsc: "SBIN0007558" },
-  { name: "HDFC Bank", ifsc: "HDFC0001204" },
-  { name: "Bank of Baroda", ifsc: "BARB0AHMEDA" },
-  { name: "ICICI Bank", ifsc: "ICIC0000221" },
-  { name: "Axis Bank", ifsc: "UTIB0000418" },
-  { name: "Punjab National Bank", ifsc: "PUNB0142200" },
-] as const;
 
 const LOCALITIES = [
   "Naroda",
@@ -193,17 +182,11 @@ export function splitParties(parties: string): {
 
 /* ── the derivation ──────────────────────────────────────────────────────── */
 
-/** Whether this filing is a cheque-dishonour matter, which shapes its whole bundle. */
-function isCheque(filing: Filing): boolean {
-  return /138|NI Act/i.test(filing.type);
-}
-
 export function deriveScrutinyCase(filing: Filing): DerivedCase {
   const rng = seededRandom(filing.no);
   const pick = makePicker(rng);
   const { complainant, accused } = splitParties(filing.parties);
 
-  const bank = pick(BANKS);
   const locality = pick(LOCALITIES);
   const society = pick(SOCIETIES);
   const pin = pick(PINS);
@@ -219,20 +202,14 @@ export function deriveScrutinyCase(filing: Filing): DerivedCase {
   // checks. Anchored so the filing lands a plausible while before it reached this desk.
   const filed = addDays(new Date(2026, 6, 4), -Math.floor(rng() * 40));
   const chequeDate = addDays(filed, -(120 + Math.floor(rng() * 240)));
-  const presented = addDays(chequeDate, 20 + Math.floor(rng() * 40));
-  const returned = addDays(presented, Math.floor(rng() * 2));
-  const noticeDate = addDays(returned, 5 + Math.floor(rng() * 20));
-  const causeDate = addDays(noticeDate, 16 + Math.floor(rng() * 12));
+  const causeDate = addDays(chequeDate, 60 + Math.floor(rng() * 30));
 
   const amountLakh = 2 + Math.floor(rng() * 60);
   const amountThousand = pick([0, 25, 50, 75] as const);
   const amount = `₹ ${amountLakh},${pad(amountThousand)},000`;
-  const chequeNo = String(200000 + Math.floor(rng() * 800000));
   const barYear = 1988 + Math.floor(rng() * 30);
   const barNo = `G/${Math.floor(rng() * 900) + 60}/${barYear}`;
   const witness = pick(WITNESSES);
-
-  const cheque = isCheque(filing);
 
   const party: DerivedCase["party"] = {
     complainant,
@@ -244,7 +221,6 @@ export function deriveScrutinyCase(filing: Filing): DerivedCase {
   /* Which single value the AI flags — matched to the reason the queue already gives, so
      the officer opens the case and finds exactly the thing that put it here. */
   const reason = filing.reason.toLowerCase();
-  const skipsAmount = cheque && /skipped|warning/.test(reason);
   const lowConfidence = /low ai|not ai|contested|open/.test(reason);
 
   const complainantGroup = {
@@ -257,7 +233,7 @@ export function deriveScrutinyCase(filing: Filing): DerivedCase {
         label: "Full name",
         value: complainant,
         doc: "aadhaar",
-        ...(lowConfidence && !skipsAmount
+        ...(lowConfidence
           ? {
               ocrfail: true,
               failnote:
@@ -311,9 +287,7 @@ export function deriveScrutinyCase(filing: Filing): DerivedCase {
         id: "a-name",
         label: "Full name",
         value: accused,
-        ...(cheque
-          ? { doc: "cheque", srcnote: "Signatory on the cheque" }
-          : { nodoc: "Named in the agreement only" }),
+        unfound: "Named in the agreement only",
       },
       { id: "a-age", label: "Age", value: String(28 + Math.floor(rng() * 35)) },
       { id: "a-mob", label: "Mobile number", value: mobile(rng) },
@@ -321,7 +295,7 @@ export function deriveScrutinyCase(filing: Filing): DerivedCase {
         id: "a-addr",
         label: "Permanent address",
         value: accusedAddr,
-        nodoc: "Not in any document",
+        unfound: "Not in any document",
       },
     ] as Field[],
   };
@@ -332,115 +306,6 @@ export function deriveScrutinyCase(filing: Filing): DerivedCase {
     title: "Party Details",
     groups: [complainantGroup, advocateGroup, accusedGroup],
   };
-
-  const chequeGroups = [
-    {
-      id: "chq",
-      icon: "cheque" as const,
-      title: "Cheque Details",
-      fields: [
-        {
-          id: "q-no",
-          label: "Cheque number",
-          value: chequeNo,
-          ident: true,
-          doc: "cheque",
-          srcnote: "MICR band",
-        },
-        {
-          id: "q-date",
-          label: "Date on cheque",
-          value: slash(chequeDate),
-          doc: "cheque",
-        },
-        {
-          id: "q-amt",
-          label: "Amount",
-          value: amount,
-          doc: "cheque",
-          region: [67, 44, 24, 14] as const,
-          ...(skipsAmount
-            ? {
-                docread: `₹ ${amountLakh},${pad(Math.max(0, amountThousand - 25) || 75)},000/-`,
-                skipped: true,
-              }
-            : {}),
-        },
-        {
-          id: "q-ifsc",
-          label: "IFSC code",
-          value: bank.ifsc,
-          ident: true,
-          doc: "cheque",
-        },
-        {
-          id: "q-bank",
-          label: "Bank name",
-          value: bank.name,
-          doc: "cheque",
-        },
-      ] as Field[],
-    },
-    {
-      id: "memo",
-      icon: "memo" as const,
-      title: "Cheque Return Memo",
-      fields: [
-        {
-          id: "m-pres",
-          label: "Date of presentation",
-          value: slash(presented),
-          doc: "memo",
-        },
-        {
-          id: "m-ret",
-          label: "Date of return",
-          value: slash(returned),
-          doc: "memo",
-          ...(lowConfidence && skipsAmount
-            ? { ocrfail: true, failnote: "Not legible in the memo scan" }
-            : {}),
-        },
-        {
-          id: "m-why",
-          label: "Return reason",
-          value: pick([
-            "Funds insufficient",
-            "Payment stopped by drawer",
-            "Exceeds arrangement",
-          ] as const),
-          doc: "memo",
-        },
-      ] as Field[],
-    },
-    {
-      id: "notice",
-      icon: "mail" as const,
-      title: "Legal Demand Notice",
-      fields: [
-        {
-          id: "n-date",
-          label: "Date of demand notice",
-          value: slash(noticeDate),
-          doc: "notice",
-        },
-        {
-          id: "n-mode",
-          label: "Mode of dispatch",
-          value: "Registered post (RPAD)",
-          nodoc: "No postal receipt uploaded",
-        },
-        {
-          id: "n-del",
-          label: "Whether delivered",
-          value: "Yes",
-          nodoc: "No delivery proof (A.D.) uploaded",
-        },
-        { id: "n-reply", label: "Reply received from accused", value: "No" },
-        { id: "n-pay", label: "Payment received after notice", value: "No" },
-      ] as Field[],
-    },
-  ];
 
   const claimGroup = {
     id: "chq",
@@ -523,9 +388,7 @@ export function deriveScrutinyCase(filing: Filing): DerivedCase {
     id: "case",
     num: "2",
     title: "Case Details",
-    groups: cheque
-      ? [...chequeGroups, jurisdictionGroup, prayerGroup]
-      : [claimGroup, jurisdictionGroup, prayerGroup],
+    groups: [claimGroup, jurisdictionGroup, prayerGroup],
   };
 
   const documentsFields: Field[] = [
@@ -536,35 +399,12 @@ export function deriveScrutinyCase(filing: Filing): DerivedCase {
       docrow: "affidavit",
       scannote: "Scanned upload — check for blur or missing pages",
     },
-    ...(cheque
-      ? [
-          {
-            id: "d-cheque",
-            label: "Cheque (front)",
-            value: "Uploaded at filing",
-            docrow: "cheque",
-          },
-          {
-            id: "d-memo",
-            label: "Cheque return memo",
-            value: "Uploaded at filing",
-            docrow: "memo",
-          },
-          {
-            id: "d-notice",
-            label: "Legal demand notice",
-            value: "Uploaded at filing",
-            docrow: "notice",
-          },
-        ]
-      : [
-          {
-            id: "d-cheque",
-            label: "Agreement",
-            value: "Uploaded at filing",
-            docrow: "cheque",
-          },
-        ]),
+    {
+      id: "d-cheque",
+      label: "Agreement",
+      value: "Uploaded at filing",
+      docrow: "cheque",
+    },
     {
       id: "d-aadhaar",
       label: `ID proof — ${firstName(complainant)}`,
@@ -622,33 +462,13 @@ export function deriveScrutinyCase(filing: Filing): DerivedCase {
       no: 3,
       poorScan: true,
     },
-    cheque
-      ? { id: "cheque", name: "Cheque (front)", kind: "facsimile", sheet: "cheque", no: 4 }
-      : { id: "cheque", name: "Agreement", kind: "facsimile", sheet: "form", no: 4 },
-    ...(cheque
-      ? ([
-          {
-            id: "memo",
-            name: "Cheque return memo",
-            kind: "facsimile",
-            sheet: "memo",
-            no: 5,
-          },
-          {
-            id: "notice",
-            name: "Legal demand notice",
-            kind: "facsimile",
-            sheet: "letter",
-            no: 6,
-          },
-        ] as BundleDoc[])
-      : []),
+    { id: "cheque", name: "Agreement", kind: "facsimile", sheet: "form", no: 4 },
     {
       id: "aadhaar",
       name: `ID proof — ${firstName(complainant)}`,
       kind: "facsimile",
       sheet: "id",
-      no: cheque ? 7 : 5,
+      no: 5,
     },
   ];
 
@@ -656,7 +476,6 @@ export function deriveScrutinyCase(filing: Filing): DerivedCase {
     affidavit: "d-affidavit",
     cheque: "d-cheque",
     aadhaar: "d-aadhaar",
-    ...(cheque ? { memo: "d-memo", notice: "d-notice" } : {}),
   };
 
   const { history, historySummary, historyRound } = deriveHistory(filing, party);
@@ -666,7 +485,7 @@ export function deriveScrutinyCase(filing: Filing): DerivedCase {
     sections,
     bundle,
     docRow,
-    checks: cheque ? CHECKS : CIVIL_CHECKS,
+    checks: CIVIL_CHECKS,
     history,
     historySummary,
     historyRound,
@@ -682,7 +501,7 @@ export function deriveScrutinyCase(filing: Filing): DerivedCase {
  * ends where it ended. The round number is what the case bar prints, so it has to agree
  * with the events listed.
  */
-function deriveHistory(
+export function deriveHistory(
   filing: Filing,
   party: DerivedCase["party"],
 ): { history: HistoryEvent[]; historySummary: string; historyRound: number } {
@@ -695,11 +514,20 @@ function deriveHistory(
     title: "Filed",
     meta: `${filedShort} · ${filing.advocate}`,
   };
-  const routed: HistoryEvent = {
-    status: "past",
-    title: "Routed to scrutiny",
-    meta: `${filedShort} · ${filing.reason}`,
-  };
+  /* "Filer skipped an AI warning", "Low AI confidence", "Not AI-reviewed": a routing
+     reason that names AI is only said where the court runs it (`aiNote`). */
+  const routed: HistoryEvent = /\bAI\b/.test(filing.reason)
+    ? {
+        status: "past",
+        title: "Routed to scrutiny",
+        meta: filedShort,
+        aiNote: filing.reason,
+      }
+    : {
+        status: "past",
+        title: "Routed to scrutiny",
+        meta: `${filedShort} · ${filing.reason}`,
+      };
 
   const stage = filing.stage.toLowerCase();
 

@@ -32,6 +32,9 @@ export function FilingBreadcrumbs() {
   const first = pathname.replace(/^\/filings\/?/, "").split("/").filter(Boolean)[0];
   const stepId = stepFromPathname(pathname);
 
+  // The signing request publishes its own trail, named for the case it holds.
+  if (first === "sign-request") return null;
+
   const crumbs: Crumb[] = [];
   if (first === "new") {
     crumbs.push({ label: "New filing" });

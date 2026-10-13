@@ -16,6 +16,7 @@ import type { Role } from "@/lib/sign-in/content";
  * Two distinct demo logins (F5):
  *   7007663437 — a base litigant (Rajan K. Nair). Can elevate to an advocate profile
  *                from Settings, staying on this number.
+ *   9000000001 — a blank litigant with nothing on the account, for trying signing links.
  *   8009460966 — an advocate (Adv. Anjali Nair) who also holds a litigant profile, so
  *                the rail-foot switch flips advocate ⇄ litigant on the one account.
  * NOTE (session-limited): with no auth session yet, `/home` renders one litigant identity
@@ -25,6 +26,9 @@ import type { Role } from "@/lib/sign-in/content";
 export const DEMO_ACCOUNTS: Record<string, Role> = {
   "7007663437": "litigant",
   "8009460966": "advocate",
+  // A blank litigant — no cases, no profile details — so a signing link can be tried
+  // by signing in rather than registering every time (owner, 2026-10-09).
+  "9000000001": "litigant",
 };
 
 /** The role this number is registered under, or `undefined` if it is not in the list. */

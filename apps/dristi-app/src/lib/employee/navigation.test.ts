@@ -7,7 +7,9 @@ import {
   COURT_NAV_GROUPS,
   COURT_NAV_LINKS,
   COURT_NAV_TRAILING,
+  courtHasNavRow,
   courtNavClubbed,
+  courtNavGroupsForCourt,
   courtNavClubbedTotal,
   courtNavKeptApart,
   courtNavRowsFor,
@@ -228,7 +230,7 @@ describe("the registers row", () => {
 
 describe("courtWaitingGroups", () => {
   it("keeps the rail's groups, and only built, non-empty queues in them", () => {
-    const groups = courtWaitingGroups();
+    const groups = courtWaitingGroups("kerala");
     assert.ok(groups.length > 0);
     for (const group of groups) {
       assert.ok(group.label, `${group.id} has no label`);
@@ -242,7 +244,7 @@ describe("courtWaitingGroups", () => {
   });
 
   it("totals each group from its own rows", () => {
-    for (const group of courtWaitingGroups()) {
+    for (const group of courtWaitingGroups("kerala")) {
       const sum = group.items.reduce((total, item) => total + item.count, 0);
       assert.equal(group.total, sum, `${group.id} total disagrees with its rows`);
     }
@@ -251,7 +253,7 @@ describe("courtWaitingGroups", () => {
   /* The panel reads the rail's own data so the two cannot disagree about a queue. */
   it("takes each row's label and count from the rail's own row", () => {
     const rows = COURT_NAV_GROUPS.flatMap((group) => group.items);
-    for (const group of courtWaitingGroups()) {
+    for (const group of courtWaitingGroups("kerala")) {
       for (const queue of group.items) {
         const row = rows.find((item) => item.id === queue.id);
         assert.ok(row);
@@ -276,19 +278,19 @@ describe("the combined rail layouts", () => {
 
   it("keeps hearings a tab of its own under \"actions\", but not under \"schedule\"", () => {
     assert.deepEqual(
-      courtNavKeptApart("actions").map((item) => item.id),
+      courtNavKeptApart("actions", "kerala").map((item) => item.id),
       ["todays-hearings", "bulk-reschedule", "sign-process"],
     );
     assert.deepEqual(
-      courtNavKeptApart("schedule").map((item) => item.id),
+      courtNavKeptApart("schedule", "kerala").map((item) => item.id),
       ["bulk-reschedule", "sign-process"],
     );
   });
 
   it("clubs every other row, none twice, in the rail's own order", () => {
     for (const layout of ["actions", "schedule"] as const) {
-      const apart = new Set(courtNavKeptApart(layout).map((item) => item.id));
-      const clubbed = courtNavClubbed(layout).map((item) => item.id);
+      const apart = new Set(courtNavKeptApart(layout, "kerala").map((item) => item.id));
+      const clubbed = courtNavClubbed(layout, "kerala").map((item) => item.id);
       /* Every id `COURT_NAV_GROUPS` holds except what this layout keeps apart — same
          set, same relative order, nothing dropped and nothing duplicated. */
       assert.deepEqual(clubbed, allIds.filter((id) => !apart.has(id)));
@@ -296,19 +298,19 @@ describe("the combined rail layouts", () => {
     }
     /* The one row that tells the two layouts apart: hearings are due work under
        "actions" and are not under "schedule". */
-    assert.ok(courtNavClubbed("actions").every((item) => item.id !== "todays-hearings"));
+    assert.ok(courtNavClubbed("actions", "kerala").every((item) => item.id !== "todays-hearings"));
     assert.ok(
-      courtNavClubbed("schedule").some((item) => item.id === "todays-hearings"),
+      courtNavClubbed("schedule", "kerala").some((item) => item.id === "todays-hearings"),
     );
   });
 
   it("totals the combined row from the clubbed rows it stands for", () => {
     for (const layout of ["actions", "schedule"] as const) {
-      const sum = courtNavClubbed(layout).reduce(
+      const sum = courtNavClubbed(layout, "kerala").reduce(
         (total, item) => total + (item.count ?? 0),
         0,
       );
-      assert.equal(courtNavClubbedTotal(layout), sum);
+      assert.equal(courtNavClubbedTotal(layout, "kerala"), sum);
       assert.ok(sum > 0);
     }
     /* "actions" excludes hearings from its total, "schedule" folds them in — so the
@@ -318,18 +320,18 @@ describe("the combined rail layouts", () => {
     );
     assert.ok(hearings);
     assert.equal(
-      courtNavClubbedTotal("schedule") - courtNavClubbedTotal("actions"),
+      courtNavClubbedTotal("schedule", "kerala") - courtNavClubbedTotal("actions", "kerala"),
       hearings.count ?? 0,
     );
   });
 
   it("builds \"actions\" as hearings, the combined row, then the other two kept apart", () => {
-    const rows = courtNavRowsFor("actions");
+    const rows = courtNavRowsFor("actions", "kerala");
     assert.deepEqual(
       rows.map((item) => item.id),
       ["todays-hearings", "todays-actions", "bulk-reschedule", "sign-process"],
     );
-    assert.equal(rows[1].count, courtNavClubbedTotal("actions"));
+    assert.equal(rows[1].count, courtNavClubbedTotal("actions", "kerala"));
     assert.equal(rows[1].href, "/employee/todays-actions");
     assert.ok(isCourtNavCombinedRow(rows[1]));
     /* Every row a combined layout renders needs a mark of its own — the folded strip
@@ -340,12 +342,12 @@ describe("the combined rail layouts", () => {
   });
 
   it("builds \"schedule\" as the combined row, then Bulk reschedule and Sign process", () => {
-    const rows = courtNavRowsFor("schedule");
+    const rows = courtNavRowsFor("schedule", "kerala");
     assert.deepEqual(
       rows.map((item) => item.id),
       ["todays-schedule", "bulk-reschedule", "sign-process"],
     );
-    assert.equal(rows[0].count, courtNavClubbedTotal("schedule"));
+    assert.equal(rows[0].count, courtNavClubbedTotal("schedule", "kerala"));
     assert.equal(rows[0].href, "/employee/todays-schedule");
     assert.ok(isCourtNavCombinedRow(rows[0]));
     for (const item of rows) {
@@ -355,29 +357,58 @@ describe("the combined rail layouts", () => {
 
   it("does not call a kept-apart row combined", () => {
     for (const layout of ["actions", "schedule"] as const) {
-      for (const item of courtNavKeptApart(layout)) {
+      for (const item of courtNavKeptApart(layout, "kerala")) {
         assert.ok(!isCourtNavCombinedRow(item), `${item.id} is not the combined row`);
       }
     }
   });
 
   it("answers active for the combined row on any clubbed destination", () => {
-    assert.ok(isCourtNavCombinedActive("/employee/scrutiny", "actions"));
-    assert.ok(isCourtNavCombinedActive("/employee/sign-orders", "actions"));
+    assert.ok(isCourtNavCombinedActive("/employee/scrutiny", "actions", "kerala"));
+    assert.ok(isCourtNavCombinedActive("/employee/sign-orders", "actions", "kerala"));
     /* Nested under a clubbed queue counts too — the same rule `isCourtNavActive`
        already gives that queue's own row. */
-    assert.ok(isCourtNavCombinedActive("/employee/register-cases/r-1840", "schedule"));
+    assert.ok(isCourtNavCombinedActive("/employee/register-cases/r-1840", "schedule", "kerala"));
     /* Hearings are clubbed under "schedule" and are not under "actions" — the one
        route the two layouts must disagree about. */
-    assert.ok(isCourtNavCombinedActive("/employee/hearings", "schedule"));
-    assert.ok(!isCourtNavCombinedActive("/employee/hearings", "actions"));
+    assert.ok(isCourtNavCombinedActive("/employee/hearings", "schedule", "kerala"));
+    assert.ok(!isCourtNavCombinedActive("/employee/hearings", "actions", "kerala"));
   });
 
   it("does not answer active for a row it kept apart, or an unknown route", () => {
     for (const layout of ["actions", "schedule"] as const) {
-      assert.ok(!isCourtNavCombinedActive("/employee/hearings/bulk-reschedule", layout));
-      assert.ok(!isCourtNavCombinedActive("/employee/sign-process", layout));
-      assert.ok(!isCourtNavCombinedActive("/employee/not-a-queue", layout));
+      assert.ok(!isCourtNavCombinedActive("/employee/hearings/bulk-reschedule", layout, "kerala"));
+      assert.ok(!isCourtNavCombinedActive("/employee/sign-process", layout, "kerala"));
+      assert.ok(!isCourtNavCombinedActive("/employee/not-a-queue", layout, "kerala"));
+    }
+  });
+});
+
+/*
+ * Who registers a case after scrutiny is per state (`registrationPoint`, `SCR-11`). Where
+ * the scrutiny officer registers, there is no Register cases queue anywhere the court
+ * side lists its work.
+ */
+describe("registrationPoint", () => {
+  it("keeps Register cases where the magistrate registers", () => {
+    assert.ok(courtHasNavRow("kerala", "register-cases"));
+    assert.ok(courtNavClubbed("actions", "kerala").some((item) => item.id === "register-cases"));
+  });
+
+  it("drops Register cases where scrutiny registers, and nothing else", () => {
+    for (const court of ["gujarat", "punjab-haryana"] as const) {
+      const ids = (groups: typeof COURT_NAV_GROUPS) =>
+        groups.flatMap((group) => group.items.map((item) => item.id));
+      assert.deepEqual(
+        ids(courtNavGroupsForCourt(COURT_NAV_GROUPS, court)),
+        ids(COURT_NAV_GROUPS).filter((id) => id !== "register-cases"),
+      );
+      for (const layout of ["actions", "schedule"] as const) {
+        assert.ok(courtNavClubbed(layout, court).every((item) => item.id !== "register-cases"));
+      }
+      for (const group of courtWaitingGroups(court)) {
+        assert.ok(group.items.every((item) => item.id !== "register-cases"));
+      }
     }
   });
 });

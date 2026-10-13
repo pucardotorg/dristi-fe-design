@@ -1,12 +1,16 @@
 import type { Metadata } from "next";
 
+import { serverCourtText } from "@/lib/court/server";
+
 import { TasksProvider } from "@/lib/tasks/store";
 import { AccessProvider } from "@/components/access/access-state";
 import { AppShell } from "@/components/shell/app-shell";
 
-export const metadata: Metadata = {
-  title: "Dristi",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  // Absolute, so a screen with no title of its own reads "SARAS 2.0", not the
+  // product twice over through the root template.
+  return { title: { absolute: (await serverCourtText())("DRISTI") } };
+}
 
 /**
  * The portal area — advocate home, Your Cases, People. One shared app shell, one

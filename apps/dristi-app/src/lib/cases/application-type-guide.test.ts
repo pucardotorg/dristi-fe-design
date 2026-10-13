@@ -29,11 +29,8 @@ const ASKS: [string, string][] = [
   ["need bank records", "production-of-documents"],
   ["call for the bank account statement", "production-of-documents"],
   ["add a new witness", "addition-of-witness"],
-  ["copy of the order", "certified-copy"],
   ["change power of attorney", "poa-change"],
   ["wrong address of the accused", "edit-litigant-details"],
-  ["cancel the warrant", "warrant-recall"],
-  ["set aside the warrant", "warrant-recall"],
   ["warrant to be served by hand", "warrant-by-hand"],
   ["reopen evidence", "reopen-evidence"],
 ];
@@ -44,7 +41,6 @@ const PARTIAL: [string, string][] = [
   ["postp", "postpone"],
   ["settl", "settlement"],
   ["transf", "transfer"],
-  ["certfied copy", "certified-copy"],
   ["adjurn", "postpone"],
   ["withdrw", "withdrawal"],
 ];

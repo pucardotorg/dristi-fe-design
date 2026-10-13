@@ -15,7 +15,8 @@ import { usePathname } from "next/navigation";
 
 import { buildDocumentGroups } from "./blank";
 import { deleteDraftWithFiles, getRepository } from "./data";
-import { stepFromPathname, stepHref } from "./steps";
+import { sectionOpened } from "./selectors";
+import { stepFromPathname, stepHref, WALK_ORDER } from "./steps";
 import type { FilingDraft, StepId } from "./types";
 import { useCourt } from "@/components/court/court-provider";
 import { localizeDeep } from "@/lib/court/localize";
@@ -186,13 +187,19 @@ export function FilingProvider({
     [schedule, setState]
   );
 
-  // Remember where the person is, so "Continue draft" resumes here.
+  // Remember where the person is, so "Continue draft" resumes here, and that they have
+  // opened this section — which is what lets it count towards progress.
   const step = stepFromPathname(pathname);
   React.useEffect(() => {
     if (state.status !== "ready" || !step) return;
-    if (state.draft.lastStep === step) return;
+    const { visited, lastStep } = state.draft;
+    if (lastStep === step && visited?.includes(step)) return;
     commit((d) => {
+      // A draft from before sections were recorded starts its record from what it had
+      // walked, so moving on from it does not lose the sections before.
+      d.visited ??= WALK_ORDER.filter((s) => sectionOpened(d, s));
       d.lastStep = step;
+      if (!d.visited.includes(step)) d.visited.push(step);
     });
   }, [step, state, commit]);
 

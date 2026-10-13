@@ -34,10 +34,13 @@ import { useScrutinyCase } from "@/components/employee/scrutiny/scrutiny-case-co
  */
 export function IndexRail({
   relatedDocId,
+  aiOn,
   onGoToDoc,
 }: {
   /** Doc the selected field points at — highlighted, not filtered away. */
   relatedDocId: string | null;
+  /** Poor-scan detection is an AI reading; without AI the badge is not shown. */
+  aiOn: boolean;
   onGoToDoc: (docId: string) => void;
 }) {
   return (
@@ -56,6 +59,7 @@ export function IndexRail({
       <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-2 py-2">
         <IndexRows
           relatedDocId={relatedDocId}
+          aiOn={aiOn}
           onGoToDoc={onGoToDoc}
         />
       </div>
@@ -74,11 +78,13 @@ export function IndexSheet({
   open,
   onOpenChange,
   relatedDocId,
+  aiOn,
   onGoToDoc,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   relatedDocId: string | null;
+  aiOn: boolean;
   onGoToDoc: (docId: string) => void;
 }) {
   const { bundle } = useScrutinyCase();
@@ -95,7 +101,8 @@ export function IndexSheet({
 
         <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-2 pb-4">
           <IndexRows
-              relatedDocId={relatedDocId}
+            relatedDocId={relatedDocId}
+            aiOn={aiOn}
             onGoToDoc={onGoToDoc}
           />
         </div>
@@ -104,12 +111,17 @@ export function IndexSheet({
   );
 }
 
-/** One row per document: its number, its name, and whether it is a poor scan. */
+/**
+ * One row per document: its number, its name, and — with AI on — whether it is a poor
+ * scan. Poor-scan detection is a machine reading, so without AI the row says nothing.
+ */
 function IndexRows({
   relatedDocId,
+  aiOn,
   onGoToDoc,
 }: {
   relatedDocId: string | null;
+  aiOn: boolean;
   onGoToDoc: (docId: string) => void;
 }) {
   const { bundle } = useScrutinyCase();
@@ -150,7 +162,7 @@ function IndexRows({
             {/* The badges are marks, so what they mean is said in words for anyone who
                 cannot read a shape — never a `title` attribute, which no touch or
                 keyboard user reaches. */}
-            {doc.poorScan ? (
+            {aiOn && doc.poorScan ? (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Badge variant="warning" className="shrink-0">

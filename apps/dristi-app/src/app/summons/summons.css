@@ -1,0 +1,163 @@
+/*
+ * The summons sheet (`components/summons/summons-document.tsx`). Carried over from v14.
+ *
+ * This is paper, not app UI, so it keeps its own print scales rather than the DS's:
+ *   type     t1 8.5pt · t2 10pt · body 12pt · t4 13.5pt · t5 16pt · t6 20pt
+ *   spacing  2mm · 4mm · 8mm · 12mm
+ * Declared exceptions, as in v14: the state-language line at 11pt Medium for optical
+ * parity with 12pt Latin, and the back page's body at 10pt / 1.45.
+ * Black on white in both app themes: a summons does not have a dark mode.
+ */
+
+@page {
+  size: A4;
+  margin: 0;
+}
+
+.summons {
+  --ink: #000;
+  --rule-soft: #666;
+  --link: #00337a;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8mm;
+  color: var(--ink);
+  font-family: "Noto Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 12pt;
+  line-height: 1.35;
+  hyphens: none;
+}
+
+.summons .sheet {
+  position: relative;
+  box-sizing: border-box;
+  width: 210mm;
+  min-height: 297mm;
+  padding: 14mm 15mm 16mm 15mm;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.12), 0 8px 24px rgb(0 0 0 / 0.08);
+}
+
+.summons *,
+.summons *::before,
+.summons *::after { box-sizing: border-box; }
+.summons table { border-collapse: collapse; width: 100%; }
+.summons td { vertical-align: top; padding: 0; }
+.summons p { margin: 0 0 4mm 0; }
+.summons p.last { margin-bottom: 0; }
+.summons a { color: var(--link); text-decoration: underline; }
+
+.summons .t1 { font-size: 8.5pt; }
+.summons .t2 { font-size: 10pt; line-height: 1.35; }
+.summons .t4 { font-size: 13.5pt; font-weight: 700; line-height: 1.2; }
+.summons .t5 { font-size: 16pt; font-weight: 700; line-height: 1.15; }
+.summons .s2 { height: 2mm; }
+.summons .s4 { height: 4mm; }
+.summons .pt2 { padding-top: 2mm; }
+.summons .right { text-align: right; }
+.summons .strong { font-weight: 700; }
+.summons .upper { text-transform: uppercase; }
+.summons .nowrap { white-space: nowrap; }
+
+.summons .caps { letter-spacing: 0.11em; text-transform: uppercase; line-height: 1.25; }
+/* 10pt, the t2 step: caps and bold read larger than their size, so the title sits well
+   under the 16pt court name and leads the 10pt form lines by weight alone (owner,
+   2026-10-12: 13.5pt, then 12pt, both still too large). */
+.summons .title { font-size: 10pt; font-weight: 700; letter-spacing: 0.08em; line-height: 1.3; white-space: nowrap; }
+.summons .label {
+  font-size: 8.5pt;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  line-height: 1.25;
+}
+
+.summons .rule-heavy { border-top: 1.6pt solid var(--ink); margin: 2mm 0 4mm 0; }
+.summons .rule-mid { border-top: 1pt solid var(--ink); margin: 2mm 0 4mm 0; }
+.summons .rule-thin { border-top: 0.75pt solid var(--rule-soft); margin: 2mm 0 4mm 0; }
+
+.summons .emblem {
+  width: 14mm;
+  height: 14mm;
+  border: 1pt solid var(--ink);
+  border-radius: 50%;
+  text-align: center;
+  font-size: 5.5pt;
+  letter-spacing: 0.06em;
+  padding-top: 5.2mm;
+  line-height: 1.1;
+}
+.summons .masthead {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.summons .masthead .title { margin-top: 4mm; }
+.summons .masthead .t2 { margin-top: 2mm; }
+.summons .masthead .courtname { display: flex; align-items: center; gap: 4mm; text-align: left; }
+.summons .masthead .emblem { flex: none; }
+.summons .turnarrow {
+  display: inline-block;
+  width: 1.1em;
+  height: 1.1em;
+  margin-left: 2mm;
+  vertical-align: -0.2em;
+  stroke-width: 2.75;
+}
+.summons .hearingbox { border: 1.5pt solid var(--ink); padding: 3.2mm 4mm 4mm 4mm; }
+.summons .qr { display: block; margin: 0 auto; }
+.summons .qrcap { font-size: 10pt; line-height: 1.3; text-align: center; }
+.summons .joincol { width: 84mm; border-left: 0.75pt solid var(--rule-soft); padding-left: 8mm; }
+/* The state's language: 11pt Medium reads at parity with 12pt Latin, and Medium keeps
+   its finer strokes through a photocopy. */
+.summons .vern { font-size: 11pt; font-weight: 500; line-height: 1.4; text-align: center; }
+
+.summons .rail { width: 11mm; }
+.summons .railnum { font-size: 20pt; font-weight: 700; line-height: 1; padding-top: 5.4mm; }
+.summons .bar { border-left: 3.5pt solid var(--ink); padding-left: 4mm; }
+.summons .codebox { border: 1.6pt solid var(--ink); padding: 2mm; text-align: center; }
+.summons .code { font-size: 20pt; font-weight: 700; letter-spacing: 0.16em; line-height: 1.1; }
+.summons .sigline {
+  font-size: 10pt;
+  border-top: 0.75pt solid var(--ink);
+  padding-top: 2mm;
+  text-align: center;
+}
+
+/* Inversion: the one contrast lever left in a single-colour document. */
+.summons .turnband { background: var(--ink); color: #fff; padding: 2mm 4mm; }
+.summons .turncap { font-size: 12pt; font-weight: 700; letter-spacing: 0.05em; }
+
+.summons .folio {
+  position: absolute;
+  right: 15mm;
+  bottom: 8mm;
+  font-size: 8.5pt;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+/* The back: 10pt at 1.45, with the option headings and the late-receipt warning kept
+   large so the scan path is unchanged. */
+.summons .back { font-size: 10pt; line-height: 1.45; }
+.summons .back .rule-thin,
+.summons .back .rule-mid { margin: 2mm 0; }
+.summons .back p { margin-bottom: 4mm; }
+.summons .back p.last { margin-bottom: 0; }
+.summons .back .t4 { font-size: 13.5pt; line-height: 1.2; }
+.summons .back .keep12 { font-size: 12pt; line-height: 1.4; }
+
+@media print {
+  html,
+  body { background: #fff !important; }
+  .summons-desk { padding: 0 !important; background: #fff !important; }
+  .summons-toolbar { display: none !important; }
+  .summons-fit { zoom: 1 !important; }
+  .summons { gap: 0; }
+  /* On paper a link is just the address: single-colour, no underline. */
+  .summons a { color: var(--ink); text-decoration: none; }
+  .summons .sheet { box-shadow: none; height: 297mm; min-height: 0; break-after: page; }
+  .summons .sheet:last-child { break-after: auto; }
+  .summons .turnband { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+}

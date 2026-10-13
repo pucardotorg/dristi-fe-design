@@ -89,7 +89,9 @@ function Actions({ locale, onBack, submitLabel, skip }: {
   );
 }
 
-export function RegistrationFlow({ locale, summoned, initialMobile = "", onFinish }: {
+export function RegistrationFlow({ locale, summoned, toSign = false, initialMobile = "", onFinish }: {
+  /** Arrived from a signing link: the success step sends them to sign, and says so. */
+  toSign?: boolean;
   locale: Locale;
   summoned: boolean;
   initialMobile?: string;
@@ -166,9 +168,9 @@ export function RegistrationFlow({ locale, summoned, initialMobile = "", onFinis
         <span className="flex size-14 items-center justify-center rounded-full bg-success-muted text-success-muted-foreground">
           <CheckCircle2Icon className="size-7" aria-hidden />
         </span>
-        <Heading title={pick(successStep.title, locale)} body={pick(successStep.body, locale)} />
+        <Heading title={pick(successStep.title, locale)} body={pick(toSign ? successStep.signBody : successStep.body, locale)} />
         <Button size="lg" onClick={() => onFinish ? onFinish({ idSkipped: true, profileIncomplete: true }) : setDestinationNotice(true)}>
-          {pick(summoned ? successStep.summonedAction : successStep.generalAction, locale)}
+          {pick(toSign ? successStep.signAction : summoned ? successStep.summonedAction : successStep.generalAction, locale)}
         </Button>
         {destinationNotice ? <Alert variant="info" className="text-left"><AlertTitle>Prototype: destination not connected</AlertTitle><AlertDescription>This action will open your portal home.</AlertDescription></Alert> : null}
       </div>

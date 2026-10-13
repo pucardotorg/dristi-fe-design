@@ -23,6 +23,11 @@ import { cn } from "@/lib/utils";
  * step back) still happens. A flow with real steps wires `useBackCloses` itself
  * to walk them and passes `ownBack`, as do the dialogs it chains into.
  *
+ * A click outside does not close it (owner, 2026-10-13): a misclick beside a
+ * half-done flow lost every step entered. Close, Escape and the phone's Back
+ * still do. A window that only shows something — a record, a document — passes
+ * `outsideCloses`.
+ *
  * Confirmations and notices are not workflows and stay on the plain content,
  * which turns them into bottom sheets on a phone.
  */
@@ -33,8 +38,12 @@ export function FlowDialogContent({
   ownBack = false,
   rise = false,
   sheet = false,
+  outsideCloses = false,
+  onInteractOutside,
   ...props
 }: React.ComponentProps<typeof ChromeDialogContent> & {
+  /** A viewer with nothing to lose: a click outside closes it, as a plain dialog. */
+  outsideCloses?: boolean;
   /** The flow handles the phone's Back itself. */
   ownBack?: boolean;
   /**
@@ -82,6 +91,10 @@ export function FlowDialogContent({
     <ChromeDialogContent
       className={cn(rise && !flow.phone && OVERLAY_RISE, className, surface)}
       style={{ ...style, ...(sheet ? bottomSheet.style : flow.style) }}
+      onInteractOutside={(event) => {
+        onInteractOutside?.(event);
+        if (!outsideCloses) event.preventDefault();
+      }}
       {...props}
     >
       {children}

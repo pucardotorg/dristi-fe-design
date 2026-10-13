@@ -79,7 +79,9 @@ import {
   bailDialog,
   fillCopy,
 } from "@/lib/filing/content";
-import { ADVOCATE_PROFILE_NAME } from "@/lib/advocate/content";
+import { ADVOCATE_PROFILE_NAME, advDialog } from "@/lib/advocate/content";
+import { newPaymentRef } from "@/lib/filing/data";
+import { GATEWAY_MS, PaymentProcessing, PaymentReceipt } from "@/components/payment/payment-steps";
 import { cn } from "@/lib/utils";
 import { Identifier } from "@/components/chrome/identifier";
 import { useCourtText } from "@/components/court/court-provider";
@@ -96,7 +98,15 @@ import { UploadedDocField as SharedUploadedDocField } from "@/components/cases/u
  * tasks, the same decision the join flow made for the vakalatnama fee.
  */
 
-type Stage = "details" | "sureties" | "review" | "sign" | "payment" | "done";
+type Stage =
+  | "details"
+  | "sureties"
+  | "review"
+  | "sign"
+  | "payment"
+  | "processing"
+  | "paid"
+  | "done";
 type YesNo = "yes" | "no";
 
 export type BailApplicationResult = {
@@ -441,6 +451,8 @@ export function BailApplicationDialog({
       onOpenChange(true);
       return;
     }
+    // The gateway is confirming; the window holds until it answers.
+    if (stage === "processing") return;
     if (entered) setDiscardOpen(true);
     else closeNow();
   }
@@ -457,6 +469,7 @@ export function BailApplicationDialog({
     else if (stage === "review") setStage("sureties");
     else if (stage === "sign") setStage("review");
     else if (stage === "payment") setStage("sign");
+    else if (stage === "paid") finish(true);
     else handleOpenChange(false);
   });
 
@@ -526,6 +539,23 @@ export function BailApplicationDialog({
     setStage("payment");
   }
 
+  /* Paying goes through the gateway and comes back with a receipt, as joining a case
+     and e-filing do (owner, 2026-10-12); the application is filed after it. */
+  const [paymentRef, setPaymentRef] = React.useState("");
+  const payTimerRef = React.useRef<number | null>(null);
+  React.useEffect(() => () => {
+    if (payTimerRef.current !== null) window.clearTimeout(payTimerRef.current);
+  }, []);
+
+  function pay() {
+    setStage("processing");
+    payTimerRef.current = window.setTimeout(() => {
+      payTimerRef.current = null;
+      setPaymentRef(newPaymentRef());
+      setStage("paid");
+    }, GATEWAY_MS);
+  }
+
   function finish(didPay: boolean) {
     setPaid(didPay);
     setStage("done");
@@ -545,7 +575,14 @@ export function BailApplicationDialog({
           ? { title: pick(bailDialog.reviewTitle, locale), body: pick(bailDialog.reviewBody, locale) }
           : stage === "sign"
             ? { title: pick(bailDialog.signTitle, locale), body: pick(bailDialog.signBody, locale) }
-            : { title: pick(bailDialog.payTitle, locale), body: pick(bailDialog.payBody, locale) };
+            : stage === "processing"
+              ? {
+                  title: pick(advDialog.payProcessingTitle, locale),
+                  body: pick(advDialog.payProcessingBody, locale),
+                }
+              : stage === "paid"
+                ? { title: pick(advDialog.paidTitle, locale), body: pick(bailDialog.paidBody, locale) }
+                : { title: pick(bailDialog.payTitle, locale), body: pick(bailDialog.payBody, locale) };
 
   // Each stage arrives scrolled to its top; without this the container keeps
   // the previous stage's scroll offset and the new stage opens mid-form.
@@ -560,7 +597,10 @@ export function BailApplicationDialog({
       <FlowDialogContent
         ownBack
         lang={locale}
-        className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
+        className={cn(
+          "flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl",
+          stage === "processing" && "[&_[data-slot=dialog-close]]:hidden",
+        )}
         onInteractOutside={(event) => event.preventDefault()}
       >
         {stage === "done" ? (
@@ -1302,9 +1342,26 @@ export function BailApplicationDialog({
             </div>
           ) : null}
 
+          {/* ---------------------------------------------- the gateway round trip */}
+          {stage === "processing" ? <PaymentProcessing /> : null}
+
+          {/* ------------------------------------------------------- receipt */}
+          {stage === "paid" ? (
+            <PaymentReceipt
+              amount={BAIL_FEE}
+              rows={[
+                { label: pick(advDialog.payFeeHead, locale), value: pick(bailDialog.feeLine, locale) },
+                {
+                  label: pick(advDialog.paidRef, locale),
+                  value: <Identifier value={paymentRef} label="payment reference" />,
+                },
+              ]}
+            />
+          ) : null}
+
           {/* ------------------------------------------------------ submitted */}
           {stage === "done" ? (
-            <div className="flex flex-col gap-5">
+            <div className="flex flex-col gap-4">
               <DescriptionList>
                 <DescriptionRow className="border-hairline">
                   <DescriptionTerm>{pick(bailDialog.submittedOn, locale)}</DescriptionTerm>
@@ -1353,7 +1410,12 @@ export function BailApplicationDialog({
         </div>
 
         {/* ------------------------------------------------------------ footer */}
-        <footer className="flex shrink-0 flex-col-reverse gap-2 border-t border-hairline bg-surface-sunken px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <footer
+          className={cn(
+            "flex shrink-0 flex-col-reverse gap-2 border-t border-hairline bg-surface-sunken px-6 py-4 sm:flex-row sm:items-center sm:justify-between",
+            stage === "processing" && "hidden",
+          )}
+        >
           {stage === "details" ? (
             <>
               <span aria-hidden className="hidden sm:block" />
@@ -1465,11 +1527,23 @@ export function BailApplicationDialog({
                 <Button type="button" variant="outline" onClick={() => finish(false)}>
                   {pick(bailDialog.payLater, locale)}
                 </Button>
-                <Button type="button" onClick={() => finish(true)}>
+                <Button type="button" onClick={pay}>
                   {fillCopy(bailDialog.payNow, locale, { fee: BAIL_FEE })}
                 </Button>
               </div>
             </>
+          ) : null}
+
+          {stage === "paid" ? (
+            <Button
+              type="button"
+              className="sm:ml-auto"
+              onClick={() => finish(true)}
+              data-icon="inline-end"
+            >
+              {pick(joinDialog.continue, locale)}
+              <ArrowRightIcon aria-hidden />
+            </Button>
           ) : null}
 
           {stage === "done" ? (

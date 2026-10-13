@@ -31,7 +31,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
-import { POLICE_STATIONS } from "@/lib/employee/case-people";
+import { useCourt } from "@/components/court/court-provider";
+import { policeStationsFor } from "@/lib/employee/case-people";
 import {
   channelsFor,
   formatStructuredAddress,
@@ -133,6 +134,7 @@ function OrderVariableDialogBody({
   onOpenChange: (open: boolean) => void;
   onConfirm: (variables: ProcessVariables) => void;
 }) {
+  const { court } = useCourt();
   const [draft, setDraft] = React.useState(variables);
   const complete = processVariablesComplete(draft);
   const blocker = blockerText(draft);
@@ -266,7 +268,7 @@ function OrderVariableDialogBody({
                                   className="w-full sm:w-64"
                                 >
                                   <NativeSelectOption value="">Choose a station</NativeSelectOption>
-                                  {POLICE_STATIONS.map((station) => (
+                                  {policeStationsFor(court).map((station) => (
                                     <NativeSelectOption key={station} value={station}>
                                       {station}
                                     </NativeSelectOption>

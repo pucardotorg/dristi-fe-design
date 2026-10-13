@@ -13,7 +13,8 @@ export const HISTORY: HistoryEvent[] = [
   {
     status: "past",
     title: "Routed to scrutiny",
-    meta: "4 Jul 2026 · Filer skipped an AI warning",
+    meta: "4 Jul 2026",
+    aiNote: "Filer skipped an AI warning",
   },
   { status: "past", title: "Scrutiny started", meta: "6 Jul 2026 · Biju B" },
   {
@@ -22,13 +23,13 @@ export const HISTORY: HistoryEvent[] = [
     meta: "7 Jul 2026 · Biju B",
     items: [
       {
-        ref: "q-amt",
+        ref: "q1-amt",
         what: "Cheque amount · flag",
         was: "₹52,05,000 → ₹50,25,000",
         status: "corrected 13 Jul",
       },
       {
-        ref: "c-name",
+        ref: "c1-name",
         what: "Complainant full name · flag",
         was: "Aadhaar address side uploaded",
         status: "answered 13 Jul",

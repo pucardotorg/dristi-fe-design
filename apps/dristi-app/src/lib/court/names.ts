@@ -58,7 +58,7 @@ const KERALA: Record<Kind, string[]> = {
     "Sreedhar", "Sajeev", "Sujith", "Sarath", "Krishnakumar", "Sudheesh", "Kunjumon",
     "Prabhakaran", "Bhaskaran", "Ramachandran",
   
-    "Shibu", "Byju", "Thejas", "Prakashan", "Hariharan", "Kochu",
+    "Shibu", "Byju", "Thejas", "Prakashan", "Hariharan", "Kochu", "Velayudhan",
   ],
   woman: [
     "Latha", "Bindu", "Shailaja", "Sreeja", "Bijini", "Salini", "Leena", "Leela",
@@ -128,31 +128,7 @@ const POOLS: Partial<Record<CourtId, Pools>> = {
       Chaithanya: "Chetna", Kairali: "Gurjari", Sree: "Shree", Highrange: "Girnar",
     },
   },
-  punjab: {
-    surname: [
-      "Sandhu", "Gill", "Dhillon", "Sidhu", "Brar", "Grewal", "Bajwa", "Randhawa",
-      "Malhotra", "Arora", "Kapoor", "Sethi", "Bedi", "Chawla", "Khanna", "Ahuja",
-      "Bhatia", "Sodhi", "Virk", "Cheema",
-    ],
-    christian: ["Masih", "Gill", "Sahotra", "Bhatti"],
-    man: [
-      "Gurpreet", "Harpreet", "Jaspreet", "Manpreet", "Amrinder", "Balwinder", "Kuldeep",
-      "Navjot", "Harjeet", "Rajinder", "Sukhwinder", "Paramjit", "Inderjit", "Baljit",
-      "Gurdeep", "Mandeep", "Ravinder", "Sarabjit", "Jagdeep", "Harbhajan",
-    ],
-    woman: [
-      "Simran", "Jasleen", "Harleen", "Navneet", "Rupinder", "Kulwant", "Amandeep",
-      "Gurleen", "Sukhpreet", "Manjit", "Parminder", "Rajwant",
-    ],
-    muslimMan: ["Mohammad", "Iqbal", "Mushtaq", "Nazir", "Rafiq", "Shamshad", "Anwar", "Jamil"],
-    muslimWoman: ["Nazia", "Shabnam", "Rubina", "Parveen", "Nusrat", "Kausar"],
-    suffix: "Kaur",
-    trade: {
-      Malabar: "Doaba", Travancore: "Majha", Vismaya: "Navjeevan",
-      Chaithanya: "Chetna", Kairali: "Punjab", Sree: "Shri", Highrange: "Shivalik",
-    },
-  },
-  haryana: {
+  "punjab-haryana": {
     surname: [
       "Yadav", "Malik", "Dahiya", "Hooda", "Sangwan", "Phogat", "Chaudhary", "Sheoran",
       "Rathee", "Dalal", "Ahlawat", "Kadian", "Beniwal", "Saini", "Jangra", "Goyal",

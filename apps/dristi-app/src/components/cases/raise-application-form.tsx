@@ -1,7 +1,7 @@
 "use client";
 
-import { useId, useMemo, useRef, useState } from "react";
-import { FilePenLineIcon, HourglassIcon, UsersIcon } from "lucide-react";
+import { useCallback, useId, useMemo, useRef, useState } from "react";
+import { FilePenLineIcon } from "lucide-react";
 
 import { AddSignatureDialog } from "@/components/cases/add-signature-dialog";
 import {
@@ -18,9 +18,7 @@ import {
   useDraftExit,
 } from "@/components/cases/filing-form-shared";
 import { GeneratedApplicationDialog } from "@/components/cases/generated-application-dialog";
-import { BailApplicationDialog } from "@/components/filing/bail-application-dialog";
 import { Identifier } from "@/components/chrome/identifier";
-import { useLocale } from "@/components/shell/locale";
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 import { useBackCloses, useFlowWindow } from "@/components/chrome/flow-window";
 import {
@@ -61,18 +59,22 @@ import {
   type ApplicationErrors,
 } from "@/lib/cases/application-draft";
 import {
-  isRaisedFromParties,
-  isUnbuiltApplicationType,
+  caseLitigants,
+  preselectedRaiser,
+  raisingOptions,
+} from "@/lib/cases/application-options";
+import {
   type ApplicationTypeId,
   type FilingStatus,
   type Submission,
 } from "@/lib/cases/applications";
-import { AddWitnessDialog } from "@/components/cases/add-witness-form";
+import { typeAvailable } from "@/lib/applications/lifecycle";
 import Link from "next/link";
 import { caseSectionHref } from "@/lib/cases/sections";
 import {
   objectionDeadline,
   resolveApplicationViewer,
+  type ApplicationViewer,
 } from "@/lib/cases/application-access";
 import {
   applicationsFile,
@@ -129,6 +131,8 @@ export function RaiseApplicationForm({
   backHref,
   objectTo,
   inPlace,
+  initialType,
+  filer,
 }: {
   record: CaseRecord;
   /** A saved draft reopened from the register; null starts a new filing. */
@@ -148,7 +152,21 @@ export function RaiseApplicationForm({
    * the dialog never changes (owner, Sept 24: "a dialog box shouldn't change
    * the page underneath").
    */
-  inPlace?: { onClose: () => void };
+  inPlace?: {
+    onClose: () => void;
+    /** The signing chain's last button, when it leads somewhere other than Done. */
+    done?: { label: string; onClick: () => void };
+  };
+  /**
+   * Opens straight on this type's fields, as a task that names the
+   * application does (the joined case's File bail application).
+   */
+  initialType?: ApplicationTypeId;
+  /**
+   * Who is filing, when the case is not one the profile can be found on —
+   * a case joined a moment ago that this browser has no file for yet.
+   */
+  filer?: ApplicationViewer;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const formId = useId();
@@ -160,13 +178,15 @@ export function RaiseApplicationForm({
   const seat = useMemo(() => {
     try {
       const file = applicationsFile(record);
-      const viewer = resolveApplicationViewer({
-        file,
-        profile: profileRole,
-        accountName,
-        isSignedInAdvocate: isViewer,
-        fallbackSide: viewerRepresentation(record)[0] ?? "complainant",
-      });
+      const viewer =
+        filer ??
+        resolveApplicationViewer({
+          file,
+          profile: profileRole,
+          accountName,
+          isSignedInAdvocate: isViewer,
+          fallbackSide: viewerRepresentation(record)[0] ?? "complainant",
+        });
       const self = viewer?.personId
         ? file.people.find((person) => person.id === viewer.personId)
         : undefined;
@@ -195,12 +215,21 @@ export function RaiseApplicationForm({
         partyId: undefined,
       };
     }
-  }, [record, profileRole, accountName]);
+  }, [record, profileRole, accountName, filer]);
   const filedForSide: ApplicationDraft["filedForSide"] = seat.side ?? "";
-  const handoffTo =
-    seat.role === "clerk" ? (seat.signer ?? "your advocate") : undefined;
   const canRaise =
     seat.role === "advocate" || seat.role === "pip" || seat.role === "clerk";
+  /* PRD "Every application": who can raise it, and for whom. */
+  const raising = useMemo(() => raisingOptions(record, seat), [record, seat]);
+  /* Each type's "Available when" (PRD "Application types"): bail for the
+     accused, condonation for the complainant, advance and postpone only
+     with a hearing scheduled. A type that cannot be filed is not offered. */
+  const hearingScheduled = Boolean(record.nextHearing);
+  const available = useCallback(
+    (type: ApplicationTypeId) =>
+      !seat.side || typeAvailable(type, { side: seat.side, hearingScheduled }),
+    [seat.side, hearingScheduled]
+  );
   /*
     A resumed draft arrives with its type already chosen, so it opens on the
     fields — asking someone to re-pick the type they picked yesterday is the
@@ -212,24 +241,52 @@ export function RaiseApplicationForm({
       ? applicationDraftFrom(resume)
       : objectTo
         ? { ...EMPTY_APPLICATION_DRAFT, type: "objection", objectionToId: objectTo }
-        : EMPTY_APPLICATION_DRAFT),
+        : initialType
+          ? { ...EMPTY_APPLICATION_DRAFT, type: initialType }
+          : EMPTY_APPLICATION_DRAFT),
     filedForSide,
   }));
+  /*
+    Raised by starts on the filer (or, for a clerk, their advocate), and
+    Litigant on the only one there is (PRD "Every application"). Read
+    through while the draft leaves them empty, rather than written in, so
+    they follow the profile as it settles after hydration and a choice the
+    filer made is never overwritten.
+  */
+  const raisedById =
+    draft.raisedById || preselectedRaiser(raising.raisedBy, seat);
+  const litigantChoices = raising.litigantsFor(raisedById);
+  const litigantId =
+    draft.litigantId ||
+    (litigantChoices.length === 1 ? litigantChoices[0].id : "");
+  const raisedByPerson = raising.raisedBy.find(
+    (person) => person.id === raisedById
+  );
   /* The side is read from who is filing at render time, not frozen into
      the draft, because the profile settles only after hydration. */
   const filedDraft = useMemo<ApplicationDraft>(
-    () => ({ ...draft, filedForSide }),
-    [draft, filedForSide]
+    () => ({ ...draft, filedForSide, raisedById, litigantId }),
+    [draft, filedForSide, raisedById, litigantId]
   );
-  /* Addition of witness has its own application flow (the Parties tab's),
-     which only needs the case; it opens over the chooser as bail does. */
-  const [witnessOpen, setWitnessOpen] = useState(false);
+  /* Only the person selected in Raised by signs (ALC-28). Anyone else —
+     a clerk, or an advocate raising it for a colleague — hands it to them. */
+  const handoffTo =
+    seat.role === "clerk" ||
+    (raisedByPerson && raisedByPerson.id !== seat.personId)
+      ? (raisedByPerson?.name ?? seat.signer ?? "your advocate")
+      : undefined;
+  /* Edit Litigant Details checks the fields of the side the edited
+     litigant is on. */
+  const editSide = caseLitigants(record).find(
+    (item) => item.id === draft.editLitigantId
+  )?.side;
+
   const [errors, setErrors] = useState<ApplicationErrors>(
     EMPTY_APPLICATION_ERRORS
   );
   /** Choosing the type is step one; its fields are step two. */
   const [stage, setStage] = useState<"type" | "details">(
-    (resume || objectTo) && draft.type ? "details" : "type"
+    (resume || objectTo || initialType) && draft.type ? "details" : "type"
   );
   const objecting = draft.type === "objection";
   /* The application an objection answers, for the dialog's header. */
@@ -264,19 +321,6 @@ export function RaiseApplicationForm({
   const [signatureOpen, setSignatureOpen] = useState(false);
   /** What the filer typed into the header search; it re-orders the cards. */
   const [query, setQuery] = useState("");
-  /*
-    Bail keeps its own staged dialog (petitioner, sureties, review, sign, pay):
-    it opens over the chooser rather than as a second page, and it is told the
-    type, so it never asks for one.
-  */
-  const { locale } = useLocale();
-  const [bailOpen, setBailOpen] = useState(false);
-  /* Some types are cards without a form yet: the details step shows a notice,
-     never the fields, and never a Generate button. */
-  const unbuilt = draft.type !== "" && isUnbuiltApplicationType(draft.type);
-  /* Edit litigant details and PoA change act on one party, chosen on the
-     Parties tab; the chooser lists them and points there. */
-  const elsewhere = draft.type !== "" && isRaisedFromParties(draft.type);
   const chosen = applicationTypeGuide(
     draft.type || "application-others"
   );
@@ -293,52 +337,31 @@ export function RaiseApplicationForm({
 
   const actions: FieldActions = {
     update(key, value) {
-      setDraft((current) => ({ ...current, [key]: value }));
+      setDraft((current) => {
+        const next = { ...current, [key]: value };
+        /* Litigant's options are the people Raised by represents, so they
+           refresh with it, landing on the only one when there is one. */
+        if (key === "raisedById") {
+          const litigants = raising.litigantsFor(value as string);
+          next.litigantId = litigants.some((item) => item.id === current.litigantId)
+            ? current.litigantId
+            : litigants.length === 1
+              ? litigants[0].id
+              : "";
+        }
+        return next;
+      });
       setErrors((current) => ({
-        ...current,
-        fields: { ...current.fields, [key]: undefined },
+        fields: Object.fromEntries(
+          Object.entries(current.fields).filter(
+            ([name]) => name !== key && !name.startsWith(`${String(key)}.`)
+          )
+        ),
       }));
     },
-    setFieldError(key, error) {
+    setError(key, error) {
       setErrors((current) => ({
-        ...current,
         fields: { ...current.fields, [key]: error },
-      }));
-    },
-    updateSurety(id, patch) {
-      setDraft((current) => ({
-        ...current,
-        sureties: current.sureties.map((surety) =>
-          surety.id === id ? { ...surety, ...patch } : surety
-        ),
-      }));
-      setErrors((current) => clearRow(current, "sureties", id));
-    },
-    setSuretyError(id, field, error) {
-      setErrors((current) => ({
-        ...current,
-        sureties: {
-          ...current.sureties,
-          [id]: { ...current.sureties[id], [field]: error },
-        },
-      }));
-    },
-    updateRow(listKey, id, patch) {
-      setDraft((current) => ({
-        ...current,
-        [listKey]: current[listKey].map((row) =>
-          row.id === id ? { ...row, ...patch } : row
-        ),
-      }));
-      setErrors((current) => clearRow(current, "documentRows", id));
-    },
-    setRowError(id, field, error) {
-      setErrors((current) => ({
-        ...current,
-        documentRows: {
-          ...current.documentRows,
-          [id]: { ...current.documentRows[id], [field]: error },
-        },
       }));
     },
   };
@@ -352,14 +375,6 @@ export function RaiseApplicationForm({
    * cost the work you did in the first.
    */
   function chooseType(type: ApplicationTypeId) {
-    if (type === "bail") {
-      setBailOpen(true);
-      return;
-    }
-    if (type === "addition-of-witness") {
-      setWitnessOpen(true);
-      return;
-    }
     actions.update("type", type);
     setStage("details");
   }
@@ -367,7 +382,7 @@ export function RaiseApplicationForm({
   /** The generated document only opens on a clean form — errors surface in place first. */
   function generate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const nextErrors = validateApplication(draft);
+    const nextErrors = validateApplication(filedDraft, { editSide });
     setErrors(nextErrors);
     if (hasApplicationErrors(nextErrors)) {
       focusFirstInvalid(formRef.current);
@@ -422,11 +437,12 @@ export function RaiseApplicationForm({
           draft.type === "application-others" && draft.title.trim()
             ? draft.title.trim()
             : submissionTypeLabel(draft.type),
-        request: draftRequestText(draft),
+        request: draftRequestText(filedDraft),
         objectionToId: draft.objectionToId || null,
         createdById: resume?.createdById ?? seat.personId,
-        submittedById: resume?.submittedById ?? seat.signerId,
-        onBehalfOfId: resume?.onBehalfOfId ?? seat.partyId ?? seat.personId,
+        submittedById: raisedById || (resume?.submittedById ?? seat.signerId),
+        onBehalfOfId:
+          litigantId || (resume?.onBehalfOfId ?? seat.partyId ?? seat.personId),
         addedOn: resume?.addedOn ?? new Date().toISOString(),
         status: paid
           ? objecting
@@ -452,7 +468,12 @@ export function RaiseApplicationForm({
       router.push(caseHref);
       return;
     }
-    setDraft({ ...EMPTY_APPLICATION_DRAFT, filedForSide });
+    setDraft({
+      ...EMPTY_APPLICATION_DRAFT,
+      filedForSide,
+      raisedById: draft.raisedById,
+      litigantId: draft.litigantId,
+    });
     setErrors(EMPTY_APPLICATION_ERRORS);
     setStage("type");
   }
@@ -589,6 +610,7 @@ export function RaiseApplicationForm({
           )}
           stageName={stageLabel(record.stage)}
           onChoose={chooseType}
+          available={available}
         />
       </div>
       )}
@@ -634,70 +656,30 @@ export function RaiseApplicationForm({
             </p>
           </DialogHeader>
 
-          {elsewhere ? (
-            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-              <Empty>
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <UsersIcon aria-hidden />
-                  </EmptyMedia>
-                  <EmptyTitle>Raised from the Parties tab</EmptyTitle>
-                  <EmptyDescription>
-                    {draft.type === "poa-change"
-                      ? "Open Parties, choose the litigant, and change their power of attorney holder there."
-                      : "Open Parties, choose the litigant, and edit their details there."}
-                  </EmptyDescription>
-                </EmptyHeader>
-                <Button asChild>
-                  <Link href={caseSectionHref(record.id, "parties")}>
-                    Go to Parties
-                  </Link>
-                </Button>
-              </Empty>
-            </div>
-          ) : unbuilt ? (
-            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-              <Empty>
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <HourglassIcon aria-hidden />
-                  </EmptyMedia>
-                  <EmptyTitle>This application type is coming later</EmptyTitle>
-                  <EmptyDescription>
-                    Close this and pick a type you can file now.
-                  </EmptyDescription>
-                </EmptyHeader>
-              </Empty>
-            </div>
-          ) : (
-            <form
-              id={formId}
-              ref={formRef}
-              noValidate
-              onSubmit={generate}
-              className="min-h-0 flex-1 overflow-y-auto px-6 py-6"
-            >
-              <ApplicationTypeFields
-                draft={draft}
-                errors={errors}
-                record={record}
-                actions={actions}
-                filedFor={
-                  filedForSide ? record.parties[filedForSide] : undefined
-                }
-              />
-            </form>
-          )}
+          <form
+            id={formId}
+            ref={formRef}
+            noValidate
+            onSubmit={generate}
+            className="min-h-0 flex-1 overflow-y-auto px-6 py-6"
+          >
+            <ApplicationTypeFields
+              draft={filedDraft}
+              errors={errors}
+              record={record}
+              actions={actions}
+              raisedByOptions={raising.raisedBy}
+              litigantOptions={litigantChoices}
+            />
+          </form>
 
           <footer className="flex shrink-0 flex-col-reverse gap-2 border-t border-hairline bg-surface-sunken px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
             <Button type="button" variant="outline" onClick={requestCloseForm}>
-              {unbuilt || elsewhere ? "Close" : "Cancel"}
+              Cancel
             </Button>
-            {unbuilt || elsewhere ? null : (
-              <Button type="submit" form={formId}>
-                {objecting ? "Generate objection" : "Generate application"}
-              </Button>
-            )}
+            <Button type="submit" form={formId}>
+              {objecting ? "Generate objection" : "Generate application"}
+            </Button>
           </footer>
         </FlowDialogContent>
       </Dialog>
@@ -736,6 +718,7 @@ export function RaiseApplicationForm({
         }}
         onReturnFocus={returnFocusToGenerate}
         handoffTo={handoffTo}
+        done={inPlace?.done}
         objection={
           objecting && objectionTarget
             ? {
@@ -745,30 +728,6 @@ export function RaiseApplicationForm({
               }
             : undefined
         }
-      />
-
-      <BailApplicationDialog
-        open={bailOpen}
-        // Closing, filed or not, stays on the chooser like every other type.
-        onOpenChange={setBailOpen}
-        accessCase={{
-          id: record.id,
-          title: partiesLabel(record),
-          caseNumber: record.caseNumber,
-          court: record.court,
-          nextHearing: record.nextHearing?.on ?? "",
-        }}
-        locale={locale}
-      />
-
-      <AddWitnessDialog
-        open={witnessOpen}
-        onOpenChange={setWitnessOpen}
-        caseRef={{
-          title: partiesLabel(record),
-          caseNumber: record.caseNumber,
-          court: record.court,
-        }}
       />
 
       <DiscardFilingDialog
@@ -809,14 +768,3 @@ export function RaiseApplicationEntry({
     />
   );
 }
-
-function clearRow(
-  errors: ApplicationErrors,
-  bucket: "sureties" | "documentRows",
-  id: string
-): ApplicationErrors {
-  const next = { ...errors[bucket] };
-  delete next[id];
-  return { ...errors, [bucket]: next };
-}
-

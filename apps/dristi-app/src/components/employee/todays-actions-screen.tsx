@@ -17,6 +17,7 @@ import {
   courtNavClubbedTotal,
   type CourtNavItem,
 } from "@/lib/employee/navigation";
+import { useCourt } from "@/components/court/court-provider";
 
 const NEVER_CHANGES = () => () => {};
 const readToday = () => isoDay(new Date());
@@ -34,8 +35,9 @@ const readToday = () => isoDay(new Date());
  */
 export function TodaysActionsScreen() {
   const today = React.useSyncExternalStore(NEVER_CHANGES, readToday, readToday);
-  const items = courtNavClubbed("actions");
-  const total = courtNavClubbedTotal("actions");
+  const { court } = useCourt();
+  const items = courtNavClubbed("actions", court);
+  const total = courtNavClubbedTotal("actions", court);
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-8 p-6 md:p-8">

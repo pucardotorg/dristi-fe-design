@@ -25,10 +25,13 @@ import { useScrutinyCase } from "@/components/employee/scrutiny/scrutiny-case-co
 export function HistorySheet({
   open,
   onOpenChange,
+  aiOn,
   onGoToItem,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Without AI, an event's AI-only part (`aiNote`) is left off its line. */
+  aiOn: boolean;
   onGoToItem: (fieldId: string) => void;
 }) {
   const { history, historySummary } = useScrutinyCase();
@@ -56,7 +59,11 @@ export function HistorySheet({
                 key={`${event.title}-${i}`}
                 status={event.status}
                 title={event.title}
-                description={event.meta}
+                description={
+                  aiOn && event.aiNote
+                    ? `${event.meta} · ${event.aiNote}`
+                    : event.meta
+                }
               >
                 {event.items ? (
                   <div className="mt-2 flex flex-col gap-0.5">

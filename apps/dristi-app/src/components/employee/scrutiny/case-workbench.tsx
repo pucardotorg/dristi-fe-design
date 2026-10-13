@@ -10,6 +10,7 @@ import {
 
 import { useRoomInRem } from "@/hooks/use-min-width";
 import { nextFilingAfter } from "@/lib/employee/scrutiny/queue";
+import type { AiMode } from "@/lib/court/profiles";
 import type { Rect, ScrutinyCase } from "@/lib/employee/scrutiny/types";
 import { useScrutinyState } from "@/lib/employee/scrutiny/use-scrutiny-state";
 import { ScrutinyCaseProvider } from "@/components/employee/scrutiny/scrutiny-case-context";
@@ -51,6 +52,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useCourt, useCourtText } from "@/components/court/court-provider";
 
 /**
  * The case review: filed fields on the left, the bundle in the centre, the document
@@ -74,12 +76,13 @@ import {
  */
 export function CaseWorkbench({
   caseData,
-  aiOn = true,
+  ai = "on",
 }: {
   caseData: ScrutinyCase;
-  /** With AI off the workbench still works; it just stops asserting readings. */
-  aiOn?: boolean;
+  /** Without AI the workbench still works; it just stops asserting readings (`AiMode`). */
+  ai?: AiMode;
 }) {
+  const aiOn = ai === "on";
   const arrival = useArrival();
 
   /*
@@ -124,10 +127,13 @@ export function CaseWorkbench({
 
   // The case title is the officer's to correct (a mis-spelt party name is exactly the
   // kind of thing scrutiny exists to catch). Local until a case service owns it.
-  const [title, setTitle] = React.useState({
-    complainant: party.complainant,
-    accused: party.accused,
-  });
+  // The editable title starts as the heading shows it (Settings' court switch).
+  const courtText = useCourtText();
+  const { profile } = useCourt();
+  const [title, setTitle] = React.useState(() => ({
+    complainant: courtText(party.complainant),
+    accused: courtText(party.accused),
+  }));
   const [editingTitle, setEditingTitle] = React.useState(false);
 
   const goToDoc = React.useCallback(
@@ -322,7 +328,7 @@ export function CaseWorkbench({
       </div>
 
       {/* A standing condition, not feedback on an action → Banner. */}
-      {aiOn ? null : (
+      {ai === "unavailable" ? (
         <Banner variant="warning">
           <TriangleAlertIcon />
           <div className="min-w-0 flex-1 leading-snug">
@@ -330,7 +336,7 @@ export function CaseWorkbench({
             on this file.
           </div>
         </Banner>
-      )}
+      ) : null}
 
       {threePane ? (
         /* The floors are in `rem`, not percentages: a percentage floor is a floor on
@@ -365,6 +371,7 @@ export function CaseWorkbench({
           <ResizablePanel defaultSize="14%" minSize="10rem" maxSize="20rem">
             <IndexRail
               relatedDocId={aiOn ? relatedDocId : null}
+              aiOn={aiOn}
               onGoToDoc={goToDoc}
             />
           </ResizablePanel>
@@ -413,12 +420,20 @@ export function CaseWorkbench({
             Send back to advocate
           </Button>
         ) : null}
-        <Button onClick={() => setDecision("register")}>Register case</Button>
+        {/* Forward or Register, by who registers in this state (`SCR-06`, `SCR-11`). */}
+        {profile.registrationPoint === "magistrate" ? (
+          <Button onClick={() => setDecision("forward")}>
+            Forward to magistrate
+          </Button>
+        ) : (
+          <Button onClick={() => setDecision("register")}>Register case</Button>
+        )}
       </div>
 
       <HistorySheet
         open={historyOpen}
         onOpenChange={setHistoryOpen}
+        aiOn={aiOn}
         onGoToItem={goToItem}
       />
       {/* The index, as a detour, only where there is no room for it as a column. */}
@@ -427,6 +442,7 @@ export function CaseWorkbench({
           open={indexOpen}
           onOpenChange={setIndexOpen}
           relatedDocId={aiOn ? relatedDocId : null}
+          aiOn={aiOn}
           onGoToDoc={(docId) => {
             setIndexOpen(false);
             showDoc(docId);

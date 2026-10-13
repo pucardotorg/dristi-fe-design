@@ -9,6 +9,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { useCourt } from "@/components/court/court-provider";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -49,6 +50,8 @@ type StepProps = {
 
 export function PapersStep({ locale, caseSummary }: StepProps) {
   const [notMeOpen, setNotMeOpen] = React.useState(false);
+  // The summons the person was sent, as their state's court wrote it (`/summons`).
+  const { court } = useCourt();
   const hasCase = Boolean(caseSummary && Object.keys(caseSummary).length > 0);
 
   return (
@@ -64,7 +67,7 @@ export function PapersStep({ locale, caseSummary }: StepProps) {
         </div>
         <div className="flex flex-col items-start lg:items-end">
           <Button asChild variant="outline">
-            <a href="/Summons_v14.pdf" target="_blank" rel="noreferrer">
+            <a href={`/summons?court=${court}`} target="_blank" rel="noreferrer">
               {pick(papers.originalSummons, locale)}
               <ExternalLinkIcon data-icon="inline-end" aria-hidden />
             </a>

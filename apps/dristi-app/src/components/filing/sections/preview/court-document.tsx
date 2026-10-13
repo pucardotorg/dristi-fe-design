@@ -22,7 +22,6 @@ import {
   advocateSummaries,
   chequeSummaries,
   complainantSummary,
-  complaintYear,
   documentSummary,
   finalReliefSummary,
   htmlToParagraphs,
@@ -140,9 +139,8 @@ export function CourtDocument({ draft }: { draft: FilingDraft }) {
         <p className="text-caption font-medium tracking-wide text-paper-muted-foreground">
           In the {courtText(COURT.name)}
         </p>
-        <p className="text-body-compact font-semibold tabular-nums">
-          {courtText("Criminal Complaint (CMP) No.")} ______ of {complaintYear(draft)}
-        </p>
+        {/* No registration-number line: a draft has no number until registration, in
+            any state (owner, 2026-10-09). */}
       </div>
 
       {/* Parties — age is printed only when it was collected. */}

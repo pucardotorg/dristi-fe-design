@@ -54,20 +54,6 @@ const GUJARAT = zip([
   "Anjar", "Wankaner",
 ]);
 
-const PUNJAB = zip([
-  "Ludhiana", "Sarabha Nagar", "Model Town", "Ghumar Mandi",
-  "Khanna", "Jagraon", "Samrala", "Raikot", "Doraha", "Payal",
-  "Phagwara", "Nakodar", "Phillaur", "Banga", "Garhshankar", "Mukerian",
-  "Chandigarh", "Chandigarh", "Jalandhar", "Amritsar", "Amritsar", "Kapurthala",
-  "Patiala", "Patiala", "Bathinda", "Hoshiarpur", "Mohali", "Rupnagar", "Moga",
-  "Firozpur", "Firozpur", "Pathankot", "Sangrur", "Barnala", "Faridkot", "Muktsar",
-  "Fazilka", "Abohar", "Malerkotla", "Mansa", "Gurdaspur", "Batala",
-  "Tarn Taran", "Nawanshahr", "Fatehgarh Sahib", "Rajpura", "Zirakpur", "Kharar",
-  "Samana", "Nabha", "Sunam", "Dhuri", "Dasuya", "Kartarpur",
-  "Sultanpur Lodhi", "Ajnala", "Kotkapura", "Malout", "Gidderbaha",
-  "Zira", "Budhlada",
-]);
-
 const HARYANA = zip([
   "Panchkula", "Sector 5", "Sector 9", "Sector 15",
   "Kalka", "Pinjore", "Barwala", "Raipur Rani", "Naraingarh", "Morni",
@@ -123,14 +109,7 @@ const LOCALITY_POOL: Partial<Record<CourtId, string[]>> = {
     "Ambawadi", "Thaltej", "Bodakdev", "Gota", "Sola", "Ranip", "Memnagar", "Shahibaug",
     "Jamalpur", "Kalupur", "Juhapura", "Sarkhej", "Narol", "Vastral", "Ramol",
   ],
-  punjab: [
-    "Civil Lines", "Dugri", "Haibowal", "BRS Nagar", "Kitchlu Nagar", "Shimlapuri",
-    "Salem Tabri", "Gill Road", "Field Ganj", "Chaura Bazaar", "Daresi", "Focal Point",
-    "Giaspura", "Lohara", "Basti Jodhewal", "Rajguru Nagar", "Pakhowal", "Ayali Kalan",
-    "Mullanpur Dakha", "Sahnewal", "Machhiwara", "Maloud", "Sudhar", "Halwara", "Ladhowal",
-    "Koom Kalan", "Dehlon", "Threeke", "Jhande", "Bhamian",
-  ],
-  haryana: [
+  "punjab-haryana": [
     "Sector 2", "Sector 4", "Sector 6", "Sector 7", "Sector 8", "Sector 10", "Sector 11",
     "Sector 12", "Sector 14", "Sector 16", "Sector 17", "Sector 19", "Sector 20",
     "Sector 21", "Sector 25", "Sector 26", "Sector 28", "Mansa Devi Complex", "Surajpur",
@@ -153,8 +132,7 @@ export const PLACES: Partial<Record<CourtId, Places>> = Object.fromEntries(
   (
     [
       ["gujarat", GUJARAT],
-      ["punjab", PUNJAB],
-      ["haryana", HARYANA],
+      ["punjab-haryana", HARYANA],
     ] as const
   ).map(([court, named]) => [
     court,
@@ -188,42 +166,40 @@ export const KERALA_PLACE_PATTERN = new RegExp(
 /** The state's court language, where the fixtures name Kerala's. */
 export const COURT_LANGUAGE: Partial<Record<CourtId, string>> = {
   gujarat: "Gujarati",
-  punjab: "Punjabi",
-  haryana: "Hindi",
+  "punjab-haryana": "Hindi",
 };
 
 /** PIN codes begin with the postal circle: Kerala's 67–69 becomes the state's own. */
 export const PIN_PREFIX: Partial<Record<CourtId, string>> = {
   gujarat: "38",
-  punjab: "14",
-  haryana: "13",
-};
-
-/** Bar Council enrolment prefixes, long and short form. */
-export const BAR_PREFIX: Partial<Record<CourtId, { long: string; short: string }>> = {
-  gujarat: { long: "GJ", short: "G" },
-  punjab: { long: "PB", short: "P" },
-  haryana: { long: "HR", short: "P" },
+  "punjab-haryana": "13",
 };
 
 /**
+ * Bar Council enrolment prefixes — one per state, whichever form the Kerala data wrote
+ * (owner, 2026-10-12): Kerala's own `K` stays as it is, Gujarat takes `G`, and Punjab and
+ * Haryana, which share the Bar Council of Punjab and Haryana, take `P`.
+ */
+export const BAR_PREFIX: Partial<Record<CourtId, { long: string; short: string }>> = {
+  gujarat: { long: "G", short: "G" },
+  "punjab-haryana": { long: "P", short: "P" },
+};/**
  * The approvals queue's names in Malayalam script — the screen's own test of a name in a
  * second script (`approve-registrations.ts`). Each state shows the same people in its
  * own court script, so the case the screen was built to survive still exists there.
  */
 export const SCRIPT_NAMES: Record<string, Partial<Record<CourtId, string>>> = {
-  "അനിൽകുമാർ പി. നായർ": { gujarat: "અનિલકુમાર પી. નાયર", punjab: "ਅਨਿਲਕੁਮਾਰ ਪੀ. ਨਾਇਰ", haryana: "अनिलकुमार पी. नायर" },
-  "മീര സുധാകരൻ": { gujarat: "મીરા સુધાકરન", punjab: "ਮੀਰਾ ਸੁਧਾਕਰਨ", haryana: "मीरा सुधाकरन" },
-  "ഷൈലജ രാമകൃഷ്ണൻ": { gujarat: "શૈલજા રામકૃષ્ણન", punjab: "ਸ਼ੈਲਜਾ ਰਾਮਕ੍ਰਿਸ਼ਨਨ", haryana: "शैलजा रामकृष्णन" },
-  "സുമ ബാലകൃഷ്ണൻ": { gujarat: "સુમા બાલકૃષ્ણન", punjab: "ਸੁਮਾ ਬਾਲਕ੍ਰਿਸ਼ਨਨ", haryana: "सुमा बालकृष्णन" },
-  "ജോസഫ് മാത്യു": { gujarat: "જોસેફ મેથ્યુ", punjab: "ਜੋਸਫ਼ ਮੈਥਿਊ", haryana: "जोसेफ मैथ्यू" },
+  "അനിൽകുമാർ പി. നായർ": { gujarat: "અનિલકુમાર પી. નાયર", "punjab-haryana": "अनिलकुमार पी. नायर" },
+  "മീര സുധാകരൻ": { gujarat: "મીરા સુધાકરન", "punjab-haryana": "मीरा सुधाकरन" },
+  "ഷൈലജ രാമകൃഷ്ണൻ": { gujarat: "શૈલજા રામકૃષ્ણન", "punjab-haryana": "शैलजा रामकृष्णन" },
+  "സുമ ബാലകൃഷ്ണൻ": { gujarat: "સુમા બાલકૃષ્ણન", "punjab-haryana": "सुमा बालकृष्णन" },
+  "ജോസഫ് മാത്യു": { gujarat: "જોસેફ મેથ્યુ", "punjab-haryana": "जोसेफ मैथ्यू" },
 };
 
 /** The `lang` code for that script, where the data marks a name as Malayalam (`ml`). */
 export const SCRIPT_LANG: Partial<Record<CourtId, string>> = {
   gujarat: "gu",
-  punjab: "pa",
-  haryana: "hi",
+  "punjab-haryana": "hi",
 };
 
 /**
@@ -231,23 +207,22 @@ export const SCRIPT_LANG: Partial<Record<CourtId, string>> = {
  * Malayalam as the towns around them, so each state has its own in their place.
  */
 export const HOUSE_NAMES: Record<string, Partial<Record<CourtId, string>>> = {
-  Sreenilayam: { gujarat: "Shanti Kunj", punjab: "Kirpa Niwas", haryana: "Sukh Niwas" },
-  Puthenveedu: { gujarat: "Krishna Kunj", punjab: "Guru Kripa", haryana: "Hari Om Bhawan" },
-  Ayathil: { gujarat: "Gokul Dham", punjab: "Sukh Sadan", haryana: "Radhe Niwas" },
-  Vadakkethil: { gujarat: "Sai Krupa", punjab: "Preet Niwas", haryana: "Jai Bhawan" },
-  Thekkethil: { gujarat: "Shiv Shakti", punjab: "Shanti Bhawan", haryana: "Gopal Sadan" },
-  Nedumkandathil: { gujarat: "Narmada Niwas", punjab: "Satnam Villa", haryana: "Shiv Kripa" },
-  Muttathil: { gujarat: "Ambika Sadan", punjab: "Jot Niwas", haryana: "Prem Niwas" },
-  Kizhakkethil: { gujarat: "Om Villa", punjab: "Waheguru Niwas", haryana: "Shanti Kunj" },
-  Kadavil: { gujarat: "Nandanvan", punjab: "Kartar Niwas", haryana: "Ram Niwas" },
-  Anugraha: { gujarat: "Krupa", punjab: "Kirpa", haryana: "Kripa" },
+  Sreenilayam: { gujarat: "Shanti Kunj", "punjab-haryana": "Sukh Niwas" },
+  Puthenveedu: { gujarat: "Krishna Kunj", "punjab-haryana": "Hari Om Bhawan" },
+  Ayathil: { gujarat: "Gokul Dham", "punjab-haryana": "Radhe Niwas" },
+  Vadakkethil: { gujarat: "Sai Krupa", "punjab-haryana": "Jai Bhawan" },
+  Thekkethil: { gujarat: "Shiv Shakti", "punjab-haryana": "Gopal Sadan" },
+  Nedumkandathil: { gujarat: "Narmada Niwas", "punjab-haryana": "Shiv Kripa" },
+  Muttathil: { gujarat: "Ambika Sadan", "punjab-haryana": "Prem Niwas" },
+  Kizhakkethil: { gujarat: "Om Villa", "punjab-haryana": "Shanti Kunj" },
+  Kadavil: { gujarat: "Nandanvan", "punjab-haryana": "Ram Niwas" },
+  Anugraha: { gujarat: "Krupa", "punjab-haryana": "Kripa" },
 };
 
 /** The state's two-letter code, where an identifier carries Kerala's "KL". */
 export const STATE_CODE: Partial<Record<CourtId, string>> = {
   gujarat: "GJ",
-  punjab: "PB",
-  haryana: "HR",
+  "punjab-haryana": "HR",
 };
 
 /**
@@ -256,8 +231,7 @@ export const STATE_CODE: Partial<Record<CourtId, string>> = {
  */
 const DISTRICT_CODE: Partial<Record<CourtId, Record<string, string>>> = {
   gujarat: { KL: "AH", KM: "AH", EK: "SR", TV: "GN", GB: "GB" },
-  punjab: { KL: "LD", KM: "LD", EK: "JL", TV: "MH", GB: "GB" },
-  haryana: { KL: "PK", KM: "PK", EK: "GG", TV: "AM", GB: "GB" },
+  "punjab-haryana": { KL: "PK", KM: "PK", EK: "GG", TV: "AM", GB: "GB" },
 };
 
 export function districtCode(court: CourtId, kerala: string): string {
