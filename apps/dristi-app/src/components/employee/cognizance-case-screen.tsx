@@ -347,7 +347,9 @@ function CaseBody({ matter }: { matter: CognizanceCase }) {
             The frame keeps this bar pinned while the reading and the documents scroll
             inside. */}
         <div className="shrink-0 border-b border-hairline bg-muted px-6 md:px-8 dark:bg-background">
-          <div className="flex h-14 items-center justify-between gap-4">
+          {/* 16px above and below the 40px buttons — at h-14 they had 8, and the bar read
+              cramped against the title (owner, 2026-10-13). */}
+          <div className="flex items-center justify-between gap-4 py-4">
             <h1 className="min-w-0 truncate font-semibold text-title-s">
               {causeTitle(matter)}
             </h1>
