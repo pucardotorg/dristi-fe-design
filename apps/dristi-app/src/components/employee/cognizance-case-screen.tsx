@@ -357,18 +357,21 @@ function CaseBody({ matter }: { matter: CognizanceCase }) {
                 items in words; a list of item names is a worse version of the order
                 itself, which is one click away and editable. */}
             <div className="flex shrink-0 items-center gap-3">
+              {/* View case sits on the case summary in Gujarat (owner, 2026-10-13). */}
               {/* PRD §6: View case opens the full case file and changes nothing on the
                   case. Quiet and apart from the two acts, and in a tab of its own so this
                   screen stays exactly where the magistrate left it (owner, 2026-10-13).
                   The case view is the advocate's, read as the court
                   (`components/cases/case-detail.tsx`). */}
-              <Button asChild variant="ghost" size="sm" className="text-muted-foreground">
-                <a href={`/employee/cases/${matter.id}`} target="_blank" rel="noopener">
-                  View case
-                  <span className="sr-only"> (opens in a new tab)</span>
-                  <ExternalLinkIcon data-icon="inline-end" aria-hidden />
-                </a>
-              </Button>
+              {caseTypeSplit ? null : (
+                <Button asChild variant="ghost" size="sm" className="text-muted-foreground">
+                  <a href={`/employee/cases/${matter.id}`} target="_blank" rel="noopener">
+                    View case
+                    <span className="sr-only"> (opens in a new tab)</span>
+                    <ExternalLinkIcon data-icon="inline-end" aria-hidden />
+                  </a>
+                </Button>
+              )}
               {/* The alternatives quiet, Dismiss outermost; the recommendation is the
                   one filled button, last, where the eye ends (owner, 2026-10-13). */}
               {[...alternatives].reverse().map((act) => (
@@ -411,7 +414,7 @@ function CaseBody({ matter }: { matter: CognizanceCase }) {
               rather than overflow and scroll (owner, 2026-09-16). Held at their own height,
               they overflow and the column scrolls. */}
           <div className="flex min-w-0 flex-col gap-6 px-6 pt-6 pb-8 md:px-8 md:pt-8 xl:pointer-fine:min-h-0 xl:pointer-fine:flex-1 xl:pointer-fine:overflow-y-auto [&>*]:shrink-0">
-            <CaseSummaryPanel matter={matter} />
+            <CaseSummaryPanel matter={matter} viewCase={caseTypeSplit} />
             <CaseFactsPanel
               chunks={chunks}
               findings={findings}
@@ -467,7 +470,14 @@ function CaseBody({ matter }: { matter: CognizanceCase }) {
  * assigned. The post-cognizance `ST/…` number is not shown — it does not exist until this
  * very act is taken.
  */
-function CaseSummaryPanel({ matter }: { matter: CognizanceCase }) {
+function CaseSummaryPanel({
+  matter,
+  viewCase = false,
+}: {
+  matter: CognizanceCase;
+  /** Carry View case on the summary's own heading, off the decision bar. */
+  viewCase?: boolean;
+}) {
   /* All three are registry identifiers, so all three take the identifier treatment. */
   const cells = [
     { label: "Case number", value: matter.caseNumber, idLabel: "case number" },
@@ -476,9 +486,23 @@ function CaseSummaryPanel({ matter }: { matter: CognizanceCase }) {
   ];
   return (
     <section aria-labelledby="case-summary" className="flex min-w-0 flex-col gap-3">
-      <h2 id="case-summary" className={EYEBROW}>
-        Case summary
-      </h2>
+      <div className="flex min-h-5 items-center justify-between gap-3">
+        <h2 id="case-summary" className={EYEBROW}>
+          Case summary
+        </h2>
+        {/* The case's identity is what View case opens in full, so it rides here rather
+            than among the acts on the bar — a plain tertiary button, still opening the
+            case in a tab of its own (owner, 2026-10-13). */}
+        {viewCase ? (
+          <Button asChild variant="ghost" className="-my-2.5">
+            <a href={`/employee/cases/${matter.id}`} target="_blank" rel="noopener">
+              View case
+              <span className="sr-only"> (opens in a new tab)</span>
+              <ExternalLinkIcon data-icon="inline-end" aria-hidden />
+            </a>
+          </Button>
+        ) : null}
+      </div>
       <Card className={cn(SHEET, "@container")}>
         <dl className="grid gap-px bg-hairline @md:grid-cols-3">
           {cells.map((cell) => (
