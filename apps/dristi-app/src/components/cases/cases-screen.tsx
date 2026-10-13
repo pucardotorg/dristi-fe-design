@@ -5,7 +5,7 @@ import { Separator } from "@/components/ui/separator";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   BookmarkIcon,
   FileSearchIcon,
@@ -202,6 +202,29 @@ export function CasesScreen({
     }
     setJoinOpen(true);
   }
+
+  /* The rail's Join a case lands here with `?join=1`: open the same journey the
+     header button does, then drop the flag so the rail can open it again. */
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const joinRequested = searchParams.get("join") === "1";
+  const [joinSeen, setJoinSeen] = React.useState(false);
+  if (joinRequested !== joinSeen) {
+    setJoinSeen(joinRequested);
+    if (joinRequested && profileRole !== "litigant") setJoinOpen(true);
+  }
+  React.useEffect(() => {
+    if (!joinRequested) return;
+    if (profileRole === "litigant") {
+      router.push("/home?join=manual");
+      return;
+    }
+    const rest = new URLSearchParams(searchParams.toString());
+    rest.delete("join");
+    const qs = rest.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [joinRequested]);
 
   function clearAll() {
     onSearchChange("");
