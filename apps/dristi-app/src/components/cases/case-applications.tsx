@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState, type ReactNode } from "react";
-import Link from "next/link";
+import { CaseLink as Link } from "@/components/cases/case-reader";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   ChevronDownIcon,

@@ -1,8 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { CaseLink as Link } from "@/components/cases/case-reader";
+import { useCaseRouter } from "@/components/cases/case-reader";
 import { HourglassIcon } from "lucide-react";
 
 import {
@@ -96,7 +96,7 @@ export function CaseSectionTabs({
   section: CaseSection;
   children: ReactNode;
 }) {
-  const router = useRouter();
+  const router = useCaseRouter();
 
   if (!isNavSection(section)) {
     return (

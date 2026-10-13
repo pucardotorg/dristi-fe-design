@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { CaseLink as Link } from "@/components/cases/case-reader";
 import { ChevronRightIcon, HistoryIcon } from "lucide-react";
 
 import { Card, CardContent, CardHeader } from "@/components/ui/card";

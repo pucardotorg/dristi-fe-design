@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { CaseLink as Link } from "@/components/cases/case-reader";
 import type { ReactNode } from "react";
 import { ChevronRightIcon } from "lucide-react";
 

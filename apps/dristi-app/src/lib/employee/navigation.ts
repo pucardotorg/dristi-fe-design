@@ -40,6 +40,7 @@ import { type CognizanceLayout, readCognizanceLayout } from "./cognizance-layout
 import { DELAY_CONDONATION_QUEUE_COUNT } from "./delay-condonation";
 import { hearingById, TODAYS_HEARING_COUNT } from "./hearings";
 import type { CourtNavLayout } from "./nav-layout";
+import { findCaseRecord } from "../cases/party-cases";
 import { courtProfile, type CourtId } from "../court/profiles";
 import { OTHER_APPLICATIONS_QUEUE_COUNT } from "./other-applications";
 import {
@@ -804,6 +805,15 @@ const NESTED_ROUTES: {
     queue: "/employee/cognizance",
     pattern: /^\/employee\/cognizance\/([^/]+)\/?$/,
     identify: (id) => cognizanceCaseById(id)?.caseNumber,
+  },
+  /* One case, in the case view the court shares with the advocate
+     (`components/cases/case-detail.tsx`). A cognizance complaint first, as that route
+     resolves it. */
+  {
+    queue: COURT_CASES_PAGE.href,
+    pattern: /^\/employee\/cases\/([^/]+)\/?$/,
+    identify: (id) =>
+      cognizanceCaseById(id)?.caseNumber ?? findCaseRecord(id)?.caseNumber,
   },
 ];
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCaseRouter } from "@/components/cases/case-reader";
 import { ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 
 import { DigitalRecord } from "@/components/cases/digital-record";
@@ -62,7 +62,7 @@ export function CaseComplaint({
   record: CaseRecord;
   partId: string;
 }) {
-  const router = useRouter();
+  const router = useCaseRouter();
   const tree = complaintTree(record.id);
   const selected = findNode(tree, partId);
   const pane =

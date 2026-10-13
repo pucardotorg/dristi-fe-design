@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCaseRouter } from "@/components/cases/case-reader";
 import {
   ChevronDownIcon,
   ChevronRightIcon,
@@ -90,7 +90,7 @@ export function CaseFile({
   docId: string;
   view: CaseFileView;
 }) {
-  const router = useRouter();
+  const router = useCaseRouter();
   const selected = findNode(CASE_FILE_TREE, docId);
   const pane = caseFileDigitalPane(record, docId);
   const isLeaf = Boolean(selected && !isCaseFileFolder(selected));

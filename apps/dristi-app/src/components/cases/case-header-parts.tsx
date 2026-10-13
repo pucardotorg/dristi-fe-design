@@ -4,8 +4,9 @@ import type { ReactNode } from "react";
 
 import { Identifier } from "@/components/chrome/identifier";
 import type { PastCaseNumber } from "@/lib/cases/header";
-import { PageBackButton } from "@/components/shell/page-back-button";
+import { PAGE_BACK_COLUMN, PageBackButton } from "@/components/shell/page-back-button";
 import { cn } from "@/lib/utils";
+import { useCaseReader } from "./case-reader";
 import { CaseNumberHistory } from "./case-number-history";
 
 import { Badge } from "@/components/ui/badge";
@@ -16,9 +17,20 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-/** Back to the cases list: the product's one page-level back control. */
+/**
+ * Back to the cases list: the product's one page-level back control.
+ *
+ * Not for the court. On the court side the top bar's trail is the way back and a page
+ * carries no back control of its own (`lib/employee/navigation.ts`), and the court opens
+ * a case in a tab of its own, where there is nothing to go back to.
+ */
 export function CaseBackButton() {
-  return <PageBackButton href="/cases" label="Back to cases" />;
+  if (useCaseReader() === "court") return null;
+  return (
+    <div className={PAGE_BACK_COLUMN}>
+      <PageBackButton href="/cases" label="Back to cases" />
+    </div>
+  );
 }
 
 /**

@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import {
+  ExternalLinkIcon,
   EyeIcon,
   FileQuestionIcon,
   InfoIcon,
@@ -12,6 +13,8 @@ import {
 import { ARRIVAL } from "@/components/chrome/motion";
 import { COGNIZANCE_PATH } from "@/components/employee/cognizance-table";
 import { DocumentScroller } from "@/components/employee/document-scroller";
+import { LabelTip } from "@/components/filing/form-field";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { markArrival, useArrival } from "@/components/employee/use-arrival";
 import { useCourtToday } from "@/components/employee/use-court-today";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -35,7 +38,7 @@ import {
   chainFor,
   cnrFor,
   COGNIZANCE_ACTS,
-  COGNIZANCE_DOCUMENTS,
+  cognizanceDocumentsFor,
   cognizanceCaseById,
   findingsFor,
   primaryActFor,
@@ -236,6 +239,8 @@ function CaseBody({ matter }: { matter: CognizanceCase }) {
     [matter, chain],
   );
   const findings = React.useMemo(() => findingsFor(matter), [matter]);
+  /* A cheque and a memo per cheque, then the notice (cheat sheet §5). */
+  const documents = React.useMemo(() => cognizanceDocumentsFor(matter), [matter]);
 
   const primary = primaryActFor(matter);
 
@@ -251,7 +256,7 @@ function CaseBody({ matter }: { matter: CognizanceCase }) {
 
   const openField = (field: CognizanceField) => {
     const doc = field.source
-      ? COGNIZANCE_DOCUMENTS.find((entry) => entry.key === field.source)
+      ? documents.find((entry) => entry.key === field.source)
       : undefined;
     if (!doc) return;
     /* A second click on the field that is already lit puts it out again — the mark is a
@@ -310,7 +315,7 @@ function CaseBody({ matter }: { matter: CognizanceCase }) {
     <div className="flex shrink-0 items-baseline justify-between gap-3 border-b border-hairline px-8 py-4">
       <h2 className="text-body font-semibold">Documents</h2>
       <span className="text-body-compact tabular-nums text-muted-foreground">
-        {COGNIZANCE_DOCUMENTS.length} filed
+        {documents.length} filed
       </span>
     </div>
   );
@@ -342,6 +347,18 @@ function CaseBody({ matter }: { matter: CognizanceCase }) {
                 items in words; a list of item names is a worse version of the order
                 itself, which is one click away and editable. */}
             <div className="flex shrink-0 items-center gap-3">
+              {/* PRD §6: View case opens the full case file and changes nothing on the
+                  case. Quiet and apart from the two acts, and in a tab of its own so this
+                  screen stays exactly where the magistrate left it (owner, 2026-10-13).
+                  The case view is the advocate's, read as the court
+                  (`components/cases/case-detail.tsx`). */}
+              <Button asChild variant="ghost" size="sm" className="text-muted-foreground">
+                <a href={`/employee/cases/${matter.id}`} target="_blank" rel="noopener">
+                  View case
+                  <span className="sr-only"> (opens in a new tab)</span>
+                  <ExternalLinkIcon data-icon="inline-end" aria-hidden />
+                </a>
+              </Button>
               <Button asChild variant="outline">
                 <Link href={orderHref(matter, "dismiss")} onClick={openOrder}>
                   {COGNIZANCE_ACTS.dismiss.label}
@@ -388,7 +405,7 @@ function CaseBody({ matter }: { matter: CognizanceCase }) {
               className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-hairline bg-card shadow-raised xl:pointer-fine:hidden"
             >
               {documentsHeader}
-              <DocumentScroller docs={COGNIZANCE_DOCUMENTS} active={documentActive} />
+              <DocumentScroller docs={documents} active={documentActive} />
             </section>
           </div>
 
@@ -410,7 +427,7 @@ function CaseBody({ matter }: { matter: CognizanceCase }) {
               />
             ) : null}
             {documentsHeader}
-            <DocumentScroller docs={COGNIZANCE_DOCUMENTS} active={documentActive} />
+            <DocumentScroller docs={documents} active={documentActive} />
           </aside>
         </div>
       </div>
@@ -507,6 +524,9 @@ function CaseFactsPanel({
             index > 0 && "border-t border-hairline",
           )}
         >
+          {chunk.caption ? (
+            <p className={cn(EYEBROW, "px-2 @md:col-span-2")}>{chunk.caption}</p>
+          ) : null}
           {chunk.fields.map((field) => {
             const finding = findings.find((entry) => entry.term === field.term);
             return (
@@ -565,7 +585,18 @@ function FieldRow({
         )}
         onClick={open}
       >
-        <DescriptionTerm className="text-body-compact">{field.term}</DescriptionTerm>
+        <DescriptionTerm className="text-body-compact">
+          {field.term}
+          {/* The PRD's tooltip, where it gives one (cheat sheet §4). Its own click must not
+              also open the field's document. */}
+          {field.tooltip ? (
+            <span className="ml-1" onClick={(event) => event.stopPropagation()}>
+              <TooltipProvider>
+                <LabelTip>{field.tooltip}</LabelTip>
+              </TooltipProvider>
+            </span>
+          ) : null}
+        </DescriptionTerm>
         <DescriptionDetails className="min-w-0 text-body-compact text-pretty">
           <span className="font-medium">{field.value}</span>
           {field.note ? (
