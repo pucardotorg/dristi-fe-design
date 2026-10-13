@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  actsFor,
   casesOnTab,
   chainFor,
+  cognizanceTabsFor,
   COGNIZANCE_ACTS,
   cognizanceDocumentsFor,
   COGNIZANCE_QUEUE,
@@ -33,6 +35,7 @@ import {
   type CognizanceCase,
 } from "./cognizance";
 import { parseIsoDay } from "./hearings";
+import { gujaratCaseTypeOf } from "@/lib/court/localize";
 
 const TODAY = "2026-09-14";
 
@@ -606,5 +609,63 @@ describe("COGNIZANCE_ACTS", () => {
       COGNIZANCE_ACTS.dismiss.badge,
     ];
     assert.equal(new Set(pairs).size, 3);
+  });
+});
+
+describe("Gujarat's case-type split (owner, 2026-10-13)", () => {
+  it("splits by registered type into three tabs, and every complaint lands on one", () => {
+    assert.deepEqual(
+      cognizanceTabsFor("gujarat").map((tab) => tab.label),
+      ["Criminal case", "Criminal inquiry", "Criminal miscellaneous applications"],
+    );
+    const counted = cognizanceTabsFor("gujarat").reduce(
+      (sum, tab) => sum + cognizanceTabCount(tab.id, "gujarat"),
+      0,
+    );
+    assert.equal(counted, COGNIZANCE_QUEUE_COUNT);
+    for (const tab of cognizanceTabsFor("gujarat")) {
+      assert.ok(cognizanceTabCount(tab.id, "gujarat") > 0, tab.id);
+    }
+  });
+
+  it("files by the facts: jurisdiction → inquiry, delay → misc, neither → case", () => {
+    for (const matter of COGNIZANCE_QUEUE) {
+      const outside = findingsFor(matter).some((finding) => finding.id === "jurisdiction");
+      const expected = outside
+        ? "criminal-inquiry"
+        : hasDelay(matter)
+          ? "criminal-misc"
+          : "criminal-case";
+      assert.equal(tabFor(matter, "gujarat"), expected, matter.id);
+    }
+  });
+
+  it("shows each complaint's number with the type of the tab it sits on", () => {
+    const prefix = { "criminal-case": "eCC", "criminal-inquiry": "eCR EN", "criminal-misc": "eCR MA" };
+    for (const matter of COGNIZANCE_QUEUE) {
+      const tab = tabFor(matter, "gujarat") as keyof typeof prefix;
+      assert.equal(gujaratCaseTypeOf(matter.caseNumber), prefix[tab], matter.id);
+    }
+  });
+
+  it("recommends cognizance on a criminal case and a notice on the other two", () => {
+    assert.equal(positiveActForTab("criminal-case"), "cognizance");
+    assert.equal(positiveActForTab("criminal-inquiry"), "notice");
+    assert.equal(positiveActForTab("criminal-misc"), "notice");
+  });
+
+  it("offers all three acts on every complaint, the recommended one first", () => {
+    for (const matter of COGNIZANCE_QUEUE) {
+      const acts = actsFor(matter, "gujarat");
+      assert.equal(acts[0], primaryActFor(matter, "gujarat"), matter.id);
+      assert.deepEqual([...acts].sort(), ["cognizance", "dismiss", "notice"], matter.id);
+    }
+  });
+
+  it("leaves Kerala's delay split and its two acts as they were", () => {
+    assert.deepEqual(cognizanceTabsFor("kerala"), COGNIZANCE_TABS);
+    for (const matter of COGNIZANCE_QUEUE) {
+      assert.deepEqual(actsFor(matter, "kerala"), [primaryActFor(matter), "dismiss"]);
+    }
   });
 });

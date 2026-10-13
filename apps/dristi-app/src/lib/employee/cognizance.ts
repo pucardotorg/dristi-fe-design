@@ -44,6 +44,7 @@ import {
   type CourtCounsel,
 } from "./hearings";
 import { caseSearchKey } from "@/lib/court/localize";
+import { courtProfile, DEFAULT_COURT, type CourtId } from "@/lib/court/profiles";
 
 /* ────────────────────────────────── the row ─────────────────────────────────── */
 
@@ -597,10 +598,13 @@ export function cognizanceCaseById(id: string): CognizanceCase | undefined {
  * the next late one — walking into the other tab would hand the bench a different act
  * on a complaint they had not chosen to look at.
  */
-export function nextCognizanceCase(id: string): CognizanceCase | undefined {
+export function nextCognizanceCase(
+  id: string,
+  court: CourtId = DEFAULT_COURT,
+): CognizanceCase | undefined {
   const matter = cognizanceCaseById(id);
   if (!matter) return undefined;
-  const siblings = casesOnTab(COGNIZANCE_QUEUE, tabFor(matter));
+  const siblings = casesOnTab(COGNIZANCE_QUEUE, tabFor(matter, court), court);
   return siblings[siblings.findIndex((entry) => entry.id === id) + 1];
 }
 
@@ -989,6 +993,20 @@ export type CognizanceDocument = {
   no: number;
   title: string;
   kind: "cheque" | "memo" | "letter";
+  /** A scan to show in place of the facsimile. */
+  src?: string;
+};
+
+/**
+ * Sandbox scans: the scrutiny demo's own cheque, return memo and demand notice
+ * (`scrutiny/mock-filings.ts`), shown on every complaint so each file opens on real-looking
+ * documents (owner, 2026-10-13). Dummy data — every complaint shows the same three.
+ * Gujarat only for now; the other courts keep the facsimiles (owner, 2026-10-13).
+ */
+const SAMPLE_SCANS: Record<CognizanceDocument["kind"], string> = {
+  cheque: "/employee/bundle/cheque.jpg",
+  memo: "/employee/bundle/memo.jpg",
+  letter: "/employee/bundle/notice.jpg",
 };
 
 /**
@@ -1005,7 +1023,11 @@ export function chequeDocumentKeys(index: number): { cheque: string; memo: strin
  * The documents for one complaint: a cheque and a return memo per cheque, then the one
  * demand notice (cheat sheet §5). Several cheques are numbered; one is not.
  */
-export function cognizanceDocumentsFor(matter: CognizanceCase): CognizanceDocument[] {
+export function cognizanceDocumentsFor(
+  matter: CognizanceCase,
+  court: CourtId = DEFAULT_COURT,
+): CognizanceDocument[] {
+  const scans = court === "gujarat";
   const several = matter.cheques.length > 1;
   const docs: CognizanceDocument[] = [];
   matter.cheques.forEach((_, index) => {
@@ -1015,7 +1037,11 @@ export function cognizanceDocumentsFor(matter: CognizanceCase): CognizanceDocume
     docs.push({ key: keys.memo, no: 0, title: `Return memo${n}`, kind: "memo" });
   });
   docs.push({ key: "demand-notice", no: 0, title: "Demand notice", kind: "letter" });
-  return docs.map((doc, index) => ({ ...doc, no: index + 1 }));
+  return docs.map((doc, index) => ({
+    ...doc,
+    no: index + 1,
+    ...(scans ? { src: SAMPLE_SCANS[doc.kind] } : {}),
+  }));
 }
 
 /* ─────────────────────────────────── the tabs ───────────────────────────────── */
@@ -1032,7 +1058,19 @@ export function cognizanceDocumentsFor(matter: CognizanceCase): CognizanceDocume
  * counted rail rows opening two near-identical screens is still the wrong shape, and the
  * PRD does not ask for it either.
  */
-export type CognizanceTab = "without-delay" | "with-delay";
+export type CognizanceTab =
+  | "without-delay"
+  | "with-delay"
+  | "criminal-case"
+  | "criminal-inquiry"
+  | "criminal-misc";
+
+export type CognizanceTabSpec = {
+  id: CognizanceTab;
+  label: string;
+  /** The act this tab recommends: the bench's primary button on every complaint here. */
+  positiveAct: Exclude<CognizanceAct, "dismiss">;
+};
 
 /**
  * The two tabs, and the one act that moves a complaint forward on each.
@@ -1046,17 +1084,55 @@ export type CognizanceTab = "without-delay" | "with-delay";
  * swaps one, everything downstream — the file's own bar, the order it would draw up —
  * follows from this one line.
  */
-export const COGNIZANCE_TABS: {
-  id: CognizanceTab;
-  label: string;
-  positiveAct: Exclude<CognizanceAct, "dismiss">;
-}[] = [
+export const COGNIZANCE_TABS: CognizanceTabSpec[] = [
   { id: "without-delay", label: "Without delay", positiveAct: "cognizance" },
   { id: "with-delay", label: "With delay", positiveAct: "notice" },
 ];
 
+/**
+ * Gujarat's split (owner, 2026-10-13): by the type the case was registered as. A file
+ * with neither delay nor a jurisdiction problem is a criminal case (`eCC`) and
+ * recommends taking cognizance; a file outside this court's jurisdiction is a criminal
+ * inquiry (`eCR EN`), a late one a criminal miscellaneous application (`eCR MA`), and
+ * both recommend a notice, so the parties are heard first. The recommendation is only the primary button — every
+ * tab offers all three acts, because a judge unsure on an eCC may still want a hearing
+ * before cognizance, and (rarely) the other way round.
+ */
+export const COGNIZANCE_CASE_TYPE_TABS: CognizanceTabSpec[] = [
+  { id: "criminal-case", label: "Criminal case", positiveAct: "cognizance" },
+  { id: "criminal-inquiry", label: "Criminal inquiry", positiveAct: "notice" },
+  {
+    id: "criminal-misc",
+    label: "Criminal miscellaneous applications",
+    positiveAct: "notice",
+  },
+];
+
+/** The tabs this deployment splits the queue into. */
+export function cognizanceTabsFor(court: CourtId = DEFAULT_COURT): CognizanceTabSpec[] {
+  return courtProfile(court).cognizanceSplit === "case-type"
+    ? COGNIZANCE_CASE_TYPE_TABS
+    : COGNIZANCE_TABS;
+}
+
+/** One tab's own entry, whichever split it belongs to. */
+export function cognizanceTabSpec(tab: CognizanceTab): CognizanceTabSpec {
+  return [...COGNIZANCE_TABS, ...COGNIZANCE_CASE_TYPE_TABS].find((entry) => entry.id === tab)!;
+}
+
 /** Which tab a complaint stands on. The one fact the split is made of. */
-export function tabFor(matter: CognizanceCase): CognizanceTab {
+export function tabFor(
+  matter: CognizanceCase,
+  court: CourtId = DEFAULT_COURT,
+): CognizanceTab {
+  if (courtProfile(court).cognizanceSplit === "case-type") {
+    /* Jurisdiction first where both apply: a complaint in the wrong court is an inquiry
+       whatever its delay. */
+    if (findingsFor(matter).some((finding) => finding.id === "jurisdiction")) {
+      return "criminal-inquiry";
+    }
+    return hasDelay(matter) ? "criminal-misc" : "criminal-case";
+  }
   return hasDelay(matter) ? "with-delay" : "without-delay";
 }
 
@@ -1064,8 +1140,9 @@ export function tabFor(matter: CognizanceCase): CognizanceTab {
 export function casesOnTab(
   rows: CognizanceCase[],
   tab: CognizanceTab,
+  court: CourtId = DEFAULT_COURT,
 ): CognizanceCase[] {
-  return rows.filter((entry) => tabFor(entry) === tab);
+  return rows.filter((entry) => tabFor(entry, court) === tab);
 }
 
 /**
@@ -1074,8 +1151,11 @@ export function casesOnTab(
  * Counted over the whole queue and never over what the search box has left, so the
  * number beside a tab's name does not move as the bench types.
  */
-export function cognizanceTabCount(tab: CognizanceTab): number {
-  return casesOnTab(COGNIZANCE_QUEUE, tab).length;
+export function cognizanceTabCount(
+  tab: CognizanceTab,
+  court: CourtId = DEFAULT_COURT,
+): number {
+  return casesOnTab(COGNIZANCE_QUEUE, tab, court).length;
 }
 
 /* ───────────────────────────────── the filters ──────────────────────────────── */
@@ -1149,12 +1229,32 @@ export function isCognizanceAct(value: string | undefined): value is CognizanceA
 
 /** The positive action configured for one tab. */
 export function positiveActForTab(tab: CognizanceTab): CognizanceAct {
-  return COGNIZANCE_TABS.find((entry) => entry.id === tab)!.positiveAct;
+  return cognizanceTabSpec(tab).positiveAct;
 }
 
 /** The positive action a complaint meets, by way of the tab it stands on. */
-export function primaryActFor(matter: CognizanceCase): CognizanceAct {
-  return positiveActForTab(tabFor(matter));
+export function primaryActFor(
+  matter: CognizanceCase,
+  court: CourtId = DEFAULT_COURT,
+): CognizanceAct {
+  return positiveActForTab(tabFor(matter, court));
+}
+
+/**
+ * Every act the file's bar offers, the recommended one first.
+ *
+ * Under the delay split it is two — the tab's act and Dismiss (PRD §6). Under the
+ * case-type split it is all three: the tab's recommendation, the other positive act,
+ * and Dismiss (owner, 2026-10-13).
+ */
+export function actsFor(
+  matter: CognizanceCase,
+  court: CourtId = DEFAULT_COURT,
+): CognizanceAct[] {
+  const recommended = primaryActFor(matter, court);
+  if (courtProfile(court).cognizanceSplit !== "case-type") return [recommended, "dismiss"];
+  const other: CognizanceAct = recommended === "cognizance" ? "notice" : "cognizance";
+  return [recommended, other, "dismiss"];
 }
 
 /** What the complaint's state is called before any of the three acts is taken. */

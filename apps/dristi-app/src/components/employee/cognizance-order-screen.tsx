@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/empty";
 import {
   cognizanceCaseById,
+  hasDelay,
   primaryActFor,
   tabFor,
   type CognizanceAct,
@@ -71,7 +72,7 @@ export function CognizanceOrderScreen({
   if (!matter) return <OrderMissing />;
 
   /* No act in the URL means the one this complaint's tab offers. */
-  const chosen = act ?? primaryActFor(matter);
+  const chosen = act ?? primaryActFor(matter, court);
 
   return (
     <div className={cn("min-w-0", arrival && ARRIVAL[arrival])}>
@@ -102,6 +103,7 @@ export function useCognizanceOrderDoor(
 ): OrderDoor {
   const today = useCourtToday();
   const courtText = useCourtText();
+  const { court } = useCourt();
   const subject: OrderSubject = { kind: "cognizance", matter, act };
   const back = subjectReturn(subject);
   const context = React.useMemo(
@@ -137,7 +139,7 @@ export function useCognizanceOrderDoor(
           href={back.href}
           onClick={() => {
             markArrival("back");
-            markCognizanceTab(tabFor(matter));
+            markCognizanceTab(tabFor(matter, court));
           }}
         >
           {back.label}
@@ -167,7 +169,7 @@ export function cognizanceOverview(matter: CognizanceCase) {
     { label: "Case", value: matter.caseNumber },
     {
       label: "Filed",
-      value: tabFor(matter) === "with-delay" ? "Beyond the month" : "In time",
+      value: hasDelay(matter) ? "Beyond the month" : "In time",
     },
     { label: "Complainant", value: side("complainant") },
     { label: "Accused", value: side("accused") },

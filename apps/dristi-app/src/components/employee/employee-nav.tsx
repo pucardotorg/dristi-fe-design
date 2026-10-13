@@ -988,19 +988,25 @@ function CourtSettingsControl() {
             Today’s schedule
           </DropdownMenuRadioItem>
         </DropdownMenuRadioGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuLabel>Take cognizance</DropdownMenuLabel>
-        <DropdownMenuRadioGroup
-          value={cognizanceLayout}
-          onValueChange={(next) => setCognizanceLayout(next as CognizanceLayout)}
-        >
-          <DropdownMenuRadioItem value="tabs">
-            Combined, with tabs
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="split">
-            Split into two rows
-          </DropdownMenuRadioItem>
-        </DropdownMenuRadioGroup>
+        {/* Only the delay split has two rows to split into; Gujarat's three case-type
+            tabs stay on the one screen (owner, 2026-10-13). */}
+        {courtProfile(court).cognizanceSplit === "delay" ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Take cognizance</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={cognizanceLayout}
+              onValueChange={(next) => setCognizanceLayout(next as CognizanceLayout)}
+            >
+              <DropdownMenuRadioItem value="tabs">
+                Combined, with tabs
+              </DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="split">
+                Split into two rows
+              </DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+          </>
+        ) : null}
         <DropdownMenuSeparator />
         <DropdownMenuLabel>Order screen</DropdownMenuLabel>
         <DropdownMenuRadioGroup
@@ -1112,8 +1118,14 @@ export function EmployeeNav() {
   const [cognizanceLayout] = useCognizanceLayout();
   const seat = useCourtRole();
   const { court } = useCourt();
+  /* The split rows are the delay split's; a case-type deployment keeps its tabs. */
   const groups = courtNavGroupsForSeat(
-    courtNavGroupsForCourt(courtNavGroupsFor(cognizanceLayout), court),
+    courtNavGroupsForCourt(
+      courtNavGroupsFor(
+        courtProfile(court).cognizanceSplit === "delay" ? cognizanceLayout : "tabs",
+      ),
+      court,
+    ),
     seat,
   );
   const { openId, setOpenId, currentId } = useCourtNavDisclosure(groups);

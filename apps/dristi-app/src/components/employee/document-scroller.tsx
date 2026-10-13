@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { DocumentPreviewActions } from "@/components/cases/document-preview";
 import { PageSheet, SHEET_BOX } from "@/components/employee/page-facsimile";
 import type { CaseDocumentKind } from "@/lib/employee/case-review";
 import type { ZoneRect } from "@/lib/employee/document-zones";
@@ -25,7 +26,14 @@ import { cn } from "@/lib/utils";
  * The facsimiles are never legible: a readable page here would be fabricating a court
  * record, the one thing a demo of a file must not do (`page-facsimile.tsx`). The regions
  * are therefore approximate — they point at where a field sits on the *kind* of page, not
- * at a place on a real scan (`document-zones.ts`).
+ * at a place on a real scan (`document-zones.ts`). A document with a `src` shows that
+ * sample scan instead (the scrutiny demo's own), and a fact rings the whole page, since
+ * the facsimile's regions do not sit on a real scan.
+ *
+ * **Every document opens in Full view** (owner, 2026-10-13), by the product's own document
+ * actions — Download and Full view as 40×40 icons on the document's title line
+ * (`DocumentPreviewActions`) — and Full view is the case file's: near window size, with
+ * the viewer's zoom controls.
  */
 export type ScrollerDoc = {
   key: string;
@@ -33,6 +41,8 @@ export type ScrollerDoc = {
   no: number;
   title: string;
   kind: CaseDocumentKind;
+  /** A scan to show in place of the facsimile. */
+  src?: string;
 };
 
 export type ScrollerAbsent = { key: string; title: string };
@@ -96,7 +106,8 @@ export function DocumentScroller({
     >
       {docs.map((doc) => {
         const on = active?.doc === doc.key;
-        const zone = on ? active?.zone ?? null : null;
+        /* A scan has no facsimile grid for a region to sit in: the whole page is ringed. */
+        const zone = on && !doc.src ? active?.zone ?? null : null;
         /* The frame is the kind's own box, not a shared 3:4 page, so a cheque is a wide slip
            and a memo a short one instead of a drawing marooned in white (owner, 2026-09-15). */
         const box = SHEET_BOX[doc.kind];
@@ -109,9 +120,34 @@ export function DocumentScroller({
           >
             {/* The one navigational anchor in a long scroll, so it reads as one: caption
                 size, foreground ink at 600 rather than grey (scrutiny's own rule). */}
-            <h3 className="text-caption font-semibold text-foreground">
-              <span className="tabular-nums">{doc.no}</span> · {doc.title}
-            </h3>
+            {/* The document's actions ride its own title line, as `DocumentPreview`'s
+                header band carries them — never laid over the scan they would cover. */}
+            <div className="flex min-h-10 items-center justify-between gap-2">
+              <h3 className="text-caption font-semibold text-foreground">
+                <span className="tabular-nums">{doc.no}</span> · {doc.title}
+              </h3>
+              {/* A scan opens in the viewer with its zoom; a facsimile opens as itself,
+                  large, in the same Full view. */}
+              <DocumentPreviewActions
+                title={doc.title}
+                source={
+                  doc.src
+                    ? { kind: "src", src: doc.src }
+                    : {
+                        kind: "composed",
+                        content: (
+                          <div
+                            className="mx-auto w-full max-w-3xl rounded-lg bg-paper ring-1 ring-hairline"
+                            style={{ aspectRatio: `${box.w} / ${box.h}` }}
+                          >
+                            <PageSheet kind={doc.kind} />
+                          </div>
+                        ),
+                      }
+                }
+                className="-my-1 flex-nowrap gap-1"
+              />
+            </div>
             {/* The page sits on a beige mat, so it separates from the white rail rather
                 than a near-white sheet on white (owner, 2026-09-14). The mat takes the
                 warm sunken fill the court side uses for a well; the page keeps its own
@@ -125,9 +161,14 @@ export function DocumentScroller({
             >
               <div
                 className="relative w-full overflow-hidden rounded-lg bg-paper ring-1 ring-hairline"
-                style={{ aspectRatio: `${box.w} / ${box.h}` }}
+                style={doc.src ? undefined : { aspectRatio: `${box.w} / ${box.h}` }}
               >
-                <PageSheet kind={doc.kind} />
+                {doc.src ? (
+                  /* eslint-disable-next-line @next/next/no-img-element -- a local sample scan at its own size */
+                  <img src={doc.src} alt="" className="block h-auto w-full" draggable={false} />
+                ) : (
+                  <PageSheet kind={doc.kind} />
+                )}
                 {zone ? (
                   <div
                     aria-hidden

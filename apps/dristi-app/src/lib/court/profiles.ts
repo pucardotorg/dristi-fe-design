@@ -99,6 +99,13 @@ export type CourtProfile = {
    * with it (owner, 2026-10-13).
    */
   singleCourt: string | null;
+  /**
+   * How Take cognizance splits its queue, and so which act each tab recommends.
+   * `"delay"` is Kerala's: in time or late. `"case-type"` is Gujarat's: by the type the
+   * case was registered as — criminal case, inquiry or miscellaneous application — with
+   * all three acts open on every tab (owner, 2026-10-13).
+   */
+  cognizanceSplit: "delay" | "case-type";
 };
 
 export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
@@ -118,6 +125,7 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     // Registration is the magistrate's own step in Kerala (owner, 2026-10-12).
     registrationPoint: "magistrate",
     singleCourt: null,
+    cognizanceSplit: "delay",
   },
   gujarat: {
     id: "gujarat",
@@ -138,6 +146,7 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     // No separate registration step by the magistrate (owner, 2026-10-12).
     registrationPoint: "scrutiny",
     singleCourt: null,
+    cognizanceSplit: "case-type",
   },
   /*
    * One deployment under the Punjab and Haryana High Court (owner, 2026-10-12). It took
@@ -162,6 +171,7 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     registrationPoint: "scrutiny",
     // One 24×7 ON Court for the whole deployment (owner, 2026-10-12 and 2026-10-13).
     singleCourt: "24×7 ON Court",
+    cognizanceSplit: "delay",
   },
 };
 

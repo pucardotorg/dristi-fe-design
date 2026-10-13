@@ -2,7 +2,7 @@
 
 import * as React from "react";
 
-import { COGNIZANCE_TABS, type CognizanceTab } from "@/lib/employee/cognizance";
+import { type CognizanceTab, type CognizanceTabSpec } from "@/lib/employee/cognizance";
 
 /**
  * Which tab the queue should open on when a complaint sends the magistrate back to it.
@@ -22,6 +22,19 @@ import { COGNIZANCE_TABS, type CognizanceTab } from "@/lib/employee/cognizance";
  */
 let pending: CognizanceTab | null = null;
 
+/**
+ * The tab the bench was last on, however they leave it — the trail, the rail or a
+ * complaint's own link (owner, 2026-10-13: coming back by the breadcrumb dropped them on
+ * the first tab). One hop's `pending` wins; this is the fallback. Kept for the session's
+ * navigation, not across a reload.
+ */
+let last: CognizanceTab | null = null;
+
+/** Called by the queue whenever its tab changes, and by a complaint as it opens. */
+export function rememberCognizanceTab(tab: CognizanceTab): void {
+  last = tab;
+}
+
 /** Called by the control that navigates back to the queue, just before it does. */
 export function markCognizanceTab(tab: CognizanceTab): void {
   pending = tab;
@@ -31,11 +44,11 @@ export function markCognizanceTab(tab: CognizanceTab): void {
  * Taken once, by the queue as it mounts. The first tab on a fresh load, a refresh, a
  * typed URL or a bookmark — none of those has come back from a complaint.
  */
-export function useReturnedTab(): CognizanceTab {
+export function useReturnedTab(tabs: CognizanceTabSpec[]): CognizanceTab {
   const [tab] = React.useState(() => {
-    const returned = pending;
+    const returned = pending ?? last;
     pending = null;
-    return returned ?? COGNIZANCE_TABS[0].id;
+    return returned && tabs.some((entry) => entry.id === returned) ? returned : tabs[0].id;
   });
   return tab;
 }

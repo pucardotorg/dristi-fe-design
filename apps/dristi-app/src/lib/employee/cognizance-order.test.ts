@@ -202,3 +202,22 @@ describe("the act a complaint arrives with", () => {
     }
   });
 });
+
+describe("a notice before cognizance (owner, 2026-10-13)", () => {
+  it("presets the DCA notice only on a late complaint", () => {
+    const value = (matter: CognizanceCase) =>
+      compose(matter, "notice").blocks.find((block) => block.type === "issue-of-notice")
+        ?.values.noticeType;
+    assert.equal(value(late), "DCA");
+    assert.ok(!value(timely));
+    assert.deepEqual(types(compose(timely, "notice").blocks), [
+      "issue-of-notice",
+      "scheduling-of-hearing",
+    ]);
+  });
+
+  it("says the parties are heard first when there is no delay to hear them on", () => {
+    assert.match(cognizanceOrderOutcome(timely, "notice"), /whether to take cognizance/);
+    assert.match(cognizanceOrderOutcome(late, "notice"), /delay/);
+  });
+});

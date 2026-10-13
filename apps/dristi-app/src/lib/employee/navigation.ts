@@ -803,7 +803,9 @@ const NESTED_ROUTES: {
   },
   {
     queue: "/employee/cognizance",
-    pattern: /^\/employee\/cognizance\/([^/]+)\/?$/,
+    /* The complaint, and the order one of its acts draws up — traced alike, as a
+       hearing's order is (owner, 2026-10-13). */
+    pattern: /^\/employee\/cognizance\/([^/]+)(?:\/order)?\/?$/,
     identify: (id) => cognizanceCaseById(id)?.caseNumber,
   },
   /* One case, in the case view the court shares with the advocate
