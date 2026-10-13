@@ -1,6 +1,6 @@
 /**
  * The order as one body of rich text — version B of the order composer
- * (`order-screen-b.tsx`), the text-box screen kept beside the block composer for A/B
+ * (`order-door-screen.tsx`), the text-box screen kept beside the block composer for A/B
  * testing (owner, 2026-10-12).
  *
  * Each order item's words are marked with the item's id (`ORDER_ITEM_ATTRIBUTE`), so a
@@ -12,6 +12,7 @@
 
 import type { RichTextValue } from "@/components/cases/rich-text-field";
 
+import type { ComposerBlock } from "./order-composer";
 import type { OrderRecitalLine } from "./order-draft";
 
 /**
@@ -436,3 +437,32 @@ export function upsertRichTextFact(
 }
 
 /** One order in the draft: what it is, and the words it carries. */
+
+/**
+ * Version B's opening text: each item's words in order, marked with its id, and — on a
+ * hearing — the attendance and next-hearing lines as facts of the sitting.
+ */
+export function bodyFromBlocks(
+  blocks: readonly ComposerBlock[],
+  recitals?: {
+    attendance: readonly OrderRecitalLine[];
+    next: readonly OrderRecitalLine[];
+  },
+): RichTextValue {
+  let body = blocks.reduce<RichTextValue>(
+    (passage, block) =>
+      appendRichText(
+        passage,
+        richTextFromPlain(
+          block.text,
+          block.kind === "item" ? block.id : undefined,
+        ),
+      ),
+    { html: "", text: "" },
+  );
+  if (recitals) {
+    body = upsertRichTextFact(body, "attendance", recitals.attendance);
+    body = upsertRichTextFact(body, "next", recitals.next);
+  }
+  return body;
+}

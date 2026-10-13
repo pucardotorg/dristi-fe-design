@@ -1292,29 +1292,3 @@ function SentenceWithBlanks({ text }: { text: string }) {
     ),
   );
 }
-
-/** Version B's opening text: each item's words in order, marked with its id. */
-export function bodyFromBlocks(
-  blocks: OrderDraft["blocks"],
-  recitals?: {
-    attendance: Parameters<typeof upsertRichTextFact>[2];
-    next: Parameters<typeof upsertRichTextFact>[2];
-  },
-): RichTextValue {
-  let body = blocks.reduce<RichTextValue>(
-    (passage, block) =>
-      appendRichText(
-        passage,
-        richTextFromPlain(
-          block.text,
-          block.kind === "item" ? block.id : undefined,
-        ),
-      ),
-    { html: "", text: "" },
-  );
-  if (recitals) {
-    body = upsertRichTextFact(body, "attendance", recitals.attendance);
-    body = upsertRichTextFact(body, "next", recitals.next);
-  }
-  return body;
-}

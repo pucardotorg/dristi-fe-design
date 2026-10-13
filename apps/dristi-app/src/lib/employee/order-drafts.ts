@@ -91,7 +91,7 @@ export function updateOrderDraft(
 }
 
 /**
- * Version B's key for a listing's draft (`order-screen-b.tsx`). Its own key, so the block
+ * Version B's key for a listing's draft (`lib/employee/order-door.ts`). Its own key, so the block
  * composer and the text-box composer never share a half-made order while they are A/B
  * tested side by side.
  */
@@ -99,7 +99,7 @@ export function textDraftKey(id: string): string {
   return `text:${id}`;
 }
 
-/** Version C's key for a listing's draft (`order-screen-c.tsx`), its own like B's. */
+/** Version C's key for a listing's draft (`lib/employee/order-door.ts`), its own like B's. */
 export function proceedingsDraftKey(id: string): string {
   return `proceedings:${id}`;
 }

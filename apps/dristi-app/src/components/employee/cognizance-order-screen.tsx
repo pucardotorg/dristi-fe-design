@@ -6,14 +6,14 @@ import { FileQuestionIcon } from "lucide-react";
 
 import { ARRIVAL } from "@/components/chrome/motion";
 import { useCourt, useCourtText } from "@/components/court/court-provider";
-import { CognizanceOrderScreenB } from "@/components/employee/cognizance-order-screen-b";
 import { markCognizanceTab } from "@/components/employee/cognizance-return";
 import { COGNIZANCE_PATH } from "@/components/employee/cognizance-table";
-import { OrderComposer } from "@/components/employee/order-composer";
+import {
+  OrderDoorScreen,
+  type OrderDoor,
+} from "@/components/employee/order-door-screen";
 import { markArrival, useArrival } from "@/components/employee/use-arrival";
 import { useCourtToday } from "@/components/employee/use-court-today";
-import { useOrderDraft } from "@/components/employee/use-order-draft";
-import { useOrderLayout } from "@/components/employee/use-order-layout";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -38,11 +38,7 @@ import { localizeDeep } from "@/lib/court/localize";
 import { CURRENT_STAFF } from "@/lib/employee/content";
 import { counselFor, formatOrderDate } from "@/lib/employee/hearings";
 import { composerContextFor } from "@/lib/employee/order-context";
-import {
-  buildOrderDocument,
-  EMPTY_ORDER_DRAFT,
-  type OrderDraft,
-} from "@/lib/employee/order-draft";
+import { EMPTY_ORDER_DRAFT } from "@/lib/employee/order-draft";
 import {
   subjectCauseTitle,
   subjectFacts,
@@ -57,7 +53,7 @@ import { cn } from "@/lib/utils";
  * hearing. The act's own order items arrive loaded (`cognizance-order.ts`), and the next
  * date is the *Scheduling of hearing date* item's to set.
  *
- * Version A or B by the Court settings toggle, as on a hearing (`order-screen.tsx`).
+ * Version A, B or C by the Court settings toggle, as on a hearing (`order-door-screen.tsx`).
  */
 export function CognizanceOrderScreen({
   caseId,
@@ -68,7 +64,6 @@ export function CognizanceOrderScreen({
   act: CognizanceAct | null;
 }) {
   const arrival = useArrival();
-  const [layout] = useOrderLayout();
   const { court } = useCourt();
   /* The complaint as this court names it (`lib/court/localize.ts`). */
   const matter = localizeDeep(cognizanceCaseById(caseId), court);
@@ -80,17 +75,82 @@ export function CognizanceOrderScreen({
 
   return (
     <div className={cn("min-w-0", arrival && ARRIVAL[arrival])}>
-      {layout === "text" ? (
-        <CognizanceOrderScreenB
-          key={`${matter.id}:${chosen}`}
-          matter={matter}
-          act={chosen}
-        />
-      ) : (
-        <CognizanceOrder key={`${matter.id}:${chosen}`} matter={matter} act={chosen} />
-      )}
+      <CognizanceOrder key={`${matter.id}:${chosen}`} matter={matter} act={chosen} />
     </div>
   );
+}
+
+function CognizanceOrder({
+  matter,
+  act,
+}: {
+  matter: CognizanceCase;
+  act: CognizanceAct;
+}) {
+  const door = useCognizanceOrderDoor(matter, act);
+  return <OrderDoorScreen door={door} />;
+}
+
+/**
+ * A cognizance act's door: the act's order items loaded and the act's own item fixed
+ * (`cognizanceComposition`), the act's outcome under the title, and the way back to the
+ * complaint.
+ */
+export function useCognizanceOrderDoor(
+  matter: CognizanceCase,
+  act: CognizanceAct,
+): OrderDoor {
+  const today = useCourtToday();
+  const courtText = useCourtText();
+  const subject: OrderSubject = { kind: "cognizance", matter, act };
+  const back = subjectReturn(subject);
+  const context = React.useMemo(
+    () => composerContextFor({ ...matter, stage: "cognizance" }),
+    [matter],
+  );
+  const composition = React.useMemo(
+    () => cognizanceComposition(matter, act, context),
+    [matter, act, context],
+  );
+  const initial = React.useMemo(
+    () => ({ ...EMPTY_ORDER_DRAFT, blocks: composition.blocks }),
+    [composition],
+  );
+
+  return {
+    draftKey: cognizanceDraftKey(matter, act),
+    initial,
+    fixedIds: composition.fixedIds,
+    heading: subjectCauseTitle(subject),
+    facts: subjectFacts(subject),
+    courtLine: courtText(`Before the ${CURRENT_STAFF.court}`),
+    subLine: `${matter.caseNumber} · ${subjectCauseTitle(subject)} · ${formatOrderDate(today)}`,
+    notice: (
+      <p className="text-body-compact text-muted-foreground">
+        {cognizanceOrderOutcome(matter, act)}
+      </p>
+    ),
+    navAction: (
+      <Button asChild variant="outline" className="w-full shrink-0 sm:w-fit">
+        <Link
+          href={back.href}
+          onClick={() => {
+            markArrival("back");
+            markCognizanceTab(tabFor(matter));
+          }}
+        >
+          {back.label}
+        </Link>
+      </Button>
+    ),
+    context,
+    today,
+    document: {
+      caseNumber: matter.caseNumber,
+      matter: subjectCauseTitle(subject),
+    },
+    overview: cognizanceOverview(matter),
+  };
 }
 
 /** The complaint's facts for the case file's Overview tab. */
@@ -116,80 +176,6 @@ export function cognizanceOverview(matter: CognizanceCase) {
 /** The draft store's key for a complaint's order — one per act. */
 export function cognizanceDraftKey(matter: CognizanceCase, act: CognizanceAct) {
   return `cognizance:${matter.id}:${act}`;
-}
-
-function CognizanceOrder({
-  matter,
-  act,
-}: {
-  matter: CognizanceCase;
-  act: CognizanceAct;
-}) {
-  const today = useCourtToday();
-  const courtText = useCourtText();
-  const subject: OrderSubject = { kind: "cognizance", matter, act };
-  const back = subjectReturn(subject);
-  const context = React.useMemo(
-    () => composerContextFor({ ...matter, stage: "cognizance" }),
-    [matter],
-  );
-  const composition = React.useMemo(
-    () => cognizanceComposition(matter, act, context),
-    [matter, act, context],
-  );
-  const initial = React.useMemo<OrderDraft>(
-    () => ({ ...EMPTY_ORDER_DRAFT, blocks: composition.blocks }),
-    [composition],
-  );
-  const [draft, setDraft] = useOrderDraft(cognizanceDraftKey(matter, act), initial);
-
-  return (
-    <OrderComposer
-      heading={subjectCauseTitle(subject)}
-      facts={subjectFacts(subject).map((fact) => ({
-        label: fact.label,
-        value: fact.value,
-        identifier: fact.identifier,
-      }))}
-      courtLine={courtText(`Before the ${CURRENT_STAFF.court}`)}
-      subLine={`${matter.caseNumber} · ${subjectCauseTitle(subject)} · ${formatOrderDate(today)}`}
-      notice={
-        <p className="text-body-compact text-muted-foreground">
-          {cognizanceOrderOutcome(matter, act)}
-        </p>
-      }
-      navAction={
-        <Button asChild variant="outline" className="w-full shrink-0 sm:w-fit">
-          <Link
-            href={back.href}
-            onClick={() => {
-              markArrival("back");
-              markCognizanceTab(tabFor(matter));
-            }}
-          >
-            {back.label}
-          </Link>
-        </Button>
-      }
-      context={context}
-      today={today}
-      inHearing={false}
-      blocks={draft.blocks}
-      onBlocks={(update) =>
-        setDraft((current) => ({ ...current, blocks: update(current.blocks) }))
-      }
-      fixedIds={composition.fixedIds}
-      links={draft.links}
-      onLinks={(links) => setDraft((current) => ({ ...current, links }))}
-      overview={cognizanceOverview(matter)}
-      document={buildOrderDocument({
-        caseNumber: matter.caseNumber,
-        matter: subjectCauseTitle(subject),
-        day: today,
-        blocks: draft.blocks,
-      })}
-    />
-  );
 }
 
 export function OrderMissing() {

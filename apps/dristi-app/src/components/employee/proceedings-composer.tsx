@@ -155,6 +155,11 @@ const CHOOSER_SHOWN = new Set<string>();
 
 const LEAVES = flattenLeaves(CASE_FILE_TREE);
 
+/* Outside a hearing nothing stands on the listing: one shared empty list, so the
+   memoised menus are not recomputed for a fresh one every render. */
+const NO_APPLICATIONS: ProceedingsApplication[] = [];
+const NO_APPEARANCES: Appearance[] = [];
+
 /**
  * Version C of the order composer — the owner's order-screen v14 (2026-10-13).
  *
@@ -167,6 +172,12 @@ const LEAVES = flattenLeaves(CASE_FILE_TREE);
  * Opening a hearing's order first asks how to start: a template for the hearing's purpose,
  * or a blank page. The index (left) and the case file (right) are the block composer's
  * (A), held level with the page as it scrolls.
+ *
+ * **Outside a hearing** (`ORD-08`, a complaint at cognizance) there is no roll, no
+ * applications on a listing and no Next hearing: `appearances` is left out, and
+ * `showNextHearing` is false, so the *Scheduling of hearing date* item sets the date, as in
+ * A and B. Items the workflow loaded as `fixedIds` cannot be removed; an order opened with
+ * items already in it never puts the template chooser over them.
  */
 export function ProceedingsComposer({
   draftKey,
@@ -180,12 +191,15 @@ export function ProceedingsComposer({
   today,
   purpose,
   inHearing,
-  appearances,
-  applications,
+  appearances: roll,
+  applications = NO_APPLICATIONS,
   onOpenApplication,
   applicationDialog,
   draft,
   setDraft,
+  fixedIds = [],
+  showNextHearing,
+  notice,
   overview,
   overviewContent,
   historyContent,
@@ -199,20 +213,29 @@ export function ProceedingsComposer({
   signatory: string;
   context: ComposerContext;
   today: string;
-  purpose: CourtHearingPurposeId;
+  /** What the hearing was called for; absent outside a hearing. */
+  purpose?: CourtHearingPurposeId;
   inHearing: boolean;
-  appearances: Appearance[];
-  applications: ProceedingsApplication[];
-  onOpenApplication: (id: string) => void;
+  /** A hearing's roll; absent outside a hearing, and the Attendance region with it. */
+  appearances?: Appearance[];
+  applications?: ProceedingsApplication[];
+  onOpenApplication?: (id: string) => void;
   applicationDialog?: (
     decide: (id: string, decision: ListingApplicationDecision | null) => void,
   ) => React.ReactNode;
   draft: OrderDraft;
   setDraft: (update: (current: OrderDraft) => OrderDraft) => void;
+  /** Blocks loaded by the workflow that opened the order, and not the drafter's to remove. */
+  fixedIds?: readonly string[];
+  /** The Next hearing region — a hearing's. Outside one, an order item sets the date. */
+  showNextHearing: boolean;
+  /** A line under the header — what the act that opened the order does, say. */
+  notice?: React.ReactNode;
   overview: { label: string; value: string }[];
   overviewContent?: React.ReactNode;
   historyContent?: React.ReactNode;
 }) {
+  const appearances = roll ?? NO_APPEARANCES;
   const [panelOpen, setPanelOpen] = React.useState(true);
   const [view, setView] = React.useState<PageView>("drafting");
   const [openItem, setOpenItem] = React.useState<string | null>(null);
@@ -375,13 +398,14 @@ export function ProceedingsComposer({
   });
 
   /* ── what is left ── */
-  const left = proceedingsToFill({
-    appearances,
-    draft: { ...draft, blocks },
-    context,
-  });
+  /* Outside a hearing the posting is not this screen's to ask: the scheduling item's
+     own date is what lists the case, and it counts as one of that item's gaps. */
+  const posted: OrderDraft = showNextHearing
+    ? { ...draft, blocks }
+    : { ...draft, blocks, next: "none" };
+  const left = proceedingsToFill({ appearances, draft: posted, context });
   const closing = closingItem(blocks);
-  const listing = nextApplies({ blocks, next: draft.next });
+  const listing = showNextHearing && nextApplies({ blocks, next: draft.next });
   const cited = citedIds(blocks);
   const labelFor = React.useCallback(
     (id: string) => {
@@ -485,6 +509,7 @@ export function ProceedingsComposer({
   }
 
   function removeBlock(id: string) {
+    if (fixedIds.includes(id)) return;
     const snapshot = draft.blocks;
     const block = blocks.find((entry) => entry.id === id);
     writeBlocks((current) => current.filter((entry) => entry.id !== id));
@@ -598,7 +623,7 @@ export function ProceedingsComposer({
       disabled: reasonFor(template),
     });
     const likely = ranked(
-      likelyTemplatesFor(purpose),
+      purpose ? likelyTemplatesFor(purpose) : [],
       (template) => template.label,
     );
     const groups: MenuGroup[] = [];
@@ -1033,19 +1058,41 @@ export function ProceedingsComposer({
   const proceedingsGaps = proceedingsRows.filter(
     (row) => row.state === "todo",
   ).length;
+  const nextIndexGroup: IndexGroup = {
+    target: "proc-next",
+    title: "Next hearing",
+    state:
+      !listing || (draft.nextDate && draft.nextPurpose) ? "done" : "todo",
+    detail: closing
+      ? "None, the case closes"
+      : draft.next === "none"
+        ? "Not listed again"
+        : draft.nextDate && draft.nextPurpose
+          ? `${formatListingDate(draft.nextDate)} · ${courtHearingPurposeLabel(draft.nextPurpose)}`
+          : !draft.nextDate && !draft.nextPurpose
+            ? "Date and purpose not set"
+            : !draft.nextDate
+              ? "Date not set"
+              : "Purpose not set",
+    rows: [],
+  };
   const indexGroups: IndexGroup[] = [
-    {
-      target: "order-attendance",
-      title: "Attendance",
-      state: unmarked ? "open" : "done",
-      detail:
-        unmarked === appearances.length
-          ? "Not marked"
-          : unmarked
-            ? `${unmarked} not marked`
-            : `${present} present, ${appearances.length - present} absent`,
-      rows: [],
-    },
+    ...(roll
+      ? [
+          {
+            target: "order-attendance",
+            title: "Attendance",
+            state: (unmarked ? "open" : "done") as "open" | "done",
+            detail:
+              unmarked === appearances.length
+                ? "Not marked"
+                : unmarked
+                  ? `${unmarked} not marked`
+                  : `${present} present, ${appearances.length - present} absent`,
+            rows: [],
+          },
+        ]
+      : []),
     ...(applications.length
       ? [
           {
@@ -1079,24 +1126,7 @@ export function ProceedingsComposer({
           : "Written",
       rows: proceedingsRows,
     },
-    {
-      target: "proc-next",
-      title: "Next hearing",
-      state:
-        !listing || (draft.nextDate && draft.nextPurpose) ? "done" : "todo",
-      detail: closing
-        ? "None, the case closes"
-        : draft.next === "none"
-          ? "Not listed again"
-          : draft.nextDate && draft.nextPurpose
-            ? `${formatListingDate(draft.nextDate)} · ${courtHearingPurposeLabel(draft.nextPurpose)}`
-            : !draft.nextDate && !draft.nextPurpose
-              ? "Date and purpose not set"
-              : !draft.nextDate
-                ? "Date not set"
-                : "Purpose not set",
-      rows: [],
-    },
+    ...(showNextHearing ? [nextIndexGroup] : []),
   ];
 
   /* ── applications ── */
@@ -1113,7 +1143,7 @@ export function ProceedingsComposer({
     number: entry.number,
     detail: entry.filed,
     decided: Boolean(draft.applications[entry.id]),
-    onOpen: () => onOpenApplication(entry.id),
+    onOpen: () => onOpenApplication?.(entry.id),
   }));
 
   return (
@@ -1162,6 +1192,7 @@ export function ProceedingsComposer({
               </p>
             ))}
           </div>
+          {notice}
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <Button
@@ -1243,9 +1274,10 @@ export function ProceedingsComposer({
                   blocks={blocks}
                   draft={draft}
                   context={context}
-                  appearances={appearances}
+                  appearances={roll}
                   applications={applications}
                   listing={listing}
+                  unlisted={showNextHearing && draft.next === "none"}
                   signatory={signatory}
                   labelFor={labelFor}
                   linked={[
@@ -1262,31 +1294,33 @@ export function ProceedingsComposer({
               </>
             ) : (
               <>
-                <AttendanceSection
-                  attendance={{
-                    appearances,
-                    marks: draft.marks,
-                    onMark: (id, mark) =>
-                      setDraft((current) => ({
-                        ...current,
-                        marks: { ...current.marks, [id]: mark },
-                      })),
-                    onMarkAllPresent: () =>
-                      setDraft((current) => ({
-                        ...current,
-                        marks: Object.fromEntries(
-                          appearances.map((entry) => [
-                            entry.id,
-                            current.marks[entry.id] ?? "present",
-                          ]),
-                        ),
-                      })),
-                  }}
-                  disabled={false}
-                />
+                {roll ? (
+                  <AttendanceSection
+                    attendance={{
+                      appearances,
+                      marks: draft.marks,
+                      onMark: (id, mark) =>
+                        setDraft((current) => ({
+                          ...current,
+                          marks: { ...current.marks, [id]: mark },
+                        })),
+                      onMarkAllPresent: () =>
+                        setDraft((current) => ({
+                          ...current,
+                          marks: Object.fromEntries(
+                            appearances.map((entry) => [
+                              entry.id,
+                              current.marks[entry.id] ?? "present",
+                            ]),
+                          ),
+                        })),
+                    }}
+                    disabled={false}
+                  />
+                ) : null}
                 {applications.length ? (
                   <>
-                    <Separator className="my-6 bg-hairline" />
+                    {roll ? <Separator className="my-6 bg-hairline" /> : null}
                     <ApplicationsSection
                       applications={{
                         list: applications.map((entry) => ({
@@ -1294,13 +1328,15 @@ export function ProceedingsComposer({
                           decision: draft.applications[entry.id],
                         })),
                         onDecide: decide,
-                        onOpen: onOpenApplication,
+                        onOpen: (id) => onOpenApplication?.(id),
                       }}
                       disabled={false}
                     />
                   </>
                 ) : null}
-                <Separator className="my-6 bg-hairline" />
+                {roll || applications.length ? (
+                  <Separator className="my-6 bg-hairline" />
+                ) : null}
 
                 <section
                   id="proc-proceedings"
@@ -1349,7 +1385,11 @@ export function ProceedingsComposer({
                               reasonFor={reasonFor}
                               onAdd={(choice) => addFrom(choice, block.id)}
                               onMove={(by) => moveBlock(block.id, by)}
-                              onRemove={() => removeBlock(block.id)}
+                              onRemove={
+                                fixedIds.includes(block.id)
+                                  ? undefined
+                                  : () => removeBlock(block.id)
+                              }
                             />
                           )}
                           {block.kind === "item" ? (
@@ -1367,7 +1407,11 @@ export function ProceedingsComposer({
                                 setOpenItem(null);
                                 caretAfter(block.id);
                               }}
-                              onRemove={() => removeBlock(block.id)}
+                              onRemove={
+                                fixedIds.includes(block.id)
+                                  ? undefined
+                                  : () => removeBlock(block.id)
+                              }
                               onValue={(key, value) =>
                                 updateItem(block.id, (current) =>
                                   setItemValue(current, key, value, context),
@@ -1479,17 +1523,21 @@ export function ProceedingsComposer({
                   </div>
                 </section>
 
-                <Separator className="my-6 bg-hairline" />
-                <NextHearing
-                  draft={draft}
-                  today={today}
-                  closingName={
-                    closing ? orderTemplate(closing.type).label : null
-                  }
-                  onChange={(change) =>
-                    setDraft((current) => ({ ...current, ...change }))
-                  }
-                />
+                {showNextHearing ? (
+                  <>
+                    <Separator className="my-6 bg-hairline" />
+                    <NextHearing
+                      draft={draft}
+                      today={today}
+                      closingName={
+                        closing ? orderTemplate(closing.type).label : null
+                      }
+                      onChange={(change) =>
+                        setDraft((current) => ({ ...current, ...change }))
+                      }
+                    />
+                  </>
+                ) : null}
               </>
             )}
           </div>
@@ -1608,7 +1656,7 @@ export function ProceedingsComposer({
       <ProceedingsTemplateChooser
         open={chooserOpen}
         onOpenChange={setChooserOpen}
-        purposeLabel={courtHearingPurposeLabel(purpose)}
+        purposeLabel={purpose ? courtHearingPurposeLabel(purpose) : undefined}
         suggested={suggestedTemplates(purpose)}
         saved={saved}
         canSave={!pageEmpty}
@@ -1636,7 +1684,7 @@ export function ProceedingsComposer({
             <AlertDialogTitle>Send this order for signing?</AlertDialogTitle>
             <AlertDialogDescription>
               {signingConsequences({
-                draft: { ...draft, blocks },
+                draft: posted,
                 context,
                 applications,
               })}
@@ -1778,11 +1826,12 @@ function BlockGutter({
   last: boolean;
   pickerOpen: boolean;
   onPickerOpenChange: (open: boolean) => void;
-  purpose: string;
+  purpose?: string;
   reasonFor: (template: OrderTemplate) => string | null;
   onAdd: (choice: PickerChoice) => void;
   onMove: (by: -1 | 1) => void;
-  onRemove: () => void;
+  /** Absent for a block the workflow loaded as fixed: it cannot be taken out. */
+  onRemove?: () => void;
 }) {
   /* "Order item below" opens the picker once the menu has closed and let go of focus. */
   const pickerNext = React.useRef(false);
@@ -1849,7 +1898,11 @@ function BlockGutter({
             Move down
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem variant="destructive" onSelect={onRemove}>
+          <DropdownMenuItem
+            variant="destructive"
+            disabled={!onRemove}
+            onSelect={onRemove}
+          >
             Remove
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -1982,6 +2035,7 @@ function PreviewOrder({
   appearances,
   applications,
   listing,
+  unlisted,
   signatory,
   labelFor,
   linked,
@@ -1990,9 +2044,12 @@ function PreviewOrder({
   blocks: ComposerBlock[];
   draft: OrderDraft;
   context: ComposerContext;
-  appearances: Appearance[];
+  /** The hearing's roll; absent outside a hearing, and its line with it. */
+  appearances?: Appearance[];
   applications: ProceedingsApplication[];
   listing: boolean;
+  /** "Not listed again." — the bench's answer on a hearing. */
+  unlisted: boolean;
   signatory: string;
   labelFor: (id: string) => string;
   linked: string[];
@@ -2010,12 +2067,14 @@ function PreviewOrder({
   );
 
   const lines: React.ReactNode[] = [];
-  const attendance = attendanceRecital(appearances, draft.marks);
-  lines.push(
-    attendance.length
-      ? attendance.map((line) => `${line.label}: ${line.value}`).join(" ")
-      : ["Present: ", gap("attendance", "order-attendance", "att"), "."],
-  );
+  if (appearances) {
+    const attendance = attendanceRecital(appearances, draft.marks);
+    lines.push(
+      attendance.length
+        ? attendance.map((line) => `${line.label}: ${line.value}`).join(" ")
+        : ["Present: ", gap("attendance", "order-attendance", "att"), "."],
+    );
+  }
   for (const application of applications) {
     const decision = draft.applications[application.id];
     if (decision) lines.push(application.sentence(decision));
@@ -2071,7 +2130,7 @@ function PreviewOrder({
         : gap("purpose", "proc-next", "np"),
       ".",
     ]);
-  } else if (draft.next === "none") {
+  } else if (unlisted) {
     lines.push("Not listed again.");
   }
 

@@ -111,7 +111,7 @@ export type OrderDraft = {
   /** Case-file documents the drafter linked to the order (the case file panel). */
   links: readonly string[];
   /**
-   * Version B only (`order-screen-b.tsx`): the order as one body of rich text. There the
+   * Version B only (`order-text-composer.tsx`): the order as one body of rich text. There the
    * item blocks hold each item's answers, and this holds the words.
    */
   body?: RichTextValue;
