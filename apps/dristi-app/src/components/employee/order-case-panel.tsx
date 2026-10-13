@@ -84,6 +84,7 @@ export function OrderCasePanel({
   cited = [],
   overviewContent,
   historyContent,
+  preview,
   requestView,
   onViewRequested,
 }: {
@@ -97,6 +98,11 @@ export function OrderCasePanel({
   cited?: readonly string[];
   /** The court's own case overview, in place of the plain fact list. */
   overviewContent?: React.ReactNode;
+  /**
+   * The order as paper, kept live beside the drafting (version D, owner 2026-10-14) —
+   * shows a Preview tab ahead of the case file's own, and opens on it.
+   */
+  preview?: React.ReactNode;
   /** The court's own case history, in place of the plain list — shows the tab. */
   historyContent?: React.ReactNode;
   /** A document to open in the viewer — a citation clicked in the order, say. */
@@ -221,7 +227,7 @@ export function OrderCasePanel({
       )}
     >
       <Tabs
-        defaultValue="documents"
+        defaultValue={preview ? "preview" : "documents"}
         className="flex min-h-0 flex-1 flex-col gap-0"
       >
         {/* The product's line tabs (case peek, Approve registrations): left-aligned on
@@ -234,6 +240,14 @@ export function OrderCasePanel({
             aria-label="Case file"
             className="h-14 w-full justify-start rounded-none p-0 group-data-horizontal/tabs:h-14"
           >
+            {preview ? (
+              <TabsTrigger
+                value="preview"
+                className="h-full flex-none px-3 text-body-compact group-data-horizontal/tabs:after:-bottom-px"
+              >
+                Order preview
+              </TabsTrigger>
+            ) : null}
             <TabsTrigger
               value="documents"
               className="h-full flex-none px-3 text-body-compact group-data-horizontal/tabs:after:-bottom-px"
@@ -256,6 +270,19 @@ export function OrderCasePanel({
             ) : null}
           </TabsList>
         </div>
+
+        {preview ? (
+          /* The paper on the panel's sunken well, the way a document reads everywhere
+             else in the product: a white sheet with a hairline, scrolling on its own. */
+          <TabsContent
+            value="preview"
+            className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-surface-sunken p-4"
+          >
+            <div className="rounded-lg border border-hairline bg-card p-6 shadow-raised">
+              {preview}
+            </div>
+          </TabsContent>
+        ) : null}
 
         <TabsContent
           value="documents"

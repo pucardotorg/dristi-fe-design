@@ -11,7 +11,7 @@
 
 const KEY = "dristi.order-layout";
 
-export type OrderLayout = "blocks" | "text" | "proceedings";
+export type OrderLayout = "blocks" | "text" | "proceedings" | "option-d";
 
 /** With nothing stored, version A. */
 export const DEFAULT_ORDER_LAYOUT: OrderLayout = "blocks";
@@ -27,6 +27,9 @@ export const ORDER_LAYOUT_OPTIONS: readonly {
   { id: "blocks", label: "A: Blocks" },
   { id: "text", label: "B: Text box" },
   { id: "proceedings", label: "C: Proceedings" },
+  /* C with Preview order as a live tab in the right panel (owner, 2026-10-14). The id
+     stays "option-d" whatever the label becomes: it is what a browser has stored. */
+  { id: "option-d", label: "D: Live preview" },
 ];
 
 const ORDER_LAYOUTS: readonly OrderLayout[] = ORDER_LAYOUT_OPTIONS.map(

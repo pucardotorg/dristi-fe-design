@@ -196,6 +196,7 @@ export function ProceedingsComposer({
   overview,
   overviewContent,
   historyContent,
+  previewInPanel = false,
 }: {
   draftKey: string;
   heading: string;
@@ -223,6 +224,14 @@ export function ProceedingsComposer({
   overview: { label: string; value: string }[];
   overviewContent?: React.ReactNode;
   historyContent?: React.ReactNode;
+  /**
+   * Version D (owner, 2026-10-14): Preview order leaves the order's own bar and becomes
+   * the right panel's first tab, live beside the drafting — every word typed and every
+   * value set shows on the paper as it happens, and the case file is a tab away. The
+   * panel takes an equal share of the width for the paper, the index and the drafting
+   * page giving up the room.
+   */
+  previewInPanel?: boolean;
 }) {
   const [panelOpen, setPanelOpen] = React.useState(true);
   const [view, setView] = React.useState<PageView>("drafting");
@@ -1139,6 +1148,105 @@ export function ProceedingsComposer({
     onOpen: () => onOpenApplication?.(entry.id),
   }));
 
+  /* D's columns: the index a fixed width, the drafting page and the side panel sharing
+     the rest — the page the larger share, since it is where the work is, and the paper
+     beside it at a reading width (owner, 2026-10-14: an even split read as unbalanced).
+     Both are the reader's to drag, or to set from the keyboard; a double press puts
+     them back. Held for the visit. */
+  const [indexWidth, setIndexWidth] = React.useState(INDEX_DEFAULT);
+  const [previewShare, setPreviewShare] = React.useState(SHARE_DEFAULT);
+  const gridRef = React.useRef<HTMLDivElement>(null);
+  const drag = React.useRef(0);
+  const span = React.useRef(0);
+  const columns = panelOpen
+    ? `${indexWidth}px 1.5rem minmax(0,${1 - previewShare}fr) 1.5rem minmax(0,${previewShare}fr)`
+    : `${indexWidth}px 1.5rem minmax(0,1fr)`;
+
+  /* D: the part of the drafting being worked on, which the order preview follows — kept
+     in view as it changes, and marked for a moment when the work moves to it (owner,
+     2026-10-14). */
+  const [editing, setEditing] = React.useState<string | null>(null);
+  const marked = React.useRef<string | null>(null);
+  function follow(target: EventTarget) {
+    if (!previewInPanel || !(target instanceof HTMLElement)) return;
+    const part = target.closest<HTMLElement>(
+      "[id^='block-'], #order-attendance, #order-applications, #proc-next",
+    );
+    if (part) setEditing(part.id);
+  }
+  React.useEffect(() => {
+    if (!previewInPanel || !editing) return;
+    /* Only while the Order preview tab is the one showing. */
+    const preview = rootRef.current?.querySelector<HTMLElement>(
+      "[data-order-preview]",
+    );
+    const scroller = preview?.closest<HTMLElement>("[role=tabpanel]");
+    if (!preview || !scroller) return;
+    const lines = [
+      ...preview.querySelectorAll<HTMLElement>(
+        `[data-preview-line="${CSS.escape(editing)}"]`,
+      ),
+    ];
+    if (!lines.length) return;
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const view = scroller.getBoundingClientRect();
+    const top = lines[0].getBoundingClientRect().top;
+    const bottom = lines[lines.length - 1].getBoundingClientRect().bottom;
+    if (top < view.top + 16 || bottom > view.bottom - 16) {
+      /* A third of the way down, so what comes before it reads as well. */
+      scroller.scrollTo({
+        top: scroller.scrollTop + top - view.top - view.height / 3,
+        behavior: still ? "auto" : "smooth",
+      });
+    }
+    if (marked.current !== editing) {
+      marked.current = editing;
+      if (!still)
+        for (const line of lines)
+          line.animate(
+            [
+              { backgroundColor: "var(--brand-muted)" },
+              { backgroundColor: "var(--brand-muted)", offset: 0.4 },
+              { backgroundColor: "transparent" },
+            ],
+            { duration: 1400, easing: "ease-out" },
+          );
+    }
+  }, [editing, draft, previewInPanel]);
+
+  /* The order as paper: Preview order's view in C, the panel's live tab in D. */
+  const paper = (
+    <div data-order-preview="">
+      {/* The paper's heading, on the paper only: Drafting starts with what
+        happened (owner, 2026-10-13). */}
+      <header className="flex flex-col items-center gap-1 text-center">
+        <p className="text-body-compact font-semibold">{courtLine}</p>
+        <p className="text-body-compact text-muted-foreground">{subLine}</p>
+      </header>
+      <Separator className="my-6 bg-hairline" />
+      <PreviewOrder
+        blocks={blocks}
+        draft={draft}
+        context={context}
+        appearances={sitting ? appearances : undefined}
+        applications={applications}
+        listing={listing}
+        signatory={signatory}
+        labelFor={labelFor}
+        linked={[
+          ...new Set([
+            ...applications
+              .filter((entry) => draft.applications[entry.id])
+              .map((entry) => entry.id),
+            ...cited,
+            ...draft.links,
+          ]),
+        ]}
+        onGap={(target) => jump(target)}
+      />
+    </div>
+  );
+
   return (
     <div
       className="flex min-h-0 min-w-0 flex-1 flex-col"
@@ -1196,18 +1304,29 @@ export function ProceedingsComposer({
             onClick={() => setPanelOpen((open) => !open)}
           >
             <PanelRightIcon data-icon="inline-start" aria-hidden />
-            Case file
+            {/* In D the panel holds the order preview as well as the case file. */}
+            {previewInPanel ? "Side panel" : "Case file"}
           </Button>
           {navAction}
         </div>
       </header>
 
       <div
+        ref={gridRef}
+        style={
+          previewInPanel
+            ? ({ "--order-columns": columns } as React.CSSProperties)
+            : undefined
+        }
         className={cn(
           "grid min-w-0 flex-1 items-start gap-6 bg-muted p-6 md:p-8 lg:pb-0 dark:bg-background",
-          panelOpen
-            ? "lg:grid-cols-[minmax(0,13rem)_minmax(0,1fr)_minmax(0,20rem)] xl:grid-cols-[15rem_minmax(0,1fr)_22rem] 2xl:grid-cols-[16rem_minmax(0,1fr)_24rem]"
-            : "lg:grid-cols-[minmax(0,15rem)_minmax(0,1fr)]",
+          previewInPanel
+            ? /* D's columns are the reader's to set (see `columns`); the handles sit in
+                 the gaps, so the gaps are tracks of their own. */
+              "lg:grid-cols-(--order-columns) lg:gap-x-0"
+            : !panelOpen
+              ? "lg:grid-cols-[minmax(0,15rem)_minmax(0,1fr)]"
+              : "lg:grid-cols-[minmax(0,13rem)_minmax(0,1fr)_minmax(0,20rem)] xl:grid-cols-[15rem_minmax(0,1fr)_22rem] 2xl:grid-cols-[16rem_minmax(0,1fr)_24rem]",
         )}
       >
         <OrderIndex
@@ -1217,8 +1336,33 @@ export function ProceedingsComposer({
           onJump={jump}
         />
 
+        {previewInPanel ? (
+          <ColumnResizer
+            label="Resize the index"
+            valueNow={indexWidth}
+            valueMin={INDEX_MIN}
+            valueMax={INDEX_MAX}
+            valueText={`${indexWidth} pixels wide`}
+            onDrag={(dx, start) => {
+              if (start) {
+                drag.current = indexWidth;
+                return;
+              }
+              setIndexWidth(clamp(drag.current + dx, INDEX_MIN, INDEX_MAX));
+            }}
+            onStep={(by) =>
+              setIndexWidth((width) =>
+                clamp(width + by * 16, INDEX_MIN, INDEX_MAX),
+              )
+            }
+            onReset={() => setIndexWidth(INDEX_DEFAULT)}
+          />
+        ) : null}
+
         <article
           aria-label="Order"
+          onFocus={(event) => follow(event.target)}
+          onInput={(event) => follow(event.target)}
           className={cn(
             PANEL_CLASS,
             "flex min-w-0 flex-col rounded-xl border bg-card text-card-foreground lg:sticky lg:top-(--order-panel-top) lg:h-(--order-panel-fill) lg:overflow-hidden lg:rounded-b-none lg:border-b-0",
@@ -1247,42 +1391,14 @@ export function ProceedingsComposer({
               ) : (
                 <span aria-hidden />
               )}
-              <PageViewSwitch value={view} onChange={setView} className="" />
+              {previewInPanel ? null : (
+                <PageViewSwitch value={view} onChange={setView} className="" />
+              )}
             </div>
           </div>
           <div className="min-w-0 p-6 md:p-8 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain">
-            {view === "preview" ? (
-              <>
-                {/* The paper's heading, on the paper only: Drafting starts with what
-                  happened (owner, 2026-10-13). */}
-                <header className="flex flex-col items-center gap-1 text-center">
-                  <p className="text-body-compact font-semibold">{courtLine}</p>
-                  <p className="text-body-compact text-muted-foreground">
-                    {subLine}
-                  </p>
-                </header>
-                <Separator className="my-6 bg-hairline" />
-                <PreviewOrder
-                  blocks={blocks}
-                  draft={draft}
-                  context={context}
-                  appearances={sitting ? appearances : undefined}
-                  applications={applications}
-                  listing={listing}
-                  signatory={signatory}
-                  labelFor={labelFor}
-                  linked={[
-                    ...new Set([
-                      ...applications
-                        .filter((entry) => draft.applications[entry.id])
-                        .map((entry) => entry.id),
-                      ...cited,
-                      ...draft.links,
-                    ]),
-                  ]}
-                  onGap={(target) => jump(target)}
-                />
-              </>
+            {view === "preview" && !previewInPanel ? (
+              paper
             ) : (
               <>
                 {sitting ? (
@@ -1528,6 +1644,38 @@ export function ProceedingsComposer({
           </div>
         </article>
 
+        {previewInPanel && panelOpen ? (
+          <ColumnResizer
+            label="Resize the order and the side panel"
+            valueNow={Math.round(previewShare * 100)}
+            valueMin={SHARE_MIN * 100}
+            valueMax={SHARE_MAX * 100}
+            valueText={`Side panel ${Math.round(previewShare * 100)} percent`}
+            onDrag={(dx, start) => {
+              if (start) {
+                const [, , page, , side] = gridRef.current
+                  ? [...gridRef.current.children]
+                  : [];
+                drag.current = previewShare;
+                span.current =
+                  (page?.getBoundingClientRect().width ?? 0) +
+                  (side?.getBoundingClientRect().width ?? 0);
+                return;
+              }
+              if (span.current > 0)
+                setPreviewShare(
+                  clamp(drag.current - dx / span.current, SHARE_MIN, SHARE_MAX),
+                );
+            }}
+            onStep={(by) =>
+              setPreviewShare((share) =>
+                clamp(share - by * 0.025, SHARE_MIN, SHARE_MAX),
+              )
+            }
+            onReset={() => setPreviewShare(SHARE_DEFAULT)}
+          />
+        ) : null}
+
         {panelOpen ? (
           <OrderCasePanel
             className="order-3 lg:sticky lg:top-(--order-panel-top) lg:order-none lg:h-(--order-panel-fill) lg:rounded-b-none lg:border-b-0"
@@ -1541,6 +1689,7 @@ export function ProceedingsComposer({
             cited={cited}
             overviewContent={overviewContent}
             historyContent={historyContent}
+            preview={previewInPanel ? paper : undefined}
             requestView={viewRequest}
             onViewRequested={() => setViewRequest(null)}
           />
@@ -1740,14 +1889,13 @@ function flash(el: HTMLElement | null) {
       );
     })
     .map((node) => node.getBoundingClientRect());
-  const seen = [...words, ...boxes]
-    .filter(
-      (rect) =>
-        rect.width > 1 &&
-        rect.height > 1 &&
-        rect.left >= box.left - 1 &&
-        rect.right <= box.right + 1,
-    );
+  const seen = [...words, ...boxes].filter(
+    (rect) =>
+      rect.width > 1 &&
+      rect.height > 1 &&
+      rect.left >= box.left - 1 &&
+      rect.right <= box.right + 1,
+  );
   const bordered = getComputedStyle(el).borderTopWidth !== "0px";
   const reach = (inside: number) =>
     bordered ? 0 : Math.max(0, Math.round(AIR - inside));
@@ -1782,6 +1930,91 @@ function flash(el: HTMLElement | null) {
       bordered ? {} : { borderRadius: "var(--radius-lg)" },
     ],
     { duration: 1400, easing: "ease-out" },
+  );
+}
+
+/* D's column bounds: the index never narrower than its step names need, nor wider
+   than a sidebar; the side panel between a third and two thirds of what it shares. */
+const INDEX_DEFAULT = 240;
+const INDEX_MIN = 192;
+const INDEX_MAX = 320;
+const SHARE_DEFAULT = 0.45;
+const SHARE_MIN = 0.3;
+const SHARE_MAX = 0.65;
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+/**
+ * A handle in the gap between two of D's columns: drag it, or focus it and use the
+ * arrow keys, to give one column room from the other; a double press resets. A hairline
+ * shows where it is on hover or focus, with a grip at its middle — at rest the gap is
+ * just a gap. It is a `separator` with its value, so it is announced and operable
+ * without a pointer.
+ */
+function ColumnResizer({
+  label,
+  valueNow,
+  valueMin,
+  valueMax,
+  valueText,
+  onDrag,
+  onStep,
+  onReset,
+}: {
+  label: string;
+  valueNow: number;
+  valueMin: number;
+  valueMax: number;
+  valueText: string;
+  /** `start` once as the drag begins (dx 0), then the distance moved since. */
+  onDrag: (dx: number, start: boolean) => void;
+  /** One step left (-1) or right (1), from the keyboard. */
+  onStep: (by: -1 | 1) => void;
+  onReset: () => void;
+}) {
+  const from = React.useRef<number | null>(null);
+  return (
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={label}
+      aria-valuenow={valueNow}
+      aria-valuemin={valueMin}
+      aria-valuemax={valueMax}
+      aria-valuetext={valueText}
+      tabIndex={0}
+      onPointerDown={(event) => {
+        event.preventDefault();
+        event.currentTarget.setPointerCapture(event.pointerId);
+        from.current = event.clientX;
+        onDrag(0, true);
+      }}
+      onPointerMove={(event) => {
+        if (from.current === null) return;
+        onDrag(event.clientX - from.current, false);
+      }}
+      onPointerUp={(event) => {
+        from.current = null;
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }}
+      onDoubleClick={onReset}
+      onKeyDown={(event) => {
+        if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+          event.preventDefault();
+          onStep(event.key === "ArrowLeft" ? -1 : 1);
+        }
+        if (event.key === "Home" || event.key === "Enter") {
+          event.preventDefault();
+          onReset();
+        }
+      }}
+      className="group/resize relative hidden cursor-col-resize touch-none justify-center outline-none select-none lg:sticky lg:top-(--order-panel-top) lg:flex lg:h-(--order-panel-fill)"
+    >
+      <span className="h-full w-px transition-colors group-hover/resize:bg-input group-focus-visible/resize:bg-ring group-active/resize:bg-ring" />
+      <span className="absolute top-1/2 h-10 w-1.5 -translate-y-1/2 rounded-full bg-input opacity-0 transition-opacity group-hover/resize:opacity-100 group-focus-visible/resize:bg-ring group-focus-visible/resize:opacity-100 group-active/resize:bg-ring group-active/resize:opacity-100" />
+    </div>
   );
 }
 
@@ -2048,10 +2281,28 @@ function PreviewOrder({
     </button>
   );
 
-  const lines: React.ReactNode[] = [];
+  /* A value that is set, marked on the paper as it is in the drafting — and, like a gap,
+     a press away from where it is set. */
+  const value = (text: string, target: string, key: string) => (
+    <button
+      key={key}
+      type="button"
+      onClick={() => onGap(target)}
+      className="rounded-sm bg-brand-muted px-0.5 text-brand-muted-foreground hover:underline hover:underline-offset-3 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+    >
+      {text}
+    </button>
+  );
+
+  /* Each line knows the part of the drafting it comes from, so the paper can follow
+     the drafting (`data-preview-line`). */
+  const lines: { target: string; node: React.ReactNode }[] = [];
+  const push = (target: string, node: React.ReactNode) =>
+    lines.push({ target, node });
   if (appearances) {
     const attendance = attendanceRecital(appearances, draft.marks);
-    lines.push(
+    push(
+      "order-attendance",
       attendance.length
         ? attendance.map((line) => `${line.label}: ${line.value}`).join(" ")
         : ["Present: ", gap("attendance", "order-attendance", "att"), "."],
@@ -2059,28 +2310,28 @@ function PreviewOrder({
   }
   for (const application of applications) {
     const decision = draft.applications[application.id];
-    if (decision) lines.push(application.sentence(decision));
+    if (decision) push("order-applications", application.sentence(decision));
   }
   for (const block of blocks) {
     if (block.kind === "item") {
       const parts = itemParts(block, context);
       if (!parts.length) continue;
-      lines.push(
+      push(
+        `block-${block.id}`,
         parts.map((part, index) => {
           if (typeof part === "string")
             return <React.Fragment key={index}>{part}</React.Fragment>;
           const piece = itemValuePiece(block, part.k, context);
-          return piece.missing ? (
-            gap(piece.label.toLowerCase(), `block-${block.id}`, `${index}`)
-          ) : (
-            <React.Fragment key={index}>{piece.text}</React.Fragment>
-          );
+          return piece.missing
+            ? gap(piece.label.toLowerCase(), `block-${block.id}`, `${index}`)
+            : value(piece.text, `block-${block.id}`, `${index}`);
         }),
       );
       continue;
     }
     if (!block.text.trim()) continue;
-    lines.push(
+    push(
+      `block-${block.id}`,
       paraParts(block.text).flatMap((part, index) => {
         if (typeof part !== "string")
           return [
@@ -2099,29 +2350,37 @@ function PreviewOrder({
     );
   }
   if (listing) {
-    lines.push([
+    push("proc-next", [
       "Next hearing is scheduled on ",
       draft.nextDate
-        ? formatOrderDate(draft.nextDate)
+        ? value(formatOrderDate(draft.nextDate), "proc-next", "nd")
         : gap("date", "proc-next", "nd"),
       " for ",
       draft.nextPurpose
-        ? courtHearingPurposeLabel(draft.nextPurpose).replace(/^./, (c) =>
-            c.toLowerCase(),
+        ? value(
+            courtHearingPurposeLabel(draft.nextPurpose).replace(/^./, (c) =>
+              c.toLowerCase(),
+            ),
+            "proc-next",
+            "np",
           )
         : gap("purpose", "proc-next", "np"),
       ".",
     ]);
   } else if (draft.next === "none") {
-    lines.push("Not listed again.");
+    push("proc-next", "Not listed again.");
   }
 
   return (
     <div className="flex flex-col">
       <div className="flex flex-col gap-4">
         {lines.map((line, index) => (
-          <p key={index} className="text-body">
-            {line}
+          <p
+            key={index}
+            data-preview-line={line.target}
+            className="-mx-2 rounded-md px-2 text-body"
+          >
+            {line.node}
           </p>
         ))}
       </div>
