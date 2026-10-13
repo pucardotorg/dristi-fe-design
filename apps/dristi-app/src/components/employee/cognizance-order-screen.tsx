@@ -50,7 +50,7 @@ import { cn } from "@/lib/utils";
 /**
  * The order one cognizance act draws up — the composer's **outside-a-hearing** door
  * (`ORD-06`–`ORD-08`): the same screen as a hearing's order, without Attendance and Next
- * hearing. The act's own order items arrive loaded (`cognizance-order.ts`), and the next
+ * hearing. The act's own order items arrive loaded (`cognizance-order.ts`), all removable, and the next
  * date is the *Scheduling of hearing date* item's to set.
  *
  * Version A, B or C by the Court settings toggle, as on a hearing (`order-door-screen.tsx`).
@@ -92,7 +92,7 @@ function CognizanceOrder({
 }
 
 /**
- * A cognizance act's door: the act's order items loaded and the act's own item fixed
+ * A cognizance act's door: the act's order items loaded, every one removable
  * (`cognizanceComposition`), the act's outcome under the title, and the way back to the
  * complaint.
  */
@@ -120,7 +120,8 @@ export function useCognizanceOrderDoor(
   return {
     draftKey: cognizanceDraftKey(matter, act),
     initial,
-    fixedIds: composition.fixedIds,
+    /* Every item the act loads can be removed, the act's own included (owner, 2026-10-13). */
+    fixedIds: [],
     heading: subjectCauseTitle(subject),
     facts: subjectFacts(subject),
     courtLine: courtText(`Before the ${CURRENT_STAFF.court}`),

@@ -3,7 +3,7 @@ import type { OrderDocument } from "@/lib/employee/order-draft";
 
 /**
  * The draft order as paper — the same facsimile treatment the signing queues use
- * (`sign-order-dialog.tsx`'s `OrderFacsimile`), bound to an order still being drafted.
+ * (`sign-order-flow.tsx`'s `OrderFacsimile`), bound to an order still being drafted.
  *
  * One component for both doors onto the composer (a hearing, a complaint at
  * cognizance), reading the one `OrderDocument` shape `order-draft.ts` builds — two
