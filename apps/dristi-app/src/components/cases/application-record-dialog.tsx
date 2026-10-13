@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
-import Link from "next/link";
+import { CaseLink as Link } from "@/components/cases/case-reader";
 import { DownloadIcon, FileTextIcon, FileXIcon, XIcon } from "lucide-react";
 
 import {

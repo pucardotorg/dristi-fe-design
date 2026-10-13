@@ -1,7 +1,7 @@
 "use client";
 
 import { type ReactNode } from "react";
-import Link from "next/link";
+import { CaseLink as Link } from "@/components/cases/case-reader";
 import { InfoIcon } from "lucide-react";
 
 import { Identifier } from "@/components/chrome/identifier";

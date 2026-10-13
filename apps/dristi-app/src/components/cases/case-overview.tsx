@@ -3,7 +3,7 @@
 import { REGISTER_TABLE_ONLY } from "@/components/cases/register-layout";
 import { cn } from "@/lib/utils";
 import { Fragment, useRef, useState, type ReactNode } from "react";
-import Link from "next/link";
+import { CaseLink as Link } from "@/components/cases/case-reader";
 import { toast } from "sonner";
 
 import { CaseHearingsDialog } from "@/components/cases/case-hearings-dialog";

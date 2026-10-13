@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode, type RefObject } from "react";
-import Link from "next/link";
+import { CaseLink as Link } from "@/components/cases/case-reader";
 import { ArrowLeftIcon, CalendarOffIcon } from "lucide-react";
 
 import {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import Link from "next/link";
+import { CaseLink as Link } from "@/components/cases/case-reader";
 import { ArchiveIcon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
