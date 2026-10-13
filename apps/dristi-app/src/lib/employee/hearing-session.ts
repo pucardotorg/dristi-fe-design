@@ -43,8 +43,8 @@ export const EMPTY_SESSION: HearingSession = {
   passedOverIds: NO_IDS,
 };
 
-/* Opens on the demo sitting (`sample-sitting.ts`) so every pill has rows; swap back to
-   `EMPTY_SESSION` to open on an untouched day. */
+/* Opens on the demo sitting (`sample-sitting.ts`), currently an untouched day; fill
+   that file to open with hearings already under way. */
 let session: HearingSession = SAMPLE_SESSION;
 const listeners = new Set<() => void>();
 

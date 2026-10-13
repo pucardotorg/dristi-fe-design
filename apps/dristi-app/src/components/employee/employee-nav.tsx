@@ -10,7 +10,7 @@ import {
   useCourtSession,
 } from "@/components/employee/use-court-role";
 import {
-  COURT_ROLE_LABEL,
+  courtRoleLabel,
   COURT_SEATS,
   type CourtRole,
 } from "@/lib/employee/content";
@@ -967,7 +967,7 @@ function CourtSettingsControl() {
         >
           {COURT_SEATS.map((role) => (
             <DropdownMenuRadioItem key={role} value={role}>
-              {COURT_ROLE_LABEL[role]}
+              {courtRoleLabel(role, court)}
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>
@@ -1072,6 +1072,7 @@ function CourtSettingsControl() {
 function CourtIdentityFooter() {
   const { name } = useCourtSession();
   const role = useCourtRole();
+  const { court: state } = useCourt();
   /* The settings control leaves the layout with the labels, so folding while it holds
      focus drops the keyboard the same way a section's rows do. Its fallback is the fold
      control — the one thing that caused the change and is on screen either side of it,
@@ -1106,7 +1107,7 @@ function CourtIdentityFooter() {
         {/* One weight down, so a long seat title never starts competing with the
             person's name; the step between them is size and ink. */}
         <span className={`wrap-break-word text-caption font-medium ${RAIL_MUTED}`}>
-          {COURT_ROLE_LABEL[role]}
+          {courtRoleLabel(role, state)}
         </span>
       </div>
       <CourtSettingsControl />
@@ -1179,7 +1180,7 @@ export function EmployeeNav() {
                into (`courtNavRowsFor`), flat — the same list primitive the standalone
                links above already use. */
             <SidebarMenu className={RAIL_MENU}>
-              {courtNavRowsFor(layout, court).map((item) => (
+              {courtNavRowsFor(layout, court, seat).map((item) => (
                 <CourtNavRow
                   key={item.id}
                   item={item}

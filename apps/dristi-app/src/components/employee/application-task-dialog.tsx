@@ -2,10 +2,12 @@
 
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ChevronDownIcon } from "lucide-react";
 
 import { ReviewRow } from "@/components/cases/filing-form-shared";
 import { Identifier } from "@/components/chrome/identifier";
+import { applicationOrderHref } from "@/components/employee/application-order-screen";
 import { ApplicationReviewOverlay } from "@/components/employee/application-review-dialog";
 import { useCourtRole } from "@/components/employee/use-court-role";
 import { Badge } from "@/components/ui/badge";
@@ -71,8 +73,8 @@ import { useCourtText } from "@/components/court/court-provider";
  * something else. The Decide application task is the second gate — accept or reject,
  * or move the date.
  *
- * Who may do what follows `ALC-22`: onboarding and every date are the magistrate's
- * system actions; an order — dismissal, acceptance, rejection — may be drafted from any
+ * Who may do what follows `ALC-22`: onboarding and every date are system actions —
+ * the magistrate's, and for now the bench clerk's too (`canTakeSystemAction`); an order — dismissal, acceptance, rejection — may be drafted from any
  * court seat but takes effect only on the magistrate's signature. Signing here is the
  * same labelled sandbox the Sign orders queue is: it records the signature, nothing is
  * sent anywhere.
@@ -121,6 +123,7 @@ function TaskBody({
   onReturnFocus: () => void;
 }) {
   const courtText = useCourtText();
+  const router = useRouter();
   const seat = useCourtRole() as CourtSeat;
   const on = today();
   const record = caseOf(application);
@@ -148,7 +151,7 @@ function TaskBody({
     ? all.find((item) => item.id === application.objectionId)
     : undefined;
   const filedOn = formatCaseDate(application.submittedOn ?? application.createdOn);
-  const magistrate = canTakeSystemAction(seat);
+  const mayAct = canTakeSystemAction(seat);
 
   function run(step: () => Result, next: Mode = "choose") {
     const result = step();
@@ -163,9 +166,15 @@ function TaskBody({
 
   const id = application.id;
 
+  /* For now (owner, 2026-10-13) the order steps open the real order screen, empty,
+     rather than drafting a one-line order here. */
+  function openOrder(kind: "review" | "decide") {
+    router.push(applicationOrderHref(kind, id));
+  }
+
   function confirmOnboard() {
     const number = allotApplicationNumber(on);
-    run(
+    const onboarded = run(
       () =>
         applyStep(id, (app) =>
           onboard(
@@ -178,9 +187,9 @@ function TaskBody({
             on,
           ),
         ),
-      /* `ALC-08`: "now" goes straight to the order. */
-      onboardMode === "now" ? "accept" : "choose",
     );
+    /* `ALC-08`: "now" goes straight to the order. */
+    if (onboarded && onboardMode === "now") openOrder("decide");
   }
 
   /* Written in the selected court's numbers (`CourtSwitch`), since the order is
@@ -256,12 +265,12 @@ function TaskBody({
           note={`Drafted from the ${seatLabel(pending.draftedBy)} seat.`}
         />
       ) : mode === "choose" ? (
-        !magistrate ? (
+        !mayAct ? (
           <p className="text-body-compact text-muted-foreground">
             {`You are working as the ${seatLabel(seat)}. `}
             {task?.kind === "review"
-              ? "Onboarding and setting a date are for the magistrate only. You can draft a dismissal for their signature."
-              : "Moving the date is for the magistrate only. You can draft the order accepting or rejecting it, for their signature."}
+              ? "Onboarding and setting a date are for the magistrate and bench clerk only. You can draft a dismissal for their signature."
+              : "Moving the date is for the magistrate and bench clerk only. You can draft the order accepting or rejecting it, for their signature."}
           </p>
         ) : null
       ) : mode === "set-date" || mode === "move-date" ? (
@@ -341,7 +350,7 @@ function TaskBody({
           <p className="text-caption text-muted-foreground">
             Or{" "}
             <Link
-              href="/employee/hearings"
+              href={applicationOrderHref(task?.kind ?? "review", id)}
               className="underline underline-offset-4"
             >
               open the order screen
@@ -415,10 +424,10 @@ function TaskBody({
         </>
       ) : mode === "choose" && task?.kind === "review" ? (
         <ReviewChoices
-          magistrate={magistrate}
+          magistrate={mayAct}
           dateUsed={setADateUsed(application)}
           canDraft={canDraftOrder(seat)}
-          onDismiss={() => setMode("dismiss")}
+          onDismiss={() => openOrder("review")}
           onSetDate={() => {
             setDate(suggestion ?? "");
             setMode("set-date");
@@ -431,7 +440,7 @@ function TaskBody({
       ) : mode === "choose" && task?.kind === "decide" ? (
         <>
           <div className="flex flex-col-reverse gap-2 sm:flex-row">
-            {magistrate ? (
+            {mayAct ? (
               <Button
                 type="button"
                 variant="outline"
@@ -445,10 +454,10 @@ function TaskBody({
             ) : null}
           </div>
           <div className="flex flex-col-reverse gap-2 sm:flex-row">
-            <Button type="button" variant="outline" onClick={() => setMode("reject")}>
+            <Button type="button" variant="outline" onClick={() => openOrder("decide")}>
               Reject
             </Button>
-            <Button type="button" onClick={() => setMode("accept")}>
+            <Button type="button" onClick={() => openOrder("decide")}>
               Accept
             </Button>
           </div>

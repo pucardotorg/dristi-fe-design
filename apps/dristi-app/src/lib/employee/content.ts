@@ -12,6 +12,8 @@
  * actually logs in is still an open product question (`docs/product/open-questions.md`).
  */
 
+import type { CourtId } from "@/lib/court/profiles";
+
 export type CourtRole =
   | "magistrate"
   | "bench-clerk"
@@ -38,6 +40,24 @@ export const COURT_ROLE_LABEL: Record<CourtRole, string> = {
   "scrutiny-officer": "Scrutiny officer",
   typist: "Typist",
 };
+
+/**
+ * What Punjab & Haryana call the same seats (owner, 2026-10-13): the stenographer is the
+ * "Steno", the official who scrutinises a filing is the "Ahlmad", and the bench clerk is
+ * the "Reader". The magistrate keeps the shared label. Only the words change — the seat,
+ * and what it is offered, is the same one.
+ */
+const PUNJAB_HARYANA_ROLE_LABEL: Partial<Record<CourtRole, string>> = {
+  "bench-clerk": "Reader",
+  "scrutiny-officer": "Ahlmad",
+  typist: "Steno",
+};
+
+/** A seat's label in the selected state's own words; Kerala's where it has none. */
+export function courtRoleLabel(role: CourtRole, court: CourtId): string {
+  const local = court === "punjab-haryana" ? PUNJAB_HARYANA_ROLE_LABEL[role] : undefined;
+  return local ?? COURT_ROLE_LABEL[role];
+}
 
 /**
  * The seats the court side can be worked from — what the rail's settings control

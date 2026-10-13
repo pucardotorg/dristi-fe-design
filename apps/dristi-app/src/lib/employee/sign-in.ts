@@ -20,6 +20,8 @@
  * a rule. The field is real, required and masked; what it is not is checked.
  */
 
+import type { CourtId } from "@/lib/court/profiles";
+
 import { COURT_DISTRICT, CURRENT_STAFF, type CourtRole } from "./content";
 
 /**
@@ -123,15 +125,41 @@ export const COURT_ACCOUNTS: Record<CourtRole, CourtAccount> = {
 };
 
 /**
+ * Punjab & Haryana's usernames: the seat's own name and nothing else — the magistrate,
+ * the Reader, the Ahlmad and the Steno (owner, 2026-10-13/14). Same people, same rooms;
+ * only the username a person types changes.
+ */
+const PUNJAB_HARYANA_USERNAMES: Partial<Record<CourtRole, string>> = {
+  magistrate: "magistrate",
+  "bench-clerk": "reader",
+  "scrutiny-officer": "ahlmad",
+  typist: "steno",
+};
+
+/** The demo directory as the selected state's court holds it. */
+export function courtAccounts(court: CourtId): Record<CourtRole, CourtAccount> {
+  if (court !== "punjab-haryana") return COURT_ACCOUNTS;
+  const accounts = { ...COURT_ACCOUNTS };
+  for (const [role, username] of Object.entries(PUNJAB_HARYANA_USERNAMES)) {
+    const seat = role as CourtRole;
+    accounts[seat] = { ...COURT_ACCOUNTS[seat], username: username! };
+  }
+  return accounts;
+}
+
+/**
  * The account a username names, or `undefined` if the directory does not hold it.
  *
  * Case-insensitive: a username is an identifier the court issued, not a password, and a
  * staff member typing `MichaelGeorgeJudge` has not made a mistake worth a dead end.
  */
-export function accountFor(username: string): CourtAccount | undefined {
+export function accountFor(
+  username: string,
+  court: CourtId = "kerala",
+): CourtAccount | undefined {
   const typed = username.trim().toLowerCase();
   if (!typed) return undefined;
-  return Object.values(COURT_ACCOUNTS).find(
+  return Object.values(courtAccounts(court)).find(
     (account) => account.username.toLowerCase() === typed,
   );
 }

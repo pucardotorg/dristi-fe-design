@@ -1,57 +1,26 @@
 /**
- * Sample progress on today's sitting, so every view and pill on today's hearings opens
- * with rows in it (owner, 2026-10-12: *"keep some sample data for all tabs and pills in
- * both orders and hearings"*).
+ * The progress today's sitting opens on — the one place each store below takes its
+ * opening slice from, so the demo day can be filled or emptied in one edit.
  *
- * This reverses, for the demo, the 2026-09-16 call that the court opens with nothing
- * started. It lives in one place so it can be emptied in one place: each store below
- * opens on its slice of this, and a reload brings it back exactly as written.
- *
- * - **Hearings:** five matters heard, one being heard, two passed over; the rest not
- *   started.
- * - **Orders:** the five heard matters carry the written order their sitting produced
- *   (`order-demo.ts`); two of those are signed and two are on the signing list. The
- *   matter being heard has a draft with details still to fill.
+ * Currently an **untouched day** (owner, 2026-10-13: none of today's hearings has
+ * started and no order has been drafted). This replaces the 2026-10-12 sample that had
+ * five matters heard, one being heard, two passed over, and orders drafted and signed
+ * on them. Every listing opens as scheduled; the Orders column, the Draft orders tab and
+ * the signing list open empty, and fill only as the bench works through the day.
  *
  * Nothing here is a court record — it is the same demo bargain as the stores it seeds.
  */
 
 import type { HearingSession } from "./hearing-session";
-import type { ItemBlock } from "./order-composer";
-import { EMPTY_ORDER_DRAFT, type OrderDraft } from "./order-draft";
-import { orderTemplate } from "./order-templates";
+import type { OrderDraft } from "./order-draft";
 import type { OrderSigningStatus } from "./order-signing";
 
 export const SAMPLE_SESSION: HearingSession = {
-  ongoingId: "h-243",
-  /* Chosen for their purposes, so the written orders carry different templates:
-     evidence, appearance, cognizance (with summons), bail and judgement. */
-  endedIds: new Set(["h-241", "h-244", "h-247", "h-255", "h-260"]),
-  passedOverIds: new Set(["h-249", "h-250"]),
+  ongoingId: null,
+  endedIds: new Set(),
+  passedOverIds: new Set(),
 };
 
-export const SAMPLE_SIGNING: Readonly<Record<string, OrderSigningStatus>> = {
-  "h-241": "signed",
-  "h-260": "signed",
-  "h-247": "ready",
-  "h-255": "ready",
-};
+export const SAMPLE_SIGNING: Readonly<Record<string, OrderSigningStatus>> = {};
 
-/* The matter on the call: summons drafted, addressee and next date not yet given. */
-const summons: ItemBlock = {
-  id: "sample-h-243-summons",
-  kind: "item",
-  type: "issue-of-summons",
-  values: {},
-  text: orderTemplate("issue-of-summons").botd,
-  edited: false,
-};
-
-export const SAMPLE_DRAFTS: Readonly<Record<string, OrderDraft>> = {
-  "h-243": {
-    ...EMPTY_ORDER_DRAFT,
-    next: "list",
-    nextDate: null,
-    blocks: [summons],
-  },
-};
+export const SAMPLE_DRAFTS: Readonly<Record<string, OrderDraft>> = {};

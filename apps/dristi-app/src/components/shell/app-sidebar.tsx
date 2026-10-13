@@ -16,6 +16,7 @@ import {
   ScrollTextIcon,
   SearchIcon,
   SettingsIcon,
+  UserPlusIcon,
   UsersIcon,
   type LucideIcon,
 } from "lucide-react";
@@ -132,9 +133,6 @@ const GO: NavItem[] = [
 ];
 
 const START: NavItem[] = [
-  // Join a case is not a destination: its whole journey (lookup → role questions →
-  // vakalatnama) runs in a dialog, so it is the one strong action on the Cases page
-  // rather than a rail item that led to a page holding a single button.
   {
     id: "file-case",
     label: "File a case",
@@ -154,6 +152,14 @@ const START: NavItem[] = [
     label: "Vakalatnama",
     icon: ScrollTextIcon,
     href: "/vakalatnama",
+  },
+  // Join a case's journey (lookup → access code → role → vakalatnama) runs in a
+  // dialog on the Cases page; the rail opens that same dialog there.
+  {
+    id: "join-case",
+    label: "Join a case",
+    icon: UserPlusIcon,
+    href: "/cases?join=1",
   },
 ];
 

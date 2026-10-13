@@ -37,8 +37,8 @@ export type OrderDrafts = Readonly<Record<string, OrderDraft>>;
    screen is for. A key here says an order on this listing has been started and not sent
    for signature.
 
-   **Except the demo sitting** (owner, 2026-10-12): it opens on `sample-sitting.ts` so the
-   Orders view on today's hearings has a draft in it. Empty that file to go back. */
+   It opens on `sample-sitting.ts`, which is currently empty (owner, 2026-10-13: no
+   order drafted yet). Fill that file to open on a sample draft again. */
 const OPENING_DRAFTS: OrderDrafts = Object.freeze({ ...SAMPLE_DRAFTS });
 
 let drafts: OrderDrafts = OPENING_DRAFTS;

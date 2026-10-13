@@ -196,8 +196,9 @@ export function ApplicationFacsimile({
       </header>
 
       <DescriptionList className="rounded-md border border-paper-border px-4">
-        {document.facts.map((fact) => (
-          <ReviewRow key={fact.term} term={fact.term}>
+        {/* A term can repeat — one Advocate row per counsel — so the index keys it. */}
+        {document.facts.map((fact, index) => (
+          <ReviewRow key={`${index}:${fact.term}`} term={fact.term}>
             {fact.value}
           </ReviewRow>
         ))}

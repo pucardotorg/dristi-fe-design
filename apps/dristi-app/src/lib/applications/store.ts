@@ -33,8 +33,11 @@ type Counters = { temporary: number; number: number; order: number };
 type Db = {
   apps: Record<string, LifecycleApplication>;
   counters: Counters;
-  /** Whether the sample applications (`seed.ts`) have been added to this browser. */
-  seeded?: boolean;
+  /**
+   * Which version of the sample applications (`seed.ts`) this browser holds. `true` is
+   * the first, from before samples were versioned.
+   */
+  seeded?: boolean | number;
 };
 
 const FRESH: Db = {
@@ -52,12 +55,39 @@ const EMPTY: LifecycleApplication[] = [];
 /** The filer's own form, with its File objects, for this visit. */
 const liveForms = new Map<string, unknown>();
 
-/** Adds the sample applications once per browser, keeping anything already filed. */
+/**
+ * Bump to put every browser's sample applications back as `seed.ts` writes them —
+ * pending review, pending decision — whatever was done to them since. 2: owner,
+ * 2026-10-13, after samples had been onboarded while trying the flow.
+ */
+const SAMPLE_VERSION = 2;
+
+/** Whether an application is one of the samples rather than one filed in this browser. */
+function isSample(id: string): boolean {
+  return id.startsWith("app-sample-");
+}
+
+/**
+ * Adds the sample applications, and puts them back when `SAMPLE_VERSION` moves on.
+ * Anything filed in this browser is kept as it is.
+ *
+ * The samples are numbered from the fresh counters, so they carry the same temporary
+ * identifiers and application numbers every time they are put back. The browser's own
+ * counters only ever move forward, so nothing filed here can be given a sample's number.
+ */
 function withSamples(base: Db): Db {
-  if (base.seeded) return base;
-  const counters = { ...base.counters };
-  const samples = sampleApplications(dayOf(new Date()), counters);
-  const next: Db = { apps: { ...samples, ...base.apps }, counters, seeded: true };
+  if (base.seeded === SAMPLE_VERSION) return base;
+  const sampleCounters = { ...FRESH.counters };
+  const samples = sampleApplications(dayOf(new Date()), sampleCounters);
+  const filed = Object.fromEntries(
+    Object.entries(base.apps).filter(([id]) => !isSample(id)),
+  );
+  const counters: Counters = {
+    temporary: Math.max(base.counters.temporary, sampleCounters.temporary),
+    number: Math.max(base.counters.number, sampleCounters.number),
+    order: Math.max(base.counters.order, sampleCounters.order),
+  };
+  const next: Db = { apps: { ...samples, ...filed }, counters, seeded: SAMPLE_VERSION };
   try {
     window.localStorage.setItem(KEY, JSON.stringify(next));
   } catch {
