@@ -79,6 +79,23 @@ const PANEL: Record<HearingOverviewSurface, string> = {
   panel: "min-w-0",
 };
 
+/**
+ * Type, by surface. On a page and in the overlay a section reads at the body size; in a
+ * panel's tab it steps down to the 14px the panel's other tabs read at — headings,
+ * terms and values alike — so the Overview is not the one tab shouting (owner,
+ * 2026-10-14).
+ */
+const HEADING: Record<HearingOverviewSurface, string> = {
+  page: "text-body font-semibold",
+  overlay: "text-body font-semibold",
+  panel: "text-body-compact font-semibold",
+};
+const BODY: Record<HearingOverviewSurface, string> = {
+  page: "text-body",
+  overlay: "text-body",
+  panel: "text-body-compact",
+};
+
 /** The one inset inside Last hearing — a sunken well in a white card on both surfaces. */
 const ORDER_WELL = "bg-surface-sunken";
 
@@ -445,33 +462,35 @@ function CaseFactsPanel({
     >
       {/* `gap-2` and not the section default: the list's own rows already carry
           `py-3`, so a full step here would open a 28px hole under the heading. */}
-      <h2 id="case-facts" className="text-body font-semibold">
+      <h2 id="case-facts" className={HEADING[surface]}>
         Case details
       </h2>
       <DescriptionList>
-        <FactRow term="Stage">{courtCaseStageLabel(hearing.stage)}</FactRow>
-        <FactRow term="This sitting">
+        <FactRow surface={surface} term="Stage">{courtCaseStageLabel(hearing.stage)}</FactRow>
+        <FactRow surface={surface} term="This sitting">
           {courtHearingPurposeLabel(hearing.purpose)}
         </FactRow>
         <PartyRow
+          surface={surface}
           term="Complainant"
           name={hearing.parties.complainant}
           counsel={complainantCounsel}
         />
         <PartyRow
+          surface={surface}
           term="Accused"
           name={hearing.parties.accused}
           counsel={accusedCounsel}
         />
         {extras.chequeAmount ? (
-          <FactRow term="Cheque amount">
+          <FactRow surface={surface} term="Cheque amount">
             <span className="tabular-nums">
               {formatChequeAmount(extras.chequeAmount)}
             </span>
           </FactRow>
         ) : null}
         {extras.filedOn ? (
-          <FactRow term="Filed">
+          <FactRow surface={surface} term="Filed">
             <span className="tabular-nums">{formatCaseDate(extras.filedOn)}</span>
           </FactRow>
         ) : null}
@@ -497,16 +516,18 @@ const FACT_ROW_CLASS = "grid-cols-[minmax(6rem,8rem)_1fr] border-hairline py-2";
 
 /** One key-value row. */
 function FactRow({
+  surface,
   term,
   children,
 }: {
+  surface: HearingOverviewSurface;
   term: string;
   children: ReactNode;
 }) {
   return (
     <DescriptionRow className={FACT_ROW_CLASS}>
-      <DescriptionTerm className="text-body">{term}</DescriptionTerm>
-      <DescriptionDetails className="text-body font-medium">
+      <DescriptionTerm className={BODY[surface]}>{term}</DescriptionTerm>
+      <DescriptionDetails className={`${BODY[surface]} font-medium`}>
         {children}
       </DescriptionDetails>
     </DescriptionRow>
@@ -515,18 +536,20 @@ function FactRow({
 
 /** A side of the cause, and who appears for it. Counsel recedes below the party. */
 function PartyRow({
+  surface,
   term,
   name,
   counsel,
 }: {
+  surface: HearingOverviewSurface;
   term: string;
   name: string;
   counsel: string[];
 }) {
   return (
     <DescriptionRow className={FACT_ROW_CLASS}>
-      <DescriptionTerm className="text-body">{term}</DescriptionTerm>
-      <DescriptionDetails className="flex flex-col gap-1 text-body">
+      <DescriptionTerm className={BODY[surface]}>{term}</DescriptionTerm>
+      <DescriptionDetails className={`flex flex-col gap-1 ${BODY[surface]}`}>
         {/* A corporate accused runs long. The row's value column is `1fr`, so the
             name wraps inside it rather than pushing the panel wide. */}
         <span className="font-medium">{name}</span>
@@ -576,7 +599,7 @@ function LastHearingPanel({
       className={`${PANEL[surface]} flex flex-col gap-4 ${className ?? ""}`}
       aria-labelledby="last-hearing"
     >
-      <h2 id="last-hearing" className="text-body font-semibold">
+      <h2 id="last-hearing" className={HEADING[surface]}>
         Last hearing
       </h2>
       <div className="flex items-start gap-4">
@@ -600,7 +623,10 @@ function LastHearingPanel({
           </span>
         </div>
         <div className="flex min-w-0 flex-col gap-1">
-          <time dateTime={on} className="text-body font-medium tabular-nums">
+          <time
+            dateTime={on}
+            className={`${BODY[surface]} font-medium tabular-nums`}
+          >
             {formatCaseWeekday(on)}
           </time>
           <p className="text-body-compact text-muted-foreground">{purpose}</p>
@@ -609,10 +635,10 @@ function LastHearingPanel({
       <div
         className={`flex min-w-0 flex-col gap-2 p-4 ${INSET_RADIUS[surface]} ${ORDER_WELL}`}
       >
-        <p className="text-body font-medium">
+        <p className={`${BODY[surface]} font-medium`}>
           {directed ? "Order of the day" : "Latest update"}
         </p>
-        <p className="text-body text-muted-foreground">{order}</p>
+        <p className={`${BODY[surface]} text-muted-foreground`}>{order}</p>
       </div>
     </section>
   );
@@ -643,7 +669,7 @@ function NoLastHearingPanel({
       className={`${PANEL[surface]} flex flex-col gap-4 ${className ?? ""}`}
       aria-labelledby="last-hearing-none"
     >
-      <h2 id="last-hearing-none" className="text-body font-semibold">
+      <h2 id="last-hearing-none" className={HEADING[surface]}>
         Last hearing
       </h2>
       {/* `Empty` is `flex-1` and centres its own content, so in a panel stretched to
@@ -655,7 +681,7 @@ function NoLastHearingPanel({
           <EmptyMedia variant="icon">
             <CalendarX2Icon aria-hidden />
           </EmptyMedia>
-          <EmptyTitle className="text-body font-semibold tracking-normal">
+          <EmptyTitle className={`${HEADING[surface]} tracking-normal`}>
             No earlier sitting on record
           </EmptyTitle>
           <EmptyDescription className="text-body-compact">

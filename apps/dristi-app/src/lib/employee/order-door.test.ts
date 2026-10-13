@@ -18,6 +18,7 @@ import {
   hearingOrderDocument,
 } from "./order-draft";
 import { hasDraftFor } from "./order-drafts";
+import { ORDER_LAYOUT_OPTIONS } from "./order-layout";
 import { bodyFromBlocks } from "./order-text";
 
 const today = "2026-09-07";
@@ -38,6 +39,7 @@ describe("variantDraftKey", () => {
     assert.equal(variantDraftKey("blocks", "h1"), "h1");
     assert.equal(variantDraftKey("text", "h1"), "text:h1");
     assert.equal(variantDraftKey("proceedings", "h1"), "proceedings:h1");
+    assert.equal(variantDraftKey("option-d", "h1"), "d:h1");
     assert.equal(
       variantDraftKey("text", "cognizance:c1:notice"),
       "text:cognizance:c1:notice",
@@ -45,10 +47,8 @@ describe("variantDraftKey", () => {
   });
 
   it("gives every variant its own draft, and the queue sees each", () => {
-    const keys = (["blocks", "text", "proceedings"] as const).map((variant) =>
-      variantDraftKey(variant, "h1"),
-    );
-    assert.equal(new Set(keys).size, 3);
+    const keys = ORDER_LAYOUT_OPTIONS.map(({ id }) => variantDraftKey(id, "h1"));
+    assert.equal(new Set(keys).size, ORDER_LAYOUT_OPTIONS.length);
     for (const key of keys) {
       assert.ok(hasDraftFor({ [key]: EMPTY_ORDER_DRAFT }, "h1"));
     }
@@ -56,6 +56,17 @@ describe("variantDraftKey", () => {
 });
 
 describe("variantInitialDraft", () => {
+  it("opens D as it opens C", () => {
+    assert.deepEqual(
+      variantInitialDraft("option-d", heard, appearances),
+      variantInitialDraft("proceedings", heard, appearances),
+    );
+    assert.deepEqual(
+      variantInitialDraft("option-d", cognizanceDraft),
+      variantInitialDraft("proceedings", cognizanceDraft),
+    );
+  });
+
   it("hands A the door's draft as it is", () => {
     assert.equal(variantInitialDraft("blocks", heard, appearances), heard);
     assert.equal(

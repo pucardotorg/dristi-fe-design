@@ -11,6 +11,8 @@
  *   with the attendance and next-hearing lines on a hearing.
  * - **C** (proceedings) keeps an application's decision as the decision, not as an item
  *   block, so decision blocks are left out.
+ * - **D** is C with the preview live in the right panel, so it opens as C does — on its
+ *   own draft.
  *
  * Each variant keeps its own draft under its own key, so switching mid-order never
  * shows one composer's half-made order in another. The keys are the ones the variants
@@ -27,7 +29,11 @@ import {
   type OrderDocument,
   type OrderDraft,
 } from "./order-draft";
-import { proceedingsDraftKey, textDraftKey } from "./order-drafts";
+import {
+  optionDDraftKey,
+  proceedingsDraftKey,
+  textDraftKey,
+} from "./order-drafts";
 import type { OrderLayout } from "./order-layout";
 import { bodyFromBlocks } from "./order-text";
 
@@ -35,6 +41,7 @@ import { bodyFromBlocks } from "./order-text";
 export function variantDraftKey(variant: OrderLayout, base: string): string {
   if (variant === "text") return textDraftKey(base);
   if (variant === "proceedings") return proceedingsDraftKey(base);
+  if (variant === "option-d") return optionDDraftKey(base);
   return base;
 }
 
@@ -63,8 +70,8 @@ export function variantInitialDraft(
       ),
     };
   }
-  if (variant === "proceedings") {
-    /* C lists the next hearing in its own section, never as an item. A door that loads a
+  if (variant === "proceedings" || variant === "option-d") {
+    /* C (and D) lists the next hearing in its own section, never as an item. A door that loads a
        *Scheduling of hearing date* item (Take cognizance, Issue notice) has it moved there,
        with whatever date and purpose it carried, so the order asks for the date once. */
     const scheduling = initial.blocks.find(
