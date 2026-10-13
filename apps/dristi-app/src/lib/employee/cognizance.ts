@@ -993,6 +993,19 @@ export type CognizanceDocument = {
   no: number;
   title: string;
   kind: "cheque" | "memo" | "letter";
+  /** A scan to show in place of the facsimile. */
+  src?: string;
+};
+
+/**
+ * Sandbox scans: the scrutiny demo's own cheque, return memo and demand notice
+ * (`scrutiny/mock-filings.ts`), shown on every complaint so each file opens on real-looking
+ * documents (owner, 2026-10-13). Dummy data — every complaint shows the same three.
+ */
+const SAMPLE_SCANS: Record<CognizanceDocument["kind"], string> = {
+  cheque: "/employee/bundle/cheque.jpg",
+  memo: "/employee/bundle/memo.jpg",
+  letter: "/employee/bundle/notice.jpg",
 };
 
 /**
@@ -1019,7 +1032,7 @@ export function cognizanceDocumentsFor(matter: CognizanceCase): CognizanceDocume
     docs.push({ key: keys.memo, no: 0, title: `Return memo${n}`, kind: "memo" });
   });
   docs.push({ key: "demand-notice", no: 0, title: "Demand notice", kind: "letter" });
-  return docs.map((doc, index) => ({ ...doc, no: index + 1 }));
+  return docs.map((doc, index) => ({ ...doc, no: index + 1, src: SAMPLE_SCANS[doc.kind] }));
 }
 
 /* ─────────────────────────────────── the tabs ───────────────────────────────── */

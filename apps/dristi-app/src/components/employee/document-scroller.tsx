@@ -1,7 +1,9 @@
 "use client";
 
 import * as React from "react";
+import { Maximize2Icon } from "lucide-react";
 
+import { DocumentPreviewDialog } from "@/components/document-preview";
 import { PageSheet, SHEET_BOX } from "@/components/employee/page-facsimile";
 import type { CaseDocumentKind } from "@/lib/employee/case-review";
 import type { ZoneRect } from "@/lib/employee/document-zones";
@@ -25,7 +27,13 @@ import { cn } from "@/lib/utils";
  * The facsimiles are never legible: a readable page here would be fabricating a court
  * record, the one thing a demo of a file must not do (`page-facsimile.tsx`). The regions
  * are therefore approximate — they point at where a field sits on the *kind* of page, not
- * at a place on a real scan (`document-zones.ts`).
+ * at a place on a real scan (`document-zones.ts`). A document with a `src` shows that
+ * sample scan instead (the scrutiny demo's own), and a fact rings the whole page, since
+ * the facsimile's regions do not sit on a real scan.
+ *
+ * **Every page enlarges** (owner, 2026-10-13): hovering or focusing it shows the expand
+ * mark `DocumentThumbnailButton` uses, and a click opens the shared viewer to read it in
+ * detail.
  */
 export type ScrollerDoc = {
   key: string;
@@ -33,6 +41,8 @@ export type ScrollerDoc = {
   no: number;
   title: string;
   kind: CaseDocumentKind;
+  /** A scan to show in place of the facsimile. */
+  src?: string;
 };
 
 export type ScrollerAbsent = { key: string; title: string };
@@ -55,6 +65,7 @@ export function DocumentScroller({
   className?: string;
 }) {
   const scrollRef = React.useRef<HTMLDivElement>(null);
+  const [enlarged, setEnlarged] = React.useState<ScrollerDoc | null>(null);
 
   /* When a fact selects a document, bring it to the top of the column — moving *this*
      scroll box, never the page. `scrollIntoView` bubbles to every scrollable ancestor, so
@@ -96,7 +107,8 @@ export function DocumentScroller({
     >
       {docs.map((doc) => {
         const on = active?.doc === doc.key;
-        const zone = on ? active?.zone ?? null : null;
+        /* A scan has no facsimile grid for a region to sit in: the whole page is ringed. */
+        const zone = on && !doc.src ? active?.zone ?? null : null;
         /* The frame is the kind's own box, not a shared 3:4 page, so a cheque is a wide slip
            and a memo a short one instead of a drawing marooned in white (owner, 2026-09-15). */
         const box = SHEET_BOX[doc.kind];
@@ -124,10 +136,29 @@ export function DocumentScroller({
               )}
             >
               <div
-                className="relative w-full overflow-hidden rounded-lg bg-paper ring-1 ring-hairline"
-                style={{ aspectRatio: `${box.w} / ${box.h}` }}
+                className="group relative w-full overflow-hidden rounded-lg bg-paper ring-1 ring-hairline"
+                style={doc.src ? undefined : { aspectRatio: `${box.w} / ${box.h}` }}
               >
-                <PageSheet kind={doc.kind} />
+                {doc.src ? (
+                  /* eslint-disable-next-line @next/next/no-img-element -- a local sample scan at its own size */
+                  <img src={doc.src} alt="" className="block h-auto w-full" draggable={false} />
+                ) : (
+                  <PageSheet kind={doc.kind} />
+                )}
+                {doc.src ? (
+                  <button
+                    type="button"
+                    aria-label={`Enlarge ${doc.title}`}
+                    onClick={() => setEnlarged(doc)}
+                    className="absolute inset-0 z-3 flex items-center justify-center outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                  >
+                    <span className="absolute inset-0 bg-foreground/0 transition-colors group-hover:bg-foreground/15" />
+                    <Maximize2Icon
+                      className="relative size-5 text-background opacity-0 drop-shadow-sm transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                      aria-hidden
+                    />
+                  </button>
+                ) : null}
                 {zone ? (
                   <div
                     aria-hidden
@@ -148,6 +179,22 @@ export function DocumentScroller({
           </section>
         );
       })}
+
+      <DocumentPreviewDialog
+        open={enlarged !== null}
+        onOpenChange={(open) => {
+          if (!open) setEnlarged(null);
+        }}
+        file={enlarged ? { type: "image/jpeg" } : null}
+        url={enlarged?.src ?? ""}
+        locale="en"
+        wide
+        copy={{
+          title: enlarged ? `${enlarged.no} · ${enlarged.title}` : "",
+          description: "Pinch, or pinch on the trackpad, to zoom in.",
+          alt: enlarged?.title ?? "",
+        }}
+      />
 
       {absent.length > 0 ? (
         <section className="flex flex-col gap-2" aria-label="Not filed">

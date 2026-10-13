@@ -74,7 +74,7 @@ export function DocumentThumbnailButton({ file, url, locale, onOpen, className }
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
-export function DocumentPreviewDialog({ open, onOpenChange, file, url, locale, copy }: {
+export function DocumentPreviewDialog({ open, onOpenChange, file, url, locale, copy, wide = false }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   file: PreviewableDoc | null;
@@ -83,6 +83,9 @@ export function DocumentPreviewDialog({ open, onOpenChange, file, url, locale, c
   /** Header copy override — the defaults speak about IDs, which is wrong for other
    *  document kinds (vakalatnama, supporting letters). */
   copy?: { title: string; description: string; alt: string };
+  /** A court document read in detail: the viewer takes the width it can and the scan
+   *  fills it, rather than sizing to a small upload (owner, 2026-10-13). */
+  wide?: boolean;
 }) {
   const isPdf = file?.type === "application/pdf";
   const [transform, setTransform] = React.useState({ scale: 1, x: 0, y: 0 });
@@ -141,7 +144,7 @@ export function DocumentPreviewDialog({ open, onOpenChange, file, url, locale, c
     <Dialog open={open} onOpenChange={handleOpenChange}>
       {/* Sized by the document, not a fixed frame: the image's own aspect ratio sets
           the dialog's shape, capped by the viewport on both axes. */}
-      <ChromeDialogContent lang={locale} className={cn("flex max-h-[90dvh] flex-col gap-4 overflow-hidden p-4 sm:p-6", isPdf ? "h-[85dvh] w-[calc(100vw-2rem)] max-w-3xl" : "w-fit min-w-[min(20rem,calc(100vw-2rem))] max-w-[min(calc(100vw-2rem),72rem)]")}>
+      <ChromeDialogContent lang={locale} className={cn("flex max-h-[90dvh] flex-col gap-4 overflow-hidden p-4 sm:p-6", isPdf ? "h-[85dvh] w-[calc(100vw-2rem)] max-w-3xl" : wide ? "w-[calc(100vw-2rem)] max-w-5xl sm:max-w-5xl" : "w-fit min-w-[min(20rem,calc(100vw-2rem))] max-w-[min(calc(100vw-2rem),72rem)]")}>
         <DialogHeader className="pr-10 text-left">
           <DialogTitle>{copy?.title ?? pick(idUpload.previewTitle, locale)}</DialogTitle>
           {/* One line on desktop: the nowrap description sets the dialog's minimum
@@ -170,7 +173,10 @@ export function DocumentPreviewDialog({ open, onOpenChange, file, url, locale, c
               height={1600}
               unoptimized
               draggable={false}
-              className="mx-auto block h-auto max-h-[70dvh] w-auto max-w-full rounded-lg object-contain select-none"
+              className={cn(
+                "mx-auto block h-auto max-h-[70dvh] max-w-full rounded-lg object-contain select-none",
+                wide ? "w-full" : "w-auto",
+              )}
               style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})` }}
             />
           </div>
