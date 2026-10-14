@@ -276,15 +276,23 @@ export function localizeCaseNumber(value: string, court: CourtId): string {
  * Any text a reader sees — a heading, a table cell, a document's HTML. Names first,
  * then numbers, so a court name never contains a number rule's match.
  */
+/**
+ * Gujarat writes every cause title with "VS" between the parties (owner, 2026-10-14):
+ * "A VS B", never "A v. B", "A vs B" or "A versus B". Only between two words, so a lone
+ * "v." elsewhere is left alone.
+ */
+const CAUSE_TITLE_VS = /(?<=\S) (?:v\.|vs\.?|Vs\.?|versus) (?=\S)/g;
+
 export function localizeCourtText(text: string, court: CourtId): string {
   const profile = courtProfile(court);
   if (profile.numbering.kind === "kerala") return text;
   const benched = profile.benchName ? apply(text, BENCH_RULES, profile) : text;
-  return apply(
+  const voiced = apply(
     voiceNames(apply(apply(benched, NAME_RULES, profile), PLACE_RULES, profile), court),
     NUMBER_RULES,
     profile,
   );
+  return profile.id === "gujarat" ? voiced.replace(CAUSE_TITLE_VS, " VS ") : voiced;
 }
 
 const PIN_FIELD = /^(?:pin|pinCode|pincode|postalCode)$/;

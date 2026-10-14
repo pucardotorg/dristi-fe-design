@@ -7,6 +7,7 @@ import {
   ArrowLeftIcon,
   ArrowRightIcon,
   CheckCircle2Icon,
+  DownloadIcon,
   FlaskConicalIcon,
   MinusIcon,
   PlusIcon,
@@ -363,7 +364,7 @@ export function AdvocateJoinCaseDialog({
   const [vkOthers, setVkOthers] = React.useState<YesNo>("");
   const [vkAdvocates, setVkAdvocates] = React.useState<InvitePerson[]>([]);
   /* How many advocates the vakalatnama names, counting this one. Typed or stepped. */
-  const [vkCount, setVkCount] = React.useState("2");
+  const [vkCount, setVkCount] = React.useState("1");
   const [vkFile, setVkFile] = React.useState<File | null>(null);
   const [vkTouched, setVkTouched] = React.useState(false);
 
@@ -405,26 +406,32 @@ export function AdvocateJoinCaseDialog({
    * Who pays for the vakalatnama (team decision, owner 2026-10-13): the first advocate
    * to join answers one question — is anyone else named on it? — adds the others, and
    * pays for everyone. The others get an SMS to join and are recognised at lookup, so
-   * nobody is asked whether it was already paid. They say how many advocates it names,
-   * counting themselves, and must add exactly that many others before continuing
-   * (owner, 2026-10-13). Only advocates on the platform can be added. A partner the
+   * nobody is asked whether it was already paid. They say how many more advocates it
+   * names — the others, not counting themselves (owner, 2026-10-14) — and must add
+   * exactly that many before continuing. Only advocates on the platform can be added. A partner the
    * first advocate missed joins on their own and pays for themselves.
    */
   const needsCoAdvocates = vkOthers === "yes";
   const vkCountNumber = Number.parseInt(vkCount, 10) || 0;
-  const vkCountValid = vkCountNumber >= 2;
-  const coAdvocatesNeeded = vkCountValid ? vkCountNumber - 1 : 0;
+  const vkCountValid = vkCountNumber >= 1;
+  const coAdvocatesNeeded = vkCountValid ? vkCountNumber : 0;
   /* Kerala bills per advocate named; Gujarat and Punjab & Haryana charge one flat fee
      for the vakalatnama (owner, 2026-10-13). */
-  const flatJoinFee = useCourt().profile.fees.joinBilling === "flat";
+  const { court: joinCourt, profile: joinProfile } = useCourt();
+  const flatJoinFee = joinProfile.fees.joinBilling === "flat";
   const advocatesPaidFor =
-    !flatJoinFee && needsCoAdvocates && vkCountValid ? vkCountNumber : 1;
+    !flatJoinFee && needsCoAdvocates && vkCountValid ? vkCountNumber + 1 : 1;
+  /* Gujarat's is its own schedule's: ₹20 welfare fund + ₹2 court fee stamp, once
+     (owner, 2026-10-14). */
+  const gujaratFee = joinCourt === "gujarat";
   const coAdvocatesComplete =
     !needsCoAdvocates || (vkCountValid && vkAdvocates.length === coAdvocatesNeeded);
 
   const vkAttached = Boolean(vkFile);
   const unpaidOutcome = stage === "done" && outcome === "unpaid";
-  const fee = rupees(VAKALATNAMA_FEE_PAISE * advocatesPaidFor);
+  const fee = gujaratFee
+    ? rupees((joinProfile.fees.join.welfareFund + joinProfile.fees.join.courtFee) * 100)
+    : rupees(VAKALATNAMA_FEE_PAISE * advocatesPaidFor);
   const isSummonsIntro = mode === "summons" && stage === "details";
 
   React.useEffect(() => () => {
@@ -1070,6 +1077,16 @@ export function AdvocateJoinCaseDialog({
                       locale={locale}
                     />
                     <FieldDescription>{pick(advDialog.vkDocHelp, locale)}</FieldDescription>
+                    {/* The blank form to fill and sign, for an advocate who has not drawn
+                        one up (owner, 2026-10-14). A sandbox file for now. */}
+                    <div>
+                      <Button asChild variant="outline" size="sm">
+                        <a href="/case-file/04-vakalats.pdf" download="vakalatnama-template.pdf">
+                          <DownloadIcon data-icon="inline-start" aria-hidden />
+                          {pick(advDialog.vkTemplate, locale)}
+                        </a>
+                      </Button>
+                    </div>
                   </div>
                   <FieldError>
                     {vkTouched && !vkAttached ? pick(advDialog.vkAttachError, locale) : null}
@@ -1104,7 +1121,11 @@ export function AdvocateJoinCaseDialog({
                 </FieldError>
                 {vkOthers === "no" ? (
                   <Banner variant="info" className="items-start">
-                    {fill(advDialog.vkFeeNote, locale, { amount: fee })}
+                    {fill(
+                      gujaratFee ? advDialog.vkGujaratSoloFeeNote : advDialog.vkFeeNote,
+                      locale,
+                      { amount: fee },
+                    )}
                   </Banner>
                 ) : null}
               </Field>
@@ -1125,10 +1146,10 @@ export function AdvocateJoinCaseDialog({
                             size="icon-sm"
                             aria-label={pick(advDialog.vkCountDecrease, locale)}
                             aria-controls="adv-vk-count"
-                            aria-disabled={vkCountNumber <= 2}
+                            aria-disabled={vkCountNumber <= 1}
                             className="aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
                             onClick={() => {
-                              setVkCount(String(Math.max(2, vkCountNumber - 1)));
+                              setVkCount(String(Math.max(1, vkCountNumber - 1)));
                               setVkTouched(false);
                             }}
                           >
@@ -1155,7 +1176,7 @@ export function AdvocateJoinCaseDialog({
                             aria-disabled={vkCountNumber >= 99}
                             className="aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
                             onClick={() => {
-                              setVkCount(String(Math.min(99, Math.max(2, vkCountNumber + 1))));
+                              setVkCount(String(Math.min(99, Math.max(1, vkCountNumber + 1))));
                               setVkTouched(false);
                             }}
                           >
@@ -1213,7 +1234,9 @@ export function AdvocateJoinCaseDialog({
                     </FieldError>
                     {vkCountValid ? (
                       <Banner variant="info" className="items-start">
-                        {flatJoinFee
+                        {gujaratFee
+                          ? fill(advDialog.vkGujaratFeeNote, locale, { amount: fee })
+                          : flatJoinFee
                           ? fill(advDialog.vkFlatFeeNote, locale, { amount: fee })
                           : fill(advDialog.vkGroupFeeNote, locale, {
                               n: String(advocatesPaidFor),
@@ -1260,6 +1283,22 @@ export function AdvocateJoinCaseDialog({
                     <Identifier value={joinCase.caseNumber} label="case number" />
                   </DescriptionDetails>
                 </DescriptionRow>
+                {gujaratFee ? (
+                  <>
+                    <DescriptionRow className="border-hairline">
+                      <DescriptionTerm>{pick(advDialog.payWelfare, locale)}</DescriptionTerm>
+                      <DescriptionDetails className="tabular-nums">
+                        {rupees(joinProfile.fees.join.welfareFund * 100)}
+                      </DescriptionDetails>
+                    </DescriptionRow>
+                    <DescriptionRow className="border-hairline">
+                      <DescriptionTerm>{pick(advDialog.payStamp, locale)}</DescriptionTerm>
+                      <DescriptionDetails className="tabular-nums">
+                        {rupees(joinProfile.fees.join.courtFee * 100)}
+                      </DescriptionDetails>
+                    </DescriptionRow>
+                  </>
+                ) : null}
                 <DescriptionRow className="border-hairline">
                   <DescriptionTerm>{pick(advDialog.payAmount, locale)}</DescriptionTerm>
                   <DescriptionDetails className="font-semibold tabular-nums">{fee}</DescriptionDetails>
