@@ -207,31 +207,20 @@ export function SummonsDocument({ court }: Props) {
                   <br />
                   <span className="muted">Help is available in your language.</span>
                 </div>
-                <div className="s2" />
-                <div className="codebox">
-                  <table>
-                    <tbody>
-                      <tr>
-                        <td style={{ verticalAlign: "middle" }}>
-                          <div className="label">
-                            Your
-                            <br />
-                            access code
-                          </div>
-                        </td>
-                        <td style={{ verticalAlign: "middle" }} className="right">
-                          <div className="code">{f.accessCode}</div>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
               </td>
             </tr>
           </tbody>
         </table>
 
+        {/* Full width under both columns (owner, 2026-10-14): the join instructions on
+            the left speak of the code, so it cannot sit only on the right. */}
         <div className="s2" />
+        <div className="codebox">
+          <div className="codelabel">Your access code</div>
+          <div className="code">{f.accessCode}</div>
+        </div>
+
+        <div className="s4" />
         <div className="turnband">
           <table>
             <tbody>
