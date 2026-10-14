@@ -124,6 +124,23 @@ describe("variantInitialDraft", () => {
     );
     assert.equal(draft.next, "list");
   });
+
+  it("opens E with empty text, the door's items in its workflow, and the date asked once", () => {
+    const draft = variantInitialDraft("editor", cognizanceDraft);
+    assert.equal(draft.body?.text, "");
+    assert.deepEqual(
+      draft.blocks,
+      cognizance.blocks.filter((block) => block.id !== "scheduling-of-hearing"),
+    );
+    assert.equal(draft.next, "list");
+  });
+
+  it("keeps an application's decision as an item in E, unlike C", () => {
+    const draft = variantInitialDraft("editor", heard, appearances);
+    assert.ok(
+      draft.blocks.some((block) => block.kind === "item" && block.applicationId),
+    );
+  });
 });
 
 describe("variantDocument", () => {

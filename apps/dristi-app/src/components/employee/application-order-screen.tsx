@@ -19,9 +19,10 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import type {
-  CourtTaskKind,
-  LifecycleApplication,
+import {
+  sideLabel,
+  type CourtTaskKind,
+  type LifecycleApplication,
 } from "@/lib/applications/lifecycle";
 import {
   useApplicationsReady,
@@ -32,6 +33,12 @@ import { caseOf } from "@/lib/employee/application-tasks";
 import { CURRENT_STAFF } from "@/lib/employee/content";
 import { formatOrderDate, type CourtCounsel } from "@/lib/employee/hearings";
 import { composerContextFor } from "@/lib/employee/order-context";
+import {
+  createItemBlock,
+  type ComposerContext,
+  type ItemBlock,
+} from "@/lib/employee/order-composer";
+import type { ApplicationOrderDecision } from "@/lib/employee/application-order-decision";
 import { EMPTY_ORDER_DRAFT } from "@/lib/employee/order-draft";
 
 /** The queue an application's order was opened from, and the way back to it. */
@@ -41,8 +48,48 @@ const QUEUES: Record<CourtTaskKind, { href: string; label: string }> = {
 };
 
 /** Where an application's order is drawn up, from the queue it was opened in. */
-export function applicationOrderHref(kind: CourtTaskKind, applicationId: string): string {
-  return `${QUEUES[kind].href}/${encodeURIComponent(applicationId)}/order`;
+export function applicationOrderHref(
+  kind: CourtTaskKind,
+  applicationId: string,
+  decision?: ApplicationOrderDecision,
+): string {
+  const base = `${QUEUES[kind].href}/${encodeURIComponent(applicationId)}/order`;
+  return decision ? `${base}?decision=${decision}` : base;
+}
+
+/**
+ * The catalogue item a decision pre-adds (owner, 2026-10-14: "pre-add the items in the
+ * workflow"), filled from the application: *Accept application* or *Reject application*
+ * with its number and type, or *Dismiss application* with its type, who filed it and when.
+ */
+function decisionItem(
+  application: LifecycleApplication,
+  decision: ApplicationOrderDecision,
+  context: ComposerContext,
+): ItemBlock {
+  if (decision === "dismiss") {
+    return createItemBlock("dismiss-application", context, {
+      applicationId: application.id,
+      values: {
+        applicationType: application.typeLabel,
+        filerType: sideLabel(application.side).toLowerCase(),
+        filerName: application.onBehalfOf,
+        filingDate: formatOrderDate(application.submittedOn ?? application.createdOn),
+      },
+    });
+  }
+  return createItemBlock(
+    decision === "accept" ? "accept-application" : "reject-application",
+    context,
+    {
+      applicationId: application.id,
+      values: {
+        applicationNumber:
+          application.applicationNumber ?? application.temporaryId ?? "",
+        applicationType: application.typeLabel,
+      },
+    },
+  );
 }
 
 /**
@@ -50,8 +97,9 @@ export function applicationOrderHref(kind: CourtTaskKind, applicationId: string)
  *
  * **A shortcut, for now** (owner, 2026-10-13): where the application dialog used to
  * draft a one-line dismissal, acceptance or rejection in place, it opens the real order
- * screen instead. It opens empty — no item is pre-added — and the draft is the
- * composer's own, kept under this application's key. Nothing here writes back to the
+ * screen instead. It opens with the dialog's decision pre-added as its catalogue item
+ * (`decisionItem`), or empty when no decision was made there (Decide now), and the draft
+ * is the composer's own, kept under this application's key. Nothing here writes back to the
  * application: what the order says and when it is signed are the composer's, and the
  * application's own status moves only from its dialog.
  *
@@ -60,7 +108,9 @@ export function applicationOrderHref(kind: CourtTaskKind, applicationId: string)
 export function ApplicationOrderScreen({
   applicationId,
   kind,
+  decision,
 }: {
+  decision?: ApplicationOrderDecision;
   applicationId: string;
   kind: CourtTaskKind;
 }) {
@@ -72,19 +122,28 @@ export function ApplicationOrderScreen({
   /* The store is this browser's, so the server and the first paint have nothing yet. */
   if (!ready) return null;
   if (!application || !record) return <OrderMissing kind={kind} />;
-  return <ApplicationOrder application={application} record={record} kind={kind} />;
+  return (
+    <ApplicationOrder
+      application={application}
+      record={record}
+      kind={kind}
+      decision={decision}
+    />
+  );
 }
 
 function ApplicationOrder({
   application,
   record,
   kind,
+  decision,
 }: {
   application: LifecycleApplication;
   record: CaseRecord;
   kind: CourtTaskKind;
+  decision?: ApplicationOrderDecision;
 }) {
-  const door = useApplicationOrderDoor(application, record, kind);
+  const door = useApplicationOrderDoor(application, record, kind, decision);
   return <OrderDoorScreen door={door} />;
 }
 
@@ -98,6 +157,7 @@ export function useApplicationOrderDoor(
   application: LifecycleApplication,
   record: CaseRecord,
   kind: CourtTaskKind,
+  decision?: ApplicationOrderDecision,
 ): OrderDoor {
   const today = useCourtToday();
   const courtText = useCourtText();
@@ -112,11 +172,21 @@ export function useApplicationOrderDoor(
       }),
     [record],
   );
+  const initial = React.useMemo(
+    () =>
+      decision
+        ? {
+            ...EMPTY_ORDER_DRAFT,
+            blocks: [decisionItem(application, decision, context)],
+          }
+        : EMPTY_ORDER_DRAFT,
+    [application, decision, context],
+  );
 
   return {
     draftKey: `application:${application.id}`,
     origin: `Application · ${application.typeLabel}`,
-    initial: EMPTY_ORDER_DRAFT,
+    initial,
     fixedIds: [],
     heading: matter,
     facts: [
