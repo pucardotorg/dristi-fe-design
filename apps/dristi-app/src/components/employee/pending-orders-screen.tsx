@@ -49,7 +49,6 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { CourtRole } from "@/lib/employee/content";
-import { setOrderLayout } from "@/lib/employee/order-layout";
 import { markOrdersSigned } from "@/lib/employee/order-signing";
 import {
   PENDING_ORDER_STAGES,
@@ -112,8 +111,8 @@ export function PendingOrdersScreen() {
 
   function open(row: Row) {
     if (row.stage === "drafting") {
-      /* A draft goes back to the editor it was typed on, whatever variant was last open. */
-      setOrderLayout("editor");
+      /* A draft goes back to the editor it was typed on — the Pending orders flow's only
+         order screen. */
       router.push(row.orderHref);
       return;
     }

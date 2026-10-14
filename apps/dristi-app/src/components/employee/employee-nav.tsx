@@ -40,7 +40,7 @@ import { usePendingOrders } from "@/components/employee/use-pending-orders";
 import { pendingOrderCountFor } from "@/lib/employee/pending-orders";
 import { ORDER_FLOW_OPTIONS, type OrderFlow } from "@/lib/employee/order-flow";
 import {
-  ORDER_LAYOUT_OPTIONS,
+  CLASSIC_ORDER_LAYOUT_OPTIONS,
   type OrderLayout,
 } from "@/lib/employee/order-layout";
 import type { CourtNavLayout } from "@/lib/employee/nav-layout";
@@ -1014,18 +1014,6 @@ function CourtSettingsControl() {
           </>
         ) : null}
         <DropdownMenuSeparator />
-        <DropdownMenuLabel>Order screen</DropdownMenuLabel>
-        <DropdownMenuRadioGroup
-          value={orderLayout}
-          onValueChange={(next) => setOrderLayout(next as OrderLayout)}
-        >
-          {ORDER_LAYOUT_OPTIONS.map((option) => (
-            <DropdownMenuRadioItem key={option.id} value={option.id}>
-              {option.label}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-        <DropdownMenuSeparator />
         {/* The new order flow, or the way it was (owner, 2026-10-14). */}
         <DropdownMenuLabel>Order flow</DropdownMenuLabel>
         <DropdownMenuRadioGroup
@@ -1038,6 +1026,23 @@ function CourtSettingsControl() {
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>
+        {/* A–D are Classic's alone; Pending orders always opens E (owner, 2026-10-14). */}
+        {orderFlow === "classic" ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Order screen</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={orderLayout}
+              onValueChange={(next) => setOrderLayout(next as OrderLayout)}
+            >
+              {CLASSIC_ORDER_LAYOUT_OPTIONS.map((option) => (
+                <DropdownMenuRadioItem key={option.id} value={option.id}>
+                  {option.label}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </>
+        ) : null}
         <DropdownMenuSeparator />
         <DropdownMenuLabel>Court</DropdownMenuLabel>
         <DropdownMenuRadioGroup

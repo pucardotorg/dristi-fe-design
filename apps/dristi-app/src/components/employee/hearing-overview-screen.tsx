@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { CalendarX2Icon } from "lucide-react";
+import { CalendarX2Icon, ExternalLinkIcon } from "lucide-react";
 
 import { Identifier } from "@/components/chrome/identifier";
 import { useCourtToday } from "@/components/employee/use-court-today";
@@ -24,12 +24,6 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Step, StepGroup } from "@/components/employee/step-timeline";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import {
   causeTitle,
   counselFor,
@@ -129,7 +123,7 @@ const INSET_RADIUS: Record<HearingOverviewSurface, string> = {
  * **It reads, it does not run the sitting.** End hearing, Pass over and the order
  * composer all stay on the cause list, where the day is. Calling the matter is what
  * got the bench here; the one action this page offers is a way further into the
- * case, and even that is not connected yet (`ViewCaseAction`).
+ * case (`ViewCaseAction`).
  *
  * **It carries no back control of its own.** The court's chrome already is one: the
  * trail in the top bar ends in Today's hearings, a live link to the list this page
@@ -247,8 +241,7 @@ function HearingOverview({ hearing }: { hearing: CourtHearing }) {
           hairline is the seam, the same way the top bar is edged, and lift on
           chrome would be depth used as decoration (DS elevation foundation).
 
-          The tooltip is portalled to the body, so nothing in here — the stacking
-          context, the fill — can clip it, and it opens upward over the page. */}
+          */}
       <footer className="sticky bottom-0 z-30 mt-8 border-t border-hairline bg-card px-6 py-3 md:px-8 md:py-4">
         <div className="flex flex-col items-end gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
           <ViewCaseAction />
@@ -350,53 +343,28 @@ export function HearingOverviewSections({
 }
 
 /**
- * The overview's one CTA — and the one thing on it that does not work.
+ * The overview's one way further into the case: the court's case view, opened on its
+ * case file (owner, 2026-10-14: "make it open that case file by default"). Shared by the
+ * page's band and the overlay's footer, so the two cannot drift apart.
  *
- * Shared by the page's band and the overlay's footer, so the two ends of the same
- * promise cannot drift apart.
- *
- * A full case file has been built, on the citizen side, in the advocate's flows.
- * `/employee` does not read from there (`lib/employee/content.ts`), and there is no
- * court-side case file yet, so wiring this today would either point at a route that
- * 404s or cross the split the two halves of the app are being built either side of.
- * Connecting it is a decision that has been taken and deferred, not one this screen
- * gets to make.
- *
- * So it is a real button that says plainly it goes nowhere — `aria-disabled` rather
- * than `disabled`, so it keeps focus and the tooltip is reachable by keyboard. The
- * same bargain Join VC makes on the cause list. No icon: the label is the whole of it.
+ * In a tab of its own, as Take cognizance's View case is, so the cause list or the
+ * overview stays exactly where the bench left it (owner, 2026-10-13).
  *
  * **Teal only where it is the act.** On this page it is the one thing the band offers,
  * so it takes the page's one primary. In the cause-list overlay it shares the footer
- * with the call on the sitting — a real act, against a promise — so there it steps down
- * to `outline` and the teal goes to Start hearing. One surface, one primary (ui-craft
- * §1.2): a promise and an act cannot both be it, and the act wins.
+ * with the call on the sitting, so there it steps down to `outline` and the teal goes to
+ * Start hearing. One surface, one primary (ui-craft §1.2).
  *
- * `aria-disabled` is a promise to assistive tech and nothing else: the DS Button
- * hangs its dimming off `:disabled` (`button.tsx`), which this control does not
- * set, so left alone it ships full-strength teal with a live hover and the press
- * translate — it lit up, went down under the finger, and did nothing. Tolerable
- * beside a title; not in a band that means "the act on this page lives here" on a
- * dozen other screens. The three `aria-disabled:` utilities restore the DS's own
- * disabled look (`opacity-50`) and cancel the two states that were lying.
- * Deliberately **not** `pointer-events-none` — the DS pairs that with `:disabled`,
- * and here it would kill the hover that opens the tooltip, which is the one thing
- * explaining why the button is dead.
- *
- * It stays `w-fit` at every width rather than filling the band on a phone. A
- * button stretched edge to edge is not at the right of anything — it is a teal
- * bar pinned under the reading, permanently, on the one control here that goes
- * nowhere. The band still stacks if a second action ever joins it.
+ * It stays `w-fit` at every width rather than filling the band on a phone: a button
+ * stretched edge to edge is not at the right of anything.
  */
 /**
- * The hover each dress has to have cancelled, because the DS hangs it off the variant:
- * `default` lifts to `primary-hover`, `outline` to `accent`. Both would be the button
- * answering a pointer it is not going to answer.
+ * The one case every listing opens for now (owner, 2026-10-14: "keep one case and then
+ * open that case for all hearings"). The demo cause list's matters have no case records
+ * of their own; this is a case on the shared fixture, its file the same case file index
+ * every case reads.
  */
-const VIEW_CASE_DEAD_HOVER = {
-  default: "aria-disabled:hover:bg-primary",
-  outline: "aria-disabled:hover:bg-card",
-} as const;
+const HEARING_DEMO_CASE_HREF = "/employee/cases/c-1001?section=case-file";
 
 export function ViewCaseAction({
   variant = "default",
@@ -405,26 +373,13 @@ export function ViewCaseAction({
   variant?: "default" | "outline";
 }) {
   return (
-    <TooltipProvider delayDuration={300}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            aria-disabled
-            variant={variant}
-            className={`w-fit shrink-0 aria-disabled:opacity-50 ${VIEW_CASE_DEAD_HOVER[variant]} aria-disabled:active:translate-y-0`}
-          >
-            View case
-          </Button>
-        </TooltipTrigger>
-        {/* Anchored to the button's trailing edge, not centred on it. From the
-            band's right gutter the centred default overruns the page edge on a
-            desktop and sits flush against the glass on a phone. `align` is the
-            primitive's own prop — the court nav passes `side` the same way. */}
-        <TooltipContent align="end">
-          The case file is not connected yet
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <Button asChild variant={variant} className="w-fit shrink-0">
+      <a href={HEARING_DEMO_CASE_HREF} target="_blank" rel="noopener">
+        View case
+        <span className="sr-only"> (opens in a new tab)</span>
+        <ExternalLinkIcon data-icon="inline-end" aria-hidden />
+      </a>
+    </Button>
   );
 }
 

@@ -1167,6 +1167,7 @@ export function ItemDialog({
   onClose,
   onConfirm,
   description,
+  showSentence = true,
 }: {
   editing: { block: ItemBlock; mode: "add" | "edit" } | null;
   context: ComposerContext;
@@ -1176,6 +1177,9 @@ export function ItemDialog({
   onConfirm: () => void;
   /** In place of the line saying where its sentence goes — order screen E writes none. */
   description?: string;
+  /** The item's "In the order" sentence. Order screen E has no line of text per item
+   *  (owner, 2026-10-14), so it turns this off. */
+  showSentence?: boolean;
 }) {
   /* What was last open, kept while the dialog animates out — otherwise its title and
      fields vanish a beat before it does. */
@@ -1234,14 +1238,16 @@ export function ItemDialog({
                 onChange(setItemRecipients(block, recipients, context))
               }
             />
-            <div className="flex min-w-0 flex-col gap-2 rounded-xl border border-hairline bg-surface-sunken p-4">
-              <span className="text-body-compact font-medium text-muted-foreground">
-                In the order
-              </span>
-              <p className="text-body text-pretty">
-                <SentenceWithBlanks text={block.text} />
-              </p>
-            </div>
+            {showSentence ? (
+              <div className="flex min-w-0 flex-col gap-2 rounded-xl border border-hairline bg-surface-sunken p-4">
+                <span className="text-body-compact font-medium text-muted-foreground">
+                  In the order
+                </span>
+                <p className="text-body text-pretty">
+                  <SentenceWithBlanks text={block.text} />
+                </p>
+              </div>
+            ) : null}
           </div>
         ) : null}
         {/* On a phone the footer stacks with the action on top; the count of what is
