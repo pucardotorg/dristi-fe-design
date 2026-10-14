@@ -16,6 +16,7 @@ import {
   type CourtRole,
 } from "@/lib/employee/content";
 import { setCourtRole } from "@/lib/employee/court-role";
+import { courtAccounts } from "@/lib/employee/sign-in";
 import {
   COURT_NAV_LINKS,
   courtNavTrailing,
@@ -266,9 +267,7 @@ function deadRowNote(item: CourtNavItem, collapsed: boolean): string {
       ? `${item.label} — opens outside DRISTI, not available yet`
       : "Opens outside DRISTI — not available yet";
   }
-  return collapsed
-    ? `${item.label} — not available yet`
-    : "Not available yet";
+  return collapsed ? `${item.label} — not available yet` : "Not available yet";
 }
 
 /**
@@ -328,10 +327,14 @@ function CourtNavRow({
                     <Link
                       href={child.href}
                       aria-current={
-                        isCourtNavActive(pathname, child.href) ? "page" : undefined
+                        isCourtNavActive(pathname, child.href)
+                          ? "page"
+                          : undefined
                       }
                     >
-                      <span className="min-w-0 flex-1 truncate">{child.label}</span>
+                      <span className="min-w-0 flex-1 truncate">
+                        {child.label}
+                      </span>
                       {child.count !== undefined && child.count > 0 ? (
                         <span className="shrink-0 text-caption text-muted-foreground tabular-nums">
                           {child.count}
@@ -373,7 +376,8 @@ function isCourtNavGroupActive(
     (item) =>
       (item.href !== undefined && isCourtNavActive(pathname, item.href)) ||
       (item.children?.some(
-        (child) => child.href !== undefined && isCourtNavActive(pathname, child.href),
+        (child) =>
+          child.href !== undefined && isCourtNavActive(pathname, child.href),
       ) ??
         false),
   );
@@ -887,22 +891,6 @@ function CourtRailHeader() {
 }
 
 /**
- * The monogram.
- *
- * One initial for a single name, two for a compound one. The advocate rail's
- * first-and-last rule reads "Uddipan" as "UU", which is not a pair of initials, it is a
- * stutter — and the court side runs as one staff member whose name is one word, so the
- * case that rail never meets is the only case this one has.
- */
-function initialsOf(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "";
-  const first = parts[0].charAt(0);
-  const last = parts.length > 1 ? parts[parts.length - 1].charAt(0) : "";
-  return (first + last).toUpperCase();
-}
-
-/**
  * Settings — which seat the court side is being worked from, and which shape its rail
  * takes.
  *
@@ -1022,7 +1010,9 @@ function CourtSettingsControl() {
             <DropdownMenuLabel>Take cognizance</DropdownMenuLabel>
             <DropdownMenuRadioGroup
               value={cognizanceLayout}
-              onValueChange={(next) => setCognizanceLayout(next as CognizanceLayout)}
+              onValueChange={(next) =>
+                setCognizanceLayout(next as CognizanceLayout)
+              }
             >
               <DropdownMenuRadioItem value="tabs">
                 Combined, with tabs
@@ -1115,9 +1105,9 @@ function CourtSettingsControl() {
           <AlertDialogHeader>
             <AlertDialogTitle>Reset sandbox data?</AlertDialogTitle>
             <AlertDialogDescription>
-              The sample applications come back. Applications filed in this browser,
-              order drafts, pending orders and signatures are removed. This cannot be
-              undone.
+              The sample applications come back. Applications filed in this
+              browser, order drafts, pending orders and signatures are removed.
+              This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1149,19 +1139,11 @@ function CourtSettingsControl() {
  * block, where a court would look for a setting; folding it into the person's name would
  * hide it behind an identity that is not itself a menu.
  *
- * So the block reports and does not act. The role line is the live seat rather than the
- * fixture's, because the two must not disagree about the same visit: the switch is one
- * control away, and a footer still reading Bench clerk after the menu says Typist would
- * be the screen contradicting itself.
- *
- * Three lines rather than the advocate's two. Which bench the staff member is sitting on
- * is part of who they are on this screen — every order and form the sign queues produce
- * is headed with that court — and the chrome says it nowhere else, because the mark at
- * the head of the rail is the product's and not the court's.
- *
- * The name is the signed-in account's demo given name (`session.ts`), falling back to
- * `CURRENT_STAFF` when nobody has signed in; no honorific and no designation are added
- * to it here.
+ * So the block reports and does not act. It shows one thing, the username (owner,
+ * 2026-10-14), taken from the live seat rather than the sign-in, because the two must not
+ * disagree about the same visit: the switch is one control away, and a footer still
+ * reading the bench clerk's username after the menu says Typist would be the screen
+ * contradicting itself. In Punjab & Haryana the username is the seat's own name.
  *
  * Folded, the text goes `sr-only` rather than `hidden`. The disc keeps the initial, and
  * the identity stays in the accessibility tree in both states — which is what a static
@@ -1169,9 +1151,11 @@ function CourtSettingsControl() {
  * person's name off a hover the keyboard cannot reach.
  */
 function CourtIdentityFooter() {
-  const { name } = useCourtSession();
   const role = useCourtRole();
   const { court: state } = useCourt();
+  /* The username alone (owner, 2026-10-14) — the live seat's, so switching the seat
+     in settings changes it too. In P&H it is the seat's own name ("reader"). */
+  const username = courtAccounts(state)[role].username;
   /* The settings control leaves the layout with the labels, so folding while it holds
      focus drops the keyboard the same way a section's rows do. Its fallback is the fold
      control — the one thing that caused the change and is on screen either side of it,
@@ -1190,23 +1174,14 @@ function CourtIdentityFooter() {
         aria-hidden
         className="flex size-8 shrink-0 items-center justify-center rounded-full bg-(--rail-avatar) text-caption font-semibold text-(--rail-avatar-ink)"
       >
-        {initialsOf(name)}
+        {username.charAt(0).toUpperCase()}
       </span>
-      {/* Two lines, and it cannot grow a third: the court moved to the brand row (see
-          `CourtRailHeader`), so what is left is one person and one seat, both short by
-          nature. Neither truncates — the lines still wrap and the footer still grows, per
-          `ACCESSIBILITY.md` §10 and §13, and `wrap-break-word` still catches the long
-          unspaced compounds an Indic script produces that a space-based wrap would push
-          past the rail's edge. A wrapped name costs a line here; it does not cost the
-          court, which is the thing that had nowhere to be clipped to. */}
+      {/* One line: the account's username. It still wraps rather than truncates
+          (`ACCESSIBILITY.md` §10, §13), and `wrap-break-word` catches a long unspaced
+          username a space-based wrap would push past the rail's edge. */}
       <div className="flex min-w-0 flex-1 flex-col leading-tight group-data-[collapsible=icon]:sr-only">
         <span className="wrap-break-word text-body-compact font-medium">
-          {name}
-        </span>
-        {/* One weight down, so a long seat title never starts competing with the
-            person's name; the step between them is size and ink. */}
-        <span className={`wrap-break-word text-caption font-medium ${RAIL_MUTED}`}>
-          {courtRoleLabel(role, state)}
+          {username}
         </span>
       </div>
       <CourtSettingsControl />
@@ -1249,7 +1224,9 @@ export function EmployeeNav() {
     courtNavGroupsForSeat(
       courtNavGroupsForCourt(
         courtNavGroupsFor(
-          courtProfile(court).cognizanceSplit === "delay" ? cognizanceLayout : "tabs",
+          courtProfile(court).cognizanceSplit === "delay"
+            ? cognizanceLayout
+            : "tabs",
           flow,
         ),
         court,
@@ -1312,19 +1289,26 @@ export function EmployeeNav() {
             <SidebarMenu className={RAIL_MENU}>
               {courtNavRowsFor(layout, court, seat, flow)
                 .map((item) =>
-                  item.id === "pending-orders" ? { ...item, count: pendingCount } : item,
+                  item.id === "pending-orders"
+                    ? { ...item, count: pendingCount }
+                    : item,
                 )
                 .map((item) => (
-                <CourtNavRow
-                  key={item.id}
-                  item={item}
-                  active={
-                    isCourtNavCombinedRow(item)
-                      ? isCourtNavCombinedActive(pathname, layout, court, flow)
-                      : undefined
-                  }
-                />
-              ))}
+                  <CourtNavRow
+                    key={item.id}
+                    item={item}
+                    active={
+                      isCourtNavCombinedRow(item)
+                        ? isCourtNavCombinedActive(
+                            pathname,
+                            layout,
+                            court,
+                            flow,
+                          )
+                        : undefined
+                    }
+                  />
+                ))}
             </SidebarMenu>
           )}
           {/* Configurations, last under every layout — it is the one row here that is
@@ -1333,9 +1317,11 @@ export function EmployeeNav() {
               from the queues above it; without one it reads as a fifth kind of work. */}
           <CourtNavBreak />
           <SidebarMenu className={RAIL_MENU}>
-            {courtNavItemsForSeat(courtNavTrailing(flow), seat, flow).map((item) => (
-              <CourtNavRow key={item.id} item={item} />
-            ))}
+            {courtNavItemsForSeat(courtNavTrailing(flow), seat, flow).map(
+              (item) => (
+                <CourtNavRow key={item.id} item={item} />
+              ),
+            )}
           </SidebarMenu>
         </SidebarGroup>
       </ChromeRail>
