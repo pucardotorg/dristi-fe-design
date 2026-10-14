@@ -62,6 +62,7 @@ import { SIGN_ORDER_PENDING_COUNT } from "./sign-orders";
 import { PROCESS_QUEUE_COUNT } from "./sign-process";
 import { WITNESS_DEPOSITION_QUEUE_COUNT } from "./sign-witness-deposition";
 import type { CourtRole } from "./content";
+import { DEFAULT_ORDER_FLOW, type OrderFlow } from "./order-flow";
 
 /**
  * What the bench navigates between, as data.
@@ -491,6 +492,45 @@ export const COURT_NAV_GROUPS: CourtNavGroup[] = [
   },
 ];
 
+/** The scheduling rows: at the rail's foot in the new flow, under Hearings in Classic. */
+const SCHEDULING_ROWS: ReadonlySet<string> = new Set([
+  "schedule-hearing",
+  "bulk-reschedule",
+]);
+
+/**
+ * The rail as it was before Pending orders (`order-flow.ts`, "Classic"): no Pending
+ * orders row, and Schedule hearing and Bulk reschedule back under Hearings.
+ */
+const CLASSIC_NAV_GROUPS: CourtNavGroup[] = COURT_NAV_GROUPS.map((group) =>
+  group.id !== "hearings"
+    ? group
+    : {
+        ...group,
+        items: [
+          ...group.items.filter((item) => item.id !== "pending-orders"),
+          ...COURT_NAV_TRAILING.filter((item) => SCHEDULING_ROWS.has(item.id)),
+        ],
+      },
+);
+const CLASSIC_NAV_TRAILING: CourtNavItem[] = COURT_NAV_TRAILING.filter(
+  (item) => !SCHEDULING_ROWS.has(item.id),
+);
+
+/** The rail's groups under an order flow. */
+export function courtNavGroupsForFlow(
+  flow: OrderFlow = DEFAULT_ORDER_FLOW,
+): CourtNavGroup[] {
+  return flow === "classic" ? CLASSIC_NAV_GROUPS : COURT_NAV_GROUPS;
+}
+
+/** The rows below the groups under an order flow — Configurations last either way. */
+export function courtNavTrailing(
+  flow: OrderFlow = DEFAULT_ORDER_FLOW,
+): CourtNavItem[] {
+  return flow === "classic" ? CLASSIC_NAV_TRAILING : COURT_NAV_TRAILING;
+}
+
 /** The two rows `cognizance-layout.ts`'s "split" setting gives Take cognizance. */
 function cognizanceChildren(): CourtNavItem[] {
   return [
@@ -555,19 +595,20 @@ const HIDDEN_FROM_STENO: ReadonlySet<string> = new Set([
   "sign-evidence",
   "sign-a-diary",
 ]);
-/* Pending orders covers signing for the magistrate (owner, 2026-10-14). */
-const HIDDEN_FROM_MAGISTRATE: ReadonlySet<string> = new Set([
-  ...HIDDEN_FROM_BENCH,
-  "sign-orders",
-]);
 const SEAT_HIDDEN_ROWS: Partial<Record<CourtRole, ReadonlySet<string>>> = {
-  magistrate: HIDDEN_FROM_MAGISTRATE,
+  magistrate: HIDDEN_FROM_BENCH,
   "bench-clerk": HIDDEN_FROM_BENCH,
   typist: HIDDEN_FROM_STENO,
 };
 
 /** Whether this seat is offered this row — the one test every seat filter below shares. */
-export function seatHasNavRow(role: CourtRole, id: string): boolean {
+export function seatHasNavRow(
+  role: CourtRole,
+  id: string,
+  flow: OrderFlow = DEFAULT_ORDER_FLOW,
+): boolean {
+  /* In the new flow Pending orders is where the magistrate signs (owner, 2026-10-14). */
+  if (flow === "pending" && role === "magistrate" && id === "sign-orders") return false;
   const keep = SEAT_ROWS[role];
   if (keep && !keep.has(id)) return false;
   return !SEAT_HIDDEN_ROWS[role]?.has(id);
@@ -579,14 +620,22 @@ export function seatHasNarrowRail(role: CourtRole): boolean {
 }
 
 /** A list of rows, less the ones this seat does not see. */
-export function courtNavItemsForSeat(items: CourtNavItem[], role: CourtRole): CourtNavItem[] {
-  return items.filter((item) => seatHasNavRow(role, item.id));
+export function courtNavItemsForSeat(
+  items: CourtNavItem[],
+  role: CourtRole,
+  flow: OrderFlow = DEFAULT_ORDER_FLOW,
+): CourtNavItem[] {
+  return items.filter((item) => seatHasNavRow(role, item.id, flow));
 }
 
 /** Groups, less the rows this seat does not see — and less any group left empty. */
-export function courtNavGroupsForSeat(groups: CourtNavGroup[], role: CourtRole): CourtNavGroup[] {
+export function courtNavGroupsForSeat(
+  groups: CourtNavGroup[],
+  role: CourtRole,
+  flow: OrderFlow = DEFAULT_ORDER_FLOW,
+): CourtNavGroup[] {
   return groups
-    .map((group) => ({ ...group, items: courtNavItemsForSeat(group.items, role) }))
+    .map((group) => ({ ...group, items: courtNavItemsForSeat(group.items, role, flow) }))
     .filter((group) => group.items.length > 0);
 }
 
@@ -624,9 +673,11 @@ export function courtNavGroupsForCourt(groups: CourtNavGroup[], court: CourtId):
  */
 export function courtNavGroupsFor(
   cognizanceLayout: CognizanceLayout,
+  flow: OrderFlow = DEFAULT_ORDER_FLOW,
 ): CourtNavGroup[] {
-  if (cognizanceLayout !== "split") return COURT_NAV_GROUPS;
-  return COURT_NAV_GROUPS.map((group) =>
+  const groups = courtNavGroupsForFlow(flow);
+  if (cognizanceLayout !== "split") return groups;
+  return groups.map((group) =>
     group.id !== "actions"
       ? group
       : {
@@ -650,6 +701,17 @@ export function courtNavGroupsFor(
  * way — a hearing put off to a range the bench chooses is not a due item, and a process
  * line has its own three-stage count already (`sign-process`'s own count comment).
  */
+const CLASSIC_KEPT_APART: Record<
+  CombinedCourtNavLayout,
+  { leading: string[]; trailing: string[] }
+> = {
+  actions: {
+    leading: ["todays-hearings"],
+    trailing: ["bulk-reschedule", "sign-process"],
+  },
+  schedule: { leading: [], trailing: ["bulk-reschedule", "sign-process"] },
+};
+
 const COURT_NAV_KEPT_APART: Record<
   CombinedCourtNavLayout,
   { leading: string[]; trailing: string[] }
@@ -666,17 +728,30 @@ const COURT_NAV_KEPT_APART: Record<
  * Every group's rows the deployment has, in the rail's own order — the one pass every
  * function below shares. Given a seat, less the rows that seat is not offered.
  */
-function courtNavAllItems(court: CourtId, role?: CourtRole): CourtNavItem[] {
+function courtNavAllItems(
+  court: CourtId,
+  role?: CourtRole,
+  flow: OrderFlow = DEFAULT_ORDER_FLOW,
+): CourtNavItem[] {
   const items = courtNavItemsForCourt(
-    COURT_NAV_GROUPS.flatMap((group) => group.items),
+    courtNavGroupsForFlow(flow).flatMap((group) => group.items),
     court,
   );
-  return role ? courtNavItemsForSeat(items, role) : items;
+  return role ? courtNavItemsForSeat(items, role, flow) : items;
+}
+
+function keptApart(layout: CombinedCourtNavLayout, flow: OrderFlow) {
+  return (flow === "classic" ? CLASSIC_KEPT_APART : COURT_NAV_KEPT_APART)[layout];
 }
 
 /** The rows named by a list of ids, in the order the ids were given — not the source's. */
-function courtNavItemsByIds(ids: string[], court: CourtId, role?: CourtRole): CourtNavItem[] {
-  const all = courtNavAllItems(court, role);
+function courtNavItemsByIds(
+  ids: string[],
+  court: CourtId,
+  role?: CourtRole,
+  flow: OrderFlow = DEFAULT_ORDER_FLOW,
+): CourtNavItem[] {
+  const all = courtNavAllItems(court, role, flow);
   return ids
     .map((id) => all.find((item) => item.id === id))
     .filter((item): item is CourtNavItem => item !== undefined);
@@ -691,9 +766,10 @@ export function courtNavKeptApart(
   layout: CombinedCourtNavLayout,
   court: CourtId,
   role?: CourtRole,
+  flow: OrderFlow = DEFAULT_ORDER_FLOW,
 ): CourtNavItem[] {
-  const spec = COURT_NAV_KEPT_APART[layout];
-  return courtNavItemsByIds([...spec.leading, ...spec.trailing], court, role);
+  const spec = keptApart(layout, flow);
+  return courtNavItemsByIds([...spec.leading, ...spec.trailing], court, role, flow);
 }
 
 /**
@@ -704,9 +780,12 @@ export function courtNavClubbed(
   layout: CombinedCourtNavLayout,
   court: CourtId,
   role?: CourtRole,
+  flow: OrderFlow = DEFAULT_ORDER_FLOW,
 ): CourtNavItem[] {
-  const apart = new Set(courtNavKeptApart(layout, court).map((item) => item.id));
-  return courtNavAllItems(court, role).filter((item) => !apart.has(item.id));
+  const apart = new Set(
+    courtNavKeptApart(layout, court, undefined, flow).map((item) => item.id),
+  );
+  return courtNavAllItems(court, role, flow).filter((item) => !apart.has(item.id));
 }
 
 /** The combined row's own count — every clubbed item's, summed, never restated by hand. */
@@ -714,8 +793,9 @@ export function courtNavClubbedTotal(
   layout: CombinedCourtNavLayout,
   court: CourtId,
   role?: CourtRole,
+  flow: OrderFlow = DEFAULT_ORDER_FLOW,
 ): number {
-  return courtNavClubbed(layout, court, role).reduce(
+  return courtNavClubbed(layout, court, role, flow).reduce(
     (total, item) => total + (item.count ?? 0),
     0,
   );
@@ -748,8 +828,9 @@ export function courtNavRowsFor(
   layout: CombinedCourtNavLayout,
   court: CourtId,
   role?: CourtRole,
+  flow: OrderFlow = DEFAULT_ORDER_FLOW,
 ): CourtNavItem[] {
-  const spec = COURT_NAV_KEPT_APART[layout];
+  const spec = keptApart(layout, flow);
   /* A promoted row keeps the mark it already carries in its group. It used to be given a
      different one here, because a group's rows were bare and a standalone row could not
      be — now that every row is marked, overriding would draw one destination two ways
@@ -757,12 +838,12 @@ export function courtNavRowsFor(
   const combined: CourtNavItem = {
     ...COURT_NAV_COMBINED_ROW[layout],
     icon: CalendarDaysIcon,
-    count: courtNavClubbedTotal(layout, court, role),
+    count: courtNavClubbedTotal(layout, court, role, flow),
   };
   return [
-    ...courtNavItemsByIds(spec.leading, court, role),
+    ...courtNavItemsByIds(spec.leading, court, role, flow),
     combined,
-    ...courtNavItemsByIds(spec.trailing, court, role),
+    ...courtNavItemsByIds(spec.trailing, court, role, flow),
   ];
 }
 
@@ -929,8 +1010,9 @@ export function isCourtNavCombinedActive(
   pathname: string,
   layout: CombinedCourtNavLayout,
   court: CourtId,
+  flow: OrderFlow = DEFAULT_ORDER_FLOW,
 ): boolean {
-  return courtNavClubbed(layout, court).some(
+  return courtNavClubbed(layout, court, undefined, flow).some(
     (item) => item.href !== undefined && isCourtNavActive(pathname, item.href),
   );
 }
@@ -999,8 +1081,11 @@ export type CourtCrumb = {
  *
  * The standalone Dashboard row is absent from every trail because nothing nests under it.
  */
-export function courtTrail(pathname: string): CourtCrumb[] {
-  const groups = courtNavGroupsFor(readCognizanceLayout());
+export function courtTrail(
+  pathname: string,
+  flow: OrderFlow = DEFAULT_ORDER_FLOW,
+): CourtCrumb[] {
+  const groups = courtNavGroupsFor(readCognizanceLayout(), flow);
   for (const group of groups) {
     for (const item of group.items) {
       // A row's child (only Take cognizance's two, while "split" is live) is itself a
@@ -1079,8 +1164,11 @@ export type CourtWaitingGroup = {
  * a row at zero is waiting on nobody, and a group with nothing left in it is dropped
  * whole rather than printed as an empty heading.
  */
-export function courtWaitingGroups(court: CourtId): CourtWaitingGroup[] {
-  return courtNavGroupsForCourt(COURT_NAV_GROUPS, court).map((group) => {
+export function courtWaitingGroups(
+  court: CourtId,
+  flow: OrderFlow = DEFAULT_ORDER_FLOW,
+): CourtWaitingGroup[] {
+  return courtNavGroupsForCourt(courtNavGroupsForFlow(flow), court).map((group) => {
     const items = group.items
       .filter(
         (item): item is CourtNavItem & { href: string; count: number } =>

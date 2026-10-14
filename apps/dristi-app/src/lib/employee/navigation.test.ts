@@ -19,6 +19,8 @@ import {
   isCourtNavCombinedActive,
   isCourtNavCombinedRow,
   seatHasNavRow,
+  courtNavGroupsForFlow,
+  courtNavTrailing,
 } from "./navigation";
 import { REGISTERS_PAGE } from "./registers";
 
@@ -433,5 +435,46 @@ describe("rows hidden from the bench", () => {
     assert.equal(seatHasNavRow("magistrate", "sign-orders"), false);
     assert.ok(seatHasNavRow("magistrate", "pending-orders"));
     assert.ok(seatHasNavRow("typist", "pending-orders"));
+  });
+});
+
+describe("the order flow", () => {
+  it("puts Pending orders under Today's hearings and scheduling at the foot, by default", () => {
+    const hearings = courtNavGroupsForFlow().find((group) => group.id === "hearings");
+    assert.deepEqual(
+      hearings?.items.map((item) => item.id),
+      ["todays-hearings", "pending-orders"],
+    );
+    assert.deepEqual(
+      courtNavTrailing().map((item) => item.id),
+      ["schedule-hearing", "bulk-reschedule", "configurations"],
+    );
+    assert.equal(seatHasNavRow("magistrate", "sign-orders"), false);
+  });
+
+  it("gives Classic the rail as it was", () => {
+    const hearings = courtNavGroupsForFlow("classic").find(
+      (group) => group.id === "hearings",
+    );
+    assert.deepEqual(
+      hearings?.items.map((item) => item.id),
+      ["todays-hearings", "schedule-hearing", "bulk-reschedule"],
+    );
+    assert.deepEqual(
+      courtNavTrailing("classic").map((item) => item.id),
+      ["configurations"],
+    );
+    assert.ok(seatHasNavRow("magistrate", "sign-orders", "classic"));
+    assert.deepEqual(
+      courtNavKeptApart("actions", "kerala", undefined, "classic").map((item) => item.id),
+      ["todays-hearings", "bulk-reschedule", "sign-process"],
+    );
+  });
+
+  it("keeps the steno's narrowed rail in both", () => {
+    for (const flow of ["pending", "classic"] as const) {
+      assert.equal(seatHasNavRow("typist", "scrutiny", flow), false);
+      assert.equal(seatHasNavRow("typist", "sign-orders", flow), false);
+    }
   });
 });

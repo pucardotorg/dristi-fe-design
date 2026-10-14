@@ -29,6 +29,7 @@ import {
   ItemsCard,
 } from "@/components/employee/order-text-composer";
 import { OrderSaveIndicator } from "@/components/employee/order-save-indicator";
+import { useOrderFlow } from "@/components/employee/use-order-flow";
 import { useOrderSigning } from "@/components/employee/use-order-signing";
 import { usePendingOrders } from "@/components/employee/use-pending-orders";
 import { PANEL_CLASS } from "@/components/shell/panel";
@@ -617,6 +618,7 @@ export function OrderEditorComposer({
   const shortcuts = useShortcutSuggestion();
   const pending = usePendingOrders();
   const signing = useOrderSigning();
+  const [flow] = useOrderFlow();
   const entry = pending[queue.key];
   const stage = entry ? pendingOrderStage(entry, signing) : "drafting";
   const finished = stage !== "drafting";
@@ -648,7 +650,11 @@ export function OrderEditorComposer({
       orderHref: window.location.pathname + window.location.search,
     });
     markOrderReady(queue.key);
-    toast("Sent for signing. It is in Pending orders, awaiting the magistrate.");
+    toast(
+      flow === "pending"
+        ? "Sent for signing. It is in Pending orders, awaiting the magistrate."
+        : "Sent for signing. It is on the signing list.",
+    );
   }
 
   return (
@@ -779,7 +785,7 @@ export function OrderEditorComposer({
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <div className="flex min-h-10 items-center">
-            {finished ? (
+            {finished && flow === "pending" ? (
               <Button asChild variant="link" className="-ml-3">
                 <Link href={pendingOrderHref(queue.key)}>
                   Open in Pending orders
@@ -832,7 +838,8 @@ export function OrderEditorComposer({
           <AlertDialogHeader>
             <AlertDialogTitle>Send this order for signing?</AlertDialogTitle>
             <AlertDialogDescription>
-              It goes to the magistrate in Pending orders. Until it is signed
+              It goes to the magistrate
+              {flow === "pending" ? " in Pending orders" : " for signing"}. Until it is signed
               it can be moved back to draft and edited. Its workflows go out
               once it is signed and its workflow is marked complete.
             </AlertDialogDescription>

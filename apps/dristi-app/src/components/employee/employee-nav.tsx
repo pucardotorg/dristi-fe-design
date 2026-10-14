@@ -17,7 +17,7 @@ import {
 import { setCourtRole } from "@/lib/employee/court-role";
 import {
   COURT_NAV_LINKS,
-  COURT_NAV_TRAILING,
+  courtNavTrailing,
   courtNavRowsFor,
   courtNavGroupsFor,
   courtNavGroupsForCourt,
@@ -33,10 +33,12 @@ import {
 import { useCognizanceLayout } from "@/components/employee/use-cognizance-layout";
 import type { CognizanceLayout } from "@/lib/employee/cognizance-layout";
 import { useCourtNavLayout } from "@/components/employee/use-court-nav-layout";
+import { useOrderFlow } from "@/components/employee/use-order-flow";
 import { useOrderLayout } from "@/components/employee/use-order-layout";
 import { useOrderSigning } from "@/components/employee/use-order-signing";
 import { usePendingOrders } from "@/components/employee/use-pending-orders";
 import { pendingOrderCountFor } from "@/lib/employee/pending-orders";
+import { ORDER_FLOW_OPTIONS, type OrderFlow } from "@/lib/employee/order-flow";
 import {
   ORDER_LAYOUT_OPTIONS,
   type OrderLayout,
@@ -939,6 +941,7 @@ function CourtSettingsControl() {
   const [layout, setLayout] = useCourtNavLayout();
   const [cognizanceLayout, setCognizanceLayout] = useCognizanceLayout();
   const [orderLayout, setOrderLayout] = useOrderLayout();
+  const [orderFlow, setOrderFlow] = useOrderFlow();
   return (
     <DropdownMenu>
       <Tooltip>
@@ -1017,6 +1020,19 @@ function CourtSettingsControl() {
           onValueChange={(next) => setOrderLayout(next as OrderLayout)}
         >
           {ORDER_LAYOUT_OPTIONS.map((option) => (
+            <DropdownMenuRadioItem key={option.id} value={option.id}>
+              {option.label}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
+        {/* The new order flow, or the way it was (owner, 2026-10-14). */}
+        <DropdownMenuLabel>Order flow</DropdownMenuLabel>
+        <DropdownMenuRadioGroup
+          value={orderFlow}
+          onValueChange={(next) => setOrderFlow(next as OrderFlow)}
+        >
+          {ORDER_FLOW_OPTIONS.map((option) => (
             <DropdownMenuRadioItem key={option.id} value={option.id}>
               {option.label}
             </DropdownMenuRadioItem>
@@ -1148,15 +1164,18 @@ export function EmployeeNav() {
     usePendingOrders(),
     useOrderSigning(),
   );
+  const [flow] = useOrderFlow();
   const groups = withPendingCount(
     courtNavGroupsForSeat(
-    courtNavGroupsForCourt(
-      courtNavGroupsFor(
-        courtProfile(court).cognizanceSplit === "delay" ? cognizanceLayout : "tabs",
+      courtNavGroupsForCourt(
+        courtNavGroupsFor(
+          courtProfile(court).cognizanceSplit === "delay" ? cognizanceLayout : "tabs",
+          flow,
+        ),
+        court,
       ),
-      court,
-    ),
       seat,
+      flow,
     ),
     pendingCount,
   );
@@ -1183,7 +1202,7 @@ export function EmployeeNav() {
         <SidebarGroup className="gap-1">
           <SidebarMenu className={RAIL_MENU}>
             <CourtSearchRow />
-            {courtNavItemsForSeat(COURT_NAV_LINKS, seat).map((item) => (
+            {courtNavItemsForSeat(COURT_NAV_LINKS, seat, flow).map((item) => (
               <CourtNavRow key={item.id} item={item} />
             ))}
           </SidebarMenu>
@@ -1211,7 +1230,7 @@ export function EmployeeNav() {
                into (`courtNavRowsFor`), flat — the same list primitive the standalone
                links above already use. */
             <SidebarMenu className={RAIL_MENU}>
-              {courtNavRowsFor(layout, court, seat)
+              {courtNavRowsFor(layout, court, seat, flow)
                 .map((item) =>
                   item.id === "pending-orders" ? { ...item, count: pendingCount } : item,
                 )
@@ -1221,7 +1240,7 @@ export function EmployeeNav() {
                   item={item}
                   active={
                     isCourtNavCombinedRow(item)
-                      ? isCourtNavCombinedActive(pathname, layout, court)
+                      ? isCourtNavCombinedActive(pathname, layout, court, flow)
                       : undefined
                   }
                 />
@@ -1234,7 +1253,7 @@ export function EmployeeNav() {
               from the queues above it; without one it reads as a fifth kind of work. */}
           <CourtNavBreak />
           <SidebarMenu className={RAIL_MENU}>
-            {courtNavItemsForSeat(COURT_NAV_TRAILING, seat).map((item) => (
+            {courtNavItemsForSeat(courtNavTrailing(flow), seat, flow).map((item) => (
               <CourtNavRow key={item.id} item={item} />
             ))}
           </SidebarMenu>
