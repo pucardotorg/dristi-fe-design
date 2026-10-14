@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { AdvocateHome } from "@/components/advocate/advocate-home";
 import { AdvocateShellHome } from "@/components/advocate/advocate-shell-home";
 import { useLocalStorageValue } from "@/hooks/use-local-storage-value";
-import { NEW_ADVOCATE_SHELL_KEY } from "@/lib/advocate/new-account";
+import { NEW_ADVOCATE_SHELL_KEY, setNewAdvocateShell } from "@/lib/advocate/new-account";
 import { AdvocateJoinCaseDialog } from "@/components/advocate/join-case-dialog";
 import { useLocale } from "@/components/shell/locale";
 import { useProfile } from "@/components/shell/profile";
@@ -35,10 +35,17 @@ function AdvocatePage() {
   const summonsCase = token && hasCase ? ADVOCATE_JOIN_CASE : undefined;
 
   const firstName = accountName.replace(/^Adv\.\s*/, "").split(" ")[0];
-  /* A new advocate — just registered, nothing listed — gets the shell home (owner,
-     2026-10-14). `?shell=new` shows it without signing in as the demo account. */
-  const newAccount =
-    useLocalStorageValue(NEW_ADVOCATE_SHELL_KEY) === "1" || searchParams.get("shell") === "new";
+  /* A new advocate — just registered, nothing listed — gets the shell home, and only
+     the shell: Home must not fall back to the day's hearings (owner, 2026-10-14).
+     `?shell=new` makes this browser's advocate the new account, so the rail's Home keeps
+     it; `?shell=full` returns to the full home. Signing in as another advocate clears it. */
+  const shellParam = searchParams.get("shell");
+  React.useEffect(() => {
+    if (shellParam === "new") setNewAdvocateShell(true);
+    if (shellParam === "full") setNewAdvocateShell(false);
+  }, [shellParam]);
+  const storedNew = useLocalStorageValue(NEW_ADVOCATE_SHELL_KEY) === "1";
+  const newAccount = shellParam === "new" || (shellParam !== "full" && storedNew);
 
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [autoOpened, setAutoOpened] = React.useState(false);
