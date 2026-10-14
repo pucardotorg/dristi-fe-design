@@ -47,6 +47,12 @@ export function poaPartiesFor(joinCase: JoinCase, side: PoaSide): CaseParty[] {
   return side === "complainant" ? joinCase.complainants : side === "accused" ? joinCase.accused : [];
 }
 
+/** A number on record, shown with only its last three digits. */
+function maskedPhone(digits: string | undefined): string {
+  const tail = (digits ?? "").replace(/\D/g, "").slice(-3);
+  return tail ? `+91 ••••• ••${tail}` : "+91 ••••• •••••";
+}
+
 export function isValidMobile(value: string | undefined) {
   return (value ?? "").length === 10;
 }
@@ -279,9 +285,23 @@ export function PoaJoinFields({
               locale={locale}
             />
             {party.hasJoined ? (
-              <p className="text-caption text-muted-foreground">
-                {pick(joinDialog.poaPhoneOnRecord, locale)}
-              </p>
+              /* Joined already: the number stays in view but masked and locked, so
+                 nothing reads as missing (owner, 2026-10-14). */
+              <Field data-disabled>
+                <FieldLabel htmlFor={`join-poa-phone-${party.id}`}>
+                  {fill(joinDialog.poaPhoneLabelFor, locale, { name: party.name })}
+                </FieldLabel>
+                <Input
+                  id={`join-poa-phone-${party.id}`}
+                  disabled
+                  readOnly
+                  value={maskedPhone(party.phoneOnRecord)}
+                  className="tabular-nums"
+                />
+                <FieldDescription>
+                  {fill(joinDialog.poaPhoneJoined, locale, { name: party.name })}
+                </FieldDescription>
+              </Field>
             ) : (
               <Field data-invalid={phoneInvalid}>
                 <FieldLabel htmlFor={`join-poa-phone-${party.id}`}>

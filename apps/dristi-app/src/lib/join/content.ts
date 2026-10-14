@@ -27,6 +27,8 @@ export type CaseParty = {
    *  the only thing that blocks a further PoA join. The party having joined in person
    *  does not: the party and their PoA holder both legitimately hold access. */
   poaHolderJoined?: boolean;
+  /** The number on record for a party who has joined — shown masked, never in full. */
+  phoneOnRecord?: string;
 };
 
 export type JoinCase = {
@@ -78,10 +80,12 @@ export const DEMO_JOIN_CASE: JoinCase = {
   accusedAdvocate: "Not available",
   accused: [
     { id: "acc-1", name: "Rajan Krishnan Nair" },
-    { id: "acc-2", name: "Suresh Babu P", hasJoined: true },
+    { id: "acc-2", name: "Suresh Babu P", hasJoined: true, phoneOnRecord: "9846012734" },
   ],
   // Linked at e-filing (JOIN-01), so already on the case with a number on record.
-  complainants: [{ id: "comp-1", name: "South Indian Bank Ltd.", hasJoined: true }],
+  complainants: [
+    { id: "comp-1", name: "South Indian Bank Ltd.", hasJoined: true, phoneOnRecord: "9447055188" },
+  ],
 };
 
 /** The demo account's registered profile name — deliberately not an exact match for
@@ -357,7 +361,13 @@ export const joinDialog = {
   /* Each party's fields carry its name, in place of a heading over them that read past
      (owner, 2026-10-14). Malayalam drafted — needs review. */
   poaDocLabelFor: t("Authorization document for {name}", "{name}-ന്റെ അധികാര രേഖ"),
-  poaPhoneLabelFor: t("Mobile number of {name}", "{name}-ന്റെ മൊബൈൽ നമ്പർ"),
+  /* Name first, so with several parties the field is found by its person
+     (owner, 2026-10-14). */
+  poaPhoneLabelFor: t("{name}'s mobile number", "{name}-ന്റെ മൊബൈൽ നമ്പർ"),
+  poaPhoneJoined: t(
+    "{name} has already joined the case. This is the number on their account.",
+    "{name} ഇതിനകം കേസിൽ ചേർന്നു. ഇത് അവരുടെ അക്കൗണ്ടിലെ നമ്പറാണ്.",
+  ),
   poaPartyHeading: t(
     "For {name}",
     "{name}-ന് വേണ്ടി",

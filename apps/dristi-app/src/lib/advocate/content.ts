@@ -691,7 +691,7 @@ export const advDialog = {
     "ഓരോ നമ്പറിലേക്കും SMS അയക്കും. കക്ഷി സൈൻ ഇൻ ചെയ്ത് അത് അവരാണെന്ന് സ്ഥിരീകരിച്ചാൽ കേസ് അവരുടെ അക്കൗണ്ടുമായി ബന്ധിപ്പിക്കും.",
   ),
   /* Per litigant: whose number this is, said on the field itself (owner, 2026-10-12). */
-  contactMobileLabel: t("Mobile number of {name}", "{name}-ന്റെ മൊബൈൽ നമ്പർ"),
+  contactMobileLabel: t("{name}'s mobile number", "{name}-ന്റെ മൊബൈൽ നമ്പർ"),
   contactMobileError: t(
     "Enter a valid 10-digit mobile number.",
     "സാധുവായ 10 അക്ക മൊബൈൽ നമ്പർ നൽകുക.",
