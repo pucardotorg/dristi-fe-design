@@ -32,6 +32,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   CASE_FILE_TREE,
   caseFilePdfSrc,
+  fileNumberLabel,
   flattenLeaves,
   isCaseFileFolder,
   type CaseFileNode,
@@ -53,6 +54,8 @@ export type PanelApplication = {
 
 type DocumentRow = {
   id: string;
+  /** The case file's outline number ("5.1"), as its own index shows it. */
+  outline?: string;
   label: string;
   number?: string;
   detail?: string;
@@ -63,8 +66,9 @@ type DocumentRow = {
 /**
  * The case file beside the order — Abhirami's right-hand panel (v14).
  *
- * **Documents**: the case file's own index (`CASE_FILE_TREE`, the tree the advocate's
- * case file reads), searchable, with the applications standing on the matter first. Any
+ * **Case file**: the case file's own index (`CASE_FILE_TREE`, the tree the case's
+ * Case file section reads, numbered and ordered as that section is — View Case
+ * handover §6.2), searchable, with the applications standing on the matter first. Any
  * document can be **linked to the order**; an application decided in the order is linked
  * by deciding it. A document opens in one viewer, with Link in its header.
  *
@@ -129,6 +133,7 @@ export function OrderCasePanel({
   const sections = React.useMemo(() => {
     const filed = CASE_FILE_TREE.map((node) => ({
       id: node.id,
+      outline: node.number,
       label: node.label,
       /* A section that is one document of its own name is that document's row. */
       single: !isCaseFileFolder(node),
@@ -137,6 +142,7 @@ export function OrderCasePanel({
         : [node]
       ).map((leaf): DocumentRow => ({
         id: leaf.id,
+        outline: leaf.number,
         label: leaf.label,
         node: leaf,
       })),
@@ -145,6 +151,7 @@ export function OrderCasePanel({
       ? [
           {
             id: "applications",
+            outline: undefined,
             label: "Applications",
             single: false,
             rows: applications.map((application): DocumentRow => ({
@@ -227,7 +234,7 @@ export function OrderCasePanel({
       )}
     >
       <Tabs
-        defaultValue={preview ? "preview" : "documents"}
+        defaultValue={preview ? "preview" : "case-file"}
         className="flex min-h-0 flex-1 flex-col gap-0"
       >
         {/* The product's line tabs (case peek, Approve registrations): left-aligned on
@@ -237,7 +244,7 @@ export function OrderCasePanel({
         <div className="h-14 shrink-0 border-b border-hairline px-1">
           <TabsList
             variant="line"
-            aria-label="Case file"
+            aria-label="Beside the order"
             className="h-14 w-full justify-start rounded-none p-0 group-data-horizontal/tabs:h-14"
           >
             {preview ? (
@@ -249,10 +256,10 @@ export function OrderCasePanel({
               </TabsTrigger>
             ) : null}
             <TabsTrigger
-              value="documents"
+              value="case-file"
               className="h-full flex-none px-3 text-body-compact group-data-horizontal/tabs:after:-bottom-px"
             >
-              Documents
+              Case file
             </TabsTrigger>
             <TabsTrigger
               value="overview"
@@ -285,7 +292,7 @@ export function OrderCasePanel({
         ) : null}
 
         <TabsContent
-          value="documents"
+          value="case-file"
           className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4"
         >
           <div className="flex min-w-0 flex-col gap-1">
@@ -442,6 +449,7 @@ export function OrderCasePanel({
                           )}
                         />
                         <span className="min-w-0 flex-1 truncate font-medium">
+                          <OutlineNumber number={section.outline} />
                           {section.label}
                         </span>
                         <span className="shrink-0 text-muted-foreground tabular-nums">
@@ -605,6 +613,7 @@ function DocumentLine({
         {icon}
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className={cn("truncate", icon && "font-medium")}>
+            <OutlineNumber number={row.outline} />
             {row.label}
           </span>
           {row.number ? (
@@ -613,9 +622,7 @@ function DocumentLine({
             </span>
           ) : null}
           {row.detail ? (
-            <span className="truncate text-muted-foreground">
-              {row.detail}
-            </span>
+            <span className="truncate text-muted-foreground">{row.detail}</span>
           ) : null}
         </span>
       </button>
@@ -667,5 +674,16 @@ function DocumentLine({
         </div>
       )}
     </li>
+  );
+}
+
+/** The case file index's number before a name, so a paper here reads as it does on the
+ *  case's own Case file and in the docket page path (CF-03). */
+function OutlineNumber({ number }: { number?: string }) {
+  if (!number) return null;
+  return (
+    <span className="mr-2 font-normal tabular-nums text-muted-foreground">
+      {fileNumberLabel(number)}
+    </span>
   );
 }
