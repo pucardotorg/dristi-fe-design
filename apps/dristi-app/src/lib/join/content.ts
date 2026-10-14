@@ -197,6 +197,17 @@ export const joinDialog = {
   ),
   codeLabel: t("Access code", "ആക്‌സസ് കോഡ്"),
   codeCaseLead: t("You are joining", "നിങ്ങൾ ചേരുന്ന കേസ്"),
+  /* Arriving from the summons QR or link (owner, 2026-10-14): the case is known, the
+     code is still asked. Malayalam drafted — needs review. */
+  codeSummonsBody: t(
+    "Enter the six-digit access code printed on your summons.",
+    "നിങ്ങളുടെ സമൻസിൽ അച്ചടിച്ചിട്ടുള്ള ആറക്ക ആക്‌സസ് കോഡ് നൽകുക.",
+  ),
+  codeSummonsNote: t(
+    "The code is printed on your summons, next to the QR code.",
+    "കോഡ് നിങ്ങളുടെ സമൻസിൽ, QR കോഡിന് അടുത്തായി അച്ചടിച്ചിട്ടുണ്ട്.",
+  ),
+  notMyCase: t("Not my case?", "എന്റെ കേസ് അല്ലേ?"),
   codeNote: t(
     "The code is printed on the summons. Parties who have already joined the case can also share it with you.",
     "കോഡ് സമൻസിൽ അച്ചടിച്ചിട്ടുണ്ട്. കേസിൽ ഇതിനകം ചേർന്ന കക്ഷികൾക്കും ഇത് നിങ്ങളുമായി പങ്കിടാം.",

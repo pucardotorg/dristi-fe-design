@@ -141,8 +141,10 @@ export function JoinCaseDialog({
   locale: Locale;
   onJoined: (result: JoinResult) => void;
 }) {
+  /* From the summons the case is known but the code is still asked, as on every other
+     way in: a link alone is not proof of holding the summons (owner, 2026-10-14). */
   const initialStage: Stage =
-    mode === "summons" ? "details" : mode === "handoff" ? "identity" : "lookup";
+    mode === "summons" ? "code" : mode === "handoff" ? "identity" : "lookup";
   /* Each step fades softly into the next (`useStageFade`), its content drifting a
      hint the way the person is going; the height changes while the window is clear,
      so nothing resizes in view (owner, Oct 6). */
@@ -165,6 +167,8 @@ export function JoinCaseDialog({
     }
   }, [stage, stageChanged]);
   const [joinCase, setJoinCase] = React.useState<JoinCase | undefined>(summonsCase);
+  /* Found by searching, after "Not my case?" — the way back is then the search. */
+  const [searched, setSearched] = React.useState(false);
 
   const [code, setCode] = React.useState("");
   const [codeTouched, setCodeTouched] = React.useState(false);
@@ -229,6 +233,7 @@ export function JoinCaseDialog({
   function reset() {
     resetStage(initialStage);
     setJoinCase(summonsCase);
+    setSearched(false);
     setQuery("");
     setQueryTouched(false);
     setLookupMiss(false);
@@ -253,7 +258,9 @@ export function JoinCaseDialog({
      header and footer — never a second modal. */
   const [leaving, setLeaving] = React.useState(false);
   const entered =
-    stage === "code" || stage === "identity" || (stage === "details" && mode !== "summons");
+    (stage === "code" && (mode !== "summons" || code.length > 0)) ||
+    stage === "identity" ||
+    (stage === "details" && mode !== "summons");
 
   /* View case opens the joined case in Cases, as on the advocate side (owner,
      2026-10-13) — not a placeholder note. */
@@ -290,6 +297,7 @@ export function JoinCaseDialog({
       return;
     }
     setLookupMiss(false);
+    setSearched(true);
     setJoinCase(DEMO_JOIN_CASE);
     // The code gates the case details; the code stage shows only title, number and
     // court so the person can confirm it is the right case (JOIN-10/11).
@@ -394,7 +402,10 @@ export function JoinCaseDialog({
                     : stage === "lookup"
                       ? pick(joinDialog.lookupBody, locale)
                       : stage === "code"
-                        ? pick(joinDialog.codeBody, locale)
+                        ? pick(
+                            mode === "summons" ? joinDialog.codeSummonsBody : joinDialog.codeBody,
+                            locale,
+                          )
                         : stage === "details"
                           ? pick(joinDialog.detailsBody, locale)
                           : pick(joinDialog.identityBody, locale)}
@@ -461,7 +472,9 @@ export function JoinCaseDialog({
                 locale={locale}
                 lead={pick(joinDialog.codeCaseLead, locale)}
               />
-              <Banner variant="info" className="items-start">{pick(joinDialog.codeNote, locale)}</Banner>
+              <Banner variant="info" className="items-start">
+                {pick(mode === "summons" ? joinDialog.codeSummonsNote : joinDialog.codeNote, locale)}
+              </Banner>
               <div className={JOIN_PANEL}>
               <Field data-invalid={codeTouched && code.length !== CODE_LENGTH}>
                 <FieldLabel>{pick(joinDialog.codeLabel, locale)}</FieldLabel>
@@ -843,15 +856,31 @@ export function JoinCaseDialog({
 
               {stage === "code" ? (
                 <>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setStage("lookup")}
-                    data-icon="inline-start"
-                  >
-                    <ArrowLeftIcon aria-hidden />
-                    {pick(joinDialog.back, locale)}
-                  </Button>
+                  {mode === "summons" && !searched ? (
+                    /* The wrong summons, or a mistyped link: search for the right case
+                       instead of a dead end. */
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setCode("");
+                        setCodeTouched(false);
+                        setStage("lookup");
+                      }}
+                    >
+                      {pick(joinDialog.notMyCase, locale)}
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setStage("lookup")}
+                      data-icon="inline-start"
+                    >
+                      <ArrowLeftIcon aria-hidden />
+                      {pick(joinDialog.back, locale)}
+                    </Button>
+                  )}
                   <Button type="submit" form="join-code" data-icon="inline-end">
                     {pick(joinDialog.codeVerify, locale)}
                     <ArrowRightIcon aria-hidden />
