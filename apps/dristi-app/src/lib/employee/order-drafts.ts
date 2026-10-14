@@ -154,3 +154,11 @@ export function hasDraftFor(drafts: OrderDrafts, hearingId: string): boolean {
       drafts[editorDraftKey(hearingId)],
   );
 }
+
+/** Back to how a fresh browser opens — Reset sandbox data (`sandbox-reset.ts`). */
+export function resetOrderDrafts(): void {
+  restored = true;
+  drafts = OPENING_DRAFTS;
+  saveRecord(STORAGE_KEY, drafts);
+  for (const listener of listeners) listener();
+}

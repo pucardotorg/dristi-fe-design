@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronDownIcon, SearchIcon, SettingsIcon } from "lucide-react";
+import { toast } from "sonner";
 
 import {
   useCourtRole,
@@ -38,6 +39,7 @@ import { useOrderLayout } from "@/components/employee/use-order-layout";
 import { useOrderSigning } from "@/components/employee/use-order-signing";
 import { usePendingOrders } from "@/components/employee/use-pending-orders";
 import { pendingOrderCountFor } from "@/lib/employee/pending-orders";
+import { resetSandboxData } from "@/lib/employee/sandbox-reset";
 import { ORDER_FLOW_OPTIONS, type OrderFlow } from "@/lib/employee/order-flow";
 import {
   CLASSIC_ORDER_LAYOUT_OPTIONS,
@@ -61,10 +63,21 @@ import {
   useRailCollapsed,
 } from "@/components/chrome/app-chrome";
 import { CHARCOAL_PLATE } from "@/components/chrome/rail-plate";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
@@ -942,6 +955,7 @@ function CourtSettingsControl() {
   const [cognizanceLayout, setCognizanceLayout] = useCognizanceLayout();
   const [orderLayout, setOrderLayout] = useOrderLayout();
   const [orderFlow, setOrderFlow] = useOrderFlow();
+  const [confirmReset, setConfirmReset] = React.useState(false);
   return (
     <DropdownMenu>
       <Tooltip>
@@ -1058,7 +1072,42 @@ function CourtSettingsControl() {
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
+        {/* A demo control, last and apart: everything filed and drafted in this browser
+            goes, so it asks first (owner, 2026-10-14). */}
+        <DropdownMenuItem
+          variant="destructive"
+          onSelect={() => setConfirmReset(true)}
+        >
+          Reset sandbox data
+        </DropdownMenuItem>
       </DropdownMenuContent>
+      {/* The menu's root renders nothing of its own, so the confirmation can sit inside
+          it; it portals out and outlives the menu closing. */}
+      <AlertDialog open={confirmReset} onOpenChange={setConfirmReset}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset sandbox data?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The sample applications come back. Applications filed in this browser,
+              order drafts, pending orders and signatures are removed. This cannot be
+              undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                resetSandboxData();
+                toast("Sandbox data reset. The sample applications are back.");
+              }}
+            >
+              Reset
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DropdownMenu>
   );
 }

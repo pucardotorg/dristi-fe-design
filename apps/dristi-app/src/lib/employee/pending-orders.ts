@@ -240,3 +240,9 @@ export function pendingOrderCountFor(
   ).length;
   return count || undefined;
 }
+
+/** Back to how a fresh browser opens — Reset sandbox data (`sandbox-reset.ts`). */
+export function resetPendingOrders(): void {
+  restored = true;
+  write(OPENING);
+}
