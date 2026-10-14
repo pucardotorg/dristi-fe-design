@@ -207,6 +207,15 @@ export const joinDialog = {
     "The code is printed on your summons, next to the QR code.",
     "കോഡ് നിങ്ങളുടെ സമൻസിൽ, QR കോഡിന് അടുത്തായി അച്ചടിച്ചിട്ടുണ്ട്.",
   ),
+  /* The advocate holds a client's summons, not their own. */
+  codeSummonsBodyAdvocate: t(
+    "Enter the six-digit access code printed on the summons.",
+    "സമൻസിൽ അച്ചടിച്ചിട്ടുള്ള ആറക്ക ആക്‌സസ് കോഡ് നൽകുക.",
+  ),
+  codeSummonsNoteAdvocate: t(
+    "The code is printed on the summons, next to the QR code.",
+    "കോഡ് സമൻസിൽ, QR കോഡിന് അടുത്തായി അച്ചടിച്ചിട്ടുണ്ട്.",
+  ),
   notMyCase: t("Not my case?", "എന്റെ കേസ് അല്ലേ?"),
   codeNote: t(
     "The code is printed on the summons. Parties who have already joined the case can also share it with you.",

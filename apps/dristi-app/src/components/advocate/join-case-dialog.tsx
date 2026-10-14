@@ -314,7 +314,9 @@ export function AdvocateJoinCaseDialog({
   /** The person chose Litigant or PoA holder; continue this case in the litigant flow. */
   onJoinAsLitigant: (kind: "self" | "poa") => void;
 }) {
-  const initialStage: Stage = mode === "summons" ? "details" : "lookup";
+  /* From the summons the case is known but the code is still asked, as on every other
+     way in (owner, 2026-10-14) — the litigant's door does the same. */
+  const initialStage: Stage = mode === "summons" ? "code" : "lookup";
   /* Each step fades softly into the next (`useStageFade`), its content drifting a
      hint the way the person is going; the height changes while the window is clear,
      so nothing resizes in view (owner, Oct 6). */
@@ -345,6 +347,8 @@ export function AdvocateJoinCaseDialog({
   const [lookupMiss, setLookupMiss] = React.useState(false);
 
   const [code, setCode] = React.useState("");
+  /* Found by searching, after "Not my case?" — the way back is then the search. */
+  const [searched, setSearched] = React.useState(false);
   const [codeTouched, setCodeTouched] = React.useState(false);
   const [accountRole, setAccountRole] = React.useState<AccountRole>("advocate");
   const [switchingProfile, setSwitchingProfile] = React.useState(false);
@@ -449,6 +453,7 @@ export function AdvocateJoinCaseDialog({
 
   function reset() {
     resetStage(initialStage);
+    setSearched(false);
     setJoinCase(summonsCase);
     setQuery("");
     setQueryTouched(false);
@@ -502,7 +507,10 @@ export function AdvocateJoinCaseDialog({
   /* Partway through, the close asks first (owner, 2026-10-13): what was entered would be
      lost. The question takes this window's header and footer — never a second modal. */
   const [leaving, setLeaving] = React.useState(false);
-  const entered = LEAVE_ASKS.includes(stage);
+  // Arriving from the summons, the code step is the first: nothing typed, nothing to lose.
+  const entered =
+    LEAVE_ASKS.includes(stage) &&
+    !(stage === "code" && mode === "summons" && !searched && code.length === 0);
 
   function handleOpenChange(next: boolean) {
     // The gateway is confirming; the window holds until it answers.
@@ -540,6 +548,7 @@ export function AdvocateJoinCaseDialog({
       return;
     }
     setLookupMiss(false);
+    setSearched(true);
     setJoinCase(ADVOCATE_JOIN_CASE);
     // Already named and paid for by another advocate: nothing to join, only the case
     // to open.
@@ -670,7 +679,13 @@ export function AdvocateJoinCaseDialog({
           ? { title: pick(advDialog.summonsHeading, locale), body: pick(advDialog.summonsBody, locale) }
           : { title: pick(advDialog.title, locale), body: pick(advDialog.detailsBody, locale) }
         : stage === "code"
-          ? { title: pick(advDialog.title, locale), body: pick(joinDialog.codeBody, locale) }
+          ? {
+              title: pick(advDialog.title, locale),
+              body: pick(
+                mode === "summons" ? joinDialog.codeSummonsBodyAdvocate : joinDialog.codeBody,
+                locale,
+              ),
+            }
           : stage === "account"
             ? switchingProfile
               ? { title: pick(advDialog.accountSwitchTitle, locale), body: pick(advDialog.accountSwitchBody, locale) }
@@ -855,7 +870,12 @@ export function AdvocateJoinCaseDialog({
                 locale={locale}
                 lead={pick(joinDialog.codeCaseLead, locale)}
               />
-              <Banner variant="info" className="items-start">{pick(joinDialog.codeNote, locale)}</Banner>
+              <Banner variant="info" className="items-start">
+                {pick(
+                  mode === "summons" ? joinDialog.codeSummonsNoteAdvocate : joinDialog.codeNote,
+                  locale,
+                )}
+              </Banner>
               <div className={JOIN_PANEL}>
               <Field data-invalid={codeTouched && code.length !== CODE_LENGTH}>
                 <FieldLabel>{pick(joinDialog.codeLabel, locale)}</FieldLabel>
@@ -1549,15 +1569,30 @@ export function AdvocateJoinCaseDialog({
 
             {stage === "code" ? (
               <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setStage("lookup")}
-                  data-icon="inline-start"
-                >
-                  <ArrowLeftIcon aria-hidden />
-                  {pick(joinDialog.back, locale)}
-                </Button>
+                {mode === "summons" && !searched ? (
+                  /* The wrong summons, or a mistyped link: search for the right case. */
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setCode("");
+                      setCodeTouched(false);
+                      setStage("lookup");
+                    }}
+                  >
+                    {pick(joinDialog.notMyCase, locale)}
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setStage("lookup")}
+                    data-icon="inline-start"
+                  >
+                    <ArrowLeftIcon aria-hidden />
+                    {pick(joinDialog.back, locale)}
+                  </Button>
+                )}
                 <Button type="submit" form="adv-code" data-icon="inline-end">
                   {pick(joinDialog.codeVerify, locale)}
                   <ArrowRightIcon aria-hidden />
