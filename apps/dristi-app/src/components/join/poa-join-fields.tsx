@@ -57,11 +57,14 @@ function fileSize(bytes: number) {
 }
 
 function PartyDocument({
+  name,
   file,
   onFileChange,
   invalid,
   locale,
 }: {
+  /** The party it authorises for, named in the label. */
+  name: string;
   file: File | null;
   onFileChange: (file: File) => void;
   invalid: boolean;
@@ -70,7 +73,7 @@ function PartyDocument({
   const inputRef = React.useRef<HTMLInputElement>(null);
   return (
     <Field data-invalid={invalid}>
-      <FieldLabel>{pick(joinDialog.poaDocLabel, locale)}</FieldLabel>
+      <FieldLabel>{fill(joinDialog.poaDocLabelFor, locale, { name })}</FieldLabel>
       <input
         ref={inputRef}
         type="file"
@@ -87,7 +90,7 @@ function PartyDocument({
       <DocumentSlot
         status={file ? "filled" : "empty"}
         media="icon"
-        // The well's heading already names the party.
+        // The field's label above already names the party.
         label={pick(joinDialog.poaDocLabel, locale)}
         required
         filename={file?.name}
@@ -268,10 +271,8 @@ export function PoaJoinFields({
             aria-label={fill(joinDialog.poaPartyHeading, locale, { name: party.name })}
             className="flex flex-col gap-4 rounded-xl bg-surface-sunken p-4"
           >
-            <p className="text-body font-semibold">
-              {fill(joinDialog.poaPartyHeading, locale, { name: party.name })}
-            </p>
             <PartyDocument
+              name={party.name}
               file={files[party.id] ?? null}
               onFileChange={(file) => onFileChange(party.id, file)}
               invalid={touched && !files[party.id]}
@@ -284,7 +285,7 @@ export function PoaJoinFields({
             ) : (
               <Field data-invalid={phoneInvalid}>
                 <FieldLabel htmlFor={`join-poa-phone-${party.id}`}>
-                  {pick(joinDialog.poaPhoneLabel, locale)}
+                  {fill(joinDialog.poaPhoneLabelFor, locale, { name: party.name })}
                 </FieldLabel>
                 <Input
                   id={`join-poa-phone-${party.id}`}

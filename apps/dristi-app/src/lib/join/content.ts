@@ -354,6 +354,10 @@ export const joinDialog = {
     "കോടതിയിൽ എങ്ങനെ ഹാജരാകുമെന്ന് തിരഞ്ഞെടുക്കുക.",
   ),
   poaDocLabel: t("Authorization document", "അധികാര രേഖ"),
+  /* Each party's fields carry its name, in place of a heading over them that read past
+     (owner, 2026-10-14). Malayalam drafted — needs review. */
+  poaDocLabelFor: t("Authorization document for {name}", "{name}-ന്റെ അധികാര രേഖ"),
+  poaPhoneLabelFor: t("Mobile number of {name}", "{name}-ന്റെ മൊബൈൽ നമ്പർ"),
   poaPartyHeading: t(
     "For {name}",
     "{name}-ന് വേണ്ടി",
