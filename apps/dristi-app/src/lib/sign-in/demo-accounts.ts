@@ -19,6 +19,8 @@ import type { Role } from "@/lib/sign-in/content";
  *   9000000001 — a blank litigant with nothing on the account, for trying signing links.
  *   8009460966 — an advocate (Adv. Anjali Nair) who also holds a litigant profile, so
  *                the rail-foot switch flips advocate ⇄ litigant on the one account.
+ *   9000000002 — a new advocate who has just registered: no hearings, no cases. Lands on
+ *                the advocate shell home, to try joining a case from nothing.
  * NOTE (session-limited): with no auth session yet, `/home` renders one litigant identity
  * (the summoned litigant). So an advocate who switches to their litigant profile lands on
  * that home rather than a per-account litigant self — that split needs a real session.
@@ -29,7 +31,16 @@ export const DEMO_ACCOUNTS: Record<string, Role> = {
   // A blank litigant — no cases, no profile details — so a signing link can be tried
   // by signing in rather than registering every time (owner, 2026-10-09).
   "9000000001": "litigant",
+  // A new advocate, nothing on the account yet (owner, 2026-10-14).
+  "9000000002": "advocate",
 };
+
+/** Accounts with nothing on them yet: their home opens as the empty shell. */
+const NEW_ACCOUNTS = new Set(["9000000001", "9000000002"]);
+
+export function isNewAccount(mobile: string): boolean {
+  return NEW_ACCOUNTS.has(mobile);
+}
 
 /** The role this number is registered under, or `undefined` if it is not in the list. */
 export function registeredRole(mobile: string): Role | undefined {

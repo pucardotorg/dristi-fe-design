@@ -899,3 +899,35 @@ export const advDialog = {
     "തീരുമാനമാകുമ്പോൾ SMS വഴി അറിയിക്കും.",
   ),
 } as const;
+
+/* ------------------------------------------------------- new advocate: shell home */
+
+/**
+ * A just-registered advocate's home (owner, 2026-10-14): the litigant shell's shape,
+ * in an advocate's words. Malayalam drafted — needs review.
+ */
+export const advShellHome = {
+  welcome: t("Welcome, Adv. {name}", "സ്വാഗതം, അഡ്വ. {name}"),
+  casesHeading: t("Your cases", "നിങ്ങളുടെ കേസുകൾ"),
+  casesEmpty: t(
+    "Cases you join or file will appear here, with their hearings.",
+    "നിങ്ങൾ ചേരുന്നതോ ഫയൽ ചെയ്യുന്നതോ ആയ കേസുകൾ അവയുടെ വാദം സഹിതം ഇവിടെ കാണാം.",
+  ),
+  joinTitle: t("Join a case", "കേസിൽ ചേരുക"),
+  joinBody: t(
+    "Appearing in a case already in court? Find it with its case number and the access code on the summons.",
+    "ഇതിനകം കോടതിയിലുള്ള കേസിൽ ഹാജരാകുന്നുണ്ടോ? കേസ് നമ്പറും സമൻസിലെ ആക്‌സസ് കോഡും ഉപയോഗിച്ച് കണ്ടെത്തുക.",
+  ),
+  joinAction: t("Join a case", "കേസിൽ ചേരുക"),
+  fileTitle: t("File a new case", "പുതിയ കേസ് ഫയൽ ചെയ്യുക"),
+  fileBody: t(
+    "Start a cheque bounce complaint for your client and follow it from filing to decision.",
+    "നിങ്ങളുടെ കക്ഷിക്കായി ചെക്ക് മടക്ക പരാതി ആരംഭിച്ച് ഫയലിംഗ് മുതൽ വിധി വരെ പിന്തുടരുക.",
+  ),
+  fileAction: t("File a case", "കേസ് ഫയൽ ചെയ്യുക"),
+  statusJoined: t("Joined", "ചേർന്നു"),
+  statusUnpaid: t("Fee to pay", "ഫീസ് അടയ്ക്കാനുണ്ട്"),
+  caseNumberLabel: t("Case number", "കേസ് നമ്പർ"),
+  hearingLabel: t("Next hearing", "അടുത്ത വാദം"),
+  viewCase: t("View case", "കേസ് കാണുക"),
+};
