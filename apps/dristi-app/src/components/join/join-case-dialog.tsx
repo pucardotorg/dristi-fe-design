@@ -846,7 +846,25 @@ export function JoinCaseDialog({
             <>
               {stage === "lookup" ? (
                 <>
-                  <span aria-hidden className="hidden sm:block" />
+                  {mode === "summons" ? (
+                    /* "Not my case?" is not a dead end: back to the summons's own case and its
+                       code (owner, 2026-10-14). */
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setJoinCase(summonsCase);
+                        setSearched(false);
+                        setStage("code");
+                      }}
+                      data-icon="inline-start"
+                    >
+                      <ArrowLeftIcon aria-hidden />
+                      {pick(joinDialog.backToSummonsCase, locale)}
+                    </Button>
+                  ) : (
+                    <span aria-hidden className="hidden sm:block" />
+                  )}
                   <Button type="submit" form="join-lookup" data-icon="inline-start">
                     <SearchIcon aria-hidden />
                     {pick(joinDialog.search, locale)}

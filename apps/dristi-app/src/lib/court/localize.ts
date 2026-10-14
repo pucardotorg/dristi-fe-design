@@ -253,6 +253,12 @@ const BENCH_RULES: Rule[] = [
   [/\bJMFC COURT (\d+)(?:, (?:GUJARAT|SAMPLE DISTRICT))?/g, (p, n) => `${p.benchName?.toUpperCase()} ${n}`],
   [/\bJMFC-(X|IX|VIII|VII|VI|V|IV|III|II|I)\b/g, (p, r) => `${p.benchName} ${ROMAN[r] ?? r}`],
   [/\bJMFC Court\b/g, (p) => p.benchName ?? "JMFC Court"],
+  // The summons onboarding names the bench in full (owner, 2026-10-14: Gujarat's is the
+  // SARAS Court).
+  [
+    /\bCourt of the Judicial First Class Magistrate (X|IX|VIII|VII|VI|V|IV|III|II|I)\b/g,
+    (p, r) => `${p.benchName} ${ROMAN[r] ?? r}`,
+  ],
 ];
 
 function apply(text: string, rules: Rule[], profile: CourtProfile): string {

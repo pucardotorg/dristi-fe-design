@@ -1443,7 +1443,25 @@ export function AdvocateJoinCaseDialog({
             <>
             {stage === "lookup" ? (
               <>
-                <span aria-hidden className="hidden sm:block" />
+                {mode === "summons" ? (
+                  /* "Not my case?" is not a dead end: back to the summons's own case and its
+                     code (owner, 2026-10-14). */
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setJoinCase(summonsCase);
+                      setSearched(false);
+                      setStage("code");
+                    }}
+                    data-icon="inline-start"
+                  >
+                    <ArrowLeftIcon aria-hidden />
+                    {pick(joinDialog.backToSummonsCase, locale)}
+                  </Button>
+                ) : (
+                  <span aria-hidden className="hidden sm:block" />
+                )}
                 <div className="flex items-center gap-2">
                   {/* Sandbox, under the flask as on Pay: whether another advocate already
                       named this one on a paid vakalatnama. Not modal — a modal menu inside

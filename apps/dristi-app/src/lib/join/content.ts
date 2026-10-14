@@ -221,6 +221,7 @@ export const joinDialog = {
     "കോഡ് സമൻസിൽ, QR കോഡിന് അടുത്തായി അച്ചടിച്ചിട്ടുണ്ട്.",
   ),
   notMyCase: t("Not my case?", "എന്റെ കേസ് അല്ലേ?"),
+  backToSummonsCase: t("Back to the summons case", "സമൻസിലെ കേസിലേക്ക് മടങ്ങുക"),
   codeNote: t(
     "The code is printed on the summons. Parties who have already joined the case can also share it with you.",
     "കോഡ് സമൻസിൽ അച്ചടിച്ചിട്ടുണ്ട്. കേസിൽ ഇതിനകം ചേർന്ന കക്ഷികൾക്കും ഇത് നിങ്ങളുമായി പങ്കിടാം.",
