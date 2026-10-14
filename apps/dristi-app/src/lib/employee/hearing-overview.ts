@@ -17,7 +17,6 @@
 
 import {
   COURT_CASE_STAGES,
-  courtHearingPurposeLabel,
   formatListingDate,
   parseIsoDay,
   shiftDay,
@@ -26,9 +25,7 @@ import {
 } from "./hearings";
 import {
   FILING_WINDOW_DAYS,
-  NOTICE_WINDOW_DAYS,
   PAYMENT_WINDOW_DAYS,
-  PRESENTATION_WINDOW_DAYS,
   niWindowNote,
   type NiWindowStatus,
 } from "./ni-act";
@@ -259,17 +256,15 @@ export type CaseTimelineStep = {
   aside?: string;
   tone?: "warning";
   status: "past" | "current";
+  /** Where the step's entity opens — the event catalogue's Link To. */
+  href?: string;
 };
 
 /**
- * A matter in two phases — what happened to the cheque, and what the court has done.
- *
- * The split is the one the register queue already draws (`register-case-screen.tsx`),
- * because it is the real one: everything above the line happened to two private parties
- * and is measured against §138, and everything below it is the court's own record.
+ * What the court has done, as events. The cheque's chain before filing is not shown
+ * (owner, 2026-10-14); it is still built, because the filing note is measured from it.
  */
 export type CaseTimeline = {
-  beforeFiling: CaseTimelineStep[];
   inCourt: CaseTimelineStep[];
 };
 
@@ -351,42 +346,93 @@ function statutoryChain(
 }
 
 /**
- * The court's milestones between taking a complaint on file and today's sitting.
+ * The court's record, as events from the event catalogue (PUCAR Dashboard 2027 —
+ * Events/Case Updates; owner 2026-10-14 picked which). Each label is the catalogue's
+ * Events column with its variables filled; each link is its Link To, opened on the one
+ * demo case every listing opens (`HEARING_DEMO_CASE`). An event whose Link To is N/A or
+ * blank links to its Associated Entity where the case view has one, or not at all.
  *
- * One per stage the matter has already passed — a case at evidence has taken cognizance,
- * issued process, seen the accused appear and recorded a plea, in that order, because
- * that is the order a §138 summons case runs in and a stage cannot be reached without
- * the ones under it. The stage the matter is *at* is not a milestone: it is what today's
- * listing is for, and it sits at the foot of the timeline as the current step.
- *
- * The labels are what the register writes, not the stage names: a stage called "Process"
- * is the day summons went out, and a reader scanning a history wants the event.
+ * Which events a matter has is read off the stages it has passed: cognizance and the
+ * summons follow taking the complaint on file, delivery comes before the accused can be
+ * at appearance, and joining the case and the bail application come with appearance.
  */
-const STAGE_MILESTONE: Partial<Record<CourtCaseStage, string>> = {
-  cognizance: "Cognizance taken",
-  process: "Summons issued",
-  appearance: "Accused appeared",
-  plea: "Plea recorded",
-  evidence: "Evidence begun",
-  arguments: "Arguments begun",
+const HEARING_DEMO_CASE = "/employee/cases/c-1001";
+
+function demoCaseFileDoc(doc: string): string {
+  return `${HEARING_DEMO_CASE}?section=case-file&doc=${doc}`;
+}
+
+type CourtEvent = {
+  id: string;
+  /** The stage the matter must have reached for the event to have happened. */
+  reached: CourtCaseStage | "filed";
+  /** Strictly passed, not merely reached. */
+  passed?: boolean;
+  /** Where it falls between filing and the last sitting, as a fraction. */
+  at: number;
+  label: (hearing: CourtHearing) => string;
+  href?: string;
 };
 
-/**
- * Where each milestone falls between the filing and the last sitting, as a fraction.
- *
- * Not evenly spaced, because a §138 matter is not: cognizance and summons follow the
- * filing within weeks, service and appearance are what take months, and the plea follows
- * the appearance quickly once the accused is before the court. Evenly spaced dates are
- * the tell that a timeline was generated rather than lived.
- */
-const MILESTONE_AT: Record<string, number> = {
-  cognizance: 0.1,
-  process: 0.15,
-  appearance: 0.46,
-  plea: 0.63,
-  evidence: 0.78,
-  arguments: 0.88,
-};
+/** Not evenly spaced, because a §138 matter is not: registration and cognizance follow
+ *  the filing within days, service takes weeks, appearance takes months. */
+const COURT_EVENTS: CourtEvent[] = [
+  {
+    id: "case-registered",
+    reached: "filed",
+    at: 0.03,
+    label: () => "Case Registered",
+  },
+  {
+    id: "cognizance-taken",
+    reached: "cognizance",
+    passed: true,
+    at: 0.1,
+    label: () => "Cognizance Taken",
+    href: demoCaseFileDoc("order-cognizance"),
+  },
+  {
+    id: "summons-issued",
+    reached: "cognizance",
+    passed: true,
+    at: 0.15,
+    label: () => "Summons Issued",
+    href: demoCaseFileDoc("order-issuing-summons"),
+  },
+  {
+    id: "summons-delivered",
+    reached: "appearance",
+    at: 0.3,
+    label: () => "Summons Status Updated - Delivered",
+    href: demoCaseFileDoc("process-summons"),
+  },
+  {
+    id: "accused-joined",
+    reached: "appearance",
+    passed: true,
+    at: 0.46,
+    label: (hearing) => `Accused ${hearing.parties.accused} Joined Case`,
+    href: `${HEARING_DEMO_CASE}?section=parties`,
+  },
+  {
+    /* The catalogue has no "application filed" event; an application enters the case
+       when the magistrate onboards it. */
+    id: "bail-onboarded",
+    reached: "appearance",
+    passed: true,
+    at: 0.47,
+    label: () => "Application - Bail onboarded",
+    href: `${HEARING_DEMO_CASE}?section=applications&application=sub-1001-bail`,
+  },
+];
+
+function hasHappened(event: CourtEvent, stage: CourtCaseStage): boolean {
+  if (event.reached === "filed") return true;
+  const order = COURT_CASE_STAGES.map((entry) => entry.id);
+  const at = order.indexOf(stage);
+  const needed = order.indexOf(event.reached);
+  return event.passed ? at > needed : at >= needed;
+}
 
 /**
  * A matter's whole timeline: the cheque's chain, then the court's record.
@@ -396,22 +442,15 @@ const MILESTONE_AT: Record<string, number> = {
  * matters get twenty-three consistent histories without twenty-three hand-written blocks
  * that would eventually contradict each other about which comes first.
  *
- * A listing with no filing date on its sidecar gets today's sitting alone, which is the
- * truth about it: the cause list named the matter and nothing else is known.
+ * The court's half holds events from the catalogue only — not the sittings, which are
+ * not events there. A listing with no filing date on its sidecar has no known events.
  */
 export function caseTimeline(
   hearing: CourtHearing,
   extras: HearingCaseExtras,
   today: string,
 ): CaseTimeline {
-  const todayStep: CaseTimelineStep = {
-    id: "today",
-    label: courtHearingPurposeLabel(hearing.purpose),
-    on: null,
-    status: "current",
-  };
-
-  if (!extras.filedOn) return { beforeFiling: [], inCourt: [todayStep] };
+  if (!extras.filedOn) return { inCourt: [] };
 
   const seed = seedOf(hearing.caseNumber);
   /* The matter listed for a delay condonation is the matter that was filed late. The
@@ -420,10 +459,6 @@ export function caseTimeline(
   const late = hearing.purpose === "delay-condonation";
   const chain = statutoryChain(extras.filedOn, seed, late);
 
-  const presentation: NiWindowStatus =
-    chain.presentationDays <= PRESENTATION_WINDOW_DAYS ? "within" : "outside";
-  const notice: NiWindowStatus =
-    chain.noticeDays <= NOTICE_WINDOW_DAYS ? "within" : "outside";
   const filing: NiWindowStatus =
     chain.sinceAccrual <= FILING_WINDOW_DAYS
       ? "within"
@@ -432,87 +467,39 @@ export function caseTimeline(
         ? "condonation-sought"
         : "outside";
 
-  const beforeFiling: CaseTimelineStep[] = [
-    { id: "dated", label: "Cheque dated", on: chain.chequeOn, status: "past" },
-    {
-      id: "presented",
-      label: "Presented",
-      on: chain.presentedOn,
-      status: "past",
-      ...niWindowNote("presentation", presentation),
-    },
-    {
-      id: "returned",
-      label: "Returned unpaid",
-      on: chain.returnedOn,
-      status: "past",
-    },
-    {
-      id: "notice-sent",
-      label: "Notice sent",
-      on: chain.noticeSentOn,
-      status: "past",
-      ...niWindowNote("notice", notice),
-    },
-    {
-      id: "notice-served",
-      label: "Notice served",
-      on: chain.noticeServedOn,
-      status: "past",
-    },
-    {
-      id: "accrued",
-      label: "Cause of action",
-      on: chain.accruedOn,
-      status: "past",
-    },
-  ];
-
   const inCourt: CaseTimelineStep[] = [
     {
-      id: "filed",
-      label: "Complaint filed",
+      id: "case-filed",
+      label: "Case Filed",
       on: extras.filedOn,
       status: "past",
       ...niWindowNote("filing", filing),
     },
   ];
 
-  /* Milestones run from the filing to the last sitting the court held — or to today,
-     for a matter whose first sitting this is. */
+  /* Events run from the filing to the last sitting the court held — or to today, for a
+     matter whose first sitting this is. Never earlier than the event before them. */
   const reachedOn = extras.lastHearing?.on ?? today;
   const span = daysApart(extras.filedOn, reachedOn);
-  const passed = COURT_CASE_STAGES.slice(
-    0,
-    COURT_CASE_STAGES.findIndex((stage) => stage.id === hearing.stage),
-  );
-
-  for (const stage of passed) {
-    const label = STAGE_MILESTONE[stage.id];
-    const at = MILESTONE_AT[stage.id];
-    if (!label || at === undefined) continue;
+  let previous = extras.filedOn;
+  for (const event of COURT_EVENTS) {
+    if (!hasHappened(event, hearing.stage)) continue;
+    const proposed = shiftDay(
+      extras.filedOn,
+      Math.max(1, Math.round(span * event.at)),
+    );
+    const on = proposed < previous ? previous : proposed;
+    previous = on;
     inCourt.push({
-      id: stage.id,
-      label,
-      on: shiftDay(extras.filedOn, Math.max(1, Math.round(span * at))),
+      id: event.id,
+      label: event.label(hearing),
+      on,
       status: "past",
+      href: event.href,
     });
   }
 
-  if (extras.lastHearing) {
-    /* The sitting itself, without its order. The order is printed in full in its own
-       section a few centimetres away, and a timeline that repeated the paragraph would
-       be saying it twice. */
-    inCourt.push({
-      id: "last-hearing",
-      label: extras.lastHearing.purpose,
-      on: extras.lastHearing.on,
-      status: "past",
-    });
-  }
-
-  inCourt.push(todayStep);
-  return { beforeFiling, inCourt };
+  return { inCourt };
 }
 
 /** Whole days between two `YYYY-MM-DD` days. */
