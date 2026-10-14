@@ -7,6 +7,9 @@
  *
  * Restored once and lazily, on the client only: the server, and the hydration render
  * that must agree with it, read each store's opening value.
+ *
+ * **Kept in step across tabs** (`watchRecord`): a magistrate signing in one tab moves the
+ * order in the steno's tab at once (owner, 2026-10-14).
  */
 
 export function restoreRecord<T extends object>(key: string, opening: T): T {
@@ -31,4 +34,18 @@ export function saveRecord(key: string, value: object): void {
   } catch {
     // Blocked storage or a full quota loses persistence, not the change.
   }
+}
+
+const watched = new Set<string>();
+
+/**
+ * Call `onChange` when another tab saves this record. Once per key, on the client only;
+ * the browser fires `storage` in every tab but the one that wrote.
+ */
+export function watchRecord(key: string, onChange: () => void): void {
+  if (typeof window === "undefined" || watched.has(key)) return;
+  watched.add(key);
+  window.addEventListener("storage", (event) => {
+    if (event.key === key) onChange();
+  });
 }
