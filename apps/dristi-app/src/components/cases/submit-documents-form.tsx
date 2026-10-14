@@ -69,6 +69,10 @@ const EMPTY_DRAFT: DocumentDraft = {
   reason: EMPTY_RICH_TEXT,
 };
 
+function escapeHtml(text: string): string {
+  return text.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] ?? c);
+}
+
 function validateDocument(draft: DocumentDraft): DocumentErrors {
   const errors: DocumentErrors = {};
   if (!draft.type) errors.type = "Select a document type.";
@@ -117,31 +121,47 @@ export function SubmitDocumentsDialog({
   open,
   onOpenChange,
   caseLine,
+  initial,
   onSubmitted,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Case number and parties, under the description. */
   caseLine?: React.ReactNode;
+  /**
+   * What the filing already is, when something asked for it — a Take action task
+   * that names the document (owner, 2026-10-14). The dialog opens filled with it;
+   * only the files, and anything the filer changes, are theirs to add. Mount the
+   * dialog per request (a `key`) so a new one starts from its own.
+   */
+  initial?: { type?: SubmissionDocumentTypeId; title?: string; reason?: string };
   onSubmitted: () => void;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const formId = useId();
   const typeId = useId();
   const reasonLabelId = useId();
-  const [draft, setDraft] = useState<DocumentDraft>(EMPTY_DRAFT);
+  const [start] = useState<DocumentDraft>(() => ({
+    ...EMPTY_DRAFT,
+    type: initial?.type ?? "",
+    title: initial?.title ?? "",
+    reason: initial?.reason
+      ? { html: `<p>${escapeHtml(initial.reason)}</p>`, text: initial.reason }
+      : EMPTY_RICH_TEXT,
+  }));
+  const [draft, setDraft] = useState<DocumentDraft>(start);
   const [errors, setErrors] = useState<DocumentErrors>({});
   const [previewOpen, setPreviewOpen] = useState(false);
   const [discardOpen, setDiscardOpen] = useState(false);
   const dirty = useMemo(
     () =>
       Boolean(
-        draft.type ||
-          draft.title.trim() ||
+        draft.type !== start.type ||
+          draft.title.trim() !== start.title.trim() ||
           draft.files.length ||
-          draft.reason.text.trim()
+          draft.reason.text.trim() !== start.reason.text.trim()
       ),
-    [draft]
+    [draft, start]
   );
 
   function update<Key extends keyof DocumentDraft>(
@@ -155,7 +175,7 @@ export function SubmitDocumentsDialog({
   function closeNow() {
     setDiscardOpen(false);
     setPreviewOpen(false);
-    setDraft(EMPTY_DRAFT);
+    setDraft(start);
     setErrors({});
     onOpenChange(false);
   }

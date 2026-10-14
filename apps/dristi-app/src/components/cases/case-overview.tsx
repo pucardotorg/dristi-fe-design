@@ -60,7 +60,7 @@ export function CaseOverview({
     setArchived((current) => [...current, id]);
     toast("Task archived", {
       position: "bottom-center",
-      description: `${title}. You can find it under Pending tasks, Archive.`,
+      description: `${title}. You can find it under Take action, Archive.`,
       action: {
         label: "Undo",
         onClick: () =>
@@ -371,7 +371,7 @@ function PendingTasksBlock({
     >
       <BlockHeader
         id={PENDING_TASKS_HEADING}
-        title="Pending tasks"
+        title="Take action"
         count={count}
       />
       {count === 0 ? (
@@ -386,7 +386,7 @@ function PendingTasksBlock({
             </p>
           ) : null}
           {/* One divided list, not N stacked panels. */}
-          <ItemGroup aria-label="Pending tasks">
+          <ItemGroup aria-label="Take action">
             {consentTask}
             {tasks.map((task, index) => (
               <Fragment key={task.id}>

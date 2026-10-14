@@ -1016,7 +1016,7 @@ function HearingRow({
           <span className="min-w-0 truncate" title={hearing.kase.stage}>{hearing.kase.stage}</span>
           <span aria-hidden="true" className="shrink-0 whitespace-pre"> · </span>
           <Identifier
-            value={hearing.kase.cnr || hearing.kase.stNumber}
+            value={hearing.kase.stNumber || hearing.kase.cnr}
             label="case number"
             copyable={canHover}
             className="relative z-10 shrink-0 whitespace-nowrap"

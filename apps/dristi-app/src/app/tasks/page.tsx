@@ -9,7 +9,7 @@ export default function TasksPage() {
   return (
     <Suspense fallback={<TasksScreenFallback />}>
       <ProfileScopedEmpty
-        title="No pending tasks"
+        title="Nothing to act on"
         description="Filings, payments, and signatures that need your action appear here."
         icon={<ListChecksIcon aria-hidden />}
       >

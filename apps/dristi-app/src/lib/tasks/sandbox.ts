@@ -25,7 +25,7 @@ import type { Case, Defect, Person, Task } from "./types";
 /** Bump when the seed's shape changes; a browser holding an older seed is re-seeded.
  *  (The seed stamp also folds in the people/case counts, so adding or removing
  *  fixture matters reseeds on its own even without a bump — see store.tsx.) */
-export const SEED_VERSION = 26;
+export const SEED_VERSION = 28;
 
 /**
  * A defect on a filing that was made outside this app, so there is no draft to open and
@@ -100,26 +100,11 @@ function hearing(days: number): string {
  * the board. Demo scaffolding: remove the OTHER_CASES/SCALE blocks to return to the
  * small hand-authored day. */
 const SCALE_COURTS = [
+  // Only the 24×7 ON courts — the SARAS courts in Gujarat (owner, 2026-10-14): one
+  // cause list per court, three courts.
   "24×7 ON Court",
-  "CJM Court",
-  "ACJM Court",
-  "JMFC Court 1",
-  "JMFC Court 2",
-  "JMFC Court 3",
-  "JMFC Court 4",
-  "JMFC Court 5",
-  "JMFC Court 6",
-  "Sessions Court",
-  "Addl. Sessions I",
-  "Addl. Sessions II",
-  "Sub Court 1",
-  "Sub Court 2",
-  "Munsiff Court 1",
-  "Munsiff Court 2",
-  "Munsiff Court 3",
-  "Family Court",
-  "MACT",
-  "NI Act Court",
+  "24×7 ON Court 2",
+  "24×7 ON Court 3",
 ];
 
 const SCALE_NAMES = [
@@ -149,7 +134,7 @@ const SCALE_EXTRAS = ["p-sp", "p-rm", "p-dv", "p-ri"] as const;
 
 /** How many extra matters to list today, filling courts the hand-authored set
  *  (mostly the ON court) does not reach. Six, so the day is 17 hand-authored + 6
- *  = 23 matters — the launch-day size the board states (12 concluded, 4 now, 7
+ *  = 23 matters — the launch-day size the board states (12 concluded, 3 now, 8
  *  upcoming). Their placement into those zones is authored in `todaySchedule`. */
 const SCALE_COUNT = 6;
 
@@ -172,20 +157,23 @@ const SCALE_SEEDS: CaseSeed[] = Array.from({ length: SCALE_COUNT }, (_, i) => {
 });
 
 /**
- * Today's board, authored to a launch-day size: 12 concluded, 4 being called now,
- * 7 upcoming — 23 matters in all, the counts the screen states. The three matters
+ * Today's board, authored to a launch-day size: 12 concluded, 3 being called now,
+ * 8 upcoming — 23 matters in all, the counts the screen states. The three matters
  * carrying blocking tasks are split so the flag lands where work is still worth
- * doing: one (c-hd3) among the four ongoing, two (c-hd5, c-hd8) in the upcoming
+ * doing: one (c-hd3) among the three ongoing, two (c-hd5, c-hd8) in the upcoming
  * band. The scale set (c-sd0–5) fills courts the hand-authored matters, clustered
  * in the ON court, do not reach.
  */
-const NOW_IDS = ["c-hd3", "c-hd1", "c-hd6", "c-hd9"]; // c-hd3 is the one blocking matter here
+/* One matter is called at a time in a court, so "now" is one per court: c-hd3 (court
+   1), c-hd6 (court 2), c-hd9 (court 3). c-hd3 is the one blocking matter here. */
+const NOW_IDS = ["c-hd3", "c-hd6", "c-hd9"];
 const CONCLUDED_IDS = [
   "c-sd0", "c-sd1", "c-sd2",
   "c-hd2", "c-hd4", "c-hd7", "c-hd10", "c-hd11", "c-hd12", "c-hd13", "c-hd14", "c-hd15",
 ]; // 12
 const UPCOMING_IDS = [
   "c-hd5", "c-hd8", // the two blocking matters, still worth preparing for
+  "c-hd1",
   "c-sd3", "c-sd4", "c-sd5", "c-hd16", "c-hd17",
 ]; // 7
 
@@ -311,12 +299,17 @@ function otherCases(): Case[] {
   // Spread across 09:00–17:00 so the docket carries other advocates' matters in
   // every status — concluded through the morning, one being called around the
   // demo clock, the rest upcoming.
-  const span = 17 * 60 - 9 * 60;
+  /* Kept clear of the 12:30–14:20 band where her three matters are being called, so
+     in each court the matter being heard now is hers — one matter at a time. */
+  const morning = 12 * 60 + 30 - 9 * 60;
+  const span = morning + (17 * 60 - (14 * 60 + 20));
   return Array.from({ length: OTHER_COUNT }, (_, i) => {
     const year = 2025 + (i % 2);
     const code = String((i % 6) + 1).padStart(2, "0");
     const seq = String(2000 + i * 19).padStart(6, "0");
-    const minutes = 9 * 60 + Math.round((i / (OTHER_COUNT - 1)) * span);
+    const offset = Math.round((i / (OTHER_COUNT - 1)) * span);
+    const minutes =
+      offset < morning ? 9 * 60 + offset : 14 * 60 + 20 + (offset - morning);
     const lead = OTHER_ADVOCATES[i % OTHER_ADVOCATES.length];
     const second = OTHER_ADVOCATES[(i + 2) % OTHER_ADVOCATES.length];
     return {
@@ -357,9 +350,10 @@ const RETURN_WINDOW_NOTE =
   "Assumed 5 days from the return to fix the defects — the Registry's window is not yet confirmed";
 
 const ON = "24×7 ON Court";
-const JMFC1 = "JMFC Court 1";
-const JMFC2 = "JMFC Court 2";
-const CJM = "CJM Court";
+/* Every court in the demo is a 24×7 ON court — the SARAS courts (owner, 2026-10-14). */
+const JMFC1 = "24×7 ON Court 2";
+const JMFC2 = "24×7 ON Court 3";
+const CJM = "24×7 ON Court 3";
 
 // Vakalatnamas: the first signatory is the main advocate. Anjali (the default identity)
 // is a signatory on some cases, only on the case on others, and absent from a few.
@@ -1345,6 +1339,539 @@ export function buildTasks(): Task[] {
       dueAt: at(5, 17),
       dueKind: "court-set",
       status: "open",
+    }),
+
+    /* ── More of every kind, in every tab (owner, 2026-10-14) ──────────── */
+
+    /* Needs action: Pay, Sign, File/Submit, Others. */
+    task({
+      id: "t-copy509",
+      caseId: "c-509",
+      kind: "pay",
+      title: "Pay the copying fee for the certified copy of the order",
+      why: created(-2, "Certified copy of the order dated 10 Sept applied for"),
+      whatToDo: "Pay the copying fee so the registry can issue the certified copy.",
+      amountPaise: 30 * RUPEE,
+      feeHead: "Copying fee",
+      closesWhen: "Closes when the fee is paid",
+      dueAt: at(4),
+      dueKind: "court-set",
+      status: "open",
+    }),
+    task({
+      id: "t-warrant-pa1",
+      caseId: "c-pa1",
+      kind: "pay",
+      title: "Pay the process fee for the bailable warrant",
+      why: created(-3, `${order(-3)}: bailable warrant to the accused`),
+      whatToDo: "Pay the process fee so the warrant can be sent for execution.",
+      amountPaise: 100 * RUPEE,
+      feeHead: "Process fee",
+      closesWhen: "Closes when the fee is paid",
+      dueAt: at(2),
+      dueKind: "court-set",
+      status: "open",
+    }),
+    task({
+      id: "t-sign381",
+      caseId: "c-381",
+      kind: "sign",
+      title: "Sign the sworn statement of the complainant",
+      why: created(-2, "Sworn statement recorded for taking cognizance"),
+      whatToDo: "Read the sworn statement and e-sign it before the cognizance posting.",
+      documentsNeeded: ["Sworn statement of the complainant"],
+      dueAt: at(3),
+      dueKind: "court-set",
+      status: "open",
+    }),
+    task({
+      id: "t-sign-pa2",
+      caseId: "c-pa2",
+      kind: "sign",
+      title: "Sign the reply to the application for adjournment",
+      why: created(-1, "The accused applied to adjourn the arguments posting"),
+      whatToDo: "Read the reply drafted by Rahul Iyer and e-sign it.",
+      documentsNeeded: ["Reply to the application for adjournment"],
+      dueAt: at(1),
+      dueKind: "court-set",
+      status: "open",
+    }),
+    task({
+      id: "t-witness144",
+      caseId: "c-144",
+      kind: "file",
+      title: "File the list of witnesses for the complainant",
+      why: created(-4, `${order(-4)}: list of witnesses to be filed`),
+      whatToDo: "File the list of witnesses the complainant proposes to examine.",
+      documentsNeeded: ["List of witnesses"],
+      dueAt: at(3),
+      dueKind: "court-set",
+      status: "open",
+    }),
+    task({
+      id: "t-advance702",
+      caseId: "c-702",
+      kind: "file",
+      title: "File the application to advance the hearing date",
+      why: created(-1, "The complainant has to travel abroad before the posting"),
+      whatToDo: "File an application to advance the hearing, with the travel dates.",
+      documentsNeeded: ["Application to advance the hearing", "Travel itinerary"],
+      dueAt: at(2),
+      dueKind: "none",
+      status: "open",
+    }),
+    task({
+      id: "t-args144",
+      caseId: "c-144",
+      kind: "hearing",
+      title: "Be present for the arguments",
+      why: created(-6, `Case posted for arguments on ${shortDate(hearing(20))}`),
+      whatToDo: "Be present for the arguments; mark done afterwards.",
+      dueAt: hearing(20),
+      dueKind: "before-hearing",
+      deadlineNote: `The posting on ${shortDate(hearing(20))}`,
+      hearingAt: hearing(20),
+      status: "open",
+    }),
+
+    /* Due today on the home rail — signing and paying beside the filings, so the day's
+       list reads as the mix an advocate's day is (owner, 2026-10-14). */
+    task({
+      id: "t-today-sign-hd5",
+      caseId: "c-hd5",
+      kind: "sign",
+      title: "Sign the affidavit of the complainant in lieu of chief examination",
+      why: created(-2, "Affidavit prepared for today's evidence posting"),
+      whatToDo: "Read the affidavit and e-sign it before the matter is called.",
+      documentsNeeded: ["Affidavit in lieu of chief examination"],
+      dueAt: at(0, 13),
+      dueKind: "court-set",
+      status: "open",
+    }),
+    task({
+      id: "t-today-sign-hd6",
+      caseId: "c-hd6",
+      kind: "sign",
+      title: "Sign the memo of appearance for the complainant",
+      why: created(-1, "The complainant engaged you for today's posting"),
+      whatToDo: "E-sign the memo so your appearance is recorded today.",
+      documentsNeeded: ["Memo of appearance"],
+      dueAt: at(0, 11),
+      dueKind: "court-set",
+      status: "open",
+    }),
+    task({
+      id: "t-today-fee-hd1",
+      caseId: "c-hd1",
+      kind: "pay",
+      title: "Pay the court fee on the application for certified copies",
+      why: created(-1, "Application for certified copies of the depositions filed"),
+      whatToDo: "Pay the court fee so the application goes to the registry.",
+      amountPaise: 20 * RUPEE,
+      feeHead: "Court fee",
+      closesWhen: "Closes when the fee is paid",
+      dueAt: at(0, 12),
+      dueKind: "court-set",
+      status: "open",
+    }),
+    task({
+      id: "t-today-copy-hd8",
+      caseId: "c-hd8",
+      kind: "pay",
+      title: "Pay the copying charges for the deposition of PW-1",
+      why: created(-2, "Certified copy of PW-1's deposition applied for"),
+      whatToDo: "Pay the copying charges so the registry can issue the copy.",
+      amountPaise: 40 * RUPEE,
+      feeHead: "Copying fee",
+      closesWhen: "Closes when the fee is paid",
+      dueAt: at(0, 14),
+      dueKind: "court-set",
+      status: "open",
+    }),
+
+    /* More for the demo (owner, 2026-10-14): enough of each kind to show every flow —
+       paying, signing, filing a document, filing an application, the courtroom — more
+       than once, across the week. */
+    task({
+      id: "t-demo-vakfee-pa2",
+      caseId: "c-pa2",
+      kind: "pay",
+      title: "Pay the vakalatnama fee",
+      why: created(-1, "Vakalatnama filed for the accused's second counsel"),
+      whatToDo: "Pay the vakalatnama fee so the appearance is recorded.",
+      amountPaise: 25 * RUPEE,
+      feeHead: "Vakalatnama fee",
+      closesWhen: "Closes when the fee is paid",
+      dueAt: at(1, 12),
+      dueKind: "court-set",
+      status: "open",
+    }),
+    task({
+      id: "t-demo-courtfee-815",
+      caseId: "c-815",
+      kind: "pay",
+      title: "Pay the court fee on the application to reopen evidence",
+      why: created(-2, "Application to reopen evidence drafted"),
+      whatToDo: "Pay the court fee so the application can be filed.",
+      amountPaise: 20 * RUPEE,
+      feeHead: "Court fee",
+      closesWhen: "Closes when the fee is paid",
+      dueAt: at(2, 12),
+      dueKind: "court-set",
+      status: "open",
+    }),
+    task({
+      id: "t-demo-copy-412",
+      caseId: "c-412",
+      kind: "pay",
+      title: "Pay the copying charges for the order sheet",
+      why: created(-1, "Certified copy of the order sheet applied for"),
+      whatToDo: "Pay the copying charges so the registry can issue the copy.",
+      amountPaise: 15 * RUPEE,
+      feeHead: "Copying fee",
+      closesWhen: "Closes when the fee is paid",
+      dueAt: at(5),
+      dueKind: "court-set",
+      status: "open",
+    }),
+    task({
+      id: "t-demo-sign-hd8",
+      caseId: "c-hd8",
+      kind: "sign",
+      title: "Sign the list of documents for the evidence posting",
+      why: created(-1, "List of documents prepared for today's evidence posting"),
+      whatToDo: "Read the list and e-sign it before the matter is called.",
+      documentsNeeded: ["List of documents"],
+      dueAt: at(0, 15),
+      dueKind: "court-set",
+      status: "open",
+    }),
+    task({
+      id: "t-demo-sign-702",
+      caseId: "c-702",
+      kind: "sign",
+      title: "Sign the application to advance the hearing date",
+      why: created(-1, "Application drafted by Rahul Iyer"),
+      whatToDo: "Read the application and e-sign it.",
+      documentsNeeded: ["Application to advance the hearing"],
+      dueAt: at(1, 16),
+      dueKind: "court-set",
+      status: "ready",
+      statusNote: "Prepared by Rahul Iyer",
+    }),
+    task({
+      id: "t-demo-sign-pa1",
+      caseId: "c-pa1",
+      kind: "sign",
+      title: "Sign the reply to the accused's objection",
+      why: created(-2, "The accused objected to the marking of Exhibit P5"),
+      whatToDo: "Read the reply and e-sign it.",
+      documentsNeeded: ["Reply to the objection"],
+      dueAt: at(3, 12),
+      dueKind: "court-set",
+      status: "open",
+    }),
+    task({
+      id: "t-demo-file-hd1",
+      caseId: "c-hd1",
+      kind: "file",
+      title: "File the memo of addresses of the witnesses",
+      why: created(-2, `${order(-2)}: addresses of the witnesses to be furnished`),
+      whatToDo: "File the memo with the witnesses' current addresses.",
+      documentsNeeded: ["Memo of addresses"],
+      dueAt: at(0, 13),
+      dueKind: "court-set",
+      status: "open",
+    }),
+    task({
+      id: "t-demo-file-88",
+      caseId: "c-88",
+      kind: "file",
+      title: "File the affidavit of service of the summons",
+      why: created(-3, "Summons served on the accused by hand"),
+      whatToDo: "File the affidavit of service, with the acknowledgement.",
+      documentsNeeded: ["Affidavit of service", "Acknowledgement"],
+      dueAt: at(2),
+      dueKind: "court-set",
+      status: "open",
+    }),
+    task({
+      id: "t-demo-app-delay-381",
+      caseId: "c-381",
+      kind: "file",
+      title: "File the application to condone the delay in filing the complaint",
+      why: created(-2, "The complaint was presented a week after the limitation period"),
+      whatToDo: "File the application to condone the delay, with the affidavit in support.",
+      documentsNeeded: ["Application to condone the delay", "Affidavit in support"],
+      dueAt: at(4),
+      dueKind: "court-set",
+      status: "open",
+    }),
+    task({
+      id: "t-demo-app-witness-509",
+      caseId: "c-509",
+      kind: "file",
+      title: "File the application to add a witness",
+      why: created(-1, "The bank manager is needed to prove the return memo"),
+      whatToDo: "File the application to examine the bank manager as an additional witness.",
+      documentsNeeded: ["Application to add a witness"],
+      dueAt: at(3),
+      dueKind: "none",
+      status: "open",
+    }),
+    task({
+      id: "t-demo-produce-hd5",
+      caseId: "c-hd5",
+      kind: "hearing",
+      title: "Produce the original cheque before the court",
+      why: created(-3, "The court asked for the original cheque at the evidence posting"),
+      whatToDo: "Bring the original cheque to court; mark done afterwards.",
+      dueAt: at(0, 14),
+      dueKind: "before-hearing",
+      status: "open",
+    }),
+    task({
+      id: "t-demo-present-815",
+      caseId: "c-815",
+      kind: "hearing",
+      title: "Be present for the arguments on the delay application",
+      why: created(-4, "Delay application posted for arguments"),
+      whatToDo: "Be present for the arguments; mark done afterwards.",
+      dueAt: at(6, 11),
+      dueKind: "before-hearing",
+      status: "open",
+    }),
+    task({
+      id: "t-demo-sign-221",
+      caseId: "c-221",
+      kind: "sign",
+      title: "Sign the chief affidavit of PW-1",
+      why: created(-2, "Chief affidavit prepared for the evidence posting"),
+      whatToDo: "R. Manoj reads the affidavit and e-signs it.",
+      documentsNeeded: ["Chief affidavit of PW-1"],
+      dueAt: at(2),
+      dueKind: "court-set",
+      status: "open",
+    }),
+    task({
+      id: "t-demo-pay-377",
+      caseId: "c-377",
+      kind: "pay",
+      title: "Pay the court fee on the application for adjournment",
+      why: created(-1, "Application for adjournment drafted"),
+      whatToDo: "R. Manoj pays the court fee so the application can be filed.",
+      amountPaise: 20 * RUPEE,
+      feeHead: "Court fee",
+      closesWhen: "Closes when the fee is paid",
+      dueAt: at(1),
+      dueKind: "court-set",
+      status: "open",
+    }),
+
+    /* Waiting on others: another advocate's move, the court's, or the gateway's. */
+    task({
+      id: "t-warrant217",
+      caseId: "c-217",
+      kind: "pay",
+      title: "Pay the process fee for the non-bailable warrant",
+      why: created(-2, `${order(-2)}: non-bailable warrant to the accused`),
+      whatToDo: "Pay the process fee so the warrant can issue.",
+      amountPaise: 150 * RUPEE,
+      feeHead: "Process fee",
+      closesWhen: "Closes when the fee is paid",
+      dueAt: at(3),
+      dueKind: "court-set",
+      status: "open",
+    }),
+    task({
+      id: "t-memo941",
+      caseId: "c-941",
+      kind: "sign",
+      title: "Sign the memo of appearance for the complainant",
+      why: created(-1, "The complainant changed counsel"),
+      whatToDo: "The memo of appearance needs the signature of the advocate on record.",
+      documentsNeeded: ["Memo of appearance"],
+      dueAt: at(2),
+      dueKind: "court-set",
+      status: "open",
+    }),
+    task({
+      id: "t-docs509",
+      caseId: "c-509",
+      kind: "file",
+      title: "File the list of documents relied on",
+      why: created(-6, `${order(-6)}: list of documents to be filed`),
+      whatToDo: "File the list of documents the complainant relies on.",
+      documentsNeeded: ["List of documents"],
+      dueAt: at(-1),
+      dueKind: "court-set",
+      status: "awaiting-court",
+      files: [{ id: "seed-f-docs509", name: "list-of-documents.pdf", size: 98_304, type: "application/pdf", ext: "PDF", slot: "List of documents" }],
+      completion: { by: "p-an", at: at(-2, 15, 20), how: "event", receipt: "FIL-6TQ3W8ZK2D" },
+      history: [
+        { at: at(-6, 11), text: "Created — list of documents to be filed" },
+        { at: at(-2, 15, 20), by: "p-an", text: "Anjali Nair filed with the court — awaiting scrutiny" },
+      ],
+    }),
+    task({
+      id: "t-remove1102",
+      caseId: "c-1102",
+      kind: "review",
+      title: "Respond to the request for R. Manoj's removal from the case",
+      why: created(-1, "Deepa Varghese asked for R. Manoj's consent to his removal from the case"),
+      whatToDo: "R. Manoj accepts or declines; declining sends it to the magistrate.",
+      dueKind: "none",
+      status: "open",
+      closesWhen: "Closes when R. Manoj responds, or when the magistrate decides the removal.",
+      review: { requestedBy: "p-dv", of: "p-rm" },
+    }),
+
+    /* Completed. */
+    task({
+      id: "t-done-copy88",
+      caseId: "c-88",
+      kind: "pay",
+      title: "Pay the copying fee for the deposition of PW-1",
+      why: created(-9, "Certified copy of PW-1's deposition applied for"),
+      whatToDo: "Pay the copying fee.",
+      amountPaise: 20 * RUPEE,
+      feeHead: "Copying fee",
+      dueAt: at(-7),
+      dueKind: "court-set",
+      status: "done",
+      lastPayment: { result: "success", ref: "TXN-8MRW2K4QZC", at: at(-8, 12, 30) },
+      completion: { by: "p-an", at: at(-8, 12, 30), how: "event", receipt: "TXN-8MRW2K4QZC" },
+      history: [
+        { at: at(-9, 11), text: "Created — certified copy applied for" },
+        { at: at(-8, 12, 30), by: "p-an", text: "Anjali Nair paid — receipt TXN-8MRW2K4QZC" },
+      ],
+    }),
+    task({
+      id: "t-done-sign815",
+      caseId: "c-815",
+      kind: "sign",
+      title: "Sign the written notes of arguments",
+      why: created(-6, "Written notes prepared for the arguments posting"),
+      whatToDo: "Read the notes and e-sign them.",
+      documentsNeeded: ["Written notes of arguments"],
+      dueAt: at(-4),
+      dueKind: "court-set",
+      status: "done",
+      completion: { by: "p-an", at: at(-5, 10, 5), how: "event", receipt: "ESIGN-3PLX9Q7VDN" },
+      history: [
+        { at: at(-6, 11), text: "Created — written notes prepared" },
+        { at: at(-5, 10, 5), by: "p-an", text: "Anjali Nair signed with Aadhaar e-Sign — ESIGN-3PLX9Q7VDN" },
+      ],
+    }),
+    task({
+      id: "t-done-file702",
+      caseId: "c-702",
+      kind: "file",
+      title: "File the memo of appearance",
+      why: created(-12, "Vakalatnama accepted; appearance to be entered"),
+      whatToDo: "File the memo of appearance.",
+      documentsNeeded: ["Memo of appearance"],
+      dueAt: at(-10),
+      dueKind: "court-set",
+      status: "done",
+      files: [{ id: "seed-f-memo702", name: "memo-of-appearance.pdf", size: 64_512, type: "application/pdf", ext: "PDF", slot: "Memo of appearance" }],
+      completion: { by: "p-an", at: at(-9, 16), how: "event", receipt: "FIL-2HV8C5NR7J" },
+      history: [
+        { at: at(-12, 11), text: "Created — appearance to be entered" },
+        { at: at(-11, 14), by: "p-an", text: "Anjali Nair filed with the court — awaiting scrutiny" },
+        { at: at(-9, 16), text: "Accepted by the registry — FIL-2HV8C5NR7J" },
+      ],
+    }),
+    task({
+      id: "t-done-ev52",
+      caseId: "c-52",
+      kind: "hearing",
+      title: "Be present for the evidence of the complainant",
+      why: created(-10, "Case posted for the evidence of the complainant"),
+      whatToDo: "Be present with PW-1 for the evidence; mark done afterwards.",
+      dueAt: at(-3, 10, 30),
+      dueKind: "before-hearing",
+      status: "done",
+      completion: { by: "p-an", at: at(-3, 13), how: "manual" },
+      history: [
+        { at: at(-10, 11), text: "Created — posted for evidence" },
+        { at: at(-3, 13), by: "p-an", text: "Anjali Nair marked this done" },
+      ],
+    }),
+
+    /* Archived — put away, each from the status it held. */
+    task({
+      id: "t-arch-fee412",
+      caseId: "c-412",
+      kind: "pay",
+      title: "Pay the process fee for the re-issued summons",
+      why: created(-30, "Summons returned unserved and re-issued"),
+      whatToDo: "Pay the process fee for the re-issued summons.",
+      amountPaise: 40 * RUPEE,
+      feeHead: "Process fee",
+      dueAt: at(-25),
+      dueKind: "court-set",
+      status: "archived",
+      archived: { by: "p-an", at: at(-20, 10), from: "expired" },
+      history: [
+        { at: at(-30, 11), text: "Created — summons re-issued" },
+        { at: at(-24, 0), text: "Expired — the posting it served has passed" },
+        { at: at(-20, 10), by: "p-an", text: "Anjali Nair archived this" },
+      ],
+    }),
+    task({
+      id: "t-arch-sign381",
+      caseId: "c-381",
+      kind: "sign",
+      title: "Sign the draft complaint",
+      why: created(-40, "Complaint drafted from the notice and the bank memo"),
+      whatToDo: "Read the draft complaint and e-sign it.",
+      documentsNeeded: ["Complaint"],
+      dueKind: "none",
+      status: "archived",
+      archived: { by: "p-an", at: at(-30, 9, 30), from: "done" },
+      completion: { by: "p-an", at: at(-38, 16), how: "event", receipt: "ESIGN-5ZK8W2QMTR" },
+      history: [
+        { at: at(-40, 11), text: "Created — complaint drafted" },
+        { at: at(-38, 16), by: "p-an", text: "Anjali Nair signed with Aadhaar e-Sign — ESIGN-5ZK8W2QMTR" },
+        { at: at(-30, 9, 30), by: "p-an", text: "Anjali Nair archived this" },
+      ],
+    }),
+    task({
+      id: "t-arch-file144",
+      caseId: "c-144",
+      kind: "file",
+      title: "File the postal acknowledgement of the summons",
+      why: created(-28, "Summons served by registered post"),
+      whatToDo: "File the postal acknowledgement.",
+      documentsNeeded: ["Postal acknowledgement"],
+      dueKind: "none",
+      status: "archived",
+      archived: { by: "p-sp", at: at(-21, 15), from: "obsolete" },
+      statusNote: "No longer needed — the accused appeared",
+      history: [
+        { at: at(-28, 11), text: "Created — summons served by post" },
+        { at: at(-22, 12), text: "No longer needed — the accused appeared" },
+        { at: at(-21, 15), by: "p-sp", text: "S. Prakash archived this" },
+      ],
+    }),
+    task({
+      id: "t-arch-plea88",
+      caseId: "c-88",
+      kind: "hearing",
+      title: "Be present for the appearance of the accused",
+      why: created(-35, "Case posted for the appearance of the accused"),
+      whatToDo: "Be present for the appearance; mark done afterwards.",
+      dueAt: at(-30, 10, 30),
+      dueKind: "before-hearing",
+      status: "archived",
+      archived: { by: "p-an", at: at(-25, 11), from: "done" },
+      completion: { by: "p-an", at: at(-30, 13), how: "manual" },
+      history: [
+        { at: at(-35, 11), text: "Created — posted for appearance" },
+        { at: at(-30, 13), by: "p-an", text: "Anjali Nair marked this done" },
+        { at: at(-25, 11), by: "p-an", text: "Anjali Nair archived this" },
+      ],
     }),
   ];
 }

@@ -18,9 +18,10 @@ export function queueSentence(queue: HearingQueue, locale: Locale): string {
   return fillCopy(advHome.queueAheadMany, locale, { n: String(queue.ahead) });
 }
 
-/** The tag's face: hourglass and count, or "Next" a step darker (never teal:
- * teal is the action colour). Shared by the live tag and the phone card's
- * width placeholder. */
+/** The tag's face: hourglass and "2 before you", or "Up next" a step darker
+ * (never teal: teal is the action colour) — in words, so how far off the hearing
+ * is reads without a tooltip (owner, 2026-10-14). Shared by the live tag and the
+ * phone card's width placeholder. */
 export const QUEUE_TAG =
   "inline-flex h-8 min-w-8 shrink-0 items-center justify-center gap-1 rounded-md border border-hairline px-2 text-caption font-semibold tabular-nums";
 export function queueTone(queue: HearingQueue): string {
@@ -32,7 +33,11 @@ export function QueueFace({ queue, locale }: { queue: HearingQueue; locale: Loca
   return (
     <>
       <Hourglass aria-hidden="true" className="size-3.5" />
-      <span aria-hidden="true">{queue.ahead === 0 ? pick(advHome.queueNext, locale) : queue.ahead}</span>
+      <span aria-hidden="true" className="whitespace-nowrap">
+        {queue.ahead === 0
+          ? pick(advHome.queueNext, locale)
+          : fillCopy(advHome.queueTagAhead, locale, { n: String(queue.ahead) })}
+      </span>
     </>
   );
 }
