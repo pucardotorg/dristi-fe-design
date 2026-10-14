@@ -24,15 +24,16 @@ const STATUS_ORDER: Record<CauseStatusKey, number> = {
 };
 
 /** Group only the current filtered scope; numeric item ordering works beyond 9.
- * "court" groups by the court itself (its name), not by court number; "status"
- * by the four-way cause-list status. */
+ * "court" groups by the court itself — one cause list per court, so SARAS Court 1
+ * and SARAS Court 2 are two groups though they share a name; "status" by the
+ * four-way cause-list status. */
 export function groupCauseList(rows: readonly CauseListRow[], by: CauseListGroupBy, locale = "en-IN") {
   const grouped = new Map<string, CauseListRow[]>();
   const keyOf = (row: CauseListRow) =>
-    by === "court" ? row.courtLabel : by === "status" ? causeStatusKey(row) : String(row[by]);
+    by === "court" ? row.court : by === "status" ? causeStatusKey(row) : String(row[by]);
   const compareCourt = (a: CauseListRow, b: CauseListRow) =>
     a.courtLabel.localeCompare(b.courtLabel, locale, { numeric: true }) ||
-    a.court.localeCompare(b.court, locale);
+    a.court.localeCompare(b.court, locale, { numeric: true });
   const compareStatus = (a: CauseListRow, b: CauseListRow) =>
     (STATUS_ORDER[causeStatusKey(a)] ?? 9) - (STATUS_ORDER[causeStatusKey(b)] ?? 9);
   const primary = (a: CauseListRow, b: CauseListRow) =>

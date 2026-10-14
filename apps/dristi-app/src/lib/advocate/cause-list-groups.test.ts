@@ -29,11 +29,12 @@ test("item groups sort numerically and keep matters across courts together", () 
   assert.deepEqual(rows.map((matter) => matter.id), ["a", "b", "c"]);
 });
 
-test("court grouping is by court name, not court number, and preserves scope", () => {
-  // The two JMFC courtrooms group under one "JMFC Court"; grouping never splits by number.
+test("court grouping is one group per court, its number included, and preserves scope", () => {
+  // One cause list per court (owner, 2026-10-14): two courtrooms sharing a name are two
+  // groups, ordered by name and then number.
   assert.deepEqual(
     groupCauseList(rows, "court").map((group) => [group.key, group.rows.length]),
-    [["CJM Court", 1], ["JMFC Court", 2]],
+    [["CJM Court", 1], ["JMFC Court 1", 1], ["JMFC Court 2", 1]],
   );
   assert.deepEqual(
     groupCauseList(rows.filter((matter) => matter.courtLabel === "CJM Court"), "court").map((group) => group.key),

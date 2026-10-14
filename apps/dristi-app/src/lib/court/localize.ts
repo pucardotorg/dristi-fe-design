@@ -253,6 +253,12 @@ const BENCH_RULES: Rule[] = [
   [/\bJMFC COURT (\d+)(?:, (?:GUJARAT|SAMPLE DISTRICT))?/g, (p, n) => `${p.benchName?.toUpperCase()} ${n}`],
   [/\bJMFC-(X|IX|VIII|VII|VI|V|IV|III|II|I)\b/g, (p, r) => `${p.benchName} ${ROMAN[r] ?? r}`],
   [/\bJMFC Court\b/g, (p) => p.benchName ?? "JMFC Court"],
+  // The summons onboarding names the bench in full (owner, 2026-10-14: Gujarat's is the
+  // SARAS Court).
+  [
+    /\bCourt of the Judicial First Class Magistrate (X|IX|VIII|VII|VI|V|IV|III|II|I)\b/g,
+    (p, r) => `${p.benchName} ${ROMAN[r] ?? r}`,
+  ],
 ];
 
 function apply(text: string, rules: Rule[], profile: CourtProfile): string {
@@ -276,15 +282,23 @@ export function localizeCaseNumber(value: string, court: CourtId): string {
  * Any text a reader sees — a heading, a table cell, a document's HTML. Names first,
  * then numbers, so a court name never contains a number rule's match.
  */
+/**
+ * Gujarat writes every cause title with "vs." between the parties (owner, 2026-10-14):
+ * "A vs. B", never "A v. B" or "A versus B" — lower case, since "VS" in capitals read as
+ * part of a party's name. Only between two words, so a lone "v." elsewhere is left alone.
+ */
+const CAUSE_TITLE_VS = /(?<=\S) (?:v\.|vs\.?|Vs\.?|VS|versus) (?=\S)/g;
+
 export function localizeCourtText(text: string, court: CourtId): string {
   const profile = courtProfile(court);
   if (profile.numbering.kind === "kerala") return text;
   const benched = profile.benchName ? apply(text, BENCH_RULES, profile) : text;
-  return apply(
+  const voiced = apply(
     voiceNames(apply(apply(benched, NAME_RULES, profile), PLACE_RULES, profile), court),
     NUMBER_RULES,
     profile,
   );
+  return profile.id === "gujarat" ? voiced.replace(CAUSE_TITLE_VS, " vs. ") : voiced;
 }
 
 const PIN_FIELD = /^(?:pin|pinCode|pincode|postalCode)$/;

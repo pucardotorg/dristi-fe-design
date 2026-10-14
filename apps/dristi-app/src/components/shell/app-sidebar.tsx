@@ -125,7 +125,7 @@ const GO: NavItem[] = [
   { id: "cases", label: "Cases", icon: FolderClosedIcon, href: "/cases" },
   {
     id: "tasks",
-    label: "Pending tasks",
+    label: "Take action",
     icon: ListChecksIcon,
     href: TASKS_HOME,
   },

@@ -249,7 +249,8 @@ export const join = {
     "Your access code is on your summons. Share it only with your lawyer.",
     "നിങ്ങളുടെ ആക്‌സസ് കോഡ് സമൻസിൽ ഉണ്ട്. അഭിഭാഷകനുമായി മാത്രം പങ്കിടുക.",
   ),
-  cta: t("Continue to sign in", "സൈൻ ഇൻ ചെയ്യാൻ തുടരുക"),
+  /* Says where signing in leads: into the case (owner, 2026-10-14). */
+  cta: t("Sign in and view my case", "സൈൻ ഇൻ ചെയ്ത് എന്റെ കേസ് കാണുക"),
 };
 
 /* ------------------------------------------------- right column: help panel */

@@ -246,7 +246,10 @@ export function OnboardingModal({
           </div>
 
           {/* ------------------------------------------------------- footer */}
-          <footer className="flex shrink-0 flex-col-reverse gap-2 border-t border-hairline bg-muted px-4 py-4 sm:flex-row sm:items-center sm:justify-between md:px-6">
+          {/* The rule runs the full width; the buttons keep to the content's own column,
+              so Back and Proceed line up with the page above them (owner, 2026-10-14). */}
+          <footer className="shrink-0 border-t border-hairline bg-muted">
+            <div className="mx-auto flex w-full max-w-3xl flex-col-reverse gap-2 px-6 py-4 sm:flex-row sm:items-center sm:justify-between md:max-w-6xl md:px-8 lg:px-12">
             <Button
               variant="outline"
               className="w-full sm:w-auto"
@@ -279,6 +282,7 @@ export function OnboardingModal({
                 <ArrowRightIcon aria-hidden />
               </Button>
             )}
+            </div>
           </footer>
         </DialogPrimitive.Content>
       </DialogPortal>

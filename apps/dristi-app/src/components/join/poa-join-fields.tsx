@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { DownloadIcon, FileTextIcon, InfoIcon } from "lucide-react";
+import { CheckIcon, DownloadIcon, FileTextIcon, InfoIcon } from "lucide-react";
 
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import {
   ComboboxValue,
   useComboboxAnchor,
 } from "@/components/ui/combobox";
+import { Badge } from "@/components/ui/badge";
 import { DocumentSlot } from "@/components/ui/document-slot";
 import {
   Field,
@@ -47,6 +48,12 @@ export function poaPartiesFor(joinCase: JoinCase, side: PoaSide): CaseParty[] {
   return side === "complainant" ? joinCase.complainants : side === "accused" ? joinCase.accused : [];
 }
 
+/** A number on record, shown with only its last three digits. */
+function maskedPhone(digits: string | undefined): string {
+  const tail = (digits ?? "").replace(/\D/g, "").slice(-3);
+  return tail ? `+91 ••••• ••${tail}` : "+91 ••••• •••••";
+}
+
 export function isValidMobile(value: string | undefined) {
   return (value ?? "").length === 10;
 }
@@ -57,20 +64,49 @@ function fileSize(bytes: number) {
 }
 
 function PartyDocument({
+  name,
   file,
   onFileChange,
   invalid,
   locale,
 }: {
+  /** The party it authorises for, named in the label. */
+  name: string;
   file: File | null;
   onFileChange: (file: File) => void;
   invalid: boolean;
   locale: Locale;
 }) {
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const [sampleNotice, setSampleNotice] = React.useState(false);
   return (
-    <Field data-invalid={invalid}>
-      <FieldLabel>{pick(joinDialog.poaDocLabel, locale)}</FieldLabel>
+    /* The full title, naming the person, sits above the slot where it can wrap; the
+       slot says what to put in it. Inside the slot a long name wrapped and stranded the
+       required mark, and repeating "Authorization document" said it twice
+       (owner, 2026-10-14). */
+    <Field data-invalid={invalid} className="gap-2">
+      {/* What the document is rides on its title; the sample sits under the slot it
+          is a sample for (owner, 2026-10-14). */}
+      <div className="flex items-center gap-1">
+        <FieldLabel>{fill(joinDialog.poaDocLabelFor, locale, { name })}</FieldLabel>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label={pick(joinDialog.poaDocTooltipLabel, locale)}
+            >
+              <InfoIcon aria-hidden />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-72">
+            <p className="text-body-compact text-pretty text-muted-foreground">
+              {pick(joinDialog.poaDocTooltip, locale)}
+            </p>
+          </PopoverContent>
+        </Popover>
+      </div>
       <input
         ref={inputRef}
         type="file"
@@ -87,8 +123,7 @@ function PartyDocument({
       <DocumentSlot
         status={file ? "filled" : "empty"}
         media="icon"
-        // The well's heading already names the party.
-        label={pick(joinDialog.poaDocLabel, locale)}
+        label={pick(joinDialog.poaDocSlot, locale)}
         required
         filename={file?.name}
         meta={file ? fileSize(file.size) : undefined}
@@ -100,7 +135,25 @@ function PartyDocument({
           chooseFile: locale === "ml" ? "ഫയൽ തിരഞ്ഞെടുക്കുക" : "Choose file",
         }}
       />
-      <FieldDescription>{pick(joinDialog.poaDocHelp, locale)}</FieldDescription>
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <FieldDescription>{pick(joinDialog.poaDocHelp, locale)}</FieldDescription>
+        <Button
+          type="button"
+          variant="link"
+          size="sm"
+          className="h-auto p-0"
+          onClick={() => setSampleNotice(true)}
+          data-icon="inline-start"
+        >
+          <DownloadIcon aria-hidden />
+          {pick(joinDialog.poaDocSample, locale)}
+        </Button>
+      </div>
+      {sampleNotice ? (
+        <Banner variant="info" className="items-start">
+          {pick(joinDialog.poaDocSamplePrototype, locale)}
+        </Banner>
+      ) : null}
       <FieldError>{invalid ? pick(joinDialog.poaDocError, locale) : null}</FieldError>
     </Field>
   );
@@ -132,7 +185,6 @@ export function PoaJoinFields({
   touched: boolean;
 }) {
   const anchor = useComboboxAnchor();
-  const [sampleNotice, setSampleNotice] = React.useState(false);
   const parties = poaPartiesFor(joinCase, side);
   const selected = parties.filter((party) => partyIds.includes(party.id));
   // JOIN-31: another PoA holder already acting blocks this person for that party only.
@@ -221,41 +273,6 @@ export function PoaJoinFields({
         </Banner>
       ))}
 
-      {actionable.length ? (
-        <div className="flex items-center gap-1">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label={pick(joinDialog.poaDocTooltipLabel, locale)}
-              >
-                <InfoIcon aria-hidden />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-72">
-              <p className="text-body-compact text-pretty text-muted-foreground">
-                {pick(joinDialog.poaDocTooltip, locale)}
-              </p>
-            </PopoverContent>
-          </Popover>
-          <Button
-            type="button"
-            variant="link"
-            size="sm"
-            className="h-auto p-0"
-            onClick={() => setSampleNotice(true)}
-            data-icon="inline-start"
-          >
-            <DownloadIcon aria-hidden />
-            {pick(joinDialog.poaDocSample, locale)}
-          </Button>
-        </div>
-      ) : null}
-      {sampleNotice ? (
-        <Banner variant="info" className="items-start">{pick(joinDialog.poaDocSamplePrototype, locale)}</Banner>
-      ) : null}
 
       {/* One well per party: its own authorization document (JOIN-32) and, if the
           party is not on the case yet, its own mobile number (JOIN-34). */}
@@ -266,25 +283,37 @@ export function PoaJoinFields({
           <section
             key={party.id}
             aria-label={fill(joinDialog.poaPartyHeading, locale, { name: party.name })}
-            className="flex flex-col gap-4 rounded-xl bg-surface-sunken p-4"
+            className="flex flex-col gap-5 rounded-xl bg-surface-sunken p-4"
           >
-            <p className="text-body font-semibold">
-              {fill(joinDialog.poaPartyHeading, locale, { name: party.name })}
-            </p>
             <PartyDocument
+              name={party.name}
               file={files[party.id] ?? null}
               onFileChange={(file) => onFileChange(party.id, file)}
               invalid={touched && !files[party.id]}
               locale={locale}
             />
             {party.hasJoined ? (
-              <p className="text-caption text-muted-foreground">
-                {pick(joinDialog.poaPhoneOnRecord, locale)}
-              </p>
+              /* Joined already: the number stays in view, masked, as a fact rather than
+                 a greyed-out input — there is nothing to fill (owner, 2026-10-14). */
+              <div className="flex flex-col gap-1.5">
+                <p className="text-body-compact font-medium">
+                  {fill(joinDialog.poaPhoneLabelFor, locale, { name: party.name })}
+                </p>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <span className="text-body tabular-nums">{maskedPhone(party.phoneOnRecord)}</span>
+                  <Badge variant="success">
+                    <CheckIcon data-icon="inline-start" aria-hidden />
+                    {pick(joinDialog.poaJoinedChip, locale)}
+                  </Badge>
+                </div>
+                <p className="text-caption text-muted-foreground">
+                  {pick(joinDialog.poaPhoneJoinedNote, locale)}
+                </p>
+              </div>
             ) : (
               <Field data-invalid={phoneInvalid}>
                 <FieldLabel htmlFor={`join-poa-phone-${party.id}`}>
-                  {pick(joinDialog.poaPhoneLabel, locale)}
+                  {fill(joinDialog.poaPhoneLabelFor, locale, { name: party.name })}
                 </FieldLabel>
                 <Input
                   id={`join-poa-phone-${party.id}`}

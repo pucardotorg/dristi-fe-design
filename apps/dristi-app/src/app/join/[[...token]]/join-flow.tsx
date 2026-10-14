@@ -1,6 +1,7 @@
 "use client";
 
 import { NEW_ADVOCATE_NAME, setNewAdvocateShell } from "@/lib/advocate/new-account";
+import { setNewAccountShell } from "@/lib/filing/linked-complaints";
 import { isNewAccount } from "@/lib/sign-in/demo-accounts";
 import * as React from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -88,6 +89,9 @@ function JoinFlow() {
         ACCOUNT_NAME_KEY,
         newAdvocate ? NEW_ADVOCATE_NAME : advocate ? "Anjali Nair" : "Rajan K. Nair",
       );
+      // The litigant opens as a new account: no complaints from earlier signing links on
+      // its home (owner, 2026-10-14).
+      setNewAccountShell(!advocate);
 
       if (!token) {
         // Land on the role home, not the task list. Pending Tasks stays a nav

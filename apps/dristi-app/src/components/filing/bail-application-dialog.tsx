@@ -625,6 +625,12 @@ export function BailApplicationDialog({
               {headerCopy.title}
             </DialogTitle>
             <DialogDescription className="text-pretty">{headerCopy.body}</DialogDescription>
+            {/* Where the terms already are, while they are being entered. */}
+            {stage === "details" || stage === "sureties" ? (
+              <p className="text-body-compact text-pretty text-muted-foreground">
+                {pick(bailDialog.fromSummons, locale)}
+              </p>
+            ) : null}
             {/* The case this filing belongs to is constant across stages. */}
             <p className="text-caption text-muted-foreground">
               <Identifier value={accessCase.caseNumber} label="case number" />

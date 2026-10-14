@@ -119,7 +119,8 @@ export function homeConfigFor(slots: string | null): AdvocateHomeConfig {
   if (slots === "2") return V1_TWO_SITTINGS;
   // The tab stress case: closed tabs giving way to the open one.
   if (slots === "7") return V1_SEVEN_SITTINGS;
-  // Owner review (Oct 7): the demo opens on a three-sitting day so the stacked
-  // slot tabs are always in view. `?slots=1` shows the launch single sitting.
-  return V1_THREE_SITTINGS;
+  if (slots === "3") return V1_THREE_SITTINGS;
+  // Owner (2026-10-14): the demo opens on the launch day — one 9-to-5 sitting, no
+  // slot tabs. `?slots=2`, `3` or `7` still preview the dormant tab design.
+  return ADVOCATE_HOME_CONFIG;
 }

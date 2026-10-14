@@ -187,10 +187,24 @@ test("a Malayali patronymic after a given name becomes a surname, and communitie
 });
 
 test("the scrutiny queue's Gujarati people and Ahmedabad localities stay in Gujarat only", () => {
-  assert.equal(localizeCourtText("Nirmala Ben v. Girish Thakkar, Nikol", "gujarat"), "Nirmala Ben v. Girish Thakkar, Nikol");
+  assert.equal(localizeCourtText("Nirmala Ben v. Girish Thakkar, Nikol", "gujarat"), "Nirmala Ben vs. Girish Thakkar, Nikol");
   const hr = localizeCourtText("Nirmala Ben v. Girish Thakkar, Nikol", "punjab-haryana");
   assert.doesNotMatch(hr, /Ben|Thakkar|Nikol/);
   assert.match(hr, /^Nirmala Devi v\. Girish /);
+});
+
+test("Gujarat writes every cause title with vs.; other courts keep theirs", () => {
+  for (const between of ["v.", "vs", "vs.", "Vs", "VS", "versus"]) {
+    assert.equal(
+      localizeCourtText(`South Indian Bank Ltd. ${between} Kadappakada Motors`, "gujarat").includes(" vs. "),
+      true,
+      between,
+    );
+  }
+  assert.match(localizeCourtText("Benny Mathew v. Kadappakada Motors", "punjab-haryana"), / v\. /);
+  assert.equal(localizeCourtText("Benny Mathew v. Kadappakada Motors", "kerala"), "Benny Mathew v. Kadappakada Motors");
+  // Only between two words: a trailing "v." is not a cause title.
+  assert.equal(localizeCourtText("Form v.", "gujarat"), "Form v.");
 });
 
 test("Kerala Christian and Muslim given names keep their community", () => {
