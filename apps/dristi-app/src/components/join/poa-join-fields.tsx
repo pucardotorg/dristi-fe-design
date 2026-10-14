@@ -78,13 +78,35 @@ function PartyDocument({
   locale: Locale;
 }) {
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const [sampleNotice, setSampleNotice] = React.useState(false);
   return (
     /* The full title, naming the person, sits above the slot where it can wrap; the
        slot says what to put in it. Inside the slot a long name wrapped and stranded the
        required mark, and repeating "Authorization document" said it twice
        (owner, 2026-10-14). */
     <Field data-invalid={invalid} className="gap-2">
-      <FieldLabel>{fill(joinDialog.poaDocLabelFor, locale, { name })}</FieldLabel>
+      {/* What the document is rides on its title; the sample sits under the slot it
+          is a sample for (owner, 2026-10-14). */}
+      <div className="flex items-center gap-1">
+        <FieldLabel>{fill(joinDialog.poaDocLabelFor, locale, { name })}</FieldLabel>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label={pick(joinDialog.poaDocTooltipLabel, locale)}
+            >
+              <InfoIcon aria-hidden />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-72">
+            <p className="text-body-compact text-pretty text-muted-foreground">
+              {pick(joinDialog.poaDocTooltip, locale)}
+            </p>
+          </PopoverContent>
+        </Popover>
+      </div>
       <input
         ref={inputRef}
         type="file"
@@ -113,7 +135,25 @@ function PartyDocument({
           chooseFile: locale === "ml" ? "ഫയൽ തിരഞ്ഞെടുക്കുക" : "Choose file",
         }}
       />
-      <FieldDescription>{pick(joinDialog.poaDocHelp, locale)}</FieldDescription>
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <FieldDescription>{pick(joinDialog.poaDocHelp, locale)}</FieldDescription>
+        <Button
+          type="button"
+          variant="link"
+          size="sm"
+          className="h-auto p-0"
+          onClick={() => setSampleNotice(true)}
+          data-icon="inline-start"
+        >
+          <DownloadIcon aria-hidden />
+          {pick(joinDialog.poaDocSample, locale)}
+        </Button>
+      </div>
+      {sampleNotice ? (
+        <Banner variant="info" className="items-start">
+          {pick(joinDialog.poaDocSamplePrototype, locale)}
+        </Banner>
+      ) : null}
       <FieldError>{invalid ? pick(joinDialog.poaDocError, locale) : null}</FieldError>
     </Field>
   );
@@ -145,7 +185,6 @@ export function PoaJoinFields({
   touched: boolean;
 }) {
   const anchor = useComboboxAnchor();
-  const [sampleNotice, setSampleNotice] = React.useState(false);
   const parties = poaPartiesFor(joinCase, side);
   const selected = parties.filter((party) => partyIds.includes(party.id));
   // JOIN-31: another PoA holder already acting blocks this person for that party only.
@@ -234,41 +273,6 @@ export function PoaJoinFields({
         </Banner>
       ))}
 
-      {actionable.length ? (
-        <div className="flex items-center gap-1">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label={pick(joinDialog.poaDocTooltipLabel, locale)}
-              >
-                <InfoIcon aria-hidden />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-72">
-              <p className="text-body-compact text-pretty text-muted-foreground">
-                {pick(joinDialog.poaDocTooltip, locale)}
-              </p>
-            </PopoverContent>
-          </Popover>
-          <Button
-            type="button"
-            variant="link"
-            size="sm"
-            className="h-auto p-0"
-            onClick={() => setSampleNotice(true)}
-            data-icon="inline-start"
-          >
-            <DownloadIcon aria-hidden />
-            {pick(joinDialog.poaDocSample, locale)}
-          </Button>
-        </div>
-      ) : null}
-      {sampleNotice ? (
-        <Banner variant="info" className="items-start">{pick(joinDialog.poaDocSamplePrototype, locale)}</Banner>
-      ) : null}
 
       {/* One well per party: its own authorization document (JOIN-32) and, if the
           party is not on the case yet, its own mobile number (JOIN-34). */}
