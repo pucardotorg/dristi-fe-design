@@ -1,5 +1,7 @@
 "use client";
 
+import { bailDialog } from "@/lib/filing/content";
+import { pick } from "@/lib/onboarding/content";
 import { useCallback, useId, useMemo, useRef, useState } from "react";
 import { FilePenLineIcon } from "lucide-react";
 
@@ -648,6 +650,12 @@ export function RaiseApplicationForm({
             <DialogDescription className="text-pretty">
               {formDescription}
             </DialogDescription>
+            {/* The terms are already on the summons (owner, 2026-10-14). */}
+            {chosen.id === "bail" && !objecting ? (
+              <p className="text-body-compact text-pretty text-muted-foreground">
+                {pick(bailDialog.fromSummons, "en")}
+              </p>
+            ) : null}
             <p className="text-caption text-muted-foreground">
               <Identifier value={record.caseNumber} label="case number" />
               <span aria-hidden> · </span>

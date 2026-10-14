@@ -35,6 +35,7 @@
  * the same draft the filer has, so what is done here shows on the filer's Sign step.
  */
 
+import { setNewAccountShell } from "@/lib/filing/linked-complaints";
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -230,6 +231,8 @@ function SignLinkBody({
     // in their own shell, with the signing window over it.
     try {
       window.localStorage.setItem(PROFILE_ROLE_KEY, isAdvocate ? "advocate" : "litigant");
+      // A signing link brings the complaint back onto this account's home.
+      setNewAccountShell(false);
       window.localStorage.setItem(ADVOCATE_AVAILABLE_KEY, isAdvocate ? "true" : "false");
       const name = oathTakerName(draft, me.id, accountName ?? "");
       if (name) window.localStorage.setItem(ACCOUNT_NAME_KEY, name);

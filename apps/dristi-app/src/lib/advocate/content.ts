@@ -734,14 +734,15 @@ export const advDialog = {
   vkCountIncrease: t("One more advocate", "ഒരു അഭിഭാഷകൻ കൂടി"),
   vkCountError: t("Enter 1 or more.", "1 അല്ലെങ്കിൽ കൂടുതൽ നൽകുക."),
   vkAddProgress: t("{added} of {needed} added", "{needed}-ൽ {added} ചേർത്തു"),
-  /* Gujarat: one fee for the vakalatnama, broken down (owner, 2026-10-14). */
+  /* Gujarat: the fee, plainly — its parts are on the payment step, and "the same however
+     many" over-explained it (owner, 2026-10-14). */
   vkGujaratFeeNote: t(
-    "You pay the vakalatnama fee in the next step: {amount}, which is ₹20 to the Advocate Welfare Fund and a ₹2 court fee stamp. It is the same however many advocates are named. The others get an invite to join the case and don't pay.",
-    "അടുത്ത ഘട്ടത്തിൽ വക്കാലത്ത് ഫീസ് അടയ്ക്കണം: {amount} — അഭിഭാഷക ക്ഷേമനിധിയിലേക്ക് ₹20, ₹2 കോടതി ഫീസ് സ്റ്റാമ്പ്. എത്ര അഭിഭാഷകരുടെ പേരുണ്ടെങ്കിലും ഫീസ് ഇതുതന്നെ. മറ്റുള്ളവർക്ക് കേസിൽ ചേരാൻ ക്ഷണം ലഭിക്കും; അവർ അടയ്ക്കേണ്ടതില്ല.",
+    "You pay the vakalatnama fee ({amount}) in the next step. The others get an invite to join the case.",
+    "അടുത്ത ഘട്ടത്തിൽ വക്കാലത്ത് ഫീസ് ({amount}) അടയ്ക്കണം. മറ്റുള്ളവർക്ക് കേസിൽ ചേരാൻ ക്ഷണം ലഭിക്കും.",
   ),
   vkGujaratSoloFeeNote: t(
-    "You pay the vakalatnama fee in the next step: {amount}, which is ₹20 to the Advocate Welfare Fund and a ₹2 court fee stamp. You get access to the case once it is paid.",
-    "അടുത്ത ഘട്ടത്തിൽ വക്കാലത്ത് ഫീസ് അടയ്ക്കണം: {amount} — അഭിഭാഷക ക്ഷേമനിധിയിലേക്ക് ₹20, ₹2 കോടതി ഫീസ് സ്റ്റാമ്പ്. ഫീസ് അടച്ചാൽ കേസിലേക്ക് ആക്‌സസ് ലഭിക്കും.",
+    "You pay the vakalatnama fee ({amount}) in the next step.",
+    "അടുത്ത ഘട്ടത്തിൽ വക്കാലത്ത് ഫീസ് ({amount}) അടയ്ക്കണം.",
   ),
   payWelfare: t("Advocate Welfare Fund", "അഭിഭാഷക ക്ഷേമനിധി"),
   payStamp: t("Court fee stamp", "കോടതി ഫീസ് സ്റ്റാമ്പ്"),

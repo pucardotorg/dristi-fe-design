@@ -187,16 +187,16 @@ test("a Malayali patronymic after a given name becomes a surname, and communitie
 });
 
 test("the scrutiny queue's Gujarati people and Ahmedabad localities stay in Gujarat only", () => {
-  assert.equal(localizeCourtText("Nirmala Ben v. Girish Thakkar, Nikol", "gujarat"), "Nirmala Ben VS Girish Thakkar, Nikol");
+  assert.equal(localizeCourtText("Nirmala Ben v. Girish Thakkar, Nikol", "gujarat"), "Nirmala Ben vs. Girish Thakkar, Nikol");
   const hr = localizeCourtText("Nirmala Ben v. Girish Thakkar, Nikol", "punjab-haryana");
   assert.doesNotMatch(hr, /Ben|Thakkar|Nikol/);
   assert.match(hr, /^Nirmala Devi v\. Girish /);
 });
 
-test("Gujarat writes every cause title with VS; other courts keep theirs", () => {
-  for (const between of ["v.", "vs", "vs.", "Vs", "versus"]) {
+test("Gujarat writes every cause title with vs.; other courts keep theirs", () => {
+  for (const between of ["v.", "vs", "vs.", "Vs", "VS", "versus"]) {
     assert.equal(
-      localizeCourtText(`South Indian Bank Ltd. ${between} Kadappakada Motors`, "gujarat").includes(" VS "),
+      localizeCourtText(`South Indian Bank Ltd. ${between} Kadappakada Motors`, "gujarat").includes(" vs. "),
       true,
       between,
     );

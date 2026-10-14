@@ -15,6 +15,22 @@ import { writeLocalStorageValue } from "@/hooks/use-local-storage-value";
 
 export const LINKED_COMPLAINTS_KEY = "dristi:linked-complaints";
 
+/**
+ * Set when a litigant signs in by the summons / Join a case door (owner, 2026-10-14):
+ * the demo account opens as a new account, with none of the complaints remembered from
+ * earlier signing links on its home. A signing link clears it again.
+ */
+export const NEW_ACCOUNT_SHELL_KEY = "dristi:new-account-shell";
+
+export function setNewAccountShell(on: boolean): void {
+  try {
+    if (on) window.localStorage.setItem(NEW_ACCOUNT_SHELL_KEY, "1");
+    else window.localStorage.removeItem(NEW_ACCOUNT_SHELL_KEY);
+  } catch {
+    /* blocked storage: the home shows what it has */
+  }
+}
+
 export type LinkedComplaint = { draftId: string; signatoryId: string };
 
 /** The stored list, from its raw value — never throws on a malformed one. */

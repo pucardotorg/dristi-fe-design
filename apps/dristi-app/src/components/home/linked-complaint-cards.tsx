@@ -16,6 +16,7 @@ import {
   LINKED_COMPLAINTS_KEY,
   parseLinkedComplaints,
   type LinkedComplaint,
+  NEW_ACCOUNT_SHELL_KEY,
 } from "@/lib/filing/linked-complaints";
 import { COURT } from "@/lib/filing/options";
 import { draftTitle, signatories } from "@/lib/filing/selectors";
@@ -46,7 +47,12 @@ function standing({ link, draft }: Loaded) {
  */
 export function useLinkedComplaints(): Loaded[] {
   const raw = useLocalStorageValue(LINKED_COMPLAINTS_KEY);
-  const links = React.useMemo(() => parseLinkedComplaints(raw), [raw]);
+  /* A new account, by the join door, has none (owner, 2026-10-14). */
+  const freshShell = useLocalStorageValue(NEW_ACCOUNT_SHELL_KEY) === "1";
+  const links = React.useMemo(
+    () => (freshShell ? [] : parseLinkedComplaints(raw)),
+    [raw, freshShell],
+  );
   const [loaded, setLoaded] = React.useState<Loaded[]>([]);
   React.useEffect(() => {
     let cancelled = false;

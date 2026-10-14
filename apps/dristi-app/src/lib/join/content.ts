@@ -280,15 +280,29 @@ export const joinDialog = {
     "How will you appear in court?",
     "കോടതിയിൽ എങ്ങനെ ഹാജരാകും?",
   ),
-  appearHire: t("I want to hire an advocate", "എനിക്ക് ഒരു അഭിഭാഷകനെ നിയമിക്കണം"),
+  /* "Find a lawyer", pointing to free legal aid at the District Legal Services
+     Authority (owner, 2026-10-14). Malayalam drafted — needs review. */
+  appearHire: t("Find a lawyer", "അഭിഭാഷകനെ കണ്ടെത്തുക"),
   appearHireHint: t(
     "You can join now and add an advocate later.",
     "ഇപ്പോൾ ചേരുകയും പിന്നീട് അഭിഭാഷകനെ ചേർക്കുകയും ചെയ്യാം.",
   ),
-  findAdvocate: t("Find a lawyer", "അഭിഭാഷകനെ കണ്ടെത്തുക"),
-  findAdvocateHelp: t("Your summons lists the Bar Council of Kerala as a place to find a lawyer.", "അഭിഭാഷകനെ കണ്ടെത്താനുള്ള സ്ഥലമായി നിങ്ങളുടെ സമൻസിൽ കേരള ബാർ കൗൺസിലിനെ നൽകിയിട്ടുണ്ട്."),
-  openBarCouncil: t("Open Bar Council of Kerala", "കേരള ബാർ കൗൺസിൽ തുറക്കുക"),
-  findAdvocateHref: "https://barcouncilkerala.org/",
+  findAdvocate: t("About free legal aid", "സൗജന്യ നിയമസഹായത്തെക്കുറിച്ച്"),
+  findAdvocateHelp: t(
+    "The District Legal Services Authority gives free legal aid and can assign you a lawyer.",
+    "ജില്ലാ നിയമ സേവന അതോറിറ്റി സൗജന്യ നിയമസഹായം നൽകുകയും നിങ്ങൾക്ക് ഒരു അഭിഭാഷകനെ നിയോഗിക്കുകയും ചെയ്യും.",
+  ),
+  openBarCouncil: t("Open the legal aid portal", "നിയമസഹായ പോർട്ടൽ തുറക്കുക"),
+  findAdvocateHref: "https://nalsa.gov.in/",
+  /* Next step on the joined screen (owner, 2026-10-14). Malayalam drafted. */
+  nextShareCode: t(
+    "Next, give your advocate your access code ({code}) or your summons. They need it to join the case for you.",
+    "അടുത്തതായി, നിങ്ങളുടെ ആക്‌സസ് കോഡ് ({code}) അല്ലെങ്കിൽ സമൻസ് അഭിഭാഷകന് നൽകുക. നിങ്ങൾക്കായി കേസിൽ ചേരാൻ അവർക്ക് അത് ആവശ്യമാണ്.",
+  ),
+  nextFindLawyer: t(
+    "Next, once you have a lawyer, give them your access code ({code}) or your summons. They need it to join the case for you.",
+    "അടുത്തതായി, അഭിഭാഷകനെ ലഭിച്ചാൽ നിങ്ങളുടെ ആക്‌സസ് കോഡ് ({code}) അല്ലെങ്കിൽ സമൻസ് അവർക്ക് നൽകുക. നിങ്ങൾക്കായി കേസിൽ ചേരാൻ അവർക്ക് അത് ആവശ്യമാണ്.",
+  ),
   appearAdvocate: t("I already have an advocate", "എനിക്ക് ഇതിനകം ഒരു അഭിഭാഷകനുണ്ട്"),
   appearAdvocateHint: t(
     "Your advocate can join the case separately. You get access now.",

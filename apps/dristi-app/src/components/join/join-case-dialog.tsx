@@ -1,5 +1,6 @@
 "use client";
 
+import { SUMMONS_FACTS } from "@/lib/summons/content";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { REGEXP_ONLY_DIGITS } from "input-otp";
@@ -8,7 +9,6 @@ import {
   ArrowRightIcon,
   ExternalLinkIcon,
   FileTextIcon,
-  InfoIcon,
   SearchIcon,
 } from "lucide-react";
 
@@ -35,7 +35,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Label } from "@/components/ui/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
@@ -628,24 +627,15 @@ export function JoinCaseDialog({
                           <Label htmlFor="join-appear-hire" className="text-left leading-snug">
                             {pick(joinDialog.appearHire, locale)}
                           </Label>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button type="button" variant="ghost" size="icon-sm" aria-label={pick(joinDialog.findAdvocate, locale)}>
-                                <InfoIcon aria-hidden />
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent align="start" className="w-72">
-                              <div className="flex flex-col gap-3">
-                                <p className="text-body-compact text-pretty text-muted-foreground">{pick(joinDialog.findAdvocateHelp, locale)}</p>
-                                <Button asChild variant="outline" size="sm" className="self-start">
-                                  <a href={joinDialog.findAdvocateHref} target="_blank" rel="noreferrer">
-                                    {pick(joinDialog.openBarCouncil, locale)}
-                                    <ExternalLinkIcon data-icon="inline-end" aria-hidden />
-                                  </a>
-                                </Button>
-                              </div>
-                            </PopoverContent>
-                          </Popover>
+                          {/* Straight to free legal aid at the District Legal Services
+                              Authority (owner, 2026-10-14), not a note about it. */}
+                          <Button asChild variant="link" size="sm" className="h-auto px-1">
+                            <a href={joinDialog.findAdvocateHref} target="_blank" rel="noreferrer">
+                              {pick(joinDialog.openBarCouncil, locale)}
+                              <span className="sr-only"> (opens in a new tab)</span>
+                              <ExternalLinkIcon data-icon="inline-end" aria-hidden />
+                            </a>
+                          </Button>
                         </div>
                         <Label htmlFor="join-appear-hire" className="text-caption font-normal text-muted-foreground">
                           {pick(joinDialog.appearHireHint, locale)}
@@ -798,6 +788,19 @@ export function JoinCaseDialog({
                   },
                 )}
               />
+
+              {/* What to do next, as a line of guidance (owner, 2026-10-14): an advocate
+                  joins with the access code, so the litigant passes it on. */}
+              {appearance === "advocate" || appearance === "hire" ? (
+                <p className="text-body-compact text-pretty text-muted-foreground">
+                  {fill(
+                    appearance === "advocate" ? joinDialog.nextShareCode : joinDialog.nextFindLawyer,
+                    locale,
+                    /* The code they typed; arriving by the summons link, the summons's own. */
+                    { code: code || SUMMONS_FACTS.accessCode },
+                  )}
+                </p>
+              ) : null}
 
               {doneNotice ? (
                 <Banner variant="info" className="items-start">
