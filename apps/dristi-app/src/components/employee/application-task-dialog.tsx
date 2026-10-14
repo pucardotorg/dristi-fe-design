@@ -4,6 +4,7 @@ import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "rea
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronDownIcon } from "lucide-react";
+import { toast } from "sonner";
 
 import { ReviewRow } from "@/components/cases/filing-form-shared";
 import { Identifier } from "@/components/chrome/identifier";
@@ -103,6 +104,7 @@ export function ApplicationTaskDialog({
           application={application}
           all={all}
           queue={queue}
+          onClose={() => onOpenChange(false)}
           onReturnFocus={onReturnFocus}
         />
       ) : null}
@@ -123,11 +125,13 @@ function TaskBody({
   application,
   all,
   queue,
+  onClose,
   onReturnFocus,
 }: {
   application: LifecycleApplication;
   all: LifecycleApplication[];
   queue: CourtTaskKind;
+  onClose: () => void;
   onReturnFocus: () => void;
 }) {
   const courtText = useCourtText();
@@ -174,6 +178,15 @@ function TaskBody({
 
   const id = application.id;
 
+  /* A date set is the court's answer for now: the application leaves this queue or
+     waits for that day, so the dialog closes and says when it comes back — rather than
+     showing the next decision's buttons as if it were due now (owner, 2026-10-14). */
+  function settle(step: () => Result, message: string) {
+    if (!run(step)) return;
+    toast(message);
+    onClose();
+  }
+
   /* The order steps open the real order screen rather than drafting a one-line order
      here (owner, 2026-10-13), with the decision made here pre-added as its item
      (owner, 2026-10-14). It opens under the queue this dialog is on, so its way back
@@ -187,20 +200,21 @@ function TaskBody({
     /* `ALC-08`: "now" is decided at once. The dialog stays open, on the Decide step —
        Accept or Reject — so the order opens with that decision already in its workflow
        (it used to open an empty order, with nothing to say what was being decided). */
-    run(
-      () =>
-        applyStep(id, (app) =>
-          onboard(
-            app,
-            seat,
-            number,
-            onboardMode === "now"
-              ? { mode: "now" }
-              : { mode: "date", decideOn: date, inviteObjections: invite },
-            on,
-          ),
+    const step = () =>
+      applyStep(id, (app) =>
+        onboard(
+          app,
+          seat,
+          number,
+          onboardMode === "now"
+            ? { mode: "now" }
+            : { mode: "date", decideOn: date, inviteObjections: invite },
+          on,
         ),
-    );
+      );
+    /* "On a date" is settled for now: it comes back on that date. */
+    if (onboardMode === "now") run(step);
+    else settle(step, `Onboarded. It comes back to be decided on ${formatCaseDate(date)}.`);
   }
 
   /* Written in the selected court's numbers (`CourtSwitch`), since the order is
@@ -494,7 +508,10 @@ function TaskBody({
               <Button
                 type="button"
                 onClick={() =>
-                  run(() => applyStep(id, (app) => setReviewDate(app, seat, date, on)))
+                  settle(
+                    () => applyStep(id, (app) => setReviewDate(app, seat, date, on)),
+                    `It comes back to be reviewed on ${formatCaseDate(date)}.`,
+                  )
                 }
               >
                 Set the date
@@ -503,8 +520,9 @@ function TaskBody({
               <Button
                 type="button"
                 onClick={() =>
-                  run(() =>
-                    applyStep(id, (app) => moveDecisionDate(app, seat, date, on)),
+                  settle(
+                    () => applyStep(id, (app) => moveDecisionDate(app, seat, date, on)),
+                    `It comes back to be decided on ${formatCaseDate(date)}.`,
                   )
                 }
               >
