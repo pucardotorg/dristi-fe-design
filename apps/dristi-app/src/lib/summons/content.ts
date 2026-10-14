@@ -41,6 +41,8 @@ export const SUMMONS_FACTS = {
   hearingDay: "Friday, 10:30 AM",
   dated: "4 August 2026",
   accessCode: "472905",
+  /** Bail on contesting: two sureties, for an amount the court has not yet supplied. */
+  suretyAmount: "[surety amount]",
   legalAid: "District Legal Services Authority, Kollam",
   barCouncil: "Bar Council of Kerala",
   helpInPerson: "e-Sewa Kendra, District Court Complex, Kollam",
