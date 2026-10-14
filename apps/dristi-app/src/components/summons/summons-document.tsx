@@ -6,10 +6,10 @@
  * costs the paper nothing. "Please turn over" reads the same in both.
  *
  * **Set as a court document, not a web page** (owner, 2026-10-14): a serif body, bold
- * kept for the few things the reader must not miss, no capitalised labels, paragraphs
- * told apart by indentation rather than gaps, ruled lines in a clerk's variety (double,
- * dotted, dashed), and hierarchy carried by grey steps no lighter than a cheap printer
- * holds on off-white paper. The words are v15's, bar the turn-over line and the bail
+ * kept for the few things the reader must not miss, no capitalised labels and no
+ * italics, paragraphs told apart by indentation, ruled lines in a clerk's variety
+ * (double, dotted, dashed), generous leading and margins so it reads calm, and hierarchy
+ * carried by grey steps no lighter than a cheap printer holds on off-white paper. The words are v15's, bar the turn-over line and the bail
  * paragraph under Contest the case.
  *
  * Every string is written in Kerala's terms (`lib/summons/content.ts`) and voiced here
@@ -83,7 +83,7 @@ export function SummonsDocument({ court }: Props) {
         <table>
           <tbody>
             <tr>
-              <td style={{ width: "112mm", verticalAlign: "middle" }}>
+              <td style={{ width: "98mm", verticalAlign: "middle" }}>
                 <div className="label">Case number</div>
                 <div className="pt1 big">{caseNumber}</div>
                 <div className="s4" />
@@ -91,7 +91,7 @@ export function SummonsDocument({ court }: Props) {
                 <div className="pt1 big" style={{ lineHeight: 1.3 }}>
                   {t(f.complainant)}
                   <br />
-                  <i>versus</i> {t(f.accused)}
+                  versus {t(f.accused)}
                 </div>
               </td>
               <td style={{ paddingBottom: "2mm" }}>
@@ -126,9 +126,7 @@ export function SummonsDocument({ court }: Props) {
                 </p>
               </td>
               <td style={{ width: "62mm" }} className="right">
-                <div className="t2 muted">
-                  <i>Dated, this {f.dated}</i>
-                </div>
+                <div className="t2 muted">Dated, this {f.dated}</div>
               </td>
             </tr>
           </tbody>
@@ -138,8 +136,8 @@ export function SummonsDocument({ court }: Props) {
 
         <p className="last">
           {t(f.complainant)} has filed a complaint against you under Section 138 of the
-          Negotiable Instruments Act, 1881 (dishonour of a cheque, commonly called{" "}
-          <i>cheque bounce</i>), in respect of Cheque No. {f.chequeNumber} for {f.amount}.
+          Negotiable Instruments Act, 1881 (dishonour of a cheque, commonly called
+          “cheque bounce”), in respect of Cheque No. {f.chequeNumber} for {f.amount}.
           You are required to appear before this Court, in person or by pleader, on{" "}
           <b>{f.hearingDate}</b>.
         </p>
@@ -152,7 +150,7 @@ export function SummonsDocument({ court }: Props) {
             <tr>
               <td />
               <td style={{ width: "62mm" }}>
-                <div style={{ height: "10mm" }} />
+                <div style={{ height: "7mm" }} />
                 <div className="sigline">Digitally signed by the Magistrate</div>
               </td>
             </tr>
@@ -184,8 +182,8 @@ export function SummonsDocument({ court }: Props) {
                 </p>
                 <p className="last">
                   Go to {portal()} and register. Search using Case No. {caseNumber}, then
-                  enter your access code. Your papers are under the <i>Complaint</i>,{" "}
-                  <i>Documents</i> and <i>Submissions</i> tabs. Share the code only with your
+                  enter your access code. Your papers are under the Complaint,
+                  Documents and Submissions tabs. Share the code only with your
                   lawyer.
                 </p>
               </td>
@@ -233,7 +231,7 @@ export function SummonsDocument({ court }: Props) {
           </tbody>
         </table>
 
-        <div className="s4" />
+        <div className="s2" />
         <div className="turnband">
           <table>
             <tbody>
@@ -290,7 +288,7 @@ export function SummonsDocument({ court }: Props) {
                   Pay <b>{f.amount}</b> and the case against you is closed. Pay the court
                   directly using the code alongside, or pay the complainant (account
                   details are in your case file), then upload the receipt on the portal
-                  under <i>Upload Document</i>.
+                  under “Upload Document”.
                 </p>
               </td>
               <td style={{ width: "30mm", verticalAlign: "middle" }}>
@@ -344,8 +342,8 @@ export function SummonsDocument({ court }: Props) {
                 <div className="t4 pt1">Contest the case</div>
                 <div className="s1" />
                 <p>
-                  Defend the case with a lawyer, or represent yourself, which is called{" "}
-                  <i>appearing as a party in person</i>.
+                  Defend the case with a lawyer, or represent yourself, which is called
+                  “appearing as a party in person”.
                 </p>
                 {/* Bail sits with contesting, the choice that needs it (owner, 2026-10-14). */}
                 <p>
@@ -355,9 +353,11 @@ export function SummonsDocument({ court }: Props) {
                   joined your case, you can file the bail application on {portal()}.
                 </p>
                 <p className="last aid">
-                  <i>Free legal aid:</i> {t(f.legalAid)} &nbsp;·&nbsp; {phone(local.legalAid)}
+                  <span className="aidlabel">Free legal aid</span>
+                  {t(f.legalAid)} &nbsp;·&nbsp; {phone(local.legalAid)}
                   <br />
-                  <i>Find a lawyer:</i> {t(f.barCouncil)} &nbsp;·&nbsp;{" "}
+                  <span className="aidlabel">Find a lawyer</span>
+                  {t(f.barCouncil)} &nbsp;·&nbsp;{" "}
                   {site(local.barCouncilSite)}
                 </p>
               </td>
@@ -406,7 +406,7 @@ export function SummonsDocument({ court }: Props) {
 
         <div className="s2" />
         <p className="t1 last muted">
-          <i>Privacy notice.</i> The court is notified when you open this summons or use the
+          Privacy notice. The court is notified when you open this summons or use the
           links above. This is accessible only to the Judiciary, and confirms only that you
           received and viewed it. Privacy policy: {portal("/privacy")}
         </p>
