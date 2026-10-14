@@ -15,6 +15,7 @@ import {
 import {
   OrderEditorHeader,
   OrderPaperView,
+  orderPaperRecitals,
   OrderProgress,
   OrderWorkflowFields,
   decideOnly,
@@ -25,6 +26,7 @@ import {
   OrderMissing,
   useHearingOrderDoor,
 } from "@/components/employee/order-screen";
+import { useOrderDetailsPlacement } from "@/components/employee/use-order-details-placement";
 import { useOrderDraft } from "@/components/employee/use-order-draft";
 import { useOrderSigning } from "@/components/employee/use-order-signing";
 import { usePendingOrders } from "@/components/employee/use-pending-orders";
@@ -183,6 +185,9 @@ function WorkflowDoorScreen({ door }: { door: OrderDoor }) {
   const [ask, setAsk] = React.useState<"sign" | "complete" | null>(null);
   const listing = door.hearing?.applications ?? [];
   const complete = Boolean(entry?.workflowComplete);
+  /* Attendance and the next hearing: on the order's page, or among its order data. */
+  const [placement] = useOrderDetailsPlacement();
+  const onPage = placement === "order";
   const signed = signing[door.draftKey] === "signed";
   /* Signing is the magistrate's; the workflow and moving the order back to draft are the
      steno's (owner, 2026-10-14). Everyone else reads. */
@@ -207,9 +212,17 @@ function WorkflowDoorScreen({ door }: { door: OrderDoor }) {
       );
       return;
     }
+    /* On the order's page, the next hearing is set before the order is sent; one sent
+       without it goes back to draft for it. Among the order data, it is set here. */
     if (unlisted) {
-      toast("Set the next hearing’s date and purpose, or tick Not listed again.");
-      window.document.getElementById("order-next-hearing")?.focus();
+      if (onPage) {
+        toast(
+          "This order has no next hearing. Move it back to draft to set the date and purpose.",
+        );
+      } else {
+        toast("Set the next hearing’s date and purpose, or tick Not listed again.");
+        window.document.getElementById("order-next-hearing")?.focus();
+      }
       return;
     }
     /* Accepting a Postpone or an Advance moves the hearing, and the date it moves to is
@@ -224,8 +237,14 @@ function WorkflowDoorScreen({ door }: { door: OrderDoor }) {
       );
     });
     if (undated) {
-      toast("Accepting this application moves the hearing. Set the next hearing’s date.");
-      window.document.getElementById("order-next-hearing")?.focus();
+      if (onPage) {
+        toast(
+          "Accepting this application moves the hearing, and this order has no next hearing date. Move it back to draft to set one.",
+        );
+      } else {
+        toast("Accepting this application moves the hearing. Set the next hearing’s date.");
+        window.document.getElementById("order-next-hearing")?.focus();
+      }
       return;
     }
     setAsk("complete");
@@ -246,6 +265,7 @@ function WorkflowDoorScreen({ door }: { door: OrderDoor }) {
             }}
             value={draft.body ?? { html: "", text: "" }}
             status={paperStatus(stage)}
+            parts={onPage ? orderPaperRecitals(draft, appearances) : undefined}
           />
           <div className="min-w-0">
             <OrderWorkflowFields
@@ -253,6 +273,7 @@ function WorkflowDoorScreen({ door }: { door: OrderDoor }) {
               setDraft={setDraft}
               today={door.today}
               appearances={appearances}
+              withDetails={!onPage}
               applications={listing.map((application) => ({
                 id: application.id,
                 number: application.number,
@@ -307,7 +328,7 @@ function WorkflowDoorScreen({ door }: { door: OrderDoor }) {
                   setOrderWorkflowComplete(door.draftKey, false, signing)
                 }
               >
-                Reopen workflow
+                Reopen order data
               </Button>
             ) : null}
             {canSign ? (
@@ -324,7 +345,7 @@ function WorkflowDoorScreen({ door }: { door: OrderDoor }) {
                 className="w-full sm:w-fit"
                 onClick={askComplete}
               >
-                Mark workflow complete
+                Mark order data complete
               </Button>
             ) : null}
           </div>
@@ -344,8 +365,8 @@ function WorkflowDoorScreen({ door }: { door: OrderDoor }) {
                 <AlertDialogTitle>Sign this order?</AlertDialogTitle>
                 <AlertDialogDescription>
                   {complete
-                    ? "Your signature issues the order, and its workflows go out at once: the steno has completed them."
-                    : "Your signature issues the order. Its workflows go out once the steno has completed them."}{" "}
+                    ? "Your signature issues the order, and its order data is triggered at once: the steno has completed it."
+                    : "Your signature issues the order. Its order data is triggered once the steno has completed it."}{" "}
                   This cannot be reversed.
                 </AlertDialogDescription>
               </AlertDialogHeader>
@@ -356,8 +377,8 @@ function WorkflowDoorScreen({ door }: { door: OrderDoor }) {
                     markOrdersSigned([door.draftKey]);
                     toast(
                       complete
-                        ? "Signed and issued. Its workflows have been triggered."
-                        : "Signed and issued. Its workflows are with the steno.",
+                        ? "Signed and issued. Its order data has been triggered."
+                        : "Signed and issued. Its order data is with the steno.",
                     );
                   }}
                 >
@@ -370,8 +391,8 @@ function WorkflowDoorScreen({ door }: { door: OrderDoor }) {
               <AlertDialogHeader>
                 <AlertDialogTitle>
                   {signed
-                    ? "Complete and trigger these workflows?"
-                    : "Mark this workflow complete?"}
+                    ? "Complete and trigger this order data?"
+                    : "Mark this order data complete?"}
                 </AlertDialogTitle>
                 <AlertDialogDescription>
                   {signed
@@ -394,8 +415,8 @@ function WorkflowDoorScreen({ door }: { door: OrderDoor }) {
                     setOrderWorkflowComplete(door.draftKey, true, signing);
                     toast(
                       signed
-                        ? "Workflow complete. Its workflows have been triggered."
-                        : "Workflow complete. It goes out when the order is signed.",
+                        ? "Order data complete, and triggered."
+                        : "Order data complete. It is triggered when the order is signed.",
                     );
                     router.push("/employee/pending-orders");
                   }}
@@ -434,15 +455,15 @@ function WorkflowDoorScreen({ door }: { door: OrderDoor }) {
 function stageLine(stage: PendingOrderStage, complete: boolean): string {
   if (stage === "drafting")
     return complete
-      ? "Being typed. Its workflow is complete."
+      ? "Being typed. Its order data is complete."
       : "Being typed. Not yet sent for signing.";
   if (stage === "awaiting-signature")
     return complete
-      ? "Awaiting the magistrate’s signature. Its workflow is complete, so signing triggers it."
-      : "Awaiting the magistrate’s signature. The workflow can be filled meanwhile.";
+      ? "Awaiting the magistrate’s signature. Its order data is complete, so signing triggers it."
+      : "Awaiting the magistrate’s signature. The order data can be filled meanwhile.";
   if (stage === "workflow-to-fill")
-    return "Signed and issued. Its workflows go out once the steno completes them.";
-  return "Signed, and its workflows triggered. Nothing here can change.";
+    return "Signed and issued. Its order data is triggered once the steno completes it.";
+  return "Signed, and its order data triggered. Nothing here can change.";
 }
 
 /** What triggering sends, in words — the steno's last look before it goes. */

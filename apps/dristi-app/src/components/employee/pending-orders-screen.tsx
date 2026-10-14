@@ -217,7 +217,7 @@ export function PendingOrdersScreen() {
                     Signature
                   </TableHead>
                   <TableHead className={cn(TABLE_HEAD, "whitespace-nowrap")}>
-                    Workflow
+                    Order data
                   </TableHead>
                   <TableHead className={cn(TABLE_HEAD, "w-px whitespace-nowrap")}>
                     <span className="sr-only">Action</span>
@@ -335,9 +335,9 @@ export function PendingOrdersScreen() {
             </AlertDialogTitle>
             <AlertDialogDescription>
               Your signature issues{" "}
-              {chosen.length === 1 ? "the order" : "each order"}. Their
-              workflows go out once their workflow is complete — at once, for
-              any the steno has already completed.
+              {chosen.length === 1 ? "the order" : "each order"}. Its order
+              data is triggered once it is complete — at once, for any the
+              steno has already completed.
               This cannot be reversed.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -372,8 +372,8 @@ function headline(
   if (seat === "magistrate")
     return `${plural(count("awaiting-signature"), "order is", "orders are")} awaiting your signature.`;
   if (seat === "typist")
-    return `${plural(count("workflow-to-fill"), "signed order has its", "signed orders have their")} workflow still to complete.`;
-  return "Orders being typed, awaiting a signature, or with workflows still to trigger.";
+    return `${plural(count("workflow-to-fill"), "signed order has its", "signed orders have their")} order data still to complete.`;
+  return "Orders being typed, awaiting a signature, or with order data still to trigger.";
 }
 
 function SignatureBadge({ stage }: { stage: PendingOrderStage }) {
@@ -390,10 +390,10 @@ function actionLabel(seat: CourtRole, stage: PendingOrderStage): string {
     return seat === "magistrate"
       ? "Read and sign"
       : seat === "typist"
-        ? "Open workflow"
+        ? "Open order data"
         : "View";
   if (stage === "workflow-to-fill")
-    return seat === "typist" ? "Fill workflow" : "View";
+    return seat === "typist" ? "Fill order data" : "View";
   return "View";
 }
 
@@ -408,14 +408,14 @@ function PendingEmpty({ tab }: { tab: Tab }) {
           {tab === "awaiting-signature"
             ? "Nothing is awaiting a signature"
             : tab === "workflow-to-fill"
-              ? "No workflows to fill"
+              ? "No order data to fill"
               : tab === "triggered"
-                ? "No workflows triggered yet"
+                ? "No order data triggered yet"
                 : "No orders pending"}
         </EmptyTitle>
         <EmptyDescription className="text-body">
           Orders typed on the full-page editor appear here as soon as they are
-          started, and stay until their workflows are triggered.
+          started, and stay until their order data is triggered.
         </EmptyDescription>
       </EmptyHeader>
       <EmptyContent>

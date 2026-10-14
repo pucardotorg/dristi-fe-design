@@ -34,12 +34,17 @@ import {
 import { useCognizanceLayout } from "@/components/employee/use-cognizance-layout";
 import type { CognizanceLayout } from "@/lib/employee/cognizance-layout";
 import { useCourtNavLayout } from "@/components/employee/use-court-nav-layout";
+import { useOrderDetailsPlacement } from "@/components/employee/use-order-details-placement";
 import { useOrderFlow } from "@/components/employee/use-order-flow";
 import { useOrderLayout } from "@/components/employee/use-order-layout";
 import { useOrderSigning } from "@/components/employee/use-order-signing";
 import { usePendingOrders } from "@/components/employee/use-pending-orders";
 import { pendingOrderCountFor } from "@/lib/employee/pending-orders";
 import { resetSandboxData } from "@/lib/employee/sandbox-reset";
+import {
+  ORDER_DETAILS_PLACEMENT_OPTIONS,
+  type OrderDetailsPlacement,
+} from "@/lib/employee/order-details-placement";
 import { ORDER_FLOW_OPTIONS, type OrderFlow } from "@/lib/employee/order-flow";
 import {
   CLASSIC_ORDER_LAYOUT_OPTIONS,
@@ -955,6 +960,7 @@ function CourtSettingsControl() {
   const [cognizanceLayout, setCognizanceLayout] = useCognizanceLayout();
   const [orderLayout, setOrderLayout] = useOrderLayout();
   const [orderFlow, setOrderFlow] = useOrderFlow();
+  const [detailsPlacement, setDetailsPlacement] = useOrderDetailsPlacement();
   const [confirmReset, setConfirmReset] = React.useState(false);
   return (
     <DropdownMenu>
@@ -1040,6 +1046,26 @@ function CourtSettingsControl() {
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>
+        {/* Pending orders' screen E only: attendance and the next hearing on the order's
+            page, or back among its order data (owner, 2026-10-14). */}
+        {orderFlow === "pending" ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Attendance and next hearing</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={detailsPlacement}
+              onValueChange={(next) =>
+                setDetailsPlacement(next as OrderDetailsPlacement)
+              }
+            >
+              {ORDER_DETAILS_PLACEMENT_OPTIONS.map((option) => (
+                <DropdownMenuRadioItem key={option.id} value={option.id}>
+                  {option.label}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </>
+        ) : null}
         {/* A–D are Classic's alone; Pending orders always opens E (owner, 2026-10-14). */}
         {orderFlow === "classic" ? (
           <>
