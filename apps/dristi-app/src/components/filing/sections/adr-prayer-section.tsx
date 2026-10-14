@@ -29,12 +29,12 @@ const ADR_OPTIONS: SegmentedOption<AdrPrayer["adr"]>[] = [
 ];
 
 const ADR_QUESTION =
-  "Would you like to settle the case outside the court through alternative methods of dispute resolution if the other party(s) agrees?";
+  "Is the complainant willing to settle the case outside the court through alternative methods of dispute resolution if the other party(s) agrees?";
 
 const OTHER_DETAILS_QUESTION =
   "Would you like to add any additional details to the complaint?";
 
-const RELIEF_HELP = "Please edit this where required as per the details of your case.";
+const RELIEF_HELP = "Please edit this where required as per the details of the case.";
 
 export function AdrPrayerSection() {
   const { draft, update, hrefFor } = useFiling();
@@ -51,7 +51,7 @@ export function AdrPrayerSection() {
       <FilingMain>
         <FilingPageHeader
           title="ADR, other details & prayer"
-          description="Willingness to settle, any additional details for the court, and the relief you are asking for."
+          description="Willingness to settle, any additional details for the court, and the relief the complainant is asking for."
         />
 
         {/* Alternative dispute resolution */}
@@ -87,7 +87,7 @@ export function AdrPrayerSection() {
         {/* Prayer */}
         <FormCard
           title="Prayer / relief sought"
-          description="The standard S-138 prayer. Edit to fit your case."
+          description="The standard S-138 prayer. Edit to fit the case."
         >
           <FormField asGroup label="Interim relief" optional helpPlacement="above" help={RELIEF_HELP}>
             <RichTextEditor

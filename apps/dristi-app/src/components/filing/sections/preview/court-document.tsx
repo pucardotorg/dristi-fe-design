@@ -480,7 +480,7 @@ export function CourtDocument({ draft }: { draft: FilingDraft }) {
         <tbody>
           <tr>
             <DocCell
-              label="Would you like to settle the case outside the court through alternative methods of dispute resolution?"
+              label="Is the complainant willing to settle the case outside the court through alternative methods of dispute resolution?"
               span={3}
             >
               {adrLabel(draft)}

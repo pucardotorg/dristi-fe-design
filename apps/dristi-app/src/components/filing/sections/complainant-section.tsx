@@ -422,12 +422,12 @@ export function ComplainantSection() {
         <FormCard title="Representation & type">
           <FormField
             asGroup
-            label="Are you representing yourself in person (party-in-person)?"
+            label="Is this complainant appearing in person (party-in-person)?"
           >
             <YesNoSegmented
               value={c.pip}
               onValueChange={(v) => set("pip", v)}
-              ariaLabel="Are you representing yourself in person (party-in-person)?"
+              ariaLabel="Is this complainant appearing in person (party-in-person)?"
             />
           </FormField>
           <FormField asGroup label="Complainant type">
@@ -570,7 +570,7 @@ export function ComplainantSection() {
                 label="Has the complainant authorised any person as their power of attorney in this case?"
                 help={
                   inPerson
-                    ? "Answered by your appearing in person: conducting the case yourself and authorising someone else to conduct it are alternatives, not both."
+                    ? "Answered by the complainant appearing in person: conducting the case in person and authorising someone else to conduct it are alternatives, not both."
                     : undefined
                 }
               >
