@@ -209,29 +209,19 @@ function RowContents({ item }: { item: CourtNavItem }) {
       </span>
       {note ? <span className="sr-only">, {note}</span> : null}
       {item.count !== undefined && item.count > 0 ? (
-        /* How much is waiting: a quiet numeral, and nothing else.
-           **The red spark is gone** (owner, 2026-09-23: the rail "adds a lot of visual
-           noise now"). It was adopted from the advocate rail's `TasksCount`, which had
-           already been pulled back from a full red pill because that "read as an alarm
-           bolted to the nav" — and the comment that stood here admitted the rest: that
-           `--rail-badge` resolves to `--destructive-solid`, which the DS reserves for
-           irreversible or dangerous actions, and that a signing queue is workload, not
-           danger. The 6px dot was the concession that kept the red anyway.
+        /* How much is waiting: the advocate rail's mark — a red spark and a numeral
+           (`TasksCount`), so both sides of the product say "work waiting" the same way.
+           **The spark is back** (owner, 2026-10-14: "bring this red dot to the employee
+           side as well"). It was taken out on 2026-09-23 for adding "a lot of visual
+           noise" with every queue open at once; the owner has since asked for it back.
 
-           It does not survive the open layout. That concession was priced against a rail
-           where one family disclosed at a time, so about seven sparks were on screen; with
-           every queue visible there are seventeen, and a mark that appears on every row
-           with work discriminates between nothing. This rail already makes that exact
-           argument against four red dots on the folded strip (`CourtNavGroupMark`) — it
-           was simply never applied to the expanded state. The numeral was always the
-           thing carrying the count.
-
-           The ink has to change with the row's ground. Idle, the numeral sits on the
-           charcoal plate at `--rail-muted` (6.28:1). Selected, the row inverts to the
-           white card and the same ink would fall to 2.08:1 — so it switches to the
-           plate's `--rail-card-muted` (5.70:1), which `CARD` names for exactly this.
-           `text-caption` carries the DS's 500 weight floor, so the numeral also stays
-           at one weight while the selected row's label goes to 600.
+           The dot keeps the advocate's size and ink (6px, `--rail-badge`). The numeral's
+           ink has to change with the row's ground. Idle, it sits on the charcoal plate at
+           `--rail-muted` (6.28:1). Selected, the row inverts to the white card and the
+           same ink would fall to 2.08:1 — so it switches to the plate's
+           `--rail-card-muted` (5.70:1), which `CARD` names for exactly this.
+           `text-caption` carries the DS's 500 weight floor, so the numeral also stays at
+           one weight while the selected row's label goes to 600.
 
            There is no folded register for it, because no folded row carries one: the only
            rows the strip renders are the two standalone links, and neither has a count.
@@ -241,13 +231,14 @@ function RowContents({ item }: { item: CourtNavItem }) {
         <span
           aria-hidden
           className={[
-            "shrink-0",
+            "flex shrink-0 items-center gap-1.5",
             "group-data-[collapsible=icon]:hidden",
             "text-caption tabular-nums",
             RAIL_MUTED,
             "group-data-[active=true]/menu-button:text-(--rail-card-muted)",
           ].join(" ")}
         >
+          <span className="size-1.5 rounded-full bg-(--rail-badge)" />
           {item.count}
         </span>
       ) : null}
