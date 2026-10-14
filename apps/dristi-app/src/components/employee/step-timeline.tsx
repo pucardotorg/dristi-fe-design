@@ -61,6 +61,7 @@ export function Step({
   note,
   aside,
   tone,
+  href,
 }: {
   status?: "past" | "current" | "future";
   label: string;
@@ -70,6 +71,9 @@ export function Step({
   /** A second fact about the same step, always quiet — "condonation sought". */
   aside?: string;
   tone?: "warning";
+  /** The thing the step is about — an order, a process, an application — in a new tab,
+   *  so the screen the bench is on stays where it was. */
+  href?: string;
 }) {
   return (
     <TimelineItem status={status} className="pb-0">
@@ -81,7 +85,21 @@ export function Step({
         <div className="-mx-3 -my-2 grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-6 rounded-lg px-3 py-2 transition-colors hover:bg-surface-sunken @xl:grid-cols-[minmax(0,13rem)_minmax(0,1fr)_6.5rem]">
           {/* Regular weight: the group's heading is the one semibold line in the column,
               and the date's muted ink is what separates it from the step's name. */}
-          <span className="col-start-1 row-start-1 min-w-0">{label}</span>
+          <span className="col-start-1 row-start-1 min-w-0">
+            {href ? (
+              <a
+                href={href}
+                target="_blank"
+                rel="noopener"
+                className="rounded-sm text-primary underline underline-offset-4 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+              >
+                {label}
+                <span className="sr-only"> (opens in a new tab)</span>
+              </a>
+            ) : (
+              label
+            )}
+          </span>
           <span className="col-start-2 row-start-1 shrink-0 text-right tabular-nums text-muted-foreground @xl:col-start-3">
             {date}
           </span>

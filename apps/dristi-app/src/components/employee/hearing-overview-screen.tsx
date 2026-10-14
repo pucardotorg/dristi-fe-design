@@ -1,8 +1,13 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { CalendarX2Icon, ExternalLinkIcon } from "lucide-react";
+import {
+  CalendarX2Icon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  ExternalLinkIcon,
+} from "lucide-react";
 
 import { Identifier } from "@/components/chrome/identifier";
 import { useCourtToday } from "@/components/employee/use-court-today";
@@ -23,7 +28,8 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { Step, StepGroup } from "@/components/employee/step-timeline";
+import { Step } from "@/components/employee/step-timeline";
+import { Timeline } from "@/components/ui/timeline";
 import {
   causeTitle,
   counselFor,
@@ -177,13 +183,15 @@ function HearingMissing() {
             This listing is not on the board
           </EmptyTitle>
           <EmptyDescription className="text-body">
-            A case overview opens a matter from today&rsquo;s cause list. This one
-            is not there.
+            A case overview opens a matter from today&rsquo;s cause list. This
+            one is not there.
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
           <Button asChild>
-            <Link href="/employee/hearings">Back to today&rsquo;s hearings</Link>
+            <Link href="/employee/hearings">
+              Back to today&rsquo;s hearings
+            </Link>
           </Button>
         </EmptyContent>
       </Empty>
@@ -276,15 +284,9 @@ export function HearingOverviewCaption({ hearing }: { hearing: CourtHearing }) {
 /**
  * What is in this case — the three sections, on whichever surface is asking.
  *
- * Case details and Last hearing pair across the top; the history runs the full width
- * beneath them.
- *
- * The facts are six term/detail pairs and want the smaller share — at three-fifths the
- * list spread "Evidence" across 500px of nothing and read as stretched. The order of
- * the day is a paragraph and wants measure, so it takes the larger. History is last
- * because it is the part that grows: three steps today, but a matter that has run two
- * years is a long column, and the width is there for entries that carry more than a
- * date.
+ * Case history and Last hearing pair across the top; Case details run the full width
+ * beneath them (owner, 2026-10-14). History, newest first, takes the smaller share; the
+ * order of the day is a paragraph and wants measure, so it takes the larger.
  *
  * The two top panels stretch to a common height rather than sitting at their own —
  * `items-start` is what left the shorter one dangling beside the taller. Slack inside a
@@ -313,9 +315,12 @@ export function HearingOverviewSections({
         surface === "page" ? "gap-8" : "gap-4"
       }`}
     >
-      <CaseFactsPanel
+      {/* Case history first, beside the last sitting; the case's details under both
+          (owner, 2026-10-14). */}
+      <CaseHistoryPanel
         hearing={hearing}
         extras={extras}
+        today={today}
         surface={surface}
         className="lg:col-span-2"
       />
@@ -331,10 +336,9 @@ export function HearingOverviewSections({
       ) : (
         <NoLastHearingPanel surface={surface} className="lg:col-span-3" />
       )}
-      <CaseHistoryPanel
+      <CaseFactsPanel
         hearing={hearing}
         extras={extras}
-        today={today}
         surface={surface}
         className="lg:col-span-5"
       />
@@ -365,6 +369,8 @@ export function HearingOverviewSections({
  * every case reads.
  */
 const HEARING_DEMO_CASE_HREF = "/employee/cases/c-1001?section=case-file";
+const HEARING_DEMO_CASE_ORDERS_HREF =
+  "/employee/cases/c-1001?section=orders-and-notifications";
 
 export function ViewCaseAction({
   variant = "default",
@@ -421,7 +427,9 @@ function CaseFactsPanel({
         Case details
       </h2>
       <DescriptionList>
-        <FactRow surface={surface} term="Stage">{courtCaseStageLabel(hearing.stage)}</FactRow>
+        <FactRow surface={surface} term="Stage">
+          {courtCaseStageLabel(hearing.stage)}
+        </FactRow>
         <FactRow surface={surface} term="This sitting">
           {courtHearingPurposeLabel(hearing.purpose)}
         </FactRow>
@@ -446,7 +454,9 @@ function CaseFactsPanel({
         ) : null}
         {extras.filedOn ? (
           <FactRow surface={surface} term="Filed">
-            <span className="tabular-nums">{formatCaseDate(extras.filedOn)}</span>
+            <span className="tabular-nums">
+              {formatCaseDate(extras.filedOn)}
+            </span>
           </FactRow>
         ) : null}
       </DescriptionList>
@@ -554,9 +564,30 @@ function LastHearingPanel({
       className={`${PANEL[surface]} flex flex-col gap-4 ${className ?? ""}`}
       aria-labelledby="last-hearing"
     >
-      <h2 id="last-hearing" className={HEADING[surface]}>
-        Last hearing
-      </h2>
+      {/* Every order on the case, in the case's own Orders tab — a tab of its own, as
+          View case opens, so this overview stays where the bench left it (owner,
+          2026-10-14). */}
+      <div className="flex min-w-0 items-center justify-between gap-4">
+        <h2 id="last-hearing" className={HEADING[surface]}>
+          Last hearing
+        </h2>
+        <Button
+          asChild
+          variant="link"
+          size="sm"
+          className="-my-1.5 h-auto px-0"
+        >
+          <a
+            href={HEARING_DEMO_CASE_ORDERS_HREF}
+            target="_blank"
+            rel="noopener"
+          >
+            View all orders
+            <span className="sr-only"> (opens in a new tab)</span>
+            <ExternalLinkIcon data-icon="inline-end" aria-hidden />
+          </a>
+        </Button>
+      </div>
       <div className="flex items-start gap-4">
         {/* The tile is the date as a mark, and it is `aria-hidden` — decoration,
             not information. So the line beside it states the date in full, year
@@ -656,10 +687,11 @@ function NoLastHearingPanel({
  * Titles and dates only. The step's `note` is the last sitting's order, which the
  * panel above already prints in full — see `CaseHistoryItem`.
  *
- * It runs the page's width and comes last because it is the section that grows: a
- * matter two years old is a long column, and a step that one day carries more than a
- * date has the room for it. Today's three entries leave that room visibly unused,
- * which is a fact about the case rather than a fault in the layout.
+ * Beside Last hearing it is held to that panel's height and cut off there, so the pair
+ * stays one even row however long the case has run; Show all opens it to its full
+ * length and Show less closes it again (owner, 2026-10-14). `[contain:size]` is what
+ * keeps the list out of the row's height while it is shut. Only side by side: stacked,
+ * or in a panel's tab, it simply runs its length.
  */
 function CaseHistoryPanel({
   hearing,
@@ -675,6 +707,25 @@ function CaseHistoryPanel({
   className?: string;
 }) {
   const timeline = caseTimeline(hearing, extras, today);
+  const clamps = surface !== "panel";
+  const [expanded, setExpanded] = useState(false);
+  const [overflowing, setOverflowing] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
+  const listId = "case-history-events";
+
+  /* Whether anything is cut off — measured, because it depends on how tall the order
+     of the day beside it runs, and on the width. */
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list || !clamps) return;
+    const measure = () =>
+      setOverflowing(list.scrollHeight > list.clientHeight + 1);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(list);
+    if (list.firstElementChild) observer.observe(list.firstElementChild);
+    return () => observer.disconnect();
+  }, [clamps]);
 
   return (
     /* `@container` is what lets a step split into three columns: the group is the same
@@ -693,53 +744,68 @@ function CaseHistoryPanel({
       >
         Case history
       </h2>
-      {/* Two phases, stacked, in the order they happened. Everything in the first
-          happened to two private parties and is measured against §138; everything in
-          the second is the court's own record. The full width the panel takes is spent
-          on three columns — the step, the statutory window it closes, and the day — so
-          the dates share one edge down the whole chain and a reader can check a limit
-          against the two dates either side of it. */}
-      <div className="flex flex-col gap-8">
-        {timeline.beforeFiling.length > 0 ? (
-          <StepGroup heading="Before filing">
-            {timeline.beforeFiling.map((step) => (
+      {/* The court's record as events, newest first. The full width the
+          panel takes is spent on three columns — the event, the statutory window it
+          closes, and the day — so the dates share one edge down the whole chain. */}
+      <div
+        ref={listRef}
+        id={listId}
+        className={
+          clamps && !expanded
+            ? "relative min-h-0 flex-1 overflow-hidden lg:[contain:size]"
+            : undefined
+        }
+      >
+        {timeline.inCourt.length > 0 ? (
+          <Timeline className="text-body-compact">
+            {timeline.inCourt.toReversed().map((step) => (
               <Step
                 key={step.id}
+                status={step.status}
                 label={step.label}
+                href={step.href}
                 note={step.note}
                 aside={step.aside}
                 tone={step.tone}
                 date={
                   step.on ? (
-                    <time dateTime={step.on}>{formatTimelineDate(step.on)}</time>
+                    <time dateTime={step.on}>
+                      {formatTimelineDate(step.on)}
+                    </time>
                   ) : (
                     "Today"
                   )
                 }
               />
             ))}
-          </StepGroup>
+          </Timeline>
         ) : null}
-        <StepGroup heading="In court">
-          {timeline.inCourt.map((step) => (
-            <Step
-              key={step.id}
-              status={step.status}
-              label={step.label}
-              note={step.note}
-              aside={step.aside}
-              tone={step.tone}
-              date={
-                step.on ? (
-                  <time dateTime={step.on}>{formatTimelineDate(step.on)}</time>
-                ) : (
-                  "Today"
-                )
-              }
-            />
-          ))}
-        </StepGroup>
+        {clamps && !expanded && overflowing ? (
+          /* The cut, softened so a half-shown step reads as more below. */
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-linear-to-t from-card to-transparent"
+          />
+        ) : null}
       </div>
+      {clamps && (overflowing || expanded) ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          aria-expanded={expanded}
+          aria-controls={listId}
+          className="-mt-2 -ml-3 w-fit"
+          onClick={() => setExpanded((open) => !open)}
+        >
+          {expanded ? (
+            <ChevronUpIcon data-icon="inline-start" aria-hidden />
+          ) : (
+            <ChevronDownIcon data-icon="inline-start" aria-hidden />
+          )}
+          {expanded ? "Show less" : "Show all"}
+        </Button>
+      ) : null}
     </section>
   );
 }
