@@ -694,7 +694,7 @@ export const advDialog = {
     "ഓരോ നമ്പറിലേക്കും SMS അയക്കും. കക്ഷി സൈൻ ഇൻ ചെയ്ത് അത് അവരാണെന്ന് സ്ഥിരീകരിച്ചാൽ കേസ് അവരുടെ അക്കൗണ്ടുമായി ബന്ധിപ്പിക്കും.",
   ),
   /* Per litigant: whose number this is, said on the field itself (owner, 2026-10-12). */
-  contactMobileLabel: t("Mobile number of {name}", "{name}-ന്റെ മൊബൈൽ നമ്പർ"),
+  contactMobileLabel: t("{name}'s mobile number", "{name}-ന്റെ മൊബൈൽ നമ്പർ"),
   contactMobileError: t(
     "Enter a valid 10-digit mobile number.",
     "സാധുവായ 10 അക്ക മൊബൈൽ നമ്പർ നൽകുക.",
@@ -727,14 +727,29 @@ export const advDialog = {
   /* How many are named, counting the person filling this in (owner, 2026-10-13). The
      others added must match it exactly before they can continue. Malayalam drafted —
      needs review. */
+  /* Counts the others only (owner, 2026-10-14): "including you" read as "2 more than me"
+     and the wrong number of names went in. */
   vkCountLabel: t(
-    "How many advocates are named on it, including you?",
-    "നിങ്ങൾ ഉൾപ്പെടെ എത്ര അഭിഭാഷകരുടെ പേര് ഇതിലുണ്ട്?",
+    "How many more advocates are named on it?",
+    "ഇതിൽ മറ്റ് എത്ര അഭിഭാഷകരുടെ പേര് കൂടിയുണ്ട്?",
   ),
   vkCountDecrease: t("One fewer advocate", "ഒരു അഭിഭാഷകൻ കുറവ്"),
   vkCountIncrease: t("One more advocate", "ഒരു അഭിഭാഷകൻ കൂടി"),
-  vkCountError: t("Enter 2 or more.", "2 അല്ലെങ്കിൽ കൂടുതൽ നൽകുക."),
+  vkCountError: t("Enter 1 or more.", "1 അല്ലെങ്കിൽ കൂടുതൽ നൽകുക."),
   vkAddProgress: t("{added} of {needed} added", "{needed}-ൽ {added} ചേർത്തു"),
+  /* Gujarat: the fee, plainly — its parts are on the payment step, and "the same however
+     many" over-explained it (owner, 2026-10-14). */
+  vkGujaratFeeNote: t(
+    "You pay the vakalatnama fee ({amount}) in the next step. The others get an invite to join the case.",
+    "അടുത്ത ഘട്ടത്തിൽ വക്കാലത്ത് ഫീസ് ({amount}) അടയ്ക്കണം. മറ്റുള്ളവർക്ക് കേസിൽ ചേരാൻ ക്ഷണം ലഭിക്കും.",
+  ),
+  vkGujaratSoloFeeNote: t(
+    "You pay the vakalatnama fee ({amount}) in the next step.",
+    "അടുത്ത ഘട്ടത്തിൽ വക്കാലത്ത് ഫീസ് ({amount}) അടയ്ക്കണം.",
+  ),
+  payWelfare: t("Advocate Welfare Fund", "അഭിഭാഷക ക്ഷേമനിധി"),
+  payStamp: t("Court fee stamp", "കോടതി ഫീസ് സ്റ്റാമ്പ്"),
+  vkTemplate: t("Download vakalatnama template", "വക്കാലത്ത് മാതൃക ഡൗൺലോഡ് ചെയ്യുക"),
   vkFlatFeeNote: t(
     "You pay the vakalatnama fee in the next step ({amount}). It is the same however many advocates are named. The others get an invite to join the case and don't pay.",
     "അടുത്ത ഘട്ടത്തിൽ വക്കാലത്ത് ഫീസ് അടയ്ക്കണം ({amount}). എത്ര അഭിഭാഷകരുടെ പേരുണ്ടെങ്കിലും ഫീസ് ഇതുതന്നെ. മറ്റുള്ളവർക്ക് കേസിൽ ചേരാൻ ക്ഷണം ലഭിക്കും; അവർ അടയ്ക്കേണ്ടതില്ല.",
@@ -872,8 +887,8 @@ export const advDialog = {
   teamTitle: t("Add your team", "നിങ്ങളുടെ ടീമിനെ ചേർക്കുക"),
   teamOptional: t("Optional", "നിർബന്ധമല്ല"),
   teamBody: t(
-    "You can add your subordinates to this case (clerks or junior advocates, etc).",
-    "നിങ്ങളുടെ കീഴിലുള്ളവരെ (ക്ലർക്കുമാർ അല്ലെങ്കിൽ ജൂനിയർ അഭിഭാഷകർ മുതലായവ) ഈ കേസിൽ ചേർക്കാം.",
+    "You can add your subordinates to this case (clerks or junior advocates, etc). They get office access only: they can work on the case but cannot sign.",
+    "നിങ്ങളുടെ കീഴിലുള്ളവരെ (ക്ലർക്കുമാർ അല്ലെങ്കിൽ ജൂനിയർ അഭിഭാഷകർ മുതലായവ) ഈ കേസിൽ ചേർക്കാം. അവർക്ക് ഓഫീസ് ആക്‌സസ് മാത്രം: കേസിൽ പ്രവർത്തിക്കാം, പക്ഷേ ഒപ്പിടാനാകില്ല.",
   ),
   teamPlaceholder: t("Mobile number", "മൊബൈൽ നമ്പർ"),
   teamAdd: t("Add number", "നമ്പർ ചേർക്കുക"),
