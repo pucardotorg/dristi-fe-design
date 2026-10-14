@@ -4,6 +4,7 @@ import * as React from "react";
 
 import {
   readHearingSession,
+  serverHearingSession,
   subscribeToHearingSession,
   type HearingSession,
 } from "@/lib/employee/hearing-session";
@@ -23,6 +24,6 @@ export function useHearingSession(): HearingSession {
   return React.useSyncExternalStore(
     subscribeToHearingSession,
     readHearingSession,
-    readHearingSession,
+    serverHearingSession,
   );
 }
