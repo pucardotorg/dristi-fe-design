@@ -68,7 +68,9 @@ export const GUJARAT_FEES: FeeSchedule = {
     amount: 3,
   },
   process: { fee: 3 },
-  join: { courtFee: 2, welfareFund: 50 },
+  // ₹20 to the Advocate Welfare Fund and a ₹2 court fee stamp: ₹22, once per
+  // vakalatnama however many advocates it names (owner, 2026-10-14).
+  join: { courtFee: 2, welfareFund: 20 },
   joinBilling: "flat",
 };
 

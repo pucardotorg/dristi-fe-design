@@ -80,7 +80,7 @@ export function WitnessesSection() {
       <FilingMain>
         <FilingPageHeader
           title="Witnesses"
-          description="List the witnesses you intend to rely on, and how the court can reach them."
+          description="List the witnesses the complainant intends to rely on, and how the court can reach them."
         />
 
         <SectionTabs

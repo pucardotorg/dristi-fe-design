@@ -754,7 +754,7 @@ function SignFlowBody({
                   ? `Your oath is next. ${unlocks} once every signature and oath is in.`
                   : outstanding === 0
                     ? completeNote ?? "You can pay the court fee now."
-                    : `It waits in your pending tasks until every signature${signingRules().oath ? " and oath" : ""} is in.`
+                    : `It waits under Take action until every signature${signingRules().oath ? " and oath" : ""} is in.`
               }
             />
           </StageColumn>
@@ -812,7 +812,7 @@ function SignFlowBody({
                   ? outcome.footnote
                   : outstanding === 0
                   ? completeNote ?? "You can pay the court fee now."
-                  : `It waits in your pending tasks until every signature${signingRules().oath ? " and oath" : ""} is in.`
+                  : `It waits under Take action until every signature${signingRules().oath ? " and oath" : ""} is in.`
               }
             />
           </StageColumn>

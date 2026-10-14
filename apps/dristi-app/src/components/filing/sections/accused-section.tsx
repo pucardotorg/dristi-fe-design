@@ -149,7 +149,7 @@ export function AccusedSection() {
       <FilingMain>
         <FilingPageHeader
           title="Accused details"
-          description="Add the person or entity you are filing this complaint against."
+          description="Add the person or entity this complaint is filed against."
         />
 
         <SectionTabs

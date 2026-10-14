@@ -193,6 +193,12 @@ function CourtMultiFilter({
   );
 }
 
+/** A court as one cause list: its name and, where it has one, its number —
+ * "SARAS Court 2" — so courts that share a name stay apart. */
+function courtName(row: CauseListRow): string {
+  return row.courtNumber ? `${row.courtLabel} ${row.courtNumber}` : row.courtLabel;
+}
+
 export function CauseListDialog({
   open,
   onOpenChange,
@@ -225,9 +231,13 @@ export function CauseListDialog({
   // page session (this wrapper stays mounted while the dialog toggles). Opening the
   // list from a hearing's "view on the cause list" jump then keeps the order the
   // advocate last chose, so the traced row shows in that order. A full page reload
-  // resets it to the Status default; the list's own refresh does not. Date, search
+  // resets it to the Court default; the list's own refresh does not. Date, search
   // and court filter still reset on each open, since the body remounts.
-  const [groupBy, setGroupBy] = React.useState<CauseListGroupBy>("status");
+  //
+  // Court by default (owner, 2026-10-14): each court publishes one cause list, so the
+  // list opens as those lists, one per court. A one-court deployment has no court
+  // grouping and falls back to Status below.
+  const [groupBy, setGroupBy] = React.useState<CauseListGroupBy>("court");
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* Near full-screen, but inset from the edges so the board behind stays in
@@ -385,7 +395,7 @@ function CauseListBody({
   const courtOptions = React.useMemo(() => {
     const seen = new Map<string, string>();
     for (const r of causeListOn(world, date, now)) {
-      if (!seen.has(r.court)) seen.set(r.court, r.courtLabel);
+      if (!seen.has(r.court)) seen.set(r.court, courtName(r));
     }
     return [...seen].map(([court, label]) => ({ court, label }));
   }, [world, date, now]);
@@ -418,11 +428,11 @@ function CauseListBody({
   const mineCount = React.useMemo(() => filtered.filter((r) => r.mine).length, [filtered]);
   const groups = React.useMemo(() => groupCauseList(filtered, groupBy, intl).map(({ key, rows: items }) => ({
     key,
-    // Item groups read "Item 3"; court groups are the court alone (grouping is by
-    // court, not by court number); status groups read as the status word; hearing-type
-    // groups are the stage itself.
+    // Item groups read "Item 3"; court groups name the court with its number
+    // ("SARAS Court 2") — one cause list per court; status groups read as the status
+    // word; hearing-type groups are the stage itself.
     label: groupBy === "item" ? `${pick(advHome.colItem, locale)} ${key}` :
-      groupBy === "court" ? items[0].courtLabel :
+      groupBy === "court" ? courtName(items[0]) :
       groupBy === "status" ? pick(STATUS_GROUP_LABEL[causeStatusKey(items[0])], locale) : key,
     rows: items,
   })), [filtered, groupBy, intl, locale]);

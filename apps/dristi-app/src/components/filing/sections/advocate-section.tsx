@@ -180,11 +180,11 @@ export function AdvocateSection() {
           <SectionNotice
             variant="info"
             title={
-              allInPerson ? "You are representing yourself" : "Appearing as a party in person"
+              allInPerson ? "The complainant appears in person" : "Appearing as a party in person"
             }
           >
             {allInPerson
-              ? "This filing has no advocate on record. You conduct the case yourself."
+              ? "This filing has no advocate on record. The complainant conducts the case in person."
               : `${pipLabels.join(" and ")} ${
                   pipLabels.length > 1 ? "conduct" : "conducts"
                 } the case in person, so no advocate goes on record for them.`}{" "}

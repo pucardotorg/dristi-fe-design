@@ -44,7 +44,7 @@ export function MobileHearingCard({ hearing, locale, queue, onOpenCase, onOpenTa
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="relative min-w-0" data-pointer-motion={pointerMotion}>
       <CollapsibleTrigger
-        aria-label={`${hearing.kase.parties}, ${pick(advHome.colItem, locale)} ${hearing.item}, ${hearing.kase.cnr || hearing.kase.stNumber}, ${hearing.kase.stage}${showCourt ? `, ${court.name} ${court.number ?? ""}` : ""}${count ? `, ${pending}` : ""}${hearing.passedOver ? `, ${passedOverLabel(locale)}` : ""}${queue ? `, ${queueSentence(queue, locale)}` : ""}`}
+        aria-label={`${hearing.kase.parties}, ${pick(advHome.colItem, locale)} ${hearing.item}, ${hearing.kase.stNumber || hearing.kase.cnr}, ${hearing.kase.stage}${showCourt ? `, ${court.name} ${court.number ?? ""}` : ""}${count ? `, ${pending}` : ""}${hearing.passedOver ? `, ${passedOverLabel(locale)}` : ""}${queue ? `, ${queueSentence(queue, locale)}` : ""}`}
         onPointerDown={() => setPointerMotion(true)}
         onKeyDown={() => setPointerMotion(false)}
         className={cn("group/hearing relative z-10 flex w-full min-w-0 flex-col gap-4 rounded-xl border bg-card p-4 text-left transition-colors active:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", ongoing ? "border-brand-accent/40" : "border-hairline")}
@@ -55,7 +55,7 @@ export function MobileHearingCard({ hearing, locale, queue, onOpenCase, onOpenTa
             {/* Up to two lines, so the access button beside it never squeezes it to a stub. */}
             <span className={cn("line-clamp-2 text-body-compact font-semibold", ongoing ? "text-primary" : "text-foreground")}>{hearing.kase.parties}</span>
             {/* The whole card is one tap target, so the number keeps the face only. */}
-            <Identifier value={hearing.kase.cnr || hearing.kase.stNumber} label="case number" copyable={false} className="text-body-compact wrap-anywhere text-muted-foreground" />
+            <Identifier value={hearing.kase.stNumber || hearing.kase.cnr} label="case number" copyable={false} className="text-body-compact wrap-anywhere text-muted-foreground" />
           </span>
           {/* The pending-task mark, centred on the 32px access button to its right. */}
           {count > 0 ? (

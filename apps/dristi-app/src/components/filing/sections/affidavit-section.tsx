@@ -43,7 +43,7 @@ export function AffidavitSection() {
       <FilingMain>
         <FilingPageHeader
           title="Affidavit"
-          description="The sworn statement that goes on the record with your complaint."
+          description="The sworn statement that goes on the record with the complaint."
           actions={
             edited ? (
               <Button
@@ -60,9 +60,9 @@ export function AffidavitSection() {
         />
 
         {/* Sworn evidence, so what it is gets said before the box, not after. */}
-        <SectionNotice variant="warning" title="You are swearing to this">
+        <SectionNotice variant="warning" title="This is sworn evidence">
           Sworn under Section 225 of the Bharatiya Nagarik Suraksha Sanhita, 2023. Read
-          it through and change anything that does not match your case.
+          it through and change anything that does not match the case.
         </SectionNotice>
 
         <FormCard
@@ -70,7 +70,7 @@ export function AffidavitSection() {
           description={
             edited
               ? "Your wording. It no longer follows the rest of the filing."
-              : "Written from your case details, and follows them until you edit it."
+              : "Written from the case details, and follows them until you edit it."
           }
         >
           <RichTextEditor

@@ -54,7 +54,7 @@ describe("areaOf", () => {
   it("names the areas the shell hosts, in the rail's own words", () => {
     assert.equal(areaOf("/filings?tab=returned").label, "File a case");
     assert.equal(areaOf("/cases/c-1").label, "Cases");
-    assert.equal(areaOf("/tasks").label, "Pending tasks");
+    assert.equal(areaOf("/tasks").label, "Take action");
   });
 
   it("knows the vakalatnama area, rather than filing it under tasks", () => {
@@ -67,8 +67,8 @@ describe("areaOf", () => {
     assert.equal(areaOf("/advocate").href, "/advocate");
   });
 
-  it("falls back to Pending tasks, the shell's own home", () => {
-    assert.equal(areaOf("/somewhere-else").label, "Pending tasks");
+  it("falls back to Take action, the shell's own home", () => {
+    assert.equal(areaOf("/somewhere-else").label, "Take action");
     assert.equal(areaOf("/tasks/t-1/fix").href, "/tasks");
   });
 });

@@ -281,11 +281,11 @@ function WhenBlock({
   );
 }
 
-/** The case's number as the hearing card shows it: the CNR, else the ST. */
+/** The case's number as the hearing card shows it: the case number (the eCC in Gujarat), else the CNR. */
 function caseNumberOf(world: World, task: Task | undefined): string | undefined {
   if (!task) return undefined;
   const found = caseOf(world, task);
-  return found?.cnr || found?.stNumber || undefined;
+  return found?.stNumber || found?.cnr || undefined;
 }
 
 function groupLabel(locale: Locale, group: TaskPanelGroup): string {

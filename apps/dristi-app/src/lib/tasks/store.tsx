@@ -13,7 +13,9 @@
 import * as React from "react";
 
 import { getRepository } from "./data";
+import { browserCourt } from "@/lib/court/browser";
 import { buildTasks, CASES, DEFAULT_USER_ID, PEOPLE, SEED_VERSION } from "./sandbox";
+import { tasksForCourt } from "./court-tasks";
 import { type Ctx, type Transition, TransitionError } from "./transitions";
 import type { Case, Person, PersonId, Task, TaskId } from "./types";
 
@@ -48,6 +50,19 @@ function seedIsCurrent(): boolean {
     return true;
   }
 }
+
+/**
+ * **The demo starts fresh on every page load** (owner, 2026-10-14: "if I refresh the
+ * page, all the pending tasks come back"). It is sample data for showing flows, so a
+ * refresh puts every task back as seeded — whatever was paid, signed or filed in the
+ * last run. Within a page's life the sandbox keeps what was done, so a flow can be
+ * walked through screen to screen; only a full load starts it again.
+ *
+ * Set to false to keep a browser's sandbox across loads (it then reseeds only when the
+ * seed stamp changes, as before).
+ */
+const RESEED_ON_PAGE_LOAD = true;
+let reseededThisPage = false;
 
 function rememberSeed(): void {
   try {
@@ -134,8 +149,11 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     try {
       const repo = getRepository();
       let [ppl, cs, ts] = await Promise.all([repo.listPeople(), repo.listCases(), repo.listTasks()]);
-      if (ppl.length && !seedIsCurrent()) {
-        // The model changed under this browser's data: start again from the seed.
+      const freshPage = RESEED_ON_PAGE_LOAD && !reseededThisPage;
+      reseededThisPage = true;
+      if (ppl.length && (freshPage || !seedIsCurrent())) {
+        // A fresh page load (the demo starts over), or the model changed under this
+        // browser's data: start again from the seed.
         await repo.clear();
         ppl = [];
       }
@@ -270,13 +288,18 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     setGhosts((g) => g.filter((x) => x.taskId !== taskId));
   }, []);
 
+  /* What this court's advocates are asked to do (`tasksForCourt`): the sandbox is one
+     set for every state, and some of its work does not exist in some states. The court
+     is fixed for the page's life — changing it reloads the page. */
+  const courtTasks = React.useMemo(() => tasksForCourt(tasks, browserCourt()), [tasks]);
+
   const value = React.useMemo<TasksContextValue>(
     () => ({
       state,
       error,
       people,
       cases,
-      tasks,
+      tasks: courtTasks,
       user,
       online,
       ghosts,
@@ -288,7 +311,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       requestHighlight,
       dismissGhost,
     }),
-    [state, error, people, cases, tasks, user, online, ghosts, highlight, reload, setUser, resetSandbox, dispatch, requestHighlight, dismissGhost]
+    [state, error, people, cases, courtTasks, user, online, ghosts, highlight, reload, setUser, resetSandbox, dispatch, requestHighlight, dismissGhost]
   );
 
   return <TasksContext.Provider value={value}>{children}</TasksContext.Provider>;

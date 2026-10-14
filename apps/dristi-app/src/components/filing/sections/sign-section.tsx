@@ -1060,7 +1060,7 @@ export function SignSection() {
                 ? "The corrections have been sent back to scrutiny."
                 : returned
                   ? "Scrutiny returned this complaint. Everyone signs the corrected version again, the same way as when it was filed, before it goes back."
-                  : `You are filing a criminal complaint under S-138, Negotiable Instruments Act in the ${courtText(COURT.name)}.`
+                  : `A criminal complaint under S-138, Negotiable Instruments Act in the ${courtText(COURT.name)}.`
           }
         />
 

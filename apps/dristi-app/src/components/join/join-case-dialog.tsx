@@ -1,5 +1,6 @@
 "use client";
 
+import { SUMMONS_FACTS } from "@/lib/summons/content";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { REGEXP_ONLY_DIGITS } from "input-otp";
@@ -8,7 +9,6 @@ import {
   ArrowRightIcon,
   ExternalLinkIcon,
   FileTextIcon,
-  InfoIcon,
   SearchIcon,
 } from "lucide-react";
 
@@ -35,7 +35,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Label } from "@/components/ui/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
@@ -142,8 +141,10 @@ export function JoinCaseDialog({
   locale: Locale;
   onJoined: (result: JoinResult) => void;
 }) {
+  /* From the summons the case is known but the code is still asked, as on every other
+     way in: a link alone is not proof of holding the summons (owner, 2026-10-14). */
   const initialStage: Stage =
-    mode === "summons" ? "details" : mode === "handoff" ? "identity" : "lookup";
+    mode === "summons" ? "code" : mode === "handoff" ? "identity" : "lookup";
   /* Each step fades softly into the next (`useStageFade`), its content drifting a
      hint the way the person is going; the height changes while the window is clear,
      so nothing resizes in view (owner, Oct 6). */
@@ -166,6 +167,8 @@ export function JoinCaseDialog({
     }
   }, [stage, stageChanged]);
   const [joinCase, setJoinCase] = React.useState<JoinCase | undefined>(summonsCase);
+  /* Found by searching, after "Not my case?" — the way back is then the search. */
+  const [searched, setSearched] = React.useState(false);
 
   const [code, setCode] = React.useState("");
   const [codeTouched, setCodeTouched] = React.useState(false);
@@ -230,6 +233,7 @@ export function JoinCaseDialog({
   function reset() {
     resetStage(initialStage);
     setJoinCase(summonsCase);
+    setSearched(false);
     setQuery("");
     setQueryTouched(false);
     setLookupMiss(false);
@@ -254,7 +258,9 @@ export function JoinCaseDialog({
      header and footer — never a second modal. */
   const [leaving, setLeaving] = React.useState(false);
   const entered =
-    stage === "code" || stage === "identity" || (stage === "details" && mode !== "summons");
+    (stage === "code" && (mode !== "summons" || code.length > 0)) ||
+    stage === "identity" ||
+    (stage === "details" && mode !== "summons");
 
   /* View case opens the joined case in Cases, as on the advocate side (owner,
      2026-10-13) — not a placeholder note. */
@@ -291,6 +297,7 @@ export function JoinCaseDialog({
       return;
     }
     setLookupMiss(false);
+    setSearched(true);
     setJoinCase(DEMO_JOIN_CASE);
     // The code gates the case details; the code stage shows only title, number and
     // court so the person can confirm it is the right case (JOIN-10/11).
@@ -395,7 +402,10 @@ export function JoinCaseDialog({
                     : stage === "lookup"
                       ? pick(joinDialog.lookupBody, locale)
                       : stage === "code"
-                        ? pick(joinDialog.codeBody, locale)
+                        ? pick(
+                            mode === "summons" ? joinDialog.codeSummonsBody : joinDialog.codeBody,
+                            locale,
+                          )
                         : stage === "details"
                           ? pick(joinDialog.detailsBody, locale)
                           : pick(joinDialog.identityBody, locale)}
@@ -462,7 +472,9 @@ export function JoinCaseDialog({
                 locale={locale}
                 lead={pick(joinDialog.codeCaseLead, locale)}
               />
-              <Banner variant="info" className="items-start">{pick(joinDialog.codeNote, locale)}</Banner>
+              <Banner variant="info" className="items-start">
+                {pick(mode === "summons" ? joinDialog.codeSummonsNote : joinDialog.codeNote, locale)}
+              </Banner>
               <div className={JOIN_PANEL}>
               <Field data-invalid={codeTouched && code.length !== CODE_LENGTH}>
                 <FieldLabel>{pick(joinDialog.codeLabel, locale)}</FieldLabel>
@@ -628,24 +640,15 @@ export function JoinCaseDialog({
                           <Label htmlFor="join-appear-hire" className="text-left leading-snug">
                             {pick(joinDialog.appearHire, locale)}
                           </Label>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button type="button" variant="ghost" size="icon-sm" aria-label={pick(joinDialog.findAdvocate, locale)}>
-                                <InfoIcon aria-hidden />
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent align="start" className="w-72">
-                              <div className="flex flex-col gap-3">
-                                <p className="text-body-compact text-pretty text-muted-foreground">{pick(joinDialog.findAdvocateHelp, locale)}</p>
-                                <Button asChild variant="outline" size="sm" className="self-start">
-                                  <a href={joinDialog.findAdvocateHref} target="_blank" rel="noreferrer">
-                                    {pick(joinDialog.openBarCouncil, locale)}
-                                    <ExternalLinkIcon data-icon="inline-end" aria-hidden />
-                                  </a>
-                                </Button>
-                              </div>
-                            </PopoverContent>
-                          </Popover>
+                          {/* Straight to free legal aid at the District Legal Services
+                              Authority (owner, 2026-10-14), not a note about it. */}
+                          <Button asChild variant="link" size="sm" className="h-auto px-1">
+                            <a href={joinDialog.findAdvocateHref} target="_blank" rel="noreferrer">
+                              {pick(joinDialog.openBarCouncil, locale)}
+                              <span className="sr-only"> (opens in a new tab)</span>
+                              <ExternalLinkIcon data-icon="inline-end" aria-hidden />
+                            </a>
+                          </Button>
                         </div>
                         <Label htmlFor="join-appear-hire" className="text-caption font-normal text-muted-foreground">
                           {pick(joinDialog.appearHireHint, locale)}
@@ -799,6 +802,19 @@ export function JoinCaseDialog({
                 )}
               />
 
+              {/* What to do next, as a line of guidance (owner, 2026-10-14): an advocate
+                  joins with the access code, so the litigant passes it on. */}
+              {appearance === "advocate" || appearance === "hire" ? (
+                <p className="text-body-compact text-pretty text-muted-foreground">
+                  {fill(
+                    appearance === "advocate" ? joinDialog.nextShareCode : joinDialog.nextFindLawyer,
+                    locale,
+                    /* The code they typed; arriving by the summons link, the summons's own. */
+                    { code: code || SUMMONS_FACTS.accessCode },
+                  )}
+                </p>
+              ) : null}
+
               {doneNotice ? (
                 <Banner variant="info" className="items-start">
                   {pick(
@@ -830,7 +846,25 @@ export function JoinCaseDialog({
             <>
               {stage === "lookup" ? (
                 <>
-                  <span aria-hidden className="hidden sm:block" />
+                  {mode === "summons" ? (
+                    /* "Not my case?" is not a dead end: back to the summons's own case and its
+                       code (owner, 2026-10-14). */
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setJoinCase(summonsCase);
+                        setSearched(false);
+                        setStage("code");
+                      }}
+                      data-icon="inline-start"
+                    >
+                      <ArrowLeftIcon aria-hidden />
+                      {pick(joinDialog.backToSummonsCase, locale)}
+                    </Button>
+                  ) : (
+                    <span aria-hidden className="hidden sm:block" />
+                  )}
                   <Button type="submit" form="join-lookup" data-icon="inline-start">
                     <SearchIcon aria-hidden />
                     {pick(joinDialog.search, locale)}
@@ -840,15 +874,31 @@ export function JoinCaseDialog({
 
               {stage === "code" ? (
                 <>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setStage("lookup")}
-                    data-icon="inline-start"
-                  >
-                    <ArrowLeftIcon aria-hidden />
-                    {pick(joinDialog.back, locale)}
-                  </Button>
+                  {mode === "summons" && !searched ? (
+                    /* The wrong summons, or a mistyped link: search for the right case
+                       instead of a dead end. */
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setCode("");
+                        setCodeTouched(false);
+                        setStage("lookup");
+                      }}
+                    >
+                      {pick(joinDialog.notMyCase, locale)}
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setStage("lookup")}
+                      data-icon="inline-start"
+                    >
+                      <ArrowLeftIcon aria-hidden />
+                      {pick(joinDialog.back, locale)}
+                    </Button>
+                  )}
                   <Button type="submit" form="join-code" data-icon="inline-end">
                     {pick(joinDialog.codeVerify, locale)}
                     <ArrowRightIcon aria-hidden />

@@ -1,5 +1,8 @@
 "use client";
 
+import { NEW_ADVOCATE_NAME, setNewAdvocateShell } from "@/lib/advocate/new-account";
+import { setNewAccountShell } from "@/lib/filing/linked-complaints";
+import { isNewAccount } from "@/lib/sign-in/demo-accounts";
 import * as React from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 
@@ -62,8 +65,13 @@ function JoinFlow() {
       idSkipped?: boolean;
       profileIncomplete?: boolean;
       role?: "litigant" | "advocate";
+      /** A demo account with nothing on it yet (`isNewAccount`). */
+      newAccount?: boolean;
     }) => {
       const advocate = options?.role === "advocate";
+      // A new advocate opens on the empty shell home (owner, 2026-10-14).
+      const newAdvocate = advocate && Boolean(options?.newAccount);
+      setNewAdvocateShell(newAdvocate);
       // Session-lite: remember the role + whether an advocate profile exists, so the
       // shell opens as this account. A base litigant has no advocate profile until they
       // elevate (Settings); an advocate account has one.
@@ -79,8 +87,11 @@ function JoinFlow() {
       // not the person. (Two demo accounts: advocate = Anjali, litigant = Rajan.)
       window.localStorage.setItem(
         ACCOUNT_NAME_KEY,
-        advocate ? "Anjali Nair" : "Rajan K. Nair",
+        newAdvocate ? NEW_ADVOCATE_NAME : advocate ? "Anjali Nair" : "Rajan K. Nair",
       );
+      // The litigant opens as a new account: no complaints from earlier signing links on
+      // its home (owner, 2026-10-14).
+      setNewAccountShell(!advocate);
 
       if (!token) {
         // Land on the role home, not the task list. Pending Tasks stays a nav
@@ -128,7 +139,7 @@ function JoinFlow() {
         locale={locale}
         onLocaleChange={setLocale}
         onSeekHelp={() => setOpen(true)}
-        onSignedIn={(role) => goHome({ role })}
+        onSignedIn={(role, mobile) => goHome({ role, newAccount: isNewAccount(mobile) })}
         onRegistered={(result) => goHome(result)}
         // The token is the only thing that tells us this person was served. It changes
         // the explainer's headline, never its availability: the modal is one tap away
