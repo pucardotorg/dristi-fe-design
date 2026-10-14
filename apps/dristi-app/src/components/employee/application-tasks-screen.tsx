@@ -314,6 +314,7 @@ export function ApplicationTasksScreen({ kind }: { kind: CourtTaskKind }) {
       <ApplicationTaskDialog
         application={open}
         all={apps}
+        queue={kind}
         onOpenChange={(next) => {
           if (!next) setOpenId(null);
         }}

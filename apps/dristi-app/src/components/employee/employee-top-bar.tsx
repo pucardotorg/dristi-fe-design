@@ -28,6 +28,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useOrderFlow } from "@/components/employee/use-order-flow";
+import { usePendingOrders } from "@/components/employee/use-pending-orders";
 
 /**
  * The court's bar: where you are, and the way back into the rail.
@@ -48,6 +49,8 @@ import { useOrderFlow } from "@/components/employee/use-order-flow";
 export function EmployeeTopBar() {
   const pathname = usePathname();
   const [flow] = useOrderFlow();
+  /* Subscribed so a pending order's crumb, named from the saved list, follows it. */
+  usePendingOrders();
   const crumbs = courtTrail(pathname, flow);
   // Derived here rather than inside the trail because the divider beside the trigger has
   // to know whether anything follows it. On the court home nothing does.

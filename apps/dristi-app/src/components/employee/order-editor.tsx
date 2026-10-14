@@ -489,20 +489,6 @@ export function OrderWorkflowFields({
         />
       </Card>
 
-      {applications && applications.length > 0 ? (
-        <Card className={cn(PANEL_CLASS, "min-w-0 gap-0 p-0")}>
-          <ApplicationsSection
-            applications={{
-              list: applications,
-              onDecide: (id, decision) => decideOnly(setDraft, id, decision),
-              onOpen: (id) => onOpenApplication?.(id),
-            }}
-            disabled={disabled}
-            framed
-          />
-        </Card>
-      ) : null}
-
       <ItemsCard
         items={items}
         context={context}
@@ -520,6 +506,21 @@ export function OrderWorkflowFields({
         }
       />
 
+      {/* Pending applications last, under the items (owner, 2026-10-14). */}
+      {applications && applications.length > 0 ? (
+        <Card className={cn(PANEL_CLASS, "min-w-0 gap-0 p-0")}>
+          <ApplicationsSection
+            applications={{
+              list: applications,
+              onDecide: (id, decision) => decideOnly(setDraft, id, decision),
+              onOpen: (id) => onOpenApplication?.(id),
+            }}
+            disabled={disabled}
+            framed
+          />
+        </Card>
+      ) : null}
+
       <ItemDialog
         editing={editing}
         context={context}
@@ -529,6 +530,7 @@ export function OrderWorkflowFields({
         }
         onClose={() => setEditing(null)}
         description="Recorded in this order's workflow, and set moving once the order is signed and its workflow complete. Nothing is written into the order's text."
+        showSentence={false}
         onConfirm={() => {
           if (!editing) return;
           commit(editing.block, editing.mode);

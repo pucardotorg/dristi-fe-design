@@ -29,14 +29,16 @@
  * list shows about it, recorded when the order is first typed. Its signature lives in
  * `order-signing.ts`, under the same key.
  *
- * In memory, like the drafts it sits beside (`order-drafts.ts`): it outlives navigation
- * inside `/employee` and dies on a reload. Nothing here is filed, signed or sent.
+ * Saved in this browser, like the drafts it sits beside (`order-drafts.ts`) and the
+ * applications its orders decide: it outlives a reload (owner, 2026-10-14). Nothing here
+ * is filed, signed or sent.
  *
  * Read it through `components/employee/use-pending-orders.ts`, never from a render.
  */
 
 import type { CourtRole } from "./content";
 import type { OrderSigning } from "./order-signing";
+import { restoreRecord, saveRecord, watchRecord } from "./browser-record";
 
 /** What the list knows about one order — enough to show it and to reopen it. */
 export type PendingOrderMeta = {
@@ -80,10 +82,39 @@ export const PENDING_ORDER_STAGES: {
 const OPENING: PendingOrders = Object.freeze({});
 
 let orders: PendingOrders = OPENING;
+let restored = false;
+
+/* Saved in this browser (`browser-record.ts`), so it outlives a reload. Restored when the
+   first component subscribes, or on the first write; the server and hydration read the
+   opening value. */
+const STORAGE_KEY = "dristi.pending-orders.v1";
+
+function restore(): void {
+  if (restored || typeof window === "undefined") return;
+  restored = true;
+  orders = restoreRecord(STORAGE_KEY, OPENING);
+}
+
+/** What the server rendered, and what hydration must agree with. */
+export function serverPendingOrders(): PendingOrders {
+  return OPENING;
+}
+
 const listeners = new Set<() => void>();
 
 export function subscribeToPendingOrders(listener: () => void): () => void {
   listeners.add(listener);
+  /* The saved copy loads with the first subscriber — after hydration, so the server and
+     the first paint agree — and every subscriber hears it. */
+  if (!restored) {
+    restore();
+    for (const each of listeners) each();
+  }
+  /* Another tab's save replaces this tab's copy. */
+  watchRecord(STORAGE_KEY, () => {
+    orders = restoreRecord(STORAGE_KEY, OPENING);
+    for (const each of listeners) each();
+  });
   return () => {
     listeners.delete(listener);
   };
@@ -95,11 +126,13 @@ export function readPendingOrders(): PendingOrders {
 
 function write(next: PendingOrders) {
   orders = next;
+  saveRecord(STORAGE_KEY, orders);
   for (const listener of listeners) listener();
 }
 
 /** The editor has words in this order: list it, or bring what the list shows up to date. */
 export function noteOrderDraft(meta: PendingOrderMeta): void {
+  restore();
   const current = orders[meta.key];
   if (
     current &&
@@ -121,6 +154,7 @@ export function noteOrderDraft(meta: PendingOrderMeta): void {
 
 /** Sent for signing from the editor: the magistrate's move now. */
 export function sendOrderForSigning(meta: PendingOrderMeta): void {
+  restore();
   const current = orders[meta.key];
   if (current?.sent) return;
   write({
@@ -135,6 +169,7 @@ export function sendOrderForSigning(meta: PendingOrderMeta): void {
 
 /** Back to draft, to be edited further — only before it is signed. */
 export function moveOrderBackToDraft(key: string, signing: OrderSigning): void {
+  restore();
   const current = orders[key];
   if (!current?.sent || signing[key] === "signed") return;
   write({ ...orders, [key]: { ...current, sent: false } });
@@ -145,6 +180,7 @@ export function moveOrderBackToDraft(key: string, signing: OrderSigning): void {
  * completed against words that are no longer the order's.
  */
 export function noteOrderTextEdited(key: string): void {
+  restore();
   const current = orders[key];
   if (!current?.workflowComplete) return;
   write({ ...orders, [key]: { ...current, workflowComplete: false } });
@@ -159,6 +195,7 @@ export function setOrderWorkflowComplete(
   complete: boolean,
   signing: OrderSigning,
 ): void {
+  restore();
   const current = orders[key];
   if (!current || current.workflowComplete === complete) return;
   if (!complete && signing[key] === "signed") return;
@@ -207,4 +244,10 @@ export function pendingOrderCountFor(
     (order) => pendingOrderStage(order, signing) === stage,
   ).length;
   return count || undefined;
+}
+
+/** Back to how a fresh browser opens — Reset sandbox data (`sandbox-reset.ts`). */
+export function resetPendingOrders(): void {
+  restored = true;
+  write(OPENING);
 }

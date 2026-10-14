@@ -2,6 +2,7 @@
 
 import { LayoutTemplateIcon } from "lucide-react";
 
+import { useOrderFlow } from "@/components/employee/use-order-flow";
 import { useOrderLayout } from "@/components/employee/use-order-layout";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,7 +20,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  ORDER_LAYOUT_OPTIONS,
+  CLASSIC_ORDER_LAYOUT_OPTIONS,
   type OrderLayout,
 } from "@/lib/employee/order-layout";
 import { cn } from "@/lib/utils";
@@ -38,7 +39,10 @@ export function isOrderScreenPath(pathname: string): boolean {
  * screen", read from the one list of variants.
  */
 export function OrderVariantSwitch({ className }: { className?: string }) {
+  const [flow] = useOrderFlow();
   const [layout, setLayout] = useOrderLayout();
+  /* The Pending orders flow has one order screen, E — nothing to switch between. */
+  if (flow === "pending") return null;
   /* The court's bar has no tooltip provider above it, so this brings its own. */
   return (
     <TooltipProvider>
@@ -74,7 +78,7 @@ export function OrderVariantSwitch({ className }: { className?: string }) {
             value={layout}
             onValueChange={(next) => setLayout(next as OrderLayout)}
           >
-            {ORDER_LAYOUT_OPTIONS.map((option) => (
+            {CLASSIC_ORDER_LAYOUT_OPTIONS.map((option) => (
               <DropdownMenuRadioItem key={option.id} value={option.id}>
                 {option.label}
               </DropdownMenuRadioItem>

@@ -4,6 +4,7 @@ import * as React from "react";
 
 import {
   readPendingOrders,
+  serverPendingOrders,
   subscribeToPendingOrders,
   type PendingOrders,
 } from "@/lib/employee/pending-orders";
@@ -13,6 +14,6 @@ export function usePendingOrders(): PendingOrders {
   return React.useSyncExternalStore(
     subscribeToPendingOrders,
     readPendingOrders,
-    readPendingOrders,
+    serverPendingOrders,
   );
 }
