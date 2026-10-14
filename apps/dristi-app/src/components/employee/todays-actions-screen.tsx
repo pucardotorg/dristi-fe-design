@@ -19,6 +19,7 @@ import {
 } from "@/lib/employee/navigation";
 import { useCourt } from "@/components/court/court-provider";
 import { useCourtRole } from "@/components/employee/use-court-role";
+import { useOrderFlow } from "@/components/employee/use-order-flow";
 
 const NEVER_CHANGES = () => () => {};
 const readToday = () => isoDay(new Date());
@@ -38,8 +39,9 @@ export function TodaysActionsScreen() {
   const today = React.useSyncExternalStore(NEVER_CHANGES, readToday, readToday);
   const { court } = useCourt();
   const seat = useCourtRole();
-  const items = courtNavClubbed("actions", court, seat);
-  const total = courtNavClubbedTotal("actions", court, seat);
+  const [flow] = useOrderFlow();
+  const items = courtNavClubbed("actions", court, seat, flow);
+  const total = courtNavClubbedTotal("actions", court, seat, flow);
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-8 p-6 md:p-8">

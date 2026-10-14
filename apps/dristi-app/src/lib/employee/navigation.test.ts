@@ -19,6 +19,8 @@ import {
   isCourtNavCombinedActive,
   isCourtNavCombinedRow,
   seatHasNavRow,
+  courtNavGroupsForFlow,
+  courtNavTrailing,
 } from "./navigation";
 import { REGISTERS_PAGE } from "./registers";
 
@@ -134,12 +136,9 @@ describe("courtTrail", () => {
   });
 
   it("does not treat a hearings sibling as a nested listing", () => {
-    /* `schedule` is a queue of its own, not a listing under today's list — so it gets a
-       queue's trail, ending in its own name. */
-    assert.deepEqual(courtTrail("/employee/hearings/schedule"), [
-      { label: "Hearings" },
-      { label: "Schedule hearing" },
-    ]);
+    /* `schedule` is a row of its own at the foot of the rail (owner, 2026-10-14), not a
+       listing under today's list — a standalone row, so no trail. */
+    assert.deepEqual(courtTrail("/employee/hearings/schedule"), []);
   });
 
   it("still offers the way home on a route the rail does not know", () => {
@@ -183,8 +182,10 @@ describe("the court's standalone rows", () => {
       assert.ok(row.href, `${row.id} still goes nowhere`);
       assert.equal(row.external, undefined, `${row.id} still leaves the app`);
       /* The rail paints its counts in destructive red, and none of these numbers is
-         a backlog. */
-      assert.equal(row.count, undefined, `${row.id} carries a count`);
+         a backlog — except Schedule hearing's, a real queue moved to the foot of the
+         rail (owner, 2026-10-14). */
+      if (row.id !== "schedule-hearing")
+        assert.equal(row.count, undefined, `${row.id} carries a count`);
     }
   });
 
@@ -280,11 +281,11 @@ describe("the combined rail layouts", () => {
   it("keeps hearings a tab of its own under \"actions\", but not under \"schedule\"", () => {
     assert.deepEqual(
       courtNavKeptApart("actions", "kerala").map((item) => item.id),
-      ["todays-hearings", "bulk-reschedule", "sign-process"],
+      ["todays-hearings", "pending-orders", "sign-process"],
     );
     assert.deepEqual(
       courtNavKeptApart("schedule", "kerala").map((item) => item.id),
-      ["bulk-reschedule", "sign-process"],
+      ["pending-orders", "sign-process"],
     );
   });
 
@@ -326,15 +327,15 @@ describe("the combined rail layouts", () => {
     );
   });
 
-  it("builds \"actions\" as hearings, the combined row, then the other two kept apart", () => {
+  it("builds \"actions\" as hearings and pending orders, the combined row, then Sign process", () => {
     const rows = courtNavRowsFor("actions", "kerala");
     assert.deepEqual(
       rows.map((item) => item.id),
-      ["todays-hearings", "todays-actions", "bulk-reschedule", "sign-process"],
+      ["todays-hearings", "pending-orders", "todays-actions", "sign-process"],
     );
-    assert.equal(rows[1].count, courtNavClubbedTotal("actions", "kerala"));
-    assert.equal(rows[1].href, "/employee/todays-actions");
-    assert.ok(isCourtNavCombinedRow(rows[1]));
+    assert.equal(rows[2].count, courtNavClubbedTotal("actions", "kerala"));
+    assert.equal(rows[2].href, "/employee/todays-actions");
+    assert.ok(isCourtNavCombinedRow(rows[2]));
     /* Every row a combined layout renders needs a mark of its own — the folded strip
        has no group left to carry it for a row promoted out of one. */
     for (const item of rows) {
@@ -342,11 +343,11 @@ describe("the combined rail layouts", () => {
     }
   });
 
-  it("builds \"schedule\" as the combined row, then Bulk reschedule and Sign process", () => {
+  it("builds \"schedule\" as the combined row, then Pending orders and Sign process", () => {
     const rows = courtNavRowsFor("schedule", "kerala");
     assert.deepEqual(
       rows.map((item) => item.id),
-      ["todays-schedule", "bulk-reschedule", "sign-process"],
+      ["todays-schedule", "pending-orders", "sign-process"],
     );
     assert.equal(rows[0].count, courtNavClubbedTotal("schedule", "kerala"));
     assert.equal(rows[0].href, "/employee/todays-schedule");
@@ -429,6 +430,51 @@ describe("rows hidden from the bench", () => {
   it("leaves them with the seats that still work them", () => {
     assert.ok(seatHasNavRow("scrutiny-officer", "scrutiny"));
     assert.ok(seatHasNavRow("scrutiny-officer", "approve-registrations"));
-    assert.ok(seatHasNavRow("typist", "approve-copy"));
+    assert.equal(seatHasNavRow("typist", "approve-copy"), false);
+    assert.equal(seatHasNavRow("typist", "sign-orders"), false);
+    assert.equal(seatHasNavRow("magistrate", "sign-orders"), false);
+    assert.ok(seatHasNavRow("magistrate", "pending-orders"));
+    assert.ok(seatHasNavRow("typist", "pending-orders"));
+  });
+});
+
+describe("the order flow", () => {
+  it("puts Pending orders under Today's hearings and scheduling at the foot, by default", () => {
+    const hearings = courtNavGroupsForFlow().find((group) => group.id === "hearings");
+    assert.deepEqual(
+      hearings?.items.map((item) => item.id),
+      ["todays-hearings", "pending-orders"],
+    );
+    assert.deepEqual(
+      courtNavTrailing().map((item) => item.id),
+      ["schedule-hearing", "bulk-reschedule", "configurations"],
+    );
+    assert.equal(seatHasNavRow("magistrate", "sign-orders"), false);
+  });
+
+  it("gives Classic the rail as it was", () => {
+    const hearings = courtNavGroupsForFlow("classic").find(
+      (group) => group.id === "hearings",
+    );
+    assert.deepEqual(
+      hearings?.items.map((item) => item.id),
+      ["todays-hearings", "schedule-hearing", "bulk-reschedule"],
+    );
+    assert.deepEqual(
+      courtNavTrailing("classic").map((item) => item.id),
+      ["configurations"],
+    );
+    assert.ok(seatHasNavRow("magistrate", "sign-orders", "classic"));
+    assert.deepEqual(
+      courtNavKeptApart("actions", "kerala", undefined, "classic").map((item) => item.id),
+      ["todays-hearings", "bulk-reschedule", "sign-process"],
+    );
+  });
+
+  it("keeps the steno's narrowed rail in both", () => {
+    for (const flow of ["pending", "classic"] as const) {
+      assert.equal(seatHasNavRow("typist", "scrutiny", flow), false);
+      assert.equal(seatHasNavRow("typist", "sign-orders", flow), false);
+    }
   });
 });

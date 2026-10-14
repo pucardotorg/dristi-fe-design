@@ -113,12 +113,18 @@ export function optionDDraftKey(id: string): string {
   return `d:${id}`;
 }
 
+/** Version E's key for a listing's draft (`lib/employee/order-door.ts`), its own like B's. */
+export function editorDraftKey(id: string): string {
+  return `editor:${id}`;
+}
+
 /** Whether a listing has an order started on it, in any version of the composer. */
 export function hasDraftFor(drafts: OrderDrafts, hearingId: string): boolean {
   return Boolean(
     drafts[hearingId] ??
       drafts[textDraftKey(hearingId)] ??
       drafts[proceedingsDraftKey(hearingId)] ??
-      drafts[optionDDraftKey(hearingId)],
+      drafts[optionDDraftKey(hearingId)] ??
+      drafts[editorDraftKey(hearingId)],
   );
 }

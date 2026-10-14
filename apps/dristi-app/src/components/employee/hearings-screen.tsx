@@ -57,6 +57,7 @@ import {
   type HearingOrderStatus,
 } from "@/lib/employee/hearing-orders";
 import { markOrdersSigned } from "@/lib/employee/order-signing";
+import { useOrderFlow } from "@/components/employee/use-order-flow";
 import {
   markHearingEnded,
   markHearingOngoing,
@@ -182,7 +183,13 @@ export function HearingsScreen() {
 
   const rows = sortRows(filterHearings(listed, filters), HEARING_SORTS, sort);
 
-  const [view, setViewState] = React.useState<ScreenView>(() => rememberedView);
+  /* The Orders view is Classic's (`order-flow.ts`). In the new flow orders have a row of
+     their own, Pending orders, right below this one (owner, 2026-10-14). */
+  const [flow] = useOrderFlow();
+  const [chosenView, setViewState] = React.useState<ScreenView>(
+    () => rememberedView,
+  );
+  const view: ScreenView = flow === "classic" ? chosenView : "hearings";
   function setView(next: ScreenView) {
     rememberView(next);
     setViewState(next);
@@ -375,12 +382,14 @@ export function HearingsScreen() {
           </p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <ViewToggle
-            value={view}
-            onChange={setView}
-            hearings={listed.length}
-            orders={allOrders.length}
-          />
+          {flow === "classic" ? (
+            <ViewToggle
+              value={view}
+              onChange={setView}
+              hearings={listed.length}
+              orders={allOrders.length}
+            />
+          ) : null}
           <JoinVideoCourt />
         </div>
       </header>

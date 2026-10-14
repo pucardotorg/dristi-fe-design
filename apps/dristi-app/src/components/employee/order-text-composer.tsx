@@ -736,7 +736,7 @@ function EdgeHandle({
  * **Items** — what is in this order, then the catalogue to add from: the screen's own
  * card, renamed (owner, 2026-10-12: "just make sure that you call it items").
  */
-function ItemsCard({
+export function ItemsCard({
   items,
   context,
   purpose,
@@ -1159,13 +1159,14 @@ function CatalogueRow({
  * with the sentence they make shown as they are answered. It goes in only once every
  * required field is answered (`VAR-06`).
  */
-function ItemDialog({
+export function ItemDialog({
   editing,
   context,
   today,
   onChange,
   onClose,
   onConfirm,
+  description,
 }: {
   editing: { block: ItemBlock; mode: "add" | "edit" } | null;
   context: ComposerContext;
@@ -1173,6 +1174,8 @@ function ItemDialog({
   onChange: (block: ItemBlock) => void;
   onClose: () => void;
   onConfirm: () => void;
+  /** In place of the line saying where its sentence goes — order screen E writes none. */
+  description?: string;
 }) {
   /* What was last open, kept while the dialog animates out — otherwise its title and
      fields vanish a beat before it does. */
@@ -1210,9 +1213,10 @@ function ItemDialog({
             {label}
           </DialogTitle>
           <DialogDescription>
-            {shown?.mode === "edit"
-              ? "The corrected sentence replaces this item's words in the order."
-              : "Its sentence is written into the order once these are answered."}
+            {description ??
+              (shown?.mode === "edit"
+                ? "The corrected sentence replaces this item's words in the order."
+                : "Its sentence is written into the order once these are answered.")}
           </DialogDescription>
         </DialogHeader>
         {block ? (
