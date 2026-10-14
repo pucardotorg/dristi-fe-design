@@ -13,9 +13,9 @@
  *   block, so decision blocks are left out.
  * - **D** is C with the preview live in the right panel, so it opens as C does — on its
  *   own draft.
- * - **E** (full-page editor) is the order as one body of text, like B, but without the
- *   attendance and next-hearing lines: those are its workflow, entered apart from the
- *   words.
+ * - **E** (full-page editor) opens with its text empty: the door's items — a cognizance
+ *   act's, an application decision's — stay items, in its workflow, entered apart from
+ *   the words.
  *
  * Each variant keeps its own draft under its own key, so switching mid-order never
  * shows one composer's half-made order in another. The keys are the ones the variants
@@ -76,33 +76,58 @@ export function variantInitialDraft(
     };
   }
   if (variant === "editor") {
-    return { ...initial, body: bodyFromBlocks(initial.blocks) };
-  }
-  if (variant === "proceedings" || variant === "option-d") {
-    /* C (and D) lists the next hearing in its own section, never as an item. A door that loads a
-       *Scheduling of hearing date* item (Take cognizance, Issue notice) has it moved there,
-       with whatever date and purpose it carried, so the order asks for the date once. */
-    const scheduling = initial.blocks.find(
-      (block) => block.kind === "item" && block.type === "scheduling-of-hearing",
-    );
+    /* The text opens empty and what the door loaded stays as items in the workflow
+       (owner, 2026-10-14: "instead of pre-filling the text, pre-add the items"). A
+       *Scheduling of hearing date* item is folded into the workflow's Next hearing, as C
+       does, so the date is asked for once (owner, 2026-10-14). */
     return {
       ...initial,
-      blocks: initial.blocks.filter(
-        (block) =>
-          block !== scheduling && !(block.kind === "item" && block.applicationId),
+      ...foldScheduling(initial),
+      body: { html: "", text: "" },
+    };
+  }
+  if (variant === "proceedings" || variant === "option-d") {
+    /* C (and D) lists the next hearing in its own section, never as an item, and keeps an
+       application's decision as the decision, not as an item block. */
+    const folded = foldScheduling(initial);
+    return {
+      ...initial,
+      ...folded,
+      blocks: folded.blocks.filter(
+        (block) => !(block.kind === "item" && block.applicationId),
       ),
-      ...(scheduling && scheduling.kind === "item"
-        ? {
-            next: "list" as const,
-            nextDate: scheduling.values.date || initial.nextDate,
-            nextPurpose:
-              (scheduling.values.purpose as OrderDraft["nextPurpose"]) ||
-              initial.nextPurpose,
-          }
-        : {}),
     };
   }
   return initial;
+}
+
+/**
+ * A door that loads a *Scheduling of hearing date* item (Take cognizance, Issue notice)
+ * has it moved into the order's own next hearing, with whatever date and purpose it
+ * carried, so the order asks for the date once — C, D and E.
+ */
+function foldScheduling(
+  initial: OrderDraft,
+): Pick<OrderDraft, "blocks" | "next" | "nextDate" | "nextPurpose"> {
+  const scheduling = initial.blocks.find(
+    (block) => block.kind === "item" && block.type === "scheduling-of-hearing",
+  );
+  if (!scheduling || scheduling.kind !== "item") {
+    return {
+      blocks: initial.blocks,
+      next: initial.next,
+      nextDate: initial.nextDate,
+      nextPurpose: initial.nextPurpose,
+    };
+  }
+  return {
+    blocks: initial.blocks.filter((block) => block !== scheduling),
+    next: "list",
+    nextDate: scheduling.values.date || initial.nextDate,
+    nextPurpose:
+      (scheduling.values.purpose as OrderDraft["nextPurpose"]) ||
+      initial.nextPurpose,
+  };
 }
 
 /**

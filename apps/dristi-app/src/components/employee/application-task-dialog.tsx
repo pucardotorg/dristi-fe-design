@@ -8,6 +8,7 @@ import { ChevronDownIcon } from "lucide-react";
 import { ReviewRow } from "@/components/cases/filing-form-shared";
 import { Identifier } from "@/components/chrome/identifier";
 import { applicationOrderHref } from "@/components/employee/application-order-screen";
+import type { ApplicationOrderDecision } from "@/lib/employee/application-order-decision";
 import { ApplicationReviewOverlay } from "@/components/employee/application-review-dialog";
 import { useCourtRole } from "@/components/employee/use-court-role";
 import { Badge } from "@/components/ui/badge";
@@ -166,10 +167,11 @@ function TaskBody({
 
   const id = application.id;
 
-  /* For now (owner, 2026-10-13) the order steps open the real order screen, empty,
-     rather than drafting a one-line order here. */
-  function openOrder(kind: "review" | "decide") {
-    router.push(applicationOrderHref(kind, id));
+  /* The order steps open the real order screen rather than drafting a one-line order
+     here (owner, 2026-10-13), with the decision made here pre-added as its item
+     (owner, 2026-10-14). */
+  function openOrder(kind: "review" | "decide", decision?: ApplicationOrderDecision) {
+    router.push(applicationOrderHref(kind, id, decision));
   }
 
   function confirmOnboard() {
@@ -300,7 +302,7 @@ function TaskBody({
             <label className="flex min-h-10 items-start gap-3 text-body-compact">
               <RadioGroupItem value="now" className="mt-0.5" />
               <span className="flex flex-col gap-0.5">
-                <span className="font-medium">Deal with it now</span>
+                <span className="font-medium">Decide now</span>
                 <span className="text-muted-foreground">
                   Go straight to the order. Nobody is asked to object.
                 </span>
@@ -309,7 +311,7 @@ function TaskBody({
             <label className="flex min-h-10 items-start gap-3 text-body-compact">
               <RadioGroupItem value="date" className="mt-0.5" />
               <span className="flex flex-col gap-0.5">
-                <span className="font-medium">Deal with it on a date</span>
+                <span className="font-medium">Decide on a date</span>
                 <span className="text-muted-foreground">
                   A Decide application task comes back on that date.
                 </span>
@@ -427,7 +429,7 @@ function TaskBody({
           magistrate={mayAct}
           dateUsed={setADateUsed(application)}
           canDraft={canDraftOrder(seat)}
-          onDismiss={() => openOrder("review")}
+          onDismiss={() => openOrder("review", "dismiss")}
           onSetDate={() => {
             setDate(suggestion ?? "");
             setMode("set-date");
@@ -454,10 +456,14 @@ function TaskBody({
             ) : null}
           </div>
           <div className="flex flex-col-reverse gap-2 sm:flex-row">
-            <Button type="button" variant="outline" onClick={() => openOrder("decide")}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => openOrder("decide", "reject")}
+            >
               Reject
             </Button>
-            <Button type="button" onClick={() => openOrder("decide")}>
+            <Button type="button" onClick={() => openOrder("decide", "accept")}>
               Accept
             </Button>
           </div>
