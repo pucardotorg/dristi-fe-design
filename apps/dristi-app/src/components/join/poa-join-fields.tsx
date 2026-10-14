@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { DownloadIcon, FileTextIcon, InfoIcon } from "lucide-react";
+import { CheckIcon, DownloadIcon, FileTextIcon, InfoIcon } from "lucide-react";
 
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import {
   ComboboxValue,
   useComboboxAnchor,
 } from "@/components/ui/combobox";
+import { Badge } from "@/components/ui/badge";
 import { DocumentSlot } from "@/components/ui/document-slot";
 import {
   Field,
@@ -78,7 +79,11 @@ function PartyDocument({
 }) {
   const inputRef = React.useRef<HTMLInputElement>(null);
   return (
-    <Field data-invalid={invalid}>
+    /* The full title, naming the person, sits above the slot where it can wrap; the
+       slot says what to put in it. Inside the slot a long name wrapped and stranded the
+       required mark, and repeating "Authorization document" said it twice
+       (owner, 2026-10-14). */
+    <Field data-invalid={invalid} className="gap-2">
       <FieldLabel>{fill(joinDialog.poaDocLabelFor, locale, { name })}</FieldLabel>
       <input
         ref={inputRef}
@@ -96,8 +101,7 @@ function PartyDocument({
       <DocumentSlot
         status={file ? "filled" : "empty"}
         media="icon"
-        // The field's label above already names the party.
-        label={pick(joinDialog.poaDocLabel, locale)}
+        label={pick(joinDialog.poaDocSlot, locale)}
         required
         filename={file?.name}
         meta={file ? fileSize(file.size) : undefined}
@@ -275,7 +279,7 @@ export function PoaJoinFields({
           <section
             key={party.id}
             aria-label={fill(joinDialog.poaPartyHeading, locale, { name: party.name })}
-            className="flex flex-col gap-4 rounded-xl bg-surface-sunken p-4"
+            className="flex flex-col gap-5 rounded-xl bg-surface-sunken p-4"
           >
             <PartyDocument
               name={party.name}
@@ -285,23 +289,23 @@ export function PoaJoinFields({
               locale={locale}
             />
             {party.hasJoined ? (
-              /* Joined already: the number stays in view but masked and locked, so
-                 nothing reads as missing (owner, 2026-10-14). */
-              <Field data-disabled>
-                <FieldLabel htmlFor={`join-poa-phone-${party.id}`}>
+              /* Joined already: the number stays in view, masked, as a fact rather than
+                 a greyed-out input — there is nothing to fill (owner, 2026-10-14). */
+              <div className="flex flex-col gap-1.5">
+                <p className="text-body-compact font-medium">
                   {fill(joinDialog.poaPhoneLabelFor, locale, { name: party.name })}
-                </FieldLabel>
-                <Input
-                  id={`join-poa-phone-${party.id}`}
-                  disabled
-                  readOnly
-                  value={maskedPhone(party.phoneOnRecord)}
-                  className="tabular-nums"
-                />
-                <FieldDescription>
-                  {fill(joinDialog.poaPhoneJoined, locale, { name: party.name })}
-                </FieldDescription>
-              </Field>
+                </p>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <span className="text-body tabular-nums">{maskedPhone(party.phoneOnRecord)}</span>
+                  <Badge variant="success">
+                    <CheckIcon data-icon="inline-start" aria-hidden />
+                    {pick(joinDialog.poaJoinedChip, locale)}
+                  </Badge>
+                </div>
+                <p className="text-caption text-muted-foreground">
+                  {pick(joinDialog.poaPhoneJoinedNote, locale)}
+                </p>
+              </div>
             ) : (
               <Field data-invalid={phoneInvalid}>
                 <FieldLabel htmlFor={`join-poa-phone-${party.id}`}>

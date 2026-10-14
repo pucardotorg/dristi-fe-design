@@ -364,9 +364,11 @@ export const joinDialog = {
   /* Name first, so with several parties the field is found by its person
      (owner, 2026-10-14). */
   poaPhoneLabelFor: t("{name}'s mobile number", "{name}-ന്റെ മൊബൈൽ നമ്പർ"),
-  poaPhoneJoined: t(
-    "{name} has already joined the case. This is the number on their account.",
-    "{name} ഇതിനകം കേസിൽ ചേർന്നു. ഇത് അവരുടെ അക്കൗണ്ടിലെ നമ്പറാണ്.",
+  poaDocSlot: t("Signed copy", "ഒപ്പിട്ട പകർപ്പ്"),
+  poaJoinedChip: t("Joined", "ചേർന്നു"),
+  poaPhoneJoinedNote: t(
+    "Already on the case. This is the number on their account.",
+    "ഇതിനകം കേസിലുണ്ട്. ഇത് അവരുടെ അക്കൗണ്ടിലെ നമ്പറാണ്.",
   ),
   poaPartyHeading: t(
     "For {name}",
