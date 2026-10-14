@@ -70,7 +70,6 @@ import {
   markOrdersSigned,
   returnOrderToDraft,
 } from "@/lib/employee/order-signing";
-import { setOrderLayout } from "@/lib/employee/order-layout";
 import { blockGaps } from "@/lib/employee/order-composer";
 import { orderTemplate } from "@/lib/employee/order-templates";
 import {
@@ -264,10 +263,7 @@ function WorkflowDoorScreen({ door }: { door: OrderDoor }) {
                   toast(
                     "Back to draft. Send it for signing again when it is ready.",
                   );
-                  if (entry) {
-                    setOrderLayout("editor");
-                    router.push(entry.orderHref);
-                  }
+                  if (entry) router.push(entry.orderHref);
                 }}
               >
                 Move back to draft

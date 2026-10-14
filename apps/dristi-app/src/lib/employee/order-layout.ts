@@ -9,6 +9,8 @@
  * restored from `localStorage` once and lazily, safe to import from the server render.
  */
 
+import type { OrderFlow } from "./order-flow";
+
 const KEY = "dristi.order-layout";
 
 export type OrderLayout =
@@ -39,6 +41,29 @@ export const ORDER_LAYOUT_OPTIONS: readonly {
      2026-10-14). */
   { id: "editor", label: "E: Full-page editor" },
 ];
+
+/**
+ * The choice offered in the Classic order flow: A–D. In the Pending orders flow there is
+ * no choice — the order screen is E, the screen that flow is built on (owner, 2026-10-14:
+ * "when the new flow is selected, we don't need to give the option of order screens A to
+ * D. Only for the classic flow, these four options can apply").
+ */
+export const CLASSIC_ORDER_LAYOUT_OPTIONS = ORDER_LAYOUT_OPTIONS.filter(
+  (option) => option.id !== "editor",
+);
+
+/**
+ * The order screen a door opens, from the order flow and the stored choice: E in the
+ * Pending orders flow, whatever is stored; in Classic the stored A–D, and A for an E a
+ * browser stored before E was tied to Pending orders.
+ */
+export function effectiveOrderLayout(
+  flow: OrderFlow,
+  stored: OrderLayout,
+): OrderLayout {
+  if (flow === "pending") return "editor";
+  return stored === "editor" ? DEFAULT_ORDER_LAYOUT : stored;
+}
 
 const ORDER_LAYOUTS: readonly OrderLayout[] = ORDER_LAYOUT_OPTIONS.map(
   (option) => option.id,
