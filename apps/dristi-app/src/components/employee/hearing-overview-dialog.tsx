@@ -54,8 +54,8 @@ import {
  * this component (`lib/employee/hearing-session.ts`), which is what lets the two agree.
  *
  * **Nothing here is a court record.** The same bargain the cause list already makes
- * (`lib/employee/hearings.ts`): starting a hearing is a screen mark, and View case is
- * not connected to anything.
+ * (`lib/employee/hearings.ts`): starting a hearing is a screen mark, and View case opens
+ * one demo case for every listing.
  */
 export function HearingOverviewDialog({
   hearing,
