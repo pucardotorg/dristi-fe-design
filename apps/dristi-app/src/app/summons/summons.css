@@ -140,13 +140,15 @@
 /* The option numbers: large but regular, so they order the page without shouting. */
 .summons .railnum { font-size: 20pt; font-weight: 400; line-height: 1; padding-top: 5mm; }
 .summons .bar { border-left: 3pt solid var(--ink); padding-left: 4mm; }
+/* Label and code read as one line, centred together — ends apart left a field of white
+   between them across a full-width box (owner, 2026-10-14). */
 .summons .codebox {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6mm;
+  align-items: baseline;
+  justify-content: center;
+  gap: 7mm;
   border: 1pt solid var(--ink);
-  padding: 1.5mm 5mm;
+  padding: 2mm 5mm;
 }
 .summons .codelabel { font-size: 11.5pt; color: var(--ink-2); }
 .summons .code { font-size: 20pt; font-weight: 700; letter-spacing: 0.16em; line-height: 1.1; }
