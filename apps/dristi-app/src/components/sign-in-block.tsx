@@ -176,7 +176,8 @@ export function SignInBlock({
   /** Called when credentials are accepted, with the role the number is registered
    *  under — the caller routes litigants and advocates to different portals. Without
    *  it, the prototype notice shows. */
-  onSignedIn?: (role: Role) => void;
+  /** The number is passed too, so a demo account can open as itself. */
+  onSignedIn?: (role: Role, mobile: string) => void;
   /** Called from the registration success action, carrying whether the ID upload was
    *  deferred. Without it, registration shows its own prototype notice. */
   onRegistered?: (result: {
@@ -296,7 +297,7 @@ export function SignInBlock({
 
     // The number step already established this number is registered.
     if (onSignedIn) {
-      onSignedIn(registeredRole(mobile) ?? "litigant");
+      onSignedIn(registeredRole(mobile) ?? "litigant", mobile);
       return;
     }
     setAccepted(true);
