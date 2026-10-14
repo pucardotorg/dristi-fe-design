@@ -33,7 +33,7 @@ const MAX_ORIGIN_LENGTH = 512;
  */
 const AREAS: { prefix: string; label: string; href?: string }[] = [
   { prefix: "/filings", label: "File a case", href: "/filings" },
-  { prefix: "/tasks", label: "Pending tasks", href: TASKS_HOME },
+  { prefix: "/tasks", label: "Take action", href: TASKS_HOME },
   { prefix: "/cases", label: "Cases", href: "/cases" },
   { prefix: "/vakalatnama", label: "Vakalatnama", href: "/vakalatnama" },
   {
@@ -52,7 +52,7 @@ export function areaOf(path: string): { label: string; href?: string } {
   const match = AREAS.find((area) => path.startsWith(area.prefix));
   return match
     ? { label: match.label, href: match.href }
-    : { label: "Pending tasks", href: TASKS_HOME };
+    : { label: "Take action", href: TASKS_HOME };
 }
 
 /**

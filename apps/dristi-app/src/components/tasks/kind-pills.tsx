@@ -32,7 +32,7 @@ export function KindPills({
   onSelect,
 }: {
   counts: Record<TaskCategory, number> | null;
-  /** The pressed kinds; none pressed is Everything. */
+  /** The pressed kind (at most one); none pressed is Everything. */
   active: readonly TaskCategory[];
   loading?: boolean;
   onSelect: (kinds: TaskCategory[]) => void;
@@ -40,20 +40,19 @@ export function KindPills({
   const total = counts ? CATEGORY_ORDER.reduce((sum, k) => sum + counts[k], 0) : null;
   return (
     <ToggleGroup
-      type="multiple"
+      type="single"
       size="lg"
       /* `default`, not `outline`: an outlined row gives every pill a card fill, and a
          tinted chosen pill among six filled ones reads softer than its neighbours — it
          looked disabled (render, 2026-09-15). Transparent pills leave the chosen one as
          the only fill on the row. */
       variant="default"
-      value={active.length ? [...active] : ["all"]}
-      onValueChange={(values) => {
-        // Kinds add up (owner, Sept 21: any combination). Everything is the
-        // empty set: pressing it clears the rest, and pressing a kind lifts it.
-        const kinds = values.filter((value) => value !== "all") as TaskCategory[];
-        const pressedEverything = values.includes("all") && active.length > 0;
-        onSelect(pressedEverything ? [] : kinds);
+      value={active[0] ?? "all"}
+      onValueChange={(value) => {
+        // One kind at a time (owner, 2026-10-14 — reversing Sept 21's any combination):
+        // Everything is the whole list, so a set of kinds was a second way to say it.
+        // Pressing the chosen pill again leaves nothing chosen, which is Everything.
+        onSelect(!value || value === "all" ? [] : [value as TaskCategory]);
       }}
       aria-label="Categories"
       /* The row scrolls sideways on a phone; the padding keeps a focus ring off the

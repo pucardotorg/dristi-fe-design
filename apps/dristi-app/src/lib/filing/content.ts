@@ -333,9 +333,9 @@ export const bailDialog = {
   copiedId: t("Copied", "പകർത്തി"),
   paymentLabel: t("Court fee", "കോടതി ഫീസ്"),
   paymentPaid: t("{fee} paid", "{fee} അടച്ചു"),
-  paymentDeferred: t("In your pending tasks", "നിങ്ങളുടെ ബാക്കിയുള്ള ജോലികളിൽ"),
+  paymentDeferred: t("Under Take action", "നിങ്ങളുടെ ബാക്കിയുള്ള ജോലികളിൽ"),
   feeTaskNote: t(
-    "The {fee} court fee has been added to your pending tasks. The application is already with the court.",
+    "The {fee} court fee has been added to Take action. The application is already with the court.",
     "{fee} കോടതി ഫീസ് നിങ്ങളുടെ ബാക്കിയുള്ള ജോലികളിൽ ചേർത്തു. അപേക്ഷ ഇതിനകം കോടതിയിലാണ്.",
   ),
   suretySentNote: t(
@@ -375,7 +375,7 @@ export const bailDialog = {
 
 export const bondCopy = {
   /* pending task on the case file */
-  pendingTitle: t("Pending tasks", "ബാക്കിയുള്ള ജോലികൾ"),
+  pendingTitle: t("Take action", "ബാക്കിയുള്ള ജോലികൾ"),
   taskRaiseBond: t("Raise bail bond", "ജാമ്യ ബോണ്ട് സമർപ്പിക്കുക"),
   taskDue: t("Due {date}", "{date}-നകം"),
   taskNote: t(
@@ -397,7 +397,7 @@ export const bondCopy = {
     "മജിസ്‌ട്രേറ്റ് ജാമ്യ വ്യവസ്ഥകൾ നിശ്ചയിച്ചു. ബോണ്ട് തയ്യാറാക്കാൻ ജാമ്യക്കാരുടെ വിവരങ്ങൾ പൂർത്തിയാക്കുക.",
   ),
   directBody: t(
-    "Generate a bail bond directly. If the magistrate has already set terms on a bail application, raise the bond from that pending task instead.",
+    "Generate a bail bond directly. If the magistrate has already set terms on a bail application, raise the bond from that task under Take action instead.",
     "ജാമ്യ ബോണ്ട് നേരിട്ട് തയ്യാറാക്കുക. മജിസ്‌ട്രേറ്റ് ജാമ്യാപേക്ഷയിൽ വ്യവസ്ഥകൾ നിശ്ചയിച്ചിട്ടുണ്ടെങ്കിൽ ആ ബാക്കിയുള്ള ജോലിയിൽ നിന്ന് ബോണ്ട് സമർപ്പിക്കുക.",
   ),
   editBody: t(

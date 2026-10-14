@@ -1,12 +1,14 @@
 "use client";
 
+import { isApplicationTask } from "@/components/tasks/act/task-flows";
+import { TaskViewDialog } from "@/components/tasks/act/task-view-dialog";
+
 import * as React from "react";
 import { useRouter } from "next/navigation";
 
 import { verbFor } from "@/lib/tasks/permissions";
 import { caseOf } from "@/lib/tasks/selectors";
 import { useTasks } from "@/lib/tasks/store";
-import { taskHref } from "@/lib/tasks/routes";
 import { withOrigin } from "@/lib/nav/origin";
 import { useHereHref } from "@/components/shell/origin";
 import { markDone } from "@/lib/tasks/transitions";
@@ -46,6 +48,7 @@ export function useTaskAct() {
   const [flowNotice, setFlowNotice] = React.useState<{ task: Task; flow: Flow } | null>(null);
   const [confirmDone, setConfirmDone] = React.useState<Task | null>(null);
   const [responding, setResponding] = React.useState<Task | null>(null);
+  const [viewing, setViewing] = React.useState<Task | null>(null);
 
   const run = React.useCallback(
     (task: Task) => {
@@ -66,6 +69,12 @@ export function useTaskAct() {
           setFlowNotice({ task, flow: "scrutiny" });
           return;
         case "Continue": {
+          /* A drafted application is finished in View case's Raise application, over
+             this page (`task-flows.tsx`), not on the filing flow's own page. */
+          if (isApplicationTask(task)) {
+            setActing({ task, mode: "file" });
+            return;
+          }
           const flow = draftFlowOf(task);
           if (flow) setFlowNotice({ task, flow });
           else {
@@ -81,17 +90,28 @@ export function useTaskAct() {
           setConfirmDone(task);
           return;
         default:
-          // Waiting or closed — nothing to act on here; the task's own page explains.
-          router.push(taskHref(task.id));
+          // Waiting or closed — opened to look at, in its view window over the page
+          // (owner, 2026-10-14), not on the task list.
+          setViewing(task);
       }
     },
-    [store.cases, store.user, router]
+    [store.cases, store.user]
   );
 
   const actingCase = acting ? (caseOf({ cases: store.cases }, acting.task) ?? null) : null;
 
+  const viewingCase = viewing ? (caseOf({ cases: store.cases }, viewing) ?? null) : null;
+
   const layer = (
     <>
+      <TaskViewDialog
+        task={viewing ? (store.tasks.find((t) => t.id === viewing.id) ?? viewing) : null}
+        kase={viewingCase}
+        open={!!viewing && !!viewingCase}
+        onOpenChange={(open) => {
+          if (!open) setViewing(null);
+        }}
+      />
       <TaskActModal
         task={acting?.task ?? null}
         kase={actingCase}
