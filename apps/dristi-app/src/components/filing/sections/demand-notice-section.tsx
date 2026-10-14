@@ -251,7 +251,7 @@ export function DemandNoticeSection() {
       <FilingMain sourceOpen={sourceOpen}>
         <FilingPageHeader
           title="Demand notice & debt"
-          description="Details of the statutory demand notice you sent, and the debt the cheque was meant to discharge."
+          description="Details of the statutory demand notice sent to the accused, and the debt the cheque was meant to discharge."
         />
 
         <SectionTabs

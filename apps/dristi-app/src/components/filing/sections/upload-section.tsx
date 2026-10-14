@@ -453,7 +453,7 @@ export function UploadSection() {
           description={
             inCorrection
               ? "The documents filed with the complaint, as scrutiny received them."
-              : "Add the papers you already have: the cheque, the bank's memo, the notice you sent. We read them and fill in the form for you, so it is worth doing now. You can also continue without them and add them later."
+              : "Add the papers you already have: the cheque, the bank's memo, the demand notice. We read them and fill in the form for you, so it is worth doing now. You can also continue without them and add them later."
           }
         />
 
