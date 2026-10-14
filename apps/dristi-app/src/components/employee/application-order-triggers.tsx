@@ -41,6 +41,11 @@ const SETTLED: Record<ApplicationOrderKind, string> = {
  *
  * The order is signed by the magistrate in Pending orders, so it is the magistrate's
  * signature the application records. Renders nothing.
+ *
+ * **One tab applies them.** Orders are kept in step across tabs (`browser-record.ts`), so
+ * every open court tab sees an order become triggered; only the tab holding the
+ * `dristi-order-triggers` lock acts on it, or two tabs would decide the same application
+ * twice. Where the browser has no Web Locks, every tab acts, as before.
  */
 export function ApplicationOrderTriggers() {
   const ready = useApplicationsReady();
@@ -50,9 +55,10 @@ export function ApplicationOrderTriggers() {
   const drafts = useOrderDrafts();
   /* An outcome that could not be applied is said once, not on every render after. */
   const reported = React.useRef(new Set<string>());
+  const leader = useTriggerLock();
 
   React.useEffect(() => {
-    if (!ready) return;
+    if (!ready || !leader) return;
     const on = today();
     for (const order of Object.values(orders)) {
       if (pendingOrderStage(order, signing) !== "triggered") continue;
@@ -88,7 +94,38 @@ export function ApplicationOrderTriggers() {
         }
       }
     }
-  }, [ready, apps, orders, signing, drafts]);
+  }, [ready, leader, apps, orders, signing, drafts]);
 
   return null;
+}
+
+/**
+ * Whether this tab holds the lock that applies triggered orders. Held for as long as the
+ * tab is open; when it closes, the next tab waiting takes it.
+ */
+function useTriggerLock(): boolean {
+  /* Without Web Locks there is nothing to wait for: every tab acts. Nothing renders
+     from this, so the server's `false` cannot disagree with anything on screen. */
+  const [held, setHeld] = React.useState<boolean>(
+    () => typeof navigator !== "undefined" && !navigator.locks,
+  );
+  React.useEffect(() => {
+    if (typeof navigator === "undefined" || !navigator.locks) return;
+    const release = new AbortController();
+    navigator.locks
+      .request("dristi-order-triggers", { signal: release.signal }, () => {
+        setHeld(true);
+        return new Promise<void>((resolve) => {
+          release.signal.addEventListener("abort", () => resolve());
+        });
+      })
+      .catch(() => {
+        /* Aborted while waiting — this tab is going away. */
+      });
+    return () => {
+      release.abort();
+      setHeld(false);
+    };
+  }, []);
+  return held;
 }

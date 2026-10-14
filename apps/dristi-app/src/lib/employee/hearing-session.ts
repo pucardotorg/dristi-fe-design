@@ -21,6 +21,7 @@
  * a render — the hook is what subscribes.
  */
 
+import { restoreRecord, saveRecord, watchRecord } from "./browser-record";
 import { SAMPLE_SESSION } from "./sample-sitting";
 
 /** The three marks, in the shape `withHearingSession` applies them. */
@@ -46,10 +47,56 @@ export const EMPTY_SESSION: HearingSession = {
 /* Opens on the demo sitting (`sample-sitting.ts`), currently an untouched day; fill
    that file to open with hearings already under way. */
 let session: HearingSession = SAMPLE_SESSION;
+let restored = false;
 const listeners = new Set<() => void>();
 
+/* Saved in this browser and kept in step across tabs (`browser-record.ts`; owner,
+   2026-10-14: a hearing the reader starts in one tab is under way in the steno's). The
+   sets are kept as lists. Restored when the first component subscribes, so the server
+   and hydration read the opening session. */
+const STORAGE_KEY = "dristi.hearing-session.v1";
+
+type StoredSession = {
+  ongoingId?: string | null;
+  endedIds?: string[];
+  passedOverIds?: string[];
+};
+
+/* Nothing saved yet: the opening sitting. */
+const NOTHING_SAVED: StoredSession = Object.freeze({});
+
+function fromStored(stored: StoredSession): HearingSession {
+  if (stored === NOTHING_SAVED) return SAMPLE_SESSION;
+  return {
+    ongoingId: stored.ongoingId ?? null,
+    endedIds: new Set(stored.endedIds ?? []),
+    passedOverIds: new Set(stored.passedOverIds ?? []),
+  };
+}
+
+function load(): void {
+  session = fromStored(restoreRecord(STORAGE_KEY, NOTHING_SAVED));
+}
+
+function restore(): void {
+  if (restored || typeof window === "undefined") return;
+  restored = true;
+  load();
+}
+
+/** What the server rendered, and what hydration must agree with. */
+export function serverHearingSession(): HearingSession {
+  return SAMPLE_SESSION;
+}
+
 function commit(next: HearingSession): void {
+  restore();
   session = next;
+  saveRecord(STORAGE_KEY, {
+    ongoingId: next.ongoingId,
+    endedIds: [...next.endedIds],
+    passedOverIds: [...next.passedOverIds],
+  } satisfies StoredSession);
   for (const listener of listeners) listener();
 }
 
@@ -61,6 +108,15 @@ function withId(ids: ReadonlySet<string>, id: string): ReadonlySet<string> {
 
 export function subscribeToHearingSession(listener: () => void): () => void {
   listeners.add(listener);
+  if (!restored) {
+    restore();
+    for (const each of listeners) each();
+  }
+  /* Another tab's save replaces this tab's copy. */
+  watchRecord(STORAGE_KEY, () => {
+    load();
+    for (const each of listeners) each();
+  });
   return () => {
     listeners.delete(listener);
   };
@@ -77,12 +133,14 @@ export function readHearingSession(): HearingSession {
  * the one matter on the call, not a set.
  */
 export function markHearingOngoing(id: string): void {
+  restore();
   if (session.ongoingId === id) return;
   commit({ ...session, ongoingId: id });
 }
 
 /** End hearing. The call is finished, so it is no longer the ongoing one. */
 export function markHearingEnded(id: string): void {
+  restore();
   commit({
     ongoingId: session.ongoingId === id ? null : session.ongoingId,
     endedIds: withId(session.endedIds, id),
@@ -92,9 +150,16 @@ export function markHearingEnded(id: string): void {
 
 /** Pass over. Deferred rather than finished — off the call either way. */
 export function markHearingPassedOver(id: string): void {
+  restore();
   commit({
     ongoingId: session.ongoingId === id ? null : session.ongoingId,
     endedIds: session.endedIds,
     passedOverIds: withId(session.passedOverIds, id),
   });
+}
+
+/** Back to the opening sitting — Reset sandbox data (`sandbox-reset.ts`). */
+export function resetHearingSession(): void {
+  restored = true;
+  commit(SAMPLE_SESSION);
 }

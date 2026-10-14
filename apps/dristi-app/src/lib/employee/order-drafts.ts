@@ -20,7 +20,7 @@
 
 import { EMPTY_ORDER_DRAFT, type OrderDraft } from "./order-draft";
 import { SAMPLE_DRAFTS } from "./sample-sitting";
-import { restoreRecord, saveRecord } from "./browser-record";
+import { restoreRecord, saveRecord, watchRecord } from "./browser-record";
 
 /** Every listing that has an order open on it, keyed by hearing id. */
 export type OrderDrafts = Readonly<Record<string, OrderDraft>>;
@@ -69,6 +69,11 @@ export function subscribeToOrderDrafts(listener: () => void): () => void {
     restore();
     for (const each of listeners) each();
   }
+  /* Another tab's save replaces this tab's copy. */
+  watchRecord(STORAGE_KEY, () => {
+    drafts = restoreRecord(STORAGE_KEY, OPENING_DRAFTS);
+    for (const each of listeners) each();
+  });
   return () => {
     listeners.delete(listener);
   };
