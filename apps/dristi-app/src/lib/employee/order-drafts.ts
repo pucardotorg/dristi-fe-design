@@ -7,12 +7,10 @@
  * be gone the moment the bench moved on, on the one screen in this area whose whole
  * point is the text being written into it.
  *
- * **This is the bargain `hearing-session.ts` already makes, not a new one.** A client
- * module instance outlives client-side navigation inside `/employee`, so the words
- * survive the trip between items. They do not survive a reload and are not meant to:
- * nothing here is filed, notified, signed, or written back to a case. Moving the draft
- * out of a component changed how long it lives on one device; it changed nothing about
- * what it claims.
+ * The module outlives client-side navigation inside `/employee`, so the words survive
+ * the trip between items, and it is saved in this browser so they survive a reload too
+ * (owner, 2026-10-14: a reload used to keep an onboarded application and lose the order
+ * deciding it). Nothing here is filed, notified, signed, or written back to a case.
  *
  * The map opens on the demo sitting — see `OPENING_DRAFTS` below.
  *
@@ -22,6 +20,7 @@
 
 import { EMPTY_ORDER_DRAFT, type OrderDraft } from "./order-draft";
 import { SAMPLE_DRAFTS } from "./sample-sitting";
+import { restoreRecord, saveRecord } from "./browser-record";
 
 /** Every listing that has an order open on it, keyed by hearing id. */
 export type OrderDrafts = Readonly<Record<string, OrderDraft>>;
@@ -42,10 +41,34 @@ export type OrderDrafts = Readonly<Record<string, OrderDraft>>;
 const OPENING_DRAFTS: OrderDrafts = Object.freeze({ ...SAMPLE_DRAFTS });
 
 let drafts: OrderDrafts = OPENING_DRAFTS;
+let restored = false;
+
+/* Saved in this browser (`browser-record.ts`), so it outlives a reload. Restored when the
+   first component subscribes, or on the first write; the server and hydration read the
+   opening value. */
+const STORAGE_KEY = "dristi.order-drafts.v1";
+
+function restore(): void {
+  if (restored || typeof window === "undefined") return;
+  restored = true;
+  drafts = restoreRecord(STORAGE_KEY, OPENING_DRAFTS);
+}
+
+/** What the server rendered, and what hydration must agree with. */
+export function serverOrderDrafts(): OrderDrafts {
+  return OPENING_DRAFTS;
+}
+
 const listeners = new Set<() => void>();
 
 export function subscribeToOrderDrafts(listener: () => void): () => void {
   listeners.add(listener);
+  /* The saved copy loads with the first subscriber — after hydration, so the server and
+     the first paint agree — and every subscriber hears it. */
+  if (!restored) {
+    restore();
+    for (const each of listeners) each();
+  }
   return () => {
     listeners.delete(listener);
   };
@@ -70,13 +93,16 @@ export function readOrderDraft(
   hearingId: string,
   initial: OrderDraft = EMPTY_ORDER_DRAFT,
 ): OrderDraft {
+  restore();
   return drafts[hearingId] ?? initial;
 }
 
 /** Replace one listing's draft. The others are untouched. */
 export function writeOrderDraft(hearingId: string, next: OrderDraft): void {
+  restore();
   if (drafts[hearingId] === next) return;
   drafts = { ...drafts, [hearingId]: next };
+  saveRecord(STORAGE_KEY, drafts);
   for (const listener of listeners) listener();
 }
 

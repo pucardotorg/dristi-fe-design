@@ -5,6 +5,7 @@ import * as React from "react";
 import { EMPTY_ORDER_DRAFT, type OrderDraft } from "@/lib/employee/order-draft";
 import {
   readOrderDrafts,
+  serverOrderDrafts,
   subscribeToOrderDrafts,
   updateOrderDraft,
   type OrderDrafts,
@@ -50,7 +51,7 @@ export function useOrderDrafts(): OrderDrafts {
   return React.useSyncExternalStore(
     subscribeToOrderDrafts,
     readOrderDrafts,
-    readOrderDrafts,
+    serverOrderDrafts,
   );
 }
 
@@ -61,7 +62,7 @@ export function useOrderDraft(
   const drafts = React.useSyncExternalStore(
     subscribeToOrderDrafts,
     readOrderDrafts,
-    readOrderDrafts,
+    serverOrderDrafts,
   );
   const setDraft = React.useCallback(
     (update: (current: OrderDraft) => OrderDraft) => {

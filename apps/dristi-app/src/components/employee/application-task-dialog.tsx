@@ -47,6 +47,7 @@ import {
   signOrder,
   suggestedDate,
   type CourtSeat,
+  type CourtTaskKind,
   type LifecycleApplication,
 } from "@/lib/applications/lifecycle";
 import {
@@ -83,11 +84,14 @@ import { useCourtText } from "@/components/court/court-provider";
 export function ApplicationTaskDialog({
   application,
   all,
+  queue,
   onOpenChange,
   onReturnFocus,
 }: {
   application: LifecycleApplication | null;
   all: LifecycleApplication[];
+  /** The queue the dialog is open on — where its orders open and lead back to. */
+  queue: CourtTaskKind;
   onOpenChange: (open: boolean) => void;
   onReturnFocus: () => void;
 }) {
@@ -98,6 +102,7 @@ export function ApplicationTaskDialog({
           key={application.id}
           application={application}
           all={all}
+          queue={queue}
           onReturnFocus={onReturnFocus}
         />
       ) : null}
@@ -117,10 +122,12 @@ type Mode =
 function TaskBody({
   application,
   all,
+  queue,
   onReturnFocus,
 }: {
   application: LifecycleApplication;
   all: LifecycleApplication[];
+  queue: CourtTaskKind;
   onReturnFocus: () => void;
 }) {
   const courtText = useCourtText();
@@ -169,14 +176,18 @@ function TaskBody({
 
   /* The order steps open the real order screen rather than drafting a one-line order
      here (owner, 2026-10-13), with the decision made here pre-added as its item
-     (owner, 2026-10-14). */
-  function openOrder(kind: "review" | "decide", decision?: ApplicationOrderDecision) {
-    router.push(applicationOrderHref(kind, id, decision));
+     (owner, 2026-10-14). It opens under the queue this dialog is on, so its way back
+     is the way the person came. */
+  function openOrder(decision?: ApplicationOrderDecision) {
+    router.push(applicationOrderHref(queue, id, decision));
   }
 
   function confirmOnboard() {
     const number = allotApplicationNumber(on);
-    const onboarded = run(
+    /* `ALC-08`: "now" is decided at once. The dialog stays open, on the Decide step —
+       Accept or Reject — so the order opens with that decision already in its workflow
+       (it used to open an empty order, with nothing to say what was being decided). */
+    run(
       () =>
         applyStep(id, (app) =>
           onboard(
@@ -190,8 +201,6 @@ function TaskBody({
           ),
         ),
     );
-    /* `ALC-08`: "now" goes straight to the order. */
-    if (onboarded && onboardMode === "now") openOrder("decide");
   }
 
   /* Written in the selected court's numbers (`CourtSwitch`), since the order is
@@ -304,7 +313,7 @@ function TaskBody({
               <span className="flex flex-col gap-0.5">
                 <span className="font-medium">Decide now</span>
                 <span className="text-muted-foreground">
-                  Go straight to the order. Nobody is asked to object.
+                  Accept or reject it next, here. Nobody is asked to object.
                 </span>
               </span>
             </label>
@@ -352,7 +361,7 @@ function TaskBody({
           <p className="text-caption text-muted-foreground">
             Or{" "}
             <Link
-              href={applicationOrderHref(task?.kind ?? "review", id)}
+              href={applicationOrderHref(queue, id)}
               className="underline underline-offset-4"
             >
               open the order screen
@@ -429,7 +438,7 @@ function TaskBody({
           magistrate={mayAct}
           dateUsed={setADateUsed(application)}
           canDraft={canDraftOrder(seat)}
-          onDismiss={() => openOrder("review", "dismiss")}
+          onDismiss={() => openOrder("dismiss")}
           onSetDate={() => {
             setDate(suggestion ?? "");
             setMode("set-date");
@@ -459,11 +468,11 @@ function TaskBody({
             <Button
               type="button"
               variant="outline"
-              onClick={() => openOrder("decide", "reject")}
+              onClick={() => openOrder("reject")}
             >
               Reject
             </Button>
-            <Button type="button" onClick={() => openOrder("decide", "accept")}>
+            <Button type="button" onClick={() => openOrder("accept")}>
               Accept
             </Button>
           </div>

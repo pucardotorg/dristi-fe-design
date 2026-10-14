@@ -4,6 +4,7 @@ import * as React from "react";
 
 import {
   readOrderSigning,
+  serverOrderSigning,
   subscribeToOrderSigning,
   type OrderSigning,
 } from "@/lib/employee/order-signing";
@@ -17,6 +18,6 @@ export function useOrderSigning(): OrderSigning {
   return React.useSyncExternalStore(
     subscribeToOrderSigning,
     readOrderSigning,
-    readOrderSigning,
+    serverOrderSigning,
   );
 }

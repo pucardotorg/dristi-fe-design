@@ -39,13 +39,20 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import type { LifecycleApplication } from "@/lib/applications/lifecycle";
+import {
+  acceptanceNeedsHearingDate,
+  type LifecycleApplication,
+} from "@/lib/applications/lifecycle";
 import {
   useApplicationsReady,
   useLifecycleApplications,
 } from "@/lib/applications/store";
 import type { CaseRecord } from "@/lib/cases/types";
 import { localizeDeep } from "@/lib/court/localize";
+import {
+  applicationOrderOutcomes,
+  outcomeHearingDate,
+} from "@/lib/employee/application-order-outcome";
 import { caseOf } from "@/lib/employee/application-tasks";
 import {
   cognizanceCaseById,
@@ -143,7 +150,12 @@ function ApplicationWorkflowDoor({
 }) {
   return (
     <WorkflowDoorScreen
-      door={useApplicationOrderDoor(application, record, "decide")}
+      door={useApplicationOrderDoor(
+        application,
+        record,
+        /* A dismissal is drafted before onboarding, from the Onboard queue. */
+        application.status === "pending-review" ? "review" : "decide",
+      )}
     />
   );
 }
@@ -154,6 +166,7 @@ function WorkflowDoorScreen({ door }: { door: OrderDoor }) {
   const seat = useCourtRole();
   const pending = usePendingOrders();
   const signing = useOrderSigning();
+  const lifecycleApps = useLifecycleApplications();
   const entry = pending[door.draftKey];
   const stage = entry ? pendingOrderStage(entry, signing) : "drafting";
   const appearances = door.hearing?.appearances;
@@ -196,6 +209,22 @@ function WorkflowDoorScreen({ door }: { door: OrderDoor }) {
     }
     if (unlisted) {
       toast("Set the next hearing’s date and purpose, or tick Not listed again.");
+      window.document.getElementById("order-next-hearing")?.focus();
+      return;
+    }
+    /* Accepting a Postpone or an Advance moves the hearing, and the date it moves to is
+       this order's next hearing — it has to be there before the workflow can go out. */
+    const undated = applicationOrderOutcomes(draft.blocks).find((outcome) => {
+      const app = lifecycleApps.find((entry) => entry.id === outcome.applicationId);
+      return (
+        app &&
+        outcome.kind === "accept" &&
+        acceptanceNeedsHearingDate(app.type) &&
+        !outcomeHearingDate(outcome, app, draft)
+      );
+    });
+    if (undated) {
+      toast("Accepting this application moves the hearing. Set the next hearing’s date.");
       window.document.getElementById("order-next-hearing")?.focus();
       return;
     }

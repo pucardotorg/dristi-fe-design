@@ -7,6 +7,7 @@ import { ChromeShell } from "@/components/chrome/app-chrome";
 import { CourtSearchProvider } from "@/components/employee/court-search";
 import { EmployeeNav } from "@/components/employee/employee-nav";
 import { EmployeeTopBar } from "@/components/employee/employee-top-bar";
+import { ApplicationOrderTriggers } from "@/components/employee/application-order-triggers";
 import { AppToaster } from "@/components/shell/app-toaster";
 
 /**
@@ -87,6 +88,9 @@ export function EmployeeArea({ children }: { children: React.ReactNode }) {
       {/* Inside the page column, so it inherits the column's `--chrome-page-inset` and
           centres on the bench's workspace rather than on the window. */}
       <AppToaster />
+      {/* A triggered order decides the applications in its workflow, wherever it was
+          signed or completed (owner, 2026-10-14). */}
+      <ApplicationOrderTriggers />
     </ChromeShell>
     </CourtSearchProvider>
   );
