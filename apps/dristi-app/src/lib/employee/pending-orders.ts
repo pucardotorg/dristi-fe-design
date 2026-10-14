@@ -38,7 +38,7 @@
 
 import type { CourtRole } from "./content";
 import type { OrderSigning } from "./order-signing";
-import { restoreRecord, saveRecord } from "./browser-record";
+import { restoreRecord, saveRecord, watchRecord } from "./browser-record";
 
 /** What the list knows about one order — enough to show it and to reopen it. */
 export type PendingOrderMeta = {
@@ -110,6 +110,11 @@ export function subscribeToPendingOrders(listener: () => void): () => void {
     restore();
     for (const each of listeners) each();
   }
+  /* Another tab's save replaces this tab's copy. */
+  watchRecord(STORAGE_KEY, () => {
+    orders = restoreRecord(STORAGE_KEY, OPENING);
+    for (const each of listeners) each();
+  });
   return () => {
     listeners.delete(listener);
   };

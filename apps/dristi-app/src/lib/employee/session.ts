@@ -15,8 +15,12 @@
  * **It survives a reload**, which the seat store deliberately did not. That bargain was
  * right while the seat was a switch inside one visit; it is wrong for a sign-in, because
  * refreshing a court screen and finding yourself signed in as somebody else is not a
- * demo of anything. It lives in `localStorage`, so it is per-browser and per-device and
- * carries no authority whatsoever.
+ * demo of anything. It carries no authority whatsoever.
+ *
+ * **Each tab keeps its own** (owner, 2026-10-14: magistrate, steno and reader side by
+ * side, each in a tab). The tab's session lives in `sessionStorage`, which a reload
+ * keeps and another tab does not see; the last one chosen anywhere is also kept in
+ * `localStorage`, and a new tab starts from it.
  *
  * Read it through `components/employee/use-court-session.ts`, never directly from a
  * render — the hook is what subscribes, and what keeps the server's first paint and the
@@ -67,7 +71,10 @@ function restore(): void {
   if (restored || typeof window === "undefined") return;
   restored = true;
   try {
-    const raw = window.localStorage.getItem(COURT_SESSION_KEY);
+    /* This tab's own first; a new tab starts from the last one chosen anywhere. */
+    const raw =
+      window.sessionStorage.getItem(COURT_SESSION_KEY) ??
+      window.localStorage.getItem(COURT_SESSION_KEY);
     if (!raw) return;
     const stored = JSON.parse(raw) as Partial<CourtSession>;
     /* Spread over the default rather than trusting the blob: a session written by an
@@ -116,7 +123,9 @@ export function setCourtSession(next: Partial<CourtSession>): void {
   session = merged;
   if (typeof window !== "undefined") {
     try {
-      window.localStorage.setItem(COURT_SESSION_KEY, JSON.stringify(session));
+      const value = JSON.stringify(session);
+      window.sessionStorage.setItem(COURT_SESSION_KEY, value);
+      window.localStorage.setItem(COURT_SESSION_KEY, value);
     } catch {
       /* Applies for this visit and simply does not persist — the same fallback the
          citizen side's storage helper makes. */
@@ -130,6 +139,7 @@ export function clearCourtSession(): void {
   session = DEFAULT_COURT_SESSION;
   if (typeof window !== "undefined") {
     try {
+      window.sessionStorage.removeItem(COURT_SESSION_KEY);
       window.localStorage.removeItem(COURT_SESSION_KEY);
     } catch {
       /* Nothing to do — the in-memory session is already back to the default. */
