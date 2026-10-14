@@ -75,7 +75,7 @@ export const PENDING_ORDER_STAGES: {
 }[] = [
   { id: "drafting", label: "Drafting" },
   { id: "awaiting-signature", label: "Awaiting signature" },
-  { id: "workflow-to-fill", label: "Workflow to fill" },
+  { id: "workflow-to-fill", label: "Order data to fill" },
   { id: "triggered", label: "Triggered" },
 ];
 

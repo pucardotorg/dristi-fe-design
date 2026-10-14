@@ -509,7 +509,7 @@ export function OrderTextComposer({
           {sideOpen ? null : (
             <PanelRail
               side="left"
-              label="Workflow"
+              label="Order data"
               controls="order-workflow"
               onOpen={toggleSide}
             />
@@ -522,7 +522,7 @@ export function OrderTextComposer({
           {sideOpen ? (
             <EdgeHandle
               side="left"
-              label="Hide workflow panel"
+              label="Hide order data panel"
               controls="order-workflow"
               onClick={toggleSide}
             />
