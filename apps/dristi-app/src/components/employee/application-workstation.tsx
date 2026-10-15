@@ -8,6 +8,10 @@ import { toast } from "sonner";
 
 import { DocumentPreview } from "@/components/cases/document-preview";
 import { Identifier } from "@/components/chrome/identifier";
+import {
+  ApplicationQuickOrder,
+  type QuickOrderEntry,
+} from "@/components/employee/application-quick-order";
 import { ApplicationFacsimile } from "@/components/employee/application-review-dialog";
 import { ListingDateField } from "@/components/employee/listing-date-field";
 import { useCourtRole } from "@/components/employee/use-court-role";
@@ -54,6 +58,7 @@ import {
 } from "@/components/ui/tooltip";
 import { decodeDraft } from "@/lib/applications/form-codec";
 import {
+  applicationHref,
   applicationOrderHref,
   type ApplicationOrderDecision,
 } from "@/lib/employee/application-order-decision";
@@ -168,27 +173,37 @@ export function ApplicationWorkstation({
   const activeKey = queueKey ?? (app ? viewFor(app, on) : "all");
   const queue = applicationsIn(apps, activeKey, on);
 
-  function go(id: string | null, key: QueueKey = activeKey) {
-    if (!id) {
-      router.push(`/employee/applications?view=${key}`);
-      return;
-    }
-    router.replace(`/employee/applications/${id}?view=${key}`);
+  /**
+   * Open another application in this list. Moving between applications — a click in the
+   * list, J and K, the list select — is pushed, so browser Back retraces the bench's own
+   * steps rather than leaving the workstation. The move an act makes on its own (the next
+   * application after one is dealt with) replaces instead: the one acted on has left the
+   * list, and Back should not land on it as if it were still waiting.
+   */
+  function go(id: string | null, key: QueueKey = activeKey, replace = false) {
+    const href = id ? applicationHref(id, key) : `/employee/applications?view=${key}`;
+    if (replace && id) router.replace(href);
+    else router.push(href);
   }
 
-  /** After an act: stay if it is still in this list, otherwise take the next one. */
-  function next(after: LifecycleApplication) {
+  /**
+   * After an act: stay if it is still in this list, otherwise take the next one. An order
+   * passed on it always moves on (`moveOn`) — the application waits on the order now,
+   * and a signed order decides it a moment later, from the triggers.
+   */
+  function next(after: LifecycleApplication, moveOn = false) {
     const index = queue.findIndex((item) => item.id === after.id);
     const fresh = getApplication(after.id);
     /* Under All an act moves it to another band — that is moving on too. */
     const stays =
+      !moveOn &&
       fresh &&
       applicationsIn([fresh], activeKey, on).length > 0 &&
       queueOf(fresh, on) === queueOf(after, on);
     if (stays) return;
     const rest = queue.filter((item) => item.id !== after.id);
     const target = rest[Math.max(0, Math.min(index, rest.length - 1))];
-    go(target?.id ?? null);
+    go(target?.id ?? null, activeKey, true);
   }
 
   if (!ready) {
@@ -263,9 +278,10 @@ export function ApplicationWorkstation({
         key={app.id}
         app={app}
         on={on}
-        onDone={(message) => {
+        view={activeKey}
+        onDone={(message, moveOn) => {
           toast.success(message);
-          next(app);
+          next(app, moveOn);
         }}
       />
     </div>
@@ -528,9 +544,12 @@ function ApplicationColumn({
       ) : null}
 
       {document ? (
+        /* The whole application, read top to bottom with the page: no well of its own
+           to scroll inside. The list and the panel beside it stay put. */
         <DocumentPreview
           variant="quiet"
           surface="card"
+          height="auto"
           title={document.title}
           source={{
             kind: "composed",
@@ -680,19 +699,32 @@ function Facts({ app, on }: { app: LifecycleApplication; on: string }) {
 
 /* ─────────────────────────────── what can be done with it ──────────────────────────── */
 
+/** One answer to the panel's question, from its one segmented control. */
+type Choice = "onboard" | "defer" | "dismiss" | "accept" | "reject" | "move" | "list";
+
 type Panel = {
-  /** Onboarding: which of the three. */
-  action: "onboard" | "defer" | "dismiss";
+  /** The option chosen in the panel's segmented control; none yet on a decision. */
+  choice: Choice | null;
   /** Onboarding: list it for a date, or take it up now. */
   when: "date" | "now";
+  /** A listing date — on onboarding, or listing one taken up today after all. */
   date: Date | undefined;
   invite: boolean;
   defer: Date | undefined;
-  /** Taken up now, but listing it after all. */
-  relisting: boolean;
+  /** Relisting one listed ahead, or moving the date of one due. */
   relist: Date | undefined;
-  /** Due for a decision, but the date is being moved instead. */
-  moving: boolean;
+  /** What has been typed into each decision's order, kept across switches. */
+  orders: Partial<Record<ApplicationOrderDecision, QuickOrderEntry>>;
+};
+
+const CHOICE_LABEL: Record<Choice, string> = {
+  onboard: "Onboard",
+  defer: "Defer review",
+  dismiss: "Dismiss",
+  accept: "Accept",
+  reject: "Reject",
+  move: "Move date",
+  list: "List for a date",
 };
 
 function dayOfDate(date: Date | undefined): string {
@@ -710,52 +742,66 @@ function dateOfDay(day: string | undefined): Date | undefined {
 }
 
 /**
- * The right-hand panel: one question at a time for this application, answered here.
+ * The right-hand panel: one question for this application, answered here.
  *
- * - **Pending review** — Onboard · Defer review · Dismiss, all three up front (owner,
+ * **One pattern for every open state** (owner, 2026-10-15): the heading, one segmented
+ * control of what can be done, the chosen option's fields under it, and one primary at
+ * the foot naming the date or the act. Changing your mind is picking another segment —
+ * there is no Back and no banner link — and what was entered under each stays.
+ *
+ * - **Pending review** — Onboard · Defer review · Dismiss, Onboard chosen (owner,
  *   2026-10-07). Onboarding asks when the court will take it up: listed for a later date
  *   (pre-filled with the next hearing, `ALC-10`; the other party asked to object by
- *   default, `ALC-11`, `ALC-25`) or taken up now (`ALC-08`).
- * - **Pending decision, due** — Accept or Reject. Taken up now today, it can still be
- *   listed for a later date instead — onboarding stays done (product, 2026-10-08).
+ *   default, `ALC-11`, `ALC-25`) or taken up now (`ALC-08`). A deferred review reads the
+ *   same, with the date it was deferred to.
+ * - **Pending decision, due** — Accept · Reject · Move date, nothing chosen: a judgment
+ *   is never answered in advance. Taken up today, the third is List for a date instead —
+ *   onboarding stays done (product, 2026-10-08).
  * - **Listed ahead** — it waits for its date; only the date can change (`ALC-15`).
  * - **Closed** — the order that closed it, and what happened when.
  *
- * **Every order opens the real order screen** (owner, 2026-10-13), with the decision
- * made here pre-added as its item (owner, 2026-10-14). The application moves when that
- * order is signed and its workflow complete (`application-order-outcome.ts`), not here.
- * An order drafted here before that change still shows, to sign or discard.
+ * **Accept, Reject and Dismiss pass the order here** (owner, 2026-10-15), in the court's
+ * standard words, in the quick order modal (`application-quick-order.tsx`) — or go on to
+ * the full order screen from it. The application moves when that order is signed and its
+ * workflow complete (`application-order-outcome.ts`), not here. An order drafted here
+ * before the order screen took over still shows, to sign or discard.
  *
  * Who may do what follows `ALC-22`, widened for now to the bench clerk (owner,
  * 2026-10-13): onboarding and every date are the magistrate's or bench clerk's; any court
- * seat drafts an order; only the magistrate signs it.
+ * seat drafts an order; only the magistrate signs it. A seat without the system acts is
+ * offered only the orders.
  */
 function DecisionPanel({
   app,
   on,
+  view,
   onDone,
 }: {
   app: LifecycleApplication;
   on: string;
-  onDone: (message: string) => void;
+  /** The list being worked, carried to the order screen for the way back. */
+  view: string;
+  onDone: (message: string, moveOn?: boolean) => void;
 }) {
   const router = useRouter();
   const seat = useCourtRole() as CourtSeat;
   const mayAct = canTakeSystemAction(seat);
+  const mayDraft = canDraftOrder(seat);
   const suggestion = nextHearingOf(app, on);
   const hearing = { day: suggestion };
   const queue = queueOf(app, on);
+  const record = caseOf(app);
 
   const [panel, setPanel] = React.useState<Panel>(() => ({
-    action: mayAct ? "onboard" : "dismiss",
+    choice: app.status === "pending-review" ? (mayAct ? "onboard" : "dismiss") : null,
     when: "date",
     date: dateOfDay(suggestion),
     invite: true,
     defer: dateOfDay(suggestion),
-    relisting: false,
     relist: dateOfDay(suggestion),
-    moving: false,
+    orders: {},
   }));
+  const [quick, setQuick] = React.useState<ApplicationOrderDecision | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   /* The order already started on this application, in the editor's own list. */
   const orders = usePendingOrders();
@@ -776,8 +822,22 @@ function DecisionPanel({
   }
 
   function openOrder(decision?: ApplicationOrderDecision) {
-    router.push(applicationOrderHref(app.id, decision));
+    router.push(applicationOrderHref(app.id, decision, view));
   }
+
+  /** An order on the decision: the quick order, or the order screen where there is no case to frame it. */
+  function draft(decision: ApplicationOrderDecision) {
+    if (record) setQuick(decision);
+    else openOrder(decision);
+  }
+
+  /* `ALC-18`: the order screen, for something else entirely. The application stays as
+     it is. Last in the footer, under the one primary. */
+  const differentOrder = mayDraft ? (
+    <Button type="button" variant="ghost" className="w-full" onClick={() => openOrder()}>
+      Pass a different order instead
+    </Button>
+  ) : null;
 
   let body: React.ReactNode = null;
   let footer: React.ReactNode = null;
@@ -855,47 +915,27 @@ function DecisionPanel({
   } else if (app.status === "pending-review" && app.review) {
     const deferredBefore = setADateUsed(app);
     const later = app.review.dueOn > on;
+    const choices: Choice[] = mayAct
+      ? ["onboard", "defer", "dismiss"]
+      : mayDraft
+        ? ["dismiss"]
+        : [];
+    const choice = panel.choice && choices.includes(panel.choice) ? panel.choice : null;
     body = (
       <>
         <div className="flex flex-col gap-4">
           <PanelHeading
             title="Action on the application"
-            lead={
-              later
-                ? `Review deferred to ${formatCaseDate(app.review.dueOn)}. It may be taken up earlier.`
-                : undefined
-            }
+            lead={later ? `Review deferred to ${formatCaseDate(app.review.dueOn)}.` : undefined}
           />
-          {mayAct ? (
-            <SegmentedControl
-              type="single"
-              size="compact"
-              value={panel.action}
-              onValueChange={(value) => {
-                if (value) set({ action: value as Panel["action"] });
-              }}
-              aria-label="What to do with the application"
-              className="w-full [&>*]:flex-1 [&>*>span]:w-full"
-            >
-              <SegmentedControlItem value="onboard" className="flex-1">
-                Onboard
-              </SegmentedControlItem>
-              <SegmentedControlItem value="defer" className="flex-1">
-                Defer review
-              </SegmentedControlItem>
-              <SegmentedControlItem value="dismiss" className="flex-1">
-                Dismiss
-              </SegmentedControlItem>
-            </SegmentedControl>
-          ) : (
-            <p className="text-body-compact text-muted-foreground">
-              Onboarding and deferral are for the Magistrate and bench clerk. A dismissal
-              order may be drafted for signature.
-            </p>
-          )}
+          {/* A choice of one is no choice: a seat that can only dismiss is not shown a
+              control with one segment, only the act. */}
+          {choices.length > 1 ? (
+            <Choices value={choice} choices={choices} onChange={(next) => set({ choice: next })} />
+          ) : null}
         </div>
 
-        {mayAct && panel.action === "onboard" ? (
+        {choice === "onboard" ? (
           <>
             <Field>
               <FieldLabel id={`${app.id}-when`}>When will it be decided?</FieldLabel>
@@ -936,7 +976,7 @@ function DecisionPanel({
           </>
         ) : null}
 
-        {mayAct && panel.action === "defer" ? (
+        {choice === "defer" ? (
           <>
             {deferredBefore ? (
               <Banner variant="warning">
@@ -956,63 +996,58 @@ function DecisionPanel({
       </>
     );
 
-    if (mayAct && panel.action === "onboard") {
+    let primary: React.ReactNode = null;
+    if (choice === "onboard") {
       const listedOn = dayOfDate(panel.date);
       const valid = panel.when === "now" || (listedOn && listedOn > on);
-      footer = (
-        <>
-          <Button
-            type="button"
-            className="w-full"
-            disabled={!valid}
-            onClick={() => {
-              const number = allotApplicationNumber(on);
-              const result = applyStep(app.id, (current) =>
-                onboard(
-                  current,
-                  seat,
-                  number,
-                  panel.when === "now"
-                    ? { mode: "now" }
-                    : { mode: "date", decideOn: listedOn, inviteObjections: panel.invite },
-                  on,
-                ),
-              );
-              if (!result.ok) {
-                setError(result.error);
-                return;
-              }
-              setError(null);
-              if (panel.when === "now") {
-                /* Stay on it: onboarding is done, Accept or Reject is next, in this
-                   panel — so the order opens with that decision already in it. */
-                return;
-              }
-              onDone(
-                `Onboarded as ${number} and listed on ${formatCaseDate(listedOn)}.${
-                  panel.invite
-                    ? ` Objections, if any, by ${formatCaseDate(objectionDeadline(listedOn))}.`
-                    : ""
-                }`,
-              );
-            }}
-          >
-            {panel.when === "now"
-              ? "Onboard and decide now"
-              : listedOn
-                ? `Onboard and list on ${shortDate(listedOn)}`
-                : "Onboard"}
-          </Button>
-          {/* `ALC-18`: the order screen, for something else entirely. The application
-              stays as it is. */}
-          <Button type="button" variant="ghost" className="w-full" onClick={() => openOrder()}>
-            Pass a different order instead
-          </Button>
-        </>
+      primary = (
+        <Button
+          type="button"
+          className="w-full"
+          disabled={!valid}
+          onClick={() => {
+            const number = allotApplicationNumber(on);
+            const result = applyStep(app.id, (current) =>
+              onboard(
+                current,
+                seat,
+                number,
+                panel.when === "now"
+                  ? { mode: "now" }
+                  : { mode: "date", decideOn: listedOn, inviteObjections: panel.invite },
+                on,
+              ),
+            );
+            if (!result.ok) {
+              setError(result.error);
+              return;
+            }
+            setError(null);
+            if (panel.when === "now") {
+              /* Stay on it: onboarding is done, and the decision is next, in this panel,
+                 with nothing chosen for it. */
+              set({ choice: null });
+              return;
+            }
+            onDone(
+              `Onboarded as ${number} and listed on ${formatCaseDate(listedOn)}.${
+                panel.invite
+                  ? ` Objections, if any, by ${formatCaseDate(objectionDeadline(listedOn))}.`
+                  : ""
+              }`,
+            );
+          }}
+        >
+          {panel.when === "now"
+            ? "Onboard and decide now"
+            : listedOn
+              ? `Onboard and list on ${shortDate(listedOn)}`
+              : "Onboard"}
+        </Button>
       );
-    } else if (mayAct && panel.action === "defer") {
+    } else if (choice === "defer") {
       const deferOn = dayOfDate(panel.defer);
-      footer = (
+      primary = (
         <Button
           type="button"
           className="w-full"
@@ -1027,13 +1062,19 @@ function DecisionPanel({
           {deferOn ? `Defer review to ${shortDate(deferOn)}` : "Defer review"}
         </Button>
       );
-    } else if (panel.action === "dismiss" && canDraftOrder(seat)) {
-      footer = (
-        <Button type="button" className="w-full" onClick={() => openOrder("dismiss")}>
+    } else if (choice === "dismiss") {
+      primary = (
+        <Button type="button" className="w-full" onClick={() => draft("dismiss")}>
           Draft dismissal order
         </Button>
       );
     }
+    footer = (
+      <>
+        {primary}
+        {differentOrder}
+      </>
+    );
   } else if (app.status === "pending-decision" && app.decide) {
     const later = app.decide.dueOn > on;
     const takenNow = mayAct && app.decide.mode === "now" && app.onboardedOn === on;
@@ -1081,65 +1122,75 @@ function DecisionPanel({
           {relistOn ? `Relist on ${shortDate(relistOn)}` : "Relist"}
         </Button>
       ) : null;
-    } else if (takenNow && panel.relisting) {
-      const listedOn = dayOfDate(panel.date);
+    } else {
+      /* A judgment, so nothing is chosen in advance, and there is no primary until it is
+         (owner, 2026-10-14). */
+      const choices: Choice[] = [
+        ...(mayDraft ? (["accept", "reject"] as const) : []),
+        ...(mayAct ? [takenNow ? ("list" as const) : ("move" as const)] : []),
+      ];
+      const choice = panel.choice && choices.includes(panel.choice) ? panel.choice : null;
       body = (
         <>
-          <TakenUpLine app={app} relisting onToggle={() => set({ relisting: false })} />
-          <ListingFields
-            idPrefix={`${app.id}-later`}
-            date={panel.date}
-            invite={panel.invite}
-            hearing={hearing}
-            on={on}
-            onDate={(date) => set({ date })}
-            onInvite={(invite) => set({ invite })}
-          />
+          <div className="flex flex-col gap-4">
+            <PanelHeading
+              title="Action on the application"
+              lead={
+                takenNow ? (
+                  <>
+                    Onboarded today as{" "}
+                    {app.applicationNumber ? (
+                      <Identifier value={app.applicationNumber} label="application number" />
+                    ) : null}
+                  </>
+                ) : undefined
+              }
+            />
+            {choices.length > 0 ? (
+              <Choices value={choice} choices={choices} onChange={(next) => set({ choice: next })} />
+            ) : null}
+          </div>
+
+          {choice === "move" ? (
+            <ListingDateField
+              id={`${app.id}-move`}
+              label="Decide it on"
+              value={panel.relist}
+              on={on}
+              hearing={hearing}
+              hint={
+                app.objectionsInvited
+                  ? "The time for objections moves to the day before."
+                  : undefined
+              }
+              onChange={(relist) => set({ relist })}
+            />
+          ) : null}
+
+          {choice === "list" ? (
+            <ListingFields
+              idPrefix={`${app.id}-later`}
+              date={panel.date}
+              invite={panel.invite}
+              hearing={hearing}
+              on={on}
+              onDate={(date) => set({ date })}
+              onInvite={(invite) => set({ invite })}
+            />
+          ) : null}
         </>
       );
-      footer = (
-        <Button
-          type="button"
-          className="w-full"
-          disabled={!listedOn || listedOn <= on}
-          onClick={() =>
-            run(
-              applyStep(app.id, (current) =>
-                listForLater(current, seat, listedOn, panel.invite, on),
-              ),
-              `Listed on ${formatCaseDate(listedOn)}.${
-                panel.invite
-                  ? ` Objections, if any, by ${formatCaseDate(objectionDeadline(listedOn))}.`
-                  : ""
-              }`,
-            )
-          }
-        >
-          {listedOn ? `List on ${shortDate(listedOn)}` : "List for a date"}
-        </Button>
-      );
-    } else if (mayAct && panel.moving) {
-      const moveOn = dayOfDate(panel.relist);
-      body = (
-        <>
-          <PanelHeading title="Move the date" />
-          <ListingDateField
-            id={`${app.id}-move`}
-            label="Decide it on"
-            value={panel.relist}
-            on={on}
-            hearing={hearing}
-            hint={
-              app.objectionsInvited
-                ? "The time for objections moves to the day before."
-                : undefined
-            }
-            onChange={(relist) => set({ relist })}
-          />
-        </>
-      );
-      footer = (
-        <>
+
+      let primary: React.ReactNode = null;
+      if (choice === "accept" || choice === "reject") {
+        primary = (
+          <Button type="button" className="w-full" onClick={() => draft(choice)}>
+            {choice === "accept" ? "Draft acceptance order" : "Draft rejection order"}
+          </Button>
+        );
+      } else if (choice === "move") {
+        const moveOn = dayOfDate(panel.relist);
+        primary = (
           <Button
             type="button"
             className="w-full"
@@ -1153,47 +1204,35 @@ function DecisionPanel({
           >
             {moveOn ? `Move to ${shortDate(moveOn)}` : "Move the date"}
           </Button>
+        );
+      } else if (choice === "list") {
+        const listedOn = dayOfDate(panel.date);
+        primary = (
           <Button
             type="button"
-            variant="ghost"
             className="w-full"
-            onClick={() => set({ moving: false })}
+            disabled={!listedOn || listedOn <= on}
+            onClick={() =>
+              run(
+                applyStep(app.id, (current) =>
+                  listForLater(current, seat, listedOn, panel.invite, on),
+                ),
+                `Listed on ${formatCaseDate(listedOn)}.${
+                  panel.invite
+                    ? ` Objections, if any, by ${formatCaseDate(objectionDeadline(listedOn))}.`
+                    : ""
+                }`,
+              )
+            }
           >
-            Back
+            {listedOn ? `List on ${shortDate(listedOn)}` : "List for a date"}
           </Button>
-        </>
-      );
-    } else {
-      /* A judgment, so neither answer is chosen in advance: each opens the order with
-         that decision already added (owner, 2026-10-14). */
-      body = (
+        );
+      }
+      footer = (
         <>
-          {takenNow ? (
-            <TakenUpLine app={app} relisting={false} onToggle={() => set({ relisting: true })} />
-          ) : null}
-          {/* Nothing to fill in, so the answers sit under the question, not at the
-              panel's foot. */}
-          <div className="flex flex-col gap-4">
-            <PanelHeading title="Decide the application" />
-            <div className="grid grid-cols-2 gap-2">
-              <Button type="button" variant="outline" onClick={() => openOrder("reject")}>
-                Reject
-              </Button>
-              <Button type="button" onClick={() => openOrder("accept")}>
-                Accept
-              </Button>
-            </div>
-            {mayAct && !takenNow ? (
-              <Button
-                type="button"
-                variant="ghost"
-                className="w-full"
-                onClick={() => set({ moving: true })}
-              >
-                Move the date
-              </Button>
-            ) : null}
-          </div>
+          {primary}
+          {differentOrder}
         </>
       );
     }
@@ -1213,11 +1252,66 @@ function DecisionPanel({
           {footer}
         </div>
       ) : null}
+      {record ? (
+        <ApplicationQuickOrder
+          application={app}
+          record={record}
+          decision={quick}
+          entry={quick ? panel.orders[quick] : undefined}
+          onEntry={(decision, entry) =>
+            setPanel((current) => ({
+              ...current,
+              orders: { ...current.orders, [decision]: entry },
+            }))
+          }
+          canSign={canSignOrder(seat)}
+          on={on}
+          hearing={hearing}
+          view={view}
+          onOpenChange={(open) => {
+            if (!open) setQuick(null);
+          }}
+          onDone={(message) => {
+            setQuick(null);
+            onDone(message, true);
+          }}
+        />
+      ) : null}
     </aside>
   );
 }
 
-function PanelHeading({ title, lead }: { title: string; lead?: string }) {
+/** The panel's one choice, as the DS segmented control, the full width of the panel. */
+function Choices({
+  value,
+  choices,
+  onChange,
+}: {
+  value: Choice | null;
+  choices: Choice[];
+  onChange: (choice: Choice) => void;
+}) {
+  return (
+    <SegmentedControl
+      type="single"
+      size="compact"
+      value={value ?? ""}
+      onValueChange={(next) => {
+        if (next) onChange(next as Choice);
+      }}
+      aria-label="Action on the application"
+      className="w-full [&>*]:flex-1 [&>*>span]:w-full"
+    >
+      {choices.map((choice) => (
+        <SegmentedControlItem key={choice} value={choice} className="flex-1">
+          {CHOICE_LABEL[choice]}
+        </SegmentedControlItem>
+      ))}
+    </SegmentedControl>
+  );
+}
+
+function PanelHeading({ title, lead }: { title: string; lead?: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
       {/* A 40px band, so the panel's first line sits level with the title and the back
@@ -1225,39 +1319,6 @@ function PanelHeading({ title, lead }: { title: string; lead?: string }) {
       <h2 className="flex min-h-10 items-center text-body font-semibold">{title}</h2>
       {lead ? <p className="text-body-compact text-muted-foreground">{lead}</p> : null}
     </div>
-  );
-}
-
-/** Onboarding is done and stays done; this line says so, and offers the way back. */
-function TakenUpLine({
-  app,
-  relisting,
-  onToggle,
-}: {
-  app: LifecycleApplication;
-  relisting: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <Banner variant="success" className="items-start">
-      <div className="flex flex-col items-start">
-        <p>
-          Onboarded as{" "}
-          {app.applicationNumber ? (
-            <Identifier value={app.applicationNumber} label="application number" />
-          ) : null}{" "}
-          {relisting ? "· to be listed for a date" : "and taken up today"}
-        </p>
-        <Button
-          type="button"
-          variant="link"
-          className="h-auto min-h-10 p-0 text-body-compact text-success-muted-foreground"
-          onClick={onToggle}
-        >
-          {relisting ? "Take up today instead" : "List for a date instead"}
-        </Button>
-      </div>
-    </Banner>
   );
 }
 

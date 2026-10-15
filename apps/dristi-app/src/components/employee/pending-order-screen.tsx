@@ -152,12 +152,7 @@ function ApplicationWorkflowDoor({
 }) {
   return (
     <WorkflowDoorScreen
-      door={useApplicationOrderDoor(
-        application,
-        record,
-        /* A dismissal is drafted before onboarding, from the Onboard queue. */
-        application.status === "pending-review" ? "review" : "decide",
-      )}
+      door={useApplicationOrderDoor(application, record)}
     />
   );
 }
