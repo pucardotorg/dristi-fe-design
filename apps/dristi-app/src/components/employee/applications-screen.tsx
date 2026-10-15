@@ -19,6 +19,8 @@ import { CourtFilters } from "@/components/employee/court-filters";
 import { QueueAnnouncer } from "@/components/employee/queue-announcer";
 import { QueueItemRow } from "@/components/employee/queue-item-row";
 import { useCourtRole } from "@/components/employee/use-court-role";
+import { useOrderSigning } from "@/components/employee/use-order-signing";
+import { usePendingOrders } from "@/components/employee/use-pending-orders";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -68,6 +70,10 @@ import {
   type ApplicationView,
 } from "@/lib/employee/application-queue";
 import { caseOf, causeTitleOf } from "@/lib/employee/application-tasks";
+import {
+  pendingOrderStage,
+  pendingOrderStageLabel,
+} from "@/lib/employee/pending-orders";
 import {
   rowActivation,
   rowOpener,
@@ -163,6 +169,17 @@ export function ApplicationsScreen({ initialView }: { initialView: ApplicationVi
 
   const acts = bulkActsFor(selected);
 
+  /* An order already started on an application, and where it stands — so a row the bench
+     has acted on does not read as untouched until the order is signed. */
+  const orders = usePendingOrders();
+  const signing = useOrderSigning();
+  const orderOf = (app: LifecycleApplication): string | undefined => {
+    const order = orders[`application:${app.id}`];
+    if (!order) return undefined;
+    const stage = pendingOrderStage(order, signing);
+    return stage === "triggered" ? undefined : `Order · ${pendingOrderStageLabel(stage)}`;
+  };
+
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-8 p-6 md:p-8">
       <header className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
@@ -231,6 +248,7 @@ export function ApplicationsScreen({ initialView }: { initialView: ApplicationVi
                   onToggle={toggle}
                   onToggleAll={toggleAll}
                   onOpen={open}
+                  orderOf={orderOf}
                 />
               </div>
               <ul className="flex flex-col gap-3 text-body-compact md:hidden">
@@ -245,7 +263,7 @@ export function ApplicationsScreen({ initialView }: { initialView: ApplicationVi
                       {app.typeLabel}
                     </button>
                     <p className="text-body-compact">{causeTitleOf(app)}</p>
-                    <StatusCell app={app} on={on} />
+                    <StatusCell app={app} on={on} order={orderOf(app)} />
                   </QueueItemRow>
                 ))}
               </ul>
@@ -382,7 +400,16 @@ function ViewPills({
 }
 
 /** Where it stands: the state in words, then the day or the objection with its overdue or due-today badge on the same line. */
-function StatusCell({ app, on }: { app: LifecycleApplication; on: string }) {
+function StatusCell({
+  app,
+  on,
+  order,
+}: {
+  app: LifecycleApplication;
+  on: string;
+  /** An order under way on it, as "Order · Drafting". */
+  order?: string;
+}) {
   const line = statusLine(app, on);
   const closed = queueOf(app, on) === "closed" || queueOf(app, on) === "archive";
   return (
@@ -415,6 +442,7 @@ function StatusCell({ app, on }: { app: LifecycleApplication; on: string }) {
           {line.detail}
         </span>
       ) : null}
+      {order ? <span className="font-medium text-foreground">{order}</span> : null}
     </span>
   );
 }
@@ -429,6 +457,7 @@ function ApplicationsTable({
   onToggle,
   onToggleAll,
   onOpen,
+  orderOf,
 }: {
   rows: LifecycleApplication[];
   banded: boolean;
@@ -439,6 +468,7 @@ function ApplicationsTable({
   onToggle: (app: LifecycleApplication) => void;
   onToggleAll: (select: boolean) => void;
   onOpen: (app: LifecycleApplication) => void;
+  orderOf: (app: LifecycleApplication) => string | undefined;
 }) {
   const selectedCount = rows.filter((app) => selectedIds.has(app.id)).length;
   const allSelected = rows.length > 0 && selectedCount === rows.length;
@@ -547,7 +577,7 @@ function ApplicationsTable({
                   {shortDate(app.submittedOn ?? app.createdOn)}
                 </TableCell>
                 <TableCell className={cn(TABLE_CELL, "align-top", "min-w-40 whitespace-normal")}>
-                  <StatusCell app={app} on={on} />
+                  <StatusCell app={app} on={on} order={orderOf(app)} />
                 </TableCell>
               </TableRow>
             );

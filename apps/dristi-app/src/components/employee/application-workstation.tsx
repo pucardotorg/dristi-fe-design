@@ -11,6 +11,8 @@ import { Identifier } from "@/components/chrome/identifier";
 import { ApplicationFacsimile } from "@/components/employee/application-review-dialog";
 import { ListingDateField } from "@/components/employee/listing-date-field";
 import { useCourtRole } from "@/components/employee/use-court-role";
+import { useOrderSigning } from "@/components/employee/use-order-signing";
+import { usePendingOrders } from "@/components/employee/use-pending-orders";
 import { Badge } from "@/components/ui/badge";
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
@@ -97,6 +99,11 @@ import {
   courtDocumentOf,
   nextHearingOf,
 } from "@/lib/employee/application-tasks";
+import {
+  pendingOrderHref,
+  pendingOrderStage,
+  pendingOrderStageLabel,
+} from "@/lib/employee/pending-orders";
 import { cn } from "@/lib/utils";
 
 type QueueKey = ApplicationView | "archive";
@@ -613,11 +620,8 @@ function StageBadge({ app, on }: { app: LifecycleApplication; on: string }) {
       </Badge>
     );
   }
-  return (
-    <Badge variant="info">
-      {app.status === "pending-review" ? "Pending review" : "Pending decision"}
-    </Badge>
-  );
+  /* The list's own words, so the badge, the pills and the list select say one thing. */
+  return <Badge variant="info">{QUEUE_LABEL[queue ?? "all"] ?? "Open"}</Badge>;
 }
 
 /**
@@ -697,11 +701,11 @@ type Panel = {
   date: Date | undefined;
   invite: boolean;
   defer: Date | undefined;
-  /** Deciding: accept or reject. */
-  order: "accept" | "reject";
   /** Taken up now, but listing it after all. */
   relisting: boolean;
   relist: Date | undefined;
+  /** Due for a decision, but the date is being moved instead. */
+  moving: boolean;
 };
 
 function dayOfDate(date: Date | undefined): string {
@@ -761,11 +765,17 @@ function DecisionPanel({
     date: dateOfDay(suggestion),
     invite: true,
     defer: dateOfDay(suggestion),
-    order: "accept",
     relisting: false,
     relist: dateOfDay(suggestion),
+    moving: false,
   }));
   const [error, setError] = React.useState<string | null>(null);
+  /* The order already started on this application, in the editor's own list. */
+  const orders = usePendingOrders();
+  const signing = useOrderSigning();
+  const orderKey = `application:${app.id}`;
+  const started = orders[orderKey];
+  const stage = started ? pendingOrderStage(started, signing) : null;
   const set = (patch: Partial<Panel>) => setPanel((current) => ({ ...current, ...patch }));
 
   function run(result: Result, message: string) {
@@ -833,6 +843,28 @@ function DecisionPanel({
         </Button>
       </>
     );
+  } else if (started && stage && stage !== "triggered") {
+    /* An order is under way: coming back here shows it, rather than asking the question
+       it already answers. The application moves once that order is signed and its order
+       data complete (`application-order-outcome.ts`). */
+    /* Nothing to fill in, so the act sits under its heading, not at the panel's foot. */
+    body = (
+      <div className="flex flex-col gap-4">
+        <PanelHeading
+          title="Order in progress"
+          lead={`${pendingOrderStageLabel(stage)}. The application moves once the order is signed.`}
+        />
+        <Button
+          type="button"
+          className="w-full"
+          onClick={() =>
+            router.push(stage === "drafting" ? started.orderHref : pendingOrderHref(orderKey))
+          }
+        >
+          Open the order
+        </Button>
+      </div>
+    );
   } else if (app.status === "pending-review" && app.review) {
     const deferredBefore = setADateUsed(app);
     const later = app.review.dueOn > on;
@@ -879,7 +911,7 @@ function DecisionPanel({
         {mayAct && panel.action === "onboard" ? (
           <>
             <Field>
-              <FieldLabel id={`${app.id}-when`}>Hearing of the application</FieldLabel>
+              <FieldLabel id={`${app.id}-when`}>When will it be decided?</FieldLabel>
               <SegmentedControl
                 type="single"
                 size="compact"
@@ -891,15 +923,15 @@ function DecisionPanel({
                 className="w-full [&>*]:flex-1 [&>*>span]:w-full"
               >
                 <SegmentedControlItem value="date" className="flex-1">
-                  List for a date
+                  On a date
                 </SegmentedControlItem>
                 <SegmentedControlItem value="now" className="flex-1">
-                  Take up today
+                  Today
                 </SegmentedControlItem>
               </SegmentedControl>
               {panel.when === "now" ? (
                 <FieldDescription>
-                  The application is numbered and taken up immediately for orders.
+                  It is numbered now, and you accept or reject it next.
                 </FieldDescription>
               ) : null}
             </Field>
@@ -979,7 +1011,7 @@ function DecisionPanel({
             }}
           >
             {panel.when === "now"
-              ? "Onboard and take up"
+              ? "Onboard and decide now"
               : listedOn
                 ? `Onboard and list on ${shortDate(listedOn)}`
                 : "Onboard"}
@@ -987,7 +1019,7 @@ function DecisionPanel({
           {/* `ALC-18`: the order screen, for something else entirely. The application
               stays as it is. */}
           <Button type="button" variant="ghost" className="w-full" onClick={() => openOrder()}>
-            Pass a different order
+            Pass a different order instead
           </Button>
         </>
       );
@@ -1049,6 +1081,7 @@ function DecisionPanel({
       footer = mayAct ? (
         <Button
           type="button"
+          variant="outline"
           className="w-full"
           disabled={!relistOn || relistOn <= on}
           onClick={() =>
@@ -1098,38 +1131,83 @@ function DecisionPanel({
           {listedOn ? `List on ${shortDate(listedOn)}` : "List for a date"}
         </Button>
       );
+    } else if (mayAct && panel.moving) {
+      const moveOn = dayOfDate(panel.relist);
+      body = (
+        <>
+          <PanelHeading title="Move the date" />
+          <ListingDateField
+            id={`${app.id}-move`}
+            label="Decide it on"
+            value={panel.relist}
+            on={on}
+            hearing={hearing}
+            hint={
+              app.objectionsInvited
+                ? "The time for objections moves to the day before."
+                : undefined
+            }
+            onChange={(relist) => set({ relist })}
+          />
+        </>
+      );
+      footer = (
+        <>
+          <Button
+            type="button"
+            className="w-full"
+            disabled={!moveOn || moveOn <= on}
+            onClick={() =>
+              run(
+                applyStep(app.id, (current) => moveDecisionDate(current, seat, moveOn, on)),
+                `It comes back to be decided on ${formatCaseDate(moveOn)}.`,
+              )
+            }
+          >
+            {moveOn ? `Move to ${shortDate(moveOn)}` : "Move the date"}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-full"
+            onClick={() => set({ moving: false })}
+          >
+            Back
+          </Button>
+        </>
+      );
     } else {
+      /* A judgment, so neither answer is chosen in advance: each opens the order with
+         that decision already added (owner, 2026-10-14). */
       body = (
         <>
           {takenNow ? (
             <TakenUpLine app={app} relisting={false} onToggle={() => set({ relisting: true })} />
           ) : null}
+          {/* Nothing to fill in, so the answers sit under the question, not at the
+              panel's foot. */}
           <div className="flex flex-col gap-4">
-            <PanelHeading title="Order on the application" />
-            <SegmentedControl
-              type="single"
-              size="compact"
-              value={panel.order}
-              onValueChange={(value) => {
-                if (value) set({ order: value as Panel["order"] });
-              }}
-              aria-label="Accept or reject"
-              className="w-full [&>*]:flex-1 [&>*>span]:w-full"
-            >
-              <SegmentedControlItem value="accept" className="flex-1">
-                Accept
-              </SegmentedControlItem>
-              <SegmentedControlItem value="reject" className="flex-1">
+            <PanelHeading title="Decide the application" />
+            <div className="grid grid-cols-2 gap-2">
+              <Button type="button" variant="outline" onClick={() => openOrder("reject")}>
                 Reject
-              </SegmentedControlItem>
-            </SegmentedControl>
+              </Button>
+              <Button type="button" onClick={() => openOrder("accept")}>
+                Accept
+              </Button>
+            </div>
+            {mayAct && !takenNow ? (
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full"
+                onClick={() => set({ moving: true })}
+              >
+                Move the date
+              </Button>
+            ) : null}
           </div>
         </>
-      );
-      footer = (
-        <Button type="button" className="w-full" onClick={() => openOrder(panel.order)}>
-          {panel.order === "accept" ? "Draft order accepting it" : "Draft order rejecting it"}
-        </Button>
       );
     }
   }
