@@ -42,7 +42,9 @@ import { useOrderLayout } from "@/components/employee/use-order-layout";
 import { useOrderSigning } from "@/components/employee/use-order-signing";
 import { usePendingOrders } from "@/components/employee/use-pending-orders";
 import { pendingOrderCountFor } from "@/lib/employee/pending-orders";
-import { resetSandboxData } from "@/lib/employee/sandbox-reset";
+import { loadDemoSeed, resetSandboxData } from "@/lib/employee/sandbox-reset";
+import { DEMO_SEED_OPTIONS, type DemoSeed } from "@/lib/employee/demo-seed";
+import { useDemoSeed } from "@/components/employee/use-demo-seed";
 import {
   ORDER_DETAILS_PLACEMENT_OPTIONS,
   type OrderDetailsPlacement,
@@ -960,6 +962,7 @@ function CourtSettingsControl() {
   const [orderFlow, setOrderFlow] = useOrderFlow();
   const [nextHearingEntry, setNextHearingEntry] = useNextHearingEntry();
   const [detailsPlacement, setDetailsPlacement] = useOrderDetailsPlacement();
+  const demoSeed = useDemoSeed();
   const [open, setOpen] = React.useState(false);
   const [confirmReset, setConfirmReset] = React.useState(false);
 
@@ -967,6 +970,23 @@ function CourtSettingsControl() {
      adding items", with those two prominent and the rest small and folded away). A new
      setting is one more entry here. Internal demo controls; kept plain on purpose. */
   const more: MoreSetting[] = [
+    /* Which demo day the hearings and orders open on (owner, 2026-10-15). Switching
+       reloads them in this browser. */
+    {
+      id: "demo-seed",
+      label: "Demo data",
+      value: demoSeed,
+      options: DEMO_SEED_OPTIONS,
+      onChange: (next) => {
+        if (next === demoSeed) return;
+        loadDemoSeed(next as DemoSeed);
+        toast(
+          next === "empty"
+            ? "Empty day loaded: no hearing heard, no order drafted."
+            : "Orders in every state loaded.",
+        );
+      },
+    },
     {
       id: "rail-layout",
       label: "Rail layout",
@@ -1174,9 +1194,9 @@ function CourtSettingsControl() {
           <AlertDialogHeader>
             <AlertDialogTitle>Reset sandbox data?</AlertDialogTitle>
             <AlertDialogDescription>
-              The sample applications come back. Applications filed in this
-              browser, order drafts, pending orders and signatures are removed.
-              This cannot be undone.
+              The sample applications come back, and the hearings and orders go
+              back to the chosen demo data. Applications filed and orders typed in
+              this browser are removed. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

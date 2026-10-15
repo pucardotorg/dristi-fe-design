@@ -32,11 +32,14 @@ the selection and holds the act. **Exit bulk** leaves the mode and clears the se
 - **Select all** takes every hearing in the filtered list, across pages. A tick hidden
   by a later filter is not acted on.
 - Magistrate, scrutiny officer, Classic flow, or the setting on Steno: no Bulk button.
-- **Sample orders** — the demo day opens with six of today's hearings heard and their
-  orders under way, so Pending orders has something in both of its working tabs:
-  awaiting signature (items 1, 4, 6) and signed with order data to fill (items 5, 7,
-  11). All in `lib/employee/sample-sitting.ts`; a browser with saved data sees them
-  after Reset sandbox data.
+- **Demo data** — Court settings → More settings → *Demo data*: **Orders in every
+  state** (default) or **Empty day**. Orders in every state opens twelve of today's
+  hearings as heard, with three orders in each Pending orders stage: Drafting (items 8,
+  9, 12), Awaiting signature (1, 4, 6), Order data to fill (5, 7, 11), Triggered (2, 3,
+  10). Empty day has nothing heard and no order. Switching reloads this browser's
+  hearings and orders from the choice; Reset sandbox data reloads the chosen one.
+  Applications are not touched by the switch. `lib/employee/sample-sitting.ts`,
+  `lib/employee/demo-seed.ts`, `loadDemoSeed` in `lib/employee/sandbox-reset.ts`.
 
 ## Pending orders and court settings (same day)
 
@@ -76,7 +79,8 @@ the selection and holds the act. **Exit bulk** leaves the mode and clears the se
 | 2026-10-15 | No separate confirmation after the pop-up. | Implementation choice | Implemented |
 | 2026-10-15 | Pending orders: Signature and Order data in one column; order text column on Order data to fill; steno bulk-adds order items from a multi-select modal. | Owner | Implemented |
 | 2026-10-15 | Court settings as a pop-up: Working as and Court prominent, the rest small and folded. | Owner | Implemented |
-| 2026-10-15 | Sample data: three orders awaiting signature and three with order data to fill. Their hearings open as completed. | Owner (hearings completed: implementation choice) | Implemented |
+| 2026-10-15 | Sample data: three orders awaiting signature and three with order data to fill. Their hearings open as completed. | Owner (hearings completed: implementation choice) | Superseded by the setting below |
+| 2026-10-15 | Demo data setting: orders in every state, or a fully empty day. Three orders per stage, Drafting and Triggered added. Switching does not touch applications. | Owner (counts and applications: implementation choice) | Implemented |
 
 ## Verification and open work
 
@@ -92,7 +96,8 @@ DS pin `e0cadea6b9d4`), 1512px, light theme:
 - Pending orders (steno): Status pills together; Order column; selected all three
   orders to fill; added Issue of warrants to all three; it shows in the order's items.
 - Court settings pop-up: opened, More settings expanded, seat switched to Typist from it.
-- `npm test`: 1,214 pass (13 new, in `lib/employee/cause-list-bulk.test.ts` and `order-bulk-items.test.ts`). Typecheck
+- Demo data: Empty day → every Pending orders tab 0; Orders in every state → 3 · 3 · 3 · 3.
+- `npm test`: 1,216 pass (15 new, in `lib/employee/cause-list-bulk.test.ts` and `order-bulk-items.test.ts`). Typecheck
   and lint clean on changed files. `check:ds-fresh`, `check:tokens`, `check:ui-sync`,
   `check:rails`, `check:table-rows` pass. `check:typography` and `check:spacing` fail on
   files identical to `main`.

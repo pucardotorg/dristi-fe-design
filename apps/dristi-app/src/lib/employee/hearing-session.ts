@@ -228,7 +228,7 @@ export function setHearingsNext(
 }
 
 /** Back to the opening sitting — Reset sandbox data (`sandbox-reset.ts`). */
-export function resetHearingSession(): void {
+export function resetHearingSession(to: HearingSession = SAMPLE_SESSION): void {
   restored = true;
-  commit(SAMPLE_SESSION);
+  commit(to);
 }

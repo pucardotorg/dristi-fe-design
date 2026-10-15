@@ -161,9 +161,9 @@ export function hasDraftFor(drafts: OrderDrafts, hearingId: string): boolean {
 }
 
 /** Back to how a fresh browser opens — Reset sandbox data (`sandbox-reset.ts`). */
-export function resetOrderDrafts(): void {
+export function resetOrderDrafts(to: OrderDrafts = OPENING_DRAFTS): void {
   restored = true;
-  drafts = OPENING_DRAFTS;
+  drafts = Object.freeze({ ...to });
   saveRecord(STORAGE_KEY, drafts);
   for (const listener of listeners) listener();
 }

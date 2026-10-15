@@ -106,7 +106,7 @@ export function markOrdersSigned(hearingIds: Iterable<string>): void {
 }
 
 /** Back to how a fresh browser opens — Reset sandbox data (`sandbox-reset.ts`). */
-export function resetOrderSigning(): void {
+export function resetOrderSigning(to: OrderSigning = OPENING): void {
   restored = true;
-  write(OPENING);
+  write(Object.freeze({ ...to }));
 }

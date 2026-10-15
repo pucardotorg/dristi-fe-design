@@ -249,7 +249,7 @@ export function pendingOrderCountFor(
 }
 
 /** Back to how a fresh browser opens — Reset sandbox data (`sandbox-reset.ts`). */
-export function resetPendingOrders(): void {
+export function resetPendingOrders(to: PendingOrders = OPENING): void {
   restored = true;
-  write(OPENING);
+  write(Object.freeze({ ...to }));
 }

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
 import {
+  EMPTY_SESSION,
   markHearingsEnded,
   markHearingsPassedOver,
   readHearingSession,
@@ -60,7 +61,7 @@ describe("cause list bulk filters", () => {
 });
 
 describe("cause list bulk acts", () => {
-  beforeEach(() => resetHearingSession());
+  beforeEach(() => resetHearingSession(EMPTY_SESSION));
 
   it("marks many hearings completed or passed over in one write", () => {
     const [a, b, c] = board();
@@ -88,5 +89,32 @@ describe("cause list bulk acts", () => {
       nextDate: "2026-11-02",
     });
     assert.equal(session.postings[b.id].nextPurpose, "");
+  });
+});
+
+describe("demo data", () => {
+  it("opens orders in every state with three in each stage", async () => {
+    const { SITTING_SEEDS } = await import("./sample-sitting");
+    const { pendingOrderStage } = await import("./pending-orders");
+    const day = SITTING_SEEDS.orders;
+    const stages = Object.values(day.pending).map((order) =>
+      pendingOrderStage(order, day.signing),
+    );
+    for (const stage of [
+      "drafting",
+      "awaiting-signature",
+      "workflow-to-fill",
+      "triggered",
+    ] as const) {
+      assert.equal(stages.filter((entry) => entry === stage).length, 3, stage);
+    }
+  });
+
+  it("opens the empty day with nothing heard and no order", async () => {
+    const { SITTING_SEEDS } = await import("./sample-sitting");
+    const day = SITTING_SEEDS.empty;
+    assert.equal(day.session.endedIds.size, 0);
+    assert.deepEqual(day.pending, {});
+    assert.deepEqual(day.drafts, {});
   });
 });
