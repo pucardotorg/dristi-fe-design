@@ -5,6 +5,7 @@ import { CalendarDaysIcon } from "lucide-react";
 
 import { formatStructuredAddress } from "@/components/cases/structured-address";
 import { useCourt } from "@/components/court/court-provider";
+import { PurposeField } from "@/components/employee/purpose-field";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -33,8 +34,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  COURT_HEARING_PURPOSES,
-  courtHearingPurposeLabel,
   formatListingDate,
   isoDay,
   parseIsoDay,
@@ -241,28 +240,12 @@ function OrderField({
     return (
       <div className="flex min-w-0 flex-col gap-2">
         <FieldName id={labelId} field={field} />
-        <Select
-          value={value || undefined}
+        <PurposeField
+          value={value as CourtHearingPurposeId}
           disabled={disabled}
-          onValueChange={onChange}
-        >
-          <SelectTrigger aria-labelledby={labelId} className="w-full">
-            {/* The label rendered here rather than left to the primitive, which resolves
-                it from the mounted item only after hydration. */}
-            <SelectValue placeholder="Choose a purpose">
-              {value
-                ? courtHearingPurposeLabel(value as CourtHearingPurposeId)
-                : null}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {COURT_HEARING_PURPOSES.map((entry) => (
-              <SelectItem key={entry.id} value={entry.id}>
-                {entry.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          onChange={onChange}
+          labelledBy={labelId}
+        />
       </div>
     );
   }

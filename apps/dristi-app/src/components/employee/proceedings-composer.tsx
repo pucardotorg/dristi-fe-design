@@ -51,6 +51,7 @@ import {
 } from "@/components/employee/proceedings-menus";
 import { ProceedingsTemplateChooser } from "@/components/employee/proceedings-template-chooser";
 import { TypedDateField } from "@/components/employee/typed-date-field";
+import { PurposeField } from "@/components/employee/purpose-field";
 import { PANEL_CLASS } from "@/components/shell/panel";
 import {
   AlertDialog,
@@ -73,11 +74,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -86,7 +82,6 @@ import {
   isCaseFileFolder,
 } from "@/lib/cases/case-file";
 import {
-  COURT_HEARING_PURPOSES,
   courtHearingPurposeLabel,
   formatListingDate,
   formatOrderDate,
@@ -2219,31 +2214,12 @@ function NextHearing({
             >
               Purpose
             </span>
-            <Select
-              value={draft.nextPurpose || undefined}
-              onValueChange={(value) =>
-                onChange({ nextPurpose: value as CourtHearingPurposeId })
-              }
-            >
-              <SelectTrigger
-                id="proc-next-purpose"
-                aria-labelledby="proc-next-purpose-label"
-                className="w-full"
-              >
-                <SelectValue placeholder="Choose a purpose">
-                  {draft.nextPurpose
-                    ? courtHearingPurposeLabel(draft.nextPurpose)
-                    : null}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {COURT_HEARING_PURPOSES.map((entry) => (
-                  <SelectItem key={entry.id} value={entry.id}>
-                    {entry.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <PurposeField
+              id="proc-next-purpose"
+              value={draft.nextPurpose}
+              onChange={(nextPurpose) => onChange({ nextPurpose })}
+              labelledBy="proc-next-purpose-label"
+            />
           </div>
         </div>
       )}

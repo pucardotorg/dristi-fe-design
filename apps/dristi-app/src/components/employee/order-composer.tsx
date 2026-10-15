@@ -41,6 +41,7 @@ import {
   type SignStage,
 } from "@/components/employee/sign-method-stage";
 import { useSignatureChoice } from "@/components/employee/sign-signature-fields";
+import { PurposeField } from "@/components/employee/purpose-field";
 import { PANEL_CLASS } from "@/components/shell/panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -50,11 +51,6 @@ import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
 import {
   SegmentedControl,
@@ -62,7 +58,6 @@ import {
 } from "@/components/ui/segmented-control";
 import { Separator } from "@/components/ui/separator";
 import {
-  COURT_HEARING_PURPOSES,
   courtHearingPurposeLabel,
   formatListingDate,
   type CourtHearingPurposeId,
@@ -1534,33 +1529,12 @@ export function NextHearingSection({
             >
               Purpose
             </span>
-            <Select
-              value={nextHearing.purpose || undefined}
+            <PurposeField
+              value={nextHearing.purpose}
               disabled={off}
-              onValueChange={(value) =>
-                nextHearing.onChange({
-                  purpose: value as CourtHearingPurposeId,
-                })
-              }
-            >
-              <SelectTrigger
-                aria-labelledby={`${id}-purpose-label`}
-                className="w-full"
-              >
-                <SelectValue placeholder="Choose a purpose">
-                  {nextHearing.purpose
-                    ? courtHearingPurposeLabel(nextHearing.purpose)
-                    : null}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {COURT_HEARING_PURPOSES.map((entry) => (
-                  <SelectItem key={entry.id} value={entry.id}>
-                    {entry.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              onChange={(purpose) => nextHearing.onChange({ purpose })}
+              labelledBy={`${id}-purpose-label`}
+            />
           </div>
         </div>
           ) : null}
