@@ -90,6 +90,7 @@ export function OrderCasePanel({
   cited = [],
   overviewContent,
   historyContent,
+  hearingsContent,
   preview,
   requestView,
   onViewRequested,
@@ -112,6 +113,8 @@ export function OrderCasePanel({
   preview?: React.ReactNode;
   /** The court's own case history, in place of the plain list — shows the tab. */
   historyContent?: React.ReactNode;
+  /** The case's hearings with the order passed at each — shows the Hearings tab. */
+  hearingsContent?: React.ReactNode;
   /** A document to open in the viewer — a citation clicked in the order, say. */
   requestView?: string | null;
   onViewRequested?: () => void;
@@ -314,6 +317,14 @@ export function OrderCasePanel({
             >
               Overview
             </TabsTrigger>
+            {hearingsContent ? (
+              <TabsTrigger
+                value="hearings"
+                className="h-full flex-none px-3 text-body-compact group-data-horizontal/tabs:after:-bottom-px"
+              >
+                Hearings
+              </TabsTrigger>
+            ) : null}
             {historyContent ? (
               <TabsTrigger
                 value="history"
@@ -628,6 +639,14 @@ export function OrderCasePanel({
             </DescriptionList>
           )}
         </TabsContent>
+        {hearingsContent ? (
+          <TabsContent
+            value="hearings"
+            className="min-h-0 flex-1 overflow-y-auto p-4"
+          >
+            {hearingsContent}
+          </TabsContent>
+        ) : null}
         {historyContent ? (
           <TabsContent
             value="history"

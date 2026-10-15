@@ -736,6 +736,7 @@ export function OrderEditorComposer({
   overview,
   overviewContent,
   historyContent,
+  hearingsContent,
   context,
   purpose,
   fixedIds,
@@ -762,6 +763,8 @@ export function OrderEditorComposer({
   overview: { label: string; value: string }[];
   overviewContent?: React.ReactNode;
   historyContent?: React.ReactNode;
+  /** The case's hearings with the order passed at each — shows the Hearings tab. */
+  hearingsContent?: React.ReactNode;
 }) {
   const rootRef = React.useRef<HTMLDivElement>(null);
   const bands = useBands(rootRef);
@@ -961,6 +964,7 @@ export function OrderEditorComposer({
             disabled={false}
             overviewContent={overviewContent}
             historyContent={historyContent}
+            hearingsContent={hearingsContent}
             inlineViewer
           />
         ) : null}

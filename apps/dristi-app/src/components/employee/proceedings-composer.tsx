@@ -196,6 +196,7 @@ export function ProceedingsComposer({
   overview,
   overviewContent,
   historyContent,
+  hearingsContent,
   previewInPanel = false,
 }: {
   draftKey: string;
@@ -224,6 +225,8 @@ export function ProceedingsComposer({
   overview: { label: string; value: string }[];
   overviewContent?: React.ReactNode;
   historyContent?: React.ReactNode;
+  /** The case's hearings with the order passed at each — shows the Hearings tab. */
+  hearingsContent?: React.ReactNode;
   /**
    * Version D (owner, 2026-10-14): Preview order leaves the order's own bar and becomes
    * the right panel's first tab, live beside the drafting — every word typed and every
@@ -1694,6 +1697,7 @@ export function ProceedingsComposer({
             cited={cited}
             overviewContent={overviewContent}
             historyContent={historyContent}
+            hearingsContent={hearingsContent}
             preview={previewInPanel ? paper : undefined}
             requestView={viewRequest}
             onViewRequested={() => setViewRequest(null)}

@@ -30,15 +30,19 @@ import {
   type NiWindowStatus,
 } from "./ni-act";
 
+/** One sitting the court held on the matter, and what it recorded that day. */
+export type HearingSitting = {
+  on: string;
+  purpose: string;
+  order: string;
+  /** An order of the day, as opposed to an update with no order passed. */
+  directed: boolean;
+};
+
 export type HearingCaseExtras = {
   filedOn?: string;
   chequeAmount?: number;
-  lastHearing?: {
-    on: string;
-    purpose: string;
-    order: string;
-    directed: boolean;
-  };
+  lastHearing?: HearingSitting;
 };
 
 export function formatCaseDate(day: string): string {
@@ -77,6 +81,199 @@ export function formatCounselList(names: string[]): string {
 export function hearingCaseExtras(id: string): HearingCaseExtras {
   return HEARING_CASE_EXTRAS[id] ?? {};
 }
+
+/**
+ * The case's hearings, newest first — the subset of its history that is the court
+ * sitting on it, each with the order passed that day. The last sitting heads the list.
+ */
+export function hearingSittings(id: string): HearingSitting[] {
+  const last = hearingCaseExtras(id).lastHearing;
+  return last ? [last, ...(EARLIER_SITTINGS[id] ?? [])] : [];
+}
+
+/**
+ * The sittings before the last one, newest first. Demo rows, dated to fall where the
+ * case history's events put them: the accused's appearance on the day they joined the
+ * case, the plea and evidence after it, and nothing after the last sitting.
+ */
+const APPEARANCE_ORDER =
+  "Accused appeared through counsel and moved for bail. Posted for plea.";
+const PLEA_ORDER =
+  "Particulars of the offence read over and explained to the accused, who pleaded not guilty. Posted for evidence of the complainant.";
+
+const EARLIER_SITTINGS: Partial<Record<string, HearingSitting[]>> = {
+  "h-241": [
+    {
+      on: "2026-07-28",
+      purpose: "Evidence of complainant",
+      order:
+        "Proof affidavit of PW-1 filed and Exhibits P1 to P6 marked. Posted for cross-examination.",
+      directed: true,
+    },
+    { on: "2026-06-16", purpose: "Plea", order: PLEA_ORDER, directed: true },
+    {
+      on: "2026-05-25",
+      purpose: "Appearance",
+      order: APPEARANCE_ORDER,
+      directed: true,
+    },
+  ],
+  "h-248": [
+    {
+      on: "2026-05-10",
+      purpose: "Appearance",
+      order: APPEARANCE_ORDER,
+      directed: true,
+    },
+  ],
+  "h-250": [
+    {
+      on: "2026-07-08",
+      purpose: "Evidence of complainant",
+      order:
+        "Proof affidavit of PW-1 filed and Exhibits P1 to P5 marked. Posted for examination-in-chief.",
+      directed: true,
+    },
+    { on: "2026-05-17", purpose: "Plea", order: PLEA_ORDER, directed: true },
+    {
+      on: "2026-04-18",
+      purpose: "Appearance",
+      order: APPEARANCE_ORDER,
+      directed: true,
+    },
+  ],
+  "h-251": [
+    {
+      on: "2026-06-22",
+      purpose: "Evidence of complainant",
+      order:
+        "Accused disputed the signature on the cheque. Cheque sent to the Forensic Science Laboratory for comparison. Posted for reports.",
+      directed: true,
+    },
+    {
+      on: "2026-05-15",
+      purpose: "Evidence of complainant",
+      order:
+        "PW-1 examined in chief. Exhibits P1 to P5 marked. Cross-examination deferred.",
+      directed: true,
+    },
+    { on: "2026-04-13", purpose: "Plea", order: PLEA_ORDER, directed: true },
+    {
+      on: "2026-03-07",
+      purpose: "Appearance",
+      order: APPEARANCE_ORDER,
+      directed: true,
+    },
+  ],
+  "h-253": [
+    {
+      on: "2026-07-09",
+      purpose: "Evidence of complainant",
+      order:
+        "Complainant's evidence closed. Posted for examination of the accused under S. 351 BNSS.",
+      directed: true,
+    },
+    {
+      on: "2026-05-22",
+      purpose: "Evidence of complainant",
+      order:
+        "PW-1 cross-examined in full. PW-2, the bank's officer, examined and the return memo marked as Exhibit P7.",
+      directed: true,
+    },
+    { on: "2026-04-11", purpose: "Plea", order: PLEA_ORDER, directed: true },
+    {
+      on: "2026-02-22",
+      purpose: "Appearance",
+      order: APPEARANCE_ORDER,
+      directed: true,
+    },
+  ],
+  "h-254": [
+    {
+      on: "2026-06-23",
+      purpose: "Examination of accused under S. 351 BNSS",
+      order:
+        "Accused examined and denied the incriminating circumstances. No defence evidence. Posted for arguments.",
+      directed: true,
+    },
+    {
+      on: "2026-05-02",
+      purpose: "Evidence of complainant",
+      order:
+        "PW-1 examined and cross-examined. Exhibits P1 to P6 marked. Complainant's evidence closed.",
+      directed: true,
+    },
+    { on: "2026-03-18", purpose: "Plea", order: PLEA_ORDER, directed: true },
+    {
+      on: "2026-01-25",
+      purpose: "Appearance",
+      order: APPEARANCE_ORDER,
+      directed: true,
+    },
+  ],
+  "h-258": [
+    {
+      on: "2026-07-23",
+      purpose: "Evidence of complainant",
+      order:
+        "Proof affidavit of PW-1 filed. Posted for examination-in-chief to continue.",
+      directed: true,
+    },
+    { on: "2026-05-31", purpose: "Plea", order: PLEA_ORDER, directed: true },
+    {
+      on: "2026-05-02",
+      purpose: "Appearance",
+      order: APPEARANCE_ORDER,
+      directed: true,
+    },
+  ],
+  "h-260": [
+    {
+      on: "2026-06-26",
+      purpose: "Examination of accused under S. 351 BNSS",
+      order:
+        "Accused examined and denied the incriminating circumstances. Posted for arguments.",
+      directed: true,
+    },
+    {
+      on: "2026-04-24",
+      purpose: "Evidence of complainant",
+      order:
+        "PW-1 cross-examined in full. Exhibits P1 to P7 marked. Complainant's evidence closed.",
+      directed: true,
+    },
+    { on: "2026-03-01", purpose: "Plea", order: PLEA_ORDER, directed: true },
+    {
+      on: "2025-12-27",
+      purpose: "Appearance",
+      order: APPEARANCE_ORDER,
+      directed: true,
+    },
+  ],
+  "h-263": [
+    {
+      on: "2026-07-05",
+      purpose: "Arguments",
+      order:
+        "Arguments of the complainant heard. Counsel for the accused to reply.",
+      directed: true,
+    },
+    {
+      on: "2026-06-02",
+      purpose: "Evidence of complainant",
+      order:
+        "PW-1 examined and cross-examined. Complainant's evidence closed. Accused examined under S. 351 BNSS.",
+      directed: true,
+    },
+    { on: "2026-05-05", purpose: "Plea", order: PLEA_ORDER, directed: true },
+    {
+      on: "2026-04-03",
+      purpose: "Appearance",
+      order: APPEARANCE_ORDER,
+      directed: true,
+    },
+  ],
+};
 
 const HEARING_CASE_EXTRAS: Partial<Record<string, HearingCaseExtras>> = {
   "h-241": {
