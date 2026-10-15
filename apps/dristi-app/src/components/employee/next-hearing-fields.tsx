@@ -211,7 +211,7 @@ export function NextPurposeField({
  * already listed on it under the date. The count travels in the day's accessible name
  * too, so it is not a sighted reader's alone.
  */
-function LoadCalendar({
+export function LoadCalendar({
   today,
   chosen,
   disabled,
@@ -264,7 +264,7 @@ function LoadCalendar({
 }
 
 /** The chosen day, broken down by purpose — the number under the date, opened up. */
-function DayBreakdown({
+export function DayBreakdown({
   day,
   load,
 }: {

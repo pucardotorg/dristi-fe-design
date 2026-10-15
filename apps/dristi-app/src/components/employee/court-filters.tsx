@@ -8,6 +8,18 @@ import { ArrowDownUpIcon, SlidersHorizontalIcon, XIcon } from "lucide-react";
 import { QueueSearchField } from "@/components/employee/queue-search-field";
 import { AppliedChip } from "@/components/shell/applied-chip";
 import { Button } from "@/components/ui/button";
+import {
+  Combobox,
+  ComboboxChip,
+  ComboboxChips,
+  ComboboxChipsInput,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxValue,
+  useComboboxAnchor,
+} from "@/components/ui/combobox";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import {
@@ -59,6 +71,24 @@ export type CourtFilterField = {
   options: CourtFilterOption[];
   /** Commit this field's value (called on Apply with the draft value). */
   onApply: (value: string) => void;
+};
+
+/**
+ * A filter that takes several values — a multi-select dropdown in the sheet (the DS
+ * `Combobox` with chips, as the join dialog's PoA picker uses it). Typing narrows the
+ * list. Nothing picked means no narrowing. Each picked value is its own removable chip on
+ * the row.
+ */
+export type CourtFilterMultiField = {
+  id: string;
+  label: string;
+  /** The applied values. */
+  values: readonly string[];
+  options: CourtFilterOption[];
+  /** What the empty field says, e.g. "All advocates". */
+  placeholder: string;
+  /** Commit this field's values (called on Apply with the draft). */
+  onApply: (values: string[]) => void;
 };
 
 export type CourtFilterDate = {
@@ -143,6 +173,7 @@ export function CourtFilters({
   search,
   searchRef,
   fields,
+  multi = [],
   date,
   onClearAll,
 }: {
@@ -182,14 +213,18 @@ export function CourtFilters({
       so the ref is forwarded on its own where passing it to a child `ref=` is allowed. */
   searchRef?: React.Ref<HTMLInputElement>;
   fields: CourtFilterField[];
+  /** Filters that take several values. */
+  multi?: CourtFilterMultiField[];
   date?: CourtFilterDate;
   /** Reset every filter (fields, date and the search) back to the screen's default. */
   onClearAll: () => void;
 }) {
   const labelHidden = search.labelHidden ?? true;
   const appliedFields = fields.filter((field) => field.value !== field.all);
-  const applied = appliedFields.length + (date?.active ? 1 : 0);
-  const controls = fields.length + (date ? 1 : 0);
+  const appliedMulti = multi.filter((field) => field.values.length > 0);
+  const applied =
+    appliedFields.length + appliedMulti.length + (date?.active ? 1 : 0);
+  const controls = fields.length + multi.length + (date ? 1 : 0);
 
   /* Wrapped in a form only where Enter is a fast path — a lone search input inside a
      `<form>` submits implicitly, so screens without an `onSubmit` render the box bare rather
@@ -304,7 +339,12 @@ export function CourtFilters({
         ) : null}
         <div className="flex min-w-0 items-end gap-3 max-sm:w-full max-sm:flex-col max-sm:items-stretch">
           {searchNode}
-          <CourtFiltersSheet fields={fields} date={date} applied={applied} />
+          <CourtFiltersSheet
+            fields={fields}
+            multi={multi}
+            date={date}
+            applied={applied}
+          />
           {trailing}
         </div>
       </div>
@@ -326,6 +366,20 @@ export function CourtFilters({
               onClear={() => field.onApply(field.all)}
             />
           ))}
+          {appliedMulti.flatMap((field) =>
+            field.values.map((value) => (
+              <AppliedChip
+                key={`${field.id}-${value}`}
+                label={
+                  field.options.find((option) => option.value === value)?.label ??
+                  value
+                }
+                onClear={() =>
+                  field.onApply(field.values.filter((entry) => entry !== value))
+                }
+              />
+            )),
+          )}
           {date?.active ? (
             <AppliedChip
               label={date.chipLabel}
@@ -349,19 +403,24 @@ export function CourtFilters({
 
 function CourtFiltersSheet({
   fields,
+  multi,
   date,
   applied,
 }: {
   fields: CourtFilterField[];
+  multi: CourtFilterMultiField[];
   date?: CourtFilterDate;
   applied: number;
 }) {
   const seed = React.useCallback(
     () => ({
       fields: Object.fromEntries(fields.map((field) => [field.id, field.value])),
+      multi: Object.fromEntries(
+        multi.map((field) => [field.id, [...field.values]]),
+      ) as Record<string, string[]>,
       date: date?.value,
     }),
-    [fields, date],
+    [fields, multi, date],
   );
 
   const [draft, setDraft] = React.useState(seed);
@@ -373,13 +432,20 @@ function CourtFiltersSheet({
   const draftFieldCount = fields.filter(
     (field) => (draft.fields[field.id] ?? field.all) !== field.all,
   ).length;
+  const draftMultiCount = multi.filter(
+    (field) => (draft.multi[field.id] ?? []).length > 0,
+  ).length;
   const draftCount =
-    draftFieldCount + (date && date.draftActive(draft.date) ? 1 : 0);
+    draftFieldCount + draftMultiCount + (date && date.draftActive(draft.date) ? 1 : 0);
 
   function apply() {
     for (const field of fields) {
       const next = draft.fields[field.id] ?? field.all;
       if (next !== field.value) field.onApply(next);
+    }
+    for (const field of multi) {
+      const next = draft.multi[field.id] ?? [];
+      if (next.join("\u0000") !== field.values.join("\u0000")) field.onApply(next);
     }
     if (date) date.onApply(draft.date);
   }
@@ -387,6 +453,7 @@ function CourtFiltersSheet({
   function clearDraft() {
     setDraft({
       fields: Object.fromEntries(fields.map((field) => [field.id, field.all])),
+      multi: Object.fromEntries(multi.map((field) => [field.id, []])),
       date: date?.cleared,
     });
     setDateKey((key) => key + 1);
@@ -450,6 +517,20 @@ function CourtFiltersSheet({
             </div>
           ))}
 
+          {multi.map((field) => (
+            <MultiSelectField
+              key={field.id}
+              field={field}
+              value={draft.multi[field.id] ?? []}
+              onChange={(next) =>
+                setDraft((current) => ({
+                  ...current,
+                  multi: { ...current.multi, [field.id]: next },
+                }))
+              }
+            />
+          ))}
+
           {date ? (
             // `DatePicker` owns its trigger and takes no `id`, so the label names a group
             // around it rather than pointing `htmlFor` at a control that does not exist.
@@ -490,5 +571,67 @@ function CourtFiltersSheet({
         </SheetFooter>
       </SheetContent>
     </Sheet>
+  );
+}
+
+/** One multi-value filter in the sheet: a dropdown that keeps what is picked as chips. */
+function MultiSelectField({
+  field,
+  value,
+  onChange,
+}: {
+  field: CourtFilterMultiField;
+  value: readonly string[];
+  onChange: (next: string[]) => void;
+}) {
+  const anchor = useComboboxAnchor();
+  const labelId = `${field.id}-label`;
+  const picked = field.options.filter((option) => value.includes(option.value));
+  return (
+    <div className="flex min-w-0 flex-col gap-2">
+      <Label id={labelId} className="text-body-compact">
+        {field.label}
+      </Label>
+      <Combobox
+        multiple
+        items={field.options}
+        value={picked}
+        itemToStringLabel={(option: CourtFilterOption) => option.label}
+        isItemEqualToValue={(a: CourtFilterOption, b: CourtFilterOption) =>
+          a.value === b.value
+        }
+        onValueChange={(next: CourtFilterOption[]) =>
+          onChange(next.map((option) => option.value))
+        }
+      >
+        <ComboboxChips ref={anchor}>
+          <ComboboxValue>
+            {(chosen: CourtFilterOption[]) => (
+              <>
+                {chosen.map((option) => (
+                  <ComboboxChip key={option.value}>{option.label}</ComboboxChip>
+                ))}
+                <ComboboxChipsInput
+                  aria-labelledby={labelId}
+                  placeholder={chosen.length ? undefined : field.placeholder}
+                />
+              </>
+            )}
+          </ComboboxValue>
+        </ComboboxChips>
+        {/* The sheet is modal and freezes the body's pointer events; the list, portalled
+            there, re-enables its own. */}
+        <ComboboxContent anchor={anchor} className="pointer-events-auto">
+          <ComboboxEmpty>Nothing matches.</ComboboxEmpty>
+          <ComboboxList>
+            {(option: CourtFilterOption) => (
+              <ComboboxItem key={option.value} value={option}>
+                {option.label}
+              </ComboboxItem>
+            )}
+          </ComboboxList>
+        </ComboboxContent>
+      </Combobox>
+    </div>
   );
 }

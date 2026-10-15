@@ -39,6 +39,7 @@
 import type { CourtRole } from "./content";
 import type { OrderSigning } from "./order-signing";
 import { restoreRecord, saveRecord, watchRecord } from "./browser-record";
+import { SAMPLE_PENDING_ORDERS } from "./sample-sitting";
 
 /** What the list knows about one order — enough to show it and to reopen it. */
 export type PendingOrderMeta = {
@@ -79,7 +80,8 @@ export const PENDING_ORDER_STAGES: {
   { id: "triggered", label: "Triggered" },
 ];
 
-const OPENING: PendingOrders = Object.freeze({});
+/* Opens on the demo sitting's orders (`sample-sitting.ts`). */
+const OPENING: PendingOrders = Object.freeze({ ...SAMPLE_PENDING_ORDERS });
 
 let orders: PendingOrders = OPENING;
 let restored = false;

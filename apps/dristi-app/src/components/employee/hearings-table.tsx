@@ -32,6 +32,7 @@ import {
 } from "@/lib/employee/row-activation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -794,9 +795,21 @@ export function HearingsTable({
   onEndHearing,
   onPassOver,
   onOpenOrder,
+  selection,
 }: {
   rows: CourtHearing[];
   seat: CourtRole;
+  /**
+   * Bulk mode (owner, 2026-10-15): a checkbox column ahead of the chosen columns. Not one
+   * of them — it cannot be hidden or moved, and it is gone when bulk mode is.
+   */
+  selection?: {
+    selected: ReadonlySet<string>;
+    onToggle: (id: string) => void;
+    /** The header box: all of the filtered list, every page — or none. */
+    all: boolean | "indeterminate";
+    onToggleAll: (select: boolean) => void;
+  };
   /** The columns on screen, in order. */
   columns: readonly CauseListColumn[];
   onMoveColumn: (
@@ -985,6 +998,19 @@ export function HearingsTable({
             className={TABLE_HEAD_ROW}
             onDragOver={dragging ? autoScroll : undefined}
           >
+            {selection ? (
+              <TableHead className={cn(TABLE_HEAD, "w-12")}>
+                <Checkbox
+                  checked={selection.all}
+                  onCheckedChange={(next) => selection.onToggleAll(next === true)}
+                  aria-label={
+                    selection.all === true
+                      ? "Clear the selection"
+                      : "Select every hearing in this list"
+                  }
+                />
+              </TableHead>
+            ) : null}
             {columns.map((column) => {
               const landing =
                 dragging && dragging !== column.id && over?.id === column.id
@@ -1030,14 +1056,35 @@ export function HearingsTable({
             })}
           </TableRow>
         </TableHeader>
-        <TableBody className={tableBodyClass()}>
+        <TableBody className={tableBodyClass({ selectable: Boolean(selection) })}>
           {/* The header is a well, not a band welded to the rows (ui-craft §4);
               `border-separate` has no per-edge row gap, so the gap is one inert row. */}
           <tr aria-hidden="true">
-            <td colSpan={columns.length} className="h-2 p-0" />
+            <td
+              colSpan={columns.length + (selection ? 1 : 0)}
+              className="h-2 p-0"
+            />
           </tr>
           {rows.map((hearing) => (
-            <TableRow key={hearing.id} {...rowActivation(tableRowClass())}>
+            <TableRow
+              key={hearing.id}
+              data-state={
+                selection?.selected.has(hearing.id) ? "selected" : undefined
+              }
+              {...rowActivation(
+                tableRowClass({ selectable: Boolean(selection) }),
+              )}
+            >
+              {selection ? (
+                <TableCell className={cn(TABLE_CELL, "w-12")}>
+                  <Checkbox
+                    checked={selection.selected.has(hearing.id)}
+                    onCheckedChange={() => selection.onToggle(hearing.id)}
+                    onClick={(event) => event.stopPropagation()}
+                    aria-label={`Select item ${hearing.item}, ${causeTitle(hearing)}`}
+                  />
+                </TableCell>
+              ) : null}
               {columns.map((column) => (
                 <TableCell
                   key={column.id}

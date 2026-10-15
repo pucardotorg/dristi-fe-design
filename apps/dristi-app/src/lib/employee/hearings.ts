@@ -835,14 +835,20 @@ export function hearingsForDay(day: string, today: string): CourtHearing[] {
 
 export type HearingFilters = {
   status: TodaysCauseStatus | "all";
-  purpose: CourtHearingPurposeId | "all";
+  /** Each filter below takes several values; an empty list does not narrow. */
+  purposes: CourtHearingPurposeId[];
+  /** Advocates on record, by name — a listing with any of them matches. */
+  advocates: string[];
+  stages: CourtCaseStage[];
   /** Free text over the cause title and the case number — what the bench can recall. */
   query: string;
 };
 
 export const EMPTY_FILTERS: HearingFilters = {
   status: "all",
-  purpose: "all",
+  purposes: [],
+  advocates: [],
+  stages: [],
   query: "",
 };
 
@@ -855,7 +861,16 @@ export function filterHearings(
     if (filters.status !== "all" && hearing.status !== filters.status) {
       return false;
     }
-    if (filters.purpose !== "all" && hearing.purpose !== filters.purpose) {
+    if (filters.purposes.length && !filters.purposes.includes(hearing.purpose)) {
+      return false;
+    }
+    if (filters.stages.length && !filters.stages.includes(hearing.stage)) {
+      return false;
+    }
+    if (
+      filters.advocates.length &&
+      !hearing.counsel.some((counsel) => filters.advocates.includes(counsel.name))
+    ) {
       return false;
     }
     if (!query) return true;
@@ -863,6 +878,13 @@ export function filterHearings(
       `${causeTitle(hearing)} ${hearing.caseNumber}`.toLowerCase();
     return haystack.includes(query);
   });
+}
+
+/** Every advocate on record across these listings, by name, for the Advocate filter. */
+export function advocatesOnList(rows: CourtHearing[]): string[] {
+  return [...new Set(rows.flatMap((hearing) => hearing.counsel.map((c) => c.name)))].sort(
+    (a, b) => a.localeCompare(b),
+  );
 }
 
 export const PAGE_SIZES = [10, 20, 30, 50] as const;
