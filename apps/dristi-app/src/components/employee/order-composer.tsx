@@ -1153,6 +1153,16 @@ function shortRole(role: string): string {
   return `${party.charAt(0).toUpperCase()}${party.slice(1)}'s advocate`;
 }
 
+/**
+ * Under a side's counsel row, who is on record: the one advocate, or — with several — that
+ * any one of them is enough to mark the side present.
+ */
+function advocatesLine(advocates: readonly string[]): string {
+  return advocates.length === 1
+    ? advocates[0]
+    : `Any one of ${advocates.join(", ")}`;
+}
+
 export function AttendanceSection({
   attendance,
   disabled,
@@ -1211,7 +1221,9 @@ export function AttendanceSection({
                 <p className="flex min-w-0 flex-col text-body-compact">
                   <span className="font-medium">{appearance.name}</span>
                   <span className="text-muted-foreground">
-                    {shortRole(appearance.role)}
+                    {appearance.advocates
+                      ? advocatesLine(appearance.advocates)
+                      : shortRole(appearance.role)}
                   </span>
                 </p>
                 <div
