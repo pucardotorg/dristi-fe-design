@@ -120,8 +120,8 @@ describe("what a row says", () => {
   it("says overdue, deferred and listed in words", () => {
     const overdue = filed("x", "2026-10-01");
     assert.deepEqual(statusLine(overdue, TODAY), {
-      word: "Awaiting onboarding",
-      detail: "Due 2 Oct",
+      word: "Due 2 Oct",
+      detail: undefined,
       due: "overdue",
     });
     const deferred = setReviewDate(filed("y", "2026-10-05"), "magistrate", "2026-10-12", TODAY);

@@ -49,6 +49,7 @@ import {
 } from "@/components/ui/tooltip";
 import {
   canTakeSystemAction,
+  sideLabel,
   type CourtSeat,
   type LifecycleApplication,
 } from "@/lib/applications/lifecycle";
@@ -251,22 +252,43 @@ export function ApplicationsScreen({ initialView }: { initialView: ApplicationVi
                   orderOf={orderOf}
                 />
               </div>
-              <ul className="flex flex-col gap-3 text-body-compact md:hidden">
-                {rows.map((app) => (
-                  <QueueItemRow key={app.id} className="flex flex-col gap-2">
-                    <button
-                      type="button"
-                      onClick={() => open(app)}
-                      {...rowOpener}
-                      className={rowOpenerClass}
-                    >
-                      {app.typeLabel}
-                    </button>
-                    <p className="text-body-compact">{causeTitleOf(app)}</p>
-                    <StatusCell app={app} on={on} order={orderOf(app)} />
-                  </QueueItemRow>
+              {/* Phones get the same bands as the table, each headed the same way. */}
+              <div className="flex flex-col gap-6 md:hidden">
+                {(banded ? bandsOf(rows, on) : [{ id: "rows", label: "", rows }]).map((band) => (
+                  <section key={band.id} className="flex flex-col gap-3" aria-label={band.label || undefined}>
+                    {band.label ? (
+                      <h2 className="flex items-baseline gap-2 text-body-compact font-semibold">
+                        {band.label}
+                        <span className="font-normal tabular-nums text-muted-foreground">
+                          {band.rows.length}
+                        </span>
+                      </h2>
+                    ) : null}
+                    <ul className="flex flex-col gap-3 text-body-compact">
+                      {band.rows.map((app) => (
+                        <QueueItemRow key={app.id} className="flex flex-col gap-2">
+                          {/* The whole card opens it, so the name needs no 40px band of its
+                              own: it sits on the line above the parties. */}
+                          <div className="flex flex-col gap-0.5">
+                            <button
+                              type="button"
+                              onClick={() => open(app)}
+                              {...rowOpener}
+                              className={cn(rowOpenerClass, "min-h-0")}
+                            >
+                              {app.typeLabel}
+                            </button>
+                            <p className="text-body-compact text-muted-foreground">
+                              {causeTitleOf(app)}
+                            </p>
+                          </div>
+                          <StatusCell app={app} on={on} order={orderOf(app)} />
+                        </QueueItemRow>
+                      ))}
+                    </ul>
+                  </section>
                 ))}
-              </ul>
+              </div>
             </>
           )}
 
@@ -488,11 +510,13 @@ function ApplicationsTable({
               />
             </TableHead>
           ) : null}
-          <TableHead className={cn(TABLE_HEAD, "min-w-48 whitespace-normal")}>Application</TableHead>
-          <TableHead className={cn(TABLE_HEAD, "min-w-48 whitespace-normal")}>Case</TableHead>
-          <TableHead className={cn(TABLE_HEAD, "whitespace-nowrap")}>Number</TableHead>
-          <TableHead className={cn(TABLE_HEAD, "whitespace-nowrap")}>Filed on</TableHead>
-          <TableHead className={cn(TABLE_HEAD, "min-w-40 whitespace-normal")}>
+          <TableHead className={cn(TABLE_HEAD, "min-w-36 whitespace-normal")}>Application</TableHead>
+          <TableHead className={cn(TABLE_HEAD, "min-w-40 whitespace-normal")}>Case</TableHead>
+          {/* The two short columns take their content's width; what is left goes to the
+              columns that carry words, so Status never wraps a badge onto its own line. */}
+          <TableHead className={cn(TABLE_HEAD, "w-px whitespace-nowrap")}>Number</TableHead>
+          <TableHead className={cn(TABLE_HEAD, "w-px whitespace-nowrap")}>Filed</TableHead>
+          <TableHead className={cn(TABLE_HEAD, "min-w-56 whitespace-normal")}>
             {closed ? "Outcome" : "Status"}
           </TableHead>
         </TableRow>
@@ -537,7 +561,7 @@ function ApplicationsTable({
                     />
                   </TableCell>
                 ) : null}
-                <TableCell className={cn(TABLE_CELL, "align-top", "min-w-48 whitespace-normal")}>
+                <TableCell className={cn(TABLE_CELL, "align-top", "min-w-36 whitespace-normal")}>
                   {/* The side rides inside the opener: on its own line under it, the
                       opener's 40px floor left a gap between the two. */}
                   <button
@@ -547,16 +571,18 @@ function ApplicationsTable({
                     className={cn(rowOpenerClass, "flex flex-col gap-0.5")}
                   >
                     {app.typeLabel}
+                    {/* Under the application's name, the side alone says who filed it. */}
                     <span className="font-normal text-muted-foreground">
-                      Filed by the {app.side}
+                      {sideLabel(app.side)}
                     </span>
                   </button>
                 </TableCell>
-                <TableCell className={cn(TABLE_CELL, "align-top", "min-w-48 whitespace-normal")}>
+                <TableCell className={cn(TABLE_CELL, "align-top", "min-w-40 whitespace-normal")}>
                   <span className="flex flex-col gap-1">
                     <span>{causeTitleOf(app)}</span>
                     {record ? (
-                      <span className="text-muted-foreground">
+                      /* A number is read whole: it never breaks at its hyphens. */
+                      <span className="whitespace-nowrap text-muted-foreground">
                         <Identifier value={record.caseNumber} label="case number" />
                       </span>
                     ) : null}
@@ -576,7 +602,7 @@ function ApplicationsTable({
                 <TableCell className={cn(TABLE_CELL, "align-top", "whitespace-nowrap tabular-nums")}>
                   {shortDate(app.submittedOn ?? app.createdOn)}
                 </TableCell>
-                <TableCell className={cn(TABLE_CELL, "align-top", "min-w-40 whitespace-normal")}>
+                <TableCell className={cn(TABLE_CELL, "align-top", "min-w-56 whitespace-normal")}>
                   <StatusCell app={app} on={on} order={orderOf(app)} />
                 </TableCell>
               </TableRow>

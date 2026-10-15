@@ -410,7 +410,7 @@ function QueueEntry({
                 : "text-muted-foreground",
           )}
         >
-          {note ?? (line.due === "overdue" ? `Overdue · ${line.detail ?? line.word}` : line.word)}
+          {note ?? (line.due === "overdue" ? `${line.word} · Overdue` : line.word)}
         </span>
       </button>
     </li>
@@ -464,33 +464,20 @@ function ApplicationColumn({
             </h1>
             <StageBadge app={app} on={on} />
           </div>
-          <p className="text-body">{causeTitleOf(app)}</p>
-          {/* Each dot rides with the item after it, so a wrap never strands one at a line
-              end and no record means no leading dot. */}
-          <p className="flex flex-wrap gap-x-2 text-body-compact text-muted-foreground">
-            {[
-              record ? (
-                <Identifier key="case" value={record.caseNumber} label="case number" />
-              ) : null,
-              <span key="filed" className="whitespace-nowrap">
-                Filed {formatCaseDate(app.submittedOn ?? app.createdOn)}
-              </span>,
-              <span key="by">
-                {app.raisedBy ?? app.createdByName}, for the {app.side}
-              </span>,
-            ]
-              .filter(Boolean)
-              .map((item, index) =>
-                index === 0 ? (
-                  item
-                ) : (
-                  <span key={index}>
-                    <span aria-hidden>·&nbsp;</span>
-                    {item}
-                  </span>
-                ),
-              )}
-          </p>
+          {/* The case, its number, then who filed it and when — each its own line, so a
+              wrap never leaves a separator stranded at a line's end or start. */}
+          <div className="flex flex-col gap-1">
+            <p className="text-body">{causeTitleOf(app)}</p>
+            {record ? (
+              <p className="text-body-compact text-muted-foreground">
+                <Identifier value={record.caseNumber} label="case number" />
+              </p>
+            ) : null}
+            <p className="text-body-compact text-muted-foreground">
+              Filed {formatCaseDate(app.submittedOn ?? app.createdOn)} by{" "}
+              {app.raisedBy ?? app.createdByName}, for the {app.side}
+            </p>
+          </div>
         </div>
         {position ? (
           <div className="flex h-10 shrink-0 items-center gap-2">

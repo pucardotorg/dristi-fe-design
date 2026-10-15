@@ -226,9 +226,11 @@ export function statusLine(app: LifecycleApplication, today: string): StatusLine
     if (queue === "later") {
       return { word: `Review deferred to ${shortDate(app.review.dueOn)}`, detail: "Not onboarded yet" };
     }
+    /* The list it is in already says "to onboard", so the line leads with the day; only
+       a review that was deferred says so. */
     return {
-      word: app.review.dueOn !== app.review.defaultDueOn ? "Back after deferral" : "Awaiting onboarding",
-      detail: `Due ${shortDate(app.review.dueOn)}`,
+      word: `Due ${shortDate(app.review.dueOn)}`,
+      detail: app.review.dueOn !== app.review.defaultDueOn ? "Back after deferral" : undefined,
       due: dueState(app.review.dueOn, today),
     };
   }
