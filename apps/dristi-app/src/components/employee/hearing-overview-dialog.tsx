@@ -10,9 +10,14 @@ import {
   ViewCaseAction,
 } from "@/components/employee/hearing-overview-screen";
 import { HearingSessionButton } from "@/components/employee/hearings-table";
+import {
+  NextDateField,
+  NextPurposeField,
+} from "@/components/employee/next-hearing-fields";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogDescription } from "@/components/ui/dialog";
 import type { CourtRole } from "@/lib/employee/content";
+import { seatPostsNextHearing } from "@/lib/employee/court-role";
 import {
   causeTitle,
   courtHearingStatusLabel,
@@ -62,6 +67,7 @@ export function HearingOverviewDialog({
   seat,
   onStartHearing,
   onEndHearing,
+  postsNextHearing = false,
   onOpenChange,
 }: {
   /** The listing being read, or `null` when nothing is open. */
@@ -70,6 +76,8 @@ export function HearingOverviewDialog({
   seat: CourtRole;
   onStartHearing: (hearing: CourtHearing) => void;
   onEndHearing: (hearing: CourtHearing) => void;
+  /** The reader's Next hearing column, here too — see `HearingsTable`. */
+  postsNextHearing?: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
   return (
@@ -86,6 +94,7 @@ export function HearingOverviewDialog({
           seat={seat}
           onStartHearing={onStartHearing}
           onEndHearing={onEndHearing}
+          postsNextHearing={postsNextHearing}
         />
       ) : null}
     </Dialog>
@@ -97,11 +106,13 @@ function HearingOverviewBody({
   seat,
   onStartHearing,
   onEndHearing,
+  postsNextHearing,
 }: {
   hearing: CourtHearing;
   seat: CourtRole;
   onStartHearing: (hearing: CourtHearing) => void;
   onEndHearing: (hearing: CourtHearing) => void;
+  postsNextHearing: boolean;
 }) {
   /* Where this listing stood when the sheet opened. A status different from it is an
      act the reader performed *in here*, and that is the only thing that gets to move:
@@ -185,6 +196,9 @@ function HearingOverviewBody({
         </>
       }
     >
+      {postsNextHearing && seatPostsNextHearing(seat) ? (
+        <NextHearingPanel hearing={hearing} />
+      ) : null}
       <HearingOverviewSections hearing={hearing} surface="overlay" />
       {/* The outcome, for a reader who cannot see the chip change.
           It has to live *inside* the sheet: Radix hides the rest of the page from
@@ -202,5 +216,38 @@ function HearingOverviewBody({
           : null}
       </p>
     </StagedOverlay>
+  );
+}
+
+/**
+ * The same two fields as the cause list's Next hearing column, for the matter
+ * being read — one store, so the row and this panel cannot disagree. First on the sheet:
+ * it is the one thing on it the reader acts on. Dressed as the overlay's other sections.
+ */
+function NextHearingPanel({ hearing }: { hearing: CourtHearing }) {
+  const id = React.useId();
+  return (
+    <section
+      aria-labelledby={`${id}-heading`}
+      className="mb-4 flex min-w-0 flex-col gap-4 rounded-lg bg-card p-4"
+    >
+      <h2 id={`${id}-heading`} className="text-body font-semibold">
+        Next hearing
+      </h2>
+      <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+        <div className="flex min-w-0 flex-col gap-2">
+          <span id={`${id}-date`} className="text-body-compact font-medium">
+            Date
+          </span>
+          <NextDateField hearing={hearing} labelledBy={`${id}-date`} />
+        </div>
+        <div className="flex min-w-0 flex-col gap-2">
+          <span id={`${id}-purpose`} className="text-body-compact font-medium">
+            Purpose
+          </span>
+          <NextPurposeField hearing={hearing} labelledBy={`${id}-purpose`} />
+        </div>
+      </div>
+    </section>
   );
 }

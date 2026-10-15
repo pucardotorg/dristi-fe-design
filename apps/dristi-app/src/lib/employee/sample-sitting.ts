@@ -19,6 +19,7 @@ export const SAMPLE_SESSION: HearingSession = {
   ongoingId: null,
   endedIds: new Set(),
   passedOverIds: new Set(),
+  postings: {},
 };
 
 export const SAMPLE_SIGNING: Readonly<Record<string, OrderSigningStatus>> = {};

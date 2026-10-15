@@ -10,6 +10,7 @@ import { useCognizanceOrderDoor } from "@/components/employee/cognizance-order-s
 import { ListingApplicationDialog } from "@/components/employee/listing-application-dialog";
 import {
   applicationFiled,
+  useCausePosting,
   type OrderDoor,
 } from "@/components/employee/order-door-screen";
 import {
@@ -27,6 +28,8 @@ import {
   useHearingOrderDoor,
 } from "@/components/employee/order-screen";
 import { useOrderDetailsPlacement } from "@/components/employee/use-order-details-placement";
+import { CausePostingContext } from "@/components/employee/cause-posting";
+import { useReaderPostsNextHearing } from "@/components/employee/use-next-hearing-entry";
 import { useOrderDraft } from "@/components/employee/use-order-draft";
 import { useOrderSigning } from "@/components/employee/use-order-signing";
 import { usePendingOrders } from "@/components/employee/use-pending-orders";
@@ -163,6 +166,17 @@ function ApplicationWorkflowDoor({
 }
 
 function WorkflowDoorScreen({ door }: { door: OrderDoor }) {
+  const readerPosts = useReaderPostsNextHearing();
+  /* A hearing's order takes its next hearing from the cause list (owner, 2026-10-15).
+     This page is always E's. */
+  return (
+    <CausePostingContext.Provider value={Boolean(door.hearing) && readerPosts}>
+      <WorkflowDoorBody door={door} />
+    </CausePostingContext.Provider>
+  );
+}
+
+function WorkflowDoorBody({ door }: { door: OrderDoor }) {
   const router = useRouter();
   const courtText = useCourtText();
   const seat = useCourtRole();
@@ -176,10 +190,12 @@ function WorkflowDoorScreen({ door }: { door: OrderDoor }) {
     () => variantInitialDraft("editor", door.initial, appearances),
     [door.initial, appearances],
   );
-  const [draft, setDraft] = useOrderDraft(
+  const [stored, setDraft] = useOrderDraft(
     variantDraftKey("editor", door.draftKey),
     initial,
   );
+  const draft = useCausePosting(door, stored, true);
+  const readerPosts = useReaderPostsNextHearing();
   const [openApplication, setOpenApplication] =
     React.useState<ListingApplication | null>(null);
   const [ask, setAsk] = React.useState<"sign" | "complete" | null>(null);
@@ -215,7 +231,11 @@ function WorkflowDoorScreen({ door }: { door: OrderDoor }) {
     /* On the order's page, the next hearing is set before the order is sent; one sent
        without it goes back to draft for it. Among the order data, it is set here. */
     if (unlisted) {
-      if (onPage) {
+      if (door.hearing && readerPosts) {
+        toast(
+          "This order has no next hearing yet. Set it in the cause list's Next hearing column.",
+        );
+      } else if (onPage) {
         toast(
           "This order has no next hearing. Move it back to draft to set the date and purpose.",
         );
@@ -237,7 +257,11 @@ function WorkflowDoorScreen({ door }: { door: OrderDoor }) {
       );
     });
     if (undated) {
-      if (onPage) {
+      if (door.hearing && readerPosts) {
+        toast(
+          "Accepting this application moves the hearing, and this order has no next hearing date yet. Set it in the cause list's Next hearing column.",
+        );
+      } else if (onPage) {
         toast(
           "Accepting this application moves the hearing, and this order has no next hearing date. Move it back to draft to set one.",
         );

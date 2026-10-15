@@ -3,6 +3,8 @@
 import * as React from "react";
 import { toast } from "sonner";
 
+import { useHearingSession } from "@/components/employee/use-hearing-session";
+import { useReaderPostsNextHearing } from "@/components/employee/use-next-hearing-entry";
 import { useOrderDrafts } from "@/components/employee/use-order-draft";
 import { useOrderSigning } from "@/components/employee/use-order-signing";
 import { usePendingOrders } from "@/components/employee/use-pending-orders";
@@ -24,6 +26,8 @@ import {
   outcomeHearingDate,
   type ApplicationOrderKind,
 } from "@/lib/employee/application-order-outcome";
+import { hearingById } from "@/lib/employee/hearings";
+import { withCausePosting } from "@/lib/employee/order-draft";
 import { editorDraftKey } from "@/lib/employee/order-drafts";
 import { pendingOrderStage } from "@/lib/employee/pending-orders";
 
@@ -53,6 +57,8 @@ export function ApplicationOrderTriggers() {
   const orders = usePendingOrders();
   const signing = useOrderSigning();
   const drafts = useOrderDrafts();
+  const session = useHearingSession();
+  const readerPosts = useReaderPostsNextHearing();
   /* An outcome that could not be applied is said once, not on every render after. */
   const reported = React.useRef(new Set<string>());
   const leader = useTriggerLock();
@@ -62,8 +68,13 @@ export function ApplicationOrderTriggers() {
     const on = today();
     for (const order of Object.values(orders)) {
       if (pendingOrderStage(order, signing) !== "triggered") continue;
-      const draft = drafts[editorDraftKey(order.key)] ?? drafts[order.key];
-      if (!draft) continue;
+      const typed = drafts[editorDraftKey(order.key)] ?? drafts[order.key];
+      if (!typed) continue;
+      /* A hearing's next date is the cause list's when the reader enters it (owner,
+         2026-10-15). */
+      const draft = readerPosts && hearingById(order.key)
+        ? withCausePosting(typed, session.postings[order.key])
+        : typed;
       for (const outcome of applicationOrderOutcomes(draft.blocks)) {
         const application = apps.find((app) => app.id === outcome.applicationId);
         if (!application || !outcomeApplies(outcome, application)) continue;
@@ -94,7 +105,7 @@ export function ApplicationOrderTriggers() {
         }
       }
     }
-  }, [ready, leader, apps, orders, signing, drafts]);
+  }, [ready, leader, apps, orders, signing, drafts, session, readerPosts]);
 
   return null;
 }

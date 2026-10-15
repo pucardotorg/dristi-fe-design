@@ -1,7 +1,9 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
 import {
+  GripVerticalIcon,
   EllipsisVerticalIcon,
   FileCheckIcon,
   FilePenLineIcon,
@@ -17,6 +19,10 @@ import {
 } from "@/components/chrome/table-plate";
 import { Identifier } from "@/components/chrome/identifier";
 import { CounselCell } from "@/components/employee/counsel-cell";
+import {
+  NextDateField,
+  NextPurposeField,
+} from "@/components/employee/next-hearing-fields";
 import { useOrderDrafts } from "@/components/employee/use-order-draft";
 import { hasDraftFor } from "@/lib/employee/order-drafts";
 import {
@@ -47,7 +53,10 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { CourtRole } from "@/lib/employee/content";
-import { seatHasBenchControls } from "@/lib/employee/court-role";
+import {
+  seatHasBenchControls,
+  seatPostsNextHearing,
+} from "@/lib/employee/court-role";
 import {
   canDraftOrder,
   canEndHearing,
@@ -56,11 +65,18 @@ import {
   canTypeOrder,
   causeTitle,
   counselFor,
+  courtCaseStageLabel,
   courtHearingPurposeLabel,
   courtHearingStatusLabel,
   courtHearingStatusVariant,
   type CourtHearing,
 } from "@/lib/employee/hearings";
+import {
+  isCauseListColumnId,
+  type CauseListColumn,
+  type CauseListColumnId,
+  type DropSide,
+} from "@/lib/employee/cause-list-columns";
 import { cn } from "@/lib/utils";
 
 /**
@@ -128,6 +144,13 @@ const SESSION_SLOT_CLASS = "min-w-32";
  * column's cut edge with it, is the bench's case only.
  */
 const ACTION_COLUMN_CLASS = "w-52 min-w-52";
+/**
+ * The reader's Next hearing column: the date field over the purpose field, one field wide
+ * (owner, 2026-10-15), at the Action column's width, so the reader's board fits a 1512px
+ * laptop with the rail open. A longer purpose truncates in the field and reads whole in
+ * its list.
+ */
+const NEXT_HEARING_COLUMN_CLASS = "w-52 min-w-52";
 /** Exported because the Sign orders draft queue draws the same column at the same width. */
 export const ORDERS_COLUMN_CLASS = "w-18";
 /**
@@ -673,6 +696,7 @@ export function HearingRowActions({
   onEndHearing,
   onPassOver,
   onOpenOrder,
+  postsNextHearing = false,
   className,
 }: {
   hearing: CourtHearing;
@@ -681,6 +705,8 @@ export function HearingRowActions({
   onEndHearing: (hearing: CourtHearing) => void;
   onPassOver: (hearing: CourtHearing) => void;
   onOpenOrder?: (hearing: CourtHearing) => void;
+  /** The phone row's own next-hearing fields, in the reader's seat — see `HearingsTable`. */
+  postsNextHearing?: boolean;
   className?: string;
 }) {
   const ordersIsTheRow = !seatHasBenchControls(seat);
@@ -689,8 +715,16 @@ export function HearingRowActions({
   const drafts = useOrderDrafts();
   const drafted = hasDraftFor(drafts, hearing.id);
 
+  const posts = postsNextHearing && seatPostsNextHearing(seat);
   return (
-    <div className={cn("flex items-center gap-2", className)}>
+    <div className={cn("flex flex-col gap-2", className)}>
+      {posts ? (
+        <div className="grid grid-cols-2 gap-2">
+          <NextDateField hearing={hearing} />
+          <NextPurposeField hearing={hearing} />
+        </div>
+      ) : null}
+    <div className="flex items-center gap-2">
       <HearingSessionButton
         hearing={hearing}
         seat={seat}
@@ -712,20 +746,39 @@ export function HearingRowActions({
         className={ordersIsTheRow ? "min-w-0 flex-1" : undefined}
       />
     </div>
+    </div>
   );
 }
 
+/** Each column's width, at the metrics the board was measured at. */
+const COLUMN_CLASS: Record<CauseListColumnId, string> = {
+  item: "w-16 whitespace-nowrap",
+  caseName: "min-w-40 whitespace-normal",
+  caseNumber: "whitespace-nowrap",
+  advocates: "min-w-48 whitespace-nowrap",
+  purpose: "min-w-32 whitespace-normal",
+  stage: "min-w-28 whitespace-normal",
+  status: "min-w-32 whitespace-nowrap",
+  orders: cn(ORDERS_COLUMN_CLASS, "whitespace-nowrap"),
+  action: cn(ACTION_COLUMN_CLASS, "whitespace-nowrap"),
+  nextHearing: cn(NEXT_HEARING_COLUMN_CLASS, "whitespace-nowrap"),
+};
+
+const COLUMNS_HINT_ID = "cause-list-columns-hint";
+
+/* How close to the scroller's edge a heading drag scrolls the board, and how fast —
+   the Cases list's numbers. */
+const AUTOSCROLL_EDGE = 64;
+const AUTOSCROLL_STEP = 24;
+
 /**
- * Today's cause list as a table: the court's serial, the cause, its number, who appears,
- * what it is listed for, where it stands, orders on this listing, and — for a seat that
- * runs the sitting — the call on it.
+ * Today's cause list as a table, drawn from the columns this seat has chosen
+ * (`cause-list-columns.ts`; owner, 2026-10-15) — which show and in what order, from the
+ * Edit columns menu and the grip on each heading, as the advocate Cases list does it.
+ * Each seat opens on its own default: the reader's board ends Action, Next hearing; the
+ * magistrate's and the steno's are the board as it was.
  *
- * **Eight columns in one seat, seven in the other.** The last one is the session
- * controls, so in a seat that has none the column goes with them rather than staying on
- * as a caption: a column headed Action with nothing actionable under it is the header
- * lying, and one headed Hearing that spells out the Status chip beside it is the same
- * fact twice (owner, 2026-09-09 — "that is redundant"). Orders is then the last column,
- * and it is that seat's one act per row.
+ * Headings drag to reorder; with a heading focused, Alt and an arrow key moves it.
  *
  * The panel shell (border, fill, shadow) lives on the screen around this, so the table is
  * one panel rather than a box inside a box.
@@ -733,6 +786,9 @@ export function HearingRowActions({
 export function HearingsTable({
   rows,
   seat,
+  columns,
+  onMoveColumn,
+  onShiftColumn,
   onOpenCase,
   onStartHearing,
   onEndHearing,
@@ -741,170 +797,263 @@ export function HearingsTable({
 }: {
   rows: CourtHearing[];
   seat: CourtRole;
+  /** The columns on screen, in order. */
+  columns: readonly CauseListColumn[];
+  onMoveColumn: (
+    from: CauseListColumnId,
+    to: CauseListColumnId,
+    side?: DropSide,
+  ) => void;
+  onShiftColumn: (id: CauseListColumnId, delta: -1 | 1) => void;
   onOpenCase: (hearing: CourtHearing) => void;
   onStartHearing: (hearing: CourtHearing) => void;
   onEndHearing: (hearing: CourtHearing) => void;
   onPassOver: (hearing: CourtHearing) => void;
   onOpenOrder?: (hearing: CourtHearing) => void;
 }) {
-  /* One question, asked once: whether this seat gets the session column at all. The
-     header cell, the row cell and the header well's spacer row all have to agree, and a
-     spacer that spans the wrong number of columns leaves the well's rounded corner
-     hanging over open table. */
-  const hasSessionColumn = seatHasBenchControls(seat);
   const drafts = useOrderDrafts();
-  const columnCount = hasSessionColumn ? 8 : 7;
+  const [dragging, setDragging] = React.useState<CauseListColumnId | null>(null);
+  const [over, setOver] = React.useState<{
+    id: CauseListColumnId;
+    side: DropSide;
+  } | null>(null);
+
+  function onDragStart(
+    event: React.DragEvent<HTMLTableCellElement>,
+    id: CauseListColumnId,
+  ) {
+    event.dataTransfer.setData("text/plain", id);
+    event.dataTransfer.effectAllowed = "move";
+    setDragging(id);
+  }
+
+  /* Native drag-and-drop does not scroll a container; near either edge of the table's
+     scroller, nudge it, so a column can be carried across a board wider than the panel. */
+  function autoScroll(event: React.DragEvent<HTMLElement>) {
+    const scroller = (event.currentTarget as HTMLElement).closest<HTMLElement>(
+      '[data-slot="table-container"]',
+    );
+    if (!scroller) return;
+    const rect = scroller.getBoundingClientRect();
+    if (event.clientX < rect.left + AUTOSCROLL_EDGE) {
+      scroller.scrollLeft -= AUTOSCROLL_STEP;
+    } else if (event.clientX > rect.right - AUTOSCROLL_EDGE) {
+      scroller.scrollLeft += AUTOSCROLL_STEP;
+    }
+  }
+
+  function onDragOver(
+    event: React.DragEvent<HTMLTableCellElement>,
+    id: CauseListColumnId,
+  ) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    const rect = event.currentTarget.getBoundingClientRect();
+    const side: DropSide =
+      event.clientX < rect.left + rect.width / 2 ? "before" : "after";
+    setOver((current) =>
+      current?.id === id && current.side === side ? current : { id, side },
+    );
+  }
+
+  function onDrop(
+    event: React.DragEvent<HTMLTableCellElement>,
+    id: CauseListColumnId,
+  ) {
+    event.preventDefault();
+    const from = event.dataTransfer.getData("text/plain");
+    if (isCauseListColumnId(from)) {
+      onMoveColumn(from, id, over?.id === id ? over.side : undefined);
+    }
+    setDragging(null);
+    setOver(null);
+  }
+
+  function onDragEnd() {
+    setDragging(null);
+    setOver(null);
+  }
+
+  function onHeaderKeyDown(
+    event: React.KeyboardEvent<HTMLTableCellElement>,
+    id: CauseListColumnId,
+  ) {
+    if (!event.altKey) return;
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      onShiftColumn(id, -1);
+    }
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      onShiftColumn(id, 1);
+    }
+  }
+
+  function cell(id: CauseListColumnId, hearing: CourtHearing): React.ReactNode {
+    switch (id) {
+      case "item":
+        return <span className="tabular-nums text-muted-foreground">{hearing.item}</span>;
+      case "caseName":
+        /* The row's opener: it reads this matter's case overview over the list,
+           without calling the matter. `rowOpenerClass` fills the cell so the target is
+           the row's height (`ACCESSIBILITY.md` §8). */
+        return (
+          <HearingCaseButton
+            hearing={hearing}
+            onOpen={onOpenCase}
+            className="flex items-center"
+          />
+        );
+      case "caseNumber":
+        /* The product's one identifier treatment; it stops its own click from reaching
+           the row opener. */
+        return <Identifier value={hearing.caseNumber} label="case number" />;
+      case "advocates":
+        return (
+          <CounselCell
+            complainant={counselFor(hearing, "complainant").map(
+              (counsel) => counsel.name,
+            )}
+            accused={counselFor(hearing, "accused").map((counsel) => counsel.name)}
+            dense
+          />
+        );
+      case "purpose":
+        return courtHearingPurposeLabel(hearing.purpose);
+      case "stage":
+        return courtCaseStageLabel(hearing.stage);
+      case "status":
+        return (
+          <Badge
+            variant={courtHearingStatusVariant(hearing.status)}
+            className="w-fit"
+          >
+            {courtHearingStatusLabel(hearing.status)}
+          </Badge>
+        );
+      case "orders":
+        return (
+          <div className="flex justify-center">
+            <HearingOrdersButton
+              hearing={hearing}
+              seat={seat}
+              drafted={hasDraftFor(drafts, hearing.id)}
+              onOpen={onOpenOrder}
+            />
+          </div>
+        );
+      case "action":
+        return (
+          <div className="flex items-center gap-2">
+            <HearingSessionButton
+              hearing={hearing}
+              seat={seat}
+              onStartHearing={onStartHearing}
+              onEndHearing={onEndHearing}
+            />
+            <HearingPassOverMenu
+              hearing={hearing}
+              seat={seat}
+              onPassOver={onPassOver}
+            />
+          </div>
+        );
+      case "nextHearing":
+        /* Date over purpose: one column the width of one field (owner, 2026-10-15). */
+        return (
+          <div className="flex flex-col gap-2">
+            <NextDateField hearing={hearing} />
+            <NextPurposeField hearing={hearing} />
+          </div>
+        );
+    }
+  }
 
   return (
-    <Table className="w-full border-separate border-spacing-0 text-body-compact">
-      <TableHeader>
-        <TableRow className={TABLE_HEAD_ROW}>
-          <TableHead className={cn(TABLE_HEAD, "w-16 whitespace-nowrap")}>
-            S. no.
-          </TableHead>
-          <TableHead className={cn(TABLE_HEAD, "min-w-40 whitespace-normal")}>
-            Case name
-          </TableHead>
-          <TableHead className={cn(TABLE_HEAD, "whitespace-nowrap")}>
-            Case number
-          </TableHead>
-          <TableHead className={cn(TABLE_HEAD, "min-w-48 whitespace-nowrap")}>
-            Advocates
-          </TableHead>
-          <TableHead className={cn(TABLE_HEAD, "min-w-32 whitespace-normal")}>
-            Purpose
-          </TableHead>
-          <TableHead className={cn(TABLE_HEAD, "min-w-32 whitespace-nowrap")}>
-            Status
-          </TableHead>
-          <TableHead
-            className={cn(TABLE_HEAD, ORDERS_COLUMN_CLASS, "whitespace-nowrap")}
+    <>
+      <p id={COLUMNS_HINT_ID} className="sr-only">
+        Drag a column heading to change its order. With a heading focused, press Alt
+        and Left arrow or Alt and Right arrow to move it. Show, hide or reset columns
+        from Edit columns.
+      </p>
+      <Table
+        className="w-full border-separate border-spacing-0 text-body-compact"
+        aria-describedby={COLUMNS_HINT_ID}
+      >
+        <TableHeader>
+          <TableRow
+            className={TABLE_HEAD_ROW}
+            onDragOver={dragging ? autoScroll : undefined}
           >
-            Orders
-          </TableHead>
-          {/* The call on this sitting, in the seat that makes it. Named for what is in
-              it, and absent where there is nothing to put in it. */}
-          {hasSessionColumn ? (
-            <TableHead
-              className={cn(
-                TABLE_HEAD,
-                ACTION_COLUMN_CLASS,
-                "whitespace-nowrap",
-              )}
-            >
-              Action
-            </TableHead>
-          ) : null}
-        </TableRow>
-      </TableHeader>
-      <TableBody className={tableBodyClass()}>
-        {/* The header is a well, not a band welded to the rows — it needs the panel's
-            fill under it or its rounded bottom corners read as cut off (ui-craft §4).
-            `border-separate` has no per-edge row gap, so the gap is one inert row held
-            out of the accessibility tree. */}
-        <tr aria-hidden="true">
-          <td colSpan={columnCount} className="h-2 p-0" />
-        </tr>
-        {rows.map((hearing) => (
-          <TableRow key={hearing.id} {...rowActivation(tableRowClass())}>
-            <TableCell
-              className={cn(
-                TABLE_CELL,
-                "w-16 tabular-nums text-muted-foreground",
-              )}
-            >
-              {hearing.item}
-            </TableCell>
-            {/* The row's one emphasised cell, and the row's opener: it reads this
-                matter's case overview over the list, without calling the matter. */}
-            <TableCell
-              className={cn(
-                TABLE_CELL,
-                "min-w-40 font-medium whitespace-normal",
-              )}
-            >
-              {/* Fills the cell so the target is the row's height, not the 20px
-                  line box the text happens to occupy (`ACCESSIBILITY.md` §8) —
-                  `rowOpenerClass` brings the `min-h-10 w-full` that does it.
-                  `flex`, not `inline-flex`: an inline box would shrink-wrap and
-                  fight the cell's `whitespace-normal` wrapping. */}
-              <HearingCaseButton
-                hearing={hearing}
-                onOpen={onOpenCase}
-                className="flex items-center"
-              />
-            </TableCell>
-            <TableCell className={cn(TABLE_CELL, "whitespace-nowrap")}>
-              {/* The product's one identifier treatment, not a local `tabular-nums`:
-                  this is read character by character and typed into other systems.
-                  `Identifier` brings the mono face and the figures with it, and stops
-                  its own click from reaching the row opener. */}
-              <Identifier value={hearing.caseNumber} label="case number" />
-            </TableCell>
-            <TableCell className={cn(TABLE_CELL, "min-w-48 whitespace-nowrap")}>
-              <CounselCell
-                complainant={counselFor(hearing, "complainant").map(
-                  (counsel) => counsel.name,
-                )}
-                accused={counselFor(hearing, "accused").map(
-                  (counsel) => counsel.name,
-                )}
-                dense
-              />
-            </TableCell>
-            <TableCell className={cn(TABLE_CELL, "min-w-32 whitespace-normal")}>
-              {courtHearingPurposeLabel(hearing.purpose)}
-            </TableCell>
-            <TableCell className={cn(TABLE_CELL, "min-w-32 whitespace-nowrap")}>
-              <Badge
-                variant={courtHearingStatusVariant(hearing.status)}
-                className="w-fit"
-              >
-                {courtHearingStatusLabel(hearing.status)}
-              </Badge>
-            </TableCell>
-            <TableCell
-              className={cn(
-                TABLE_CELL,
-                ORDERS_COLUMN_CLASS,
-                "whitespace-nowrap",
-              )}
-            >
-              <div className="flex justify-center">
-                <HearingOrdersButton
-                  hearing={hearing}
-                  seat={seat}
-                  drafted={hasDraftFor(drafts, hearing.id)}
-                  onOpen={onOpenOrder}
-                />
-              </div>
-            </TableCell>
-            {hasSessionColumn ? (
-              <TableCell
-                className={cn(
-                  TABLE_CELL,
-                  ACTION_COLUMN_CLASS,
-                  "whitespace-nowrap",
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  <HearingSessionButton
-                    hearing={hearing}
-                    seat={seat}
-                    onStartHearing={onStartHearing}
-                    onEndHearing={onEndHearing}
+            {columns.map((column) => {
+              const landing =
+                dragging && dragging !== column.id && over?.id === column.id
+                  ? over.side
+                  : null;
+              return (
+                <TableHead
+                  key={column.id}
+                  draggable
+                  tabIndex={0}
+                  onDragStart={(event) => onDragStart(event, column.id)}
+                  onDragOver={(event) => onDragOver(event, column.id)}
+                  onDrop={(event) => onDrop(event, column.id)}
+                  onDragEnd={onDragEnd}
+                  onKeyDown={(event) => onHeaderKeyDown(event, column.id)}
+                  className={cn(
+                    TABLE_HEAD,
+                    COLUMN_CLASS[column.id],
+                    "relative cursor-grab select-none active:cursor-grabbing",
+                    dragging === column.id && "opacity-50",
+                  )}
+                >
+                  {/* Where the dragged column will land — the Cases list's mark. */}
+                  {landing ? (
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "pointer-events-none absolute inset-y-1 z-10 w-0.5 rounded-full bg-brand-accent",
+                        landing === "before" ? "-left-px" : "-right-px",
+                      )}
+                    />
+                  ) : null}
+                  {/* The grip sits in the heading's own left padding rather than beside
+                      the label, so it costs the board no width — the reader's board is
+                      measured to fit a 1512px laptop. */}
+                  <GripVerticalIcon
+                    aria-hidden
+                    className="absolute top-1/2 left-0.5 size-3.5 -translate-y-1/2 text-muted-foreground"
                   />
-                  <HearingPassOverMenu
-                    hearing={hearing}
-                    seat={seat}
-                    onPassOver={onPassOver}
-                  />
-                </div>
-              </TableCell>
-            ) : null}
+                  {column.label}
+                </TableHead>
+              );
+            })}
           </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+        </TableHeader>
+        <TableBody className={tableBodyClass()}>
+          {/* The header is a well, not a band welded to the rows (ui-craft §4);
+              `border-separate` has no per-edge row gap, so the gap is one inert row. */}
+          <tr aria-hidden="true">
+            <td colSpan={columns.length} className="h-2 p-0" />
+          </tr>
+          {rows.map((hearing) => (
+            <TableRow key={hearing.id} {...rowActivation(tableRowClass())}>
+              {columns.map((column) => (
+                <TableCell
+                  key={column.id}
+                  className={cn(
+                    TABLE_CELL,
+                    COLUMN_CLASS[column.id],
+                    column.id === "caseName" && "font-medium",
+                  )}
+                >
+                  {cell(column.id, hearing)}
+                </TableCell>
+              ))}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </>
   );
 }

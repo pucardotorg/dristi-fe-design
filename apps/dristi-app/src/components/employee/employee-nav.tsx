@@ -37,6 +37,7 @@ import type { CognizanceLayout } from "@/lib/employee/cognizance-layout";
 import { useCourtNavLayout } from "@/components/employee/use-court-nav-layout";
 import { useOrderDetailsPlacement } from "@/components/employee/use-order-details-placement";
 import { useOrderFlow } from "@/components/employee/use-order-flow";
+import { useNextHearingEntry } from "@/components/employee/use-next-hearing-entry";
 import { useOrderLayout } from "@/components/employee/use-order-layout";
 import { useOrderSigning } from "@/components/employee/use-order-signing";
 import { usePendingOrders } from "@/components/employee/use-pending-orders";
@@ -47,6 +48,10 @@ import {
   type OrderDetailsPlacement,
 } from "@/lib/employee/order-details-placement";
 import { ORDER_FLOW_OPTIONS, type OrderFlow } from "@/lib/employee/order-flow";
+import {
+  NEXT_HEARING_ENTRY_OPTIONS,
+  type NextHearingEntry,
+} from "@/lib/employee/next-hearing-entry";
 import {
   CLASSIC_ORDER_LAYOUT_OPTIONS,
   type OrderLayout,
@@ -939,6 +944,7 @@ function CourtSettingsControl() {
   const [cognizanceLayout, setCognizanceLayout] = useCognizanceLayout();
   const [orderLayout, setOrderLayout] = useOrderLayout();
   const [orderFlow, setOrderFlow] = useOrderFlow();
+  const [nextHearingEntry, setNextHearingEntry] = useNextHearingEntry();
   const [detailsPlacement, setDetailsPlacement] = useOrderDetailsPlacement();
   const [confirmReset, setConfirmReset] = React.useState(false);
   return (
@@ -1031,6 +1037,23 @@ function CourtSettingsControl() {
             page, or back among its order data (owner, 2026-10-14). */}
         {orderFlow === "pending" ? (
           <>
+            <DropdownMenuSeparator />
+            {/* Who enters the next hearing (owner, 2026-10-15): the reader on the cause
+                list, with E's fields disabled; or the steno in E, with no cause-list
+                column. */}
+            <DropdownMenuLabel>Next hearing entered by</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={nextHearingEntry}
+              onValueChange={(next) =>
+                setNextHearingEntry(next as NextHearingEntry)
+              }
+            >
+              {NEXT_HEARING_ENTRY_OPTIONS.map((option) => (
+                <DropdownMenuRadioItem key={option.id} value={option.id}>
+                  {option.label}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
             <DropdownMenuSeparator />
             <DropdownMenuLabel>Attendance and next hearing</DropdownMenuLabel>
             <DropdownMenuRadioGroup

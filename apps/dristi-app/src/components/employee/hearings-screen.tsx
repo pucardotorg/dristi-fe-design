@@ -58,6 +58,10 @@ import {
 } from "@/lib/employee/hearing-orders";
 import { markOrdersSigned } from "@/lib/employee/order-signing";
 import { useOrderFlow } from "@/components/employee/use-order-flow";
+import { CauseListColumnsMenu } from "@/components/employee/cause-list-columns-menu";
+import { useCauseListColumns } from "@/components/employee/use-cause-list-columns";
+import { useReaderPostsNextHearing } from "@/components/employee/use-next-hearing-entry";
+import { shownColumns } from "@/lib/employee/cause-list-columns";
 import {
   markHearingEnded,
   markHearingOngoing,
@@ -190,6 +194,13 @@ export function HearingsScreen() {
     () => rememberedView,
   );
   const view: ScreenView = flow === "classic" ? chosenView : "hearings";
+  /* Who enters the next hearing is a court setting (owner, 2026-10-15): the reader, on
+     this board, or the steno, in order screen E. Classic keeps it in the order. */
+  const postsNextHearing = useReaderPostsNextHearing();
+  /* Which columns show, and in what order — this seat's own choice, opening on its
+     default (`cause-list-columns.ts`). */
+  const columnState = useCauseListColumns(seat, postsNextHearing);
+  const tableColumns = shownColumns(columnState.columns);
   function setView(next: ScreenView) {
     rememberView(next);
     setViewState(next);
@@ -450,15 +461,22 @@ export function HearingsScreen() {
           }}
           onClear={clearFilters}
           trailing={
-            <CourtSortSelect
-              id="hearings-sort"
-              value={sort}
-              options={sortOptions(HEARING_SORTS)}
-              onChange={(next) => {
-                setSort(next);
-                setPage(1);
-              }}
-            />
+            <>
+              {/* The board's columns, as the advocate Cases list offers them. Only on
+                  the hearings view: the Orders view is its own table. */}
+              {view === "hearings" ? (
+                <CauseListColumnsMenu state={columnState} />
+              ) : null}
+              <CourtSortSelect
+                id="hearings-sort"
+                value={sort}
+                options={sortOptions(HEARING_SORTS)}
+                onChange={(next) => {
+                  setSort(next);
+                  setPage(1);
+                }}
+              />
+            </>
           }
         />
 
@@ -522,6 +540,9 @@ export function HearingsScreen() {
                 <HearingsTable
                   rows={pageRows}
                   seat={seat}
+                  columns={tableColumns}
+                  onMoveColumn={columnState.move}
+                  onShiftColumn={columnState.shift}
                   onOpenCase={openCase}
                   onStartHearing={startHearing}
                   onEndHearing={endHearing}
@@ -536,6 +557,7 @@ export function HearingsScreen() {
                   onStartHearing={startHearing}
                   onEndHearing={endHearing}
                   onPassOver={passOverHearing}
+                  postsNextHearing={postsNextHearing}
                 />
               </div>
             </div>
@@ -602,6 +624,7 @@ export function HearingsScreen() {
            row it does not open. */
         onStartHearing={startHearing}
         onEndHearing={endHearing}
+        postsNextHearing={postsNextHearing}
         onOpenChange={(open) => {
           if (!open) setOpenHearingId(null);
         }}
@@ -782,6 +805,7 @@ function HearingsItemList({
   onEndHearing,
   onPassOver,
   onOpenOrder,
+  postsNextHearing,
 }: {
   rows: CourtHearing[];
   seat: CourtRole;
@@ -789,6 +813,7 @@ function HearingsItemList({
   onStartHearing: (hearing: CourtHearing) => void;
   onEndHearing: (hearing: CourtHearing) => void;
   onPassOver: (hearing: CourtHearing) => void;
+  postsNextHearing: boolean;
   /** Optional, and unsupplied: see the note where `openOrder` used to be. */
   onOpenOrder?: (hearing: CourtHearing) => void;
 }) {
@@ -840,6 +865,7 @@ function HearingsItemList({
               onEndHearing={onEndHearing}
               onPassOver={onPassOver}
               onOpenOrder={onOpenOrder}
+              postsNextHearing={postsNextHearing}
             />
           </QueueItemRow>
         );

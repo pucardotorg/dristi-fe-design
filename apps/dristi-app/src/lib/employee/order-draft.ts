@@ -237,6 +237,45 @@ export function nextListingRecital(
 }
 
 /**
+ * Where a heard matter is posted to next, as the cause list sets it when the hearing is
+ * ended (owner, 2026-10-15). The order's Next hearing used to be filled in the order; it
+ * is now filled on the cause list and only shown in the order, disabled.
+ */
+export type CausePosting = Pick<OrderDraft, "next" | "nextPurpose" | "nextDate">;
+
+/** Nothing set yet: listed again, no date, no purpose. */
+export const NO_CAUSE_POSTING: CausePosting = {
+  next: "list",
+  nextPurpose: "",
+  nextDate: null,
+};
+
+/**
+ * A hearing's order with the cause list's posting laid over it. The cause list is the one
+ * place the posting is set, so whatever the order's own draft holds is ignored — and a
+ * posting not set yet reads as not set, never as a date the order guessed.
+ */
+export function withCausePosting(
+  draft: OrderDraft,
+  posting: CausePosting | undefined,
+): OrderDraft {
+  const given = posting ?? NO_CAUSE_POSTING;
+  if (
+    draft.next === given.next &&
+    draft.nextPurpose === given.nextPurpose &&
+    draft.nextDate === given.nextDate
+  ) {
+    return draft;
+  }
+  return {
+    ...draft,
+    next: given.next,
+    nextPurpose: given.nextPurpose,
+    nextDate: given.nextDate,
+  };
+}
+
+/**
  * The next matter the bench has not yet taken up — what Next case calls. Reads today's
  * cause list with the sitting's own marks applied; only a `scheduled` listing further down
  * the board counts.
