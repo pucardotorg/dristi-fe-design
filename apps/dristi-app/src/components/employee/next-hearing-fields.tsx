@@ -5,29 +5,20 @@ import { CalendarDaysIcon } from "lucide-react";
 
 import { useCourtToday } from "@/components/employee/use-court-today";
 import { useHearingSession } from "@/components/employee/use-hearing-session";
+import { PurposeField } from "@/components/employee/purpose-field";
 import { Button } from "@/components/ui/button";
 import { Calendar, CalendarDayButton } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { setHearingPosting } from "@/lib/employee/hearing-session";
 import {
-  COURT_HEARING_PURPOSES,
   causeTitle,
-  courtHearingPurposeLabel,
   formatCourtDay,
   formatListingDate,
   isoDay,
   parseIsoDay,
   type CourtHearing,
-  type CourtHearingPurposeId,
 } from "@/lib/employee/hearings";
 import { listingLoad, type DayLoad } from "@/lib/employee/listing-load";
 import { NO_CAUSE_POSTING, type CausePosting } from "@/lib/employee/order-draft";
@@ -203,38 +194,14 @@ export function NextPurposeField({
   const listed = posting.next === "list";
   return (
     <div onClick={keepClick} className={cn("min-w-0", className)}>
-      <Select
-        /* "" rather than undefined, so the field is controlled from its first paint;
-           Radix shows the placeholder for it. */
-        value={(listed && posting.nextPurpose) || ""}
+      <PurposeField
+        value={listed ? posting.nextPurpose : null}
         disabled={!listed}
-        onValueChange={(value) =>
-          change({ nextPurpose: value as CourtHearingPurposeId })
-        }
-      >
-        <SelectTrigger
-          aria-labelledby={labelledBy}
-          aria-label={
-            labelledBy
-              ? undefined
-              : `Next hearing purpose for item ${hearing.item}, ${causeTitle(hearing)}`
-          }
-          className="w-full"
-        >
-          <SelectValue placeholder={listed ? "Choose a purpose" : "Not listed"}>
-            {listed && posting.nextPurpose
-              ? courtHearingPurposeLabel(posting.nextPurpose)
-              : null}
-          </SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          {COURT_HEARING_PURPOSES.map((entry) => (
-            <SelectItem key={entry.id} value={entry.id}>
-              {entry.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+        onChange={(nextPurpose) => change({ nextPurpose })}
+        placeholder={listed ? "Choose a purpose" : "Not listed"}
+        labelledBy={labelledBy}
+        ariaLabel={`Next hearing purpose for item ${hearing.item}, ${causeTitle(hearing)}`}
+      />
     </div>
   );
 }
