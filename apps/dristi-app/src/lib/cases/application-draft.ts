@@ -4,14 +4,15 @@
  *
  * The fields are the Application Lifecycle PRD's "Fields by application type"
  * (v33). Four of them are on every application whatever its type — Raised by,
- * Litigant, Supporting documents and Other details — and the rest belong to
- * one type each. Where the PRD marks a field optional, it is optional here;
+ * Litigant, Application details and Supporting documents — and the rest belong
+ * to one type each. Where the PRD marks a field optional, it is optional here;
  * everything else is required.
  *
  * One draft holds every type's fields rather than one per type, so switching
  * type to compare forms never destroys what was already typed. Only the
  * selected type is validated, reviewed and filed.
  */
+import type { RichTextValue } from "@/components/cases/rich-text-field";
 import type { Address } from "@/lib/filing/types";
 import {
   isApplicationTypeId,
@@ -122,7 +123,12 @@ export type ApplicationDraft = {
   /** Saved as Application Raised On Behalf Of. A person id from the case file. */
   litigantId: string;
   supportingDocuments: NamedDocumentDraft[];
-  otherDetails: string;
+  /**
+   * The application in the filer's own words, formatted. One box for every
+   * type: it replaced each type's reason box and the Other details box that
+   * sat under it, so no type asks for its words twice (owner, 2026-10-15).
+   */
+  applicationDetails: RichTextValue;
 
   /* Bail. */
   bailType: "" | "cash" | "surety";
@@ -130,30 +136,23 @@ export type ApplicationDraft = {
   /** How many sets of surety details follow. Kept as typed. */
   suretyCount: string;
   sureties: SuretyDraft[];
-  bailReason: string;
 
   /* Edit Litigant Details. */
   editLitigantId: string;
-  editReason: string;
   litigantType: "" | "individual" | "institution";
   litigant: LitigantDetailsDraft;
 
   /* Case Settlement. */
-  settlementReason: string;
 
   /* Case Transfer. */
   requestedCourt: string;
-  transferReason: string;
 
   /* Case Withdrawal. */
-  withdrawalReason: string;
 
   /* Delay Condonation. */
-  delayReason: string;
 
   /* Generic. */
   title: string;
-  details: string;
 
   /* Advance (prepone) / Postpone. */
   rescheduleReason: string;
@@ -163,10 +162,8 @@ export type ApplicationDraft = {
   poaLitigantIds: string[];
   /** One authorization document per litigant above, keyed by litigant id. */
   poaAuthorizations: Record<string, File[]>;
-  poaReason: string;
 
   /* Production of Documents. */
-  productionReason: string;
   productionDocuments: TypedDocumentDraft[];
 
   /* Addition of Witness. */
@@ -177,17 +174,14 @@ export type ApplicationDraft = {
   deliveryAddress: Address;
 
   /* Absent Application. */
-  absenceReason: string;
 
   /* Reopen Evidence. */
-  reopenReason: string;
 
   /**
    * Objection (ALC-12, ALC-24). What it objects to is fixed by the File
    * objection task, never chosen here.
    */
   objectionToId: string;
-  objectionReason: string;
 };
 
 /**
@@ -235,37 +229,25 @@ export const EMPTY_APPLICATION_DRAFT: ApplicationDraft = {
   raisedById: "",
   litigantId: "",
   supportingDocuments: [],
-  otherDetails: "",
+  applicationDetails: { html: "", text: "" },
   bailType: "",
   bailAmount: "",
   suretyCount: "",
   sureties: [],
-  bailReason: "",
   editLitigantId: "",
-  editReason: "",
   litigantType: "",
   litigant: emptyLitigantDetails(),
-  settlementReason: "",
   requestedCourt: "",
-  transferReason: "",
-  withdrawalReason: "",
-  delayReason: "",
   title: "",
-  details: "",
   rescheduleReason: "",
   proposedHearingDate: undefined,
   poaLitigantIds: [],
   poaAuthorizations: {},
-  poaReason: "",
-  productionReason: "",
   productionDocuments: [],
   witnesses: [],
   warrantAccusedId: "",
   deliveryAddress: blankAddress(),
-  absenceReason: "",
-  reopenReason: "",
   objectionToId: "",
-  objectionReason: "",
 };
 
 function rowId(prefix: string): string {
@@ -345,46 +327,43 @@ export const RESCHEDULE_REASONS = [
 const TITLE_PATTERN = /^[\p{L}\p{M}\p{N}\p{P}\p{Zs}]+$/u;
 
 /**
- * The draft field that *is* each type's ask, in the filer's own words. A
- * saved draft keeps only this text (`Submission.request`), so it is what
- * `applicationDraftFrom` restores and `draftRequestText` saves. Types whose
- * own fields are all structured keep the ask in Other details.
+ * Typed text as the editor's own markup: one paragraph per line, escaped. A
+ * saved draft keeps the ask as plain text (`Submission.request`), and the
+ * seeded applications are written as plain text, so both come back through
+ * here.
  */
-const ASK_FIELD: Record<
-  ApplicationTypeId,
-  | "bailReason"
-  | "editReason"
-  | "settlementReason"
-  | "transferReason"
-  | "withdrawalReason"
-  | "delayReason"
-  | "details"
-  | "poaReason"
-  | "productionReason"
-  | "absenceReason"
-  | "reopenReason"
-  | "objectionReason"
-  | "otherDetails"
-> = {
-  bail: "bailReason",
-  "edit-litigant-details": "editReason",
-  settlement: "settlementReason",
-  transfer: "transferReason",
-  withdrawal: "withdrawalReason",
-  "condonation-of-delay": "delayReason",
-  "application-others": "details",
-  "advancement-reschedule": "otherDetails",
-  postpone: "otherDetails",
-  "poa-change": "poaReason",
-  "production-of-documents": "productionReason",
-  "addition-of-witness": "otherDetails",
-  "warrant-by-hand": "otherDetails",
-  "absent-application": "absenceReason",
-  "reopen-evidence": "reopenReason",
-  objection: "objectionReason",
-  "certified-copy": "otherDetails",
-  "warrant-recall": "otherDetails",
-};
+export function applicationDetailsFromPlain(value: string): RichTextValue {
+  const text = value.trim();
+  if (!text) return { html: "", text: "" };
+  const html = text
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map(
+      (line) =>
+        `<p>${line.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>`
+    )
+    .join("");
+  return { html, text };
+}
+
+/**
+ * Types whose own fields already say what is asked — a date, a witness, an
+ * address — so Application details is optional there, as Other details was.
+ * Every other type is asked in these words, so they are required.
+ */
+const DETAILS_OPTIONAL: ReadonlySet<ApplicationTypeId> = new Set<ApplicationTypeId>([
+  "advancement-reschedule",
+  "postpone",
+  "addition-of-witness",
+  "warrant-by-hand",
+  "certified-copy",
+  "warrant-recall",
+]);
+
+export function applicationDetailsOptional(type: ApplicationTypeId | ""): boolean {
+  return type !== "" && DETAILS_OPTIONAL.has(type);
+}
 
 /**
  * A saved draft, reopened as the form that wrote it.
@@ -413,8 +392,7 @@ export function applicationDraftFrom(submission: Submission): ApplicationDraft {
     litigantId: submission.onBehalfOfId ?? "",
     objectionToId: submission.objectionToId ?? "",
   };
-  const ask = submission.request?.trim() ?? "";
-  if (ask) draft[ASK_FIELD[type]] = ask;
+  draft.applicationDetails = applicationDetailsFromPlain(submission.request ?? "");
 
   if (type === "application-others") {
     // Generic is the one type that also names itself. A row that was never
@@ -433,10 +411,13 @@ export function applicationDraftFrom(submission: Submission): ApplicationDraft {
   return draft;
 }
 
-/** The inverse of `applicationDraftFrom`'s ask mapping, for saving a draft. */
+/**
+ * The inverse of `applicationDraftFrom`'s ask, for saving a draft. The
+ * register keeps plain text, so formatting does not survive a saved draft.
+ */
 export function draftRequestText(draft: ApplicationDraft): string {
   if (!draft.type) return "";
-  return draft[ASK_FIELD[draft.type]].trim();
+  return draft.applicationDetails.text.trim();
 }
 
 /**
@@ -641,6 +622,14 @@ export function validateApplication(
   required(errors, "raisedById", draft.raisedById, "Choose who is raising this application.");
   required(errors, "litigantId", draft.litigantId, "Choose the litigant.");
   validateSupportingDocuments(draft, errors);
+  if (!applicationDetailsOptional(draft.type)) {
+    required(
+      errors,
+      "applicationDetails",
+      draft.applicationDetails.text,
+      "Enter the application details."
+    );
+  }
 
   switch (draft.type) {
     case "bail": {
@@ -662,13 +651,11 @@ export function validateApplication(
           files(errors, `${surety.id}.solvencyProof`, surety.solvencyProof, "Attach the proof of solvency.");
         }
       }
-      required(errors, "bailReason", draft.bailReason, "Enter the reason for bail.");
       break;
     }
 
     case "edit-litigant-details": {
       required(errors, "editLitigantId", draft.editLitigantId, "Choose the litigant whose details change.");
-      required(errors, "editReason", draft.editReason, "Enter the reason for editing.");
       if (draft.editLitigantId) {
         if (!draft.litigantType) errors.litigantType = "Choose the litigant type.";
         else validateLitigant(draft, context.editSide ?? "complainant", errors);
@@ -677,20 +664,16 @@ export function validateApplication(
     }
 
     case "settlement":
-      required(errors, "settlementReason", draft.settlementReason, "Enter the reason for settlement.");
       break;
 
     case "transfer":
       required(errors, "requestedCourt", draft.requestedCourt, "Enter the court you are asking for.");
-      required(errors, "transferReason", draft.transferReason, "Enter the reason for transfer.");
       break;
 
     case "withdrawal":
-      required(errors, "withdrawalReason", draft.withdrawalReason, "Enter the reason for withdrawal.");
       break;
 
     case "condonation-of-delay":
-      required(errors, "delayReason", draft.delayReason, "Enter the reasons for delay.");
       break;
 
     case "application-others": {
@@ -699,7 +682,6 @@ export function validateApplication(
       else if (!TITLE_PATTERN.test(title)) {
         errors.title = "Use letters, numbers and punctuation only.";
       }
-      required(errors, "details", draft.details, "Enter the details.");
       break;
     }
 
@@ -723,11 +705,9 @@ export function validateApplication(
           "Attach the authorization document."
         );
       }
-      required(errors, "poaReason", draft.poaReason, "Enter the reason for change.");
       break;
 
     case "production-of-documents":
-      required(errors, "productionReason", draft.productionReason, "Enter the reason for application.");
       if (draft.productionDocuments.length === 0) {
         errors.productionDocuments = "Add at least one document.";
       }
@@ -761,15 +741,12 @@ export function validateApplication(
       break;
 
     case "absent-application":
-      required(errors, "absenceReason", draft.absenceReason, "Enter the reason for absence.");
       break;
 
     case "reopen-evidence":
-      required(errors, "reopenReason", draft.reopenReason, "Enter the reason for reopening.");
       break;
 
     case "objection":
-      required(errors, "objectionReason", draft.objectionReason, "Enter the reason for objection.");
       break;
   }
 

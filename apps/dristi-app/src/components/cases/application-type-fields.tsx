@@ -5,6 +5,7 @@ import { PlusIcon, Trash2Icon } from "lucide-react";
 
 import { AddressFields } from "@/components/filing/address-fields";
 import { FileField } from "@/components/cases/filing-form-shared";
+import { RichTextField } from "@/components/cases/rich-text-field";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -27,6 +28,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import {
   RESCHEDULE_REASONS,
+  applicationDetailsOptional,
   blankAddress,
   emptyAddressWithPolice,
   emptyLitigantDetails,
@@ -45,7 +47,11 @@ import {
   type CaseLitigant,
   type PersonOption,
 } from "@/lib/cases/application-options";
-import { applicationsFile, submissionTypeLabel } from "@/lib/cases/applications";
+import {
+  applicationsFile,
+  submissionTypeLabel,
+  type ApplicationTypeId,
+} from "@/lib/cases/applications";
 import { formatCaseDate, type CaseRecord } from "@/lib/cases/types";
 import {
   ACCUSED_ENTITY_TYPES,
@@ -82,8 +88,8 @@ type FieldsProps = {
  * The fields for the selected application type, from the Application
  * Lifecycle PRD's "Fields by application type".
  *
- * Every type opens with Raised by and Litigant and closes with Supporting
- * documents and Other details — the four fields on every application. The
+ * Every type opens with Raised by and Litigant and closes with Application
+ * details and Supporting documents — the four fields on every application. The
  * type's own fields sit between them. One column, no section headings: the
  * bail dialog set that for every filing dialog (owner, Sept 21).
  */
@@ -106,17 +112,13 @@ function typeFields(props: FieldsProps): React.ReactNode | undefined {
     case "edit-litigant-details":
       return <EditLitigantFields {...props} />;
     case "settlement":
-      return (
-        <ReasonField {...props} field="settlementReason" label="Reason for settlement" />
-      );
+      return null;
     case "transfer":
       return <TransferFields {...props} />;
     case "withdrawal":
-      return (
-        <ReasonField {...props} field="withdrawalReason" label="Reason for withdrawal" />
-      );
+      return null;
     case "condonation-of-delay":
-      return <ReasonField {...props} field="delayReason" label="Reasons for delay" />;
+      return null;
     case "application-others":
       return <GenericFields {...props} />;
     case "advancement-reschedule":
@@ -131,9 +133,9 @@ function typeFields(props: FieldsProps): React.ReactNode | undefined {
     case "warrant-by-hand":
       return <WarrantByHandFields {...props} />;
     case "absent-application":
-      return <ReasonField {...props} field="absenceReason" label="Reason for absence" />;
+      return null;
     case "reopen-evidence":
-      return <ReasonField {...props} field="reopenReason" label="Reason for reopening" />;
+      return null;
     case "objection":
       return <ObjectionFields {...props} />;
     default:
@@ -600,11 +602,17 @@ function EveryApplicationTop({
   );
 }
 
-/** Supporting documents and Other details (PRD "Every application"). */
+/**
+ * Application details and Supporting documents (PRD "Every application").
+ * Application details is the one place the filer writes the application: it
+ * replaced each type's reason box and the Other details box under it (owner,
+ * 2026-10-15), so the form never asks for the same words twice.
+ */
 function EveryApplicationBottom({ draft, errors, actions }: FieldsProps) {
   const rows = draft.supportingDocuments;
   return (
     <>
+      <ApplicationDetailsField draft={draft} errors={errors} actions={actions} />
       <RepeatingSection
         heading="Supporting documents"
         optional
@@ -656,41 +664,60 @@ function EveryApplicationBottom({ draft, errors, actions }: FieldsProps) {
           </RowWell>
         ))}
       </RepeatingSection>
-
-      <TextAreaField
-        label="Other details"
-        optional
-        value={draft.otherDetails}
-        description="Anything else the court should know about this application."
-        onChange={(value) => actions.update("otherDetails", value)}
-      />
     </>
   );
 }
 
-/** A type whose only own field is one reason, typed. */
-function ReasonField({
+/**
+ * What each type's details cover, in the words of the box it replaced — the
+ * type's reason box, or Other details where the type had none — so nothing
+ * the PRD asks of a type is lost by folding the boxes into one.
+ */
+const OTHER_DETAILS_HINT = "Anything else the court should know about this application.";
+const DETAILS_HINT: Partial<Record<ApplicationTypeId, string>> = {
+  bail: "The reason for bail.",
+  "edit-litigant-details": "The reason for editing.",
+  settlement: "The reason for settlement.",
+  transfer: "The reason for transfer.",
+  withdrawal: "The reason for withdrawal.",
+  "condonation-of-delay": "The reasons for delay.",
+  "application-others": "The details of the application.",
+  "advancement-reschedule": OTHER_DETAILS_HINT,
+  postpone: OTHER_DETAILS_HINT,
+  "poa-change": "The reason for the change.",
+  "production-of-documents": "The reason for the application.",
+  "addition-of-witness": OTHER_DETAILS_HINT,
+  "warrant-by-hand": OTHER_DETAILS_HINT,
+  "absent-application": "The reason for absence.",
+  "reopen-evidence": "The reason for reopening.",
+  objection: "The reason for objection.",
+};
+
+/**
+ * The application in the filer's own words: the full-size editor, not a
+ * dialog-sized box, because for most types this is the application.
+ */
+function ApplicationDetailsField({
   draft,
   errors,
   actions,
-  field,
-  label,
-}: FieldsProps & {
-  field:
-    | "settlementReason"
-    | "withdrawalReason"
-    | "delayReason"
-    | "absenceReason"
-    | "reopenReason";
-  label: string;
-}) {
+}: Pick<FieldsProps, "draft" | "errors" | "actions">) {
+  const labelId = useId();
+  const optional = applicationDetailsOptional(draft.type);
+  const hint = draft.type ? DETAILS_HINT[draft.type] : undefined;
   return (
-    <TextAreaField
-      label={label}
-      value={draft[field]}
-      error={errors.fields[field]}
-      onChange={(value) => actions.update(field, value)}
-    />
+    <Field data-invalid={Boolean(errors.fields.applicationDetails)}>
+      <FieldLabel id={labelId}>
+        <FieldName label="Application Details" optional={optional} />
+      </FieldLabel>
+      {hint ? <FieldDescription>{hint}</FieldDescription> : null}
+      <RichTextField
+        labelId={labelId}
+        value={draft.applicationDetails}
+        onChange={(value) => actions.update("applicationDetails", value)}
+      />
+      <FieldError>{errors.fields.applicationDetails}</FieldError>
+    </Field>
   );
 }
 
@@ -812,12 +839,6 @@ function BailFields({ draft, errors, actions }: FieldsProps) {
           ))}
         </>
       ) : null}
-      <TextAreaField
-        label="Reason for bail"
-        value={draft.bailReason}
-        error={errors.fields.bailReason}
-        onChange={(value) => actions.update("bailReason", value)}
-      />
     </>
   );
 }
@@ -878,12 +899,6 @@ function EditLitigantFields(props: FieldsProps) {
           actions.update("litigantType", type);
           actions.update("litigant", litigantDetailsFrom(litigant, litigant.institution));
         }}
-      />
-      <TextAreaField
-        label="Reason for editing"
-        value={draft.editReason}
-        error={errors.fields.editReason}
-        onChange={(value) => actions.update("editReason", value)}
       />
       {selected ? (
         <>
@@ -1250,12 +1265,6 @@ function TransferFields({ draft, errors, record, actions }: FieldsProps) {
         error={errors.fields.requestedCourt}
         onChange={(value) => actions.update("requestedCourt", value)}
       />
-      <TextAreaField
-        label="Reason for transfer"
-        value={draft.transferReason}
-        error={errors.fields.transferReason}
-        onChange={(value) => actions.update("transferReason", value)}
-      />
     </>
   );
 }
@@ -1271,13 +1280,6 @@ function GenericFields({ draft, errors, actions }: FieldsProps) {
         description="Used as the application's heading."
         error={errors.fields.title}
         onChange={(value) => actions.update("title", value)}
-      />
-      <TextAreaField
-        label="Details"
-        value={draft.details}
-        rows={6}
-        error={errors.fields.details}
-        onChange={(value) => actions.update("details", value)}
       />
     </>
   );
@@ -1381,12 +1383,6 @@ function PoaChangeFields({ draft, errors, record, actions }: FieldsProps) {
           onErrorChange={(error) => actions.setError(`poa.${item.id}`, error)}
         />
       ))}
-      <TextAreaField
-        label="Reason for change"
-        value={draft.poaReason}
-        error={errors.fields.poaReason}
-        onChange={(value) => actions.update("poaReason", value)}
-      />
     </>
   );
 }
@@ -1397,12 +1393,6 @@ function ProductionFields({ draft, errors, actions }: FieldsProps) {
   const rows = draft.productionDocuments;
   return (
     <>
-      <TextAreaField
-        label="Reason for application"
-        value={draft.productionReason}
-        error={errors.fields.productionReason}
-        onChange={(value) => actions.update("productionReason", value)}
-      />
       <RepeatingSection
         heading="Documents"
         description="PDF or JPEG, one entry per document."
@@ -1673,7 +1663,7 @@ function WarrantByHandFields({ draft, errors, record, actions }: FieldsProps) {
  * side (ALC-12, ALC-24). What it objects to is fixed, so it is shown locked
  * rather than chosen.
  */
-function ObjectionFields({ draft, errors, record, actions }: FieldsProps) {
+function ObjectionFields({ draft, record }: FieldsProps) {
   const target = applicationsFile(record).submissions.find(
     (item) => item.id === draft.objectionToId,
   );
@@ -1693,12 +1683,6 @@ function ObjectionFields({ draft, errors, record, actions }: FieldsProps) {
             ? `The court decides it on ${formatCaseDate(target.decisionOn)}.`
             : undefined
         }
-      />
-      <TextAreaField
-        label="Reason for objection"
-        value={draft.objectionReason}
-        error={errors.fields.objectionReason}
-        onChange={(value) => actions.update("objectionReason", value)}
       />
     </>
   );

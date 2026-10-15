@@ -7,7 +7,11 @@
  * Applications filed through the advocate side add to these. "Reset sandbox data"
  * (`resetApplications`) brings the samples back.
  */
-import { EMPTY_APPLICATION_DRAFT, type ApplicationDraft } from "@/lib/cases/application-draft";
+import {
+  EMPTY_APPLICATION_DRAFT,
+  applicationDetailsFromPlain,
+  type ApplicationDraft,
+} from "@/lib/cases/application-draft";
 import { CASES } from "@/lib/cases/fixtures";
 import { applicationTypeGuide } from "@/lib/cases/application-type-guide";
 import type { ApplicationTypeId } from "@/lib/cases/applications";
@@ -53,7 +57,9 @@ const SAMPLES: Sample[] = [
     filedDaysAgo: 1,
     form: {
       rescheduleReason: "Illness",
-      otherDetails: "The complainant is admitted in hospital and cannot depose.",
+      applicationDetails: applicationDetailsFromPlain(
+        "The complainant is admitted in hospital and cannot depose.",
+      ),
     },
   },
   {
@@ -62,8 +68,7 @@ const SAMPLES: Sample[] = [
     type: "condonation-of-delay",
     filedDaysAgo: 4,
     form: {
-      delayReason:
-        "The demand notice was returned unclaimed and the complainant learnt of it only after the period had run.",
+      applicationDetails: applicationDetailsFromPlain("The demand notice was returned unclaimed and the complainant learnt of it only after the period had run."),
     },
   },
   {
@@ -74,8 +79,7 @@ const SAMPLES: Sample[] = [
     reviewAgainIn: 4,
     form: {
       title: "Exemption from personal appearance",
-      details:
-        "The accused is the managing partner and is travelling abroad on business until the end of the month.",
+      applicationDetails: applicationDetailsFromPlain("The accused is the managing partner and is travelling abroad on business until the end of the month."),
     },
   },
   /* Decide on applications */
@@ -92,7 +96,7 @@ const SAMPLES: Sample[] = [
         "No settlement has been reached. The accused has not agreed to the instalments the complainant describes.",
     },
     form: {
-      settlementReason: "The parties have agreed to settle the cheque amount in three instalments.",
+      applicationDetails: applicationDetailsFromPlain("The parties have agreed to settle the cheque amount in three instalments."),
     },
   },
   {
@@ -102,7 +106,7 @@ const SAMPLES: Sample[] = [
     filedDaysAgo: 3,
     onboard: { daysAgo: 2 },
     form: {
-      withdrawalReason: "The cheque amount has been paid in full.",
+      applicationDetails: applicationDetailsFromPlain("The cheque amount has been paid in full."),
     },
   },
   {
@@ -112,8 +116,7 @@ const SAMPLES: Sample[] = [
     filedDaysAgo: 8,
     onboard: { daysAgo: 5, decideIn: 2, invite: true },
     form: {
-      productionReason:
-        "The bank's statement of account for the period is needed to show the cheque was issued as security.",
+      applicationDetails: applicationDetailsFromPlain("The bank's statement of account for the period is needed to show the cheque was issued as security."),
     },
   },
 ];
@@ -201,7 +204,7 @@ export function sampleApplications(
             ...EMPTY_APPLICATION_DRAFT,
             type: "objection",
             filedForSide: otherSide,
-            objectionReason: sample.onboard.objection,
+            applicationDetails: applicationDetailsFromPlain(sample.onboard.objection),
           }),
           documents: [],
           history: [{ on, text: "Draft started" }],
