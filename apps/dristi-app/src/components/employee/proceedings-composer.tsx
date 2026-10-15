@@ -569,7 +569,12 @@ export function ProceedingsComposer({
     if (menu.mode === "at") {
       const groups: MenuGroup[] = [];
       const people = [
-        ...appearances.map((entry) => ({ name: entry.name, role: entry.role })),
+        /* A side's counsel is one roll row, but each advocate is someone to name. */
+        ...appearances.flatMap((entry) =>
+          entry.advocates
+            ? entry.advocates.map((name) => ({ name, role: entry.role }))
+            : [{ name: entry.name, role: entry.role }],
+        ),
         ...context.people
           .filter((person) => person.kind === "witness")
           .map((person) => ({ name: person.name, role: person.role })),

@@ -46,49 +46,45 @@ export type Appearance = {
   side: CounselSide;
   /** The party themselves, or counsel appearing for them. */
   kind: "party" | "counsel";
+  /**
+   * Counsel only: the advocates on record for the side. The roll asks once whether the
+   * side is represented — any one of them appearing is enough — so they are named here
+   * for the bench's reference, never one row each.
+   */
+  advocates?: readonly string[];
 };
 
 /**
- * Who appears, in the order a day-order names them: complainant, then counsel for that
- * side, then the accused, then counsel for that side. A side with no vakalat has no
- * advocate row.
+ * Who appears, in the order a day-order names them: the complainant, then whether the
+ * complainant is represented, then the accused, then whether the accused is represented.
+ * Counsel is one row per side, not one per advocate: with several on record, one of them
+ * appearing is enough and the rest are not absences (owner, 2026-10-15). A side with no
+ * vakalat has no advocate row.
  */
 export function appearancesFor(hearing: CourtHearing): Appearance[] {
-  const rows: Appearance[] = [
-    {
-      id: "complainant",
-      name: hearing.parties.complainant,
-      role: "Complainant",
-      side: "complainant",
+  return (["complainant", "accused"] as const).flatMap((side): Appearance[] => {
+    const party: Appearance = {
+      id: side,
+      name: hearing.parties[side],
+      role: side === "complainant" ? "Complainant" : "Accused",
+      side,
       kind: "party",
-    },
-  ];
-  counselFor(hearing, "complainant").forEach((counsel, index) => {
-    rows.push({
-      id: `complainant-counsel-${index}`,
-      name: counsel.name,
-      role: "Advocate for the complainant",
-      side: "complainant",
-      kind: "counsel",
-    });
+    };
+    const advocates = counselFor(hearing, side).map((counsel) => counsel.name);
+    if (advocates.length === 0) return [party];
+    const office = `Advocate for the ${side}`;
+    return [
+      party,
+      {
+        id: `${side}-counsel`,
+        name: office,
+        role: office,
+        side,
+        kind: "counsel",
+        advocates,
+      },
+    ];
   });
-  rows.push({
-    id: "accused",
-    name: hearing.parties.accused,
-    role: "Accused",
-    side: "accused",
-    kind: "party",
-  });
-  counselFor(hearing, "accused").forEach((counsel, index) => {
-    rows.push({
-      id: `accused-counsel-${index}`,
-      name: counsel.name,
-      role: "Advocate for the accused",
-      side: "accused",
-      kind: "counsel",
-    });
-  });
-  return rows;
 }
 
 export type NextListingChoice = "list" | "none";
@@ -132,13 +128,15 @@ export type AttendanceEntry = {
   name: string;
   /** "the complainant" / "advocate for the accused" — the office in the sentence. */
   office: string;
+  /** A side's counsel is recited by office alone: which advocate appeared is not asked. */
+  kind: Appearance["kind"];
   /** "Complainant" / "Advocate for the accused" — the office as a list entry. */
   role: string;
   mark: AttendanceMark;
 };
 
 function attendanceOffice(appearance: Appearance): string {
-  if (appearance.id === "complainant" || appearance.id === "accused") {
+  if (appearance.kind === "party") {
     return `the ${appearance.role.toLowerCase()}`;
   }
   return appearance.role.toLowerCase();
@@ -158,6 +156,7 @@ export function markedAppearances(
         name: appearance.name,
         office: attendanceOffice(appearance),
         role: appearance.role,
+        kind: appearance.kind,
         mark,
       },
     ];
@@ -190,13 +189,17 @@ export function attendanceRecital(
     const roll = marked.filter((entry) => entry.mark === mark);
     if (roll.length === 0) return [];
     /* Semicolons between people, commas inside each of them: the comma joins a name to
-       the office they appear in, so it cannot also separate one person from the next. */
+       the office they appear in, so it cannot also separate one person from the next.
+       A side's counsel is its office alone — "advocate for the accused". */
+    const value = roll
+      .map((entry) =>
+        entry.kind === "counsel" ? entry.office : `${entry.name}, ${entry.office}`,
+      )
+      .join("; ");
     return [
       {
         label,
-        value: `${roll
-          .map((entry) => `${entry.name}, ${entry.office}`)
-          .join("; ")}.`,
+        value: `${value.charAt(0).toUpperCase()}${value.slice(1)}.`,
       },
     ];
   });
