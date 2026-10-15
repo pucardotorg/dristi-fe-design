@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import {
+  ArrowLeftIcon,
   CheckIcon,
   ChevronRightIcon,
   FileTextIcon,
@@ -70,7 +71,8 @@ type DocumentRow = {
  * Case file section reads, numbered and ordered as that section is — View Case
  * handover §6.2), searchable, with the applications standing on the matter first. Any
  * document can be **linked to the order**; an application decided in the order is linked
- * by deciding it. A document opens in one viewer, with Link in its header.
+ * by deciding it. A document opens in one viewer, with Link in its header — a dialog, or
+ * with `inlineViewer` the panel itself, in the case file's place, with Back to the list.
  *
  * **Overview**: the facts of the matter, as the screen that opened the order knows them.
  *
@@ -91,6 +93,7 @@ export function OrderCasePanel({
   preview,
   requestView,
   onViewRequested,
+  inlineViewer = false,
 }: {
   className?: string;
   overview: { label: string; value: string }[];
@@ -112,7 +115,13 @@ export function OrderCasePanel({
   /** A document to open in the viewer — a citation clicked in the order, say. */
   requestView?: string | null;
   onViewRequested?: () => void;
+  /**
+   * Open a filed paper in the panel itself rather than a dialog (owner, 2026-10-15) —
+   * for a panel wide enough to read a page in.
+   */
+  inlineViewer?: boolean;
 }) {
+  const [tab, setTab] = React.useState(preview ? "preview" : "case-file");
   const [query, setQuery] = React.useState("");
   /* Which sections are open: Applications, and any holding a paper already linked. */
   const [openSections, setOpenSections] = React.useState<Set<string>>(
@@ -129,6 +138,32 @@ export function OrderCasePanel({
   );
   const [viewing, setViewing] = React.useState<DocumentRow | null>(null);
   const searchId = React.useId();
+  const listRef = React.useRef<HTMLDivElement>(null);
+  const viewerHeadRef = React.useRef<HTMLHeadingElement>(null);
+  /* The row a paper was opened from, inline, so Back puts focus where it was. */
+  const [opener, setOpener] = React.useState<string | null>(null);
+  const returning = React.useRef(false);
+  const inline = inlineViewer && viewing !== null;
+
+  React.useEffect(() => {
+    if (inline) {
+      viewerHeadRef.current?.focus();
+    } else if (returning.current) {
+      returning.current = false;
+      const target =
+        (opener &&
+          listRef.current?.querySelector<HTMLElement>(
+            `[data-opens="${CSS.escape(opener)}"]`,
+          )) ||
+        listRef.current?.querySelector<HTMLElement>("input[type='search']");
+      target?.focus();
+    }
+  }, [inline, opener]);
+
+  function closeInline() {
+    returning.current = true;
+    setViewing(null);
+  }
 
   const sections = React.useMemo(() => {
     const filed = CASE_FILE_TREE.map((node) => ({
@@ -187,7 +222,13 @@ export function OrderCasePanel({
     const row = requestView
       ? allRows.find((entry) => entry.id === requestView)
       : undefined;
-    if (row && !row.application) setViewing(row);
+    if (row && !row.application) {
+      setViewing(row);
+      if (inlineViewer) {
+        setOpener(`list:${row.id}`);
+        setTab("case-file");
+      }
+    }
   }
   React.useEffect(() => {
     if (!requestView) return;
@@ -220,9 +261,14 @@ export function OrderCasePanel({
     );
   }
 
-  function open(row: DocumentRow) {
-    if (row.application) row.application.onOpen();
-    else setViewing(row);
+  /** `from` names the row it was opened from (its `data-opens`), for Back. */
+  function open(row: DocumentRow, from: string) {
+    if (row.application) {
+      row.application.onOpen();
+      return;
+    }
+    setOpener(from);
+    setViewing(row);
   }
 
   return (
@@ -234,7 +280,8 @@ export function OrderCasePanel({
       )}
     >
       <Tabs
-        defaultValue={preview ? "preview" : "case-file"}
+        value={tab}
+        onValueChange={setTab}
         className="flex min-h-0 flex-1 flex-col gap-0"
       >
         {/* The product's line tabs (case peek, Approve registrations): left-aligned on
@@ -293,92 +340,162 @@ export function OrderCasePanel({
 
         <TabsContent
           value="case-file"
-          className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4"
+          className={cn(
+            "flex min-h-0 flex-1 flex-col p-4",
+            inline ? "gap-3" : "gap-4 overflow-y-auto",
+          )}
         >
-          <div className="flex min-w-0 flex-col gap-1">
-            <Label htmlFor={searchId} className="sr-only">
-              Search the case file
-            </Label>
-            <Input
-              id={searchId}
-              type="search"
-              placeholder="Search the case file"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
-          </div>
-
-          {needle ? null : (
-            <section
-              aria-labelledby={`${searchId}-linked`}
-              className="flex min-w-0 flex-col gap-1 rounded-lg border border-hairline bg-surface-sunken p-2"
+          {inline && viewing ? (
+            /* The paper in the case file's place: Back to the list, its name, Link,
+               and the page filling the rest — scrolling on its own. Escape is Back. */
+            <div
+              className="flex min-h-0 flex-1 flex-col gap-3"
+              onKeyDown={(event) => {
+                if (event.key === "Escape" && !event.defaultPrevented) {
+                  event.preventDefault();
+                  closeInline();
+                }
+              }}
             >
-              <div className="flex min-h-8 items-center justify-between gap-2 pr-3 pl-2">
-                <h3
-                  id={`${searchId}-linked`}
-                  className="text-body-compact font-semibold"
+              <div className="flex min-w-0 items-center justify-between gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="-ml-3"
+                  onClick={closeInline}
                 >
-                  Linked to this order
-                </h3>
-                {linkedRows.length > 0 ? (
-                  <span className="text-body-compact tabular-nums text-muted-foreground">
-                    {linkedRows.length}
-                  </span>
-                ) : null}
+                  <ArrowLeftIcon data-icon="inline-start" aria-hidden />
+                  Case file
+                </Button>
+                {disabled ? null : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    aria-pressed={links.includes(viewing.id)}
+                    className={cn(
+                      links.includes(viewing.id) &&
+                        "text-success-ink hover:text-success-ink",
+                    )}
+                    onClick={() => toggle(viewing.id)}
+                  >
+                    {links.includes(viewing.id) ? (
+                      <CheckIcon data-icon="inline-start" aria-hidden />
+                    ) : (
+                      <LinkIcon data-icon="inline-start" aria-hidden />
+                    )}
+                    {links.includes(viewing.id)
+                      ? "Linked to the order"
+                      : "Link to the order"}
+                  </Button>
+                )}
               </div>
-              {linkedRows.length === 0 ? (
-                <p className="px-2 pb-1 text-body-compact text-muted-foreground">
-                  Nothing yet. Choose Link on a document below.
-                </p>
+              <h3
+                ref={viewerHeadRef}
+                tabIndex={-1}
+                className="min-w-0 text-body font-semibold break-words focus-visible:outline-none"
+              >
+                <OutlineNumber number={viewing.outline} />
+                {viewing.label}
+              </h3>
+              {viewing.node && caseFilePdfSrc(viewing.node) ? (
+                <CaseDocument
+                  key={viewing.id}
+                  src={caseFilePdfSrc(viewing.node) ?? ""}
+                  title={viewing.label}
+                />
               ) : (
-                /* The list rows' grammar in the well: one hover per row, the name
+                <p className="text-body-compact text-muted-foreground">
+                  This paper has no copy in the case file to show.
+                </p>
+              )}
+            </div>
+          ) : (
+            <div ref={listRef} className="contents">
+              <div className="flex min-w-0 flex-col gap-1">
+                <Label htmlFor={searchId} className="sr-only">
+                  Search the case file
+                </Label>
+                <Input
+                  id={searchId}
+                  type="search"
+                  placeholder="Search the case file"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                />
+              </div>
+
+              {needle ? null : (
+                <section
+                  aria-labelledby={`${searchId}-linked`}
+                  className="flex min-w-0 flex-col gap-1 rounded-lg border border-hairline bg-surface-sunken p-2"
+                >
+                  <div className="flex min-h-8 items-center justify-between gap-2 pr-3 pl-2">
+                    <h3
+                      id={`${searchId}-linked`}
+                      className="text-body-compact font-semibold"
+                    >
+                      Linked to this order
+                    </h3>
+                    {linkedRows.length > 0 ? (
+                      <span className="text-body-compact tabular-nums text-muted-foreground">
+                        {linkedRows.length}
+                      </span>
+                    ) : null}
+                  </div>
+                  {linkedRows.length === 0 ? (
+                    <p className="px-2 pb-1 text-body-compact text-muted-foreground">
+                      Nothing yet. Choose Link on a document below.
+                    </p>
+                  ) : (
+                    /* The list rows' grammar in the well: one hover per row, the name
                    shortening before anything else does, and the right-hand slot — the
                    unlink, or the word for why there is none — held to one edge. */
-                <ul className="flex min-w-0 flex-col">
-                  {linkedRows.map((row) => {
-                    const decided = decidedIds.includes(row.id);
-                    return (
-                      <li
-                        key={row.id}
-                        className="group/row flex min-w-0 items-center gap-2 rounded-md pr-1 transition-colors hover:bg-accent has-focus-visible:bg-accent"
-                      >
-                        <button
-                          type="button"
-                          onClick={() => open(row)}
-                          className="flex min-h-10 min-w-0 flex-1 items-center rounded-md px-2 text-left text-body-compact font-medium focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-                        >
-                          <span className="truncate">{row.label}</span>
-                        </button>
-                        {decided ? (
-                          <span className="shrink-0 pr-2 text-body-compact text-muted-foreground">
-                            {fixedReason(row.id)}
-                          </span>
-                        ) : disabled ? null : (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={`Unlink ${row.label}`}
-                            className="relative shrink-0 text-muted-foreground after:absolute after:-inset-1 after:content-[''] group-hover/row:text-foreground hover:bg-accent-strong"
-                            onClick={() => toggle(row.id)}
+                    <ul className="flex min-w-0 flex-col">
+                      {linkedRows.map((row) => {
+                        const decided = decidedIds.includes(row.id);
+                        return (
+                          <li
+                            key={row.id}
+                            className="group/row flex min-w-0 items-center gap-2 rounded-md pr-1 transition-colors hover:bg-accent has-focus-visible:bg-accent"
                           >
-                            <XIcon aria-hidden />
-                          </Button>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
+                            <button
+                              type="button"
+                              data-opens={`linked:${row.id}`}
+                              onClick={() => open(row, `linked:${row.id}`)}
+                              className="flex min-h-10 min-w-0 flex-1 items-center rounded-md px-2 text-left text-body-compact font-medium focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                            >
+                              <span className="truncate">{row.label}</span>
+                            </button>
+                            {decided ? (
+                              <span className="shrink-0 pr-2 text-body-compact text-muted-foreground">
+                                {fixedReason(row.id)}
+                              </span>
+                            ) : disabled ? null : (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label={`Unlink ${row.label}`}
+                                className="relative shrink-0 text-muted-foreground after:absolute after:-inset-1 after:content-[''] group-hover/row:text-foreground hover:bg-accent-strong"
+                                onClick={() => toggle(row.id)}
+                              >
+                                <XIcon aria-hidden />
+                              </Button>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </section>
               )}
-            </section>
-          )}
 
-          {shown.length === 0 ? (
-            <p className="text-body-compact text-muted-foreground">
-              Nothing in the case file matches &ldquo;{query.trim()}&rdquo;.
-            </p>
-          ) : (
-            /* The case file as folders (owner, 2026-10-13): a section is one quiet row
+              {shown.length === 0 ? (
+                <p className="text-body-compact text-muted-foreground">
+                  Nothing in the case file matches &ldquo;{query.trim()}&rdquo;.
+                </p>
+              ) : (
+                /* The case file as folders (owner, 2026-10-13): a section is one quiet row
                — its name and how many papers it holds — that opens to show them, hung
                from a guide line under its chevron like the index's steps. Shut, the
                fourteen sections read as a short list of names; open, a paper can never
@@ -386,84 +503,28 @@ export function OrderCasePanel({
                linked paper, start open; a search opens what it finds. A section that is
                a single paper of its own name is simply that paper's row, with a page
                glyph in the chevron's column so every row of the list starts alike. */
-            /* Pulled out by a row's padding, so the glyphs start on the search
+                /* Pulled out by a row's padding, so the glyphs start on the search
                field's left edge and the counts and Link end on its right. */
-            <div className="-mx-2 flex min-w-0 flex-col gap-0.5">
-              {shown.map((section) => {
-                const expanded =
-                  Boolean(needle) || openSections.has(section.id);
-                if (section.single) {
-                  const row = section.rows[0];
-                  return (
-                    <ul
-                      key={section.id}
-                      aria-label={section.label}
-                      className="flex min-w-0 flex-col"
-                    >
-                      <DocumentLine
-                        row={row}
-                        icon={
-                          <FileTextIcon
-                            aria-hidden
-                            className="size-4 shrink-0 text-muted-foreground"
-                          />
-                        }
-                        linked={linkedIds.includes(row.id)}
-                        fixed={
-                          decidedIds.includes(row.id)
-                            ? fixedReason(row.id)
-                            : null
-                        }
-                        disabled={disabled}
-                        onOpen={() => open(row)}
-                        onToggle={() => toggle(row.id)}
-                      />
-                    </ul>
-                  );
-                }
-                return (
-                  <section
-                    key={section.id}
-                    aria-labelledby={`${searchId}-${section.id}`}
-                    className="flex min-w-0 flex-col"
-                  >
-                    <h3 id={`${searchId}-${section.id}`} className="min-w-0">
-                      <button
-                        type="button"
-                        aria-expanded={expanded}
-                        onClick={() =>
-                          setOpenSections((current) => {
-                            const next = new Set(current);
-                            if (next.has(section.id)) next.delete(section.id);
-                            else next.add(section.id);
-                            return next;
-                          })
-                        }
-                        className="flex min-h-10 w-full min-w-0 items-center gap-2 rounded-lg px-2 text-left text-body-compact transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-                      >
-                        <ChevronRightIcon
-                          aria-hidden
-                          className={cn(
-                            "size-4 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none",
-                            expanded && "rotate-90",
-                          )}
-                        />
-                        <span className="min-w-0 flex-1 truncate font-medium">
-                          <OutlineNumber number={section.outline} />
-                          {section.label}
-                        </span>
-                        <span className="shrink-0 text-muted-foreground tabular-nums">
-                          {section.rows.length}
-                        </span>
-                      </button>
-                    </h3>
-                    {expanded ? (
-                      /* The guide line runs from under the chevron's centre. */
-                      <ul className="relative ml-4 flex min-w-0 flex-col pl-2 before:absolute before:inset-y-1 before:left-0 before:w-px before:bg-hairline">
-                        {section.rows.map((row) => (
+                <div className="-mx-2 flex min-w-0 flex-col gap-0.5">
+                  {shown.map((section) => {
+                    const expanded =
+                      Boolean(needle) || openSections.has(section.id);
+                    if (section.single) {
+                      const row = section.rows[0];
+                      return (
+                        <ul
+                          key={section.id}
+                          aria-label={section.label}
+                          className="flex min-w-0 flex-col"
+                        >
                           <DocumentLine
-                            key={row.id}
                             row={row}
+                            icon={
+                              <FileTextIcon
+                                aria-hidden
+                                className="size-4 shrink-0 text-muted-foreground"
+                              />
+                            }
                             linked={linkedIds.includes(row.id)}
                             fixed={
                               decidedIds.includes(row.id)
@@ -471,15 +532,79 @@ export function OrderCasePanel({
                                 : null
                             }
                             disabled={disabled}
-                            onOpen={() => open(row)}
+                            onOpen={() => open(row, `list:${row.id}`)}
+                            opens={`list:${row.id}`}
                             onToggle={() => toggle(row.id)}
                           />
-                        ))}
-                      </ul>
-                    ) : null}
-                  </section>
-                );
-              })}
+                        </ul>
+                      );
+                    }
+                    return (
+                      <section
+                        key={section.id}
+                        aria-labelledby={`${searchId}-${section.id}`}
+                        className="flex min-w-0 flex-col"
+                      >
+                        <h3
+                          id={`${searchId}-${section.id}`}
+                          className="min-w-0"
+                        >
+                          <button
+                            type="button"
+                            aria-expanded={expanded}
+                            onClick={() =>
+                              setOpenSections((current) => {
+                                const next = new Set(current);
+                                if (next.has(section.id))
+                                  next.delete(section.id);
+                                else next.add(section.id);
+                                return next;
+                              })
+                            }
+                            className="flex min-h-10 w-full min-w-0 items-center gap-2 rounded-lg px-2 text-left text-body-compact transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                          >
+                            <ChevronRightIcon
+                              aria-hidden
+                              className={cn(
+                                "size-4 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none",
+                                expanded && "rotate-90",
+                              )}
+                            />
+                            <span className="min-w-0 flex-1 truncate font-medium">
+                              <OutlineNumber number={section.outline} />
+                              {section.label}
+                            </span>
+                            <span className="shrink-0 text-muted-foreground tabular-nums">
+                              {section.rows.length}
+                            </span>
+                          </button>
+                        </h3>
+                        {expanded ? (
+                          /* The guide line runs from under the chevron's centre. */
+                          <ul className="relative ml-4 flex min-w-0 flex-col pl-2 before:absolute before:inset-y-1 before:left-0 before:w-px before:bg-hairline">
+                            {section.rows.map((row) => (
+                              <DocumentLine
+                                key={row.id}
+                                row={row}
+                                linked={linkedIds.includes(row.id)}
+                                fixed={
+                                  decidedIds.includes(row.id)
+                                    ? fixedReason(row.id)
+                                    : null
+                                }
+                                disabled={disabled}
+                                onOpen={() => open(row, `list:${row.id}`)}
+                                opens={`list:${row.id}`}
+                                onToggle={() => toggle(row.id)}
+                              />
+                            ))}
+                          </ul>
+                        ) : null}
+                      </section>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </TabsContent>
@@ -514,7 +639,7 @@ export function OrderCasePanel({
       </Tabs>
 
       <Dialog
-        open={viewing !== null}
+        open={!inlineViewer && viewing !== null}
         onOpenChange={(next) => {
           if (!next) setViewing(null);
         }}
@@ -592,6 +717,7 @@ function DocumentLine({
   disabled,
   onOpen,
   onToggle,
+  opens,
 }: {
   row: DocumentRow;
   icon?: React.ReactNode;
@@ -600,12 +726,15 @@ function DocumentLine({
   disabled: boolean;
   onOpen: () => void;
   onToggle: () => void;
+  /** Names the open button, so focus can come back to it from the inline viewer. */
+  opens: string;
 }) {
   const meta = [row.number, row.detail].filter(Boolean).join(" · ");
   return (
     <li className="group/row relative flex min-w-0 items-center gap-1 rounded-lg transition-colors hover:bg-accent has-focus-visible:bg-accent">
       <button
         type="button"
+        data-opens={opens}
         onClick={onOpen}
         title={meta ? `${row.label}\n${meta}` : row.label}
         className="flex min-h-10 min-w-0 flex-1 items-center gap-2 rounded-lg py-2 pr-2 pl-2 text-left text-body-compact focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"

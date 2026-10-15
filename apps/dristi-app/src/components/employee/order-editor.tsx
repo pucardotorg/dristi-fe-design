@@ -139,18 +139,18 @@ export function OrderEditorHeader({
         </div>
       </div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-{onPanelToggle ? (
-        <Button
-          type="button"
-          variant="outline"
-          aria-pressed={panelOpen}
-          aria-controls="order-case-file"
-          className="w-full shrink-0 aria-pressed:bg-accent-strong sm:w-fit"
-          onClick={onPanelToggle}
-        >
-          <PanelRightIcon data-icon="inline-start" aria-hidden />
-          Side panel
-        </Button>
+        {onPanelToggle ? (
+          <Button
+            type="button"
+            variant="outline"
+            aria-pressed={panelOpen}
+            aria-controls="order-case-file"
+            className="w-full shrink-0 aria-pressed:bg-accent-strong sm:w-fit"
+            onClick={onPanelToggle}
+          >
+            <PanelRightIcon data-icon="inline-start" aria-hidden />
+            Side panel
+          </Button>
         ) : null}
         {navAction}
       </div>
@@ -603,7 +603,9 @@ export function OrderWorkflowFields({
       blocks:
         mode === "add"
           ? [...current.blocks, block]
-          : current.blocks.map((entry) => (entry.id === block.id ? block : entry)),
+          : current.blocks.map((entry) =>
+              entry.id === block.id ? block : entry,
+            ),
     }));
   }
 
@@ -802,7 +804,9 @@ export function OrderEditorComposer({
     }
     if (onPage && !postingSettled(draft)) {
       setView("order");
-      toast("Set the next hearing’s date and purpose, or tick Not listed again.");
+      toast(
+        "Set the next hearing’s date and purpose, or tick Not listed again.",
+      );
       window.requestAnimationFrame(() =>
         window.document.getElementById("order-next-hearing")?.focus(),
       );
@@ -848,8 +852,10 @@ export function OrderEditorComposer({
              the right — the main work, so the wider share (owner, 2026-10-14). */
           view === "workflow"
             ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]"
-            : panelOpen &&
-                "lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] xl:grid-cols-[minmax(0,1fr)_24rem] 2xl:grid-cols-[minmax(0,1fr)_28rem]",
+            : /* The panel wide enough to read a filed paper in, the order the larger
+                 share still (owner, 2026-10-15). */
+              panelOpen &&
+                "lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]",
         )}
       >
         <div className="flex min-w-0 flex-col gap-4 lg:pb-8">
@@ -895,7 +901,9 @@ export function OrderEditorComposer({
               frame={frame}
               value={body}
               status={paperStatus(stage)}
-              parts={onPage ? orderPaperRecitals(draft, appearances) : undefined}
+              parts={
+                onPage ? orderPaperRecitals(draft, appearances) : undefined
+              }
             />
           ) : (
             <OrderPaperEditor
@@ -937,7 +945,9 @@ export function OrderEditorComposer({
               purpose={purpose}
               inHearing={Boolean(appearances)}
               fixedIds={fixedIds}
-              disabled={stage === "triggered" || Boolean(entry?.workflowComplete)}
+              disabled={
+                stage === "triggered" || Boolean(entry?.workflowComplete)
+              }
             />
           </div>
         ) : panelOpen ? (
@@ -951,6 +961,7 @@ export function OrderEditorComposer({
             disabled={false}
             overviewContent={overviewContent}
             historyContent={historyContent}
+            inlineViewer
           />
         ) : null}
       </div>
@@ -1015,9 +1026,10 @@ export function OrderEditorComposer({
             <AlertDialogTitle>Send this order for signing?</AlertDialogTitle>
             <AlertDialogDescription>
               It goes to the magistrate
-              {flow === "pending" ? " in Pending orders" : " for signing"}. Until it is signed
-              it can be moved back to draft and edited. Its order data is
-              triggered once it is signed and its order data is marked complete.
+              {flow === "pending" ? " in Pending orders" : " for signing"}.
+              Until it is signed it can be moved back to draft and edited. Its
+              order data is triggered once it is signed and its order data is
+              marked complete.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1034,7 +1046,9 @@ export function OrderEditorComposer({
         onOpenChange={setShortcutsOpen}
       />
 
-      {applicationDialog?.((id, decision) => decideOnly(setDraft, id, decision))}
+      {applicationDialog?.((id, decision) =>
+        decideOnly(setDraft, id, decision),
+      )}
     </div>
   );
 }
