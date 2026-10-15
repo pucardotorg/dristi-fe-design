@@ -48,6 +48,15 @@ const NEXT_HEARING_IN_DAYS: Record<string, number | null> = {
   "c-1004": 6,
   "c-1005": 4,
   "c-1006": 12,
+  /* The later samples (`seed.ts`): most with a hearing ahead, two without. */
+  "c-1007": 5,
+  "c-1008": 8,
+  "c-1009": 4,
+  "c-1010": null,
+  "c-1011": 10,
+  "c-1012": 6,
+  "c-1013": null,
+  "c-1014": 11,
 };
 
 /**
