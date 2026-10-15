@@ -41,9 +41,12 @@ export type ProcessChannel =
   | "epost"
   | "police-rpad"
   | "police-nstep"
-  | "police-icops";
+  | "police-icops"
+  | "by-hand";
 
-type Destination = "mobile" | "email" | "address";
+/* By hand has no destination: the CMO hands the signed document over in person, so it is
+   one process per person, whatever is ticked (§6.2, `PRC-05`). */
+type Destination = "mobile" | "email" | "address" | "none";
 
 export const PROCESS_CHANNELS: {
   id: ProcessChannel;
@@ -59,6 +62,7 @@ export const PROCESS_CHANNELS: {
   { id: "police-rpad", label: "Police (RPAD)", destination: "address", police: true },
   { id: "police-nstep", label: "Police (NSTEP)", destination: "address", police: true },
   { id: "police-icops", label: "Police (iCOPS)", destination: "address", police: true },
+  { id: "by-hand", label: "By hand", destination: "none", police: false },
 ];
 
 /** The channels this deployment runs (`PRC-04`). */
@@ -69,9 +73,13 @@ export const DEPLOYMENT_CHANNELS: ProcessChannel[] = [
   "epost",
   "police-rpad",
   "police-nstep",
+  "by-hand",
 ];
 
-const ALL: ProcessChannel[] = PROCESS_CHANNELS.map((channel) => channel.id);
+/* By hand is for warrant and proclamation only (§6.3), so it is not in "every channel". */
+const ALL: ProcessChannel[] = PROCESS_CHANNELS.map((channel) => channel.id).filter(
+  (id) => id !== "by-hand",
+);
 const POLICE: ProcessChannel[] = PROCESS_CHANNELS.filter((channel) => channel.police).map(
   (channel) => channel.id,
 );
@@ -84,7 +92,10 @@ function permitted(type: OrderTemplateId): ProcessChannel[] {
     case "issue-of-notice":
       return ["sms", "email", "rpad", "epost"];
     case "issue-of-warrants":
+      return [...POLICE, "by-hand"];
+    /* A proclamation is printed and affixed, not sent to anyone (§6.3). */
     case "issue-of-proclamation":
+      return ["by-hand"];
     case "issue-of-attachment":
       return POLICE;
     default:
@@ -104,9 +115,10 @@ export function defaultChannelsFor(type: OrderTemplateId): ProcessChannel[] {
     case "issue-of-notice":
       return ["sms", "email", "rpad"];
     case "issue-of-warrants":
-    case "issue-of-proclamation":
     case "issue-of-attachment":
       return [DIGITAL_POLICE];
+    case "issue-of-proclamation":
+      return ["by-hand"];
     /* `AUT-08` names no default for a miscellaneous process. */
     default:
       return [];
@@ -150,6 +162,13 @@ export function defaultPerson(
   return pending.length === 1 ? pending[0].id : "";
 }
 
+/** Whether any of these channels goes to an address, number or email on the record. */
+export function needsDestination(channels: readonly ProcessChannel[]): boolean {
+  return channels.some(
+    (id) => PROCESS_CHANNELS.find((entry) => entry.id === id)?.destination !== "none",
+  );
+}
+
 /** `AUT-07` — every destination on the person's record: addresses, mobiles, emails. */
 export function destinationsOf(
   people: readonly CasePerson[],
@@ -162,6 +181,18 @@ export function destinationsOf(
     ...record.mobiles.map((entry) => entry.id),
     ...record.emails.map((entry) => entry.id),
   ];
+}
+
+/**
+ * What a process type ticks for a person: every destination on record (`AUT-07`) — or
+ * nothing, for a type whose every channel has no destination, a proclamation (§6.3).
+ */
+export function defaultDestinations(
+  type: OrderTemplateId,
+  people: readonly CasePerson[],
+  person: string,
+): string[] {
+  return needsDestination(channelsFor(type)) ? destinationsOf(people, person) : [];
 }
 
 /**
@@ -191,7 +222,10 @@ export function selectedAddresses(
     .filter((id) => recipients.destinations.includes(id));
 }
 
-/** How many processes this creates: one per channel and selected destination of its kind. */
+/**
+ * How many processes this creates: one per channel and selected destination of its kind,
+ * and one for By hand, which has no destination.
+ */
 export function processCount(
   person: CasePerson | undefined,
   recipients: ProcessRecipients,
@@ -200,6 +234,7 @@ export function processCount(
   const picked = (ids: string[]) =>
     ids.filter((id) => recipients.destinations.includes(id)).length;
   const counts: Record<Destination, number> = {
+    none: 1,
     address: picked(person.addresses.map((entry) => entry.id)),
     mobile: picked(person.mobiles.map((entry) => entry.id)),
     email: picked(person.emails.map((entry) => entry.id)),
@@ -232,7 +267,7 @@ export function defaultProcessRecipients(
   accusedJoined: boolean,
 ): ProcessRecipients {
   const person = defaultPerson(people, accusedJoined);
-  const destinations = destinationsOf(people, person);
+  const destinations = defaultDestinations(type, people, person);
   return {
     person,
     destinations,
@@ -258,7 +293,7 @@ export function unreachableChannels(
   const has = (ids: string[]) => ids.some((id) => recipients.destinations.includes(id));
   return recipients.channels.filter((id) => {
     const channel = PROCESS_CHANNELS.find((entry) => entry.id === id);
-    if (!channel) return false;
+    if (!channel || channel.destination === "none") return false;
     if (channel.destination === "mobile") return !has(person.mobiles.map((entry) => entry.id));
     if (channel.destination === "email") return !has(person.emails.map((entry) => entry.id));
     return !has(person.addresses.map((entry) => entry.id));
@@ -276,7 +311,12 @@ export function recipientGaps(
 ): string[] {
   const gaps: string[] = [];
   if (!recipients.person) gaps.push("Addressed to");
-  else if (recipients.destinations.length === 0) gaps.push("Addresses");
+  else if (
+    recipients.destinations.length === 0 &&
+    needsDestination(recipients.channels)
+  ) {
+    gaps.push("Addresses");
+  }
   if (recipients.channels.length === 0) gaps.push("Channels");
   if (
     needsPoliceStation(recipients) &&

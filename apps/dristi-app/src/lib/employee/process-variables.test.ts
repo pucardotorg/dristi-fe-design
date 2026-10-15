@@ -70,9 +70,24 @@ describe("who a process opens on", () => {
 });
 
 describe("channels", () => {
-  it("keeps a notice off every police channel, and a warrant on police only", () => {
+  it("keeps a notice off every police channel, and a warrant on police or By hand", () => {
     assert.ok(channelsFor("issue-of-notice").every((id) => !id.startsWith("police")));
-    assert.ok(channelsFor("issue-of-warrants").every((id) => id.startsWith("police")));
+    assert.ok(
+      channelsFor("issue-of-warrants").every(
+        (id) => id.startsWith("police") || id === "by-hand",
+      ),
+    );
+    assert.ok(channelsFor("issue-of-warrants").includes("by-hand"));
+  });
+
+  it("offers By hand to warrant and proclamation only", () => {
+    for (const type of [
+      "issue-of-summons",
+      "issue-of-notice",
+      "issue-of-attachment",
+    ] as const) {
+      assert.ok(!channelsFor(type).includes("by-hand"), type);
+    }
   });
 
   it("offers only what this deployment runs", () => {
@@ -172,5 +187,51 @@ describe("police stations", () => {
     assert.equal(warrant.values.steps, "complainant");
     const text = setItemValue(warrant, "steps", "complainant", context).text;
     assert.ok(text.startsWith("Issue warrant to the accused Harpreet Gill."));
+  });
+});
+
+describe("a proclamation", () => {
+  it("goes By hand only, to no address, as one process", () => {
+    const context = casePeopleFor(NOT_JOINED);
+    assert.deepEqual(channelsFor("issue-of-proclamation"), ["by-hand"]);
+    const proclamation = createItemBlock("issue-of-proclamation", context);
+    assert.deepEqual(proclamation.recipients?.channels, ["by-hand"]);
+    assert.deepEqual(proclamation.recipients?.destinations, []);
+    assert.deepEqual(blockGaps(proclamation, context), []);
+    const gill = context.people.find((entry) => entry.id === "accused-1");
+    assert.equal(processCount(gill, proclamation.recipients!), 1);
+    assert.deepEqual(unreachableChannels(gill, proclamation.recipients!), []);
+  });
+
+  it("still ticks no address when the person changes", () => {
+    const context = casePeopleFor(NOT_JOINED);
+    let proclamation = createItemBlock("issue-of-proclamation", context);
+    proclamation = setItemRecipients(
+      proclamation,
+      { ...proclamation.recipients!, person: "accused-2" },
+      context,
+    );
+    assert.deepEqual(proclamation.recipients?.destinations, []);
+  });
+});
+
+describe("a warrant By hand", () => {
+  it("adds one process beside its police channel, and asks no police station of its own", () => {
+    const context = casePeopleFor(NOT_JOINED);
+    const warrant = createItemBlock("issue-of-warrants", context);
+    const gill = context.people.find((entry) => entry.id === "accused-1");
+    const before = processCount(gill, warrant.recipients!);
+    const both = setItemRecipients(
+      warrant,
+      { ...warrant.recipients!, channels: [...warrant.recipients!.channels, "by-hand"] },
+      context,
+    );
+    assert.equal(processCount(gill, both.recipients!), before + 1);
+    const byHandOnly = setItemRecipients(
+      warrant,
+      { ...warrant.recipients!, channels: ["by-hand"], destinations: [] },
+      context,
+    );
+    assert.deepEqual(blockGaps(byHandOnly, context), []);
   });
 });

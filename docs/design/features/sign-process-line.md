@@ -10,12 +10,12 @@ single-select status pills inside each tab:
 | Tab | Waits on | Pills (All first) | Acts |
 |---|---|---|---|
 | RPAD collection | the advocate's cover | — (one status) | Send for signature |
-| Sign & send | the court | To sign · To post · Send failed | Sign · Mark posted · Resend |
+| Sign & send | the court | To sign · To post · Error | Sign · Mark posted · Resend |
 | Track | the channel | In progress · Completed · Failed | Record returns (RPAD only) |
 
 - Acts come from the selection: one button per kind of work selected, the first one primary.
 - Signing forks on the channel: electronic (Police via ICOPS, SMS, email) goes straight to Track
-  or lands in Send failed; RPAD lands in To post until it's marked posted.
+  or lands in Error; RPAD lands in To post until it's marked posted.
 - Type a case number and press Enter to add to the pile on all three paper moments: covers
   collected, covers posted, returns received. The tray shows what's on the pile.
 - Record returns: one window, one "Returned on" date for the batch, Delivered/Not delivered
@@ -116,6 +116,8 @@ The owner found the build's craft below the mockup's. Measured on the render, th
   - Record returns settles the same way. The single-process view shows the success line where the question stood, then Download and Done.
 
 - **2026-10-07, final:** a further attempt to use the shared `SignBulkConfirmDialog` was rejected mid-way. The owner asked to keep the alert-with-success design above, and it was restored as it was. One change from that attempt was kept, at the owner's separate request: Record returns' Delivered / Not delivered is now the DS radio pair (the app's `YesNoField` pattern) instead of a segmented control.
+
+- **2026-10-15, process PRD changes:** *Send failed* is renamed **Error**, still a retryable send error and not a final status. New channel **By hand** (warrant and proclamation only): after signing it waits under a new **To hand over** pill in Issuance until the CMO marks it sent; its return is recorded like RPAD's. Every proclamation goes By hand; downloading its signed copy records it Sent and Executed on the day (`DSP-10`). Signed and sent remain two stages with their own days on every channel (`DSP-02`); sending electronic channels on signing is this screen's choice.
 
 ## Verification and open work
 
