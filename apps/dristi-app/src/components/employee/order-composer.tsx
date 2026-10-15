@@ -13,6 +13,10 @@ import {
 
 import { Identifier } from "@/components/chrome/identifier";
 import {
+  CausePostingNote,
+  useFromCauseList,
+} from "@/components/employee/cause-posting";
+import {
   StagedOverlay,
   useStagedFlow,
 } from "@/components/chrome/staged-overlay";
@@ -43,6 +47,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -1440,6 +1445,16 @@ export function NextHearingSection({
 }) {
   const id = "order-next";
   const listed = nextHearing.next !== "none";
+  /* A hearing's order shows the posting the cause list set and does not take one
+     (owner, 2026-10-15). The fields stay where they were, read-only rather than
+     disabled: the DS read-only fill is a light grey under full-strength text, so the
+     value still reads (owner: "a more subtle gray-out"), and a disabled control inside
+     the order's paper greys the whole paper — the input group around it dims itself
+     whenever anything in it is disabled. */
+  const fromCauseList = useFromCauseList();
+  const off = disabled;
+  const set = !listed || Boolean(nextHearing.date && nextHearing.purpose);
+  const hasBody = listed || fromCauseList;
   return (
     <section
       id="order-next-hearing"
@@ -1454,17 +1469,18 @@ export function NextHearingSection({
         className={cn(
           "flex flex-wrap items-center justify-between gap-x-4 gap-y-1",
           /* No rule under the head when nothing follows it. */
-          framed && cn(FRAMED_HEAD, !listed && "border-b-0"),
+          framed && cn(FRAMED_HEAD, !hasBody && "border-b-0"),
         )}
       >
         <h2 id={`${id}-heading`} className="text-body-compact font-semibold">
           Next hearing
         </h2>
+        {fromCauseList ? null : (
         <div className="flex min-h-10 items-center gap-2">
           <Checkbox
             id={`${id}-none`}
             checked={nextHearing.next === "none"}
-            disabled={disabled}
+            disabled={off}
             onCheckedChange={(checked) =>
               nextHearing.onChange({ next: checked === true ? "none" : "list" })
             }
@@ -1476,14 +1492,22 @@ export function NextHearingSection({
             Not listed again
           </Label>
         </div>
+        )}
       </div>
-      {listed ? (
+      {hasBody ? (
         <div
-          className={cn(
-            "grid min-w-0 gap-4 sm:grid-cols-2",
-            framed && FRAMED_BODY,
-          )}
+          className={cn("flex min-w-0 flex-col gap-4", framed && FRAMED_BODY)}
         >
+          {fromCauseList ? <CausePostingNote set={set} /> : null}
+          {fromCauseList ? (
+            <CausePostingValues
+              id={id}
+              next={nextHearing.next}
+              date={nextHearing.date}
+              purpose={nextHearing.purpose}
+            />
+          ) : listed ? (
+        <div className="grid min-w-0 gap-4 sm:grid-cols-2">
           <OrderDatePicker
             id={`${id}-date`}
             label={
@@ -1496,7 +1520,7 @@ export function NextHearingSection({
             }
             value={nextHearing.date ?? ""}
             today={today}
-            disabled={disabled}
+            disabled={off}
             onChange={(date) => nextHearing.onChange({ date: date || null })}
           />
           <div className="flex min-w-0 flex-col gap-1">
@@ -1508,7 +1532,7 @@ export function NextHearingSection({
             </span>
             <Select
               value={nextHearing.purpose || undefined}
-              disabled={disabled}
+              disabled={off}
               onValueChange={(value) =>
                 nextHearing.onChange({
                   purpose: value as CourtHearingPurposeId,
@@ -1535,7 +1559,60 @@ export function NextHearingSection({
             </Select>
           </div>
         </div>
+          ) : null}
+        </div>
       ) : null}
     </section>
+  );
+}
+
+/**
+ * The cause list's posting, shown in the order as read-only fields — the same two
+ * labelled boxes the steno would fill, in the DS read-only dress (`bg-muted` under
+ * `text-foreground`), so the value is legible and plainly not for typing into.
+ */
+function CausePostingValues({
+  id,
+  next,
+  date,
+  purpose,
+}: {
+  id: string;
+  next: ComposerNextHearing["next"];
+  date: string | null;
+  purpose: CourtHearingPurposeId | "";
+}) {
+  const listed = next !== "none";
+  return (
+    <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+      <div className="flex min-w-0 flex-col gap-2">
+        <Label htmlFor={`${id}-date`} className="text-body-compact font-medium">
+          Date
+        </Label>
+        <Input
+          id={`${id}-date`}
+          readOnly
+          value={
+            !listed ? "Not listed again" : date ? formatListingDate(date) : ""
+          }
+          placeholder="Not set"
+          className="tabular-nums"
+        />
+      </div>
+      <div className="flex min-w-0 flex-col gap-2">
+        <Label
+          htmlFor={`${id}-purpose`}
+          className="text-body-compact font-medium"
+        >
+          Purpose
+        </Label>
+        <Input
+          id={`${id}-purpose`}
+          readOnly
+          value={listed && purpose ? courtHearingPurposeLabel(purpose) : ""}
+          placeholder={listed ? "Not set" : "Not listed"}
+        />
+      </div>
+    </div>
   );
 }

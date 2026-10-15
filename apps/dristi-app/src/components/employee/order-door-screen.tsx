@@ -12,6 +12,9 @@ import {
 import { OrderEditorComposer } from "@/components/employee/order-editor";
 import { OrderTextComposer } from "@/components/employee/order-text-composer";
 import { ProceedingsComposer } from "@/components/employee/proceedings-composer";
+import { CausePostingContext } from "@/components/employee/cause-posting";
+import { useReaderPostsNextHearing } from "@/components/employee/use-next-hearing-entry";
+import { useHearingSession } from "@/components/employee/use-hearing-session";
 import { useOrderDraft } from "@/components/employee/use-order-draft";
 import { useOrderLayout } from "@/components/employee/use-order-layout";
 import {
@@ -36,7 +39,11 @@ import {
   variantDraftKey,
   variantInitialDraft,
 } from "@/lib/employee/order-door";
-import type { Appearance, OrderDraft } from "@/lib/employee/order-draft";
+import {
+  withCausePosting,
+  type Appearance,
+  type OrderDraft,
+} from "@/lib/employee/order-draft";
 import type { OrderLayout } from "@/lib/employee/order-layout";
 
 /**
@@ -145,6 +152,21 @@ export function decideApplication(
  */
 export function OrderDoorScreen({ door }: { door: OrderDoor }) {
   const [layout] = useOrderLayout();
+  const readerPosts = useReaderPostsNextHearing();
+  /* On E, when the reader enters the next hearing, a hearing's order takes it from the
+     cause list (owner, 2026-10-15). When the steno enters it, and on Classic's A–D, the
+     order's own fields stay editable. */
+  return (
+    <CausePostingContext.Provider
+      value={Boolean(door.hearing) && layout === "editor" && readerPosts}
+    >
+      <OrderDoorBody door={door} />
+    </CausePostingContext.Provider>
+  );
+}
+
+function OrderDoorBody({ door }: { door: OrderDoor }) {
+  const [layout] = useOrderLayout();
   const courtText = useCourtText();
   const { hearing, context, today } = door;
   /* Every variant opens on every door. C outside a hearing leaves out what only a sitting
@@ -156,10 +178,11 @@ export function OrderDoorScreen({ door }: { door: OrderDoor }) {
     () => variantInitialDraft(variant, door.initial, appearances),
     [variant, door.initial, appearances],
   );
-  const [draft, setDraft] = useOrderDraft(
+  const [stored, setDraft] = useOrderDraft(
     variantDraftKey(variant, door.draftKey),
     initial,
   );
+  const draft = useCausePosting(door, stored, variant === "editor");
   const [openApplication, setOpenApplication] =
     React.useState<ListingApplication | null>(null);
 
@@ -421,4 +444,22 @@ export function OrderDoorScreen({ door }: { door: OrderDoor }) {
       {applicationDialog?.(decideA)}
     </>
   );
+}
+
+/**
+ * A door's draft with the cause list's posting laid over it, when a hearing is behind the
+ * door, the screen is E and the reader enters the next hearing — the posting is set on
+ * the cause list, and the order only shows it. `applies` is false for A–D, which keep
+ * their own.
+ */
+export function useCausePosting(
+  door: OrderDoor,
+  draft: OrderDraft,
+  applies: boolean,
+): OrderDraft {
+  const session = useHearingSession();
+  const readerPosts = useReaderPostsNextHearing();
+  return door.hearing && applies && readerPosts
+    ? withCausePosting(draft, session.postings[door.draftKey])
+    : draft;
 }

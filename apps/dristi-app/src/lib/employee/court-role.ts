@@ -63,3 +63,13 @@ export function setCourtRole(next: CourtRole): void {
 export function seatHasBenchControls(role: CourtRole): boolean {
   return role !== "typist";
 }
+
+/**
+ * Whether this seat sets the next hearing on the cause list — the reader's job (owner,
+ * 2026-10-15: "for the steno and the magistrate, don't show these new hearing columns").
+ * The bench clerk is the seat Punjab & Haryana call the Reader (`content.ts`). A view
+ * rule, like the one above: it decides what the board offers, and grants nothing.
+ */
+export function seatPostsNextHearing(role: CourtRole): boolean {
+  return role === "bench-clerk";
+}

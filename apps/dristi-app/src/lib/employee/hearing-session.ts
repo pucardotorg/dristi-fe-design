@@ -22,26 +22,35 @@
  */
 
 import { restoreRecord, saveRecord, watchRecord } from "./browser-record";
+import type { CausePosting } from "./order-draft";
 import { SAMPLE_SESSION } from "./sample-sitting";
 
-/** The three marks, in the shape `withHearingSession` applies them. */
+/** The three marks and the postings, in the shape `withHearingSession` applies them. */
 export type HearingSession = {
   /** The one listing being heard. The bench hears one cause at a time. */
   ongoingId: string | null;
   endedIds: ReadonlySet<string>;
   passedOverIds: ReadonlySet<string>;
+  /**
+   * Where each matter is posted to next, keyed by listing id — set in the cause list's
+   * Next hearing column (owner, 2026-10-15), and read by that listing's order
+   * on screen E, which shows it and no longer asks for it.
+   */
+  postings: Readonly<Record<string, CausePosting>>;
 };
 
 /* One frozen empty set, shared: `useSyncExternalStore` compares snapshots by
    identity, so the untouched session has to be the same object every time it is
    read or the list would re-render on every tick of anything. */
 const NO_IDS: ReadonlySet<string> = new Set();
+const NO_POSTINGS: Readonly<Record<string, CausePosting>> = Object.freeze({});
 
 /** An untouched day. Exported so a screen or test can open on it. */
 export const EMPTY_SESSION: HearingSession = {
   ongoingId: null,
   endedIds: NO_IDS,
   passedOverIds: NO_IDS,
+  postings: NO_POSTINGS,
 };
 
 /* Opens on the demo sitting (`sample-sitting.ts`), currently an untouched day; fill
@@ -60,6 +69,7 @@ type StoredSession = {
   ongoingId?: string | null;
   endedIds?: string[];
   passedOverIds?: string[];
+  postings?: Record<string, CausePosting>;
 };
 
 /* Nothing saved yet: the opening sitting. */
@@ -71,6 +81,7 @@ function fromStored(stored: StoredSession): HearingSession {
     ongoingId: stored.ongoingId ?? null,
     endedIds: new Set(stored.endedIds ?? []),
     passedOverIds: new Set(stored.passedOverIds ?? []),
+    postings: stored.postings ?? NO_POSTINGS,
   };
 }
 
@@ -96,6 +107,7 @@ function commit(next: HearingSession): void {
     ongoingId: next.ongoingId,
     endedIds: [...next.endedIds],
     passedOverIds: [...next.passedOverIds],
+    postings: { ...next.postings },
   } satisfies StoredSession);
   for (const listener of listeners) listener();
 }
@@ -142,18 +154,27 @@ export function markHearingOngoing(id: string): void {
 export function markHearingEnded(id: string): void {
   restore();
   commit({
+    ...session,
     ongoingId: session.ongoingId === id ? null : session.ongoingId,
     endedIds: withId(session.endedIds, id),
-    passedOverIds: session.passedOverIds,
   });
+}
+
+/**
+ * Set a matter's next hearing — the Next hearing column of the cause list, and
+ * the same two fields in its case overview (`next-hearing-fields.tsx`).
+ */
+export function setHearingPosting(id: string, posting: CausePosting): void {
+  restore();
+  commit({ ...session, postings: { ...session.postings, [id]: posting } });
 }
 
 /** Pass over. Deferred rather than finished — off the call either way. */
 export function markHearingPassedOver(id: string): void {
   restore();
   commit({
+    ...session,
     ongoingId: session.ongoingId === id ? null : session.ongoingId,
-    endedIds: session.endedIds,
     passedOverIds: withId(session.passedOverIds, id),
   });
 }
