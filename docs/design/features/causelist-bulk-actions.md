@@ -38,6 +38,29 @@ the selection and holds the act. **Exit bulk** leaves the mode and clears the se
   11). All in `lib/employee/sample-sitting.ts`; a browser with saved data sees them
   after Reset sandbox data.
 
+## Pending orders and court settings (same day)
+
+- **Status column** — Signature and Order data are one column, two pills side by side
+  ("Awaiting signature" / "Signed", "Data to fill" / "Data complete" / "Data
+  triggered"). `components/employee/pending-orders-screen.tsx`.
+- **Order column** — on the Order data to fill tab, the order's first ten words after
+  any opening attendance sentences ("Complainant present. Accused absent."), which are
+  skipped (`orderTextPreview`, `lib/employee/order-bulk-items.ts`).
+- **Steno bulk** — the steno ticks signed orders with order data to fill and presses
+  **Add order items**: a modal with a multi-select of the catalogue's items (everything
+  the order data panel offers outside a hearing). Each is added to every selected
+  order's order data the way the panel adds it. Under the field, **Likely at these
+  hearings** offers the panel's own suggestions for the selected hearings' purposes; a
+  click adds one. An item an order already has, or that
+  the catalogue forbids beside its other items, is left out of that order and named in
+  the result line. Items with details of their own are added unfilled; the order's own
+  completion check asks for them. Hearing orders only.
+  `components/employee/pending-orders-bulk.tsx`, `lib/employee/order-bulk-items.ts`.
+- **Court settings** — the rail's settings menu is now a pop-up. **Working as** and
+  **Court** are full-size at the top; everything else is a small select under
+  **More settings**, open by default, with Reset sandbox data last. A new setting is one entry in the
+  `more` list in `employee-nav.tsx`. Internal demo control; kept plain on purpose.
+
 ## Decisions
 
 | Date | Decision and reason | Source | Status |
@@ -51,6 +74,8 @@ the selection and holds the act. **Exit bulk** leaves the mode and clears the se
 | 2026-10-15 | First built as a menu of three separate acts; replaced by one pop-up so ending the hearing and setting date and purpose happen together. | Owner | Implemented |
 | 2026-10-15 | Advocate and Stage filters stay in the sheet outside bulk mode too. | Implementation choice | Implemented — confirm |
 | 2026-10-15 | No separate confirmation after the pop-up. | Implementation choice | Implemented |
+| 2026-10-15 | Pending orders: Signature and Order data in one column; order text column on Order data to fill; steno bulk-adds order items from a multi-select modal. | Owner | Implemented |
+| 2026-10-15 | Court settings as a pop-up: Working as and Court prominent, the rest small and folded. | Owner | Implemented |
 | 2026-10-15 | Sample data: three orders awaiting signature and three with order data to fill. Their hearings open as completed. | Owner (hearings completed: implementation choice) | Implemented |
 
 ## Verification and open work
@@ -64,7 +89,10 @@ DS pin `e0cadea6b9d4`), 1512px, light theme:
   in the multi-select dropdown; the pop-up shows Hearing, date and purpose only.
 - Steno: Bulk on; 2 selected; text added; both orders listed in Pending orders as
   Drafting; text present in screen E reached from the cause list.
-- `npm test`: 1,207 pass (6 new in `lib/employee/cause-list-bulk.test.ts`). Typecheck
+- Pending orders (steno): Status pills together; Order column; selected all three
+  orders to fill; added Issue of warrants to all three; it shows in the order's items.
+- Court settings pop-up: opened, More settings expanded, seat switched to Typist from it.
+- `npm test`: 1,214 pass (13 new, in `lib/employee/cause-list-bulk.test.ts` and `order-bulk-items.test.ts`). Typecheck
   and lint clean on changed files. `check:ds-fresh`, `check:tokens`, `check:ui-sync`,
   `check:rails`, `check:table-rows` pass. `check:typography` and `check:spacing` fail on
   files identical to `main`.
