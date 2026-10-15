@@ -9,6 +9,7 @@ import { useCourt, useCourtText } from "@/components/court/court-provider";
 import {
   HearingCaseHistory,
   HearingCaseOverview,
+  HearingHistory,
 } from "@/components/employee/hearing-overview-screen";
 import {
   OrderDoorScreen,
@@ -152,6 +153,7 @@ export function useHearingOrderDoor(hearing: CourtHearing): OrderDoor {
     overview: hearingOverview(hearing),
     overviewContent: <HearingCaseOverview hearing={hearing} />,
     historyContent: <HearingCaseHistory hearing={hearing} />,
+    hearingsContent: <HearingHistory hearing={hearing} />,
     hearing: { hearing, appearances, applications, purpose: hearing.purpose },
   };
 }

@@ -29,7 +29,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Step } from "@/components/employee/step-timeline";
-import { Timeline } from "@/components/ui/timeline";
+import { Timeline, TimelineItem } from "@/components/ui/timeline";
 import {
   causeTitle,
   counselFor,
@@ -50,7 +50,9 @@ import {
   formatChequeAmount,
   formatCounselList,
   hearingCaseExtras,
+  hearingSittings,
   type HearingCaseExtras,
+  type HearingSitting,
 } from "@/lib/employee/hearing-overview";
 
 /**
@@ -330,6 +332,7 @@ export function HearingOverviewSections({
           purpose={extras.lastHearing.purpose}
           order={extras.lastHearing.order}
           directed={extras.lastHearing.directed}
+          earlier={hearingSittings(hearing.id).slice(1)}
           surface={surface}
           className="lg:col-span-3"
         />
@@ -545,6 +548,7 @@ function LastHearingPanel({
   purpose,
   order,
   directed,
+  earlier = [],
   surface,
   className,
 }: {
@@ -552,6 +556,8 @@ function LastHearingPanel({
   purpose: string;
   order: string;
   directed: boolean;
+  /** The sittings before this one, newest first — listed under it when given. */
+  earlier?: HearingSitting[];
   surface: HearingOverviewSurface;
   className?: string;
 }) {
@@ -626,7 +632,52 @@ function LastHearingPanel({
         </p>
         <p className={`${BODY[surface]} text-muted-foreground`}>{order}</p>
       </div>
+      {earlier.length > 0 ? (
+        <div className="flex min-w-0 flex-col gap-4 border-t border-hairline pt-4">
+          <h3 className="text-body-compact font-semibold text-muted-foreground">
+            Earlier hearings
+          </h3>
+          <HearingSittingsList sittings={earlier} />
+        </div>
+      ) : null}
     </section>
+  );
+}
+
+/**
+ * Sittings as a column, newest first: what each was for, its day, and the order passed
+ * that day in full — the case history's hearings, without its other events. A sitting
+ * that recorded an update rather than an order says so before the text.
+ */
+function HearingSittingsList({ sittings }: { sittings: HearingSitting[] }) {
+  return (
+    <Timeline className="text-body-compact">
+      {sittings.map((sitting) => (
+        <TimelineItem key={sitting.on} status="past" className="pb-0">
+          {/* Spacing inside the item so the rail runs through to the next dot — the
+              same reason as `Step`. */}
+          <div className="flex min-w-0 flex-col gap-1 pb-4 group-last/timeline-item:pb-0">
+            <div className="flex min-w-0 items-baseline justify-between gap-4">
+              <span className="min-w-0 font-medium">{sitting.purpose}</span>
+              <time
+                dateTime={sitting.on}
+                className="shrink-0 tabular-nums text-muted-foreground"
+              >
+                {formatTimelineDate(sitting.on)}
+              </time>
+            </div>
+            <p className="text-muted-foreground">
+              {sitting.directed ? null : (
+                <span className="font-medium text-foreground">
+                  No order passed.{" "}
+                </span>
+              )}
+              {sitting.order}
+            </p>
+          </div>
+        </TimelineItem>
+      ))}
+    </Timeline>
   );
 }
 
@@ -844,5 +895,39 @@ export function HearingCaseHistory({ hearing }: { hearing: CourtHearing }) {
       today={today}
       surface="panel"
     />
+  );
+}
+
+/**
+ * The case's hearings, for a narrow column — the order composer's Hearings tab: every
+ * sitting, newest first, with the order passed at each.
+ */
+export function HearingHistory({ hearing }: { hearing: CourtHearing }) {
+  const sittings = hearingSittings(hearing.id);
+  return (
+    <section className="min-w-0" aria-labelledby="hearing-history">
+      {/* The tab names it already. */}
+      <h2 id="hearing-history" className="sr-only">
+        Hearings
+      </h2>
+      {sittings.length > 0 ? (
+        <HearingSittingsList sittings={sittings} />
+      ) : (
+        <Empty className="border-0 p-0">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <CalendarX2Icon aria-hidden />
+            </EmptyMedia>
+            <EmptyTitle className="text-body-compact font-semibold tracking-normal">
+              No earlier sitting on record
+            </EmptyTitle>
+            <EmptyDescription className="text-body-compact">
+              Nothing has been recorded for this matter between the complaint
+              and today&rsquo;s listing.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      )}
+    </section>
   );
 }

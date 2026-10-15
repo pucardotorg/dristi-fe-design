@@ -177,6 +177,7 @@ export function OrderComposer({
   overview,
   overviewContent,
   historyContent,
+  hearingsContent,
   panelApplications,
   document,
   notice,
@@ -205,6 +206,8 @@ export function OrderComposer({
   /** The court's own case overview and history, for the case file's tabs. */
   overviewContent?: React.ReactNode;
   historyContent?: React.ReactNode;
+  /** The case's hearings with the order passed at each — shows the Hearings tab. */
+  hearingsContent?: React.ReactNode;
   panelApplications?: PanelApplication[];
   document: OrderDocument;
   /** A line under the header — what the act that opened the order does, say. */
@@ -704,6 +707,7 @@ export function OrderComposer({
             overview={overview}
             overviewContent={overviewContent}
             historyContent={historyContent}
+            hearingsContent={hearingsContent}
             applications={panelApplications}
             links={links}
             onLinksChange={onLinks}

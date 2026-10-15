@@ -82,6 +82,8 @@ export type OrderDoor = {
   overview: { label: string; value: string }[];
   overviewContent?: React.ReactNode;
   historyContent?: React.ReactNode;
+  /** The case's hearings with the order passed at each — shows the Hearings tab. */
+  hearingsContent?: React.ReactNode;
   /** Where the order comes from, as the steno's queue says it ("Cognizance"). */
   origin?: string;
   /** Only on a hearing: the roll, the applications on the listing, what it was for. */
@@ -303,6 +305,7 @@ function OrderDoorBody({ door }: { door: OrderDoor }) {
         overview={door.overview}
         overviewContent={door.overviewContent}
         historyContent={door.historyContent}
+        hearingsContent={door.hearingsContent}
         context={context}
         purpose={hearing?.purpose}
         fixedIds={door.fixedIds}
@@ -340,6 +343,7 @@ function OrderDoorBody({ door }: { door: OrderDoor }) {
         overview={door.overview}
         overviewContent={door.overviewContent}
         historyContent={door.historyContent}
+        hearingsContent={door.hearingsContent}
         previewInPanel={variant === "option-d"}
       />
     );
@@ -425,6 +429,7 @@ function OrderDoorBody({ door }: { door: OrderDoor }) {
         overview={door.overview}
         overviewContent={door.overviewContent}
         historyContent={door.historyContent}
+        hearingsContent={door.hearingsContent}
         panelApplications={
           hearing
             ? listing.map((application) => ({
