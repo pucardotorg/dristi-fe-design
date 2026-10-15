@@ -41,20 +41,25 @@ import {
 import type { ApplicationOrderDecision } from "@/lib/employee/application-order-decision";
 import { EMPTY_ORDER_DRAFT } from "@/lib/employee/order-draft";
 
-/** The queue an application's order was opened from, and the way back to it. */
-const QUEUES: Record<CourtTaskKind, { href: string; label: string }> = {
-  review: { href: "/employee/onboard-applications", label: "Back to onboard applications" },
-  decide: { href: "/employee/decide-applications", label: "Back to decide on applications" },
-};
+const APPLICATIONS = "/employee/applications";
 
-/** Where an application's order is drawn up, from the queue it was opened in. */
-export function applicationOrderHref(
-  kind: CourtTaskKind,
-  applicationId: string,
-  decision?: ApplicationOrderDecision,
-): string {
-  const base = `${QUEUES[kind].href}/${encodeURIComponent(applicationId)}/order`;
-  return decision ? `${base}?decision=${decision}` : base;
+/**
+ * The way back from an application's order: the application itself, in the workstation,
+ * on the list its task belongs to — one Applications queue since the two were folded
+ * together (owner, 2026-10-07).
+ */
+function backTo(applicationId: string, kind: CourtTaskKind): { href: string; label: string } {
+  return {
+    href: `${APPLICATIONS}/${encodeURIComponent(applicationId)}?view=${
+      kind === "review" ? "onboard" : "decide"
+    }`,
+    label: "Back to the application",
+  };
+}
+
+/** The task an application's order answers: a dismissal before onboarding, else the decision. */
+function kindOf(application: LifecycleApplication): CourtTaskKind {
+  return application.status === "pending-review" ? "review" : "decide";
 }
 
 /**
@@ -107,12 +112,10 @@ function decisionItem(
  */
 export function ApplicationOrderScreen({
   applicationId,
-  kind,
   decision,
 }: {
   decision?: ApplicationOrderDecision;
   applicationId: string;
-  kind: CourtTaskKind;
 }) {
   const ready = useApplicationsReady();
   const apps = useLifecycleApplications();
@@ -121,12 +124,12 @@ export function ApplicationOrderScreen({
 
   /* The store is this browser's, so the server and the first paint have nothing yet. */
   if (!ready) return null;
-  if (!application || !record) return <OrderMissing kind={kind} />;
+  if (!application || !record) return <OrderMissing />;
   return (
     <ApplicationOrder
       application={application}
       record={record}
-      kind={kind}
+      kind={kindOf(application)}
       decision={decision}
     />
   );
@@ -162,7 +165,7 @@ export function useApplicationOrderDoor(
   const today = useCourtToday();
   const courtText = useCourtText();
   const matter = partiesLabel(record);
-  const back = QUEUES[kind];
+  const back = backTo(application.id, kind);
   const context = React.useMemo(
     () =>
       composerContextFor({
@@ -217,8 +220,7 @@ export function useApplicationOrderDoor(
   };
 }
 
-function OrderMissing({ kind }: { kind: CourtTaskKind }) {
-  const back = QUEUES[kind];
+function OrderMissing() {
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-8 p-6 md:p-8">
       <Empty className="border-0 p-0">
@@ -236,7 +238,7 @@ function OrderMissing({ kind }: { kind: CourtTaskKind }) {
         </EmptyHeader>
         <EmptyContent>
           <Button asChild>
-            <Link href={back.href}>{back.label}</Link>
+            <Link href={APPLICATIONS}>Back to applications</Link>
           </Button>
         </EmptyContent>
       </Empty>

@@ -1,14 +1,6 @@
-import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
-import { ApplicationTasksScreen } from "@/components/employee/application-tasks-screen";
-
-export const metadata: Metadata = { title: "Onboard applications" };
-
-/**
- * Onboard applications — the court's Review application tasks
- * (`handovers/application-lifecycle.md`). Client-side: the tasks come from the
- * applications store in this browser — see `lib/employee/application-tasks.ts`.
- */
+/** Folded into Applications (owner, 2026-10-07); kept so old links still land. */
 export default function Page() {
-  return <ApplicationTasksScreen kind="review" />;
+  redirect("/employee/applications?view=onboard");
 }

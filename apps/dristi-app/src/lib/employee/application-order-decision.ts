@@ -13,3 +13,12 @@ export function isApplicationOrderDecision(
 ): value is ApplicationOrderDecision {
   return value === "accept" || value === "reject" || value === "dismiss";
 }
+
+/** Where an application's order is drawn up: under its one Applications queue. */
+export function applicationOrderHref(
+  applicationId: string,
+  decision?: ApplicationOrderDecision,
+): string {
+  const base = `/employee/applications/${encodeURIComponent(applicationId)}/order`;
+  return decision ? `${base}?decision=${decision}` : base;
+}

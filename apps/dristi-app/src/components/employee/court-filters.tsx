@@ -218,7 +218,7 @@ export function CourtFilters({
     <QueueSearchField
       label={search.label}
       labelClassName={labelHidden ? "sr-only" : undefined}
-      className="sm:w-80"
+      className={leading ? "sm:w-64" : "sm:w-80"}
       ref={searchRef}
       value={search.value}
       onChange={search.onChange}
@@ -234,7 +234,7 @@ export function CourtFilters({
      sign process, by stage — cross this line on their own. */
   if (controls <= 1) {
     const only = fields[0];
-    return (
+    const row = (
       <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
         {searchNode}
         {only ? (
@@ -290,6 +290,16 @@ export function CourtFilters({
           </Button>
         ) : null}
       </div>
+    );
+    /* A screen's own view control heads the row here too — the same arrangement as the
+       folded row below, so pills and a lone search share one line (Applications). */
+    return leading ? (
+      <div className="flex min-w-0 flex-wrap items-end gap-x-4 gap-y-3">
+        <div className="min-w-0 flex-1 basis-96 pb-0.5">{leading}</div>
+        {row}
+      </div>
+    ) : (
+      row
     );
   }
 

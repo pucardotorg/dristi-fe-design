@@ -1,11 +1,11 @@
-import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
-import { ApplicationOrderScreen } from "@/components/employee/application-order-screen";
-import { isApplicationOrderDecision } from "@/lib/employee/application-order-decision";
+import {
+  applicationOrderHref,
+  isApplicationOrderDecision,
+} from "@/lib/employee/application-order-decision";
 
-export const metadata: Metadata = { title: "Order" };
-
-/** The order on one application, opened from its dialog (`application-order-screen.tsx`). */
+/** Folded into Applications (owner, 2026-10-07); kept so old order links still land. */
 export default async function Page({
   params,
   searchParams,
@@ -15,11 +15,10 @@ export default async function Page({
 }) {
   const { applicationId } = await params;
   const { decision } = await searchParams;
-  return (
-    <ApplicationOrderScreen
-      applicationId={decodeURIComponent(applicationId)}
-      kind="decide"
-      decision={isApplicationOrderDecision(decision) ? decision : undefined}
-    />
+  redirect(
+    applicationOrderHref(
+      decodeURIComponent(applicationId),
+      isApplicationOrderDecision(decision) ? decision : undefined,
+    ),
   );
 }
