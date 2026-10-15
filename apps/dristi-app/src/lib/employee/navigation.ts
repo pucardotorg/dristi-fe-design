@@ -939,11 +939,24 @@ const NESTED_ROUTES: {
    * whether or not `identify` or a resolver can name it yet.
    */
   clientRecord?: boolean;
+  /**
+   * The record has an order drawn up under it at `<record>/order`, and the record's own
+   * route is a page: the order's trail goes one step past the record, `… › ST/241/2026 ›
+   * Order`, and the record becomes the way back to it. The pattern's second group is the
+   * `/order` segment.
+   */
+  order?: boolean;
+  /**
+   * The queue is worked as one of several lists (`?view=`), so the way back carries the
+   * list the page was opened from.
+   */
+  keepsView?: boolean;
 }[] = [
   {
     queue: "/employee/hearings",
-    pattern: /^\/employee\/hearings\/([^/]+)(?:\/order)?\/?$/,
+    pattern: /^\/employee\/hearings\/([^/]+)(\/order)?\/?$/,
     identify: (id) => hearingById(id)?.caseNumber,
+    order: true,
   },
   {
     queue: "/employee/scrutiny",
@@ -983,8 +996,9 @@ const NESTED_ROUTES: {
     queue: "/employee/cognizance",
     /* The complaint, and the order one of its acts draws up — traced alike, as a
        hearing's order is (owner, 2026-10-13). */
-    pattern: /^\/employee\/cognizance\/([^/]+)(?:\/order)?\/?$/,
+    pattern: /^\/employee\/cognizance\/([^/]+)(\/order)?\/?$/,
     identify: (id) => cognizanceCaseById(id)?.caseNumber,
+    order: true,
   },
   /* One case, in the case view the court shares with the advocate
      (`components/cases/case-detail.tsx`). A cognizance complaint first, as that route
@@ -998,22 +1012,27 @@ const NESTED_ROUTES: {
   {
     queue: "/employee/applications",
     /* The application, and the order drawn up on it — traced alike. */
-    pattern: /^\/employee\/applications\/([^/]+)(?:\/order)?\/?$/,
+    pattern: /^\/employee\/applications\/([^/]+)(\/order)?\/?$/,
     identify: () => undefined,
     clientRecord: true,
+    order: true,
+    keepsView: true,
   },
 ];
 
 /**
  * What this path is a nested view *of*, when it is one: `undefined` when it is not
  * nested, `{ record }` when it is — `record` itself absent while a client-side record is
- * still unnamed.
+ * still unnamed. `segment` is the record's path segment as written, `order` whether this
+ * is the order drawn up under it, `keepsView` whether the queue keeps its list.
  */
 function nestedRecordOf(
   pathname: string,
   queue: string,
   resolve?: CourtRecordResolver,
-): { record: string | undefined } | undefined {
+):
+  | { record: string | undefined; segment: string; order: boolean; keepsView: boolean }
+  | undefined {
   const nested = NESTED_ROUTES.find((entry) => entry.queue === queue);
   if (!nested) return undefined;
   const match = nested.pattern.exec(pathname);
@@ -1026,7 +1045,19 @@ function nestedRecordOf(
   }
   const record = nested.identify(match[1]) ?? resolve?.(queue, segment);
   if (record === undefined && !nested.clientRecord) return undefined;
-  return { record };
+  return {
+    record,
+    segment: match[1],
+    order: Boolean(nested.order && match[2]),
+    keepsView: Boolean(nested.keepsView),
+  };
+}
+
+/** The list a page was opened from, off its query (`view=onboard`), when it names one. */
+function viewOf(query: string | undefined): string | undefined {
+  if (!query) return undefined;
+  const view = new URLSearchParams(query).get("view");
+  return view && /^[a-z-]+$/.test(view) ? view : undefined;
 }
 
 export function isCourtNavActive(pathname: string, href: string): boolean {
@@ -1106,12 +1137,16 @@ export type CourtCrumb = {
  *   page this file cannot identify would be an invented label.
  * - `/employee/sign-orders` — `Sign`, then **`Sign orders`** as the current page. The
  *   section is still text: it has no page of its own.
- * - `/employee/hearings/<id>`, `/employee/hearings/<id>/order`,
- *   `/employee/scrutiny/<filing no.>`, `/employee/register-cases/<id>` — the section, the
+ * - `/employee/hearings/<id>`, `/employee/scrutiny/<filing no.>`,
+ *   `/employee/register-cases/<id>` — the section, the
  *   queue, then the record: `ST/241/2026`, `F/AHM/2026/00341`, `CMP/1840/2025`. Both of
  *   the middle steps link back to the queue, which is where the record came from and, on
  *   a complaint's file, the whole of the way back — which is why that screen carries no
  *   back control of its own.
+ * - An order drawn up under a record — `/employee/hearings/<id>/order`, a cognizance
+ *   act's, an application's — goes one step further: `… › ST/241/2026 › Order`, the
+ *   record now a link back to it (owner, 2026-10-15). On Applications both the queue and
+ *   the record carry the list it was opened from (`?view=`).
  *
  * The standalone Dashboard row is absent from every trail because nothing nests under it.
  */
@@ -1119,6 +1154,8 @@ export function courtTrail(
   pathname: string,
   flow: OrderFlow = DEFAULT_ORDER_FLOW,
   resolve?: CourtRecordResolver,
+  /** The page's query, without `?` — read only for a queue that keeps its list. */
+  query?: string,
 ): CourtCrumb[] {
   const groups = courtNavGroupsFor(readCognizanceLayout(), flow);
   for (const group of groups) {
@@ -1145,17 +1182,30 @@ export function courtTrail(
         return [{ label: group.label }, { label: item.label }];
       }
       const record = nested.record;
+      /* The way back to a queue worked as several lists lands on the same list. */
+      const view = nested.keepsView ? viewOf(query) : undefined;
+      const suffix = view ? `?view=${view}` : "";
+      const queueHref = `${item.href}${suffix}`;
       if (record === undefined) {
         /* A record only the browser can name, not named yet (first paint) or not found:
            the trail stops at the queue, both steps still the way back. */
         return [
-          { label: group.label, href: item.href },
-          { label: item.label, href: item.href },
+          { label: group.label, href: queueHref },
+          { label: item.label, href: queueHref },
+        ];
+      }
+      if (nested.order) {
+        /* The order drawn up under a record: one step past it, the record the way back. */
+        return [
+          { label: group.label, href: queueHref },
+          { label: item.label, href: queueHref },
+          { label: record, mono: true, href: `${item.href}/${nested.segment}${suffix}` },
+          { label: "Order" },
         ];
       }
       return [
-        { label: group.label, href: item.href },
-        { label: item.label, href: item.href },
+        { label: group.label, href: queueHref },
+        { label: item.label, href: queueHref },
         { label: record, mono: true },
       ];
     }

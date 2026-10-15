@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 import {
   CHROME_FOLD_TRIGGER,
@@ -55,11 +55,27 @@ import { usePendingOrders } from "@/components/employee/use-pending-orders";
  * both rail widths. Before this the rail's header seam ran out into nothing.
  */
 export function EmployeeTopBar() {
+  /* The query is read under its own boundary: `useSearchParams` outside one would turn
+     every statically rendered court page client-only. Until it resolves — on the server,
+     for a static page — the trail is drawn without it, which only drops `?view=` from the
+     way back to Applications. */
+  return (
+    <React.Suspense fallback={<CourtTopBar query="" />}>
+      <CourtTopBarWithQuery />
+    </React.Suspense>
+  );
+}
+
+function CourtTopBarWithQuery() {
+  return <CourtTopBar query={useSearchParams().toString()} />;
+}
+
+function CourtTopBar({ query }: { query: string }) {
   const pathname = usePathname();
   const [flow] = useOrderFlow();
   /* Subscribed so a pending order's crumb, named from the saved list, follows it. */
   usePendingOrders();
-  const crumbs = courtTrail(pathname, flow, useClientRecordResolver());
+  const crumbs = courtTrail(pathname, flow, useClientRecordResolver(), query);
   // Derived here rather than inside the trail because the divider beside the trigger has
   // to know whether anything follows it. On the court home nothing does.
   return (
