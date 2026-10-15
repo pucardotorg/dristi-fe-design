@@ -18,16 +18,20 @@
  * Inside a tab, the statuses are pills, not tabs: one at a time, with All to see the tab
  * whole. The tab is the job; the pill narrows it.
  *
- * **Signing is not sending for registered post** (owner, 2026-10-06). An electronic
- * channel goes out the moment the process is signed — SMS, email, the police through
- * ICOPS. A registered-post cover is signed in a batch and taken to the post office later,
- * so it waits under *To post* until someone marks it posted. A send can also fail before
+ * **Signing is not sending** (owner, 2026-10-06; `DSP-02`, 2026-10-15). Signed and sent
+ * are two stages, each with its own day, on every channel. For an electronic channel —
+ * SMS, email, the police through ICOPS — this screen chooses to send the moment the
+ * process is signed; that is the screen's choice, not the record's. A registered-post
+ * cover is signed in a batch and taken to the post office later, so it waits under
+ * *To post* until someone marks it posted. A process going **By hand** waits under
+ * *To hand over* until the CMO marks it sent. A send can also fail before
  * the process ever leaves (ICOPS not answering); that is still the court's to fix, so it
- * waits under *Send failed* in the same tab, not under Service.
+ * waits under *Error* in the same tab, not under Service.
  *
- * **What came back is the channel's word, and only registered post is recorded by hand.**
- * Electronic channels report their own outcome. A registered-post acknowledgement comes
- * back to the court as paper, and the clerk records it — in bulk, from the stack of
+ * **What came back is the channel's word, and only paper is recorded by the court.**
+ * Electronic channels report their own outcome. A registered-post acknowledgement, or the
+ * report on a process that went By hand, comes back to the court as paper, and the clerk
+ * records it — in bulk, from the stack of
  * returned covers, using the same type-the-number-then-Enter gesture the covers came in
  * by. The case file's Notice/Process status section (`lib/cases/process-status.ts`) is
  * the party-by-party record of service; this is the court's own worklist.
@@ -119,22 +123,25 @@ export function courtProcessTypeInline(id: CourtProcessTypeId): string {
 /**
  * How the process goes out — the "Delivery channel" column.
  *
- * The four the owner named for this court (2026-10-06): registered post, the police
- * through ICOPS, SMS and email. They split two ways, and the split is the whole reason
- * Issuance has a To post pill:
+ * The four the owner named for this court (2026-10-06) — registered post, the police
+ * through ICOPS, SMS and email — and By hand (`process-handover.md` §6.2, 2026-10-15),
+ * for a warrant or a proclamation. They split three ways, and the split is the whole
+ * reason Issuance has a To post and a To hand over pill:
  *
  * - **post** — paper. A cover is collected before signing, and after signing it still has
  *   to be carried to the post office. Its outcome comes back as paper too, so the clerk
  *   records it.
  * - **electronic** — the system sends it on signing and the channel reports back by
  *   itself. Its send can fail before it leaves.
+ * - **hand** — paper with no cover and no destination. The CMO marks it sent once it is
+ *   handed over, and records what comes back.
  */
-export type ProcessChannelId = "rpad" | "police" | "sms" | "email";
+export type ProcessChannelId = "rpad" | "police" | "sms" | "email" | "by-hand";
 
 export type ProcessChannel = {
   id: ProcessChannelId;
   label: string;
-  dispatch: "post" | "electronic";
+  dispatch: "post" | "electronic" | "hand";
   /** What the channel is reached through, where that is not the channel's own name. */
   via?: string;
 };
@@ -145,6 +152,7 @@ export const PROCESS_CHANNELS: ProcessChannel[] = [
   { id: "police", label: "Police", dispatch: "electronic", via: "ICOPS" },
   { id: "sms", label: "SMS", dispatch: "electronic" },
   { id: "email", label: "Email", dispatch: "electronic" },
+  { id: "by-hand", label: "By hand", dispatch: "hand" },
 ];
 
 function processChannel(id: ProcessChannelId): ProcessChannel {
@@ -160,6 +168,16 @@ export function processChannelLabel(id: ProcessChannelId): string {
 /** Whether a process travels as paper — the one fact every fork on this screen reads. */
 export function goesByPost(process: Pick<CourtProcess, "channel">): boolean {
   return processChannel(process.channel).dispatch === "post";
+}
+
+/** Whether a process is handed over in person: no cover, marked sent by the CMO. */
+export function goesByHand(process: Pick<CourtProcess, "channel">): boolean {
+  return processChannel(process.channel).dispatch === "hand";
+}
+
+/** Whether what comes back is paper the court records, rather than a channel's report. */
+export function recordedByCourt(process: Pick<CourtProcess, "channel">): boolean {
+  return goesByPost(process) || goesByHand(process);
 }
 
 /**
@@ -186,6 +204,7 @@ export type ProcessStatusId =
   | "awaiting-cover"
   | "to-sign"
   | "to-post"
+  | "to-hand"
   | "send-failed"
   | "in-progress"
   | "completed";
@@ -205,7 +224,7 @@ export type CourtProcess = {
   issuedOn?: string;
   /** ISO day the signature went on. */
   signedOn?: string;
-  /** ISO day it left the court: sent electronically, or posted. */
+  /** ISO day it left the court: sent electronically, posted, or handed over. */
   sentOn?: string;
   /** Why the last electronic send did not go out. Only while `send-failed`. */
   sendFailure?: string;
@@ -234,8 +253,9 @@ function plural(count: number, one: string, many: string): string {
  *
  * Three moments on this screen have it — covers arriving, covers leaving for the post
  * office, acknowledgements coming back — and they are the same gesture: type the number
- * on the cover, press Enter, it joins the pile. `postOnly` because only registered post
- * is paper; an SMS still out with its channel is not something anyone is holding.
+ * on the cover, press Enter, it joins the pile. `postOnly` because only paper — registered
+ * post, or a process that went By hand — is held; an SMS still out with its channel is
+ * not something anyone is holding.
  */
 export type ProcessPile = {
   /** The tray's name for what it is holding: "covers in hand". */
@@ -304,14 +324,26 @@ export const PROCESS_STATUSES: ProcessStatus[] = [
     },
   },
   {
+    id: "to-hand",
+    hint: "Signed, to be handed over in person. Mark it sent once it has gone.",
+    counted: true,
+    tab: "issuance",
+    label: "To hand over",
+    act: "hand",
+    empty: {
+      title: "Nothing to hand over",
+      description: "Every signed process going by hand has been handed over.",
+    },
+  },
+  {
     id: "send-failed",
     hint: "Signed, but the channel did not accept it. Resend to try again.",
     counted: true,
     tab: "issuance",
-    label: "Send failed",
+    label: "Error",
     act: "resend",
     empty: {
-      title: "No failed sends",
+      title: "No errors",
       description: "Every electronic process this court has signed went out.",
     },
   },
@@ -379,9 +411,10 @@ export function processStatusLine(process: CourtProcess): ProcessStatusLine {
     case "to-sign":
       return { word: "Issued", day: process.issuedOn, warn: false };
     case "to-post":
+    case "to-hand":
       return { word: "Signed", day: process.signedOn, warn: false };
     case "send-failed":
-      return { word: "Send failed", reason: process.sendFailure, warn: true };
+      return { word: "Error", reason: process.sendFailure, warn: true };
     case "in-progress":
       return { word: "Sent", day: process.sentOn, warn: false };
     case "completed": {
@@ -464,12 +497,12 @@ export const PROCESS_TABS: ProcessTab[] = [
   {
     id: "issuance",
     label: "Issuance",
-    statuses: ["to-sign", "to-post", "send-failed"],
+    statuses: ["to-sign", "to-post", "to-hand", "send-failed"],
     defaultView: "to-sign",
-    countedStatuses: ["to-sign", "to-post", "send-failed"],
+    countedStatuses: ["to-sign", "to-post", "to-hand", "send-failed"],
     dateColumn: "Status",
     outcomeFilters: false,
-    allHint: "Everything still with the court: to sign, to post, or to resend.",
+    allHint: "Everything still with the court: to sign, to post, to hand over, or to resend.",
     empty: {
       title: "Nothing is waiting on the court",
       description: "Everything this court has issued is signed and on its way.",
@@ -507,7 +540,7 @@ export function hasPills(tab: ProcessTab): boolean {
 
 /* ───────────────────────────── acts ───────────────────────────── */
 
-export type ProcessActId = "collect" | "sign" | "post" | "resend" | "record";
+export type ProcessActId = "collect" | "sign" | "post" | "hand" | "resend" | "record";
 
 /**
  * What moves a row on, and the words it is said in.
@@ -572,6 +605,17 @@ export const PROCESS_ACTS: ProcessAct[] = [
       `${count} ${plural(count, "process is", "processes are")} marked posted on this screen. Nothing was posted.`,
   },
   {
+    id: "hand",
+    from: "to-hand",
+    bar: (count) => `Mark ${count} as sent`,
+    idle: "Mark selected as sent",
+    confirm: "Mark as sent",
+    question: (subject) => `Mark ${subject} as sent?`,
+    done: (phrase) => `${capitalise(phrase)} sent`,
+    notice: (count) =>
+      `${count} ${plural(count, "process is", "processes are")} marked sent on this screen. Nothing was handed over.`,
+  },
+  {
     id: "resend",
     from: "send-failed",
     bar: (count) => `Resend ${count}`,
@@ -609,13 +653,13 @@ export function processAct(id: ProcessActId): ProcessAct {
 /**
  * Whether an act takes this row.
  *
- * The status alone, except for recording a return: only registered post comes back as
- * paper, so an SMS still out with its channel can be selected (to download) but never
- * recorded by hand.
+ * The status alone, except for recording a return: only registered post and By hand come
+ * back as paper, so an SMS still out with its channel can be selected (to download) but
+ * never recorded by the court.
  */
 export function actTakes(act: ProcessAct, process: CourtProcess): boolean {
   if (process.status !== act.from) return false;
-  return act.id === "record" ? goesByPost(process) : true;
+  return act.id === "record" ? recordedByCourt(process) : true;
 }
 
 /**
@@ -645,8 +689,9 @@ export function actsForSelection(
  * row at all, is ignored rather than throwing — a line that has moved on under a stale
  * selection is a real case, not an error.
  *
- * Signing forks on the channel. Registered post waits to be posted; an electronic
- * channel goes out on the day, unless the row's demo channel refuses it.
+ * Signing forks on the channel. Registered post waits to be posted; By hand waits to be
+ * handed over; an electronic channel goes out on the day, unless the row's demo channel
+ * refuses it.
  *
  * **It sends nothing.** It changes a status and stamps a day in memory.
  */
@@ -665,9 +710,11 @@ export function runProcessAct(
       case "sign": {
         const signed = { ...process, signedOn: on };
         if (goesByPost(process)) return { ...signed, status: "to-post" };
+        if (goesByHand(process)) return { ...signed, status: "to-hand" };
         return sendElectronically(signed, on);
       }
       case "post":
+      case "hand":
         return { ...process, status: "in-progress", sentOn: on };
       case "resend":
         return sendElectronically(process, on);
@@ -683,6 +730,37 @@ function sendElectronically(process: CourtProcess, on: string): CourtProcess {
     return { ...rest, status: "send-failed", sendFailure: demoSendFailure };
   }
   return { ...rest, status: "in-progress", sentOn: on, sendFailure: undefined };
+}
+
+/**
+ * A proclamation By hand, once its signed copy is downloaded (`DSP-10`).
+ *
+ * All that happens to it in the world is that it is printed and affixed, so the download
+ * is the last thing the court does with it: the screen records it Sent and Executed on
+ * the day. Still two stages, each with its own day. Every other row is left alone.
+ */
+export function executeOnDownload(
+  rows: CourtProcess[],
+  ids: ReadonlySet<string>,
+  on: string,
+): CourtProcess[] {
+  return rows.map((process) => {
+    if (
+      !ids.has(process.id) ||
+      process.type !== "proclamation" ||
+      !goesByHand(process) ||
+      process.status !== "to-hand"
+    ) {
+      return process;
+    }
+    return {
+      ...process,
+      status: "completed",
+      sentOn: on,
+      returnedOn: on,
+      outcome: { served: true },
+    };
+  });
 }
 
 /**
@@ -718,8 +796,10 @@ function destinationOf(
     case "collect":
       return "to-sign";
     case "sign":
-      return goesByPost(process) ? "to-post" : "in-progress";
+      if (goesByPost(process)) return "to-post";
+      return goesByHand(process) ? "to-hand" : "in-progress";
     case "post":
+    case "hand":
     case "resend":
       return "in-progress";
     case "record":
@@ -793,7 +873,7 @@ export function moveLine(actId: ProcessActId, rows: CourtProcess[]): string {
  *
  * One list rather than seven, so a row that moves stays the same object and the tabs,
  * the pills and the rail cannot disagree about where it is. Shaped to exercise what the
- * screen has to survive: all five types, all four channels, one case carrying three
+ * screen has to survive: all six types, all five channels, one case carrying three
  * processes, corporate parties long enough to wrap, both kinds of outcome, and a police
  * warrant whose ICOPS send will be refused.
  */
@@ -994,7 +1074,7 @@ export const PROCESS_LINE: CourtProcess[] = [
     caseNumber: "ST/1328/2026",
     parties: { complainant: "Radhika Unnikrishnan", accused: "Byju Thomas" },
     type: "proclamation",
-    channel: "police",
+    channel: "by-hand",
     status: "to-sign",
     paidOn: "2026-08-24",
     issuedOn: "2026-08-31",
@@ -1125,6 +1205,20 @@ export const PROCESS_LINE: CourtProcess[] = [
     sentOn: "2026-08-25",
     hearingDate: "2026-09-10",
   },
+  /* A warrant that went By hand: out, and the CMO records the report when it comes back. */
+  {
+    id: "pr-1396",
+    caseNumber: "ST/1396/2026",
+    parties: { complainant: "Kottiyam Agencies", accused: "Shibu Mathew" },
+    type: "warrant",
+    channel: "by-hand",
+    status: "in-progress",
+    paidOn: "2026-08-04",
+    issuedOn: "2026-08-08",
+    signedOn: "2026-08-14",
+    sentOn: "2026-08-18",
+    hearingDate: "2026-09-25",
+  },
   /* From #43: an attachment out with the police, so the line carries one. */
   {
     id: "pr-1392",
@@ -1144,12 +1238,11 @@ export const PROCESS_LINE: CourtProcess[] = [
     caseNumber: "ST/1352/2026",
     parties: { complainant: "Haridas Pillai", accused: "Kavitha Menon" },
     type: "proclamation",
-    channel: "police",
-    status: "send-failed",
+    channel: "by-hand",
+    status: "to-hand",
     paidOn: "2026-08-07",
     issuedOn: "2026-08-14",
     signedOn: "2026-08-24",
-    sendFailure: "No response from ICOPS",
     hearingDate: "2026-10-01",
   },
   {
@@ -1254,7 +1347,7 @@ export const PROCESS_LINE: CourtProcess[] = [
     caseNumber: "ST/1370/2026",
     parties: { complainant: "Anwar Sadath", accused: "Meera Krishnankutty" },
     type: "proclamation",
-    channel: "police",
+    channel: "by-hand",
     status: "in-progress",
     paidOn: "2026-07-22",
     issuedOn: "2026-07-29",
@@ -1358,14 +1451,14 @@ export const PROCESS_LINE: CourtProcess[] = [
     caseNumber: "ST/1385/2026",
     parties: { complainant: "Abdul Salam", accused: "Nisha Chandrasekharan" },
     type: "proclamation",
-    channel: "police",
+    channel: "by-hand",
     status: "completed",
     paidOn: "2026-07-03",
     issuedOn: "2026-07-10",
     signedOn: "2026-07-17",
-    sentOn: "2026-07-24",
-    returnedOn: "2026-08-04",
-    outcome: { served: false, reason: "Person not present" },
+    sentOn: "2026-07-17",
+    returnedOn: "2026-07-17",
+    outcome: { served: true },
     hearingDate: "2026-09-29",
   },
   {
@@ -1459,7 +1552,7 @@ export function pilePool(
   const pile = pileFor(view);
   if (!pile || view === "all") return [];
   return processesAt(rows, view).filter(
-    (process) => !pile.postOnly || goesByPost(process),
+    (process) => !pile.postOnly || recordedByCourt(process),
   );
 }
 
@@ -1542,6 +1635,7 @@ const WAITING_ON_COURT: ProcessStatusId[] = [
   "awaiting-cover",
   "to-sign",
   "to-post",
+  "to-hand",
   "send-failed",
 ];
 
@@ -1760,8 +1854,8 @@ export type ProcessDocument = {
   caseNumber: string;
   matter: string;
   title: string;
-  /** Who the instrument commands. */
-  addressee: string;
+  /** Who the instrument commands. Absent for a proclamation, which is published, not addressed. */
+  addressee?: string;
   paragraphs: string[];
   dated: string;
   /** How it goes out, written on the face of it. */
@@ -1773,12 +1867,14 @@ export type ProcessDocument = {
 /**
  * Who each instrument is addressed to.
  *
- * A warrant, proclamation or attachment is addressed to the police, who execute it
- * (§6.3 of `handovers/process-handover.md`); everything else commands the accused to
+ * A warrant or attachment is addressed to the police, who execute it (§6.3 of
+ * `process-handover.md`); a proclamation is published — printed and affixed — so it
+ * carries no "To" line (owner, 2026-10-15); everything else commands the accused to
  * appear. `docs/product/domain/actors.md` puts process execution with the police for a
  * §138 case.
  */
-function addresseeFor(process: CourtProcess): string {
+function addresseeFor(process: CourtProcess): string | undefined {
+  if (process.type === "proclamation") return undefined;
   if (processType(process.type).executed) {
     return "To the officer in charge of the police station";
   }
@@ -1858,7 +1954,7 @@ export function processDocumentText(document: ProcessDocument): string {
     document.matter,
     "",
     document.title,
-    document.addressee,
+    ...(document.addressee ? [document.addressee] : []),
     "",
     ...document.paragraphs.map(
       (paragraph, index) => `${index + 1}. ${paragraph}`,

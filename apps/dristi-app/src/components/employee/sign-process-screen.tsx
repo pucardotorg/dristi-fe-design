@@ -59,6 +59,7 @@ import {
   defaultProcessFilters,
   downloadProcessBundle,
   DEFAULT_PROCESS_TAB,
+  executeOnDownload,
   filterProcesses,
   formatProcessDate,
   groupSelectionByCase,
@@ -371,6 +372,23 @@ export function SignProcessScreen() {
     setNotice(processAct("record").notice(outcomes.size));
   }
 
+  /**
+   * Download the documents, then record what a download means for a proclamation going
+   * By hand: it is printed and affixed, so it is Sent and Executed on the day (`DSP-10`).
+   */
+  function download(rows: CourtProcess[]) {
+    downloadProcessBundle(rows);
+    const ids = new Set(rows.map((process) => process.id));
+    const next = executeOnDownload(line, ids, todayIsoDay());
+    const executed = next.filter((process, index) => process !== line[index]).length;
+    if (executed === 0) return;
+    setLine(next);
+    forget(ids);
+    setNotice(
+      `${executed} ${plural(executed, "proclamation is", "proclamations are")} marked executed on this screen. Nothing was affixed.`,
+    );
+  }
+
   function returnFocus() {
     searchRef.current?.focus();
   }
@@ -534,7 +552,7 @@ export function SignProcessScreen() {
           count={selected.length}
           groups={groups}
           notice={notice}
-          onDownload={() => downloadProcessBundle(selected)}
+          onDownload={() => download(selected)}
           onRequestAct={(actId, button) => {
             actRef.current = button;
             if (actId !== "record") setShown(actId);
@@ -563,7 +581,7 @@ export function SignProcessScreen() {
         /* Only off signing: a signed paper is worth having in hand the moment it is
            done (owner, 2026-09-07), and the rows have left the view. */
         onDownload={
-          shown === "sign" ? () => downloadProcessBundle(actedRows) : undefined
+          shown === "sign" ? () => download(actedRows) : undefined
         }
         onReturnFocus={returnFocus}
       />
@@ -587,6 +605,10 @@ export function SignProcessScreen() {
         onRecord={(process, outcome, on) =>
           record(new Map([[process.id, outcome]]), on)
         }
+        onDownloaded={(process) => {
+          const next = executeOnDownload(line, new Set([process.id]), todayIsoDay());
+          if (next.some((row, index) => row !== line[index])) setLine(next);
+        }}
         onReturnFocus={returnFocus}
       />
 

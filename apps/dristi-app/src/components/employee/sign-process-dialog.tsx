@@ -96,6 +96,7 @@ export function SignProcessDialog({
   onSign,
   onAct,
   onRecord,
+  onDownloaded,
   onReturnFocus,
 }: {
   /** The live row — the screen passes it from the line, so the facts follow an act. */
@@ -104,6 +105,8 @@ export function SignProcessDialog({
   onSign: (process: CourtProcess) => void;
   onAct: (act: QuickAct, process: CourtProcess) => void;
   onRecord: (process: CourtProcess, outcome: ProcessOutcome, on: string) => void;
+  /** The row's document was downloaded from the footer — a proclamation By hand is then executed (`DSP-10`). */
+  onDownloaded: (process: CourtProcess) => void;
   onReturnFocus: () => void;
 }) {
   const { held, opening } = useHeldRecord(process);
@@ -125,6 +128,7 @@ export function SignProcessDialog({
           onSign={onSign}
           onAct={onAct}
           onRecord={onRecord}
+          onDownloaded={onDownloaded}
           onReturnFocus={onReturnFocus}
         />
       ) : null}
@@ -138,6 +142,7 @@ function SignProcessBody({
   onSign,
   onAct,
   onRecord,
+  onDownloaded,
   onReturnFocus,
 }: {
   process: CourtProcess;
@@ -145,6 +150,7 @@ function SignProcessBody({
   onSign: (process: CourtProcess) => void;
   onAct: (act: QuickAct, process: CourtProcess) => void;
   onRecord: (process: CourtProcess, outcome: ProcessOutcome, on: string) => void;
+  onDownloaded: (process: CourtProcess) => void;
   onReturnFocus: () => void;
 }) {
   const courtText = useCourtText();
@@ -229,7 +235,10 @@ function SignProcessBody({
     <Button
       type="button"
       variant="outline"
-      onClick={() => downloadProcessDocument(process)}
+      onClick={() => {
+        downloadProcessDocument(process);
+        onDownloaded(process);
+      }}
     >
       Download
     </Button>
@@ -464,7 +473,8 @@ function ProcessFacts({ process }: { process: CourtProcess }) {
 /**
  * The process itself as paper — the same facsimile treatment the other court-side
  * overlays use, bound to this row's own particulars. The addressee sits under the title:
- * a process commands a named person, and who it commands is written on its face first.
+ * a process commands a named person, and who it commands is written on its face first. A
+ * proclamation is published, not addressed, so it has none.
  */
 function ProcessFacsimile({ document: storedDocument }: { document: ProcessDocument }) {
   const document = useCourtLocalized(storedDocument);
@@ -482,7 +492,9 @@ function ProcessFacsimile({ document: storedDocument }: { document: ProcessDocum
         <h3 className="text-center text-body font-semibold">
           {document.title}
         </h3>
-        <p className="text-body">{document.addressee}</p>
+        {document.addressee ? (
+          <p className="text-body">{document.addressee}</p>
+        ) : null}
       </div>
 
       <ol className="flex list-decimal flex-col gap-3 ps-6">

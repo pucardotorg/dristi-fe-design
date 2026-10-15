@@ -45,6 +45,7 @@ import { orderTemplate, type OrderField } from "@/lib/employee/order-templates";
 import {
   channelLabel,
   channelsFor,
+  needsDestination,
   needsPoliceStation,
   policeStationsFor,
   selectedAddresses,
@@ -493,6 +494,8 @@ function RecipientsField({
     channelsFor(block.type).includes(channel.id),
   );
   const unreachable = unreachableChannels(person, recipients);
+  /* A proclamation goes By hand only, to no address — so there is nothing to tick. */
+  const asksDestinations = needsDestination(allowed.map((channel) => channel.id));
 
   function toggleDestination(destinationId: string, on: boolean) {
     onChange({
@@ -586,7 +589,7 @@ function RecipientsField({
         </div>
       </div>
 
-      {person ? (
+      {person && asksDestinations ? (
         <fieldset className="flex min-w-0 flex-col gap-3">
           <legend className="mb-2 text-body-compact font-medium">
             Addresses of {person.name}

@@ -36,7 +36,7 @@ import {
 } from "./order-templates";
 import {
   defaultProcessRecipients,
-  destinationsOf,
+  defaultDestinations,
   recipientGaps,
   stationsFor,
   stepsFor,
@@ -324,7 +324,7 @@ export function setItemRecipients(
   if (!samePerson) {
     recipients = {
       ...recipients,
-      destinations: destinationsOf(context.people, recipients.person),
+      destinations: defaultDestinations(block.type, context.people, recipients.person),
     };
   }
   /* One station per selected postal address. A station the drafter chose for an address
