@@ -179,8 +179,56 @@ export function markHearingPassedOver(id: string): void {
   });
 }
 
+/**
+ * The cause list's bulk acts (owner, 2026-10-15) — the same marks as the row's, made on
+ * many listings in one write, so the board and every other tab change once.
+ */
+export function markHearingsEnded(ids: readonly string[]): void {
+  restore();
+  if (ids.length === 0) return;
+  const endedIds = new Set(session.endedIds);
+  for (const id of ids) endedIds.add(id);
+  commit({
+    ...session,
+    ongoingId:
+      session.ongoingId && ids.includes(session.ongoingId) ? null : session.ongoingId,
+    endedIds,
+  });
+}
+
+export function markHearingsPassedOver(ids: readonly string[]): void {
+  restore();
+  if (ids.length === 0) return;
+  const passedOverIds = new Set(session.passedOverIds);
+  for (const id of ids) passedOverIds.add(id);
+  commit({
+    ...session,
+    ongoingId:
+      session.ongoingId && ids.includes(session.ongoingId) ? null : session.ongoingId,
+    passedOverIds,
+  });
+}
+
+/**
+ * Set part of the next hearing on many listings at once: whatever `change` names is
+ * written over each listing's own posting; whatever it leaves out is kept.
+ */
+export function setHearingsNext(
+  ids: readonly string[],
+  change: Partial<CausePosting>,
+  base: CausePosting,
+): void {
+  restore();
+  if (ids.length === 0) return;
+  const postings = { ...session.postings };
+  for (const id of ids) {
+    postings[id] = { ...(postings[id] ?? base), ...change };
+  }
+  commit({ ...session, postings });
+}
+
 /** Back to the opening sitting — Reset sandbox data (`sandbox-reset.ts`). */
-export function resetHearingSession(): void {
+export function resetHearingSession(to: HearingSession = SAMPLE_SESSION): void {
   restored = true;
-  commit(SAMPLE_SESSION);
+  commit(to);
 }

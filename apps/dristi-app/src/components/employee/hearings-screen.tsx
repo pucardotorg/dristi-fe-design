@@ -4,6 +4,7 @@ import * as React from "react";
 import {
   CalendarX2Icon,
   FilePenLineIcon,
+  ListChecksIcon,
   SearchXIcon,
   VideoIcon,
 } from "lucide-react";
@@ -14,6 +15,12 @@ import {
   PILL_ROW,
 } from "@/components/chrome/pill-plate";
 import { CounselCell } from "@/components/employee/counsel-cell";
+import {
+  CauseListBulkBar,
+  type BulkSeat,
+} from "@/components/employee/cause-list-bulk";
+import { usePendingOrders } from "@/components/employee/use-pending-orders";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   HearingOrdersItemList,
   HearingOrdersTable,
@@ -50,6 +57,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { CourtRole } from "@/lib/employee/content";
+import { seatPostsNextHearing } from "@/lib/employee/court-role";
 import {
   HEARING_ORDER_STATUSES,
   ordersForSitting,
@@ -68,6 +76,7 @@ import {
   markHearingPassedOver,
 } from "@/lib/employee/hearing-session";
 import {
+  advocatesOnList,
   causeTitle,
   counselFor,
   courtHearingPurposeLabel,
@@ -78,6 +87,7 @@ import {
   hearingsForDay,
   isoDay,
   parseIsoDay,
+  COURT_CASE_STAGES,
   COURT_HEARING_PURPOSES,
   EMPTY_FILTERS,
   PAGE_SIZE,
@@ -201,6 +211,22 @@ export function HearingsScreen() {
      default (`cause-list-columns.ts`). */
   const columnState = useCauseListColumns(seat, postsNextHearing);
   const tableColumns = shownColumns(columnState.columns);
+  /* Bulk mode (owner, 2026-10-15): the reader, when the reader enters the next hearing,
+     marks and posts many listings at once; the steno, in the Pending orders flow, adds
+     one piece of text to many orders. Other seats have no bulk mode. */
+  const bulkSeat: BulkSeat | null =
+    view === "hearings" && postsNextHearing && seatPostsNextHearing(seat)
+      ? "reader"
+      : view === "hearings" && flow === "pending" && seat === "typist"
+        ? "steno"
+        : null;
+  const [bulkOn, setBulkOn] = React.useState(false);
+  const bulk = bulkSeat !== null && bulkOn;
+  const [bulkIds, setBulkIds] = React.useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const [bulkNotice, setBulkNotice] = React.useState("");
+  const pendingOrders = usePendingOrders();
   function setView(next: ScreenView) {
     rememberView(next);
     setViewState(next);
@@ -351,13 +377,47 @@ export function HearingsScreen() {
     setLiveMessage(`Hearing passed over for ${causeTitle(hearing)}`);
   }
 
+  /* What a bulk act takes: the ticked listings still in the filtered list. A tick hidden
+     by a narrower filter is not acted on — nothing happens to a row the reader cannot
+     see. */
+  const bulkSelected = rows.filter((hearing) => bulkIds.has(hearing.id));
+  const bulkAll: boolean | "indeterminate" =
+    rows.length > 0 && bulkSelected.length === rows.length
+      ? true
+      : bulkSelected.length > 0
+        ? "indeterminate"
+        : false;
+
+  function toggleBulk(id: string) {
+    setBulkNotice("");
+    setBulkIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleBulkAll(select: boolean) {
+    setBulkNotice("");
+    setBulkIds(select ? new Set(rows.map((hearing) => hearing.id)) : new Set());
+  }
+
+  function setBulkMode(on: boolean) {
+    setBulkOn(on);
+    setBulkIds(new Set());
+    setBulkNotice("");
+  }
+
   const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
   const currentPage = Math.min(page, pageCount);
   const start = (currentPage - 1) * pageSize;
   const pageRows = rows.slice(start, start + pageSize);
   const isFiltered =
     filters.status !== "all" ||
-    filters.purpose !== "all" ||
+    filters.purposes.length > 0 ||
+    filters.advocates.length > 0 ||
+    filters.stages.length > 0 ||
     filters.query !== "";
 
   /* Read from `listed`, not from `rows`: a filter set to Scheduled drops the matter
@@ -448,7 +508,11 @@ export function HearingsScreen() {
             )
           }
           filters={filters}
-          onChange={changeFilters}
+          advocates={advocatesOnList(listed)}
+          onChange={(patch) => {
+            setBulkNotice("");
+            changeFilters(patch);
+          }}
           day={activeDay}
           today={today}
           onDayChange={(next) => {
@@ -464,6 +528,22 @@ export function HearingsScreen() {
             <>
               {/* The board's columns, as the advocate Cases list offers them. Only on
                   the hearings view: the Orders view is its own table. */}
+              {bulkSeat ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  aria-pressed={bulk}
+                  onClick={() => setBulkMode(!bulk)}
+                  className={
+                    bulk
+                      ? "border-primary bg-brand-muted text-brand-muted-foreground hover:bg-brand-muted"
+                      : undefined
+                  }
+                >
+                  <ListChecksIcon data-icon="inline-start" aria-hidden />
+                  {bulk ? "Exit bulk" : "Bulk"}
+                </Button>
+              ) : null}
               {view === "hearings" ? (
                 <CauseListColumnsMenu state={columnState} />
               ) : null}
@@ -547,6 +627,16 @@ export function HearingsScreen() {
                   onStartHearing={startHearing}
                   onEndHearing={endHearing}
                   onPassOver={passOverHearing}
+                  selection={
+                    bulk
+                      ? {
+                          selected: bulkIds,
+                          onToggle: toggleBulk,
+                          all: bulkAll,
+                          onToggleAll: toggleBulkAll,
+                        }
+                      : undefined
+                  }
                 />
               </div>
               <div className="md:hidden">
@@ -558,6 +648,9 @@ export function HearingsScreen() {
                   onEndHearing={endHearing}
                   onPassOver={passOverHearing}
                   postsNextHearing={postsNextHearing}
+                  selection={
+                    bulk ? { selected: bulkIds, onToggle: toggleBulk } : undefined
+                  }
                 />
               </div>
             </div>
@@ -587,6 +680,18 @@ export function HearingsScreen() {
           </>
         )}
       </div>
+
+      {bulk && bulkSeat ? (
+        <CauseListBulkBar
+          seat={bulkSeat}
+          selected={bulkSelected}
+          notice={bulkNotice}
+          onNotice={setBulkNotice}
+          onDone={() => setBulkIds(new Set())}
+          pending={pendingOrders}
+          signing={signing}
+        />
+      ) : null}
 
       {view === "orders" && (selectedOrders.length > 0 || readyInView || notice) ? (
         <SignBar
@@ -645,6 +750,7 @@ function HearingsFilters({
   leading,
   searchRef,
   filters,
+  advocates,
   onChange,
   day,
   today,
@@ -657,6 +763,8 @@ function HearingsFilters({
   leading: React.ReactNode;
   searchRef: React.RefObject<HTMLInputElement | null>;
   filters: HearingFilters;
+  /** Every advocate on the day's list, for the Advocate filter. */
+  advocates: string[];
   /** Merge a change into the filters — a patch, not a whole set. */
   onChange: (patch: Partial<HearingFilters>) => void;
   /** The day in view, already resolved to today when none is picked. */
@@ -681,19 +789,40 @@ function HearingsFilters({
           onChange: (query) => onChange({ query }),
           placeholder: "Case name or number",
         }}
-        fields={[
+        fields={[]}
+        /* Every one takes several values, as a multi-select dropdown (owner, 2026-10-15). */
+        multi={[
+          {
+            id: "hearings-advocate",
+            label: "Advocate",
+            values: filters.advocates,
+            options: advocates.map((name) => ({ value: name, label: name })),
+            placeholder: "All advocates",
+            onApply: (values) => onChange({ advocates: values }),
+          },
+          {
+            id: "hearings-stage",
+            label: "Case stage",
+            values: filters.stages,
+            placeholder: "All stages",
+            options: COURT_CASE_STAGES.map((stage) => ({
+              value: stage.id,
+              label: stage.label,
+            })),
+            onApply: (values) =>
+              onChange({ stages: values as HearingFilters["stages"] }),
+          },
           {
             id: "hearings-purpose",
             label: "Purpose",
-            value: filters.purpose,
-            all: "all",
-            allLabel: "All purposes",
+            values: filters.purposes,
+            placeholder: "All purposes",
             options: COURT_HEARING_PURPOSES.map((purpose) => ({
               value: purpose.id,
               label: purpose.label,
             })),
-            onApply: (value) =>
-              onChange({ purpose: value as HearingFilters["purpose"] }),
+            onApply: (values) =>
+              onChange({ purposes: values as HearingFilters["purposes"] }),
           },
         ]}
         date={{
@@ -806,6 +935,7 @@ function HearingsItemList({
   onPassOver,
   onOpenOrder,
   postsNextHearing,
+  selection,
 }: {
   rows: CourtHearing[];
   seat: CourtRole;
@@ -814,6 +944,8 @@ function HearingsItemList({
   onEndHearing: (hearing: CourtHearing) => void;
   onPassOver: (hearing: CourtHearing) => void;
   postsNextHearing: boolean;
+  /** Bulk mode: a checkbox at the head of each item. */
+  selection?: { selected: ReadonlySet<string>; onToggle: (id: string) => void };
   /** Optional, and unsupplied: see the note where `openOrder` used to be. */
   onOpenOrder?: (hearing: CourtHearing) => void;
 }) {
@@ -833,6 +965,14 @@ function HearingsItemList({
                 whole item is the target (`rowActivation`), and a 40px box here would
                 only lift the title off the number's baseline. */}
             <p className="flex min-w-0 items-baseline gap-1 text-body-compact font-medium">
+              {selection ? (
+                <Checkbox
+                  className="mr-2 self-center"
+                  checked={selection.selected.has(hearing.id)}
+                  onCheckedChange={() => selection.onToggle(hearing.id)}
+                  aria-label={`Select item ${hearing.item}, ${causeTitle(hearing)}`}
+                />
+              ) : null}
               <span className="shrink-0 text-muted-foreground tabular-nums">
                 {hearing.item}.
               </span>

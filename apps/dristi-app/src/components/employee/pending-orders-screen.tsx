@@ -16,6 +16,8 @@ import {
 } from "@/components/chrome/table-plate";
 import { QueueAnnouncer } from "@/components/employee/queue-announcer";
 import { useCourtRole } from "@/components/employee/use-court-role";
+import { AddOrderItemsDialog } from "@/components/employee/pending-orders-bulk";
+import { useOrderDrafts } from "@/components/employee/use-order-draft";
 import { useOrderSigning } from "@/components/employee/use-order-signing";
 import { usePendingOrders } from "@/components/employee/use-pending-orders";
 import {
@@ -49,6 +51,8 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { CourtRole } from "@/lib/employee/content";
+import { orderTextPreview } from "@/lib/employee/order-bulk-items";
+import { editorDraftKey } from "@/lib/employee/order-drafts";
 import { markOrdersSigned } from "@/lib/employee/order-signing";
 import {
   PENDING_ORDER_STAGES,
@@ -97,6 +101,10 @@ export function PendingOrdersScreen() {
     () => new Set(),
   );
   const [askSign, setAskSign] = React.useState(false);
+  const [askItems, setAskItems] = React.useState(false);
+  const [itemsOpening, setItemsOpening] = React.useState(0);
+  const [notice, setNotice] = React.useState("");
+  const drafts = useOrderDrafts();
 
   const all: Row[] = Object.values(pending).map((order) => ({
     ...order,
@@ -105,9 +113,22 @@ export function PendingOrdersScreen() {
   const rows = tab === "all" ? all : all.filter((row) => row.stage === tab);
   const count = (stage: PendingOrderStage) =>
     all.filter((row) => row.stage === stage).length;
+  /* Who can pick rows, and which: the magistrate the orders awaiting a signature, to sign
+     them; the steno the signed orders with order data to fill, to add items to them in
+     bulk (owner, 2026-10-15). */
   const signer = seat === "magistrate";
-  const signable = rows.filter((row) => row.stage === "awaiting-signature");
+  const filler = seat === "typist";
+  const pickStage: PendingOrderStage | null = signer
+    ? "awaiting-signature"
+    : filler
+      ? "workflow-to-fill"
+      : null;
+  const picking = pickStage !== null;
+  const signable = rows.filter((row) => row.stage === pickStage);
   const chosen = signable.filter((row) => selected.has(row.key));
+  /* The order's first words, on the tab where the steno works through them. */
+  const showText = tab === "workflow-to-fill";
+  const columns = 5 + (picking ? 1 : 0) + (showText ? 1 : 0);
 
   function open(row: Row) {
     if (row.stage === "drafting") {
@@ -120,6 +141,7 @@ export function PendingOrdersScreen() {
   }
 
   function toggle(key: string) {
+    setNotice("");
     setSelected((current) => {
       const next = new Set(current);
       if (next.has(key)) next.delete(key);
@@ -145,6 +167,7 @@ export function PendingOrdersScreen() {
           onValueChange={(value) => {
             setTab(value as Tab);
             setSelected(new Set());
+            setNotice("");
           }}
           className="flex min-w-0 flex-col gap-6"
         >
@@ -181,10 +204,14 @@ export function PendingOrdersScreen() {
             <Table className="w-full border-separate border-spacing-0 text-body-compact">
               <TableHeader>
                 <TableRow className={TABLE_HEAD_ROW}>
-                  {signer ? (
+                  {picking ? (
                     <TableHead className={cn(TABLE_HEAD, "w-px")}>
                       <Checkbox
-                        aria-label="Select the orders awaiting your signature in this list"
+                        aria-label={
+                          signer
+                            ? "Select the orders awaiting your signature in this list"
+                            : "Select the orders with order data to fill in this list"
+                        }
                         disabled={signable.length === 0}
                         checked={
                           signable.length > 0 &&
@@ -213,29 +240,34 @@ export function PendingOrdersScreen() {
                   >
                     From
                   </TableHead>
+                  {showText ? (
+                    <TableHead
+                      className={cn(TABLE_HEAD, "min-w-56 whitespace-normal")}
+                    >
+                      Order
+                    </TableHead>
+                  ) : null}
                   <TableHead className={cn(TABLE_HEAD, "whitespace-nowrap")}>
-                    Signature
-                  </TableHead>
-                  <TableHead className={cn(TABLE_HEAD, "whitespace-nowrap")}>
-                    Order data
+                    Status
                   </TableHead>
                   <TableHead className={cn(TABLE_HEAD, "w-px whitespace-nowrap")}>
                     <span className="sr-only">Action</span>
                   </TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody className={tableBodyClass({ selectable: signer })}>
+              <TableBody className={tableBodyClass({ selectable: picking })}>
                 <tr aria-hidden="true">
-                  <td colSpan={signer ? 7 : 6} className="h-2 p-0" />
+                  <td colSpan={columns} className="h-2 p-0" />
                 </tr>
                 {rows.map((row) => (
                   <TableRow
                     key={row.key}
-                    {...rowActivation(tableRowClass({ selectable: signer }))}
+                    data-state={selected.has(row.key) ? "selected" : undefined}
+                    {...rowActivation(tableRowClass({ selectable: picking }))}
                   >
-                    {signer ? (
+                    {picking ? (
                       <TableCell className={cn(TABLE_CELL, "w-px")}>
-                        {row.stage === "awaiting-signature" ? (
+                        {row.stage === pickStage ? (
                           <Checkbox
                             aria-label={`Select ${row.heading}`}
                             checked={selected.has(row.key)}
@@ -264,10 +296,23 @@ export function PendingOrdersScreen() {
                     >
                       {row.origin}
                     </TableCell>
+                    {showText ? (
+                      <TableCell
+                        className={cn(
+                          TABLE_CELL,
+                          "min-w-56 whitespace-normal text-muted-foreground",
+                        )}
+                      >
+                        {orderTextPreview(
+                          drafts[editorDraftKey(row.key)]?.body?.text ?? "",
+                        ) || "No text yet"}
+                      </TableCell>
+                    ) : null}
+                    {/* Signature and order data, two pills side by side in one column
+                        (owner, 2026-10-15). Each pill says which it is. */}
                     <TableCell className={cn(TABLE_CELL, "whitespace-nowrap")}>
+                      <div className="flex items-center gap-1.5">
                       <SignatureBadge stage={row.stage} />
-                    </TableCell>
-                    <TableCell className={cn(TABLE_CELL, "whitespace-nowrap")}>
                       <Badge
                         variant={
                           row.stage === "triggered"
@@ -278,11 +323,12 @@ export function PendingOrdersScreen() {
                         }
                       >
                         {row.stage === "triggered"
-                          ? "Triggered"
+                          ? "Data triggered"
                           : row.workflowComplete
-                            ? "Complete"
-                            : "To fill"}
+                            ? "Data complete"
+                            : "Data to fill"}
                       </Badge>
+                      </div>
                     </TableCell>
                     <TableCell
                       className={cn(TABLE_CELL, "w-px whitespace-nowrap")}
@@ -305,6 +351,30 @@ export function PendingOrdersScreen() {
           </div>
         )}
 
+        {filler && (signable.length > 0 || notice) ? (
+          <div className="flex flex-col gap-3 border-t border-hairline pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <p
+              className="text-body-compact text-muted-foreground"
+              aria-live="polite"
+            >
+              {notice ||
+                (chosen.length
+                  ? `${chosen.length} selected.`
+                  : "Select orders to add the same items to their order data.")}
+            </p>
+            <Button
+              type="button"
+              disabled={chosen.length === 0}
+              onClick={() => {
+                setItemsOpening((count) => count + 1);
+                setAskItems(true);
+              }}
+            >
+              Add order items
+            </Button>
+          </div>
+        ) : null}
+
         {signer && signable.length > 0 ? (
           <div className="flex flex-col gap-3 border-t border-hairline pt-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-body-compact text-muted-foreground">
@@ -324,6 +394,18 @@ export function PendingOrdersScreen() {
           </div>
         ) : null}
       </section>
+
+      <AddOrderItemsDialog
+        key={itemsOpening}
+        open={askItems}
+        orders={chosen}
+        onOpenChange={setAskItems}
+        onDone={(message) => {
+          setAskItems(false);
+          setSelected(new Set());
+          setNotice(message);
+        }}
+      />
 
       <AlertDialog open={askSign} onOpenChange={setAskSign}>
         <AlertDialogContent>
@@ -379,7 +461,7 @@ function headline(
 function SignatureBadge({ stage }: { stage: PendingOrderStage }) {
   if (stage === "drafting") return <Badge variant="secondary">Not sent</Badge>;
   if (stage === "awaiting-signature")
-    return <Badge variant="warning">Awaiting</Badge>;
+    return <Badge variant="warning">Awaiting signature</Badge>;
   return <Badge variant="success">Signed</Badge>;
 }
 

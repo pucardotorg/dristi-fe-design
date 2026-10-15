@@ -42,7 +42,9 @@ import { useOrderLayout } from "@/components/employee/use-order-layout";
 import { useOrderSigning } from "@/components/employee/use-order-signing";
 import { usePendingOrders } from "@/components/employee/use-pending-orders";
 import { pendingOrderCountFor } from "@/lib/employee/pending-orders";
-import { resetSandboxData } from "@/lib/employee/sandbox-reset";
+import { loadDemoSeed, resetSandboxData } from "@/lib/employee/sandbox-reset";
+import { DEMO_SEED_OPTIONS, type DemoSeed } from "@/lib/employee/demo-seed";
+import { useDemoSeed } from "@/components/employee/use-demo-seed";
 import {
   ORDER_DETAILS_PLACEMENT_OPTIONS,
   type OrderDetailsPlacement,
@@ -86,15 +88,20 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Collapsible,
   CollapsibleContent,
@@ -937,6 +944,15 @@ function CourtRailHeader() {
  * It leaves with the labels when the rail folds. A strip has room for one mark at its
  * foot, and that mark is the person.
  */
+/** One small setting in the pop-up's "More settings": a label and a select. */
+type MoreSetting = {
+  id: string;
+  label: string;
+  value: string;
+  options: readonly { id: string; label: string }[];
+  onChange: (value: string) => void;
+};
+
 function CourtSettingsControl() {
   const seat = useCourtRole();
   const { court, setCourt } = useCourt();
@@ -946,182 +962,241 @@ function CourtSettingsControl() {
   const [orderFlow, setOrderFlow] = useOrderFlow();
   const [nextHearingEntry, setNextHearingEntry] = useNextHearingEntry();
   const [detailsPlacement, setDetailsPlacement] = useOrderDetailsPlacement();
+  const demoSeed = useDemoSeed();
+  const [open, setOpen] = React.useState(false);
   const [confirmReset, setConfirmReset] = React.useState(false);
+
+  /* Everything but the seat and the court (owner, 2026-10-15: a pop-up "so we can keep
+     adding items", with those two prominent and the rest small and folded away). A new
+     setting is one more entry here. Internal demo controls; kept plain on purpose. */
+  const more: MoreSetting[] = [
+    /* Which demo day the hearings and orders open on (owner, 2026-10-15). Switching
+       reloads them in this browser. */
+    {
+      id: "demo-seed",
+      label: "Demo data",
+      value: demoSeed,
+      options: DEMO_SEED_OPTIONS,
+      onChange: (next) => {
+        if (next === demoSeed) return;
+        loadDemoSeed(next as DemoSeed);
+        toast(
+          next === "empty"
+            ? "Empty day loaded: no hearing heard, no order drafted."
+            : "Orders in every state loaded.",
+        );
+      },
+    },
+    {
+      id: "rail-layout",
+      label: "Rail layout",
+      value: layout,
+      options: [
+        { id: "open", label: "All queues" },
+        { id: "grouped", label: "Grouped by type" },
+        { id: "actions", label: "Today’s actions" },
+        { id: "schedule", label: "Today’s schedule" },
+      ],
+      onChange: (next) => setLayout(next as CourtNavLayout),
+    },
+    /* Only the delay split has two rows to split into; Gujarat's three case-type tabs
+       stay on the one screen (owner, 2026-10-13). */
+    ...(courtProfile(court).cognizanceSplit === "delay"
+      ? [
+          {
+            id: "take-cognizance",
+            label: "Take cognizance",
+            value: cognizanceLayout,
+            options: [
+              { id: "tabs", label: "Combined, with tabs" },
+              { id: "split", label: "Split into two rows" },
+            ],
+            onChange: (next: string) =>
+              setCognizanceLayout(next as CognizanceLayout),
+          },
+        ]
+      : []),
+    {
+      id: "order-flow",
+      label: "Order flow",
+      value: orderFlow,
+      options: ORDER_FLOW_OPTIONS,
+      onChange: (next) => setOrderFlow(next as OrderFlow),
+    },
+    /* Pending orders' screen E only (owner, 2026-10-14, 2026-10-15). */
+    ...(orderFlow === "pending"
+      ? [
+          {
+            id: "next-hearing-entry",
+            label: "Next hearing entered by",
+            value: nextHearingEntry,
+            options: NEXT_HEARING_ENTRY_OPTIONS,
+            onChange: (next: string) =>
+              setNextHearingEntry(next as NextHearingEntry),
+          },
+          {
+            id: "details-placement",
+            label: "Attendance and next hearing",
+            value: detailsPlacement,
+            options: ORDER_DETAILS_PLACEMENT_OPTIONS,
+            onChange: (next: string) =>
+              setDetailsPlacement(next as OrderDetailsPlacement),
+          },
+        ]
+      : []),
+    /* A–D are Classic's alone; Pending orders always opens E (owner, 2026-10-14). */
+    ...(orderFlow === "classic"
+      ? [
+          {
+            id: "order-screen",
+            label: "Order screen",
+            value: orderLayout,
+            options: CLASSIC_ORDER_LAYOUT_OPTIONS,
+            onChange: (next: string) => setOrderLayout(next as OrderLayout),
+          },
+        ]
+      : []),
+  ];
+
   return (
-    <DropdownMenu>
+    <>
       <Tooltip>
         <TooltipTrigger asChild>
-          <DropdownMenuTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              aria-label="Court settings"
-              className={`${RAIL_ICON_BUTTON} group-data-[collapsible=icon]:hidden`}
-            >
-              <SettingsIcon aria-hidden />
-            </Button>
-          </DropdownMenuTrigger>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Court settings"
+            onClick={() => setOpen(true)}
+            className={`${RAIL_ICON_BUTTON} group-data-[collapsible=icon]:hidden`}
+          >
+            <SettingsIcon aria-hidden />
+          </Button>
         </TooltipTrigger>
         <TooltipContent side="top">Court settings</TooltipContent>
       </Tooltip>
-      {/* Opens upward off the rail's foot, and aligned to the trigger's own edge — there
-          is no room below it and the menu would otherwise be pinned against the bottom
-          of the window. */}
-      <DropdownMenuContent side="top" align="end" className="w-auto min-w-48">
-        {/* No dress on it: the DS label is already the muted eyebrow this wants, and a
-            named role over the primitive's own size would be two sizes on one element. */}
-        <DropdownMenuLabel>Working as</DropdownMenuLabel>
-        <DropdownMenuRadioGroup
-          value={seat}
-          onValueChange={(next) => setCourtRole(next as CourtRole)}
-        >
-          {COURT_SEATS.map((role) => (
-            <DropdownMenuRadioItem key={role} value={role}>
-              {courtRoleLabel(role, court)}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuLabel>Rail layout</DropdownMenuLabel>
-        <DropdownMenuRadioGroup
-          value={layout}
-          onValueChange={(next) => setLayout(next as CourtNavLayout)}
-        >
-          <DropdownMenuRadioItem value="open">All queues</DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="grouped">
-            Grouped by type
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="actions">
-            Today’s actions
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="schedule">
-            Today’s schedule
-          </DropdownMenuRadioItem>
-        </DropdownMenuRadioGroup>
-        {/* Only the delay split has two rows to split into; Gujarat's three case-type
-            tabs stay on the one screen (owner, 2026-10-13). */}
-        {courtProfile(court).cognizanceSplit === "delay" ? (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel>Take cognizance</DropdownMenuLabel>
-            <DropdownMenuRadioGroup
-              value={cognizanceLayout}
-              onValueChange={(next) =>
-                setCognizanceLayout(next as CognizanceLayout)
-              }
-            >
-              <DropdownMenuRadioItem value="tabs">
-                Combined, with tabs
-              </DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="split">
-                Split into two rows
-              </DropdownMenuRadioItem>
-            </DropdownMenuRadioGroup>
-          </>
-        ) : null}
-        <DropdownMenuSeparator />
-        {/* The new order flow, or the way it was (owner, 2026-10-14). */}
-        <DropdownMenuLabel>Order flow</DropdownMenuLabel>
-        <DropdownMenuRadioGroup
-          value={orderFlow}
-          onValueChange={(next) => setOrderFlow(next as OrderFlow)}
-        >
-          {ORDER_FLOW_OPTIONS.map((option) => (
-            <DropdownMenuRadioItem key={option.id} value={option.id}>
-              {option.label}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-        {/* Pending orders' screen E only: attendance and the next hearing on the order's
-            page, or back among its order data (owner, 2026-10-14). */}
-        {orderFlow === "pending" ? (
-          <>
-            <DropdownMenuSeparator />
-            {/* Who enters the next hearing (owner, 2026-10-15): the reader on the cause
-                list, with E's fields disabled; or the steno in E, with no cause-list
-                column. */}
-            <DropdownMenuLabel>Next hearing entered by</DropdownMenuLabel>
-            <DropdownMenuRadioGroup
-              value={nextHearingEntry}
-              onValueChange={(next) =>
-                setNextHearingEntry(next as NextHearingEntry)
-              }
-            >
-              {NEXT_HEARING_ENTRY_OPTIONS.map((option) => (
-                <DropdownMenuRadioItem key={option.id} value={option.id}>
-                  {option.label}
-                </DropdownMenuRadioItem>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-title-s font-semibold">
+              Court settings
+            </DialogTitle>
+            <DialogDescription className="text-body-compact">
+              Changes apply at once, in this browser.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="settings-seat">Working as</Label>
+              <Select
+                value={seat}
+                onValueChange={(next) => setCourtRole(next as CourtRole)}
+              >
+                <SelectTrigger id="settings-seat" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {COURT_SEATS.map((role) => (
+                    <SelectItem key={role} value={role}>
+                      {courtRoleLabel(role, court)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-2" data-court-raw="">
+              <Label htmlFor="settings-court">Court</Label>
+              <Select
+                value={court}
+                onValueChange={(next) => {
+                  if (isCourtId(next)) setCourt(next);
+                }}
+              >
+                <SelectTrigger id="settings-court" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {COURT_IDS.map((id) => (
+                    <SelectItem key={id} value={id}>
+                      {courtProfile(id).name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <Collapsible defaultOpen className="flex flex-col gap-3 border-t border-hairline pt-3">
+            <CollapsibleTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="group/more w-fit gap-1 px-2 text-muted-foreground"
+              >
+                More settings
+                <ChevronDownIcon
+                  aria-hidden
+                  className="transition-transform group-data-[state=open]/more:rotate-180"
+                />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="flex flex-col gap-3">
+              {more.map((setting) => (
+                <div
+                  key={setting.id}
+                  className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-center gap-3"
+                >
+                  <Label
+                    htmlFor={`settings-${setting.id}`}
+                    className="text-caption font-normal text-muted-foreground"
+                  >
+                    {setting.label}
+                  </Label>
+                  <Select value={setting.value} onValueChange={setting.onChange}>
+                    <SelectTrigger
+                      id={`settings-${setting.id}`}
+                      size="sm"
+                      className="w-full"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {setting.options.map((option) => (
+                        <SelectItem key={option.id} value={option.id}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               ))}
-            </DropdownMenuRadioGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel>Attendance and next hearing</DropdownMenuLabel>
-            <DropdownMenuRadioGroup
-              value={detailsPlacement}
-              onValueChange={(next) =>
-                setDetailsPlacement(next as OrderDetailsPlacement)
-              }
-            >
-              {ORDER_DETAILS_PLACEMENT_OPTIONS.map((option) => (
-                <DropdownMenuRadioItem key={option.id} value={option.id}>
-                  {option.label}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-          </>
-        ) : null}
-        {/* A–D are Classic's alone; Pending orders always opens E (owner, 2026-10-14). */}
-        {orderFlow === "classic" ? (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel>Order screen</DropdownMenuLabel>
-            <DropdownMenuRadioGroup
-              value={orderLayout}
-              onValueChange={(next) => setOrderLayout(next as OrderLayout)}
-            >
-              {CLASSIC_ORDER_LAYOUT_OPTIONS.map((option) => (
-                <DropdownMenuRadioItem key={option.id} value={option.id}>
-                  {option.label}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-          </>
-        ) : null}
-        <DropdownMenuSeparator />
-        <DropdownMenuLabel>Court</DropdownMenuLabel>
-        <DropdownMenuRadioGroup
-          data-court-raw=""
-          value={court}
-          onValueChange={(next) => {
-            if (isCourtId(next)) setCourt(next);
-          }}
-        >
-          {COURT_IDS.map((id) => (
-            <DropdownMenuRadioItem key={id} value={id}>
-              {courtProfile(id).name}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-        <DropdownMenuSeparator />
-        {/* A demo control, last and apart: everything filed and drafted in this browser
-            goes, so it asks first (owner, 2026-10-14). */}
-        <DropdownMenuItem
-          variant="destructive"
-          onSelect={() => setConfirmReset(true)}
-        >
-          Reset sandbox data
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-      {/* The menu's root renders nothing of its own, so the confirmation can sit inside
-          it; it portals out and outlives the menu closing. */}
+              {/* A demo control, last and apart: everything filed and drafted in this
+                  browser goes, so it asks first (owner, 2026-10-14). */}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="w-fit px-2 text-destructive"
+                onClick={() => setConfirmReset(true)}
+              >
+                Reset sandbox data
+              </Button>
+            </CollapsibleContent>
+          </Collapsible>
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog open={confirmReset} onOpenChange={setConfirmReset}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Reset sandbox data?</AlertDialogTitle>
             <AlertDialogDescription>
-              The sample applications come back. Applications filed in this
-              browser, order drafts, pending orders and signatures are removed.
-              This cannot be undone.
+              The sample applications come back, and the hearings and orders go
+              back to the chosen demo data. Applications filed and orders typed in
+              this browser are removed. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1138,7 +1213,7 @@ function CourtSettingsControl() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </DropdownMenu>
+    </>
   );
 }
 
