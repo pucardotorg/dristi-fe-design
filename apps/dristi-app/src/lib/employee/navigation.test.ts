@@ -421,7 +421,7 @@ describe("rows hidden from the bench", () => {
   it("hides scrutiny and both approval queues from the magistrate and bench clerk", () => {
     for (const seat of ["magistrate", "bench-clerk"] as const) {
       for (const id of hidden) assert.equal(seatHasNavRow(seat, id), false, `${seat} ${id}`);
-      assert.ok(seatHasNavRow(seat, "onboard-applications"));
+      assert.ok(seatHasNavRow(seat, "applications"));
       const clubbed = courtNavClubbed("schedule", "kerala", seat).map((item) => item.id);
       assert.ok(hidden.every((id) => !clubbed.includes(id)));
     }

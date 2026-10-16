@@ -29,7 +29,9 @@ import {
   useLifecycleApplications,
 } from "@/lib/applications/store";
 import { counselFor, partiesLabel, type CaseRecord } from "@/lib/cases/types";
-import { caseOf } from "@/lib/employee/application-tasks";
+import { caseOf, courtDocumentOf } from "@/lib/employee/application-tasks";
+import { ApplicationFacsimile } from "@/components/employee/application-review-dialog";
+import { formatCaseDate } from "@/lib/cases/types";
 import { CURRENT_STAFF } from "@/lib/employee/content";
 import { formatOrderDate, type CourtCounsel } from "@/lib/employee/hearings";
 import { composerContextFor } from "@/lib/employee/order-context";
@@ -42,9 +44,20 @@ import type { ApplicationOrderDecision } from "@/lib/employee/application-order-
 import { EMPTY_ORDER_DRAFT } from "@/lib/employee/order-draft";
 
 /** The queue an application's order was opened from, and the way back to it. */
-const QUEUES: Record<CourtTaskKind, { href: string; label: string }> = {
-  review: { href: "/employee/onboard-applications", label: "Back to onboard applications" },
-  decide: { href: "/employee/decide-applications", label: "Back to decide on applications" },
+const QUEUES: Record<
+  CourtTaskKind,
+  { base: string; href: string; label: string }
+> = {
+  review: {
+    base: "/employee/applications/onboard",
+    href: "/employee/applications?view=onboard",
+    label: "Back to applications",
+  },
+  decide: {
+    base: "/employee/applications/decide",
+    href: "/employee/applications?view=decide",
+    label: "Back to applications",
+  },
 };
 
 /** Where an application's order is drawn up, from the queue it was opened in. */
@@ -53,7 +66,7 @@ export function applicationOrderHref(
   applicationId: string,
   decision?: ApplicationOrderDecision,
 ): string {
-  const base = `${QUEUES[kind].href}/${encodeURIComponent(applicationId)}/order`;
+  const base = `${QUEUES[kind].base}/${encodeURIComponent(applicationId)}/order`;
   return decision ? `${base}?decision=${decision}` : base;
 }
 
@@ -74,7 +87,9 @@ function decisionItem(
         applicationType: application.typeLabel,
         filerType: sideLabel(application.side).toLowerCase(),
         filerName: application.onBehalfOf,
-        filingDate: formatOrderDate(application.submittedOn ?? application.createdOn),
+        filingDate: formatOrderDate(
+          application.submittedOn ?? application.createdOn,
+        ),
       },
     });
   }
@@ -183,7 +198,32 @@ export function useApplicationOrderDoor(
     [application, decision, context],
   );
 
+  /* The application itself, first in the Case file panel, and open over the order on
+     arrival — what the order is on (owner, 2026-10-16). Closing Full view leaves it
+     open in the panel. */
+  const paper = React.useMemo(
+    () => courtDocumentOf(application),
+    [application],
+  );
+  const panelApplications = React.useMemo(
+    () => [
+      {
+        id: application.id,
+        label: application.typeLabel,
+        number: application.applicationNumber ?? application.temporaryId,
+        detail: `By the ${sideLabel(application.side).toLowerCase()}, ${formatCaseDate(application.submittedOn ?? application.createdOn)}`,
+        decided: false,
+        onOpen: () => {},
+        content: paper ? <ApplicationFacsimile document={paper} /> : undefined,
+        inSection: "pending-applications",
+      },
+    ],
+    [application, paper],
+  );
+
   return {
+    panelApplications,
+    openOnStart: { id: application.id, fullView: true },
     draftKey: `application:${application.id}`,
     origin: `Application · ${application.typeLabel}`,
     initial,
@@ -193,9 +233,21 @@ export function useApplicationOrderDoor(
       { label: "Application", value: application.typeLabel },
       { label: "Case", value: record.caseNumber, identifier: true },
       ...(application.applicationNumber
-        ? [{ label: "Number", value: application.applicationNumber, identifier: true }]
+        ? [
+            {
+              label: "Number",
+              value: application.applicationNumber,
+              identifier: true,
+            },
+          ]
         : application.temporaryId
-          ? [{ label: "Temporary ID", value: application.temporaryId, identifier: true }]
+          ? [
+              {
+                label: "Temporary ID",
+                value: application.temporaryId,
+                identifier: true,
+              },
+            ]
           : []),
     ],
     courtLine: courtText(`Before the ${CURRENT_STAFF.court}`),
@@ -211,7 +263,10 @@ export function useApplicationOrderDoor(
     overview: [
       { label: "Case", value: record.caseNumber },
       { label: "Application", value: application.typeLabel },
-      { label: "Raised by", value: application.raisedBy ?? application.createdByName },
+      {
+        label: "Raised by",
+        value: application.raisedBy ?? application.createdByName,
+      },
       { label: "On behalf of", value: application.onBehalfOf },
     ],
   };
@@ -230,8 +285,8 @@ function OrderMissing({ kind }: { kind: CourtTaskKind }) {
             This application is not in this browser
           </EmptyTitle>
           <EmptyDescription className="text-body">
-            Applications are kept in the browser they were filed from. Open the order
-            from the application in the queue.
+            Applications are kept in the browser they were filed from. Open the
+            order from the application in the queue.
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>

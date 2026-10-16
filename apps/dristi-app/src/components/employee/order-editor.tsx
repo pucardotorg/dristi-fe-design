@@ -23,7 +23,10 @@ import {
   type ComposerApplication,
   type ComposerFact,
 } from "@/components/employee/order-composer";
-import { OrderCasePanel } from "@/components/employee/order-case-panel";
+import {
+  OrderCasePanel,
+  type PanelApplication,
+} from "@/components/employee/order-case-panel";
 import {
   ItemDialog,
   ItemsCard,
@@ -758,10 +761,16 @@ export function OrderEditorComposer({
   overviewContent,
   historyContent,
   hearingsContent,
+  panelApplications,
+  openOnStart,
   context,
   purpose,
   fixedIds,
 }: {
+  /** The applications the Case file panel lists first, as papers or dialogs. */
+  panelApplications?: PanelApplication[];
+  /** A paper the Case file panel opens on arrival, in Full view or not. */
+  openOnStart?: { id: string; fullView?: boolean };
   /** The matter, for the catalogue's items in the workflow. */
   context: ComposerContext;
   purpose?: string;
@@ -986,6 +995,8 @@ export function OrderEditorComposer({
             overviewContent={overviewContent}
             historyContent={historyContent}
             hearingsContent={hearingsContent}
+            applications={panelApplications}
+            openOnStart={openOnStart}
             inlineViewer
           />
         ) : null}

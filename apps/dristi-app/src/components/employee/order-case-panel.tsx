@@ -58,6 +58,17 @@ export type PanelApplication = {
   /** Decided in this order — linked by deciding it, so it cannot be unlinked here. */
   decided: boolean;
   onOpen: () => void;
+  /**
+   * The application as paper. Given, it opens in this panel's own viewer — inline and
+   * in Full view — as a filed paper does, instead of `onOpen`'s dialog.
+   */
+  content?: React.ReactNode;
+  /**
+   * The case file's own section it is filed in ("pending-applications") — listed there,
+   * after that section's papers and numbered on from them, rather than in the
+   * Applications group a hearing's listing gets.
+   */
+  inSection?: string;
 };
 
 type DocumentRow = {
@@ -103,6 +114,7 @@ export function OrderCasePanel({
   requestView,
   onViewRequested,
   inlineViewer = false,
+  openOnStart,
 }: {
   className?: string;
   overview: { label: string; value: string }[];
@@ -131,6 +143,11 @@ export function OrderCasePanel({
    * for a panel wide enough to read a page in.
    */
   inlineViewer?: boolean;
+  /**
+   * A paper to open on arrival, and whether in Full view over the order — the
+   * application an order was opened on, say (owner, 2026-10-16).
+   */
+  openOnStart?: { id: string; fullView?: boolean };
 }) {
   const [tab, setTab] = React.useState(preview ? "preview" : "case-file");
   const [query, setQuery] = React.useState("");
@@ -145,6 +162,9 @@ export function OrderCasePanel({
             : [node]
           ).some((leaf) => links.includes(leaf.id) || cited.includes(leaf.id)),
         ).map((node) => node.id),
+        ...applications
+          .filter((application) => application.inSection)
+          .map((application) => application.inSection as string),
       ]),
   );
   const [viewing, setViewing] = React.useState<DocumentRow | null>(null);
@@ -198,14 +218,33 @@ export function OrderCasePanel({
         node: leaf,
       })),
     }));
-    return applications.length > 0
+    /* An application filed in one of the case file's sections joins it, numbered on. */
+    for (const application of applications) {
+      const section = filed.find((entry) => entry.id === application.inSection);
+      if (!section) continue;
+      section.rows.push({
+        id: application.id,
+        outline: section.outline
+          ? `${section.outline}.${section.rows.length + 1}`
+          : undefined,
+        label: application.label,
+        number: application.number,
+        detail: application.detail,
+        application,
+      });
+    }
+    const listed = applications.filter(
+      (application) =>
+        !filed.some((entry) => entry.id === application.inSection),
+    );
+    return listed.length > 0
       ? [
           {
             id: "applications",
             outline: undefined,
             label: "Applications",
             single: false,
-            rows: applications.map((application): DocumentRow => ({
+            rows: listed.map((application): DocumentRow => ({
               id: application.id,
               label: application.label,
               number: application.number,
@@ -219,6 +258,18 @@ export function OrderCasePanel({
   }, [applications]);
 
   const allRows = sections.flatMap((section) => section.rows);
+
+  /* The paper asked for on arrival, opened once. */
+  const [started, setStarted] = React.useState(false);
+  if (!started && openOnStart) {
+    setStarted(true);
+    const row = allRows.find((entry) => entry.id === openOnStart.id);
+    if (row && (!row.application || row.application.content)) {
+      setViewing(row);
+      setPopped(Boolean(openOnStart.fullView));
+      if (inlineViewer) setOpener(`list:${row.id}`);
+    }
+  }
   /* Linked by deciding it or by citing it: fixed here, undone where it was done. */
   const decidedIds = [
     ...applications
@@ -238,7 +289,7 @@ export function OrderCasePanel({
     const row = requestView
       ? allRows.find((entry) => entry.id === requestView)
       : undefined;
-    if (row && !row.application) {
+    if (row && (!row.application || row.application.content)) {
       setViewing(row);
       if (inlineViewer) {
         setOpener(`list:${row.id}`);
@@ -248,7 +299,10 @@ export function OrderCasePanel({
   }
   React.useEffect(() => {
     if (!requestView) return;
-    allRows.find((entry) => entry.id === requestView)?.application?.onOpen();
+    const application = allRows.find(
+      (entry) => entry.id === requestView,
+    )?.application;
+    if (application && !application.content) application.onOpen();
     onViewRequested?.();
   }, [requestView, allRows, onViewRequested]);
   const linkedRows = linkedIds
@@ -279,7 +333,7 @@ export function OrderCasePanel({
 
   /** `from` names the row it was opened from (its `data-opens`), for Back. */
   function open(row: DocumentRow, from: string) {
-    if (row.application) {
+    if (row.application && !row.application.content) {
       row.application.onOpen();
       return;
     }
@@ -439,7 +493,11 @@ export function OrderCasePanel({
                 <OutlineNumber number={viewing.outline} />
                 {viewing.label}
               </h3>
-              {viewing.node && caseFilePdfSrc(viewing.node) ? (
+              {viewing.application?.content ? (
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                  {viewing.application.content}
+                </div>
+              ) : viewing.node && caseFilePdfSrc(viewing.node) ? (
                 <CaseDocument
                   key={viewing.id}
                   src={caseFilePdfSrc(viewing.node) ?? ""}
@@ -702,7 +760,11 @@ export function OrderCasePanel({
               <DialogTitle className="text-title-s font-semibold">
                 {viewing?.label}
               </DialogTitle>
-              <DialogDescription>From the case file</DialogDescription>
+              <DialogDescription>
+                {viewing?.application
+                  ? viewing.application.detail
+                  : "From the case file"}
+              </DialogDescription>
             </div>
             {viewing && !disabled ? (
               <Button
@@ -724,7 +786,11 @@ export function OrderCasePanel({
           </DialogHeader>
           {/* The app's own PDF surface, as on the case file itself — not the browser's
               viewer in an iframe. */}
-          {viewing?.node && caseFilePdfSrc(viewing.node) ? (
+          {viewing?.application?.content ? (
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {viewing.application.content}
+            </div>
+          ) : viewing?.node && caseFilePdfSrc(viewing.node) ? (
             <CaseDocument
               key={viewing.id}
               src={caseFilePdfSrc(viewing.node) ?? ""}

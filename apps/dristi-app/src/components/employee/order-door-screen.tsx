@@ -10,6 +10,7 @@ import {
   type ComposerFact,
 } from "@/components/employee/order-composer";
 import { OrderEditorComposer } from "@/components/employee/order-editor";
+import type { PanelApplication } from "@/components/employee/order-case-panel";
 import { OrderTextComposer } from "@/components/employee/order-text-composer";
 import { ProceedingsComposer } from "@/components/employee/proceedings-composer";
 import { CausePostingContext } from "@/components/employee/cause-posting";
@@ -88,6 +89,12 @@ export type OrderDoor = {
   origin?: string;
   /** Only on a hearing: the roll, the applications on the listing, what it was for. */
   hearing?: OrderDoorHearing;
+  /**
+   * Off a hearing: the applications the Case file panel lists, and the paper it opens
+   * on arrival — E only, whose panel reads a paper in place (owner, 2026-10-16).
+   */
+  panelApplications?: PanelApplication[];
+  openOnStart?: { id: string; fullView?: boolean };
 };
 
 export type OrderDoorHearing = {
@@ -306,6 +313,8 @@ function OrderDoorBody({ door }: { door: OrderDoor }) {
         overviewContent={door.overviewContent}
         historyContent={door.historyContent}
         hearingsContent={door.hearingsContent}
+        panelApplications={door.panelApplications}
+        openOnStart={door.openOnStart}
         context={context}
         purpose={hearing?.purpose}
         fixedIds={door.fixedIds}

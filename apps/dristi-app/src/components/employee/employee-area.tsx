@@ -17,7 +17,10 @@ import { AppToaster } from "@/components/shell/app-toaster";
  * page (owner, 2026-09-22).
  */
 function railAreaOf(pathname: string): "rail" | "flow" {
-  return /^\/employee\/hearings\/[^/]+\/order(?:\/|$)/.test(pathname)
+  /* An order on a hearing or on an application folds the rail (2026-10-16). */
+  return /^\/employee\/(?:hearings|applications\/(?:onboard|decide))\/[^/]+\/order(?:\/|$)/.test(
+    pathname,
+  )
     ? "flow"
     : "rail";
 }

@@ -13,7 +13,6 @@ import {
   FolderIcon,
   HourglassIcon,
   LayoutDashboardIcon,
-  GavelIcon,
   InboxIcon,
   ListChecksIcon,
   MessageSquareIcon,
@@ -386,20 +385,15 @@ export const COURT_NAV_GROUPS: CourtNavGroup[] = [
     label: "Review applications",
     icon: FileSearchIcon,
     items: [
-      /* First, and without counts: the lifecycle's own two queues, read from the
-         applications store in the browser, so the rail cannot know the numbers before
-         the screen loads. The three fixture queues below predate them. */
+      /* First, and without a count: the lifecycle's own queue — onboarding and deciding
+         as one item since 2026-10-16 — read from the applications store in the browser,
+         so the rail cannot know the number before the screen loads. The three fixture
+         queues below predate it. */
       {
-        id: "onboard-applications",
-        label: "Onboard applications",
+        id: "applications",
+        label: "Applications",
         icon: InboxIcon,
-        href: "/employee/onboard-applications",
-      },
-      {
-        id: "decide-applications",
-        label: "Decide on applications",
-        icon: GavelIcon,
-        href: "/employee/decide-applications",
+        href: "/employee/applications",
       },
       {
         id: "rescheduling-request",
