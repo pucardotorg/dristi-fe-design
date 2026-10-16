@@ -381,13 +381,33 @@ export function RichTextField({
     return { host, before: before.toString() };
   }, []);
 
-  // Restore on mount only — rewriting innerHTML while typing eats the caret.
+  // Restore on mount — rewriting innerHTML while typing eats the caret.
   useEffect(() => {
     const editor = editorRef.current;
     if (editor && initialHtmlRef.current) {
       editor.innerHTML = initialHtmlRef.current;
     }
   }, []);
+
+  /**
+   * **A value that arrives after mount is taken in — but never under the typist.**
+   *
+   * A saved draft loads from the browser after hydration, so the field mounts on the
+   * server's empty value and the draft arrives a moment later. Read on mount only, the
+   * page stayed blank while the draft still held the words (2026-10-16: an order typed,
+   * reloaded, showed nothing). So when the value differs from what is on the page and
+   * the reader is not in the field, the page takes the value. While they are in it, the
+   * page is the truth and the value only follows it, so nothing is rewritten.
+   */
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    const active = document.activeElement;
+    if (active && (active === editor || editor.contains(active))) return;
+    if (stripGhostHtml(editor.innerHTML) !== value.html) {
+      editor.innerHTML = value.html;
+    }
+  }, [value.html]);
 
   // Keep the pressed states honest as the caret moves through the content.
   useEffect(() => {
