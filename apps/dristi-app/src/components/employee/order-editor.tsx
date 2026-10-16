@@ -363,6 +363,11 @@ export function OrderPaperEditor({
           "[&_[role=toolbar]]:sticky [&_[role=toolbar]]:top-(--order-head-bottom) [&_[role=toolbar]]:z-10 [&_[role=toolbar]]:rounded-t-xl [&_[role=toolbar]]:bg-card [&_[role=toolbar]]:px-3",
           /* The typed text on the page's margins, a paragraph's breath between lines. */
           "[&_[data-slot=input-group-control]]:min-h-[55svh] [&_[data-slot=input-group-control]]:px-6 [&_[data-slot=input-group-control]]:py-6 md:[&_[data-slot=input-group-control]]:px-12 [&_[data-slot=input-group-control]>*+*]:mt-4",
+          /* An empty page says where the order goes (owner, 2026-10-16: "it's not
+             obvious where they should click and start typing"). Drawn at the first
+             line's place, in muted ink, and gone the moment anything is typed. */
+          !value.text.trim() &&
+            "[&_[data-slot=input-group-control]]:relative [&_[data-slot=input-group-control]]:before:pointer-events-none [&_[data-slot=input-group-control]]:before:absolute [&_[data-slot=input-group-control]]:before:inset-x-6 [&_[data-slot=input-group-control]]:before:top-6 md:[&_[data-slot=input-group-control]]:before:inset-x-12 [&_[data-slot=input-group-control]]:before:text-muted-foreground [&_[data-slot=input-group-control]]:before:content-['Click_here_and_type_the_order._Type_/_for_a_shortcut.']",
         )}
       />
     </div>
