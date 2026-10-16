@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import {
   SAMPLE_SHORTCUTS,
   isFormatted,
+  leadInParagraph,
   matchOrderShortcuts,
   shortcutHtml,
   shortcutInsertion,
@@ -48,6 +49,15 @@ describe("order shortcuts", () => {
       kind: "inline",
       text: "Old",
     });
+  });
+
+  it("makes a bare first line a paragraph of its own", () => {
+    assert.equal(
+      leadInParagraph("Witnesses:<table><tr><td>A</td></tr></table>"),
+      "<p>Witnesses:</p><table><tr><td>A</td></tr></table>",
+    );
+    assert.equal(leadInParagraph("<p>One</p><ul><li>a</li></ul>"), "<p>One</p><ul><li>a</li></ul>");
+    assert.equal(leadInParagraph("<b>Heard.</b><br><div>Two</div>"), "<p><b>Heard.</b></p><div>Two</div>");
   });
 
   it("opens a shortcut saved before formatting as its text, escaped", () => {
