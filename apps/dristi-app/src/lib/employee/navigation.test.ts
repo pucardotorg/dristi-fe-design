@@ -72,7 +72,25 @@ describe("courtTrail", () => {
       { label: "ST/241/2026", mono: true },
     ];
     assert.deepEqual(courtTrail("/employee/hearings/h-241"), trail);
-    assert.deepEqual(courtTrail("/employee/hearings/h-241/order"), trail);
+  });
+
+  it("on an order, goes one step past its record and makes the record the way back", () => {
+    /* Owner, 2026-10-15: the order is a page of its own under the record, so the trail
+       says so — `ST/241/2026 › Order` — and the record's crumb returns to it. Only where
+       the record's own route is a page: a listing and a complaint both are. */
+    assert.deepEqual(courtTrail("/employee/hearings/h-241/order"), [
+      { label: "Hearings", href: "/employee/hearings" },
+      { label: "Today’s hearings", href: "/employee/hearings" },
+      { label: "ST/241/2026", mono: true, href: "/employee/hearings/h-241" },
+      { label: "Order" },
+    ]);
+    const cognizance = courtTrail("/employee/cognizance/c-2041/order");
+    assert.deepEqual(cognizance.slice(-2).map((crumb) => crumb.href), [
+      "/employee/cognizance/c-2041",
+      undefined,
+    ]);
+    assert.equal(cognizance.at(-1)?.label, "Order");
+    assert.equal(cognizance.at(-2)?.mono, true);
   });
 
   it("on a complaint's file, ends with the complaint's number", () => {
@@ -108,6 +126,47 @@ describe("courtTrail", () => {
         "/employee/register-cases",
       ),
     );
+  });
+
+  it("on an application, ends at its number once the browser can name it", () => {
+    /* The applications store lives in this browser, so the server and the first client
+       paint stop at the queue; the number arrives with the resolver after hydration. */
+    const path = "/employee/applications/app-sample-1";
+    const queue = [
+      { label: "Review applications", href: "/employee/applications" },
+      { label: "Applications", href: "/employee/applications" },
+    ];
+    assert.deepEqual(courtTrail(path), queue);
+    assert.deepEqual(
+      courtTrail(path, undefined, (q, id) =>
+        q === "/employee/applications" && id === "app-sample-1" ? "AP/12/2026" : undefined,
+      ),
+      [...queue, { label: "AP/12/2026", mono: true }],
+    );
+    /* Not found: still the queue's two steps, never an invented label. */
+    assert.deepEqual(courtTrail(path, undefined, () => undefined), queue);
+    /* The order on it: one step past the number, which goes back to the workstation —
+       and the way back lands on the list it was being worked in (owner, 2026-10-15). */
+    const named = (q: string, id: string) =>
+      q === "/employee/applications" && id === "app-sample-1" ? "AP/12/2026" : undefined;
+    assert.deepEqual(courtTrail(`${path}/order`, undefined, named, "decision=accept&view=decide"), [
+      { label: "Review applications", href: "/employee/applications?view=decide" },
+      { label: "Applications", href: "/employee/applications?view=decide" },
+      {
+        label: "AP/12/2026",
+        mono: true,
+        href: "/employee/applications/app-sample-1?view=decide",
+      },
+      { label: "Order" },
+    ]);
+    assert.deepEqual(courtTrail(path, undefined, named, "view=onboard"), [
+      { label: "Review applications", href: "/employee/applications?view=onboard" },
+      { label: "Applications", href: "/employee/applications?view=onboard" },
+      { label: "AP/12/2026", mono: true },
+    ]);
+    assert.ok(isCourtNavActive(path, "/employee/applications"));
+    assert.ok(isCourtNavActive(`${path}/order`, "/employee/applications"));
+    assert.ok(!isCourtNavActive("/employee/applications/a/b", "/employee/applications"));
   });
 
   it("does not treat an unknown complaint as nested", () => {
@@ -421,7 +480,7 @@ describe("rows hidden from the bench", () => {
   it("hides scrutiny and both approval queues from the magistrate and bench clerk", () => {
     for (const seat of ["magistrate", "bench-clerk"] as const) {
       for (const id of hidden) assert.equal(seatHasNavRow(seat, id), false, `${seat} ${id}`);
-      assert.ok(seatHasNavRow(seat, "onboard-applications"));
+      assert.ok(seatHasNavRow(seat, "applications"));
       const clubbed = courtNavClubbed("schedule", "kerala", seat).map((item) => item.id);
       assert.ok(hidden.every((id) => !clubbed.includes(id)));
     }

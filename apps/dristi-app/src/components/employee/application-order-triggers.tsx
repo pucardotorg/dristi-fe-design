@@ -38,6 +38,17 @@ const SETTLED: Record<ApplicationOrderKind, string> = {
 };
 
 /**
+ * Orders whose signer has already been told what the order did — the workstation's quick
+ * order says "Order signed. The application is accepted." itself — so the trigger applies
+ * them without a second toast saying the same thing. Cleared once applied.
+ */
+const told = new Set<string>();
+
+export function quietTrigger(orderKey: string): void {
+  told.add(orderKey);
+}
+
+/**
  * Applies each triggered order's application items to the applications they decide
  * (`lib/employee/application-order-outcome.ts`). Mounted once, by the court area, so an
  * order triggers its applications wherever it was signed or completed — Pending orders,
@@ -98,7 +109,9 @@ export function ApplicationOrderTriggers() {
         const label = `${application.typeLabel} application`;
         const id = `${order.key}:${application.id}`;
         if (result.ok) {
-          toast(`${label} ${SETTLED[outcome.kind]} by the signed order.`);
+          if (!told.delete(order.key)) {
+            toast(`${label} ${SETTLED[outcome.kind]} by the signed order.`);
+          }
         } else if (!reported.current.has(id)) {
           reported.current.add(id);
           toast.error(`${label} could not be ${SETTLED[outcome.kind]}: ${result.error}`);

@@ -1,14 +1,6 @@
-import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
-import { ApplicationTasksScreen } from "@/components/employee/application-tasks-screen";
-
-export const metadata: Metadata = { title: "Decide on applications" };
-
-/**
- * Decide on applications — the court's Decide application tasks
- * (`handovers/application-lifecycle.md`). Client-side: the tasks come from the
- * applications store in this browser — see `lib/employee/application-tasks.ts`.
- */
+/** Folded into Applications (owner, 2026-10-07); kept so old links still land. */
 export default function Page() {
-  return <ApplicationTasksScreen kind="decide" />;
+  redirect("/employee/applications?view=decide");
 }

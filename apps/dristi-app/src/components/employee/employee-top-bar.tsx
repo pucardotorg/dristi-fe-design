@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 import {
   CHROME_FOLD_TRIGGER,
@@ -15,7 +15,15 @@ import {
   isOrderScreenPath,
   OrderVariantSwitch,
 } from "@/components/employee/order-variant-switch";
-import { courtTrail, type CourtCrumb } from "@/lib/employee/navigation";
+import {
+  useApplicationsReady,
+  useLifecycleApplications,
+} from "@/lib/applications/store";
+import {
+  courtTrail,
+  type CourtCrumb,
+  type CourtRecordResolver,
+} from "@/lib/employee/navigation";
 import { cn } from "@/lib/utils";
 import {
   Breadcrumb,
@@ -47,11 +55,27 @@ import { usePendingOrders } from "@/components/employee/use-pending-orders";
  * both rail widths. Before this the rail's header seam ran out into nothing.
  */
 export function EmployeeTopBar() {
+  /* The query is read under its own boundary: `useSearchParams` outside one would turn
+     every statically rendered court page client-only. Until it resolves — on the server,
+     for a static page — the trail is drawn without it, which only drops `?view=` from the
+     way back to Applications. */
+  return (
+    <React.Suspense fallback={<CourtTopBar query="" />}>
+      <CourtTopBarWithQuery />
+    </React.Suspense>
+  );
+}
+
+function CourtTopBarWithQuery() {
+  return <CourtTopBar query={useSearchParams().toString()} />;
+}
+
+function CourtTopBar({ query }: { query: string }) {
   const pathname = usePathname();
   const [flow] = useOrderFlow();
   /* Subscribed so a pending order's crumb, named from the saved list, follows it. */
   usePendingOrders();
-  const crumbs = courtTrail(pathname, flow);
+  const crumbs = courtTrail(pathname, flow, useClientRecordResolver(), query);
   // Derived here rather than inside the trail because the divider beside the trigger has
   // to know whether anything follows it. On the court home nothing does.
   return (
@@ -68,6 +92,25 @@ export function EmployeeTopBar() {
       {crumbs.length > 0 ? <CourtTrail crumbs={crumbs} /> : null}
     </ChromeTopBar>
   );
+}
+
+/**
+ * Names the records that live in this browser rather than in the fixtures — today, an
+ * application by its number (or its temporary number before onboarding). `undefined`
+ * until the store has been read on the client, so the server and the first client paint
+ * agree on the shorter trail and the number arrives after hydration.
+ */
+function useClientRecordResolver(): CourtRecordResolver | undefined {
+  const ready = useApplicationsReady();
+  const apps = useLifecycleApplications();
+  return React.useMemo(() => {
+    if (!ready) return undefined;
+    return (queue, segment) => {
+      if (queue !== "/employee/applications") return undefined;
+      const app = apps.find((item) => item.id === segment);
+      return app ? (app.applicationNumber ?? app.temporaryId) : undefined;
+    };
+  }, [ready, apps]);
 }
 
 /**

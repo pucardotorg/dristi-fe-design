@@ -19,77 +19,35 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import {
-  sideLabel,
-  type CourtTaskKind,
-  type LifecycleApplication,
-} from "@/lib/applications/lifecycle";
+import type { LifecycleApplication } from "@/lib/applications/lifecycle";
 import {
   useApplicationsReady,
   useLifecycleApplications,
 } from "@/lib/applications/store";
-import { counselFor, partiesLabel, type CaseRecord } from "@/lib/cases/types";
+import { partiesLabel, type CaseRecord } from "@/lib/cases/types";
+import {
+  applicationHref,
+  type ApplicationOrderDecision,
+} from "@/lib/employee/application-order-decision";
+import {
+  applicationOrderContext,
+  applicationOrderKey,
+  decisionItem,
+} from "@/lib/employee/application-order-draft";
 import { caseOf } from "@/lib/employee/application-tasks";
 import { CURRENT_STAFF } from "@/lib/employee/content";
-import { formatOrderDate, type CourtCounsel } from "@/lib/employee/hearings";
-import { composerContextFor } from "@/lib/employee/order-context";
-import {
-  createItemBlock,
-  type ComposerContext,
-  type ItemBlock,
-} from "@/lib/employee/order-composer";
-import type { ApplicationOrderDecision } from "@/lib/employee/application-order-decision";
+import { formatOrderDate } from "@/lib/employee/hearings";
 import { EMPTY_ORDER_DRAFT } from "@/lib/employee/order-draft";
 
-/** The queue an application's order was opened from, and the way back to it. */
-const QUEUES: Record<CourtTaskKind, { href: string; label: string }> = {
-  review: { href: "/employee/onboard-applications", label: "Back to onboard applications" },
-  decide: { href: "/employee/decide-applications", label: "Back to decide on applications" },
-};
-
-/** Where an application's order is drawn up, from the queue it was opened in. */
-export function applicationOrderHref(
-  kind: CourtTaskKind,
-  applicationId: string,
-  decision?: ApplicationOrderDecision,
-): string {
-  const base = `${QUEUES[kind].href}/${encodeURIComponent(applicationId)}/order`;
-  return decision ? `${base}?decision=${decision}` : base;
-}
+const APPLICATIONS = "/employee/applications";
 
 /**
- * The catalogue item a decision pre-adds (owner, 2026-10-14: "pre-add the items in the
- * workflow"), filled from the application: *Accept application* or *Reject application*
- * with its number and type, or *Dismiss application* with its type, who filed it and when.
+ * The way back from an application's order: the application itself, in the workstation,
+ * on the list it was being worked in — carried in the order's URL rather than guessed
+ * from the application's state.
  */
-function decisionItem(
-  application: LifecycleApplication,
-  decision: ApplicationOrderDecision,
-  context: ComposerContext,
-): ItemBlock {
-  if (decision === "dismiss") {
-    return createItemBlock("dismiss-application", context, {
-      applicationId: application.id,
-      values: {
-        applicationType: application.typeLabel,
-        filerType: sideLabel(application.side).toLowerCase(),
-        filerName: application.onBehalfOf,
-        filingDate: formatOrderDate(application.submittedOn ?? application.createdOn),
-      },
-    });
-  }
-  return createItemBlock(
-    decision === "accept" ? "accept-application" : "reject-application",
-    context,
-    {
-      applicationId: application.id,
-      values: {
-        applicationNumber:
-          application.applicationNumber ?? application.temporaryId ?? "",
-        applicationType: application.typeLabel,
-      },
-    },
-  );
+function backTo(applicationId: string, view?: string): { href: string; label: string } {
+  return { href: applicationHref(applicationId, view), label: "Back to the application" };
 }
 
 /**
@@ -107,12 +65,13 @@ function decisionItem(
  */
 export function ApplicationOrderScreen({
   applicationId,
-  kind,
   decision,
+  view,
 }: {
   decision?: ApplicationOrderDecision;
   applicationId: string;
-  kind: CourtTaskKind;
+  /** The list the workstation was working, for the way back. */
+  view?: string;
 }) {
   const ready = useApplicationsReady();
   const apps = useLifecycleApplications();
@@ -121,13 +80,13 @@ export function ApplicationOrderScreen({
 
   /* The store is this browser's, so the server and the first paint have nothing yet. */
   if (!ready) return null;
-  if (!application || !record) return <OrderMissing kind={kind} />;
+  if (!application || !record) return <OrderMissing />;
   return (
     <ApplicationOrder
       application={application}
       record={record}
-      kind={kind}
       decision={decision}
+      view={view}
     />
   );
 }
@@ -135,43 +94,36 @@ export function ApplicationOrderScreen({
 function ApplicationOrder({
   application,
   record,
-  kind,
   decision,
+  view,
 }: {
   application: LifecycleApplication;
   record: CaseRecord;
-  kind: CourtTaskKind;
   decision?: ApplicationOrderDecision;
+  view?: string;
 }) {
-  const door = useApplicationOrderDoor(application, record, kind, decision);
+  const door = useApplicationOrderDoor(application, record, { decision, view });
   return <OrderDoorScreen door={door} />;
 }
 
-function counselOf(record: CaseRecord): CourtCounsel[] {
-  return (["complainant", "accused"] as const).flatMap((side) =>
-    counselFor(record, side).map((name) => ({ name, side })),
-  );
-}
-
+/**
+ * The door onto an application's order. `decision` pre-adds its catalogue item to an
+ * order nobody has started; a draft already saved under the key — the workstation's
+ * quick order, say — opens as it was left. `view` is the list the way back returns to.
+ */
 export function useApplicationOrderDoor(
   application: LifecycleApplication,
   record: CaseRecord,
-  kind: CourtTaskKind,
-  decision?: ApplicationOrderDecision,
+  {
+    decision,
+    view,
+  }: { decision?: ApplicationOrderDecision; view?: string } = {},
 ): OrderDoor {
   const today = useCourtToday();
   const courtText = useCourtText();
   const matter = partiesLabel(record);
-  const back = QUEUES[kind];
-  const context = React.useMemo(
-    () =>
-      composerContextFor({
-        caseNumber: record.caseNumber,
-        parties: record.parties,
-        counsel: counselOf(record),
-      }),
-    [record],
-  );
+  const back = backTo(application.id, view);
+  const context = React.useMemo(() => applicationOrderContext(record), [record]);
   const initial = React.useMemo(
     () =>
       decision
@@ -184,7 +136,7 @@ export function useApplicationOrderDoor(
   );
 
   return {
-    draftKey: `application:${application.id}`,
+    draftKey: applicationOrderKey(application.id),
     origin: `Application · ${application.typeLabel}`,
     initial,
     fixedIds: [],
@@ -217,8 +169,7 @@ export function useApplicationOrderDoor(
   };
 }
 
-function OrderMissing({ kind }: { kind: CourtTaskKind }) {
-  const back = QUEUES[kind];
+function OrderMissing() {
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-8 p-6 md:p-8">
       <Empty className="border-0 p-0">
@@ -236,7 +187,7 @@ function OrderMissing({ kind }: { kind: CourtTaskKind }) {
         </EmptyHeader>
         <EmptyContent>
           <Button asChild>
-            <Link href={back.href}>{back.label}</Link>
+            <Link href={APPLICATIONS}>Back to applications</Link>
           </Button>
         </EmptyContent>
       </Empty>

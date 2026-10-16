@@ -365,8 +365,12 @@ export function pay(
 /* First gate: Review application -------------------------------------------------- */
 
 /**
- * `ALC-05`, `ALC-20`: "set a date" is usable once. Nothing is stored for it — it is
- * read off the task's due date against its default.
+ * `ALC-05`, `ALC-20`: whether the review has been deferred already. Nothing is stored
+ * for it — it is read off the task's due date against its default.
+ *
+ * The lifecycle document makes deferral usable once. Product relaxed that to a warning
+ * (2026-10-08, Anshumanth): the bench keeps the discretion to defer again, and the
+ * screen says it has been deferred before. So this answers a question; it guards nothing.
  */
 export function setADateUsed(app: LifecycleApplication): boolean {
   return Boolean(app.review && app.review.dueOn !== app.review.defaultDueOn);
@@ -381,9 +385,6 @@ export function setReviewDate(
   expect(app, "pending-review");
   if (!canTakeSystemAction(seat)) {
     throw new LifecycleError("Only the magistrate or bench clerk sets a date.");
-  }
-  if (setADateUsed(app)) {
-    throw new LifecycleError("A date has already been set once.");
   }
   if (!app.review || dueOn <= on) {
     throw new LifecycleError("Choose a date after today.");
@@ -440,6 +441,40 @@ export function onboard(
         invited && choice.mode === "date"
           ? objectionDeadline(choice.decideOn)
           : undefined,
+    },
+  );
+}
+
+/**
+ * Taken up now, then listed after all. Onboarding is done and stays done; what changes
+ * is when the court decides, and — since "now" called for no objection — whether the
+ * other party is asked for one (`ALC-09`, `ALC-11`–`ALC-13`). Product's reading of the
+ * PRD's "change the decision date" (2026-10-08): it lowers the cost of choosing "now",
+ * it does not un-onboard anything.
+ */
+export function listForLater(
+  app: LifecycleApplication,
+  seat: CourtSeat,
+  decideOn: string,
+  inviteObjections: boolean,
+  on: string,
+): LifecycleApplication {
+  expect(app, "pending-decision");
+  if (!canTakeSystemAction(seat)) {
+    throw new LifecycleError("Only the magistrate or bench clerk lists an application.");
+  }
+  if (app.decide?.mode !== "now") {
+    throw new LifecycleError("This application is already listed for a date.");
+  }
+  if (decideOn <= on) throw new LifecycleError("Choose a date after today.");
+  return stamp(
+    app,
+    on,
+    `Listed for ${decideOn} instead of now${inviteObjections ? ", objections invited" : ""}`,
+    {
+      decide: { dueOn: decideOn, mode: "date" },
+      objectionsInvited: inviteObjections,
+      objectionDueBy: inviteObjections ? objectionDeadline(decideOn) : undefined,
     },
   );
 }
