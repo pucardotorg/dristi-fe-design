@@ -212,6 +212,7 @@ export function OrderShortcutsDialog({
               labelId={textId}
               value={text}
               onChange={setText}
+              tables
               /* The order page's breath between paragraphs, so a shortcut reads here as
                  it will on the page. */
               className="[&_[data-slot=input-group-control]]:min-h-80 [&_[data-slot=input-group-control]>*+*]:mt-4"

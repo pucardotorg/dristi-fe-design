@@ -354,6 +354,7 @@ export function OrderPaperEditor({
         onChange={onChange}
         labelId="order-paper-label"
         suggestion={suggestion}
+        tables
         header={<PaperHead frame={frame} attendance={parts?.attendance} />}
         footer={<PaperFoot frame={frame} nextHearing={parts?.nextHearing} />}
         className={cn(
@@ -366,11 +367,26 @@ export function OrderPaperEditor({
           /* An empty page says where the order goes (owner, 2026-10-16: "it's not
              obvious where they should click and start typing"). Drawn at the first
              line's place, in muted ink, and gone the moment anything is typed. */
-          !value.text.trim() &&
+          isBlankOrder(value) &&
             "[&_[data-slot=input-group-control]]:relative [&_[data-slot=input-group-control]]:before:pointer-events-none [&_[data-slot=input-group-control]]:before:absolute [&_[data-slot=input-group-control]]:before:inset-x-6 [&_[data-slot=input-group-control]]:before:top-6 md:[&_[data-slot=input-group-control]]:before:inset-x-12 [&_[data-slot=input-group-control]]:before:text-muted-foreground [&_[data-slot=input-group-control]]:before:content-['Click_here_and_type_the_order._Type_/_for_a_shortcut.']",
         )}
       />
     </div>
+  );
+}
+
+/**
+ * Nothing on the page yet. Read from the markup, not `text`: a table whose cells are
+ * still empty has no text, but the page is not blank, and the placeholder must not
+ * draw over its grid.
+ */
+function isBlankOrder(value: RichTextValue): boolean {
+  if (/<(table|li|hr|img)[\s>]/i.test(value.html)) return false;
+  return (
+    value.html
+      .replace(/<[^>]*>/g, "")
+      .replace(/&nbsp;/g, " ")
+      .trim() === ""
   );
 }
 
