@@ -7,6 +7,7 @@ import {
   ChevronRightIcon,
   FileTextIcon,
   LinkIcon,
+  Maximize2Icon,
   XIcon,
 } from "lucide-react";
 
@@ -15,9 +16,22 @@ import { OrderDataFlags } from "@/components/employee/order-data-flags";
 import { PANEL_CLASS } from "@/components/shell/panel";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   CASE_FILE_TREE,
   caseFilePdfSrc,
@@ -42,8 +56,9 @@ type DocumentRow = {
  * **Case file**: the case file's own index (`CASE_FILE_TREE`, the tree the case's
  * Case file section reads, numbered and ordered as that section is — View Case
  * handover §6.2), searchable. Any document can be **linked to the order**. A document
- * opens in the panel itself, in the case file's place, with Link in its header and Back
- * to the list (owner, 2026-10-15).
+ * opens in the panel itself, in the case file's place, with Link in its header, Back
+ * to the list (owner, 2026-10-15), and Full view, which lifts the same paper into a
+ * pop-up over the order (owner, 2026-10-16).
  *
  * **Case history**: the court's own case history, when the screen gives one.
  *
@@ -85,6 +100,9 @@ export function OrderCasePanel({
   const [opener, setOpener] = React.useState<string | null>(null);
   const returning = React.useRef(false);
   const inline = viewing !== null;
+  /* The paper lifted into a pop-up over the order (Full view). Closing it lands back
+     on the paper in the panel, where it was lifted from. */
+  const [popped, setPopped] = React.useState(false);
 
   React.useEffect(() => {
     if (inline) {
@@ -103,6 +121,7 @@ export function OrderCasePanel({
 
   function closeInline() {
     returning.current = true;
+    setPopped(false);
     setViewing(null);
   }
 
@@ -236,27 +255,45 @@ export function OrderCasePanel({
                   <ArrowLeftIcon data-icon="inline-start" aria-hidden />
                   Case file
                 </Button>
-                {disabled ? null : (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    aria-pressed={links.includes(viewing.id)}
-                    className={cn(
-                      links.includes(viewing.id) &&
-                        "text-success-ink hover:text-success-ink",
-                    )}
-                    onClick={() => toggle(viewing.id)}
-                  >
-                    {links.includes(viewing.id) ? (
-                      <CheckIcon data-icon="inline-start" aria-hidden />
-                    ) : (
-                      <LinkIcon data-icon="inline-start" aria-hidden />
-                    )}
-                    {links.includes(viewing.id)
-                      ? "Linked to the order"
-                      : "Link to the order"}
-                  </Button>
-                )}
+                <div className="flex min-w-0 items-center gap-2">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Full view of ${viewing.label}`}
+                          onClick={() => setPopped(true)}
+                        >
+                          <Maximize2Icon aria-hidden />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Full view</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  {disabled ? null : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      aria-pressed={links.includes(viewing.id)}
+                      className={cn(
+                        links.includes(viewing.id) &&
+                          "text-success-ink hover:text-success-ink",
+                      )}
+                      onClick={() => toggle(viewing.id)}
+                    >
+                      {links.includes(viewing.id) ? (
+                        <CheckIcon data-icon="inline-start" aria-hidden />
+                      ) : (
+                        <LinkIcon data-icon="inline-start" aria-hidden />
+                      )}
+                      {links.includes(viewing.id)
+                        ? "Linked to the order"
+                        : "Link to the order"}
+                    </Button>
+                  )}
+                </div>
               </div>
               <h3
                 ref={viewerHeadRef}
@@ -479,6 +516,49 @@ export function OrderCasePanel({
         </TabsContent>
       </Tabs>
 
+      <Dialog
+        open={viewing !== null && popped}
+        onOpenChange={(next) => {
+          if (!next) setPopped(false);
+        }}
+      >
+        <DialogContent className="flex h-[85dvh] flex-col gap-4 sm:max-w-5xl">
+          <DialogHeader className="flex-row items-start justify-between gap-4 pr-12">
+            <div className="flex min-w-0 flex-col gap-1">
+              <DialogTitle className="text-title-s font-semibold">
+                {viewing?.label}
+              </DialogTitle>
+              <DialogDescription>From the case file</DialogDescription>
+            </div>
+            {viewing && !disabled ? (
+              <Button
+                type="button"
+                variant={links.includes(viewing.id) ? "outline" : "default"}
+                aria-pressed={links.includes(viewing.id)}
+                onClick={() => toggle(viewing.id)}
+              >
+                {links.includes(viewing.id) ? (
+                  <CheckIcon data-icon="inline-start" aria-hidden />
+                ) : (
+                  <LinkIcon data-icon="inline-start" aria-hidden />
+                )}
+                {links.includes(viewing.id)
+                  ? "Linked to the order"
+                  : "Link to the order"}
+              </Button>
+            ) : null}
+          </DialogHeader>
+          {/* The app's own PDF surface, as on the case file itself — not the browser's
+              viewer in an iframe. */}
+          {viewing?.node && caseFilePdfSrc(viewing.node) ? (
+            <CaseDocument
+              key={viewing.id}
+              src={caseFilePdfSrc(viewing.node) ?? ""}
+              title={viewing.label}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
