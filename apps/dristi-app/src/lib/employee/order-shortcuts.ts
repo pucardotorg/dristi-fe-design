@@ -2,32 +2,80 @@
  * Typing shortcuts for the full-page order editor (owner, 2026-10-14): type `/` and a
  * shortcut's name, press Tab, and its text takes the place of what was typed.
  *
- * Deliberately plain — a name and the text it stands for, nothing more. No variables, no
- * blanks, no workflow: a shortcut saves typing and says nothing the typist did not
- * choose. The order items with workflows stay the catalogue's (`order-templates.ts`).
+ * A name and the text it stands for — no workflow: a shortcut saves typing and says
+ * nothing the typist did not choose. The order items with workflows stay the catalogue's
+ * (`order-templates.ts`).
+ *
+ * **The text is formatted** (owner, 2026-10-16: "a much larger rich text field where I
+ * can format text"): paragraphs, bold, lists. `html` carries the formatting, `text` the
+ * same words plain for the list and the search. A one-line shortcut with no formatting
+ * still lands inline, in the sentence being typed; anything else lands as its own
+ * paragraphs. A `[…]` in the text is a blank the editor selects on insert, so the
+ * typist types straight over it.
  *
  * It opens on the catalogue's own order items that carry no variables, worded as the
- * catalogue words them. Shortcuts added, changed or removed are kept in this browser
+ * catalogue words them, and a set of longer orders modelled on §138 order sheets (see
+ * `order-shortcut-samples.ts`). Shortcuts added, changed or removed are kept in this browser
  * (`localStorage`) — per person and per device, not shared with the court, and lost with
  * the browser's site data. A shared, court-wide list is the backend's to hold.
  */
 
+import { FORMATTED_SAMPLE_SHORTCUTS } from "./order-shortcut-samples";
 import { ORDER_TEMPLATES } from "./order-templates";
 
-export type OrderShortcut = { id: string; name: string; text: string };
+export type OrderShortcut = {
+  id: string;
+  name: string;
+  /** The words, plain — what the list shows and what a one-line shortcut types. */
+  text: string;
+  /** The words as formatted. Absent on a shortcut saved before shortcuts had formatting. */
+  html?: string;
+};
 
 const KEY = "dristi.order-shortcuts";
+/** Sample ids this browser has already been given, so a removed sample stays removed. */
+const SEEN_KEY = "dristi.order-shortcuts.samples-seen";
 
-/** The catalogue's variable-free order items, as the shortcuts a browser starts on. */
-export const SAMPLE_SHORTCUTS: readonly OrderShortcut[] = Object.freeze(
-  ORDER_TEMPLATES.filter(
-    (template) => template.botd && !template.botd.includes("["),
-  ).map((template) => ({
-    id: `sample-${template.id}`,
-    name: template.label,
-    text: template.botd,
-  })),
-);
+/** The catalogue's variable-free order items. */
+const CATALOGUE_SHORTCUTS: readonly OrderShortcut[] = ORDER_TEMPLATES.filter(
+  (template) => template.botd && !template.botd.includes("["),
+).map((template) => ({
+  id: `sample-${template.id}`,
+  name: template.label,
+  text: template.botd,
+}));
+
+/** The shortcuts a browser starts on: the catalogue's one-liners, then the longer orders. */
+export const SAMPLE_SHORTCUTS: readonly OrderShortcut[] = Object.freeze([
+  ...CATALOGUE_SHORTCUTS,
+  ...FORMATTED_SAMPLE_SHORTCUTS,
+]);
+
+/**
+ * What a shortcut puts in the order: one plain line goes in as text, at the caret;
+ * anything with paragraphs or formatting goes in as its own blocks.
+ */
+export function shortcutInsertion(
+  entry: OrderShortcut,
+): { kind: "inline"; text: string } | { kind: "block"; html: string } {
+  if (entry.html && isFormatted(entry.html)) {
+    return { kind: "block", html: entry.html };
+  }
+  return { kind: "inline", text: entry.text };
+}
+
+/**
+ * Markup that is more than one plain line. The editor wraps even a plain line in a
+ * `<div>` or ends it with a `<br>` now and then, so those alone do not count.
+ */
+export function isFormatted(html: string): boolean {
+  const bare = html
+    .trim()
+    .replace(/^<(div|p)>/i, "")
+    .replace(/<\/(div|p)>$/i, "")
+    .replace(/<br\s*\/?>$/i, "");
+  return /<[a-z]/i.test(bare);
+}
 
 let shortcuts: readonly OrderShortcut[] = SAMPLE_SHORTCUTS;
 let restored = false;
@@ -41,7 +89,8 @@ function isShortcutList(value: unknown): value is OrderShortcut[] {
         entry &&
         typeof entry.id === "string" &&
         typeof entry.name === "string" &&
-        typeof entry.text === "string",
+        typeof entry.text === "string" &&
+        (entry.html === undefined || typeof entry.html === "string"),
     )
   );
 }
@@ -51,7 +100,30 @@ function restore(): void {
   restored = true;
   try {
     const stored = JSON.parse(window.localStorage.getItem(KEY) ?? "null");
-    if (isShortcutList(stored)) shortcuts = stored;
+    if (isShortcutList(stored)) {
+      /* Samples added since this browser saved its list join the end of it, once — a
+         browser that saved before the longer orders existed would otherwise never see
+         them. A sample it was given and removed is not given back. */
+      const seenStored = JSON.parse(
+        window.localStorage.getItem(SEEN_KEY) ?? "null",
+      );
+      const seen = new Set<string>(
+        Array.isArray(seenStored)
+          ? seenStored
+          : CATALOGUE_SHORTCUTS.map((entry) => entry.id),
+      );
+      const held = new Set(stored.map((entry) => entry.id));
+      shortcuts = [
+        ...stored,
+        ...SAMPLE_SHORTCUTS.filter(
+          (entry) => !seen.has(entry.id) && !held.has(entry.id),
+        ),
+      ];
+    }
+    window.localStorage.setItem(
+      SEEN_KEY,
+      JSON.stringify(SAMPLE_SHORTCUTS.map((entry) => entry.id)),
+    );
   } catch {
     // Private mode, cleared storage or a damaged value. The samples stand.
   }
@@ -86,22 +158,44 @@ export function serverOrderShortcuts(): readonly OrderShortcut[] {
   return SAMPLE_SHORTCUTS;
 }
 
-export function addOrderShortcut(name: string, text: string): void {
+export function addOrderShortcut(
+  name: string,
+  body: { text: string; html: string },
+): void {
   const id = `shortcut-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
-  write([...readOrderShortcuts(), { id, name: name.trim(), text: text.trim() }]);
+  write([
+    ...readOrderShortcuts(),
+    { id, name: name.trim(), text: body.text.trim(), html: body.html.trim() },
+  ]);
 }
 
 export function updateOrderShortcut(
   id: string,
-  change: { name: string; text: string },
+  change: { name: string; text: string; html: string },
 ): void {
   write(
     readOrderShortcuts().map((entry) =>
       entry.id === id
-        ? { ...entry, name: change.name.trim(), text: change.text.trim() }
+        ? {
+            ...entry,
+            name: change.name.trim(),
+            text: change.text.trim(),
+            html: change.html.trim(),
+          }
         : entry,
     ),
   );
+}
+
+/** The markup a shortcut opens with in the editor — its own, or its plain text escaped. */
+export function shortcutHtml(entry: OrderShortcut): string {
+  if (entry.html) return entry.html;
+  return entry.text
+    .split("\n")
+    .map((line) =>
+      line.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"),
+    )
+    .join("<br>");
 }
 
 export function removeOrderShortcut(id: string): void {

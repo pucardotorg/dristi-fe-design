@@ -3,7 +3,12 @@
 import * as React from "react";
 import { PencilIcon, Trash2Icon } from "lucide-react";
 
-import type { RichTextSuggestion } from "@/components/cases/rich-text-field";
+import {
+  EMPTY_RICH_TEXT,
+  RichTextField,
+  type RichTextSuggestion,
+  type RichTextValue,
+} from "@/components/cases/rich-text-field";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,13 +20,14 @@ import {
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { Textarea } from "@/components/ui/textarea";
 import {
   addOrderShortcut,
   matchOrderShortcuts,
   readOrderShortcuts,
   removeOrderShortcut,
   serverOrderShortcuts,
+  shortcutHtml,
+  shortcutInsertion,
   shortcutNameTaken,
   subscribeToOrderShortcuts,
   updateOrderShortcut,
@@ -54,7 +60,7 @@ export function useShortcutSuggestion(): RichTextSuggestion {
           : [],
       accept: (key) => {
         const entry = shortcuts.find((shortcut) => shortcut.id === key);
-        return entry ? { kind: "inline", text: entry.text } : null;
+        return entry ? shortcutInsertion(entry) : null;
       },
     }),
     [shortcuts],
@@ -64,6 +70,10 @@ export function useShortcutSuggestion(): RichTextSuggestion {
 /**
  * Shortcuts — a name and the text it stands for (owner, 2026-10-14). Listed, changed and
  * removed here; added with the form at the foot. Nothing more to configure.
+ *
+ * The text is the order page's own rich text field at full size, not a textarea
+ * (owner, 2026-10-16), so a shortcut can carry paragraphs, bold and lists — whole
+ * orders, not only phrases. The dialog widens to give it a page's measure.
  */
 export function OrderShortcutsDialog({
   open,
@@ -75,7 +85,10 @@ export function OrderShortcutsDialog({
   const shortcuts = useOrderShortcuts();
   const [editing, setEditing] = React.useState<string | null>(null);
   const [name, setName] = React.useState("");
-  const [text, setText] = React.useState("");
+  const [text, setText] = React.useState<RichTextValue>(EMPTY_RICH_TEXT);
+  /* The field reads its value once, when it mounts — so opening another shortcut, or
+     clearing the form, mounts a fresh one. */
+  const [formKey, setFormKey] = React.useState(0);
   const [tried, setTried] = React.useState(false);
   const nameId = React.useId();
   const textId = React.useId();
@@ -86,20 +99,22 @@ export function OrderShortcutsDialog({
     : taken
       ? "Another shortcut has this name."
       : null;
-  const textError = !text.trim() ? "Give the text it types." : null;
+  const textError = !text.text.trim() ? "Give the text it types." : null;
 
   function reset() {
     setEditing(null);
     setName("");
-    setText("");
+    setText(EMPTY_RICH_TEXT);
+    setFormKey((key) => key + 1);
     setTried(false);
   }
 
   function save() {
     setTried(true);
     if (nameError || textError) return;
-    if (editing) updateOrderShortcut(editing, { name, text });
-    else addOrderShortcut(name, text);
+    const body = { text: text.text, html: text.html };
+    if (editing) updateOrderShortcut(editing, { name, ...body });
+    else addOrderShortcut(name, body);
     reset();
   }
 
@@ -111,7 +126,7 @@ export function OrderShortcutsDialog({
         onOpenChange(next);
       }}
     >
-      <DialogContent className="flex max-h-[85svh] flex-col gap-6 sm:max-w-2xl">
+      <DialogContent className="flex max-h-[90svh] flex-col gap-6 overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>Shortcuts</DialogTitle>
           <DialogDescription>
@@ -120,7 +135,7 @@ export function OrderShortcutsDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <ul className="-mx-2 flex min-h-0 flex-col overflow-y-auto">
+        <ul className="-mx-2 flex max-h-72 min-h-32 shrink-0 flex-col overflow-y-auto">
           {shortcuts.map((entry) => (
             <li
               key={entry.id}
@@ -140,7 +155,8 @@ export function OrderShortcutsDialog({
                 onClick={() => {
                   setEditing(entry.id);
                   setName(entry.name);
-                  setText(entry.text);
+                  setText({ html: shortcutHtml(entry), text: entry.text });
+                  setFormKey((key) => key + 1);
                   setTried(false);
                 }}
               >
@@ -190,13 +206,15 @@ export function OrderShortcutsDialog({
             {tried && nameError ? <FieldError>{nameError}</FieldError> : null}
           </Field>
           <Field data-invalid={tried && textError ? true : undefined}>
-            <FieldLabel htmlFor={textId}>Text</FieldLabel>
-            <Textarea
-              id={textId}
+            <FieldLabel id={textId}>Text</FieldLabel>
+            <RichTextField
+              key={formKey}
+              labelId={textId}
               value={text}
-              onChange={(event) => setText(event.target.value)}
-              aria-invalid={tried && textError ? true : undefined}
-              className="min-h-24"
+              onChange={setText}
+              /* The order page's breath between paragraphs, so a shortcut reads here as
+                 it will on the page. */
+              className="[&_[data-slot=input-group-control]]:min-h-80 [&_[data-slot=input-group-control]>*+*]:mt-4"
             />
             {tried && textError ? <FieldError>{textError}</FieldError> : null}
           </Field>
