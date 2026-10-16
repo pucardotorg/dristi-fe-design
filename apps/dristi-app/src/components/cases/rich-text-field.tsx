@@ -7,9 +7,11 @@ import {
   AlignLeftIcon,
   AlignRightIcon,
   BoldIcon,
+  ChevronDownIcon,
   ItalicIcon,
   ListIcon,
   ListOrderedIcon,
+  TableIcon,
   UnderlineIcon,
 } from "lucide-react";
 
@@ -22,6 +24,27 @@ import {
   stripGhostHtml,
   suggestionHost,
 } from "@/lib/rich-text/ghost";
+import {
+  addColumnRight,
+  addRowBelow,
+  caretInto,
+  cellAt,
+  deleteColumn,
+  deleteRow,
+  deleteTable,
+  ensureLineAfterTables,
+  hasTable,
+  siblingCell,
+  tableHtml,
+} from "@/lib/rich-text/table";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useFieldControlProps } from "@/components/ui/field";
 import { InputGroup } from "@/components/ui/input-group";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -65,6 +88,20 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
  */
 const LIST_CLASSES =
   "[&_ol]:list-decimal [&_ol]:ps-6 [&_ul]:list-disc [&_ul]:ps-6 [&_u]:underline";
+
+/*
+ * Tables, for the fields that allow them (`tables`), and on every view — a value that
+ * holds a table must read the same wherever it is shown, and on the order paper that is
+ * what prints. Fixed layout so a blank table opens with even columns and a long word
+ * wraps in its cell instead of pushing the page wider; the `border` token rather than
+ * `hairline`, because a grid that disappears on paper is not a table. A row never splits
+ * across a printed page.
+ */
+const TABLE_CLASSES =
+  "[&_table]:w-full [&_table]:table-fixed [&_table]:border-collapse [&_tr]:break-inside-avoid [&_th]:border [&_th]:border-border [&_th]:px-3 [&_th]:py-2 [&_th]:text-start [&_th]:align-top [&_th]:font-semibold [&_th]:wrap-break-word [&_td]:border [&_td]:border-border [&_td]:px-3 [&_td]:py-2 [&_td]:align-top [&_td]:wrap-break-word";
+
+/** What the editor and `RichTextValueView` both wear, so the two always agree. */
+const CONTENT_CLASSES = cn(LIST_CLASSES, TABLE_CLASSES);
 
 /** Both shapes are kept: html renders the formatting, text drives validation. */
 export type RichTextValue = {
@@ -173,6 +210,7 @@ export function RichTextField({
   header,
   footer,
   pageClassName,
+  tables = false,
 }: {
   value: RichTextValue;
   onChange: (value: RichTextValue) => void;
@@ -193,6 +231,12 @@ export function RichTextField({
   header?: React.ReactNode;
   footer?: React.ReactNode;
   pageClassName?: string;
+  /**
+   * Inserting and editing tables — off unless a screen asks (order screen E's order
+   * page and its shortcut templates). The citizen-side fields never offer it. A value
+   * that already holds a table renders it either way.
+   */
+  tables?: boolean;
 }) {
   const editorRef = useRef<HTMLDivElement>(null);
   const initialHtmlRef = useRef(value.html);
@@ -217,6 +261,15 @@ export function RichTextField({
   const [shown, setShown] = useState<{ key: string; label: string } | null>(
     null,
   );
+  /**
+   * The table cell the caret was last in. Held rather than read at the moment of use,
+   * because opening the table menu moves focus off the editor — the menu acts on the
+   * cell the typist was in when they opened it. `landRef` is where the caret goes once
+   * the menu has closed.
+   */
+  const cellRef = useRef<HTMLTableCellElement | null>(null);
+  const landRef = useRef<Element | null>(null);
+  const [inTable, setInTable] = useState(false);
 
   const syncToolbar = useCallback(() => {
     setMarks(MARKS.map((m) => m.command).filter(commandState));
@@ -225,7 +278,18 @@ export function RichTextField({
       ALIGNMENTS.find((item) => commandState(item.command))?.command ??
         "justifyLeft"
     );
-  }, []);
+    if (tables) {
+      const editor = editorRef.current;
+      const selection = window.getSelection();
+      const node =
+        selection && selection.rangeCount > 0
+          ? selection.getRangeAt(0).startContainer
+          : null;
+      const cell = editor && node ? cellAt(editor, node) : null;
+      cellRef.current = cell;
+      setInTable(cell !== null);
+    }
+  }, [tables]);
 
   /**
    * The one place a value leaves this field — so it is the one place the preview has to
@@ -299,7 +363,11 @@ export function RichTextField({
     /* Both of this function's own failures live in `suggestionHost`, with the tests
        that pin them: an empty box has no paragraph to append to, and a caret on the
        editor must not send the walk climbing out of it. */
-    const host = suggestionHost(editor, range.startContainer) as HTMLElement | null;
+    /* Inside a table cell the cell is the block: the preview goes in the cell, and
+       "nothing after the caret" means nothing after it *in that cell*, not in every
+       cell to its right. */
+    const scope = cellAt(editor, range.startContainer) ?? editor;
+    const host = suggestionHost(scope, range.startContainer) as HTMLElement | null;
     if (!host) return null;
 
     const after = document.createRange();
@@ -313,13 +381,33 @@ export function RichTextField({
     return { host, before: before.toString() };
   }, []);
 
-  // Restore on mount only — rewriting innerHTML while typing eats the caret.
+  // Restore on mount — rewriting innerHTML while typing eats the caret.
   useEffect(() => {
     const editor = editorRef.current;
     if (editor && initialHtmlRef.current) {
       editor.innerHTML = initialHtmlRef.current;
     }
   }, []);
+
+  /**
+   * **A value that arrives after mount is taken in — but never under the typist.**
+   *
+   * A saved draft loads from the browser after hydration, so the field mounts on the
+   * server's empty value and the draft arrives a moment later. Read on mount only, the
+   * page stayed blank while the draft still held the words (2026-10-16: an order typed,
+   * reloaded, showed nothing). So when the value differs from what is on the page and
+   * the reader is not in the field, the page takes the value. While they are in it, the
+   * page is the truth and the value only follows it, so nothing is rewritten.
+   */
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    const active = document.activeElement;
+    if (active && (active === editor || editor.contains(active))) return;
+    if (stripGhostHtml(editor.innerHTML) !== value.html) {
+      editor.innerHTML = value.html;
+    }
+  }, [value.html]);
 
   // Keep the pressed states honest as the caret moves through the content.
   useEffect(() => {
@@ -496,9 +584,27 @@ export function RichTextField({
       return true;
     }
 
-    const host = reading.host === editorRef.current ? null : reading.host;
+    const editor = editorRef.current;
+    if (!editor) return false;
+    /* **A table never lands inside another.** A shortcut whose text holds a table,
+       accepted from inside a cell, goes in after the table the caret is in. */
+    const cell = cellAt(editor, reading.host);
+    const outerTable =
+      cell && hasTable(insertion.html) ? cell.closest("table") : null;
+    if (outerTable) {
+      outerTable.insertAdjacentHTML("afterend", insertion.html);
+      placeCaret(outerTable.nextElementSibling);
+      ensureLineAfterTables(editor);
+      emitChange();
+      return true;
+    }
+    /* The editor itself, or a cell with no block inside it: no block to put the
+       insertion after, so it goes in at the caret. */
+    const host =
+      reading.host === editor || reading.host === cell ? null : reading.host;
     if (!host) {
       document.execCommand("insertHTML", false, insertion.html);
+      ensureLineAfterTables(editor);
       emitChange();
       return true;
     }
@@ -511,8 +617,89 @@ export function RichTextField({
        were already writing. */
     if ((host.textContent ?? "").trim() === "") host.remove();
     placeCaret(placed);
+    ensureLineAfterTables(editor);
     emitChange();
     return true;
+  }
+
+  /**
+   * A blank table at the caret — three columns, a header row and two body rows. Size is
+   * not asked up front: rows and columns are one menu pick away once it is there, and
+   * Tab in the last cell adds a row, so the default is never a commitment. With the
+   * caret already in a table, the new one goes after it rather than inside it.
+   */
+  function insertTable() {
+    const editor = editorRef.current;
+    if (!editor) return;
+    clearGhost();
+    const wasFocused = document.activeElement === editor;
+    if (!wasFocused) editor.focus();
+    const selection = window.getSelection();
+    const anchor =
+      wasFocused && selection && selection.rangeCount > 0
+        ? selection.getRangeAt(0).startContainer
+        : null;
+    const before = new Set(editor.querySelectorAll("table"));
+    const current = anchor ? cellAt(editor, anchor)?.closest("table") : null;
+    if (current) current.insertAdjacentHTML("afterend", tableHtml());
+    else if (!anchor || !editor.contains(anchor))
+      editor.insertAdjacentHTML("beforeend", tableHtml());
+    else document.execCommand("insertHTML", false, tableHtml());
+    const added = Array.from(editor.querySelectorAll("table")).find(
+      (table) => !before.has(table),
+    );
+    ensureLineAfterTables(editor);
+    caretInto(added?.querySelector("th, td") ?? null);
+    emitChange();
+    syncToolbar();
+  }
+
+  /** One of the table menu's edits, on the cell the caret was in when it opened. */
+  function editTable(edit: (cell: HTMLTableCellElement) => Element | null) {
+    const editor = editorRef.current;
+    const cell = cellRef.current;
+    if (!editor || !cell || !editor.contains(cell)) return;
+    landRef.current = edit(cell);
+    ensureLineAfterTables(editor);
+    emitChange();
+  }
+
+  /** Back to the page once the menu closes — into the cell the edit left the caret in. */
+  function returnFromTableMenu(event: Event) {
+    event.preventDefault();
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.focus();
+    const land = landRef.current ?? cellRef.current;
+    landRef.current = null;
+    if (land && editor.contains(land)) caretInto(land);
+    syncToolbar();
+  }
+
+  /**
+   * Tab walks the cells; Shift+Tab walks back. Tab in the last cell adds a row, as in
+   * every word processor. Shift+Tab in the first cell is left to the browser, so the
+   * field is never a keyboard trap: it leaves the field as Tab does outside a table.
+   */
+  function tabThroughTable(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (event.key !== "Tab" || event.altKey || event.ctrlKey || event.metaKey) {
+      return;
+    }
+    const editor = editorRef.current;
+    const selection = window.getSelection();
+    if (!editor || !selection || selection.rangeCount === 0) return;
+    const cell = cellAt(editor, selection.getRangeAt(0).startContainer);
+    if (!cell) return;
+    const next = siblingCell(cell, event.shiftKey ? -1 : 1);
+    if (next) {
+      event.preventDefault();
+      caretInto(next);
+      return;
+    }
+    if (event.shiftKey) return;
+    event.preventDefault();
+    caretInto(addRowBelow(cell));
+    emitChange();
   }
 
   function run(commands: string[]) {
@@ -539,9 +726,10 @@ export function RichTextField({
         compact
           ? "min-h-24 px-3 py-2 text-body-compact"
           : "min-h-64 px-4 py-3 text-body",
-        LIST_CLASSES
+        CONTENT_CLASSES
       )}
       onInput={() => {
+        if (tables && editorRef.current) ensureLineAfterTables(editorRef.current);
         emitChange();
         paintSuggestion();
       }}
@@ -572,7 +760,9 @@ export function RichTextField({
        * next `input` draws it again.
        */
       onKeyDown={(event) => {
-        if (!suggestion) return;
+        /* A shown completion takes Tab first; with none, Tab in a table walks it. */
+        if (tables && !(suggestion && shown)) tabThroughTable(event);
+        if (event.defaultPrevented || !suggestion) return;
         if (shown && event.key === "Tab") {
           event.preventDefault();
           acceptSuggestion();
@@ -698,6 +888,72 @@ export function RichTextField({
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
+
+        {tables ? (
+          <div role="group" aria-label="Table" className="flex items-center">
+            {/* Ghost is the toolbar treatment the toggles wear: nothing at rest,
+                `accent` on hover. A button, not a toggle — inserting has no "on". */}
+            <Button
+              type="button"
+              variant="ghost"
+              size={compact ? "icon-xs" : "icon"}
+              aria-label="Insert table"
+              title="Insert table"
+              onClick={insertTable}
+            >
+              <TableIcon aria-hidden />
+            </Button>
+            {/* Only while the caret is in a table — the edits have nothing to act on
+                anywhere else. A visible word rather than a second icon, so a voice
+                user can say what they see (ACCESSIBILITY §9). */}
+            {inTable ? (
+              <DropdownMenu
+                onOpenChange={(open) => {
+                  /* Read the cell again as the menu opens: the toolbar's mousedown
+                     keeps the selection in the editor, so it is the cell the typist
+                     is in right now, not whichever one last fired selectionchange. */
+                  if (open) syncToolbar();
+                }}
+              >
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size={compact ? "xs" : "default"}
+                  >
+                    Table
+                    <ChevronDownIcon data-icon="inline-end" aria-hidden />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="start"
+                  className="w-auto"
+                  onCloseAutoFocus={returnFromTableMenu}
+                >
+                  <DropdownMenuItem onSelect={() => editTable(addRowBelow)}>
+                    Add row below
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => editTable(addColumnRight)}>
+                    Add column right
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => editTable(deleteRow)}>
+                    Delete row
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => editTable(deleteColumn)}>
+                    Delete column
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onSelect={() => editTable(deleteTable)}
+                  >
+                    Delete table
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       {header || footer ? (
@@ -812,7 +1068,7 @@ export function RichTextValueView({
 }) {
   return (
     <div
-      className={cn(LIST_CLASSES, className)}
+      className={cn(CONTENT_CLASSES, className)}
       dangerouslySetInnerHTML={{ __html: value.html }}
     />
   );

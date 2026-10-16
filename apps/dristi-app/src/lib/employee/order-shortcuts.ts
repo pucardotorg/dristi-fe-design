@@ -59,9 +59,22 @@ export function shortcutInsertion(
   entry: OrderShortcut,
 ): { kind: "inline"; text: string } | { kind: "block"; html: string } {
   if (entry.html && isFormatted(entry.html)) {
-    return { kind: "block", html: entry.html };
+    return { kind: "block", html: leadInParagraph(entry.html) };
   }
   return { kind: "inline", text: entry.text };
+}
+
+/**
+ * The words typed on a shortcut's first line, before any paragraph or list, sit bare in
+ * the editor's markup. Put in an order as they are, they run on from the paragraph above
+ * with no gap; wrapped, they are a paragraph like the rest.
+ */
+export function leadInParagraph(html: string): string {
+  const block = /<(p|div|ul|ol|table|h[1-6]|blockquote)[\s>]/i.exec(html);
+  const cut = block ? block.index : html.length;
+  const lead = html.slice(0, cut);
+  if (!lead.replace(/<br\s*\/?>/gi, "").trim()) return html.slice(cut) || html;
+  return `<p>${lead.replace(/(<br\s*\/?>)+$/i, "")}</p>${html.slice(cut)}`;
 }
 
 /**
