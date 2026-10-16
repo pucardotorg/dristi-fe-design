@@ -64,8 +64,8 @@ export type PanelApplication = {
    */
   content?: React.ReactNode;
   /**
-   * The case file's own section it is filed in ("pending-applications") — listed there,
-   * after that section's papers and numbered on from them, rather than in the
+   * The case file's own section it is filed in ("pending-applications") — listed there
+   * like any of its papers (its name alone), numbered on from them, rather than in the
    * Applications group a hearing's listing gets.
    */
   inSection?: string;
@@ -228,8 +228,6 @@ export function OrderCasePanel({
           ? `${section.outline}.${section.rows.length + 1}`
           : undefined,
         label: application.label,
-        number: application.number,
-        detail: application.detail,
         application,
       });
     }
@@ -761,7 +759,7 @@ export function OrderCasePanel({
                 {viewing?.label}
               </DialogTitle>
               <DialogDescription>
-                {viewing?.application
+                {viewing?.application && !viewing.application.inSection
                   ? viewing.application.detail
                   : "From the case file"}
               </DialogDescription>
