@@ -54,8 +54,11 @@ describe("the Application item", () => {
     assert.equal(undecided.workflowTriggered, "");
   });
 
-  it("knows Postpone's workflow and none for Reopen evidence", () => {
+  it("knows Postpone's workflow, and gives every other type one for now", () => {
     assert.equal(applicationWorkflow("postpone"), "Rescheduling of hearing");
-    assert.equal(applicationWorkflow("reopen-evidence"), null);
+    assert.equal(
+      applicationWorkflow("reopen-evidence"),
+      "The application's own workflow",
+    );
   });
 });

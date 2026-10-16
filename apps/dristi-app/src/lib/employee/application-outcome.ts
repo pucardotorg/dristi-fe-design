@@ -71,6 +71,8 @@ export function initialApplicationOutcome(): ApplicationOutcome {
  * confirmed against the application-type configuration.
  */
 export function applicationWorkflow(type: string): string | null {
+  /* Typed to allow none: a type without a workflow skips the question once the real
+     configuration arrives. */
   if (acceptanceNeedsHearingDate(type)) return "Rescheduling of hearing";
   switch (type) {
     case "bail":
@@ -82,7 +84,9 @@ export function applicationWorkflow(type: string): string | null {
     case "withdrawal":
       return "Withdrawal of case";
     default:
-      return null;
+      /* For now every application has one (owner, 2026-10-16: "so that I can see what
+         that option looks like"), until the types' own workflows are configured. */
+      return "The application's own workflow";
   }
 }
 
