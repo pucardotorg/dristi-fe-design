@@ -11,6 +11,7 @@ import {
 } from "@/components/employee/order-composer";
 import { OrderEditorComposer } from "@/components/employee/order-editor";
 import type { PanelApplication } from "@/components/employee/order-case-panel";
+import type { ApplicationOutcomeSubject } from "@/components/employee/application-outcome-dialog";
 import { OrderTextComposer } from "@/components/employee/order-text-composer";
 import { ProceedingsComposer } from "@/components/employee/proceedings-composer";
 import { CausePostingContext } from "@/components/employee/cause-posting";
@@ -95,6 +96,8 @@ export type OrderDoor = {
    */
   panelApplications?: PanelApplication[];
   openOnStart?: { id: string; fullView?: boolean };
+  /** An order on an application: its Application item in the order data. */
+  applicationItem?: ApplicationOutcomeSubject;
 };
 
 export type OrderDoorHearing = {
@@ -315,6 +318,7 @@ function OrderDoorBody({ door }: { door: OrderDoor }) {
         hearingsContent={door.hearingsContent}
         panelApplications={door.panelApplications}
         openOnStart={door.openOnStart}
+        applicationItem={door.applicationItem}
         context={context}
         purpose={hearing?.purpose}
         fixedIds={door.fixedIds}

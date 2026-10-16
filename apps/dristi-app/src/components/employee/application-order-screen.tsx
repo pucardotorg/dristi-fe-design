@@ -42,6 +42,10 @@ import {
 } from "@/lib/employee/order-composer";
 import type { ApplicationOrderDecision } from "@/lib/employee/application-order-decision";
 import { EMPTY_ORDER_DRAFT } from "@/lib/employee/order-draft";
+import {
+  applicationWorkflow,
+  initialApplicationOutcome,
+} from "@/lib/employee/application-outcome";
 
 /** The queue an application's order was opened from, and the way back to it. */
 const QUEUES: Record<
@@ -187,15 +191,23 @@ export function useApplicationOrderDoor(
       }),
     [record],
   );
+  /* The Application item is in the order data from the start (owner, 2026-10-16), so
+     the steno has it to answer before the order data can be complete. */
   const initial = React.useMemo(
-    () =>
-      decision
-        ? {
-            ...EMPTY_ORDER_DRAFT,
-            blocks: [decisionItem(application, decision, context)],
-          }
-        : EMPTY_ORDER_DRAFT,
+    () => ({
+      ...EMPTY_ORDER_DRAFT,
+      applicationOutcome: initialApplicationOutcome(),
+      blocks: decision ? [decisionItem(application, decision, context)] : [],
+    }),
     [application, decision, context],
+  );
+  const applicationItem = React.useMemo(
+    () => ({
+      label: application.typeLabel,
+      onboarded: application.status !== "pending-review",
+      workflow: applicationWorkflow(application.type),
+    }),
+    [application],
   );
 
   /* The application itself, first in the Case file panel, and open over the order on
@@ -222,6 +234,7 @@ export function useApplicationOrderDoor(
   );
 
   return {
+    applicationItem,
     panelApplications,
     openOnStart: { id: application.id, fullView: true },
     draftKey: `application:${application.id}`,

@@ -1,5 +1,9 @@
 "use client";
 
+import {
+  applicationOutcomeGaps,
+  initialApplicationOutcome,
+} from "@/lib/employee/application-outcome";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -19,6 +23,7 @@ import {
   orderPaperRecitals,
   OrderProgress,
   OrderWorkflowFields,
+  withOnboarded,
   decideOnly,
   paperStatus,
 } from "@/components/employee/order-editor";
@@ -217,6 +222,22 @@ function WorkflowDoorBody({ door }: { door: OrderDoor }) {
   const summary = triggerSummary(draft, appearances, listing);
 
   function askComplete() {
+    /* An application's order cannot be complete until its Application item is answered. */
+    if (
+      door.applicationItem &&
+      applicationOutcomeGaps(
+        withOnboarded(
+          draft.applicationOutcome ?? initialApplicationOutcome(),
+          door.applicationItem.onboarded,
+        ),
+        Boolean(door.applicationItem.workflow),
+      ).length > 0
+    ) {
+      toast(
+        `Application · ${door.applicationItem.label} has questions still to answer. Use its pencil to answer them.`,
+      );
+      return;
+    }
     const unfilled = draft.blocks.find(
       (block) =>
         block.kind === "item" &&
@@ -314,6 +335,7 @@ function WorkflowDoorBody({ door }: { door: OrderDoor }) {
               purpose={door.hearing?.purpose}
               inHearing={Boolean(door.hearing)}
               fixedIds={door.fixedIds}
+              applicationItem={door.applicationItem}
               disabled={!canFill}
             />
           </div>
