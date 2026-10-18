@@ -18,7 +18,6 @@ import {
   NON_DELIVERY_REASONS,
   PAYMENT_STATUS,
   RETURN_REASONS,
-  WHY_ISSUED,
   type Option,
 } from "@/lib/filing/options";
 import {
@@ -596,11 +595,6 @@ function noticeGroups(draft: FilingDraft): FieldGroupDef[] {
         id: `${p}-nature`,
         label: "Nature of debt or other liability",
         value: shown(nt.natureDebt && optionLabel(NATURE_OF_DEBT, nt.natureDebt)),
-      },
-      {
-        id: `${p}-why`,
-        label: "Why was the cheque issued?",
-        value: shown(nt.whyIssued && optionLabel(WHY_ISSUED, nt.whyIssued)),
       },
       {
         id: `${p}-date`,

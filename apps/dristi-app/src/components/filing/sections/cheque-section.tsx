@@ -20,6 +20,7 @@ import { RETURN_REASONS, S138_SAFE_REASONS } from "@/lib/filing/options";
 import {
   chequeComplete,
   chequePresentIssue,
+  chequePresentedLate,
   chequeReturnIssue,
   chequeSourceSlot,
   firstReadField,
@@ -253,6 +254,7 @@ export function ChequeSection() {
   const showInheritNote = index > 0 && cheque.sameAsPrev === "yes";
   const previous = index > 0 ? cheques[index - 1] : null;
   const inheritedBank = previous?.bankName || "previous cheque";
+  const presentedLate = chequePresentedLate(cheque);
   const reasonNeedsCheck =
     !!cheque.returnReason && !S138_SAFE_REASONS.has(cheque.returnReason);
 
@@ -471,6 +473,10 @@ export function ChequeSection() {
               />
             </FormField>
           </FormRow>
+
+          {presentedLate ? (
+            <SectionNotice variant="warning">{presentedLate}</SectionNotice>
+          ) : null}
 
           <HalfWidth>
             <FormField

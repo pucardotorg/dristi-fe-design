@@ -148,7 +148,6 @@ export const blankCheque = (): ChequeDetails => ({
 export const blankNotice = (): DemandNotice => ({
   id: uid("dn"),
   natureDebt: "",
-  whyIssued: "",
   dispatchDate: "",
   modeService: "",
   tracking: "",
@@ -588,6 +587,12 @@ export function migrateDraft(draft: FilingDraft): FilingDraft {
     delete (c as Complainant & { oathVideo?: unknown }).oathVideo;
     c.entCinPan ??= "";
     c.entCinPanSkippedAt ??= null;
+  }
+  // "Why was the cheque issued?" was a prototype-only question that the nature of the
+  // debt already answers (LDN-1); it was retired, with any prefill marker it carried.
+  for (const n of draft.notices) {
+    delete (n as DemandNotice & { whyIssued?: unknown }).whyIssued;
+    delete (n.prefilled as Record<string, unknown> | undefined)?.whyIssued;
   }
   // The upfront choice used to be one set of rounds for the whole case; it is now made
   // per accused (§19.3). Nothing is carried across: an old draft's single choice cannot

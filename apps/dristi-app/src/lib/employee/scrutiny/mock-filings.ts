@@ -385,7 +385,6 @@ const SPECS: Spec[] = [
     notices: [
       {
         natureDebt: "loan",
-        whyIssued: "loan-repay",
         dispatchDate: "2016-04-12",
         modeService: "rpad",
         tracking: "RG482910374IN",
@@ -494,7 +493,6 @@ const SPECS: Spec[] = [
     notices: [
       {
         natureDebt: "loan",
-        whyIssued: "loan-repay",
         dispatchDate: "2026-04-20",
         modeService: "speed",
         tracking: "EG204517786IN",
@@ -506,7 +504,6 @@ const SPECS: Spec[] = [
       },
       {
         natureDebt: "loan",
-        whyIssued: "loan-repay",
         dispatchDate: "2026-04-20",
         modeService: "speed",
         tracking: "EG204517795IN",
@@ -570,7 +567,6 @@ const SPECS: Spec[] = [
     notices: [
       {
         natureDebt: "goods",
-        whyIssued: "goods-pay",
         dispatchDate: "2026-03-30",
         modeService: "rpad",
         tracking: "RG118274635IN",
@@ -683,7 +679,6 @@ const SPECS: Spec[] = [
     notices: [
       {
         natureDebt: "goods",
-        whyIssued: "goods-pay",
         dispatchDate: "2026-05-12",
         modeService: "speed",
         tracking: "EG390016452IN",
@@ -764,7 +759,6 @@ const SPECS: Spec[] = [
     notices: [
       {
         natureDebt: "borrowed",
-        whyIssued: "discharge",
         dispatchDate: "2026-04-25",
         modeService: "courier",
         tracking: "DTDC-Z71540226",
@@ -838,7 +832,6 @@ const SPECS: Spec[] = [
     notices: [
       {
         natureDebt: "business",
-        whyIssued: "goods-pay",
         dispatchDate: "2026-03-12",
         modeService: "rpad",
         tracking: "RG220187450IN",
@@ -915,7 +908,6 @@ const SPECS: Spec[] = [
     notices: [
       {
         natureDebt: "loan",
-        whyIssued: "security",
         dispatchDate: "2026-04-15",
         modeService: "rpad",
         tracking: "RG330945128IN",
@@ -989,7 +981,6 @@ const SPECS: Spec[] = [
     notices: [
       {
         natureDebt: "loan",
-        whyIssued: "loan-repay",
         dispatchDate: "2026-02-20",
         modeService: "rpad",
         tracking: "RG640021339IN",
@@ -1051,7 +1042,6 @@ const SPECS: Spec[] = [
     notices: [
       {
         natureDebt: "services",
-        whyIssued: "services-pay",
         dispatchDate: "2026-01-22",
         modeService: "speed",
         tracking: "EG118843002IN",

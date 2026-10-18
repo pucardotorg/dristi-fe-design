@@ -177,7 +177,6 @@ function buildDraft(): FilingDraft {
 
   const n = d.notices[0];
   n.natureDebt = "loan";
-  n.whyIssued = "repayment";
   n.dispatchDate = "2026-06-18";
   n.modeService = "registered-post-ad";
   n.tracking = ""; // Defect 7 — not stated.
@@ -258,7 +257,6 @@ function buildLakshmiDraft(): FilingDraft {
 
   const n = d.notices[0];
   n.natureDebt = "loan";
-  n.whyIssued = "repayment";
   n.dispatchDate = "2026-06-15";
   n.modeService = "registered-post-ad";
   n.tracking = ""; // Defect 3 — not stated.
@@ -324,7 +322,6 @@ function buildRafiDraft(): FilingDraft {
 
   const n = d.notices[0];
   n.natureDebt = "loan";
-  n.whyIssued = "repayment";
   n.dispatchDate = "2026-06-05";
   n.modeService = "registered-post-ad";
   n.tracking = "RK556021447IN";

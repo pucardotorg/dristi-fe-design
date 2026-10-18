@@ -3,7 +3,9 @@ import { describe, it } from "node:test";
 
 import { createBlankDraft } from "./blank";
 import {
+  chequeFullyComplete,
   chequePresentIssue,
+  chequePresentedLate,
   chequeValidUntil,
   isDelayed,
   limitationView,
@@ -90,10 +92,30 @@ describe("the cheque's own validity — the first link of the chain", () => {
     assert.equal(chequeValidUntil(c), "2026-08-14");
     c.presentDate = "2026-08-14";
     assert.equal(chequePresentIssue(c), undefined);
-    c.presentDate = "2026-08-20";
-    assert.match(chequePresentIssue(c) ?? "", /After the cheque expired/);
+    assert.equal(chequePresentedLate(c), undefined);
     c.presentDate = "2026-05-10";
     assert.match(chequePresentIssue(c) ?? "", /before the date on the cheque/);
+    assert.equal(chequePresentedLate(c), undefined);
+  });
+
+  it("warns, never blocks, when presented after its validity (CHQ-11)", () => {
+    const c = createBlankDraft("draft-validity-late").cheques[0];
+    Object.assign(c, {
+      chequeNumber: "000123",
+      amount: "50000",
+      ifsc: "SBIN0000001",
+      bankName: "State Bank of India",
+      dateOnCheque: "2026-05-15",
+      presentDate: "2026-08-20",
+      returnDate: "2026-08-22",
+      returnReason: "funds-insufficient",
+    });
+    assert.equal(chequePresentIssue(c), undefined);
+    assert.equal(
+      chequePresentedLate(c),
+      "Presented after the cheque's validity. It was valid for presentation until 14 August 2026, 3 months from its date. Check that S-138 still applies before filing.",
+    );
+    assert.equal(chequeFullyComplete(c, 0), true);
   });
 
   it("clamps to the month's end for a cheque dated on the 30th or 31st", () => {

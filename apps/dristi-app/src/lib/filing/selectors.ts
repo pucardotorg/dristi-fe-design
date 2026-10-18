@@ -185,17 +185,25 @@ export function chequeValidUntil(c: ChequeDetails): ISODate {
 
 /**
  * What is wrong with the presentation date, if anything. The first link of the
- * limitation chain: a cheque presented before its date, or after its three-month
- * validity ran out, cannot found a complaint under section 138.
+ * limitation chain: a cheque cannot be presented before the date on it. Presentation
+ * after the three-month validity is not an error — see `chequePresentedLate`.
  */
 export function chequePresentIssue(c: ChequeDetails): string | undefined {
   if (!c.presentDate || !c.dateOnCheque) return undefined;
   if (c.presentDate < c.dateOnCheque) return "Cannot be before the date on the cheque.";
-  const lastDay = chequeValidUntil(c);
-  if (lastDay && c.presentDate > lastDay) {
-    return `After the cheque expired. It was valid for presentation until ${toLongDate(lastDay)}, ${CHEQUE_VALIDITY_MONTHS} months from its date.`;
-  }
   return undefined;
+}
+
+/**
+ * The warning shown under the presentation date when the cheque was presented after its
+ * three-month validity ran out (PRD CHQ-11). A warning, never a block: it does not count
+ * against completeness, gating or preview.
+ */
+export function chequePresentedLate(c: ChequeDetails): string | undefined {
+  if (!c.presentDate || !c.dateOnCheque || c.presentDate < c.dateOnCheque) return undefined;
+  const lastDay = chequeValidUntil(c);
+  if (!lastDay || c.presentDate <= lastDay) return undefined;
+  return `Presented after the cheque's validity. It was valid for presentation until ${toLongDate(lastDay)}, ${CHEQUE_VALIDITY_MONTHS} months from its date. Check that S-138 still applies before filing.`;
 }
 
 /** What is wrong with the return date, if anything: it cannot predate presentation. */

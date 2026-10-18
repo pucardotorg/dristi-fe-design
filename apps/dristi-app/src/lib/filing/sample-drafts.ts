@@ -178,7 +178,6 @@ export function buildSampleDraft(sample: Sample, today: string): FilingDraft {
 
   const n = d.notices[0];
   n.natureDebt = "loan";
-  n.whyIssued = "repayment";
   n.dispatchDate = addDays(served, -3);
   n.modeService = "registered-post-ad";
   n.tracking = "RK123456789IN";

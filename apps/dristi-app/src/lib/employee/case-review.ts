@@ -121,7 +121,6 @@ export const FACT_TERMS = {
   natureOfDebt: "Nature of the debt",
   paymentAgainstCheque: "Payment against the cheque",
   partAmount: "Part payment amount",
-  whyIssued: "Why the cheque was issued",
 
   /* The demand notice — `DemandNotice` and `Jurisdiction.causeDate`. */
   noticeDispatched: "Notice dispatched",
@@ -708,7 +707,6 @@ export const CASE_FILE_CHUNKS: Partial<Record<CaseGroupId, CaseFileChunkSpec[]>>
       title: "Nature of debt",
       terms: [
         { term: FACT_TERMS.natureOfDebt, label: "Nature" },
-        { term: FACT_TERMS.whyIssued },
       ],
     },
     {
@@ -1246,11 +1244,11 @@ const POLICE_STATIONS = [
 ] as const;
 
 /**
- * What the cheque was given for, and why it was issued.
+ * What the cheque was given for.
  *
- * Both are closed lists in the registry rather than free text — `NATURE_OF_DEBT` and
- * `WHY_ISSUED` in `lib/filing/options.ts` — so the values here are that vocabulary
- * rather than sentences composed for a case. Restated rather than imported: the court
+ * A closed list in the registry rather than free text — `NATURE_OF_DEBT` in
+ * `lib/filing/options.ts` — so the values here are that vocabulary rather than
+ * sentences composed for a case. Restated rather than imported: the court
  * side does not read from the advocate's areas (`content.ts`), and two labels drifting
  * apart is a smaller failure than a dependency in the wrong direction.
  */
@@ -1260,14 +1258,6 @@ const NATURE_OF_DEBT = [
   "Payment for services rendered",
   "Business / trade transaction",
   "Repayment of borrowed money",
-] as const;
-
-const WHY_ISSUED = [
-  "Towards repayment of a loan",
-  "Towards payment for goods",
-  "Towards payment for services",
-  "As security, subsequently enforced",
-  "Discharge of an existing debt",
 ] as const;
 
 /** Who signed a company's cheque. Malayali given names, like the parties around them. */
@@ -2131,11 +2121,6 @@ function caseSpecificSection(
               },
             ]
           : []),
-        {
-          term: FACT_TERMS.whyIssued,
-          value: pick(WHY_ISSUED, seed),
-          source: "debt-proof",
-        },
       ],
       documents: [
         slot("debt-proof", marks.missing),
