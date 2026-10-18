@@ -433,9 +433,13 @@ describe("a fact and its source document", () => {
        47 rows, not 41, since 2026-09-12: the six identity rows that used to be printed
        under a card's title are rows of the file now (D49). Four of them carry a source —
        a name is read off an ID proof, a cheque number off the cheque — and the two
-       litigant types do not, because no instrument states them. */
+       litigant types do not, because no instrument states them.
+
+       46 since 2026-10-18: "Why the cheque was issued" was retired (the nature of the
+       debt already answers it). It read off the proof of debt, so the declared-only
+       count does not move. */
     const rows = sourced("r-1840").map(({ fact }) => fact);
-    assert.equal(rows.length, 47, "the file's own fact rows");
+    assert.equal(rows.length, 46, "the file's own fact rows");
     assert.equal(
       rows.filter((fact) => fact.source === undefined).length,
       17,

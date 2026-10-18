@@ -155,15 +155,6 @@ export const NATURE_OF_DEBT: Option[] = [
   { value: "other", label: "Other liability" },
 ];
 
-export const WHY_ISSUED: Option[] = [
-  { value: "loan-repay", label: "Towards repayment of a loan" },
-  { value: "goods-pay", label: "Towards payment for goods" },
-  { value: "services-pay", label: "Towards payment for services" },
-  { value: "security", label: "As security, subsequently enforced" },
-  { value: "discharge", label: "Discharge of an existing debt" },
-  { value: "other", label: "Other" },
-];
-
 export const MODE_OF_SERVICE: Option[] = [
   { value: "rpad", label: "Registered post (RPAD)" },
   { value: "speed", label: "Speed post" },

@@ -279,7 +279,6 @@ export type ChequeDetails = {
 
 export type NoticeField =
   | "natureDebt"
-  | "whyIssued"
   | "dispatchDate"
   | "tracking"
   | "modeService"
@@ -288,7 +287,6 @@ export type NoticeField =
 export type DemandNotice = {
   id: string;
   natureDebt: string;
-  whyIssued: string;
   dispatchDate: ISODate;
   modeService: string;
   tracking: string;

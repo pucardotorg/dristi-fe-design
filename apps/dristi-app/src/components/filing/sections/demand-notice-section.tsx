@@ -19,7 +19,6 @@ import {
   NATURE_OF_DEBT,
   NON_DELIVERY_REASONS,
   PAYMENT_STATUS,
-  WHY_ISSUED,
 } from "@/lib/filing/options";
 import {
   chequeSourceSlot,
@@ -64,7 +63,6 @@ type SourceField = NoticeField | "tracking" | "modeService" | "deliveryDate";
 /** Panel heading for each field the panel can explain. */
 const FIELD_LABELS: Record<SourceField, string> = {
   natureDebt: "Nature of debt",
-  whyIssued: "Why the cheque was issued",
   dispatchDate: "Date of dispatch of demand notice",
   tracking: "Tracking number",
   modeService: "Mode of service",
@@ -74,7 +72,6 @@ const FIELD_LABELS: Record<SourceField, string> = {
 /** Which upload each field is read from, and where a chip lands when it is chosen. */
 const DOC_OF_FIELD: Record<SourceField, "demand-notice" | "dispatch-proof" | "delivery-proof"> = {
   natureDebt: "demand-notice",
-  whyIssued: "demand-notice",
   dispatchDate: "demand-notice",
   tracking: "dispatch-proof",
   modeService: "dispatch-proof",
@@ -83,7 +80,7 @@ const DOC_OF_FIELD: Record<SourceField, "demand-notice" | "dispatch-proof" | "de
 
 /** Field order per document, and the fallback when reading found nothing there. */
 const DOC_FIELDS = {
-  "demand-notice": ["dispatchDate", "natureDebt", "whyIssued"],
+  "demand-notice": ["dispatchDate", "natureDebt"],
   "dispatch-proof": ["tracking", "modeService"],
   "delivery-proof": ["deliveryDate"],
 } as const satisfies Record<string, readonly SourceField[]>;
@@ -104,7 +101,6 @@ const DOC_LABELS = {
 /** Every field on a notice that document reading can fill — the prefill notice's gate. */
 const ALL_NOTICE_FIELDS: NoticeField[] = [
   "natureDebt",
-  "whyIssued",
   "dispatchDate",
   "tracking",
   "modeService",
@@ -301,20 +297,6 @@ export function DemandNoticeSection() {
                 prefilled={isPrefilled("natureDebt")}
                 onViewSource={() => openSource("natureDebt")}
                 ariaLabel="Nature of debt or other liability"
-              />
-            </FormField>
-            <FormField
-              label="Why was the cheque issued?"
-              required
-              tip="The purpose for which the accused handed over the cheque."
-            >
-              <OptionSelect
-                value={notice.whyIssued}
-                onValueChange={(v) => editField("whyIssued", v)}
-                options={WHY_ISSUED}
-                prefilled={isPrefilled("whyIssued")}
-                onViewSource={() => openSource("whyIssued")}
-                ariaLabel="Why was the cheque issued?"
               />
             </FormField>
           </FormRow>
