@@ -25,8 +25,9 @@ import {
 import { useScrutinyCase } from "@/components/employee/scrutiny/scrutiny-case-context";
 
 /**
- * `forward` hands the case to the magistrate to register; `register` registers it here.
- * Which of the two the officer has depends on the state's `registrationPoint` (`SCR-06`).
+ * `forward` hands the case to Registration, for a Case registerer; `register` registers it
+ * here and skips Registration. Register is offered only to someone holding both the
+ * Scrutiny officer and Case registerer roles in the court room (`SCR-06`, `SCR-11`).
  */
 export type Decision = "send-back" | "forward" | "register";
 
@@ -151,12 +152,12 @@ export function ReviewDialog({
         }
       : decision === "forward"
       ? {
-          title: "Forward to magistrate",
+          title: "Forward for registration",
           body: total
-            ? `The case moves to the Magistrate's list for registration. ${total} open item${
+            ? `The case moves to Register cases. ${total} open item${
                 total > 1 ? "s travel" : " travels"
               } with it — forwarding does not clear ${total > 1 ? "them" : "it"}.`
-            : "Every field was checked against the bundle. The case moves to the Magistrate's list for registration.",
+            : "Every field was checked against the bundle. The case moves to Register cases.",
         }
       : {
           title: "Register case",
@@ -209,13 +210,13 @@ export function ReviewDialog({
         }
       : decision === "forward"
       ? {
-          title: "Forwarded to magistrate",
+          title: "Forwarded for registration",
           state: "Forwarded",
           body: total
-            ? `On the Magistrate's list for registration, with ${total} open item${
+            ? `On Register cases, with ${total} open item${
                 total > 1 ? "s" : ""
               } attached.`
-            : "On the Magistrate's list for registration.",
+            : "On Register cases.",
           /* Scrutiny is done with the file, which is this desk's good outcome, so it
              wears the same mark as registering. */
           tone: "bg-success-muted text-success-muted-foreground",
@@ -321,7 +322,7 @@ export function ReviewDialog({
                 {decision === "send-back"
                   ? "Send back"
                   : decision === "forward"
-                    ? "Forward to magistrate"
+                    ? "Forward for registration"
                     : "Register case"}
               </Button>
               {/* The gate on the primary, beside the button it gates. It had its own

@@ -52,7 +52,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useCourt, useCourtText } from "@/components/court/court-provider";
+import { useCourtText } from "@/components/court/court-provider";
+import { useCourtSession } from "@/components/employee/use-court-role";
+import { registersAtScrutiny } from "@/lib/employee/court-role";
 
 /**
  * The case review: filed fields on the left, the bundle in the centre, the document
@@ -129,7 +131,8 @@ export function CaseWorkbench({
   // kind of thing scrutiny exists to catch). Local until a case service owns it.
   // The editable title starts as the heading shows it (Settings' court switch).
   const courtText = useCourtText();
-  const { profile } = useCourt();
+  /* Register here only for someone holding both roles in this court room (`SCR-11`). */
+  const canRegister = registersAtScrutiny(useCourtSession());
   // One line of text, not two names: the officer may correct anything in it.
   const [title, setTitle] = React.useState(
     () => `${courtText(party.complainant)} v. ${courtText(party.accused)}`,
@@ -416,14 +419,18 @@ export function CaseWorkbench({
             Send back to advocate
           </Button>
         ) : null}
-        {/* Forward or Register, by who registers in this state (`SCR-06`, `SCR-11`). */}
-        {profile.registrationPoint === "magistrate" ? (
-          <Button onClick={() => setDecision("forward")}>
-            Forward to magistrate
-          </Button>
-        ) : (
+        {/* Register is the main action for someone who holds both the Scrutiny officer
+            and Case registerer roles here; Forward stays open to them (`SCR-06`,
+            `SCR-11`, `RLE-07`). Anyone else forwards. */}
+        <Button
+          variant={canRegister ? "outline" : "default"}
+          onClick={() => setDecision("forward")}
+        >
+          Forward for registration
+        </Button>
+        {canRegister ? (
           <Button onClick={() => setDecision("register")}>Register case</Button>
-        )}
+        ) : null}
       </div>
 
       <HistorySheet

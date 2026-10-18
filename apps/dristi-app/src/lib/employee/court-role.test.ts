@@ -10,10 +10,12 @@ import {
 } from "./sign-in";
 import {
   readCourtRole,
+  registersAtScrutiny,
   seatHasBenchControls,
   setCourtRole,
 } from "./court-role";
 import { canDraftOrder, canTypeOrder } from "./hearings";
+import { DEFAULT_COURT_SESSION } from "./session";
 
 describe("court seats", () => {
   /* Every seat `/employee/login` signs in to has to be a seat the rail can name, or a
@@ -140,5 +142,23 @@ describe("the orders gate each seat reads", () => {
         `${status} disagrees about the orders column`,
       );
     }
+  });
+});
+
+/* `SCR-11`: Register at Scrutiny needs both roles in the court room; one alone forwards. */
+describe("registersAtScrutiny", () => {
+  it("registers only with both the Scrutiny officer and Case registerer roles", () => {
+    assert.equal(registersAtScrutiny({ role: "scrutiny-officer", caseRegisterer: true }), true);
+    assert.equal(registersAtScrutiny({ role: "scrutiny-officer", caseRegisterer: false }), false);
+  });
+
+  it("does not register from a seat that is not the Scrutiny officer's", () => {
+    for (const role of ["magistrate", "bench-clerk", "typist"] as const) {
+      assert.equal(registersAtScrutiny({ role, caseRegisterer: true }), false, role);
+    }
+  });
+
+  it("starts with nobody holding Case registerer", () => {
+    assert.equal(DEFAULT_COURT_SESSION.caseRegisterer, false);
   });
 });

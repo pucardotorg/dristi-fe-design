@@ -46,14 +46,6 @@ export type NumberingScheme =
  */
 export type AiMode = "on" | "unavailable" | "off";
 
-/**
- * Who registers a case once it clears scrutiny — the `registrationPoint` config of the
- * e-filing handover (`SCR-11`, §20.3a). `magistrate`: scrutiny forwards the case, and the
- * magistrate registers it from Register cases. `scrutiny`: the scrutiny officer registers
- * it, the case goes straight to Take cognizance, and Register cases does not exist.
- */
-export type RegistrationPoint = "magistrate" | "scrutiny";
-
 export type CourtProfile = {
   id: CourtId;
   /** What the court switch calls this deployment. */
@@ -91,7 +83,6 @@ export type CourtProfile = {
   fees: FeeSchedule;
   /** Whether scrutiny opens with AI assistance — never `unavailable`, which is per file. */
   aiMode: Exclude<AiMode, "unavailable">;
-  registrationPoint: RegistrationPoint;
   /**
    * The one courtroom the deployment runs, where it runs only one; `null` where it runs
    * several. With one court there is nothing to choose between, so the advocate home
@@ -122,8 +113,6 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     signing: { oath: false, everyAdvocate: false },
     fees: KERALA_FEES,
     aiMode: "on",
-    // Registration is the magistrate's own step in Kerala (owner, 2026-10-12).
-    registrationPoint: "magistrate",
     singleCourt: null,
     cognizanceSplit: "delay",
   },
@@ -143,8 +132,6 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     signing: { oath: true, everyAdvocate: true },
     fees: GUJARAT_FEES,
     aiMode: "on",
-    // No separate registration step by the magistrate (owner, 2026-10-12).
-    registrationPoint: "scrutiny",
     singleCourt: null,
     cognizanceSplit: "case-type",
   },
@@ -167,8 +154,6 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     signing: { oath: false, everyAdvocate: false },
     fees: PUNJAB_HARYANA_FEES,
     aiMode: "off",
-    // No separate registration step by the magistrate (owner, 2026-10-12).
-    registrationPoint: "scrutiny",
     // One 24×7 ON Court for the whole deployment (owner, 2026-10-12 and 2026-10-13).
     singleCourt: "24×7 ON Court",
     cognizanceSplit: "delay",

@@ -40,6 +40,15 @@ export type CourtSession = {
   district: string;
   /** The bench, spelled the way the rail's foot and a court document print it. */
   court: string;
+  /**
+   * Whether this person also holds the **Case registerer** role in the court room the
+   * visit runs as. Roles are held per court room (`court-roles.md` `RLE-02a`), and the
+   * session is one room, so one flag answers it. The seat is the title; this is a role on
+   * top of it, and it is what decides whether a case can be registered at Scrutiny
+   * (`registersAtScrutiny` in `court-role.ts`). The directory supplies it in a real
+   * build; here the sign-in starts it off and the rail's settings change it.
+   */
+  caseRegisterer: boolean;
 };
 
 /**
@@ -54,6 +63,7 @@ export const DEFAULT_COURT_SESSION: CourtSession = {
   role: CURRENT_STAFF.role,
   district: "Sample District",
   court: CURRENT_STAFF.court,
+  caseRegisterer: false,
 };
 
 let session: CourtSession = DEFAULT_COURT_SESSION;
