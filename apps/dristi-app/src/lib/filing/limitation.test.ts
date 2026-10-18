@@ -10,6 +10,7 @@ import {
   isDelayed,
   limitationView,
   noticeDispatchIssue,
+  noticeDispatchLate,
   noticeServiceIssue,
   sectionComplete,
 } from "./selectors";
@@ -35,14 +36,26 @@ describe("the limitation chain — return, notice, service, cause of action, fil
     assert.equal(lim.withinLimit, true);
   });
 
-  it("flags a notice sent more than 30 days after the cheque came back", () => {
+  it("warns, without blocking, on a notice sent more than 30 days after the return", () => {
     const d = dated();
     d.notices[0].dispatchDate = "2026-09-05";
-    assert.match(noticeDispatchIssue(d, 0) ?? "", /within 30 days/);
+    assert.equal(noticeDispatchLate(d, 0), true);
+    assert.equal(noticeDispatchIssue(d, 0), undefined);
+    d.notices[0].dispatchDate = "2026-08-31";
+    assert.equal(noticeDispatchLate(d, 0), false);
     d.notices[0].dispatchDate = "2026-07-30";
     assert.match(noticeDispatchIssue(d, 0) ?? "", /before the cheque was returned/);
-    d.notices[0].dispatchDate = "2026-08-31";
+    assert.equal(noticeDispatchLate(d, 0), false);
+  });
+
+  it("measures the dispatch against any cheque returned before it", () => {
+    const d = dated();
+    d.cheques.push({ ...d.cheques[0], returnDate: "2026-09-01" });
+    d.notices[0].dispatchDate = "2026-09-05";
     assert.equal(noticeDispatchIssue(d, 0), undefined);
+    assert.equal(noticeDispatchLate(d, 0), false);
+    d.notices[0].dispatchDate = "2026-07-30";
+    assert.match(noticeDispatchIssue(d, 0) ?? "", /every cheque was returned/);
   });
 
   it("flags a delivery before the dispatch", () => {

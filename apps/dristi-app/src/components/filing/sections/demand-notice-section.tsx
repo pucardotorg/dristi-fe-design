@@ -25,6 +25,7 @@ import {
   firstReadField,
   noticeComplete,
   noticeDispatchIssue,
+  noticeDispatchLate,
   noticeServiceIssue,
 } from "@/lib/filing/selectors";
 import { neighbours } from "@/lib/filing/steps";
@@ -313,7 +314,7 @@ export function DemandNoticeSection() {
               name="dispatchDate"
               required
               error={noticeDispatchIssue(draft, index)}
-              tip="The notice must be sent within 30 days of receiving information about the cheque's return."
+              tip="The notice must be sent within 30 days of the cheque's return."
             >
               <DateField
                 value={notice.dispatchDate}
@@ -334,6 +335,12 @@ export function DemandNoticeSection() {
               />
             </FormField>
           </FormRow>
+
+          {noticeDispatchLate(draft, index) ? (
+            <SectionNotice variant="warning">
+              Demand notice not issued within 30 days of the return of the cheque as unpaid.
+            </SectionNotice>
+          ) : null}
 
           <HalfWidth>
             <FormField
