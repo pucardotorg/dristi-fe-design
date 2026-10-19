@@ -604,3 +604,15 @@ the ring without overriding a synced primitive.
 
 Closes when the container keeps `outline-hidden` for pointer focus but shows the DS focus
 ring on `:focus-visible` for the chart surface.
+
+## 22. `DateRangePicker` cannot limit the days a person may pick
+
+`date-picker.tsx` passes nothing through to `Calendar` but `mode`, `selected`,
+`onSelect` and `numberOfMonths`, so a screen cannot disable days outside the range its
+data covers. The court dashboard's custom period (`/employee`, 2026-10-19) offers every
+future day and every day before the court's first record. The screen clamps a chosen
+range to the records afterwards, so the numbers stay right, but the calendar still
+invites a pick that will be quietly changed.
+
+Closes when `DateRangePicker` (and `DatePicker`) accept a `disabled` matcher, or a
+`startMonth`/`endMonth` pair, and pass it to `Calendar`.

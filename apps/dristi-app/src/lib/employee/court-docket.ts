@@ -196,7 +196,15 @@ export type CourtDocket = {
   copies: CopyApplication[];
   /** Days between successive hearings, by the stage they were held in. */
   gaps: Record<StageKey, number[]>;
+  /**
+   * The same gaps with the day of the hearing that closed each one, oldest first, so a
+   * period can be read: the gaps whose hearing fell inside it. Gaps that would close after
+   * today are left out.
+   */
+  gapLog: HearingGap[];
 };
+
+export type HearingGap = { stage: StageKey; date: number; days: number };
 
 /* ------------------------------------------------------------------ dates */
 
@@ -316,12 +324,20 @@ function generate(todayDay: string): CourtDocket {
     });
   }
 
-  function heldIn(key: StageKey, duration: number): number {
+  const gapLog: HearingGap[] = [];
+
+  /* Dating the gaps draws nothing extra from the generator, so the court is the same
+     court it was before they were dated. */
+  function heldIn(key: StageKey, duration: number, from: number): number {
     if (key === "registration") return 0;
     const gap = STAGE_BY_KEY[key].gap * (0.6 + rnd() * 0.8);
     const held = Math.floor(duration / gap);
+    let date = from;
     for (let i = 0; i < Math.min(held, 12); i++) {
-      gaps[key].push(Math.max(1, Math.round(gap * (0.45 + rnd() * 1.1))));
+      const days = Math.max(1, Math.round(gap * (0.45 + rnd() * 1.1)));
+      gaps[key].push(days);
+      date += days * DAY_MS;
+      if (date <= TODAY) gapLog.push({ stage: key, date, days });
     }
     return held;
   }
@@ -389,7 +405,7 @@ function generate(todayDay: string): CourtDocket {
       if (t + duration * DAY_MS > TODAY) {
         c.stage = stage.key;
         c.stageStart = t;
-        c.stageHearings = heldIn(stage.key, daysBetween(t, TODAY));
+        c.stageHearings = heldIn(stage.key, daysBetween(t, TODAY), t);
         if (stage.key === "cognizance") addProcess(c, "Notice", t + ri(0, 6) * DAY_MS);
         if (stage.key === "appearance") {
           addProcess(c, "Summons", t + ri(0, 4) * DAY_MS);
@@ -399,7 +415,7 @@ function generate(todayDay: string): CourtDocket {
         break;
       }
       const end = t + duration * DAY_MS;
-      c.log.push({ stage: stage.key, start: t, end, hearings: heldIn(stage.key, duration) });
+      c.log.push({ stage: stage.key, start: t, end, hearings: heldIn(stage.key, duration, t) });
       if (stage.key === "cognizance") addProcess(c, "Notice", t + ri(0, 6) * DAY_MS);
       if (stage.key === "appearance") {
         addProcess(c, "Summons", t + ri(0, 4) * DAY_MS);
@@ -568,7 +584,8 @@ function generate(todayDay: string): CourtDocket {
     copy.number = `CA/${value}/${year}`;
   }
 
-  return { today: TODAY, start, cases, copies, gaps };
+  gapLog.sort((a, b) => a.date - b.date);
+  return { today: TODAY, start, cases, copies, gaps, gapLog };
 }
 
 /*
