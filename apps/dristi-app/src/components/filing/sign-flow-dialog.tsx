@@ -31,9 +31,14 @@
  * `sign` — the link is out; now the filer's own instrument, Aadhaar OTP or their DSC.
  * `otp` / `dsc` — that instrument, doing its one job.
  * `done` — what just happened, resolving in the same scene as the act.
- * `paper` — the printed copy coming back, with each complainant's own confirmation.
+ * `paper` — the printed copy coming back. Each complainant (or their PoA holder or
+ *   representative) confirms by OTP on their own device, through a link sent by SMS, and
+ *   records their oath there where the state asks for one (`SIG-05`, `OTH-3`). The OTP is
+ *   never entered here — unless the person at this keyboard is that complainant, on their
+ *   own device already.
  * `uploaded` — the same, settled.
- * `oath` — an advocate's second act, straight after their signature (`oath-capture`).
+ * `oath` — a complainant's oath, with their e-signature or their own confirmation
+ *   (`oath-capture`). Advocates never take one.
  * `sworn` — the oath, settled.
  *
  * Signing here writes to the draft and nothing else: no e-sign provider is called, no
@@ -57,10 +62,19 @@ import { signingRules } from "@/lib/filing/config";
 import { getRepository, storeUpload } from "@/lib/filing/data";
 import { forgetFile, formatBytes } from "@/lib/filing/files";
 import { useProfile } from "@/lib/filing/profile";
-import { isOutstanding, oathTakerName, phoneConfirmers, signatories } from "@/lib/filing/selectors";
+import {
+  confirmationComplete,
+  confirmerSlot,
+  isOutstanding,
+  isYourConfirmation,
+  oathTakerName,
+  phoneConfirmed,
+  phoneConfirmers,
+  signatories,
+} from "@/lib/filing/selectors";
 import { useFiling } from "@/lib/filing/store";
 import type {
-  OathVideoUpload,
+  OathVideo,
   PaperFallbackReason,
   PhoneConfirmer,
   SignInstrument,
@@ -249,23 +263,29 @@ function SignFlowBody({
   const outstanding = everyone.filter(isOutstanding).length;
 
   /*
-   * The second act, after the signature — complainants and advocates both take it. One
-   * person can sign in more than one slot; one oath covers every slot they sign in, as
-   * one signature does.
+   * The second act, after the signature — a complainant's, where the state asks for one
+   * (`OTH-3`); an advocate's slot carries none. One person can stand for more than one
+   * complainant; one oath is recorded for each slot they sign in.
    */
   const yourOathSlots = yous.filter((s) => s.oathTaken !== undefined);
   const oathYours = signingRules().oath && yourOathSlots.length > 0;
   const oathOwed = oathYours && yourOathSlots.some((s) => !s.oathTaken);
-  const yourOath: OathVideoUpload | null =
+  const yourOath: OathVideo | null =
     yourOathSlots.map((s) => sign.oaths[s.id]?.video).find(Boolean) ?? null;
-  /** Whose name the oath is read in: the person at this keyboard. */
+  /** Who is recording: the person the complaint names for the slot, else the account. */
   const oathName =
+    (yourOathSlots[0] ? oathTakerName(draft, yourOathSlots[0].id) : "") ||
     profile?.name.trim() ||
-    (yourOathSlots[0] ? oathTakerName(draft, yourOathSlots[0].id) : "");
+    "";
+  /** A PoA holder swears for someone else, and the step says whom. */
+  const oathFor = (() => {
+    const c = draft.complainants.find((x) => `sig-c-${x.id}` === yourOathSlots[0]?.id);
+    return c && c.type === "individual" && c.poa === "yes" ? c.name.trim() || undefined : undefined;
+  })();
   const onPaperPath = start === "paper" || sign.mode === "upload";
   /** The two acts, named for an advocate before the first one starts. */
   const trail = (current: "sign" | "oath"): TrailStep[] => [
-    { label: onPaperPath ? "Signed copy" : "E-sign", state: current === "sign" ? "current" : "done" },
+    { label: onPaperPath ? "Confirm by OTP" : "E-sign", state: current === "sign" ? "current" : "done" },
     { label: "Oath", state: current === "oath" ? "current" : "next" },
   ];
   const otherSigners = Math.max(0, everyone.length - yous.length);
@@ -325,17 +345,19 @@ function SignFlowBody({
   const certHolder = (profile?.name ?? "").trim();
 
   const confirmRows = React.useMemo(() => phoneConfirmers(draft), [draft]);
+  /** OTP and, where the state asks for one, the oath — a confirmation is both. */
   const isConfirmed = React.useCallback(
-    (person: PhoneConfirmer) => {
-      const record = sign.confirmed[person.id];
-      const tail = person.mobile.replace(/\D/g, "").slice(-4);
-      return !!record && !!tail && record.mobileTail === tail;
-    },
-    [sign.confirmed]
+    (person: PhoneConfirmer) => confirmationComplete(draft, person),
+    [draft]
   );
   const confirmedCount = confirmRows.filter(isConfirmed).length;
   const allConfirmed =
     confirmRows.length > 0 && confirmedCount === confirmRows.length;
+  /** The confirmer at this keyboard, if the uploader is one of the complainants. */
+  const isYouRow = React.useCallback(
+    (person: PhoneConfirmer) => isYourConfirmation(person, profile),
+    [profile]
+  );
 
   /* ── acts ──────────────────────────────────────────────────────────────── */
 
@@ -367,16 +389,20 @@ function SignFlowBody({
    */
   const continueToPaper = () => {
     if (!fallbackReason) return;
-    const paperFallback = { reason: fallbackReason, at: new Date().toISOString() };
+    const now = new Date().toISOString();
+    const paperFallback = { reason: fallbackReason, at: now };
     const alreadyOnPaper = sign.mode === "upload";
     update((d) => {
       d.sign.paperFallback = paperFallback;
       if (alreadyOnPaper) return;
       d.sign.mode = "upload";
       d.sign.requestedAt = null;
-      d.sign.notified = {};
       d.sign.signed = {};
       d.sign.confirmed = {};
+      // Each other complainant confirms on their own device, through a link (`SIG-05`).
+      d.sign.notified = Object.fromEntries(
+        confirmRows.filter((p) => !isYouRow(p)).map((p) => [confirmerSlot(p.id), now])
+      );
     });
     setSentThisOpening(false);
     setUploadError(null);
@@ -431,6 +457,15 @@ function SignFlowBody({
     });
   };
 
+  /** Send one party's confirmation link again. The link itself does not change. */
+  const [linkResent, setLinkResent] = React.useState<string | null>(null);
+  const resendLink = (person: PhoneConfirmer) => {
+    update((d) => {
+      d.sign.notified[confirmerSlot(person.id)] = new Date().toISOString();
+    });
+    setLinkResent(person.id);
+  };
+
   const sendRowOtp = (id: string) => {
     setOtpFor(id);
     setRowOtp("");
@@ -455,12 +490,15 @@ function SignFlowBody({
     setOtpFor(null);
     setRowOtp("");
     setRowResent(null);
+    // The oath goes with the confirmation, on the same device (`OTH-3`).
+    if (signingRules().oath && !sign.oaths[confirmerSlot(person.id)]) flow.go("oath");
   };
 
   /**
    * An uploaded copy is the complaint *after* every party has signed it, so it settles
    * the whole sheet rather than the uploader's own row — and each complainant has
-   * confirmed by OTP, on their own number, before this can be pressed.
+   * confirmed by OTP on their own device, with their oath where the state asks for one,
+   * before this can be pressed.
    */
   const submitSignedCopy = () => {
     if (!sign.signedCopy || !allConfirmed) return;
@@ -468,22 +506,21 @@ function SignFlowBody({
     update((d) => {
       for (const s of everyone) d.sign.signed[s.id] = { at, with: "paper" };
       d.sign.mode = "upload";
-      // Paper carries the signatures, not the oath. Everyone else still takes theirs,
-      // so their link goes out now — for the oath alone.
-      for (const s of everyone) {
-        if (!s.you && !s.oathTaken) d.sign.notified[s.id] = at;
-      }
     });
     flow.go("uploaded");
   };
 
-  /** One oath, written to every slot this person signs in. */
-  const saveOath = (video: OathVideoUpload) => {
+  /** One oath, written to every complainant slot this person signs in. */
+  const saveOath = (video: OathVideo) => {
     const at = new Date().toISOString();
     update((d) => {
-      for (const s of yourOathSlots) d.sign.oaths[s.id] = { at, video };
+      for (const s of yourOathSlots) {
+        d.sign.oaths[s.id] = { at, video, by: oathTakerName(draft, s.id, oathName) };
+      }
     });
   };
+  /** On paper the oath is part of the confirmation, so it returns to the upload. */
+  const afterOath = () => flow.go(onPaperPath && !youSigned ? "paper" : "sworn");
 
   /* ── the window ────────────────────────────────────────────────────────── */
 
@@ -525,7 +562,7 @@ function SignFlowBody({
       "E-signing is quicker for everyone. On paper, every party signs by hand and each complainant confirms by OTP.",
     paper: null,
     uploaded: null,
-    oath: "Record yourself reading the oath. It is filed with the complaint.",
+    oath: "Record yourself reading the oath. It is kept with the case file.",
     sworn: null,
   }[flow.stage];
 
@@ -601,16 +638,7 @@ function SignFlowBody({
         </Button>
       </>
     ),
-    uploaded: oathOwed ? (
-      <>
-        <Button type="button" variant="ghost" onClick={onClose}>
-          I&rsquo;ll take it later
-        </Button>
-        <Button type="button" onClick={() => flow.go("oath")}>
-          Continue to the oath
-        </Button>
-      </>
-    ) : (
+    uploaded: statusActions ?? (
       <Button type="button" onClick={onClose}>
         Done
       </Button>
@@ -620,7 +648,7 @@ function SignFlowBody({
         <Button type="button" variant="ghost" onClick={onClose}>
           I&rsquo;ll take it later
         </Button>
-        <Button type="button" disabled={!yourOath} onClick={() => flow.go("sworn")}>
+        <Button type="button" disabled={!yourOath} onClick={afterOath}>
           Submit oath
         </Button>
       </>
@@ -766,6 +794,15 @@ function SignFlowBody({
             rows={confirmRows}
             confirmedCount={confirmedCount}
             isConfirmed={isConfirmed}
+            isOtpIn={(person) => phoneConfirmed(draft, person)}
+            isYou={isYouRow}
+            oathOn={signingRules().oath}
+            linkResent={linkResent}
+            onResendLink={resendLink}
+            onRecordOath={() => flow.go("oath")}
+            linkFor={(person) =>
+              `/sign?draft=${encodeURIComponent(draft.id)}&as=${encodeURIComponent(confirmerSlot(person.id))}`
+            }
             otpFor={otpFor}
             rowOtp={rowOtp}
             rowResent={rowResent}
@@ -787,20 +824,16 @@ function SignFlowBody({
               headline="Signed copy accepted"
               rows={everyone}
               footnote={
-                oathOwed
-                  ? `Your oath is next. ${unlocks} once every advocate has taken theirs.`
-                  : outstanding === 0
-                    ? completeNote ?? "You can pay the court fee now."
-                    : signingRules().oath
-                      ? `${unlocks} once every advocate has taken their oath.`
-                      : `${unlocks} once every signature is in.`
+                outstanding === 0
+                  ? completeNote ?? "You can pay the court fee now."
+                  : `${unlocks} once every signature is in.`
               }
             />
           </StageColumn>
         ) : flow.stage === "oath" ? (
           <StageColumn>
             <StepTrail steps={trail("oath")} />
-            <OathCapture name={oathName} value={yourOath} onChange={saveOath} />
+            <OathCapture name={oathName} forWhom={oathFor} value={yourOath} onChange={saveOath} />
           </StageColumn>
         ) : (
           <StageColumn>
@@ -835,6 +868,13 @@ function PaperStage({
   rows,
   confirmedCount,
   isConfirmed,
+  isOtpIn,
+  isYou,
+  oathOn,
+  linkResent,
+  onResendLink,
+  onRecordOath,
+  linkFor,
   otpFor,
   rowOtp,
   rowResent,
@@ -851,6 +891,15 @@ function PaperStage({
   rows: PhoneConfirmer[];
   confirmedCount: number;
   isConfirmed: (person: PhoneConfirmer) => boolean;
+  /** The OTP alone is in — the oath may still be owed. */
+  isOtpIn: (person: PhoneConfirmer) => boolean;
+  isYou: (person: PhoneConfirmer) => boolean;
+  oathOn: boolean;
+  linkResent: string | null;
+  onResendLink: (person: PhoneConfirmer) => void;
+  onRecordOath: () => void;
+  /** Sandbox: the link this person would get by SMS. */
+  linkFor: (person: PhoneConfirmer) => string;
   otpFor: string | null;
   rowOtp: string;
   rowResent: string | null;
@@ -923,7 +972,9 @@ function PaperStage({
             </span>
           </div>
           <p className="text-body-compact text-muted-foreground">
-            Each one confirms by OTP, on their own number, that they signed this copy.
+            {oathOn
+              ? "Each one gets a link by SMS, confirms with the OTP on their own device that they signed this copy, and records their oath there."
+              : "Each one gets a link by SMS and confirms with the OTP on their own device that they signed this copy."}
           </p>
         </div>
         <ul className="border-t border-hairline px-4">
@@ -933,6 +984,13 @@ function PaperStage({
               person={person}
               index={i}
               confirmed={isConfirmed(person)}
+              otpIn={isOtpIn(person)}
+              you={isYou(person)}
+              oathOn={oathOn}
+              linkResent={linkResent === person.id}
+              onResendLink={() => onResendLink(person)}
+              onRecordOath={onRecordOath}
+              linkHref={linkFor(person)}
               open={otpFor === person.id}
               otp={otpFor === person.id ? rowOtp : ""}
               resent={rowResent === person.id}
@@ -969,18 +1027,26 @@ function mobileTailOf(mobile: string): string {
 }
 
 /**
- * One party on the uploaded copy, and the OTP that turns "someone says they all signed"
- * into that person's own confirmation. The OTP only proves the handset; the sentence
- * above it is what the person is actually answering, so the two never appear apart.
+ * One party on the uploaded copy, and the confirmation that turns "someone says they all
+ * signed" into that person's own word. The OTP only proves the handset; the sentence
+ * beside it is what the person is actually answering, so the two never appear apart.
  *
- * There is no link here on purpose — every confirmation happens in this sitting. Paper is
- * the path we would rather people did not take, so its friction is left in place (owner,
- * 2026-08-19).
+ * Each party confirms on their own device, through the link sent to them by SMS — the
+ * OTP is never entered on the uploader's screen (`SIG-05`, handover §18.3). The one
+ * exception is the uploader's own row: this is already their device. Where the state asks
+ * for an oath, it is recorded with the confirmation, on the same device (`OTH-3`).
  */
 function ConfirmRow({
   person,
   index,
   confirmed,
+  otpIn,
+  you,
+  oathOn,
+  linkResent,
+  onResendLink,
+  onRecordOath,
+  linkHref,
   open,
   otp,
   resent,
@@ -993,6 +1059,13 @@ function ConfirmRow({
   person: PhoneConfirmer;
   index: number;
   confirmed: boolean;
+  otpIn: boolean;
+  you: boolean;
+  oathOn: boolean;
+  linkResent: boolean;
+  onResendLink: () => void;
+  onRecordOath: () => void;
+  linkHref: string;
   open: boolean;
   otp: string;
   resent: boolean;
@@ -1044,14 +1117,50 @@ function ConfirmRow({
           >
             Add number
           </Button>
-        ) : open ? null : (
-          <Button type="button" variant="outline" size="sm" onClick={onOpen}>
-            Send OTP
+        ) : you && otpIn && oathOn ? (
+          <Button type="button" variant="outline" size="sm" onClick={onRecordOath}>
+            Record your oath
           </Button>
+        ) : you ? (
+          open ? null : (
+            <Button type="button" variant="outline" size="sm" onClick={onOpen}>
+              Send OTP
+            </Button>
+          )
+        ) : (
+          <Badge variant="secondary">
+            {otpIn && oathOn ? "Oath pending" : "Waiting"}
+          </Badge>
         )}
       </div>
 
-      {open && !confirmed && tail ? (
+      {/* Someone else's confirmation happens on their device; this row only follows it. */}
+      {!you && !confirmed && tail ? (
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 ps-9 text-body-compact text-muted-foreground">
+          <span>
+            {linkResent ? "Link sent again" : "Link sent by SMS"} to{" "}
+            <span className="tabular-nums">•••• {tail}</span>
+          </span>
+          <Button
+            type="button"
+            variant="link"
+            className="h-auto p-0 underline"
+            onClick={onResendLink}
+          >
+            Resend link
+          </Button>
+          <a
+            href={linkHref}
+            target="_blank"
+            rel="noreferrer"
+            className="text-body-compact font-medium text-primary underline underline-offset-2 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            Sandbox: open their link
+          </a>
+        </div>
+      ) : null}
+
+      {you && open && !otpIn && tail ? (
         <div className="mt-3 flex flex-col gap-3 rounded-lg bg-surface-sunken p-4">
           <p className="text-body-compact text-muted-foreground">
             In the live service, a 6-digit OTP goes to{" "}
@@ -1060,7 +1169,7 @@ function ConfirmRow({
             </strong>
             . Entering it confirms that{" "}
             <strong className="font-semibold text-foreground">{person.name}</strong> has
-            signed this complaint.
+            signed this complaint{oathOn ? ". Your oath is recorded next" : ""}.
           </p>
 
           <div className="flex flex-col gap-2">

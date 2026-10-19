@@ -13,7 +13,7 @@ import {
   intakeChequeGroup,
   intakePartyGroup,
 } from "@/lib/filing/blank";
-import { feeBill, signatories } from "@/lib/filing/selectors";
+import { feeBill, oathTakerName, signatories } from "@/lib/filing/selectors";
 import type {
   Accused,
   Address,
@@ -46,7 +46,8 @@ import type { BundleDoc, HistoryEvent } from "@/lib/employee/scrutiny/types";
  * designation, digital and paper signing, and one filing that was never machine-read.
  *
  * Every party, number and address here is fictional. Gujarat's deployment (Ahmedabad)
- * signs with every advocate and an oath, so the signatures are generated under its rules.
+ * signs with every advocate, and — as a prototype setting, not a decision (`Q-6`) — with
+ * each complainant's oath, so the signatures are generated under its rules.
  */
 
 export const SCRUTINY_SIGNING = COURT_PROFILES.gujarat.signing;
@@ -189,6 +190,12 @@ interface Spec {
     paperReason?: PaperFallbackReason;
     at: string;
   };
+  /**
+   * A correction round already went through: the complaint was signed again at
+   * `signedAt` and resubmitted at `resubmittedAt`. Its oaths were not flagged, so they
+   * carried over from `sign.at` (`OTH-5`).
+   */
+  resubmission?: { signedAt: string; resubmittedAt: string };
 }
 
 function build(spec: Spec): FilingDraft {
@@ -298,10 +305,15 @@ function build(spec: Spec): FilingDraft {
     SCRUTINY_SIGNING.oath,
     SCRUTINY_SIGNING.everyAdvocate,
   );
+  const signedAt = spec.resubmission?.signedAt ?? at;
   for (const s of [...complainants, ...advocates]) {
-    draft.sign.signed[s.id] = { at, with: spec.sign.instrument };
+    draft.sign.signed[s.id] = { at: signedAt, with: spec.sign.instrument };
+  }
+  // One oath per complainant, by whoever signed for them (`OTH-3`); advocates take none.
+  for (const s of complainants) {
     draft.sign.oaths[s.id] = {
       at,
+      by: oathTakerName(draft, s.id),
       video: {
         file: {
           id: `file-${s.id}-oath`,
@@ -317,7 +329,9 @@ function build(spec: Spec): FilingDraft {
   if (paper) {
     draft.complainants.forEach((c) => {
       const tail = c.type === "institution" ? c.rep.mobile : c.poa === "yes" ? c.poaHolder.mobile : c.mobile;
-      draft.sign.confirmed[`sig-c-${c.id}`] = { mobileTail: tail.slice(-4), at };
+      // Keyed as `phoneConfirmers` keys the row: a PoA holder confirms as themselves.
+      const id = c.poa === "yes" ? `poa-${c.id}` : `sig-c-${c.id}`;
+      draft.sign.confirmed[id] = { mobileTail: tail.slice(-4), at };
     });
   }
   draft.status = "filed";
@@ -330,6 +344,12 @@ function build(spec: Spec): FilingDraft {
   draft.sign.paidAmount = feeBill(draft, GUJARAT_FEES).total;
   draft.sign.paymentRef = `PAY${key.slice(-8)}`;
   draft.sign.caseFileNumber = spec.no;
+  if (spec.resubmission) {
+    draft.scrutinyReturn = {
+      resubmittedAt: spec.resubmission.resubmittedAt,
+      signingFrom: spec.resubmission.signedAt,
+    };
+  }
   return draft;
 }
 
@@ -524,6 +544,11 @@ const SPECS: Spec[] = [
     adr: { adr: "maybe", otherDetails: "<p>The accused is the complainant's former tenant.</p>" },
     witnesses: [],
     sign: { instrument: "aadhaar", at: "2026-05-31T06:10:00.000Z" },
+    // Sent back once and corrected; the oath was not flagged, so it carried over.
+    resubmission: {
+      signedAt: "2026-06-08T09:20:00.000Z",
+      resubmittedAt: "2026-06-08T10:05:00.000Z",
+    },
   },
 
   /* The filer dismissed a reading of the cheque number. The notice came back unserved,

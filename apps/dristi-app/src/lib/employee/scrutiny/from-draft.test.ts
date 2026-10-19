@@ -127,6 +127,31 @@ describe("provenance comes from the readings on the draft", () => {
     assert.ok(aff?.groups[1].fields.length);
   });
 
+  it("lists one oath per complainant, with who recorded it and when, never an advocate's", () => {
+    const shah = open("F/AHM/2026/00338");
+    const rows = shah.sections.find((section) => section.id === "aff")!.groups[1].fields;
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].label, "Oath · Meena Shah");
+    // The PoA holder recorded it, and the row says so.
+    assert.match(rows[0].value, /^Recorded by Rohan Shah \(PoA holder\) · 31\/05\/2026/);
+    // Selecting it plays its recording in the centre panel.
+    assert.equal(rows[0].video, "oath-c1");
+    assert.equal(shah.docById["oath-c1"].kind, "video");
+  });
+
+  it("says when an oath carried over from an earlier round", () => {
+    const carried = open("F/AHM/2026/00338").fieldById["oath-c1"];
+    assert.equal(carried.note, "Carried over from an earlier round — recorded 31/05/2026");
+    // A first-round filing carries nothing over.
+    assert.equal(open("F/AHM/2026/00319").fieldById["oath-c1"].note, undefined);
+  });
+
+  it("shows why a paper-signed case was not e-signed, and when that was said", () => {
+    const reason = hero.fieldById["aff-paper-reason"];
+    assert.match(reason.value, /^The OTP didn.t arrive · given \d{2}\/\d{2}\/2026 · \d{2}:\d{2} IST$/);
+    assert.equal(open("F/AHM/2026/00338").fieldById["aff-paper-reason"], undefined);
+  });
+
   it("reads a plain affidavit where the court records no oath", () => {
     const filing = QUEUE.find((f) => f.no === HERO_FILING_NO)!;
     for (const court of ["kerala", "punjab-haryana"] as const) {

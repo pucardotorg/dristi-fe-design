@@ -449,9 +449,12 @@ export function PreviewSection() {
   // Completeness per section, from the same rule the sidebar counts with.
   const done = (key: PanelKey) => sectionComplete(draft, panels[key].step);
   const readyToSign = sectionComplete(draft, "preview");
-  // Signing as an advocate means taking the oath in the same step, so the way there says so.
+  // Signing for a complainant means recording the oath in the same step, where the state
+  // asks for one (`OTH-3`), so the way there says so. Advocates never take it.
   const { profile } = useProfile();
-  const yourOathAhead = signatories(draft, profile).advocates.some((s) => s.you);
+  const yourOathAhead = signatories(draft, profile).complainants.some(
+    (s) => s.you && s.oathTaken === false
+  );
   const incomplete = (Object.keys(panels) as PanelKey[]).filter((k) => !done(k));
 
   /** The browser's print dialog — which is also how a PDF is saved. */

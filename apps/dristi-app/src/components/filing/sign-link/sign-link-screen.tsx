@@ -16,13 +16,16 @@
  * 2. **Sign in** — signing and the oath are tied to an account, so a person who is not
  *    signed in does that first, and someone new registers through the same flow as
  *    everywhere else (`SignInBlock`).
- * 3. **E-sign** — Aadhaar OTP or DSC, the same cards as the filer's.
- * 4. **The oath** — complainants and advocates alike, straight after their signature
- *    (`OathCapture`), read in their own name.
+ * 3. **E-sign** — Aadhaar OTP or DSC, the same cards as the filer's. On a complaint signed
+ *    on paper there is no e-signature: the person confirms by the OTP sent to their own
+ *    number that they signed the copy being uploaded (`SIG-05`) — here, on their own
+ *    device, never on the uploader's screen.
+ * 4. **The oath** — a complainant's, where the state asks for one, recorded by whoever
+ *    signs for them: the complainant, their PoA holder or an Institution's representative
+ *    (`OathCapture`, `OTH-3`). Advocates never record one.
  *
- * Both acts are shown from the start ("E-sign", then "Oath") so the second never
- * arrives as a surprise. A complaint signed on paper skips the e-signature: the link is
- * for the oath alone.
+ * Both acts are shown from the start ("E-sign" or "Confirm by OTP", then "Oath") so the
+ * second never arrives as a surprise.
  *
  * **A complainant goes into File a case.** Once a litigant has signed in or registered,
  * the complaint opens inside the product's shell, under File a case
@@ -50,11 +53,18 @@ import { SignInBlock } from "@/components/sign-in-block";
 import { signingRules } from "@/lib/filing/config";
 import { money } from "@/lib/filing/format";
 import { COURT } from "@/lib/filing/options";
-import { draftTitle, oathTakerName, signatories } from "@/lib/filing/selectors";
+import {
+  confirmerSlot,
+  draftTitle,
+  oathTakerName,
+  phoneConfirmed,
+  phoneConfirmers,
+  signatories,
+} from "@/lib/filing/selectors";
 import { useLocalStorageValue } from "@/hooks/use-local-storage-value";
 import { FilingProvider, useFiling } from "@/lib/filing/store";
 import type {
-  OathVideoUpload,
+  OathVideo,
   SignInstrument,
   Signatory,
 } from "@/lib/filing/types";
@@ -86,21 +96,23 @@ import {
   rememberLinkedComplaint,
 } from "@/lib/filing/linked-complaints";
 
-type Stage = "why" | "account" | "sign" | "otp" | "dsc" | "signed" | "oath" | "done";
-type Start = "why" | "sign" | "oath" | "done";
+type Stage = "why" | "account" | "confirm" | "sign" | "otp" | "dsc" | "signed" | "oath" | "done";
+type Start = "why" | "confirm" | "sign" | "oath" | "done";
 
 /** One order per starting point: the window opens where this person actually is. */
 const ORDER: Record<Start, readonly Stage[]> = {
-  why: ["why", "account", "sign", "otp", "dsc", "signed", "oath", "done"],
-  sign: ["sign", "otp", "dsc", "signed", "oath", "done", "why", "account"],
-  oath: ["oath", "done", "why", "account", "sign", "otp", "dsc", "signed"],
-  done: ["done", "why", "account", "sign", "otp", "dsc", "signed", "oath"],
+  why: ["why", "account", "confirm", "sign", "otp", "dsc", "signed", "oath", "done"],
+  confirm: ["confirm", "signed", "oath", "done", "why", "account", "sign", "otp", "dsc"],
+  sign: ["sign", "otp", "dsc", "signed", "oath", "done", "why", "account", "confirm"],
+  oath: ["oath", "done", "why", "account", "confirm", "sign", "otp", "dsc", "signed"],
+  done: ["done", "why", "account", "confirm", "sign", "otp", "dsc", "signed", "oath"],
 };
 
 /** An act and its outcome share a scene, so the signature settles where it was made. */
 const SCENES: Record<Stage, string> = {
   why: "why",
   account: "account",
+  confirm: "act",
   sign: "sign",
   otp: "act",
   dsc: "act",
@@ -182,12 +194,18 @@ function SignLinkBody({
   const [opening, setOpening] = React.useState(0);
 
   const isAdvocate = !!me?.id.startsWith("sig-a-");
-  /** Everyone who signs also takes the oath — only while the oath is switched on. */
-  const sworn = signingRules().oath;
   const onPaper = draft.sign.mode === "upload";
+  /** On paper, the complainant this link answers for confirms by phone (`SIG-05`). */
+  const confirmer = React.useMemo(
+    () => phoneConfirmers(draft).find((p) => confirmerSlot(p.id) === signatoryId),
+    [draft, signatoryId]
+  );
+  const needsConfirm =
+    onPaper && !!confirmer && me?.status !== "signed" && !phoneConfirmed(draft, confirmer);
   const needsSign = !!me && !onPaper && me.status !== "signed";
-  const needsOath = !!me && sworn && !me.oathTaken;
-  const owed = needsSign || needsOath;
+  /** Only a complainant's slot carries an oath, and only where the state asks for one. */
+  const needsOath = !!me && me.oathTaken === false;
+  const owed = needsConfirm || needsSign || needsOath;
   const filed = draft.status === "filed";
 
   // Opened inside the home, the complaint is the litigant's from now on.
@@ -211,15 +229,23 @@ function SignLinkBody({
     const timer = window.setTimeout(() => {
       greeted.current = true;
       // Arriving from sign-in, the person has read why already; go to what is next.
-      const act: Start = needsSign ? "sign" : needsOath ? "oath" : "done";
+      const act: Start = needsConfirm ? "confirm" : needsSign ? "sign" : needsOath ? "oath" : "done";
       openAt(owed ? (inShell ? act : "why") : "done");
     }, 500);
     return () => window.clearTimeout(timer);
-  }, [canGreet, owed, openAt, inShell, needsSign, needsOath]);
+  }, [canGreet, owed, openAt, inShell, needsConfirm, needsSign, needsOath]);
 
   if (!me) return <LinkUnavailable inShell={inShell} />;
 
-  const nextAct: Start = needsSign ? "sign" : needsOath ? "oath" : "done";
+  const nextAct: Start = needsConfirm
+    ? "confirm"
+    : needsSign
+      ? "sign"
+      : needsOath
+        ? "oath"
+        : "done";
+  /** Whether this person has an oath at all — a complainant's slot, with the oath on. */
+  const swears = me.oathTaken !== undefined;
 
   const finishSignIn = () => {
     try {
@@ -292,11 +318,15 @@ function SignLinkBody({
         ) : owed ? (
           <div className="flex flex-col gap-3 rounded-xl border border-hairline bg-card p-4 shadow-raised sm:flex-row sm:items-center sm:justify-between">
             <p className="text-body-compact text-muted-foreground">
-              {needsSign && needsOath
-                ? "You still need to sign and record your oath."
-                : needsSign
-                  ? "You still need to sign."
-                  : "You still need to record your oath."}
+              {needsConfirm
+                ? needsOath
+                  ? "You still need to confirm you signed, and record your oath."
+                  : "You still need to confirm you signed."
+                : needsSign && needsOath
+                  ? "You still need to sign and record your oath."
+                  : needsSign
+                    ? "You still need to sign."
+                    : "You still need to record your oath."}
             </p>
             <Button
               type="button"
@@ -308,7 +338,7 @@ function SignLinkBody({
           </div>
         ) : (
           <SectionNotice variant="success" announce="polite">
-            {sworn
+            {swears
               ? "You have signed and recorded your oath. Nothing more is needed."
               : "You have signed. Nothing more is needed."}
           </SectionNotice>
@@ -341,6 +371,10 @@ function SignLinkBody({
             chequeAmount={draft.cheques[0]?.amount ?? ""}
             signedIn={signedIn}
             needsSign={needsSign}
+            needsConfirm={needsConfirm}
+            confirmTail={(confirmer?.mobile ?? "").replace(/\D/g, "").slice(-4)}
+            onPaper={onPaper}
+            swears={swears}
             needsOath={needsOath}
             isAdvocate={isAdvocate}
             oath={draft.sign.oaths[me.id]?.video ?? null}
@@ -350,9 +384,16 @@ function SignLinkBody({
                 d.sign.signed[me.id] = { at: new Date().toISOString(), with: instrument };
               })
             }
+            onConfirm={() => {
+              if (!confirmer) return;
+              const tail = confirmer.mobile.replace(/\D/g, "").slice(-4);
+              update((d) => {
+                d.sign.confirmed[confirmer.id] = { mobileTail: tail, at: new Date().toISOString() };
+              });
+            }}
             onOath={(video) =>
               update((d) => {
-                d.sign.oaths[me.id] = { at: new Date().toISOString(), video };
+                d.sign.oaths[me.id] = { at: new Date().toISOString(), video, by: oathName };
               })
             }
             onSignIn={() => {
@@ -375,11 +416,16 @@ function SignLinkWizard({
   chequeAmount,
   signedIn,
   needsSign,
+  needsConfirm,
+  confirmTail,
+  onPaper,
+  swears,
   needsOath,
   isAdvocate,
   oath,
   oathName,
   onSign,
+  onConfirm,
   onOath,
   onSignIn,
   onClose,
@@ -392,18 +438,25 @@ function SignLinkWizard({
   chequeAmount: string;
   signedIn: boolean;
   needsSign: boolean;
+  /** On paper: this person's own OTP confirmation is still to come (`SIG-05`). */
+  needsConfirm: boolean;
+  confirmTail: string;
+  onPaper: boolean;
+  /** This person records an oath — a complainant's slot, with the oath on. */
+  swears: boolean;
   needsOath: boolean;
   isAdvocate: boolean;
-  oath: OathVideoUpload | null;
+  oath: OathVideo | null;
   onSign: (instrument: SignInstrument) => void;
-  onOath: (video: OathVideoUpload) => void;
+  onConfirm: () => void;
+  onOath: (video: OathVideo) => void;
   onSignIn: () => void;
   onClose: () => void;
 }) {
   const courtText = useCourtText();
   const flow = useStagedFlow<Stage>({ order: ORDER[start], scene: SCENES, arrival: "forward" });
-  /** Everyone who signs also takes the oath — only while the oath is switched on. */
-  const sworn = signingRules().oath;
+  /** Only a complainant records an oath (`OTH-3`), and only where the state asks for one. */
+  const sworn = swears && signingRules().oath;
 
   const [otp, setOtp] = React.useState("");
   const [resent, setResent] = React.useState(false);
@@ -429,11 +482,15 @@ function SignLinkWizard({
    * it the whole trail — from the oath stage that follows, which is where "step 1 done"
    * is the point of showing it.
    */
-  const [signsHere] = React.useState(needsSign || start === "sign");
+  const [signsHere] = React.useState(
+    needsSign || needsConfirm || start === "sign" || start === "confirm"
+  );
 
   /* The steps this person has, in order — the trail and the "what happens next" list. */
   const acts: { key: "sign" | "oath"; label: string }[] = [
-    ...(signsHere ? [{ key: "sign" as const, label: "E-sign" }] : []),
+    ...(signsHere
+      ? [{ key: "sign" as const, label: onPaper ? "Confirm by OTP" : "E-sign" }]
+      : []),
     ...(sworn ? [{ key: "oath" as const, label: "Oath" }] : []),
   ];
   const trail = (current: "sign" | "oath"): TrailStep[] =>
@@ -462,17 +519,24 @@ function SignLinkWizard({
   /** After "why": sign in first, or go straight to the first act. */
   const proceed = () => {
     if (!signedIn) flow.go("account");
-    else flow.go(needsSign ? "sign" : needsOath ? "oath" : "done");
+    else flow.go(needsConfirm ? "confirm" : needsSign ? "sign" : needsOath ? "oath" : "done");
+  };
+
+  /** Paper: the OTP on this person's own number confirms the signature on the copy. */
+  const confirm = () => {
+    onConfirm();
+    flow.go(sworn ? "oath" : "signed");
   };
 
 
   const title = {
     why: "You have been asked to sign",
     account: "Sign in first",
+    confirm: "Confirm you signed",
     sign: "Sign the complaint",
     otp: "Enter the OTP",
     dsc: "Sign with your DSC",
-    signed: signedWith ? INSTRUMENT_LABEL[signedWith] : "Signed",
+    signed: signedWith ? INSTRUMENT_LABEL[signedWith] : onPaper ? "Confirmed" : "Signed",
     oath: "Record your oath",
     done: "All done",
   }[flow.stage];
@@ -480,6 +544,9 @@ function SignLinkWizard({
   const description = {
     why: null,
     account: null,
+    confirm: confirmTail
+      ? `Sent to your mobile ending ${confirmTail}.`
+      : "Sent to your mobile.",
     sign: "Use whichever you have.",
     otp: "Sent to your Aadhaar-linked mobile.",
     dsc: "Plug in your certificate and keep the signing utility running.",
@@ -506,6 +573,16 @@ function SignLinkWizard({
         </Button>
         <Button type="button" onClick={onSignIn}>
           Sign in
+        </Button>
+      </>
+    ),
+    confirm: (
+      <>
+        <Button type="button" variant="ghost" onClick={onClose}>
+          I&rsquo;ll do it later
+        </Button>
+        <Button type="button" disabled={otp.length < 6} onClick={confirm}>
+          Confirm
         </Button>
       </>
     ),
@@ -587,6 +664,9 @@ function SignLinkWizard({
             {[
               ...(signedIn ? [] : [{ icon: LogInIcon, title: "Sign in, or create an account" }]),
               ...(needsSign ? [{ icon: SignatureIcon, title: "Sign the complaint with Aadhaar OTP or DSC" }] : []),
+              ...(needsConfirm
+                ? [{ icon: SignatureIcon, title: "Confirm by OTP that you signed the paper copy" }]
+                : []),
               ...(sworn && needsOath ? [{ icon: VideoIcon, title: "Record your oath on video" }] : []),
             ].map(({ icon: Icon, title: t }, i) => (
               <li key={t} className="flex items-center gap-3">
@@ -635,6 +715,15 @@ function SignLinkWizard({
             this complaint.
           </p>
         </StageColumn>
+      ) : flow.stage === "confirm" ? (
+        <StageColumn>
+          {acts.length > 1 ? <StepTrail steps={trail("sign")} /> : null}
+          <p className="text-body">
+            Entering the OTP confirms that you signed the paper copy of this complaint that{" "}
+            {filer} is uploading.
+          </p>
+          <OtpEntry id="link-confirm-otp" value={otp} onChange={setOtp} resent={resent} onResend={resendOtp} />
+        </StageColumn>
       ) : flow.stage === "sign" ? (
         <StageColumn>
           {acts.length > 1 ? <StepTrail steps={trail("sign")} /> : null}
@@ -660,7 +749,9 @@ function SignLinkWizard({
       ) : flow.stage === "signed" ? (
         <StageColumn>
           <SettledCard
-            headline={signedWith ? INSTRUMENT_LABEL[signedWith] : "Signature added"}
+            headline={
+              signedWith ? INSTRUMENT_LABEL[signedWith] : onPaper ? "Confirmed" : "Signature added"
+            }
             rows={[{ ...me, status: "signed" }]}
             footnote={
               sworn ? "Next, record your oath." : "Nothing more is needed from you."
@@ -675,7 +766,15 @@ function SignLinkWizard({
       ) : (
         <StageColumn>
           <SettledCard
-            headline={sworn ? "Signed and oath recorded" : "Signed"}
+            headline={
+              onPaper
+                ? sworn
+                  ? "Confirmed and oath recorded"
+                  : "Confirmed"
+                : sworn
+                  ? "Signed and oath recorded"
+                  : "Signed"
+            }
             rows={[settledRow]}
             footnote={`Nothing more is needed from you. ${filer} will file the case.`}
           />

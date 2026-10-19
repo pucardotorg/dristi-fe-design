@@ -251,9 +251,10 @@ function sameMobile(a: string, b: string): boolean {
 }
 
 /**
- * Everyone who signs the complaint and takes the oath: each complainant (or the person
- * acting for one), and every advocate on record for them. A complainant appearing as a
- * party in person brings no advocate.
+ * Everyone who signs the complaint: each complainant (or the person acting for one), and
+ * every advocate on record for them. A complainant appearing as a party in person brings
+ * no advocate. Where the state asks for an oath, only the complainants' slots carry one
+ * (`OTH-3`); advocates sign and nothing more.
  *
  * "You" is whoever matches the profile — by bar number for advocates, by mobile for
  * complainants — else the first advocate, else the first complainant.
@@ -261,7 +262,7 @@ function sameMobile(a: string, b: string): boolean {
 export function signatories(
   draft: FilingDraft,
   profile: UserProfile | null,
-  /** Whether signatories take the oath — the deployment's rule unless a test says otherwise. */
+  /** Whether complainants record the oath — the deployment's rule unless a test says otherwise. */
   oath: boolean = signingRules().oath,
   /** Whether every advocate signs as themselves, or one per complainant (`config.ts`). */
   everyAdvocate: boolean = signingRules().everyAdvocate
@@ -293,7 +294,7 @@ export function signatories(
       status: signedOf(`sig-c-${c.id}`),
       signedWith: signedWith(`sig-c-${c.id}`),
       you,
-      // Complainants take the oath as advocates do (owner, 2026-10-09).
+      // One oath per complainant record, by whoever signs for them (`OTH-3`).
       oathTaken: oath ? !!draft.sign.oaths?.[`sig-c-${c.id}`] : undefined,
     };
   });
@@ -302,12 +303,12 @@ export function signatories(
 
   /*
    * Where every advocate signs (Gujarat, owner 2026-10-09), each advocate on record is a
-   * signatory of their own, with their own link and oath. Elsewhere it is one slot per
+   * signatory of their own, with their own link. Elsewhere it is one slot per
    * complainant that any one of their advocates may fill: the row names the slot, and
    * the system does not know which of them will sign.
    */
   const advocates: Signatory[] = everyAdvocate
-    ? everyAdvocateRows(draft, myBar, oath, signedOf, signedWith)
+    ? everyAdvocateRows(draft, myBar, signedOf, signedWith)
     : draft.complainants.flatMap((c, i) => {
         if (isPartyInPerson(c)) return [];
         const acting = advocatesForComplainant(draft.advocates, i);
@@ -326,7 +327,6 @@ export function signatories(
             status: signedOf(id),
             signedWith: signedWith(id),
             you,
-            oathTaken: oath ? !!draft.sign.oaths?.[id] : undefined,
           },
         ];
       });
@@ -343,7 +343,6 @@ export function signatories(
 function everyAdvocateRows(
   draft: FilingDraft,
   myBar: string,
-  oath: boolean,
   signedOf: (id: string) => Signatory["status"],
   signedWith: (id: string) => SignInstrument | undefined
 ): Signatory[] {
@@ -364,28 +363,18 @@ function everyAdvocateRows(
         status: signedOf(id),
         signedWith: signedWith(id),
         you: !!myBar && a.barNumber.trim().toUpperCase() === myBar,
-        oathTaken: oath ? !!draft.sign.oaths?.[id] : undefined,
       },
     ];
   });
 }
 
 /**
- * The person who reads the oath for a signatory slot, by name — it is in the words they
- * read. A complainant reads it themselves, or through their PoA holder or the
- * representative who answers for an institution; each advocate reads it in their own.
+ * The person who records the oath for a complainant's slot, by name — it is in the words
+ * they read: the complainant, their PoA holder, or the representative who answers for an
+ * institution (`OTH-3`).
  */
 export function oathTakerName(draft: FilingDraft, signatoryId: string, fallback = ""): string {
-  const ref = signatoryId.replace(/^sig-[ca]-/, "");
-  if (signatoryId.startsWith("sig-a-")) {
-    const own = draft.advocates.find((a) => a.id === ref);
-    if (own) return own.name.trim() || fallback;
-    // A per-complainant slot: read by its one advocate, else by whoever is signed in.
-    const i = draft.complainants.findIndex((c) => c.id === ref);
-    const acting = i < 0 ? [] : advocatesForComplainant(draft.advocates, i);
-    return acting.length === 1 ? acting[0].name.trim() || fallback : fallback;
-  }
-  const c = draft.complainants.find((x) => x.id === ref);
+  const c = draft.complainants.find((x) => `sig-c-${x.id}` === signatoryId);
   if (!c) return fallback;
   if (c.type === "institution") return c.rep.name.trim() || c.entName.trim() || fallback;
   if (c.poa === "yes" && c.poaHolder.name.trim()) return c.poaHolder.name.trim();
@@ -393,15 +382,50 @@ export function oathTakerName(draft: FilingDraft, signatoryId: string, fallback 
 }
 
 /**
- * Something is still owed by this signatory: their signature, or — an advocate — the
- * oath that follows it.
+ * Who records a complainant's oath, as a role — said beside their name wherever the oath
+ * is read back, so "Rohan Shah" is not mistaken for the complainant.
+ */
+export function oathTakerRole(draft: FilingDraft, signatoryId: string): string {
+  const c = draft.complainants.find((x) => `sig-c-${x.id}` === signatoryId);
+  if (!c) return "";
+  if (c.type === "institution") return "Authorised representative";
+  if (c.poa === "yes") return "PoA holder";
+  return "Complainant";
+}
+
+/**
+ * The oaths a correction round keeps (`OTH-5`): every recorded oath carries over, except
+ * the ones scrutiny flagged as an error, which are recorded again by that complainant.
+ * A registration send-back flags nothing, so everything carries over.
+ */
+export function carryOverOaths(
+  oaths: FilingDraft["sign"]["oaths"],
+  flagged: readonly string[] = []
+): FilingDraft["sign"]["oaths"] {
+  const drop = new Set(flagged);
+  return Object.fromEntries(Object.entries(oaths).filter(([id]) => !drop.has(id)));
+}
+
+/**
+ * Whether an oath was recorded in an earlier round and carried over (`SCR-14`): the
+ * filing went through a correction round, and this oath predates that round's signing.
+ */
+export function oathCarriedOver(draft: FilingDraft, signatoryId: string): boolean {
+  const from = draft.scrutinyReturn?.signingFrom;
+  const oath = draft.sign.oaths[signatoryId];
+  return !!from && !!oath && oath.at < from;
+}
+
+/**
+ * Something is still owed by this signatory: their signature, or — a complainant, where
+ * the state asks for one — the oath that goes with it.
  */
 export function isOutstanding(s: Signatory): boolean {
   return s.status === "pending" || s.oathTaken === false;
 }
 
 /**
- * Every signature and every advocate's oath is in — the gate to the court fee. One
+ * Every signature and every complainant's oath is in — the gate to the court fee. One
  * reading, shared by the Sign step, the dashboard queues and batch payment, so none of
  * them can open the fee earlier than the others.
  */
@@ -463,6 +487,35 @@ export function phoneConfirmers(draft: FilingDraft): PhoneConfirmer[] {
     }
   });
   return rows;
+}
+
+/** The complainant signatory slot a phone confirmer answers for — the oath is kept there. */
+export function confirmerSlot(confirmerId: string): string {
+  return confirmerId.replace(/^poa-/, "sig-c-");
+}
+
+/** This confirmer's phone OTP is in, against the number the draft holds for them now. */
+export function phoneConfirmed(draft: FilingDraft, person: PhoneConfirmer): boolean {
+  const record = draft.sign.confirmed[person.id];
+  const tail = person.mobile.replace(/\D/g, "").slice(-4);
+  return !!record && !!tail && record.mobileTail === tail;
+}
+
+/**
+ * This confirmer is done (`SIG-05`, `OTH-3`): their OTP is in and, where the state asks
+ * for an oath, so is their oath — a confirmation is not complete without it.
+ */
+export function confirmationComplete(
+  draft: FilingDraft,
+  person: PhoneConfirmer,
+  oath: boolean = signingRules().oath
+): boolean {
+  return phoneConfirmed(draft, person) && (!oath || !!draft.sign.oaths[confirmerSlot(person.id)]);
+}
+
+/** The person at this keyboard is this confirmer — the uploader is one of the complainants. */
+export function isYourConfirmation(person: PhoneConfirmer, profile: UserProfile | null): boolean {
+  return !!profile?.mobile && sameMobile(profile.mobile, person.mobile);
 }
 
 /* ───────────────────────────── Whole-draft reads ───────────────────── */

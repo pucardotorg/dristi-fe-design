@@ -1,10 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { ZoomInIcon, ZoomOutIcon } from "lucide-react";
+import { VideoIcon, ZoomInIcon, ZoomOutIcon } from "lucide-react";
 
 import { rectStyle } from "@/lib/employee/scrutiny/field";
-import type { Rect } from "@/lib/employee/scrutiny/types";
+import type { BundleDoc, Rect } from "@/lib/employee/scrutiny/types";
+import { formatDuration, getFileUrl } from "@/lib/filing/files";
 import {
   useLocalStorageValue,
   writeLocalStorageValue,
@@ -25,6 +26,52 @@ const ZOOM_KEY = "employee-scrutiny-zoom";
 
 export interface BundleHandle {
   goToDoc: (docId: string) => void;
+  /** Bring a recording into view and start it (`SCR-14`: selecting an oath plays it). */
+  play: (docId: string) => void;
+}
+
+/**
+ * One oath recording, played in place (`SCR-14`). The recording is read from this
+ * browser's store when it holds it; a sample filing has no recording behind it, and the
+ * frame says so rather than standing in a video that was never made.
+ */
+function OathRecording({ doc }: { doc: BundleDoc }) {
+  const [url, setUrl] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    if (!doc.fileId) return;
+    let cancelled = false;
+    void getFileUrl(doc.fileId).then((u) => {
+      if (!cancelled) setUrl(u);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [doc.fileId]);
+
+  if (url) {
+    return (
+      <video
+        src={url}
+        controls
+        aria-label={doc.name}
+        className="block aspect-video w-full bg-surface-sunken object-contain"
+      />
+    );
+  }
+  return (
+    <div className="flex aspect-video w-full flex-col items-center justify-center gap-2 bg-surface-sunken p-6 text-center">
+      <VideoIcon aria-hidden className="size-8 text-muted-foreground" />
+      <p className="text-body-compact font-medium text-foreground">
+        Oath recording
+        {doc.durationSeconds ? (
+          <span className="tabular-nums"> · {formatDuration(doc.durationSeconds)}</span>
+        ) : null}
+      </p>
+      <p className="max-w-xs text-body-compact text-muted-foreground">
+        Sandbox: this sample filing has no recording behind it. A filed oath plays here.
+      </p>
+    </div>
+  );
 }
 
 /**
@@ -163,7 +210,17 @@ export function BundleView({
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 
-  React.useImperativeHandle(ref, () => ({ goToDoc }), [goToDoc]);
+  const play = React.useCallback(
+    (docId: string) => {
+      goToDoc(docId);
+      const video = document.querySelector<HTMLVideoElement>(`#doc-${CSS.escape(docId)} video`);
+      // Selecting the row is the gesture; a browser that still declines leaves the controls.
+      void video?.play().catch(() => undefined);
+    },
+    [goToDoc],
+  );
+
+  React.useImperativeHandle(ref, () => ({ goToDoc, play }), [goToDoc, play]);
 
   /* ── panning (zoomed in) ───────────────────────────────────────────────── */
 
@@ -291,10 +348,15 @@ export function BundleView({
                   <span className="tabular-nums">{doc.no}</span> · {doc.name}
                 </div>
                 <div
-                  className="relative overflow-hidden rounded-xl bg-paper shadow-raised"
+                  className={cn(
+                    "relative overflow-hidden rounded-xl shadow-raised",
+                    doc.kind === "video" ? "bg-card" : "bg-paper",
+                  )}
                   style={box ? { aspectRatio: `${box.w} / ${box.h}` } : undefined}
                 >
-                  {doc.kind === "image" && doc.src ? (
+                  {doc.kind === "video" ? (
+                    <OathRecording doc={doc} />
+                  ) : doc.kind === "image" && doc.src ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={doc.src}

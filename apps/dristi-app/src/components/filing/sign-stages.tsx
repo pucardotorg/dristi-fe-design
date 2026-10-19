@@ -318,7 +318,8 @@ const CENTRED_TRAIL = cn(
 );
 
 /**
- * An advocate's signing is two acts — the e-signature, then the oath — and both are named
+ * A complainant's signing, where the state asks for an oath, is two acts — the
+ * e-signature (or, on paper, the OTP confirmation), then the oath — and both are named
  * up front, so the oath never arrives as a surprise after the person thinks they are done.
  *
  * It heads the stage it belongs to, across the column, in the same place on both acts:

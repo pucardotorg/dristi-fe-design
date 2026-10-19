@@ -10,7 +10,8 @@
  * closed window) and every state Pending signature and Pending payment can be in: sent
  * and nobody has signed, sent and only the filer's own signature is still needed, sent
  * and only someone else's is, and fully signed with the court fee still owed — plus one
- * with a second advocate, whose signature and oath go out by link. Seeded
+ * with a second complainant and advocate, whose signatures (and the complainant's oath)
+ * go out by link. Seeded
  * once per version (a marker in localStorage), so a draft the person discards stays
  * discarded. Nothing here has been sent to a real court.
  */
@@ -70,8 +71,9 @@ type Sample = {
   reach: "start" | "parties" | "cheque" | "notice" | "most" | "sign-you-pending" | "sign-them-pending" | "pay-pending";
   savedDaysAgo: number;
   /**
-   * A second complainant with their own advocate. That advocate is not at this keyboard,
-   * so their signature and oath go out by link — the only way to walk the link's oath.
+   * A second complainant with their own advocate. Neither is at this keyboard, so their
+   * signatures — and the complainant's oath — go out by link: the way to walk the link's
+   * oath.
    */
   second?: { complainant: string; mobile: string; advocate: string; barNumber: string };
 };
@@ -94,7 +96,7 @@ const SIGN_SAMPLES: Sample[] = [
 
 /**
  * Two complainants, each with their own advocate. You are the first advocate and have
- * signed; the second advocate's signature and oath are waiting on their link.
+ * signed; the second advocate's signature, and the complainants' oaths, wait on links.
  */
 export const ADVOCATE_LINK_SAMPLES: Sample[] = [
   {

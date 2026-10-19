@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import {
   FileTextIcon,
   FlagIcon,
+  HistoryIcon,
   TriangleAlertIcon,
 } from "lucide-react";
 
@@ -294,6 +295,13 @@ function Hints({
     lines.push(
       <HintLine key="ocrfail" tone="warning" icon={<TriangleAlertIcon />}>
         Couldn&rsquo;t read this in the document.
+      </HintLine>,
+    );
+  }
+  if (field.note) {
+    lines.push(
+      <HintLine key="note" tone="muted" icon={<HistoryIcon />}>
+        {field.note}
       </HintLine>,
     );
   }

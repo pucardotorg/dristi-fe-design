@@ -16,6 +16,7 @@ import {
   MODE_OF_SERVICE,
   NATURE_OF_DEBT,
   NON_DELIVERY_REASONS,
+  PAPER_FALLBACK_REASONS,
   PAYMENT_STATUS,
   RETURN_REASONS,
   type Option,
@@ -23,9 +24,12 @@ import {
 import {
   advocateName,
   chequeSourceSlot,
+  complainantLabel,
   limitationView,
+  oathCarriedOver,
+  oathTakerName,
+  oathTakerRole,
   partySourceSlot,
-  signatories,
 } from "@/lib/filing/selectors";
 import type {
   Address,
@@ -73,7 +77,7 @@ import type {
 /** What the preview and the court sheet print for a question left unanswered. */
 const NOT_PROVIDED = "Not provided";
 
-/** Gujarat signs with every advocate and an oath (`lib/court/profiles.ts`). */
+/** The court's signing rules (`lib/court/profiles.ts`): whether the oath is in (`OTH-2`). */
 export interface DraftReadOptions {
   /** The deployment's signing rules — passed, not read from the client-side switch. */
   signing: { oath: boolean; everyAdvocate: boolean };
@@ -932,6 +936,16 @@ function affidavitGroup(draft: FilingDraft): FieldGroupDef {
         : "Uploaded at filing",
       docrow: "affidavit",
     });
+    // Why it was not e-signed, as the filer said before the upload opened (`SCR-15`).
+    const fallback = draft.sign.paperFallback;
+    const reason = fallback
+      ? PAPER_FALLBACK_REASONS.find((r) => r.id === fallback.reason)?.label ?? fallback.reason
+      : "";
+    fields.push({
+      id: "aff-paper-reason",
+      label: "Why signed on paper",
+      value: fallback ? `${reason} · given ${stamp(fallback.at)}` : NOT_PROVIDED,
+    });
   }
   return group("aff", "doc", "Affidavit", fields);
 }
@@ -946,27 +960,57 @@ function stamp(iso: string | null | undefined): string {
   return `${pad(ist.getUTCDate())}/${pad(ist.getUTCMonth() + 1)}/${ist.getUTCFullYear()} · ${pad(ist.getUTCHours())}:${pad(ist.getUTCMinutes())} IST`;
 }
 
+/** The bundle id an oath recording plays from — one per complainant, by position. */
+const oathDocId = (index: number) => `oath-c${index + 1}`;
+
 /**
- * Who swore the affidavit, one row per person the court's rules ask an oath of. Only
- * where the filing records an oath (`signing.oath`: Gujarat, for now); elsewhere there is
- * nothing to read, so no group.
+ * The oath recordings (`SCR-14`), one per complainant, after the pages: a video is not a
+ * page of the complaint PDF (e-filing handover §18.2). Only where the state asks for an
+ * oath; elsewhere there is nothing to play.
+ */
+function oathRecordings(draft: FilingDraft, options: DraftReadOptions, from: number): BundleDoc[] {
+  if (!options.signing.oath) return [];
+  return draft.complainants
+    .flatMap((c, i) => {
+      const oath = draft.sign.oaths[`sig-c-${c.id}`];
+      if (!oath) return [];
+      return [
+        {
+          id: oathDocId(i),
+          name: `Oath · ${complainantLabel(c, i)}`,
+          kind: "video" as const,
+          fileId: oath.video?.file.id,
+          durationSeconds: oath.video?.durationSeconds ?? null,
+        },
+      ];
+    })
+    .map((doc, k) => ({ ...doc, no: from + k + 1 }));
+}
+
+/**
+ * One row per complainant's oath (`SCR-14`): whose oath it is, who recorded it — the
+ * complainant, their PoA holder or an Institution's authorised representative — and when.
+ * Selecting a row plays it; each row is flagged on its own, with a comment, like any
+ * field. An oath carried over from an earlier round says so. Only where the state asks
+ * for an oath (`OTH-2`); elsewhere there is no group.
  */
 function oathGroup(draft: FilingDraft, options: DraftReadOptions): FieldGroupDef | null {
   if (!options.signing.oath) return null;
-  const { complainants, advocates } = signatories(
-    draft,
-    null,
-    options.signing.oath,
-    options.signing.everyAdvocate,
-  );
-  const fields: Field[] = [...complainants, ...advocates].map((sig, k) => {
-    const oath = draft.sign.oaths[sig.id];
+  const fields: Field[] = draft.complainants.map((c, i) => {
+    const id = `sig-c-${c.id}`;
+    const oath = draft.sign.oaths[id];
+    const role = oathTakerRole(draft, id);
+    const by = oath?.by?.trim() || oathTakerName(draft, id, role);
+    const said = role === "PoA holder" ? role : role.toLowerCase();
+    const who = role === "Complainant" ? by : `${by} (${said})`;
     return {
-      id: `s-oath${k + 1}`,
-      label: `Oath · ${sig.name}`,
-      value: oath
-        ? `${oath.video ? `Video recorded (${oath.video.file.name})` : "Recorded"} · ${stamp(oath.at)}`
-        : "Not taken",
+      id: oathDocId(i),
+      label: `Oath · ${complainantLabel(c, i)}`,
+      value: oath ? `Recorded by ${who} · ${stamp(oath.at)}` : "Not recorded",
+      ...(oath ? { video: oathDocId(i) } : {}),
+      ...(oath && oathCarriedOver(draft, id)
+        ? { note: `Carried over from an earlier round — recorded ${stamp(oath.at).split(" · ")[0]}` }
+        : {}),
     };
   });
   return group("oath", "pen", "Oath", fields);
@@ -1023,6 +1067,8 @@ export function caseFromDraft(draft: FilingDraft, options: DraftReadOptions): Dr
     title: oath ? "Affidavit and oath" : "Affidavit",
     groups: oath ? [affidavitGroup(draft), oath] : [affidavitGroup(draft)],
   });
+
+  bundle.push(...oathRecordings(draft, options, bundle.length));
 
   return {
     party: {
