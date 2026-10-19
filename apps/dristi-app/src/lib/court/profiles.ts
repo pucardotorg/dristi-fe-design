@@ -46,6 +46,13 @@ export type NumberingScheme =
  */
 export type AiMode = "on" | "unavailable" | "off";
 
+/**
+ * A type a case may be registered as — `SCR-13` (scrutiny-registration handover §6). Each
+ * has its own number series (`case-numbers.md`). `code` is what the number carries, where
+ * the state has one.
+ */
+export type RegistrationType = { code: string | null; name: string };
+
 export type CourtProfile = {
   id: CourtId;
   /** What the court switch calls this deployment. */
@@ -97,6 +104,11 @@ export type CourtProfile = {
    * all three acts open on every tab (owner, 2026-10-13).
    */
   cognizanceSplit: "delay" | "case-type";
+  /**
+   * What a case may be registered as (`SCR-13`). With one, no choice is shown and every
+   * case is registered as it; with more, the officer chooses at Forward or Register.
+   */
+  registrationTypes: RegistrationType[];
 };
 
 export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
@@ -115,6 +127,7 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     aiMode: "on",
     singleCourt: null,
     cognizanceSplit: "delay",
+    registrationTypes: [{ code: null, name: "Criminal complaint" }],
   },
   gujarat: {
     id: "gujarat",
@@ -134,6 +147,11 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     aiMode: "on",
     singleCourt: null,
     cognizanceSplit: "case-type",
+    registrationTypes: [
+      { code: "eCC", name: "Criminal Case" },
+      { code: "eCR EN", name: "Criminal Inquiry Case" },
+      { code: "eCR MA", name: "Criminal Miscellaneous Application" },
+    ],
   },
   /*
    * One deployment under the Punjab and Haryana High Court (owner, 2026-10-12). It took
@@ -157,6 +175,7 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     // One 24×7 ON Court for the whole deployment (owner, 2026-10-12 and 2026-10-13).
     singleCourt: "24×7 ON Court",
     cognizanceSplit: "delay",
+    registrationTypes: [{ code: "NACT", name: "NACT" }],
   },
 };
 
