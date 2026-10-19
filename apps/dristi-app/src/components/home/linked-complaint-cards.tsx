@@ -10,15 +10,25 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useLocalStorageValue } from "@/hooks/use-local-storage-value";
 import { getRepository } from "@/lib/filing/data";
+import { ensureSampleDrafts } from "@/lib/filing/sample-drafts";
 import {
+  complaintsNaming,
   linkedComplaintHref,
   LINKED_COMPLAINTS_KEY,
   parseLinkedComplaints,
   type LinkedComplaint,
   NEW_ACCOUNT_SHELL_KEY,
+  SIGNED_IN_MOBILE_KEY,
 } from "@/lib/filing/linked-complaints";
 import { COURT } from "@/lib/filing/options";
-import { draftTitle, confirmerSlot, phoneConfirmed, phoneConfirmers, signatories } from "@/lib/filing/selectors";
+import {
+  draftTitle,
+  confirmerSlot,
+  phoneConfirmed,
+  phoneConfirmers,
+  sameMobile,
+  signatories,
+} from "@/lib/filing/selectors";
 import type { FilingDraft } from "@/lib/filing/types";
 
 type Loaded = { link: LinkedComplaint; draft: FilingDraft };
@@ -53,7 +63,8 @@ function standing({ link, draft }: Loaded) {
  */
 export function useLinkedComplaints(): Loaded[] {
   const raw = useLocalStorageValue(LINKED_COMPLAINTS_KEY);
-  /* A new account, by the join door, has none (owner, 2026-10-14). */
+  const mobile = useLocalStorageValue(SIGNED_IN_MOBILE_KEY) ?? "";
+  /* A new account, by the join door, has none from earlier links (owner, 2026-10-14). */
   const freshShell = useLocalStorageValue(NEW_ACCOUNT_SHELL_KEY) === "1";
   const links = React.useMemo(
     () => (freshShell ? [] : parseLinkedComplaints(raw)),
@@ -63,18 +74,28 @@ export function useLinkedComplaints(): Loaded[] {
   React.useEffect(() => {
     let cancelled = false;
     const repo = getRepository();
-    Promise.all(
-      links.map(async (link) => {
-        const draft = await repo.getDraft(link.draftId).catch(() => null);
-        return draft ? { link, draft } : null;
-      })
-    ).then((rows) => {
-      if (!cancelled) setLoaded(rows.filter((r): r is Loaded => r !== null));
-    });
+    (async () => {
+      // Sandbox: a litigant's home can be the first page this browser opens.
+      await ensureSampleDrafts();
+      const drafts = await repo.listDrafts().catch(() => [] as FilingDraft[]);
+      const byId = new Map(drafts.map((d) => [d.id, d]));
+      // Complaints naming this number come first; links opened earlier follow.
+      const all = [...complaintsNaming(drafts, mobile, sameMobile), ...links];
+      const seen = new Set<string>();
+      const rows: Loaded[] = [];
+      for (const link of all) {
+        const key = `${link.draftId}|${link.signatoryId}`;
+        const draft = byId.get(link.draftId);
+        if (!draft || seen.has(key)) continue;
+        seen.add(key);
+        rows.push({ link, draft });
+      }
+      if (!cancelled) setLoaded(rows);
+    })();
     return () => {
       cancelled = true;
     };
-  }, [links]);
+  }, [links, mobile]);
   return loaded;
 }
 

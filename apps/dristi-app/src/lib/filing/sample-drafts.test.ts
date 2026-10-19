@@ -3,8 +3,10 @@ import { after, before, describe, it } from "node:test";
 
 import { setSigningRules } from "./config";
 
-import { ADVOCATE_LINK_SAMPLES, buildSampleDraft } from "./sample-drafts";
-import { signatories } from "./selectors";
+import { ADVOCATE_LINK_SAMPLES, OATH_DEMO_LINK, OATH_DEMO_SAMPLES, buildSampleDraft } from "./sample-drafts";
+import { complaintsNaming } from "./linked-complaints";
+import { asSignedIn } from "./profile";
+import { sameMobile, signatories } from "./selectors";
 
 /* The oath and per-advocate signing are Gujarat's rules (`config.ts`); this sample is
    checked under them. */
@@ -43,5 +45,56 @@ describe("the two-advocate sample", () => {
       assert.equal(c.oathTaken, false);
       assert.ok(draft.sign.notified[c.id], "their link has gone out");
     }
+  });
+});
+
+describe("the oath walkthrough sample", () => {
+  const draft = buildSampleDraft(OATH_DEMO_SAMPLES[0], "2026-10-19");
+  const { complainants } = signatories(draft, null, true, true);
+
+  it("has the same signing link in every browser", () => {
+    const second = complainants[1];
+    assert.equal(second.id, "sig-c-sample-draft-14-c-2");
+    assert.equal(OATH_DEMO_LINK, `/sign?draft=${draft.id}&as=${second.id}`);
+  });
+
+  it("waits on the second complainant's signature and oath", () => {
+    const second = complainants[1];
+    assert.equal(second.status, "pending");
+    assert.equal(second.oathTaken, false);
+  });
+});
+
+describe("a litigant's home", () => {
+  const draft = buildSampleDraft(OATH_DEMO_SAMPLES[0], "2026-10-19");
+
+  it("lists the complaint that names their mobile, in the complainant's seat", () => {
+    assert.deepEqual(complaintsNaming([draft], "9000000001", sameMobile), [
+      { draftId: "sample-draft-14", signatoryId: "sig-c-sample-draft-14-c-2" },
+    ]);
+  });
+
+  it("lists nothing for a number the complaint does not name", () => {
+    assert.deepEqual(complaintsNaming([draft], "9000000002", sameMobile), []);
+  });
+
+  it("leaves out a draft not yet sent for signature", () => {
+    const unsent = { ...draft, sign: { ...draft.sign, requestedAt: null } };
+    assert.deepEqual(complaintsNaming([unsent], "9000000001", sameMobile), []);
+  });
+});
+
+describe("the signed-in litigant in File a case", () => {
+  const draft = buildSampleDraft(OATH_DEMO_SAMPLES[0], "2026-10-19");
+  const stored = { name: "Anjali Nair", mobile: "", email: "", barNumber: "K/1188/2011" };
+
+  it("sits in their complainant seat, not the advocate's", () => {
+    const { complainants, advocates } = signatories(draft, asSignedIn(stored, "9000000001"), true, true);
+    assert.equal(complainants[1].you, true);
+    assert.equal(advocates.some((a) => a.you), false);
+  });
+
+  it("leaves an advocate's profile alone", () => {
+    assert.deepEqual(asSignedIn(stored, null), stored);
   });
 });

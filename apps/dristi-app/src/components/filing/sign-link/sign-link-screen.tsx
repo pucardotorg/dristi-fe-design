@@ -62,6 +62,7 @@ import {
   signatories,
 } from "@/lib/filing/selectors";
 import { useLocalStorageValue } from "@/hooks/use-local-storage-value";
+import { ensureSampleDrafts } from "@/lib/filing/sample-drafts";
 import { FilingProvider, useFiling } from "@/lib/filing/store";
 import type {
   OathVideo,
@@ -149,7 +150,14 @@ export function SignLinkScreen({ inShell = false }: { inShell?: boolean }) {
   const draftId = params.get("draft") ?? "";
   const signatoryId = params.get("as") ?? "";
 
+  // Sandbox: a link to a sample opens in a browser that has not been to File a case yet.
+  const [seeded, setSeeded] = React.useState(false);
+  React.useEffect(() => {
+    ensureSampleDrafts().finally(() => setSeeded(true));
+  }, []);
+
   if (!draftId || !signatoryId) return <LinkUnavailable inShell={inShell} />;
+  if (!seeded) return <LinkLoading />;
   return (
     <FilingProvider
       draftId={draftId}

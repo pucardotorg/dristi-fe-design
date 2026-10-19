@@ -44,6 +44,8 @@ const ADVOCATE_LINK_SEEDED_KEY = "dristi.filing.sampleDrafts.advocateLink.v1";
 const PAY_SEEDED_KEY = "dristi.filing.sampleDrafts.pay.v2";
 /** Two Section 25 (PSA) drafts, so the Case type column has more than one value. */
 const PSS_SEEDED_KEY = "dristi.filing.sampleDrafts.pss.v1";
+/** The oath walkthrough sample, with fixed complainant ids — its own marker, as above. */
+const OATH_DEMO_SEEDED_KEY = "dristi.filing.sampleDrafts.oathDemo.v1";
 
 /**
  * The demand notice's service date, worked back from how many days the person should
@@ -76,6 +78,11 @@ type Sample = {
    * oath.
    */
   second?: { complainant: string; mobile: string; advocate: string; barNumber: string };
+  /**
+   * Complainant ids fixed as `<id>-c-1`, `<id>-c-2` instead of random, so a signing link
+   * for this sample is the same URL in every browser.
+   */
+  fixedIds?: boolean;
 };
 
 const SAMPLES: Sample[] = [
@@ -111,6 +118,29 @@ export const ADVOCATE_LINK_SAMPLES: Sample[] = [
 ];
 
 /**
+ * The oath walkthrough: the two-advocate sample again, with fixed complainant ids so
+ * the second complainant's link (`OATH_DEMO_LINK`) works in any browser. The second
+ * complainant's mobile is the blank demo litigant's (`lib/sign-in/demo-accounts.ts`),
+ * and named as that account is ("Rajan K. Nair", `join-flow.tsx`), so signing in as
+ * 9000000001 lists it on the home and puts the person in the complainant's seat.
+ */
+export const OATH_DEMO_SAMPLES: Sample[] = [
+  {
+    id: "sample-draft-14",
+    complainant: "Meera Varghese",
+    accused: "Joby Thomas",
+    daysLeft: 12,
+    reach: "sign-them-pending",
+    savedDaysAgo: 0,
+    second: { complainant: "Rajan K. Nair", mobile: "9000000001", advocate: "Thomas Kurian", barNumber: "K/2204/2015" },
+    fixedIds: true,
+  },
+];
+
+/** The second complainant's signing link on the oath walkthrough sample: e-sign, then oath. */
+export const OATH_DEMO_LINK = "/sign?draft=sample-draft-14&as=sig-c-sample-draft-14-c-2";
+
+/**
  * Section 25 of the Payment and Settlement Systems Act. There is no filing flow for it
  * yet, so these only fill a Drafts row and open the placeholder page.
  */
@@ -140,6 +170,7 @@ export function buildSampleDraft(sample: Sample, today: string): FilingDraft {
   }
 
   const c = d.complainants[0];
+  if (sample.fixedIds) c.id = `${sample.id}-c-1`;
   c.name = sample.complainant;
   c.mobile = "9847012233";
   c.verified = true;
@@ -152,6 +183,7 @@ export function buildSampleDraft(sample: Sample, today: string): FilingDraft {
     const c2 = { ...blankComplainant(), name: sample.second.complainant, mobile: sample.second.mobile, verified: true, age: "39" };
     c2.res = { line1: "Kallingal House, Temple Road", city: "Kodungallur", pin: "680664", district: "Thrissur", state: "Kerala" };
     c2.perm = { ...c2.res };
+    if (sample.fixedIds) c2.id = `${sample.id}-c-2`;
     d.complainants.push(c2);
     d.advocates.push({ id: `${sample.id}-adv-2`, forComplainants: [1], name: sample.second.advocate, barNumber: sample.second.barNumber });
   }
@@ -259,6 +291,26 @@ async function reseedPayOnce(today: string): Promise<void> {
   window.localStorage.setItem(PAY_SEEDED_KEY, new Date().toISOString());
 }
 
+/**
+ * Sandbox reset: every sample filing back as it was first seeded, including one the
+ * person discarded or signed. Their own drafts are left alone.
+ */
+export async function resetSampleDrafts(): Promise<void> {
+  const repo = getRepository();
+  const today = new Date().toISOString().slice(0, 10);
+  const batches: [Sample[], FilingDraft["caseType"]][] = [
+    [SAMPLES, "s138"],
+    [SIGN_SAMPLES, "s138"],
+    [ADVOCATE_LINK_SAMPLES, "s138"],
+    [PAY_SAMPLES, "s138"],
+    [PSS_SAMPLES, PSS_CASE_TYPE.code],
+    [OATH_DEMO_SAMPLES, "s138"],
+  ];
+  for (const [samples, caseType] of batches) {
+    for (const sample of samples) await repo.putDraft({ ...buildSampleDraft(sample, today), caseType });
+  }
+}
+
 /** Seed the samples once per browser. Safe to call on every read; it does nothing after the first time. */
 export function ensureSampleDrafts(): Promise<void> {
   if (seeding) return seeding;
@@ -271,6 +323,7 @@ export function ensureSampleDrafts(): Promise<void> {
       await seedOnce(ADVOCATE_LINK_SEEDED_KEY, ADVOCATE_LINK_SAMPLES, today);
       await reseedPayOnce(today);
       await seedOnce(PSS_SEEDED_KEY, PSS_SAMPLES, today, PSS_CASE_TYPE.code);
+      await seedOnce(OATH_DEMO_SEEDED_KEY, OATH_DEMO_SAMPLES, today);
     } catch {
       /* storage blocked — the queue simply opens empty */
     }

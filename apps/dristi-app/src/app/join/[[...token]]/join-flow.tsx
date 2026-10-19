@@ -1,7 +1,7 @@
 "use client";
 
 import { NEW_ADVOCATE_NAME, setNewAdvocateShell } from "@/lib/advocate/new-account";
-import { setNewAccountShell } from "@/lib/filing/linked-complaints";
+import { setNewAccountShell, setSignedInMobile } from "@/lib/filing/linked-complaints";
 import { isNewAccount } from "@/lib/sign-in/demo-accounts";
 import * as React from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -67,6 +67,8 @@ function JoinFlow() {
       role?: "litigant" | "advocate";
       /** A demo account with nothing on it yet (`isNewAccount`). */
       newAccount?: boolean;
+      /** The number signed in with; the litigant home lists complaints naming it. */
+      mobile?: string;
     }) => {
       const advocate = options?.role === "advocate";
       // A new advocate opens on the empty shell home (owner, 2026-10-14).
@@ -92,6 +94,7 @@ function JoinFlow() {
       // The litigant opens as a new account: no complaints from earlier signing links on
       // its home (owner, 2026-10-14).
       setNewAccountShell(!advocate);
+      setSignedInMobile(advocate ? null : options?.mobile ?? null);
 
       if (!token) {
         // Land on the role home, not the task list. Pending Tasks stays a nav
@@ -139,7 +142,7 @@ function JoinFlow() {
         locale={locale}
         onLocaleChange={setLocale}
         onSeekHelp={() => setOpen(true)}
-        onSignedIn={(role, mobile) => goHome({ role, newAccount: isNewAccount(mobile) })}
+        onSignedIn={(role, mobile) => goHome({ role, newAccount: isNewAccount(mobile), mobile })}
         onRegistered={(result) => goHome(result)}
         // The token is the only thing that tells us this person was served. It changes
         // the explainer's headline, never its availability: the modal is one tap away
