@@ -266,7 +266,7 @@ function TaskBody({
             Objection filed by the {sideLabel(objection.side).toLowerCase()}
           </h3>
           <p className="text-body-compact whitespace-pre-wrap">
-            {decodeDraft(objection.form).objectionReason || "No grounds were entered."}
+            {decodeDraft(objection.form).applicationDetails.text.trim() || "No grounds were entered."}
           </p>
           <p className="text-caption text-muted-foreground tabular-nums">
             Filed {formatCaseDate(objection.submittedOn ?? objection.createdOn)}
