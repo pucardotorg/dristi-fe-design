@@ -387,12 +387,12 @@ describe("the combined rail layouts", () => {
 });
 
 /*
- * Who registers a case after scrutiny is per state (`registrationPoint`, `SCR-11`). Where
- * the scrutiny officer registers, there is no Register cases queue anywhere the court
- * side lists its work.
+ * Who holds Case registerer alongside Scrutiny officer is staffed per state in this demo
+ * (`scrutinyRegistersIn`, `SCR-11`). Where the Scrutiny officer registers, there is no
+ * Register cases queue anywhere the court side lists its work.
  */
-describe("registrationPoint", () => {
-  it("keeps Register cases where the magistrate registers", () => {
+describe("Register cases by who registers", () => {
+  it("keeps Register cases where someone else registers", () => {
     assert.ok(courtHasNavRow("kerala", "register-cases"));
     assert.ok(courtNavClubbed("actions", "kerala").some((item) => item.id === "register-cases"));
   });

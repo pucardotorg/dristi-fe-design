@@ -53,6 +53,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useCourt, useCourtText } from "@/components/court/court-provider";
+import { useCourtRole } from "@/components/employee/use-court-role";
+import { registersAtScrutiny } from "@/lib/employee/court-role";
 
 /**
  * The case review: filed fields on the left, the bundle in the centre, the document
@@ -129,7 +131,9 @@ export function CaseWorkbench({
   // kind of thing scrutiny exists to catch). Local until a case service owns it.
   // The editable title starts as the heading shows it (Settings' court switch).
   const courtText = useCourtText();
-  const { profile } = useCourt();
+  /* Register here only for someone holding both roles in this court room (`SCR-11`). */
+  const { court } = useCourt();
+  const canRegister = registersAtScrutiny(useCourtRole(), court);
   // One line of text, not two names: the officer may correct anything in it.
   const [title, setTitle] = React.useState(
     () => `${courtText(party.complainant)} v. ${courtText(party.accused)}`,
@@ -416,13 +420,16 @@ export function CaseWorkbench({
             Send back to advocate
           </Button>
         ) : null}
-        {/* Forward or Register, by who registers in this state (`SCR-06`, `SCR-11`). */}
-        {profile.registrationPoint === "magistrate" ? (
-          <Button onClick={() => setDecision("forward")}>
-            Forward to magistrate
-          </Button>
-        ) : (
+        {/* Someone holding both the Scrutiny officer and Case registerer roles here
+            registers the case; forwarding would only send it to themselves. Anyone
+            holding Scrutiny officer alone forwards it to Registration (`SCR-06`,
+            `SCR-11`). */}
+        {canRegister ? (
           <Button onClick={() => setDecision("register")}>Register case</Button>
+        ) : (
+          <Button onClick={() => setDecision("forward")}>
+            Forward for registration
+          </Button>
         )}
       </div>
 

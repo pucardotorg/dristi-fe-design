@@ -10,6 +10,7 @@ import {
 } from "./sign-in";
 import {
   readCourtRole,
+  registersAtScrutiny,
   seatHasBenchControls,
   setCourtRole,
 } from "./court-role";
@@ -139,6 +140,25 @@ describe("the orders gate each seat reads", () => {
         canDraftOrder(status) || status === "scheduled",
         `${status} disagrees about the orders column`,
       );
+    }
+  });
+});
+
+/* `SCR-11`: Register at Scrutiny needs both roles; the demo staffs them per state. */
+describe("registersAtScrutiny", () => {
+  it("forwards in Kerala, where two people hold the two roles", () => {
+    assert.equal(registersAtScrutiny("scrutiny-officer", "kerala"), false);
+  });
+
+  it("registers in Gujarat and Punjab & Haryana, where one person holds both", () => {
+    for (const court of ["gujarat", "punjab-haryana"] as const) {
+      assert.equal(registersAtScrutiny("scrutiny-officer", court), true, court);
+    }
+  });
+
+  it("does not register from a seat that is not the Scrutiny officer's", () => {
+    for (const role of ["magistrate", "bench-clerk", "typist"] as const) {
+      assert.equal(registersAtScrutiny(role, "gujarat"), false, role);
     }
   });
 });

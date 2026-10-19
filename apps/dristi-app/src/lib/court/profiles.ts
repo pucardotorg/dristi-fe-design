@@ -47,12 +47,11 @@ export type NumberingScheme =
 export type AiMode = "on" | "unavailable" | "off";
 
 /**
- * Who registers a case once it clears scrutiny — the `registrationPoint` config of the
- * e-filing handover (`SCR-11`, §20.3a). `magistrate`: scrutiny forwards the case, and the
- * magistrate registers it from Register cases. `scrutiny`: the scrutiny officer registers
- * it, the case goes straight to Take cognizance, and Register cases does not exist.
+ * A type a case may be registered as — `SCR-13` (scrutiny-registration handover §6). Each
+ * has its own number series (`case-numbers.md`). `code` is what the number carries, where
+ * the state has one.
  */
-export type RegistrationPoint = "magistrate" | "scrutiny";
+export type RegistrationType = { code: string | null; name: string };
 
 export type CourtProfile = {
   id: CourtId;
@@ -91,7 +90,6 @@ export type CourtProfile = {
   fees: FeeSchedule;
   /** Whether scrutiny opens with AI assistance — never `unavailable`, which is per file. */
   aiMode: Exclude<AiMode, "unavailable">;
-  registrationPoint: RegistrationPoint;
   /**
    * The one courtroom the deployment runs, where it runs only one; `null` where it runs
    * several. With one court there is nothing to choose between, so the advocate home
@@ -106,6 +104,11 @@ export type CourtProfile = {
    * all three acts open on every tab (owner, 2026-10-13).
    */
   cognizanceSplit: "delay" | "case-type";
+  /**
+   * What a case may be registered as (`SCR-13`). With one, no choice is shown and every
+   * case is registered as it; with more, the officer chooses at Forward or Register.
+   */
+  registrationTypes: RegistrationType[];
 };
 
 export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
@@ -122,10 +125,9 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     signing: { oath: false, everyAdvocate: false },
     fees: KERALA_FEES,
     aiMode: "on",
-    // Registration is the magistrate's own step in Kerala (owner, 2026-10-12).
-    registrationPoint: "magistrate",
     singleCourt: null,
     cognizanceSplit: "delay",
+    registrationTypes: [{ code: null, name: "Criminal complaint" }],
   },
   gujarat: {
     id: "gujarat",
@@ -143,10 +145,13 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     signing: { oath: true, everyAdvocate: true },
     fees: GUJARAT_FEES,
     aiMode: "on",
-    // No separate registration step by the magistrate (owner, 2026-10-12).
-    registrationPoint: "scrutiny",
     singleCourt: null,
     cognizanceSplit: "case-type",
+    registrationTypes: [
+      { code: "eCC", name: "Criminal Case" },
+      { code: "eCR EN", name: "Criminal Inquiry Case" },
+      { code: "eCR MA", name: "Criminal Miscellaneous Application" },
+    ],
   },
   /*
    * One deployment under the Punjab and Haryana High Court (owner, 2026-10-12). It took
@@ -167,11 +172,10 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     signing: { oath: false, everyAdvocate: false },
     fees: PUNJAB_HARYANA_FEES,
     aiMode: "off",
-    // No separate registration step by the magistrate (owner, 2026-10-12).
-    registrationPoint: "scrutiny",
     // One 24×7 ON Court for the whole deployment (owner, 2026-10-12 and 2026-10-13).
     singleCourt: "24×7 ON Court",
     cognizanceSplit: "delay",
+    registrationTypes: [{ code: "NACT", name: "NACT" }],
   },
 };
 

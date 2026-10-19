@@ -18,15 +18,19 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog } from "@/components/ui/dialog";
 import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Field, FieldLabel } from "@/components/ui/field";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   StagedOverlay,
   useStagedFlow,
 } from "@/components/chrome/staged-overlay";
 import { useScrutinyCase } from "@/components/employee/scrutiny/scrutiny-case-context";
+import { useCourt } from "@/components/court/court-provider";
+import type { RegistrationType } from "@/lib/court/profiles";
 
 /**
- * `forward` hands the case to the magistrate to register; `register` registers it here.
- * Which of the two the officer has depends on the state's `registrationPoint` (`SCR-06`).
+ * `forward` hands the case to Registration, for a Case registerer; `register` registers it
+ * here and skips Registration. Register is offered only to someone holding both the
+ * Scrutiny officer and Case registerer roles in the court room (`SCR-06`, `SCR-11`).
  */
 export type Decision = "send-back" | "forward" | "register";
 
@@ -119,6 +123,10 @@ export function ReviewDialog({
 }) {
   const { party, allFields, fieldById } = useScrutinyCase();
   const [ack, setAck] = React.useState(false);
+  /* The registration type (`SCR-13`), by its index in the state's list. Nothing is
+     pre-selected: a wrong default would classify the case without anyone deciding it. */
+  const [typeIndex, setTypeIndex] = React.useState<string>("");
+  const { profile } = useCourt();
 
   /* Opening the dialog for a new decision starts from a clean slate — back to the list,
      and the acknowledgement is not inherited from the decision before it. The flow makes
@@ -132,7 +140,10 @@ export function ReviewDialog({
        lets the panel's own rise be the gesture. On the default it would rise inside a
        rise. */
     arrival: "forward",
-    onRecordChange: () => setAck(false),
+    onRecordChange: () => {
+      setAck(false);
+      setTypeIndex("");
+    },
   });
 
   const groups = React.useMemo(
@@ -143,6 +154,14 @@ export function ReviewDialog({
 
   if (!decision) return null;
 
+  /* Where the state has more than one type, Forward and Register both ask for it; with one,
+     the case is registered as that type and nothing is asked (`SCR-13`). */
+  const types = profile.registrationTypes;
+  const choosing = decision !== "send-back" && types.length > 1;
+  const chosen: RegistrationType | null =
+    choosing && typeIndex !== "" ? (types[Number(typeIndex)] ?? null) : null;
+  const chosenLine = chosen ? ` as ${typeLabel(chosen)}` : "";
+
   const head =
     decision === "send-back"
       ? {
@@ -151,12 +170,12 @@ export function ReviewDialog({
         }
       : decision === "forward"
       ? {
-          title: "Forward to magistrate",
+          title: "Forward for registration",
           body: total
-            ? `The case moves to the Magistrate's list for registration. ${total} open item${
+            ? `The case moves to Register cases. ${total} open item${
                 total > 1 ? "s travel" : " travels"
               } with it — forwarding does not clear ${total > 1 ? "them" : "it"}.`
-            : "Every field was checked against the bundle. The case moves to the Magistrate's list for registration.",
+            : "Every field was checked against the bundle. The case moves to Register cases.",
         }
       : {
           title: "Register case",
@@ -209,13 +228,13 @@ export function ReviewDialog({
         }
       : decision === "forward"
       ? {
-          title: "Forwarded to magistrate",
+          title: "Forwarded for registration",
           state: "Forwarded",
           body: total
-            ? `On the Magistrate's list for registration, with ${total} open item${
+            ? `On Register cases${chosenLine}, with ${total} open item${
                 total > 1 ? "s" : ""
               } attached.`
-            : "On the Magistrate's list for registration.",
+            : `On Register cases${chosenLine}.`,
           /* Scrutiny is done with the file, which is this desk's good outcome, so it
              wears the same mark as registering. */
           tone: "bg-success-muted text-success-muted-foreground",
@@ -223,7 +242,7 @@ export function ReviewDialog({
         }
       : {
           title: "Case registered",
-          state: "Registered",
+          state: chosen ? `Registered${chosenLine}` : "Registered",
           body: total
             ? `On the Magistrate's list, with ${total} open item${
                 total > 1 ? "s" : ""
@@ -261,7 +280,7 @@ export function ReviewDialog({
            restated). The stage is the overlay's own white, framed by the header and
            footer hairlines, and the insets belong to this file because the confirmation
            centres itself while the list does not. */
-        surface={done || !total ? "card" : "canvas"}
+        surface={done || (!total && !choosing) ? "card" : "canvas"}
         padded={false}
         title={done ? settled.title : head.title}
         titleRef={flow.titleRef}
@@ -315,13 +334,13 @@ export function ReviewDialog({
                 Keep reviewing
               </Button>
               <Button
-                disabled={needsAck && !ack}
+                disabled={(needsAck && !ack) || (choosing && !chosen)}
                 onClick={() => flow.go("done")}
               >
                 {decision === "send-back"
                   ? "Send back"
                   : decision === "forward"
-                    ? "Forward to magistrate"
+                    ? "Forward for registration"
                     : "Register case"}
               </Button>
               {/* The gate on the primary, beside the button it gates. It had its own
@@ -386,12 +405,20 @@ export function ReviewDialog({
               </p>
             </div>
           </div>
-        ) : total ? (
+        ) : total || choosing ? (
           /* The list, and **only the list scrolls** — the frame around it does not move,
              so a send-back with twenty items scrolls inside the stage. The insets are
              here rather than on the frame because the confirmation above centres itself
              and this does not. */
           <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
+            {choosing ? (
+              <TypeChoice
+                types={types}
+                value={typeIndex}
+                onChange={setTypeIndex}
+                final={decision === "register"}
+              />
+            ) : null}
             {GROUP_ORDER.filter((g) => groups[g].length).map((g) => (
               /*
                * A section per kind of work, on the overlay's tinted stage, its items in
@@ -531,5 +558,61 @@ function SummaryItem({
         </span>
       </button>
     </li>
+  );
+}
+
+/** A type as the number shows it, then its name: "eCC — Criminal Case". */
+function typeLabel(type: RegistrationType): string {
+  return type.code && type.code !== type.name ? `${type.code} — ${type.name}` : type.name;
+}
+
+/**
+ * The registration type, first on the stage because it is the one thing still to decide
+ * (`SCR-13`). Carded like the items below it, so the stage reads as one list. At Forward
+ * the Case registerer may still change it; at Register it is final, and the line says so.
+ */
+function TypeChoice({
+  types,
+  value,
+  onChange,
+  final,
+}: {
+  types: RegistrationType[];
+  value: string;
+  onChange: (value: string) => void;
+  final: boolean;
+}) {
+  return (
+    <section aria-labelledby="rv-type" className="flex flex-col gap-2">
+      <h3 id="rv-type" className="text-caption font-semibold text-muted-foreground">
+        Register as
+      </h3>
+      <Card size="sm" className="gap-0 border-hairline py-0 shadow-raised">
+        <RadioGroup
+          value={value}
+          onValueChange={onChange}
+          aria-labelledby="rv-type"
+          aria-describedby="rv-type-hint"
+          className="gap-0 divide-y divide-hairline"
+        >
+          {types.map((type, index) => (
+            <Field key={type.name} orientation="horizontal" className="px-4 py-3">
+              <RadioGroupItem id={`rv-type-${index}`} value={String(index)} />
+              <FieldLabel htmlFor={`rv-type-${index}`} className="font-normal">
+                {type.code && type.code !== type.name ? (
+                  <span className="w-16 shrink-0 font-medium">{type.code}</span>
+                ) : null}
+                {type.name}
+              </FieldLabel>
+            </Field>
+          ))}
+        </RadioGroup>
+      </Card>
+      <p id="rv-type-hint" className="text-body-compact text-muted-foreground">
+        {final
+          ? "Final once registered. Each type has its own number series."
+          : "The Case registerer can change it before registering."}
+      </p>
+    </section>
   );
 }

@@ -42,7 +42,8 @@ import { DELAY_CONDONATION_QUEUE_COUNT } from "./delay-condonation";
 import { hearingById, TODAYS_HEARING_COUNT } from "./hearings";
 import type { CourtNavLayout } from "./nav-layout";
 import { findCaseRecord } from "../cases/party-cases";
-import { courtProfile, type CourtId } from "../court/profiles";
+import type { CourtId } from "../court/profiles";
+import { scrutinyRegistersIn } from "./court-role";
 import { OTHER_APPLICATIONS_QUEUE_COUNT } from "./other-applications";
 import {
   APPROVE_REGISTRATIONS_TITLE,
@@ -640,16 +641,16 @@ export function courtNavGroupsForSeat(
 }
 
 /**
- * Whether a deployment has this row at all. Under `registrationPoint: scrutiny` the
- * scrutiny officer registers the case and it goes straight to Take cognizance, so there
- * is no Register cases queue (`SCR-11`, e-filing handover §20.3a).
+ * Whether a deployment has this row at all. Where the Scrutiny officer also holds Case
+ * registerer (`scrutinyRegistersIn`), they register the case and it goes straight to Take
+ * cognizance, so nothing is forwarded and there is no Register cases queue (`SCR-11`).
  *
  * Unlike the seat rule above, this is not a view of something that exists: the queue is
  * not there in that state, so every list of rows drops it — the rail, the combined
  * screens, the dashboard and search.
  */
 export function courtHasNavRow(court: CourtId, id: string): boolean {
-  return !(id === "register-cases" && courtProfile(court).registrationPoint === "scrutiny");
+  return !(id === "register-cases" && scrutinyRegistersIn(court));
 }
 
 /** A list of rows, less the ones this deployment does not have. */
