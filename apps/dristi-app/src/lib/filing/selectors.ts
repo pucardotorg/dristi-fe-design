@@ -1,7 +1,7 @@
 /** Derived reads over the draft — pure functions so screens and the shell agree. */
 
 import { signingRules } from "./config";
-import { addDays, addMonths, addressToString, daysBetween, nameList, plural, toLongDate, todayIso } from "./format";
+import { addDays, addMonths, addressToString, daysBetween, nameList, toLongDate, todayIso } from "./format";
 import { KERALA_FEES, type FeeSchedule } from "@/lib/court/fees";
 import {
   CHANNEL_FEE,
@@ -934,21 +934,32 @@ export const LIMITATION_DAYS = 30;
 export const NOTICE_WINDOW_DAYS = 30;
 
 /**
- * What is wrong with notice `index`'s dispatch date against its cheque's return memo,
- * if anything: it cannot predate the return, and must be within 30 days of it.
+ * What is wrong with notice `index`'s dispatch date, if anything (`LDN-2`): the notice
+ * could have been sent for any of the cheques, so at least one must have come back on or
+ * before it.
  */
 export function noticeDispatchIssue(draft: FilingDraft, index: number): string | undefined {
   const dispatch = draft.notices[index]?.dispatchDate;
-  const returned = draft.cheques[index]?.returnDate;
-  if (!dispatch || !returned) return undefined;
-  if (dispatch < returned) {
-    return `Cannot be before the cheque was returned on ${toLongDate(returned)}.`;
-  }
-  const late = daysBetween(returned, dispatch);
-  if (late !== null && late > NOTICE_WINDOW_DAYS) {
-    return `${plural(late, "day")} after the cheque was returned on ${toLongDate(returned)}. The notice must be sent within ${NOTICE_WINDOW_DAYS} days.`;
-  }
-  return undefined;
+  const returns = draft.cheques.map((c) => c.returnDate).filter(Boolean).sort();
+  if (!dispatch || returns.length === 0 || returns[0] <= dispatch) return undefined;
+  return returns.length === 1
+    ? `Cannot be before the cheque was returned on ${toLongDate(returns[0])}.`
+    : `Cannot be before every cheque was returned. The first came back on ${toLongDate(returns[0])}.`;
+}
+
+/**
+ * Whether notice `index` went out more than 30 days after the return of every cheque that
+ * came back before it (`LDN-2`). A warning, never a block: it does not hold the section
+ * back from completing.
+ */
+export function noticeDispatchLate(draft: FilingDraft, index: number): boolean {
+  const dispatch = draft.notices[index]?.dispatchDate;
+  if (!dispatch) return false;
+  const before = draft.cheques.map((c) => c.returnDate).filter((r) => r && r <= dispatch);
+  if (before.length === 0) return false;
+  const latest = before.sort().at(-1)!;
+  const gap = daysBetween(latest, dispatch);
+  return gap !== null && gap > NOTICE_WINDOW_DAYS;
 }
 
 /** What is wrong with a notice's delivery or return date, if anything. */
