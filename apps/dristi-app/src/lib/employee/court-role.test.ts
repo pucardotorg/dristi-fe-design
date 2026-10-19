@@ -15,7 +15,6 @@ import {
   setCourtRole,
 } from "./court-role";
 import { canDraftOrder, canTypeOrder } from "./hearings";
-import { DEFAULT_COURT_SESSION } from "./session";
 
 describe("court seats", () => {
   /* Every seat `/employee/login` signs in to has to be a seat the rail can name, or a
@@ -145,20 +144,21 @@ describe("the orders gate each seat reads", () => {
   });
 });
 
-/* `SCR-11`: Register at Scrutiny needs both roles in the court room; one alone forwards. */
+/* `SCR-11`: Register at Scrutiny needs both roles; the demo staffs them per state. */
 describe("registersAtScrutiny", () => {
-  it("registers only with both the Scrutiny officer and Case registerer roles", () => {
-    assert.equal(registersAtScrutiny({ role: "scrutiny-officer", caseRegisterer: true }), true);
-    assert.equal(registersAtScrutiny({ role: "scrutiny-officer", caseRegisterer: false }), false);
+  it("forwards in Kerala, where two people hold the two roles", () => {
+    assert.equal(registersAtScrutiny("scrutiny-officer", "kerala"), false);
+  });
+
+  it("registers in Gujarat and Punjab & Haryana, where one person holds both", () => {
+    for (const court of ["gujarat", "punjab-haryana"] as const) {
+      assert.equal(registersAtScrutiny("scrutiny-officer", court), true, court);
+    }
   });
 
   it("does not register from a seat that is not the Scrutiny officer's", () => {
     for (const role of ["magistrate", "bench-clerk", "typist"] as const) {
-      assert.equal(registersAtScrutiny({ role, caseRegisterer: true }), false, role);
+      assert.equal(registersAtScrutiny(role, "gujarat"), false, role);
     }
-  });
-
-  it("starts with nobody holding Case registerer", () => {
-    assert.equal(DEFAULT_COURT_SESSION.caseRegisterer, false);
   });
 });

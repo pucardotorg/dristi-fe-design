@@ -43,6 +43,7 @@ import { hearingById, TODAYS_HEARING_COUNT } from "./hearings";
 import type { CourtNavLayout } from "./nav-layout";
 import { findCaseRecord } from "../cases/party-cases";
 import type { CourtId } from "../court/profiles";
+import { scrutinyRegistersIn } from "./court-role";
 import { OTHER_APPLICATIONS_QUEUE_COUNT } from "./other-applications";
 import {
   APPROVE_REGISTRATIONS_TITLE,
@@ -640,6 +641,31 @@ export function courtNavGroupsForSeat(
 }
 
 /**
+ * Whether a deployment has this row at all. Where the Scrutiny officer also holds Case
+ * registerer (`scrutinyRegistersIn`), they register the case and it goes straight to Take
+ * cognizance, so nothing is forwarded and there is no Register cases queue (`SCR-11`).
+ *
+ * Unlike the seat rule above, this is not a view of something that exists: the queue is
+ * not there in that state, so every list of rows drops it — the rail, the combined
+ * screens, the dashboard and search.
+ */
+export function courtHasNavRow(court: CourtId, id: string): boolean {
+  return !(id === "register-cases" && scrutinyRegistersIn(court));
+}
+
+/** A list of rows, less the ones this deployment does not have. */
+export function courtNavItemsForCourt(items: CourtNavItem[], court: CourtId): CourtNavItem[] {
+  return items.filter((item) => courtHasNavRow(court, item.id));
+}
+
+/** Groups, less the rows this deployment does not have — and less any group left empty. */
+export function courtNavGroupsForCourt(groups: CourtNavGroup[], court: CourtId): CourtNavGroup[] {
+  return groups
+    .map((group) => ({ ...group, items: courtNavItemsForCourt(group.items, court) }))
+    .filter((group) => group.items.length > 0);
+}
+
+/**
  * `COURT_NAV_GROUPS`, with Take cognizance's two rows attached when the "split" setting
  * is live. Read fresh rather than cached: the setting can change without a reload, and
  * the counts are the queue's own and can move with it. Every other row and group is
@@ -708,9 +734,10 @@ function courtNavAllItems(
   role?: CourtRole,
   flow: OrderFlow = DEFAULT_ORDER_FLOW,
 ): CourtNavItem[] {
-  /* Every deployment has every row: `court` is kept so a per-state row has somewhere to
-     go, but none differs by state since Register cases stopped doing so (`SCR-11`). */
-  const items = courtNavGroupsForFlow(flow).flatMap((group) => group.items);
+  const items = courtNavItemsForCourt(
+    courtNavGroupsForFlow(flow).flatMap((group) => group.items),
+    court,
+  );
   return role ? courtNavItemsForSeat(items, role, flow) : items;
 }
 
@@ -1142,7 +1169,7 @@ export function courtWaitingGroups(
   court: CourtId,
   flow: OrderFlow = DEFAULT_ORDER_FLOW,
 ): CourtWaitingGroup[] {
-  return courtNavGroupsForFlow(flow).map((group) => {
+  return courtNavGroupsForCourt(courtNavGroupsForFlow(flow), court).map((group) => {
     const items = group.items
       .filter(
         (item): item is CourtNavItem & { href: string; count: number } =>

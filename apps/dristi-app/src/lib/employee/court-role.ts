@@ -18,8 +18,8 @@
  */
 
 import type { CourtRole } from "./content";
+import type { CourtId } from "../court/profiles";
 import {
-  type CourtSession,
   readCourtSession,
   serverCourtSession,
   setCourtSession,
@@ -76,19 +76,42 @@ export function seatPostsNextHearing(role: CourtRole): boolean {
 }
 
 /**
+ * Who holds the Case registerer role alongside Scrutiny officer, per state — the demo's
+ * stand-in for the court directory. Roles are held per court room (`court-roles.md`
+ * `RLE-02a`) and a real build reads them from there; this build has no directory, so it
+ * staffs each state one way (owner, 2026-10-19):
+ *
+ * - Kerala: two people. The Scrutiny officer forwards, and someone else registers from
+ *   Register cases.
+ * - Gujarat, Punjab & Haryana: one person holds both, and registers at Scrutiny.
+ *
+ * This is staffing, not a rule about states: `SCR-11` has no setting for where a case is
+ * registered, and swapping in a directory changes nothing else.
+ */
+const SCRUTINY_HOLDS_CASE_REGISTERER: Record<CourtId, boolean> = {
+  kerala: false,
+  gujarat: true,
+  "punjab-haryana": true,
+};
+
+/**
+ * Whether the Scrutiny officer in this state also holds Case registerer. Where they do,
+ * nothing is ever forwarded, so the deployment has no Register cases queue.
+ */
+export function scrutinyRegistersIn(court: CourtId): boolean {
+  return SCRUTINY_HOLDS_CASE_REGISTERER[court];
+}
+
+/**
  * Whether this person can register a case straight from Scrutiny — `SCR-11`
  * (scrutiny-registration handover §7). Only someone who holds **both** the Scrutiny
  * officer and the Case registerer roles in the case's court room can; they get Register
- * and not Forward for registration, which would only send the case to themselves. Anyone holding Scrutiny
- * officer alone forwards the case to Registration. There is no per-state setting: a court
- * that wants every case checked by two people gives the two roles to two people.
+ * and not Forward for registration, which would only send the case to themselves. Anyone
+ * holding Scrutiny officer alone forwards the case to Registration.
  *
- * The scrutiny-officer seat stands for the Scrutiny officer role, and the session's court
- * room for the case's — every case in this build sits in the room the visit runs as. A
- * view rule like the others here: it decides what the screen offers and grants nothing.
+ * The scrutiny-officer seat stands for the Scrutiny officer role. A view rule like the
+ * others here: it decides what the screen offers and grants nothing.
  */
-export function registersAtScrutiny(
-  session: Pick<CourtSession, "role" | "caseRegisterer">,
-): boolean {
-  return session.role === "scrutiny-officer" && session.caseRegisterer;
+export function registersAtScrutiny(role: CourtRole, court: CourtId): boolean {
+  return role === "scrutiny-officer" && scrutinyRegistersIn(court);
 }

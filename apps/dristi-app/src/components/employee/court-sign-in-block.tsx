@@ -126,9 +126,6 @@ export function CourtSignInBlock() {
       role: account.role,
       district: courtroom.district,
       court: courtroom.name,
-      /* The demo directory gives nobody the Case registerer role; the rail's settings
-         add it. Set on every sign-in so it never carries over from the last account. */
-      caseRegisterer: false,
     });
     router.push(AFTER_SIGN_IN);
   }

@@ -16,13 +16,13 @@ import {
   type CourtRole,
 } from "@/lib/employee/content";
 import { setCourtRole } from "@/lib/employee/court-role";
-import { setCourtSession } from "@/lib/employee/session";
 import { courtAccounts } from "@/lib/employee/sign-in";
 import {
   COURT_NAV_LINKS,
   courtNavTrailing,
   courtNavRowsFor,
   courtNavGroupsFor,
+  courtNavGroupsForCourt,
   courtNavGroupsForSeat,
   courtNavItemsForSeat,
   seatHasNarrowRail,
@@ -87,8 +87,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Field, FieldLabel } from "@/components/ui/field";
 import {
   Dialog,
   DialogContent,
@@ -957,7 +955,6 @@ type MoreSetting = {
 
 function CourtSettingsControl() {
   const seat = useCourtRole();
-  const session = useCourtSession();
   const { court, setCourt } = useCourt();
   const [layout, setLayout] = useCourtNavLayout();
   const [cognizanceLayout, setCognizanceLayout] = useCognizanceLayout();
@@ -1109,23 +1106,6 @@ function CourtSettingsControl() {
                 </SelectContent>
               </Select>
             </div>
-            {/* Roles are held per court room (`RLE-02a`). With Case registerer on top of
-                Scrutiny officer, a case can be registered straight from Scrutiny
-                (`SCR-11`) — so the scrutiny seat is the one that asks. */}
-            {seat === "scrutiny-officer" ? (
-              <Field orientation="horizontal">
-                <Checkbox
-                  id="settings-case-registerer"
-                  checked={session.caseRegisterer}
-                  onCheckedChange={(value) =>
-                    setCourtSession({ caseRegisterer: value === true })
-                  }
-                />
-                <FieldLabel htmlFor="settings-case-registerer" className="font-normal">
-                  Also holds Case registerer in {session.court}
-                </FieldLabel>
-              </Field>
-            ) : null}
             <div className="flex flex-col gap-2" data-court-raw="">
               <Label htmlFor="settings-court">Court</Label>
               <Select
@@ -1331,11 +1311,14 @@ export function EmployeeNav() {
   const [flow] = useOrderFlow();
   const groups = withPendingCount(
     courtNavGroupsForSeat(
-      courtNavGroupsFor(
-        courtProfile(court).cognizanceSplit === "delay"
-          ? cognizanceLayout
-          : "tabs",
-        flow,
+      courtNavGroupsForCourt(
+        courtNavGroupsFor(
+          courtProfile(court).cognizanceSplit === "delay"
+            ? cognizanceLayout
+            : "tabs",
+          flow,
+        ),
+        court,
       ),
       seat,
       flow,

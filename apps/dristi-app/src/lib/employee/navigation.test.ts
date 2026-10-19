@@ -7,7 +7,9 @@ import {
   COURT_NAV_GROUPS,
   COURT_NAV_LINKS,
   COURT_NAV_TRAILING,
+  courtHasNavRow,
   courtNavClubbed,
+  courtNavGroupsForCourt,
   courtNavClubbedTotal,
   courtNavKeptApart,
   courtNavRowsFor,
@@ -385,14 +387,29 @@ describe("the combined rail layouts", () => {
 });
 
 /*
- * Whether a case can be registered at Scrutiny follows from roles, not from the state
- * (`SCR-11`), so every deployment keeps Register cases: it is where forwarded cases go.
+ * Who holds Case registerer alongside Scrutiny officer is staffed per state in this demo
+ * (`scrutinyRegistersIn`, `SCR-11`). Where the Scrutiny officer registers, there is no
+ * Register cases queue anywhere the court side lists its work.
  */
-describe("register cases in every deployment", () => {
-  it("lists Register cases on every state's combined screens", () => {
-    for (const court of ["kerala", "gujarat", "punjab-haryana"] as const) {
+describe("Register cases by who registers", () => {
+  it("keeps Register cases where someone else registers", () => {
+    assert.ok(courtHasNavRow("kerala", "register-cases"));
+    assert.ok(courtNavClubbed("actions", "kerala").some((item) => item.id === "register-cases"));
+  });
+
+  it("drops Register cases where scrutiny registers, and nothing else", () => {
+    for (const court of ["gujarat", "punjab-haryana"] as const) {
+      const ids = (groups: typeof COURT_NAV_GROUPS) =>
+        groups.flatMap((group) => group.items.map((item) => item.id));
+      assert.deepEqual(
+        ids(courtNavGroupsForCourt(COURT_NAV_GROUPS, court)),
+        ids(COURT_NAV_GROUPS).filter((id) => id !== "register-cases"),
+      );
       for (const layout of ["actions", "schedule"] as const) {
-        assert.ok(courtNavClubbed(layout, court).some((item) => item.id === "register-cases"));
+        assert.ok(courtNavClubbed(layout, court).every((item) => item.id !== "register-cases"));
+      }
+      for (const group of courtWaitingGroups(court)) {
+        assert.ok(group.items.every((item) => item.id !== "register-cases"));
       }
     }
   });

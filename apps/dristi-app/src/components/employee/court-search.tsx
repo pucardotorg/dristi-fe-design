@@ -5,15 +5,18 @@ import { useRouter } from "next/navigation";
 
 import {
   courtNavGroupsForFlow,
+  courtNavGroupsForCourt,
   seatHasNavRow,
   COURT_NAV_LINKS,
   courtNavTrailing,
   type CourtNavItem,
 } from "@/lib/employee/navigation";
+import { useCourt } from "@/components/court/court-provider";
 import { useCourtRole } from "@/components/employee/use-court-role";
 import { useOrderFlow } from "@/components/employee/use-order-flow";
 import type { OrderFlow } from "@/lib/employee/order-flow";
 import type { CourtRole } from "@/lib/employee/content";
+import type { CourtId } from "@/lib/court/profiles";
 import {
   Command,
   CommandDialog,
@@ -59,12 +62,13 @@ type CourtSearchRow = {
 };
 
 function courtSearchRows(
+  court: CourtId,
   seat: CourtRole,
   flow: OrderFlow,
 ): CourtSearchRow[] {
   return [
     ...COURT_NAV_LINKS.map((item) => ({ item, family: null })),
-    ...courtNavGroupsForFlow(flow).flatMap((group) =>
+    ...courtNavGroupsForCourt(courtNavGroupsForFlow(flow), court).flatMap((group) =>
       group.items.map((item) => ({ item, family: group.label })),
     ),
     ...courtNavTrailing(flow).map((item) => ({ item, family: null })),
@@ -87,9 +91,10 @@ function Results({ onNavigate }: { onNavigate: () => void }) {
   const [query, setQuery] = React.useState("");
 
   const needle = query.trim().toLowerCase();
+  const { court } = useCourt();
   const seat = useCourtRole();
   const [flow] = useOrderFlow();
-  const rows = courtSearchRows(seat, flow).filter(
+  const rows = courtSearchRows(court, seat, flow).filter(
     (row) => row.item.href !== undefined && haystack(row).includes(needle),
   );
 

@@ -52,8 +52,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useCourtText } from "@/components/court/court-provider";
-import { useCourtSession } from "@/components/employee/use-court-role";
+import { useCourt, useCourtText } from "@/components/court/court-provider";
+import { useCourtRole } from "@/components/employee/use-court-role";
 import { registersAtScrutiny } from "@/lib/employee/court-role";
 
 /**
@@ -132,7 +132,8 @@ export function CaseWorkbench({
   // The editable title starts as the heading shows it (Settings' court switch).
   const courtText = useCourtText();
   /* Register here only for someone holding both roles in this court room (`SCR-11`). */
-  const canRegister = registersAtScrutiny(useCourtSession());
+  const { court } = useCourt();
+  const canRegister = registersAtScrutiny(useCourtRole(), court);
   // One line of text, not two names: the officer may correct anything in it.
   const [title, setTitle] = React.useState(
     () => `${courtText(party.complainant)} v. ${courtText(party.accused)}`,
