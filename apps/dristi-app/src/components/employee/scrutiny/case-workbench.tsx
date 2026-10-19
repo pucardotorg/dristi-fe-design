@@ -419,18 +419,17 @@ export function CaseWorkbench({
             Send back to advocate
           </Button>
         ) : null}
-        {/* Register is the main action for someone who holds both the Scrutiny officer
-            and Case registerer roles here; Forward stays open to them (`SCR-06`,
-            `SCR-11`, `RLE-07`). Anyone else forwards. */}
-        <Button
-          variant={canRegister ? "outline" : "default"}
-          onClick={() => setDecision("forward")}
-        >
-          Forward for registration
-        </Button>
+        {/* Someone holding both the Scrutiny officer and Case registerer roles here
+            registers the case; forwarding would only send it to themselves. Anyone
+            holding Scrutiny officer alone forwards it to Registration (`SCR-06`,
+            `SCR-11`). */}
         {canRegister ? (
           <Button onClick={() => setDecision("register")}>Register case</Button>
-        ) : null}
+        ) : (
+          <Button onClick={() => setDecision("forward")}>
+            Forward for registration
+          </Button>
+        )}
       </div>
 
       <HistorySheet

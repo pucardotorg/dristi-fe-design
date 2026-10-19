@@ -76,12 +76,12 @@ export function seatPostsNextHearing(role: CourtRole): boolean {
 }
 
 /**
- * Whether this person can register a case straight from Scrutiny — `SCR-11` (e-filing
- * handover §20.3a). Only someone who holds **both** the Scrutiny officer and the Case
- * registerer roles in the case's court room can; they get Register as the main action and
- * keep Forward for registration (`RLE-07`). Anyone holding Scrutiny officer alone forwards
- * the case to Registration. There is no per-state setting: a court that wants every case
- * checked by two people gives the two roles to two people.
+ * Whether this person can register a case straight from Scrutiny — `SCR-11`
+ * (scrutiny-registration handover §7). Only someone who holds **both** the Scrutiny
+ * officer and the Case registerer roles in the case's court room can; they get Register
+ * and not Forward for registration, which would only send the case to themselves. Anyone holding Scrutiny
+ * officer alone forwards the case to Registration. There is no per-state setting: a court
+ * that wants every case checked by two people gives the two roles to two people.
  *
  * The scrutiny-officer seat stands for the Scrutiny officer role, and the session's court
  * room for the case's — every case in this build sits in the room the visit runs as. A
