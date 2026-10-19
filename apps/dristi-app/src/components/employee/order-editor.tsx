@@ -755,9 +755,7 @@ export function OrderEditorComposer({
   onOpenApplication,
   applicationDialog,
   overview,
-  overviewContent,
   historyContent,
-  hearingsContent,
   context,
   purpose,
   fixedIds,
@@ -782,10 +780,8 @@ export function OrderEditorComposer({
     decide: (id: string, decision: ListingApplicationDecision | null) => void,
   ) => React.ReactNode;
   overview: { label: string; value: string }[];
-  overviewContent?: React.ReactNode;
+  /** The Case history tab (ORD-15) — the case's history with its orders. */
   historyContent?: React.ReactNode;
-  /** The case's hearings with the order passed at each — shows the Hearings tab. */
-  hearingsContent?: React.ReactNode;
 }) {
   const rootRef = React.useRef<HTMLDivElement>(null);
   const bands = useBands(rootRef);
@@ -983,9 +979,9 @@ export function OrderEditorComposer({
               setDraft((current) => ({ ...current, links }))
             }
             disabled={false}
-            overviewContent={overviewContent}
+            showOverview={false}
             historyContent={historyContent}
-            hearingsContent={hearingsContent}
+            dataFlags
             inlineViewer
           />
         ) : null}

@@ -9,6 +9,7 @@ import {
   type ComposerApplication,
   type ComposerFact,
 } from "@/components/employee/order-composer";
+import { OrderCaseHistory } from "@/components/employee/order-case-history";
 import { OrderEditorComposer } from "@/components/employee/order-editor";
 import { OrderTextComposer } from "@/components/employee/order-text-composer";
 import { ProceedingsComposer } from "@/components/employee/proceedings-composer";
@@ -303,9 +304,15 @@ function OrderDoorBody({ door }: { door: OrderDoor }) {
         onOpenApplication={hearing ? openById : undefined}
         applicationDialog={applicationDialog}
         overview={door.overview}
-        overviewContent={door.overviewContent}
-        historyContent={door.historyContent}
-        hearingsContent={door.hearingsContent}
+        historyContent={
+          /* ORD-15: the case history with the case's orders in it. A door with no
+             listing (cognizance, an application) has no sittings to draw on. */
+          hearing ? (
+            <OrderCaseHistory hearing={hearing.hearing} />
+          ) : (
+            door.historyContent
+          )
+        }
         context={context}
         purpose={hearing?.purpose}
         fixedIds={door.fixedIds}
