@@ -6,6 +6,7 @@ import {
   CheckIcon,
   ChevronRightIcon,
   FileTextIcon,
+  FlagIcon,
   LinkIcon,
   XIcon,
 } from "lucide-react";
@@ -27,6 +28,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -76,9 +84,10 @@ type DocumentRow = {
  *
  * **Overview**: the facts of the matter, as the screen that opened the order knows them.
  *
- * Abhirami's third tab, Case history, is not built: the employee side carries no history
- * of a matter's earlier hearings and orders to show, and borrowing the advocate fixture's
- * would put another case's history beside this one.
+ * **Case history**: the court's own case history, when the screen gives one.
+ *
+ * Order screen E (`ORD-15`) shows Case file, Case history and Data flags only:
+ * `showOverview={false}` and `dataFlags`.
  */
 export function OrderCasePanel({
   className,
@@ -95,6 +104,8 @@ export function OrderCasePanel({
   requestView,
   onViewRequested,
   inlineViewer = false,
+  showOverview = true,
+  dataFlags = false,
 }: {
   className?: string;
   overview: { label: string; value: string }[];
@@ -123,6 +134,10 @@ export function OrderCasePanel({
    * for a panel wide enough to read a page in.
    */
   inlineViewer?: boolean;
+  /** The Overview tab. Order screen E has none (`ORD-15`). */
+  showOverview?: boolean;
+  /** The Data flags tab (`ORD-15`) — named, not yet defined. */
+  dataFlags?: boolean;
 }) {
   const [tab, setTab] = React.useState(preview ? "preview" : "case-file");
   const [query, setQuery] = React.useState("");
@@ -311,12 +326,14 @@ export function OrderCasePanel({
             >
               Case file
             </TabsTrigger>
-            <TabsTrigger
-              value="overview"
-              className="h-full flex-none px-3 text-body-compact group-data-horizontal/tabs:after:-bottom-px"
-            >
-              Overview
-            </TabsTrigger>
+            {showOverview ? (
+              <TabsTrigger
+                value="overview"
+                className="h-full flex-none px-3 text-body-compact group-data-horizontal/tabs:after:-bottom-px"
+              >
+                Overview
+              </TabsTrigger>
+            ) : null}
             {hearingsContent ? (
               <TabsTrigger
                 value="hearings"
@@ -331,6 +348,14 @@ export function OrderCasePanel({
                 className="h-full flex-none px-3 text-body-compact group-data-horizontal/tabs:after:-bottom-px"
               >
                 Case history
+              </TabsTrigger>
+            ) : null}
+            {dataFlags ? (
+              <TabsTrigger
+                value="data-flags"
+                className="h-full flex-none px-3 text-body-compact group-data-horizontal/tabs:after:-bottom-px"
+              >
+                Data flags
               </TabsTrigger>
             ) : null}
           </TabsList>
@@ -620,25 +645,27 @@ export function OrderCasePanel({
           )}
         </TabsContent>
 
-        <TabsContent
-          value="overview"
-          className="min-h-0 flex-1 overflow-y-auto p-4"
-        >
-          {overviewContent ?? (
-            <DescriptionList>
-              {overview.map((row) => (
-                <DescriptionRow key={row.label}>
-                  <DescriptionTerm className="text-body-compact">
-                    {row.label}
-                  </DescriptionTerm>
-                  <DescriptionDetails className="text-body-compact">
-                    {row.value}
-                  </DescriptionDetails>
-                </DescriptionRow>
-              ))}
-            </DescriptionList>
-          )}
-        </TabsContent>
+        {showOverview ? (
+          <TabsContent
+            value="overview"
+            className="min-h-0 flex-1 overflow-y-auto p-4"
+          >
+            {overviewContent ?? (
+              <DescriptionList>
+                {overview.map((row) => (
+                  <DescriptionRow key={row.label}>
+                    <DescriptionTerm className="text-body-compact">
+                      {row.label}
+                    </DescriptionTerm>
+                    <DescriptionDetails className="text-body-compact">
+                      {row.value}
+                    </DescriptionDetails>
+                  </DescriptionRow>
+                ))}
+              </DescriptionList>
+            )}
+          </TabsContent>
+        ) : null}
         {hearingsContent ? (
           <TabsContent
             value="hearings"
@@ -648,11 +675,34 @@ export function OrderCasePanel({
           </TabsContent>
         ) : null}
         {historyContent ? (
+          /* A column, so an order opened in the tab can fill it (`OrderCaseHistory`). */
           <TabsContent
             value="history"
-            className="min-h-0 flex-1 overflow-y-auto p-4"
+            className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4"
           >
             {historyContent}
+          </TabsContent>
+        ) : null}
+        {dataFlags ? (
+          <TabsContent
+            value="data-flags"
+            className="min-h-0 flex-1 overflow-y-auto p-4"
+          >
+            {/* Named by ORD-15 and nothing more: what it shows is not decided. */}
+            <Empty className="border-0 p-0">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <FlagIcon aria-hidden />
+                </EmptyMedia>
+                <EmptyTitle className="text-body-compact font-semibold tracking-normal">
+                  Data flags are not defined yet
+                </EmptyTitle>
+                <EmptyDescription className="text-body-compact">
+                  This tab will flag things in the case&rsquo;s data, such as
+                  attendance history. What it shows has not been decided.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           </TabsContent>
         ) : null}
       </Tabs>
