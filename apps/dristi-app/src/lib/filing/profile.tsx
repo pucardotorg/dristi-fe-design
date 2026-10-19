@@ -13,9 +13,27 @@
 import * as React from "react";
 
 import { getRepository } from "./data";
+import { SIGNED_IN_MOBILE_KEY } from "./linked-complaints";
 import type { UserProfile } from "./types";
 
 export const EMPTY_PROFILE: UserProfile = { name: "", mobile: "", email: "", barNumber: "" };
+
+/**
+ * Sandbox session-lite: while a litigant is signed in (`SIGNED_IN_MOBILE_KEY`, set only
+ * for a litigant sign-in), this flow knows them by that mobile and holds no bar number,
+ * so "you" is their complainant seat rather than the advocate's. Not written back.
+ */
+export function asSignedIn(profile: UserProfile, signedInMobile: string | null): UserProfile {
+  return signedInMobile ? { ...profile, mobile: signedInMobile, barNumber: "" } : profile;
+}
+
+function readSignedInMobile(): string | null {
+  try {
+    return window.localStorage.getItem(SIGNED_IN_MOBILE_KEY);
+  } catch {
+    return null;
+  }
+}
 
 type ProfileContextValue = {
   /** `null` until read from storage. */
@@ -36,12 +54,12 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       .getProfile()
       .then((p) => {
         if (cancelled) return;
-        setProfile(p ?? EMPTY_PROFILE);
+        setProfile(asSignedIn(p ?? EMPTY_PROFILE, readSignedInMobile()));
         setReady(true);
       })
       .catch(() => {
         if (cancelled) return;
-        setProfile(EMPTY_PROFILE);
+        setProfile(asSignedIn(EMPTY_PROFILE, readSignedInMobile()));
         setReady(true);
       });
     return () => {

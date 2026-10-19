@@ -13,6 +13,8 @@
 
 import { writeLocalStorageValue } from "@/hooks/use-local-storage-value";
 
+import type { FilingDraft } from "./types";
+
 export const LINKED_COMPLAINTS_KEY = "dristi:linked-complaints";
 
 /**
@@ -31,7 +33,41 @@ export function setNewAccountShell(on: boolean): void {
   }
 }
 
+/**
+ * The mobile the litigant signed in with. Sandbox session-lite: the home lists every
+ * complaint that names this number as a complainant, as the backend would.
+ */
+export const SIGNED_IN_MOBILE_KEY = "dristi:signed-in-mobile";
+
+export function setSignedInMobile(mobile: string | null): void {
+  try {
+    if (mobile) window.localStorage.setItem(SIGNED_IN_MOBILE_KEY, mobile);
+    else window.localStorage.removeItem(SIGNED_IN_MOBILE_KEY);
+  } catch {
+    /* blocked storage: the home shows what it has */
+  }
+}
+
 export type LinkedComplaint = { draftId: string; signatoryId: string };
+
+/**
+ * The complaints sent for signature that name this mobile as a complainant — one link
+ * per complainant slot it holds. Drafts not yet sent for signature are the filer's own.
+ */
+export function complaintsNaming(
+  drafts: FilingDraft[],
+  mobile: string,
+  same: (a: string, b: string) => boolean
+): LinkedComplaint[] {
+  if (!mobile) return [];
+  return drafts
+    .filter((d) => d.status === "filed" || !!d.sign.requestedAt)
+    .flatMap((d) =>
+      d.complainants
+        .filter((c) => !!c.mobile && same(c.mobile, mobile))
+        .map((c) => ({ draftId: d.id, signatoryId: `sig-c-${c.id}` }))
+    );
+}
 
 /** The stored list, from its raw value — never throws on a malformed one. */
 export function parseLinkedComplaints(raw: string | null): LinkedComplaint[] {

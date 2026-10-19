@@ -23,6 +23,7 @@ import {
 
 import { TASKS_HOME } from "@/lib/tasks/routes";
 import { summaryOf } from "@/lib/tasks/selectors";
+import { resetSampleDrafts } from "@/lib/filing/sample-drafts";
 import { useTasks } from "@/lib/tasks/store";
 import { BrandGlyph } from "@/components/brand-lockup";
 import { ConfirmDialog } from "@/components/shell/confirm-dialog";
@@ -673,11 +674,14 @@ function ProfileFooter() {
         open={confirmReset}
         onOpenChange={setConfirmReset}
         title="Reset the sandbox?"
-        description="Every task, upload and decision made in this browser is discarded and the seed data is loaded again. Other open tabs reload too."
+        description="Every task, upload, decision and sample filing in this browser is reset and the seed data is loaded again. Other open tabs reload too."
         confirmLabel="Reset sandbox"
         onConfirm={() => {
           setConfirmReset(false);
-          void resetSandbox();
+          // Sample filings too, so a signature or oath can be walked again from the start.
+          void Promise.all([resetSandbox(), resetSampleDrafts()]).then(() =>
+            window.location.reload(),
+          );
         }}
       />
     </SidebarFooter>

@@ -244,7 +244,7 @@ export function documentsProgress(groups: DocumentGroup[]) {
 
 /* ───────────────────────────── Sign ────────────────────────────────── */
 
-function sameMobile(a: string, b: string): boolean {
+export function sameMobile(a: string, b: string): boolean {
   const da = a.replace(/\D/g, "").slice(-10);
   const db = b.replace(/\D/g, "").slice(-10);
   return da.length === 10 && da === db;
