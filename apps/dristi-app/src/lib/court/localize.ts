@@ -23,7 +23,8 @@
  *   number was allotted at registration and carries on.
  * - **CNR.** The state, district and establishment prefix changes; the sequence and
  *   year do not.
- * - **Signing.** Punjab & Haryana's filing step is "Sign", where the others' is "Sign and oath".
+ * - **Signing.** The filing step is "Sign and oath" only where the court's profile asks for
+ *   an oath at signing (`signing.oath`, `OTH-2`); elsewhere it is "Sign".
  * - **Court seats.** Punjab & Haryana's bench clerk is the Reader, its scrutiny officer
  *   the Ahlmad, and its typist the Steno (owner, 2026-10-13).
  */
@@ -118,8 +119,6 @@ const NAME_RULES: Rule[] = [
   [/\bDRISTI\b/g, (p) => p.brandName ?? "DRISTI"],
   [/\bDristi\b/g, (p) => p.brandName ?? "Dristi"],
   [/\bON Court\b/g, (p) => courtName(p, true)],
-  // Punjab & Haryana's filing is signed, not sworn: its step is "Sign" (owner, 2026-10-08).
-  [/\bSign and oath\b/g, (p) => (p.signWithOath ? "Sign and oath" : "Sign")],
   // Punjab & Haryana's names for the court seats (owner, 2026-10-13): the bench clerk is
   // the Reader, the scrutiny officer the Ahlmad, and the typist the Steno. The case of
   // the first letter is kept, so a label and a sentence both read right.
@@ -291,6 +290,9 @@ const CAUSE_TITLE_VS = /(?<=\S) (?:v\.|vs\.?|Vs\.?|VS|versus) (?=\S)/g;
 
 export function localizeCourtText(text: string, court: CourtId): string {
   const profile = courtProfile(court);
+  // The oath belongs to signing only where the state asks for one (`OTH-2`) — Kerala's
+  // screens included, so this one rule runs before Kerala's early return.
+  text = profile.signing.oath ? text : text.replace(/\bSign and oath\b/g, "Sign");
   if (profile.numbering.kind === "kerala") return text;
   const benched = profile.benchName ? apply(text, BENCH_RULES, profile) : text;
   const voiced = apply(

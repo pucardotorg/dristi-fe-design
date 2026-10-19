@@ -146,6 +146,11 @@ export function CaseWorkbench({
     const field = controller.selectedId
       ? fieldById[controller.selectedId]
       : null;
+    // An oath row plays its recording in the centre panel (`SCR-14`).
+    if (field?.video) {
+      bundle.current?.play(field.video);
+      return;
+    }
     const target = field?.doc ?? field?.thumb ?? field?.docrow;
     if (target) goToDoc(target);
   }, [controller.selectedId, goToDoc, fieldById]);
@@ -154,7 +159,7 @@ export function CaseWorkbench({
     ? fieldById[controller.selectedId]
     : null;
   const relatedDocId = selected
-    ? (selected.doc ?? selected.thumb ?? selected.docrow ?? null)
+    ? (selected.doc ?? selected.thumb ?? selected.docrow ?? selected.video ?? null)
     : null;
   const spot: { doc: string; rect: Rect } | null =
     selected?.region && relatedDocId

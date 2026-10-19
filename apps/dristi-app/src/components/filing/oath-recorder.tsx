@@ -1,15 +1,14 @@
 "use client";
 
 /**
- * In-place camera recorder for the Oath screen — the alternative to picking a video file.
- * Opens a live preview via `getUserMedia`, records with `MediaRecorder`, and hands the
- * finished clip back as a plain `File` so the caller can run it through the exact same
- * `storeUpload` + `oathVideo` assignment path as an uploaded file. Nothing here decides
- * where the recording is stored — that stays the section's job.
+ * In-place camera recorder for the oath — the only way an oath is taken (`OTH-1`: recorded,
+ * never uploaded). Opens a live preview via `getUserMedia`, records with `MediaRecorder`,
+ * stops itself at the limit, and hands the finished clip back as a plain `File` for the
+ * caller to store. Nothing here decides where the recording is stored.
  *
  * Every realistic failure (no camera, permission denied, camera busy, unsupported
- * browser) is reported through `onError` with a plain-language message; the caller's
- * job is to fall back to the upload button, which this component never disables.
+ * browser) is reported through `onError` with a plain-language message that says what
+ * to do next — there is no file to fall back to.
  */
 
 import * as React from "react";
@@ -46,14 +45,14 @@ function messageFor(error: unknown): string {
   switch (name) {
     case "NotAllowedError":
     case "SecurityError":
-      return "Camera and microphone access was denied. Allow access in your browser settings, or upload a video instead.";
+      return "Camera and microphone access was denied. Allow access in your browser settings, then try again.";
     case "NotFoundError":
     case "OverconstrainedError":
-      return "No camera was found on this device. Please upload a video instead.";
+      return "No camera was found on this device. Open your signing link on a phone, or on a computer with a camera.";
     case "NotReadableError":
-      return "The camera is already in use by another application. Close it and try again, or upload a video instead.";
+      return "The camera is already in use by another application. Close it and try again.";
     default:
-      return "We couldn't start the camera. Please upload a video instead.";
+      return "We couldn't start the camera. Please try again, or open your signing link on another device.";
   }
 }
 
@@ -113,7 +112,7 @@ export function OathRecorderPanel({
     let cancelled = false;
 
     if (!isRecordingSupported()) {
-      onError("Recording isn't supported in this browser. Please upload a video instead.");
+      onError("Recording isn't supported in this browser. Open your signing link in another browser, or on a phone.");
       return;
     }
 
@@ -153,7 +152,7 @@ export function OathRecorderPanel({
       recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
     } catch {
       stopStream();
-      onError("We couldn't start recording in this browser. Please upload a video instead.");
+      onError("We couldn't start recording in this browser. Open your signing link in another browser, or on a phone.");
       return;
     }
     chunksRef.current = [];
@@ -173,7 +172,7 @@ export function OathRecorderPanel({
     recorder.onerror = () => {
       clearTimer();
       stopStream();
-      onError("Recording stopped unexpectedly. Please try again, or upload a video instead.");
+      onError("Recording stopped unexpectedly. Please try again.");
     };
 
     recorderRef.current = recorder;
@@ -183,7 +182,7 @@ export function OathRecorderPanel({
       recorder.start();
     } catch {
       stopStream();
-      onError("We couldn't start recording in this browser. Please upload a video instead.");
+      onError("We couldn't start recording in this browser. Open your signing link in another browser, or on a phone.");
       return;
     }
     setStatus("recording");

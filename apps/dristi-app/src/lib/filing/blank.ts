@@ -583,7 +583,7 @@ export function migrateDraft(draft: FilingDraft): FilingDraft {
     c.differentlyAbled ??= "";
     c.rep.gender ??= "";
     c.rep.differentlyAbled ??= "";
-    // The complainant's oath was retired with the Oath step — advocates take it now.
+    // The oath was a form field once; it is recorded during signing now (`OTH-3`).
     delete (c as Complainant & { oathVideo?: unknown }).oathVideo;
     c.entCinPan ??= "";
     c.entCinPanSkippedAt ??= null;
@@ -599,6 +599,11 @@ export function migrateDraft(draft: FilingDraft): FilingDraft {
   // say which accused it was for, and the defaults it falls back to are the court's.
   draft.sign.process ??= {};
   draft.sign.oaths ??= {};
+  // Advocates took an oath in an earlier build; only a complainant's slot carries one
+  // now (`OTH-3`), so an advocate's leftover recording is dropped.
+  for (const id of Object.keys(draft.sign.oaths)) {
+    if (id.startsWith("sig-a-")) delete draft.sign.oaths[id];
+  }
   draft.sign.paidAmount ??= null;
   draft.affidavit ??= "";
   // Phone confirmation on the upload path is newer than these drafts.

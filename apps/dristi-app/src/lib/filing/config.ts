@@ -3,11 +3,14 @@
  */
 
 /**
- * How a complaint is signed in this deployment (owner, 2026-10-11 — Gujarat only, for now):
+ * How a complaint is signed in this deployment:
  *
- * - `oath` — everyone who signs (complainants and advocates) also records the oath on
- *   video, read in their own name; the court fee waits on it. Off: signing alone, and
- *   nothing in the flow mentions an oath.
+ * - `oath` — `oathRequired` (`OTH-2`, e-filing handover §18.2). Each complainant's oath is
+ *   recorded on camera as part of their e-signature, or of their phone confirmation in
+ *   upload mode, by whoever signs for them: the complainant, their PoA holder, or an
+ *   Institution's authorised representative (`OTH-3`). Advocates and clerks never record
+ *   one. The court fee waits on it. Off: signing alone, and nothing in the flow or at
+ *   scrutiny mentions an oath. Which states turn it on is open (`Q-6`).
  * - `everyAdvocate` — every advocate on record signs, and swears, as themselves, each
  *   with their own link. Off: one advocate signature per complainant, which any one of
  *   that complainant's advocates may give.

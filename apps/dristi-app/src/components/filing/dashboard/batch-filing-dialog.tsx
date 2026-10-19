@@ -94,7 +94,7 @@ export function BatchFilingDialog({
         for (const s of yours) draft.sign.signed[s.id] = { at: now, with: "aadhaar" };
         if (yours.some((s) => s.oathTaken === false)) oathsOwed += 1;
       } else {
-        // Every signature and every advocate's oath — an oath cannot be batched.
+        // Every signature and every complainant's oath — an oath cannot be batched.
         if (!signingComplete(draft, profile) || draft.sign.paid) continue;
         const bill = feeBill(draft, courtFees);
         draft.sign.paid = true;

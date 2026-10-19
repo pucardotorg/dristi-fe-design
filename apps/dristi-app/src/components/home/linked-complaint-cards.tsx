@@ -9,7 +9,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useLocalStorageValue } from "@/hooks/use-local-storage-value";
-import { signingRules } from "@/lib/filing/config";
 import { getRepository } from "@/lib/filing/data";
 import {
   linkedComplaintHref,
@@ -19,7 +18,7 @@ import {
   NEW_ACCOUNT_SHELL_KEY,
 } from "@/lib/filing/linked-complaints";
 import { COURT } from "@/lib/filing/options";
-import { draftTitle, signatories } from "@/lib/filing/selectors";
+import { draftTitle, confirmerSlot, phoneConfirmed, phoneConfirmers, signatories } from "@/lib/filing/selectors";
 import type { FilingDraft } from "@/lib/filing/types";
 
 type Loaded = { link: LinkedComplaint; draft: FilingDraft };
@@ -31,12 +30,19 @@ function standing({ link, draft }: Loaded) {
   }
   const { complainants, advocates } = signatories(draft, null);
   const me = [...complainants, ...advocates].find((s) => s.id === link.signatoryId);
-  const sworn = signingRules().oath;
+  const onPaper = draft.sign.mode === "upload";
+  // On paper this person confirms by OTP on their own device instead of e-signing (`SIG-05`).
+  const confirmer = phoneConfirmers(draft).find((p) => confirmerSlot(p.id) === link.signatoryId);
+  const unconfirmed = onPaper && !!confirmer && me?.status !== "signed" && !phoneConfirmed(draft, confirmer);
+  // Only a complainant's slot carries an oath (`OTH-3`); `false` means it is still owed.
   const owed =
-    !!me &&
-    ((draft.sign.mode !== "upload" && me.status !== "signed") || (sworn && !me.oathTaken));
+    !!me && ((!onPaper && me.status !== "signed") || unconfirmed || me.oathTaken === false);
   return owed
-    ? { badge: "Your e-signature needed", variant: "warning" as const, action: "Review and sign" }
+    ? {
+        badge: onPaper ? "Your confirmation needed" : "Your e-signature needed",
+        variant: "warning" as const,
+        action: onPaper ? "Review and confirm" : "Review and sign",
+      }
     : { badge: "Signed · being filed", variant: "secondary" as const, action: "View complaint" };
 }
 

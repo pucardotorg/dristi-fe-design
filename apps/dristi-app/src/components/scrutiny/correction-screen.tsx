@@ -57,7 +57,7 @@ import type { StepId, StoredFileRef } from "@/lib/filing/types";
 import type { Ctx } from "@/lib/tasks/transitions";
 import { refile, resolveDefect } from "@/lib/tasks/transitions";
 import { useProfile } from "@/lib/filing/profile";
-import { isOutstanding, signatories } from "@/lib/filing/selectors";
+import { carryOverOaths, isOutstanding, signatories } from "@/lib/filing/selectors";
 import { ConfirmDialog } from "@/components/filing/confirm-dialog";
 import { SignFlowDialog, type SignFlowStart } from "@/components/filing/sign-flow-dialog";
 import { signingRules } from "@/lib/filing/config";
@@ -622,6 +622,13 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
   /** The old signatures are already off: this round is being signed. */
   const signing = !!draft.scrutinyReturn && draft.lastStep === "sign";
 
+  /**
+   * Oaths scrutiny flagged as an error, by complainant signatory id — the only ones
+   * recorded again (`OTH-5`). A defect cannot name an oath yet (`lib/tasks/types`), so
+   * nothing is flagged here.
+   */
+  const flaggedOaths: string[] = [];
+
   /** Record what was fixed on the task and take the old signatures off. */
   const prepareSigning = async () => {
     if (pending.length > 0) {
@@ -630,14 +637,17 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
       );
       if (!done) return false;
     }
+    const now = new Date().toISOString();
     update((d) => {
       d.sign.requestedAt = null;
       d.sign.notified = {};
       d.sign.signed = {};
       d.sign.signedCopy = null;
       d.sign.confirmed = {};
-      d.sign.oaths = {};
-      d.scrutinyReturn = { resubmittedAt: null };
+      // The oath is not recorded again unless scrutiny flagged it (`OTH-5`). This
+      // return's defects are fields and documents only, so every oath carries over.
+      d.sign.oaths = carryOverOaths(d.sign.oaths, flaggedOaths);
+      d.scrutinyReturn = { resubmittedAt: null, signingFrom: now };
       d.lastStep = "sign";
     });
     return true;
@@ -692,7 +702,7 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
 
   /**
    * Sandbox only: the other parties' links go nowhere, so this stands in for them signing
-   * (and, where the court asks for one, swearing the oath). With everyone done, the send
+   * (and, where the court asks for one and it did not carry over, recording the oath). With everyone done, the send
    * is the next act, so its confirmation follows at once.
    */
   const sandboxEveryoneDone = () => {

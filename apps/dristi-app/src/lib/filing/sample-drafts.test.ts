@@ -22,18 +22,26 @@ describe("the two-advocate sample", () => {
     assert.equal(advocates.length, 2);
   });
 
-  it("puts you in the first advocate's seat, signed with the oath still to take", () => {
+  it("puts you in the first advocate's seat, signed, with no oath of your own", () => {
     const [yours] = advocates;
     assert.equal(yours.you, true);
     assert.equal(yours.status, "signed");
-    assert.equal(yours.oathTaken, false);
+    assert.equal(yours.oathTaken, undefined);
   });
 
-  it("sends the second advocate a link for their signature and oath", () => {
+  it("sends the second advocate a link for their signature only", () => {
     const theirs = advocates[1];
     assert.equal(theirs.you, false);
     assert.equal(theirs.status, "pending");
-    assert.equal(theirs.oathTaken, false);
+    assert.equal(theirs.oathTaken, undefined);
     assert.ok(draft.sign.notified[theirs.id], "their link has gone out");
+  });
+
+  it("asks each complainant, by link, for their signature and oath", () => {
+    for (const c of complainants) {
+      assert.equal(c.status, "pending");
+      assert.equal(c.oathTaken, false);
+      assert.ok(draft.sign.notified[c.id], "their link has gone out");
+    }
   });
 });

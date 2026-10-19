@@ -6,7 +6,8 @@
  * fixtures, documents and fees already speak Kerala. The other three re-voice the same
  * screens with what the stakeholders' documents say differs (owner, 2026-10-08): the
  * product's name and logo, the case numbers, the fees, and — for Punjab & Haryana — that
- * the filing step is signing alone, with no oath, and that scrutiny runs without AI.
+ * that scrutiny runs without AI. Whether a state asks for an oath at signing is
+ * `signing.oath`, still open per state (`Q-6`).
  *
  * The interface does not change between them. Nothing here adds a step, a field or a
  * queue; a Gujarat case already carries its eCC / eCR type rather than asking the clerk
@@ -84,9 +85,12 @@ export type CourtProfile = {
    * "SARAS Court 1, 2, 3…" (owner, 2026-10-09). `null` keeps "JMFC Court N".
    */
   benchName: string | null;
-  /** Whether the filing's signing step carries an oath — Punjab & Haryana's does not. */
-  signWithOath: boolean;
-  /** Who signs and who swears (`lib/filing/config.ts`). Gujarat only, for now. */
+  /**
+   * Who signs, and whether the state asks for an oath at signing (`lib/filing/config.ts`).
+   * `signing.oath` is `oathRequired` (`OTH-2`). Which states require the oath is still
+   * open (`Q-6`): the values below are prototype settings so each path can be shown, not
+   * a decision about any state.
+   */
   signing: SigningRules;
   fees: FeeSchedule;
   /** Whether scrutiny opens with AI assistance — never `unavailable`, which is per file. */
@@ -118,7 +122,6 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     brandName: null,
     courtName: null,
     benchName: null,
-    signWithOath: true,
     signing: { oath: false, everyAdvocate: false },
     fees: KERALA_FEES,
     aiMode: "on",
@@ -139,7 +142,6 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     brandName: "SARAS 2.0",
     courtName: "SARAS Court",
     benchName: "SARAS Court",
-    signWithOath: true,
     signing: { oath: true, everyAdvocate: true },
     fees: GUJARAT_FEES,
     aiMode: "on",
@@ -150,7 +152,7 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
   },
   /*
    * One deployment under the Punjab and Haryana High Court (owner, 2026-10-12). It took
-   * Punjab's filing — signing with no oath — and scrutiny without AI, and Haryana's CNR
+   * Punjab's scrutiny without AI, and Haryana's CNR
    * and court language; the sample places, names and numbers are Panchkula's.
    */
   "punjab-haryana": {
@@ -163,7 +165,6 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     brandName: null,
     courtName: null,
     benchName: null,
-    signWithOath: false,
     signing: { oath: false, everyAdvocate: false },
     fees: PUNJAB_HARYANA_FEES,
     aiMode: "off",

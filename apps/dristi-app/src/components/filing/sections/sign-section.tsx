@@ -9,8 +9,9 @@
  * the way the rest of the flow had taught you.
  *
  * Committing to a mode is its own step, not a click on the rail: the rail carries one
- * "Continue to signing" button ("Sign and take your oath" when you sign as an advocate,
- * since the oath follows the signature in the same window), which opens a dialog naming
+ * "Continue to signing" button ("Sign and take your oath" when you sign for a complainant
+ * in a state that asks for an oath, since the oath follows the signature in the same
+ * window — advocates never take one, `OTH-3`), which opens a dialog naming
  * both paths and what each one does to the *other* signatories — before either is
  * clickable, not after. Nothing here is a private action; every party on the complaint
  * signs the one way that was chosen.
@@ -51,8 +52,12 @@ import {
 } from "@/lib/filing/options";
 import { useProfile } from "@/lib/filing/profile";
 import {
+  confirmationComplete,
+  confirmerSlot,
   feeBill,
   isOutstanding,
+  isYourConfirmation,
+  phoneConfirmers,
   processPlan,
   signatories,
   type AccusedPlan,
@@ -460,13 +465,28 @@ export function SignSection() {
   const complete = everyone.length > 0 && !everyone.some(isOutstanding);
   const anySigned = everyone.some((s) => s.status === "signed");
   const pending = everyone.filter((s) => s.status === "pending").length;
-  /** Signatories who have signed and not yet sworn — complainants and advocates alike. */
+  /** Complainants who have signed and not yet sworn — advocates carry no oath (`OTH-3`). */
   const oathsOwed = everyone.filter((s) => s.status === "signed" && s.oathTaken === false);
   const yourOathOwed = oathsOwed.some((s) => s.you);
   /** Your oath follows your signature — one act, one CTA. */
   const yourOathAhead = yous.some((s) => s.oathTaken === false);
-  /** Other people with something still to do, by link. */
-  const othersOutstanding = everyone.filter((s) => !s.you && isOutstanding(s));
+  /**
+   * Other people with something still to do, by link. On paper that is the complainants
+   * still to confirm on their own device (with their oath), not the signature rows: the
+   * copy carries the signatures (`SIG-05`).
+   */
+  const paperOthers = React.useMemo(
+    () =>
+      onPaper && !allSigned
+        ? phoneConfirmers(draft).filter(
+            (p) => !isYourConfirmation(p, profile) && !confirmationComplete(draft, p)
+          )
+        : [],
+    [onPaper, allSigned, draft, profile]
+  );
+  const othersOutstanding: Signatory[] = onPaper && !allSigned
+    ? complainants.filter((s) => paperOthers.some((p) => confirmerSlot(p.id) === s.id))
+    : everyone.filter((s) => !s.you && isOutstanding(s));
   /** Everyone the requests go out to — the signatories who are not at this keyboard. */
   const otherSigners = Math.max(0, everyone.length - yous.length);
   const others =
@@ -510,10 +530,14 @@ export function SignSection() {
    */
   const discardSignatures = () => {
     const copy = sign.signedCopy;
-    // An oath affirms *this* complaint, so it goes where the signatures go.
-    const oathFiles = Object.values(sign.oaths).flatMap((o) => (o.video ? [o.video.file.id] : []));
+    // Before filing, an oath affirms *this* draft, so it goes where the signatures go. In
+    // a correction round it carries over unless scrutiny flagged it (`OTH-5`).
+    const keepOaths = !!draft.scrutinyReturn;
+    const oathFiles = keepOaths
+      ? []
+      : Object.values(sign.oaths).flatMap((o) => (o.video ? [o.video.file.id] : []));
     update((d) => {
-      d.sign.oaths = {};
+      if (!keepOaths) d.sign.oaths = {};
       d.sign.signed = {};
       d.sign.requestedAt = null;
       d.sign.notified = {};
@@ -597,9 +621,7 @@ export function SignSection() {
   const remindAll = () => {
     const now = new Date().toISOString();
     update((d) => {
-      for (const s of everyone) {
-        if (isOutstanding(s) && !s.you) d.sign.notified[s.id] = now;
-      }
+      for (const s of othersOutstanding) d.sign.notified[s.id] = now;
     });
     setReminded(true);
     if (remindTimer.current) window.clearTimeout(remindTimer.current);
@@ -635,6 +657,15 @@ export function SignSection() {
   const sandboxSignOthers = () => {
     const at = new Date().toISOString();
     update((d) => {
+      if (onPaper) {
+        // On paper the others confirm, and swear, on their own devices.
+        for (const p of paperOthers) {
+          d.sign.confirmed[p.id] = { mobileTail: p.mobile.replace(/\D/g, "").slice(-4), at };
+          const slot = confirmerSlot(p.id);
+          if (signingRules().oath && !d.sign.oaths[slot]) d.sign.oaths[slot] = { at, video: null };
+        }
+        return;
+      }
       for (const s of everyone) {
         if (s.you) continue;
         if (!d.sign.signed[s.id]) d.sign.signed[s.id] = { at, with: "aadhaar" };

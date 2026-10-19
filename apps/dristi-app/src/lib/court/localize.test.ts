@@ -79,9 +79,9 @@ test("a document is re-voiced whole, and only its strings", () => {
   assert.equal(localizeDeep(doc, "kerala"), doc);
 });
 
-test("only Punjab & Haryana's filing step drops the oath", () => {
+test("the filing step names the oath only where the court asks for one", () => {
   assert.equal(localizeCourtText("Sign and oath", "punjab-haryana"), "Sign");
-  assert.equal(localizeCourtText("Sign and oath", "kerala"), "Sign and oath");
+  assert.equal(localizeCourtText("Sign and oath", "kerala"), "Sign");
   assert.equal(localizeCourtText("Sign and oath", "gujarat"), "Sign and oath");
 });
 

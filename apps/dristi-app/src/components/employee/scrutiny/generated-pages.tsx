@@ -19,11 +19,15 @@ const SUB = "mb-3.5 text-center text-caption text-paper-muted-foreground";
 const PARA = "mt-3";
 const FOOT = "mt-6 text-center text-caption text-paper-muted-foreground";
 
-/** "Doc 2 of 10" — read from the bundle, so the footer cannot disagree with the index. */
+/**
+ * "Doc 2 of 10" — read from the bundle, so the footer cannot disagree with the index. An
+ * oath recording is not a page of the printed complaint, so it is not counted.
+ */
 function useDocOf(id: string): string {
   const { bundle } = useScrutinyCase();
   const doc = bundle.find((d) => d.id === id);
-  return doc ? `Doc ${doc.no} of ${bundle.length}` : "";
+  const pages = bundle.filter((d) => d.kind !== "video").length;
+  return doc ? `Doc ${doc.no} of ${pages}` : "";
 }
 
 function Synopsis() {
