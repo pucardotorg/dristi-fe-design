@@ -1,30 +1,44 @@
 "use client";
 
 import * as React from "react";
-import { ChevronRightIcon, TriangleAlertIcon } from "lucide-react";
 
+import { RESOLVE_IN_PLACE } from "@/components/chrome/motion";
+import { CountUp, useGrowIn } from "@/components/employee/court-dashboard-motion";
+import { DashboardDatePicker } from "@/components/employee/dashboard-date-picker";
 import { DocketCaseList } from "@/components/employee/docket-table";
 import { PANEL_CLASS } from "@/components/shell/panel";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { CourtDocket } from "@/lib/employee/court-docket";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import type { CourtDocket, DocketCase } from "@/lib/employee/court-docket";
 import {
-  attentionToday,
-  type AttentionItem,
-  type CheckOwner,
-  type CheckRow,
+  attentionFor,
+  formatDay,
+  formatDayShort,
+  type AttentionCheck,
+  type AttentionCheckId,
+  type Period,
 } from "@/lib/employee/court-flow";
 import { formatCount } from "@/lib/employee/register-rows";
 import { cn } from "@/lib/utils";
 
 /**
- * "Needs attention" on the magistrate dashboard, and the pieces the dashboard's panels
- * share. The checks are grouped by who can act — one column each for the office, the
- * magistrate and those outside the court — and always read as of today, whatever period
- * the Overview is set to (`attentionToday`). An item opens its cases inside the panel.
+ * "Needs attention" on the magistrate dashboard (Case Flow v4), and the pieces every panel
+ * shares.
  *
- * The design's hover tooltips are not used: what they said is in each item's accessible
- * name, and written out above the list when an item is opened.
+ * The checks are the hearing-date checks (note B) and the process checks (note D),
+ * counted on one day: today by default, or the last day of a range, compared with its
+ * first. Each check shows its cases and how long they have waited, as a small histogram
+ * whose bars open exactly those cases. Hearing-date checks need next dates, kept for the
+ * latest day only, so on a past day they say so instead of showing nought.
+ *
+ * Shared pieces — the dashboard's one way of being interactive:
+ *
+ * - `CountButton` — a count that opens its cases: the DS primary ink, underlined.
+ * - `SegmentBar` — a bar whose segments tell their exact value in a DS tooltip on hover and
+ *   keyboard focus, keep it in their accessible name, and (where they count cases) open
+ *   them on a click or a tap.
+ * - `CaseListBox` and `useCaseList` — one in-panel case list per panel, focus back on
+ *   whatever opened it when it closes.
  */
 
 /** A top-level section of the dashboard: a lifted card on the work canvas. */
@@ -43,19 +57,21 @@ export function PanelHeader({
   id: string;
   title: string;
   /** The period or scope the panel reads, under the title. */
-  line: React.ReactNode;
+  line?: React.ReactNode;
   note?: React.ReactNode;
-  /** A control at the top right: the date picker, the trend range. */
+  /** A control at the top right: a date picker. */
   children?: React.ReactNode;
 }) {
   return (
     <div className="flex min-w-0 flex-col gap-2">
       <div className="flex min-w-0 flex-wrap items-start justify-between gap-x-6 gap-y-3">
-        <div className="flex min-w-0 flex-col gap-1">
+        {/* The title block gives way first, so a long line wraps beside the picker
+            rather than pushing it onto a row of its own. */}
+        <div className="flex min-w-0 flex-1 basis-80 flex-col gap-1">
           <h2 id={id} className="text-title-s font-semibold">
             {title}
           </h2>
-          <p className="text-body tabular-nums">{line}</p>
+          {line ? <p className="text-body tabular-nums">{line}</p> : null}
         </div>
         {children}
       </div>
@@ -64,46 +80,164 @@ export function PanelHeader({
   );
 }
 
-export const OWNER_LABEL: Record<CheckOwner, string> = {
-  office: "Office",
-  magistrate: "Magistrate",
-  outside: "Outside the court",
-};
+export const plural = (n: number, one: string, many: string) => `${formatCount(n)} ${n === 1 ? one : many}`;
 
-/**
- * Who acts, as a chip. The three read apart without colour: the magistrate's chip carries
- * the brand edge, the outside one a dashed edge, the office a plain one.
- */
-export function OwnerChip({ owner }: { owner: CheckOwner }) {
+/** The dashboard's count treatment: the DS primary ink, underlined, with focus and hover. */
+export const COUNT_LINK =
+  "cursor-pointer rounded-sm text-primary underline decoration-border underline-offset-4 outline-none hover:decoration-current focus-visible:ring-3 focus-visible:ring-focus-ring aria-expanded:decoration-current aria-expanded:decoration-2";
+
+/** A count that opens its cases. Its accessible name starts with what it shows. */
+export function CountButton({
+  children,
+  name,
+  expanded,
+  controls,
+  onOpen,
+  className,
+}: {
+  children: React.ReactNode;
+  /** Read after the visible text: "cases filed, show the cases". */
+  name: string;
+  expanded: boolean;
+  controls: string;
+  onOpen: (trigger: HTMLElement) => void;
+  className?: string;
+}) {
   return (
-    <Badge
-      variant="outline"
-      className={cn(
-        "font-normal",
-        owner === "magistrate" && "border-primary text-brand-muted-foreground",
-        owner === "outside" && "border-dashed",
-      )}
+    <button
+      type="button"
+      aria-expanded={expanded}
+      aria-controls={controls}
+      onClick={(event) => onOpen(event.currentTarget)}
+      className={cn(COUNT_LINK, "inline-flex min-h-10 items-center text-left tabular-nums", className)}
     >
-      {OWNER_LABEL[owner]}
-    </Badge>
+      {children}
+      <span className="sr-only">
+        {" "}
+        {name}, {expanded ? "hide" : "show"} the cases
+      </span>
+    </button>
   );
 }
 
-/**
- * The three shades of "how far past": an ordinal ramp in the DS warning family — the pale
- * muted fill, the solid, then the ink — light to dark in light mode. The two lighter
- * shades carry a warning-ink edge so each mark keeps a 3:1 boundary on the panel.
- *
- * In dark mode the warning solid and ink are both bright yellows that cannot be told
- * apart, so the far-past shade steps to the destructive solid there.
- */
-export const SEVERITY_SHADE = [
-  "bg-warning-muted ring-1 ring-warning-ink ring-inset",
-  "bg-warning ring-1 ring-warning-ink ring-inset",
-  "bg-warning-ink dark:bg-destructive",
-] as const;
+export type Segment = {
+  key: string;
+  value: number;
+  /** Fill classes. */
+  className: string;
+  /** The exact value, as the tooltip and the accessible name say it. */
+  tip: string;
+  /** Opens the segment's cases; a segment without it only tells its value. */
+  onOpen?: (trigger: HTMLElement) => void;
+  expanded?: boolean;
+  /** A label drawn on the segment; the accessible name stays the tip. */
+  content?: React.ReactNode;
+  /** Extra attributes, such as the outcome a segment belongs to. */
+  data?: Record<string, string>;
+  onHover?: (on: boolean) => void;
+};
 
-const plural = (n: number, one: string, many: string) => `${formatCount(n)} ${n === 1 ? one : many}`;
+/**
+ * Proportional segments, each one focusable. A segment that counts cases is a button and
+ * opens them; one that does not is an image with its value as its name. Either way the
+ * DS tooltip shows the value on hover and on keyboard focus. The visible bar is thin, so a
+ * button's hit area reaches 40px tall through its `after` layer.
+ */
+export function SegmentBar({
+  label,
+  segments,
+  controls,
+  className,
+  style,
+  grow,
+}: {
+  label: string;
+  segments: Segment[];
+  controls?: string;
+  /** Height and rounding. */
+  className?: string;
+  style?: React.CSSProperties;
+  /** Marks the segments to grow in from their start. */
+  grow?: boolean;
+}) {
+  return (
+    <div role="group" aria-label={label} className={cn("flex min-w-0 gap-0.5", className)} style={style}>
+      {segments
+        .filter((s) => s.value > 0)
+        .map((s) => {
+          const hover = s.onHover
+            ? {
+                onMouseEnter: () => s.onHover!(true),
+                onMouseLeave: () => s.onHover!(false),
+                onFocus: () => s.onHover!(true),
+                onBlur: () => s.onHover!(false),
+              }
+            : {};
+          const shared = {
+            "data-grow": grow ? "x" : undefined,
+            ...Object.fromEntries(Object.entries(s.data ?? {}).map(([k, v]) => [`data-${k}`, v])),
+            ...hover,
+          };
+          return (
+            <Tooltip key={s.key}>
+              <TooltipTrigger asChild>
+                {s.onOpen ? (
+                  <button
+                    type="button"
+                    aria-label={`${s.tip}, ${s.expanded ? "hide" : "show"} the cases`}
+                    aria-expanded={s.expanded ?? false}
+                    aria-controls={controls}
+                    onClick={(event) => s.onOpen!(event.currentTarget)}
+                    className={cn(
+                      "relative block h-full min-w-1 origin-left cursor-pointer outline-hidden after:absolute after:inset-x-0 after:-inset-y-3.5 hover:outline-2 hover:outline-solid hover:outline-foreground focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring aria-expanded:outline-2 aria-expanded:outline-solid aria-expanded:outline-foreground",
+                      s.className,
+                    )}
+                    style={{ flex: s.value }}
+                    {...shared}
+                  >
+                    {s.content}
+                  </button>
+                ) : (
+                  <span
+                    role="img"
+                    tabIndex={0}
+                    aria-label={s.tip}
+                    className={cn(
+                      "block h-full min-w-1 origin-left outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring",
+                      s.className,
+                    )}
+                    style={{ flex: s.value }}
+                    {...shared}
+                  >
+                    {s.content}
+                  </span>
+                )}
+              </TooltipTrigger>
+              <TooltipContent className="tabular-nums">{s.tip}</TooltipContent>
+            </Tooltip>
+          );
+        })}
+    </div>
+  );
+}
+
+type ListRow = { case: DocketCase; days: number };
+
+/** One panel's open list: which one, and focus back on whatever opened it when it closes. */
+export function useCaseList<K extends string>() {
+  const [open, setOpen] = React.useState<K | null>(null);
+  const trigger = React.useRef<HTMLElement | null>(null);
+  const toggle = (key: K, from: HTMLElement) => {
+    trigger.current = from;
+    setOpen((current) => (current === key ? null : key));
+  };
+  const close = () => {
+    setOpen(null);
+    const from = trigger.current;
+    if (from && from.isConnected) from.focus();
+  };
+  return { open, toggle, close, setOpen };
+}
 
 /** A list's cases inside its panel: name, size, Close, and the shared paged case table. */
 export function CaseListBox({
@@ -118,20 +252,25 @@ export function CaseListBox({
   id: string;
   title: string;
   summary: string;
-  /** Lines that spell out what a sighted pointer user saw in a tooltip. */
+  /** Lines that spell out what the marks above show. */
   details?: string[];
-  rows: CheckRow[] | { case: CheckRow["case"]; days: number }[];
+  rows: ListRow[];
   daysHeader: string;
   onClose: () => void;
 }) {
   return (
-    <section aria-labelledby={`${id}-title`} className={cn(BOX, "flex flex-col gap-4 border-border p-4 sm:p-6")}>
+    <section
+      aria-labelledby={`${id}-title`}
+      className={cn(BOX, RESOLVE_IN_PLACE, "flex flex-col gap-4 border-border p-4 sm:p-6")}
+    >
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex min-w-0 flex-col gap-1">
           <h3 id={`${id}-title`} className="text-body font-semibold">
             {title}
           </h3>
-          <p className="text-body-compact text-muted-foreground tabular-nums">{summary}</p>
+          <p aria-live="polite" className="text-body-compact text-muted-foreground tabular-nums">
+            {summary}
+          </p>
           {details?.map((line) => (
             <p key={line} className="text-body-compact text-muted-foreground tabular-nums">
               {line}
@@ -147,82 +286,164 @@ export function CaseListBox({
   );
 }
 
-function severityText(item: AttentionItem): string {
-  return item.severity
-    .map((value, i) => (value ? `${item.severityLabels[i]}: ${formatCount(value)}` : null))
-    .filter(Boolean)
-    .join(" · ");
-}
+/* ------------------------------------------------------- needs attention */
 
-function weekChange(item: AttentionItem): { text: string; tone: "up" | "down" | "flat" } | null {
-  if (item.lastWeek === null) return null;
-  const diff = item.count - item.lastWeek;
-  if (!diff) return { text: "Same as last week", tone: "flat" };
-  return { text: `${formatCount(Math.abs(diff))} since last week`, tone: diff > 0 ? "up" : "down" };
-}
+const DAYS_HEADER: Record<AttentionCheckId, string> = {
+  undated: "Days since last posting",
+  long: "Days to next date",
+  soon: "Days to hearing",
+  pay: "Days unpaid",
+  del: "Days undelivered",
+};
+
+type AttentionList = AttentionCheckId | `${AttentionCheckId}-${number}`;
+
+const count = (n: number) => formatCount(Math.round(n));
 
 export function NeedsAttention({ docket }: { docket: CourtDocket }) {
-  const groups = attentionToday(docket);
-  const [open, setOpen] = React.useState<AttentionItem["id"] | null>(null);
-  const most = Math.max(1, ...groups.flatMap((g) => g.items.map((it) => it.count)));
-  const opened = groups.flatMap((g) => g.items).find((it) => it.id === open) ?? null;
+  const today = { from: docket.today, to: docket.today };
+  const [picked, setPicked] = React.useState<Period | null>(null);
+  const selection = picked ?? today;
+  const reading = attentionFor(docket, selection);
+  const list = useCaseList<AttentionList>();
   const listId = "dash-attention-cases";
+  const range = reading.start !== null;
+  const checks = reading.groups.flatMap((g) => g.checks);
+  const anyMissing = checks.some((c) => !c.available);
+  const day = formatDayShort(reading.day);
+  const table = React.useRef<HTMLDivElement>(null);
+  useGrowIn(table, `${selection.from}:${selection.to}`);
 
-  const close = () => {
-    const key = open;
-    setOpen(null);
-    document.querySelector<HTMLElement>(`[data-attention-trigger="${key}"]`)?.focus();
-  };
+  const showToday = (
+    <Button type="button" variant="link" className="h-auto px-0 py-0 text-body-compact" onClick={() => setPicked(null)}>
+      Show today
+    </Button>
+  );
+
+  const opened = (() => {
+    if (!list.open) return null;
+    const [id, bin] = list.open.split("-") as [AttentionCheckId, string | undefined];
+    const check = checks.find((c) => c.id === id);
+    if (!check || !check.available) return null;
+    const b = bin === undefined ? null : check.bins[Number(bin)];
+    const rows = b ? b.rows : check.rows;
+    return {
+      check,
+      rows,
+      title: b ? `${check.label} · ${b.label}` : check.label,
+      summary: `${plural(rows.length, "case", "cases")} · ${check.id === "soon" ? "soonest" : "longest"} first${reading.live ? "" : ` · on ${day}`}`,
+    };
+  })();
+
+  const columns = range ? 4 : 3;
 
   return (
     <section aria-labelledby="dash-attention" className={PANEL}>
-      <PanelHeader id="dash-attention" title="Needs attention" line="Cases to act on today, grouped by who can act" />
-      <div className={cn(BOX, "grid lg:grid-cols-3")}>
-        {groups.map((group, g) => (
-          <div
-            key={group.owner}
-            className={cn("flex min-w-0 flex-col", g > 0 && "border-hairline max-lg:border-t lg:border-l")}
-          >
-            <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 border-b border-hairline px-4 py-3">
-              <h3 className="text-body font-semibold">{group.label}</h3>
-              <span className="text-body-compact font-semibold tabular-nums">{plural(group.cases, "case", "cases")}</span>
-              <p className="col-span-2 text-caption text-muted-foreground">{group.description}</p>
-            </div>
-            <ul className="flex flex-col">
-              {group.items.map((item) => (
-                <AttentionRow
-                  key={item.id}
-                  item={item}
-                  most={most}
-                  open={open === item.id}
-                  controls={listId}
-                  onToggle={() => setOpen((current) => (current === item.id ? null : item.id))}
-                />
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
-      <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-body-compact text-muted-foreground">
-        {["Just past the limit", "Well past", "Far past"].map((name, i) => (
-          <span key={name} className="inline-flex items-center gap-2">
-            <span aria-hidden className={cn("h-2.5 w-3.5 rounded-xs", SEVERITY_SHADE[i])} />
-            {name}
-          </span>
-        ))}
-        <span>Bars share one scale. Delays at each stage are in the Overview above.</span>
+      <PanelHeader
+        id="dash-attention"
+        title="Needs attention"
+        line={`Cases missing a hearing date or waiting on process${
+          range ? ` · counted on ${day}, compared with ${formatDayShort(reading.start!)}` : ""
+        }`}
+      >
+        <DashboardDatePicker
+          docket={docket}
+          value={selection}
+          defaultValue={today}
+          defaultLabel="Today"
+          idPrefix="dash-attention-picker"
+          dayNote="counted on this day"
+          rangeNote={() => "counted on its last day, compared with its first"}
+          onChange={(next) => {
+            list.setOpen(null);
+            setPicked(next.from === docket.today && next.to === docket.today ? null : next);
+          }}
+        />
+      </PanelHeader>
+
+      <p aria-live="polite" className="text-body-compact tabular-nums">
+        {checks.every((c) => c.available && !c.rows.length) ? (
+          <span className="text-success-ink">No cases need attention on {day}.</span>
+        ) : (
+          <>
+            <strong className="font-semibold">{formatCount(reading.distinct)}</strong>{" "}
+            {anyMissing
+              ? `${reading.distinct === 1 ? "case has" : "cases have"} a process issue. Hearing dates can only be checked for today.`
+              : `${reading.distinct === 1 ? "case needs" : "cases need"} attention. Some appear in more than one row.`}
+          </>
+        )}
       </p>
+
+      <div ref={table} className={cn(BOX, "relative overflow-x-auto")}>
+        <table className="w-full min-w-2xl border-collapse text-body-compact">
+          <caption className="sr-only">
+            Needs attention, counted on {formatDay(reading.day)}
+            {range ? `, compared with ${formatDay(reading.start!)}` : ""}
+          </caption>
+          <thead>
+            <tr className="bg-surface-sunken text-muted-foreground">
+              <th scope="col" className="px-4 py-2.5 text-left font-normal">
+                Issue
+              </th>
+              <th scope="col" className="px-4 py-2.5 text-right font-normal">
+                Cases
+              </th>
+              <th scope="col" className="px-4 py-2.5 text-left font-normal">
+                How long they have waited <span className="max-sm:sr-only">· select a bar to see those cases</span>
+              </th>
+              {range ? (
+                <th scope="col" className="px-4 py-2.5 text-left font-normal">
+                  Since {formatDayShort(reading.start!)}
+                </th>
+              ) : null}
+            </tr>
+          </thead>
+          {reading.groups.map((group) => (
+            <tbody key={group.key}>
+              <tr>
+                <th
+                  colSpan={columns}
+                  scope="rowgroup"
+                  className="border-t border-hairline bg-muted px-4 py-2 text-left font-semibold"
+                >
+                  {group.label}
+                </th>
+              </tr>
+              {group.checks.every((c) => !c.available) ? (
+                <tr>
+                  <td colSpan={columns} className="border-t border-hairline px-4 py-3 text-muted-foreground">
+                    Hearing dates are only kept for today, so these can’t be shown for {day}. {showToday}
+                  </td>
+                </tr>
+              ) : (
+                group.checks.map((check) => (
+                  <AttentionRow
+                    key={check.id}
+                    check={check}
+                    range={range}
+                    start={reading.start}
+                    list={list}
+                    controls={listId}
+                    showToday={showToday}
+                  />
+                ))
+              )}
+            </tbody>
+          ))}
+        </table>
+      </div>
+      <p className="text-body-compact text-muted-foreground">Select a number or a bar to see the cases.</p>
+
       <div id={listId} className="min-w-0 empty:hidden">
-        {opened ? (
+        {opened && list.open ? (
           <CaseListBox
-            key={opened.id}
-            id={`dash-attention-${opened.id}`}
-            title={opened.label}
-            summary={`${plural(opened.count, "case", "cases")} · ${opened.soonestFirst ? "soonest" : "longest"} first`}
-            details={[severityText(opened)]}
+            key={list.open}
+            id={`dash-attention-${list.open}`}
+            title={opened.title}
+            summary={opened.summary}
             rows={opened.rows}
-            daysHeader={opened.daysHeader}
-            onClose={close}
+            daysHeader={DAYS_HEADER[opened.check.id]}
+            onClose={list.close}
           />
         ) : null}
       </div>
@@ -231,90 +452,128 @@ export function NeedsAttention({ docket }: { docket: CourtDocket }) {
 }
 
 function AttentionRow({
-  item,
-  most,
-  open,
+  check,
+  range,
+  start,
+  list,
   controls,
-  onToggle,
+  showToday,
 }: {
-  item: AttentionItem;
-  most: number;
-  open: boolean;
+  check: AttentionCheck;
+  range: boolean;
+  start: number | null;
+  list: ReturnType<typeof useCaseList<AttentionList>>;
   controls: string;
-  onToggle: () => void;
+  showToday: React.ReactNode;
 }) {
-  if (!item.count) {
+  const label = (
+    <th scope="row" className="w-2/5 border-t border-hairline px-4 py-3 text-left align-top font-normal">
+      <span className={cn("block font-semibold", !check.available || !check.rows.length ? "font-normal text-muted-foreground" : "")}>
+        {check.label}
+      </span>
+      <span className="block text-caption text-muted-foreground">{check.rule}</span>
+    </th>
+  );
+  if (!check.available) {
     return (
-      <li className="grid grid-cols-[3rem_minmax(0,1fr)] gap-x-3 gap-y-1 border-hairline px-4 py-3 not-first:border-t">
-        <span className="text-right text-title font-semibold text-muted-foreground tabular-nums">0</span>
-        <span className="self-center text-body-compact text-muted-foreground">{item.label}</span>
-        <span className="col-start-2 text-caption text-success-ink">All clear</span>
-      </li>
+      <tr>
+        {label}
+        <td colSpan={range ? 3 : 2} className="border-t border-hairline px-4 py-3 align-top text-muted-foreground">
+          Only available for today. {showToday}
+        </td>
+      </tr>
     );
   }
-  const change = weekChange(item);
-  const far = item.severity[2] ? `${formatCount(item.severity[2])} ${item.farLabel}` : null;
-  const name = [
-    `${plural(item.count, "case", "cases")}: ${item.urgent ? "act now, " : ""}${item.label}.`,
-    severityText(item) + ".",
-    change ? `${change.tone === "up" ? "Up" : change.tone === "down" ? "Down" : ""} ${change.text}.`.trim() : "",
-    item.hint ? `${item.hint}.` : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const since =
+    range ? (
+      <td className="border-t border-hairline px-4 py-3 align-top whitespace-nowrap">
+        {check.latestOnly || check.atStart === null ? (
+          <span className="text-muted-foreground">
+            {check.latestOnly ? "Not tracked before today" : `No data for ${formatDayShort(start!)}`}
+          </span>
+        ) : (
+          <SinceCell now={check.rows.length} was={check.atStart} />
+        )}
+      </td>
+    ) : null;
+  if (!check.rows.length) {
+    return (
+      <tr>
+        {label}
+        <td className="border-t border-hairline px-4 py-3 text-right align-top text-success-ink">None</td>
+        <td className="border-t border-hairline px-4 py-3" />
+        {since}
+      </tr>
+    );
+  }
+  const most = Math.max(1, ...check.bins.map((b) => b.rows.length));
   return (
-    <li className="border-hairline not-first:border-t">
-      <button
-        type="button"
-        aria-expanded={open}
-        aria-controls={controls}
-        aria-label={name}
-        data-attention-trigger={item.id}
-        onClick={onToggle}
-        className="grid w-full cursor-pointer grid-cols-[3rem_minmax(0,1fr)_1rem] items-start gap-3 px-4 py-3 text-left outline-none hover:bg-surface-sunken focus-visible:ring-3 focus-visible:ring-focus-ring focus-visible:ring-inset aria-expanded:bg-surface-sunken"
+    <tr className="hover:bg-muted">
+      {label}
+      <td className="w-px border-t border-hairline px-4 py-2 text-right align-top">
+        <CountButton
+          name={check.label.toLowerCase()}
+          className="-my-1 justify-end text-title-s font-semibold"
+          expanded={list.open === check.id}
+          controls={controls}
+          onOpen={(from) => list.toggle(check.id, from)}
+        >
+          <CountUp value={check.rows.length} format={count} />
+        </CountButton>
+      </td>
+      <td className="border-t border-hairline px-4 py-3 align-top">
+        <div className="flex w-full max-w-xs flex-col gap-1">
+          <div role="group" aria-label={`${check.label}, by how long they have waited`} className="flex h-10 items-end gap-0.5 border-b border-border">
+            {check.bins.map((bin, i) => {
+              const key = `${check.id}-${i}` as AttentionList;
+              const n = bin.rows.length;
+              if (!n) return <span key={i} aria-hidden className="flex-1" />;
+              const tip = `${plural(n, "case", "cases")} · ${bin.label}`;
+              return (
+                <Tooltip key={i}>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      data-grow="y"
+                      aria-label={`${tip}, ${list.open === key ? "hide" : "show"} the cases`}
+                      aria-expanded={list.open === key}
+                      aria-controls={controls}
+                      onClick={(event) => list.toggle(key, event.currentTarget)}
+                      className="relative min-h-0.5 flex-1 origin-bottom cursor-pointer rounded-t-xs bg-brand-accent outline-hidden after:absolute after:inset-x-0 after:-top-3 after:bottom-0 hover:outline-2 hover:outline-solid hover:outline-foreground focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring aria-expanded:outline-2 aria-expanded:outline-solid aria-expanded:outline-foreground"
+                      style={{ height: `${(n / most) * 100}%` }}
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent className="tabular-nums">{tip}</TooltipContent>
+                </Tooltip>
+              );
+            })}
+          </div>
+          <div aria-hidden className="flex justify-between gap-2 text-caption text-muted-foreground tabular-nums">
+            <span>{check.axis.low}</span>
+            <span className="truncate">{check.axis.title}</span>
+            <span>{check.axis.high}</span>
+          </div>
+          {check.fact ? <p className="text-body-compact tabular-nums">{check.fact}</p> : null}
+        </div>
+      </td>
+      {since}
+    </tr>
+  );
+}
+
+function SinceCell({ now, was }: { now: number; was: number }) {
+  const diff = now - was;
+  return (
+    <span className="tabular-nums">
+      <span
+        className={cn(
+          "font-semibold",
+          diff > 0 ? "text-destructive-ink" : diff < 0 ? "text-success-ink" : "text-muted-foreground",
+        )}
       >
-        <span className="text-right text-title font-semibold tabular-nums">{formatCount(item.count)}</span>
-        <span className="flex min-w-0 flex-col gap-1.5">
-          <span className="text-body-compact font-semibold">
-            {item.urgent ? (
-              <Badge variant="destructive" className="mr-2 align-text-bottom">
-                <TriangleAlertIcon data-icon="inline-start" aria-hidden />
-                Act now
-              </Badge>
-            ) : null}
-            {item.label}
-          </span>
-          <span aria-hidden className="flex h-3 gap-0.5" style={{ width: `${Math.max(3, (item.count / most) * 100)}%` }}>
-            {item.severity.map((value, i) =>
-              value ? (
-                <span key={i} className={cn("block h-full min-w-1", SEVERITY_SHADE[i])} style={{ flex: value }} />
-              ) : null,
-            )}
-          </span>
-          <span className="flex flex-col gap-0.5 text-caption text-muted-foreground tabular-nums">
-            {far ? <span>{far}</span> : null}
-            {change ? (
-              <span
-                className={cn(
-                  change.tone === "up" && "text-destructive-ink",
-                  change.tone === "down" && "text-success-ink",
-                )}
-              >
-                {change.tone === "flat" ? null : <span aria-hidden>{change.tone === "up" ? "▲ " : "▼ "}</span>}
-                {change.text}
-              </span>
-            ) : null}
-            {item.hint ? <span>{item.hint}</span> : null}
-          </span>
-        </span>
-        <ChevronRightIcon
-          aria-hidden
-          className={cn(
-            "mt-1 size-4 text-muted-foreground transition-transform motion-reduce:transition-none",
-            open && "rotate-90",
-          )}
-        />
-      </button>
-    </li>
+        {diff ? `${diff > 0 ? "Up" : "Down"} ${formatCount(Math.abs(diff))}` : "No change"}
+      </span>{" "}
+      <span className="text-muted-foreground">from {formatCount(was)}</span>
+    </span>
   );
 }

@@ -14,9 +14,9 @@
  * - **Positions** (pending, past a review point, process waiting) are read on the period's
  *   last day, compared with the last day of the period before.
  *
- * "The period before" is the same stretch of the calendar one step back: a whole month
- * against the whole month before it, this month to date against the same days of last
- * month, any other range against the same number of days just before it.
+ * "The period before" is one step back on the calendar: a whole month (or month to date)
+ * against the whole month before it, any other range against the same number of days
+ * just before it.
  *
  * The dashboard reads a chosen day or range through `readingFor`, which says which
  * movement period and which comparison day go with it. Next dates (hearing gaps, undated
@@ -37,6 +37,7 @@ import {
   monthStart,
   STAGES,
   type CourtDocket,
+  type DisposalMethod,
   type DocketCase,
   type ProcessType,
   type StageKey,
@@ -82,8 +83,8 @@ export function previousPeriod(period: Period, docket: CourtDocket): Period | nu
     const months = last - first + 1;
     previous = { from: monthStart(first - months), to: monthEnd(first - 1) };
   } else if (from === monthStart(first) && first === last) {
-    const begins = monthStart(first - 1);
-    previous = { from: begins, to: Math.min(begins + (to - from), monthEnd(first - 1)) };
+    /* Month to date compares with the whole month before, not the same days of it. */
+    previous = { from: monthStart(first - 1), to: monthEnd(first - 1) };
   } else {
     const length = daysBetween(from, to) + 1;
     previous = { from: from - length * DAY_MS, to: from - DAY_MS };
@@ -385,7 +386,7 @@ export function processTimesIn(docket: CourtDocket, period: Period): ProcessTime
  * rule):
  *
  * - **One day D:** counts are read on D; movement is the month so far (the 1st to D),
- *   against the same days of the month before; counts are compared with 30 days earlier.
+ *   against the whole month before; counts are compared with 30 days earlier.
  * - **A range A–B:** counts are read on B; movement is A–B, against the period before it
  *   (`previousPeriod`); counts are compared with A.
  */
@@ -438,6 +439,34 @@ export function pickerPresets(docket: CourtDocket): PickerPreset[] {
     ["All records", docket.start, t],
   ];
   return presets.map(([label, from, to]) => ({ label, period: clampPeriod({ from, to }, docket) }));
+}
+
+/**
+ * The Trends date picker's quick picks. Trends are read month by month, so each pick
+ * covers whole months, the current one read up to today.
+ */
+export function trendPresets(docket: CourtDocket): PickerPreset[] {
+  const t = docket.today;
+  const month = monthKey(t);
+  const year = new Date(t).getUTCFullYear();
+  const presets: [string, number, number][] = [
+    ["Last 6 months", monthStart(month - 5), t],
+    ["Last 12 months", monthStart(month - 11), t],
+    ["This year", Date.UTC(year, 0, 1), t],
+    ["Last year", Date.UTC(year - 1, 0, 1), Date.UTC(year, 0, 1) - DAY_MS],
+    ["All records", docket.start, t],
+  ];
+  return presets.map(([label, from, to]) => ({ label, period: clampPeriod({ from, to }, docket) }));
+}
+
+/** What Trends opens on: the last 12 months, this one to date. */
+export function trendOpening(docket: CourtDocket): Period {
+  return trendPresets(docket)[1].period;
+}
+
+/** The months a Trends period covers, as month keys: whole months, first to last. */
+export function trendMonths(period: Period): { from: number; to: number } {
+  return { from: monthKey(period.from), to: monthKey(period.to) };
 }
 
 /**
@@ -664,22 +693,6 @@ export function todoLists(docket: CourtDocket): TodoList[] {
 
 /* ------------------------------------------------ the dashboard, one reading */
 
-/**
- * Who can move a delay: the office (registration, listing, chasing process), the
- * magistrate (cognizance, hearings, judgement) or someone outside the court (parties,
- * post and police). From the owner's Case Flow design.
- */
-export type CheckOwner = "office" | "magistrate" | "outside";
-
-export const STAGE_OWNER: Record<StageKey, CheckOwner> = {
-  registration: "office",
-  cognizance: "magistrate",
-  appearance: "outside",
-  bail: "outside",
-  trial: "magistrate",
-  judgement: "magistrate",
-};
-
 /** A case on a list, with the stage it is counted in. */
 export type CheckRow = DatedCase & { stage: StageKey };
 
@@ -740,8 +753,9 @@ function monthsBack(t: number, months: number): number {
 }
 
 /**
- * The period `steps` back: a day by weeks (the same weekday), a month by months, any
- * other range by its own length. `null` once it would begin before the records do.
+ * The period `steps` back: a day by weeks (the same weekday), a whole month (or month
+ * to date) by whole months, any other range by its own length. `null` once it would
+ * begin before the records do.
  */
 export function periodBack(selection: Period, steps: number, docket: CourtDocket): Period | null {
   const kind = periodKind(selection);
@@ -754,7 +768,9 @@ export function periodBack(selection: Period, steps: number, docket: CourtDocket
         : monthsBack(t, steps);
   const from = back(selection.from);
   if (from < docket.start) return null;
-  const to = kind === "full" ? monthEnd(monthKey(from)) : back(selection.to);
+  /* Month to date and a whole month both step to whole months — "vs last month" is the
+     full month before, not the same days of it. */
+  const to = kind === "full" || kind === "month" ? monthEnd(monthKey(from)) : back(selection.to);
   return { from, to };
 }
 
@@ -764,6 +780,8 @@ export function periodBack(selection: Period, steps: number, docket: CourtDocket
  *
  * - **One day** is that day alone, compared with the same weekday a week earlier.
  * - **A range** is read across itself; counts are taken on its last day.
+ * - **Month to date** and a **whole month** compare with whole months one step back
+ *   ("vs last month" is the full previous month, not the same days of it).
  * - **The same period last year** steps back 52 weeks, 12 months, or as many lengths as
  *   make a year; **the average of the last 6** averages up to six periods just before.
  * - A stage's waiting count is compared with the start of the range, or with 30 days
@@ -809,8 +827,7 @@ export function periodReading(
 export function previousName(selection: Period): string {
   const kind = periodKind(selection);
   if (kind === "day") return "Same day last week";
-  if (kind === "full") return "Previous month";
-  if (kind === "month") return "Same days last month";
+  if (kind === "full" || kind === "month") return "Previous month";
   return `Previous ${daysBetween(selection.from, selection.to) + 1} days`;
 }
 
@@ -900,232 +917,6 @@ export function pendingAges(docket: CourtDocket, period: Period): [number, numbe
     }
   }
   return ages;
-}
-
-/* ------------------------------------------------ needs attention, today */
-
-export type AttentionId = "soon" | "undated" | "apps" | "long" | "silent" | "pay" | "del";
-
-export type AttentionItem = {
-  id: AttentionId;
-  owner: CheckOwner;
-  label: string;
-  /** Act now: the next step cannot wait. */
-  urgent: boolean;
-  rows: CheckRow[];
-  count: number;
-  /** Cases just past, well past and far past the limit (or near, nearer, nearest). */
-  severity: [number, number, number];
-  severityLabels: [string, string, string];
-  /** How the far-past part reads after its count: "in 3 days or less". */
-  farLabel: string;
-  hint: string | null;
-  /** The count a week earlier, where it can be rebuilt. */
-  lastWeek: number | null;
-  daysHeader: string;
-  soonestFirst: boolean;
-};
-
-export type AttentionGroup = {
-  owner: CheckOwner;
-  label: string;
-  description: string;
-  items: AttentionItem[];
-  /** Distinct cases across the group's items. */
-  cases: number;
-};
-
-/** The last thing that happened on a case: a posting, a stage change, process or an application. */
-export function lastActivity(c: DocketCase): number {
-  let last = Math.max(c.previousPosting ?? 0, c.stageStart ?? 0);
-  for (const p of c.processes) last = Math.max(last, p.issued, p.paid ?? 0, p.delivered ?? 0);
-  for (const a of c.applications) last = Math.max(last, a.submitted, a.decided ?? 0);
-  return last;
-}
-
-export const SILENT_DAYS = 90;
-export const APPLICATION_DAYS = 7;
-
-const ratioShade = (days: number, limit: number): 0 | 1 | 2 => {
-  const r = days / limit;
-  return r <= 1.5 ? 0 : r <= 2 ? 1 : 2;
-};
-
-const attentionCache = new WeakMap<CourtDocket, AttentionGroup[]>();
-
-/**
- * What needs acting on today, grouped by who can act — the design's `NA_GROUPS` and
- * `NA_DEF`. Always read on the latest day: next dates exist for that day only.
- */
-export function attentionToday(docket: CourtDocket): AttentionGroup[] {
-  const cached = attentionCache.get(docket);
-  if (cached) return cached;
-  const today = docket.today;
-  const limits = COURT_LIMITS.process;
-  const next = nextDates(docket);
-  const now = positionOn(docket, today);
-  const weekAgo = today - 7 * DAY_MS >= docket.start ? positionOn(docket, today - 7 * DAY_MS) : null;
-  const pending = courtMeasures(docket).pending;
-  const flat = (lists: Record<StageKey, DatedCase[]>) =>
-    STAGES.flatMap((stage) => lists[stage.key].map((row) => ({ ...row, stage: stage.key })));
-  const longestFirst = (rows: CheckRow[]) => rows.sort((a, b) => b.days - a.days);
-
-  const applications = longestFirst(
-    pending.flatMap((c) => {
-      const waiting = c.applications
-        .filter((a) => a.status === "Pending" && daysBetween(a.submitted, today) > APPLICATION_DAYS)
-        .map((a) => daysBetween(a.submitted, today));
-      return waiting.length && c.stage ? [{ case: c, days: Math.max(...waiting), stage: c.stage }] : [];
-    }),
-  );
-  const silent = longestFirst(
-    pending.flatMap((c) => {
-      if (c.stage === null || c.stage === "registration" || c.nextHearing !== null) return [];
-      const days = daysBetween(lastActivity(c), today);
-      return days > SILENT_DAYS ? [{ case: c, days, stage: c.stage }] : [];
-    }),
-  );
-
-  const item = (
-    base: Omit<AttentionItem, "count" | "severity">,
-    shade: (row: CheckRow) => 0 | 1 | 2,
-  ): AttentionItem => {
-    const severity: [number, number, number] = [0, 0, 0];
-    for (const row of base.rows) severity[shade(row)]++;
-    return { ...base, count: base.rows.length, severity };
-  };
-  const soon = item(
-    {
-      id: "soon",
-      owner: "office",
-      label: "Hearing within 2 weeks, process not served",
-      urgent: true,
-      rows: flat(next.hearingSoon).sort((a, b) => a.days - b.days),
-      severityLabels: ["Hearing in 8–14 days", "Hearing in 4–7 days", "Hearing in 3 days or less"],
-      farLabel: "in 3 days or less",
-      hint: null,
-      lastWeek: null,
-      daysHeader: "Days to hearing",
-      soonestFirst: true,
-    },
-    (row) => (row.days <= 3 ? 2 : row.days <= 7 ? 1 : 0),
-  );
-  const undated = item(
-    {
-      id: "undated",
-      owner: "office",
-      label: "No next hearing date",
-      urgent: true,
-      rows: longestFirst(flat(next.undated)),
-      severityLabels: ["Last posted up to 30 days ago", "31–90 days ago", "Over 90 days ago"],
-      farLabel: "last posted over 90 days ago",
-      hint: null,
-      lastWeek: null,
-      daysHeader: "Days since last posting",
-      soonestFirst: false,
-    },
-    (row) => (row.days <= 30 ? 0 : row.days <= 90 ? 1 : 2),
-  );
-  const apps = item(
-    {
-      id: "apps",
-      owner: "magistrate",
-      label: `Applications undecided over ${APPLICATION_DAYS} days`,
-      urgent: false,
-      rows: applications,
-      severityLabels: ["8–14 days", "15–30 days", "Over 30 days"],
-      farLabel: "waiting over 30 days",
-      hint: null,
-      lastWeek: null,
-      daysHeader: "Days waiting",
-      soonestFirst: false,
-    },
-    (row) => (row.days <= 14 ? 0 : row.days <= 30 ? 1 : 2),
-  );
-  const long = item(
-    {
-      id: "long",
-      owner: "magistrate",
-      label: "Next date far beyond the usual gap",
-      urgent: false,
-      rows: longestFirst(flat(next.farBeyond)),
-      severityLabels: ["2–3× the usual gap", "3–4× the usual gap", "Over 4× the usual gap"],
-      farLabel: "over 4× the usual gap",
-      hint: null,
-      lastWeek: null,
-      daysHeader: "Days to next date",
-      soonestFirst: false,
-    },
-    (row) => {
-      const c = row.case;
-      const gap = c.previousPosting !== null && c.nextHearing !== null ? daysBetween(c.previousPosting, c.nextHearing) : 0;
-      const r = gap / Math.max(1, next.usual[row.stage] ?? 1);
-      return r <= 3 ? 0 : r <= 4 ? 1 : 2;
-    },
-  );
-  const quiet = item(
-    {
-      id: "silent",
-      owner: "magistrate",
-      label: `No activity for ${SILENT_DAYS} days`,
-      urgent: false,
-      rows: silent,
-      severityLabels: ["90–180 days", "181–365 days", "Over a year"],
-      farLabel: "silent over a year",
-      hint: "Often settled out of court but never closed",
-      lastWeek: null,
-      daysHeader: "Days since last activity",
-      soonestFirst: false,
-    },
-    (row) => (row.days <= 180 ? 0 : row.days <= 365 ? 1 : 2),
-  );
-  const pay = item(
-    {
-      id: "pay",
-      owner: "outside",
-      label: `Process fee unpaid over ${limits.paymentPendingDays} days`,
-      urgent: false,
-      rows: longestFirst(flat(now.paymentPending)),
-      severityLabels: ["8–10 days", "11–14 days", "Over 14 days"],
-      farLabel: "unpaid over 14 days",
-      hint: null,
-      lastWeek: weekAgo ? sumStages(weekAgo.paymentPending) : null,
-      daysHeader: "Days unpaid",
-      soonestFirst: false,
-    },
-    (row) => ratioShade(row.days, limits.paymentPendingDays),
-  );
-  const del = item(
-    {
-      id: "del",
-      owner: "outside",
-      label: `Paid process not delivered in ${limits.deliveryPendingDays} days`,
-      urgent: false,
-      rows: longestFirst(flat(now.deliveryPending)),
-      severityLabels: ["15–21 days", "22–28 days", "Over 28 days"],
-      farLabel: "undelivered over 28 days",
-      hint: null,
-      lastWeek: weekAgo ? sumStages(weekAgo.deliveryPending) : null,
-      daysHeader: "Days undelivered",
-      soonestFirst: false,
-    },
-    (row) => ratioShade(row.days, limits.deliveryPendingDays),
-  );
-
-  const group = (owner: CheckOwner, label: string, description: string, items: AttentionItem[]): AttentionGroup => ({
-    owner,
-    label,
-    description,
-    items,
-    cases: new Set(items.flatMap((it) => it.rows.map((row) => row.case.id))).size,
-  });
-  const result = [
-    group("office", "Office", "Registration, listing and chasing process", [soon, undated]),
-    group("magistrate", "Magistrate", "Orders, postings and decisions", [apps, long, quiet]),
-    group("outside", "Outside the court", "Parties, post and police", [pay, del]),
-  ];
-  attentionCache.set(docket, result);
-  return result;
 }
 
 const sumStages = (lists: Record<StageKey, DatedCase[]>) =>
@@ -1271,4 +1062,620 @@ export function monthlyTrends(
   });
   cache.set(key, result);
   return result;
+}
+
+/* ------------------------------------------------- the cases behind a figure */
+
+/** Cases filed in a period, with the days since filing at its end; newest last. */
+export function filedCases(docket: CourtDocket, period: Period): DatedCase[] {
+  return docket.cases
+    .filter((c) => inPeriod(c.filed, period))
+    .map((c) => ({ case: c, days: daysBetween(c.filed, period.to) }))
+    .sort((a, b) => b.days - a.days);
+}
+
+export type OutcomeKey = "Convicted" | "Acquitted" | "Settled" | "early" | "toLongPending";
+
+/** A closed case: its days in court (filing to closing), how and on which register it closed. */
+export type ClosedRow = DatedCase & {
+  outcome: OutcomeKey;
+  method: DisposalMethod | "Long pending";
+  closedOn: number;
+  /** Disposed on the CMP register: before cognizance was taken. */
+  beforeCognizance: boolean;
+};
+
+const closedCache = new WeakMap<CourtDocket, Map<string, ClosedRow[]>>();
+
+/** Cases closed in a period, longest in court first. */
+export function closedCases(docket: CourtDocket, period: Period): ClosedRow[] {
+  let cache = closedCache.get(docket);
+  if (!cache) closedCache.set(docket, (cache = new Map()));
+  const key = `${period.from}:${period.to}`;
+  const cached = cache.get(key);
+  if (cached) return cached;
+  const rows: ClosedRow[] = [];
+  for (const c of docket.cases) {
+    if (c.disposal && inPeriod(c.disposal.date, period)) {
+      const m = c.disposal.method;
+      const outcome: OutcomeKey = m === "Convicted" || m === "Acquitted" || m === "Settled" ? m : "early";
+      rows.push({
+        case: c,
+        days: daysBetween(c.filed, c.disposal.date),
+        outcome,
+        method: m,
+        closedOn: c.disposal.date,
+        beforeCognizance: c.disposal.at === "CMP",
+      });
+    } else if (c.longPendingAt !== null && inPeriod(c.longPendingAt, period)) {
+      rows.push({
+        case: c,
+        days: daysBetween(c.filed, c.longPendingAt),
+        outcome: "toLongPending",
+        method: "Long pending",
+        closedOn: c.longPendingAt,
+        beforeCognizance: false,
+      });
+    }
+  }
+  rows.sort((a, b) => b.days - a.days);
+  cache.set(key, rows);
+  return rows;
+}
+
+export type PendingSets = {
+  /** Every case pending on the period's last day, with its days in court. */
+  all: DatedCase[];
+  cmp: DatedCase[];
+  st: DatedCase[];
+  awaitingRegistration: DatedCase[];
+  /** Filed in the period, up to six months before it, longer before it — as `pendingAges`. */
+  ages: [DatedCase[], DatedCase[], DatedCase[]];
+};
+
+/** The cases behind the Overview's pending figure and its parts. */
+export function pendingSets(docket: CourtDocket, period: Period): PendingSets {
+  const t = period.to;
+  const position = positionOn(docket, t);
+  const sets: PendingSets = { all: [], cmp: [], st: [], awaitingRegistration: [], ages: [[], [], []] };
+  for (const stage of STAGES) {
+    for (const c of position.byStage[stage.key]) {
+      const row = { case: c, days: daysBetween(c.filed, t) };
+      sets.all.push(row);
+      if (c.cognizanceAt !== null && c.cognizanceAt <= t) sets.st.push(row);
+      else if (c.registeredAt !== null && c.registeredAt <= t) sets.cmp.push(row);
+      else sets.awaitingRegistration.push(row);
+      const age = c.filed >= period.from ? 0 : daysBetween(c.filed, period.from) <= OLD_CASE_DAYS ? 1 : 2;
+      sets.ages[age].push(row);
+    }
+  }
+  const longest = (rows: DatedCase[]) => rows.sort((a, b) => b.days - a.days);
+  longest(sets.all);
+  longest(sets.cmp);
+  longest(sets.st);
+  longest(sets.awaitingRegistration);
+  sets.ages.forEach(longest);
+  return sets;
+}
+
+/** What a comparison baseline is made of: each window and its filed and closed counts. */
+export function baselineWindows(
+  docket: CourtDocket,
+  reading: PeriodReading,
+): { period: Period; filed: number; closed: number }[] {
+  return reading.baseline.map((period) => ({ period, ...filedAndClosed(docket, period) }));
+}
+
+export type TrendDetail = {
+  rows: { point: TrendPoint; change: number | null }[];
+  highest: TrendPoint | null;
+  lowest: TrendPoint | null;
+  /** Best and worst by the measure's own direction. */
+  best: TrendPoint | null;
+  worst: TrendPoint | null;
+  first: TrendPoint | null;
+  /** The month before the last one with a value. */
+  previous: TrendPoint | null;
+  /** The months the verdict's average is taken over. */
+  baseMonths: TrendPoint[];
+  /** Last month against the month before it. */
+  lastChange: number | null;
+};
+
+/** A trend's month-by-month values and the figures its verdict rests on. */
+export function trendDetail(trend: Trend): TrendDetail {
+  const real = trend.points.filter((p) => p.value !== null);
+  let previous: number | null = null;
+  const rows = trend.points.map((point) => {
+    const change = point.value !== null && previous !== null ? point.value - previous : null;
+    if (point.value !== null) previous = point.value;
+    return { point, change };
+  });
+  const byValue = real.slice().sort((a, b) => a.value! - b.value!);
+  const highest = byValue.at(-1) ?? null;
+  const lowest = byValue[0] ?? null;
+  return {
+    rows,
+    highest,
+    lowest,
+    best: trend.better === "up" ? highest : lowest,
+    worst: trend.better === "up" ? lowest : highest,
+    first: real[0] ?? null,
+    previous: real.length > 1 ? real[real.length - 2] : null,
+    baseMonths: real.slice(-4, -1),
+    lastChange: real.length > 1 ? real.at(-1)!.value! - real.at(-2)!.value! : null,
+  };
+}
+
+/** What went into one month of a trend — the design's crosshair breakdown. */
+export function trendBreakdown(docket: CourtDocket, id: TrendId, point: TrendPoint): { label: string; value: string }[] {
+  const period = { from: monthStart(point.month), to: point.at };
+  const count = (pred: (c: DocketCase) => boolean) => docket.cases.filter(pred).length;
+  const fmt = (n: number) => n.toLocaleString("en-IN");
+  if (id === "pending" || id === "clearance") {
+    const filed = count((c) => inPeriod(c.filed, period));
+    const disposed = count((c) => c.disposal !== null && inPeriod(c.disposal.date, period));
+    if (id === "clearance") {
+      return [
+        { label: "Disposed", value: fmt(disposed) },
+        { label: "Filed", value: fmt(filed) },
+        { label: disposed >= filed ? "Backlog shrank by" : "Backlog grew by", value: fmt(Math.abs(disposed - filed)) },
+      ];
+    }
+    return [
+      { label: "Filed in the month", value: fmt(filed) },
+      { label: "Disposed in the month", value: fmt(disposed) },
+      { label: "Moved to long pending", value: fmt(count((c) => inPeriod(c.longPendingAt, period))) },
+    ];
+  }
+  if (id === "overdue") {
+    const overdue = positionOn(docket, point.at).overdue;
+    return STAGES.map((s) => ({ label: s.label, n: overdue[s.key].length }))
+      .filter((x) => x.n)
+      .sort((a, b) => b.n - a.n)
+      .slice(0, 3)
+      .map((x) => ({ label: x.label, value: fmt(x.n) }));
+  }
+  if (id === "disposal") {
+    const days = docket.cases
+      .filter((c) => c.disposal !== null && inPeriod(c.disposal.date, period))
+      .map((c) => daysBetween(c.filed, c.disposal!.date));
+    if (!days.length) return [];
+    return [
+      { label: "Cases disposed", value: fmt(days.length) },
+      { label: "Quickest", value: `${fmt(Math.min(...days))} days` },
+      { label: "Slowest", value: `${fmt(Math.max(...days))} days` },
+    ];
+  }
+  const days = docket.cases
+    .flatMap((c) => c.processes)
+    .filter((p) => p.type === "Summons" && inPeriod(p.delivered, period))
+    .map((p) => daysBetween(p.paid!, p.delivered!));
+  if (!days.length) return [];
+  return [
+    { label: "Summons delivered", value: fmt(days.length) },
+    { label: "Within 14 days", value: `${Math.round((days.filter((d) => d <= 14).length / days.length) * 100)}%` },
+    { label: "Slowest", value: `${fmt(Math.max(...days))} days` },
+  ];
+}
+
+/* ------------------------------------------------- where the pending cases are */
+
+/** A run of days in a stage, as one bar of the stage's histogram. */
+export type StageBin = { from: number; to: number | null; rows: DatedCase[]; late: boolean };
+
+export type StagePathStage = {
+  stage: StageKey;
+  limit: number;
+  /** Pending in the stage at the period's end, with days in the stage, longest first. */
+  rows: DatedCase[];
+  /**
+   * Days in the stage in bins that line up with the review point: as many bins before it
+   * as after it, then one open bin. The review point falls between bins `reviewAfter - 1`
+   * and `reviewAfter`.
+   */
+  bins: StageBin[];
+  reviewAfter: number;
+  median: number | null;
+  /** Cases that entered the stage during the period. */
+  cameIn: number;
+  /** Cases that left it during the period, onward or closed. */
+  left: number;
+  /** Of those that left, the cases that went on to the next stage. */
+  movedOn: number;
+};
+
+const pathCache = new WeakMap<CourtDocket, Map<string, Record<StageKey, StagePathStage>>>();
+
+/** The design's stage path: each stage's cases, days-in-stage bins and movement in a period. */
+export function stagePathFor(docket: CourtDocket, period: Period): Record<StageKey, StagePathStage> {
+  let cache = pathCache.get(docket);
+  if (!cache) pathCache.set(docket, (cache = new Map()));
+  const key = `${period.from}:${period.to}`;
+  const cached = cache.get(key);
+  if (cached) return cached;
+
+  const t = period.to;
+  const out = {} as Record<StageKey, StagePathStage>;
+  const rowsBy = byStageOf<DatedCase>();
+  for (const c of docket.cases) {
+    const now = stageOn(c, t);
+    if (now) rowsBy[now.stage].push({ case: c, days: daysBetween(now.start, t) });
+  }
+  for (const s of STAGES) {
+    const limit = COURT_LIMITS.stages[s.key];
+    const rows = rowsBy[s.key].sort((a, b) => b.days - a.days);
+    const pre = [7, 6, 5, 4, 3, 2, 1].find((k) => limit % k === 0 && k <= limit) ?? 1;
+    const w = limit / pre;
+    const n = pre * 2 + 1;
+    const bins: StageBin[] = Array.from({ length: n }, (_, b) => ({
+      from: b === 0 ? 0 : b * w + 1,
+      to: b === n - 1 ? null : (b + 1) * w,
+      rows: [],
+      late: (b === 0 ? 0 : b * w + 1) > limit,
+    }));
+    for (const r of rows) bins[Math.min(n - 1, r.days <= 0 ? 0 : Math.ceil(r.days / w) - 1)].rows.push(r);
+    out[s.key] = {
+      stage: s.key,
+      limit,
+      rows,
+      bins,
+      reviewAfter: pre,
+      median: median(rows.map((r) => r.days)),
+      cameIn: 0,
+      left: 0,
+      movedOn: 0,
+    };
+  }
+  const order = STAGES.map((s) => s.key);
+  for (const c of docket.cases) {
+    const entries = c.log.map((e) => ({ stage: e.stage, start: e.start, end: e.end }));
+    if (c.stage !== null && c.stageStart !== null) entries.push({ stage: c.stage, start: c.stageStart, end: Infinity });
+    const closedAt = Math.min(c.disposal ? c.disposal.date : Infinity, c.longPendingAt ?? Infinity);
+    entries.forEach((e, j) => {
+      if (e.start > closedAt) return;
+      if (inPeriod(e.start, period)) {
+        out[e.stage].cameIn++;
+        const prev = entries[j - 1];
+        if (prev && order.indexOf(prev.stage) + 1 === order.indexOf(e.stage)) out[prev.stage].movedOn++;
+      }
+      const leftAt = Math.min(e.end, closedAt);
+      if (leftAt >= e.start && inPeriod(leftAt, period)) out[e.stage].left++;
+    });
+  }
+  cache.set(key, out);
+  return out;
+}
+
+/* ---------------------------------------------- needs attention, on a day */
+
+export type AttentionCheckId = "undated" | "long" | "soon" | "pay" | "del";
+
+export type AttentionBin = { from: number; to: number; label: string; rows: CheckRow[] };
+
+export type AttentionCheck = {
+  id: AttentionCheckId;
+  label: string;
+  rule: string;
+  /** Built on next dates, which are kept for the latest day only. */
+  latestOnly: boolean;
+  /** False on a past day for a latest-day-only check. */
+  available: boolean;
+  /** Longest wait first, or soonest hearing first. */
+  rows: CheckRow[];
+  /** How long the cases have waited, on the check's own measure, in bins. */
+  bins: AttentionBin[];
+  axis: { low: string; high: string; title: string };
+  fact: string | null;
+  /** The count on the range's first day, when a range is read and it can be rebuilt. */
+  atStart: number | null;
+};
+
+export type AttentionReading = {
+  /** The day the checks are counted on. */
+  day: number;
+  /** A range's first day, compared with; `null` for a single day. */
+  start: number | null;
+  live: boolean;
+  groups: { key: "hearing" | "process"; label: string; source: string; checks: AttentionCheck[] }[];
+  /** Distinct cases across the available checks. */
+  distinct: number;
+};
+
+const ATTENTION_DEF: Record<
+  AttentionCheckId,
+  {
+    label: string;
+    rule: string;
+    latestOnly: boolean;
+    title: string;
+    low: number;
+    unit: (v: number) => string;
+    tip: (v: number) => string;
+  }
+> = {
+  undated: {
+    label: "No next hearing date",
+    rule: "Registered, but not listed for any future date",
+    latestOnly: true,
+    title: "Days since last hearing",
+    low: 0,
+    unit: (v) => `${v.toLocaleString("en-IN")} days`,
+    tip: (v) => `last heard ${v.toLocaleString("en-IN")} days ago`,
+  },
+  long: {
+    label: "Next hearing too far away",
+    rule: "More than twice the usual gap for its stage",
+    latestOnly: true,
+    title: "Gap compared with the usual",
+    low: 2,
+    unit: (v) => `${Number(v.toFixed(1))}×`,
+    tip: (v) => `gap ${Number(v.toFixed(1))}× the usual`,
+  },
+  soon: {
+    label: "Hearing soon, process not served",
+    rule: "Hearing in the next 14 days; summons, notice or warrant not served",
+    latestOnly: true,
+    title: "Days until the hearing",
+    low: 0,
+    unit: (v) => (v === 0 ? "Today" : `${v} days`),
+    tip: (v) => (v <= 0 ? "hearing today" : v === 1 ? "hearing tomorrow" : `hearing in ${v} days`),
+  },
+  pay: {
+    label: "Process fee not paid",
+    rule: `More than ${COURT_LIMITS.process.paymentPendingDays} days since the process was ordered`,
+    latestOnly: false,
+    title: "Days unpaid",
+    low: COURT_LIMITS.process.paymentPendingDays + 1,
+    unit: (v) => `${v.toLocaleString("en-IN")} days`,
+    tip: (v) => `unpaid for ${v.toLocaleString("en-IN")} days`,
+  },
+  del: {
+    label: "Process paid, not delivered",
+    rule: `More than ${COURT_LIMITS.process.deliveryPendingDays} days since the fee was paid`,
+    latestOnly: false,
+    title: "Days since payment",
+    low: COURT_LIMITS.process.deliveryPendingDays + 1,
+    unit: (v) => `${v.toLocaleString("en-IN")} days`,
+    tip: (v) => `paid ${v.toLocaleString("en-IN")} days ago`,
+  },
+};
+
+/** Cases grouped by how long they have waited on the check's own measure — the design's `binStrip`. */
+export function attentionBins(id: AttentionCheckId, rows: CheckRow[], usual: (r: CheckRow) => number): AttentionBin[] {
+  const def = ATTENTION_DEF[id];
+  const values = rows.map((r) => ({ r, v: id === "long" ? usual(r) : id === "soon" ? Math.max(0, r.days) : r.days }));
+  if (!values.length) return [];
+  const lo = def.low;
+  const maxV = Math.max(...values.map((x) => x.v));
+  let w: number;
+  let n: number;
+  if (id === "soon") {
+    w = 1;
+    n = 15;
+  } else if (id === "long") {
+    w = 0.5;
+    n = Math.max(4, Math.min(12, Math.ceil((maxV - lo) / w)));
+  } else {
+    n = Math.min(12, Math.max(4, Math.ceil(maxV - lo)));
+    w = Math.max(1, Math.ceil((maxV - lo + 1) / n));
+    n = Math.max(1, Math.ceil((maxV - lo + 1) / w));
+  }
+  const bins: AttentionBin[] = Array.from({ length: n }, (_, b) => {
+    const from = lo + b * w;
+    const to = lo + (b + 1) * w - (id === "long" ? 0 : 1);
+    const label =
+      id === "soon"
+        ? def.tip(from)
+        : id === "long"
+          ? `gap ${from}–${to}× the usual`
+          : w === 1
+            ? def.tip(from)
+            : def.tip(from).replace(/[\d,]+ days/, `${from.toLocaleString("en-IN")}–${to.toLocaleString("en-IN")} days`);
+    return { from, to, label, rows: [] };
+  });
+  for (const { r, v } of values) bins[Math.min(n - 1, Math.max(0, Math.floor((v - lo) / w)))].rows.push(r);
+  return bins;
+}
+
+const attentionReadCache = new WeakMap<CourtDocket, Map<string, AttentionReading>>();
+
+/**
+ * Needs attention for a day or a range — the design's v4 `attention()`. A state is
+ * counted on a day: the range's last day, compared with its first. The hearing-date and
+ * hearing-soon checks need next dates, kept for the latest day only, so on a past day they
+ * are unavailable rather than zero.
+ */
+export function attentionFor(docket: CourtDocket, selection: Period): AttentionReading {
+  const { from, to } = clampPeriod(selection, docket);
+  let cache = attentionReadCache.get(docket);
+  if (!cache) attentionReadCache.set(docket, (cache = new Map()));
+  const key = `${from}:${to}`;
+  const cached = cache.get(key);
+  if (cached) return cached;
+
+  const live = to === docket.today;
+  const range = from !== to;
+  const startUsable = range && from >= docket.start;
+  const next = nextDates(docket);
+  const at = positionOn(docket, to);
+  const before = startUsable ? positionOn(docket, from) : null;
+  const flat = (lists: Record<StageKey, DatedCase[]>) =>
+    STAGES.flatMap((s) => lists[s.key].map((row) => ({ ...row, stage: s.key })));
+  const gapRatio = (r: CheckRow) => {
+    const c = r.case;
+    const gap = c.previousPosting !== null && c.nextHearing !== null ? daysBetween(c.previousPosting, c.nextHearing) : 0;
+    return gap / Math.max(1, next.usual[r.stage] ?? 1);
+  };
+  const days = (n: number) => `${n.toLocaleString("en-IN")} ${n === 1 ? "day" : "days"}`;
+
+  const make = (id: AttentionCheckId, source: () => CheckRow[], atStart: () => number | null): AttentionCheck => {
+    const def = ATTENTION_DEF[id];
+    const available = !def.latestOnly || live;
+    const rows = available ? source() : [];
+    const bins = attentionBins(id, rows, gapRatio);
+    let fact: string | null = null;
+    if (rows.length) {
+      if (id === "undated") fact = `Oldest: last heard ${days(rows[0].days)} ago`;
+      if (id === "long") {
+        const longest = Math.max(
+          ...rows.map((r) =>
+            r.case.previousPosting !== null && r.case.nextHearing !== null
+              ? daysBetween(r.case.previousPosting, r.case.nextHearing)
+              : 0,
+          ),
+        );
+        fact = `Longest gap: ${days(longest)}`;
+      }
+      if (id === "soon") {
+        const d = rows[0].days;
+        fact = `Soonest: ${d <= 0 ? "today" : d === 1 ? "tomorrow" : `in ${days(d)}`}`;
+      }
+      if (id === "pay") fact = `Oldest: unpaid for ${days(rows[0].days)}`;
+      if (id === "del") fact = `Oldest: paid ${days(rows[0].days)} ago`;
+    }
+    const last = bins.at(-1);
+    return {
+      id,
+      label: def.label,
+      rule: def.rule,
+      latestOnly: def.latestOnly,
+      available,
+      rows,
+      bins,
+      axis: {
+        low: def.unit(def.low),
+        high: id === "soon" ? "14 days" : last ? def.unit(last.to) : "",
+        title: def.title,
+      },
+      fact,
+      atStart: available && !def.latestOnly ? atStart() : null,
+    };
+  };
+  const longestFirst = (rows: CheckRow[]) => rows.sort((a, b) => b.days - a.days);
+  const groups: AttentionReading["groups"] = [
+    {
+      key: "hearing",
+      label: "Hearing dates",
+      source: "Note B",
+      checks: [
+        make("undated", () => longestFirst(flat(next.undated)), () => null),
+        make("long", () => longestFirst(flat(next.farBeyond)), () => null),
+      ],
+    },
+    {
+      key: "process",
+      label: "Process",
+      source: "Note D",
+      checks: [
+        make("soon", () => flat(next.hearingSoon).sort((a, b) => a.days - b.days), () => null),
+        make("pay", () => longestFirst(flat(at.paymentPending)), () => (before ? sumStages(before.paymentPending) : null)),
+        make("del", () => longestFirst(flat(at.deliveryPending)), () => (before ? sumStages(before.deliveryPending) : null)),
+      ],
+    },
+  ];
+  const ids = new Set<number>();
+  for (const g of groups) for (const ch of g.checks) for (const r of ch.rows) ids.add(r.case.id);
+  const result: AttentionReading = { day: to, start: range ? from : null, live, groups, distinct: ids.size };
+  cache.set(key, result);
+  return result;
+}
+
+/* ------------------------------------------------- how cases were closed */
+
+export type ClosureSummary = {
+  total: number;
+  judgements: number;
+  convicted: number;
+  toLongPending: number;
+  /** Median days from filing to disposal, disposed cases only. */
+  medianDays: number | null;
+};
+
+export function closureSummary(docket: CourtDocket, period: Period): ClosureSummary {
+  const rows = closedCases(docket, period);
+  const judged = rows.filter((r) => r.outcome === "Convicted" || r.outcome === "Acquitted");
+  return {
+    total: rows.length,
+    judgements: judged.length,
+    convicted: rows.filter((r) => r.outcome === "Convicted").length,
+    toLongPending: rows.filter((r) => r.outcome === "toLongPending").length,
+    medianDays: median(rows.filter((r) => r.outcome !== "toLongPending").map((r) => r.days)),
+  };
+}
+
+/** The same over a baseline: counts averaged across its windows, the median over all their cases. */
+export function closureBaseline(docket: CourtDocket, periods: Period[]): ClosureSummary | null {
+  if (!periods.length) return null;
+  const each = periods.map((p) => closureSummary(docket, p));
+  const avg = (k: "total" | "judgements" | "convicted" | "toLongPending") =>
+    each.reduce((sum, x) => sum + x[k], 0) / each.length;
+  const pooled = periods.flatMap((p) => closedCases(docket, p)).filter((r) => r.outcome !== "toLongPending");
+  return {
+    total: avg("total"),
+    judgements: avg("judgements"),
+    convicted: avg("convicted"),
+    toLongPending: avg("toLongPending"),
+    medianDays: median(pooled.map((r) => r.days)),
+  };
+}
+
+export type OutcomeDetail = {
+  medianDays: number | null;
+  beforeCognizance: number;
+  /** Days from filing: under 6 months, 6–12 months, 1–2 years, over 2 years. */
+  ages: { label: string; rows: ClosedRow[] }[];
+};
+
+export function outcomeDetail(rows: ClosedRow[]): OutcomeDetail {
+  const bands: [string, number, number][] = [
+    ["Under 6 months", 0, 180],
+    ["6–12 months", 181, 365],
+    ["1–2 years", 366, 730],
+    ["Over 2 years", 731, Infinity],
+  ];
+  return {
+    medianDays: median(rows.map((r) => r.days)),
+    beforeCognizance: rows.filter((r) => r.beforeCognizance).length,
+    ages: bands.map(([label, lo, hi]) => ({ label, rows: rows.filter((r) => r.days >= lo && r.days <= hi) })),
+  };
+}
+
+export type TimelineColumn = {
+  from: number;
+  to: number;
+  weekend: boolean;
+  total: number;
+  by: Record<OutcomeKey, number>;
+};
+
+/**
+ * When closures happened: by day for up to 31 days, by week up to 183, by month beyond.
+ * `null` for a single day or a period of one column.
+ */
+export function closureTimeline(
+  docket: CourtDocket,
+  period: Period,
+): { unit: "day" | "week" | "month"; columns: TimelineColumn[]; busiest: TimelineColumn } | null {
+  if (period.from === period.to) return null;
+  const length = daysBetween(period.from, period.to) + 1;
+  const unit = length <= 31 ? "day" : length <= 183 ? "week" : "month";
+  const spans: [number, number][] = [];
+  if (unit === "day") for (let t = period.from; t <= period.to; t += DAY_MS) spans.push([t, t]);
+  else if (unit === "week")
+    for (let t = period.from; t <= period.to; t += 7 * DAY_MS) spans.push([t, Math.min(period.to, t + 6 * DAY_MS)]);
+  else
+    for (let k = monthKey(period.from); k <= monthKey(period.to); k++)
+      spans.push([Math.max(period.from, monthStart(k)), Math.min(period.to, monthEnd(k))]);
+  if (spans.length < 2) return null;
+  const rows = closedCases(docket, period);
+  const columns = spans.map(([a, b]) => {
+    const inside = rows.filter((r) => r.closedOn >= a && r.closedOn <= b);
+    const by = { Convicted: 0, Acquitted: 0, Settled: 0, early: 0, toLongPending: 0 } as Record<OutcomeKey, number>;
+    for (const r of inside) by[r.outcome]++;
+    const day = new Date(a).getUTCDay();
+    return { from: a, to: b, weekend: unit === "day" && (day === 0 || day === 6), total: inside.length, by };
+  });
+  const busiest = columns.reduce((best, c) => (c.total > best.total ? c : best));
+  return { unit, columns, busiest };
 }
