@@ -7,6 +7,7 @@ import {
   courtMeasures,
   courtStatements,
   dayToMs,
+  monthKey,
   STAGES,
 } from "./court-docket";
 import {
@@ -25,18 +26,32 @@ import {
   todoLists,
 } from "./court-flow";
 import {
-  attentionToday,
+  attentionFor,
   averageOver,
+  closureBaseline,
+  closureSummary,
+  closureTimeline,
+  outcomeDetail,
+  stagePathFor,
+  trendBreakdown,
   compareShort,
   defaultSelection,
   filedAndClosed,
-  lastActivity,
   monthlyTrends,
   outcomesIn,
   pendingAges,
   periodReading,
   previousName,
-  SILENT_DAYS,
+  trendMonths,
+  trendOpening,
+  trendPresets,
+} from "./court-flow";
+import {
+  baselineWindows,
+  closedCases,
+  filedCases,
+  pendingSets,
+  trendDetail,
 } from "./court-flow";
 
 const DAY = "2026-10-19";
@@ -47,7 +62,7 @@ describe("periods", () => {
   it("names the presets and compares each with the same stretch one step back", () => {
     const thisMonth = presetPeriod("this-month", docket);
     assert.equal(formatPeriod(thisMonth), "1–19 Oct 2026");
-    assert.deepEqual(previousPeriod(thisMonth, docket), { from: d("2026-09-01"), to: d("2026-09-19") });
+    assert.deepEqual(previousPeriod(thisMonth, docket), { from: d("2026-09-01"), to: d("2026-09-30") });
 
     const lastMonth = presetPeriod("last-month", docket);
     assert.equal(formatPeriod(lastMonth), "Sep 2026");
@@ -159,12 +174,12 @@ describe("what to do first", () => {
 });
 
 describe("reading a chosen date", () => {
-  it("reads one day as the month so far, compared with the same days of last month and 30 days earlier", () => {
+  it("reads one day as the month so far, compared with the whole of last month and 30 days earlier", () => {
     const r = readingFor({ from: d("2026-10-15"), to: d("2026-10-15") }, docket);
     assert.equal(r.single, true);
     assert.equal(r.live, false);
     assert.deepEqual(r.movement, { from: d("2026-10-01"), to: d("2026-10-15") });
-    assert.deepEqual(r.prior, { from: d("2026-09-01"), to: d("2026-09-15") });
+    assert.deepEqual(r.prior, { from: d("2026-09-01"), to: d("2026-09-30") });
     assert.equal(r.compareAt, d("2026-09-15"));
     assert.equal(formatSpan(r.movement.from, r.movement.to, docket.today), "1–15 Oct");
   });
@@ -202,14 +217,14 @@ describe("next dates, latest day", () => {
 });
 
 describe("the period under review", () => {
-  it("opens on this month so far, compared with the same days of last month", () => {
+  it("opens on this month so far, compared with the whole of last month", () => {
     const r = periodReading(defaultSelection(docket), docket);
     assert.deepEqual(r.selection, { from: d("2026-10-01"), to: d("2026-10-19") });
     assert.equal(r.kind, "month");
     assert.equal(r.isDefault, true);
-    assert.deepEqual(r.baseline, [{ from: d("2026-09-01"), to: d("2026-09-19") }]);
+    assert.deepEqual(r.baseline, [{ from: d("2026-09-01"), to: d("2026-09-30") }]);
     assert.equal(r.overdueSince, d("2026-10-01"));
-    assert.equal(previousName(r.selection), "Same days last month");
+    assert.equal(previousName(r.selection), "Previous month");
     assert.equal(compareShort("prev", r.selection), "vs last month");
   });
 
@@ -262,49 +277,6 @@ describe("the period under review", () => {
   });
 });
 
-describe("needs attention, today", () => {
-  const groups = attentionToday(docket);
-  const items = groups.flatMap((g) => g.items);
-
-  it("groups the seven checks by who can act", () => {
-    assert.deepEqual(
-      groups.map((g) => [g.owner, g.items.map((i) => i.id)]),
-      [
-        ["office", ["soon", "undated"]],
-        ["magistrate", ["apps", "long", "silent"]],
-        ["outside", ["pay", "del"]],
-      ],
-    );
-    for (const g of groups) {
-      const ids = new Set(g.items.flatMap((i) => i.rows.map((r) => r.case.id)));
-      assert.equal(g.cases, ids.size, g.owner);
-    }
-    assert.deepEqual(items.filter((i) => i.urgent).map((i) => i.id), ["soon", "undated"]);
-  });
-
-  it("splits every item's cases into the three shades without losing one", () => {
-    for (const item of items) {
-      assert.equal(item.severity[0] + item.severity[1] + item.severity[2], item.count, item.id);
-    }
-  });
-
-  it("finds undecided applications and silent cases from the case record", () => {
-    const apps = items.find((i) => i.id === "apps")!;
-    for (const row of apps.rows) {
-      assert.ok(row.case.applications.some((a) => a.status === "Pending"));
-      assert.ok(row.days > 7);
-    }
-    const silent = items.find((i) => i.id === "silent")!;
-    for (const row of silent.rows) {
-      assert.equal(row.case.nextHearing, null);
-      assert.ok(row.days > SILENT_DAYS);
-      assert.equal(row.days, Math.round((docket.today - lastActivity(row.case)) / 86_400_000));
-    }
-    const pay = items.find((i) => i.id === "pay")!;
-    assert.equal(typeof pay.lastWeek, "number");
-  });
-});
-
 describe("trends", () => {
   it("reads five measures over the chosen months, the last to the day", () => {
     const trends = monthlyTrends(docket, docket.today);
@@ -329,5 +301,157 @@ describe("trends", () => {
     assert.ok(short.every((t) => t.verdict === null));
     const all = monthlyTrends(docket, docket.today, { from: 0, to: now });
     assert.equal(all[0].points.length, 24);
+  });
+});
+
+describe("the trends date picker", () => {
+  it("offers whole-month quick picks inside the records, opening on the last 12 months", () => {
+    const docket = courtDocket("2026-10-19");
+    const picks = trendPresets(docket);
+    assert.deepEqual(
+      picks.map((p) => p.label),
+      ["Last 6 months", "Last 12 months", "This year", "Last year", "All records"],
+    );
+    for (const { period } of picks) {
+      assert.ok(period.from >= docket.start && period.to <= docket.today);
+    }
+    const opening = trendOpening(docket);
+    assert.deepEqual(trendMonths(opening), { from: monthKey(dayToMs("2025-11-01")), to: monthKey(dayToMs("2026-10-19")) });
+    assert.deepEqual(trendMonths({ from: dayToMs("2026-08-12"), to: dayToMs("2026-09-03") }), {
+      from: monthKey(dayToMs("2026-08-01")),
+      to: monthKey(dayToMs("2026-09-01")),
+    });
+  });
+});
+
+describe("the cases behind each figure", () => {
+  const reading = periodReading(defaultSelection(docket), docket, "avg");
+  const period = reading.selection;
+
+  it("lists exactly the cases filed and closed in the period", () => {
+    const counts = filedAndClosed(docket, period);
+    assert.equal(filedCases(docket, period).length, counts.filed);
+    const closed = closedCases(docket, period);
+    assert.equal(closed.length, counts.closed);
+    const out = outcomesIn(docket, period);
+    for (const key of ["Convicted", "Acquitted", "Settled", "early", "toLongPending"] as const) {
+      assert.equal(closed.filter((r) => r.outcome === key).length, out[key], key);
+    }
+  });
+
+  it("splits the pending cases by register and by age without losing one", () => {
+    const sets = pendingSets(docket, period);
+    const position = positionOn(docket, period.to);
+    assert.equal(sets.all.length, position.pending);
+    assert.equal(sets.cmp.length, position.cmp);
+    assert.equal(sets.st.length, position.st);
+    assert.equal(sets.awaitingRegistration.length, position.awaitingRegistration);
+    assert.deepEqual(sets.ages.map((a) => a.length), pendingAges(docket, period));
+  });
+
+  it("spells out the baseline windows the average is taken over", () => {
+    const windows = baselineWindows(docket, reading);
+    assert.equal(windows.length, 6);
+    const avg = averageOver(reading.baseline, (p) => filedAndClosed(docket, p))!;
+    assert.equal(windows.reduce((sum, w) => sum + w.filed, 0) / 6, avg.filed);
+  });
+
+  it("reads a trend's months, its extremes and the months its verdict averages", () => {
+    const trend = monthlyTrends(docket, docket.today)[0];
+    const detail = trendDetail(trend);
+    assert.equal(detail.rows.length, trend.points.length);
+    assert.equal(detail.rows[0].change, null);
+    assert.equal(detail.rows[1].change, trend.points[1].value! - trend.points[0].value!);
+    assert.equal(detail.baseMonths.length, 3);
+    const mean = detail.baseMonths.reduce((sum, p) => sum + p.value!, 0) / 3;
+    assert.equal(mean, trend.base);
+    const values = trend.points.map((p) => p.value!);
+    assert.equal(detail.highest!.value, Math.max(...values));
+    assert.equal(detail.lowest!.value, Math.min(...values));
+  });
+});
+
+describe("the v4 dashboard", () => {
+  const month = defaultSelection(docket);
+
+  it("bins each stage's days around its review point, and counts moves in the period", () => {
+    const path = stagePathFor(docket, month);
+    const position = positionOn(docket, month.to);
+    for (const stage of STAGES) {
+      const p = path[stage.key];
+      assert.equal(p.rows.length, position.byStage[stage.key].length, stage.key);
+      assert.equal(p.bins.length, p.reviewAfter * 2 + 1, stage.key);
+      assert.equal(p.bins.reduce((sum, b) => sum + b.rows.length, 0), p.rows.length, stage.key);
+      const late = p.bins.filter((b) => b.late).reduce((sum, b) => sum + b.rows.length, 0);
+      assert.equal(late, position.overdue[stage.key].length, `${stage.key} past its review point`);
+      assert.equal(p.bins[p.reviewAfter - 1].to, COURT_LIMITS.stages[stage.key], `${stage.key} review point`);
+    }
+    const filed = filedAndClosed(docket, month).filed;
+    assert.equal(path.registration.cameIn, filed, "every filing enters registration");
+    for (let i = 1; i < STAGES.length; i++) {
+      assert.ok(path[STAGES[i - 1].key].movedOn <= path[STAGES[i].key].cameIn, STAGES[i].key);
+    }
+    const opening = positionOn(docket, month.from - 86_400_000).pending;
+    const cameIn = STAGES.reduce((s, x) => s + path[x.key].cameIn, 0);
+    const left = STAGES.reduce((s, x) => s + path[x.key].left, 0);
+    assert.equal(opening + cameIn - left, positionOn(docket, month.to).pending, "stage moves reconcile");
+  });
+
+  it("counts attention on the day, bins every case once, and compares a range with its first day", () => {
+    const today = attentionFor(docket, { from: docket.today, to: docket.today });
+    const checks = today.groups.flatMap((g) => g.checks);
+    for (const ch of checks) {
+      assert.ok(ch.available, ch.id);
+      assert.equal(ch.bins.reduce((sum, b) => sum + b.rows.length, 0), ch.rows.length, ch.id);
+    }
+    const ids = new Set(checks.flatMap((c) => c.rows.map((r) => r.case.id)));
+    assert.equal(today.distinct, ids.size);
+    const pay = checks.find((c) => c.id === "pay")!;
+    assert.equal(pay.rows.length, STAGES.reduce((s, x) => s + positionOn(docket, docket.today).paymentPending[x.key].length, 0));
+
+    const range = attentionFor(docket, { from: d("2026-10-01"), to: d("2026-10-15") });
+    const rc = range.groups.flatMap((g) => g.checks);
+    assert.equal(range.start, d("2026-10-01"));
+    for (const ch of rc) {
+      if (ch.latestOnly) {
+        assert.equal(ch.available, false, ch.id);
+        assert.equal(ch.rows.length, 0);
+      } else {
+        assert.equal(typeof ch.atStart, "number", ch.id);
+      }
+    }
+  });
+
+  it("summarises closures against a baseline and spreads them over a timeline", () => {
+    const summary = closureSummary(docket, month);
+    const rows = closedCases(docket, month);
+    assert.equal(summary.total, rows.length);
+    assert.equal(summary.judgements, rows.filter((r) => r.outcome === "Convicted" || r.outcome === "Acquitted").length);
+    const reading = periodReading(month, docket, "avg");
+    const base = closureBaseline(docket, reading.baseline)!;
+    const each = reading.baseline.map((p) => closureSummary(docket, p).total);
+    assert.equal(base.total, each.reduce((a, b) => a + b, 0) / each.length);
+    const detail = outcomeDetail(rows.filter((r) => r.outcome === "Convicted"));
+    assert.equal(detail.ages.reduce((s, a) => s + a.rows.length, 0), rows.filter((r) => r.outcome === "Convicted").length);
+    assert.equal(detail.beforeCognizance, 0, "a conviction follows cognizance");
+    const timeline = closureTimeline(docket, month)!;
+    assert.equal(timeline.unit, "day");
+    assert.equal(timeline.columns.length, 19);
+    assert.equal(timeline.columns.reduce((s, c) => s + c.total, 0), rows.length);
+    assert.equal(closureTimeline(docket, presetPeriod("last-3-months", docket))!.unit, "week");
+    assert.equal(closureTimeline(docket, { from: docket.today, to: docket.today }), null);
+  });
+
+  it("breaks a trend's month down into what went into it", () => {
+    const [pending, clearance] = monthlyTrends(docket, docket.today);
+    const point = pending.points[0];
+    const rows = trendBreakdown(docket, "pending", point);
+    assert.deepEqual(rows.map((r) => r.label), ["Filed in the month", "Disposed in the month", "Moved to long pending"]);
+    const c = trendBreakdown(docket, "clearance", clearance.points[0]);
+    const disposed = Number(c[0].value.replace(/,/g, ""));
+    const filed = Number(c[1].value.replace(/,/g, ""));
+    assert.equal(Math.round((disposed / filed) * 100), Math.round(clearance.points[0].value!));
+    const detail = trendDetail(pending);
+    assert.equal(detail.best, detail.lowest, "fewer pending is better");
   });
 });

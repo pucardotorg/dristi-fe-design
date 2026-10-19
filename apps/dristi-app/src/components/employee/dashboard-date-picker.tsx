@@ -26,6 +26,7 @@ import {
   previousName,
   type CompareMode,
   type Period,
+  type PickerPreset,
 } from "@/lib/employee/court-flow";
 import { formatCount } from "@/lib/employee/register-rows";
 import { cn } from "@/lib/utils";
@@ -42,7 +43,11 @@ import { cn } from "@/lib/utils";
  * starts again) rather than by the day picker's own range rules.
  *
  * The comparison is chosen beside the dates it depends on ("Compare with") and applied
- * with them; a quick pick keeps the comparison already in use.
+ * with them; a quick pick keeps the comparison already in use. A picker given no
+ * `compare` has no comparison at all (Trends, whose charts carry their own verdict).
+ *
+ * The Overview and Trends each have one, with their own quick picks; `idPrefix` keeps
+ * the two pickers' ids apart on the page.
  *
  * The mockup previews a range under the pointer; this does not. The DS Calendar renders
  * its root as an inline component, so every render of this picker remounts the grid, and
@@ -104,39 +109,59 @@ export function DashboardDatePicker({
   value,
   compare,
   defaultValue,
+  defaultLabel = "This month",
+  defaultCompare = "prev",
+  presets: presetList,
+  idPrefix = "dash-picker",
+  dayNote = "the Overview is read for this day alone",
+  daysNote,
+  rangeNote,
   onChange,
 }: {
   docket: CourtDocket;
   value: Period;
-  compare: CompareMode;
-  /** The opening selection, which "Back to this month" returns to. */
+  /** The comparison in use; leave it out for a picker with no comparison. */
+  compare?: CompareMode;
+  /** The opening selection, which Reset returns the draft to. */
   defaultValue: Period;
+  /** The opening selection's name, for its pill and Reset's accessible name. */
+  defaultLabel?: string;
+  /** The opening comparison, which Reset also returns to. */
+  defaultCompare?: CompareMode;
+  /** Quick picks; the Overview's by default. */
+  presets?: PickerPreset[];
+  idPrefix?: string;
+  /** What a single day means here, in the status line. */
+  dayNote?: string;
+  /** What a drafted range's day count is of, in the status line: "7 days of closures". */
+  daysNote?: string;
+  /** A further word on a drafted range, in the status line. */
+  rangeNote?: (period: Period) => string;
   onChange: (next: Period, compare: CompareMode) => void;
 }) {
   const latest = docket.today;
   const first = docket.start;
-  const triggerRef = React.useRef<HTMLButtonElement>(null);
   const [open, setOpen] = React.useState(false);
   const [draft, setDraft] = React.useState<Draft>({ a: value.from, b: value.to });
   const [month, setMonth] = React.useState(monthKey(value.to));
-  const [draftCompare, setDraftCompare] = React.useState<CompareMode>(compare);
+  const [draftCompare, setDraftCompare] = React.useState<CompareMode>(compare ?? "none");
 
-  const presets = pickerPresets(docket);
+  const presets = presetList ?? pickerPresets(docket);
   const single = value.from === value.to;
   const isLatest = single && value.to === latest;
   const isDefault = value.from === defaultValue.from && value.to === defaultValue.to;
-  const versus = compareShort(compare, value);
+  const versus = compare === undefined ? null : compareShort(compare, value);
 
   const openWith = (next: boolean) => {
     if (next) {
       setDraft({ a: value.from, b: value.to });
       setMonth(monthKey(value.to));
-      setDraftCompare(compare);
+      setDraftCompare(compare ?? "none");
     }
     setOpen(next);
   };
 
-  const choose = (period: Period, mode: CompareMode = compare) => {
+  const choose = (period: Period, mode: CompareMode = compare ?? "none") => {
     setOpen(false);
     onChange(period, mode);
   };
@@ -152,6 +177,10 @@ export function DashboardDatePicker({
   };
 
   const { a, b } = draft;
+  const draftIsDefault =
+    a === defaultValue.from &&
+    (b ?? a) === defaultValue.to &&
+    (compare === undefined || draftCompare === defaultCompare);
   const lo = a === null ? null : Math.min(a, b ?? a);
   const hi = a === null ? null : Math.max(a, b ?? a);
   const firstMonth = monthKey(first);
@@ -171,15 +200,15 @@ export function DashboardDatePicker({
   } else if (lo === hi) {
     status = (
       <>
-        <strong className="font-semibold text-foreground">{formatDay(lo)}</strong> · the Overview
-        is read for this day alone
+        <strong className="font-semibold text-foreground">{formatDay(lo)}</strong> · {dayNote}
       </>
     );
   } else {
     status = (
       <>
         <strong className="font-semibold text-foreground">{formatSpanFull(lo, hi)}</strong> ·{" "}
-        {formatCount(daysBetween(lo, hi) + 1)} days
+        {formatCount(daysBetween(lo, hi) + 1)} days{daysNote ? ` ${daysNote}` : ""}
+        {rangeNote ? ` · ${rangeNote({ from: lo, to: hi })}` : ""}
       </>
     );
   }
@@ -196,7 +225,6 @@ export function DashboardDatePicker({
       <Popover open={open} onOpenChange={openWith}>
         <PopoverTrigger asChild>
           <Button
-            ref={triggerRef}
             variant="outline"
             aria-haspopup="dialog"
             className="h-auto min-h-10 max-w-full flex-wrap justify-start gap-x-2 gap-y-1 py-2 text-left whitespace-normal tabular-nums"
@@ -209,7 +237,7 @@ export function DashboardDatePicker({
             )}{" "}
             {isLatest || isDefault ? (
               <Badge variant="secondary" className="bg-brand-muted text-brand-muted-foreground">
-                {isLatest ? "Latest" : "This month"}
+                {isDefault ? defaultLabel : "Latest"}
               </Badge>
             ) : single ? null : (
               <span className="text-muted-foreground">
@@ -222,7 +250,9 @@ export function DashboardDatePicker({
                 <span className="border-l border-hairline pl-2 font-normal text-muted-foreground">{versus}</span>
               </>
             ) : null}
-            <span className="sr-only">, change the period or the comparison</span>
+            <span className="sr-only">
+              {compare === undefined ? ", change the period" : ", change the period or the comparison"}
+            </span>
           </Button>
         </PopoverTrigger>
         <PopoverContent
@@ -245,10 +275,10 @@ export function DashboardDatePicker({
           <div className="flex flex-col sm:flex-row">
             <div
               role="group"
-              aria-labelledby="dash-picker-quick"
+              aria-labelledby={`${idPrefix}-quick`}
               className="flex flex-row flex-wrap gap-2 border-b border-hairline p-3 sm:w-44 sm:flex-col sm:flex-nowrap sm:gap-0.5 sm:border-r sm:border-b-0"
             >
-              <p id="dash-picker-quick" className="w-full px-2 pb-1 text-body-compact text-muted-foreground max-sm:sr-only">
+              <p id={`${idPrefix}-quick`} className="w-full px-2 pb-1 text-body-compact text-muted-foreground max-sm:sr-only">
                 Quick pick
               </p>
               {presets.map((preset) => {
@@ -343,35 +373,54 @@ export function DashboardDatePicker({
                 className="p-0 [--cell-size:--spacing(10)]"
               />
 
-              <fieldset className="flex flex-col gap-2 border-t border-hairline pt-3 sm:w-72">
-                <legend className="float-left mb-1 w-full text-body-compact text-muted-foreground">Compare with</legend>
-                <RadioGroup
-                  value={draftCompare}
-                  onValueChange={(next) => setDraftCompare(next as CompareMode)}
-                  className="gap-0"
-                >
-                  {COMPARE_OPTIONS.map((option) => {
-                    const id = `dash-compare-${option.value}`;
-                    const range =
-                      lo === null || hi === null ? value : { from: lo, to: b === null ? lo : hi };
-                    return (
-                      <div key={option.value} className="flex items-start gap-3 rounded-md px-2 py-1.5 hover:bg-accent">
-                        <RadioGroupItem id={id} value={option.value} className="mt-0.5" />
-                        <Label htmlFor={id} className="flex cursor-pointer flex-col items-start gap-0 font-normal">
-                          <span className="text-body-compact font-medium">{option.label ?? previousName(range)}</span>
-                          <span className="text-caption text-muted-foreground">{option.description}</span>
-                        </Label>
-                      </div>
-                    );
-                  })}
-                </RadioGroup>
-              </fieldset>
+              {compare === undefined ? null : (
+                <fieldset className="flex flex-col gap-2 border-t border-hairline pt-3 sm:w-72">
+                  <legend className="float-left mb-1 w-full text-body-compact text-muted-foreground">Compare with</legend>
+                  <RadioGroup
+                    value={draftCompare}
+                    onValueChange={(next) => setDraftCompare(next as CompareMode)}
+                    className="gap-0"
+                  >
+                    {COMPARE_OPTIONS.map((option) => {
+                      const id = `${idPrefix}-compare-${option.value}`;
+                      const range =
+                        lo === null || hi === null ? value : { from: lo, to: b === null ? lo : hi };
+                      return (
+                        <div key={option.value} className="flex items-start gap-3 rounded-md px-2 py-1.5 hover:bg-accent">
+                          <RadioGroupItem id={id} value={option.value} className="mt-0.5" />
+                          <Label htmlFor={id} className="flex cursor-pointer flex-col items-start gap-0 font-normal">
+                            <span className="text-body-compact font-medium">{option.label ?? previousName(range)}</span>
+                            <span className="text-caption text-muted-foreground">{option.description}</span>
+                          </Label>
+                        </div>
+                      );
+                    })}
+                  </RadioGroup>
+                </fieldset>
+              )}
 
               <div className="flex flex-col gap-3 border-t border-hairline pt-3 sm:w-72">
                 <p aria-live="polite" className="min-h-10 text-body-compact text-muted-foreground tabular-nums">
                   {status}
                 </p>
-                <div className="flex justify-end gap-2">
+                <div className="flex items-center gap-2">
+                  {/* Reset lives in the picker, beside the actions it feeds: it puts the
+                      draft back to the opening period (and comparison), to be applied like
+                      any other choice. No second control outside the trigger (owner,
+                      2026-10-19). */}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="mr-auto"
+                    disabled={draftIsDefault}
+                    onClick={() => {
+                      setDraft({ a: defaultValue.from, b: defaultValue.to });
+                      setMonth(monthKey(defaultValue.to));
+                      if (compare !== undefined) setDraftCompare(defaultCompare);
+                    }}
+                  >
+                    Reset<span className="sr-only"> to {defaultLabel.toLowerCase()}</span>
+                  </Button>
                   <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                     Cancel
                   </Button>
@@ -384,19 +433,6 @@ export function DashboardDatePicker({
           </div>
         </PopoverContent>
       </Popover>
-      {isDefault ? null : (
-        <Button
-          type="button"
-          variant="link"
-          className="px-2"
-          onClick={() => {
-            onChange(defaultValue, compare);
-            triggerRef.current?.focus();
-          }}
-        >
-          Back to this month
-        </Button>
-      )}
     </div>
   );
 }
