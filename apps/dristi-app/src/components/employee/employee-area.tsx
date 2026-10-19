@@ -14,10 +14,12 @@ import { AppToaster } from "@/components/shell/app-toaster";
  * Which part of the bench's side a path belongs to — `AppShell`'s own `areaOf`, one
  * route deep here. The rail is open everywhere except the order composer, which now
  * reads a case file beside the order and needs the width a full rail takes from the
- * page (owner, 2026-09-22).
+ * page (owner, 2026-09-22), and the application workstation, whose three columns need
+ * the same width (owner, 2026-10-08: the side nav "in a collapsed state").
  */
 function railAreaOf(pathname: string): "rail" | "flow" {
-  return /^\/employee\/hearings\/[^/]+\/order(?:\/|$)/.test(pathname)
+  return /^\/employee\/hearings\/[^/]+\/order(?:\/|$)/.test(pathname) ||
+    /^\/employee\/applications\/[^/]+(?:\/|$)/.test(pathname)
     ? "flow"
     : "rail";
 }

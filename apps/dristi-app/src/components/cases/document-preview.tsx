@@ -111,6 +111,13 @@ const wellHeight = {
   tall: "h-[60svh]",
   /** Takes the height its container can spare. */
   fill: "min-h-64 flex-1",
+  /**
+   * The document at its full length, scrolling with the page rather than in a well of its
+   * own — for a column where the document is what is being read top to bottom (the
+   * court's application workstation). Composed documents only: a PDF or a frame has no
+   * height of its own to grow to.
+   */
+  auto: "h-auto overflow-visible",
 } as const;
 
 /**
@@ -226,6 +233,7 @@ export function DocumentPreview({
           title={title}
           source={source}
           surface="bare"
+          scrolls={height !== "auto"}
           className={cn(wellHeight[height], "max-md:overflow-visible")}
         />
       </section>
@@ -255,6 +263,7 @@ export function DocumentPreview({
             back to the body at that size is what keeps them pinned. Scoped to
             this variant — no other caller has a toolbar to pin.
           */
+          scrolls={height !== "auto"}
           className={cn(wellHeight[height], "max-md:overflow-visible")}
           toolbar={
             <DocumentPreviewActions
@@ -313,6 +322,7 @@ export function DocumentPreview({
         title={title}
         source={source}
         surface={surface}
+        scrolls={height !== "auto"}
         className={wellHeight[height]}
       />
     </section>
@@ -572,11 +582,14 @@ function DocumentWell({
   source,
   toolbar,
   surface = "sunken",
+  scrolls = true,
   className,
 }: {
   title: string;
   source: DocumentPreviewSource;
   surface?: WellSurface;
+  /** Whether the well scrolls its own content — and so has to take focus to be read. */
+  scrolls?: boolean;
   /**
    * Controls that belong **on** the well rather than above it — the quiet
    * variant's two icons. In flow at the well's top-right, so they sit on the
@@ -642,8 +655,8 @@ function DocumentWell({
   if (source.kind === "composed") {
     return (
       <div
-        tabIndex={0}
-        aria-label={`Preview of ${title}`}
+        tabIndex={scrolls ? 0 : undefined}
+        aria-label={scrolls ? `Preview of ${title}` : undefined}
         className={cn(scrollableWell, "flex-col")}
       >
         {toolbar ? (
@@ -671,8 +684,8 @@ function DocumentWell({
 
   return (
     <div
-      tabIndex={0}
-      aria-label={`Preview of ${title}`}
+      tabIndex={scrolls ? 0 : undefined}
+      aria-label={scrolls ? `Preview of ${title}` : undefined}
       className={scrollableWell}
     >
       {toolbar ? (

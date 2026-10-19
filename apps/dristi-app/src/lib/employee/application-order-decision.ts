@@ -13,3 +13,26 @@ export function isApplicationOrderDecision(
 ): value is ApplicationOrderDecision {
   return value === "accept" || value === "reject" || value === "dismiss";
 }
+
+/**
+ * Where an application's order is drawn up: under its one Applications queue. `view` is
+ * the list the workstation was working, carried so the way back lands on the same list.
+ */
+export function applicationOrderHref(
+  applicationId: string,
+  decision?: ApplicationOrderDecision,
+  view?: string,
+): string {
+  const base = `/employee/applications/${encodeURIComponent(applicationId)}/order`;
+  const query = new URLSearchParams();
+  if (decision) query.set("decision", decision);
+  if (view) query.set("view", view);
+  const search = query.toString();
+  return search ? `${base}?${search}` : base;
+}
+
+/** The application itself, in the workstation, on the list it was being worked in. */
+export function applicationHref(applicationId: string, view?: string): string {
+  const base = `/employee/applications/${encodeURIComponent(applicationId)}`;
+  return view ? `${base}?view=${encodeURIComponent(view)}` : base;
+}

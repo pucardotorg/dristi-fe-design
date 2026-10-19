@@ -58,9 +58,10 @@ const liveForms = new Map<string, unknown>();
 /**
  * Bump to put every browser's sample applications back as `seed.ts` writes them —
  * pending review, pending decision — whatever was done to them since. 2: owner,
- * 2026-10-13, after samples had been onboarded while trying the flow.
+ * 2026-10-13, after samples had been onboarded while trying the flow. 3: owner, 2026-10-15,
+ * eight more samples so every workstation option can be tried.
  */
-const SAMPLE_VERSION = 2;
+const SAMPLE_VERSION = 3;
 
 /** Whether an application is one of the samples rather than one filed in this browser. */
 function isSample(id: string): boolean {

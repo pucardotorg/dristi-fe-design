@@ -33,7 +33,7 @@ type Sample = {
   type: ApplicationTypeId;
   form: Partial<ApplicationDraft>;
   filedDaysAgo: number;
-  /** Set a date once, this many days ahead of today. */
+  /** Set a date once, this many days ahead of today (0: it is back today). */
   reviewAgainIn?: number;
   onboard?: {
     daysAgo: number;
@@ -116,6 +116,114 @@ const SAMPLES: Sample[] = [
         "The bank's statement of account for the period is needed to show the cheque was issued as security.",
     },
   },
+  /*
+   * More of each, so every option on the workstation can be tried (owner, 2026-10-15).
+   * Appended, so the six above keep their ids.
+   */
+  /* To onboard: due today, a bail application from the accused. */
+  {
+    caseId: "c-1007",
+    side: "accused",
+    type: "bail",
+    filedDaysAgo: 1,
+    form: {
+      bailType: "surety",
+      bailAmount: "50000",
+      suretyCount: "1",
+      bailReason:
+        "The accused has appeared on every date, has a fixed address in the city and undertakes to attend each hearing.",
+    },
+  },
+  /* To onboard: overdue, an Advance — accepting it moves the hearing. */
+  {
+    caseId: "c-1008",
+    side: "complainant",
+    type: "advancement-reschedule",
+    filedDaysAgo: 3,
+    form: {
+      rescheduleReason: "A party or witness cannot attend",
+      otherDetails:
+        "The complainant's only witness leaves the country next month and asks for an earlier date to depose.",
+    },
+  },
+  /* To onboard: back after one deferral, so deferring again warns. */
+  {
+    caseId: "c-1009",
+    side: "complainant",
+    type: "addition-of-witness",
+    filedDaysAgo: 5,
+    reviewAgainIn: 0,
+    form: {
+      otherDetails:
+        "The bank manager who returned the cheque is to be added as a witness for the complainant.",
+    },
+  },
+  /* To onboard: due today, from the accused. */
+  {
+    caseId: "c-1010",
+    side: "accused",
+    type: "reopen-evidence",
+    filedDaysAgo: 1,
+    form: {
+      reopenReason:
+        "A letter from the complainant acknowledging part payment was found after the evidence closed.",
+    },
+  },
+  /* To onboard: a PoA change, filed two days ago. */
+  {
+    caseId: "c-1011",
+    side: "complainant",
+    type: "poa-change",
+    filedDaysAgo: 2,
+    form: {
+      poaReason:
+        "The earlier power of attorney holder has resigned from the complainant company.",
+    },
+  },
+  /* To decide: a Postpone listed for today, no objection received — accepting it needs
+     the next hearing date. */
+  {
+    caseId: "c-1012",
+    side: "complainant",
+    type: "postpone",
+    filedDaysAgo: 6,
+    onboard: { daysAgo: 4, decideIn: 0, invite: true },
+    form: {
+      rescheduleReason: "Advocate unavailable",
+      otherDetails: "The complainant's counsel is appearing before the High Court on that date.",
+    },
+  },
+  /* To decide: taken up today, so it can still be listed for a date instead. */
+  {
+    caseId: "c-1013",
+    side: "accused",
+    type: "application-others",
+    filedDaysAgo: 2,
+    onboard: { daysAgo: 0 },
+    form: {
+      title: "Return of seized documents",
+      details:
+        "The accused's original partnership deed, produced at the first hearing, is needed for a bank audit.",
+    },
+  },
+  /* To decide: overdue, with an objection from the other side. */
+  {
+    caseId: "c-1014",
+    side: "accused",
+    type: "advancement-reschedule",
+    filedDaysAgo: 9,
+    onboard: {
+      daysAgo: 7,
+      decideIn: -1,
+      invite: true,
+      objection:
+        "The complainant's witness is not available before the date already fixed, and an earlier date would prejudice the complainant.",
+    },
+    form: {
+      rescheduleReason: "Other",
+      otherDetails: "The accused seeks an earlier date to close the matter before relocating.",
+    },
+  },
 ];
 
 export function sampleApplications(
@@ -156,7 +264,7 @@ export function sampleApplications(
     app = sign(app, seat, advocate, filedOn);
     counters.temporary += 1;
     app = pay(app, seat, `${record.caseNumber}-AP${counters.temporary}`, filedOn);
-    if (sample.reviewAgainIn) {
+    if (sample.reviewAgainIn !== undefined) {
       app = setReviewDate(
         app,
         "magistrate",

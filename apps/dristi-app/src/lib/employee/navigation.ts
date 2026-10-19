@@ -13,7 +13,6 @@ import {
   FolderIcon,
   HourglassIcon,
   LayoutDashboardIcon,
-  GavelIcon,
   InboxIcon,
   ListChecksIcon,
   MessageSquareIcon,
@@ -387,20 +386,15 @@ export const COURT_NAV_GROUPS: CourtNavGroup[] = [
     label: "Review applications",
     icon: FileSearchIcon,
     items: [
-      /* First, and without counts: the lifecycle's own two queues, read from the
-         applications store in the browser, so the rail cannot know the numbers before
-         the screen loads. The three fixture queues below predate them. */
+      /* First, and without a count: the lifecycle's own queue — onboarding and the order
+         on each, one item since 2026-10-07 — read from the applications store in the
+         browser, so the rail cannot know the number before the screen loads. The three
+         fixture queues below predate it. */
       {
-        id: "onboard-applications",
-        label: "Onboard applications",
+        id: "applications",
+        label: "Applications",
         icon: InboxIcon,
-        href: "/employee/onboard-applications",
-      },
-      {
-        id: "decide-applications",
-        label: "Decide on applications",
-        icon: GavelIcon,
-        href: "/employee/decide-applications",
+        href: "/employee/applications",
       },
       {
         id: "rescheduling-request",
@@ -926,15 +920,44 @@ function scrutinyFilingNumber(segment: string): string | undefined {
  * route earns one*; the route stopped earning it, so it goes rather than sitting here
  * with nobody to answer for it.
  */
+/**
+ * Names a nested record the server cannot see — the applications queue reads a store that
+ * lives in this browser (`lib/applications/store.ts`), so its number is known only after
+ * the store has been read on the client. `EmployeeTopBar` passes one once it is ready;
+ * until then, and for a record that is not found, the trail stops at the queue.
+ */
+export type CourtRecordResolver = (
+  queue: string,
+  segment: string,
+) => string | undefined;
+
 const NESTED_ROUTES: {
   queue: string;
   pattern: RegExp;
   identify: (segment: string) => string | undefined;
+  /**
+   * The record is read on the client, so the route is nested — and its row active —
+   * whether or not `identify` or a resolver can name it yet.
+   */
+  clientRecord?: boolean;
+  /**
+   * The record has an order drawn up under it at `<record>/order`, and the record's own
+   * route is a page: the order's trail goes one step past the record, `… › ST/241/2026 ›
+   * Order`, and the record becomes the way back to it. The pattern's second group is the
+   * `/order` segment.
+   */
+  order?: boolean;
+  /**
+   * The queue is worked as one of several lists (`?view=`), so the way back carries the
+   * list the page was opened from.
+   */
+  keepsView?: boolean;
 }[] = [
   {
     queue: "/employee/hearings",
-    pattern: /^\/employee\/hearings\/([^/]+)(?:\/order)?\/?$/,
+    pattern: /^\/employee\/hearings\/([^/]+)(\/order)?\/?$/,
     identify: (id) => hearingById(id)?.caseNumber,
+    order: true,
   },
   {
     queue: "/employee/scrutiny",
@@ -974,8 +997,9 @@ const NESTED_ROUTES: {
     queue: "/employee/cognizance",
     /* The complaint, and the order one of its acts draws up — traced alike, as a
        hearing's order is (owner, 2026-10-13). */
-    pattern: /^\/employee\/cognizance\/([^/]+)(?:\/order)?\/?$/,
+    pattern: /^\/employee\/cognizance\/([^/]+)(\/order)?\/?$/,
     identify: (id) => cognizanceCaseById(id)?.caseNumber,
+    order: true,
   },
   /* One case, in the case view the court shares with the advocate
      (`components/cases/case-detail.tsx`). A cognizance complaint first, as that route
@@ -986,14 +1010,55 @@ const NESTED_ROUTES: {
     identify: (id) =>
       cognizanceCaseById(id)?.caseNumber ?? findCaseRecord(id)?.caseNumber,
   },
+  {
+    queue: "/employee/applications",
+    /* The application, and the order drawn up on it — traced alike. */
+    pattern: /^\/employee\/applications\/([^/]+)(\/order)?\/?$/,
+    identify: () => undefined,
+    clientRecord: true,
+    order: true,
+    keepsView: true,
+  },
 ];
 
-/** What this path is a nested view *of*, when it is one. */
-function nestedRecordOf(pathname: string, queue: string): string | undefined {
+/**
+ * What this path is a nested view *of*, when it is one: `undefined` when it is not
+ * nested, `{ record }` when it is — `record` itself absent while a client-side record is
+ * still unnamed. `segment` is the record's path segment as written, `order` whether this
+ * is the order drawn up under it, `keepsView` whether the queue keeps its list.
+ */
+function nestedRecordOf(
+  pathname: string,
+  queue: string,
+  resolve?: CourtRecordResolver,
+):
+  | { record: string | undefined; segment: string; order: boolean; keepsView: boolean }
+  | undefined {
   const nested = NESTED_ROUTES.find((entry) => entry.queue === queue);
   if (!nested) return undefined;
-  const segment = nested.pattern.exec(pathname);
-  return segment ? nested.identify(segment[1]) : undefined;
+  const match = nested.pattern.exec(pathname);
+  if (!match) return undefined;
+  let segment = match[1];
+  try {
+    segment = decodeURIComponent(segment);
+  } catch {
+    /* A malformed escape stays as typed. */
+  }
+  const record = nested.identify(match[1]) ?? resolve?.(queue, segment);
+  if (record === undefined && !nested.clientRecord) return undefined;
+  return {
+    record,
+    segment: match[1],
+    order: Boolean(nested.order && match[2]),
+    keepsView: Boolean(nested.keepsView),
+  };
+}
+
+/** The list a page was opened from, off its query (`view=onboard`), when it names one. */
+function viewOf(query: string | undefined): string | undefined {
+  if (!query) return undefined;
+  const view = new URLSearchParams(query).get("view");
+  return view && /^[a-z-]+$/.test(view) ? view : undefined;
 }
 
 export function isCourtNavActive(pathname: string, href: string): boolean {
@@ -1073,18 +1138,25 @@ export type CourtCrumb = {
  *   page this file cannot identify would be an invented label.
  * - `/employee/sign-orders` — `Sign`, then **`Sign orders`** as the current page. The
  *   section is still text: it has no page of its own.
- * - `/employee/hearings/<id>`, `/employee/hearings/<id>/order`,
- *   `/employee/scrutiny/<filing no.>`, `/employee/register-cases/<id>` — the section, the
+ * - `/employee/hearings/<id>`, `/employee/scrutiny/<filing no.>`,
+ *   `/employee/register-cases/<id>` — the section, the
  *   queue, then the record: `ST/241/2026`, `F/AHM/2026/00341`, `CMP/1840/2025`. Both of
  *   the middle steps link back to the queue, which is where the record came from and, on
  *   a complaint's file, the whole of the way back — which is why that screen carries no
  *   back control of its own.
+ * - An order drawn up under a record — `/employee/hearings/<id>/order`, a cognizance
+ *   act's, an application's — goes one step further: `… › ST/241/2026 › Order`, the
+ *   record now a link back to it (owner, 2026-10-15). On Applications both the queue and
+ *   the record carry the list it was opened from (`?view=`).
  *
  * The standalone Dashboard row is absent from every trail because nothing nests under it.
  */
 export function courtTrail(
   pathname: string,
   flow: OrderFlow = DEFAULT_ORDER_FLOW,
+  resolve?: CourtRecordResolver,
+  /** The page's query, without `?` — read only for a queue that keeps its list. */
+  query?: string,
 ): CourtCrumb[] {
   const groups = courtNavGroupsFor(readCognizanceLayout(), flow);
   for (const group of groups) {
@@ -1106,13 +1178,35 @@ export function courtTrail(
       if (!item.href || !isCourtNavActive(pathname, item.href)) continue;
       // Nested exactly when the path is not the row's own href — which is also when the
       // row is above this page rather than being it, and so becomes a link.
-      const record = nestedRecordOf(pathname, item.href);
-      if (record === undefined) {
+      const nested = nestedRecordOf(pathname, item.href, resolve);
+      if (nested === undefined) {
         return [{ label: group.label }, { label: item.label }];
       }
+      const record = nested.record;
+      /* The way back to a queue worked as several lists lands on the same list. */
+      const view = nested.keepsView ? viewOf(query) : undefined;
+      const suffix = view ? `?view=${view}` : "";
+      const queueHref = `${item.href}${suffix}`;
+      if (record === undefined) {
+        /* A record only the browser can name, not named yet (first paint) or not found:
+           the trail stops at the queue, both steps still the way back. */
+        return [
+          { label: group.label, href: queueHref },
+          { label: item.label, href: queueHref },
+        ];
+      }
+      if (nested.order) {
+        /* The order drawn up under a record: one step past it, the record the way back. */
+        return [
+          { label: group.label, href: queueHref },
+          { label: item.label, href: queueHref },
+          { label: record, mono: true, href: `${item.href}/${nested.segment}${suffix}` },
+          { label: "Order" },
+        ];
+      }
       return [
-        { label: group.label, href: item.href },
-        { label: item.label, href: item.href },
+        { label: group.label, href: queueHref },
+        { label: item.label, href: queueHref },
         { label: record, mono: true },
       ];
     }
@@ -1123,7 +1217,7 @@ export function courtTrail(
      back; the register is named by its number, not an identifier, so it is not mono. */
   for (const item of COURT_NAV_LINKS) {
     if (!item.href) continue;
-    const record = nestedRecordOf(pathname, item.href);
+    const record = nestedRecordOf(pathname, item.href)?.record;
     if (record !== undefined) {
       return [{ label: item.label, href: item.href }, { label: record }];
     }
