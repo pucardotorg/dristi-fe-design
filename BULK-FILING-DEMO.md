@@ -193,7 +193,7 @@ second address is `Accused address_1_2` (first accused, second address). The tem
    not). Row 3 is an example case. Both rows are skipped when you upload, so they can stay.
 2. Click **Upload Excel**. Pick the complainant, and tick the advocates who appear for it:
    you are ticked already, and any advocate on your **People** page can be added. Choose
-   `tata-capital-bulk-filing-template.xlsx`, click **Read file**.
+   `tata-capital-bulk-filing-template.xlsx`, click **Next**.
 3. Because it follows the template, it goes straight to **Review**: 12 cases read, and the
    template's 2 guide rows discarded. Case 1003 has two accused, 1006 two witnesses and
    1009 two cheques, read from the `_2` columns. Click **Create batch**.

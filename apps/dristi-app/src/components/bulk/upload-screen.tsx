@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeftIcon, CheckCircle2Icon, DownloadIcon, FileSpreadsheetIcon } from "lucide-react";
+import { ArrowLeftIcon, ArrowRightIcon, CheckCircle2Icon, DownloadIcon } from "lucide-react";
 
 import { CLIENTS, OFFICE_ADVOCATES } from "@/lib/bulk/clients";
 import {
@@ -262,8 +262,9 @@ export function UploadScreen() {
                 Download template
               </Button>
               <Button className="sm:ml-auto" disabled={!file || busy} onClick={() => void read()}>
-                {busy ? <Spinner data-icon="inline-start" /> : <FileSpreadsheetIcon data-icon="inline-start" aria-hidden />}
-                Read file
+                {busy ? <Spinner data-icon="inline-start" /> : null}
+                Next
+                {busy ? null : <ArrowRightIcon data-icon="inline-end" aria-hidden />}
               </Button>
             </div>
           </CardContent>
