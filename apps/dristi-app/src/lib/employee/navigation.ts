@@ -30,6 +30,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import { seatHolds, seatsIn } from "./seat-roles";
 import { APPROVE_COPY_QUEUE_COUNT } from "./approve-copy-application";
 import {
   COGNIZANCE_QUEUE_COUNT,
@@ -563,7 +564,17 @@ const SEAT_HIDDEN_ROWS: Partial<Record<CourtRole, ReadonlySet<string>>> = {
 export function seatHasNavRow(
   role: CourtRole,
   id: string,
+  court: CourtId = "kerala",
 ): boolean {
+  /* Approve registrations goes to whoever holds Account approver in this state
+     (court-roles §3: the Scrutiny officer in Gujarat, the Ahlmad in Punjab & Haryana).
+     Where the table names nobody yet (Kerala), the seat rules below still decide. */
+  if (id === "approve-registrations") {
+    const approvers = seatsIn(court).filter((seat) =>
+      seatHolds(seat, court, "account-approver"),
+    );
+    if (approvers.length > 0) return approvers.includes(role);
+  }
   /* Pending orders is where the magistrate signs (owner, 2026-10-14). */
   if (role === "magistrate" && id === "sign-orders") return false;
   const keep = SEAT_ROWS[role];
@@ -580,17 +591,19 @@ export function seatHasNarrowRail(role: CourtRole): boolean {
 export function courtNavItemsForSeat(
   items: CourtNavItem[],
   role: CourtRole,
+  court: CourtId = "kerala",
 ): CourtNavItem[] {
-  return items.filter((item) => seatHasNavRow(role, item.id));
+  return items.filter((item) => seatHasNavRow(role, item.id, court));
 }
 
 /** Groups, less the rows this seat does not see — and less any group left empty. */
 export function courtNavGroupsForSeat(
   groups: CourtNavGroup[],
   role: CourtRole,
+  court: CourtId = "kerala",
 ): CourtNavGroup[] {
   return groups
-    .map((group) => ({ ...group, items: courtNavItemsForSeat(group.items, role) }))
+    .map((group) => ({ ...group, items: courtNavItemsForSeat(group.items, role, court) }))
     .filter((group) => group.items.length > 0);
 }
 

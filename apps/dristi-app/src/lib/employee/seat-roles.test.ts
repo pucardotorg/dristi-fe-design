@@ -35,7 +35,7 @@ describe("seat roles follow court-roles §3", () => {
 
   it("splits Punjab & Haryana's Steno and Ahlmad", () => {
     assert.deepEqual(rolesOf("steno", "punjab-haryana"), ["order-drafter"]);
-    assert.deepEqual(rolesOf("ahlmad", "punjab-haryana"), ["order-data-filler"]);
+    assert.deepEqual(rolesOf("ahlmad", "punjab-haryana"), ["order-data-filler", "account-approver"]);
     assert.deepEqual(rolesOf("steno", "kerala"), []);
   });
 
@@ -44,5 +44,30 @@ describe("seat roles follow court-roles §3", () => {
       assert.equal(seatHolds("bench-clerk", court, "order-data-filler"), true);
       assert.equal(seatHolds("magistrate", court, "order-data-filler"), false);
     }
+  });
+
+  it("gives Account approver to the Gujarat Scrutiny officer and the P&H Ahlmad", () => {
+    assert.equal(seatHolds("scrutiny-officer", "gujarat", "account-approver"), true);
+    assert.equal(seatHolds("ahlmad", "punjab-haryana", "account-approver"), true);
+    assert.equal(seatHolds("scrutiny-officer", "punjab-haryana", "account-approver"), false);
+  });
+
+  it("makes the Reader the Process dispatcher in Gujarat and P&H, not Kerala", () => {
+    assert.equal(seatHolds("bench-clerk", "gujarat", "process-dispatcher"), true);
+    assert.equal(seatHolds("bench-clerk", "punjab-haryana", "process-dispatcher"), true);
+    assert.equal(seatHolds("bench-clerk", "kerala", "process-dispatcher"), false);
+  });
+});
+
+import { seatHasNavRow } from "./navigation";
+
+describe("Approve registrations follows the Account approver", () => {
+  it("shows it to the approver in each state, and keeps Kerala as it was", () => {
+    assert.equal(seatHasNavRow("scrutiny-officer", "approve-registrations", "gujarat"), true);
+    assert.equal(seatHasNavRow("ahlmad", "approve-registrations", "punjab-haryana"), true);
+    assert.equal(seatHasNavRow("scrutiny-officer", "approve-registrations", "punjab-haryana"), false);
+    assert.equal(seatHasNavRow("magistrate", "approve-registrations", "gujarat"), false);
+    /* Kerala's table names no approver yet: the scrutiny officer keeps it. */
+    assert.equal(seatHasNavRow("scrutiny-officer", "approve-registrations", "kerala"), true);
   });
 });

@@ -63,6 +63,9 @@ const BENCH_CLERK: readonly StaffRole[] = [
 
 const SCRUTINY: readonly StaffRole[] = ["scrutiny-officer"];
 
+/* court-roles §3.2, §3.3: the Reader also dispatches process in Gujarat and P&H. */
+const READER_DISPATCHER: readonly StaffRole[] = [...BENCH_CLERK, "process-dispatcher"];
+
 /**
  * court-roles §3.1–§3.3. A seat missing from a state's entry does not exist there: only
  * Punjab & Haryana has a separate Steno and Ahlmad.
@@ -76,17 +79,19 @@ const SEAT_ROLES: Record<CourtId, Partial<Record<CourtRole, readonly StaffRole[]
   },
   gujarat: {
     magistrate: MAGISTRATE,
-    "scrutiny-officer": SCRUTINY,
-    "bench-clerk": BENCH_CLERK,
+    /* court-roles §3.2: the Scrutiny officer also approves accounts. */
+    "scrutiny-officer": ["scrutiny-officer", "account-approver"],
+    "bench-clerk": READER_DISPATCHER,
     typist: ["order-drafter", "order-data-filler"],
   },
   "punjab-haryana": {
     magistrate: MAGISTRATE,
     "scrutiny-officer": SCRUTINY,
-    "bench-clerk": BENCH_CLERK,
+    "bench-clerk": READER_DISPATCHER,
     typist: ["order-drafter", "next-hearing-setter"],
     steno: ["order-drafter"],
-    ahlmad: ["order-data-filler"],
+    /* court-roles §3.3: the Ahlmad also approves accounts. */
+    ahlmad: ["order-data-filler", "account-approver"],
   },
 };
 
