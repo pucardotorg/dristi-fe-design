@@ -66,23 +66,22 @@ const METHODS: {
   title: string;
   tag: string;
   icon: React.ComponentType<{ className?: string }>;
-  hint: (n: number, signers: number) => string;
+  /** One fixed line: what the method takes, never a count. */
+  hint: string;
 }[] = [
   {
     id: "mobile-otp",
     title: "Mobile OTP",
     tag: "Fastest",
     icon: SmartphoneIcon,
-    hint: () =>
-      "One OTP to the advocate's mobile signs every case, for the advocate and the complainant.",
+    hint: "One OTP to the advocate's mobile signs every case, for the advocate and the complainant.",
   },
   {
     id: "dsc",
     title: "Digital Signature Certificate (DSC)",
     tag: "More secure · needs a DSC token",
     icon: KeyRoundIcon,
-    hint: (_n, s) =>
-      `Each signer plugs in their DSC token and enters its PIN once: ${s} PINs in all.`,
+    hint: "Each signer plugs in their DSC token and enters its PIN once.",
   },
   {
     id: "aadhaar",
@@ -90,18 +89,14 @@ const METHODS: {
     tag: "Secure · slowest",
     icon: UserCheckIcon,
     // Only the rule; the Why link beside it gives the reason and its source.
-    hint: () =>
-      `Aadhaar can sign only ${AADHAAR_DOCS_PER_OTP} cases at a time.`,
+    hint: `Aadhaar can sign only ${AADHAAR_DOCS_PER_OTP} cases at a time.`,
   },
   {
     id: "upload",
     title: "Upload signed copies",
     tag: "Most manual",
     icon: UploadIcon,
-    hint: (n) =>
-      n > 1
-        ? `Print each complaint, sign it by hand, scan it, and upload all ${n}.`
-        : "Print the complaint, sign it by hand, scan it, and upload it.",
+    hint: "Print each complaint, sign it by hand, scan it, and upload it.",
   },
 ];
 
@@ -317,7 +312,7 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
                           id={`sign-${m.id}-hint`}
                           className="text-caption text-muted-foreground"
                         >
-                          {m.hint(chosen.length, signers.length)}
+                          {m.hint}
                         </span>
                         {/* The reason, and its source, on demand: a Why link with the citation in its tooltip. */}
                         {m.id === "aadhaar" ? (
