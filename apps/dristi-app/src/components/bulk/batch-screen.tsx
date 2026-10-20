@@ -204,7 +204,7 @@ export function BatchScreen({ batchId }: { batchId: string }) {
         <Banner variant="warning">
           <TriangleAlertIcon />
           <div className="min-w-0 flex-1 leading-snug">
-            AI review unavailable. Documents are not compared with the cases; check them by hand.
+            AI review unavailable. Documents are not compared with the cases; check them manually.
           </div>
         </Banner>
       ) : null}

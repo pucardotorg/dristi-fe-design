@@ -69,3 +69,15 @@ test("what no label names is found by pattern and marked to check", () => {
 test("an unreadable document gives nothing", () => {
   assert.deepEqual(extractCase("scan.pdf", null).fields, {});
 });
+
+test("cheque details given in prose are read by pattern, to check", () => {
+  const x = extractCase(
+    "prose.docx",
+    "The accused issued cheque no. 300982 dated 21-08-2026 for Rs. 52,800/-, drawn on account 4586000100028812 with PUNB0458600. It was presented on 12-09-2026 and returned unpaid on 15-09-2026.",
+  );
+  assert.equal(x.fields["Cheque date"].value, "21-08-2026");
+  assert.equal(x.fields["Drawer account number"].value, "4586000100028812");
+  assert.equal(x.fields["Presentation date"].value, "12-09-2026");
+  assert.equal(x.fields["Return date"].value, "15-09-2026");
+  assert.equal(x.fields["Return date"].confidence, "check");
+});

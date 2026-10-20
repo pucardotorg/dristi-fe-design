@@ -220,8 +220,9 @@ function FoundInFile({
   );
 }
 
-/** Radix Select takes no empty value; this stands for "not in my file". */
+/** The choice that leaves a field unmatched: the default whenever no column fits. */
 const NONE = "none";
+export const SKIP = "Skip (fill manually later)";
 
 /** A sheet column as an option: its name, then its first value, smaller and in mono. */
 function ColumnOption({
@@ -297,7 +298,7 @@ function ColumnPicker({
   const anchor = useComboboxAnchor();
   const options = React.useMemo<PickOption[]>(
     () => [
-      { value: NONE, name: "Not in my file", kind: "none" },
+      { value: NONE, name: SKIP, kind: "none" },
       ...headers.map((h, k): PickOption => ({
         value: String(k),
         name: h || `Column ${k + 1}`,
@@ -323,12 +324,9 @@ function ColumnPicker({
         if (o) onPick((o as PickOption).value);
       }}
       itemToStringLabel={(o) =>
-        // Unmatched reads as an empty search box, so the placeholder invites typing.
-        (o as PickOption).kind === "none"
-          ? ""
-          : (o as PickOption).kind === "every"
-            ? `Every row: ${(o as PickOption).name}`
-            : (o as PickOption).name
+        (o as PickOption).kind === "every"
+          ? `Every row: ${(o as PickOption).name}`
+          : (o as PickOption).name
       }
       isItemEqualToValue={(a, b) =>
         (a as PickOption).value === (b as PickOption).value
@@ -350,8 +348,13 @@ function ColumnPicker({
             // Open, the field and its list read as one box: the field's lower corners square off.
             "has-[[data-popup-open]]:border-ring has-[[data-popup-open]]:ring-0 has-[[data-popup-side=bottom]]:rounded-b-none has-[[data-popup-side=top]]:rounded-t-none",
             // The same colours as the row's arrow, on the field itself.
-            state === "ok" && "border-success bg-success-muted ring-1 ring-success/40",
-            state === "warn" && "border-warning-ink bg-warning-muted ring-1 ring-warning/40",
+            state === "ok" &&
+              "border-success bg-success-muted ring-1 ring-success/40",
+            state === "warn" &&
+              "border-warning-ink bg-warning-muted ring-1 ring-warning/40",
+            // Skipped: the same treatment in grey, so it reads as decided, not forgotten.
+            state === "none" &&
+              "border-muted-foreground/60 bg-muted ring-1 ring-muted-foreground/20",
           )}
           autoComplete="off"
           showTrigger={false}
@@ -546,7 +549,8 @@ type Link = "ok" | "warn" | "none";
 /**
  * A field's arrow on the connector. Green with a white arrow: matched, and the column's
  * values fit the field. Amber: matched, but the values do not fit (the reason is under the
- * column). White: not matched yet. The shape stays the same; the label says the state.
+ * column). Grey with a white arrow: skipped, to fill manually later. The shape stays the
+ * same; the label says the state.
  */
 function LinkNode({ state, className }: { state: Link; className?: string }) {
   const label =
@@ -554,7 +558,7 @@ function LinkNode({ state, className }: { state: Link; className?: string }) {
       ? "Matched"
       : state === "warn"
         ? "Matched, check the values"
-        : "Not matched";
+        : "Skipped, fill manually later";
   return (
     <span
       role="img"
@@ -564,8 +568,7 @@ function LinkNode({ state, className }: { state: Link; className?: string }) {
         "relative z-10 flex size-7 shrink-0 items-center justify-center rounded-full",
         state === "ok" && "bg-success text-success-foreground",
         state === "warn" && "bg-warning text-warning-foreground",
-        state === "none" &&
-          "border border-hairline bg-card text-muted-foreground",
+        state === "none" && "bg-muted-foreground text-background",
         className,
       )}
     >

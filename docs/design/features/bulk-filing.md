@@ -22,6 +22,10 @@ land in **File a case › Bulk filing** as their own batch, never in the regular
    layout opens a column-matching screen, and list values the court does not know open a
    value-matching screen. Sections that repeat (a second accused, cheque, witness) are
    further columns ending `_2`, `_3`. Provakil exports both layouts.
+3. **Case documents** (AI-assisted), on SARAS 2.0: one Word file or PDF per case. AI reads
+   each document for the case's fields; the filer reviews every case on its own, against
+   its document, and confirms it or sets it aside. Confirmed cases become one batch. Offered
+   only while AI is on.
 
 Every batch then runs the same steps on one screen
 (`apps/dristi-app/src/components/bulk/batch-screen.tsx`): Cases, Documents, Scrutiny, Sign,
@@ -220,6 +224,34 @@ screen keeps the parameter as you move between tabs. `off` hides AI entirely.
 `unavailable` shows "AI review unavailable. Documents are not compared with the cases;
 check them by hand." Provakil's demo sets a document mismatch on 13 of its 220 matters.
 
+## Case documents (AI-assisted upload)
+
+**Bulk filing › Upload case documents** (`/filings/bulk/documents`), shown only when AI is
+on (`aiMode`, or `?ai=on`); with AI off or unavailable the page says so and points to the
+Excel upload, and `POST /api/bulk/extract` refuses.
+
+1. The same parties as the Excel upload (complainant, advocates, ADR), then any number of
+   `.docx` or `.pdf` files, one per case.
+2. Each is read (`lib/bulk/case-doc.ts`, a rules STAND-IN for the model): the text of the
+   Word file or the PDF's text layer, then section headings ("Accused 2", "Cheque details")
+   and "Label: value" lines, a table row of two cells reading as one. Labels are the sheet's
+   own headers and aliases, short forms inside a section ("Name" under Accused). Required
+   values no label names are found by pattern (a six-digit cheque number, an IFSC, "dated",
+   "presented on") and marked to check. A missing reference takes the file name, to check.
+3. Review, one case at a time: the document's text on one side, its fields on the other in
+   the single filing's sections. Values to check are shaded amber with the reason; required
+   values not found are marked; focusing a field lights the line it came from. A nav lists
+   every case with how many values it has to check. The footer is the filing flow's:
+   Previous case, Set aside, Confirm case, and once every case is decided, Create batch.
+4. Confirmed cases are built exactly as Excel rows are (`buildRequest`), so they meet the
+   same scrutiny; the batch's source is "Case documents".
+
+Demo documents: `npm run demo:docs` writes twenty complaints to
+`demo-files/case-documents/`, dated from today, with a README saying what each shows
+(sections, tables, prose read by pattern, loose list wording, two accused, two cheques, a
+company with its director, a missing pincode, a missing reference, a late filing with a
+condonation reason).
+
 ## Notifications
 
 A batch from the API is stored with `openedAt: null`. While it is, the bell lists it
@@ -241,6 +273,7 @@ they never notify. The bell reads the batch list on each page change and every 3
 | Advocates for a sender | `GET /api/bulk/v1/advocates` (bearer key) |
 | Excel spec, sections, repeats | `apps/dristi-app/src/lib/bulk/excel-spec.ts`, `excel.ts` |
 | AI review (stand-in) | `apps/dristi-app/src/lib/bulk/ai-review.ts`, `doc-text.ts` |
+| Case documents (stand-in reader, screen, route) | `lib/bulk/case-doc.ts`, `components/bulk/documents-screen.tsx`, `POST /api/bulk/extract` |
 | Column matching | `apps/dristi-app/src/components/bulk/column-mapping.tsx` |
 | API notifications | `useApiArrivals` in `apps/dristi-app/src/components/shell/top-bar.tsx` |
 | Provakil filing dialog | `apps/provakil-mock/src/components/push-dialog.tsx` |
@@ -270,6 +303,10 @@ they never notify. The bell reads the batch list on each page change and every 3
 - A further complainant's ID card and vakalatnama attach on the Documents tab or by file name
   (`<reference>_DCM-9_2.pdf` for the ID card, `_DCM-12_2` for the vakalatnama); the sheet has
   no column for documents.
+- Case documents are read by a rules stand-in. It reads labelled briefs well and prose only
+  for the patterns it knows; a scan has no text for it and its case is filled manually. The
+  case document itself is not attached to the case; cheque, memo and notice files are added
+  on the Documents tab as for an Excel upload.
 - The AI review is a rules stand-in with the shape a model returns. Reading document text
   works on simple PDFs only.
 - Review was by the coordinator, not an independent reviewer.

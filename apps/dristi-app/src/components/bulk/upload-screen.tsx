@@ -14,10 +14,8 @@ import { CLIENTS, OFFICE_ADVOCATES } from "@/lib/bulk/clients";
 import {
   autoMap,
   buildRequest,
-  isMapped,
   followsTemplate,
   instancesIn,
-  MUST_MAP,
   readWorkbook,
   unknownValues,
   type ColumnMap,
@@ -129,7 +127,6 @@ export function UploadScreen() {
   }, [book, counts]);
   const unknown = book ? unknownValues(book.cases, map, counts) : {};
   const unknownLists = Object.keys(unknown) as ListName[];
-  const unmapped = MUST_MAP.filter((k) => !isMapped(map[k]));
   const valuesDone = unknownLists.every((l) =>
     unknown[l]!.every((v) => values[l]?.[v]),
   );
@@ -510,26 +507,13 @@ export function UploadScreen() {
         ) : null}
       </div>
       {/* The filing flow's own footer, kept at the foot of the screen: the list is long.
-          Not ready, Continue says why on hover and focus, and pressing it goes to the
-          first field still to match. */}
+          Continue always goes on: a field left on Skip is filled manually later, on
+          Scrutiny, where each case's gaps are held with their fix in place. */}
       {step === "map" && book ? (
         <FilingFooter
           showSaveState={false}
           onBack={() => setStep("setup")}
-          onContinue={() => {
-            if (unmapped.length) {
-              const header = COLUMNS.find((c) => c.key === unmapped[0])?.header;
-              const field = document.querySelector<HTMLInputElement>(
-                `input[aria-label="Column in your sheet for ${header}"]`,
-              );
-              field?.scrollIntoView({ behavior: "smooth", block: "center" });
-              field?.focus({ preventScroll: true });
-              return;
-            }
-            setStep(unknownLists.length ? "values" : "review");
-          }}
-          continueBlocked={unmapped.length > 0}
-          continueHint={`${unmapped.length} required field${unmapped.length === 1 ? "" : "s"} still to match`}
+          onContinue={() => setStep(unknownLists.length ? "values" : "review")}
         />
       ) : null}
     </div>

@@ -217,8 +217,9 @@ template**.
    - Each row reads, left to right: the field in the case (ON Courts mark), an arrow, and
      the column in your sheet (Excel mark). The dropdown shows each column's first value,
      so you can pick by what it holds; once chosen, that value shows under it.
-   - **Required fields** come first, with how many are matched. Twelve are matched already by
-     name. Match the rest:
+   - Fields with no good match say **Skip (fill manually later)**. **Continue** always goes
+     on; skipped details are filled on **Scrutiny**. Twelve are matched already by name.
+     Match the rest:
 
    | Field | Choose |
    |---|---|
@@ -240,12 +241,14 @@ template**.
    | Accused replied | Reply Recd |
    | Amount paid | Recovered After Notice |
 
-   - **Repeated sections** has a tab for each accused, cheque and notice. Open **Cheque 2**:
-     it has already followed your Cheque 1 choices, using the `_2` columns.
+   - Each column field is searchable: type part of a column's name, or of a value in it.
+     Columns already used elsewhere show a green badge; picking one asks before moving it.
+   - Sections that can repeat have tabs, as in a single filing. Open **Cheque 2**: it has
+     already followed your Cheque 1 choices, using the `_2` columns.
    - **Show optional fields** reveals the rest (accused email, police station, witnesses and
      so on), in case your sheet has them.
 
-   **Continue** becomes clickable once every required field is matched.
+   **Continue** always goes on. Fields left on Skip are filled on **Scrutiny**.
 3. A **Match your values** screen appears for the lender's own words:
    `COMPANY` and `FIRM` mean Institution; `INSUFFICIENT FUNDS` means Funds insufficient;
    `A/C CLOSED` means Account closed; `Regd. Post A/D` means Registered post (RPAD);
@@ -257,7 +260,31 @@ If the dates in the demo files are more than two weeks old, some cases will ask 
 reason for delay. To make fresh copies dated from today, run `npm run demo:files` in the
 terminal (with the demo stopped, or in a second terminal window).
 
-### Walkthrough E: Club batches
+### Walkthrough E: Upload case documents (AI)
+
+Twenty sample complaints are in `demo-files/case-documents`, one Word file per case. Its
+README says what each one shows.
+
+1. On SARAS 2.0, **Bulk filing**, click **Upload case documents**. (It is there only while
+   AI is on. With `?ai=off` in the address it disappears and the page points to Excel.)
+2. Pick the complainant and advocates as for Excel, drag in some or all of the documents,
+   and click **Read … documents**.
+3. Each case opens on its own: the document on the left, the fields read from it on the
+   right, in the same sections as a single filing. Green fields were read as labelled.
+   Amber ones need a look, with the reason under them; click one and its line in the
+   document lights up. Required fields not in the document are marked.
+4. Correct anything, then **Confirm case**, or **Set aside** to leave it out. The list on
+   the left shows where every case stands. Good ones to open:
+   - `TCL-AHD-PL-2004`: the cheque is described in a sentence, so its details are amber.
+   - `TCL-AHD-PL-2006`: "Insufficient funds" is read as the court's "Funds insufficient".
+   - `TCL-AHD-TL-2005`: two accused.
+   - `TCL-AHD-PL-2018`: no loan number, so the file name stands in, marked to check.
+5. When every case is decided, **Create batch with … cases**. It continues as in
+   Walkthrough B, starting on **Documents**.
+
+To make fresh copies dated from today, run `npm run demo:docs`.
+
+### Walkthrough F: Club batches
 
 On SARAS 2.0, **Bulk filing**, tick two or more batches for the same complainant and click
 **Club … batches**. Their open cases move into one new batch; the old ones show "Clubbed

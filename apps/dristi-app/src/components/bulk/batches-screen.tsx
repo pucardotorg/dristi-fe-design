@@ -2,13 +2,14 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   CircleCheckIcon,
   DownloadIcon,
   FileSpreadsheetIcon,
   FileTextIcon,
   Layers2Icon,
+  SparklesIcon,
   UploadIcon,
 } from "lucide-react";
 
@@ -50,6 +51,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+
+import { aiModeFrom } from "@/lib/bulk/ai-review";
+import { useCourt } from "@/components/court/court-provider";
 
 import { bulkApi, type BatchSummary } from "./api";
 import { useGujarat } from "./court-guard";
@@ -93,7 +97,8 @@ export function SourceLabel({
           source.kind === "api" && "bg-info-muted text-info-muted-foreground",
           source.kind === "excel" &&
             "bg-success-muted text-success-muted-foreground",
-          source.kind === "documents" && "border border-hairline bg-card text-foreground",
+          source.kind === "documents" &&
+            "border border-hairline bg-card text-foreground",
           source.kind === "clubbed" && "bg-muted text-muted-foreground",
         )}
       >
@@ -130,6 +135,8 @@ export function SourceLabel({
 /** Every batch, newest first. Batches never mix; clubbing is the filer's deliberate act. */
 export function BatchesScreen() {
   const ready = useGujarat();
+  const { profile } = useCourt();
+  const ai = aiModeFrom(useSearchParams().get("ai"), profile.aiMode);
   const router = useRouter();
   const [batches, setBatches] = React.useState<BatchSummary[] | null>(null);
   const [error, setError] = React.useState<string | null>(null);
@@ -262,6 +269,15 @@ export function BatchesScreen() {
             <DownloadIcon data-icon="inline-start" aria-hidden />
             Download Excel template
           </Button>
+          {/* The AI-assisted route exists only while AI is on for the court (or ?ai=on). */}
+          {ai === "on" ? (
+            <Button asChild variant="outline">
+              <Link href="/filings/bulk/documents">
+                <SparklesIcon data-icon="inline-start" aria-hidden />
+                Upload case documents
+              </Link>
+            </Button>
+          ) : null}
           <Button asChild>
             <Link href="/filings/bulk/upload">
               <UploadIcon data-icon="inline-start" aria-hidden />

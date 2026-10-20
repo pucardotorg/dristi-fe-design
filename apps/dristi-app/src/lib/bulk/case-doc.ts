@@ -162,6 +162,10 @@ const PATTERNS: { key: string; re: RegExp; note: string }[] = [
   { key: "chequeNumber", re: /cheque\s*(?:no\.?|number|#)?\s*[:.-]?\s*(\d{6})\b/i, note: "Read from the text, not a labelled field" },
   { key: "chequeAmount", re: /(?:rs\.?|₹|inr)\s*([\d,]+(?:\.\d+)?)/i, note: "The first amount in the document" },
   { key: "chequeIfsc", re: /\b([A-Z]{4}0[A-Z0-9]{6})\b/, note: "The first IFSC in the document" },
+  { key: "chequeDate", re: /cheque\b.{0,60}?\bdated\s+(\d{1,2}[-/.]\d{1,2}[-/.]\d{4})/i, note: "Read from the text, not a labelled field" },
+  { key: "chequeAccount", re: /\b(?:drawn on|from)\s+(?:a\/c|account)(?:\s+no\.?)?\s+(\d{6,18})\b/i, note: "Read from the text, not a labelled field" },
+  { key: "presentDate", re: /\bpresented\s+on\s+(\d{1,2}[-/.]\d{1,2}[-/.]\d{4})/i, note: "Read from the text, not a labelled field" },
+  { key: "returnDate", re: /\breturned(?:\s+unpaid)?\s+on\s+(\d{1,2}[-/.]\d{1,2}[-/.]\d{4})/i, note: "Read from the text, not a labelled field" },
 ];
 
 /**
