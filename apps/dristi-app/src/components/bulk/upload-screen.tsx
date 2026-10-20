@@ -29,7 +29,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Spinner } from "@/components/ui/spinner";
@@ -37,6 +36,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 
 import { downloadTemplate } from "./batches-screen";
 import { useGujarat } from "./court-guard";
+import { FileDrop } from "./file-drop";
 
 type Step = "setup" | "map" | "values" | "review";
 
@@ -226,7 +226,14 @@ export function UploadScreen() {
             </Field>
             <Field className="gap-1.5">
               <FieldLabel htmlFor="sheet">Excel file</FieldLabel>
-              <Input id="sheet" type="file" accept=".xlsx,.csv" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+              <FileDrop
+                id="sheet"
+                accept=".xlsx,.csv"
+                files={file ? [file] : []}
+                onFiles={(f) => setFile(f[0] ?? null)}
+                prompt="Drag your Excel file here"
+                hint=".xlsx or .csv"
+              />
               <span className="text-caption text-muted-foreground">
                 The template&apos;s columns go straight in. Any other layout is matched on the next step.
               </span>

@@ -23,6 +23,7 @@ import { Spinner } from "@/components/ui/spinner";
 
 import { bulkApi, type CaseView } from "./api";
 import type { BatchCtx } from "./batch-screen";
+import { FileDrop } from "./file-drop";
 
 type Signer = { id: string; name: string; role: string; mobile?: string };
 
@@ -297,6 +298,7 @@ function SignFlow({
   const [done, setDone] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [uploads, setUploads] = React.useState<Record<string, string>>({});
+  const [signedFiles, setSignedFiles] = React.useState<File[]>([]);
   const [wasOpen, setWasOpen] = React.useState(open);
   if (open !== wasOpen) {
     setWasOpen(open);
@@ -306,6 +308,7 @@ function SignFlow({
       setDone(false);
       setError(null);
       setUploads({});
+      setSignedFiles([]);
     }
   }
 
@@ -363,19 +366,22 @@ function SignFlow({
             </DialogHeader>
             <Field className="gap-1.5">
               <FieldLabel htmlFor="signed-copies">Signed copies</FieldLabel>
-              <Input
+              <FileDrop
                 id="signed-copies"
-                type="file"
-                multiple
                 accept=".pdf"
-                onChange={(e) => {
+                multiple
+                files={signedFiles}
+                onFiles={(picked) => {
+                  setSignedFiles((prev) => [...prev, ...picked]);
                   const map: Record<string, string> = { ...uploads };
-                  for (const f of Array.from(e.target.files ?? [])) {
+                  for (const f of picked) {
                     const c = cases.find((x) => f.name.toLowerCase().startsWith(`${x.reference.toLowerCase()}_signed`));
                     if (c) map[c.id] = f.name;
                   }
                   setUploads(map);
                 }}
+                prompt="Drag the signed copies here"
+                hint="PDF, one per case"
               />
             </Field>
             <ul className="flex max-h-60 flex-col gap-1 overflow-y-auto text-body-compact">
