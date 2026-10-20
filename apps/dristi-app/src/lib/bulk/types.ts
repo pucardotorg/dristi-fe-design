@@ -8,7 +8,11 @@
  * deliberately, which moves the cases into a new batch and closes the originals.
  */
 
-import type { FilingDraft, SignInstrument } from "@/lib/filing/types";
+import type {
+  FilingDraft,
+  SignInstrument,
+  StoredFileRef,
+} from "@/lib/filing/types";
 
 export type BatchSourceKind = "api" | "excel" | "documents" | "clubbed";
 
@@ -72,6 +76,8 @@ export type BatchCase = {
   signedWith: BulkSignMethod | null;
   /** The per-case receipt issued against the batch's one payment (PRD §4.2). */
   receiptNumber: string | null;
+  /** The Word file or PDF the case was read from, when it came in as a case document. */
+  original?: StoredFileRef;
 };
 
 export type BatchPayment = {

@@ -9,7 +9,6 @@ import {
   FileSpreadsheetIcon,
   FileTextIcon,
   Layers2Icon,
-  SparklesIcon,
   UploadIcon,
 } from "lucide-react";
 
@@ -284,19 +283,10 @@ export function BatchesScreen() {
             <DownloadIcon data-icon="inline-start" aria-hidden />
             Download Excel template
           </Button>
-          {/* The AI-assisted route exists only while AI is on for the court (or ?ai=on). */}
-          {ai === "on" ? (
-            <Button asChild variant="outline">
-              <Link href="/filings/bulk/documents">
-                <SparklesIcon data-icon="inline-start" aria-hidden />
-                Upload case documents
-              </Link>
-            </Button>
-          ) : null}
           <Button asChild>
             <Link href="/filings/bulk/upload">
               <UploadIcon data-icon="inline-start" aria-hidden />
-              Upload Excel
+              {ai === "on" ? "Upload cases" : "Upload Excel"}
             </Link>
           </Button>
         </div>

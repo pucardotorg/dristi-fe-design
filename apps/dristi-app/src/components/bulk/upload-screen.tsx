@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
@@ -10,6 +10,8 @@ import {
   DownloadIcon,
 } from "lucide-react";
 
+import { aiModeFrom } from "@/lib/bulk/ai-review";
+import type { CaseExtraction } from "@/lib/bulk/case-doc";
 import { CLIENTS, OFFICE_ADVOCATES } from "@/lib/bulk/clients";
 import {
   autoMap,
@@ -24,7 +26,9 @@ import {
   type Workbookish,
 } from "@/lib/bulk/excel";
 import { COLUMNS, GROUPS, LISTS, type ListName } from "@/lib/bulk/excel-spec";
+import type { StoredFileRef } from "@/lib/filing/types";
 import { cn } from "@/lib/utils";
+import { useCourt } from "@/components/court/court-provider";
 import {
   TABLE_CELL,
   TABLE_HEAD,
@@ -74,6 +78,9 @@ import { FileDrop } from "./file-drop";
 
 type Step = "setup" | "map" | "values" | "review";
 
+/** Case documents, as opposed to a sheet. */
+const DOC = /\.(docx|pdf|txt)$/i;
+
 const LIST_TITLE: Record<ListName, string> = {
   complainantEntity: "Complainant institution type",
   gender: "Gender",
@@ -102,7 +109,19 @@ export function UploadScreen() {
     OFFICE_ADVOCATES[0].barNumber,
   ]);
   const [adr, setAdr] = React.useState<"yes" | "no">("no");
-  const [file, setFile] = React.useState<File | null>(null);
+  const [files, setFiles] = React.useState<File[]>([]);
+  const file = files[0] ?? null;
+  // With AI on, a Word file or PDF per case can stand in for the sheet: each is read into
+  // the template's columns, and the rest of the upload is the same.
+  const { profile } = useCourt();
+  const ai = aiModeFrom(useSearchParams().get("ai"), profile.aiMode);
+  const docs = files.length > 0 && files.every((f) => DOC.test(f.name));
+  const [originals, setOriginals] = React.useState<
+    Record<string, { file: StoredFileRef; text: string | null }>
+  >({});
+  const fileName = docs
+    ? `${files.length} case document${files.length === 1 ? "" : "s"}`
+    : (file?.name ?? "");
   const [book, setBook] = React.useState<Workbookish | null>(null);
   const [map, setMap] = React.useState<ColumnMap>({});
   const [counts, setCounts] = React.useState<InstanceCounts>({});
@@ -136,14 +155,17 @@ export function UploadScreen() {
     setBusy(true);
     setError(null);
     try {
-      const b = await readWorkbook(file);
+      if (files.length > 1 && !docs)
+        throw new Error("Upload one Excel file, or Word files and PDFs only.");
+      const b = docs ? await readDocuments() : await readWorkbook(file);
       if (!b.cases.rows.length)
         throw new Error("No case rows were found in this file.");
       setBook(b);
       const m = autoMap(b.cases.headers);
       setMap(m);
       setCounts({});
-      const follows = followsTemplate(b.cases.headers);
+      // Documents are read straight into the template's columns: nothing to match.
+      const follows = docs || followsTemplate(b.cases.headers);
       setTemplate(follows);
       const u = unknownValues(b.cases, m);
       setStep(follows ? (Object.keys(u).length ? "values" : "review") : "map");
@@ -152,6 +174,50 @@ export function UploadScreen() {
     } finally {
       setBusy(false);
     }
+  };
+
+  /** Each document read into one row, under the template's own headers. */
+  const readDocuments = async (): Promise<Workbookish> => {
+    const form = new FormData();
+    for (const f of files) form.append("files", f);
+    form.append("ai", ai);
+    const res = await fetch("/api/bulk/extract", {
+      method: "POST",
+      body: form,
+    });
+    const json = await res.json();
+    if (!res.ok)
+      throw new Error(json.error ?? "The documents could not be read.");
+    const read = json.cases as (CaseExtraction & {
+      original: StoredFileRef;
+      text: string | null;
+    })[];
+    const values = read.map((x) => {
+      const v = Object.fromEntries(
+        Object.entries(x.fields).map(([k, f]) => [k, f.value]),
+      );
+      // No reference in the document: the file's name stands in.
+      if (!v["Case reference"]?.trim())
+        v["Case reference"] = x.fileName.replace(/\.[^.]+$/, "");
+      return v;
+    });
+    setOriginals(
+      Object.fromEntries(
+        read.map((x, i) => [
+          values[i]["Case reference"].trim(),
+          { file: x.original, text: x.text },
+        ]),
+      ),
+    );
+    const headers = [...new Set(values.flatMap((v) => Object.keys(v)))];
+    return {
+      cases: {
+        name: "Cases",
+        headers,
+        rows: values.map((v) => headers.map((h) => v[h] ?? "")),
+        discarded: 0,
+      },
+    };
   };
 
   const create = async () => {
@@ -170,14 +236,18 @@ export function UploadScreen() {
             bars.includes(b),
           ),
           adr,
-          fileName: file.name,
+          fileName,
         },
         counts,
       );
       const res = await fetch("/api/bulk/batches", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ request, fileName: file.name }),
+        body: JSON.stringify(
+          docs
+            ? { request, fileName, from: "documents", originals }
+            : { request, fileName },
+        ),
       });
       const json = await res.json();
       if (!res.ok)
@@ -212,7 +282,9 @@ export function UploadScreen() {
             Bulk filing
           </Link>
           <div className="flex flex-col gap-1">
-            <h1 className={cn(PAGE_TITLE, "text-foreground")}>Upload Excel</h1>
+            <h1 className={cn(PAGE_TITLE, "text-foreground")}>
+              {ai === "on" ? "Upload cases" : "Upload Excel"}
+            </h1>
             <p className={PAGE_SUBTITLE}>
               Each upload becomes its own batch. Cases arrive as drafts;
               documents are added after.
@@ -261,14 +333,29 @@ export function UploadScreen() {
                 setAdr={setAdr}
               />
               <Field className="gap-1.5">
-                <FieldLabel htmlFor="sheet">Excel file</FieldLabel>
+                <FieldLabel htmlFor="sheet">
+                  {ai === "on"
+                    ? "Excel file, or one document per case"
+                    : "Excel file"}
+                </FieldLabel>
                 <FileDrop
                   id="sheet"
-                  accept=".xlsx,.csv"
-                  files={file ? [file] : []}
-                  onFiles={(f) => setFile(f[0] ?? null)}
-                  prompt="Drag your Excel file here"
-                  hint=".xlsx or .csv"
+                  accept={
+                    ai === "on" ? ".xlsx,.csv,.docx,.pdf,.txt" : ".xlsx,.csv"
+                  }
+                  multiple={ai === "on"}
+                  files={files}
+                  onFiles={setFiles}
+                  prompt={
+                    ai === "on"
+                      ? "Drag your Excel file or case documents here"
+                      : "Drag your Excel file here"
+                  }
+                  hint={
+                    ai === "on"
+                      ? ".xlsx or .csv, or Word and PDF files"
+                      : ".xlsx or .csv"
+                  }
                 />
                 <span className="text-caption text-muted-foreground">
                   The template&apos;s columns go straight in. Any other layout
@@ -398,12 +485,14 @@ export function UploadScreen() {
                   aria-hidden
                 />
                 <span className="tabular-nums">{book.cases.rows.length}</span>{" "}
-                cases read from {file?.name}
+                cases read from {fileName}
               </CardTitle>
               <CardDescription>
-                {template
-                  ? "The file follows the template."
-                  : "Columns matched."}
+                {docs
+                  ? "Read by AI from the documents."
+                  : template
+                    ? "The file follows the template."
+                    : "Columns matched."}
                 {book.cases.discarded
                   ? ` ${book.cases.discarded} template guide row${book.cases.discarded === 1 ? "" : "s"} (format or example) discarded.`
                   : ""}

@@ -1,16 +1,6 @@
-import type { Metadata } from "next";
-import { Suspense } from "react";
+import { redirect } from "next/navigation";
 
-import { DocumentsScreen } from "@/components/bulk/documents-screen";
-
-export const metadata: Metadata = { title: "Upload case documents" };
-
+/** Case documents now go through the same upload as Excel. */
 export default function DocumentsPage() {
-  return (
-    <main className="flex min-w-0 flex-1 flex-col">
-      <Suspense>
-        <DocumentsScreen />
-      </Suspense>
-    </main>
-  );
+  redirect("/filings/bulk/upload");
 }

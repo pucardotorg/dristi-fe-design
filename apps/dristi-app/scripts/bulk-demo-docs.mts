@@ -244,8 +244,7 @@ writeFileSync(
   path.join(OUT, "README.md"),
   `# Demo case documents
 
-Twenty sample complaints for the AI-assisted bulk upload (**Bulk filing › Upload case
-documents**), one Word file per case. Regenerate with \`npm run demo:docs\`; dates are set
+Twenty sample complaints for the AI-assisted bulk upload (**Bulk filing › Upload cases**), one Word file per case. Regenerate with \`npm run demo:docs\`; dates are set
 from the day they are made.
 
 What each one shows on review:

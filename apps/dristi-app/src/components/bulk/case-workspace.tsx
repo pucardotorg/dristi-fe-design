@@ -19,6 +19,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { bulkApi, type BatchView } from "./api";
 import { saveLabel, useAutosave } from "./autosave";
 import { demoPdf } from "./demo-fill";
+import { OriginalDoc } from "./original-doc";
 import { Slot } from "./documents-tab";
 import { CaseEditor, detailFlags, filledByEdit, pathOf } from "./scrutiny-tab";
 import { CaseBadge } from "./stage";
@@ -176,6 +177,12 @@ export function CaseWorkspace({
               {c.reference}
               {c.cheque ? ` · Cheque ${c.cheque}` : ""}
               {c.amount ? ` · ${money(c.amount)}` : ""}
+              {c.original ? (
+                <>
+                  {" · "}
+                  <OriginalDoc original={c.original} />
+                </>
+              ) : null}
             </span>
           </div>
         </div>

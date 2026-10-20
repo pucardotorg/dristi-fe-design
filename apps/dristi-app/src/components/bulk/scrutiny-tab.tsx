@@ -35,6 +35,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { bulkApi, type CaseView } from "./api";
 import { saveLabel, useAutosave } from "./autosave";
+import { OriginalDoc } from "./original-doc";
 import { CaseList } from "./case-list";
 import { demoEdits } from "./demo-fill";
 import type { BatchCtx } from "./batch-screen";
@@ -604,6 +605,11 @@ export function CaseEditor({
               <span>{c.reference}</span>
               {c.cheque ? <span>· Cheque {c.cheque}</span> : null}
               {c.amount ? <span>· {money(c.amount)}</span> : null}
+              {c.original ? (
+                <span>
+                  · <OriginalDoc original={c.original} />
+                </span>
+              ) : null}
             </span>
           </div>
           <Button asChild variant="ghost" className="shrink-0">

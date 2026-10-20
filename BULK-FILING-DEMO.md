@@ -269,6 +269,28 @@ terminal (with the demo stopped, or in a second terminal window).
 Twenty sample complaints are in `demo-files/case-documents`, one Word file per case. Its
 README says what each one shows.
 
+1. On SARAS 2.0, **Bulk filing**, click **Upload cases**. (While AI is on, it takes Word
+   files and PDFs as well as Excel. With `?ai=off` in the address it takes Excel only.)
+2. Pick the complainant and advocates as for Excel, drag in some or all of the documents,
+   and click **Next**. The AI reads each document into the template's columns, so there
+   is no column matching; the review shows one row per document.
+3. **Create batch**. It continues as in Walkthrough B, starting on **Documents**.
+4. In **Case details**, check each case as for any batch. Fields the document did not
+   have are flagged. **Original document** beside the case reference opens the file the
+   case was read from. Good ones to open:
+   - `TCL-AHD-PL-2004`: the cheque is described in a sentence.
+   - `TCL-AHD-PL-2006`: "Insufficient funds" is read as the court's "Funds insufficient".
+   - `TCL-AHD-TL-2005`: two accused.
+   - `TCL-AHD-PL-2018`: no loan number, so the file name stands in.
+
+To make fresh copies dated from today, run `npm run demo:files` in the
+terminal (with the demo stopped, or in a second terminal window).
+
+### Walkthrough E: Upload case documents (AI)
+
+Twenty sample complaints are in `demo-files/case-documents`, one Word file per case. Its
+README says what each one shows.
+
 1. On SARAS 2.0, **Bulk filing**, click **Upload case documents**. (It is there only while
    AI is on. With `?ai=off` in the address it disappears and the page points to Excel.)
 2. Pick the complainant and advocates as for Excel, drag in some or all of the documents,
