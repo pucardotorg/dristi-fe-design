@@ -196,6 +196,12 @@ export function AttendanceSection({
           })}
         </ul>
       </div>
+      {/* `ATT-02`: the screen leaves *not required* out as a button and lets it follow
+          from leaving a person unmarked — so the roll is never incomplete, and attendance
+          never holds up sending for signing (`ATT-04`). */}
+      <p className="text-caption text-muted-foreground">
+        Anyone left unmarked is recorded as not required, and is not printed on the order.
+      </p>
     </section>
   );
 }

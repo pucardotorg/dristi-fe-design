@@ -364,7 +364,21 @@ export function courtCaseStageLabel(id: CourtCaseStage): string {
 /** Which side of the cause a lawyer appears for. The row marks it (C) / (A). */
 export type CounselSide = "complainant" | "accused";
 
-export type CourtCounsel = { name: string; side: CounselSide };
+export type CourtCounsel = {
+  name: string;
+  side: CounselSide;
+  /**
+   * The party this advocate appears for, by name. Left out, they appear for every party
+   * on their side — the usual case of one complainant and one accused.
+   */
+  party?: string;
+};
+
+/** A party beyond the one named in the cause title — a second accused, say. */
+export type CourtParty = { name: string; side: CounselSide };
+
+/** Someone appearing on a party's power of attorney (court-roles: PoA holder). */
+export type CourtPoaHolder = { name: string; side: CounselSide; for: string };
 
 export type CourtHearing = {
   id: string;
@@ -380,6 +394,10 @@ export type CourtHearing = {
   parties: { complainant: string; accused: string };
   /** Counsel on record for the listing. A side may have none — no vakalat yet. */
   counsel: CourtCounsel[];
+  /** Further complainants or accused, after the ones in the cause title. */
+  otherParties?: CourtParty[];
+  /** PoA holders appearing for a party (`ATT-01`). */
+  poaHolders?: CourtPoaHolder[];
   purpose: CourtHearingPurposeId;
   status: CourtHearingStatus;
 };
@@ -606,8 +624,13 @@ export const CAUSE_LIST: CourtHearing[] = [
     parties: { complainant: "Priya Menon", accused: "Sabari Textiles" },
     counsel: [
       { name: "Adv. Anitha George", side: "complainant" },
-      { name: "Adv. Feroz Hameed", side: "accused" },
+      { name: "Adv. Feroz Hameed", side: "accused", party: "Sabari Textiles" },
     ],
+    /* A firm and its partner, both accused (§141 NI Act); the partner appears in person.
+       The complainant is represented on a power of attorney too. A sample for
+       `ATT-01`'s roll: every party and PoA holder, one advocate line per party. */
+    otherParties: [{ name: "Ramesh Kumar", side: "accused" }],
+    poaHolders: [{ name: "Arun Menon", side: "complainant", for: "Priya Menon" }],
     stage: "arguments",
     purpose: "arguments",
     status: "scheduled",

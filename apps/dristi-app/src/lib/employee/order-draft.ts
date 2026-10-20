@@ -45,8 +45,8 @@ export type Appearance = {
    * because the label is copy and will be translated.
    */
   side: CounselSide;
-  /** The party themselves, or counsel appearing for them. */
-  kind: "party" | "counsel";
+  /** The party themselves, counsel appearing for them, or their PoA holder. */
+  kind: "party" | "counsel" | "poa";
   /**
    * Counsel only: the advocates on record for the side. The roll asks once whether the
    * side is represented — any one of them appearing is enough — so they are named here
@@ -56,35 +56,53 @@ export type Appearance = {
 };
 
 /**
- * Who appears, in the order a day-order names them: the complainant, then whether the
- * complainant is represented, then the accused, then whether the accused is represented.
- * Counsel is one row per side, not one per advocate: with several on record, one of them
- * appearing is enough and the rest are not absences (owner, 2026-10-15). A side with no
- * vakalat has no advocate row.
+ * Who appears, in the order a day-order names them (`ATT-01`): **every complainant**, each
+ * followed by **one advocate line** for them, then the complainant side's **PoA holders**;
+ * then the same for every accused. One advocate line per party, not per advocate: with
+ * several on record, one of them appearing is enough. A party appearing in person — no
+ * advocate on record for them — has no advocate line.
+ *
+ * The first party on each side keeps the ids the roll has always used (`complainant`,
+ * `complainant-counsel`), so marks saved on an existing draft still apply.
  */
 export function appearancesFor(hearing: CourtHearing): Appearance[] {
   return (["complainant", "accused"] as const).flatMap((side): Appearance[] => {
-    const party: Appearance = {
-      id: side,
-      name: hearing.parties[side],
-      role: side === "complainant" ? "Complainant" : "Accused",
-      side,
-      kind: "party",
-    };
-    const advocates = counselFor(hearing, side).map((counsel) => counsel.name);
-    if (advocates.length === 0) return [party];
-    const office = `Advocate for the ${side}`;
-    return [
-      party,
-      {
-        id: `${side}-counsel`,
-        name: office,
-        role: office,
-        side,
-        kind: "counsel",
-        advocates,
-      },
+    const role = side === "complainant" ? "Complainant" : "Accused";
+    const parties = [
+      hearing.parties[side],
+      ...(hearing.otherParties ?? [])
+        .filter((party) => party.side === side)
+        .map((party) => party.name),
     ];
+    const counsel = counselFor(hearing, side);
+    const rows = parties.flatMap((name, index): Appearance[] => {
+      const id = index === 0 ? side : `${side}-${index + 1}`;
+      const party: Appearance = { id, name, role, side, kind: "party" };
+      const advocates = counsel
+        .filter((entry) => !entry.party || entry.party === name)
+        .map((entry) => entry.name);
+      if (advocates.length === 0) return [party];
+      /* With one party on the side, the office says the side; with several, it names
+         whose advocate this is. */
+      const office =
+        parties.length === 1 ? `Advocate for the ${side}` : `Advocate for ${name}`;
+      return [
+        party,
+        { id: `${id}-counsel`, name: office, role: office, side, kind: "counsel", advocates },
+      ];
+    });
+    const poa = (hearing.poaHolders ?? [])
+      .filter((holder) => holder.side === side)
+      .map(
+        (holder, index): Appearance => ({
+          id: `${side}-poa-${index + 1}`,
+          name: holder.name,
+          role: `PoA holder for ${holder.for}`,
+          side,
+          kind: "poa",
+        }),
+      );
+    return [...rows, ...poa];
   });
 }
 
@@ -140,7 +158,8 @@ function attendanceOffice(appearance: Appearance): string {
   if (appearance.kind === "party") {
     return `the ${appearance.role.toLowerCase()}`;
   }
-  return appearance.role.toLowerCase();
+  if (appearance.kind === "poa") return `PoA holder for ${appearance.role.replace(/^PoA holder for /, "")}`;
+  return appearance.role.replace(/^Advocate/, "advocate");
 }
 
 /** Everyone who has been marked, in roll order. */
