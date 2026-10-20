@@ -89,10 +89,9 @@ const METHODS: {
     title: "Aadhaar eSign",
     tag: "Secure · slowest",
     icon: UserCheckIcon,
-    hint: (n, s) => {
-      const all = Math.ceil(n / AADHAAR_DOCS_PER_OTP) * s;
-      return `This will need ${all} OTP${all === 1 ? "" : "s"} for ${n} case${n === 1 ? "" : "s"}.`;
-    },
+    // Only the rule; the Why link beside it gives the reason and its source.
+    hint: () =>
+      `Aadhaar can sign only ${AADHAAR_DOCS_PER_OTP} cases at a time.`,
   },
   {
     id: "upload",
@@ -100,7 +99,9 @@ const METHODS: {
     tag: "Most manual",
     icon: UploadIcon,
     hint: (n) =>
-      `Print each complaint, sign it by hand, scan it, and upload all ${n}.`,
+      n > 1
+        ? `Print each complaint, sign it by hand, scan it, and upload all ${n}.`
+        : "Print the complaint, sign it by hand, scan it, and upload it.",
   },
 ];
 
@@ -316,7 +317,7 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
                           id={`sign-${m.id}-hint`}
                           className="text-caption text-muted-foreground"
                         >
-                          {m.hint(Math.max(chosen.length, 1), signers.length)}
+                          {m.hint(chosen.length, signers.length)}
                         </span>
                         {/* The reason, and its source, on demand: a Why link with the citation in its tooltip. */}
                         {m.id === "aadhaar" ? (
