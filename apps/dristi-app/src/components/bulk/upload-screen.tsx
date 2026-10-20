@@ -169,7 +169,7 @@ export function UploadScreen() {
               <NativeSelect id="client" value={clientId} onChange={(e) => setClientId(e.target.value)}>
                 {CLIENTS.map((c) => (
                   <NativeSelectOption key={c.id} value={c.id}>
-                    {c.complainant.name}, through {c.complainant.representative?.name}
+                    {c.complainant.name}
                   </NativeSelectOption>
                 ))}
               </NativeSelect>
