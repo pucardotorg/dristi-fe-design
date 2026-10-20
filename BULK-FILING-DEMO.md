@@ -144,7 +144,8 @@ Things greyed out in Provakil are not part of the demo.
 Open a batch (from Provakil's link, or from **Bulk filing** on SARAS 2.0). The tabs run in
 order:
 
-1. **Cases**: every case with its status. Click one for details and documents.
+1. **Cases**: every case with its status. Click one to open it in a window: **Details** to
+   edit, **Review** to read it as the court will. The arrows (or ← →) move case by case.
 2. **Documents**: one row per case, with each document it needs stacked underneath. Cases
    missing something are open at the top. Click an empty slot, or drag a file onto it; any
    PDF on your computer will do. **View** and **Replace** sit beside a filled slot.
@@ -161,10 +162,12 @@ order:
      example a cheque scan showing a different amount from the case, or an individual whose
      name reads like a shop. Skip it the same way. Some Provakil cases carry a cheque with a
      different amount on purpose, to show this.
-4. **Sign**: choose the cases and a method. Fastest first: Mobile OTP (one OTP signs them
+4. **Review**: each case as the court will read it, its synopsis and complaint, one at a
+   time with **Next case**. **Edit in Case details** takes you back to change one.
+5. **Sign**: choose the cases and a method. Fastest first: Mobile OTP (one OTP signs them
    all), DSC, Aadhaar eSign (5 cases per OTP, so several OTPs; the note under it explains
    why and links to the rule), Upload signed copies. Any 6 digits work as the OTP or PIN.
-5. **Pay**: one payment for all the chosen cases. Each case gets its own receipt and case
+6. **Pay**: one payment for all the chosen cases. Each case gets its own receipt and case
    number, and counts as filed at that moment.
 
 Go back to Provakil and press **Refresh**: filed cases now show their case numbers.

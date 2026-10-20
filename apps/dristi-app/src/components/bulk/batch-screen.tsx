@@ -26,6 +26,7 @@ import { useGujarat } from "./court-guard";
 import { DocumentsTab } from "./documents-tab";
 import { FiledTab, ist } from "./filed-tab";
 import { PayTab } from "./pay-tab";
+import { ReviewTab } from "./review-tab";
 import { ScrutinyTab } from "./scrutiny-tab";
 import { SignTab } from "./sign-tab";
 import { StageBar } from "./stage";
@@ -89,10 +90,11 @@ export type BatchCtx = {
   batch: BatchView;
   /** Replace the batch with what an action returned. */
   setBatch: (b: BatchView) => void;
-  go: (tab: TabId) => void;
+  /** Open a tab; for Case details, optionally with one case selected. */
+  go: (tab: TabId, caseId?: string) => void;
 };
 
-const TABS = ["cases", "documents", "scrutiny", "sign", "pay", "filed"] as const;
+const TABS = ["cases", "documents", "scrutiny", "review", "sign", "pay", "filed"] as const;
 export type TabId = (typeof TABS)[number];
 
 /** One batch: its cases, their documents, the checks, then signing and payment in bulk. */
@@ -138,9 +140,10 @@ export function BatchScreen({ batchId }: { batchId: string }) {
   }, [tab, batch]);
 
   const go = React.useCallback(
-    (next: TabId) => {
+    (next: TabId, caseId?: string) => {
       const q = new URLSearchParams();
       if (next !== "cases") q.set("tab", next);
+      if (caseId) q.set("case", caseId);
       if (aiParam) q.set("ai", aiParam);
       const qs = q.toString();
       router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
@@ -293,6 +296,8 @@ export function BatchScreen({ batchId }: { batchId: string }) {
             />
             <StepTab value="documents" label="Documents" pending={docsMissing} tone="warning" what="missing documents" done={workable > 0} />
             <StepTab value="scrutiny" label="Case details" pending={attention} tone="warning" what="to review" done={workable > 0} />
+            {/* Reading each case as the court will, before anyone signs it. */}
+            <StepTab value="review" label="Review" pending={0} tone="secondary" what="to read" done={workable > 0} />
             <StepTab
               value="sign"
               label="Sign"
@@ -328,6 +333,9 @@ export function BatchScreen({ batchId }: { batchId: string }) {
         </TabsContent>
         <TabsContent value="scrutiny">
           <ScrutinyTab {...ctx} />
+        </TabsContent>
+        <TabsContent value="review">
+          <ReviewTab {...ctx} />
         </TabsContent>
         <TabsContent value="sign">
           <SignTab {...ctx} />

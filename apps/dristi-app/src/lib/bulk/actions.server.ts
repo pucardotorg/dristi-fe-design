@@ -21,6 +21,7 @@ import { GUJARAT_FEES } from "@/lib/court/fees";
 import type { FilingDraft, StoredFileRef } from "@/lib/filing/types";
 
 import type { AiMode } from "./ai-review";
+import { caseFields, type FieldGroup } from "./case-fields";
 import { resolveBar, resolveIfsc, resolvePin } from "./reference";
 import { caseFlags, caseStage, openFlags, type Flag } from "./scrutiny";
 import {
@@ -61,6 +62,8 @@ export type CaseView = {
   caseFileNumber: string | null;
   filedAt: string | null;
   documents: { group: string; name: string; required: boolean; file: StoredFileRef | null; slotKey: string | null }[];
+  /** Every detail that can be changed on Case details, grouped as the single filing groups them. */
+  fields: FieldGroup[];
 };
 
 export type BatchSummary = {
@@ -135,6 +138,7 @@ export function caseView(bc: BatchCase, batch: Batch, all: Batch[], ai: AiMode =
       file: doc.file,
       slotKey: doc.intakeKey ?? null,
     })),
+    fields: caseFields(d),
   };
 }
 
@@ -202,7 +206,8 @@ const EDITABLE = [
   /^accused\.\d+\.addresses\.\d+\.addr\.(line1|city|pin)$/,
   /^cheques\.\d+\.(dateOnCheque|amount|chequeNumber|ifsc|presentDate|returnDate|returnReason)$/,
   /^notices\.\d+\.(natureDebt|dispatchDate|modeService|deliveryDate|returnDate|nonDeliveryReason|partAmount)$/,
-  /^jurisdiction\.(ifsc|drawerPolice|condonationReason)$/,
+  /^jurisdiction\.(ifsc|payeePolice|drawerPolice|condonationReason)$/,
+  /^notices\.\d+\.(tracking|replied)$/,
 ];
 
 export function editable(path: string): boolean {
