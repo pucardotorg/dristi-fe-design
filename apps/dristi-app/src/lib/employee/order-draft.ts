@@ -130,6 +130,17 @@ export type OrderDraft = {
    * item blocks hold each item's answers, and this holds the words.
    */
   body?: RichTextValue;
+  /**
+   * The order's title as typed (`TIT-02`). Left out, the title is worked out from its
+   * order items (`order-title.ts`).
+   */
+  title?: string;
+  /**
+   * *The A-Diary text and order text are the same* (`PUB-04`). Checked unless set to
+   * `false`; unchecked, `aDiaryText` is the entry.
+   */
+  aDiarySame?: boolean;
+  aDiaryText?: string;
 };
 
 export const EMPTY_ORDER_DRAFT: OrderDraft = {

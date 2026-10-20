@@ -54,6 +54,8 @@ export type PendingOrderMeta = {
   caseNumber: string;
   /** Where the order comes from: "Hearing · Evidence", "Cognizance", an application. */
   origin: string;
+  /** The order's title (`TIT-01`), as the list shows it (`PND-03`). */
+  title?: string;
   /** The order screen it is typed on. */
   orderHref: string;
 };
@@ -148,7 +150,8 @@ export function noteOrderDraft(meta: PendingOrderMeta): void {
     current.heading === meta.heading &&
     current.caseNumber === meta.caseNumber &&
     current.origin === meta.origin &&
-    current.orderHref === meta.orderHref
+    current.orderHref === meta.orderHref &&
+    current.title === meta.title
   )
     return;
   write({
@@ -178,6 +181,16 @@ export function sendOrderForSigning(meta: PendingOrderMeta): void {
       workflowComplete: current?.everSent ? false : (current?.workflowComplete ?? false),
     },
   });
+}
+
+/** A discarded draft leaves the list: it issued nothing and records nothing (`DFT-06`). */
+export function removePendingOrder(key: string): void {
+  restore();
+  const current = orders[key];
+  if (!current || current.sent) return;
+  const { [key]: _removed, ...rest } = orders;
+  void _removed;
+  write(rest);
 }
 
 /** Back to draft, to be edited further — only before it is signed. */

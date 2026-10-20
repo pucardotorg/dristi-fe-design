@@ -247,7 +247,7 @@ export function PendingOrdersScreen() {
                   <TableHead
                     className={cn(TABLE_HEAD, "min-w-40 whitespace-normal")}
                   >
-                    From
+                    Title
                   </TableHead>
                   {showText ? (
                     <TableHead
@@ -303,7 +303,9 @@ export function PendingOrdersScreen() {
                     <TableCell
                       className={cn(TABLE_CELL, "min-w-40 whitespace-normal")}
                     >
-                      {row.origin}
+                      {/* The order's title (`PND-03`, `TIT-06`) — where it came from is no
+                          longer shown. */}
+                      {row.title ?? "Order"}
                     </TableCell>
                     {showText ? (
                       <TableCell
