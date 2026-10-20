@@ -769,6 +769,12 @@ function DetailField({
       ) : (
         <Input
           type={field.kind === "date" ? "date" : "text"}
+          // Every date on a case has happened: none can be after today.
+          max={
+            field.kind === "date"
+              ? new Date().toISOString().slice(0, 10)
+              : undefined
+          }
           inputMode={field.inputMode}
           value={value}
           disabled={disabled}

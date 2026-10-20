@@ -50,9 +50,22 @@ export type FlagLevel = "hold" | "soft";
 
 /** How a flag can be fixed in place on the scrutiny screen. */
 export type FlagFix =
-  | { kind: "text"; path: string; label: string; value: string; multiline?: boolean; inputMode?: "numeric" | "tel" | "email" }
+  | {
+      kind: "text";
+      path: string;
+      label: string;
+      value: string;
+      multiline?: boolean;
+      inputMode?: "numeric" | "tel" | "email";
+    }
   | { kind: "date"; path: string; label: string; value: string }
-  | { kind: "select"; path: string; label: string; value: string; options: { value: string; label: string }[] }
+  | {
+      kind: "select";
+      path: string;
+      label: string;
+      value: string;
+      options: { value: string; label: string }[];
+    }
   | { kind: "declare-no-contact"; accusedId: string }
   /** A missing document: an upload slot for it, right on the flag. */
   | { kind: "upload"; slotKey: string; label: string }
@@ -82,7 +95,8 @@ const MOBILE = /^[6-9]\d{9}$/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const NAME = /^[A-Za-z][A-Za-z .'-]*$/;
 
-const listed = (options: { value: string }[], v: string) => options.some((o) => o.value === v);
+const listed = (options: { value: string }[], v: string) =>
+  options.some((o) => o.value === v);
 const labelOf = (options: { value: string; label: string }[], v: string) =>
   options.find((o) => o.value === v)?.label ?? v;
 
@@ -91,26 +105,92 @@ type Push = (f: Omit<Flag, "id"> & { at: string }) => void;
 function addressFlags(
   push: Push,
   a: Address,
-  base: { rule: string; field: string; section: StepId; where: string; batchWide?: boolean },
-  path: string
+  base: {
+    rule: string;
+    field: string;
+    section: StepId;
+    where: string;
+    batchWide?: boolean;
+  },
+  path: string,
 ) {
   if (!a.line1.trim())
-    push({ ...base, rule: `${base.rule}-line`, level: "hold", at: `${path}.line1`, message: "Address line is missing.", fix: { kind: "text", path: `${path}.line1`, label: "Address", value: "" } });
+    push({
+      ...base,
+      rule: `${base.rule}-line`,
+      level: "hold",
+      at: `${path}.line1`,
+      message: "Address line is missing.",
+      fix: { kind: "text", path: `${path}.line1`, label: "Address", value: "" },
+    });
   if (!a.city.trim())
-    push({ ...base, rule: `${base.rule}-city`, level: "hold", at: `${path}.city`, message: "City is missing.", fix: { kind: "text", path: `${path}.city`, label: "City", value: "" } });
+    push({
+      ...base,
+      rule: `${base.rule}-city`,
+      level: "hold",
+      at: `${path}.city`,
+      message: "City is missing.",
+      fix: { kind: "text", path: `${path}.city`, label: "City", value: "" },
+    });
   if (!/^\d{6}$/.test(a.pin))
-    push({ ...base, rule: `${base.rule}-pin`, level: "hold", at: `${path}.pin`, message: a.pin ? `Pincode "${a.pin}" is not 6 digits.` : "Pincode is missing.", fix: { kind: "text", path: `${path}.pin`, label: "Pincode", value: a.pin, inputMode: "numeric" } });
+    push({
+      ...base,
+      rule: `${base.rule}-pin`,
+      level: "hold",
+      at: `${path}.pin`,
+      message: a.pin
+        ? `Pincode "${a.pin}" is not 6 digits.`
+        : "Pincode is missing.",
+      fix: {
+        kind: "text",
+        path: `${path}.pin`,
+        label: "Pincode",
+        value: a.pin,
+        inputMode: "numeric",
+      },
+    });
   else if (!a.district)
-    push({ ...base, rule: `${base.rule}-pin-unknown`, level: "hold", at: `${path}.pin`, message: `Pincode ${a.pin} was not found.`, fix: { kind: "text", path: `${path}.pin`, label: "Pincode", value: a.pin, inputMode: "numeric" } });
+    push({
+      ...base,
+      rule: `${base.rule}-pin-unknown`,
+      level: "hold",
+      at: `${path}.pin`,
+      message: `Pincode ${a.pin} was not found.`,
+      fix: {
+        kind: "text",
+        path: `${path}.pin`,
+        label: "Pincode",
+        value: a.pin,
+        inputMode: "numeric",
+      },
+    });
 }
 
-function dateFlag(push: Push, value: string, base: { rule: string; field: string; section: StepId; where: string }, path: string, label: string) {
+function dateFlag(
+  push: Push,
+  value: string,
+  base: { rule: string; field: string; section: StepId; where: string },
+  path: string,
+  label: string,
+) {
   if (!value) {
-    push({ ...base, level: "hold", at: path, message: `${label} is missing.`, fix: { kind: "date", path, label, value: "" } });
+    push({
+      ...base,
+      level: "hold",
+      at: path,
+      message: `${label} is missing.`,
+      fix: { kind: "date", path, label, value: "" },
+    });
     return false;
   }
   if (!ISO.test(value) || Number.isNaN(Date.parse(value))) {
-    push({ ...base, level: "hold", at: path, message: `${label} "${value}" is not a date.`, fix: { kind: "date", path, label, value: "" } });
+    push({
+      ...base,
+      level: "hold",
+      at: path,
+      message: `${label} "${value}" is not a date.`,
+      fix: { kind: "date", path, label, value: "" },
+    });
     return false;
   }
   return true;
@@ -128,129 +208,604 @@ export type ScrutinyContext = {
 export function caseFlags(bc: BatchCase, ctx: ScrutinyContext): Flag[] {
   const d: FilingDraft = bc.draft;
   const out: Flag[] = [];
-  const push: Push = ({ at, ...f }) => out.push({ ...f, id: `${f.rule}:${at}` });
+  const push: Push = ({ at, ...f }) =>
+    out.push({ ...f, id: `${f.rule}:${at}` });
 
   /*
    * ── Complainants (LIT) ── The first is the batch's own, the same on every case, so a
    * fix there applies batch-wide; a further complainant is this case's alone.
    */
   d.complainants.forEach((c, k) => {
-  const lit = {
-    section: "complainant" as StepId,
-    where: d.complainants.length > 1 ? `Complainant ${k + 1}` : "Complainant",
-    batchWide: k === 0,
-  };
-  if (c.type === "institution") {
-    if (!listed(ENTITY_TYPES, c.entType))
-      push({ ...lit, rule: "lit-17", field: "LIT-17", level: "hold", at: `c${k}.entType`, message: c.entType ? `Type of institution "${c.entType}" is not in the list.` : "Type of institution is missing.", fix: { kind: "select", path: `complainants.${k}.entType`, label: "Type of institution", value: "", options: ENTITY_TYPES } });
-    if (!c.entName.trim())
-      push({ ...lit, rule: "lit-18", field: "LIT-18", level: "hold", at: `c${k}.entName`, message: "Institution name is missing.", fix: { kind: "text", path: `complainants.${k}.entName`, label: "Institution name", value: "" } });
-    if (!isCinOrPan(c.entCinPan))
-      push({ ...lit, rule: "lit-18a", field: "LIT-18a", level: "hold", at: `c${k}.entCinPan`, message: c.entCinPan ? `"${c.entCinPan}" is not a CIN or PAN.` : "CIN or PAN is missing.", fix: { kind: "text", path: `complainants.${k}.entCinPan`, label: "CIN or PAN", value: c.entCinPan } });
-    addressFlags(push, c.entAddr, { rule: "lit-21", field: "LIT-21", ...lit }, `complainants.${k}.entAddr`);
-    const r = c.rep;
-    if (!MOBILE.test(r.mobile))
-      push({ ...lit, rule: "lit-22", field: "LIT-22", level: "hold", at: `c${k}.rep.mobile`, message: r.mobile ? `Representative's mobile "${r.mobile}" is not a 10-digit mobile number.` : "Representative's mobile is missing.", fix: { kind: "text", path: `complainants.${k}.rep.mobile`, label: "Representative's mobile", value: r.mobile, inputMode: "tel" } });
-    if (!r.name.trim())
-      push({ ...lit, rule: "lit-23", field: "LIT-23", level: "hold", at: `c${k}.rep.name`, message: "Representative's name is missing.", fix: { kind: "text", path: `complainants.${k}.rep.name`, label: "Representative's name", value: "" } });
-    if (!/^\d+$/.test(r.age) || Number(r.age) < 18)
-      push({ ...lit, rule: "lit-24", field: "LIT-24", level: "hold", at: `c${k}.rep.age`, message: r.age ? `Representative's age "${r.age}" is not valid.` : "Representative's age is missing.", fix: { kind: "text", path: `complainants.${k}.rep.age`, label: "Representative's age", value: r.age, inputMode: "numeric" } });
-    if (!r.designation.trim())
-      push({ ...lit, rule: "lit-25a", field: "LIT-25a", level: "hold", at: `c${k}.rep.designation`, message: "Representative's designation is missing.", fix: { kind: "text", path: `complainants.${k}.rep.designation`, label: "Designation", value: "" } });
-    addressFlags(push, r.addr, { rule: "lit-26", field: "LIT-26", ...lit }, `complainants.${k}.rep.addr`);
-  } else {
-    if (!c.name.trim())
-      push({ ...lit, rule: "lit-4", field: "LIT-4", level: "hold", at: `c${k}.name`, message: "Complainant's name is missing.", fix: { kind: "text", path: `complainants.${k}.name`, label: "Complainant's name", value: "" } });
-    if (!MOBILE.test(c.mobile))
-      push({ ...lit, rule: "lit-3", field: "LIT-3", level: "hold", at: `c${k}.mobile`, message: "Complainant's mobile is missing or not valid.", fix: { kind: "text", path: `complainants.${k}.mobile`, label: "Complainant's mobile", value: c.mobile, inputMode: "tel" } });
-    if (!/^\d+$/.test(c.age) || Number(c.age) < 1)
-      push({ ...lit, rule: "lit-5", field: "LIT-5", level: "hold", at: `c${k}.age`, message: c.age ? `Age "${c.age}" is not valid.` : "Complainant's age is missing.", fix: { kind: "text", path: `complainants.${k}.age`, label: "Complainant's age", value: c.age, inputMode: "numeric" } });
-    addressFlags(push, c.res, { rule: "lit-7", field: "LIT-7", ...lit }, `complainants.${k}.res`);
-  }
+    const lit = {
+      section: "complainant" as StepId,
+      where: d.complainants.length > 1 ? `Complainant ${k + 1}` : "Complainant",
+      batchWide: k === 0,
+    };
+    if (c.type === "institution") {
+      if (!listed(ENTITY_TYPES, c.entType))
+        push({
+          ...lit,
+          rule: "lit-17",
+          field: "LIT-17",
+          level: "hold",
+          at: `c${k}.entType`,
+          message: c.entType
+            ? `Type of institution "${c.entType}" is not in the list.`
+            : "Type of institution is missing.",
+          fix: {
+            kind: "select",
+            path: `complainants.${k}.entType`,
+            label: "Type of institution",
+            value: "",
+            options: ENTITY_TYPES,
+          },
+        });
+      if (!c.entName.trim())
+        push({
+          ...lit,
+          rule: "lit-18",
+          field: "LIT-18",
+          level: "hold",
+          at: `c${k}.entName`,
+          message: "Institution name is missing.",
+          fix: {
+            kind: "text",
+            path: `complainants.${k}.entName`,
+            label: "Institution name",
+            value: "",
+          },
+        });
+      if (!isCinOrPan(c.entCinPan))
+        push({
+          ...lit,
+          rule: "lit-18a",
+          field: "LIT-18a",
+          level: "hold",
+          at: `c${k}.entCinPan`,
+          message: c.entCinPan
+            ? `"${c.entCinPan}" is not a CIN or PAN.`
+            : "CIN or PAN is missing.",
+          fix: {
+            kind: "text",
+            path: `complainants.${k}.entCinPan`,
+            label: "CIN or PAN",
+            value: c.entCinPan,
+          },
+        });
+      addressFlags(
+        push,
+        c.entAddr,
+        { rule: "lit-21", field: "LIT-21", ...lit },
+        `complainants.${k}.entAddr`,
+      );
+      const r = c.rep;
+      if (!MOBILE.test(r.mobile))
+        push({
+          ...lit,
+          rule: "lit-22",
+          field: "LIT-22",
+          level: "hold",
+          at: `c${k}.rep.mobile`,
+          message: r.mobile
+            ? `Representative's mobile "${r.mobile}" is not a 10-digit mobile number.`
+            : "Representative's mobile is missing.",
+          fix: {
+            kind: "text",
+            path: `complainants.${k}.rep.mobile`,
+            label: "Representative's mobile",
+            value: r.mobile,
+            inputMode: "tel",
+          },
+        });
+      if (!r.name.trim())
+        push({
+          ...lit,
+          rule: "lit-23",
+          field: "LIT-23",
+          level: "hold",
+          at: `c${k}.rep.name`,
+          message: "Representative's name is missing.",
+          fix: {
+            kind: "text",
+            path: `complainants.${k}.rep.name`,
+            label: "Representative's name",
+            value: "",
+          },
+        });
+      if (!/^\d+$/.test(r.age) || Number(r.age) < 18)
+        push({
+          ...lit,
+          rule: "lit-24",
+          field: "LIT-24",
+          level: "hold",
+          at: `c${k}.rep.age`,
+          message: r.age
+            ? `Representative's age "${r.age}" is not valid.`
+            : "Representative's age is missing.",
+          fix: {
+            kind: "text",
+            path: `complainants.${k}.rep.age`,
+            label: "Representative's age",
+            value: r.age,
+            inputMode: "numeric",
+          },
+        });
+      if (!r.designation.trim())
+        push({
+          ...lit,
+          rule: "lit-25a",
+          field: "LIT-25a",
+          level: "hold",
+          at: `c${k}.rep.designation`,
+          message: "Representative's designation is missing.",
+          fix: {
+            kind: "text",
+            path: `complainants.${k}.rep.designation`,
+            label: "Designation",
+            value: "",
+          },
+        });
+      addressFlags(
+        push,
+        r.addr,
+        { rule: "lit-26", field: "LIT-26", ...lit },
+        `complainants.${k}.rep.addr`,
+      );
+    } else {
+      if (!c.name.trim())
+        push({
+          ...lit,
+          rule: "lit-4",
+          field: "LIT-4",
+          level: "hold",
+          at: `c${k}.name`,
+          message: "Complainant's name is missing.",
+          fix: {
+            kind: "text",
+            path: `complainants.${k}.name`,
+            label: "Complainant's name",
+            value: "",
+          },
+        });
+      if (!MOBILE.test(c.mobile))
+        push({
+          ...lit,
+          rule: "lit-3",
+          field: "LIT-3",
+          level: "hold",
+          at: `c${k}.mobile`,
+          message: "Complainant's mobile is missing or not valid.",
+          fix: {
+            kind: "text",
+            path: `complainants.${k}.mobile`,
+            label: "Complainant's mobile",
+            value: c.mobile,
+            inputMode: "tel",
+          },
+        });
+      if (!/^\d+$/.test(c.age) || Number(c.age) < 1)
+        push({
+          ...lit,
+          rule: "lit-5",
+          field: "LIT-5",
+          level: "hold",
+          at: `c${k}.age`,
+          message: c.age
+            ? `Age "${c.age}" is not valid.`
+            : "Complainant's age is missing.",
+          fix: {
+            kind: "text",
+            path: `complainants.${k}.age`,
+            label: "Complainant's age",
+            value: c.age,
+            inputMode: "numeric",
+          },
+        });
+      addressFlags(
+        push,
+        c.res,
+        { rule: "lit-7", field: "LIT-7", ...lit },
+        `complainants.${k}.res`,
+      );
+    }
   });
 
   /* ── Advocate (ADV) ── */
   d.advocates.forEach((a, i) => {
     if (!a.name.trim())
-      push({ rule: "adv-3", field: "ADV-3", section: "advocate", where: `Advocate ${i + 1}`, batchWide: true, level: "hold", at: `adv.${i}`, message: a.barNumber ? `Bar registration ${a.barNumber} was not found with the Bar Council.` : "Bar registration number is missing.", fix: { kind: "select", path: `advocates.${i}.barNumber`, label: "Advocate", value: "", options: OFFICE_ADVOCATES.map((b) => ({ value: b.barNumber, label: `${b.name}, ${b.barNumber}` })) } });
+      push({
+        rule: "adv-3",
+        field: "ADV-3",
+        section: "advocate",
+        where: `Advocate ${i + 1}`,
+        batchWide: true,
+        level: "hold",
+        at: `adv.${i}`,
+        message: a.barNumber
+          ? `Bar registration ${a.barNumber} was not found with the Bar Council.`
+          : "Bar registration number is missing.",
+        fix: {
+          kind: "select",
+          path: `advocates.${i}.barNumber`,
+          label: "Advocate",
+          value: "",
+          options: OFFICE_ADVOCATES.map((b) => ({
+            value: b.barNumber,
+            label: `${b.name}, ${b.barNumber}`,
+          })),
+        },
+      });
   });
   if (d.advocates.length === 0)
-    push({ rule: "adv-1", field: "ADV-1", section: "advocate", where: "Advocate", batchWide: true, level: "hold", at: "adv", message: "No advocate is on record for the complainant." });
+    push({
+      rule: "adv-1",
+      field: "ADV-1",
+      section: "advocate",
+      where: "Advocate",
+      batchWide: true,
+      level: "hold",
+      at: "adv",
+      message: "No advocate is on record for the complainant.",
+    });
 
   /* ── Accused (ACC) ── */
-  const complainantMobiles = d.complainants.flatMap((c) => [c.mobile, c.rep.mobile]).filter(Boolean);
+  const complainantMobiles = d.complainants
+    .flatMap((c) => [c.mobile, c.rep.mobile])
+    .filter(Boolean);
   d.accused.forEach((a, i) => {
     const where = `Accused ${i + 1}`;
     const acc = { section: "accused" as StepId, where };
     const p = `accused.${i}`;
     if (!a.name.trim())
-      push({ ...acc, rule: "acc-2", field: a.type === "institution" ? "ACC-5" : "ACC-2", level: "hold", at: `${p}.name`, message: "Name is missing.", fix: { kind: "text", path: `${p}.name`, label: "Name", value: "" } });
+      push({
+        ...acc,
+        rule: "acc-2",
+        field: a.type === "institution" ? "ACC-5" : "ACC-2",
+        level: "hold",
+        at: `${p}.name`,
+        message: "Name is missing.",
+        fix: { kind: "text", path: `${p}.name`, label: "Name", value: "" },
+      });
     else if (a.type === "individual" && !NAME.test(a.name.trim()))
-      push({ ...acc, rule: "acc-2-alpha", field: "ACC-2", level: "hold", at: `${p}.name`, message: `Name "${a.name}" has characters other than letters.`, fix: { kind: "text", path: `${p}.name`, label: "Name", value: a.name } });
+      push({
+        ...acc,
+        rule: "acc-2-alpha",
+        field: "ACC-2",
+        level: "hold",
+        at: `${p}.name`,
+        message: `Name "${a.name}" has characters other than letters.`,
+        fix: { kind: "text", path: `${p}.name`, label: "Name", value: a.name },
+      });
     if (a.type === "institution" && !listed(ACCUSED_ENTITY_TYPES, a.entType))
-      push({ ...acc, rule: "acc-4", field: "ACC-4", level: "hold", at: `${p}.entType`, message: a.entType ? `Type of institution "${a.entType}" is not in the list.` : "Type of institution is missing.", fix: { kind: "select", path: `${p}.entType`, label: "Type of institution", value: "", options: ACCUSED_ENTITY_TYPES } });
+      push({
+        ...acc,
+        rule: "acc-4",
+        field: "ACC-4",
+        level: "hold",
+        at: `${p}.entType`,
+        message: a.entType
+          ? `Type of institution "${a.entType}" is not in the list.`
+          : "Type of institution is missing.",
+        fix: {
+          kind: "select",
+          path: `${p}.entType`,
+          label: "Type of institution",
+          value: "",
+          options: ACCUSED_ENTITY_TYPES,
+        },
+      });
 
     const contact = a.contacts[0] ?? { mobile: "", email: "" };
     const declared = bc.noContactDeclared.includes(a.id);
     if (!contact.mobile && !contact.email && !declared)
-      push({ ...acc, rule: "acc-6", field: "ACC-6", level: "hold", at: `${p}.contact`, message: "Neither mobile nor email is on record. Add one, or declare that neither is known.", fix: { kind: "declare-no-contact", accusedId: a.id } });
+      push({
+        ...acc,
+        rule: "acc-6",
+        field: "ACC-6",
+        level: "hold",
+        at: `${p}.contact`,
+        message:
+          "Neither mobile nor email is on record. Add one, or declare that neither is known.",
+        fix: { kind: "declare-no-contact", accusedId: a.id },
+      });
     if (contact.mobile && !MOBILE.test(contact.mobile))
-      push({ ...acc, rule: "acc-6-format", field: "ACC-6", level: "hold", at: `${p}.mobile`, message: `Mobile "${contact.mobile}" is not a 10-digit mobile number.`, fix: { kind: "text", path: `${p}.contacts.0.mobile`, label: "Mobile", value: contact.mobile, inputMode: "tel" } });
-    if (contact.mobile && complainantMobiles.some((m) => sameMobile(m, contact.mobile)))
-      push({ ...acc, rule: "lit-3-unique", field: "LIT-3", level: "hold", at: `${p}.mobile-dup`, message: "Mobile is the same as the complainant's. Each party needs their own number.", fix: { kind: "text", path: `${p}.contacts.0.mobile`, label: "Mobile", value: contact.mobile, inputMode: "tel" } });
+      push({
+        ...acc,
+        rule: "acc-6-format",
+        field: "ACC-6",
+        level: "hold",
+        at: `${p}.mobile`,
+        message: `Mobile "${contact.mobile}" is not a 10-digit mobile number.`,
+        fix: {
+          kind: "text",
+          path: `${p}.contacts.0.mobile`,
+          label: "Mobile",
+          value: contact.mobile,
+          inputMode: "tel",
+        },
+      });
+    if (
+      contact.mobile &&
+      complainantMobiles.some((m) => sameMobile(m, contact.mobile))
+    )
+      push({
+        ...acc,
+        rule: "lit-3-unique",
+        field: "LIT-3",
+        level: "hold",
+        at: `${p}.mobile-dup`,
+        message:
+          "Mobile is the same as the complainant's. Each party needs their own number.",
+        fix: {
+          kind: "text",
+          path: `${p}.contacts.0.mobile`,
+          label: "Mobile",
+          value: contact.mobile,
+          inputMode: "tel",
+        },
+      });
     if (contact.email && !EMAIL.test(contact.email))
-      push({ ...acc, rule: "acc-7", field: "ACC-7", level: "hold", at: `${p}.email`, message: `Email "${contact.email}" is not valid.`, fix: { kind: "text", path: `${p}.contacts.0.email`, label: "Email", value: contact.email, inputMode: "email" } });
+      push({
+        ...acc,
+        rule: "acc-7",
+        field: "ACC-7",
+        level: "hold",
+        at: `${p}.email`,
+        message: `Email "${contact.email}" is not valid.`,
+        fix: {
+          kind: "text",
+          path: `${p}.contacts.0.email`,
+          label: "Email",
+          value: contact.email,
+          inputMode: "email",
+        },
+      });
 
     a.addresses.forEach((b, k) =>
-      addressFlags(push, b.addr, { rule: "acc-8", field: "ACC-8", ...acc, where: a.addresses.length > 1 ? `${where}, address ${k + 1}` : where }, `${p}.addresses.${k}.addr`)
+      addressFlags(
+        push,
+        b.addr,
+        {
+          rule: "acc-8",
+          field: "ACC-8",
+          ...acc,
+          where: a.addresses.length > 1 ? `${where}, address ${k + 1}` : where,
+        },
+        `${p}.addresses.${k}.addr`,
+      ),
     );
-    if (a.addresses.every((b) => b.addr.district && b.addr.district !== COURT_DISTRICT))
-      push({ ...acc, rule: "acc-24", field: "ACC-24", level: "soft", at: `${p}.district`, message: `No address is in ${COURT_DISTRICT} district. The magistrate decides jurisdiction.` });
+    if (
+      a.addresses.every(
+        (b) => b.addr.district && b.addr.district !== COURT_DISTRICT,
+      )
+    )
+      push({
+        ...acc,
+        rule: "acc-24",
+        field: "ACC-24",
+        level: "soft",
+        at: `${p}.district`,
+        message: `No address is in ${COURT_DISTRICT} district. The magistrate decides jurisdiction.`,
+      });
 
     if (a.type === "institution") {
       if (!a.reps.some((r) => r.name.trim()))
-        push({ ...acc, rule: "acc-14", field: "ACC-14", level: "hold", at: `${p}.reps`, message: "No person responsible (S-141) is named for the institution.", fix: { kind: "text", path: `${p}.reps.0.name`, label: "Person responsible, full name", value: "" } });
+        push({
+          ...acc,
+          rule: "acc-14",
+          field: "ACC-14",
+          level: "hold",
+          at: `${p}.reps`,
+          message:
+            "No person responsible (S-141) is named for the institution.",
+          fix: {
+            kind: "text",
+            path: `${p}.reps.0.name`,
+            label: "Person responsible, full name",
+            value: "",
+          },
+        });
     }
   });
   if (d.accused.length === 0)
-    push({ rule: "acc-1", field: "ACC-1", section: "accused", where: "Accused", level: "hold", at: "accused", message: "The case has no accused." });
+    push({
+      rule: "acc-1",
+      field: "ACC-1",
+      section: "accused",
+      where: "Accused",
+      level: "hold",
+      at: "accused",
+      message: "The case has no accused.",
+    });
 
   /* ── Cheques (CHQ) ── */
   d.cheques.forEach((q, i) => {
     const where = d.cheques.length > 1 ? `Cheque ${i + 1}` : "Cheque";
     const chq = { section: "cheque" as StepId, where };
     const p = `cheques.${i}`;
-    const dated = dateFlag(push, q.dateOnCheque, { ...chq, rule: "chq-1", field: "CHQ-1" }, `${p}.dateOnCheque`, "Date on cheque");
+    const dated = dateFlag(
+      push,
+      q.dateOnCheque,
+      { ...chq, rule: "chq-1", field: "CHQ-1" },
+      `${p}.dateOnCheque`,
+      "Date on cheque",
+    );
     if (!(Number(q.amount) > 0))
-      push({ ...chq, rule: "chq-2", field: "CHQ-2", level: "hold", at: `${p}.amount`, message: "Amount is missing.", fix: { kind: "text", path: `${p}.amount`, label: "Amount (₹)", value: q.amount, inputMode: "numeric" } });
+      push({
+        ...chq,
+        rule: "chq-2",
+        field: "CHQ-2",
+        level: "hold",
+        at: `${p}.amount`,
+        message: "Amount is missing.",
+        fix: {
+          kind: "text",
+          path: `${p}.amount`,
+          label: "Amount (₹)",
+          value: q.amount,
+          inputMode: "numeric",
+        },
+      });
     if (!/^\d{6}$/.test(q.chequeNumber) || q.chequeNumber === "000000")
-      push({ ...chq, rule: "chq-3", field: "CHQ-3", level: "hold", at: `${p}.chequeNumber`, message: "Cheque number must be 6 digits.", fix: { kind: "text", path: `${p}.chequeNumber`, label: "Cheque number", value: q.chequeNumber, inputMode: "numeric" } });
+      push({
+        ...chq,
+        rule: "chq-3",
+        field: "CHQ-3",
+        level: "hold",
+        at: `${p}.chequeNumber`,
+        message: "Cheque number must be 6 digits.",
+        fix: {
+          kind: "text",
+          path: `${p}.chequeNumber`,
+          label: "Cheque number",
+          value: q.chequeNumber,
+          inputMode: "numeric",
+        },
+      });
     if (!IFSC_PATTERN.test(q.ifsc))
-      push({ ...chq, rule: "chq-5", field: "CHQ-5", level: "hold", at: `${p}.ifsc`, message: q.ifsc ? `IFSC "${q.ifsc}" is not a valid IFSC.` : "IFSC is missing.", fix: { kind: "text", path: `${p}.ifsc`, label: "Drawer bank IFSC", value: q.ifsc } });
+      push({
+        ...chq,
+        rule: "chq-5",
+        field: "CHQ-5",
+        level: "hold",
+        at: `${p}.ifsc`,
+        message: q.ifsc
+          ? `IFSC "${q.ifsc}" is not a valid IFSC.`
+          : "IFSC is missing.",
+        fix: {
+          kind: "text",
+          path: `${p}.ifsc`,
+          label: "Drawer bank IFSC",
+          value: q.ifsc,
+        },
+      });
     else if (!q.bankName)
-      push({ ...chq, rule: "chq-5-unknown", field: "CHQ-5", level: "hold", at: `${p}.ifsc`, message: `IFSC ${q.ifsc} was not found.`, fix: { kind: "text", path: `${p}.ifsc`, label: "Drawer bank IFSC", value: q.ifsc } });
-    const presented = dateFlag(push, q.presentDate, { ...chq, rule: "chq-8", field: "CHQ-8" }, `${p}.presentDate`, "Presentation date");
-    const returned = dateFlag(push, q.returnDate, { ...chq, rule: "chq-9", field: "CHQ-9" }, `${p}.returnDate`, "Return date");
+      push({
+        ...chq,
+        rule: "chq-5-unknown",
+        field: "CHQ-5",
+        level: "hold",
+        at: `${p}.ifsc`,
+        message: `IFSC ${q.ifsc} was not found.`,
+        fix: {
+          kind: "text",
+          path: `${p}.ifsc`,
+          label: "Drawer bank IFSC",
+          value: q.ifsc,
+        },
+      });
+    const presented = dateFlag(
+      push,
+      q.presentDate,
+      { ...chq, rule: "chq-8", field: "CHQ-8" },
+      `${p}.presentDate`,
+      "Presentation date",
+    );
+    const returned = dateFlag(
+      push,
+      q.returnDate,
+      { ...chq, rule: "chq-9", field: "CHQ-9" },
+      `${p}.returnDate`,
+      "Return date",
+    );
     if (dated && presented) {
       const issue = chequePresentIssue(q);
-      if (issue) push({ ...chq, rule: "chq-8-order", field: "CHQ-8", level: "hold", at: `${p}.presentDate-order`, message: `Presentation date: ${issue}`, fix: { kind: "date", path: `${p}.presentDate`, label: "Presentation date", value: q.presentDate } });
+      if (issue)
+        push({
+          ...chq,
+          rule: "chq-8-order",
+          field: "CHQ-8",
+          level: "hold",
+          at: `${p}.presentDate-order`,
+          message: `Presentation date: ${issue}`,
+          fix: {
+            kind: "date",
+            path: `${p}.presentDate`,
+            label: "Presentation date",
+            value: q.presentDate,
+          },
+        });
       const late = chequePresentedLate(q);
-      if (late) push({ ...chq, rule: "chq-11", field: "CHQ-11", level: "soft", at: `${p}.late`, message: late });
+      if (late)
+        push({
+          ...chq,
+          rule: "chq-11",
+          field: "CHQ-11",
+          level: "soft",
+          at: `${p}.late`,
+          message: late,
+        });
     }
     if (presented && returned) {
       const issue = chequeReturnIssue(q);
-      if (issue) push({ ...chq, rule: "chq-9-order", field: "CHQ-9", level: "hold", at: `${p}.returnDate-order`, message: `Return date: ${issue}`, fix: { kind: "date", path: `${p}.returnDate`, label: "Return date", value: q.returnDate } });
+      if (issue)
+        push({
+          ...chq,
+          rule: "chq-9-order",
+          field: "CHQ-9",
+          level: "hold",
+          at: `${p}.returnDate-order`,
+          message: `Return date: ${issue}`,
+          fix: {
+            kind: "date",
+            path: `${p}.returnDate`,
+            label: "Return date",
+            value: q.returnDate,
+          },
+        });
     }
     if (!q.returnReason)
-      push({ ...chq, rule: "chq-10", field: "CHQ-10", level: "hold", at: `${p}.returnReason`, message: "Return reason is missing.", fix: { kind: "select", path: `${p}.returnReason`, label: "Return reason", value: "", options: RETURN_REASONS } });
+      push({
+        ...chq,
+        rule: "chq-10",
+        field: "CHQ-10",
+        level: "hold",
+        at: `${p}.returnReason`,
+        message: "Return reason is missing.",
+        fix: {
+          kind: "select",
+          path: `${p}.returnReason`,
+          label: "Return reason",
+          value: "",
+          options: RETURN_REASONS,
+        },
+      });
     else if (!listed(RETURN_REASONS, q.returnReason))
-      push({ ...chq, rule: "chq-10-list", field: "CHQ-10", level: "hold", at: `${p}.returnReason`, message: `Return reason "${q.returnReason}" is not in the list.`, fix: { kind: "select", path: `${p}.returnReason`, label: "Return reason", value: "", options: RETURN_REASONS } });
+      push({
+        ...chq,
+        rule: "chq-10-list",
+        field: "CHQ-10",
+        level: "hold",
+        at: `${p}.returnReason`,
+        message: `Return reason "${q.returnReason}" is not in the list.`,
+        fix: {
+          kind: "select",
+          path: `${p}.returnReason`,
+          label: "Return reason",
+          value: "",
+          options: RETURN_REASONS,
+        },
+      });
     else if (!S138_SAFE_REASONS.has(q.returnReason))
-      push({ ...chq, rule: "chq-10-warn", field: "CHQ-10", level: "soft", at: `${p}.returnReason-warn`, message: `Returned for "${labelOf(RETURN_REASONS, q.returnReason)}", not insufficient funds. Check that S-138 applies.` });
-
+      push({
+        ...chq,
+        rule: "chq-10-warn",
+        field: "CHQ-10",
+        level: "soft",
+        at: `${p}.returnReason-warn`,
+        message: `Returned for "${labelOf(RETURN_REASONS, q.returnReason)}", not insufficient funds. Check that S-138 applies.`,
+      });
   });
   if (d.cheques.length === 0)
-    push({ rule: "chq-0", field: "CHQ-1", section: "cheque", where: "Cheque", level: "hold", at: "cheques", message: "The case has no cheque." });
+    push({
+      rule: "chq-0",
+      field: "CHQ-1",
+      section: "cheque",
+      where: "Cheque",
+      level: "hold",
+      at: "cheques",
+      message: "The case has no cheque.",
+    });
 
   /* ── Demand notices (LDN) ── */
   d.notices.forEach((n, i) => {
@@ -258,74 +813,379 @@ export function caseFlags(bc: BatchCase, ctx: ScrutinyContext): Flag[] {
     const ldn = { section: "demand-notice" as StepId, where };
     const p = `notices.${i}`;
     if (!listed(NATURE_OF_DEBT, n.natureDebt))
-      push({ ...ldn, rule: "ldn-1", field: "LDN-1", level: "hold", at: `${p}.natureDebt`, message: n.natureDebt ? `Nature of debt "${n.natureDebt}" is not in the list.` : "Nature of debt is missing.", fix: { kind: "select", path: `${p}.natureDebt`, label: "Nature of debt", value: "", options: NATURE_OF_DEBT } });
-    const sent = dateFlag(push, n.dispatchDate, { ...ldn, rule: "ldn-2", field: "LDN-2" }, `${p}.dispatchDate`, "Dispatch date");
+      push({
+        ...ldn,
+        rule: "ldn-1",
+        field: "LDN-1",
+        level: "hold",
+        at: `${p}.natureDebt`,
+        message: n.natureDebt
+          ? `Nature of debt "${n.natureDebt}" is not in the list.`
+          : "Nature of debt is missing.",
+        fix: {
+          kind: "select",
+          path: `${p}.natureDebt`,
+          label: "Nature of debt",
+          value: "",
+          options: NATURE_OF_DEBT,
+        },
+      });
+    const sent = dateFlag(
+      push,
+      n.dispatchDate,
+      { ...ldn, rule: "ldn-2", field: "LDN-2" },
+      `${p}.dispatchDate`,
+      "Dispatch date",
+    );
     if (sent) {
       const issue = noticeDispatchIssue(d, i);
-      if (issue) push({ ...ldn, rule: "ldn-2-order", field: "LDN-2", level: "hold", at: `${p}.dispatch-order`, message: `Dispatch date: ${issue}`, fix: { kind: "date", path: `${p}.dispatchDate`, label: "Dispatch date", value: n.dispatchDate } });
+      if (issue)
+        push({
+          ...ldn,
+          rule: "ldn-2-order",
+          field: "LDN-2",
+          level: "hold",
+          at: `${p}.dispatch-order`,
+          message: `Dispatch date: ${issue}`,
+          fix: {
+            kind: "date",
+            path: `${p}.dispatchDate`,
+            label: "Dispatch date",
+            value: n.dispatchDate,
+          },
+        });
       else if (noticeDispatchLate(d, i))
-        push({ ...ldn, rule: "ldn-2-late", field: "LDN-2", level: "soft", at: `${p}.dispatch-late`, message: "Sent more than 30 days after the cheque was returned. S-138(b) gives 30 days." });
+        push({
+          ...ldn,
+          rule: "ldn-2-late",
+          field: "LDN-2",
+          level: "soft",
+          at: `${p}.dispatch-late`,
+          message:
+            "Sent more than 30 days after the cheque was returned. S-138(b) gives 30 days.",
+        });
     }
     if (!listed(MODE_OF_SERVICE, n.modeService))
-      push({ ...ldn, rule: "ldn-3", field: "LDN-3", level: "hold", at: `${p}.modeService`, message: n.modeService ? `Mode of service "${n.modeService}" is not in the list.` : "Mode of service is missing.", fix: { kind: "select", path: `${p}.modeService`, label: "Mode of service", value: "", options: MODE_OF_SERVICE } });
+      push({
+        ...ldn,
+        rule: "ldn-3",
+        field: "LDN-3",
+        level: "hold",
+        at: `${p}.modeService`,
+        message: n.modeService
+          ? `Mode of service "${n.modeService}" is not in the list.`
+          : "Mode of service is missing.",
+        fix: {
+          kind: "select",
+          path: `${p}.modeService`,
+          label: "Mode of service",
+          value: "",
+          options: MODE_OF_SERVICE,
+        },
+      });
 
     if (bc.unknownService.includes(i)) {
-      push({ ...ldn, rule: "ldn-5", field: "LDN-5", level: "hold", at: `${p}.delivered`, message: "Delivery status is not known yet. The cause of action runs from service, so the case cannot be filed until it is.", fix: { kind: "select", path: `${p}.delivered`, label: "Was the notice delivered?", value: "", options: [{ value: "yes", label: "Yes, delivered" }, { value: "no", label: "No, returned undelivered" }] } });
+      push({
+        ...ldn,
+        rule: "ldn-5",
+        field: "LDN-5",
+        level: "hold",
+        at: `${p}.delivered`,
+        message:
+          "Delivery status is not known yet. The cause of action runs from service, so the case cannot be filed until it is.",
+        fix: {
+          kind: "select",
+          path: `${p}.delivered`,
+          label: "Was the notice delivered?",
+          value: "",
+          options: [
+            { value: "yes", label: "Yes, delivered" },
+            { value: "no", label: "No, returned undelivered" },
+          ],
+        },
+      });
     } else if (n.delivered === "yes") {
-      if (dateFlag(push, n.deliveryDate, { ...ldn, rule: "ldn-6", field: "LDN-6" }, `${p}.deliveryDate`, "Delivery date")) {
+      if (
+        dateFlag(
+          push,
+          n.deliveryDate,
+          { ...ldn, rule: "ldn-6", field: "LDN-6" },
+          `${p}.deliveryDate`,
+          "Delivery date",
+        )
+      ) {
         const issue = noticeServiceIssue(n);
-        if (issue) push({ ...ldn, rule: "ldn-6-order", field: "LDN-6", level: "hold", at: `${p}.delivery-order`, message: `Delivery date: ${issue}`, fix: { kind: "date", path: `${p}.deliveryDate`, label: "Delivery date", value: n.deliveryDate } });
+        if (issue)
+          push({
+            ...ldn,
+            rule: "ldn-6-order",
+            field: "LDN-6",
+            level: "hold",
+            at: `${p}.delivery-order`,
+            message: `Delivery date: ${issue}`,
+            fix: {
+              kind: "date",
+              path: `${p}.deliveryDate`,
+              label: "Delivery date",
+              value: n.deliveryDate,
+            },
+          });
       }
     } else {
-      if (dateFlag(push, n.returnDate, { ...ldn, rule: "ldn-7", field: "LDN-7" }, `${p}.returnDate`, "Notice return date")) {
+      if (
+        dateFlag(
+          push,
+          n.returnDate,
+          { ...ldn, rule: "ldn-7", field: "LDN-7" },
+          `${p}.returnDate`,
+          "Notice return date",
+        )
+      ) {
         const issue = noticeServiceIssue(n);
-        if (issue) push({ ...ldn, rule: "ldn-7-order", field: "LDN-7", level: "hold", at: `${p}.return-order`, message: `Return date: ${issue}`, fix: { kind: "date", path: `${p}.returnDate`, label: "Notice return date", value: n.returnDate } });
+        if (issue)
+          push({
+            ...ldn,
+            rule: "ldn-7-order",
+            field: "LDN-7",
+            level: "hold",
+            at: `${p}.return-order`,
+            message: `Return date: ${issue}`,
+            fix: {
+              kind: "date",
+              path: `${p}.returnDate`,
+              label: "Notice return date",
+              value: n.returnDate,
+            },
+          });
       }
       if (!listed(NON_DELIVERY_REASONS, n.nonDeliveryReason))
-        push({ ...ldn, rule: "ldn-8", field: "LDN-8", level: "hold", at: `${p}.nonDeliveryReason`, message: n.nonDeliveryReason ? `Reason for non-delivery "${n.nonDeliveryReason}" is not in the list.` : "Reason for non-delivery is missing.", fix: { kind: "select", path: `${p}.nonDeliveryReason`, label: "Reason for non-delivery", value: "", options: NON_DELIVERY_REASONS } });
+        push({
+          ...ldn,
+          rule: "ldn-8",
+          field: "LDN-8",
+          level: "hold",
+          at: `${p}.nonDeliveryReason`,
+          message: n.nonDeliveryReason
+            ? `Reason for non-delivery "${n.nonDeliveryReason}" is not in the list.`
+            : "Reason for non-delivery is missing.",
+          fix: {
+            kind: "select",
+            path: `${p}.nonDeliveryReason`,
+            label: "Reason for non-delivery",
+            value: "",
+            options: NON_DELIVERY_REASONS,
+          },
+        });
     }
     if (n.paymentStatus === "part") {
       const paid = Number(n.partAmount);
       if (!(paid > 0))
-        push({ ...ldn, rule: "ldn-11", field: "LDN-11", level: "hold", at: `${p}.partAmount`, message: "Part payment is recorded without an amount.", fix: { kind: "text", path: `${p}.partAmount`, label: "Amount paid (₹)", value: n.partAmount, inputMode: "numeric" } });
+        push({
+          ...ldn,
+          rule: "ldn-11",
+          field: "LDN-11",
+          level: "hold",
+          at: `${p}.partAmount`,
+          message: "Part payment is recorded without an amount.",
+          fix: {
+            kind: "text",
+            path: `${p}.partAmount`,
+            label: "Amount paid (₹)",
+            value: n.partAmount,
+            inputMode: "numeric",
+          },
+        });
       else if (paid >= totalChequeAmount(d.cheques))
-        push({ ...ldn, rule: "ldn-11-full", field: "LDN-11", level: "soft", at: `${p}.partAmount-full`, message: `₹${paid.toLocaleString("en-IN")} paid after notice covers the cheque amount. Check the debt is still due.` });
+        push({
+          ...ldn,
+          rule: "ldn-11-full",
+          field: "LDN-11",
+          level: "soft",
+          at: `${p}.partAmount-full`,
+          message: `₹${paid.toLocaleString("en-IN")} paid after notice covers the cheque amount. Check the debt is still due.`,
+        });
     } else if (n.paymentStatus !== "none") {
-      push({ ...ldn, rule: "ldn-10", field: "LDN-10", level: "hold", at: `${p}.paymentStatus`, message: "Payment after notice is not stated.", fix: { kind: "select", path: `${p}.paymentStatus`, label: "Payment after notice", value: "", options: PAYMENT_STATUS } });
+      push({
+        ...ldn,
+        rule: "ldn-10",
+        field: "LDN-10",
+        level: "hold",
+        at: `${p}.paymentStatus`,
+        message: "Payment after notice is not stated.",
+        fix: {
+          kind: "select",
+          path: `${p}.paymentStatus`,
+          label: "Payment after notice",
+          value: "",
+          options: PAYMENT_STATUS,
+        },
+      });
     }
   });
   if (d.notices.length === 0)
-    push({ rule: "ldn-0", field: "LDN-2", section: "demand-notice", where: "Demand notice", level: "hold", at: "notices", message: "The case has no demand notice." });
+    push({
+      rule: "ldn-0",
+      field: "LDN-2",
+      section: "demand-notice",
+      where: "Demand notice",
+      level: "hold",
+      at: "notices",
+      message: "The case has no demand notice.",
+    });
 
   /* ── Witnesses (WIT) — optional, but a witness given needs a name or designation and an address ── */
   d.witnesses.forEach((w, i) => {
     const contact = w.contacts[0] ?? { mobile: "", email: "" };
     const addr = w.addresses[0]?.addr;
-    const given = !!(w.fullName.trim() || w.designation.trim() || w.age || w.prove.trim() || contact.mobile || contact.email || addr?.line1.trim());
+    const given = !!(
+      w.fullName.trim() ||
+      w.designation.trim() ||
+      w.age ||
+      w.prove.trim() ||
+      contact.mobile ||
+      contact.email ||
+      addr?.line1.trim()
+    );
     if (!given) return;
-    const wit = { section: "witnesses" as StepId, where: d.witnesses.length > 1 ? `Witness ${i + 1}` : "Witness" };
+    const wit = {
+      section: "witnesses" as StepId,
+      where: d.witnesses.length > 1 ? `Witness ${i + 1}` : "Witness",
+    };
     const p = `witnesses.${i}`;
     if (!w.fullName.trim() && !w.designation.trim())
-      push({ ...wit, rule: "wit-1", field: "WIT-1", level: "hold", at: `${p}.name`, message: "Name or designation is missing.", fix: { kind: "text", path: `${p}.fullName`, label: "Witness name", value: "" } });
+      push({
+        ...wit,
+        rule: "wit-1",
+        field: "WIT-1",
+        level: "hold",
+        at: `${p}.name`,
+        message: "Name or designation is missing.",
+        fix: {
+          kind: "text",
+          path: `${p}.fullName`,
+          label: "Witness name",
+          value: "",
+        },
+      });
     if (contact.mobile && !MOBILE.test(contact.mobile))
-      push({ ...wit, rule: "wit-5", field: "WIT-5", level: "hold", at: `${p}.mobile`, message: `Mobile "${contact.mobile}" is not a 10-digit mobile number.`, fix: { kind: "text", path: `${p}.contacts.0.mobile`, label: "Witness mobile", value: contact.mobile, inputMode: "tel" } });
+      push({
+        ...wit,
+        rule: "wit-5",
+        field: "WIT-5",
+        level: "hold",
+        at: `${p}.mobile`,
+        message: `Mobile "${contact.mobile}" is not a 10-digit mobile number.`,
+        fix: {
+          kind: "text",
+          path: `${p}.contacts.0.mobile`,
+          label: "Witness mobile",
+          value: contact.mobile,
+          inputMode: "tel",
+        },
+      });
     if (contact.email && !EMAIL.test(contact.email))
-      push({ ...wit, rule: "wit-6", field: "WIT-6", level: "hold", at: `${p}.email`, message: `Email "${contact.email}" is not valid.`, fix: { kind: "text", path: `${p}.contacts.0.email`, label: "Witness email", value: contact.email, inputMode: "email" } });
-    if (addr) addressFlags(push, addr, { rule: "wit-7", field: "WIT-7", ...wit }, `${p}.addresses.0.addr`);
+      push({
+        ...wit,
+        rule: "wit-6",
+        field: "WIT-6",
+        level: "hold",
+        at: `${p}.email`,
+        message: `Email "${contact.email}" is not valid.`,
+        fix: {
+          kind: "text",
+          path: `${p}.contacts.0.email`,
+          label: "Witness email",
+          value: contact.email,
+          inputMode: "email",
+        },
+      });
+    if (addr)
+      addressFlags(
+        push,
+        addr,
+        { rule: "wit-7", field: "WIT-7", ...wit },
+        `${p}.addresses.0.addr`,
+      );
   });
 
   /* ── Jurisdiction and limitation (JUR) ── */
   const jur = { section: "jurisdiction" as StepId, where: "Jurisdiction" };
   if (d.jurisdiction.deposited === "yes" && !d.jurisdiction.payeeBankName)
-    push({ ...jur, rule: "jur-2", field: "JUR-2", level: "hold", at: "jur.ifsc", message: d.jurisdiction.ifsc ? `Complainant branch IFSC ${d.jurisdiction.ifsc} was not found.` : "Complainant branch IFSC is missing.", fix: { kind: "text", path: "jurisdiction.ifsc", label: "Complainant branch IFSC", value: d.jurisdiction.ifsc } });
+    push({
+      ...jur,
+      rule: "jur-2",
+      field: "JUR-2",
+      level: "hold",
+      at: "jur.ifsc",
+      message: d.jurisdiction.ifsc
+        ? `Complainant branch IFSC ${d.jurisdiction.ifsc} was not found.`
+        : "Complainant branch IFSC is missing.",
+      fix: {
+        kind: "text",
+        path: "jurisdiction.ifsc",
+        label: "Complainant branch IFSC",
+        value: d.jurisdiction.ifsc,
+      },
+    });
   if (d.jurisdiction.deposited === "no" && !d.jurisdiction.drawerPolice.trim())
-    push({ ...jur, rule: "jur-6a", field: "JUR-6a", level: "hold", at: "jur.drawerPolice", message: "Police station of the drawer's bank branch is missing.", fix: { kind: "text", path: "jurisdiction.drawerPolice", label: "Police station", value: "" } });
+    push({
+      ...jur,
+      rule: "jur-6a",
+      field: "JUR-6a",
+      level: "hold",
+      at: "jur.drawerPolice",
+      message: "Police station of the drawer's bank branch is missing.",
+      fix: {
+        kind: "text",
+        path: "jurisdiction.drawerPolice",
+        label: "Police station",
+        value: "",
+      },
+    });
 
   const lim = limitationView(d);
-  if (lim.filingIssue && lim.causeDate)
-    push({ ...jur, rule: "jur-9-early", field: "JUR-9", level: "hold", at: "jur.cause", message: `The cause of action arises on ${toLongDate(lim.causeDate)}, 15 days after the notice was served. The complaint can be filed from that day.` });
-  else if (lim.elapsed !== null && !lim.withinLimit && !d.jurisdiction.condonationReason.trim())
-    push({ ...jur, rule: "jur-12", field: "JUR-12", level: "hold", at: "jur.condonation", message: `Filed ${lim.overBy} day${lim.overBy === 1 ? "" : "s"} after the one-month limit. A reason for condonation of delay is needed.`, fix: { kind: "text", path: "jurisdiction.condonationReason", label: "Reason for condonation of delay", value: "", multiline: true } });
+  if (lim.filingIssue && lim.causeDate) {
+    // Say what to enter, not only what is wrong: a service date in the future is a typing
+    // slip; a real but recent one means the case waits, or the date allows filing today.
+    const today = new Date().toISOString().slice(0, 10);
+    const latest = new Date(Date.now() - 15 * 86_400_000)
+      .toISOString()
+      .slice(0, 10);
+    const served =
+      d.notices
+        .map((n) => (n.delivered === "no" ? n.returnDate : n.deliveryDate))
+        .find(Boolean) ?? "";
+    push({
+      ...jur,
+      rule: "jur-9-early",
+      field: "JUR-9",
+      level: "hold",
+      at: "jur.cause",
+      message:
+        served && served > today
+          ? `${toLongDate(served)} is in the future. Enter the day the notice was actually delivered.`
+          : `To file today, the notice must have been served on or before ${toLongDate(latest)} (15 days ago). If it was served later, this case can be filed from ${toLongDate(lim.causeDate)}.`,
+    });
+  } else if (
+    lim.elapsed !== null &&
+    !lim.withinLimit &&
+    !d.jurisdiction.condonationReason.trim()
+  )
+    push({
+      ...jur,
+      rule: "jur-12",
+      field: "JUR-12",
+      level: "hold",
+      at: "jur.condonation",
+      message: `Filed ${lim.overBy} day${lim.overBy === 1 ? "" : "s"} after the one-month limit. A reason for condonation of delay is needed.`,
+      fix: {
+        kind: "text",
+        path: "jurisdiction.condonationReason",
+        label: "Reason for condonation of delay",
+        value: "",
+        multiline: true,
+      },
+    });
 
   /* ── Documents (DCM) ── */
   for (const g of d.documents) {
@@ -340,7 +1200,9 @@ export function caseFlags(bc: BatchCase, ctx: ScrutinyContext): Flag[] {
         level: "hold",
         at: `doc.${doc.intakeKey ?? doc.id}`,
         message: `${code ? DOC_CODE_LABEL[code.code] : doc.name}${code && d.cheques.length > 1 && code.index ? ` ${code.index}` : ""} is missing.${bc.fetchFailed.length ? " It was sent but could not be fetched." : ""}`,
-        fix: doc.intakeKey ? { kind: "upload", slotKey: doc.intakeKey, label: doc.name } : { kind: "documents" },
+        fix: doc.intakeKey
+          ? { kind: "upload", slotKey: doc.intakeKey, label: doc.name }
+          : { kind: "documents" },
       });
     }
   }
@@ -351,22 +1213,51 @@ export function caseFlags(bc: BatchCase, ctx: ScrutinyContext): Flag[] {
    * notice in transit leaves the limitation section without a cause of action).
    */
   const held = out.some((f) => f.level === "hold");
-  for (const step of ["complainant", "advocate", "accused", "cheque", "demand-notice", "jurisdiction", "adr-prayer", "documents"] as StepId[]) {
+  for (const step of [
+    "complainant",
+    "advocate",
+    "accused",
+    "cheque",
+    "demand-notice",
+    "jurisdiction",
+    "adr-prayer",
+    "documents",
+  ] as StepId[]) {
     if (!held && !sectionComplete(d, step))
-      push({ rule: `section-${step}`, field: step, section: step, where: "Case", level: "hold", at: `section.${step}`, message: "This section is not complete by the filing rules." });
+      push({
+        rule: `section-${step}`,
+        field: step,
+        section: step,
+        where: "Case",
+        level: "hold",
+        at: `section.${step}`,
+        message: "This section is not complete by the filing rules.",
+      });
   }
 
   /* ── The same reference in another batch: probably sent twice ── */
-  const twin = ctx.others.find((b) => !b.clubbedInto && b.cases.some((x) => x.reference === bc.reference));
+  const twin = ctx.others.find(
+    (b) => !b.clubbedInto && b.cases.some((x) => x.reference === bc.reference),
+  );
   if (twin)
-    push({ rule: "ref-dup", field: "Reference", section: "preview", where: "Case", level: "soft", at: "ref", message: `Reference ${bc.reference} is also in ${twin.number}.` });
+    push({
+      rule: "ref-dup",
+      field: "Reference",
+      section: "preview",
+      where: "Case",
+      level: "soft",
+      at: "ref",
+      message: `Reference ${bc.reference} is also in ${twin.number}.`,
+    });
 
   return [...out, ...aiFindings(bc, ctx.batch, ctx.others, ctx.ai ?? "off")];
 }
 
 /** The flags still standing: every hold, and the soft flags not skipped. */
 export function openFlags(bc: BatchCase, ctx: ScrutinyContext): Flag[] {
-  return caseFlags(bc, ctx).filter((f) => f.level === "hold" || !bc.skipped.includes(f.id));
+  return caseFlags(bc, ctx).filter(
+    (f) => f.level === "hold" || !bc.skipped.includes(f.id),
+  );
 }
 
 /** Where the case stands. Payment completes filing, as in the single flow. */
