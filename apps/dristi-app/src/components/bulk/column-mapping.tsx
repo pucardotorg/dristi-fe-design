@@ -53,6 +53,7 @@ import {
   ComboboxItem,
   ComboboxList,
   ComboboxTrigger,
+  useComboboxAnchor,
 } from "@/components/ui/combobox";
 import { InputGroupAddon, InputGroupButton } from "@/components/ui/input-group";
 
@@ -241,7 +242,7 @@ function ColumnOption({
       {usedFor.length ? (
         <Badge
           variant="success"
-          className="min-w-0 max-w-48 shrink truncate"
+          className="min-w-0 max-w-[50%] shrink truncate"
           title={`Used for ${usedFor.join(", ")}`}
         >
           <CheckIcon data-icon="inline-start" aria-hidden />
@@ -291,6 +292,7 @@ function ColumnPicker({
   state: Link;
 }) {
   const used = React.useContext(UsedContext);
+  const anchor = useComboboxAnchor();
   const options = React.useMemo<PickOption[]>(
     () => [
       { value: NONE, name: "Not in my file", kind: "none" },
@@ -337,41 +339,57 @@ function ColumnPicker({
         return `${opt.name} ${opt.sample ?? ""}`.toLowerCase().includes(query);
       }}
     >
-      <ComboboxInput
-        id={id}
-        aria-label={label}
-        className={cn(
-          "w-full",
-          // The same colours as the row's arrow, on the field itself.
-          state === "ok" && "border-success ring-1 ring-success/40",
-          state === "warn" && "border-warning-ink ring-1 ring-warning/40",
-        )}
-        autoComplete="off"
-        showTrigger={false}
-        placeholder="Type to search columns"
-        // A chosen column's name is selected on focus, so typing starts a new search.
-        onFocus={(e) => e.currentTarget.select()}
+      <div ref={anchor} className="w-full">
+        <ComboboxInput
+          id={id}
+          aria-label={label}
+          className={cn(
+            "w-full",
+            // Open, the field and its list read as one box: the field's lower corners square off.
+            "has-[[data-popup-open]]:border-ring has-[[data-popup-open]]:ring-0 has-[[data-popup-side=bottom]]:rounded-b-none has-[[data-popup-side=top]]:rounded-t-none",
+            // The same colours as the row's arrow, on the field itself.
+            state === "ok" && "border-success ring-1 ring-success/40",
+            state === "warn" && "border-warning-ink ring-1 ring-warning/40",
+          )}
+          autoComplete="off"
+          showTrigger={false}
+          placeholder="Type to search columns"
+          // A chosen column's name is selected on focus, so typing starts a new search.
+          onFocus={(e) => e.currentTarget.select()}
+        >
+          <InputGroupAddon align="inline-start">
+            <SearchIcon className="text-muted-foreground" aria-hidden />
+          </InputGroupAddon>
+          <InputGroupAddon align="inline-end">
+            {selected.sample ? (
+              <span className="max-w-40 truncate font-mono text-caption text-muted-foreground">
+                {selected.sample}
+              </span>
+            ) : null}
+            <InputGroupButton size="icon-xs" variant="ghost" asChild>
+              <ComboboxTrigger aria-label="Show columns" />
+            </InputGroupButton>
+          </InputGroupAddon>
+        </ComboboxInput>
+      </div>
+      {/* Hung from the whole field, flush against it and as wide, below or above as there is
+          room; the touching corners of both square off, so the field and the list read as one
+          box whichever way it opens. Vertical only: options never run wider than the
+          list, so a trackpad cannot drift it sideways. */}
+      <ComboboxContent
+        anchor={anchor}
+        sideOffset={-1}
+        className="min-w-(--anchor-width) overflow-x-hidden border border-ring ring-0 data-[side=bottom]:rounded-t-none data-[side=bottom]:border-t-0 data-[side=top]:rounded-b-none data-[side=top]:border-b-0"
       >
-        <InputGroupAddon align="inline-start">
-          <SearchIcon className="text-muted-foreground" aria-hidden />
-        </InputGroupAddon>
-        <InputGroupAddon align="inline-end">
-          {selected.sample ? (
-            <span className="max-w-40 truncate font-mono text-caption text-muted-foreground">
-              {selected.sample}
-            </span>
-          ) : null}
-          <InputGroupButton size="icon-xs" variant="ghost" asChild>
-            <ComboboxTrigger aria-label="Show columns" />
-          </InputGroupButton>
-        </InputGroupAddon>
-      </ComboboxInput>
-      {/* Vertical only: options never run wider than the list, so a trackpad cannot drift it sideways. */}
-      <ComboboxContent className="overflow-x-hidden">
         <ComboboxEmpty>No column matches</ComboboxEmpty>
         <ComboboxList className="overflow-x-hidden overscroll-x-none">
           {(o: PickOption) => (
-            <ComboboxItem key={o.value} value={o}>
+            <ComboboxItem
+              key={o.value}
+              value={o}
+              // Room for the tick only on the chosen option; the rest use the full width.
+              className="pr-2.5 aria-selected:pr-8"
+            >
               {o.kind === "column" ? (
                 <ColumnOption
                   name={o.name}
