@@ -1260,6 +1260,7 @@ export function EmployeeNav() {
     seat,
     usePendingOrders(),
     useOrderSigning(),
+    court,
   );
   const groups = withPendingCount(
     courtNavGroupsForSeat(

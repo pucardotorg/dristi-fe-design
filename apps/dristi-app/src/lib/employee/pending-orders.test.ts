@@ -7,6 +7,7 @@ import {
   readPendingOrders,
   sendOrderForSigning,
   setOrderWorkflowComplete,
+  inPendingStage,
   pendingOrderCountFor,
   pendingOrderStage,
   type PendingOrder,
@@ -36,14 +37,27 @@ describe("pending orders", () => {
     assert.equal(pendingOrderStage(sent, signed), "workflow-to-fill");
   });
 
-  it("counts each seat's own move on the rail, and nothing at zero", () => {
+  it("counts each seat's own move on the rail, from its state's roles, and nothing at zero", () => {
     const orders = { [order.key]: { ...order, sent: true } };
+    /* Sent and unsigned: awaiting the signer, and the filler's to fill at the same time
+       (`PND-02`). */
     assert.equal(pendingOrderCountFor("magistrate", orders, {}), 1);
-    assert.equal(pendingOrderCountFor("typist", orders, {}), undefined);
+    assert.equal(pendingOrderCountFor("typist", orders, {}), 1);
+    assert.equal(pendingOrderCountFor("bench-clerk", orders, {}), 1);
     const signed = { [order.key]: "signed" as const };
     assert.equal(pendingOrderCountFor("magistrate", orders, signed), undefined);
     assert.equal(pendingOrderCountFor("typist", orders, signed), 1);
-    assert.equal(pendingOrderCountFor("bench-clerk", orders, signed), undefined);
+    /* Punjab & Haryana's typist fills nothing; its Ahlmad does (court-roles §3.3). */
+    assert.equal(pendingOrderCountFor("typist", orders, signed, "punjab-haryana"), undefined);
+    assert.equal(pendingOrderCountFor("ahlmad", orders, signed, "punjab-haryana"), 1);
+  });
+
+  it("puts a sent order in Awaiting signature and Order data to fill at once", () => {
+    const sent = { ...order, sent: true };
+    assert.equal(inPendingStage(sent, {}, "awaiting-signature"), true);
+    assert.equal(inPendingStage(sent, {}, "workflow-to-fill"), true);
+    assert.equal(inPendingStage({ ...sent, workflowComplete: true }, {}, "workflow-to-fill"), false);
+    assert.equal(inPendingStage(order, {}, "workflow-to-fill"), false);
   });
 
   it("goes back to draft until signed, and editing undoes a completed workflow", () => {
@@ -68,5 +82,16 @@ describe("pending orders", () => {
     assert.equal(readPendingOrders()["h-77"].sent, true);
     assert.equal(readPendingOrders()["h-77"].workflowComplete, true);
     assert.equal(pendingOrderStage(readPendingOrders()["h-77"], signed), "triggered");
+  });
+
+  it("puts completed order data back to not complete when sent for signing again", () => {
+    const meta = { ...order, key: "h-78" };
+    sendOrderForSigning(meta);
+    setOrderWorkflowComplete("h-78", true, {});
+    moveOrderBackToDraft("h-78", {});
+    assert.equal(readPendingOrders()["h-78"].workflowComplete, true);
+    /* `SND-08`: the values stay, but it has to be looked at again. */
+    sendOrderForSigning(meta);
+    assert.equal(readPendingOrders()["h-78"].workflowComplete, false);
   });
 });

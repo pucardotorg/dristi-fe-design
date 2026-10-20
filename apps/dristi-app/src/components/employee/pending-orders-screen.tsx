@@ -15,6 +15,7 @@ import {
   tableRowClass,
 } from "@/components/chrome/table-plate";
 import { QueueAnnouncer } from "@/components/employee/queue-announcer";
+import { useCourt } from "@/components/court/court-provider";
 import { useCourtRole } from "@/components/employee/use-court-role";
 import { AddOrderItemsDialog } from "@/components/employee/pending-orders-bulk";
 import { useOrderDrafts } from "@/components/employee/use-order-draft";
@@ -50,13 +51,17 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { CourtId } from "@/lib/court/profiles";
 import type { CourtRole } from "@/lib/employee/content";
+import { seatHolds } from "@/lib/employee/seat-roles";
 import { orderTextPreview } from "@/lib/employee/order-bulk-items";
 import { editorDraftKey } from "@/lib/employee/order-drafts";
 import { markOrdersSigned } from "@/lib/employee/order-signing";
 import {
   PENDING_ORDER_STAGES,
   pendingOrderHref,
+  inPendingStage,
+  pendingOrderStageFor,
   pendingOrderStage,
   type PendingOrder,
   type PendingOrderStage,
@@ -70,11 +75,9 @@ import { cn } from "@/lib/utils";
 
 type Tab = PendingOrderStage | "all";
 
-/** Where each seat opens: on its own move (owner, 2026-10-14). */
-function openingTab(seat: CourtRole): Tab {
-  if (seat === "magistrate") return "awaiting-signature";
-  if (seat === "typist") return "workflow-to-fill";
-  return "all";
+/** Where each seat opens: on its own move (`PND-04`), from its state's roles. */
+function openingTab(seat: CourtRole, court: CourtId): Tab {
+  return pendingOrderStageFor(seat, court) ?? "all";
 }
 
 type Row = PendingOrder & { stage: PendingOrderStage };
@@ -94,9 +97,11 @@ type Row = PendingOrder & { stage: PendingOrderStage };
 export function PendingOrdersScreen() {
   const router = useRouter();
   const seat = useCourtRole();
+  const { court } = useCourt();
   const pending = usePendingOrders();
   const signing = useOrderSigning();
-  const [tab, setTab] = React.useState<Tab>(() => openingTab(seat));
+  const move = pendingOrderStageFor(seat, court);
+  const [tab, setTab] = React.useState<Tab>(() => openingTab(seat, court));
   const [selected, setSelected] = React.useState<ReadonlySet<string>>(
     () => new Set(),
   );
@@ -110,21 +115,25 @@ export function PendingOrdersScreen() {
     ...order,
     stage: pendingOrderStage(order, signing),
   }));
-  const rows = tab === "all" ? all : all.filter((row) => row.stage === tab);
+  /* A sent order sits in Awaiting signature and Order data to fill at once (`PND-02`). */
+  const rows =
+    tab === "all" ? all : all.filter((row) => inPendingStage(row, signing, tab));
   const count = (stage: PendingOrderStage) =>
-    all.filter((row) => row.stage === stage).length;
+    all.filter((row) => inPendingStage(row, signing, stage)).length;
   /* Who can pick rows, and which: the magistrate the orders awaiting a signature, to sign
      them; the steno the signed orders with order data to fill, to add items to them in
      bulk (owner, 2026-10-15). */
-  const signer = seat === "magistrate";
-  const filler = seat === "typist";
+  const signer = seatHolds(seat, court, "order-signer");
+  const filler = seatHolds(seat, court, "order-data-filler");
   const pickStage: PendingOrderStage | null = signer
     ? "awaiting-signature"
     : filler
       ? "workflow-to-fill"
       : null;
   const picking = pickStage !== null;
-  const signable = rows.filter((row) => row.stage === pickStage);
+  const signable = pickStage
+    ? rows.filter((row) => inPendingStage(row, signing, pickStage))
+    : [];
   const chosen = signable.filter((row) => selected.has(row.key));
   /* The order's first words, on the tab where the steno works through them. */
   const showText = tab === "workflow-to-fill";
@@ -157,7 +166,7 @@ export function PendingOrdersScreen() {
           Pending orders
         </h1>
         <p className="text-body text-muted-foreground">
-          {headline(seat, count)}
+          {headline(move, count)}
         </p>
       </header>
 
@@ -341,7 +350,7 @@ export function PendingOrdersScreen() {
                         aria-hidden
                         onClick={() => open(row)}
                       >
-                        {actionLabel(seat, row.stage)}
+                        {actionLabel(move, tab, row.stage)}
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -446,15 +455,15 @@ export function PendingOrdersScreen() {
 }
 
 function headline(
-  seat: CourtRole,
+  move: PendingOrderStage | null,
   count: (stage: PendingOrderStage) => number,
 ): string {
   const plural = (n: number, one: string, many: string) =>
     `${n} ${n === 1 ? one : many}`;
-  if (seat === "magistrate")
+  if (move === "awaiting-signature")
     return `${plural(count("awaiting-signature"), "order is", "orders are")} awaiting your signature.`;
-  if (seat === "typist")
-    return `${plural(count("workflow-to-fill"), "signed order has its", "signed orders have their")} order data still to complete.`;
+  if (move === "workflow-to-fill")
+    return `${plural(count("workflow-to-fill"), "order has its", "orders have their")} order data still to complete.`;
   return "Orders being typed, awaiting a signature, or with order data still to trigger.";
 }
 
@@ -465,17 +474,21 @@ function SignatureBadge({ stage }: { stage: PendingOrderStage }) {
   return <Badge variant="success">Signed</Badge>;
 }
 
-/** The row's one act, for this seat at this stage. */
-function actionLabel(seat: CourtRole, stage: PendingOrderStage): string {
+/**
+ * The row's one act, for this person's move on the tab they are on (`PND-05`). An order
+ * awaiting signature is signed by an order signer and filled by an order data filler —
+ * the same row offers each their own act.
+ */
+function actionLabel(
+  move: PendingOrderStage | null,
+  tab: Tab,
+  stage: PendingOrderStage,
+): string {
   if (stage === "drafting") return "Continue typing";
-  if (stage === "awaiting-signature")
-    return seat === "magistrate"
-      ? "Read and sign"
-      : seat === "typist"
-        ? "Open order data"
-        : "View";
-  if (stage === "workflow-to-fill")
-    return seat === "typist" ? "Fill order data" : "View";
+  if (stage === "triggered") return "View";
+  if (move === "awaiting-signature" && stage === "awaiting-signature" && tab !== "workflow-to-fill")
+    return "Read and sign";
+  if (move === "workflow-to-fill") return "Fill order data";
   return "View";
 }
 

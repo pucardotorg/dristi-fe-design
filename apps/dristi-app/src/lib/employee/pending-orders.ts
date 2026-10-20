@@ -20,9 +20,12 @@
  * 2026-10-14). The steno can also reopen a completed workflow before signing. Nothing
  * compares the text with the workflow; they may differ.
  *
- * Stages, each one person's move: **Drafting** (steno) → **Awaiting signature**
- * (magistrate) → **Workflow to fill** (steno; only a signed order whose workflow is not
- * complete) → **Triggered**.
+ * Stages (order-generation `PND-02`): **Drafting** (not sent for signing). Once sent for
+ * signing, an order is in **Awaiting signature** until it is signed and in **Order data
+ * to fill** until its order data is complete — in **both at once** while both are
+ * outstanding, because the two are worked in parallel (`SND-07`). **Triggered** once it
+ * is signed and its order data complete. `inPendingStage` answers "is it in this tab";
+ * `pendingOrderStage` names the one stage a badge or a line shows.
  *
  * Every order is here, not only a hearing's: an entry is keyed by the order's own draft
  * key (a hearing id, `cognizance:<case>:<act>`, `application:<id>`) and carries what the
@@ -36,7 +39,9 @@
  * Read it through `components/employee/use-pending-orders.ts`, never from a render.
  */
 
+import type { CourtId } from "@/lib/court/profiles";
 import type { CourtRole } from "./content";
+import { seatHolds } from "./seat-roles";
 import type { OrderSigning } from "./order-signing";
 import { restoreRecord, saveRecord, watchRecord } from "./browser-record";
 import { SAMPLE_PENDING_ORDERS } from "./sample-sitting";
@@ -58,6 +63,8 @@ export type PendingOrder = PendingOrderMeta & {
   sent: boolean;
   /** The steno has marked its workflow complete, and its text has not changed since. */
   workflowComplete: boolean;
+  /** Sent for signing at least once — so a later send is a re-send (`SND-08`). */
+  everSent?: boolean;
 };
 
 /** Every order the editor has started, keyed by draft key, in the order first typed. */
@@ -164,7 +171,11 @@ export function sendOrderForSigning(meta: PendingOrderMeta): void {
     [meta.key]: {
       ...meta,
       sent: true,
-      workflowComplete: current?.workflowComplete ?? false,
+      everSent: true,
+      /* Sending again after a move back to draft puts completed order data back to not
+         complete: its values stay, but it is looked at again against text that may have
+         changed (`SND-08`). */
+      workflowComplete: current?.everSent ? false : (current?.workflowComplete ?? false),
     },
   });
 }
@@ -216,6 +227,23 @@ export function pendingOrderStage(
   return "awaiting-signature";
 }
 
+/**
+ * Whether an order belongs in a stage's tab. Unlike `pendingOrderStage`, an order sent
+ * for signing can be in two at once: Awaiting signature until signed, Order data to fill
+ * until its order data is complete (`PND-02`).
+ */
+export function inPendingStage(
+  order: PendingOrder,
+  signing: OrderSigning,
+  stage: PendingOrderStage,
+): boolean {
+  const signed = signing[order.key] === "signed";
+  if (stage === "triggered") return signed && order.workflowComplete;
+  if (stage === "drafting") return !order.sent && !signed;
+  if (stage === "awaiting-signature") return order.sent && !signed;
+  return (order.sent || signed) && !order.workflowComplete;
+}
+
 export function pendingOrderStageLabel(stage: PendingOrderStage): string {
   return PENDING_ORDER_STAGES.find((entry) => entry.id === stage)?.label ?? stage;
 }
@@ -234,18 +262,28 @@ export function pendingOrderCountFor(
   seat: CourtRole,
   orders: PendingOrders,
   signing: OrderSigning,
+  court: CourtId = "kerala",
 ): number | undefined {
-  const stage: PendingOrderStage | null =
-    seat === "typist"
-      ? "workflow-to-fill"
-      : seat === "magistrate"
-        ? "awaiting-signature"
-        : null;
+  const stage = pendingOrderStageFor(seat, court);
   if (!stage) return undefined;
-  const count = Object.values(orders).filter(
-    (order) => pendingOrderStage(order, signing) === stage,
+  const count = Object.values(orders).filter((order) =>
+    inPendingStage(order, signing, stage),
   ).length;
   return count || undefined;
+}
+
+/**
+ * The stage that is this seat's move (`PND-04`), from the roles its state gives it: an
+ * order signer's is Awaiting signature, an order data filler's Order data to fill. A
+ * seat holding both opens on signing — which one wins is still open in the gap report.
+ */
+export function pendingOrderStageFor(
+  seat: CourtRole,
+  court: CourtId,
+): PendingOrderStage | null {
+  if (seatHolds(seat, court, "order-signer")) return "awaiting-signature";
+  if (seatHolds(seat, court, "order-data-filler")) return "workflow-to-fill";
+  return null;
 }
 
 /** Back to how a fresh browser opens — Reset sandbox data (`sandbox-reset.ts`). */

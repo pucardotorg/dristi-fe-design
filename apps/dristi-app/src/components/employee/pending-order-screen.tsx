@@ -1,5 +1,6 @@
 "use client";
 
+import { seatHolds } from "@/lib/employee/seat-roles";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -172,6 +173,7 @@ function WorkflowDoorBody({ door }: { door: OrderDoor }) {
   const router = useRouter();
   const courtText = useCourtText();
   const seat = useCourtRole();
+  const { court } = useCourt();
   const pending = usePendingOrders();
   const signing = useOrderSigning();
   const lifecycleApps = useLifecycleApplications();
@@ -191,14 +193,18 @@ function WorkflowDoorBody({ door }: { door: OrderDoor }) {
   const listing = door.hearing?.applications ?? [];
   const complete = Boolean(entry?.workflowComplete);
   const signed = signing[door.draftKey] === "signed";
-  /* Signing is the magistrate's; the workflow and moving the order back to draft are the
-     steno's (owner, 2026-10-14). Everyone else reads. */
-  const steno = seat === "typist";
-  const canSign = seat === "magistrate" && stage === "awaiting-signature";
-  const canFill = steno && Boolean(entry) && !complete && stage !== "triggered";
+  /* From the roles this seat holds in its state (court-roles §3): signing is the order
+     signer's (`SGN-01`); filling, completing and reopening the order data the order data
+     filler's (`ROL-02`); moving the order back to draft the order drafter's (`SND-05`).
+     Everyone else reads. */
+  const filler = seatHolds(seat, court, "order-data-filler");
+  const canSign =
+    seatHolds(seat, court, "order-signer") && stage === "awaiting-signature";
+  const canFill = filler && Boolean(entry) && !complete && stage !== "triggered";
   const canComplete = canFill;
-  const canReopen = steno && complete && !signed;
-  const canMoveBack = steno && stage === "awaiting-signature";
+  const canReopen = filler && complete && !signed;
+  const canMoveBack =
+    seatHolds(seat, court, "order-drafter") && stage === "awaiting-signature";
   const unlisted = draft.next === "list" && !(draft.nextDate && draft.nextPurpose);
   const summary = triggerSummary(draft, appearances, listing);
 
@@ -367,8 +373,8 @@ function WorkflowDoorBody({ door }: { door: OrderDoor }) {
                 <AlertDialogTitle>Sign this order?</AlertDialogTitle>
                 <AlertDialogDescription>
                   {complete
-                    ? "Your signature issues the order, and its order data is triggered at once: the steno has completed it."
-                    : "Your signature issues the order. Its order data is triggered once the steno has completed it."}{" "}
+                    ? "Your signature issues the order, and its order data is triggered at once: it has been completed."
+                    : "Your signature issues the order. Its order data is triggered once it has been completed."}{" "}
                   This cannot be reversed.
                 </AlertDialogDescription>
               </AlertDialogHeader>
@@ -380,7 +386,7 @@ function WorkflowDoorBody({ door }: { door: OrderDoor }) {
                     toast(
                       complete
                         ? "Signed and issued. Its order data has been triggered."
-                        : "Signed and issued. Its order data is with the steno.",
+                        : "Signed and issued. Its order data is still to be completed.",
                     );
                   }}
                 >
@@ -464,7 +470,7 @@ function stageLine(stage: PendingOrderStage, complete: boolean): string {
       ? "Awaiting the magistrate’s signature. Its order data is complete, so signing triggers it."
       : "Awaiting the magistrate’s signature. The order data can be filled meanwhile.";
   if (stage === "workflow-to-fill")
-    return "Signed and issued. Its order data is triggered once the steno completes it.";
+    return "Signed and issued. Its order data is triggered once it is marked complete.";
   return "Signed, and its order data triggered. Nothing here can change.";
 }
 
