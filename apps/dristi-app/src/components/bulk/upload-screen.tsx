@@ -37,6 +37,8 @@ import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 import { downloadTemplate } from "./batches-screen";
+import { FilingFooter } from "@/components/filing/filing-footer";
+
 import { ColumnMapping } from "./column-mapping";
 import { useGujarat } from "./court-guard";
 import { FileDrop } from "./file-drop";
@@ -290,18 +292,26 @@ export function UploadScreen() {
               counts={counts}
               onCounts={setCounts}
             />
-            {/* Kept in reach at the foot of the screen: the list of fields is long. */}
-            <div className="sticky bottom-0 z-10 -mx-4 flex flex-col gap-2 border-t border-hairline bg-background px-4 py-3 sm:flex-row sm:items-center">
-              <span className="text-caption text-muted-foreground tabular-nums">
-                {unmapped.length ? `${unmapped.length} required field${unmapped.length === 1 ? "" : "s"} still to match` : "Every required field is matched"}
-              </span>
-              <Button variant="outline" className="sm:ml-auto" onClick={() => setStep("setup")}>
-                Back
-              </Button>
-              <Button disabled={unmapped.length > 0} onClick={() => setStep(unknownLists.length ? "values" : "review")}>
-                Continue
-              </Button>
-            </div>
+            {/* The filing flow's own footer, kept at the foot of the screen: the list is long.
+                Not ready, Continue says why on hover and focus, and pressing it goes to the
+                first field still to match. */}
+            <FilingFooter
+              className="-mx-4 sm:-mx-6"
+              showSaveState={false}
+              onBack={() => setStep("setup")}
+              onContinue={() => {
+                if (unmapped.length) {
+                  const header = COLUMNS.find((c) => c.key === unmapped[0])?.header;
+                  const field = document.querySelector<HTMLInputElement>(`input[aria-label="Column in your sheet for ${header}"]`);
+                  field?.scrollIntoView({ behavior: "smooth", block: "center" });
+                  field?.focus({ preventScroll: true });
+                  return;
+                }
+                setStep(unknownLists.length ? "values" : "review");
+              }}
+              continueBlocked={unmapped.length > 0}
+              continueHint={`${unmapped.length} required field${unmapped.length === 1 ? "" : "s"} still to match`}
+            />
           </div>
         </div>
       ) : null}

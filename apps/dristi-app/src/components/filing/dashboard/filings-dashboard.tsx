@@ -53,7 +53,7 @@ function useLatestBatch(): { batch: BulkBatch | null; needAction: number } {
           client: b.client,
           what: `${b.total} × cheque bounce (S-138, NI Act)`,
           receivedOn: toLongDate(b.createdAt.slice(0, 10)),
-          via: b.source.kind === "api" ? `${b.source.system} API` : b.source.kind === "excel" ? "Excel upload" : "clubbing",
+          via: b.source.kind === "api" ? `${b.source.system} API` : b.source.kind === "excel" ? "Excel upload" : b.source.kind === "documents" ? "case documents" : "clubbing",
           counts: b.counts,
         });
       })

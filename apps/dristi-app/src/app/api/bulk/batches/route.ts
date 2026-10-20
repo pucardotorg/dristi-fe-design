@@ -24,10 +24,19 @@ export async function GET(req: Request) {
 
 /** An Excel upload, already parsed and mapped in the browser into the API's shape. */
 export async function POST(req: Request) {
-  const { request, fileName } = (await req.json()) as { request: ApiBatchRequest; fileName: string };
+  const { request, fileName, from } = (await req.json()) as {
+    request: ApiBatchRequest;
+    fileName: string;
+    /** "documents": cases read from one document each, and reviewed (AI-assisted upload). */
+    from?: "excel" | "documents";
+  };
   const errors = validateRequest(request);
   if (errors.length) return NextResponse.json({ error: "Not a valid batch.", details: errors }, { status: 422 });
-  const built = await buildBatch(request, { kind: "excel", system: "Excel upload", reference: fileName }, async () => null);
+  const source =
+    from === "documents"
+      ? { kind: "documents" as const, system: "Case documents", reference: fileName }
+      : { kind: "excel" as const, system: "Excel upload", reference: fileName };
+  const built = await buildBatch(request, source, async () => null);
   const batch = await insertBatch(built);
   return NextResponse.json({ batchId: batch.id, batchNumber: batch.number }, { status: 201 });
 }

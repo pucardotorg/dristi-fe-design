@@ -38,6 +38,7 @@ import {
 } from "@/lib/bulk/excel-spec";
 import { cn } from "@/lib/utils";
 import { BrandGlyph } from "@/components/brand-lockup";
+import { ConfirmDialog } from "@/components/shell/confirm-dialog";
 import { PANEL_CLASS } from "@/components/filing/form-card";
 import { Card } from "@/components/ui/card";
 import { SectionTabs } from "@/components/filing/section-tabs";
@@ -257,7 +258,8 @@ function ColumnOption({
 }
 
 /** Which fields each sheet column already feeds, by column number: "Accused name", "Cheque 2 · Cheque number". */
-const UsedContext = React.createContext<Record<number, string[]>>({});
+type Use = { label: string; key: string };
+const UsedContext = React.createContext<Record<number, Use[]>>({});
 
 type PickOption = {
   value: string;
@@ -348,8 +350,8 @@ function ColumnPicker({
             // Open, the field and its list read as one box: the field's lower corners square off.
             "has-[[data-popup-open]]:border-ring has-[[data-popup-open]]:ring-0 has-[[data-popup-side=bottom]]:rounded-b-none has-[[data-popup-side=top]]:rounded-t-none",
             // The same colours as the row's arrow, on the field itself.
-            state === "ok" && "border-success ring-1 ring-success/40",
-            state === "warn" && "border-warning-ink ring-1 ring-warning/40",
+            state === "ok" && "border-success bg-success-muted ring-1 ring-success/40",
+            state === "warn" && "border-warning-ink bg-warning-muted ring-1 ring-warning/40",
           )}
           autoComplete="off"
           showTrigger={false}
@@ -395,7 +397,9 @@ function ColumnPicker({
                   name={o.name}
                   sample={o.sample ?? ""}
                   usedFor={
-                    o.value === value ? [] : (used[Number(o.value)] ?? [])
+                    o.value === value
+                      ? []
+                      : (used[Number(o.value)] ?? []).map((u) => u.label)
                   }
                 />
               ) : o.kind === "every" ? (
@@ -433,6 +437,25 @@ function FieldRow({
   const g = GROUPS.find((x) => x.id === column.group)!;
   const src = sourceFor(column, instance, props.map, props.headers);
   const id = `map-${column.key}-${instanceKey(instance) || "0"}`;
+  const used = React.useContext(UsedContext);
+  const selfKey = mapKey(column.key, instance, g);
+  const [pending, setPending] = React.useState<{
+    value: string;
+    others: Use[];
+  } | null>(null);
+  const commit = (v: string, clear: Use[]) => {
+    const next: ColumnSource =
+      v === NONE
+        ? null
+        : v.startsWith("every:")
+          ? { every: v.slice(6) }
+          : Number(v);
+    props.onChange({
+      ...props.map,
+      ...Object.fromEntries(clear.map((o) => [o.key, null])),
+      [selfKey]: next,
+    });
+  };
   // Each column's first value, so the choice can be made by what the column holds.
   const firsts = React.useMemo(
     () =>
@@ -479,16 +502,30 @@ function FieldRow({
           list={column.list}
           state={state}
           onPick={(v) => {
-            const next: ColumnSource =
-              v === NONE
-                ? null
-                : v.startsWith("every:")
-                  ? { every: v.slice(6) }
-                  : Number(v);
-            props.onChange({
-              ...props.map,
-              [mapKey(column.key, instance, g)]: next,
-            });
+            // A column already matched elsewhere moves here only once the filer agrees.
+            const others = /^\d+$/.test(v)
+              ? (used[Number(v)] ?? []).filter((u) => u.key !== selfKey)
+              : [];
+            if (others.length) setPending({ value: v, others });
+            else commit(v, []);
+          }}
+        />
+        <ConfirmDialog
+          open={pending !== null}
+          onOpenChange={(open) => {
+            if (!open) setPending(null);
+          }}
+          destructive={false}
+          title={`Move "${pending ? props.headers[Number(pending.value)] : ""}" to ${column.header}?`}
+          description={
+            pending
+              ? `It is matched to ${pending.others.map((o) => o.label).join(", ")}. Matching it here removes it from there, and that field will need another column.`
+              : undefined
+          }
+          confirmLabel="Move it here"
+          onConfirm={() => {
+            if (pending) commit(pending.value, pending.others);
+            setPending(null);
           }}
         />
         {fit && !fit.ok ? (
@@ -639,7 +676,7 @@ export function ColumnMapping(props: Props) {
   );
   // What each sheet column already feeds, so the dropdown can show it.
   const used = React.useMemo(() => {
-    const out: Record<number, string[]> = {};
+    const out: Record<number, Use[]> = {};
     for (const g of GROUPS) {
       const list = g.repeats ? instances[g.id] : [firstInstance(g)];
       for (const i of list) {
@@ -655,7 +692,10 @@ export function ColumnMapping(props: Props) {
         for (const c of COLUMNS.filter((x) => x.group === g.id)) {
           const src = sourceFor(c, i, props.map, props.headers);
           if (typeof src === "number")
-            (out[src] ??= []).push(`${where}${c.header}`);
+            (out[src] ??= []).push({
+              label: `${where}${c.header}`,
+              key: mapKey(c.key, i, g),
+            });
         }
       }
     }

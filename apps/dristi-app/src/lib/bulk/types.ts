@@ -10,7 +10,7 @@
 
 import type { FilingDraft, SignInstrument } from "@/lib/filing/types";
 
-export type BatchSourceKind = "api" | "excel" | "clubbed";
+export type BatchSourceKind = "api" | "excel" | "documents" | "clubbed";
 
 export type BatchSource = {
   kind: BatchSourceKind;

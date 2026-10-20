@@ -7,6 +7,7 @@ import {
   CircleCheckIcon,
   DownloadIcon,
   FileSpreadsheetIcon,
+  FileTextIcon,
   Layers2Icon,
   UploadIcon,
 } from "lucide-react";
@@ -80,7 +81,9 @@ export function SourceLabel({
       ? `${source.system} API`
       : source.kind === "excel"
         ? "Excel upload"
-        : "Clubbed";
+        : source.kind === "documents"
+          ? "Case documents"
+          : "Clubbed";
   return (
     <span className="flex min-w-0 items-center gap-3">
       <span
@@ -90,6 +93,7 @@ export function SourceLabel({
           source.kind === "api" && "bg-info-muted text-info-muted-foreground",
           source.kind === "excel" &&
             "bg-success-muted text-success-muted-foreground",
+          source.kind === "documents" && "border border-hairline bg-card text-foreground",
           source.kind === "clubbed" && "bg-muted text-muted-foreground",
         )}
       >
@@ -97,6 +101,8 @@ export function SourceLabel({
           <span className="text-caption font-bold tracking-wide">API</span>
         ) : source.kind === "excel" ? (
           <FileSpreadsheetIcon className="size-5" />
+        ) : source.kind === "documents" ? (
+          <FileTextIcon className="size-5" />
         ) : (
           <Layers2Icon className="size-5" />
         )}
