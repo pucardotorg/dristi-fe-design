@@ -10,6 +10,7 @@ import {
   PlusIcon,
   SparklesIcon,
   Undo2Icon,
+  WandSparklesIcon,
 } from "lucide-react";
 
 import type { CaseField } from "@/lib/bulk/case-fields";
@@ -33,7 +34,9 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 
 import { bulkApi, type CaseView } from "./api";
+import { saveLabel, useAutosave } from "./autosave";
 import { CaseList } from "./case-list";
+import { demoEdits } from "./demo-fill";
 import type { BatchCtx } from "./batch-screen";
 
 type Kind = "hold" | "ai" | "check";
@@ -171,6 +174,27 @@ const SECTION_STEP: Record<string, string> = {
 };
 
 /** The field a flag belongs on, or `null` when it is about no one field. */
+/**
+ * Whether a typed value would pass the server's own checks, so the live count does not
+ * say Complete for a future date or a four-digit pincode.
+ */
+function plausible(path: string, raw: string): boolean {
+  const v = raw.trim();
+  if (!v) return false;
+  if (/Date$|\.returnDate$/.test(path))
+    return (
+      /^\d{4}-\d{2}-\d{2}$/.test(v) &&
+      v <= new Date().toISOString().slice(0, 10)
+    );
+  if (/\.pin$/.test(path)) return /^\d{6}$/.test(v.replace(/\s/g, ""));
+  if (/mobile$/.test(path))
+    return v.replace(/\D/g, "").replace(/^(91|0)(?=\d{10}$)/, "").length === 10;
+  if (/\.ifsc$/.test(path)) return /^[A-Z]{4}0[A-Z0-9]{6}$/i.test(v);
+  if (/\.(amount|partAmount|chequeNumber)$/.test(path))
+    return /^\d+$/.test(v.replace(/[,\s₹]/g, ""));
+  return true;
+}
+
 /** Whether an unsaved edit fills the field a hold is about. */
 export function filledByEdit(
   f: Flag,
@@ -178,7 +202,7 @@ export function filledByEdit(
   edits: Record<string, string>,
 ): boolean {
   const p = fieldFor(f, c.fields);
-  return !!p && p in edits && !!edits[p].trim();
+  return !!p && p in edits && plausible(p, edits[p]);
 }
 
 function fieldFor(f: Flag, groups: CaseView["fields"]): string | null {
@@ -262,11 +286,21 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
   const selected = listed.find((c) => c.id === selectedId) ?? listed[0] ?? null;
   const at = selected ? listed.indexOf(selected) : -1;
 
-  // Changes to the case on screen, by draft path; kept until saved or the case changes.
-  const [edits, setEdits] = React.useState<Record<string, string>>({});
-  const choose = (id: string) => {
+  // What is typed saves on leaving the field; moving to another case waits for it.
+  const auto = useAutosave({
+    batch,
+    setBatch,
+    caseId: selected?.id ?? null,
+    everyCase: (path) =>
+      !!selected &&
+      detailFlags(selected).some((f) => f.batchWide && pathOf(f) === path),
+  });
+  const edits = auto.edits;
+  const choose = async (id: string) => {
+    await auto.flush();
+    auto.reset();
     setSelectedId(id);
-    setEdits({});
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const act = async (body: Record<string, unknown>) => {
@@ -281,39 +315,7 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
     }
   };
 
-  const save = async (then?: string | null) => {
-    if (!selected) return;
-    const batchWide = new Set(
-      detailFlags(selected)
-        .filter((f) => f.batchWide)
-        .map(pathOf),
-    );
-    const items = Object.entries(edits);
-    setBusy(true);
-    setError(null);
-    try {
-      let view = batch;
-      for (const [path, value] of items)
-        view = await bulkApi.act(batch.id, {
-          action: "fix",
-          caseId: selected.id,
-          path,
-          value,
-          everyCase: batchWide.has(path),
-        });
-      if (items.length) setBatch(view);
-      setEdits({});
-      if (then) setSelectedId(then);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const skipped = open.flatMap((c) => c.skipped.map((f) => ({ c, f })));
-  const changed = Object.keys(edits).length;
   const next = listed[at + 1]?.id ?? null;
   const prev = listed[at - 1]?.id ?? null;
 
@@ -356,7 +358,7 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
             onClick={() => {
               setShow(c.id);
               setSelectedId(null);
-              setEdits({});
+              auto.reset();
             }}
             className="rounded-full aria-pressed:border-primary aria-pressed:bg-accent-strong"
           >
@@ -420,9 +422,9 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
             c={selected}
             batchId={batch.id}
             edits={edits}
-            setEdit={(path, value) =>
-              setEdits((e) => ({ ...e, [path]: value }))
-            }
+            setEdit={auto.setEdit}
+            onCommit={auto.commit}
+            saveState={saveLabel(auto.state, auto.error)}
             busy={busy || closed}
             onAct={act}
           />
@@ -465,23 +467,11 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
       {selected ? (
         <FilingFooter
           showSaveState={false}
-          onBack={prev ? () => void save(prev) : undefined}
+          onBack={prev ? () => void choose(prev) : undefined}
           backLabel="Previous case"
-          extra={
-            <Button
-              variant="outline"
-              size="lg"
-              disabled={busy || !changed}
-              onClick={() => void save()}
-            >
-              {changed > 1 ? `Save ${changed} changes` : "Save"}
-            </Button>
-          }
-          continueLabel={
-            next ? (changed ? "Save and next case" : "Next case") : "Go to Sign"
-          }
+          continueLabel={next ? "Next case" : "Go to Sign"}
           onContinue={() =>
-            next ? void save(next) : changed ? void save() : go("sign")
+            next ? void choose(next) : void auto.flush().then(() => go("sign"))
           }
           // Out to the page's edges and foot, past its padding (p-6 md:p-8), as on the
           // upload screens and in the single filing.
@@ -498,6 +488,8 @@ export function CaseEditor({
   batchId,
   edits,
   setEdit,
+  onCommit,
+  saveState = null,
   busy,
   onAct,
   header = true,
@@ -508,6 +500,10 @@ export function CaseEditor({
   header?: boolean;
   edits: Record<string, string>;
   setEdit: (path: string, value: string) => void;
+  /** Save one field now: on leaving it, or on choosing from a list. */
+  onCommit: (path: string, value: string) => void;
+  /** "Saving…", "Saved", or why not. */
+  saveState?: string | null;
   busy: boolean;
   onAct: (body: Record<string, unknown>) => Promise<void>;
 }) {
@@ -538,6 +534,7 @@ export function CaseEditor({
             value={edits[x.path] ?? x.value}
             edited={x.path in edits}
             onChange={(v) => setEdit(x.path, v)}
+            onCommit={(v) => onCommit(x.path, v)}
             disabled={busy}
           />
         ))}
@@ -547,6 +544,35 @@ export function CaseEditor({
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
+      {/* Demo: fills every date (consistent, filable today) and every empty required field. */}
+      <div className="flex flex-wrap items-center gap-3">
+        {!busy ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-fit"
+            onClick={() => {
+              for (const [path, value] of Object.entries(
+                demoEdits(c.fields, edits, new Set(byPath.keys())),
+              )) {
+                setEdit(path, value);
+                onCommit(path, value);
+              }
+            }}
+          >
+            <WandSparklesIcon data-icon="inline-start" aria-hidden />
+            Fill with demo values
+          </Button>
+        ) : null}
+        {saveState ? (
+          <span
+            aria-live="polite"
+            className="text-caption text-muted-foreground"
+          >
+            {saveState}
+          </span>
+        ) : null}
+      </div>
       {header ? (
         <div className="flex flex-wrap items-start gap-2">
           <div className="flex min-w-0 flex-1 flex-col">
@@ -717,6 +743,7 @@ function DetailField({
   value,
   edited,
   onChange,
+  onCommit,
   disabled,
   onSkip,
 }: {
@@ -726,6 +753,8 @@ function DetailField({
   value: string;
   edited: boolean;
   onChange: (v: string) => void;
+  /** Save this value now. */
+  onCommit: (v: string) => void;
   disabled: boolean;
 }) {
   const hold = flags.find((f) => f.level === "hold");
@@ -744,7 +773,10 @@ function DetailField({
           value={value}
           disabled={disabled}
           aria-invalid={error ? true : undefined}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => {
+            onChange(e.target.value);
+            onCommit(e.target.value);
+          }}
           className={cn("w-full", edited && "[&_select]:border-primary")}
         >
           <NativeSelectOption value="">Select</NativeSelectOption>
@@ -763,6 +795,7 @@ function DetailField({
           value={value}
           disabled={disabled}
           onChange={(e) => onChange(e.target.value)}
+          onBlur={() => edited && onCommit(value)}
           rows={2}
           className={cn("field-sizing-content", edited && "border-primary")}
         />
@@ -779,6 +812,7 @@ function DetailField({
           value={value}
           disabled={disabled}
           onChange={(e) => onChange(e.target.value)}
+          onBlur={() => edited && onCommit(value)}
           className={cn(edited && "border-primary")}
         />
       )}

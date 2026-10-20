@@ -167,6 +167,8 @@ const REQUIRED = [
   /^notices\.\d+\.(natureDebt|dispatchDate|modeService|delivered|deliveryDate|returnDate|nonDeliveryReason|replied|paymentStatus|partAmount)$/,
   /^jurisdiction\.(ifsc|drawerPolice)$/,
   /^witnesses\.\d+\.fullName$/,
+  // A witness is summoned, so their address is required once they are named.
+  /^witnesses\.\d+\.addresses\.0\.addr\.(line1|city|pin)$/,
 ];
 
 /**

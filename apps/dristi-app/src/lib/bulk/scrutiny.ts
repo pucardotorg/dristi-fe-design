@@ -1143,6 +1143,86 @@ export function caseFlags(bc: BatchCase, ctx: ScrutinyContext): Flag[] {
       },
     });
 
+  // Every date on a case has already happened: one after today is a typing slip, and
+  // it is flagged on its own field before any rule that depends on it.
+  {
+    const today = new Date().toISOString().slice(0, 10);
+    const ahead = (
+      v: string,
+      where: string,
+      section: "cheque" | "demand-notice",
+      field: string,
+      path: string,
+      label: string,
+    ) => {
+      if (v && v > today)
+        push({
+          rule: `future-${field}`,
+          field,
+          section,
+          where,
+          level: "hold",
+          at: `${path}.future`,
+          message: `${toLongDate(v)} is in the future. Enter the date it happened.`,
+          fix: { kind: "date", path, label, value: v },
+        });
+    };
+    d.cheques.forEach((q, i) => {
+      const where = d.cheques.length > 1 ? `Cheque ${i + 1}` : "Cheque";
+      ahead(
+        q.dateOnCheque,
+        where,
+        "cheque",
+        "CHQ-1",
+        `cheques.${i}.dateOnCheque`,
+        "Date on cheque",
+      );
+      ahead(
+        q.presentDate,
+        where,
+        "cheque",
+        "CHQ-8",
+        `cheques.${i}.presentDate`,
+        "Date of presentation",
+      );
+      ahead(
+        q.returnDate,
+        where,
+        "cheque",
+        "CHQ-9",
+        `cheques.${i}.returnDate`,
+        "Date of return",
+      );
+    });
+    d.notices.forEach((n, i) => {
+      const where = d.notices.length > 1 ? `Notice ${i + 1}` : "Demand notice";
+      ahead(
+        n.dispatchDate,
+        where,
+        "demand-notice",
+        "LDN-2",
+        `notices.${i}.dispatchDate`,
+        "Date of dispatch",
+      );
+      ahead(
+        n.deliveryDate,
+        where,
+        "demand-notice",
+        "LDN-6",
+        `notices.${i}.deliveryDate`,
+        "Date of delivery",
+      );
+      ahead(
+        n.returnDate,
+        where,
+        "demand-notice",
+        "LDN-7",
+        `notices.${i}.returnDate`,
+        "Date of return",
+      );
+    });
+  }
+
   const lim = limitationView(d);
   if (lim.filingIssue && lim.causeDate) {
     // Say what to enter, not only what is wrong: a service date in the future is a typing

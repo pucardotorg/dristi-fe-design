@@ -4,6 +4,7 @@ import * as React from "react";
 import {
   CheckCircle2Icon,
   CircleAlertIcon,
+  WandSparklesIcon,
   CircleCheckIcon,
   UploadIcon,
 } from "lucide-react";
@@ -16,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 
+import { demoPdf } from "./demo-fill";
 import { bulkApi, fileUrl, type CaseView } from "./api";
 import type { BatchCtx } from "./batch-screen";
 
@@ -218,9 +220,39 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
     }
   };
 
+  // Demo: a small PDF into every empty slot, one case or the whole batch.
+  const fillDemo = async (cases: CaseView[]) => {
+    setError(null);
+    for (const c of cases)
+      for (const d of c.documents.filter((x) => !x.file && x.slotKey)) {
+        setBusy(`${c.id}:${d.slotKey}`);
+        try {
+          setBatch(
+            await bulkApi.attach(batch.id, c.id, d.slotKey!, demoPdf(d.name)),
+          );
+        } catch (e) {
+          setError((e as Error).message);
+          setBusy(null);
+          return;
+        }
+      }
+    setBusy(null);
+  };
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-body-compact">
+        {incomplete.length && !closed ? (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!!busy}
+            onClick={() => void fillDemo(incomplete)}
+          >
+            <WandSparklesIcon data-icon="inline-start" aria-hidden />
+            Fill all with demo files
+          </Button>
+        ) : null}
         {missing ? (
           <span className="flex items-center gap-2">
             <CircleAlertIcon className="size-4 text-warning-ink" aria-hidden />
@@ -291,6 +323,21 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
                           </React.Fragment>
                         ))}
                       </dl>
+                      {!complete && !closed ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-fit"
+                          disabled={!!busy}
+                          onClick={() => void fillDemo([c])}
+                        >
+                          <WandSparklesIcon
+                            data-icon="inline-start"
+                            aria-hidden
+                          />
+                          Fill with demo files
+                        </Button>
+                      ) : null}
                       <Badge
                         variant={complete ? "success" : "warning"}
                         className="w-fit tabular-nums"

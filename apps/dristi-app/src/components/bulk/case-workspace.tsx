@@ -1,7 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  WandSparklesIcon,
+} from "lucide-react";
 
 import { money } from "@/lib/filing/format";
 import type { FilingDraft } from "@/lib/filing/types";
@@ -13,6 +17,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { bulkApi, type BatchView } from "./api";
+import { saveLabel, useAutosave } from "./autosave";
+import { demoPdf } from "./demo-fill";
 import { Slot } from "./documents-tab";
 import { CaseEditor, detailFlags, filledByEdit, pathOf } from "./scrutiny-tab";
 import { CaseBadge } from "./stage";
@@ -49,7 +55,6 @@ export function CaseWorkspace({
     FilingDraft
   > | null>(null);
   const [failed, setFailed] = React.useState<string | null>(null);
-  const [edits, setEdits] = React.useState<Record<string, string>>({});
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -69,42 +74,28 @@ export function CaseWorkspace({
     void loadDrafts();
   }, [loadDrafts]);
 
-  const go = (k: number) => {
+  const auto = useAutosave({
+    batch,
+    setBatch,
+    caseId: c.id,
+    everyCase: (path) =>
+      detailFlags(c).some((f) => f.batchWide && pathOf(f) === path),
+  });
+  const edits = auto.edits;
+  // Moving on waits for a save still running, then the next case opens clean.
+  const go = async (k: number) => {
     if (k < 0 || k >= cases.length) return;
-    setEdits({});
+    await auto.flush();
+    auto.reset();
     setError(null);
     onIndex(k);
   };
-
   const editable = c.stage === "held" || c.stage === "ready";
-  const changed = Object.keys(edits).length;
-  const save = async () => {
-    const batchWide = new Set(
-      detailFlags(c)
-        .filter((f) => f.batchWide)
-        .map(pathOf),
-    );
-    setBusy(true);
-    setError(null);
-    try {
-      let view = batch;
-      for (const [path, value] of Object.entries(edits))
-        view = await bulkApi.act(batch.id, {
-          action: "fix",
-          caseId: c.id,
-          path,
-          value,
-          everyCase: batchWide.has(path),
-        });
-      setBatch(view);
-      setEdits({});
-      await loadDrafts();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  };
+  // Review reads the saved draft; reread it when Review opens, after any autosaves.
+  const flush = auto.flush;
+  React.useEffect(() => {
+    if (view === "review") void flush().then(loadDrafts);
+  }, [view, flush, loadDrafts]);
 
   const [uploading, setUploading] = React.useState<string | null>(null);
   const attach = async (slotKey: string, file: File) => {
@@ -213,15 +204,32 @@ export function CaseWorkspace({
             c={c}
             batchId={batch.id}
             edits={edits}
-            setEdit={(path, value) =>
-              setEdits((e) => ({ ...e, [path]: value }))
-            }
+            setEdit={auto.setEdit}
+            onCommit={auto.commit}
+            saveState={saveLabel(auto.state, auto.error)}
             busy={busy || !editable || !!batch.clubbedInto}
             onAct={act}
             header={false}
           />
         ) : view === "documents" ? (
           <div className="flex flex-col gap-4">
+            {editable && c.documents.some((d) => !d.file && d.slotKey) ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-fit"
+                disabled={!!uploading}
+                onClick={async () => {
+                  for (const d of c.documents.filter(
+                    (x) => !x.file && x.slotKey,
+                  ))
+                    await attach(d.slotKey!, demoPdf(d.name));
+                }}
+              >
+                <WandSparklesIcon data-icon="inline-start" aria-hidden />
+                Fill with demo files
+              </Button>
+            ) : null}
             {[...new Set(c.documents.map((d) => d.group))].map((group) => (
               <section key={group} className="flex flex-col gap-2">
                 <h4 className="text-body font-semibold">{group}</h4>
@@ -247,26 +255,6 @@ export function CaseWorkspace({
           <Skeleton className="h-[60vh] w-full rounded-xl" />
         )}
       </div>
-
-      {view === "details" && editable ? (
-        <div className="flex shrink-0 items-center justify-end gap-3 border-t border-hairline bg-card px-4 py-3 sm:px-6">
-          <Button
-            variant="outline"
-            size="lg"
-            disabled={busy || !changed}
-            onClick={() => setEdits({})}
-          >
-            Discard
-          </Button>
-          <Button
-            size="lg"
-            disabled={busy || !changed}
-            onClick={() => void save()}
-          >
-            {changed > 1 ? `Save ${changed} changes` : "Save"}
-          </Button>
-        </div>
-      ) : null}
     </div>
   );
 }
