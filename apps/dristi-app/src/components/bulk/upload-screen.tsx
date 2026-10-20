@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeftIcon, CheckCircle2Icon, DownloadIcon, FileSpreadsheetIcon } from "lucide-react";
 
-import { BAR_ADVOCATES, CLIENTS } from "@/lib/bulk/clients";
+import { CLIENTS, OFFICE_ADVOCATES } from "@/lib/bulk/clients";
 import {
   autoMap,
   buildRequest,
@@ -27,6 +27,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
@@ -60,7 +61,8 @@ export function UploadScreen() {
   const router = useRouter();
   const [step, setStep] = React.useState<Step>("setup");
   const [clientId, setClientId] = React.useState(CLIENTS[0].id);
-  const [bar, setBar] = React.useState(BAR_ADVOCATES[0].barNumber);
+  // You first, then whoever else is ticked, in the People page's order.
+  const [bars, setBars] = React.useState<string[]>([OFFICE_ADVOCATES[0].barNumber]);
   const [adr, setAdr] = React.useState<"yes" | "no">("no");
   const [file, setFile] = React.useState<File | null>(null);
   const [book, setBook] = React.useState<Workbookish | null>(null);
@@ -103,7 +105,12 @@ export function UploadScreen() {
     setError(null);
     try {
       const client = CLIENTS.find((c) => c.id === clientId)!;
-      const request = buildRequest(book, map, values, { complainant: client.complainant, barNumber: bar, adr, fileName: file.name });
+      const request = buildRequest(book, map, values, {
+        complainant: client.complainant,
+        barNumbers: OFFICE_ADVOCATES.map((a) => a.barNumber).filter((b) => bars.includes(b)),
+        adr,
+        fileName: file.name,
+      });
       const res = await fetch("/api/bulk/batches", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -174,16 +181,38 @@ export function UploadScreen() {
                 ))}
               </NativeSelect>
             </Field>
-            <Field className="gap-1.5">
-              <FieldLabel htmlFor="advocate">Advocate</FieldLabel>
-              <NativeSelect id="advocate" value={bar} onChange={(e) => setBar(e.target.value)}>
-                {BAR_ADVOCATES.map((a) => (
-                  <NativeSelectOption key={a.barNumber} value={a.barNumber}>
-                    {a.name}, {a.barNumber}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-            </Field>
+            <fieldset className="flex flex-col gap-1.5">
+              <legend className="mb-1.5 text-body-compact font-medium">Advocates</legend>
+              <span className="text-caption text-muted-foreground">You, and advocates from your People page. Tick everyone who appears for the complainant.</span>
+              <ul className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+                {OFFICE_ADVOCATES.map((a) => {
+                  const id = `adv-${a.barNumber}`;
+                  return (
+                    <li key={a.barNumber}>
+                      <label htmlFor={id} className="flex min-h-10 cursor-pointer items-center gap-3 rounded-lg px-2 hover:bg-accent">
+                        <Checkbox
+                          id={id}
+                          aria-label={`${a.name}${a.you ? " (you)" : ""}, ${a.barNumber}`}
+                          checked={bars.includes(a.barNumber)}
+                          // The filing advocate stays on record; the others are optional.
+                          disabled={a.you}
+                          onCheckedChange={(v) =>
+                            setBars((prev) => (v === true ? [...prev, a.barNumber] : prev.filter((b) => b !== a.barNumber)))
+                          }
+                        />
+                        <span className="flex min-w-0 flex-col">
+                          <span className="truncate text-body-compact">
+                            {a.name}
+                            {a.you ? <span className="text-muted-foreground"> (you)</span> : null}
+                          </span>
+                          <span className="text-caption text-muted-foreground tabular-nums">{a.barNumber}</span>
+                        </span>
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+            </fieldset>
             <Field className="gap-1.5">
               <FieldLabel>Willing to settle through ADR</FieldLabel>
               <RadioGroup value={adr} onValueChange={(v) => setAdr(v as "yes" | "no")} className="flex gap-6">

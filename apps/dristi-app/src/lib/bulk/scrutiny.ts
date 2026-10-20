@@ -40,7 +40,7 @@ import {
 import { toLongDate } from "@/lib/filing/format";
 import type { Address, FilingDraft, StepId } from "@/lib/filing/types";
 
-import { BAR_ADVOCATES } from "./clients";
+import { BAR_ADVOCATES, OFFICE_ADVOCATES } from "./clients";
 import { codeForSlot, DOC_CODE_LABEL } from "./contract";
 import { COURT_DISTRICT, IFSC_PATTERN } from "./reference";
 import type { Batch, BatchCase, CaseStage } from "./types";
@@ -157,7 +157,7 @@ export function caseFlags(bc: BatchCase, ctx: ScrutinyContext): Flag[] {
   /* ── Advocate (ADV) ── */
   d.advocates.forEach((a, i) => {
     if (!a.name.trim())
-      push({ rule: "adv-3", field: "ADV-3", section: "advocate", where: `Advocate ${i + 1}`, batchWide: true, level: "hold", at: `adv.${i}`, message: a.barNumber ? `Bar registration ${a.barNumber} was not found with the Bar Council.` : "Bar registration number is missing.", fix: { kind: "select", path: `advocates.${i}.barNumber`, label: "Advocate", value: "", options: BAR_ADVOCATES.map((b) => ({ value: b.barNumber, label: `${b.name}, ${b.barNumber}` })) } });
+      push({ rule: "adv-3", field: "ADV-3", section: "advocate", where: `Advocate ${i + 1}`, batchWide: true, level: "hold", at: `adv.${i}`, message: a.barNumber ? `Bar registration ${a.barNumber} was not found with the Bar Council.` : "Bar registration number is missing.", fix: { kind: "select", path: `advocates.${i}.barNumber`, label: "Advocate", value: "", options: [...OFFICE_ADVOCATES, ...BAR_ADVOCATES].map((b) => ({ value: b.barNumber, label: `${b.name}, ${b.barNumber}` })) } });
   });
   if (d.advocates.length === 0)
     push({ rule: "adv-1", field: "ADV-1", section: "advocate", where: "Advocate", batchWide: true, level: "hold", at: "adv", message: "No advocate is on record for the complainant." });

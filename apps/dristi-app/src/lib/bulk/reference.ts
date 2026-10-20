@@ -10,6 +10,8 @@
  * all three for the court's services behind these signatures.
  */
 
+import { OFFICE_ADVOCATES } from "./clients";
+
 export const IFSC_PATTERN = /^[A-Z]{4}0[A-Z0-9]{6}$/;
 
 export type IfscRecord = { bank: string; branch: string };
@@ -55,8 +57,10 @@ const PIN_REGISTER: Record<string, PinRecord> = {
   "395007": { district: "Surat", state: "Gujarat" },
 };
 
-/** Enrolment number → name, as the Bar Council of Gujarat would answer. */
+/** Enrolment number → name, as the Bar Council would answer: Provakil's empanelled
+ * advocates, and the signed-in advocate's office (their People page). */
 const BAR_REGISTER: Record<string, string> = {
+  ...Object.fromEntries(OFFICE_ADVOCATES.map((a) => [a.barNumber, a.name])),
   "G/1187/2011": "Hemant R. Desai",
   "G/2290/2014": "Nirali S. Shah",
   "G/0754/2006": "Kaushik P. Trivedi",

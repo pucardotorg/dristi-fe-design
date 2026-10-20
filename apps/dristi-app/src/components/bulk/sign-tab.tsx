@@ -95,7 +95,7 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
     ...(batch.representative
       ? [{ id: "rep", name: batch.representative.name, role: `For ${batch.client}, ${batch.representative.designation}`, mobile: batch.representative.mobile }]
       : []),
-    ...(batch.advocate ? [{ id: "adv", name: batch.advocate.name, role: `Advocate, ${batch.advocate.barNumber}` }] : []),
+    ...batch.advocates.map((a, i) => ({ id: `adv-${i}`, name: a.name || a.barNumber, role: `Advocate, ${a.barNumber}` })),
   ];
   const held = batch.cases.filter((c) => c.stage === "held").length;
   const unanswered = batch.cases.filter((c) => c.stage === "ready" && c.flags.length > 0).length;
@@ -284,7 +284,7 @@ function SignFlow({
     // Mobile OTP: one OTP, to the filing advocate, for everyone on every case (owner,
     // 2026-10-20). The others still go signer by signer.
     if (method === "mobile-otp") {
-      const advocate = signers.find((s) => s.id === "adv") ?? signers[0];
+      const advocate = signers.find((s) => s.id === "adv-0") ?? signers[0];
       return advocate ? [{ signer: advocate, cases, round: 1, rounds: 1 }] : [];
     }
     const groups = method === "aadhaar" ? chunk(cases, AADHAAR_DOCS_PER_OTP) : [cases];

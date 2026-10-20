@@ -224,9 +224,13 @@ export function BatchScreen({ batchId }: { batchId: string }) {
             ) : null}
           </div>
           <div className="flex flex-col gap-1">
-            <span className="text-caption text-muted-foreground">Advocate</span>
-            <span className="text-body-compact">{batch.advocate?.name || "Not found with the Bar Council"}</span>
-            <span className="text-caption text-muted-foreground tabular-nums">{batch.advocate?.barNumber}</span>
+            <span className="text-caption text-muted-foreground">Advocate{batch.advocates.length === 1 ? "" : "s"}</span>
+            {batch.advocates.map((a) => (
+              <span key={a.barNumber} className="text-body-compact">
+                {a.name || "Not found with the Bar Council"}{" "}
+                <span className="text-caption text-muted-foreground tabular-nums">{a.barNumber}</span>
+              </span>
+            ))}
           </div>
           <div className="flex flex-col gap-2">
             <span className="text-caption text-muted-foreground">Where the cases stand</span>

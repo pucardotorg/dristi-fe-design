@@ -338,7 +338,7 @@ export function buildRequest(
   book: Workbookish,
   map: ColumnMap,
   values: ValueMap,
-  batch: { complainant: ApiComplainant; barNumber: string; adr: "yes" | "no"; fileName: string }
+  batch: { complainant: ApiComplainant; barNumbers: string[]; adr: "yes" | "no"; fileName: string }
 ): ApiBatchRequest {
   const cases: ApiCase[] = book.cases.rows.map((row, n) => {
     const r = reader(row, map, values);
@@ -391,7 +391,7 @@ export function buildRequest(
   return {
     source: { system: "Excel upload", reference: batch.fileName },
     complainant: batch.complainant,
-    advocates: [{ barNumber: batch.barNumber }],
+    advocates: batch.barNumbers.map((barNumber) => ({ barNumber })),
     adr: batch.adr,
     cases,
   };

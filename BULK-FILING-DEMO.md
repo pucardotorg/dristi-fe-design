@@ -165,7 +165,8 @@ Two ready-made files are in the `demo-files` folder inside `bulk-filing-demo`:
 1. On SARAS 2.0, **Bulk filing**, click **Download Excel template** and open it to see the
    format. Row 2 says what each column takes (text, date, a choice from a list, required or
    not). Row 3 is an example case. Both rows are skipped when you upload, so they can stay.
-2. Click **Upload Excel**. Pick the complainant and advocate, choose
+2. Click **Upload Excel**. Pick the complainant, and tick the advocates who appear for it:
+   you are ticked already, and any advocate on your **People** page can be added. Choose
    `tata-capital-bulk-filing-template.xlsx`, click **Read file**.
 3. Because it follows the template, it goes straight to **Review**: 12 cases read, and the
    template's 2 guide rows discarded. Click **Create batch**.

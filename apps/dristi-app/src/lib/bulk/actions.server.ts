@@ -78,7 +78,8 @@ export type BatchView = BatchSummary & {
   cases: CaseView[];
   payments: Batch["payments"];
   signings: Batch["signings"];
-  advocate: { name: string; barNumber: string } | null;
+  /** Everyone on record for the complainant; the first is the filing advocate. */
+  advocates: { name: string; barNumber: string }[];
   representative: { name: string; designation: string; mobile: string } | null;
 };
 
@@ -154,14 +155,13 @@ export function summarise(batch: Batch, all: Batch[]): BatchSummary {
 
 export function batchView(batch: Batch, all: Batch[]): BatchView {
   const first = batch.cases[0]?.draft;
-  const adv = first?.advocates[0];
   const rep = first?.complainants[0]?.rep;
   return {
     ...summarise(batch, all),
     cases: batch.cases.map((bc) => caseView(bc, batch, all)),
     payments: batch.payments,
     signings: batch.signings,
-    advocate: adv ? { name: adv.name, barNumber: adv.barNumber } : null,
+    advocates: (first?.advocates ?? []).map((a) => ({ name: a.name, barNumber: a.barNumber })),
     representative: rep?.name ? { name: rep.name, designation: rep.designation, mobile: rep.mobile } : null,
   };
 }
