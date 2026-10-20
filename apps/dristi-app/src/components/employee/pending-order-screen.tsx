@@ -44,20 +44,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import {
-  acceptanceNeedsHearingDate,
-  type LifecycleApplication,
-} from "@/lib/applications/lifecycle";
+import { type LifecycleApplication } from "@/lib/applications/lifecycle";
 import {
   useApplicationsReady,
   useLifecycleApplications,
 } from "@/lib/applications/store";
 import type { CaseRecord } from "@/lib/cases/types";
 import { localizeDeep } from "@/lib/court/localize";
-import {
-  applicationOrderOutcomes,
-  outcomeHearingDate,
-} from "@/lib/employee/application-order-outcome";
 import { caseOf } from "@/lib/employee/application-tasks";
 import {
   cognizanceCaseById,
@@ -82,7 +75,7 @@ import {
   markOrdersSigned,
   returnOrderToDraft,
 } from "@/lib/employee/order-signing";
-import { blockGaps } from "@/lib/employee/order-composer";
+import { missingMandatory } from "@/lib/employee/order-composer";
 import { orderTemplate } from "@/lib/employee/order-templates";
 import {
   moveOrderBackToDraft,
@@ -176,7 +169,6 @@ function WorkflowDoorBody({ door }: { door: OrderDoor }) {
   const { court } = useCourt();
   const pending = usePendingOrders();
   const signing = useOrderSigning();
-  const lifecycleApps = useLifecycleApplications();
   const entry = pending[door.draftKey];
   const stage = entry ? pendingOrderStage(entry, signing) : "drafting";
   const appearances = door.hearing?.appearances;
@@ -186,7 +178,6 @@ function WorkflowDoorBody({ door }: { door: OrderDoor }) {
   );
   const [stored, setDraft] = useOrderDraft(orderDraftKey(door.draftKey), initial);
   const draft = useCausePosting(door, stored);
-  const readerPosts = useReaderPostsNextHearing();
   const [openApplication, setOpenApplication] =
     React.useState<ListingApplication | null>(null);
   const [ask, setAsk] = React.useState<"sign" | "complete" | null>(null);
@@ -205,56 +196,20 @@ function WorkflowDoorBody({ door }: { door: OrderDoor }) {
   const canReopen = filler && complete && !signed;
   const canMoveBack =
     seatHolds(seat, court, "order-drafter") && stage === "awaiting-signature";
-  const unlisted = draft.next === "list" && !(draft.nextDate && draft.nextPurpose);
   const summary = triggerSummary(draft, appearances, listing);
 
   function askComplete() {
+    /* `CMP-02`: only a mandatory field left unanswered holds the order data back. The
+       next hearing is settled before the order is sent for signing (`SND-03`), so it is
+       not checked again here. */
     const unfilled = draft.blocks.find(
       (block) =>
-        block.kind === "item" &&
-        blockGaps(block, door.context).some((gap) => gap.key !== "text"),
+        block.kind === "item" && missingMandatory(block, door.context).length > 0,
     );
     if (unfilled && unfilled.kind === "item") {
       toast(
-        `${orderTemplate(unfilled.type).label} has details still to fill. Use its pencil to fill them.`,
+        `${orderTemplate(unfilled.type).label} has mandatory details still to fill. Use its pencil to fill them.`,
       );
-      return;
-    }
-    /* The next hearing is set on the order's page before the order is sent; one sent
-       without it goes back to draft for it. */
-    if (unlisted) {
-      if (door.hearing && readerPosts) {
-        toast(
-          "This order has no next hearing yet. Set it in the cause list's Next hearing column.",
-        );
-      } else {
-        toast(
-          "This order has no next hearing. Move it back to draft to set the date and purpose.",
-        );
-      }
-      return;
-    }
-    /* Accepting a Postpone or an Advance moves the hearing, and the date it moves to is
-       this order's next hearing — it has to be there before the workflow can go out. */
-    const undated = applicationOrderOutcomes(draft.blocks).find((outcome) => {
-      const app = lifecycleApps.find((entry) => entry.id === outcome.applicationId);
-      return (
-        app &&
-        outcome.kind === "accept" &&
-        acceptanceNeedsHearingDate(app.type) &&
-        !outcomeHearingDate(outcome, app, draft)
-      );
-    });
-    if (undated) {
-      if (door.hearing && readerPosts) {
-        toast(
-          "Accepting this application moves the hearing, and this order has no next hearing date yet. Set it in the cause list's Next hearing column.",
-        );
-      } else {
-        toast(
-          "Accepting this application moves the hearing, and this order has no next hearing date. Move it back to draft to set one.",
-        );
-      }
       return;
     }
     setAsk("complete");

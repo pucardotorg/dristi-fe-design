@@ -763,7 +763,6 @@ export function OrderWorkflowFields({
         }
         onClose={() => setEditing(null)}
         description="Recorded in this order's data, and set moving once the order is signed and its order data is complete. Nothing is written into the order's text."
-        showSentence={false}
         onConfirm={() => {
           if (!editing) return;
           commit(editing.block, editing.mode);
