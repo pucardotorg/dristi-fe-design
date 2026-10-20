@@ -55,6 +55,10 @@ export function ReviewTab({ batch, go }: BatchCtx) {
 
   const c = open.find((x) => x.id === selectedId) ?? open[0];
   const at = open.indexOf(c);
+  // Complete cases can be signed now, without waiting for the rest.
+  const ready = batch.cases.filter(
+    (x) => x.stage === "ready" && x.flags.length === 0,
+  ).length;
   const stateOf = (x: CaseView) => {
     const f = detailFlags(x);
     const holds = f.filter((y) => y.level === "hold").length;
@@ -103,8 +107,25 @@ export function ReviewTab({ batch, go }: BatchCtx) {
         showSaveState={false}
         onBack={at > 0 ? () => move(at - 1) : undefined}
         backLabel="Previous case"
-        continueLabel={at < open.length - 1 ? "Next case" : "Go to Sign"}
-        onContinue={() => (at < open.length - 1 ? move(at + 1) : go("sign"))}
+        // Two ways on from any case: the next case, or signing the cases already complete
+        // (only those; the rest stay). With none complete, Sign says why instead.
+        extra={
+          at < open.length - 1 ? (
+            <Button variant="outline" size="lg" onClick={() => move(at + 1)}>
+              Next case
+            </Button>
+          ) : null
+        }
+        continueLabel={
+          ready
+            ? `Sign ${ready} complete case${ready === 1 ? "" : "s"}`
+            : "Sign"
+        }
+        continueBlocked={!ready}
+        continueHint="No case is complete yet"
+        onContinue={() => {
+          if (ready) go("sign");
+        }}
         className="-mx-6 -mb-6 md:-mx-8 md:-mb-8"
       />
     </div>

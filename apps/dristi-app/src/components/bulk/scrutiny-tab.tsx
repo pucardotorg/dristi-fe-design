@@ -315,6 +315,10 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
     }
   };
 
+  // Complete: ready, with nothing left to fix or check. What Sign offers.
+  const ready = batch.cases.filter(
+    (c) => c.stage === "ready" && c.flags.length === 0,
+  ).length;
   const skipped = open.flatMap((c) => c.skipped.map((f) => ({ c, f })));
   const next = listed[at + 1]?.id ?? null;
   const prev = listed[at - 1]?.id ?? null;
@@ -469,12 +473,31 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
           showSaveState={false}
           onBack={prev ? () => void choose(prev) : undefined}
           backLabel="Previous case"
-          continueLabel={next ? "Next case" : "Go to Sign"}
-          onContinue={() =>
-            next ? void choose(next) : void auto.flush().then(() => go("sign"))
+          // Signing never waits for the whole batch: once any case is complete it can go
+          // ahead on its own, and the rest stay here. Next case stays beside it.
+          // Two ways on from any case: the next case, or signing the cases already complete
+          // (only those; the rest stay). With none complete, Sign says why instead.
+          extra={
+            next ? (
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => void choose(next)}
+              >
+                Next case
+              </Button>
+            ) : null
           }
-          // Out to the page's edges and foot, past its padding (p-6 md:p-8), as on the
-          // upload screens and in the single filing.
+          continueLabel={
+            ready
+              ? `Sign ${ready} complete case${ready === 1 ? "" : "s"}`
+              : "Sign"
+          }
+          continueBlocked={!ready}
+          continueHint="No case is complete yet"
+          onContinue={() => {
+            if (ready) void auto.flush().then(() => go("sign"));
+          }}
           className="-mx-6 -mb-6 md:-mx-8 md:-mb-8"
         />
       ) : null}
