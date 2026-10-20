@@ -353,6 +353,9 @@ export function UploadScreen() {
             </CardTitle>
             <CardDescription>
               {template ? "The file follows the template." : "Columns matched."}
+              {book.cases.discarded
+                ? ` ${book.cases.discarded} template guide row${book.cases.discarded === 1 ? "" : "s"} (format or example) discarded.`
+                : ""}
               {book.extraCheques?.rows.length ? ` ${book.extraCheques.rows.length} extra cheques.` : ""}
               {book.extraAccused?.rows.length ? ` ${book.extraAccused.rows.length} extra accused.` : ""} The filing checks run once the
               batch is created.

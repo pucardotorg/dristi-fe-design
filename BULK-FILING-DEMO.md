@@ -155,31 +155,65 @@ Go back to Provakil and press **Refresh**: filed cases now show their case numbe
 
 ### Walkthrough C: Upload an Excel file that follows the template
 
-1. On SARAS 2.0, **Bulk filing**, click **Download Excel template** to see the format.
-2. Easiest way to get a filled one: in Provakil, tick some cases that are not yet filed,
-   click **Export**, choose **SARAS 2.0 bulk filing template**.
-3. On SARAS 2.0, click **Upload Excel**. Pick the complainant and advocate, choose the file,
-   click **Read file**.
-4. Because it follows the template, it goes straight to **Review**. Click **Create batch**.
-5. Excel cases arrive without documents, so the batch opens on **Documents**. Continue as in
-   Walkthrough B.
+Two ready-made files are in the `demo-files` folder inside `bulk-filing-demo`:
+
+| File | What it shows |
+|---|---|
+| `tata-capital-bulk-filing-template.xlsx` | 12 cases in the court's template. Goes straight in. |
+| `tata-capital-recovery-mis.xlsx` | The same 12 cases in a lender's own report layout. Needs matching. |
+
+1. On SARAS 2.0, **Bulk filing**, click **Download Excel template** and open it to see the
+   format. Row 2 says what each column takes (text, date, a choice from a list, required or
+   not). Row 3 is an example case. Both rows are skipped when you upload, so they can stay.
+2. Click **Upload Excel**. Pick the complainant and advocate, choose
+   `tata-capital-bulk-filing-template.xlsx`, click **Read file**.
+3. Because it follows the template, it goes straight to **Review**: 12 cases read, and the
+   template's 2 guide rows discarded. Click **Create batch**.
+4. Excel cases arrive without documents, so the batch opens on **Documents**. Then
+   **Scrutiny** shows two cheques to check (returned for "payment stopped" and "account
+   closed") and one case held for a 5-digit pincode: type `380015` and **Save**. Continue as
+   in Walkthrough B.
+
+You can also export from Provakil: tick cases, **Export**, **SARAS 2.0 bulk filing
+template**.
 
 ### Walkthrough D: Upload an Excel file in a different layout
 
-1. In Provakil, tick some cases, click **Export**, choose **Provakil case report**. This is
-   Provakil's own layout, with its own column names.
-2. On SARAS 2.0, **Upload Excel** this file.
-3. A **Match your columns** screen appears. Most fields are matched already. Finish the rest:
-   - Accused type: choose the **Constitution** column.
-   - Accused institution type: choose **Not in my file**.
-   - Nature of debt: choose **Every row: Loan / advance repayment**.
-   - Deposited in complainant's own account: choose **Every row: Yes**.
-   - Notice delivered: choose the **Notice Status** column.
-   - Notice delivery date: choose the **Status Date** column.
-4. A **Match your values** screen appears for values the court does not use, for example
-   `01 - Funds Insufficient` to **Funds insufficient**, `Delivered` to **Yes**,
-   `Sole Proprietorship` to **Individual**.
-5. **Review**, then **Create batch**.
+1. **Upload Excel** again and choose `tata-capital-recovery-mis.xlsx`.
+2. A **Match your columns** screen appears. Twelve fields are matched already by name.
+   Match the rest:
+
+   | Field | Choose |
+   |---|---|
+   | Case reference | Loan A/c No |
+   | Accused type | Cust Type |
+   | Accused mobile | Mobile No |
+   | Accused address | Communication Address |
+   | Person responsible name | Director/Partner |
+   | Cheque date | Chq Dt |
+   | Cheque amount | Chq Amount (Rs) |
+   | Presentation date | Presented On |
+   | Deposited in complainant's own account | Every row: Yes |
+   | Nature of debt | Every row: Loan / advance repayment |
+   | Notice mode of service | Sent Via |
+   | Notice tracking number | AWB No |
+   | Notice delivered | Notice Status |
+   | Notice return date | Returned On |
+   | Reason for non-delivery | Remarks |
+   | Accused replied | Reply Recd |
+   | Amount paid | Recovered After Notice |
+
+   **Continue** becomes clickable once every required field is matched.
+3. A **Match your values** screen appears for the lender's own words:
+   `COMPANY` and `FIRM` mean Institution; `INSUFFICIENT FUNDS` means Funds insufficient;
+   `A/C CLOSED` means Account closed; `Regd. Post A/D` means Registered post (RPAD);
+   `SERVED` and `Y` mean Yes; `RETURNED` and `N` mean No.
+4. **Review**, then **Create batch**. The two company and firm cases will ask for their type
+   of institution on **Scrutiny**, because this file has no column for it.
+
+If the dates in the demo files are more than two weeks old, some cases will ask for a
+reason for delay. To make fresh copies dated from today, run `npm run demo:files` in the
+terminal (with the demo stopped, or in a second terminal window).
 
 ### Walkthrough E: Club batches
 

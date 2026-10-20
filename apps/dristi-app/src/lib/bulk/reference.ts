@@ -43,6 +43,7 @@ const PIN_REGISTER: Record<string, PinRecord> = {
   "380015": { district: "Ahmedabad", state: "Gujarat" },
   "380052": { district: "Ahmedabad", state: "Gujarat" },
   "380054": { district: "Ahmedabad", state: "Gujarat" },
+  "380055": { district: "Ahmedabad", state: "Gujarat" },
   "380058": { district: "Ahmedabad", state: "Gujarat" },
   "380061": { district: "Ahmedabad", state: "Gujarat" },
   "382330": { district: "Ahmedabad", state: "Gujarat" },

@@ -98,7 +98,7 @@ export type Column = {
 };
 
 export const COLUMNS: Column[] = [
-  { key: "reference", header: "Case reference", field: "—", kind: "text", required: "Yes, unique in the file", aliases: ["LAN", "Loan account number", "Loan account no", "Reference", "Ref no", "Account number"], example: "GJ-PL-0041870" },
+  { key: "reference", header: "Case reference", field: "—", kind: "text", required: "Yes, unique in the file", aliases: ["LAN", "Loan account number", "Loan account no", "Reference", "Ref no", "Account number"], example: "EXAMPLE-0001" },
   { key: "accusedType", header: "Accused type", field: "ACC-1", kind: "list", list: "accusedType", required: "Yes", aliases: ["Borrower type", "Party type"], example: "Individual" },
   { key: "accusedName", header: "Accused name", field: "ACC-2", kind: "text", required: "Yes", aliases: ["Borrower name", "Borrower", "Drawer name", "Customer name", "Name of accused"], example: "Bhavesh N. Thakkar" },
   { key: "accusedEntity", header: "Accused institution type", field: "ACC-4", kind: "list", list: "accusedEntity", required: "When Institution", aliases: ["Constitution", "Entity type"], example: "" },
@@ -157,4 +157,56 @@ export function normHeader(s: string): string {
 export function toSheetDate(iso: string): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
   return m ? `${m[3]}-${m[2]}-${m[1]}` : iso;
+}
+
+/* ───────────────────────────── Guide rows ───────────────────────────── */
+
+/** An example row's Case reference starts with this; upload skips such rows. */
+export const EXAMPLE_PREFIX = "EXAMPLE";
+
+/** What a column takes, in a few words: "Date, DD-MM-YYYY. Required". */
+export function formatHint(c: Column): string {
+  const type =
+    c.kind === "date"
+      ? "Date, DD-MM-YYYY"
+      : c.kind === "number"
+        ? "Number, no commas"
+        : c.kind === "phone"
+          ? "10-digit mobile number"
+          : c.kind === "list" && c.list
+            ? LISTS[c.list].length <= 3
+              ? `Choose: ${LISTS[c.list].map((o) => o.label).join(" / ")}`
+              : "Choose from the dropdown"
+            : "Text";
+  const need =
+    c.required === "No"
+      ? "Optional"
+      : c.required === "Yes"
+        ? "Required"
+        : c.required.startsWith("Yes, ")
+          ? `Required, ${c.required.slice(5)}`
+          : c.required.startsWith("When ")
+            ? `Required when ${c.required.slice(5)}`
+            : c.required;
+  return `${type}. ${need}`;
+}
+
+/**
+ * The template's own guide rows, which upload discards. A row is one when any of these
+ * holds, so the example is caught even if someone edits part of it:
+ *
+ * - a value starts with EXAMPLE (the example's Case reference);
+ * - three or more values are format hints (the format row);
+ * - most of its distinctive values are the example's own (an example with the reference
+ *   changed). Distinctive means not a Yes/No or list value any real case would share.
+ */
+export function isGuideRow(cells: string[]): boolean {
+  const filled = cells.map((c) => c.trim()).filter(Boolean);
+  if (!filled.length) return false;
+  if (filled.some((c) => c.toUpperCase().startsWith(EXAMPLE_PREFIX))) return true;
+  const hints = new Set(COLUMNS.map(formatHint));
+  if (filled.filter((c) => hints.has(c)).length >= 3) return true;
+  const distinctive = COLUMNS.filter((c) => c.kind !== "list" && c.example && c.key !== "reference").map((c) => c.example);
+  const hits = distinctive.filter((v) => filled.includes(v)).length;
+  return hits >= Math.ceil(distinctive.length * 0.6);
 }

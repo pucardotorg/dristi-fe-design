@@ -44,6 +44,7 @@ Run it with `npm run demo` (SARAS 2.0 on port 3000, Provakil on 3100). The team 
 | 2026-10-20 | Provakil's filing menu lists other courts (Kerala's 24×7 ON Court, NACT, eCourts) but only SARAS 2.0 is open for these Gujarat cases. Filed cases show "Filed on SARAS 2.0", and the word DRISTI does not appear in Provakil. | Owner | implemented |
 | 2026-10-20 | The client is Tata Capital Ltd. Its name and registered office are public; the CIN, officers, contacts and every borrower are placeholders. | Owner | implemented |
 | 2026-10-20 | Bulk payment is one gateway transaction for the selected cases, with a receipt per case. Payment files the case, as in the single flow. | PRD §4.2 | implemented |
+| 2026-10-20 | The template carries a format row and an example row so the expected format is clear; upload spots and discards both automatically. Two demo spreadsheets ship with the branch, one in the template and one in a lender's own layout. | Owner | implemented |
 | 2026-10-20 | Derived values (cause of action, filing date, delay, fee bill) are never accepted from the API or the sheet. | PRD §3.5, constraint 3 | implemented |
 
 ## Provakil to SARAS 2.0 mapping
@@ -106,8 +107,13 @@ upload screen, so the sheet carries only what changes per case.
 - **Cases** (required): one row per case, header in row 1, the 36 columns below.
 - **Extra cheques** and **Extra accused** (optional): further cheques or accused, keyed by
   Case reference.
-- **Lists**: allowed values, wired into the dropdowns. **Example** and **Instructions** sheets
-  explain the format.
+- **Lists**: allowed values, wired into the dropdowns. An **Instructions** sheet explains the
+  format.
+- On every sheet, row 2 states what each column takes ("Date, DD-MM-YYYY. Required",
+  "Choose: Individual / Institution. Required"), and on Cases row 3 is a filled example.
+  Upload discards both by rule (`isGuideRow`): a value starting `EXAMPLE`, three or more
+  format hints, or most of the example's distinctive values (an example with its reference
+  edited). The review step states how many rows were discarded.
 
 Dates are `DD-MM-YYYY` (Excel date cells also work). Yes/No columns take Yes or No.
 
@@ -164,6 +170,10 @@ matched once each, and every row using them follows.
 **Document matching.** Files named `<Case reference>_<code>.<ext>`, for example
 `GJ-PL-0041870_DCM-1.pdf`, attach themselves; a second cheque's ends `_2`. Anything else is
 placed by hand.
+
+**Demo files.** `npm run demo:files` writes `demo-files/tata-capital-bulk-filing-template.xlsx`
+(12 cases, template layout, guide rows left in) and `demo-files/tata-capital-recovery-mis.xlsx`
+(the same cases in a lender's report layout, for the matching screens), dated from today.
 
 ## Where it lives
 

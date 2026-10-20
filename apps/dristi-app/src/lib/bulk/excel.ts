@@ -14,6 +14,8 @@ import type { ApiBatchRequest, ApiCase, ApiComplainant } from "./contract";
 import {
   CASES_SHEET,
   COLUMNS,
+  formatHint,
+  isGuideRow,
   LISTS,
   LISTS_SHEET,
   listValue,
@@ -42,19 +44,45 @@ function columnLetter(n: number): string {
   return s;
 }
 
-function addSheet(wb: Workbook, name: string, cols: Column[], listRanges: Record<string, string>, withRef: boolean) {
-  const ws = wb.addWorksheet(name, { views: [{ state: "frozen", ySplit: 1 }] });
-  const all = withRef ? [COLUMNS[0], ...cols] : cols;
-  ws.columns = all.map((c) => ({ header: c.header, key: c.key, width: Math.max(14, c.header.length + 4) }));
+/** Light grey for the guide rows, so they read as instructions rather than data. */
+const GUIDE_FILL = { type: "pattern" as const, pattern: "solid" as const, fgColor: { argb: "FFF2F2F2" } };
+
+/**
+ * One sheet of the template. Row 1 is the header; row 2 says what each column takes; on
+ * the Cases sheet row 3 is a filled example. Upload skips rows 2 and 3 (`isGuideRow`).
+ */
+function addSheet(
+  wb: Workbook,
+  name: string,
+  cols: Column[],
+  listRanges: Record<string, string>,
+  opts: { withRef: boolean; example: boolean }
+) {
+  const ws = wb.addWorksheet(name, { views: [{ state: "frozen", ySplit: 2 }] });
+  const all = opts.withRef ? [COLUMNS[0], ...cols] : cols;
+  ws.columns = all.map((c) => ({ header: c.header, key: c.key, width: Math.max(18, c.header.length + 4) }));
   const head = ws.getRow(1);
   head.font = { bold: true };
   head.alignment = { wrapText: true, vertical: "top" };
+
+  const hints = ws.addRow(Object.fromEntries(all.map((c) => [c.key, formatHint(c)])));
+  hints.font = { italic: true, color: { argb: "FF555555" } };
+  hints.alignment = { wrapText: true, vertical: "top" };
+  hints.eachCell({ includeEmpty: true }, (cell) => (cell.fill = GUIDE_FILL));
+
+  if (opts.example) {
+    const ex = ws.addRow(Object.fromEntries(all.map((c) => [c.key, c.example])));
+    ex.font = { italic: true, color: { argb: "FF555555" } };
+    ex.eachCell({ includeEmpty: true }, (cell) => (cell.fill = GUIDE_FILL));
+  }
+  const firstData = opts.example ? 4 : 3;
+
   all.forEach((c, i) => {
     const cell = head.getCell(i + 1);
-    cell.note = `${c.field === "—" ? "" : `${c.field}. `}Required: ${c.required}.`;
+    cell.note = `${c.field === "—" ? "" : `${c.field}. `}${formatHint(c)}.`;
     const letter = columnLetter(i + 1);
     if (c.kind === "list" && c.list) {
-      for (let r = 2; r <= 1001; r += 1) {
+      for (let r = firstData; r <= firstData + 999; r += 1) {
         ws.getCell(`${letter}${r}`).dataValidation = {
           type: "list",
           allowBlank: true,
@@ -67,7 +95,7 @@ function addSheet(wb: Workbook, name: string, cols: Column[], listRanges: Record
   return ws;
 }
 
-/** The template: Cases, the two optional repeat sheets, an example, the lists, the rules. */
+/** The template: Cases (with its format and example rows), the two optional repeat sheets, the lists, the rules. */
 export async function buildTemplate(): Promise<Blob> {
   const ExcelJS = await excel();
   const wb = new ExcelJS.Workbook();
@@ -81,14 +109,9 @@ export async function buildTemplate(): Promise<Blob> {
     listRanges[name] = `'${LISTS_SHEET}'!$${letter}$2:$${letter}$${LISTS[name].length + 1}`;
   });
 
-  addSheet(wb, CASES_SHEET, COLUMNS, listRanges, false);
-  addSheet(wb, EXTRA_CHEQUES_SHEET, COLUMNS.filter((c) => CHEQUE_KEYS.includes(c.key)), listRanges, true);
-  addSheet(wb, EXTRA_ACCUSED_SHEET, COLUMNS.filter((c) => ACCUSED_KEYS.includes(c.key)), listRanges, true);
-
-  const ex = wb.addWorksheet("Example");
-  ex.columns = COLUMNS.map((c) => ({ header: c.header, key: c.key, width: Math.max(14, c.header.length + 4) }));
-  ex.getRow(1).font = { bold: true };
-  ex.addRow(Object.fromEntries(COLUMNS.map((c) => [c.key, c.example])));
+  addSheet(wb, CASES_SHEET, COLUMNS, listRanges, { withRef: false, example: true });
+  addSheet(wb, EXTRA_CHEQUES_SHEET, COLUMNS.filter((c) => CHEQUE_KEYS.includes(c.key)), listRanges, { withRef: true, example: false });
+  addSheet(wb, EXTRA_ACCUSED_SHEET, COLUMNS.filter((c) => ACCUSED_KEYS.includes(c.key)), listRanges, { withRef: true, example: false });
 
   const rules = wb.addWorksheet("Instructions");
   rules.columns = [
@@ -116,7 +139,8 @@ export async function buildTemplate(): Promise<Blob> {
     });
   }
   rules.addRow({});
-  rules.addRow({ header: "One row per case on the Cases sheet. A second cheque or accused goes on its own sheet with the same Case reference." });
+  rules.addRow({ header: "One row per case on the Cases sheet, from row 4. A second cheque or accused goes on its own sheet with the same Case reference." });
+  rules.addRow({ header: "Row 2 says what each column takes and row 3 is an example. Both are skipped on upload, so they can stay." });
   rules.addRow({ header: "Not in the sheet: cause of action, filing date, delay and fees (the system computes them), and documents (added after upload)." });
 
   const lists = wb.addWorksheet(LISTS_SHEET);
@@ -134,7 +158,8 @@ export async function buildTemplate(): Promise<Blob> {
 
 /* ───────────────────────────── Reading ───────────────────────────── */
 
-export type Sheet = { name: string; headers: string[]; rows: string[][] };
+/** A sheet's rows, without the template's guide rows; `discarded` counts those. */
+export type Sheet = { name: string; headers: string[]; rows: string[][]; discarded: number };
 
 function cellText(v: unknown): string {
   if (v === null || v === undefined) return "";
@@ -155,12 +180,15 @@ function readSheet(ws: Worksheet): Sheet {
   const headers: string[] = [];
   ws.getRow(1).eachCell({ includeEmpty: true }, (cell, col) => (headers[col - 1] = cellText(cell.value)));
   const rows: string[][] = [];
+  let discarded = 0;
   ws.eachRow({ includeEmpty: false }, (row, n) => {
     if (n === 1) return;
     const out = headers.map((_, i) => cellText(row.getCell(i + 1).value));
-    if (out.some(Boolean)) rows.push(out);
+    if (!out.some(Boolean)) return;
+    if (isGuideRow(out)) discarded += 1;
+    else rows.push(out);
   });
-  return { name: ws.name, headers, rows };
+  return { name: ws.name, headers, rows, discarded };
 }
 
 export type Workbookish = { cases: Sheet; extraCheques: Sheet | null; extraAccused: Sheet | null };
@@ -177,18 +205,19 @@ export async function readWorkbook(file: File): Promise<Workbookish> {
     const text = new TextDecoder().decode(data);
     const lines = text.split(/\r?\n/).filter((l) => l.trim());
     const split = (l: string) => l.match(/("([^"]|"")*"|[^,]*)(,|$)/g)!.slice(0, -1).map((c) => c.replace(/,$/, "").replace(/^"|"$/g, "").replace(/""/g, '"').trim());
-    const [h, ...r] = lines.map(split);
-    return { cases: { name: file.name, headers: h ?? [], rows: r }, extraCheques: null, extraAccused: null };
+    const [h, ...all] = lines.map(split);
+    const r = all.filter((row) => !isGuideRow(row));
+    return { cases: { name: file.name, headers: h ?? [], rows: r, discarded: all.length - r.length }, extraCheques: null, extraAccused: null };
   }
   await wb.xlsx.load(data);
   const sheets = wb.worksheets.map(readSheet);
   const byName = (n: string) => sheets.find((s) => normHeader(s.name) === normHeader(n)) ?? null;
   const cases =
     (byName(CASES_SHEET)?.rows.length ? byName(CASES_SHEET) : null) ??
-    sheets.find((s) => s.rows.length && ![LISTS_SHEET, "Example", "Instructions"].includes(s.name)) ??
+    sheets.find((s) => s.rows.length && ![LISTS_SHEET, "Instructions"].includes(s.name)) ??
     sheets[0];
   return {
-    cases: cases ?? { name: "", headers: [], rows: [] },
+    cases: cases ?? { name: "", headers: [], rows: [], discarded: 0 },
     extraCheques: byName(EXTRA_CHEQUES_SHEET),
     extraAccused: byName(EXTRA_ACCUSED_SHEET),
   };
