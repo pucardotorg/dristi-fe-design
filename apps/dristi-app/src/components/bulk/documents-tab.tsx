@@ -1,8 +1,14 @@
 "use client";
 
 import * as React from "react";
-import { CheckCircle2Icon, CircleAlertIcon, CircleCheckIcon, UploadIcon } from "lucide-react";
+import {
+  CheckCircle2Icon,
+  CircleAlertIcon,
+  CircleCheckIcon,
+  UploadIcon,
+} from "lucide-react";
 
+import { money } from "@/lib/filing/format";
 import { cn } from "@/lib/utils";
 import { PANEL_CLASS } from "@/components/filing/form-card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -18,9 +24,20 @@ type Doc = CaseView["documents"][number];
 
 const ACCEPT = ".pdf,.jpg,.jpeg,.png";
 
+/** Every cheque number on a case, as its papers show them. */
+const chequesOf = (c: CaseView) =>
+  c.fields
+    .filter((g) => g.step === "cheque")
+    .map(
+      (g) =>
+        g.fields.find((f) => f.path.endsWith(".chequeNumber"))?.value ?? "",
+    )
+    .filter(Boolean);
 
 function sizeOf(bytes: number): string {
-  return bytes >= 1_000_000 ? `${(bytes / 1_000_000).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1000))} KB`;
+  return bytes >= 1_000_000
+    ? `${(bytes / 1_000_000).toFixed(1)} MB`
+    : `${Math.max(1, Math.round(bytes / 1000))} KB`;
 }
 
 /**
@@ -63,7 +80,9 @@ export function Slot({
 
   // Small text buttons, as the product's own "Replace file"; 32px tall with a 40px hit area.
   const SMALL_BTN = "relative after:absolute after:-inset-y-1 after:inset-x-0";
-  const fileLine = doc.file ? `${doc.file.name} · ${sizeOf(doc.file.size)}` : "";
+  const fileLine = doc.file
+    ? `${doc.file.name} · ${sizeOf(doc.file.size)}`
+    : "";
 
   const name = (
     <span className="flex min-w-0 flex-1 items-baseline gap-2">
@@ -74,20 +93,40 @@ export function Slot({
   return (
     <div {...drop} className={cn("rounded-lg", over && "ring-2 ring-ring")}>
       {filled ? (
-        <div className="flex h-10 items-center gap-2 rounded-lg bg-surface-sunken pr-1 pl-3" title={fileLine}>
+        <div
+          className="flex h-10 items-center gap-2 rounded-lg bg-surface-sunken pr-1 pl-3"
+          title={fileLine}
+        >
           {busy ? (
             <Spinner className="shrink-0" />
           ) : (
-            <CircleCheckIcon className="size-4 shrink-0 text-success-ink" aria-label="Uploaded" />
+            <CircleCheckIcon
+              className="size-4 shrink-0 text-success-ink"
+              aria-label="Uploaded"
+            />
           )}
           {name}
-          <Button asChild variant="ghost" size="xs" className={SMALL_BTN} aria-label={`View ${doc.name}: ${fileLine}`} title={fileLine}>
+          <Button
+            asChild
+            variant="ghost"
+            size="xs"
+            className={SMALL_BTN}
+            aria-label={`View ${doc.name}: ${fileLine}`}
+            title={fileLine}
+          >
             <a href={fileUrl(doc.file!.id)} target="_blank" rel="noreferrer">
               View
             </a>
           </Button>
           {canUpload ? (
-            <Button variant="ghost" size="xs" className={SMALL_BTN} disabled={busy} onClick={choose} aria-label={`Replace ${doc.name}`}>
+            <Button
+              variant="ghost"
+              size="xs"
+              className={SMALL_BTN}
+              disabled={busy}
+              onClick={choose}
+              aria-label={`Replace ${doc.name}`}
+            >
               Replace
             </Button>
           ) : null}
@@ -103,12 +142,24 @@ export function Slot({
             "flex h-10 w-full items-center gap-2 rounded-lg border border-dashed px-3 text-left transition-colors focus-visible:ring-3 focus-visible:ring-focus-ring focus-visible:outline-none",
             doc.required ? "border-input" : "border-hairline",
             canUpload && "hover:bg-accent",
-            !canUpload && "cursor-not-allowed"
+            !canUpload && "cursor-not-allowed",
           )}
         >
-          {busy ? <Spinner className="shrink-0" /> : <UploadIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />}
+          {busy ? (
+            <Spinner className="shrink-0" />
+          ) : (
+            <UploadIcon
+              className="size-4 shrink-0 text-muted-foreground"
+              aria-hidden
+            />
+          )}
           {name}
-          <span className={cn("shrink-0 text-caption", doc.required ? "text-destructive-ink" : "text-muted-foreground")}>
+          <span
+            className={cn(
+              "shrink-0 text-caption",
+              doc.required ? "text-destructive-ink" : "text-muted-foreground",
+            )}
+          >
             {doc.required ? "Required" : "Optional"}
           </span>
         </button>
@@ -144,8 +195,12 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
   // does not jump away the moment its last document goes in.
   const [order] = React.useState(() =>
     [...batch.cases]
-      .sort((a, b) => Number(a.docs.have >= a.docs.need) - Number(b.docs.have >= b.docs.need))
-      .map((c) => c.id)
+      .sort(
+        (a, b) =>
+          Number(a.docs.have >= a.docs.need) -
+          Number(b.docs.have >= b.docs.need),
+      )
+      .map((c) => c.id),
   );
   const rank = (id: string) => {
     const i = order.indexOf(id);
@@ -156,7 +211,10 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
     .sort((a, b) => rank(a.id) - rank(b.id));
   const locked = batch.cases.length - open.length;
   const incomplete = open.filter((c) => c.docs.have < c.docs.need);
-  const missing = incomplete.reduce((n, c) => n + (c.docs.need - c.docs.have), 0);
+  const missing = incomplete.reduce(
+    (n, c) => n + (c.docs.need - c.docs.have),
+    0,
+  );
 
   const upload = async (c: CaseView, d: Doc, file: File) => {
     if (!d.slotKey) return;
@@ -178,7 +236,8 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
           <span className="flex items-center gap-2">
             <CircleAlertIcon className="size-4 text-warning-ink" aria-hidden />
             <span className="tabular-nums">
-              {missing} required document{missing === 1 ? "" : "s"} missing across {incomplete.length} case
+              {missing} required document{missing === 1 ? "" : "s"} missing
+              across {incomplete.length} case
               {incomplete.length === 1 ? "" : "s"}
             </span>
           </span>
@@ -190,8 +249,13 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
         ) : null}
         {locked ? (
           <span className="text-muted-foreground tabular-nums">
-            {locked} case{locked === 1 ? " is" : "s are"} signed or filed, so {locked === 1 ? "its" : "their"} documents cannot change.{" "}
-            <button type="button" className="underline" onClick={() => go(batch.counts.filed ? "filed" : "pay")}>
+            {locked} case{locked === 1 ? " is" : "s are"} signed or filed, so{" "}
+            {locked === 1 ? "its" : "their"} documents cannot change.{" "}
+            <button
+              type="button"
+              className="underline"
+              onClick={() => go(batch.counts.filed ? "filed" : "pay")}
+            >
               {batch.counts.filed ? "See filed cases" : "Go to payment"}
             </button>
           </span>
@@ -206,7 +270,9 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
 
       {open.length === 0 ? (
         <Card className={PANEL_CLASS}>
-          <CardContent className="text-body-compact text-muted-foreground">All documents are in.</CardContent>
+          <CardContent className="text-body-compact text-muted-foreground">
+            All documents are in.
+          </CardContent>
         </Card>
       ) : (
         <ul className="flex flex-col gap-3">
@@ -216,9 +282,23 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
               <li key={c.id}>
                 <Card className={cn(PANEL_CLASS, "gap-3 py-4")}>
                   <CardHeader className="flex flex-col gap-1 px-4 sm:flex-row sm:items-center sm:gap-4">
-                    <CardTitle className="text-body font-semibold tabular-nums">{c.reference}</CardTitle>
-                    <span className="min-w-0 truncate text-body-compact text-muted-foreground">{c.title}</span>
-                    <Badge variant={complete ? "success" : "warning"} className="tabular-nums sm:ml-auto">
+                    {/* What is printed on the papers: the parties, the loan reference, the cheques. */}
+                    <div className="flex min-w-0 flex-col">
+                      <CardTitle className="truncate text-body font-semibold">
+                        {c.title}
+                      </CardTitle>
+                      <span className="flex flex-wrap gap-x-2 text-body-compact text-muted-foreground tabular-nums">
+                        <span>{c.reference}</span>
+                        {chequesOf(c).length ? (
+                          <span>· Cheque {chequesOf(c).join(", ")}</span>
+                        ) : null}
+                        {c.amount ? <span>· {money(c.amount)}</span> : null}
+                      </span>
+                    </div>
+                    <Badge
+                      variant={complete ? "success" : "warning"}
+                      className="tabular-nums sm:ml-auto"
+                    >
                       {c.docs.have} of {c.docs.need} required
                     </Badge>
                   </CardHeader>
