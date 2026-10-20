@@ -17,6 +17,8 @@ import {
   canPassOver,
   canStartHearing,
   closeDay,
+  EMPTY_FILTERS,
+  filterHearings,
   groupByStatus,
   hearingsForDay,
   isoDay,
@@ -149,5 +151,47 @@ describe("Next case (HRG-10)", () => {
     assert.equal(nextOngoingListing(third, session)?.id, fifth.id);
     assert.equal(nextOngoingListing(fifth, session)?.id, first.id);
     assert.equal(session.ongoingIds.size, 3);
+  });
+});
+
+describe("cause list filters (CLS-07)", () => {
+  const rows = (): CourtHearing[] => [
+    { ...board()[0], id: "y1", status: "scheduled" },
+    { ...board()[1], id: "y2", status: "ongoing" },
+    { ...board()[2], id: "y3", status: "completed" },
+  ];
+  const facts = {
+    orderMark: (hearing: CourtHearing) =>
+      hearing.id === "y2"
+        ? ("draft" as const)
+        : hearing.status === "completed"
+          ? ("recorded" as const)
+          : ("none" as const),
+    nextHearingSet: (hearing: CourtHearing) => hearing.id === "y3",
+  };
+  const ids = (filters: Partial<typeof EMPTY_FILTERS>) =>
+    filterHearings(rows(), { ...EMPTY_FILTERS, ...filters }, facts).map(
+      (row) => row.id,
+    );
+
+  it("takes several statuses at once", () => {
+    assert.deepEqual(ids({ statuses: ["scheduled", "completed"] }), [
+      "y1",
+      "y3",
+    ]);
+  });
+
+  it("filters on the Orders column", () => {
+    assert.deepEqual(ids({ orders: ["draft"] }), ["y2"]);
+    assert.deepEqual(ids({ orders: ["none", "recorded"] }), ["y1", "y3"]);
+  });
+
+  it("filters on whether the next hearing is set", () => {
+    assert.deepEqual(ids({ nextHearing: ["set"] }), ["y3"]);
+    assert.deepEqual(ids({ nextHearing: ["unset"] }), ["y1", "y2"]);
+  });
+
+  it("narrows nothing when nothing is picked", () => {
+    assert.deepEqual(ids({}), ["y1", "y2", "y3"]);
   });
 });

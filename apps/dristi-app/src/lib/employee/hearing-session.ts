@@ -245,6 +245,12 @@ export function markHearingPassedOver(id: string): void {
  * listings in one write, so the board and every other tab change once. Which listings
  * may take them is the caller's test (`canEndHearingInBulk`, `canPassOver`).
  */
+/**
+ * Bulk End. A listing still Scheduled is started and ended by the same press
+ * (`CLS-10`): it passes through Ongoing on its way to Heard, in the same write, so
+ * no screen ever shows the step between. This build keeps no times (`HRG-08`); a
+ * build that does records the start and the end at the same moment.
+ */
 export function markHearingsEnded(ids: readonly string[]): void {
   mark(ids, "endedIds");
 }

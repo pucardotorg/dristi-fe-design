@@ -148,8 +148,10 @@ export function canEndHearing(status: CourtHearingStatus): boolean {
 
 /**
  * End hearing from the cause list's bulk actions: a listing being heard, or one still
- * Scheduled that was never started, which happens in practice (`HRG-02`, `CLS-10`).
- * A passed-over listing has to be started again before it can be ended.
+ * Scheduled. A hearing is always started before it is ended (`HRG-02`), so a Scheduled
+ * listing ended in bulk is started and ended by the same press, both at that moment
+ * (`CLS-10`, `HRG-08`). A passed-over listing has to be started again before it can be
+ * ended.
  */
 export function canEndHearingInBulk(status: CourtHearingStatus): boolean {
   return status === "scheduled" || status === "ongoing";
@@ -904,32 +906,73 @@ export function boardForDay(
   return [];
 }
 
+/** Where a listing's order stands, as the Orders column marks it (`CLS-03`, `CLS-08`). */
+export type ListingOrderMark = "none" | "draft" | "recorded";
+
+/* The words stand alone, because an applied filter shows as a chip with its value only. */
+export const LISTING_ORDER_MARKS: { id: ListingOrderMark; label: string }[] = [
+  { id: "none", label: "No order" },
+  { id: "draft", label: "Draft order" },
+  { id: "recorded", label: "Recorded order" },
+];
+
+/** Whether a listing's next hearing has been entered on the cause list (`CLS-06`). */
+export type NextHearingMark = "set" | "unset";
+
+export const NEXT_HEARING_MARKS: { id: NextHearingMark; label: string }[] = [
+  { id: "set", label: "Next hearing set" },
+  { id: "unset", label: "Next hearing not set" },
+];
+
+/**
+ * The cause list's filters (`CLS-07`): one per column where filtering makes sense. Each
+ * takes several values; an empty list does not narrow. S. no. and Action are not
+ * filtered; Case name and Case number are the search.
+ */
 export type HearingFilters = {
-  status: TodaysCauseStatus | "all";
-  /** Each filter below takes several values; an empty list does not narrow. */
+  /** Also the quick pills above the list: none picked is *All*. */
+  statuses: TodaysCauseStatus[];
   purposes: CourtHearingPurposeId[];
   /** Advocates on record, by name — a listing with any of them matches. */
   advocates: string[];
   stages: CourtCaseStage[];
+  orders: ListingOrderMark[];
+  /** Only where Next hearing is a column. */
+  nextHearing: NextHearingMark[];
   /** Free text over the cause title and the case number — what the bench can recall. */
   query: string;
 };
 
 export const EMPTY_FILTERS: HearingFilters = {
-  status: "all",
+  statuses: [],
   purposes: [],
   advocates: [],
   stages: [],
+  orders: [],
+  nextHearing: [],
   query: "",
+};
+
+/**
+ * What the Orders and Next hearing filters read about a listing. Both live outside this
+ * module — the draft store and the session's postings — so the screen hands them in.
+ */
+export type ListingFacts = {
+  orderMark: (hearing: CourtHearing) => ListingOrderMark;
+  nextHearingSet: (hearing: CourtHearing) => boolean;
 };
 
 export function filterHearings(
   rows: CourtHearing[],
   filters: HearingFilters,
+  facts?: ListingFacts,
 ): CourtHearing[] {
   const query = caseSearchKey(filters.query);
   return rows.filter((hearing) => {
-    if (filters.status !== "all" && hearing.status !== filters.status) {
+    if (
+      filters.statuses.length &&
+      !filters.statuses.includes(hearing.status as TodaysCauseStatus)
+    ) {
       return false;
     }
     if (filters.purposes.length && !filters.purposes.includes(hearing.purpose)) {
@@ -941,6 +984,16 @@ export function filterHearings(
     if (
       filters.advocates.length &&
       !hearing.counsel.some((counsel) => filters.advocates.includes(counsel.name))
+    ) {
+      return false;
+    }
+    if (facts && filters.orders.length && !filters.orders.includes(facts.orderMark(hearing))) {
+      return false;
+    }
+    if (
+      facts &&
+      filters.nextHearing.length &&
+      !filters.nextHearing.includes(facts.nextHearingSet(hearing) ? "set" : "unset")
     ) {
       return false;
     }

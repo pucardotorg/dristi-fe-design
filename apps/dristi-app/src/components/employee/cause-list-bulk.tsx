@@ -206,9 +206,9 @@ type Outcome = "keep" | "complete" | "pass-over";
 
 /**
  * Which of the selection an outcome can take (`CLS-10`). Ending takes a Scheduled or
- * Ongoing listing — a Scheduled one that was never started included (`HRG-02`). Passing
- * over takes the same two, as the row's own Pass over does. A passed-over listing is
- * started again before it is ended.
+ * Ongoing listing; a Scheduled one is started and ended by the same press (`HRG-02`).
+ * Passing over takes the same two, as the row's own Pass over does. A passed-over
+ * listing is started again before it is ended.
  */
 function takes(outcome: Outcome, hearing: CourtHearing): boolean {
   if (outcome === "complete") return canEndHearingInBulk(hearing.status);
@@ -328,6 +328,12 @@ function BulkActionsDialog({
                   </label>
                 ))}
               </RadioGroup>
+              {outcome === "complete" &&
+                marking.some((hearing) => hearing.status === "scheduled") ? (
+                <p className="text-caption text-muted-foreground">
+                  A Scheduled hearing is started and ended with this press.
+                </p>
+              ) : null}
               {outcome !== "keep" && leaving.length > 0 ? (
                 <div className="flex flex-col gap-2 rounded-lg bg-surface-sunken p-4">
                   <p className="text-body-compact font-medium">
