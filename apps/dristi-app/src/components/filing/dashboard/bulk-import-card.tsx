@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRightIcon, DownloadIcon } from "lucide-react";
+import { ArrowRightIcon, DownloadIcon, UploadIcon } from "lucide-react";
 
 import { FILINGS_HOME } from "@/lib/filing/steps";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
@@ -27,7 +28,7 @@ export type BulkBatch = {
 };
 
 /** Cases a client's system pushed across for filing, as one batch. */
-export function BulkImportCard({ batch }: { batch: BulkBatch | null }) {
+export function BulkImportCard({ batch, needAction = 0 }: { batch: BulkBatch | null; needAction?: number }) {
   return (
     <Card className={cn(PANEL_CLASS, "gap-0")}>
       <CardHeader className="flex flex-row items-start gap-3">
@@ -71,6 +72,13 @@ export function BulkImportCard({ batch }: { batch: BulkBatch | null }) {
         )}
 
         <div className="flex flex-wrap gap-2">
+          {/* Starting one is here too: an API push starts in the client's system, an upload here. */}
+          <Button asChild>
+            <Link href={`${FILINGS_HOME}/bulk/upload`}>
+              <UploadIcon data-icon="inline-start" aria-hidden />
+              Upload Excel
+            </Link>
+          </Button>
           {batch ? (
             <Button asChild variant="outline">
               <Link href={`${FILINGS_HOME}/bulk/${batch.id}`}>
@@ -82,6 +90,11 @@ export function BulkImportCard({ batch }: { batch: BulkBatch | null }) {
           <Button asChild variant={batch ? "ghost" : "outline"}>
             <Link href={`${FILINGS_HOME}/bulk`}>
               {batch ? "All batches" : "Open bulk filing"}
+              {needAction ? (
+                <Badge variant="warning" className="tabular-nums">
+                  {needAction} need{needAction === 1 ? "s" : ""} action
+                </Badge>
+              ) : null}
               {batch ? null : <ArrowRightIcon data-icon="inline-end" aria-hidden />}
             </Link>
           </Button>

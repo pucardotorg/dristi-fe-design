@@ -37,12 +37,15 @@ import { toLongDate } from "@/lib/filing/format";
  * The most recent bulk batch, read from the batch store (`/api/bulk/batches`) — a client's
  * API push or an Excel upload. Bulk filing is built (docs/design/features/bulk-filing.md).
  */
-function useLatestBatch(): BulkBatch | null {
+function useLatestBatch(): { batch: BulkBatch | null; needAction: number } {
   const [batch, setBatch] = React.useState<BulkBatch | null>(null);
+  // Open batches with any case not yet filed: something in them is waiting on the filer.
+  const [needAction, setNeedAction] = React.useState(0);
   React.useEffect(() => {
     fetch("/api/bulk/batches", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : []))
       .then((list: BatchSummary[]) => {
+        setNeedAction(list.filter((x) => !x.clubbedInto && x.counts.filed < x.total).length);
         const b = list.find((x) => !x.clubbedInto);
         if (!b) return;
         setBatch({
@@ -56,7 +59,7 @@ function useLatestBatch(): BulkBatch | null {
       })
       .catch(() => undefined);
   }, []);
-  return batch;
+  return { batch, needAction };
 }
 
 /**
@@ -71,7 +74,7 @@ function useLatestBatch(): BulkBatch | null {
 export function FilingsDashboard() {
   // What a pending payment costs follows the selected state's schedule (Settings).
   const courtFees = useCourt().profile.fees;
-  const latestBatch = useLatestBatch();
+  const { batch: latestBatch, needAction } = useLatestBatch();
   const mounted = useMounted();
   const { profile } = useProfile();
   const { ready, error, readAt, drafts, discard, reload } = useDrafts();
@@ -116,7 +119,7 @@ export function FilingsDashboard() {
 
       <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-2">
         <StartFilingCard />
-        <BulkImportCard batch={latestBatch} />
+        <BulkImportCard batch={latestBatch} needAction={needAction} />
       </div>
 
       {/* Gated on the drafts read only. Cases are a static import and the tasks store
