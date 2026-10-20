@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { DownloadIcon, FileTextIcon } from "lucide-react";
+import { DownloadIcon, FileTextIcon, Maximize2Icon } from "lucide-react";
 
+import { formatBytes } from "@/lib/filing/files";
 import type { StoredFileRef } from "@/lib/filing/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,26 +21,66 @@ import { fileUrl } from "./api";
  */
 export function OriginalDoc({
   original,
-  asButton = false,
+  variant = "link",
 }: {
   original: { file: StoredFileRef; text: string | null };
-  /** An outline button where there is room; otherwise a link in a line of text. */
-  asButton?: boolean;
+  /** "tile": a small page of the document itself, where there is room; "link": in a line of text. */
+  variant?: "tile" | "link";
 }) {
   const [open, setOpen] = React.useState(false);
   const pdf = original.file.type === "application/pdf";
+  // The opening of the document, for the page in the tile.
+  const opening = (original.text ?? "").slice(0, 600);
   return (
     <>
-      {asButton ? (
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-fit"
+      {variant === "tile" ? (
+        <button
+          type="button"
           onClick={() => setOpen(true)}
+          aria-label={`Open the original document, ${original.file.name}`}
+          className="group flex w-full max-w-64 items-center gap-3 rounded-lg border border-hairline bg-card p-2 pr-3 text-left transition-[border-color,box-shadow] hover:border-primary hover:shadow-raised focus-visible:ring-3 focus-visible:ring-focus-ring focus-visible:outline-none"
         >
-          <FileTextIcon data-icon="inline-start" aria-hidden />
-          Original document
-        </Button>
+          {/* The first page in miniature, with a folded corner: it reads as the paper itself. */}
+          <span
+            aria-hidden
+            className="relative h-16 w-12 shrink-0 overflow-hidden rounded-xs border border-hairline bg-card shadow-sm transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:-rotate-2 motion-reduce:transition-none"
+          >
+            {opening ? (
+              <span className="block p-1 text-[3px] leading-[4px] break-words whitespace-pre-wrap text-muted-foreground">
+                {opening}
+              </span>
+            ) : (
+              <span className="flex flex-col gap-0.5 p-1.5">
+                {[100, 80, 90, 60, 85, 70, 95, 50].map((w, i) => (
+                  <span
+                    key={i}
+                    className="h-0.5 rounded-full bg-track"
+                    style={{ width: `${w}%` }}
+                  />
+                ))}
+              </span>
+            )}
+            <span className="absolute top-0 right-0 size-2.5 rounded-bl-xs border-b border-l border-hairline bg-surface-sunken" />
+            <span className="absolute right-0.5 bottom-0.5 rounded-xs bg-primary px-0.5 text-[6px] leading-[8px] font-semibold text-primary-foreground">
+              {original.file.ext}
+            </span>
+          </span>
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="text-body-compact font-medium">
+              Original document
+            </span>
+            <span className="truncate text-caption text-muted-foreground">
+              {original.file.name}
+            </span>
+            <span className="text-caption text-muted-foreground tabular-nums">
+              {formatBytes(original.file.size)}
+            </span>
+          </span>
+          <Maximize2Icon
+            className="size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-primary"
+            aria-hidden
+          />
+        </button>
       ) : (
         <button
           type="button"
