@@ -35,6 +35,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Empty,
   EmptyDescription,
@@ -136,7 +137,8 @@ export function SourceLabel({
 export function BatchesScreen() {
   const ready = useGujarat();
   const { profile } = useCourt();
-  const ai = aiModeFrom(useSearchParams().get("ai"), profile.aiMode);
+  const params = useSearchParams();
+  const ai = aiModeFrom(params.get("ai"), profile.aiMode);
   const router = useRouter();
   const [batches, setBatches] = React.useState<BatchSummary[] | null>(null);
   const [error, setError] = React.useState<string | null>(null);
@@ -150,8 +152,21 @@ export function BatchesScreen() {
     if (ready) load();
   }, [ready, load]);
 
-  const open = (batches ?? []).filter((b) => !b.clubbedInto);
-  const closed = (batches ?? []).filter((b) => b.clubbedInto);
+  // Finished batches (all filed, or clubbed into another) move to Completed, so the
+  // working list holds only what still needs something done.
+  const finished = (b: BatchSummary) =>
+    !!b.clubbedInto || (b.total > 0 && b.counts.filed === b.total);
+  const open = (batches ?? []).filter((b) => !finished(b));
+  const closed = (batches ?? []).filter(finished);
+  const view = params.get("view") === "completed" ? "completed" : "active";
+  const shown = view === "completed" ? closed : open;
+  const setView = (v: string) => {
+    const next = new URLSearchParams(params.toString());
+    if (v === "completed") next.set("view", v);
+    else next.delete("view");
+    const q = next.toString();
+    router.replace(q ? `?${q}` : "?", { scroll: false });
+  };
   const chosen = open.filter((b) => picked.has(b.id));
   const sameClient = new Set(chosen.map((b) => b.client)).size <= 1;
   const clubNote =
@@ -295,7 +310,27 @@ export function BatchesScreen() {
 
       <Card className={cn(PANEL_CLASS, "gap-0 py-0")}>
         <div className="flex flex-wrap items-center gap-3 px-6 py-4">
-          <h2 className="text-body font-semibold">Batches</h2>
+          <h2 className="sr-only">Batches</h2>
+          <Tabs value={view} onValueChange={setView}>
+            <TabsList>
+              <TabsTrigger value="active">
+                In progress
+                {batches ? (
+                  <span className="text-muted-foreground tabular-nums">
+                    {open.length}
+                  </span>
+                ) : null}
+              </TabsTrigger>
+              <TabsTrigger value="completed">
+                Completed
+                {batches ? (
+                  <span className="text-muted-foreground tabular-nums">
+                    {closed.length}
+                  </span>
+                ) : null}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
           {chosen.length ? (
             <div className="ml-auto flex flex-wrap items-center gap-3">
               {clubNote ? (
@@ -324,6 +359,12 @@ export function BatchesScreen() {
             <Skeleton className="h-16" />
             <Skeleton className="h-16" />
           </div>
+        ) : batches.length > 0 && shown.length === 0 ? (
+          <p className="px-6 pb-6 text-body-compact text-muted-foreground">
+            {view === "completed"
+              ? "No completed batches."
+              : "No batches in progress."}
+          </p>
         ) : batches.length === 0 ? (
           <Empty className="border-0 pb-12">
             <EmptyHeader>
@@ -344,8 +385,8 @@ export function BatchesScreen() {
               className="flex flex-col divide-y divide-hairline md:hidden"
               aria-label="Batches"
             >
-              {[...open, ...closed].map((b) => {
-                const selectable = !b.clubbedInto;
+              {shown.map((b) => {
+                const selectable = !finished(b);
                 return (
                   <li key={b.id} className="flex items-start gap-3 px-4 py-3">
                     {selectable ? (
@@ -431,8 +472,7 @@ export function BatchesScreen() {
                   </TableRow>
                 </TableHeader>
                 <TableBody className={tableBodyClass({ selectable: true })}>
-                  {open.map((b) => row(b, true))}
-                  {closed.map((b) => row(b, false))}
+                  {shown.map((b) => row(b, !finished(b)))}
                 </TableBody>
               </Table>
             </div>
