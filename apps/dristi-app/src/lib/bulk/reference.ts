@@ -61,10 +61,6 @@ const PIN_REGISTER: Record<string, PinRecord> = {
  * advocates, and the signed-in advocate's office (their People page). */
 const BAR_REGISTER: Record<string, string> = {
   ...Object.fromEntries(OFFICE_ADVOCATES.map((a) => [a.barNumber, a.name])),
-  "G/1187/2011": "Hemant R. Desai",
-  "G/2290/2014": "Nirali S. Shah",
-  "G/0754/2006": "Kaushik P. Trivedi",
-  "G/3312/2018": "Aarav M. Joshi",
 };
 
 /** The district the bulk demo files in — an address outside it is a soft flag. */
@@ -117,7 +113,13 @@ export function resolvePin(pin: string): Promise<PinRecord | null> {
   return p;
 }
 
-/** The advocate's name for an enrolment number; `null` when the register has no match. */
+/**
+ * The advocate's name for an enrolment number; `null` when the register has no match.
+ * The demo's people are kept in Kerala form (`K/831/2011`) and shown in each state's own
+ * (`G/831/2011` in Gujarat), so a Gujarat number from outside, such as Provakil's, is
+ * looked up in the same register.
+ */
 export function resolveBar(barNumber: string): string | null {
-  return BAR_REGISTER[barNumber.trim().toUpperCase()] ?? null;
+  const n = barNumber.trim().toUpperCase();
+  return BAR_REGISTER[n] ?? BAR_REGISTER[n.replace(/^G\//, "K/")] ?? null;
 }

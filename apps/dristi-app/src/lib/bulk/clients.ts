@@ -35,13 +35,6 @@ export const CLIENTS: Client[] = [
   },
 ];
 
-/** Advocates on the Bar Council of Gujarat register, as the upload's advocate choice. */
-export const BAR_ADVOCATES = [
-  { barNumber: "G/1187/2011", name: "Hemant R. Desai" },
-  { barNumber: "G/2290/2014", name: "Nirali S. Shah" },
-  { barNumber: "G/0754/2006", name: "Kaushik P. Trivedi" },
-  { barNumber: "G/3312/2018", name: "Aarav M. Joshi" },
-];
 
 /** The signed-in advocate's enrolment number, for the demo (the profile holds none). */
 export const SELF_BAR = "K/1450/2012";

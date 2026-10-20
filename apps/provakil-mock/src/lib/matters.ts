@@ -157,9 +157,15 @@ export const OFFICERS: Record<Matter["region"], {
 };
 
 export const ADVOCATES = [
-  { name: "Hemant R. Desai", enrolment: "G/1187/2011" },
-  { name: "Nirali S. Shah", enrolment: "G/2290/2014" },
-  { name: "Kaushik P. Trivedi", enrolment: "G/0754/2006" },
+  // The same advocates as the SARAS 2.0 login's People page, as Gujarat names them.
+  { name: "Anjali Parmar", enrolment: "G/1450/2012" },
+  { name: "Thomas K. George", enrolment: "G/831/2011" },
+  { name: "Rajesh Thakkar", enrolment: "G/1204/2015" },
+  { name: "Priya Parmar", enrolment: "G/2988/2021" },
+  { name: "Meera Solanki", enrolment: "G/1742/2017" },
+  { name: "Nisha Rathod", enrolment: "G/2251/2019" },
+  { name: "Rahul Thakkar", enrolment: "G/3105/2022" },
+  { name: "Rupal S. Parmar", enrolment: "G/948/2014" },
 ];
 
 /* ───────────────────────────── Seed ───────────────────────────── */

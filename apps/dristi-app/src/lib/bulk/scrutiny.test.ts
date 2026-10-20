@@ -66,7 +66,7 @@ const request = (cases: ApiCase[]): ApiBatchRequest => ({
       address: { line1: "Regional Office, C G Road", city: "Ahmedabad", pin: "380009" },
     },
   },
-  advocates: [{ barNumber: "G/1187/2011" }],
+  advocates: [{ barNumber: "G/831/2011" }],
   cases,
 });
 

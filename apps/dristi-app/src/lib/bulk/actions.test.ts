@@ -12,9 +12,9 @@ test("fixes write the field and redo what hangs off it", async () => {
   await applyFix(d, "accused.0.reps.0.name", " Nikhil S. Desai ");
   assert.equal(d.accused[0].reps[0].name, "Nikhil S. Desai");
 
-  await applyFix(d, "advocates.0.barNumber", "g/1187/2011");
-  assert.equal(d.advocates[0].barNumber, "G/1187/2011");
-  assert.equal(d.advocates[0].name, "Hemant R. Desai");
+  await applyFix(d, "advocates.0.barNumber", "g/831/2011");
+  assert.equal(d.advocates[0].barNumber, "G/831/2011");
+  assert.equal(d.advocates[0].name, "Thomas K. George");
 
   await applyFix(d, "cheques.0.ifsc", "sbin0060421");
   assert.equal(d.cheques[0].bankName, "State Bank of India");
