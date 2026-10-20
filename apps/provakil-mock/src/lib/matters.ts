@@ -219,6 +219,39 @@ const BRANCHES: { branch: string; region: Matter["region"]; ifsc: string }[] = [
   { branch: "Satellite", region: "Ahmedabad West", ifsc: "HDFC0000291" },
   { branch: "Maninagar", region: "Ahmedabad East", ifsc: "HDFC0000146" },
 ];
+/** Added after the first 38, so the original cases (and pushes made against them) stay put. */
+const GANDHINAGAR = { branch: "Sector 11", region: "Gandhinagar" as const, ifsc: "HDFC0000412" };
+const FIRST = [
+  "Aarti", "Bhavin", "Chetan", "Deepa", "Gaurav", "Hiral", "Jatin", "Kavita", "Lalit", "Mehul", "Nayana", "Parth",
+  "Rina", "Sagar", "Tejal", "Umesh", "Vaishali", "Yash", "Zalak", "Ankit", "Bhumi", "Dharmesh", "Ekta", "Hardik",
+];
+const LAST = [
+  "Patel", "Shah", "Desai", "Mehta", "Joshi", "Trivedi", "Pandya", "Parikh", "Dave", "Bhatt", "Vyas", "Rathod",
+  "Solanki", "Chauhan", "Parmar", "Makwana", "Prajapati", "Thakkar", "Modi", "Soni", "Panchal", "Gajjar", "Raval",
+];
+
+/** Faults spread through the added cases, by divisor, so most stay clean. */
+const MORE_SCENARIOS: [number, string][] = [
+  [71, "account-closed"],
+  [67, "missing-vakalatnama"],
+  [61, "bad-ifsc"],
+  [59, "outside-district"],
+  [53, "delayed-no-reason"],
+  [47, "delayed-with-reason"],
+  [43, "not-ripe"],
+  [41, "in-transit"],
+  [37, "bad-mobile"],
+  [31, "missing-ad-card"],
+  [29, "unclaimed"],
+  [23, "payment-stopped"],
+  [19, "company"],
+  [17, "two-cheques"],
+  [13, "part-payment"],
+];
+
+/** How many matters the workspace holds. */
+export const MATTER_COUNT = 220;
+
 const PRODUCTS = ["Personal Loan", "Business Loan", "Two-Wheeler Loan", "Consumer Durable Loan", "MSME Term Loan"];
 const MANAGERS = ["Priya Vyas", "Arjun Mehta", "Sneha Iyer"];
 
@@ -253,10 +286,12 @@ function build(today: Date): Matter[] {
   const r = rng(138);
   const matters: Matter[] = [];
 
-  for (let i = 0; i < 38; i += 1) {
-    const s = SCENARIOS[i] ?? "clean";
-    const filed = i >= 38 - FILED_COUNT;
-    const br = BRANCHES[i % BRANCHES.length];
+  for (let i = 0; i < MATTER_COUNT; i += 1) {
+    const added = i >= 38;
+    const s = added ? (MORE_SCENARIOS.find(([n]) => i % n === 0)?.[1] ?? "clean") : (SCENARIOS[i] ?? "clean");
+    // The original four filed matters, and one in every forty of the added ones.
+    const filed = added ? i % 40 === 39 : i >= 38 - FILED_COUNT;
+    const br = added && i % 5 === 4 ? GANDHINAGAR : BRANCHES[i % BRANCHES.length];
     const product = PRODUCTS[i % PRODUCTS.length];
     const lan = `GJ-${product.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}-${String(41870 + i * 37).padStart(7, "0")}`;
     const place = PLACES[i % PLACES.length];
@@ -273,7 +308,9 @@ function build(today: Date): Matter[] {
     const deposited = returned + 3;
     const chequeDated = deposited + 5 + Math.floor(r() * 20);
 
-    let borrowerName = INDIVIDUALS[i % INDIVIDUALS.length];
+    let borrowerName = added
+      ? `${FIRST[(i * 7) % FIRST.length]} ${"ABCDHJKMNPRSV"[i % 13]}. ${LAST[(i * 11) % LAST.length]}`
+      : INDIVIDUALS[i % INDIVIDUALS.length];
     let constitution: Constitution = "Individual";
     let persons: Person[] = [];
     if (i % 7 === 3) {
@@ -281,7 +318,7 @@ function build(today: Date): Matter[] {
       borrowerName = `${INDIVIDUALS[(i + 5) % INDIVIDUALS.length]} (Prop. ${PROPRIETORS[i % PROPRIETORS.length]})`;
     }
     const entity =
-      s === "company" ? COMPANIES[0] : s === "partnership" ? COMPANIES[1] : s === "llp" ? COMPANIES[2] : s === "company-2" ? COMPANIES[3] : null;
+      s === "company" ? COMPANIES[added ? i % COMPANIES.length : 0] : s === "partnership" ? COMPANIES[1] : s === "llp" ? COMPANIES[2] : s === "company-2" ? COMPANIES[3] : null;
     if (entity) {
       borrowerName = entity.name;
       constitution = entity.c;

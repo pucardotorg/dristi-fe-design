@@ -26,7 +26,7 @@ export function FiledTab({ batch, go }: BatchCtx) {
   if (filed.length === 0) {
     return (
       <Card className={PANEL_CLASS}>
-        <CardContent className="text-body-compact text-muted-foreground">No case in this batch is filed yet.</CardContent>
+        <CardContent className="text-body-compact text-muted-foreground">Nothing filed yet. Cases show here once they are paid for.</CardContent>
       </Card>
     );
   }
@@ -39,7 +39,7 @@ export function FiledTab({ batch, go }: BatchCtx) {
           {left === 0 ? `Done: all ${filed.length} cases filed` : `${filed.length} of ${batch.total} cases filed`}
         </AlertTitle>
         <AlertDescription>
-          Each case goes to scrutiny on its own.
+          Each case now goes to the court on its own for checking.
           {left ? (
             <>
               {" "}

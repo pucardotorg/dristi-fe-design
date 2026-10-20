@@ -193,7 +193,7 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
         ) : null}
         {locked ? (
           <span className="text-muted-foreground tabular-nums">
-            {locked} signed or filed case{locked === 1 ? "" : "s"} locked.{" "}
+            {locked} case{locked === 1 ? " is" : "s are"} signed or filed, so {locked === 1 ? "its" : "their"} documents cannot change.{" "}
             <button type="button" className="underline" onClick={() => go(batch.counts.filed ? "filed" : "pay")}>
               {batch.counts.filed ? "See filed cases" : "Go to payment"}
             </button>
@@ -209,7 +209,7 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
 
       {open.length === 0 ? (
         <Card className={PANEL_CLASS}>
-          <CardContent className="text-body-compact text-muted-foreground">No open case needs documents.</CardContent>
+          <CardContent className="text-body-compact text-muted-foreground">All documents are in.</CardContent>
         </Card>
       ) : (
         <ul className="flex flex-col gap-3">

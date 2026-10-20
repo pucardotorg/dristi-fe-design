@@ -1,11 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { CheckCircle2Icon, WalletIcon } from "lucide-react";
+import { CheckIcon, FlagIcon, WalletIcon } from "lucide-react";
 
 import { money } from "@/lib/filing/format";
 import { cn } from "@/lib/utils";
 import { ChromeDialogContent } from "@/components/chrome/app-chrome";
+import { RESOLVE_IN_PLACE } from "@/components/chrome/motion";
 import { TABLE_CELL, TABLE_HEAD, TABLE_HEAD_ROW, tableBodyClass, tableRowClass } from "@/components/chrome/table-plate";
 import { PANEL_CLASS } from "@/components/filing/form-card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -18,6 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 
 import { bulkApi, type BatchView } from "./api";
 import type { BatchCtx } from "./batch-screen";
+import { StageBadge } from "./stage";
 
 const ist = (iso: string) =>
   `${new Date(iso).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" })} IST`;
@@ -73,6 +75,8 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
   const chosen = due.filter((c) => picked.has(c.id));
   const total = chosen.reduce((s, c) => s + c.fee, 0);
   const last = batch.payments.at(-1);
+  // What the batch still has to do after this payment, shown on the success screen.
+  const pendingAfter = batch.cases.filter((c) => c.stage !== "filed");
 
   const pay = async () => {
     setDialog("processing");
@@ -97,13 +101,13 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
 
       {due.length === 0 ? (
         <Card className={PANEL_CLASS}>
-          <CardContent className="text-body-compact text-muted-foreground">No signed case is waiting for payment.</CardContent>
+          <CardContent className="text-body-compact text-muted-foreground">Nothing to pay yet. Sign the cases first.</CardContent>
         </Card>
       ) : (
         <Card className={cn(PANEL_CLASS, "gap-0 py-0")}>
           <CardHeader className="px-6 py-4">
             <CardTitle className="text-body font-semibold">Signed, waiting for payment</CardTitle>
-            <CardDescription>Court fees and process fees per case, from the Gujarat fee schedule.</CardDescription>
+            <CardDescription>Fees for each case. One payment covers every case you tick.</CardDescription>
           </CardHeader>
           <div className="overflow-x-auto px-2">
             <Table className="border-separate border-spacing-0" aria-label="Cases to pay for">
@@ -175,20 +179,77 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
         <ChromeDialogContent className="flex max-h-[90dvh] flex-col sm:max-w-lg">
           {dialog === "done" && last ? (
             <>
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <CheckCircle2Icon className="size-5 text-success-ink" aria-hidden />
-                  {last.caseIds.length} case{last.caseIds.length === 1 ? "" : "s"} filed
-                </DialogTitle>
-                <DialogDescription>
-                  Transaction <span className="tabular-nums">{last.ref}</span>, {money(last.amount)}, at {ist(last.at)}. Each case has its
-                  own receipt and goes to scrutiny on its own.
+              {/* The outcome resolves in place: one green block that says it is done. */}
+              <DialogHeader
+                className={cn(
+                  "flex flex-col items-center gap-3 rounded-xl bg-success-muted px-6 py-8 text-center text-success-muted-foreground",
+                  RESOLVE_IN_PLACE
+                )}
+              >
+                <span className="flex size-16 items-center justify-center rounded-full bg-success text-success-foreground">
+                  <CheckIcon className="size-8" aria-hidden />
+                </span>
+                <DialogTitle className="text-title font-semibold text-success-muted-foreground">Successfully filed</DialogTitle>
+                <DialogDescription className="text-body text-success-muted-foreground">
+                  <span className="tabular-nums">{last.caseIds.length}</span> case{last.caseIds.length === 1 ? "" : "s"} filed on SARAS 2.0
+                  <br />
+                  <span className="tabular-nums">
+                    {ist(last.at)} · {money(last.amount)} · {last.ref}
+                  </span>
                 </DialogDescription>
               </DialogHeader>
-              <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-hairline">
-                <Receipts batch={batch} payment={last} />
+
+              <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+                <section className="flex flex-col gap-2">
+                  <h3 className="text-body-compact font-semibold">Receipts and case numbers</h3>
+                  <div className="max-h-48 overflow-y-auto rounded-lg border border-hairline">
+                    <Receipts batch={batch} payment={last} />
+                  </div>
+                </section>
+
+                {pendingAfter.length ? (
+                  <section className="flex flex-col gap-2">
+                    <h3 className="text-body-compact font-semibold tabular-nums">
+                      Still pending: {pendingAfter.length} case{pendingAfter.length === 1 ? "" : "s"}
+                    </h3>
+                    <ul className="flex flex-col divide-y divide-hairline rounded-lg border border-hairline">
+                      {pendingAfter.map((c) => (
+                        <li key={c.id} className="flex flex-col gap-1 px-3 py-2">
+                          <span className="flex flex-wrap items-center gap-2">
+                            <span className="text-body-compact font-medium tabular-nums">{c.reference}</span>
+                            <StageBadge stage={c.stage} />
+                          </span>
+                          {c.flags.slice(0, 2).map((f) => (
+                            <span key={f.id} className="flex items-start gap-1.5 text-caption text-muted-foreground">
+                              <FlagIcon
+                                className={cn("mt-0.5 size-3 shrink-0", f.level === "hold" ? "text-destructive-ink" : "text-warning-ink")}
+                                aria-label={f.level === "hold" ? "Needs fixing" : "To check"}
+                              />
+                              {f.message}
+                            </span>
+                          ))}
+                          {c.flags.length > 2 ? (
+                            <span className="text-caption text-muted-foreground tabular-nums">and {c.flags.length - 2} more</span>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ) : null}
               </div>
+
               <DialogFooter>
+                {pendingAfter.length ? (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setDialog(null);
+                      go(pendingAfter.some((c) => c.stage === "signed") ? "pay" : pendingAfter.some((c) => c.stage === "ready" && !c.flags.length) ? "sign" : "scrutiny");
+                    }}
+                  >
+                    Finish the pending {pendingAfter.length === 1 ? "case" : "cases"}
+                  </Button>
+                ) : null}
                 <Button
                   onClick={() => {
                     setDialog(null);

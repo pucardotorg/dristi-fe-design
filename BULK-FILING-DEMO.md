@@ -111,7 +111,7 @@ npm run demo
 ### Walkthrough A: File cases from Provakil (the connection)
 
 1. Open **Provakil**. You land on **Litigation**, Section 138 cases, the **Ready for
-   Filing** tab.
+   Filing** tab. The workspace holds 220 cases, 50 to a page.
 2. Some cases say **Unassigned** in the Advocate column. Tick a few cases, including some
    unassigned ones. A bar appears at the bottom.
 3. **File in court** is greyed out until every ticked case has an advocate. Click

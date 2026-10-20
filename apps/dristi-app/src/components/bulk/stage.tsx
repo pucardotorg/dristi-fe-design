@@ -8,9 +8,9 @@ import { Badge } from "@/components/ui/badge";
 
 /** What each stage is called, and the status pair it wears. Never colour alone: the word is always there. */
 export const STAGE: Record<CaseStage, { label: string; variant: "warning" | "info" | "secondary" | "success"; fill: string }> = {
-  held: { label: "Held for review", variant: "warning", fill: "bg-warning" },
+  held: { label: "Needs fixing", variant: "warning", fill: "bg-warning" },
   ready: { label: "Ready to sign", variant: "info", fill: "bg-info" },
-  signed: { label: "Signed, to pay", variant: "secondary", fill: "bg-primary" },
+  signed: { label: "Signed, ready to pay", variant: "secondary", fill: "bg-primary" },
   filed: { label: "Filed", variant: "success", fill: "bg-success" },
 };
 

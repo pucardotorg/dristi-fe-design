@@ -150,7 +150,7 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
             <CheckCircle2Icon className="size-5 text-success-ink" aria-hidden />
             <div>
               <div className="text-title-s font-semibold tabular-nums">{clear}</div>
-              <div className="text-caption text-muted-foreground">Clear to sign</div>
+              <div className="text-caption text-muted-foreground">Ready to sign</div>
             </div>
           </CardContent>
         </Card>
@@ -159,7 +159,7 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
             <CircleAlertIcon className="size-5 text-warning-ink" aria-hidden />
             <div>
               <div className="text-title-s font-semibold tabular-nums">{checks}</div>
-              <div className="text-caption text-muted-foreground">With checks to answer</div>
+              <div className="text-caption text-muted-foreground">To check</div>
             </div>
           </CardContent>
         </Card>
@@ -168,15 +168,14 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
             <OctagonAlertIcon className="size-5 text-destructive-ink" aria-hidden />
             <div>
               <div className="text-title-s font-semibold tabular-nums">{held}</div>
-              <div className="text-caption text-muted-foreground">Held for review</div>
+              <div className="text-caption text-muted-foreground">Need fixing</div>
             </div>
           </CardContent>
         </Card>
       </div>
 
       <p className="text-body-compact text-muted-foreground">
-        A hold is a requirement not met: the case stays in draft until it is fixed, and the rest of the batch goes ahead. A
-        check is a value worth a second look: fix it, or skip it and the case goes ahead.
+        Red means something must be fixed before the case can go on. Amber means check it, then fix it or skip it. The other cases carry on.
       </p>
 
       {error ? (
@@ -211,10 +210,10 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
       {flagged.length === 0 ? (
         <Alert variant="success">
           <CheckCircle2Icon aria-hidden />
-          <AlertTitle>Every open case is clear</AlertTitle>
+          <AlertTitle>All cases are ready to sign</AlertTitle>
           <AlertDescription>
             <button type="button" className="underline" onClick={() => go("sign")}>
-              Go to signing
+              Go to Sign
             </button>
           </AlertDescription>
         </Alert>
@@ -226,7 +225,7 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
                 <CardHeader>
                   <CardTitle className="flex flex-wrap items-center gap-2 text-body font-semibold">
                     <span className="tabular-nums">{c.reference}</span>
-                    {c.stage === "held" ? <Badge variant="destructive">Held</Badge> : <Badge variant="warning">Checks to answer</Badge>}
+                    {c.stage === "held" ? <Badge variant="destructive">Needs fixing</Badge> : <Badge variant="warning">To check</Badge>}
                   </CardTitle>
                   <CardDescription>{c.title}</CardDescription>
                 </CardHeader>

@@ -105,14 +105,14 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
       {held || unanswered ? (
         <Alert variant="warning">
           <InfoIcon aria-hidden />
-          <AlertTitle>
-            <span className="tabular-nums">{held + unanswered}</span> case{held + unanswered === 1 ? " is" : "s are"} not offered here
+          <AlertTitle className="tabular-nums">
+            {held + unanswered} case{held + unanswered === 1 ? " isn't" : "s aren't"} ready to sign yet
           </AlertTitle>
           <AlertDescription>
-            {held ? `${held} held for review. ` : ""}
-            {unanswered ? `${unanswered} with checks to answer. ` : ""}
+            Finish scrutiny first:{" "}
+            {[held ? `${held} need${held === 1 ? "s" : ""} fixing` : "", unanswered ? `${unanswered} to check` : ""].filter(Boolean).join(", ")}.{" "}
             <button type="button" className="underline" onClick={() => go("scrutiny")}>
-              Open scrutiny
+              Go to Scrutiny
             </button>
           </AlertDescription>
         </Alert>
@@ -120,7 +120,7 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
 
       {clear.length === 0 ? (
         <Card className={PANEL_CLASS}>
-          <CardContent className="text-body-compact text-muted-foreground">No case is clear to sign.</CardContent>
+          <CardContent className="text-body-compact text-muted-foreground">Nothing to sign yet. Finish documents and scrutiny first.</CardContent>
         </Card>
       ) : (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">

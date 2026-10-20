@@ -23,10 +23,24 @@ import type { BatchCtx } from "./batch-screen";
 import { FlagLine } from "./scrutiny-tab";
 import { StageBadge } from "./stage";
 
-export function CasesTab({ batch }: BatchCtx) {
+export function CasesTab({ batch, go }: BatchCtx) {
   const [open, setOpen] = React.useState<CaseView | null>(null);
+  // Pending cases only; filed ones live under Filed.
+  const pending = batch.cases.filter((c) => c.stage !== "filed");
+  const filed = batch.cases.length - pending.length;
 
   return (
+    <div className="flex flex-col gap-3">
+    {filed ? (
+      <p className="text-body-compact text-muted-foreground tabular-nums">
+        {pending.length ? `${pending.length} pending. ` : "Nothing pending. "}
+        {filed} filed.{" "}
+        <button type="button" className="underline" onClick={() => go("filed")}>
+          See filed cases
+        </button>
+      </p>
+    ) : null}
+    {pending.length ? (
     <Card className={cn(PANEL_CLASS, "gap-0 py-0")}>
       <div className="overflow-x-auto p-2">
         <Table className="border-separate border-spacing-0" aria-label="Cases in this batch">
@@ -42,7 +56,7 @@ export function CasesTab({ batch }: BatchCtx) {
             </TableRow>
           </TableHeader>
           <TableBody className={tableBodyClass()}>
-            {batch.cases.map((c) => (
+            {pending.map((c) => (
               <TableRow key={c.id} className={cn(tableRowClass(), "cursor-pointer")} onClick={() => setOpen(c)}>
                 <TableCell className={cn(TABLE_CELL, "pl-4 font-medium tabular-nums")}>
                   <button
@@ -167,5 +181,7 @@ export function CasesTab({ batch }: BatchCtx) {
         </SheetContent>
       </Sheet>
     </Card>
+    ) : null}
+    </div>
   );
 }

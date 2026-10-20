@@ -65,6 +65,8 @@ export function CasesScreen() {
   const [assigning, setAssigning] = React.useState(false);
   const [menu, setMenu] = React.useState(false);
   const [exporting, setExporting] = React.useState(false);
+  const [page, setPage] = React.useState(0);
+  const PAGE = 50;
 
   const load = React.useCallback(async () => {
     const res = await fetch("/api/matters", { cache: "no-store" });
@@ -95,7 +97,10 @@ export function CasesScreen() {
           .toLowerCase()
           .includes(q.toLowerCase()))
   );
-  const selectable = shown.filter(pushable);
+  const pages = Math.max(1, Math.ceil(shown.length / PAGE));
+  const at = Math.min(page, pages - 1);
+  const pageRows = shown.slice(at * PAGE, at * PAGE + PAGE);
+  const selectable = pageRows.filter(pushable);
   const chosen = all.filter((r) => selected.has(r.id));
   const allTicked = selectable.length > 0 && selectable.every((r) => selected.has(r.id));
   const unassigned = chosen.filter((r) => !r.advocate).length;
@@ -141,7 +146,7 @@ export function CasesScreen() {
                   <a
                     key={o.format}
                     role="menuitem"
-                    href={`/api/export?format=${o.format}&ids=${(chosen.length ? chosen : selectable).map((r) => r.id).join(",")}`}
+                    href={`/api/export?format=${o.format}&ids=${(chosen.length ? chosen : shown.filter(pushable)).map((r) => r.id).join(",")}`}
                     onClick={() => setExporting(false)}
                     className="flex flex-col px-3 py-2 hover:bg-ground"
                   >
@@ -188,7 +193,10 @@ export function CasesScreen() {
             key={s}
             role="tab"
             aria-selected={stage === s}
-            onClick={() => setStage(s)}
+            onClick={() => {
+              setStage(s);
+              setPage(0);
+            }}
             className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-[13px] ${
               stage === s ? "border-blue bg-blue text-white" : "border-line bg-white text-slate hover:border-blue/40"
             }`}
@@ -208,20 +216,23 @@ export function CasesScreen() {
             <SearchIcon className="size-4 text-muted" aria-hidden />
             <input
               value={q}
-              onChange={(e) => setQ(e.target.value)}
+              onChange={(e) => {
+                setQ(e.target.value);
+                setPage(0);
+              }}
               placeholder="LAN, borrower, branch, cheque no."
               className="w-full text-[13px] focus:outline-none"
               aria-label="Search cases"
             />
           </div>
           <FilterIcon className="size-4 text-muted" aria-hidden />
-          <select value={region} onChange={(e) => setRegion(e.target.value)} className="rounded-md border border-line bg-white px-2 py-1.5 text-[13px]" aria-label="Region">
+          <select value={region} onChange={(e) => { setRegion(e.target.value); setPage(0); }} className="rounded-md border border-line bg-white px-2 py-1.5 text-[13px]" aria-label="Region">
             <option value="">All regions</option>
             <option>Ahmedabad West</option>
             <option>Ahmedabad East</option>
             <option>Gandhinagar</option>
           </select>
-          <select value={advocate} onChange={(e) => setAdvocate(e.target.value)} className="rounded-md border border-line bg-white px-2 py-1.5 text-[13px]" aria-label="Advocate">
+          <select value={advocate} onChange={(e) => { setAdvocate(e.target.value); setPage(0); }} className="rounded-md border border-line bg-white px-2 py-1.5 text-[13px]" aria-label="Advocate">
             <option value="">All advocates</option>
             {[...new Set(all.map((r) => r.advocate?.name ?? "Unassigned"))].map((a) => (
               <option key={a}>{a}</option>
@@ -280,7 +291,7 @@ export function CasesScreen() {
                   </td>
                 </tr>
               ) : (
-                shown.map((r) => {
+                pageRows.map((r) => {
                   const coa = causeOfAction(r);
                   const fileBy = limitationEnds(r);
                   const today = new Date().toISOString().slice(0, 10);
@@ -356,6 +367,21 @@ export function CasesScreen() {
             </tbody>
           </table>
         </div>
+        {shown.length > PAGE ? (
+          <div className="flex items-center gap-3 border-t border-line px-3 py-2 text-[13px]">
+            <span className="num text-muted">
+              {at * PAGE + 1}–{Math.min(shown.length, at * PAGE + PAGE)} of {shown.length}
+            </span>
+            <div className="ml-auto flex gap-2">
+              <Button variant="outline" disabled={at === 0} onClick={() => setPage(at - 1)}>
+                Previous
+              </Button>
+              <Button variant="outline" disabled={at >= pages - 1} onClick={() => setPage(at + 1)}>
+                Next
+              </Button>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {/* Selection bar */}

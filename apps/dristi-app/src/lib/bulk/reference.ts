@@ -20,6 +20,7 @@ const IFSC_REGISTER: Record<string, IfscRecord> = {
   HDFC0000060: { bank: "HDFC Bank", branch: "Navrangpura, Ahmedabad" },
   HDFC0000146: { bank: "HDFC Bank", branch: "Maninagar, Ahmedabad" },
   HDFC0000291: { bank: "HDFC Bank", branch: "Satellite, Ahmedabad" },
+  HDFC0000412: { bank: "HDFC Bank", branch: "Sector 11, Gandhinagar" },
   // Drawee banks the borrowers bank with.
   SBIN0060421: { bank: "State Bank of India", branch: "Navrangpura, Ahmedabad" },
   HDFC0000521: { bank: "HDFC Bank", branch: "Satellite Road, Ahmedabad" },
