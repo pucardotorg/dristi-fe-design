@@ -30,7 +30,7 @@ import { GUJARAT_FEES } from "@/lib/court/fees";
 import type { FilingDraft, StoredFileRef } from "@/lib/filing/types";
 
 import type { AiMode } from "./ai-review";
-import { caseFields, type FieldGroup } from "./case-fields";
+import { caseFacts, caseFields, type CaseFact, type FieldGroup } from "./case-fields";
 import { resolveBar, resolveIfsc, resolvePin } from "./reference";
 import { caseFlags, caseStage, openFlags, type Flag } from "./scrutiny";
 import {
@@ -73,6 +73,8 @@ export type CaseView = {
   documents: { group: string; name: string; required: boolean; file: StoredFileRef | null; slotKey: string | null }[];
   /** Every detail that can be changed on Case details, grouped as the single filing groups them. */
   fields: FieldGroup[];
+  /** What the case's papers should show, for matching them on Documents. */
+  facts: CaseFact[];
 };
 
 export type BatchSummary = {
@@ -148,6 +150,7 @@ export function caseView(bc: BatchCase, batch: Batch, all: Batch[], ai: AiMode =
       slotKey: doc.intakeKey ?? null,
     })),
     fields: caseFields(d, bc.unknownService),
+    facts: caseFacts(d),
   };
 }
 

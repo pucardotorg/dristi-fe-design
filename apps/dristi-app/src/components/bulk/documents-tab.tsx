@@ -8,13 +8,12 @@ import {
   UploadIcon,
 } from "lucide-react";
 
-import { money } from "@/lib/filing/format";
 import { cn } from "@/lib/utils";
 import { PANEL_CLASS } from "@/components/filing/form-card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 
 import { bulkApi, fileUrl, type CaseView } from "./api";
@@ -23,16 +22,6 @@ import type { BatchCtx } from "./batch-screen";
 type Doc = CaseView["documents"][number];
 
 const ACCEPT = ".pdf,.jpg,.jpeg,.png";
-
-/** Every cheque number on a case, as its papers show them. */
-const chequesOf = (c: CaseView) =>
-  c.fields
-    .filter((g) => g.step === "cheque")
-    .map(
-      (g) =>
-        g.fields.find((f) => f.path.endsWith(".chequeNumber"))?.value ?? "",
-    )
-    .filter(Boolean);
 
 function sizeOf(bytes: number): string {
   return bytes >= 1_000_000
@@ -280,30 +269,36 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
             const complete = c.docs.have >= c.docs.need;
             return (
               <li key={c.id}>
-                <Card className={cn(PANEL_CLASS, "gap-3 py-4")}>
-                  <CardHeader className="flex flex-col gap-1 px-4 sm:flex-row sm:items-center sm:gap-4">
-                    {/* What is printed on the papers: the parties, the loan reference, the cheques. */}
-                    <div className="flex min-w-0 flex-col">
-                      <CardTitle className="truncate text-body font-semibold">
-                        {c.title}
-                      </CardTitle>
-                      <span className="flex flex-wrap gap-x-2 text-body-compact text-muted-foreground tabular-nums">
-                        <span>{c.reference}</span>
-                        {chequesOf(c).length ? (
-                          <span>· Cheque {chequesOf(c).join(", ")}</span>
-                        ) : null}
-                        {c.amount ? <span>· {money(c.amount)}</span> : null}
-                      </span>
+                <Card className={cn(PANEL_CLASS, "gap-0 py-4")}>
+                  {/* The case in brief beside its slots: what each paper should show. */}
+                  <CardContent className="grid grid-cols-1 gap-4 px-4 md:grid-cols-[minmax(0,15rem)_minmax(0,1fr)] md:gap-6">
+                    <div className="flex min-w-0 flex-col gap-3">
+                      <div className="flex min-w-0 flex-col">
+                        <CardTitle className="truncate text-body font-semibold">
+                          {c.accused || c.title}
+                        </CardTitle>
+                        <span className="truncate text-body-compact text-muted-foreground tabular-nums">
+                          {c.reference}
+                        </span>
+                      </div>
+                      <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-caption">
+                        {c.facts.map((f, k) => (
+                          <React.Fragment key={k}>
+                            <dt className="text-muted-foreground">{f.label}</dt>
+                            <dd className="min-w-0 break-words tabular-nums">
+                              {f.value}
+                            </dd>
+                          </React.Fragment>
+                        ))}
+                      </dl>
+                      <Badge
+                        variant={complete ? "success" : "warning"}
+                        className="w-fit tabular-nums"
+                      >
+                        {c.docs.have} of {c.docs.need} required
+                      </Badge>
                     </div>
-                    <Badge
-                      variant={complete ? "success" : "warning"}
-                      className="tabular-nums sm:ml-auto"
-                    >
-                      {c.docs.have} of {c.docs.need} required
-                    </Badge>
-                  </CardHeader>
-                  <CardContent className="px-4">
-                    <ul className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+                    <ul className="grid grid-cols-1 content-start gap-2 lg:grid-cols-2">
                       {c.documents.map((d) => (
                         <li key={`${d.group}-${d.slotKey ?? d.name}`}>
                           <Slot
