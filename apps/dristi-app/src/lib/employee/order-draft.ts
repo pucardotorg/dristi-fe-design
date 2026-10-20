@@ -27,6 +27,7 @@ import {
   formatCourtDay,
   formatOrderDate,
   withHearingSession,
+  type HearingMarks,
   type CounselSide,
   type CourtHearing,
   type CourtHearingPurposeId,
@@ -276,21 +277,19 @@ export function withCausePosting(
 }
 
 /**
- * The next matter the bench has not yet taken up — what Next case calls. Reads today's
- * cause list with the sitting's own marks applied; only a `scheduled` listing further down
- * the board counts.
+ * The order screen's **Next case** (`HRG-10`): the next Ongoing hearing on the day's
+ * board after this one, in the cause list's sequence, coming round to the top when none
+ * is further down. `undefined` while no other hearing is ongoing. It is not a hearing
+ * control: it opens that hearing's order and marks nothing.
  */
-export function nextUnhandledListing(
+export function nextOngoingListing(
   hearing: CourtHearing,
-  session: {
-    ongoingId: string | null;
-    endedIds: ReadonlySet<string>;
-    passedOverIds: ReadonlySet<string>;
-  },
+  session: HearingMarks,
 ): CourtHearing | undefined {
-  return withHearingSession(CAUSE_LIST, session)
-    .filter((row) => row.status === "scheduled" && row.item > hearing.item)
-    .sort((a, b) => a.item - b.item)[0];
+  const ongoing = withHearingSession(CAUSE_LIST, session)
+    .filter((row) => row.status === "ongoing" && row.id !== hearing.id)
+    .sort((a, b) => a.item - b.item);
+  return ongoing.find((row) => row.item > hearing.item) ?? ongoing[0];
 }
 
 /**

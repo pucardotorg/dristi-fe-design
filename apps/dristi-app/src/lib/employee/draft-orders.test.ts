@@ -9,6 +9,7 @@ import {
 import {
   hearingsForDay,
   withHearingSession,
+  type HearingMarks,
   type CourtHearing,
 } from "./hearings";
 import { EMPTY_ORDER_DRAFT } from "./order-draft";
@@ -16,14 +17,10 @@ import { editorDraftKey, type OrderDrafts } from "./order-drafts";
 
 const TODAY = "2026-09-16";
 
-type Session = {
-  ongoingId: string | null;
-  endedIds: ReadonlySet<string>;
-  passedOverIds: ReadonlySet<string>;
-};
+type Session = HearingMarks;
 
 const NO_SESSION: Session = {
-  ongoingId: null,
+  ongoingIds: new Set<string>(),
   endedIds: new Set<string>(),
   passedOverIds: new Set<string>(),
 };
@@ -92,7 +89,7 @@ describe("draftOrdersForSitting", () => {
   it("leaves out a matter the bench is still hearing with nothing written on it", () => {
     const board = withHearingSession([hearing()], {
       ...NO_SESSION,
-      ongoingId: "h-1",
+      ongoingIds: new Set(["h-1"]),
     });
     assert.deepEqual(draftOrdersForSitting(board, {}), []);
   });
@@ -121,7 +118,7 @@ describe("draftOrdersForSitting", () => {
        under test rather than a status the board already carried. */
     const board = todaysBoard({
       ...NO_SESSION,
-      ongoingId: "h-249",
+      ongoingIds: new Set(["h-249"]),
       endedIds: new Set(["h-244"]),
       passedOverIds: new Set(["h-246"]),
     });
