@@ -103,6 +103,13 @@ export type Matter = {
   cnr?: string;
   /** Where it was filed, once it is. */
   filedOn?: string;
+  /** A branch officer who will prove the account, where the legal team named one. */
+  witness?: Person & { address: { line: string; city: string; pincode: string } };
+  /**
+   * The scanned cheque and memo disagree with the record (a typo at data entry): the
+   * documents show a different amount. For the AI review to catch.
+   */
+  docMismatch?: boolean;
 };
 
 /* ───────────────────────────── Bank profile ───────────────────────────── */
@@ -438,6 +445,16 @@ function build(today: Date): Matter[] {
       stage,
       cnr: filed ? `GJAH01${String(4100 + i).padStart(6, "0")}2026` : undefined,
       filedOn: filed ? "SARAS 2.0" : undefined,
+      witness:
+        i % 10 === 1
+          ? {
+              name: "Kunal S. Shah",
+              designation: `Branch Manager, Tata Capital, ${br.branch}`,
+              mobile: "9879055501",
+              address: { line: `Tata Capital, ${br.branch}`, city: br.region === "Gandhinagar" ? "Gandhinagar" : "Ahmedabad", pincode: br.region === "Gandhinagar" ? "382421" : "380009" },
+            }
+          : undefined,
+      docMismatch: i % 17 === 7,
     });
   }
   return matters;

@@ -339,5 +339,7 @@ export async function buildBatch(
     signings: [],
     clubbedInto: null,
     clubbedFrom: [],
+    // A push arrives unseen; an upload is opened by the person who made it.
+    openedAt: source.kind === "api" ? null : now,
   };
 }

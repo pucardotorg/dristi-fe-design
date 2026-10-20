@@ -14,11 +14,14 @@ land in **File a case › Bulk filing** as their own batch, never in the regular
 
 1. **API push** from a litigation system, shown with `apps/provakil-mock`: a stand-in for
    Tata Capital's Provakil workspace (Legal Collections, Section 138 workflow). The legal
-   manager assigns an empanelled advocate, ticks the cases and files them on SARAS 2.0. Each
-   advocate's cases go as one batch to that advocate's account, with every document.
+   manager ticks the cases (Gmail style: Shift for a range, Ctrl or Cmd for one), chooses the
+   court, then gives each case one of that court's advocates for the company. Each advocate's
+   cases go as one batch to that advocate's account, with every document. SARAS 2.0 flags an
+   unopened push in the notifications bell until someone opens it.
 2. **Excel upload** on SARAS 2.0. A file in the template's layout goes straight in. Any other
    layout opens a column-matching screen, and list values the court does not know open a
-   value-matching screen. Provakil exports both layouts.
+   value-matching screen. Sections that repeat (a second accused, cheque, witness) are
+   further columns ending `_2`, `_3`. Provakil exports both layouts.
 
 Every batch then runs the same steps on one screen
 (`apps/dristi-app/src/components/bulk/batch-screen.tsx`): Cases, Documents, Scrutiny, Sign,
@@ -34,7 +37,10 @@ Run it with `npm run demo` (SARAS 2.0 on port 3000, Provakil on 3100). The team 
 |---|---|---|---|
 | 2026-10-20 | Provakil mock is a second app in this repo (`apps/provakil-mock`), kept on the `bulk-filing` branch and not proposed for `main`. | Owner | decided |
 | 2026-10-20 | Cases are filed in Gujarat's deployment (SARAS 2.0, SARAS Court, Ahmedabad). S-138 goes to a magistrate, not the High Court. Bulk screens switch the court to Gujarat when opened. | Owner | implemented |
-| 2026-10-20 | Mapping and checks are rules only. No AI reads, summarises or infers anything. | Owner | implemented |
+| 2026-10-20 | Mapping and checks are rules. A separate AI review adds findings that are not validation (a document that disagrees with the case, a value that looks wrong next to the others). It follows the court's `aiMode` and `?ai=on\|off\|unavailable`; with AI off the flow is fully manual and nothing is marked as AI. The demo's AI is a rules stand-in (`ai-review.ts`). | Owner | implemented (stand-in) |
+| 2026-10-20 | Fields that can occur more than once repeat in the API as arrays and in Excel as numbered columns: `Cheque number_2`, and for a section inside an accused, accused then item (`Accused address_1_2`). Unnumbered means the first. Which fields repeat follows the PRD's 1..n sections and the single filing flow (table below). | Owner; PRD §3.3 | implemented |
+| 2026-10-20 | The column-matching screen puts required fields first and the rest behind **Show optional fields**. Repeated sections sit on tabs, one per accused, cheque, notice, witness. Above them, **Found in your file** states what the file holds ("Accused 2, Cheques 1") with a stepper to correct it. Each row reads app field (ON Courts mark) ← sheet column (Excel mark) and the first value found. | Owner | implemented |
+| 2026-10-20 | A push through the API raises a notification in the bell (warning tone, kept until the batch is opened) and a **New** mark on the batch list, so the next person to sign in deals with it first. | Owner | implemented |
 | 2026-10-20 | Scrutiny raises two kinds of flag. A **check** (the value is there but deserves a look, such as a return reason other than insufficient funds) can be skipped and the case goes ahead. A **hold** (a requirement is not met) keeps the case in draft while the rest of the batch proceeds. | Owner; PRD §1, constraint 4 | implemented |
 | 2026-10-20 | Signing offers four methods, least friction first, each with a hint: mobile OTP (fastest, one OTP for the batch), DSC (more secure, needs a DSC token, one PIN per signer), Aadhaar eSign (secure, slowest, 5 cases per OTP in succession), upload signed copies (most manual). Whether mobile OTP signing is coming is PRD §8 Q9, still open. | Owner; PRD §4.3 | implemented |
 | 2026-10-20 | Mobile OTP is a single OTP, to the filing advocate's mobile, that signs every case in the selection for the advocate and the complainant's representative. PRD §4.3 (`SIG-03`) holds that an advocate's signature does not discharge the complainant's; that question is open and blocking in the PRD, so this is a demo position, not a settled one. | Owner | implemented |
@@ -47,8 +53,9 @@ Run it with `npm run demo` (SARAS 2.0 on port 3000, Provakil on 3100). The team 
 | 2026-10-20 | The Aadhaar option says up front how many OTPs it takes, and its hint cites the limit: CCA [eSign API Specifications v3.3](https://cca.gov.in/sites/files/pdf/esign/eSign-APIv3.3.pdf#page=14) (09 Dec 2020), §3.3.1.1, `InputHash` `id`: "Maximum 5". The PRD's eSign v2.1 allows one per OTP. | Owner; CCA spec | implemented |
 | 2026-10-20 | An API push sends every file with the case. A case missing a required file is held until it is added on the Documents tab. | Owner | implemented |
 | 2026-10-20 | Each push or upload is its own batch. Batches never mix and never appear in the regular drafts list. A filer may club open batches for the same complainant (PRD §8 Q10 leaves mixing complainants open). | Owner | implemented |
-| 2026-10-20 | In Provakil an advocate is assigned before filing, and a push is split into one batch per advocate, since each batch lands in that advocate's account. | Owner | implemented |
-| 2026-10-20 | Provakil's filing menu lists other courts (Kerala's 24×7 ON Court, NACT, eCourts) but only SARAS 2.0 is open for these Gujarat cases. Filed cases show "Filed on SARAS 2.0", and the word DRISTI does not appear in Provakil. | Owner | implemented |
+| 2026-10-20 | Provakil files court first: **File in court** asks for the court, then fetches that court's advocates for the company (`GET /api/bulk/v1/advocates`), then each case gets an advocate (prefilled from Provakil where that advocate is registered; tick several and **Assign** together). A push is split into one batch per advocate, since each batch lands in that advocate's account. | Owner | implemented |
+| 2026-10-20 | Provakil's case list selects like Gmail: a checkbox ticks one, Shift + click ticks or unticks the range from the last click (filed cases skipped), Ctrl or Cmd + click on a row ticks it without opening it. | Owner | implemented |
+| 2026-10-20 | Provakil's court step lists other courts (Kerala's 24×7 ON Court, NACT, eCourts) but only SARAS 2.0 is open for these Gujarat cases. Filed cases show "Filed on SARAS 2.0", and the word DRISTI does not appear in Provakil. | Owner | implemented |
 | 2026-10-20 | The client is Tata Capital Ltd. Its name and registered office are public; the CIN, officers, contacts and every borrower are placeholders. | Owner | implemented |
 | 2026-10-20 | Bulk payment is one gateway transaction for the selected cases, with a receipt per case. Payment files the case, as in the single flow. | PRD §4.2 | implemented |
 | 2026-10-20 | The template carries a format row and an example row so the expected format is clear; upload spots and discards both automatically. Two demo spreadsheets ship with the branch, one in the template and one in a lender's own layout. | Owner | implemented |
@@ -108,68 +115,69 @@ A value no rule can translate is sent as it is, and scrutiny holds it and names 
 ## Excel template (bare minimum)
 
 Defined once in `apps/dristi-app/src/lib/bulk/excel-spec.ts`; a test fails if its lists drift
-from the form's options. Complainant, representative and advocate are chosen once on the
-upload screen, so the sheet carries only what changes per case.
+from the form's options. The batch complainant, its representative and the advocates are
+chosen once on the upload screen, so the sheet carries only what changes per case.
 
-- **Cases** (required): one row per case, header in row 1, the 36 columns below.
-- **Extra cheques** and **Extra accused** (optional): further cheques or accused, keyed by
-  Case reference.
-- **Lists**: allowed values, wired into the dropdowns. An **Instructions** sheet explains the
-  format.
-- On every sheet, row 2 states what each column takes ("Date, DD-MM-YYYY. Required",
-  "Choose: Individual / Institution. Required"), and on Cases row 3 is a filled example.
-  Upload discards both by rule (`isGuideRow`): a value starting `EXAMPLE`, three or more
-  format hints, or most of the example's distinctive values (an example with its reference
-  edited). The review step states how many rows were discarded.
+- **Cases** (required): one row per case, header in row 1. Repeats are more columns on the
+  same row, never more rows or more sheets.
+- **Lists**: allowed values, wired into the dropdowns. **Instructions** lists every column
+  with its section and whether it repeats, and explains `_2` and `_1_2`.
+- Row 2 states what each column takes ("Date, DD-MM-YYYY. Required", "Choose: Individual /
+  Institution. Required"), and row 3 is a filled example. Upload discards both by rule
+  (`isGuideRow`): a value starting `EXAMPLE`, three or more format hints, or most of the
+  example's distinctive values (an example with its reference edited). The review step
+  states how many rows were discarded.
 
 Dates are `DD-MM-YYYY` (Excel date cells also work). Yes/No columns take Yes or No.
 
-| # | Column | Field | Required |
+### Columns
+
+| Section | Columns (template header) | Fields | Required |
 |---|---|---|---|
-| 1 | Case reference | Filer's reference | Yes, unique in the file |
-| 2 | Accused type | `ACC-1` | Yes |
-| 3 | Accused name | `ACC-2` / `ACC-5` | Yes |
-| 4 | Accused institution type | `ACC-4` | When Institution |
-| 5 | Accused age | `ACC-3` | No |
-| 6 | Accused mobile | `ACC-6` | Mobile or email |
-| 7 | Accused email | `ACC-7` | Mobile or email |
-| 8 | Accused address | `ACC-8` | Yes |
-| 9 | Accused city | `ACC-8` | Yes |
-| 10 | Accused pincode | `ACC-8` | Yes, 6 digits |
-| 11 | Accused police station | `ACC-13` | No |
-| 12 | Person responsible name | `ACC-14` | When Institution |
-| 13 | Person responsible designation | `ACC-15` | No |
-| 14 | Cheque number | `CHQ-3` | Yes, 6 digits |
-| 15 | Cheque date | `CHQ-1` | Yes |
-| 16 | Cheque amount | `CHQ-2` | Yes |
-| 17 | Drawer bank IFSC | `CHQ-5` | Yes |
-| 18 | Drawer account number | `CHQ-7a` | Yes |
-| 19 | Presentation date | `CHQ-8` | Yes |
-| 20 | Return date | `CHQ-9` | Yes |
-| 21 | Return reason | `CHQ-10` | Yes, from list |
-| 22 | Deposited in complainant's own account | `JUR-1` | Yes |
-| 23 | Complainant branch IFSC | `JUR-2` | When 22 is Yes |
-| 24 | Drawer branch police station | `JUR-6a` | When 22 is No |
-| 25 | Nature of debt | `LDN-1` | Yes, from list |
-| 26 | Notice dispatch date | `LDN-2` | Yes |
-| 27 | Notice mode of service | `LDN-3` | Yes, from list |
-| 28 | Notice tracking number | `LDN-4` | No |
-| 29 | Notice delivered | `LDN-5` | Yes |
-| 30 | Notice delivery date | `LDN-6` | When delivered |
-| 31 | Notice return date | `LDN-7` | When not delivered |
-| 32 | Reason for non-delivery | `LDN-8` | When not delivered, from list |
-| 33 | Accused replied | `LDN-9` | Yes |
-| 34 | Payment after notice | `LDN-10` | Yes in the template; in another layout, the amount paid decides |
-| 35 | Amount paid | `LDN-11` | When part payment |
-| 36 | Reason for condonation of delay | `JUR-12` | Only when a delay is computed |
+| Case | Case reference | Filer's reference | Yes, unique in the file |
+| Case | Additional details | `PRY-1` | No |
+| Further complainant | Complainant type, name, institution type, CIN or PAN, age, gender, mobile, email, address, city, pincode, representative name, designation, age, mobile | `LIT-2` to `LIT-7`, `LIT-17` to `LIT-25a` | Only for a case with more than one complainant |
+| Accused | Accused type, name, institution type, age, mobile, email | `ACC-1` to `ACC-7` | Type, name, and mobile or email |
+| Accused address | Accused address, city, pincode, police station | `ACC-8`, `ACC-13` | Address, city, pincode |
+| Person responsible | Person responsible name, designation, mobile, email, address, city, pincode | `ACC-14` to `ACC-18` | Name and mobile when the accused is an institution |
+| Cheque | Cheque number, date, amount, Drawer bank IFSC, Drawer account number, Presentation date, Return date, Return reason | `CHQ-1` to `CHQ-10` | Yes |
+| Demand notice | Nature of debt, Notice dispatch date, mode of service, tracking number, delivered, delivery date, return date, Reason for non-delivery, Accused replied, Payment after notice, Amount paid | `LDN-1` to `LDN-11` | As in the single flow (delivery date when delivered, and so on) |
+| Jurisdiction | Deposited in complainant's own account, Complainant branch IFSC, Complainant branch police station, Drawer branch police station, Reason for condonation of delay | `JUR-1`, `JUR-2`, `JUR-5`, `JUR-6a`, `JUR-12` | `JUR-1`; IFSC or police station by its answer; condonation only when a delay is computed |
+| Witness | Witness name, designation, age, What the witness will prove, mobile, email, address, city, pincode | `WIT-1` to `WIT-7` | For each witness: name or designation, and the address |
+| Other pending case | Other pending case court, number | `JUR-7`, `JUR-8` | No |
+
+### Fields that repeat
+
+A section repeats where the PRD gives it as 1..n and the single filing flow lets the filer
+add another. Unnumbered columns are the first; `_2`, `_3` are the next. A section inside an
+accused carries two numbers, accused then item: `Accused address_1_2` is the first accused's
+second address. In the API the same sections are arrays.
+
+| Section | Excel | API | Why it repeats |
+|---|---|---|---|
+| Complainant | `Complainant name_2` onwards (the batch complainant is the first) | `cases[].complainants[]` | PRD §3.3, complainant 1..n; the single flow's **Add complainant**. Each further complainant needs their own ID card and vakalatnama |
+| Accused | `Accused name_2` | `cases[].accused[]` | PRD §3.3, accused 1..n; joint borrowers and guarantors |
+| Accused address | `Accused address_1_2` | `accused[].addresses[]` | `ACC-8` to `ACC-13`, residence, office and permanent; summons go to each |
+| Person responsible | `Person responsible name_1_2` | `accused[].personsResponsible[]` | `ACC-14` to `ACC-18`; S-141 reaches every director or partner in charge |
+| Cheque | `Cheque number_2` | `cases[].cheques[]` | PRD §3.3, cheque 1..n; several cheques on one loan are one complaint |
+| Demand notice | `Notice dispatch date_2` | `cases[].notices[]` | One per cheque in the single flow, which keeps notice papers per cheque |
+| Witness | `Witness name_2` | `cases[].witnesses[]` | `WIT`, 0..n |
+| Other pending case | `Other pending case court_2` | `jurisdiction.otherPendingCases[]` | `JUR-6b` to `JUR-8`, 0..n |
+
+Not repeated: the case reference, jurisdiction (`JUR-1`, `JUR-2` are answered once per case,
+as in the single flow), condonation, additional details, and the batch-wide complainant,
+representative and advocates.
 
 Not in the sheet, on purpose: cause of action, filing date, delay and fees (computed);
 prayers and affidavit (standard templates); documents (added on the Documents tab).
 
 **Column matching.** When every template header is present (case, spacing and punctuation
 ignored), the matching screen is skipped. Otherwise each field is matched to a column,
-with suggestions only from the header and a fixed list of aliases. A list field can also
-take one value for every row (for example Nature of debt: Loan / advance repayment).
+with suggestions only from the header and a fixed list of aliases, including its `_2`, `_3`
+forms. A list field can also take one value for every row (for example Nature of debt:
+Loan / advance repayment). The screen opens with **Found in your file**: how many accused,
+cheques, notices, witnesses and further complainants the headers show. Where a file names
+them another way (`Chq No 2`), the filer corrects the count and the tabs below follow.
 
 **Value matching.** List values the court does not know (`01 - Funds Insufficient`) are
 matched once each, and every row using them follows.
@@ -179,8 +187,38 @@ matched once each, and every row using them follows.
 placed by hand.
 
 **Demo files.** `npm run demo:files` writes `demo-files/tata-capital-bulk-filing-template.xlsx`
-(12 cases, template layout, guide rows left in) and `demo-files/tata-capital-recovery-mis.xlsx`
-(the same cases in a lender's report layout, for the matching screens), dated from today.
+(12 cases, template layout, guide rows left in; one case with two accused, one with two
+witnesses, one with two cheques and another pending case) and
+`demo-files/tata-capital-recovery-mis.xlsx` (the same cases in a lender's report layout, with
+a second cheque, for the matching screens), dated from today.
+
+## AI review
+
+`apps/dristi-app/src/lib/bulk/ai-review.ts`. Findings appear on Scrutiny as **AI check**
+(sparkle mark), always skippable, never a hold. With the stand-in they are:
+
+| Finding | Reads |
+|---|---|
+| Cheque number or amount on the cheque or return memo differs from the case | Document text |
+| Demand notice addressed to someone who is not an accused | Document text |
+| Consignment number on the notice papers differs from the case | Document text |
+| An individual's name reads like a business | The case |
+| City does not match the pincode's district | The case and the pincode register |
+| Same accused elsewhere in the batch with another mobile | The batch and open batches |
+| Notice delivered the day it was sent | The case |
+
+Mode comes from the court profile's `aiMode`, overridden by `?ai=` on the page; the batch
+screen keeps the parameter as you move between tabs. `off` hides AI entirely.
+`unavailable` shows "AI review unavailable. Documents are not compared with the cases;
+check them by hand." Provakil's demo sets a document mismatch on 13 of its 220 matters.
+
+## Notifications
+
+A batch from the API is stored with `openedAt: null`. While it is, the bell lists it
+("2 new cases from Provakil API", batch number, advocate, date) in warning tone and keeps
+the count badge, and the batch list marks it **New**. Opening the batch records the time and
+clears both. Excel uploads and clubbed batches are opened by the person who made them, so
+they never notify. The bell reads the batch list on each page change and every 30 seconds.
 
 ## Where it lives
 
@@ -192,6 +230,12 @@ placed by hand.
 | Sign, pay, club, fixes | `apps/dristi-app/src/lib/bulk/actions.server.ts` |
 | Batch store (server, git-ignored) | `apps/dristi-app/.data/bulk` |
 | Push API | `POST /api/bulk/v1/batches` (bearer key, `BULK_API_KEY`) |
+| Advocates for a sender | `GET /api/bulk/v1/advocates` (bearer key) |
+| Excel spec, sections, repeats | `apps/dristi-app/src/lib/bulk/excel-spec.ts`, `excel.ts` |
+| AI review (stand-in) | `apps/dristi-app/src/lib/bulk/ai-review.ts`, `doc-text.ts` |
+| Column matching | `apps/dristi-app/src/components/bulk/column-mapping.tsx` |
+| API notifications | `useApiArrivals` in `apps/dristi-app/src/components/shell/top-bar.tsx` |
+| Provakil filing dialog | `apps/provakil-mock/src/components/push-dialog.tsx` |
 | Screens | `apps/dristi-app/src/components/bulk/` |
 | Provakil mock | `apps/provakil-mock` |
 
@@ -209,4 +253,15 @@ placed by hand.
   model has no field for it, so it is not stored. It needs a field in `types.ts`.
 - Batches are stored on the server for the demo, while single drafts stay in the browser.
   Engineering replaces both with the case service.
+- The demo has one sign-in (Anjali Parmar). A batch pushed to another advocate is in the
+  office's batch list with "To <advocate>" under its source, rather than in a separate
+  account. Per-advocate accounts need the identity service.
+- Jurisdiction is per case, as in the single flow. A case whose cheques were deposited in
+  different branches cannot say so; the PRD does not settle whether `JUR-1` and `JUR-2` are
+  per cheque.
+- A further complainant's ID card and vakalatnama attach on the Documents tab or by file name
+  (`<reference>_DCM-9_2.pdf` for the ID card, `_DCM-12_2` for the vakalatnama); the sheet has
+  no column for documents.
+- The AI review is a rules stand-in with the shape a model returns. Reading document text
+  works on simple PDFs only.
 - Review was by the coordinator, not an independent reviewer.

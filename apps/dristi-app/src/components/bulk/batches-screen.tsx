@@ -119,12 +119,20 @@ export function BatchesScreen() {
         <Link href={`/filings/bulk/${b.id}`} className="hover:underline" onClick={(e) => e.stopPropagation()}>
           {b.number}
         </Link>
+        {b.openedAt === null ? (
+          <Badge variant="destructive" className="ml-2">
+            New
+          </Badge>
+        ) : null}
         {b.clubbedFrom.length ? (
           <div className="text-caption font-normal text-muted-foreground">From {b.clubbedFrom.join(", ")}</div>
         ) : null}
       </TableCell>
       <TableCell className={cn(TABLE_CELL, "max-w-56 whitespace-normal")}>
         <SourceLabel source={b.source} />
+        {b.source.kind === "api" && b.filingAdvocate ? (
+          <div className="text-caption text-muted-foreground">To {b.filingAdvocate.name}</div>
+        ) : null}
       </TableCell>
       <TableCell className={cn(TABLE_CELL, "whitespace-normal")}>{b.client}</TableCell>
       <TableCell className={cn(TABLE_CELL, "tabular-nums")}>{toLongDate(b.createdAt.slice(0, 10))}</TableCell>

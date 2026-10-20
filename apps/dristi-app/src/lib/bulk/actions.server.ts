@@ -73,6 +73,10 @@ export type BatchSummary = {
   total: number;
   counts: Record<CaseStage, number>;
   flagged: number;
+  /** `null` while an API push is still unopened. */
+  openedAt: string | null;
+  /** Who the batch was sent to: the first advocate on its cases. */
+  filingAdvocate: { name: string; barNumber: string } | null;
 };
 
 export type BatchView = BatchSummary & {
@@ -131,6 +135,11 @@ export function caseView(bc: BatchCase, batch: Batch, all: Batch[], ai: AiMode =
   };
 }
 
+function filingAdvocate(batch: Batch): BatchSummary["filingAdvocate"] {
+  const a = batch.cases[0]?.draft.advocates[0];
+  return a ? { name: a.name, barNumber: a.barNumber } : null;
+}
+
 export function summarise(batch: Batch, all: Batch[], ai: AiMode = "off"): BatchSummary {
   const counts: Record<CaseStage, number> = { held: 0, ready: 0, signed: 0, filed: 0 };
   let flagged = 0;
@@ -153,6 +162,8 @@ export function summarise(batch: Batch, all: Batch[], ai: AiMode = "off"): Batch
     total: batch.cases.length,
     counts,
     flagged,
+    openedAt: batch.openedAt === undefined ? batch.createdAt : batch.openedAt,
+    filingAdvocate: filingAdvocate(batch),
   };
 }
 
@@ -360,6 +371,7 @@ export function clubBatches(all: Batch[], ids: string[], at: string): { all: Bat
     signings: [],
     clubbedInto: null,
     clubbedFrom: picked.map((b) => b.number),
+    openedAt: at,
   };
   const next = all.map((b) => {
     if (!ids.includes(b.id)) return b;

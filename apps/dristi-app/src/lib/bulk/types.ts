@@ -105,6 +105,11 @@ export type Batch = {
   clubbedInto: string | null;
   /** Batch numbers this one was clubbed from. */
   clubbedFrom: string[];
+  /**
+   * When the filer first opened the batch. `null` on an API push nobody has opened yet:
+   * the bell flags it until someone does. Absent on batches stored before this existed.
+   */
+  openedAt?: string | null;
 };
 
 /** Where one case stands in its batch. */

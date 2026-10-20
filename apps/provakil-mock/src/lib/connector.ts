@@ -66,6 +66,7 @@ export type ApiBatchRequest = {
     }[];
     jurisdiction: { depositedInOwnAccount: boolean; complainantBranchIfsc: string };
     condonationReason?: string;
+    witnesses?: { name: string; designation: string; prove: string; mobile: string; address: ApiAddress }[];
     documents: { code: string; index?: number; name: string; url: string; contentType: string }[];
   }[];
 };
@@ -225,6 +226,19 @@ export function mapMatter(m: Matter, docBase: string): ApiBatchRequest["cases"][
       complainantBranchIfsc: m.instruments[0].collectingIfsc.toUpperCase(),
     },
     ...(condonation ? { condonationReason: condonation.text } : {}),
+    ...(m.witness
+      ? {
+          witnesses: [
+            {
+              name: m.witness.name,
+              designation: m.witness.designation,
+              prove: "The loan account statement and the dishonour of the cheque",
+              mobile: phone(m.witness.mobile),
+              address: addr(m.witness.address),
+            },
+          ],
+        }
+      : {}),
     // The court keeps the notice papers per cheque; one notice covering several cheques
     // is sent against each of them.
     documents: m.documents.flatMap((doc) => {

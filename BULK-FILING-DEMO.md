@@ -112,19 +112,30 @@ npm run demo
 
 1. Open **Provakil**. You land on **Litigation**, Section 138 cases, the **Ready for
    Filing** tab. The workspace holds 220 cases, 50 to a page.
-2. Some cases say **Unassigned** in the Advocate column. Tick a few cases, including some
-   unassigned ones. A bar appears at the bottom.
-3. **File in court** is greyed out until every ticked case has an advocate. Click
-   **Assign advocate**, pick one, click **Assign**.
-4. Click **File in court**. Only **SARAS 2.0** (Gujarat) can be chosen; the other courts
-   have no jurisdiction over these cases.
-5. Read the summary: Tata Capital as complainant, the advocate, and any gaps Provakil can
-   see (for example a missing tracking report). Click **File … cases on SARAS 2.0**.
-6. The result shows a batch number such as `BLK-2026-0001`. Cases for different advocates
-   become separate batches, one per advocate. Click **Open on SARAS 2.0**.
-7. Back in Provakil, the cases now sit under **Filed**, marked "On SARAS 2.0" with the batch
+2. Tick cases the way you would in Gmail:
+   - Click a checkbox to tick one case.
+   - Hold **Shift** and click another checkbox: every case in between is ticked too. Shift +
+     click on a ticked case unticks the range instead.
+   - Hold **Ctrl** (Windows) or **Cmd** (Mac) and click a row to tick it without opening it.
+     A plain click on a row opens the case.
+   A bar appears at the bottom. Include a few **Unassigned** cases.
+3. Click **File in court**. First choose the court: only **SARAS 2.0** (Gujarat) can be
+   chosen; the other courts have no jurisdiction over these cases. Click **Next: advocates**.
+4. Provakil fetches the advocates registered on SARAS 2.0 for Tata Capital. Each case shows
+   its advocate where Provakil already had one. Give the others an advocate from the list,
+   one at a time, or tick several and pick an advocate at the top, then **Assign**. The
+   footer shows how many cases each advocate gets.
+5. Click **File … cases on SARAS 2.0**. Each advocate's cases become their own batch, such as
+   `BLK-2026-0004` for Thomas K. George and `BLK-2026-0005` for Rahul Thakkar. Click **Open on
+   SARAS 2.0** on any of them.
+6. Back in Provakil, the cases now sit under **Filed**, marked "On SARAS 2.0" with the batch
    number. Click a row to see its details, documents and activity.
-8. **Settings** (bottom left) shows the connector and the full field-by-field mapping.
+7. **Settings** (bottom left) shows the connector and the full field-by-field mapping.
+
+On SARAS 2.0, a push nobody has opened yet shows in the **bell** at the top right ("2 new
+cases from Provakil API", with the batch and the advocate) and as **New** on the **Bulk
+filing** list. It stays there until someone opens the batch, so the next person to sign in
+sees it first.
 
 Things greyed out in Provakil are not part of the demo.
 
@@ -145,6 +156,10 @@ order:
    - **Check** (amber): worth a second look, for example a cheque returned for "payment
      stopped" rather than "insufficient funds". Press **Skip this check**, or **Skip for
      all** when several cases have the same check.
+   - **AI check** (sparkle mark): something a reader would catch that is not a rule, for
+     example a cheque scan showing a different amount from the case, or an individual whose
+     name reads like a shop. Skip it the same way. Some Provakil cases carry a cheque with a
+     different amount on purpose, to show this.
 4. **Sign**: choose the cases and a method. Fastest first: Mobile OTP (one OTP signs them
    all), DSC, Aadhaar eSign (5 cases per OTP, so several OTPs; the note under it explains
    why and links to the rule), Upload signed copies. Any 6 digits work as the OTP or PIN.
@@ -153,14 +168,25 @@ order:
 
 Go back to Provakil and press **Refresh**: filed cases now show their case numbers.
 
+**With AI off.** Add `?ai=off` to the batch address (for example
+`http://localhost:3000/filings/bulk/<batch>?ai=off`). AI checks disappear and everything
+else works by hand. `?ai=unavailable` shows the screens as they would be if the AI service
+were down. Remove the parameter, or use `?ai=on`, to bring AI back.
+
 ### Walkthrough C: Upload an Excel file that follows the template
 
 Two ready-made files are in the `demo-files` folder inside `bulk-filing-demo`:
 
 | File | What it shows |
 |---|---|
-| `tata-capital-bulk-filing-template.xlsx` | 12 cases in the court's template. Goes straight in. |
-| `tata-capital-recovery-mis.xlsx` | The same 12 cases in a lender's own report layout. Needs matching. |
+| `tata-capital-bulk-filing-template.xlsx` | 12 cases in the court's template, some with a second accused, cheque or witness. Goes straight in. |
+| `tata-capital-recovery-mis.xlsx` | The same 12 cases in a lender's own report layout, with a second cheque. Needs matching. |
+
+**Things that happen more than once.** A case can have more than one accused, cheque,
+demand notice, witness or complainant. In the sheet, the second one is the same columns
+again with `_2` at the end (`Cheque number_2`), the third `_3`, and so on. An accused's
+second address is `Accused address_1_2` (first accused, second address). The template's
+**Instructions** sheet lists which columns can repeat.
 
 1. On SARAS 2.0, **Bulk filing**, click **Download Excel template** and open it to see the
    format. Row 2 says what each column takes (text, date, a choice from a list, required or
@@ -169,11 +195,13 @@ Two ready-made files are in the `demo-files` folder inside `bulk-filing-demo`:
    you are ticked already, and any advocate on your **People** page can be added. Choose
    `tata-capital-bulk-filing-template.xlsx`, click **Read file**.
 3. Because it follows the template, it goes straight to **Review**: 12 cases read, and the
-   template's 2 guide rows discarded. Click **Create batch**.
+   template's 2 guide rows discarded. Case 1003 has two accused, 1006 two witnesses and
+   1009 two cheques, read from the `_2` columns. Click **Create batch**.
 4. Excel cases arrive without documents, so the batch opens on **Documents**. Then
    **Scrutiny** shows two cheques to check (returned for "payment stopped" and "account
-   closed") and one case held for a 5-digit pincode: type `380015` and **Save**. Continue as
-   in Walkthrough B.
+   closed") and one case held for a 5-digit pincode: type `380015` and **Save**. Two AI
+   checks also appear: an individual named "Shree Ganesh Traders", and an address in
+   Vadodara with an Ahmedabad pincode. Continue as in Walkthrough B.
 
 You can also export from Provakil: tick cases, **Export**, **SARAS 2.0 bulk filing
 template**.
@@ -181,8 +209,13 @@ template**.
 ### Walkthrough D: Upload an Excel file in a different layout
 
 1. **Upload Excel** again and choose `tata-capital-recovery-mis.xlsx`.
-2. A **Match your columns** screen appears. Twelve fields are matched already by name.
-   Match the rest:
+2. A **Match your columns** screen appears.
+   - At the top, **Found in your file** says what the file holds: 1 accused, 2 cheques, 1
+     demand notice. If a count is wrong, use **−** and **+** to correct it.
+   - Each row reads, left to right: the field in the case (ON Courts mark), an arrow, the
+     column in your sheet (Excel mark), and the first value found there.
+   - **Required fields** come first, with how many are matched. Twelve are matched already by
+     name. Match the rest:
 
    | Field | Choose |
    |---|---|
@@ -203,6 +236,11 @@ template**.
    | Reason for non-delivery | Remarks |
    | Accused replied | Reply Recd |
    | Amount paid | Recovered After Notice |
+
+   - **Repeated sections** has a tab for each accused, cheque and notice. Open **Cheque 2**:
+     it has already followed your Cheque 1 choices, using the `_2` columns.
+   - **Show optional fields** reveals the rest (accused email, police station, witnesses and
+     so on), in case your sheet has them.
 
    **Continue** becomes clickable once every required field is matched.
 3. A **Match your values** screen appears for the lender's own words:

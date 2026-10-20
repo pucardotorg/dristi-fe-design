@@ -9,10 +9,12 @@ export async function GET(_req: Request, ctx: { params: Promise<{ docId: string 
     const doc = m.documents.find((d) => d.id === docId);
     if (!doc) continue;
     const q = m.instruments[(doc.index ?? 1) - 1] ?? m.instruments[0];
+    // A mistyped record: the scan shows the true amount, the record a different one.
+    const shown = m.docMismatch && (doc.tag === "Cheque" || doc.tag === "Return memo") ? q.amount + 27000 : q.amount;
     const pdf = simplePdf(doc.tag, [
       `Loan account: ${m.lan}`,
       `Borrower: ${m.borrower.name}`,
-      `Cheque no. ${q.chequeNo} dated ${formatDate(q.chequeDate)} for ${formatINR(q.amount).replace("₹", "Rs ")}`,
+      `Cheque no. ${q.chequeNo} dated ${formatDate(q.chequeDate)} for ${formatINR(shown).replace("₹", "Rs ")}`,
       `Drawee IFSC: ${q.draweeIfsc}`,
       `Notice dispatched ${formatDate(m.notice.dispatchDate)} by ${m.notice.mode}, ${m.notice.consignmentNo}`,
       "",

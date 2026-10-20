@@ -33,13 +33,6 @@ export type Row = Matter & {
   dristi: { status: "draft" | "filed"; caseFileNumber: string | null } | null;
 };
 
-/** Courts the workspace can file in. Only the one with jurisdiction over these cases is open. */
-const COURTS = [
-  { id: "saras", name: "SARAS 2.0", where: "Gujarat", open: true },
-  { id: "kerala", name: "24×7 ON Court", where: "Kerala", open: false },
-  { id: "nact", name: "NACT e-filing", where: "Punjab & Haryana", open: false },
-  { id: "ecourts", name: "eCourts e-filing", where: "Other states", open: false },
-];
 
 const STAGES: (Stage | "All")[] = ["All", "Notice Sent", "Notice Served", "Ready for Filing", "Filed"];
 const WORKFLOWS = ["Section 138/25", "SARFAESI", "Arbitration", "DRT", "Vehicle Repossession"];
@@ -63,7 +56,6 @@ export function CasesScreen() {
   const [open, setOpen] = React.useState<Row | null>(null);
   const [pushing, setPushing] = React.useState(false);
   const [assigning, setAssigning] = React.useState(false);
-  const [menu, setMenu] = React.useState(false);
   const [exporting, setExporting] = React.useState(false);
   const [page, setPage] = React.useState(0);
   const PAGE = 50;
@@ -106,13 +98,28 @@ export function CasesScreen() {
   const unassigned = chosen.filter((r) => !r.advocate).length;
   const chosenValue = chosen.reduce((s, r) => s + r.instruments.reduce((a, i) => a + i.amount, 0), 0);
 
-  const toggle = (id: string) =>
+  /*
+   * Selection as Gmail does it: a click ticks one case; Shift + click ticks (or unticks)
+   * every case between the last one clicked and this one; Ctrl or Cmd + click on a row
+   * ticks it without opening it. Ranges run over the page shown, filed cases skipped.
+   */
+  const anchor = React.useRef<string | null>(null);
+  const pick = (id: string, range: boolean) => {
+    const on = !selected.has(id);
+    const ids = pageRows.filter(pushable).map((r) => r.id);
+    const from = anchor.current ? ids.indexOf(anchor.current) : -1;
+    const to = ids.indexOf(id);
+    const span = range && from >= 0 && to >= 0 ? ids.slice(Math.min(from, to), Math.max(from, to) + 1) : [id];
     setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      for (const x of span) {
+        if (on) next.add(x);
+        else next.delete(x);
+      }
       return next;
     });
+    anchor.current = id;
+  };
 
   return (
     <div className="flex flex-col gap-4 p-6 pb-28">
@@ -303,7 +310,14 @@ export function CasesScreen() {
                     <tr
                       key={r.id}
                       className={`border-t border-line ${selected.has(r.id) ? "bg-blue-50/60" : "hover:bg-[#f7f9fc]"} cursor-pointer`}
-                      onClick={() => setOpen(r)}
+                      onClick={(e) => {
+                        // Shift or Ctrl/Cmd on a row selects, as in Gmail; a plain click opens it.
+                        if (can && (e.shiftKey || e.metaKey || e.ctrlKey)) {
+                          e.preventDefault();
+                          window.getSelection()?.removeAllRanges();
+                          pick(r.id, e.shiftKey);
+                        } else setOpen(r);
+                      }}
                     >
                       <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
                         <input
@@ -311,7 +325,8 @@ export function CasesScreen() {
                           aria-label={`Select ${r.lan}`}
                           checked={selected.has(r.id)}
                           disabled={!can}
-                          onChange={() => toggle(r.id)}
+                          // React reports a checkbox change from its click, so the click's Shift key is on it.
+                          onChange={(e) => pick(r.id, (e.nativeEvent as MouseEvent).shiftKey)}
                           className="size-4 accent-blue disabled:opacity-30"
                         />
                       </td>
@@ -402,41 +417,10 @@ export function CasesScreen() {
               <Button variant="outline" onClick={() => setAssigning(true)}>
                 Assign advocate
               </Button>
-              <div className="relative">
-                <Button
-                  onClick={() => setMenu((v) => !v)}
-                  disabled={unassigned > 0}
-                  title={unassigned > 0 ? "Assign an advocate first" : undefined}
-                  aria-haspopup="menu"
-                  aria-expanded={menu}
-                >
-                  <SendIcon className="size-4" aria-hidden />
-                  File in court
-                  <ChevronDownIcon className="size-4" aria-hidden />
-                </Button>
-                {menu ? (
-                  <div role="menu" className="absolute right-0 bottom-full z-30 mb-2 w-72 overflow-hidden rounded-md border border-line bg-white py-1 shadow-xl">
-                    {COURTS.map((c) => (
-                      <button
-                        key={c.id}
-                        role="menuitem"
-                        disabled={!c.open}
-                        onClick={() => {
-                          setMenu(false);
-                          setPushing(true);
-                        }}
-                        className="flex w-full flex-col items-start px-3 py-2 text-left hover:bg-ground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
-                      >
-                        <span className="text-[13px] font-medium">{c.name}</span>
-                        <span className="text-[11px] text-muted">
-                          {c.where}
-                          {c.open ? "" : " · no jurisdiction over these cases"}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
+              <Button onClick={() => setPushing(true)}>
+                <SendIcon className="size-4" aria-hidden />
+                File in court
+              </Button>
             </div>
           </div>
         </div>

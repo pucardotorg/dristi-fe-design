@@ -9,12 +9,26 @@ import { NextResponse } from "next/server";
 import { DRISTI_API_KEY, DRISTI_URL, PROVAKIL_URL } from "@/lib/config.server";
 import { buildRequest } from "@/lib/connector";
 import type { Matter } from "@/lib/matters";
-import { addPush } from "@/lib/pushes.server";
+import { addPush, assign } from "@/lib/pushes.server";
 import { currentMatters } from "@/lib/workspace.server";
 
 export async function POST(req: Request) {
-  const { matterIds, adr, sentBy } = (await req.json()) as { matterIds: string[]; adr?: "yes" | "no"; sentBy?: string };
-  const matters = (await currentMatters()).filter((m) => matterIds.includes(m.id));
+  const { matterIds, adr, sentBy, assignments } = (await req.json()) as {
+    matterIds: string[];
+    adr?: "yes" | "no";
+    sentBy?: string;
+    /** Matter id → the court advocate it is filed through, chosen in the filing dialog. */
+    assignments?: Record<string, { name: string; enrolment: string }>;
+  };
+  // Record the dialog's choices on the matters first, so Provakil shows who filed each.
+  if (assignments) {
+    const byAdvocate = new Map<string, string[]>();
+    for (const [id, a] of Object.entries(assignments)) byAdvocate.set(a.enrolment, [...(byAdvocate.get(a.enrolment) ?? []), id]);
+    for (const [enrolment, ids] of byAdvocate) await assign(ids, enrolment);
+  }
+  const matters = (await currentMatters())
+    .filter((m) => matterIds.includes(m.id))
+    .map((m) => (assignments?.[m.id] ? { ...m, advocate: assignments[m.id] } : m));
   if (matters.length === 0) return NextResponse.json({ error: "No cases selected." }, { status: 400 });
   const unassigned = matters.filter((m) => !m.advocate);
   if (unassigned.length) {
