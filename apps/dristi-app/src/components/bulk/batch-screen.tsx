@@ -54,6 +54,7 @@ function StepTab({
   tone,
   what,
   done,
+  over = false,
 }: {
   value: TabId;
   label: string;
@@ -62,6 +63,8 @@ function StepTab({
   tone: "warning" | "info" | "secondary";
   what: string;
   done: boolean;
+  /** The whole batch is filed: every step is behind it, so none is marked. */
+  over?: boolean;
 }) {
   const idle = pending === 0;
   const spoken = pending
@@ -72,9 +75,14 @@ function StepTab({
         ? `${label}, completed`
         : `${label}, nothing here`;
   return (
-    <TabsTrigger value={value} aria-label={spoken} disabled={idle && !done}>
+    <TabsTrigger
+      value={value}
+      aria-label={over ? label : spoken}
+      disabled={idle && !done}
+      className={cn(over && "text-muted-foreground")}
+    >
       {label}
-      {pending ? (
+      {over ? null : pending ? (
         // A count sized for the tab: the DS badge (24px) fills a 32px tab edge to edge.
         <span className={cn(COUNT, COUNT_FILL[tone])}>{pending}</span>
       ) : upcoming ? null : done ? (
@@ -218,6 +226,7 @@ export function BatchScreen({ batchId }: { batchId: string }) {
     (c) => c.stage === "held" || c.stage === "ready",
   );
   const workable = open.length;
+  const allFiled = batch.total > 0 && batch.counts.filed === batch.total;
   const docsMissing = open.filter((c) => c.docs.have < c.docs.need).length;
   // Case details counts what it shows: flags about the details, not missing documents.
   const detail = (c: CaseView) =>
@@ -280,14 +289,19 @@ export function BatchScreen({ batchId }: { batchId: string }) {
           </AlertTitle>
           <AlertDescription>
             Last payment{" "}
-            {batch.payments.at(-1) ? ist(batch.payments.at(-1)!.at) : ""}.{" "}
-            <button
-              type="button"
-              className="underline"
-              onClick={() => go("filed")}
-            >
-              See receipts and case numbers
-            </button>
+            {batch.payments.at(-1) ? ist(batch.payments.at(-1)!.at) : ""}.
+            {tab === "filed" ? null : (
+              <>
+                {" "}
+                <button
+                  type="button"
+                  className="underline"
+                  onClick={() => go("filed")}
+                >
+                  See receipts and case numbers
+                </button>
+              </>
+            )}
           </AlertDescription>
         </Alert>
       ) : null}
@@ -308,13 +322,13 @@ export function BatchScreen({ batchId }: { batchId: string }) {
       ) : null}
 
       {/* Folded to one line by default: what the batch is, at a glance; Details opens it. */}
-      <Card className={cn(PANEL_CLASS, "gap-0 py-0")}>
+      <Card className={cn(PANEL_CLASS, "gap-0 overflow-hidden py-0")}>
         {/* The whole line opens and closes the details, not only its Details label. */}
         <button
           type="button"
           aria-expanded={showInfo}
           onClick={() => setShowInfo((v) => !v)}
-          className="flex min-h-12 w-full flex-wrap items-center gap-x-4 gap-y-2 rounded-xl px-4 py-2 text-left transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-focus-ring focus-visible:outline-none sm:px-6"
+          className="flex min-h-12 w-full flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 text-left transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-focus-ring focus-visible:outline-none focus-visible:ring-inset sm:px-6"
         >
           <span className="min-w-0 truncate text-body-compact">
             <span className="text-muted-foreground">
@@ -430,6 +444,7 @@ export function BatchScreen({ batchId }: { batchId: string }) {
               className="pointer-events-none absolute top-0.5 bottom-0.5 left-0 rounded-md bg-card shadow-sm transition-[transform,width] duration-200 ease-out motion-reduce:transition-none"
             />
             <StepTab
+              over={allFiled}
               value="cases"
               label="Cases"
               pending={batch.total - batch.counts.filed}
@@ -438,6 +453,7 @@ export function BatchScreen({ batchId }: { batchId: string }) {
               done={batch.total > 0}
             />
             <StepTab
+              over={allFiled}
               value="documents"
               label="Documents"
               pending={docsMissing}
@@ -446,6 +462,7 @@ export function BatchScreen({ batchId }: { batchId: string }) {
               done={workable > 0}
             />
             <StepTab
+              over={allFiled}
               value="scrutiny"
               label="Case details"
               pending={attention}
@@ -455,10 +472,15 @@ export function BatchScreen({ batchId }: { batchId: string }) {
             />
             {/* Reading each case as the court will, before anyone signs it. A place to read,
                 not a step that completes, so it carries no count and no tick. */}
-            <TabsTrigger value="review" disabled={workable === 0}>
+            <TabsTrigger
+              value="review"
+              disabled={workable === 0}
+              className={cn(allFiled && "text-muted-foreground")}
+            >
               Review
             </TabsTrigger>
             <StepTab
+              over={allFiled}
               value="sign"
               label="Sign"
               pending={clear}
@@ -470,6 +492,7 @@ export function BatchScreen({ batchId }: { batchId: string }) {
               }
             />
             <StepTab
+              over={allFiled}
               value="pay"
               label="Pay"
               pending={batch.counts.signed}
@@ -485,11 +508,11 @@ export function BatchScreen({ batchId }: { batchId: string }) {
               aria-label={`Filed, ${batch.counts.filed} of ${batch.total}`}
               disabled={!batch.counts.filed}
             >
-              {batch.counts.filed === batch.total && batch.total ? (
+              {allFiled ? (
                 <CircleCheckIcon className="text-success-ink" aria-hidden />
               ) : null}
-              Filed
-              {batch.counts.filed ? (
+              {allFiled ? "All filed" : "Filed"}
+              {batch.counts.filed && !allFiled ? (
                 <span className={cn(COUNT, COUNT_FILL.success)}>
                   {batch.counts.filed}
                 </span>
