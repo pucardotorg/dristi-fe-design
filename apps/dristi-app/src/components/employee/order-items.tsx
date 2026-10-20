@@ -28,7 +28,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  blockGaps,
+  missingMandatory,
   setItemRecipients,
   setItemValue,
   type ComposerContext,
@@ -81,9 +81,7 @@ export function ItemsCard({
         {items.length > 0 ? (
           <ol className="flex min-w-0 flex-col divide-y divide-hairline rounded-xl border border-hairline">
             {items.map((block, index) => {
-              const gaps = blockGaps(block, context).filter(
-                (gap) => gap.key !== "text",
-              );
+              const gaps = missingMandatory(block, context);
               const template = orderTemplate(block.type);
               const asks = template.fields.some((field) => !field.derived);
               return (
@@ -98,7 +96,7 @@ export function ItemsCard({
                     <span className="text-body-compact">{template.label}</span>
                     {gaps.length > 0 ? (
                       <span className="text-caption text-warning-ink">
-                        {gaps.length} to fill
+                        {gaps.length} mandatory to fill
                       </span>
                     ) : null}
                   </span>
@@ -479,7 +477,6 @@ export function ItemDialog({
   onClose,
   onConfirm,
   description,
-  showSentence = true,
 }: {
   editing: { block: ItemBlock; mode: "add" | "edit" } | null;
   context: ComposerContext;
@@ -487,20 +484,17 @@ export function ItemDialog({
   onChange: (block: ItemBlock) => void;
   onClose: () => void;
   onConfirm: () => void;
-  /** In place of the line saying where its sentence goes — order screen E writes none. */
+  /** What the dialog says about where the item goes. */
   description?: string;
-  /** The item's "In the order" sentence. Order screen E has no line of text per item
-   *  (owner, 2026-10-14), so it turns this off. */
-  showSentence?: boolean;
 }) {
   /* What was last open, kept while the dialog animates out — otherwise its title and
      fields vanish a beat before it does. */
   const [shown, setShown] = React.useState(editing);
   if (editing && editing !== shown) setShown(editing);
   const block = shown?.block;
-  const gaps = block
-    ? blockGaps(block, context).filter((gap) => gap.key !== "text")
-    : [];
+  /* Only mandatory fields are counted (`VAR-05`), and they no longer hold back
+     adding the item: it can be added half-filled and finished later (`VAR-06`). */
+  const gaps = block ? missingMandatory(block, context) : [];
   const label = block ? orderTemplate(block.type).label : "";
   return (
     <Dialog
@@ -530,9 +524,7 @@ export function ItemDialog({
           </DialogTitle>
           <DialogDescription>
             {description ??
-              (shown?.mode === "edit"
-                ? "The corrected sentence replaces this item's words in the order."
-                : "Its sentence is written into the order once these are answered.")}
+              "Recorded in this order's data. Nothing is written into the order's text."}
           </DialogDescription>
         </DialogHeader>
         {block ? (
@@ -550,16 +542,6 @@ export function ItemDialog({
                 onChange(setItemRecipients(block, recipients, context))
               }
             />
-            {showSentence ? (
-              <div className="flex min-w-0 flex-col gap-2 rounded-xl border border-hairline bg-surface-sunken p-4">
-                <span className="text-body-compact font-medium text-muted-foreground">
-                  In the order
-                </span>
-                <p className="text-body text-pretty">
-                  <SentenceWithBlanks text={block.text} />
-                </p>
-              </div>
-            ) : null}
           </div>
         ) : null}
         {/* On a phone the footer stacks with the action on top; the count of what is
@@ -576,7 +558,6 @@ export function ItemDialog({
           <Button
             type="button"
             className="w-full sm:w-auto"
-            disabled={gaps.length > 0}
             onClick={onConfirm}
           >
             {shown?.mode === "edit" ? "Save" : "Add to order"}
@@ -586,7 +567,7 @@ export function ItemDialog({
               variant="warning"
               className="self-start tabular-nums sm:order-first sm:mr-auto sm:self-auto"
             >
-              {gaps.length} to fill
+              {gaps.length} mandatory to fill
             </Badge>
           ) : null}
         </DialogFooter>
@@ -595,22 +576,3 @@ export function ItemDialog({
   );
 }
 
-/**
- * The item's sentence with each unanswered part — written in brackets by the catalogue —
- * marked as a blank, so what is still missing reads at a glance. The brackets stay in the
- * text, so the meaning never rests on the tint alone.
- */
-function SentenceWithBlanks({ text }: { text: string }) {
-  return text.split(/(\[[^\]]+\])/).map((part, index) =>
-    /^\[[^\]]+\]$/.test(part) ? (
-      <span
-        key={index}
-        className="rounded-sm bg-warning-muted px-1 text-warning-muted-foreground [box-decoration-break:clone]"
-      >
-        {part}
-      </span>
-    ) : (
-      part
-    ),
-  );
-}

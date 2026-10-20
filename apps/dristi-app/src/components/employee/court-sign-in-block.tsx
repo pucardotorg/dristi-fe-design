@@ -355,17 +355,23 @@ function PrototypeAccounts({ onPick }: { onPick: (username: string) => void }) {
         Prototype — any password works. Demo accounts:
       </p>
       <div className="flex flex-wrap gap-2">
-        {COURT_SIGN_IN_ROLES.map((role) => (
-          <Button
-            key={role}
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => onPick(accounts[role].username)}
-          >
-            {accounts[role].username}
-          </Button>
-        ))}
+        {COURT_SIGN_IN_ROLES.flatMap((role) => {
+          /* Only the seats this state has (court-roles §3). */
+          const account = accounts[role];
+          return account
+            ? [
+                <Button
+                  key={role}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onPick(account.username)}
+                >
+                  {account.username}
+                </Button>,
+              ]
+            : [];
+        })}
       </div>
     </div>
   );

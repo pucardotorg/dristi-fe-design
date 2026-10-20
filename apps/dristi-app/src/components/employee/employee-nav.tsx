@@ -12,11 +12,11 @@ import {
 } from "@/components/employee/use-court-role";
 import {
   courtRoleLabel,
-  COURT_SEATS,
   type CourtRole,
 } from "@/lib/employee/content";
 import { setCourtRole } from "@/lib/employee/court-role";
-import { courtAccounts } from "@/lib/employee/sign-in";
+import { COURT_ACCOUNTS, courtAccounts } from "@/lib/employee/sign-in";
+import { seatsIn } from "@/lib/employee/seat-roles";
 import {
   COURT_NAV_LINKS,
   COURT_NAV_TRAILING,
@@ -1051,7 +1051,7 @@ function CourtSettingsControl() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {COURT_SEATS.map((role) => (
+                  {seatsIn(court).map((role) => (
                     <SelectItem key={role} value={role}>
                       {courtRoleLabel(role, court)}
                     </SelectItem>
@@ -1197,7 +1197,7 @@ function CourtIdentityFooter() {
   const { court: state } = useCourt();
   /* The username alone (owner, 2026-10-14) — the live seat's, so switching the seat
      in settings changes it too. In P&H it is the seat's own name ("reader"). */
-  const username = courtAccounts(state)[role].username;
+  const username = (courtAccounts(state)[role] ?? COURT_ACCOUNTS[role]).username;
   /* The settings control leaves the layout with the labels, so folding while it holds
      focus drops the keyboard the same way a section's rows do. Its fallback is the fold
      control — the one thing that caused the change and is on screen either side of it,
@@ -1260,6 +1260,7 @@ export function EmployeeNav() {
     seat,
     usePendingOrders(),
     useOrderSigning(),
+    court,
   );
   const groups = withPendingCount(
     courtNavGroupsForSeat(
@@ -1272,6 +1273,7 @@ export function EmployeeNav() {
         court,
       ),
       seat,
+      court,
     ),
     pendingCount,
   );

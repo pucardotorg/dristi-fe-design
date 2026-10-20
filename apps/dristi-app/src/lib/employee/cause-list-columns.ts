@@ -23,6 +23,7 @@
  * record or a permission.
  */
 
+import type { CourtId } from "@/lib/court/profiles";
 import type { CourtRole } from "./content";
 import { seatHasBenchControls, seatPostsNextHearing } from "./court-role";
 
@@ -83,10 +84,11 @@ export function isCauseListColumnId(value: string): value is CauseListColumnId {
 export function availableColumns(
   seat: CourtRole,
   readerPosts: boolean,
+  court: CourtId = "kerala",
 ): CauseListColumnId[] {
   return CAUSE_LIST_COLUMNS.map((column) => column.id).filter((id) => {
-    if (id === "action") return seatHasBenchControls(seat);
-    if (id === "nextHearing") return readerPosts && seatPostsNextHearing(seat);
+    if (id === "action") return seatHasBenchControls(seat, court);
+    if (id === "nextHearing") return readerPosts && seatPostsNextHearing(seat, court);
     return true;
   });
 }
@@ -95,9 +97,13 @@ export function availableColumns(
 export function defaultColumns(
   seat: CourtRole,
   readerPosts: boolean,
+  court: CourtId = "kerala",
 ): CauseListColumns {
-  const available = availableColumns(seat, readerPosts);
-  if (available.includes("nextHearing")) {
+  const available = availableColumns(seat, readerPosts, court);
+  /* The reader's board is the bench clerk's default. Any other next hearing setter
+     (court-roles §3: the Kerala magistrate and typist, for one) is offered the column
+     but opens on the board as it was, and adds it from Edit columns. */
+  if (seat === "bench-clerk" && available.includes("nextHearing")) {
     const shown: CauseListColumnId[] = [
       "item",
       "caseName",
@@ -127,12 +133,13 @@ export function normaliseColumns(
   stored: { order?: unknown; visible?: unknown } | null,
   seat: CourtRole,
   readerPosts: boolean,
+  court: CourtId = "kerala",
 ): CauseListColumns {
-  const fallback = defaultColumns(seat, readerPosts);
+  const fallback = defaultColumns(seat, readerPosts, court);
   if (!stored || !Array.isArray(stored.order) || !Array.isArray(stored.visible)) {
     return fallback;
   }
-  const available = availableColumns(seat, readerPosts);
+  const available = availableColumns(seat, readerPosts, court);
   const order: CauseListColumnId[] = [];
   for (const value of stored.order) {
     if (

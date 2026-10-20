@@ -69,7 +69,7 @@ function courtSearchRows(
       group.items.map((item) => ({ item, family: group.label })),
     ),
     ...COURT_NAV_TRAILING.map((item) => ({ item, family: null })),
-  ].filter((row) => seatHasNavRow(seat, row.item.id));
+  ].filter((row) => seatHasNavRow(seat, row.item.id, court));
 }
 
 /**

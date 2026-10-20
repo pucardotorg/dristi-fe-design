@@ -6,22 +6,15 @@ import {
   CheckIcon,
   ChevronRightIcon,
   FileTextIcon,
-  FlagIcon,
   LinkIcon,
   XIcon,
 } from "lucide-react";
 
 import { PdfViewer, parsePdfSrc } from "@/components/cases/pdf-viewer";
+import { OrderDataFlags } from "@/components/employee/order-data-flags";
 import { PANEL_CLASS } from "@/components/shell/panel";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -482,21 +475,7 @@ export function OrderCasePanel({
           value="data-flags"
           className="min-h-0 flex-1 overflow-y-auto p-4"
         >
-            {/* Named by ORD-15 and nothing more: what it shows is not decided. */}
-            <Empty className="border-0 p-0">
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <FlagIcon aria-hidden />
-                </EmptyMedia>
-                <EmptyTitle className="text-body-compact font-semibold tracking-normal">
-                  Data flags are not defined yet
-                </EmptyTitle>
-                <EmptyDescription className="text-body-compact">
-                  This tab will flag things in the case&rsquo;s data, such as
-                  attendance history. What it shows has not been decided.
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
+            <OrderDataFlags />
         </TabsContent>
       </Tabs>
 

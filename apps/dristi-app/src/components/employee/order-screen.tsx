@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { CalendarX2Icon, ChevronRightIcon } from "lucide-react";
 
 import { useCourt, useCourtText } from "@/components/court/court-provider";
@@ -24,10 +23,6 @@ import {
 import { localizeDeep } from "@/lib/court/localize";
 import { CURRENT_STAFF } from "@/lib/employee/content";
 import {
-  markHearingEnded,
-  markHearingOngoing,
-} from "@/lib/employee/hearing-session";
-import {
   causeTitle,
   courtCaseStageLabel,
   courtHearingPurposeLabel,
@@ -41,7 +36,7 @@ import { composerContextFor } from "@/lib/employee/order-context";
 import { initialOrderDraft } from "@/lib/employee/order-demo";
 import {
   appearancesFor,
-  nextUnhandledListing,
+  nextOngoingListing,
 } from "@/lib/employee/order-draft";
 
 /** A hearing's order opens with nothing the drafter cannot remove. */
@@ -75,7 +70,6 @@ function HearingOrder({ hearing }: { hearing: CourtHearing }) {
  * (`order-demo.ts`); every other one opens empty.
  */
 export function useHearingOrderDoor(hearing: CourtHearing): OrderDoor {
-  const router = useRouter();
   const courtText = useCourtText();
   const session = useHearingSession();
   const today = useCourtToday();
@@ -90,18 +84,11 @@ export function useHearingOrderDoor(hearing: CourtHearing): OrderDoor {
     () => applicationsForListing(hearing.id),
     [hearing.id],
   );
-  const upNext = nextUnhandledListing(hearing, session);
-
-  /** End this listing and call the next one on the board — what Next case does. */
-  function advance() {
-    markHearingEnded(hearing.id);
-    if (!upNext) {
-      router.push("/employee/hearings");
-      return;
-    }
-    markHearingOngoing(upNext.id);
-    router.push(`/employee/hearings/${upNext.id}/order`);
-  }
+  /* Next case (`HRG-10`) opens the next Ongoing hearing and is not a hearing control:
+     it ends nothing and starts nothing — those are on the cause list (`HRG-00`). It
+     reads the live session, so a hearing started from the cause list in another tab
+     enables it without a reload. */
+  const upNext = nextOngoingListing(hearing, session);
 
   return {
     draftKey: hearing.id,
@@ -116,14 +103,25 @@ export function useHearingOrderDoor(hearing: CourtHearing): OrderDoor {
     ],
     courtLine: courtText(`Before the ${CURRENT_STAFF.court}`),
     subLine: `${hearing.caseNumber} · ${causeTitle(hearing)} · Hearing on ${formatOrderDate(today)}`,
-    navAction: (
+    navAction: upNext ? (
+      <Button asChild variant="outline" className="w-full shrink-0 sm:w-fit">
+        <Link
+          href={`/employee/hearings/${upNext.id}/order`}
+          aria-label={`Next case · Item ${upNext.item}, ${causeTitle(upNext)}`}
+        >
+          Next case · Item {upNext.item}
+          <ChevronRightIcon data-icon="inline-end" aria-hidden />
+        </Link>
+      </Button>
+    ) : (
       <Button
         type="button"
         variant="outline"
+        disabled
         className="w-full shrink-0 sm:w-fit"
-        onClick={advance}
+        aria-label="Next case (no other hearing is ongoing)"
       >
-        {upNext ? "Next case" : "End hearing"}
+        Next case
         <ChevronRightIcon data-icon="inline-end" aria-hidden />
       </Button>
     ),

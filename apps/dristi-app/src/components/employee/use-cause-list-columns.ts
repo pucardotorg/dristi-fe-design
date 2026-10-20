@@ -13,6 +13,7 @@ import {
   type CauseListColumns,
   type DropSide,
 } from "@/lib/employee/cause-list-columns";
+import type { CourtId } from "@/lib/court/profiles";
 import type { CourtRole } from "@/lib/employee/content";
 
 const PREFIX = "dristi.cause-list.columns.v1";
@@ -45,12 +46,13 @@ function parse(
   raw: string | null,
   seat: CourtRole,
   readerPosts: boolean,
+  court: CourtId,
 ): CauseListColumns {
-  if (raw === null) return defaultColumns(seat, readerPosts);
+  if (raw === null) return defaultColumns(seat, readerPosts, court);
   try {
-    return normaliseColumns(JSON.parse(raw), seat, readerPosts);
+    return normaliseColumns(JSON.parse(raw), seat, readerPosts, court);
   } catch {
-    return defaultColumns(seat, readerPosts);
+    return defaultColumns(seat, readerPosts, court);
   }
 }
 
@@ -63,6 +65,8 @@ export function useCauseListColumns(
   seat: CourtRole,
   /** The reader enters the next hearing (`useReaderPostsNextHearing`). */
   readerPosts: boolean,
+  /** The state, whose table decides which columns this seat is offered. */
+  court: CourtId = "kerala",
 ): {
   columns: CauseListColumns;
   toggle: (id: CauseListColumnId) => void;
@@ -80,13 +84,13 @@ export function useCauseListColumns(
     () => null,
   );
   const columns = React.useMemo(
-    () => parse(raw, seat, readerPosts),
-    [raw, seat, readerPosts],
+    () => parse(raw, seat, readerPosts, court),
+    [raw, seat, readerPosts, court],
   );
 
   const write = React.useCallback(
     (update: (current: CauseListColumns) => CauseListColumns) => {
-      const next = update(parse(readRaw(key), seat, readerPosts));
+      const next = update(parse(readRaw(key), seat, readerPosts, court));
       try {
         window.localStorage.setItem(key, JSON.stringify(next));
       } catch {
@@ -111,7 +115,7 @@ export function useCauseListColumns(
       }
       listeners.forEach((listener) => listener());
     },
-    isDefault: sameColumns(columns, defaultColumns(seat, readerPosts)),
+    isDefault: sameColumns(columns, defaultColumns(seat, readerPosts, court)),
     isAllVisible: columns.visible.length === columns.order.length,
   };
 }

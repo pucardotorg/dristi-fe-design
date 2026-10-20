@@ -19,6 +19,8 @@ import {
 import {
   ApplicationsSection,
   AttendanceSection,
+  FRAMED_BODY,
+  FRAMED_HEAD,
   NextHearingSection,
   type ComposerApplication,
   type ComposerFact,
@@ -45,6 +47,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { derivedOrderTitle, orderTitle } from "@/lib/employee/order-title";
 import {
   SegmentedControl,
   SegmentedControlItem,
@@ -58,6 +64,7 @@ import {
 } from "@/lib/employee/order-composer";
 import {
   attendanceRecital,
+  EMPTY_ORDER_DRAFT,
   nextListingRecital,
   postingSettled,
   type Appearance,
@@ -81,6 +88,7 @@ import {
   noteOrderTextEdited,
   pendingOrderHref,
   pendingOrderStage,
+  removePendingOrder,
   sendOrderForSigning,
   type PendingOrderMeta,
   type PendingOrderStage,
@@ -564,7 +572,13 @@ export function OrderWorkflowFields({
   inHearing,
   fixedIds = [],
   disabled = false,
+  orderText = "",
+  titleLocked = false,
 }: {
+  /** The order's typed text, which the A-Diary text starts from when unticked. */
+  orderText?: string;
+  /** Triggered: the title is fixed (`TIT-05`). */
+  titleLocked?: boolean;
   draft: OrderDraft;
   setDraft: (update: (current: OrderDraft) => OrderDraft) => void;
   today: string;
@@ -622,8 +636,45 @@ export function OrderWorkflowFields({
     else commit(block, "add");
   }
 
+  const aDiarySame = draft.aDiarySame !== false;
+
   return (
     <div className="flex min-w-0 flex-col gap-6">
+      {/* The order's title (`TIT-01`, `TIT-02`): from its items until someone types one,
+          editable until the order is triggered. */}
+      <Card className={cn(PANEL_CLASS, "min-w-0 gap-0 p-0")}>
+        <div className={FRAMED_HEAD}>
+          <h2 className="text-body-compact font-semibold">
+            <label htmlFor="order-title">Title</label>
+          </h2>
+          {draft.title?.trim() && !titleLocked ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className="-mr-3 text-body-compact"
+              onClick={() => setDraft((current) => ({ ...current, title: undefined }))}
+            >
+              Use the items’ title
+            </Button>
+          ) : null}
+        </div>
+        <div className={cn(FRAMED_BODY, "flex min-w-0 flex-col gap-2")}>
+          <Input
+            id="order-title"
+            value={draft.title ?? ""}
+            placeholder={derivedOrderTitle(draft)}
+            disabled={titleLocked}
+            onChange={(event) => {
+              const title = event.target.value;
+              setDraft((current) => ({ ...current, title }));
+            }}
+          />
+          <p className="text-caption text-muted-foreground">
+            Lists of orders show this title. Left empty, it follows the order items.
+          </p>
+        </div>
+      </Card>
+
       <ItemsCard
         items={items}
         context={context}
@@ -656,6 +707,53 @@ export function OrderWorkflowFields({
         </Card>
       ) : null}
 
+      {/* The A-Diary text, last (§6, `PUB-04`): the order text by default, or its own. */}
+      <Card className={cn(PANEL_CLASS, "min-w-0 gap-0 p-0")}>
+        <div className={FRAMED_HEAD}>
+          <h2 className="text-body-compact font-semibold">A-Diary text</h2>
+        </div>
+        <div className={cn(FRAMED_BODY, "flex min-w-0 flex-col gap-3")}>
+          <div className="flex items-start gap-3">
+            <Checkbox
+              id="order-adiary-same"
+              checked={aDiarySame}
+              disabled={disabled}
+              onCheckedChange={(checked) =>
+                setDraft((current) => ({
+                  ...current,
+                  aDiarySame: checked === true,
+                  /* Unticked for the first time: start from the order's own words. */
+                  aDiaryText:
+                    checked === true
+                      ? current.aDiaryText
+                      : (current.aDiaryText ?? orderText),
+                }))
+              }
+            />
+            <label htmlFor="order-adiary-same" className="text-body-compact">
+              The A-Diary text and order text are the same
+            </label>
+          </div>
+          {aDiarySame ? (
+            <p className="text-caption text-muted-foreground">
+              The A-Diary entry is the order text in full, with its attendance and next
+              hearing lines.
+            </p>
+          ) : (
+            <Textarea
+              aria-label="A-Diary text"
+              value={draft.aDiaryText ?? ""}
+              disabled={disabled}
+              rows={5}
+              onChange={(event) => {
+                const aDiaryText = event.target.value;
+                setDraft((current) => ({ ...current, aDiaryText }));
+              }}
+            />
+          )}
+        </div>
+      </Card>
+
       <ItemDialog
         editing={editing}
         context={context}
@@ -665,7 +763,6 @@ export function OrderWorkflowFields({
         }
         onClose={() => setEditing(null)}
         description="Recorded in this order's data, and set moving once the order is signed and its order data is complete. Nothing is written into the order's text."
-        showSentence={false}
         onConfirm={() => {
           if (!editing) return;
           commit(editing.block, editing.mode);
@@ -749,6 +846,7 @@ export function OrderEditorComposer({
   const [panelOpen, setPanelOpen] = React.useState(true);
   const [view, setView] = React.useState<EditorView>("order");
   const [askOpen, setAskOpen] = React.useState(false);
+  const [askDiscard, setAskDiscard] = React.useState(false);
   const [shortcutsOpen, setShortcutsOpen] = React.useState(false);
   const shortcuts = useShortcutSuggestion();
   const pending = usePendingOrders();
@@ -759,6 +857,7 @@ export function OrderEditorComposer({
   const body: RichTextValue = draft.body ?? { html: "", text: "" };
   const empty = body.text.trim().length === 0;
   const { key, heading: queueHeading, caseNumber, origin } = queue;
+  const title = orderTitle(draft);
 
   /* Once there are words, the order is in Pending orders — every order, a hearing's or
      not (owner, 2026-10-14). */
@@ -769,9 +868,10 @@ export function OrderEditorComposer({
       heading: queueHeading,
       caseNumber,
       origin,
+      title,
       orderHref: window.location.pathname + window.location.search,
     });
-  }, [empty, key, queueHeading, caseNumber, origin]);
+  }, [empty, key, queueHeading, caseNumber, origin, title]);
 
   function finish() {
     if (empty) {
@@ -791,6 +891,7 @@ export function OrderEditorComposer({
     }
     sendOrderForSigning({
       ...queue,
+      title,
       orderHref: window.location.pathname + window.location.search,
     });
     markOrderReady(queue.key);
@@ -913,6 +1014,8 @@ export function OrderEditorComposer({
               disabled={
                 stage === "triggered" || Boolean(entry?.workflowComplete)
               }
+              orderText={body.text}
+              titleLocked={stage === "triggered"}
             />
           </div>
         ) : panelOpen ? (
@@ -939,6 +1042,17 @@ export function OrderEditorComposer({
                 <Link href={pendingOrderHref(queue.key)}>
                   Open in Pending orders
                 </Link>
+              </Button>
+            ) : !empty || entry ? (
+              /* `DFT-06`: the order drafter may discard a draft; it issues nothing and
+                 records nothing on the case. */
+              <Button
+                type="button"
+                variant="destructive-ghost"
+                className="-ml-3"
+                onClick={() => setAskDiscard(true)}
+              >
+                Discard draft
               </Button>
             ) : null}
           </div>
@@ -996,6 +1110,31 @@ export function OrderEditorComposer({
             <AlertDialogCancel>Back</AlertDialogCancel>
             <AlertDialogAction onClick={() => finish()}>
               Send for signing
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={askDiscard} onOpenChange={setAskDiscard}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard this draft?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Its text and order data are removed, and it leaves Pending orders. Nothing is
+              issued or recorded on the case. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep the draft</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setDraft(() => EMPTY_ORDER_DRAFT);
+                removePendingOrder(queue.key);
+                setView("order");
+                toast("Draft discarded.");
+              }}
+            >
+              Discard draft
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

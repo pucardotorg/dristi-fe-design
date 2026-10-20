@@ -229,7 +229,9 @@ export type SittingSeed = {
 function seedFrom(orders: readonly SampleOrder[]): SittingSeed {
   return {
     session: {
-      ongoingId: null,
+      day: null,
+      previous: null,
+      ongoingIds: new Set(),
       endedIds: new Set(orders.map((order) => order.id)),
       passedOverIds: new Set(),
       postings: Object.fromEntries(
