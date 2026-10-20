@@ -3,7 +3,12 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeftIcon, ArrowRightIcon, CheckCircle2Icon, DownloadIcon } from "lucide-react";
+import {
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  CheckCircle2Icon,
+  DownloadIcon,
+} from "lucide-react";
 
 import { CLIENTS, OFFICE_ADVOCATES } from "@/lib/bulk/clients";
 import {
@@ -22,25 +27,51 @@ import {
 } from "@/lib/bulk/excel";
 import { COLUMNS, GROUPS, LISTS, type ListName } from "@/lib/bulk/excel-spec";
 import { cn } from "@/lib/utils";
-import { TABLE_CELL, TABLE_HEAD, TABLE_HEAD_ROW, tableBodyClass, tableRowClass } from "@/components/chrome/table-plate";
+import {
+  TABLE_CELL,
+  TABLE_HEAD,
+  TABLE_HEAD_ROW,
+  tableBodyClass,
+  tableRowClass,
+} from "@/components/chrome/table-plate";
 import { PANEL_CLASS } from "@/components/filing/form-card";
-import { PAGE_GROUND, PAGE_GUTTER, PAGE_SUBTITLE, PAGE_TITLE } from "@/components/shell/page-frame";
+import {
+  PAGE_GROUND,
+  PAGE_GUTTER,
+  PAGE_SUBTITLE,
+  PAGE_TITLE,
+} from "@/components/shell/page-frame";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@/components/ui/native-select";
 import { Spinner } from "@/components/ui/spinner";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 import { downloadTemplate } from "./batches-screen";
 import { FilingFooter } from "@/components/filing/filing-footer";
 
 import { ColumnMapping } from "./column-mapping";
 import { useGujarat } from "./court-guard";
+import { BatchParties } from "./batch-parties";
 import { FileDrop } from "./file-drop";
 
 type Step = "setup" | "map" | "values" | "review";
@@ -69,7 +100,9 @@ export function UploadScreen() {
   const [step, setStep] = React.useState<Step>("setup");
   const [clientId, setClientId] = React.useState(CLIENTS[0].id);
   // You first, then whoever else is ticked, in the People page's order.
-  const [bars, setBars] = React.useState<string[]>([OFFICE_ADVOCATES[0].barNumber]);
+  const [bars, setBars] = React.useState<string[]>([
+    OFFICE_ADVOCATES[0].barNumber,
+  ]);
   const [adr, setAdr] = React.useState<"yes" | "no">("no");
   const [file, setFile] = React.useState<File | null>(null);
   const [book, setBook] = React.useState<Workbookish | null>(null);
@@ -88,13 +121,18 @@ export function UploadScreen() {
     return GROUPS.filter((g) => g.repeats && !g.parent)
       .map((g) => ({ g, n: inst[g.id].length }))
       .filter(({ g, n }) => n > (g.always ? 1 : 0))
-      .map(({ g, n }) => `${g.label.toLowerCase()} up to ${g.first > 1 ? n + 1 : n}`)
+      .map(
+        ({ g, n }) =>
+          `${g.label.toLowerCase()} up to ${g.first > 1 ? n + 1 : n}`,
+      )
       .join(", ");
   }, [book, counts]);
   const unknown = book ? unknownValues(book.cases, map, counts) : {};
   const unknownLists = Object.keys(unknown) as ListName[];
   const unmapped = MUST_MAP.filter((k) => !isMapped(map[k]));
-  const valuesDone = unknownLists.every((l) => unknown[l]!.every((v) => values[l]?.[v]));
+  const valuesDone = unknownLists.every((l) =>
+    unknown[l]!.every((v) => values[l]?.[v]),
+  );
 
   const read = async () => {
     if (!file) return;
@@ -102,7 +140,8 @@ export function UploadScreen() {
     setError(null);
     try {
       const b = await readWorkbook(file);
-      if (!b.cases.rows.length) throw new Error("No case rows were found in this file.");
+      if (!b.cases.rows.length)
+        throw new Error("No case rows were found in this file.");
       setBook(b);
       const m = autoMap(b.cases.headers);
       setMap(m);
@@ -124,20 +163,28 @@ export function UploadScreen() {
     setError(null);
     try {
       const client = CLIENTS.find((c) => c.id === clientId)!;
-      const request = buildRequest(book, map, values, {
-        complainant: client.complainant,
-        barNumbers: OFFICE_ADVOCATES.map((a) => a.barNumber).filter((b) => bars.includes(b)),
-        adr,
-        fileName: file.name,
-      },
-      counts);
+      const request = buildRequest(
+        book,
+        map,
+        values,
+        {
+          complainant: client.complainant,
+          barNumbers: OFFICE_ADVOCATES.map((a) => a.barNumber).filter((b) =>
+            bars.includes(b),
+          ),
+          adr,
+          fileName: file.name,
+        },
+        counts,
+      );
       const res = await fetch("/api/bulk/batches", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ request, fileName: file.name }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error([json.error, ...(json.details ?? [])].join(" "));
+      if (!res.ok)
+        throw new Error([json.error, ...(json.details ?? [])].join(" "));
       router.push(`/filings/bulk/${json.batchId}?tab=documents`);
     } catch (e) {
       setError((e as Error).message);
@@ -155,271 +202,336 @@ export function UploadScreen() {
   if (!ready) return null;
 
   return (
-    <div className={cn("flex w-full flex-1 flex-col gap-6", PAGE_GROUND, PAGE_GUTTER)}>
-      <header className="flex flex-col gap-3">
-        <Link href="/filings/bulk" className="flex w-fit items-center gap-1 text-body-compact text-muted-foreground hover:text-foreground">
-          <ArrowLeftIcon className="size-4" aria-hidden />
-          Bulk filing
-        </Link>
-        <div className="flex flex-col gap-1">
-          <h1 className={cn(PAGE_TITLE, "text-foreground")}>Upload Excel</h1>
-          <p className={PAGE_SUBTITLE}>Each upload becomes its own batch. Cases arrive as drafts; documents are added after.</p>
-        </div>
-        <ol className="flex flex-wrap gap-2" aria-label="Steps">
-          {steps
-            .filter((s) => s.shown)
-            .map((s, i) => (
-              <li key={s.id}>
-                <Badge variant={s.id === step ? "default" : "outline"} aria-current={s.id === step ? "step" : undefined}>
-                  {i + 1}. {s.label}
-                </Badge>
-              </li>
-            ))}
-        </ol>
-      </header>
-
-      {error ? (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      ) : null}
-
-      {step === "setup" ? (
-        <Card className={cn(PANEL_CLASS, "max-w-3xl")}>
-          <CardHeader>
-            <CardTitle className="text-body font-semibold">The same for every case in the file</CardTitle>
-            <CardDescription>The sheet carries only what changes from case to case: the accused, the cheque and the notice.</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-6">
-            <Field className="gap-1.5">
-              <FieldLabel htmlFor="client">Complainant</FieldLabel>
-              <NativeSelect id="client" value={clientId} onChange={(e) => setClientId(e.target.value)}>
-                {CLIENTS.map((c) => (
-                  <NativeSelectOption key={c.id} value={c.id}>
-                    {c.complainant.name}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-            </Field>
-            <fieldset className="flex flex-col gap-1.5">
-              <legend className="mb-1.5 text-body-compact font-medium">Advocates</legend>
-              <span className="text-caption text-muted-foreground">You, and advocates from your People page. Tick everyone who appears for the complainant.</span>
-              <ul className="grid grid-cols-1 gap-1 sm:grid-cols-2">
-                {OFFICE_ADVOCATES.map((a) => {
-                  const id = `adv-${a.barNumber}`;
-                  return (
-                    <li key={a.barNumber}>
-                      <label htmlFor={id} className="flex min-h-10 cursor-pointer items-center gap-3 rounded-lg px-2 hover:bg-accent">
-                        <Checkbox
-                          id={id}
-                          aria-label={`${a.name}${a.you ? " (you)" : ""}, ${a.barNumber}`}
-                          checked={bars.includes(a.barNumber)}
-                          // The filing advocate stays on record; the others are optional.
-                          disabled={a.you}
-                          onCheckedChange={(v) =>
-                            setBars((prev) => (v === true ? [...prev, a.barNumber] : prev.filter((b) => b !== a.barNumber)))
-                          }
-                        />
-                        <span className="flex min-w-0 flex-col">
-                          <span className="truncate text-body-compact">
-                            {a.name}
-                            {a.you ? <span className="text-muted-foreground"> (you)</span> : null}
-                          </span>
-                          <span className="text-caption text-muted-foreground tabular-nums">{a.barNumber}</span>
-                        </span>
-                      </label>
-                    </li>
-                  );
-                })}
-              </ul>
-            </fieldset>
-            <Field className="gap-1.5">
-              <FieldLabel>Willing to settle through ADR</FieldLabel>
-              <RadioGroup value={adr} onValueChange={(v) => setAdr(v as "yes" | "no")} className="flex gap-6">
-                {(["no", "yes"] as const).map((v) => (
-                  <label key={v} htmlFor={`adr-${v}`} className="flex min-h-10 cursor-pointer items-center gap-2 text-body-compact">
-                    <RadioGroupItem value={v} id={`adr-${v}`} aria-label={v === "yes" ? "Yes" : "No"} />
-                    {v === "yes" ? "Yes" : "No"}
-                  </label>
-                ))}
-              </RadioGroup>
-            </Field>
-            <Field className="gap-1.5">
-              <FieldLabel htmlFor="sheet">Excel file</FieldLabel>
-              <FileDrop
-                id="sheet"
-                accept=".xlsx,.csv"
-                files={file ? [file] : []}
-                onFiles={(f) => setFile(f[0] ?? null)}
-                prompt="Drag your Excel file here"
-                hint=".xlsx or .csv"
-              />
-              <span className="text-caption text-muted-foreground">
-                The template&apos;s columns go straight in. Any other layout is matched on the next step.
-              </span>
-            </Field>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Button variant="outline" onClick={() => void downloadTemplate()}>
-                <DownloadIcon data-icon="inline-start" aria-hidden />
-                Download template
-              </Button>
-              <Button className="sm:ml-auto" disabled={!file || busy} onClick={() => void read()}>
-                {busy ? <Spinner data-icon="inline-start" /> : null}
-                Next
-                {busy ? null : <ArrowRightIcon data-icon="inline-end" aria-hidden />}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {step === "map" && book ? (
-        // No outer card: the sections are cards on the page, as in the single filing.
-        <div className="flex flex-col gap-6">
+    // The footer sits outside the page's padding, as in the single filing: flush with the
+    // screen's edges and its foot when it sticks.
+    <div className={cn("flex w-full flex-1 flex-col", PAGE_GROUND)}>
+      <div className={cn("flex w-full flex-1 flex-col gap-6", PAGE_GUTTER)}>
+        <header className="flex flex-col gap-3">
+          <Link
+            href="/filings/bulk"
+            className="flex w-fit items-center gap-1 text-body-compact text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeftIcon className="size-4" aria-hidden />
+            Bulk filing
+          </Link>
           <div className="flex flex-col gap-1">
-            <h2 className="text-title-s font-semibold">Match your columns</h2>
-            <p className="text-body-compact text-muted-foreground">
-              This file is not laid out like the template. Pick the column that holds each field. Fields already matched were
-              found by name.
+            <h1 className={cn(PAGE_TITLE, "text-foreground")}>Upload Excel</h1>
+            <p className={PAGE_SUBTITLE}>
+              Each upload becomes its own batch. Cases arrive as drafts;
+              documents are added after.
             </p>
           </div>
+          <ol className="flex flex-wrap gap-2" aria-label="Steps">
+            {steps
+              .filter((s) => s.shown)
+              .map((s, i) => (
+                <li key={s.id}>
+                  <Badge
+                    variant={s.id === step ? "default" : "outline"}
+                    aria-current={s.id === step ? "step" : undefined}
+                  >
+                    {i + 1}. {s.label}
+                  </Badge>
+                </li>
+              ))}
+          </ol>
+        </header>
+
+        {error ? (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : null}
+
+        {step === "setup" ? (
+          <Card className={cn(PANEL_CLASS, "max-w-3xl")}>
+            <CardHeader>
+              <CardTitle className="text-body font-semibold">
+                The same for every case in the file
+              </CardTitle>
+              <CardDescription>
+                The sheet carries only what changes from case to case: the
+                accused, the cheque and the notice.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-6">
+              <BatchParties
+                clientId={clientId}
+                setClientId={setClientId}
+                bars={bars}
+                setBars={setBars}
+                adr={adr}
+                setAdr={setAdr}
+              />
+              <Field className="gap-1.5">
+                <FieldLabel htmlFor="sheet">Excel file</FieldLabel>
+                <FileDrop
+                  id="sheet"
+                  accept=".xlsx,.csv"
+                  files={file ? [file] : []}
+                  onFiles={(f) => setFile(f[0] ?? null)}
+                  prompt="Drag your Excel file here"
+                  hint=".xlsx or .csv"
+                />
+                <span className="text-caption text-muted-foreground">
+                  The template&apos;s columns go straight in. Any other layout
+                  is matched on the next step.
+                </span>
+              </Field>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button
+                  variant="outline"
+                  onClick={() => void downloadTemplate()}
+                >
+                  <DownloadIcon data-icon="inline-start" aria-hidden />
+                  Download template
+                </Button>
+                <Button
+                  className="sm:ml-auto"
+                  disabled={!file || busy}
+                  onClick={() => void read()}
+                >
+                  {busy ? <Spinner data-icon="inline-start" /> : null}
+                  Next
+                  {busy ? null : (
+                    <ArrowRightIcon data-icon="inline-end" aria-hidden />
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {step === "map" && book ? (
+          // No outer card: the sections are cards on the page, as in the single filing.
           <div className="flex flex-col gap-6">
-            <ColumnMapping
-              headers={headers}
-              rows={book.cases.rows}
-              map={map}
-              onChange={setMap}
-              counts={counts}
-              onCounts={setCounts}
-            />
-            {/* The filing flow's own footer, kept at the foot of the screen: the list is long.
-                Not ready, Continue says why on hover and focus, and pressing it goes to the
-                first field still to match. */}
-            <FilingFooter
-              className="-mx-4 sm:-mx-6"
-              showSaveState={false}
-              onBack={() => setStep("setup")}
-              onContinue={() => {
-                if (unmapped.length) {
-                  const header = COLUMNS.find((c) => c.key === unmapped[0])?.header;
-                  const field = document.querySelector<HTMLInputElement>(`input[aria-label="Column in your sheet for ${header}"]`);
-                  field?.scrollIntoView({ behavior: "smooth", block: "center" });
-                  field?.focus({ preventScroll: true });
-                  return;
-                }
-                setStep(unknownLists.length ? "values" : "review");
-              }}
-              continueBlocked={unmapped.length > 0}
-              continueHint={`${unmapped.length} required field${unmapped.length === 1 ? "" : "s"} still to match`}
-            />
+            <div className="flex flex-col gap-1">
+              <h2 className="text-title-s font-semibold">Match your columns</h2>
+              <p className="text-body-compact text-muted-foreground">
+                This file is not laid out like the template. Pick the column
+                that holds each field. Fields already matched were found by
+                name.
+              </p>
+            </div>
+            <div className="flex flex-col gap-6">
+              <ColumnMapping
+                headers={headers}
+                rows={book.cases.rows}
+                map={map}
+                onChange={setMap}
+                counts={counts}
+                onCounts={setCounts}
+              />
+            </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
 
-      {step === "values" && book ? (
-        <Card className={cn(PANEL_CLASS, "max-w-3xl")}>
-          <CardHeader>
-            <CardTitle className="text-body font-semibold">Match your values</CardTitle>
-            <CardDescription>
-              These values in your sheet are not in the ON Courts lists. Choose what each one means; every row using it follows.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-6">
-            {unknownLists.map((l) => (
-              <section key={l} className="flex flex-col gap-3">
-                <h3 className="text-body-compact font-semibold">{LIST_TITLE[l]}</h3>
-                {unknown[l]!.map((raw) => (
-                  <Field key={raw} orientation="horizontal" className="flex-col gap-1.5 sm:flex-row sm:items-center">
-                    <FieldLabel htmlFor={`v-${l}-${raw}`} className="sm:w-56">
-                      &ldquo;{raw}&rdquo;
-                    </FieldLabel>
-                    <NativeSelect
-                      id={`v-${l}-${raw}`}
-                      value={values[l]?.[raw] ?? ""}
-                      onChange={(e) => setValues((v) => ({ ...v, [l]: { ...(v[l] ?? {}), [raw]: e.target.value } }))}
+        {step === "values" && book ? (
+          <Card className={cn(PANEL_CLASS, "max-w-3xl")}>
+            <CardHeader>
+              <CardTitle className="text-body font-semibold">
+                Match your values
+              </CardTitle>
+              <CardDescription>
+                These values in your sheet are not in the ON Courts lists.
+                Choose what each one means; every row using it follows.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-6">
+              {unknownLists.map((l) => (
+                <section key={l} className="flex flex-col gap-3">
+                  <h3 className="text-body-compact font-semibold">
+                    {LIST_TITLE[l]}
+                  </h3>
+                  {unknown[l]!.map((raw) => (
+                    <Field
+                      key={raw}
+                      orientation="horizontal"
+                      className="flex-col gap-1.5 sm:flex-row sm:items-center"
                     >
-                      <NativeSelectOption value="">Choose</NativeSelectOption>
-                      {LISTS[l].map((o) => (
-                        <NativeSelectOption key={o.value} value={o.value}>
-                          {o.label}
-                        </NativeSelectOption>
-                      ))}
-                    </NativeSelect>
-                  </Field>
-                ))}
-              </section>
-            ))}
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Button variant="outline" className="sm:ml-auto" onClick={() => setStep(template ? "setup" : "map")}>
-                Back
-              </Button>
-              <Button disabled={!valuesDone} onClick={() => setStep("review")}>
-                Continue
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {step === "review" && book ? (
-        <Card className={PANEL_CLASS}>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-body font-semibold">
-              <CheckCircle2Icon className="size-5 text-success-ink" aria-hidden />
-              <span className="tabular-nums">{book.cases.rows.length}</span> cases read from {file?.name}
-            </CardTitle>
-            <CardDescription>
-              {template ? "The file follows the template." : "Columns matched."}
-              {book.cases.discarded
-                ? ` ${book.cases.discarded} template guide row${book.cases.discarded === 1 ? "" : "s"} (format or example) discarded.`
-                : ""}
-              {repeatsFound ? ` Repeated sections: ${repeatsFound}.` : ""} The filing checks run once the batch is created.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <div className="overflow-x-auto">
-              <Table className="border-separate border-spacing-0" aria-label="First rows">
-                <TableHeader>
-                  <TableRow className={TABLE_HEAD_ROW}>
-                    {["reference", "accusedName", "chequeNumber", "chequeAmount", "returnReason", "dispatchDate"].map((k) => (
-                      <TableHead key={k} className={cn(TABLE_HEAD, k === "reference" && "pl-4")}>
-                        {COLUMNS.find((c) => c.key === k)!.header}
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody className={tableBodyClass({ hover: false })}>
-                  {book.cases.rows.slice(0, 8).map((row, n) => (
-                    <TableRow key={n} className={tableRowClass({ hover: false })}>
-                      {["reference", "accusedName", "chequeNumber", "chequeAmount", "returnReason", "dispatchDate"].map((k) => {
-                        const i = map[k];
-                        return (
-                          <TableCell key={k} className={cn(TABLE_CELL, "tabular-nums", k === "reference" && "pl-4 font-medium")}>
-                            {typeof i === "number" ? row[i] || "—" : i && typeof i === "object" ? i.every : "—"}
-                          </TableCell>
-                        );
-                      })}
-                    </TableRow>
+                      <FieldLabel htmlFor={`v-${l}-${raw}`} className="sm:w-56">
+                        &ldquo;{raw}&rdquo;
+                      </FieldLabel>
+                      <NativeSelect
+                        id={`v-${l}-${raw}`}
+                        value={values[l]?.[raw] ?? ""}
+                        onChange={(e) =>
+                          setValues((v) => ({
+                            ...v,
+                            [l]: { ...(v[l] ?? {}), [raw]: e.target.value },
+                          }))
+                        }
+                      >
+                        <NativeSelectOption value="">Choose</NativeSelectOption>
+                        {LISTS[l].map((o) => (
+                          <NativeSelectOption key={o.value} value={o.value}>
+                            {o.label}
+                          </NativeSelectOption>
+                        ))}
+                      </NativeSelect>
+                    </Field>
                   ))}
-                </TableBody>
-              </Table>
-            </div>
-            {book.cases.rows.length > 8 ? (
-              <span className="text-caption text-muted-foreground tabular-nums">and {book.cases.rows.length - 8} more</span>
-            ) : null}
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Button variant="outline" className="sm:ml-auto" onClick={() => setStep(unknownLists.length ? "values" : template ? "setup" : "map")}>
-                Back
-              </Button>
-              <Button disabled={busy} onClick={() => void create()}>
-                {busy ? <Spinner data-icon="inline-start" /> : null}
-                Create batch of {book.cases.rows.length}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      ) : null}
+                </section>
+              ))}
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button
+                  variant="outline"
+                  className="sm:ml-auto"
+                  onClick={() => setStep(template ? "setup" : "map")}
+                >
+                  Back
+                </Button>
+                <Button
+                  disabled={!valuesDone}
+                  onClick={() => setStep("review")}
+                >
+                  Continue
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
 
+        {step === "review" && book ? (
+          <Card className={PANEL_CLASS}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-body font-semibold">
+                <CheckCircle2Icon
+                  className="size-5 text-success-ink"
+                  aria-hidden
+                />
+                <span className="tabular-nums">{book.cases.rows.length}</span>{" "}
+                cases read from {file?.name}
+              </CardTitle>
+              <CardDescription>
+                {template
+                  ? "The file follows the template."
+                  : "Columns matched."}
+                {book.cases.discarded
+                  ? ` ${book.cases.discarded} template guide row${book.cases.discarded === 1 ? "" : "s"} (format or example) discarded.`
+                  : ""}
+                {repeatsFound ? ` Repeated sections: ${repeatsFound}.` : ""} The
+                filing checks run once the batch is created.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              <div className="overflow-x-auto">
+                <Table
+                  className="border-separate border-spacing-0"
+                  aria-label="First rows"
+                >
+                  <TableHeader>
+                    <TableRow className={TABLE_HEAD_ROW}>
+                      {[
+                        "reference",
+                        "accusedName",
+                        "chequeNumber",
+                        "chequeAmount",
+                        "returnReason",
+                        "dispatchDate",
+                      ].map((k) => (
+                        <TableHead
+                          key={k}
+                          className={cn(
+                            TABLE_HEAD,
+                            k === "reference" && "pl-4",
+                          )}
+                        >
+                          {COLUMNS.find((c) => c.key === k)!.header}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody className={tableBodyClass({ hover: false })}>
+                    {book.cases.rows.slice(0, 8).map((row, n) => (
+                      <TableRow
+                        key={n}
+                        className={tableRowClass({ hover: false })}
+                      >
+                        {[
+                          "reference",
+                          "accusedName",
+                          "chequeNumber",
+                          "chequeAmount",
+                          "returnReason",
+                          "dispatchDate",
+                        ].map((k) => {
+                          const i = map[k];
+                          return (
+                            <TableCell
+                              key={k}
+                              className={cn(
+                                TABLE_CELL,
+                                "tabular-nums",
+                                k === "reference" && "pl-4 font-medium",
+                              )}
+                            >
+                              {typeof i === "number"
+                                ? row[i] || "—"
+                                : i && typeof i === "object"
+                                  ? i.every
+                                  : "—"}
+                            </TableCell>
+                          );
+                        })}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              {book.cases.rows.length > 8 ? (
+                <span className="text-caption text-muted-foreground tabular-nums">
+                  and {book.cases.rows.length - 8} more
+                </span>
+              ) : null}
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button
+                  variant="outline"
+                  className="sm:ml-auto"
+                  onClick={() =>
+                    setStep(
+                      unknownLists.length
+                        ? "values"
+                        : template
+                          ? "setup"
+                          : "map",
+                    )
+                  }
+                >
+                  Back
+                </Button>
+                <Button disabled={busy} onClick={() => void create()}>
+                  {busy ? <Spinner data-icon="inline-start" /> : null}
+                  Create batch of {book.cases.rows.length}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
+      </div>
+      {/* The filing flow's own footer, kept at the foot of the screen: the list is long.
+          Not ready, Continue says why on hover and focus, and pressing it goes to the
+          first field still to match. */}
+      {step === "map" && book ? (
+        <FilingFooter
+          showSaveState={false}
+          onBack={() => setStep("setup")}
+          onContinue={() => {
+            if (unmapped.length) {
+              const header = COLUMNS.find((c) => c.key === unmapped[0])?.header;
+              const field = document.querySelector<HTMLInputElement>(
+                `input[aria-label="Column in your sheet for ${header}"]`,
+              );
+              field?.scrollIntoView({ behavior: "smooth", block: "center" });
+              field?.focus({ preventScroll: true });
+              return;
+            }
+            setStep(unknownLists.length ? "values" : "review");
+          }}
+          continueBlocked={unmapped.length > 0}
+          continueHint={`${unmapped.length} required field${unmapped.length === 1 ? "" : "s"} still to match`}
+        />
+      ) : null}
     </div>
   );
 }
