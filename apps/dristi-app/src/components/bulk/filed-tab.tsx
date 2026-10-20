@@ -79,10 +79,7 @@ export function FiledTab({ batch, go }: BatchCtx) {
                   {cases.map((c) => (
                     <TableRow key={c.id} className={tableRowClass({ hover: false })}>
                       <TableCell className={cn(TABLE_CELL, "pl-4 font-medium tabular-nums")}>
-                        <span className="flex items-center gap-2">
-                          <CircleCheckIcon className="size-4 text-success-ink" aria-label="Filed" />
-                          {c.reference}
-                        </span>
+                        {c.reference}
                       </TableCell>
                       <TableCell className={cn(TABLE_CELL, "min-w-56 whitespace-normal")}>{c.title}</TableCell>
                       <TableCell className={cn(TABLE_CELL, "tabular-nums")}>{c.caseFileNumber}</TableCell>

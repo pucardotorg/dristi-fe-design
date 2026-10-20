@@ -3,9 +3,7 @@
 import * as React from "react";
 import {
   ArrowLeftIcon,
-  CheckIcon,
   ChevronDownIcon,
-  CircleAlertIcon,
   FileSpreadsheetIcon,
   MinusIcon,
   PlusIcon,
@@ -71,42 +69,19 @@ const NOUN: Partial<Record<GroupId, [string, string]>> = {
   otherCase: ["other pending case", "other pending cases"],
 };
 
-/** How many rows fill any column of this section's given instance. */
-function casesWith(g: Group, inst: Instance, props: Props): number {
-  const cols = COLUMNS.filter((c) => c.group === g.id)
-    .map((c) => sourceFor(c, inst, props.map, props.headers))
-    .filter((x): x is number => typeof x === "number");
-  return props.rows.filter((r) => cols.some((k) => r[k]?.trim())).length;
-}
-
-const ORDINAL = ["", "", "second", "third", "fourth", "fifth"];
-
 /**
- * What the file holds, case by case. A count is the most any one case has; the others
- * leave the extra columns blank, and a blank set adds nothing to that case. So the
- * sentence says how many cases actually use each extra one.
+ * What the file allows, in one line: "Some cases have up to 2 cheques." A count is the
+ * most any one case has; the rest leave the extra columns blank.
  */
-function foundSentence(groups: Group[], instances: Record<GroupId, Instance[]>, props: Props): string[] {
-  const total = props.rows.length;
-  const base: string[] = [];
-  const extra: string[] = [];
-  for (const g of groups) {
-    const noun = NOUN[g.id];
-    const inst = instances[g.id];
-    if (!noun || !inst.length) continue;
-    if (g.always) base.push(`1 ${noun[0]}`);
-    for (const i of inst) {
-      if (g.always && i[0] === g.first) continue;
-      const n = casesWith(g, i, props);
-      const nth = g.always || g.first > 1 ? i[0] : i[0] - g.first + 1;
-      const what = nth === 1 ? `a ${noun[0]}` : `a ${ORDINAL[nth] ?? `${nth}th`} ${noun[0]}`;
-      extra.push(`${n} of ${total} case${total === 1 ? "" : "s"} ${n === 1 ? "has" : "have"} ${what}`);
-    }
-  }
+function foundSentence(groups: Group[], instances: Record<GroupId, Instance[]>): string[] {
+  const more = groups
+    .map((g) => ({ g, n: instances[g.id].length, noun: NOUN[g.id] }))
+    .filter(({ g, n, noun }) => noun && (g.always ? n > 1 : n > 0))
+    .map(({ n, noun }) => `${n} ${noun![n === 1 ? 0 : 1]}`);
   const join = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
   return [
-    `Every case has ${join(base)}.${extra.length ? ` ${join(extra).replace(/^./, (c) => c.toUpperCase())}.` : ""}`,
-    "The counts below are the most any case has; cases with fewer leave those columns blank. Change a count if a column was missed.",
+    more.length ? `Some cases have up to ${join(more)}.` : "Each case has 1 accused, 1 cheque and 1 demand notice.",
+    "These are the most any one case has. Cases with fewer leave the extra columns blank.",
   ];
 }
 
@@ -136,7 +111,7 @@ function FoundInFile({
           <SheetTile small />
           Found in your file
         </h3>
-        {foundSentence(groups, instances, props).map((line) => (
+        {foundSentence(groups, instances).map((line) => (
           <p key={line} className="text-caption text-muted-foreground">
             {line}
           </p>
@@ -202,12 +177,10 @@ function FieldRow({
   column,
   instance,
   props,
-  missing,
 }: {
   column: Column;
   instance: Instance;
   props: Props;
-  missing: boolean;
 }) {
   const g = GROUPS.find((x) => x.id === column.group)!;
   const src = sourceFor(column, instance, props.map, props.headers);
@@ -229,20 +202,8 @@ function FieldRow({
   return (
     <li className={cn("grid grid-cols-1 items-start gap-1 py-2 sm:gap-3", ROW)}>
       <label htmlFor={id} className="flex min-w-0 flex-col">
-        <span className="flex items-center gap-1.5 text-body-compact font-medium">
-          {src !== null ? (
-            <CheckIcon
-              className="size-4 shrink-0 text-success-ink"
-              aria-label="Matched"
-            />
-          ) : missing ? (
-            <CircleAlertIcon
-              className="size-4 shrink-0 text-warning-ink"
-              aria-label="Still to match"
-            />
-          ) : null}
-          <span className="truncate">{column.header}</span>
-        </span>
+        {/* No status marks: the dropdown shows what is matched, and the section badge counts it. */}
+        <span className="truncate text-body-compact font-medium">{column.header}</span>
         {column.field !== "—" ? (
           <span className="text-caption text-muted-foreground tabular-nums">
             {column.field}
@@ -388,7 +349,6 @@ function Section({
             column={c}
             instance={instance}
             props={props}
-            missing={MUST_MAP.includes(c.key)}
           />
         ))}
       </ul>

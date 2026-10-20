@@ -211,9 +211,9 @@ template**.
 
 1. **Upload Excel** again and choose `tata-capital-recovery-mis.xlsx`.
 2. A **Match your columns** screen appears.
-   - At the top, **Found in your file** says what it found: every case has 1 accused, 1
-     cheque and 1 demand notice, and 1 of the 12 cases has a second cheque. The counts are
-     the most any case has; if one is wrong, use **−** and **+** to correct it.
+   - At the top, **Found in your file** says "Some cases have up to 2 cheques". The counts
+     are the most any one case has; other cases leave the extra columns blank. If a count is
+     wrong, use **−** and **+** to correct it.
    - Each row reads, left to right: the field in the case (ON Courts mark), an arrow, and
      the column in your sheet (Excel mark). The dropdown shows each column's first value,
      so you can pick by what it holds; once chosen, that value shows under it.
