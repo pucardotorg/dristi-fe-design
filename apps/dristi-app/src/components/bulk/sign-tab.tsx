@@ -270,7 +270,7 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
                 className="gap-2"
                 aria-label="Signing method"
               >
-                {METHODS.map((m) => {
+                {METHODS.filter((m) => m.id !== "upload").map((m) => {
                   const Icon = m.icon;
                   return (
                     <label
@@ -359,6 +359,17 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
                     </label>
                   );
                 })}
+                {/* The manual route, kept but not offered as an equal: one quiet line. */}
+                <label className="flex min-h-10 cursor-pointer items-center gap-3 rounded-lg px-4 text-body-compact text-muted-foreground hover:bg-accent has-[[data-state=checked]]:text-foreground">
+                  <RadioGroupItem
+                    value="upload"
+                    id="sign-upload"
+                    aria-label="Upload signed copies (print, sign by hand, scan)"
+                  />
+                  <span>
+                    Or upload signed copies (print, sign by hand, scan)
+                  </span>
+                </label>
               </RadioGroup>
 
               <Button
