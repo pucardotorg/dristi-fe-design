@@ -1,8 +1,18 @@
 # Hearing order
-Updated: 2026-10-13
-Status: implemented — A/B versions, render-checked
+Updated: 2026-10-20
+Status: implemented — one order screen (E); see Verification for what was checked
 
 ## Current outcome
+
+**2026-10-20 — one order screen.** The Classic order flow and screens A–D are removed.
+Every door opens E, the full-page editor with **Order | Order data**, and Pending orders is
+the only order flow. Attendance and the next hearing are always fields on the order's
+page, never cards in Order data. Court settings lose *Order flow*, *Order screen* and
+*Attendance and next hearing*; the top bar loses the screen switch. *Next hearing entered
+by* stays. The sections E shares now live in `components/employee/order-sections.tsx`
+(attendance, applications, next hearing) and `components/employee/order-items.tsx`
+(Items card and item dialog). Drafts keep E's `editor:` key, so drafts already saved in a
+browser still open. What follows below is the history of the A/B period.
 
 **2026-10-12 — two composers, A/B tested, one catalogue.** Court settings → *Order screen*
 switches between them (`lib/employee/order-layout.ts`); both serve the hearing route and
@@ -92,6 +102,8 @@ A new workflow writes three things:
 
 Date | Decision and reason | Source/person | Status
 ---|---|---|---
+2026-10-20 | Keep only the Pending orders flow and the latest order screen (E); drop Classic, screens A–D, the Hearings / Orders toggle on Today's hearings, and the option to put attendance and the next hearing in Order data. Reason: one version of each screen, so changes are made and checked in one place. | owner (chat) | implemented
+2026-10-20 | Sign orders' Draft tab reads E's draft (`editor:` key) instead of screen A's bare-hearing-id key, which nothing writes any more. Before this it showed a listing's opening text, not what the steno typed. Sign orders itself is unchanged; whether to keep it is a separate decision. | implementation choice | implemented
 2026-10-13 | Code-only restructuring, no behaviour change: the hearing and cognizance doors onto the order screen are **one door description + one screen** (`OrderDoor`, `OrderDoorScreen`), and all per-variant adaptation (B's opening text, C leaving out decision blocks, each variant's own draft key) is in `lib/employee/order-door.ts`. Draft keys are unchanged. C opens only on hearing orders for now: a door without a hearing falls back to A, as it always has. | owner (chat) | implemented |
 2026-10-13 | No order item should be non-removable; only Attendance and Next hearing should be. Supersedes the rule that a cognizance act's own item and its scheduling item are fixed (`cognizance-order.ts`). | owner (chat) | not implemented — pending its own change |
 2026-10-12 | A process item's **Addresses** are every destination on the person's record — postal addresses, mobile numbers and email addresses, each of which may be several — grouped by kind, each ticked on its own, all pre-selected. Each channel goes to the ticked destinations of its kind (SMS → mobiles, Email → emails, RPAD/e-Post/police → postal addresses), one process each; a channel with none of its kind ticked is noted. `case-people.ts` records now hold several mobiles and emails. | owner (chat) | implemented |
@@ -147,6 +159,21 @@ case number, cause, title, one body passage, dated, signature) — the same
 everything else these two screens share.
 
 ## Verification and open work
+
+**2026-10-20 (one order screen).** On this branch's own dev server (port 3063, desktop
+width): Court settings list Demo data, Rail layout and Next hearing entered by, with no
+order-flow, order-screen or placement entries; Today's hearings has no Hearings / Orders
+toggle; a drafting order (`h-262`) opens E with Attendance and Next hearing on the page and
+Send for signing; Order data shows Items, Likely at this hearing and Applications only;
+the side panel shows Case file, Case history and Data flags; a pending order (`h-241`)
+prints the attendance and next-hearing lines on the page; Pending orders and Sign orders
+load. No console errors. One dev-overlay hydration warning on the breadcrumb (server
+`ST/241/2026`, client `eCC/241/2026`) comes from the Court setting being per-browser, not
+from this change. Typecheck, 1,275 unit tests, ESLint, `check:tokens`, `check:ui-sync`,
+`check:table-rows` and `check:rails` pass; `check:typography` and `check:spacing` fail on
+advocate/filing/join files this branch does not touch. Not independently reviewed.
+Open: whether to keep Sign orders now that Pending orders is the only flow.
+
 
 `npm run verify:ui` passed on this checkout (DS pin e0cadea6b9d4) after the
 title alignment change. On `/employee/hearings/h-241/order` (this checkout,

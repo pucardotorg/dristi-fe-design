@@ -9,7 +9,6 @@ import {
   subscribeToNextHearingEntry,
   type NextHearingEntry,
 } from "@/lib/employee/next-hearing-entry";
-import { useOrderFlow } from "./use-order-flow";
 
 export function useNextHearingEntry(): [
   NextHearingEntry,
@@ -24,13 +23,11 @@ export function useNextHearingEntry(): [
 }
 
 /**
- * Whether the reader enters the next hearing on the cause list — Pending orders flow
- * with the setting on Reader. Everything that changes with it asks this one question:
+ * Whether the reader enters the next hearing on the cause list — the setting on Reader. Everything that changes with it asks this one question:
  * the cause list's Next hearing column, the case overview's fields, and whether order
  * screen E shows the posting disabled.
  */
 export function useReaderPostsNextHearing(): boolean {
-  const [flow] = useOrderFlow();
   const [entry] = useNextHearingEntry();
-  return flow === "pending" && entry === "reader";
+  return entry === "reader";
 }

@@ -7,11 +7,6 @@ import { CalendarX2Icon, ChevronRightIcon } from "lucide-react";
 
 import { useCourt, useCourtText } from "@/components/court/court-provider";
 import {
-  HearingCaseHistory,
-  HearingCaseOverview,
-  HearingHistory,
-} from "@/components/employee/hearing-overview-screen";
-import {
   OrderDoorScreen,
   type OrderDoor,
 } from "@/components/employee/order-door-screen";
@@ -34,7 +29,6 @@ import {
 } from "@/lib/employee/hearing-session";
 import {
   causeTitle,
-  counselFor,
   courtCaseStageLabel,
   courtHearingPurposeLabel,
   formatOrderDate,
@@ -133,27 +127,9 @@ export function useHearingOrderDoor(hearing: CourtHearing): OrderDoor {
         <ChevronRightIcon data-icon="inline-end" aria-hidden />
       </Button>
     ),
-    /* B shipped with its own wording and no chevron; kept so this door changes no
-       label. Which one the court wants is the owner's call. */
-    variantNavAction: {
-      text: (
-        <Button
-          type="button"
-          className="w-full shrink-0 sm:w-fit"
-          variant="outline"
-          onClick={advance}
-        >
-          {upNext ? "Next hearing" : "End hearing"}
-        </Button>
-      ),
-    },
     context,
     today,
     document: { caseNumber: hearing.caseNumber, matter: causeTitle(hearing) },
-    overview: hearingOverview(hearing),
-    overviewContent: <HearingCaseOverview hearing={hearing} />,
-    historyContent: <HearingCaseHistory hearing={hearing} />,
-    hearingsContent: <HearingHistory hearing={hearing} />,
     hearing: { hearing, appearances, applications, purpose: hearing.purpose },
   };
 }
@@ -186,19 +162,3 @@ export function OrderMissing() {
   );
 }
 
-/** The matter's facts for the case file's Overview tab. */
-export function hearingOverview(hearing: CourtHearing) {
-  const side = (which: "complainant" | "accused") => {
-    const counsel = counselFor(hearing, which).map((entry) => entry.name);
-    return counsel.length
-      ? `${hearing.parties[which]}, represented by ${counsel.join(", ")}`
-      : `${hearing.parties[which]}, in person`;
-  };
-  return [
-    { label: "Stage", value: courtCaseStageLabel(hearing.stage) },
-    { label: "This hearing", value: courtHearingPurposeLabel(hearing.purpose) },
-    { label: "Item", value: String(hearing.item) },
-    { label: "Complainant", value: side("complainant") },
-    { label: "Accused", value: side("accused") },
-  ];
-}

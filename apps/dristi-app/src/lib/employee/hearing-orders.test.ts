@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import { ordersForSitting } from "./hearing-orders";
 import type { CourtHearing } from "./hearings";
 import { EMPTY_ORDER_DRAFT, type OrderDraft } from "./order-draft";
+import { editorDraftKey } from "./order-drafts";
 
 const TODAY = "2026-10-12";
 
@@ -31,7 +32,7 @@ describe("ordersForSitting", () => {
   });
 
   it("is a draft until the composer adds it to the signing list", () => {
-    const drafts = { "h-1": draft("Heard.") };
+    const drafts = { [editorDraftKey("h-1")]: draft("Heard.") };
     assert.equal(ordersForSitting([hearing()], drafts, {}, TODAY)[0].status, "draft");
     assert.equal(
       ordersForSitting([hearing()], drafts, { "h-1": "ready" }, TODAY)[0].status,
@@ -50,7 +51,7 @@ describe("ordersForSitting", () => {
 
   it("reads what is left to fill off the text, once per placeholder", () => {
     const drafts = {
-      "h-1": draft("Summons on [date of summons]; again [date of summons].", {
+      [editorDraftKey("h-1")]: draft("Summons on [date of summons]; again [date of summons].", {
         next: "list",
         nextDate: null,
       }),
@@ -61,16 +62,16 @@ describe("ordersForSitting", () => {
   });
 
   it("carries the next date only when the order lists the matter", () => {
-    const listed = { "h-1": draft("Heard.", { next: "list", nextDate: "2026-11-16" }) };
+    const listed = { [editorDraftKey("h-1")]: draft("Heard.", { next: "list", nextDate: "2026-11-16" }) };
     assert.equal(ordersForSitting([hearing()], listed, {}, TODAY)[0].nextDate, "2026-11-16");
-    const closed = { "h-1": draft("Heard.", { next: "none", nextDate: "2026-11-16" }) };
+    const closed = { [editorDraftKey("h-1")]: draft("Heard.", { next: "none", nextDate: "2026-11-16" }) };
     assert.equal(ordersForSitting([hearing()], closed, {}, TODAY)[0].nextDate, null);
   });
 
   it("keeps the court's serial order", () => {
     const rows = ordersForSitting(
       [hearing({ id: "b", item: 4 }), hearing({ id: "a", item: 2 })],
-      { a: draft("x"), b: draft("y") },
+      { [editorDraftKey("a")]: draft("x"), [editorDraftKey("b")]: draft("y") },
       {},
       TODAY,
     );

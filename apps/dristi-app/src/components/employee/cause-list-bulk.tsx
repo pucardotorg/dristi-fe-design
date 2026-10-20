@@ -40,9 +40,9 @@ import {
   type CourtHearingPurposeId,
 } from "@/lib/employee/hearings";
 import { listingLoad } from "@/lib/employee/listing-load";
-import { appearancesFor, NO_CAUSE_POSTING } from "@/lib/employee/order-draft";
+import { NO_CAUSE_POSTING } from "@/lib/employee/order-draft";
 import { initialOrderDraft } from "@/lib/employee/order-demo";
-import { variantInitialDraft } from "@/lib/employee/order-door";
+import { orderInitialDraft } from "@/lib/employee/order-door";
 import {
   editorDraftKey,
   updateOrderDraft,
@@ -525,11 +525,7 @@ function OrderTextDialog({
     const html = paragraphs(text.trim());
     const plain = text.trim();
     for (const hearing of taking) {
-      const initial = variantInitialDraft(
-        "editor",
-        initialOrderDraft(hearing, hearing.status, today),
-        appearancesFor(hearing),
-      );
+      const initial = orderInitialDraft(initialOrderDraft(hearing, hearing.status, today));
       updateOrderDraft(
         editorDraftKey(hearing.id),
         (current) => {

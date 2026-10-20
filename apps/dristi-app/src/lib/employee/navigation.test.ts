@@ -19,8 +19,6 @@ import {
   isCourtNavCombinedActive,
   isCourtNavCombinedRow,
   seatHasNavRow,
-  courtNavGroupsForFlow,
-  courtNavTrailing,
 } from "./navigation";
 import { REGISTERS_PAGE } from "./registers";
 
@@ -138,18 +136,18 @@ describe("courtTrail", () => {
     ];
     assert.deepEqual(courtTrail(path), queue);
     assert.deepEqual(
-      courtTrail(path, undefined, (q, id) =>
+      courtTrail(path, (q, id) =>
         q === "/employee/applications" && id === "app-sample-1" ? "AP/12/2026" : undefined,
       ),
       [...queue, { label: "AP/12/2026", mono: true }],
     );
     /* Not found: still the queue's two steps, never an invented label. */
-    assert.deepEqual(courtTrail(path, undefined, () => undefined), queue);
+    assert.deepEqual(courtTrail(path, () => undefined), queue);
     /* The order on it: one step past the number, which goes back to the workstation —
        and the way back lands on the list it was being worked in (owner, 2026-10-15). */
     const named = (q: string, id: string) =>
       q === "/employee/applications" && id === "app-sample-1" ? "AP/12/2026" : undefined;
-    assert.deepEqual(courtTrail(`${path}/order`, undefined, named, "decision=accept&view=decide"), [
+    assert.deepEqual(courtTrail(`${path}/order`, named, "decision=accept&view=decide"), [
       { label: "Review applications", href: "/employee/applications?view=decide" },
       { label: "Applications", href: "/employee/applications?view=decide" },
       {
@@ -159,7 +157,7 @@ describe("courtTrail", () => {
       },
       { label: "Order" },
     ]);
-    assert.deepEqual(courtTrail(path, undefined, named, "view=onboard"), [
+    assert.deepEqual(courtTrail(path, named, "view=onboard"), [
       { label: "Review applications", href: "/employee/applications?view=onboard" },
       { label: "Applications", href: "/employee/applications?view=onboard" },
       { label: "AP/12/2026", mono: true },
@@ -497,43 +495,17 @@ describe("rows hidden from the bench", () => {
   });
 });
 
-describe("the order flow", () => {
-  it("puts Pending orders under Today's hearings and scheduling at the foot, by default", () => {
-    const hearings = courtNavGroupsForFlow().find((group) => group.id === "hearings");
+describe("the rail's orders rows", () => {
+  it("puts Pending orders under Today's hearings and scheduling at the foot", () => {
+    const hearings = COURT_NAV_GROUPS.find((group) => group.id === "hearings");
     assert.deepEqual(
       hearings?.items.map((item) => item.id),
       ["todays-hearings", "pending-orders"],
     );
     assert.deepEqual(
-      courtNavTrailing().map((item) => item.id),
+      COURT_NAV_TRAILING.map((item) => item.id),
       ["schedule-hearing", "bulk-reschedule", "configurations"],
     );
     assert.equal(seatHasNavRow("magistrate", "sign-orders"), false);
-  });
-
-  it("gives Classic the rail as it was", () => {
-    const hearings = courtNavGroupsForFlow("classic").find(
-      (group) => group.id === "hearings",
-    );
-    assert.deepEqual(
-      hearings?.items.map((item) => item.id),
-      ["todays-hearings", "schedule-hearing", "bulk-reschedule"],
-    );
-    assert.deepEqual(
-      courtNavTrailing("classic").map((item) => item.id),
-      ["configurations"],
-    );
-    assert.ok(seatHasNavRow("magistrate", "sign-orders", "classic"));
-    assert.deepEqual(
-      courtNavKeptApart("actions", "kerala", undefined, "classic").map((item) => item.id),
-      ["todays-hearings", "bulk-reschedule", "sign-process"],
-    );
-  });
-
-  it("keeps the steno's narrowed rail in both", () => {
-    for (const flow of ["pending", "classic"] as const) {
-      assert.equal(seatHasNavRow("typist", "scrutiny", flow), false);
-      assert.equal(seatHasNavRow("typist", "sign-orders", flow), false);
-    }
   });
 });

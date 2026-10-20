@@ -27,7 +27,7 @@ describe("the quick order on an application", () => {
   });
 
   it("carries the edited words as the editor's body and the decision as its item", () => {
-    const draft = quickOrderDraft("editor", item, "  Allowed.\nCosts on the accused.  ");
+    const draft = quickOrderDraft(item, "  Allowed.\nCosts on the accused.  ");
     assert.equal(draft.body?.text, "Allowed.\nCosts on the accused.");
     assert.match(draft.body?.html ?? "", /^<p data-order-item="item-1">Allowed\.<\/p><p>/);
     assert.equal(draft.blocks.length, 1);
@@ -36,20 +36,16 @@ describe("the quick order on an application", () => {
     ]);
   });
 
-  it("keeps the words in the item itself on the block composers", () => {
-    for (const variant of ["blocks", "proceedings", "option-d"] as const) {
-      const draft = quickOrderDraft(variant, item, "Allowed.");
-      assert.equal(draft.body, undefined, variant);
-      const block = draft.blocks[0] as ItemBlock;
-      assert.equal(block.text, "Allowed.", variant);
-      assert.equal(block.edited, true, variant);
-    }
-    const untouched = quickOrderDraft("blocks", item, item.text).blocks[0] as ItemBlock;
+  it("keeps the words in the item too, marked edited only when they changed", () => {
+    const block = quickOrderDraft(item, "Allowed.").blocks[0] as ItemBlock;
+    assert.equal(block.text, "Allowed.");
+    assert.equal(block.edited, true);
+    const untouched = quickOrderDraft(item, item.text).blocks[0] as ItemBlock;
     assert.equal(untouched.edited, false);
   });
 
   it("gives a rescheduling acceptance its new hearing, where the outcome reads it", () => {
-    const draft = quickOrderDraft("editor", item, item.text, "2026-10-22");
+    const draft = quickOrderDraft(item, item.text, "2026-10-22");
     const app = { type: "postpone" } as LifecycleApplication;
     assert.equal(
       outcomeHearingDate({ applicationId: "app-1", kind: "accept" }, app, draft),

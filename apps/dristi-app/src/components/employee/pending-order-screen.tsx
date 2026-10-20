@@ -27,7 +27,6 @@ import {
   OrderMissing,
   useHearingOrderDoor,
 } from "@/components/employee/order-screen";
-import { useOrderDetailsPlacement } from "@/components/employee/use-order-details-placement";
 import { CausePostingContext } from "@/components/employee/cause-posting";
 import { useReaderPostsNextHearing } from "@/components/employee/use-next-hearing-entry";
 import { useOrderDraft } from "@/components/employee/use-order-draft";
@@ -70,7 +69,7 @@ import {
   listingApplicationLabel,
   type ListingApplication,
 } from "@/lib/employee/listing-applications";
-import { variantDraftKey, variantInitialDraft } from "@/lib/employee/order-door";
+import { orderDraftKey, orderInitialDraft } from "@/lib/employee/order-door";
 import {
   attendanceRecital,
   nextListingRecital,
@@ -99,9 +98,8 @@ import {
  *
  * Any order, not only a hearing's: the route carries the order's draft key, and the
  * door that order was typed through is rebuilt from it — a hearing, a cognizance act or
- * an application. It reads and writes the editor's own draft
- * (`variantDraftKey("editor", …)`), so what was entered on the order screen's Workflow
- * switch is here, and the reverse. The workflow can be changed until it is triggered,
+ * an application. It reads and writes the order screen's own draft (`orderDraftKey`), so
+ * what was entered on the order screen's Order data switch is here, and the reverse. The workflow can be changed until it is triggered,
  * and not after.
  */
 export function PendingOrderScreen({ orderKey }: { orderKey: string }) {
@@ -162,8 +160,7 @@ function ApplicationWorkflowDoor({
 
 function WorkflowDoorScreen({ door }: { door: OrderDoor }) {
   const readerPosts = useReaderPostsNextHearing();
-  /* A hearing's order takes its next hearing from the cause list (owner, 2026-10-15).
-     This page is always E's. */
+  /* A hearing's order takes its next hearing from the cause list (owner, 2026-10-15). */
   return (
     <CausePostingContext.Provider value={Boolean(door.hearing) && readerPosts}>
       <WorkflowDoorBody door={door} />
@@ -182,23 +179,17 @@ function WorkflowDoorBody({ door }: { door: OrderDoor }) {
   const stage = entry ? pendingOrderStage(entry, signing) : "drafting";
   const appearances = door.hearing?.appearances;
   const initial = React.useMemo(
-    () => variantInitialDraft("editor", door.initial, appearances),
-    [door.initial, appearances],
+    () => orderInitialDraft(door.initial),
+    [door.initial],
   );
-  const [stored, setDraft] = useOrderDraft(
-    variantDraftKey("editor", door.draftKey),
-    initial,
-  );
-  const draft = useCausePosting(door, stored, true);
+  const [stored, setDraft] = useOrderDraft(orderDraftKey(door.draftKey), initial);
+  const draft = useCausePosting(door, stored);
   const readerPosts = useReaderPostsNextHearing();
   const [openApplication, setOpenApplication] =
     React.useState<ListingApplication | null>(null);
   const [ask, setAsk] = React.useState<"sign" | "complete" | null>(null);
   const listing = door.hearing?.applications ?? [];
   const complete = Boolean(entry?.workflowComplete);
-  /* Attendance and the next hearing: on the order's page, or among its order data. */
-  const [placement] = useOrderDetailsPlacement();
-  const onPage = placement === "order";
   const signed = signing[door.draftKey] === "signed";
   /* Signing is the magistrate's; the workflow and moving the order back to draft are the
      steno's (owner, 2026-10-14). Everyone else reads. */
@@ -223,20 +214,17 @@ function WorkflowDoorBody({ door }: { door: OrderDoor }) {
       );
       return;
     }
-    /* On the order's page, the next hearing is set before the order is sent; one sent
-       without it goes back to draft for it. Among the order data, it is set here. */
+    /* The next hearing is set on the order's page before the order is sent; one sent
+       without it goes back to draft for it. */
     if (unlisted) {
       if (door.hearing && readerPosts) {
         toast(
           "This order has no next hearing yet. Set it in the cause list's Next hearing column.",
         );
-      } else if (onPage) {
+      } else {
         toast(
           "This order has no next hearing. Move it back to draft to set the date and purpose.",
         );
-      } else {
-        toast("Set the next hearing’s date and purpose, or tick Not listed again.");
-        window.document.getElementById("order-next-hearing")?.focus();
       }
       return;
     }
@@ -256,13 +244,10 @@ function WorkflowDoorBody({ door }: { door: OrderDoor }) {
         toast(
           "Accepting this application moves the hearing, and this order has no next hearing date yet. Set it in the cause list's Next hearing column.",
         );
-      } else if (onPage) {
+      } else {
         toast(
           "Accepting this application moves the hearing, and this order has no next hearing date. Move it back to draft to set one.",
         );
-      } else {
-        toast("Accepting this application moves the hearing. Set the next hearing’s date.");
-        window.document.getElementById("order-next-hearing")?.focus();
       }
       return;
     }
@@ -284,15 +269,13 @@ function WorkflowDoorBody({ door }: { door: OrderDoor }) {
             }}
             value={draft.body ?? { html: "", text: "" }}
             status={paperStatus(stage)}
-            parts={onPage ? orderPaperRecitals(draft, appearances) : undefined}
+            parts={orderPaperRecitals(draft, appearances)}
           />
           <div className="min-w-0">
             <OrderWorkflowFields
               draft={draft}
               setDraft={setDraft}
               today={door.today}
-              appearances={appearances}
-              withDetails={!onPage}
               applications={listing.map((application) => ({
                 id: application.id,
                 number: application.number,

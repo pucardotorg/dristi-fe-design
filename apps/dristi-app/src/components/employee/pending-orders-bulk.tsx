@@ -34,9 +34,8 @@ import {
   itemAsksDetails,
 } from "@/lib/employee/order-bulk-items";
 import { composerContextFor } from "@/lib/employee/order-context";
-import { appearancesFor } from "@/lib/employee/order-draft";
 import { initialOrderDraft } from "@/lib/employee/order-demo";
-import { variantInitialDraft } from "@/lib/employee/order-door";
+import { orderInitialDraft } from "@/lib/employee/order-door";
 import {
   editorDraftKey,
   readOrderDraft,
@@ -97,11 +96,7 @@ export function AddOrderItemsDialog({
     for (const order of hearingOrders) {
       const hearing = hearingById(order.key)!;
       const key = editorDraftKey(hearing.id);
-      const initial = variantInitialDraft(
-        "editor",
-        initialOrderDraft(hearing, "completed", today),
-        appearancesFor(hearing),
-      );
+      const initial = orderInitialDraft(initialOrderDraft(hearing, "completed", today));
       const result = addItemsToDraft(
         readOrderDraft(key, initial),
         types,

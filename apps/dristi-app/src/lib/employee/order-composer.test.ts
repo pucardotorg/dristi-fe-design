@@ -3,13 +3,8 @@ import { describe, it } from "node:test";
 
 import {
   blockGaps,
-  changeBlockType,
   createItemBlock,
-  createTextBlock,
-  moveBlock,
-  resetItemText,
   setItemRecipients,
-  setItemText,
   setItemValue,
   writeItemText,
   type ComposerContext,
@@ -189,12 +184,17 @@ describe("loose coupling between fields and text", () => {
     }
     return cost;
   };
+  /* Words typed into an item — a quick order's, say (`application-order-draft.ts`). */
+  const typed = (block: ItemBlock, text: string): ItemBlock => ({
+    ...block,
+    text,
+    edited: true,
+  });
 
   it("keeps a value in its field after it is taken out of the text", () => {
-    const edited = setItemText(
+    const edited = typed(
       filled(),
       "The accused is directed to pay costs to the complainant by 12 November 2026.",
-      beforeJoining,
     );
     assert.equal(edited.edited, true);
     assert.equal(edited.values.amount, "5000");
@@ -202,40 +202,14 @@ describe("loose coupling between fields and text", () => {
   });
 
   it("stops rewriting the text once it has been typed into", () => {
-    const edited = setItemText(
-      filled(),
-      "Costs of ₹5,000 imposed.",
-      beforeJoining,
-    );
+    const edited = typed(filled(), "Costs of ₹5,000 imposed.");
     const changed = setItemValue(edited, "amount", "9000", beforeJoining);
     assert.equal(changed.text, "Costs of ₹5,000 imposed.");
     assert.equal(changed.values.amount, "9000");
   });
 
-  it("writes it from the fields again on Reset wording", () => {
-    const edited = setItemValue(
-      setItemText(filled(), "Costs imposed.", beforeJoining),
-      "amount",
-      "9000",
-      beforeJoining,
-    );
-    const reset = resetItemText(edited, beforeJoining);
-    assert.equal(reset.edited, false);
-    assert.ok(reset.text.includes("₹9,000"));
-  });
-
-  it("follows the fields again when the text is typed back to what they write", () => {
-    const block = filled();
-    const back = setItemText(
-      setItemText(block, "x", beforeJoining),
-      block.text,
-      beforeJoining,
-    );
-    assert.equal(back.edited, false);
-  });
-
   it("counts a bracket left in typed text as words to fill", () => {
-    const edited = setItemText(filled(), "Pay by [date].", beforeJoining);
+    const edited = typed(filled(), "Pay by [date].");
     assert.deepEqual(
       blockGaps(edited, beforeJoining).map((gap) => gap.label),
       ["[date]"],
@@ -347,32 +321,7 @@ describe("master data", () => {
   });
 });
 
-describe("blocks", () => {
-  it("keep a text block's words when it becomes an order item", () => {
-    const text = createTextBlock("Costs of ₹500.");
-    const cost = changeBlockType(text, "cost", beforeJoining) as ItemBlock;
-    assert.equal(cost.kind, "item");
-    assert.equal(cost.text, "Costs of ₹500.");
-    assert.equal(cost.edited, true);
-  });
-
-  it("carry shared answers across a change of order item", () => {
-    let cost = createItemBlock("cost", beforeJoining);
-    cost = setItemValue(cost, "amount", "700", beforeJoining);
-    const batta = changeBlockType(
-      cost,
-      "witness-batta",
-      beforeJoining,
-    ) as ItemBlock;
-    assert.equal(batta.values.amount, "700");
-    assert.ok(batta.text.includes("as witness batta"));
-  });
-
-  it("move one place at a time and stop at either end", () => {
-    assert.deepEqual(moveBlock(["a", "b", "c"], 1, -1), ["b", "a", "c"]);
-    assert.deepEqual(moveBlock(["a", "b", "c"], 0, -1), ["a", "b", "c"]);
-  });
-
+describe("templates", () => {
   it("write every template without a stray token", () => {
     for (const template of ORDER_TEMPLATES) {
       const text = writeItemText(

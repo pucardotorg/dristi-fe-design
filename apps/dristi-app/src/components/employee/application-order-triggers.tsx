@@ -79,7 +79,7 @@ export function ApplicationOrderTriggers() {
     const on = today();
     for (const order of Object.values(orders)) {
       if (pendingOrderStage(order, signing) !== "triggered") continue;
-      const typed = drafts[editorDraftKey(order.key)] ?? drafts[order.key];
+      const typed = drafts[editorDraftKey(order.key)];
       if (!typed) continue;
       /* A hearing's next date is the cause list's when the reader enters it (owner,
          2026-10-15). */

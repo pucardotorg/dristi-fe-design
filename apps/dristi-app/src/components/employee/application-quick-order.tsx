@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { ChromeDialogContent } from "@/components/chrome/app-chrome";
 import { quietTrigger } from "@/components/employee/application-order-triggers";
 import { ListingDateField } from "@/components/employee/listing-date-field";
-import { useOrderLayout } from "@/components/employee/use-order-layout";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -33,7 +32,7 @@ import {
   quickOrderDraft,
 } from "@/lib/employee/application-order-draft";
 import { isoDay } from "@/lib/employee/hearings";
-import { variantDraftKey } from "@/lib/employee/order-door";
+import { orderDraftKey } from "@/lib/employee/order-door";
 import { writeOrderDraft } from "@/lib/employee/order-drafts";
 import {
   markOrderReady,
@@ -172,7 +171,6 @@ function QuickOrderContent({
   onDone: (message: string) => void;
 }) {
   const router = useRouter();
-  const [layout] = useOrderLayout();
   const textId = React.useId();
   const dateId = React.useId();
   /* One item for the life of the modal, so its id — the mark on the order's words — holds. */
@@ -192,8 +190,8 @@ function QuickOrderContent({
     const meta = applicationOrderMeta(application, record, href);
     /* Pending orders, its page and the triggers read the full-page editor's draft. */
     writeOrderDraft(
-      variantDraftKey("editor", key),
-      quickOrderDraft("editor", item, text, needsDate ? nextDay : undefined),
+      orderDraftKey(key),
+      quickOrderDraft(item, text, needsDate ? nextDay : undefined),
     );
     noteOrderDraft(meta);
     sendOrderForSigning(meta);
@@ -212,8 +210,8 @@ function QuickOrderContent({
     /* Saved for the order screen that will open, under its own key, so it opens on these
        words rather than on the catalogue's. Not sent. */
     writeOrderDraft(
-      variantDraftKey(layout, key),
-      quickOrderDraft(layout, item, text, needsDate && nextDay ? nextDay : undefined),
+      orderDraftKey(key),
+      quickOrderDraft(item, text, needsDate && nextDay ? nextDay : undefined),
     );
     router.push(href);
   }

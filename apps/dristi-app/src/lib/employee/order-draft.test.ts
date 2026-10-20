@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { CAUSE_LIST } from "./hearings";
-import { createTextBlock } from "./order-composer";
 import {
   appearancesFor,
   attendanceRecital,
@@ -162,7 +161,10 @@ describe("hearingOrderDocument", () => {
         ...EMPTY_ORDER_DRAFT,
         marks: { complainant: "present" },
         next: "none",
-        blocks: [createTextBlock("The matter is adjourned."), createTextBlock("  ")],
+        blocks: [
+          { id: "t1", kind: "text", text: "The matter is adjourned." },
+          { id: "t2", kind: "text", text: "  " },
+        ],
       },
       "2026-09-07",
     );

@@ -1,5 +1,5 @@
 # Next hearing from the cause list, and cause-list columns
-Updated: 2026-10-15
+Updated: 2026-10-20
 Status: implemented (checked on the render; not independently reviewed)
 
 ## Current outcome
@@ -47,7 +47,8 @@ columns can be shown, hidden and reordered per seat, as the advocate Cases list 
 | 2026-10-15 | Next hearing date and purpose are set on the cause list by the reader; the order's fields stay but are disabled. | Owner | Superseded in part by the setting below |
 | 2026-10-15 | The date picker is a large calendar showing hearings already listed per day, with a by-purpose breakdown for a chosen day. Counts are indicative, not accurate. | Owner | Implemented |
 | 2026-10-15 | Counts come from the dashboard's demo court (`court-docket.ts`) plus postings set today, so the calendar and the dashboard do not disagree. | Implementation choice | Implemented |
-| 2026-10-15 | Applies to the latest order screen (E, Pending orders flow) only. | Owner | Implemented |
+| 2026-10-20 | Classic and screens A–D are removed, so the setting applies everywhere; the "Pending orders flow only" limit no longer exists. | Owner | Implemented |
+| 2026-10-15 | Applies to the latest order screen (E, Pending orders flow) only. | Owner | Superseded 2026-10-20 |
 | 2026-10-15 | First built as a window on End hearing; replaced by editable fields on the cause list and in the case overview, with End hearing just ending. | Owner | Implemented |
 | 2026-10-15 | Fields on every hearing, started or not; one combined column; table narrower. | Owner | Implemented |
 | 2026-10-15 | Magistrate and steno do not get the column; for the reader, Status and Orders go and Action moves before Next hearing. | Owner | Implemented as seat defaults |

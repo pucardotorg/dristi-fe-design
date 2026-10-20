@@ -4,17 +4,15 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 
 import {
-  courtNavGroupsForFlow,
+  COURT_NAV_GROUPS,
   courtNavGroupsForCourt,
   seatHasNavRow,
   COURT_NAV_LINKS,
-  courtNavTrailing,
+  COURT_NAV_TRAILING,
   type CourtNavItem,
 } from "@/lib/employee/navigation";
 import { useCourt } from "@/components/court/court-provider";
 import { useCourtRole } from "@/components/employee/use-court-role";
-import { useOrderFlow } from "@/components/employee/use-order-flow";
-import type { OrderFlow } from "@/lib/employee/order-flow";
 import type { CourtRole } from "@/lib/employee/content";
 import type { CourtId } from "@/lib/court/profiles";
 import {
@@ -64,15 +62,14 @@ type CourtSearchRow = {
 function courtSearchRows(
   court: CourtId,
   seat: CourtRole,
-  flow: OrderFlow,
 ): CourtSearchRow[] {
   return [
     ...COURT_NAV_LINKS.map((item) => ({ item, family: null })),
-    ...courtNavGroupsForCourt(courtNavGroupsForFlow(flow), court).flatMap((group) =>
+    ...courtNavGroupsForCourt(COURT_NAV_GROUPS, court).flatMap((group) =>
       group.items.map((item) => ({ item, family: group.label })),
     ),
-    ...courtNavTrailing(flow).map((item) => ({ item, family: null })),
-  ].filter((row) => seatHasNavRow(seat, row.item.id, flow));
+    ...COURT_NAV_TRAILING.map((item) => ({ item, family: null })),
+  ].filter((row) => seatHasNavRow(seat, row.item.id));
 }
 
 /**
@@ -93,8 +90,7 @@ function Results({ onNavigate }: { onNavigate: () => void }) {
   const needle = query.trim().toLowerCase();
   const { court } = useCourt();
   const seat = useCourtRole();
-  const [flow] = useOrderFlow();
-  const rows = courtSearchRows(court, seat, flow).filter(
+  const rows = courtSearchRows(court, seat).filter(
     (row) => row.item.href !== undefined && haystack(row).includes(needle),
   );
 

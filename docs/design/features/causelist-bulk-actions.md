@@ -1,5 +1,5 @@
 # Bulk actions on the cause list
-Updated: 2026-10-15
+Updated: 2026-10-20
 Status: implemented (checked on the render; not independently reviewed)
 
 ## Current outcome
@@ -69,6 +69,7 @@ the selection and holds the act. **Exit bulk** leaves the mode and clears the se
 | Date | Decision and reason | Source | Status |
 |---|---|---|---|
 | 2026-10-15 | Reader gets a Bulk button when the reader enters the next hearing: checkboxes, filters by advocate, case stage and purpose, select one or all, then mark completed or passed over, or set stage, date and purpose. | Owner | Implemented, stage setting later removed |
+| 2026-10-20 | The Classic flow is removed, so the steno's Bulk button no longer depends on the order flow: the typist seat always has it. | Owner | Implemented |
 | 2026-10-15 | Steno can select several hearings and type one text that goes to all their orders. | Owner | Implemented |
 | 2026-10-15 | Stage was first settable in bulk; the case stage cannot be changed by the user, so it was removed. Stage is a filter only. | Owner | Implemented |
 | 2026-10-15 | The steno's text is **added** after whatever each order already says, never replaces it. | Implementation choice | Implemented — confirm |
