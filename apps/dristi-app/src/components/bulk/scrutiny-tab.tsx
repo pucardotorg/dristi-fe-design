@@ -225,7 +225,7 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
       ) : (
         <ul className="flex flex-col gap-4">
           {flagged.map((c) => (
-            <li key={c.id}>
+            <li key={c.id} id={`bulk-case-${c.id}`} className="scroll-mt-20">
               <Card className={PANEL_CLASS}>
                 <CardHeader>
                   <CardTitle className="flex flex-wrap items-center gap-2 text-body font-semibold">

@@ -142,7 +142,7 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
                 <span className="text-body-compact font-medium">All clear cases</span>
               </label>
               {clear.map((c) => (
-                <label key={c.id} className="flex min-h-10 items-center gap-3 rounded-lg px-2 hover:bg-accent">
+                <label key={c.id} id={`bulk-case-${c.id}`} className="flex min-h-10 scroll-mt-20 items-center gap-3 rounded-lg px-2 hover:bg-accent">
                   <Checkbox
                     aria-label={`${c.reference}, ${c.accused}`}
                     checked={picked.has(c.id)}

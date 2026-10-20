@@ -1,12 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { CheckIcon, FlagIcon, WalletIcon } from "lucide-react";
+import { CheckIcon, ChevronRightIcon, FlagIcon, WalletIcon } from "lucide-react";
 
 import { money } from "@/lib/filing/format";
 import { cn } from "@/lib/utils";
 import { ChromeDialogContent } from "@/components/chrome/app-chrome";
-import { RESOLVE_IN_PLACE } from "@/components/chrome/motion";
+import { Identifier } from "@/components/chrome/identifier";
 import { TABLE_CELL, TABLE_HEAD, TABLE_HEAD_ROW, tableBodyClass, tableRowClass } from "@/components/chrome/table-plate";
 import { PANEL_CLASS } from "@/components/filing/form-card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -15,6 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 import { bulkApi, type BatchView } from "./api";
@@ -24,7 +25,16 @@ import { StageBadge } from "./stage";
 const ist = (iso: string) =>
   `${new Date(iso).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" })} IST`;
 
-function Receipts({ batch, payment }: { batch: BatchView; payment: BatchView["payments"][number] }) {
+function Receipts({
+  batch,
+  payment,
+  fees = true,
+}: {
+  batch: BatchView;
+  payment: BatchView["payments"][number];
+  /** The per-case fee. Off in the payment window, which states the total above. */
+  fees?: boolean;
+}) {
   const cases = batch.cases.filter((c) => payment.caseIds.includes(c.id));
   return (
     <div className="overflow-x-auto">
@@ -33,8 +43,8 @@ function Receipts({ batch, payment }: { batch: BatchView; payment: BatchView["pa
           <TableRow className={TABLE_HEAD_ROW}>
             <TableHead className={cn(TABLE_HEAD, "pl-4")}>Reference</TableHead>
             <TableHead className={TABLE_HEAD}>Receipt</TableHead>
-            <TableHead className={TABLE_HEAD}>Case file number</TableHead>
-            <TableHead className={cn(TABLE_HEAD, "pr-4 text-right")}>Paid</TableHead>
+            <TableHead className={cn(TABLE_HEAD, !fees && "pr-4")}>Case file number</TableHead>
+            {fees ? <TableHead className={cn(TABLE_HEAD, "pr-4 text-right")}>Paid</TableHead> : null}
           </TableRow>
         </TableHeader>
         <TableBody className={tableBodyClass({ hover: false })}>
@@ -42,8 +52,8 @@ function Receipts({ batch, payment }: { batch: BatchView; payment: BatchView["pa
             <TableRow key={c.id} className={tableRowClass({ hover: false })}>
               <TableCell className={cn(TABLE_CELL, "pl-4 font-medium tabular-nums")}>{c.reference}</TableCell>
               <TableCell className={cn(TABLE_CELL, "tabular-nums")}>{c.receiptNumber}</TableCell>
-              <TableCell className={cn(TABLE_CELL, "tabular-nums")}>{c.caseFileNumber}</TableCell>
-              <TableCell className={cn(TABLE_CELL, "pr-4 text-right tabular-nums")}>{money(c.fee)}</TableCell>
+              <TableCell className={cn(TABLE_CELL, "tabular-nums", !fees && "pr-4")}>{c.caseFileNumber}</TableCell>
+              {fees ? <TableCell className={cn(TABLE_CELL, "pr-4 text-right tabular-nums")}>{money(c.fee)}</TableCell> : null}
             </TableRow>
           ))}
         </TableBody>
@@ -77,6 +87,12 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
   const last = batch.payments.at(-1);
   // What the batch still has to do after this payment, shown on the success screen.
   const pendingAfter = batch.cases.filter((c) => c.stage !== "filed");
+  /** The step a case waits on: paying, fixing or checking, or signing. */
+  const openPending = (c: (typeof pendingAfter)[number]) => {
+    setDialog(null);
+    go(c.stage === "signed" ? "pay" : c.flags.length ? "scrutiny" : "sign");
+    window.setTimeout(() => document.getElementById(`bulk-case-${c.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" }), 300);
+  };
 
   const pay = async () => {
     setDialog("processing");
@@ -176,89 +192,123 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
 
       <Dialog open={!!dialog} onOpenChange={(v) => !v && dialog !== "processing" && setDialog(null)}>
         {/* Capped to the viewport: a batch's receipts can run to hundreds of rows. */}
-        <ChromeDialogContent className="flex max-h-[90dvh] flex-col sm:max-w-lg">
+        <ChromeDialogContent
+          mobileSheet
+          showCloseButton={dialog !== "done"}
+          className={cn(
+            "flex max-h-[90dvh] flex-col sm:max-w-lg",
+            // The outcome is the single filing's "Payment successful" window, case for case.
+            dialog === "done" && "gap-0 overflow-hidden p-0"
+          )}
+        >
           {dialog === "done" && last ? (
             <>
-              {/* The outcome resolves in place: one green block that says it is done. */}
-              <DialogHeader
-                className={cn(
-                  "flex flex-col items-center gap-3 rounded-xl bg-success-muted px-6 py-8 text-center text-success-muted-foreground",
-                  RESOLVE_IN_PLACE
-                )}
-              >
-                <span className="flex size-16 items-center justify-center rounded-full bg-success text-success-foreground">
-                  <CheckIcon className="size-8" aria-hidden />
+              <div className="flex shrink-0 flex-col items-center gap-2 bg-success p-6 text-center text-success-foreground">
+                <span className="flex size-12 items-center justify-center rounded-full bg-success-foreground text-success">
+                  <CheckIcon className="size-6" aria-hidden />
                 </span>
-                <DialogTitle className="text-title font-semibold text-success-muted-foreground">Successfully filed</DialogTitle>
-                <DialogDescription className="text-body text-success-muted-foreground">
-                  <span className="tabular-nums">{last.caseIds.length}</span> case{last.caseIds.length === 1 ? "" : "s"} filed on SARAS 2.0
-                  <br />
-                  <span className="tabular-nums">
-                    {ist(last.at)} · {money(last.amount)} · {last.ref}
-                  </span>
+                <DialogTitle className="text-title-s font-semibold">Payment successful</DialogTitle>
+                <DialogDescription className="text-body-compact text-success-foreground">
+                  <span className="tabular-nums">{last.caseIds.length}</span> case file{last.caseIds.length === 1 ? " is" : "s are"} complete.
                 </DialogDescription>
-              </DialogHeader>
-
-              <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
-                <section className="flex flex-col gap-2">
-                  <h3 className="text-body-compact font-semibold">Receipts and case numbers</h3>
-                  <div className="max-h-48 overflow-y-auto rounded-lg border border-hairline">
-                    <Receipts batch={batch} payment={last} />
-                  </div>
-                </section>
-
-                {pendingAfter.length ? (
-                  <section className="flex flex-col gap-2">
-                    <h3 className="text-body-compact font-semibold tabular-nums">
-                      Still pending: {pendingAfter.length} case{pendingAfter.length === 1 ? "" : "s"}
-                    </h3>
-                    <ul className="flex flex-col divide-y divide-hairline rounded-lg border border-hairline">
-                      {pendingAfter.map((c) => (
-                        <li key={c.id} className="flex flex-col gap-1 px-3 py-2">
-                          <span className="flex flex-wrap items-center gap-2">
-                            <span className="text-body-compact font-medium tabular-nums">{c.reference}</span>
-                            <StageBadge stage={c.stage} />
-                          </span>
-                          {c.flags.slice(0, 2).map((f) => (
-                            <span key={f.id} className="flex items-start gap-1.5 text-caption text-muted-foreground">
-                              <FlagIcon
-                                className={cn("mt-0.5 size-3 shrink-0", f.level === "hold" ? "text-destructive-ink" : "text-warning-ink")}
-                                aria-label={f.level === "hold" ? "Needs fixing" : "To check"}
-                              />
-                              {f.message}
-                            </span>
-                          ))}
-                          {c.flags.length > 2 ? (
-                            <span className="text-caption text-muted-foreground tabular-nums">and {c.flags.length - 2} more</span>
-                          ) : null}
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
-                ) : null}
               </div>
 
-              <DialogFooter>
-                {pendingAfter.length ? (
+              <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-6">
+                <div className="flex items-center justify-between gap-4 text-body-compact">
+                  <span className="text-muted-foreground">Amount paid</span>
+                  <span className="font-semibold text-foreground tabular-nums">{money(last.amount)}</span>
+                </div>
+                <div className="flex items-center justify-between gap-4 text-body-compact">
+                  <span className="text-muted-foreground">Payment reference</span>
+                  <span className="text-foreground">
+                    <Identifier value={last.ref} label="payment reference" />
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-4 text-body-compact">
+                  <span className="text-muted-foreground">Filed on</span>
+                  <span className="text-foreground tabular-nums">{ist(last.at)}</span>
+                </div>
+
+                {/* Filed and still pending on tabs: the window scrolls, never a box inside it. */}
+                <Tabs defaultValue="filed" className="gap-3">
+                  <TabsList variant="line">
+                    <TabsTrigger value="filed">
+                      Filed <span className="tabular-nums">{last.caseIds.length}</span>
+                    </TabsTrigger>
+                    {pendingAfter.length ? (
+                      <TabsTrigger value="pending">
+                        Still pending <span className="tabular-nums">{pendingAfter.length}</span>
+                      </TabsTrigger>
+                    ) : null}
+                  </TabsList>
+                  <TabsContent value="filed">
+                    <Receipts batch={batch} payment={last} fees={false} />
+                  </TabsContent>
+                  {pendingAfter.length ? (
+                    <TabsContent value="pending">
+                      <ul className="flex flex-col divide-y divide-hairline overflow-hidden rounded-lg border border-hairline">
+                        {pendingAfter.map((c) => (
+                          <li key={c.id}>
+                          {/* Each opens the step the case waits on, scrolled to it. */}
+                          <button
+                            type="button"
+                            onClick={() => openPending(c)}
+                            className="flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-focus-ring focus-visible:outline-none"
+                          >
+                            <span className="flex min-w-0 flex-1 flex-col gap-1">
+                                <span className="flex flex-wrap items-center gap-2">
+                                  <span className="text-body-compact font-medium tabular-nums">{c.reference}</span>
+                                  <StageBadge stage={c.stage} />
+                                </span>
+                                {c.flags.slice(0, 2).map((f) => (
+                                  <span key={f.id} className="flex items-start gap-1.5 text-caption text-muted-foreground">
+                                    <FlagIcon
+                                      className={cn("mt-0.5 size-3 shrink-0", f.level === "hold" ? "text-destructive-ink" : "text-warning-ink")}
+                                      aria-label={f.level === "hold" ? "Needs fixing" : "To check"}
+                                    />
+                                    {f.message}
+                                  </span>
+                                ))}
+                                {c.flags.length > 2 ? (
+                                  <span className="text-caption text-muted-foreground tabular-nums">and {c.flags.length - 2} more</span>
+                                ) : null}
+                            </span>
+                            <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                          </button>
+                        </li>
+                        ))}
+                      </ul>
+                    </TabsContent>
+                  ) : null}
+                </Tabs>
+
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  {pendingAfter.length ? (
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      className="flex-1"
+                      onClick={() => {
+                        setDialog(null);
+                        go(pendingAfter.some((c) => c.stage === "signed") ? "pay" : pendingAfter.some((c) => c.stage === "ready" && !c.flags.length) ? "sign" : "scrutiny");
+                      }}
+                    >
+                      Finish the pending {pendingAfter.length === 1 ? "case" : "cases"}
+                    </Button>
+                  ) : null}
                   <Button
                     variant="outline"
+                    size="lg"
+                    className="flex-1"
                     onClick={() => {
                       setDialog(null);
-                      go(pendingAfter.some((c) => c.stage === "signed") ? "pay" : pendingAfter.some((c) => c.stage === "ready" && !c.flags.length) ? "sign" : "scrutiny");
+                      go("filed");
                     }}
                   >
-                    Finish the pending {pendingAfter.length === 1 ? "case" : "cases"}
+                    See filed cases
                   </Button>
-                ) : null}
-                <Button
-                  onClick={() => {
-                    setDialog(null);
-                    go("filed");
-                  }}
-                >
-                  See filed cases
-                </Button>
-              </DialogFooter>
+                </div>
+              </div>
             </>
           ) : (
             <>
