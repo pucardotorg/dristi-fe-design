@@ -265,21 +265,38 @@ export function HearingOverviewCaption({ hearing }: { hearing: CourtHearing }) {
 export function HearingOverviewSections({
   hearing,
   surface,
+  nextHearing,
 }: {
   hearing: CourtHearing;
   surface: HearingOverviewSurface;
+  /**
+   * The Next hearing fields, for a seat that enters the next hearing here (the reader,
+   * `PLC-04`). Given, they are the first tab and the one the overview opens on: they are
+   * what that reader acts on (owner, 2026-10-20, "move the next hearing also to a tab").
+   */
+  nextHearing?: ReactNode;
 }) {
   const extras = hearingCaseExtras(hearing.id);
 
   return (
-    <Tabs defaultValue="history" className={`${TABS_FRAME[surface]} gap-0`}>
+    <Tabs
+      defaultValue={nextHearing ? "next-hearing" : "history"}
+      className={`${TABS_FRAME[surface]} gap-0`}
+    >
       {/* The order screen's line tabs, on their own rule (`order-case-panel.tsx`). */}
-      <div className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-hairline pr-4 pl-1">
+      <div
+        className={`flex shrink-0 items-center justify-between gap-4 border-b border-hairline pr-4 pl-1 ${TAB_STRIP[surface]}`}
+      >
         <TabsList
           variant="line"
           aria-label="About this case"
-          className="h-14 justify-start rounded-none p-0 group-data-horizontal/tabs:h-14"
+          className={`justify-start rounded-none p-0 ${TAB_LIST[surface]}`}
         >
+          {nextHearing ? (
+            <TabsTrigger value="next-hearing" className={TAB_TRIGGER}>
+              Next hearing
+            </TabsTrigger>
+          ) : null}
           <TabsTrigger value="history" className={TAB_TRIGGER}>
             Case history
           </TabsTrigger>
@@ -300,14 +317,19 @@ export function HearingOverviewSections({
           </a>
         </Button>
       </div>
+      {nextHearing ? (
+        <TabsContent value="next-hearing" className={`${TAB_BODY_BASE} ${TAB_BODY_HEIGHT[surface]}`}>
+          {nextHearing}
+        </TabsContent>
+      ) : null}
       {/* A column, so an order opened in the history can fill it (`OrderCaseHistory`). */}
-      <TabsContent value="history" className={TAB_BODY}>
+      <TabsContent value="history" className={`${TAB_BODY_BASE} ${TAB_BODY_HEIGHT[surface]}`}>
         <OrderCaseHistory hearing={hearing} />
       </TabsContent>
-      <TabsContent value="details" className={TAB_BODY}>
+      <TabsContent value="details" className={`${TAB_BODY_BASE} ${TAB_BODY_HEIGHT[surface]}`}>
         <CaseFactsPanel hearing={hearing} extras={extras} surface="panel" />
       </TabsContent>
-      <TabsContent value="data-flags" className={TAB_BODY}>
+      <TabsContent value="data-flags" className={`${TAB_BODY_BASE} ${TAB_BODY_HEIGHT[surface]}`}>
         <OrderDataFlags />
       </TabsContent>
     </Tabs>
@@ -317,16 +339,43 @@ export function HearingOverviewSections({
 /** The tabbed panel's frame, by surface: the section recipe without its padding. */
 const TABS_FRAME: Record<HearingOverviewSurface, string> = {
   page: "min-w-0 overflow-hidden rounded-xl border border-hairline bg-card shadow-raised",
-  /* In the sheet it gives way to fit the window, down to a floor that still shows a
-     few lines of history; below that the sheet scrolls. */
-  overlay: "min-h-80 min-w-0 overflow-hidden rounded-lg bg-card",
+  /* In the sheet the panel *is* the stage — the overlay's one-plane `card` stage, unpadded
+     (`StagedOverlay`), so no card inside a card on a tinted canvas (owner, 2026-10-20:
+     "cut out the white space"). It gives way to fit the window, down to a floor that
+     still shows a few lines of history; below that the sheet scrolls. */
+  overlay: "flex min-h-0 min-w-0 flex-1 flex-col",
   panel: "min-w-0",
+};
+/**
+ * The strip's height. On the page it is the order screen's 56px panel head; in the sheet,
+ * under the overlay's own header, it steps down to the DS control height.
+ */
+const TAB_STRIP: Record<HearingOverviewSurface, string> = {
+  page: "h-14",
+  overlay: "h-10",
+  panel: "h-14",
+};
+const TAB_LIST: Record<HearingOverviewSurface, string> = {
+  page: "h-14 group-data-horizontal/tabs:h-14",
+  overlay: "h-10 group-data-horizontal/tabs:h-10",
+  panel: "h-14 group-data-horizontal/tabs:h-14",
 };
 const TAB_TRIGGER =
   "h-full flex-none px-3 text-body-compact group-data-horizontal/tabs:after:-bottom-px";
-/** A fixed height, the same on every tab; `p-4` is what the history's pinned filter
-    expects of the box it scrolls in, as in the order screen's tab. */
-const TAB_BODY = "flex h-[28rem] min-h-0 flex-col overflow-y-auto p-4";
+/**
+ * Each tab scrolls in its own box; `p-4` is what the history's pinned filter expects of
+ * that box, as in the order screen's tab. On the page the box is a fixed height, the same
+ * on every tab; in the sheet it fills the stage the frame's floor sets.
+ */
+const TAB_BODY_BASE = "flex min-h-0 flex-col overflow-y-auto p-4";
+/* `flex-none` on the fixed heights: the primitive's own `flex-1` would otherwise size the
+   box to its content. In the sheet a zero basis does the same job the other way, so the
+   history scrolls inside the floor rather than growing the sheet. */
+const TAB_BODY_HEIGHT: Record<HearingOverviewSurface, string> = {
+  page: "h-[28rem] flex-none",
+  overlay: "grow basis-0",
+  panel: "h-[28rem] flex-none",
+};
 
 const HEARING_DEMO_CASE_ORDERS_HREF =
   "/employee/cases/c-1001?section=orders-and-notifications";
