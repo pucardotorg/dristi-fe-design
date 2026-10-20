@@ -1,10 +1,17 @@
 "use client";
 
+import * as React from "react";
 import { CircleCheckIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import type { CaseStage } from "@/lib/bulk/types";
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 import type { CaseView } from "./api";
 
@@ -84,6 +91,43 @@ export function StageBadge({ stage }: { stage: CaseStage }) {
 }
 
 /** Where a batch's cases stand: one bar (decorative) and a legend that says it in words. */
+/** On hover or focus, what a stage bar shows: each stage and its count, in words. */
+export function StageTip({
+  counts,
+  children,
+}: {
+  counts: Record<CaseStage, number>;
+  children: React.ReactNode;
+}) {
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            tabIndex={0}
+            className="rounded-full focus-visible:ring-3 focus-visible:ring-focus-ring focus-visible:outline-none"
+          >
+            {children}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          <ul className="flex flex-col gap-0.5">
+            {STAGE_ORDER.filter((k) => counts[k]).map((k) => (
+              <li key={k} className="flex items-center gap-2 tabular-nums">
+                <span
+                  aria-hidden
+                  className={cn("size-2 rounded-full", STAGE[k].fill)}
+                />
+                {STAGE[k].label}: {counts[k]}
+              </li>
+            ))}
+          </ul>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
 export function StageBar({
   counts,
   className,
@@ -95,20 +139,23 @@ export function StageBar({
   if (total === 0) return null;
   return (
     <div className={cn("flex min-w-48 flex-col gap-2", className)}>
-      <div
-        aria-hidden
-        className="flex h-2 overflow-hidden rounded-full bg-track"
-      >
-        {STAGE_ORDER.map((k) =>
-          counts[k] ? (
-            <span
-              key={k}
-              className={STAGE[k].fill}
-              style={{ width: `${(counts[k] / total) * 100}%` }}
-            />
-          ) : null,
-        )}
-      </div>
+      <StageTip counts={counts}>
+        {" "}
+        <div
+          aria-hidden
+          className="flex h-2 divide-x-2 divide-card overflow-hidden rounded-full bg-track"
+        >
+          {STAGE_ORDER.map((k) =>
+            counts[k] ? (
+              <span
+                key={k}
+                className={STAGE[k].fill}
+                style={{ width: `${(counts[k] / total) * 100}%` }}
+              />
+            ) : null,
+          )}
+        </div>{" "}
+      </StageTip>
       <ul className="flex flex-wrap gap-x-3 gap-y-1">
         {STAGE_ORDER.filter((k) => counts[k]).map((k) => (
           <li

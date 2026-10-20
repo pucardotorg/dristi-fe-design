@@ -31,14 +31,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Dialog,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Spinner } from "@/components/ui/spinner";
+import { Dialog, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -50,6 +43,7 @@ import {
 } from "@/components/ui/table";
 
 import { bulkApi, type BatchView } from "./api";
+import { PaymentGateway } from "./payment-gateway";
 import type { BatchCtx } from "./batch-screen";
 import { CaseBadge } from "./stage";
 
@@ -324,9 +318,8 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
           mobileSheet
           showCloseButton={dialog !== "done"}
           className={cn(
-            "flex max-h-[90dvh] flex-col sm:max-w-lg",
-            // The outcome is the single filing's "Payment successful" window, case for case.
-            dialog === "done" && "gap-0 overflow-hidden p-0",
+            // The gateway and the outcome each lay out their own edges: no dialog padding.
+            "flex max-h-[90dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg",
           )}
         >
           {dialog === "done" && last ? (
@@ -483,36 +476,13 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
               </div>
             </>
           ) : (
-            <>
-              <DialogHeader>
-                <DialogTitle>Pay {money(total)}</DialogTitle>
-                <DialogDescription>
-                  One transaction for {chosen.length} case
-                  {chosen.length === 1 ? "" : "s"}. Sandbox gateway: no money
-                  moves.
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  disabled={dialog === "processing"}
-                  onClick={() => setDialog(null)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  disabled={dialog === "processing"}
-                  onClick={() => void pay()}
-                >
-                  {dialog === "processing" ? (
-                    <Spinner data-icon="inline-start" />
-                  ) : null}
-                  {dialog === "processing"
-                    ? "Processing"
-                    : `Pay ${money(total)}`}
-                </Button>
-              </DialogFooter>
-            </>
+            /* A sandbox payment gateway: UPI, card or NEFT, each ending in the payment. */
+            <PaymentGateway
+              amount={total}
+              cases={chosen.length}
+              onPaid={() => void pay()}
+              onCancel={() => setDialog(null)}
+            />
           )}
         </ChromeDialogContent>
       </Dialog>

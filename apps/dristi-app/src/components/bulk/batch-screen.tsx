@@ -39,7 +39,7 @@ import { PayTab } from "./pay-tab";
 import { ReviewTab } from "./review-tab";
 import { ScrutinyTab } from "./scrutiny-tab";
 import { SignTab } from "./sign-tab";
-import { STAGE, STAGE_ORDER, StageBar } from "./stage";
+import { STAGE, STAGE_ORDER, StageBar, StageTip } from "./stage";
 
 /**
  * A step's tab. A coloured count is work waiting on this step now. When there is none, the
@@ -77,13 +77,7 @@ function StepTab({
       {pending ? (
         // A count sized for the tab: the DS badge (24px) fills a 32px tab edge to edge.
         <span className={cn(COUNT, COUNT_FILL[tone])}>{pending}</span>
-      ) : upcoming ? (
-        <span
-          className={cn(COUNT, "border border-hairline text-muted-foreground")}
-        >
-          {upcoming}
-        </span>
-      ) : done ? (
+      ) : upcoming ? null : done ? (
         <CircleCheckIcon className="text-success-ink" aria-hidden />
       ) : null}
     </TabsTrigger>
@@ -315,7 +309,13 @@ export function BatchScreen({ batchId }: { batchId: string }) {
 
       {/* Folded to one line by default: what the batch is, at a glance; Details opens it. */}
       <Card className={cn(PANEL_CLASS, "gap-0 py-0")}>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 sm:px-6">
+        {/* The whole line opens and closes the details, not only its Details label. */}
+        <button
+          type="button"
+          aria-expanded={showInfo}
+          onClick={() => setShowInfo((v) => !v)}
+          className="flex min-h-12 w-full flex-wrap items-center gap-x-4 gap-y-2 rounded-xl px-4 py-2 text-left transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-focus-ring focus-visible:outline-none sm:px-6"
+        >
           <span className="min-w-0 truncate text-body-compact">
             <span className="text-muted-foreground">
               {batch.source.kind === "api"
@@ -338,41 +338,38 @@ export function BatchScreen({ batchId }: { batchId: string }) {
           <span className="ml-auto flex items-center gap-3">
             {/* The stage bar in brief: its colours, and how many are filed. */}
             <span className="hidden items-center gap-2 sm:flex">
-              <span
-                aria-hidden
-                className="flex h-1.5 w-32 overflow-hidden rounded-full bg-track"
-              >
-                {STAGE_ORDER.map((k) =>
-                  batch.counts[k] ? (
-                    <span
-                      key={k}
-                      className={STAGE[k].fill}
-                      style={{
-                        width: `${(batch.counts[k] / Math.max(1, batch.total)) * 100}%`,
-                      }}
-                    />
-                  ) : null,
-                )}
-              </span>
+              <StageTip counts={batch.counts}>
+                {" "}
+                <span
+                  aria-hidden
+                  className="flex h-1.5 w-32 divide-x-2 divide-card overflow-hidden rounded-full bg-track"
+                >
+                  {STAGE_ORDER.map((k) =>
+                    batch.counts[k] ? (
+                      <span
+                        key={k}
+                        className={STAGE[k].fill}
+                        style={{
+                          width: `${(batch.counts[k] / Math.max(1, batch.total)) * 100}%`,
+                        }}
+                      />
+                    ) : null,
+                  )}
+                </span>{" "}
+              </StageTip>
               <span className="text-caption text-muted-foreground tabular-nums">
                 {batch.counts.filed} of {batch.total} filed
               </span>
             </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              aria-expanded={showInfo}
-              onClick={() => setShowInfo((v) => !v)}
-            >
-              Details
+            <span className="flex items-center gap-1 text-body-compact font-medium">
+              Details{" "}
               <ChevronDownIcon
-                data-icon="inline-end"
                 className={cn("transition-transform", showInfo && "rotate-180")}
                 aria-hidden
               />
-            </Button>
+            </span>
           </span>
-        </div>
+        </button>
         {showInfo ? (
           <CardContent className="grid grid-cols-1 gap-6 border-t border-hairline p-6 md:grid-cols-2 xl:grid-cols-4">
             <div className="flex flex-col gap-1">
@@ -492,16 +489,11 @@ export function BatchScreen({ batchId }: { batchId: string }) {
                 <CircleCheckIcon className="text-success-ink" aria-hidden />
               ) : null}
               Filed
-              <span
-                className={cn(
-                  COUNT,
-                  batch.counts.filed
-                    ? COUNT_FILL.success
-                    : "border border-hairline text-muted-foreground",
-                )}
-              >
-                {batch.counts.filed}
-              </span>
+              {batch.counts.filed ? (
+                <span className={cn(COUNT, COUNT_FILL.success)}>
+                  {batch.counts.filed}
+                </span>
+              ) : null}
             </TabsTrigger>
           </TabsList>
         </div>
