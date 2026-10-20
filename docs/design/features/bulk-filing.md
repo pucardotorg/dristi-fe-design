@@ -38,8 +38,8 @@ Run it with `npm run demo` (SARAS 2.0 on port 3000, Provakil on 3100). The team 
 | 2026-10-20 | Provakil mock is a second app in this repo (`apps/provakil-mock`), kept on the `bulk-filing` branch and not proposed for `main`. | Owner | decided |
 | 2026-10-20 | Cases are filed in Gujarat's deployment (SARAS 2.0, SARAS Court, Ahmedabad). S-138 goes to a magistrate, not the High Court. Bulk screens switch the court to Gujarat when opened. | Owner | implemented |
 | 2026-10-20 | Mapping and checks are rules. A separate AI review adds findings that are not validation (a document that disagrees with the case, a value that looks wrong next to the others). It follows the court's `aiMode` and `?ai=on\|off\|unavailable`; with AI off the flow is fully manual and nothing is marked as AI. The demo's AI is a rules stand-in (`ai-review.ts`). | Owner | implemented (stand-in) |
-| 2026-10-20 | Fields that can occur more than once repeat in the API as arrays and in Excel as numbered columns: `Cheque number_2`, and for a section inside an accused, accused then item (`Accused address_1_2`). Unnumbered means the first. Which fields repeat follows the PRD's 1..n sections and the single filing flow (table below). | Owner; PRD §3.3 | implemented |
-| 2026-10-20 | The column-matching screen puts required fields first and the rest behind **Show optional fields**. Repeated sections sit on tabs, one per accused, cheque, notice, witness. Above them, **Found in your file** states what the file holds ("Accused 2, Cheques 1") with a stepper to correct it. Each row reads app field (ON Courts mark) ← sheet column (Excel mark) and the first value found. | Owner | implemented |
+| 2026-10-20 | Fields that can occur more than once repeat in the API as arrays and in Excel as numbered columns: `Cheque number_2`, and for a section inside an accused, accused then item (`Accused address_1_2`). Unnumbered means the first. Repeats are per case: the file carries as many numbered columns as its busiest case needs, and every other case leaves them blank. Which fields repeat follows the PRD's 1..n sections and the single filing flow (table below). | Owner; PRD §3.3 | implemented |
+| 2026-10-20 | The column-matching screen puts required fields first and the rest behind **Show optional fields**. Repeated sections sit on tabs, one per accused, cheque, notice, witness. Above them, **Found in your file** says what every case has and how many cases use each extra section ("Every case has 1 accused, 1 cheque and 1 demand notice. 1 of 12 cases has a second cheque."), with a stepper for the most any case has. Each row reads app field (ON Courts mark) ← sheet column (Excel mark); each column in the dropdown shows its first value, and the chosen column's value shows under it. | Owner | implemented |
 | 2026-10-20 | A push through the API raises a notification in the bell (warning tone, kept until the batch is opened) and a **New** mark on the batch list, so the next person to sign in deals with it first. | Owner | implemented |
 | 2026-10-20 | Scrutiny raises two kinds of flag. A **check** (the value is there but deserves a look, such as a return reason other than insufficient funds) can be skipped and the case goes ahead. A **hold** (a requirement is not met) keeps the case in draft while the rest of the batch proceeds. | Owner; PRD §1, constraint 4 | implemented |
 | 2026-10-20 | Signing offers four methods, least friction first, each with a hint: mobile OTP (fastest, one OTP for the batch), DSC (more secure, needs a DSC token, one PIN per signer), Aadhaar eSign (secure, slowest, 5 cases per OTP in succession), upload signed copies (most manual). Whether mobile OTP signing is coming is PRD §8 Q9, still open. | Owner; PRD §4.3 | implemented |
@@ -153,6 +153,12 @@ add another. Unnumbered columns are the first; `_2`, `_3` are the next. A sectio
 accused carries two numbers, accused then item: `Accused address_1_2` is the first accused's
 second address. In the API the same sections are arrays.
 
+Repeats are per case, not per file. A file needs as many numbered columns as its busiest
+case: if one case in fifty has a second cheque, the file has `Cheque number_2` and the other
+49 leave it blank. A blank set of columns adds nothing to that case; only the first accused,
+cheque and notice are always read, since every case has them. In the API, each case's
+arrays simply have their own lengths.
+
 | Section | Excel | API | Why it repeats |
 |---|---|---|---|
 | Complainant | `Complainant name_2` onwards (the batch complainant is the first) | `cases[].complainants[]` | PRD §3.3, complainant 1..n; the single flow's **Add complainant**. Each further complainant needs their own ID card and vakalatnama |
@@ -175,9 +181,11 @@ prayers and affidavit (standard templates); documents (added on the Documents ta
 ignored), the matching screen is skipped. Otherwise each field is matched to a column,
 with suggestions only from the header and a fixed list of aliases, including its `_2`, `_3`
 forms. A list field can also take one value for every row (for example Nature of debt:
-Loan / advance repayment). The screen opens with **Found in your file**: how many accused,
-cheques, notices, witnesses and further complainants the headers show. Where a file names
-them another way (`Chq No 2`), the filer corrects the count and the tabs below follow.
+Loan / advance repayment). The screen opens with **Found in your file**: what every case
+has, how many cases use each extra section, and steppers for the most any case has. Where a
+file names them another way (`Chq No 2`), the filer raises the count and the tabs below
+follow. In each dropdown a column shows its first value (`Chq No · e.g. 004512`), and the
+chosen column's value shows under it.
 
 **Value matching.** List values the court does not know (`01 - Funds Insufficient`) are
 matched once each, and every row using them follows.

@@ -54,3 +54,17 @@ test("in a filer's own layout, a matched column's _2 is read for the second inst
   const req = buildRequest(book(headers, ["R-1", "333333", "444444"]), map, {}, { complainant, barNumbers: [], adr: "no", fileName: "t" });
   assert.deepEqual(req.cases[0].cheques.map((q) => q.number), ["333333", "444444"]);
 });
+
+test("repeats are per case: one row uses the _2 columns, the next leaves them blank", () => {
+  const headers = ["Case reference", "Accused name", "Accused address", "Accused name_2", "Accused address_2", "Cheque number", "Cheque number_2"];
+  const req = buildRequest(
+    book(headers, ["R-1", "A One", "Addr 1", "A Two", "Addr 2", "111111", "222222"], ["R-2", "B One", "Addr 3", "", "", "333333", ""]),
+    autoMap(headers),
+    {},
+    { complainant, barNumbers: [], adr: "no", fileName: "t" }
+  );
+  assert.equal(req.cases[0].accused.length, 2);
+  assert.equal(req.cases[0].cheques.length, 2);
+  assert.equal(req.cases[1].accused.length, 1);
+  assert.equal(req.cases[1].cheques.length, 1);
+});

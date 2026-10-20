@@ -182,9 +182,10 @@ Two ready-made files are in the `demo-files` folder inside `bulk-filing-demo`:
 | `tata-capital-bulk-filing-template.xlsx` | 12 cases in the court's template, some with a second accused, cheque or witness. Goes straight in. |
 | `tata-capital-recovery-mis.xlsx` | The same 12 cases in a lender's own report layout, with a second cheque. Needs matching. |
 
-**Things that happen more than once.** A case can have more than one accused, cheque,
+**Things that happen more than once.** Some cases have more than one accused, cheque,
 demand notice, witness or complainant. In the sheet, the second one is the same columns
-again with `_2` at the end (`Cheque number_2`), the third `_3`, and so on. An accused's
+again with `_2` at the end (`Cheque number_2`), the third `_3`, and so on. This is per case:
+only the cases that have a second cheque fill `Cheque number_2`; the rest leave it blank. An accused's
 second address is `Accused address_1_2` (first accused, second address). The template's
 **Instructions** sheet lists which columns can repeat.
 
@@ -210,10 +211,12 @@ template**.
 
 1. **Upload Excel** again and choose `tata-capital-recovery-mis.xlsx`.
 2. A **Match your columns** screen appears.
-   - At the top, **Found in your file** says what the file holds: 1 accused, 2 cheques, 1
-     demand notice. If a count is wrong, use **−** and **+** to correct it.
-   - Each row reads, left to right: the field in the case (ON Courts mark), an arrow, the
-     column in your sheet (Excel mark), and the first value found there.
+   - At the top, **Found in your file** says what it found: every case has 1 accused, 1
+     cheque and 1 demand notice, and 1 of the 12 cases has a second cheque. The counts are
+     the most any case has; if one is wrong, use **−** and **+** to correct it.
+   - Each row reads, left to right: the field in the case (ON Courts mark), an arrow, and
+     the column in your sheet (Excel mark). The dropdown shows each column's first value,
+     so you can pick by what it holds; once chosen, that value shows under it.
    - **Required fields** come first, with how many are matched. Twelve are matched already by
      name. Match the rest:
 

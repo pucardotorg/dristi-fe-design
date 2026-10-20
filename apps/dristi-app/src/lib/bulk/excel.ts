@@ -157,6 +157,7 @@ export async function buildTemplate(): Promise<Blob> {
   rules.addRow({ header: "A second cheque, accused, notice, witness or other pending case: add the same columns with _2 after the name (Cheque number_2), _3 for a third, and so on." });
   rules.addRow({ header: "An accused's second address or person responsible takes two numbers: Accused address_1_2 is accused 1's second address; Accused address_2 is accused 2's first." });
   rules.addRow({ header: "Further complainants: Complainant name_2 and the other complainant columns. Complainant 1 is chosen on screen when you upload." });
+  rules.addRow({ header: "Repeats are per case. Add as many _2, _3 columns as the case with the most needs; every other case leaves them blank, and a blank set adds nothing to that case." });
   rules.addRow({ header: "Row 2 says what each column takes and row 3 is an example. Both are skipped on upload, so they can stay." });
   rules.addRow({ header: "Not in the sheet: cause of action, filing date, delay and fees (the system computes them), and documents (added after upload)." });
 
