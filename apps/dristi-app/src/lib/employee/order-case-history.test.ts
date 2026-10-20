@@ -32,7 +32,9 @@ test("orders and events merge oldest first, and the newest order is the last ord
   );
   assert.equal(entries.filter((entry) => entry.last).length, 1);
   assert.equal(entries.at(-1)?.last, true);
-  assert.equal(entries[0].type, "case");
+  assert.equal(entries[0].type, "filing");
+  assert.equal(entries.at(-1)?.label, "Order Issued");
+  assert.equal(entries.at(-1)?.type, "orders");
   assert.equal(entries.find((e) => e.id === "cognizance-taken")?.kind, "order");
   assert.equal(
     entries.find((e) => e.id === "cognizance-taken")?.caseFileDoc,
@@ -51,7 +53,7 @@ test("the demo listing's example events follow its last order", () => {
   assert.equal(entries.length, 3);
   assert.deepEqual(
     entries.slice(1).map((entry) => entry.type),
-    ["application", "document"],
+    ["submissions", "submissions"],
   );
 });
 

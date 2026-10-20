@@ -13,6 +13,7 @@ import { OrderDataFlags } from "@/components/employee/order-data-flags";
 import { useHearingSession } from "@/components/employee/use-hearing-session";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   DescriptionDetails,
   DescriptionList,
@@ -57,8 +58,8 @@ import {
  * `shadow-modal` sheet is depth spent twice, so the overlay cards stay flat, and
  * the radius steps down with the nesting (ui-craft §4).
  *
- * One set of sections, two dresses — rather than a second composition of the same
- * facts, which is how two surfaces holding one case start disagreeing about it.
+ * One tabbed panel, two dresses (`TABS_FRAME`) — rather than a second composition of the
+ * same facts, which is how two surfaces holding one case start disagreeing about it.
  */
 /**
  * `panel`: inside another panel's tab — the order composer's case file. The tab is the
@@ -66,23 +67,12 @@ import {
  */
 export type HearingOverviewSurface = "page" | "overlay" | "panel";
 
-const PANEL: Record<HearingOverviewSurface, string> = {
-  page: "min-w-0 rounded-xl border border-hairline bg-card p-6 shadow-raised",
-  overlay: "min-w-0 rounded-lg bg-card p-4",
-  panel: "min-w-0",
-};
-
 /**
- * Type, by surface. On a page and in the overlay a section reads at the body size; in a
- * panel's tab it steps down to the 14px the panel's other tabs read at — headings,
- * terms and values alike — so the Overview is not the one tab shouting (owner,
- * 2026-10-14).
+ * Type, by surface. On a page and in the overlay text reads at the body size; in a
+ * panel's tab it steps down to the 14px the panel's other tabs read at, so no tab is
+ * the one shouting (owner, 2026-10-14). The overview's Case details now sit in a tab of
+ * their own, so they take the tab's size on both surfaces.
  */
-const HEADING: Record<HearingOverviewSurface, string> = {
-  page: "text-body font-semibold",
-  overlay: "text-body font-semibold",
-  panel: "text-body-compact font-semibold",
-};
 const BODY: Record<HearingOverviewSurface, string> = {
   page: "text-body",
   overlay: "text-body",
@@ -260,13 +250,17 @@ export function HearingOverviewCaption({ hearing }: { hearing: CourtHearing }) {
 }
 
 /**
- * What is in this case — the sections, on whichever surface is asking.
+ * What is in this case, on whichever surface is asking: one panel with three tabs, as
+ * the order screen's side panel has (`ORD-15`, `CLS-11`; owner, 2026-10-20) —
  *
- * The case history, the data flags, then the case's details, each the full width
- * (`CLS-11`). The history
- * is the order screen's Case history tab, which took over the overview's own history
- * and its Last hearing section: the last order is highlighted in it, and its filter
- * narrows it to the orders.
+ * - **Case history**, the order screen's own tab (`OrderCaseHistory`): the full history,
+ *   the last order highlighted, a filter to show only orders. It opens on this tab.
+ * - **Case details** — stage, parties with their advocates, cheque amount, filing date.
+ * - **Data flags**, the order screen's own empty state: not yet defined.
+ *
+ * View all orders sits at the end of the tab strip and opens the case's Orders in a new
+ * tab. Each tab scrolls inside a fixed height, so moving between them does not move the
+ * rest of the overview, and the history can open at the last order.
  */
 export function HearingOverviewSections({
   hearing,
@@ -278,24 +272,64 @@ export function HearingOverviewSections({
   const extras = hearingCaseExtras(hearing.id);
 
   return (
-    /* `gap-8` is the page's section break. Inside the overlay the sections are cards
-       on the sheet's sunken body rather than separate lifted panels, so they close
-       to `gap-4` — the step the sheet's own padding is set at. */
-    <div
-      className={`flex min-w-0 flex-col ${
-        surface === "page" ? "gap-8" : "gap-4"
-      }`}
-    >
-      <CaseHistoryPanel hearing={hearing} surface={surface} />
-      <DataFlagsPanel surface={surface} />
-      <CaseFactsPanel
-        hearing={hearing}
-        extras={extras}
-        surface={surface}
-      />
-    </div>
+    <Tabs defaultValue="history" className={`${TABS_FRAME[surface]} gap-0`}>
+      {/* The order screen's line tabs, on their own rule (`order-case-panel.tsx`). */}
+      <div className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-hairline pr-4 pl-1">
+        <TabsList
+          variant="line"
+          aria-label="About this case"
+          className="h-14 justify-start rounded-none p-0 group-data-horizontal/tabs:h-14"
+        >
+          <TabsTrigger value="history" className={TAB_TRIGGER}>
+            Case history
+          </TabsTrigger>
+          <TabsTrigger value="details" className={TAB_TRIGGER}>
+            Case details
+          </TabsTrigger>
+          <TabsTrigger value="data-flags" className={TAB_TRIGGER}>
+            Data flags
+          </TabsTrigger>
+        </TabsList>
+        {/* Every order on the case, in the case's own Orders tab — a browser tab of its
+            own, as View case opens, so the overview stays where the bench left it. */}
+        <Button asChild variant="link" size="sm" className="h-auto shrink-0 px-0">
+          <a href={HEARING_DEMO_CASE_ORDERS_HREF} target="_blank" rel="noopener">
+            View all orders
+            <span className="sr-only"> (opens in a new tab)</span>
+            <ExternalLinkIcon data-icon="inline-end" aria-hidden />
+          </a>
+        </Button>
+      </div>
+      {/* A column, so an order opened in the history can fill it (`OrderCaseHistory`). */}
+      <TabsContent value="history" className={TAB_BODY}>
+        <OrderCaseHistory hearing={hearing} />
+      </TabsContent>
+      <TabsContent value="details" className={TAB_BODY}>
+        <CaseFactsPanel hearing={hearing} extras={extras} surface="panel" />
+      </TabsContent>
+      <TabsContent value="data-flags" className={TAB_BODY}>
+        <OrderDataFlags />
+      </TabsContent>
+    </Tabs>
   );
 }
+
+/** The tabbed panel's frame, by surface: the section recipe without its padding. */
+const TABS_FRAME: Record<HearingOverviewSurface, string> = {
+  page: "min-w-0 overflow-hidden rounded-xl border border-hairline bg-card shadow-raised",
+  /* In the sheet it gives way to fit the window, down to a floor that still shows a
+     few lines of history; below that the sheet scrolls. */
+  overlay: "min-h-80 min-w-0 overflow-hidden rounded-lg bg-card",
+  panel: "min-w-0",
+};
+const TAB_TRIGGER =
+  "h-full flex-none px-3 text-body-compact group-data-horizontal/tabs:after:-bottom-px";
+/** A fixed height, the same on every tab; `p-4` is what the history's pinned filter
+    expects of the box it scrolls in, as in the order screen's tab. */
+const TAB_BODY = "flex h-[28rem] min-h-0 flex-col overflow-y-auto p-4";
+
+const HEARING_DEMO_CASE_ORDERS_HREF =
+  "/employee/cases/c-1001?section=orders-and-notifications";
 
 /**
  * The overview's one way further into the case: the court's case view, opened on its
@@ -366,13 +400,12 @@ function CaseFactsPanel({
   );
 
   return (
+    /* In its tab: the tab is its frame and names it, so no panel and a hidden heading. */
     <section
-      className={`${PANEL[surface]} flex flex-col gap-2 ${className ?? ""}`}
+      className={`flex min-w-0 flex-col gap-2 ${className ?? ""}`}
       aria-labelledby="case-facts"
     >
-      {/* `gap-2` and not the section default: the list's own rows already carry
-          `py-3`, so a full step here would open a 28px hole under the heading. */}
-      <h2 id="case-facts" className={HEADING[surface]}>
+      <h2 id="case-facts" className="sr-only">
         Case details
       </h2>
       <DescriptionList>
@@ -474,69 +507,5 @@ function PartyRow({
         ) : null}
       </DescriptionDetails>
     </DescriptionRow>
-  );
-}
-
-/**
- * The case history — the order screen's Case history tab, the same component
- * (`OrderCaseHistory`, `ORD-15`), and not a second reading of it (`CLS-11`): the full
- * history, oldest first, the case's last order on its well, and the filter that narrows
- * it to orders. It replaces the overview's own history and its Last hearing section.
- *
- * The tab scrolls inside the panel beside the order; here the history scrolls in a box of
- * its own, so it can open at the last order without moving the rest of the overview. The
- * box reaches the panel's edges and takes over its padding (`HISTORY_BOX`), so the
- * filter pins across the full width as it does in the tab. A fixed height rather than a
- * cap: an order read whole opens in the history's place and fills it.
- */
-const HISTORY_BOX: Record<HearingOverviewSurface, string> = {
-  /* `pt-4` on both: the filter pins against a 1rem top inset, as in the tab. */
-  page: "-mx-6 -mb-6 px-6 pt-4 pb-6",
-  overlay: "-mx-4 -mb-4 p-4",
-  panel: "",
-};
-
-function CaseHistoryPanel({
-  hearing,
-  surface,
-  className,
-}: {
-  hearing: CourtHearing;
-  surface: HearingOverviewSurface;
-  className?: string;
-}) {
-  return (
-    <section
-      className={`${PANEL[surface]} flex flex-col gap-2 ${className ?? ""}`}
-      aria-labelledby="case-history"
-    >
-      <h2 id="case-history" className={HEADING[surface]}>
-        Case history
-      </h2>
-      <div
-        data-history-scroller
-        className={`flex h-[28rem] min-h-0 flex-col overflow-y-auto ${HISTORY_BOX[surface]}`}
-      >
-        <OrderCaseHistory hearing={hearing} labelledBy="case-history" />
-      </div>
-    </section>
-  );
-}
-
-/**
- * The order screen's Data flags tab (`ORD-15`), here too (`CLS-11`) — the same empty
- * state, since what it shows is not decided.
- */
-function DataFlagsPanel({ surface }: { surface: HearingOverviewSurface }) {
-  return (
-    <section
-      className={`${PANEL[surface]} flex flex-col gap-4`}
-      aria-labelledby="data-flags"
-    >
-      <h2 id="data-flags" className={HEADING[surface]}>
-        Data flags
-      </h2>
-      <OrderDataFlags where="section" />
-    </section>
   );
 }

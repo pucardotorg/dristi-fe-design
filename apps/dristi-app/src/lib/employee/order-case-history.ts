@@ -32,28 +32,30 @@ const ORDER_EVENT_DOCS: Partial<Record<string, string>> = {
 };
 
 /**
- * The kinds of entry the history can be narrowed to — the filter's options, in the order
- * it lists them. Read off each entry rather than the catalogue, which this build does not
- * hold: a new kind of event is a new entry here.
+ * What the history can be narrowed to: the event catalogue's categories (PUCAR Dashboard
+ * 2027 — Events/Case Updates, its Category column), in the catalogue's order. The filter
+ * offers only those a case has.
  */
 export const HISTORY_TYPES = [
-  { value: "order", label: "Orders" },
-  { value: "application", label: "Applications" },
-  { value: "document", label: "Documents" },
+  { value: "filing", label: "Filing" },
+  { value: "orders", label: "Orders" },
+  { value: "submissions", label: "Submissions" },
   { value: "process", label: "Process" },
-  { value: "party", label: "Parties" },
-  { value: "case", label: "Case filing" },
+  { value: "parties", label: "Parties" },
+  { value: "hearing", label: "Hearing" },
 ] as const;
 
 export type HistoryType = (typeof HISTORY_TYPES)[number]["value"];
 
-/** Which kind each catalogue event in the court's record is. */
+/** Each catalogue event in the court's record, by the catalogue's category. */
 const EVENT_TYPES: Partial<Record<string, HistoryType>> = {
-  "case-filed": "case",
-  "case-registered": "case",
+  "case-filed": "filing",
+  "case-registered": "filing",
+  "cognizance-taken": "orders",
+  "summons-issued": "process",
   "summons-delivered": "process",
-  "accused-joined": "party",
-  "bail-onboarded": "application",
+  "accused-joined": "parties",
+  "bail-onboarded": "submissions",
 };
 
 /**
@@ -70,13 +72,13 @@ const EXAMPLE_LATER_EVENTS: Partial<
       id: "example-exemption-onboarded",
       on: "2026-08-27",
       label: "Application - Exemption from appearance onboarded",
-      type: "application",
+      type: "submissions",
     },
     {
       id: "example-return-memo-filed",
       on: "2026-09-03",
-      label: "Document - Original bank return memo filed",
-      type: "document",
+      label: "Documents Submitted by Complainant",
+      type: "submissions",
     },
   ],
 };
@@ -115,7 +117,7 @@ export function orderCaseHistory(
               on: step.on,
               label: step.label,
               kind: "order",
-              type: "order",
+              type: EVENT_TYPES[step.id] ?? "orders",
               caseFileDoc: doc,
             }
           : {
@@ -139,9 +141,10 @@ export function orderCaseHistory(
         (sitting): OrderHistoryEntry => ({
           id: `order-${sitting.on}`,
           on: sitting.on,
-          label: `Order of the day · ${sitting.purpose}`,
+          /* The catalogue's event for an order the magistrate passed. */
+          label: "Order Issued",
           kind: "order",
-          type: "order",
+          type: "orders",
           text: sitting.order,
         }),
       ),
