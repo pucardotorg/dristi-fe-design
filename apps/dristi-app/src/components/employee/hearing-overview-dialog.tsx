@@ -145,6 +145,21 @@ function HearingOverviewBody({
     <StagedOverlay
       outsideCloses
       className="sm:max-w-4xl"
+      /* The case history's type filter (`OrderCaseHistory`) and Next hearing's purpose
+         portal their lists outside the sheet. A press on one is not a press outside,
+         and the Escape that closes an open list closes only the list; a second Escape
+         closes the sheet — the join flow's guard (`join-case-dialog.tsx`). */
+      onInteractOutside={(event) => {
+        if (
+          event.target instanceof Element &&
+          event.target.closest('[data-slot="combobox-content"]')
+        )
+          event.preventDefault();
+      }}
+      onEscapeKeyDown={(event) => {
+        if (document.querySelector('[data-slot="combobox-content"]'))
+          event.preventDefault();
+      }}
       /* The chip rides with the cause title, the same thought in the same order as the
          page: this matter, and where it stands on today's list. */
       title={causeTitle(hearing)}
