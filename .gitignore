@@ -36,3 +36,8 @@ apps/dristi-app/public/vendor/
 # settle live in the brief under docs/design/proposals/, which *is* tracked.
 docs/design/explorations/*
 !docs/design/explorations/README.md
+
+# bulk filing demo: server-side batch store, and the Provakil mock's build output
+apps/dristi-app/.data/
+apps/provakil-mock/.next/
+apps/provakil-mock/.data/

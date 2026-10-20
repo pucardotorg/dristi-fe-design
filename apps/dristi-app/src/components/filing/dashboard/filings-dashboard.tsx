@@ -30,14 +30,34 @@ import {
 } from "@/components/shell/page-frame";
 import { cn } from "@/lib/utils";
 import { useCourt } from "@/components/court/court-provider";
+import type { BatchSummary } from "@/components/bulk/api";
+import { toLongDate } from "@/lib/filing/format";
 
 /**
- * No client has pushed a batch across, because nothing in the app can receive one yet.
- * The card renders its empty state until that question is answered — see
- * docs/design/proposals/e-filing.md, W4. Do not seed this with an example batch: the
- * screen would then claim a capability the product does not have.
+ * The most recent bulk batch, read from the batch store (`/api/bulk/batches`) — a client's
+ * API push or an Excel upload. Bulk filing is built (docs/design/features/bulk-filing.md).
  */
-const BATCH: BulkBatch | null = null;
+function useLatestBatch(): BulkBatch | null {
+  const [batch, setBatch] = React.useState<BulkBatch | null>(null);
+  React.useEffect(() => {
+    fetch("/api/bulk/batches", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((list: BatchSummary[]) => {
+        const b = list.find((x) => !x.clubbedInto);
+        if (!b) return;
+        setBatch({
+          id: b.id,
+          client: b.client,
+          what: `${b.total} × cheque bounce (S-138, NI Act)`,
+          receivedOn: toLongDate(b.createdAt.slice(0, 10)),
+          via: b.source.kind === "api" ? `${b.source.system} API` : b.source.kind === "excel" ? "Excel upload" : "clubbing",
+          counts: b.counts,
+        });
+      })
+      .catch(() => undefined);
+  }, []);
+  return batch;
+}
 
 /**
  * File a case — the entry to e-filing and the state of everything already filed.
@@ -51,6 +71,7 @@ const BATCH: BulkBatch | null = null;
 export function FilingsDashboard() {
   // What a pending payment costs follows the selected state's schedule (Settings).
   const courtFees = useCourt().profile.fees;
+  const latestBatch = useLatestBatch();
   const mounted = useMounted();
   const { profile } = useProfile();
   const { ready, error, readAt, drafts, discard, reload } = useDrafts();
@@ -95,7 +116,7 @@ export function FilingsDashboard() {
 
       <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-2">
         <StartFilingCard />
-        <BulkImportCard batch={BATCH} />
+        <BulkImportCard batch={latestBatch} />
       </div>
 
       {/* Gated on the drafts read only. Cases are a static import and the tasks store

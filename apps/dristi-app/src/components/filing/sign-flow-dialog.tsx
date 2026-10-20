@@ -160,6 +160,7 @@ const INSTRUMENT_LABEL: Record<SignInstrument, string> = {
   aadhaar: "Signed with Aadhaar OTP",
   dsc: "Signed with a DSC",
   paper: "Signed on paper",
+  otp: "Signed with mobile OTP",
 };
 
 export function SignFlowDialog({
