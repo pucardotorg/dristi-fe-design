@@ -45,7 +45,6 @@ import {
   InputOTPGroup,
   InputOTPSlot,
 } from "@/components/ui/input-otp";
-import { Progress } from "@/components/ui/progress";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -118,6 +117,7 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
     () => new Set(clear.map((c) => c.id)),
   );
   const [method, setMethod] = React.useState<BulkSignMethod>("mobile-otp");
+  const justSigned = React.useRef<string[]>([]);
   const [flowOpen, setFlowOpen] = React.useState(false);
 
   // Re-select everything when the set on offer changes — adjusted during render, not in
@@ -392,6 +392,7 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
         signers={signers}
         onClose={() => setFlowOpen(false)}
         onDone={async () => {
+          justSigned.current = chosen.map((c) => c.id);
           const next = await bulkApi.act(batch.id, {
             action: "sign",
             method,
@@ -399,9 +400,10 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
           });
           setBatch(next);
         }}
+        // Pay opens on the cases just signed, not every signed case in the batch.
         onPay={() => {
           setFlowOpen(false);
-          go("pay");
+          go("pay", justSigned.current.join(","));
         }}
       />
     </div>
@@ -504,7 +506,15 @@ function SignFlow({
   };
 
   const step = steps[at];
-  const total = method === "upload" ? 1 : steps.length;
+  // The people signing, in the order the steps take them, and who is signing now.
+  const signerOrder = steps.reduce<Signer[]>(
+    (acc, x) =>
+      acc.some((y) => y.id === x.signer.id) ? acc : [...acc, x.signer],
+    [],
+  );
+  const signerAt = step
+    ? signerOrder.findIndex((x) => x.id === step.signer.id)
+    : 0;
   const matchedAll = cases.every((c) => uploads[c.id]);
 
   return (
@@ -663,89 +673,172 @@ function SignFlow({
           </>
         ) : step ? (
           <>
+            {/* The window is about the people signing: each signs every case, one after
+                another, so each is a row; the one signing now holds the code field. */}
             <DialogHeader>
               <DialogTitle>
+                Sign {cases.length} case{cases.length === 1 ? "" : "s"} with{" "}
                 {method === "dsc"
-                  ? "Sign with DSC"
+                  ? "DSC"
                   : method === "aadhaar"
                     ? "Aadhaar eSign"
-                    : "Sign with mobile OTP"}
+                    : "mobile OTP"}
               </DialogTitle>
-              <DialogDescription>
-                {step.signer.name} · {step.signer.role}
-                {method === "mobile-otp" && signers.length > 1
-                  ? `. Signs for ${signers
-                      .filter((s) => s.id !== step.signer.id)
-                      .map((s) => s.name)
-                      .join(" and ")} too.`
-                  : ""}
+              <DialogDescription className="tabular-nums">
+                {cases
+                  .slice(0, 3)
+                  .map((c) => c.reference)
+                  .join(", ")}
+                {cases.length > 3 ? ` and ${cases.length - 3} more` : ""}
               </DialogDescription>
             </DialogHeader>
-            <div className="flex flex-col gap-1" aria-live="polite">
-              <Progress
-                value={(at / total) * 100}
-                aria-label="Signing progress"
-              />
-              <span className="text-caption text-muted-foreground tabular-nums">
-                Step {at + 1} of {total}
-                {method === "aadhaar"
-                  ? ` · round ${step.round} of ${step.rounds} for this signer`
-                  : ""}
-              </span>
-            </div>
-            <div className="rounded-lg border border-hairline bg-surface-sunken p-4 text-body-compact">
-              <div className="mb-2 font-medium">
-                {method === "aadhaar"
-                  ? `These ${step.cases.length} cases`
-                  : `All ${step.cases.length} cases`}
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {step.cases.slice(0, 12).map((c) => (
-                  <Badge key={c.id} variant="outline" className="tabular-nums">
-                    {c.reference}
-                  </Badge>
-                ))}
-                {step.cases.length > 12 ? (
-                  <Badge variant="outline">
-                    +{step.cases.length - 12} more
-                  </Badge>
-                ) : null}
-              </div>
-            </div>
-            {method === "dsc" ? (
-              <Field className="gap-1.5">
-                <FieldLabel htmlFor="dsc-pin">DSC token PIN</FieldLabel>
-                <Input
-                  id="dsc-pin"
-                  type="password"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                />
-                <span className="text-caption text-muted-foreground">
-                  Sandbox: any 6 digits. Token detected: ePass 2003 Auto.
-                </span>
-              </Field>
-            ) : (
-              <Field className="gap-1.5">
-                <FieldLabel>
-                  {method === "aadhaar"
-                    ? "OTP sent to the Aadhaar-linked mobile"
-                    : `OTP sent to ${tail(step.signer.mobile)}`}
-                </FieldLabel>
-                <InputOTP maxLength={6} value={code} onChange={setCode}>
-                  <InputOTPGroup>
-                    {Array.from({ length: 6 }, (_, i) => (
-                      <InputOTPSlot key={i} index={i} />
-                    ))}
-                  </InputOTPGroup>
-                </InputOTP>
-                <span className="text-caption text-muted-foreground">
-                  Sandbox: any 6 digits.
-                </span>
-              </Field>
-            )}
+
+            <ol
+              className="flex flex-col divide-y divide-hairline rounded-lg border border-hairline"
+              aria-live="polite"
+            >
+              {(() => {
+                const list =
+                  method === "mobile-otp"
+                    ? [
+                        step.signer,
+                        ...signers.filter((x) => x.id !== step.signer.id),
+                      ]
+                    : signerOrder;
+                return list.map((x, k) => {
+                  const covered =
+                    method === "mobile-otp" && x.id !== step.signer.id;
+                  const state = covered
+                    ? "covered"
+                    : k < signerAt
+                      ? "done"
+                      : k === signerAt
+                        ? "now"
+                        : "next";
+                  return (
+                    <li
+                      key={x.id}
+                      className={cn(
+                        "relative flex flex-col gap-3 p-4",
+                        state === "now" && "bg-accent",
+                      )}
+                    >
+                      {/* The thread from one signer to the next, green once they have signed. */}
+                      {k < list.length - 1 ? (
+                        <span
+                          aria-hidden
+                          className={cn(
+                            "absolute top-12 bottom-0 left-8 w-0.5 -translate-x-1/2 translate-y-4",
+                            state === "done" ? "bg-success" : "bg-hairline",
+                          )}
+                        />
+                      ) : null}
+                      <div className="flex items-center gap-3">
+                        <span
+                          aria-hidden
+                          className={cn(
+                            "relative z-10 flex size-8 shrink-0 items-center justify-center rounded-full text-body-compact font-semibold tabular-nums",
+                            state === "done" &&
+                              "bg-success text-success-foreground",
+                            state === "now" &&
+                              "bg-primary text-primary-foreground",
+                            (state === "next" || state === "covered") &&
+                              "border border-hairline bg-card text-muted-foreground",
+                          )}
+                        >
+                          {state === "done" ? (
+                            <CheckIcon className="size-4" />
+                          ) : (
+                            k + 1
+                          )}
+                        </span>
+                        <span className="flex min-w-0 flex-1 flex-col">
+                          <span
+                            className={cn(
+                              "text-body-compact",
+                              state === "now" ? "font-semibold" : "font-medium",
+                              state === "next" && "text-muted-foreground",
+                            )}
+                          >
+                            {x.name}
+                          </span>
+                          <span className="truncate text-caption text-muted-foreground">
+                            {x.role}
+                          </span>
+                        </span>
+                        <span
+                          className={cn(
+                            "shrink-0 text-caption",
+                            state === "done"
+                              ? "text-success-ink"
+                              : state === "now"
+                                ? "font-medium text-foreground"
+                                : "text-muted-foreground",
+                          )}
+                        >
+                          {state === "done"
+                            ? "Signed"
+                            : state === "now"
+                              ? "Signing now"
+                              : state === "covered"
+                                ? "Signed by the same OTP"
+                                : "Next"}
+                        </span>
+                      </div>
+                      {state === "now" ? (
+                        <div className="flex flex-col gap-1.5 pl-11">
+                          {method === "dsc" ? (
+                            <Field className="gap-1.5">
+                              <FieldLabel htmlFor="dsc-pin">
+                                {x.name}&apos;s DSC token PIN
+                              </FieldLabel>
+                              <Input
+                                id="dsc-pin"
+                                type="password"
+                                inputMode="numeric"
+                                autoComplete="off"
+                                value={code}
+                                onChange={(e) => setCode(e.target.value)}
+                                className="max-w-56"
+                              />
+                            </Field>
+                          ) : (
+                            <Field className="gap-1.5">
+                              <FieldLabel>
+                                {method === "aadhaar"
+                                  ? `OTP sent to ${x.name}'s Aadhaar-linked mobile`
+                                  : `OTP sent to ${tail(x.mobile)}`}
+                              </FieldLabel>
+                              <InputOTP
+                                maxLength={6}
+                                value={code}
+                                onChange={setCode}
+                              >
+                                <InputOTPGroup>
+                                  {Array.from({ length: 6 }, (_, i) => (
+                                    <InputOTPSlot key={i} index={i} />
+                                  ))}
+                                </InputOTPGroup>
+                              </InputOTP>
+                            </Field>
+                          )}
+                          {step.rounds > 1 ? (
+                            <span className="text-caption text-muted-foreground tabular-nums">
+                              OTP {step.round} of {step.rounds}:{" "}
+                              {step.cases.length} case
+                              {step.cases.length === 1 ? "" : "s"}
+                            </span>
+                          ) : null}
+                          <span className="text-caption text-muted-foreground">
+                            Sandbox: any 6 digits.
+                          </span>
+                        </div>
+                      ) : null}
+                    </li>
+                  );
+                });
+              })()}
+            </ol>
             {error ? (
               <p className="text-body-compact text-destructive-ink">{error}</p>
             ) : null}
@@ -758,9 +851,7 @@ function SignFlow({
                 onClick={() => void next()}
               >
                 {busy ? <Spinner data-icon="inline-start" /> : null}
-                {method === "aadhaar"
-                  ? `Sign these ${step.cases.length}`
-                  : `Sign all ${step.cases.length}`}
+                Sign as {step.signer.name.split(" ")[0]}
               </Button>
             </DialogFooter>
           </>
