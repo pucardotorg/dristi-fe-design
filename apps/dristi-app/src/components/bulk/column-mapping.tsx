@@ -3,6 +3,7 @@
 import * as React from "react";
 import {
   ArrowDownIcon,
+  CheckIcon,
   HashIcon,
   ArrowRightIcon,
   ChevronDownIcon,
@@ -38,12 +39,7 @@ import { BrandGlyph } from "@/components/brand-lockup";
 import { PANEL_CLASS } from "@/components/filing/form-card";
 import { Card } from "@/components/ui/card";
 import { SectionTabs } from "@/components/filing/section-tabs";
-import {
-  RAIL_ROW,
-  RAIL_ROW_ACTIVE,
-  SectionMark,
-} from "@/components/filing/sections-rail";
-import type { SectionState } from "@/lib/filing/selectors";
+import { RAIL_ROW, RAIL_ROW_ACTIVE } from "@/components/filing/sections-rail";
 import { getStep, type StepId } from "@/lib/filing/steps";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -533,23 +529,26 @@ export function ColumnMapping(props: Props) {
   const nav = shown.filter(
     (g, k) => shown.findIndex((x) => navKey(x) === navKey(g)) === k,
   );
-  const navState = (key: string): SectionState => {
-    const gs = shown.filter((g) => navKey(g) === key);
-    const tabs = gs.flatMap((g) =>
-      (g.repeats ? instances[g.id] : [firstInstance(g)]).map((i) => ({ g, i })),
-    );
-    const any = tabs.some(({ g, i }) =>
-      COLUMNS.some(
-        (c) =>
-          c.group === g.id &&
-          sourceFor(c, i, props.map, props.headers) !== null,
-      ),
-    );
-    return tabs.length && tabs.every(({ g, i }) => tabDone(g, i))
-      ? "done"
-      : any
-        ? "started"
-        : "untouched";
+  // How many of a section's required fields are matched, across its tabs and the parts
+  // inside them (an accused's address). A section with none required counts every field.
+  const navCount = (key: string): { n: number; of: number } => {
+    const gs = shown
+      .filter((g) => navKey(g) === key)
+      .flatMap((g) => [g, ...children(g).filter((c) => c.always)]);
+    const slots = gs.flatMap((g) => {
+      const cols = COLUMNS.filter((c) => c.group === g.id);
+      const need = cols.filter(isRequired);
+      const inst = g.repeats ? instances[g.id] : [firstInstance(g)];
+      return (need.length ? need : cols).flatMap((c) =>
+        inst.map((i) => ({ c, i })),
+      );
+    });
+    return {
+      n: slots.filter(
+        ({ c, i }) => sourceFor(c, i, props.map, props.headers) !== null,
+      ).length,
+      of: slots.length,
+    };
   };
   const [activeNav, setActiveNav] = React.useState("case");
   const cardsRef = React.useRef<HTMLDivElement>(null);
@@ -658,7 +657,21 @@ export function ColumnMapping(props: Props) {
                       <span className="min-w-0 truncate">
                         {step?.title ?? "Case"}
                       </span>
-                      <SectionMark state={navState(key)} />
+                      {(() => {
+                        // Said in numbers, not a mark to decode: "2 of 5", or a tick when all are.
+                        const { n, of } = navCount(key);
+                        return n === of && of > 0 ? (
+                          <span className="ml-auto flex items-center gap-1 text-caption text-success-ink">
+                            <CheckIcon className="size-4" aria-hidden />
+                            <span className="sr-only">all {of} matched</span>
+                          </span>
+                        ) : (
+                          <span className="ml-auto text-caption tabular-nums text-muted-foreground">
+                            {n} of {of}
+                            <span className="sr-only"> matched</span>
+                          </span>
+                        );
+                      })()}
                     </Button>
                   </li>
                 );
