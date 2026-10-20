@@ -6,7 +6,16 @@
  * from a batch carries the same record as one filed alone (PRD §1).
  */
 
-import { blankRepresentative, buildDocumentGroups } from "@/lib/filing/blank";
+import {
+  blankAccused,
+  blankAddressBlock,
+  blankCheque,
+  blankNotice,
+  blankRepresentative,
+  blankWitness,
+  buildDocumentGroups,
+  intakeChequeGroup,
+} from "@/lib/filing/blank";
 import { newCaseFileNumber, newId, newPaymentRef } from "@/lib/filing/data";
 import { DELIVERY_CHANNEL } from "@/lib/filing/options";
 import {
@@ -387,4 +396,46 @@ export function clubBatches(all: Batch[], ids: string[], at: string): { all: Bat
   });
   next.push(result);
   return { all: next, result };
+}
+
+/* ───────────────────────────── Parts of a case ───────────────────────────── */
+
+export type Part = "accused" | "address" | "cheque" | "notice" | "witness";
+
+/**
+ * Add or remove a part of a case, as the single filing's Add and remove do. A cheque
+ * comes with its document slots, as at intake. Only the last of a kind is removed, so
+ * the numbering and each cheque's documents stay in step; a case keeps at least one
+ * accused (with one address), cheque and notice.
+ */
+export function changePart(d: FilingDraft, op: "add" | "remove", part: Part, accused = 0): string | null {
+  const keep: Record<Part, number> = { accused: 1, address: 1, cheque: 1, notice: 1, witness: 0 };
+  const list =
+    part === "accused"
+      ? d.accused
+      : part === "address"
+        ? d.accused[accused]?.addresses
+        : part === "cheque"
+          ? d.cheques
+          : part === "notice"
+            ? d.notices
+            : d.witnesses;
+  if (!list) return "No such accused.";
+  if (op === "remove") {
+    if (list.length <= keep[part]) return `A case needs at least ${keep[part]} ${part}.`;
+    list.pop();
+    if (part === "cheque") d.intake.cheques.pop();
+    d.documents = buildDocumentGroups(d);
+    return null;
+  }
+  if (part === "accused") d.accused.push(blankAccused());
+  else if (part === "address") d.accused[accused].addresses.push(blankAddressBlock());
+  else if (part === "cheque") {
+    d.cheques.push(blankCheque());
+    d.intake.cheques.push(intakeChequeGroup(d.cheques.length));
+  } else if (part === "notice") d.notices.push(blankNotice());
+  else d.witnesses.push(blankWitness());
+  // The documents follow the parts: a new cheque brings its cheque, memo and notice papers.
+  d.documents = buildDocumentGroups(d);
+  return null;
 }

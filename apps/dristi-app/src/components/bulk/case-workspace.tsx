@@ -13,10 +13,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { bulkApi, type BatchView } from "./api";
+import { Slot } from "./documents-tab";
 import { CaseEditor, detailFlags, pathOf } from "./scrutiny-tab";
-import { StageBadge } from "./stage";
+import { CaseBadge } from "./stage";
 
-type View = "details" | "review";
+type View = "details" | "documents" | "review";
 
 /**
  * One case of a batch, in two views: Details, every field editable in the single filing's
@@ -105,11 +106,27 @@ export function CaseWorkspace({
     }
   };
 
+  const [uploading, setUploading] = React.useState<string | null>(null);
+  const attach = async (slotKey: string, file: File) => {
+    setUploading(slotKey);
+    setError(null);
+    try {
+      setBatch(await bulkApi.attach(batch.id, c.id, slotKey, file));
+      await loadDrafts();
+    } catch (e) {
+      setError(`${file.name}: ${(e as Error).message}`);
+    } finally {
+      setUploading(null);
+    }
+  };
+
   const act = async (body: Record<string, unknown>) => {
     setBusy(true);
     setError(null);
     try {
       setBatch(await bulkApi.act(batch.id, body));
+      // Review reads the draft; a part added or removed changes it.
+      if (body.action === "part") await loadDrafts();
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -155,7 +172,7 @@ export function CaseWorkspace({
           <div className="ml-2 flex min-w-0 flex-1 flex-col">
             <div className="flex min-w-0 items-center gap-2">
               <span className="truncate">{title(c.title)}</span>
-              <StageBadge stage={c.stage} />
+              <CaseBadge c={c} />
             </div>
             <span className="truncate text-body-compact text-muted-foreground tabular-nums">
               {c.reference}
@@ -167,6 +184,12 @@ export function CaseWorkspace({
         <Tabs value={view} onValueChange={(v) => setView(v as View)}>
           <TabsList variant="line">
             <TabsTrigger value="details">Details</TabsTrigger>
+            <TabsTrigger value="documents">
+              Documents
+              <span className="tabular-nums text-muted-foreground">
+                {c.docs.have}/{c.docs.need}
+              </span>
+            </TabsTrigger>
             <TabsTrigger value="review">Review</TabsTrigger>
           </TabsList>
         </Tabs>
@@ -190,6 +213,27 @@ export function CaseWorkspace({
             onAct={act}
             header={false}
           />
+        ) : view === "documents" ? (
+          <div className="flex flex-col gap-4">
+            {[...new Set(c.documents.map((d) => d.group))].map((group) => (
+              <section key={group} className="flex flex-col gap-2">
+                <h4 className="text-body font-semibold">{group}</h4>
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                  {c.documents
+                    .filter((d) => d.group === group)
+                    .map((d) => (
+                      <Slot
+                        key={`${group}-${d.name}`}
+                        doc={d}
+                        locked={!editable || !!batch.clubbedInto}
+                        busy={uploading === d.slotKey}
+                        onFile={(file) => void attach(d.slotKey!, file)}
+                      />
+                    ))}
+                </div>
+              </section>
+            ))}
+          </div>
         ) : drafts?.[c.id] ? (
           <CourtDocument draft={drafts[c.id]} />
         ) : (

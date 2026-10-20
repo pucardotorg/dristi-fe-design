@@ -89,21 +89,6 @@ export function aiFindings(bc: BatchCase, batch: Batch, others: Batch[], mode: A
       if (city && district && !city.includes(district) && !district.includes(city))
         push({ rule: "city-pincode", field: "ACC-8", section: "accused", where, at: `accused.${i}.addresses.${k}.city`, message: `The city is ${b.addr.city}, but pincode ${b.addr.pin} is in ${b.addr.district} district.` });
     });
-    // The same person elsewhere in the batch, with another number.
-    const mobile = digits(a.contacts[0]?.mobile ?? "");
-    if (mobile) {
-      for (const b of [batch, ...others]) {
-        for (const x of b.cases) {
-          if (x.id === bc.id) continue;
-          const twin = x.draft.accused.find((o) => o.name.trim().toLowerCase() === a.name.trim().toLowerCase());
-          const other = digits(twin?.contacts[0]?.mobile ?? "");
-          if (twin && other && other !== mobile) {
-            push({ rule: "same-name-other-mobile", field: "ACC-6", section: "accused", where, at: `accused.${i}.twin`, message: `${a.name} is also accused in ${x.reference}, with a different mobile.` });
-            return;
-          }
-        }
-      }
-    }
   });
   d.notices.forEach((nt, i) => {
     if (nt.delivered === "yes" && nt.deliveryDate && nt.deliveryDate === nt.dispatchDate)

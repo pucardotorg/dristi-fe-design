@@ -27,7 +27,7 @@ import {
 import type { BatchCtx } from "./batch-screen";
 
 import { CaseModal } from "./case-modal";
-import { StageBadge } from "./stage";
+import { CaseBadge } from "./stage";
 
 export function CasesTab({ batch, setBatch, go }: BatchCtx) {
   const [open, setOpen] = React.useState<number | null>(null);
@@ -127,7 +127,7 @@ export function CasesTab({ batch, setBatch, go }: BatchCtx) {
                       className={cn(TABLE_CELL, "pr-4 whitespace-normal")}
                     >
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <StageBadge stage={c.stage} />
+                        <CaseBadge c={c} />
                         {c.stage !== "filed" && c.flags.length ? (
                           <span className="text-caption text-muted-foreground tabular-nums">
                             {c.flags.length} flag

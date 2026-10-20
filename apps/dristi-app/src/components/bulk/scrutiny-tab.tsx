@@ -7,6 +7,7 @@ import {
   ChevronRightIcon,
   CircleAlertIcon,
   OctagonAlertIcon,
+  PlusIcon,
   SparklesIcon,
   Undo2Icon,
 } from "lucide-react";
@@ -17,6 +18,7 @@ import { money } from "@/lib/filing/format";
 import { cn } from "@/lib/utils";
 import { FilingFooter } from "@/components/filing/filing-footer";
 import { FormField } from "@/components/filing/form-field";
+import { SectionTabs } from "@/components/filing/section-tabs";
 import { PANEL_CLASS } from "@/components/filing/form-card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -99,6 +101,35 @@ export function FlagLine({ flag }: { flag: Flag }) {
     </div>
   );
 }
+
+/** The single filing's sections, in its order; those that repeat name their part. */
+const STEPS: {
+  step: string;
+  title: string;
+  part?: "accused" | "cheque" | "notice" | "witness";
+  single: string;
+}[] = [
+  { step: "complainant", title: "Further complainants", single: "Complainant" },
+  { step: "accused", title: "Accused", part: "accused", single: "Accused" },
+  {
+    step: "cheque",
+    title: "Cheque & return memo",
+    part: "cheque",
+    single: "Cheque",
+  },
+  {
+    step: "demand-notice",
+    title: "Demand notice & debt",
+    part: "notice",
+    single: "Demand notice",
+  },
+  {
+    step: "jurisdiction",
+    title: "Jurisdiction & limitation",
+    single: "Jurisdiction",
+  },
+  { step: "witnesses", title: "Witnesses", part: "witness", single: "Witness" },
+];
 
 /** Which field of a part a flag's code is about. */
 const CODE_FIELD: Record<string, string> = {
@@ -461,6 +492,29 @@ export function CaseEditor({
     else loose.push(f);
   }
 
+  // Which part is open in each repeating section.
+  const [open, setOpen] = React.useState<Record<string, number>>({});
+  const fieldCard = (g: CaseView["fields"][number]) => (
+    <Card className={cn(PANEL_CLASS, "gap-0 p-4")}>
+      <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
+        {g.fields.map((x) => (
+          <DetailField
+            key={x.path}
+            field={x}
+            flags={byPath.get(x.path) ?? []}
+            onSkip={(f) =>
+              void onAct({ action: "skip", caseId: c.id, flagId: f.id })
+            }
+            value={edits[x.path] ?? x.value}
+            edited={x.path in edits}
+            onChange={(v) => setEdit(x.path, v)}
+            disabled={busy}
+          />
+        ))}
+      </div>
+    </Card>
+  );
+
   return (
     <div className="flex min-w-0 flex-col gap-4">
       {header ? (
@@ -527,29 +581,98 @@ export function CaseEditor({
         </Card>
       ) : null}
 
-      {c.fields.map((g) => (
-        <section key={g.heading} className="flex flex-col gap-2">
-          <h4 className="text-body font-semibold">{g.heading}</h4>
-          <Card className={cn(PANEL_CLASS, "gap-0 p-4")}>
-            <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
-              {g.fields.map((x) => (
-                <DetailField
-                  key={x.path}
-                  field={x}
-                  flags={byPath.get(x.path) ?? []}
-                  onSkip={(f) =>
-                    void onAct({ action: "skip", caseId: c.id, flagId: f.id })
-                  }
-                  value={edits[x.path] ?? x.value}
-                  edited={x.path in edits}
-                  onChange={(v) => setEdit(x.path, v)}
-                  disabled={busy}
-                />
-              ))}
-            </div>
-          </Card>
-        </section>
-      ))}
+      {/* The single filing's sections, in its order; parts that repeat sit on its tab strip
+          with Add and remove, as when filing one case. */}
+      {STEPS.map(({ step, title, part, single }) => {
+        const groups = c.fields.filter((g) => g.step === step);
+        if (!part) {
+          return groups.map((g) => (
+            <section key={g.heading} className="flex flex-col gap-2">
+              <h4 className="text-body font-semibold">{g.heading}</h4>
+              {fieldCard(g)}
+            </section>
+          ));
+        }
+        const at = Math.min(open[step] ?? 0, Math.max(0, groups.length - 1));
+        const g = groups[at];
+        return (
+          <section key={step} className="flex flex-col gap-2">
+            <h4 className="text-body font-semibold">{title}</h4>
+            <SectionTabs
+              tabs={groups.map((x, k) => ({
+                id: String(k),
+                label: `${single} ${k + 1}`,
+                status: x.fields.some(
+                  (f) => f.required && !(edits[f.path] ?? f.value).trim(),
+                )
+                  ? "attention"
+                  : "complete",
+                removable:
+                  !busy &&
+                  k === groups.length - 1 &&
+                  groups.length > (part === "witness" ? 0 : 1),
+              }))}
+              activeId={String(at)}
+              onSelect={(id) => setOpen((o) => ({ ...o, [step]: Number(id) }))}
+              onRemove={() =>
+                void onAct({ action: "part", caseId: c.id, op: "remove", part })
+              }
+              addLabel={busy ? undefined : `Add ${single.toLowerCase()}`}
+              onAdd={() => {
+                setOpen((o) => ({ ...o, [step]: groups.length }));
+                void onAct({ action: "part", caseId: c.id, op: "add", part });
+              }}
+            />
+            {g ? (
+              <>
+                {fieldCard(g)}
+                {/* An accused's further addresses, as the single filing's Add address. */}
+                {step === "accused" && !busy ? (
+                  <div className="flex gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        void onAct({
+                          action: "part",
+                          caseId: c.id,
+                          op: "add",
+                          part: "address",
+                          accused: at,
+                        })
+                      }
+                    >
+                      <PlusIcon data-icon="inline-start" aria-hidden />
+                      Add address
+                    </Button>
+                    {g.fields.some((f) => /\.addresses\.1\./.test(f.path)) ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          void onAct({
+                            action: "part",
+                            caseId: c.id,
+                            op: "remove",
+                            part: "address",
+                            accused: at,
+                          })
+                        }
+                      >
+                        Remove last address
+                      </Button>
+                    ) : null}
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <p className="text-body-compact text-muted-foreground">
+                None added.
+              </p>
+            )}
+          </section>
+        );
+      })}
     </div>
   );
 }

@@ -8,6 +8,8 @@ import { NextResponse } from "next/server";
 import {
   applyFix,
   batchView,
+  changePart,
+  type Part,
   editable,
   payCases,
   roundsFor,
@@ -25,6 +27,7 @@ type Action =
   | { action: "unskip"; caseId: string; flagId: string }
   | { action: "skip-rule"; rule: string }
   | { action: "declare-no-contact"; caseId: string; accusedId: string }
+  | { action: "part"; caseId: string; op: "add" | "remove"; part: Part; accused?: number }
   | { action: "sign"; caseIds: string[]; method: BulkSignMethod; round?: number }
   | { action: "pay"; caseIds: string[] };
 
@@ -64,6 +67,17 @@ export async function POST(req: Request, ctx: { params: Promise<{ batchId: strin
           bc.skipped = [...new Set([...bc.skipped, ...ids])];
         }
         return batch;
+      }
+      case "part": {
+        const bc = batch.cases.find((c) => c.id === body.caseId);
+        if (!bc) return null;
+        // A change voids signatures (LIFE-13); signed and filed cases are not offered it.
+        if (bc.signedWith || bc.draft.status === "filed") {
+          problem = "A signed or filed case cannot be changed here.";
+          return null;
+        }
+        problem = changePart(bc.draft, body.op, body.part, body.accused ?? 0);
+        return problem ? null : batch;
       }
       case "declare-no-contact": {
         const bc = batch.cases.find((c) => c.id === body.caseId);

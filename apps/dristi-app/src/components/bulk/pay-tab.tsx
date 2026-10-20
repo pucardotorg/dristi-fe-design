@@ -20,7 +20,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 
 import { bulkApi, type BatchView } from "./api";
 import type { BatchCtx } from "./batch-screen";
-import { StageBadge } from "./stage";
+import { CaseBadge } from "./stage";
 
 const ist = (iso: string) =>
   `${new Date(iso).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" })} IST`;
@@ -258,7 +258,7 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
                             <span className="flex min-w-0 flex-1 flex-col gap-1">
                                 <span className="flex flex-wrap items-center gap-2">
                                   <span className="text-body-compact font-medium tabular-nums">{c.reference}</span>
-                                  <StageBadge stage={c.stage} />
+                                  <CaseBadge c={c} />
                                 </span>
                                 {c.flags.slice(0, 2).map((f) => (
                                   <span key={f.id} className="flex items-start gap-1.5 text-caption text-muted-foreground">

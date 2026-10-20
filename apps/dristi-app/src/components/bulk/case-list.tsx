@@ -23,7 +23,7 @@ export function CaseStateBadge({
   if (holds)
     return (
       <Badge variant="destructive" className="shrink-0 tabular-nums">
-        {holds} to fix
+        {holds} field{holds === 1 ? "" : "s"} to complete
       </Badge>
     );
   if (checks)
@@ -35,7 +35,7 @@ export function CaseStateBadge({
   return (
     <Badge variant="success" className="shrink-0">
       <CheckIcon data-icon="inline-start" aria-hidden />
-      Ready
+      Complete
     </Badge>
   );
 }

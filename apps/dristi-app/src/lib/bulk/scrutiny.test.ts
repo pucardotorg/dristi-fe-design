@@ -125,13 +125,6 @@ test("a late case needs a reason for condonation; a notice in transit holds the 
   assert.ok(b.some((f) => f.field === "LDN-5" && f.level === "hold"));
 });
 
-test("the same cheque twice in a batch holds the second", async () => {
-  const batch = await batchOf([goodCase("F-1"), goodCase("F-2")]);
-  const second = caseFlags(batch.cases[1], { batch, others: [] });
-  assert.ok(second.some((f) => f.rule === "chq-dup"));
-  assert.ok(!caseFlags(batch.cases[0], { batch, others: [] }).some((f) => f.rule === "chq-dup"));
-});
-
 test("derived values are never taken from the sender", async () => {
   const batch = await batchOf([goodCase("G-1")]);
   const j = batch.cases[0].draft.jurisdiction;

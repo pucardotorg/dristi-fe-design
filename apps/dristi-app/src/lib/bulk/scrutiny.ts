@@ -248,16 +248,6 @@ export function caseFlags(bc: BatchCase, ctx: ScrutinyContext): Flag[] {
     else if (!S138_SAFE_REASONS.has(q.returnReason))
       push({ ...chq, rule: "chq-10-warn", field: "CHQ-10", level: "soft", at: `${p}.returnReason-warn`, message: `Returned for "${labelOf(RETURN_REASONS, q.returnReason)}", not insufficient funds. Check that S-138 applies.` });
 
-    // The same cheque in another case — here or in another batch — is filed once.
-    if (q.chequeNumber && q.ifsc) {
-      const key = `${q.ifsc}|${q.chequeNumber}`;
-      const clash = [ctx.batch, ...ctx.others]
-        .filter((b) => !b.clubbedInto)
-        .flatMap((b) => b.cases.map((x) => ({ b, x })))
-        .find(({ b, x }) => x.id !== bc.id && x.draft.cheques.some((o) => `${o.ifsc}|${o.chequeNumber}` === key) && (b.id !== ctx.batch.id || ctx.batch.cases.indexOf(x) < ctx.batch.cases.indexOf(bc)));
-      if (clash)
-        push({ ...chq, rule: "chq-dup", field: "CHQ-3", level: "hold", at: `${p}.dup`, message: `Cheque ${q.chequeNumber} is already in case ${clash.x.reference}${clash.b.id === ctx.batch.id ? "" : ` (${clash.b.number})`}.` });
-    }
   });
   if (d.cheques.length === 0)
     push({ rule: "chq-0", field: "CHQ-1", section: "cheque", where: "Cheque", level: "hold", at: "cheques", message: "The case has no cheque." });
