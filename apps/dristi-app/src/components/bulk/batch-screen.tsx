@@ -456,15 +456,11 @@ export function BatchScreen({ batchId }: { batchId: string }) {
               what="to review"
               done={workable > 0}
             />
-            {/* Reading each case as the court will, before anyone signs it. */}
-            <StepTab
-              value="review"
-              label="Review"
-              pending={0}
-              tone="secondary"
-              what="to read"
-              done={workable > 0}
-            />
+            {/* Reading each case as the court will, before anyone signs it. A place to read,
+                not a step that completes, so it carries no count and no tick. */}
+            <TabsTrigger value="review" disabled={workable === 0}>
+              Review
+            </TabsTrigger>
             <StepTab
               value="sign"
               label="Sign"
