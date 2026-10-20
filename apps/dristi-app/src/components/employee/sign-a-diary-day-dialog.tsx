@@ -7,6 +7,7 @@ import { DocumentPreview } from "@/components/cases/document-preview";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogDescription } from "@/components/ui/dialog";
 import { useCourtLocalized } from "@/components/court/court-provider";
+import { cn } from "@/lib/utils";
 import {
   buildADiaryDayDocument,
   downloadADiaryDayDocument,
@@ -76,7 +77,7 @@ function SignADiaryDayBody({
 
   return (
     <StagedOverlay
-      className="sm:max-w-3xl lg:h-[85dvh]"
+      className="sm:max-w-5xl lg:h-[85dvh]"
       title="Sign the A-Diary"
       titleRef={titleRef}
       description={
@@ -136,9 +137,10 @@ function SignADiaryDayBody({
 }
 
 /**
- * The day's A-Diary as paper: the court and the day, then one numbered line of business
- * per matter — the case, what was done, and when it comes back — and the block that
- * signs the whole of it. Drawn with the paper palette, like the order beside an entry.
+ * The day's A-Diary as paper: the court and the day, then the register as a table with
+ * the four columns of `a-diary.md` `ADY-03a` — the same table the screen shows — and the
+ * block that signs the whole of it. Drawn with the paper palette, like the order beside
+ * an entry, rather than the DS `Table`: this is a facsimile of a court paper.
  */
 function ADiaryDayFacsimile({
   document: storedDocument,
@@ -146,6 +148,7 @@ function ADiaryDayFacsimile({
   document: ADiaryDayDocument;
 }) {
   const document = useCourtLocalized(storedDocument);
+  const cell = "border border-paper-border px-3 py-2 align-top text-body-compact";
   return (
     <article className="flex flex-col gap-6 rounded-md bg-paper p-6 text-paper-foreground">
       <header className="flex flex-col gap-2 text-center">
@@ -154,36 +157,45 @@ function ADiaryDayFacsimile({
         <p className="text-body font-semibold">Dated {document.dated}</p>
       </header>
 
-      <ol className="flex flex-col gap-6">
-        {document.entries.map((entry, index) => (
-          <li
-            key={`${entry.caseNumber}-${index}`}
-            className="flex flex-col gap-3 border-t border-paper-border pt-4"
-          >
-            <p className="text-body font-semibold">
-              <span className="tabular-nums">{index + 1}.</span> {entry.caseNumber}
-              <span className="font-normal text-paper-muted-foreground">
-                {" "}
-                · {entry.matter}
-              </span>
-            </p>
-            {/* Plain paragraphs, not the order sheet's numbered ones: the entries are
-                already numbered, and a second count inside each would read as one list. */}
-            {entry.paragraphs.map((paragraph, paragraphIndex) => (
-              <p key={paragraphIndex} className="text-body whitespace-pre-line">
-                {paragraph}
-              </p>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-xl border-collapse text-left">
+          <caption className="sr-only">A-Diary dated {document.dated}</caption>
+          <thead>
+            <tr>
+              <th scope="col" className={cn(cell, "font-semibold")}>Case</th>
+              <th scope="col" className={cn(cell, "font-semibold")}>Hearing</th>
+              <th scope="col" className={cn(cell, "font-semibold")}>Proceedings</th>
+              <th scope="col" className={cn(cell, "font-semibold")}>Next hearing</th>
+            </tr>
+          </thead>
+          <tbody>
+            {document.entries.map((entry, index) => (
+              <tr key={`${entry.caseNumber}-${index}`}>
+                <td className={cn(cell, "w-1/5")}>
+                  {entry.matter}
+                  <br />
+                  <span className="tabular-nums">{entry.caseNumber}</span>
+                </td>
+                <td className={cn(cell, "w-1/6")}>
+                  {entry.hearing ?? (
+                    <span className="sr-only">Passed outside a hearing</span>
+                  )}
+                </td>
+                <td className={cell}>
+                  <div className="flex flex-col gap-2">
+                    {entry.paragraphs.map((paragraph, paragraphIndex) => (
+                      <p key={paragraphIndex} className="whitespace-pre-line">
+                        {paragraph}
+                      </p>
+                    ))}
+                  </div>
+                </td>
+                <td className={cn(cell, "w-1/6")}>{entry.nextHearing}</td>
+              </tr>
             ))}
-            {/* The register's own column (`ADY-03`), kept even though the text usually
-                ends on the same date: the text is the bench's to rewrite, this is not.
-                Quiet ink so it reads as the column, not a second sentence. */}
-            <p className="text-body-compact text-paper-muted-foreground">
-              Next hearing:{" "}
-              <span className="tabular-nums">{entry.nextHearing}</span>
-            </p>
-          </li>
-        ))}
-      </ol>
+          </tbody>
+        </table>
+      </div>
 
       <p className="text-body text-paper-muted-foreground">{document.signature}</p>
     </article>

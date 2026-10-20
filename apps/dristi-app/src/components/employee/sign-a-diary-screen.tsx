@@ -1,7 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { BookCheckIcon, CalendarXIcon, NotebookPenIcon } from "lucide-react";
+import {
+  BookCheckIcon,
+  CalendarDaysIcon,
+  CalendarXIcon,
+  NotebookPenIcon,
+} from "lucide-react";
 
 import { ListFooter } from "@/components/employee/list-footer";
 import { QueueAnnouncer } from "@/components/employee/queue-announcer";
@@ -13,7 +18,10 @@ import {
   rowOpenerClass,
 } from "@/lib/employee/row-activation";
 import { Button } from "@/components/ui/button";
-import { DatePicker } from "@/components/ui/date-picker";
+import { Calendar, CalendarDayButton } from "@/components/ui/calendar";
+import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import type { DayButton } from "react-day-picker";
 import {
   Empty,
   EmptyContent,
@@ -39,6 +47,7 @@ import {
   saveBusinessOfTheDay,
   signADiaryDay,
   signableADiaryDays,
+  unsignedADiaryDays,
   type ADiaryEntry,
   type ADiaryFilters,
 } from "@/lib/employee/sign-a-diary";
@@ -199,6 +208,7 @@ export function SignADiaryScreen() {
           <SignADiaryFilters
             filters={filters}
             today={today}
+            unsignedDays={unsignedADiaryDays(register)}
             onChange={changeFilters}
           />
           {rows.length === 0 ? null : canSignADiaryDay(shownDay, today) ? (
@@ -294,67 +304,103 @@ export function SignADiaryScreen() {
 }
 
 /**
- * Which day's register is on screen — the reference's one control.
+ * Which day's register is on screen — the reference's one control — and which days are
+ * still unsigned (`a-diary.md` `ADY-03`).
  *
- * The Search button is gone, and this is the screen where it was least defensible: the
- * control is a calendar, so the only thing it can hand over is a whole day, and the
- * button existed to re-ask for a day the bench had already named. Picking one now shows
- * it. There is no meaningless in-between state to protect, which is the test for whether
- * a control can go live.
+ * Picking a day shows it; there is no Search. Clearing is not offered: the register
+ * always shows one day.
  *
- * That leaves the page with no `bg-primary` at all. Search used to carry it on the
- * argument that asking for a day *is* the act here — but that act is now the picker
- * itself, and the Ration Teal Law does not ask for a strong fill where there is no
- * button to put one on. Signing happens one entry at a time in the overlay, where the
- * teal already is. Nothing was promoted to fill the gap.
- *
- * There is no "Show today" beside the picker either. The register always shows one day,
- * so clearing the calendar means today, and naming a second day is already the picker's
- * job. A way back from an empty other day lives on that empty state, not on this row.
+ * Built from `Popover` + `Calendar` rather than the DS `DatePicker`, because the picker
+ * has no way to mark days and marking the unsigned ones is the point. The mark is the one
+ * `DashboardDatePicker` already uses — a dot under the day — never colour alone: the day's
+ * spoken name says "unsigned", and a legend under the calendar names the dot.
  */
 function SignADiaryFilters({
   filters,
   today,
+  unsignedDays,
   onChange,
 }: {
   filters: ADiaryFilters;
   today: string;
+  /** Days with unsigned entries, `YYYY-MM-DD`. */
+  unsignedDays: string[];
   onChange: (filters: ADiaryFilters) => void;
 }) {
   const day = resolveADiaryDay(filters, today);
+  const [open, setOpen] = React.useState(false);
+  const unsigned = React.useMemo(() => unsignedDays.map(parseIsoDay), [unsignedDays]);
 
   return (
     <form
-      className="flex min-w-0 flex-col"
+      className="flex min-w-0 flex-col gap-2"
       onSubmit={(event) => event.preventDefault()}
     >
-      {/* `DatePicker` owns its trigger and takes no `id`, so the visible label names a
-          group around it rather than pointing `htmlFor` at a control that does not exist.
-          The trigger still announces the date it holds.
-
-          The `key` is not decoration. `DatePicker` treats `value === undefined` as "I am
-          uncontrolled" and falls back to its own last selection, so a date driven from
-          outside — the empty state's return to today — would keep showing the day the
-          bench had picked. Remounting on the value is the only fix that does not edit the
-          primitive; upstream DS bug, logged in the build report. */}
-      <div className="flex min-w-0 flex-col gap-2">
-        <span id="sign-a-diary-date-label" className="w-fit text-body-compact font-medium">
-          A-Diary dated
-        </span>
-        <div role="group" aria-labelledby="sign-a-diary-date-label">
-          <DatePicker
-            key={day}
-            value={parseIsoDay(day)}
-            onValueChange={(next) =>
-              /* Clearing the picker itself means today: the register always shows one
-                 day, and "no day" is not a view this screen has. */
-              onChange({ dated: next ? isoDay(next) : null })
-            }
-            className="w-full sm:w-52"
+      <Label htmlFor="sign-a-diary-date" className="w-fit text-body-compact font-medium">
+        A-Diary dated
+      </Label>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            id="sign-a-diary-date"
+            type="button"
+            variant="outline"
+            className="w-full justify-start gap-2 text-left font-normal sm:w-60"
+          >
+            <CalendarDaysIcon data-icon="inline-start" aria-hidden />
+            <span className="truncate tabular-nums">{formatCourtDay(day)}</span>
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="flex w-auto flex-col gap-3 p-3" align="start">
+          <Calendar
+            mode="single"
+            required
+            autoFocus
+            selected={parseIsoDay(day)}
+            defaultMonth={parseIsoDay(day)}
+            onSelect={(next) => {
+              onChange({ dated: next ? isoDay(next) : null });
+              setOpen(false);
+            }}
+            modifiers={{ unsigned }}
+            labels={{
+              labelDayButton: (date, modifiers) =>
+                `${formatCourtDay(isoDay(date))}${modifiers.unsigned ? ", unsigned" : ""}${
+                  modifiers.selected ? ", selected" : ""
+                }`,
+            }}
+            components={{ DayButton: UnsignedDayButton }}
+            className="p-0"
           />
-        </div>
-      </div>
+          <p className="flex items-center gap-2 text-caption text-muted-foreground">
+            <span aria-hidden className="size-1.5 rounded-full bg-current" />
+            Unsigned
+          </p>
+        </PopoverContent>
+      </Popover>
     </form>
+  );
+}
+
+/**
+ * A day of the month, with a dot under it when that day's A-Diary is unsigned. Kept at
+ * module level so the focused day is not remounted on every render — the same reason
+ * `DashboardDatePicker` gives for its own.
+ */
+function UnsignedDayButton({
+  children,
+  ...props
+}: React.ComponentProps<typeof DayButton>) {
+  return (
+    <CalendarDayButton {...props}>
+      {children}
+      {props.modifiers.unsigned ? (
+        <span
+          aria-hidden
+          className="absolute bottom-1 left-1/2 size-1 -translate-x-1/2 rounded-full bg-current"
+        />
+      ) : null}
+    </CalendarDayButton>
   );
 }
 

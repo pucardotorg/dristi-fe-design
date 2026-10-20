@@ -75,6 +75,12 @@ export type ADiaryEntry = {
   /** The day this entry records, `YYYY-MM-DD`. */
   dated: string;
   /**
+   * The hearing the order was passed in — its day and what it was listed for — or `null`
+   * when the order was passed outside a hearing (`a-diary.md` `ADY-02`). The register's
+   * Hearing column is blank for those (`ADY-03a`).
+   */
+  hearing: { day: string; purpose: CourtHearingPurposeId } | null;
+  /**
    * The order sheet's opening recital: who was before the court, and what the case was
    * called for that day.
    *
@@ -134,8 +140,13 @@ export type ADiaryEntry = {
  * `nextOffset` is measured from the same today rather than from the entry's own day, so
  * a backlog entry cannot list a case for a date that has already passed.
  */
-type ADiarySeed = Omit<ADiaryEntry, "dated" | "nextHearing" | "business" | "orderText"> & {
+type ADiarySeed = Omit<
+  ADiaryEntry,
+  "dated" | "nextHearing" | "business" | "orderText" | "hearing"
+> & {
   datedOffset: number;
+  /** What the hearing was listed for, or `null` for an order passed outside a hearing. */
+  hearingPurpose: CourtHearingPurposeId | null;
   nextOffset: number;
   /**
    * What was done, as the paragraphs of the order.
@@ -170,6 +181,7 @@ const A_DIARY_SEED: ADiarySeed[] = [
       { name: "Adv. Arun Prakash", side: "accused" },
     ],
     datedOffset: 0,
+    hearingPurpose: "evidence-of-complainant",
     nextOffset: 7,
     nextPurpose: "evidence-of-complainant",
     attendance:
@@ -189,6 +201,7 @@ const A_DIARY_SEED: ADiarySeed[] = [
       { name: "Adv. Sabu Varghese", side: "accused" },
     ],
     datedOffset: 0,
+    hearingPurpose: "appearance",
     nextOffset: 10,
     nextPurpose: "appearance",
     attendance:
@@ -208,6 +221,7 @@ const A_DIARY_SEED: ADiarySeed[] = [
     },
     counsel: [{ name: "Adv. Mohan Das", side: "complainant" }],
     datedOffset: 0,
+    hearingPurpose: "appearance",
     nextOffset: 14,
     nextPurpose: "plea",
     attendance:
@@ -227,14 +241,16 @@ const A_DIARY_SEED: ADiarySeed[] = [
       { name: "Adv. Haridas Nair", side: "accused" },
     ],
     datedOffset: 0,
+    hearingPurpose: null,
     nextOffset: 5,
     nextPurpose: "arguments",
+    /* Passed outside a hearing, on a memo — the entry whose Hearing column is blank. */
     attendance:
-      "Both sides are represented by counsel. The accused is present in person. The case stands posted today for the evidence of the accused.",
+      "This order is passed outside a hearing, on a memo filed by counsel for the accused. Both sides are represented by counsel.",
     orderTitle: "Order closing the evidence on both sides",
     proceedings: [
-      "The accused reported that she does not propose to adduce any evidence on her side, and that she will rely on the answers recorded in her examination under S. 351 BNSS and on the documents already marked in the evidence of the complainant. The evidence on both sides is accordingly closed.",
-      "Both counsel applied for time to prepare their submissions.",
+      "By the memo, the accused reports that she does not propose to adduce any evidence on her side, and that she will rely on the answers recorded in her examination under S. 351 BNSS and on the documents already marked in the evidence of the complainant. The evidence on both sides is accordingly closed.",
+      "Both sides are to be ready with their submissions on the next date.",
     ],
   },
   {
@@ -246,6 +262,7 @@ const A_DIARY_SEED: ADiarySeed[] = [
       { name: "Adv. Rajan Pillai", side: "accused" },
     ],
     datedOffset: 0,
+    hearingPurpose: "for-reports",
     nextOffset: 21,
     nextPurpose: "for-reports",
     attendance:
@@ -268,6 +285,7 @@ const A_DIARY_SEED: ADiarySeed[] = [
       { name: "Adv. Deepa Chandran", side: "accused" },
     ],
     datedOffset: -1,
+    hearingPurpose: "evidence-of-complainant",
     nextOffset: 9,
     nextPurpose: "examination-of-accused-351",
     attendance:
@@ -287,6 +305,7 @@ const A_DIARY_SEED: ADiarySeed[] = [
     },
     counsel: [{ name: "Adv. Fathima Nazar", side: "complainant" }],
     datedOffset: -1,
+    hearingPurpose: "cognizance",
     nextOffset: 4,
     nextPurpose: "cognizance",
     attendance:
@@ -306,6 +325,7 @@ const A_DIARY_SEED: ADiarySeed[] = [
       { name: "Adv. Rekha Pillai", side: "accused" },
     ],
     datedOffset: -3,
+    hearingPurpose: "delay-condonation",
     nextOffset: 2,
     nextPurpose: "delay-condonation",
     attendance:
@@ -375,6 +395,10 @@ export function aDiaryEntries(today: string): ADiaryEntry[] {
       attendance: seed.attendance,
       orderTitle: seed.orderTitle,
       dated: addDays(today, seed.datedOffset),
+      hearing:
+        seed.hearingPurpose === null
+          ? null
+          : { day: addDays(today, seed.datedOffset), purpose: seed.hearingPurpose },
       /* The same text at the start: the A-Diary text is the order text by default. */
       orderText: business,
       business,
@@ -420,6 +444,11 @@ export function filterADiary(
 ): ADiaryEntry[] {
   const day = resolveADiaryDay(filters, today);
   return rows.filter((entry) => entry.dated === day);
+}
+
+/** Every day that still has unsigned entries, today included — what the picker marks. */
+export function unsignedADiaryDays(rows: ADiaryEntry[]): string[] {
+  return [...new Set(rows.map((entry) => entry.dated))].sort((a, b) => b.localeCompare(a));
 }
 
 /**
@@ -606,6 +635,11 @@ export function downloadADiaryDocument(entry: ADiaryEntry): void {
   URL.revokeObjectURL(url);
 }
 
+/** "20 Oct 2026 · Evidence of complainant" — a date and what it is for, as one cell. */
+export function formatADiaryHearing(day: string, purpose: CourtHearingPurposeId): string {
+  return `${formatListingDate(day)} · ${courtHearingPurposeLabel(purpose)}`;
+}
+
 /**
  * The day's A-Diary as one document — what the signer signs (`ADY-12`).
  *
@@ -615,9 +649,8 @@ export function downloadADiaryDocument(entry: ADiaryEntry): void {
  * this ahead of time: the sign dialog builds it when it opens, from the register it is
  * handed, and an entry corrected a minute earlier is in it.
  *
- * One line of business per matter, as `ADY-03` lists them: the case number, the A-Diary
- * text and the next hearing date. The cause title is added beneath the number, since a
- * signed paper read later has no row to open.
+ * The same table as the screen (`ADY-03a`): one row per entry, with the case name and
+ * number, the hearing (blank outside a hearing), the proceedings and the next hearing.
  */
 export type ADiaryDayDocument = {
   court: string;
@@ -626,7 +659,10 @@ export type ADiaryDayDocument = {
   entries: {
     caseNumber: string;
     matter: string;
+    /** Date and purpose, or `null` when the order was passed outside a hearing. */
+    hearing: string | null;
     paragraphs: string[];
+    /** Date and purpose. */
     nextHearing: string;
   }[];
   /** The signature block, until it is signed. */
@@ -645,8 +681,11 @@ export function buildADiaryDayDocument(
       .map((entry) => ({
         caseNumber: entry.caseNumber,
         matter: causeTitle(entry),
+        hearing: entry.hearing
+          ? formatADiaryHearing(entry.hearing.day, entry.hearing.purpose)
+          : null,
         paragraphs: splitParagraphs(entry.business),
-        nextHearing: formatListingDate(entry.nextHearing),
+        nextHearing: formatADiaryHearing(entry.nextHearing, entry.nextPurpose),
       })),
     signature: `Pending the signature of ${PRESIDING_MAGISTRATE.name}, ${PRESIDING_MAGISTRATE.designation}, ${COURT}.`,
   };
@@ -659,7 +698,9 @@ export function aDiaryDayDocumentText(document: ADiaryDayDocument): string {
     `Dated ${document.dated}`,
     "",
     ...document.entries.flatMap((entry, index) => [
-      `${index + 1}. ${entry.caseNumber} — ${entry.matter}`,
+      `${index + 1}. Case: ${entry.matter}, ${entry.caseNumber}`,
+      `Hearing: ${entry.hearing ?? ""}`,
+      "Proceedings:",
       ...entry.paragraphs,
       `Next hearing: ${entry.nextHearing}`,
       "",

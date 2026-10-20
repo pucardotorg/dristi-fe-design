@@ -14,6 +14,13 @@ place says so in words (`ADY-12b`). The entry dialog no longer signs: its one ac
 day leaves a "signed" empty state for that day. New file
 `apps/dristi-app/src/components/employee/sign-a-diary-day-dialog.tsx`.
 
+**2026-10-20, later — the A-Diary table (`ADY-03`, `ADY-03a`, v1.6).** The date picker
+marks unsigned days with a dot (spoken as "unsigned", with a legend), built from
+`Popover` + `Calendar` because the DS `DatePicker` cannot mark days. The table has four
+columns — Case (name and number), Hearing (date and purpose, blank outside a hearing),
+Proceedings, Next hearing (date and purpose) — and the signed day document uses the same
+table. Entries now carry `hearing`; seed `ST/665` is an order passed outside a hearing.
+
 Earlier (2026-09-15):
 The Sign A-Diary date row is only the **A-Diary dated** picker. The ghost **Show today**
 control that sat beside it is gone. Picking a day still shows that day's register;
@@ -28,6 +35,7 @@ Date | Decision and reason | Source/person | Status
 ---|---|---|---
 2026-10-20 | Sign the whole day as one document, only once the day is over; the PDF is generated at signing. Entry dialog edits only. | owner, `a-diary.md` §5 | implemented
 2026-10-20 | Editing an entry changes the A-Diary text, never the order text; entries now carry `orderText` separately, and the order is shown as signed (an entry exists only once its order is triggered, `ADY-05`). | owner, `a-diary.md` `ADY-05`, `ADY-09` | implemented
+2026-10-20 | Picker shows unsigned days; A-Diary is a four-column table on screen and in the signed PDF. | owner, `a-diary.md` `ADY-03`, `ADY-03a` | implemented
 2026-09-15 | Remove the filter-row **Show today** button. The calendar already names the day; a second control on the same row restated that. Return from an empty other day stays on that empty state. | owner (live UI) | implemented
 
 ## Changes and tradeoffs
