@@ -9,7 +9,10 @@ import {
   HearingOverviewSections,
   ViewCaseAction,
 } from "@/components/employee/hearing-overview-screen";
-import { HearingSessionButton } from "@/components/employee/hearings-table";
+import {
+  HearingPassOverMenu,
+  HearingSessionButton,
+} from "@/components/employee/hearings-table";
 import {
   NextDateField,
   NextPurposeField,
@@ -44,11 +47,11 @@ import {
  * cannot do — a link that has to outlive the page, in a bookmark or a typed URL — but no
  * control on the list hands one out any more.
  *
- * **It reads, and it calls — nothing else.** The sitting's other outcomes stay on the
- * row: Pass over is not a second session verb (`HearingPassOverMenu`) and the order
- * composer is a trip of its own. What the footer carries is the one control that moves
- * *this* matter through the day, and it is the same control the row carries, in the same
- * four states (`HearingSessionButton`) — one vocabulary, two places to reach it, rather
+ * **It reads, and it calls.** The order composer is a trip of its own. What the footer
+ * carries is the row's hearing controls for *this* matter (`CLS-11`): the session control
+ * the row carries, in the same four states (`HearingSessionButton`), and the row's Pass
+ * over menu beside it (`HearingPassOverMenu`, `CLS-08`; owner, 2026-10-20, reversing
+ * 2026-09-12) — one vocabulary, two places to reach it, rather
  * than an overlay that invents a second way to say Start. It reads whatever the matter's
  * next move is at the moment it was opened: Start hearing on a listing still to be
  * called, End hearing on one under way, and spent on one already heard.
@@ -67,6 +70,7 @@ export function HearingOverviewDialog({
   seat,
   onStartHearing,
   onEndHearing,
+  onPassOver,
   postsNextHearing = false,
   onOpenChange,
 }: {
@@ -76,6 +80,8 @@ export function HearingOverviewDialog({
   seat: CourtRole;
   onStartHearing: (hearing: CourtHearing) => void;
   onEndHearing: (hearing: CourtHearing) => void;
+  /** The row's Pass over, the same handler (`HearingPassOverMenu`). */
+  onPassOver: (hearing: CourtHearing) => void;
   /** The reader's Next hearing column, here too — see `HearingsTable`. */
   postsNextHearing?: boolean;
   onOpenChange: (open: boolean) => void;
@@ -94,6 +100,7 @@ export function HearingOverviewDialog({
           seat={seat}
           onStartHearing={onStartHearing}
           onEndHearing={onEndHearing}
+          onPassOver={onPassOver}
           postsNextHearing={postsNextHearing}
         />
       ) : null}
@@ -106,12 +113,14 @@ function HearingOverviewBody({
   seat,
   onStartHearing,
   onEndHearing,
+  onPassOver,
   postsNextHearing,
 }: {
   hearing: CourtHearing;
   seat: CourtRole;
   onStartHearing: (hearing: CourtHearing) => void;
   onEndHearing: (hearing: CourtHearing) => void;
+  onPassOver: (hearing: CourtHearing) => void;
   postsNextHearing: boolean;
 }) {
   /* Where this listing stood when the sheet opened. A status different from it is an
@@ -145,6 +154,21 @@ function HearingOverviewBody({
     <StagedOverlay
       outsideCloses
       className="sm:max-w-4xl"
+      /* The case history's type filter (`OrderCaseHistory`) and Next hearing's purpose
+         portal their lists outside the sheet. A press on one is not a press outside,
+         and the Escape that closes an open list closes only the list; a second Escape
+         closes the sheet — the join flow's guard (`join-case-dialog.tsx`). */
+      onInteractOutside={(event) => {
+        if (
+          event.target instanceof Element &&
+          event.target.closest('[data-slot="combobox-content"]')
+        )
+          event.preventDefault();
+      }}
+      onEscapeKeyDown={(event) => {
+        if (document.querySelector('[data-slot="combobox-content"]'))
+          event.preventDefault();
+      }}
       /* The chip rides with the cause title, the same thought in the same order as the
          page: this matter, and where it stands on today's list. */
       title={causeTitle(hearing)}
@@ -192,6 +216,14 @@ function HearingOverviewBody({
             onStartHearing={onStartHearing}
             onEndHearing={onEndHearing}
             className="w-fit"
+          />
+          {/* Pass over, as on the row: the same menu, after the session control and
+              secondary to it, on Scheduled and Ongoing listings only (`CLS-08`,
+              `CLS-11`). */}
+          <HearingPassOverMenu
+            hearing={hearing}
+            seat={seat}
+            onPassOver={onPassOver}
           />
         </>
       }
