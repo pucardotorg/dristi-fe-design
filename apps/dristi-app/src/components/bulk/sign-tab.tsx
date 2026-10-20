@@ -3,7 +3,6 @@
 import * as React from "react";
 import {
   CheckIcon,
-  ExternalLinkIcon,
   InfoIcon,
   KeyRoundIcon,
   PenToolIcon,
@@ -49,6 +48,12 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Spinner } from "@/components/ui/spinner";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 import { bulkApi, type CaseView } from "./api";
 import type { BatchCtx } from "./batch-screen";
@@ -85,8 +90,8 @@ const METHODS: {
     tag: "Secure · slowest",
     icon: UserCheckIcon,
     hint: (n, s) => {
-      const r = Math.ceil(n / AADHAAR_DOCS_PER_OTP);
-      return `${AADHAAR_DOCS_PER_OTP} cases per OTP: ${r} OTP${r === 1 ? "" : "s"} per signer, ${r * s} in all for ${n} case${n === 1 ? "" : "s"}.`;
+      const all = Math.ceil(n / AADHAAR_DOCS_PER_OTP) * s;
+      return `This will need ${all} OTP${all === 1 ? "" : "s"} for ${n} case${n === 1 ? "" : "s"}.`;
     },
   },
   {
@@ -313,52 +318,49 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
                         >
                           {m.hint(Math.max(chosen.length, 1), signers.length)}
                         </span>
+                        {/* The reason, and its source, on demand: a Why link with the citation in its tooltip. */}
                         {m.id === "aadhaar" ? (
-                          <span className="text-caption text-muted-foreground">
-                            Why {AADHAAR_DOCS_PER_OTP}: an eSign request carries
-                            one document hash per document, and the
-                            specification allows at most {AADHAAR_DOCS_PER_OTP}{" "}
-                            per request.{" "}
-                            <a
-                              href={AADHAAR_LIMIT_SOURCE.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-0.5 underline"
-                            >
-                              {AADHAAR_LIMIT_SOURCE.publisher.split(",")[0]},{" "}
-                              {AADHAAR_LIMIT_SOURCE.title}
-                              <ExternalLinkIcon
-                                className="size-3"
-                                aria-hidden
-                              />
-                              <span className="sr-only">
-                                (opens in a new tab)
-                              </span>
-                            </a>
-                          </span>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <a
+                                  href={AADHAAR_LIMIT_SOURCE.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="w-fit text-caption text-primary underline"
+                                >
+                                  Why?
+                                  <span className="sr-only">
+                                    {" "}
+                                    (opens the specification in a new tab)
+                                  </span>
+                                </a>
+                              </TooltipTrigger>
+                              <TooltipContent
+                                side="bottom"
+                                className="max-w-xs text-left"
+                              >
+                                One Aadhaar OTP signs at most{" "}
+                                {AADHAAR_DOCS_PER_OTP} documents: an eSign
+                                request carries one document hash per document,
+                                and the specification caps them at{" "}
+                                {AADHAAR_DOCS_PER_OTP}. Each signer needs one
+                                OTP for every {AADHAAR_DOCS_PER_OTP} cases.
+                                <br />
+                                <br />
+                                {AADHAAR_LIMIT_SOURCE.publisher},{" "}
+                                {AADHAAR_LIMIT_SOURCE.title}: &ldquo;
+                                {AADHAAR_LIMIT_SOURCE.quote}&rdquo;.
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         ) : null}
                       </span>
                     </label>
                   );
                 })}
               </RadioGroup>
-
-              {method === "aadhaar" && chosen.length > AADHAAR_DOCS_PER_OTP ? (
-                <Alert variant="warning">
-                  <InfoIcon aria-hidden />
-                  <AlertTitle>
-                    {signers.length *
-                      Math.ceil(chosen.length / AADHAAR_DOCS_PER_OTP)}{" "}
-                    OTPs, one after another
-                  </AlertTitle>
-                  <AlertDescription>
-                    Each signer enters{" "}
-                    {Math.ceil(chosen.length / AADHAAR_DOCS_PER_OTP)} Aadhaar
-                    OTPs, {AADHAAR_DOCS_PER_OTP} cases at a time. Mobile OTP or
-                    DSC signs the same {chosen.length} cases with one each.
-                  </AlertDescription>
-                </Alert>
-              ) : null}
 
               <Button
                 size="lg"
