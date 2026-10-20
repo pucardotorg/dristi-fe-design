@@ -74,14 +74,14 @@ const METHODS: {
     title: "Mobile OTP",
     tag: "Fastest",
     icon: SmartphoneIcon,
-    hint: "One OTP to the advocate's mobile signs every case, for the advocate and the complainant.",
+    hint: "One OTP to your mobile signs all cases.",
   },
   {
     id: "dsc",
     title: "Digital Signature Certificate (DSC)",
     tag: "More secure · needs a DSC token",
     icon: KeyRoundIcon,
-    hint: "Each signer plugs in their DSC token and enters its PIN once.",
+    hint: "Each signer uses their DSC token and PIN.",
   },
   {
     id: "aadhaar",
@@ -96,7 +96,7 @@ const METHODS: {
     title: "Upload signed copies",
     tag: "Most manual",
     icon: UploadIcon,
-    hint: "Print each complaint, sign it by hand, scan it, and upload it.",
+    hint: "Print, sign, scan and upload each complaint.",
   },
 ];
 
