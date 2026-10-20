@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CircleCheckIcon, DownloadIcon, FileSpreadsheetIcon, Layers2Icon, PlugIcon, UploadIcon } from "lucide-react";
+import { CircleCheckIcon, DownloadIcon, FileSpreadsheetIcon, Layers2Icon, UploadIcon } from "lucide-react";
 
 import { toLongDate } from "@/lib/filing/format";
 import { buildTemplate, TEMPLATE_FILE } from "@/lib/bulk/excel";
@@ -40,18 +40,39 @@ export async function downloadTemplate() {
   URL.revokeObjectURL(url);
 }
 
-export function SourceLabel({ source }: { source: BatchSummary["source"] }) {
-  const Icon = source.kind === "api" ? PlugIcon : source.kind === "excel" ? FileSpreadsheetIcon : Layers2Icon;
+/**
+ * Where a batch came from, as a tile you can tell apart without reading: green
+ * spreadsheet for Excel, blue "API" for a push, grey layers for clubbed. The words follow.
+ */
+export function SourceLabel({ source, to }: { source: BatchSummary["source"]; to?: string | null }) {
+  const name = source.kind === "api" ? `${source.system} API` : source.kind === "excel" ? "Excel upload" : "Clubbed";
   return (
-    <span className="flex min-w-0 items-start gap-2">
-      <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
+    <span className="flex min-w-0 items-center gap-3">
+      <span
+        aria-hidden
+        className={cn(
+          "flex size-9 shrink-0 items-center justify-center rounded-lg",
+          source.kind === "api" && "bg-info-muted text-info-muted-foreground",
+          source.kind === "excel" && "bg-success-muted text-success-muted-foreground",
+          source.kind === "clubbed" && "bg-muted text-muted-foreground"
+        )}
+      >
+        {source.kind === "api" ? (
+          <span className="text-caption font-bold tracking-wide">API</span>
+        ) : source.kind === "excel" ? (
+          <FileSpreadsheetIcon className="size-5" />
+        ) : (
+          <Layers2Icon className="size-5" />
+        )}
+      </span>
       <span className="flex min-w-0 flex-col">
-        <span>{source.kind === "api" ? `${source.system} API` : source.kind === "excel" ? "Excel upload" : "Clubbed"}</span>
+        <span>{name}</span>
         {source.reference ? (
           <span className="truncate text-caption text-muted-foreground" title={source.reference}>
             {source.reference}
           </span>
         ) : null}
+        {to ? <span className="truncate text-caption text-muted-foreground">To {to}</span> : null}
       </span>
     </span>
   );
@@ -129,10 +150,7 @@ export function BatchesScreen() {
         ) : null}
       </TableCell>
       <TableCell className={cn(TABLE_CELL, "max-w-56 whitespace-normal")}>
-        <SourceLabel source={b.source} />
-        {b.source.kind === "api" && b.filingAdvocate ? (
-          <div className="text-caption text-muted-foreground">To {b.filingAdvocate.name}</div>
-        ) : null}
+        <SourceLabel source={b.source} to={b.source.kind === "api" ? b.filingAdvocate?.name : null} />
       </TableCell>
       <TableCell className={cn(TABLE_CELL, "whitespace-normal")}>{b.client}</TableCell>
       <TableCell className={cn(TABLE_CELL, "tabular-nums")}>{toLongDate(b.createdAt.slice(0, 10))}</TableCell>
