@@ -1,8 +1,10 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import {
   CheckCircle2Icon,
+  ChevronRightIcon,
   CircleAlertIcon,
   OctagonAlertIcon,
   SparklesIcon,
@@ -419,14 +421,27 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
                   )}
                 />
                 {/* Who against whom first, then what tells this case apart. */}
-                <div className="flex min-w-0 flex-col">
-                  <span className="text-body font-semibold">{c.title}</span>
-                  <span className="flex flex-wrap gap-x-2 text-caption text-muted-foreground tabular-nums">
-                    <span>{c.reference}</span>
-                    {c.cheque ? <span>· Cheque {c.cheque}</span> : null}
-                    {c.amount ? <span>· {money(c.amount)}</span> : null}
-                  </span>
-                  <span className="sr-only">{KIND[worst(c)].name}</span>
+                <div className="flex flex-wrap items-start gap-2">
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <span className="text-body font-semibold">{c.title}</span>
+                    <span className="flex flex-wrap gap-x-2 text-caption text-muted-foreground tabular-nums">
+                      <span>{c.reference}</span>
+                      {c.cheque ? <span>· Cheque {c.cheque}</span> : null}
+                      {c.amount ? <span>· {money(c.amount)}</span> : null}
+                    </span>
+                    <span className="sr-only">{KIND[worst(c)].name}</span>
+                  </div>
+                  <Button
+                    asChild
+                    variant="ghost"
+                    size="sm"
+                    className="shrink-0"
+                  >
+                    <Link href={`/filings/bulk/${batch.id}/cases/${c.id}`}>
+                      View case file
+                      <ChevronRightIcon data-icon="inline-end" aria-hidden />
+                    </Link>
+                  </Button>
                 </div>
                 {/* Every missing detail of the case in one form, saved together. */}
                 {show === "all" || show === "hold" ? (
