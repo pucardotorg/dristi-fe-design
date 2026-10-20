@@ -13,6 +13,7 @@ import { NextResponse } from "next/server";
 
 import { localizeCaseNumber } from "@/lib/court/localize";
 import type { ApiBatchRequest, ApiBatchResponse, ApiDocument } from "@/lib/bulk/contract";
+import { documentText } from "@/lib/bulk/doc-text";
 import { buildBatch, validateRequest } from "@/lib/bulk/intake";
 import { insertBatch, listBatches, saveFile } from "@/lib/bulk/store.server";
 
@@ -27,8 +28,9 @@ async function fetchDocument(doc: ApiDocument) {
     const res = await fetch(doc.url, { signal: AbortSignal.timeout(10_000) });
     if (!res.ok) return null;
     const bytes = new Uint8Array(await res.arrayBuffer());
-    const type = doc.contentType || res.headers.get("content-type") || "application/octet-stream";
-    return await saveFile(bytes, doc.name, type.split(";")[0]);
+    const type = (doc.contentType || res.headers.get("content-type") || "application/octet-stream").split(";")[0];
+    const ref = await saveFile(bytes, doc.name, type);
+    return { ...ref, text: documentText(bytes, type) };
   } catch {
     return null;
   }

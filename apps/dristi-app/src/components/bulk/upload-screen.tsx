@@ -16,6 +16,7 @@ import {
   readWorkbook,
   unknownValues,
   type ColumnMap,
+  type InstanceCounts,
   type ValueMap,
   type Workbookish,
 } from "@/lib/bulk/excel";
@@ -71,6 +72,7 @@ export function UploadScreen() {
   const [file, setFile] = React.useState<File | null>(null);
   const [book, setBook] = React.useState<Workbookish | null>(null);
   const [map, setMap] = React.useState<ColumnMap>({});
+  const [counts, setCounts] = React.useState<InstanceCounts>({});
   const [values, setValues] = React.useState<ValueMap>({});
   const [template, setTemplate] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
@@ -80,14 +82,14 @@ export function UploadScreen() {
   // "2 accused, 3 cheques, 1 witness": the sections the file repeats, for the review.
   const repeatsFound = React.useMemo(() => {
     if (!book) return "";
-    const inst = instancesIn(book.cases.headers);
+    const inst = instancesIn(book.cases.headers, counts);
     return GROUPS.filter((g) => g.repeats && !g.parent)
       .map((g) => ({ g, n: inst[g.id].length }))
       .filter(({ g, n }) => n > (g.always ? 1 : 0))
       .map(({ g, n }) => `${g.label.toLowerCase()} up to ${g.first > 1 ? n + 1 : n}`)
       .join(", ");
-  }, [book]);
-  const unknown = book ? unknownValues(book.cases, map) : {};
+  }, [book, counts]);
+  const unknown = book ? unknownValues(book.cases, map, counts) : {};
   const unknownLists = Object.keys(unknown) as ListName[];
   const unmapped = MUST_MAP.filter((k) => !isMapped(map[k]));
   const valuesDone = unknownLists.every((l) => unknown[l]!.every((v) => values[l]?.[v]));
@@ -102,6 +104,7 @@ export function UploadScreen() {
       setBook(b);
       const m = autoMap(b.cases.headers);
       setMap(m);
+      setCounts({});
       const follows = followsTemplate(b.cases.headers);
       setTemplate(follows);
       const u = unknownValues(b.cases, m);
@@ -124,7 +127,8 @@ export function UploadScreen() {
         barNumbers: OFFICE_ADVOCATES.map((a) => a.barNumber).filter((b) => bars.includes(b)),
         adr,
         fileName: file.name,
-      });
+      },
+      counts);
       const res = await fetch("/api/bulk/batches", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -276,7 +280,14 @@ export function UploadScreen() {
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-6">
-            <ColumnMapping headers={headers} rows={book.cases.rows} map={map} onChange={setMap} />
+            <ColumnMapping
+              headers={headers}
+              rows={book.cases.rows}
+              map={map}
+              onChange={setMap}
+              counts={counts}
+              onCounts={setCounts}
+            />
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <span className="text-caption text-muted-foreground tabular-nums">
                 {unmapped.length ? `${unmapped.length} required field${unmapped.length === 1 ? "" : "s"} still to match` : "Every required field is matched"}

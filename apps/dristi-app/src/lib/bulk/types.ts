@@ -64,6 +64,8 @@ export type BatchCase = {
   unknownBar: string[];
   /** Documents the sender listed but DRISTI could not fetch. */
   fetchFailed: string[];
+  /** Text read from each stored document, by file id; `null` when none could be read. For the AI review. */
+  docText?: Record<string, string | null>;
   /** Notices (by index) whose delivery the sender did not know yet, such as in transit. */
   unknownService: number[];
   /** How each case was signed in bulk, once it is. */

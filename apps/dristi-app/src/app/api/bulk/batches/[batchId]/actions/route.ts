@@ -14,6 +14,7 @@ import {
   signable,
   signCases,
 } from "@/lib/bulk/actions.server";
+import { aiModeFrom } from "@/lib/bulk/ai-review";
 import { caseFlags } from "@/lib/bulk/scrutiny";
 import { listBatches, updateBatch } from "@/lib/bulk/store.server";
 import type { BulkSignMethod } from "@/lib/bulk/types";
@@ -31,7 +32,9 @@ const METHODS: BulkSignMethod[] = ["mobile-otp", "dsc", "aadhaar", "upload"];
 
 export async function POST(req: Request, ctx: { params: Promise<{ batchId: string }> }) {
   const { batchId } = await ctx.params;
-  const body = (await req.json()) as Action;
+  const body = (await req.json()) as Action & { ai?: string };
+  // The AI review runs on the same setting as the screen that sent this (`?ai=`).
+  const ai = aiModeFrom(body.ai);
   let problem: string | null = null;
 
   // Fixes may need a lookup (IFSC, pincode), so they are prepared before the write.
@@ -55,7 +58,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ batchId: strin
       case "skip-rule": {
         for (const bc of batch.cases) {
           if (bc.draft.status === "filed" || bc.signedWith) continue;
-          const ids = caseFlags(bc, { batch, others })
+          const ids = caseFlags(bc, { batch, others, ai })
             .filter((f) => f.level === "soft" && f.rule === body.rule)
             .map((f) => f.id);
           bc.skipped = [...new Set([...bc.skipped, ...ids])];
@@ -73,7 +76,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ batchId: strin
           problem = "Unknown signing method.";
           return null;
         }
-        const ready = signable(batch, all).filter((c) => body.caseIds.includes(c.id));
+        const ready = signable(batch, all, ai).filter((c) => body.caseIds.includes(c.id));
         if (ready.length === 0) {
           problem = "None of these cases can be signed now.";
           return null;
@@ -130,11 +133,11 @@ export async function POST(req: Request, ctx: { params: Promise<{ batchId: strin
       return b;
     });
     const after = await listBatches();
-    return NextResponse.json(batchView(out!, after));
+    return NextResponse.json(batchView(out!, after, ai));
   }
 
   if (problem) return NextResponse.json({ error: problem }, { status: 409 });
   if (!saved) return NextResponse.json({ error: "No such batch or case." }, { status: 404 });
   const all = await listBatches();
-  return NextResponse.json(batchView(saved, all));
+  return NextResponse.json(batchView(saved, all, ai));
 }

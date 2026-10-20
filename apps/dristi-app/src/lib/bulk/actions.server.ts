@@ -20,6 +20,7 @@ import {
 import { GUJARAT_FEES } from "@/lib/court/fees";
 import type { FilingDraft, StoredFileRef } from "@/lib/filing/types";
 
+import type { AiMode } from "./ai-review";
 import { resolveBar, resolveIfsc, resolvePin } from "./reference";
 import { caseFlags, caseStage, openFlags, type Flag } from "./scrutiny";
 import {
@@ -75,6 +76,8 @@ export type BatchSummary = {
 };
 
 export type BatchView = BatchSummary & {
+  /** Whether the AI review ran on these flags. */
+  ai: AiMode;
   cases: CaseView[];
   payments: Batch["payments"];
   signings: Batch["signings"];
@@ -90,8 +93,8 @@ function addMonth(iso: string): string {
   return d.toISOString().slice(0, 10);
 }
 
-export function caseView(bc: BatchCase, batch: Batch, all: Batch[]): CaseView {
-  const ctx = { batch, others: all.filter((b) => b.id !== batch.id) };
+export function caseView(bc: BatchCase, batch: Batch, all: Batch[], ai: AiMode = "off"): CaseView {
+  const ctx = { batch, others: all.filter((b) => b.id !== batch.id), ai };
   const flags = openFlags(bc, ctx);
   const every = caseFlags(bc, ctx);
   const d = bc.draft;
@@ -128,10 +131,10 @@ export function caseView(bc: BatchCase, batch: Batch, all: Batch[]): CaseView {
   };
 }
 
-export function summarise(batch: Batch, all: Batch[]): BatchSummary {
+export function summarise(batch: Batch, all: Batch[], ai: AiMode = "off"): BatchSummary {
   const counts: Record<CaseStage, number> = { held: 0, ready: 0, signed: 0, filed: 0 };
   let flagged = 0;
-  const ctx = { batch, others: all.filter((b) => b.id !== batch.id) };
+  const ctx = { batch, others: all.filter((b) => b.id !== batch.id), ai };
   for (const bc of batch.cases) {
     const flags = openFlags(bc, ctx);
     counts[caseStage(bc, flags)] += 1;
@@ -153,12 +156,13 @@ export function summarise(batch: Batch, all: Batch[]): BatchSummary {
   };
 }
 
-export function batchView(batch: Batch, all: Batch[]): BatchView {
+export function batchView(batch: Batch, all: Batch[], ai: AiMode = "off"): BatchView {
   const first = batch.cases[0]?.draft;
   const rep = first?.complainants[0]?.rep;
   return {
-    ...summarise(batch, all),
-    cases: batch.cases.map((bc) => caseView(bc, batch, all)),
+    ...summarise(batch, all, ai),
+    ai,
+    cases: batch.cases.map((bc) => caseView(bc, batch, all, ai)),
     payments: batch.payments,
     signings: batch.signings,
     advocates: (first?.advocates ?? []).map((a) => ({ name: a.name, barNumber: a.barNumber })),
@@ -268,8 +272,8 @@ export function attachToSlot(bc: BatchCase, slotKey: string, ref: StoredFileRef)
 /* ───────────────────────────── Sign and pay ───────────────────────────── */
 
 /** Cases that may be signed now: nothing holds them and no soft flag is left open. */
-export function signable(batch: Batch, all: Batch[]): BatchCase[] {
-  const ctx = { batch, others: all.filter((b) => b.id !== batch.id) };
+export function signable(batch: Batch, all: Batch[], ai: AiMode = "off"): BatchCase[] {
+  const ctx = { batch, others: all.filter((b) => b.id !== batch.id), ai };
   return batch.cases.filter(
     (bc) => bc.draft.status !== "filed" && !bc.signedWith && openFlags(bc, ctx).length === 0
   );

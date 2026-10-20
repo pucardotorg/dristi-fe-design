@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { CheckCircle2Icon, CircleAlertIcon, OctagonAlertIcon, Undo2Icon } from "lucide-react";
+import { CheckCircle2Icon, CircleAlertIcon, OctagonAlertIcon, SparklesIcon, Undo2Icon } from "lucide-react";
 
 import type { Flag, FlagFix } from "@/lib/bulk/scrutiny";
 import { cn } from "@/lib/utils";
@@ -22,15 +22,18 @@ import { Slot } from "./documents-tab";
 /** One flag, as a line: what kind, where, what. */
 export function FlagLine({ flag }: { flag: Flag }) {
   const hold = flag.level === "hold";
+  const ai = flag.source === "ai";
   return (
     <div className="flex items-start gap-2 text-body-compact">
       {hold ? (
         <OctagonAlertIcon className="mt-0.5 size-4 shrink-0 text-destructive-ink" aria-hidden />
+      ) : ai ? (
+        <SparklesIcon className="mt-0.5 size-4 shrink-0 text-info-ink" aria-hidden />
       ) : (
         <CircleAlertIcon className="mt-0.5 size-4 shrink-0 text-warning-ink" aria-hidden />
       )}
       <span className="min-w-0">
-        <span className="font-medium">{hold ? "Hold" : "Check"}</span>
+        <span className="font-medium">{hold ? "Needs fixing" : ai ? "AI check" : "To check"}</span>
         <span className="text-muted-foreground"> · {flag.where} · </span>
         <span className="tabular-nums text-muted-foreground">{flag.field}</span>
         <span className="block">{flag.message}</span>
@@ -175,7 +178,9 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
       </div>
 
       <p className="text-body-compact text-muted-foreground">
-        Red means something must be fixed before the case can go on. Amber means check it, then fix it or skip it. The other cases carry on.
+        Red means something must be fixed before the case can go on. Amber means check it, then fix it or skip it.
+        {batch.ai === "on" ? " AI checks compare the documents with the case and look for anything odd; fix or skip them the same way." : ""}{" "}
+        The other cases carry on.
       </p>
 
       {error ? (

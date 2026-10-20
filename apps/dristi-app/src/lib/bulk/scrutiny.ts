@@ -40,6 +40,7 @@ import {
 import { toLongDate } from "@/lib/filing/format";
 import type { Address, FilingDraft, StepId } from "@/lib/filing/types";
 
+import { aiFindings, type AiMode } from "./ai-review";
 import { OFFICE_ADVOCATES } from "./clients";
 import { codeForSlot, DOC_CODE_LABEL } from "./contract";
 import { COURT_DISTRICT, IFSC_PATTERN } from "./reference";
@@ -71,6 +72,8 @@ export type Flag = {
   message: string;
   /** Batch-level: the same value for every case, so fixing it fixes it everywhere. */
   batchWide?: boolean;
+  /** Raised by the AI review (`ai-review.ts`), not by a filing rule. Always skippable. */
+  source?: "ai";
   fix?: FlagFix;
 };
 
@@ -117,6 +120,8 @@ export type ScrutinyContext = {
   batch: Batch;
   /** Every other batch, open or closed, for duplicate checks. */
   others: Batch[];
+  /** Whether the AI review runs. Off unless a caller says otherwise. */
+  ai?: AiMode;
 };
 
 /** All flags on one case, skipped soft flags included (see `openFlags`). */
@@ -366,7 +371,7 @@ export function caseFlags(bc: BatchCase, ctx: ScrutinyContext): Flag[] {
   if (twin)
     push({ rule: "ref-dup", field: "Reference", section: "preview", where: "Case", level: "soft", at: "ref", message: `Reference ${bc.reference} is also in ${twin.number}.` });
 
-  return out;
+  return [...out, ...aiFindings(bc, ctx.batch, ctx.others, ctx.ai ?? "off")];
 }
 
 /** The flags still standing: every hold, and the soft flags not skipped. */

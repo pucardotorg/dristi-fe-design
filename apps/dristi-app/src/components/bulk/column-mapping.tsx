@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ArrowLeftIcon, CheckIcon, ChevronDownIcon, CircleAlertIcon, FileSpreadsheetIcon } from "lucide-react";
+import { ArrowLeftIcon, CheckIcon, ChevronDownIcon, CircleAlertIcon, FileSpreadsheetIcon, MinusIcon, PlusIcon } from "lucide-react";
 
 import {
   firstInstance,
@@ -11,6 +11,7 @@ import {
   sourceFor,
   type ColumnMap,
   type ColumnSource,
+  type InstanceCounts,
 } from "@/lib/bulk/excel";
 import { COLUMNS, GROUPS, LISTS, instanceKey, type Column, type Group, type GroupId, type Instance } from "@/lib/bulk/excel-spec";
 import { cn } from "@/lib/utils";
@@ -25,7 +26,64 @@ type Props = {
   rows: string[][];
   map: ColumnMap;
   onChange: (next: ColumnMap) => void;
+  /** How many of each repeating section the filer says there are. */
+  counts: InstanceCounts;
+  onCounts: (next: InstanceCounts) => void;
 };
+
+/** "Accused", "Cheques": what a count of a section is called. */
+const PLURAL: Partial<Record<GroupId, string>> = {
+  complainant: "Further complainants",
+  accused: "Accused",
+  cheque: "Cheques",
+  notice: "Demand notices",
+  witness: "Witnesses",
+  otherCase: "Other pending cases",
+};
+
+/**
+ * What the file holds of each repeating section, read from its column names, with a
+ * stepper to correct it where the names do not make it clear. The sections below follow
+ * the count.
+ */
+function FoundInFile({ props, instances }: { props: Props; instances: Record<GroupId, Instance[]> }) {
+  const groups = GROUPS.filter((g) => g.repeats && !g.parent);
+  return (
+    <section className="flex flex-col gap-3 rounded-lg border border-hairline bg-surface-sunken p-4" aria-labelledby="found-in-file">
+      <div className="flex flex-col gap-0.5">
+        <h3 id="found-in-file" className="flex items-center gap-2 text-body-compact font-semibold">
+          <FileSpreadsheetIcon className="size-4 text-success-ink" aria-hidden />
+          Found in your file
+        </h3>
+        <p className="text-caption text-muted-foreground">
+          Counted from the column names (_2, _3 after a name). If a count is wrong, change it here and the fields below follow.
+        </p>
+      </div>
+      <ul className="flex flex-wrap gap-2">
+        {groups.map((g) => {
+          const n = instances[g.id].length;
+          const floor = g.always ? 1 : 0;
+          const set = (next: number) => props.onCounts({ ...props.counts, [g.id]: Math.max(floor, next) });
+          const name = PLURAL[g.id] ?? g.label;
+          return (
+            <li key={g.id} className="flex items-center gap-1 rounded-lg border border-hairline bg-card py-1 pr-1 pl-3">
+              <span className="text-body-compact">{name}</span>
+              <span className="min-w-6 text-center text-body-compact font-semibold tabular-nums" aria-live="polite">
+                {n}
+              </span>
+              <Button variant="ghost" size="icon" className="size-8" disabled={n <= floor} onClick={() => set(n - 1)} aria-label={`One fewer: ${name}`}>
+                <MinusIcon aria-hidden />
+              </Button>
+              <Button variant="ghost" size="icon" className="size-8" onClick={() => set(n + 1)} aria-label={`One more: ${name}`}>
+                <PlusIcon aria-hidden />
+              </Button>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
 
 const label = (g: Group, i: Instance) => (g.parent ? `${g.label} ${i[1]} of accused ${i[0]}` : `${g.label} ${i[0]}`);
 
@@ -155,20 +213,26 @@ function Section({
  */
 export function ColumnMapping(props: Props) {
   const [showOptional, setShowOptional] = React.useState(false);
-  const instances = React.useMemo(() => instancesIn(props.headers), [props.headers]);
+  const instances = React.useMemo(() => instancesIn(props.headers, props.counts), [props.headers, props.counts]);
 
   const required = COLUMNS.filter((c) => MUST_MAP.includes(c.key));
-  const optional = COLUMNS.filter((c) => !MUST_MAP.includes(c.key));
+  // Optional fields of the sections a case always has; the rest are mapped on their tabs.
+  const optional = COLUMNS.filter((c) => !MUST_MAP.includes(c.key) && !(GROUPS.find((g) => g.id === c.group)!.repeats && !GROUPS.find((g) => g.id === c.group)!.always && !GROUPS.find((g) => g.id === c.group)!.parent));
   const matched = required.filter((c) => sourceFor(c, firstInstance(GROUPS.find((g) => g.id === c.group)!), props.map, props.headers) !== null).length;
 
   // Instances beyond the first, for sections the file repeats.
+  // On tabs: every instance of a section a case does not always have (witnesses, further
+  // complainants, other pending cases), and the second onwards of one it does.
+  const onTabs = (g: Group) => g.repeats && !g.always && !g.parent;
   const repeated = GROUPS.filter((g) => g.repeats)
-    .map((g) => ({ g, extra: instances[g.id].filter((i) => instanceKey(i) !== instanceKey(firstInstance(g))) }))
+    .map((g) => ({ g, extra: instances[g.id].filter((i) => onTabs(g) || instanceKey(i) !== instanceKey(firstInstance(g))) }))
     .filter((x) => x.extra.length > 0);
   const [repeatTab, setRepeatTab] = React.useState<GroupId | "">(repeated[0]?.g.id ?? "");
 
   return (
     <div className="flex flex-col gap-6">
+      <FoundInFile props={props} instances={instances} />
+
       <section className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-3">
           <h3 className="text-body font-semibold">Required fields</h3>
@@ -187,17 +251,22 @@ export function ColumnMapping(props: Props) {
       {repeated.length ? (
         <section className="flex flex-col gap-3">
           <div className="flex flex-col gap-1">
-            <h3 className="text-body font-semibold">Repeated sections in your file</h3>
+            <h3 className="text-body font-semibold">Repeated sections</h3>
             <p className="text-caption text-muted-foreground">
-              Read from the same columns with _2, _3 after the name. Change any that came from elsewhere.
+              Each is read from the same columns with _2, _3 after the name. Pick another column where yours are named differently.
             </p>
           </div>
-          <Tabs value={repeatTab || repeated[0].g.id} onValueChange={(v) => setRepeatTab(v as GroupId)} className="gap-3">
+          <Tabs
+            value={repeated.some((r) => r.g.id === repeatTab) ? repeatTab : repeated[0].g.id}
+            onValueChange={(v) => setRepeatTab(v as GroupId)}
+            className="gap-3"
+          >
             <div className="overflow-x-auto">
               <TabsList className="w-max">
                 {repeated.map(({ g, extra }) => (
                   <TabsTrigger key={g.id} value={g.id}>
-                    {g.label} <span className="tabular-nums text-muted-foreground">+{extra.length}</span>
+                    {g.always ? g.label : PLURAL[g.id] ?? g.label}{" "}
+                    <span className="tabular-nums text-muted-foreground">{g.always ? `+${extra.length}` : extra.length}</span>
                   </TabsTrigger>
                 ))}
               </TabsList>

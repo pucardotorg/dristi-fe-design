@@ -111,14 +111,14 @@ async function complainantFrom(src: ApiComplainant): Promise<Complainant> {
   return comp;
 }
 
-/** Fetches one document the sender listed and stores it; `null` when it cannot. */
-export type FetchDocument = (doc: ApiDocument) => Promise<StoredFileRef | null>;
+/** Fetches one document the sender listed and stores it, with any text read from it; `null` when it cannot. */
+export type FetchDocument = (doc: ApiDocument) => Promise<(StoredFileRef & { text?: string | null }) | null>;
 
 async function buildDraft(
   req: ApiBatchRequest,
   c: ApiCase,
   fetchDocument: FetchDocument
-): Promise<{ draft: FilingDraft; unknownBar: string[]; fetchFailed: string[]; unknownService: number[] }> {
+): Promise<{ draft: FilingDraft; unknownBar: string[]; fetchFailed: string[]; unknownService: number[]; docText: Record<string, string | null> }> {
   const draft = createBlankDraft(newId("d"), null);
   const now = new Date().toISOString();
 
@@ -254,6 +254,7 @@ async function buildDraft(
 
   /* Documents (DCM): fetched now, placed in the intake slot each code fills. */
   const fetchFailed: string[] = [];
+  const docText: Record<string, string | null> = {};
   const slots = new Map(
     [...draft.intake.cheques, ...draft.intake.parties]
       .flatMap((g) => g.slots)
@@ -263,9 +264,12 @@ async function buildDraft(
   for (const doc of c.documents ?? []) {
     const slot = slots.get(slotKeyFor(doc.code, doc.index ?? 1));
     if (!slot) continue;
-    const ref = await fetchDocument(doc);
-    if (ref) slot.file = ref;
-    else fetchFailed.push(doc.name || doc.code);
+    const got = await fetchDocument(doc);
+    if (got) {
+      const { text, ...ref } = got;
+      slot.file = ref;
+      docText[ref.id] = text ?? null;
+    } else fetchFailed.push(doc.name || doc.code);
   }
   draft.documents = buildDocumentGroups(draft);
 
@@ -275,7 +279,7 @@ async function buildDraft(
   draft.createdAt = now;
   draft.updatedAt = now;
 
-  return { draft, unknownBar, fetchFailed, unknownService };
+  return { draft, unknownBar, fetchFailed, unknownService, docText };
 }
 
 /** Requests that are not a batch at all are refused before anything is stored. */
@@ -319,6 +323,7 @@ export async function buildBatch(
       unknownBar: built.unknownBar,
       fetchFailed: built.fetchFailed,
       unknownService: built.unknownService,
+      docText: built.docText,
       signedWith: null,
       receiptNumber: null,
     });

@@ -3,7 +3,11 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeftIcon, CircleCheckIcon } from "lucide-react";
+import { ArrowLeftIcon, CircleCheckIcon, TriangleAlertIcon } from "lucide-react";
+
+import { aiModeFrom } from "@/lib/bulk/ai-review";
+import { useCourt } from "@/components/court/court-provider";
+import { Banner } from "@/components/ui/banner";
 
 import { toLongDate } from "@/lib/filing/format";
 import { cn } from "@/lib/utils";
@@ -15,7 +19,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-import { bulkApi, type BatchView } from "./api";
+import { bulkApi, setBulkAiMode, type BatchView } from "./api";
 import { SourceLabel } from "./batches-screen";
 import { CasesTab } from "./cases-tab";
 import { useGujarat } from "./court-guard";
@@ -94,6 +98,7 @@ export type TabId = (typeof TABS)[number];
 /** One batch: its cases, their documents, the checks, then signing and payment in bulk. */
 export function BatchScreen({ batchId }: { batchId: string }) {
   const ready = useGujarat();
+  const { profile } = useCourt();
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -101,11 +106,16 @@ export function BatchScreen({ batchId }: { batchId: string }) {
   const tab: TabId = (TABS as readonly string[]).includes(tabParam ?? "") ? (tabParam as TabId) : "cases";
   const [batch, setBatch] = React.useState<BatchView | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  // AI review follows `?ai=on|off|unavailable`, else the court's setting (on for Gujarat),
+  // the same switch as the scrutiny workbench.
+  const aiParam = params.get("ai");
+  const ai = aiModeFrom(aiParam, profile.aiMode);
+  setBulkAiMode(ai);
 
   React.useEffect(() => {
     if (!ready) return;
     bulkApi.get(batchId).then(setBatch, (e: Error) => setError(e.message));
-  }, [ready, batchId]);
+  }, [ready, batchId, ai]);
 
   // Slide the highlight to the active tab rather than switching it in one frame. Written
   // to the element directly, so moving it never re-renders the screen.
@@ -128,8 +138,14 @@ export function BatchScreen({ batchId }: { batchId: string }) {
   }, [tab, batch]);
 
   const go = React.useCallback(
-    (next: TabId) => router.replace(`${pathname}${next === "cases" ? "" : `?tab=${next}`}`, { scroll: false }),
-    [router, pathname]
+    (next: TabId) => {
+      const q = new URLSearchParams();
+      if (next !== "cases") q.set("tab", next);
+      if (aiParam) q.set("ai", aiParam);
+      const qs = q.toString();
+      router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+    },
+    [router, pathname, aiParam]
   );
 
   if (error) {
@@ -182,6 +198,16 @@ export function BatchScreen({ batchId }: { batchId: string }) {
           </p>
         </div>
       </header>
+
+      {/* A standing condition, as on the scrutiny workbench → Banner. */}
+      {ai === "unavailable" ? (
+        <Banner variant="warning">
+          <TriangleAlertIcon />
+          <div className="min-w-0 flex-1 leading-snug">
+            AI review unavailable. Documents are not compared with the cases; check them by hand.
+          </div>
+        </Banner>
+      ) : null}
 
       {batch.total > 0 && batch.counts.filed === batch.total ? (
         <Alert variant="success">

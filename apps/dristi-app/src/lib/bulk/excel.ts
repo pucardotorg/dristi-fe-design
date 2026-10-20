@@ -288,7 +288,14 @@ function normaliseInstance(group: Group, raw: Instance): Instance {
  * exists when any cheque column has `_2`. Sections that are always there have at least
  * their first instance.
  */
-export function instancesIn(headers: string[]): Record<GroupId, Instance[]> {
+/**
+ * How many of each repeating section the filer says the sheet has, where the headers do
+ * not make it clear (columns named "Chq No 2" rather than "Chq No_2"). For complainants it
+ * counts the further ones, after the one chosen on screen.
+ */
+export type InstanceCounts = Partial<Record<GroupId, number>>;
+
+export function instancesIn(headers: string[], counts: InstanceCounts = {}): Record<GroupId, Instance[]> {
   const out = Object.fromEntries(GROUPS.map((g) => [g.id, [] as Instance[]])) as Record<GroupId, Instance[]>;
   const seen = new Set<string>();
   const add = (g: Group, inst: Instance) => {
@@ -306,7 +313,20 @@ export function instancesIn(headers: string[]): Record<GroupId, Instance[]> {
   }
   for (const g of GROUPS) {
     if (g.always || out[g.id].length) add(g, firstInstance(g));
+    // The filer's own count wins over what the headers suggest.
+    const n = counts[g.id];
+    if (g.repeats && !g.parent && n !== undefined) {
+      const floor = g.always ? 1 : 0;
+      out[g.id] = Array.from({ length: Math.max(floor, n) }, (_, k) => [g.first + k]);
+    }
     out[g.id].sort((a, b) => a[0] - b[0] || (a[1] ?? 0) - (b[1] ?? 0));
+  }
+  // Nested sections follow their parent: no addresses for an accused who is not there.
+  const accused = new Set(out.accused.map((i) => i[0]));
+  for (const g of GROUPS.filter((x) => x.parent)) {
+    out[g.id] = out[g.id].filter(([p]) => accused.has(p));
+    for (const p of accused) if (g.always && !out[g.id].some(([q]) => q === p)) out[g.id].push([p, 1]);
+    out[g.id].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
   }
   return out;
 }
@@ -363,9 +383,13 @@ export const MUST_MAP = COLUMNS.filter((c) => c.required.startsWith("Yes") && c.
 export type ValueMap = Partial<Record<ListName, Record<string, string>>>;
 
 /** Values in list columns that the list does not know, by list, across every instance. */
-export function unknownValues(sheet: Sheet, map: ColumnMap): Partial<Record<ListName, string[]>> {
+export function unknownValues(
+  sheet: Sheet,
+  map: ColumnMap,
+  counts: InstanceCounts = {}
+): Partial<Record<ListName, string[]>> {
   const out: Partial<Record<ListName, Set<string>>> = {};
-  const inst = instancesIn(sheet.headers);
+  const inst = instancesIn(sheet.headers, counts);
   for (const c of COLUMNS) {
     if (c.kind !== "list" || !c.list) continue;
     for (const instance of inst[c.group]) {
@@ -453,10 +477,11 @@ export function buildRequest(
   book: Workbookish,
   map: ColumnMap,
   values: ValueMap,
-  batch: { complainant: ApiComplainant; barNumbers: string[]; adr: "yes" | "no"; fileName: string }
+  batch: { complainant: ApiComplainant; barNumbers: string[]; adr: "yes" | "no"; fileName: string },
+  counts: InstanceCounts = {}
 ): ApiBatchRequest {
   const headers = book.cases.headers;
-  const inst = instancesIn(headers);
+  const inst = instancesIn(headers, counts);
   const cases: ApiCase[] = book.cases.rows.map((row, n) => {
     const r = reader(row, headers, map, values);
     const one: Instance = [];
