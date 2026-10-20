@@ -125,34 +125,44 @@ export function caseFlags(bc: BatchCase, ctx: ScrutinyContext): Flag[] {
   const out: Flag[] = [];
   const push: Push = ({ at, ...f }) => out.push({ ...f, id: `${f.rule}:${at}` });
 
-  /* ── Complainant (LIT) — sent once, the same on every case ── */
-  const c = d.complainants[0];
-  const lit = { section: "complainant" as StepId, where: "Complainant", batchWide: true };
+  /*
+   * ── Complainants (LIT) ── The first is the batch's own, the same on every case, so a
+   * fix there applies batch-wide; a further complainant is this case's alone.
+   */
+  d.complainants.forEach((c, k) => {
+  const lit = {
+    section: "complainant" as StepId,
+    where: d.complainants.length > 1 ? `Complainant ${k + 1}` : "Complainant",
+    batchWide: k === 0,
+  };
   if (c.type === "institution") {
     if (!listed(ENTITY_TYPES, c.entType))
-      push({ ...lit, rule: "lit-17", field: "LIT-17", level: "hold", at: "c.entType", message: c.entType ? `Type of institution "${c.entType}" is not in the list.` : "Type of institution is missing.", fix: { kind: "select", path: "complainants.0.entType", label: "Type of institution", value: "", options: ENTITY_TYPES } });
+      push({ ...lit, rule: "lit-17", field: "LIT-17", level: "hold", at: `c${k}.entType`, message: c.entType ? `Type of institution "${c.entType}" is not in the list.` : "Type of institution is missing.", fix: { kind: "select", path: `complainants.${k}.entType`, label: "Type of institution", value: "", options: ENTITY_TYPES } });
     if (!c.entName.trim())
-      push({ ...lit, rule: "lit-18", field: "LIT-18", level: "hold", at: "c.entName", message: "Institution name is missing.", fix: { kind: "text", path: "complainants.0.entName", label: "Institution name", value: "" } });
+      push({ ...lit, rule: "lit-18", field: "LIT-18", level: "hold", at: `c${k}.entName`, message: "Institution name is missing.", fix: { kind: "text", path: `complainants.${k}.entName`, label: "Institution name", value: "" } });
     if (!isCinOrPan(c.entCinPan))
-      push({ ...lit, rule: "lit-18a", field: "LIT-18a", level: "hold", at: "c.entCinPan", message: c.entCinPan ? `"${c.entCinPan}" is not a CIN or PAN.` : "CIN or PAN is missing.", fix: { kind: "text", path: "complainants.0.entCinPan", label: "CIN or PAN", value: c.entCinPan } });
-    addressFlags(push, c.entAddr, { rule: "lit-21", field: "LIT-21", ...lit }, "complainants.0.entAddr");
+      push({ ...lit, rule: "lit-18a", field: "LIT-18a", level: "hold", at: `c${k}.entCinPan`, message: c.entCinPan ? `"${c.entCinPan}" is not a CIN or PAN.` : "CIN or PAN is missing.", fix: { kind: "text", path: `complainants.${k}.entCinPan`, label: "CIN or PAN", value: c.entCinPan } });
+    addressFlags(push, c.entAddr, { rule: "lit-21", field: "LIT-21", ...lit }, `complainants.${k}.entAddr`);
     const r = c.rep;
     if (!MOBILE.test(r.mobile))
-      push({ ...lit, rule: "lit-22", field: "LIT-22", level: "hold", at: "c.rep.mobile", message: r.mobile ? `Representative's mobile "${r.mobile}" is not a 10-digit mobile number.` : "Representative's mobile is missing.", fix: { kind: "text", path: "complainants.0.rep.mobile", label: "Representative's mobile", value: r.mobile, inputMode: "tel" } });
+      push({ ...lit, rule: "lit-22", field: "LIT-22", level: "hold", at: `c${k}.rep.mobile`, message: r.mobile ? `Representative's mobile "${r.mobile}" is not a 10-digit mobile number.` : "Representative's mobile is missing.", fix: { kind: "text", path: `complainants.${k}.rep.mobile`, label: "Representative's mobile", value: r.mobile, inputMode: "tel" } });
     if (!r.name.trim())
-      push({ ...lit, rule: "lit-23", field: "LIT-23", level: "hold", at: "c.rep.name", message: "Representative's name is missing.", fix: { kind: "text", path: "complainants.0.rep.name", label: "Representative's name", value: "" } });
+      push({ ...lit, rule: "lit-23", field: "LIT-23", level: "hold", at: `c${k}.rep.name`, message: "Representative's name is missing.", fix: { kind: "text", path: `complainants.${k}.rep.name`, label: "Representative's name", value: "" } });
     if (!/^\d+$/.test(r.age) || Number(r.age) < 18)
-      push({ ...lit, rule: "lit-24", field: "LIT-24", level: "hold", at: "c.rep.age", message: r.age ? `Representative's age "${r.age}" is not valid.` : "Representative's age is missing.", fix: { kind: "text", path: "complainants.0.rep.age", label: "Representative's age", value: r.age, inputMode: "numeric" } });
+      push({ ...lit, rule: "lit-24", field: "LIT-24", level: "hold", at: `c${k}.rep.age`, message: r.age ? `Representative's age "${r.age}" is not valid.` : "Representative's age is missing.", fix: { kind: "text", path: `complainants.${k}.rep.age`, label: "Representative's age", value: r.age, inputMode: "numeric" } });
     if (!r.designation.trim())
-      push({ ...lit, rule: "lit-25a", field: "LIT-25a", level: "hold", at: "c.rep.designation", message: "Representative's designation is missing.", fix: { kind: "text", path: "complainants.0.rep.designation", label: "Designation", value: "" } });
-    addressFlags(push, r.addr, { rule: "lit-26", field: "LIT-26", ...lit }, "complainants.0.rep.addr");
+      push({ ...lit, rule: "lit-25a", field: "LIT-25a", level: "hold", at: `c${k}.rep.designation`, message: "Representative's designation is missing.", fix: { kind: "text", path: `complainants.${k}.rep.designation`, label: "Designation", value: "" } });
+    addressFlags(push, r.addr, { rule: "lit-26", field: "LIT-26", ...lit }, `complainants.${k}.rep.addr`);
   } else {
     if (!c.name.trim())
-      push({ ...lit, rule: "lit-4", field: "LIT-4", level: "hold", at: "c.name", message: "Complainant's name is missing.", fix: { kind: "text", path: "complainants.0.name", label: "Complainant's name", value: "" } });
+      push({ ...lit, rule: "lit-4", field: "LIT-4", level: "hold", at: `c${k}.name`, message: "Complainant's name is missing.", fix: { kind: "text", path: `complainants.${k}.name`, label: "Complainant's name", value: "" } });
     if (!MOBILE.test(c.mobile))
-      push({ ...lit, rule: "lit-3", field: "LIT-3", level: "hold", at: "c.mobile", message: "Complainant's mobile is missing or not valid.", fix: { kind: "text", path: "complainants.0.mobile", label: "Complainant's mobile", value: c.mobile, inputMode: "tel" } });
-    addressFlags(push, c.res, { rule: "lit-7", field: "LIT-7", ...lit }, "complainants.0.res");
+      push({ ...lit, rule: "lit-3", field: "LIT-3", level: "hold", at: `c${k}.mobile`, message: "Complainant's mobile is missing or not valid.", fix: { kind: "text", path: `complainants.${k}.mobile`, label: "Complainant's mobile", value: c.mobile, inputMode: "tel" } });
+    if (!/^\d+$/.test(c.age) || Number(c.age) < 1)
+      push({ ...lit, rule: "lit-5", field: "LIT-5", level: "hold", at: `c${k}.age`, message: c.age ? `Age "${c.age}" is not valid.` : "Complainant's age is missing.", fix: { kind: "text", path: `complainants.${k}.age`, label: "Complainant's age", value: c.age, inputMode: "numeric" } });
+    addressFlags(push, c.res, { rule: "lit-7", field: "LIT-7", ...lit }, `complainants.${k}.res`);
   }
+  });
 
   /* ── Advocate (ADV) ── */
   d.advocates.forEach((a, i) => {
@@ -163,7 +173,7 @@ export function caseFlags(bc: BatchCase, ctx: ScrutinyContext): Flag[] {
     push({ rule: "adv-1", field: "ADV-1", section: "advocate", where: "Advocate", batchWide: true, level: "hold", at: "adv", message: "No advocate is on record for the complainant." });
 
   /* ── Accused (ACC) ── */
-  const complainantMobiles = [c.mobile, c.rep.mobile].filter(Boolean);
+  const complainantMobiles = d.complainants.flatMap((c) => [c.mobile, c.rep.mobile]).filter(Boolean);
   d.accused.forEach((a, i) => {
     const where = `Accused ${i + 1}`;
     const acc = { section: "accused" as StepId, where };
@@ -291,6 +301,23 @@ export function caseFlags(bc: BatchCase, ctx: ScrutinyContext): Flag[] {
   });
   if (d.notices.length === 0)
     push({ rule: "ldn-0", field: "LDN-2", section: "demand-notice", where: "Demand notice", level: "hold", at: "notices", message: "The case has no demand notice." });
+
+  /* ── Witnesses (WIT) — optional, but a witness given needs a name or designation and an address ── */
+  d.witnesses.forEach((w, i) => {
+    const contact = w.contacts[0] ?? { mobile: "", email: "" };
+    const addr = w.addresses[0]?.addr;
+    const given = !!(w.fullName.trim() || w.designation.trim() || w.age || w.prove.trim() || contact.mobile || contact.email || addr?.line1.trim());
+    if (!given) return;
+    const wit = { section: "witnesses" as StepId, where: d.witnesses.length > 1 ? `Witness ${i + 1}` : "Witness" };
+    const p = `witnesses.${i}`;
+    if (!w.fullName.trim() && !w.designation.trim())
+      push({ ...wit, rule: "wit-1", field: "WIT-1", level: "hold", at: `${p}.name`, message: "Name or designation is missing.", fix: { kind: "text", path: `${p}.fullName`, label: "Witness name", value: "" } });
+    if (contact.mobile && !MOBILE.test(contact.mobile))
+      push({ ...wit, rule: "wit-5", field: "WIT-5", level: "hold", at: `${p}.mobile`, message: `Mobile "${contact.mobile}" is not a 10-digit mobile number.`, fix: { kind: "text", path: `${p}.contacts.0.mobile`, label: "Witness mobile", value: contact.mobile, inputMode: "tel" } });
+    if (contact.email && !EMAIL.test(contact.email))
+      push({ ...wit, rule: "wit-6", field: "WIT-6", level: "hold", at: `${p}.email`, message: `Email "${contact.email}" is not valid.`, fix: { kind: "text", path: `${p}.contacts.0.email`, label: "Witness email", value: contact.email, inputMode: "email" } });
+    if (addr) addressFlags(push, addr, { rule: "wit-7", field: "WIT-7", ...wit }, `${p}.addresses.0.addr`);
+  });
 
   /* ── Jurisdiction and limitation (JUR) ── */
   const jur = { section: "jurisdiction" as StepId, where: "Jurisdiction" };

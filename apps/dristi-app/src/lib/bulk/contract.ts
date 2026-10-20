@@ -46,8 +46,12 @@ export type ApiComplainant = {
   cinPan?: string;
   phone?: string;
   email?: string;
-  /** `LIT-21`. */
+  /** `LIT-21` for an institution, `LIT-7` for an individual. */
   address: ApiAddress;
+  /** `LIT-5`, individuals. */
+  age?: string;
+  /** `LIT-5a`, individuals: male, female, other. */
+  gender?: string;
   /** `LIT-22…26` — the authorised representative who signs for the institution. */
   representative?: ApiRepresentative;
 };
@@ -123,6 +127,8 @@ export type ApiJurisdiction = {
   depositedInOwnAccount: boolean;
   /** `JUR-2`, when deposited in own account. */
   complainantBranchIfsc?: string;
+  /** `JUR-5`, optional. */
+  complainantBranchPoliceStation?: string;
   /** `JUR-6a`, when not. */
   drawerBranchPoliceStation?: string;
   /** `JUR-6b`, `JUR-7`, `JUR-8`. */
@@ -141,15 +147,36 @@ export type ApiDocument = {
   contentType?: string;
 };
 
+/** `WIT-1…7`. Name or designation, and an address. */
+export type ApiWitness = {
+  name?: string;
+  designation?: string;
+  age?: string;
+  /** `WIT-3`: what the witness will prove. */
+  prove?: string;
+  mobile?: string;
+  email?: string;
+  address: ApiAddress;
+};
+
 export type ApiCase = {
   /** The sender's own reference (a loan account number). Unique within the batch. */
   reference: string;
+  /**
+   * Complainants after the batch's own (complainant 2 onwards), for a case brought by more
+   * than one (PRD §3.3, complainant 1..n). Each needs their own ID card and vakalatnama.
+   */
+  complainants?: ApiComplainant[];
   accused: ApiAccused[];
   cheques: ApiCheque[];
   notices: ApiNotice[];
   jurisdiction: ApiJurisdiction;
   /** `JUR-12` — only used when DRISTI computes a delay. */
   condonationReason?: string;
+  /** `WIT`, 0..n. */
+  witnesses?: ApiWitness[];
+  /** `PRY-1`: additional details for the court. */
+  otherDetails?: string;
   documents?: ApiDocument[];
 };
 
@@ -213,7 +240,7 @@ export const DOC_CODE_LABEL: Record<DocCode, string> = {
 
 /**
  * The intake slot each code fills on a draft (`lib/filing/blank.ts`). Per-cheque codes take
- * the cheque's number; the complainant's take complainant 1, the only one a batch has.
+ * the cheque's number; per-complainant codes (ID card, PoA, vakalatnama) the complainant's.
  */
 export function slotKeyFor(code: DocCode, index = 1): string {
   switch (code) {
@@ -232,11 +259,11 @@ export function slotKeyFor(code: DocCode, index = 1): string {
     case "DCM-7":
       return "sl";
     case "DCM-9":
-      return "p1id";
+      return `p${index}id`;
     case "DCM-11":
-      return "p1poa";
+      return `p${index}poa`;
     case "DCM-12":
-      return "p1vak";
+      return `p${index}vak`;
   }
 }
 
@@ -256,8 +283,10 @@ export function codeForSlot(key: string): { code: DocCode; index: number } | nul
     return { code: map[cheque[2]], index };
   }
   if (key === "sl") return { code: "DCM-7", index: 1 };
-  if (key.startsWith("p1id")) return { code: "DCM-9", index: 1 };
-  if (key.startsWith("p1poa")) return { code: "DCM-11", index: 1 };
-  if (key.startsWith("p1vak")) return { code: "DCM-12", index: 1 };
+  const party = /^p(\d+)(id|poa|vak)/.exec(key);
+  if (party) {
+    const code: DocCode = party[2] === "id" ? "DCM-9" : party[2] === "poa" ? "DCM-11" : "DCM-12";
+    return { code, index: Number(party[1]) };
+  }
   return null;
 }

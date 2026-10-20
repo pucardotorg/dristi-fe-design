@@ -170,12 +170,15 @@ export function batchView(batch: Batch, all: Batch[]): BatchView {
 
 /** Draft paths a scrutiny fix may write — and nothing else. */
 const EDITABLE = [
-  /^complainants\.0\.(entType|entName|entCinPan|name|mobile)$/,
+  /^complainants\.\d+\.(entType|entName|entCinPan|name|mobile|age)$/,
   /^advocates\.\d+\.barNumber$/,
+  /^witnesses\.\d+\.(fullName|designation)$/,
+  /^witnesses\.\d+\.contacts\.0\.(mobile|email)$/,
+  /^witnesses\.\d+\.addresses\.0\.addr\.(line1|city|pin)$/,
   /^accused\.\d+\.reps\.0\.(name|designation)$/,
   /^notices\.\d+\.(delivered|paymentStatus)$/,
-  /^complainants\.0\.rep\.(mobile|name|age|designation)$/,
-  /^complainants\.0\.(entAddr|res|rep\.addr)\.(line1|city|pin)$/,
+  /^complainants\.\d+\.rep\.(mobile|name|age|designation)$/,
+  /^complainants\.\d+\.(entAddr|res|rep\.addr)\.(line1|city|pin)$/,
   /^accused\.\d+\.(name|entType)$/,
   /^accused\.\d+\.contacts\.0\.(mobile|email)$/,
   /^accused\.\d+\.addresses\.\d+\.addr\.(line1|city|pin)$/,

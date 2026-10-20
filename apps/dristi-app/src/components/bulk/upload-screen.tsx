@@ -11,6 +11,7 @@ import {
   buildRequest,
   isMapped,
   followsTemplate,
+  instancesIn,
   MUST_MAP,
   readWorkbook,
   unknownValues,
@@ -18,7 +19,7 @@ import {
   type ValueMap,
   type Workbookish,
 } from "@/lib/bulk/excel";
-import { COLUMNS, LISTS, type ListName } from "@/lib/bulk/excel-spec";
+import { COLUMNS, GROUPS, LISTS, type ListName } from "@/lib/bulk/excel-spec";
 import { cn } from "@/lib/utils";
 import { TABLE_CELL, TABLE_HEAD, TABLE_HEAD_ROW, tableBodyClass, tableRowClass } from "@/components/chrome/table-plate";
 import { PANEL_CLASS } from "@/components/filing/form-card";
@@ -35,12 +36,15 @@ import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 import { downloadTemplate } from "./batches-screen";
+import { ColumnMapping } from "./column-mapping";
 import { useGujarat } from "./court-guard";
 import { FileDrop } from "./file-drop";
 
 type Step = "setup" | "map" | "values" | "review";
 
 const LIST_TITLE: Record<ListName, string> = {
+  complainantEntity: "Complainant institution type",
+  gender: "Gender",
   yesNo: "Yes / No",
   accusedType: "Accused type",
   accusedEntity: "Accused institution type",
@@ -73,6 +77,16 @@ export function UploadScreen() {
   const [error, setError] = React.useState<string | null>(null);
 
   const headers = book?.cases.headers ?? [];
+  // "2 accused, 3 cheques, 1 witness": the sections the file repeats, for the review.
+  const repeatsFound = React.useMemo(() => {
+    if (!book) return "";
+    const inst = instancesIn(book.cases.headers);
+    return GROUPS.filter((g) => g.repeats && !g.parent)
+      .map((g) => ({ g, n: inst[g.id].length }))
+      .filter(({ g, n }) => n > (g.always ? 1 : 0))
+      .map(({ g, n }) => `${g.label.toLowerCase()} up to ${g.first > 1 ? n + 1 : n}`)
+      .join(", ");
+  }, [book]);
   const unknown = book ? unknownValues(book.cases, map) : {};
   const unknownLists = Object.keys(unknown) as ListName[];
   const unmapped = MUST_MAP.filter((k) => !isMapped(map[k]));
@@ -257,71 +271,12 @@ export function UploadScreen() {
           <CardHeader>
             <CardTitle className="text-body font-semibold">Match your columns</CardTitle>
             <CardDescription>
-              This file is not laid out like the template. Choose which of its columns holds each field. Fields already matched
-              were found by their exact name.
+              This file is not laid out like the template. Pick the column that holds each field. Fields already matched were
+              found by name.
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <div className="overflow-x-auto">
-              <Table className="border-separate border-spacing-0" aria-label="Column matching">
-                <TableHeader>
-                  <TableRow className={TABLE_HEAD_ROW}>
-                    <TableHead className={cn(TABLE_HEAD, "pl-4")}>Field</TableHead>
-                    <TableHead className={TABLE_HEAD}>Required</TableHead>
-                    <TableHead className={TABLE_HEAD}>Your column</TableHead>
-                    <TableHead className={cn(TABLE_HEAD, "pr-4")}>First value</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody className={tableBodyClass({ hover: false })}>
-                  {COLUMNS.map((c) => {
-                    const i = map[c.key];
-                    const missing = MUST_MAP.includes(c.key) && !isMapped(i);
-                    const selectValue = typeof i === "number" ? String(i) : i && typeof i === "object" ? `every:${i.every}` : "";
-                    return (
-                      <TableRow key={c.key} className={tableRowClass({ hover: false })}>
-                        <TableCell className={cn(TABLE_CELL, "pl-4 whitespace-normal")}>
-                          <span className="font-medium">{c.header}</span>
-                          <span className="block text-caption text-muted-foreground tabular-nums">{c.field}</span>
-                        </TableCell>
-                        <TableCell className={cn(TABLE_CELL, "max-w-48 whitespace-normal text-caption", missing ? "text-warning-ink" : "text-muted-foreground")}>
-                          {c.required}
-                        </TableCell>
-                        <TableCell className={cn(TABLE_CELL, "min-w-56")}>
-                          <NativeSelect
-                            aria-label={`Column for ${c.header}`}
-                            value={selectValue}
-                            onChange={(e) => {
-                              const v = e.target.value;
-                              setMap((m) => ({
-                                ...m,
-                                [c.key]: v === "" ? null : v.startsWith("every:") ? { every: v.slice(6) } : Number(v),
-                              }));
-                            }}
-                          >
-                            <NativeSelectOption value="">Not in my file</NativeSelectOption>
-                            {headers.map((h, k) => (
-                              <NativeSelectOption key={`${h}-${k}`} value={String(k)}>
-                                {h || `Column ${k + 1}`}
-                              </NativeSelectOption>
-                            ))}
-                            {c.list
-                              ? LISTS[c.list].map((o) => (
-                                  <NativeSelectOption key={o.value} value={`every:${o.label}`}>
-                                    Every row: {o.label}
-                                  </NativeSelectOption>
-                                ))
-                              : null}
-                          </NativeSelect>
-                        </TableCell>
-                        <TableCell className={cn(TABLE_CELL, "pr-4 max-w-56 truncate text-muted-foreground")}>
-                          {typeof i === "number" ? book.cases.rows[0]?.[i] || "—" : i && typeof i === "object" ? i.every : "—"}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+          <CardContent className="flex flex-col gap-6">
+            <ColumnMapping headers={headers} rows={book.cases.rows} map={map} onChange={setMap} />
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <span className="text-caption text-muted-foreground tabular-nums">
                 {unmapped.length ? `${unmapped.length} required field${unmapped.length === 1 ? "" : "s"} still to match` : "Every required field is matched"}
@@ -341,7 +296,9 @@ export function UploadScreen() {
         <Card className={cn(PANEL_CLASS, "max-w-3xl")}>
           <CardHeader>
             <CardTitle className="text-body font-semibold">Match your values</CardTitle>
-            <CardDescription>These values are not in the court&apos;s lists. Choose what each one means; every row using it follows.</CardDescription>
+            <CardDescription>
+              These values in your sheet are not in the ON Courts lists. Choose what each one means; every row using it follows.
+            </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-6">
             {unknownLists.map((l) => (
@@ -392,9 +349,7 @@ export function UploadScreen() {
               {book.cases.discarded
                 ? ` ${book.cases.discarded} template guide row${book.cases.discarded === 1 ? "" : "s"} (format or example) discarded.`
                 : ""}
-              {book.extraCheques?.rows.length ? ` ${book.extraCheques.rows.length} extra cheques.` : ""}
-              {book.extraAccused?.rows.length ? ` ${book.extraAccused.rows.length} extra accused.` : ""} The filing checks run once the
-              batch is created.
+              {repeatsFound ? ` Repeated sections: ${repeatsFound}.` : ""} The filing checks run once the batch is created.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">

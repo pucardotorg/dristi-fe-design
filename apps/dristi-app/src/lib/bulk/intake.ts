@@ -12,11 +12,19 @@
  * compute, exactly as in a single filing (PRD §3.5).
  */
 
-import { buildDocumentGroups, createBlankDraft, intakeChequeGroup, uid } from "@/lib/filing/blank";
+import {
+  blankComplainant,
+  buildDocumentGroups,
+  createBlankDraft,
+  intakeChequeGroup,
+  intakePartyGroup,
+  uid,
+} from "@/lib/filing/blank";
 import { newId } from "@/lib/filing/data";
 import { PROGRESS_STEPS } from "@/lib/filing/selectors";
 import type {
   Accused,
+  Complainant,
   Address,
   AddressBlock,
   ChequeDetails,
@@ -30,6 +38,7 @@ import type {
   ApiAddress,
   ApiBatchRequest,
   ApiCase,
+  ApiComplainant,
   ApiDocument,
   ApiRepresentative,
 } from "./contract";
@@ -74,20 +83,8 @@ async function representative(r: ApiRepresentative | undefined): Promise<Represe
   };
 }
 
-/** Fetches one document the sender listed and stores it; `null` when it cannot. */
-export type FetchDocument = (doc: ApiDocument) => Promise<StoredFileRef | null>;
-
-async function buildDraft(
-  req: ApiBatchRequest,
-  c: ApiCase,
-  fetchDocument: FetchDocument
-): Promise<{ draft: FilingDraft; unknownBar: string[]; fetchFailed: string[]; unknownService: number[] }> {
-  const draft = createBlankDraft(newId("d"), null);
-  const now = new Date().toISOString();
-
-  /* Complainant — the same for every case in the batch (LIT). */
-  const comp = draft.complainants[0];
-  const src = req.complainant;
+async function complainantFrom(src: ApiComplainant): Promise<Complainant> {
+  const comp = blankComplainant();
   comp.pip = "no";
   comp.type = src.type;
   if (src.type === "institution") {
@@ -102,21 +99,46 @@ async function buildDraft(
     comp.mobile = comp.rep.mobile;
   } else {
     comp.name = trim(src.name);
+    comp.age = (src.age ?? "").replace(/\D/g, "");
+    comp.gender = (["male", "female", "other"].includes(src.gender ?? "") ? src.gender : "") as Complainant["gender"];
     comp.mobile = normalisePhone(src.phone);
     comp.email = trim(src.email).toLowerCase();
     comp.res = await address(src.address);
   }
-  // Bulk filing treats the filing advocate's standing link to the institution as the
-  // mobile verification (PRD §4.1, open); the screen says so.
+  // Bulk filing treats the filing advocate's standing link to the client as the mobile
+  // verification (PRD §4.1, open).
   comp.verified = true;
+  return comp;
+}
 
-  /* Advocates — name from the bar register, never from the sender (ADV-4). */
+/** Fetches one document the sender listed and stores it; `null` when it cannot. */
+export type FetchDocument = (doc: ApiDocument) => Promise<StoredFileRef | null>;
+
+async function buildDraft(
+  req: ApiBatchRequest,
+  c: ApiCase,
+  fetchDocument: FetchDocument
+): Promise<{ draft: FilingDraft; unknownBar: string[]; fetchFailed: string[]; unknownService: number[] }> {
+  const draft = createBlankDraft(newId("d"), null);
+  const now = new Date().toISOString();
+
+  /*
+   * Complainants (LIT): the batch's own first, the same on every case, then any further
+   * ones this case names. Each gets its own documents (ID card, vakalatnama).
+   */
+  const sources = [req.complainant, ...(c.complainants ?? [])];
+  draft.complainants = await Promise.all(sources.map((src) => complainantFrom(src)));
+  draft.intake.parties = draft.complainants.map((_, i) => intakePartyGroup(i + 1));
+
+  /* Advocates — name from the bar register, never from the sender (ADV-4). Each appears
+     for every complainant (ADV-2 defaults to all who are not in person). */
   const unknownBar: string[] = [];
+  const everyone = draft.complainants.map((_, i) => i);
   draft.advocates = req.advocates.map((a) => {
     const barNumber = upper(a.barNumber);
     const name = resolveBar(barNumber);
     if (!name) unknownBar.push(barNumber);
-    return { id: uid("adv"), forComplainants: [0], barNumber, name: name ?? "" };
+    return { id: uid("adv"), forComplainants: everyone, barNumber, name: name ?? "" };
   });
 
   /* Accused (ACC). */
@@ -202,6 +224,7 @@ async function buildDraft(
     payeeBankName: payee?.bank ?? "",
     payeeBankBranch: payee?.branch ?? "",
     payeeFetched: !!payee,
+    payeePolice: j.depositedInOwnAccount ? trim(j.complainantBranchPoliceStation) : "",
     drawerPolice: j.depositedInOwnAccount ? "" : trim(j.drawerBranchPoliceStation),
     otherPending: others.length ? "yes" : "no",
     otherCases: others.length
@@ -212,6 +235,22 @@ async function buildDraft(
 
   /* ADR and prayers (PRY). The prayers and affidavit keep the standard templates. */
   if (req.adr) draft.adr.adr = req.adr;
+  draft.adr.otherDetails = trim(c.otherDetails);
+
+  /* Witnesses (WIT), 0..n. With none, the draft keeps the single blank row a filing starts with. */
+  if (c.witnesses?.length) {
+    draft.witnesses = await Promise.all(
+      c.witnesses.map(async (w) => ({
+        id: uid("wit"),
+        fullName: trim(w.name),
+        designation: trim(w.designation),
+        age: (w.age ?? "").replace(/\D/g, ""),
+        prove: trim(w.prove),
+        contacts: [{ mobile: normalisePhone(w.mobile), email: trim(w.email).toLowerCase() }],
+        addresses: [{ addr: await address(w.address), police: trim(w.address?.policeStation) }],
+      }))
+    );
+  }
 
   /* Documents (DCM): fetched now, placed in the intake slot each code fills. */
   const fetchFailed: string[] = [];

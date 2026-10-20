@@ -15,6 +15,15 @@ import {
   CASES_SHEET,
   COLUMNS,
   formatHint,
+  GROUPS,
+  groupOf,
+  instanceKey,
+  parseHeader,
+  suffixFor,
+  templateHeader,
+  type GroupId,
+  type Instance,
+  type Group,
   isGuideRow,
   LISTS,
   LISTS_SHEET,
@@ -24,12 +33,8 @@ import {
   type ListName,
 } from "./excel-spec";
 
-export const EXTRA_CHEQUES_SHEET = "Extra cheques";
-export const EXTRA_ACCUSED_SHEET = "Extra accused";
 export const TEMPLATE_FILE = "bulk-filing-template.xlsx";
 
-const CHEQUE_KEYS = ["chequeNumber", "chequeDate", "chequeAmount", "chequeIfsc", "chequeAccount", "presentDate", "returnDate", "returnReason"];
-const ACCUSED_KEYS = ["accusedType", "accusedName", "accusedEntity", "accusedAge", "accusedMobile", "accusedEmail", "accusedAddress", "accusedCity", "accusedPin", "accusedPolice", "personName", "personDesignation"];
 
 async function excel() {
   const mod = await import("exceljs");
@@ -60,7 +65,7 @@ function addSheet(
 ) {
   const ws = wb.addWorksheet(name, { views: [{ state: "frozen", ySplit: 2 }] });
   const all = opts.withRef ? [COLUMNS[0], ...cols] : cols;
-  ws.columns = all.map((c) => ({ header: c.header, key: c.key, width: Math.max(18, c.header.length + 4) }));
+  ws.columns = all.map((c) => ({ header: templateHeader(c), key: c.key, width: Math.max(18, c.header.length + 4) }));
   const head = ws.getRow(1);
   head.font = { bold: true };
   head.alignment = { wrapText: true, vertical: "top" };
@@ -110,21 +115,30 @@ export async function buildTemplate(): Promise<Blob> {
   });
 
   addSheet(wb, CASES_SHEET, COLUMNS, listRanges, { withRef: false, example: true });
-  addSheet(wb, EXTRA_CHEQUES_SHEET, COLUMNS.filter((c) => CHEQUE_KEYS.includes(c.key)), listRanges, { withRef: true, example: false });
-  addSheet(wb, EXTRA_ACCUSED_SHEET, COLUMNS.filter((c) => ACCUSED_KEYS.includes(c.key)), listRanges, { withRef: true, example: false });
 
   const rules = wb.addWorksheet("Instructions");
   rules.columns = [
     { header: "Column", key: "header", width: 36 },
-    { header: "Field", key: "field", width: 10 },
+    { header: "Field", key: "field", width: 14 },
+    { header: "Section", key: "section", width: 22 },
+    { header: "Repeats", key: "repeats", width: 30 },
     { header: "Required", key: "required", width: 34 },
     { header: "Format", key: "format", width: 44 },
   ];
   rules.getRow(1).font = { bold: true };
   for (const c of COLUMNS) {
+    const g = groupOf(c.group);
     rules.addRow({
-      header: c.header,
+      header: templateHeader(c),
       field: c.field,
+      section: g.label,
+      repeats: !g.repeats
+        ? "No"
+        : g.parent
+          ? `Yes: _1_2 is accused 1's second; _2 follows accused 2`
+          : g.first > 1
+            ? "Yes: _2, _3 (complainant 1 is chosen on screen)"
+            : "Yes: _2, _3",
       required: c.required,
       format:
         c.kind === "date"
@@ -139,7 +153,10 @@ export async function buildTemplate(): Promise<Blob> {
     });
   }
   rules.addRow({});
-  rules.addRow({ header: "One row per case on the Cases sheet, from row 4. A second cheque or accused goes on its own sheet with the same Case reference." });
+  rules.addRow({ header: "One row per case on the Cases sheet, from row 4." });
+  rules.addRow({ header: "A second cheque, accused, notice, witness or other pending case: add the same columns with _2 after the name (Cheque number_2), _3 for a third, and so on." });
+  rules.addRow({ header: "An accused's second address or person responsible takes two numbers: Accused address_1_2 is accused 1's second address; Accused address_2 is accused 2's first." });
+  rules.addRow({ header: "Further complainants: Complainant name_2 and the other complainant columns. Complainant 1 is chosen on screen when you upload." });
   rules.addRow({ header: "Row 2 says what each column takes and row 3 is an example. Both are skipped on upload, so they can stay." });
   rules.addRow({ header: "Not in the sheet: cause of action, filing date, delay and fees (the system computes them), and documents (added after upload)." });
 
@@ -191,7 +208,7 @@ function readSheet(ws: Worksheet): Sheet {
   return { name: ws.name, headers, rows, discarded };
 }
 
-export type Workbookish = { cases: Sheet; extraCheques: Sheet | null; extraAccused: Sheet | null };
+export type Workbookish = { cases: Sheet };
 
 /**
  * The sheets the upload uses. The Cases sheet is the one named so, else the first sheet
@@ -207,7 +224,7 @@ export async function readWorkbook(file: File): Promise<Workbookish> {
     const split = (l: string) => l.match(/("([^"]|"")*"|[^,]*)(,|$)/g)!.slice(0, -1).map((c) => c.replace(/,$/, "").replace(/^"|"$/g, "").replace(/""/g, '"').trim());
     const [h, ...all] = lines.map(split);
     const r = all.filter((row) => !isGuideRow(row));
-    return { cases: { name: file.name, headers: h ?? [], rows: r, discarded: all.length - r.length }, extraCheques: null, extraAccused: null };
+    return { cases: { name: file.name, headers: h ?? [], rows: r, discarded: all.length - r.length } };
   }
   await wb.xlsx.load(data);
   const sheets = wb.worksheets.map(readSheet);
@@ -216,38 +233,124 @@ export async function readWorkbook(file: File): Promise<Workbookish> {
     (byName(CASES_SHEET)?.rows.length ? byName(CASES_SHEET) : null) ??
     sheets.find((s) => s.rows.length && ![LISTS_SHEET, "Instructions"].includes(s.name)) ??
     sheets[0];
-  return {
-    cases: cases ?? { name: "", headers: [], rows: [], discarded: 0 },
-    extraCheques: byName(EXTRA_CHEQUES_SHEET),
-    extraAccused: byName(EXTRA_ACCUSED_SHEET),
-  };
+  return { cases: cases ?? { name: "", headers: [], rows: [], discarded: 0 } };
 }
 
 /* ───────────────────────────── Matching ───────────────────────────── */
 
 /**
- * Column key → where its value comes from: the index of an uploaded column, a value the
- * filer chose for every row (`{ every }`, list fields only), or null for nowhere.
+ * Where one field of one instance comes from: the index of an uploaded column, a value
+ * the filer chose for every row (`{ every }`, list fields only), or null for nowhere.
  */
 export type ColumnSource = number | { every: string } | null;
+
+/**
+ * Field → source. The key is the column key for the field's first instance
+ * (`chequeNumber`), or the key and instance for a later one (`chequeNumber@2`,
+ * `accusedAddress@1.2`). A later instance with no entry of its own follows the first:
+ * the same column with that instance's `_n` suffix.
+ */
 export type ColumnMap = Record<string, ColumnSource>;
 
 export const isMapped = (s: ColumnSource | undefined) => s !== null && s !== undefined;
 
+export const mapKey = (key: string, instance: Instance, group: Group) =>
+  instanceKey(instance) === instanceKey(firstInstance(group)) ? key : `${key}@${instanceKey(instance)}`;
+
+export function firstInstance(group: Group): Instance {
+  if (!group.repeats) return [];
+  return group.parent ? [1, 1] : [group.first];
+}
+
+/** Uploaded headers, indexed by normalised column name and repeat. */
+type HeaderIndex = Map<string, Map<string, number>>;
+
+function indexHeaders(headers: string[]): HeaderIndex {
+  const out: HeaderIndex = new Map();
+  headers.forEach((h, i) => {
+    const { base, instance } = parseHeader(h);
+    const key = normHeader(base);
+    if (!out.has(key)) out.set(key, new Map());
+    out.get(key)!.set(instanceKey(instance), i);
+  });
+  return out;
+}
+
+/** The instance a suffix-less or suffixed header stands for, in its group's terms. */
+function normaliseInstance(group: Group, raw: Instance): Instance {
+  if (!group.repeats) return [];
+  if (group.parent) return raw.length === 0 ? [1, 1] : raw.length === 1 ? [raw[0], 1] : raw;
+  return raw.length === 0 ? [group.first] : [raw[0]];
+}
+
+/**
+ * Which instances of each repeating section the file has, from its headers: a cheque 2
+ * exists when any cheque column has `_2`. Sections that are always there have at least
+ * their first instance.
+ */
+export function instancesIn(headers: string[]): Record<GroupId, Instance[]> {
+  const out = Object.fromEntries(GROUPS.map((g) => [g.id, [] as Instance[]])) as Record<GroupId, Instance[]>;
+  const seen = new Set<string>();
+  const add = (g: Group, inst: Instance) => {
+    const k = `${g.id}:${instanceKey(inst)}`;
+    if (seen.has(k)) return;
+    seen.add(k);
+    out[g.id].push(inst);
+  };
+  for (const h of headers) {
+    const { base, instance } = parseHeader(h);
+    const col = COLUMNS.find((c) => [c.header, ...c.aliases].some((x) => normHeader(x) === normHeader(base)));
+    if (!col) continue;
+    const g = groupOf(col.group);
+    add(g, normaliseInstance(g, instance));
+  }
+  for (const g of GROUPS) {
+    if (g.always || out[g.id].length) add(g, firstInstance(g));
+    out[g.id].sort((a, b) => a[0] - b[0] || (a[1] ?? 0) - (b[1] ?? 0));
+  }
+  return out;
+}
+
 export function autoMap(headers: string[]): ColumnMap {
-  const index = new Map(headers.map((h, i) => [normHeader(h), i]));
+  const index = indexHeaders(headers);
   const map: ColumnMap = {};
   for (const c of COLUMNS) {
-    const hit = [c.header, ...c.aliases].map(normHeader).find((h) => index.has(h));
-    map[c.key] = hit !== undefined ? index.get(hit)! : null;
+    const g = groupOf(c.group);
+    const first = suffixFor(g, firstInstance(g)).replace(/^_/, "").replace(/_/g, ".");
+    const hit = [c.header, ...c.aliases].map(normHeader).find((h) => index.get(h)?.has(first));
+    map[c.key] = hit !== undefined ? index.get(hit)!.get(first)! : null;
   }
   return map;
 }
 
+/**
+ * Where a field of a given instance is read from. An explicit choice wins; otherwise the
+ * first instance's column with this instance's suffix, if the file has it.
+ */
+export function sourceFor(
+  c: Column,
+  instance: Instance,
+  map: ColumnMap,
+  headers: string[]
+): ColumnSource {
+  const g = groupOf(c.group);
+  const own = map[mapKey(c.key, instance, g)];
+  if (own !== undefined) return own;
+  const base = map[c.key];
+  if (base === null || base === undefined) return null;
+  if (typeof base === "object") return base;
+  if (instanceKey(instance) === instanceKey(firstInstance(g))) return base;
+  const name = normHeader(parseHeader(headers[base] ?? "").base);
+  const want = suffixFor(g, instance).replace(/^_/, "").replace(/_/g, ".");
+  const i = indexHeaders(headers).get(name)?.get(want);
+  return i === undefined ? null : i;
+}
+
 /** True when the file is the template: every template header is there, as written. */
 export function followsTemplate(headers: string[]): boolean {
-  const have = new Set(headers.map(normHeader));
-  return COLUMNS.every((c) => have.has(normHeader(c.header)));
+  const have = new Set(headers.map((h) => normHeader(parseHeader(h).base)));
+  return COLUMNS.filter((c) => !groupOf(c.group).repeats || groupOf(c.group).always)
+    .every((c) => have.has(normHeader(c.header)));
 }
 
 /**
@@ -259,19 +362,22 @@ export const MUST_MAP = COLUMNS.filter((c) => c.required.startsWith("Yes") && c.
 /** list → raw value as written → list value chosen by the filer. */
 export type ValueMap = Partial<Record<ListName, Record<string, string>>>;
 
-/** Values in list columns that the list does not know, by list. */
+/** Values in list columns that the list does not know, by list, across every instance. */
 export function unknownValues(sheet: Sheet, map: ColumnMap): Partial<Record<ListName, string[]>> {
   const out: Partial<Record<ListName, Set<string>>> = {};
+  const inst = instancesIn(sheet.headers);
   for (const c of COLUMNS) {
     if (c.kind !== "list" || !c.list) continue;
-    const i = map[c.key];
-    if (typeof i !== "number") continue;
-    for (const row of sheet.rows) {
-      const v = row[i]?.trim();
-      if (v && listValue(c.list, v) === null) (out[c.list] ??= new Set()).add(v);
+    for (const instance of inst[c.group]) {
+      const i = sourceFor(c, instance, map, sheet.headers);
+      if (typeof i !== "number") continue;
+      for (const row of sheet.rows) {
+        const v = row[i]?.trim();
+        if (v && listValue(c.list, v) === null) (out[c.list] ??= new Set()).add(v);
+      }
     }
   }
-  return Object.fromEntries(Object.entries(out).map(([k, s]) => [k, [...s!]]));
+  return Object.fromEntries(Object.entries(out).map(([k, set]) => [k, [...set!]]));
 }
 
 /* ───────────────────────────── Rows → request ───────────────────────────── */
@@ -291,46 +397,55 @@ export function sheetDate(raw: string): string {
   return s;
 }
 
-function reader(row: string[], map: ColumnMap, values: ValueMap) {
-  const raw = (key: string) => {
-    const i = map[key];
-    if (i && typeof i === "object") return i.every;
-    return typeof i === "number" ? (row[i] ?? "").trim() : "";
+const COL = Object.fromEntries(COLUMNS.map((c) => [c.key, c])) as Record<string, Column>;
+
+/** Reads one row, one instance at a time. */
+function reader(row: string[], headers: string[], map: ColumnMap, values: ValueMap) {
+  const raw = (key: string, instance: Instance) => {
+    const src = sourceFor(COL[key], instance, map, headers);
+    if (src && typeof src === "object") return src.every;
+    return typeof src === "number" ? (row[src] ?? "").trim() : "";
   };
-  const list = (key: string) => {
-    const c = COLUMNS.find((x) => x.key === key)!;
-    const v = raw(key);
+  const list = (key: string, instance: Instance) => {
+    const c = COL[key];
+    const v = raw(key, instance);
     if (!v || !c.list) return "";
     return listValue(c.list, v) ?? values[c.list]?.[v] ?? v;
   };
-  return { raw, list };
+  /** Whether this instance has anything in this row (optional sections). */
+  const any = (group: GroupId, instance: Instance) =>
+    COLUMNS.filter((c) => c.group === group).some((c) => {
+      const src = sourceFor(c, instance, map, headers);
+      return typeof src === "number" && !!(row[src] ?? "").trim();
+    });
+  return { raw, list, any };
 }
 
-function accusedFrom(r: ReturnType<typeof reader>): ApiCase["accused"][number] {
-  const type = r.list("accusedType") === "institution" ? "institution" : "individual";
+type Reader = ReturnType<typeof reader>;
+
+function accusedFrom(r: Reader, a: number, inst: Record<GroupId, Instance[]>): ApiCase["accused"][number] {
+  const at: Instance = [a];
+  const type = r.list("accusedType", at) === "institution" ? "institution" : "individual";
+  const addresses = inst.address
+    .filter(([p, c]) => p === a && (c === 1 || r.any("address", [p, c])))
+    .map((i) => ({ line1: r.raw("accusedAddress", i), city: r.raw("accusedCity", i), pin: r.raw("accusedPin", i), policeStation: r.raw("accusedPolice", i) }));
+  const persons = inst.person
+    .filter(([p, c]) => p === a && r.any("person", [p, c]))
+    .map((i) => ({
+      name: r.raw("personName", i),
+      designation: r.raw("personDesignation", i),
+      mobile: r.raw("personMobile", i),
+      email: r.raw("personEmail", i),
+      ...(r.raw("personAddress", i) ? { address: { line1: r.raw("personAddress", i), city: r.raw("personCity", i), pin: r.raw("personPin", i) } } : {}),
+    }));
   return {
     type,
-    name: r.raw("accusedName"),
-    ...(type === "institution" ? { institutionType: r.list("accusedEntity") } : { age: r.raw("accusedAge") }),
-    mobile: r.raw("accusedMobile"),
-    email: r.raw("accusedEmail"),
-    addresses: [{ line1: r.raw("accusedAddress"), city: r.raw("accusedCity"), pin: r.raw("accusedPin"), policeStation: r.raw("accusedPolice") }],
-    ...(type === "institution" && r.raw("personName")
-      ? { personsResponsible: [{ name: r.raw("personName"), designation: r.raw("personDesignation") }] }
-      : {}),
-  };
-}
-
-function chequeFrom(r: ReturnType<typeof reader>): ApiCase["cheques"][number] {
-  return {
-    number: r.raw("chequeNumber"),
-    date: sheetDate(r.raw("chequeDate")),
-    amount: r.raw("chequeAmount"),
-    ifsc: r.raw("chequeIfsc"),
-    accountNumber: r.raw("chequeAccount"),
-    presentedOn: sheetDate(r.raw("presentDate")),
-    returnedOn: sheetDate(r.raw("returnDate")),
-    returnReason: r.list("returnReason"),
+    name: r.raw("accusedName", at),
+    ...(type === "institution" ? { institutionType: r.list("accusedEntity", at) } : { age: r.raw("accusedAge", at) }),
+    mobile: r.raw("accusedMobile", at),
+    email: r.raw("accusedEmail", at),
+    addresses: addresses.length ? addresses : [{ line1: "", city: "", pin: "" }],
+    ...(type === "institution" ? { personsResponsible: persons } : {}),
   };
 }
 
@@ -340,53 +455,93 @@ export function buildRequest(
   values: ValueMap,
   batch: { complainant: ApiComplainant; barNumbers: string[]; adr: "yes" | "no"; fileName: string }
 ): ApiBatchRequest {
+  const headers = book.cases.headers;
+  const inst = instancesIn(headers);
   const cases: ApiCase[] = book.cases.rows.map((row, n) => {
-    const r = reader(row, map, values);
-    const delivered = r.list("delivered");
-    const deposited = r.list("deposited") !== "no";
+    const r = reader(row, headers, map, values);
+    const one: Instance = [];
+    // A section every case has (accused, cheque, notice) is always read for its first
+    // instance; anything else only when that instance has values in this row.
+    const used = (g: GroupId) =>
+      inst[g].filter((i) => (groupOf(g).always && i[0] === groupOf(g).first) || r.any(g, i));
+    const deposited = r.list("deposited", one) !== "no";
     return {
-      reference: r.raw("reference") || `Row ${n + 2}`,
-      accused: [accusedFrom(r)],
-      cheques: [chequeFrom(r)],
-      notices: [
-        {
-          natureOfDebt: r.list("natureDebt"),
-          dispatchedOn: sheetDate(r.raw("dispatchDate")),
-          mode: r.list("mode"),
-          trackingNumber: r.raw("tracking"),
+      reference: r.raw("reference", one) || `Row ${n + 2}`,
+      complainants: used("complainant").map((i) => {
+        const type = r.list("compType", i) === "institution" ? "institution" : "individual";
+        const address = { line1: r.raw("compAddress", i), city: r.raw("compCity", i), pin: r.raw("compPin", i) };
+        return {
+          type,
+          name: r.raw("compName", i),
+          phone: r.raw("compMobile", i),
+          email: r.raw("compEmail", i),
+          address,
+          ...(type === "institution"
+            ? {
+                institutionType: r.list("compEntity", i),
+                cinPan: r.raw("compCinPan", i),
+                representative: {
+                  name: r.raw("compRepName", i),
+                  designation: r.raw("compRepDesignation", i),
+                  age: r.raw("compRepAge", i),
+                  mobile: r.raw("compRepMobile", i),
+                  address,
+                },
+              }
+            : { age: r.raw("compAge", i), gender: r.list("compGender", i) }),
+        };
+      }),
+      accused: used("accused").map(([a]) => accusedFrom(r, a, inst)),
+      cheques: used("cheque").map((i) => ({
+        number: r.raw("chequeNumber", i),
+        date: sheetDate(r.raw("chequeDate", i)),
+        amount: r.raw("chequeAmount", i),
+        ifsc: r.raw("chequeIfsc", i),
+        accountNumber: r.raw("chequeAccount", i),
+        presentedOn: sheetDate(r.raw("presentDate", i)),
+        returnedOn: sheetDate(r.raw("returnDate", i)),
+        returnReason: r.list("returnReason", i),
+      })),
+      notices: used("notice").map((i) => {
+        const delivered = r.list("delivered", i);
+        const paid = r.raw("paidAmount", i);
+        return {
+          natureOfDebt: r.list("natureDebt", i),
+          dispatchedOn: sheetDate(r.raw("dispatchDate", i)),
+          mode: r.list("mode", i),
+          trackingNumber: r.raw("tracking", i),
           delivered: delivered === "yes" ? true : delivered === "no" ? false : null,
-          deliveredOn: sheetDate(r.raw("deliveryDate")),
-          returnedOn: sheetDate(r.raw("noticeReturnDate")),
-          nonDeliveryReason: r.list("nonDelivery"),
-          replied: r.list("replied") === "yes",
+          deliveredOn: sheetDate(r.raw("deliveryDate", i)),
+          returnedOn: sheetDate(r.raw("noticeReturnDate", i)),
+          nonDeliveryReason: r.list("nonDelivery", i),
+          replied: r.list("replied", i) === "yes",
           // Without a payment column, an amount paid over zero means part payment.
           payment:
-            r.list("payment") === "part" || (!isMapped(map.payment) && Number(r.raw("paidAmount").replace(/[^\d.]/g, "")) > 0)
-              ? { status: "part", amount: r.raw("paidAmount") }
-              : { status: "none" },
-        },
-      ],
+            r.list("payment", i) === "part" || (!isMapped(map.payment) && Number(paid.replace(/[^\d.]/g, "")) > 0)
+              ? { status: "part" as const, amount: paid }
+              : { status: "none" as const },
+        };
+      }),
       jurisdiction: {
         depositedInOwnAccount: deposited,
-        complainantBranchIfsc: r.raw("payeeIfsc"),
-        drawerBranchPoliceStation: r.raw("drawerPolice"),
+        complainantBranchIfsc: r.raw("payeeIfsc", one),
+        complainantBranchPoliceStation: r.raw("payeePolice", one),
+        drawerBranchPoliceStation: r.raw("drawerPolice", one),
+        otherPendingCases: used("otherCase").map((i) => ({ court: r.raw("otherCourt", i), caseNumber: r.raw("otherNumber", i) })),
       },
-      condonationReason: r.raw("condonation"),
+      witnesses: used("witness").map((i) => ({
+        name: r.raw("witnessName", i),
+        designation: r.raw("witnessDesignation", i),
+        age: r.raw("witnessAge", i),
+        prove: r.raw("witnessProve", i),
+        mobile: r.raw("witnessMobile", i),
+        email: r.raw("witnessEmail", i),
+        address: { line1: r.raw("witnessAddress", i), city: r.raw("witnessCity", i), pin: r.raw("witnessPin", i) },
+      })),
+      condonationReason: r.raw("condonation", one),
+      otherDetails: r.raw("otherDetails", one),
     };
   });
-
-  // The repeat sheets are the template's own, so they are read by header, not mapped.
-  const extra = (sheet: Sheet | null, add: (c: ApiCase, r: ReturnType<typeof reader>) => void) => {
-    if (!sheet) return;
-    const m = autoMap(sheet.headers);
-    for (const row of sheet.rows) {
-      const r = reader(row, m, values);
-      const c = cases.find((x) => x.reference === r.raw("reference"));
-      if (c) add(c, r);
-    }
-  };
-  extra(book.extraCheques, (c, r) => c.cheques.push(chequeFrom(r)));
-  extra(book.extraAccused, (c, r) => c.accused.push(accusedFrom(r)));
 
   return {
     source: { system: "Excel upload", reference: batch.fileName },
