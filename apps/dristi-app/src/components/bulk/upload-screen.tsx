@@ -272,15 +272,16 @@ export function UploadScreen() {
       ) : null}
 
       {step === "map" && book ? (
-        <Card className={PANEL_CLASS}>
-          <CardHeader>
-            <CardTitle className="text-body font-semibold">Match your columns</CardTitle>
-            <CardDescription>
+        // No outer card: the sections are cards on the page, as in the single filing.
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-title-s font-semibold">Match your columns</h2>
+            <p className="text-body-compact text-muted-foreground">
               This file is not laid out like the template. Pick the column that holds each field. Fields already matched were
               found by name.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-6">
+            </p>
+          </div>
+          <div className="flex flex-col gap-6">
             <ColumnMapping
               headers={headers}
               rows={book.cases.rows}
@@ -289,7 +290,8 @@ export function UploadScreen() {
               counts={counts}
               onCounts={setCounts}
             />
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            {/* Kept in reach at the foot of the screen: the list of fields is long. */}
+            <div className="sticky bottom-0 z-10 -mx-4 flex flex-col gap-2 border-t border-hairline bg-background px-4 py-3 sm:flex-row sm:items-center">
               <span className="text-caption text-muted-foreground tabular-nums">
                 {unmapped.length ? `${unmapped.length} required field${unmapped.length === 1 ? "" : "s"} still to match` : "Every required field is matched"}
               </span>
@@ -300,8 +302,8 @@ export function UploadScreen() {
                 Continue
               </Button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       ) : null}
 
       {step === "values" && book ? (

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { autoMap, buildRequest, instancesIn, sourceFor, type Workbookish } from "./excel";
+import { autoMap, buildRequest, columnFit, instancesIn, sourceFor, type Workbookish } from "./excel";
 import { COLUMNS, parseHeader } from "./excel-spec";
 
 const complainant = {
@@ -28,7 +28,8 @@ test("_2 columns become the second cheque, accused and witness; _1_2 a second ad
   const row = ["R-1", "A One", "Addr 1", "Addr 1b", "A Two", "Addr 2", "111111", "222222", "W1", "W2", "Co Two", "Individual"];
   const inst = instancesIn(headers);
   assert.deepEqual(inst.accused, [[1], [2]]);
-  assert.deepEqual(inst.address, [[1, 1], [1, 2], [2, 1]]);
+  // Accused 2 mirrors accused 1's two address slots; the blank one adds nothing below.
+  assert.deepEqual(inst.address, [[1, 1], [1, 2], [2, 1], [2, 2]]);
   const req = buildRequest(book(headers, row), autoMap(headers), {}, { complainant, barNumbers: ["K/1450/2012"], adr: "no", fileName: "t" });
   const c = req.cases[0];
   assert.deepEqual(c.accused.map((a) => a.name), ["A One", "A Two"]);
@@ -67,4 +68,14 @@ test("repeats are per case: one row uses the _2 columns, the next leaves them bl
   assert.equal(req.cases[0].cheques.length, 2);
   assert.equal(req.cases[1].accused.length, 1);
   assert.equal(req.cases[1].cheques.length, 1);
+});
+
+test("a matched column is checked against its field: dates, pincodes, list words", () => {
+  const col = (key: string) => COLUMNS.find((c) => c.key === key)!;
+  assert.equal(columnFit(col("chequeDate"), ["01/09/2026", "14-09-2026", ""]).ok, true);
+  assert.deepEqual(columnFit(col("chequeDate"), ["Harsh", "Mehta", "01/09/2026"]), { ok: false, note: "2 of 3 values are not dates" });
+  assert.equal(columnFit(col("accusedPin"), ["380015", "380 006"]).ok, true);
+  assert.equal(columnFit(col("accusedName"), []).ok, false);
+  const reason = columnFit(col("returnReason"), ["INSUFFICIENT FUNDS"]);
+  assert.equal(reason.ok, false);
 });

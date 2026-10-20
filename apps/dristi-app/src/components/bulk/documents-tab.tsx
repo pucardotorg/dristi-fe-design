@@ -3,7 +3,6 @@
 import * as React from "react";
 import { CheckCircle2Icon, CircleAlertIcon, CircleCheckIcon, UploadIcon } from "lucide-react";
 
-import { codeForSlot } from "@/lib/bulk/contract";
 import { cn } from "@/lib/utils";
 import { PANEL_CLASS } from "@/components/filing/form-card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -42,7 +41,6 @@ export function Slot({
 }) {
   const input = React.useRef<HTMLInputElement>(null);
   const [over, setOver] = React.useState(false);
-  const code = doc.slotKey ? codeForSlot(doc.slotKey) : null;
   const filled = !!doc.file;
   const canUpload = !locked && !!doc.slotKey;
   const choose = () => {
@@ -70,7 +68,6 @@ export function Slot({
   const name = (
     <span className="flex min-w-0 flex-1 items-baseline gap-2">
       <span className="truncate text-body-compact font-medium">{doc.name}</span>
-      {code ? <span className="shrink-0 font-mono text-caption text-muted-foreground">{code.code}</span> : null}
     </span>
   );
 

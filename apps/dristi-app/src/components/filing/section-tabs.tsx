@@ -87,7 +87,8 @@ export function SectionTabs({
       )}
     >
       <div className="flex w-full min-w-0 items-center gap-2 border-b border-hairline sm:contents">
-      <Tabs value={activeId} onValueChange={onSelect} className="min-w-0 flex-1">
+      {/* Add sits right after the last tab, not at the far end (owner, 2026-10-20). */}
+      <Tabs value={activeId} onValueChange={onSelect} className="min-w-0 flex-initial">
         <TabsList
           ref={listRef}
           variant="line"

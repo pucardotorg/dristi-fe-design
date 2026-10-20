@@ -44,9 +44,12 @@ import { useCourtText } from "@/components/court/court-provider";
  * patch. The current step takes the rail's own brand tint, which is also what colours its
  * icon — "you are here" is one cue, not two competing ones.
  */
-const ROW = "h-10 w-full justify-start gap-2 px-2 font-normal";
-const ROW_ACTIVE =
+export const RAIL_ROW = "h-10 w-full justify-start gap-2 px-2 font-normal";
+export const RAIL_ROW_ACTIVE =
   "bg-sidebar-accent text-sidebar-accent-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground";
+const ROW = RAIL_ROW;
+const ROW_ACTIVE = RAIL_ROW_ACTIVE;
+
 /**
  * Steps listed for orientation with no screen behind them. They keep full contrast — a
  * 50% label is not a readable one — and stay focusable, so the note saying where that
@@ -74,7 +77,7 @@ function useActiveStep(): FilingStep | undefined {
  * The shape carries the meaning and the words are there for a screen reader, so colour
  * is never the only cue.
  */
-function SectionMark({ state }: { state: SectionState }) {
+export function SectionMark({ state }: { state: SectionState }) {
   if (state === "untouched") return null;
   return state === "done" ? (
     <>

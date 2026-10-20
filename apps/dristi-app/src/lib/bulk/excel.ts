@@ -322,11 +322,13 @@ export function instancesIn(headers: string[], counts: InstanceCounts = {}): Rec
     }
     out[g.id].sort((a, b) => a[0] - b[0] || (a[1] ?? 0) - (b[1] ?? 0));
   }
-  // Nested sections follow their parent: no addresses for an accused who is not there.
-  const accused = new Set(out.accused.map((i) => i[0]));
+  // Nested sections follow their parent and mirror across it, as adding an accused does in
+  // the filing flow: every accused gets the same addresses and persons responsible as the
+  // one with the most (blank ones add nothing), and at least one of each.
+  const accused = out.accused.map((i) => i[0]);
   for (const g of GROUPS.filter((x) => x.parent)) {
-    out[g.id] = out[g.id].filter(([p]) => accused.has(p));
-    for (const p of accused) if (g.always && !out[g.id].some(([q]) => q === p)) out[g.id].push([p, 1]);
+    const items = new Set([1, ...out[g.id].map(([, c]) => c)]);
+    out[g.id] = accused.flatMap((p) => [...items].map((c): Instance => [p, c]));
     out[g.id].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
   }
   return out;
@@ -576,4 +578,46 @@ export function buildRequest(
     adr: batch.adr,
     cases,
   };
+}
+
+/* ───────────────────────────── Does a column fit its field ───────────────────────────── */
+
+export type ColumnFit = { ok: true } | { ok: false; note: string };
+
+const FIT_SHARE = 0.8;
+
+/**
+ * Whether a matched column's values look like what the field takes: dates for a date,
+ * ten digits for a mobile, six for a pincode, an IFSC for an IFSC, known words for a list.
+ * Rules only. A column passes when most of its filled values fit; a list column with words
+ * the court does not know passes too, since the next step matches those, but says so.
+ */
+export function columnFit(column: Column, values: string[]): ColumnFit {
+  const filled = values.map((v) => v.trim()).filter(Boolean);
+  if (!filled.length) return { ok: false, note: "This column is empty" };
+  const test = (good: (v: string) => boolean, what: string): ColumnFit => {
+    const bad = filled.filter((v) => !good(v)).length;
+    return filled.length - bad >= filled.length * FIT_SHARE
+      ? { ok: true }
+      : { ok: false, note: `${bad} of ${filled.length} values are not ${what}` };
+  };
+  const digits = (v: string) => v.replace(/^\+?91[\s-]?/, "").replace(/\D/g, "");
+  if (/Pin$/.test(column.key)) return test((v) => /^\d{6}$/.test(v.replace(/\s/g, "")), "6-digit pincodes");
+  if (/Ifsc$/.test(column.key)) return test((v) => /^[A-Z]{4}0[A-Z0-9]{6}$/i.test(v.trim()), "IFSC codes");
+  if (/Email$/.test(column.key)) return test((v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), "email addresses");
+  switch (column.kind) {
+    case "date":
+      return test((v) => /^\d{4}-\d{2}-\d{2}$/.test(sheetDate(v)), "dates");
+    case "number":
+      return test((v) => /^\d+(\.\d+)?$/.test(v.replace(/[₹,\s]|rs\.?/gi, "")), "numbers");
+    case "phone":
+      return test((v) => digits(v).replace(/^0/, "").length === 10, "10-digit mobiles");
+    case "list": {
+      if (!column.list) return { ok: true };
+      const unknown = new Set(filled.filter((v) => listValue(column.list!, v) === null));
+      return unknown.size ? { ok: false, note: `${unknown.size} word${unknown.size === 1 ? "" : "s"} to match on the next step` } : { ok: true };
+    }
+    default:
+      return { ok: true };
+  }
 }

@@ -46,7 +46,7 @@ export function FlagLine({ flag }: { flag: Flag }) {
         <span className="sr-only">{k.name}: </span>
         {flag.message}{" "}
         <Badge variant="outline" className="ml-1 align-middle font-normal text-muted-foreground">
-          {flag.where} · <span className="tabular-nums">{flag.field}</span>
+          {flag.where}
         </Badge>
       </span>
     </div>
@@ -223,7 +223,7 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
                   <span className="sr-only">{k.name}: </span>
                   Same check on <span className="font-medium tabular-nums">{g.cases.length} cases</span>{" "}
                   <span className="text-muted-foreground">
-                    {g.flag.where} · <span className="tabular-nums">{g.flag.field}</span>
+                    {g.flag.where}
                   </span>
                 </span>
                 <Button variant="outline" disabled={busy || closed} onClick={() => void act({ action: "skip-rule", rule: g.flag.rule })}>
