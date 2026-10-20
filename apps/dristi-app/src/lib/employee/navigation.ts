@@ -477,9 +477,9 @@ export const COURT_NAV_GROUPS: CourtNavGroup[] = [
         label: "Sign A-Diary",
         icon: NotebookPenIcon,
         href: "/employee/sign-a-diary",
-        /* The whole unsigned register, every day of it, not just the day the screen
-           opens on: a bench a day behind should be able to see that from the rail. The
-           page's own count line is the one that agrees with this number. */
+        /* Days waiting to be signed, not entries: a day is what gets signed, and only
+           once it is over (`a-diary.md` `ADY-12`, `ADY-12b`). The page's own count line
+           agrees with this number. */
         count: A_DIARY_PENDING_COUNT,
       },
     ],

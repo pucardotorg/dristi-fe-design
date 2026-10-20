@@ -58,8 +58,8 @@ const cellClass = cn(TABLE_CELL, "align-top");
  * departs from the shared treatment: a number centred against a two-line paragraph
  * floats, and a register is read across its first line.
  *
- * There is no actions column and no row menu. Signing is the act, it lives on the entry
- * the row opens, and drawing a kebab for it would be furniture around a hole.
+ * There is no actions column and no row menu. A row's one act is correcting its entry,
+ * on the entry the row opens; signing is for the whole day, above the table.
  *
  * The panel shell (border, fill, shadow) lives on the screen around this, so the table is
  * one panel rather than a box inside a box.
@@ -116,7 +116,7 @@ export function SignADiaryTable({
                 className={rowOpenerClass}
               >
                 <span className="sr-only">
-                  Read and sign the entry in {courtText(entry.caseNumber)}.{" "}
+                  Read and correct the entry in {courtText(entry.caseNumber)}.{" "}
                 </span>
                 <span className="line-clamp-2">{entry.business}</span>
               </button>
