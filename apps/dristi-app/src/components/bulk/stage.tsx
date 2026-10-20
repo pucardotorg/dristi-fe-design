@@ -33,16 +33,24 @@ export const STAGE_ORDER: CaseStage[] = ["held", "ready", "signed", "filed"];
  * Where an open case stands, in numbers: how many fields are left to complete (or, when
  * only files are short, how many documents), or Complete. Signed and filed cases say so.
  */
-export function CaseBadge({ c }: { c: CaseView }) {
+export function CaseBadge({
+  c,
+  done = 0,
+}: {
+  c: CaseView;
+  /** Fields filled on screen but not yet saved, so the count moves as they are filled. */
+  done?: number;
+}) {
   if (c.stage === "signed" || c.stage === "filed")
     return <StageBadge stage={c.stage} />;
   const holds = c.flags.filter((f) => f.level === "hold");
-  const fields = holds.filter(
-    (f) =>
-      f.section !== "documents" &&
-      f.fix?.kind !== "upload" &&
-      f.fix?.kind !== "documents",
-  ).length;
+  const fields =
+    holds.filter(
+      (f) =>
+        f.section !== "documents" &&
+        f.fix?.kind !== "upload" &&
+        f.fix?.kind !== "documents",
+    ).length - done;
   const docs = c.docs.need - c.docs.have;
   if (fields)
     return (

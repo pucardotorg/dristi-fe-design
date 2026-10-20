@@ -172,6 +172,16 @@ const SECTION_STEP: Record<string, string> = {
 };
 
 /** The field a flag belongs on, or `null` when it is about no one field. */
+/** Whether an unsaved edit fills the field a hold is about. */
+export function filledByEdit(
+  f: Flag,
+  c: CaseView,
+  edits: Record<string, string>,
+): boolean {
+  const p = fieldFor(f, c.fields);
+  return !!p && p in edits && !!edits[p].trim();
+}
+
 function fieldFor(f: Flag, groups: CaseView["fields"]): string | null {
   const own = pathOf(f);
   if (own && groups.some((g) => g.fields.some((x) => x.path === own)))
@@ -360,10 +370,18 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
           cases={listed}
           selectedId={selected?.id ?? null}
           onSelect={choose}
+          // Live: on the case being edited, a field filled but not yet saved stops counting.
           stateOf={(c) => {
             const f = detailFlags(c);
-            const holds = f.filter((x) => x.level === "hold").length;
-            return { holds, checks: f.length - holds };
+            const holds = f.filter(
+              (x) =>
+                x.level === "hold" &&
+                !(c.id === selected?.id && filledByEdit(x, c, edits)),
+            ).length;
+            return {
+              holds,
+              checks: f.filter((x) => x.level !== "hold").length,
+            };
           }}
         />
 

@@ -14,7 +14,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { bulkApi, type BatchView } from "./api";
 import { Slot } from "./documents-tab";
-import { CaseEditor, detailFlags, pathOf } from "./scrutiny-tab";
+import { CaseEditor, detailFlags, filledByEdit, pathOf } from "./scrutiny-tab";
 import { CaseBadge } from "./stage";
 
 type View = "details" | "documents" | "review";
@@ -172,7 +172,14 @@ export function CaseWorkspace({
           <div className="ml-2 flex min-w-0 flex-1 flex-col">
             <div className="flex min-w-0 items-center gap-2">
               <span className="truncate">{title(c.title)}</span>
-              <CaseBadge c={c} />
+              <CaseBadge
+                c={c}
+                done={
+                  detailFlags(c).filter(
+                    (f) => f.level === "hold" && filledByEdit(f, c, edits),
+                  ).length
+                }
+              />
             </div>
             <span className="truncate text-body-compact text-muted-foreground tabular-nums">
               {c.reference}
