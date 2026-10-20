@@ -1,5 +1,6 @@
 "use client";
 
+import { useCourt } from "@/components/court/court-provider";
 import * as React from "react";
 import Link from "next/link";
 import {
@@ -249,10 +250,11 @@ export function HearingSessionButton({
   onEndHearing: (hearing: CourtHearing) => void;
   className?: string;
 }) {
+  const { court } = useCourt();
   /* No slot in a seat that does not run the sitting — see above. The row still says
      where the matter stands; that is the Status chip's job and it was never this
      control's. */
-  if (!seatHasBenchControls(seat)) return null;
+  if (!seatHasBenchControls(seat, court)) return null;
 
   if (canStartHearing(hearing.status)) {
     return (
@@ -387,10 +389,11 @@ export function HearingPassOverMenu({
   seat: CourtRole;
   onPassOver: (hearing: CourtHearing) => void;
 }) {
+  const { court } = useCourt();
   /* Pass over is one of the bench's three controls. It leaves with the other two
      rather than staying behind as the single bench act reachable from a smaller
      menu in a seat that has no session controls at all. */
-  if (!seatHasBenchControls(seat)) return null;
+  if (!seatHasBenchControls(seat, court)) return null;
   if (!canPassOver(hearing.status)) return null;
 
   return (
@@ -533,6 +536,7 @@ export function HearingOrdersButton({
   onOpen?: (hearing: CourtHearing) => void;
   className?: string;
 }) {
+  const { court } = useCourt();
   const label = drafted
     ? `Resume draft order for item ${hearing.item}, ${causeTitle(hearing)}`
     : `Order for item ${hearing.item}, ${causeTitle(hearing)}`;
@@ -540,7 +544,7 @@ export function HearingOrdersButton({
      order that has already been drawn up. */
   const open =
     opensExisting ||
-    (seatHasBenchControls(seat)
+    (seatHasBenchControls(seat, court)
       ? canDraftOrder(hearing.status)
       : canTypeOrder(hearing.status));
   /* Whether this listing has an order on it — see the note above on why `completed` is
@@ -706,13 +710,14 @@ export function HearingRowActions({
   postsNextHearing?: boolean;
   className?: string;
 }) {
-  const ordersIsTheRow = !seatHasBenchControls(seat);
+  const { court } = useCourt();
+  const ordersIsTheRow = !seatHasBenchControls(seat, court);
   /* The phone row has no columns to move between, so the state has to be in the control
      itself: this is where "Open order" becomes "Resume draft". */
   const drafts = useOrderDrafts();
   const drafted = hasDraftFor(drafts, hearing.id);
 
-  const posts = postsNextHearing && seatPostsNextHearing(seat);
+  const posts = postsNextHearing && seatPostsNextHearing(seat, court);
   return (
     <div className={cn("flex flex-col gap-2", className)}>
       {posts ? (

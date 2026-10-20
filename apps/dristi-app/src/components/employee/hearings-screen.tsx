@@ -1,5 +1,6 @@
 "use client";
 
+import { useCourt } from "@/components/court/court-provider";
 import * as React from "react";
 import {
   CalendarX2Icon,
@@ -136,6 +137,7 @@ const HEARING_PILLS: { id: TodaysCauseStatus; label: string }[] =
  * below them would be the box-in-box the layering model rules out (ui-craft §4).
  */
 export function HearingsScreen() {
+  const { court } = useCourt();
   const today = useCourtToday();
   /* Which seat the court side is being worked from. It decides what the rows offer, not
      what they say: the same board, with the acts that move the sitting on it or not
@@ -195,7 +197,7 @@ export function HearingsScreen() {
   /* The Next hearing filter goes with its column: where the column is not offered, a
      choice made in another seat narrows nothing. */
   const nextHearingColumn =
-    postsNextHearing && seatPostsNextHearing(seat) && !pastDay;
+    postsNextHearing && seatPostsNextHearing(seat, court) && !pastDay;
   /* Grouped by status, and within each group in the chosen order — the cause list's
      own sequence by default (`CLS-02`). Array sort is stable, so grouping the sorted
      rows keeps that order inside each group. */
@@ -213,7 +215,7 @@ export function HearingsScreen() {
   );
   /* Which columns show, and in what order — this seat's own choice, opening on its
      default (`cause-list-columns.ts`). */
-  const columnState = useCauseListColumns(seat, postsNextHearing);
+  const columnState = useCauseListColumns(seat, postsNextHearing, court);
   /* A past day is a record: nothing on it can be started, ended, posted or drafted. */
   const tableColumns = shownColumns(columnState.columns).filter(
     (column) =>
@@ -228,9 +230,9 @@ export function HearingsScreen() {
      one piece of text to many orders. A seat with none of them has no bulk mode, and a
      past day has none for anyone. */
   const bulkRoles: BulkRoles = {
-    hearing: seatHasBenchControls(seat),
-    next: postsNextHearing && seatPostsNextHearing(seat),
-    text: seatDraftsOrders(seat),
+    hearing: seatHasBenchControls(seat, court),
+    next: postsNextHearing && seatPostsNextHearing(seat, court),
+    text: seatDraftsOrders(seat, court),
   };
   const bulkOffered = hasBulkActs(bulkRoles) && !pastDay;
   const [bulkOn, setBulkOn] = React.useState(false);

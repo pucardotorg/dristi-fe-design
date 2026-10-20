@@ -48,11 +48,15 @@ describe("cause list columns", () => {
     ]);
   });
 
-  it("offers Next hearing only to the reader, and only when the reader enters it", () => {
+  it("offers Next hearing to each state's next hearing setters, only when entered here", () => {
     assert.ok(defaultColumns("bench-clerk", true).order.includes("nextHearing"));
     assert.ok(!defaultColumns("bench-clerk", false).order.includes("nextHearing"));
-    assert.ok(!defaultColumns("magistrate", true).order.includes("nextHearing"));
-    assert.ok(!defaultColumns("typist", true).order.includes("nextHearing"));
+    /* court-roles §3.1: the Kerala magistrate and typist set the next hearing too —
+       offered, but not shown until they add it. */
+    assert.ok(defaultColumns("magistrate", true).order.includes("nextHearing"));
+    assert.ok(!defaultColumns("magistrate", true).visible.includes("nextHearing"));
+    assert.ok(defaultColumns("typist", true, "kerala").order.includes("nextHearing"));
+    assert.ok(!defaultColumns("typist", true, "gujarat").order.includes("nextHearing"));
     assert.ok(!defaultColumns("typist", true).order.includes("action"));
   });
 

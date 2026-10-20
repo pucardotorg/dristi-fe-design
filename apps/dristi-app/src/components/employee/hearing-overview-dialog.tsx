@@ -1,5 +1,6 @@
 "use client";
 
+import { useCourt } from "@/components/court/court-provider";
 import * as React from "react";
 
 import { RESOLVE_IN_PLACE } from "@/components/chrome/motion";
@@ -123,6 +124,7 @@ function HearingOverviewBody({
   onPassOver: (hearing: CourtHearing) => void;
   postsNextHearing: boolean;
 }) {
+  const { court } = useCourt();
   /* Where this listing stood when the sheet opened. A status different from it is an
      act the reader performed *in here*, and that is the only thing that gets to move:
      the sheet is already rising on open, and a chip that animated then would be a
@@ -231,7 +233,7 @@ function HearingOverviewBody({
       <HearingOverviewSections hearing={hearing} surface="overlay" />
       {/* Under the case, not above it (owner, 2026-10-20): the case history opens at the
           last order, and the sheet opens on the case. */}
-      {postsNextHearing && seatPostsNextHearing(seat) ? (
+      {postsNextHearing && seatPostsNextHearing(seat, court) ? (
         <NextHearingPanel hearing={hearing} />
       ) : null}
       {/* The outcome, for a reader who cannot see the chip change.

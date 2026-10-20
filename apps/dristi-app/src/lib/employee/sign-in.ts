@@ -23,6 +23,7 @@
 import type { CourtId } from "@/lib/court/profiles";
 
 import { COURT_DISTRICT, CURRENT_STAFF, type CourtRole } from "./content";
+import { seatsIn } from "./seat-roles";
 
 /**
  * The four seats a username can land in, in the order the bench is read: the magistrate
@@ -38,6 +39,8 @@ export const COURT_SIGN_IN_ROLES: CourtRole[] = [
   "bench-clerk",
   "scrutiny-officer",
   "typist",
+  "steno",
+  "ahlmad",
 ];
 
 /**
@@ -122,6 +125,19 @@ export const COURT_ACCOUNTS: Record<CourtRole, CourtAccount> = {
     role: "typist",
     courtrooms: [jmfcCourt(1)],
   },
+  /* Punjab & Haryana only (court-roles §3.3); `courtAccounts` leaves them out elsewhere. */
+  steno: {
+    username: "steno",
+    name: "Harpreet K",
+    role: "steno",
+    courtrooms: [jmfcCourt(1)],
+  },
+  ahlmad: {
+    username: "ahlmad",
+    name: "Gurdeep S",
+    role: "ahlmad",
+    courtrooms: [jmfcCourt(1)],
+  },
 };
 
 /**
@@ -132,17 +148,24 @@ export const COURT_ACCOUNTS: Record<CourtRole, CourtAccount> = {
 const PUNJAB_HARYANA_USERNAMES: Partial<Record<CourtRole, string>> = {
   magistrate: "magistrate",
   "bench-clerk": "reader",
-  "scrutiny-officer": "ahlmad",
-  typist: "steno",
+  "scrutiny-officer": "scrutiny",
+  typist: "typist",
+  steno: "steno",
+  ahlmad: "ahlmad",
 };
 
-/** The demo directory as the selected state's court holds it. */
-export function courtAccounts(court: CourtId): Record<CourtRole, CourtAccount> {
-  if (court !== "punjab-haryana") return COURT_ACCOUNTS;
-  const accounts = { ...COURT_ACCOUNTS };
-  for (const [role, username] of Object.entries(PUNJAB_HARYANA_USERNAMES)) {
-    const seat = role as CourtRole;
-    accounts[seat] = { ...COURT_ACCOUNTS[seat], username: username! };
+/**
+ * The demo directory as the selected state's court holds it: only the seats that state
+ * has (`seat-roles.ts`, court-roles §3).
+ */
+export function courtAccounts(court: CourtId): Partial<Record<CourtRole, CourtAccount>> {
+  const accounts: Partial<Record<CourtRole, CourtAccount>> = {};
+  for (const seat of seatsIn(court)) {
+    const username =
+      court === "punjab-haryana" ? PUNJAB_HARYANA_USERNAMES[seat] : undefined;
+    accounts[seat] = username
+      ? { ...COURT_ACCOUNTS[seat], username }
+      : COURT_ACCOUNTS[seat];
   }
   return accounts;
 }

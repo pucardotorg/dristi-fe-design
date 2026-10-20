@@ -554,6 +554,9 @@ const SEAT_HIDDEN_ROWS: Partial<Record<CourtRole, ReadonlySet<string>>> = {
   magistrate: HIDDEN_FROM_BENCH,
   "bench-clerk": HIDDEN_FROM_BENCH,
   typist: HIDDEN_FROM_STENO,
+  /* Punjab & Haryana's own Steno and Ahlmad (court-roles §3.3) hold no signing role. */
+  steno: HIDDEN_FROM_STENO,
+  ahlmad: HIDDEN_FROM_STENO,
 };
 
 /** Whether this seat is offered this row — the one test every seat filter below shares. */
