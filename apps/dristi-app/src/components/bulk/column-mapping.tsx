@@ -52,7 +52,7 @@ function FoundInFile({ props, instances }: { props: Props; instances: Record<Gro
     <section className="flex flex-col gap-3 rounded-lg border border-hairline bg-surface-sunken p-4" aria-labelledby="found-in-file">
       <div className="flex flex-col gap-0.5">
         <h3 id="found-in-file" className="flex items-center gap-2 text-body-compact font-semibold">
-          <FileSpreadsheetIcon className="size-4 text-success-ink" aria-hidden />
+          <SheetTile small />
           Found in your file
         </h3>
         <p className="text-caption text-muted-foreground">
@@ -156,6 +156,29 @@ function FieldRow({
 /** Field, arrow, column, sample: the same grid for the header and every row. */
 const ROW = "sm:grid-cols-[minmax(0,1fr)_1rem_minmax(0,1fr)_minmax(0,0.8fr)]";
 
+/** The two sides as tiles, the way the batch list marks a source: app mark, Excel mark. */
+function AppTile() {
+  return (
+    <span aria-hidden className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-hairline bg-card">
+      <BrandGlyph className="h-5 w-auto" />
+    </span>
+  );
+}
+
+function SheetTile({ small = false }: { small?: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "flex shrink-0 items-center justify-center rounded-lg bg-success-muted text-success-muted-foreground",
+        small ? "size-7" : "size-9"
+      )}
+    >
+      <FileSpreadsheetIcon className={small ? "size-4" : "size-5"} />
+    </span>
+  );
+}
+
 /**
  * Which side is which, said with the two marks: the field in the case (ON Courts mark) on
  * the left takes its value from the column of your sheet (Excel mark) on the right. The
@@ -163,14 +186,14 @@ const ROW = "sm:grid-cols-[minmax(0,1fr)_1rem_minmax(0,1fr)_minmax(0,0.8fr)]";
  */
 function SidesHeader() {
   return (
-    <div className={cn("hidden items-center gap-3 border-b border-hairline pb-2 sm:grid", ROW)}>
-      <span className="flex items-center gap-2 text-caption font-semibold text-foreground">
-        <BrandGlyph className="h-4 w-auto" />
+    <div className={cn("hidden items-center gap-3 border-b border-hairline pb-3 sm:grid", ROW)}>
+      <span className="flex items-center gap-3 text-body-compact font-semibold text-foreground">
+        <AppTile />
         Field in the case
       </span>
       <ArrowLeftIcon className="size-4 text-muted-foreground" aria-hidden />
-      <span className="flex items-center gap-2 text-caption font-semibold text-foreground">
-        <FileSpreadsheetIcon className="size-4 text-success-ink" aria-hidden />
+      <span className="flex items-center gap-3 text-body-compact font-semibold text-foreground">
+        <SheetTile />
         Column in your sheet
       </span>
       <span className="text-caption font-semibold text-muted-foreground">First value in your sheet</span>
