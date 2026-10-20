@@ -605,13 +605,9 @@ export function CaseEditor({
               <span>{c.reference}</span>
               {c.cheque ? <span>· Cheque {c.cheque}</span> : null}
               {c.amount ? <span>· {money(c.amount)}</span> : null}
-              {c.original ? (
-                <span>
-                  · <OriginalDoc original={c.original} />
-                </span>
-              ) : null}
             </span>
           </div>
+          {c.original ? <OriginalDoc original={c.original} asButton /> : null}
           <Button asChild variant="ghost" className="shrink-0">
             <Link href={`/filings/bulk/${batchId}/cases/${c.id}`}>
               View case file

@@ -20,21 +20,36 @@ import { fileUrl } from "./api";
  */
 export function OriginalDoc({
   original,
+  asButton = false,
 }: {
   original: { file: StoredFileRef; text: string | null };
+  /** An outline button where there is room; otherwise a link in a line of text. */
+  asButton?: boolean;
 }) {
   const [open, setOpen] = React.useState(false);
   const pdf = original.file.type === "application/pdf";
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1 text-primary underline underline-offset-2 hover:no-underline focus-visible:ring-3 focus-visible:ring-focus-ring focus-visible:outline-none"
-      >
-        <FileTextIcon className="size-3.5" aria-hidden />
-        Original document
-      </button>
+      {asButton ? (
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-fit"
+          onClick={() => setOpen(true)}
+        >
+          <FileTextIcon data-icon="inline-start" aria-hidden />
+          Original document
+        </Button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="inline-flex items-center gap-1 text-primary underline underline-offset-2 hover:no-underline focus-visible:ring-3 focus-visible:ring-focus-ring focus-visible:outline-none"
+        >
+          <FileTextIcon className="size-3.5" aria-hidden />
+          Original document
+        </button>
+      )}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="flex h-[85dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl">
           <div className="flex shrink-0 items-center gap-3 border-b border-hairline px-6 py-4 pr-12">

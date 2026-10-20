@@ -20,6 +20,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { demoPdf } from "./demo-fill";
 import { bulkApi, fileUrl, type CaseView } from "./api";
 import type { BatchCtx } from "./batch-screen";
+import { OriginalDoc } from "./original-doc";
 
 type Doc = CaseView["documents"][number];
 
@@ -36,6 +37,7 @@ function sizeOf(bytes: number): string {
  * a filled slot shows the file, with View and Replace. Locked once the case is signed, as
  * a single filing is.
  */
+
 export function Slot({
   doc,
   locked,
@@ -323,6 +325,9 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
                           </React.Fragment>
                         ))}
                       </dl>
+                      {c.original ? (
+                        <OriginalDoc original={c.original} asButton />
+                      ) : null}
                       {!complete && !closed ? (
                         <Button
                           variant="outline"
