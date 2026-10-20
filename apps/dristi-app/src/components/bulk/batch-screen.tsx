@@ -54,7 +54,6 @@ function StepTab({
   tone,
   what,
   done,
-  over = false,
 }: {
   value: TabId;
   label: string;
@@ -63,8 +62,6 @@ function StepTab({
   tone: "warning" | "info" | "secondary";
   what: string;
   done: boolean;
-  /** The whole batch is filed: every step is behind it, so none is marked. */
-  over?: boolean;
 }) {
   const idle = pending === 0;
   const spoken = pending
@@ -75,14 +72,9 @@ function StepTab({
         ? `${label}, completed`
         : `${label}, nothing here`;
   return (
-    <TabsTrigger
-      value={value}
-      aria-label={over ? label : spoken}
-      disabled={idle && !done}
-      className={cn(over && "text-muted-foreground")}
-    >
+    <TabsTrigger value={value} aria-label={spoken} disabled={idle && !done}>
       {label}
-      {over ? null : pending ? (
+      {pending ? (
         // A count sized for the tab: the DS badge (24px) fills a 32px tab edge to edge.
         <span className={cn(COUNT, COUNT_FILL[tone])}>{pending}</span>
       ) : upcoming ? null : done ? (
@@ -290,18 +282,6 @@ export function BatchScreen({ batchId }: { batchId: string }) {
           <AlertDescription>
             Last payment{" "}
             {batch.payments.at(-1) ? ist(batch.payments.at(-1)!.at) : ""}.
-            {tab === "filed" ? null : (
-              <>
-                {" "}
-                <button
-                  type="button"
-                  className="underline"
-                  onClick={() => go("filed")}
-                >
-                  See receipts and case numbers
-                </button>
-              </>
-            )}
           </AlertDescription>
         </Alert>
       ) : null}
@@ -427,121 +407,118 @@ export function BatchScreen({ batchId }: { batchId: string }) {
         ) : null}
       </Card>
 
-      <Tabs value={tab} onValueChange={(v) => go(v as TabId)} className="gap-4">
-        <div className="overflow-x-auto">
-          <TabsList
-            ref={tabsRef}
-            aria-label="Batch steps"
-            className={cn(
-              "relative w-max",
-              // The sliding highlight below draws the active tab; the tab itself stays clear.
-              "[&>[role=tab]]:z-10 [&>[role=tab][data-state=active]]:bg-transparent [&>[role=tab][data-state=active]]:text-foreground [&>[role=tab][data-state=active]]:shadow-none",
-            )}
-          >
-            <span
-              ref={highlightRef}
-              aria-hidden
-              className="pointer-events-none absolute top-0.5 bottom-0.5 left-0 rounded-md bg-card shadow-sm transition-[transform,width] duration-200 ease-out motion-reduce:transition-none"
-            />
-            <StepTab
-              over={allFiled}
-              value="cases"
-              label="Cases"
-              pending={batch.total - batch.counts.filed}
-              tone="secondary"
-              what="not filed yet"
-              done={batch.total > 0}
-            />
-            <StepTab
-              over={allFiled}
-              value="documents"
-              label="Documents"
-              pending={docsMissing}
-              tone="warning"
-              what="missing documents"
-              done={workable > 0}
-            />
-            <StepTab
-              over={allFiled}
-              value="scrutiny"
-              label="Case details"
-              pending={attention}
-              tone="warning"
-              what="to review"
-              done={workable > 0}
-            />
-            {/* Reading each case as the court will, before anyone signs it. A place to read,
+      {/* Once every case is filed there are no steps left: only the filed cases. */}
+      {allFiled ? (
+        <FiledTab {...ctx} />
+      ) : (
+        <Tabs
+          value={tab}
+          onValueChange={(v) => go(v as TabId)}
+          className="gap-4"
+        >
+          <div className="overflow-x-auto">
+            <TabsList
+              ref={tabsRef}
+              aria-label="Batch steps"
+              className={cn(
+                "relative w-max",
+                // The sliding highlight below draws the active tab; the tab itself stays clear.
+                "[&>[role=tab]]:z-10 [&>[role=tab][data-state=active]]:bg-transparent [&>[role=tab][data-state=active]]:text-foreground [&>[role=tab][data-state=active]]:shadow-none",
+              )}
+            >
+              <span
+                ref={highlightRef}
+                aria-hidden
+                className="pointer-events-none absolute top-0.5 bottom-0.5 left-0 rounded-md bg-card shadow-sm transition-[transform,width] duration-200 ease-out motion-reduce:transition-none"
+              />
+              <StepTab
+                value="cases"
+                label="Cases"
+                pending={batch.total - batch.counts.filed}
+                tone="secondary"
+                what="not filed yet"
+                done={batch.total > 0}
+              />
+              <StepTab
+                value="documents"
+                label="Documents"
+                pending={docsMissing}
+                tone="warning"
+                what="missing documents"
+                done={workable > 0}
+              />
+              <StepTab
+                value="scrutiny"
+                label="Case details"
+                pending={attention}
+                tone="warning"
+                what="to review"
+                done={workable > 0}
+              />
+              {/* Reading each case as the court will, before anyone signs it. A place to read,
                 not a step that completes, so it carries no count and no tick. */}
-            <TabsTrigger
-              value="review"
-              disabled={workable === 0}
-              className={cn(allFiled && "text-muted-foreground")}
-            >
-              Review
-            </TabsTrigger>
-            <StepTab
-              over={allFiled}
-              value="sign"
-              label="Sign"
-              pending={clear}
-              upcoming={workable - clear}
-              tone="info"
-              what="ready to sign"
-              done={
-                batch.counts.signed + batch.counts.filed > 0 && workable === 0
-              }
-            />
-            <StepTab
-              over={allFiled}
-              value="pay"
-              label="Pay"
-              pending={batch.counts.signed}
-              upcoming={workable}
-              tone="info"
-              what="waiting for payment"
-              done={
-                batch.counts.filed > 0 && workable + batch.counts.signed === 0
-              }
-            />
-            <TabsTrigger
-              value="filed"
-              aria-label={`Filed, ${batch.counts.filed} of ${batch.total}`}
-              disabled={!batch.counts.filed}
-            >
-              {allFiled ? (
-                <CircleCheckIcon className="text-success-ink" aria-hidden />
-              ) : null}
-              {allFiled ? "All filed" : "Filed"}
-              {batch.counts.filed && !allFiled ? (
-                <span className={cn(COUNT, COUNT_FILL.success)}>
-                  {batch.counts.filed}
-                </span>
-              ) : null}
-            </TabsTrigger>
-          </TabsList>
-        </div>
-        <TabsContent value="cases">
-          <CasesTab {...ctx} />
-        </TabsContent>
-        <TabsContent value="documents">
-          <DocumentsTab {...ctx} />
-        </TabsContent>
-        <TabsContent value="scrutiny">
-          <ScrutinyTab {...ctx} />
-        </TabsContent>
-        <TabsContent value="review">
-          <ReviewTab {...ctx} />
-        </TabsContent>
-        <TabsContent value="sign">
-          <SignTab {...ctx} />
-        </TabsContent>
-        <TabsContent value="pay">
-          <PayTab {...ctx} />
-        </TabsContent>
-        <TabsContent value="filed">
-          <FiledTab {...ctx} />
-        </TabsContent>
-      </Tabs>
+              <TabsTrigger value="review" disabled={workable === 0}>
+                Review
+              </TabsTrigger>
+              <StepTab
+                value="sign"
+                label="Sign"
+                pending={clear}
+                upcoming={workable - clear}
+                tone="info"
+                what="ready to sign"
+                done={
+                  batch.counts.signed + batch.counts.filed > 0 && workable === 0
+                }
+              />
+              <StepTab
+                value="pay"
+                label="Pay"
+                pending={batch.counts.signed}
+                upcoming={workable}
+                tone="info"
+                what="waiting for payment"
+                done={
+                  batch.counts.filed > 0 && workable + batch.counts.signed === 0
+                }
+              />
+              <TabsTrigger
+                value="filed"
+                aria-label={`Filed, ${batch.counts.filed} of ${batch.total}`}
+                disabled={!batch.counts.filed}
+              >
+                Filed
+                {batch.counts.filed ? (
+                  <span className={cn(COUNT, COUNT_FILL.success)}>
+                    {batch.counts.filed}
+                  </span>
+                ) : null}
+              </TabsTrigger>
+            </TabsList>
+          </div>
+          <TabsContent value="cases">
+            <CasesTab {...ctx} />
+          </TabsContent>
+          <TabsContent value="documents">
+            <DocumentsTab {...ctx} />
+          </TabsContent>
+          <TabsContent value="scrutiny">
+            <ScrutinyTab {...ctx} />
+          </TabsContent>
+          <TabsContent value="review">
+            <ReviewTab {...ctx} />
+          </TabsContent>
+          <TabsContent value="sign">
+            <SignTab {...ctx} />
+          </TabsContent>
+          <TabsContent value="pay">
+            <PayTab {...ctx} />
+          </TabsContent>
+          <TabsContent value="filed">
+            <FiledTab {...ctx} />
+          </TabsContent>
+        </Tabs>
+      )}
     </div>
   );
 }
