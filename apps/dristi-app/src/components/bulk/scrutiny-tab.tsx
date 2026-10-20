@@ -159,7 +159,6 @@ const CODE_FIELD: Record<string, string> = {
   "LDN-11": "partAmount",
   "JUR-2": "ifsc",
   "JUR-6a": "drawerPolice",
-  "JUR-9": "condonationReason",
   "JUR-12": "condonationReason",
 };
 const SECTION_STEP: Record<string, string> = {
@@ -183,6 +182,19 @@ export function filledByEdit(
 }
 
 function fieldFor(f: Flag, groups: CaseView["fields"]): string | null {
+  // The cause of action not yet arisen comes from the notice's service, not from any
+  // limitation field: it belongs under the date the notice was delivered (or returned).
+  if (f.rule === "jur-9-early") {
+    const dates = groups
+      .filter((g) => g.step === "demand-notice")
+      .flatMap((g) => g.fields);
+    return (
+      (
+        dates.find((x) => x.path.endsWith(".deliveryDate")) ??
+        dates.find((x) => x.path.endsWith(".returnDate"))
+      )?.path ?? null
+    );
+  }
   const own = pathOf(f);
   if (own && groups.some((g) => g.fields.some((x) => x.path === own)))
     return own;
