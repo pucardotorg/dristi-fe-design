@@ -110,10 +110,10 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
             {held + unanswered} case{held + unanswered === 1 ? " isn't" : "s aren't"} ready to sign yet
           </AlertTitle>
           <AlertDescription>
-            Finish scrutiny first:{" "}
+            Finish the case details first:{" "}
             {[held ? `${held} need${held === 1 ? "s" : ""} fixing` : "", unanswered ? `${unanswered} to check` : ""].filter(Boolean).join(", ")}.{" "}
             <button type="button" className="underline" onClick={() => go("scrutiny")}>
-              Go to Scrutiny
+              Go to Case details
             </button>
           </AlertDescription>
         </Alert>
@@ -121,7 +121,7 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
 
       {clear.length === 0 ? (
         <Card className={PANEL_CLASS}>
-          <CardContent className="text-body-compact text-muted-foreground">Nothing to sign yet. Finish documents and scrutiny first.</CardContent>
+          <CardContent className="text-body-compact text-muted-foreground">Nothing to sign yet. Finish the documents and case details first.</CardContent>
         </Card>
       ) : (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">

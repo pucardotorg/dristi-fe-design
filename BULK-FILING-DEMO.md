@@ -148,14 +148,15 @@ order:
 2. **Documents**: one row per case, with each document it needs stacked underneath. Cases
    missing something are open at the top. Click an empty slot, or drag a file onto it; any
    PDF on your computer will do. **View** and **Replace** sit beside a filled slot.
-3. **Scrutiny**: the filing checks.
-   - **Hold** (red): something required is missing or wrong. The case waits; the rest go
-     ahead. Each hold shows what fixes it, right there: a box to type in (a reason for delay,
-     a mobile number), a choice to make, or an upload slot for a missing document. Press
-     **Save** after typing.
-   - **Check** (amber): worth a second look, for example a cheque returned for "payment
-     stopped" rather than "insufficient funds". Press **Skip this check**, or **Skip for
-     all** when several cases have the same check.
+3. **Case details**: the filing checks, case by case. Each case is headed by its parties
+   ("Tata Capital Ltd vs Harsh V. Bhavsar"), its reference, cheque and amount.
+   - **Needs fixing** (red): something required is missing or wrong. Every missing detail
+     of a case is in one form, two to a row; fill them and press **Save** once. The case
+     waits; the rest go ahead. Missing documents are not repeated here; they are on
+     **Documents**.
+   - **To check** (amber): worth a second look, for example a cheque returned for "payment
+     stopped" rather than "insufficient funds". Press **Skip**, or **Skip for all** when
+     several cases have the same check.
    - **AI check** (sparkle mark): something a reader would catch that is not a rule, for
      example a cheque scan showing a different amount from the case, or an individual whose
      name reads like a shop. Skip it the same way. Some Provakil cases carry a cheque with a
@@ -199,7 +200,7 @@ second address is `Accused address_1_2` (first accused, second address). The tem
    template's 2 guide rows discarded. Case 1003 has two accused, 1006 two witnesses and
    1009 two cheques, read from the `_2` columns. Click **Create batch**.
 4. Excel cases arrive without documents, so the batch opens on **Documents**. Then
-   **Scrutiny** shows two cheques to check (returned for "payment stopped" and "account
+   **Case details** shows two cheques to check (returned for "payment stopped" and "account
    closed") and one case held for a 5-digit pincode: type `380015` and **Save**. Two AI
    checks also appear: an individual named "Shree Ganesh Traders", and an address in
    Vadodara with an Ahmedabad pincode. Continue as in Walkthrough B.
@@ -218,7 +219,7 @@ template**.
      the column in your sheet (Excel mark). The dropdown shows each column's first value,
      so you can pick by what it holds; once chosen, that value shows under it.
    - Fields with no good match say **Skip (fill manually later)**. **Continue** always goes
-     on; skipped details are filled on **Scrutiny**. Twelve are matched already by name.
+     on; skipped details are filled on **Case details**. Twelve are matched already by name.
      Match the rest:
 
    | Field | Choose |
@@ -248,13 +249,13 @@ template**.
    - **Show optional fields** reveals the rest (accused email, police station, witnesses and
      so on), in case your sheet has them.
 
-   **Continue** always goes on. Fields left on Skip are filled on **Scrutiny**.
+   **Continue** always goes on. Fields left on Skip are filled on **Case details**.
 3. A **Match your values** screen appears for the lender's own words:
    `COMPANY` and `FIRM` mean Institution; `INSUFFICIENT FUNDS` means Funds insufficient;
    `A/C CLOSED` means Account closed; `Regd. Post A/D` means Registered post (RPAD);
    `SERVED` and `Y` mean Yes; `RETURNED` and `N` mean No.
 4. **Review**, then **Create batch**. The two company and firm cases will ask for their type
-   of institution on **Scrutiny**, because this file has no column for it.
+   of institution on **Case details**, because this file has no column for it.
 
 If the dates in the demo files are more than two weeks old, some cases will ask for a
 reason for delay. To make fresh copies dated from today, run `npm run demo:files` in the

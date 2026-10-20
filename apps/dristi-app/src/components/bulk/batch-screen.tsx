@@ -19,7 +19,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-import { bulkApi, setBulkAiMode, type BatchView } from "./api";
+import { bulkApi, setBulkAiMode, type BatchView, type CaseView } from "./api";
 import { SourceLabel } from "./batches-screen";
 import { CasesTab } from "./cases-tab";
 import { useGujarat } from "./court-guard";
@@ -180,7 +180,9 @@ export function BatchScreen({ batchId }: { batchId: string }) {
   const open = batch.cases.filter((c) => c.stage === "held" || c.stage === "ready");
   const workable = open.length;
   const docsMissing = open.filter((c) => c.docs.have < c.docs.need).length;
-  const attention = open.filter((c) => c.stage === "held" || (c.stage === "ready" && c.flags.length > 0)).length;
+  // Case details counts what it shows: flags about the details, not missing documents.
+  const detail = (c: CaseView) => c.flags.some((f) => f.section !== "documents" && f.fix?.kind !== "upload" && f.fix?.kind !== "documents");
+  const attention = open.filter((c) => (c.stage === "held" || c.stage === "ready") && detail(c)).length;
   const clear = batch.counts.ready - batch.cases.filter((c) => c.stage === "ready" && c.flags.length > 0).length;
 
   return (
@@ -290,7 +292,7 @@ export function BatchScreen({ batchId }: { batchId: string }) {
               done={batch.total > 0}
             />
             <StepTab value="documents" label="Documents" pending={docsMissing} tone="warning" what="missing documents" done={workable > 0} />
-            <StepTab value="scrutiny" label="Scrutiny" pending={attention} tone="warning" what="to review" done={workable > 0} />
+            <StepTab value="scrutiny" label="Case details" pending={attention} tone="warning" what="to review" done={workable > 0} />
             <StepTab
               value="sign"
               label="Sign"

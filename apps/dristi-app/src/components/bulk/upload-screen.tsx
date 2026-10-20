@@ -508,7 +508,7 @@ export function UploadScreen() {
       </div>
       {/* The filing flow's own footer, kept at the foot of the screen: the list is long.
           Continue always goes on: a field left on Skip is filled manually later, on
-          Scrutiny, where each case's gaps are held with their fix in place. */}
+          Case details, where each case's gaps are held with their fix in place. */}
       {step === "map" && book ? (
         <FilingFooter
           showSaveState={false}

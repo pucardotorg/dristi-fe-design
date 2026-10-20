@@ -42,6 +42,8 @@ export type CaseView = {
   reference: string;
   title: string;
   accused: string;
+  /** The first cheque's number, to tell cases apart at a glance. */
+  cheque: string;
   amount: number;
   causeDate: string;
   /** Last day within the one-month limit, from the cause of action. */
@@ -111,6 +113,7 @@ export function caseView(bc: BatchCase, batch: Batch, all: Batch[], ai: AiMode =
     reference: bc.reference,
     title: draftTitle(d),
     accused: d.accused.map((a) => a.name).filter(Boolean).join(", "),
+    cheque: d.cheques[0]?.chequeNumber ?? "",
     amount: totalChequeAmount(d.cheques),
     causeDate: cause,
     fileBy: addMonth(cause),
