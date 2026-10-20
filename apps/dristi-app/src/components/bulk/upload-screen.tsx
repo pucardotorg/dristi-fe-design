@@ -8,6 +8,8 @@ import {
   ArrowRightIcon,
   CheckCircle2Icon,
   DownloadIcon,
+  FileTextIcon,
+  XCircleIcon,
 } from "lucide-react";
 
 import { aiModeFrom } from "@/lib/bulk/ai-review";
@@ -26,6 +28,7 @@ import {
   type Workbookish,
 } from "@/lib/bulk/excel";
 import { COLUMNS, GROUPS, LISTS, type ListName } from "@/lib/bulk/excel-spec";
+import { money } from "@/lib/filing/format";
 import type { StoredFileRef } from "@/lib/filing/types";
 import { cn } from "@/lib/utils";
 import { useCourt } from "@/components/court/court-provider";
@@ -58,6 +61,8 @@ import {
   NativeSelect,
   NativeSelectOption,
 } from "@/components/ui/native-select";
+import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import {
   Table,
@@ -77,6 +82,86 @@ import { BatchParties } from "./batch-parties";
 import { FileDrop } from "./file-drop";
 
 type Step = "setup" | "map" | "values" | "review";
+
+type ReadingRow = {
+  name: string;
+  state: "waiting" | "reading" | "done" | "failed";
+  /** What was read from it: reference, accused, cheque, amount. */
+  found?: string;
+};
+
+/** The documents being read, each as it is done, with what was found in it. */
+function ReadingCard({ rows }: { rows: ReadingRow[] }) {
+  const done = rows.filter((r) => r.state === "done").length;
+  return (
+    <Card className={cn(PANEL_CLASS, "max-w-3xl gap-0 py-0")}>
+      <CardHeader className="gap-3 px-6 py-5">
+        <CardTitle className="flex items-center gap-2 text-body font-semibold">
+          <Spinner className="size-4 text-primary" />
+          Reading {rows.length} document{rows.length === 1 ? "" : "s"}
+        </CardTitle>
+        <Progress
+          value={(done / rows.length) * 100}
+          aria-label={`${done} of ${rows.length} read`}
+        />
+        <CardDescription className="tabular-nums" aria-live="polite">
+          {done} of {rows.length} read
+        </CardDescription>
+      </CardHeader>
+      <ul className="flex max-h-[50dvh] flex-col divide-y divide-hairline overflow-y-auto border-t border-hairline">
+        {rows.map((r) => (
+          <li
+            key={r.name}
+            className={cn(
+              "flex items-center gap-3 px-6 py-3 transition-colors",
+              r.state === "reading" && "bg-accent",
+            )}
+          >
+            <span className="flex size-5 shrink-0 items-center justify-center">
+              {r.state === "done" ? (
+                <CheckCircle2Icon
+                  className="size-5 text-success-ink"
+                  aria-label="Read"
+                />
+              ) : r.state === "reading" ? (
+                <Spinner className="size-4 text-primary" aria-label="Reading" />
+              ) : r.state === "failed" ? (
+                <XCircleIcon
+                  className="size-5 text-destructive-ink"
+                  aria-label="Not read"
+                />
+              ) : (
+                <FileTextIcon
+                  className="size-4 text-muted-foreground"
+                  aria-label="Waiting"
+                />
+              )}
+            </span>
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span
+                className={cn(
+                  "truncate text-body-compact",
+                  r.state === "waiting"
+                    ? "text-muted-foreground"
+                    : "font-medium",
+                )}
+              >
+                {r.name}
+              </span>
+              {r.state === "reading" ? (
+                <Skeleton className="mt-1 h-3 w-2/3" />
+              ) : r.found ? (
+                <span className="truncate text-caption text-muted-foreground tabular-nums">
+                  {r.found}
+                </span>
+              ) : null}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
 
 /** Case documents, as opposed to a sheet. */
 const DOC = /\.(docx|pdf|txt)$/i;
@@ -116,6 +201,7 @@ export function UploadScreen() {
   const { profile } = useCourt();
   const ai = aiModeFrom(useSearchParams().get("ai"), profile.aiMode);
   const docs = files.length > 0 && files.every((f) => DOC.test(f.name));
+  const [reading, setReading] = React.useState<ReadingRow[] | null>(null);
   const [originals, setOriginals] = React.useState<
     Record<string, { file: StoredFileRef; text: string | null }>
   >({});
@@ -172,26 +258,63 @@ export function UploadScreen() {
     } catch (e) {
       setError((e as Error).message || "This file could not be read.");
     } finally {
+      setReading(null);
       setBusy(false);
     }
   };
 
   /** Each document read into one row, under the template's own headers. */
   const readDocuments = async (): Promise<Workbookish> => {
-    const form = new FormData();
-    for (const f of files) form.append("files", f);
-    form.append("ai", ai);
-    const res = await fetch("/api/bulk/extract", {
-      method: "POST",
-      body: form,
-    });
-    const json = await res.json();
-    if (!res.ok)
-      throw new Error(json.error ?? "The documents could not be read.");
-    const read = json.cases as (CaseExtraction & {
+    type Read = CaseExtraction & {
       original: StoredFileRef;
       text: string | null;
-    })[];
+    };
+    setReading(files.map((f) => ({ name: f.name, state: "waiting" })));
+    const mark = (i: number, row: Partial<ReadingRow>) =>
+      setReading((rows) =>
+        rows ? rows.map((r, k) => (k === i ? { ...r, ...row } : r)) : rows,
+      );
+    // One document per request, a few at a time, so each shows as it is read. Each takes
+    // a moment at least, so the reading can be followed.
+    const read: Read[] = new Array(files.length);
+    let next = 0;
+    const worker = async () => {
+      while (next < files.length) {
+        const i = next++;
+        mark(i, { state: "reading" });
+        const form = new FormData();
+        form.append("files", files[i]);
+        form.append("ai", ai);
+        const [res] = await Promise.all([
+          fetch("/api/bulk/extract", { method: "POST", body: form }),
+          new Promise((r) => setTimeout(r, 700 + Math.random() * 600)),
+        ]);
+        const json = await res.json();
+        if (!res.ok) {
+          mark(i, { state: "failed" });
+          throw new Error(json.error ?? "The documents could not be read.");
+        }
+        const x = (json.cases as Read[])[0];
+        read[i] = x;
+        const f = (k: string) => x.fields[k]?.value?.trim() ?? "";
+        const amount = Number(f("Cheque amount").replace(/[^\d.]/g, ""));
+        mark(i, {
+          state: "done",
+          found: [
+            f("Case reference"),
+            f("Accused name"),
+            f("Cheque number") && `Cheque ${f("Cheque number")}`,
+            amount ? money(amount) : "",
+          ]
+            .filter(Boolean)
+            .join(" · "),
+        });
+      }
+    };
+    await Promise.all(
+      Array.from({ length: Math.min(3, files.length) }, worker),
+    );
+    await new Promise((r) => setTimeout(r, 500));
     const values = read.map((x) => {
       const v = Object.fromEntries(
         Object.entries(x.fields).map(([k, f]) => [k, f.value]),
@@ -261,7 +384,11 @@ export function UploadScreen() {
 
   const steps: { id: Step; label: string; shown: boolean }[] = [
     { id: "setup", label: "File and parties", shown: true },
-    { id: "map", label: "Match columns", shown: !template || step === "map" },
+    {
+      id: "map",
+      label: "Match columns",
+      shown: !(template || docs) || step === "map",
+    },
     { id: "values", label: "Match values", shown: unknownLists.length > 0 },
     { id: "review", label: "Review", shown: true },
   ];
@@ -312,7 +439,9 @@ export function UploadScreen() {
           </Alert>
         ) : null}
 
-        {step === "setup" ? (
+        {step === "setup" && reading ? (
+          <ReadingCard rows={reading} />
+        ) : step === "setup" ? (
           <Card className={cn(PANEL_CLASS, "max-w-3xl")}>
             <CardHeader>
               <CardTitle className="text-body font-semibold">
@@ -489,7 +618,7 @@ export function UploadScreen() {
               </CardTitle>
               <CardDescription>
                 {docs
-                  ? "Read by AI from the documents."
+                  ? "Read from the documents."
                   : template
                     ? "The file follows the template."
                     : "Columns matched."}
