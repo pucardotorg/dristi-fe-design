@@ -38,7 +38,7 @@ const METHODS: {
     title: "Mobile OTP",
     tag: "Fastest",
     icon: SmartphoneIcon,
-    hint: (_n, s) => `One OTP per signer for the whole batch: ${s} OTPs in all.`,
+    hint: () => "One OTP to the advocate's mobile signs every case, for the advocate and the complainant.",
   },
   {
     id: "dsc",
@@ -281,6 +281,12 @@ function SignFlow({
 }) {
   const steps: Step[] = React.useMemo(() => {
     if (method === "upload") return [];
+    // Mobile OTP: one OTP, to the filing advocate, for everyone on every case (owner,
+    // 2026-10-20). The others still go signer by signer.
+    if (method === "mobile-otp") {
+      const advocate = signers.find((s) => s.id === "adv") ?? signers[0];
+      return advocate ? [{ signer: advocate, cases, round: 1, rounds: 1 }] : [];
+    }
     const groups = method === "aadhaar" ? chunk(cases, AADHAAR_DOCS_PER_OTP) : [cases];
     return signers.flatMap((s) => groups.map((g, i) => ({ signer: s, cases: g, round: i + 1, rounds: groups.length })));
   }, [method, cases, signers]);
@@ -331,7 +337,7 @@ function SignFlow({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && !busy && onClose()}>
-      <ChromeDialogContent className="sm:max-w-lg">
+      <ChromeDialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
         {done ? (
           <>
             <DialogHeader>
@@ -399,6 +405,9 @@ function SignFlow({
               </DialogTitle>
               <DialogDescription>
                 {step.signer.name} · {step.signer.role}
+                {method === "mobile-otp" && signers.length > 1
+                  ? `. Signs for ${signers.filter((s) => s.id !== step.signer.id).map((s) => s.name).join(" and ")} too.`
+                  : ""}
               </DialogDescription>
             </DialogHeader>
             <div className="flex flex-col gap-1" aria-live="polite">

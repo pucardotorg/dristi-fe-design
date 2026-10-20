@@ -1,5 +1,7 @@
 "use client";
 
+import { CircleCheckIcon } from "lucide-react";
+
 import { cn } from "@/lib/utils";
 import type { CaseStage } from "@/lib/bulk/types";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +17,12 @@ export const STAGE: Record<CaseStage, { label: string; variant: "warning" | "inf
 export const STAGE_ORDER: CaseStage[] = ["held", "ready", "signed", "filed"];
 
 export function StageBadge({ stage }: { stage: CaseStage }) {
-  return <Badge variant={STAGE[stage].variant}>{STAGE[stage].label}</Badge>;
+  return (
+    <Badge variant={STAGE[stage].variant}>
+      {stage === "filed" ? <CircleCheckIcon data-icon="inline-start" aria-hidden /> : null}
+      {STAGE[stage].label}
+    </Badge>
+  );
 }
 
 /** Where a batch's cases stand: one bar (decorative) and a legend that says it in words. */

@@ -93,7 +93,7 @@ export function CasesTab({ batch }: BatchCtx) {
               <div className="flex flex-col gap-6 px-4 pb-6">
                 <div className="flex flex-wrap items-center gap-2">
                   <StageBadge stage={open.stage} />
-                  {open.receiptNumber ? <Badge variant="outline">Receipt {open.receiptNumber}</Badge> : null}
+                  {open.receiptNumber ? <Badge variant="secondary" className="tabular-nums">Receipt {open.receiptNumber}</Badge> : null}
                 </div>
                 <dl className="grid grid-cols-2 gap-4 text-body-compact">
                   <div>

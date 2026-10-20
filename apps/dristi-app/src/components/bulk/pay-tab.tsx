@@ -55,7 +55,7 @@ function Receipts({ batch, payment }: { batch: BatchView; payment: BatchView["pa
  * The reference goes on every case, each gets its own receipt, and payment files the case,
  * exactly as it does for a single filing.
  */
-export function PayTab({ batch, setBatch }: BatchCtx) {
+export function PayTab({ batch, setBatch, go }: BatchCtx) {
   const due = batch.cases.filter((c) => c.stage === "signed");
   const [picked, setPicked] = React.useState<Set<string>>(() => new Set(due.map((c) => c.id)));
   const [dialog, setDialog] = React.useState<"confirm" | "processing" | "done" | null>(null);
@@ -161,29 +161,18 @@ export function PayTab({ batch, setBatch }: BatchCtx) {
         </Card>
       )}
 
-      {batch.payments.length ? (
-        <Card className={PANEL_CLASS}>
-          <CardHeader>
-            <CardTitle className="text-body font-semibold">Payments</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-6">
-            {[...batch.payments].reverse().map((p) => (
-              <section key={p.ref} className="flex flex-col gap-3">
-                <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-body-compact">
-                  <span className="font-medium tabular-nums">{p.ref}</span>
-                  <span className="tabular-nums text-muted-foreground">{ist(p.at)}</span>
-                  <span className="tabular-nums">{money(p.amount)}</span>
-                  <span className="text-muted-foreground tabular-nums">{p.caseIds.length} receipts</span>
-                </div>
-                <Receipts batch={batch} payment={p} />
-              </section>
-            ))}
-          </CardContent>
-        </Card>
+      {batch.counts.filed ? (
+        <p className="text-body-compact text-muted-foreground">
+          <span className="tabular-nums">{batch.counts.filed}</span> already paid and filed.{" "}
+          <button type="button" className="underline" onClick={() => go("filed")}>
+            See them under Filed
+          </button>
+        </p>
       ) : null}
 
       <Dialog open={!!dialog} onOpenChange={(v) => !v && dialog !== "processing" && setDialog(null)}>
-        <ChromeDialogContent className="sm:max-w-lg">
+        {/* Capped to the viewport: a batch's receipts can run to hundreds of rows. */}
+        <ChromeDialogContent className="flex max-h-[90dvh] flex-col sm:max-w-lg">
           {dialog === "done" && last ? (
             <>
               <DialogHeader>
@@ -196,9 +185,18 @@ export function PayTab({ batch, setBatch }: BatchCtx) {
                   own receipt and goes to scrutiny on its own.
                 </DialogDescription>
               </DialogHeader>
-              <Receipts batch={batch} payment={last} />
+              <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-hairline">
+                <Receipts batch={batch} payment={last} />
+              </div>
               <DialogFooter>
-                <Button onClick={() => setDialog(null)}>Done</Button>
+                <Button
+                  onClick={() => {
+                    setDialog(null);
+                    go("filed");
+                  }}
+                >
+                  See filed cases
+                </Button>
               </DialogFooter>
             </>
           ) : (

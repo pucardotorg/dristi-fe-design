@@ -138,3 +138,23 @@ test("derived values are never taken from the sender", async () => {
   assert.equal(j.causeDate, "");
   assert.equal(j.filingDate, "");
 });
+
+test("every hold that a filer can correct carries its fix inline, documents as upload slots", async () => {
+  const batch = await batchOf([
+    goodCase("H-1", {
+      accused: [{ type: "institution", name: "Navkar Foods Pvt Ltd", institutionType: "private-limited", mobile: "98250 1234", addresses: [{ line1: "x", city: "Ahmedabad", pin: "38001" }] }],
+      notices: [{ ...goodCase("x").notices[0], delivered: null, deliveredOn: undefined }],
+      cheques: [{ ...goodCase("x").cheques[0], ifsc: "HDFC00521", returnReason: "Funds Insuff." }],
+    }),
+  ]);
+  batch.cases[0].draft.advocates[0].name = "";
+  const holds = caseFlags(batch.cases[0], { batch, others: [] }).filter((f) => f.level === "hold");
+  // Waiting for a date, or a duplicate cheque, has nothing to correct in place.
+  const exempt = /^(jur-9-early|chq-dup|section-)/;
+  const bare = holds.filter((f) => !exempt.test(f.rule) && (!f.fix || f.fix.kind === "documents"));
+  assert.deepEqual(bare.map((f) => f.rule), []);
+  assert.ok(holds.some((f) => f.fix?.kind === "upload"));
+  for (const rule of ["acc-14", "ldn-5", "adv-3", "acc-6-format", "acc-8-pin", "chq-5", "chq-10-list"]) {
+    assert.ok(holds.some((f) => f.rule === rule && f.fix), `${rule} has a fix`);
+  }
+});

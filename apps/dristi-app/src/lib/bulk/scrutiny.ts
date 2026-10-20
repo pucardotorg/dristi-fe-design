@@ -20,6 +20,7 @@ import {
   MODE_OF_SERVICE,
   NATURE_OF_DEBT,
   NON_DELIVERY_REASONS,
+  PAYMENT_STATUS,
   RETURN_REASONS,
   S138_SAFE_REASONS,
 } from "@/lib/filing/options";
@@ -39,6 +40,7 @@ import {
 import { toLongDate } from "@/lib/filing/format";
 import type { Address, FilingDraft, StepId } from "@/lib/filing/types";
 
+import { BAR_ADVOCATES } from "./clients";
 import { codeForSlot, DOC_CODE_LABEL } from "./contract";
 import { COURT_DISTRICT, IFSC_PATTERN } from "./reference";
 import type { Batch, BatchCase, CaseStage } from "./types";
@@ -51,6 +53,8 @@ export type FlagFix =
   | { kind: "date"; path: string; label: string; value: string }
   | { kind: "select"; path: string; label: string; value: string; options: { value: string; label: string }[] }
   | { kind: "declare-no-contact"; accusedId: string }
+  /** A missing document: an upload slot for it, right on the flag. */
+  | { kind: "upload"; slotKey: string; label: string }
   | { kind: "documents" };
 
 export type Flag = {
@@ -144,16 +148,16 @@ export function caseFlags(bc: BatchCase, ctx: ScrutinyContext): Flag[] {
     addressFlags(push, r.addr, { rule: "lit-26", field: "LIT-26", ...lit }, "complainants.0.rep.addr");
   } else {
     if (!c.name.trim())
-      push({ ...lit, rule: "lit-4", field: "LIT-4", level: "hold", at: "c.name", message: "Complainant's name is missing." });
+      push({ ...lit, rule: "lit-4", field: "LIT-4", level: "hold", at: "c.name", message: "Complainant's name is missing.", fix: { kind: "text", path: "complainants.0.name", label: "Complainant's name", value: "" } });
     if (!MOBILE.test(c.mobile))
-      push({ ...lit, rule: "lit-3", field: "LIT-3", level: "hold", at: "c.mobile", message: "Complainant's mobile is missing or not valid." });
+      push({ ...lit, rule: "lit-3", field: "LIT-3", level: "hold", at: "c.mobile", message: "Complainant's mobile is missing or not valid.", fix: { kind: "text", path: "complainants.0.mobile", label: "Complainant's mobile", value: c.mobile, inputMode: "tel" } });
     addressFlags(push, c.res, { rule: "lit-7", field: "LIT-7", ...lit }, "complainants.0.res");
   }
 
   /* ── Advocate (ADV) ── */
   d.advocates.forEach((a, i) => {
     if (!a.name.trim())
-      push({ rule: "adv-3", field: "ADV-3", section: "advocate", where: `Advocate ${i + 1}`, batchWide: true, level: "hold", at: `adv.${i}`, message: a.barNumber ? `Bar registration ${a.barNumber} was not found with the Bar Council.` : "Bar registration number is missing." });
+      push({ rule: "adv-3", field: "ADV-3", section: "advocate", where: `Advocate ${i + 1}`, batchWide: true, level: "hold", at: `adv.${i}`, message: a.barNumber ? `Bar registration ${a.barNumber} was not found with the Bar Council.` : "Bar registration number is missing.", fix: { kind: "select", path: `advocates.${i}.barNumber`, label: "Advocate", value: "", options: BAR_ADVOCATES.map((b) => ({ value: b.barNumber, label: `${b.name}, ${b.barNumber}` })) } });
   });
   if (d.advocates.length === 0)
     push({ rule: "adv-1", field: "ADV-1", section: "advocate", where: "Advocate", batchWide: true, level: "hold", at: "adv", message: "No advocate is on record for the complainant." });
@@ -190,7 +194,7 @@ export function caseFlags(bc: BatchCase, ctx: ScrutinyContext): Flag[] {
 
     if (a.type === "institution") {
       if (!a.reps.some((r) => r.name.trim()))
-        push({ ...acc, rule: "acc-14", field: "ACC-14", level: "hold", at: `${p}.reps`, message: "No person responsible (S-141) is named for the institution." });
+        push({ ...acc, rule: "acc-14", field: "ACC-14", level: "hold", at: `${p}.reps`, message: "No person responsible (S-141) is named for the institution.", fix: { kind: "text", path: `${p}.reps.0.name`, label: "Person responsible, full name", value: "" } });
     }
   });
   if (d.accused.length === 0)
@@ -261,7 +265,7 @@ export function caseFlags(bc: BatchCase, ctx: ScrutinyContext): Flag[] {
       push({ ...ldn, rule: "ldn-3", field: "LDN-3", level: "hold", at: `${p}.modeService`, message: n.modeService ? `Mode of service "${n.modeService}" is not in the list.` : "Mode of service is missing.", fix: { kind: "select", path: `${p}.modeService`, label: "Mode of service", value: "", options: MODE_OF_SERVICE } });
 
     if (bc.unknownService.includes(i)) {
-      push({ ...ldn, rule: "ldn-5", field: "LDN-5", level: "hold", at: `${p}.delivered`, message: "Delivery status is not known yet. The cause of action runs from service, so the case cannot be filed until it is." });
+      push({ ...ldn, rule: "ldn-5", field: "LDN-5", level: "hold", at: `${p}.delivered`, message: "Delivery status is not known yet. The cause of action runs from service, so the case cannot be filed until it is.", fix: { kind: "select", path: `${p}.delivered`, label: "Was the notice delivered?", value: "", options: [{ value: "yes", label: "Yes, delivered" }, { value: "no", label: "No, returned undelivered" }] } });
     } else if (n.delivered === "yes") {
       if (dateFlag(push, n.deliveryDate, { ...ldn, rule: "ldn-6", field: "LDN-6" }, `${p}.deliveryDate`, "Delivery date")) {
         const issue = noticeServiceIssue(n);
@@ -282,7 +286,7 @@ export function caseFlags(bc: BatchCase, ctx: ScrutinyContext): Flag[] {
       else if (paid >= totalChequeAmount(d.cheques))
         push({ ...ldn, rule: "ldn-11-full", field: "LDN-11", level: "soft", at: `${p}.partAmount-full`, message: `₹${paid.toLocaleString("en-IN")} paid after notice covers the cheque amount. Check the debt is still due.` });
     } else if (n.paymentStatus !== "none") {
-      push({ ...ldn, rule: "ldn-10", field: "LDN-10", level: "hold", at: `${p}.paymentStatus`, message: "Payment after notice is not stated." });
+      push({ ...ldn, rule: "ldn-10", field: "LDN-10", level: "hold", at: `${p}.paymentStatus`, message: "Payment after notice is not stated.", fix: { kind: "select", path: `${p}.paymentStatus`, label: "Payment after notice", value: "", options: PAYMENT_STATUS } });
     }
   });
   if (d.notices.length === 0)
@@ -314,7 +318,7 @@ export function caseFlags(bc: BatchCase, ctx: ScrutinyContext): Flag[] {
         level: "hold",
         at: `doc.${doc.intakeKey ?? doc.id}`,
         message: `${code ? DOC_CODE_LABEL[code.code] : doc.name}${code && d.cheques.length > 1 && code.index ? ` ${code.index}` : ""} is missing.${bc.fetchFailed.length ? " It was sent but could not be fetched." : ""}`,
-        fix: { kind: "documents" },
+        fix: doc.intakeKey ? { kind: "upload", slotKey: doc.intakeKey, label: doc.name } : { kind: "documents" },
       });
     }
   }

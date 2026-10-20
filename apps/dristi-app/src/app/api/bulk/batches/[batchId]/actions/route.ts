@@ -118,7 +118,14 @@ export async function POST(req: Request, ctx: { params: Promise<{ batchId: strin
       for (const bc of b.cases) {
         const d = fixed.get(bc.id);
         // An edit voids signatures (LIFE-13); only unsigned cases are offered for fixing.
-        if (d && !bc.signedWith) bc.draft = d;
+        if (d && !bc.signedWith) {
+          bc.draft = d;
+          // Stating the delivery answers the "not known yet" the sender left.
+          const notice = /^notices\.(\d+)\.delivered$/.exec(body.path);
+          if (notice) bc.unknownService = bc.unknownService.filter((i) => i !== Number(notice[1]));
+          // A bar number fixed on one case is the batch's advocate on every case.
+          if (/^advocates\./.test(body.path)) bc.unknownBar = [];
+        }
       }
       return b;
     });

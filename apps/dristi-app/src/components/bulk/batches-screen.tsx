@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { DownloadIcon, FileSpreadsheetIcon, Layers2Icon, PlugIcon, UploadIcon } from "lucide-react";
+import { CircleCheckIcon, DownloadIcon, FileSpreadsheetIcon, Layers2Icon, PlugIcon, UploadIcon } from "lucide-react";
 
 import { toLongDate } from "@/lib/filing/format";
 import { buildTemplate, TEMPLATE_FILE } from "@/lib/bulk/excel";
@@ -132,6 +132,11 @@ export function BatchesScreen() {
       <TableCell className={cn(TABLE_CELL, "pr-6 whitespace-normal")}>
         {b.clubbedInto ? (
           <Badge variant="outline">Clubbed into {b.clubbedIntoNumber}</Badge>
+        ) : b.total > 0 && b.counts.filed === b.total ? (
+          <Badge variant="success">
+            <CircleCheckIcon data-icon="inline-start" aria-hidden />
+            Done: all {b.total} filed
+          </Badge>
         ) : (
           <StageBar counts={b.counts} />
         )}

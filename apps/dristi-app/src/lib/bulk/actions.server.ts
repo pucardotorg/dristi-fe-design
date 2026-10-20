@@ -6,7 +6,7 @@
  * from a batch carries the same record as one filed alone (PRD §1).
  */
 
-import { buildDocumentGroups } from "@/lib/filing/blank";
+import { blankRepresentative, buildDocumentGroups } from "@/lib/filing/blank";
 import { newCaseFileNumber, newId, newPaymentRef } from "@/lib/filing/data";
 import { DELIVERY_CHANNEL } from "@/lib/filing/options";
 import {
@@ -20,7 +20,7 @@ import {
 import { GUJARAT_FEES } from "@/lib/court/fees";
 import type { FilingDraft, StoredFileRef } from "@/lib/filing/types";
 
-import { resolveIfsc, resolvePin } from "./reference";
+import { resolveBar, resolveIfsc, resolvePin } from "./reference";
 import { caseFlags, caseStage, openFlags, type Flag } from "./scrutiny";
 import {
   AADHAAR_DOCS_PER_OTP,
@@ -170,7 +170,10 @@ export function batchView(batch: Batch, all: Batch[]): BatchView {
 
 /** Draft paths a scrutiny fix may write — and nothing else. */
 const EDITABLE = [
-  /^complainants\.0\.(entType|entName|entCinPan)$/,
+  /^complainants\.0\.(entType|entName|entCinPan|name|mobile)$/,
+  /^advocates\.\d+\.barNumber$/,
+  /^accused\.\d+\.reps\.0\.(name|designation)$/,
+  /^notices\.\d+\.(delivered|paymentStatus)$/,
   /^complainants\.0\.rep\.(mobile|name|age|designation)$/,
   /^complainants\.0\.(entAddr|res|rep\.addr)\.(line1|city|pin)$/,
   /^accused\.\d+\.(name|entType)$/,
@@ -203,7 +206,19 @@ export async function applyFix(d: FilingDraft, path: string, raw: string): Promi
   if (/\.(mobile)$/.test(path)) value = value.replace(/\D/g, "").replace(/^(91|0)(?=\d{10}$)/, "");
   if (/\.(pin|amount|partAmount|age|chequeNumber)$/.test(path)) value = value.replace(/[^\d]/g, "");
   if (/\.email$/.test(path)) value = value.toLowerCase();
+  // A person responsible that does not exist yet is created by naming them.
+  const rep = /^accused\.(\d+)\.reps\.0\./.exec(path);
+  if (rep && d.accused[Number(rep[1])] && !d.accused[Number(rep[1])].reps.length) {
+    d.accused[Number(rep[1])].reps.push(blankRepresentative());
+  }
   setPath(d as unknown as Record<string, unknown>, path, value);
+
+  const adv = /^advocates\.(\d+)\.barNumber$/.exec(path);
+  if (adv) {
+    const a = d.advocates[Number(adv[1])];
+    a.barNumber = value.toUpperCase();
+    a.name = resolveBar(a.barNumber) ?? "";
+  }
 
   const cheque = /^cheques\.(\d+)\.ifsc$/.exec(path);
   if (cheque) {

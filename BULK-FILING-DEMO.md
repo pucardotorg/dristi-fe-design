@@ -134,20 +134,20 @@ Open a batch (from Provakil's link, or from **Bulk filing** on SARAS 2.0). The t
 order:
 
 1. **Cases**: every case with its status. Click one for details and documents.
-2. **Documents**: what each case is missing. Use **Upload** in any "Missing" cell and pick
-   any PDF on your computer. Or drop several files at once named like
-   `GJ-PL-0041870_DCM-5.pdf` (case reference, underscore, document code); they attach
-   themselves.
+2. **Documents**: one row per case, with each document it needs stacked underneath. Cases
+   missing something are open at the top. Click an empty slot, or drag a file onto it; any
+   PDF on your computer will do. **View** and **Replace** sit beside a filled slot.
 3. **Scrutiny**: the filing checks.
    - **Hold** (red): something required is missing or wrong. The case waits; the rest go
-     ahead. Fix it right there (for example type a reason for delay, or correct a mobile
-     number) and press **Save**.
+     ahead. Each hold shows what fixes it, right there: a box to type in (a reason for delay,
+     a mobile number), a choice to make, or an upload slot for a missing document. Press
+     **Save** after typing.
    - **Check** (amber): worth a second look, for example a cheque returned for "payment
      stopped" rather than "insufficient funds". Press **Skip this check**, or **Skip for
      all** when several cases have the same check.
-4. **Sign**: choose the cases and a method. Fastest first: Mobile OTP, DSC, Aadhaar eSign
-   (5 cases per OTP, so several OTPs; the note under it explains why and links to the
-   rule), Upload signed copies. Any 6 digits work as the OTP or PIN.
+4. **Sign**: choose the cases and a method. Fastest first: Mobile OTP (one OTP signs them
+   all), DSC, Aadhaar eSign (5 cases per OTP, so several OTPs; the note under it explains
+   why and links to the rule), Upload signed copies. Any 6 digits work as the OTP or PIN.
 5. **Pay**: one payment for all the chosen cases. Each case gets its own receipt and case
    number, and counts as filed at that moment.
 

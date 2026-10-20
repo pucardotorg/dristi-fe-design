@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { bulkApi, type CaseView } from "./api";
 import type { BatchCtx } from "./batch-screen";
+import { Slot } from "./documents-tab";
 
 /** One flag, as a line: what kind, where, what. */
 export function FlagLine({ flag }: { flag: Flag }) {
@@ -97,6 +98,19 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const closed = !!batch.clubbedInto;
+
+  const [uploading, setUploading] = React.useState<string | null>(null);
+  const attach = async (caseId: string, slotKey: string, file: File) => {
+    setUploading(`${caseId}:${slotKey}`);
+    setError(null);
+    try {
+      setBatch(await bulkApi.attach(batch.id, caseId, slotKey, file));
+    } catch (e) {
+      setError(`${file.name}: ${(e as Error).message}`);
+    } finally {
+      setUploading(null);
+    }
+  };
 
   const act = async (body: Record<string, unknown>) => {
     setBusy(true);
@@ -247,6 +261,20 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
                               Declare that neither is known
                             </Button>
                           ) : null}
+                          {f.fix?.kind === "upload"
+                            ? (() => {
+                                const slotKey = f.fix.slotKey;
+                                const doc = c.documents.find((d) => d.slotKey === slotKey);
+                                return doc ? (
+                                  <Slot
+                                    doc={doc}
+                                    locked={closed}
+                                    busy={uploading === `${c.id}:${slotKey}`}
+                                    onFile={(file) => void attach(c.id, slotKey, file)}
+                                  />
+                                ) : null;
+                              })()
+                            : null}
                           {f.fix?.kind === "documents" ? (
                             <Button variant="outline" className="w-fit" onClick={() => go("documents")}>
                               Add it on Documents

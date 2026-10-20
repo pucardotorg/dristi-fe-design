@@ -3,13 +3,14 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeftIcon } from "lucide-react";
+import { ArrowLeftIcon, CircleCheckIcon } from "lucide-react";
 
 import { toLongDate } from "@/lib/filing/format";
 import { cn } from "@/lib/utils";
 import { PANEL_CLASS } from "@/components/filing/form-card";
 import { PAGE_GROUND, PAGE_GUTTER, PAGE_SUBTITLE, PAGE_TITLE } from "@/components/shell/page-frame";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -20,10 +21,44 @@ import { SourceLabel } from "./batches-screen";
 import { CasesTab } from "./cases-tab";
 import { useGujarat } from "./court-guard";
 import { DocumentsTab } from "./documents-tab";
+import { FiledTab, ist } from "./filed-tab";
 import { PayTab } from "./pay-tab";
 import { ScrutinyTab } from "./scrutiny-tab";
 import { SignTab } from "./sign-tab";
 import { StageBar } from "./stage";
+
+/**
+ * A step's tab: the number of cases waiting on that step, or a tick once nothing is
+ * waiting there. The count is in words for screen readers.
+ */
+function StepTab({
+  value,
+  label,
+  pending,
+  tone,
+  what,
+  done,
+}: {
+  value: TabId;
+  label: string;
+  pending: number;
+  tone: "warning" | "info" | "secondary";
+  what: string;
+  done: boolean;
+}) {
+  return (
+    <TabsTrigger value={value} aria-label={pending ? `${label}, ${pending} ${what}` : done ? `${label}, completed` : label}>
+      {label}
+      {pending ? (
+        <Badge variant={tone} className="tabular-nums">
+          {pending}
+        </Badge>
+      ) : done ? (
+        <CircleCheckIcon className="text-success-ink" aria-hidden />
+      ) : null}
+    </TabsTrigger>
+  );
+}
 
 export type BatchCtx = {
   batch: BatchView;
@@ -32,7 +67,7 @@ export type BatchCtx = {
   go: (tab: TabId) => void;
 };
 
-const TABS = ["cases", "documents", "scrutiny", "sign", "pay"] as const;
+const TABS = ["cases", "documents", "scrutiny", "sign", "pay", "filed"] as const;
 export type TabId = (typeof TABS)[number];
 
 /** One batch: its cases, their documents, the checks, then signing and payment in bulk. */
@@ -84,7 +119,9 @@ export function BatchScreen({ batchId }: { batchId: string }) {
   }
 
   const ctx: BatchCtx = { batch, setBatch, go };
-  const open = batch.cases.filter((c) => c.stage !== "filed");
+  // What is still to do, step by step; each tab carries its own count.
+  const open = batch.cases.filter((c) => c.stage === "held" || c.stage === "ready");
+  const workable = open.length;
   const docsMissing = open.filter((c) => c.docs.have < c.docs.need).length;
   const attention = open.filter((c) => c.stage === "held" || (c.stage === "ready" && c.flags.length > 0)).length;
   const clear = batch.counts.ready - batch.cases.filter((c) => c.stage === "ready" && c.flags.length > 0).length;
@@ -104,6 +141,19 @@ export function BatchScreen({ batchId }: { batchId: string }) {
           </p>
         </div>
       </header>
+
+      {batch.total > 0 && batch.counts.filed === batch.total ? (
+        <Alert variant="success">
+          <CircleCheckIcon aria-hidden />
+          <AlertTitle className="tabular-nums">Done: all {batch.total} cases filed</AlertTitle>
+          <AlertDescription>
+            Last payment {batch.payments.at(-1) ? ist(batch.payments.at(-1)!.at) : ""}.{" "}
+            <button type="button" className="underline" onClick={() => go("filed")}>
+              See receipts and case numbers
+            </button>
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       {batch.clubbedInto ? (
         <Alert variant="info">
@@ -147,20 +197,24 @@ export function BatchScreen({ batchId }: { batchId: string }) {
       <Tabs value={tab} onValueChange={(v) => go(v as TabId)} className="gap-4">
         <div className="overflow-x-auto">
           <TabsList aria-label="Batch steps" className="w-max">
-            <TabsTrigger value="cases">
-              Cases <span className="tabular-nums text-muted-foreground">{batch.total}</span>
-            </TabsTrigger>
-            <TabsTrigger value="documents">
-              Documents{docsMissing ? <span className="tabular-nums text-warning-ink">{docsMissing} missing</span> : null}
-            </TabsTrigger>
-            <TabsTrigger value="scrutiny">
-              Scrutiny{attention ? <span className="tabular-nums text-warning-ink">{attention} to review</span> : null}
-            </TabsTrigger>
-            <TabsTrigger value="sign">
-              Sign{clear > 0 ? <span className="tabular-nums text-muted-foreground">{clear}</span> : null}
-            </TabsTrigger>
-            <TabsTrigger value="pay">
-              Pay{batch.counts.signed ? <span className="tabular-nums text-muted-foreground">{batch.counts.signed}</span> : null}
+            <StepTab
+              value="cases"
+              label="Cases"
+              pending={batch.total - batch.counts.filed}
+              tone="secondary"
+              what="not filed yet"
+              done={batch.total > 0}
+            />
+            <StepTab value="documents" label="Documents" pending={docsMissing} tone="warning" what="missing documents" done={workable > 0} />
+            <StepTab value="scrutiny" label="Scrutiny" pending={attention} tone="warning" what="to review" done={workable > 0} />
+            <StepTab value="sign" label="Sign" pending={clear} tone="info" what="ready to sign" done={batch.counts.signed + batch.counts.filed > 0 && workable === 0} />
+            <StepTab value="pay" label="Pay" pending={batch.counts.signed} tone="info" what="waiting for payment" done={batch.counts.filed > 0 && workable + batch.counts.signed === 0} />
+            <TabsTrigger value="filed" aria-label={`Filed, ${batch.counts.filed} of ${batch.total}`}>
+              Filed
+              <Badge variant={batch.counts.filed ? "success" : "outline"} className="tabular-nums">
+                {batch.counts.filed === batch.total && batch.total ? <CircleCheckIcon data-icon="inline-start" aria-hidden /> : null}
+                {batch.counts.filed}
+              </Badge>
             </TabsTrigger>
           </TabsList>
         </div>
@@ -178,6 +232,9 @@ export function BatchScreen({ batchId }: { batchId: string }) {
         </TabsContent>
         <TabsContent value="pay">
           <PayTab {...ctx} />
+        </TabsContent>
+        <TabsContent value="filed">
+          <FiledTab {...ctx} />
         </TabsContent>
       </Tabs>
     </div>
