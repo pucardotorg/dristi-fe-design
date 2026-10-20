@@ -6,13 +6,20 @@ import { CURRENT_STAFF, PRESIDING_MAGISTRATE } from "./content";
 import {
   A_DIARY_PENDING_COUNT,
   DEFAULT_A_DIARY_FILTERS,
+  aDiaryDayDocumentFilename,
+  aDiaryDayDocumentText,
   aDiaryDocumentFilename,
   aDiaryDocumentText,
   aDiaryEntries,
+  buildADiaryDayDocument,
   buildADiaryDocument,
+  canSignADiaryDay,
   filterADiary,
   resolveADiaryDay,
   saveBusinessOfTheDay,
+  signADiaryDay,
+  signableADiaryDays,
+  unsignedADiaryDays,
 } from "./sign-a-diary";
 
 /* An arbitrary day, well away from any date in the fixtures. The register is built from
@@ -29,9 +36,10 @@ describe("aDiaryEntries", () => {
     assert.equal(ENTRIES.length, other.length);
   });
 
-  it("carries the whole unsigned diary, and the rail's count is its length", () => {
+  it("carries the whole unsigned diary, and the rail counts the days that can be signed", () => {
     assert.equal(ENTRIES.length, 8);
-    assert.equal(A_DIARY_PENDING_COUNT, ENTRIES.length);
+    assert.equal(A_DIARY_PENDING_COUNT, signableADiaryDays(ENTRIES, TODAY).length);
+    assert.equal(A_DIARY_PENDING_COUNT, 2);
   });
 
   it("holds five entries for the day the court is sitting, and a backlog before it", () => {
@@ -254,8 +262,9 @@ describe("buildADiaryDocument", () => {
     );
   });
 
-  it("prints the correction the bench saved, so Save changes the paper", () => {
+  it("keeps the order text when the entry is corrected (ADY-09)", () => {
     const target = ENTRIES[0];
+    const before = buildADiaryDocument(target).paragraphs;
     const rows = saveBusinessOfTheDay(
       ENTRIES,
       target.id,
@@ -263,24 +272,20 @@ describe("buildADiaryDocument", () => {
     );
     const corrected = rows.find((entry) => entry.id === target.id);
     assert.ok(corrected);
-    assert.deepEqual(buildADiaryDocument(corrected).paragraphs, [
-      "Heard both sides.",
-      "The case is adjourned.",
-    ]);
+    assert.equal(corrected.business, "Heard both sides.\n\nThe case is adjourned.");
+    assert.equal(corrected.orderText, target.orderText);
+    assert.deepEqual(buildADiaryDocument(corrected).paragraphs, before);
   });
 
-  it("renders a flattened passage as one paragraph, not an empty list", () => {
-    const rows = saveBusinessOfTheDay(ENTRIES, ENTRIES[0].id, "One block only.");
-    const corrected = rows.find((entry) => entry.id === ENTRIES[0].id);
-    assert.ok(corrected);
-    assert.deepEqual(buildADiaryDocument(corrected).paragraphs, [
-      "One block only.",
-    ]);
+  it("starts every entry with its A-Diary text the same as its order text", () => {
+    for (const entry of ENTRIES) {
+      assert.equal(entry.business, entry.orderText, `${entry.id} starts out different`);
+    }
   });
 
-  it("says the signature is not on it, and whose it is waiting for", () => {
+  it("shows the order as signed — an entry exists only once its order is", () => {
     const { signature } = buildADiaryDocument(ENTRIES[0]);
-    assert.ok(signature.startsWith("Pending the signature of "));
+    assert.ok(signature.startsWith("Signed by "));
     assert.ok(signature.includes(PRESIDING_MAGISTRATE.name));
     assert.ok(signature.includes(PRESIDING_MAGISTRATE.designation));
     /* Never the seat working the screen — the order is not the bench clerk's to sign. */
@@ -307,5 +312,81 @@ describe("buildADiaryDocument", () => {
       aDiaryDocumentFilename(entry),
       `ST-655-2026-order-${entry.dated}.txt`,
     );
+  });
+});
+
+describe("signing a day", () => {
+  it("signs only a day that is over, never today (ADY-12b)", () => {
+    assert.equal(canSignADiaryDay(TODAY, TODAY), false);
+    const yesterday = ENTRIES.find((entry) => entry.dated < TODAY)?.dated;
+    assert.ok(yesterday);
+    assert.equal(canSignADiaryDay(yesterday, TODAY), true);
+    assert.ok(!signableADiaryDays(ENTRIES, TODAY).includes(TODAY));
+  });
+
+  it("lists the signable days once each, newest first", () => {
+    const days = signableADiaryDays(ENTRIES, TODAY);
+    assert.equal(new Set(days).size, days.length);
+    assert.deepEqual(days, [...days].sort((a, b) => b.localeCompare(a)));
+  });
+
+  it("takes every entry of the day out together, and nothing else (ADY-12)", () => {
+    const day = signableADiaryDays(ENTRIES, TODAY)[0];
+    const rows = signADiaryDay(ENTRIES, day);
+    assert.ok(rows.every((entry) => entry.dated !== day));
+    assert.equal(
+      rows.length,
+      ENTRIES.filter((entry) => entry.dated !== day).length,
+    );
+  });
+
+  it("builds the day's document from the entries as they stand (ADY-12a)", () => {
+    const day = signableADiaryDays(ENTRIES, TODAY)[0];
+    const target = ENTRIES.find((entry) => entry.dated === day);
+    assert.ok(target);
+    const rows = saveBusinessOfTheDay(ENTRIES, target.id, "Corrected just now.");
+    const document = buildADiaryDayDocument(day, rows);
+    assert.equal(
+      document.entries.length,
+      ENTRIES.filter((entry) => entry.dated === day).length,
+    );
+    assert.ok(
+      document.entries.some((entry) => entry.paragraphs.join() === "Corrected just now."),
+    );
+    const text = aDiaryDayDocumentText(document);
+    assert.ok(text.includes("Corrected just now."));
+    assert.ok(text.includes(target.caseNumber));
+    assert.ok(text.includes(document.signature));
+    assert.equal(aDiaryDayDocumentFilename(day), `a-diary-${day}.txt`);
+  });
+});
+
+describe("the A-Diary table (ADY-03, ADY-03a)", () => {
+  it("records the hearing for an order passed in one, and none outside a hearing", () => {
+    const outside = ENTRIES.filter((entry) => entry.hearing === null);
+    assert.equal(outside.length, 1, "no entry exercises an order passed outside a hearing");
+    for (const entry of ENTRIES) {
+      if (entry.hearing) assert.equal(entry.hearing.day, entry.dated);
+    }
+  });
+
+  it("marks every day that still has unsigned entries, today included", () => {
+    const days = unsignedADiaryDays(ENTRIES);
+    assert.ok(days.includes(TODAY));
+    assert.equal(days.length, new Set(ENTRIES.map((entry) => entry.dated)).size);
+  });
+
+  it("prints the four columns in the signed document, blank hearing included", () => {
+    const outside = ENTRIES.find((entry) => entry.hearing === null);
+    assert.ok(outside);
+    const document = buildADiaryDayDocument(outside.dated, ENTRIES);
+    const row = document.entries.find((entry) => entry.caseNumber === outside.caseNumber);
+    assert.ok(row);
+    assert.equal(row.hearing, null);
+    assert.ok(row.nextHearing.includes(" · "), "next hearing lacks its purpose");
+    const text = aDiaryDayDocumentText(document);
+    for (const label of ["Case:", "Hearing:", "Proceedings:", "Next hearing:"]) {
+      assert.ok(text.includes(label), `${label} missing from the download`);
+    }
   });
 });
