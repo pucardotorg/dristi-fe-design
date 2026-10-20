@@ -326,7 +326,9 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
                         ))}
                       </dl>
                       {c.original ? (
-                        <OriginalDoc original={c.original} variant="tile" />
+                        <div className="border-t border-hairline pt-3">
+                          <OriginalDoc original={c.original} />
+                        </div>
                       ) : null}
                       {!complete && !closed ? (
                         <Button
