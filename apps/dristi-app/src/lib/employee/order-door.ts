@@ -1,110 +1,41 @@
 /**
- * The pure half of an order door — everything about opening the order screen that
- * depends on which composer variant is switched on (`order-layout.ts`), in one place.
+ * The pure half of an order door — how the order screen opens a door's draft.
  *
  * A door (`components/employee/order-door-screen.tsx`) describes *what* the order is on
- * and what it opens with: one draft, variant-neutral. This module turns that one draft
- * into each variant's own:
+ * and what it opens with. This module turns that into the draft the order screen keeps:
+ * its text empty, the door's items — a cognizance act's, an application decision's —
+ * kept as items in the workflow, entered apart from the words.
  *
- * - **A** (blocks) takes it as it is.
- * - **B** (text box) also needs the order as one body of text, written from the blocks —
- *   with the attendance and next-hearing lines on a hearing.
- * - **C** (proceedings) keeps an application's decision as the decision, not as an item
- *   block, so decision blocks are left out.
- * - **D** is C with the preview live in the right panel, so it opens as C does — on its
- *   own draft.
- * - **E** (full-page editor) opens with its text empty: the door's items — a cognizance
- *   act's, an application decision's — stay items, in its workflow, entered apart from
- *   the words.
- *
- * Each variant keeps its own draft under its own key, so switching mid-order never
- * shows one composer's half-made order in another. The keys are the ones the variants
- * have always used, so the Draft orders queue (`order-drafts.ts` `hasDraftFor`) and any
- * draft already started read the same.
+ * The draft lives under the `editor:` key the screen has always used
+ * (`order-drafts.ts` `editorDraftKey`), so a draft already started opens as it was.
  */
 
-import {
-  attendanceRecital,
-  buildOrderDocument,
-  nextListingRecital,
-  recitalText,
-  type Appearance,
-  type OrderDocument,
-  type OrderDraft,
-} from "./order-draft";
-import {
-  editorDraftKey,
-  optionDDraftKey,
-  proceedingsDraftKey,
-  textDraftKey,
-} from "./order-drafts";
-import type { OrderLayout } from "./order-layout";
-import { bodyFromBlocks } from "./order-text";
+import type { OrderDraft } from "./order-draft";
+import { editorDraftKey } from "./order-drafts";
 
-/** The draft store's key for one variant of a door's order. */
-export function variantDraftKey(variant: OrderLayout, base: string): string {
-  if (variant === "text") return textDraftKey(base);
-  if (variant === "proceedings") return proceedingsDraftKey(base);
-  if (variant === "option-d") return optionDDraftKey(base);
-  if (variant === "editor") return editorDraftKey(base);
-  return base;
+/** The draft store's key for a door's order. */
+export function orderDraftKey(base: string): string {
+  return editorDraftKey(base);
 }
 
 /**
- * The draft one variant opens on, from the door's variant-neutral draft.
- *
- * `appearances` is the hearing's roll — given only on a hearing, where B's text opens
- * with the attendance and next-hearing lines.
+ * The draft a door's order opens on. The text opens empty and what the door loaded stays
+ * as items in the workflow (owner, 2026-10-14: "instead of pre-filling the text, pre-add
+ * the items"). A *Scheduling of hearing date* item is folded into the workflow's Next
+ * hearing, so the date is asked for once (owner, 2026-10-14).
  */
-export function variantInitialDraft(
-  variant: OrderLayout,
-  initial: OrderDraft,
-  appearances?: Appearance[],
-): OrderDraft {
-  if (variant === "text") {
-    return {
-      ...initial,
-      body: bodyFromBlocks(
-        initial.blocks,
-        appearances
-          ? {
-              attendance: attendanceRecital(appearances, initial.marks),
-              next: nextListingRecital(initial),
-            }
-          : undefined,
-      ),
-    };
-  }
-  if (variant === "editor") {
-    /* The text opens empty and what the door loaded stays as items in the workflow
-       (owner, 2026-10-14: "instead of pre-filling the text, pre-add the items"). A
-       *Scheduling of hearing date* item is folded into the workflow's Next hearing, as C
-       does, so the date is asked for once (owner, 2026-10-14). */
-    return {
-      ...initial,
-      ...foldScheduling(initial),
-      body: { html: "", text: "" },
-    };
-  }
-  if (variant === "proceedings" || variant === "option-d") {
-    /* C (and D) lists the next hearing in its own section, never as an item, and keeps an
-       application's decision as the decision, not as an item block. */
-    const folded = foldScheduling(initial);
-    return {
-      ...initial,
-      ...folded,
-      blocks: folded.blocks.filter(
-        (block) => !(block.kind === "item" && block.applicationId),
-      ),
-    };
-  }
-  return initial;
+export function orderInitialDraft(initial: OrderDraft): OrderDraft {
+  return {
+    ...initial,
+    ...foldScheduling(initial),
+    body: { html: "", text: "" },
+  };
 }
 
 /**
  * A door that loads a *Scheduling of hearing date* item (Take cognizance, Issue notice)
  * has it moved into the order's own next hearing, with whatever date and purpose it
- * carried, so the order asks for the date once — C, D and E.
+ * carried.
  */
 function foldScheduling(
   initial: OrderDraft,
@@ -128,35 +59,4 @@ function foldScheduling(
       (scheduling.values.purpose as OrderDraft["nextPurpose"]) ||
       initial.nextPurpose,
   };
-}
-
-/**
- * The order as paper for one variant. A builds it from the blocks — on a hearing, between
- * the attendance and the posting; B from its one body of text, a paragraph a line.
- */
-export function variantDocument(
-  variant: OrderLayout,
-  input: { caseNumber: string; matter: string; day: string },
-  draft: OrderDraft,
-  appearances?: Appearance[],
-): OrderDocument {
-  if (variant === "text" || variant === "editor") {
-    return {
-      ...buildOrderDocument({ ...input, blocks: [] }),
-      paragraphs: (draft.body?.text ?? "")
-        .split(/\n+/)
-        .map((line) => line.trim())
-        .filter(Boolean),
-    };
-  }
-  return buildOrderDocument({
-    ...input,
-    blocks: draft.blocks,
-    ...(appearances
-      ? {
-          opening: attendanceRecital(appearances, draft.marks).map(recitalText),
-          closing: nextListingRecital(draft).map(recitalText),
-        }
-      : {}),
-  });
 }

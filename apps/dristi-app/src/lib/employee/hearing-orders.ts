@@ -1,5 +1,5 @@
 /**
- * Today's orders, one per listing — the Orders view of today's hearings, as data.
+ * Today's orders, one per listing — Sign orders' Draft tab, as data.
  *
  * Derived live from the same three stores the cause list and the composer read: the
  * day's board after this sitting's marks, the draft text (`order-drafts.ts`) and where
@@ -23,50 +23,11 @@ import type { CourtHearing } from "./hearings";
 import { blockLabel } from "./order-composer";
 import { initialOrderDraft } from "./order-demo";
 import type { OrderDraft } from "./order-draft";
-import type { OrderDrafts } from "./order-drafts";
+import { editorDraftKey, type OrderDrafts } from "./order-drafts";
 import type { OrderSigning } from "./order-signing";
 import { openSlots } from "./order-templates";
 
 export type HearingOrderStatus = "draft" | "ready" | "signed";
-
-/** The pills, in the order the work moves through them. */
-export const HEARING_ORDER_STATUSES: {
-  id: HearingOrderStatus;
-  /** The pill's word — the pile. */
-  pill: string;
-  /** The row's word — the one order. */
-  label: string;
-  hint: string;
-}[] = [
-  {
-    id: "draft",
-    pill: "Drafts",
-    label: "Draft",
-    hint: "Being written. Not yet added to the signing list.",
-  },
-  {
-    id: "ready",
-    pill: "Ready to sign",
-    label: "Ready to sign",
-    hint: "Added to the signing list and waiting for a signature.",
-  },
-  {
-    id: "signed",
-    pill: "Signed",
-    label: "Signed",
-    hint: "Signed at this sitting.",
-  },
-];
-
-export function hearingOrderStatusLabel(id: HearingOrderStatus): string {
-  return HEARING_ORDER_STATUSES.find((entry) => entry.id === id)?.label ?? id;
-}
-
-export function hearingOrderStatusVariant(
-  id: HearingOrderStatus,
-): "secondary" | "info" | "success" {
-  return id === "signed" ? "success" : id === "ready" ? "info" : "secondary";
-}
 
 export type HearingOrder = {
   hearing: CourtHearing;
@@ -116,7 +77,8 @@ export function ordersForSitting(
     .sort((a, b) => a.item - b.item)
     .map((hearing) => {
       const draft =
-        drafts[hearing.id] ?? initialOrderDraft(hearing, hearing.status, today);
+        drafts[editorDraftKey(hearing.id)] ??
+        initialOrderDraft(hearing, hearing.status, today);
       const signed = signing[hearing.id];
       return {
         hearing,

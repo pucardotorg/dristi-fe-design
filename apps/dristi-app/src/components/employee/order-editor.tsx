@@ -22,15 +22,13 @@ import {
   NextHearingSection,
   type ComposerApplication,
   type ComposerFact,
-} from "@/components/employee/order-composer";
+} from "@/components/employee/order-sections";
 import { OrderCasePanel } from "@/components/employee/order-case-panel";
 import {
   ItemDialog,
   ItemsCard,
-} from "@/components/employee/order-text-composer";
+} from "@/components/employee/order-items";
 import { OrderSaveIndicator } from "@/components/employee/order-save-indicator";
-import { useOrderDetailsPlacement } from "@/components/employee/use-order-details-placement";
-import { useOrderFlow } from "@/components/employee/use-order-flow";
 import { useOrderSigning } from "@/components/employee/use-order-signing";
 import { usePendingOrders } from "@/components/employee/use-pending-orders";
 import { PANEL_CLASS } from "@/components/shell/panel";
@@ -486,7 +484,6 @@ export function orderPaperFields({
   today,
   appearances,
   onChange,
-  framed = false,
   disabled = false,
 }: {
   draft: OrderDraft;
@@ -496,8 +493,6 @@ export function orderPaperFields({
   appearances?: Appearance[];
   /** After any change — the order's content moved. */
   onChange?: () => void;
-  /** As cards among the order data, rather than on the page. */
-  framed?: boolean;
   disabled?: boolean;
 }): OrderPaperParts {
   function update(change: (current: OrderDraft) => OrderDraft) {
@@ -527,7 +522,6 @@ export function orderPaperFields({
             })),
         }}
         disabled={disabled}
-        framed={framed}
       />
     ) : undefined,
     nextHearing: (
@@ -550,24 +544,19 @@ export function orderPaperFields({
         }}
         today={today}
         disabled={disabled}
-        framed={framed}
       />
     ),
   };
 }
 
 /**
- * The order data — its items and what was decided on the applications, and attendance
- * and the next hearing when the court keeps them here rather than on the order's page
- * (`order-details-placement.ts`) — as version B's cards ask for them. They write to the
- * draft's record, never into the order's words: in E the text is the steno's alone.
+ * The order data — its items and what was decided on the applications. They write to the
+ * draft's record, never into the order's words: the text is the steno's alone.
  */
 export function OrderWorkflowFields({
   draft,
   setDraft,
   today,
-  appearances,
-  withDetails = false,
   applications,
   onOpenApplication,
   context,
@@ -579,10 +568,6 @@ export function OrderWorkflowFields({
   draft: OrderDraft;
   setDraft: (update: (current: OrderDraft) => OrderDraft) => void;
   today: string;
-  /** A hearing's roll; absent outside a hearing. */
-  appearances?: Appearance[];
-  /** Attendance and the next hearing are entered here, not on the order's page. */
-  withDetails?: boolean;
   applications?: ComposerApplication[];
   onOpenApplication?: (id: string) => void;
   /** The matter the catalogue's items are filled against. */
@@ -637,30 +622,8 @@ export function OrderWorkflowFields({
     else commit(block, "add");
   }
 
-  const details = withDetails
-    ? orderPaperFields({
-        draft,
-        setDraft,
-        today,
-        appearances,
-        framed: true,
-        disabled,
-      })
-    : null;
-
   return (
     <div className="flex min-w-0 flex-col gap-6">
-      {details?.attendance ? (
-        <Card className={cn(PANEL_CLASS, "min-w-0 gap-0 p-0")}>
-          {details.attendance}
-        </Card>
-      ) : null}
-      {details ? (
-        <Card className={cn(PANEL_CLASS, "min-w-0 gap-0 p-0")}>
-          {details.nextHearing}
-        </Card>
-      ) : null}
-
       <ItemsCard
         items={items}
         context={context}
@@ -754,7 +717,6 @@ export function OrderEditorComposer({
   applications,
   onOpenApplication,
   applicationDialog,
-  overview,
   historyContent,
   context,
   purpose,
@@ -779,7 +741,6 @@ export function OrderEditorComposer({
   applicationDialog?: (
     decide: (id: string, decision: ListingApplicationDecision | null) => void,
   ) => React.ReactNode;
-  overview: { label: string; value: string }[];
   /** The Case history tab (ORD-15) — the case's history with its orders. */
   historyContent?: React.ReactNode;
 }) {
@@ -792,10 +753,6 @@ export function OrderEditorComposer({
   const shortcuts = useShortcutSuggestion();
   const pending = usePendingOrders();
   const signing = useOrderSigning();
-  const [flow] = useOrderFlow();
-  /* Attendance and the next hearing: on the order's page, or among its order data. */
-  const [placement] = useOrderDetailsPlacement();
-  const onPage = placement === "order";
   const entry = pending[queue.key];
   const stage = entry ? pendingOrderStage(entry, signing) : "drafting";
   const finished = stage !== "drafting";
@@ -822,7 +779,7 @@ export function OrderEditorComposer({
       toast("Type the order before sending it for signing.");
       return;
     }
-    if (onPage && !postingSettled(draft)) {
+    if (!postingSettled(draft)) {
       setView("order");
       toast(
         "Set the next hearing’s date and purpose, or tick Not listed again.",
@@ -837,11 +794,7 @@ export function OrderEditorComposer({
       orderHref: window.location.pathname + window.location.search,
     });
     markOrderReady(queue.key);
-    toast(
-      flow === "pending"
-        ? "Sent for signing. It is in Pending orders, awaiting the magistrate."
-        : "Sent for signing. It is on the signing list.",
-    );
+    toast("Sent for signing. It is in Pending orders, awaiting the magistrate.");
   }
 
   return (
@@ -921,24 +874,18 @@ export function OrderEditorComposer({
               frame={frame}
               value={body}
               status={paperStatus(stage)}
-              parts={
-                onPage ? orderPaperRecitals(draft, appearances) : undefined
-              }
+              parts={orderPaperRecitals(draft, appearances)}
             />
           ) : (
             <OrderPaperEditor
               frame={frame}
-              parts={
-                onPage
-                  ? orderPaperFields({
-                      draft,
-                      setDraft,
-                      today,
-                      appearances,
-                      onChange: () => noteOrderTextEdited(queue.key),
-                    })
-                  : undefined
-              }
+              parts={orderPaperFields({
+                draft,
+                setDraft,
+                today,
+                appearances,
+                onChange: () => noteOrderTextEdited(queue.key),
+              })}
               value={body}
               onChange={(value) => {
                 setDraft((current) => ({ ...current, body: value }));
@@ -957,8 +904,6 @@ export function OrderEditorComposer({
               draft={draft}
               setDraft={setDraft}
               today={today}
-              appearances={appearances}
-              withDetails={!onPage}
               applications={applications}
               onOpenApplication={onOpenApplication}
               context={context}
@@ -973,16 +918,12 @@ export function OrderEditorComposer({
         ) : panelOpen ? (
           <OrderCasePanel
             className="lg:sticky lg:top-(--order-panel-top) lg:h-(--order-panel-fill) lg:rounded-b-none lg:border-b-0"
-            overview={overview}
             links={draft.links}
             onLinksChange={(links) =>
               setDraft((current) => ({ ...current, links }))
             }
             disabled={false}
-            showOverview={false}
             historyContent={historyContent}
-            dataFlags
-            inlineViewer
           />
         ) : null}
       </div>
@@ -993,7 +934,7 @@ export function OrderEditorComposer({
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <div className="flex min-h-10 items-center">
-            {finished && flow === "pending" ? (
+            {finished ? (
               <Button asChild variant="link" className="-ml-3">
                 <Link href={pendingOrderHref(queue.key)}>
                   Open in Pending orders
@@ -1027,7 +968,7 @@ export function OrderEditorComposer({
                 type="button"
                 className="w-full sm:w-fit"
                 onClick={() => {
-                  if (empty || (onPage && !postingSettled(draft))) {
+                  if (empty || !postingSettled(draft)) {
                     finish();
                     return;
                   }
@@ -1046,9 +987,7 @@ export function OrderEditorComposer({
           <AlertDialogHeader>
             <AlertDialogTitle>Send this order for signing?</AlertDialogTitle>
             <AlertDialogDescription>
-              It goes to the magistrate
-              {flow === "pending" ? " in Pending orders" : " for signing"}.
-              Until it is signed it can be moved back to draft and edited. Its
+              It goes to the magistrate in Pending orders. Until it is signed it can be moved back to draft and edited. Its
               order data is triggered once it is signed and its order data is
               marked complete.
             </AlertDialogDescription>

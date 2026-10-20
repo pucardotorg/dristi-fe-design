@@ -215,10 +215,6 @@ function rewrite(block: ItemBlock, context: ComposerContext): ItemBlock {
 
 /* ────────────────────────────── making blocks ──────────────────────────────── */
 
-export function createTextBlock(text = ""): TextBlock {
-  return { id: nextBlockId("text"), kind: "text", text };
-}
-
 /**
  * A new order item, with everything the system can work out already answered (`AUT-01`):
  * a process item's recipients, channels and party taking steps; the witness for batta
@@ -354,81 +350,6 @@ export function setItemRecipients(
   return rewrite({ ...block, recipients, values }, context);
 }
 
-/**
- * The drafter typed into the item's text. Typing it back to exactly what the fields would
- * write is the same as never having typed — the text follows the fields again.
- */
-export function setItemText(
-  block: ItemBlock,
-  text: string,
-  context: ComposerContext,
-): ItemBlock {
-  return { ...block, text, edited: text !== writeItemText(block, context) };
-}
-
-/** **Reset wording** — the text written from the fields again, and following them. */
-export function resetItemText(
-  block: ItemBlock,
-  context: ComposerContext,
-): ItemBlock {
-  return { ...block, text: writeItemText(block, context), edited: false };
-}
-
-/**
- * Turn a block into another kind (the type control on every block's header).
- *
- * Answers carry across where the two items share a field. Text the drafter has written —
- * a text block's words, or an item's hand-edited wording — is kept and stays theirs; an
- * item still following its fields is written again from the new item's template.
- */
-export function changeBlockType(
-  block: ComposerBlock,
-  to: OrderTemplateId | "text",
-  context: ComposerContext,
-): ComposerBlock {
-  if (to === "text") {
-    return block.kind === "text"
-      ? block
-      : { id: block.id, kind: "text", text: block.text };
-  }
-  const fresh = createItemBlock(to, context, { id: block.id });
-  if (block.kind === "text") {
-    return block.text.trim()
-      ? { ...fresh, text: block.text, edited: true }
-      : fresh;
-  }
-  const keys = new Set(orderTemplate(to).fields.map((field) => field.key));
-  const carried = Object.fromEntries(
-    Object.entries(block.values).filter(
-      ([key, value]) => keys.has(key) && value,
-    ),
-  );
-  const merged = rewrite(
-    {
-      ...fresh,
-      values: { ...fresh.values, ...carried },
-      recipients:
-        fresh.recipients && block.recipients
-          ? { ...block.recipients, channels: fresh.recipients.channels }
-          : fresh.recipients,
-    },
-    context,
-  );
-  return block.edited ? { ...merged, text: block.text, edited: true } : merged;
-}
-
-export function moveBlock<T>(
-  blocks: readonly T[],
-  index: number,
-  by: -1 | 1,
-): T[] {
-  const to = index + by;
-  if (to < 0 || to >= blocks.length) return [...blocks];
-  const next = [...blocks];
-  [next[index], next[to]] = [next[to], next[index]];
-  return next;
-}
-
 /* ──────────────────────────────────── gaps ─────────────────────────────────── */
 
 export type BlockGap = { key: string; label: string };
@@ -486,23 +407,6 @@ export function blockGaps(
   }
   if (!block.text.trim()) gaps.push({ key: "text", label: "Order text" });
   return gaps;
-}
-
-/** A one-line account of a finished item, for the index: its answers, joined. */
-export function blockSummary(
-  block: ComposerBlock,
-  context: ComposerContext,
-): string {
-  if (block.kind === "text") {
-    const words = block.text.trim();
-    return words.length > 60 ? `${words.slice(0, 57)}…` : words;
-  }
-  const template = orderTemplate(block.type);
-  return template.fields
-    .filter((field) => !field.derived && field.kind !== "fixed")
-    .map((field) => fieldWording(block, field, context))
-    .filter(Boolean)
-    .join(" · ");
 }
 
 /** The label a block goes by — its order item's name, or "Text". */

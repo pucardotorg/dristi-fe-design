@@ -126,38 +126,16 @@ export function updateOrderDraft(
 }
 
 /**
- * Version B's key for a listing's draft (`lib/employee/order-door.ts`). Its own key, so the block
- * composer and the text-box composer never share a half-made order while they are A/B
- * tested side by side.
+ * The order screen's key for a listing's draft (`lib/employee/order-door.ts`). The
+ * `editor:` prefix is what browsers have stored since the screen had variants; keep it.
  */
-export function textDraftKey(id: string): string {
-  return `text:${id}`;
-}
-
-/** Version C's key for a listing's draft (`lib/employee/order-door.ts`), its own like B's. */
-export function proceedingsDraftKey(id: string): string {
-  return `proceedings:${id}`;
-}
-
-/** Version D's key for a listing's draft (`lib/employee/order-door.ts`), its own like B's. */
-export function optionDDraftKey(id: string): string {
-  return `d:${id}`;
-}
-
-/** Version E's key for a listing's draft (`lib/employee/order-door.ts`), its own like B's. */
 export function editorDraftKey(id: string): string {
   return `editor:${id}`;
 }
 
-/** Whether a listing has an order started on it, in any version of the composer. */
+/** Whether a listing has an order started on it. */
 export function hasDraftFor(drafts: OrderDrafts, hearingId: string): boolean {
-  return Boolean(
-    drafts[hearingId] ??
-      drafts[textDraftKey(hearingId)] ??
-      drafts[proceedingsDraftKey(hearingId)] ??
-      drafts[optionDDraftKey(hearingId)] ??
-      drafts[editorDraftKey(hearingId)],
-  );
+  return Boolean(drafts[editorDraftKey(hearingId)]);
 }
 
 /** Back to how a fresh browser opens — Reset sandbox data (`sandbox-reset.ts`). */

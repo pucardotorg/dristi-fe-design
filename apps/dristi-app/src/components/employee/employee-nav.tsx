@@ -19,7 +19,7 @@ import { setCourtRole } from "@/lib/employee/court-role";
 import { courtAccounts } from "@/lib/employee/sign-in";
 import {
   COURT_NAV_LINKS,
-  courtNavTrailing,
+  COURT_NAV_TRAILING,
   courtNavRowsFor,
   courtNavGroupsFor,
   courtNavGroupsForCourt,
@@ -35,10 +35,7 @@ import {
 import { useCognizanceLayout } from "@/components/employee/use-cognizance-layout";
 import type { CognizanceLayout } from "@/lib/employee/cognizance-layout";
 import { useCourtNavLayout } from "@/components/employee/use-court-nav-layout";
-import { useOrderDetailsPlacement } from "@/components/employee/use-order-details-placement";
-import { useOrderFlow } from "@/components/employee/use-order-flow";
 import { useNextHearingEntry } from "@/components/employee/use-next-hearing-entry";
-import { useOrderLayout } from "@/components/employee/use-order-layout";
 import { useOrderSigning } from "@/components/employee/use-order-signing";
 import { usePendingOrders } from "@/components/employee/use-pending-orders";
 import { pendingOrderCountFor } from "@/lib/employee/pending-orders";
@@ -46,18 +43,9 @@ import { loadDemoSeed, resetSandboxData } from "@/lib/employee/sandbox-reset";
 import { DEMO_SEED_OPTIONS, type DemoSeed } from "@/lib/employee/demo-seed";
 import { useDemoSeed } from "@/components/employee/use-demo-seed";
 import {
-  ORDER_DETAILS_PLACEMENT_OPTIONS,
-  type OrderDetailsPlacement,
-} from "@/lib/employee/order-details-placement";
-import { ORDER_FLOW_OPTIONS, type OrderFlow } from "@/lib/employee/order-flow";
-import {
   NEXT_HEARING_ENTRY_OPTIONS,
   type NextHearingEntry,
 } from "@/lib/employee/next-hearing-entry";
-import {
-  CLASSIC_ORDER_LAYOUT_OPTIONS,
-  type OrderLayout,
-} from "@/lib/employee/order-layout";
 import type { CourtNavLayout } from "@/lib/employee/nav-layout";
 import { BrandGlyph } from "@/components/brand-lockup";
 import { useCourtSearch } from "@/components/employee/court-search";
@@ -958,10 +946,7 @@ function CourtSettingsControl() {
   const { court, setCourt } = useCourt();
   const [layout, setLayout] = useCourtNavLayout();
   const [cognizanceLayout, setCognizanceLayout] = useCognizanceLayout();
-  const [orderLayout, setOrderLayout] = useOrderLayout();
-  const [orderFlow, setOrderFlow] = useOrderFlow();
   const [nextHearingEntry, setNextHearingEntry] = useNextHearingEntry();
-  const [detailsPlacement, setDetailsPlacement] = useOrderDetailsPlacement();
   const demoSeed = useDemoSeed();
   const [open, setOpen] = React.useState(false);
   const [confirmReset, setConfirmReset] = React.useState(false);
@@ -1016,46 +1001,14 @@ function CourtSettingsControl() {
           },
         ]
       : []),
+    /* Owner, 2026-10-15. */
     {
-      id: "order-flow",
-      label: "Order flow",
-      value: orderFlow,
-      options: ORDER_FLOW_OPTIONS,
-      onChange: (next) => setOrderFlow(next as OrderFlow),
+      id: "next-hearing-entry",
+      label: "Next hearing entered by",
+      value: nextHearingEntry,
+      options: NEXT_HEARING_ENTRY_OPTIONS,
+      onChange: (next) => setNextHearingEntry(next as NextHearingEntry),
     },
-    /* Pending orders' screen E only (owner, 2026-10-14, 2026-10-15). */
-    ...(orderFlow === "pending"
-      ? [
-          {
-            id: "next-hearing-entry",
-            label: "Next hearing entered by",
-            value: nextHearingEntry,
-            options: NEXT_HEARING_ENTRY_OPTIONS,
-            onChange: (next: string) =>
-              setNextHearingEntry(next as NextHearingEntry),
-          },
-          {
-            id: "details-placement",
-            label: "Attendance and next hearing",
-            value: detailsPlacement,
-            options: ORDER_DETAILS_PLACEMENT_OPTIONS,
-            onChange: (next: string) =>
-              setDetailsPlacement(next as OrderDetailsPlacement),
-          },
-        ]
-      : []),
-    /* A–D are Classic's alone; Pending orders always opens E (owner, 2026-10-14). */
-    ...(orderFlow === "classic"
-      ? [
-          {
-            id: "order-screen",
-            label: "Order screen",
-            value: orderLayout,
-            options: CLASSIC_ORDER_LAYOUT_OPTIONS,
-            onChange: (next: string) => setOrderLayout(next as OrderLayout),
-          },
-        ]
-      : []),
   ];
 
   return (
@@ -1308,7 +1261,6 @@ export function EmployeeNav() {
     usePendingOrders(),
     useOrderSigning(),
   );
-  const [flow] = useOrderFlow();
   const groups = withPendingCount(
     courtNavGroupsForSeat(
       courtNavGroupsForCourt(
@@ -1316,12 +1268,10 @@ export function EmployeeNav() {
           courtProfile(court).cognizanceSplit === "delay"
             ? cognizanceLayout
             : "tabs",
-          flow,
         ),
         court,
       ),
       seat,
-      flow,
     ),
     pendingCount,
   );
@@ -1348,7 +1298,7 @@ export function EmployeeNav() {
         <SidebarGroup className="gap-1">
           <SidebarMenu className={RAIL_MENU}>
             <CourtSearchRow />
-            {courtNavItemsForSeat(COURT_NAV_LINKS, seat, flow).map((item) => (
+            {courtNavItemsForSeat(COURT_NAV_LINKS, seat).map((item) => (
               <CourtNavRow key={item.id} item={item} />
             ))}
           </SidebarMenu>
@@ -1376,7 +1326,7 @@ export function EmployeeNav() {
                into (`courtNavRowsFor`), flat — the same list primitive the standalone
                links above already use. */
             <SidebarMenu className={RAIL_MENU}>
-              {courtNavRowsFor(layout, court, seat, flow)
+              {courtNavRowsFor(layout, court, seat)
                 .map((item) =>
                   item.id === "pending-orders"
                     ? { ...item, count: pendingCount }
@@ -1392,7 +1342,6 @@ export function EmployeeNav() {
                             pathname,
                             layout,
                             court,
-                            flow,
                           )
                         : undefined
                     }
@@ -1406,7 +1355,7 @@ export function EmployeeNav() {
               from the queues above it; without one it reads as a fifth kind of work. */}
           <CourtNavBreak />
           <SidebarMenu className={RAIL_MENU}>
-            {courtNavItemsForSeat(courtNavTrailing(flow), seat, flow).map(
+            {courtNavItemsForSeat(COURT_NAV_TRAILING, seat).map(
               (item) => (
                 <CourtNavRow key={item.id} item={item} />
               ),

@@ -12,10 +12,6 @@ import {
   useRailCollapsed,
 } from "@/components/chrome/app-chrome";
 import {
-  isOrderScreenPath,
-  OrderVariantSwitch,
-} from "@/components/employee/order-variant-switch";
-import {
   useApplicationsReady,
   useLifecycleApplications,
 } from "@/lib/applications/store";
@@ -35,7 +31,6 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { useOrderFlow } from "@/components/employee/use-order-flow";
 import { usePendingOrders } from "@/components/employee/use-pending-orders";
 
 /**
@@ -72,22 +67,14 @@ function CourtTopBarWithQuery() {
 
 function CourtTopBar({ query }: { query: string }) {
   const pathname = usePathname();
-  const [flow] = useOrderFlow();
   /* Subscribed so a pending order's crumb, named from the saved list, follows it. */
   usePendingOrders();
-  const crumbs = courtTrail(pathname, flow, useClientRecordResolver(), query);
+  const crumbs = courtTrail(pathname, useClientRecordResolver(), query);
   // Derived here rather than inside the trail because the divider beside the trigger has
   // to know whether anything follows it. On the court home nothing does.
   return (
     <ChromeTopBar
       leading={<CourtNavTrigger hasTrail={crumbs.length > 0} />}
-      /* On an order screen, the switch between its variants, at the bar's right end
-         (owner, 2026-10-13). */
-      trailing={
-        isOrderScreenPath(pathname) ? (
-          <OrderVariantSwitch className="text-muted-foreground" />
-        ) : undefined
-      }
     >
       {crumbs.length > 0 ? <CourtTrail crumbs={crumbs} /> : null}
     </ChromeTopBar>

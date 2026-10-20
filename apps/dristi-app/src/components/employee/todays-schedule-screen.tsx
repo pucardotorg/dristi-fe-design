@@ -16,7 +16,6 @@ import { formatCourtDay, isoDay } from "@/lib/employee/hearings";
 import { courtNavClubbed, courtNavClubbedTotal } from "@/lib/employee/navigation";
 import { useCourt } from "@/components/court/court-provider";
 import { useCourtRole } from "@/components/employee/use-court-role";
-import { useOrderFlow } from "@/components/employee/use-order-flow";
 
 const NEVER_CHANGES = () => () => {};
 const readToday = () => isoDay(new Date());
@@ -36,11 +35,10 @@ export function TodaysScheduleScreen() {
   const today = React.useSyncExternalStore(NEVER_CHANGES, readToday, readToday);
   const { court } = useCourt();
   const seat = useCourtRole();
-  const [flow] = useOrderFlow();
-  const items = courtNavClubbed("schedule", court, seat, flow);
+  const items = courtNavClubbed("schedule", court, seat);
   const hearings = items.find((item) => item.id === "todays-hearings");
   const rest = items.filter((item) => item.id !== "todays-hearings");
-  const total = courtNavClubbedTotal("schedule", court, seat, flow);
+  const total = courtNavClubbedTotal("schedule", court, seat);
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-8 p-6 md:p-8">

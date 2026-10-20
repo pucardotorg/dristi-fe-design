@@ -25,7 +25,6 @@ import {
 } from "@/components/ui/empty";
 import {
   cognizanceCaseById,
-  hasDelay,
   primaryActFor,
   tabFor,
   type CognizanceAct,
@@ -37,7 +36,7 @@ import {
 } from "@/lib/employee/cognizance-order";
 import { localizeDeep } from "@/lib/court/localize";
 import { CURRENT_STAFF } from "@/lib/employee/content";
-import { counselFor, formatOrderDate } from "@/lib/employee/hearings";
+import { formatOrderDate } from "@/lib/employee/hearings";
 import { composerContextFor } from "@/lib/employee/order-context";
 import { EMPTY_ORDER_DRAFT } from "@/lib/employee/order-draft";
 import {
@@ -153,28 +152,7 @@ export function useCognizanceOrderDoor(
       caseNumber: matter.caseNumber,
       matter: subjectCauseTitle(subject),
     },
-    overview: cognizanceOverview(matter),
   };
-}
-
-/** The complaint's facts for the case file's Overview tab. */
-export function cognizanceOverview(matter: CognizanceCase) {
-  const side = (which: "complainant" | "accused") => {
-    const counsel = counselFor(matter, which).map((entry) => entry.name);
-    return counsel.length
-      ? `${matter.parties[which]}, represented by ${counsel.join(", ")}`
-      : `${matter.parties[which]}, in person`;
-  };
-  return [
-    { label: "Filing", value: matter.filingNumber },
-    { label: "Case", value: matter.caseNumber },
-    {
-      label: "Filed",
-      value: hasDelay(matter) ? "Beyond the month" : "In time",
-    },
-    { label: "Complainant", value: side("complainant") },
-    { label: "Accused", value: side("accused") },
-  ];
 }
 
 /** The draft store's key for a complaint's order — one per act. */

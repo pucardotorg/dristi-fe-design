@@ -16,19 +16,6 @@ import { PANEL_CLASS } from "@/components/shell/panel";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
-  DescriptionDetails,
-  DescriptionList,
-  DescriptionRow,
-  DescriptionTerm,
-} from "@/components/ui/description-list";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   Empty,
   EmptyDescription,
   EmptyHeader,
@@ -48,111 +35,54 @@ import {
 } from "@/lib/cases/case-file";
 import { cn } from "@/lib/utils";
 
-/** An application standing on the matter, as the case file lists it. */
-export type PanelApplication = {
-  id: string;
-  label: string;
-  /** Its number, on a line of its own under its name in the case file's list. */
-  number?: string;
-  /** "By the accused, 28 Aug 2026" — the line under that, worded as in the order. */
-  detail: string;
-  /** Decided in this order — linked by deciding it, so it cannot be unlinked here. */
-  decided: boolean;
-  onOpen: () => void;
-};
-
 type DocumentRow = {
   id: string;
   /** The case file's outline number ("5.1"), as its own index shows it. */
   outline?: string;
   label: string;
-  number?: string;
-  detail?: string;
   node?: CaseFileNode;
-  application?: PanelApplication;
 };
 
 /**
- * The case file beside the order — Abhirami's right-hand panel (v14).
+ * The case file beside the order — the order screen's right-hand panel.
  *
  * **Case file**: the case file's own index (`CASE_FILE_TREE`, the tree the case's
  * Case file section reads, numbered and ordered as that section is — View Case
- * handover §6.2), searchable, with the applications standing on the matter first. Any
- * document can be **linked to the order**; an application decided in the order is linked
- * by deciding it. A document opens in one viewer, with Link in its header — a dialog, or
- * with `inlineViewer` the panel itself, in the case file's place, with Back to the list.
- *
- * **Overview**: the facts of the matter, as the screen that opened the order knows them.
+ * handover §6.2), searchable. Any document can be **linked to the order**. A document
+ * opens in the panel itself, in the case file's place, with Link in its header and Back
+ * to the list (owner, 2026-10-15).
  *
  * **Case history**: the court's own case history, when the screen gives one.
  *
- * Order screen E (`ORD-15`) shows Case file, Case history and Data flags only:
- * `showOverview={false}` and `dataFlags`.
+ * **Data flags** (`ORD-15`): named, not yet defined.
  */
 export function OrderCasePanel({
   className,
-  overview,
-  applications = [],
   links,
   onLinksChange,
   disabled,
-  cited = [],
-  overviewContent,
   historyContent,
-  hearingsContent,
-  preview,
-  requestView,
-  onViewRequested,
-  inlineViewer = false,
-  showOverview = true,
-  dataFlags = false,
 }: {
   className?: string;
-  overview: { label: string; value: string }[];
-  applications?: PanelApplication[];
   links: readonly string[];
   onLinksChange: (links: string[]) => void;
   disabled: boolean;
-  /** Documents cited in the order's own words (version C's `@`): linked by citing them. */
-  cited?: readonly string[];
-  /** The court's own case overview, in place of the plain fact list. */
-  overviewContent?: React.ReactNode;
-  /**
-   * The order as paper, kept live beside the drafting (version D, owner 2026-10-14) —
-   * shows a Preview tab ahead of the case file's own, and opens on it.
-   */
-  preview?: React.ReactNode;
-  /** The court's own case history, in place of the plain list — shows the tab. */
+  /** The court's own case history — shows the tab. */
   historyContent?: React.ReactNode;
-  /** The case's hearings with the order passed at each — shows the Hearings tab. */
-  hearingsContent?: React.ReactNode;
-  /** A document to open in the viewer — a citation clicked in the order, say. */
-  requestView?: string | null;
-  onViewRequested?: () => void;
-  /**
-   * Open a filed paper in the panel itself rather than a dialog (owner, 2026-10-15) —
-   * for a panel wide enough to read a page in.
-   */
-  inlineViewer?: boolean;
-  /** The Overview tab. Order screen E has none (`ORD-15`). */
-  showOverview?: boolean;
-  /** The Data flags tab (`ORD-15`) — named, not yet defined. */
-  dataFlags?: boolean;
 }) {
-  const [tab, setTab] = React.useState(preview ? "preview" : "case-file");
+  const [tab, setTab] = React.useState("case-file");
   const [query, setQuery] = React.useState("");
-  /* Which sections are open: Applications, and any holding a paper already linked. */
+  /* Which sections are open: any holding a paper already linked. */
   const [openSections, setOpenSections] = React.useState<Set<string>>(
     () =>
-      new Set([
-        "applications",
-        ...CASE_FILE_TREE.filter((node) =>
+      new Set(
+        CASE_FILE_TREE.filter((node) =>
           (isCaseFileFolder(node)
             ? flattenLeaves(node.children ?? [])
             : [node]
-          ).some((leaf) => links.includes(leaf.id) || cited.includes(leaf.id)),
+          ).some((leaf) => links.includes(leaf.id)),
         ).map((node) => node.id),
-      ]),
+      ),
   );
   const [viewing, setViewing] = React.useState<DocumentRow | null>(null);
   const searchId = React.useId();
@@ -161,7 +91,7 @@ export function OrderCasePanel({
   /* The row a paper was opened from, inline, so Back puts focus where it was. */
   const [opener, setOpener] = React.useState<string | null>(null);
   const returning = React.useRef(false);
-  const inline = inlineViewer && viewing !== null;
+  const inline = viewing !== null;
 
   React.useEffect(() => {
     if (inline) {
@@ -183,76 +113,29 @@ export function OrderCasePanel({
     setViewing(null);
   }
 
-  const sections = React.useMemo(() => {
-    const filed = CASE_FILE_TREE.map((node) => ({
-      id: node.id,
-      outline: node.number,
-      label: node.label,
-      /* A section that is one document of its own name is that document's row. */
-      single: !isCaseFileFolder(node),
-      rows: (isCaseFileFolder(node)
-        ? flattenLeaves(node.children ?? [])
-        : [node]
-      ).map((leaf): DocumentRow => ({
-        id: leaf.id,
-        outline: leaf.number,
-        label: leaf.label,
-        node: leaf,
+  const sections = React.useMemo(
+    () =>
+      CASE_FILE_TREE.map((node) => ({
+        id: node.id,
+        outline: node.number,
+        label: node.label,
+        /* A section that is one document of its own name is that document's row. */
+        single: !isCaseFileFolder(node),
+        rows: (isCaseFileFolder(node)
+          ? flattenLeaves(node.children ?? [])
+          : [node]
+        ).map((leaf): DocumentRow => ({
+          id: leaf.id,
+          outline: leaf.number,
+          label: leaf.label,
+          node: leaf,
+        })),
       })),
-    }));
-    return applications.length > 0
-      ? [
-          {
-            id: "applications",
-            outline: undefined,
-            label: "Applications",
-            single: false,
-            rows: applications.map((application): DocumentRow => ({
-              id: application.id,
-              label: application.label,
-              number: application.number,
-              detail: application.detail,
-              application,
-            })),
-          },
-          ...filed,
-        ]
-      : filed;
-  }, [applications]);
+    [],
+  );
 
   const allRows = sections.flatMap((section) => section.rows);
-  /* Linked by deciding it or by citing it: fixed here, undone where it was done. */
-  const decidedIds = [
-    ...applications
-      .filter((application) => application.decided)
-      .map((application) => application.id),
-    ...cited,
-  ];
-  const fixedReason = (id: string) =>
-    cited.includes(id) ? "Cited here" : "Decided here";
-  const linkedIds = [...new Set([...decidedIds, ...links])];
-
-  /* A document asked for from outside — a citation clicked in the order. A filed paper
-     opens in this panel's viewer; an application opens its own dialog. */
-  const [seenRequest, setSeenRequest] = React.useState(requestView);
-  if (requestView !== seenRequest) {
-    setSeenRequest(requestView);
-    const row = requestView
-      ? allRows.find((entry) => entry.id === requestView)
-      : undefined;
-    if (row && !row.application) {
-      setViewing(row);
-      if (inlineViewer) {
-        setOpener(`list:${row.id}`);
-        setTab("case-file");
-      }
-    }
-  }
-  React.useEffect(() => {
-    if (!requestView) return;
-    allRows.find((entry) => entry.id === requestView)?.application?.onOpen();
-    onViewRequested?.();
-  }, [requestView, allRows, onViewRequested]);
+  const linkedIds = links;
   const linkedRows = linkedIds
     .map((id) => allRows.find((row) => row.id === id))
     .filter((row): row is DocumentRow => row !== undefined);
@@ -264,7 +147,7 @@ export function OrderCasePanel({
       rows: section.rows.filter(
         (row) =>
           !needle ||
-          `${row.label} ${row.number ?? ""} ${row.detail ?? ""} ${section.label}`
+          `${row.label} ${section.label}`
             .toLowerCase()
             .includes(needle),
       ),
@@ -281,10 +164,6 @@ export function OrderCasePanel({
 
   /** `from` names the row it was opened from (its `data-opens`), for Back. */
   function open(row: DocumentRow, from: string) {
-    if (row.application) {
-      row.application.onOpen();
-      return;
-    }
     setOpener(from);
     setViewing(row);
   }
@@ -312,36 +191,12 @@ export function OrderCasePanel({
             aria-label="Beside the order"
             className="h-14 w-full justify-start rounded-none p-0 group-data-horizontal/tabs:h-14"
           >
-            {preview ? (
-              <TabsTrigger
-                value="preview"
-                className="h-full flex-none px-3 text-body-compact group-data-horizontal/tabs:after:-bottom-px"
-              >
-                Order preview
-              </TabsTrigger>
-            ) : null}
             <TabsTrigger
               value="case-file"
               className="h-full flex-none px-3 text-body-compact group-data-horizontal/tabs:after:-bottom-px"
             >
               Case file
             </TabsTrigger>
-            {showOverview ? (
-              <TabsTrigger
-                value="overview"
-                className="h-full flex-none px-3 text-body-compact group-data-horizontal/tabs:after:-bottom-px"
-              >
-                Overview
-              </TabsTrigger>
-            ) : null}
-            {hearingsContent ? (
-              <TabsTrigger
-                value="hearings"
-                className="h-full flex-none px-3 text-body-compact group-data-horizontal/tabs:after:-bottom-px"
-              >
-                Hearings
-              </TabsTrigger>
-            ) : null}
             {historyContent ? (
               <TabsTrigger
                 value="history"
@@ -350,29 +205,14 @@ export function OrderCasePanel({
                 Case history
               </TabsTrigger>
             ) : null}
-            {dataFlags ? (
-              <TabsTrigger
-                value="data-flags"
-                className="h-full flex-none px-3 text-body-compact group-data-horizontal/tabs:after:-bottom-px"
-              >
-                Data flags
-              </TabsTrigger>
-            ) : null}
+            <TabsTrigger
+              value="data-flags"
+              className="h-full flex-none px-3 text-body-compact group-data-horizontal/tabs:after:-bottom-px"
+            >
+              Data flags
+            </TabsTrigger>
           </TabsList>
         </div>
-
-        {preview ? (
-          /* The paper on the panel's sunken well, the way a document reads everywhere
-             else in the product: a white sheet with a hairline, scrolling on its own. */
-          <TabsContent
-            value="preview"
-            className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-surface-sunken p-4"
-          >
-            <div className="rounded-lg border border-hairline bg-card p-6 shadow-raised">
-              {preview}
-            </div>
-          </TabsContent>
-        ) : null}
 
         <TabsContent
           value="case-file"
@@ -484,11 +324,9 @@ export function OrderCasePanel({
                     </p>
                   ) : (
                     /* The list rows' grammar in the well: one hover per row, the name
-                   shortening before anything else does, and the right-hand slot — the
-                   unlink, or the word for why there is none — held to one edge. */
+                   shortening before anything else does, and the unlink held to one edge. */
                     <ul className="flex min-w-0 flex-col">
                       {linkedRows.map((row) => {
-                        const decided = decidedIds.includes(row.id);
                         return (
                           <li
                             key={row.id}
@@ -502,11 +340,7 @@ export function OrderCasePanel({
                             >
                               <span className="truncate">{row.label}</span>
                             </button>
-                            {decided ? (
-                              <span className="shrink-0 pr-2 text-body-compact text-muted-foreground">
-                                {fixedReason(row.id)}
-                              </span>
-                            ) : disabled ? null : (
+                            {disabled ? null : (
                               <Button
                                 type="button"
                                 variant="ghost"
@@ -562,11 +396,6 @@ export function OrderCasePanel({
                               />
                             }
                             linked={linkedIds.includes(row.id)}
-                            fixed={
-                              decidedIds.includes(row.id)
-                                ? fixedReason(row.id)
-                                : null
-                            }
                             disabled={disabled}
                             onOpen={() => open(row, `list:${row.id}`)}
                             opens={`list:${row.id}`}
@@ -623,11 +452,6 @@ export function OrderCasePanel({
                                 key={row.id}
                                 row={row}
                                 linked={linkedIds.includes(row.id)}
-                                fixed={
-                                  decidedIds.includes(row.id)
-                                    ? fixedReason(row.id)
-                                    : null
-                                }
                                 disabled={disabled}
                                 onOpen={() => open(row, `list:${row.id}`)}
                                 opens={`list:${row.id}`}
@@ -645,35 +469,6 @@ export function OrderCasePanel({
           )}
         </TabsContent>
 
-        {showOverview ? (
-          <TabsContent
-            value="overview"
-            className="min-h-0 flex-1 overflow-y-auto p-4"
-          >
-            {overviewContent ?? (
-              <DescriptionList>
-                {overview.map((row) => (
-                  <DescriptionRow key={row.label}>
-                    <DescriptionTerm className="text-body-compact">
-                      {row.label}
-                    </DescriptionTerm>
-                    <DescriptionDetails className="text-body-compact">
-                      {row.value}
-                    </DescriptionDetails>
-                  </DescriptionRow>
-                ))}
-              </DescriptionList>
-            )}
-          </TabsContent>
-        ) : null}
-        {hearingsContent ? (
-          <TabsContent
-            value="hearings"
-            className="min-h-0 flex-1 overflow-y-auto p-4"
-          >
-            {hearingsContent}
-          </TabsContent>
-        ) : null}
         {historyContent ? (
           /* A column, so an order opened in the tab can fill it (`OrderCaseHistory`). */
           <TabsContent
@@ -683,11 +478,10 @@ export function OrderCasePanel({
             {historyContent}
           </TabsContent>
         ) : null}
-        {dataFlags ? (
-          <TabsContent
-            value="data-flags"
-            className="min-h-0 flex-1 overflow-y-auto p-4"
-          >
+        <TabsContent
+          value="data-flags"
+          className="min-h-0 flex-1 overflow-y-auto p-4"
+        >
             {/* Named by ORD-15 and nothing more: what it shows is not decided. */}
             <Empty className="border-0 p-0">
               <EmptyHeader>
@@ -703,53 +497,9 @@ export function OrderCasePanel({
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
-          </TabsContent>
-        ) : null}
+        </TabsContent>
       </Tabs>
 
-      <Dialog
-        open={!inlineViewer && viewing !== null}
-        onOpenChange={(next) => {
-          if (!next) setViewing(null);
-        }}
-      >
-        <DialogContent className="flex h-[85dvh] flex-col gap-4 sm:max-w-5xl">
-          <DialogHeader className="flex-row items-start justify-between gap-4 pr-12">
-            <div className="flex min-w-0 flex-col gap-1">
-              <DialogTitle className="text-title-s font-semibold">
-                {viewing?.label}
-              </DialogTitle>
-              <DialogDescription>From the case file</DialogDescription>
-            </div>
-            {viewing && !disabled ? (
-              <Button
-                type="button"
-                variant={links.includes(viewing.id) ? "outline" : "default"}
-                aria-pressed={links.includes(viewing.id)}
-                onClick={() => toggle(viewing.id)}
-              >
-                {links.includes(viewing.id) ? (
-                  <CheckIcon data-icon="inline-start" aria-hidden />
-                ) : (
-                  <LinkIcon data-icon="inline-start" aria-hidden />
-                )}
-                {links.includes(viewing.id)
-                  ? "Linked to the order"
-                  : "Link to the order"}
-              </Button>
-            ) : null}
-          </DialogHeader>
-          {/* The app's own PDF surface, as on the case file itself — not the browser's
-              viewer in an iframe. */}
-          {viewing?.node && caseFilePdfSrc(viewing.node) ? (
-            <CaseDocument
-              key={viewing.id}
-              src={caseFilePdfSrc(viewing.node) ?? ""}
-              title={viewing.label}
-            />
-          ) : null}
-        </DialogContent>
-      </Dialog>
     </Card>
   );
 }
@@ -769,9 +519,8 @@ function CaseDocument({ src, title }: { src: string; title: string }) {
 
 /**
  * One paper in the case file's list, always the same shape however long its words: the
- * name on one line, and for an application its number and its filing each on a quiet
- * line of their own under it — every line shortening rather than wrapping (the full
- * text is the row's tooltip), and the shortening falling on no date.
+ * name on one line, shortening rather than wrapping (the full text is the row's
+ * tooltip).
  * One hover covers the row. Link is not drawn at rest, so thirty papers do not carry
  * thirty buttons and the words keep the row's full width: on hover or keyboard focus it
  * comes in over the row's end, on the row's own fill, with no box of its own; on a touch
@@ -782,7 +531,6 @@ function DocumentLine({
   row,
   icon,
   linked,
-  fixed,
   disabled,
   onOpen,
   onToggle,
@@ -791,45 +539,30 @@ function DocumentLine({
   row: DocumentRow;
   icon?: React.ReactNode;
   linked: boolean;
-  fixed: string | null;
   disabled: boolean;
   onOpen: () => void;
   onToggle: () => void;
   /** Names the open button, so focus can come back to it from the inline viewer. */
   opens: string;
 }) {
-  const meta = [row.number, row.detail].filter(Boolean).join(" · ");
   return (
     <li className="group/row relative flex min-w-0 items-center gap-1 rounded-lg transition-colors hover:bg-accent has-focus-visible:bg-accent">
       <button
         type="button"
         data-opens={opens}
         onClick={onOpen}
-        title={meta ? `${row.label}\n${meta}` : row.label}
+        title={row.label}
         className="flex min-h-10 min-w-0 flex-1 items-center gap-2 rounded-lg py-2 pr-2 pl-2 text-left text-body-compact focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
       >
         {icon}
-        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className={cn("truncate", icon && "font-medium")}>
-            <OutlineNumber number={row.outline} />
-            {row.label}
-          </span>
-          {row.number ? (
-            <span className="truncate font-mono text-muted-foreground">
-              {row.number}
-            </span>
-          ) : null}
-          {row.detail ? (
-            <span className="truncate text-muted-foreground">{row.detail}</span>
-          ) : null}
+        <span className={cn("min-w-0 flex-1 truncate", icon && "font-medium")}>
+          <OutlineNumber number={row.outline} />
+          {row.label}
         </span>
       </button>
-      {fixed || linked ? (
-        disabled || fixed ? (
-          <span
-            className="inline-flex h-9 shrink-0 items-center gap-1 px-2 text-body-compact font-medium text-success-ink"
-            title={fixed ?? undefined}
-          >
+      {linked ? (
+        disabled ? (
+          <span className="inline-flex h-9 shrink-0 items-center gap-1 px-2 text-body-compact font-medium text-success-ink">
             <CheckIcon className="size-4" aria-hidden />
             Linked
           </span>

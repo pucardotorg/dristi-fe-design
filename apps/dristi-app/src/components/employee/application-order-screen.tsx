@@ -160,12 +160,6 @@ export function useApplicationOrderDoor(
     context,
     today,
     document: { caseNumber: record.caseNumber, matter },
-    overview: [
-      { label: "Case", value: record.caseNumber },
-      { label: "Application", value: application.typeLabel },
-      { label: "Raised by", value: application.raisedBy ?? application.createdByName },
-      { label: "On behalf of", value: application.onBehalfOf },
-    ],
   };
 }
 

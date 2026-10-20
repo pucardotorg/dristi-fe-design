@@ -27,7 +27,6 @@ import {
 } from "./order-composer";
 import { composerContextFor } from "./order-context";
 import { EMPTY_ORDER_DRAFT, type OrderDraft } from "./order-draft";
-import type { OrderLayout } from "./order-layout";
 import { richTextFromPlain } from "./order-text";
 import type { PendingOrderMeta } from "./pending-orders";
 
@@ -116,18 +115,12 @@ function bodyOf(text: string, itemId: string) {
 }
 
 /**
- * The quick order as the draft one composer variant opens on: the decision as its one
- * item, carrying the words as typed, and — for an acceptance that reschedules the hearing
- * (Postpone, Advance) — the date as the order's next hearing, where
- * `application-order-outcome.ts` reads it.
- *
- * B and E hold the words as the order's body, the item staying the workflow's; A, C and D
- * hold them in the item itself. C and D keep the decision item here, unlike a hearing's
- * door (`variantInitialDraft`): outside a hearing there is no applications region for the
- * decision to live in instead, and dropping it would lose the decision.
+ * The quick order as the draft the order screen opens on: the decision as its one item,
+ * carrying the words as typed, the words also as the order's body, and — for an
+ * acceptance that reschedules the hearing (Postpone, Advance) — the date as the order's
+ * next hearing, where `application-order-outcome.ts` reads it.
  */
 export function quickOrderDraft(
-  variant: OrderLayout,
   item: ItemBlock,
   text: string,
   nextDate?: string,
@@ -139,8 +132,5 @@ export function quickOrderDraft(
     blocks: [block],
     ...(nextDate ? { next: "list" as const, nextDate } : {}),
   };
-  if (variant === "editor" || variant === "text") {
-    return { ...draft, body: bodyOf(words, item.id) };
-  }
-  return draft;
+  return { ...draft, body: bodyOf(words, item.id) };
 }
