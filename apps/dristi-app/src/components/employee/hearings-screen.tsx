@@ -529,6 +529,7 @@ export function HearingsScreen() {
            row it does not open. */
         onStartHearing={startHearing}
         onEndHearing={endHearing}
+        onPassOver={passOverHearing}
         postsNextHearing={postsNextHearing}
         onOpenChange={(open) => {
           if (!open) setOpenHearingId(null);

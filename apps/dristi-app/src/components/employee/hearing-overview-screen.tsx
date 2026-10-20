@@ -9,6 +9,7 @@ import {
 
 import { Identifier } from "@/components/chrome/identifier";
 import { OrderCaseHistory } from "@/components/employee/order-case-history";
+import { OrderDataFlags } from "@/components/employee/order-data-flags";
 import { useHearingSession } from "@/components/employee/use-hearing-session";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -259,9 +260,10 @@ export function HearingOverviewCaption({ hearing }: { hearing: CourtHearing }) {
 }
 
 /**
- * What is in this case — the two sections, on whichever surface is asking.
+ * What is in this case — the sections, on whichever surface is asking.
  *
- * The case history, then the case's details, each the full width (`CLS-11`). The history
+ * The case history, the data flags, then the case's details, each the full width
+ * (`CLS-11`). The history
  * is the order screen's Case history tab, which took over the overview's own history
  * and its Last hearing section: the last order is highlighted in it, and its filter
  * narrows it to the orders.
@@ -285,6 +287,7 @@ export function HearingOverviewSections({
       }`}
     >
       <CaseHistoryPanel hearing={hearing} surface={surface} />
+      <DataFlagsPanel surface={surface} />
       <CaseFactsPanel
         hearing={hearing}
         extras={extras}
@@ -516,6 +519,24 @@ function CaseHistoryPanel({
       >
         <OrderCaseHistory hearing={hearing} labelledBy="case-history" />
       </div>
+    </section>
+  );
+}
+
+/**
+ * The order screen's Data flags tab (`ORD-15`), here too (`CLS-11`) — the same empty
+ * state, since what it shows is not decided.
+ */
+function DataFlagsPanel({ surface }: { surface: HearingOverviewSurface }) {
+  return (
+    <section
+      className={`${PANEL[surface]} flex flex-col gap-4`}
+      aria-labelledby="data-flags"
+    >
+      <h2 id="data-flags" className={HEADING[surface]}>
+        Data flags
+      </h2>
+      <OrderDataFlags where="section" />
     </section>
   );
 }
