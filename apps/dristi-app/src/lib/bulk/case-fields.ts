@@ -96,8 +96,15 @@ const REQUIRED = [
   /^witnesses\.\d+\.fullName$/,
 ];
 
-export function caseFields(d: FilingDraft): FieldGroup[] {
-  return groups(d).map((g) => ({
+/**
+ * `unknownService`: notices whose delivery the sender did not know. The draft holds a
+ * default there; the field starts empty instead, so it reads as unanswered until chosen.
+ */
+export function caseFields(
+  d: FilingDraft,
+  unknownService: number[] = [],
+): FieldGroup[] {
+  return groups(d, unknownService).map((g) => ({
     ...g,
     fields: g.fields.map((f) => ({
       ...f,
@@ -110,6 +117,7 @@ type Draft = Omit<CaseField, "required">;
 
 function groups(
   d: FilingDraft,
+  unknownService: number[],
 ): { heading: string; step: FieldGroup["step"]; fields: Draft[] }[] {
   const out: { heading: string; step: FieldGroup["step"]; fields: Draft[] }[] =
     [];
@@ -273,9 +281,14 @@ function groups(
         MODE_OF_SERVICE,
       ),
       text(`${p}.tracking`, "Tracking number", n.tracking),
-      select(`${p}.delivered`, "Whether delivered?", n.delivered, YES_NO),
+      select(
+        `${p}.delivered`,
+        "Whether delivered?",
+        unknownService.includes(i) ? "" : n.delivered,
+        YES_NO,
+      ),
     ];
-    if (n.delivered === "no") {
+    if (n.delivered === "no" && !unknownService.includes(i)) {
       fields.push(
         date(
           `${p}.returnDate`,

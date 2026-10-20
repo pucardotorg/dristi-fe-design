@@ -147,7 +147,7 @@ export function caseView(bc: BatchCase, batch: Batch, all: Batch[], ai: AiMode =
       file: doc.file,
       slotKey: doc.intakeKey ?? null,
     })),
-    fields: caseFields(d),
+    fields: caseFields(d, bc.unknownService),
   };
 }
 
