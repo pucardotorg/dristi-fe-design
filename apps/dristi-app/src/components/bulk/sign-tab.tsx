@@ -342,17 +342,20 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
                                 side="bottom"
                                 className="max-w-xs text-left"
                               >
-                                One Aadhaar OTP signs at most{" "}
-                                {AADHAAR_DOCS_PER_OTP} documents: an eSign
-                                request carries one document hash per document,
-                                and the specification caps them at{" "}
-                                {AADHAAR_DOCS_PER_OTP}. Each signer needs one
-                                OTP for every {AADHAAR_DOCS_PER_OTP} cases.
-                                <br />
-                                <br />
-                                {AADHAAR_LIMIT_SOURCE.publisher},{" "}
-                                {AADHAAR_LIMIT_SOURCE.title}: &ldquo;
-                                {AADHAAR_LIMIT_SOURCE.quote}&rdquo;.
+                                <span className="flex flex-col gap-2">
+                                  <span>
+                                    The government&apos;s rules for Aadhaar
+                                    eSign let one OTP sign at most{" "}
+                                    {AADHAAR_DOCS_PER_OTP} documents. So each
+                                    person signing gets one OTP for every{" "}
+                                    {AADHAAR_DOCS_PER_OTP} cases: 12 cases means
+                                    3 OTPs each.
+                                  </span>
+                                  <span>
+                                    Source: {AADHAAR_LIMIT_SOURCE.publisher},{" "}
+                                    {AADHAAR_LIMIT_SOURCE.title}.
+                                  </span>
+                                </span>
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
