@@ -16,7 +16,8 @@ import {
 import { CounselCell } from "@/components/employee/counsel-cell";
 import {
   CauseListBulkBar,
-  type BulkSeat,
+  hasBulkActs,
+  type BulkRoles,
 } from "@/components/employee/cause-list-bulk";
 import { usePendingOrders } from "@/components/employee/use-pending-orders";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -50,7 +51,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { CourtRole } from "@/lib/employee/content";
-import { seatPostsNextHearing } from "@/lib/employee/court-role";
+import {
+  seatDraftsOrders,
+  seatHasBenchControls,
+  seatPostsNextHearing,
+} from "@/lib/employee/court-role";
 import { CauseListColumnsMenu } from "@/components/employee/cause-list-columns-menu";
 import { useCauseListColumns } from "@/components/employee/use-cause-list-columns";
 import { useReaderPostsNextHearing } from "@/components/employee/use-next-hearing-entry";
@@ -62,6 +67,7 @@ import {
 } from "@/lib/employee/hearing-session";
 import {
   advocatesOnList,
+  boardForDay,
   causeTitle,
   counselFor,
   courtHearingPurposeLabel,
@@ -69,14 +75,15 @@ import {
   courtHearingStatusVariant,
   filterHearings,
   formatCourtDay,
-  hearingsForDay,
+  groupByStatus,
   isoDay,
   parseIsoDay,
   COURT_CASE_STAGES,
   COURT_HEARING_PURPOSES,
   EMPTY_FILTERS,
+  CAUSE_LIST_STATUS_ORDER,
   PAGE_SIZE,
-  withHearingSession,
+  courtHearingStatusLabel as statusWord,
   type CourtHearing,
   type HearingFilters,
   type HearingsPageSize,
@@ -105,15 +112,11 @@ const HEARING_SORTS: CourtSortSpec<CourtHearing, HearingSort>[] = [
 ];
 
 /**
- * The Hearings view's status pills, in the owner's order (2026-10-12). "Not started" is
- * the pill's word for a scheduled listing — the row's chip still says Scheduled.
+ * The status pills: All, then each status in the board's own grouping order (`CLS-07`,
+ * `CLS-02`), each in the status's own word.
  */
-const HEARING_PILLS: { id: TodaysCauseStatus; label: string }[] = [
-  { id: "scheduled", label: "Not started" },
-  { id: "passed-over", label: "Passed over" },
-  { id: "completed", label: "Completed" },
-  { id: "ongoing", label: "Ongoing" },
-];
+const HEARING_PILLS: { id: TodaysCauseStatus; label: string }[] =
+  CAUSE_LIST_STATUS_ORDER.map((id) => ({ id, label: statusWord(id) }));
 
 /**
  * Today's hearings — the court's cause list for the day it is sitting, its pills
@@ -160,10 +163,19 @@ export function HearingsScreen() {
      show the overlay a listing that is still scheduled. */
   const [openHearingId, setOpenHearingId] = React.useState<string | null>(null);
 
-  const listed = withHearingSession(hearingsForDay(activeDay, today), session);
+  /* Today's board is live; a past day this browser worked is shown closed, with what
+     was left unheard Abandoned (`HRG-05`, `boardForDay`). */
+  const listed = boardForDay(activeDay, today, session);
+  const pastDay = activeDay < today;
   const [sort, setSort] = React.useState<HearingSort>("item");
 
-  const rows = sortRows(filterHearings(listed, filters), HEARING_SORTS, sort);
+  /* Grouped by status, and within each group in the chosen order — the cause list's
+     own sequence by default (`CLS-02`). Array sort is stable, so grouping the sorted
+     rows keeps that order inside each group. */
+  const rows = groupByStatus(
+    sortRows(filterHearings(listed, filters), HEARING_SORTS, sort),
+    () => 0,
+  );
 
   /* Who enters the next hearing is a court setting (owner, 2026-10-15): the reader, on
      this board, or the steno, on the order screen. */
@@ -171,18 +183,27 @@ export function HearingsScreen() {
   /* Which columns show, and in what order — this seat's own choice, opening on its
      default (`cause-list-columns.ts`). */
   const columnState = useCauseListColumns(seat, postsNextHearing);
-  const tableColumns = shownColumns(columnState.columns);
-  /* Bulk mode (owner, 2026-10-15): the reader, when the reader enters the next hearing,
-     marks and posts many listings at once; the steno adds one piece of text to many
-     orders. Other seats have no bulk mode. */
-  const bulkSeat: BulkSeat | null =
-    postsNextHearing && seatPostsNextHearing(seat)
-      ? "reader"
-      : seat === "typist"
-        ? "steno"
-        : null;
+  /* A past day is a record: nothing on it can be started, ended, posted or drafted. */
+  const tableColumns = shownColumns(columnState.columns).filter(
+    (column) =>
+      !pastDay ||
+      (column.id !== "action" &&
+        column.id !== "orders" &&
+        column.id !== "nextHearing"),
+  );
+  /* Bulk mode follows the roles this seat stands for (`CLS-06`, `CLS-09`): a hearing
+     controller ends or passes over many listings; a next hearing setter, where the
+     next hearing is entered here, posts them in the same pop-up; an order drafter adds
+     one piece of text to many orders. A seat with none of them has no bulk mode, and a
+     past day has none for anyone. */
+  const bulkRoles: BulkRoles = {
+    hearing: seatHasBenchControls(seat),
+    next: postsNextHearing && seatPostsNextHearing(seat),
+    text: seatDraftsOrders(seat),
+  };
+  const bulkOffered = hasBulkActs(bulkRoles) && !pastDay;
   const [bulkOn, setBulkOn] = React.useState(false);
-  const bulk = bulkSeat !== null && bulkOn;
+  const bulk = bulkOffered && bulkOn;
   const [bulkIds, setBulkIds] = React.useState<ReadonlySet<string>>(
     () => new Set(),
   );
@@ -388,7 +409,7 @@ export function HearingsScreen() {
           onClear={clearFilters}
           trailing={
             <>
-              {bulkSeat ? (
+              {bulkOffered ? (
                 <Button
                   type="button"
                   variant="outline"
@@ -503,9 +524,9 @@ export function HearingsScreen() {
         )}
       </div>
 
-      {bulk && bulkSeat ? (
+      {bulk ? (
         <CauseListBulkBar
-          seat={bulkSeat}
+          roles={bulkRoles}
           selected={bulkSelected}
           notice={bulkNotice}
           onNotice={setBulkNotice}

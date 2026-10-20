@@ -27,10 +27,9 @@
  * listing stands as scheduled until the bench presses Start hearing; only then does
  * the chip read ongoing, and that matter's case overview opens over the list — the
  * glance the advocate list already ships, as an overlay the day sits behind. End
- * hearing, on the same control, marks that listing completed. Pass over, from the row overflow, marks it
- * passed over — to be heard on a later date — without completing it. Nothing is
- * filed, notified, or written back. Choosing that later date is Bulk reschedule /
- * Schedule, not this mark.
+ * hearing, on the same control, marks that listing heard. Pass over, from the row overflow, sets
+ * it aside unheard, to be called again later the same day with Start hearing
+ * (order-generation `HRG-04`). Nothing is filed, notified, or written back.
  *
  * The three marks themselves live in `hearing-session.ts`, because the cause title
  * and the order composer both navigate and the screen holding them does not survive
@@ -53,33 +52,41 @@ export const COURT_HEARING_STATUSES: {
 }[] = [
   { id: "scheduled", label: "Scheduled" },
   { id: "ongoing", label: "Ongoing" },
-  { id: "completed", label: "Completed" },
+  /* The id stays `completed`, the word the citizen side shares; the board's word is
+     Heard (order-generation `HRG-01`). */
+  { id: "completed", label: "Heard" },
   { id: "passed-over", label: "Passed over" },
   { id: "rescheduled", label: "Rescheduled" },
   { id: "abandoned", label: "Abandoned" },
 ];
 
 /**
- * Statuses a listing can hold on today's cause list.
- *
- * Today's sitting is the matters listed for this date: still to be called, currently
- * being heard, already heard, or passed over to a later date. Rescheduled and
- * abandoned are not on this day's list — they have left it — so they are not offered
- * as filters here either. Passed over stays: the bench still needs to see what was
- * deferred versus what was heard.
+ * Statuses a listing can hold on a day's cause list (order-generation `HRG-01`):
+ * Scheduled, Ongoing, Passed over, Heard, Abandoned. Rescheduled has left the day, so it
+ * is not one of them.
  */
 export type TodaysCauseStatus = Extract<
   CourtHearingStatus,
-  "scheduled" | "ongoing" | "completed" | "passed-over"
+  "scheduled" | "ongoing" | "completed" | "passed-over" | "abandoned"
 >;
 
-export const TODAYS_CAUSE_STATUSES = COURT_HEARING_STATUSES.filter(
-  (status): status is { id: TodaysCauseStatus; label: string } =>
-    status.id === "scheduled" ||
-    status.id === "ongoing" ||
-    status.id === "completed" ||
-    status.id === "passed-over",
-);
+/**
+ * The board's groups, in order (`CLS-02`): what is being heard, what is still to be
+ * called, what was set aside to be called again, then what is finished with.
+ */
+export const CAUSE_LIST_STATUS_ORDER: readonly TodaysCauseStatus[] = [
+  "ongoing",
+  "scheduled",
+  "passed-over",
+  "completed",
+  "abandoned",
+];
+
+/** Where a listing's status sits in the board's grouping — lower comes first. */
+export function causeListStatusRank(status: CourtHearingStatus): number {
+  const rank = CAUSE_LIST_STATUS_ORDER.indexOf(status as TodaysCauseStatus);
+  return rank === -1 ? CAUSE_LIST_STATUS_ORDER.length : rank;
+}
 
 /** A matter that still belongs on this day's cause list. */
 export function isOnTodaysCauseList(status: CourtHearingStatus): boolean {
@@ -126,14 +133,26 @@ export function courtHearingStatusLabel(status: CourtHearingStatus): string {
   );
 }
 
-/** Only a listing that has not yet been called can be started. */
+/**
+ * Start hearing takes a listing not yet called, or one passed over earlier in the day —
+ * passing over sets a matter aside to be called again the same day (`HRG-02`, `HRG-04`).
+ */
 export function canStartHearing(status: CourtHearingStatus): boolean {
-  return status === "scheduled";
+  return status === "scheduled" || status === "passed-over";
 }
 
-/** Only the listing the bench is currently hearing can be ended. */
+/** The row's End hearing: only a listing being heard (`CLS-08`). */
 export function canEndHearing(status: CourtHearingStatus): boolean {
   return status === "ongoing";
+}
+
+/**
+ * End hearing from the cause list's bulk actions: a listing being heard, or one still
+ * Scheduled that was never started, which happens in practice (`HRG-02`, `CLS-10`).
+ * A passed-over listing has to be started again before it can be ended.
+ */
+export function canEndHearingInBulk(status: CourtHearingStatus): boolean {
+  return status === "scheduled" || status === "ongoing";
 }
 
 /**
@@ -178,30 +197,32 @@ export function canTypeOrder(status: CourtHearingStatus): boolean {
 
 /**
  * A listing still on the call can be passed over — scheduled (skip without
- * starting) or ongoing (stop without completing). Completed and already
- * passed-over listings cannot.
+ * starting) or ongoing (stop without finishing). Heard, abandoned and already
+ * passed-over listings cannot (`HRG-02`).
  */
 export function canPassOver(status: CourtHearingStatus): boolean {
   return status === "scheduled" || status === "ongoing";
 }
 
+/** One day's marks — which listings are being heard, which were heard, which set aside. */
+export type HearingMarks = {
+  /** Several hearings may be under way at once (`HRG-06`). */
+  ongoingIds: ReadonlySet<string>;
+  endedIds: ReadonlySet<string>;
+  passedOverIds: ReadonlySet<string>;
+};
+
 /**
- * Applies this sitting's live progress on top of the fixture.
+ * Applies a sitting's marks on top of the fixture.
  *
- * Ended listings stay completed. Passed-over listings stay passed over. Fixture
- * completed, passed-over, rescheduled and abandoned keep the status the data already
- * named. Everything else is scheduled until Start hearing names one id — and only
- * that id is ongoing. Starting a second matter without ending the first returns the
- * first to scheduled: the bench hears one cause at a time. A passed-over listing is
- * not recalled today.
+ * Ended listings are heard, passed-over listings passed over, and every listing named
+ * ongoing is ongoing — several at once (`HRG-06`). Fixture completed, passed-over,
+ * rescheduled and abandoned keep the status the data already named. Everything else is
+ * scheduled. The marks keep a listing in at most one set (`hearing-session.ts`).
  */
 export function withHearingSession(
   hearings: CourtHearing[],
-  session: {
-    ongoingId: string | null;
-    endedIds: ReadonlySet<string>;
-    passedOverIds: ReadonlySet<string>;
-  },
+  session: HearingMarks,
 ): CourtHearing[] {
   return hearings.map((hearing) => {
     if (session.endedIds.has(hearing.id)) {
@@ -220,9 +241,38 @@ export function withHearingSession(
     }
     return {
       ...hearing,
-      status: hearing.id === session.ongoingId ? "ongoing" : "scheduled",
+      status: session.ongoingIds.has(hearing.id) ? "ongoing" : "scheduled",
     };
   });
+}
+
+/**
+ * A day that is over. Every listing still Scheduled, Ongoing or Passed over when its day
+ * ended is Abandoned (`HRG-05`); heard listings stay heard.
+ */
+export function closeDay(hearings: CourtHearing[]): CourtHearing[] {
+  return hearings.map((hearing) =>
+    hearing.status === "scheduled" ||
+    hearing.status === "ongoing" ||
+    hearing.status === "passed-over"
+      ? { ...hearing, status: "abandoned" as const }
+      : hearing,
+  );
+}
+
+/**
+ * The board's order (`CLS-02`): grouped by status — Ongoing, Scheduled, Passed over,
+ * Heard, Abandoned — and, within each group, in the order `compare` gives, which is the
+ * cause list's own sequence unless the reader has chosen another sort.
+ */
+export function groupByStatus(
+  hearings: CourtHearing[],
+  compare: (a: CourtHearing, b: CourtHearing) => number = (a, b) => a.item - b.item,
+): CourtHearing[] {
+  return [...hearings].sort(
+    (a, b) =>
+      causeListStatusRank(a.status) - causeListStatusRank(b.status) || compare(a, b),
+  );
 }
 
 /**
@@ -822,7 +872,8 @@ export function formatOrderDate(day: string): string {
  * There is exactly one day of demo data, so any date other than today's returns nothing
  * and the screen shows its empty state. That is the honest answer for this build: a court
  * that has no listing for the date asked for should say so, not borrow another day's
- * matters to look populated.
+ * matters to look populated. The one exception is the last day this browser worked a
+ * board, which `boardForDay` shows closed.
  *
  * Only scheduled, completed and passed-over listings belong here. Rescheduled and
  * abandoned have left this day's list; ongoing, newly ended and newly passed over
@@ -831,6 +882,26 @@ export function formatOrderDate(day: string): string {
 export function hearingsForDay(day: string, today: string): CourtHearing[] {
   if (day !== today) return [];
   return CAUSE_LIST.filter((hearing) => isOnTodaysCauseList(hearing.status));
+}
+
+/**
+ * A day's board with its marks applied.
+ *
+ * Today is the live sitting. A past day is shown only when this browser holds its marks
+ * — the last day a board was worked here (`hearing-session.ts`) — and it is shown closed:
+ * whatever was not heard that day is Abandoned (`HRG-05`). Any other day has nothing
+ * listed, as `hearingsForDay` says.
+ */
+export function boardForDay(
+  day: string,
+  today: string,
+  session: HearingMarks & { previous: (HearingMarks & { day: string }) | null },
+): CourtHearing[] {
+  if (day === today) return withHearingSession(hearingsForDay(today, today), session);
+  if (session.previous && session.previous.day === day && day < today) {
+    return closeDay(withHearingSession(hearingsForDay(today, today), session.previous));
+  }
+  return [];
 }
 
 export type HearingFilters = {

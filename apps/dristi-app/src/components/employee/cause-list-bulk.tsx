@@ -31,6 +31,7 @@ import {
   setHearingsNext,
 } from "@/lib/employee/hearing-session";
 import {
+  canEndHearingInBulk,
   canPassOver,
   causeTitle,
   courtHearingPurposeLabel,
@@ -55,22 +56,38 @@ import {
 } from "@/lib/employee/pending-orders";
 
 /**
- * Bulk work on the cause list (owner, 2026-10-15).
+ * Bulk work on the cause list (order-generation `CLS-09`, `CLS-10`, `CLS-12`).
  *
- * **The reader** — when the court setting has the reader enter the next hearing — picks
- * several listings and, in one pop-up, ends them or passes them over and sets their
- * next date and next purpose, all applied together. The case stage is not theirs to
- * change (owner, 2026-10-15).
+ * **A hearing controller** picks several listings and, in one pop-up, ends them or
+ * passes them over (`HRG-07`). **A next hearing setter**, where the court enters the next
+ * hearing on the cause list (`PLC-04`), sets their next date and purpose in the same
+ * pop-up, all applied together. The case stage is not theirs to change (owner,
+ * 2026-10-15).
  *
- * **The steno** picks several listings and types one piece of text that is added to the
- * end of each listing's order (order screen E). Orders already sent for signing are left
- * alone: their words are the magistrate's to sign.
+ * **An order drafter** picks several listings and types one piece of text that is added
+ * to the end of each listing's order (order screen E). Orders already sent for signing
+ * are left alone: their words are the magistrate's to sign.
+ *
+ * A person sees the bulk acts of every role they hold (`CLS-06`).
  *
  * Like the row's own controls, none of it is a court record: the marks live in this
  * browser's sitting (`hearing-session.ts`) and the text in its order drafts.
  */
 
-export type BulkSeat = "reader" | "steno";
+/** Which bulk acts this person is offered — one flag per role (`CLS-06`). */
+export type BulkRoles = {
+  /** Hearing controller: end or pass over several listings. */
+  hearing: boolean;
+  /** Next hearing setter, where the next hearing is entered on the cause list. */
+  next: boolean;
+  /** Order drafter: add the same text to several orders. */
+  text: boolean;
+};
+
+/** Whether this person has any bulk act at all — if not, there is no bulk mode. */
+export function hasBulkActs(roles: BulkRoles): boolean {
+  return roles.hearing || roles.next || roles.text;
+}
 
 function plural(count: number, one: string, many: string): string {
   return count === 1 ? one : many;
@@ -85,7 +102,7 @@ function plural(count: number, one: string, many: string): string {
  * heard without going looking.
  */
 export function CauseListBulkBar({
-  seat,
+  roles,
   selected,
   notice,
   onNotice,
@@ -93,7 +110,7 @@ export function CauseListBulkBar({
   pending,
   signing,
 }: {
-  seat: BulkSeat;
+  roles: BulkRoles;
   /** The selected listings still in view — what an act applies to. */
   selected: CourtHearing[];
   notice: string;
@@ -103,13 +120,14 @@ export function CauseListBulkBar({
   pending: PendingOrders;
   signing: OrderSigning;
 }) {
-  const [open, setOpenState] = React.useState(false);
+  const [open, setOpenState] = React.useState<"actions" | "text" | null>(null);
   /* A count of openings, so the pop-up opens fresh each time. */
   const [opening, setOpening] = React.useState(0);
-  function setOpen(next: boolean) {
+  function setOpen(next: "actions" | "text" | null) {
     if (next) setOpening((count) => count + 1);
     setOpenState(next);
   }
+  const actions = roles.hearing || roles.next;
   const count = selected.length;
   const summary =
     notice ||
@@ -118,7 +136,7 @@ export function CauseListBulkBar({
       : `${count} ${plural(count, "hearing", "hearings")} selected.`);
 
   function finish(message: string) {
-    setOpen(false);
+    setOpen(null);
     onDone();
     onNotice(message);
   }
@@ -132,62 +150,77 @@ export function CauseListBulkBar({
         >
           {summary}
         </p>
-        <Button
-          type="button"
-          disabled={count === 0}
-          className="w-full sm:w-fit"
-          onClick={() => setOpen(true)}
-        >
-          {seat === "reader"
-            ? "Bulk actions"
-            : count > 0
+        {roles.text ? (
+          <Button
+            type="button"
+            variant={actions ? "outline" : "default"}
+            disabled={count === 0}
+            className="w-full sm:w-fit"
+            onClick={() => setOpen("text")}
+          >
+            {count > 0
               ? `Add text to ${count} ${plural(count, "order", "orders")}`
               : "Add text to orders"}
-        </Button>
+          </Button>
+        ) : null}
+        {actions ? (
+          <Button
+            type="button"
+            disabled={count === 0}
+            className="w-full sm:w-fit"
+            onClick={() => setOpen("actions")}
+          >
+            Bulk actions
+          </Button>
+        ) : null}
       </div>
 
-      {seat === "reader" ? (
+      {actions ? (
         <BulkActionsDialog
-          key={`reader-${opening}`}
-          open={open}
+          key={`actions-${opening}`}
+          open={open === "actions"}
+          roles={roles}
           selected={selected}
-          onOpenChange={setOpen}
+          onOpenChange={(next) => setOpen(next ? "actions" : null)}
           onConfirm={finish}
         />
-      ) : (
+      ) : null}
+      {roles.text ? (
         <OrderTextDialog
           key={`text-${opening}`}
-          open={open}
+          open={open === "text"}
           selected={selected}
           pending={pending}
           signing={signing}
-          onOpenChange={setOpen}
+          onOpenChange={(next) => setOpen(next ? "text" : null)}
           onConfirm={finish}
         />
-      )}
+      ) : null}
     </div>
   );
 }
 
-/* ───────────────────────────── the reader's one pop-up ───────────────────────────── */
+/* ─────────────────────────────── the bulk actions pop-up ─────────────────────────────── */
 
 type Outcome = "keep" | "complete" | "pass-over";
 
 /**
- * Which of the selection an outcome can take. Ending takes everything not already
- * completed — a passed-over matter heard later in the day included. Passing over takes
- * only what is still to be heard, as the row's own Pass over does.
+ * Which of the selection an outcome can take (`CLS-10`). Ending takes a Scheduled or
+ * Ongoing listing — a Scheduled one that was never started included (`HRG-02`). Passing
+ * over takes the same two, as the row's own Pass over does. A passed-over listing is
+ * started again before it is ended.
  */
 function takes(outcome: Outcome, hearing: CourtHearing): boolean {
-  if (outcome === "complete") return hearing.status !== "completed";
+  if (outcome === "complete") return canEndHearingInBulk(hearing.status);
   if (outcome === "pass-over") return canPassOver(hearing.status);
   return true;
 }
 
 /**
- * Everything the reader does to a batch, in one pop-up (owner, 2026-10-15): end the
- * hearings or pass them over, and set their next date and next purpose — all applied
- * together by one press.
+ * Everything done to a batch, in one pop-up (`CLS-10`): end the hearings or pass them
+ * over, for a hearing controller, and set their next date and next purpose, for a next
+ * hearing setter where it is entered on the cause list — all applied together by one
+ * press. Each part shows only to the role it belongs to.
  *
  * Every part opens on *Leave as it is*, so only what is changed is written: setting a
  * date across fifteen matters must not wipe the fifteen purposes already chosen. The
@@ -196,11 +229,13 @@ function takes(outcome: Outcome, hearing: CourtHearing): boolean {
  */
 function BulkActionsDialog({
   open,
+  roles,
   selected,
   onOpenChange,
   onConfirm,
 }: {
   open: boolean;
+  roles: BulkRoles;
   selected: CourtHearing[];
   onOpenChange: (open: boolean) => void;
   onConfirm: (message: string) => void;
@@ -266,81 +301,89 @@ function BulkActionsDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-6">
-          <div className="flex flex-col gap-3">
-            <span id="bulk-outcome-label" className="text-body-compact font-medium">
-              Hearing
-            </span>
-            <RadioGroup
-              aria-labelledby="bulk-outcome-label"
-              value={outcome}
-              onValueChange={(value) => setOutcome(value as Outcome)}
-              className="flex flex-wrap gap-x-6 gap-y-2"
-            >
-              {(
-                [
-                  ["keep", "Leave as it is"],
-                  ["complete", "End hearing"],
-                  ["pass-over", "Pass over"],
-                ] as const
-              ).map(([value, label]) => (
-                <label
-                  key={value}
-                  className="flex min-h-10 cursor-pointer items-center gap-2 text-body-compact"
-                >
-                  <RadioGroupItem value={value} />
-                  {label}
-                </label>
-              ))}
-            </RadioGroup>
-            {outcome !== "keep" && leaving.length > 0 ? (
-              <div className="flex flex-col gap-2 rounded-lg bg-surface-sunken p-4">
-                <p className="text-body-compact font-medium">
-                  {leaving.length} selected{" "}
-                  {plural(leaving.length, "hearing is", "hearings are")} not{" "}
-                  {outcomeWord} — already{" "}
-                  {outcome === "complete" ? "ended" : "ended or passed over"}
-                </p>
-                <ul className="flex flex-col gap-1 text-body-compact text-muted-foreground">
-                  {leaving.map((hearing) => (
-                    <li key={hearing.id}>
-                      <span className="tabular-nums">{hearing.item}.</span>{" "}
-                      {causeTitle(hearing)}
-                    </li>
-                  ))}
-                </ul>
-                <p className="text-caption text-muted-foreground">
-                  The next date and purpose still apply to them.
-                </p>
-              </div>
-            ) : null}
-          </div>
-          <BulkDateField
-            date={date}
-            notListed={notListed}
-            onDate={setDate}
-            onNotListed={setNotListed}
-            count={selected.length}
-          />
-          <div className="flex flex-col gap-2">
-            <Label id="bulk-set-purpose-label">Next hearing purpose</Label>
-            <PurposeField
-              value={notListed ? null : purpose}
-              disabled={notListed}
-              onChange={setPurpose}
-              placeholder={notListed ? "Not listed" : "Leave as it is"}
-              labelledBy="bulk-set-purpose-label"
-            />
-            {purpose && !notListed ? (
-              <Button
-                type="button"
-                variant="link"
-                className="h-auto w-fit p-0"
-                onClick={() => setPurpose(null)}
+          {roles.hearing ? (
+            <div className="flex flex-col gap-3">
+              <span id="bulk-outcome-label" className="text-body-compact font-medium">
+                Hearing
+              </span>
+              <RadioGroup
+                aria-labelledby="bulk-outcome-label"
+                value={outcome}
+                onValueChange={(value) => setOutcome(value as Outcome)}
+                className="flex flex-wrap gap-x-6 gap-y-2"
               >
-                Leave each purpose as it is
-              </Button>
-            ) : null}
-          </div>
+                {(
+                  [
+                    ["keep", "Leave as it is"],
+                    ["complete", "End hearing"],
+                    ["pass-over", "Pass over"],
+                  ] as const
+                ).map(([value, label]) => (
+                  <label
+                    key={value}
+                    className="flex min-h-10 cursor-pointer items-center gap-2 text-body-compact"
+                  >
+                    <RadioGroupItem value={value} />
+                    {label}
+                  </label>
+                ))}
+              </RadioGroup>
+              {outcome !== "keep" && leaving.length > 0 ? (
+                <div className="flex flex-col gap-2 rounded-lg bg-surface-sunken p-4">
+                  <p className="text-body-compact font-medium">
+                    {leaving.length} selected{" "}
+                    {plural(leaving.length, "hearing is", "hearings are")} left as{" "}
+                    {plural(leaving.length, "it is", "they are")} — only a Scheduled or
+                    Ongoing hearing can be {outcomeWord}
+                  </p>
+                  <ul className="flex flex-col gap-1 text-body-compact text-muted-foreground">
+                    {leaving.map((hearing) => (
+                      <li key={hearing.id}>
+                        <span className="tabular-nums">{hearing.item}.</span>{" "}
+                        {causeTitle(hearing)}
+                      </li>
+                    ))}
+                  </ul>
+                  {roles.next ? (
+                    <p className="text-caption text-muted-foreground">
+                      The next date and purpose still apply to them.
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+          {roles.next ? (
+            <>
+              <BulkDateField
+                date={date}
+                notListed={notListed}
+                onDate={setDate}
+                onNotListed={setNotListed}
+                count={selected.length}
+              />
+              <div className="flex flex-col gap-2">
+                <Label id="bulk-set-purpose-label">Next hearing purpose</Label>
+                <PurposeField
+                  value={notListed ? null : purpose}
+                  disabled={notListed}
+                  onChange={setPurpose}
+                  placeholder={notListed ? "Not listed" : "Leave as it is"}
+                  labelledBy="bulk-set-purpose-label"
+                />
+                {purpose && !notListed ? (
+                  <Button
+                    type="button"
+                    variant="link"
+                    className="h-auto w-fit p-0"
+                    onClick={() => setPurpose(null)}
+                  >
+                    Leave each purpose as it is
+                  </Button>
+                ) : null}
+              </div>
+            </>
+          ) : null}
         </div>
         <DialogFooter>
           <DialogClose asChild>

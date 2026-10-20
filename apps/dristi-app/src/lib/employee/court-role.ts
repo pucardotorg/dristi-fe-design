@@ -66,6 +66,16 @@ export function seatHasBenchControls(role: CourtRole): boolean {
 }
 
 /**
+ * Whether this seat stands for the **order drafter** role (order-generation `ROL-01`) on
+ * the cause list — the seat offered bulk text for orders (`CLS-12`). The typist (the
+ * Steno in Punjab & Haryana), as the prototype already had it. A view rule like the
+ * others here: it decides what the board offers, and grants nothing.
+ */
+export function seatDraftsOrders(role: CourtRole): boolean {
+  return role === "typist";
+}
+
+/**
  * Whether this seat sets the next hearing on the cause list — the reader's job (owner,
  * 2026-10-15: "for the steno and the magistrate, don't show these new hearing columns").
  * The bench clerk is the seat Punjab & Haryana call the Reader (`content.ts`). A view
