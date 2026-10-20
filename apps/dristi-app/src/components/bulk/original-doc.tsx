@@ -27,14 +27,16 @@ export function OriginalDoc({
   const pdf = original.file.type === "application/pdf";
   return (
     <>
-      <button
+      <Button
         type="button"
+        variant="link"
+        size="sm"
+        className="h-auto w-fit p-0"
         onClick={() => setOpen(true)}
-        className="inline-flex w-fit items-center gap-1.5 rounded-xs text-body-compact font-medium text-primary underline-offset-2 hover:underline focus-visible:ring-3 focus-visible:ring-focus-ring focus-visible:outline-none"
       >
-        <FileTextIcon className="size-4" aria-hidden />
+        <FileTextIcon data-icon="inline-start" aria-hidden />
         Original document
-      </button>
+      </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="flex h-[85dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl">
           <div className="flex shrink-0 items-center gap-3 border-b border-hairline px-6 py-4 pr-12">
