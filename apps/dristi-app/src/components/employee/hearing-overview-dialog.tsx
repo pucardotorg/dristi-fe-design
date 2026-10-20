@@ -228,10 +228,12 @@ function HearingOverviewBody({
         </>
       }
     >
+      <HearingOverviewSections hearing={hearing} surface="overlay" />
+      {/* Under the case, not above it (owner, 2026-10-20): the case history opens at the
+          last order, and the sheet opens on the case. */}
       {postsNextHearing && seatPostsNextHearing(seat) ? (
         <NextHearingPanel hearing={hearing} />
       ) : null}
-      <HearingOverviewSections hearing={hearing} surface="overlay" />
       {/* The outcome, for a reader who cannot see the chip change.
           It has to live *inside* the sheet: Radix hides the rest of the page from
           assistive tech while a modal is open, so the cause list's own announcer —
@@ -253,15 +255,15 @@ function HearingOverviewBody({
 
 /**
  * The same two fields as the cause list's Next hearing column, for the matter
- * being read — one store, so the row and this panel cannot disagree. First on the sheet:
- * it is the one thing on it the reader acts on. Dressed as the overlay's other sections.
+ * being read — one store, so the row and this panel cannot disagree. Last on the sheet,
+ * under the case (owner, 2026-10-20). Dressed as the overlay's other sections.
  */
 function NextHearingPanel({ hearing }: { hearing: CourtHearing }) {
   const id = React.useId();
   return (
     <section
       aria-labelledby={`${id}-heading`}
-      className="mb-4 flex min-w-0 flex-col gap-4 rounded-lg bg-card p-4"
+      className="mt-4 flex min-w-0 flex-col gap-4 rounded-lg bg-card p-4"
     >
       <h2 id={`${id}-heading`} className="text-body font-semibold">
         Next hearing

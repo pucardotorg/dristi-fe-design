@@ -57,19 +57,7 @@ type TypeOption = { value: string; label: string };
  * An order opens in the panel itself, in the list's place, as a filed paper does in the
  * Case file tab (`ORD-16`): Back, or Escape, returns to the line it was opened from.
  */
-export function OrderCaseHistory({
-  hearing,
-  labelledBy,
-}: {
-  hearing: CourtHearing;
-  /**
-   * A heading the host already shows for the history — the case overview's (`CLS-11`).
-   * Given, the tab's own hidden heading is left out. The host's scrolling box carries
-   * `data-history-scroller` with a 1rem top inset as the order screen's tab has, so the
-   * filter pins and the last order is brought into view the same way.
-   */
-  labelledBy?: string;
-}) {
+export function OrderCaseHistory({ hearing }: { hearing: CourtHearing }) {
   const today = useCourtToday();
   const entries = React.useMemo(() => {
     const extras = hearingCaseExtras(hearing.id);
@@ -102,9 +90,7 @@ export function OrderCaseHistory({
      page too. */
   React.useLayoutEffect(() => {
     const target = lastRef.current;
-    const scroller = target?.closest<HTMLElement>(
-      '[data-slot="tabs-content"], [data-history-scroller]',
-    );
+    const scroller = target?.closest<HTMLElement>('[data-slot="tabs-content"]');
     if (!target || !scroller) return;
     const offset =
       target.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
@@ -166,14 +152,12 @@ export function OrderCaseHistory({
   return (
     <section
       ref={listRef}
-      aria-labelledby={labelledBy ?? "order-case-history"}
+      aria-labelledby="order-case-history"
       className="flex min-w-0 flex-col gap-4"
     >
-      {labelledBy ? null : (
-        <h2 id="order-case-history" className="sr-only">
-          Case history
-        </h2>
-      )}
+      <h2 id="order-case-history" className="sr-only">
+        Case history
+      </h2>
       {/* The court filters' multi-select (`court-filters.tsx`): nothing picked shows
           everything; each picked type is a chip. Held at the top of the tab while the
           history scrolls under it, since the tab opens partway down. */}
