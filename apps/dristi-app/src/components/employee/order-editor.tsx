@@ -818,6 +818,7 @@ export function OrderEditorComposer({
   onOpenApplication,
   applicationDialog,
   historyContent,
+  dataFlagsContent,
   context,
   purpose,
   fixedIds,
@@ -843,6 +844,8 @@ export function OrderEditorComposer({
   ) => React.ReactNode;
   /** The Case history tab (ORD-15) — the case's history with its orders. */
   historyContent?: React.ReactNode;
+  /** The Data flags tab (ORD-15) — the listing's attendance history. */
+  dataFlagsContent?: React.ReactNode;
 }) {
   const rootRef = React.useRef<HTMLDivElement>(null);
   const bands = useBands(rootRef);
@@ -1034,6 +1037,7 @@ export function OrderEditorComposer({
             }
             disabled={false}
             historyContent={historyContent}
+            dataFlagsContent={dataFlagsContent}
           />
         ) : null}
       </div>
