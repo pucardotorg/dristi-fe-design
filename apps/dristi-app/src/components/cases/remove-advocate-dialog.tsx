@@ -23,15 +23,7 @@
 import { useMemo, useState } from "react";
 import { HourglassIcon } from "lucide-react";
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { Button } from "@/components/ui/button";
 import {
   DescriptionDetails,
@@ -55,9 +47,6 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { FlowStepper } from "@/components/cases/flow-stepper";
-import {
-  ChromeAlertDialogContent,
-} from "@/components/chrome/app-chrome";
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 import {
   PartyApplicationDocument,
@@ -134,7 +123,6 @@ export function RemoveAdvocateDialog({
   /** The magistrate route's sign dialog, layered over the review (Sept 2). */
   const [signOpen, setSignOpen] = useState(false);
   const [errors, setErrors] = useState<Errors>({});
-  const [exitConfirmationOpen, setExitConfirmationOpen] = useState(false);
 
   const current = STEPS.find((item) => item.step === step) ?? STEPS[0];
   const isDirty = useMemo(
@@ -150,7 +138,6 @@ export function RemoveAdvocateDialog({
     setDone(false);
     setSignOpen(false);
     setErrors({});
-    setExitConfirmationOpen(false);
   }
 
   function closeClean() {
@@ -158,12 +145,10 @@ export function RemoveAdvocateDialog({
     onOpenChange(false);
   }
 
+  const guard = useDiscardGuard(isDirty && !done, closeClean);
+
   function requestExit() {
-    if (isDirty && !done) {
-      setExitConfirmationOpen(true);
-      return;
-    }
-    closeClean();
+    guard.close();
   }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -473,6 +458,7 @@ export function RemoveAdvocateDialog({
               </footer>
             </>
           )}
+          <DiscardQuestion guard={guard} />
         </FlowDialogContent>
       </Dialog>
 
@@ -488,26 +474,6 @@ export function RemoveAdvocateDialog({
           description: `${advocateName} stays on the case until the order is passed.`,
         }}
       />
-
-      <AlertDialog
-        open={exitConfirmationOpen}
-        onOpenChange={setExitConfirmationOpen}
-      >
-        <ChromeAlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Discard this request?</AlertDialogTitle>
-            <AlertDialogDescription>
-              The details entered here will be lost if you discard this draft.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Keep editing</AlertDialogCancel>
-            <AlertDialogAction variant="destructive-solid" onClick={closeClean}>
-              Discard draft
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </ChromeAlertDialogContent>
-      </AlertDialog>
     </>
   );
 }

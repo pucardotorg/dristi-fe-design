@@ -6,12 +6,12 @@ import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 
 import { useRouter } from "next/navigation";
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 import { useBackCloses, useFlowWindow } from "@/components/chrome/flow-window";
 
 import { DocumentPreview } from "@/components/cases/document-preview";
 import {
-  DiscardFilingDialog,
   FileField,
   focusFirstInvalid,
 } from "@/components/cases/filing-form-shared";
@@ -152,7 +152,6 @@ export function SubmitDocumentsDialog({
   const [draft, setDraft] = useState<DocumentDraft>(start);
   const [errors, setErrors] = useState<DocumentErrors>({});
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [discardOpen, setDiscardOpen] = useState(false);
   const dirty = useMemo(
     () =>
       Boolean(
@@ -173,7 +172,6 @@ export function SubmitDocumentsDialog({
   }
 
   function closeNow() {
-    setDiscardOpen(false);
     setPreviewOpen(false);
     setDraft(start);
     setErrors({});
@@ -181,9 +179,9 @@ export function SubmitDocumentsDialog({
   }
 
   /** Closing midway asks first, only when something was entered. */
+  const guard = useDiscardGuard(dirty, closeNow);
   function requestClose() {
-    if (dirty) setDiscardOpen(true);
-    else closeNow();
+    guard.close();
   }
 
   /** The preview only opens on a clean form; errors surface in place first. */
@@ -206,7 +204,7 @@ export function SubmitDocumentsDialog({
 
   const { phone } = useFlowWindow();
   useBackCloses(phone && open, () => {
-    if (discardOpen) setDiscardOpen(false);
+    if (guard.asking) guard.keep();
     else if (previewOpen) setPreviewOpen(false);
     else requestClose();
   });
@@ -318,6 +316,7 @@ export function SubmitDocumentsDialog({
               Review submission
             </Button>
           </footer>
+          <DiscardQuestion guard={guard} />
         </FlowDialogContent>
       </Dialog>
 
@@ -331,12 +330,6 @@ export function SubmitDocumentsDialog({
             .querySelector<HTMLElement>(`button[form="${CSS.escape(formId)}"]`)
             ?.focus()
         }
-      />
-
-      <DiscardFilingDialog
-        open={discardOpen}
-        onOpenChange={setDiscardOpen}
-        onDiscard={closeNow}
       />
     </>
   );

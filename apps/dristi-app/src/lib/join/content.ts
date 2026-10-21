@@ -168,13 +168,14 @@ export const summonsModal = {
 
 export const joinDialog = {
   /* Closing partway through asks first (owner, 2026-10-13). Malayalam drafted. */
-  leaveTitle: t("Leave without joining?", "ചേരാതെ പുറത്തുകടക്കണോ?"),
+  /* The product's one discard question (`DiscardQuestion`), in this window's chrome. */
+  leaveTitle: t("Do you want to discard your progress?", "ഇതുവരെ നൽകിയത് ഉപേക്ഷിക്കണോ?"),
   leaveBody: t(
-    "What you have entered so far will not be kept.",
+    "What you've entered here will not be saved.",
     "ഇതുവരെ നൽകിയ വിവരങ്ങൾ സൂക്ഷിക്കില്ല.",
   ),
-  leaveStay: t("Keep going", "തുടരുക"),
-  leaveGo: t("Leave", "പുറത്തുകടക്കുക"),
+  leaveStay: t("Keep editing", "തിരുത്തൽ തുടരുക"),
+  leaveGo: t("Discard", "ഉപേക്ഷിക്കുക"),
   title: t("Join your case", "നിങ്ങളുടെ കേസിൽ ചേരുക"),
 
   /* lookup — manual entry only */

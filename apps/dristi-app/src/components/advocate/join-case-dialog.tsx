@@ -508,9 +508,11 @@ export function AdvocateJoinCaseDialog({
      lost. The question takes this window's header and footer — never a second modal. */
   const [leaving, setLeaving] = React.useState(false);
   // Arriving from the summons, the code step is the first: nothing typed, nothing to lose.
+  // On the first step, only once a case number has been typed (2026-10-21).
   const entered =
-    LEAVE_ASKS.includes(stage) &&
-    !(stage === "code" && mode === "summons" && !searched && code.length === 0);
+    (stage === "lookup" && query.trim() !== "") ||
+    (LEAVE_ASKS.includes(stage) &&
+      !(stage === "code" && mode === "summons" && !searched && code.length === 0));
 
   function handleOpenChange(next: boolean) {
     // The gateway is confirming; the window holds until it answers.
@@ -520,12 +522,23 @@ export function AdvocateJoinCaseDialog({
       titleRef.current?.focus();
       return;
     }
-    if (!next) setLeaving(false);
+    // A second close while the question is up — Escape again, the corner X — keeps
+    // editing; only Discard leaves.
+    if (!next && leaving) {
+      setLeaving(false);
+      return;
+    }
+    if (!next) discard();
+    else onOpenChange(next);
+  }
+
+  function discard() {
+    setLeaving(false);
     // Leaving at the payment step still records the join as unpaid: the fee becomes a
     // pending task and access waits for it (JOIN-54).
-    if (!next && stage === "pay") reportJoined(false);
-    if (!next) reset();
-    onOpenChange(next);
+    if (stage === "pay") reportJoined(false);
+    reset();
+    onOpenChange(false);
   }
 
   function reportJoined(joined: boolean) {
@@ -1435,7 +1448,7 @@ export function AdvocateJoinCaseDialog({
               <Button type="button" variant="outline" onClick={() => setLeaving(false)}>
                 {pick(advDialog.leaveStay, locale)}
               </Button>
-              <Button type="button" onClick={() => handleOpenChange(false)}>
+              <Button type="button" variant="destructive-solid" onClick={discard}>
                 {pick(advDialog.leaveGo, locale)}
               </Button>
             </>

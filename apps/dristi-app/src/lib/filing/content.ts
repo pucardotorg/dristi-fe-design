@@ -148,14 +148,6 @@ export const bailDialog = {
     "The bail conditions are printed on the summons, under “Contest the case”. You can copy them from there.",
     "ജാമ്യ വ്യവസ്ഥകൾ സമൻസിൽ “കേസ് എതിർക്കുക” എന്നതിന് കീഴിൽ അച്ചടിച്ചിട്ടുണ്ട്. അവിടെ നിന്ന് പകർത്താം.",
   ),
-  /* closing midway: the same question every filing dialog asks */
-  discardTitle: t("Discard this application?", "ഈ അപേക്ഷ ഉപേക്ഷിക്കണോ?"),
-  discardBody: t(
-    "Anything you entered will be lost.",
-    "നിങ്ങൾ നൽകിയതെല്ലാം നഷ്ടപ്പെടും.",
-  ),
-  discardKeep: t("Keep editing", "തിരുത്തൽ തുടരുക"),
-  discardConfirm: t("Discard", "ഉപേക്ഷിക്കുക"),
   title: t("Bail application", "ജാമ്യാപേക്ഷ"),
 
   /* application details */

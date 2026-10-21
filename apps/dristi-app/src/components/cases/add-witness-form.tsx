@@ -24,15 +24,7 @@
 
 import { useMemo, useRef, useState } from "react";
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -57,9 +49,6 @@ import {
   type CaseRef,
 } from "@/components/cases/party-application";
 import { usePartiesLive } from "@/components/cases/parties-live";
-import {
-  ChromeAlertDialogContent,
-} from "@/components/chrome/app-chrome";
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 import { blankWitness } from "@/lib/filing/blank";
 import { witnessComplete } from "@/lib/filing/selectors";
@@ -113,7 +102,6 @@ export function AddWitnessDialog({
   const [removeId, setRemoveId] = useState<string | null>(null);
   const [removeNumber, setRemoveNumber] = useState(1);
   const [signOpen, setSignOpen] = useState(false);
-  const [exitConfirmationOpen, setExitConfirmationOpen] = useState(false);
   const formScrollRef = useRef<HTMLDivElement>(null);
   /* Null outside the Parties tab (the dialog has other hosts). */
   const live = usePartiesLive();
@@ -179,7 +167,6 @@ export function AddWitnessDialog({
     setFilesErrors({});
     setRemoveId(null);
     setSignOpen(false);
-    setExitConfirmationOpen(false);
   }
 
   function closeClean() {
@@ -187,12 +174,10 @@ export function AddWitnessDialog({
     onOpenChange(false);
   }
 
+  const guard = useDiscardGuard(isDirty, closeClean);
+
   function requestExit() {
-    if (isDirty) {
-      setExitConfirmationOpen(true);
-      return;
-    }
-    closeClean();
+    guard.close();
   }
 
   function continueToReview() {
@@ -416,6 +401,7 @@ export function AddWitnessDialog({
               </Button>
             )}
           </footer>
+          <DiscardQuestion guard={guard} />
         </FlowDialogContent>
       </Dialog>
 
@@ -450,27 +436,6 @@ export function AddWitnessDialog({
         confirmLabel="Yes, remove"
         onConfirm={confirmRemove}
       />
-
-      <AlertDialog
-        open={exitConfirmationOpen}
-        onOpenChange={setExitConfirmationOpen}
-      >
-        <ChromeAlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Discard witness draft?</AlertDialogTitle>
-            <AlertDialogDescription>
-              The information entered here will be lost if you discard this
-              draft.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Keep editing</AlertDialogCancel>
-            <AlertDialogAction variant="destructive-solid" onClick={closeClean}>
-              Discard draft
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </ChromeAlertDialogContent>
-      </AlertDialog>
     </>
   );
 }

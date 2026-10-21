@@ -13,20 +13,11 @@ import {
 } from "lucide-react";
 
 import {
-  ChromeAlertDialogContent,
   ChromeDialogContent,
 } from "@/components/chrome/app-chrome";
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 import { useBackCloses, useFlowWindow } from "@/components/chrome/flow-window";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
@@ -429,7 +420,6 @@ export function BailApplicationDialog({
     same terms: only when something has been entered, and never once the
     application is filed, since by then there is nothing left to lose.
   */
-  const [discardOpen, setDiscardOpen] = React.useState(false);
   const entered =
     stage !== "done" &&
     (stage !== "details" ||
@@ -440,8 +430,9 @@ export function BailApplicationDialog({
       documents.length > 0 ||
       (father.trim() !== "" && !fatherPrefilled));
 
+  const guard = useDiscardGuard(entered, closeNow);
+
   function closeNow() {
-    setDiscardOpen(false);
     reset();
     onOpenChange(false);
   }
@@ -453,8 +444,7 @@ export function BailApplicationDialog({
     }
     // The gateway is confirming; the window holds until it answers.
     if (stage === "processing") return;
-    if (entered) setDiscardOpen(true);
-    else closeNow();
+    guard.close();
   }
 
   /* On a phone this is a window that slid in, and the phone's own Back works
@@ -463,7 +453,7 @@ export function BailApplicationDialog({
      application has nothing to go back to, so Back closes it. */
   const { phone } = useFlowWindow();
   useBackCloses(phone && open, () => {
-    if (discardOpen) setDiscardOpen(false);
+    if (guard.asking) guard.keep();
     else if (reviewFullscreen) setReviewFullscreen(false);
     else if (stage === "sureties") setStage("details");
     else if (stage === "review") setStage("sureties");
@@ -1569,25 +1559,9 @@ export function BailApplicationDialog({
             </>
           ) : null}
         </footer>
+        <DiscardQuestion guard={guard} locale={locale} />
       </FlowDialogContent>
     </Dialog>
-
-    <AlertDialog open={discardOpen} onOpenChange={setDiscardOpen}>
-      <ChromeAlertDialogContent lang={locale}>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{pick(bailDialog.discardTitle, locale)}</AlertDialogTitle>
-          <AlertDialogDescription>
-            {pick(bailDialog.discardBody, locale)}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>{pick(bailDialog.discardKeep, locale)}</AlertDialogCancel>
-          <AlertDialogAction variant="destructive-solid" onClick={closeNow}>
-            {pick(bailDialog.discardConfirm, locale)}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </ChromeAlertDialogContent>
-    </AlertDialog>
     </>
   );
 }
