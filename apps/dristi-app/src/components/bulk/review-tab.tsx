@@ -9,7 +9,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
-import type { CaseView } from "./api";
+import { bulkFetch, type CaseView } from "./api";
 import type { BatchCtx } from "./batch-screen";
 import { CaseList } from "./case-list";
 import { detailFlags } from "./scrutiny-tab";
@@ -32,7 +32,7 @@ export function ReviewTab({ batch, go }: BatchCtx) {
 
   React.useEffect(() => {
     let live = true;
-    fetch(`/api/bulk/batches/${batch.id}/drafts`, { cache: "no-store" })
+    bulkFetch(`/api/bulk/batches/${batch.id}/drafts`, { cache: "no-store" })
       .then(async (r) => {
         const json = await r.json();
         if (!r.ok)

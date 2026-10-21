@@ -4,47 +4,14 @@
  * Each file is kept, so the case can show its original document later.
  */
 
-import { NextResponse } from "next/server";
-
-import { aiModeFrom } from "@/lib/bulk/ai-review";
-import { caseDocText, extractCase } from "@/lib/bulk/case-doc";
-import { saveFile } from "@/lib/bulk/store.server";
+import { extract } from "@/lib/bulk/handlers";
+import { respond } from "@/lib/bulk/respond.server";
+import { serverStore } from "@/lib/bulk/store.server";
 
 export const dynamic = "force-dynamic";
 
-const MAX_FILES = 200;
-
 export async function POST(req: Request) {
   const form = await req.formData();
-  // Reading documents is AI: with AI off or unavailable the route says so and does nothing.
-  const ai = aiModeFrom(form.get("ai")?.toString() ?? null);
-  if (ai !== "on")
-    return NextResponse.json(
-      { error: "AI reading is not available. Upload an Excel file instead." },
-      { status: 409 },
-    );
-  const files = form
-    .getAll("files")
-    .filter((f): f is File => f instanceof File);
-  if (!files.length)
-    return NextResponse.json({ error: "No files were sent." }, { status: 400 });
-  if (files.length > MAX_FILES)
-    return NextResponse.json(
-      { error: `At most ${MAX_FILES} documents at a time.` },
-      { status: 413 },
-    );
-  const cases = await Promise.all(
-    files.map(async (f) => {
-      const bytes = new Uint8Array(await f.arrayBuffer());
-      let text: string | null = null;
-      try {
-        text = await caseDocText(bytes, f.name, f.type);
-      } catch {
-        text = null;
-      }
-      const original = await saveFile(bytes, f.name, f.type);
-      return { ...extractCase(f.name, text), original, text };
-    }),
-  );
-  return NextResponse.json({ cases });
+  const files = form.getAll("files").filter((f): f is File => f instanceof File);
+  return respond(await extract(serverStore, files, form.get("ai")?.toString() ?? null));
 }

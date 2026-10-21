@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/table";
 
 import type { BatchCtx } from "./batch-screen";
+import { bulkFetch } from "./api";
 
 export const ist = (iso: string) =>
   `${new Date(iso).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" })} IST`;
@@ -57,7 +58,7 @@ export function FiledTab({ batch, go }: BatchCtx) {
   React.useEffect(() => {
     if (!openId || drafts) return;
     let live = true;
-    fetch(`/api/bulk/batches/${batch.id}/drafts`, { cache: "no-store" })
+    bulkFetch(`/api/bulk/batches/${batch.id}/drafts`, { cache: "no-store" })
       .then((r) => r.json())
       .then((json) => live && setDrafts(json.drafts ?? {}))
       .catch(() => live && setDrafts({}));

@@ -71,6 +71,7 @@ Run it with `npm run demo` (SARAS 2.0 on port 3000, Provakil on 3100). The team 
 | 2026-10-20 | The template carries a format row and an example row so the expected format is clear; upload spots and discards both automatically. Two demo spreadsheets ship with the branch, one in the template and one in a lender's own layout. | Owner | implemented |
 | 2026-10-20 | Derived values (cause of action, filing date, delay, fee bill) are never accepted from the API or the sheet. | PRD §3.5, constraint 3 | implemented |
 | 2026-10-21 | **A bulk case opens in the single filing's own sections**, not in a bulk editor: the single filing is the one complete view of a case, and every simpler view of its fields had drifted from it (the bulk editor showed a hand-picked subset; the sheet, the fixes the server allowed and the checks each kept their own list). `/filings/bulk/<batch>/cases/<case>/<section>` mounts the filing's sections on the case's server draft (`BulkCaseRepository`); the same fields, rules, lookups and saving as filing one case. Sign and Pay fees are left out (the batch signs and pays once), and so is the intake upload (the batch's Documents step). The batch's complainant and advocates are locked in the case with a note saying why; a batch-wide check on them is fixed from the bar for every case at once. A bar above each section names the case in the batch (Case 3 of 12, reference, cheque, status, original document), moves to the previous, next or next case to fix, lists what is open in that section (Skip on a check, Declare on missing contact) and links to the other sections with something open. The rail counts what is open per section. Checks show as the field's own error where the section names its fields. **Case details** is now the list of open cases with what each still needs; choosing one opens it at the first section with something to fix (a hold before a check). The Cases table and Review open cases the same way. Preview's Continue reads **Back to all cases**. Fill with demo values moved to the bar. The old Case details editor, the case window and `caseFields` are removed. | Owner, 2026-10-21 | implemented |
+| 2026-10-21 | **Batches are kept in the browser where the server cannot write.** A hosted deployment (Vercel) has a read-only file system, so creating a batch failed there. Each bulk endpoint's logic is one handler (`lib/bulk/handlers.ts`) over a store (`lib/bulk/store.ts`): the server's files where it can write (the local demo, which the Provakil push needs), else the browser's IndexedDB (`store.browser.ts`), chosen once per visit by `GET /api/bulk/where`. The screens call `bulkFetch`, which is `fetch` in the first case and runs the same handler in the browser in the second. In the browser each person sees only the batches made there, as with single-filing drafts, and an API push cannot reach them. The upload's sample files are served from `public/samples/` (written by `scripts/bulk-demo-files.mts` beside `demo-files/`). | Owner, 2026-10-21 | implemented |
 
 ## Provakil to SARAS 2.0 mapping
 
@@ -275,7 +276,8 @@ notification for an unopened push is on the `bulk-filing` branch only, not on `m
 | Scrutiny rules | `apps/dristi-app/src/lib/bulk/scrutiny.ts` (tests beside it) |
 | Sign, pay, club, fixes, saving a whole case | `apps/dristi-app/src/lib/bulk/actions.server.ts` (`replaceDraft`) |
 | A case in the filing's sections | `app/filings/bulk/[batchId]/cases/[caseId]/`, `components/bulk/case-flow.tsx`, `lib/bulk/case-repository.ts`, `lib/bulk/flag-place.ts`, `components/filing/field-policy.tsx` |
-| Batch store (server, git-ignored) | `apps/dristi-app/.data/bulk` |
+| Batch store | `lib/bulk/store.ts`: server files under `apps/dristi-app/.data/bulk` (git-ignored), or the browser's IndexedDB where the server cannot write |
+| Endpoint logic, server or browser | `lib/bulk/handlers.ts`; `bulkFetch` in `components/bulk/api.ts` |
 | Push API | `POST /api/bulk/v1/batches` (bearer key, `BULK_API_KEY`) |
 | Advocates for a sender | `GET /api/bulk/v1/advocates` (bearer key) |
 | Excel spec, sections, repeats | `apps/dristi-app/src/lib/bulk/excel-spec.ts`, `excel.ts` |
@@ -306,8 +308,10 @@ notification for an unopened push is on the `bulk-filing` branch only, not on `m
   not named.
 - Opening a section saves the case (the filing records the sections visited), as it does
   when filing one case.
-- Batches are stored on the server for the demo, while single drafts stay in the browser.
-  Engineering replaces both with the case service.
+- Batches are stored on the server where it can write and in the browser where it cannot
+  (a hosted deployment); single drafts stay in the browser. In the browser, batches are
+  per browser and a Provakil push cannot reach them. Engineering replaces both with the
+  case service.
 - The demo has one sign-in (Anjali Parmar). A batch pushed to another advocate is in the
   office's batch list with "To <advocate>" under its source, rather than in a separate
   account. Per-advocate accounts need the identity service.

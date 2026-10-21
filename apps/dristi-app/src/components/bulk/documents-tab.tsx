@@ -18,7 +18,7 @@ import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 
 import { demoPdf } from "./demo-fill";
-import { bulkApi, fileUrl, type CaseView } from "./api";
+import { bulkApi, useBulkFileUrl, type CaseView } from "./api";
 import type { BatchCtx } from "./batch-screen";
 import { OriginalDoc } from "./original-doc";
 
@@ -52,6 +52,7 @@ export function Slot({
   const input = React.useRef<HTMLInputElement>(null);
   const [over, setOver] = React.useState(false);
   const filled = !!doc.file;
+  const href = useBulkFileUrl(doc.file?.id);
   const canUpload = !locked && !!doc.slotKey;
   const choose = () => {
     if (canUpload && !busy) input.current?.click();
@@ -107,7 +108,7 @@ export function Slot({
             aria-label={`View ${doc.name}: ${fileLine}`}
             title={fileLine}
           >
-            <a href={fileUrl(doc.file!.id)} target="_blank" rel="noreferrer">
+            <a href={href ?? undefined} target="_blank" rel="noreferrer">
               View
             </a>
           </Button>

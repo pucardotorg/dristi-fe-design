@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-import { fileUrl } from "./api";
+import { useBulkFileUrl } from "./api";
 
 /**
  * The document a case was read from, one click away: a PDF as itself, a Word file as its
@@ -25,6 +25,7 @@ export function OriginalDoc({
 }) {
   const [open, setOpen] = React.useState(false);
   const pdf = original.file.type === "application/pdf";
+  const href = useBulkFileUrl(open ? original.file.id : null);
   return (
     <>
       <Button
@@ -49,7 +50,7 @@ export function OriginalDoc({
               </DialogDescription>
             </div>
             <Button asChild variant="outline" size="sm">
-              <a href={fileUrl(original.file.id)} download={original.file.name}>
+              <a href={href ?? undefined} download={original.file.name}>
                 <DownloadIcon data-icon="inline-start" aria-hidden />
                 Download
               </a>
@@ -57,7 +58,7 @@ export function OriginalDoc({
           </div>
           {pdf ? (
             <iframe
-              src={fileUrl(original.file.id)}
+              src={href ?? undefined}
               title={original.file.name}
               className="min-h-0 flex-1 bg-surface-sunken"
             />
