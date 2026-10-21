@@ -81,7 +81,7 @@ export type AccessPerson = {
    */
   addedBy: "self" | string | null;
   grants: AccessGrant[];
-  /** Added to the office but has not yet accepted (OFC-07). */
+  /** Known only by number — invited but never signed in to DRISTI. */
   pending?: boolean;
   /** Gets office access to every case the signed-in advocate is later added
       to on a vakalatnama (OFC-25). */
@@ -491,16 +491,14 @@ export const ACCESS_PEOPLE: AccessPerson[] = [
     ),
   },
   {
-    // Added this week, yet to accept — shows the awaiting state (OFC-07).
     id: "p-sreeja",
     name: "Adv. Sreeja Mohan",
     phone: "99614 72058",
     barId: "K/3311/2023",
     addedBy: "self",
-    pending: true,
     grants: [
-      { caseId: "c-612", role: "junior", status: "invited", since: "19 Oct 2026", addedBy: "self" },
-      { caseId: "c-410", role: "junior", status: "invited", since: "19 Oct 2026", addedBy: "self" },
+      { caseId: "c-612", role: "junior", status: "joined", since: "19 Oct 2026", addedBy: "self" },
+      { caseId: "c-410", role: "junior", status: "joined", since: "19 Oct 2026", addedBy: "self" },
     ],
   },
   {
@@ -585,7 +583,6 @@ export const joinOfficeCopy = {
     "Already have access, as they are on All cases:",
     "'എല്ലാ കേസുകളും' ആയതിനാൽ ഇതിനകം ആക്‌സസ് ഉണ്ട്:",
   ),
-  awaiting: t("awaiting acceptance", "സ്വീകരിക്കാൻ കാത്തിരിക്കുന്നു"),
 };
 
 export const accessShell = {
@@ -620,7 +617,7 @@ export const shareCopy = {
   whoHasAccess: t("Who has access", "ആർക്കൊക്കെ ആക്‌സസ് ഉണ്ട്"),
   accessSearchPlaceholder: t("Search people", "ആളുകളെ തിരയുക"),
   you: t("(you)", "(നിങ്ങൾ)"),
-  statusInvited: t("Awaiting acceptance", "സ്വീകരിക്കാൻ കാത്തിരിക്കുന്നു"),
+  statusInvited: t("Yet to join", "ചേരാനുണ്ട്"),
   readOnlyNote: t(
     "You hold office access on this case, so you can see who has access. Adding and removing people belongs to the advocates on the vakalatnama.",
     "ഈ കേസിൽ നിങ്ങൾക്ക് ഓഫീസ് ആക്‌സസ് ആയതിനാൽ ആർക്കൊക്കെ ആക്‌സസ് ഉണ്ടെന്ന് കാണാം. ആളുകളെ ചേർക്കുന്നതും നീക്കുന്നതും വക്കാലത്ത്നാമയിലെ അഭിഭാഷകർക്കാണ്.",
@@ -642,7 +639,7 @@ export const listCopy = {
   ),
   addedByYou: t("Added by you", "നിങ്ങൾ ചേർത്തത്"),
   addedBy: t("Added by {name}", "{name} ചേർത്തത്"),
-  invitedPending: t("Awaiting acceptance", "സ്വീകരിക്കാൻ കാത്തിരിക്കുന്നു"),
+  invitedPending: t("Invited · yet to sign in", "ക്ഷണിച്ചു · ഇതുവരെ സൈൻ ഇൻ ചെയ്തിട്ടില്ല"),
 };
 
 export const peopleCopy = {
@@ -716,6 +713,7 @@ export const peopleCopy = {
   ),
   allCasesShareNote: t("All cases", "എല്ലാ കേസുകളും"),
   removeFromThese: t("Remove from these cases", "ഈ കേസുകളിൽ നിന്ന് നീക്കം ചെയ്യുക"),
+  removeOneTitle: t("Remove {name} from {case}?", "{name}-നെ {case}-ൽ നിന്ന് നീക്കം ചെയ്യണോ?"),
   removeTheseTitle: t("Remove {name} from these cases?", "{name}-നെ ഈ കേസുകളിൽ നിന്ന് നീക്കം ചെയ്യണോ?"),
   selectCaseAria: t("Select {caseNumber}", "{caseNumber} തിരഞ്ഞെടുക്കുക"),
   removeAllTitle: t("Remove {name} from your office?", "{name}-നെ നിങ്ങളുടെ ഓഫീസിൽ നിന്ന് നീക്കം ചെയ്യണോ?"),
@@ -800,8 +798,4 @@ export const addPersonCopy = {
   submitMore: t("Give access", "ആക്‌സസ് നൽകുക"),
   doneToast: t("{names} added to {count} cases", "{names} {count} കേസുകളിൽ ചേർത്തു"),
   doneToastOne: t("{names} added to 1 case", "{names} 1 കേസിൽ ചേർത്തു"),
-  doneToastPending: t(
-    "{names} will get access once they accept.",
-    "{names} സ്വീകരിച്ചാലുടൻ ആക്‌സസ് ലഭിക്കും.",
-  ),
 };

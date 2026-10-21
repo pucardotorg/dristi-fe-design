@@ -399,6 +399,9 @@ export function PeoplePage({
   const [openPersonId, setOpenPersonId] = React.useState<string | null>(null);
   const [checkedCases, setCheckedCases] = React.useState<string[]>([]);
   const [confirmRemove, setConfirmRemove] = React.useState(false);
+  /* A row's own Remove borrows the selection to reuse the confirm; cancelling
+     must give the selection back empty, not leave that row ticked. */
+  const [singleRemove, setSingleRemove] = React.useState(false);
   const [removedNote, setRemovedNote] = React.useState<string | null>(null);
   /* Add person (OFC-14), or Give access to more cases for the open person (OFC-33). */
   const [addOpen, setAddOpen] = React.useState(false);
@@ -531,6 +534,7 @@ export function PeoplePage({
                         ? () => {
                             // Confirmed like every removal (OFC-36).
                             setCheckedCases([grant.caseId]);
+                            setSingleRemove(true);
                             setConfirmRemove(true);
                           }
                         : undefined
@@ -920,17 +924,29 @@ export function PeoplePage({
       ) : null}
 
       {/* --------------------------------------------- bulk-remove confirm */}
-      <AlertDialog open={confirmRemove} onOpenChange={setConfirmRemove}>
+      <AlertDialog
+        open={confirmRemove}
+        onOpenChange={(next) => {
+          setConfirmRemove(next);
+          if (!next && singleRemove) {
+            setCheckedCases([]);
+            setSingleRemove(false);
+          }
+        }}
+      >
         <ChromeAlertDialogContent>
           {openPerson ? (
             <>
               <AlertDialogHeader>
                 <AlertDialogTitle>
-                  {fillCopy(
-                    removingAll ? peopleCopy.removeAllTitle : peopleCopy.removeTheseTitle,
-                    locale,
-                    { name: openPerson.name },
-                  )}
+                  {removingAll
+                    ? fillCopy(peopleCopy.removeAllTitle, locale, { name: openPerson.name })
+                    : checkedCases.length === 1
+                      ? fillCopy(peopleCopy.removeOneTitle, locale, {
+                          name: openPerson.name,
+                          case: caseById(checkedCases[0])?.caseNumber ?? "",
+                        })
+                      : fillCopy(peopleCopy.removeTheseTitle, locale, { name: openPerson.name })}
                 </AlertDialogTitle>
                 <AlertDialogDescription>
                   {removingAll
@@ -947,7 +963,9 @@ export function PeoplePage({
                 <AlertDialogAction variant="destructive" onClick={confirmBulkRemove}>
                   {removingAll
                     ? pick(peopleCopy.removeAllConfirm, locale)
-                    : pick(peopleCopy.removeFromThese, locale)}
+                    : checkedCases.length === 1
+                      ? pick(peopleCopy.removeFromCase, locale)
+                      : pick(peopleCopy.removeFromThese, locale)}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </>

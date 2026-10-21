@@ -26,6 +26,7 @@ import { fill } from "@/lib/join/content";
 import {
   fillCopy,
   inviteFieldCopy,
+  registerAccessCase,
   shareCopy,
   type AccessCase,
   type AccessPerson,
@@ -118,6 +119,9 @@ export function ShareDialog({
   function send() {
     const batch = chips;
     if (!batch.length) return;
+    // Cases from Your cases are not all in the People page's docket; make them
+    // known there so the person's panel lists what was shared (OFC-51, OFC-54).
+    cases.forEach(registerAccessCase);
     const result = invite(batch.map((c) => c.phone ?? ""), cases.map((c) => c.id));
     setResult(result);
     toast.success(fill(shareCopy.inviteToast, locale, { names: result.names.join(", ") }));

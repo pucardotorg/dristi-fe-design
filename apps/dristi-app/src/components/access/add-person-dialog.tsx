@@ -115,10 +115,6 @@ export function AddPersonDialog({
               names,
               count: String(result.total),
             }),
-      // Someone new to the office accepts once before access starts (OFC-07).
-      person && !person.pending
-        ? undefined
-        : { description: fillCopy(addPersonCopy.doneToastPending, locale, { names }) },
     );
     handleOpenChange(false);
   }

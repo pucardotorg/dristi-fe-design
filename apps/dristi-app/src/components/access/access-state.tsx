@@ -22,8 +22,7 @@ import {
  *
  * Sharing only ever grants office access: advocates get on a case's record
  * through its vakalat nama, never through the share flow. Only registered
- * advocates and clerks can be added (OFC-02). A person new to this office
- * accepts once (OFC-07); after that, further shares are immediate (OFC-07a).
+ * advocates and clerks can be added (OFC-02); access is immediate (OFC-07).
  */
 
 export type InviteResult = {
@@ -165,9 +164,7 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
               ...missing.map((caseId) => ({
                 caseId,
                 role,
-                // Accepted once, every later share is immediate (OFC-07a); until
-                // then, new cases wait with the rest.
-                status: person.pending ? ("invited" as const) : ("joined" as const),
+                status: "joined" as const,
                 since: today,
                 addedBy: "self" as const,
               })),
@@ -185,12 +182,10 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
           ...(user.barId ? { barId: user.barId } : {}),
           addedBy: "self",
           ...scope,
-          // First time in this office: they accept once before access starts (OFC-07).
-          pending: true,
           grants: targetCases.map((caseId) => ({
             caseId,
             role,
-            status: "invited" as const,
+            status: "joined" as const,
             since: today,
             addedBy: "self" as const,
           })),

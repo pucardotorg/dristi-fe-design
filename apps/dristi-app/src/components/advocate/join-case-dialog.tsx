@@ -1413,13 +1413,7 @@ export function AdvocateJoinCaseDialog({
                   <p className="text-body-compact text-pretty text-muted-foreground">
                     {pick(joinOfficeCopy.alreadyAdded, locale)}{" "}
                     <span className="font-medium text-foreground">
-                      {allCasesOffice
-                        .map((person) =>
-                          person.pending
-                            ? `${person.name} (${pick(joinOfficeCopy.awaiting, locale)})`
-                            : person.name,
-                        )
-                        .join(", ")}
+                      {allCasesOffice.map((person) => person.name).join(", ")}
                     </span>
                   </p>
                 ) : null}

@@ -896,8 +896,8 @@ export const advDialog = {
   teamRemove: t("Remove", "നീക്കം ചെയ്യുക"),
   teamError: t("Enter a valid 10-digit mobile number.", "സാധുവായ 10 അക്ക മൊബൈൽ നമ്പർ നൽകുക."),
   teamAddedNote: t(
-    "They'll be notified. Anyone new to your office gets access once they accept.",
-    "അവർക്ക് അറിയിപ്പ് ലഭിക്കും. നിങ്ങളുടെ ഓഫീസിൽ പുതുതായി വരുന്നവർക്ക് സ്വീകരിച്ചാലുടൻ ആക്‌സസ് ലഭിക്കും.",
+    "They get access at once and are notified by SMS and in DRISTI.",
+    "അവർക്ക് ഉടൻ ആക്‌സസ് ലഭിക്കും, SMS വഴിയും DRISTI-യിലും അറിയിപ്പ് ലഭിക്കും.",
   ),
   teamInviteSentNote: t("Access given to", "ഇവർക്ക് ആക്‌സസ് നൽകി"),
   viewCaseFileWithTeam: t("Add members and view case file", "അംഗങ്ങളെ ചേർത്ത് കേസ് ഫയൽ കാണുക"),
