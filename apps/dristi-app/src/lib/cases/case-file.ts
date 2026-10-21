@@ -20,6 +20,9 @@ export type CaseFileNode = {
   href?: string;
   /** 1-based page in `href`. Absent on folders and on whole-file leaves. */
   page?: number;
+  /** False where the registry gives the type no docket page in the
+   *  downloaded case file (§6.3, CF-02): court-made documents. */
+  docket?: boolean;
 };
 
 const CASE_FILE_PDF = {
@@ -137,6 +140,7 @@ type Filed = {
   href: string;
   /** 1-based page in `href`. Absent when the whole file is the document. */
   page?: number;
+  docket?: boolean;
 };
 
 /**
@@ -326,6 +330,7 @@ const REGISTRY: { id: string; label: string; items: Filed[] }[] = [
         label: "Order closing complainant evidence",
         href: CASE_FILE_PDF.orders,
         page: 6,
+        docket: false,
       },
     ],
   },
@@ -349,6 +354,7 @@ const REGISTRY: { id: string; label: string; items: Filed[] }[] = [
         label: "Summons",
         href: CASE_FILE_PDF.orders,
         page: 3,
+        docket: false,
       },
     ],
   },
@@ -399,6 +405,7 @@ const REGISTRY: { id: string; label: string; items: Filed[] }[] = [
       ...item,
       href: CASE_FILE_PDF.orders,
       page: index + 2,
+      docket: false,
     })),
   },
 ];
@@ -425,6 +432,7 @@ export const CASE_FILE_TREE: CaseFileNode[] = [
           label: item.label,
           href: item.href,
           page: item.page,
+          docket: item.docket,
         })),
       };
     },
