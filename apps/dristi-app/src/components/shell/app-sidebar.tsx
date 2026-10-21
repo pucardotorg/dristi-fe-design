@@ -712,6 +712,14 @@ export function AppSidebar() {
   const { theme } = useRailTheme();
   const { profileRole } = useProfile();
   const { open: openSearch } = useAppSearch();
+  const { state, isMobile, setOpen } = useSidebar();
+
+  // Folded, the whole strip is the way back: a click anywhere on it — the empty plate or
+  // any of its icons — unfolds the rail. Capture phase, and nothing is stopped, so an
+  // icon still does its own job (a link still goes, search still opens) as the rail opens.
+  const unfoldOnClick = React.useCallback(() => {
+    if (state === "collapsed" && !isMobile) setOpen(true);
+  }, [state, isMobile, setOpen]);
 
   // Home is role-aware: the advocate's home and the litigant's home are different
   // screens on the same shell. The rest of the nav is shared.
@@ -736,8 +744,9 @@ export function AppSidebar() {
       // element above where these vars land — so the colour computes against the DS
       // default, not the theme. Re-declaring it here, beside the vars, is what makes
       // the foreground actually the theme's.
-      className="text-(--sidebar-foreground)"
+      className="text-(--sidebar-foreground) group-data-[collapsible=icon]:cursor-pointer"
       style={theme.vars as React.CSSProperties}
+      onClickCapture={unfoldOnClick}
     >
       {/*
        * Logo left, collapse control right — the mark sits at the page origin, where a
