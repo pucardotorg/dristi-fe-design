@@ -1,0 +1,37 @@
+/*
+ * Provakil's palette, from its own stylesheet: navy chrome, blue actions, teal success.
+ * Scoped to `.provakil` and named `--pv-*` so none of it reaches the DRISTI screens,
+ * whose design-system tokens use some of the same names (`muted`, `blue-50`).
+ */
+.provakil {
+  --pv-navy: #0a2540;
+  --pv-navy-2: #12355b;
+  --pv-blue: #2180e6;
+  --pv-blue-dark: #1767bd;
+  --pv-blue-50: #e8f2fd;
+  --pv-slate: #314a62;
+  --pv-ground: #eef2f7;
+  --pv-line: #dbe3ec;
+  --pv-muted: #6b7f99;
+  --pv-teal: #26a69a;
+  --pv-teal-50: #e0f4f1;
+  --pv-mint: #d0fef5;
+  --pv-plum: #a853a5;
+  --pv-plum-50: #f6ebf5;
+  --pv-amber: #b26a00;
+  --pv-amber-50: #fff4e0;
+  --pv-red: #c62828;
+  --pv-red-50: #fdecea;
+
+  min-height: 100vh;
+  background: var(--pv-ground);
+  color: var(--pv-navy);
+  font-family: var(--font-roboto), "Helvetica Neue", Arial, sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.provakil .num {
+  font-variant-numeric: tabular-nums;
+}

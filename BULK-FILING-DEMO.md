@@ -4,12 +4,15 @@ This demo shows how a lender's cheque-bounce cases move from its legal software 
 SARAS 2.0 (Gujarat's e-filing system) for filing, either all at once through a connection
 between the two systems or through an Excel file.
 
-You run two websites on your own computer:
+You run one website on your own computer, which holds two systems at different addresses:
 
-| Website | What it stands for | Address |
+| System | What it stands for | Address |
 |---|---|---|
-| **Provakil** | Tata Capital's legal case software | http://localhost:3100 |
+| **Provakil** | Tata Capital's legal case software | http://localhost:3000/provakil |
 | **SARAS 2.0** | Gujarat's court e-filing system | http://localhost:3000 |
+
+Provakil looks like its own product and sends cases to SARAS 2.0 only through the court's
+Bulk Filing API, as it would from outside. The same holds on a hosted copy of the demo.
 
 Everything stays on your computer. No real cases, people, payments or signatures are
 involved. Tata Capital's name and office address are real; every borrower, officer, phone
@@ -79,10 +82,10 @@ In the terminal, inside the `bulk-filing-demo` folder:
 npm run demo
 ```
 
-Wait until you see the two addresses printed (about 30 seconds the first time). Then open
+Wait until you see the addresses printed (about 30 seconds the first time). Then open
 in your browser:
 
-- Provakil: http://localhost:3100
+- Provakil: http://localhost:3000/provakil
 - SARAS 2.0: http://localhost:3000/filings/bulk
 
 Leave the terminal open while you test. To stop, click in the terminal and press
@@ -327,7 +330,7 @@ into …". Filed cases stay where they were.
 | What you see | What to do |
 |---|---|
 | `node: command not found`, or a version below 22 | Install Node.js 22 or newer (Part 1, step 1), then close and reopen the terminal. |
-| `Port 3000 is in use` or `3100 is in use` | Another program uses that address. Close it, or restart the computer, then `npm run demo` again. |
+| `Port 3000 is in use` | Another program uses that address. Close it, or restart the computer, then `npm run demo` again. |
 | A page is blank or keeps loading | Wait 30 seconds and reload. The first visit to each page takes longer. |
 | Provakil shows "SARAS 2.0 is not reachable" | The demo was started some other way. Stop it (Ctrl + C) and use `npm run demo`. |
 | `npm install` fails | Check the internet connection and run `npm install` again. |

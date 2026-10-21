@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { CheckCircle2Icon, CheckIcon, ChevronsUpDownIcon, FileTextIcon, PencilIcon, PlusIcon } from "lucide-react";
+import { CheckCircle2Icon, CheckIcon, ChevronsUpDownIcon, ExternalLinkIcon, FileTextIcon, PencilIcon, PlusIcon } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -206,6 +206,22 @@ export function ProfileSettings({ locale, profileName, idSubmitted, submittedId,
             <p className="text-body-compact text-muted-foreground">Set or change the password you use to sign in.</p>
           </div>
           <Button variant="outline">Set password</Button>
+        </div>
+      </section>
+
+      {/* Demo only: the litigation system that pushes cases through the Bulk Filing API (`src/provakil/`). */}
+      <section className="flex flex-col gap-5 border-t border-border pt-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-title-s font-semibold">Provakil (demo)</h2>
+            <p className="text-body-compact text-muted-foreground">A stand-in for a lender&apos;s legal case software, which files cases here through the Bulk Filing API.</p>
+          </div>
+          <Button variant="outline" asChild>
+            <a href="/provakil" target="_blank" rel="noreferrer">
+              Open Provakil
+              <ExternalLinkIcon data-icon="inline-end" aria-hidden />
+            </a>
+          </Button>
         </div>
       </section>
 

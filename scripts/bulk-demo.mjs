@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 /**
- * Bulk filing demo: starts SARAS 2.0 (the DRISTI app, Gujarat) and the Provakil mock
- * together, wired to each other. Ctrl+C stops both.
+ * Bulk filing demo: starts SARAS 2.0 (the DRISTI app, Gujarat), which also serves the
+ * Provakil mock at /provakil. Ctrl+C stops it.
  *
- *   npm run demo            SARAS 2.0 on http://localhost:3000, Provakil on http://localhost:3100
- *   npm run demo -- --reset  same, after clearing every batch, push and assignment
+ *   npm run demo            http://localhost:3000 (Provakil at /provakil)
+ *   npm run demo -- --reset  same, after clearing every batch
  *
- * Ports can be moved with DRISTI_PORT and PROVAKIL_PORT.
+ * Provakil keeps its own records (assignments, what it has sent) in the browser, and
+ * forgets a push once SARAS 2.0 no longer holds its batch, so a reset clears both sides.
+ * The port can be moved with DRISTI_PORT.
  */
 
 import { spawn } from "node:child_process";
@@ -14,8 +16,7 @@ import { rmSync } from "node:fs";
 import { join } from "node:path";
 
 const root = join(import.meta.dirname, "..");
-const dristiPort = process.env.DRISTI_PORT ?? "3000";
-const provakilPort = process.env.PROVAKIL_PORT ?? "3100";
+const port = process.env.DRISTI_PORT ?? "3000";
 
 const [major] = process.versions.node.split(".").map(Number);
 if (major < 22) {
@@ -25,36 +26,22 @@ if (major < 22) {
 
 if (process.argv.includes("--reset")) {
   rmSync(join(root, "apps/dristi-app/.data"), { recursive: true, force: true });
-  rmSync(join(root, "apps/provakil-mock/.data"), { recursive: true, force: true });
   console.log("Cleared demo data.");
 }
 
 const npm = process.platform === "win32" ? "npm.cmd" : "npm";
-const run = (name, args, env) => {
-  const child = spawn(npm, args, { cwd: root, env: { ...process.env, ...env }, stdio: ["ignore", "pipe", "pipe"], shell: process.platform === "win32" });
-  const tag = (line) => line && process.stdout.write(`[${name}] ${line}\n`);
-  child.stdout.on("data", (d) => String(d).split("\n").forEach(tag));
-  child.stderr.on("data", (d) => String(d).split("\n").forEach(tag));
-  child.on("exit", (code) => {
-    console.log(`[${name}] stopped (${code ?? "signal"})`);
-    process.exit(code ?? 0);
-  });
-  return child;
-};
+const child = spawn(npm, ["run", "dev", "-w", "@pucar/dristi-app", "--", "-p", port], {
+  cwd: root,
+  stdio: "inherit",
+  shell: process.platform === "win32",
+});
+child.on("exit", (code) => process.exit(code ?? 0));
 
-const children = [
-  run("saras", ["run", "dev", "-w", "@pucar/dristi-app", "--", "-p", dristiPort], {}),
-  run("provakil", ["run", "dev", "-w", "@pucar/provakil-mock", "--", "-p", provakilPort], {
-    DRISTI_URL: `http://localhost:${dristiPort}`,
-    PROVAKIL_URL: `http://localhost:${provakilPort}`,
-  }),
-];
-
-const stop = () => children.forEach((c) => c.kill("SIGINT"));
+const stop = () => child.kill("SIGINT");
 process.on("SIGINT", stop);
 process.on("SIGTERM", stop);
 
 setTimeout(() => {
-  console.log("\n  Provakil:  http://localhost:" + provakilPort + "/collections/litigation");
-  console.log("  SARAS 2.0: http://localhost:" + dristiPort + "/filings/bulk\n");
+  console.log("\n  Provakil:  http://localhost:" + port + "/provakil/collections/litigation");
+  console.log("  SARAS 2.0: http://localhost:" + port + "/filings/bulk\n");
 }, 4000);
