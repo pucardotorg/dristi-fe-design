@@ -35,6 +35,14 @@ import {
 import { useCognizanceLayout } from "@/components/employee/use-cognizance-layout";
 import type { CognizanceLayout } from "@/lib/employee/cognizance-layout";
 import { useCourtNavLayout } from "@/components/employee/use-court-nav-layout";
+import { useCourtNavShown } from "@/components/employee/use-court-nav-shown";
+import { courtNavRowShown, OPTIONAL_COURT_NAV_ROWS } from "@/lib/employee/nav-shown";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useNextHearingEntry } from "@/components/employee/use-next-hearing-entry";
 import { useOrderSigning } from "@/components/employee/use-order-signing";
 import { usePendingOrders } from "@/components/employee/use-pending-orders";
@@ -948,6 +956,7 @@ function CourtSettingsControl() {
   const [cognizanceLayout, setCognizanceLayout] = useCognizanceLayout();
   const [nextHearingEntry, setNextHearingEntry] = useNextHearingEntry();
   const demoSeed = useDemoSeed();
+  const [shown, setShown] = useCourtNavShown();
   const [open, setOpen] = React.useState(false);
   const [confirmReset, setConfirmReset] = React.useState(false);
 
@@ -1126,6 +1135,49 @@ function CourtSettingsControl() {
                   </Select>
                 </div>
               ))}
+              {/* Which optional rail tabs show (owner, 2026-10-21): every Sign row and
+                  the three at the rail's foot. Many can be on at once, so a checkbox
+                  menu rather than a select. */}
+              <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-center gap-3">
+                <Label
+                  htmlFor="settings-tabs-shown"
+                  className="text-caption font-normal text-muted-foreground"
+                >
+                  Tabs to show
+                </Label>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      id="settings-tabs-shown"
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full justify-between font-normal"
+                    >
+                      {shown.length} of {OPTIONAL_COURT_NAV_ROWS.length} shown
+                      <ChevronDownIcon aria-hidden className="text-muted-foreground" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="min-w-56">
+                    {OPTIONAL_COURT_NAV_ROWS.map((row) => (
+                      <DropdownMenuCheckboxItem
+                        key={row.id}
+                        checked={shown.includes(row.id)}
+                        onSelect={(event) => event.preventDefault()}
+                        onCheckedChange={(checked) =>
+                          setShown(
+                            checked
+                              ? [...shown, row.id]
+                              : shown.filter((id) => id !== row.id),
+                          )
+                        }
+                      >
+                        {row.label}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
               {/* A demo control, last and apart: everything filed and drafted in this
                   browser goes, so it asks first (owner, 2026-10-14). */}
               <Button
@@ -1251,6 +1303,22 @@ function withPendingCount(
   );
 }
 
+/**
+ * Groups, less the optional rows Court settings has hidden (`nav-shown.ts`) — and less
+ * any group left empty.
+ */
+function withShownRows(
+  groups: CourtNavGroup[],
+  shown: readonly string[],
+): CourtNavGroup[] {
+  return groups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => courtNavRowShown(item.id, shown)),
+    }))
+    .filter((group) => group.items.length > 0);
+}
+
 export function EmployeeNav() {
   const [cognizanceLayout] = useCognizanceLayout();
   const seat = useCourtRole();
@@ -1262,7 +1330,8 @@ export function EmployeeNav() {
     useOrderSigning(),
     court,
   );
-  const groups = withPendingCount(
+  const [shown] = useCourtNavShown();
+  const groups = withShownRows(withPendingCount(
     courtNavGroupsForSeat(
       courtNavGroupsForCourt(
         courtNavGroupsFor(
@@ -1276,6 +1345,9 @@ export function EmployeeNav() {
       court,
     ),
     pendingCount,
+  ), shown);
+  const trailing = courtNavItemsForSeat(COURT_NAV_TRAILING, seat).filter((item) =>
+    courtNavRowShown(item.id, shown),
   );
   const { openId, setOpenId, currentId } = useCourtNavDisclosure(groups);
   const [savedLayout] = useCourtNavLayout();
@@ -1329,6 +1401,7 @@ export function EmployeeNav() {
                links above already use. */
             <SidebarMenu className={RAIL_MENU}>
               {courtNavRowsFor(layout, court, seat)
+                .filter((item) => courtNavRowShown(item.id, shown))
                 .map((item) =>
                   item.id === "pending-orders"
                     ? { ...item, count: pendingCount }
@@ -1355,14 +1428,16 @@ export function EmployeeNav() {
               not somewhere the bench works, so it closes the rail rather than heading
               it (owner, 2026-09-23). The seam is what says it is a different species
               from the queues above it; without one it reads as a fifth kind of work. */}
-          <CourtNavBreak />
-          <SidebarMenu className={RAIL_MENU}>
-            {courtNavItemsForSeat(COURT_NAV_TRAILING, seat).map(
-              (item) => (
-                <CourtNavRow key={item.id} item={item} />
-              ),
-            )}
-          </SidebarMenu>
+          {trailing.length > 0 ? (
+            <>
+              <CourtNavBreak />
+              <SidebarMenu className={RAIL_MENU}>
+                {trailing.map((item) => (
+                  <CourtNavRow key={item.id} item={item} />
+                ))}
+              </SidebarMenu>
+            </>
+          ) : null}
         </SidebarGroup>
       </ChromeRail>
     </TooltipProvider>
