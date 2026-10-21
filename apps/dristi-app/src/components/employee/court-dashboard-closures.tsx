@@ -351,7 +351,7 @@ export function Closures({
 
 function Figure({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex min-w-0 flex-col items-start gap-0.5 bg-card px-4 py-3">
+    <div className="flex min-w-0 flex-col items-start gap-0.5 bg-surface-sunken px-4 py-3">
       <span className="text-body-compact text-muted-foreground">{label}</span>
       {children}
     </div>

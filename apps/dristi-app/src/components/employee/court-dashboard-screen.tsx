@@ -425,14 +425,14 @@ function Overview({
 
       <div className="flex min-w-0 flex-col gap-3">
         <div className="grid min-w-0 gap-px overflow-hidden rounded-xl border border-hairline bg-hairline sm:grid-cols-2 xl:grid-cols-[repeat(3,minmax(0,1fr))_minmax(0,1.4fr)]">
-          <div className="flex min-w-0 flex-col items-start gap-1 bg-card p-4 sm:px-6">
+          <div className="flex min-w-0 flex-col items-start gap-1 bg-surface-sunken p-4 sm:px-6">
             <p className="text-body-compact font-semibold">Cases filed</p>
             <CountButton name="cases filed" className="text-title-l font-semibold" {...opener("filed")}>
               <CountUp value={now.filed} format={countText} />
             </CountButton>
             {versus(now.filed, base?.filed, null)}
           </div>
-          <div className="flex min-w-0 flex-col items-start gap-1 bg-card p-4 sm:px-6">
+          <div className="flex min-w-0 flex-col items-start gap-1 bg-surface-sunken p-4 sm:px-6">
             <p className="text-body-compact font-semibold">Cases closed</p>
             <CountButton name="cases closed" className="text-title-l font-semibold" {...opener("closed")}>
               <CountUp value={now.closed} format={countText} />
@@ -443,7 +443,7 @@ function Overview({
             </p>
             {versus(now.closed, base?.closed, true)}
           </div>
-          <div className="flex min-w-0 flex-col items-start gap-1 bg-card p-4 max-xl:sm:col-span-2 sm:px-6">
+          <div className="flex min-w-0 flex-col items-start gap-1 bg-surface-sunken p-4 max-xl:sm:col-span-2 sm:px-6">
             <p className="text-body-compact font-semibold">{pendingName}</p>
             <CountButton name="pending" className="text-title-l font-semibold" {...opener("pending")}>
               <CountUp value={end.pending} format={countText} />
@@ -476,7 +476,7 @@ function Overview({
               ))}
             </p>
           </div>
-          <div className="flex min-w-0 flex-col justify-center gap-3 bg-card p-4 sm:col-span-2 sm:px-6 xl:col-span-1">
+          <div className="flex min-w-0 flex-col justify-center gap-3 bg-surface-sunken p-4 sm:col-span-2 sm:px-6 xl:col-span-1">
             <p className="text-body-compact font-semibold">
               How long the {formatCount(end.pending)} pending cases have been in court
             </p>
@@ -800,13 +800,6 @@ function StagePath({
           <span className="inline-flex items-center gap-2">
             <span aria-hidden className={cn("h-2.5 w-3.5 rounded-xs", LATE_SWATCH)} />
             Past the review point
-          </span>
-          <span className="inline-flex items-center gap-2">
-            <span aria-hidden className="relative block h-3 w-7 rounded-full border border-border bg-card">
-              <span className="absolute top-1 left-1.5 size-1 rounded-full bg-primary" />
-              <span className="absolute top-1 right-1.5 size-1 rounded-full bg-primary" />
-            </span>
-            Cases that moved to the next stage {during}
           </span>
           <span className="tabular-nums">
             Not counted above: {plural(end.longPending, "case", "cases")} on the long pending register.
