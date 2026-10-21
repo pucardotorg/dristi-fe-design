@@ -2,16 +2,13 @@ import {
   CalendarClockIcon,
   CalendarDaysIcon,
   CalendarIcon,
-  CalendarXIcon,
   CopyIcon,
-  EllipsisIcon,
   FileCheckIcon,
   FileClockIcon,
   FilePenIcon,
   FilePlusIcon,
   FileSearchIcon,
   FolderIcon,
-  HourglassIcon,
   LayoutDashboardIcon,
   InboxIcon,
   ListChecksIcon,
@@ -38,13 +35,11 @@ import {
   cognizanceTabCount,
 } from "./cognizance";
 import { type CognizanceLayout, readCognizanceLayout } from "./cognizance-layout";
-import { DELAY_CONDONATION_QUEUE_COUNT } from "./delay-condonation";
 import { hearingById, TODAYS_HEARING_COUNT } from "./hearings";
 import type { CourtNavLayout } from "./nav-layout";
 import { findCaseRecord } from "../cases/party-cases";
 import type { CourtId } from "../court/profiles";
 import { scrutinyRegistersIn } from "./court-role";
-import { OTHER_APPLICATIONS_QUEUE_COUNT } from "./other-applications";
 import {
   APPROVE_REGISTRATIONS_TITLE,
   REGISTRATIONS_QUEUE_COUNT,
@@ -53,7 +48,6 @@ import { registerCaseById, REGISTER_QUEUE_COUNT } from "./register-cases";
 import { readPendingOrders } from "./pending-orders";
 import { registerById, registerCrumb, REGISTERS_PAGE } from "./registers";
 import { findFiling, SCRUTINY_QUEUE_COUNT } from "./scrutiny/queue";
-import { RESCHEDULING_QUEUE_COUNT } from "./rescheduling-request";
 import { SCHEDULING_QUEUE_COUNT } from "./schedule";
 import { A_DIARY_PENDING_COUNT } from "./sign-a-diary";
 import { SIGN_BAIL_BOND_QUEUE_COUNT } from "./sign-bail-bonds";
@@ -74,8 +68,7 @@ import type { CourtRole } from "./content";
  *
  * **Most of it is not wired yet.** The three Hearings rows, all five Actions rows —
  * Scrutinise submitted cases, Register cases, Take cognizance, Approve copy application
- * and Register advocates — all three Review applications rows —
- * Rescheduling request, Delay condonation and Others — and all seven of the Sign rows —
+ * and Register advocates — Review applications' one row, Applications — and all seven of the Sign rows —
  * Sign forms, Sign orders, Sign process, Sign bail bonds, Sign witness deposition, Sign
  * evidence and Sign A-Diary — have an `href`, and they point at the court-side routes
  * that exist. Every other row is a real, focusable control that says plainly it goes
@@ -90,8 +83,6 @@ import type { CourtRole } from "./content";
  * `lib/employee/register-cases.ts`, `lib/employee/cognizance.ts`,
  * `lib/employee/approve-copy-application.ts`,
  * `lib/employee/approve-registrations.ts`,
- * `lib/employee/rescheduling-request.ts`,
- * `lib/employee/delay-condonation.ts`, `lib/employee/other-applications.ts`,
  * `lib/employee/sign-forms.ts`, `lib/employee/sign-orders.ts`,
  * `lib/employee/sign-process.ts`, `lib/employee/sign-bail-bonds.ts`,
  * `lib/employee/sign-witness-deposition.ts`, `lib/employee/sign-evidence.ts`,
@@ -386,36 +377,16 @@ export const COURT_NAV_GROUPS: CourtNavGroup[] = [
     label: "Review applications",
     icon: FileSearchIcon,
     items: [
-      /* First, and without a count: the lifecycle's own queue — onboarding and the order
-         on each, one item since 2026-10-07 — read from the applications store in the
-         browser, so the rail cannot know the number before the screen loads. The three
-         fixture queues below predate it. */
+      /* The one review queue, and without a count: the lifecycle's own queue —
+         onboarding and the order on each, one item since 2026-10-07 — read from the
+         applications store in the browser, so the rail cannot know the number before the
+         screen loads. Rescheduling request, Delay condonation and Others are gone: every
+         application comes through here (owner, 2026-10-21). */
       {
         id: "applications",
         label: "Applications",
         icon: InboxIcon,
         href: "/employee/applications",
-      },
-      {
-        id: "rescheduling-request",
-        label: "Rescheduling request",
-        icon: CalendarXIcon,
-        href: "/employee/rescheduling-request",
-        count: RESCHEDULING_QUEUE_COUNT,
-      },
-      {
-        id: "delay-condonation",
-        label: "Delay condonation",
-        icon: HourglassIcon,
-        href: "/employee/delay-condonation",
-        count: DELAY_CONDONATION_QUEUE_COUNT,
-      },
-      {
-        id: "other-applications",
-        label: "Others",
-        icon: EllipsisIcon,
-        href: "/employee/other-applications",
-        count: OTHER_APPLICATIONS_QUEUE_COUNT,
       },
     ],
   },
@@ -532,17 +503,14 @@ const HIDDEN_FROM_BENCH: ReadonlySet<string> = new Set([
   "approve-registrations",
 ]);
 /**
- * What the steno does not see (owner, 2026-10-14): the registry's queues, three of the
- * review queues, and every Sign row — signing is the bench's act, not the steno's.
+ * What the steno does not see (owner, 2026-10-14): the registry’s queues and
+ * every Sign row — signing is the bench’s act, not the steno’s.
  */
 const HIDDEN_FROM_STENO: ReadonlySet<string> = new Set([
   "scrutiny",
   "cognizance",
   "approve-copy",
   "approve-registrations",
-  "rescheduling-request",
-  "delay-condonation",
-  "other-applications",
   "sign-forms",
   "sign-orders",
   "sign-process",
