@@ -126,6 +126,7 @@ const INSTRUMENT_LABEL: Record<SignInstrument, string> = {
   aadhaar: "Signed with Aadhaar OTP",
   dsc: "Signed with a DSC",
   paper: "Signed on paper",
+  otp: "Signed with mobile OTP",
 };
 
 /** Sandbox session: signing in on this page marks this tab, for this link, as signed in. */

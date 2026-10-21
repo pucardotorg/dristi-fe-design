@@ -429,9 +429,11 @@ export type AccusedProcessChoice = {
 /**
  * What one signature was made with. Aadhaar OTP and a DSC are both *digital* — the
  * difference is the instrument in the signer's own hands, which is theirs to pick and
- * need not match anyone else's. `paper` is a signature on the uploaded copy.
+ * need not match anyone else's. `paper` is a signature on the uploaded copy. `otp` is a
+ * mobile OTP signature, offered only for bulk filing (`lib/bulk`); whether it is coming
+ * to the product is Bulk Filing PRD §8 Q9, still open.
  */
-export type SignInstrument = "aadhaar" | "dsc" | "paper";
+export type SignInstrument = "aadhaar" | "dsc" | "paper" | "otp";
 
 /** What stopped e-signing, as the person turning to paper says it (`PAPER_FALLBACK_REASONS`). */
 export type PaperFallbackReason =

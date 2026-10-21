@@ -24,6 +24,9 @@
     "test:rails": "node --test scripts/agent-rails.test.mjs",
     "verify:agents": "node scripts/verify-agent-work.mjs agents",
     "verify:ui": "node scripts/verify-agent-work.mjs ui",
-    "test:app": "npm test -w @pucar/dristi-app"
+    "test:app": "npm test -w @pucar/dristi-app",
+    "demo": "node scripts/bulk-demo.mjs",
+    "demo:files": "npm exec -w @pucar/dristi-app -- tsx scripts/bulk-demo-files.mts",
+    "demo:docs": "npm exec -w @pucar/dristi-app -- tsx scripts/bulk-demo-docs.mts"
   }
 }
