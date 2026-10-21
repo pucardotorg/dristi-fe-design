@@ -301,6 +301,7 @@ export function AddSignatureDialog({
           step === "processing" && "[&_[data-slot=dialog-close]]:hidden",
         )}
         {...guard.contentProps}
+        {...guard.outsideProps}
         // Radix's own restore lands on document.body here, so put focus back
         // on the button that opened the chain explicitly.
         onCloseAutoFocus={(event) => {

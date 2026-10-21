@@ -351,6 +351,7 @@ function RequestBody({
         onReturnFocus();
       }}
       {...guard.contentProps}
+      {...guard.outsideProps}
       footer={
         stage === "review" ? (
           <>

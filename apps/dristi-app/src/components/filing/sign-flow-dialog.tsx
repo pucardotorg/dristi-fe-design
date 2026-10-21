@@ -675,6 +675,7 @@ function SignFlowBody({
       {input}
       <StagedOverlay mobileSheet
         {...guard.contentProps}
+        {...guard.outsideProps}
         className="sm:max-w-2xl"
         title={title}
         titleRef={flow.titleRef}

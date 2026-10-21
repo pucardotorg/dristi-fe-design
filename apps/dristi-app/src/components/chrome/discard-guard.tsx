@@ -13,6 +13,30 @@ const SURFACE =
   '[data-slot="dialog-content"], [data-slot="sheet-content"], [data-slot="drawer-content"]';
 /** The primitives' own close controls: the corner X, footer closes and Back's hidden one. */
 const CLOSE = '[data-slot="dialog-close"], [data-slot="sheet-close"], [data-slot="drawer-close"]';
+/**
+ * The floating layers a popup's own fields open past its edge — a combobox's list, a
+ * date picker, a menu — plus toasts and the dev overlay. They are drawn outside the popup,
+ * so a pick from one would otherwise count as a click outside it.
+ */
+const OWN_LAYER = [
+  '[data-slot="combobox-content"]',
+  '[data-slot="popover-content"]',
+  '[data-slot="select-content"]',
+  '[data-slot="dropdown-menu-content"]',
+  '[data-slot="dropdown-menu-sub-content"]',
+  '[data-slot="context-menu-content"]',
+  '[data-slot="context-menu-sub-content"]',
+  '[data-slot="hover-card-content"]',
+  '[data-slot="tooltip-content"]',
+  "[data-radix-popper-content-wrapper]",
+  "[data-sonner-toaster]",
+  "nextjs-portal",
+].join(", ");
+
+/** Whether a press outside a popup landed on one of its own floating layers. */
+export function onOwnLayer(target: EventTarget | null): boolean {
+  return target instanceof Element && target.closest(OWN_LAYER) !== null;
+}
 
 /**
  * **A popup with something in it asks before it closes.**
@@ -29,16 +53,16 @@ const CLOSE = '[data-slot="dialog-close"], [data-slot="sheet-close"], [data-slot
  * along its bottom edge where the window's own actions were.
  *
  * The guard holds those closes at the popup's own surface, so it works whoever owns the
- * popup's open state: spread `guard.contentProps` on the content (Escape, the close button,
- * and the hidden close that Back presses in a flow window), add `guard.outsideProps` where
- * a click outside closes the popup today, and point the popup's own Cancel at
- * `guard.close`. Discarding calls `onDiscard`, which is the popup's real close. While the
- * question is up, any further close means "keep editing": a second Escape or a click on
- * the dimmed window never discards.
+ * popup's open state: spread `guard.contentProps` and `guard.outsideProps` on the content
+ * (Escape, the close button, the hidden close that Back presses in a flow window, and a
+ * click outside), and point the popup's own Cancel at `guard.close`. Discarding calls
+ * `onDiscard`, which is the popup's real close. While the question is up, any further
+ * close means "keep editing": a second Escape or a click on the dimmed window never
+ * discards.
  *
- * Popups whose frame ignores a click outside (`FlowDialogContent`, `StagedOverlay`) leave
- * `outsideProps` off: the click loses nothing there, and those frames ignore it so that a
- * list a field has portalled out of the window stays clickable.
+ * A click outside is one rule everywhere (Anshumanth, 2026-10-22, on Join a case ignoring
+ * it): an empty popup closes, a popup holding an entry asks. A pick from one of the
+ * popup's own floating lists (`onOwnLayer`) is not a click outside.
  */
 export function useDiscardGuard(dirty: boolean, onDiscard: () => void) {
   const [asking, setAsking] = React.useState(false);
@@ -82,6 +106,10 @@ export function useDiscardGuard(dirty: boolean, onDiscard: () => void) {
 
   const outsideProps = {
     onPointerDownOutside: (event: Event) => {
+      if (onOwnLayer(event.target)) {
+        event.preventDefault();
+        return;
+      }
       if (!holding) return;
       event.preventDefault();
       close();

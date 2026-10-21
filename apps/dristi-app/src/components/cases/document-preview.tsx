@@ -511,7 +511,7 @@ function FullViewDialog({
       {/* The primitive parks its close button 8px from the corner, which left
           the title row hard against the top edge. Here it moves in to 16px and
           the row follows it (owner, Sept 18). */}
-      <FlowDialogContent outsideCloses className="flex h-[92svh] flex-col gap-4 overflow-hidden sm:max-w-[calc(100%-4rem)] [&>[data-slot=dialog-close]]:top-4 [&>[data-slot=dialog-close]]:right-4">
+      <FlowDialogContent className="flex h-[92svh] flex-col gap-4 overflow-hidden sm:max-w-[calc(100%-4rem)] [&>[data-slot=dialog-close]]:top-4 [&>[data-slot=dialog-close]]:right-4">
         {/* One plane: title, then the download icon, then the close button.
             The row's centre is the close button's (34px down), and `pr-8`
             leaves the download icon 4px short of it, so the two read as a

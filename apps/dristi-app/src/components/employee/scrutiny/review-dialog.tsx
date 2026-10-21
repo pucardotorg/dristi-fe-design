@@ -266,6 +266,7 @@ export function ReviewDialog({
     <Dialog open onOpenChange={onOpenChange}>
       <StagedOverlay
         {...guard.contentProps}
+        {...guard.outsideProps}
         /* The measure of a long list, and a **definite height** rather than a floor.
            Two things change between the stages now — the list becomes a confirmation, and
            the header's line becomes a shorter one — and a floor only holds the first of

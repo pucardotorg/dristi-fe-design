@@ -190,6 +190,7 @@ function RecordReturnsBody({
   return (
     <StagedOverlay
       {...guard.contentProps}
+      {...guard.outsideProps}
       className="sm:max-w-2xl"
       title={done ? ACT.done(subject) : ACT.question(subject)}
       titleRef={flow.titleRef}

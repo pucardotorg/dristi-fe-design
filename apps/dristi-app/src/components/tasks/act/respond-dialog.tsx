@@ -75,7 +75,7 @@ export function TaskRespondDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <FlowDialogContent className="sm:max-w-lg" {...guard.contentProps}>
+      <FlowDialogContent className="sm:max-w-lg" {...guard.contentProps} {...guard.outsideProps}>
         <DialogHeader>
           <DialogTitle>Review the request</DialogTitle>
           <DialogDescription>

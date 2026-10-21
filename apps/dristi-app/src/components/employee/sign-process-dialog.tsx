@@ -342,6 +342,7 @@ function SignProcessBody({
   return (
     <StagedOverlay
       {...guard.contentProps}
+      {...guard.outsideProps}
       /* The paper's width and a definite height at every width, held for every stage. */
       className="h-[85dvh] sm:max-w-4xl xl:max-w-6xl"
       title={title}

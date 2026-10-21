@@ -1625,6 +1625,7 @@ function RescheduleOverlay({
   return (
     <StagedOverlay
       {...guard.contentProps}
+      {...guard.outsideProps}
       /* Narrow: this act is one question at a time, not a document to read. No definite
          height either, so the canvas carries a `floor` — see the frame, which explains why
          it arrives in viewport-height steps rather than unconditionally. */

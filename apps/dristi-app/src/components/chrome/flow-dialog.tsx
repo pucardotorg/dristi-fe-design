@@ -3,6 +3,7 @@
 import * as React from "react";
 
 import { ChromeDialogContent } from "@/components/chrome/app-chrome";
+import { onOwnLayer } from "@/components/chrome/discard-guard";
 import { OVERLAY_RISE } from "@/components/chrome/motion";
 import {
   useBackCloses,
@@ -23,10 +24,13 @@ import { cn } from "@/lib/utils";
  * step back) still happens. A flow with real steps wires `useBackCloses` itself
  * to walk them and passes `ownBack`, as do the dialogs it chains into.
  *
- * A click outside does not close it (owner, 2026-10-13): a misclick beside a
- * half-done flow lost every step entered. Close, Escape and the phone's Back
- * still do. A window that only shows something — a record, a document — passes
- * `outsideCloses`.
+ * A click outside follows the product's one rule (2026-10-22): an empty window
+ * closes, and one holding an entry asks before it goes (`useDiscardGuard`). It
+ * used to ignore the click altogether (owner, 2026-10-13), because a misclick
+ * beside a half-done flow lost every step entered; the guard now protects those
+ * steps, and a click that did nothing read as broken (Anshumanth). A pick from a
+ * list a field opened past the window's edge is not a click outside, and focus
+ * moving into one never closes it.
  *
  * Confirmations and notices are not workflows and stay on the plain content,
  * which turns them into bottom sheets on a phone.
@@ -38,12 +42,10 @@ export function FlowDialogContent({
   ownBack = false,
   rise = false,
   sheet = false,
-  outsideCloses = false,
-  onInteractOutside,
+  onPointerDownOutside,
+  onFocusOutside,
   ...props
 }: React.ComponentProps<typeof ChromeDialogContent> & {
-  /** A viewer with nothing to lose: a click outside closes it, as a plain dialog. */
-  outsideCloses?: boolean;
   /** The flow handles the phone's Back itself. */
   ownBack?: boolean;
   /**
@@ -91,9 +93,13 @@ export function FlowDialogContent({
     <ChromeDialogContent
       className={cn(rise && !flow.phone && OVERLAY_RISE, className, surface)}
       style={{ ...style, ...(sheet ? bottomSheet.style : flow.style) }}
-      onInteractOutside={(event) => {
-        onInteractOutside?.(event);
-        if (!outsideCloses) event.preventDefault();
+      onPointerDownOutside={(event) => {
+        if (onOwnLayer(event.target)) event.preventDefault();
+        else onPointerDownOutside?.(event);
+      }}
+      onFocusOutside={(event) => {
+        onFocusOutside?.(event);
+        event.preventDefault();
       }}
       {...props}
     >

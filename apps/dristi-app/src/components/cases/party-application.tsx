@@ -380,6 +380,7 @@ export function PartySignatureDialog({
       <FlowDialogContent
         className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md"
         {...guard.contentProps}
+        {...guard.outsideProps}
       >
         {step === "done" ? (
           <>

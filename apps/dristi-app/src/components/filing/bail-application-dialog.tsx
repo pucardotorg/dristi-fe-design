@@ -591,7 +591,6 @@ export function BailApplicationDialog({
           "flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl",
           stage === "processing" && "[&_[data-slot=dialog-close]]:hidden",
         )}
-        onInteractOutside={(event) => event.preventDefault()}
       >
         {stage === "done" ? (
           <DialogHeader className="shrink-0 border-b border-hairline px-6 py-5 pr-14 text-left">

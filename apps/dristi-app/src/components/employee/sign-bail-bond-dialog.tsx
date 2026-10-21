@@ -139,6 +139,7 @@ function SignBailBondBody({
   return (
     <StagedOverlay
       {...guard.contentProps}
+      {...guard.outsideProps}
       /* The width and the height the *document* needs, held for both stages — see
          `SignOrderDialog` for why the height is definite at every width. */
       className="h-[85dvh] sm:max-w-4xl"

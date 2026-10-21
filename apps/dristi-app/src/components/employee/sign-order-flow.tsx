@@ -324,6 +324,7 @@ function SignOrderFlowBody({
   return (
     <StagedOverlay
       {...guard.contentProps}
+      {...guard.outsideProps}
       /* The order is read wide and tall; every other step, a bulk run's list included,
          is the signing width at its own height. */
       className={

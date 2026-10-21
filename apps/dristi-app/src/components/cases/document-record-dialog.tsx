@@ -90,6 +90,7 @@ export function DocumentRecordDialog({
         showCloseButton={false}
         className="flex h-[calc(100dvh---spacing(12))] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl"
         {...guard.contentProps}
+        {...guard.outsideProps}
       >
         {shown ? (
           <DocumentBody

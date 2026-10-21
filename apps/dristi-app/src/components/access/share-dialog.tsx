@@ -158,6 +158,7 @@ export function ShareDialog({
       <FlowDialogContent
         className="flex max-h-[calc(100dvh---spacing(12))] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl"
         {...guard.contentProps}
+        {...guard.outsideProps}
       >
         {/* Header: what this is, then exactly what it applies to. */}
         <DialogHeader className="gap-2.5 border-b border-hairline px-6 py-5 text-left">

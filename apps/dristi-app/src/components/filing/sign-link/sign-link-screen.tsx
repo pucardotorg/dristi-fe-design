@@ -657,6 +657,7 @@ function SignLinkWizard({
   return (
     <StagedOverlay
       {...guard.contentProps}
+      {...guard.outsideProps}
       mobileSheet
       className="sm:max-w-2xl"
       title={title}

@@ -356,7 +356,7 @@ export function OtpDialog({
   const guard = useDiscardGuard(otp.length > 0, () => onOpenChange(false));
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <FlowDialogContent className="sm:max-w-md" {...guard.contentProps}>
+      <FlowDialogContent className="sm:max-w-md" {...guard.contentProps} {...guard.outsideProps}>
         {/* Mounted per open, so the code always starts empty. */}
         {open ? (
           <OtpForm

@@ -175,6 +175,7 @@ function AddAddressDialog({
       <FlowDialogContent
         className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl"
         {...guard.contentProps}
+        {...guard.outsideProps}
       >
         <DialogHeader className="shrink-0 gap-1.5 border-b border-hairline px-6 py-5 pr-14 text-left">
           <DialogTitle className="text-title-s font-semibold text-balance">

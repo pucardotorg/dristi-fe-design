@@ -326,6 +326,7 @@ function BatchBody({
         else guard.contentProps.onEscapeKeyDown(e);
       }}
       onClickCapture={guard.contentProps.onClickCapture}
+      {...guard.outsideProps}
     >
       <div key={flow.stage} className={cn("flex min-h-0 flex-1 flex-col", flow.sceneClassName)}>
         <div className="mx-auto flex w-full max-w-xl flex-col gap-4">

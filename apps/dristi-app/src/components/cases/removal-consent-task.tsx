@@ -175,6 +175,7 @@ function RemovalConsentDialog({
       <FlowDialogContent
         className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl"
         {...guard.contentProps}
+        {...guard.outsideProps}
       >
         {decision ? (
           <>

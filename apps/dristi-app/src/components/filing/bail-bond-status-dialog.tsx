@@ -55,7 +55,6 @@ export function BailBondStatusDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <FlowDialogContent
-        outsideCloses
         lang={locale}
         className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
       >

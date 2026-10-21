@@ -1,6 +1,7 @@
 # Discard confirmation for popups with unsaved work
-Updated: 2026-10-21
-Status: implemented (uncommitted, on `feature-cancellation-modal` from `origin/main` d497ab5)
+Updated: 2026-10-22
+Status: implemented on `feature-cancellation-modal` (first pass pushed at 9de7c54; the
+click-outside rule below is uncommitted)
 
 ## Current outcome
 
@@ -16,6 +17,10 @@ did before.
   it is, dimmed and inert, and the question docks along its bottom edge.
 - While the question is up, any further close (a second Escape, the X, the dimmed window,
   a second Back) means "keep editing". Only **Discard** discards.
+- A click outside is one rule in every popup (2026-10-22): an empty popup closes, a popup
+  holding an entry asks. A pick from one of the popup's own floating lists (a combobox
+  list, a select, a date picker, a menu) is not a click outside, and focus moving into one
+  never closes the popup. A popup that is processing (a payment, a signature) stays open.
 - English and Malayalam copy. The Malayalam needs review by a native speaker.
 - Inventory and before-screenshots:
   [review artifact](https://claude.ai/artifact/SHBUDhcjV7MeH5NgxGQGJc).
@@ -30,7 +35,8 @@ did before.
 | 2026-10-21 | Both sides: court and advocate/litigant. The advocate/litigant files are in a teammate's area, so coordinate in the PR. | Neer | Confirmed |
 | 2026-10-21 | Any entry triggers it, including OTPs, a single date and popups that kept their entry. | Neer | Confirmed |
 | 2026-10-21 | In-window question rather than a stacked AlertDialog. It follows the overlay convention (`ui-craft` motion; owner, 2026-10-13, on the join dialogs). | Implementation choice | Built |
-| 2026-10-21 | Flow and staged windows keep ignoring a click outside. Nothing is lost there, and that's what keeps portalled lists clickable. | Implementation choice | Built |
+| 2026-10-21 | Flow and staged windows keep ignoring a click outside. Nothing is lost there, and that's what keeps portalled lists clickable. | Implementation choice | Superseded 2026-10-22 |
+| 2026-10-22 | One rule for a click outside, everywhere: empty closes, an entry asks. The step-by-step frames ignored the click altogether (owner, 2026-10-13, so a misclick couldn't lose a half-done flow); the guard now protects that work, and a click that did nothing read as broken. Picks from the popup's own floating lists are excluded. | Anshumanth (report on Join a case), Neer | Built |
 | 2026-10-21 | Signing: digits of an OTP or an attached signed copy count as an entry. Choosing the method alone does not. | Implementation choice | Built, open to change |
 | 2026-10-21 | The existing discard dialogs now use the shared question. Raise application keeps its save-as-draft question, because saving is the main answer there (owner, 2026-09-24). | Implementation choice | Built |
 
@@ -57,6 +63,13 @@ did before.
 
 ## Verification and open work
 
+- 2026-10-22, click-outside rule: all 41 reachable popups and viewers re-checked in the
+  running app. Every popup closes on a click outside when empty and asks when something is
+  entered; viewers close. Picking from six portalled lists by mouse (invite combobox,
+  selects in flow, staged and plain popups, a date picker) keeps the popup open with no
+  question. A task payment that is processing stays open on a click outside. Add witnesses
+  asked even when empty (its blank address and contact counted as an entry); fixed.
+
 - Probed in the running app on this checkout: 24 popups ask on Escape, and 3 more were
   checked by hand (Share access with a person added, Join a case, Add order items). Plain
   popups also ask on a click outside. Keep editing returns focus with the text intact, Tab stays in the
@@ -70,5 +83,5 @@ did before.
   from a summons (behind sign-in), bail application (accused side only), task OTP, sign-link.
   These were reviewed from source only.
 - Review was a separate self-review pass, not independent. No `ui-reviewer` was tagged.
-- Open: Malayalam review; whether a stray click on an *empty* flow window should close it;
-  teammate sign-off on the citizen-area files.
+- Open: Malayalam review; teammate sign-off on the citizen-area files. Your details leaves
+  the profile menu open behind it after closing (seen while testing, not checked on `main`).

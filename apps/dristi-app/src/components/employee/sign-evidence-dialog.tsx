@@ -213,6 +213,7 @@ function SignEvidenceBody({
       className="sm:max-w-lg"
       floor
       {...guard.contentProps}
+      {...guard.outsideProps}
       title={TITLE[flow.stage]}
       titleRef={flow.titleRef}
       /* The marking's own state — waiting for this bench's signature — and it is just as

@@ -95,7 +95,6 @@ export function ApplicationRecordDialog({
   return (
     <Dialog open={application !== null} onOpenChange={onOpenChange}>
       <FlowDialogContent
-        outsideCloses
         showCloseButton={false}
         className="flex h-[calc(100dvh---spacing(12))] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl"
       >

@@ -132,6 +132,7 @@ function SignADiaryBody({
          can split earlier than this one can. */
       className="sm:max-w-5xl lg:h-[85dvh]"
       {...guard.contentProps}
+      {...guard.outsideProps}
       title="A-Diary entry"
       titleRef={titleRef}
       description={

@@ -734,7 +734,6 @@ export function AdvocateJoinCaseDialog({
         // A click outside never closes the flow: a misclick lost every step entered
         // (owner, 2026-10-13). Close and Escape remain, and ask first partway through.
         // This also keeps the litigant combobox's portalled list clickable.
-        onInteractOutside={(event) => event.preventDefault()}
         // Escape must close the innermost layer only: with the combobox list open
         // (its popup is in the DOM), the dialog stands down and lets the list
         // close; a second Escape then closes the dialog.

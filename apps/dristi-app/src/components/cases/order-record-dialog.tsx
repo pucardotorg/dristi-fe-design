@@ -45,7 +45,6 @@ export function OrderRecordDialog({
   return (
     <Dialog open={Boolean(order)} onOpenChange={onOpenChange}>
       <FlowDialogContent
-        outsideCloses
         showCloseButton={false}
         className={cn(
           "flex flex-col gap-0 overflow-hidden p-0",

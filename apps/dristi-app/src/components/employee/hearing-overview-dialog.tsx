@@ -148,7 +148,6 @@ function HearingOverviewBody({
        Its stage is the frame's one-plane `card` stage (below): a single panel needs no
        tinted canvas, and its header carries the hairline every sibling's does. */
     <StagedOverlay
-      outsideCloses
       className="sm:max-w-4xl"
       /* One tabbed panel is the whole stage, so it is the frame's one-plane white stage,
          unpadded, rather than a white card on the tinted canvas — the tint bought nothing
