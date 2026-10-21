@@ -34,6 +34,12 @@ export type FieldPolicy = {
   lockedAt: (instance: number | null) => React.ReactNode | null;
   /** Open issues in a step, for its row in the rail. */
   countFor: (step: StepId) => number;
+  /**
+   * Where the footer's primary action goes instead of the section's own Continue, or
+   * `null` to leave it. Bulk filing sends a case with nothing left here to the next
+   * section or case that needs something, rather than through every clean section.
+   */
+  next?: { label: string; href: string; status?: React.ReactNode } | null;
 };
 
 const FieldPolicyContext = React.createContext<FieldPolicy | null>(null);
