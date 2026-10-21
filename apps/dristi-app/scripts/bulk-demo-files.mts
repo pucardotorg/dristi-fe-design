@@ -5,6 +5,10 @@
  *   demo-files/tata-capital-bulk-filing-template.xlsx   follows the template (no matching)
  *   demo-files/tata-capital-recovery-mis.xlsx           the lender's own layout (matching screens)
  *
+ * The lender's layout has no cheque date and no presentation date: a recovery MIS records
+ * the bounce, not those. Both are required, so every case it brings arrives held and has
+ * to be completed one case at a time, from the cheque and the return memo.
+ *
  *   npm run demo:files
  *
  * The cases are fictional and different from the Provakil mock's, so uploading them never
@@ -222,11 +226,11 @@ async function misFile() {
   const ws = wb.addWorksheet("NI 138 MIS");
   const cols = [
     "Sr No", "Loan A/c No", "Product", "Customer Name", "Cust Type", "Director/Partner", "Mobile No", "Email Id",
-    "Communication Address", "City", "PIN", "Chq No", "Chq Dt", "Chq Amount (Rs)", "Drawee Bank IFSC", "Drawer A/c No",
-    "Presented On", "Bounce Date", "Bounce Reason", "Collecting IFSC", "Notice Sent On", "Sent Via", "AWB No",
+    "Communication Address", "City", "PIN", "Chq No", "Chq Amount (Rs)", "Drawee Bank IFSC", "Drawer A/c No",
+    "Bounce Date", "Bounce Reason", "Collecting IFSC", "Notice Sent On", "Sent Via", "AWB No",
     "Notice Status", "Served On", "Returned On", "Remarks", "Reply Recd", "Recovered After Notice",
     // A second cheque, in the lender's own column names with _2.
-    "Chq No_2", "Chq Dt_2", "Chq Amount (Rs)_2", "Drawee Bank IFSC_2", "Drawer A/c No_2", "Presented On_2", "Bounce Date_2", "Bounce Reason_2",
+    "Chq No_2", "Chq Amount (Rs)_2", "Drawee Bank IFSC_2", "Drawer A/c No_2", "Bounce Date_2", "Bounce Reason_2",
   ];
   ws.columns = cols.map((h) => ({ header: h, key: h, width: Math.max(14, h.length + 4) }));
   header(ws);
@@ -245,11 +249,9 @@ async function misFile() {
       City: c.city.toUpperCase(),
       PIN: c.pin,
       "Chq No": c.cheque,
-      "Chq Dt": dmy(t.dated, "/"),
       "Chq Amount (Rs)": c.amount.toLocaleString("en-IN"),
       "Drawee Bank IFSC": c.ifsc,
       "Drawer A/c No": c.account,
-      "Presented On": dmy(t.presented, "/"),
       "Bounce Date": dmy(t.returned, "/"),
       "Bounce Reason": MIS_REASON[c.reason],
       "Collecting IFSC": "HDFC0000060",
@@ -265,11 +267,9 @@ async function misFile() {
       ...(c.second
         ? {
             "Chq No_2": c.second.cheque,
-            "Chq Dt_2": dmy(t.dated, "/"),
             "Chq Amount (Rs)_2": c.second.amount.toLocaleString("en-IN"),
             "Drawee Bank IFSC_2": c.ifsc,
             "Drawer A/c No_2": c.account,
-            "Presented On_2": dmy(t.presented, "/"),
             "Bounce Date_2": dmy(t.returned, "/"),
             "Bounce Reason_2": MIS_REASON[c.reason],
           }

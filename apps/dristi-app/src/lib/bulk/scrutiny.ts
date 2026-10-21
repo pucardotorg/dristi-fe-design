@@ -35,16 +35,14 @@ import {
   noticeServiceIssue,
   sameMobile,
   sectionComplete,
-  totalChequeAmount,
 } from "@/lib/filing/selectors";
 import { toLongDate } from "@/lib/filing/format";
 import type { Address, FilingDraft, StepId } from "@/lib/filing/types";
 
-import { aiFindings, type AiMode } from "./ai-review";
 import { OFFICE_ADVOCATES } from "./clients";
 import { codeForSlot, DOC_CODE_LABEL } from "./contract";
-import { COURT_DISTRICT, IFSC_PATTERN } from "./reference";
-import type { Batch, BatchCase, CaseStage } from "./types";
+import { IFSC_PATTERN } from "./reference";
+import type { BatchCase, CaseStage } from "./types";
 
 export type FlagLevel = "hold" | "soft";
 
@@ -85,8 +83,6 @@ export type Flag = {
   message: string;
   /** Batch-level: the same value for every case, so fixing it fixes it everywhere. */
   batchWide?: boolean;
-  /** Raised by the AI review (`ai-review.ts`), not by a filing rule. Always skippable. */
-  source?: "ai";
   fix?: FlagFix;
 };
 
@@ -149,21 +145,6 @@ function addressFlags(
         inputMode: "numeric",
       },
     });
-  else if (!a.district)
-    push({
-      ...base,
-      rule: `${base.rule}-pin-unknown`,
-      level: "hold",
-      at: `${path}.pin`,
-      message: `Pincode ${a.pin} was not found.`,
-      fix: {
-        kind: "text",
-        path: `${path}.pin`,
-        label: "Pincode",
-        value: a.pin,
-        inputMode: "numeric",
-      },
-    });
 }
 
 function dateFlag(
@@ -196,16 +177,8 @@ function dateFlag(
   return true;
 }
 
-export type ScrutinyContext = {
-  batch: Batch;
-  /** Every other batch, open or closed, for duplicate checks. */
-  others: Batch[];
-  /** Whether the AI review runs. Off unless a caller says otherwise. */
-  ai?: AiMode;
-};
-
 /** All flags on one case, skipped soft flags included (see `openFlags`). */
-export function caseFlags(bc: BatchCase, ctx: ScrutinyContext): Flag[] {
+export function caseFlags(bc: BatchCase): Flag[] {
   const d: FilingDraft = bc.draft;
   const out: Flag[] = [];
   const push: Push = ({ at, ...f }) =>
@@ -312,7 +285,7 @@ export function caseFlags(bc: BatchCase, ctx: ScrutinyContext): Flag[] {
             value: "",
           },
         });
-      if (!/^\d+$/.test(r.age) || Number(r.age) < 18)
+      if (!/^\d+$/.test(r.age) || Number(r.age) < 1)
         push({
           ...lit,
           rule: "lit-24",
@@ -574,19 +547,6 @@ export function caseFlags(bc: BatchCase, ctx: ScrutinyContext): Flag[] {
         `${p}.addresses.${k}.addr`,
       ),
     );
-    if (
-      a.addresses.every(
-        (b) => b.addr.district && b.addr.district !== COURT_DISTRICT,
-      )
-    )
-      push({
-        ...acc,
-        rule: "acc-24",
-        field: "ACC-24",
-        level: "soft",
-        at: `${p}.district`,
-        message: `No address is in ${COURT_DISTRICT} district. The magistrate decides jurisdiction.`,
-      });
 
     if (a.type === "institution") {
       if (!a.reps.some((r) => r.name.trim()))
@@ -646,7 +606,7 @@ export function caseFlags(bc: BatchCase, ctx: ScrutinyContext): Flag[] {
           inputMode: "numeric",
         },
       });
-    if (!/^\d{6}$/.test(q.chequeNumber) || q.chequeNumber === "000000")
+    if (!/^\d{6}$/.test(q.chequeNumber))
       push({
         ...chq,
         rule: "chq-3",
@@ -977,6 +937,25 @@ export function caseFlags(bc: BatchCase, ctx: ScrutinyContext): Flag[] {
           },
         });
     }
+    if (bc.unstated?.includes(`${p}.replied`))
+      push({
+        ...ldn,
+        rule: "ldn-9",
+        field: "LDN-9",
+        level: "hold",
+        at: `${p}.replied`,
+        message: "Whether the accused replied is not stated.",
+        fix: {
+          kind: "select",
+          path: `${p}.replied`,
+          label: "Has the accused replied?",
+          value: "",
+          options: [
+            { value: "yes", label: "Yes" },
+            { value: "no", label: "No" },
+          ],
+        },
+      });
     if (n.paymentStatus === "part") {
       const paid = Number(n.partAmount);
       if (!(paid > 0))
@@ -994,15 +973,6 @@ export function caseFlags(bc: BatchCase, ctx: ScrutinyContext): Flag[] {
             value: n.partAmount,
             inputMode: "numeric",
           },
-        });
-      else if (paid >= totalChequeAmount(d.cheques))
-        push({
-          ...ldn,
-          rule: "ldn-11-full",
-          field: "LDN-11",
-          level: "soft",
-          at: `${p}.partAmount-full`,
-          message: `₹${paid.toLocaleString("en-IN")} paid after notice covers the cheque amount. Check the debt is still due.`,
         });
     } else if (n.paymentStatus !== "none") {
       push({
@@ -1110,6 +1080,26 @@ export function caseFlags(bc: BatchCase, ctx: ScrutinyContext): Flag[] {
 
   /* ── Jurisdiction and limitation (JUR) ── */
   const jur = { section: "jurisdiction" as StepId, where: "Jurisdiction" };
+  if (bc.unstated?.includes("jurisdiction.deposited"))
+    push({
+      ...jur,
+      rule: "jur-1",
+      field: "JUR-1",
+      level: "hold",
+      at: "jurisdiction.deposited",
+      message:
+        "Whether the cheque was deposited in the complainant's own account is not stated.",
+      fix: {
+        kind: "select",
+        path: "jurisdiction.deposited",
+        label: "Deposited in the complainant's own account?",
+        value: "",
+        options: [
+          { value: "yes", label: "Yes" },
+          { value: "no", label: "No" },
+        ],
+      },
+    });
   if (d.jurisdiction.deposited === "yes" && !d.jurisdiction.payeeBankName)
     push({
       ...jur,
@@ -1142,86 +1132,6 @@ export function caseFlags(bc: BatchCase, ctx: ScrutinyContext): Flag[] {
         value: "",
       },
     });
-
-  // Every date on a case has already happened: one after today is a typing slip, and
-  // it is flagged on its own field before any rule that depends on it.
-  {
-    const today = new Date().toISOString().slice(0, 10);
-    const ahead = (
-      v: string,
-      where: string,
-      section: "cheque" | "demand-notice",
-      field: string,
-      path: string,
-      label: string,
-    ) => {
-      if (v && v > today)
-        push({
-          rule: `future-${field}`,
-          field,
-          section,
-          where,
-          level: "hold",
-          at: `${path}.future`,
-          message: `${toLongDate(v)} is in the future. Enter the date it happened.`,
-          fix: { kind: "date", path, label, value: v },
-        });
-    };
-    d.cheques.forEach((q, i) => {
-      const where = d.cheques.length > 1 ? `Cheque ${i + 1}` : "Cheque";
-      ahead(
-        q.dateOnCheque,
-        where,
-        "cheque",
-        "CHQ-1",
-        `cheques.${i}.dateOnCheque`,
-        "Date on cheque",
-      );
-      ahead(
-        q.presentDate,
-        where,
-        "cheque",
-        "CHQ-8",
-        `cheques.${i}.presentDate`,
-        "Date of presentation",
-      );
-      ahead(
-        q.returnDate,
-        where,
-        "cheque",
-        "CHQ-9",
-        `cheques.${i}.returnDate`,
-        "Date of return",
-      );
-    });
-    d.notices.forEach((n, i) => {
-      const where = d.notices.length > 1 ? `Notice ${i + 1}` : "Demand notice";
-      ahead(
-        n.dispatchDate,
-        where,
-        "demand-notice",
-        "LDN-2",
-        `notices.${i}.dispatchDate`,
-        "Date of dispatch",
-      );
-      ahead(
-        n.deliveryDate,
-        where,
-        "demand-notice",
-        "LDN-6",
-        `notices.${i}.deliveryDate`,
-        "Date of delivery",
-      );
-      ahead(
-        n.returnDate,
-        where,
-        "demand-notice",
-        "LDN-7",
-        `notices.${i}.returnDate`,
-        "Date of return",
-      );
-    });
-  }
 
   const lim = limitationView(d);
   if (lim.filingIssue && lim.causeDate) {
@@ -1315,27 +1225,12 @@ export function caseFlags(bc: BatchCase, ctx: ScrutinyContext): Flag[] {
       });
   }
 
-  /* ── The same reference in another batch: probably sent twice ── */
-  const twin = ctx.others.find(
-    (b) => !b.clubbedInto && b.cases.some((x) => x.reference === bc.reference),
-  );
-  if (twin)
-    push({
-      rule: "ref-dup",
-      field: "Reference",
-      section: "preview",
-      where: "Case",
-      level: "soft",
-      at: "ref",
-      message: `Reference ${bc.reference} is also in ${twin.number}.`,
-    });
-
-  return [...out, ...aiFindings(bc, ctx.batch, ctx.others, ctx.ai ?? "off")];
+  return out;
 }
 
 /** The flags still standing: every hold, and the soft flags not skipped. */
-export function openFlags(bc: BatchCase, ctx: ScrutinyContext): Flag[] {
-  return caseFlags(bc, ctx).filter(
+export function openFlags(bc: BatchCase): Flag[] {
+  return caseFlags(bc).filter(
     (f) => f.level === "hold" || !bc.skipped.includes(f.id),
   );
 }

@@ -7,7 +7,9 @@ import {
   ArrowLeftIcon,
   ArrowRightIcon,
   CheckCircle2Icon,
+  CircleAlertIcon,
   DownloadIcon,
+  FileSpreadsheetIcon,
   FileTextIcon,
   XCircleIcon,
 } from "lucide-react";
@@ -22,6 +24,7 @@ import {
   instancesIn,
   readWorkbook,
   unknownValues,
+  unmatchedRequired,
   type ColumnMap,
   type InstanceCounts,
   type ValueMap,
@@ -46,7 +49,7 @@ import {
   PAGE_SUBTITLE,
   PAGE_TITLE,
 } from "@/components/shell/page-frame";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -82,6 +85,12 @@ import { BatchParties, type Adr } from "./batch-parties";
 import { FileDrop } from "./file-drop";
 
 type Step = "setup" | "map" | "values" | "review";
+
+/** The demo spreadsheets the upload offers (`/api/bulk/samples/<key>`). */
+const SAMPLES = [
+  { key: "template", label: "Sample file 1: template format" },
+  { key: "custom", label: "Sample file 2: custom format" },
+];
 
 type ReadingRow = {
   name: string;
@@ -216,6 +225,26 @@ export function UploadScreen() {
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
+  // A sample spreadsheet, fetched and chosen as if it had been dropped.
+  const [sampling, setSampling] = React.useState<string | null>(null);
+  const chooseSample = async (key: string) => {
+    setSampling(key);
+    setError(null);
+    try {
+      const res = await fetch(`/api/bulk/samples/${key}`);
+      if (!res.ok) throw new Error("The sample file could not be loaded.");
+      const name =
+        /filename="([^"]+)"/.exec(res.headers.get("content-disposition") ?? "")?.[1] ??
+        `${key}.xlsx`;
+      const blob = await res.blob();
+      setFiles([new File([blob], name, { type: blob.type })]);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSampling(null);
+    }
+  };
+
   const headers = book?.cases.headers ?? [];
   // "2 accused, 3 cheques, 1 witness": the sections the file repeats, for the review.
   const repeatsFound = React.useMemo(() => {
@@ -232,6 +261,8 @@ export function UploadScreen() {
   }, [book, counts]);
   const unknown = book ? unknownValues(book.cases, map, counts) : {};
   const unknownLists = Object.keys(unknown) as ListName[];
+  // Required fields no column fills: every case arrives without them.
+  const missing = book && !docs ? unmatchedRequired(book.cases.headers, map) : [];
   const valuesDone = unknownLists.every((l) =>
     unknown[l]!.every((v) => values[l]?.[v]),
   );
@@ -491,6 +522,29 @@ export function UploadScreen() {
                   is matched on the next step.
                 </span>
               </Field>
+              {/* Demo: the two sample spreadsheets, one click away instead of on disk. */}
+              <div className="flex flex-col gap-2">
+                <span className="text-body-compact text-muted-foreground">
+                  Or try a sample file
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {SAMPLES.map((x) => (
+                    <Button
+                      key={x.key}
+                      variant="outline"
+                      disabled={busy || sampling !== null}
+                      onClick={() => void chooseSample(x.key)}
+                    >
+                      {sampling === x.key ? (
+                        <Spinner data-icon="inline-start" />
+                      ) : (
+                        <FileSpreadsheetIcon data-icon="inline-start" aria-hidden />
+                      )}
+                      {x.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <Button
                   variant="outline"
@@ -630,6 +684,24 @@ export function UploadScreen() {
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
+              {missing.length ? (
+                <Alert variant="warning">
+                  <CircleAlertIcon aria-hidden />
+                  <AlertTitle>
+                    {missing.length} required field
+                    {missing.length === 1 ? " is" : "s are"} not in your file
+                  </AlertTitle>
+                  <AlertDescription>
+                    Every case will arrive without{" "}
+                    {new Intl.ListFormat("en", { type: "conjunction" }).format(
+                      missing.map((c) => c.header.toLowerCase()),
+                    )}
+                    .
+                    Each case stays in draft until you enter{" "}
+                    {missing.length === 1 ? "it" : "them"} on its Case details.
+                  </AlertDescription>
+                </Alert>
+              ) : null}
               <div className="overflow-x-auto">
                 <Table
                   className="border-separate border-spacing-0"

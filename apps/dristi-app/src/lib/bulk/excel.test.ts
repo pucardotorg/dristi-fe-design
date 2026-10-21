@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { autoMap, buildRequest, columnFit, followsTemplate, instancesIn, MUST_MAP, sourceFor, type Workbookish } from "./excel";
+import { autoMap, buildRequest, columnFit, followsTemplate, instancesIn, MUST_MAP, sourceFor, unmatchedRequired, type Workbookish } from "./excel";
 import { COLUMNS, GROUPS, parseHeader } from "./excel-spec";
 
 const complainant = {
@@ -98,6 +98,24 @@ test("bank names, jurisdiction and a witness's police station are read from thei
   // Left blank, jurisdiction is not sent: intake reads it from the address.
   const blank = buildRequest(book(headers, ["R-2", "B", "", "222222", "", "", "", "", ""]), autoMap(headers), {}, { complainant, barNumbers: [], adr: "no", fileName: "t" });
   assert.equal(blank.cases[0].accused[0].withinJurisdiction, undefined);
+});
+
+test("a required field no column fills is reported, so every case is known to lack it", () => {
+  const headers = ["LAN", "Customer Name", "Chq No", "Bounce Date"];
+  const missing = unmatchedRequired(headers, autoMap(headers)).map((c) => c.key);
+  assert.ok(missing.includes("chequeDate"));
+  assert.ok(missing.includes("presentDate"));
+  assert.ok(!missing.includes("chequeNumber"));
+  // Optional fields and sections a case may not have are never reported.
+  assert.ok(!missing.includes("accusedAge"));
+  assert.ok(!missing.includes("witnessName"));
+});
+
+test("deposited and replied with no column are left unstated, not read as Yes and No", () => {
+  const headers = ["Case reference", "Cheque number"];
+  const req = buildRequest(book(headers, ["R-1", "111111"]), autoMap(headers), {}, { complainant, barNumbers: [], adr: "no", fileName: "t" });
+  assert.equal(req.cases[0].jurisdiction.depositedInOwnAccount, null);
+  assert.equal(req.cases[0].notices[0].replied, null);
 });
 
 test("the template is recognised without its optional columns, and not with a column of its own", () => {
