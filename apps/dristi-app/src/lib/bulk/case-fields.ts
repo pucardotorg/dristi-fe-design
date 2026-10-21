@@ -165,21 +165,23 @@ const REQUIRED = [
   /^accused\.\d+\.addresses\.0\.addr\.(line1|city|pin)$/,
   /^cheques\.\d+\.(chequeNumber|dateOnCheque|amount|ifsc|presentDate|returnDate|returnReason)$/,
   /^notices\.\d+\.(natureDebt|dispatchDate|modeService|delivered|deliveryDate|returnDate|nonDeliveryReason|replied|paymentStatus|partAmount)$/,
-  /^jurisdiction\.(ifsc|drawerPolice)$/,
+  /^jurisdiction\.(deposited|ifsc|drawerPolice)$/,
   /^witnesses\.\d+\.fullName$/,
   // A witness is summoned, so their address is required once they are named.
   /^witnesses\.\d+\.addresses\.0\.addr\.(line1|city|pin)$/,
 ];
 
 /**
- * `unknownService`: notices whose delivery the sender did not know. The draft holds a
- * default there; the field starts empty instead, so it reads as unanswered until chosen.
+ * `unknownService`: notices whose delivery the sender did not know; `unstated`: yes/no
+ * answers the sender did not give, by path. The draft holds a default there; the field
+ * starts empty instead, so it reads as unanswered until chosen.
  */
 export function caseFields(
   d: FilingDraft,
   unknownService: number[] = [],
+  unstated: string[] = [],
 ): FieldGroup[] {
-  return groups(d, unknownService).map((g) => ({
+  return groups(d, unknownService, unstated).map((g) => ({
     ...g,
     fields: g.fields.map((f) => ({
       ...f,
@@ -193,6 +195,7 @@ type Draft = Omit<CaseField, "required">;
 function groups(
   d: FilingDraft,
   unknownService: number[],
+  unstated: string[],
 ): { heading: string; step: FieldGroup["step"]; fields: Draft[] }[] {
   const out: { heading: string; step: FieldGroup["step"]; fields: Draft[] }[] =
     [];
@@ -387,7 +390,7 @@ function groups(
       select(
         `${p}.replied`,
         "Has the accused replied to the demand notice?",
-        n.replied,
+        unstated.includes(`${p}.replied`) ? "" : n.replied,
         YES_NO,
       ),
     );
@@ -420,6 +423,12 @@ function groups(
     heading: "Jurisdiction and limitation",
     step: "jurisdiction",
     fields: [
+      select(
+        "jurisdiction.deposited",
+        "Did the complainant deposit the cheque in their own bank account?",
+        unstated.includes("jurisdiction.deposited") ? "" : j.deposited,
+        YES_NO,
+      ),
       ...(j.deposited === "yes"
         ? [
             text("jurisdiction.ifsc", "IFSC code", j.ifsc),

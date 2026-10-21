@@ -8,7 +8,6 @@ import {
   CircleAlertIcon,
   OctagonAlertIcon,
   PlusIcon,
-  SparklesIcon,
   Undo2Icon,
   WandSparklesIcon,
 } from "lucide-react";
@@ -40,9 +39,9 @@ import { CaseList } from "./case-list";
 import { demoEdits } from "./demo-fill";
 import type { BatchCtx } from "./batch-screen";
 
-type Kind = "hold" | "ai" | "check";
+type Kind = "hold" | "check";
 const kindOf = (f: Flag): Kind =>
-  f.level === "hold" ? "hold" : f.source === "ai" ? "ai" : "check";
+  f.level === "hold" ? "hold" : "check";
 
 /** Glyph, tint and name per kind. Colour is never alone: the glyph and the words differ too. */
 const KIND: Record<
@@ -68,13 +67,6 @@ const KIND: Record<
     ink: "text-warning-ink",
     ring: "border-warning-ink bg-warning-muted",
     name: "To check",
-  },
-  ai: {
-    Icon: SparklesIcon,
-    disc: "bg-info-muted text-info-muted-foreground",
-    ink: "text-info-ink",
-    ring: "border-info-ink bg-info-muted",
-    name: "AI check",
   },
 };
 

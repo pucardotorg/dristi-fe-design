@@ -126,15 +126,9 @@ function addMonth(iso: string): string {
   return d.toISOString().slice(0, 10);
 }
 
-export function caseView(
-  bc: BatchCase,
-  batch: Batch,
-  all: Batch[],
-  ai: AiMode = "off",
-): CaseView {
-  const ctx = { batch, others: all.filter((b) => b.id !== batch.id), ai };
-  const flags = openFlags(bc, ctx);
-  const every = caseFlags(bc, ctx);
+export function caseView(bc: BatchCase): CaseView {
+  const flags = openFlags(bc);
+  const every = caseFlags(bc);
   const d = bc.draft;
   const docs = d.documents.flatMap((g) => g.docs.map((doc) => ({ g, doc })));
   const required = docs.filter(({ doc }) => doc.required);
@@ -175,7 +169,7 @@ export function caseView(
       file: doc.file,
       slotKey: doc.intakeKey ?? null,
     })),
-    fields: caseFields(d, bc.unknownService),
+    fields: caseFields(d, bc.unknownService, bc.unstated),
     facts: caseFacts(d),
     original: bc.original
       ? { file: bc.original, text: bc.docText?.[bc.original.id] ?? null }
@@ -191,7 +185,6 @@ function filingAdvocate(batch: Batch): BatchSummary["filingAdvocate"] {
 export function summarise(
   batch: Batch,
   all: Batch[],
-  ai: AiMode = "off",
 ): BatchSummary {
   const counts: Record<CaseStage, number> = {
     held: 0,
@@ -200,9 +193,8 @@ export function summarise(
     filed: 0,
   };
   let flagged = 0;
-  const ctx = { batch, others: all.filter((b) => b.id !== batch.id), ai };
   for (const bc of batch.cases) {
-    const flags = openFlags(bc, ctx);
+    const flags = openFlags(bc);
     counts[caseStage(bc, flags)] += 1;
     if (flags.length && bc.draft.status !== "filed" && !bc.signedWith)
       flagged += 1;
@@ -235,9 +227,9 @@ export function batchView(
   const first = batch.cases[0]?.draft;
   const rep = first?.complainants[0]?.rep;
   return {
-    ...summarise(batch, all, ai),
+    ...summarise(batch, all),
     ai,
-    cases: batch.cases.map((bc) => caseView(bc, batch, all, ai)),
+    cases: batch.cases.map((bc) => caseView(bc)),
     payments: batch.payments,
     signings: batch.signings,
     advocates: (first?.advocates ?? []).map((a) => ({
@@ -268,7 +260,7 @@ const EDITABLE = [
   /^accused\.\d+\.addresses\.\d+\.addr\.(line1|city|pin)$/,
   /^cheques\.\d+\.(dateOnCheque|amount|chequeNumber|ifsc|presentDate|returnDate|returnReason)$/,
   /^notices\.\d+\.(natureDebt|dispatchDate|modeService|deliveryDate|returnDate|nonDeliveryReason|partAmount)$/,
-  /^jurisdiction\.(ifsc|payeePolice|drawerPolice|condonationReason)$/,
+  /^jurisdiction\.(deposited|ifsc|payeePolice|drawerPolice|condonationReason)$/,
   /^notices\.\d+\.(tracking|replied)$/,
 ];
 
@@ -327,7 +319,7 @@ export async function applyFix(
     q.bankBranch = bank?.branch ?? "";
     q.ifscFetched = !!bank;
   }
-  if (path === "jurisdiction.ifsc") {
+  if (path === "jurisdiction.ifsc" || (path === "jurisdiction.deposited" && value === "yes")) {
     const bank = await resolveIfsc(d.jurisdiction.ifsc);
     d.jurisdiction.payeeBankName = bank?.bank ?? "";
     d.jurisdiction.payeeBankBranch = bank?.branch ?? "";
@@ -368,17 +360,12 @@ export function attachToSlot(
 /* ───────────────────────────── Sign and pay ───────────────────────────── */
 
 /** Cases that may be signed now: nothing holds them and no soft flag is left open. */
-export function signable(
-  batch: Batch,
-  all: Batch[],
-  ai: AiMode = "off",
-): BatchCase[] {
-  const ctx = { batch, others: all.filter((b) => b.id !== batch.id), ai };
+export function signable(batch: Batch): BatchCase[] {
   return batch.cases.filter(
     (bc) =>
       bc.draft.status !== "filed" &&
       !bc.signedWith &&
-      openFlags(bc, ctx).length === 0,
+      openFlags(bc).length === 0,
   );
 }
 

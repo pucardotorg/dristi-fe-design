@@ -77,7 +77,7 @@ async function batchOf(cases: ApiCase[]): Promise<Batch> {
 
 test("a complete case is held only for its documents, which the API did not send", async () => {
   const batch = await batchOf([goodCase("A-1")]);
-  const flags = caseFlags(batch.cases[0], { batch, others: [] });
+  const flags = caseFlags(batch.cases[0]);
   assert.ok(flags.length > 0);
   assert.ok(flags.every((f) => f.section === "documents" && f.level === "hold"), JSON.stringify(flags.map((f) => f.field)));
   assert.equal(caseStage(batch.cases[0], flags), "held");
@@ -89,7 +89,7 @@ test("rules name the field and the level", async () => {
       accused: [{ type: "individual", name: "Kiran Parmar", mobile: "98250 1234", addresses: [{ line1: "x", city: "Ahmedabad", pin: "380009" }] }],
     }),
   ]);
-  const by = (field: string) => caseFlags(batch.cases[0], { batch, others: [] }).filter((f) => f.field === field);
+  const by = (field: string) => caseFlags(batch.cases[0]).filter((f) => f.field === field);
   assert.equal(by("ACC-6")[0]?.level, "hold");
 });
 
@@ -98,17 +98,17 @@ test("a return reason other than insufficient funds is a check, and skipping it 
     goodCase("C-1", { cheques: [{ ...goodCase("x").cheques[0], returnReason: "payment-stopped" }] }),
   ]);
   const bc = batch.cases[0];
-  const soft = caseFlags(bc, { batch, others: [] }).find((f) => f.field === "CHQ-10");
+  const soft = caseFlags(bc).find((f) => f.field === "CHQ-10");
   assert.equal(soft?.level, "soft");
   bc.skipped.push(soft!.id);
-  assert.ok(!openFlags(bc, { batch, others: [] }).some((f) => f.id === soft!.id));
+  assert.ok(!openFlags(bc).some((f) => f.id === soft!.id));
 });
 
 test("a list value the court does not know is held, never guessed", async () => {
   const batch = await batchOf([
     goodCase("D-1", { cheques: [{ ...goodCase("x").cheques[0], returnReason: "01 - Funds Insufficient" }] }),
   ]);
-  const f = caseFlags(batch.cases[0], { batch, others: [] }).find((x) => x.rule === "chq-10-list");
+  const f = caseFlags(batch.cases[0]).find((x) => x.rule === "chq-10-list");
   assert.equal(f?.level, "hold");
   assert.match(f!.message, /01 - Funds Insufficient/);
 });
@@ -120,7 +120,7 @@ test("a late case needs a reason for condonation; a notice in transit holds the 
   });
   const transit = goodCase("E-2", { notices: [{ ...goodCase("x").notices[0], delivered: null, deliveredOn: undefined }] });
   const batch = await batchOf([late, transit]);
-  const [a, b] = batch.cases.map((bc) => caseFlags(bc, { batch, others: [] }));
+  const [a, b] = batch.cases.map((bc) => caseFlags(bc));
   assert.ok(a.some((f) => f.field === "JUR-12" && f.level === "hold"));
   assert.ok(b.some((f) => f.field === "LDN-5" && f.level === "hold"));
 });
@@ -141,7 +141,7 @@ test("every hold that a filer can correct carries its fix inline, documents as u
     }),
   ]);
   batch.cases[0].draft.advocates[0].name = "";
-  const holds = caseFlags(batch.cases[0], { batch, others: [] }).filter((f) => f.level === "hold");
+  const holds = caseFlags(batch.cases[0]).filter((f) => f.level === "hold");
   // Waiting for a date, or a duplicate cheque, has nothing to correct in place.
   const exempt = /^(jur-9-early|chq-dup|section-)/;
   const bare = holds.filter((f) => !exempt.test(f.rule) && (!f.fix || f.fix.kind === "documents"));
@@ -150,4 +150,21 @@ test("every hold that a filer can correct carries its fix inline, documents as u
   for (const rule of ["acc-14", "ldn-5", "adv-3", "acc-6-format", "acc-8-pin", "chq-5", "chq-10-list"]) {
     assert.ok(holds.some((f) => f.rule === rule && f.fix), `${rule} has a fix`);
   }
+});
+
+test("a deposit or a reply the sender does not state holds the case, with the question left empty", async () => {
+  const base = goodCase("U-1");
+  const batch = await batchOf([
+    goodCase("U-1", {
+      notices: [{ ...base.notices[0], replied: null }],
+      jurisdiction: { depositedInOwnAccount: null, complainantBranchIfsc: "HDFC0000060" },
+    }),
+    goodCase("U-2"),
+  ]);
+  const [unstated, stated] = batch.cases;
+  assert.deepEqual(unstated.unstated?.sort(), ["jurisdiction.deposited", "notices.0.replied"]);
+  const holds = caseFlags(unstated).filter((f) => f.level === "hold").map((f) => f.field);
+  assert.ok(holds.includes("JUR-1"));
+  assert.ok(holds.includes("LDN-9"));
+  assert.ok(!caseFlags(stated).some((f) => f.field === "JUR-1" || f.field === "LDN-9"));
 });

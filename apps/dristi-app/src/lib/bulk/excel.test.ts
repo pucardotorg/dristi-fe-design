@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { autoMap, buildRequest, columnFit, instancesIn, sourceFor, type Workbookish } from "./excel";
+import { autoMap, buildRequest, columnFit, instancesIn, sourceFor, unmatchedRequired, type Workbookish } from "./excel";
 import { COLUMNS, parseHeader } from "./excel-spec";
 
 const complainant = {
@@ -78,4 +78,22 @@ test("a matched column is checked against its field: dates, pincodes, list words
   assert.equal(columnFit(col("accusedName"), []).ok, false);
   const reason = columnFit(col("returnReason"), ["INSUFFICIENT FUNDS"]);
   assert.equal(reason.ok, false);
+});
+
+test("a required field no column fills is reported, so every case is known to lack it", () => {
+  const headers = ["LAN", "Customer Name", "Chq No", "Bounce Date"];
+  const missing = unmatchedRequired(headers, autoMap(headers)).map((c) => c.key);
+  assert.ok(missing.includes("chequeDate"));
+  assert.ok(missing.includes("presentDate"));
+  assert.ok(!missing.includes("chequeNumber"));
+  // Optional fields and sections a case may not have are never reported.
+  assert.ok(!missing.includes("accusedAge"));
+  assert.ok(!missing.includes("witnessName"));
+});
+
+test("deposited and replied with no column are left unstated, not read as Yes and No", () => {
+  const headers = ["Case reference", "Cheque number"];
+  const req = buildRequest(book(headers, ["R-1", "111111"]), autoMap(headers), {}, { complainant, barNumbers: [], adr: "no", fileName: "t" });
+  assert.equal(req.cases[0].jurisdiction.depositedInOwnAccount, null);
+  assert.equal(req.cases[0].notices[0].replied, null);
 });

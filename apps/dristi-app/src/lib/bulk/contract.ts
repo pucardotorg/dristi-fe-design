@@ -116,15 +116,15 @@ export type ApiNotice = {
   returnedOn?: string;
   /** `LDN-8`, a `NON_DELIVERY_REASONS` value. */
   nonDeliveryReason?: string;
-  /** `LDN-9`. */
-  replied: boolean;
+  /** `LDN-9`. `null` (or left out) when the sender does not say — held at scrutiny. */
+  replied?: boolean | null;
   /** `LDN-10`, `LDN-11`. */
   payment: { status: "none" | "part"; amount?: string };
 };
 
 export type ApiJurisdiction = {
-  /** `JUR-1`. */
-  depositedInOwnAccount: boolean;
+  /** `JUR-1`. `null` (or left out) when the sender does not say — held at scrutiny. */
+  depositedInOwnAccount?: boolean | null;
   /** `JUR-2`, when deposited in own account. */
   complainantBranchIfsc?: string;
   /** `JUR-5`, optional. */

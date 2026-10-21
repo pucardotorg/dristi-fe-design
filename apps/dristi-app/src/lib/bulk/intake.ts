@@ -118,7 +118,7 @@ async function buildDraft(
   req: ApiBatchRequest,
   c: ApiCase,
   fetchDocument: FetchDocument
-): Promise<{ draft: FilingDraft; unknownBar: string[]; fetchFailed: string[]; unknownService: number[]; docText: Record<string, string | null> }> {
+): Promise<{ draft: FilingDraft; unknownBar: string[]; fetchFailed: string[]; unknownService: number[]; unstated: string[]; docText: Record<string, string | null> }> {
   const draft = createBlankDraft(newId("d"), null);
   const now = new Date().toISOString();
 
@@ -191,8 +191,10 @@ async function buildDraft(
 
   /* Demand notices (LDN). */
   const unknownService: number[] = [];
+  const unstated: string[] = [];
   draft.notices = c.notices.map((n, i): DemandNotice => {
     if (n.delivered === null) unknownService.push(i);
+    if (n.replied == null) unstated.push(`notices.${i}.replied`);
     const delivered = n.delivered === false ? "no" : "yes";
     return {
       id: uid("dn"),
@@ -215,17 +217,20 @@ async function buildDraft(
   /* Jurisdiction (JUR). Cause of action and filing date stay empty: they are derived. */
   const j = c.jurisdiction;
   const payeeIfsc = upper(j.complainantBranchIfsc);
-  const payee = j.depositedInOwnAccount ? await resolveIfsc(payeeIfsc) : null;
+  // Not stated: read as deposited (the IFSC is kept and looked up), and held until answered.
+  if (j.depositedInOwnAccount == null) unstated.push("jurisdiction.deposited");
+  const own = j.depositedInOwnAccount !== false;
+  const payee = own ? await resolveIfsc(payeeIfsc) : null;
   const others = (j.otherPendingCases ?? []).filter((o) => trim(o.court) || trim(o.caseNumber));
   draft.jurisdiction = {
     ...draft.jurisdiction,
-    deposited: j.depositedInOwnAccount ? "yes" : "no",
-    ifsc: j.depositedInOwnAccount ? payeeIfsc : "",
+    deposited: own ? "yes" : "no",
+    ifsc: own ? payeeIfsc : "",
     payeeBankName: payee?.bank ?? "",
     payeeBankBranch: payee?.branch ?? "",
     payeeFetched: !!payee,
-    payeePolice: j.depositedInOwnAccount ? trim(j.complainantBranchPoliceStation) : "",
-    drawerPolice: j.depositedInOwnAccount ? "" : trim(j.drawerBranchPoliceStation),
+    payeePolice: own ? trim(j.complainantBranchPoliceStation) : "",
+    drawerPolice: own ? "" : trim(j.drawerBranchPoliceStation),
     otherPending: others.length ? "yes" : "no",
     otherCases: others.length
       ? others.map((o) => ({ court: trim(o.court), caseNumber: trim(o.caseNumber) }))
@@ -279,7 +284,7 @@ async function buildDraft(
   draft.createdAt = now;
   draft.updatedAt = now;
 
-  return { draft, unknownBar, fetchFailed, unknownService, docText };
+  return { draft, unknownBar, fetchFailed, unknownService, unstated, docText };
 }
 
 /** Requests that are not a batch at all are refused before anything is stored. */
@@ -323,6 +328,7 @@ export async function buildBatch(
       unknownBar: built.unknownBar,
       fetchFailed: built.fetchFailed,
       unknownService: built.unknownService,
+      unstated: built.unstated,
       docText: built.docText,
       signedWith: null,
       receiptNumber: null,

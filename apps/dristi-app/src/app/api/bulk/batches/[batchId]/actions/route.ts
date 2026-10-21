@@ -36,17 +36,16 @@ const METHODS: BulkSignMethod[] = ["mobile-otp", "dsc", "aadhaar", "upload"];
 export async function POST(req: Request, ctx: { params: Promise<{ batchId: string }> }) {
   const { batchId } = await ctx.params;
   const body = (await req.json()) as Action & { ai?: string };
-  // The AI review runs on the same setting as the screen that sent this (`?ai=`).
+  // The AI setting of the screen that sent this (`?ai=`), returned with the batch.
   const ai = aiModeFrom(body.ai);
   let problem: string | null = null;
 
   // Fixes may need a lookup (IFSC, pincode), so they are prepared before the write.
-  const saved = await updateBatch(batchId, (batch, all) => {
+  const saved = await updateBatch(batchId, (batch) => {
     if (batch.clubbedInto) {
       problem = "This batch was clubbed into another and is closed.";
       return null;
     }
-    const others = all.filter((b) => b.id !== batch.id);
     const at = new Date().toISOString();
     switch (body.action) {
       case "skip":
@@ -61,7 +60,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ batchId: strin
       case "skip-rule": {
         for (const bc of batch.cases) {
           if (bc.draft.status === "filed" || bc.signedWith) continue;
-          const ids = caseFlags(bc, { batch, others, ai })
+          const ids = caseFlags(bc)
             .filter((f) => f.level === "soft" && f.rule === body.rule)
             .map((f) => f.id);
           bc.skipped = [...new Set([...bc.skipped, ...ids])];
@@ -90,7 +89,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ batchId: strin
           problem = "Unknown signing method.";
           return null;
         }
-        const ready = signable(batch, all, ai).filter((c) => body.caseIds.includes(c.id));
+        const ready = signable(batch).filter((c) => body.caseIds.includes(c.id));
         if (ready.length === 0) {
           problem = "None of these cases can be signed now.";
           return null;
@@ -140,6 +139,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ batchId: strin
           // Stating the delivery answers the "not known yet" the sender left.
           const notice = /^notices\.(\d+)\.delivered$/.exec(body.path);
           if (notice) bc.unknownService = bc.unknownService.filter((i) => i !== Number(notice[1]));
+          // Answering a yes/no the sender left out clears it.
+          if (bc.unstated) bc.unstated = bc.unstated.filter((p) => p !== body.path);
           // A bar number fixed on one case is the batch's advocate on every case.
           if (/^advocates\./.test(body.path)) bc.unknownBar = [];
         }

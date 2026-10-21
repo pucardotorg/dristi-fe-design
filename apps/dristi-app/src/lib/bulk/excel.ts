@@ -382,6 +382,18 @@ export function followsTemplate(headers: string[]): boolean {
  */
 export const MUST_MAP = COLUMNS.filter((c) => c.required.startsWith("Yes") && c.key !== "payment").map((c) => c.key);
 
+/**
+ * Required fields of the sections every case has (accused, cheque, notice) that no column
+ * fills. Every case arrives without them and is held at Case details until each is
+ * entered there, case by case.
+ */
+export function unmatchedRequired(headers: string[], map: ColumnMap): Column[] {
+  return COLUMNS.filter((c) => {
+    const g = groupOf(c.group);
+    return MUST_MAP.includes(c.key) && g.always && sourceFor(c, firstInstance(g), map, headers) === null;
+  });
+}
+
 /** list → raw value as written → list value chosen by the filer. */
 export type ValueMap = Partial<Record<ListName, Record<string, string>>>;
 
@@ -492,7 +504,8 @@ export function buildRequest(
     // instance; anything else only when that instance has values in this row.
     const used = (g: GroupId) =>
       inst[g].filter((i) => (groupOf(g).always && i[0] === groupOf(g).first) || r.any(g, i));
-    const deposited = r.list("deposited", one) !== "no";
+    const yesNo = (v: string) => (v === "yes" ? true : v === "no" ? false : null);
+    const deposited = yesNo(r.list("deposited", one));
     return {
       reference: r.raw("reference", one) || `Row ${n + 2}`,
       complainants: used("complainant").map((i) => {
@@ -542,7 +555,7 @@ export function buildRequest(
           deliveredOn: sheetDate(r.raw("deliveryDate", i)),
           returnedOn: sheetDate(r.raw("noticeReturnDate", i)),
           nonDeliveryReason: r.list("nonDelivery", i),
-          replied: r.list("replied", i) === "yes",
+          replied: yesNo(r.list("replied", i)),
           // Without a payment column, an amount paid over zero means part payment.
           payment:
             r.list("payment", i) === "part" || (!isMapped(map.payment) && Number(paid.replace(/[^\d.]/g, "")) > 0)
