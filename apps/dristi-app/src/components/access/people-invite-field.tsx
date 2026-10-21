@@ -107,6 +107,7 @@ export function PeopleInviteField({
   locale,
   disabled = false,
   copy: copyOverride,
+  onQueryChange,
 }: {
   id: string;
   /** The field's accessible name; the visible heading sits above it. */
@@ -118,6 +119,8 @@ export function PeopleInviteField({
   disabled?: boolean;
   /** Wording for a narrower use — co-advocates on a vakalatnama rather than the team. */
   copy?: Partial<typeof inviteFieldCopy>;
+  /** What is typed and not yet added, for a popup that asks before it throws it away. */
+  onQueryChange?: (query: string) => void;
 }) {
   const copy = { ...inviteFieldCopy, ...copyOverride };
   /* Searched as shown: names and Bar IDs in the selected court's terms, so typing what
@@ -125,7 +128,11 @@ export function PeopleInviteField({
   const known = useCourtLocalized(knownAsWritten);
   const anchor = useComboboxAnchor();
   const scroll = useScrollOutsideLock();
-  const [query, setQuery] = React.useState("");
+  const [query, setQueryState] = React.useState("");
+  function setQuery(next: string) {
+    setQueryState(next);
+    onQueryChange?.(next);
+  }
 
   const chosen = new Set(value.map(keyOf));
   const text = query.trim().toLowerCase();
