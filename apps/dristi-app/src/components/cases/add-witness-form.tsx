@@ -74,6 +74,17 @@ function addressComplete(block: AddressBlock): boolean {
   );
 }
 
+/** Anything typed into a block: the blank witness starts with one empty address and one
+    empty contact, which are not an entry. */
+function hasText(value: unknown): boolean {
+  if (typeof value === "string") return value.trim() !== "";
+  if (Array.isArray(value)) return value.some(hasText);
+  if (value && typeof value === "object") {
+    return Object.entries(value).some(([key, part]) => key !== "id" && hasText(part));
+  }
+  return false;
+}
+
 function witnessReady(w: DialogWitness): boolean {
   return witnessComplete(w) && w.addresses.some(addressComplete);
 }
@@ -114,8 +125,8 @@ export function AddWitnessDialog({
     () =>
       witnesses.length > 1 ||
       witnessComplete(witnesses[0]) ||
-      witnesses[0].addresses.length > 0 ||
-      witnesses[0].contacts.length > 0 ||
+      witnesses[0].addresses.some(hasText) ||
+      witnesses[0].contacts.some(hasText) ||
       witnesses[0].docs.length > 0 ||
       Boolean(witnesses[0].age || witnesses[0].prove),
     [witnesses]
