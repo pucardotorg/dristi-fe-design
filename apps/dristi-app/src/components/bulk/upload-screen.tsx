@@ -9,6 +9,7 @@ import {
   CheckCircle2Icon,
   CircleAlertIcon,
   DownloadIcon,
+  FileSpreadsheetIcon,
   FileTextIcon,
   XCircleIcon,
 } from "lucide-react";
@@ -84,6 +85,12 @@ import { BatchParties, type Adr } from "./batch-parties";
 import { FileDrop } from "./file-drop";
 
 type Step = "setup" | "map" | "values" | "review";
+
+/** The demo spreadsheets the upload offers (`/api/bulk/samples/<key>`). */
+const SAMPLES = [
+  { key: "template", label: "Sample file 1: template format" },
+  { key: "custom", label: "Sample file 2: custom format" },
+];
 
 type ReadingRow = {
   name: string;
@@ -217,6 +224,26 @@ export function UploadScreen() {
   const [template, setTemplate] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+
+  // A sample spreadsheet, fetched and chosen as if it had been dropped.
+  const [sampling, setSampling] = React.useState<string | null>(null);
+  const chooseSample = async (key: string) => {
+    setSampling(key);
+    setError(null);
+    try {
+      const res = await fetch(`/api/bulk/samples/${key}`);
+      if (!res.ok) throw new Error("The sample file could not be loaded.");
+      const name =
+        /filename="([^"]+)"/.exec(res.headers.get("content-disposition") ?? "")?.[1] ??
+        `${key}.xlsx`;
+      const blob = await res.blob();
+      setFiles([new File([blob], name, { type: blob.type })]);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSampling(null);
+    }
+  };
 
   const headers = book?.cases.headers ?? [];
   // "2 accused, 3 cheques, 1 witness": the sections the file repeats, for the review.
@@ -495,6 +522,29 @@ export function UploadScreen() {
                   is matched on the next step.
                 </span>
               </Field>
+              {/* Demo: the two sample spreadsheets, one click away instead of on disk. */}
+              <div className="flex flex-col gap-2">
+                <span className="text-body-compact text-muted-foreground">
+                  Or try a sample file
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {SAMPLES.map((x) => (
+                    <Button
+                      key={x.key}
+                      variant="outline"
+                      disabled={busy || sampling !== null}
+                      onClick={() => void chooseSample(x.key)}
+                    >
+                      {sampling === x.key ? (
+                        <Spinner data-icon="inline-start" />
+                      ) : (
+                        <FileSpreadsheetIcon data-icon="inline-start" aria-hidden />
+                      )}
+                      {x.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <Button
                   variant="outline"
