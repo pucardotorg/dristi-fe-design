@@ -369,11 +369,30 @@ export function sourceFor(
   return i === undefined ? null : i;
 }
 
-/** True when the file is the template: every template header is there, as written. */
+/**
+ * Columns earlier templates carried and this one does not: a file that still has them is
+ * the template all the same, and they are not read. Accused age went when the single
+ * filing stopped asking for it (owner, 2026-08-19).
+ */
+const RETIRED_HEADERS = ["Accused age"];
+
+/**
+ * True when the file is the template: every header in it is a template header as written,
+ * and every required one of the sections each case has is there. Optional columns may be
+ * left out, so a template downloaded before a column was added still goes straight in; a
+ * header the template does not have means another layout, and its columns are matched.
+ */
 export function followsTemplate(headers: string[]): boolean {
-  const have = new Set(headers.map((h) => normHeader(parseHeader(h).base)));
-  return COLUMNS.filter((c) => !groupOf(c.group).repeats || groupOf(c.group).always)
-    .every((c) => have.has(normHeader(c.header)));
+  const known = new Set([...COLUMNS.map((c) => c.header), ...RETIRED_HEADERS].map(normHeader));
+  const have = new Set(
+    headers.map((h) => normHeader(parseHeader(h).base)).filter(Boolean),
+  );
+  return (
+    [...have].every((h) => known.has(h)) &&
+    COLUMNS.filter((c) => MUST_MAP.includes(c.key) && groupOf(c.group).always).every((c) =>
+      have.has(normHeader(c.header)),
+    )
+  );
 }
 
 /**

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { autoMap, buildRequest, columnFit, instancesIn, sourceFor, type Workbookish } from "./excel";
-import { COLUMNS, parseHeader } from "./excel-spec";
+import { autoMap, buildRequest, columnFit, followsTemplate, instancesIn, MUST_MAP, sourceFor, type Workbookish } from "./excel";
+import { COLUMNS, GROUPS, parseHeader } from "./excel-spec";
 
 const complainant = {
   type: "institution" as const,
@@ -98,4 +98,14 @@ test("bank names, jurisdiction and a witness's police station are read from thei
   // Left blank, jurisdiction is not sent: intake reads it from the address.
   const blank = buildRequest(book(headers, ["R-2", "B", "", "222222", "", "", "", "", ""]), autoMap(headers), {}, { complainant, barNumbers: [], adr: "no", fileName: "t" });
   assert.equal(blank.cases[0].accused[0].withinJurisdiction, undefined);
+});
+
+test("the template is recognised without its optional columns, and not with a column of its own", () => {
+  const required = COLUMNS.filter((c) => MUST_MAP.includes(c.key) && GROUPS.find((g) => g.id === c.group)!.always).map((c) => c.header);
+  assert.equal(followsTemplate(required), true);
+  assert.equal(followsTemplate([...required, "Drawer bank name", "Witness name_2"]), true);
+  assert.equal(followsTemplate([...required, "Branch manager"]), false);
+  // A template from before a column was retired still goes straight in.
+  assert.equal(followsTemplate([...required, "Accused age", "Accused age_2"]), true);
+  assert.equal(followsTemplate(required.filter((h) => h !== "Cheque number")), false);
 });
