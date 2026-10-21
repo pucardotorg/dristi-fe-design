@@ -922,6 +922,7 @@ export function ColumnMapping(props: Props) {
                     </h3>
                     {g.repeats ? (
                       <SectionTabs
+                        addAfterTabs
                         tabs={list.map((i, k) => ({
                           id: instanceKey(i),
                           label: name(i),

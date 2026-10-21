@@ -786,6 +786,7 @@ function SignFlow({
                         </span>
                       </div>
                       {state === "now" ? (
+                        // ds-spacing-allow: 44px is the 32px step marker plus its 12px gap, so the field lines up under the signer's name.
                         <div className="flex flex-col gap-1.5 pl-11">
                           {method === "dsc" ? (
                             <Field className="gap-1.5">

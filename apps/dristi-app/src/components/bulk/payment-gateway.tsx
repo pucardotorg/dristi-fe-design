@@ -139,7 +139,7 @@ export function PaymentGateway({
         </div>
       </div>
 
-      <div className="flex flex-col gap-4 px-6 py-5">
+      <div className="flex flex-col gap-4 px-6 py-6">
         {stage === "choose" ? (
           <>
             <Tabs

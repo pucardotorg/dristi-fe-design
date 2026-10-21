@@ -114,13 +114,6 @@ function PlaceholderMark({
   );
 }
 
-/**
- * Whether a state with its own product name (Gujarat's SARAS 2.0) shows its placeholder
- * mark. Off on the bulk filing demo branch: the owner keeps the ON Courts logo there
- * (2026-10-20); the product name in text is unchanged.
- */
-const STATE_PLACEHOLDER_MARKS = false;
-
 export function BrandLockup({
   className,
   onDark = false,
@@ -129,7 +122,7 @@ export function BrandLockup({
   onDark?: boolean;
 }) {
   const { profile } = useCourt();
-  if (STATE_PLACEHOLDER_MARKS && profile.brandName) {
+  if (profile.brandName) {
     return <PlaceholderMark name={profile.brandName} wordmark className={className} />;
   }
   return <Mark base="/brand/on-courts-logo" onDark={onDark} className={className} />;
@@ -153,7 +146,7 @@ export function BrandGlyph({
   wordmarkClassName?: string;
 }) {
   const { profile } = useCourt();
-  if (STATE_PLACEHOLDER_MARKS && profile.brandName) {
+  if (profile.brandName) {
     return (
       <PlaceholderMark
         name={profile.brandName}

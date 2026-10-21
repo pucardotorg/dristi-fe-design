@@ -95,7 +95,7 @@ function ReadingCard({ rows }: { rows: ReadingRow[] }) {
   const done = rows.filter((r) => r.state === "done").length;
   return (
     <Card className={cn(PANEL_CLASS, "max-w-3xl gap-0 py-0")}>
-      <CardHeader className="gap-3 px-6 py-5">
+      <CardHeader className="gap-3 px-6 py-6">
         <CardTitle className="flex items-center gap-2 text-body font-semibold">
           <Spinner className="size-4 text-primary" />
           Reading {rows.length} document{rows.length === 1 ? "" : "s"}

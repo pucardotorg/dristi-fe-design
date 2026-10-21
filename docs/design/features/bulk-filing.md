@@ -16,8 +16,8 @@ land in **File a case › Bulk filing** as their own batch, never in the regular
    Tata Capital's Provakil workspace (Legal Collections, Section 138 workflow). The legal
    manager ticks the cases (Gmail style: Shift for a range, Ctrl or Cmd for one), chooses the
    court, then gives each case one of that court's advocates for the company. Each advocate's
-   cases go as one batch to that advocate's account, with every document. SARAS 2.0 flags an
-   unopened push in the notifications bell until someone opens it.
+   cases go as one batch to that advocate's account, with every document. SARAS 2.0 marks an
+   unopened push **New** on the batch list until someone opens it.
 2. **Excel upload** on SARAS 2.0. A file in the template's layout goes straight in. Any other
    layout opens a column-matching screen, and list values the court does not know open a
    value-matching screen. Sections that repeat (a second accused, cheque, witness) are
@@ -44,7 +44,7 @@ Run it with `npm run demo` (SARAS 2.0 on port 3000, Provakil on 3100). The team 
 | 2026-10-20 | Mapping and checks are rules. A separate AI review adds findings that are not validation (a document that disagrees with the case, a value that looks wrong next to the others). It follows the court's `aiMode` and `?ai=on\|off\|unavailable`; with AI off the flow is fully manual and nothing is marked as AI. The demo's AI is a rules stand-in (`ai-review.ts`). | Owner | implemented (stand-in) |
 | 2026-10-20 | Fields that can occur more than once repeat in the API as arrays and in Excel as numbered columns: `Cheque number_2`, and for a section inside an accused, accused then item (`Accused address_1_2`). Unnumbered means the first. Repeats are per case: the file carries as many numbered columns as its busiest case needs, and every other case leaves them blank. Which fields repeat follows the PRD's 1..n sections and the single filing flow (table below). | Owner; PRD §3.3 | implemented |
 | 2026-10-20 | The column-matching screen mirrors the single filing: its sections in the same order and names, a secondary nav on the left (from 1280px wide) with the filing rail's own rows, each showing how many required fields are matched ("3 of 5", a tick when all are), each section's title outside its card, and repeating sections on the filing flow's own tabs (`SectionTabs`): Accused 1 always, Accused 2 once there is a second, with Add after the last tab. Adding an accused gives it the same address and person slots as the first. Each row is app field, then an arrow on a line between the columns, then the sheet column: green with a white arrow when matched and the values fit the field, amber when matched but they do not (the reason shows under the column), white when not matched. The column field is the DS Combobox (as ComboField in the filing forms): a search icon and "Type to search columns", filtering by column name or by value; each option is the column name with its first value in small grey mono, and a green badge names any field the column already feeds. The field takes the arrow's colour as its outline. Requirement codes (ACC-1, CHQ-10, DCM-5) are not shown to filers anywhere in bulk filing. Optional fields stay behind **Show optional fields**. Phones get stacked rows, a stacked header and full-size controls; the batch list becomes cards. | Owner | implemented |
-| 2026-10-20 | A push through the API raises a notification in the bell (warning tone, kept until the batch is opened) and a **New** mark on the batch list, so the next person to sign in deals with it first. | Owner | implemented |
+| 2026-10-20 | A push through the API raises a notification in the bell (warning tone, kept until the batch is opened) and a **New** mark on the batch list, so the next person to sign in deals with it first. | Owner | **New** mark implemented; the bell is on `bulk-filing` only (2026-10-21) |
 | 2026-10-20 | Case details (the batch tab once called Scrutiny) raises two kinds of flag; each case is headed by its parties, reference, cheque and amount, and its missing details sit in one form with one Save. Missing documents are left to the Documents tab. A **check** (the value is there but deserves a look, such as a return reason other than insufficient funds) can be skipped and the case goes ahead. A **hold** (a requirement is not met) keeps the case in draft while the rest of the batch proceeds. | Owner; PRD §1, constraint 4 | implemented |
 | 2026-10-20 | Signing offers four methods, least friction first, each with a hint: mobile OTP (fastest, one OTP for the batch), DSC (more secure, needs a DSC token, one PIN per signer), Aadhaar eSign (secure, slowest, 5 cases per OTP in succession), upload signed copies (most manual). Whether mobile OTP signing is coming is PRD §8 Q9, still open. | Owner; PRD §4.3 | implemented |
 | 2026-10-20 | Mobile OTP is a single OTP, to the filing advocate's mobile, that signs every case in the selection for the advocate and the complainant's representative. PRD §4.3 (`SIG-03`) holds that an advocate's signature does not discharge the complainant's; that question is open and blocking in the PRD, so this is a demo position, not a settled one. | Owner | implemented |
@@ -53,7 +53,8 @@ Run it with `npm run demo` (SARAS 2.0 on port 3000, Provakil on 3100). The team 
 | 2026-10-20 | Provakil holds 220 generated cases (the first 38 unchanged), most clean, with the same kinds of faults spread through them; the list pages 50 at a time. Bulk screens use plain words ("Needs fixing", "To check", "Finish scrutiny first"), grey out steps with nothing to do, slide the tab highlight, and close payment on a green "Successfully filed" screen that also lists the cases still pending with their flags. | Owner | implemented |
 | 2026-10-20 | The Excel upload's complainant choice names the company only; its representative comes with it. Advocates are a multi-select of the signed-in advocate (always on record) and the advocates on their People page; clerks are not offered. Every advocate chosen is on each case and signs it (Gujarat: every advocate signs); mobile OTP still goes to the filing advocate once. | Owner | implemented |
 | 2026-10-20 | Provakil's empanelled advocates are the same eight as the SARAS 2.0 login's People page (Anjali Parmar and her office), under their Gujarat names and Bar numbers. SARAS looks a Gujarat-form Bar number up in the same register as the Kerala-form one the demo data keeps. | Owner | implemented |
-| 2026-10-20 | The app keeps the ON Courts logo in every state on this branch (Gujarat's SARAS 2.0 placeholder mark is switched off in `brand-lockup.tsx`). Provakil's wording, which names SARAS 2.0, is unchanged. | Owner | implemented |
+| 2026-10-20 | The app keeps the ON Courts logo in every state on this branch (Gujarat's SARAS 2.0 placeholder mark is switched off in `brand-lockup.tsx`). Provakil's wording, which names SARAS 2.0, is unchanged. | Owner | `bulk-filing` only (2026-10-21) |
+| 2026-10-21 | On `main`, bulk filing changes only the File a case screen and the bulk flow after it. The bell notification, the logo switch and the app favicon stay on the `bulk-filing` branch, so Gujarat keeps its SARAS 2.0 placeholder on `main`. Add right after the last tab is a bulk-only option of `SectionTabs` (`addAfterTabs`); the single filing's tabs are unchanged. | Owner | implemented |
 | 2026-10-20 | The Aadhaar option says only "Aadhaar can sign only 5 cases at a time."; a Why? link opens the specification, and its tooltip gives the reason and the citation: CCA [eSign API Specifications v3.3](https://cca.gov.in/sites/files/pdf/esign/eSign-APIv3.3.pdf#page=14) (09 Dec 2020), §3.3.1.1, `InputHash` `id`: "Maximum 5". The PRD's eSign v2.1 allows one per OTP. | Owner; CCA spec | implemented |
 | 2026-10-20 | An API push sends every file with the case. A case missing a required file is held until it is added on the Documents tab. | Owner | implemented |
 | 2026-10-20 | A batch runs Cases, Documents, Case details, Review, Sign, Pay, Filed. **Case details** lists every open case on the left (a card with its status badge, and a count and fade when more are hidden above or below) and shows the chosen case whole on the right: every detail editable in the single filing's sections, labels and required marks (`FormField`), each problem shown once on its own field (a hold as the field's error, a check as a note with Skip), and the filing footer with Previous case, Save, Save and next case. Missing documents stay on Documents. **Review** reads each case in the single filing's synopsis and complaint (`CourtDocument`) before signing. Clicking a case on Cases opens it in a window with Details and Review, moving case by case with arrows or the arrow keys; every case's draft is loaded once so moving on is instant. Each case also has a page of its own, `/filings/bulk/<batch>/cases/<case>`. | Owner | implemented |
@@ -258,11 +259,10 @@ condonation reason).
 
 ## Notifications
 
-A batch from the API is stored with `openedAt: null`. While it is, the bell lists it
-("2 new cases from Provakil API", batch number, advocate, date) in warning tone and keeps
-the count badge, and the batch list marks it **New**. Opening the batch records the time and
-clears both. Excel uploads and clubbed batches are opened by the person who made them, so
-they never notify. The bell reads the batch list on each page change and every 30 seconds.
+A batch from the API is stored with `openedAt: null`. While it is, the batch list marks it
+**New**. Opening the batch records the time and clears the mark. Excel uploads and clubbed
+batches are opened by the person who made them, so they are never marked. The bell
+notification for an unopened push is on the `bulk-filing` branch only, not on `main`.
 
 ## Where it lives
 
@@ -279,7 +279,6 @@ they never notify. The bell reads the batch list on each page change and every 3
 | AI review (stand-in) | `apps/dristi-app/src/lib/bulk/ai-review.ts`, `doc-text.ts` |
 | Case documents (stand-in reader, screen, route) | `lib/bulk/case-doc.ts`, `components/bulk/documents-screen.tsx`, `POST /api/bulk/extract` |
 | Column matching | `apps/dristi-app/src/components/bulk/column-mapping.tsx` |
-| API notifications | `useApiArrivals` in `apps/dristi-app/src/components/shell/top-bar.tsx` |
 | Provakil filing dialog | `apps/provakil-mock/src/components/push-dialog.tsx` |
 | Screens | `apps/dristi-app/src/components/bulk/` |
 | Provakil mock | `apps/provakil-mock` |

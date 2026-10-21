@@ -103,7 +103,7 @@ export function BulkCaseFile({
               <h1
                 className={cn(
                   PAGE_TITLE,
-                  "truncate text-title-s text-foreground",
+                  "truncate text-title-s font-semibold text-foreground",
                 )}
               >
                 {t}

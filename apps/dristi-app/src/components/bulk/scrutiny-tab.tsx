@@ -684,6 +684,7 @@ export function CaseEditor({
           <section key={step} className="flex flex-col gap-2">
             <h4 className="text-body font-semibold">{title}</h4>
             <SectionTabs
+              addAfterTabs
               tabs={groups.map((x, k) => ({
                 id: String(k),
                 label: `${single} ${k + 1}`,

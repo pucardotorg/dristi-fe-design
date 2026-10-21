@@ -27,8 +27,6 @@ import { useChrome, type Crumb } from "@/components/shell/chrome";
 import { CourtSwitch } from "@/components/court/court-switch";
 import { useLocale } from "@/components/shell/locale";
 import { useProfile } from "@/components/shell/profile";
-import type { BatchSummary } from "@/components/bulk/api";
-import { toLongDate } from "@/lib/filing/format";
 import {
   NotificationsBell,
   type ShellNotification,
@@ -375,54 +373,6 @@ function useTaskNotifications() {
 }
 
 /**
- * Cases pushed in through the bulk API that nobody has opened yet. Each one stays in the
- * bell, unread, until its batch is opened (the batch page records that), so a push that
- * lands overnight is the first thing the next person to sign in sees.
- */
-function useApiArrivals(enabled: boolean): ShellNotification[] {
-  const pathname = usePathname();
-  const [items, setItems] = React.useState<ShellNotification[]>([]);
-  React.useEffect(() => {
-    if (!enabled) return;
-    let live = true;
-    const load = () =>
-      fetch("/api/bulk/batches", { cache: "no-store" })
-        .then((r) => (r.ok ? r.json() : []))
-        .then((list: BatchSummary[]) => {
-          if (!live) return;
-          setItems(
-            list
-              .filter((b) => b.source.kind === "api" && b.openedAt === null && !b.clubbedInto)
-              .map((b) => ({
-                id: `bulk-${b.id}`,
-                title: `${b.total} new case${b.total === 1 ? "" : "s"} from ${b.source.system} API`,
-                body: [
-                  b.number,
-                  b.filingAdvocate ? `for ${b.filingAdvocate.name}` : null,
-                  `received ${toLongDate(b.createdAt.slice(0, 10))}`,
-                ]
-                  .filter(Boolean)
-                  .join(" · "),
-                unread: true,
-                tone: "warning" as const,
-                persistent: true,
-                href: `/filings/bulk/${b.id}`,
-              })),
-          );
-        })
-        .catch(() => undefined);
-    load();
-    // A push can land while the app is open.
-    const timer = window.setInterval(load, 30_000);
-    return () => {
-      live = false;
-      window.clearInterval(timer);
-    };
-  }, [enabled, pathname]);
-  return enabled ? items : [];
-}
-
-/**
  * Chrome for the whole app: the main nav's collapse trigger, where you are, what needs
  * your attention, and your account. The court identity lives in the nav rail's header
  * instead — it is the page origin, and it should not move when this bar's contents change.
@@ -492,8 +442,7 @@ export function TopBar() {
   const notifications = useTaskNotifications();
   const { profileRole } = useProfile();
   // A litigant's notifications are their own (empty in this demo) — no advocate alerts.
-  const arrivals = useApiArrivals(profileRole !== "litigant");
-  const items = profileRole === "litigant" ? [] : [...arrivals, ...notifications.items];
+  const items = profileRole === "litigant" ? [] : notifications.items;
 
   const { crumbs } = useChrome();
   const pathname = usePathname();

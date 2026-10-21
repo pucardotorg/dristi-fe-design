@@ -30,6 +30,7 @@ export function SectionTabs({
   addLabel,
   onAdd,
   trailing,
+  addAfterTabs = false,
   className,
 }: {
   tabs: SectionTab[];
@@ -40,6 +41,8 @@ export function SectionTabs({
   onAdd?: () => void;
   /** Right-aligned extra control (e.g. "View source document"). */
   trailing?: React.ReactNode;
+  /** Add sits right after the last tab rather than at the row's far end (bulk filing). */
+  addAfterTabs?: boolean;
   className?: string;
 }) {
   /* Adding a cheque or removing a complainant is an edit, not a correction (brief D3). */
@@ -87,8 +90,11 @@ export function SectionTabs({
       )}
     >
       <div className="flex w-full min-w-0 items-center gap-2 border-b border-hairline sm:contents">
-      {/* Add sits right after the last tab, not at the far end (owner, 2026-10-20). */}
-      <Tabs value={activeId} onValueChange={onSelect} className="min-w-0 flex-initial">
+      <Tabs
+        value={activeId}
+        onValueChange={onSelect}
+        className={cn("min-w-0", addAfterTabs ? "flex-initial" : "flex-1")}
+      >
         <TabsList
           ref={listRef}
           variant="line"

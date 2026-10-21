@@ -132,10 +132,8 @@ npm run demo
    number. Click a row to see its details, documents and activity.
 7. **Settings** (bottom left) shows the connector and the full field-by-field mapping.
 
-On SARAS 2.0, a push nobody has opened yet shows in the **bell** at the top right ("2 new
-cases from Provakil API", with the batch and the advocate) and as **New** on the **Bulk
-filing** list. It stays there until someone opens the batch, so the next person to sign in
-sees it first.
+On SARAS 2.0, a push nobody has opened yet shows as **New** on the **Bulk filing** list. It
+stays marked until someone opens the batch, so the next person to sign in sees it first.
 
 Things greyed out in Provakil are not part of the demo.
 
