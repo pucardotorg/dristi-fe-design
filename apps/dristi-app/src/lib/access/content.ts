@@ -41,6 +41,15 @@ export type AccessCase = {
   viewerAccess?: "vakalatnama" | "office";
 };
 
+/**
+ * A case the advocate just joined, made known to the access world so office
+ * access can be given to it at the end of the join flow (OFC-40). Prototype
+ * only: the backend's case list replaces this.
+ */
+export function registerAccessCase(entry: AccessCase): void {
+  if (!ACCESS_CASES.some((c) => c.id === entry.id)) ACCESS_CASES.unshift(entry);
+}
+
 /** May the signed-in advocate remove people from this case? Office access
     never may — removal belongs to the advocates on the vakalatnama. */
 export function viewerHoldsVakalat(caseId: string): boolean {
@@ -72,8 +81,11 @@ export type AccessPerson = {
    */
   addedBy: "self" | string | null;
   grants: AccessGrant[];
-  /** Known only by number — invited but never signed in to DRISTI. */
+  /** Added to the office but has not yet accepted (OFC-07). */
   pending?: boolean;
+  /** Gets office access to every case the signed-in advocate is later added
+      to on a vakalatnama (OFC-25). */
+  allCases?: boolean;
 };
 
 /** The signed-in advocate — rendered as "(you)" atop per-case access lists. */
@@ -357,6 +369,7 @@ export const ACCESS_PEOPLE: AccessPerson[] = [
     name: "Anil Raghavan",
     phone: "94470 88221",
     addedBy: "self",
+    allCases: true,
     grants: joinedGrants(
       [
         "c-847", "c-612", "c-533", "c-410", "c-289", "c-721", "c-698", "c-655",
@@ -478,6 +491,19 @@ export const ACCESS_PEOPLE: AccessPerson[] = [
     ),
   },
   {
+    // Added this week, yet to accept — shows the awaiting state (OFC-07).
+    id: "p-sreeja",
+    name: "Adv. Sreeja Mohan",
+    phone: "99614 72058",
+    barId: "K/3311/2023",
+    addedBy: "self",
+    pending: true,
+    grants: [
+      { caseId: "c-612", role: "junior", status: "invited", since: "19 Oct 2026", addedBy: "self" },
+      { caseId: "c-410", role: "junior", status: "invited", since: "19 Oct 2026", addedBy: "self" },
+    ],
+  },
+  {
     id: "p-leena",
     name: "Adv. Leena S. Nair",
     phone: "97461 40832",
@@ -488,68 +514,47 @@ export const ACCESS_PEOPLE: AccessPerson[] = [
       ...joinedGrants(["c-655"], "junior", "5 Aug 2026", ["Adv. Thomas K. George"]),
     ],
   },
-  {
-    id: "p-pending",
-    name: "+91 70076 63437",
-    phone: "70076 63437",
-    addedBy: "self",
-    pending: true,
-    grants: [
-      {
-        caseId: "c-590",
-        role: "clerk",
-        status: "invited",
-        since: "8 Aug 2026",
-        addedBy: "self",
-      },
-      {
-        caseId: "c-564",
-        role: "clerk",
-        status: "invited",
-        since: "8 Aug 2026",
-        addedBy: "Adv. Priya Nair",
-      },
-    ],
-  },
 ];
 
-/**
- * Frequent collaborators — the meeting's replacement for teams/folders: suggest
- * the people this office keeps adding, one tap to stack them into an invite.
- */
-export const FREQUENT_COLLABORATORS: Array<{ name: string; phone: string; role: AccessRole }> = [
-  { name: "Adv. Priya Nair", phone: "94950 33417", role: "junior" },
-  { name: "Sameer K.", phone: "90720 55190", role: "clerk" },
-  { name: "Adv. Leena S. Nair", phone: "97461 40832", role: "junior" },
-  { name: "Adv. Sreeja Mohan", phone: "99614 72058", role: "junior" },
-  { name: "Akhil Krishnan", phone: "80890 74136", role: "clerk" },
-];
-
-/**
- * Stand-in for the DRISTI account lookup: the tenth digit resolves the number
- * to the registered name (and, for past team members, their designation).
- */
-export const PHONE_DIRECTORY: Record<
-  string,
-  { name: string; designation?: AccessRole; advocate?: boolean }
-> = {
-  "9447088221": { name: "Anil Raghavan", designation: "clerk" },
-  "9495033417": { name: "Adv. Priya Nair", designation: "junior" },
-  "9495166778": { name: "Adv. Rahul Menon", designation: "junior" },
-  "9072055190": { name: "Sameer K.", designation: "clerk" },
-  /* `advocate` marks independent advocates — people who would act on the
-     case through a vakalatnama rather than as somebody's office staff. The
-     share dialog uses it to notice a wrong-door moment: sharing to an
-     advocate is almost always "add them to the case" intended, and it points
-     to the Parties tab instead of silently granting office access. Juniors
-     stay unmarked — sharing to them is exactly what the dialog is for. */
-  "9847012345": { name: "Adv. Thomas K. George", advocate: true },
-  "9847098765": { name: "Adv. Rajesh Kurup", advocate: true },
-  "9876501234": { name: "Ramesh Chandran" },
-  "9746140832": { name: "Adv. Leena S. Nair", designation: "junior" },
-  "9961472058": { name: "Adv. Sreeja Mohan", designation: "junior" },
-  "8089074136": { name: "Akhil Krishnan", designation: "clerk" },
+export type RegisteredUser = {
+  name: string;
+  /** Spaced, "94950 33417". */
+  phone: string;
+  /** Advocates only. */
+  barId?: string;
+  /** The account type — the only two types that can be in an office (OFC-02). */
+  type: "advocate" | "clerk";
 };
+
+/**
+ * Stand-in for DRISTI's registry of advocate and clerk accounts. Office
+ * management adds registered users only (owner, 2026-10-21), searched by name,
+ * mobile number or Bar ID (OFC-20). Unregistered numbers cannot be added.
+ */
+export const REGISTERED_USERS: RegisteredUser[] = [
+  { name: "Anil Raghavan", phone: "94470 88221", type: "clerk" },
+  { name: "Adv. Priya Nair", phone: "94950 33417", barId: "K/2988/2021", type: "advocate" },
+  { name: "Adv. Rahul Menon", phone: "94951 66778", barId: "K/3105/2022", type: "advocate" },
+  { name: "Sameer K.", phone: "90720 55190", type: "clerk" },
+  { name: "Adv. Thomas K. George", phone: "98470 12345", barId: "K/831/2011", type: "advocate" },
+  { name: "Adv. Rajesh Kurup", phone: "98470 98765", barId: "K/1204/2015", type: "advocate" },
+  { name: "Ramesh Chandran", phone: "98765 01234", type: "clerk" },
+  { name: "Arun Das", phone: "94473 66218", type: "clerk" },
+  { name: "Adv. Nisha Varghese", phone: "98951 22764", barId: "K/2251/2019", type: "advocate" },
+  { name: "Adv. Leena S. Nair", phone: "97461 40832", barId: "K/948/2014", type: "advocate" },
+  { name: "Adv. Meera Pillai", phone: "98462 45190", barId: "K/1742/2017", type: "advocate" },
+  { name: "Adv. Sreeja Mohan", phone: "99614 72058", barId: "K/3311/2023", type: "advocate" },
+  { name: "Akhil Krishnan", phone: "80890 74136", type: "clerk" },
+  { name: "Divya Prakash", phone: "70123 45678", type: "clerk" },
+  { name: "Adv. Joseph Antony", phone: "94461 20934", barId: "K/1567/2016", type: "advocate" },
+  { name: "Adv. Fathima Rasheed", phone: "98953 70412", barId: "K/2730/2020", type: "advocate" },
+  { name: "Vishnu Mohan", phone: "81290 66135", type: "clerk" },
+];
+
+export function registeredUserByPhone(phone: string): RegisteredUser | undefined {
+  const digits = phone.replace(/\D/g, "");
+  return REGISTERED_USERS.find((user) => user.phone.replace(/\D/g, "") === digits);
+}
 
 /* ------------------------------------------------------------------------ copy */
 
@@ -557,18 +562,30 @@ export const PHONE_DIRECTORY: Record<
    2026-10-12). Malayalam drafted — needs review. */
 export const inviteFieldCopy = {
   placeholder: t(
-    "Name, mobile number or Bar ID",
-    "പേര്, മൊബൈൽ നമ്പർ അല്ലെങ്കിൽ ബാർ ഐഡി",
+    "Search by name, mobile number or Bar ID",
+    "പേര്, മൊബൈൽ നമ്പർ അല്ലെങ്കിൽ ബാർ ഐഡി ഉപയോഗിച്ച് തിരയുക",
   ),
-  suggested: t("People you often add", "നിങ്ങൾ പതിവായി ചേർക്കുന്നവർ"),
+  suggested: t("Your office", "നിങ്ങളുടെ ഓഫീസ്"),
+  inOffice: t("In your office", "നിങ്ങളുടെ ഓഫീസിൽ"),
   newNumber: t(
     "They'll get an access link by SMS and in DRISTI.",
     "അവർക്ക് SMS വഴിയും DRISTI-യിലും ആക്‌സസ് ലിങ്ക് ലഭിക്കും.",
   ),
   keepTyping: t(
-    "No one you've added matches. Enter the full 10-digit number or Bar ID.",
-    "നിങ്ങൾ ചേർത്തവരിൽ ആരും പൊരുത്തപ്പെടുന്നില്ല. 10 അക്ക നമ്പർ അല്ലെങ്കിൽ ബാർ ഐഡി മുഴുവൻ നൽകുക.",
+    "No registered advocate or clerk matches. Only people registered on DRISTI can be added.",
+    "രജിസ്റ്റർ ചെയ്ത അഭിഭാഷകരോ ക്ലർക്കുമാരോ പൊരുത്തപ്പെടുന്നില്ല. DRISTI-യിൽ രജിസ്റ്റർ ചെയ്തവരെ മാത്രമേ ചേർക്കാനാകൂ.",
   ),
+  typeAdvocate: t("Advocate", "അഭിഭാഷകൻ"),
+  typeClerk: t("Clerk", "ക്ലർക്ക്"),
+};
+
+/* The end-of-join office step (OFC-40 to OFC-43). Malayalam drafted — needs review. */
+export const joinOfficeCopy = {
+  alreadyAdded: t(
+    "Already have access, as they are on All cases:",
+    "'എല്ലാ കേസുകളും' ആയതിനാൽ ഇതിനകം ആക്‌സസ് ഉണ്ട്:",
+  ),
+  awaiting: t("awaiting acceptance", "സ്വീകരിക്കാൻ കാത്തിരിക്കുന്നു"),
 };
 
 export const accessShell = {
@@ -579,8 +596,8 @@ export const shareCopy = {
   title: t("Share access", "ആക്‌സസ് പങ്കിടുക"),
   scopeManyTitle: t("{count} cases selected", "{count} കേസുകൾ തിരഞ്ഞെടുത്തു"),
   bodySingle: t(
-    "Office access only: people you add can work on the case but are not on the case record.",
-    "ഓഫീസ് ആക്‌സസ് മാത്രം: നിങ്ങൾ ചേർക്കുന്നവർക്ക് കേസിൽ പ്രവർത്തിക്കാം, പക്ഷേ അവർ കേസ് രേഖയിൽ ഉണ്ടാകില്ല.",
+    "People you add get office access: they can work on the case but are not on the vakalatnama. They are added to your office on the People page.",
+    "നിങ്ങൾ ചേർക്കുന്നവർക്ക് ഓഫീസ് ആക്‌സസ് ലഭിക്കും: അവർക്ക് കേസിൽ പ്രവർത്തിക്കാം, പക്ഷേ വക്കാലത്ത്നാമയിൽ ഉണ്ടാകില്ല. പീപ്പിൾ പേജിൽ അവർ നിങ്ങളുടെ ഓഫീസിൽ ചേർക്കപ്പെടും.",
   ),
   phonePlaceholder: t("Mobile number", "മൊബൈൽ നമ്പർ"),
   phoneAdd: t("Add number", "നമ്പർ ചേർക്കുക"),
@@ -588,9 +605,9 @@ export const shareCopy = {
   removeChip: t("Remove", "നീക്കം ചെയ്യുക"),
   suggestionsLabel: t("People you often add", "നിങ്ങൾ പതിവായി ചേർക്കുന്നവർ"),
   send: t("Share", "പങ്കിടുക"),
-  sentNote: t("Invitation sent to", "ഇവർക്ക് ക്ഷണം അയച്ചു"),
+  sentNote: t("Access given to", "ഇവർക്ക് ആക്‌സസ് നൽകി"),
   /* Says an invite went, not how — SMS or in-app is not settled (owner, 2026-10-13). */
-  inviteToast: t("Invite sent to {names}", "{names} എന്നവർക്ക് ക്ഷണം അയച്ചു"),
+  inviteToast: t("Access given to {names}", "{names} എന്നവർക്ക് ആക്‌സസ് നൽകി"),
   sentBulkNote: t(
     "Added to {added} of {total} cases · already had access to {skipped}",
     "{total}-ൽ {added} കേസുകളിൽ ചേർത്തു · {skipped} കേസിൽ നേരത്തേ ആക്‌സസ് ഉണ്ടായിരുന്നു",
@@ -603,16 +620,12 @@ export const shareCopy = {
   whoHasAccess: t("Who has access", "ആർക്കൊക്കെ ആക്‌സസ് ഉണ്ട്"),
   accessSearchPlaceholder: t("Search people", "ആളുകളെ തിരയുക"),
   you: t("(you)", "(നിങ്ങൾ)"),
-  statusInvited: t("Yet to join", "ചേരാനുണ്ട്"),
+  statusInvited: t("Awaiting acceptance", "സ്വീകരിക്കാൻ കാത്തിരിക്കുന്നു"),
   readOnlyNote: t(
     "You hold office access on this case, so you can see who has access. Adding and removing people belongs to the advocates on the vakalatnama.",
     "ഈ കേസിൽ നിങ്ങൾക്ക് ഓഫീസ് ആക്‌സസ് ആയതിനാൽ ആർക്കൊക്കെ ആക്‌സസ് ഉണ്ടെന്ന് കാണാം. ആളുകളെ ചേർക്കുന്നതും നീക്കുന്നതും വക്കാലത്ത്നാമയിലെ അഭിഭാഷകർക്കാണ്.",
   ),
   selfOfficeAccess: t("Office access", "ഓഫീസ് ആക്‌സസ്"),
-  advocateNotice: t(
-    "{name} is an advocate. Sharing gives office access only. To have them act on this case, add them from the Parties tab with a vakalatnama.",
-    "{name} ഒരു അഭിഭാഷകനാണ്. പങ്കിടുന്നത് ഓഫീസ് ആക്‌സസ് മാത്രമേ നൽകൂ. ഈ കേസിൽ പ്രവർത്തിക്കാൻ, വക്കാലത്ത്നാമയോടെ പാർട്ടീസ് ടാബിൽ നിന്ന് അവരെ ചേർക്കുക.",
-  ),
 };
 
 export const roleCopy: Record<AccessRole, Copy> = {
@@ -629,15 +642,17 @@ export const listCopy = {
   ),
   addedByYou: t("Added by you", "നിങ്ങൾ ചേർത്തത്"),
   addedBy: t("Added by {name}", "{name} ചേർത്തത്"),
-  invitedPending: t("Invited · yet to sign in", "ക്ഷണിച്ചു · ഇതുവരെ സൈൻ ഇൻ ചെയ്തിട്ടില്ല"),
+  invitedPending: t("Awaiting acceptance", "സ്വീകരിക്കാൻ കാത്തിരിക്കുന്നു"),
 };
 
 export const peopleCopy = {
   title: t("People", "ആളുകൾ"),
   subtitle: t(
-    "Everyone who works on your cases with you. Open a person to see the cases they can access, go to a case, or remove access.",
-    "നിങ്ങളുടെ കേസുകളിൽ നിങ്ങളോടൊപ്പം പ്രവർത്തിക്കുന്ന എല്ലാവരും. ഒരാളെ തുറന്നാൽ അവർക്ക് ആക്‌സസ് ഉള്ള കേസുകൾ കാണാം, കേസിലേക്ക് പോകാം, ആക്‌സസ് നീക്കം ചെയ്യാം.",
+    "Your office: the advocates and clerks you have given access to your cases. Open a person to see their cases or remove access.",
+    "നിങ്ങളുടെ ഓഫീസ്: നിങ്ങളുടെ കേസുകളിലേക്ക് ആക്‌സസ് നൽകിയ അഭിഭാഷകരും ക്ലർക്കുമാരും. ഒരാളെ തുറന്നാൽ അവരുടെ കേസുകൾ കാണാം അല്ലെങ്കിൽ ആക്‌സസ് നീക്കം ചെയ്യാം.",
   ),
+  addPerson: t("Add person", "ആളെ ചേർക്കുക"),
+  futureBadge: t("All cases", "എല്ലാ കേസുകളും"),
   searchPlaceholder: t("Search people…", "ആളുകളെ തിരയുക…"),
   searchLabel: t("Search", "തിരയുക"),
   sortLabel: t("Sort by", "ക്രമീകരിക്കുക"),
@@ -652,10 +667,10 @@ export const peopleCopy = {
   columnCases: t("Cases", "കേസുകൾ"),
   designationAdvocate: t("Advocate", "അഭിഭാഷകൻ"),
   designationClerk: t("Clerk", "ക്ലർക്ക്"),
-  emptyTitle: t("No one has shared access yet", "ഇതുവരെ ആർക്കും ആക്‌സസ് പങ്കിട്ടിട്ടില്ല"),
+  emptyTitle: t("No one in your office yet", "നിങ്ങളുടെ ഓഫീസിൽ ഇതുവരെ ആരുമില്ല"),
   emptyBody: t(
-    "Share a case from Your cases to bring your clerks and juniors in.",
-    "നിങ്ങളുടെ ക്ലർക്കുമാരെയും ജൂനിയർമാരെയും ചേർക്കാൻ 'നിങ്ങളുടെ കേസുകൾ' എന്നതിൽ നിന്ന് ഒരു കേസ് പങ്കിടുക.",
+    "Add the advocates and clerks who work on your cases with you.",
+    "നിങ്ങളോടൊപ്പം കേസുകളിൽ പ്രവർത്തിക്കുന്ന അഭിഭാഷകരെയും ക്ലർക്കുമാരെയും ചേർക്കുക.",
   ),
   noMatches: t("No one matches your search.", "തിരച്ചിലിന് അനുയോജ്യമായ ആരുമില്ല."),
   detailCases: t("Cases they can access", "അവർക്ക് ആക്‌സസ് ഉള്ള കേസുകൾ"),
@@ -686,23 +701,44 @@ export const peopleCopy = {
   ),
   openCase: t("Open case", "കേസ് തുറക്കുക"),
   removeFromCase: t("Remove", "നീക്കം ചെയ്യുക"),
-  removeFromAll: t("Remove from all cases", "എല്ലാ കേസുകളിൽ നിന്നും നീക്കം ചെയ്യുക"),
+  removeFromAll: t("Remove from office", "ഓഫീസിൽ നിന്ന് നീക്കം ചെയ്യുക"),
+  moreCases: t("Give access to more cases", "കൂടുതൽ കേസുകളിലേക്ക് ആക്‌സസ് നൽകുക"),
+  scopeLabel: t("Access", "ആക്‌സസ്"),
+  scopeAll: t("All cases", "എല്ലാ കേസുകളും"),
+  scopeSpecific: t("Specific cases", "തിരഞ്ഞെടുത്ത കേസുകൾ"),
+  scopeAllHint: t(
+    "Every case you are on the vakalatnama for, now and in future. To remove single cases, switch to Specific cases.",
+    "നിങ്ങൾ വക്കാലത്ത്നാമയിലുള്ള എല്ലാ കേസുകളും, ഇപ്പോഴും ഭാവിയിലും. ഓരോ കേസായി നീക്കം ചെയ്യാൻ 'തിരഞ്ഞെടുത്ത കേസുകൾ' ആക്കുക.",
+  ),
+  scopeSpecificHint: t(
+    "Only the cases listed below. New cases are not shared automatically.",
+    "താഴെ നൽകിയ കേസുകൾ മാത്രം. പുതിയ കേസുകൾ സ്വയമേവ പങ്കിടില്ല.",
+  ),
+  allCasesShareNote: t("All cases", "എല്ലാ കേസുകളും"),
   removeFromThese: t("Remove from these cases", "ഈ കേസുകളിൽ നിന്ന് നീക്കം ചെയ്യുക"),
   removeTheseTitle: t("Remove {name} from these cases?", "{name}-നെ ഈ കേസുകളിൽ നിന്ന് നീക്കം ചെയ്യണോ?"),
   selectCaseAria: t("Select {caseNumber}", "{caseNumber} തിരഞ്ഞെടുക്കുക"),
-  removeAllTitle: t("Remove {name} from all cases?", "{name}-നെ എല്ലാ കേസുകളിൽ നിന്നും നീക്കം ചെയ്യണോ?"),
+  removeAllTitle: t("Remove {name} from your office?", "{name}-നെ നിങ്ങളുടെ ഓഫീസിൽ നിന്ന് നീക്കം ചെയ്യണോ?"),
   removeAllBody: t(
+    "They will lose access to {count} cases immediately and leave your office. You can add them again at any time.",
+    "അവർക്ക് {count} കേസുകളിലെ ആക്‌സസ് ഉടൻ നഷ്ടപ്പെടും, അവർ നിങ്ങളുടെ ഓഫീസിൽ നിന്ന് പുറത്താകും. എപ്പോൾ വേണമെങ്കിലും വീണ്ടും ചേർക്കാം.",
+  ),
+  removeTheseBody: t(
     "They will lose access to {count} cases immediately. You can share access again at any time.",
     "അവർക്ക് {count} കേസുകളിലെ ആക്‌സസ് ഉടൻ നഷ്ടപ്പെടും. എപ്പോൾ വേണമെങ്കിലും വീണ്ടും ആക്‌സസ് പങ്കിടാം.",
+  ),
+  removeLastBody: t(
+    "This is their last case, so they will also leave your office.",
+    "ഇത് അവരുടെ അവസാന കേസാണ്, അതിനാൽ അവർ നിങ്ങളുടെ ഓഫീസിൽ നിന്നും പുറത്താകും.",
   ),
   removeBodyOne: t(
     "They will lose access to this case immediately. You can share access again at any time.",
     "അവർക്ക് ഈ കേസിലെ ആക്‌സസ് ഉടൻ നഷ്ടപ്പെടും. എപ്പോൾ വേണമെങ്കിലും വീണ്ടും ആക്‌സസ് പങ്കിടാം.",
   ),
-  removeAllConfirm: t("Remove from all", "എല്ലാത്തിൽ നിന്നും നീക്കം ചെയ്യുക"),
+  removeAllConfirm: t("Remove from office", "ഓഫീസിൽ നിന്ന് നീക്കം ചെയ്യുക"),
   removeAllCancel: t("Cancel", "റദ്ദാക്കുക"),
   removedNote: t("{name} no longer has access to {case}.", "{name}-ന് ഇനി {case}-ൽ ആക്‌സസ് ഇല്ല."),
-  removedAllNote: t("{name} no longer has access to any of your cases.", "{name}-ന് ഇനി നിങ്ങളുടെ കേസുകളിലൊന്നും ആക്‌സസ് ഇല്ല."),
+  removedAllNote: t("{name} is no longer in your office.", "{name} ഇനി നിങ്ങളുടെ ഓഫീസിൽ ഇല്ല."),
   /* One removal flow, entered from here too: a vakalat row's Remove opens
      the same court-application dialog the Parties tab uses. */
   removalPending: t("Removal requested", "നീക്കം ചെയ്യാൻ അഭ്യർത്ഥിച്ചു"),
@@ -731,5 +767,41 @@ export const casesCopy = {
   caseWireframeNote: t(
     "Wireframe — the case file is a separate design. Share access is the real control.",
     "വയർഫ്രെയിം — കേസ് ഫയൽ പ്രത്യേക ഡിസൈനാണ്. 'ആക്‌സസ് പങ്കിടുക' ആണ് യഥാർത്ഥ നിയന്ത്രണം.",
+  ),
+};
+
+/* The Add person flow (OFC-20 to OFC-28). Malayalam drafted — needs review. */
+export const addPersonCopy = {
+  title: t("Add person", "ആളെ ചേർക്കുക"),
+  titleMore: t("Give {name} access to more cases", "{name}-ന് കൂടുതൽ കേസുകളിലേക്ക് ആക്‌സസ് നൽകുക"),
+  body: t(
+    "Add a registered advocate or clerk to your office. They can work on the cases you choose but are not on the vakalatnama, and cannot e-sign.",
+    "രജിസ്റ്റർ ചെയ്ത ഒരു അഭിഭാഷകനെയോ ക്ലർക്കിനെയോ നിങ്ങളുടെ ഓഫീസിൽ ചേർക്കുക. നിങ്ങൾ തിരഞ്ഞെടുക്കുന്ന കേസുകളിൽ അവർക്ക് പ്രവർത്തിക്കാം, പക്ഷേ അവർ വക്കാലത്ത്നാമയിൽ ഉണ്ടാകില്ല, ഇ-സൈൻ ചെയ്യാനാകില്ല.",
+  ),
+  peopleLabel: t("Who", "ആരെ"),
+  casesLabel: t("Which cases", "ഏതൊക്കെ കേസുകൾ"),
+  allCurrent: t("All cases", "എല്ലാ കേസുകളും"),
+  allCurrentHint: t(
+    "Every case you are on the vakalatnama for — {count} now — and every case you file or join from now on.",
+    "നിങ്ങൾ വക്കാലത്ത്നാമയിലുള്ള എല്ലാ കേസുകളും — ഇപ്പോൾ {count} — ഇനി ഫയൽ ചെയ്യുന്നതോ ചേരുന്നതോ ആയ എല്ലാ കേസുകളും.",
+  ),
+  specific: t("Specific cases", "തിരഞ്ഞെടുത്ത കേസുകൾ"),
+  specificHint: t(
+    "Only the cases you choose below. New cases are not shared automatically.",
+    "താഴെ നിങ്ങൾ തിരഞ്ഞെടുക്കുന്ന കേസുകൾ മാത്രം. പുതിയ കേസുകൾ സ്വയമേവ പങ്കിടില്ല.",
+  ),
+  caseSearch: t("Search your cases", "നിങ്ങളുടെ കേസുകൾ തിരയുക"),
+  selectedCount: t("{count} selected", "{count} തിരഞ്ഞെടുത്തു"),
+  alreadyHas: t("Already has access", "ഇതിനകം ആക്‌സസ് ഉണ്ട്"),
+  needPerson: t("Choose at least one person.", "ഒരാളെയെങ്കിലും തിരഞ്ഞെടുക്കുക."),
+  needCases: t("Choose at least one case.", "ഒരു കേസെങ്കിലും തിരഞ്ഞെടുക്കുക."),
+  cancel: t("Cancel", "റദ്ദാക്കുക"),
+  submit: t("Add", "ചേർക്കുക"),
+  submitMore: t("Give access", "ആക്‌സസ് നൽകുക"),
+  doneToast: t("{names} added to {count} cases", "{names} {count} കേസുകളിൽ ചേർത്തു"),
+  doneToastOne: t("{names} added to 1 case", "{names} 1 കേസിൽ ചേർത്തു"),
+  doneToastPending: t(
+    "{names} will get access once they accept.",
+    "{names} സ്വീകരിച്ചാലുടൻ ആക്‌സസ് ലഭിക്കും.",
   ),
 };

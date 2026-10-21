@@ -11,6 +11,7 @@ import {
   SELF,
   fillCopy,
   listCopy,
+  peopleCopy,
   roleCopy,
   shareCopy,
   type AccessGrant,
@@ -87,7 +88,7 @@ export function PersonRow({
     <div className="flex items-center gap-3 py-2.5">
       <Avatar className="size-9 shrink-0">
         <AvatarFallback className="text-caption font-medium">
-          {person.pending ? "#" : initials(person.name)}
+          {initials(person.name)}
         </AvatarFallback>
       </Avatar>
 
@@ -122,6 +123,11 @@ export function PersonRow({
             <LockedRemove locale={locale} />
           )}
         </div>
+      ) : person.allCases && grant.addedBy === "self" ? (
+        // On All cases: narrowed from the People tab, not case by case (OFC-52).
+        <span className="shrink-0 text-caption text-muted-foreground">
+          {pick(peopleCopy.allCasesShareNote, locale)}
+        </span>
       ) : onRemove ? (
         <Button type="button" variant="destructive-ghost" size="sm" onClick={onRemove}>
           {pick(listCopy.remove, locale)}

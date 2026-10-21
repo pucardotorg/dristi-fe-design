@@ -4,7 +4,7 @@ import * as React from "react";
 import {
   CheckCircle2Icon,
   ChevronRightIcon,
-  InfoIcon,
+  PlusIcon,
   SearchIcon,
   UsersIcon,
   XIcon,
@@ -39,11 +39,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { initials } from "@/components/access/access-list";
 import { useAccess } from "@/components/access/access-state";
-import { RemoveAdvocateDialog } from "@/components/cases/remove-advocate-dialog";
+import { AddPersonDialog } from "@/components/access/add-person-dialog";
 import { pick, type Locale } from "@/lib/onboarding/content";
 import {
   ACCESS_CASES,
@@ -51,7 +51,6 @@ import {
   listCopy,
   peopleCopy,
   shareCopy,
-  viewerHoldsVakalat,
   type AccessGrant,
   type AccessPerson,
 } from "@/lib/access/content";
@@ -68,31 +67,21 @@ import { cn } from "@/lib/utils";
 import { Identifier } from "@/components/chrome/identifier";
 
 /**
- * The People page — the renamed "Team case access" destination.
+ * The People page — the advocate's office (office management handover, §2–§4).
  *
- * A FLAT list of everyone on my side (name, number, case count). Opening a
- * person slides in an INLINE side panel that pushes the list left — no
- * overlay, nothing behind it disabled, so clicking another person just
- * repoints the panel. It never covers the top bar on desktop because it lives
- * in the page flow; on phones it becomes a focused full-screen surface.
+ * A FLAT list of the people this advocate has given office access to (name,
+ * number, designation, case count) — never co-advocates on a vakalatnama
+ * (OFC-11). Add person opens the add flow. Opening a person slides in an
+ * INLINE side panel that pushes the list left — no overlay, nothing behind it
+ * disabled, so clicking another person just repoints the panel. On phones it
+ * becomes a drawer.
  *
- * The panel splits their cases in two: "Access through Vakalatnama" (open only —
- * removal is a court application) and "Administrative access" (checkbox
- * select, red remove, invited-by attribution). Bulk removal therefore only
- * ever touches the administrative group. When a person has both kinds, the two
- * sit behind tabs; with only one kind, that section fills the panel on its own.
+ * The panel holds the all-future-cases switch, the cases they can access
+ * (checkbox select, per-case remove), Give access to more cases, and Remove
+ * from office.
  */
 
 type PeopleSort = "name-asc" | "name-desc" | "cases-desc" | "cases-asc";
-type PanelTab = "vakalat" | "admin";
-
-/**
- * Underline (line) tab — label + count as muted tabular text, the same presentation the
- * Pending Tasks views use. Text seated low (`pb-2.5`) with `-mb-px` + `after:bottom-0` so
- * the active underline lands ON the band's rule rather than a line below it.
- */
-const PANEL_TAB_CLASS =
-  "flex-none items-end gap-1.5 rounded-none px-0 pb-2.5 text-body-compact group-data-horizontal/tabs:h-10 group-data-horizontal/tabs:after:bottom-0 group-data-[variant=line]/tabs-list:data-active:after:bg-brand-accent";
 
 function caseById(caseId: string) {
   return ACCESS_CASES.find((c) => c.id === caseId);
@@ -180,7 +169,7 @@ function PersonListRow({
         <span className="flex min-w-0 items-start gap-3">
           <Avatar className="size-10 shrink-0">
             <AvatarFallback className="text-caption font-medium">
-              {person.pending ? "#" : initials(person.name)}
+              {initials(person.name)}
             </AvatarFallback>
           </Avatar>
           <span className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -188,11 +177,19 @@ function PersonListRow({
               {displayName(person)}
             </span>
             <span className="text-caption text-muted-foreground">
+              <span className="tabular-nums">{person.phone}</span>
               {person.pending ? (
-                pick(listCopy.invitedPending, locale)
-              ) : (
-                <span className="tabular-nums">{person.phone}</span>
-              )}
+                <>
+                  <span aria-hidden> · </span>
+                  {pick(listCopy.invitedPending, locale)}
+                </>
+              ) : null}
+              {person.allCases ? (
+                <>
+                  <span aria-hidden> · </span>
+                  {pick(peopleCopy.futureBadge, locale)}
+                </>
+              ) : null}
             </span>
           </span>
           {/* On the name's own line, at its far end: who they are to you. */}
@@ -228,7 +225,7 @@ function PersonListRow({
       <span className="flex min-w-0 items-center gap-3">
         <Avatar className="size-10 shrink-0">
           <AvatarFallback className="text-caption font-medium">
-            {person.pending ? "#" : initials(person.name)}
+            {initials(person.name)}
           </AvatarFallback>
         </Avatar>
         <span className="flex min-w-0 flex-col gap-0.5">
@@ -236,11 +233,19 @@ function PersonListRow({
             {displayName(person)}
           </span>
           <span className="truncate text-caption text-muted-foreground">
+            <span className="tabular-nums">{person.phone}</span>
             {person.pending ? (
-              pick(listCopy.invitedPending, locale)
-            ) : (
-              <span className="tabular-nums">{person.phone}</span>
-            )}
+              <>
+                <span aria-hidden> · </span>
+                {pick(listCopy.invitedPending, locale)}
+              </>
+            ) : null}
+            {person.allCases ? (
+              <>
+                <span aria-hidden> · </span>
+                {pick(peopleCopy.futureBadge, locale)}
+              </>
+            ) : null}
             {/* Phones have no designation column — it rides the caption line. */}
             {designation ? (
               <span className="sm:hidden">
@@ -300,7 +305,8 @@ function CaseEntry({
   const grantCase = caseById(grant.caseId);
   if (!grantCase) return null;
   const isVakalat = grant.role === "vakalat";
-  const isPending = person.pending || grant.status === "invited";
+  // A person yet to accept says so once, in the panel header — not on every case.
+  const isPending = !person.pending && grant.status === "invited";
   const grantInviter = grant.addedBy ?? person.addedBy;
   const invitedBy =
     grantInviter === "self"
@@ -341,7 +347,7 @@ function CaseEntry({
               locale,
               { date: grant.since },
             )}
-            {!isVakalat && invitedBy ? <> · {invitedBy}</> : null}
+            {!isVakalat && invitedBy && grantInviter !== "self" ? <> · {invitedBy}</> : null}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1 pt-1 @xs/case-entry:self-center @xs/case-entry:pt-0">
@@ -386,28 +392,20 @@ export function PeoplePage({
   /** Jump to a case's file (the wireframe) — wired by the parent screen. */
   onOpenCase: (caseId: string) => void;
 }) {
-  const { people, removeGrant, removeAll } = useAccess();
+  const { office, removeGrant, removeAll, setAllCases } = useAccess();
   const [query, setQuery] = React.useState("");
   const [caseQuery, setCaseQuery] = React.useState("");
   const [peopleSort, setPeopleSort] = React.useState<PeopleSort>("name-asc");
   const [openPersonId, setOpenPersonId] = React.useState<string | null>(null);
-  const [panelTab, setPanelTab] = React.useState<PanelTab>("vakalat");
   const [checkedCases, setCheckedCases] = React.useState<string[]>([]);
   const [confirmRemove, setConfirmRemove] = React.useState(false);
   const [removedNote, setRemovedNote] = React.useState<string | null>(null);
-  /* Removing from the vakalatnama is the Parties tab's court-application
-     flow, entered from here too (owner, Sept 3). The dialog rides the open
-     person; a sent request retires that row's Remove for the session —
-     the real record of a pending request is the tasks service. */
-  const [removeVakalatCaseId, setRemoveVakalatCaseId] = React.useState<
-    string | null
-  >(null);
-  const [pendingRemovals, setPendingRemovals] = React.useState<
-    ReadonlySet<string>
-  >(new Set());
+  /* Add person (OFC-14), or Give access to more cases for the open person (OFC-33). */
+  const [addOpen, setAddOpen] = React.useState(false);
+  const [addFor, setAddFor] = React.useState<AccessPerson | null>(null);
 
-  // People with no grants left have no access anywhere — they drop off the page.
-  const active = people.filter((person) => person.grants.length > 0);
+  // The office: people this advocate gave access to, or set for future cases (OFC-11).
+  const active = office;
   const q = query.trim().toLowerCase();
   const searched = q
     ? active.filter(
@@ -424,9 +422,10 @@ export function PeoplePage({
     return aName.localeCompare(bName);
   });
 
-  const openPerson = people.find((person) => person.id === openPersonId) ?? null;
-  const vakalatGrants = openPerson ? openPerson.grants.filter((g) => g.role === "vakalat") : [];
-  const staffGrants = openPerson ? openPerson.grants.filter((g) => g.role !== "vakalat") : [];
+  // Someone removed from every case (and not on future cases) leaves the office,
+  // so the panel closes on them rather than showing nobody (OFC-37).
+  const openPerson = office.find((person) => person.id === openPersonId) ?? null;
+  const staffGrants = openPerson ? openPerson.grants : [];
   const caseQ = caseQuery.trim().toLowerCase();
   const matchesCaseQuery = (grant: AccessGrant) => {
     if (!caseQ) return true;
@@ -437,19 +436,9 @@ export function PeoplePage({
           grantCase.caseNumber.toLowerCase().includes(caseQ)),
     );
   };
-  const visibleVakalatGrants = vakalatGrants.filter(matchesCaseQuery);
   const visibleStaffGrants = staffGrants.filter(matchesCaseQuery);
-  // Removal is a vakalatnama holder's act, case by case. Office-access
-  // cases drop out of every removal surface here: no per-row Remove, no
-  // checkbox, and the bulk action counts only the cases the viewer may
-  // actually touch (owner, Sept 3).
-  const removableStaffGrants = staffGrants.filter((g) =>
-    viewerHoldsVakalat(g.caseId),
-  );
-  // Bulk removal only ever touches the administrative group — nama grants are
-  // court applications, so "all cases" honestly means "all administrative ones".
   const removingAll = checkedCases.length === 0;
-  const removeCount = checkedCases.length || removableStaffGrants.length;
+  const removeCount = checkedCases.length || staffGrants.length;
 
   /*
     The panel leaves the way the Cases peek does: `closingPanel` flips at once and
@@ -475,11 +464,6 @@ export function PeoplePage({
     // Picking someone while the panel is on its way out cancels the exit.
     setClosingPanel(false);
     setOpenPersonId(personId);
-    // Open on the tab the person actually has — Vakalatnama when present, since it is
-    // the primary form of access; a person with only administrative access lands there.
-    const person = people.find((entry) => entry.id === personId);
-    const hasVakalat = person?.grants.some((g) => g.role === "vakalat");
-    setPanelTab(hasVakalat ? "vakalat" : "admin");
     setCheckedCases([]);
     setCaseQuery("");
     setRemovedNote(null);
@@ -494,19 +478,13 @@ export function PeoplePage({
 
   function confirmBulkRemove() {
     if (!openPerson) return;
-    const targets = removingAll
-      ? removableStaffGrants.map((g) => g.caseId)
-      : checkedCases;
-    if (
-      removingAll &&
-      vakalatGrants.length === 0 &&
-      removableStaffGrants.length === staffGrants.length
-    ) {
+    if (removingAll) {
+      // Remove from office: every case, whichever access they had (OFC-35).
       removeAll(openPerson.id);
       setRemovedNote(fillCopy(peopleCopy.removedAllNote, locale, { name: openPerson.name }));
     } else {
-      targets.forEach((caseId) => removeGrant(openPerson.id, caseId));
-      const numbers = targets
+      checkedCases.forEach((caseId) => removeGrant(openPerson.id, caseId));
+      const numbers = checkedCases
         .map((caseId) => caseById(caseId)?.caseNumber)
         .filter(Boolean)
         .join(", ");
@@ -517,54 +495,8 @@ export function PeoplePage({
     setCheckedCases([]);
   }
 
-  function renderVakalatnamaSection() {
-    if (!openPerson || vakalatGrants.length === 0) return null;
-
-    return (
-      <section className="flex h-full min-h-0 flex-col overflow-hidden">
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1">
-          {visibleVakalatGrants.length ? (
-            <div className="flex flex-col divide-y divide-hairline">
-              {visibleVakalatGrants.map((grant) => (
-                <CaseEntry
-                  key={grant.caseId}
-                  grant={grant}
-                  person={openPerson}
-                  locale={locale}
-                  selectable={false}
-                  checked={false}
-                  onOpenCase={() => {
-                    closePanel();
-                    onOpenCase(grant.caseId);
-                  }}
-                  /* Remove here is the Parties tab's removal application,
-                     one case at a time — never bulk — and only where the
-                     viewer holds that case's vakalatnama themself. On
-                     office-access cases it renders locked, with the why. */
-                  onRemove={
-                    viewerHoldsVakalat(grant.caseId)
-                      ? () => setRemoveVakalatCaseId(grant.caseId)
-                      : undefined
-                  }
-                  removeLocked={!viewerHoldsVakalat(grant.caseId)}
-                  removalPending={pendingRemovals.has(
-                    `${openPerson.id}:${grant.caseId}`,
-                  )}
-                />
-              ))}
-            </div>
-          ) : (
-            <p className="py-4 text-caption text-muted-foreground">
-              {pick(peopleCopy.noCaseMatches, locale)}
-            </p>
-          )}
-        </div>
-      </section>
-    );
-  }
-
   function renderAdministrativeSection() {
-    if (!openPerson || staffGrants.length === 0) return null;
+    if (!openPerson) return null;
 
     return (
       <section className="flex h-full min-h-0 flex-col overflow-hidden">
@@ -572,14 +504,16 @@ export function PeoplePage({
           {visibleStaffGrants.length ? (
             <div className="flex flex-col divide-y divide-hairline">
               {visibleStaffGrants.map((grant) => {
-                const canRemove = viewerHoldsVakalat(grant.caseId);
+                // All cases has no per-case removal: narrowing is switching to
+                // Specific cases first (OFC-31, OFC-34).
+                const canRemove = !openPerson.allCases;
                 return (
                   <CaseEntry
                     key={grant.caseId}
                     grant={grant}
                     person={openPerson}
                     locale={locale}
-                    selectable={canRemove && removableStaffGrants.length > 1}
+                    selectable={canRemove && staffGrants.length > 1}
                     checked={checkedCases.includes(grant.caseId)}
                     onCheck={(value) =>
                       setCheckedCases((current) =>
@@ -592,20 +526,12 @@ export function PeoplePage({
                       closePanel();
                       onOpenCase(grant.caseId);
                     }}
-                    removeLocked={!canRemove}
                     onRemove={
                       canRemove
                         ? () => {
-                            removeGrant(openPerson.id, grant.caseId);
-                            setCheckedCases((current) =>
-                              current.filter((id) => id !== grant.caseId),
-                            );
-                            setRemovedNote(
-                              fillCopy(peopleCopy.removedNote, locale, {
-                                name: openPerson.name,
-                                case: caseById(grant.caseId)?.caseNumber ?? "",
-                              }),
-                            );
+                            // Confirmed like every removal (OFC-36).
+                            setCheckedCases([grant.caseId]);
+                            setConfirmRemove(true);
                           }
                         : undefined
                     }
@@ -619,7 +545,7 @@ export function PeoplePage({
             </p>
           )}
         </div>
-        {removableStaffGrants.length > 0 ? (
+        {staffGrants.length > 0 ? (
           <div className="shrink-0 px-1 pt-2 pb-1">
             <Button
               type="button"
@@ -628,7 +554,7 @@ export function PeoplePage({
               data-preserve-admin-selection
               onClick={() => setConfirmRemove(true)}
             >
-              {checkedCases.length
+              {checkedCases.length && !openPerson.allCases
                 ? pick(peopleCopy.removeFromThese, locale)
                 : pick(peopleCopy.removeFromAll, locale)}
             </Button>
@@ -637,42 +563,6 @@ export function PeoplePage({
       </section>
     );
   }
-
-  // The panel's two access kinds render as line tabs — one tab when the person has only
-  // one kind, two when they have both. Building them from a list keeps the single- and
-  // both-section cases visually identical (same underline chrome, same muted count),
-  // rather than the old split where a lone section wore a different bold-heading header.
-  const panelSections = [
-    vakalatGrants.length && {
-      key: "vakalat" as PanelTab,
-      label: pick(peopleCopy.vakalatCasesHeading, locale),
-      count: vakalatGrants.length,
-      tooltipLabel: pick(peopleCopy.vakalatTooltipLabel, locale),
-      tooltip: pick(listCopy.vakalatLocked, locale),
-      body: renderVakalatnamaSection(),
-    },
-    staffGrants.length && {
-      key: "admin" as PanelTab,
-      label: pick(peopleCopy.staffCasesHeading, locale),
-      count: staffGrants.length,
-      tooltipLabel: pick(peopleCopy.staffTooltipLabel, locale),
-      tooltip: pick(peopleCopy.staffTooltip, locale),
-      body: renderAdministrativeSection(),
-    },
-  ].filter(Boolean) as Array<{
-    key: PanelTab;
-    label: string;
-    count: number;
-    tooltipLabel: string;
-    tooltip: string;
-    body: React.ReactNode;
-  }>;
-  // Removing every grant of the open tab's kind can leave it pointing at a tab that no
-  // longer exists — fall back to whichever section remains.
-  const activeTab = panelSections.some((s) => s.key === panelTab)
-    ? panelTab
-    : panelSections[0]?.key;
-  const activeSection = panelSections.find((s) => s.key === activeTab);
 
   /*
     One panel, two ways in. From `md` it docks beside the list and slides from the
@@ -714,7 +604,7 @@ export function PeoplePage({
             <div className="relative flex items-start gap-3 border-b border-hairline p-4">
               <Avatar className="size-11 shrink-0">
                 <AvatarFallback className="bg-brand-muted text-body-compact font-medium text-brand-muted-foreground">
-                  {openPerson.pending ? "#" : initials(openPerson.name)}
+                  {initials(openPerson.name)}
                 </AvatarFallback>
               </Avatar>
               <div className="flex min-w-0 flex-1 flex-col gap-1 pr-10">
@@ -723,7 +613,8 @@ export function PeoplePage({
                 </h2>
                 <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                   <p className="text-caption text-muted-foreground tabular-nums">
-                    {openPerson.pending ? pick(listCopy.invitedPending, locale) : openPerson.phone}
+                    {openPerson.phone}
+                    {openPerson.pending ? ` · ${pick(listCopy.invitedPending, locale)}` : null}
                   </p>
                   {openPerson.barId ? (
                     <p className="flex items-baseline gap-1.5 text-caption tabular-nums">
@@ -759,6 +650,35 @@ export function PeoplePage({
                 </p>
               ) : null}
 
+              {/* One kind of access per person (OFC-24, OFC-31). */}
+              <div className="flex shrink-0 flex-col gap-2 rounded-lg border border-hairline p-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <span id="people-scope-label" className="text-body-compact font-medium">
+                    {pick(peopleCopy.scopeLabel, locale)}
+                  </span>
+                  <SegmentedControl
+                    type="single"
+                    aria-labelledby="people-scope-label"
+                    value={openPerson.allCases ? "all" : "specific"}
+                    onValueChange={(value) => {
+                      if (!value) return;
+                      setCheckedCases([]);
+                      setAllCases(openPerson.id, value === "all");
+                    }}
+                  >
+                    <SegmentedControlItem value="all" className="px-3">
+                      {pick(peopleCopy.scopeAll, locale)}
+                    </SegmentedControlItem>
+                    <SegmentedControlItem value="specific" className="px-3">
+                      {pick(peopleCopy.scopeSpecific, locale)}
+                    </SegmentedControlItem>
+                  </SegmentedControl>
+                </div>
+                <p className="text-caption text-pretty text-muted-foreground">
+                  {pick(openPerson.allCases ? peopleCopy.scopeAllHint : peopleCopy.scopeSpecificHint, locale)}
+                </p>
+              </div>
+
               <div className="flex shrink-0 flex-col gap-3 border-b border-hairline pb-4 @lg/panel:flex-row @lg/panel:items-center">
                 <h3
                   id="case-access-heading"
@@ -781,80 +701,25 @@ export function PeoplePage({
                     onChange={(event) => setCaseQuery(event.target.value)}
                   />
                 </div>
+                {openPerson.allCases ? null : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setAddFor(openPerson);
+                      setAddOpen(true);
+                    }}
+                  >
+                    <PlusIcon aria-hidden />
+                    {pick(peopleCopy.moreCases, locale)}
+                  </Button>
+                )}
               </div>
 
-              {panelSections.length ? (
-                // One line-tab per access kind — a single tab when the person has one
-                // kind, two when both. The active tab's info button beside the list
-                // explains that kind. (Removal still only ever touches the admin tab.)
-                <Tabs
-                  value={activeTab}
-                  onValueChange={(value) => setPanelTab(value as PanelTab)}
-                  className="min-h-0 flex-1 gap-4"
-                >
-                  <div
-                    className="flex items-end justify-between gap-2 border-b border-hairline"
-                    data-preserve-admin-selection
-                  >
-                    <TabsList
-                      variant="line"
-                      // The 1px overlap onto the rule is the list's, not each tab's: on a tab it
-                      // overflowed the list, and a list that scrolls sideways then grew a
-                      // vertical scrollbar for that one pixel.
-                      className="-mb-px min-w-0 justify-start gap-6 overflow-x-auto overflow-y-hidden p-0 pb-0 group-data-horizontal/tabs:h-auto"
-                    >
-                      {panelSections.map((section) => (
-                        <TabsTrigger
-                          key={section.key}
-                          value={section.key}
-                          className={PANEL_TAB_CLASS}
-                        >
-                          {section.label}
-                          {/* The active tab's count picks up the brand tint so the pill
-                              reads as part of the selected tab; inactive tabs stay neutral. */}
-                          <Badge
-                            variant="secondary"
-                            className={cn(
-                              "tabular-nums",
-                              section.key === activeTab &&
-                                "bg-brand-muted text-brand-muted-foreground",
-                            )}
-                          >
-                            {section.count}
-                          </Badge>
-                        </TabsTrigger>
-                      ))}
-                    </TabsList>
-                    {activeSection ? (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            className="mb-1 shrink-0"
-                            aria-label={activeSection.tooltipLabel}
-                          >
-                            <InfoIcon aria-hidden />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-64 text-pretty">
-                          {activeSection.tooltip}
-                        </TooltipContent>
-                      </Tooltip>
-                    ) : null}
-                  </div>
-                  {panelSections.map((section) => (
-                    <TabsContent
-                      key={section.key}
-                      value={section.key}
-                      className="min-h-0 flex flex-col"
-                    >
-                      {section.body}
-                    </TabsContent>
-                  ))}
-                </Tabs>
-              ) : null}
+              <div className="flex min-h-0 flex-1 flex-col">
+                {renderAdministrativeSection()}
+              </div>
             </div>
           </aside>
   ) : null;
@@ -877,13 +742,26 @@ export function PeoplePage({
       >
       {/* ------------------------------------------------------ list column */}
       <main className={cn("flex min-h-0 min-w-0 flex-1 flex-col gap-6 md:pointer-fine:h-full md:pointer-fine:overflow-hidden", PAGE_GROUND, PAGE_GUTTER)}>
-        <header className="flex flex-col gap-2">
-          <h1 className={cn(PAGE_TITLE, "text-balance")}>
-            {pick(peopleCopy.title, locale)}
-          </h1>
-          <p className={PAGE_SUBTITLE}>
-            {pick(peopleCopy.subtitle, locale)}
-          </p>
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-start">
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            <h1 className={cn(PAGE_TITLE, "text-balance")}>
+              {pick(peopleCopy.title, locale)}
+            </h1>
+            <p className={PAGE_SUBTITLE}>
+              {pick(peopleCopy.subtitle, locale)}
+            </p>
+          </div>
+          <Button
+            type="button"
+            className="self-start"
+            onClick={() => {
+              setAddFor(null);
+              setAddOpen(true);
+            }}
+          >
+            <PlusIcon aria-hidden />
+            {pick(peopleCopy.addPerson, locale)}
+          </Button>
         </header>
 
         {active.length ? (
@@ -1055,9 +933,13 @@ export function PeoplePage({
                   )}
                 </AlertDialogTitle>
                 <AlertDialogDescription>
-                  {removeCount === 1
-                    ? pick(peopleCopy.removeBodyOne, locale)
-                    : fillCopy(peopleCopy.removeAllBody, locale, { count: String(removeCount) })}
+                  {removingAll
+                    ? fillCopy(peopleCopy.removeAllBody, locale, { count: String(removeCount) })
+                    : removeCount === staffGrants.length
+                      ? `${removeCount === 1 ? pick(peopleCopy.removeBodyOne, locale) : fillCopy(peopleCopy.removeTheseBody, locale, { count: String(removeCount) })} ${pick(peopleCopy.removeLastBody, locale)}`
+                      : removeCount === 1
+                      ? pick(peopleCopy.removeBodyOne, locale)
+                      : fillCopy(peopleCopy.removeTheseBody, locale, { count: String(removeCount) })}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -1073,37 +955,15 @@ export function PeoplePage({
         </ChromeAlertDialogContent>
       </AlertDialog>
 
-      {/* ------------------------------------- vakalat removal (court flow) */}
-      {/* The Parties tab's own removal dialog, unchanged: grounds, then who
-          approves (their consent or the magistrate), then sign. English like
-          every application flow. */}
-      {openPerson && removeVakalatCaseId ? (
-        <RemoveAdvocateDialog
-          open
-          onOpenChange={(next) => {
-            if (!next) setRemoveVakalatCaseId(null);
-          }}
-          advocateName={openPerson.name}
-          partyName={
-            caseById(removeVakalatCaseId)?.title.split(" vs ")[0] ??
-            "the party"
-          }
-          caseRef={{
-            title: caseById(removeVakalatCaseId)?.title ?? "",
-            caseNumber: caseById(removeVakalatCaseId)?.caseNumber ?? "",
-            court: caseById(removeVakalatCaseId)?.court ?? "",
-          }}
-          onRequested={() =>
-            setPendingRemovals(
-              (current) =>
-                new Set([
-                  ...current,
-                  `${openPerson.id}:${removeVakalatCaseId}`,
-                ]),
-            )
-          }
-        />
-      ) : null}
+      <AddPersonDialog
+        open={addOpen}
+        onOpenChange={(next) => {
+          setAddOpen(next);
+          if (!next) setAddFor(null);
+        }}
+        locale={locale}
+        person={addFor}
+      />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { AccessProvider } from "@/components/access/access-state";
 import { CourtProvider } from "@/components/court/court-provider";
 import { DesignModeLoader } from "@/components/design-mode-loader";
 import { FeedbackProvider } from "@/components/feedback-provider";
@@ -55,7 +56,11 @@ export default async function RootLayout({
         >
           <LocaleProvider>
             <CourtProvider initialCourt={court}>
-              <FeedbackProvider>{children}</FeedbackProvider>
+              {/* Above both route groups, so office access given on a case
+                  (/cases) is still there on the People page (/people). */}
+              <AccessProvider>
+                <FeedbackProvider>{children}</FeedbackProvider>
+              </AccessProvider>
               <DesignModeLoader />
             </CourtProvider>
           </LocaleProvider>

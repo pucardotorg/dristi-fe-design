@@ -22,6 +22,7 @@ import { formatPhone } from "@/components/access/access-state";
 import { pick, type Locale } from "@/lib/onboarding/content";
 import {
   inviteFieldCopy,
+  REGISTERED_USERS,
   roleCopy,
   type AccessRole,
 } from "@/lib/access/content";
@@ -35,7 +36,27 @@ export type InvitePerson = {
   barId?: string;
   name?: string;
   role?: AccessRole;
+  /** A registered account's type — set on directory entries (`registeredOnly`). */
+  type?: "advocate" | "clerk";
+  /** Already in the signed-in advocate's office — listed first (OFC-22). */
+  inOffice?: boolean;
 };
+
+/**
+ * Every registered advocate and clerk, the signed-in advocate's office first
+ * (OFC-20, OFC-22). `officePhones` are the office's numbers, any format.
+ */
+export function directoryOptions(officePhones: Iterable<string>): InvitePerson[] {
+  const office = new Set([...officePhones].map(digitsOf));
+  const all = REGISTERED_USERS.map((user) => ({
+    name: user.name,
+    phone: user.phone,
+    ...(user.barId ? { barId: user.barId } : {}),
+    type: user.type,
+    inOffice: office.has(digitsOf(user.phone)),
+  }));
+  return [...all.filter((p) => p.inOffice), ...all.filter((p) => !p.inOffice)];
+}
 
 const MAX_SHOWN = 5;
 
@@ -106,6 +127,7 @@ export function PeopleInviteField({
   onValueChange,
   locale,
   disabled = false,
+  registeredOnly = false,
   copy: copyOverride,
 }: {
   id: string;
@@ -116,6 +138,13 @@ export function PeopleInviteField({
   onValueChange: (next: InvitePerson[]) => void;
   locale: Locale;
   disabled?: boolean;
+  /**
+   * Office management (owner, 2026-10-21): `known` is DRISTI's directory of
+   * registered advocates and clerks, searched by name, number or Bar ID. Only
+   * someone in it can be chosen — a typed number is never offered as itself —
+   * and with nothing typed the field suggests the office.
+   */
+  registeredOnly?: boolean;
   /** Wording for a narrower use — co-advocates on a vakalatnama rather than the team. */
   copy?: Partial<typeof inviteFieldCopy>;
 }) {
@@ -135,7 +164,7 @@ export function PeopleInviteField({
 
   const matches = known.filter((person) => {
     if (chosen.has(keyOf(person))) return false;
-    if (!text) return true;
+    if (!text) return registeredOnly ? Boolean(person.inOffice) : true;
     if (looksLikeNumber) {
       return digits.length > 0 && digitsOf(person.phone ?? "").includes(digits);
     }
@@ -156,6 +185,7 @@ export function PeopleInviteField({
         ? { barId: typedBarId }
         : null;
   const typedNew =
+    !registeredOnly &&
     typed &&
     !chosen.has(keyOf(typed)) &&
     !known.some(
@@ -249,8 +279,13 @@ export function PeopleInviteField({
                           .filter(Boolean)
                           .join(" · ")}
                       </span>
-                      {person.role
-                        ? ` · ${pick(roleCopy[person.role], locale)}`
+                      {person.type
+                        ? ` · ${pick(person.type === "clerk" ? copy.typeClerk : copy.typeAdvocate, locale)}`
+                        : person.role
+                          ? ` · ${pick(roleCopy[person.role], locale)}`
+                          : null}
+                      {person.inOffice && registeredOnly
+                        ? ` · ${pick(copy.inOffice, locale)}`
                         : null}
                     </>
                   ) : (
