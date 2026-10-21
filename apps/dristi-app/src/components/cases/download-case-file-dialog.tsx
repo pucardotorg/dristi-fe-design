@@ -4,12 +4,14 @@ import * as React from "react";
 import { toast } from "sonner";
 
 import { ChromeDialogContent } from "@/components/chrome/app-chrome";
+import { useCaseNumber, useCourtText } from "@/components/court/court-provider";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { CASE_FILE_TREE } from "@/lib/cases/case-file";
+import { buildCaseFileBundle } from "@/lib/cases/case-file-bundle";
 
 type Format = "pdf" | "zip" | "sections";
 
@@ -30,21 +32,31 @@ const FORMATS: { value: Format; label: string }[] = [
 
 /**
  * ACT-01. The PRD documents one compiled PDF; the ZIP and the section picker
- * are a working guess (open question Q-2). Nothing is generated here, the
- * prototype only confirms the request.
+ * are a working guess (open question Q-2). The one PDF and the chosen
+ * sections are compiled in the browser (`case-file-bundle`); the ZIP is not
+ * built yet and only confirms the request.
  */
 export function DownloadCaseFileDialog({
   open,
   onOpenChange,
   caseNumber,
+  title,
+  court,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   caseNumber: string;
+  title: string;
+  court: string;
 }) {
   const [format, setFormat] = React.useState<Format>("pdf");
   const [sections, setSections] = React.useState<string[]>([]);
-  const blocked = format === "sections" && sections.length === 0;
+  const [preparing, setPreparing] = React.useState(false);
+  // The PDF is drawn outside the DOM, so the court text layer never reaches
+  // it: re-voice for the selected state here, as the header shows them.
+  const localNumber = useCaseNumber();
+  const localText = useCourtText();
+  const blocked = (format === "sections" && sections.length === 0) || preparing;
 
   function toggleSection(id: string, checked: boolean) {
     setSections((current) =>
@@ -52,12 +64,44 @@ export function DownloadCaseFileDialog({
     );
   }
 
-  function download() {
-    toast.success("Preparing your download", {
-      position: "bottom-center",
-      description: `${caseNumber}. It will start in a moment.`,
-    });
-    onOpenChange(false);
+  async function download() {
+    if (format === "zip") {
+      toast.success("Preparing your download", {
+        position: "bottom-center",
+        description: `${caseNumber}. It will start in a moment.`,
+      });
+      onOpenChange(false);
+      return;
+    }
+    setPreparing(true);
+    try {
+      // Picked sections keep their case-file numbers, so the docket pages
+      // still point at the same place in the tree.
+      const tree =
+        format === "sections"
+          ? CASE_FILE_TREE.filter((node) => sections.includes(node.id))
+          : CASE_FILE_TREE;
+      const number = localNumber(caseNumber);
+      const blob = await buildCaseFileBundle(tree, {
+        caseNumber: number,
+        title: localText(title),
+        court: localText(court),
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${number.replace(/[^\w-]+/g, "-")}-case-file.pdf`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      onOpenChange(false);
+    } catch {
+      toast.error("The case file could not be prepared", {
+        position: "bottom-center",
+        description: "Try again. Nothing was downloaded.",
+      });
+    } finally {
+      setPreparing(false);
+    }
   }
 
   return (
@@ -123,7 +167,7 @@ export function DownloadCaseFileDialog({
             Cancel
           </Button>
           <Button type="button" disabled={blocked} onClick={download}>
-            Download
+            {preparing ? "Preparing…" : "Download"}
           </Button>
         </div>
       </ChromeDialogContent>

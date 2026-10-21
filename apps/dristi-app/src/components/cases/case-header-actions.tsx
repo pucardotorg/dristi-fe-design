@@ -218,6 +218,8 @@ export function CaseHeaderActions({
         open={downloadOpen}
         onOpenChange={setDownloadOpen}
         caseNumber={accessCase.caseNumber}
+        title={accessCase.title}
+        court={accessCase.court}
       />
 
       {SHARE_ACCESS_ENABLED && !court ? (
