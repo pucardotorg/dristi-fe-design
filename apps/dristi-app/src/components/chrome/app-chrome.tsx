@@ -664,7 +664,15 @@ export function ChromeRail({
   // mode, `"offcanvas"`, is offered by neither: it is the other one that throws the plate
   // away below `md`, and nothing here has wanted a rail that leaves the layout entirely.
   const folds = React.useContext(ChromeRailFoldContext);
-  const { state } = useSidebar();
+  const { state, setOpen } = useSidebar();
+  const folded = folds && state === "collapsed";
+  // Folded, the whole strip is the way back: a click anywhere on it — the empty plate or
+  // any of its icons — unfolds the rail. Capture phase, and nothing is stopped, so an
+  // icon still does its own job (a link still goes, a section mark still picks its
+  // section) as the rail opens. Only this column: the sheet below `md` never folds.
+  const unfoldOnClick = React.useCallback(() => {
+    if (folded) setOpen(true);
+  }, [folded, setOpen]);
   const body = (
     <RailBody header={header} footer={footer} navLabel={navLabel}>
       {children}
@@ -682,7 +690,8 @@ export function ChromeRail({
            empty value matches no `[data-collapsible=icon]` selector, so one attribute
            carries both "this rail folds" and "it is folded right now". */
         data-state={state}
-        data-collapsible={folds && state === "collapsed" ? "icon" : ""}
+        data-collapsible={folded ? "icon" : ""}
+        onClickCapture={unfoldOnClick}
         /* The primitive declares `text-sidebar-foreground` one element above where these
            vars land, so the colour computes against the DS default rather than the plate.
            Re-declaring it here, beside the vars, is what makes the ink the plate's. */
@@ -692,7 +701,7 @@ export function ChromeRail({
           // behind it and the nav scrolls inside it.
           `group sticky top-0 hidden h-svh shrink-0 border-r ${RAIL_SEAM} md:flex`,
           folds
-            ? "transition-[width] duration-200 ease-linear data-[collapsible=icon]:w-(--sidebar-width-icon)"
+            ? "transition-[width] duration-200 ease-linear data-[collapsible=icon]:w-(--sidebar-width-icon) data-[collapsible=icon]:cursor-pointer"
             : "",
         ].join(" ")}
       >
