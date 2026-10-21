@@ -3,6 +3,7 @@
 import * as React from "react";
 
 import { CLIENTS, OFFICE_ADVOCATES } from "@/lib/bulk/clients";
+import type { AdrPrayer } from "@/lib/filing/types";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldLabel } from "@/components/ui/field";
 import {
@@ -10,6 +11,15 @@ import {
   NativeSelectOption,
 } from "@/components/ui/native-select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+
+export type Adr = AdrPrayer["adr"];
+
+/** The filing's own ADR answers (`adr-prayer-section`), in the same order. */
+const ADR_CHOICES: { value: Adr; label: string }[] = [
+  { value: "yes", label: "Yes" },
+  { value: "no", label: "No" },
+  { value: "maybe", label: "Maybe" },
+];
 
 /**
  * What is the same for every case in a bulk upload: the complainant, the advocates who
@@ -27,8 +37,8 @@ export function BatchParties({
   setClientId: (id: string) => void;
   bars: string[];
   setBars: React.Dispatch<React.SetStateAction<string[]>>;
-  adr: "yes" | "no";
-  setAdr: (v: "yes" | "no") => void;
+  adr: Adr;
+  setAdr: (v: Adr) => void;
 }) {
   return (
     <>
@@ -98,10 +108,10 @@ export function BatchParties({
         <FieldLabel>Willing to settle through ADR</FieldLabel>
         <RadioGroup
           value={adr}
-          onValueChange={(v) => setAdr(v as "yes" | "no")}
+          onValueChange={(v) => setAdr(v as Adr)}
           className="flex gap-6"
         >
-          {(["no", "yes"] as const).map((v) => (
+          {ADR_CHOICES.map(({ value: v, label }) => (
             <label
               key={v}
               htmlFor={`adr-${v}`}
@@ -110,9 +120,9 @@ export function BatchParties({
               <RadioGroupItem
                 value={v}
                 id={`adr-${v}`}
-                aria-label={v === "yes" ? "Yes" : "No"}
+                aria-label={label}
               />
-              {v === "yes" ? "Yes" : "No"}
+              {label}
             </label>
           ))}
         </RadioGroup>

@@ -79,3 +79,23 @@ test("a matched column is checked against its field: dates, pincodes, list words
   const reason = columnFit(col("returnReason"), ["INSUFFICIENT FUNDS"]);
   assert.equal(reason.ok, false);
 });
+
+test("bank names, jurisdiction and a witness's police station are read from their columns", () => {
+  const headers = ["Case reference", "Accused name", "Accused resides within jurisdiction", "Cheque number", "Drawer bank name", "Drawer bank branch", "Complainant bank name", "Witness name", "Witness police station"];
+  const req = buildRequest(
+    book(headers, ["R-1", "A One", "No", "111111", "Shree Bank", "Kalupur", "Payee Bank", "W1", "Satellite Police Station"]),
+    autoMap(headers),
+    {},
+    { complainant, barNumbers: [], adr: "maybe", fileName: "t" }
+  );
+  const c = req.cases[0];
+  assert.equal(c.accused[0].withinJurisdiction, false);
+  assert.equal(c.cheques[0].bankName, "Shree Bank");
+  assert.equal(c.cheques[0].bankBranch, "Kalupur");
+  assert.equal(c.jurisdiction.complainantBankName, "Payee Bank");
+  assert.equal(c.witnesses?.[0].address.policeStation, "Satellite Police Station");
+  assert.equal(req.adr, "maybe");
+  // Left blank, jurisdiction is not sent: intake reads it from the address.
+  const blank = buildRequest(book(headers, ["R-2", "B", "", "222222", "", "", "", "", ""]), autoMap(headers), {}, { complainant, barNumbers: [], adr: "no", fileName: "t" });
+  assert.equal(blank.cases[0].accused[0].withinJurisdiction, undefined);
+});

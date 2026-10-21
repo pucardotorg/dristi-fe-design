@@ -456,6 +456,7 @@ function accusedFrom(r: Reader, a: number, inst: Record<GroupId, Instance[]>): A
   const addresses = inst.address
     .filter(([p, c]) => p === a && (c === 1 || r.any("address", [p, c])))
     .map((i) => ({ line1: r.raw("accusedAddress", i), city: r.raw("accusedCity", i), pin: r.raw("accusedPin", i), policeStation: r.raw("accusedPolice", i) }));
+  const within = r.list("accusedJurisdiction", at);
   const persons = inst.person
     .filter(([p, c]) => p === a && r.any("person", [p, c]))
     .map((i) => ({
@@ -468,11 +469,12 @@ function accusedFrom(r: Reader, a: number, inst: Record<GroupId, Instance[]>): A
   return {
     type,
     name: r.raw("accusedName", at),
-    ...(type === "institution" ? { institutionType: r.list("accusedEntity", at) } : { age: r.raw("accusedAge", at) }),
+    ...(type === "institution" ? { institutionType: r.list("accusedEntity", at) } : {}),
     mobile: r.raw("accusedMobile", at),
     email: r.raw("accusedEmail", at),
     addresses: addresses.length ? addresses : [{ line1: "", city: "", pin: "" }],
     ...(type === "institution" ? { personsResponsible: persons } : {}),
+    ...(within === "yes" || within === "no" ? { withinJurisdiction: within === "yes" } : {}),
   };
 }
 
@@ -480,7 +482,7 @@ export function buildRequest(
   book: Workbookish,
   map: ColumnMap,
   values: ValueMap,
-  batch: { complainant: ApiComplainant; barNumbers: string[]; adr: "yes" | "no"; fileName: string },
+  batch: { complainant: ApiComplainant; barNumbers: string[]; adr: NonNullable<ApiBatchRequest["adr"]>; fileName: string },
   counts: InstanceCounts = {}
 ): ApiBatchRequest {
   const headers = book.cases.headers;
@@ -513,6 +515,7 @@ export function buildRequest(
                   designation: r.raw("compRepDesignation", i),
                   age: r.raw("compRepAge", i),
                   mobile: r.raw("compRepMobile", i),
+                  email: r.raw("compRepEmail", i),
                   address,
                 },
               }
@@ -525,6 +528,8 @@ export function buildRequest(
         date: sheetDate(r.raw("chequeDate", i)),
         amount: r.raw("chequeAmount", i),
         ifsc: r.raw("chequeIfsc", i),
+        bankName: r.raw("chequeBank", i),
+        bankBranch: r.raw("chequeBranch", i),
         accountNumber: r.raw("chequeAccount", i),
         presentedOn: sheetDate(r.raw("presentDate", i)),
         returnedOn: sheetDate(r.raw("returnDate", i)),
@@ -553,6 +558,8 @@ export function buildRequest(
       jurisdiction: {
         depositedInOwnAccount: deposited,
         complainantBranchIfsc: r.raw("payeeIfsc", one),
+        complainantBankName: r.raw("payeeBank", one),
+        complainantBankBranch: r.raw("payeeBranch", one),
         complainantBranchPoliceStation: r.raw("payeePolice", one),
         drawerBranchPoliceStation: r.raw("drawerPolice", one),
         otherPendingCases: used("otherCase").map((i) => ({ court: r.raw("otherCourt", i), caseNumber: r.raw("otherNumber", i) })),
@@ -564,7 +571,7 @@ export function buildRequest(
         prove: r.raw("witnessProve", i),
         mobile: r.raw("witnessMobile", i),
         email: r.raw("witnessEmail", i),
-        address: { line1: r.raw("witnessAddress", i), city: r.raw("witnessCity", i), pin: r.raw("witnessPin", i) },
+        address: { line1: r.raw("witnessAddress", i), city: r.raw("witnessCity", i), pin: r.raw("witnessPin", i), policeStation: r.raw("witnessPolice", i) },
       })),
       condonationReason: r.raw("condonation", one),
       otherDetails: r.raw("otherDetails", one),

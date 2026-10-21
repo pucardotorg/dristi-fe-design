@@ -78,7 +78,7 @@ import { FilingFooter } from "@/components/filing/filing-footer";
 
 import { ColumnMapping } from "./column-mapping";
 import { useGujarat } from "./court-guard";
-import { BatchParties } from "./batch-parties";
+import { BatchParties, type Adr } from "./batch-parties";
 import { FileDrop } from "./file-drop";
 
 type Step = "setup" | "map" | "values" | "review";
@@ -193,7 +193,7 @@ export function UploadScreen() {
   const [bars, setBars] = React.useState<string[]>([
     OFFICE_ADVOCATES[0].barNumber,
   ]);
-  const [adr, setAdr] = React.useState<"yes" | "no">("no");
+  const [adr, setAdr] = React.useState<Adr>("no");
   const [files, setFiles] = React.useState<File[]>([]);
   const file = files[0] ?? null;
   // With AI on, a Word file or PDF per case can stand in for the sheet: each is read into
