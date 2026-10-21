@@ -11,6 +11,7 @@ import {
   UserCheckIcon,
 } from "lucide-react";
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import {
   AADHAAR_DOCS_PER_OTP,
   AADHAAR_LIMIT_SOURCE,
@@ -516,6 +517,13 @@ function SignFlow({
     ? signerOrder.findIndex((x) => x.id === step.signer.id)
     : 0;
   const matchedAll = cases.every((c) => uploads[c.id]);
+  /* A code being typed, signers already through, or signed copies attached. */
+  const guard = useDiscardGuard(
+    !done &&
+      !busy &&
+      (code.length > 0 || at > 0 || signedFiles.length > 0 || Object.keys(uploads).length > 0),
+    onClose,
+  );
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && !busy && onClose()}>
@@ -527,6 +535,8 @@ function SignFlow({
           // The outcome is the payment's success window, case for case.
           done ? "gap-0 overflow-hidden p-0" : "overflow-y-auto",
         )}
+        {...guard.contentProps}
+        {...guard.outsideProps}
       >
         {done ? (
           <>
@@ -659,7 +669,7 @@ function SignFlow({
               <p className="text-body-compact text-destructive-ink">{error}</p>
             ) : null}
             <DialogFooter>
-              <Button variant="outline" onClick={onClose} disabled={busy}>
+              <Button variant="outline" onClick={guard.close} disabled={busy}>
                 Cancel
               </Button>
               <Button
@@ -844,7 +854,7 @@ function SignFlow({
               <p className="text-body-compact text-destructive-ink">{error}</p>
             ) : null}
             <DialogFooter>
-              <Button variant="outline" onClick={onClose} disabled={busy}>
+              <Button variant="outline" onClick={guard.close} disabled={busy}>
                 Cancel
               </Button>
               <Button
@@ -857,6 +867,7 @@ function SignFlow({
             </DialogFooter>
           </>
         ) : null}
+        <DiscardQuestion guard={guard} />
       </ChromeDialogContent>
     </Dialog>
   );

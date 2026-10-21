@@ -4,6 +4,7 @@ import * as React from "react";
 import { toast } from "sonner";
 
 import { ChromeDialogContent } from "@/components/chrome/app-chrome";
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { useCaseNumber, useCourtText } from "@/components/court/court-provider";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -57,6 +58,12 @@ export function DownloadCaseFileDialog({
   const localNumber = useCaseNumber();
   const localText = useCourtText();
   const blocked = (format === "sections" && sections.length === 0) || preparing;
+  /* The choices outlive a close, so discarding is what puts them back. */
+  const guard = useDiscardGuard(!preparing && (format !== "pdf" || sections.length > 0), () => {
+    setFormat("pdf");
+    setSections([]);
+    onOpenChange(false);
+  });
 
   function toggleSection(id: string, checked: boolean) {
     setSections((current) =>
@@ -106,7 +113,11 @@ export function DownloadCaseFileDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <ChromeDialogContent className="flex max-h-[calc(100dvh---spacing(12))] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
+      <ChromeDialogContent
+        className="flex max-h-[calc(100dvh---spacing(12))] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg"
+        {...guard.contentProps}
+        {...guard.outsideProps}
+      >
         <DialogHeader className="gap-1 border-b border-hairline px-6 py-4 text-left">
           <DialogTitle className="text-title-s font-semibold">
             Download case file
@@ -162,7 +173,7 @@ export function DownloadCaseFileDialog({
           <Button
             type="button"
             variant="outline"
-            onClick={() => onOpenChange(false)}
+            onClick={guard.close}
           >
             Cancel
           </Button>
@@ -170,6 +181,7 @@ export function DownloadCaseFileDialog({
             {preparing ? "Preparing…" : "Download"}
           </Button>
         </div>
+        <DiscardQuestion guard={guard} />
       </ChromeDialogContent>
     </Dialog>
   );

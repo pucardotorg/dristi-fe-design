@@ -28,6 +28,7 @@ import {
   Maximize2Icon,
 } from "lucide-react";
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { Button } from "@/components/ui/button";
 import {
   DescriptionDetails,
@@ -161,6 +162,8 @@ function RemovalConsentDialog({
     if (decided) onResolved();
   }
 
+  const guard = useDiscardGuard(decision === null && note.trim() !== "", close);
+
   return (
     <Dialog
       open={open}
@@ -169,7 +172,10 @@ function RemovalConsentDialog({
         else close();
       }}
     >
-      <FlowDialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl">
+      <FlowDialogContent
+        className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl"
+        {...guard.contentProps}
+      >
         {decision ? (
           <>
             <DialogHeader className="shrink-0 px-6 py-5 pr-14 text-left">
@@ -280,6 +286,7 @@ function RemovalConsentDialog({
             </footer>
           </>
         )}
+        <DiscardQuestion guard={guard} />
       </FlowDialogContent>
 
       <ConsentDocumentDialog

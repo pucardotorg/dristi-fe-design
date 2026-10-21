@@ -4,6 +4,7 @@ import * as React from "react";
 import { CheckCircle2Icon, SearchIcon } from "lucide-react";
 import { toast } from "sonner";
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -85,6 +86,7 @@ export function ShareDialog({
   const [chips, setChips] = React.useState<Chip[]>([]);
   const [result, setResult] = React.useState<InviteResult | null>(null);
   const [accessQuery, setAccessQuery] = React.useState("");
+  const [typing, setTyping] = React.useState("");
   /* An on-nama advocate whose Remove was clicked; opens the formal removal
      flow (3a/3b) over this dialog. Staff removal stays the one-click revoke. */
   const [removeTarget, setRemoveTarget] = React.useState<string | null>(null);
@@ -125,9 +127,16 @@ export function ShareDialog({
       setResult(null);
       setAccessQuery("");
       setRemovedDerived(new Set());
+      setTyping("");
     }
     onOpenChange(nextOpen);
   }
+
+  /* People stacked to invite, or a number or Bar ID still being typed. */
+  const guard = useDiscardGuard(
+    chips.length > 0 || typing.trim() !== "",
+    () => handleOpenChange(false),
+  );
 
   function send() {
     const batch = chips;
@@ -146,7 +155,10 @@ export function ShareDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <FlowDialogContent className="flex max-h-[calc(100dvh---spacing(12))] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl">
+      <FlowDialogContent
+        className="flex max-h-[calc(100dvh---spacing(12))] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl"
+        {...guard.contentProps}
+      >
         {/* Header: what this is, then exactly what it applies to. */}
         <DialogHeader className="gap-2.5 border-b border-hairline px-6 py-5 text-left">
           <DialogTitle className="text-title-s font-semibold">
@@ -203,6 +215,7 @@ export function ShareDialog({
                   }}
                   locale={locale}
                   disabled={readOnly}
+                  onQueryChange={setTyping}
                 />
               </div>
               <Button type="button" disabled={readOnly || !chips.length} onClick={send}>
@@ -303,6 +316,7 @@ export function ShareDialog({
             </>
           ) : null}
         </div>
+        <DiscardQuestion guard={guard} locale={locale} />
       </FlowDialogContent>
 
       <RemoveAdvocateDialog

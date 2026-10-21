@@ -9,6 +9,7 @@ import {
   Muted,
 } from "@/components/cases/application-record-dialog";
 import { PdfViewer, isPdfSrc, parsePdfSrc } from "@/components/cases/pdf-viewer";
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 import { Identifier } from "@/components/chrome/identifier";
 import { Badge } from "@/components/ui/badge";
@@ -71,6 +72,13 @@ export function DocumentRecordDialog({
   /* What was open stays drawn while the dialog animates out. */
   const [shown, setShown] = useState(document);
   if (document && document !== shown) setShown(document);
+  /* Comments live only in this dialog, so a comment typed or posted is what a close
+     would lose. */
+  const [entered, setEntered] = useState(false);
+  const guard = useDiscardGuard(document !== null && entered, () => {
+    setEntered(false);
+    onOpenChange(null);
+  });
   return (
     <Dialog
       open={document !== null}
@@ -81,6 +89,7 @@ export function DocumentRecordDialog({
       <FlowDialogContent
         showCloseButton={false}
         className="flex h-[calc(100dvh---spacing(12))] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl"
+        {...guard.contentProps}
       >
         {shown ? (
           <DocumentBody
@@ -88,8 +97,10 @@ export function DocumentRecordDialog({
             file={file}
             document={shown}
             peopleById={peopleById}
+            onEntered={setEntered}
           />
         ) : null}
+        <DiscardQuestion guard={guard} />
       </FlowDialogContent>
     </Dialog>
   );
@@ -99,10 +110,12 @@ function DocumentBody({
   file,
   document,
   peopleById,
+  onEntered,
 }: {
   file: DocumentsFile;
   document: CaseDocument;
   peopleById: Map<string, DocumentPerson>;
+  onEntered: (entered: boolean) => void;
 }) {
   const src = documentSrc(document);
   const pdf = src && isPdfSrc(src) ? parsePdfSrc(src) : null;
@@ -248,7 +261,7 @@ function DocumentBody({
               ) : null}
             </div>
 
-            <Comments fieldId={`document-comment-${document.id}`} />
+            <Comments fieldId={`document-comment-${document.id}`} onEntered={onEntered} />
           </div>
 
           {pdf ? (
@@ -287,7 +300,13 @@ function DocumentBody({
  * of the facts panel, below the facts, rather than a pane of its own: the
  * document keeps the width.
  */
-function Comments({ fieldId }: { fieldId: string }) {
+function Comments({
+  fieldId,
+  onEntered,
+}: {
+  fieldId: string;
+  onEntered: (entered: boolean) => void;
+}) {
   const [comments, setComments] = useState<{ id: string; body: string }[]>([]);
   const [draft, setDraft] = useState("");
   const scopeId = `${fieldId}-scope`;
@@ -297,6 +316,7 @@ function Comments({ fieldId }: { fieldId: string }) {
     if (!body) return;
     setComments((current) => [...current, { id: crypto.randomUUID(), body }]);
     setDraft("");
+    onEntered(true);
   }
 
   return (
@@ -333,7 +353,10 @@ function Comments({ fieldId }: { fieldId: string }) {
           placeholder="Write a comment"
           rows={2}
           value={draft}
-          onChange={(event) => setDraft(event.target.value)}
+          onChange={(event) => {
+            setDraft(event.target.value);
+            onEntered(event.target.value.trim() !== "" || comments.length > 0);
+          }}
           aria-describedby={scopeId}
         />
       </Field>

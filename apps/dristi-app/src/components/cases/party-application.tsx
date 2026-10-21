@@ -33,6 +33,7 @@ import {
   XCircleIcon,
 } from "lucide-react";
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { Button } from "@/components/ui/button";
 import {
   DescriptionDetails,
@@ -356,6 +357,8 @@ export function PartySignatureDialog({
     return () => clearTimeout(timer);
   }, [open, step, aadhaar]);
 
+  const guard = useDiscardGuard(step !== "done" && signedFile !== null, onClose);
+
   function submitUpload() {
     if (!signedFile) {
       setError("Upload the signed application to continue.");
@@ -374,7 +377,10 @@ export function PartySignatureDialog({
         else onClose();
       }}
     >
-      <FlowDialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md">
+      <FlowDialogContent
+        className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md"
+        {...guard.contentProps}
+      >
         {step === "done" ? (
           <>
             <DialogHeader className="shrink-0 px-6 py-5 pr-14 text-left">
@@ -551,6 +557,7 @@ export function PartySignatureDialog({
             </footer>
           </>
         )}
+        <DiscardQuestion guard={guard} />
       </FlowDialogContent>
     </Dialog>
   );

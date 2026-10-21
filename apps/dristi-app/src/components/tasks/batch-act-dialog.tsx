@@ -4,6 +4,7 @@ import * as React from "react";
 import { CircleAlertIcon, CircleCheckIcon, FlaskConicalIcon } from "lucide-react";
 import { toast } from "sonner";
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { RESOLVE_IN_PLACE } from "@/components/chrome/motion";
 import { Identifier } from "@/components/chrome/identifier";
 import { useStageFade } from "@/components/chrome/stage-fade";
@@ -160,6 +161,7 @@ function BatchBody({
   /* The set as it was when the window opened: applying it takes the rows away. */
   const [batch] = React.useState(tasks);
   const [otp, setOtp] = React.useState("");
+  const guard = useDiscardGuard(flow.stage === "otp" && otp.length > 0, onClose);
   const [resent, setResent] = React.useState(false);
   const [dscFound, setDscFound] = React.useState(false);
   const [gateway, setGateway] = React.useState<PaymentResult>("success");
@@ -319,7 +321,11 @@ function BatchBody({
       motion="forward"
       footer={footer}
       showCloseButton={!running}
-      onEscapeKeyDown={(e) => running && e.preventDefault()}
+      onEscapeKeyDown={(e) => {
+        if (running) e.preventDefault();
+        else guard.contentProps.onEscapeKeyDown(e);
+      }}
+      onClickCapture={guard.contentProps.onClickCapture}
     >
       <div key={flow.stage} className={cn("flex min-h-0 flex-1 flex-col", flow.sceneClassName)}>
         <div className="mx-auto flex w-full max-w-xl flex-col gap-4">
@@ -371,6 +377,7 @@ function BatchBody({
           )}
         </div>
       </div>
+      <DiscardQuestion guard={guard} />
     </StagedOverlay>
   );
 }

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { ChromeDialogContent } from "@/components/chrome/app-chrome";
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 import { useBackCloses, useFlowWindow } from "@/components/chrome/flow-window";
 
@@ -377,6 +378,25 @@ export function BailBondDialog({
     onOpenChange(next);
   }
 
+  /* Past the first step everything on it is entered; on it, anything typed or chosen. */
+  const entered =
+    stage !== "done" &&
+    (stage !== "details" ||
+      petitionerId !== "" ||
+      (father.trim() !== "" && !fatherPrefilled) ||
+      amount.trim() !== "" ||
+      bailType !== "" ||
+      count !== "2" ||
+      drafts.some((draft) =>
+        Object.entries(draft).some(([key, value]) => key !== "id" && value !== "" && value !== null),
+      ) ||
+      lockedContacts.some(
+        (contact, index) =>
+          contact.phone !== lockedSureties[index]?.phone ||
+          contact.email !== lockedSureties[index]?.email,
+      ));
+  const guard = useDiscardGuard(entered, () => handleOpenChange(false));
+
   /* A window on a phone, with the phone's Back working as the footer does:
      the previous step, or out from the first one. See the bail application. */
   const { phone } = useFlowWindow();
@@ -384,7 +404,7 @@ export function BailBondDialog({
     if (reviewFullscreen) setReviewFullscreen(false);
     else if (stage === "review") setStage("details");
     else if (stage === "sign") setStage("review");
-    else handleOpenChange(false);
+    else guard.close();
   });
 
   function choosePetitioner(id: string) {
@@ -493,6 +513,7 @@ export function BailBondDialog({
         lang={locale}
         className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
         onInteractOutside={(event) => event.preventDefault()}
+        {...guard.contentProps}
       >
         {stage === "done" ? (
           <DialogHeader className="shrink-0 border-b border-hairline px-6 py-5 pr-14 text-left">
@@ -1224,6 +1245,7 @@ export function BailBondDialog({
             </>
           ) : null}
         </footer>
+        <DiscardQuestion guard={guard} locale={locale} />
       </FlowDialogContent>
     </Dialog>
   );

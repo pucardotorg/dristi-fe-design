@@ -54,6 +54,7 @@ import {
   UploadIcon,
 } from "lucide-react";
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import {
   StagedOverlay,
   useStagedFlow,
@@ -318,6 +319,13 @@ function SignFlowBody({
   const [otpFor, setOtpFor] = React.useState<string | null>(null);
   const [rowOtp, setRowOtp] = React.useState("");
   const [rowResent, setRowResent] = React.useState<string | null>(null);
+  /* A code part-typed is the one thing here a close would lose: every signature, upload
+     and request is kept on the complaint as it happens. "I'll sign later" is a choice,
+     not a mistake, and stays a plain close. */
+  const guard = useDiscardGuard(
+    (flow.stage === "otp" && otp.length > 0) || (otpFor !== null && rowOtp.length > 0),
+    onClose,
+  );
   const rowResendTimer = React.useRef<number | null>(null);
 
   React.useEffect(
@@ -666,6 +674,7 @@ function SignFlowBody({
     <>
       {input}
       <StagedOverlay mobileSheet
+        {...guard.contentProps}
         className="sm:max-w-2xl"
         title={title}
         titleRef={flow.titleRef}
@@ -851,6 +860,7 @@ function SignFlowBody({
             />
           </StageColumn>
         )}
+        <DiscardQuestion guard={guard} />
       </StagedOverlay>
     </>
   );

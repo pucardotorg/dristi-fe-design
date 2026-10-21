@@ -8,6 +8,7 @@ import {
   SignatureIcon,
 } from "lucide-react";
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 
 import {
@@ -249,6 +250,12 @@ export function AddSignatureDialog({
   }
 
   /* e-filing's own words for the shared steps (`sign-flow-dialog`). */
+  /* A signature on its way, or made and not yet paid for: closing would mean signing again. */
+  const guard = useDiscardGuard(
+    file !== null || otp.length > 0 || step === "signed" || step === "payment",
+    () => handleOpenChange(false),
+  );
+
   const stepTitle = {
     method: `How is this ${noun} signed?`,
     instrument: "Add your e-signature",
@@ -293,6 +300,7 @@ export function AddSignatureDialog({
           "flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md",
           step === "processing" && "[&_[data-slot=dialog-close]]:hidden",
         )}
+        {...guard.contentProps}
         // Radix's own restore lands on document.body here, so put focus back
         // on the button that opened the chain explicitly.
         onCloseAutoFocus={(event) => {
@@ -665,6 +673,7 @@ export function AddSignatureDialog({
             )}
           </footer>
         ) : null}
+        <DiscardQuestion guard={guard} />
       </FlowDialogContent>
     </Dialog>
   );

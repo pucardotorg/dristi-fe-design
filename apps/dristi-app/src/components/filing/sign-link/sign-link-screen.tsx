@@ -38,6 +38,7 @@
  * the same draft the filer has, so what is done here shows on the filer's Sign step.
  */
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { setNewAccountShell } from "@/lib/filing/linked-complaints";
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -471,6 +472,7 @@ function SignLinkWizard({
   const [resent, setResent] = React.useState(false);
   const [dscFound, setDscFound] = React.useState(false);
   const [signedWith, setSignedWith] = React.useState<SignInstrument | null>(null);
+  const guard = useDiscardGuard(flow.stage === "otp" && otp.length > 0, onClose);
   const resendTimer = React.useRef<number | null>(null);
   React.useEffect(
     () => () => {
@@ -654,6 +656,7 @@ function SignLinkWizard({
 
   return (
     <StagedOverlay
+      {...guard.contentProps}
       mobileSheet
       className="sm:max-w-2xl"
       title={title}
@@ -789,6 +792,7 @@ function SignLinkWizard({
           />
         </StageColumn>
       )}
+      <DiscardQuestion guard={guard} />
     </StagedOverlay>
   );
 }

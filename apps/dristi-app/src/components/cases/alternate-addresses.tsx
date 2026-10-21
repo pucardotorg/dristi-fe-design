@@ -16,6 +16,7 @@
 import { useState } from "react";
 import { PlusIcon, Trash2Icon } from "lucide-react";
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -135,6 +136,14 @@ function AddAddressDialog({
     setError(undefined);
   }
 
+  const guard = useDiscardGuard(
+    Object.values(address).some((part) => part.trim() !== "") || policeStation.trim() !== "",
+    () => {
+      reset();
+      onOpenChange(false);
+    },
+  );
+
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!structuredAddressComplete(address)) {
@@ -163,7 +172,10 @@ function AddAddressDialog({
       }}
     >
       {/* xl, not md: the structured grid runs two columns. */}
-      <FlowDialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl">
+      <FlowDialogContent
+        className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl"
+        {...guard.contentProps}
+      >
         <DialogHeader className="shrink-0 gap-1.5 border-b border-hairline px-6 py-5 pr-14 text-left">
           <DialogTitle className="text-title-s font-semibold text-balance">
             Add an address for {subjectName}
@@ -214,6 +226,7 @@ function AddAddressDialog({
             Add address
           </Button>
         </footer>
+        <DiscardQuestion guard={guard} />
       </FlowDialogContent>
     </Dialog>
   );
