@@ -128,8 +128,9 @@ export function PendingOrdersScreen({
   const count = (stage: PendingOrderStage) =>
     all.filter((row) => inPendingStage(row, signing, stage)).length;
   /* Who can pick rows, and which: the magistrate the orders awaiting a signature, to sign
-     them; the steno the signed orders with order data to fill, to add items to them in
-     bulk (owner, 2026-10-15). */
+     them; the steno every order with order data to fill, signed or not, to add items to
+     them in bulk (`ITM-10`, `PND-07`) — the two are worked in parallel (`SND-07`; owner,
+     2026-10-21). A row is pickable by the same test as its tab, `inPendingStage`. */
   const signer = seatHolds(seat, court, "order-signer");
   const filler = seatHolds(seat, court, "order-data-filler");
   const pickStage: PendingOrderStage | null = signer
@@ -283,7 +284,7 @@ export function PendingOrdersScreen({
                   >
                     {picking ? (
                       <TableCell className={cn(TABLE_CELL, "w-px")}>
-                        {row.stage === pickStage ? (
+                        {pickStage && inPendingStage(row, signing, pickStage) ? (
                           <Checkbox
                             aria-label={`Select ${row.heading}`}
                             checked={selected.has(row.key)}
