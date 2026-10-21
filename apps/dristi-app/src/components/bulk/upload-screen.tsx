@@ -7,6 +7,7 @@ import {
   ArrowLeftIcon,
   ArrowRightIcon,
   CheckCircle2Icon,
+  CircleAlertIcon,
   DownloadIcon,
   FileTextIcon,
   XCircleIcon,
@@ -22,6 +23,7 @@ import {
   instancesIn,
   readWorkbook,
   unknownValues,
+  unmatchedRequired,
   type ColumnMap,
   type InstanceCounts,
   type ValueMap,
@@ -46,7 +48,7 @@ import {
   PAGE_SUBTITLE,
   PAGE_TITLE,
 } from "@/components/shell/page-frame";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -232,6 +234,8 @@ export function UploadScreen() {
   }, [book, counts]);
   const unknown = book ? unknownValues(book.cases, map, counts) : {};
   const unknownLists = Object.keys(unknown) as ListName[];
+  // Required fields no column fills: every case arrives without them.
+  const missing = book && !docs ? unmatchedRequired(book.cases.headers, map) : [];
   const valuesDone = unknownLists.every((l) =>
     unknown[l]!.every((v) => values[l]?.[v]),
   );
@@ -630,6 +634,24 @@ export function UploadScreen() {
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
+              {missing.length ? (
+                <Alert variant="warning">
+                  <CircleAlertIcon aria-hidden />
+                  <AlertTitle>
+                    {missing.length} required field
+                    {missing.length === 1 ? " is" : "s are"} not in your file
+                  </AlertTitle>
+                  <AlertDescription>
+                    Every case will arrive without{" "}
+                    {new Intl.ListFormat("en", { type: "conjunction" }).format(
+                      missing.map((c) => c.header.toLowerCase()),
+                    )}
+                    .
+                    Each case stays in draft until you enter{" "}
+                    {missing.length === 1 ? "it" : "them"} on its Case details.
+                  </AlertDescription>
+                </Alert>
+              ) : null}
               <div className="overflow-x-auto">
                 <Table
                   className="border-separate border-spacing-0"

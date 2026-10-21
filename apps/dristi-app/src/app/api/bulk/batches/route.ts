@@ -6,7 +6,6 @@
 import { NextResponse } from "next/server";
 
 import { summarise } from "@/lib/bulk/actions.server";
-import { aiModeFrom } from "@/lib/bulk/ai-review";
 import type { ApiBatchRequest } from "@/lib/bulk/contract";
 import type { StoredFileRef } from "@/lib/filing/types";
 import { buildBatch, validateRequest } from "@/lib/bulk/intake";
@@ -14,11 +13,10 @@ import { insertBatch, listBatches } from "@/lib/bulk/store.server";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: Request) {
-  const ai = aiModeFrom(new URL(req.url).searchParams.get("ai"));
+export async function GET() {
   const all = await listBatches();
   const list = all
-    .map((b) => summarise(b, all, ai))
+    .map((b) => summarise(b, all))
     .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
   return NextResponse.json(list);
 }

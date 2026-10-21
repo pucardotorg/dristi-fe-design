@@ -72,6 +72,12 @@ export type BatchCase = {
   docText?: Record<string, string | null>;
   /** Notices (by index) whose delivery the sender did not know yet, such as in transit. */
   unknownService: number[];
+  /**
+   * Required yes/no answers the sender did not give, by draft path (`jurisdiction.deposited`,
+   * `notices.0.replied`). The draft holds a default there; the case is held until each is
+   * answered.
+   */
+  unstated?: string[];
   /** How each case was signed in bulk, once it is. */
   signedWith: BulkSignMethod | null;
   /** The per-case receipt issued against the batch's one payment (PRD §4.2). */

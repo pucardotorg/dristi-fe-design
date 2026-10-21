@@ -5,7 +5,7 @@
 
 import { NextResponse } from "next/server";
 
-import { replaceDraft } from "@/lib/bulk/actions.server";
+import { draftForScreen, replaceDraft } from "@/lib/bulk/actions.server";
 import { getBatch, updateBatch } from "@/lib/bulk/store.server";
 import type { FilingDraft } from "@/lib/filing/types";
 
@@ -23,7 +23,7 @@ export async function GET(_req: Request, ctx: Ctx) {
   return NextResponse.json({
     batchNumber: batch.number,
     reference: bc.reference,
-    draft: bc.draft,
+    draft: draftForScreen(bc),
     prev: batch.cases[at - 1]?.id ?? null,
     next: batch.cases[at + 1]?.id ?? null,
     index: at,

@@ -119,15 +119,9 @@ function addMonth(iso: string): string {
   return d.toISOString().slice(0, 10);
 }
 
-export function caseView(
-  bc: BatchCase,
-  batch: Batch,
-  all: Batch[],
-  ai: AiMode = "off",
-): CaseView {
-  const ctx = { batch, others: all.filter((b) => b.id !== batch.id), ai };
-  const flags = openFlags(bc, ctx);
-  const every = caseFlags(bc, ctx);
+export function caseView(bc: BatchCase): CaseView {
+  const flags = openFlags(bc);
+  const every = caseFlags(bc);
   const d = bc.draft;
   const docs = d.documents.flatMap((g) => g.docs.map((doc) => ({ g, doc })));
   const required = docs.filter(({ doc }) => doc.required);
@@ -183,7 +177,6 @@ function filingAdvocate(batch: Batch): BatchSummary["filingAdvocate"] {
 export function summarise(
   batch: Batch,
   all: Batch[],
-  ai: AiMode = "off",
 ): BatchSummary {
   const counts: Record<CaseStage, number> = {
     held: 0,
@@ -192,9 +185,8 @@ export function summarise(
     filed: 0,
   };
   let flagged = 0;
-  const ctx = { batch, others: all.filter((b) => b.id !== batch.id), ai };
   for (const bc of batch.cases) {
-    const flags = openFlags(bc, ctx);
+    const flags = openFlags(bc);
     counts[caseStage(bc, flags)] += 1;
     if (flags.length && bc.draft.status !== "filed" && !bc.signedWith)
       flagged += 1;
@@ -227,9 +219,9 @@ export function batchView(
   const first = batch.cases[0]?.draft;
   const rep = first?.complainants[0]?.rep;
   return {
-    ...summarise(batch, all, ai),
+    ...summarise(batch, all),
     ai,
-    cases: batch.cases.map((bc) => caseView(bc, batch, all, ai)),
+    cases: batch.cases.map((bc) => caseView(bc)),
     payments: batch.payments,
     signings: batch.signings,
     advocates: (first?.advocates ?? []).map((a) => ({
@@ -260,7 +252,7 @@ const EDITABLE = [
   /^accused\.\d+\.addresses\.\d+\.addr\.(line1|city|pin)$/,
   /^cheques\.\d+\.(dateOnCheque|amount|chequeNumber|ifsc|presentDate|returnDate|returnReason)$/,
   /^notices\.\d+\.(natureDebt|dispatchDate|modeService|deliveryDate|returnDate|nonDeliveryReason|partAmount)$/,
-  /^jurisdiction\.(ifsc|payeePolice|drawerPolice|condonationReason)$/,
+  /^jurisdiction\.(deposited|ifsc|payeePolice|drawerPolice|condonationReason)$/,
   /^notices\.\d+\.(tracking|replied)$/,
 ];
 
@@ -319,7 +311,7 @@ export async function applyFix(
     q.bankBranch = bank?.branch ?? "";
     q.ifscFetched = !!bank;
   }
-  if (path === "jurisdiction.ifsc") {
+  if (path === "jurisdiction.ifsc" || (path === "jurisdiction.deposited" && value === "yes")) {
     const bank = await resolveIfsc(d.jurisdiction.ifsc);
     d.jurisdiction.payeeBankName = bank?.bank ?? "";
     d.jurisdiction.payeeBankBranch = bank?.branch ?? "";
@@ -365,20 +357,45 @@ export function replaceDraft(bc: BatchCase, incoming: FilingDraft): string | nul
     scrutinyReturn: stored.scrutinyReturn,
   };
   next.documents = buildDocumentGroups(next);
-  // Stating a notice's delivery answers the "not known yet" the sender left.
-  bc.unknownService = bc.unknownService.filter((i) => {
-    const was = stored.notices[i];
-    const now = next.notices[i];
-    return (
-      !!now &&
-      !!was &&
-      now.delivered === was.delivered &&
-      now.deliveryDate === was.deliveryDate &&
-      now.returnDate === was.returnDate
-    );
-  });
+  // An answer the sender did not give is answered once the screen sends one; until then
+  // the stored default stays and the question stays open.
+  const answered: string[] = [];
+  for (const path of unanswered(bc)) {
+    const value = getPath(next, path);
+    if (value) answered.push(path);
+    else if (value !== undefined)
+      setPath(next as unknown as Record<string, unknown>, path, getPath(stored, path) ?? "");
+  }
+  bc.unstated = (bc.unstated ?? []).filter((p) => !answered.includes(p));
+  bc.unknownService = bc.unknownService.filter((i) => !answered.includes(`notices.${i}.delivered`));
   bc.draft = next;
   return null;
+}
+
+/**
+ * Answers the sender did not give, by draft path: yes/no questions left out of the file
+ * (`unstated`) and notices whose delivery was not known yet. The draft holds a default
+ * there, so the screen is sent them blank (`draftForScreen`) and they read as unanswered.
+ */
+export function unanswered(bc: BatchCase): string[] {
+  return [...(bc.unstated ?? []), ...bc.unknownService.map((i) => `notices.${i}.delivered`)];
+}
+
+/** The case's draft as the filing sections should show it: unanswered questions blank. */
+export function draftForScreen(bc: BatchCase): FilingDraft {
+  const d = structuredClone(bc.draft);
+  for (const path of unanswered(bc))
+    if (getPath(d, path) !== undefined) setPath(d as unknown as Record<string, unknown>, path, "");
+  return d;
+}
+
+function getPath(d: FilingDraft, path: string): string | undefined {
+  let node: unknown = d;
+  for (const k of path.split(".")) {
+    if (node === null || typeof node !== "object") return undefined;
+    node = (node as Record<string, unknown>)[k];
+  }
+  return typeof node === "string" ? node : undefined;
 }
 
 /* ───────────────────────────── Documents ───────────────────────────── */
@@ -404,17 +421,12 @@ export function attachToSlot(
 /* ───────────────────────────── Sign and pay ───────────────────────────── */
 
 /** Cases that may be signed now: nothing holds them and no soft flag is left open. */
-export function signable(
-  batch: Batch,
-  all: Batch[],
-  ai: AiMode = "off",
-): BatchCase[] {
-  const ctx = { batch, others: all.filter((b) => b.id !== batch.id), ai };
+export function signable(batch: Batch): BatchCase[] {
   return batch.cases.filter(
     (bc) =>
       bc.draft.status !== "filed" &&
       !bc.signedWith &&
-      openFlags(bc, ctx).length === 0,
+      openFlags(bc).length === 0,
   );
 }
 
