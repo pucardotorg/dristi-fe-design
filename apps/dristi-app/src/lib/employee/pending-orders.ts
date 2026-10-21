@@ -261,6 +261,31 @@ export function pendingOrderStageLabel(stage: PendingOrderStage): string {
   return PENDING_ORDER_STAGES.find((entry) => entry.id === stage)?.label ?? stage;
 }
 
+/**
+ * The draft to type after this one, once it is sent for signing: the next order still in
+ * Drafting, in the list's own order, after `key` and round again from the top. None when
+ * this was the last.
+ */
+export function nextDraftOrder(
+  orders: PendingOrders,
+  signing: OrderSigning,
+  key: string,
+): PendingOrder | null {
+  const list = Object.values(orders);
+  const at = list.findIndex((order) => order.key === key);
+  const after = at < 0 ? list : [...list.slice(at + 1), ...list.slice(0, at)];
+  return (
+    after.find(
+      (order) => order.key !== key && inPendingStage(order, signing, "drafting"),
+    ) ?? null
+  );
+}
+
+/** The Pending orders list, opened on one stage's tab when given. */
+export function pendingOrdersHref(tab?: PendingOrderStage): string {
+  return tab ? `/employee/pending-orders?tab=${tab}` : "/employee/pending-orders";
+}
+
 /** One order's page: its text, its signature and its workflow. */
 export function pendingOrderHref(key: string): string {
   return `/employee/pending-orders/${encodeURIComponent(key)}`;

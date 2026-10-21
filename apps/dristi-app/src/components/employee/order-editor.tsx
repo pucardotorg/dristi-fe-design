@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { PanelRightIcon } from "lucide-react";
 import { toast } from "sonner";
 
@@ -86,7 +87,9 @@ import {
   moveOrderBackToDraft,
   noteOrderDraft,
   noteOrderTextEdited,
+  nextDraftOrder,
   pendingOrderHref,
+  pendingOrdersHref,
   pendingOrderStage,
   removePendingOrder,
   sendOrderForSigning,
@@ -847,6 +850,8 @@ export function OrderEditorComposer({
   const [view, setView] = React.useState<EditorView>("order");
   const [askOpen, setAskOpen] = React.useState(false);
   const [askDiscard, setAskDiscard] = React.useState(false);
+  const [sentOpen, setSentOpen] = React.useState(false);
+  const router = useRouter();
   const [shortcutsOpen, setShortcutsOpen] = React.useState(false);
   const shortcuts = useShortcutSuggestion();
   const pending = usePendingOrders();
@@ -858,6 +863,8 @@ export function OrderEditorComposer({
   const empty = body.text.trim().length === 0;
   const { key, heading: queueHeading, caseNumber, origin } = queue;
   const title = orderTitle(draft);
+  /* Where the drafter goes once this one is sent: the next order still in Drafting. */
+  const nextDraft = nextDraftOrder(pending, signing, queue.key);
 
   /* Once there are words, the order is in Pending orders — every order, a hearing's or
      not (owner, 2026-10-14). */
@@ -895,7 +902,7 @@ export function OrderEditorComposer({
       orderHref: window.location.pathname + window.location.search,
     });
     markOrderReady(queue.key);
-    toast("Sent for signing. It is in Pending orders, awaiting the magistrate.");
+    setSentOpen(true);
   }
 
   return (
@@ -1111,6 +1118,41 @@ export function OrderEditorComposer({
             <AlertDialogAction onClick={() => finish()}>
               Send for signing
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Sent: the drafter's next move is the next draft, or the list (owner,
+          2026-10-21). With no draft left, staying on this order is the other way out;
+          otherwise Escape stays, to move it back to draft. */}
+      <AlertDialog open={sentOpen} onOpenChange={setSentOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sent for signing</AlertDialogTitle>
+            <AlertDialogDescription>
+              It is in Pending orders, awaiting the magistrate.{" "}
+              {nextDraft
+                ? `Next draft: ${nextDraft.heading}, ${nextDraft.caseNumber}.`
+                : "No other drafts are waiting."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            {nextDraft ? null : (
+              <AlertDialogCancel>Stay here</AlertDialogCancel>
+            )}
+            <AlertDialogAction
+              variant={nextDraft ? "outline" : "default"}
+              onClick={() =>
+                router.push(pendingOrdersHref(nextDraft ? "drafting" : undefined))
+              }
+            >
+              Back to Pending orders
+            </AlertDialogAction>
+            {nextDraft ? (
+              <AlertDialogAction onClick={() => router.push(nextDraft.orderHref)}>
+                Next draft
+              </AlertDialogAction>
+            ) : null}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

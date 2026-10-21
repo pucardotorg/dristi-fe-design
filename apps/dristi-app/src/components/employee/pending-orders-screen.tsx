@@ -94,14 +94,21 @@ type Row = PendingOrder & { stage: PendingOrderStage };
  * The magistrate signs here, one order or a selection. The steno opens an order to fill
  * its workflow and trigger it. A draft opens back on the order screen.
  */
-export function PendingOrdersScreen() {
+export function PendingOrdersScreen({
+  initialTab,
+}: {
+  /** `?tab=` — the editor's Sent for signing returns to Drafting, not the seat's move. */
+  initialTab?: PendingOrderStage;
+} = {}) {
   const router = useRouter();
   const seat = useCourtRole();
   const { court } = useCourt();
   const pending = usePendingOrders();
   const signing = useOrderSigning();
   const move = pendingOrderStageFor(seat, court);
-  const [tab, setTab] = React.useState<Tab>(() => openingTab(seat, court));
+  const [tab, setTab] = React.useState<Tab>(
+    () => initialTab ?? openingTab(seat, court),
+  );
   const [selected, setSelected] = React.useState<ReadonlySet<string>>(
     () => new Set(),
   );

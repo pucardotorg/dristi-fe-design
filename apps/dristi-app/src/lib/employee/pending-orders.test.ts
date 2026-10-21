@@ -8,6 +8,7 @@ import {
   sendOrderForSigning,
   setOrderWorkflowComplete,
   inPendingStage,
+  nextDraftOrder,
   pendingOrderCountFor,
   pendingOrderStage,
   type PendingOrder,
@@ -93,5 +94,20 @@ describe("pending orders", () => {
     /* `SND-08`: the values stay, but it has to be looked at again. */
     sendOrderForSigning(meta);
     assert.equal(readPendingOrders()["h-78"].workflowComplete, false);
+  });
+
+  it("offers the next draft after the one just sent, round from the top, and none at the end", () => {
+    const a = { ...order, key: "a", sent: true };
+    const b = { ...order, key: "b" };
+    const c = { ...order, key: "c", sent: true };
+    const d = { ...order, key: "d" };
+    const orders = { a, b, c, d };
+    assert.equal(nextDraftOrder(orders, {}, "c")?.key, "d");
+    assert.equal(nextDraftOrder(orders, {}, "a")?.key, "b");
+    /* Past the last, round again from the top. */
+    assert.equal(nextDraftOrder({ ...orders, d: { ...d, sent: true } }, {}, "d")?.key, "b");
+    /* A signed order is not a draft, sent or not. */
+    assert.equal(nextDraftOrder(orders, { b: "signed", d: "signed" }, "a"), null);
+    assert.equal(nextDraftOrder({ a }, {}, "a"), null);
   });
 });
