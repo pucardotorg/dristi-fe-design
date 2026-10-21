@@ -362,7 +362,7 @@ export function DemandNoticeSection() {
 
           <FormDivider />
 
-          <FormField asGroup label="Whether delivered?" required>
+          <FormField asGroup label="Whether delivered?" name="delivered" required>
             <YesNoSegmented
               value={notice.delivered}
               onValueChange={(v) => set("delivered", v)}
@@ -373,7 +373,7 @@ export function DemandNoticeSection() {
           {notice.delivered === "yes" ? (
             <>
               <FormRow>
-                <FormField
+                <FormField name="deliveryDate"
                   label="Date of delivery"
                   required
                   error={noticeServiceIssue(notice)}
@@ -388,7 +388,7 @@ export function DemandNoticeSection() {
                   />
                 </FormField>
               </FormRow>
-              <FormField asGroup label="Has the accused replied to the demand notice?">
+              <FormField asGroup name="replied" label="Has the accused replied to the demand notice?">
                 <YesNoSegmented
                   value={notice.replied}
                   onValueChange={(v) => set("replied", v)}
@@ -399,7 +399,7 @@ export function DemandNoticeSection() {
           ) : (
             <>
               <FormRow>
-                <FormField
+                <FormField name="returnDate"
                   label="Date of return as not delivered"
                   required
                   error={noticeServiceIssue(notice)}
@@ -410,7 +410,7 @@ export function DemandNoticeSection() {
                     ariaLabel="Date of return as not delivered"
                   />
                 </FormField>
-                <FormField label="Reason for non-delivery" required>
+                <FormField label="Reason for non-delivery" name="nonDeliveryReason" required>
                   <OptionSelect
                     value={notice.nonDeliveryReason}
                     onValueChange={(v) => set("nonDeliveryReason", v)}
@@ -434,7 +434,7 @@ export function DemandNoticeSection() {
           description="Whether the accused has paid any part of the cheque amount."
         >
           <HalfWidth>
-            <FormField
+            <FormField name="paymentStatus"
               label="Has the drawer (accused) made full or part payment due under the cheque?"
               required
               tip="If any amount has already been paid, the balance due is what is claimed in the complaint."
@@ -452,7 +452,7 @@ export function DemandNoticeSection() {
 
           {notice.paymentStatus === "part" ? (
             <HalfWidth>
-              <FormField
+              <FormField name="partAmount"
                 label="How much payment has already been made?"
                 required
                 help="Deducted from the cheque amount to arrive at the balance claimed."

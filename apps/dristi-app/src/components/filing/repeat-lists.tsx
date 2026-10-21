@@ -68,7 +68,7 @@ export function ContactList({
       {contacts.map((c, i) => (
         <div key={i} className="flex items-end gap-3">
           <FormRow className="flex-1">
-            <FormField label="Mobile number" optional={optional}>
+            <FormField label="Mobile number" name={`contacts.${i}.mobile`} optional={optional}>
               <PrefixInput
                 prefix="+91"
                 value={c.mobile}
@@ -83,7 +83,7 @@ export function ContactList({
                 autoComplete="tel-national"
               />
             </FormField>
-            <FormField label={emailLabel} optional={optional}>
+            <FormField label={emailLabel} name={`contacts.${i}.email`} optional={optional}>
               <TextField
                 type="email"
                 value={c.email}
@@ -150,13 +150,18 @@ export function AddressBlockList({
               />
             ) : null}
           </div>
-          <AddressFields value={b.addr} onChange={(addr) => setAt(i, { addr })} />
+          <AddressFields
+            value={b.addr}
+            onChange={(addr) => setAt(i, { addr })}
+            name={`addresses.${i}.addr`}
+          />
           <HalfWidth>
             {/* Item 7: a station list is far too long to scan, so it is searched. It
                 stays open — our copy of the directory is not the last word on which
                 stations exist. */}
             <FormField
               label="Police station"
+              name={`addresses.${i}.police`}
               required
               help="The station this address falls under."
             >
@@ -218,7 +223,7 @@ export function RepresentativeList({
             ) : null}
           </div>
           <FormRow>
-            <FormField label="Full name" required>
+            <FormField label="Full name" name={`reps.${i}.name`} required>
               <TextField
                 value={r.name}
                 onChange={(v) => setAt(i, { name: v })}
@@ -226,7 +231,7 @@ export function RepresentativeList({
                 autoComplete="off"
               />
             </FormField>
-            <FormField label="Designation" required>
+            <FormField label="Designation" name={`reps.${i}.designation`} required>
               <TextField
                 value={r.designation}
                 onChange={(v) => setAt(i, { designation: v })}
@@ -236,7 +241,7 @@ export function RepresentativeList({
             </FormField>
           </FormRow>
           <FormRow>
-            <FormField label="Mobile number" optional>
+            <FormField label="Mobile number" name={`reps.${i}.mobile`} optional>
               <PrefixInput
                 prefix="+91"
                 value={r.mobile}
@@ -245,7 +250,7 @@ export function RepresentativeList({
                 inputMode="numeric"
               />
             </FormField>
-            <FormField label="Email address" optional>
+            <FormField label="Email address" name={`reps.${i}.email`} optional>
               <TextField
                 type="email"
                 value={r.email}
@@ -256,7 +261,7 @@ export function RepresentativeList({
             </FormField>
           </FormRow>
           <FormSubhead>Address for service</FormSubhead>
-          <AddressFields value={r.addr} onChange={(addr) => setAt(i, { addr })} />
+          <AddressFields value={r.addr} onChange={(addr) => setAt(i, { addr })} name={`reps.${i}.addr`} />
         </div>
       ))}
       <Button

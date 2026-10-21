@@ -116,9 +116,25 @@ export function nextNumberPreview(all: Batch[], at: Date): string {
 
 type FileMeta = Omit<StoredFileRef, "id">;
 
+/** File ids this store serves: its own (`bf_…`) and those the filing screens mint (`f_…`). */
+const FILE_ID = /^(bf|f)_[a-z0-9]+$/i;
+
 export async function saveFile(bytes: Uint8Array, name: string, type: string): Promise<StoredFileRef> {
+  return saveFileAs(newId("bf"), bytes, name, type);
+}
+
+/**
+ * Store a file under an id the caller chose. The filing screens name an upload before
+ * they store it (`storeUpload`), so a bulk case opened in them keeps that id.
+ */
+export async function saveFileAs(
+  id: string,
+  bytes: Uint8Array,
+  name: string,
+  type: string
+): Promise<StoredFileRef> {
+  if (!FILE_ID.test(id)) throw new Error("Not a file id.");
   await fs.mkdir(FILES, { recursive: true });
-  const id = newId("bf");
   const ext = (name.split(".").pop() || "").toUpperCase().slice(0, 5) || "FILE";
   const meta: FileMeta = { name, size: bytes.byteLength, type: type || "application/octet-stream", ext };
   await fs.writeFile(path.join(FILES, id), bytes);
@@ -127,7 +143,7 @@ export async function saveFile(bytes: Uint8Array, name: string, type: string): P
 }
 
 export async function readFile(id: string): Promise<{ bytes: Buffer; meta: FileMeta } | null> {
-  if (!/^bf_[a-z0-9]+$/i.test(id)) return null;
+  if (!FILE_ID.test(id)) return null;
   try {
     const [bytes, meta] = await Promise.all([
       fs.readFile(path.join(FILES, id)),

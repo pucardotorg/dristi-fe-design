@@ -14,9 +14,10 @@ import * as React from "react";
 import { usePathname } from "next/navigation";
 
 import { buildDocumentGroups } from "./blank";
-import { deleteDraftWithFiles, getRepository } from "./data";
+import { deleteDraftWithFiles, getRepository, setActiveRepository } from "./data";
+import type { FilingRepository } from "./data";
 import { sectionOpened } from "./selectors";
-import { stepFromPathname, stepHref, WALK_ORDER } from "./steps";
+import { FILING_STEPS, stepFromPathname, stepHref, WALK_ORDER } from "./steps";
 import type { FilingDraft, StepId } from "./types";
 import { useCourt } from "@/components/court/court-provider";
 import { localizeDeep } from "@/lib/court/localize";
@@ -30,6 +31,8 @@ type FilingContextValue = {
   update: (recipe: (draft: FilingDraft) => void) => void;
   /** Route to a step of this draft. */
   hrefFor: (step: StepId) => string;
+  /** The steps this draft is walked through: every one, unless its host leaves some out. */
+  steps: StepId[];
   /** Persist immediately (used before navigating away from a critical action). */
   flush: () => Promise<void>;
   /** Delete this draft and its files. The caller navigates afterwards. */
@@ -59,14 +62,29 @@ type LoadState =
   | { status: "missing" }
   | { status: "ready"; draft: FilingDraft };
 
+const ALL_STEPS: StepId[] = ["upload", ...FILING_STEPS.map((s) => s.id)];
+
 export function FilingProvider({
   draftId,
   children,
   fallback = null,
   notFound = null,
+  repository,
+  hrefFor: hrefOverride,
+  steps = ALL_STEPS,
 }: {
   draftId: string;
   children: React.ReactNode;
+  /**
+   * Where this draft is read from and written to, when not the browser's own store: a
+   * bulk case is held on the server. Uploads and file reads made while it is open go
+   * there too (`setActiveRepository`).
+   */
+  repository?: FilingRepository;
+  /** Routes for a draft that lives somewhere other than `/filings/<id>`. */
+  hrefFor?: (step: StepId) => string;
+  /** Steps to show, when the host does some of them elsewhere (bulk signs and pays once). */
+  steps?: StepId[];
   /** Rendered while the draft is being read. */
   fallback?: React.ReactNode;
   /** Rendered when no draft has this id (deleted, or a stale link). */
@@ -92,6 +110,16 @@ export function FilingProvider({
   const [saveState, setSaveState] = React.useState<SaveState>("saved");
   const pathname = usePathname();
   const { court } = useCourt();
+  const repo = React.useCallback(() => repository ?? getRepository(), [repository]);
+
+  // Children's effects run before this provider's, so the override is set while rendering
+  // (idempotent) rather than in an effect, and removed when the provider goes.
+  if (repository) setActiveRepository(repository);
+  React.useEffect(() => {
+    if (!repository) return;
+    setActiveRepository(repository);
+    return () => setActiveRepository(null);
+  }, [repository]);
 
   // Latest draft for the debounced writer / flush, without re-binding callbacks.
   const draftRef = React.useRef<FilingDraft | null>(null);
@@ -101,7 +129,7 @@ export function FilingProvider({
   // Load.
   React.useEffect(() => {
     let cancelled = false;
-    getRepository()
+    repo()
       .getDraft(draftId)
       .then((d) => {
         if (cancelled) return;
@@ -122,21 +150,21 @@ export function FilingProvider({
     return () => {
       cancelled = true;
     };
-  }, [draftId, setState, court]);
+  }, [draftId, setState, court, repo]);
 
   const write = React.useCallback(async () => {
     const d = draftRef.current;
     if (!d || !dirtyRef.current) return;
     dirtyRef.current = false;
     try {
-      await getRepository().putDraft(d);
+      await repo().putDraft(d);
       // A newer change may have arrived while writing.
       setSaveState(dirtyRef.current ? "saving" : "saved");
     } catch {
       dirtyRef.current = true;
       setSaveState("error");
     }
-  }, []);
+  }, [repo]);
 
   const schedule = React.useCallback(() => {
     if (timerRef.current) window.clearTimeout(timerRef.current);
@@ -203,7 +231,10 @@ export function FilingProvider({
     });
   }, [step, state, commit]);
 
-  const hrefFor = React.useCallback((s: StepId) => stepHref(draftId, s), [draftId]);
+  const hrefFor = React.useCallback(
+    (s: StepId) => (hrefOverride ? hrefOverride(s) : stepHref(draftId, s)),
+    [draftId, hrefOverride]
+  );
 
   const discard = React.useCallback(async () => {
     if (timerRef.current) {
@@ -216,8 +247,8 @@ export function FilingProvider({
 
   const draft = state.status === "ready" ? state.draft : null;
   const value = React.useMemo<FilingContextValue | null>(
-    () => (draft ? { draft, saveState, update: commit, hrefFor, flush, discard } : null),
-    [draft, saveState, commit, hrefFor, flush, discard]
+    () => (draft ? { draft, saveState, update: commit, hrefFor, steps, flush, discard } : null),
+    [draft, saveState, commit, hrefFor, steps, flush, discard]
   );
 
   if (state.status === "loading") return <>{fallback}</>;

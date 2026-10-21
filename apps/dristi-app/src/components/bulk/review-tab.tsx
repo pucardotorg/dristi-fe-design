@@ -93,7 +93,7 @@ export function ReviewTab({ batch, go }: BatchCtx) {
               className="ml-auto"
               onClick={() => go("scrutiny", c.id)}
             >
-              Edit in Case details
+              Open the case
             </Button>
           </div>
           {drafts?.[c.id] ? (

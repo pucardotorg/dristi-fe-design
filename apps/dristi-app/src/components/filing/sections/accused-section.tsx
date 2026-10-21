@@ -42,6 +42,7 @@ import { FilingPageHeader } from "@/components/filing/filing-page-header";
 import { FilingMain } from "@/components/filing/filing-shell";
 import { FormCard, FormRow, HalfWidth } from "@/components/filing/form-card";
 import { FormField } from "@/components/filing/form-field";
+import { CorrectionInstance } from "@/components/filing/posture";
 import { OptionSelect, TextField } from "@/components/filing/inputs";
 import { SectionNotice } from "@/components/filing/notices";
 import {
@@ -167,6 +168,8 @@ export function AccusedSection() {
           onAdd={addAccused}
         />
 
+        {/* Which accused the fields below belong to, so a check can point at its field. */}
+        <CorrectionInstance value={index}>
         {/*
           Identity. "Is the accused a person or an institution?" and "what kind of
           institution?" are two questions: the old single list made you answer the second
@@ -186,7 +189,7 @@ export function AccusedSection() {
               />
             </FormField>
             {isIndividual ? null : (
-              <FormField label="Type of entity" required>
+              <FormField label="Type of entity" name="entType" required>
                 <OptionSelect
                   value={a.entType}
                   onValueChange={(v) => setField("entType", v)}
@@ -197,7 +200,7 @@ export function AccusedSection() {
             )}
           </FormRow>
           <HalfWidth>
-            <FormField label={isIndividual ? "Full name" : "Entity name"} required>
+            <FormField label={isIndividual ? "Full name" : "Entity name"} name="name" required>
               <TextField
                 value={a.name}
                 onChange={(v) => setField("name", v)}
@@ -270,6 +273,7 @@ export function AccusedSection() {
             />
           </FormField>
         </FormCard>
+        </CorrectionInstance>
       </FilingMain>
 
       <FilingFooter

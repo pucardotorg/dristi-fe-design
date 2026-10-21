@@ -20,6 +20,7 @@ import {
 } from "@/lib/filing/steps";
 import { useFiling } from "@/lib/filing/store";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -31,6 +32,7 @@ import {
 } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { TOP_BAR_HEIGHT, useFilingChrome } from "@/components/filing/chrome";
+import { useFieldPolicy } from "@/components/filing/field-policy";
 import { useLeaveBlocked } from "@/components/filing/leave-guard";
 import {
   UploadedCountBadge,
@@ -69,6 +71,27 @@ function useActiveStep(): FilingStep | undefined {
   return FILING_STEPS.find((s) => !s.placeholder && s.id === id);
 }
 
+/** The steps this draft shows, in the rail's groups; a host may leave some out. */
+function useShownGroups() {
+  const { steps } = useFiling();
+  return stepGroups()
+    .map((g) => ({ ...g, steps: g.steps.filter((s) => steps.includes(s.id)) }))
+    .filter((g) => g.steps.length > 0);
+}
+
+/**
+ * What a host's checks found in a section (bulk filing), in place of its progress mark:
+ * the count is what is left to do there.
+ */
+function IssueMark({ count }: { count: number }) {
+  return (
+    <Badge variant="warning" className="ml-auto shrink-0 tabular-nums">
+      {count}
+      <span className="sr-only"> to fix</span>
+    </Badge>
+  );
+}
+
 /* ───────────────────────────── Rows ────────────────────────────────── */
 
 /**
@@ -104,6 +127,7 @@ function StepRow({
   const courtText = useCourtText();
   const { draft, hrefFor } = useFiling();
   const blocked = useLeaveBlocked();
+  const issues = useFieldPolicy()?.countFor(step.id) ?? 0;
   const Icon = step.icon;
 
   if (step.placeholder) {
@@ -148,7 +172,7 @@ function StepRow({
       >
         <Icon aria-hidden className={active ? undefined : "text-muted-foreground"} />
         <span className="min-w-0 truncate">{courtText(step.title)}</span>
-        <SectionMark state={sectionState(draft, step.id)} />
+        {issues ? <IssueMark count={issues} /> : <SectionMark state={sectionState(draft, step.id)} />}
       </Link>
     </Button>
   );
@@ -183,6 +207,7 @@ function StepList({
 }) {
   const courtText = useCourtText();
   const active = useActiveStep();
+  const groups = useShownGroups();
 
   return (
     <nav aria-label="Filing sections" className="flex flex-col gap-4 px-2">
@@ -192,7 +217,7 @@ function StepList({
         </li>
       </ul>
 
-      {stepGroups().map((g) => (
+      {groups.map((g) => (
         <div key={g.group} className="flex w-full flex-col gap-1">
           <h2 className="px-2 text-caption font-medium text-muted-foreground">
             {courtText(g.group)}
@@ -214,8 +239,11 @@ function StepList({
 }
 
 function ProgressBlock() {
-  const { draft } = useFiling();
+  const { draft, steps } = useFiling();
   const progress = draftProgress(draft);
+  // Progress runs to signing and paying; a host that does those elsewhere (bulk filing)
+  // shows its own state on the rows instead of a bar that could never fill.
+  if (!steps.includes("sign")) return null;
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -305,7 +333,9 @@ export function SectionsRail() {
 export function SectionsTrigger() {
   const { sectionsSheetOpen, setSectionsSheetOpen } = useFilingChrome();
   const active = useActiveStep();
-  const walked = FILING_STEPS.filter((s) => !s.placeholder);
+  const walked = useShownGroups()
+    .flatMap((g) => g.steps)
+    .filter((s) => !s.placeholder);
   const position = active ? walked.findIndex((s) => s.id === active.id) + 1 : 0;
 
   // The trigger sticks under the top bar so a thumb never has to scroll back up for it.

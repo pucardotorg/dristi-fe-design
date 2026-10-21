@@ -23,6 +23,7 @@ import {
   useCorrection,
   useCorrectionInstance,
 } from "@/components/filing/posture";
+import { useFieldPolicy } from "@/components/filing/field-policy";
 import { defectState } from "@/lib/tasks/defects";
 
 const SourceFieldLabel = React.createContext("this field");
@@ -85,7 +86,7 @@ export function FormField({
   tip,
   help,
   helpPlacement = "below",
-  error,
+  error: ownError,
   asGroup = false,
   className,
   children,
@@ -110,6 +111,9 @@ export function FormField({
 }) {
   const correction = useCorrection();
   const instance = useCorrectionInstance();
+  // A host's check on this field (bulk filing), when the section has nothing of its own to say.
+  const policy = useFieldPolicy();
+  const error = ownError ?? (policy && name ? policy.issueAt(instance, name) : null) ?? undefined;
   const defect =
     correction && name ? correction.defectAt(correction.step, instance, name) : null;
   const locked = !!correction && !defect;

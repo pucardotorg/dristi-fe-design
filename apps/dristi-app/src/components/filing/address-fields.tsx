@@ -31,6 +31,7 @@ export function AddressFields({
   onViewSource,
   prefilledFields,
   idPrefix,
+  name,
 }: {
   value: Address;
   onChange: (next: Address) => void;
@@ -38,7 +39,13 @@ export function AddressFields({
   onViewSource?: (field: keyof Address) => void;
   prefilledFields?: Partial<Record<keyof Address, boolean>>;
   idPrefix?: string;
+  /**
+   * Where this address sits on its record ("res", "addresses.1.addr"), so a check on
+   * one of its fields can point at it (`FormField name`). Changes nothing otherwise.
+   */
+  name?: string;
 }) {
+  const key = (k: keyof Address) => (name ? `${name}.${k}` : undefined);
   const set = (k: keyof Address) => (v: string) => onChange({ ...value, [k]: v });
   const pf = (key: keyof Address) => prefilled && !!value[key] && (prefilledFields?.[key] ?? !prefilledFields);
   const src = (key: keyof Address) => pf(key) && onViewSource ? () => onViewSource(key) : undefined;
@@ -108,7 +115,7 @@ export function AddressFields({
 
   return (
     <div className="flex flex-col gap-4">
-      <FormField label="Address line" required>
+      <FormField label="Address line" name={key("line1")} required>
         <TextField
           id={idPrefix ? `${idPrefix}-line1` : undefined}
           value={value.line1}
@@ -122,7 +129,7 @@ export function AddressFields({
       {/* PIN first: it is the field that fills the two below it, so it comes before the
           ones it answers rather than after them. */}
       <FormRow>
-        <FormField label="Pincode" required>
+        <FormField label="Pincode" name={key("pin")} required>
           <TextField
             value={value.pin}
             onChange={set("pin")}
@@ -134,7 +141,7 @@ export function AddressFields({
             autoComplete="postal-code"
           />
         </FormField>
-        <FormField label="City / town" required>
+        <FormField label="City / town" name={key("city")} required>
           <TextField
             value={value.city}
             onChange={set("city")}
@@ -147,7 +154,7 @@ export function AddressFields({
       </FormRow>
       <div className="flex flex-col gap-2">
         <FormRow>
-          <FormField label="District" required>
+          <FormField label="District" name={key("district")} required>
             <TextField
               value={value.district}
               onChange={setDistrict}
@@ -156,7 +163,7 @@ export function AddressFields({
                 onViewSource={src("district")}
             />
           </FormField>
-          <FormField label="State / UT" required>
+          <FormField label="State / UT" name={key("state")} required>
             <OptionSelect
               value={value.state}
               onValueChange={setState}
