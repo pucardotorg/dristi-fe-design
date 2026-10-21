@@ -105,7 +105,7 @@ async function templateFile() {
   // Repeats this file uses: cheque 2, accused 2 with an address, witness 2.
   const rep = (keys: string[], suffix: string) => keys.map((k) => `${col(k).header}${suffix}`);
   const CHEQUE = ["chequeNumber", "chequeDate", "chequeAmount", "chequeIfsc", "chequeAccount", "presentDate", "returnDate", "returnReason"];
-  const ACCUSED = ["accusedType", "accusedName", "accusedAge", "accusedMobile", "accusedAddress", "accusedCity", "accusedPin"];
+  const ACCUSED = ["accusedType", "accusedName", "accusedMobile", "accusedAddress", "accusedCity", "accusedPin"];
   const WITNESS = ["witnessName", "witnessDesignation", "witnessProve", "witnessMobile", "witnessAddress", "witnessCity", "witnessPin"];
   const headers = [...base, ...rep(CHEQUE, "_2"), ...rep(ACCUSED, "_2"), ...rep(WITNESS, "_2")];
   ws.columns = headers.map((h) => ({ header: h, key: h, width: Math.max(18, h.length + 4) }));
@@ -133,7 +133,6 @@ async function templateFile() {
       [H("accusedType")]: label("accusedType", c.type),
       [H("accusedName")]: c.name,
       [H("accusedEntity")]: c.entity ? label("accusedEntity", c.entity) : "",
-      [H("accusedAge")]: c.age ?? "",
       [H("accusedMobile")]: c.mobile,
       [H("accusedEmail")]: c.email,
       [H("accusedAddress")]: c.address,
@@ -180,7 +179,6 @@ async function templateFile() {
       Object.assign(row, {
         [H("accusedType", "_2")]: "Individual",
         [H("accusedName", "_2")]: c.coAccused.name,
-        [H("accusedAge", "_2")]: c.coAccused.age,
         [H("accusedMobile", "_2")]: c.coAccused.mobile,
         [H("accusedAddress", "_2")]: c.address,
         [H("accusedCity", "_2")]: c.city,

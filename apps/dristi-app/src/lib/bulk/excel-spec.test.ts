@@ -4,6 +4,8 @@ import { test } from "node:test";
 import {
   ACCUSED_ENTITY_TYPES,
   ACCUSED_TYPES,
+  ENTITY_TYPES,
+  GENDER_OPTIONS,
   MODE_OF_SERVICE,
   NATURE_OF_DEBT,
   NON_DELIVERY_REASONS,
@@ -21,6 +23,20 @@ test("the template's lists are the form's lists", () => {
   assert.deepEqual(LISTS.modeOfService, MODE_OF_SERVICE);
   assert.deepEqual(LISTS.nonDelivery, NON_DELIVERY_REASONS);
   assert.deepEqual(LISTS.payment, PAYMENT_STATUS);
+  assert.deepEqual(LISTS.complainantEntity, ENTITY_TYPES);
+  assert.deepEqual(LISTS.gender, GENDER_OPTIONS);
+});
+
+test("every police station the filing requires is required in the sheet", () => {
+  const req = (key: string) => COLUMNS.find((c) => c.key === key)!.required;
+  assert.equal(req("accusedPolice"), "Yes");
+  assert.equal(req("payeePolice"), "When deposited in own account");
+  assert.equal(req("drawerPolice"), "When not deposited in own account");
+  assert.equal(req("witnessPolice"), "For each witness");
+});
+
+test("the accused has no age column: the filing asks none", () => {
+  assert.ok(!COLUMNS.some((c) => c.key === "accusedAge"), "the filing asks no age for an accused");
 });
 
 test("headers and aliases never collide", () => {

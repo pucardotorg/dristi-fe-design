@@ -68,7 +68,10 @@ export type ApiAccused = {
   name: string;
   /** `ACC-4`, an `ACCUSED_ENTITY_TYPES` value. */
   institutionType?: string;
-  /** `ACC-3`. */
+  /**
+   * `ACC-3`. Accepted for compatibility and not kept: the filing has no age for an accused
+   * (owner, 2026-08-19).
+   */
   age?: string;
   /** `ACC-6`. */
   mobile?: string;
@@ -78,6 +81,11 @@ export type ApiAccused = {
   addresses: ApiAddress[];
   /** `ACC-14…17` — persons responsible under S-141, institutions only. */
   personsResponsible?: ApiRepresentative[];
+  /**
+   * `ACC-24` — whether the accused resides within the court's jurisdiction. When absent,
+   * it is read from the addresses: yes when any address's pincode is in the court's district.
+   */
+  withinJurisdiction?: boolean;
 };
 
 export type ApiCheque = {
@@ -87,8 +95,12 @@ export type ApiCheque = {
   date: string;
   /** `CHQ-2`, rupees. */
   amount: string;
-  /** `CHQ-5`. Bank name and branch (`CHQ-6`, `CHQ-7`) are looked up. */
+  /** `CHQ-5`. Bank name and branch (`CHQ-6`, `CHQ-7`) are looked up from it. */
   ifsc: string;
+  /** `CHQ-6`, kept only when the IFSC is not in the bank register. */
+  bankName?: string;
+  /** `CHQ-7`, kept only when the IFSC is not in the bank register. */
+  bankBranch?: string;
   /** `CHQ-7a`. */
   accountNumber?: string;
   /** `CHQ-8`. */
@@ -127,7 +139,11 @@ export type ApiJurisdiction = {
   depositedInOwnAccount: boolean;
   /** `JUR-2`, when deposited in own account. */
   complainantBranchIfsc?: string;
-  /** `JUR-5`, optional. */
+  /** `JUR-3`, kept only when the IFSC is not in the bank register. */
+  complainantBankName?: string;
+  /** `JUR-4`, kept only when the IFSC is not in the bank register. */
+  complainantBankBranch?: string;
+  /** `JUR-5`, when deposited in own account. */
   complainantBranchPoliceStation?: string;
   /** `JUR-6a`, when not. */
   drawerBranchPoliceStation?: string;
@@ -175,7 +191,7 @@ export type ApiCase = {
   condonationReason?: string;
   /** `WIT`, 0..n. */
   witnesses?: ApiWitness[];
-  /** `PRY-1`: additional details for the court. */
+  /** `PRY-1`: additional details for the court, as plain text. */
   otherDetails?: string;
   documents?: ApiDocument[];
 };
@@ -191,8 +207,8 @@ export type ApiBatchRequest = {
   };
   complainant: ApiComplainant;
   advocates: ApiAdvocate[];
-  /** `PRY-5`. */
-  adr?: "yes" | "no";
+  /** `PRY-5`, the same choices as the filing's ADR question. */
+  adr?: "yes" | "no" | "maybe";
   cases: ApiCase[];
 };
 

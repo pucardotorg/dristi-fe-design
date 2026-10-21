@@ -10,13 +10,25 @@ import type { FilingDraft, StoredFileRef } from "../types";
 export type { FilingRepository, StoredFile } from "./repository";
 
 let instance: FilingRepository | null = null;
+let active: FilingRepository | null = null;
 
 export function getRepository(): FilingRepository {
+  if (active) return active;
   if (typeof window === "undefined") {
     throw new Error("The filing repository is browser-only (IndexedDB).");
   }
   if (!instance) instance = new IndexedDbFilingRepository();
   return instance;
+}
+
+/**
+ * Put another repository in front of the browser's own while one draft is open from
+ * somewhere else: a bulk case lives on the server (`lib/bulk/case-repository.ts`), so its
+ * uploads and file reads have to go there too. `FilingProvider` sets it for the draft it
+ * holds and clears it on leaving; `null` restores the default.
+ */
+export function setActiveRepository(repo: FilingRepository | null): void {
+  active = repo;
 }
 
 /** Short, URL-safe id for drafts, files and rows. */

@@ -369,11 +369,30 @@ export function sourceFor(
   return i === undefined ? null : i;
 }
 
-/** True when the file is the template: every template header is there, as written. */
+/**
+ * Columns earlier templates carried and this one does not: a file that still has them is
+ * the template all the same, and they are not read. Accused age went when the single
+ * filing stopped asking for it (owner, 2026-08-19).
+ */
+const RETIRED_HEADERS = ["Accused age"];
+
+/**
+ * True when the file is the template: every header in it is a template header as written,
+ * and every required one of the sections each case has is there. Optional columns may be
+ * left out, so a template downloaded before a column was added still goes straight in; a
+ * header the template does not have means another layout, and its columns are matched.
+ */
 export function followsTemplate(headers: string[]): boolean {
-  const have = new Set(headers.map((h) => normHeader(parseHeader(h).base)));
-  return COLUMNS.filter((c) => !groupOf(c.group).repeats || groupOf(c.group).always)
-    .every((c) => have.has(normHeader(c.header)));
+  const known = new Set([...COLUMNS.map((c) => c.header), ...RETIRED_HEADERS].map(normHeader));
+  const have = new Set(
+    headers.map((h) => normHeader(parseHeader(h).base)).filter(Boolean),
+  );
+  return (
+    [...have].every((h) => known.has(h)) &&
+    COLUMNS.filter((c) => MUST_MAP.includes(c.key) && groupOf(c.group).always).every((c) =>
+      have.has(normHeader(c.header)),
+    )
+  );
 }
 
 /**
@@ -456,6 +475,7 @@ function accusedFrom(r: Reader, a: number, inst: Record<GroupId, Instance[]>): A
   const addresses = inst.address
     .filter(([p, c]) => p === a && (c === 1 || r.any("address", [p, c])))
     .map((i) => ({ line1: r.raw("accusedAddress", i), city: r.raw("accusedCity", i), pin: r.raw("accusedPin", i), policeStation: r.raw("accusedPolice", i) }));
+  const within = r.list("accusedJurisdiction", at);
   const persons = inst.person
     .filter(([p, c]) => p === a && r.any("person", [p, c]))
     .map((i) => ({
@@ -468,11 +488,12 @@ function accusedFrom(r: Reader, a: number, inst: Record<GroupId, Instance[]>): A
   return {
     type,
     name: r.raw("accusedName", at),
-    ...(type === "institution" ? { institutionType: r.list("accusedEntity", at) } : { age: r.raw("accusedAge", at) }),
+    ...(type === "institution" ? { institutionType: r.list("accusedEntity", at) } : {}),
     mobile: r.raw("accusedMobile", at),
     email: r.raw("accusedEmail", at),
     addresses: addresses.length ? addresses : [{ line1: "", city: "", pin: "" }],
     ...(type === "institution" ? { personsResponsible: persons } : {}),
+    ...(within === "yes" || within === "no" ? { withinJurisdiction: within === "yes" } : {}),
   };
 }
 
@@ -480,7 +501,7 @@ export function buildRequest(
   book: Workbookish,
   map: ColumnMap,
   values: ValueMap,
-  batch: { complainant: ApiComplainant; barNumbers: string[]; adr: "yes" | "no"; fileName: string },
+  batch: { complainant: ApiComplainant; barNumbers: string[]; adr: NonNullable<ApiBatchRequest["adr"]>; fileName: string },
   counts: InstanceCounts = {}
 ): ApiBatchRequest {
   const headers = book.cases.headers;
@@ -513,6 +534,7 @@ export function buildRequest(
                   designation: r.raw("compRepDesignation", i),
                   age: r.raw("compRepAge", i),
                   mobile: r.raw("compRepMobile", i),
+                  email: r.raw("compRepEmail", i),
                   address,
                 },
               }
@@ -525,6 +547,8 @@ export function buildRequest(
         date: sheetDate(r.raw("chequeDate", i)),
         amount: r.raw("chequeAmount", i),
         ifsc: r.raw("chequeIfsc", i),
+        bankName: r.raw("chequeBank", i),
+        bankBranch: r.raw("chequeBranch", i),
         accountNumber: r.raw("chequeAccount", i),
         presentedOn: sheetDate(r.raw("presentDate", i)),
         returnedOn: sheetDate(r.raw("returnDate", i)),
@@ -553,6 +577,8 @@ export function buildRequest(
       jurisdiction: {
         depositedInOwnAccount: deposited,
         complainantBranchIfsc: r.raw("payeeIfsc", one),
+        complainantBankName: r.raw("payeeBank", one),
+        complainantBankBranch: r.raw("payeeBranch", one),
         complainantBranchPoliceStation: r.raw("payeePolice", one),
         drawerBranchPoliceStation: r.raw("drawerPolice", one),
         otherPendingCases: used("otherCase").map((i) => ({ court: r.raw("otherCourt", i), caseNumber: r.raw("otherNumber", i) })),
@@ -564,7 +590,7 @@ export function buildRequest(
         prove: r.raw("witnessProve", i),
         mobile: r.raw("witnessMobile", i),
         email: r.raw("witnessEmail", i),
-        address: { line1: r.raw("witnessAddress", i), city: r.raw("witnessCity", i), pin: r.raw("witnessPin", i) },
+        address: { line1: r.raw("witnessAddress", i), city: r.raw("witnessCity", i), pin: r.raw("witnessPin", i), policeStation: r.raw("witnessPolice", i) },
       })),
       condonationReason: r.raw("condonation", one),
       otherDetails: r.raw("otherDetails", one),

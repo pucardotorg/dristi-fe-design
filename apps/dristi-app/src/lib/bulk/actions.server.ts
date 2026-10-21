@@ -30,12 +30,7 @@ import { GUJARAT_FEES } from "@/lib/court/fees";
 import type { FilingDraft, StoredFileRef } from "@/lib/filing/types";
 
 import type { AiMode } from "./ai-review";
-import {
-  caseFacts,
-  caseFields,
-  type CaseFact,
-  type FieldGroup,
-} from "./case-fields";
+import { caseFacts, type CaseFact } from "./case-fields";
 import { resolveBar, resolveIfsc, resolvePin } from "./reference";
 import { caseFlags, caseStage, openFlags, type Flag } from "./scrutiny";
 import {
@@ -82,8 +77,6 @@ export type CaseView = {
     file: StoredFileRef | null;
     slotKey: string | null;
   }[];
-  /** Every detail that can be changed on Case details, grouped as the single filing groups them. */
-  fields: FieldGroup[];
   /** What the case's papers should show, for matching them on Documents. */
   facts: CaseFact[];
   /** The document the case was read from, with its text, for "Original document". */
@@ -175,7 +168,6 @@ export function caseView(
       file: doc.file,
       slotKey: doc.intakeKey ?? null,
     })),
-    fields: caseFields(d, bc.unknownService),
     facts: caseFacts(d),
     original: bc.original
       ? { file: bc.original, text: bc.docText?.[bc.original.id] ?? null }
@@ -343,6 +335,50 @@ export async function applyFix(
     node.state = place?.state ?? "";
   }
   d.updatedAt = new Date().toISOString();
+}
+
+/* ───────────────────────────── Whole draft ───────────────────────────── */
+
+/**
+ * Save a case as the single filing's sections left it: they write the whole draft, as
+ * they do in the browser. What the batch owns is kept from the stored copy, whatever the
+ * screen sent: its complainant (the first) and its advocates are set once for every case,
+ * and signing, payment and filing happen on the batch. Returns why not, or `null`.
+ */
+export function replaceDraft(bc: BatchCase, incoming: FilingDraft): string | null {
+  const stored = bc.draft;
+  // A change voids signatures (LIFE-13); signed and filed cases are not offered it.
+  if (bc.signedWith || stored.status === "filed")
+    return "A signed or filed case cannot be changed here.";
+  if (!incoming || incoming.id !== stored.id) return "This is not that case's draft.";
+  const own = stored.complainants[0];
+  const next: FilingDraft = {
+    ...incoming,
+    complainants: own
+      ? [own, ...incoming.complainants.filter((c) => c.id !== own.id)]
+      : incoming.complainants,
+    advocates: stored.advocates,
+    sign: stored.sign,
+    status: stored.status,
+    filedAt: stored.filedAt,
+    createdAt: stored.createdAt,
+    scrutinyReturn: stored.scrutinyReturn,
+  };
+  next.documents = buildDocumentGroups(next);
+  // Stating a notice's delivery answers the "not known yet" the sender left.
+  bc.unknownService = bc.unknownService.filter((i) => {
+    const was = stored.notices[i];
+    const now = next.notices[i];
+    return (
+      !!now &&
+      !!was &&
+      now.delivered === was.delivered &&
+      now.deliveryDate === was.deliveryDate &&
+      now.returnDate === was.returnDate
+    );
+  });
+  bc.draft = next;
+  return null;
 }
 
 /* ───────────────────────────── Documents ───────────────────────────── */

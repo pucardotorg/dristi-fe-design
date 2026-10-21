@@ -1,6 +1,9 @@
 /** The batch endpoints, as the screens call them. */
 
-import type { BatchSummary, BatchView } from "@/lib/bulk/actions.server";
+import type { BatchSummary, BatchView, CaseView } from "@/lib/bulk/actions.server";
+import { firstFlaggedStep } from "@/lib/bulk/flag-place";
+import { getStep } from "@/lib/filing/steps";
+import type { StepId } from "@/lib/filing/types";
 import type { AiMode } from "@/lib/court/profiles";
 
 export type { BatchSummary, BatchView, CaseView } from "@/lib/bulk/actions.server";
@@ -46,3 +49,20 @@ export const bulkApi = {
 };
 
 export const fileUrl = (id: string) => `/api/bulk/files/${id}`;
+
+/** The AI setting the screen is on, for links that should keep it. */
+export const bulkAiMode = () => aiMode;
+
+/**
+ * A case of a batch, open in the single filing's sections: at `step`, or at the first
+ * section with something to fix. The `?ai=` the batch was opened with travels along.
+ */
+export function caseFlowHref(
+  batchId: string,
+  c: Pick<CaseView, "id" | "flags">,
+  step: StepId = firstFlaggedStep(c.flags),
+  ai: string | null = null,
+): string {
+  const base = `/filings/bulk/${encodeURIComponent(batchId)}/cases/${encodeURIComponent(c.id)}/${getStep(step).segment}`;
+  return ai ? `${base}?ai=${encodeURIComponent(ai)}` : base;
+}

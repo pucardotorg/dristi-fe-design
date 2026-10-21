@@ -26,11 +26,9 @@ import {
 
 import type { BatchCtx } from "./batch-screen";
 
-import { CaseModal } from "./case-modal";
 import { CaseBadge } from "./stage";
 
-export function CasesTab({ batch, setBatch, go }: BatchCtx) {
-  const [open, setOpen] = React.useState<number | null>(null);
+export function CasesTab({ batch, go }: BatchCtx) {
   // Pending cases only; filed ones live under Filed.
   const pending = batch.cases.filter((c) => c.stage !== "filed");
   const filed = batch.cases.length - pending.length;
@@ -79,7 +77,7 @@ export function CasesTab({ batch, setBatch, go }: BatchCtx) {
                   <TableRow
                     key={c.id}
                     className={cn(tableRowClass(), "cursor-pointer")}
-                    onClick={() => setOpen(batch.cases.indexOf(c))}
+                    onClick={() => go("scrutiny", c.id)}
                   >
                     <TableCell
                       className={cn(
@@ -92,7 +90,7 @@ export function CasesTab({ batch, setBatch, go }: BatchCtx) {
                         className="text-left hover:underline focus-visible:underline"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setOpen(batch.cases.indexOf(c));
+                          go("scrutiny", c.id);
                         }}
                       >
                         {c.reference}
@@ -146,13 +144,6 @@ export function CasesTab({ batch, setBatch, go }: BatchCtx) {
               </TableBody>
             </Table>
           </div>
-
-          <CaseModal
-            batch={batch}
-            setBatch={setBatch}
-            index={open}
-            onIndex={setOpen}
-          />
         </Card>
       ) : null}
     </div>

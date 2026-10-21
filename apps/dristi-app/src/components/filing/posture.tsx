@@ -23,6 +23,7 @@
 import * as React from "react";
 
 import type { StepId } from "@/lib/filing/types";
+import { PolicyLock, useFieldPolicy } from "@/components/filing/field-policy";
 import type { Defect } from "@/lib/tasks/types";
 
 export type CorrectionValue = {
@@ -96,7 +97,13 @@ export function CorrectionInstance({
   value: number;
   children: React.ReactNode;
 }) {
-  return <InstanceContext.Provider value={value}>{children}</InstanceContext.Provider>;
+  // A part a host has set for every case (bulk filing's complainant) is locked here.
+  const reason = useFieldPolicy()?.lockedAt(value) ?? null;
+  return (
+    <InstanceContext.Provider value={value}>
+      {reason ? <PolicyLock reason={reason}>{children}</PolicyLock> : children}
+    </InstanceContext.Provider>
+  );
 }
 
 export function useCorrectionInstance(): number {

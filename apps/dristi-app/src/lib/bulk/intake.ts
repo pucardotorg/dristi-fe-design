@@ -58,6 +58,17 @@ const upper = (s: string | undefined) => (s ?? "").trim().toUpperCase();
 const trim = (s: string | undefined) => (s ?? "").trim();
 const rupees = (s: string | undefined) => (s ?? "").replace(/[^\d.]/g, "").replace(/\.\d*$/, "");
 
+/** Plain text as the filing's rich text holds it: one paragraph per line, escaped. */
+function paragraphs(s: string | undefined): string {
+  const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return trim(s)
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((l) => `<p>${esc(l)}</p>`)
+    .join("");
+}
+
 async function address(a: ApiAddress | undefined): Promise<Address> {
   const pin = (a?.pin ?? "").replace(/\D/g, "");
   const place = await resolvePin(pin);
@@ -147,7 +158,9 @@ async function buildDraft(
       const addresses: AddressBlock[] = await Promise.all(
         a.addresses.map(async (ad) => ({ addr: await address(ad), police: trim(ad.policeStation) }))
       );
-      const inside = addresses.some((b) => b.addr.district === COURT_DISTRICT);
+      // As sent; otherwise read from the addresses' districts.
+      const inside =
+        a.withinJurisdiction ?? addresses.some((b) => b.addr.district === COURT_DISTRICT);
       return {
         id: uid("acc"),
         type: a.type,
@@ -176,8 +189,10 @@ async function buildDraft(
         chequeNumber: (q.number ?? "").replace(/\D/g, "").padStart(6, "0").slice(-6),
         sameAsPrev: "no",
         ifsc,
-        bankName: bank?.bank ?? "",
-        bankBranch: bank?.branch ?? "",
+        // The register's names when it knows the IFSC, as a fetch fills them in the filing;
+        // otherwise the names sent, which the filer would have typed.
+        bankName: bank?.bank ?? trim(q.bankName),
+        bankBranch: bank?.branch ?? trim(q.bankBranch),
         presentDate: trim(q.presentedOn),
         returnDate: trim(q.returnedOn),
         returnReason: trim(q.returnReason),
@@ -202,7 +217,8 @@ async function buildDraft(
       tracking: trim(n.trackingNumber),
       delivered,
       deliveryDate: delivered === "yes" ? trim(n.deliveredOn) : "",
-      replied: n.replied ? "yes" : "no",
+      // Asked only once the notice is delivered, as in the filing.
+      replied: delivered === "yes" && n.replied ? "yes" : "no",
       returnDate: delivered === "no" ? trim(n.returnedOn) : "",
       nonDeliveryReason: delivered === "no" ? trim(n.nonDeliveryReason) : "",
       paymentStatus: n.payment.status,
@@ -221,8 +237,8 @@ async function buildDraft(
     ...draft.jurisdiction,
     deposited: j.depositedInOwnAccount ? "yes" : "no",
     ifsc: j.depositedInOwnAccount ? payeeIfsc : "",
-    payeeBankName: payee?.bank ?? "",
-    payeeBankBranch: payee?.branch ?? "",
+    payeeBankName: payee?.bank ?? (j.depositedInOwnAccount ? trim(j.complainantBankName) : ""),
+    payeeBankBranch: payee?.branch ?? (j.depositedInOwnAccount ? trim(j.complainantBankBranch) : ""),
     payeeFetched: !!payee,
     payeePolice: j.depositedInOwnAccount ? trim(j.complainantBranchPoliceStation) : "",
     drawerPolice: j.depositedInOwnAccount ? "" : trim(j.drawerBranchPoliceStation),
@@ -235,7 +251,7 @@ async function buildDraft(
 
   /* ADR and prayers (PRY). The prayers and affidavit keep the standard templates. */
   if (req.adr) draft.adr.adr = req.adr;
-  draft.adr.otherDetails = trim(c.otherDetails);
+  draft.adr.otherDetails = paragraphs(c.otherDetails);
 
   /* Witnesses (WIT), 0..n. With none, the draft keeps the single blank row a filing starts with. */
   if (c.witnesses?.length) {

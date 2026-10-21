@@ -29,7 +29,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-import { bulkApi, setBulkAiMode, type BatchView, type CaseView } from "./api";
+import { bulkApi, caseFlowHref, setBulkAiMode, type BatchView, type CaseView } from "./api";
 import { SourceLabel } from "./batches-screen";
 import { CasesTab } from "./cases-tab";
 import { useGujarat } from "./court-guard";
@@ -98,7 +98,7 @@ export type BatchCtx = {
   batch: BatchView;
   /** Replace the batch with what an action returned. */
   setBatch: (b: BatchView) => void;
-  /** Open a tab; for Case details, optionally with one case selected. */
+  /** Open a tab; Case details with a case opens that case in the filing's sections. */
   go: (tab: TabId, caseId?: string) => void;
 };
 
@@ -163,6 +163,12 @@ export function BatchScreen({ batchId }: { batchId: string }) {
 
   const go = React.useCallback(
     (next: TabId, caseId?: string) => {
+      // A case is worked on in the single filing's sections, not on a tab.
+      const c = next === "scrutiny" && caseId ? batch?.cases.find((x) => x.id === caseId) : null;
+      if (c) {
+        router.push(caseFlowHref(batchId, c, undefined, aiParam));
+        return;
+      }
       const q = new URLSearchParams();
       if (next !== "cases") q.set("tab", next);
       if (caseId) q.set("case", caseId);
@@ -170,7 +176,7 @@ export function BatchScreen({ batchId }: { batchId: string }) {
       const qs = q.toString();
       router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
     },
-    [router, pathname, aiParam],
+    [router, pathname, aiParam, batch, batchId],
   );
 
   if (error) {

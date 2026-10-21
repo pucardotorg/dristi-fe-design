@@ -396,7 +396,7 @@ function IncompleteSections({
 
 export function PreviewSection() {
   const courtText = useCourtText();
-  const { draft, hrefFor } = useFiling();
+  const { draft, hrefFor, steps } = useFiling();
   const { prev, next } = neighbours("preview");
   const router = useRouter();
   const [view, setView] = React.useState("synopsis");
@@ -788,7 +788,14 @@ export function PreviewSection() {
       <FilingFooter
         backHref={prev ? hrefFor(prev) : undefined}
         continueHref={next ? hrefFor(next) : undefined}
-        continueLabel={yourOathAhead ? "Continue to sign and oath" : "Continue to sign"}
+        continueLabel={
+          // A host that signs elsewhere (bulk filing signs the batch at once) is gone back to.
+          !steps.includes("sign")
+            ? "Back to all cases"
+            : yourOathAhead
+              ? "Continue to sign and oath"
+              : "Continue to sign"
+        }
         showSaveState={false}
         status={
           readyToSign ? (

@@ -1,82 +1,74 @@
 /**
  * Demo helpers: values and files that let a case be walked to filing in a demo without
  * typing. Dates are counted back from today so the case is filable now, inside the
- * one-month limit, with no condonation reason needed. Nothing is saved until the filer
- * presses Save (values) or the upload completes (files).
+ * one-month limit, with no condonation reason needed. Values are saved as any edit in the
+ * case is; files once the upload completes.
  */
 
-import type { CaseField } from "@/lib/bulk/case-fields";
+import { blankRepresentative } from "@/lib/filing/blank";
+import {
+  MODE_OF_SERVICE,
+  NATURE_OF_DEBT,
+  RETURN_REASONS,
+} from "@/lib/filing/options";
+import type { Address, FilingDraft } from "@/lib/filing/types";
 
 const daysAgo = (n: number) =>
   new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
 
-/** Cheque dated, presented, returned; notice sent, delivered; cause of action 13 days ago. */
-const DATES: [RegExp, number][] = [
-  [/\.dateOnCheque$/, 60],
-  [/^cheques\.\d+\.presentDate$/, 50],
-  [/^cheques\.\d+\.returnDate$/, 46],
-  [/\.dispatchDate$/, 36],
-  [/\.deliveryDate$/, 28],
-  [/^notices\.\d+\.returnDate$/, 28],
-];
+const or = (v: string, fallback: string) => (v.trim() ? v : fallback);
 
-const TEXT: [RegExp, string][] = [
-  [/\.chequeNumber$/, "123456"],
-  [/\.amount$/, "125000"],
-  [/\.partAmount$/, "10000"],
-  [/\.ifsc$/, "SBIN0060421"],
-  [/(mobile)$/, "9879012399"],
-  [/email$/, "demo.accused@mail.example"],
-  [/addr\.line1$|\.line1$/, "14, Shanti Nagar Society, Navrangpura"],
-  [/\.city$/, "Ahmedabad"],
-  [/\.pin$/, "380009"],
-  [/Police$|drawerPolice$|payeePolice$/, "Navrangpura Police Station"],
-  [/\.(name|fullName|entName)$|reps\.0\.name$/, "Demo Person"],
-  [/designation$/, "Director"],
-  [/\.tracking$/, "RG204599901IN"],
-  [/\.age$/, "40"],
-  [/entCinPan$/, "AAACT1234A"],
-];
-
-/** A demo value for a field, or `null` to leave it. */
-export function demoValue(f: CaseField): string | null {
-  if (f.kind === "date") {
-    const hit = DATES.find(([re]) => re.test(f.path));
-    return hit ? daysAgo(hit[1]) : null;
-  }
-  if (f.kind === "select") {
-    if (/\.delivered$/.test(f.path)) return "yes";
-    if (/\.replied$/.test(f.path)) return "no";
-    if (/\.paymentStatus$/.test(f.path)) return "none";
-    return f.options?.[0]?.value ?? null;
-  }
-  if (f.kind === "textarea") return null;
-  return TEXT.find(([re]) => re.test(f.path))?.[1] ?? null;
+function address(a: Address) {
+  a.line1 = or(a.line1, "14, Shanti Nagar Society, Navrangpura");
+  a.city = or(a.city, "Ahmedabad");
+  a.pin = or(a.pin, "380009");
 }
 
 /**
- * The edits that fill a case for a demo: every date (so they agree with one another),
- * and every required field still empty.
+ * Fill a case for a demo, in the draft the filing sections edit: every date (cheque
+ * dated, presented, returned; notice sent and delivered; cause of action 13 days ago, so
+ * no condonation reason is needed), and every required field still empty. Values already
+ * there are kept, except the dates, which have to agree with one another.
  */
-export function demoEdits(
-  groups: { fields: CaseField[] }[],
-  edits: Record<string, string>,
-  /** Fields a problem sits on, filled whether required or not. */
-  flagged: Set<string> = new Set(),
-): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const f of groups.flatMap((g) => g.fields)) {
-    const now = edits[f.path] ?? f.value;
-    if (
-      f.kind !== "date" &&
-      !flagged.has(f.path) &&
-      (!f.required || now.trim())
-    )
-      continue;
-    const v = demoValue(f);
-    if (v !== null && v !== now) out[f.path] = v;
-  }
-  return out;
+export function demoFill(d: FilingDraft): void {
+  d.cheques.forEach((q) => {
+    q.dateOnCheque = daysAgo(60);
+    q.presentDate = daysAgo(50);
+    q.returnDate = daysAgo(46);
+    q.chequeNumber = or(q.chequeNumber, "123456");
+    q.amount = or(q.amount, "125000");
+    q.ifsc = or(q.ifsc, "SBIN0060421");
+    q.returnReason = or(q.returnReason, RETURN_REASONS[0].value);
+  });
+  d.notices.forEach((n) => {
+    n.dispatchDate = daysAgo(36);
+    n.natureDebt = or(n.natureDebt, NATURE_OF_DEBT[0].value);
+    n.modeService = or(n.modeService, MODE_OF_SERVICE[0].value);
+    n.delivered = "yes";
+    n.deliveryDate = daysAgo(28);
+    n.returnDate = "";
+    n.nonDeliveryReason = "";
+    n.replied = n.replied || "no";
+    n.paymentStatus = n.paymentStatus || "none";
+  });
+  d.accused.forEach((a) => {
+    a.name = or(a.name, "Demo Person");
+    if (!a.contacts.length) a.contacts.push({ mobile: "", email: "" });
+    if (!a.contacts[0].mobile.trim() && !a.contacts[0].email.trim())
+      a.contacts[0].mobile = "9879012399";
+    a.addresses.forEach((b) => address(b.addr));
+    if (a.type === "institution") {
+      if (!a.reps.length) a.reps.push(blankRepresentative());
+      a.reps[0].name = or(a.reps[0].name, "Demo Person");
+      a.reps[0].designation = or(a.reps[0].designation, "Director");
+    }
+  });
+  const j = d.jurisdiction;
+  if (j.deposited === "yes") j.ifsc = or(j.ifsc, "SBIN0060421");
+  else j.drawerPolice = or(j.drawerPolice, "Navrangpura Police Station");
+  d.witnesses.forEach((w) => {
+    if (w.fullName.trim() && w.addresses[0]) address(w.addresses[0].addr);
+  });
 }
 
 /** A one-page PDF saying it is a demo document, named for its slot. */

@@ -1,14 +1,19 @@
 /**
- * One case of a batch, whole: its draft, for the single filing's case file view.
+ * One case of a batch, whole: its draft, for the single filing's sections to read and
+ * write (`lib/bulk/case-repository.ts`).
  */
 
 import { NextResponse } from "next/server";
 
-import { getBatch } from "@/lib/bulk/store.server";
+import { replaceDraft } from "@/lib/bulk/actions.server";
+import { getBatch, updateBatch } from "@/lib/bulk/store.server";
+import type { FilingDraft } from "@/lib/filing/types";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(_req: Request, ctx: { params: Promise<{ batchId: string; caseId: string }> }) {
+type Ctx = { params: Promise<{ batchId: string; caseId: string }> };
+
+export async function GET(_req: Request, ctx: Ctx) {
   const { batchId, caseId } = await ctx.params;
   const batch = await getBatch(batchId);
   if (!batch) return NextResponse.json({ error: "No such batch." }, { status: 404 });
@@ -24,4 +29,21 @@ export async function GET(_req: Request, ctx: { params: Promise<{ batchId: strin
     index: at,
     total: batch.cases.length,
   });
+}
+
+/** Save the case's draft as the filing sections left it. */
+export async function PUT(req: Request, ctx: Ctx) {
+  const { batchId, caseId } = await ctx.params;
+  const body = (await req.json().catch(() => null)) as { draft?: FilingDraft } | null;
+  if (!body?.draft) return NextResponse.json({ error: "No draft sent." }, { status: 400 });
+  let problem: string | null = "No such case in this batch.";
+  const saved = await updateBatch(batchId, (batch) => {
+    const bc = batch.cases.find((c) => c.id === caseId);
+    if (!bc) return null;
+    problem = replaceDraft(bc, body.draft!);
+    return problem ? null : batch;
+  });
+  if (!saved) return NextResponse.json({ error: "No such batch." }, { status: 404 });
+  if (problem) return NextResponse.json({ error: problem }, { status: 409 });
+  return NextResponse.json({ ok: true });
 }

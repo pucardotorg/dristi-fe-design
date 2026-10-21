@@ -4,6 +4,7 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 import { LeaveGuardProvider } from "@/components/filing/leave-guard";
+import { PolicyLock, useFieldPolicy } from "@/components/filing/field-policy";
 import { useInCorrection } from "@/components/filing/posture";
 import { SectionsRail, SectionsTrigger } from "@/components/filing/sections-rail";
 
@@ -24,7 +25,14 @@ export function useSourceRailSlot(): HTMLElement | null {
  * column — three siblings in the row the filings shell opened. Screens supply their own
  * `FilingMain` + `FilingFooter`.
  */
-export function FilingShell({ children }: { children: React.ReactNode }) {
+export function FilingShell({
+  children,
+  banner = null,
+}: {
+  children: React.ReactNode;
+  /** A host's own strip above every section (bulk filing: which case of the batch this is). */
+  banner?: React.ReactNode;
+}) {
   const [slot, setSlot] = React.useState<HTMLElement | null>(null);
 
   return (
@@ -38,6 +46,7 @@ export function FilingShell({ children }: { children: React.ReactNode }) {
             fills the rest, so this only ever shows in the trigger's own strip. */}
         <main className="flex min-w-0 flex-1 flex-col bg-muted dark:bg-background">
           <SectionsTrigger />
+          {banner}
           {children}
         </main>
 
@@ -91,10 +100,13 @@ export function FilingMain({
    * rather than leaving the form stranded in the centre of a narrow column.
    */
   const inCorrection = useInCorrection();
+  // A section a host has set for every case (bulk filing's advocates) is locked whole.
+  const locked = useFieldPolicy()?.lockedAt(null) ?? null;
+  const body = locked ? <PolicyLock reason={locked}>{children}</PolicyLock> : children;
 
   if (inCorrection) {
     return (
-      <div className={cn("flex w-full min-w-0 flex-col gap-6", className)}>{children}</div>
+      <div className={cn("flex w-full min-w-0 flex-col gap-6", className)}>{body}</div>
     );
   }
 
@@ -118,7 +130,7 @@ export function FilingMain({
           width === "narrow" && "mx-auto max-w-2xl"
         )}
       >
-        {children}
+        {body}
       </div>
     </div>
   );

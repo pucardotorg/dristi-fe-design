@@ -142,26 +142,30 @@ Things greyed out in Provakil are not part of the demo.
 Open a batch (from Provakil's link, or from **Bulk filing** on SARAS 2.0). The tabs run in
 order:
 
-1. **Cases**: every case with its status. Click one to open it in a window: **Details** to
-   edit, **Review** to read it as the court will. The arrows (or ← →) move case by case.
+1. **Cases**: every case with its status. Click one to open it in the same screens as
+   filing a single case (see Case details below).
 2. **Documents**: one row per case, with each document it needs stacked underneath. Cases
    missing something are open at the top. Click an empty slot, or drag a file onto it; any
    PDF on your computer will do. **View** and **Replace** sit beside a filled slot.
-3. **Case details**: the filing checks, case by case. Each case is headed by its parties
-   ("Tata Capital Ltd vs Harsh V. Bhavsar"), its reference, cheque and amount.
-   - **Needs fixing** (red): something required is missing or wrong. Every missing detail
-     of a case is in one form, two to a row; fill them and press **Save** once. The case
-     waits; the rest go ahead. Missing documents are not repeated here; they are on
-     **Documents**.
+3. **Case details**: every open case with what it still needs. Click a case and it opens
+   in the screens used to file a single case, at the first section with something to fix,
+   with every field of the case. A bar above the section says which case of the batch it
+   is, lists what to fix there, and has **Previous**, **Next** and **Next case to fix**.
+   The sections list on the left counts what is open in each section. Sign and Pay are not
+   there: the batch signs and pays once. The complainant and advocates are the batch's, so
+   they are shown but cannot be changed in one case. Changes save as you type.
+   **All cases** goes back to the list.
+   - **Needs fixing** (red): something required is missing or wrong. It shows under the
+     field itself, and in the bar. The case waits; the rest go ahead.
    - **To check** (amber): worth a second look, for example a cheque returned for "payment
-     stopped" rather than "insufficient funds". Press **Skip**, or **Skip for all** when
-     several cases have the same check.
+     stopped" rather than "insufficient funds". Press **Skip** in the bar to let the case
+     go ahead.
    - **AI check** (sparkle mark): something a reader would catch that is not a rule, for
      example a cheque scan showing a different amount from the case, or an individual whose
      name reads like a shop. Skip it the same way. Some Provakil cases carry a cheque with a
      different amount on purpose, to show this.
 4. **Review**: each case as the court will read it, its synopsis and complaint, one at a
-   time with **Next case**. **Edit in Case details** takes you back to change one.
+   time with **Next case**. **Open the case** opens it to change something.
 5. **Sign**: choose the cases and a method. Fastest first: Mobile OTP (one OTP signs them
    all), DSC, Aadhaar eSign (5 cases per OTP, so several OTPs; the note under it explains
    why and links to the rule), Upload signed copies. Any 6 digits work as the OTP or PIN.

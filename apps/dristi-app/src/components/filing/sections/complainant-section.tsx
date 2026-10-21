@@ -457,7 +457,7 @@ export function ComplainantSection() {
               {/* Email sat under Basic details, two cards from the number it belongs
                   beside. Both are how this person is reached; they are asked together. */}
               <FormRow>
-                <FormField label="Mobile number" required>
+                <FormField label="Mobile number" name="mobile" required>
                   <PrefixInput
                     prefix="+91"
                     value={c.mobile}
@@ -539,6 +539,7 @@ export function ComplainantSection() {
               description="Where the complainant currently lives."
             >
               <AddressFields
+                name="res"
                 value={c.res}
                 onChange={setRes}
                 prefilled={resPrefilled}
@@ -559,7 +560,7 @@ export function ComplainantSection() {
 
             {c.permSame === "no" ? (
               <FormCard title="Permanent address">
-                <AddressFields value={c.perm} onChange={(v) => set("perm", v)} />
+                <AddressFields name="perm" value={c.perm} onChange={(v) => set("perm", v)} />
               </FormCard>
             ) : null}
 
@@ -616,6 +617,7 @@ export function ComplainantSection() {
                   </FormRow>
                   <FormSubhead>PoA holder&apos;s residential address</FormSubhead>
                   <AddressFields
+                    name="poaHolder.res"
                     value={c.poaHolder.res}
                     onChange={(v) => setPoa("res", v)}
                   />
@@ -633,6 +635,7 @@ export function ComplainantSection() {
                     <>
                       <FormSubhead>PoA holder&apos;s permanent address</FormSubhead>
                       <AddressFields
+                        name="poaHolder.perm"
                         value={c.poaHolder.perm}
                         onChange={(v) => setPoa("perm", v)}
                       />
@@ -647,7 +650,7 @@ export function ComplainantSection() {
             {/* Institution details */}
             <FormCard title="Institution details">
               <FormRow>
-                <FormField label="Type of entity" required>
+                <FormField label="Type of entity" name="entType" required>
                   <OptionSelect
                     value={c.entType}
                     onValueChange={(v) => set("entType", v)}
@@ -655,7 +658,7 @@ export function ComplainantSection() {
                     placeholder="Select type"
                   />
                 </FormField>
-                <FormField label="Entity name" required>
+                <FormField label="Entity name" name="entName" required>
                   <TextField
                     value={c.entName}
                     onChange={(v) => setRead("entName", v)}
@@ -736,7 +739,7 @@ export function ComplainantSection() {
 
             {/* Registered address */}
             <FormCard title="Registered address">
-              <AddressFields value={c.entAddr} onChange={(v) => set("entAddr", v)} />
+              <AddressFields name="entAddr" value={c.entAddr} onChange={(v) => set("entAddr", v)} />
             </FormCard>
 
             {/* Authorised representative */}
@@ -745,7 +748,7 @@ export function ComplainantSection() {
               description="The person authorised to act for the institution in this case."
             >
               <HalfWidth>
-                <FormField label="Mobile number" required>
+                <FormField label="Mobile number" name="rep.mobile" required>
                   <PrefixInput
                     prefix="+91"
                     value={c.rep.mobile}
@@ -756,14 +759,14 @@ export function ComplainantSection() {
                 </FormField>
               </HalfWidth>
               <FormRow>
-                <FormField label="Full name" required>
+                <FormField label="Full name" name="rep.name" required>
                   <TextField
                     value={c.rep.name}
                     onChange={(v) => setRep("name", v)}
                     placeholder="Full name"
                   />
                 </FormField>
-                <FormField label="Age" required>
+                <FormField label="Age" name="rep.age" required>
                   <TextField
                     value={c.rep.age}
                     onChange={(v) => setRep("age", v)}
@@ -773,7 +776,7 @@ export function ComplainantSection() {
                 </FormField>
               </FormRow>
               <HalfWidth>
-                <FormField label="Email address" optional>
+                <FormField label="Email address" name="rep.email" optional>
                   <TextField
                     type="email"
                     value={c.rep.email}
@@ -807,6 +810,7 @@ export function ComplainantSection() {
               </FormRow>
               <FormSubhead>Representative&apos;s address</FormSubhead>
               <AddressFields
+                name="rep.addr"
                 value={c.rep.addr}
                 onChange={(v) => setRep("addr", v)}
               />
