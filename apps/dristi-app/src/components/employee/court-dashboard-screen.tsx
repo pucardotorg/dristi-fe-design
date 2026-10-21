@@ -425,14 +425,14 @@ function Overview({
 
       <div className="flex min-w-0 flex-col gap-3">
         <div className="grid min-w-0 gap-px overflow-hidden rounded-xl border border-hairline bg-hairline sm:grid-cols-2 xl:grid-cols-[repeat(3,minmax(0,1fr))_minmax(0,1.4fr)]">
-          <div className="flex min-w-0 flex-col items-start gap-1 bg-card p-4 sm:px-6">
+          <div className="flex min-w-0 flex-col items-start gap-1 bg-surface-sunken p-4 sm:px-6">
             <p className="text-body-compact font-semibold">Cases filed</p>
             <CountButton name="cases filed" className="text-title-l font-semibold" {...opener("filed")}>
               <CountUp value={now.filed} format={countText} />
             </CountButton>
             {versus(now.filed, base?.filed, null)}
           </div>
-          <div className="flex min-w-0 flex-col items-start gap-1 bg-card p-4 sm:px-6">
+          <div className="flex min-w-0 flex-col items-start gap-1 bg-surface-sunken p-4 sm:px-6">
             <p className="text-body-compact font-semibold">Cases closed</p>
             <CountButton name="cases closed" className="text-title-l font-semibold" {...opener("closed")}>
               <CountUp value={now.closed} format={countText} />
@@ -443,7 +443,7 @@ function Overview({
             </p>
             {versus(now.closed, base?.closed, true)}
           </div>
-          <div className="flex min-w-0 flex-col items-start gap-1 bg-card p-4 max-xl:sm:col-span-2 sm:px-6">
+          <div className="flex min-w-0 flex-col items-start gap-1 bg-surface-sunken p-4 max-xl:sm:col-span-2 sm:px-6">
             <p className="text-body-compact font-semibold">{pendingName}</p>
             <CountButton name="pending" className="text-title-l font-semibold" {...opener("pending")}>
               <CountUp value={end.pending} format={countText} />
@@ -476,7 +476,7 @@ function Overview({
               ))}
             </p>
           </div>
-          <div className="flex min-w-0 flex-col justify-center gap-3 bg-card p-4 sm:col-span-2 sm:px-6 xl:col-span-1">
+          <div className="flex min-w-0 flex-col justify-center gap-3 bg-surface-sunken p-4 sm:col-span-2 sm:px-6 xl:col-span-1">
             <p className="text-body-compact font-semibold">
               How long the {formatCount(end.pending)} pending cases have been in court
             </p>
@@ -602,10 +602,18 @@ function binSpan(from: number, to: number | null): string {
 }
 
 /**
+ * Bars past the review point, and their legend swatch. Warning amber is only 1.54:1 on
+ * the card, so it carries the warning-ink edge the DS warning Button uses; ink alone is
+ * text colour and never a fill. The baseline is the chart's own bottom border.
+ */
+const LATE_BAR = "border border-b-0 border-warning-ink bg-warning";
+const LATE_SWATCH = "border border-warning-ink bg-warning";
+
+/**
  * Where the pending cases are (Case Flow v4): the six stages as a path of selectable
  * cards. Each card shows the stage's cases, its share of all pending, how long they have
- * been in the stage (bins that line up with the review point, past it in the warning
- * ink), what came in and left in the period, and the typical days there. Between stages,
+ * been in the stage (bins that line up with the review point, past it in warning amber),
+ * what came in and left in the period, and the typical days there. Between stages,
  * the cases that moved on in the period — with a trickle of dots that plays when the
  * period changes and stops within five seconds. A selected stage opens in detail below.
  */
@@ -728,7 +736,7 @@ function StagePath({
                       <span
                         key={j}
                         data-grow="y"
-                        className={cn("block min-h-px flex-1 origin-bottom rounded-t-xs", b.late ? "bg-warning-ink" : "bg-brand-accent")}
+                        className={cn("block min-h-px flex-1 origin-bottom rounded-t-xs", b.late ? LATE_BAR : "bg-brand-accent")}
                         style={{ height: `${(b.rows.length / binMost) * 100}%` }}
                       />
                     ))}
@@ -790,15 +798,8 @@ function StagePath({
             Days in the stage, within the review point
           </span>
           <span className="inline-flex items-center gap-2">
-            <span aria-hidden className="h-2.5 w-3.5 rounded-xs bg-warning-ink" />
+            <span aria-hidden className={cn("h-2.5 w-3.5 rounded-xs", LATE_SWATCH)} />
             Past the review point
-          </span>
-          <span className="inline-flex items-center gap-2">
-            <span aria-hidden className="relative block h-3 w-7 rounded-full border border-border bg-card">
-              <span className="absolute top-1 left-1.5 size-1 rounded-full bg-primary" />
-              <span className="absolute top-1 right-1.5 size-1 rounded-full bg-primary" />
-            </span>
-            Cases that moved to the next stage {during}
           </span>
           <span className="tabular-nums">
             Not counted above: {plural(end.longPending, "case", "cases")} on the long pending register.
@@ -881,7 +882,7 @@ function StageDetailView({
                         onClick={(event) => o.onOpen(event.currentTarget)}
                         className={cn(
                           "relative flex-1 origin-bottom cursor-pointer rounded-t-xs outline-hidden hover:outline-2 hover:outline-solid hover:outline-foreground focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring aria-expanded:outline-2 aria-expanded:outline-solid aria-expanded:outline-foreground",
-                          b.late ? "bg-warning-ink" : "bg-brand-accent",
+                          b.late ? LATE_BAR : "bg-brand-accent",
                         )}
                         style={{ height: `${(c / most) * 100}%` }}
                       >
@@ -915,7 +916,7 @@ function StageDetailView({
               Within {p.limit} days
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <span aria-hidden className="h-2.5 w-3.5 rounded-xs bg-warning-ink" />
+              <span aria-hidden className={cn("h-2.5 w-3.5 rounded-xs", LATE_SWATCH)} />
               Past the review point
             </span>
           </p>
