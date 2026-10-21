@@ -16,7 +16,7 @@
  * weeks the earliest cases fall outside the one-month limit and ask for a condonation reason).
  */
 
-import { mkdirSync } from "node:fs";
+import { copyFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
 
 import ExcelJS from "exceljs";
@@ -284,3 +284,12 @@ async function misFile() {
 mkdirSync(OUT, { recursive: true });
 const files = [await templateFile(), await misFile()];
 for (const f of files) console.log(`Wrote ${path.relative(process.cwd(), f)}`);
+
+// The upload's sample buttons serve the same two files as static assets, so they work
+// where the server cannot read the repo (a hosted deployment).
+const SAMPLES = path.join(import.meta.dirname, "..", "public", "samples");
+mkdirSync(SAMPLES, { recursive: true });
+for (const f of files) {
+  copyFileSync(f, path.join(SAMPLES, path.basename(f)));
+  console.log(`Copied ${path.basename(f)} to public/samples`);
+}

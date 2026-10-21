@@ -83,13 +83,14 @@ import { ColumnMapping } from "./column-mapping";
 import { useGujarat } from "./court-guard";
 import { BatchParties, type Adr } from "./batch-parties";
 import { FileDrop } from "./file-drop";
+import { bulkFetch } from "./api";
 
 type Step = "setup" | "map" | "values" | "review";
 
-/** The demo spreadsheets the upload offers (`/api/bulk/samples/<key>`). */
+/** The demo spreadsheets the upload offers, from `public/samples/` (`scripts/bulk-demo-files.mts`). */
 const SAMPLES = [
-  { key: "template", label: "Sample file 1: template format" },
-  { key: "custom", label: "Sample file 2: custom format" },
+  { key: "tata-capital-bulk-filing-template.xlsx", label: "Sample file 1: template format" },
+  { key: "tata-capital-recovery-mis.xlsx", label: "Sample file 2: custom format" },
 ];
 
 type ReadingRow = {
@@ -231,13 +232,10 @@ export function UploadScreen() {
     setSampling(key);
     setError(null);
     try {
-      const res = await fetch(`/api/bulk/samples/${key}`);
+      const res = await fetch(`/samples/${key}`);
       if (!res.ok) throw new Error("The sample file could not be loaded.");
-      const name =
-        /filename="([^"]+)"/.exec(res.headers.get("content-disposition") ?? "")?.[1] ??
-        `${key}.xlsx`;
       const blob = await res.blob();
-      setFiles([new File([blob], name, { type: blob.type })]);
+      setFiles([new File([blob], key, { type: blob.type })]);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -317,7 +315,7 @@ export function UploadScreen() {
         form.append("files", files[i]);
         form.append("ai", ai);
         const [res] = await Promise.all([
-          fetch("/api/bulk/extract", { method: "POST", body: form }),
+          bulkFetch("/api/bulk/extract", { method: "POST", body: form }),
           new Promise((r) => setTimeout(r, 700 + Math.random() * 600)),
         ]);
         const json = await res.json();
@@ -394,7 +392,7 @@ export function UploadScreen() {
         },
         counts,
       );
-      const res = await fetch("/api/bulk/batches", {
+      const res = await bulkFetch("/api/bulk/batches", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(

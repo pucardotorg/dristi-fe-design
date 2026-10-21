@@ -181,7 +181,9 @@ were down. Remove the parameter, or use `?ai=on`, to bring AI back.
 
 ### Walkthrough C: Upload an Excel file that follows the template
 
-Two ready-made files are in the `demo-files` folder inside `bulk-filing-demo`:
+Two ready-made files are in the `demo-files` folder inside `bulk-filing-demo`. You do not
+need to find them: on **Upload cases**, **Sample file 1: template format** and **Sample file
+2: custom format** load them for you.
 
 | File | What it shows |
 |---|---|

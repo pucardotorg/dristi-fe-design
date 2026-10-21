@@ -30,7 +30,7 @@ import {
 } from "@/components/shell/page-frame";
 import { cn } from "@/lib/utils";
 import { useCourt } from "@/components/court/court-provider";
-import type { BatchSummary } from "@/components/bulk/api";
+import { bulkFetch, type BatchSummary } from "@/components/bulk/api";
 import { toLongDate } from "@/lib/filing/format";
 
 /**
@@ -42,7 +42,7 @@ function useLatestBatch(): { batch: BulkBatch | null; needAction: number } {
   // Open batches with any case not yet filed: something in them is waiting on the filer.
   const [needAction, setNeedAction] = React.useState(0);
   React.useEffect(() => {
-    fetch("/api/bulk/batches", { cache: "no-store" })
+    bulkFetch("/api/bulk/batches", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : []))
       .then((list: BatchSummary[]) => {
         setNeedAction(list.filter((x) => !x.clubbedInto && x.counts.filed < x.total).length);

@@ -14,6 +14,7 @@
 
 import type { FilingRepository, StoredFile } from "@/lib/filing/data";
 import { IndexedDbFilingRepository } from "@/lib/filing/data/indexeddb";
+import { bulkFetch } from "@/components/bulk/api";
 import type { FilingDraft, UserProfile } from "@/lib/filing/types";
 
 /** Window event after a case is saved; `detail` is the case id. */
@@ -44,14 +45,14 @@ export class BulkCaseRepository implements FilingRepository {
   }
 
   async getDraft(): Promise<FilingDraft | null> {
-    const res = await fetch(this.caseUrl, { cache: "no-store" });
+    const res = await bulkFetch(this.caseUrl, { cache: "no-store" });
     if (res.status === 404) return null;
     if (!res.ok) return failed(res, "The case could not be read");
     return ((await res.json()) as { draft: FilingDraft }).draft;
   }
 
   async putDraft(draft: FilingDraft): Promise<void> {
-    const res = await fetch(this.caseUrl, {
+    const res = await bulkFetch(this.caseUrl, {
       method: "PUT",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ draft }),
@@ -70,12 +71,12 @@ export class BulkCaseRepository implements FilingRepository {
   async putFile(file: StoredFile): Promise<void> {
     const form = new FormData();
     form.set("file", new File([file.blob], file.name, { type: file.type }));
-    const res = await fetch(`/api/bulk/files/${encodeURIComponent(file.id)}`, { method: "PUT", body: form });
+    const res = await bulkFetch(`/api/bulk/files/${encodeURIComponent(file.id)}`, { method: "PUT", body: form });
     if (!res.ok) throw new Error(`The file could not be stored (${res.status})`);
   }
 
   async getFile(id: string): Promise<StoredFile | null> {
-    const res = await fetch(`/api/bulk/files/${encodeURIComponent(id)}`);
+    const res = await bulkFetch(`/api/bulk/files/${encodeURIComponent(id)}`);
     if (!res.ok) return null;
     const blob = await res.blob();
     const name =
