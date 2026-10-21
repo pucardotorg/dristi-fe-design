@@ -23,77 +23,42 @@ import { useCourtLocalized } from "@/components/court/court-provider";
 import { useCourtText } from "@/components/court/court-provider";
 
 /**
- * One day's entry, read, corrected, and then signed.
+ * One day's entry, read and corrected.
  *
- * The reference titles this overlay "View Document", and it is the one place the
- * reference undersells its own screen: the bench does not come here to view the diary,
- * it comes here to *make* it. Three things happen in this dialog and they are in the
- * order the register is made — read the day's record, correct the words, sign it — so
- * the overlay is laid out as those three and titled for the entry rather than for the
- * furniture. Sentence case is a DS Law in any case, so "View Document" could not have
- * survived unchanged (deviation logged in the build report).
+ * **Signing is not here.** The A-Diary is signed a whole day at a time, as one document,
+ * once the day is over (`a-diary.md` `ADY-12`–`ADY-12b`) — that act is on the screen, for
+ * the day on view. This overlay is for the one thing that happens to a single entry:
+ * reading it against the order it came from and correcting its words (`ADY-07`, `ADY-10`).
  *
- * **The correction and the paper sit side by side** (owner, 2026-09-14). Stacked — the
- * document above, the editor below — the overlay had to divide one 85dvh column three
- * ways, and the document got what the editor and the footer left it: a court paper
- * arrived at the bench as a 300px slot you scrolled a heading at a time. Beside each
- * other, the two share the stage's full height, and the paper is read in one go.
+ * **The correction and the order sit side by side** (owner, 2026-09-14). Stacked, the
+ * overlay had to divide one 85dvh column between them and the order arrived as a 300px
+ * slot. Beside each other, the two share the stage's full height. The split is 2:3 with
+ * the order on the right: the editor is one field that stops needing width at a
+ * comfortable measure, and the order is a portrait page with an appearance table in it.
+ * Each column scrolls on its own above `lg`; below it the stage is one scroll.
  *
- * The split is 2:3 with the document on the right, for the same reason
- * `ApproveRegistrationsDialog` splits 3:2 the other way: width goes to whichever column
- * keeps gaining from it. There the facts were tables and the evidence one landscape
- * scan; here the editor is one field that stops needing width at a comfortable measure,
- * and the document is a portrait page with an appearance table in it. Each column
- * scrolls on its own above `lg`; below it the stage is one scroll with the whole paper
- * laid out in it, because a narrow window cannot hold a panel, a document and a footer
- * at once — and a court paper squeezed into half of one reads worse than a stacked one.
+ * **The paper is the order the court passed that day** (owner, 2026-09-15), as signed.
+ * Correcting the entry does not change it: the entry is the order's A-Diary text and the
+ * two stay in sync, but the order text is never touched (`ADY-09`). So the paper holds
+ * still while the bench edits, which is what makes it something to check against.
  *
- * The two acts, each beside the thing it acts on: **Save** belongs to the business of
- * the day and sits in that panel; **Sign** is what the dialog exists for and sits in the
- * footer, the one teal action in view.
+ * Save is the overlay's one act, so it sits in the footer as its teal action, with a line
+ * beside it saying what saving changes. Download is not repeated: `DocumentPreview`
+ * carries Download and Full view in its own frame.
  *
- * **The paper is the order the court passed that day** (owner, 2026-09-15), not a second
- * rendering of the register line. A diary entry is signed against the day it records, and
- * what that day produced is an order — so the frame holds an order sheet, built on the one
- * the order composer prints. See `ADiaryOrderFacsimile`.
- *
- * **The paper shows what is saved, not what is being typed.** The order's operative
- * passage is the recorded business and the editor holds the draft, so Save is a visible
- * act — the document changes under it — rather than a button whose effect has already
- * happened. The two can be one field because an order sheet's composed passage *is* the
- * business of the day.
- *
- * **Signing takes the field as it stands.** A bench that corrected the wording and went
- * straight for the signature meant to sign the correction, not to lose it, so Sign
- * records the draft with the signature and the note beside it says so. There is no
- * confirmation step and no dead end: the alternative — refusing to sign while an edit is
- * unsaved — is a disabled primary the bench has to decode.
- *
- * Download is not repeated below. `DocumentPreview` carries Download and Full view in
- * its own frame, and the same control twice in one dialog is one too many — the
- * reference's own "Download Document" link is that frame (deviation logged).
- *
- * The preview is the quiet framed variant: a title strip with the two actions in it and
- * the page under the rule. Its default header would name the document and restate the
- * date a few pixels under the dialog's own heading and sub-line, which is one heading
- * too many and one date twice.
- *
- * **Nothing here signs, records or files anything.** Save replaces a string in the demo
- * register and Sign drops the entry from it — see `lib/employee/sign-a-diary.ts`.
+ * **Nothing here records or files anything.** Save replaces a string in the demo
+ * register — see `lib/employee/sign-a-diary.ts`.
  */
 export function SignADiaryDialog({
   entry,
   onOpenChange,
   onSave,
-  onSign,
   onReturnFocus,
 }: {
   entry: ADiaryEntry | null;
   onOpenChange: (entry: ADiaryEntry | null) => void;
-  /** Record the corrected business of the day, leaving the entry unsigned. */
+  /** Record the corrected business of the day. The day stays unsigned. */
   onSave: (entry: ADiaryEntry, business: string) => void;
-  /** Sign the entry, recording the business as it stands in the editor. */
-  onSign: (entry: ADiaryEntry, business: string) => void;
   onReturnFocus: () => void;
 }) {
   return (
@@ -111,7 +76,6 @@ export function SignADiaryDialog({
           key={entry.id}
           entry={entry}
           onSave={onSave}
-          onSign={onSign}
           onReturnFocus={onReturnFocus}
         />
       ) : null}
@@ -122,12 +86,10 @@ export function SignADiaryDialog({
 function SignADiaryBody({
   entry,
   onSave,
-  onSign,
   onReturnFocus,
 }: {
   entry: ADiaryEntry;
   onSave: (entry: ADiaryEntry, business: string) => void;
-  onSign: (entry: ADiaryEntry, business: string) => void;
   onReturnFocus: () => void;
 }) {
   const courtText = useCourtText();
@@ -187,21 +149,24 @@ function SignADiaryBody({
       footer={
         <>
           {/* What the act means — said at the moment of the act rather than left for the
-              bench to discover. */}
-          <p className="text-caption text-muted-foreground sm:mr-auto sm:text-left">
-            {dirty && !blank
-              ? "Signing records the business of the day as it stands in the editor, including the correction you have not saved."
-              : "Signing puts your signature on the day's record and cannot be reversed."}
+              bench to discover — and, once it has happened, that it did. Live, so the
+              confirmation is heard by anyone not watching this line. */}
+          <p
+            className="text-caption text-muted-foreground sm:mr-auto sm:text-left"
+            aria-live="polite"
+          >
+            {saved ||
+              "Saving changes this entry and the A-Diary text of the order it came from. The order text does not change."}
           </p>
           {/* `sm:self-center` because the frame owns the footer's own classes and this
               row pairs a caption that wraps with a 40px control. */}
           <Button
             type="button"
             className="sm:self-center"
-            disabled={blank}
-            onClick={() => onSign(entry, text)}
+            disabled={blank || !dirty}
+            onClick={save}
           >
-            Sign the entry
+            Save
           </Button>
         </>
       }
@@ -258,7 +223,8 @@ function SignADiaryBody({
               />
               <FieldDescription className="text-body-compact">
                 What this court did on {formatADiaryDate(entry.dated)}, in the
-                court&apos;s own words. Correct it before you sign.
+                court&apos;s own words. It can be corrected until the day&apos;s
+                A-Diary is signed.
               </FieldDescription>
               {/* A day the court sat is a day with business. Emptying the record is the
                   one edit this field refuses, and it says so where the error belongs
@@ -275,24 +241,6 @@ function SignADiaryBody({
               ) : null}
             </Field>
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              {/* What Save did, for anyone not watching the document beside it change. */}
-              <p
-                className="text-caption text-muted-foreground sm:mr-auto"
-                aria-live="polite"
-              >
-                {saved}
-              </p>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full sm:w-fit"
-                disabled={blank || !dirty}
-                onClick={save}
-              >
-                Save
-              </Button>
-            </div>
           </CardContent>
         </Card>
 
@@ -336,15 +284,15 @@ function SignADiaryBody({
  * passage, and the block that signs it. Two screens that both draw an order must draw the
  * same one.
  *
- * Three things it keeps from the register page it replaced, and each for a reason:
+ * Three things it keeps or settles, and each for a reason:
  *
  * - **The appearance table.** The reference's own drawing, and the part of the day's
  *   record that says the hearing happened at all. The order composer's page states the
  *   same fact as two rolls; here it is already a table the owner has approved, and a
  *   bordered table is what a court paper puts appearances in.
- * - **The operative passage is `entry.business`** — the very string the editor corrects.
- *   That is what keeps Save a visible act: the paper changes under it. An order sheet's
- *   composed passage *is* the business of the day, which is why the two can be one field.
+ * - **The operative passage is `entry.orderText`** — the order as signed, not the string
+ *   the editor corrects. Correcting the diary does not change the order (`ADY-09`), so
+ *   the paper holds still and the correction can be checked against it (`ADY-10`).
  * - **The paper tokens.** This is a facsimile of a court paper inside a document frame,
  *   not a product surface, so the table and the heading are drawn with the paper palette
  *   rather than the DS `Table` — the same treatment `SignOrderDialog` gives its order.

@@ -1,5 +1,6 @@
 "use client";
 
+import { useCourt } from "@/components/court/court-provider";
 import * as React from "react";
 
 import { RESOLVE_IN_PLACE } from "@/components/chrome/motion";
@@ -9,7 +10,10 @@ import {
   HearingOverviewSections,
   ViewCaseAction,
 } from "@/components/employee/hearing-overview-screen";
-import { HearingSessionButton } from "@/components/employee/hearings-table";
+import {
+  HearingPassOverMenu,
+  HearingSessionButton,
+} from "@/components/employee/hearings-table";
 import {
   NextDateField,
   NextPurposeField,
@@ -44,11 +48,11 @@ import {
  * cannot do — a link that has to outlive the page, in a bookmark or a typed URL — but no
  * control on the list hands one out any more.
  *
- * **It reads, and it calls — nothing else.** The sitting's other outcomes stay on the
- * row: Pass over is not a second session verb (`HearingPassOverMenu`) and the order
- * composer is a trip of its own. What the footer carries is the one control that moves
- * *this* matter through the day, and it is the same control the row carries, in the same
- * four states (`HearingSessionButton`) — one vocabulary, two places to reach it, rather
+ * **It reads, and it calls.** The order composer is a trip of its own. What the footer
+ * carries is the row's hearing controls for *this* matter (`CLS-11`): the session control
+ * the row carries, in the same four states (`HearingSessionButton`), and the row's Pass
+ * over menu beside it (`HearingPassOverMenu`, `CLS-08`; owner, 2026-10-20, reversing
+ * 2026-09-12) — one vocabulary, two places to reach it, rather
  * than an overlay that invents a second way to say Start. It reads whatever the matter's
  * next move is at the moment it was opened: Start hearing on a listing still to be
  * called, End hearing on one under way, and spent on one already heard.
@@ -67,6 +71,7 @@ export function HearingOverviewDialog({
   seat,
   onStartHearing,
   onEndHearing,
+  onPassOver,
   postsNextHearing = false,
   onOpenChange,
 }: {
@@ -76,6 +81,8 @@ export function HearingOverviewDialog({
   seat: CourtRole;
   onStartHearing: (hearing: CourtHearing) => void;
   onEndHearing: (hearing: CourtHearing) => void;
+  /** The row's Pass over, the same handler (`HearingPassOverMenu`). */
+  onPassOver: (hearing: CourtHearing) => void;
   /** The reader's Next hearing column, here too — see `HearingsTable`. */
   postsNextHearing?: boolean;
   onOpenChange: (open: boolean) => void;
@@ -94,6 +101,7 @@ export function HearingOverviewDialog({
           seat={seat}
           onStartHearing={onStartHearing}
           onEndHearing={onEndHearing}
+          onPassOver={onPassOver}
           postsNextHearing={postsNextHearing}
         />
       ) : null}
@@ -106,14 +114,17 @@ function HearingOverviewBody({
   seat,
   onStartHearing,
   onEndHearing,
+  onPassOver,
   postsNextHearing,
 }: {
   hearing: CourtHearing;
   seat: CourtRole;
   onStartHearing: (hearing: CourtHearing) => void;
   onEndHearing: (hearing: CourtHearing) => void;
+  onPassOver: (hearing: CourtHearing) => void;
   postsNextHearing: boolean;
 }) {
+  const { court } = useCourt();
   /* Where this listing stood when the sheet opened. A status different from it is an
      act the reader performed *in here*, and that is the only thing that gets to move:
      the sheet is already rising on open, and a chip that animated then would be a
@@ -130,21 +141,39 @@ function HearingOverviewBody({
        only ever reads a listing and acts on it — and a single-stage flow costs the frame
        nothing while still getting its rise, its chrome and its landing place.
 
-       `sm:max-w-4xl` is what lets the sections keep their two-column pairing inside the
-       sheet instead of stacking into a tall scroll. Height stays a cap rather than a
-       measure — unlike the review overlays, which hold a document preview and want the
-       full 85dvh whatever is in it. A first listing here is three short sections, and a
-       sheet pinned to 85dvh for them would be mostly empty. So no `floor` either.
+       `sm:max-w-4xl` gives the case panel's tabs and the history's lines room. Its height is
+       the frame's `floor`: each tab scrolls inside it, so the sheet keeps one height
+       whichever tab is open.
 
-       **Two things this sheet used to do its own way, normalised.** Its stage was
-       `bg-surface-sunken` where every other court-side stage is `bg-muted`, and its header
-       carried no rule, separating itself from the stage by fill alone. Both were reasoned,
-       and both were this one sheet reading differently from its fourteen siblings — which
-       is the thing the owner asked to end. `bg-muted` is also what `ui-craft` §1.0 names as
-       the product canvas; `surface-sunken` is the DS's *nested well inside a panel*. */
+       Its stage is the frame's one-plane `card` stage (below): a single panel needs no
+       tinted canvas, and its header carries the hairline every sibling's does. */
     <StagedOverlay
       outsideCloses
       className="sm:max-w-4xl"
+      /* One tabbed panel is the whole stage, so it is the frame's one-plane white stage,
+         unpadded, rather than a white card on the tinted canvas — the tint bought nothing
+         under a single panel, and its gutters were the white space the owner asked to
+         cut (2026-10-20). The header and footer hairlines frame it. */
+      surface="card"
+      padded={false}
+      /* Held at the frame's comfortable height, so moving between the tabs does not
+         resize the sheet and re-centre it. */
+      floor
+      /* The case history's type filter (`OrderCaseHistory`) and Next hearing's purpose
+         portal their lists outside the sheet. A press on one is not a press outside,
+         and the Escape that closes an open list closes only the list; a second Escape
+         closes the sheet — the join flow's guard (`join-case-dialog.tsx`). */
+      onInteractOutside={(event) => {
+        if (
+          event.target instanceof Element &&
+          event.target.closest('[data-slot="combobox-content"]')
+        )
+          event.preventDefault();
+      }}
+      onEscapeKeyDown={(event) => {
+        if (document.querySelector('[data-slot="combobox-content"]'))
+          event.preventDefault();
+      }}
       /* The chip rides with the cause title, the same thought in the same order as the
          page: this matter, and where it stands on today's list. */
       title={causeTitle(hearing)}
@@ -193,13 +222,28 @@ function HearingOverviewBody({
             onEndHearing={onEndHearing}
             className="w-fit"
           />
+          {/* Pass over, as on the row: the same menu, after the session control and
+              secondary to it, on Scheduled and Ongoing listings only (`CLS-08`,
+              `CLS-11`). */}
+          <HearingPassOverMenu
+            hearing={hearing}
+            seat={seat}
+            onPassOver={onPassOver}
+          />
         </>
       }
     >
-      {postsNextHearing && seatPostsNextHearing(seat) ? (
-        <NextHearingPanel hearing={hearing} />
-      ) : null}
-      <HearingOverviewSections hearing={hearing} surface="overlay" />
+      {/* The reader's Next hearing is a tab of the case panel, the first (owner,
+          2026-10-20). */}
+      <HearingOverviewSections
+        hearing={hearing}
+        surface="overlay"
+        nextHearing={
+          postsNextHearing && seatPostsNextHearing(seat, court) ? (
+            <NextHearingFields hearing={hearing} />
+          ) : undefined
+        }
+      />
       {/* The outcome, for a reader who cannot see the chip change.
           It has to live *inside* the sheet: Radix hides the rest of the page from
           assistive tech while a modal is open, so the cause list's own announcer —
@@ -220,34 +264,25 @@ function HearingOverviewBody({
 }
 
 /**
- * The same two fields as the cause list's Next hearing column, for the matter
- * being read — one store, so the row and this panel cannot disagree. First on the sheet:
- * it is the one thing on it the reader acts on. Dressed as the overlay's other sections.
+ * The same two fields as the cause list's Next hearing column, for the matter being read
+ * — one store, so the row and this tab cannot disagree. The tab names them, so no heading.
  */
-function NextHearingPanel({ hearing }: { hearing: CourtHearing }) {
+function NextHearingFields({ hearing }: { hearing: CourtHearing }) {
   const id = React.useId();
   return (
-    <section
-      aria-labelledby={`${id}-heading`}
-      className="mb-4 flex min-w-0 flex-col gap-4 rounded-lg bg-card p-4"
-    >
-      <h2 id={`${id}-heading`} className="text-body font-semibold">
-        Next hearing
-      </h2>
-      <div className="grid min-w-0 gap-4 sm:grid-cols-2">
-        <div className="flex min-w-0 flex-col gap-2">
-          <span id={`${id}-date`} className="text-body-compact font-medium">
-            Date
-          </span>
-          <NextDateField hearing={hearing} labelledBy={`${id}-date`} />
-        </div>
-        <div className="flex min-w-0 flex-col gap-2">
-          <span id={`${id}-purpose`} className="text-body-compact font-medium">
-            Purpose
-          </span>
-          <NextPurposeField hearing={hearing} labelledBy={`${id}-purpose`} />
-        </div>
+    <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+      <div className="flex min-w-0 flex-col gap-2">
+        <span id={`${id}-date`} className="text-body-compact font-medium">
+          Date
+        </span>
+        <NextDateField hearing={hearing} labelledBy={`${id}-date`} />
       </div>
-    </section>
+      <div className="flex min-w-0 flex-col gap-2">
+        <span id={`${id}-purpose`} className="text-body-compact font-medium">
+          Purpose
+        </span>
+        <NextPurposeField hearing={hearing} labelledBy={`${id}-purpose`} />
+      </div>
+    </div>
   );
 }

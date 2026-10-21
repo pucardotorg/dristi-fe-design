@@ -1,19 +1,19 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import Link from "next/link";
 import {
   CalendarX2Icon,
-  ChevronDownIcon,
-  ChevronUpIcon,
   ExternalLinkIcon,
 } from "lucide-react";
 
 import { Identifier } from "@/components/chrome/identifier";
-import { useCourtToday } from "@/components/employee/use-court-today";
+import { OrderCaseHistory } from "@/components/employee/order-case-history";
+import { OrderDataFlags } from "@/components/employee/order-data-flags";
 import { useHearingSession } from "@/components/employee/use-hearing-session";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   DescriptionDetails,
   DescriptionList,
@@ -28,8 +28,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { Step } from "@/components/employee/step-timeline";
-import { Timeline, TimelineItem } from "@/components/ui/timeline";
 import {
   causeTitle,
   counselFor,
@@ -38,21 +36,15 @@ import {
   courtHearingStatusLabel,
   courtHearingStatusVariant,
   hearingById,
-  parseIsoDay,
   withHearingSession,
   type CourtHearing,
 } from "@/lib/employee/hearings";
 import {
-  caseTimeline,
   formatCaseDate,
-  formatTimelineDate,
-  formatCaseWeekday,
   formatChequeAmount,
   formatCounselList,
   hearingCaseExtras,
-  hearingSittings,
   type HearingCaseExtras,
-  type HearingSitting,
 } from "@/lib/employee/hearing-overview";
 
 /**
@@ -66,8 +58,8 @@ import {
  * `shadow-modal` sheet is depth spent twice, so the overlay cards stay flat, and
  * the radius steps down with the nesting (ui-craft §4).
  *
- * One set of sections, two dresses — rather than a second composition of the same
- * facts, which is how two surfaces holding one case start disagreeing about it.
+ * One tabbed panel, two dresses (`TABS_FRAME`) — rather than a second composition of the
+ * same facts, which is how two surfaces holding one case start disagreeing about it.
  */
 /**
  * `panel`: inside another panel's tab — the order composer's case file. The tab is the
@@ -75,42 +67,16 @@ import {
  */
 export type HearingOverviewSurface = "page" | "overlay" | "panel";
 
-const PANEL: Record<HearingOverviewSurface, string> = {
-  page: "min-w-0 rounded-xl border border-hairline bg-card p-6 shadow-raised",
-  overlay: "min-w-0 rounded-lg bg-card p-4",
-  panel: "min-w-0",
-};
-
 /**
- * Type, by surface. On a page and in the overlay a section reads at the body size; in a
- * panel's tab it steps down to the 14px the panel's other tabs read at — headings,
- * terms and values alike — so the Overview is not the one tab shouting (owner,
- * 2026-10-14).
+ * Type, by surface. On a page and in the overlay text reads at the body size; in a
+ * panel's tab it steps down to the 14px the panel's other tabs read at, so no tab is
+ * the one shouting (owner, 2026-10-14). The overview's Case details now sit in a tab of
+ * their own, so they take the tab's size on both surfaces.
  */
-const HEADING: Record<HearingOverviewSurface, string> = {
-  page: "text-body font-semibold",
-  overlay: "text-body font-semibold",
-  panel: "text-body-compact font-semibold",
-};
 const BODY: Record<HearingOverviewSurface, string> = {
   page: "text-body",
   overlay: "text-body",
   panel: "text-body-compact",
-};
-
-/** The one inset inside Last hearing — a sunken well in a white card on both surfaces. */
-const ORDER_WELL = "bg-surface-sunken";
-
-/**
- * The corner anything nested inside a section takes — the date tile and the order
- * well. It follows the section's own, one step down the ladder: an inset that rounds
- * as hard as the box holding it bulges at the corners, and in the overlay the section
- * has already stepped down once itself (ui-craft §4).
- */
-const INSET_RADIUS: Record<HearingOverviewSurface, string> = {
-  page: "rounded-lg",
-  overlay: "rounded-md",
-  panel: "rounded-lg",
 };
 
 /**
@@ -284,70 +250,135 @@ export function HearingOverviewCaption({ hearing }: { hearing: CourtHearing }) {
 }
 
 /**
- * What is in this case — the three sections, on whichever surface is asking.
+ * What is in this case, on whichever surface is asking: one panel with three tabs, as
+ * the order screen's side panel has (`ORD-15`, `CLS-11`; owner, 2026-10-20) —
  *
- * Case history and Last hearing pair across the top; Case details run the full width
- * beneath them (owner, 2026-10-14). History, newest first, takes the smaller share; the
- * order of the day is a paragraph and wants measure, so it takes the larger.
+ * - **Case history**, the order screen's own tab (`OrderCaseHistory`): the full history,
+ *   the last order highlighted, a filter to show only orders. It opens on this tab.
+ * - **Case details** — stage, parties with their advocates, cheque amount, filing date.
+ * - **Data flags**, the order screen's own empty state: not yet defined.
  *
- * The two top panels stretch to a common height rather than sitting at their own —
- * `items-start` is what left the shorter one dangling beside the taller. Slack inside a
- * lifted panel reads as padding; the same slack beside it reads as a hole.
- *
- * The column split is a viewport query on both surfaces, not a container one: the
- * overlay is `sm:max-w-4xl`, so at the width where the page pairs them the sheet has
- * room to pair them too, and below it both stack.
+ * View all orders sits at the end of the tab strip and opens the case's Orders in a new
+ * tab. Each tab scrolls inside a fixed height, so moving between them does not move the
+ * rest of the overview, and the history can open at the last order.
  */
 export function HearingOverviewSections({
   hearing,
   surface,
+  nextHearing,
 }: {
   hearing: CourtHearing;
   surface: HearingOverviewSurface;
+  /**
+   * The Next hearing fields, for a seat that enters the next hearing here (the reader,
+   * `PLC-04`). Given, they are the first tab and the one the overview opens on: they are
+   * what that reader acts on (owner, 2026-10-20, "move the next hearing also to a tab").
+   */
+  nextHearing?: ReactNode;
 }) {
-  const today = useCourtToday();
   const extras = hearingCaseExtras(hearing.id);
 
   return (
-    /* `gap-8` is the page's section break. Inside the overlay the sections are cards
-       on the sheet's sunken body rather than separate lifted panels, so they close
-       to `gap-4` — the step the sheet's own padding is set at. */
-    <div
-      className={`grid min-w-0 lg:grid-cols-5 ${
-        surface === "page" ? "gap-8" : "gap-4"
-      }`}
+    <Tabs
+      defaultValue={nextHearing ? "next-hearing" : "history"}
+      className={`${TABS_FRAME[surface]} gap-0`}
     >
-      {/* Case history first, beside the last sitting; the case's details under both
-          (owner, 2026-10-14). */}
-      <CaseHistoryPanel
-        hearing={hearing}
-        extras={extras}
-        today={today}
-        surface={surface}
-        className="lg:col-span-2"
-      />
-      {extras.lastHearing ? (
-        <LastHearingPanel
-          on={extras.lastHearing.on}
-          purpose={extras.lastHearing.purpose}
-          order={extras.lastHearing.order}
-          directed={extras.lastHearing.directed}
-          earlier={hearingSittings(hearing.id).slice(1)}
-          surface={surface}
-          className="lg:col-span-3"
-        />
-      ) : (
-        <NoLastHearingPanel surface={surface} className="lg:col-span-3" />
-      )}
-      <CaseFactsPanel
-        hearing={hearing}
-        extras={extras}
-        surface={surface}
-        className="lg:col-span-5"
-      />
-    </div>
+      {/* The order screen's line tabs, on their own rule (`order-case-panel.tsx`). */}
+      <div
+        className={`flex shrink-0 items-center justify-between gap-4 border-b border-hairline pr-4 pl-1 ${TAB_STRIP[surface]}`}
+      >
+        <TabsList
+          variant="line"
+          aria-label="About this case"
+          className={`justify-start rounded-none p-0 ${TAB_LIST[surface]}`}
+        >
+          {nextHearing ? (
+            <TabsTrigger value="next-hearing" className={TAB_TRIGGER}>
+              Next hearing
+            </TabsTrigger>
+          ) : null}
+          <TabsTrigger value="history" className={TAB_TRIGGER}>
+            Case history
+          </TabsTrigger>
+          <TabsTrigger value="details" className={TAB_TRIGGER}>
+            Case details
+          </TabsTrigger>
+          <TabsTrigger value="data-flags" className={TAB_TRIGGER}>
+            Data flags
+          </TabsTrigger>
+        </TabsList>
+        {/* Every order on the case, in the case's own Orders tab — a browser tab of its
+            own, as View case opens, so the overview stays where the bench left it. */}
+        <Button asChild variant="link" size="sm" className="h-auto shrink-0 px-0">
+          <a href={HEARING_DEMO_CASE_ORDERS_HREF} target="_blank" rel="noopener">
+            View all orders
+            <span className="sr-only"> (opens in a new tab)</span>
+            <ExternalLinkIcon data-icon="inline-end" aria-hidden />
+          </a>
+        </Button>
+      </div>
+      {nextHearing ? (
+        <TabsContent value="next-hearing" className={`${TAB_BODY_BASE} ${TAB_BODY_HEIGHT[surface]}`}>
+          {nextHearing}
+        </TabsContent>
+      ) : null}
+      {/* A column, so an order opened in the history can fill it (`OrderCaseHistory`). */}
+      <TabsContent value="history" className={`${TAB_BODY_BASE} ${TAB_BODY_HEIGHT[surface]}`}>
+        <OrderCaseHistory hearing={hearing} />
+      </TabsContent>
+      <TabsContent value="details" className={`${TAB_BODY_BASE} ${TAB_BODY_HEIGHT[surface]}`}>
+        <CaseFactsPanel hearing={hearing} extras={extras} surface="panel" />
+      </TabsContent>
+      <TabsContent value="data-flags" className={`${TAB_BODY_BASE} ${TAB_BODY_HEIGHT[surface]}`}>
+        <OrderDataFlags />
+      </TabsContent>
+    </Tabs>
   );
 }
+
+/** The tabbed panel's frame, by surface: the section recipe without its padding. */
+const TABS_FRAME: Record<HearingOverviewSurface, string> = {
+  page: "min-w-0 overflow-hidden rounded-xl border border-hairline bg-card shadow-raised",
+  /* In the sheet the panel *is* the stage — the overlay's one-plane `card` stage, unpadded
+     (`StagedOverlay`), so no card inside a card on a tinted canvas (owner, 2026-10-20:
+     "cut out the white space"). It gives way to fit the window, down to a floor that
+     still shows a few lines of history; below that the sheet scrolls. */
+  overlay: "flex min-h-0 min-w-0 flex-1 flex-col",
+  panel: "min-w-0",
+};
+/**
+ * The strip's height. On the page it is the order screen's 56px panel head; in the sheet,
+ * under the overlay's own header, it steps down to the DS control height.
+ */
+const TAB_STRIP: Record<HearingOverviewSurface, string> = {
+  page: "h-14",
+  overlay: "h-10",
+  panel: "h-14",
+};
+const TAB_LIST: Record<HearingOverviewSurface, string> = {
+  page: "h-14 group-data-horizontal/tabs:h-14",
+  overlay: "h-10 group-data-horizontal/tabs:h-10",
+  panel: "h-14 group-data-horizontal/tabs:h-14",
+};
+const TAB_TRIGGER =
+  "h-full flex-none px-3 text-body-compact group-data-horizontal/tabs:after:-bottom-px";
+/**
+ * Each tab scrolls in its own box; `p-4` is what the history's pinned filter expects of
+ * that box, as in the order screen's tab. On the page the box is a fixed height, the same
+ * on every tab; in the sheet it fills the stage the frame's floor sets.
+ */
+const TAB_BODY_BASE = "flex min-h-0 flex-col overflow-y-auto p-4";
+/* `flex-none` on the fixed heights: the primitive's own `flex-1` would otherwise size the
+   box to its content. In the sheet a zero basis does the same job the other way, so the
+   history scrolls inside the floor rather than growing the sheet. */
+const TAB_BODY_HEIGHT: Record<HearingOverviewSurface, string> = {
+  page: "h-[28rem] flex-none",
+  overlay: "grow basis-0",
+  panel: "h-[28rem] flex-none",
+};
+
+const HEARING_DEMO_CASE_ORDERS_HREF =
+  "/employee/cases/c-1001?section=orders-and-notifications";
 
 /**
  * The overview's one way further into the case: the court's case view, opened on its
@@ -372,8 +403,6 @@ export function HearingOverviewSections({
  * every case reads.
  */
 const HEARING_DEMO_CASE_HREF = "/employee/cases/c-1001?section=case-file";
-const HEARING_DEMO_CASE_ORDERS_HREF =
-  "/employee/cases/c-1001?section=orders-and-notifications";
 
 export function ViewCaseAction({
   variant = "default",
@@ -420,13 +449,12 @@ function CaseFactsPanel({
   );
 
   return (
+    /* In its tab: the tab is its frame and names it, so no panel and a hidden heading. */
     <section
-      className={`${PANEL[surface]} flex flex-col gap-2 ${className ?? ""}`}
+      className={`flex min-w-0 flex-col gap-2 ${className ?? ""}`}
       aria-labelledby="case-facts"
     >
-      {/* `gap-2` and not the section default: the list's own rows already carry
-          `py-3`, so a full step here would open a 28px hole under the heading. */}
-      <h2 id="case-facts" className={HEADING[surface]}>
+      <h2 id="case-facts" className="sr-only">
         Case details
       </h2>
       <DescriptionList>
@@ -528,335 +556,5 @@ function PartyRow({
         ) : null}
       </DescriptionDetails>
     </DescriptionRow>
-  );
-}
-
-/**
- * What happened the last time this matter was called.
- *
- * The peek nested this in a card inside the overview; on a page the panel is the
- * card, so the shadow does not sit inside another shadow (ui-craft §4). The order
- * itself lands in a sunken well — the panel's one inset, and the thing on this page
- * most likely to be read word for word.
- *
- * "Order of the day" or "Latest update" follows `directed`: an order the court
- * passed is not the same claim as a note about where the matter got to, and this
- * build must not dress the second as the first.
- */
-function LastHearingPanel({
-  on,
-  purpose,
-  order,
-  directed,
-  earlier = [],
-  surface,
-  className,
-}: {
-  on: string;
-  purpose: string;
-  order: string;
-  directed: boolean;
-  /** The sittings before this one, newest first — listed under it when given. */
-  earlier?: HearingSitting[];
-  surface: HearingOverviewSurface;
-  className?: string;
-}) {
-  const sat = parseIsoDay(on);
-  const day = sat.toLocaleDateString("en-IN", { day: "numeric" });
-  const month = sat.toLocaleDateString("en-IN", { month: "short" });
-
-  return (
-    <section
-      className={`${PANEL[surface]} flex flex-col gap-4 ${className ?? ""}`}
-      aria-labelledby="last-hearing"
-    >
-      {/* Every order on the case, in the case's own Orders tab — a tab of its own, as
-          View case opens, so this overview stays where the bench left it (owner,
-          2026-10-14). */}
-      <div className="flex min-w-0 items-center justify-between gap-4">
-        <h2 id="last-hearing" className={HEADING[surface]}>
-          Last hearing
-        </h2>
-        <Button
-          asChild
-          variant="link"
-          size="sm"
-          className="-my-1.5 h-auto px-0"
-        >
-          <a
-            href={HEARING_DEMO_CASE_ORDERS_HREF}
-            target="_blank"
-            rel="noopener"
-          >
-            View all orders
-            <span className="sr-only"> (opens in a new tab)</span>
-            <ExternalLinkIcon data-icon="inline-end" aria-hidden />
-          </a>
-        </Button>
-      </div>
-      <div className="flex items-start gap-4">
-        {/* The tile is the date as a mark, and it is `aria-hidden` — decoration,
-            not information. So the line beside it states the date in full, year
-            and all. Trimming it to the weekday to avoid echoing the tile's own
-            "19 Aug" left the one non-decorative date on this panel reading
-            "Wednesday, 2026", and even done properly it would have left a matter
-            that last sat two years ago with no visible year at all. The echo is
-            the cheaper of the two costs. `<time>` carries the machine-readable
-            day, so the date is stated once in each register. */}
-        <div
-          className={`flex size-12 shrink-0 flex-col items-center justify-center bg-brand-muted ${INSET_RADIUS[surface]}`}
-          aria-hidden
-        >
-          <span className="text-body font-semibold tabular-nums text-brand-muted-foreground">
-            {day}
-          </span>
-          <span className="text-caption text-brand-muted-foreground">
-            {month}
-          </span>
-        </div>
-        <div className="flex min-w-0 flex-col gap-1">
-          <time
-            dateTime={on}
-            className={`${BODY[surface]} font-medium tabular-nums`}
-          >
-            {formatCaseWeekday(on)}
-          </time>
-          <p className="text-body-compact text-muted-foreground">{purpose}</p>
-        </div>
-      </div>
-      <div
-        className={`flex min-w-0 flex-col gap-2 p-4 ${INSET_RADIUS[surface]} ${ORDER_WELL}`}
-      >
-        <p className={`${BODY[surface]} font-medium`}>
-          {directed ? "Order of the day" : "Latest update"}
-        </p>
-        <p className={`${BODY[surface]} text-muted-foreground`}>{order}</p>
-      </div>
-      {earlier.length > 0 ? (
-        <div className="flex min-w-0 flex-col gap-4 border-t border-hairline pt-4">
-          <h3 className="text-body-compact font-semibold text-muted-foreground">
-            Earlier hearings
-          </h3>
-          <HearingSittingsList sittings={earlier} />
-        </div>
-      ) : null}
-    </section>
-  );
-}
-
-/**
- * Sittings as a column, newest first: what each was for, its day, and the order passed
- * that day in full — the case history's hearings, without its other events. A sitting
- * that recorded an update rather than an order says so before the text.
- */
-function HearingSittingsList({ sittings }: { sittings: HearingSitting[] }) {
-  return (
-    <Timeline className="text-body-compact">
-      {sittings.map((sitting) => (
-        <TimelineItem key={sitting.on} status="past" className="pb-0">
-          {/* Spacing inside the item so the rail runs through to the next dot — the
-              same reason as `Step`. */}
-          <div className="flex min-w-0 flex-col gap-1 pb-4 group-last/timeline-item:pb-0">
-            <div className="flex min-w-0 items-baseline justify-between gap-4">
-              <span className="min-w-0 font-medium">{sitting.purpose}</span>
-              <time
-                dateTime={sitting.on}
-                className="shrink-0 tabular-nums text-muted-foreground"
-              >
-                {formatTimelineDate(sitting.on)}
-              </time>
-            </div>
-            <p className="text-muted-foreground">
-              {sitting.directed ? null : (
-                <span className="font-medium text-foreground">
-                  No order passed.{" "}
-                </span>
-              )}
-              {sitting.order}
-            </p>
-          </div>
-        </TimelineItem>
-      ))}
-    </Timeline>
-  );
-}
-
-/**
- * A matter with no earlier sitting on record — a first listing, which is most of a
- * cause list.
- *
- * It holds the column rather than leaving it out, because "has this been heard
- * before?" is a question the bench is asking when it opens this page, and *no* is an
- * answer to it. Dropping the panel would give that answer as a gap, and give the row
- * a hole where its second half should be.
- *
- * The wording is about the record, not the case: the sidecar carries no earlier
- * sitting for this matter (`lib/employee/hearing-overview.ts`), and this build must
- * not upgrade that into a finding that the court never called it.
- */
-function NoLastHearingPanel({
-  surface,
-  className,
-}: {
-  surface: HearingOverviewSurface;
-  className?: string;
-}) {
-  return (
-    <section
-      className={`${PANEL[surface]} flex flex-col gap-4 ${className ?? ""}`}
-      aria-labelledby="last-hearing-none"
-    >
-      <h2 id="last-hearing-none" className={HEADING[surface]}>
-        Last hearing
-      </h2>
-      {/* `Empty` is `flex-1` and centres its own content, so in a panel stretched to
-          the height of the facts beside it the message sits in the middle of the
-          column rather than clinging to the heading. Borderless and unpadded — the
-          panel is already the frame. */}
-      <Empty className="border-0 p-0">
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <CalendarX2Icon aria-hidden />
-          </EmptyMedia>
-          <EmptyTitle className={`${HEADING[surface]} tracking-normal`}>
-            No earlier sitting on record
-          </EmptyTitle>
-          <EmptyDescription className="text-body-compact">
-            Nothing has been recorded for this matter between the complaint and
-            today&rsquo;s listing.
-          </EmptyDescription>
-        </EmptyHeader>
-      </Empty>
-    </section>
-  );
-}
-
-/**
- * The case as a sequence — filed, called, called again. The peek's second tab, and
- * with the peek gone it has nowhere else to live; a page can simply show it.
- *
- * Titles and dates only. The step's `note` is the last sitting's order, which the
- * panel above already prints in full — see `CaseHistoryItem`.
- *
- * Beside Last hearing it is held to that panel's height and cut off there, so the pair
- * stays one even row however long the case has run; Show all opens it to its full
- * length and Show less closes it again (owner, 2026-10-14). `[contain:size]` is what
- * keeps the list out of the row's height while it is shut. Only side by side: stacked,
- * or in a panel's tab, it simply runs its length.
- */
-function CaseHistoryPanel({
-  hearing,
-  extras,
-  today,
-  surface,
-  className,
-}: {
-  hearing: CourtHearing;
-  extras: HearingCaseExtras;
-  today: string;
-  surface: HearingOverviewSurface;
-  className?: string;
-}) {
-  const timeline = caseTimeline(hearing, extras, today);
-  const clamps = surface !== "panel";
-  const [expanded, setExpanded] = useState(false);
-  const [overflowing, setOverflowing] = useState(false);
-  const listRef = useRef<HTMLDivElement>(null);
-  const listId = "case-history-events";
-
-  /* Whether anything is cut off — measured, because it depends on how tall the order
-     of the day beside it runs, and on the width. */
-  useEffect(() => {
-    const list = listRef.current;
-    if (!list || !clamps) return;
-    const measure = () =>
-      setOverflowing(list.scrollHeight > list.clientHeight + 1);
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(list);
-    if (list.firstElementChild) observer.observe(list.firstElementChild);
-    return () => observer.disconnect();
-  }, [clamps]);
-
-  return (
-    /* `@container` is what lets a step split into three columns: the group is the same
-       component the waiting complaint's file uses (`step-timeline.tsx`), and it reads its
-       width from whatever holds it rather than from the viewport — so it lays out
-       correctly in a page panel and in a dialog sheet without either knowing the other's
-       width. */
-    <section
-      className={`${PANEL[surface]} @container flex flex-col gap-6 ${className ?? ""}`}
-      aria-labelledby="case-history"
-    >
-      {/* In the case file's own Case history tab the tab names it already. */}
-      <h2
-        id="case-history"
-        className={surface === "panel" ? "sr-only" : "text-body font-semibold"}
-      >
-        Case history
-      </h2>
-      {/* The court's record as events, newest first. The full width the
-          panel takes is spent on three columns — the event, the statutory window it
-          closes, and the day — so the dates share one edge down the whole chain. */}
-      <div
-        ref={listRef}
-        id={listId}
-        className={
-          clamps && !expanded
-            ? "relative min-h-0 flex-1 overflow-hidden lg:[contain:size]"
-            : undefined
-        }
-      >
-        {timeline.inCourt.length > 0 ? (
-          <Timeline className="text-body-compact">
-            {timeline.inCourt.toReversed().map((step) => (
-              <Step
-                key={step.id}
-                status={step.status}
-                label={step.label}
-                href={step.href}
-                note={step.note}
-                aside={step.aside}
-                tone={step.tone}
-                date={
-                  step.on ? (
-                    <time dateTime={step.on}>
-                      {formatTimelineDate(step.on)}
-                    </time>
-                  ) : (
-                    "Today"
-                  )
-                }
-              />
-            ))}
-          </Timeline>
-        ) : null}
-        {clamps && !expanded && overflowing ? (
-          /* The cut, softened so a half-shown step reads as more below. */
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-linear-to-t from-card to-transparent"
-          />
-        ) : null}
-      </div>
-      {clamps && (overflowing || expanded) ? (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          aria-expanded={expanded}
-          aria-controls={listId}
-          className="-mt-2 -ml-3 w-fit"
-          onClick={() => setExpanded((open) => !open)}
-        >
-          {expanded ? (
-            <ChevronUpIcon data-icon="inline-start" aria-hidden />
-          ) : (
-            <ChevronDownIcon data-icon="inline-start" aria-hidden />
-          )}
-          {expanded ? "Show less" : "Show all"}
-        </Button>
-      ) : null}
-    </section>
   );
 }

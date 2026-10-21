@@ -5,19 +5,27 @@
  * above it. A form is a court paper a party swears; an order is the court's own
  * decision. The A-Diary is the court's **register of its own day**: for every matter the
  * bench dealt with, what was done and when the case comes back. It is written as the day
- * runs and signed at the end of it, and until the magistrate signs it the day's record
- * is not made.
+ * runs and signed once the day is over, and until it is signed the day's record is not
+ * made.
  *
- * Two facts follow from that and shape everything here:
+ * **It is signed a whole day at a time** (`a-diary.md` `ADY-12`–`ADY-12b`): one document
+ * per courtroom per day, generated at the moment of signing from the entries as they
+ * stand, and only once that day is over. Entries are not signed one by one, and today's
+ * diary cannot be signed today. `signableADiaryDays`, `buildADiaryDayDocument` and
+ * `signADiaryDay` are that act.
+ *
+ * Two more facts shape everything here:
  *
  * 1. **An entry is dated, and the diary is read one day at a time.** So the screen's one
  *    filter is a date, opening on the day the court is sitting — the reference's own
  *    control — and the entries carry the day they record rather than a created-on
  *    timestamp.
- * 2. **The business of the day is editable until it is signed.** Every other court-side
- *    queue shows a finished paper and asks only whether to act on it. This one is the
- *    record itself, so the bench can correct the words before putting a signature under
- *    them. `saveBusinessOfTheDay` is that edit.
+ * 2. **The business of the day is editable until the day is signed** (`ADY-07`). Every
+ *    other court-side queue shows a finished paper and asks only whether to act on it.
+ *    This one is the record itself, so the bench can correct the words before the day is
+ *    signed. `saveBusinessOfTheDay` is that edit. It changes the entry — which is the
+ *    order's A-Diary text, one text kept in sync (`ADY-09`) — and never the order text,
+ *    which is why an entry carries the two separately.
  *
  * **There is no backend. Nothing here is signed, filed or recorded.** `A_DIARY_SEED` is
  * demo data shaped to exercise what the screen has to survive: a day with enough entries
@@ -67,6 +75,12 @@ export type ADiaryEntry = {
   /** The day this entry records, `YYYY-MM-DD`. */
   dated: string;
   /**
+   * The hearing the order was passed in — its day and what it was listed for — or `null`
+   * when the order was passed outside a hearing (`a-diary.md` `ADY-02`). The register's
+   * Hearing column is blank for those (`ADY-03a`).
+   */
+  hearing: { day: string; purpose: CourtHearingPurposeId } | null;
+  /**
    * The order sheet's opening recital: who was before the court, and what the case was
    * called for that day.
    *
@@ -93,12 +107,22 @@ export type ADiaryEntry = {
    */
   orderTitle: string;
   /**
+   * The operative passage of the order the entry came from, as signed.
+   *
+   * Starts out the same as `business` — the order's A-Diary text is the order text by
+   * default (`order-generation.md` `PUB-04`) — and then stays put: correcting the entry
+   * changes the A-Diary text, never the order (`ADY-09`). The entry dialog draws the
+   * order from this, beside the editor, so the bench can check the one against the other
+   * (`ADY-10`).
+   */
+  orderText: string;
+  /**
    * What the court did that day, in the court's own words — the reference's
-   * "Proceedings/Business of the day", and the operative passage of the order sheet the
-   * entry dialog renders.
+   * "Proceedings/Business of the day": the entry's A-Diary text, which is also the A-Diary
+   * text of the order it came from (`ADY-09`).
    *
    * One string rather than a list of acts, because that is what it is on the paper: a
-   * passage the bench writes, corrects and signs. Paragraphs are separated by a blank
+   * passage the bench writes, corrects and, with the rest of the day, signs. Paragraphs are separated by a blank
    * line, the way the editor holds them and the way the page prints them. It always ends
    * with the sentence that fixes the next date, which is the part the register is read
    * for.
@@ -116,15 +140,20 @@ export type ADiaryEntry = {
  * `nextOffset` is measured from the same today rather than from the entry's own day, so
  * a backlog entry cannot list a case for a date that has already passed.
  */
-type ADiarySeed = Omit<ADiaryEntry, "dated" | "nextHearing" | "business"> & {
+type ADiarySeed = Omit<
+  ADiaryEntry,
+  "dated" | "nextHearing" | "business" | "orderText" | "hearing"
+> & {
   datedOffset: number;
+  /** What the hearing was listed for, or `null` for an order passed outside a hearing. */
+  hearingPurpose: CourtHearingPurposeId | null;
   nextOffset: number;
   /**
    * What was done, as the paragraphs of the order.
    *
-   * Required, and a list rather than one string: the entry dialog renders this as the
-   * operative passage of the day's order sheet, and an order that recites nothing but
-   * the date it is posted to is not an order the bench can read back.
+   * Required, and a list rather than one string: these are the operative passage of the
+   * day's order (`orderText`) as well as the start of its A-Diary text, and an order that
+   * recites nothing but the date it is posted to is not an order the bench can read back.
    *
    * **The first paragraph is what the court did**, never who turned up — that is
    * `attendance`, and it is kept out of here so the table's clamped column opens on the
@@ -152,6 +181,7 @@ const A_DIARY_SEED: ADiarySeed[] = [
       { name: "Adv. Arun Prakash", side: "accused" },
     ],
     datedOffset: 0,
+    hearingPurpose: "evidence-of-complainant",
     nextOffset: 7,
     nextPurpose: "evidence-of-complainant",
     attendance:
@@ -171,6 +201,7 @@ const A_DIARY_SEED: ADiarySeed[] = [
       { name: "Adv. Sabu Varghese", side: "accused" },
     ],
     datedOffset: 0,
+    hearingPurpose: "appearance",
     nextOffset: 10,
     nextPurpose: "appearance",
     attendance:
@@ -190,6 +221,7 @@ const A_DIARY_SEED: ADiarySeed[] = [
     },
     counsel: [{ name: "Adv. Mohan Das", side: "complainant" }],
     datedOffset: 0,
+    hearingPurpose: "appearance",
     nextOffset: 14,
     nextPurpose: "plea",
     attendance:
@@ -209,14 +241,16 @@ const A_DIARY_SEED: ADiarySeed[] = [
       { name: "Adv. Haridas Nair", side: "accused" },
     ],
     datedOffset: 0,
+    hearingPurpose: null,
     nextOffset: 5,
     nextPurpose: "arguments",
+    /* Passed outside a hearing, on a memo — the entry whose Hearing column is blank. */
     attendance:
-      "Both sides are represented by counsel. The accused is present in person. The case stands posted today for the evidence of the accused.",
+      "This order is passed outside a hearing, on a memo filed by counsel for the accused. Both sides are represented by counsel.",
     orderTitle: "Order closing the evidence on both sides",
     proceedings: [
-      "The accused reported that she does not propose to adduce any evidence on her side, and that she will rely on the answers recorded in her examination under S. 351 BNSS and on the documents already marked in the evidence of the complainant. The evidence on both sides is accordingly closed.",
-      "Both counsel applied for time to prepare their submissions.",
+      "By the memo, the accused reports that she does not propose to adduce any evidence on her side, and that she will rely on the answers recorded in her examination under S. 351 BNSS and on the documents already marked in the evidence of the complainant. The evidence on both sides is accordingly closed.",
+      "Both sides are to be ready with their submissions on the next date.",
     ],
   },
   {
@@ -228,6 +262,7 @@ const A_DIARY_SEED: ADiarySeed[] = [
       { name: "Adv. Rajan Pillai", side: "accused" },
     ],
     datedOffset: 0,
+    hearingPurpose: "for-reports",
     nextOffset: 21,
     nextPurpose: "for-reports",
     attendance:
@@ -239,8 +274,8 @@ const A_DIARY_SEED: ADiarySeed[] = [
     ],
   },
   /* Left unsigned from earlier days. They are the reason the date filter is a control
-     and not decoration, and the reason the page's count and the table's count differ:
-     the count is the whole unsigned diary, the table is one day of it. */
+     and not decoration. They are also the only days that can be signed: today's
+     entries wait until the day is over (`ADY-12b`). */
   {
     id: "ad-672",
     caseNumber: "ST/672/2026",
@@ -250,6 +285,7 @@ const A_DIARY_SEED: ADiarySeed[] = [
       { name: "Adv. Deepa Chandran", side: "accused" },
     ],
     datedOffset: -1,
+    hearingPurpose: "evidence-of-complainant",
     nextOffset: 9,
     nextPurpose: "examination-of-accused-351",
     attendance:
@@ -269,6 +305,7 @@ const A_DIARY_SEED: ADiarySeed[] = [
     },
     counsel: [{ name: "Adv. Fathima Nazar", side: "complainant" }],
     datedOffset: -1,
+    hearingPurpose: "cognizance",
     nextOffset: 4,
     nextPurpose: "cognizance",
     attendance:
@@ -288,6 +325,7 @@ const A_DIARY_SEED: ADiarySeed[] = [
       { name: "Adv. Rekha Pillai", side: "accused" },
     ],
     datedOffset: -3,
+    hearingPurpose: "delay-condonation",
     nextOffset: 2,
     nextPurpose: "delay-condonation",
     attendance:
@@ -301,16 +339,17 @@ const A_DIARY_SEED: ADiarySeed[] = [
 ];
 
 /**
- * How many diary entries are unsigned — the number the rail carries beside "Sign
- * A-Diary".
+ * How many days of the diary are waiting to be signed — the number the rail carries
+ * beside "Sign A-Diary".
  *
- * The length of the seed, which is a fact about the fixture and not about the clock, so
- * the rail can carry it without asking what day it is. It counts the whole unsigned
- * diary rather than one day of it: the rail sends the bench to a screen that opens on
- * today, and the page's own count line is the one that agrees with this number. Derived
- * rather than typed in beside the label, the way every other built row's count is.
+ * Days, not entries, because a day is what gets signed (`ADY-12`); and only days that are
+ * over, because today's diary cannot be signed until tomorrow (`ADY-12b`). Read from the
+ * seed's offsets, which are facts about the fixture and not about the clock, so the rail
+ * can carry it without asking what day it is. The page's own count line agrees with it.
  */
-export const A_DIARY_PENDING_COUNT = A_DIARY_SEED.length;
+export const A_DIARY_PENDING_COUNT = new Set(
+  A_DIARY_SEED.filter((seed) => seed.datedOffset < 0).map((seed) => seed.datedOffset),
+).size;
 
 /**
  * The next-hearing sentence — the one line every entry in the register ends with.
@@ -347,6 +386,7 @@ function composeBusiness(seed: ADiarySeed, nextHearing: string): string {
 export function aDiaryEntries(today: string): ADiaryEntry[] {
   return A_DIARY_SEED.map((seed) => {
     const nextHearing = addDays(today, seed.nextOffset);
+    const business = composeBusiness(seed, nextHearing);
     return {
       id: seed.id,
       caseNumber: seed.caseNumber,
@@ -355,7 +395,13 @@ export function aDiaryEntries(today: string): ADiaryEntry[] {
       attendance: seed.attendance,
       orderTitle: seed.orderTitle,
       dated: addDays(today, seed.datedOffset),
-      business: composeBusiness(seed, nextHearing),
+      hearing:
+        seed.hearingPurpose === null
+          ? null
+          : { day: addDays(today, seed.datedOffset), purpose: seed.hearingPurpose },
+      /* The same text at the start: the A-Diary text is the order text by default. */
+      orderText: business,
+      business,
       nextHearing,
       nextPurpose: seed.nextPurpose,
     };
@@ -400,14 +446,48 @@ export function filterADiary(
   return rows.filter((entry) => entry.dated === day);
 }
 
+/** Every day that still has unsigned entries, today included — what the picker marks. */
+export function unsignedADiaryDays(rows: ADiaryEntry[]): string[] {
+  return [...new Set(rows.map((entry) => entry.dated))].sort((a, b) => b.localeCompare(a));
+}
+
 /**
- * Correct the day's business before it is signed.
+ * Whether a day's diary can be signed yet: only once the day is over, never on the day
+ * itself (`ADY-12b`). ISO days compare as strings.
+ */
+export function canSignADiaryDay(day: string, today: string): boolean {
+  return day < today;
+}
+
+/** The unsigned days that can be signed now, newest first. */
+export function signableADiaryDays(rows: ADiaryEntry[], today: string): string[] {
+  return [...new Set(rows.map((entry) => entry.dated))]
+    .filter((day) => canSignADiaryDay(day, today))
+    .sort((a, b) => b.localeCompare(a));
+}
+
+/**
+ * Sign one day: every entry of that day leaves the unsigned register together, because
+ * the day is signed as one document (`ADY-12`). Once signed, nothing in it changes
+ * (`ADY-07`), so there is nothing left on this screen to act on.
+ *
+ * **It records nothing.** See the module header: this filters a list in memory.
+ */
+export function signADiaryDay(rows: ADiaryEntry[], day: string): ADiaryEntry[] {
+  return rows.filter((entry) => entry.dated !== day);
+}
+
+/**
+ * Correct the day's business before the day is signed.
  *
  * A pure function over the register so the screen holds one list and no second copy of
  * the truth. The text is trimmed, and a blank one is ignored rather than written: a
  * diary entry with no business recorded is not a record the court can sign, and the
  * editor disables Save on it for the same reason. An id that names no entry is ignored
  * too — a register that has moved on under a stale dialog is a real case, not an error.
+ *
+ * It changes the entry's A-Diary text only. `orderText` is left exactly as it was: the
+ * order text is not changed by editing the diary (`ADY-09`).
  *
  * **It records nothing.** See the module header: this replaces a string in memory.
  */
@@ -440,11 +520,11 @@ export function formatADiaryDate(day: string): string {
  * heading, the cause, the offence every case here is prosecuted for, the order's own
  * title, who appeared, the operative passage, and the block that signs it.
  *
- * Two things it keeps from the register it replaced. The **appearance table** is the
- * reference's own drawing and is the part of the day's record that says the hearing
- * happened at all, so it stays, as the order sheet's Present roll. And the operative
- * passage is `entry.business` — the same string the editor corrects — so correcting the
- * day's record still visibly changes the paper beside it.
+ * It keeps the reference's **appearance table**, the part of the day's record that says
+ * the hearing happened at all, as the order sheet's Present roll. The operative passage
+ * is `entry.orderText` — the order as signed — and not the business the editor corrects:
+ * correcting the diary does not change the order (`ADY-09`), and the order is shown so
+ * the correction can be checked against it (`ADY-10`).
  *
  * **The order wording is demo text, not a court-approved order.** `docs/product/` defines
  * no §138 order template, the entries carry no sums, sureties or dates of payment, and
@@ -471,11 +551,16 @@ export type ADiaryDocument = {
   attendance: string;
   /** The reference's bordered table: a label and a value, in the order it draws them. */
   appearances: { label: string; value: string }[];
-  /** The operative passage, in paragraphs — the business of the day as the bench left it. */
+  /** The operative passage, in paragraphs — the order text as signed. */
   paragraphs: string[];
-  /** The signature block. Nothing in this build ever signs it. */
+  /** The signature block. The order is signed: an entry exists only once it is (`ADY-05`). */
   signature: string;
 };
+
+/** Split on the blank line the editor holds and the seed writes. */
+function splitParagraphs(text: string): string[] {
+  return text.split(/\n\s*\n/).filter((paragraph) => paragraph.trim() !== "");
+}
 
 /** Counsel for one side, or the plain fact that there is none. */
 function appearanceFor(entry: ADiaryEntry, side: "complainant" | "accused"): string {
@@ -504,14 +589,11 @@ export function buildADiaryDocument(entry: ADiaryEntry): ADiaryDocument {
       { label: "Accused 1", value: entry.parties.accused },
       { label: "Advocate(s)", value: appearanceFor(entry, "accused") },
     ],
-    /* Split on the blank line the editor holds and the seed writes. A passage the bench
-       has flattened into one paragraph is one paragraph, which is what it asked for. */
-    paragraphs: entry.business.split(/\n\s*\n/).filter((text) => text.trim() !== ""),
-    /* The signature block names whose signature the page is waiting for — the magistrate,
-       never the seat working the screen. An unsigned order says so plainly rather than
-       showing an empty rule that could be mistaken for a signature that failed to
-       render. */
-    signature: `Pending the signature of ${PRESIDING_MAGISTRATE.name}, ${PRESIDING_MAGISTRATE.designation}, ${COURT}.`,
+    paragraphs: splitParagraphs(entry.orderText),
+    /* An entry is made when its order is triggered — signed and its order data complete
+       (`ADY-05`) — so the order beside it is always a signed one. Named for the
+       magistrate, never the seat working the screen. */
+    signature: `Signed by ${PRESIDING_MAGISTRATE.name}, ${PRESIDING_MAGISTRATE.designation}, ${COURT}.`,
   };
 }
 
@@ -549,6 +631,98 @@ export function downloadADiaryDocument(entry: ADiaryEntry): void {
   const anchor = window.document.createElement("a");
   anchor.href = url;
   anchor.download = aDiaryDocumentFilename(voicedForDownload(entry));
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+/** "20 Oct 2026 · Evidence of complainant" — a date and what it is for, as one cell. */
+export function formatADiaryHearing(day: string, purpose: CourtHearingPurposeId): string {
+  return `${formatListingDate(day)} · ${courtHearingPurposeLabel(purpose)}`;
+}
+
+/**
+ * The day's A-Diary as one document — what the signer signs (`ADY-12`).
+ *
+ * **Generated at the moment of signing, from the entries as they stand** (`ADY-12a`).
+ * Until then the diary is entries on a screen, the same way an order is text until it is
+ * signed and stored as a signed PDF (`order-generation.md` `PUB-01`). So nothing builds
+ * this ahead of time: the sign dialog builds it when it opens, from the register it is
+ * handed, and an entry corrected a minute earlier is in it.
+ *
+ * The same table as the screen (`ADY-03a`): one row per entry, with the case name and
+ * number, the hearing (blank outside a hearing), the proceedings and the next hearing.
+ */
+export type ADiaryDayDocument = {
+  court: string;
+  /** "Monday, 19 October 2026" — the day the diary records, named in full. */
+  dated: string;
+  entries: {
+    caseNumber: string;
+    matter: string;
+    /** Date and purpose, or `null` when the order was passed outside a hearing. */
+    hearing: string | null;
+    paragraphs: string[];
+    /** Date and purpose. */
+    nextHearing: string;
+  }[];
+  /** The signature block, until it is signed. */
+  signature: string;
+};
+
+export function buildADiaryDayDocument(
+  day: string,
+  rows: ADiaryEntry[],
+): ADiaryDayDocument {
+  return {
+    court: `Before the ${COURT}`,
+    dated: formatCourtDay(day),
+    entries: rows
+      .filter((entry) => entry.dated === day)
+      .map((entry) => ({
+        caseNumber: entry.caseNumber,
+        matter: causeTitle(entry),
+        hearing: entry.hearing
+          ? formatADiaryHearing(entry.hearing.day, entry.hearing.purpose)
+          : null,
+        paragraphs: splitParagraphs(entry.business),
+        nextHearing: formatADiaryHearing(entry.nextHearing, entry.nextPurpose),
+      })),
+    signature: `Pending the signature of ${PRESIDING_MAGISTRATE.name}, ${PRESIDING_MAGISTRATE.designation}, ${COURT}.`,
+  };
+}
+
+export function aDiaryDayDocumentText(document: ADiaryDayDocument): string {
+  return [
+    document.court,
+    "A-Diary",
+    `Dated ${document.dated}`,
+    "",
+    ...document.entries.flatMap((entry, index) => [
+      `${index + 1}. Case: ${entry.matter}, ${entry.caseNumber}`,
+      `Hearing: ${entry.hearing ?? ""}`,
+      "Proceedings:",
+      ...entry.paragraphs,
+      `Next hearing: ${entry.nextHearing}`,
+      "",
+    ]),
+    document.signature,
+  ].join("\n");
+}
+
+export function aDiaryDayDocumentFilename(day: string): string {
+  return `a-diary-${day}.txt`;
+}
+
+export function downloadADiaryDayDocument(day: string, rows: ADiaryEntry[]): void {
+  const document = buildADiaryDayDocument(day, rows);
+  const url = URL.createObjectURL(
+    new Blob([localizeForDownload(aDiaryDayDocumentText(document))], {
+      type: "text/plain",
+    }),
+  );
+  const anchor = window.document.createElement("a");
+  anchor.href = url;
+  anchor.download = aDiaryDayDocumentFilename(day);
   anchor.click();
   URL.revokeObjectURL(url);
 }

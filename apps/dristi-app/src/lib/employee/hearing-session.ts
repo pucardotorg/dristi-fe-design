@@ -1,5 +1,5 @@
 /**
- * What this sitting has done so far — which listing the bench has called, which it
+ * What this sitting has done so far — which listings the bench has called, which it
  * has ended, and which it has passed over.
  *
  * It lives in a module rather than in a screen's state because the marks have to
@@ -22,15 +22,20 @@
  */
 
 import { restoreRecord, saveRecord, watchRecord } from "./browser-record";
+import { isoDay, type HearingMarks } from "./hearings";
 import type { CausePosting } from "./order-draft";
 import { SAMPLE_SESSION } from "./sample-sitting";
 
-/** The three marks and the postings, in the shape `withHearingSession` applies them. */
-export type HearingSession = {
-  /** The one listing being heard. The bench hears one cause at a time. */
-  ongoingId: string | null;
-  endedIds: ReadonlySet<string>;
-  passedOverIds: ReadonlySet<string>;
+/** The marks and the postings, in the shape `withHearingSession` applies them. */
+export type HearingSession = HearingMarks & {
+  /**
+   * The day these marks were made on — `null` until the first mark. A board kept past
+   * its day is moved to `previous` and the new day opens on the opening sitting, so a
+   * listing left unheard reads Abandoned on its own day and not on today's (`HRG-05`).
+   */
+  day: string | null;
+  /** The last day worked here before this one, closed (`boardForDay`). */
+  previous: (HearingMarks & { day: string }) | null;
   /**
    * Where each matter is posted to next, keyed by listing id — set in the cause list's
    * Next hearing column (owner, 2026-10-15), and read by that listing's order
@@ -47,7 +52,9 @@ const NO_POSTINGS: Readonly<Record<string, CausePosting>> = Object.freeze({});
 
 /** An untouched day. Exported so a screen or test can open on it. */
 export const EMPTY_SESSION: HearingSession = {
-  ongoingId: null,
+  day: null,
+  previous: null,
+  ongoingIds: NO_IDS,
   endedIds: NO_IDS,
   passedOverIds: NO_IDS,
   postings: NO_POSTINGS,
@@ -62,31 +69,78 @@ const listeners = new Set<() => void>();
 /* Saved in this browser and kept in step across tabs (`browser-record.ts`; owner,
    2026-10-14: a hearing the reader starts in one tab is under way in the steno's). The
    sets are kept as lists. Restored when the first component subscribes, so the server
-   and hydration read the opening session. */
-const STORAGE_KEY = "dristi.hearing-session.v1";
+   and hydration read the opening session. v2: several ongoing hearings, and the day. */
+const STORAGE_KEY = "dristi.hearing-session.v2";
 
-type StoredSession = {
-  ongoingId?: string | null;
+type StoredMarks = {
+  ongoingIds?: string[];
   endedIds?: string[];
   passedOverIds?: string[];
+};
+
+type StoredSession = StoredMarks & {
+  day?: string | null;
+  previous?: (StoredMarks & { day: string }) | null;
   postings?: Record<string, CausePosting>;
 };
 
 /* Nothing saved yet: the opening sitting. */
 const NOTHING_SAVED: StoredSession = Object.freeze({});
 
+function marksFrom(stored: StoredMarks): HearingMarks {
+  return {
+    ongoingIds: new Set(stored.ongoingIds ?? []),
+    endedIds: new Set(stored.endedIds ?? []),
+    passedOverIds: new Set(stored.passedOverIds ?? []),
+  };
+}
+
+function marksToStore(marks: HearingMarks): StoredMarks {
+  return {
+    ongoingIds: [...marks.ongoingIds],
+    endedIds: [...marks.endedIds],
+    passedOverIds: [...marks.passedOverIds],
+  };
+}
+
 function fromStored(stored: StoredSession): HearingSession {
   if (stored === NOTHING_SAVED) return SAMPLE_SESSION;
   return {
-    ongoingId: stored.ongoingId ?? null,
-    endedIds: new Set(stored.endedIds ?? []),
-    passedOverIds: new Set(stored.passedOverIds ?? []),
+    ...marksFrom(stored),
+    day: stored.day ?? null,
+    previous: stored.previous
+      ? { ...marksFrom(stored.previous), day: stored.previous.day }
+      : null,
     postings: stored.postings ?? NO_POSTINGS,
   };
 }
 
+function today(): string {
+  return isoDay(new Date());
+}
+
+/**
+ * Midnight has passed since these marks were made: the day closes. Its marks become
+ * `previous`, read as a closed board, and the new day opens on the opening sitting.
+ * Postings are kept — they name the next hearing, which is still ahead.
+ */
+function rolledOver(from: HearingSession): HearingSession {
+  if (from.day === null || from.day === today()) return from;
+  return {
+    ...SAMPLE_SESSION,
+    day: null,
+    previous: {
+      day: from.day,
+      ongoingIds: from.ongoingIds,
+      endedIds: from.endedIds,
+      passedOverIds: from.passedOverIds,
+    },
+    postings: from.postings,
+  };
+}
+
 function load(): void {
-  session = fromStored(restoreRecord(STORAGE_KEY, NOTHING_SAVED));
+  session = rolledOver(fromStored(restoreRecord(STORAGE_KEY, NOTHING_SAVED)));
 }
 
 function restore(): void {
@@ -104,18 +158,36 @@ function commit(next: HearingSession): void {
   restore();
   session = next;
   saveRecord(STORAGE_KEY, {
-    ongoingId: next.ongoingId,
-    endedIds: [...next.endedIds],
-    passedOverIds: [...next.passedOverIds],
+    ...marksToStore(next),
+    day: next.day,
+    previous: next.previous
+      ? { ...marksToStore(next.previous), day: next.previous.day }
+      : null,
     postings: { ...next.postings },
   } satisfies StoredSession);
   for (const listener of listeners) listener();
 }
 
-function withId(ids: ReadonlySet<string>, id: string): ReadonlySet<string> {
-  const next = new Set(ids);
-  next.add(id);
-  return next;
+/**
+ * Write marks for today. A listing is in at most one set: `to` names the set it joins,
+ * and it leaves the other two.
+ */
+function mark(ids: readonly string[], to: keyof HearingMarks): void {
+  restore();
+  if (ids.length === 0) return;
+  const current = rolledOver(session);
+  const sets = {
+    ongoingIds: new Set(current.ongoingIds),
+    endedIds: new Set(current.endedIds),
+    passedOverIds: new Set(current.passedOverIds),
+  };
+  for (const id of ids) {
+    for (const key of Object.keys(sets) as (keyof HearingMarks)[]) {
+      if (key === to) sets[key].add(id);
+      else sets[key].delete(id);
+    }
+  }
+  commit({ ...current, ...sets, day: today() });
 }
 
 export function subscribeToHearingSession(listener: () => void): () => void {
@@ -140,24 +212,18 @@ export function readHearingSession(): HearingSession {
 }
 
 /**
- * Start hearing. Naming a second listing returns the first to scheduled, which is
- * what `withHearingSession` already does with a single `ongoingId` — the mark is
- * the one matter on the call, not a set.
+ * Start hearing — on a Scheduled listing, or a Passed over one called again the same
+ * day (`HRG-04`). Other ongoing hearings stay ongoing: several may be under way at once
+ * (`HRG-06`).
  */
 export function markHearingOngoing(id: string): void {
-  restore();
-  if (session.ongoingId === id) return;
-  commit({ ...session, ongoingId: id });
+  if (session.ongoingIds.has(id)) return;
+  mark([id], "ongoingIds");
 }
 
-/** End hearing. The call is finished, so it is no longer the ongoing one. */
+/** End hearing. Heard is final (`HRG-03`). */
 export function markHearingEnded(id: string): void {
-  restore();
-  commit({
-    ...session,
-    ongoingId: session.ongoingId === id ? null : session.ongoingId,
-    endedIds: withId(session.endedIds, id),
-  });
+  mark([id], "endedIds");
 }
 
 /**
@@ -169,46 +235,29 @@ export function setHearingPosting(id: string, posting: CausePosting): void {
   commit({ ...session, postings: { ...session.postings, [id]: posting } });
 }
 
-/** Pass over. Deferred rather than finished — off the call either way. */
+/** Pass over — set aside unheard, to be called again later today (`HRG-04`). */
 export function markHearingPassedOver(id: string): void {
-  restore();
-  commit({
-    ...session,
-    ongoingId: session.ongoingId === id ? null : session.ongoingId,
-    passedOverIds: withId(session.passedOverIds, id),
-  });
+  mark([id], "passedOverIds");
 }
 
 /**
- * The cause list's bulk acts (owner, 2026-10-15) — the same marks as the row's, made on
- * many listings in one write, so the board and every other tab change once.
+ * The cause list's bulk acts (`HRG-07`) — the same marks as the row's, made on many
+ * listings in one write, so the board and every other tab change once. Which listings
+ * may take them is the caller's test (`canEndHearingInBulk`, `canPassOver`).
+ */
+/**
+ * Bulk End. A listing still Scheduled is started and ended by the same press
+ * (`CLS-10`): it passes through Ongoing on its way to Heard, in the same write, so
+ * no screen ever shows the step between. This build keeps no times (`HRG-08`); a
+ * build that does records the start and the end at the same moment.
  */
 export function markHearingsEnded(ids: readonly string[]): void {
-  restore();
-  if (ids.length === 0) return;
-  const endedIds = new Set(session.endedIds);
-  for (const id of ids) endedIds.add(id);
-  commit({
-    ...session,
-    ongoingId:
-      session.ongoingId && ids.includes(session.ongoingId) ? null : session.ongoingId,
-    endedIds,
-  });
+  mark(ids, "endedIds");
 }
 
 export function markHearingsPassedOver(ids: readonly string[]): void {
-  restore();
-  if (ids.length === 0) return;
-  const passedOverIds = new Set(session.passedOverIds);
-  for (const id of ids) passedOverIds.add(id);
-  commit({
-    ...session,
-    ongoingId:
-      session.ongoingId && ids.includes(session.ongoingId) ? null : session.ongoingId,
-    passedOverIds,
-  });
+  mark(ids, "passedOverIds");
 }
-
 /**
  * Set part of the next hearing on many listings at once: whatever `change` names is
  * written over each listing's own posting; whatever it leaves out is kept.

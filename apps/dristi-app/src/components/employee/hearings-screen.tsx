@@ -1,5 +1,6 @@
 "use client";
 
+import { useCourt } from "@/components/court/court-provider";
 import * as React from "react";
 import {
   CalendarX2Icon,
@@ -16,9 +17,12 @@ import {
 import { CounselCell } from "@/components/employee/counsel-cell";
 import {
   CauseListBulkBar,
-  type BulkSeat,
+  hasBulkActs,
+  type BulkRoles,
 } from "@/components/employee/cause-list-bulk";
 import { usePendingOrders } from "@/components/employee/use-pending-orders";
+import { useOrderDrafts } from "@/components/employee/use-order-draft";
+import { hasDraftFor } from "@/lib/employee/order-drafts";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useOrderSigning } from "@/components/employee/use-order-signing";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -50,7 +54,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { CourtRole } from "@/lib/employee/content";
-import { seatPostsNextHearing } from "@/lib/employee/court-role";
+import {
+  seatDraftsOrders,
+  seatHasBenchControls,
+  seatPostsNextHearing,
+} from "@/lib/employee/court-role";
 import { CauseListColumnsMenu } from "@/components/employee/cause-list-columns-menu";
 import { useCauseListColumns } from "@/components/employee/use-cause-list-columns";
 import { useReaderPostsNextHearing } from "@/components/employee/use-next-hearing-entry";
@@ -62,6 +70,7 @@ import {
 } from "@/lib/employee/hearing-session";
 import {
   advocatesOnList,
+  boardForDay,
   causeTitle,
   counselFor,
   courtHearingPurposeLabel,
@@ -69,14 +78,18 @@ import {
   courtHearingStatusVariant,
   filterHearings,
   formatCourtDay,
-  hearingsForDay,
+  groupByStatus,
   isoDay,
   parseIsoDay,
   COURT_CASE_STAGES,
   COURT_HEARING_PURPOSES,
   EMPTY_FILTERS,
+  CAUSE_LIST_STATUS_ORDER,
+  LISTING_ORDER_MARKS,
+  NEXT_HEARING_MARKS,
   PAGE_SIZE,
-  withHearingSession,
+  courtHearingStatusLabel as statusWord,
+  type ListingFacts,
   type CourtHearing,
   type HearingFilters,
   type HearingsPageSize,
@@ -105,15 +118,11 @@ const HEARING_SORTS: CourtSortSpec<CourtHearing, HearingSort>[] = [
 ];
 
 /**
- * The Hearings view's status pills, in the owner's order (2026-10-12). "Not started" is
- * the pill's word for a scheduled listing — the row's chip still says Scheduled.
+ * The status pills: All, then each status in the board's own grouping order (`CLS-07`,
+ * `CLS-02`), each in the status's own word.
  */
-const HEARING_PILLS: { id: TodaysCauseStatus; label: string }[] = [
-  { id: "scheduled", label: "Not started" },
-  { id: "passed-over", label: "Passed over" },
-  { id: "completed", label: "Completed" },
-  { id: "ongoing", label: "Ongoing" },
-];
+const HEARING_PILLS: { id: TodaysCauseStatus; label: string }[] =
+  CAUSE_LIST_STATUS_ORDER.map((id) => ({ id, label: statusWord(id) }));
 
 /**
  * Today's hearings — the court's cause list for the day it is sitting, its pills
@@ -128,6 +137,7 @@ const HEARING_PILLS: { id: TodaysCauseStatus; label: string }[] = [
  * below them would be the box-in-box the layering model rules out (ui-craft §4).
  */
 export function HearingsScreen() {
+  const { court } = useCourt();
   const today = useCourtToday();
   /* Which seat the court side is being worked from. It decides what the rows offer, not
      what they say: the same board, with the acts that move the sitting on it or not
@@ -160,29 +170,73 @@ export function HearingsScreen() {
      show the overlay a listing that is still scheduled. */
   const [openHearingId, setOpenHearingId] = React.useState<string | null>(null);
 
-  const listed = withHearingSession(hearingsForDay(activeDay, today), session);
+  /* Today's board is live; a past day this browser worked is shown closed, with what
+     was left unheard Abandoned (`HRG-05`, `boardForDay`). */
+  const listed = boardForDay(activeDay, today, session);
+  const pastDay = activeDay < today;
   const [sort, setSort] = React.useState<HearingSort>("item");
 
-  const rows = sortRows(filterHearings(listed, filters), HEARING_SORTS, sort);
-
+  /* What the Orders and Next hearing filters read: the same facts the Orders glyph and
+     the Next hearing fields show (`hearings-table.tsx`). */
+  const drafts = useOrderDrafts();
+  const facts: ListingFacts = {
+    orderMark: (hearing) =>
+      hasDraftFor(drafts, hearing.id)
+        ? "draft"
+        : hearing.status === "completed"
+          ? "recorded"
+          : "none",
+    nextHearingSet: (hearing) => {
+      const posting = session.postings[hearing.id];
+      return !!posting && (posting.next === "none" || posting.nextDate !== null);
+    },
+  };
   /* Who enters the next hearing is a court setting (owner, 2026-10-15): the reader, on
      this board, or the steno, on the order screen. */
   const postsNextHearing = useReaderPostsNextHearing();
+  /* The Next hearing filter goes with its column: where the column is not offered, a
+     choice made in another seat narrows nothing. */
+  const nextHearingColumn =
+    postsNextHearing && seatPostsNextHearing(seat, court) && !pastDay;
+  /* Grouped by status, and within each group in the chosen order — the cause list's
+     own sequence by default (`CLS-02`). Array sort is stable, so grouping the sorted
+     rows keeps that order inside each group. */
+  const rows = groupByStatus(
+    sortRows(
+      filterHearings(
+        listed,
+        nextHearingColumn ? filters : { ...filters, nextHearing: [] },
+        facts,
+      ),
+      HEARING_SORTS,
+      sort,
+    ),
+    () => 0,
+  );
   /* Which columns show, and in what order — this seat's own choice, opening on its
      default (`cause-list-columns.ts`). */
-  const columnState = useCauseListColumns(seat, postsNextHearing);
-  const tableColumns = shownColumns(columnState.columns);
-  /* Bulk mode (owner, 2026-10-15): the reader, when the reader enters the next hearing,
-     marks and posts many listings at once; the steno adds one piece of text to many
-     orders. Other seats have no bulk mode. */
-  const bulkSeat: BulkSeat | null =
-    postsNextHearing && seatPostsNextHearing(seat)
-      ? "reader"
-      : seat === "typist"
-        ? "steno"
-        : null;
+  const columnState = useCauseListColumns(seat, postsNextHearing, court);
+  /* A past day is a record: nothing on it can be started, ended, posted or drafted. */
+  const tableColumns = shownColumns(columnState.columns).filter(
+    (column) =>
+      !pastDay ||
+      (column.id !== "action" &&
+        column.id !== "orders" &&
+        column.id !== "nextHearing"),
+  );
+  /* Bulk mode follows the roles this seat stands for (`CLS-06`, `CLS-09`): a hearing
+     controller ends or passes over many listings; a next hearing setter, where the
+     next hearing is entered here, posts them in the same pop-up; an order drafter adds
+     one piece of text to many orders. A seat with none of them has no bulk mode, and a
+     past day has none for anyone. */
+  const bulkRoles: BulkRoles = {
+    hearing: seatHasBenchControls(seat, court),
+    next: postsNextHearing && seatPostsNextHearing(seat, court),
+    text: seatDraftsOrders(seat, court),
+  };
+  const bulkOffered = hasBulkActs(bulkRoles) && !pastDay;
   const [bulkOn, setBulkOn] = React.useState(false);
-  const bulk = bulkSeat !== null && bulkOn;
+  const bulk = bulkOffered && bulkOn;
   const [bulkIds, setBulkIds] = React.useState<ReadonlySet<string>>(
     () => new Set(),
   );
@@ -304,7 +358,9 @@ export function HearingsScreen() {
   const start = (currentPage - 1) * pageSize;
   const pageRows = rows.slice(start, start + pageSize);
   const isFiltered =
-    filters.status !== "all" ||
+    filters.statuses.length > 0 ||
+    filters.orders.length > 0 ||
+    (nextHearingColumn && filters.nextHearing.length > 0) ||
     filters.purposes.length > 0 ||
     filters.advocates.length > 0 ||
     filters.stages.length > 0 ||
@@ -356,9 +412,20 @@ export function HearingsScreen() {
           leading={
             <StatusPills
                 label="Hearing status"
-                value={filters.status}
+                /* The pills are the quick form of the Status filter: one status, or All.
+                   Several statuses picked in the Filters panel light no pill. */
+                value={
+                  filters.statuses.length === 0
+                    ? "all"
+                    : filters.statuses.length === 1
+                      ? filters.statuses[0]
+                      : ""
+                }
                 onChange={(status) =>
-                  changeFilters({ status: status as HearingFilters["status"] })
+                  changeFilters({
+                    statuses:
+                      status === "all" ? [] : [status as TodaysCauseStatus],
+                  })
                 }
                 total={listed.length}
                 options={HEARING_PILLS.map((pill) => ({
@@ -371,6 +438,7 @@ export function HearingsScreen() {
           }
           filters={filters}
           advocates={advocatesOnList(listed)}
+          nextHearingColumn={nextHearingColumn}
           onChange={(patch) => {
             setBulkNotice("");
             changeFilters(patch);
@@ -388,7 +456,7 @@ export function HearingsScreen() {
           onClear={clearFilters}
           trailing={
             <>
-              {bulkSeat ? (
+              {bulkOffered ? (
                 <Button
                   type="button"
                   variant="outline"
@@ -503,9 +571,9 @@ export function HearingsScreen() {
         )}
       </div>
 
-      {bulk && bulkSeat ? (
+      {bulk ? (
         <CauseListBulkBar
-          seat={bulkSeat}
+          roles={bulkRoles}
           selected={bulkSelected}
           notice={bulkNotice}
           onNotice={setBulkNotice}
@@ -529,6 +597,7 @@ export function HearingsScreen() {
            row it does not open. */
         onStartHearing={startHearing}
         onEndHearing={endHearing}
+        onPassOver={passOverHearing}
         postsNextHearing={postsNextHearing}
         onOpenChange={(open) => {
           if (!open) setOpenHearingId(null);
@@ -558,7 +627,10 @@ function HearingsFilters({
   onClearDay,
   onClear,
   trailing,
+  nextHearingColumn,
 }: {
+  /** Whether Next hearing is a column for this person — its filter goes with it. */
+  nextHearingColumn: boolean;
   /** The view's status pills, on a row above the filters. */
   leading: React.ReactNode;
   searchRef: React.RefObject<HTMLInputElement | null>;
@@ -593,6 +665,18 @@ function HearingsFilters({
         /* Every one takes several values, as a multi-select dropdown (owner, 2026-10-15). */
         multi={[
           {
+            id: "hearings-status",
+            label: "Status",
+            values: filters.statuses,
+            placeholder: "All statuses",
+            options: CAUSE_LIST_STATUS_ORDER.map((status) => ({
+              value: status,
+              label: statusWord(status),
+            })),
+            onApply: (values) =>
+              onChange({ statuses: values as HearingFilters["statuses"] }),
+          },
+          {
             id: "hearings-advocate",
             label: "Advocate",
             values: filters.advocates,
@@ -624,6 +708,36 @@ function HearingsFilters({
             onApply: (values) =>
               onChange({ purposes: values as HearingFilters["purposes"] }),
           },
+          {
+            id: "hearings-orders",
+            label: "Orders",
+            values: filters.orders,
+            placeholder: "All orders",
+            options: LISTING_ORDER_MARKS.map((mark) => ({
+              value: mark.id,
+              label: mark.label,
+            })),
+            onApply: (values) =>
+              onChange({ orders: values as HearingFilters["orders"] }),
+          },
+          ...(nextHearingColumn
+            ? [
+                {
+                  id: "hearings-next-hearing",
+                  label: "Next hearing",
+                  values: filters.nextHearing,
+                  placeholder: "Set or not",
+                  options: NEXT_HEARING_MARKS.map((mark) => ({
+                    value: mark.id,
+                    label: mark.label,
+                  })),
+                  onApply: (values: string[]) =>
+                    onChange({
+                      nextHearing: values as HearingFilters["nextHearing"],
+                    }),
+                },
+              ]
+            : []),
         ]}
         date={{
           label: "Hearing date",
@@ -704,7 +818,7 @@ function HearingsEmpty({
         </EmptyTitle>
         <EmptyDescription className="text-body">
           {isFiltered
-            ? "No matter on this day's list matches the status, purpose or search you asked for."
+            ? "No matter on this day's list matches the filters or search you chose."
             : `This court has no hearings listed for ${formatCourtDay(day)}.`}
         </EmptyDescription>
       </EmptyHeader>

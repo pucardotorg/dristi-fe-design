@@ -1,5 +1,6 @@
 "use client";
 
+import { useCourt } from "@/components/court/court-provider";
 import * as React from "react";
 import Link from "next/link";
 import {
@@ -91,9 +92,9 @@ import { cn } from "@/lib/utils";
  * left to call, so the control stops taking a press — the same outline slot now
  * reads *Hearing ended*, disabled. A dash would read as missing data; the words say
  * the call is done. It stays the outline dress (not a second status chip) so the
- * Completed chip remains the one status mark (ui-craft §1.4). Passed-over listings
- * also have nothing left to call today; the slot empties rather than showing that
- * report, because the call was not finished — the Passed over chip is the mark.
+ * Heard chip remains the one status mark (ui-craft §1.4). A passed-over listing is
+ * called again later the same day, so it takes Start hearing again (`HRG-04`). An
+ * abandoned one's day is over; its slot is empty and the Abandoned chip is the mark.
  *
  * Pass over is the other sitting outcome, not a second session verb: it lives
  * in a row overflow beside this control, on scheduled and ongoing rows only.
@@ -249,10 +250,11 @@ export function HearingSessionButton({
   onEndHearing: (hearing: CourtHearing) => void;
   className?: string;
 }) {
+  const { court } = useCourt();
   /* No slot in a seat that does not run the sitting — see above. The row still says
      where the matter stands; that is the Status chip's job and it was never this
      control's. */
-  if (!seatHasBenchControls(seat)) return null;
+  if (!seatHasBenchControls(seat, court)) return null;
 
   if (canStartHearing(hearing.status)) {
     return (
@@ -345,13 +347,9 @@ export function HearingSessionButton({
       </Button>
     );
   }
-  if (hearing.status === "passed-over") {
-    return (
-      <span className={cn("inline-flex h-10 items-center", className)}>
-        <span className="sr-only">Passed over</span>
-      </span>
-    );
-  }
+  /* An abandoned listing's day is over: nothing is left to call or end, and the
+     sitting was not finished, so the slot stays empty — the Abandoned chip is the mark. */
+  if (hearing.status !== "completed") return null;
   return (
     /* The sitting is done and there is nothing left to call: outline dress,
        disabled, the words *Hearing ended*. `disabled` rather than
@@ -374,8 +372,8 @@ export function HearingSessionButton({
 }
 
 /**
- * Pass over — skip this listing without completing it, to hear it on a later
- * date. Secondary to Start/End: ghost icon, one menu item, never a second
+ * Pass over — set this listing aside unheard, to call it again later the same day
+ * with Start hearing (`HRG-04`). Secondary to Start/End: ghost icon, one menu item, never a second
  * labelled button (ui-craft §2).
  *
  * The menu is overlay elevation via the DS primitive. Width is `w-auto
@@ -391,10 +389,11 @@ export function HearingPassOverMenu({
   seat: CourtRole;
   onPassOver: (hearing: CourtHearing) => void;
 }) {
+  const { court } = useCourt();
   /* Pass over is one of the bench's three controls. It leaves with the other two
      rather than staying behind as the single bench act reachable from a smaller
      menu in a seat that has no session controls at all. */
-  if (!seatHasBenchControls(seat)) return null;
+  if (!seatHasBenchControls(seat, court)) return null;
   if (!canPassOver(hearing.status)) return null;
 
   return (
@@ -537,6 +536,7 @@ export function HearingOrdersButton({
   onOpen?: (hearing: CourtHearing) => void;
   className?: string;
 }) {
+  const { court } = useCourt();
   const label = drafted
     ? `Resume draft order for item ${hearing.item}, ${causeTitle(hearing)}`
     : `Order for item ${hearing.item}, ${causeTitle(hearing)}`;
@@ -544,7 +544,7 @@ export function HearingOrdersButton({
      order that has already been drawn up. */
   const open =
     opensExisting ||
-    (seatHasBenchControls(seat)
+    (seatHasBenchControls(seat, court)
       ? canDraftOrder(hearing.status)
       : canTypeOrder(hearing.status));
   /* Whether this listing has an order on it — see the note above on why `completed` is
@@ -710,13 +710,14 @@ export function HearingRowActions({
   postsNextHearing?: boolean;
   className?: string;
 }) {
-  const ordersIsTheRow = !seatHasBenchControls(seat);
+  const { court } = useCourt();
+  const ordersIsTheRow = !seatHasBenchControls(seat, court);
   /* The phone row has no columns to move between, so the state has to be in the control
      itself: this is where "Open order" becomes "Resume draft". */
   const drafts = useOrderDrafts();
   const drafted = hasDraftFor(drafts, hearing.id);
 
-  const posts = postsNextHearing && seatPostsNextHearing(seat);
+  const posts = postsNextHearing && seatPostsNextHearing(seat, court);
   return (
     <div className={cn("flex flex-col gap-2", className)}>
       {posts ? (

@@ -1,10 +1,16 @@
 "use client";
 
 import * as React from "react";
-import { BookCheckIcon, CalendarXIcon, NotebookPenIcon } from "lucide-react";
+import {
+  BookCheckIcon,
+  CalendarDaysIcon,
+  CalendarXIcon,
+  NotebookPenIcon,
+} from "lucide-react";
 
 import { ListFooter } from "@/components/employee/list-footer";
 import { QueueAnnouncer } from "@/components/employee/queue-announcer";
+import { SignADiaryDayDialog } from "@/components/employee/sign-a-diary-day-dialog";
 import { SignADiaryDialog } from "@/components/employee/sign-a-diary-dialog";
 import { SignADiaryTable } from "@/components/employee/sign-a-diary-table";
 import {
@@ -12,7 +18,10 @@ import {
   rowOpenerClass,
 } from "@/lib/employee/row-activation";
 import { Button } from "@/components/ui/button";
-import { DatePicker } from "@/components/ui/date-picker";
+import { Calendar, CalendarDayButton } from "@/components/ui/calendar";
+import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import type { DayButton } from "react-day-picker";
 import {
   Empty,
   EmptyContent,
@@ -22,7 +31,6 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import {
-  causeTitle,
   formatCourtDay,
   isoDay,
   parseIsoDay,
@@ -32,10 +40,14 @@ import {
 import {
   DEFAULT_A_DIARY_FILTERS,
   aDiaryEntries,
+  canSignADiaryDay,
   filterADiary,
   formatADiaryDate,
   resolveADiaryDay,
   saveBusinessOfTheDay,
+  signADiaryDay,
+  signableADiaryDays,
+  unsignedADiaryDays,
   type ADiaryEntry,
   type ADiaryFilters,
 } from "@/lib/employee/sign-a-diary";
@@ -63,26 +75,25 @@ const readToday = () => isoDay(new Date());
  * footer component. A bench moving between the rail's rows is looking at one court's
  * work through several windows and should not have to re-learn the furniture in between.
  *
- * Three things make this one different, and all three come from what an A-Diary is:
+ * Four things make this one different, and all four come from what an A-Diary is:
  *
  * - **It is read a day at a time.** The one filter is a date, and it opens on the day the
  *   court is sitting, as the reference draws it. There is no "every day": the register is
  *   dated paper, and clearing the picker returns to today rather than pouring three days
  *   into a table whose columns cannot tell them apart.
- * - **There is no bulk act.** The reference gives this queue no checkboxes, and it is
- *   right to: the two signing queues above it sign papers the court has already
- *   finished, while signing the diary means reading what was written and correcting it
- *   first. So there is no selection and no sticky bar, and the screen's one strong action
- *   is the reference's own teal Search.
- * - **The record is editable until it is signed.** That lives in the entry dialog, beside
- *   the words it changes.
+ * - **The day is what gets signed** (`a-diary.md` `ADY-12`), as one document, so there is
+ *   no selection and no per-entry signature. The one strong action is Sign the A-Diary,
+ *   for the day on view, beside the date that names it.
+ * - **Only a day that is over can be signed** (`ADY-12b`). On today the action's place
+ *   says when it can be, rather than offering a button that cannot work.
+ * - **The record is editable until its day is signed** (`ADY-07`). That lives in the entry
+ *   dialog, beside the order the words are checked against.
  *
  * **Nothing on this screen signs, records or files anything.** Saving replaces a string
- * in the demo register and signing drops the entry from it — see
+ * in the demo register and signing drops the day from it — see
  * `lib/employee/sign-a-diary.ts`.
  */
 export function SignADiaryScreen() {
-  const courtText = useCourtText();
   const today = React.useSyncExternalStore(
     NEVER_CHANGES,
     readToday,
@@ -90,7 +101,7 @@ export function SignADiaryScreen() {
   );
 
   /* The register is state because both acts change it: Save rewrites an entry's business,
-     Sign drops the entry. One list, so the table, the count on the page and the dialog
+     Sign drops the day. One list, so the table, the count on the page and the dialog
      can never disagree about what is still unsigned. */
   const [register, setRegister] = React.useState<ADiaryEntry[]>(() =>
     aDiaryEntries(today),
@@ -108,12 +119,17 @@ export function SignADiaryScreen() {
      and a dialog holding a copy would keep showing the words the bench has just
      corrected. */
   const [openId, setOpenId] = React.useState<string | null>(null);
+  /* The day whose A-Diary is being signed, while that dialog is open. */
+  const [signingDay, setSigningDay] = React.useState<string | null>(null);
+  /* Days signed in this visit, so the empty day says it is signed rather than empty. */
+  const [signedDays, setSignedDays] = React.useState<string[]>([]);
   const [announcement, setAnnouncement] = React.useState("");
   const headingRef = React.useRef<HTMLHeadingElement>(null);
 
   const shownDay = resolveADiaryDay(filters, today);
   const rows = filterADiary(register, filters, today);
   const open = register.find((entry) => entry.id === openId) ?? null;
+  const waitingDays = signableADiaryDays(register, today);
 
   const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
   const currentPage = Math.min(page, pageCount);
@@ -135,28 +151,20 @@ export function SignADiaryScreen() {
   }
 
   /**
-   * Sign one entry: it leaves the register, and nothing else happens.
-   *
-   * The business the bench had in the editor is written before the entry goes, so the
-   * announcement and the register agree with what was on screen even though neither
-   * outlives the visit. Nothing is filed — see the module header.
+   * Sign one day: all its entries leave the register together, and nothing else happens.
+   * Nothing is filed — see the module header.
    */
-  function sign(entry: ADiaryEntry, business: string) {
-    setRegister((current) =>
-      saveBusinessOfTheDay(current, entry.id, business).filter(
-        (row) => row.id !== entry.id,
-      ),
-    );
-    setOpenId(null);
-    setAnnouncement(
-      `The entry in ${courtText(entry.caseNumber)}, ${causeTitle(entry)}, left the A-Diary queue.`,
-    );
+  function signDay(day: string) {
+    setRegister((current) => signADiaryDay(current, day));
+    setSignedDays((current) => [...current, day]);
+    setSigningDay(null);
+    setAnnouncement(`The A-Diary for ${formatCourtDay(day)} is signed.`);
   }
 
   /**
-   * Where focus lands when the dialog closes.
+   * Where focus lands when a dialog closes.
    *
-   * The row that opened it is often gone by then — signing takes it out of the register —
+   * What opened it is often gone by then — signing takes the day out of the register —
    * so the DS's own restore-to-trigger would drop focus on nothing. The page title is the
    * one thing on this screen that is always there, and it names where the bench is.
    */
@@ -175,16 +183,18 @@ export function SignADiaryScreen() {
           Sign A-Diary
         </h1>
         {/* The count is the whole point of the queue, so the supporting line carries it
-            rather than restating the title. It counts the whole unsigned register, not
-            the day on screen — the footer below states that — so a bench that has fallen
-            a day behind can see it from here. Singular is spelled out because "1 entries"
-            is the kind of thing a court notices. */}
+            rather than restating the title. It counts days, because a day is what gets
+            signed, and only days that are over, because only those can be — the same
+            number the rail carries. Singular is spelled out because "1 days" is the kind
+            of thing a court notices. */}
         <p className="text-body text-muted-foreground">
           {register.length === 0
-            ? "This court's register is signed up to date."
-            : register.length === 1
-              ? "1 entry in this court's register is waiting for your signature."
-              : `${register.length} entries in this court's register are waiting for your signature.`}
+            ? "This court's A-Diary is signed up to date."
+            : waitingDays.length === 0
+              ? "Nothing is waiting for your signature. Today's A-Diary can be signed once the day is over."
+              : waitingDays.length === 1
+                ? "1 day of this court's A-Diary is waiting for your signature."
+                : `${waitingDays.length} days of this court's A-Diary are waiting for your signature.`}
         </p>
       </header>
 
@@ -192,11 +202,27 @@ export function SignADiaryScreen() {
           share one lifted sheet — the same recipe every other court-side list uses.
           Nothing inside draws a second frame. */}
       <section className="flex min-w-0 flex-col gap-6 rounded-xl border border-hairline bg-card shadow-raised p-6">
-        <SignADiaryFilters
-          filters={filters}
-          today={today}
-          onChange={changeFilters}
-        />
+        {/* The day and the act on it share one row: the date names the paper the button
+            signs. Stacked below `sm`. */}
+        <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <SignADiaryFilters
+            filters={filters}
+            today={today}
+            unsignedDays={unsignedADiaryDays(register)}
+            onChange={changeFilters}
+          />
+          {rows.length === 0 ? null : canSignADiaryDay(shownDay, today) ? (
+            <Button onClick={() => setSigningDay(shownDay)}>
+              Sign the A-Diary for {formatADiaryDate(shownDay)}
+            </Button>
+          ) : (
+            /* Today, said in words rather than as a disabled button: what the bench
+               needs to know is when, not that it cannot. */
+            <p className="text-body-compact text-muted-foreground sm:max-w-xs sm:text-right">
+              This day&apos;s A-Diary can be signed once the day is over.
+            </p>
+          )}
+        </div>
 
         {/* Mounted whatever the list is doing, including empty — see `QueueAnnouncer`. */}
         <QueueAnnouncer
@@ -210,6 +236,7 @@ export function SignADiaryScreen() {
             day={shownDay}
             today={today}
             hasUnsigned={register.length > 0}
+            signed={signedDays.includes(shownDay)}
             onShowToday={showToday}
           />
         ) : (
@@ -260,7 +287,16 @@ export function SignADiaryScreen() {
         entry={open}
         onOpenChange={(entry) => setOpenId(entry?.id ?? null)}
         onSave={save}
-        onSign={sign}
+        onReturnFocus={returnFocus}
+      />
+
+      <SignADiaryDayDialog
+        day={signingDay}
+        register={register}
+        onOpenChange={(next) => {
+          if (!next) setSigningDay(null);
+        }}
+        onSign={signDay}
         onReturnFocus={returnFocus}
       />
     </div>
@@ -268,67 +304,103 @@ export function SignADiaryScreen() {
 }
 
 /**
- * Which day's register is on screen — the reference's one control.
+ * Which day's register is on screen — the reference's one control — and which days are
+ * still unsigned (`a-diary.md` `ADY-03`).
  *
- * The Search button is gone, and this is the screen where it was least defensible: the
- * control is a calendar, so the only thing it can hand over is a whole day, and the
- * button existed to re-ask for a day the bench had already named. Picking one now shows
- * it. There is no meaningless in-between state to protect, which is the test for whether
- * a control can go live.
+ * Picking a day shows it; there is no Search. Clearing is not offered: the register
+ * always shows one day.
  *
- * That leaves the page with no `bg-primary` at all. Search used to carry it on the
- * argument that asking for a day *is* the act here — but that act is now the picker
- * itself, and the Ration Teal Law does not ask for a strong fill where there is no
- * button to put one on. Signing happens one entry at a time in the overlay, where the
- * teal already is. Nothing was promoted to fill the gap.
- *
- * There is no "Show today" beside the picker either. The register always shows one day,
- * so clearing the calendar means today, and naming a second day is already the picker's
- * job. A way back from an empty other day lives on that empty state, not on this row.
+ * Built from `Popover` + `Calendar` rather than the DS `DatePicker`, because the picker
+ * has no way to mark days and marking the unsigned ones is the point. The mark is the one
+ * `DashboardDatePicker` already uses — a dot under the day — never colour alone: the day's
+ * spoken name says "unsigned", and a legend under the calendar names the dot.
  */
 function SignADiaryFilters({
   filters,
   today,
+  unsignedDays,
   onChange,
 }: {
   filters: ADiaryFilters;
   today: string;
+  /** Days with unsigned entries, `YYYY-MM-DD`. */
+  unsignedDays: string[];
   onChange: (filters: ADiaryFilters) => void;
 }) {
   const day = resolveADiaryDay(filters, today);
+  const [open, setOpen] = React.useState(false);
+  const unsigned = React.useMemo(() => unsignedDays.map(parseIsoDay), [unsignedDays]);
 
   return (
     <form
-      className="flex min-w-0 flex-col"
+      className="flex min-w-0 flex-col gap-2"
       onSubmit={(event) => event.preventDefault()}
     >
-      {/* `DatePicker` owns its trigger and takes no `id`, so the visible label names a
-          group around it rather than pointing `htmlFor` at a control that does not exist.
-          The trigger still announces the date it holds.
-
-          The `key` is not decoration. `DatePicker` treats `value === undefined` as "I am
-          uncontrolled" and falls back to its own last selection, so a date driven from
-          outside — the empty state's return to today — would keep showing the day the
-          bench had picked. Remounting on the value is the only fix that does not edit the
-          primitive; upstream DS bug, logged in the build report. */}
-      <div className="flex min-w-0 flex-col gap-2">
-        <span id="sign-a-diary-date-label" className="w-fit text-body-compact font-medium">
-          A-Diary dated
-        </span>
-        <div role="group" aria-labelledby="sign-a-diary-date-label">
-          <DatePicker
-            key={day}
-            value={parseIsoDay(day)}
-            onValueChange={(next) =>
-              /* Clearing the picker itself means today: the register always shows one
-                 day, and "no day" is not a view this screen has. */
-              onChange({ dated: next ? isoDay(next) : null })
-            }
-            className="w-full sm:w-52"
+      <Label htmlFor="sign-a-diary-date" className="w-fit text-body-compact font-medium">
+        A-Diary dated
+      </Label>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            id="sign-a-diary-date"
+            type="button"
+            variant="outline"
+            className="w-full justify-start gap-2 text-left font-normal sm:w-60"
+          >
+            <CalendarDaysIcon data-icon="inline-start" aria-hidden />
+            <span className="truncate tabular-nums">{formatCourtDay(day)}</span>
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="flex w-auto flex-col gap-3 p-3" align="start">
+          <Calendar
+            mode="single"
+            required
+            autoFocus
+            selected={parseIsoDay(day)}
+            defaultMonth={parseIsoDay(day)}
+            onSelect={(next) => {
+              onChange({ dated: next ? isoDay(next) : null });
+              setOpen(false);
+            }}
+            modifiers={{ unsigned }}
+            labels={{
+              labelDayButton: (date, modifiers) =>
+                `${formatCourtDay(isoDay(date))}${modifiers.unsigned ? ", unsigned" : ""}${
+                  modifiers.selected ? ", selected" : ""
+                }`,
+            }}
+            components={{ DayButton: UnsignedDayButton }}
+            className="p-0"
           />
-        </div>
-      </div>
+          <p className="flex items-center gap-2 text-caption text-muted-foreground">
+            <span aria-hidden className="size-1.5 rounded-full bg-current" />
+            Unsigned
+          </p>
+        </PopoverContent>
+      </Popover>
     </form>
+  );
+}
+
+/**
+ * A day of the month, with a dot under it when that day's A-Diary is unsigned. Kept at
+ * module level so the focused day is not remounted on every render — the same reason
+ * `DashboardDatePicker` gives for its own.
+ */
+function UnsignedDayButton({
+  children,
+  ...props
+}: React.ComponentProps<typeof DayButton>) {
+  return (
+    <CalendarDayButton {...props}>
+      {children}
+      {props.modifiers.unsigned ? (
+        <span
+          aria-hidden
+          className="absolute bottom-1 left-1/2 size-1 -translate-x-1/2 rounded-full bg-current"
+        />
+      ) : null}
+    </CalendarDayButton>
   );
 }
 
@@ -344,15 +416,43 @@ function SignADiaryEmpty({
   day,
   today,
   hasUnsigned,
+  signed,
   onShowToday,
 }: {
   day: string;
   today: string;
   /** Whether anything at all is unsigned, on any day. */
   hasUnsigned: boolean;
+  /** Whether this day was signed in this visit. */
+  signed: boolean;
   onShowToday: () => void;
 }) {
   const isToday = day === today;
+
+  if (signed) {
+    return (
+      <Empty className="border-0 p-0">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <BookCheckIcon aria-hidden />
+          </EmptyMedia>
+          <EmptyTitle className="text-title-s font-semibold">
+            The A-Diary for {formatADiaryDate(day)} is signed
+          </EmptyTitle>
+          <EmptyDescription className="text-body">
+            Its entries can no longer be changed.
+          </EmptyDescription>
+        </EmptyHeader>
+        {hasUnsigned ? (
+          <EmptyContent>
+            <Button variant="outline" onClick={onShowToday}>
+              Show today&apos;s diary
+            </Button>
+          </EmptyContent>
+        ) : null}
+      </Empty>
+    );
+  }
 
   if (!hasUnsigned) {
     return (
@@ -365,7 +465,7 @@ function SignADiaryEmpty({
             The A-Diary is signed
           </EmptyTitle>
           <EmptyDescription className="text-body">
-            Every entry in this court&apos;s register carries your signature.
+            Every day of this court&apos;s A-Diary carries your signature.
           </EmptyDescription>
         </EmptyHeader>
       </Empty>
@@ -431,7 +531,7 @@ function SignADiaryItemList({
                 className={rowOpenerClass}
           >
             <span className="sr-only">
-              Read and sign the entry in {courtText(entry.caseNumber)}.{" "}
+              Read and correct the entry in {courtText(entry.caseNumber)}.{" "}
             </span>
             <span className="line-clamp-4">{entry.business}</span>
           </button>

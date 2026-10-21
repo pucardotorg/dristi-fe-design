@@ -193,7 +193,10 @@ export function OrderCaseHistory({ hearing }: { hearing: CourtHearing }) {
               )}
             </ComboboxValue>
           </ComboboxChips>
-          <ComboboxContent anchor={anchor}>
+          {/* The popup portals to <body>; in the case overview's modal dialog
+              (`CLS-11`) the body is frozen with pointer-events:none, so the list
+              re-enables its own. Inert on the order screen, which is no dialog. */}
+          <ComboboxContent anchor={anchor} className="pointer-events-auto">
             <ComboboxEmpty>No event type matches.</ComboboxEmpty>
             <ComboboxList>
               {(option: TypeOption) => (

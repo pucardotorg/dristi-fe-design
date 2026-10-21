@@ -1,5 +1,6 @@
 "use client";
 
+import { seatHolds } from "@/lib/employee/seat-roles";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -43,20 +44,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import {
-  acceptanceNeedsHearingDate,
-  type LifecycleApplication,
-} from "@/lib/applications/lifecycle";
+import { type LifecycleApplication } from "@/lib/applications/lifecycle";
 import {
   useApplicationsReady,
   useLifecycleApplications,
 } from "@/lib/applications/store";
 import type { CaseRecord } from "@/lib/cases/types";
 import { localizeDeep } from "@/lib/court/localize";
-import {
-  applicationOrderOutcomes,
-  outcomeHearingDate,
-} from "@/lib/employee/application-order-outcome";
 import { caseOf } from "@/lib/employee/application-tasks";
 import {
   cognizanceCaseById,
@@ -81,7 +75,7 @@ import {
   markOrdersSigned,
   returnOrderToDraft,
 } from "@/lib/employee/order-signing";
-import { blockGaps } from "@/lib/employee/order-composer";
+import { missingMandatory } from "@/lib/employee/order-composer";
 import { orderTemplate } from "@/lib/employee/order-templates";
 import {
   moveOrderBackToDraft,
@@ -172,9 +166,9 @@ function WorkflowDoorBody({ door }: { door: OrderDoor }) {
   const router = useRouter();
   const courtText = useCourtText();
   const seat = useCourtRole();
+  const { court } = useCourt();
   const pending = usePendingOrders();
   const signing = useOrderSigning();
-  const lifecycleApps = useLifecycleApplications();
   const entry = pending[door.draftKey];
   const stage = entry ? pendingOrderStage(entry, signing) : "drafting";
   const appearances = door.hearing?.appearances;
@@ -184,71 +178,38 @@ function WorkflowDoorBody({ door }: { door: OrderDoor }) {
   );
   const [stored, setDraft] = useOrderDraft(orderDraftKey(door.draftKey), initial);
   const draft = useCausePosting(door, stored);
-  const readerPosts = useReaderPostsNextHearing();
   const [openApplication, setOpenApplication] =
     React.useState<ListingApplication | null>(null);
   const [ask, setAsk] = React.useState<"sign" | "complete" | null>(null);
   const listing = door.hearing?.applications ?? [];
   const complete = Boolean(entry?.workflowComplete);
   const signed = signing[door.draftKey] === "signed";
-  /* Signing is the magistrate's; the workflow and moving the order back to draft are the
-     steno's (owner, 2026-10-14). Everyone else reads. */
-  const steno = seat === "typist";
-  const canSign = seat === "magistrate" && stage === "awaiting-signature";
-  const canFill = steno && Boolean(entry) && !complete && stage !== "triggered";
+  /* From the roles this seat holds in its state (court-roles §3): signing is the order
+     signer's (`SGN-01`); filling, completing and reopening the order data the order data
+     filler's (`ROL-02`); moving the order back to draft the order drafter's (`SND-05`).
+     Everyone else reads. */
+  const filler = seatHolds(seat, court, "order-data-filler");
+  const canSign =
+    seatHolds(seat, court, "order-signer") && stage === "awaiting-signature";
+  const canFill = filler && Boolean(entry) && !complete && stage !== "triggered";
   const canComplete = canFill;
-  const canReopen = steno && complete && !signed;
-  const canMoveBack = steno && stage === "awaiting-signature";
-  const unlisted = draft.next === "list" && !(draft.nextDate && draft.nextPurpose);
+  const canReopen = filler && complete && !signed;
+  const canMoveBack =
+    seatHolds(seat, court, "order-drafter") && stage === "awaiting-signature";
   const summary = triggerSummary(draft, appearances, listing);
 
   function askComplete() {
+    /* `CMP-02`: only a mandatory field left unanswered holds the order data back. The
+       next hearing is settled before the order is sent for signing (`SND-03`), so it is
+       not checked again here. */
     const unfilled = draft.blocks.find(
       (block) =>
-        block.kind === "item" &&
-        blockGaps(block, door.context).some((gap) => gap.key !== "text"),
+        block.kind === "item" && missingMandatory(block, door.context).length > 0,
     );
     if (unfilled && unfilled.kind === "item") {
       toast(
-        `${orderTemplate(unfilled.type).label} has details still to fill. Use its pencil to fill them.`,
+        `${orderTemplate(unfilled.type).label} has mandatory details still to fill. Use its pencil to fill them.`,
       );
-      return;
-    }
-    /* The next hearing is set on the order's page before the order is sent; one sent
-       without it goes back to draft for it. */
-    if (unlisted) {
-      if (door.hearing && readerPosts) {
-        toast(
-          "This order has no next hearing yet. Set it in the cause list's Next hearing column.",
-        );
-      } else {
-        toast(
-          "This order has no next hearing. Move it back to draft to set the date and purpose.",
-        );
-      }
-      return;
-    }
-    /* Accepting a Postpone or an Advance moves the hearing, and the date it moves to is
-       this order's next hearing — it has to be there before the workflow can go out. */
-    const undated = applicationOrderOutcomes(draft.blocks).find((outcome) => {
-      const app = lifecycleApps.find((entry) => entry.id === outcome.applicationId);
-      return (
-        app &&
-        outcome.kind === "accept" &&
-        acceptanceNeedsHearingDate(app.type) &&
-        !outcomeHearingDate(outcome, app, draft)
-      );
-    });
-    if (undated) {
-      if (door.hearing && readerPosts) {
-        toast(
-          "Accepting this application moves the hearing, and this order has no next hearing date yet. Set it in the cause list's Next hearing column.",
-        );
-      } else {
-        toast(
-          "Accepting this application moves the hearing, and this order has no next hearing date. Move it back to draft to set one.",
-        );
-      }
       return;
     }
     setAsk("complete");
@@ -367,8 +328,8 @@ function WorkflowDoorBody({ door }: { door: OrderDoor }) {
                 <AlertDialogTitle>Sign this order?</AlertDialogTitle>
                 <AlertDialogDescription>
                   {complete
-                    ? "Your signature issues the order, and its order data is triggered at once: the steno has completed it."
-                    : "Your signature issues the order. Its order data is triggered once the steno has completed it."}{" "}
+                    ? "Your signature issues the order, and its order data is triggered at once: it has been completed."
+                    : "Your signature issues the order. Its order data is triggered once it has been completed."}{" "}
                   This cannot be reversed.
                 </AlertDialogDescription>
               </AlertDialogHeader>
@@ -380,7 +341,7 @@ function WorkflowDoorBody({ door }: { door: OrderDoor }) {
                     toast(
                       complete
                         ? "Signed and issued. Its order data has been triggered."
-                        : "Signed and issued. Its order data is with the steno.",
+                        : "Signed and issued. Its order data is still to be completed.",
                     );
                   }}
                 >
@@ -464,7 +425,7 @@ function stageLine(stage: PendingOrderStage, complete: boolean): string {
       ? "Awaiting the magistrate’s signature. Its order data is complete, so signing triggers it."
       : "Awaiting the magistrate’s signature. The order data can be filled meanwhile.";
   if (stage === "workflow-to-fill")
-    return "Signed and issued. Its order data is triggered once the steno completes it.";
+    return "Signed and issued. Its order data is triggered once it is marked complete.";
   return "Signed, and its order data triggered. Nothing here can change.";
 }
 

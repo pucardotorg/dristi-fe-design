@@ -25,6 +25,7 @@ import {
   setCourtSession,
   subscribeToCourtSession,
 } from "./session";
+import { seatHolds } from "./seat-roles";
 
 export function subscribeToCourtRole(listener: () => void): () => void {
   return subscribeToCourtSession(listener);
@@ -61,8 +62,19 @@ export function setCourtRole(next: CourtRole): void {
  * (`hearings-table.tsx`, `hearings-screen.tsx`). Both seats write the same marks to
  * `hearing-session.ts`, and neither writes a court record.
  */
-export function seatHasBenchControls(role: CourtRole): boolean {
-  return role !== "typist";
+export function seatHasBenchControls(role: CourtRole, court: CourtId): boolean {
+  /* The hearing controller role (`HRG-00`), as this state's table gives it. */
+  return seatHolds(role, court, "hearing-controller");
+}
+
+/**
+ * Whether this seat stands for the **order drafter** role (order-generation `ROL-01`) on
+ * the cause list — the seat offered bulk text for orders (`CLS-12`). The typist (the
+ * Steno in Punjab & Haryana), as the prototype already had it. A view rule like the
+ * others here: it decides what the board offers, and grants nothing.
+ */
+export function seatDraftsOrders(role: CourtRole, court: CourtId): boolean {
+  return seatHolds(role, court, "order-drafter");
 }
 
 /**
@@ -71,8 +83,8 @@ export function seatHasBenchControls(role: CourtRole): boolean {
  * The bench clerk is the seat Punjab & Haryana call the Reader (`content.ts`). A view
  * rule, like the one above: it decides what the board offers, and grants nothing.
  */
-export function seatPostsNextHearing(role: CourtRole): boolean {
-  return role === "bench-clerk";
+export function seatPostsNextHearing(role: CourtRole, court: CourtId): boolean {
+  return seatHolds(role, court, "next-hearing-setter");
 }
 
 /**

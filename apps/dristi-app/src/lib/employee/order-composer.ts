@@ -409,6 +409,37 @@ export function blockGaps(
   return gaps;
 }
 
+/**
+ * The fields of one order item that are **mandatory to enter** and not yet answered
+ * (order-generation `VAR-05`, `CMP-02`). Only these block marking the order data
+ * complete; nothing else does — not an optional field, and not a blank in any sentence,
+ * because order items carry no template text any more (`VAR-06`, order-template-catalogue).
+ * A process item's recipients count when its catalogue row marks them mandatory.
+ */
+export function missingMandatory(
+  block: ComposerBlock,
+  context: ComposerContext,
+): BlockGap[] {
+  if (block.kind !== "item") return [];
+  const template = orderTemplate(block.type);
+  const gaps: BlockGap[] = [];
+  for (const field of template.fields) {
+    if (field.derived || !field.required) continue;
+    if (field.kind === "recipients") {
+      for (const gap of block.recipients
+        ? recipientGaps(block.recipients, addressee(block, context))
+        : ["Addressed to"]) {
+        gaps.push({ key: `recipients-${gap}`, label: gap });
+      }
+      continue;
+    }
+    if (!fieldAnswered(block, field, context)) {
+      gaps.push({ key: field.key, label: field.label });
+    }
+  }
+  return gaps;
+}
+
 /** The label a block goes by — its order item's name, or "Text". */
 export function blockLabel(block: ComposerBlock): string {
   return block.kind === "text" ? "Text" : orderTemplate(block.type).label;
