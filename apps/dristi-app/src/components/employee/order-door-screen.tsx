@@ -8,6 +8,7 @@ import type {
   ComposerApplication,
   ComposerFact,
 } from "@/components/employee/order-sections";
+import { OrderDataFlags } from "@/components/employee/order-data-flags";
 import { OrderCaseHistory } from "@/components/employee/order-case-history";
 import { OrderEditorComposer } from "@/components/employee/order-editor";
 import { CausePostingContext } from "@/components/employee/cause-posting";
@@ -172,6 +173,9 @@ function OrderDoorBody({ door }: { door: OrderDoor }) {
         /* ORD-15: the case history with the case's orders in it. A door with no
            listing (cognizance, an application) has no sittings to draw on. */
         hearing ? <OrderCaseHistory hearing={hearing.hearing} /> : undefined
+      }
+      dataFlagsContent={
+        hearing ? <OrderDataFlags hearing={hearing.hearing} /> : undefined
       }
       context={context}
       purpose={hearing?.purpose}

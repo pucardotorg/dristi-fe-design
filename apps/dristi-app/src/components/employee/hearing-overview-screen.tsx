@@ -330,7 +330,7 @@ export function HearingOverviewSections({
         <CaseFactsPanel hearing={hearing} extras={extras} surface="panel" />
       </TabsContent>
       <TabsContent value="data-flags" className={`${TAB_BODY_BASE} ${TAB_BODY_HEIGHT[surface]}`}>
-        <OrderDataFlags />
+        <OrderDataFlags hearing={hearing} />
       </TabsContent>
     </Tabs>
   );

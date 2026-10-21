@@ -70,6 +70,7 @@ export function OrderCasePanel({
   onLinksChange,
   disabled,
   historyContent,
+  dataFlagsContent,
 }: {
   className?: string;
   links: readonly string[];
@@ -77,6 +78,8 @@ export function OrderCasePanel({
   disabled: boolean;
   /** The court's own case history — shows the tab. */
   historyContent?: React.ReactNode;
+  /** The Data flags tab's content; without it the tab says there is nothing yet. */
+  dataFlagsContent?: React.ReactNode;
 }) {
   const [tab, setTab] = React.useState("case-file");
   const [query, setQuery] = React.useState("");
@@ -512,7 +515,7 @@ export function OrderCasePanel({
           value="data-flags"
           className="min-h-0 flex-1 overflow-y-auto p-4"
         >
-            <OrderDataFlags />
+          {dataFlagsContent ?? <OrderDataFlags />}
         </TabsContent>
       </Tabs>
 
