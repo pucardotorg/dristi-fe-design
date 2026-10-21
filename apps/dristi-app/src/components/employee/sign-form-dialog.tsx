@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import {
   StagedOverlay,
   useStagedFlow,
@@ -84,6 +85,7 @@ export function SignFormDialog({
           form={held}
           onSign={onSign}
           onReturnFocus={onReturnFocus}
+          onClose={() => onOpenChange(null)}
         />
       ) : null}
     </Dialog>
@@ -94,10 +96,12 @@ function SignFormBody({
   form,
   onSign,
   onReturnFocus,
+  onClose,
 }: {
   form: SignForm;
   onSign: (form: SignForm) => void;
   onReturnFocus: () => void;
+  onClose: () => void;
 }) {
   const courtText = useCourtText();
   const flow = useStagedFlow<SignStage>({
@@ -105,11 +109,13 @@ function SignFormBody({
     scene: SIGN_SCENES,
   });
   const choice = useSignatureChoice();
+  const guard = useDiscardGuard(choice.entered, onClose);
   const document = React.useMemo(() => buildSignFormDocument(form), [form]);
   const reading = flow.stage === "read";
 
   return (
     <StagedOverlay
+      {...guard.contentProps}
       /* The width and the height the *document* needs, held for both stages — see
          `SignOrderDialog` for why the height is definite at every width. */
       className="h-[85dvh] sm:max-w-4xl"
@@ -177,6 +183,7 @@ function SignFormBody({
           choice={choice}
         />
       )}
+      <DiscardQuestion guard={guard} />
     </StagedOverlay>
   );
 }

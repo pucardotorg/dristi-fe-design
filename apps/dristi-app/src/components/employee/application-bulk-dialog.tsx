@@ -4,6 +4,7 @@ import * as React from "react";
 import { CircleCheckIcon, TriangleAlertIcon } from "lucide-react";
 
 import { ChromeDialogContent } from "@/components/chrome/app-chrome";
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { RESOLVE_IN_PLACE } from "@/components/chrome/motion";
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
@@ -123,6 +124,11 @@ function BulkBody({
 
   const withHearing = rows.filter((app) => hearingOf(app));
   const day = dayOf(date);
+  const startMode = withHearing.length > 0 ? "hearing" : "date";
+  const guard = useDiscardGuard(
+    !result && (mode !== startMode || date !== undefined || !invite),
+    onClose,
+  );
   const badDate = Boolean(day) && day <= on;
 
   /* The act removed what had focus; the keyboard lands on the way out. */
@@ -196,7 +202,7 @@ function BulkBody({
   const deferredBefore = rows.filter(setADateUsed).length;
 
   return (
-    <ChromeDialogContent className="sm:max-w-lg">
+    <ChromeDialogContent className="sm:max-w-lg" {...guard.contentProps} {...guard.outsideProps}>
       <DialogHeader>
         <DialogTitle className="text-title-s font-semibold">
           {result ? result.title : title}
@@ -328,7 +334,7 @@ function BulkBody({
           </Button>
         ) : (
           <>
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={guard.close}>
               Back
             </Button>
             <Button type="button" disabled={!ready} onClick={confirm}>
@@ -343,6 +349,7 @@ function BulkBody({
           </>
         )}
       </DialogFooter>
+      <DiscardQuestion guard={guard} />
     </ChromeDialogContent>
   );
 }

@@ -4,6 +4,7 @@ import * as React from "react";
 import { CircleCheckIcon } from "lucide-react";
 import { toast } from "sonner";
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { RESOLVE_IN_PLACE } from "@/components/chrome/motion";
 import { Identifier } from "@/components/chrome/identifier";
 import { useStageFade } from "@/components/chrome/stage-fade";
@@ -182,6 +183,10 @@ function SignOrderFlowBody({
   }, [flow.stage, flow.changed]);
   const choice = useSignatureChoice("order");
   const [otp, setOtp] = React.useState("");
+  const guard = useDiscardGuard(
+    flow.stage !== "done" && (otp.length > 0 || choice.entered),
+    onClose,
+  );
   const [resent, setResent] = React.useState(false);
   const [dscFound, setDscFound] = React.useState(false);
   const [signedWith, setSignedWith] = React.useState<Instrument | null>(null);
@@ -318,6 +323,7 @@ function SignOrderFlowBody({
 
   return (
     <StagedOverlay
+      {...guard.contentProps}
       /* The order is read wide and tall; every other step, a bulk run's list included,
          is the signing width at its own height. */
       className={
@@ -425,6 +431,7 @@ function SignOrderFlowBody({
           </Column>
         ) : null}
       </div>
+      <DiscardQuestion guard={guard} />
     </StagedOverlay>
   );
 }

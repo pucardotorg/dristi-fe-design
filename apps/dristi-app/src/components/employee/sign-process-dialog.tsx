@@ -3,6 +3,7 @@
 import * as React from "react";
 import { CircleCheckIcon, TriangleAlertIcon } from "lucide-react";
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import {
   StagedOverlay,
   useStagedFlow,
@@ -168,6 +169,7 @@ function SignProcessBody({
     () => new Date(),
   );
   const [mark, setMark] = React.useState<ReturnMark | undefined>(undefined);
+  const guard = useDiscardGuard(!settled && (choice.entered || mark !== undefined), onClose);
 
   const stage = flow.stage;
   const status = processStatus(process.status);
@@ -339,6 +341,7 @@ function SignProcessBody({
 
   return (
     <StagedOverlay
+      {...guard.contentProps}
       /* The paper's width and a definite height at every width, held for every stage. */
       className="h-[85dvh] sm:max-w-4xl xl:max-w-6xl"
       title={title}
@@ -423,6 +426,7 @@ function SignProcessBody({
           choice={choice}
         />
       )}
+      <DiscardQuestion guard={guard} />
     </StagedOverlay>
   );
 }

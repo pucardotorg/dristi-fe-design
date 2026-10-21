@@ -9,6 +9,7 @@ import {
   ImageOffIcon,
 } from "lucide-react";
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import {
   StagedOverlay,
   useStagedFlow,
@@ -149,6 +150,7 @@ export function RegistrationDialog({
           onReject={onReject}
           onNext={onNext}
           onReturnFocus={onReturnFocus}
+          onClose={() => onOpenChange(null)}
         />
       ) : null}
     </Dialog>
@@ -253,6 +255,7 @@ function RequestBody({
   onReject,
   onNext,
   onReturnFocus,
+  onClose,
 }: {
   request: RegistrationRequest;
   next: RegistrationRequest | null;
@@ -260,6 +263,7 @@ function RequestBody({
   onReject: (request: RegistrationRequest, reason: string) => void;
   onNext: (request: RegistrationRequest) => void;
   onReturnFocus: () => void;
+  onClose: () => void;
 }) {
   const [reason, setReason] = React.useState("");
   const [touched, setTouched] = React.useState(false);
@@ -298,6 +302,7 @@ function RequestBody({
   const { stage, go } = flow;
 
   const empty = reason.trim() === "";
+  const guard = useDiscardGuard(stage === "reject" && !empty, onClose);
   const badge = STAGE_BADGE[stage];
   const noun = registrantNoun(request.registrantKind);
 
@@ -345,6 +350,7 @@ function RequestBody({
         event.preventDefault();
         onReturnFocus();
       }}
+      {...guard.contentProps}
       footer={
         stage === "review" ? (
           <>
@@ -444,6 +450,7 @@ function RequestBody({
           }}
         />
       )}
+      <DiscardQuestion guard={guard} />
     </StagedOverlay>
   );
 }

@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { CheckIcon, ChevronRightIcon, RotateCcwIcon } from "lucide-react";
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import type {
   Filing,
   Flag,
@@ -145,6 +146,10 @@ export function ReviewDialog({
       setTypeIndex("");
     },
   });
+  const guard = useDiscardGuard(
+    decision !== null && flow.stage !== "done" && (ack || typeIndex !== ""),
+    () => onOpenChange(false),
+  );
 
   const groups = React.useMemo(
     () => group(flags, allFields, fieldById),
@@ -260,6 +265,7 @@ export function ReviewDialog({
   return (
     <Dialog open onOpenChange={onOpenChange}>
       <StagedOverlay
+        {...guard.contentProps}
         /* The measure of a long list, and a **definite height** rather than a floor.
            Two things change between the stages now — the list becomes a confirmation, and
            the header's line becomes a shorter one — and a floor only holds the first of
@@ -330,7 +336,7 @@ export function ReviewDialog({
             </>
           ) : (
             <>
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
+              <Button variant="outline" onClick={guard.close}>
                 Keep reviewing
               </Button>
               <Button
@@ -479,6 +485,7 @@ export function ReviewDialog({
             </EmptyHeader>
           </Empty>
         )}
+        <DiscardQuestion guard={guard} />
       </StagedOverlay>
     </Dialog>
   );

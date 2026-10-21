@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import {
   StagedOverlay,
   useStagedFlow,
@@ -118,6 +119,7 @@ export function SignEvidenceDialog({
           onBusinessOfTheDayChange={onBusinessOfTheDayChange}
           onSign={onSign}
           onReturnFocus={onReturnFocus}
+          onClose={() => onOpenChange(null)}
         />
       ) : null}
     </Dialog>
@@ -148,6 +150,7 @@ function SignEvidenceBody({
   onBusinessOfTheDayChange,
   onSign,
   onReturnFocus,
+  onClose,
 }: {
   row: SignEvidence;
   rows: SignEvidence[];
@@ -155,6 +158,7 @@ function SignEvidenceBody({
   onBusinessOfTheDayChange: (id: string, botd: string) => void;
   onSign: (row: SignEvidence) => void;
   onReturnFocus: () => void;
+  onClose: () => void;
 }) {
   const courtText = useCourtText();
   const flow = useStagedFlow({ order: STAGES, scene: SCENE });
@@ -186,6 +190,14 @@ function SignEvidenceBody({
   const line = businessOfTheDay(row);
   const blank = line.trim() === "";
 
+  /* The business of the day is written to the row as it is typed; the marking is held
+     here until Proceed, so that is what a close would lose. */
+  const guard = useDiscardGuard(
+    flow.stage === "edit" &&
+      (markedThrough !== row.markedThrough || serial !== String(row.serial)),
+    onClose,
+  );
+
   function cancel() {
     setMarkedThrough(row.markedThrough);
     setSerial(String(row.serial));
@@ -200,6 +212,7 @@ function SignEvidenceBody({
          moves the whole panel up the screen on the way back. */
       className="sm:max-w-lg"
       floor
+      {...guard.contentProps}
       title={TITLE[flow.stage]}
       titleRef={flow.titleRef}
       /* The marking's own state — waiting for this bench's signature — and it is just as
@@ -285,6 +298,7 @@ function SignEvidenceBody({
           }}
         />
       )}
+      <DiscardQuestion guard={guard} />
     </StagedOverlay>
   );
 }

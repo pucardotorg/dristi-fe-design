@@ -3,6 +3,7 @@
 import * as React from "react";
 import { CalendarDaysIcon } from "lucide-react";
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import {
   DayBreakdown,
   LoadCalendar,
@@ -249,6 +250,7 @@ function BulkActionsDialog({
   const marking = selected.filter((hearing) => takes(outcome, hearing));
   const posting = notListed || date !== null || purpose !== null;
   const changes = outcome !== "keep" || posting;
+  const guard = useDiscardGuard(changes, () => onOpenChange(false));
   const outcomeWord = outcome === "complete" ? "ended" : "passed over";
 
   function confirm() {
@@ -289,7 +291,7 @@ function BulkActionsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg" {...guard.contentProps} {...guard.outsideProps}>
         <DialogHeader>
           <DialogTitle className="text-title-s font-semibold">
             Bulk actions
@@ -402,6 +404,7 @@ function BulkActionsDialog({
             {plural(selected.length, "hearing", "hearings")}
           </Button>
         </DialogFooter>
+        <DiscardQuestion guard={guard} />
       </DialogContent>
     </Dialog>
   );
@@ -569,6 +572,7 @@ function OrderTextDialog({
     (hearing) => !stillDrafting(hearing, pending, signing),
   );
   const empty = text.trim().length === 0;
+  const guard = useDiscardGuard(!empty, () => onOpenChange(false));
 
   function confirm() {
     const html = paragraphs(text.trim());
@@ -606,7 +610,7 @@ function OrderTextDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="sm:max-w-xl" {...guard.contentProps} {...guard.outsideProps}>
         <DialogHeader>
           <DialogTitle className="text-title-s font-semibold">
             Add the same text to {taking.length}{" "}
@@ -660,6 +664,7 @@ function OrderTextDialog({
             Add to {taking.length} {plural(taking.length, "order", "orders")}
           </Button>
         </DialogFooter>
+        <DiscardQuestion guard={guard} />
       </DialogContent>
     </Dialog>
   );

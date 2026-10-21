@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import {
   StagedOverlay,
   useStagedFlow,
@@ -102,6 +103,7 @@ export function SignBailBondDialog({
           onSign={onSign}
           onReject={onReject}
           onReturnFocus={onReturnFocus}
+          onClose={() => onOpenChange(null)}
         />
       ) : null}
     </Dialog>
@@ -113,11 +115,13 @@ function SignBailBondBody({
   onSign,
   onReject,
   onReturnFocus,
+  onClose,
 }: {
   bond: SignBailBond;
   onSign: (bond: SignBailBond) => void;
   onReject: (bond: SignBailBond) => void;
   onReturnFocus: () => void;
+  onClose: () => void;
 }) {
   const courtText = useCourtText();
   const flow = useStagedFlow<SignStage>({
@@ -125,6 +129,7 @@ function SignBailBondBody({
     scene: SIGN_SCENES,
   });
   const choice = useSignatureChoice(NOUN);
+  const guard = useDiscardGuard(choice.entered, onClose);
   const document = React.useMemo(
     () => buildSignBailBondDocument(bond),
     [bond],
@@ -133,6 +138,7 @@ function SignBailBondBody({
 
   return (
     <StagedOverlay
+      {...guard.contentProps}
       /* The width and the height the *document* needs, held for both stages — see
          `SignOrderDialog` for why the height is definite at every width. */
       className="h-[85dvh] sm:max-w-4xl"
@@ -210,6 +216,7 @@ function SignBailBondBody({
           choice={choice}
         />
       )}
+      <DiscardQuestion guard={guard} />
     </StagedOverlay>
   );
 }

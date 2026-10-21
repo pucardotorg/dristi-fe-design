@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { StagedOverlay } from "@/components/chrome/staged-overlay";
 
 import { DocumentPreview } from "@/components/cases/document-preview";
@@ -77,6 +78,7 @@ export function SignADiaryDialog({
           entry={entry}
           onSave={onSave}
           onReturnFocus={onReturnFocus}
+          onClose={() => onOpenChange(null)}
         />
       ) : null}
     </Dialog>
@@ -87,10 +89,12 @@ function SignADiaryBody({
   entry,
   onSave,
   onReturnFocus,
+  onClose,
 }: {
   entry: ADiaryEntry;
   onSave: (entry: ADiaryEntry, business: string) => void;
   onReturnFocus: () => void;
+  onClose: () => void;
 }) {
   const courtText = useCourtText();
   const document = React.useMemo(() => buildADiaryDocument(entry), [entry]);
@@ -104,6 +108,7 @@ function SignADiaryBody({
   const text = draft.trim();
   const blank = text === "";
   const dirty = text !== entry.business;
+  const guard = useDiscardGuard(dirty, onClose);
 
   function save() {
     if (blank || !dirty) return;
@@ -126,6 +131,7 @@ function SignADiaryBody({
          is for. A photograph does not do that, which is why `ApproveRegistrationsDialog`
          can split earlier than this one can. */
       className="sm:max-w-5xl lg:h-[85dvh]"
+      {...guard.contentProps}
       title="A-Diary entry"
       titleRef={titleRef}
       description={
@@ -265,6 +271,7 @@ function SignADiaryBody({
           }}
         />
       </div>
+      <DiscardQuestion guard={guard} />
     </StagedOverlay>
   );
 }

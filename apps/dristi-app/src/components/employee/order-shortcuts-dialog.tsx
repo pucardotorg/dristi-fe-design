@@ -9,6 +9,7 @@ import {
   type RichTextSuggestion,
   type RichTextValue,
 } from "@/components/cases/rich-text-field";
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -90,6 +91,8 @@ export function OrderShortcutsDialog({
      clearing the form, mounts a fresh one. */
   const [formKey, setFormKey] = React.useState(0);
   const [tried, setTried] = React.useState(false);
+  /* What the form held when it was opened, so an untouched edit closes quietly. */
+  const [original, setOriginal] = React.useState({ name: "", text: "" });
   const nameId = React.useId();
   const textId = React.useId();
 
@@ -107,7 +110,16 @@ export function OrderShortcutsDialog({
     setText(EMPTY_RICH_TEXT);
     setFormKey((key) => key + 1);
     setTried(false);
+    setOriginal({ name: "", text: "" });
   }
+
+  const guard = useDiscardGuard(
+    name.trim() !== original.name.trim() || text.text.trim() !== original.text.trim(),
+    () => {
+      reset();
+      onOpenChange(false);
+    },
+  );
 
   function save() {
     setTried(true);
@@ -126,7 +138,11 @@ export function OrderShortcutsDialog({
         onOpenChange(next);
       }}
     >
-      <DialogContent className="flex max-h-[90svh] flex-col gap-6 overflow-y-auto sm:max-w-3xl">
+      <DialogContent
+        className="flex max-h-[90svh] flex-col gap-6 overflow-y-auto sm:max-w-3xl"
+        {...guard.contentProps}
+        {...guard.outsideProps}
+      >
         <DialogHeader>
           <DialogTitle>Shortcuts</DialogTitle>
           <DialogDescription>
@@ -158,6 +174,7 @@ export function OrderShortcutsDialog({
                   setText({ html: shortcutHtml(entry), text: entry.text });
                   setFormKey((key) => key + 1);
                   setTried(false);
+                  setOriginal({ name: entry.name, text: entry.text });
                 }}
               >
                 <PencilIcon aria-hidden />
@@ -230,6 +247,7 @@ export function OrderShortcutsDialog({
             </Button>
           </div>
         </form>
+        <DiscardQuestion guard={guard} />
       </DialogContent>
     </Dialog>
   );
