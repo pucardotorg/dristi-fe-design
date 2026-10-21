@@ -1,14 +1,10 @@
-import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
-import { ApplicationWorkstation } from "@/components/employee/application-workstation";
-
-import { readView } from "../views";
-
-export const metadata: Metadata = { title: "Application" };
+import { applicationHref } from "@/lib/employee/application-order-decision";
 
 /**
- * One application, worked in the list it was opened from — the workstation. The rail
- * folds to its strip here (`employee-area.tsx`) so the three columns have the width.
+ * One application's own address. It opens as a pop-up over the Applications list now
+ * (owner, 2026-10-21), so the address lands there with it open.
  */
 export default async function Page({
   params,
@@ -19,10 +15,10 @@ export default async function Page({
 }) {
   const { applicationId } = await params;
   const { view } = await searchParams;
-  return (
-    <ApplicationWorkstation
-      applicationId={applicationId}
-      view={view === undefined ? undefined : readView(view, "all")}
-    />
+  redirect(
+    applicationHref(
+      decodeURIComponent(applicationId),
+      Array.isArray(view) ? view[0] : view,
+    ),
   );
 }

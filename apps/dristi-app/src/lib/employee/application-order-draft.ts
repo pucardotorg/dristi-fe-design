@@ -1,7 +1,7 @@
 /**
  * The order on one application, as data — shared by the order screen's door
- * (`components/employee/application-order-screen.tsx`) and the workstation's quick order
- * (`components/employee/application-quick-order.tsx`), so the two write the same order.
+ * (`components/employee/application-order-screen.tsx`) and the Applications pop-up
+ * (`components/employee/application-dialog.tsx`), so the two open the same order.
  *
  * - the draft key every order on an application lives under (`application:<id>`);
  * - the matter the composer reads its people from;
@@ -33,6 +33,26 @@ import type { PendingOrderMeta } from "./pending-orders";
 /** The draft store's key for an application's order, before a variant prefixes its own. */
 export function applicationOrderKey(applicationId: string): string {
   return `application:${applicationId}`;
+}
+
+/**
+ * The key of the order to pass next on this application. An application takes more than
+ * one order — the one that onboards and lists it, then the one that decides it — so each
+ * after the first carries its round: `application:<id>#2`. The first keeps the plain key,
+ * so an order started before rounds existed opens as it was.
+ */
+export function nextApplicationOrderKey(
+  application: Pick<LifecycleApplication, "id" | "orders">,
+): string {
+  const round = (application.orders?.length ?? 0) + 1;
+  const key = applicationOrderKey(application.id);
+  return round === 1 ? key : `${key}#${round}`;
+}
+
+/** The application an order's key belongs to, or null for any other order. */
+export function applicationIdOfOrderKey(key: string): string | null {
+  if (!key.startsWith("application:")) return null;
+  return key.slice("application:".length).replace(/#\d+$/, "");
 }
 
 function counselOf(record: CaseRecord): CourtCounsel[] {

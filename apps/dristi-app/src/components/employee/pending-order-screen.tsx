@@ -7,6 +7,10 @@ import { toast } from "sonner";
 
 import { useCourt, useCourtText } from "@/components/court/court-provider";
 import { useApplicationOrderDoor } from "@/components/employee/application-order-screen";
+import {
+  applicationOutcomeGaps,
+  initialApplicationOutcome,
+} from "@/lib/employee/application-outcome";
 import { useCognizanceOrderDoor } from "@/components/employee/cognizance-order-screen";
 import { ListingApplicationDialog } from "@/components/employee/listing-application-dialog";
 import {
@@ -20,6 +24,7 @@ import {
   orderPaperRecitals,
   OrderProgress,
   OrderWorkflowFields,
+  withOnboarded,
   decideOnly,
   paperStatus,
 } from "@/components/employee/order-editor";
@@ -52,6 +57,7 @@ import {
 import type { CaseRecord } from "@/lib/cases/types";
 import { localizeDeep } from "@/lib/court/localize";
 import { caseOf } from "@/lib/employee/application-tasks";
+import { applicationIdOfOrderKey } from "@/lib/employee/application-order-draft";
 import {
   cognizanceCaseById,
   isCognizanceAct,
@@ -105,7 +111,12 @@ export function PendingOrderScreen({ orderKey }: { orderKey: string }) {
     return <CognizanceWorkflow key={orderKey} matter={matter} act={act} />;
   }
   if (orderKey.startsWith("application:")) {
-    return <ApplicationWorkflow applicationId={orderKey.slice("application:".length)} />;
+    return (
+      <ApplicationWorkflow
+        applicationId={applicationIdOfOrderKey(orderKey) ?? ""}
+        orderKey={orderKey}
+      />
+    );
   }
   const hearing = localizeDeep(hearingById(orderKey), court);
   if (!hearing) return <OrderMissing />;
@@ -126,7 +137,13 @@ function CognizanceWorkflow({
   return <WorkflowDoorScreen door={useCognizanceOrderDoor(matter, act)} />;
 }
 
-function ApplicationWorkflow({ applicationId }: { applicationId: string }) {
+function ApplicationWorkflow({
+  applicationId,
+  orderKey,
+}: {
+  applicationId: string;
+  orderKey: string;
+}) {
   const ready = useApplicationsReady();
   const apps = useLifecycleApplications();
   const application = apps.find((app) => app.id === applicationId);
@@ -134,20 +151,26 @@ function ApplicationWorkflow({ applicationId }: { applicationId: string }) {
   if (!ready) return null;
   if (!application || !record) return <OrderMissing />;
   return (
-    <ApplicationWorkflowDoor application={application} record={record} />
+    <ApplicationWorkflowDoor
+      application={application}
+      record={record}
+      orderKey={orderKey}
+    />
   );
 }
 
 function ApplicationWorkflowDoor({
   application,
   record,
+  orderKey,
 }: {
   application: LifecycleApplication;
   record: CaseRecord;
+  orderKey: string;
 }) {
   return (
     <WorkflowDoorScreen
-      door={useApplicationOrderDoor(application, record)}
+      door={useApplicationOrderDoor(application, record, { orderKey })}
     />
   );
 }
@@ -201,7 +224,22 @@ function WorkflowDoorBody({ door }: { door: OrderDoor }) {
   function askComplete() {
     /* `CMP-02`: only a mandatory field left unanswered holds the order data back. The
        next hearing is settled before the order is sent for signing (`SND-03`), so it is
-       not checked again here. */
+       not checked again here. An application's order waits on its Application item. */
+    if (
+      door.applicationItem &&
+      applicationOutcomeGaps(
+        withOnboarded(
+          draft.applicationOutcome ?? initialApplicationOutcome(),
+          door.applicationItem.onboarded,
+        ),
+        Boolean(door.applicationItem.workflow),
+      ).length > 0
+    ) {
+      toast(
+        `Application · ${door.applicationItem.label} has questions still to answer. Use its pencil to answer them.`,
+      );
+      return;
+    }
     const unfilled = draft.blocks.find(
       (block) =>
         block.kind === "item" && missingMandatory(block, door.context).length > 0,
@@ -250,6 +288,7 @@ function WorkflowDoorBody({ door }: { door: OrderDoor }) {
                 )
               }
               context={door.context}
+              applicationItem={door.applicationItem}
               purpose={door.hearing?.purpose}
               inHearing={Boolean(door.hearing)}
               fixedIds={door.fixedIds}

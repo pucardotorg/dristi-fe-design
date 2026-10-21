@@ -14,6 +14,7 @@ import {
   type LifecycleApplication,
 } from "@/lib/applications/lifecycle";
 import {
+  allotApplicationNumber,
   allotOrderId,
   applyStep,
   today,
@@ -27,6 +28,13 @@ import {
   type ApplicationOrderKind,
 } from "@/lib/employee/application-order-outcome";
 import { hearingById } from "@/lib/employee/hearings";
+import { applicationIdOfOrderKey } from "@/lib/employee/application-order-draft";
+import { applicationWorkflow } from "@/lib/employee/application-outcome";
+import {
+  applyApplicationOutcome,
+  orderApplied,
+} from "@/lib/employee/application-outcome-steps";
+import { orderTitle } from "@/lib/employee/order-title";
 import { withCausePosting } from "@/lib/employee/order-draft";
 import { editorDraftKey } from "@/lib/employee/order-drafts";
 import { pendingOrderStage } from "@/lib/employee/pending-orders";
@@ -86,6 +94,55 @@ export function ApplicationOrderTriggers() {
       const draft = readerPosts && hearingById(order.key)
         ? withCausePosting(typed, session.postings[order.key])
         : typed;
+
+      /* An order on an application: its Application item moves the application —
+         onboarding, listing and deciding it (owner, 2026-10-21). */
+      const ownerId = applicationIdOfOrderKey(order.key);
+      const owner = ownerId ? apps.find((app) => app.id === ownerId) : undefined;
+      const outcome = draft.applicationOutcome;
+      const workflowOf = (app: LifecycleApplication) => ({
+        workflow: applicationWorkflow(app.type),
+        hearingOn:
+          draft.next === "list" && draft.nextDate ? draft.nextDate : undefined,
+      });
+      /* Tried first with nothing allotted: a number or order id is spent only on an
+         order that moves the application. */
+      const applies =
+        owner &&
+        outcome &&
+        !orderApplied(owner, order.key) &&
+        applyApplicationOutcome(
+          owner,
+          outcome,
+          { key: order.key, id: "", title: "", text: "", signedOn: on },
+          { allotNumber: () => "", ...workflowOf(owner) },
+        ) !== null;
+      if (owner && outcome && applies) {
+        let summary = "";
+        const result = applyStep(owner.id, (app: LifecycleApplication) => {
+          const next = applyApplicationOutcome(
+            app,
+            outcome,
+            {
+              key: order.key,
+              id: allotOrderId(),
+              title: orderTitle(draft),
+              text: draft.body?.text ?? "",
+              signedOn: on,
+            },
+            { allotNumber: () => allotApplicationNumber(on), ...workflowOf(app) },
+          );
+          summary = next?.orders?.at(-1)?.summary ?? "";
+          return next ?? app;
+        });
+        const id = `${order.key}:outcome`;
+        if (result.ok && summary) {
+          toast(`${owner.typeLabel} application: ${summary}.`);
+        } else if (!result.ok && !reported.current.has(id)) {
+          reported.current.add(id);
+          toast.error(`${owner.typeLabel} application could not be updated: ${result.error}`);
+        }
+      }
       for (const outcome of applicationOrderOutcomes(draft.blocks)) {
         const application = apps.find((app) => app.id === outcome.applicationId);
         if (!application || !outcomeApplies(outcome, application)) continue;

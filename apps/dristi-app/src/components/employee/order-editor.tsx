@@ -28,6 +28,15 @@ import {
 } from "@/components/employee/order-sections";
 import { OrderCasePanel } from "@/components/employee/order-case-panel";
 import {
+  ApplicationOutcomeDialog,
+  type ApplicationOutcomeSubject,
+} from "@/components/employee/application-outcome-dialog";
+import {
+  applicationOutcomeGaps,
+  initialApplicationOutcome,
+  type ApplicationOutcome,
+} from "@/lib/employee/application-outcome";
+import {
   ItemDialog,
   ItemsCard,
 } from "@/components/employee/order-items";
@@ -577,7 +586,10 @@ export function OrderWorkflowFields({
   disabled = false,
   orderText = "",
   titleLocked = false,
+  applicationItem,
 }: {
+  /** An order on an application: its Application item, first among the items. */
+  applicationItem?: ApplicationOutcomeSubject;
   /** The order's typed text, which the A-Diary text starts from when unticked. */
   orderText?: string;
   /** Triggered: the title is fixed (`TIT-05`). */
@@ -603,6 +615,13 @@ export function OrderWorkflowFields({
   const items = draft.blocks.filter(
     (block): block is ItemBlock => block.kind === "item",
   );
+  const [outcomeOpen, setOutcomeOpen] = React.useState(false);
+  const outcome = applicationItem
+    ? withOnboarded(
+        draft.applicationOutcome ?? initialApplicationOutcome(),
+        applicationItem.onboarded,
+      )
+    : null;
 
   function reasonFor(template: OrderTemplate): string | null {
     return (
@@ -687,6 +706,18 @@ export function OrderWorkflowFields({
         reasonFor={reasonFor}
         onChoose={choose}
         onEdit={(block) => setEditing({ block, mode: "edit" })}
+        pinned={
+          applicationItem && outcome
+            ? {
+                label: `Application · ${applicationItem.label}`,
+                gaps: applicationOutcomeGaps(
+                  outcome,
+                  Boolean(applicationItem.workflow),
+                ).length,
+                onEdit: () => setOutcomeOpen(true),
+              }
+            : undefined
+        }
         onRemove={(block) =>
           setDraft((current) => ({
             ...current,
@@ -757,6 +788,23 @@ export function OrderWorkflowFields({
         </div>
       </Card>
 
+      {applicationItem && outcome ? (
+        <ApplicationOutcomeDialog
+          open={outcomeOpen}
+          subject={applicationItem}
+          outcome={outcome}
+          today={today}
+          onOpenChange={setOutcomeOpen}
+          onSave={(answers) => {
+            setDraft((current) => ({
+              ...current,
+              applicationOutcome: answers,
+            }));
+            setOutcomeOpen(false);
+          }}
+        />
+      ) : null}
+
       <ItemDialog
         editing={editing}
         context={context}
@@ -774,6 +822,14 @@ export function OrderWorkflowFields({
       />
     </div>
   );
+}
+
+/** An application already onboarded answers Onboard yes, whatever was stored. */
+export function withOnboarded(
+  outcome: ApplicationOutcome,
+  onboarded: boolean,
+): ApplicationOutcome {
+  return onboarded ? { ...outcome, onboard: "yes" } : outcome;
 }
 
 /** Record an application's decision — the record only; E's words are the steno's. */
@@ -822,7 +878,10 @@ export function OrderEditorComposer({
   context,
   purpose,
   fixedIds,
+  applicationItem,
 }: {
+  /** An order on an application: its Application item in the order data. */
+  applicationItem?: ApplicationOutcomeSubject;
   /** The matter, for the catalogue's items in the workflow. */
   context: ComposerContext;
   purpose?: string;
@@ -1026,6 +1085,7 @@ export function OrderEditorComposer({
               }
               orderText={body.text}
               titleLocked={stage === "triggered"}
+              applicationItem={applicationItem}
             />
           </div>
         ) : panelOpen ? (

@@ -14,8 +14,13 @@ export const metadata: Metadata = { title: "Applications" };
 export default async function Page({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string | string[] }>;
+  searchParams: Promise<{ view?: string | string[]; open?: string | string[] }>;
 }) {
-  const { view } = await searchParams;
-  return <ApplicationsScreen initialView={readView(view, "all")} />;
+  const { view, open } = await searchParams;
+  return (
+    <ApplicationsScreen
+      initialView={readView(view, "all")}
+      initialOpen={Array.isArray(open) ? open[0] : open}
+    />
+  );
 }

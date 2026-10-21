@@ -11,6 +11,7 @@ import type {
 import { OrderDataFlags } from "@/components/employee/order-data-flags";
 import { OrderCaseHistory } from "@/components/employee/order-case-history";
 import { OrderEditorComposer } from "@/components/employee/order-editor";
+import type { ApplicationOutcomeSubject } from "@/components/employee/application-outcome-dialog";
 import { CausePostingContext } from "@/components/employee/cause-posting";
 import { useReaderPostsNextHearing } from "@/components/employee/use-next-hearing-entry";
 import { useHearingSession } from "@/components/employee/use-hearing-session";
@@ -68,6 +69,8 @@ export type OrderDoor = {
   origin?: string;
   /** Only on a hearing: the roll, the applications on the listing, what it was for. */
   hearing?: OrderDoorHearing;
+  /** An order on an application: its Application item in the order data. */
+  applicationItem?: ApplicationOutcomeSubject;
 };
 
 export type OrderDoorHearing = {
@@ -180,6 +183,7 @@ function OrderDoorBody({ door }: { door: OrderDoor }) {
       context={context}
       purpose={hearing?.purpose}
       fixedIds={door.fixedIds}
+      applicationItem={door.applicationItem}
     />
   );
 }

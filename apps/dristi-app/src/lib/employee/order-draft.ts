@@ -14,6 +14,7 @@
  */
 
 /* Type-only: a value import would drag a client component into a module node tests read. */
+import type { ApplicationOutcome } from "@/lib/employee/application-outcome";
 import type { RichTextValue } from "@/components/cases/rich-text-field";
 
 import { CURRENT_STAFF } from "./content";
@@ -141,6 +142,11 @@ export type OrderDraft = {
    */
   aDiarySame?: boolean;
   aDiaryText?: string;
+  /**
+   * An order on an application: its Application item's answers
+   * (`application-outcome.ts`). Absent on every other order.
+   */
+  applicationOutcome?: ApplicationOutcome;
 };
 
 export const EMPTY_ORDER_DRAFT: OrderDraft = {
