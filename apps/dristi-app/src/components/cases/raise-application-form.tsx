@@ -86,7 +86,7 @@ import {
   submissionTypeLabel,
 } from "@/lib/cases/applications";
 import { displayName } from "@/lib/cases/names";
-import { isViewer, viewerRepresentation } from "@/lib/cases/viewer";
+import { isViewer, viewerAccess, viewerRepresentation } from "@/lib/cases/viewer";
 import { useProfile } from "@/components/shell/profile";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -274,6 +274,8 @@ export function RaiseApplicationForm({
      a clerk, or an advocate raising it for a colleague — hands it to them. */
   const handoffTo =
     seat.role === "clerk" ||
+    // Office access never e-signs (OFC-06): it drafts, an advocate on the nama signs.
+    viewerAccess(record).kind === "office" ||
     (raisedByPerson && raisedByPerson.id !== seat.personId)
       ? (raisedByPerson?.name ?? seat.signer ?? "your advocate")
       : undefined;

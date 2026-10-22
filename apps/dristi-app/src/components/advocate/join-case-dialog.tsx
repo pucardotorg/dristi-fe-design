@@ -670,9 +670,12 @@ export function AdvocateJoinCaseDialog({
   const joinedCnr = stage === "done" && joinCase && !unpaidOutcome ? joinCase.cnr : null;
   React.useEffect(() => {
     if (!joinedCnr || !joinCase) return;
-    const caseId = `join-${joinedCnr}`;
+    // The real case the demo join lands on, so the people added here show on its
+    // page (OFC-42). The advocate is now on its vakalatnama.
+    const caseId = JOIN_DEMO_CASE_ID;
     registerAccessCase({
       id: caseId,
+      viewerAccess: "vakalatnama",
       title: joinCase.title,
       caseNumber: joinCase.caseNumber,
       court: joinCase.court,
@@ -685,8 +688,7 @@ export function AdvocateJoinCaseDialog({
   function sendInvites() {
     if (!team.length || !joinCase) return;
     // Office access to the joined case as a specific case (OFC-42).
-    const caseId = `join-${joinCase.cnr}`;
-    invite(team.map((person) => person.phone ?? ""), [caseId]);
+    invite(team.map((person) => person.phone ?? ""), [JOIN_DEMO_CASE_ID]);
     // The confirmation shows the batch just sent and replaces any earlier one — a
     // later send swaps the old notification out rather than growing it.
     setTeamInvited(team.map(inviteLabel));

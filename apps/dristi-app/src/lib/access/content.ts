@@ -1,4 +1,7 @@
 import type { Copy } from "@/lib/onboarding/content";
+import { CASES } from "@/lib/cases/fixtures";
+import { partiesLabel } from "@/lib/cases/types";
+import { viewerAccess as recordViewerAccess } from "@/lib/cases/viewer";
 
 export { fill as fillCopy } from "@/lib/join/content";
 
@@ -39,7 +42,15 @@ export type AccessCase = {
    * same fact from the record's counsel lists (`lib/cases/viewer`).
    */
   viewerAccess?: "vakalatnama" | "office";
+  /** An e-filing draft the advocate is on (OFC-04): shared like a case, but it
+      has no case number or case page yet. */
+  draft?: boolean;
 };
+
+/** How a case is named in a sentence: its number, or a draft's title. */
+export function caseLabel(entry: Pick<AccessCase, "caseNumber" | "title">): string {
+  return entry.caseNumber || entry.title;
+}
 
 /**
  * A case the advocate just joined, made known to the access world so office
@@ -47,7 +58,11 @@ export type AccessCase = {
  * only: the backend's case list replaces this.
  */
 export function registerAccessCase(entry: AccessCase): void {
-  if (!ACCESS_CASES.some((c) => c.id === entry.id)) ACCESS_CASES.unshift(entry);
+  const index = ACCESS_CASES.findIndex((c) => c.id === entry.id);
+  // Known already: take the newer facts (a case the advocate just joined is now
+  // theirs on the vakalatnama, whatever the demo docket said).
+  if (index >= 0) ACCESS_CASES[index] = { ...ACCESS_CASES[index], ...entry };
+  else ACCESS_CASES.unshift(entry);
 }
 
 /** May the signed-in advocate remove people from this case? Office access
@@ -61,7 +76,8 @@ export type AccessGrant = {
   caseId: string;
   /** The person's role IN THIS CASE — vakalat nama is per-case. */
   role: AccessRole;
-  /** Vakalat advocates may be declared on the nama but yet to join the system. */
+  /** Vakalat advocates may be declared on the nama but yet to join the system
+      (join-a-case). Office access is immediate, so it is always "joined" (OFC-07). */
   status: "joined" | "invited";
   /** Display date access started. */
   since: string;
@@ -81,8 +97,6 @@ export type AccessPerson = {
    */
   addedBy: "self" | string | null;
   grants: AccessGrant[];
-  /** Known only by number — invited but never signed in to DRISTI. */
-  pending?: boolean;
   /** Gets office access to every case the signed-in advocate is later added
       to on a vakalatnama (OFC-25). */
   allCases?: boolean;
@@ -639,7 +653,6 @@ export const listCopy = {
   ),
   addedByYou: t("Added by you", "നിങ്ങൾ ചേർത്തത്"),
   addedBy: t("Added by {name}", "{name} ചേർത്തത്"),
-  invitedPending: t("Invited · yet to sign in", "ക്ഷണിച്ചു · ഇതുവരെ സൈൻ ഇൻ ചെയ്തിട്ടില്ല"),
 };
 
 export const peopleCopy = {
@@ -686,10 +699,8 @@ export const peopleCopy = {
     "People who are not on the Vakalatnama, such as clerks and junior advocates, but have been given access to work on the case.",
     "വക്കാലത്ത്നാമയിൽ ഇല്ലെങ്കിലും കേസിൽ പ്രവർത്തിക്കാൻ ആക്‌സസ് നൽകിയ ക്ലർക്കുമാരും ജൂനിയർ അഭിഭാഷകരും പോലുള്ള ആളുകൾ.",
   ),
-  joinedOn: t("Joined on {date}", "{date}-ന് ചേർന്നു"),
-  invitedOn: t("Invited on {date}", "{date}-ന് ക്ഷണിച്ചു"),
-  invitedByYou: t("Invited by you", "നിങ്ങൾ ക്ഷണിച്ചു"),
-  invitedBy: t("Invited by {name}", "{name} ക്ഷണിച്ചു"),
+  accessGivenOn: t("Access given on {date}", "{date}-ന് ആക്‌സസ് നൽകി"),
+  draft: t("Draft", "കരട്"),
   barIdLabel: t("Bar ID", "ബാർ ഐഡി"),
   closePanel: t("Close panel", "പാനൽ അടയ്ക്കുക"),
   vakalatTooltipLabel: t(
@@ -704,8 +715,8 @@ export const peopleCopy = {
   scopeAll: t("All cases", "എല്ലാ കേസുകളും"),
   scopeSpecific: t("Specific cases", "തിരഞ്ഞെടുത്ത കേസുകൾ"),
   scopeAllHint: t(
-    "Every case you are on the vakalatnama for, now and in future. To remove single cases, switch to Specific cases.",
-    "നിങ്ങൾ വക്കാലത്ത്നാമയിലുള്ള എല്ലാ കേസുകളും, ഇപ്പോഴും ഭാവിയിലും. ഓരോ കേസായി നീക്കം ചെയ്യാൻ 'തിരഞ്ഞെടുത്ത കേസുകൾ' ആക്കുക.",
+    "Every case you are on the vakalatnama for, and your drafts, now and in future. To remove single cases, switch to Specific cases.",
+    "നിങ്ങൾ വക്കാലത്ത്നാമയിലുള്ള എല്ലാ കേസുകളും നിങ്ങളുടെ കരടുകളും, ഇപ്പോഴും ഭാവിയിലും. ഓരോ കേസായി നീക്കം ചെയ്യാൻ 'തിരഞ്ഞെടുത്ത കേസുകൾ' ആക്കുക.",
   ),
   scopeSpecificHint: t(
     "Only the cases listed below. New cases are not shared automatically.",
@@ -780,8 +791,8 @@ export const addPersonCopy = {
   casesLabel: t("Which cases", "ഏതൊക്കെ കേസുകൾ"),
   allCurrent: t("All cases", "എല്ലാ കേസുകളും"),
   allCurrentHint: t(
-    "Every case you are on the vakalatnama for — {count} now — and every case you file or join from now on.",
-    "നിങ്ങൾ വക്കാലത്ത്നാമയിലുള്ള എല്ലാ കേസുകളും — ഇപ്പോൾ {count} — ഇനി ഫയൽ ചെയ്യുന്നതോ ചേരുന്നതോ ആയ എല്ലാ കേസുകളും.",
+    "Every case you are on the vakalatnama for and your drafts, {count} now. Every case you file or join from now on is added.",
+    "നിങ്ങൾ വക്കാലത്ത്നാമയിലുള്ള എല്ലാ കേസുകളും നിങ്ങളുടെ കരടുകളും, ഇപ്പോൾ {count}. ഇനി ഫയൽ ചെയ്യുന്നതോ ചേരുന്നതോ ആയ എല്ലാ കേസുകളും ചേർക്കും.",
   ),
   specific: t("Specific cases", "തിരഞ്ഞെടുത്ത കേസുകൾ"),
   specificHint: t(
@@ -799,3 +810,18 @@ export const addPersonCopy = {
   doneToast: t("{names} added to {count} cases", "{names} {count} കേസുകളിൽ ചേർത്തു"),
   doneToastOne: t("{names} added to 1 case", "{names} 1 കേസിൽ ചേർത്തു"),
 };
+
+/* Your cases joins the docket, so "All cases" means every case the advocate
+   sees there (OFC-25, OFC-52), not only the access fixtures. Drafts arrive at
+   run time from the filing store (`AccessProvider`). */
+for (const record of CASES) {
+  if (ACCESS_CASES.some((c) => c.id === record.id)) continue;
+  ACCESS_CASES.push({
+    id: record.id,
+    title: partiesLabel(record),
+    caseNumber: record.caseNumber,
+    court: record.court,
+    nextHearing: record.nextHearing?.on ?? "—",
+    viewerAccess: recordViewerAccess(record).kind,
+  });
+}

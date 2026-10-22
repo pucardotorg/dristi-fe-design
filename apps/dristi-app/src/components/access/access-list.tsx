@@ -26,7 +26,8 @@ import {
  * Kept deliberately quiet: no role badges — on-nama advocates are marked by a
  * plain "Vakalatnama" on the right with a disabled Remove (removal is a court
  * application, said on hover), everyone else is office staff with a live red
- * Remove. The only badge is "Yet to join", for anyone who hasn't signed in.
+ * Remove on the office access you gave. The only badge is "Yet to join", for
+ * a nama advocate who hasn't signed in.
  */
 
 export function initials(name: string): string {
@@ -95,7 +96,9 @@ export function PersonRow({
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
           <p className="truncate text-body-compact font-medium">{person.name}</p>
-          {person.pending || grant.status === "invited" ? (
+          {/* A co-advocate named on the vakalatnama who has not signed in yet
+              (join-a-case). Office access is immediate, so never on staff. */}
+          {isVakalat && grant.status === "invited" ? (
             <Badge variant="warning">{pick(shareCopy.statusInvited, locale)}</Badge>
           ) : null}
         </div>
@@ -128,7 +131,9 @@ export function PersonRow({
         <span className="shrink-0 text-caption text-muted-foreground">
           {pick(peopleCopy.allCasesShareNote, locale)}
         </span>
-      ) : onRemove ? (
+      ) : onRemove && grantInviter === "self" ? (
+        // Only the office access this advocate gave; a co-advocate's people
+        // are theirs to manage (OFC-09).
         <Button type="button" variant="destructive-ghost" size="sm" onClick={onRemove}>
           {pick(listCopy.remove, locale)}
         </Button>

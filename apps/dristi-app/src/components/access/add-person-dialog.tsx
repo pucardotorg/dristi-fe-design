@@ -20,19 +20,16 @@ import {
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 import { Identifier } from "@/components/chrome/identifier";
 import { pick, type Locale } from "@/lib/onboarding/content";
+import { Badge } from "@/components/ui/badge";
 import {
-  ACCESS_CASES,
   addPersonCopy,
   fillCopy,
   inviteFieldCopy,
-  viewerHoldsVakalat,
+  peopleCopy,
   type AccessPerson,
 } from "@/lib/access/content";
 
 type Scope = "all" | "specific";
-
-/** The cases this advocate may share: those where they are on the vakalatnama (OFC-04). */
-const SHAREABLE_CASES = ACCESS_CASES.filter((c) => viewerHoldsVakalat(c.id));
 
 /**
  * Add person — the People tab's way into the office (OFC-20 to OFC-28).
@@ -55,7 +52,8 @@ export function AddPersonDialog({
   /** An office member to give more cases to; absent for a new person. */
   person?: AccessPerson | null;
 }) {
-  const { invite, office } = useAccess();
+  // Cases on the vakalatnama, and drafts (OFC-04, OFC-25a).
+  const { invite, office, shareableCases } = useAccess();
   const [chosen, setChosen] = React.useState<InvitePerson[]>([]);
   const [scope, setScope] = React.useState<Scope>("specific");
   const [picked, setPicked] = React.useState<string[]>([]);
@@ -70,7 +68,7 @@ export function AddPersonDialog({
 
   const caseIds =
     scope === "all"
-      ? SHAREABLE_CASES.map((c) => c.id).filter((id) => !held.has(id))
+      ? shareableCases.map((c) => c.id).filter((id) => !held.has(id))
       : picked;
   const people = person ? [{ phone: person.phone }] : chosen;
   const missingPerson = people.length === 0;
@@ -78,10 +76,10 @@ export function AddPersonDialog({
 
   const q = caseQuery.trim().toLowerCase();
   const visibleCases = q
-    ? SHAREABLE_CASES.filter(
+    ? shareableCases.filter(
         (c) => c.title.toLowerCase().includes(q) || c.caseNumber.toLowerCase().includes(q),
       )
-    : SHAREABLE_CASES;
+    : shareableCases;
 
   function reset() {
     setChosen([]);
@@ -180,7 +178,7 @@ export function AddPersonDialog({
                       <span className="text-caption font-normal text-muted-foreground">
                         {value === "all"
                           ? fillCopy(addPersonCopy.allCurrentHint, locale, {
-                              count: String(SHAREABLE_CASES.length),
+                              count: String(shareableCases.length),
                             })
                           : pick(addPersonCopy.specificHint, locale)}
                       </span>
@@ -235,8 +233,12 @@ export function AddPersonDialog({
                             />
                             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                               <span className="text-body-compact font-medium text-pretty">{c.title}</span>
-                              <span className="text-caption text-muted-foreground">
-                                <Identifier value={c.caseNumber} label="case number" />
+                              <span className="flex flex-wrap items-center gap-x-1 text-caption text-muted-foreground">
+                                {c.draft ? (
+                                  <Badge variant="secondary">{pick(peopleCopy.draft, locale)}</Badge>
+                                ) : (
+                                  <Identifier value={c.caseNumber} label="case number" />
+                                )}
                                 {already ? <> · {pick(addPersonCopy.alreadyHas, locale)}</> : null}
                               </span>
                             </span>

@@ -1,15 +1,21 @@
 "use client";
 
 import * as React from "react";
+import { usePathname } from "next/navigation";
 
 import {
   ACCESS_CASES,
   ACCESS_PEOPLE,
+  registerAccessCase,
   registeredUserByPhone,
   viewerHoldsVakalat,
+  type AccessCase,
   type AccessPerson,
   type AccessRole,
 } from "@/lib/access/content";
+import { getRepository } from "@/lib/filing/data";
+import { ensureSampleDrafts } from "@/lib/filing/sample-drafts";
+import { draftTitle } from "@/lib/filing/selectors";
 
 /**
  * Shared, in-memory access state for the prototype.
@@ -54,6 +60,8 @@ type AccessContextValue = {
   /** The advocate was just added to a case (joined or filed): everyone on All
    *  cases gets it at once (OFC-25). */
   caseAdded: (caseId: string) => void;
+  /** The cases and drafts this advocate may share, newest docket (OFC-04). */
+  shareableCases: AccessCase[];
   personsOnCase: (caseId: string) => AccessPerson[];
   /** The signed-in advocate's office (OFC-11): people holding office access they
    *  gave. Each carries only those grants. */
@@ -94,7 +102,8 @@ export function isOwnOfficeGrant(grant: AccessPerson["grants"][number]): boolean
   );
 }
 
-/** Cases this advocate may share — those where they are on the vakalatnama (OFC-04). */
+/** Cases this advocate may share — those where they are on the vakalatnama, and
+    their drafts (OFC-04). */
 export function shareableCaseIds(): string[] {
   return ACCESS_CASES.filter((c) => viewerHoldsVakalat(c.id)).map((c) => c.id);
 }
@@ -248,7 +257,7 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
             ...missing.map((caseId) => ({
               caseId,
               role,
-              status: person.pending ? ("invited" as const) : ("joined" as const),
+              status: "joined" as const,
               since: today,
               addedBy: "self" as const,
             })),
@@ -258,28 +267,77 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
     );
   }, []);
 
-  const caseAdded = React.useCallback((caseId: string) => {
+  // Bumped when the docket grows, so lists built from it read it again.
+  const [docketVersion, setDocketVersion] = React.useState(0);
+
+  const casesAdded = React.useCallback((caseIds: string[]) => {
+    if (!caseIds.length) return;
     const today = displayToday();
+    setDocketVersion((v) => v + 1);
     setPeople((current) =>
-      current.map((person) =>
-        person.allCases && !person.grants.some((g) => g.caseId === caseId)
-          ? {
-              ...person,
-              grants: [
-                ...person.grants,
-                {
-                  caseId,
-                  role: person.grants.find((g) => g.role !== "vakalat")?.role ?? "clerk",
-                  status: person.pending ? ("invited" as const) : ("joined" as const),
-                  since: today,
-                  addedBy: "self" as const,
-                },
-              ],
-            }
-          : person,
-      ),
+      current.map((person) => {
+        if (!person.allCases) return person;
+        const missing = caseIds.filter((id) => !person.grants.some((g) => g.caseId === id));
+        if (!missing.length) return person;
+        const role = person.grants.find((g) => g.role !== "vakalat")?.role ?? "clerk";
+        return {
+          ...person,
+          grants: [
+            ...person.grants,
+            ...missing.map((caseId) => ({
+              caseId,
+              role,
+              status: "joined" as const,
+              since: today,
+              addedBy: "self" as const,
+            })),
+          ],
+        };
+      }),
     );
   }, []);
+
+  const caseAdded = React.useCallback((caseId: string) => casesAdded([caseId]), [casesAdded]);
+
+  /* Drafts live in the filing store. Read on every page change, so a draft
+     created since reaches everyone on All cases (OFC-25) and the case picker
+     (OFC-25a). The advocate's own drafts are the only ones this browser holds. */
+  const pathname = usePathname();
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        await ensureSampleDrafts();
+        const drafts = await getRepository().listDrafts();
+        if (cancelled) return;
+        const fresh = drafts.filter(
+          (d) => d.status === "draft" && !ACCESS_CASES.some((c) => c.id === d.id),
+        );
+        fresh.forEach((d) =>
+          registerAccessCase({
+            id: d.id,
+            title: draftTitle(d),
+            caseNumber: "",
+            court: "",
+            nextHearing: "—",
+            draft: true,
+          }),
+        );
+        casesAdded(fresh.map((d) => d.id));
+      } catch {
+        // No filing store (private window, blocked storage): cases only.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname, casesAdded]);
+
+  const shareableCases = React.useMemo(
+    () => ACCESS_CASES.filter((c) => viewerHoldsVakalat(c.id)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ACCESS_CASES grows in place
+    [docketVersion],
+  );
 
   const office = React.useMemo(
     () =>
@@ -295,8 +353,18 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
   );
 
   const value = React.useMemo(
-    () => ({ people, invite, removeGrant, removeAll, setAllCases, caseAdded, personsOnCase, office }),
-    [people, invite, removeGrant, removeAll, setAllCases, caseAdded, personsOnCase, office],
+    () => ({
+      people,
+      invite,
+      removeGrant,
+      removeAll,
+      setAllCases,
+      caseAdded,
+      shareableCases,
+      personsOnCase,
+      office,
+    }),
+    [people, invite, removeGrant, removeAll, setAllCases, caseAdded, shareableCases, personsOnCase, office],
   );
 
   return <AccessContext.Provider value={value}>{children}</AccessContext.Provider>;
