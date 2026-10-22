@@ -376,7 +376,7 @@ export async function putFile(store: BulkStore, fileId: string, file: File | nul
 export async function attach(
   store: BulkStore,
   batchId: string,
-  input: { file: File | null; caseId: string; slotKey: string; ai: string | null },
+  input: { file: File | null; caseId: string; slotKey: string; poor?: boolean; ai: string | null },
 ): Promise<Reply> {
   if (!input.file) return fail("No file.", 400);
   const bytes = new Uint8Array(await input.file.arrayBuffer());
@@ -387,7 +387,7 @@ export async function attach(
   const saved = await store.updateBatch(batchId, (batch) => {
     const bc = batch.cases.find((c) => c.id === input.caseId);
     if (!bc || bc.signedWith || bc.draft.status === "filed") return null;
-    done = attachToSlot(bc, input.slotKey, ref);
+    done = attachToSlot(bc, input.slotKey, ref, input.poor);
     if (done) bc.docText = { ...bc.docText, [ref.id]: text };
     return done ? batch : null;
   });

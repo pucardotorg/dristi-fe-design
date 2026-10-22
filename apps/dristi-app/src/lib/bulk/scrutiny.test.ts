@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { ApiBatchRequest, ApiCase } from "./contract";
+import type { StoredFileRef } from "@/lib/filing/types";
+
+import { attachToSlot } from "./actions.server";
 import { buildBatch } from "./intake";
 import { caseFlags, caseStage, openFlags } from "./scrutiny";
 import type { Batch } from "./types";
@@ -93,13 +96,21 @@ test("rules name the field and the level", async () => {
   assert.equal(by("ACC-6")[0]?.level, "hold");
 });
 
-test("a return reason other than insufficient funds is a check, and skipping it clears it", async () => {
+test("any listed return reason passes: payment stopped raises nothing", async () => {
   const batch = await batchOf([
     goodCase("C-1", { cheques: [{ ...goodCase("x").cheques[0], returnReason: "payment-stopped" }] }),
   ]);
+  assert.ok(!caseFlags(batch.cases[0]).some((f) => f.field === "CHQ-10"));
+});
+
+test("a blurry scan is a check on Documents, and skipping it clears it", async () => {
+  const batch = await batchOf([goodCase("C-2")]);
   const bc = batch.cases[0];
-  const soft = caseFlags(bc).find((f) => f.field === "CHQ-10");
+  const slot = bc.draft.intake.cheques[0].slots[0];
+  attachToSlot(bc, slot.key, { id: "f1", name: "memo.png", type: "image/png", size: 10 } as StoredFileRef, true);
+  const soft = caseFlags(bc).find((f) => f.rule === "dcm-poor");
   assert.equal(soft?.level, "soft");
+  assert.equal(soft?.section, "documents");
   bc.skipped.push(soft!.id);
   assert.ok(!openFlags(bc).some((f) => f.id === soft!.id));
 });

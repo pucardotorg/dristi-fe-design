@@ -6,6 +6,7 @@ import {
   CircleAlertIcon,
   WandSparklesIcon,
   CircleCheckIcon,
+  TriangleAlertIcon,
   UploadIcon,
 } from "lucide-react";
 
@@ -17,12 +18,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 
-import { demoPdf } from "./demo-fill";
+import { readability } from "@/lib/filing/readability";
+
+import { demoBlurryScan, demoPdf } from "./demo-fill";
 import { bulkApi, useBulkFileUrl, type CaseView } from "./api";
 import type { BatchCtx } from "./batch-screen";
 import { OriginalDoc } from "./original-doc";
 
 type Doc = CaseView["documents"][number];
+type Flag = CaseView["flags"][number];
 
 const ACCEPT = ".pdf,.jpg,.jpeg,.png";
 
@@ -43,11 +47,17 @@ export function Slot({
   locked,
   busy,
   onFile,
+  poor,
+  onKeep,
 }: {
   doc: Doc;
   locked: boolean;
   busy: boolean;
   onFile: (file: File) => void;
+  /** The open "blurry or cropped" warning on this file, if any. */
+  poor?: Flag;
+  /** Keep the file as it is: skips the warning. */
+  onKeep?: () => void;
 }) {
   const input = React.useRef<HTMLInputElement>(null);
   const [over, setOver] = React.useState(false);
@@ -93,6 +103,11 @@ export function Slot({
         >
           {busy ? (
             <Spinner className="shrink-0" />
+          ) : poor ? (
+            <TriangleAlertIcon
+              className="size-4 shrink-0 text-warning-ink"
+              aria-label="Uploaded, hard to read"
+            />
           ) : (
             <CircleCheckIcon
               className="size-4 shrink-0 text-success-ink"
@@ -158,6 +173,21 @@ export function Slot({
           </span>
         </button>
       )}
+      {filled && poor ? (
+        <p className="mt-1 flex flex-wrap items-baseline gap-x-2 px-3 text-caption text-warning-ink">
+          <span>{poor.message}</span>
+          {onKeep && canUpload ? (
+            <button
+              type="button"
+              className="text-foreground underline disabled:opacity-50"
+              disabled={busy}
+              onClick={onKeep}
+            >
+              Keep this file
+            </button>
+          ) : null}
+        </p>
+      ) : null}
       <input
         ref={input}
         type="file"
@@ -187,13 +217,12 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
 
   // Cases missing something first, in the order they had when the tab opened, so a case
   // does not jump away the moment its last document goes in.
+  const poorOf = (c: CaseView) => c.flags.filter((f) => f.rule === "dcm-poor");
+  const needsWork = (c: CaseView) =>
+    c.docs.have < c.docs.need || poorOf(c).length > 0;
   const [order] = React.useState(() =>
     [...batch.cases]
-      .sort(
-        (a, b) =>
-          Number(a.docs.have >= a.docs.need) -
-          Number(b.docs.have >= b.docs.need),
-      )
+      .sort((a, b) => Number(!needsWork(a)) - Number(!needsWork(b)))
       .map((c) => c.id),
   );
   const rank = (id: string) => {
@@ -209,13 +238,15 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
     (n, c) => n + (c.docs.need - c.docs.have),
     0,
   );
+  const scans = open.reduce((n, c) => n + poorOf(c).length, 0);
 
   const upload = async (c: CaseView, d: Doc, file: File) => {
     if (!d.slotKey) return;
     setBusy(`${c.id}:${d.slotKey}`);
     setError(null);
     try {
-      setBatch(await bulkApi.attach(batch.id, c.id, d.slotKey, file));
+      const poor = (await readability(file)) === "bad";
+      setBatch(await bulkApi.attach(batch.id, c.id, d.slotKey, file, poor));
     } catch (e) {
       setError(`${file.name}: ${(e as Error).message}`);
     } finally {
@@ -223,15 +254,31 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
     }
   };
 
-  // Demo: a small PDF into every empty slot, one case or the whole batch.
+  const keep = async (c: CaseView, f: Flag) => {
+    setBusy(`${c.id}:${f.fix?.kind === "upload" ? f.fix.slotKey : ""}`);
+    setError(null);
+    try {
+      setBatch(await bulkApi.act(batch.id, { action: "skip", caseId: c.id, flagId: f.id }));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  // Demo: a small PDF into every empty slot, one case or the whole batch. The first
+  // case's first slot gets a scan too small to read, so the blurry-scan warning shows.
+  const blurryAt = batch.cases[0]?.id;
   const fillDemo = async (cases: CaseView[]) => {
     setError(null);
     for (const c of cases)
-      for (const d of c.documents.filter((x) => !x.file && x.slotKey)) {
+      for (const [i, d] of c.documents.filter((x) => !x.file && x.slotKey).entries()) {
         setBusy(`${c.id}:${d.slotKey}`);
         try {
+          const blurry = c.id === blurryAt && i === 0;
+          const file = blurry ? await demoBlurryScan(d.name) : demoPdf(d.name);
           setBatch(
-            await bulkApi.attach(batch.id, c.id, d.slotKey!, demoPdf(d.name)),
+            await bulkApi.attach(batch.id, c.id, d.slotKey!, file, blurry),
           );
         } catch (e) {
           setError((e as Error).message);
@@ -269,6 +316,14 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
           <span className="flex items-center gap-2">
             <CheckCircle2Icon className="size-4 text-success-ink" aria-hidden />
             Every required document is in
+          </span>
+        ) : null}
+        {scans ? (
+          <span className="flex items-center gap-2">
+            <TriangleAlertIcon className="size-4 text-warning-ink" aria-hidden />
+            <span className="tabular-nums">
+              {scans} scan{scans === 1 ? "" : "s"} hard to read
+            </span>
           </span>
         ) : null}
         {locked ? (
@@ -354,16 +409,23 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
                       </Badge>
                     </div>
                     <ul className="grid grid-cols-1 content-start gap-2 lg:grid-cols-2">
-                      {c.documents.map((d) => (
-                        <li key={`${d.group}-${d.slotKey ?? d.name}`}>
-                          <Slot
-                            doc={d}
-                            locked={closed}
-                            busy={busy === `${c.id}:${d.slotKey}`}
-                            onFile={(file) => void upload(c, d, file)}
-                          />
-                        </li>
-                      ))}
+                      {c.documents.map((d) => {
+                        const poor = poorOf(c).find(
+                          (f) => f.fix?.kind === "upload" && f.fix.slotKey === d.slotKey,
+                        );
+                        return (
+                          <li key={`${d.group}-${d.slotKey ?? d.name}`}>
+                            <Slot
+                              doc={d}
+                              locked={closed}
+                              busy={busy === `${c.id}:${d.slotKey}`}
+                              onFile={(file) => void upload(c, d, file)}
+                              poor={poor}
+                              onKeep={poor ? () => void keep(c, poor) : undefined}
+                            />
+                          </li>
+                        );
+                      })}
                     </ul>
                   </CardContent>
                 </Card>

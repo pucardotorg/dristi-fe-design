@@ -1,6 +1,13 @@
 /**
- * Builds the two demo spreadsheets for bulk filing, with dates set from today so every
- * case is within limitation when it is uploaded:
+ * Builds the two demo spreadsheets for bulk filing, with dates set from today. Every case
+ * is within limitation when it is uploaded except one, which shows the warnings a batch
+ * can raise (owner, 2026-10-22: only these):
+ *
+ *   TCL-AHD-PL-1002   cheque presented after its three-month validity (CHQ-11)
+ *   TCL-AHD-PL-1004   past the one-month limit, and the sheet has no condonation reason (JUR-12)
+ *
+ * The third, a scan too blurry to read, comes from "Fill with demo files" on Documents.
+ *
  *
  *   demo-files/tata-capital-bulk-filing-template.xlsx   follows the template (no matching)
  *   demo-files/tata-capital-recovery-mis.xlsx           the lender's own layout (matching screens)
@@ -56,6 +63,8 @@ type Demo = {
   mode: "rpad" | "speed";
   /** Days ago the notice was served; it went out 8 days before. */
   served: number;
+  /** Presented after the cheque's three-month validity. */
+  presentedLate?: boolean;
   delivered: boolean;
   replied?: boolean;
   paid?: number;
@@ -69,9 +78,9 @@ type Demo = {
 /** Twelve cases: mostly clean, a few with something for scrutiny to show. */
 const CASES: Demo[] = [
   { ref: "TCL-AHD-PL-1001", witnesses: [{ name: "Kunal S. Shah", designation: "Branch Manager, Tata Capital, C G Road", prove: "The loan account statement and the dishonour", mobile: "9879055501" }], name: "Harsh V. Bhavsar", type: "individual", age: "34", mobile: "9879012301", email: "harsh.bhavsar@mail.example", address: "B-12, Sundaram Flats, Vastrapur", city: "Ahmedabad", pin: "380015", police: "Vastrapur Police Station", cheque: "204511", amount: 148500, ifsc: "SBIN0060421", account: "38291004512", reason: "funds-insufficient", mode: "rpad", served: 19, delivered: true },
-  { ref: "TCL-AHD-PL-1002", name: "Snehal K. Mistry", type: "individual", age: "41", mobile: "9879012302", email: "snehal.mistry@mail.example", address: "14, Gokul Row Houses, Naranpura", city: "Ahmedabad", pin: "380013", police: "Naranpura Police Station", cheque: "331207", amount: 92750, ifsc: "HDFC0000521", account: "50100221834", reason: "funds-insufficient", mode: "rpad", served: 20, delivered: true },
+  { ref: "TCL-AHD-PL-1002", name: "Snehal K. Mistry", type: "individual", age: "41", mobile: "9879012302", email: "snehal.mistry@mail.example", address: "14, Gokul Row Houses, Naranpura", city: "Ahmedabad", pin: "380013", police: "Naranpura Police Station", cheque: "331207", amount: 92750, ifsc: "HDFC0000521", account: "50100221834", reason: "funds-insufficient", mode: "rpad", served: 20, delivered: true, presentedLate: true },
   { ref: "TCL-AHD-BL-1003", coAccused: { name: "Kusum P. Solanki", age: "49", mobile: "9879012313" }, name: "Pravin D. Solanki", type: "individual", age: "52", mobile: "9879012303", email: "pravin.solanki@mail.example", address: "7, Shreeji Society, Maninagar", city: "Ahmedabad", pin: "380008", police: "Maninagar Police Station", cheque: "118034", amount: 365000, ifsc: "BARB0MANINA", account: "21950100004471", reason: "exceeds-arrangement", mode: "speed", served: 21, delivered: true },
-  { ref: "TCL-AHD-PL-1004", name: "Mitali R. Shah", type: "individual", age: "29", mobile: "9879012304", email: "mitali.shah@mail.example", address: "C-403, Orchid Greens, Bopal", city: "Ahmedabad", pin: "380058", police: "Bopal Police Station", cheque: "560921", amount: 76400, ifsc: "KKBK0002561", account: "7612004893", reason: "payment-stopped", mode: "rpad", served: 18, delivered: true },
+  { ref: "TCL-AHD-PL-1004", name: "Mitali R. Shah", type: "individual", age: "29", mobile: "9879012304", email: "mitali.shah@mail.example", address: "C-403, Orchid Greens, Bopal", city: "Ahmedabad", pin: "380058", police: "Bopal Police Station", cheque: "560921", amount: 76400, ifsc: "KKBK0002561", account: "7612004893", reason: "payment-stopped", mode: "rpad", served: 60, delivered: true },
   { ref: "TCL-AHD-TL-1005", name: "Rakesh J. Prajapati", type: "individual", age: "38", mobile: "9879012305", email: "rakesh.prajapati@mail.example", address: "33, Shiv Shakti Nagar, Naroda", city: "Ahmedabad", pin: "382330", police: "Naroda Police Station", cheque: "009812", amount: 58900, ifsc: "PUNB0458600", account: "4586000100023911", reason: "funds-insufficient", mode: "rpad", served: 22, delivered: false },
   { ref: "TCL-AHD-BL-1006", witnesses: [{ name: "Kunal S. Shah", designation: "Branch Manager, Tata Capital, C G Road", prove: "The loan account statement", mobile: "9879055501" }, { name: "Dipti R. Vora", designation: "Collections Officer", prove: "Presentation and return of the cheque", mobile: "9879055502" }], name: "Sarthak Packaging Pvt Ltd", type: "institution", entity: "private-limited", person: ["Nikhil S. Desai", "Managing Director"], mobile: "9879012306", email: "accounts@sarthakpack.example", address: "Plot 41, GIDC Phase 2, Naroda", city: "Ahmedabad", pin: "382330", police: "Naroda Police Station", cheque: "442190", amount: 512000, ifsc: "UTIB0000080", account: "917020045512230", reason: "funds-insufficient", mode: "speed", served: 17, delivered: true },
   { ref: "TCL-AHD-PL-1007", name: "Jayesh M. Rana", type: "individual", age: "45", mobile: "9879012307", email: "jayesh.rana@mail.example", address: "9, Sahjanand Park, Paldi", city: "Vadodara", pin: "380006", police: "Paldi Police Station", cheque: "671455", amount: 133250, ifsc: "CNRB0002627", account: "2627101009981", reason: "funds-insufficient", mode: "rpad", served: 19, delivered: true, paid: 25000 },
@@ -88,7 +97,7 @@ function timeline(c: Demo) {
   const dispatched = daysAgo(c.served + 8);
   const returned = daysAgo(c.served + 14);
   const presented = daysAgo(c.served + 17);
-  const dated = daysAgo(c.served + 30);
+  const dated = daysAgo(c.served + (c.presentedLate ? 110 : 30));
   return { served, dispatched, returned, presented, dated };
 }
 
