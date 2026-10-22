@@ -561,11 +561,18 @@ export const REGISTERED_USERS: RegisteredUser[] = [
   { name: "Adv. Joseph Antony", phone: "94461 20934", barId: "K/1567/2016", type: "advocate" },
   { name: "Adv. Fathima Rasheed", phone: "98953 70412", barId: "K/2730/2020", type: "advocate" },
   { name: "Vishnu Mohan", phone: "81290 66135", type: "clerk" },
+  /* The demo's clerk profile (sidebar, Viewing as): add him to see what the
+     person added receives (OFC-08). */
+  { name: "Vinod Kumar", phone: "94472 31508", type: "clerk" },
 ];
 
 export function registeredUserByPhone(phone: string): RegisteredUser | undefined {
   const digits = phone.replace(/\D/g, "");
   return REGISTERED_USERS.find((user) => user.phone.replace(/\D/g, "") === digits);
+}
+
+export function registeredUserByName(name: string): RegisteredUser | undefined {
+  return REGISTERED_USERS.find((user) => user.name === name);
 }
 
 /* ------------------------------------------------------------------------ copy */
@@ -762,6 +769,28 @@ export const peopleCopy = {
     "You hold office access on this case. Removing people belongs to the advocates on the vakalatnama.",
     "ഈ കേസിൽ നിങ്ങൾക്ക് ഓഫീസ് ആക്‌സസ് ആണ്. ആളുകളെ നീക്കം ചെയ്യുന്നത് വക്കാലത്ത്നാമയിലെ അഭിഭാഷകർക്കാണ്.",
   ),
+};
+
+/* What the person added sees in their own notifications (OFC-08, N1 to N3).
+   In-app only in the prototype; the SMS is not shown. */
+export const officeNoticeCopy = {
+  addedTitle: t("{advocate} added you to their office", "{advocate} നിങ്ങളെ അവരുടെ ഓഫീസിൽ ചേർത്തു"),
+  addedSpecificOne: t(
+    "You can now work on 1 of their cases.",
+    "അവരുടെ 1 കേസിൽ ഇനി നിങ്ങൾക്ക് പ്രവർത്തിക്കാം.",
+  ),
+  addedSpecific: t(
+    "You can now work on {count} of their cases.",
+    "അവരുടെ {count} കേസുകളിൽ ഇനി നിങ്ങൾക്ക് പ്രവർത്തിക്കാം.",
+  ),
+  addedAll: t(
+    "You can now work on all their cases, now and in future.",
+    "അവരുടെ എല്ലാ കേസുകളിലും, ഇപ്പോഴും ഭാവിയിലും, നിങ്ങൾക്ക് പ്രവർത്തിക്കാം.",
+  ),
+  sharedTitle: t("{advocate} shared {case} with you", "{advocate} {case} നിങ്ങളുമായി പങ്കിട്ടു"),
+  sharedMany: t("{count} cases", "{count} കേസുകൾ"),
+  draft: t("Draft", "കരട്"),
+  sharedBodyMany: t("They are in Your cases now.", "അവ ഇപ്പോൾ നിങ്ങളുടെ കേസുകളിലുണ്ട്."),
 };
 
 export const casesCopy = {

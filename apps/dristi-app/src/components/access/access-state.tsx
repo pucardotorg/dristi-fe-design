@@ -3,9 +3,15 @@
 import * as React from "react";
 import { usePathname } from "next/navigation";
 
+import type { ShellNotification } from "@/components/shell/notifications";
+import { pick, type Locale } from "@/lib/onboarding/content";
 import {
   ACCESS_CASES,
   ACCESS_PEOPLE,
+  SELF,
+  caseLabel,
+  fillCopy,
+  officeNoticeCopy,
   registerAccessCase,
   registeredUserByPhone,
   viewerHoldsVakalat,
@@ -66,6 +72,20 @@ type AccessContextValue = {
   /** The signed-in advocate's office (OFC-11): people holding office access they
    *  gave. Each carries only those grants. */
   office: AccessPerson[];
+  /** What each person added has been told, by their number (OFC-08). */
+  notices: OfficeNotice[];
+  markNoticesRead: (phone: string) => void;
+};
+
+/** One in-app notification to the person given access (OFC-08, N1 to N3). */
+export type OfficeNotice = {
+  id: string;
+  /** Who receives it: the person added, by normalized number. */
+  to: string;
+  kind: "added-specific" | "added-all" | "shared";
+  /** The cases given, for the count and, with one, its name and link. */
+  caseIds: string[];
+  unread: boolean;
 };
 
 const AccessContext = React.createContext<AccessContextValue | null>(null);
@@ -109,6 +129,19 @@ export function shareableCaseIds(): string[] {
 }
 
 export function AccessProvider({ children }: { children: React.ReactNode }) {
+  // A person on All cases is not told about each new case (OFC-25, §6), so only
+  // the share and add flows write here.
+  const [notices, setNotices] = React.useState<OfficeNotice[]>([]);
+  const noticeSeq = React.useRef(0);
+  const markNoticesRead = React.useCallback((phone: string) => {
+    const digits = normalizePhone(phone);
+    setNotices((current) =>
+      current.some((n) => n.to === digits && n.unread)
+        ? current.map((n) => (n.to === digits ? { ...n, unread: false } : n))
+        : current,
+    );
+  }, []);
+
   // A seed person on All cases holds every shareable case, like anyone set so here.
   const [people, setPeople] = React.useState<AccessPerson[]>(() =>
     ACCESS_PEOPLE.map((person) => {
@@ -149,6 +182,7 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
       // Which cases gained at least one new grant — drives the honest bulk line.
       const casesTouched = new Set<string>();
       const next = [...people];
+      const fresh: Omit<OfficeNotice, "id" | "unread">[] = [];
 
       for (const raw of phones) {
         const user = registeredUserByPhone(raw);
@@ -165,6 +199,22 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
             (caseId) => !person.grants.some((g) => g.caseId === caseId),
           );
           missing.forEach((caseId) => casesTouched.add(caseId));
+          // Already in this office: told about the new cases (N3). Not yet in it
+          // (only a co-advocate's access, or none of ours left): told they joined.
+          const inOffice = person.grants.some(isOwnOfficeGrant);
+          if (missing.length) {
+            fresh.push({
+              to: digits,
+              kind: !inOffice
+                ? options?.allCases
+                  ? "added-all"
+                  : "added-specific"
+                : options?.allCases && !person.allCases
+                  ? "added-all"
+                  : "shared",
+              caseIds: missing,
+            });
+          }
           next[index] = {
             ...person,
             ...scope,
@@ -184,6 +234,13 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
         }
 
         targetCases.forEach((caseId) => casesTouched.add(caseId));
+        if (targetCases.length) {
+          fresh.push({
+            to: digits,
+            kind: options?.allCases ? "added-all" : "added-specific",
+            caseIds: targetCases,
+          });
+        }
         next.push({
           id: `p-${digits}`,
           name: user.name,
@@ -203,6 +260,12 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
       }
 
       setPeople(next);
+      if (fresh.length) {
+        setNotices((current) => [
+          ...fresh.map((n) => ({ ...n, id: `notice-${++noticeSeq.current}`, unread: true })),
+          ...current,
+        ]);
+      }
       return {
         added: casesTouched.size,
         skipped: targetCases.length - casesTouched.size,
@@ -363,9 +426,65 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
       shareableCases,
       personsOnCase,
       office,
+      notices,
+      markNoticesRead,
     }),
-    [people, invite, removeGrant, removeAll, setAllCases, caseAdded, shareableCases, personsOnCase, office],
+    [
+      people,
+      invite,
+      removeGrant,
+      removeAll,
+      setAllCases,
+      caseAdded,
+      shareableCases,
+      personsOnCase,
+      office,
+      notices,
+      markNoticesRead,
+    ],
   );
 
   return <AccessContext.Provider value={value}>{children}</AccessContext.Provider>;
+}
+
+/** A notice as the bell shows it, in the receiver's words (§6). */
+export function noticeToShell(notice: OfficeNotice, locale: Locale): ShellNotification {
+  const advocate = SELF.name;
+  const one =
+    notice.caseIds.length === 1
+      ? ACCESS_CASES.find((c) => c.id === notice.caseIds[0])
+      : undefined;
+  if (notice.kind === "shared") {
+    const named = one
+      ? one.title
+      : fillCopy(officeNoticeCopy.sharedMany, locale, { count: String(notice.caseIds.length) });
+    return {
+      id: notice.id,
+      title: fillCopy(officeNoticeCopy.sharedTitle, locale, { advocate, case: named }),
+      body: one
+        ? one.draft
+          ? pick(officeNoticeCopy.draft, locale)
+          : caseLabel(one)
+        : pick(officeNoticeCopy.sharedBodyMany, locale),
+      unread: notice.unread,
+      tone: "info",
+      // One case opens it; several open Your cases.
+      href: one && !one.draft ? `/cases/${encodeURIComponent(one.id)}` : "/cases",
+    };
+  }
+  return {
+    id: notice.id,
+    title: fillCopy(officeNoticeCopy.addedTitle, locale, { advocate }),
+    body:
+      notice.kind === "added-all"
+        ? pick(officeNoticeCopy.addedAll, locale)
+        : notice.caseIds.length === 1
+          ? pick(officeNoticeCopy.addedSpecificOne, locale)
+          : fillCopy(officeNoticeCopy.addedSpecific, locale, {
+              count: String(notice.caseIds.length),
+            }),
+    unread: notice.unread,
+    tone: "info",
+    href: "/cases",
+  };
 }
