@@ -15,6 +15,7 @@ import {
 } from "@/components/chrome/table-plate";
 import { Identifier } from "@/components/chrome/identifier";
 import { ApplicationBulkDialog, type BulkAct } from "@/components/employee/application-bulk-dialog";
+import { ApplicationDialog } from "@/components/employee/application-dialog";
 import { CourtFilters } from "@/components/employee/court-filters";
 import { QueueAnnouncer } from "@/components/employee/queue-announcer";
 import { QueueItemRow } from "@/components/employee/queue-item-row";
@@ -71,6 +72,7 @@ import {
   type ApplicationView,
 } from "@/lib/employee/application-queue";
 import { caseOf, causeTitleOf } from "@/lib/employee/application-tasks";
+import { nextApplicationOrderKey } from "@/lib/employee/application-order-draft";
 import {
   pendingOrderStage,
   pendingOrderStageLabel,
@@ -120,12 +122,19 @@ const EMPTY: Record<ApplicationView | "archive", { title: string; description: s
  * their own band so none is lost. Closed holds the last 30 days, with the rest in the
  * archive below it.
  *
- * Opening a row opens the workstation (`application-workstation.tsx`) on that list, so the
- * bench works through it one application after another. The magistrate or bench clerk can act on a
+ * Opening a row opens the application as a pop-up over the list (`application-dialog.tsx`,
+ * owner, 2026-10-21: the workstation's list beside it was a distraction). The magistrate or bench clerk can act on a
  * selection — onboard, defer or relist — where the act is a date, not a judgment; accept,
  * reject and dismiss are always one application at a time.
  */
-export function ApplicationsScreen({ initialView }: { initialView: ApplicationView | "archive" }) {
+export function ApplicationsScreen({
+  initialView,
+  initialOpen,
+}: {
+  initialView: ApplicationView | "archive";
+  /** An application to open on arrival — the way back from its order. */
+  initialOpen?: string;
+}) {
   const router = useRouter();
   const ready = useApplicationsReady();
   const apps = useLifecycleApplications();
@@ -137,10 +146,15 @@ export function ApplicationsScreen({ initialView }: { initialView: ApplicationVi
   const [query, setQuery] = React.useState("");
   const [selectedIds, setSelectedIds] = React.useState<ReadonlySet<string>>(new Set());
   const [bulk, setBulk] = React.useState<BulkAct | null>(null);
+  const [openId, setOpenId] = React.useState<string | null>(initialOpen ?? null);
+  /* The row an application was opened from, so closing it puts focus back there. */
+  const openerRef = React.useRef<string | null>(initialOpen ?? null);
   const searchRef = React.useRef<HTMLInputElement>(null);
 
   const rows = applicationsIn(apps, view, on).filter((app) => matchesQuery(app, query));
-  const banded = view === "all" && bandsOf(rows, on).length > 1;
+  /* One list, soonest due first: the bands (To onboard today, To decide today…) did not
+     scale (owner, 2026-10-22). The pills are the way to narrow it. */
+  const banded = false;
   /* Selection is the magistrate's or bench clerk's, and only where an act on a date applies. */
   const selectable = mayAct && (view === "all" || view === "onboard" || view === "decide" || view === "later");
   const selected = rows.filter((app) => selectedIds.has(app.id));
@@ -151,8 +165,19 @@ export function ApplicationsScreen({ initialView }: { initialView: ApplicationVi
     router.replace(`/employee/applications?view=${next}`, { scroll: false });
   }
 
+  /* Opened as a pop-up over the list (owner, 2026-10-21), kept in the URL so the way
+     back from its order lands on it again. */
   function open(app: LifecycleApplication) {
-    router.push(`/employee/applications/${app.id}?view=${view}`);
+    openerRef.current = app.id;
+    setOpenId(app.id);
+    router.replace(`/employee/applications?view=${view}&open=${encodeURIComponent(app.id)}`, {
+      scroll: false,
+    });
+  }
+
+  function close() {
+    setOpenId(null);
+    router.replace(`/employee/applications?view=${view}`, { scroll: false });
   }
 
   function toggle(app: LifecycleApplication) {
@@ -175,7 +200,7 @@ export function ApplicationsScreen({ initialView }: { initialView: ApplicationVi
   const orders = usePendingOrders();
   const signing = useOrderSigning();
   const orderOf = (app: LifecycleApplication): string | undefined => {
-    const order = orders[`application:${app.id}`];
+    const order = orders[nextApplicationOrderKey(app)];
     if (!order) return undefined;
     const stage = pendingOrderStage(order, signing);
     return stage === "triggered" ? undefined : `Order · ${pendingOrderStageLabel(stage)}`;
@@ -329,6 +354,19 @@ export function ApplicationsScreen({ initialView }: { initialView: ApplicationVi
         ) : null}
       </section>
 
+      <ApplicationDialog
+        applicationId={openId}
+        view={view}
+        onOpenChange={(next) => {
+          if (!next) close();
+        }}
+        onReturnFocus={() =>
+          window.document
+            .querySelector<HTMLElement>(`[data-application-row="${openerRef.current ?? ""}"]`)
+            ?.focus()
+        }
+      />
+
       <ApplicationBulkDialog
         act={bulk}
         on={on}
@@ -392,7 +430,8 @@ function ViewPills({
         aria-label="Show"
         className={PILL_ROW}
       >
-        {APPLICATION_VIEWS.map((entry) => {
+        {/* No Upcoming pill (owner, 2026-10-22): what is listed ahead stays in All open. */}
+        {APPLICATION_VIEWS.filter((entry) => entry.id !== "later").map((entry) => {
           const count = entry.counted ? countIn(apps, entry.id, on) : null;
           return (
             <Tooltip key={entry.id}>
@@ -568,6 +607,7 @@ function ApplicationsTable({
                     type="button"
                     onClick={() => onOpen(app)}
                     {...rowOpener}
+                    data-application-row={app.id}
                     className={cn(rowOpenerClass, "flex flex-col gap-0.5")}
                   >
                     {app.typeLabel}

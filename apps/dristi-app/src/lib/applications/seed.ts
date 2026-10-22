@@ -9,6 +9,7 @@
  */
 import { EMPTY_APPLICATION_DRAFT, type ApplicationDraft } from "@/lib/cases/application-draft";
 import { CASES } from "@/lib/cases/fixtures";
+import { formatCaseDate } from "@/lib/cases/types";
 import { applicationTypeGuide } from "@/lib/cases/application-type-guide";
 import type { ApplicationTypeId } from "@/lib/cases/applications";
 
@@ -288,6 +289,35 @@ export function sampleApplications(
             },
         on,
       );
+      /* Onboarding is an order (owner, 2026-10-21): the sample carries the one that
+         onboarded it, so its previous order can be read. Sample words, not a template. */
+      counters.order += 1;
+      const decideOn = app.decide?.mode === "date" ? app.decide.dueOn : undefined;
+      const other = sample.side === "complainant" ? "accused" : "complainant";
+      app = {
+        ...app,
+        orders: [
+          {
+            key: `sample:${app.id}`,
+            id: `ORD-${counters.order}`,
+            title: "Onboarding of application",
+            text: [
+              `The application for ${typeLabel.toLowerCase()} filed on behalf of the ${sample.side} is taken on file as ${app.applicationNumber}.`,
+              decideOn
+                ? `It shall be listed on ${formatCaseDate(decideOn)}.${
+                    app.objectionsInvited && app.objectionDueBy
+                      ? ` The ${other} may file objections, if any, by ${formatCaseDate(app.objectionDueBy)}.`
+                      : ""
+                  }`
+                : "It is taken up for decision today.",
+            ].join(" "),
+            signedOn: on,
+            summary: decideOn
+              ? `Onboarded as ${app.applicationNumber}; listed for ${formatCaseDate(decideOn)}`
+              : `Onboarded as ${app.applicationNumber}; to be decided today`,
+          },
+        ],
+      };
       if (sample.onboard.objection) {
         const otherSide: Side = sample.side === "complainant" ? "accused" : "complainant";
         const objectionAdvocate = advocateFor(record, otherSide);

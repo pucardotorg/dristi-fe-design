@@ -31,9 +31,13 @@ import {
 } from "@/lib/employee/application-order-decision";
 import {
   applicationOrderContext,
-  applicationOrderKey,
   decisionItem,
+  nextApplicationOrderKey,
 } from "@/lib/employee/application-order-draft";
+import {
+  applicationWorkflow,
+  initialApplicationOutcome,
+} from "@/lib/employee/application-outcome";
 import { caseOf } from "@/lib/employee/application-tasks";
 import { CURRENT_STAFF } from "@/lib/employee/content";
 import { formatOrderDate } from "@/lib/employee/hearings";
@@ -117,26 +121,43 @@ export function useApplicationOrderDoor(
   {
     decision,
     view,
-  }: { decision?: ApplicationOrderDecision; view?: string } = {},
+    orderKey,
+  }: {
+    decision?: ApplicationOrderDecision;
+    view?: string;
+    /** An order already under way (Pending orders); otherwise the next to pass. */
+    orderKey?: string;
+  } = {},
 ): OrderDoor {
   const today = useCourtToday();
   const courtText = useCourtText();
   const matter = partiesLabel(record);
   const back = backTo(application.id, view);
   const context = React.useMemo(() => applicationOrderContext(record), [record]);
+  /* The Application item is in the order data from the start (owner, 2026-10-16), so
+     it is answered before the order data can be complete — onboarding, the listing
+     date and the call for objections included (owner, 2026-10-21). */
   const initial = React.useMemo(
-    () =>
-      decision
-        ? {
-            ...EMPTY_ORDER_DRAFT,
-            blocks: [decisionItem(application, decision, context)],
-          }
-        : EMPTY_ORDER_DRAFT,
+    () => ({
+      ...EMPTY_ORDER_DRAFT,
+      applicationOutcome: initialApplicationOutcome(),
+      blocks: decision ? [decisionItem(application, decision, context)] : [],
+    }),
     [application, decision, context],
   );
+  const applicationItem = React.useMemo(
+    () => ({
+      label: application.typeLabel,
+      onboarded: application.status !== "pending-review",
+      workflow: applicationWorkflow(application.type),
+    }),
+    [application],
+  );
+  const draftKey = orderKey ?? nextApplicationOrderKey(application);
 
   return {
-    draftKey: applicationOrderKey(application.id),
+    applicationItem,
+    draftKey,
     origin: `Application · ${application.typeLabel}`,
     initial,
     fixedIds: [],

@@ -28,6 +28,15 @@ import {
 } from "@/components/employee/order-sections";
 import { OrderCasePanel } from "@/components/employee/order-case-panel";
 import {
+  ApplicationOutcomeDialog,
+  type ApplicationOutcomeSubject,
+} from "@/components/employee/application-outcome-dialog";
+import {
+  applicationOutcomeGaps,
+  initialApplicationOutcome,
+  type ApplicationOutcome,
+} from "@/lib/employee/application-outcome";
+import {
   ItemDialog,
   ItemsCard,
 } from "@/components/employee/order-items";
@@ -298,8 +307,9 @@ export function PaperRecital({
 }
 
 /**
- * The read-only parts for a draft: attendance where there was a hearing's roll, and
- * always the next hearing.
+ * The read-only parts for a draft: attendance and the next hearing, both only where
+ * there was a hearing's roll. An order outside a hearing — on an application, say — sets
+ * no next hearing (owner, 2026-10-22).
  */
 export function orderPaperRecitals(
   draft: OrderDraft,
@@ -313,13 +323,13 @@ export function orderPaperRecitals(
         empty="Attendance not marked."
       />
     ) : undefined,
-    nextHearing: (
+    nextHearing: appearances ? (
       <PaperRecital
         label="Next hearing"
         lines={nextListingRecital(draft)}
         empty="Next hearing not set."
       />
-    ),
+    ) : undefined,
   };
 }
 
@@ -535,7 +545,8 @@ export function orderPaperFields({
         disabled={disabled}
       />
     ) : undefined,
-    nextHearing: (
+    /* Only in a hearing (owner, 2026-10-22). */
+    nextHearing: appearances ? (
       <NextHearingSection
         nextHearing={{
           next: draft.next,
@@ -556,7 +567,7 @@ export function orderPaperFields({
         today={today}
         disabled={disabled}
       />
-    ),
+    ) : undefined,
   };
 }
 
@@ -577,7 +588,10 @@ export function OrderWorkflowFields({
   disabled = false,
   orderText = "",
   titleLocked = false,
+  applicationItem,
 }: {
+  /** An order on an application: its Application item, first among the items. */
+  applicationItem?: ApplicationOutcomeSubject;
   /** The order's typed text, which the A-Diary text starts from when unticked. */
   orderText?: string;
   /** Triggered: the title is fixed (`TIT-05`). */
@@ -603,6 +617,13 @@ export function OrderWorkflowFields({
   const items = draft.blocks.filter(
     (block): block is ItemBlock => block.kind === "item",
   );
+  const [outcomeOpen, setOutcomeOpen] = React.useState(false);
+  const outcome = applicationItem
+    ? withOnboarded(
+        draft.applicationOutcome ?? initialApplicationOutcome(),
+        applicationItem.onboarded,
+      )
+    : null;
 
   function reasonFor(template: OrderTemplate): string | null {
     return (
@@ -687,6 +708,18 @@ export function OrderWorkflowFields({
         reasonFor={reasonFor}
         onChoose={choose}
         onEdit={(block) => setEditing({ block, mode: "edit" })}
+        pinned={
+          applicationItem && outcome
+            ? {
+                label: `Application · ${applicationItem.label}`,
+                gaps: applicationOutcomeGaps(
+                  outcome,
+                  Boolean(applicationItem.workflow),
+                ).length,
+                onEdit: () => setOutcomeOpen(true),
+              }
+            : undefined
+        }
         onRemove={(block) =>
           setDraft((current) => ({
             ...current,
@@ -757,6 +790,23 @@ export function OrderWorkflowFields({
         </div>
       </Card>
 
+      {applicationItem && outcome ? (
+        <ApplicationOutcomeDialog
+          open={outcomeOpen}
+          subject={applicationItem}
+          outcome={outcome}
+          today={today}
+          onOpenChange={setOutcomeOpen}
+          onSave={(answers) => {
+            setDraft((current) => ({
+              ...current,
+              applicationOutcome: answers,
+            }));
+            setOutcomeOpen(false);
+          }}
+        />
+      ) : null}
+
       <ItemDialog
         editing={editing}
         context={context}
@@ -774,6 +824,14 @@ export function OrderWorkflowFields({
       />
     </div>
   );
+}
+
+/** An application already onboarded answers Onboard yes, whatever was stored. */
+export function withOnboarded(
+  outcome: ApplicationOutcome,
+  onboarded: boolean,
+): ApplicationOutcome {
+  return onboarded ? { ...outcome, onboard: "yes" } : outcome;
 }
 
 /** Record an application's decision — the record only; E's words are the steno's. */
@@ -822,7 +880,10 @@ export function OrderEditorComposer({
   context,
   purpose,
   fixedIds,
+  applicationItem,
 }: {
+  /** An order on an application: its Application item in the order data. */
+  applicationItem?: ApplicationOutcomeSubject;
   /** The matter, for the catalogue's items in the workflow. */
   context: ComposerContext;
   purpose?: string;
@@ -889,7 +950,7 @@ export function OrderEditorComposer({
       toast("Type the order before sending it for signing.");
       return;
     }
-    if (!postingSettled(draft)) {
+    if (appearances && !postingSettled(draft)) {
       setView("order");
       toast(
         "Set the next hearing’s date and purpose, or tick Not listed again.",
@@ -1026,6 +1087,7 @@ export function OrderEditorComposer({
               }
               orderText={body.text}
               titleLocked={stage === "triggered"}
+              applicationItem={applicationItem}
             />
           </div>
         ) : panelOpen ? (
@@ -1093,7 +1155,7 @@ export function OrderEditorComposer({
                 type="button"
                 className="w-full sm:w-fit"
                 onClick={() => {
-                  if (empty || !postingSettled(draft)) {
+                  if (empty || (appearances && !postingSettled(draft))) {
                     finish();
                     return;
                   }
