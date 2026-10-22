@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { DEFAULT_FORMATS, FILER_WRITES, formatForFiler, mappedField } from "./details-formats";
+import {
+  DEFAULT_FORMATS,
+  FILER_WRITES,
+  defaultFormat,
+  formatForFiler,
+  mappedField,
+} from "./details-formats";
 
 const format = (html: string, mappings: Record<string, string> = {}) => ({
   id: "f",
@@ -30,5 +36,19 @@ describe("additional details formats", () => {
   it("starts with the standard §138 format", () => {
     assert.equal(DEFAULT_FORMATS.length, 1);
     assert.equal(formatForFiler(DEFAULT_FORMATS[0]), DEFAULT_FORMATS[0].html);
+  });
+});
+
+describe("the default format", () => {
+  it("is none until one is set", () => {
+    assert.equal(defaultFormat(DEFAULT_FORMATS), undefined);
+  });
+
+  it("is the one marked", () => {
+    const list = [
+      { id: "a", name: "A", html: "", mappings: {} },
+      { id: "b", name: "B", html: "", mappings: {}, isDefault: true },
+    ];
+    assert.equal(defaultFormat(list)?.id, "b");
   });
 });

@@ -93,3 +93,35 @@ test("additional details become the rich text the filing holds, escaped", async 
   const d = await draftOf(oneCase({ otherDetails: "Line <one>\n\nLine & two" }));
   assert.equal(d.adr.otherDetails, "<p>Line &lt;one&gt;</p><p>Line &amp; two</p>");
 });
+
+const withFormat = async (c: ApiCase, html: string) =>
+  (
+    await buildBatch(
+      { ...request(c), detailsFormat: { id: "f1", html } },
+      { kind: "api", system: "Test" },
+      async () => null,
+    )
+  ).cases[0].draft;
+
+test("the batch's format generates each case's additional details from its own row", async () => {
+  const d = await withFormat(
+    oneCase(),
+    "<p>[Accused Name] issued cheque [Cheque Number]. [How the debt arose]</p>",
+  );
+  assert.equal(d.adr.otherDetails, "<p>A One issued cheque 123456. [How the debt arose]</p>");
+  assert.equal(d.adr.detailsFormat, "f1");
+});
+
+test("a case that brings its own additional details keeps them over the format", async () => {
+  const d = await withFormat(oneCase({ otherDetails: "Own words" }), "<p>[Accused Name]</p>");
+  assert.equal(d.adr.otherDetails, "<p>Own words</p>");
+  assert.equal(d.adr.detailsFormat, undefined);
+});
+
+test("a format sent over the API keeps only plain formatting", async () => {
+  const d = await withFormat(
+    oneCase(),
+    '<p onclick="x()">Hi <script>alert(1)</script><a href="y">[Accused Name]</a><ol><li class="z">one</li></ol></p>',
+  );
+  assert.equal(d.adr.otherDetails, "<p>Hi A One<ol><li>one</li></ol></p>");
+});

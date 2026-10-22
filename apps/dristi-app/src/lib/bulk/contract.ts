@@ -16,6 +16,8 @@
  * in the list is kept as sent and held at scrutiny, never guessed.
  */
 
+import type { CourtId } from "@/lib/court/profiles";
+
 export type ApiAddress = {
   line1: string;
   city: string;
@@ -209,6 +211,13 @@ export type ApiBatchRequest = {
   advocates: ApiAdvocate[];
   /** `PRY-5`, the same choices as the filing's ADR question. */
   adr?: "yes" | "no" | "maybe";
+  /**
+   * `PRY-1` for the whole batch: an additional-details format (`lib/filing/details-formats.ts`)
+   * whose text is generated for each case from that case's own details. A case that
+   * brings its own `otherDetails` keeps them. `html` is the format with its variables
+   * already named as e-filing fields; `court` is the court its values are worded for.
+   */
+  detailsFormat?: { id: string; html: string; court?: CourtId };
   cases: ApiCase[];
 };
 

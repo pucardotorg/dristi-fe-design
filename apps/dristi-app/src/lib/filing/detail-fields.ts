@@ -3,13 +3,10 @@
  * model as the magistrate's order templates (`lib/employee/order-config-templates.ts`),
  * pointed at the e-filing draft instead of the case.
  *
- * A `[Field Name]` in the text is filled from the filing wherever the complaint is read
- * (Preview, Sign), so the narrative never disagrees with the form: change the cheque
- * date in the Cheque section and the sentence that names it changes with it. A field
- * the filer has not entered yet prints "Not provided", as everywhere else on the sheet.
- *
- * A bracket that names no field — `[Describe how the debt arose]` — is a blank for the
- * filer to write over. It prints as typed until they do.
+ * A format is turned into plain text once (`generateDetails`): each `[Field Name]` the
+ * form holds is replaced by its value, and from then on the text is the filer's to edit
+ * like any other. A field the form does not hold yet, and a bracket that names no field —
+ * `[Describe how the debt arose]` — stay in brackets for the filer to write over.
  *
  * The format below is a starting draft the filer edits, like the prayer templates in
  * `options.ts`: none of its wording is fixed, and nothing depends on it staying.
@@ -30,8 +27,6 @@ import {
   totalChequeAmount,
 } from "./selectors";
 import type { FilingDraft, StepId } from "./types";
-
-export const NOT_PROVIDED = "Not provided";
 
 export type DetailField = {
   name: string;
@@ -132,7 +127,11 @@ export const DETAIL_FIELD_GROUPS: DetailFieldGroup[] = [
       {
         name: "Total Cheque Amount",
         step: "cheque",
-        resolve: (d) => rupees(totalChequeAmount(d.cheques)),
+        // No amount typed yet is no total, not ₹0.
+        resolve: (d) => {
+          const total = totalChequeAmount(d.cheques);
+          return total ? rupees(total) : "";
+        },
       },
       {
         name: "Drawer Bank",
@@ -251,84 +250,24 @@ export function bracketsIn(html: string): string[] {
 const escapeHtml = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-/* ───────────────────────── Filled values ───────────────────────── */
-
-/**
- * A value filled in from the form sits in the text as a span that remembers its field,
- * so Refresh can find it again when the form changes:
- * `<span data-field="Cheque Date" contenteditable="false">20 August 2026</span>`.
- * It cannot be typed into — to change it, change the form, or delete it and write.
- */
-const FILLED = /<span\b[^>]*\bdata-field="([^"]*)"[^>]*>([\s\S]*?)<\/span>/g;
-
-const escapeAttr = (s: string) => escapeHtml(s).replace(/"/g, "&quot;");
-const unescapeHtml = (s: string) =>
-  s.replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
-
-/** The markup for one filled value. */
-export function filledSpan(field: string, value: string): string {
-  return `<span data-field="${escapeAttr(field)}" contenteditable="false" title="From the form: ${escapeAttr(field)}">${escapeHtml(value)}</span>`;
-}
+/* ───────────────────────── Generating the text ───────────────────────── */
 
 type Voice = (text: string) => string;
 const asIs: Voice = (t) => t;
 
-/** Text between tags only — markup and filled spans are left alone. */
-function eachTextRun(html: string, change: (text: string) => string): string {
-  // Filled spans are lifted out first, so a bracket can never be read inside one.
-  const held: string[] = [];
-  const lifted = html.replace(FILLED, (whole) => `\u0000${held.push(whole) - 1}\u0000`);
-  const changed = lifted.replace(/(^|>)([^<]*)/g, (_, open: string, text: string) => open + change(text));
-  return changed.replace(/\u0000(\d+)\u0000/g, (_, i: string) => held[Number(i)]);
-}
-
 /**
- * Fill everything the form can: each filled value is brought up to date (or goes back to
- * its `[Field]` if the form no longer holds it), and each `[Field]` the form now holds is
- * filled. Blanks for the filer, and everything the filer wrote, are left as they are.
+ * The format as plain text for this filing: each `[Field]` the form holds becomes its
+ * value; a field the form does not hold yet, and a blank for the filer, stay in brackets.
+ * Once generated it is simply text — nothing in it is tied to the form any more.
+ * Only text between tags is touched.
  */
-export function resolveDetails(
-  html: string,
-  draft: FilingDraft,
-  voice: Voice = asIs,
-): { html: string; changed: number } {
-  let changed = 0;
-  const refreshed = String(html ?? "").replace(FILLED, (whole, name: string, shown: string) => {
-    const field = detailField(unescapeHtml(name));
-    if (!field) return whole;
-    const value = voice(field.resolve(draft));
-    if (value === unescapeHtml(shown)) return whole;
-    changed += 1;
-    return value ? filledSpan(field.name, value) : `[${field.name}]`;
-  });
-  const filled = eachTextRun(refreshed, (text) =>
+export function generateDetails(html: string, draft: FilingDraft, voice: Voice = asIs): string {
+  return String(html ?? "").replace(/(^|>)([^<]*)/g, (_, open: string, text: string) =>
+    open +
     text.replace(/\[([^\]\n]+)\]/g, (whole, name: string) => {
       const field = detailField(name);
       const value = field ? voice(field.resolve(draft)) : "";
-      if (!field || !value) return whole;
-      changed += 1;
-      return filledSpan(field.name, value);
-    }),
-  );
-  return { html: filled, changed };
-}
-
-/** How many values in the text the form would change on Refresh. */
-export function staleDetails(html: string, draft: FilingDraft, voice: Voice = asIs): number {
-  return resolveDetails(html, draft, voice).changed;
-}
-
-/**
- * The text as the court reads it: filled values as the filer last saw them, and any
- * `[Field]` still standing replaced by the form's value or "Not provided". Blanks for the
- * filer are left as typed.
- */
-export function fillDetails(html: string, draft: FilingDraft): string {
-  return eachTextRun(String(html ?? ""), (text) =>
-    text.replace(/\[([^\]\n]+)\]/g, (whole, name: string) => {
-      const field = detailField(name);
-      if (!field) return whole;
-      return escapeHtml(field.resolve(draft) || NOT_PROVIDED);
+      return value ? escapeHtml(value) : whole;
     }),
   );
 }

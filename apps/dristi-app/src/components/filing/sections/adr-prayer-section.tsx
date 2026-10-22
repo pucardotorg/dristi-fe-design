@@ -8,8 +8,8 @@
  * S-138 templates from `options.ts`; they are a starting draft the filer edits, not
  * fixed text, so both are plain rich text bound straight to the draft.
  *
- * Other details can start from a format with the form's values filled in, and refresh
- * them later — see `other-details-field.tsx`.
+ * Other details can be generated from a format with the form's details filled in, then
+ * edited as plain text — see `other-details-field.tsx`.
  */
 
 import * as React from "react";
@@ -77,13 +77,13 @@ export function AdrPrayerSection() {
             label={OTHER_DETAILS_QUESTION}
             tip="Anything the court should know that the form has not already asked for."
             helpPlacement="above"
-            help="No need to repeat anything already entered above. Choose a format to start from; what the form already holds is filled in for you."
+            help="No need to repeat anything already entered above. Choose a format to generate the text with the details from the form; then edit it as you like."
           >
             <OtherDetailsField
               value={adr.otherDetails}
               formatId={adr.detailsFormat}
               onChange={(html) => set("otherDetails", html)}
-              onStart={(formatId, html) =>
+              onGenerate={(formatId, html) =>
                 update((d) => {
                   d.adr.detailsFormat = formatId;
                   d.adr.otherDetails = html;

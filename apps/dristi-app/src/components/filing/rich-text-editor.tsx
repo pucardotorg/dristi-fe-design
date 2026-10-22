@@ -26,8 +26,6 @@ const TOOLS: { cmd: Command; label: string; icon: React.ComponentType<{ classNam
 export type RichTextEditorHandle = {
   /** Put `text` where the caret last was in the box, or at the end if it never was. */
   insertText: (text: string) => void;
-  /** As `insertText`, for markup — a filled value from the form. */
-  insertHtml: (html: string) => void;
 };
 
 /**
@@ -115,11 +113,6 @@ export function RichTextEditor({
     insertText(text: string) {
       if (!restoreCaret()) return;
       document.execCommand("insertText", false, text);
-      emit();
-    },
-    insertHtml(html: string) {
-      if (!restoreCaret()) return;
-      document.execCommand("insertHTML", false, html);
       emit();
     },
   }));

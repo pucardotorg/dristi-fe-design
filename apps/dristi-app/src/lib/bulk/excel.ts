@@ -513,7 +513,13 @@ export function buildRequest(
   book: Workbookish,
   map: ColumnMap,
   values: ValueMap,
-  batch: { complainant: ApiComplainant; barNumbers: string[]; adr: NonNullable<ApiBatchRequest["adr"]>; fileName: string },
+  batch: {
+    complainant: ApiComplainant;
+    barNumbers: string[];
+    adr: NonNullable<ApiBatchRequest["adr"]>;
+    fileName: string;
+    detailsFormat?: ApiBatchRequest["detailsFormat"];
+  },
   counts: InstanceCounts = {}
 ): ApiBatchRequest {
   const headers = book.cases.headers;
@@ -615,6 +621,7 @@ export function buildRequest(
     complainant: batch.complainant,
     advocates: batch.barNumbers.map((barNumber) => ({ barNumber })),
     adr: batch.adr,
+    ...(batch.detailsFormat ? { detailsFormat: batch.detailsFormat } : {}),
     cases,
   };
 }

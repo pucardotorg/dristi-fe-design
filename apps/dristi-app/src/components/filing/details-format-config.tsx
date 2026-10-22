@@ -23,6 +23,7 @@ import {
   readDetailsFormats,
   removeDetailsFormat,
   saveDetailsFormat,
+  setDefaultFormat,
   serverDetailsFormats,
   subscribeToDetailsFormats,
   type DetailsFormat,
@@ -34,6 +35,7 @@ import {
   PAGE_SUBTITLE,
   PAGE_TITLE,
 } from "@/components/shell/page-frame";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -50,6 +52,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { DetailFieldMenu } from "@/components/filing/detail-field-menu";
 import {
   RichTextEditor,
@@ -179,6 +182,23 @@ function FormatEditor({
           aria-label="Format name"
         />
 
+        <div className="flex items-start gap-3 rounded-lg border border-hairline bg-surface-sunken p-3">
+          <Switch
+            id={`default-${format.id}`}
+            checked={!!format.isDefault}
+            onCheckedChange={(on) => setDefaultFormat(on ? format.id : null)}
+          />
+          <div className="flex flex-col gap-0.5">
+            <Label htmlFor={`default-${format.id}`} className="text-body-compact font-medium">
+              Use as the default format
+            </Label>
+            <p className="text-caption text-muted-foreground">
+              A filing whose additional details are empty gets this text when the section
+              opens, and bulk uploads choose it first. Only one format can be the default.
+            </p>
+          </div>
+        </div>
+
         <section className="flex flex-col gap-2">
           <Label className={SECTION_LABEL}>Format text</Label>
           <RichTextEditor
@@ -300,6 +320,14 @@ function DetailsFormatConfig() {
                 >
                   <FileTextIcon aria-hidden className="size-3.5 shrink-0" />
                   <span className="min-w-0 flex-1 truncate">{f.name || "Untitled"}</span>
+                  {f.isDefault ? (
+                    <Badge
+                      variant={selected?.id === f.id ? "secondary" : "outline"}
+                      className="shrink-0"
+                    >
+                      Default
+                    </Badge>
+                  ) : null}
                 </button>
               ))}
               <Button

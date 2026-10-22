@@ -1,13 +1,13 @@
 "use client";
 
 /**
- * "Any additional details" — a long text the filer writes, started from a format whose
- * variables are already filled in from the form.
+ * "Any additional details" — a long text the filer writes, or generates from a format.
  *
- * A filled value stays tied to its field (`filledSpan` in `lib/filing/detail-fields.ts`),
- * so Refresh can bring it up to date after the form changes, and fill any `[Field]` the
- * form now holds. What the form does not hold yet stays as `[Field]`; the blanks a format
- * leaves for the filer stay as they are. Refresh never touches the filer's own writing.
+ * Choosing a format writes its text into the box with the form's values in place
+ * (`generateDetails` in `lib/filing/detail-fields.ts`). From then on it is simply text,
+ * the filer's to edit. Refresh writes the chosen format again with the form's current
+ * values — after a confirmation when the box has text, because it replaces it. A filing
+ * that has never had a format starts with the default format's text, if one is set.
  *
  * Formats are set up on their own page (`/filings/formats`), linked from under the box.
  */
@@ -16,8 +16,9 @@ import * as React from "react";
 import Link from "next/link";
 import { ChevronDownIcon, ExternalLinkIcon, FileTextIcon, RefreshCwIcon } from "lucide-react";
 
-import { bracketsIn, filledSpan, resolveDetails, staleDetails } from "@/lib/filing/detail-fields";
+import { generateDetails } from "@/lib/filing/detail-fields";
 import {
+  defaultFormat,
   formatForFiler,
   readDetailsFormats,
   serverDetailsFormats,
@@ -25,7 +26,6 @@ import {
   type DetailsFormat,
 } from "@/lib/filing/details-formats";
 import { useFiling } from "@/lib/filing/store";
-import { plural } from "@/lib/filing/format";
 import { useCourtText } from "@/components/court/court-provider";
 import {
   AlertDialog,
@@ -37,7 +37,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -56,12 +55,7 @@ import {
 /** Where the formats this box starts from are set up. */
 const FORMATS_HREF = "/filings/formats";
 
-/** Filled values read as text with a light tint, so the filer can tell them apart. */
-const FILLED_LOOK =
-  "[&_[data-field]]:rounded-sm [&_[data-field]]:bg-info-muted [&_[data-field]]:px-0.5";
-
-const isEmpty = (html: string) =>
-  !bracketsIn(html).length && !html.replace(/<[^>]*>|&nbsp;/g, "").trim();
+const isEmpty = (html: string) => !html.replace(/<[^>]*>|&nbsp;/g, "").trim();
 
 function FormatMenu({
   formats,
@@ -83,7 +77,7 @@ function FormatMenu({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-56">
-        <DropdownMenuLabel>Start from a format</DropdownMenuLabel>
+        <DropdownMenuLabel>Generate from a format</DropdownMenuLabel>
         <DropdownMenuRadioGroup
           value={current?.id ?? ""}
           onValueChange={(id) => {
@@ -106,14 +100,14 @@ export function OtherDetailsField({
   value,
   formatId,
   onChange,
-  onStart,
+  onGenerate,
   ariaLabel,
 }: {
   value: string;
   formatId: string | undefined;
   onChange: (html: string) => void;
-  /** The filer chose a format: its text, filled, replaces the box. */
-  onStart: (formatId: string, html: string) => void;
+  /** Text generated from a format replaces the box. */
+  onGenerate: (formatId: string, html: string) => void;
   ariaLabel: string;
 }) {
   const { draft } = useFiling();
@@ -124,117 +118,90 @@ export function OtherDetailsField({
     readDetailsFormats,
     serverDetailsFormats,
   );
-  const [replacing, setReplacing] = React.useState<DetailsFormat | null>(null);
-  const [status, setStatus] = React.useState("");
+  // A format waiting on "replace your text?".
+  const [pending, setPending] = React.useState<DetailsFormat | null>(null);
 
   const current = formats.find((f) => f.id === formatId);
-  const stale = staleDetails(value, draft, courtText);
+  const fallback = defaultFormat(formats);
 
-  const start = (format: DetailsFormat) => {
-    onStart(format.id, resolveDetails(formatForFiler(format), draft, courtText).html);
-    setStatus("");
+
+  const generate = (format: DetailsFormat) =>
+    onGenerate(format.id, generateDetails(formatForFiler(format), draft, courtText));
+
+  const ask = (format: DetailsFormat) => {
+    if (isEmpty(value)) generate(format);
+    else setPending(format);
   };
 
-  const choose = (format: DetailsFormat) => {
-    if (isEmpty(value)) start(format);
-    else setReplacing(format);
-  };
-
-  const refresh = () => {
-    const { html, changed } = resolveDetails(value, draft, courtText);
-    if (changed) onChange(html);
-    setStatus(
-      changed
-        ? `Updated ${plural(changed, "value")} from the form.`
-        : "Everything is up to date with the form.",
-    );
-  };
+  // An empty box that has never had a format gets the default's text — once: after that
+  // the filing remembers its format, so a box the filer clears stays clear.
+  React.useEffect(() => {
+    if (fallback && !formatId && isEmpty(value)) generate(fallback);
+    // Only a default appearing, or changing, should fill the box — not every keystroke.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fallback?.id]);
 
   return (
     <div className="flex flex-col gap-3">
       <RichTextEditor
         value={value}
-        onChange={(html) => {
-          onChange(html);
-          setStatus("");
-        }}
+        onChange={onChange}
         placeholder="Write here, or choose a format"
         ariaLabel={ariaLabel}
         minHeightClassName="min-h-64"
-        className={FILLED_LOOK}
         handleRef={editor}
         toolbarEnd={
           <>
-            <FormatMenu formats={formats} current={current} onChoose={choose} />
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={refresh}
-              aria-label={
-                stale
-                  ? `Refresh values from the form, ${plural(stale, "change")} waiting`
-                  : "Refresh values from the form"
-              }
-            >
-              <RefreshCwIcon data-icon="inline-start" aria-hidden />
-              Refresh
-              {stale ? (
-                <Badge variant="warning" className="tabular-nums">
-                  {stale}
-                </Badge>
-              ) : null}
-            </Button>
+            <FormatMenu formats={formats} current={current} onChoose={ask} />
+            {current ? (
+              <Button type="button" variant="ghost" size="sm" onClick={() => ask(current)}>
+                <RefreshCwIcon data-icon="inline-start" aria-hidden />
+                Refresh
+              </Button>
+            ) : null}
             <DetailFieldMenu
-              onPick={(field) => {
-                const filled = courtText(field.resolve(draft));
-                if (filled) editor.current?.insertHtml(filledSpan(field.name, filled));
-                else editor.current?.insertText(`[${field.name}]`);
-              }}
+              onPick={(field) =>
+                editor.current?.insertText(courtText(field.resolve(draft)) || `[${field.name}]`)
+              }
               describe={(field) => courtText(field.resolve(draft)) || "Not entered yet"}
             />
           </>
         }
       />
 
-      <div className="flex flex-col gap-1 text-caption">
-        <p role="status" className={stale ? "text-warning-ink" : "text-muted-foreground"}>
-          {stale
-            ? `${plural(stale, "value")} changed in the form since this text was filled. Refresh to update.`
-            : status}
-        </p>
-        <p className="text-muted-foreground">
-          Tinted words are filled from the form; anything still in [brackets] is for you to
-          write or is not in the form yet.{" "}
-          <Link
-            href={FORMATS_HREF}
-            target="_blank"
-            rel="noopener"
-            className="inline-flex items-center gap-1 text-foreground underline underline-offset-3"
-          >
-            Edit formats
-            <ExternalLinkIcon aria-hidden className="size-3" />
-            <span className="sr-only">(opens in a new tab)</span>
-          </Link>
-        </p>
-      </div>
+      <p className="text-caption text-muted-foreground">
+        A format writes its text here with the details from the form filled in. Refresh
+        writes it again after you change the form.{" "}
+        <Link
+          href={FORMATS_HREF}
+          target="_blank"
+          rel="noopener"
+          className="inline-flex items-center gap-1 text-foreground underline underline-offset-3"
+        >
+          Edit formats
+          <ExternalLinkIcon aria-hidden className="size-3" />
+          <span className="sr-only">(opens in a new tab)</span>
+        </Link>
+      </p>
 
-      <AlertDialog open={!!replacing} onOpenChange={(open) => !open && setReplacing(null)}>
+      <AlertDialog open={!!pending} onOpenChange={(open) => !open && setPending(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Replace the text with &ldquo;{replacing?.name}&rdquo;?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {pending?.id === current?.id
+                ? "Write the text again with the form's current details?"
+                : <>Replace the text with &ldquo;{pending?.name}&rdquo;?</>}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              What is in the box now, including anything you wrote, will be replaced by this
-              format, filled from the form.
+              What is in the box now, including any changes you made, will be replaced.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Keep my text</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (replacing) start(replacing);
-                setReplacing(null);
+                if (pending) generate(pending);
+                setPending(null);
               }}
             >
               Replace

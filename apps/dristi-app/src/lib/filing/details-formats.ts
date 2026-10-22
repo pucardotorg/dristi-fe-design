@@ -25,6 +25,12 @@ export type DetailsFormat = {
   html: string;
   /** Variable name → field name, or `FILER_WRITES`. Absent: matched by name. */
   mappings: Record<string, string>;
+  /**
+   * The format a filing starts with: an empty box that has never had a format is
+   * generated from it when the section opens, and a bulk upload offers it first. At most
+   * one format is the default; with none, the filer chooses.
+   */
+  isDefault?: boolean;
 };
 
 export const DEFAULT_FORMATS: readonly DetailsFormat[] = Object.freeze([
@@ -140,6 +146,16 @@ export function saveDetailsFormat(format: DetailsFormat): void {
       ? list.map((f) => (f.id === format.id ? format : f))
       : [...list, format],
   );
+}
+
+/** The default format, if one is set. */
+export function defaultFormat(list: readonly DetailsFormat[]): DetailsFormat | undefined {
+  return list.find((f) => f.isDefault);
+}
+
+/** Make one format the default, or none (`null`). */
+export function setDefaultFormat(id: string | null): void {
+  write(readDetailsFormats().map((f) => ({ ...f, isDefault: f.id === id })));
 }
 
 export function removeDetailsFormat(id: string): void {

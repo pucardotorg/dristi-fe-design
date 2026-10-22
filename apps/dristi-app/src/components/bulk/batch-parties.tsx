@@ -3,9 +3,14 @@
 import * as React from "react";
 
 import { CLIENTS, OFFICE_ADVOCATES } from "@/lib/bulk/clients";
+import {
+  readDetailsFormats,
+  serverDetailsFormats,
+  subscribeToDetailsFormats,
+} from "@/lib/filing/details-formats";
 import type { AdrPrayer } from "@/lib/filing/types";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Field, FieldLabel } from "@/components/ui/field";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import {
   NativeSelect,
   NativeSelectOption,
@@ -23,7 +28,8 @@ const ADR_CHOICES: { value: Adr; label: string }[] = [
 
 /**
  * What is the same for every case in a bulk upload: the complainant, the advocates who
- * appear for it, and ADR. Shared by the Excel upload and the case-documents upload.
+ * appear for it, ADR, and the format each case's additional details are generated from.
+ * Shared by the Excel upload and the case-documents upload.
  */
 export function BatchParties({
   clientId,
@@ -32,6 +38,8 @@ export function BatchParties({
   setBars,
   adr,
   setAdr,
+  formatId,
+  setFormatId,
 }: {
   clientId: string;
   setClientId: (id: string) => void;
@@ -39,7 +47,15 @@ export function BatchParties({
   setBars: React.Dispatch<React.SetStateAction<string[]>>;
   adr: Adr;
   setAdr: (v: Adr) => void;
+  /** "" for none. */
+  formatId: string;
+  setFormatId: (id: string) => void;
 }) {
+  const formats = React.useSyncExternalStore(
+    subscribeToDetailsFormats,
+    readDetailsFormats,
+    serverDetailsFormats,
+  );
   return (
     <>
       <Field className="gap-1.5">
@@ -127,6 +143,28 @@ export function BatchParties({
           ))}
         </RadioGroup>
       </Field>
+      {formats.length ? (
+        <Field className="gap-1.5">
+          <FieldLabel htmlFor="details-format">Additional details</FieldLabel>
+          <NativeSelect
+            id="details-format"
+            value={formatId}
+            onChange={(e) => setFormatId(e.target.value)}
+          >
+            <NativeSelectOption value="">Only what the sheet has</NativeSelectOption>
+            {formats.map((f) => (
+              <NativeSelectOption key={f.id} value={f.id}>
+                Generate from: {f.name || "Untitled"}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+          <FieldDescription>
+            Each case gets the format&apos;s text with its own details filled in. A case
+            whose sheet row has additional details keeps them. Every case can still be
+            edited on its own.
+          </FieldDescription>
+        </Field>
+      ) : null}
     </>
   );
 }
