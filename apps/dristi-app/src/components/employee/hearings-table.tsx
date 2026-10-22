@@ -5,10 +5,10 @@ import * as React from "react";
 import Link from "next/link";
 import {
   GripVerticalIcon,
-  EllipsisVerticalIcon,
   FileCheckIcon,
   FilePenLineIcon,
   FileTextIcon,
+  UserRoundXIcon,
 } from "lucide-react";
 
 import {
@@ -34,12 +34,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Table,
   TableBody,
@@ -373,14 +367,23 @@ export function HearingSessionButton({
 
 /**
  * Pass over — set this listing aside unheard, to call it again later the same day
- * with Start hearing (`HRG-04`). Secondary to Start/End: ghost icon, one menu item, never a second
- * labelled button (ui-craft §2).
+ * with Start hearing (`HRG-04`).
  *
- * The menu is overlay elevation via the DS primitive. Width is `w-auto
- * min-w-40` so a 40px trigger does not pinch the words (the primitive otherwise
- * inherits trigger width).
+ * **An icon beside the session control, not a menu** (owner, 2026-10-22). It used
+ * to be the only item behind a ⋮, and the bench did not find it. The glyph is
+ * `user-round-x`, the owner's pick from twenty (2026-10-22): the commonest reason a
+ * matter is passed over is that someone it needs has not arrived. It also stays clear
+ * of the header grips, which the pause bars did not, and of the date control's jump
+ * chevrons, which a skip glyph would have echoed. Outline at a
+ * 40px square, so it stays the session control's partner; never teal, which Start holds.
+ *
+ * The word is in the accessible name, first, so a voice user can say what the
+ * tooltip shows (`ACCESSIBILITY.md` §9). The tooltip is for the pointer only; the act
+ * itself is visible without hover (§7). Its provider is mounted here for the reason
+ * the Orders tooltip gives — a table row sits outside every provider on this screen —
+ * with no delay: the label appears the moment the pointer arrives (owner, 2026-10-22).
  */
-export function HearingPassOverMenu({
+export function HearingPassOverButton({
   hearing,
   seat,
   onPassOver,
@@ -397,24 +400,23 @@ export function HearingPassOverMenu({
   if (!canPassOver(hearing.status)) return null;
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="shrink-0 text-muted-foreground"
-          aria-label={`More actions for item ${hearing.item}, ${causeTitle(hearing)}`}
-        >
-          <EllipsisVerticalIcon aria-hidden />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-auto min-w-40">
-        <DropdownMenuItem onSelect={() => onPassOver(hearing)}>
-          Pass over
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <TooltipProvider delayDuration={0}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="shrink-0"
+            aria-label={`Pass over item ${hearing.item}, ${causeTitle(hearing)}`}
+            onClick={() => onPassOver(hearing)}
+          >
+            <UserRoundXIcon aria-hidden />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Pass over</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
@@ -734,7 +736,7 @@ export function HearingRowActions({
         onEndHearing={onEndHearing}
         className="min-w-0 flex-1"
       />
-      <HearingPassOverMenu
+      <HearingPassOverButton
         hearing={hearing}
         seat={seat}
         onPassOver={onPassOver}
@@ -965,7 +967,7 @@ export function HearingsTable({
               onStartHearing={onStartHearing}
               onEndHearing={onEndHearing}
             />
-            <HearingPassOverMenu
+            <HearingPassOverButton
               hearing={hearing}
               seat={seat}
               onPassOver={onPassOver}
