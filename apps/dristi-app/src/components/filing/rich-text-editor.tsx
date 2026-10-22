@@ -22,6 +22,12 @@ const TOOLS: { cmd: Command; label: string; icon: React.ComponentType<{ classNam
   { cmd: "justifyLeft", label: "Align left", icon: AlignLeftIcon },
 ];
 
+/** What a caller can do to the text from outside it — a picker that is not in the box. */
+export type RichTextEditorHandle = {
+  /** Put `text` where the caret last was in the box, or at the end if it never was. */
+  insertText: (text: string) => void;
+};
+
 /**
  * Small rich text editor for prayer / affidavit / other-details copy. Stores HTML.
  * Uses the browser's editing commands — enough for bold, italic and lists.
@@ -34,6 +40,8 @@ export function RichTextEditor({
   minHeightClassName = "min-h-40",
   className,
   id,
+  toolbarEnd,
+  handleRef,
 }: {
   value: string;
   onChange: (html: string) => void;
@@ -42,9 +50,25 @@ export function RichTextEditor({
   minHeightClassName?: string;
   className?: string;
   id?: string;
+  /** Actions at the far end of the formatting strip. */
+  toolbarEnd?: React.ReactNode;
+  handleRef?: React.Ref<RichTextEditorHandle>;
 }) {
   const ref = React.useRef<HTMLDivElement>(null);
   const lastValue = React.useRef<string>("");
+  // The caret, kept while focus is away in a picker so an insert lands where it was.
+  const caret = React.useRef<Range | null>(null);
+
+  React.useEffect(() => {
+    const keep = () => {
+      const sel = document.getSelection();
+      if (!sel?.rangeCount || !ref.current) return;
+      const range = sel.getRangeAt(0);
+      if (ref.current.contains(range.commonAncestorContainer)) caret.current = range.cloneRange();
+    };
+    document.addEventListener("selectionchange", keep);
+    return () => document.removeEventListener("selectionchange", keep);
+  }, []);
 
   // Only write into the DOM when the incoming value differs from what we last emitted,
   // so the caret is not reset on every keystroke.
@@ -67,6 +91,25 @@ export function RichTextEditor({
     document.execCommand(cmd, false);
     emit();
   };
+
+  React.useImperativeHandle(handleRef, () => ({
+    insertText(text: string) {
+      const box = ref.current;
+      if (!box) return;
+      box.focus();
+      const sel = document.getSelection();
+      let range = caret.current;
+      if (!range || !box.contains(range.commonAncestorContainer)) {
+        range = document.createRange();
+        range.selectNodeContents(box);
+        range.collapse(false);
+      }
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+      document.execCommand("insertText", false, text);
+      emit();
+    },
+  }));
 
   const empty = !value || value === "<br>" || value === "<p></p>";
 
@@ -99,6 +142,7 @@ export function RichTextEditor({
             <t.icon className="size-4" aria-hidden />
           </Button>
         ))}
+        {toolbarEnd ? <div className="ml-auto flex items-center gap-2">{toolbarEnd}</div> : null}
       </div>
       <div className="relative">
         {empty ? (

@@ -7,6 +7,9 @@
  * Source: demo "ADR, Other details & Prayer" screen. The two prayer editors open on the
  * S-138 templates from `options.ts`; they are a starting draft the filer edits, not
  * fixed text, so both are plain rich text bound straight to the draft.
+ *
+ * Other details can carry fields from the form as `[Field Name]`, and can start from a
+ * long §138 facts format — see `other-details-field.tsx`.
  */
 
 import * as React from "react";
@@ -19,6 +22,7 @@ import { FilingPageHeader } from "@/components/filing/filing-page-header";
 import { FilingMain } from "@/components/filing/filing-shell";
 import { FormCard } from "@/components/filing/form-card";
 import { FormField } from "@/components/filing/form-field";
+import { OtherDetailsField } from "@/components/filing/other-details-field";
 import { RichTextEditor } from "@/components/filing/rich-text-editor";
 import { Segmented, type SegmentedOption } from "@/components/filing/segmented";
 
@@ -73,12 +77,11 @@ export function AdrPrayerSection() {
             label={OTHER_DETAILS_QUESTION}
             tip="Anything the court should know that the form has not already asked for."
             helpPlacement="above"
-            help="No need to repeat anything already entered above."
+            help="No need to repeat anything already entered above. Insert a field to name a detail from the form; it fills in on the complaint."
           >
-            <RichTextEditor
+            <OtherDetailsField
               value={adr.otherDetails}
               onChange={(html) => set("otherDetails", html)}
-              placeholder="Write here"
               ariaLabel={OTHER_DETAILS_QUESTION}
             />
           </FormField>
