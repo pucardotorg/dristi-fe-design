@@ -81,6 +81,13 @@ import { FilingFooter } from "@/components/filing/filing-footer";
 
 import { ColumnMapping } from "./column-mapping";
 import { useGujarat } from "./court-guard";
+import {
+  defaultFormat,
+  formatForFiler,
+  readDetailsFormats,
+  serverDetailsFormats,
+  subscribeToDetailsFormats,
+} from "@/lib/filing/details-formats";
 import { BatchParties, type Adr } from "./batch-parties";
 import { FileDrop } from "./file-drop";
 import { bulkFetch } from "./api";
@@ -204,11 +211,20 @@ export function UploadScreen() {
     OFFICE_ADVOCATES[0].barNumber,
   ]);
   const [adr, setAdr] = React.useState<Adr>("no");
+  // The additional-details format every case is generated from: what the filer chose
+  // ("" for none), or until they choose, the default format if one is set.
+  const [formatChoice, setFormatId] = React.useState<string | null>(null);
+  const formats = React.useSyncExternalStore(
+    subscribeToDetailsFormats,
+    readDetailsFormats,
+    serverDetailsFormats,
+  );
+  const formatId = formatChoice ?? defaultFormat(formats)?.id ?? "";
   const [files, setFiles] = React.useState<File[]>([]);
   const file = files[0] ?? null;
   // With AI on, a Word file or PDF per case can stand in for the sheet: each is read into
   // the template's columns, and the rest of the upload is the same.
-  const { profile } = useCourt();
+  const { profile, court } = useCourt();
   const ai = aiModeFrom(useSearchParams().get("ai"), profile.aiMode);
   const docs = files.length > 0 && files.every((f) => DOC.test(f.name));
   const [reading, setReading] = React.useState<ReadingRow[] | null>(null);
@@ -389,6 +405,12 @@ export function UploadScreen() {
           ),
           adr,
           fileName,
+          detailsFormat: (() => {
+            const format = formats.find((f) => f.id === formatId);
+            return format
+              ? { id: format.id, html: formatForFiler(format), court }
+              : undefined;
+          })(),
         },
         counts,
       );
@@ -489,6 +511,8 @@ export function UploadScreen() {
                 setBars={setBars}
                 adr={adr}
                 setAdr={setAdr}
+                formatId={formatId}
+                setFormatId={setFormatId}
               />
               <Field className="gap-1.5">
                 <FieldLabel htmlFor="sheet">
