@@ -101,10 +101,25 @@ function write(next: readonly DetailsFormat[]): void {
   for (const listener of listeners) listener();
 }
 
+/** A change made on Configurations in another tab: read it again and tell this tab. */
+function onStorage(event: StorageEvent): void {
+  if (event.key !== KEY) return;
+  restored = false;
+  formats = DEFAULT_FORMATS;
+  restore();
+  for (const listener of listeners) listener();
+}
+
 export function subscribeToDetailsFormats(listener: () => void): () => void {
+  if (!listeners.size && typeof window !== "undefined") {
+    window.addEventListener("storage", onStorage);
+  }
   listeners.add(listener);
   return () => {
     listeners.delete(listener);
+    if (!listeners.size && typeof window !== "undefined") {
+      window.removeEventListener("storage", onStorage);
+    }
   };
 }
 

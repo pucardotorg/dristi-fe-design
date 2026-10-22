@@ -1,10 +1,10 @@
 "use client";
 
 /**
- * Configurations → E-filing formats: the texts a filer can start "Any additional details"
- * from, and what each `[variable]` in them is filled with.
+ * Additional details formats (`/filings/formats`): the texts a filer can start "Any
+ * additional details" from, and what each `[variable]` in them is filled with.
  *
- * Laid out as the order template configuration beside it — formats on the left, the
+ * Laid out as the magistrate's order template configuration — formats on the left, the
  * selected one's text and variables on the right — with one addition: each variable is
  * mapped to a field of the e-filing form, or left for the filer to write. Changes save as
  * they are made, in this browser (`lib/filing/details-formats.ts`).
@@ -28,6 +28,12 @@ import {
   type DetailsFormat,
 } from "@/lib/filing/details-formats";
 import { getStep } from "@/lib/filing/steps";
+import {
+  PAGE_GROUND,
+  PAGE_GUTTER,
+  PAGE_SUBTITLE,
+  PAGE_TITLE,
+} from "@/components/shell/page-frame";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -240,7 +246,22 @@ function FormatEditor({
   );
 }
 
-export function DetailsFormatConfig() {
+export function DetailsFormatsScreen() {
+  return (
+    <div className={cn("flex w-full flex-1 flex-col gap-6", PAGE_GROUND, PAGE_GUTTER)}>
+      <header className="flex flex-col gap-1">
+        <h1 className={cn(PAGE_TITLE, "text-foreground")}>Additional details formats</h1>
+        <p className={PAGE_SUBTITLE}>
+          The texts a filing can start &ldquo;Any additional details&rdquo; from, and the
+          e-filing field that fills each variable.
+        </p>
+      </header>
+      <DetailsFormatConfig />
+    </div>
+  );
+}
+
+function DetailsFormatConfig() {
   const formats = React.useSyncExternalStore(
     subscribeToDetailsFormats,
     readDetailsFormats,

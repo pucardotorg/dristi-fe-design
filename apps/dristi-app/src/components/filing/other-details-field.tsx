@@ -13,7 +13,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ChevronDownIcon, FileTextIcon } from "lucide-react";
+import { ChevronDownIcon, ExternalLinkIcon, FileTextIcon } from "lucide-react";
 
 import { bracketsIn, detailField } from "@/lib/filing/detail-fields";
 import {
@@ -92,6 +92,9 @@ function FieldsInText({ html }: { html: string }) {
   );
 }
 
+/** Where the formats this box starts from are set up. */
+const FORMATS_HREF = "/filings/formats";
+
 /** One format: a button. Several: the button opens the list to choose from. */
 function StartFromFormat({ onStart }: { onStart: (format: DetailsFormat) => void }) {
   const formats = React.useSyncExternalStore(
@@ -163,6 +166,19 @@ export function OtherDetailsField({
           </>
         }
       />
+      <p className="text-caption text-muted-foreground">
+        Formats, and the field that fills each of their variables, are set up separately.{" "}
+        <Link
+          href={FORMATS_HREF}
+          target="_blank"
+          rel="noopener"
+          className="inline-flex items-center gap-1 text-foreground underline underline-offset-3"
+        >
+          Edit formats
+          <ExternalLinkIcon aria-hidden className="size-3" />
+          <span className="sr-only">(opens in a new tab)</span>
+        </Link>
+      </p>
       <FieldsInText html={value} />
     </div>
   );

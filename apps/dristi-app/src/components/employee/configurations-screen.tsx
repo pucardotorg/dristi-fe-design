@@ -42,9 +42,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { DetailsFormatConfig } from "@/components/employee/details-format-config";
 
 // ---------------------------------------------------------------------------
 // Variable insertion menu
@@ -672,7 +670,6 @@ function TemplateEditor({
 // ---------------------------------------------------------------------------
 
 export function ConfigurationsScreen() {
-  const [area, setArea] = React.useState<"orders" | "filing">("orders");
   const [templates, setTemplates] = React.useState<OrderTemplate[]>(
     () => initHearingPurposeIds([...INITIAL_TEMPLATES]),
   );
@@ -730,70 +727,49 @@ export function ConfigurationsScreen() {
   }
 
   return (
-    <Tabs
-      value={area}
-      onValueChange={(v) => setArea(v as typeof area)}
-      className="flex min-w-0 flex-1 flex-col gap-6 p-6 md:p-8"
-    >
+    <div className="flex min-w-0 flex-1 flex-col gap-8 p-6 md:p-8">
       <header className="flex flex-col gap-2">
         <h1 className="text-title text-balance font-semibold sm:text-title-l">
-          {area === "orders" ? "Order template configuration" : "E-filing formats"}
+          Order template configuration
         </h1>
         <p className="text-body text-muted-foreground">
-          {area === "orders" ? (
-            <>
-              Configure templates, variables, and workflow associations for the{" "}
-              {templates.length} order types.
-            </>
-          ) : (
-            "Texts a filer can start “Any additional details” from, and the e-filing field that fills each variable."
-          )}
+          Configure templates, variables, and workflow associations for the{" "}
+          {templates.length} order types.
         </p>
       </header>
 
-      <TabsList variant="line" aria-label="What to configure" className="justify-start">
-        <TabsTrigger value="orders">Order templates</TabsTrigger>
-        <TabsTrigger value="filing">E-filing formats</TabsTrigger>
-      </TabsList>
+      <Card className="flex min-h-0 flex-1 overflow-hidden border-hairline shadow-raised">
+        <CardContent className="flex min-h-0 flex-1 flex-col p-0 md:flex-row">
+          {/* Sidebar */}
+          <div className="flex min-h-0 w-full flex-col border-b border-hairline md:w-60 md:shrink-0 md:border-r md:border-b-0 lg:w-64">
+            <div className="max-h-[40vh] min-h-0 flex-1 overflow-hidden md:max-h-none">
+              <TemplateSidebar
+                templates={templates}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+                onNew={createNew}
+              />
+            </div>
+          </div>
 
-      <TabsContent value="filing" className="flex min-h-0 flex-1 flex-col">
-        <DetailsFormatConfig />
-      </TabsContent>
-
-      <TabsContent value="orders" className="flex min-h-0 flex-1 flex-col">
-        <Card className="flex min-h-0 flex-1 overflow-hidden border-hairline shadow-raised">
-          <CardContent className="flex min-h-0 flex-1 flex-col p-0 md:flex-row">
-            {/* Sidebar */}
-            <div className="flex min-h-0 w-full flex-col border-b border-hairline md:w-60 md:shrink-0 md:border-r md:border-b-0 lg:w-64">
-              <div className="max-h-[40vh] min-h-0 flex-1 overflow-hidden md:max-h-none">
-                <TemplateSidebar
-                  templates={templates}
-                  selectedId={selectedId}
-                  onSelect={setSelectedId}
-                  onNew={createNew}
-                />
+          {/* Editor */}
+          <div className="min-h-0 min-w-0 flex-1">
+            {selected ? (
+              <TemplateEditor
+                key={selected.id}
+                template={selected}
+                onUpdate={updateTemplate}
+                onDuplicate={duplicate}
+                onDelete={deleteCurrent}
+              />
+            ) : (
+              <div className="flex min-h-64 items-center justify-center text-body-compact text-muted-foreground">
+                Select a template to edit
               </div>
-            </div>
-
-            {/* Editor */}
-            <div className="min-h-0 min-w-0 flex-1">
-              {selected ? (
-                <TemplateEditor
-                  key={selected.id}
-                  template={selected}
-                  onUpdate={updateTemplate}
-                  onDuplicate={duplicate}
-                  onDelete={deleteCurrent}
-                />
-              ) : (
-                <div className="flex min-h-64 items-center justify-center text-body-compact text-muted-foreground">
-                  Select a template to edit
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </TabsContent>
-    </Tabs>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
