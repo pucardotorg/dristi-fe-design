@@ -360,6 +360,16 @@ export function ApplicationsScreen({
         onOpenChange={(next) => {
           if (!next) close();
         }}
+        onDone={(id, message) => {
+          toast.success(message);
+          /* On to the next in this list, as the workstation did: the one just ordered
+             is left out even before its order moves it. */
+          const index = rows.findIndex((row) => row.id === id);
+          const rest = rows.filter((row) => row.id !== id);
+          const target = rest[Math.max(0, Math.min(index, rest.length - 1))];
+          if (target) open(target);
+          else close();
+        }}
         onReturnFocus={() =>
           window.document
             .querySelector<HTMLElement>(`[data-application-row="${openerRef.current ?? ""}"]`)

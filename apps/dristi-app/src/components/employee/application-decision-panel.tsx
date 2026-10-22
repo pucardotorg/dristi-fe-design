@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { Identifier } from "@/components/chrome/identifier";
+import {
+  ApplicationQuickOrder,
+  type QuickOrderRequest,
+} from "@/components/employee/application-quick-order";
 import { ListingDateField } from "@/components/employee/listing-date-field";
 import { useCourtRole } from "@/components/employee/use-court-role";
 import { useOrderSigning } from "@/components/employee/use-order-signing";
@@ -19,8 +23,11 @@ import {
 import {
   canDraftOrder,
   canSignOrder,
+  acceptanceNeedsHearingDate,
   canTakeSystemAction,
+  decisionText,
   discardOrder,
+  dismissalText,
   objectionDeadline,
   setADateUsed,
   signOrder,
@@ -41,7 +48,7 @@ import {
   type ApplicationOutcome,
 } from "@/lib/employee/application-outcome";
 import { queueOf, shortDate } from "@/lib/employee/application-queue";
-import { nextHearingOf } from "@/lib/employee/application-tasks";
+import { caseOf, nextHearingOf } from "@/lib/employee/application-tasks";
 import { orderDraftKey } from "@/lib/employee/order-door";
 import { EMPTY_ORDER_DRAFT } from "@/lib/employee/order-draft";
 import { updateOrderDraft } from "@/lib/employee/order-drafts";
@@ -128,11 +135,14 @@ export function ApplicationDecisionPanel({
   app,
   on,
   view,
+  onDone,
 }: {
   app: LifecycleApplication;
   on: string;
   /** The list being worked, carried to the order screen for the way back. */
   view: string;
+  /** An order passed from the quick order: say so, and move on to the next. */
+  onDone: (message: string) => void;
 }) {
   const router = useRouter();
   const seat = useCourtRole() as CourtSeat;
@@ -151,6 +161,10 @@ export function ApplicationDecisionPanel({
     relist: dateOfDay(suggestion),
   }));
   const [error, setError] = React.useState<string | null>(null);
+  const [quick, setQuick] = React.useState<QuickOrderRequest | null>(null);
+  const record = caseOf(app);
+  const other = app.side === "complainant" ? "accused" : "complainant";
+  const named = `The application for ${app.typeLabel.toLowerCase()} filed on behalf of the ${app.side}`;
   /* The order already started on this application, in the editor's own list. */
   const orders = usePendingOrders();
   const signing = useOrderSigning();
@@ -184,6 +198,25 @@ export function ApplicationDecisionPanel({
       { ...EMPTY_ORDER_DRAFT, applicationOutcome: initialApplicationOutcome() },
     );
     router.push(applicationOrderHref(app.id, undefined, view));
+  }
+
+  /**
+   * The quick order for a panel answer (owner, 2026-10-22): the court's words in a
+   * pop-up, signed or sent from there, the full order screen a button away. Without a case
+   * to frame the order, the order screen.
+   */
+  function order(request: QuickOrderRequest) {
+    if (record) setQuick(request);
+    else toOrder(request.answers);
+  }
+
+  /** The standard words for a listing, and the objection called for. */
+  function listingWords(day: string, invite: boolean, lead: string): string {
+    return `${lead} It shall be listed on ${formatCaseDate(day)}.${
+      invite
+        ? ` The ${other} may file objections, if any, by ${formatCaseDate(objectionDeadline(day))}.`
+        : ""
+    }`;
   }
 
   /** Listed for a date, the other party asked to respond by the day before, or not. */
@@ -375,11 +408,14 @@ export function ApplicationDecisionPanel({
           className="w-full"
           disabled={!valid}
           onClick={() =>
-            toOrder(
-              panel.when === "now"
-                ? { onboard: "yes" }
-                : { onboard: "yes", ...listed(listedOn, panel.invite) },
-            )
+            /* Taken up today, the decision is the order's: the order screen. */
+            panel.when === "now"
+              ? toOrder({ onboard: "yes" })
+              : order({
+                  title: "Onboard and list",
+                  text: listingWords(listedOn, panel.invite, `${named} is taken on file.`),
+                  answers: { onboard: "yes", ...listed(listedOn, panel.invite) },
+                })
           }
         >
           {panel.when === "now"
@@ -397,11 +433,15 @@ export function ApplicationDecisionPanel({
           className="w-full"
           disabled={!deferOn || deferOn <= on}
           onClick={() =>
-            toOrder({
-              onboard: "no",
-              decided: "no",
-              responseNeeded: "no",
-              bringForwardOn: deferOn,
+            order({
+              title: "Defer review",
+              text: `Review of ${named.charAt(0).toLowerCase()}${named.slice(1)} is deferred to ${formatCaseDate(deferOn)}.`,
+              answers: {
+                onboard: "no",
+                decided: "no",
+                responseNeeded: "no",
+                bringForwardOn: deferOn,
+              },
             })
           }
         >
@@ -410,7 +450,18 @@ export function ApplicationDecisionPanel({
       );
     } else if (choice === "dismiss") {
       primary = (
-        <Button type="button" className="w-full" onClick={() => toOrder({ onboard: "no", decided: "yes" })}>
+        <Button
+          type="button"
+          className="w-full"
+          onClick={() =>
+            order({
+              title: "Dismiss application",
+              text: dismissalText(app, formatCaseDate(app.submittedOn ?? app.createdOn)),
+              /* [DERIVED] Disposed: the decision list has no Dismissed. */
+              answers: { onboard: "no", decided: "yes", decision: "disposed" },
+            })
+          }
+        >
           Draft dismissal order
         </Button>
       );
@@ -459,7 +510,11 @@ export function ApplicationDecisionPanel({
           className="w-full"
           disabled={!relistOn || relistOn <= on}
           onClick={() =>
-            toOrder({ decided: "no", responseNeeded: "no", bringForwardOn: relistOn })
+            order({
+              title: "Relist",
+              text: `${named} is relisted on ${formatCaseDate(relistOn)}.`,
+              answers: { decided: "no", responseNeeded: "no", bringForwardOn: relistOn },
+            })
           }
         >
           {relistOn ? `Relist on ${shortDate(relistOn)}` : "Relist"}
@@ -531,9 +586,16 @@ export function ApplicationDecisionPanel({
             type="button"
             className="w-full"
             onClick={() =>
-              toOrder({
-                decided: "yes",
-                decision: choice === "accept" ? "allowed" : "disallowed",
+              order({
+                title: choice === "accept" ? "Accept application" : "Reject application",
+                text: decisionText(app, choice),
+                answers: {
+                  decided: "yes",
+                  decision: choice === "accept" ? "allowed" : "disallowed",
+                  workflowTriggered: choice === "accept" ? "yes" : "no",
+                },
+                needsHearingDate:
+                  choice === "accept" && acceptanceNeedsHearingDate(app.type),
               })
             }
           >
@@ -548,7 +610,11 @@ export function ApplicationDecisionPanel({
             className="w-full"
             disabled={!moveOn || moveOn <= on}
             onClick={() =>
-              toOrder({ decided: "no", responseNeeded: "no", bringForwardOn: moveOn })
+              order({
+                title: "Move the date",
+                text: `${named} is to be decided on ${formatCaseDate(moveOn)}.`,
+                answers: { decided: "no", responseNeeded: "no", bringForwardOn: moveOn },
+              })
             }
           >
             {moveOn ? `Move to ${shortDate(moveOn)}` : "Move the date"}
@@ -561,7 +627,13 @@ export function ApplicationDecisionPanel({
             type="button"
             className="w-full"
             disabled={!listedOn || listedOn <= on}
-            onClick={() => toOrder(listed(listedOn, panel.invite))}
+            onClick={() =>
+              order({
+                title: "List for a date",
+                text: listingWords(listedOn, panel.invite, `${named} is not taken up today.`),
+                answers: listed(listedOn, panel.invite),
+              })
+            }
           >
             {listedOn ? `List on ${shortDate(listedOn)}` : "List for a date"}
           </Button>
@@ -589,6 +661,24 @@ export function ApplicationDecisionPanel({
         <div className="flex shrink-0 flex-col gap-2 border-t border-hairline px-6 py-4">
           {footer}
         </div>
+      ) : null}
+      {record ? (
+        <ApplicationQuickOrder
+          application={app}
+          record={record}
+          request={quick}
+          canSign={canSignOrder(seat)}
+          on={on}
+          hearing={hearing}
+          view={view}
+          onOpenChange={(open) => {
+            if (!open) setQuick(null);
+          }}
+          onDone={(message) => {
+            setQuick(null);
+            onDone(message);
+          }}
+        />
       ) : null}
     </aside>
   );
