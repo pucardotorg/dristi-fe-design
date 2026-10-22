@@ -7,89 +7,37 @@
  * under the box shows what each one will say now, and sends the filer to the section
  * where a missing one is entered.
  *
- * Fields and the starting format: `lib/filing/detail-fields.ts`.
+ * Fields: `lib/filing/detail-fields.ts`. The formats to start from are set up on
+ * Configurations (`lib/filing/details-formats.ts`).
  */
 
 import * as React from "react";
 import Link from "next/link";
-import { BracesIcon, FileTextIcon } from "lucide-react";
+import { ChevronDownIcon, FileTextIcon } from "lucide-react";
 
+import { bracketsIn, detailField } from "@/lib/filing/detail-fields";
 import {
-  DETAIL_FIELD_GROUPS,
-  DETAILS_FORMAT,
-  bracketsIn,
-  detailField,
-} from "@/lib/filing/detail-fields";
+  formatForFiler,
+  readDetailsFormats,
+  serverDetailsFormats,
+  subscribeToDetailsFormats,
+  type DetailsFormat,
+} from "@/lib/filing/details-formats";
 import { getStep } from "@/lib/filing/steps";
 import { useFiling } from "@/lib/filing/store";
 import { useCourtText } from "@/components/court/court-provider";
 import { Button } from "@/components/ui/button";
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { DetailFieldMenu } from "@/components/filing/detail-field-menu";
 import {
   RichTextEditor,
   type RichTextEditorHandle,
 } from "@/components/filing/rich-text-editor";
-
-function InsertFieldMenu({ onPick }: { onPick: (name: string) => void }) {
-  const { draft } = useFiling();
-  const courtText = useCourtText();
-  const [open, setOpen] = React.useState(false);
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onMouseDown={(e) => e.preventDefault()}
-        >
-          <BracesIcon data-icon="inline-start" aria-hidden />
-          Insert field
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-80 p-0">
-        <Command>
-          <CommandInput placeholder="Search fields" />
-          <CommandList className="max-h-80">
-            <CommandEmpty>No field by that name.</CommandEmpty>
-            {DETAIL_FIELD_GROUPS.map((group) => (
-              <CommandGroup key={group.label} heading={group.label}>
-                {group.fields.map((field) => {
-                  const value = courtText(field.resolve(draft));
-                  return (
-                    <CommandItem
-                      key={field.name}
-                      value={field.name}
-                      onSelect={() => {
-                        onPick(field.name);
-                        setOpen(false);
-                      }}
-                      className="flex-col items-start gap-0.5"
-                    >
-                      <span className="text-body-compact text-foreground">{field.name}</span>
-                      <span className="w-full truncate text-caption text-muted-foreground">
-                        {value || "Not entered yet"}
-                      </span>
-                    </CommandItem>
-                  );
-                })}
-              </CommandGroup>
-            ))}
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
-  );
-}
 
 /** Each bracket in the text, and what it will read as on the complaint today. */
 function FieldsInText({ html }: { html: string }) {
@@ -144,6 +92,42 @@ function FieldsInText({ html }: { html: string }) {
   );
 }
 
+/** One format: a button. Several: the button opens the list to choose from. */
+function StartFromFormat({ onStart }: { onStart: (format: DetailsFormat) => void }) {
+  const formats = React.useSyncExternalStore(
+    subscribeToDetailsFormats,
+    readDetailsFormats,
+    serverDetailsFormats,
+  );
+  if (!formats.length) return null;
+  if (formats.length === 1) {
+    return (
+      <Button type="button" variant="ghost" size="sm" onClick={() => onStart(formats[0])}>
+        <FileTextIcon data-icon="inline-start" aria-hidden />
+        Start from the format
+      </Button>
+    );
+  }
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button type="button" variant="ghost" size="sm">
+          <FileTextIcon data-icon="inline-start" aria-hidden />
+          Start from a format
+          <ChevronDownIcon data-icon="inline-end" aria-hidden />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-56">
+        {formats.map((format) => (
+          <DropdownMenuItem key={format.id} onSelect={() => onStart(format)}>
+            {format.name}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export function OtherDetailsField({
   value,
   onChange,
@@ -153,6 +137,8 @@ export function OtherDetailsField({
   onChange: (html: string) => void;
   ariaLabel: string;
 }) {
+  const { draft } = useFiling();
+  const courtText = useCourtText();
   const editor = React.useRef<RichTextEditorHandle>(null);
   const empty = !bracketsIn(value).length && !value.replace(/<[^>]*>|&nbsp;/g, "").trim();
 
@@ -161,24 +147,19 @@ export function OtherDetailsField({
       <RichTextEditor
         value={value}
         onChange={onChange}
-        placeholder="Write here, or start from the format"
+        placeholder="Write here, or start from a format"
         ariaLabel={ariaLabel}
         minHeightClassName="min-h-64"
         handleRef={editor}
         toolbarEnd={
           <>
             {empty ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => onChange(DETAILS_FORMAT)}
-              >
-                <FileTextIcon data-icon="inline-start" aria-hidden />
-                Start from the format
-              </Button>
+              <StartFromFormat onStart={(format) => onChange(formatForFiler(format))} />
             ) : null}
-            <InsertFieldMenu onPick={(name) => editor.current?.insertText(`[${name}]`)} />
+            <DetailFieldMenu
+              onPick={(field) => editor.current?.insertText(`[${field.name}]`)}
+              describe={(field) => courtText(field.resolve(draft)) || "Not entered yet"}
+            />
           </>
         }
       />
