@@ -14,17 +14,14 @@ import {
   tableRowClass,
 } from "@/components/chrome/table-plate";
 import { Identifier } from "@/components/chrome/identifier";
-import { ApplicationBulkDialog, type BulkAct } from "@/components/employee/application-bulk-dialog";
 import { ApplicationDialog } from "@/components/employee/application-dialog";
 import { CourtFilters } from "@/components/employee/court-filters";
 import { QueueAnnouncer } from "@/components/employee/queue-announcer";
 import { QueueItemRow } from "@/components/employee/queue-item-row";
-import { useCourtRole } from "@/components/employee/use-court-role";
 import { useOrderSigning } from "@/components/employee/use-order-signing";
 import { usePendingOrders } from "@/components/employee/use-pending-orders";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Empty,
   EmptyDescription,
@@ -49,9 +46,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  canTakeSystemAction,
   sideLabel,
-  type CourtSeat,
   type LifecycleApplication,
 } from "@/lib/applications/lifecycle";
 import {
@@ -123,9 +118,8 @@ const EMPTY: Record<ApplicationView | "archive", { title: string; description: s
  * archive below it.
  *
  * Opening a row opens the application as a pop-up over the list (`application-dialog.tsx`,
- * owner, 2026-10-21: the workstation's list beside it was a distraction). The magistrate or bench clerk can act on a
- * selection — onboard, defer or relist — where the act is a date, not a judgment; accept,
- * reject and dismiss are always one application at a time.
+ * owner, 2026-10-21: the workstation's list beside it was a distraction). Every act is
+ * on one application at a time — there are no bulk acts (owner, 2026-10-22).
  */
 export function ApplicationsScreen({
   initialView,
@@ -138,14 +132,10 @@ export function ApplicationsScreen({
   const router = useRouter();
   const ready = useApplicationsReady();
   const apps = useLifecycleApplications();
-  const seat = useCourtRole() as CourtSeat;
-  const mayAct = canTakeSystemAction(seat);
   const on = today();
 
   const [view, setView] = React.useState<ApplicationView | "archive">(initialView);
   const [query, setQuery] = React.useState("");
-  const [selectedIds, setSelectedIds] = React.useState<ReadonlySet<string>>(new Set());
-  const [bulk, setBulk] = React.useState<BulkAct | null>(null);
   const [openId, setOpenId] = React.useState<string | null>(initialOpen ?? null);
   /* The row an application was opened from, so closing it puts focus back there. */
   const openerRef = React.useRef<string | null>(initialOpen ?? null);
@@ -155,13 +145,11 @@ export function ApplicationsScreen({
   /* One list, soonest due first: the bands (To onboard today, To decide today…) did not
      scale (owner, 2026-10-22). The pills are the way to narrow it. */
   const banded = false;
-  /* Selection is the magistrate's or bench clerk's, and only where an act on a date applies. */
-  const selectable = mayAct && (view === "all" || view === "onboard" || view === "decide" || view === "later");
-  const selected = rows.filter((app) => selectedIds.has(app.id));
+  /* No selection and no bulk acts: each application is looked at on its own (owner,
+     2026-10-22). */
 
   function changeView(next: ApplicationView | "archive") {
     setView(next);
-    setSelectedIds(new Set());
     router.replace(`/employee/applications?view=${next}`, { scroll: false });
   }
 
@@ -180,20 +168,6 @@ export function ApplicationsScreen({
     router.replace(`/employee/applications?view=${view}`, { scroll: false });
   }
 
-  function toggle(app: LifecycleApplication) {
-    setSelectedIds((current) => {
-      const next = new Set(current);
-      if (next.has(app.id)) next.delete(app.id);
-      else next.add(app.id);
-      return next;
-    });
-  }
-
-  function toggleAll(select: boolean) {
-    setSelectedIds(select ? new Set(rows.map((app) => app.id)) : new Set());
-  }
-
-  const acts = bulkActsFor(selected);
 
   /* An order already started on an application, and where it stands — so a row the bench
      has acted on does not read as untouched until the order is signed. */
@@ -269,10 +243,6 @@ export function ApplicationsScreen({
                   banded={banded}
                   on={on}
                   closed={view === "closed" || view === "archive"}
-                  selectable={selectable}
-                  selectedIds={selectedIds}
-                  onToggle={toggle}
-                  onToggleAll={toggleAll}
                   onOpen={open}
                   orderOf={orderOf}
                 />
@@ -332,26 +302,6 @@ export function ApplicationsScreen({
           ) : null}
         </div>
 
-        {selectable && selected.length > 0 ? (
-          <div className="sticky bottom-0 z-30 -mx-6 -mb-6 flex flex-wrap items-center justify-end gap-3 rounded-b-xl border-t border-hairline bg-card px-6 py-4">
-            <p className="mr-auto text-body-compact tabular-nums text-muted-foreground" aria-live="polite">
-              {selected.length} selected
-            </p>
-            <Button type="button" variant="ghost" onClick={() => setSelectedIds(new Set())}>
-              Clear selection
-            </Button>
-            {acts.map((act, index) => (
-              <Button
-                key={act.kind}
-                type="button"
-                variant={index === 0 ? "default" : "outline"}
-                onClick={() => setBulk(act)}
-              >
-                {act.label}
-              </Button>
-            ))}
-          </div>
-        ) : null}
       </section>
 
       <ApplicationDialog
@@ -377,40 +327,10 @@ export function ApplicationsScreen({
         }
       />
 
-      <ApplicationBulkDialog
-        act={bulk}
-        on={on}
-        seat={seat}
-        onOpenChange={(open) => {
-          if (!open) setBulk(null);
-        }}
-        onDone={(message, ids) => {
-          toast.success(message);
-          setSelectedIds((current) => {
-            const next = new Set(current);
-            for (const id of ids) next.delete(id);
-            return next;
-          });
-        }}
-      />
     </div>
   );
 }
 
-/** What a selection can have done to it in one go — only acts that are a date. */
-function bulkActsFor(selected: LifecycleApplication[]): BulkAct[] {
-  const review = selected.filter((app) => app.status === "pending-review" && !app.pendingOrder);
-  const listed = selected.filter(
-    (app) => app.status === "pending-decision" && app.decide?.mode === "date" && !app.pendingOrder,
-  );
-  const acts: BulkAct[] = [];
-  if (review.length) {
-    acts.push({ kind: "onboard", rows: review, label: `Onboard ${review.length}` });
-    acts.push({ kind: "defer", rows: review, label: `Defer review of ${review.length}` });
-  }
-  if (listed.length) acts.push({ kind: "relist", rows: listed, label: `Relist ${listed.length}` });
-  return acts;
-}
 
 /**
  * The views as a single-select pill row — the pending-tasks row (`chrome/pill-plate.ts`).
@@ -523,10 +443,6 @@ function ApplicationsTable({
   banded,
   on,
   closed,
-  selectable,
-  selectedIds,
-  onToggle,
-  onToggleAll,
   onOpen,
   orderOf,
 }: {
@@ -534,31 +450,16 @@ function ApplicationsTable({
   banded: boolean;
   on: string;
   closed: boolean;
-  selectable: boolean;
-  selectedIds: ReadonlySet<string>;
-  onToggle: (app: LifecycleApplication) => void;
-  onToggleAll: (select: boolean) => void;
   onOpen: (app: LifecycleApplication) => void;
   orderOf: (app: LifecycleApplication) => string | undefined;
 }) {
-  const selectedCount = rows.filter((app) => selectedIds.has(app.id)).length;
-  const allSelected = rows.length > 0 && selectedCount === rows.length;
-  const columns = selectable ? 6 : 5;
+  const columns = 5;
   const bands = banded ? bandsOf(rows, on) : [{ id: "rows", label: "", rows }];
 
   return (
     <Table className="w-full border-separate border-spacing-0 text-body-compact">
       <TableHeader>
         <TableRow className={TABLE_HEAD_ROW}>
-          {selectable ? (
-            <TableHead className={cn(TABLE_HEAD, "w-12")}>
-              <Checkbox
-                checked={allSelected ? true : selectedCount > 0 ? "indeterminate" : false}
-                onCheckedChange={(next) => onToggleAll(next === true)}
-                aria-label={allSelected ? "Clear every application shown" : "Select every application shown"}
-              />
-            </TableHead>
-          ) : null}
           <TableHead className={cn(TABLE_HEAD, "min-w-36 whitespace-normal")}>Application</TableHead>
           <TableHead className={cn(TABLE_HEAD, "min-w-40 whitespace-normal")}>Case</TableHead>
           {/* The two short columns take their content's width; what is left goes to the
@@ -571,7 +472,7 @@ function ApplicationsTable({
         </TableRow>
       </TableHeader>
       {bands.map((band) => (
-        <TableBody key={band.id} className={tableBodyClass({ selectable })}>
+        <TableBody key={band.id} className={tableBodyClass({ selectable: false })}>
           {band.label ? (
             <tr>
               {/* The band label of Sign processes (`sign-process-table.tsx`): 14px, the
@@ -594,22 +495,11 @@ function ApplicationsTable({
           )}
           {band.rows.map((app) => {
             const record = caseOf(app);
-            const isSelected = selectedIds.has(app.id);
             return (
               <TableRow
                 key={app.id}
-                data-state={isSelected ? "selected" : undefined}
-                {...rowActivation(tableRowClass({ selectable }))}
+                {...rowActivation(tableRowClass({ selectable: false }))}
               >
-                {selectable ? (
-                  <TableCell className={cn(TABLE_CELL, "align-top", "w-12")}>
-                    <Checkbox
-                      checked={isSelected}
-                      onCheckedChange={() => onToggle(app)}
-                      aria-label={`Select ${app.typeLabel}, ${causeTitleOf(app)}`}
-                    />
-                  </TableCell>
-                ) : null}
                 <TableCell className={cn(TABLE_CELL, "align-top", "min-w-36 whitespace-normal")}>
                   {/* The side rides inside the opener: on its own line under it, the
                       opener's 40px floor left a gap between the two. */}
