@@ -653,6 +653,10 @@ export const listCopy = {
   ),
   addedByYou: t("Added by you", "നിങ്ങൾ ചേർത്തത്"),
   addedBy: t("Added by {name}", "{name} ചേർത്തത്"),
+  otherAdvocateLocked: t(
+    "Added by {name}. Only they can remove this access.",
+    "{name} ചേർത്തത്. അവർക്ക് മാത്രമേ ഈ ആക്‌സസ് നീക്കം ചെയ്യാനാകൂ.",
+  ),
 };
 
 export const peopleCopy = {

@@ -38,7 +38,7 @@ export function initials(name: string): string {
 }
 
 /** Disabled Remove that still explains itself on hover. */
-export function LockedRemove({ locale }: { locale: Locale }) {
+export function LockedRemove({ locale, reason }: { locale: Locale; reason?: string }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -50,7 +50,7 @@ export function LockedRemove({ locale }: { locale: Locale }) {
         </span>
       </TooltipTrigger>
       <TooltipContent className="max-w-56 text-pretty">
-        {pick(listCopy.vakalatLocked, locale)}
+        {reason ?? pick(listCopy.vakalatLocked, locale)}
       </TooltipContent>
     </Tooltip>
   );
@@ -132,11 +132,16 @@ export function PersonRow({
           {pick(peopleCopy.allCasesShareNote, locale)}
         </span>
       ) : onRemove && grantInviter === "self" ? (
-        // Only the office access this advocate gave; a co-advocate's people
-        // are theirs to manage (OFC-09).
         <Button type="button" variant="destructive-ghost" size="sm" onClick={onRemove}>
           {pick(listCopy.remove, locale)}
         </Button>
+      ) : onRemove && grantInviter ? (
+        // A co-advocate's people are theirs to manage (OFC-09). Locked, not
+        // hidden: an absent button reads as a bug (owner, Sept 3).
+        <LockedRemove
+          locale={locale}
+          reason={fillCopy(listCopy.otherAdvocateLocked, locale, { name: grantInviter })}
+        />
       ) : null}
     </div>
   );
