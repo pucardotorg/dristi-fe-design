@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
+import { ExternalLinkIcon } from "lucide-react";
 
 import { CLIENTS, OFFICE_ADVOCATES } from "@/lib/bulk/clients";
 import {
@@ -143,28 +145,36 @@ export function BatchParties({
           ))}
         </RadioGroup>
       </Field>
-      {formats.length ? (
-        <Field className="gap-1.5">
-          <FieldLabel htmlFor="details-format">Additional details</FieldLabel>
-          <NativeSelect
-            id="details-format"
-            value={formatId}
-            onChange={(e) => setFormatId(e.target.value)}
+      <Field className="gap-1.5">
+        <FieldLabel htmlFor="details-format">Additional details</FieldLabel>
+        <NativeSelect
+          id="details-format"
+          value={formatId}
+          onChange={(e) => setFormatId(e.target.value)}
+        >
+          <NativeSelectOption value="">Only what the sheet has</NativeSelectOption>
+          {formats.map((f) => (
+            <NativeSelectOption key={f.id} value={f.id}>
+              Generate from: {f.name || "Untitled"}
+            </NativeSelectOption>
+          ))}
+        </NativeSelect>
+        <FieldDescription>
+          Each case gets the format&apos;s text with its own details filled in. A case
+          whose sheet row has additional details keeps them. Every case can still be
+          edited on its own.{" "}
+          <Link
+            href="/filings/formats"
+            target="_blank"
+            rel="noopener"
+            className="inline-flex items-center gap-1 text-foreground underline underline-offset-3"
           >
-            <NativeSelectOption value="">Only what the sheet has</NativeSelectOption>
-            {formats.map((f) => (
-              <NativeSelectOption key={f.id} value={f.id}>
-                Generate from: {f.name || "Untitled"}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-          <FieldDescription>
-            Each case gets the format&apos;s text with its own details filled in. A case
-            whose sheet row has additional details keeps them. Every case can still be
-            edited on its own.
-          </FieldDescription>
-        </Field>
-      ) : null}
+            Edit formats
+            <ExternalLinkIcon aria-hidden className="size-3" />
+            <span className="sr-only">(opens in a new tab)</span>
+          </Link>
+        </FieldDescription>
+      </Field>
     </>
   );
 }
