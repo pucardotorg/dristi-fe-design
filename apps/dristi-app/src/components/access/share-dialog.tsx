@@ -238,7 +238,7 @@ export function ShareDialog({
                   {pick(shareCopy.sentNote, locale)} {result.names.join(", ")}
                   {bulk ? (
                     <>
-                      {" — "}
+                      {" · "}
                       {result.added === 0
                         ? pick(shareCopy.alreadyHadAllNote, locale)
                         : result.skipped === 0
