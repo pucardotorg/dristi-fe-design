@@ -70,7 +70,10 @@ export function ApplicationDialog({
   view,
   onOpenChange,
   onReturnFocus,
+  onDone,
 }: {
+  /** An order passed from the quick order on this application: move on to the next. */
+  onDone: (applicationId: string, message: string) => void;
   applicationId: string | null;
   /** The list it was opened from, carried to the order screen for the way back. */
   view: string;
@@ -90,6 +93,7 @@ export function ApplicationDialog({
           all={apps}
           view={view}
           onReturnFocus={onReturnFocus}
+          onDone={onDone}
         />
       ) : null}
     </Dialog>
@@ -110,11 +114,13 @@ function ApplicationDialogBody({
   all,
   view,
   onReturnFocus,
+  onDone,
 }: {
   app: LifecycleApplication;
   all: LifecycleApplication[];
   view: string;
   onReturnFocus: () => void;
+  onDone: (applicationId: string, message: string) => void;
 }) {
   const courtText = useCourtText();
   const on = today();
@@ -275,7 +281,13 @@ function ApplicationDialogBody({
         </div>
 
         {/* Keyed by application: a half-made choice never carries onto the next one. */}
-        <ApplicationDecisionPanel key={app.id} app={app} on={on} view={view} />
+        <ApplicationDecisionPanel
+          key={app.id}
+          app={app}
+          on={on}
+          view={view}
+          onDone={(message) => onDone(app.id, message)}
+        />
       </div>
     </ChromeDialogContent>
   );
