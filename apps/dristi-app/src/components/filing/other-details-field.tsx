@@ -1,21 +1,22 @@
 "use client";
 
 /**
- * "Any additional details" — a long text the filer writes, with fields from the filing
- * placed in it as `[Field Name]`, the way a magistrate's order template carries its
- * variables. The fields fill from the form wherever the complaint is read; the list
- * under the box shows what each one will say now, and sends the filer to the section
- * where a missing one is entered.
+ * "Any additional details" — a long text the filer writes, started from a format whose
+ * variables are already filled in from the form.
  *
- * Fields: `lib/filing/detail-fields.ts`. The formats to start from are set up on
- * Configurations (`lib/filing/details-formats.ts`).
+ * A filled value stays tied to its field (`filledSpan` in `lib/filing/detail-fields.ts`),
+ * so Refresh can bring it up to date after the form changes, and fill any `[Field]` the
+ * form now holds. What the form does not hold yet stays as `[Field]`; the blanks a format
+ * leaves for the filer stay as they are. Refresh never touches the filer's own writing.
+ *
+ * Formats are set up on their own page (`/filings/formats`), linked from under the box.
  */
 
 import * as React from "react";
 import Link from "next/link";
-import { ChevronDownIcon, ExternalLinkIcon, FileTextIcon } from "lucide-react";
+import { ChevronDownIcon, ExternalLinkIcon, FileTextIcon, RefreshCwIcon } from "lucide-react";
 
-import { bracketsIn, detailField } from "@/lib/filing/detail-fields";
+import { bracketsIn, filledSpan, resolveDetails, staleDetails } from "@/lib/filing/detail-fields";
 import {
   formatForFiler,
   readDetailsFormats,
@@ -23,14 +24,27 @@ import {
   subscribeToDetailsFormats,
   type DetailsFormat,
 } from "@/lib/filing/details-formats";
-import { getStep } from "@/lib/filing/steps";
 import { useFiling } from "@/lib/filing/store";
+import { plural } from "@/lib/filing/format";
 import { useCourtText } from "@/components/court/court-provider";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { DetailFieldMenu } from "@/components/filing/detail-field-menu";
@@ -39,93 +53,50 @@ import {
   type RichTextEditorHandle,
 } from "@/components/filing/rich-text-editor";
 
-/** Each bracket in the text, and what it will read as on the complaint today. */
-function FieldsInText({ html }: { html: string }) {
-  const { draft, hrefFor } = useFiling();
-  const courtText = useCourtText();
-  const names = bracketsIn(html);
-  if (!names.length) return null;
-
-  return (
-    <div className="rounded-lg bg-surface-sunken px-4 py-3">
-      <p className="text-body-compact font-semibold text-foreground">Fields in this text</p>
-      <p className="text-caption text-muted-foreground">
-        Filled from the form on the complaint. Change a value in its section and the text
-        follows.
-      </p>
-      <ul className="mt-3 flex flex-col divide-y divide-hairline">
-        {names.map((name) => {
-          const field = detailField(name);
-          const value = field ? courtText(field.resolve(draft)) : "";
-          return (
-            <li
-              key={name}
-              className="flex flex-col gap-1 py-2 sm:flex-row sm:items-baseline sm:gap-4"
-            >
-              <span className="text-body-compact text-foreground sm:w-56 sm:shrink-0">
-                [{name}]
-              </span>
-              {!field ? (
-                <span className="text-body-compact text-warning-ink">
-                  To write. Type over it in the text.
-                </span>
-              ) : value ? (
-                <span className="min-w-0 text-body-compact text-muted-foreground tabular-nums">
-                  {value}
-                </span>
-              ) : (
-                <span className="text-body-compact text-warning-ink">
-                  Not entered yet.{" "}
-                  <Link
-                    href={hrefFor(field.step)}
-                    className="underline underline-offset-3 hover:text-foreground"
-                  >
-                    Go to {getStep(field.step).title}
-                  </Link>
-                </span>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-    </div>
-  );
-}
-
 /** Where the formats this box starts from are set up. */
 const FORMATS_HREF = "/filings/formats";
 
-/** One format: a button. Several: the button opens the list to choose from. */
-function StartFromFormat({ onStart }: { onStart: (format: DetailsFormat) => void }) {
-  const formats = React.useSyncExternalStore(
-    subscribeToDetailsFormats,
-    readDetailsFormats,
-    serverDetailsFormats,
-  );
+/** Filled values read as text with a light tint, so the filer can tell them apart. */
+const FILLED_LOOK =
+  "[&_[data-field]]:rounded-sm [&_[data-field]]:bg-info-muted [&_[data-field]]:px-0.5";
+
+const isEmpty = (html: string) =>
+  !bracketsIn(html).length && !html.replace(/<[^>]*>|&nbsp;/g, "").trim();
+
+function FormatMenu({
+  formats,
+  current,
+  onChoose,
+}: {
+  formats: readonly DetailsFormat[];
+  current: DetailsFormat | undefined;
+  onChoose: (format: DetailsFormat) => void;
+}) {
   if (!formats.length) return null;
-  if (formats.length === 1) {
-    return (
-      <Button type="button" variant="ghost" size="sm" onClick={() => onStart(formats[0])}>
-        <FileTextIcon data-icon="inline-start" aria-hidden />
-        Start from the format
-      </Button>
-    );
-  }
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" variant="ghost" size="sm">
+        <Button type="button" variant="ghost" size="sm" className="max-w-56">
           <FileTextIcon data-icon="inline-start" aria-hidden />
-          Start from a format
+          <span className="truncate">{current ? current.name : "Choose a format"}</span>
           <ChevronDownIcon data-icon="inline-end" aria-hidden />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-56">
-        {formats.map((format) => (
-          <DropdownMenuItem key={format.id} onSelect={() => onStart(format)}>
-            {format.name}
-          </DropdownMenuItem>
-        ))}
+        <DropdownMenuLabel>Start from a format</DropdownMenuLabel>
+        <DropdownMenuRadioGroup
+          value={current?.id ?? ""}
+          onValueChange={(id) => {
+            const format = formats.find((f) => f.id === id);
+            if (format) onChoose(format);
+          }}
+        >
+          {formats.map((format) => (
+            <DropdownMenuRadioItem key={format.id} value={format.id}>
+              {format.name || "Untitled"}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -133,53 +104,144 @@ function StartFromFormat({ onStart }: { onStart: (format: DetailsFormat) => void
 
 export function OtherDetailsField({
   value,
+  formatId,
   onChange,
+  onStart,
   ariaLabel,
 }: {
   value: string;
+  formatId: string | undefined;
   onChange: (html: string) => void;
+  /** The filer chose a format: its text, filled, replaces the box. */
+  onStart: (formatId: string, html: string) => void;
   ariaLabel: string;
 }) {
   const { draft } = useFiling();
   const courtText = useCourtText();
   const editor = React.useRef<RichTextEditorHandle>(null);
-  const empty = !bracketsIn(value).length && !value.replace(/<[^>]*>|&nbsp;/g, "").trim();
+  const formats = React.useSyncExternalStore(
+    subscribeToDetailsFormats,
+    readDetailsFormats,
+    serverDetailsFormats,
+  );
+  const [replacing, setReplacing] = React.useState<DetailsFormat | null>(null);
+  const [status, setStatus] = React.useState("");
+
+  const current = formats.find((f) => f.id === formatId);
+  const stale = staleDetails(value, draft, courtText);
+
+  const start = (format: DetailsFormat) => {
+    onStart(format.id, resolveDetails(formatForFiler(format), draft, courtText).html);
+    setStatus("");
+  };
+
+  const choose = (format: DetailsFormat) => {
+    if (isEmpty(value)) start(format);
+    else setReplacing(format);
+  };
+
+  const refresh = () => {
+    const { html, changed } = resolveDetails(value, draft, courtText);
+    if (changed) onChange(html);
+    setStatus(
+      changed
+        ? `Updated ${plural(changed, "value")} from the form.`
+        : "Everything is up to date with the form.",
+    );
+  };
 
   return (
     <div className="flex flex-col gap-3">
       <RichTextEditor
         value={value}
-        onChange={onChange}
-        placeholder="Write here, or start from a format"
+        onChange={(html) => {
+          onChange(html);
+          setStatus("");
+        }}
+        placeholder="Write here, or choose a format"
         ariaLabel={ariaLabel}
         minHeightClassName="min-h-64"
+        className={FILLED_LOOK}
         handleRef={editor}
         toolbarEnd={
           <>
-            {empty ? (
-              <StartFromFormat onStart={(format) => onChange(formatForFiler(format))} />
-            ) : null}
+            <FormatMenu formats={formats} current={current} onChoose={choose} />
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={refresh}
+              aria-label={
+                stale
+                  ? `Refresh values from the form, ${plural(stale, "change")} waiting`
+                  : "Refresh values from the form"
+              }
+            >
+              <RefreshCwIcon data-icon="inline-start" aria-hidden />
+              Refresh
+              {stale ? (
+                <Badge variant="warning" className="tabular-nums">
+                  {stale}
+                </Badge>
+              ) : null}
+            </Button>
             <DetailFieldMenu
-              onPick={(field) => editor.current?.insertText(`[${field.name}]`)}
+              onPick={(field) => {
+                const filled = courtText(field.resolve(draft));
+                if (filled) editor.current?.insertHtml(filledSpan(field.name, filled));
+                else editor.current?.insertText(`[${field.name}]`);
+              }}
               describe={(field) => courtText(field.resolve(draft)) || "Not entered yet"}
             />
           </>
         }
       />
-      <p className="text-caption text-muted-foreground">
-        Formats, and the field that fills each of their variables, are set up separately.{" "}
-        <Link
-          href={FORMATS_HREF}
-          target="_blank"
-          rel="noopener"
-          className="inline-flex items-center gap-1 text-foreground underline underline-offset-3"
-        >
-          Edit formats
-          <ExternalLinkIcon aria-hidden className="size-3" />
-          <span className="sr-only">(opens in a new tab)</span>
-        </Link>
-      </p>
-      <FieldsInText html={value} />
+
+      <div className="flex flex-col gap-1 text-caption">
+        <p role="status" className={stale ? "text-warning-ink" : "text-muted-foreground"}>
+          {stale
+            ? `${plural(stale, "value")} changed in the form since this text was filled. Refresh to update.`
+            : status}
+        </p>
+        <p className="text-muted-foreground">
+          Tinted words are filled from the form; anything still in [brackets] is for you to
+          write or is not in the form yet.{" "}
+          <Link
+            href={FORMATS_HREF}
+            target="_blank"
+            rel="noopener"
+            className="inline-flex items-center gap-1 text-foreground underline underline-offset-3"
+          >
+            Edit formats
+            <ExternalLinkIcon aria-hidden className="size-3" />
+            <span className="sr-only">(opens in a new tab)</span>
+          </Link>
+        </p>
+      </div>
+
+      <AlertDialog open={!!replacing} onOpenChange={(open) => !open && setReplacing(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Replace the text with &ldquo;{replacing?.name}&rdquo;?</AlertDialogTitle>
+            <AlertDialogDescription>
+              What is in the box now, including anything you wrote, will be replaced by this
+              format, filled from the form.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep my text</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (replacing) start(replacing);
+                setReplacing(null);
+              }}
+            >
+              Replace
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

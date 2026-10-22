@@ -26,6 +26,8 @@ const TOOLS: { cmd: Command; label: string; icon: React.ComponentType<{ classNam
 export type RichTextEditorHandle = {
   /** Put `text` where the caret last was in the box, or at the end if it never was. */
   insertText: (text: string) => void;
+  /** As `insertText`, for markup — a filled value from the form. */
+  insertHtml: (html: string) => void;
 };
 
 /**
@@ -92,21 +94,32 @@ export function RichTextEditor({
     emit();
   };
 
+  /** Put the caret back where it was in the box, or at the end if it never was. */
+  const restoreCaret = () => {
+    const box = ref.current;
+    if (!box) return false;
+    box.focus();
+    const sel = document.getSelection();
+    let range = caret.current;
+    if (!range || !box.contains(range.commonAncestorContainer)) {
+      range = document.createRange();
+      range.selectNodeContents(box);
+      range.collapse(false);
+    }
+    sel?.removeAllRanges();
+    sel?.addRange(range);
+    return true;
+  };
+
   React.useImperativeHandle(handleRef, () => ({
     insertText(text: string) {
-      const box = ref.current;
-      if (!box) return;
-      box.focus();
-      const sel = document.getSelection();
-      let range = caret.current;
-      if (!range || !box.contains(range.commonAncestorContainer)) {
-        range = document.createRange();
-        range.selectNodeContents(box);
-        range.collapse(false);
-      }
-      sel?.removeAllRanges();
-      sel?.addRange(range);
+      if (!restoreCaret()) return;
       document.execCommand("insertText", false, text);
+      emit();
+    },
+    insertHtml(html: string) {
+      if (!restoreCaret()) return;
+      document.execCommand("insertHTML", false, html);
       emit();
     },
   }));
@@ -126,7 +139,7 @@ export function RichTextEditor({
       <div
         role="toolbar"
         aria-label="Text formatting"
-        className="flex items-center gap-2 border-b border-hairline bg-surface-sunken px-2 py-1"
+        className="flex flex-wrap items-center gap-2 border-b border-hairline bg-surface-sunken px-2 py-1"
       >
         {TOOLS.map((t) => (
           <Button
@@ -142,7 +155,9 @@ export function RichTextEditor({
             <t.icon className="size-4" aria-hidden />
           </Button>
         ))}
-        {toolbarEnd ? <div className="ml-auto flex items-center gap-2">{toolbarEnd}</div> : null}
+        {toolbarEnd ? (
+          <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">{toolbarEnd}</div>
+        ) : null}
       </div>
       <div className="relative">
         {empty ? (

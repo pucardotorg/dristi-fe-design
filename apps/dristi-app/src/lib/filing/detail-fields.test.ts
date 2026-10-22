@@ -9,6 +9,9 @@ import {
   bracketsIn,
   detailField,
   fillDetails,
+  filledSpan,
+  resolveDetails,
+  staleDetails,
 } from "./detail-fields";
 
 describe("additional details fields", () => {
@@ -57,5 +60,59 @@ describe("additional details fields", () => {
     const blanks = bracketsIn(DETAILS_FORMAT).filter((name) => !detailField(name));
     assert.equal(blanks.length, 2);
     assert.ok(blanks.every((name) => name.startsWith("Describe")));
+  });
+});
+
+describe("filling the text from the form", () => {
+  it("fills what the form holds and leaves the rest as brackets", () => {
+    const draft = createBlankDraft("r1");
+    draft.cheques[0].chequeNumber = "004512";
+    const { html, changed } = resolveDetails(
+      "<p>Cheque [Cheque Number] dated [Cheque Date]. [How they met]</p>",
+      draft,
+    );
+    assert.equal(changed, 1);
+    assert.equal(
+      html,
+      `<p>Cheque ${filledSpan("Cheque Number", "004512")} dated [Cheque Date]. [How they met]</p>`,
+    );
+  });
+
+  it("refreshes a filled value when the form changes, and fills a newly entered one", () => {
+    const draft = createBlankDraft("r2");
+    draft.cheques[0].chequeNumber = "004512";
+    const first = resolveDetails("[Cheque Number] on [Cheque Date]", draft).html;
+    assert.equal(staleDetails(first, draft), 0);
+
+    draft.cheques[0].chequeNumber = "004599";
+    draft.cheques[0].dateOnCheque = "2026-03-15";
+    assert.equal(staleDetails(first, draft), 2);
+    assert.equal(
+      resolveDetails(first, draft).html,
+      `${filledSpan("Cheque Number", "004599")} on ${filledSpan("Cheque Date", "15 March 2026")}`,
+    );
+  });
+
+  it("puts the bracket back when the form no longer holds the value", () => {
+    const draft = createBlankDraft("r3");
+    draft.accused[0].name = "Juned M.";
+    const filled = resolveDetails("[Accused Name]", draft).html;
+    draft.accused[0].name = "";
+    assert.equal(resolveDetails(filled, draft).html, "[Accused Name]");
+  });
+
+  it("keeps the filer's own writing around the values", () => {
+    const draft = createBlankDraft("r4");
+    draft.accused[0].name = "A & B";
+    const filled = resolveDetails("<p><b>Note:</b> [Accused Name] owes.</p>", draft).html;
+    assert.ok(filled.startsWith("<p><b>Note:</b> <span"));
+    assert.ok(filled.includes(">A &amp; B</span> owes.</p>"));
+    assert.equal(staleDetails(filled, draft), 0);
+  });
+
+  it("prints filled values as shown and missing fields as not provided", () => {
+    const draft = createBlankDraft("r5");
+    const html = `${filledSpan("Accused Name", "Juned M.")} [Cheque Date]`;
+    assert.equal(fillDetails(html, draft), `${filledSpan("Accused Name", "Juned M.")} ${NOT_PROVIDED}`);
   });
 });

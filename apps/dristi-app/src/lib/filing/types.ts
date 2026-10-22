@@ -325,6 +325,8 @@ export type Jurisdiction = {
 export type AdrPrayer = {
   adr: "yes" | "no" | "maybe";
   otherDetails: string;
+  /** The additional-details format the text was started from (`details-formats.ts`). */
+  detailsFormat?: string;
   interimRelief: string;
   finalRelief: string;
 };

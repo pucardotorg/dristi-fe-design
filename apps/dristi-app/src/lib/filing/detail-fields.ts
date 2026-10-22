@@ -251,13 +251,80 @@ export function bracketsIn(html: string): string[] {
 const escapeHtml = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
+/* ───────────────────────── Filled values ───────────────────────── */
+
 /**
- * The text as the court reads it: each `[Field]` replaced by the filing's value, or by
- * "Not provided"; blanks left as typed. Only text between tags is touched.
+ * A value filled in from the form sits in the text as a span that remembers its field,
+ * so Refresh can find it again when the form changes:
+ * `<span data-field="Cheque Date" contenteditable="false">20 August 2026</span>`.
+ * It cannot be typed into — to change it, change the form, or delete it and write.
+ */
+const FILLED = /<span\b[^>]*\bdata-field="([^"]*)"[^>]*>([\s\S]*?)<\/span>/g;
+
+const escapeAttr = (s: string) => escapeHtml(s).replace(/"/g, "&quot;");
+const unescapeHtml = (s: string) =>
+  s.replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+
+/** The markup for one filled value. */
+export function filledSpan(field: string, value: string): string {
+  return `<span data-field="${escapeAttr(field)}" contenteditable="false" title="From the form: ${escapeAttr(field)}">${escapeHtml(value)}</span>`;
+}
+
+type Voice = (text: string) => string;
+const asIs: Voice = (t) => t;
+
+/** Text between tags only — markup and filled spans are left alone. */
+function eachTextRun(html: string, change: (text: string) => string): string {
+  // Filled spans are lifted out first, so a bracket can never be read inside one.
+  const held: string[] = [];
+  const lifted = html.replace(FILLED, (whole) => `\u0000${held.push(whole) - 1}\u0000`);
+  const changed = lifted.replace(/(^|>)([^<]*)/g, (_, open: string, text: string) => open + change(text));
+  return changed.replace(/\u0000(\d+)\u0000/g, (_, i: string) => held[Number(i)]);
+}
+
+/**
+ * Fill everything the form can: each filled value is brought up to date (or goes back to
+ * its `[Field]` if the form no longer holds it), and each `[Field]` the form now holds is
+ * filled. Blanks for the filer, and everything the filer wrote, are left as they are.
+ */
+export function resolveDetails(
+  html: string,
+  draft: FilingDraft,
+  voice: Voice = asIs,
+): { html: string; changed: number } {
+  let changed = 0;
+  const refreshed = String(html ?? "").replace(FILLED, (whole, name: string, shown: string) => {
+    const field = detailField(unescapeHtml(name));
+    if (!field) return whole;
+    const value = voice(field.resolve(draft));
+    if (value === unescapeHtml(shown)) return whole;
+    changed += 1;
+    return value ? filledSpan(field.name, value) : `[${field.name}]`;
+  });
+  const filled = eachTextRun(refreshed, (text) =>
+    text.replace(/\[([^\]\n]+)\]/g, (whole, name: string) => {
+      const field = detailField(name);
+      const value = field ? voice(field.resolve(draft)) : "";
+      if (!field || !value) return whole;
+      changed += 1;
+      return filledSpan(field.name, value);
+    }),
+  );
+  return { html: filled, changed };
+}
+
+/** How many values in the text the form would change on Refresh. */
+export function staleDetails(html: string, draft: FilingDraft, voice: Voice = asIs): number {
+  return resolveDetails(html, draft, voice).changed;
+}
+
+/**
+ * The text as the court reads it: filled values as the filer last saw them, and any
+ * `[Field]` still standing replaced by the form's value or "Not provided". Blanks for the
+ * filer are left as typed.
  */
 export function fillDetails(html: string, draft: FilingDraft): string {
-  return String(html ?? "").replace(/(^|>)([^<]*)/g, (_, open: string, text: string) =>
-    open +
+  return eachTextRun(String(html ?? ""), (text) =>
     text.replace(/\[([^\]\n]+)\]/g, (whole, name: string) => {
       const field = detailField(name);
       if (!field) return whole;
