@@ -154,6 +154,16 @@ function ApplicationDialogBody({
           ),
       });
     }
+    /* Once onboarded the other side may object, so the objection always has its place —
+       saying where it stands when there is none to read (owner, 2026-10-22). */
+    if (!objection && app.onboardedOn) {
+      list.push({
+        id: "objection",
+        label: "Objection",
+        title: "Objection",
+        content: <NoObjection app={app} on={on} />,
+      });
+    }
     const passed = app.orders ?? [];
     passed.forEach((order, index) => {
       list.push({
@@ -197,7 +207,7 @@ function ApplicationDialogBody({
       });
     }
     return list;
-  }, [app, document, objection, record, courtText]);
+  }, [app, document, objection, record, courtText, on]);
   const [paperId, setPaperId] = React.useState("application");
   const paper = papers.find((item) => item.id === paperId) ?? papers[0];
 
@@ -228,8 +238,8 @@ function ApplicationDialogBody({
 
       {/* As the workstation on main had it, less its list (owner, 2026-10-21): the
           application in the middle, the action panel beside it. */}
-      <div className="grid min-h-0 flex-1 overflow-y-auto lg:grid-cols-[minmax(0,1fr)_20rem] lg:overflow-hidden xl:grid-cols-[minmax(0,1fr)_22rem]">
-        <div className="flex min-w-0 flex-col gap-4 p-6 lg:min-h-0 lg:overflow-y-auto">
+      <div className="grid min-h-0 flex-1 overflow-y-auto lg:grid-cols-[minmax(0,1fr)_20rem] lg:grid-rows-[minmax(0,1fr)] lg:overflow-hidden xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className="flex min-w-0 flex-col gap-4 p-6 lg:min-h-0 lg:overflow-y-auto [&>*]:shrink-0">
           <div className="rounded-lg bg-surface-sunken p-4">
             <DescriptionList>
               <Facts app={app} on={on} />
@@ -409,4 +419,17 @@ function ObjectionPaper({
       </footer>
     </article>
   );
+}
+
+/** The Objection tab when there is no objection to read: why, in a line. */
+function NoObjection({ app, on }: { app: LifecycleApplication; on: string }) {
+  const other = app.side === "complainant" ? "accused" : "complainant";
+  const text = !app.objectionsInvited
+    ? `Objections were not called for. The ${other} has filed none.`
+    : app.objectionDueBy && app.objectionDueBy >= on
+      ? `No objection yet. The ${other} may file one by ${formatCaseDate(app.objectionDueBy)}.`
+      : `No objection was received from the ${other}${
+          app.objectionDueBy ? ` by ${formatCaseDate(app.objectionDueBy)}` : ""
+        }.`;
+  return <p className="p-6 text-body text-muted-foreground">{text}</p>;
 }

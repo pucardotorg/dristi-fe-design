@@ -152,7 +152,9 @@ export function ApplicationsScreen({
   const searchRef = React.useRef<HTMLInputElement>(null);
 
   const rows = applicationsIn(apps, view, on).filter((app) => matchesQuery(app, query));
-  const banded = view === "all" && bandsOf(rows, on).length > 1;
+  /* One list, soonest due first: the bands (To onboard today, To decide today…) did not
+     scale (owner, 2026-10-22). The pills are the way to narrow it. */
+  const banded = false;
   /* Selection is the magistrate's or bench clerk's, and only where an act on a date applies. */
   const selectable = mayAct && (view === "all" || view === "onboard" || view === "decide" || view === "later");
   const selected = rows.filter((app) => selectedIds.has(app.id));
@@ -428,7 +430,8 @@ function ViewPills({
         aria-label="Show"
         className={PILL_ROW}
       >
-        {APPLICATION_VIEWS.map((entry) => {
+        {/* No Upcoming pill (owner, 2026-10-22): what is listed ahead stays in All open. */}
+        {APPLICATION_VIEWS.filter((entry) => entry.id !== "later").map((entry) => {
           const count = entry.counted ? countIn(apps, entry.id, on) : null;
           return (
             <Tooltip key={entry.id}>
