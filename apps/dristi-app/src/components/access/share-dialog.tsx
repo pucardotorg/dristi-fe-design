@@ -4,7 +4,15 @@ import * as React from "react";
 import { CheckCircle2Icon, SearchIcon } from "lucide-react";
 import { toast } from "sonner";
 
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,20 +23,21 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { CaseAccessList } from "@/components/access/access-list";
 import {
-  inviteLabel,
+  directoryOptions,
   PeopleInviteField,
   type InvitePerson,
 } from "@/components/access/people-invite-field";
 import { useAccess, type InviteResult } from "@/components/access/access-state";
 import { RemoveAdvocateDialog } from "@/components/cases/remove-advocate-dialog";
+import { ChromeAlertDialogContent } from "@/components/chrome/app-chrome";
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 import { pick, type Locale } from "@/lib/onboarding/content";
 import { fill } from "@/lib/join/content";
 import {
-  FREQUENT_COLLABORATORS,
-  PHONE_DIRECTORY,
+  caseLabel,
   fillCopy,
   inviteFieldCopy,
+  peopleCopy,
   shareCopy,
   type AccessCase,
   type AccessPerson,
@@ -44,10 +53,10 @@ import { Identifier } from "@/components/chrome/identifier";
  * access" is handled by granting idempotently and saying so in the
  * confirmation, never by blocking upfront.
  *
- * People are added by typing (`PeopleInviteField`): those the office has added
- * before surface by name or number; anyone else stacks as just their number. The
- * DRISTI account directory is never shown here, so a typed number never reveals
- * whose it is (owner, 2026-10-12).
+ * People are found by typing (`PeopleInviteField`, `registeredOnly`): the office
+ * is suggested first, and any registered advocate or clerk can be searched by
+ * name, number or Bar ID (owner, 2026-10-21, OFC-20). Whoever is added here
+ * joins the advocate's office on the People page with this case (OFC-51).
  */
 
 type Chip = InvitePerson;
@@ -80,7 +89,7 @@ export function ShareDialog({
    */
   extraPeople?: AccessPerson[];
 }) {
-  const { invite, removeGrant, personsOnCase } = useAccess();
+  const { invite, removeGrant, personsOnCase, office } = useAccess();
 
   const [chips, setChips] = React.useState<Chip[]>([]);
   const [result, setResult] = React.useState<InviteResult | null>(null);
@@ -88,6 +97,9 @@ export function ShareDialog({
   /* An on-nama advocate whose Remove was clicked; opens the formal removal
      flow (3a/3b) over this dialog. Staff removal stays the one-click revoke. */
   const [removeTarget, setRemoveTarget] = React.useState<string | null>(null);
+  /* Office access about to be removed: confirmed first, like every removal
+     (OFC-36), in the People tab's own words. */
+  const [confirmTarget, setConfirmTarget] = React.useState<AccessPerson | null>(null);
   const [removedDerived, setRemovedDerived] = React.useState<ReadonlySet<string>>(
     new Set(),
   );
@@ -106,17 +118,6 @@ export function ShareDialog({
     : [];
 
 
-  /* The wrong-door check: an advocate's number in the share box almost
-     always means "add them to the case", which is the Parties tab's job —
-     office access is all this dialog can grant. The notice names whoever is
-     stacked (or currently resolved) and points to the other door; it warns,
-     never blocks, because giving an advocate plain office access is rare but
-     legitimate. */
-  /* Named only as you know them: an unknown number stays a number. */
-  const advocateNames = chips
-    .filter((chip) => chip.phone && PHONE_DIRECTORY[chip.phone.replace(/\D/g, "")]?.advocate)
-    .map(inviteLabel);
-
   function handleOpenChange(nextOpen: boolean) {
     // Closing clears transient invite state so reopening any case scope starts
     // clean without synchronously cascading state updates from an effect.
@@ -129,19 +130,38 @@ export function ShareDialog({
     onOpenChange(nextOpen);
   }
 
+  function confirmRemove() {
+    if (!single || !confirmTarget) return;
+    const personId = confirmTarget.id;
+    removeGrant(personId, single.id);
+    if (personId.startsWith("derived-")) {
+      setRemovedDerived((current) => new Set(current).add(personId));
+    }
+    toast.success(
+      fillCopy(peopleCopy.removedNote, locale, {
+        name: confirmTarget.name,
+        case: caseLabel(single),
+      }),
+    );
+    setConfirmTarget(null);
+  }
+
   function send() {
     const batch = chips;
     if (!batch.length) return;
-    const result = invite(batch.map((c) => c.phone ?? c.barId ?? ""), cases.map((c) => c.id));
+    const result = invite(batch.map((c) => c.phone ?? ""), cases.map((c) => c.id));
     setResult(result);
     toast.success(fill(shareCopy.inviteToast, locale, { names: result.names.join(", ") }));
     setChips([]);
   }
 
-  // The people this office has added before, less (single case) anyone already
+  // The registered directory, office first, less (single case) anyone already
   // holding access — a suggestion you can't act on is just noise.
-  const known = FREQUENT_COLLABORATORS.filter(
-    (collab) => !(single && onCase.some((p) => p.phone === collab.phone)),
+  // People on All cases already hold every case and are not offered (OFC-51).
+  const known = directoryOptions(office.map((p) => p.phone)).filter(
+    (option) =>
+      !(single && onCase.some((p) => p.phone === option.phone)) &&
+      !office.some((p) => p.allCases && p.phone === option.phone),
   );
 
   return (
@@ -203,22 +223,13 @@ export function ShareDialog({
                   }}
                   locale={locale}
                   disabled={readOnly}
+                  registeredOnly
                 />
               </div>
               <Button type="button" disabled={readOnly || !chips.length} onClick={send}>
                 {pick(shareCopy.send, locale)}
               </Button>
             </div>
-
-            {advocateNames.length ? (
-              <Alert>
-                <AlertDescription>
-                  {fillCopy(shareCopy.advocateNotice, locale, {
-                    name: [...new Set(advocateNames)].join(", "),
-                  })}
-                </AlertDescription>
-              </Alert>
-            ) : null}
 
             {result ? (
               <p className="flex items-start gap-1.5 rounded-lg border border-success bg-success-muted px-3 py-2 text-body-compact font-medium text-success-muted-foreground">
@@ -227,7 +238,7 @@ export function ShareDialog({
                   {pick(shareCopy.sentNote, locale)} {result.names.join(", ")}
                   {bulk ? (
                     <>
-                      {" — "}
+                      {" · "}
                       {result.added === 0
                         ? pick(shareCopy.alreadyHadAllNote, locale)
                         : result.skipped === 0
@@ -281,14 +292,8 @@ export function ShareDialog({
                   onRemove={
                     readOnly
                       ? undefined
-                      : (personId) => {
-                          removeGrant(personId, single.id);
-                          if (personId.startsWith("derived-")) {
-                            setRemovedDerived(
-                              (current) => new Set(current).add(personId),
-                            );
-                          }
-                        }
+                      : (personId) =>
+                          setConfirmTarget(onCase.find((p) => p.id === personId) ?? null)
                   }
                   onRemoveVakalat={
                     readOnly
@@ -304,6 +309,31 @@ export function ShareDialog({
           ) : null}
         </div>
       </FlowDialogContent>
+
+      <AlertDialog
+        open={Boolean(confirmTarget)}
+        onOpenChange={(next) => {
+          if (!next) setConfirmTarget(null);
+        }}
+      >
+        <ChromeAlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {fillCopy(peopleCopy.removeOneTitle, locale, {
+                name: confirmTarget?.name ?? "",
+                case: single ? caseLabel(single) : "",
+              })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>{pick(peopleCopy.removeBodyOne, locale)}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{pick(peopleCopy.removeAllCancel, locale)}</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={confirmRemove}>
+              {pick(peopleCopy.removeFromCase, locale)}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </ChromeAlertDialogContent>
+      </AlertDialog>
 
       <RemoveAdvocateDialog
         open={Boolean(removeTarget)}

@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import { Banner } from "@/components/ui/banner";
+import { OFFICE_NO_ESIGN } from "@/components/cases/case-office-access";
 import { Button } from "@/components/ui/button";
 import {
   DescriptionList,
@@ -376,7 +377,11 @@ export function BailApplicationDialog({
   const generateTimerRef = React.useRef<number | null>(null);
   const [reviewFullscreen, setReviewFullscreen] = React.useState(false);
 
-  const [signTab, setSignTab] = React.useState<"esign" | "upload">("esign");
+  // Office access never e-signs (OFC-06): the upload tab is the way.
+  const officeAccess = accessCase.viewerAccess === "office";
+  const [signTab, setSignTab] = React.useState<"esign" | "upload">(
+    officeAccess ? "upload" : "esign",
+  );
   const [signedFile, setSignedFile] = React.useState<File | null>(null);
   const [esigned, setEsigned] = React.useState(false);
   const [signTouched, setSignTouched] = React.useState(false);
@@ -415,7 +420,7 @@ export function BailApplicationDialog({
     setReviewFullscreen(false);
     if (generateTimerRef.current !== null) window.clearTimeout(generateTimerRef.current);
     generateTimerRef.current = null;
-    setSignTab("esign");
+    setSignTab(officeAccess ? "upload" : "esign");
     setSignedFile(null);
     setEsigned(false);
     setSignTouched(false);
@@ -1260,7 +1265,9 @@ export function BailApplicationDialog({
                     </TabsTrigger>
                   </TabsList>
                   <TabsContent value="esign" className="flex flex-col gap-4 pt-3">
-                    {esigned ? (
+                    {officeAccess ? (
+                      <Banner variant="info">{OFFICE_NO_ESIGN}</Banner>
+                    ) : esigned ? (
                       <Banner variant="success">
                         {fillCopy(bailDialog.signedNote, locale, { name: ADVOCATE_PROFILE_NAME })}
                       </Banner>
@@ -1494,6 +1501,7 @@ export function BailApplicationDialog({
               {signTab === "esign" && !esigned ? (
                 <Button
                   type="button"
+                  disabled={officeAccess}
                   data-icon="inline-start"
                   onClick={() => {
                     // Prototype: the Aadhaar e-sign round trip succeeds.

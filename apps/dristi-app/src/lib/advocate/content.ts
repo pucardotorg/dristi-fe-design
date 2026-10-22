@@ -887,19 +887,19 @@ export const advDialog = {
   teamTitle: t("Add your team", "നിങ്ങളുടെ ടീമിനെ ചേർക്കുക"),
   teamOptional: t("Optional", "നിർബന്ധമല്ല"),
   teamBody: t(
-    "You can add your subordinates to this case (clerks or junior advocates, etc). They get office access only: they can work on the case but cannot sign.",
-    "നിങ്ങളുടെ കീഴിലുള്ളവരെ (ക്ലർക്കുമാർ അല്ലെങ്കിൽ ജൂനിയർ അഭിഭാഷകർ മുതലായവ) ഈ കേസിൽ ചേർക്കാം. അവർക്ക് ഓഫീസ് ആക്‌സസ് മാത്രം: കേസിൽ പ്രവർത്തിക്കാം, പക്ഷേ ഒപ്പിടാനാകില്ല.",
+    "Give people in your office, or any registered advocate or clerk, access to this case. They get office access: they can work on the case but are not on the vakalatnama and cannot e-sign.",
+    "നിങ്ങളുടെ ഓഫീസിലുള്ളവർക്കോ രജിസ്റ്റർ ചെയ്ത ഏതൊരു അഭിഭാഷകനോ ക്ലർക്കിനോ ഈ കേസിലേക്ക് ആക്‌സസ് നൽകുക. അവർക്ക് ഓഫീസ് ആക്‌സസ് ലഭിക്കും: കേസിൽ പ്രവർത്തിക്കാം, പക്ഷേ വക്കാലത്ത്നാമയിൽ ഉണ്ടാകില്ല, ഇ-സൈൻ ചെയ്യാനാകില്ല.",
   ),
   teamPlaceholder: t("Mobile number", "മൊബൈൽ നമ്പർ"),
   teamAdd: t("Add number", "നമ്പർ ചേർക്കുക"),
-  teamSendInvite: t("Send invite", "ക്ഷണം അയക്കുക"),
+  teamSendInvite: t("Give access", "ആക്‌സസ് നൽകുക"),
   teamRemove: t("Remove", "നീക്കം ചെയ്യുക"),
   teamError: t("Enter a valid 10-digit mobile number.", "സാധുവായ 10 അക്ക മൊബൈൽ നമ്പർ നൽകുക."),
   teamAddedNote: t(
-    "They'll be notified and invited to help on this case.",
-    "ഈ കേസിൽ സഹായിക്കാൻ ക്ഷണിച്ചുകൊണ്ട് അവർക്ക് ഒരു അറിയിപ്പ് ലഭിക്കും.",
+    "They get access at once and are notified by SMS and in DRISTI.",
+    "അവർക്ക് ഉടൻ ആക്‌സസ് ലഭിക്കും, SMS വഴിയും DRISTI-യിലും അറിയിപ്പ് ലഭിക്കും.",
   ),
-  teamInviteSentNote: t("Invitation sent to", "ഇവർക്ക് ക്ഷണം അയച്ചു"),
+  teamInviteSentNote: t("Access given to", "ഇവർക്ക് ആക്‌സസ് നൽകി"),
   viewCaseFileWithTeam: t("Add members and view case file", "അംഗങ്ങളെ ചേർത്ത് കേസ് ഫയൽ കാണുക"),
 
   /* notifications */

@@ -43,7 +43,7 @@ export const PARTY_SIDE_LABEL: Record<PartyOption["side"], string> = {
  * when they join (user's call, Sept 1 — the vakalatnama carries the
  * identity, so the registry need not). The lookup's job is only to save
  * typing and show the Bar ID when the person IS registered. Thomas and
- * Rajesh share their numbers with `PHONE_DIRECTORY` in lib/access/content.ts
+ * Rajesh share their numbers with `REGISTERED_USERS` in lib/access/content.ts
  * so the two demo worlds agree about who is who.
  */
 export const ADVOCATE_LOOKUP: Record<string, { name: string; barId: string }> = {

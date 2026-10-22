@@ -112,11 +112,17 @@ import { Identifier } from "@/components/chrome/identifier";
 import { JoinedCaseBail } from "@/components/join/joined-case-bail";
 import { GATEWAY_MS, PaymentProcessing, PaymentReceipt } from "@/components/payment/payment-steps";
 import {
+  directoryOptions,
   inviteLabel,
   PeopleInviteField,
   type InvitePerson,
 } from "@/components/access/people-invite-field";
-import { FREQUENT_COLLABORATORS, shareCopy } from "@/lib/access/content";
+import { useAccess } from "@/components/access/access-state";
+import {
+  joinOfficeCopy,
+  registerAccessCase,
+  shareCopy,
+} from "@/lib/access/content";
 import { JOIN_DEMO_CASE_ID } from "@/lib/cases/party-cases";
 import { useCourt } from "@/components/court/court-provider";
 import { cn } from "@/lib/utils";
@@ -384,6 +390,10 @@ export function AdvocateJoinCaseDialog({
   const [outcome, setOutcome] = React.useState<"joined" | "unpaid">("joined");
 
   const [team, setTeam] = React.useState<InvitePerson[]>([]);
+  const { invite, office, caseAdded } = useAccess();
+  /* Office members on All cases got this case the moment the advocate joined
+     (OFC-25, OFC-41); the step lists them rather than asking again. */
+  const allCasesOffice = office.filter((person) => person.allCases);
   const [teamInvited, setTeamInvited] = React.useState<string[]>([]);
 
   /* File bail application opens the application form at Bail, in place of
@@ -655,8 +665,30 @@ export function AdvocateJoinCaseDialog({
     setVerifyTouched(false);
   }
 
+  /* The joined case enters the access world once the advocate is on it, and
+     everyone on All cases gets it then (OFC-25). Keyed by CNR so it runs once. */
+  const joinedCnr = stage === "done" && joinCase && !unpaidOutcome ? joinCase.cnr : null;
+  React.useEffect(() => {
+    if (!joinedCnr || !joinCase) return;
+    // The real case the demo join lands on, so the people added here show on its
+    // page (OFC-42). The advocate is now on its vakalatnama.
+    const caseId = JOIN_DEMO_CASE_ID;
+    registerAccessCase({
+      id: caseId,
+      viewerAccess: "vakalatnama",
+      title: joinCase.title,
+      caseNumber: joinCase.caseNumber,
+      court: joinCase.court,
+      nextHearing: joinCase.hearingDate,
+    });
+    caseAdded(caseId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per joined case
+  }, [joinedCnr]);
+
   function sendInvites() {
-    if (!team.length) return;
+    if (!team.length || !joinCase) return;
+    // Office access to the joined case as a specific case (OFC-42).
+    invite(team.map((person) => person.phone ?? ""), [JOIN_DEMO_CASE_ID]);
     // The confirmation shows the batch just sent and replaces any earlier one — a
     // later send swaps the old notification out rather than growing it.
     setTeamInvited(team.map(inviteLabel));
@@ -1379,17 +1411,29 @@ export function AdvocateJoinCaseDialog({
                   </p>
                 </div>
 
-                {/* People this office has added before surface as you type a name or
-                    number; anyone else is just their number (owner, 2026-10-12). */}
+                {allCasesOffice.length ? (
+                  <p className="text-body-compact text-pretty text-muted-foreground">
+                    {pick(joinOfficeCopy.alreadyAdded, locale)}{" "}
+                    <span className="font-medium text-foreground">
+                      {allCasesOffice.map((person) => person.name).join(", ")}
+                    </span>
+                  </p>
+                ) : null}
+
+                {/* The office is suggested; any registered advocate or clerk can be
+                    searched by name, number or Bar ID (owner, 2026-10-21, OFC-42). */}
                 <div className="flex items-start gap-2">
                   <div className="min-w-0 flex-1">
                     <PeopleInviteField
                       id="adv-team"
                       label={pick(advDialog.teamTitle, locale)}
-                      known={FREQUENT_COLLABORATORS}
+                      known={directoryOptions(office.map((person) => person.phone)).filter(
+                        (option) => !allCasesOffice.some((person) => person.phone === option.phone),
+                      )}
                       value={team}
                       onValueChange={setTeam}
                       locale={locale}
+                      registeredOnly
                     />
                   </div>
                   <Button
