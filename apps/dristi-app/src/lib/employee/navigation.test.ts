@@ -131,8 +131,8 @@ describe("courtTrail", () => {
        paint stop at the queue; the number arrives with the resolver after hydration. */
     const path = "/employee/applications/app-sample-1";
     const queue = [
-      { label: "Review applications", href: "/employee/applications" },
-      { label: "Applications", href: "/employee/applications" },
+      { label: "Actions", href: "/employee/applications" },
+      { label: "Review Applications", href: "/employee/applications" },
     ];
     assert.deepEqual(courtTrail(path), queue);
     assert.deepEqual(
@@ -148,8 +148,8 @@ describe("courtTrail", () => {
     const named = (q: string, id: string) =>
       q === "/employee/applications" && id === "app-sample-1" ? "AP/12/2026" : undefined;
     assert.deepEqual(courtTrail(`${path}/order`, named, "decision=accept&view=decide"), [
-      { label: "Review applications", href: "/employee/applications?view=decide" },
-      { label: "Applications", href: "/employee/applications?view=decide" },
+      { label: "Actions", href: "/employee/applications?view=decide" },
+      { label: "Review Applications", href: "/employee/applications?view=decide" },
       {
         label: "AP/12/2026",
         mono: true,
@@ -158,8 +158,8 @@ describe("courtTrail", () => {
       { label: "Order" },
     ]);
     assert.deepEqual(courtTrail(path, named, "view=onboard"), [
-      { label: "Review applications", href: "/employee/applications?view=onboard" },
-      { label: "Applications", href: "/employee/applications?view=onboard" },
+      { label: "Actions", href: "/employee/applications?view=onboard" },
+      { label: "Review Applications", href: "/employee/applications?view=onboard" },
       { label: "AP/12/2026", mono: true },
     ]);
     assert.ok(isCourtNavActive(path, "/employee/applications"));

@@ -7,7 +7,6 @@ import {
   FileClockIcon,
   FilePenIcon,
   FilePlusIcon,
-  FileSearchIcon,
   FolderIcon,
   LayoutDashboardIcon,
   InboxIcon,
@@ -67,8 +66,8 @@ import type { CourtRole } from "./content";
  * its position is a change to this file rather than to a component.
  *
  * **Most of it is not wired yet.** The three Hearings rows, all five Actions rows —
- * Scrutinise submitted cases, Register cases, Take cognizance, Approve copy application
- * and Register advocates — Review applications' one row, Applications — and all seven of the Sign rows —
+ * Scrutinise submitted cases, Register cases, Take cognizance, Review Applications,
+ * Approve copy application and Register advocates — and all seven of the Sign rows —
  * Sign forms, Sign orders, Sign process, Sign bail bonds, Sign witness deposition, Sign
  * evidence and Sign A-Diary — have an `href`, and they point at the court-side routes
  * that exist. Every other row is a real, focusable control that says plainly it goes
@@ -351,6 +350,16 @@ export const COURT_NAV_GROUPS: CourtNavGroup[] = [
         href: "/employee/cognizance",
         count: COGNIZANCE_QUEUE_COUNT,
       },
+      /* The one application queue (owner, 2026-10-22: under Actions, called Review
+         Applications). Without a count: the lifecycle's own queue — onboarding and the
+         order on each — read from the applications store in the browser, so the rail
+         cannot know the number before the screen loads. */
+      {
+        id: "applications",
+        label: "Review Applications",
+        icon: InboxIcon,
+        href: "/employee/applications",
+      },
       {
         id: "approve-copy",
         label: "Approve copy application",
@@ -369,24 +378,6 @@ export const COURT_NAV_GROUPS: CourtNavGroup[] = [
         icon: UserCheckIcon,
         href: "/employee/approve-registrations",
         count: REGISTRATIONS_QUEUE_COUNT,
-      },
-    ],
-  },
-  {
-    id: "review-applications",
-    label: "Review applications",
-    icon: FileSearchIcon,
-    items: [
-      /* The one review queue, and without a count: the lifecycle's own queue —
-         onboarding and the order on each, one item since 2026-10-07 — read from the
-         applications store in the browser, so the rail cannot know the number before the
-         screen loads. Rescheduling request, Delay condonation and Others are gone: every
-         application comes through here (owner, 2026-10-21). */
-      {
-        id: "applications",
-        label: "Applications",
-        icon: InboxIcon,
-        href: "/employee/applications",
       },
     ],
   },
