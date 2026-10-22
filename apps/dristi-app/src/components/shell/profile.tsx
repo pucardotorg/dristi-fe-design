@@ -2,6 +2,8 @@
 
 import * as React from "react";
 
+import { VIEWER_CLERK_NAME } from "@/lib/cases/viewer";
+
 import {
   useLocalStorageValue,
   writeLocalStorageValue,
@@ -41,6 +43,9 @@ export type ProfileValue = {
   /** The person signed in. FIXED per account — switching profile changes the role, not
    *  the name (the same human is advocate on one profile and litigant on the other). */
   accountName: string;
+  /** Who the screen greets and names: the account, or the demo clerk while acting
+   *  as him (he is someone else, so not `accountName`). */
+  displayName: string;
   /** Toggle between the two profiles a real account holds (advocate and litigant). */
   switchProfile: () => void;
   /** Act as this profile. The only way into the demo clerk profile. */
@@ -105,6 +110,7 @@ export function ProfileProvider({
       profileRole,
       advocateProfileAvailable: advocateAvailable,
       accountName,
+      displayName: profileRole === "clerk" ? VIEWER_CLERK_NAME : accountName,
       switchProfile,
       setProfileRole,
       enableAdvocateProfile,

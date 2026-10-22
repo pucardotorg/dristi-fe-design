@@ -29,8 +29,8 @@ import { pick, type Locale } from "@/lib/onboarding/content";
  */
 export function AdvocateShellHome({ locale }: { locale: Locale }) {
   const router = useRouter();
-  const { accountName, switchProfile } = useProfile();
-  const name = accountName.replace(/^Adv\.\s*/, "");
+  const { displayName, switchProfile } = useProfile();
+  const name = displayName.replace(/^Adv\.\s*/, "");
   const [joinOpen, setJoinOpen] = React.useState(false);
   const [joined, setJoined] = React.useState<AdvocateJoinResult[]>([]);
 
