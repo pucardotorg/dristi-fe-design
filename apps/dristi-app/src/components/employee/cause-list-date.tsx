@@ -46,8 +46,9 @@ const WEEKDAY = new Intl.DateTimeFormat("en-IN", { weekday: "long" });
  * chevron stands before the back arrow; behind it, after the forward arrow — so it
  * says "all the way back, this way" from wherever the reader is — outermost on its side,
  * past the calendar on the right, so the calendar stays beside the arrow. Brand ink, the
- * colour this control spends on today. Each side keeps its slot when empty, so nothing
- * moves when the reader leaves today. The words
+ * colour this control spends on today. The back slot is kept when empty, so the arrows
+ * never move when the reader leaves today; the forward one folds away, as only the
+ * title beyond it moves (owner, 2026-10-22: too much gap before the hairline). The words
  * are in its name and tooltip, with the T shortcut the board listens for
  * (`HearingsScreen`).
  */
@@ -65,8 +66,13 @@ function JumpToToday({
   className?: string;
 }) {
   /* `invisible` keeps the slot and takes the button out of the tab order and the
-     accessibility tree. */
-  if (!shown) return <span aria-hidden className={cn("invisible size-6 shrink-0", className)} />;
+     accessibility tree. Only the back slot is kept: the day arrows stand after it and
+     would slide out from under the pointer. Nothing the reader is aiming at stands
+     after the forward one, and an empty slot there only widens the gap to the hairline. */
+  if (!shown) {
+    if (direction === "forward") return null;
+    return <span aria-hidden className={cn("invisible size-6 shrink-0", className)} />;
+  };
   const Icon = direction === "back" ? ChevronsLeftIcon : ChevronsRightIcon;
   return (
     <TooltipProvider delayDuration={300}>
@@ -127,10 +133,12 @@ export function CauseListDate({
   return (
     /* One grid, so the month and the weekday centre on the square itself rather than
        on the row of controls around it, whichever jump is showing. Margins keep each
-       pair of 40px hit areas from overlapping. */
+       pair of 40px hit areas from overlapping. Five explicit columns: the forward jump's
+       sixth is implicit, so with no jump there is no empty track and no gap after the
+       calendar. */
     <div
       className={cn(
-        "grid-cols-[repeat(6,auto)] grid-rows-[auto_auto_auto] items-center gap-x-1.5",
+        "grid-cols-[repeat(5,auto)] grid-rows-[auto_auto_auto] items-center gap-x-1.5",
         className,
       )}
     >
