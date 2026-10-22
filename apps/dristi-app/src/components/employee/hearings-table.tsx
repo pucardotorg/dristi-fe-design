@@ -4,6 +4,7 @@ import { useCourt } from "@/components/court/court-provider";
 import * as React from "react";
 import Link from "next/link";
 import {
+  ChevronDownIcon,
   GripVerticalIcon,
   FileCheckIcon,
   FilePenLineIcon,
@@ -33,7 +34,14 @@ import {
 } from "@/lib/employee/row-activation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Table,
   TableBody,
@@ -91,7 +99,7 @@ import { cn } from "@/lib/utils";
  * abandoned one's day is over; its slot is empty and the Abandoned chip is the mark.
  *
  * Pass over is the other sitting outcome, not a second session verb: it lives
- * in a row overflow beside this control, on scheduled and ongoing rows only.
+ * behind this control's chevron, on scheduled and ongoing rows only (`PassOverMenu`).
  *
  * **All of it belongs to the seat that runs the sitting.** A seat that does not gets no
  * slot at all, not a quieter one: this used to hand the typist a one-control version
@@ -131,7 +139,7 @@ const SESSION_SLOT_CLASS = "min-w-32";
  * overlaps another at any width now, so the class of bug is gone rather than moved.
  *
  * `w-52` is the action group at the control metric — the session control's `min-w-32`,
- * the overflow trigger's `size-10`, one `gap-2` between them, and the cell's `px-4`.
+ * its chevron's `size-10` joined to it, and the cell's `px-4`, with room to spare.
  * `w-18` is the orders icon button plus that same padding.
  *
  * In a seat with no session controls the Action column is not rendered at all, so the
@@ -225,6 +233,7 @@ export function HearingSessionButton({
   variant = "outline",
   onStartHearing,
   onEndHearing,
+  onPassOver,
   className,
 }: {
   hearing: CourtHearing;
@@ -242,16 +251,27 @@ export function HearingSessionButton({
   variant?: "outline" | "default";
   onStartHearing: (hearing: CourtHearing) => void;
   onEndHearing: (hearing: CourtHearing) => void;
+  /** Pass over, behind the control's chevron (`PassOverMenu`). */
+  onPassOver: (hearing: CourtHearing) => void;
   className?: string;
 }) {
   const { court } = useCourt();
+  /* One ref for whichever of Start and End is showing, so focus can land on the control
+     after Pass over takes the chevron away (`PassOverMenu`). */
+  const sessionRef = React.useRef<HTMLButtonElement>(null);
   /* No slot in a seat that does not run the sitting — see above. The row still says
      where the matter stands; that is the Status chip's job and it was never this
      control's. */
   if (!seatHasBenchControls(seat, court)) return null;
 
+  /* The chevron joins on the right, and it draws the seam (`PassOverMenu`), so the
+     button gives up its own right edge: the teal outline's 2px there was a second
+     frame down the middle of one control, and a fill's transparent 1px let the page
+     show through as a crack between two. */
+  const split = canPassOver(hearing.status);
+  let session: React.ReactNode = null;
   if (canStartHearing(hearing.status)) {
-    return (
+    session = (
       /* A button, and no longer a link. Calling the matter has been two other things in
          its life and is now neither: it navigated to that case's overview, then it
          opened the same overview as a sheet over the list. It opens nothing at all
@@ -272,10 +292,13 @@ export function HearingSessionButton({
          surface's filled primary, and a teal edge around a teal fill is a border drawn
          on nothing. */
       <Button
+        ref={sessionRef}
         type="button"
         variant={variant}
+        {...SESSION_CONTROL}
         className={cn(
           SESSION_SLOT_CLASS,
+          "flex-1",
           /* `border-2` costs no layout: the DS button is `border-box` at a fixed `h-10`,
              and the label sits ~13px inside `min-w-32`, so the extra pixel each side is
              absorbed rather than paid for. The slot does not move when the state changes
@@ -300,16 +323,16 @@ export function HearingSessionButton({
              the DS itself uses for brand text — see the `link` button variant. */
           variant === "outline" &&
             "border-2 border-primary text-primary hover:bg-brand-muted hover:text-brand-muted-foreground dark:hover:bg-brand-muted",
-          className,
+          /* After the edge, or the merge lets `border-2` take the right side back. */
+          split && "border-r-0",
         )}
         onClick={() => onStartHearing(hearing)}
       >
         Start hearing
       </Button>
     );
-  }
-  if (canEndHearing(hearing.status)) {
-    return (
+  } else if (canEndHearing(hearing.status)) {
+    session = (
       /**
        * Destructive and filled, wherever it appears (owner, 2026-09-12).
        *
@@ -332,13 +355,36 @@ export function HearingSessionButton({
        * the one thing on the board that stops something, and the fill says so.
        */
       <Button
+        ref={sessionRef}
         type="button"
         variant="destructive"
-        className={cn(SESSION_SLOT_CLASS, className)}
+        {...SESSION_CONTROL}
+        className={cn(SESSION_SLOT_CLASS, "flex-1", split && "border-r-0")}
         onClick={() => onEndHearing(hearing)}
       >
         End hearing
       </Button>
+    );
+  }
+  if (session) {
+    /* Start's dress, or End's, carried onto the chevron so the pair reads as one
+       control. A passed-over listing takes Start again but cannot be passed over
+       twice, so its group holds the one button — kept as a group all the same, so
+       the button is not remounted when the chevron leaves and focus has somewhere
+       to land. */
+    const dress = canEndHearing(hearing.status) ? "destructive" : variant;
+    return (
+      <ButtonGroup aria-label={`Hearing, item ${hearing.item}`} className={className}>
+        {session}
+        {split ? (
+          <PassOverMenu
+            hearing={hearing}
+            dress={dress}
+            onPassOver={onPassOver}
+            sessionRef={sessionRef}
+          />
+        ) : null}
+      </ButtonGroup>
     );
   }
   /* An abandoned listing's day is over: nothing is left to call or end, and the
@@ -369,55 +415,153 @@ export function HearingSessionButton({
  * Pass over — set this listing aside unheard, to call it again later the same day
  * with Start hearing (`HRG-04`).
  *
- * **An icon beside the session control, not a menu** (owner, 2026-10-22). It used
- * to be the only item behind a ⋮, and the bench did not find it. The glyph is
- * `user-round-x`, the owner's pick from twenty (2026-10-22): the commonest reason a
- * matter is passed over is that someone it needs has not arrived. It also stays clear
- * of the header grips, which the pause bars did not, and of the date control's jump
- * chevrons, which a skip glyph would have echoed. Outline at a
- * 40px square, so it stays the session control's partner; never teal, which Start holds.
+ * **The session control's split, not a button of its own** (owner, 2026-10-23). It
+ * was the only item behind a ⋮, which the bench did not find; then a `user-round-x`
+ * icon beside the session control (2026-10-22). Now it is the chevron half of that
+ * control — the DS Button Group's split primary/dropdown pair — so it reads as one
+ * more way to settle the same listing and costs the row no second box. The glyph
+ * stays, on the menu item, where it has a word beside it.
  *
- * The word is in the accessible name, first, so a voice user can say what the
- * tooltip shows (`ACCESSIBILITY.md` §9). The tooltip is for the pointer only; the act
- * itself is visible without hover (§7). Its provider is mounted here for the reason
- * the Orders tooltip gives — a table row sits outside every provider on this screen —
- * with no delay: the label appears the moment the pointer arrives (owner, 2026-10-22).
+ * **One control, so one frame and a lighter seam** (owner, 2026-10-23: the first
+ * build took the reference too literally). The chevron wears the session control's
+ * dress — the teal edge beside Start, the soft destructive beside End, the filled
+ * primary in the overlay's footer — and the session button gives up its right edge to
+ * it (`HearingSessionButton`). What parts the two halves is one rule, drawn the same
+ * way in all three dresses: 1px, in the dress's own ink, inset to the height of the
+ * glyph (`h-4`, the 16px the chevron itself is drawn in, centred). It stops short
+ * of the frame, so the frame runs unbroken round both halves and the eye reads one
+ * box with a division in it. The full-height seam it replaces was the outline's 2px
+ * edge down the middle — as heavy as the frame, which is what made the chevron read
+ * as a second button — and in red, on End hearing, a cut through the fill.
+ *
+ * The 40px square is the floor, not a style: it is the touch target (`ACCESSIBILITY.md`
+ * §8), and at 128 + 40 the pair still sits inside the Action column's measure.
+ *
+ * Hover and open are one state, in every dress: the brand tint beside Start, as Start's
+ * own hover (and for the same contrast reason, given there), and each fill's own hover
+ * step beside End and in the footer. Without it the open trigger of a filled dress
+ * would look exactly like a closed one while its menu hangs off it.
+ *
+ * **The name says what is behind it.** One item lives here, so the trigger is named
+ * for it — "Pass over item 13, …" — rather than "More actions", which promised a list
+ * that is not there. A screen reader adds "menu button", which is the honest part: the
+ * press opens the menu, it does not pass anything over. The word comes first so a voice
+ * user can say it (`ACCESSIBILITY.md` §9), as on the icon this replaced.
+ *
+ * **Where focus goes once it is done.** Pass over takes this chevron away (a listing
+ * cannot be passed over twice), and on the list it takes the row too: a passed-over
+ * listing sits last (`HRG-04`), often on another page. Returning focus to the trigger,
+ * the menu's default, would drop it on the page. So it goes to the session control now
+ * standing where this one stood — the next matter down, which is where the bench was
+ * going — and to the passed-over matter's own Start hearing only when nothing moved,
+ * as in the overlay's footer. The list's announcer says what happened ("Hearing passed
+ * over for …"), and the group's name says which item focus is now on.
  */
-export function HearingPassOverButton({
+function PassOverMenu({
   hearing,
-  seat,
+  dress,
   onPassOver,
+  sessionRef,
 }: {
   hearing: CourtHearing;
-  seat: CourtRole;
+  dress: "outline" | "default" | "destructive";
   onPassOver: (hearing: CourtHearing) => void;
+  /** The session control beside the chevron — focus's place when the row stays put. */
+  sessionRef: React.RefObject<HTMLButtonElement | null>;
 }) {
-  const { court } = useCourt();
-  /* Pass over is one of the bench's three controls. It leaves with the other two
-     rather than staying behind as the single bench act reachable from a smaller
-     menu in a seat that has no session controls at all. */
-  if (!seatHasBenchControls(seat, court)) return null;
-  if (!canPassOver(hearing.status)) return null;
-
+  const triggerRef = React.useRef<HTMLButtonElement>(null);
+  /* Where the row stood when Pass over was chosen; `undefined` while the menu closes
+     any other way, and Radix's own return to the trigger is left alone. */
+  const passedFrom = React.useRef<RowSpot | null | undefined>(undefined);
   return (
-    <TooltipProvider delayDuration={0}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className="shrink-0"
-            aria-label={`Pass over item ${hearing.item}, ${causeTitle(hearing)}`}
-            onClick={() => onPassOver(hearing)}
-          >
-            <UserRoundXIcon aria-hidden />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Pass over</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          ref={triggerRef}
+          type="button"
+          variant={dress}
+          size="icon"
+          aria-label={`Pass over item ${hearing.item}, ${causeTitle(hearing)}`}
+          className={cn(
+            "relative before:absolute before:top-1/2 before:left-0 before:h-4 before:w-px before:-translate-y-1/2",
+            dress === "outline" &&
+              "border-2 border-primary text-primary before:bg-primary hover:bg-brand-muted hover:text-brand-muted-foreground aria-expanded:bg-brand-muted aria-expanded:text-brand-muted-foreground dark:hover:bg-brand-muted dark:aria-expanded:bg-brand-muted",
+            dress === "default" &&
+              "before:bg-primary-foreground aria-expanded:bg-primary-hover",
+            dress === "destructive" &&
+              "before:bg-destructive-muted-foreground aria-expanded:bg-destructive-muted-hover",
+          )}
+        >
+          <ChevronDownIcon aria-hidden />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        className="w-auto"
+        /* The menu is portalled, but React still bubbles its clicks to the row, and the
+           row opens the case overview on any click that is not on a control. A click
+           on the menu's own padding is not one the reader meant for the row. */
+        onClick={(event) => event.stopPropagation()}
+        onCloseAutoFocus={(event) => {
+          const from = passedFrom.current;
+          if (from === undefined) return;
+          passedFrom.current = undefined;
+          event.preventDefault();
+          requestAnimationFrame(() =>
+            sessionControlAfterPassOver(from, sessionRef)?.focus(),
+          );
+        }}
+      >
+        <DropdownMenuItem
+          onSelect={() => {
+            passedFrom.current = rowSpot(triggerRef.current);
+            onPassOver(hearing);
+          }}
+        >
+          <UserRoundXIcon aria-hidden />
+          Pass over
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
+}
+
+/** Marks a live Start or End hearing, so focus can find the one in a given row. */
+const SESSION_CONTROL = { "data-session-control": "" } as const;
+
+/** A row's place in its list: the table body, or the phone list. */
+type RowSpot = { list: Element; index: number };
+
+function rowSpot(control: Element | null): RowSpot | null {
+  const row = control?.closest("tr, li");
+  const list = row?.parentElement;
+  if (!row || !list) return null;
+  return { list, index: Array.prototype.indexOf.call(list.children, row) };
+}
+
+/**
+ * The session control to focus after a pass over — see `PassOverMenu`. Out of a list
+ * (the overlay's footer), the control beside the chevron, which stays where it was. On
+ * a list, the first live session control from the row's old place downwards, then
+ * upwards: the row now standing there may be one with nothing to call (ended, or
+ * abandoned), or the passed-over row may have been the last.
+ */
+function sessionControlAfterPassOver(
+  from: RowSpot | null,
+  sessionRef: React.RefObject<HTMLButtonElement | null>,
+): HTMLElement | null {
+  if (!from) return sessionRef.current;
+  if (!from.list.isConnected) return null;
+  const rows = Array.from(from.list.children);
+  const order = [
+    ...rows.slice(from.index),
+    ...rows.slice(0, from.index).reverse(),
+  ];
+  for (const row of order) {
+    const control = row.querySelector<HTMLElement>("[data-session-control]");
+    if (control) return control;
+  }
+  return null;
 }
 
 /**
@@ -684,9 +828,11 @@ export function HearingOrdersButton({
 }
 
 /**
- * Mobile stack: the start/end control, then Pass over, then orders.
+ * Mobile stack: the start/end control, with Pass over behind its chevron, then orders.
+ * The split takes the width the orders icon leaves, so the row's one act is the card's
+ * widest target and the chevron still sits at the 40px square it has everywhere.
  *
- * In the typist's seat the first two render nothing, so the row's actions are the orders
+ * In the typist's seat the session control renders nothing, so the row's actions are the orders
  * control alone — the same thing the table does by dropping a column, said in the shape
  * a phone row has. Standing alone it takes the words and the slot the session control
  * would have had, because a lone glyph on a card with no column header over it names
@@ -734,12 +880,8 @@ export function HearingRowActions({
         seat={seat}
         onStartHearing={onStartHearing}
         onEndHearing={onEndHearing}
-        className="min-w-0 flex-1"
-      />
-      <HearingPassOverButton
-        hearing={hearing}
-        seat={seat}
         onPassOver={onPassOver}
+        className="min-w-0 flex-1"
       />
       <HearingOrdersButton
         hearing={hearing}
@@ -960,19 +1102,13 @@ export function HearingsTable({
         );
       case "action":
         return (
-          <div className="flex items-center gap-2">
-            <HearingSessionButton
-              hearing={hearing}
-              seat={seat}
-              onStartHearing={onStartHearing}
-              onEndHearing={onEndHearing}
-            />
-            <HearingPassOverButton
-              hearing={hearing}
-              seat={seat}
-              onPassOver={onPassOver}
-            />
-          </div>
+          <HearingSessionButton
+            hearing={hearing}
+            seat={seat}
+            onStartHearing={onStartHearing}
+            onEndHearing={onEndHearing}
+            onPassOver={onPassOver}
+          />
         );
       case "nextHearing":
         /* Date over purpose: one column the width of one field (owner, 2026-10-15). */

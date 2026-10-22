@@ -10,10 +10,7 @@ import {
   HearingOverviewSections,
   ViewCaseAction,
 } from "@/components/employee/hearing-overview-screen";
-import {
-  HearingPassOverButton,
-  HearingSessionButton,
-} from "@/components/employee/hearings-table";
+import { HearingSessionButton } from "@/components/employee/hearings-table";
 import {
   NextDateField,
   NextPurposeField,
@@ -50,9 +47,9 @@ import {
  *
  * **It reads, and it calls.** The order composer is a trip of its own. What the footer
  * carries is the row's hearing controls for *this* matter (`CLS-11`): the session control
- * the row carries, in the same four states (`HearingSessionButton`), and the row's Pass
- * over button beside it (`HearingPassOverButton`, `CLS-08`; owner, 2026-10-20, reversing
- * 2026-09-12) — one vocabulary, two places to reach it, rather
+ * the row carries, in the same four states (`HearingSessionButton`), with the row's Pass
+ * over behind its chevron (`PassOverMenu`, `CLS-08`; owner, 2026-10-20, reversing
+ * 2026-09-12; a split since 2026-10-23) — one vocabulary, two places to reach it, rather
  * than an overlay that invents a second way to say Start. It reads whatever the matter's
  * next move is at the moment it was opened: Start hearing on a listing still to be
  * called, End hearing on one under way, and spent on one already heard.
@@ -82,7 +79,7 @@ export function HearingOverviewDialog({
   seat: CourtRole;
   onStartHearing: (hearing: CourtHearing) => void;
   onEndHearing: (hearing: CourtHearing) => void;
-  /** The row's Pass over, the same handler (`HearingPassOverButton`). */
+  /** The row's Pass over, the same handler (`PassOverMenu`). */
   onPassOver: (hearing: CourtHearing) => void;
   /** The reader's Next hearing column, here too — see `HearingsTable`. */
   postsNextHearing?: boolean;
@@ -231,15 +228,10 @@ function HearingOverviewBody({
                 variant="default"
                 onStartHearing={onStartHearing}
                 onEndHearing={onEndHearing}
-                className="w-fit"
-              />
-              {/* Pass over, as on the row: the same Pass over button, after the session
-                  control and secondary to it, on Scheduled and Ongoing listings only
-                  (`CLS-08`, `CLS-11`). */}
-              <HearingPassOverButton
-                hearing={hearing}
-                seat={seat}
+                /* Pass over, as on the row: behind the same control's chevron, on
+                   Scheduled and Ongoing listings only (`CLS-08`, `CLS-11`). */
                 onPassOver={onPassOver}
+                className="w-fit"
               />
             </>
           ) : null}
