@@ -16,3 +16,9 @@ export async function GET() {
 export async function POST(req: Request) {
   return respond(await createBatch(serverStore, (await req.json()) as CreateBody));
 }
+
+/** "Reset sandbox data": every batch and upload on this server goes. */
+export async function DELETE() {
+  await serverStore.clear();
+  return new Response(null, { status: 204 });
+}

@@ -57,6 +57,9 @@ export const serverStore: BulkStore = {
       return null;
     }
   },
+  async clear() {
+    await fs.rm(ROOT, { recursive: true, force: true });
+  },
 };
 
 /**

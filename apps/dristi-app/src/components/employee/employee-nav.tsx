@@ -47,6 +47,7 @@ import { useNextHearingEntry } from "@/components/employee/use-next-hearing-entr
 import { useOrderSigning } from "@/components/employee/use-order-signing";
 import { usePendingOrders } from "@/components/employee/use-pending-orders";
 import { pendingOrderCountFor } from "@/lib/employee/pending-orders";
+import { resetBulk } from "@/components/bulk/api";
 import { loadDemoSeed, resetSandboxData } from "@/lib/employee/sandbox-reset";
 import { DEMO_SEED_OPTIONS, type DemoSeed } from "@/lib/employee/demo-seed";
 import { useDemoSeed } from "@/components/employee/use-demo-seed";
@@ -1200,8 +1201,8 @@ function CourtSettingsControl() {
             <AlertDialogTitle>Reset sandbox data?</AlertDialogTitle>
             <AlertDialogDescription>
               The sample applications come back, and the hearings and orders go
-              back to the chosen demo data. Applications filed and orders typed in
-              this browser are removed. This cannot be undone.
+              back to the chosen demo data. Applications filed, orders typed and bulk
+              batches made in this browser are removed. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1210,6 +1211,7 @@ function CourtSettingsControl() {
               variant="destructive"
               onClick={() => {
                 resetSandboxData();
+                void resetBulk();
                 toast("Sandbox data reset. The sample applications are back.");
               }}
             >
