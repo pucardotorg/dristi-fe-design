@@ -590,8 +590,15 @@ export function PeoplePage({
                   {displayName(openPerson)}
                 </h2>
                 <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                  <p className="text-caption text-muted-foreground tabular-nums">
-                    {openPerson.phone}
+                  {/* Designation from their account (OFC-30), as the list row has it. */}
+                  <p className="text-caption text-muted-foreground">
+                    <span className="tabular-nums">{openPerson.phone}</span>
+                    {personDesignation(openPerson, locale) ? (
+                      <>
+                        <span aria-hidden> · </span>
+                        {personDesignation(openPerson, locale)}
+                      </>
+                    ) : null}
                   </p>
                   {openPerson.barId ? (
                     <p className="flex items-baseline gap-1.5 text-caption tabular-nums">

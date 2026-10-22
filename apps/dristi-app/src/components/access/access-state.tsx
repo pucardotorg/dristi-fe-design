@@ -122,6 +122,14 @@ export function isOwnOfficeGrant(grant: AccessPerson["grants"][number]): boolean
   );
 }
 
+/** Has this advocate given the person access to this case? A co-advocate may
+    have too: each holds their own grant (OFC-09), so one never hides the other. */
+function hasOwnGrant(person: AccessPerson, caseId: string): boolean {
+  return person.grants.some(
+    (g) => g.caseId === caseId && g.role !== "vakalat" && g.addedBy === "self",
+  );
+}
+
 /** Cases this advocate may share — those where they are on the vakalatnama, and
     their drafts (OFC-04). */
 export function shareableCaseIds(): string[] {
@@ -148,13 +156,17 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
       if (!person.allCases) return person;
       const role = person.grants.find((g) => g.role !== "vakalat")?.role ?? "clerk";
       const since = person.grants[0]?.since ?? displayToday();
+      // Their office grants are this advocate's, so read "missing" after saying so.
+      const own = person.grants.map((g) =>
+        g.role === "vakalat" ? g : { ...g, addedBy: "self" as const },
+      );
       const missing = shareableCaseIds().filter(
-        (caseId) => !person.grants.some((g) => g.caseId === caseId),
+        (caseId) => !hasOwnGrant({ ...person, grants: own }, caseId),
       );
       return {
         ...person,
         grants: [
-          ...person.grants.map((g) => (g.role === "vakalat" ? g : { ...g, addedBy: "self" })),
+          ...own,
           ...missing.map((caseId) => ({
             caseId,
             role,
@@ -196,7 +208,7 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
         if (index >= 0) {
           const person = next[index];
           const missing = targetCases.filter(
-            (caseId) => !person.grants.some((g) => g.caseId === caseId),
+            (caseId) => !hasOwnGrant(person, caseId),
           );
           missing.forEach((caseId) => casesTouched.add(caseId));
           // Already in this office: told about the new cases (N3). Not yet in it
@@ -280,7 +292,14 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
     setPeople((current) =>
       current.map((person) =>
         person.id === personId
-          ? { ...person, grants: person.grants.filter((g) => g.caseId !== caseId) }
+          ? // Only the access this advocate gave; a co-advocate's grant on the
+            // same case is theirs and stays (OFC-09).
+            {
+              ...person,
+              grants: person.grants.filter(
+                (g) => !(g.caseId === caseId && g.addedBy === "self"),
+              ),
+            }
           : person,
       ),
     );
@@ -310,7 +329,7 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
         if (!on) return { ...person, allCases: false };
         const role = person.grants.find((g) => g.role !== "vakalat")?.role ?? "clerk";
         const missing = shareableCaseIds().filter(
-          (caseId) => !person.grants.some((g) => g.caseId === caseId),
+          (caseId) => !hasOwnGrant(person, caseId),
         );
         return {
           ...person,
@@ -340,7 +359,7 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
     setPeople((current) =>
       current.map((person) => {
         if (!person.allCases) return person;
-        const missing = caseIds.filter((id) => !person.grants.some((g) => g.caseId === id));
+        const missing = caseIds.filter((id) => !hasOwnGrant(person, id));
         if (!missing.length) return person;
         const role = person.grants.find((g) => g.role !== "vakalat")?.role ?? "clerk";
         return {

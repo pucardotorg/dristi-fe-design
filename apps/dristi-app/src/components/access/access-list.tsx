@@ -211,7 +211,10 @@ export function CaseAccessList({
   const withGrants = people
     .map((person) => ({
       person,
-      grant: person.grants.find((g) => g.caseId === caseId),
+      // Your own grant first, where a co-advocate gave access to the same case too.
+      grant:
+        person.grants.find((g) => g.caseId === caseId && g.addedBy === "self") ??
+        person.grants.find((g) => g.caseId === caseId),
     }))
     .filter((entry): entry is { person: AccessPerson; grant: AccessGrant } => Boolean(entry.grant))
     .filter(
