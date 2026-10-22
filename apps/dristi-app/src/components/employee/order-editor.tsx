@@ -307,8 +307,9 @@ export function PaperRecital({
 }
 
 /**
- * The read-only parts for a draft: attendance where there was a hearing's roll, and
- * always the next hearing.
+ * The read-only parts for a draft: attendance and the next hearing, both only where
+ * there was a hearing's roll. An order outside a hearing — on an application, say — sets
+ * no next hearing (owner, 2026-10-22).
  */
 export function orderPaperRecitals(
   draft: OrderDraft,
@@ -322,13 +323,13 @@ export function orderPaperRecitals(
         empty="Attendance not marked."
       />
     ) : undefined,
-    nextHearing: (
+    nextHearing: appearances ? (
       <PaperRecital
         label="Next hearing"
         lines={nextListingRecital(draft)}
         empty="Next hearing not set."
       />
-    ),
+    ) : undefined,
   };
 }
 
@@ -544,7 +545,8 @@ export function orderPaperFields({
         disabled={disabled}
       />
     ) : undefined,
-    nextHearing: (
+    /* Only in a hearing (owner, 2026-10-22). */
+    nextHearing: appearances ? (
       <NextHearingSection
         nextHearing={{
           next: draft.next,
@@ -565,7 +567,7 @@ export function orderPaperFields({
         today={today}
         disabled={disabled}
       />
-    ),
+    ) : undefined,
   };
 }
 
@@ -948,7 +950,7 @@ export function OrderEditorComposer({
       toast("Type the order before sending it for signing.");
       return;
     }
-    if (!postingSettled(draft)) {
+    if (appearances && !postingSettled(draft)) {
       setView("order");
       toast(
         "Set the next hearing’s date and purpose, or tick Not listed again.",
@@ -1153,7 +1155,7 @@ export function OrderEditorComposer({
                 type="button"
                 className="w-full sm:w-fit"
                 onClick={() => {
-                  if (empty || !postingSettled(draft)) {
+                  if (empty || (appearances && !postingSettled(draft))) {
                     finish();
                     return;
                   }

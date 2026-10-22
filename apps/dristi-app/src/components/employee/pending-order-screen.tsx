@@ -489,7 +489,8 @@ function triggerSummary(
             : "") || "Nobody marked",
     });
   }
-  lines.push({
+  /* Only a hearing's order sets a next hearing (owner, 2026-10-22). */
+  if (appearances) lines.push({
     label: "Next hearing",
     /* "28 Oct 2026. Purpose: Evidence" — the line's own label is this one's. */
     value:
