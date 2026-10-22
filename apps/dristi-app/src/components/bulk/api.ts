@@ -27,6 +27,19 @@ export function bulkStoreWhere(): Promise<"server" | "browser"> {
 }
 
 /**
+ * "Reset sandbox data" for the bulk flow: every batch goes, from the server and from this
+ * browser, so the flow opens empty. Both, because which one held them depends on the
+ * deployment; a server that cannot write just declines.
+ */
+export async function resetBulk(): Promise<void> {
+  const { browserStore } = await import("@/lib/bulk/store.browser");
+  await Promise.all([
+    fetch("/api/bulk/batches", { method: "DELETE" }).catch(() => undefined),
+    browserStore.clear(),
+  ]);
+}
+
+/**
  * `fetch` for the bulk endpoints. Where the server keeps batches it is `fetch`; where it
  * cannot, the same handlers (`lib/bulk/handlers.ts`) run here against the browser's store
  * and answer with an ordinary `Response`, so the screens read it the same way.

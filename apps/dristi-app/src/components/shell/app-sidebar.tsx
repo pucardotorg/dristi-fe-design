@@ -23,6 +23,7 @@ import {
 
 import { TASKS_HOME } from "@/lib/tasks/routes";
 import { summaryOf } from "@/lib/tasks/selectors";
+import { resetBulk } from "@/components/bulk/api";
 import { resetSampleDrafts } from "@/lib/filing/sample-drafts";
 import { useTasks } from "@/lib/tasks/store";
 import { BrandGlyph } from "@/components/brand-lockup";
@@ -674,12 +675,13 @@ function ProfileFooter() {
         open={confirmReset}
         onOpenChange={setConfirmReset}
         title="Reset the sandbox?"
-        description="Every task, upload, decision and sample filing in this browser is reset and the seed data is loaded again. Other open tabs reload too."
+        description="Every task, upload, decision, sample filing and bulk batch is reset and the seed data is loaded again. Other open tabs reload too."
         confirmLabel="Reset sandbox"
         onConfirm={() => {
           setConfirmReset(false);
-          // Sample filings too, so a signature or oath can be walked again from the start.
-          void Promise.all([resetSandbox(), resetSampleDrafts()]).then(() =>
+          // Sample filings too, so a signature or oath can be walked again from the start;
+          // and every bulk batch, so the bulk flow opens empty.
+          void Promise.all([resetSandbox(), resetSampleDrafts(), resetBulk()]).then(() =>
             window.location.reload(),
           );
         }}

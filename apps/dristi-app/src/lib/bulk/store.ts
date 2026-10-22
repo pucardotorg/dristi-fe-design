@@ -31,6 +31,8 @@ export interface BulkStore {
   /** Store a file under an id the caller chose (`storeUpload` names files first). */
   saveFileAs(id: string, bytes: Uint8Array, name: string, type: string): Promise<StoredFileRef>;
   readFile(id: string): Promise<{ bytes: Uint8Array; meta: FileMeta } | null>;
+  /** Forget every batch and file: "Reset sandbox data" starts the bulk flow empty. */
+  clear(): Promise<void>;
 }
 
 /** File ids a store serves: its own (`bf_…`) and those the filing screens mint (`f_…`). */
