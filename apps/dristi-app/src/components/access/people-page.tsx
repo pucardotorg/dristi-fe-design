@@ -1,8 +1,8 @@
 "use client";
 
 import * as React from "react";
+import { toast } from "sonner";
 import {
-  CheckCircle2Icon,
   ChevronRightIcon,
   PlusIcon,
   SearchIcon,
@@ -47,10 +47,9 @@ import { AddPersonDialog } from "@/components/access/add-person-dialog";
 import { pick, type Locale } from "@/lib/onboarding/content";
 import {
   ACCESS_CASES,
+  caseLabel,
   fillCopy,
-  listCopy,
   peopleCopy,
-  shareCopy,
   type AccessGrant,
   type AccessPerson,
 } from "@/lib/access/content";
@@ -85,6 +84,11 @@ type PeopleSort = "name-asc" | "name-desc" | "cases-desc" | "cases-asc";
 
 function caseById(caseId: string) {
   return ACCESS_CASES.find((c) => c.id === caseId);
+}
+
+function caseLabelById(caseId: string): string {
+  const entry = caseById(caseId);
+  return entry ? caseLabel(entry) : "";
 }
 
 /**
@@ -178,12 +182,6 @@ function PersonListRow({
             </span>
             <span className="text-caption text-muted-foreground">
               <span className="tabular-nums">{person.phone}</span>
-              {person.pending ? (
-                <>
-                  <span aria-hidden> · </span>
-                  {pick(listCopy.invitedPending, locale)}
-                </>
-              ) : null}
               {person.allCases ? (
                 <>
                   <span aria-hidden> · </span>
@@ -234,12 +232,6 @@ function PersonListRow({
           </span>
           <span className="truncate text-caption text-muted-foreground">
             <span className="tabular-nums">{person.phone}</span>
-            {person.pending ? (
-              <>
-                <span aria-hidden> · </span>
-                {pick(listCopy.invitedPending, locale)}
-              </>
-            ) : null}
             {person.allCases ? (
               <>
                 <span aria-hidden> · </span>
@@ -273,10 +265,9 @@ function PersonListRow({
   );
 }
 
-/** One case entry — spacious: title, number, joined date, attribution. */
+/** One case entry — spacious: title, number (or Draft), date access was given. */
 function CaseEntry({
   grant,
-  person,
   locale,
   selectable,
   checked,
@@ -287,7 +278,6 @@ function CaseEntry({
   removalPending = false,
 }: {
   grant: AccessGrant;
-  person: AccessPerson;
   locale: Locale;
   selectable: boolean;
   checked: boolean;
@@ -304,17 +294,6 @@ function CaseEntry({
 }) {
   const grantCase = caseById(grant.caseId);
   if (!grantCase) return null;
-  const isVakalat = grant.role === "vakalat";
-  // A person yet to accept says so once, in the panel header — not on every case.
-  const isPending = !person.pending && grant.status === "invited";
-  const grantInviter = grant.addedBy ?? person.addedBy;
-  const invitedBy =
-    grantInviter === "self"
-      ? pick(peopleCopy.invitedByYou, locale)
-      : grantInviter
-        ? fillCopy(peopleCopy.invitedBy, locale, { name: grantInviter })
-        : null;
-
   return (
     <div className="@container/case-entry flex items-start gap-3 py-4">
       {selectable ? (
@@ -322,7 +301,7 @@ function CaseEntry({
           checked={checked}
           data-preserve-admin-selection={selectable || undefined}
           aria-label={fillCopy(peopleCopy.selectCaseAria, locale, {
-            caseNumber: grantCase.caseNumber,
+            caseNumber: caseLabel(grantCase),
           })}
           className="mt-0.5"
           onCheckedChange={(value) => onCheck?.(value === true)}
@@ -330,24 +309,20 @@ function CaseEntry({
       ) : null}
       <div className="flex min-w-0 flex-1 flex-col gap-2 @xs/case-entry:flex-row @xs/case-entry:items-center">
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-body-compact font-medium text-pretty">{grantCase.title}</p>
-            {isPending ? (
-              <Badge variant="warning">{pick(shareCopy.statusInvited, locale)}</Badge>
-            ) : null}
-          </div>
-          <Identifier
-            value={grantCase.caseNumber}
-            label="case number"
-            className="self-start text-caption text-muted-foreground"
-          />
+          <p className="text-body-compact font-medium text-pretty">{grantCase.title}</p>
+          {grantCase.draft ? (
+            <Badge variant="secondary" className="self-start">
+              {pick(peopleCopy.draft, locale)}
+            </Badge>
+          ) : (
+            <Identifier
+              value={grantCase.caseNumber}
+              label="case number"
+              className="self-start text-caption text-muted-foreground"
+            />
+          )}
           <p className="text-caption text-muted-foreground">
-            {fillCopy(
-              isPending ? peopleCopy.invitedOn : peopleCopy.joinedOn,
-              locale,
-              { date: grant.since },
-            )}
-            {!isVakalat && invitedBy && grantInviter !== "self" ? <> · {invitedBy}</> : null}
+            {fillCopy(peopleCopy.accessGivenOn, locale, { date: grant.since })}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1 pt-1 @xs/case-entry:self-center @xs/case-entry:pt-0">
@@ -389,8 +364,8 @@ export function PeoplePage({
   onOpenCase,
 }: {
   locale: Locale;
-  /** Jump to a case's file (the wireframe) — wired by the parent screen. */
-  onOpenCase: (caseId: string) => void;
+  /** Jump to a case's file, or a draft's filing — wired by the parent screen. */
+  onOpenCase: (caseId: string, draft: boolean) => void;
 }) {
   const { office, removeGrant, removeAll, setAllCases } = useAccess();
   const [query, setQuery] = React.useState("");
@@ -402,7 +377,6 @@ export function PeoplePage({
   /* A row's own Remove borrows the selection to reuse the confirm; cancelling
      must give the selection back empty, not leave that row ticked. */
   const [singleRemove, setSingleRemove] = React.useState(false);
-  const [removedNote, setRemovedNote] = React.useState<string | null>(null);
   /* Add person (OFC-14), or Give access to more cases for the open person (OFC-33). */
   const [addOpen, setAddOpen] = React.useState(false);
   const [addFor, setAddFor] = React.useState<AccessPerson | null>(null);
@@ -458,7 +432,6 @@ export function PeoplePage({
       setOpenPersonId(null);
       setCheckedCases([]);
       setCaseQuery("");
-      setRemovedNote(null);
     }, PANEL_EXIT_MS);
     return () => window.clearTimeout(timer);
   }, [closingPanel]);
@@ -469,7 +442,6 @@ export function PeoplePage({
     setOpenPersonId(personId);
     setCheckedCases([]);
     setCaseQuery("");
-    setRemovedNote(null);
   }
 
   function closePanel() {
@@ -483,15 +455,18 @@ export function PeoplePage({
     if (!openPerson) return;
     if (removingAll) {
       // Remove from office: every case, whichever access they had (OFC-35).
+      // They leave the office and the panel closes on them, so the word goes in
+      // a toast that outlives it (OFC-36).
       removeAll(openPerson.id);
-      setRemovedNote(fillCopy(peopleCopy.removedAllNote, locale, { name: openPerson.name }));
+      toast.success(fillCopy(peopleCopy.removedAllNote, locale, { name: openPerson.name }));
     } else {
       checkedCases.forEach((caseId) => removeGrant(openPerson.id, caseId));
       const numbers = checkedCases
-        .map((caseId) => caseById(caseId)?.caseNumber)
-        .filter(Boolean)
+        .map((caseId) => caseById(caseId))
+        .filter((entry) => entry !== undefined)
+        .map(caseLabel)
         .join(", ");
-      setRemovedNote(
+      toast.success(
         fillCopy(peopleCopy.removedNote, locale, { name: openPerson.name, case: numbers }),
       );
     }
@@ -514,7 +489,6 @@ export function PeoplePage({
                   <CaseEntry
                     key={grant.caseId}
                     grant={grant}
-                    person={openPerson}
                     locale={locale}
                     selectable={canRemove && staffGrants.length > 1}
                     checked={checkedCases.includes(grant.caseId)}
@@ -527,7 +501,7 @@ export function PeoplePage({
                     }
                     onOpenCase={() => {
                       closePanel();
-                      onOpenCase(grant.caseId);
+                      onOpenCase(grant.caseId, Boolean(caseById(grant.caseId)?.draft));
                     }}
                     onRemove={
                       canRemove
@@ -616,9 +590,15 @@ export function PeoplePage({
                   {displayName(openPerson)}
                 </h2>
                 <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                  <p className="text-caption text-muted-foreground tabular-nums">
-                    {openPerson.phone}
-                    {openPerson.pending ? ` · ${pick(listCopy.invitedPending, locale)}` : null}
+                  {/* Designation from their account (OFC-30), as the list row has it. */}
+                  <p className="text-caption text-muted-foreground">
+                    <span className="tabular-nums">{openPerson.phone}</span>
+                    {personDesignation(openPerson, locale) ? (
+                      <>
+                        <span aria-hidden> · </span>
+                        {personDesignation(openPerson, locale)}
+                      </>
+                    ) : null}
                   </p>
                   {openPerson.barId ? (
                     <p className="flex items-baseline gap-1.5 text-caption tabular-nums">
@@ -647,12 +627,6 @@ export function PeoplePage({
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden p-4">
-              {removedNote ? (
-                <p className="flex items-start gap-1.5 rounded-lg border border-success bg-success-muted px-3 py-2 text-body-compact font-medium text-success-muted-foreground">
-                  <CheckCircle2Icon className="mt-0.5 size-4 shrink-0" aria-hidden />
-                  <span>{removedNote}</span>
-                </p>
-              ) : null}
 
               {/* One kind of access per person (OFC-24, OFC-31). */}
               <div className="flex shrink-0 flex-col gap-2 rounded-lg border border-hairline p-3">
@@ -866,6 +840,17 @@ export function PeoplePage({
             <p className="max-w-sm text-caption text-pretty text-muted-foreground">
               {pick(peopleCopy.emptyBody, locale)}
             </p>
+            <Button
+              type="button"
+              className="mt-1"
+              onClick={() => {
+                setAddFor(null);
+                setAddOpen(true);
+              }}
+            >
+              <PlusIcon aria-hidden />
+              {pick(peopleCopy.addPerson, locale)}
+            </Button>
           </div>
         )}
       </main>
@@ -944,7 +929,7 @@ export function PeoplePage({
                     : checkedCases.length === 1
                       ? fillCopy(peopleCopy.removeOneTitle, locale, {
                           name: openPerson.name,
-                          case: caseById(checkedCases[0])?.caseNumber ?? "",
+                          case: caseLabelById(checkedCases[0]),
                         })
                       : fillCopy(peopleCopy.removeTheseTitle, locale, { name: openPerson.name })}
                 </AlertDialogTitle>

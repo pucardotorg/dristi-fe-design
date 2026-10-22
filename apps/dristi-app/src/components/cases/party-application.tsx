@@ -33,6 +33,7 @@ import {
   XCircleIcon,
 } from "lucide-react";
 
+import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import {
   DescriptionDetails,
@@ -58,6 +59,7 @@ import { SELF } from "@/lib/access/content";
 import { formatCaseDate } from "@/lib/cases/types";
 import { cn } from "@/lib/utils";
 import { DOCUMENT_GROUND } from "@/components/cases/document-ground";
+import { OFFICE_NO_ESIGN, useCaseOfficeAccess } from "@/components/cases/case-office-access";
 import { Identifier } from "@/components/chrome/identifier";
 import { useCourtLocalized } from "@/components/court/court-provider";
 
@@ -324,6 +326,7 @@ export function PartySignatureDialog({
   proceed?: { label: string; laterLabel: string; onClick: () => void };
 }) {
   const [step, setStep] = useState<SignStep>("choose");
+  const officeAccess = useCaseOfficeAccess();
   const [aadhaar, setAadhaar] = useState<AadhaarPhase>("authenticating");
   const [signedFile, setSignedFile] = useState<File | null>(null);
   const [error, setError] = useState<string | undefined>(undefined);
@@ -523,16 +526,20 @@ export function PartySignatureDialog({
               </DialogDescription>
             </DialogHeader>
             <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-6 py-5">
-              <SignMethodCard
-                icon={<SignatureIcon className="size-5" />}
-                tone="info"
-                title="E-Sign with Aadhaar OTP"
-                description="You are taken to the Aadhaar e-sign service. The signature is recorded here as soon as it is done."
-                onClick={() => {
-                  setAadhaar("authenticating");
-                  setStep("aadhaar");
-                }}
-              />
+              {officeAccess ? (
+                <Banner variant="info">{OFFICE_NO_ESIGN}</Banner>
+              ) : (
+                <SignMethodCard
+                  icon={<SignatureIcon className="size-5" />}
+                  tone="info"
+                  title="E-Sign with Aadhaar OTP"
+                  description="You are taken to the Aadhaar e-sign service. The signature is recorded here as soon as it is done."
+                  onClick={() => {
+                    setAadhaar("authenticating");
+                    setStep("aadhaar");
+                  }}
+                />
+              )}
               <SignMethodCard
                 icon={<UploadIcon className="size-5" />}
                 tone="warning"

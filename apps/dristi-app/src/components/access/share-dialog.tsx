@@ -4,6 +4,15 @@ import * as React from "react";
 import { CheckCircle2Icon, SearchIcon } from "lucide-react";
 import { toast } from "sonner";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,13 +29,15 @@ import {
 } from "@/components/access/people-invite-field";
 import { useAccess, type InviteResult } from "@/components/access/access-state";
 import { RemoveAdvocateDialog } from "@/components/cases/remove-advocate-dialog";
+import { ChromeAlertDialogContent } from "@/components/chrome/app-chrome";
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 import { pick, type Locale } from "@/lib/onboarding/content";
 import { fill } from "@/lib/join/content";
 import {
+  caseLabel,
   fillCopy,
   inviteFieldCopy,
-  registerAccessCase,
+  peopleCopy,
   shareCopy,
   type AccessCase,
   type AccessPerson,
@@ -86,6 +97,9 @@ export function ShareDialog({
   /* An on-nama advocate whose Remove was clicked; opens the formal removal
      flow (3a/3b) over this dialog. Staff removal stays the one-click revoke. */
   const [removeTarget, setRemoveTarget] = React.useState<string | null>(null);
+  /* Office access about to be removed: confirmed first, like every removal
+     (OFC-36), in the People tab's own words. */
+  const [confirmTarget, setConfirmTarget] = React.useState<AccessPerson | null>(null);
   const [removedDerived, setRemovedDerived] = React.useState<ReadonlySet<string>>(
     new Set(),
   );
@@ -116,12 +130,25 @@ export function ShareDialog({
     onOpenChange(nextOpen);
   }
 
+  function confirmRemove() {
+    if (!single || !confirmTarget) return;
+    const personId = confirmTarget.id;
+    removeGrant(personId, single.id);
+    if (personId.startsWith("derived-")) {
+      setRemovedDerived((current) => new Set(current).add(personId));
+    }
+    toast.success(
+      fillCopy(peopleCopy.removedNote, locale, {
+        name: confirmTarget.name,
+        case: caseLabel(single),
+      }),
+    );
+    setConfirmTarget(null);
+  }
+
   function send() {
     const batch = chips;
     if (!batch.length) return;
-    // Cases from Your cases are not all in the People page's docket; make them
-    // known there so the person's panel lists what was shared (OFC-51, OFC-54).
-    cases.forEach(registerAccessCase);
     const result = invite(batch.map((c) => c.phone ?? ""), cases.map((c) => c.id));
     setResult(result);
     toast.success(fill(shareCopy.inviteToast, locale, { names: result.names.join(", ") }));
@@ -211,7 +238,7 @@ export function ShareDialog({
                   {pick(shareCopy.sentNote, locale)} {result.names.join(", ")}
                   {bulk ? (
                     <>
-                      {" — "}
+                      {" · "}
                       {result.added === 0
                         ? pick(shareCopy.alreadyHadAllNote, locale)
                         : result.skipped === 0
@@ -265,14 +292,8 @@ export function ShareDialog({
                   onRemove={
                     readOnly
                       ? undefined
-                      : (personId) => {
-                          removeGrant(personId, single.id);
-                          if (personId.startsWith("derived-")) {
-                            setRemovedDerived(
-                              (current) => new Set(current).add(personId),
-                            );
-                          }
-                        }
+                      : (personId) =>
+                          setConfirmTarget(onCase.find((p) => p.id === personId) ?? null)
                   }
                   onRemoveVakalat={
                     readOnly
@@ -288,6 +309,31 @@ export function ShareDialog({
           ) : null}
         </div>
       </FlowDialogContent>
+
+      <AlertDialog
+        open={Boolean(confirmTarget)}
+        onOpenChange={(next) => {
+          if (!next) setConfirmTarget(null);
+        }}
+      >
+        <ChromeAlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {fillCopy(peopleCopy.removeOneTitle, locale, {
+                name: confirmTarget?.name ?? "",
+                case: single ? caseLabel(single) : "",
+              })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>{pick(peopleCopy.removeBodyOne, locale)}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{pick(peopleCopy.removeAllCancel, locale)}</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={confirmRemove}>
+              {pick(peopleCopy.removeFromCase, locale)}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </ChromeAlertDialogContent>
+      </AlertDialog>
 
       <RemoveAdvocateDialog
         open={Boolean(removeTarget)}

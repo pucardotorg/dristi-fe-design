@@ -455,7 +455,7 @@ const PROFILE_HOME: Record<ProfileRole, string> = {
  */
 function ProfileFooter() {
   const { state, people, user, setUser, resetSandbox } = useTasks();
-  const { profileRole, advocateProfileAvailable, accountName, setProfileRole } =
+  const { profileRole, advocateProfileAvailable, displayName, setProfileRole } =
     useProfile();
   const router = useRouter();
   const roleLabel = PROFILE_LABEL[profileRole];
@@ -463,8 +463,7 @@ function ProfileFooter() {
   // The name is the account's, fixed — switching profile changes the role label, not the
   // person. So Anjali stays Anjali whether she is acting as advocate or litigant. The
   // demo clerk profile is the exception: a clerk is someone else in her office, so it
-  // shows the clerk's own name (see `profile.tsx`).
-  const displayName = profileRole === "clerk" ? VIEWER_CLERK_NAME : accountName;
+  // shows the clerk's own name (`displayName`, see `profile.tsx`).
   const nameParts = displayName.replace(/^Adv\.\s*/, "").trim().split(/\s+/);
   const displayInitials = (
     (nameParts[0]?.[0] ?? "") + (nameParts[nameParts.length - 1]?.[0] ?? "")
