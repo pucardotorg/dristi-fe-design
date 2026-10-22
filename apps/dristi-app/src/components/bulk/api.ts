@@ -75,6 +75,7 @@ export async function bulkFetch(url: string, init: RequestInit = {}): Promise<Re
       file: fileIn(f, "file"),
       caseId: String(f.get("caseId") ?? ""),
       slotKey: String(f.get("slotKey") ?? ""),
+      poor: f.get("poor") === "true",
       ai: f.get("ai")?.toString() ?? null,
     });
   } else if (a === "files" && id)
@@ -119,11 +120,13 @@ export const bulkApi = {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ ...body, ai: aiMode }),
     }).then((r) => json<BatchView>(r)),
-  attach: (id: string, caseId: string, slotKey: string, file: File) => {
+  /** `poor`: the browser's readability check found the scan too small to read. */
+  attach: (id: string, caseId: string, slotKey: string, file: File, poor = false) => {
     const form = new FormData();
     form.set("file", file);
     form.set("caseId", caseId);
     form.set("slotKey", slotKey);
+    form.set("poor", String(poor));
     form.set("ai", aiMode);
     return bulkFetch(`/api/bulk/batches/${id}/files`, { method: "POST", body: form }).then((r) => json<BatchView>(r));
   },

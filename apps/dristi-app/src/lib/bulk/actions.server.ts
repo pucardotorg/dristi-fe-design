@@ -404,6 +404,7 @@ export function attachToSlot(
   bc: BatchCase,
   slotKey: string,
   ref: StoredFileRef,
+  poor = false,
 ): boolean {
   const d = bc.draft;
   const slot = [...d.intake.cheques, ...d.intake.parties]
@@ -412,7 +413,7 @@ export function attachToSlot(
     .find((s) => s.key === slotKey);
   if (!slot) return false;
   slot.file = ref;
-  slot.poor = false;
+  slot.poor = poor;
   d.documents = buildDocumentGroups(d);
   d.updatedAt = new Date().toISOString();
   return true;

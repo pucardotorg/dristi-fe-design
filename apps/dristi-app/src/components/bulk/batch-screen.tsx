@@ -225,7 +225,11 @@ export function BatchScreen({ batchId }: { batchId: string }) {
   );
   const workable = open.length;
   const allFiled = batch.total > 0 && batch.counts.filed === batch.total;
-  const docsMissing = open.filter((c) => c.docs.have < c.docs.need).length;
+  // Documents counts the cases with a file missing or a scan too blurry to read.
+  const docsMissing = open.filter(
+    (c) =>
+      c.docs.have < c.docs.need || c.flags.some((f) => f.rule === "dcm-poor"),
+  ).length;
   // Case details counts what it shows: flags about the details, not missing documents.
   const detail = (c: CaseView) =>
     c.flags.some(
@@ -450,7 +454,7 @@ export function BatchScreen({ batchId }: { batchId: string }) {
                 label="Documents"
                 pending={docsMissing}
                 tone="warning"
-                what="missing documents"
+                what="cases with documents to add or check"
                 done={workable > 0}
               />
               <StepTab

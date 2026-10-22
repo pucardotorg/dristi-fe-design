@@ -71,6 +71,13 @@ export function CaseBadge({
         {docs} document{docs === 1 ? "" : "s"} missing
       </Badge>
     );
+  const scans = c.flags.filter((f) => f.rule === "dcm-poor").length;
+  if (scans)
+    return (
+      <Badge variant="warning" className="tabular-nums">
+        {scans} scan{scans === 1 ? "" : "s"} hard to read
+      </Badge>
+    );
   return (
     <Badge variant="success">
       <CircleCheckIcon data-icon="inline-start" aria-hidden />

@@ -7,7 +7,10 @@
  * - **hold** — a requirement is not met. The case stays in draft, out of signing and
  *   payment, until it is fixed. The rest of the batch carries on (PRD constraint 4).
  * - **soft** — the value is there but something about it deserves a look (PRD Appendix C,
- *   "warnings, not errors"). The filer may skip it and the case goes ahead.
+ *   "warnings, not errors"). The filer may skip it and the case goes ahead. Only two:
+ *   a cheque presented after its validity (CHQ-11) and a blurry or cropped scan. The
+ *   return-reason and late-notice warnings were dropped (owner, 2026-10-22): another
+ *   return reason still attracts S-138.
  *
  * The rules lean on the single filing's own selectors wherever one exists, and finish with
  * `sectionComplete` for every section: a case can only clear scrutiny here if the single
@@ -22,7 +25,6 @@ import {
   NON_DELIVERY_REASONS,
   PAYMENT_STATUS,
   RETURN_REASONS,
-  S138_SAFE_REASONS,
 } from "@/lib/filing/options";
 import {
   chequePresentedLate,
@@ -31,7 +33,6 @@ import {
   isCinOrPan,
   limitationView,
   noticeDispatchIssue,
-  noticeDispatchLate,
   noticeServiceIssue,
   sameMobile,
   sectionComplete,
@@ -93,8 +94,6 @@ const NAME = /^[A-Za-z][A-Za-z .'-]*$/;
 
 const listed = (options: { value: string }[], v: string) =>
   options.some((o) => o.value === v);
-const labelOf = (options: { value: string; label: string }[], v: string) =>
-  options.find((o) => o.value === v)?.label ?? v;
 
 type Push = (f: Omit<Flag, "id"> & { at: string }) => void;
 
@@ -746,15 +745,6 @@ export function caseFlags(bc: BatchCase): Flag[] {
           options: RETURN_REASONS,
         },
       });
-    else if (!S138_SAFE_REASONS.has(q.returnReason))
-      push({
-        ...chq,
-        rule: "chq-10-warn",
-        field: "CHQ-10",
-        level: "soft",
-        at: `${p}.returnReason-warn`,
-        message: `Returned for "${labelOf(RETURN_REASONS, q.returnReason)}", not insufficient funds. Check that S-138 applies.`,
-      });
   });
   if (d.cheques.length === 0)
     push({
@@ -813,16 +803,6 @@ export function caseFlags(bc: BatchCase): Flag[] {
             label: "Dispatch date",
             value: n.dispatchDate,
           },
-        });
-      else if (noticeDispatchLate(d, i))
-        push({
-          ...ldn,
-          rule: "ldn-2-late",
-          field: "LDN-2",
-          level: "soft",
-          at: `${p}.dispatch-late`,
-          message:
-            "Sent more than 30 days after the cheque was returned. S-138(b) gives 30 days.",
         });
     }
     if (!listed(MODE_OF_SERVICE, n.modeService))
@@ -1180,6 +1160,22 @@ export function caseFlags(bc: BatchCase): Flag[] {
   /* ── Documents (DCM) ── */
   for (const g of d.documents) {
     for (const doc of g.docs) {
+      if (doc.file && doc.quality === "bad") {
+        push({
+          rule: "dcm-poor",
+          field: "DCM",
+          section: "documents",
+          where: doc.name,
+          level: "soft",
+          at: `doc.${doc.intakeKey ?? doc.id}.poor`,
+          message:
+            "This scan looks blurry or cropped. Please re-upload a clearer copy so the court can read it.",
+          fix: doc.intakeKey
+            ? { kind: "upload", slotKey: doc.intakeKey, label: doc.name }
+            : { kind: "documents" },
+        });
+        continue;
+      }
       if (!doc.required || doc.file) continue;
       const code = doc.intakeKey ? codeForSlot(doc.intakeKey) : null;
       push({

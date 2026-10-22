@@ -28,6 +28,7 @@ import { uid } from "@/lib/filing/blank";
 import { getRepository, storeUpload } from "@/lib/filing/data";
 import { forgetFile, formatBytes, useFilePreview } from "@/lib/filing/files";
 import { documentsProgress, intakeSlots } from "@/lib/filing/selectors";
+import { readability } from "@/lib/filing/readability";
 import { useFiling } from "@/lib/filing/store";
 import type {
   CaseDocument,
@@ -68,9 +69,6 @@ import { LabelTip, RequiredMark } from "@/components/filing/form-field";
 import { SectionNotice } from "@/components/filing/notices";
 import { pickErrorMessage, useFilePicker } from "@/components/filing/use-file-picker";
 
-/** Below this the court cannot read a scan — the same floor document reading uses. */
-const MIN_READABLE_EDGE = 500;
-
 function findDoc(
   groups: DocumentGroup[],
   docId: string
@@ -86,23 +84,6 @@ function findDoc(
 function resolveSlot(intake: Intake, key: string): IntakeSlot | undefined {
   const slots = intakeSlots(intake);
   return slots.find((s) => s.key === key) ?? slots.find((s) => s.key.startsWith(`${key}-`));
-}
-
-/**
- * Is this upload legible? Only the cheap, local check: a photo whose long edge is under
- * ~500px cannot be read at print size. PDFs carry their own resolution, so they pass.
- */
-async function readability(file: File): Promise<CaseDocument["quality"]> {
-  if (!file.type.startsWith("image/")) return "good";
-  try {
-    const bitmap = await createImageBitmap(file);
-    const longEdge = Math.max(bitmap.width, bitmap.height);
-    bitmap.close?.();
-    return longEdge < MIN_READABLE_EDGE ? "bad" : "good";
-  } catch {
-    // Can't decode it here — don't accuse the file; the court's own check is the backstop.
-    return "good";
-  }
 }
 
 /** Forget a stored file's bytes and its cached preview. */
