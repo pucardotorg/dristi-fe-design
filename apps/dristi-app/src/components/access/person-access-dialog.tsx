@@ -896,7 +896,8 @@ export function PersonAccessDialog({
           </div>
 
           {/* ------------------------------------------------------- footer */}
-          <div className="flex shrink-0 flex-col gap-3 border-t border-hairline px-6 py-4 pb-[calc(--spacing(4)+env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between sm:pb-4">
+          {/* The bail dialog's footer: the sunken well under a hairline. */}
+          <div className="flex shrink-0 flex-col gap-3 border-t border-hairline bg-surface-sunken px-6 py-4 pb-[calc(--spacing(4)+env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between sm:pb-4">
             <p
               className={cn(
                 "flex min-h-10 flex-wrap items-center gap-x-2 text-body-compact text-muted-foreground tabular-nums",
