@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   ChevronDownIcon,
+  EllipsisIcon,
   ExternalLinkIcon,
   SearchIcon,
   UserXIcon,
@@ -42,6 +43,7 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -209,6 +211,7 @@ export function PersonAccessDialog({
   const person = live ?? last;
 
   const [draft, setDraft] = React.useState<Draft | null>(null);
+  const closeRef = React.useRef<HTMLButtonElement>(null);
   const [query, setQuery] = React.useState("");
   /* Several stages at once, as the cases list filters them; none is all. */
   const [stages, setStages] = React.useState<StageValue[]>([]);
@@ -465,6 +468,12 @@ export function PersonAccessDialog({
       >
         <FlowDialogContent
           showCloseButton={false}
+          // Focus opens on Close: the first control, the More actions menu,
+          // would show its tooltip the moment the dialog appears.
+          onOpenAutoFocus={(event) => {
+            event.preventDefault();
+            closeRef.current?.focus();
+          }}
           className="flex h-[calc(100dvh---spacing(12))] flex-col gap-0 overflow-hidden p-0 sm:max-w-[calc(100vw---spacing(12))]"
         >
           {/* ------------------------------------------------------- header */}
@@ -474,10 +483,7 @@ export function PersonAccessDialog({
                 {initials(person.name)}
               </AvatarFallback>
             </Avatar>
-            {/* Name, then Remove from office on one plane from `sm`, the button
-                centred on the name block (owner, Oct 23). On a phone the header
-                keeps the name alone; the button closes the body instead. */}
-            <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="flex min-w-0 flex-1 flex-col">
               <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <DialogTitle className="text-body font-semibold text-pretty">
                   {displayName(person)}
@@ -505,22 +511,50 @@ export function PersonAccessDialog({
                   ) : null}
                 </p>
               </div>
-              <Button
-                type="button"
-                variant="destructive"
-                className="hidden sm:inline-flex"
-                onClick={() => setConfirmRemoveAll(true)}
-              >
-                <UserXIcon aria-hidden />
-                {pick(peopleCopy.removeFromAll, locale)}
-              </Button>
             </div>
+            {/* Remove from office lives in this menu on every size (owner,
+                Oct 23): always one tap away without scrolling, never crowding
+                the name. Rare and confirmed, so it does not need a standing
+                button. */}
+            <DropdownMenu>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={pick(copy.moreActions, locale)}
+                        className="pointer-coarse:size-10"
+                      >
+                        <EllipsisIcon aria-hidden />
+                      </Button>
+                    </DropdownMenuTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    {pick(copy.moreActions, locale)}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <DropdownMenuContent align="end" sideOffset={4} className="w-max whitespace-nowrap">
+                <DropdownMenuItem
+                  variant="destructive"
+                  onSelect={() => setConfirmRemoveAll(true)}
+                >
+                  <UserXIcon aria-hidden />
+                  {pick(peopleCopy.removeFromAll, locale)}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button
               type="button"
               variant="ghost"
               size="icon-sm"
+              ref={closeRef}
               aria-label={pick(copy.close, locale)}
               onClick={requestClose}
+              className="pointer-coarse:size-10"
             >
               <XIcon aria-hidden />
             </Button>
@@ -859,19 +893,6 @@ export function PersonAccessDialog({
                 </>
               )}
             </section>
-            {/* Phone: leaving the office is the last thing in the body, full
-                width, rather than a squeezed button under the name. */}
-            <div className="border-t border-hairline pt-6 sm:hidden">
-              <Button
-                type="button"
-                variant="destructive"
-                className="w-full"
-                onClick={() => setConfirmRemoveAll(true)}
-              >
-                <UserXIcon aria-hidden />
-                {pick(peopleCopy.removeFromAll, locale)}
-              </Button>
-            </div>
           </div>
 
           {/* ------------------------------------------------------- footer */}
@@ -1072,6 +1093,7 @@ function AccessState({
   held,
   since,
   dateOnly = false,
+  labelled = false,
 }: {
   locale: Locale;
   checked: boolean;
@@ -1080,6 +1102,8 @@ function AccessState({
   /** Under the table's "Access granted" heading the date stands alone; the
       phone list has no heading, so it keeps "Since". */
   dateOnly?: boolean;
+  /** In a list, where no column heading names the date. */
+  labelled?: boolean;
 }) {
   if (checked && !held) {
     return <Badge variant="success">{pick(copy.willAdd, locale)}</Badge>;
@@ -1090,7 +1114,17 @@ function AccessState({
   if (held && since) {
     return (
       <span className="text-muted-foreground">
-        {dateOnly ? since : fillCopy(copy.since, locale, { date: since })}
+        {labelled ? (
+          <>
+            {pick(copy.columnAccess, locale)}
+            <span aria-hidden> · </span>
+            <span className="text-foreground">{since}</span>
+          </>
+        ) : dateOnly ? (
+          since
+        ) : (
+          fillCopy(copy.since, locale, { date: since })
+        )}
       </span>
     );
   }
@@ -1304,14 +1338,16 @@ function CaseRow({
             <span>{stageText(entry, locale)}</span>
           </span>
         </div>
-        {/* The date is a fact under the case, not a peer of its name: the
-            caption size, so the row reads title first. */}
-        <div className="shrink-0 text-caption @lg/access:pt-0.5 @lg/access:text-right">
+        {/* A list has no column heading, so the date carries its own label,
+            "Access granted", on a line set apart from the case's number and
+            stage (owner, Oct 23). Beside the case on a wide list. */}
+        <div className="mt-2 shrink-0 text-caption empty:hidden @lg/access:mt-0 @lg/access:pt-0.5 @lg/access:text-right">
           <AccessState
             locale={locale}
             checked={checked}
             held={held}
             since={since}
+            labelled
           />
         </div>
       </div>

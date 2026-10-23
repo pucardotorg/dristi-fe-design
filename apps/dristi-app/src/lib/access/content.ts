@@ -779,6 +779,7 @@ export const peopleCopy = {
    checkbox, and new cases can only ride on it (OFC-24 unchanged). */
 export const personAccessCopy = {
   close: t("Close", "അടയ്ക്കുക"),
+  moreActions: t("More actions", "കൂടുതൽ പ്രവർത്തനങ്ങൾ"),
   groupHeld: t("Has access", "ആക്‌സസ് ഉണ്ട്"),
   groupOther: t("No access yet", "ഇതുവരെ ആക്‌സസ് ഇല്ല"),
   casesSection: t("Access to cases", "കേസുകളിലേക്കുള്ള ആക്‌സസ്"),
