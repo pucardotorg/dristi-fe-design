@@ -779,6 +779,20 @@ export const peopleCopy = {
    checkbox, and new cases can only ride on it (OFC-24 unchanged). */
 export const personAccessCopy = {
   close: t("Close", "അടയ്ക്കുക"),
+  addTitle: t("Add person", "ആളെ ചേർക്കുക"),
+  addIntro: t(
+    "Registered advocates and clerks. They work on the cases you choose, but aren't on the vakalatnama, so they can't e-sign.",
+    "രജിസ്റ്റർ ചെയ്ത അഭിഭാഷകരും ക്ലർക്കുമാരും. നിങ്ങൾ തിരഞ്ഞെടുക്കുന്ന കേസുകളിൽ അവർ പ്രവർത്തിക്കും, പക്ഷേ വക്കാലത്ത്നാമയിൽ ഇല്ലാത്തതിനാൽ ഇ-സൈൻ ചെയ്യാനാകില്ല.",
+  ),
+  whoLabel: t("People", "ആളുകൾ"),
+  groupYourCases: t("Your cases", "നിങ്ങളുടെ കേസുകൾ"),
+  addAction: t("Add to office", "ഓഫീസിൽ ചേർക്കുക"),
+  addConfirmTitle: t("Add {names} to your office?", "{names}-നെ നിങ്ങളുടെ ഓഫീസിൽ ചേർക്കണോ?"),
+  addedToast: t("Access given to {names}.", "{names}-ന് ആക്‌സസ് നൽകി."),
+  leaveBodyAdd: t(
+    "The people you picked have not been added yet.",
+    "നിങ്ങൾ തിരഞ്ഞെടുത്തവരെ ഇതുവരെ ചേർത്തിട്ടില്ല.",
+  ),
   moreActions: t("More actions", "കൂടുതൽ പ്രവർത്തനങ്ങൾ"),
   groupHeld: t("Has access", "ആക്‌സസ് ഉണ്ട്"),
   groupOther: t("No access yet", "ഇതുവരെ ആക്‌സസ് ഇല്ല"),
@@ -891,37 +905,6 @@ export const casesCopy = {
 };
 
 /* The Add person flow (OFC-20 to OFC-28). Malayalam drafted — needs review. */
-export const addPersonCopy = {
-  title: t("Add person", "ആളെ ചേർക്കുക"),
-  titleMore: t("Give {name} access to more cases", "{name}-ന് കൂടുതൽ കേസുകളിലേക്ക് ആക്‌സസ് നൽകുക"),
-  body: t(
-    "Add a registered advocate or clerk to your office. They can work on the cases you choose but are not on the vakalatnama, and cannot e-sign.",
-    "രജിസ്റ്റർ ചെയ്ത ഒരു അഭിഭാഷകനെയോ ക്ലർക്കിനെയോ നിങ്ങളുടെ ഓഫീസിൽ ചേർക്കുക. നിങ്ങൾ തിരഞ്ഞെടുക്കുന്ന കേസുകളിൽ അവർക്ക് പ്രവർത്തിക്കാം, പക്ഷേ അവർ വക്കാലത്ത്നാമയിൽ ഉണ്ടാകില്ല, ഇ-സൈൻ ചെയ്യാനാകില്ല.",
-  ),
-  peopleLabel: t("Who", "ആരെ"),
-  casesLabel: t("Which cases", "ഏതൊക്കെ കേസുകൾ"),
-  allCurrent: t("All cases", "എല്ലാ കേസുകളും"),
-  allCurrentHint: t(
-    "Every case you are on the vakalatnama for and your drafts, {count} now. Every case you file or join from now on is added.",
-    "നിങ്ങൾ വക്കാലത്ത്നാമയിലുള്ള എല്ലാ കേസുകളും നിങ്ങളുടെ കരടുകളും, ഇപ്പോൾ {count}. ഇനി ഫയൽ ചെയ്യുന്നതോ ചേരുന്നതോ ആയ എല്ലാ കേസുകളും ചേർക്കും.",
-  ),
-  specific: t("Specific cases", "തിരഞ്ഞെടുത്ത കേസുകൾ"),
-  specificHint: t(
-    "Only the cases you choose below. New cases are not shared automatically.",
-    "താഴെ നിങ്ങൾ തിരഞ്ഞെടുക്കുന്ന കേസുകൾ മാത്രം. പുതിയ കേസുകൾ സ്വയമേവ പങ്കിടില്ല.",
-  ),
-  caseSearch: t("Search your cases", "നിങ്ങളുടെ കേസുകൾ തിരയുക"),
-  selectedCount: t("{count} selected", "{count} തിരഞ്ഞെടുത്തു"),
-  alreadyHas: t("Already has access", "ഇതിനകം ആക്‌സസ് ഉണ്ട്"),
-  needPerson: t("Choose at least one person.", "ഒരാളെയെങ്കിലും തിരഞ്ഞെടുക്കുക."),
-  needCases: t("Choose at least one case.", "ഒരു കേസെങ്കിലും തിരഞ്ഞെടുക്കുക."),
-  cancel: t("Cancel", "റദ്ദാക്കുക"),
-  submit: t("Add", "ചേർക്കുക"),
-  submitMore: t("Give access", "ആക്‌സസ് നൽകുക"),
-  doneToast: t("{names} added to {count} cases", "{names} {count} കേസുകളിൽ ചേർത്തു"),
-  doneToastOne: t("{names} added to 1 case", "{names} 1 കേസിൽ ചേർത്തു"),
-};
-
 /* Your cases joins the docket, so "All cases" means every case the advocate
    sees there (OFC-25, OFC-52), not only the access fixtures. Drafts arrive at
    run time from the filing store (`AccessProvider`). */

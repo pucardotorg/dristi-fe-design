@@ -8,6 +8,7 @@ import {
   EllipsisIcon,
   ExternalLinkIcon,
   SearchIcon,
+  UserPlusIcon,
   UserXIcon,
   XIcon,
 } from "lucide-react";
@@ -23,6 +24,11 @@ import {
   tableRowClass,
 } from "@/components/chrome/table-plate";
 import { initials } from "@/components/access/access-list";
+import {
+  directoryOptions,
+  PeopleInviteField,
+  type InvitePerson,
+} from "@/components/access/people-invite-field";
 import { FILTER_ON } from "@/components/advocate/hearing-timeline";
 import { useAccess } from "@/components/access/access-state";
 import {
@@ -73,6 +79,7 @@ import {
 import {
   caseLabel,
   fillCopy,
+  inviteFieldCopy,
   peopleCopy,
   personAccessCopy as copy,
   type AccessCase,
@@ -130,6 +137,15 @@ const CONFIRM_HEAD_BLOCK =
   "-mx-6 flex flex-col gap-1 justify-self-stretch border-b border-hairline px-6 pb-4 text-left";
 const CONFIRM_TITLE =
   "-mx-6 justify-self-stretch border-b border-hairline px-6 pb-4 text-body font-semibold text-pretty";
+
+/** Add person has nobody yet; the dialog runs on an empty stand-in. */
+const NEW_PERSON: AccessPerson = {
+  id: "new-person",
+  name: "",
+  phone: "",
+  addedBy: "self",
+  grants: [],
+};
 
 /** What the list is being edited towards. `null` means no edits yet. */
 type Draft = { ticked: Set<string>; future: boolean };
@@ -190,11 +206,18 @@ export function PersonAccessDialog({
   open,
   onOpenChange,
   locale,
+  adding = false,
 }: {
   personId: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   locale: Locale;
+  /**
+   * Add person (owner, Oct 23): the same dialog with "People" on top and the
+   * same case picker below, so adding someone and changing their access are
+   * one pattern. Nobody holds anything yet, so every case starts unticked.
+   */
+  adding?: boolean;
 }) {
   const router = useRouter();
   const {
@@ -208,7 +231,13 @@ export function PersonAccessDialog({
   const live = office.find((entry) => entry.id === personId) ?? null;
   const [last, setLast] = React.useState<AccessPerson | null>(live);
   if (live && live !== last) setLast(live);
-  const person = live ?? last;
+  const person = live ?? last ?? (adding ? NEW_PERSON : null);
+  /* Add person: who is being added. Registered advocates and clerks only. */
+  const [chosen, setChosen] = React.useState<InvitePerson[]>([]);
+  const known = directoryOptions(office.map((p) => p.phone)).filter(
+    // Anyone on All cases already holds every case (OFC-27).
+    (option) => !office.some((p) => p.allCases && p.phone === option.phone),
+  );
 
   const [draft, setDraft] = React.useState<Draft | null>(null);
   const closeRef = React.useRef<HTMLButtonElement>(null);
@@ -267,7 +296,7 @@ export function PersonAccessDialog({
     },
     {
       key: "other",
-      label: copy.groupOther,
+      label: adding ? copy.groupYourCases : copy.groupOther,
       entries: visible.filter((e) => !saved.has(e.id)),
     },
   ].filter((group) => group.entries.length > 0);
@@ -288,7 +317,12 @@ export function PersonAccessDialog({
   /* A search or a stage is narrowing the list. Saving from a narrowed list
      earns a note in the confirmation (owner, Oct 23). */
   const filtered = Boolean(needle) || stages.length > 0;
-  const dirty = Boolean(draft) && (!sameSet(ticked, saved) || futureChanged);
+  const dirty = adding
+    ? chosen.length > 0 || (Boolean(draft) && (ticked.size > 0 || future))
+    : Boolean(draft) && (!sameSet(ticked, saved) || futureChanged);
+  /** Add person needs someone and at least one case before it can save. */
+  const canSave = adding ? chosen.length > 0 && tickedCount > 0 : dirty;
+  const chosenNames = chosen.map((p) => p.name ?? p.phone ?? "").join(", ");
 
   /** Every edit goes through here: a case that comes off ends "all", so new cases go too. */
   function commit(next: Set<string>, nextFuture: boolean) {
@@ -325,6 +359,20 @@ export function PersonAccessDialog({
   }
 
   function apply() {
+    if (adding) {
+      const phones = chosen.map((p) => p.phone ?? "");
+      if (allTicked && future) invite(phones, [], { allCases: true });
+      else
+        invite(
+          phones,
+          shareableCases.filter((c) => ticked.has(c.id)).map((c) => c.id),
+        );
+      toast.success(fillCopy(copy.addedToast, locale, { names: chosenNames }));
+      setDraft(null);
+      setChosen([]);
+      onOpenChange(false);
+      return;
+    }
     if (!live) return;
     const turnFutureOn = future && !savedFuture;
     // Turning new cases on gives every missing case in the same act.
@@ -407,9 +455,10 @@ export function PersonAccessDialog({
      the save takes access away. */
   const futureOff = futureChanged && !future;
   const confirmTakesAway = removes.length > 0 || futureOff;
-  const confirmTitle = fillCopy(copy.confirmTitle, locale, {
-    name: person.name,
-  });
+  const confirmTitle = adding
+    ? fillCopy(copy.addConfirmTitle, locale, { names: chosenNames })
+    : fillCopy(copy.confirmTitle, locale, { name: person.name });
+  const saveLabel = pick(adding ? copy.addAction : copy.save, locale);
   const casesWord = (count: number, one: Copy, many: Copy) =>
     count === 1
       ? pick(one, locale)
@@ -474,101 +523,140 @@ export function PersonAccessDialog({
             event.preventDefault();
             closeRef.current?.focus();
           }}
+          // Escape in an open picker (the People search's suggestions) closes
+          // the picker, not the whole dialog.
+          onEscapeKeyDown={(event) => {
+            const target = event.target as HTMLElement | null;
+            if (target?.getAttribute?.("aria-expanded") === "true") event.preventDefault();
+          }}
           className="@container/dialog flex h-[calc(100dvh---spacing(12))] flex-col gap-0 overflow-hidden p-0 sm:max-w-[calc(100vw---spacing(12))]"
         >
           {/* ------------------------------------------------------- header */}
-          <div className="flex shrink-0 items-start gap-3 border-b border-hairline py-4 pr-3 pl-6 sm:items-center">
-            <Avatar className="size-10 shrink-0">
-              <AvatarFallback className="bg-brand-muted text-body-compact font-medium text-brand-muted-foreground">
-                {initials(person.name)}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex min-w-0 flex-1 flex-col">
+          {adding ? (
+            <div className="flex shrink-0 items-start gap-3 border-b border-hairline py-4 pr-3 pl-6">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-muted text-brand-muted-foreground">
+                <UserPlusIcon aria-hidden className="size-5" />
+              </span>
               <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <DialogTitle className="text-body font-semibold text-pretty">
-                  {displayName(person)}
+                  {pick(copy.addTitle, locale)}
                 </DialogTitle>
-                <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-body-compact text-muted-foreground">
-                  <span className="tabular-nums">{person.phone}</span>
-                  {role ? (
-                    <>
-                      <span aria-hidden>·</span>
-                      <span>{role}</span>
-                    </>
-                  ) : null}
-                  {person.barId ? (
-                    <>
-                      <span aria-hidden>·</span>
-                      <span className="flex items-baseline gap-1.5">
-                        {pick(peopleCopy.barIdLabel, locale)}
-                        <Identifier
-                          value={person.barId}
-                          label="bar id"
-                          className="tabular-nums"
-                        />
-                      </span>
-                    </>
-                  ) : null}
+                {/* Everything the old three-line intro and option hints said,
+                    in one sentence (owner, Oct 23). */}
+                <p className="text-body-compact text-pretty text-muted-foreground">
+                  {pick(copy.addIntro, locale)}
                 </p>
               </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                ref={closeRef}
+                aria-label={pick(copy.close, locale)}
+                onClick={requestClose}
+                className="pointer-coarse:size-10"
+              >
+                <XIcon aria-hidden />
+              </Button>
             </div>
-            {/* Remove from office (owner, Oct 23): a red button beside the name
+          ) : (
+            <div className="flex shrink-0 items-start gap-3 border-b border-hairline py-4 pr-3 pl-6 sm:items-center">
+              <Avatar className="size-10 shrink-0">
+                <AvatarFallback className="bg-brand-muted text-body-compact font-medium text-brand-muted-foreground">
+                  {initials(person.name)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex min-w-0 flex-1 flex-col">
+                <div className="flex min-w-0 flex-1 flex-col gap-1">
+                  <DialogTitle className="text-body font-semibold text-pretty">
+                    {displayName(person)}
+                  </DialogTitle>
+                  <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-body-compact text-muted-foreground">
+                    <span className="tabular-nums">{person.phone}</span>
+                    {role ? (
+                      <>
+                        <span aria-hidden>·</span>
+                        <span>{role}</span>
+                      </>
+                    ) : null}
+                    {person.barId ? (
+                      <>
+                        <span aria-hidden>·</span>
+                        <span className="flex items-baseline gap-1.5">
+                          {pick(peopleCopy.barIdLabel, locale)}
+                          <Identifier
+                            value={person.barId}
+                            label="bar id"
+                            className="tabular-nums"
+                          />
+                        </span>
+                      </>
+                    ) : null}
+                  </p>
+                </div>
+              </div>
+              {/* Remove from office (owner, Oct 23): a red button beside the name
                 when the dialog has the room (laptop, iPad Pro, iPad mini on its
                 side); in a narrow dialog (phone, iPad mini upright) it moves
                 into this More actions menu, so it never crowds the name and
                 never needs a scroll to reach. Decided by the dialog's width. */}
-            <Button
-              type="button"
-              variant="destructive"
-              className="hidden @2xl/dialog:inline-flex"
-              onClick={() => setConfirmRemoveAll(true)}
-            >
-              <UserXIcon aria-hidden />
-              {pick(peopleCopy.removeFromAll, locale)}
-            </Button>
-            <DropdownMenu>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label={pick(copy.moreActions, locale)}
-                        className="pointer-coarse:size-10 @2xl/dialog:hidden"
-                      >
-                        <EllipsisIcon aria-hidden />
-                      </Button>
-                    </DropdownMenuTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    {pick(copy.moreActions, locale)}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <DropdownMenuContent align="end" sideOffset={4} className="w-max whitespace-nowrap">
-                <DropdownMenuItem
-                  variant="destructive"
-                  onSelect={() => setConfirmRemoveAll(true)}
+              <Button
+                type="button"
+                variant="destructive"
+                className="hidden @2xl/dialog:inline-flex"
+                onClick={() => setConfirmRemoveAll(true)}
+              >
+                <UserXIcon aria-hidden />
+                {pick(peopleCopy.removeFromAll, locale)}
+              </Button>
+              <DropdownMenu>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={pick(copy.moreActions, locale)}
+                          className="pointer-coarse:size-10 @2xl/dialog:hidden"
+                        >
+                          <EllipsisIcon aria-hidden />
+                        </Button>
+                      </DropdownMenuTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      {pick(copy.moreActions, locale)}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <DropdownMenuContent
+                  align="end"
+                  sideOffset={4}
+                  className="w-max whitespace-nowrap"
                 >
-                  <UserXIcon aria-hidden />
-                  {pick(peopleCopy.removeFromAll, locale)}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              ref={closeRef}
-              aria-label={pick(copy.close, locale)}
-              onClick={requestClose}
-              className="pointer-coarse:size-10"
-            >
-              <XIcon aria-hidden />
-            </Button>
-          </div>
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onSelect={() => setConfirmRemoveAll(true)}
+                  >
+                    <UserXIcon aria-hidden />
+                    {pick(peopleCopy.removeFromAll, locale)}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                ref={closeRef}
+                aria-label={pick(copy.close, locale)}
+                onClick={requestClose}
+                className="pointer-coarse:size-10"
+              >
+                <XIcon aria-hidden />
+              </Button>
+            </div>
+          )}
 
           {/* --------------------------------------------------------- body */}
           {/* Two sections and nothing else (visual pass, owner Oct 23).
@@ -582,6 +670,26 @@ export function PersonAccessDialog({
             <DialogDescription className="sr-only">
               {pick(copy.casesIntro, locale)}
             </DialogDescription>
+
+            {adding ? (
+              <section
+                aria-labelledby="person-access-who"
+                className="flex flex-col gap-3"
+              >
+                <h3 id="person-access-who" className="text-body font-semibold">
+                  {pick(copy.whoLabel, locale)}
+                </h3>
+                <PeopleInviteField
+                  id="person-access-who-field"
+                  label={pick(inviteFieldCopy.placeholder, locale)}
+                  known={known}
+                  value={chosen}
+                  onValueChange={setChosen}
+                  locale={locale}
+                  registeredOnly
+                />
+              </section>
+            ) : null}
 
             {/* One heading for the whole block (owner, Oct 23): "Access to
                 cases", the two settings on its line at the right with a
@@ -944,10 +1052,10 @@ export function PersonAccessDialog({
               <Button
                 type="button"
                 className="flex-1 sm:flex-none"
-                disabled={!dirty}
+                disabled={!canSave}
                 onClick={save}
               >
-                {pick(copy.save, locale)}
+                {saveLabel}
               </Button>
             </div>
           </div>
@@ -1014,7 +1122,7 @@ export function PersonAccessDialog({
               variant={confirmTakesAway ? "destructive" : "default"}
               onClick={apply}
             >
-              {pick(copy.save, locale)}
+              {saveLabel}
             </AlertDialogAction>
           </AlertDialogFooter>
         </ChromeAlertDialogContent>
@@ -1071,7 +1179,9 @@ export function PersonAccessDialog({
               {pick(copy.leaveTitle, locale)}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {fillCopy(copy.leaveBody, locale, { name: person.name })}
+              {adding
+                ? pick(copy.leaveBodyAdd, locale)
+                : fillCopy(copy.leaveBody, locale, { name: person.name })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

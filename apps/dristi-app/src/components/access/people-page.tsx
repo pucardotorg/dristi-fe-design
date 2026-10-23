@@ -1,7 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { ChevronRightIcon, PlusIcon, SearchIcon, UsersIcon } from "lucide-react";
+import {
+  ChevronRightIcon,
+  PlusIcon,
+  SearchIcon,
+  UsersIcon,
+} from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -17,7 +22,6 @@ import {
 } from "@/components/ui/select";
 import { initials } from "@/components/access/access-list";
 import { useAccess } from "@/components/access/access-state";
-import { AddPersonDialog } from "@/components/access/add-person-dialog";
 import { PersonAccessDialog } from "@/components/access/person-access-dialog";
 import { pick, type Locale } from "@/lib/onboarding/content";
 import { fillCopy, peopleCopy, type AccessPerson } from "@/lib/access/content";
@@ -59,7 +63,10 @@ function displayName(person: AccessPerson): string {
  * a pending invite known only by number — gets no designation rather than a
  * guessed one.
  */
-function personDesignation(person: AccessPerson, locale: Locale): string | null {
+function personDesignation(
+  person: AccessPerson,
+  locale: Locale,
+): string | null {
   if (
     person.barId ||
     person.grants.some((g) => g.role === "vakalat" || g.role === "junior")
@@ -104,32 +111,82 @@ function PersonListRow({
 
   return (
     <>
-    {/* Phone: a card per person. The table's three columns at 375px left the
+      {/* Phone: a card per person. The table's three columns at 375px left the
         name truncated and the designation riding a caption; a card gives the
         name a full line and puts role and case count on their own, as facts
         (owner, Sept 21). */}
-    <button
-      type="button"
-      onClick={onOpen}
-      aria-current={active || undefined}
-      className={cn(
-        PANEL_CLASS,
-        "flex w-full rounded-xl border bg-card p-4 text-left transition-colors active:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none sm:pointer-fine:hidden",
-        active && "border-border",
-      )}
-    >
-      <span className="flex min-w-0 flex-1 flex-col gap-3">
-        <span className="flex min-w-0 items-start gap-3">
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-current={active || undefined}
+        className={cn(
+          PANEL_CLASS,
+          "flex w-full rounded-xl border bg-card p-4 text-left transition-colors active:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none sm:pointer-fine:hidden",
+          active && "border-border",
+        )}
+      >
+        <span className="flex min-w-0 flex-1 flex-col gap-3">
+          <span className="flex min-w-0 items-start gap-3">
+            <Avatar className="size-10 shrink-0">
+              <AvatarFallback className="text-caption font-medium">
+                {initials(person.name)}
+              </AvatarFallback>
+            </Avatar>
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="text-body-compact font-semibold break-words">
+                {displayName(person)}
+              </span>
+              <span className="text-caption text-muted-foreground">
+                <span className="tabular-nums">{person.phone}</span>
+                {person.allCases ? (
+                  <>
+                    <span aria-hidden> · </span>
+                    {pick(peopleCopy.futureBadge, locale)}
+                  </>
+                ) : null}
+              </span>
+            </span>
+            {/* On the name's own line, at its far end: who they are to you. */}
+            {designation ? (
+              <Badge variant="secondary" className="shrink-0">
+                {designation}
+              </Badge>
+            ) : null}
+          </span>
+          {/* Under a hairline, the one number the card is opened for. */}
+          <span className="flex items-center justify-between gap-3 border-t border-hairline pt-3">
+            <span className="text-body-compact font-medium text-muted-foreground tabular-nums">
+              {caseCount}
+            </span>
+            <ChevronRightIcon
+              className="size-4 shrink-0 text-muted-foreground"
+              aria-hidden
+            />
+          </span>
+        </span>
+      </button>
+
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-current={active || undefined}
+        className={cn(
+          "hidden w-full items-center gap-3 rounded-lg px-2 py-3 text-left transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none sm:pointer-fine:grid",
+          PEOPLE_GRID,
+          active && "bg-muted",
+        )}
+      >
+        <span className="flex min-w-0 items-center gap-3">
           <Avatar className="size-10 shrink-0">
             <AvatarFallback className="text-caption font-medium">
               {initials(person.name)}
             </AvatarFallback>
           </Avatar>
-          <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="text-body-compact font-semibold break-words">
+          <span className="flex min-w-0 flex-col gap-0.5">
+            <span className="truncate text-body-compact font-medium">
               {displayName(person)}
             </span>
-            <span className="text-caption text-muted-foreground">
+            <span className="truncate text-caption text-muted-foreground">
               <span className="tabular-nums">{person.phone}</span>
               {person.allCases ? (
                 <>
@@ -137,79 +194,29 @@ function PersonListRow({
                   {pick(peopleCopy.futureBadge, locale)}
                 </>
               ) : null}
+              {/* Phones have no designation column — it rides the caption line. */}
+              {designation ? (
+                <span className="sm:hidden">
+                  <span aria-hidden> · </span>
+                  {designation}
+                </span>
+              ) : null}
             </span>
           </span>
-          {/* On the name's own line, at its far end: who they are to you. */}
-          {designation ? (
-            <Badge variant="secondary" className="shrink-0">
-              {designation}
-            </Badge>
-          ) : null}
         </span>
-        {/* Under a hairline, the one number the card is opened for. */}
-        <span className="flex items-center justify-between gap-3 border-t border-hairline pt-3">
-          <span className="text-body-compact font-medium text-muted-foreground tabular-nums">
-            {caseCount}
-          </span>
-          <ChevronRightIcon
-            className="size-4 shrink-0 text-muted-foreground"
-            aria-hidden
-          />
+        <span className="hidden truncate text-body-compact text-muted-foreground sm:block">
+          {designation ?? "—"}
         </span>
-      </span>
-    </button>
-
-    <button
-      type="button"
-      onClick={onOpen}
-      aria-current={active || undefined}
-      className={cn(
-        "hidden w-full items-center gap-3 rounded-lg px-2 py-3 text-left transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none sm:pointer-fine:grid",
-        PEOPLE_GRID,
-        active && "bg-muted",
-      )}
-    >
-      <span className="flex min-w-0 items-center gap-3">
-        <Avatar className="size-10 shrink-0">
-          <AvatarFallback className="text-caption font-medium">
-            {initials(person.name)}
-          </AvatarFallback>
-        </Avatar>
-        <span className="flex min-w-0 flex-col gap-0.5">
-          <span className="truncate text-body-compact font-medium">
-            {displayName(person)}
-          </span>
-          <span className="truncate text-caption text-muted-foreground">
-            <span className="tabular-nums">{person.phone}</span>
-            {person.allCases ? (
-              <>
-                <span aria-hidden> · </span>
-                {pick(peopleCopy.futureBadge, locale)}
-              </>
-            ) : null}
-            {/* Phones have no designation column — it rides the caption line. */}
-            {designation ? (
-              <span className="sm:hidden">
-                <span aria-hidden> · </span>
-                {designation}
-              </span>
-            ) : null}
-          </span>
+        <span className="text-body-compact text-muted-foreground tabular-nums">
+          {count === 1
+            ? pick(peopleCopy.caseCountOne, locale)
+            : fillCopy(peopleCopy.caseCount, locale, { count: String(count) })}
         </span>
-      </span>
-      <span className="hidden truncate text-body-compact text-muted-foreground sm:block">
-        {designation ?? "—"}
-      </span>
-      <span className="text-body-compact text-muted-foreground tabular-nums">
-        {count === 1
-          ? pick(peopleCopy.caseCountOne, locale)
-          : fillCopy(peopleCopy.caseCount, locale, { count: String(count) })}
-      </span>
-      <ChevronRightIcon
-        className="size-4 justify-self-end text-muted-foreground"
-        aria-hidden
-      />
-    </button>
+        <ChevronRightIcon
+          className="size-4 justify-self-end text-muted-foreground"
+          aria-hidden
+        />
+      </button>
     </>
   );
 }
@@ -219,11 +226,16 @@ export function PeoplePage({ locale }: { locale: Locale }) {
   /* The person open in the access dialog. `opening` counts each opening so the
      dialog mounts fresh every time; the id stays through the exit. */
   const [personOpen, setPersonOpen] = React.useState(false);
-  const [opened, setOpened] = React.useState<{ id: string; opening: number } | null>(null);
+  const [opened, setOpened] = React.useState<{
+    id: string;
+    opening: number;
+  } | null>(null);
   const [query, setQuery] = React.useState("");
   const [peopleSort, setPeopleSort] = React.useState<PeopleSort>("name-asc");
   /* Add person (OFC-14). Giving a person more cases lives on their own page now. */
   const [addOpen, setAddOpen] = React.useState(false);
+  /* Counts each opening so Add person always starts empty. */
+  const [addOpening, setAddOpening] = React.useState(0);
 
   // The office: people this advocate gave access to, or set for future cases (OFC-11).
   const active = office;
@@ -231,7 +243,8 @@ export function PeoplePage({ locale }: { locale: Locale }) {
   const searched = q
     ? active.filter(
         (person) =>
-          person.name.toLowerCase().includes(q) || person.phone.replace(/\D/g, "").includes(q),
+          person.name.toLowerCase().includes(q) ||
+          person.phone.replace(/\D/g, "").includes(q),
       )
     : active;
   const matches = [...searched].sort((a, b) => {
@@ -246,20 +259,27 @@ export function PeoplePage({ locale }: { locale: Locale }) {
   return (
     <div className="relative flex min-h-0 w-full flex-1 items-stretch">
       {/* ------------------------------------------------------ list column */}
-      <main className={cn("flex min-h-0 min-w-0 flex-1 flex-col gap-6", PAGE_GROUND, PAGE_GUTTER)}>
+      <main
+        className={cn(
+          "flex min-h-0 min-w-0 flex-1 flex-col gap-6",
+          PAGE_GROUND,
+          PAGE_GUTTER,
+        )}
+      >
         <header className="flex flex-col gap-4 sm:flex-row sm:items-start">
           <div className="flex min-w-0 flex-1 flex-col gap-2">
             <h1 className={cn(PAGE_TITLE, "text-balance")}>
               {pick(peopleCopy.title, locale)}
             </h1>
-            <p className={PAGE_SUBTITLE}>
-              {pick(peopleCopy.subtitle, locale)}
-            </p>
+            <p className={PAGE_SUBTITLE}>{pick(peopleCopy.subtitle, locale)}</p>
           </div>
           <Button
             type="button"
             className="self-start"
-            onClick={() => setAddOpen(true)}
+            onClick={() => {
+              setAddOpening((n) => n + 1);
+              setAddOpen(true);
+            }}
           >
             <PlusIcon aria-hidden />
             {pick(peopleCopy.addPerson, locale)}
@@ -270,7 +290,9 @@ export function PeoplePage({ locale }: { locale: Locale }) {
           <>
             <div className="flex flex-wrap items-end gap-4">
               <div className="flex w-full flex-col gap-2 sm:min-w-0 sm:flex-1">
-                <Label htmlFor="people-search">{pick(peopleCopy.searchLabel, locale)}</Label>
+                <Label htmlFor="people-search">
+                  {pick(peopleCopy.searchLabel, locale)}
+                </Label>
                 <div className="relative">
                   <SearchIcon
                     className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
@@ -287,16 +309,29 @@ export function PeoplePage({ locale }: { locale: Locale }) {
                 </div>
               </div>
               <div className="flex w-full flex-col gap-2 sm:w-48">
-                <Label htmlFor="people-sort">{pick(peopleCopy.sortLabel, locale)}</Label>
-                <Select value={peopleSort} onValueChange={(value) => setPeopleSort(value as PeopleSort)}>
+                <Label htmlFor="people-sort">
+                  {pick(peopleCopy.sortLabel, locale)}
+                </Label>
+                <Select
+                  value={peopleSort}
+                  onValueChange={(value) => setPeopleSort(value as PeopleSort)}
+                >
                   <SelectTrigger id="people-sort" className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="name-asc">{pick(peopleCopy.sortNameAsc, locale)}</SelectItem>
-                    <SelectItem value="name-desc">{pick(peopleCopy.sortNameDesc, locale)}</SelectItem>
-                    <SelectItem value="cases-desc">{pick(peopleCopy.sortCasesDesc, locale)}</SelectItem>
-                    <SelectItem value="cases-asc">{pick(peopleCopy.sortCasesAsc, locale)}</SelectItem>
+                    <SelectItem value="name-asc">
+                      {pick(peopleCopy.sortNameAsc, locale)}
+                    </SelectItem>
+                    <SelectItem value="name-desc">
+                      {pick(peopleCopy.sortNameDesc, locale)}
+                    </SelectItem>
+                    <SelectItem value="cases-desc">
+                      {pick(peopleCopy.sortCasesDesc, locale)}
+                    </SelectItem>
+                    <SelectItem value="cases-asc">
+                      {pick(peopleCopy.sortCasesAsc, locale)}
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -337,27 +372,27 @@ export function PeoplePage({ locale }: { locale: Locale }) {
                   </span>
                   <span />
                 </div>
-              <div className="min-h-0 flex-1">
-                {/* Touch: one column of cards at every width, tablets included (owner,
+                <div className="min-h-0 flex-1">
+                  {/* Touch: one column of cards at every width, tablets included (owner,
                     Sept 21). Mouse from `sm`: the table's ruled rows. */}
-                <div className="flex flex-col gap-3 sm:pointer-fine:gap-0 sm:pointer-fine:divide-y sm:pointer-fine:divide-hairline">
-                  {matches.map((person) => (
-                    <PersonListRow
-                      key={person.id}
-                      person={person}
-                      locale={locale}
-                      active={personOpen && opened?.id === person.id}
-                      onOpen={() => {
-                        setOpened((current) => ({
-                          id: person.id,
-                          opening: (current?.opening ?? 0) + 1,
-                        }));
-                        setPersonOpen(true);
-                      }}
-                    />
-                  ))}
+                  <div className="flex flex-col gap-3 sm:pointer-fine:gap-0 sm:pointer-fine:divide-y sm:pointer-fine:divide-hairline">
+                    {matches.map((person) => (
+                      <PersonListRow
+                        key={person.id}
+                        person={person}
+                        locale={locale}
+                        active={personOpen && opened?.id === person.id}
+                        onOpen={() => {
+                          setOpened((current) => ({
+                            id: person.id,
+                            opening: (current?.opening ?? 0) + 1,
+                          }));
+                          setPersonOpen(true);
+                        }}
+                      />
+                    ))}
+                  </div>
                 </div>
-              </div>
               </div>
             )}
           </>
@@ -366,14 +401,19 @@ export function PeoplePage({ locale }: { locale: Locale }) {
             <span className="flex size-11 items-center justify-center rounded-full bg-muted text-muted-foreground">
               <UsersIcon className="size-5" aria-hidden />
             </span>
-            <p className="text-body-compact font-semibold">{pick(peopleCopy.emptyTitle, locale)}</p>
+            <p className="text-body-compact font-semibold">
+              {pick(peopleCopy.emptyTitle, locale)}
+            </p>
             <p className="max-w-sm text-caption text-pretty text-muted-foreground">
               {pick(peopleCopy.emptyBody, locale)}
             </p>
             <Button
               type="button"
               className="mt-1"
-              onClick={() => setAddOpen(true)}
+              onClick={() => {
+                setAddOpening((n) => n + 1);
+                setAddOpen(true);
+              }}
             >
               <PlusIcon aria-hidden />
               {pick(peopleCopy.addPerson, locale)}
@@ -382,7 +422,15 @@ export function PeoplePage({ locale }: { locale: Locale }) {
         )}
       </main>
 
-      <AddPersonDialog open={addOpen} onOpenChange={setAddOpen} locale={locale} person={null} />
+      {/* Add person is the person dialog with "People" on top (owner, Oct 23). */}
+      <PersonAccessDialog
+        key={`add-${addOpening}`}
+        personId={null}
+        adding
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        locale={locale}
+      />
 
       <PersonAccessDialog
         key={opened ? `${opened.id}-${opened.opening}` : "none"}
