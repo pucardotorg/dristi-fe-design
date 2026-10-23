@@ -1,6 +1,6 @@
 import type { Copy } from "@/lib/onboarding/content";
 import { CASES } from "@/lib/cases/fixtures";
-import { partiesLabel } from "@/lib/cases/types";
+import { ACTIVE_STAGES, partiesLabel, type ActiveStage } from "@/lib/cases/types";
 import { viewerAccess as recordViewerAccess } from "@/lib/cases/viewer";
 
 export { fill as fillCopy } from "@/lib/join/content";
@@ -45,6 +45,9 @@ export type AccessCase = {
   /** An e-filing draft the advocate is on (OFC-04): shared like a case, but it
       has no case number or case page yet. */
   draft?: boolean;
+  /** Where the case sits (PM, Oct 23: the person's case table filters on it).
+      Absent on drafts, which have no stage yet. */
+  stage?: ActiveStage | "disposed";
 };
 
 /** How a case is named in a sentence: its number, or a draft's title. */
@@ -771,6 +774,80 @@ export const peopleCopy = {
   ),
 };
 
+/* One person's access dialog (PM, Oct 23): every case in one table, ticked where they
+   have access, so giving and removing access is the same act. "All cases" is a
+   checkbox, and new cases can only ride on it (OFC-24 unchanged). */
+export const personAccessCopy = {
+  close: t("Close", "അടയ്ക്കുക"),
+  groupHeld: t("Has access", "ആക്‌സസ് ഉണ്ട്"),
+  groupOther: t("No access yet", "ഇതുവരെ ആക്‌സസ് ഇല്ല"),
+  casesSection: t("Access to cases", "കേസുകളിലേക്കുള്ള ആക്‌സസ്"),
+  futureLocked: t(
+    "Available only with All cases.",
+    "എല്ലാ കേസുകളും ഉള്ളപ്പോൾ മാത്രം ലഭ്യം.",
+  ),
+  searchPlaceholder: t("Search case name or number", "കേസിന്റെ പേരോ നമ്പറോ തിരയുക"),
+  casesIntro: t(
+    "Tick a case to give access. Untick it to remove access.",
+    "ആക്‌സസ് നൽകാൻ കേസ് ടിക്ക് ചെയ്യുക. ആക്‌സസ് നീക്കാൻ ടിക്ക് മാറ്റുക.",
+  ),
+  allCases: t("All cases", "എല്ലാ കേസുകളും"),
+  future: t(
+    "Share new cases automatically",
+    "പുതിയ കേസുകൾ സ്വയമേവ പങ്കിടുക",
+  ),
+  stageLabel: t("Stage", "ഘട്ടം"),
+  stageAll: t("All stages", "എല്ലാ ഘട്ടങ്ങളും"),
+  stageDisposed: t("Disposed", "തീർപ്പാക്കി"),
+  columnCase: t("Case", "കേസ്"),
+  columnStage: t("Stage", "ഘട്ടം"),
+  columnAccess: t("Access granted", "ആക്‌സസ് നൽകിയത്"),
+  notFiled: t("Not filed yet", "ഇതുവരെ ഫയൽ ചെയ്തിട്ടില്ല"),
+  openDraft: t("Open draft", "കരട് തുറക്കുക"),
+  since: t("Since {date}", "{date} മുതൽ"),
+  willAdd: t("Will be added", "ചേർക്കും"),
+  willRemove: t("Will be removed", "നീക്കം ചെയ്യും"),
+  selectShown: t("Tick the {count} cases shown", "കാണിച്ച {count} കേസുകൾ ടിക്ക് ചെയ്യുക"),
+  clearShown: t("Untick the {count} cases shown", "കാണിച്ച {count} കേസുകളുടെ ടിക്ക് മാറ്റുക"),
+  selectCase: t("Access to {case}", "{case}-ലേക്കുള്ള ആക്‌സസ്"),
+  noCases: t("No cases match these filters.", "ഈ ഫിൽട്ടറുകൾക്ക് അനുയോജ്യമായ കേസുകളില്ല."),
+  pendingAddOne: t("+1 case", "+1 കേസ്"),
+  pendingAdd: t("+{count} cases", "+{count} കേസുകൾ"),
+  pendingRemoveOne: t("−1 case", "−1 കേസ്"),
+  pendingRemove: t("−{count} cases", "−{count} കേസുകൾ"),
+  save: t("Save changes", "മാറ്റങ്ങൾ സേവ് ചെയ്യുക"),
+  confirmTitle: t("Save changes to {name}'s access?", "{name}-ന്റെ ആക്‌സസിലെ മാറ്റങ്ങൾ സേവ് ചെയ്യണോ?"),
+  pointAddAll: t("Gets access to all cases ({count})", "എല്ലാ കേസുകളിലേക്കും ആക്‌സസ് ലഭിക്കും ({count})"),
+  confirmFutureOn: t(
+    "New cases are shared automatically",
+    "പുതിയ കേസുകൾ സ്വയമേവ പങ്കിടും",
+  ),
+  confirmOutsideFilter: t(
+    "A filter is on, so not every case was in view. Review before saving.",
+    "ഒരു ഫിൽട്ടർ ഓണാണ്, എല്ലാ കേസുകളും കാണിച്ചിരുന്നില്ല. സേവ് ചെയ്യുന്നതിന് മുമ്പ് പരിശോധിക്കുക.",
+  ),
+  pointAddOne: t("Gets access to 1 case", "1 കേസിലേക്ക് ആക്‌സസ് ലഭിക്കും"),
+  pointAdd: t("Gets access to {count} cases", "{count} കേസുകളിലേക്ക് ആക്‌സസ് ലഭിക്കും"),
+  pointRemoveOne: t("Loses access to 1 case", "1 കേസിലെ ആക്‌സസ് നഷ്ടപ്പെടും"),
+  pointRemove: t("Loses access to {count} cases", "{count} കേസുകളിലെ ആക്‌സസ് നഷ്ടപ്പെടും"),
+  confirmFutureOff: t(
+    "New cases stop being shared automatically",
+    "പുതിയ കേസുകൾ സ്വയമേവ പങ്കിടുന്നത് നിർത്തും",
+  ),
+  confirmLeave: t(
+    "Leaves your office, with no cases left",
+    "കേസുകളൊന്നും ബാക്കിയില്ലാത്തതിനാൽ നിങ്ങളുടെ ഓഫീസിൽ നിന്ന് പുറത്താകും",
+  ),
+  savedToast: t("Access updated for {name}.", "{name}-ന്റെ ആക്‌സസ് പുതുക്കി."),
+  leaveTitle: t("Discard your changes?", "നിങ്ങളുടെ മാറ്റങ്ങൾ ഉപേക്ഷിക്കണോ?"),
+  leaveBody: t(
+    "Your changes to {name}'s access are not saved yet.",
+    "{name}-ന്റെ ആക്‌സസിലെ നിങ്ങളുടെ മാറ്റങ്ങൾ ഇതുവരെ സേവ് ചെയ്തിട്ടില്ല.",
+  ),
+  leaveConfirm: t("Discard changes", "മാറ്റങ്ങൾ ഉപേക്ഷിക്കുക"),
+  leaveCancel: t("Keep editing", "എഡിറ്റിംഗ് തുടരുക"),
+};
+
 /* What the person added sees in their own notifications (OFC-08, N1 to N3).
    In-app only in the prototype; the SMS is not shown. */
 export const officeNoticeCopy = {
@@ -856,5 +933,13 @@ for (const record of CASES) {
     court: record.court,
     nextHearing: record.nextHearing?.on ?? "—",
     viewerAccess: recordViewerAccess(record).kind,
+    stage: record.disposal ? "disposed" : record.stage,
   });
 }
+
+/* The access fixtures predate stages. They take one in turn down the active
+   ladder so the stage filter has something to narrow; wireframe data only. */
+ACCESS_CASES.forEach((entry, index) => {
+  if (entry.stage || entry.draft) return;
+  entry.stage = ACTIVE_STAGES[index % ACTIVE_STAGES.length].value;
+});

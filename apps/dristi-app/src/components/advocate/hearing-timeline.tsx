@@ -315,7 +315,7 @@ const FILTER_ITEM = "min-h-10 text-body-compact lg:min-h-0";
  * border, label and icons — so a narrowed board is never mistaken for the
  * whole day and a hearing is not missed.
  */
-const FILTER_ON =
+export const FILTER_ON =
   "border-brand-accent bg-brand-muted text-brand-muted-foreground hover:bg-brand-muted hover:text-brand-muted-foreground [&_svg]:text-brand-muted-foreground [&_.text-muted-foreground]:text-brand-muted-foreground";
 
 function CourtFilter({
