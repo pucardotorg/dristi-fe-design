@@ -474,9 +474,9 @@ export function PersonAccessDialog({
                 {initials(person.name)}
               </AvatarFallback>
             </Avatar>
-            {/* Name, then Remove from office: on one plane from `sm`, the button
-                centred on the name block (owner, Oct 23); under the name on a
-                phone so the name keeps the width. */}
+            {/* Name, then Remove from office on one plane from `sm`, the button
+                centred on the name block (owner, Oct 23). On a phone the header
+                keeps the name alone; the button closes the body instead. */}
             <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center">
               <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <DialogTitle className="text-body font-semibold text-pretty">
@@ -508,7 +508,7 @@ export function PersonAccessDialog({
               <Button
                 type="button"
                 variant="destructive"
-                className="self-start sm:self-auto"
+                className="hidden sm:inline-flex"
                 onClick={() => setConfirmRemoveAll(true)}
               >
                 <UserXIcon aria-hidden />
@@ -534,7 +534,7 @@ export function PersonAccessDialog({
               search and stage beside them, then the table. The views are the
               only place "has access" is decided on screen, so nothing else
               repeats it. */}
-          <div className="flex min-h-0 flex-1 flex-col gap-8 overflow-y-auto p-6">
+          <div className="@container/access flex min-h-0 flex-1 flex-col gap-8 overflow-y-auto p-6">
             <DialogDescription className="sr-only">
               {pick(copy.casesIntro, locale)}
             </DialogDescription>
@@ -547,7 +547,7 @@ export function PersonAccessDialog({
               aria-labelledby="person-access-cases"
               className="flex flex-col gap-4"
             >
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-6">
+              <div className="flex flex-col gap-3 @2xl/access:flex-row @2xl/access:items-center @2xl/access:justify-between @2xl/access:gap-6">
                 <h3
                   id="person-access-cases"
                   className="text-body font-semibold"
@@ -582,7 +582,7 @@ export function PersonAccessDialog({
                   </div>
                   <Separator
                     orientation="vertical"
-                    className="hidden h-6 data-vertical:self-center sm:block"
+                    className="hidden h-6 data-vertical:self-center @sm/access:block"
                   />
                   <div className="flex min-h-10 items-center gap-3">
                     {allTicked ? (
@@ -642,7 +642,7 @@ export function PersonAccessDialog({
               {/* Search takes the width, Stage sits at its end. The cases list's
                   toolbar grammar: no visible label over the box, the label kept
                   for screen readers and voice. */}
-              <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="flex flex-col gap-3 @lg/access:flex-row">
                 <Field className="min-w-0 flex-1 gap-0">
                   <FieldLabel className="sr-only">
                     {pick(peopleCopy.caseSearchLabel, locale)}
@@ -671,7 +671,7 @@ export function PersonAccessDialog({
                       variant="outline"
                       aria-label={`${pick(copy.stageLabel, locale)}: ${stageSummary}`}
                       className={cn(
-                        "w-full justify-between font-normal sm:w-56",
+                        "w-full justify-between font-normal @lg/access:w-56",
                         // Teal while open too: the outline button's own open
                         // fill otherwise covers it until the menu closes.
                         stages.length > 0 &&
@@ -731,8 +731,10 @@ export function PersonAccessDialog({
                 </p>
               ) : (
                 <>
-                  {/* Touch: a list. Mouse from `sm`: the table. */}
-                  <div className="flex flex-col gap-6 sm:pointer-fine:hidden">
+                  {/* The table needs room: a mouse and a dialog body at least 768px
+                      wide (the dialog sits beside the rail, so the screen's width
+                      says little). Touch, or a narrower dialog, gets the list. */}
+                  <div className="flex flex-col gap-6 pointer-fine:@3xl/access:hidden">
                     {groups.map((group) => (
                       <section
                         key={group.key}
@@ -742,6 +744,7 @@ export function PersonAccessDialog({
                           id={`access-group-${group.key}`}
                           label={pick(group.label, locale)}
                           count={group.entries.length}
+                          className="rounded-lg bg-surface-sunken px-3 py-2"
                         />
                         <ul className="flex flex-col divide-y divide-hairline">
                           {group.entries.map((entry) => (
@@ -766,7 +769,7 @@ export function PersonAccessDialog({
                     ))}
                   </div>
 
-                  <div className="hidden sm:pointer-fine:block">
+                  <div className="hidden pointer-fine:@3xl/access:block">
                     <Table
                       className="w-full border-separate border-spacing-0"
                       aria-labelledby="person-access-cases"
@@ -856,12 +859,29 @@ export function PersonAccessDialog({
                 </>
               )}
             </section>
+            {/* Phone: leaving the office is the last thing in the body, full
+                width, rather than a squeezed button under the name. */}
+            <div className="border-t border-hairline pt-6 sm:hidden">
+              <Button
+                type="button"
+                variant="destructive"
+                className="w-full"
+                onClick={() => setConfirmRemoveAll(true)}
+              >
+                <UserXIcon aria-hidden />
+                {pick(peopleCopy.removeFromAll, locale)}
+              </Button>
+            </div>
           </div>
 
           {/* ------------------------------------------------------- footer */}
           <div className="flex shrink-0 flex-col gap-3 border-t border-hairline px-6 py-4 pb-[calc(--spacing(4)+env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between sm:pb-4">
             <p
-              className="flex min-h-10 flex-wrap items-center gap-x-2 text-body-compact text-muted-foreground tabular-nums"
+              className={cn(
+                "flex min-h-10 flex-wrap items-center gap-x-2 text-body-compact text-muted-foreground tabular-nums",
+                // Nothing pending: no empty line over the buttons on a phone.
+                pending.length === 0 && "max-sm:hidden",
+              )}
               aria-live="polite"
             >
               {/* How many cases they have now, then what Save will change. */}
@@ -1150,15 +1170,20 @@ function GroupLabel({
   id,
   label,
   count,
+  className,
 }: {
   id?: string;
   label: string;
   count: number;
+  className?: string;
 }) {
   return (
     <h4
       id={id}
-      className="flex items-center gap-2 px-3 py-2 text-body-compact font-semibold sm:p-0"
+      className={cn(
+        "flex items-center gap-2 text-body-compact font-semibold",
+        className,
+      )}
     >
       {label}
       <Badge variant="secondary" className="tabular-nums">
@@ -1179,11 +1204,14 @@ function OpenCaseButton({
   locale,
   onOpen,
   className,
+  touch = false,
 }: {
   entry: AccessCase;
   locale: Locale;
   onOpen: () => void;
   className?: string;
+  /** Under a finger: the 40px button, the DS touch floor. */
+  touch?: boolean;
 }) {
   // The tooltip says the act; the row already says which case. Screen
   // readers get the case too, since they do not see the row around it.
@@ -1196,7 +1224,7 @@ function OpenCaseButton({
           <Button
             type="button"
             variant="ghost"
-            size="icon-sm"
+            size={touch ? "icon" : "icon-sm"}
             aria-label={label}
             onClick={onOpen}
             className={cn(
@@ -1250,7 +1278,7 @@ function CaseRow({
 }) {
   return (
     <div
-      className="flex cursor-pointer items-start gap-3 rounded-lg px-3 py-3 transition-colors hover:bg-accent"
+      className="flex cursor-pointer items-start gap-3 rounded-lg px-3 py-4 transition-colors hover:bg-accent"
       onClick={(event) => {
         if ((event.target as HTMLElement).closest("button, a, [role=checkbox]"))
           return;
@@ -1265,8 +1293,8 @@ function CaseRow({
           case: caseLabel(entry),
         })}
       />
-      <div className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:items-start sm:gap-4">
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5 @lg/access:flex-row @lg/access:items-start @lg/access:gap-6">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
           <span className="text-body-compact font-medium text-pretty">
             {entry.title}
           </span>
@@ -1276,7 +1304,9 @@ function CaseRow({
             <span>{stageText(entry, locale)}</span>
           </span>
         </div>
-        <div className="shrink-0 text-body-compact sm:pt-0.5">
+        {/* The date is a fact under the case, not a peer of its name: the
+            caption size, so the row reads title first. */}
+        <div className="shrink-0 text-caption @lg/access:pt-0.5 @lg/access:text-right">
           <AccessState
             locale={locale}
             checked={checked}
@@ -1289,7 +1319,8 @@ function CaseRow({
         entry={entry}
         locale={locale}
         onOpen={onOpen}
-        className="-my-1"
+        touch
+        className="-my-2"
       />
     </div>
   );
