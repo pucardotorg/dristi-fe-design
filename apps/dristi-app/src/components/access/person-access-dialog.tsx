@@ -324,10 +324,16 @@ export function PersonAccessDialog({
   const canSave = adding ? chosen.length > 0 && tickedCount > 0 : dirty;
   const chosenNames = chosen.map((p) => p.name ?? p.phone ?? "").join(", ");
 
-  /** Every edit goes through here: a case that comes off ends "all", so new cases go too. */
+  /**
+   * Every edit goes through here. Reaching every case, by whatever route (the
+   * All cases box, the table's header box, or one row at a time), turns new
+   * cases on, since that is what All cases means (owner, Oct 23); it can be
+   * switched off by hand. A case coming off ends "all", so new cases go too.
+   */
   function commit(next: Set<string>, nextFuture: boolean) {
     const everything = shareableCases.every((c) => next.has(c.id));
-    setDraft({ ticked: next, future: everything && nextFuture });
+    const reachedAll = everything && !allTicked;
+    setDraft({ ticked: next, future: everything && (nextFuture || reachedAll) });
   }
 
   function toggleCase(caseId: string, on: boolean) {
