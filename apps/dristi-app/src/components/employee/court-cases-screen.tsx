@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { FolderSearchIcon } from "lucide-react";
 
 import {
@@ -10,7 +10,6 @@ import {
 } from "@/components/employee/court-cases-table";
 import { CourtFilters, CourtSortSelect } from "@/components/employee/court-filters";
 import { ListFooter } from "@/components/employee/list-footer";
-import { NotBuiltDialog } from "@/components/employee/not-built-dialog";
 import { QueueAnnouncer } from "@/components/employee/queue-announcer";
 import { useCourtToday } from "@/components/employee/use-court-today";
 import { Button } from "@/components/ui/button";
@@ -30,7 +29,6 @@ import {
   filterCourtCases,
   hasCourtCaseFilters,
   type CourtCaseFilters,
-  courtCaseTitle,
   type CourtCase,
   type CourtPriorityId,
 } from "@/lib/employee/cases";
@@ -47,6 +45,8 @@ import {
   sortRows,
   type CourtSortSpec,
 } from "@/lib/employee/court-sort";
+
+const DEMO_CASE_HREF = "/employee/cases/c-1001";
 
 type CourtCasesSort = "hearing" | "newest" | "oldest" | "name";
 
@@ -108,9 +108,11 @@ export function CourtCasesScreen() {
   });
   const [pageSize, setPageSize] = React.useState<HearingsPageSize>(PAGE_SIZE);
   const [page, setPage] = React.useState(1);
-  /* The case a reader opened. The court-side case file is not built, so opening a row lands
-     on the shared not-built end state rather than a screen that is not there. */
-  const [open, setOpen] = React.useState<CourtCase | null>(null);
+  /* A case opens its case view (owner, 2026-10-23). The register's rows are demo data
+     with no case record behind them, so each opens the one demo case — the same bargain
+     the cause list's View case makes (`HEARING_DEMO_CASE`). */
+  const router = useRouter();
+  const openCase = () => router.push(DEMO_CASE_HREF);
   const searchRef = React.useRef<HTMLInputElement>(null);
 
   const [sort, setSort] = React.useState<CourtCasesSort>("hearing");
@@ -259,13 +261,13 @@ export function CourtCasesScreen() {
                 sideways. */}
             <div className="min-w-0 overflow-x-auto">
               <div className="hidden md:block">
-                <CourtCasesTable rows={pageRows} today={today} onOpen={setOpen} />
+                <CourtCasesTable rows={pageRows} today={today} onOpen={openCase} />
               </div>
               <div className="md:hidden">
                 <CourtCaseItemList
                   rows={pageRows}
                   today={today}
-                  onOpen={setOpen}
+                  onOpen={openCase}
                 />
               </div>
             </div>
@@ -288,14 +290,6 @@ export function CourtCasesScreen() {
         )}
       </section>
 
-      <NotBuiltDialog
-        item={open ? courtCaseTitle(open) : null}
-        opens="the case file"
-        open={open !== null}
-        onOpenChange={(next) => {
-          if (!next) setOpen(null);
-        }}
-      />
     </div>
   );
 }

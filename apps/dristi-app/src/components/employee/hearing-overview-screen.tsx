@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 
 import { Identifier } from "@/components/chrome/identifier";
-import { OrderCaseHistory } from "@/components/employee/order-case-history";
+import { GroupedCaseHistory } from "@/components/employee/grouped-case-history";
 import { OrderDataFlags } from "@/components/employee/order-data-flags";
 import { useHearingSession } from "@/components/employee/use-hearing-session";
 import { Badge } from "@/components/ui/badge";
@@ -253,8 +253,8 @@ export function HearingOverviewCaption({ hearing }: { hearing: CourtHearing }) {
  * What is in this case, on whichever surface is asking: one panel with three tabs, as
  * the order screen's side panel has (`ORD-15`, `CLS-11`; owner, 2026-10-20) —
  *
- * - **Case history**, the order screen's own tab (`OrderCaseHistory`): the full history,
- *   the last order highlighted, a filter to show only orders. It opens on this tab.
+ * - **Case history**, the order screen's own tab (`GroupedCaseHistory`): the full
+ *   history, the last order highlighted, a filter to show only orders. It opens on this tab.
  * - **Case details** — stage, parties with their advocates, cheque amount, filing date.
  * - **Data flags**, the order screen's own empty state: not yet defined.
  *
@@ -324,7 +324,8 @@ export function HearingOverviewSections({
       ) : null}
       {/* A column, so an order opened in the history can fill it (`OrderCaseHistory`). */}
       <TabsContent value="history" className={`${TAB_BODY_BASE} ${TAB_BODY_HEIGHT[surface]}`}>
-        <OrderCaseHistory hearing={hearing} />
+        {/* Grouped — one line per process and application (owner, 2026-10-23). */}
+        <GroupedCaseHistory hearing={hearing} />
       </TabsContent>
       <TabsContent value="details" className={`${TAB_BODY_BASE} ${TAB_BODY_HEIGHT[surface]}`}>
         <CaseFactsPanel hearing={hearing} extras={extras} surface="panel" />

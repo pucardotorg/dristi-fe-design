@@ -28,7 +28,11 @@ import {
 } from "@/components/ui/combobox";
 import { Label } from "@/components/ui/label";
 import { Timeline, TimelineItem } from "@/components/ui/timeline";
-import { CASE_FILE_TREE, caseFilePdfSrc, findNode } from "@/lib/cases/case-file";
+import {
+  CASE_FILE_TREE,
+  caseFilePdfSrc,
+  findNode,
+} from "@/lib/cases/case-file";
 import {
   caseTimeline,
   formatCaseWeekday,
@@ -45,7 +49,7 @@ import {
 } from "@/lib/employee/order-case-history";
 import { cn } from "@/lib/utils";
 
-type TypeOption = { value: string; label: string };
+export type TypeOption = { value: string; label: string };
 
 /**
  * Order screen E's Case history tab (`ORD-15`): the case's history in the order it
@@ -73,12 +77,12 @@ export function OrderCaseHistory({ hearing }: { hearing: CourtHearing }) {
     const present = new Set(entries.map((entry) => entry.type));
     return [
       ...HISTORY_TYPES.filter((type) => present.has(type.value)),
-      ...(present.has("other") ? [{ value: "other", label: "Other events" }] : []),
+      ...(present.has("other")
+        ? [{ value: "other", label: "Other events" }]
+        : []),
     ];
   }, [entries]);
   const [types, setTypes] = React.useState<string[]>([]);
-  const anchor = useComboboxAnchor();
-  const filterId = React.useId();
   const lastRef = React.useRef<HTMLLIElement>(null);
   const [reading, setReading] = React.useState<OrderHistoryEntry | null>(null);
   const listRef = React.useRef<HTMLDivElement>(null);
@@ -147,7 +151,6 @@ export function OrderCaseHistory({ hearing }: { hearing: CourtHearing }) {
     types.length === 0
       ? entries
       : entries.filter((entry) => types.includes(entry.type));
-  const picked = typeOptions.filter((option) => types.includes(option.value));
 
   return (
     <section
@@ -158,56 +161,11 @@ export function OrderCaseHistory({ hearing }: { hearing: CourtHearing }) {
       <h2 id="order-case-history" className="sr-only">
         Case history
       </h2>
-      {/* The court filters' multi-select (`court-filters.tsx`): nothing picked shows
-          everything; each picked type is a chip. Held at the top of the tab while the
-          history scrolls under it, since the tab opens partway down. */}
-      <div className="sticky -top-4 z-20 -mx-4 -mt-4 flex min-w-0 flex-col gap-2 border-b border-hairline bg-card px-4 pt-4 pb-3">
-
-        <Label id={filterId} className="text-body-compact">
-          Show
-        </Label>
-        <Combobox
-          multiple
-          items={typeOptions}
-          value={picked}
-          itemToStringLabel={(option: TypeOption) => option.label}
-          isItemEqualToValue={(a: TypeOption, b: TypeOption) =>
-            a.value === b.value
-          }
-          onValueChange={(next: TypeOption[]) =>
-            setTypes(next.map((option) => option.value))
-          }
-        >
-          <ComboboxChips ref={anchor}>
-            <ComboboxValue>
-              {(chosen: TypeOption[]) => (
-                <>
-                  {chosen.map((option) => (
-                    <ComboboxChip key={option.value}>{option.label}</ComboboxChip>
-                  ))}
-                  <ComboboxChipsInput
-                    aria-labelledby={filterId}
-                    placeholder={chosen.length ? undefined : "All event types"}
-                  />
-                </>
-              )}
-            </ComboboxValue>
-          </ComboboxChips>
-          {/* The popup portals to <body>; in the case overview's modal dialog
-              (`CLS-11`) the body is frozen with pointer-events:none, so the list
-              re-enables its own. Inert on the order screen, which is no dialog. */}
-          <ComboboxContent anchor={anchor} className="pointer-events-auto">
-            <ComboboxEmpty>No event type matches.</ComboboxEmpty>
-            <ComboboxList>
-              {(option: TypeOption) => (
-                <ComboboxItem key={option.value} value={option}>
-                  {option.label}
-                </ComboboxItem>
-              )}
-            </ComboboxList>
-          </ComboboxContent>
-        </Combobox>
-      </div>
+      <HistoryTypeFilter
+        options={typeOptions}
+        value={types}
+        onValueChange={setTypes}
+      />
 
       {shown.length === 0 ? (
         <p className="text-body-compact text-muted-foreground">
@@ -229,6 +187,83 @@ export function OrderCaseHistory({ hearing }: { hearing: CourtHearing }) {
         </Timeline>
       )}
     </section>
+  );
+}
+
+/**
+ * What the history shows, by event type — the court filters' multi-select
+ * (`court-filters.tsx`): nothing picked shows everything; each picked type is a chip.
+ * Held at the top of the tab while the history scrolls under it, since the tab opens
+ * partway down.
+ */
+export function HistoryTypeFilter({
+  options: typeOptions,
+  value: types,
+  onValueChange: setTypes,
+  pinned = true,
+}: {
+  options: TypeOption[];
+  value: string[];
+  onValueChange: (types: string[]) => void;
+  /** Held at the top of a scrolling tab; off where the page itself scrolls. */
+  pinned?: boolean;
+}) {
+  const anchor = useComboboxAnchor();
+  const filterId = React.useId();
+  const picked = typeOptions.filter((option) => types.includes(option.value));
+  return (
+    <div
+      className={cn(
+        "flex min-w-0 flex-col gap-2",
+        pinned &&
+          "sticky -top-4 z-20 -mx-4 -mt-4 border-b border-hairline bg-card px-4 pt-4 pb-3",
+      )}
+    >
+      <Label id={filterId} className="text-body-compact">
+        Show
+      </Label>
+      <Combobox
+        multiple
+        items={typeOptions}
+        value={picked}
+        itemToStringLabel={(option: TypeOption) => option.label}
+        isItemEqualToValue={(a: TypeOption, b: TypeOption) =>
+          a.value === b.value
+        }
+        onValueChange={(next: TypeOption[]) =>
+          setTypes(next.map((option) => option.value))
+        }
+      >
+        <ComboboxChips ref={anchor}>
+          <ComboboxValue>
+            {(chosen: TypeOption[]) => (
+              <>
+                {chosen.map((option) => (
+                  <ComboboxChip key={option.value}>{option.label}</ComboboxChip>
+                ))}
+                <ComboboxChipsInput
+                  aria-labelledby={filterId}
+                  placeholder={chosen.length ? undefined : "All event types"}
+                />
+              </>
+            )}
+          </ComboboxValue>
+        </ComboboxChips>
+        {/* The popup portals to <body>; in the case overview's modal dialog
+              (`CLS-11`) the body is frozen with pointer-events:none, so the list
+              re-enables its own. Inert on the order screen, which is no dialog. */}
+        <ComboboxContent anchor={anchor} className="pointer-events-auto">
+          <ComboboxEmpty>No event type matches.</ComboboxEmpty>
+          <ComboboxList>
+            {(option: TypeOption) => (
+              <ComboboxItem key={option.value} value={option}>
+                {option.label}
+              </ComboboxItem>
+            )}
+          </ComboboxList>
+        </ComboboxContent>
+      </Combobox>
+    </div>
   );
 }
 
@@ -328,7 +363,7 @@ function HistoryEntry({
  * An order read whole, in the list's place. An order held as text reads as a page on the
  * panel's sunken well; an order that is a paper in the case file opens on its page there.
  */
-function OrderReader({
+export function OrderReader({
   entry,
   headRef,
   onBack,
@@ -352,7 +387,12 @@ function OrderReader({
         }
       }}
     >
-      <Button type="button" variant="ghost" className="-ml-3 w-fit" onClick={onBack}>
+      <Button
+        type="button"
+        variant="ghost"
+        className="-ml-3 w-fit"
+        onClick={onBack}
+      >
         <ArrowLeftIcon data-icon="inline-start" aria-hidden />
         Case history
       </Button>

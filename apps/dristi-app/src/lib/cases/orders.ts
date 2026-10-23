@@ -704,12 +704,53 @@ function defaultOrders(
 const FEATURED_CASE_ID = "c-1001";
 
 export function ordersFile(record: CaseRecord): OrdersFile {
-  if (record.id === FEATURED_CASE_ID) return featuredFile();
-  const people = peopleFrom(record);
+  const file =
+    record.id === FEATURED_CASE_ID
+      ? featuredFile()
+      : (() => {
+          const people = peopleFrom(record);
+          return {
+            court: record.court,
+            people,
+            orders: defaultOrders(record, people),
+          };
+        })();
+  return { ...file, orders: file.orders.map(withIssuedDocument) };
+}
+
+/**
+ * Every published order has its signed copy: there is no gap between the court passing
+ * an order and the order being there to read (owner, 2026-10-23). The demo packs author
+ * a few; the rest open on the page of the case file's compiled orders that is the same
+ * kind of order — a stand-in, not that order's own text.
+ */
+const ORDERS_PDF = "/case-file/09-orders.pdf";
+const ORDER_PAGE_BY_TYPE: Partial<Record<OrderTypeId, number>> = {
+  "order-for-taking-cognizance": 2,
+  bail: 4,
+  "condition-of-bail": 4,
+  "rejection-of-bail": 4,
+  judgement: 10,
+  "execution-of-sentence-and-compensation": 10,
+};
+/** Order of the day — any order with no page of its own kind. */
+const ORDER_OF_THE_DAY_PAGE = 5;
+/** Order issuing summons — for every process order. */
+const PROCESS_ORDER_PAGE = 3;
+
+function withIssuedDocument(order: OrderRecord): OrderRecord {
+  if (order.issuedDocument?.href) return order;
   return {
-    court: record.court,
-    people,
-    orders: defaultOrders(record, people),
+    ...order,
+    issuedDocument: {
+      label: "Issued order",
+      href: ORDERS_PDF,
+      page:
+        ORDER_PAGE_BY_TYPE[order.type] ??
+        (order.classId === "process"
+          ? PROCESS_ORDER_PAGE
+          : ORDER_OF_THE_DAY_PAGE),
+    },
   };
 }
 

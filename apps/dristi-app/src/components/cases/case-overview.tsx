@@ -3,7 +3,10 @@
 import { REGISTER_TABLE_ONLY } from "@/components/cases/register-layout";
 import { cn } from "@/lib/utils";
 import { Fragment, useRef, useState, type ReactNode } from "react";
-import { CaseLink as Link } from "@/components/cases/case-reader";
+import {
+  CaseLink as Link,
+  useCaseReader,
+} from "@/components/cases/case-reader";
 import { toast } from "sonner";
 
 import { CaseHearingsDialog } from "@/components/cases/case-hearings-dialog";
@@ -18,6 +21,7 @@ import {
   useBondTaskVisible,
 } from "@/components/cases/case-bail-flow";
 import { useRemovalConsentTask } from "@/components/cases/removal-consent-task";
+import { GroupedCaseHistory } from "@/components/employee/grouped-case-history";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CardContent } from "@/components/ui/card";
@@ -34,8 +38,11 @@ import {
 } from "@/lib/cases/overview";
 import { caseSectionHref } from "@/lib/cases/sections";
 import { type CaseRecord } from "@/lib/cases/types";
+import { CAUSE_LIST } from "@/lib/employee/hearings";
 
 const BOND_TASK_ID = "bond";
+/** The cause list's listing this demo case stands in for (`HEARING_DEMO_CASE`). */
+const DEMO_LISTING = CAUSE_LIST.find((hearing) => hearing.id === "h-241")!;
 const CONSENT_TASK_ID = "removal-consent";
 
 /**
@@ -43,6 +50,11 @@ const CONSENT_TASK_ID = "removal-consent";
  * last three updates) and what is owed on it (pending tasks). The hearing
  * block never drops out, so the hearings record stays reachable on a case
  * with nothing listed, disposed ones included (OVW-04).
+ *
+ * **Read by the court** (owner, 2026-10-23), it is the court's overview, not the
+ * advocate's: no View All Hearings — its Hearings tab is one press away — Case updates
+ * is the grouped case history from the newest line down to the last order issued, and
+ * Take action holds the court's own work on the case, never the advocate's.
  */
 export function CaseOverview({
   record,
@@ -51,6 +63,7 @@ export function CaseOverview({
   record: CaseRecord;
   now: number;
 }) {
+  const court = useCaseReader() === "court";
   const model = caseOverviewModel(record, now);
   const [archived, setArchived] = useState<string[]>([]);
 
@@ -71,8 +84,12 @@ export function CaseOverview({
 
   const bondVisible = useBondTaskVisible();
   const bondTask =
-    /* A disposed case takes no fresh bail filings, so it owes no bond. */
-    bondVisible && !record.disposal && !archived.includes(BOND_TASK_ID) ? (
+    /* A disposed case takes no fresh bail filings, so it owes no bond. The bond is the
+       advocate's to file; the court does not see it as its own task. */
+    !court &&
+    bondVisible &&
+    !record.disposal &&
+    !archived.includes(BOND_TASK_ID) ? (
       <BondTaskRow
         nextHearingOn={record.nextHearing?.on ?? null}
         now={now}
@@ -83,23 +100,33 @@ export function CaseOverview({
     archive(CONSENT_TASK_ID, "Respond to a removal request")
   );
   const consentTask =
-    removalConsent.visible && !archived.includes(CONSENT_TASK_ID)
+    !court && removalConsent.visible && !archived.includes(CONSENT_TASK_ID)
       ? removalConsent.row
       : null;
-  const tasks = model.tasks.filter((task) => !archived.includes(task.id));
+  const tasks = (court ? courtTasks(record) : model.tasks).filter(
+    (task) => !archived.includes(task.id)
+  );
 
   return (
     <TooltipProvider>
       <div className="grid min-w-0 grid-cols-1 items-start gap-4 lg:grid-cols-2">
         <RestingCard className="gap-4">
           <CardContent>
-            <NextHearingBlock record={record} next={model.nextHearing} />
+            <NextHearingBlock
+              record={record}
+              next={model.nextHearing}
+              court={court}
+            />
           </CardContent>
           {model.updates.length > 0 ? (
             <>
               <Separator className="bg-hairline" />
               <CardContent>
-                <CaseUpdatesBlock record={record} updates={model.updates} />
+                <CaseUpdatesBlock
+                  record={record}
+                  updates={model.updates}
+                  court={court}
+                />
               </CardContent>
             </>
           ) : null}
@@ -108,7 +135,7 @@ export function CaseOverview({
           <CardContent>
             <PendingTasksBlock
               tasks={tasks}
-              caption={model.tasksCaption}
+              caption={court ? null : model.tasksCaption}
               bondTask={bondTask}
               consentTask={consentTask}
               onArchive={archive}
@@ -172,9 +199,11 @@ const WELL_CHIP_STROKE: Record<OverviewHearingStatus["variant"], string> = {
 function NextHearingBlock({
   record,
   next,
+  court,
 }: {
   record: CaseRecord;
   next: OverviewNextHearing;
+  court: boolean;
 }) {
   const [hearingsOpen, setHearingsOpen] = useState(false);
   const hearingsTriggerRef = useRef<HTMLAnchorElement | null>(null);
@@ -189,30 +218,33 @@ function NextHearingBlock({
         id={NEXT_HEARING_HEADING}
         title="Next hearing"
         action={
-          /* Opens the hearings record over the case. Still an anchor with a
+          /* Not for the court: its Hearings tab is one press away. */
+          court ? undefined : (
+            /* Opens the hearings record over the case. Still an anchor with a
              real href, so modified clicks open the page they always have. */
-          <Button variant="link" asChild className={BLOCK_LINK}>
-            <Link
-              ref={hearingsTriggerRef}
-              href={caseSectionHref(record.id, "hearings")}
-              onClick={(event) => {
-                if (
-                  event.defaultPrevented ||
-                  event.metaKey ||
-                  event.ctrlKey ||
-                  event.shiftKey ||
-                  event.altKey ||
-                  event.button !== 0
-                ) {
-                  return;
-                }
-                event.preventDefault();
-                setHearingsOpen(true);
-              }}
-            >
-              View All Hearings
-            </Link>
-          </Button>
+            <Button variant="link" asChild className={BLOCK_LINK}>
+              <Link
+                ref={hearingsTriggerRef}
+                href={caseSectionHref(record.id, "hearings")}
+                onClick={(event) => {
+                  if (
+                    event.defaultPrevented ||
+                    event.metaKey ||
+                    event.ctrlKey ||
+                    event.shiftKey ||
+                    event.altKey ||
+                    event.button !== 0
+                  ) {
+                    return;
+                  }
+                  event.preventDefault();
+                  setHearingsOpen(true);
+                }}
+              >
+                View All Hearings
+              </Link>
+            </Button>
+          )
         }
       />
 
@@ -303,9 +335,11 @@ function NextHearingBlock({
 function CaseUpdatesBlock({
   record,
   updates,
+  court,
 }: {
   record: CaseRecord;
   updates: OverviewUpdate[];
+  court: boolean;
 }) {
   return (
     <section
@@ -324,28 +358,35 @@ function CaseUpdatesBlock({
           </Button>
         }
       />
-      <Timeline aria-label="Case updates, newest first">
-        {updates.map((update) => (
-          <TimelineItem key={update.id} status={update.status}>
-            {/* The whole row is the link, bled out so the hover fill clears
+      {court ? (
+        /* The court reads the grouped history — one line per process and application —
+           down to the last order (owner, 2026-10-23). The demo listing's, the one this
+           case stands in for on the cause list. */
+        <GroupedCaseHistory hearing={DEMO_LISTING} throughLastOrder />
+      ) : (
+        <Timeline aria-label="Case updates, newest first">
+          {updates.map((update) => (
+            <TimelineItem key={update.id} status={update.status}>
+              {/* The whole row is the link, bled out so the hover fill clears
                 the text while the text stays on the column. */}
-            <Link
-              href={update.href}
-              className="-mx-2 -my-1.5 flex min-h-10 min-w-0 flex-col gap-1 rounded-lg px-2 py-1.5 outline-none hover:bg-surface-sunken focus-visible:ring-3 focus-visible:ring-ring/50"
-            >
-              <p className="text-body-compact font-medium text-foreground">
-                {update.title}
-              </p>
-              <span className="flex flex-wrap items-center gap-2">
-                <Badge variant="secondary">{update.category}</Badge>
-                <span className="text-caption font-medium tabular-nums text-muted-foreground">
-                  {update.date}
+              <Link
+                href={update.href}
+                className="-mx-2 -my-1.5 flex min-h-10 min-w-0 flex-col gap-1 rounded-lg px-2 py-1.5 outline-none hover:bg-surface-sunken focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
+                <p className="text-body-compact font-medium text-foreground">
+                  {update.title}
+                </p>
+                <span className="flex flex-wrap items-center gap-2">
+                  <Badge variant="secondary">{update.category}</Badge>
+                  <span className="text-caption font-medium tabular-nums text-muted-foreground">
+                    {update.date}
+                  </span>
                 </span>
-              </span>
-            </Link>
-          </TimelineItem>
-        ))}
-      </Timeline>
+              </Link>
+            </TimelineItem>
+          ))}
+        </Timeline>
+      )}
     </section>
   );
 }
@@ -391,7 +432,9 @@ function PendingTasksBlock({
             {tasks.map((task, index) => (
               <Fragment key={task.id}>
                 {index > 0 || consentTask ? (
-                  <ItemSeparator className={cn("my-0 bg-hairline", REGISTER_TABLE_ONLY)} />
+                  <ItemSeparator
+                    className={cn("my-0 bg-hairline", REGISTER_TABLE_ONLY)}
+                  />
                 ) : null}
                 <PendingTaskRow
                   title={task.title}
@@ -408,7 +451,9 @@ function PendingTasksBlock({
             {bondTask ? (
               <>
                 {tasks.length > 0 || consentTask ? (
-                  <ItemSeparator className={cn("my-0 bg-hairline", REGISTER_TABLE_ONLY)} />
+                  <ItemSeparator
+                    className={cn("my-0 bg-hairline", REGISTER_TABLE_ONLY)}
+                  />
                 ) : null}
                 {bondTask}
               </>
@@ -418,4 +463,26 @@ function PendingTasksBlock({
       )}
     </section>
   );
+}
+
+/**
+ * The court's own pending work on a case, in place of the advocate's (owner,
+ * 2026-10-23). **Demo rows**, the same two on every case: an order awaiting the
+ * magistrate's signature and an application to be onboarded. Not drawn from any store.
+ */
+function courtTasks(record: CaseRecord): OverviewTask[] {
+  return [
+    {
+      id: "court-sign-order",
+      title: "Sign the order of the last hearing",
+      detail: "Drafted after the hearing and sent for your signature.",
+      href: "/employee/pending-orders",
+    },
+    {
+      id: "court-onboard-application",
+      title: "Onboard an application",
+      detail: "Filed by the accused. Onboard it, or list it for a hearing.",
+      href: caseSectionHref(record.id, "applications"),
+    },
+  ];
 }
