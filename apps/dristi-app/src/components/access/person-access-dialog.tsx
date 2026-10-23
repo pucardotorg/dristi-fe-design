@@ -58,7 +58,7 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@/components/ui/input-group";
-import { Field, FieldLabel } from "@/components/ui/field";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
@@ -234,6 +234,8 @@ export function PersonAccessDialog({
   const person = live ?? last ?? (adding ? NEW_PERSON : null);
   /* Add person: who is being added. Registered advocates and clerks only. */
   const [chosen, setChosen] = React.useState<InvitePerson[]>([]);
+  /** Add to office was pressed with something missing: show what. */
+  const [tried, setTried] = React.useState(false);
   const known = directoryOptions(office.map((p) => p.phone)).filter(
     // Anyone on All cases already holds every case (OFC-27).
     (option) => !office.some((p) => p.allCases && p.phone === option.phone),
@@ -323,6 +325,9 @@ export function PersonAccessDialog({
   /** Add person needs someone and at least one case before it can save. */
   const canSave = adding ? chosen.length > 0 && tickedCount > 0 : dirty;
   const chosenNames = chosen.map((p) => p.name ?? p.phone ?? "").join(", ");
+  // Each clears the moment it is put right.
+  const whoError = adding && tried && chosen.length === 0;
+  const casesError = adding && tried && tickedCount === 0;
 
   /**
    * Every edit goes through here. Reaching every case, by whatever route (the
@@ -333,7 +338,10 @@ export function PersonAccessDialog({
   function commit(next: Set<string>, nextFuture: boolean) {
     const everything = shareableCases.every((c) => next.has(c.id));
     const reachedAll = everything && !allTicked;
-    setDraft({ ticked: next, future: everything && (nextFuture || reachedAll) });
+    setDraft({
+      ticked: next,
+      future: everything && (nextFuture || reachedAll),
+    });
   }
 
   function toggleCase(caseId: string, on: boolean) {
@@ -404,6 +412,18 @@ export function PersonAccessDialog({
   }
 
   function save() {
+    // Add person never greys its button out (owner, Oct 23): pressing it with
+    // something missing points at what is missing instead.
+    if (adding && (chosen.length === 0 || tickedCount === 0)) {
+      setTried(true);
+      const target =
+        chosen.length === 0
+          ? document.getElementById("person-access-who-field")
+          : document.getElementById("person-access-cases");
+      target?.scrollIntoView({ block: "center", behavior: "smooth" });
+      if (chosen.length === 0) target?.focus();
+      return;
+    }
     // Every save shows what it will change first (owner, Oct 23). Removals
     // had to be confirmed already (OFC-36); adds now are too.
     setConfirmSave(true);
@@ -533,7 +553,8 @@ export function PersonAccessDialog({
           // the picker, not the whole dialog.
           onEscapeKeyDown={(event) => {
             const target = event.target as HTMLElement | null;
-            if (target?.getAttribute?.("aria-expanded") === "true") event.preventDefault();
+            if (target?.getAttribute?.("aria-expanded") === "true")
+              event.preventDefault();
           }}
           className="@container/dialog flex h-[calc(100dvh---spacing(12))] flex-col gap-0 overflow-hidden p-0 sm:max-w-[calc(100vw---spacing(12))]"
         >
@@ -685,15 +706,22 @@ export function PersonAccessDialog({
                 <h3 id="person-access-who" className="text-body font-semibold">
                   {pick(copy.whoLabel, locale)}
                 </h3>
-                <PeopleInviteField
-                  id="person-access-who-field"
-                  label={pick(inviteFieldCopy.placeholder, locale)}
-                  known={known}
-                  value={chosen}
-                  onValueChange={setChosen}
-                  locale={locale}
-                  registeredOnly
-                />
+                <Field data-invalid={whoError || undefined} className="gap-2">
+                  <PeopleInviteField
+                    id="person-access-who-field"
+                    label={pick(inviteFieldCopy.placeholder, locale)}
+                    known={known}
+                    value={chosen}
+                    onValueChange={setChosen}
+                    locale={locale}
+                    registeredOnly
+                    invalid={whoError}
+                    describedBy={whoError ? "person-access-who-error" : undefined}
+                  />
+                  <FieldError id="person-access-who-error">
+                    {whoError ? pick(copy.needPerson, locale) : null}
+                  </FieldError>
+                </Field>
               </section>
             ) : null}
 
@@ -795,6 +823,12 @@ export function PersonAccessDialog({
                   </div>
                 </div>
               </div>
+
+              {casesError ? (
+                <p role="alert" className="text-body-compact text-destructive">
+                  {pick(copy.needCases, locale)}
+                </p>
+              ) : null}
 
               {/* ------------------------------------------------ toolbar */}
               {/* Search takes the width, Stage sits at its end. The cases list's
@@ -1058,7 +1092,10 @@ export function PersonAccessDialog({
               <Button
                 type="button"
                 className="flex-1 sm:flex-none"
-                disabled={!canSave}
+                // A person's access has nothing to save until something
+                // changes; Add person always answers, pointing at what is
+                // missing.
+                disabled={adding ? false : !canSave}
                 onClick={save}
               >
                 {saveLabel}

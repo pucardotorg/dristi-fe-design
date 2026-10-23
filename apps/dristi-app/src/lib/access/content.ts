@@ -787,6 +787,8 @@ export const personAccessCopy = {
   whoLabel: t("People", "ആളുകൾ"),
   groupYourCases: t("Your cases", "നിങ്ങളുടെ കേസുകൾ"),
   addAction: t("Add to office", "ഓഫീസിൽ ചേർക്കുക"),
+  needPerson: t("Choose at least one person.", "ഒരാളെയെങ്കിലും തിരഞ്ഞെടുക്കുക."),
+  needCases: t("Tick at least one case.", "ഒരു കേസെങ്കിലും ടിക്ക് ചെയ്യുക."),
   addConfirmTitle: t("Add {names} to your office?", "{names}-നെ നിങ്ങളുടെ ഓഫീസിൽ ചേർക്കണോ?"),
   addedToast: t("Access given to {names}.", "{names}-ന് ആക്‌സസ് നൽകി."),
   leaveBodyAdd: t(
