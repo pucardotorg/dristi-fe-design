@@ -474,7 +474,7 @@ export function PersonAccessDialog({
             event.preventDefault();
             closeRef.current?.focus();
           }}
-          className="flex h-[calc(100dvh---spacing(12))] flex-col gap-0 overflow-hidden p-0 sm:max-w-[calc(100vw---spacing(12))]"
+          className="@container/dialog flex h-[calc(100dvh---spacing(12))] flex-col gap-0 overflow-hidden p-0 sm:max-w-[calc(100vw---spacing(12))]"
         >
           {/* ------------------------------------------------------- header */}
           <div className="flex shrink-0 items-start gap-3 border-b border-hairline py-4 pr-3 pl-6 sm:items-center">
@@ -512,10 +512,20 @@ export function PersonAccessDialog({
                 </p>
               </div>
             </div>
-            {/* Remove from office lives in this menu on every size (owner,
-                Oct 23): always one tap away without scrolling, never crowding
-                the name. Rare and confirmed, so it does not need a standing
-                button. */}
+            {/* Remove from office (owner, Oct 23): a red button beside the name
+                when the dialog has the room (laptop, iPad Pro, iPad mini on its
+                side); in a narrow dialog (phone, iPad mini upright) it moves
+                into this More actions menu, so it never crowds the name and
+                never needs a scroll to reach. Decided by the dialog's width. */}
+            <Button
+              type="button"
+              variant="destructive"
+              className="hidden @2xl/dialog:inline-flex"
+              onClick={() => setConfirmRemoveAll(true)}
+            >
+              <UserXIcon aria-hidden />
+              {pick(peopleCopy.removeFromAll, locale)}
+            </Button>
             <DropdownMenu>
               <TooltipProvider>
                 <Tooltip>
@@ -526,7 +536,7 @@ export function PersonAccessDialog({
                         variant="ghost"
                         size="icon-sm"
                         aria-label={pick(copy.moreActions, locale)}
-                        className="pointer-coarse:size-10"
+                        className="pointer-coarse:size-10 @2xl/dialog:hidden"
                       >
                         <EllipsisIcon aria-hidden />
                       </Button>
