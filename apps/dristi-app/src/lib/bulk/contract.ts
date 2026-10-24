@@ -149,7 +149,9 @@ export type ApiJurisdiction = {
   complainantBranchPoliceStation?: string;
   /** `JUR-6a`, when not. */
   drawerBranchPoliceStation?: string;
-  /** `JUR-6b`, `JUR-7`, `JUR-8`. */
+  /** `JUR-6b`. When absent, read from whether any other pending case is sent. */
+  otherPending?: boolean | null;
+  /** `JUR-7`, `JUR-8`. */
   otherPendingCases?: { court: string; caseNumber: string }[];
 };
 
@@ -195,6 +197,10 @@ export type ApiCase = {
   witnesses?: ApiWitness[];
   /** `PRY-1`: additional details for the court, as plain text. */
   otherDetails?: string;
+  /** `PRY-2`, `PRY-3`, `PRY-4`: the full, finished text, plain; each line break a paragraph. Absent keeps the standard text. */
+  interimRelief?: string;
+  finalRelief?: string;
+  affidavit?: string;
   documents?: ApiDocument[];
 };
 

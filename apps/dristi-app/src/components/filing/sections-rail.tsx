@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { TOP_BAR_HEIGHT, useFilingChrome } from "@/components/filing/chrome";
-import { useFieldPolicy } from "@/components/filing/field-policy";
+import { useFieldPolicy, type HostStep } from "@/components/filing/field-policy";
 import { useLeaveBlocked } from "@/components/filing/leave-guard";
 import {
   UploadedCountBadge,
@@ -180,6 +180,33 @@ function StepRow({
   return <li>{row}</li>;
 }
 
+/** A host's own step (`FieldPolicy.hostSteps`), in the same row as a section. */
+function HostStepRow({ step, onNavigate }: { step: HostStep; onNavigate: () => void }) {
+  const Icon = step.icon;
+  if (step.disabled) {
+    return (
+      <li>
+        <Button type="button" variant="ghost" aria-disabled="true" className={cn(ROW, ROW_PLACEHOLDER)}>
+          <Icon aria-hidden />
+          <span className="min-w-0 truncate">{step.title}</span>
+          <span className="sr-only">, not reached yet</span>
+        </Button>
+      </li>
+    );
+  }
+  return (
+    <li>
+      <Button asChild variant="ghost" className={cn(ROW, step.active && ROW_ACTIVE)}>
+        <Link href={step.href} onClick={onNavigate} aria-current={step.active ? "page" : undefined}>
+          <Icon aria-hidden className={step.active ? undefined : "text-muted-foreground"} />
+          <span className="min-w-0 truncate">{step.title}</span>
+          {step.done ? <SectionMark state="done" /> : null}
+        </Link>
+      </Button>
+    </li>
+  );
+}
+
 function DocsRow({ onOpen }: { onOpen: () => void }) {
   return (
     <Button
@@ -208,6 +235,7 @@ function StepList({
   const courtText = useCourtText();
   const active = useActiveStep();
   const groups = useShownGroups();
+  const host = useFieldPolicy()?.hostSteps;
 
   return (
     <nav aria-label="Filing sections" className="flex flex-col gap-4 px-2">
@@ -234,6 +262,17 @@ function StepList({
           </ul>
         </div>
       ))}
+
+      {host?.steps.length ? (
+        <div className="flex w-full flex-col gap-1">
+          <h2 className="px-2 text-caption font-medium text-muted-foreground">{host.group}</h2>
+          <ul className="flex flex-col gap-1">
+            {host.steps.map((s) => (
+              <HostStepRow key={s.id} step={s} onNavigate={onNavigate} />
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </nav>
   );
 }
@@ -333,10 +372,16 @@ export function SectionsRail() {
 export function SectionsTrigger() {
   const { sectionsSheetOpen, setSectionsSheetOpen } = useFilingChrome();
   const active = useActiveStep();
-  const walked = useShownGroups()
-    .flatMap((g) => g.steps)
-    .filter((s) => !s.placeholder);
-  const position = active ? walked.findIndex((s) => s.id === active.id) + 1 : 0;
+  const hostSteps = useFieldPolicy()?.hostSteps?.steps ?? [];
+  const walked = [
+    ...useShownGroups()
+      .flatMap((g) => g.steps)
+      .filter((s) => !s.placeholder)
+      .map((s) => s.id),
+    ...hostSteps.map((s) => s.id),
+  ];
+  const here = active?.id ?? hostSteps.find((s) => s.active)?.id;
+  const position = here ? walked.indexOf(here) + 1 : 0;
 
   // The trigger sticks under the top bar so a thumb never has to scroll back up for it.
   // On the phone form it shrinks to its icon while the page rests and grows back the

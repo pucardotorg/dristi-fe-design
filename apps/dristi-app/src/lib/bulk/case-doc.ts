@@ -96,7 +96,6 @@ const SECTION_WORDS: [GroupId, string[]][] = [
   ["witness", ["witness"]],
   ["otherCase", ["other pending case", "other case"]],
   ["jurisdiction", ["jurisdiction", "jurisdiction and limitation", "limitation"]],
-  ["complainant", ["further complainant", "complainant"]],
   ["case", ["case", "case details", "loan", "loan details"]],
 ];
 
@@ -119,7 +118,6 @@ const PREFIX: Partial<Record<GroupId, RegExp>> = {
   cheque: /^cheque /i,
   notice: /^notice /i,
   witness: /^witness /i,
-  complainant: /^complainant /i,
   otherCase: /^other pending case /i,
 };
 const shortLabel = (c: Column) => c.header.replace(PREFIX[c.group] ?? /^$/, "");
@@ -198,8 +196,7 @@ export function extractCase(fileName: string, text: string | null): CaseExtracti
         nth.address = 1;
         nth.person = 1;
       } else if (g.repeats) {
-        // A further complainant is complainant 2 onwards: the batch's own is the first.
-        nth[h.group] = h.n !== null ? (h.group === "complainant" && h.n < g.first ? g.first : h.n) : (nth[h.group] ?? g.first);
+        nth[h.group] = h.n ?? nth[h.group] ?? g.first;
       }
       return;
     }

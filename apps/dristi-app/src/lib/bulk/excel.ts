@@ -11,17 +11,22 @@
 import type { Workbook, Worksheet } from "exceljs";
 
 import type { ApiBatchRequest, ApiCase, ApiComplainant } from "./contract";
+
+export { firstInstance } from "./excel-spec";
 import {
   CASES_SHEET,
   COLUMNS,
+  firstInstance,
   formatHint,
   GROUPS,
   groupOf,
   instanceKey,
+  matchTemplateHeader,
   parseHeader,
   suffixFor,
-  templateHeader,
+  templateColumns,
   type GroupId,
+  type TemplateColumn,
   type Instance,
   type Group,
   isGuideRow,
@@ -53,38 +58,33 @@ function columnLetter(n: number): string {
 const GUIDE_FILL = { type: "pattern" as const, pattern: "solid" as const, fgColor: { argb: "FFF2F2F2" } };
 
 /**
- * One sheet of the template. Row 1 is the header; row 2 says what each column takes; on
- * the Cases sheet row 3 is a filled example. Upload skips rows 2 and 3 (`isGuideRow`).
+ * The Cases sheet. Row 1 is the header; row 2 says what each column takes; row 3 is a
+ * filled example. Upload skips rows 2 and 3 (`isGuideRow`).
  */
-function addSheet(
-  wb: Workbook,
-  name: string,
-  cols: Column[],
-  listRanges: Record<string, string>,
-  opts: { withRef: boolean; example: boolean }
-) {
-  const ws = wb.addWorksheet(name, { views: [{ state: "frozen", ySplit: 2 }] });
-  const all = opts.withRef ? [COLUMNS[0], ...cols] : cols;
-  ws.columns = all.map((c) => ({ header: templateHeader(c), key: c.key, width: Math.max(18, c.header.length + 4) }));
+function addCasesSheet(wb: Workbook, all: TemplateColumn[], listRanges: Record<string, string>) {
+  const ws = wb.addWorksheet(CASES_SHEET, { views: [{ state: "frozen", ySplit: 2 }] });
+  const id = (t: TemplateColumn) => `${t.column.key}@${instanceKey(t.instance)}`;
+  ws.columns = all.map((t) => ({ header: t.header, key: id(t), width: Math.max(18, t.header.length + 4) }));
   const head = ws.getRow(1);
   head.font = { bold: true };
   head.alignment = { wrapText: true, vertical: "top" };
 
-  const hints = ws.addRow(Object.fromEntries(all.map((c) => [c.key, formatHint(c)])));
+  const hints = ws.addRow(Object.fromEntries(all.map((t) => [id(t), formatHint(t.column)])));
   hints.font = { italic: true, color: { argb: "FF555555" } };
   hints.alignment = { wrapText: true, vertical: "top" };
   hints.eachCell({ includeEmpty: true }, (cell) => (cell.fill = GUIDE_FILL));
 
-  if (opts.example) {
-    const ex = ws.addRow(Object.fromEntries(all.map((c) => [c.key, c.example])));
-    ex.font = { italic: true, color: { argb: "FF555555" } };
-    ex.eachCell({ includeEmpty: true }, (cell) => (cell.fill = GUIDE_FILL));
-  }
-  const firstData = opts.example ? 4 : 3;
+  // The example fills each section's first instance only.
+  const isFirst = (t: TemplateColumn) => t.instance.every((n) => n === 1);
+  const ex = ws.addRow(Object.fromEntries(all.map((t) => [id(t), isFirst(t) ? t.column.example : ""])));
+  ex.font = { italic: true, color: { argb: "FF555555" } };
+  ex.eachCell({ includeEmpty: true }, (cell) => (cell.fill = GUIDE_FILL));
+  const firstData = 4;
 
-  all.forEach((c, i) => {
+  all.forEach((t, i) => {
+    const c = t.column;
     const cell = head.getCell(i + 1);
-    cell.note = `${c.field === "—" ? "" : `${c.field}. `}${formatHint(c)}.`;
+    cell.note = `${c.field}. ${formatHint(c)}.`;
     const letter = columnLetter(i + 1);
     if (c.kind === "list" && c.list) {
       for (let r = firstData; r <= firstData + 999; r += 1) {
@@ -114,7 +114,8 @@ export async function buildTemplate(): Promise<Blob> {
     listRanges[name] = `'${LISTS_SHEET}'!$${letter}$2:$${letter}$${LISTS[name].length + 1}`;
   });
 
-  addSheet(wb, CASES_SHEET, COLUMNS, listRanges, { withRef: false, example: true });
+  const all = templateColumns();
+  addCasesSheet(wb, all, listRanges);
 
   const rules = wb.addWorksheet("Instructions");
   rules.columns = [
@@ -126,19 +127,13 @@ export async function buildTemplate(): Promise<Blob> {
     { header: "Format", key: "format", width: 44 },
   ];
   rules.getRow(1).font = { bold: true };
-  for (const c of COLUMNS) {
+  for (const { column: c, header } of all) {
     const g = groupOf(c.group);
     rules.addRow({
-      header: templateHeader(c),
+      header,
       field: c.field,
       section: g.label,
-      repeats: !g.repeats
-        ? "No"
-        : g.parent
-          ? `Yes: _1_2 is accused 1's second; _2 follows accused 2`
-          : g.first > 1
-            ? "Yes: _2, _3 (complainant 1 is chosen on screen)"
-            : "Yes: _2, _3",
+      repeats: !g.repeats ? "No" : "Yes, numbered: see below",
       required: c.required,
       format:
         c.kind === "date"
@@ -154,12 +149,12 @@ export async function buildTemplate(): Promise<Blob> {
   }
   rules.addRow({});
   rules.addRow({ header: "One row per case on the Cases sheet, from row 4." });
-  rules.addRow({ header: "A second cheque, accused, notice, witness or other pending case: add the same columns with _2 after the name (Cheque number_2), _3 for a third, and so on." });
-  rules.addRow({ header: "An accused's second address or person responsible takes two numbers: Accused address_1_2 is accused 1's second address; Accused address_2 is accused 2's first." });
-  rules.addRow({ header: "Further complainants: Complainant name_2 and the other complainant columns. Complainant 1 is chosen on screen when you upload." });
-  rules.addRow({ header: "Repeats are per case. Add as many _2, _3 columns as the case with the most needs; every other case leaves them blank, and a blank set adds nothing to that case." });
+  rules.addRow({ header: "Every repeated thing carries its number in the header, next to what it counts: Accused 2 name, Cheque 1 amount, Accused 1 address 2 pincode." });
+  rules.addRow({ header: "More than the template has, such as a second cheque or an accused's second address: add the same columns with the next number (Cheque 2 number, Accused 1 address 2 line). Keep the words and the numbers' places exactly as the template writes them." });
+  rules.addRow({ header: "A section counts for a case when any of its cells is filled; its required columns then apply. Leave every cell of a section blank when the case does not have it." });
+  rules.addRow({ header: "Interim relief, final relief and the affidavit hold the full, finished text for the case. Each line break starts a new paragraph." });
   rules.addRow({ header: "Row 2 says what each column takes and row 3 is an example. Both are skipped on upload, so they can stay." });
-  rules.addRow({ header: "Not in the sheet: cause of action, filing date, delay and fees (the system computes them), and documents (added after upload)." });
+  rules.addRow({ header: "Not in the sheet: the complainants and advocates and their documents (set on the upload screen), district, state, bank name and branch (looked up), cause of action, filing date, delay and fees (computed), and each case's documents (added after upload)." });
 
   const lists = wb.addWorksheet(LISTS_SHEET);
   listNames.forEach((name, i) => {
@@ -258,26 +253,32 @@ export const isMapped = (s: ColumnSource | undefined) => s !== null && s !== und
 export const mapKey = (key: string, instance: Instance, group: Group) =>
   instanceKey(instance) === instanceKey(firstInstance(group)) ? key : `${key}@${instanceKey(instance)}`;
 
-export function firstInstance(group: Group): Instance {
-  if (!group.repeats) return [];
-  return group.parent ? [1, 1] : [group.first];
-}
-
-/** Uploaded headers, indexed by normalised column name and repeat. */
+/**
+ * Uploaded headers, indexed by name and repeat. A numbered template header is indexed under
+ * its column (`#chequeNumber`) and its instance; any other header under its normalised name
+ * and its `_n` suffix, as a filer's own layout writes it.
+ */
 type HeaderIndex = Map<string, Map<string, number>>;
+
+function headerKey(header: string): { name: string; instance: Instance; template: boolean } {
+  const t = matchTemplateHeader(header);
+  if (t) return { name: `#${t.column.key}`, instance: t.instance, template: true };
+  const { base, instance } = parseHeader(header);
+  return { name: normHeader(base), instance, template: false };
+}
 
 function indexHeaders(headers: string[]): HeaderIndex {
   const out: HeaderIndex = new Map();
   headers.forEach((h, i) => {
-    const { base, instance } = parseHeader(h);
-    const key = normHeader(base);
-    if (!out.has(key)) out.set(key, new Map());
-    out.get(key)!.set(instanceKey(instance), i);
+    const { name, instance } = headerKey(h);
+    if (!out.has(name)) out.set(name, new Map());
+    const at = out.get(name)!;
+    if (!at.has(instanceKey(instance))) at.set(instanceKey(instance), i);
   });
   return out;
 }
 
-/** The instance a suffix-less or suffixed header stands for, in its group's terms. */
+/** The instance a filer's own suffix-less or suffixed header stands for, in its group's terms. */
 function normaliseInstance(group: Group, raw: Instance): Instance {
   if (!group.repeats) return [];
   if (group.parent) return raw.length === 0 ? [1, 1] : raw.length === 1 ? [raw[0], 1] : raw;
@@ -306,6 +307,11 @@ export function instancesIn(headers: string[], counts: InstanceCounts = {}): Rec
     out[g.id].push(inst);
   };
   for (const h of headers) {
+    const t = matchTemplateHeader(h);
+    if (t) {
+      add(groupOf(t.column.group), t.instance);
+      continue;
+    }
     const { base, instance } = parseHeader(h);
     const col = COLUMNS.find((c) => [c.header, ...c.aliases].some((x) => normHeader(x) === normHeader(base)));
     if (!col) continue;
@@ -339,6 +345,12 @@ export function autoMap(headers: string[]): ColumnMap {
   const map: ColumnMap = {};
   for (const c of COLUMNS) {
     const g = groupOf(c.group);
+    // The numbered template header first, then the field's name or an alias, unsuffixed.
+    const own = index.get(`#${c.key}`)?.get(instanceKey(firstInstance(g)));
+    if (own !== undefined) {
+      map[c.key] = own;
+      continue;
+    }
     const first = suffixFor(g, firstInstance(g)).replace(/^_/, "").replace(/_/g, ".");
     const hit = [c.header, ...c.aliases].map(normHeader).find((h) => index.get(h)?.has(first));
     map[c.key] = hit !== undefined ? index.get(hit)!.get(first)! : null;
@@ -363,35 +375,29 @@ export function sourceFor(
   if (base === null || base === undefined) return null;
   if (typeof base === "object") return base;
   if (instanceKey(instance) === instanceKey(firstInstance(g))) return base;
-  const name = normHeader(parseHeader(headers[base] ?? "").base);
-  const want = suffixFor(g, instance).replace(/^_/, "").replace(/_/g, ".");
-  const i = indexHeaders(headers).get(name)?.get(want);
+  // The same column with this instance's number: numbered as the template numbers it, or
+  // with the `_n` suffix of a filer's own layout.
+  const key = headerKey(headers[base] ?? "");
+  const want = key.template
+    ? instanceKey(instance)
+    : suffixFor(g, instance).replace(/^_/, "").replace(/_/g, ".");
+  const i = indexHeaders(headers).get(key.name)?.get(want);
   return i === undefined ? null : i;
 }
 
 /**
- * Columns earlier templates carried and this one does not: a file that still has them is
- * the template all the same, and they are not read. Accused age went when the single
- * filing stopped asking for it (owner, 2026-08-19).
- */
-const RETIRED_HEADERS = ["Accused age"];
-
-/**
- * True when the file is the template: every header in it is a template header as written,
- * and every required one of the sections each case has is there. Optional columns may be
- * left out, so a template downloaded before a column was added still goes straight in; a
- * header the template does not have means another layout, and its columns are matched.
+ * True when the file is the template: every header in it is a numbered template header
+ * (any instance), and the required columns of each section every case has are there for
+ * its first instance. Optional columns may be left out; a header the template does not
+ * have means another layout, and its columns are matched.
  */
 export function followsTemplate(headers: string[]): boolean {
-  const known = new Set([...COLUMNS.map((c) => c.header), ...RETIRED_HEADERS].map(normHeader));
-  const have = new Set(
-    headers.map((h) => normHeader(parseHeader(h).base)).filter(Boolean),
-  );
-  return (
-    [...have].every((h) => known.has(h)) &&
-    COLUMNS.filter((c) => MUST_MAP.includes(c.key) && groupOf(c.group).always).every((c) =>
-      have.has(normHeader(c.header)),
-    )
+  const named = headers.filter((h) => h.trim());
+  const matched = named.map(matchTemplateHeader);
+  if (!named.length || matched.some((m) => m === null)) return false;
+  const have = new Set(matched.map((m) => `${m!.column.key}@${instanceKey(m!.instance)}`));
+  return COLUMNS.filter((c) => MUST_MAP.includes(c.key) && groupOf(c.group).always).every((c) =>
+    have.has(`${c.key}@${instanceKey(firstInstance(groupOf(c.group)))}`),
   );
 }
 
@@ -495,11 +501,14 @@ function accusedFrom(r: Reader, a: number, inst: Record<GroupId, Instance[]>): A
       designation: r.raw("personDesignation", i),
       mobile: r.raw("personMobile", i),
       email: r.raw("personEmail", i),
-      ...(r.raw("personAddress", i) ? { address: { line1: r.raw("personAddress", i), city: r.raw("personCity", i), pin: r.raw("personPin", i) } } : {}),
+      ...(r.raw("personAddress", i)
+        ? { address: { line1: r.raw("personAddress", i), city: r.raw("personCity", i), pin: r.raw("personPin", i), policeStation: r.raw("personPolice", i) } }
+        : {}),
     }));
   return {
     type,
     name: r.raw("accusedName", at),
+    age: r.raw("accusedAge", at),
     ...(type === "institution" ? { institutionType: r.list("accusedEntity", at) } : {}),
     mobile: r.raw("accusedMobile", at),
     email: r.raw("accusedEmail", at),
@@ -533,41 +542,17 @@ export function buildRequest(
       inst[g].filter((i) => (groupOf(g).always && i[0] === groupOf(g).first) || r.any(g, i));
     const yesNo = (v: string) => (v === "yes" ? true : v === "no" ? false : null);
     const deposited = yesNo(r.list("deposited", one));
+    // The case holds one set of bank details for jurisdiction: the first cheque's.
+    const firstCheque: Instance = [1];
+    const otherPending = yesNo(r.list("otherPending", one));
     return {
       reference: r.raw("reference", one) || `Row ${n + 2}`,
-      complainants: used("complainant").map((i) => {
-        const type = r.list("compType", i) === "institution" ? "institution" : "individual";
-        const address = { line1: r.raw("compAddress", i), city: r.raw("compCity", i), pin: r.raw("compPin", i) };
-        return {
-          type,
-          name: r.raw("compName", i),
-          phone: r.raw("compMobile", i),
-          email: r.raw("compEmail", i),
-          address,
-          ...(type === "institution"
-            ? {
-                institutionType: r.list("compEntity", i),
-                cinPan: r.raw("compCinPan", i),
-                representative: {
-                  name: r.raw("compRepName", i),
-                  designation: r.raw("compRepDesignation", i),
-                  age: r.raw("compRepAge", i),
-                  mobile: r.raw("compRepMobile", i),
-                  email: r.raw("compRepEmail", i),
-                  address,
-                },
-              }
-            : { age: r.raw("compAge", i), gender: r.list("compGender", i) }),
-        };
-      }),
       accused: used("accused").map(([a]) => accusedFrom(r, a, inst)),
       cheques: used("cheque").map((i) => ({
         number: r.raw("chequeNumber", i),
         date: sheetDate(r.raw("chequeDate", i)),
         amount: r.raw("chequeAmount", i),
         ifsc: r.raw("chequeIfsc", i),
-        bankName: r.raw("chequeBank", i),
-        bankBranch: r.raw("chequeBranch", i),
         accountNumber: r.raw("chequeAccount", i),
         presentedOn: sheetDate(r.raw("presentDate", i)),
         returnedOn: sheetDate(r.raw("returnDate", i)),
@@ -595,11 +580,10 @@ export function buildRequest(
       }),
       jurisdiction: {
         depositedInOwnAccount: deposited,
-        complainantBranchIfsc: r.raw("payeeIfsc", one),
-        complainantBankName: r.raw("payeeBank", one),
-        complainantBankBranch: r.raw("payeeBranch", one),
-        complainantBranchPoliceStation: r.raw("payeePolice", one),
-        drawerBranchPoliceStation: r.raw("drawerPolice", one),
+        complainantBranchIfsc: r.raw("payeeIfsc", firstCheque),
+        complainantBranchPoliceStation: r.raw("payeePolice", firstCheque),
+        drawerBranchPoliceStation: r.raw("drawerPolice", firstCheque),
+        otherPending,
         otherPendingCases: used("otherCase").map((i) => ({ court: r.raw("otherCourt", i), caseNumber: r.raw("otherNumber", i) })),
       },
       witnesses: used("witness").map((i) => ({
@@ -609,10 +593,13 @@ export function buildRequest(
         prove: r.raw("witnessProve", i),
         mobile: r.raw("witnessMobile", i),
         email: r.raw("witnessEmail", i),
-        address: { line1: r.raw("witnessAddress", i), city: r.raw("witnessCity", i), pin: r.raw("witnessPin", i), policeStation: r.raw("witnessPolice", i) },
+        address: { line1: r.raw("witnessAddress", i), city: r.raw("witnessCity", i), pin: r.raw("witnessPin", i) },
       })),
       condonationReason: r.raw("condonation", one),
       otherDetails: r.raw("otherDetails", one),
+      interimRelief: r.raw("interimRelief", one),
+      finalRelief: r.raw("finalRelief", one),
+      affidavit: r.raw("affidavit", one),
     };
   });
 

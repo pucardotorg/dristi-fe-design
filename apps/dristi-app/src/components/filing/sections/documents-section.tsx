@@ -30,6 +30,7 @@ import { forgetFile, formatBytes, useFilePreview } from "@/lib/filing/files";
 import { documentsProgress, intakeSlots } from "@/lib/filing/selectors";
 import { readability } from "@/lib/filing/readability";
 import { useFiling } from "@/lib/filing/store";
+import { useFieldPolicy } from "@/components/filing/field-policy";
 import type {
   CaseDocument,
   DocumentGroup,
@@ -133,7 +134,8 @@ function FilePreviewWell({ file }: { file: StoredFileRef | null }) {
 export function DocumentsSection() {
   const { draft, update, hrefFor } = useFiling();
   const router = useRouter();
-  const groups = draft.documents;
+  const showGroup = useFieldPolicy()?.documentGroups;
+  const groups = showGroup ? draft.documents.filter((g) => showGroup(g.id)) : draft.documents;
   const { remaining } = documentsProgress(groups);
   const { pick, input } = useFilePicker();
 

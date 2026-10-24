@@ -10,8 +10,8 @@
  *
  *   · Sign and Pay fees are left out: the batch signs and pays once. The intake upload is
  *     left out too: the batch's documents step did it.
- *   · The batch's complainant and advocates are set once for every case, so they read as
- *     values here and are changed on the batch (a batch-wide fix applies to every case).
+ *   · The batch's complainants and advocates were copied onto every case when it was
+ *     created; here they are the case's own, changed in this case alone (PRD `BLK-06`).
  *   · The batch's checks sit on the fields they are about and on the rail's rows, and the
  *     bar above the section lists what is open in it, with Skip where a check allows it.
  *   · The bar names the case in the batch and moves to the previous, next, or next case
@@ -217,10 +217,6 @@ export function BulkCaseFlow({
       },
       lockedAt: (instance) => {
         if (closed) return instance === null ? closed : null;
-        if (step === "advocate" && instance === null)
-          return "The advocates are set once for the whole batch, so they cannot be changed in one case.";
-        if (step === "complainant" && instance === 0)
-          return "This complainant is set once for the whole batch, so it cannot be changed in one case. A further complainant on this case can be.";
         return null;
       },
       countFor: (s) => flags.filter((f) => f.section === s).length,

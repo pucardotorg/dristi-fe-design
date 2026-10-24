@@ -334,8 +334,7 @@ export async function applyFix(
 /**
  * Save a case as the single filing's sections left it: they write the whole draft, as
  * they do in the browser. What the batch owns is kept from the stored copy, whatever the
- * screen sent: its complainant (the first) and its advocates are set once for every case,
- * and signing, payment and filing happen on the batch. Returns why not, or `null`.
+ * screen sent: signing, payment and filing happen on the batch. Returns why not, or `null`.
  */
 export function replaceDraft(bc: BatchCase, incoming: FilingDraft): string | null {
   const stored = bc.draft;
@@ -343,13 +342,9 @@ export function replaceDraft(bc: BatchCase, incoming: FilingDraft): string | nul
   if (bc.signedWith || stored.status === "filed")
     return "A signed or filed case cannot be changed here.";
   if (!incoming || incoming.id !== stored.id) return "This is not that case's draft.";
-  const own = stored.complainants[0];
+  // The case's complainants and advocates are its own once the batch exists (PRD `BLK-06`).
   const next: FilingDraft = {
     ...incoming,
-    complainants: own
-      ? [own, ...incoming.complainants.filter((c) => c.id !== own.id)]
-      : incoming.complainants,
-    advocates: stored.advocates,
     sign: stored.sign,
     status: stored.status,
     filedAt: stored.filedAt,

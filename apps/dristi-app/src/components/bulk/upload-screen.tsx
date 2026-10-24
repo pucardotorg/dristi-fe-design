@@ -1,11 +1,8 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  ArrowLeftIcon,
-  ArrowRightIcon,
   CheckCircle2Icon,
   CircleAlertIcon,
   DownloadIcon,
@@ -16,7 +13,8 @@ import {
 
 import { aiModeFrom } from "@/lib/bulk/ai-review";
 import type { CaseExtraction } from "@/lib/bulk/case-doc";
-import { CLIENTS, OFFICE_ADVOCATES } from "@/lib/bulk/clients";
+import { apiComplainantOf, partiesOf } from "@/lib/bulk/parties";
+import { useFiling } from "@/lib/filing/store";
 import {
   autoMap,
   buildRequest,
@@ -43,14 +41,7 @@ import {
   tableRowClass,
 } from "@/components/chrome/table-plate";
 import { PANEL_CLASS } from "@/components/filing/form-card";
-import {
-  PAGE_GROUND,
-  PAGE_GUTTER,
-  PAGE_SUBTITLE,
-  PAGE_TITLE,
-} from "@/components/shell/page-frame";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -78,6 +69,8 @@ import {
 
 import { downloadTemplate } from "./batches-screen";
 import { FilingFooter } from "@/components/filing/filing-footer";
+import { FilingPageHeader } from "@/components/filing/filing-page-header";
+import { FilingMain } from "@/components/filing/filing-shell";
 
 import { ColumnMapping } from "./column-mapping";
 import { useGujarat } from "./court-guard";
@@ -91,8 +84,8 @@ import {
 import { BatchParties, type Adr } from "./batch-parties";
 import { FileDrop } from "./file-drop";
 import { bulkFetch } from "./api";
+import { setupHref, uploadHref, useReportUploadState, type UploadStep } from "./setup-flow";
 
-type Step = "setup" | "map" | "values" | "review";
 
 /** The demo spreadsheets the upload offers, from `public/samples/` (`scripts/bulk-demo-files.mts`). */
 const SAMPLES = [
@@ -197,19 +190,19 @@ const LIST_TITLE: Record<ListName, string> = {
 };
 
 /**
- * Excel upload: choose the complainant and advocate once, upload the sheet, map its
- * columns only if it is not the template, map list values only if some are not in the
- * lists, then create the batch. Every case lands as a draft; documents come after.
+ * The upload's own steps, after the Complainant, Advocate and Documents sections it shares
+ * the filing's frame with (`setup-flow.tsx`): the file, its columns matched only if it is
+ * not the template, list values matched only if some are not in the lists, then review and
+ * create the batch. Every case lands as a draft; documents come after. Which step is on
+ * screen is in the address (`?step=`), so the sections rail can link to each.
  */
 export function UploadScreen() {
   const ready = useGujarat();
   const router = useRouter();
-  const [step, setStep] = React.useState<Step>("setup");
-  const [clientId, setClientId] = React.useState(CLIENTS[0].id);
-  // You first, then whoever else is ticked, in the People page's order.
-  const [bars, setBars] = React.useState<string[]>([
-    OFFICE_ADVOCATES[0].barNumber,
-  ]);
+  // The batch's complainants and advocates, set on the setup's sections before the file
+  // (`setup-flow.tsx`): this screen is one of the setup's own.
+  const { draft: setup } = useFiling();
+  const setupId = setup.id;
   const [adr, setAdr] = React.useState<Adr>("no");
   // The additional-details format every case is generated from: what the filer chose
   // ("" for none), or until they choose, the default format if one is set.
@@ -235,6 +228,12 @@ export function UploadScreen() {
     ? `${files.length} case document${files.length === 1 ? "" : "s"}`
     : (file?.name ?? "");
   const [book, setBook] = React.useState<Workbookish | null>(null);
+  // Which step is on screen is in the address, so the sections rail can link to each; one
+  // that needs a file read falls back to the file until there is one.
+  const search = useSearchParams();
+  const asked = search.get("step") as UploadStep | null;
+  const step: UploadStep = book && asked && ["map", "values", "review"].includes(asked) ? asked : "file";
+  const setStep = (s: UploadStep) => router.push(uploadHref(setupId, s, search.get("ai")));
   const [map, setMap] = React.useState<ColumnMap>({});
   const [counts, setCounts] = React.useState<InstanceCounts>({});
   const [values, setValues] = React.useState<ValueMap>({});
@@ -280,6 +279,14 @@ export function UploadScreen() {
   const valuesDone = unknownLists.every((l) =>
     unknown[l]!.every((v) => values[l]?.[v]),
   );
+
+  // The sections rail lists matching only where this file needs it.
+  const report = useReportUploadState();
+  const matchColumns = !!book && !(template || docs);
+  const matchValues = unknownLists.length > 0;
+  React.useEffect(() => {
+    report({ read: !!book, matchColumns, matchValues, documents: docs });
+  }, [report, book, matchColumns, matchValues, docs]);
 
   const read = async () => {
     if (!file) return;
@@ -393,16 +400,15 @@ export function UploadScreen() {
     setBusy(true);
     setError(null);
     try {
-      const client = CLIENTS.find((c) => c.id === clientId)!;
+      if (!setup) throw new Error("Set the complainants and advocates first.");
+      const parties = partiesOf(setup);
       const request = buildRequest(
         book,
         map,
         values,
         {
-          complainant: client.complainant,
-          barNumbers: OFFICE_ADVOCATES.map((a) => a.barNumber).filter((b) =>
-            bars.includes(b),
-          ),
+          complainant: apiComplainantOf(parties),
+          barNumbers: parties.advocates.map((a) => a.barNumber),
           adr,
           fileName,
           detailsFormat: (() => {
@@ -419,8 +425,8 @@ export function UploadScreen() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify(
           docs
-            ? { request, fileName, from: "documents", originals }
-            : { request, fileName },
+            ? { request, fileName, from: "documents", originals, parties }
+            : { request, fileName, parties },
         ),
       });
       const json = await res.json();
@@ -433,319 +439,232 @@ export function UploadScreen() {
     }
   };
 
-  const steps: { id: Step; label: string; shown: boolean }[] = [
-    { id: "setup", label: "File and parties", shown: true },
-    {
-      id: "map",
-      label: "Match columns",
-      shown: !(template || docs) || step === "map",
-    },
-    { id: "values", label: "Match values", shown: unknownLists.length > 0 },
-    { id: "review", label: "Review", shown: true },
-  ];
-
   if (!ready) return null;
 
-  return (
-    // The footer sits outside the page's padding, as in the single filing: flush with the
-    // screen's edges and its foot when it sticks.
-    <div className={cn("flex w-full flex-1 flex-col", PAGE_GROUND)}>
-      <div className={cn("flex w-full flex-1 flex-col gap-6", PAGE_GUTTER)}>
-        <header className="flex flex-col gap-3">
-          <Link
-            href="/filings/bulk"
-            className="flex w-fit items-center gap-1 text-body-compact text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeftIcon className="size-4" aria-hidden />
-            Bulk filing
-          </Link>
-          <div className="flex flex-col gap-1">
-            <h1 className={cn(PAGE_TITLE, "text-foreground")}>
-              {ai === "on" ? "Upload cases" : "Upload Excel"}
-            </h1>
-            <p className={PAGE_SUBTITLE}>
-              Each upload becomes its own batch. Cases arrive as drafts;
-              documents are added after.
-            </p>
-          </div>
-          <ol className="flex flex-wrap gap-2" aria-label="Steps">
-            {steps
-              .filter((s) => s.shown)
-              .map((s, i) => (
-                <li key={s.id}>
-                  <Badge
-                    variant={s.id === step ? "default" : "outline"}
-                    aria-current={s.id === step ? "step" : undefined}
-                  >
-                    {i + 1}. {s.label}
-                  </Badge>
-                </li>
-              ))}
-          </ol>
-        </header>
+  const errorNotice = error ? (
+    <Alert variant="destructive">
+      <AlertDescription>{error}</AlertDescription>
+    </Alert>
+  ) : null;
+  const backFromReview: UploadStep = unknownLists.length ? "values" : template || docs ? "file" : "map";
+  const PREVIEW = ["reference", "accusedName", "chequeNumber", "chequeAmount", "returnReason", "dispatchDate"];
 
-        {error ? (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        ) : null}
-
-        {step === "setup" && reading ? (
-          <ReadingCard rows={reading} />
-        ) : step === "setup" ? (
-          <Card className={cn(PANEL_CLASS, "max-w-3xl")}>
-            <CardHeader>
-              <CardTitle className="text-body font-semibold">
-                The same for every case in the file
-              </CardTitle>
-              <CardDescription>
-                The sheet carries only what changes from case to case: the
-                accused, the cheque and the notice.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-6">
-              <BatchParties
-                clientId={clientId}
-                setClientId={setClientId}
-                bars={bars}
-                setBars={setBars}
-                adr={adr}
-                setAdr={setAdr}
-                formatId={formatId}
-                setFormatId={setFormatId}
-              />
-              <Field className="gap-1.5">
-                <FieldLabel htmlFor="sheet">
-                  {ai === "on"
-                    ? "Excel file, or one document per case"
-                    : "Excel file"}
-                </FieldLabel>
-                <FileDrop
-                  id="sheet"
-                  accept={
-                    ai === "on" ? ".xlsx,.csv,.docx,.pdf,.txt" : ".xlsx,.csv"
-                  }
-                  multiple={ai === "on"}
-                  files={files}
-                  onFiles={setFiles}
-                  prompt={
-                    ai === "on"
-                      ? "Drag your Excel file or case documents here"
-                      : "Drag your Excel file here"
-                  }
-                  hint={
-                    ai === "on"
-                      ? ".xlsx or .csv, or Word and PDF files"
-                      : ".xlsx or .csv"
-                  }
-                />
-                <span className="text-caption text-muted-foreground">
-                  The template&apos;s columns go straight in. Any other layout
-                  is matched on the next step.
-                </span>
-              </Field>
-              {/* Demo: the two sample spreadsheets, one click away instead of on disk. */}
-              <div className="flex flex-col gap-2">
-                <span className="text-body-compact text-muted-foreground">
-                  Or try a sample file
-                </span>
-                <div className="flex flex-wrap gap-2">
-                  {SAMPLES.map((x) => (
-                    <Button
-                      key={x.key}
-                      variant="outline"
-                      disabled={busy || sampling !== null}
-                      onClick={() => void chooseSample(x.key)}
-                    >
-                      {sampling === x.key ? (
-                        <Spinner data-icon="inline-start" />
-                      ) : (
-                        <FileSpreadsheetIcon data-icon="inline-start" aria-hidden />
-                      )}
-                      {x.label}
-                    </Button>
-                  ))}
+  if (step === "file")
+    return (
+      <>
+        <FilingMain>
+          <FilingPageHeader
+            title={ai === "on" ? "Excel file or case documents" : "Excel file"}
+            description="One row per case. Each upload becomes its own batch; the cases arrive as drafts and their documents are added after."
+          />
+          {errorNotice}
+          {reading ? (
+            <ReadingCard rows={reading} />
+          ) : (
+            <Card className={PANEL_CLASS}>
+              <CardContent className="flex flex-col gap-6">
+                <Field className="gap-1.5">
+                  <FieldLabel htmlFor="sheet">
+                    {ai === "on" ? "Excel file, or one document per case" : "Excel file"}
+                  </FieldLabel>
+                  <FileDrop
+                    id="sheet"
+                    accept={ai === "on" ? ".xlsx,.csv,.docx,.pdf,.txt" : ".xlsx,.csv"}
+                    multiple={ai === "on"}
+                    files={files}
+                    onFiles={setFiles}
+                    prompt={ai === "on" ? "Drag your Excel file or case documents here" : "Drag your Excel file here"}
+                    hint={ai === "on" ? ".xlsx or .csv, or Word and PDF files" : ".xlsx or .csv"}
+                  />
+                  <span className="text-caption text-muted-foreground">
+                    The template&apos;s columns go straight in. Any other layout is matched on the
+                    next step.
+                  </span>
+                </Field>
+                {/* Demo: the two sample spreadsheets, one click away instead of on disk. */}
+                <div className="flex flex-col gap-2">
+                  <span className="text-body-compact text-muted-foreground">Or try a sample file</span>
+                  <div className="flex flex-wrap gap-2">
+                    {SAMPLES.map((x) => (
+                      <Button
+                        key={x.key}
+                        variant="outline"
+                        disabled={busy || sampling !== null}
+                        onClick={() => void chooseSample(x.key)}
+                      >
+                        {sampling === x.key ? (
+                          <Spinner data-icon="inline-start" />
+                        ) : (
+                          <FileSpreadsheetIcon data-icon="inline-start" aria-hidden />
+                        )}
+                        {x.label}
+                      </Button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <Button
-                  variant="outline"
-                  onClick={() => void downloadTemplate()}
-                >
+                <Button variant="outline" className="w-fit" onClick={() => void downloadTemplate()}>
                   <DownloadIcon data-icon="inline-start" aria-hidden />
                   Download template
                 </Button>
-                <Button
-                  className="sm:ml-auto"
-                  disabled={!file || busy}
-                  onClick={() => void read()}
-                >
-                  {busy ? <Spinner data-icon="inline-start" /> : null}
-                  Next
-                  {busy ? null : (
-                    <ArrowRightIcon data-icon="inline-end" aria-hidden />
-                  )}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ) : null}
-
-        {step === "map" && book ? (
-          // No outer card: the sections are cards on the page, as in the single filing.
-          <div className="flex flex-col gap-6">
-            <div className="flex flex-col gap-1">
-              <h2 className="text-title-s font-semibold">Match your columns</h2>
-              <p className="text-body-compact text-muted-foreground">
-                This file is not laid out like the template. Pick the column
-                that holds each field. Fields already matched were found by
-                name.
-              </p>
-            </div>
-            <div className="flex flex-col gap-6">
-              <ColumnMapping
-                headers={headers}
-                rows={book.cases.rows}
-                map={map}
-                onChange={setMap}
-                counts={counts}
-                onCounts={setCounts}
-              />
-            </div>
-          </div>
-        ) : null}
-
-        {step === "values" && book ? (
-          <Card className={cn(PANEL_CLASS, "max-w-3xl")}>
+              </CardContent>
+            </Card>
+          )}
+          <Card className={PANEL_CLASS}>
             <CardHeader>
-              <CardTitle className="text-body font-semibold">
-                Match your values
-              </CardTitle>
+              <CardTitle className="text-body font-semibold">The same for every case in the file</CardTitle>
               <CardDescription>
-                These values in your sheet are not in the ON Courts lists.
-                Choose what each one means; every row using it follows.
+                Like the complainants and advocates, these are set once here.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-6">
-              {unknownLists.map((l) => (
-                <section key={l} className="flex flex-col gap-3">
-                  <h3 className="text-body-compact font-semibold">
-                    {LIST_TITLE[l]}
-                  </h3>
-                  {unknown[l]!.map((raw) => (
-                    <Field
-                      key={raw}
-                      orientation="horizontal"
-                      className="flex-col gap-1.5 sm:flex-row sm:items-center"
-                    >
-                      <FieldLabel htmlFor={`v-${l}-${raw}`} className="sm:w-56">
-                        &ldquo;{raw}&rdquo;
-                      </FieldLabel>
-                      <NativeSelect
-                        id={`v-${l}-${raw}`}
-                        value={values[l]?.[raw] ?? ""}
-                        onChange={(e) =>
-                          setValues((v) => ({
-                            ...v,
-                            [l]: { ...(v[l] ?? {}), [raw]: e.target.value },
-                          }))
-                        }
-                      >
-                        <NativeSelectOption value="">Choose</NativeSelectOption>
-                        {LISTS[l].map((o) => (
-                          <NativeSelectOption key={o.value} value={o.value}>
-                            {o.label}
-                          </NativeSelectOption>
-                        ))}
-                      </NativeSelect>
-                    </Field>
-                  ))}
-                </section>
-              ))}
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <Button
-                  variant="outline"
-                  className="sm:ml-auto"
-                  onClick={() => setStep(template ? "setup" : "map")}
-                >
-                  Back
-                </Button>
-                <Button
-                  disabled={!valuesDone}
-                  onClick={() => setStep("review")}
-                >
-                  Continue
-                </Button>
-              </div>
+              <BatchParties adr={adr} setAdr={setAdr} formatId={formatId} setFormatId={setFormatId} />
             </CardContent>
           </Card>
-        ) : null}
+        </FilingMain>
+        <FilingFooter
+          showSaveState={false}
+          backHref={setupHref(setupId, "documents")}
+          onContinue={() => void read()}
+          continueDisabled={!file || busy}
+          continueLabel={busy ? "Reading…" : "Continue"}
+        />
+      </>
+    );
 
-        {step === "review" && book ? (
-          <Card className={PANEL_CLASS}>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-body font-semibold">
-                <CheckCircle2Icon
-                  className="size-5 text-success-ink"
-                  aria-hidden
-                />
-                <span className="tabular-nums">{book.cases.rows.length}</span>{" "}
-                cases read from {fileName}
-              </CardTitle>
-              <CardDescription>
-                {docs
-                  ? "Read from the documents."
-                  : template
-                    ? "The file follows the template."
-                    : "Columns matched."}
+  if (step === "map" && book)
+    return (
+      <>
+        <FilingMain width="wide">
+          <FilingPageHeader
+            title="Match columns"
+            description="This file is not laid out like the template. Pick the column that holds each field. Fields already matched were found by name."
+          />
+          {errorNotice}
+          <ColumnMapping
+            headers={headers}
+            rows={book.cases.rows}
+            map={map}
+            onChange={setMap}
+            counts={counts}
+            onCounts={setCounts}
+          />
+        </FilingMain>
+        {/* Continue always goes on: a field left on Skip is filled manually later, on
+            Case details, where each case's gaps are held with their fix in place. */}
+        <FilingFooter
+          showSaveState={false}
+          onBack={() => setStep("file")}
+          onContinue={() => setStep(unknownLists.length ? "values" : "review")}
+        />
+      </>
+    );
+
+  if (step === "values" && book)
+    return (
+      <>
+        <FilingMain>
+          <FilingPageHeader
+            title="Match values"
+            description="These values in your sheet are not in the court's lists. Choose what each one means; every row using it follows."
+          />
+          {errorNotice}
+          {unknownLists.map((l) => (
+            <Card key={l} className={PANEL_CLASS}>
+              <CardHeader>
+                <CardTitle className="text-body font-semibold">{LIST_TITLE[l]}</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-4">
+                {unknown[l]!.map((raw) => (
+                  <Field
+                    key={raw}
+                    orientation="horizontal"
+                    className="flex-col gap-1.5 sm:flex-row sm:items-center"
+                  >
+                    <FieldLabel htmlFor={`v-${l}-${raw}`} className="sm:w-56">
+                      &ldquo;{raw}&rdquo;
+                    </FieldLabel>
+                    <NativeSelect
+                      id={`v-${l}-${raw}`}
+                      value={values[l]?.[raw] ?? ""}
+                      onChange={(e) =>
+                        setValues((v) => ({
+                          ...v,
+                          [l]: { ...(v[l] ?? {}), [raw]: e.target.value },
+                        }))
+                      }
+                    >
+                      <NativeSelectOption value="">Choose</NativeSelectOption>
+                      {LISTS[l].map((o) => (
+                        <NativeSelectOption key={o.value} value={o.value}>
+                          {o.label}
+                        </NativeSelectOption>
+                      ))}
+                    </NativeSelect>
+                  </Field>
+                ))}
+              </CardContent>
+            </Card>
+          ))}
+        </FilingMain>
+        <FilingFooter
+          showSaveState={false}
+          onBack={() => setStep(template ? "file" : "map")}
+          onContinue={() => setStep("review")}
+          continueBlocked={!valuesDone}
+          continueHint="Choose what each value means first."
+        />
+      </>
+    );
+
+  if (step === "review" && book)
+    return (
+      <>
+        <FilingMain width="wide">
+          <FilingPageHeader
+            title="Review"
+            description={
+              <>
+                <span className="tabular-nums">{book.cases.rows.length}</span> cases read from {fileName}.{" "}
+                {docs ? "Read from the documents." : template ? "The file follows the template." : "Columns matched."}
                 {book.cases.discarded
                   ? ` ${book.cases.discarded} template guide row${book.cases.discarded === 1 ? "" : "s"} (format or example) discarded.`
                   : ""}
-                {repeatsFound ? ` Repeated sections: ${repeatsFound}.` : ""} The
-                filing checks run once the batch is created.
-              </CardDescription>
+                {repeatsFound ? ` Repeated sections: ${repeatsFound}.` : ""} The filing checks run once
+                the batch is created.
+              </>
+            }
+          />
+          {errorNotice}
+          {missing.length ? (
+            <Alert variant="warning">
+              <CircleAlertIcon aria-hidden />
+              <AlertTitle>
+                {missing.length} required field{missing.length === 1 ? " is" : "s are"} not in your file
+              </AlertTitle>
+              <AlertDescription>
+                Every case will arrive without{" "}
+                {new Intl.ListFormat("en", { type: "conjunction" }).format(
+                  missing.map((c) => c.header.toLowerCase()),
+                )}
+                . Each case stays in draft until you enter {missing.length === 1 ? "it" : "them"} on
+                its Case details.
+              </AlertDescription>
+            </Alert>
+          ) : null}
+          <Card className={PANEL_CLASS}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-body font-semibold">
+                <CheckCircle2Icon className="size-5 text-success-ink" aria-hidden />
+                First cases
+              </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              {missing.length ? (
-                <Alert variant="warning">
-                  <CircleAlertIcon aria-hidden />
-                  <AlertTitle>
-                    {missing.length} required field
-                    {missing.length === 1 ? " is" : "s are"} not in your file
-                  </AlertTitle>
-                  <AlertDescription>
-                    Every case will arrive without{" "}
-                    {new Intl.ListFormat("en", { type: "conjunction" }).format(
-                      missing.map((c) => c.header.toLowerCase()),
-                    )}
-                    .
-                    Each case stays in draft until you enter{" "}
-                    {missing.length === 1 ? "it" : "them"} on its Case details.
-                  </AlertDescription>
-                </Alert>
-              ) : null}
               <div className="overflow-x-auto">
-                <Table
-                  className="border-separate border-spacing-0"
-                  aria-label="First rows"
-                >
+                <Table className="border-separate border-spacing-0" aria-label="First rows">
                   <TableHeader>
                     <TableRow className={TABLE_HEAD_ROW}>
-                      {[
-                        "reference",
-                        "accusedName",
-                        "chequeNumber",
-                        "chequeAmount",
-                        "returnReason",
-                        "dispatchDate",
-                      ].map((k) => (
-                        <TableHead
-                          key={k}
-                          className={cn(
-                            TABLE_HEAD,
-                            k === "reference" && "pl-4",
-                          )}
-                        >
+                      {PREVIEW.map((k) => (
+                        <TableHead key={k} className={cn(TABLE_HEAD, k === "reference" && "pl-4")}>
                           {COLUMNS.find((c) => c.key === k)!.header}
                         </TableHead>
                       ))}
@@ -753,33 +672,15 @@ export function UploadScreen() {
                   </TableHeader>
                   <TableBody className={tableBodyClass({ hover: false })}>
                     {book.cases.rows.slice(0, 8).map((row, n) => (
-                      <TableRow
-                        key={n}
-                        className={tableRowClass({ hover: false })}
-                      >
-                        {[
-                          "reference",
-                          "accusedName",
-                          "chequeNumber",
-                          "chequeAmount",
-                          "returnReason",
-                          "dispatchDate",
-                        ].map((k) => {
+                      <TableRow key={n} className={tableRowClass({ hover: false })}>
+                        {PREVIEW.map((k) => {
                           const i = map[k];
                           return (
                             <TableCell
                               key={k}
-                              className={cn(
-                                TABLE_CELL,
-                                "tabular-nums",
-                                k === "reference" && "pl-4 font-medium",
-                              )}
+                              className={cn(TABLE_CELL, "tabular-nums", k === "reference" && "pl-4 font-medium")}
                             >
-                              {typeof i === "number"
-                                ? row[i] || "—"
-                                : i && typeof i === "object"
-                                  ? i.every
-                                  : "—"}
+                              {typeof i === "number" ? row[i] || "—" : i && typeof i === "object" ? i.every : "—"}
                             </TableCell>
                           );
                         })}
@@ -793,41 +694,18 @@ export function UploadScreen() {
                   and {book.cases.rows.length - 8} more
                 </span>
               ) : null}
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <Button
-                  variant="outline"
-                  className="sm:ml-auto"
-                  onClick={() =>
-                    setStep(
-                      unknownLists.length
-                        ? "values"
-                        : template
-                          ? "setup"
-                          : "map",
-                    )
-                  }
-                >
-                  Back
-                </Button>
-                <Button disabled={busy} onClick={() => void create()}>
-                  {busy ? <Spinner data-icon="inline-start" /> : null}
-                  Create batch of {book.cases.rows.length}
-                </Button>
-              </div>
             </CardContent>
           </Card>
-        ) : null}
-      </div>
-      {/* The filing flow's own footer, kept at the foot of the screen: the list is long.
-          Continue always goes on: a field left on Skip is filled manually later, on
-          Case details, where each case's gaps are held with their fix in place. */}
-      {step === "map" && book ? (
+        </FilingMain>
         <FilingFooter
           showSaveState={false}
-          onBack={() => setStep("setup")}
-          onContinue={() => setStep(unknownLists.length ? "values" : "review")}
+          onBack={() => setStep(backFromReview)}
+          onContinue={() => void create()}
+          continueDisabled={busy}
+          continueLabel={busy ? "Creating batch…" : `Create batch of ${book.cases.rows.length}`}
         />
-      ) : null}
-    </div>
-  );
+      </>
+    );
+
+  return null;
 }

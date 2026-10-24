@@ -28,7 +28,15 @@ import path from "node:path";
 
 import ExcelJS from "exceljs";
 
-import { CASES_SHEET, COLUMNS, formatHint, LISTS, templateHeader, type ListName } from "../src/lib/bulk/excel-spec";
+import {
+  CASES_SHEET,
+  formatHint,
+  LISTS,
+  TEMPLATE_COUNTS,
+  templateColumns,
+  type ListName,
+} from "../src/lib/bulk/excel-spec";
+import { FINAL_RELIEF_TEMPLATE, INTERIM_RELIEF_TEMPLATE } from "../src/lib/filing/options";
 
 const OUT = path.join(import.meta.dirname, "..", "..", "..", "demo-files");
 
@@ -47,7 +55,8 @@ type Demo = {
   name: string;
   type: "individual" | "institution";
   entity?: string;
-  person?: [string, string];
+  /** Name, designation, mobile: the person responsible for an institution (s.141). */
+  person?: [string, string, string];
   age?: string;
   mobile: string;
   email: string;
@@ -82,13 +91,13 @@ const CASES: Demo[] = [
   { ref: "TCL-AHD-BL-1003", coAccused: { name: "Kusum P. Solanki", age: "49", mobile: "9879012313" }, name: "Pravin D. Solanki", type: "individual", age: "52", mobile: "9879012303", email: "pravin.solanki@mail.example", address: "7, Shreeji Society, Maninagar", city: "Ahmedabad", pin: "380008", police: "Maninagar Police Station", cheque: "118034", amount: 365000, ifsc: "BARB0MANINA", account: "21950100004471", reason: "exceeds-arrangement", mode: "speed", served: 21, delivered: true },
   { ref: "TCL-AHD-PL-1004", name: "Mitali R. Shah", type: "individual", age: "29", mobile: "9879012304", email: "mitali.shah@mail.example", address: "C-403, Orchid Greens, Bopal", city: "Ahmedabad", pin: "380058", police: "Bopal Police Station", cheque: "560921", amount: 76400, ifsc: "KKBK0002561", account: "7612004893", reason: "payment-stopped", mode: "rpad", served: 60, delivered: true },
   { ref: "TCL-AHD-TL-1005", name: "Rakesh J. Prajapati", type: "individual", age: "38", mobile: "9879012305", email: "rakesh.prajapati@mail.example", address: "33, Shiv Shakti Nagar, Naroda", city: "Ahmedabad", pin: "382330", police: "Naroda Police Station", cheque: "009812", amount: 58900, ifsc: "PUNB0458600", account: "4586000100023911", reason: "funds-insufficient", mode: "rpad", served: 22, delivered: false },
-  { ref: "TCL-AHD-BL-1006", witnesses: [{ name: "Kunal S. Shah", designation: "Branch Manager, Tata Capital, C G Road", prove: "The loan account statement", mobile: "9879055501" }, { name: "Dipti R. Vora", designation: "Collections Officer", prove: "Presentation and return of the cheque", mobile: "9879055502" }], name: "Sarthak Packaging Pvt Ltd", type: "institution", entity: "private-limited", person: ["Nikhil S. Desai", "Managing Director"], mobile: "9879012306", email: "accounts@sarthakpack.example", address: "Plot 41, GIDC Phase 2, Naroda", city: "Ahmedabad", pin: "382330", police: "Naroda Police Station", cheque: "442190", amount: 512000, ifsc: "UTIB0000080", account: "917020045512230", reason: "funds-insufficient", mode: "speed", served: 17, delivered: true },
+  { ref: "TCL-AHD-BL-1006", witnesses: [{ name: "Kunal S. Shah", designation: "Branch Manager, Tata Capital, C G Road", prove: "The loan account statement", mobile: "9879055501" }, { name: "Dipti R. Vora", designation: "Collections Officer", prove: "Presentation and return of the cheque", mobile: "9879055502" }], name: "Sarthak Packaging Pvt Ltd", type: "institution", entity: "private-limited", person: ["Nikhil S. Desai", "Managing Director", "9879044401"], mobile: "9879012306", email: "accounts@sarthakpack.example", address: "Plot 41, GIDC Phase 2, Naroda", city: "Ahmedabad", pin: "382330", police: "Naroda Police Station", cheque: "442190", amount: 512000, ifsc: "UTIB0000080", account: "917020045512230", reason: "funds-insufficient", mode: "speed", served: 17, delivered: true },
   { ref: "TCL-AHD-PL-1007", name: "Jayesh M. Rana", type: "individual", age: "45", mobile: "9879012307", email: "jayesh.rana@mail.example", address: "9, Sahjanand Park, Paldi", city: "Vadodara", pin: "380006", police: "Paldi Police Station", cheque: "671455", amount: 133250, ifsc: "CNRB0002627", account: "2627101009981", reason: "funds-insufficient", mode: "rpad", served: 19, delivered: true, paid: 25000 },
   { ref: "TCL-AHD-PL-1008", name: "Kinjal A. Trivedi", type: "individual", age: "31", mobile: "9879012308", email: "kinjal.trivedi@mail.example", address: "A-22, Satyam Tenements, Satellite", city: "Ahmedabad", pin: "38001", police: "Satellite Police Station", cheque: "780312", amount: 64800, ifsc: "ICIC0000317", account: "031701509872", reason: "funds-insufficient", mode: "rpad", served: 20, delivered: true },
   { ref: "TCL-AHD-BL-1009", otherCase: { court: "SARAS Court, Ahmedabad", number: "eCC/2210/2026" }, name: "Devang P. Joshi", type: "individual", age: "48", mobile: "9879012309", email: "devang.joshi@mail.example", address: "5, Rajpath Bungalows, Bodakdev", city: "Ahmedabad", pin: "380054", police: "Vastrapur Police Station", cheque: "253660", amount: 214000, ifsc: "HDFC0000521", account: "50100332918", reason: "funds-insufficient", mode: "speed", served: 21, delivered: true, second: { cheque: "253661", amount: 120000 } },
   { ref: "TCL-AHD-PL-1010", name: "Shree Ganesh Traders", type: "individual", age: "36", mobile: "9879012310", email: "ganesh.traders@mail.example", address: "18, Nilkanth Society, Navrangpura", city: "Ahmedabad", pin: "380009", police: "Navrangpura Police Station", cheque: "904417", amount: 87300, ifsc: "SBIN0060421", account: "38291007788", reason: "funds-insufficient", mode: "rpad", served: 18, delivered: true, replied: true },
   { ref: "TCL-AHD-TL-1011", name: "Imran S. Shaikh", type: "individual", age: "39", mobile: "9879012311", email: "imran.shaikh@mail.example", address: "27, Al-Burhan Park, Juhapura", city: "Ahmedabad", pin: "380055", police: "Vejalpur Police Station", cheque: "118904", amount: 69900, ifsc: "BARB0MANINA", account: "21950100009934", reason: "account-closed", mode: "rpad", served: 22, delivered: true },
-  { ref: "TCL-AHD-BL-1012", name: "Anand Fabricators", type: "institution", entity: "partnership", person: ["Mahesh B. Anand", "Partner"], mobile: "9879012312", email: "anand.fab@mail.example", address: "Shed 12, Odhav Industrial Estate, Odhav", city: "Ahmedabad", pin: "382415", police: "Odhav Police Station", cheque: "331876", amount: 289500, ifsc: "KKBK0002561", account: "7612009021", reason: "funds-insufficient", mode: "speed", served: 20, delivered: true },
+  { ref: "TCL-AHD-BL-1012", name: "Anand Fabricators", type: "institution", entity: "partnership", person: ["Mahesh B. Anand", "Partner", "9879044402"], mobile: "9879012312", email: "anand.fab@mail.example", address: "Shed 12, Odhav Industrial Estate, Odhav", city: "Ahmedabad", pin: "382415", police: "Odhav Police Station", cheque: "331876", amount: 289500, ifsc: "KKBK0002561", account: "7612009021", reason: "funds-insufficient", mode: "speed", served: 20, delivered: true },
 ];
 
 /** The dates each case needs, counted back from service. */
@@ -109,108 +118,136 @@ function header(ws: ExcelJS.Worksheet) {
 
 /* ───────────────────────── 1. Follows the template ───────────────────────── */
 
+/** HTML paragraphs as the sheet holds them: plain text, one line per paragraph. */
+const plain = (html: string) =>
+  html.split(/<\/p>/).map((p) => p.replace(/<[^>]+>/g, "").trim()).filter(Boolean).join("\n");
+
+const rupees = (n: number) => n.toLocaleString("en-IN");
+
+/** Why the cheque came back, as the affidavit says it. */
+const AFFIDAVIT_REASON: Record<string, string> = {
+  "funds-insufficient": "insufficiency of funds",
+  "exceeds-arrangement": "the amount exceeding the arrangement",
+  "payment-stopped": "payment having been stopped by the drawer",
+  "account-closed": "the account having been closed",
+};
+
+/** The standard prayers and affidavit (e-filing handover §17), finished for this case. */
+function texts(c: Demo) {
+  const total = c.amount + (c.second?.amount ?? 0);
+  const interim = plain(INTERIM_RELIEF_TEMPLATE).replace(
+    "20% of the cheque amount,",
+    `20% of the cheque amount i.e. Rs. ${rupees(Math.round(total * 0.2))},`,
+  );
+  const final = plain(FINAL_RELIEF_TEMPLATE).replace("@ 6% per annum", "@ 9% per annum");
+  const affidavit = [
+    "I am the authorised representative of the complainant in the above case and am fully acquainted with the facts and circumstances of the case. I am competent and authorised to swear to this affidavit. The accused issued the above cheque in discharge of a legally enforceable debt or liability. It has been dishonoured due to " +
+      `${AFFIDAVIT_REASON[c.reason]}. A demand notice has been issued to the accused, but ${c.type === "institution" ? "it has" : "she/he has"} failed to make the payment due under the cheque. All other requirements under Section 138 of the Negotiable Instruments Act, 1881 have been complied with.`,
+    "I confirm that the demand notice was served on the last known correct address of the accused(s).",
+    "In accordance with Section 225 of the Bharatiya Nagarik Suraksha Sanhita, 2023, I confirm that there is sufficient ground for proceeding against the accused.",
+    "In accordance with Section 223 and other relevant provisions of the Bharatiya Nagarik Suraksha Sanhita, 2023, I confirm that the contents of this complaint are true and correct to the best of my knowledge, belief and information.",
+    "The physical or electronic records of the documents etc. produced by me with this complaint are in my lawful and proper custody and possession. It is therefore humbly prayed that this Hon'ble Court may be pleased to take cognizance of the offence committed by the accused, and issue process to the accused.",
+  ].join("\n");
+  return { interim, final, affidavit };
+}
+
 async function templateFile() {
   const wb = new ExcelJS.Workbook();
   wb.creator = "SARAS 2.0 bulk filing (demo)";
   const ws = wb.addWorksheet(CASES_SHEET);
-  const col = (key: string) => COLUMNS.find((c) => c.key === key)!;
-  const base = COLUMNS.map(templateHeader);
-  // Repeats this file uses: cheque 2, accused 2 with an address, witness 2.
-  const rep = (keys: string[], suffix: string) => keys.map((k) => `${col(k).header}${suffix}`);
-  const CHEQUE = ["chequeNumber", "chequeDate", "chequeAmount", "chequeIfsc", "chequeAccount", "presentDate", "returnDate", "returnReason"];
-  const ACCUSED = ["accusedType", "accusedName", "accusedMobile", "accusedAddress", "accusedCity", "accusedPin"];
-  const WITNESS = ["witnessName", "witnessDesignation", "witnessProve", "witnessMobile", "witnessAddress", "witnessCity", "witnessPin"];
-  const headers = [...base, ...rep(CHEQUE, "_2"), ...rep(ACCUSED, "_2"), ...rep(WITNESS, "_2")];
-  ws.columns = headers.map((h) => ({ header: h, key: h, width: Math.max(18, h.length + 4) }));
+  // The template's columns, plus the extra numbered ones this file needs (PRD BLK-27): a
+  // second cheque (TCL-AHD-BL-1009) and a second witness (TCL-AHD-BL-1006).
+  const all = templateColumns({ ...TEMPLATE_COUNTS, cheque: 2, witness: 2 });
+  const id = (key: string, instance: number[]) => `${key}@${instance.join(".")}`;
+  ws.columns = all.map((t) => ({ header: t.header, key: id(t.column.key, t.instance), width: Math.max(18, t.header.length + 4) }));
   header(ws);
   ws.views = [{ state: "frozen", ySplit: 2 }];
   // The template's own guide rows, left in as a filer would: upload discards them.
   const grey = { type: "pattern" as const, pattern: "solid" as const, fgColor: { argb: "FFF2F2F2" } };
-  const hintOf = (h: string) => {
-    const c = COLUMNS.find((x) => templateHeader(x) === h || h.startsWith(`${x.header}_`));
-    return c ? formatHint(c) : "";
-  };
-  const hints = ws.addRow(Object.fromEntries(headers.map((h) => [h, hintOf(h)])));
-  const ex = ws.addRow(Object.fromEntries(COLUMNS.map((c) => [templateHeader(c), c.example])));
+  const hints = ws.addRow(Object.fromEntries(all.map((t) => [id(t.column.key, t.instance), formatHint(t.column)])));
+  const ex = ws.addRow(
+    Object.fromEntries(all.map((t) => [id(t.column.key, t.instance), t.instance.every((n) => n === 1) ? t.column.example : ""])),
+  );
   for (const r of [hints, ex]) {
     r.font = { italic: true, color: { argb: "FF555555" } };
     r.alignment = { wrapText: true, vertical: "top" };
     r.eachCell({ includeEmpty: true }, (cell) => (cell.fill = grey));
   }
 
-  const H = (key: string, suffix = "") => `${col(key).header}${suffix}`;
   for (const c of CASES) {
     const t = timeline(c);
-    const row: Record<string, string | number> = {
-      [H("reference")]: c.ref,
-      [H("accusedType")]: label("accusedType", c.type),
-      [H("accusedName")]: c.name,
-      [H("accusedEntity")]: c.entity ? label("accusedEntity", c.entity) : "",
-      [H("accusedMobile")]: c.mobile,
-      [H("accusedEmail")]: c.email,
-      [H("accusedAddress")]: c.address,
-      [H("accusedCity")]: c.city,
-      [H("accusedPin")]: c.pin,
-      [H("accusedPolice")]: c.police,
-      [H("personName")]: c.person?.[0] ?? "",
-      [H("personDesignation")]: c.person?.[1] ?? "",
-      [H("chequeNumber")]: c.cheque,
-      [H("chequeDate")]: dmy(t.dated),
-      [H("chequeAmount")]: c.amount,
-      [H("chequeIfsc")]: c.ifsc,
-      [H("chequeAccount")]: c.account,
-      [H("presentDate")]: dmy(t.presented),
-      [H("returnDate")]: dmy(t.returned),
-      [H("returnReason")]: label("returnReason", c.reason),
-      [H("deposited")]: "Yes",
-      [H("payeeIfsc")]: "HDFC0000060",
-      [H("natureDebt")]: label("natureOfDebt", "loan"),
-      [H("dispatchDate")]: dmy(t.dispatched),
-      [H("mode")]: label("modeOfService", c.mode),
-      [H("tracking")]: `RG${c.cheque}11IN`,
-      [H("delivered")]: c.delivered ? "Yes" : "No",
-      [H("deliveryDate")]: c.delivered ? dmy(t.served) : "",
-      [H("noticeReturnDate")]: c.delivered ? "" : dmy(t.served),
-      [H("nonDelivery")]: c.delivered ? "" : label("nonDelivery", "unclaimed"),
-      [H("replied")]: c.replied ? "Yes" : "No",
-      [H("payment")]: label("payment", c.paid ? "part" : "none"),
-      [H("paidAmount")]: c.paid ?? "",
+    const x = texts(c);
+    const row: Record<string, string | number> = {};
+    const set = (key: string, instance: number[], value: string | number) => (row[id(key, instance)] = value);
+    const accused = (n: number, a: { type: string; name: string; age?: string; entity?: string; mobile: string; email?: string }) => {
+      set("accusedType", [n], label("accusedType", a.type));
+      set("accusedName", [n], a.name);
+      set("accusedAge", [n], a.age ?? "");
+      set("accusedEntity", [n], a.entity ? label("accusedEntity", a.entity) : "");
+      set("accusedMobile", [n], a.mobile);
+      set("accusedEmail", [n], a.email ?? "");
+      set("accusedAddress", [n, 1], c.address);
+      set("accusedCity", [n, 1], c.city);
+      set("accusedPin", [n, 1], c.pin);
+      set("accusedPolice", [n, 1], c.police);
+      set("accusedJurisdiction", [n], "Yes");
     };
-    if (c.second) {
-      Object.assign(row, {
-        [H("chequeNumber", "_2")]: c.second.cheque,
-        [H("chequeDate", "_2")]: dmy(t.dated),
-        [H("chequeAmount", "_2")]: c.second.amount,
-        [H("chequeIfsc", "_2")]: c.ifsc,
-        [H("chequeAccount", "_2")]: c.account,
-        [H("presentDate", "_2")]: dmy(t.presented),
-        [H("returnDate", "_2")]: dmy(t.returned),
-        [H("returnReason", "_2")]: label("returnReason", c.reason),
-      });
+    set("reference", [], c.ref);
+    accused(1, c);
+    if (c.person) {
+      set("personName", [1, 1], c.person[0]);
+      set("personDesignation", [1, 1], c.person[1]);
+      set("personMobile", [1, 1], c.person[2]);
+      set("personAddress", [1, 1], c.address);
+      set("personCity", [1, 1], c.city);
+      set("personPin", [1, 1], c.pin);
+      set("personPolice", [1, 1], c.police);
     }
-    if (c.coAccused) {
-      Object.assign(row, {
-        [H("accusedType", "_2")]: "Individual",
-        [H("accusedName", "_2")]: c.coAccused.name,
-        [H("accusedMobile", "_2")]: c.coAccused.mobile,
-        [H("accusedAddress", "_2")]: c.address,
-        [H("accusedCity", "_2")]: c.city,
-        [H("accusedPin", "_2")]: c.pin,
-      });
+    if (c.coAccused) accused(2, { type: "individual", ...c.coAccused });
+    const cheque = (n: number, number: string, amount: number) => {
+      set("chequeNumber", [n], number);
+      set("chequeDate", [n], dmy(t.dated));
+      set("chequeAmount", [n], amount);
+      set("chequeIfsc", [n], c.ifsc);
+      set("chequeAccount", [n], c.account);
+      set("presentDate", [n], dmy(t.presented));
+      set("returnDate", [n], dmy(t.returned));
+      set("returnReason", [n], label("returnReason", c.reason));
+      set("payeeIfsc", [n], "HDFC0000060");
+      set("payeePolice", [n], "Navrangpura Police Station");
+    };
+    cheque(1, c.cheque, c.amount);
+    if (c.second) cheque(2, c.second.cheque, c.second.amount);
+    set("natureDebt", [1], label("natureOfDebt", "loan"));
+    set("dispatchDate", [1], dmy(t.dispatched));
+    set("mode", [1], label("modeOfService", c.mode));
+    set("tracking", [1], `RG${c.cheque}11IN`);
+    set("delivered", [1], c.delivered ? "Yes" : "No");
+    set("deliveryDate", [1], c.delivered ? dmy(t.served) : "");
+    set("noticeReturnDate", [1], c.delivered ? "" : dmy(t.served));
+    set("nonDelivery", [1], c.delivered ? "" : label("nonDelivery", "unclaimed"));
+    set("replied", [1], c.replied ? "Yes" : "No");
+    set("payment", [1], label("payment", c.paid ? "part" : "none"));
+    set("paidAmount", [1], c.paid ?? "");
+    set("deposited", [], "Yes");
+    set("otherPending", [], c.otherCase ? "Yes" : "No");
+    if (c.otherCase) {
+      set("otherCourt", [1], c.otherCase.court);
+      set("otherNumber", [1], c.otherCase.number);
     }
+    set("interimRelief", [], x.interim);
+    set("finalRelief", [], x.final);
+    set("affidavit", [], x.affidavit);
     (c.witnesses ?? []).forEach((w, i) => {
-      const sfx = i === 0 ? "" : `_${i + 1}`;
-      Object.assign(row, {
-        [H("witnessName", sfx)]: w.name,
-        [H("witnessDesignation", sfx)]: w.designation,
-        [H("witnessProve", sfx)]: w.prove,
-        [H("witnessMobile", sfx)]: w.mobile,
-        [H("witnessAddress", sfx)]: "Tata Capital, C G Road",
-        [H("witnessCity", sfx)]: "Ahmedabad",
-        [H("witnessPin", sfx)]: "380009",
-      });
+      const n = i + 1;
+      set("witnessName", [n], w.name);
+      set("witnessDesignation", [n], w.designation);
+      set("witnessProve", [n], w.prove);
+      set("witnessMobile", [n], w.mobile);
+      set("witnessAddress", [n], "Tata Capital, C G Road");
+      set("witnessCity", [n], "Ahmedabad");
+      set("witnessPin", [n], "380009");
     });
-    if (c.otherCase) Object.assign(row, { [H("otherCourt")]: c.otherCase.court, [H("otherNumber")]: c.otherCase.number });
     ws.addRow(row);
   }
 
