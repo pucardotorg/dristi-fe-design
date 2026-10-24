@@ -10,10 +10,7 @@ import {
   HearingOverviewSections,
   ViewCaseAction,
 } from "@/components/employee/hearing-overview-screen";
-import {
-  HearingPassOverMenu,
-  HearingSessionButton,
-} from "@/components/employee/hearings-table";
+import { HearingSessionButton } from "@/components/employee/hearings-table";
 import {
   NextDateField,
   NextPurposeField,
@@ -50,9 +47,9 @@ import {
  *
  * **It reads, and it calls.** The order composer is a trip of its own. What the footer
  * carries is the row's hearing controls for *this* matter (`CLS-11`): the session control
- * the row carries, in the same four states (`HearingSessionButton`), and the row's Pass
- * over menu beside it (`HearingPassOverMenu`, `CLS-08`; owner, 2026-10-20, reversing
- * 2026-09-12) — one vocabulary, two places to reach it, rather
+ * the row carries, in the same four states (`HearingSessionButton`), with the row's Pass
+ * over behind its chevron (`PassOverMenu`, `CLS-08`; owner, 2026-10-20, reversing
+ * 2026-09-12; a split since 2026-10-23) — one vocabulary, two places to reach it, rather
  * than an overlay that invents a second way to say Start. It reads whatever the matter's
  * next move is at the moment it was opened: Start hearing on a listing still to be
  * called, End hearing on one under way, and spent on one already heard.
@@ -73,6 +70,7 @@ export function HearingOverviewDialog({
   onEndHearing,
   onPassOver,
   postsNextHearing = false,
+  sitting = true,
   onOpenChange,
 }: {
   /** The listing being read, or `null` when nothing is open. */
@@ -81,10 +79,15 @@ export function HearingOverviewDialog({
   seat: CourtRole;
   onStartHearing: (hearing: CourtHearing) => void;
   onEndHearing: (hearing: CourtHearing) => void;
-  /** The row's Pass over, the same handler (`HearingPassOverMenu`). */
+  /** The row's Pass over, the same handler (`PassOverMenu`). */
   onPassOver: (hearing: CourtHearing) => void;
   /** The reader's Next hearing column, here too — see `HearingsTable`. */
   postsNextHearing?: boolean;
+  /**
+   * Whether the listing is on the day being sat. A matter read from another day's list
+   * cannot be called from here, so the footer carries View case alone.
+   */
+  sitting?: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
   return (
@@ -103,6 +106,7 @@ export function HearingOverviewDialog({
           onEndHearing={onEndHearing}
           onPassOver={onPassOver}
           postsNextHearing={postsNextHearing}
+          sitting={sitting}
         />
       ) : null}
     </Dialog>
@@ -116,6 +120,7 @@ function HearingOverviewBody({
   onEndHearing,
   onPassOver,
   postsNextHearing,
+  sitting,
 }: {
   hearing: CourtHearing;
   seat: CourtRole;
@@ -123,6 +128,7 @@ function HearingOverviewBody({
   onEndHearing: (hearing: CourtHearing) => void;
   onPassOver: (hearing: CourtHearing) => void;
   postsNextHearing: boolean;
+  sitting: boolean;
 }) {
   const { court } = useCourt();
   /* Where this listing stood when the sheet opened. A status different from it is an
@@ -214,22 +220,21 @@ function HearingOverviewBody({
       footer={
         <>
           <ViewCaseAction variant="outline" />
-          <HearingSessionButton
-            hearing={hearing}
-            seat={seat}
-            variant="default"
-            onStartHearing={onStartHearing}
-            onEndHearing={onEndHearing}
-            className="w-fit"
-          />
-          {/* Pass over, as on the row: the same menu, after the session control and
-              secondary to it, on Scheduled and Ongoing listings only (`CLS-08`,
-              `CLS-11`). */}
-          <HearingPassOverMenu
-            hearing={hearing}
-            seat={seat}
-            onPassOver={onPassOver}
-          />
+          {sitting ? (
+            <>
+              <HearingSessionButton
+                hearing={hearing}
+                seat={seat}
+                variant="default"
+                onStartHearing={onStartHearing}
+                onEndHearing={onEndHearing}
+                /* Pass over, as on the row: behind the same control's chevron, on
+                   Scheduled and Ongoing listings only (`CLS-08`, `CLS-11`). */
+                onPassOver={onPassOver}
+                className="w-fit"
+              />
+            </>
+          ) : null}
         </>
       }
     >

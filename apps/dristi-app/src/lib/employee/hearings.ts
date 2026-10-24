@@ -27,7 +27,7 @@
  * listing stands as scheduled until the bench presses Start hearing; only then does
  * the chip read ongoing, and that matter's case overview opens over the list — the
  * glance the advocate list already ships, as an overlay the day sits behind. End
- * hearing, on the same control, marks that listing heard. Pass over, from the row overflow, sets
+ * hearing, on the same control, marks that listing heard. Pass over, behind that control's chevron, sets
  * it aside unheard, to be called again later the same day with Start hearing
  * (order-generation `HRG-04`). Nothing is filed, notified, or written back.
  *

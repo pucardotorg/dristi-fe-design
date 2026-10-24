@@ -27,6 +27,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useOrderSigning } from "@/components/employee/use-order-signing";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { HearingOverviewDialog } from "@/components/employee/hearing-overview-dialog";
+import { CauseListDate } from "@/components/employee/cause-list-date";
+import { CauseListWeek } from "@/components/employee/cause-list-week";
+import { causeListForDay } from "@/lib/employee/cause-list-days";
 import {
   HearingCaseButton,
   HearingRowActions,
@@ -70,7 +73,6 @@ import {
 } from "@/lib/employee/hearing-session";
 import {
   advocatesOnList,
-  boardForDay,
   causeTitle,
   counselFor,
   courtHearingPurposeLabel,
@@ -79,8 +81,6 @@ import {
   filterHearings,
   formatCourtDay,
   groupByStatus,
-  isoDay,
-  parseIsoDay,
   COURT_CASE_STAGES,
   COURT_HEARING_PURPOSES,
   EMPTY_FILTERS,
@@ -171,9 +171,12 @@ export function HearingsScreen() {
   const [openHearingId, setOpenHearingId] = React.useState<string | null>(null);
 
   /* Today's board is live; a past day this browser worked is shown closed, with what
-     was left unheard Abandoned (`HRG-05`, `boardForDay`). */
-  const listed = boardForDay(activeDay, today, session);
-  const pastDay = activeDay < today;
+     was left unheard Abandoned (`HRG-05`, `boardForDay`); any other day is read from the
+     demo court (`cause-list-days.ts`). */
+  const listed = causeListForDay(activeDay, today, session);
+  /* Only today's list is sat on. Another day — ahead or behind — is for reading: nothing
+     on it can be started, ended, passed over, posted or drafted. */
+  const otherDay = activeDay !== today;
   const [sort, setSort] = React.useState<HearingSort>("item");
 
   /* What the Orders and Next hearing filters read: the same facts the Orders glyph and
@@ -197,7 +200,7 @@ export function HearingsScreen() {
   /* The Next hearing filter goes with its column: where the column is not offered, a
      choice made in another seat narrows nothing. */
   const nextHearingColumn =
-    postsNextHearing && seatPostsNextHearing(seat, court) && !pastDay;
+    postsNextHearing && seatPostsNextHearing(seat, court) && !otherDay;
   /* Grouped by status, and within each group in the chosen order — the cause list's
      own sequence by default (`CLS-02`). Array sort is stable, so grouping the sorted
      rows keeps that order inside each group. */
@@ -216,10 +219,10 @@ export function HearingsScreen() {
   /* Which columns show, and in what order — this seat's own choice, opening on its
      default (`cause-list-columns.ts`). */
   const columnState = useCauseListColumns(seat, postsNextHearing, court);
-  /* A past day is a record: nothing on it can be started, ended, posted or drafted. */
+  /* Another day is for reading: nothing on it can be started, ended, posted or drafted. */
   const tableColumns = shownColumns(columnState.columns).filter(
     (column) =>
-      !pastDay ||
+      !otherDay ||
       (column.id !== "action" &&
         column.id !== "orders" &&
         column.id !== "nextHearing"),
@@ -228,13 +231,13 @@ export function HearingsScreen() {
      controller ends or passes over many listings; a next hearing setter, where the
      next hearing is entered here, posts them in the same pop-up; an order drafter adds
      one piece of text to many orders. A seat with none of them has no bulk mode, and a
-     past day has none for anyone. */
+     day other than today has none for anyone. */
   const bulkRoles: BulkRoles = {
     hearing: seatHasBenchControls(seat, court),
     next: postsNextHearing && seatPostsNextHearing(seat, court),
     text: seatDraftsOrders(seat, court),
   };
-  const bulkOffered = hasBulkActs(bulkRoles) && !pastDay;
+  const bulkOffered = hasBulkActs(bulkRoles) && !otherDay;
   const [bulkOn, setBulkOn] = React.useState(false);
   const bulk = bulkOffered && bulkOn;
   const [bulkIds, setBulkIds] = React.useState<ReadonlySet<string>>(
@@ -382,25 +385,81 @@ export function HearingsScreen() {
     setPage(1);
   }
 
+  /* The day is not a filter any more: it has its own control in the header, so clearing
+     the filters leaves the reader on the day they chose. */
   function clearFilters() {
     changeFilters(EMPTY_FILTERS);
-    setDay(null);
   }
+
+  function chooseDay(next: string) {
+    setDay(next === today ? null : next);
+    setPage(1);
+  }
+
+  /* T brings the board back to today — Google Calendar's key for it. Not while the
+     reader is typing, nor while a pop-up has the keyboard. */
+  React.useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== "t" && event.key !== "T") return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      if (
+        target?.closest(
+          "input, textarea, select, [contenteditable=true], [role=dialog], [role=menu], [role=listbox]",
+        )
+      ) {
+        return;
+      }
+      setDay(null);
+      setPage(1);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-8 p-6 md:p-8">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex min-w-0 flex-col gap-2">
-          <h1 className="text-title text-balance font-semibold">
-            Today&rsquo;s hearings
-          </h1>
-          <p className="text-body text-muted-foreground">
-            {formatCourtDay(activeDay)}
-          </p>
+      {/* The board's day, chosen in the page header rather than inside Filters: it
+          decides which list the panel holds, so it sits above the panel (owner,
+          2026-10-22 — the advocate home's day control, for the court). As there: the
+          big date leads the header on a desktop, parted from the title by a hairline,
+          and a week strip under the title takes its place on a phone or tablet. */}
+      <header className="flex flex-col gap-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center">
+            <CauseListDate
+              className="hidden lg:grid"
+              day={activeDay}
+              today={today}
+              onSelectDay={chooseDay}
+            />
+            <span aria-hidden className="mx-8 hidden h-18 w-px bg-hairline lg:block" />
+            <div className="flex min-w-0 flex-col gap-2">
+              <h1 className="text-title text-balance font-semibold">
+                {otherDay ? "Hearings" : <>Today&rsquo;s hearings</>}
+              </h1>
+              {/* On a desktop the big date already says the day, month and year; the
+                  line repeats it only where the week strip stands in for it. */}
+              <p className="text-body text-muted-foreground lg:hidden">
+                {formatCourtDay(activeDay)}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <JoinVideoCourt />
+          </div>
         </div>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <JoinVideoCourt />
-        </div>
+        <CauseListWeek
+          className="lg:hidden"
+          day={activeDay}
+          today={today}
+          countFor={(cell) =>
+            cell === activeDay
+              ? listed.length
+              : causeListForDay(cell, today, session).length
+          }
+          onSelectDay={chooseDay}
+        />
       </header>
 
       {/* One panel: filters, list and footer are one unit of work, so they share one
@@ -442,16 +501,6 @@ export function HearingsScreen() {
           onChange={(patch) => {
             setBulkNotice("");
             changeFilters(patch);
-          }}
-          day={activeDay}
-          today={today}
-          onDayChange={(next) => {
-            setDay(next);
-            setPage(1);
-          }}
-          onClearDay={() => {
-            setDay(null);
-            setPage(1);
           }}
           onClear={clearFilters}
           trailing={
@@ -540,6 +589,7 @@ export function HearingsScreen() {
                   onEndHearing={endHearing}
                   onPassOver={passOverHearing}
                   postsNextHearing={postsNextHearing}
+                  readOnly={otherDay}
                   selection={
                     bulk ? { selected: bulkIds, onToggle: toggleBulk } : undefined
                   }
@@ -598,7 +648,8 @@ export function HearingsScreen() {
         onStartHearing={startHearing}
         onEndHearing={endHearing}
         onPassOver={passOverHearing}
-        postsNextHearing={postsNextHearing}
+        postsNextHearing={postsNextHearing && !otherDay}
+        sitting={!otherDay}
         onOpenChange={(open) => {
           if (!open) setOpenHearingId(null);
         }}
@@ -610,8 +661,8 @@ export function HearingsScreen() {
 /**
  * The filter row: search inline, everything else behind a Filters button (owner,
  * 2026-09-15 — the advocate Cases pattern). The free text filters live where it is typed;
- * Purpose and the hearing date fold into a right-hand sheet (status moved to the pills
- * heading the row, 2026-10-12), and what is applied is
+ * the column filters fold into a right-hand sheet (status moved to the pills heading the
+ * row, 2026-10-12; the hearing date to the page header, 2026-10-22), and what is applied is
  * spelled out in removable chips on the row, so the folded controls never hide a narrowed
  * list. The court-level action (`JoinVideoCourt`) stays in the page header, not here.
  */
@@ -621,10 +672,6 @@ function HearingsFilters({
   filters,
   advocates,
   onChange,
-  day,
-  today,
-  onDayChange,
-  onClearDay,
   onClear,
   trailing,
   nextHearingColumn,
@@ -639,11 +686,6 @@ function HearingsFilters({
   advocates: string[];
   /** Merge a change into the filters — a patch, not a whole set. */
   onChange: (patch: Partial<HearingFilters>) => void;
-  /** The day in view, already resolved to today when none is picked. */
-  day: string;
-  today: string;
-  onDayChange: (day: string) => void;
-  onClearDay: () => void;
   onClear: () => void;
   /** The list's sort control (`CourtSortSelect`), at the end of the row. */
   trailing?: React.ReactNode;
@@ -739,18 +781,6 @@ function HearingsFilters({
               ]
             : []),
         ]}
-        date={{
-          label: "Hearing date",
-          value: parseIsoDay(day),
-          active: day !== today,
-          chipLabel: formatCourtDay(day),
-          draftActive: (value) => !!value && isoDay(value) !== today,
-          cleared: parseIsoDay(today),
-          onApply: (value) => {
-            if (value && isoDay(value) !== today) onDayChange(isoDay(value));
-            else onClearDay();
-          },
-        }}
         trailing={trailing}
         onClearAll={onClear}
       />
@@ -849,10 +879,13 @@ function HearingsItemList({
   onPassOver,
   onOpenOrder,
   postsNextHearing,
+  readOnly,
   selection,
 }: {
   rows: CourtHearing[];
   seat: CourtRole;
+  /** A day other than today: the items carry no controls, as the table drops its columns. */
+  readOnly: boolean;
   onOpenCase: (hearing: CourtHearing) => void;
   onStartHearing: (hearing: CourtHearing) => void;
   onEndHearing: (hearing: CourtHearing) => void;
@@ -912,15 +945,17 @@ function HearingsItemList({
               complainant={complainant.map((counsel) => counsel.name)}
               accused={accused.map((counsel) => counsel.name)}
             />
-            <HearingRowActions
-              hearing={hearing}
-              seat={seat}
-              onStartHearing={onStartHearing}
-              onEndHearing={onEndHearing}
-              onPassOver={onPassOver}
-              onOpenOrder={onOpenOrder}
-              postsNextHearing={postsNextHearing}
-            />
+            {readOnly ? null : (
+              <HearingRowActions
+                hearing={hearing}
+                seat={seat}
+                onStartHearing={onStartHearing}
+                onEndHearing={onEndHearing}
+                onPassOver={onPassOver}
+                onOpenOrder={onOpenOrder}
+                postsNextHearing={postsNextHearing}
+              />
+            )}
           </QueueItemRow>
         );
       })}
