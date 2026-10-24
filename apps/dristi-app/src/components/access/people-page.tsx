@@ -24,7 +24,12 @@ import { initials } from "@/components/access/access-list";
 import { useAccess } from "@/components/access/access-state";
 import { PersonAccessDialog } from "@/components/access/person-access-dialog";
 import { pick, type Locale } from "@/lib/onboarding/content";
-import { fillCopy, peopleCopy, type AccessPerson } from "@/lib/access/content";
+import {
+  fillCopy,
+  peopleCopy,
+  registeredUserByPhone,
+  type AccessPerson,
+} from "@/lib/access/content";
 import {
   PAGE_GROUND,
   PAGE_GUTTER,
@@ -38,7 +43,7 @@ import { cn } from "@/lib/utils";
  * The People page — the advocate's office (office management handover, §2–§4).
  *
  * A FLAT list of the people this advocate has given office access to (name,
- * number, designation, case count) — never co-advocates on a vakalatnama
+ * number, designation, Bar ID, case count) — never co-advocates on a vakalatnama
  * (OFC-11). Add person opens the add flow. Opening a person opens a near
  * full-screen dialog over this list, where every case sits in one table,
  * ticked where they have access (PM, Oct 23: one way to give and remove
@@ -79,6 +84,12 @@ function personDesignation(
   return null;
 }
 
+/** An advocate's Bar ID, from the person or, failing that, their account.
+    Clerks have none. */
+function personBarId(person: AccessPerson): string | undefined {
+  return person.barId ?? registeredUserByPhone(person.phone)?.barId;
+}
+
 /**
  * One template shared by the header band and every row, so the columns can
  * never drift: identity, designation (hidden on phones — it folds into the
@@ -89,7 +100,7 @@ function personDesignation(
  */
 
 const PEOPLE_GRID =
-  "grid-cols-[minmax(0,1fr)_6rem_1.5rem] sm:grid-cols-[minmax(0,3fr)_2fr_2fr_1.5rem]";
+  "grid-cols-[minmax(0,1fr)_6rem_1.5rem] sm:grid-cols-[minmax(0,3fr)_2fr_2fr_2fr_1.5rem]";
 
 function PersonListRow({
   person,
@@ -104,6 +115,7 @@ function PersonListRow({
 }) {
   const count = person.grants.length;
   const designation = personDesignation(person, locale);
+  const barId = personBarId(person);
   const caseCount =
     count === 1
       ? pick(peopleCopy.caseCountOne, locale)
@@ -138,6 +150,12 @@ function PersonListRow({
               </span>
               <span className="text-caption text-muted-foreground">
                 <span className="tabular-nums">{person.phone}</span>
+                {barId ? (
+                  <>
+                    <span aria-hidden> · </span>
+                    <span className="tabular-nums">{barId}</span>
+                  </>
+                ) : null}
                 {person.allCases ? (
                   <>
                     <span aria-hidden> · </span>
@@ -207,6 +225,9 @@ function PersonListRow({
         <span className="hidden truncate text-body-compact text-muted-foreground sm:block">
           {designation ?? "—"}
         </span>
+        <span className="hidden truncate text-body-compact text-muted-foreground tabular-nums sm:block">
+          {barId ?? "—"}
+        </span>
         <span className="text-body-compact text-muted-foreground tabular-nums">
           {count === 1
             ? pick(peopleCopy.caseCountOne, locale)
@@ -244,7 +265,8 @@ export function PeoplePage({ locale }: { locale: Locale }) {
     ? active.filter(
         (person) =>
           person.name.toLowerCase().includes(q) ||
-          person.phone.replace(/\D/g, "").includes(q),
+          person.phone.replace(/\D/g, "").includes(q) ||
+          (personBarId(person)?.toLowerCase().includes(q) ?? false),
       )
     : active;
   const matches = [...searched].sort((a, b) => {
@@ -366,6 +388,9 @@ export function PeoplePage({ locale }: { locale: Locale }) {
                   </span>
                   <span className="hidden text-body-compact font-semibold text-muted-foreground sm:block">
                     {pick(peopleCopy.columnDesignation, locale)}
+                  </span>
+                  <span className="hidden text-body-compact font-semibold text-muted-foreground sm:block">
+                    {pick(peopleCopy.barIdLabel, locale)}
                   </span>
                   <span className="text-body-compact font-semibold text-muted-foreground">
                     {pick(peopleCopy.columnCases, locale)}

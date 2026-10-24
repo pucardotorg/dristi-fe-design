@@ -1,7 +1,15 @@
 import type { Copy } from "@/lib/onboarding/content";
 import { CASES } from "@/lib/cases/fixtures";
-import { ACTIVE_STAGES, partiesLabel, type ActiveStage } from "@/lib/cases/types";
-import { viewerAccess as recordViewerAccess } from "@/lib/cases/viewer";
+import {
+  ACTIVE_STAGES,
+  partiesLabel,
+  type ActiveStage,
+  type CounselSide,
+} from "@/lib/cases/types";
+import {
+  viewerAccess as recordViewerAccess,
+  viewerRepresentation,
+} from "@/lib/cases/viewer";
 
 export { fill as fillCopy } from "@/lib/join/content";
 
@@ -48,6 +56,10 @@ export type AccessCase = {
   /** Where the case sits (PM, Oct 23: the person's case table filters on it).
       Absent on drafts, which have no stage yet. */
   stage?: ActiveStage | "disposed";
+  /** The side the advocate represents in this case (owner, Oct 24: the
+      person's case table shows and filters on it). A draft is a complaint
+      being filed, so it is the complainant's. */
+  side?: CounselSide;
 };
 
 /** How a case is named in a sentence: its number, or a draft's title. */
@@ -775,8 +787,8 @@ export const peopleCopy = {
 };
 
 /* One person's access dialog (PM, Oct 23): every case in one table, ticked where they
-   have access, so giving and removing access is the same act. "All cases" is a
-   checkbox, and new cases can only ride on it (OFC-24 unchanged). */
+   have access, so giving and removing access is the same act. "All cases" is one
+   choice: every case now and every new one (owner, Oct 24). */
 export const personAccessCopy = {
   close: t("Close", "അടയ്ക്കുക"),
   addTitle: t("Add person", "ആളെ ചേർക്കുക"),
@@ -799,29 +811,38 @@ export const personAccessCopy = {
   groupHeld: t("Has access", "ആക്‌സസ് ഉണ്ട്"),
   groupOther: t("No access yet", "ഇതുവരെ ആക്‌സസ് ഇല്ല"),
   casesSection: t("Access to cases", "കേസുകളിലേക്കുള്ള ആക്‌സസ്"),
-  futureLocked: t(
-    "Available only with All cases.",
-    "എല്ലാ കേസുകളും ഉള്ളപ്പോൾ മാത്രം ലഭ്യം.",
-  ),
   searchPlaceholder: t("Search case name or number", "കേസിന്റെ പേരോ നമ്പറോ തിരയുക"),
   casesIntro: t(
     "Tick a case to give access. Untick it to remove access.",
     "ആക്‌സസ് നൽകാൻ കേസ് ടിക്ക് ചെയ്യുക. ആക്‌സസ് നീക്കാൻ ടിക്ക് മാറ്റുക.",
   ),
   allCases: t("All cases", "എല്ലാ കേസുകളും"),
-  future: t(
-    "Share new cases automatically",
-    "പുതിയ കേസുകൾ സ്വയമേവ പങ്കിടുക",
+  allCasesHint: t(
+    "All {count} of your cases, and every new case you get later.",
+    "നിങ്ങളുടെ {count} കേസുകളും, പിന്നീട് ലഭിക്കുന്ന എല്ലാ പുതിയ കേസുകളും.",
   ),
+  specificCases: t("Specific cases", "തിരഞ്ഞെടുത്ത കേസുകൾ"),
+  specificCasesHint: t(
+    "Only the cases you pick. New cases are not shared.",
+    "നിങ്ങൾ തിരഞ്ഞെടുക്കുന്ന കേസുകൾ മാത്രം. പുതിയ കേസുകൾ പങ്കിടില്ല.",
+  ),
+  needMode: t(
+    "Choose All cases or Specific cases.",
+    "എല്ലാ കേസുകളും അല്ലെങ്കിൽ തിരഞ്ഞെടുത്ത കേസുകൾ തിരഞ്ഞെടുക്കുക.",
+  ),
+  sideLabel: t("Representation", "പ്രതിനിധാനം"),
+  sideAll: t("All representations", "എല്ലാ പ്രതിനിധാനങ്ങളും"),
+  sideComplainant: t("Complainant", "പരാതിക്കാരൻ"),
+  sideAccused: t("Accused", "പ്രതി"),
+  examplesLabel: t("Demo: try searching", "ഡെമോ: തിരഞ്ഞുനോക്കുക"),
   stageLabel: t("Stage", "ഘട്ടം"),
   stageAll: t("All stages", "എല്ലാ ഘട്ടങ്ങളും"),
   stageDisposed: t("Disposed", "തീർപ്പാക്കി"),
-  columnCase: t("Case", "കേസ്"),
+  columnCaseNumber: t("Case number", "കേസ് നമ്പർ"),
+  columnCase: t("Case name", "കേസിന്റെ പേര്"),
   columnStage: t("Stage", "ഘട്ടം"),
-  columnAccess: t("Access granted", "ആക്‌സസ് നൽകിയത്"),
   notFiled: t("Not filed yet", "ഇതുവരെ ഫയൽ ചെയ്തിട്ടില്ല"),
   openDraft: t("Open draft", "കരട് തുറക്കുക"),
-  since: t("Since {date}", "{date} മുതൽ"),
   willAdd: t("Will be added", "ചേർക്കും"),
   willRemove: t("Will be removed", "നീക്കം ചെയ്യും"),
   selectShown: t("Tick the {count} cases shown", "കാണിച്ച {count} കേസുകൾ ടിക്ക് ചെയ്യുക"),
@@ -920,6 +941,7 @@ for (const record of CASES) {
     nextHearing: record.nextHearing?.on ?? "—",
     viewerAccess: recordViewerAccess(record).kind,
     stage: record.disposal ? "disposed" : record.stage,
+    side: viewerRepresentation(record)[0],
   });
 }
 
@@ -928,4 +950,12 @@ for (const record of CASES) {
 ACCESS_CASES.forEach((entry, index) => {
   if (entry.stage || entry.draft) return;
   entry.stage = ACTIVE_STAGES[index % ACTIVE_STAGES.length].value;
+});
+
+/* The access fixtures predate sides too. Most are the complainant's, every
+   third the accused's, so the representation filter has both; wireframe data
+   only. */
+ACCESS_CASES.forEach((entry, index) => {
+  if (entry.side) return;
+  entry.side = !entry.draft && index % 3 === 2 ? "accused" : "complainant";
 });

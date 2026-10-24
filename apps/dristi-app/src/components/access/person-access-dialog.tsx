@@ -50,6 +50,8 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -58,10 +60,15 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@/components/ui/input-group";
-import { Field, FieldError, FieldLabel } from "@/components/ui/field";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+  FieldTitle,
+} from "@/components/ui/field";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Tooltip,
   TooltipContent,
@@ -82,10 +89,11 @@ import {
   inviteFieldCopy,
   peopleCopy,
   personAccessCopy as copy,
+  registeredUserByPhone,
   type AccessCase,
   type AccessPerson,
 } from "@/lib/access/content";
-import { ACTIVE_STAGES, stageLabel } from "@/lib/cases/types";
+import { ACTIVE_STAGES, stageLabel, type CounselSide } from "@/lib/cases/types";
 import { stepHref } from "@/lib/filing/steps";
 import { pick, type Copy, type Locale } from "@/lib/onboarding/content";
 import { cn } from "@/lib/utils";
@@ -100,10 +108,9 @@ import { cn } from "@/lib/utils";
  * has access: tick to give, untick to take away. Nothing applies until Save
  * changes, so a run of ticks is one decision, confirmed once when it removes.
  *
- * "All cases" is a checkbox over the whole docket, outside the filters, so a
- * filtered "tick all" can never pass for every case. New cases ride only on
- * it: the future checkbox opens once every case is ticked and closes the
- * moment one is unticked (OFC-24 unchanged, owner Oct 23).
+ * Access is one choice first (owner, Oct 24): All cases (every case now and
+ * every new one) or Specific cases. Only Specific cases opens the case table,
+ * so the long list is never the first thing on screen.
  *
  * On a phone it is the flow window: the whole screen, in from the right.
  */
@@ -111,19 +118,6 @@ import { cn } from "@/lib/utils";
 /** One stage the filter can hold. None held means all stages. */
 type StageValue =
   "draft" | "disposed" | (typeof ACTIVE_STAGES)[number]["value"];
-
-/**
- * The DS switch's knob is not concentric with its track (owner, Oct 23). The
- * track is 36 by 20 with a 1px transparent border; the 16px knob sits 2px from
- * the top and bottom but 1px from the side, off and on, because its travel
- * ignores the border. One more pixel in when off, and 17px of travel when on,
- * gives an even 2px all round. Corrected here by composition until the DS
- * primitive is fixed; the primitive itself stays untouched.
- */
-const SWITCH_CONCENTRIC = cn(
-  "[&>[data-slot=switch-thumb][data-state=unchecked]]:translate-x-px",
-  "[&>[data-slot=switch-thumb][data-state=checked]]:translate-x-[calc(100%+1px)]",
-);
 
 /**
  * Every confirmation in this dialog (owner, Oct 23): wider than the DS default
@@ -147,8 +141,25 @@ const NEW_PERSON: AccessPerson = {
   grants: [],
 };
 
+/** All cases, or only the cases ticked. */
+type Mode = "all" | "specific";
+
 /** What the list is being edited towards. `null` means no edits yet. */
-type Draft = { ticked: Set<string>; future: boolean };
+type Draft = { ticked: Set<string>; mode: Mode };
+
+/** The representation filter: one side, or both when `null`. */
+type SideValue = CounselSide | null;
+
+function sideText(entry: AccessCase, locale: Locale): string {
+  if (entry.side === "accused") return pick(copy.sideAccused, locale);
+  if (entry.side === "complainant") return pick(copy.sideComplainant, locale);
+  return "—";
+}
+
+/** An advocate's Bar ID, from the person or, failing that, their account. */
+function barIdOf(person: AccessPerson): string | undefined {
+  return person.barId ?? registeredUserByPhone(person.phone)?.barId;
+}
 
 /** Close the dialog, or close it and go somewhere. */
 type Leave = { to: "close" } | { to: "href"; href: string };
@@ -236,16 +247,29 @@ export function PersonAccessDialog({
   const [chosen, setChosen] = React.useState<InvitePerson[]>([]);
   /** Add to office was pressed with something missing: show what. */
   const [tried, setTried] = React.useState(false);
-  const known = directoryOptions(office.map((p) => p.phone)).filter(
-    // Anyone on All cases already holds every case (OFC-27).
-    (option) => !office.some((p) => p.allCases && p.phone === option.phone),
+  /* People already in the office are not offered: their access is changed
+     from their own row on People (owner, Oct 24). */
+  const known = directoryOptions([]).filter(
+    (option) =>
+      !office.some(
+        (p) => p.phone.replace(/\D/g, "") === option.phone?.replace(/\D/g, ""),
+      ),
   );
+  /* Demo only (owner, Oct 24): a name, a number and a Bar ID from the
+     registry who are not in the office yet, so the search has something to
+     find. Remove with the demo registry. */
+  const examples = [
+    known.find((option) => option.type === "advocate")?.name,
+    known.find((option) => option.type === "clerk")?.phone,
+    known.filter((option) => option.barId)[1]?.barId,
+  ].filter((value): value is string => Boolean(value));
 
   const [draft, setDraft] = React.useState<Draft | null>(null);
   const closeRef = React.useRef<HTMLButtonElement>(null);
   const [query, setQuery] = React.useState("");
   /* Several stages at once, as the cases list filters them; none is all. */
   const [stages, setStages] = React.useState<StageValue[]>([]);
+  const [side, setSide] = React.useState<SideValue>(null);
   const [confirmSave, setConfirmSave] = React.useState(false);
   const [confirmRemoveAll, setConfirmRemoveAll] = React.useState(false);
   /** Unsaved ticks asked about before the dialog closes or a case opens. */
@@ -257,7 +281,6 @@ export function PersonAccessDialog({
   );
   const savedFuture = Boolean(live?.allCases);
   const ticked = draft?.ticked ?? saved;
-  const future = draft?.future ?? savedFuture;
 
   /* Cases they hold come first, in docket order, then the rest. Ordered by what
      is saved, not by the ticks, so a row never jumps away from the pointer. */
@@ -271,6 +294,11 @@ export function PersonAccessDialog({
   const total = shareableCases.length;
   const tickedCount = shareableCases.filter((c) => ticked.has(c.id)).length;
   const allTicked = total > 0 && tickedCount === total;
+  /* All cases or Specific cases (owner, Oct 24). Add person starts with
+     neither, so the choice is made, not defaulted. */
+  const mode: Mode | null =
+    draft?.mode ?? (savedFuture ? "all" : live ? "specific" : null);
+  const future = mode === "all";
 
   const needle = query.trim().toLowerCase();
   const visible = rows.filter((entry) => {
@@ -285,6 +313,7 @@ export function PersonAccessDialog({
       const own: StageValue | undefined = entry.draft ? "draft" : entry.stage;
       if (!own || !stages.includes(own)) return false;
     }
+    if (side && entry.side !== side) return false;
     // On what is saved, so unticking a row does not make it vanish.
     return true;
   });
@@ -318,29 +347,39 @@ export function PersonAccessDialog({
   const futureChanged = future !== savedFuture;
   /* A search or a stage is narrowing the list. Saving from a narrowed list
      earns a note in the confirmation (owner, Oct 23). */
-  const filtered = Boolean(needle) || stages.length > 0;
+  const filtered = Boolean(needle) || stages.length > 0 || side !== null;
   const dirty = adding
-    ? chosen.length > 0 || (Boolean(draft) && (ticked.size > 0 || future))
+    ? chosen.length > 0 || Boolean(draft)
     : Boolean(draft) && (!sameSet(ticked, saved) || futureChanged);
-  /** Add person needs someone and at least one case before it can save. */
-  const canSave = adding ? chosen.length > 0 && tickedCount > 0 : dirty;
+  /** Add person needs someone, and All cases or at least one case. */
+  const hasAccess = future || tickedCount > 0;
+  const canSave = adding ? chosen.length > 0 && hasAccess : dirty;
   const chosenNames = chosen.map((p) => p.name ?? p.phone ?? "").join(", ");
   // Each clears the moment it is put right.
   const whoError = adding && tried && chosen.length === 0;
-  const casesError = adding && tried && tickedCount === 0;
+  const modeError = adding && tried && mode === null;
+  const casesError =
+    adding && tried && mode === "specific" && tickedCount === 0;
+
+  /** Every tick goes through here. Ticks are Specific cases only. */
+  function commit(next: Set<string>) {
+    setDraft({ ticked: next, mode: "specific" });
+  }
 
   /**
-   * Every edit goes through here. Reaching every case, by whatever route (the
-   * All cases box, the table's header box, or one row at a time), turns new
-   * cases on, since that is what All cases means (owner, Oct 23); it can be
-   * switched off by hand. A case coming off ends "all", so new cases go too.
+   * All cases ticks every case. Specific cases keeps what they hold now, so
+   * moving off All cases starts from their cases and stops new ones (OFC-31);
+   * on Add person it starts empty.
    */
-  function commit(next: Set<string>, nextFuture: boolean) {
-    const everything = shareableCases.every((c) => next.has(c.id));
-    const reachedAll = everything && !allTicked;
+  function chooseMode(next: Mode) {
     setDraft({
-      ticked: next,
-      future: everything && (nextFuture || reachedAll),
+      mode: next,
+      ticked:
+        next === "all"
+          ? new Set(shareableCases.map((c) => c.id))
+          : adding
+            ? new Set()
+            : new Set(saved),
     });
   }
 
@@ -348,13 +387,13 @@ export function PersonAccessDialog({
     const next = new Set(ticked);
     if (on) next.add(caseId);
     else next.delete(caseId);
-    commit(next, future);
+    commit(next);
   }
 
   function setMany(ids: string[], on: boolean) {
     const next = new Set(ticked);
     ids.forEach((id) => (on ? next.add(id) : next.delete(id)));
-    commit(next, future);
+    commit(next);
   }
 
   /** Close, Escape, the phone's Back, Cancel: all ask first when ticks are unsaved. */
@@ -375,7 +414,7 @@ export function PersonAccessDialog({
   function apply() {
     if (adding) {
       const phones = chosen.map((p) => p.phone ?? "");
-      if (allTicked && future) invite(phones, [], { allCases: true });
+      if (future) invite(phones, [], { allCases: true });
       else
         invite(
           phones,
@@ -414,7 +453,7 @@ export function PersonAccessDialog({
   function save() {
     // Add person never greys its button out (owner, Oct 23): pressing it with
     // something missing points at what is missing instead.
-    if (adding && (chosen.length === 0 || tickedCount === 0)) {
+    if (adding && (chosen.length === 0 || !hasAccess)) {
       setTried(true);
       const target =
         chosen.length === 0
@@ -443,6 +482,10 @@ export function PersonAccessDialog({
         ? stageFilterLabel(stages[0], locale)
         : `${stageFilterLabel(stages[0], locale)} +${stages.length - 1}`;
   const role = designation(person, locale);
+  const barId = barIdOf(person);
+  const sideSummary = side
+    ? pick(side === "accused" ? copy.sideAccused : copy.sideComplainant, locale)
+    : pick(copy.sideAll, locale);
   /* The footer: only what Save will change; the groups' badges already say
      how many they have (owner, Oct 23). Adds in
      the success ink and removals in the destructive ink, each with its sign
@@ -606,13 +649,13 @@ export function PersonAccessDialog({
                         <span>{role}</span>
                       </>
                     ) : null}
-                    {person.barId ? (
+                    {barId ? (
                       <>
                         <span aria-hidden>·</span>
                         <span className="flex items-baseline gap-1.5">
                           {pick(peopleCopy.barIdLabel, locale)}
                           <Identifier
-                            value={person.barId}
+                            value={barId}
                             label="bar id"
                             className="tabular-nums"
                           />
@@ -716,11 +759,26 @@ export function PersonAccessDialog({
                     locale={locale}
                     registeredOnly
                     invalid={whoError}
-                    describedBy={whoError ? "person-access-who-error" : undefined}
+                    describedBy={
+                      whoError ? "person-access-who-error" : undefined
+                    }
                   />
                   <FieldError id="person-access-who-error">
                     {whoError ? pick(copy.needPerson, locale) : null}
                   </FieldError>
+                  {examples.length ? (
+                    <p className="text-caption text-pretty text-muted-foreground">
+                      {pick(copy.examplesLabel, locale)}{" "}
+                      {examples.map((example, index) => (
+                        <React.Fragment key={example}>
+                          {index ? <span aria-hidden> · </span> : null}
+                          <span className="font-medium text-foreground tabular-nums">
+                            {example}
+                          </span>
+                        </React.Fragment>
+                      ))}
+                    </p>
+                  ) : null}
                 </Field>
               </section>
             ) : null}
@@ -733,96 +791,53 @@ export function PersonAccessDialog({
               aria-labelledby="person-access-cases"
               className="flex flex-col gap-4"
             >
-              <div className="flex flex-col gap-3 @2xl/access:flex-row @2xl/access:items-center @2xl/access:justify-between @2xl/access:gap-6">
-                <h3
-                  id="person-access-cases"
-                  className="text-body font-semibold"
+              <h3 id="person-access-cases" className="text-body font-semibold">
+                {pick(copy.casesSection, locale)}
+              </h3>
+              <Field data-invalid={modeError || undefined} className="gap-2">
+                <RadioGroup
+                  value={mode ?? ""}
+                  onValueChange={(value) => chooseMode(value as Mode)}
+                  aria-labelledby="person-access-cases"
+                  aria-invalid={modeError || undefined}
+                  className="grid gap-3 @2xl/access:grid-cols-2"
                 >
-                  {pick(copy.casesSection, locale)}
-                </h3>
-                <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-                  <div className="flex min-h-10 items-center gap-3">
-                    <Checkbox
-                      id="access-all-cases"
-                      checked={
-                        allTicked ? true : tickedCount ? "indeterminate" : false
-                      }
-                      onCheckedChange={(value) =>
-                        // Ticking All cases also turns new cases on; it can be
-                        // switched off by hand (owner, Oct 23). Unticking it
-                        // ends "all", so new cases go with it in commit().
-                        commit(
-                          value === true
-                            ? new Set(shareableCases.map((c) => c.id))
-                            : new Set(),
-                          value === true,
-                        )
-                      }
-                    />
-                    <Label
-                      htmlFor="access-all-cases"
-                      className="cursor-pointer text-body-compact font-medium"
-                    >
-                      {pick(copy.allCases, locale)}
-                    </Label>
-                  </div>
-                  <Separator
-                    orientation="vertical"
-                    className="hidden h-6 data-vertical:self-center @sm/access:block"
-                  />
-                  <div className="flex min-h-10 items-center gap-3">
-                    {allTicked ? (
-                      <Switch
-                        id="access-future"
-                        checked={future}
-                        className={SWITCH_CONCENTRIC}
-                        onCheckedChange={(value) =>
-                          commit(new Set(ticked), value)
-                        }
+                  <FieldLabel htmlFor="access-mode-all">
+                    <Field orientation="horizontal">
+                      <RadioGroupItem value="all" id="access-mode-all" />
+                      <FieldContent>
+                        <FieldTitle className="text-body font-semibold">
+                          {pick(copy.allCases, locale)}
+                        </FieldTitle>
+                        <FieldDescription>
+                          {fillCopy(copy.allCasesHint, locale, {
+                            count: String(total),
+                          })}
+                        </FieldDescription>
+                      </FieldContent>
+                    </Field>
+                  </FieldLabel>
+                  <FieldLabel htmlFor="access-mode-specific">
+                    <Field orientation="horizontal">
+                      <RadioGroupItem
+                        value="specific"
+                        id="access-mode-specific"
                       />
-                    ) : (
-                      /* Off until every case is ticked. A disabled control takes no
-                       pointer or focus, so the span carries the hover and the
-                       focus for the why (LockedRemove's own trick). */
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span
-                              tabIndex={0}
-                              aria-describedby="access-future-locked"
-                              className="inline-flex rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-                            >
-                              <Switch
-                                id="access-future"
-                                checked={false}
-                                disabled
-                                className={SWITCH_CONCENTRIC}
-                              />
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent
-                            id="access-future-locked"
-                            className="max-w-80 text-pretty"
-                          >
-                            {pick(copy.futureLocked, locale)}
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    )}
-                    <Label
-                      htmlFor="access-future"
-                      className={cn(
-                        "text-body-compact font-medium",
-                        allTicked
-                          ? "cursor-pointer"
-                          : "cursor-not-allowed text-muted-foreground",
-                      )}
-                    >
-                      {pick(copy.future, locale)}
-                    </Label>
-                  </div>
-                </div>
-              </div>
+                      <FieldContent>
+                        <FieldTitle className="text-body font-semibold">
+                          {pick(copy.specificCases, locale)}
+                        </FieldTitle>
+                        <FieldDescription>
+                          {pick(copy.specificCasesHint, locale)}
+                        </FieldDescription>
+                      </FieldContent>
+                    </Field>
+                  </FieldLabel>
+                </RadioGroup>
+                <FieldError>
+                  {modeError ? pick(copy.needMode, locale) : null}
+                </FieldError>
+              </Field>
 
               {casesError ? (
                 <p role="alert" className="text-body-compact text-destructive">
@@ -830,226 +845,281 @@ export function PersonAccessDialog({
                 </p>
               ) : null}
 
-              {/* ------------------------------------------------ toolbar */}
-              {/* Search takes the width, Stage sits at its end. The cases list's
+              {mode === "specific" ? (
+                <>
+                  {/* ------------------------------------------------ toolbar */}
+                  {/* Search takes the width, Stage sits at its end. The cases list's
                   toolbar grammar: no visible label over the box, the label kept
                   for screen readers and voice. */}
-              <div className="flex flex-col gap-3 @lg/access:flex-row">
-                <Field className="min-w-0 flex-1 gap-0">
-                  <FieldLabel className="sr-only">
-                    {pick(peopleCopy.caseSearchLabel, locale)}
-                  </FieldLabel>
-                  <InputGroup>
-                    <InputGroupAddon>
-                      <SearchIcon aria-hidden />
-                    </InputGroupAddon>
-                    <InputGroupInput
-                      type="search"
-                      autoComplete="off"
-                      placeholder={pick(copy.searchPlaceholder, locale)}
-                      value={query}
-                      onChange={(event) => setQuery(event.target.value)}
-                    />
-                  </InputGroup>
-                </Field>
-                {/* Several stages at once (owner, Oct 23). "All stages" sits over a
+                  <div className="flex flex-col gap-3 @lg/access:flex-row">
+                    <Field className="min-w-0 flex-1 gap-0">
+                      <FieldLabel className="sr-only">
+                        {pick(peopleCopy.caseSearchLabel, locale)}
+                      </FieldLabel>
+                      <InputGroup>
+                        <InputGroupAddon>
+                          <SearchIcon aria-hidden />
+                        </InputGroupAddon>
+                        <InputGroupInput
+                          type="search"
+                          autoComplete="off"
+                          placeholder={pick(copy.searchPlaceholder, locale)}
+                          value={query}
+                          onChange={(event) => setQuery(event.target.value)}
+                        />
+                      </InputGroup>
+                    </Field>
+                    {/* Several stages at once (owner, Oct 23). "All stages" sits over a
                     hairline: it is the absence of the others, so ticking it
                     clears them and ticking any stage clears it. The menu keeps
                     to the room on screen and scrolls inside it. */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      aria-label={`${pick(copy.stageLabel, locale)}: ${stageSummary}`}
-                      className={cn(
-                        "w-full justify-between font-normal @lg/access:w-56",
-                        // Teal while open too: the outline button's own open
-                        // fill otherwise covers it until the menu closes.
-                        stages.length > 0 &&
-                          cn(
-                            FILTER_ON,
-                            "aria-expanded:bg-brand-muted aria-expanded:text-brand-muted-foreground",
-                          ),
-                      )}
-                    >
-                      <span className="truncate">{stageSummary}</span>
-                      <ChevronDownIcon
-                        aria-hidden
-                        className="text-muted-foreground"
-                      />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align="end"
-                    sideOffset={4}
-                    collisionPadding={16}
-                    className="w-(--radix-dropdown-menu-trigger-width)"
-                  >
-                    <DropdownMenuCheckboxItem
-                      checked={stages.length === 0}
-                      onSelect={(event) => event.preventDefault()}
-                      onCheckedChange={() => setStages([])}
-                    >
-                      {pick(copy.stageAll, locale)}
-                    </DropdownMenuCheckboxItem>
-                    <DropdownMenuSeparator />
-                    {STAGE_OPTIONS.map((value) => (
-                      <DropdownMenuCheckboxItem
-                        key={value}
-                        checked={stages.includes(value)}
-                        onSelect={(event) => event.preventDefault()}
-                        onCheckedChange={(on) =>
-                          setStages((current) =>
-                            on
-                              ? STAGE_OPTIONS.filter(
-                                  (v) => v === value || current.includes(v),
-                                )
-                              : current.filter((v) => v !== value),
-                          )
-                        }
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          aria-label={`${pick(copy.stageLabel, locale)}: ${stageSummary}`}
+                          className={cn(
+                            "w-full justify-between font-normal @lg/access:w-56",
+                            // Teal while open too: the outline button's own open
+                            // fill otherwise covers it until the menu closes.
+                            stages.length > 0 &&
+                              cn(
+                                FILTER_ON,
+                                "aria-expanded:bg-brand-muted aria-expanded:text-brand-muted-foreground",
+                              ),
+                          )}
+                        >
+                          <span className="truncate">{stageSummary}</span>
+                          <ChevronDownIcon
+                            aria-hidden
+                            className="text-muted-foreground"
+                          />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        align="end"
+                        sideOffset={4}
+                        collisionPadding={16}
+                        className="w-(--radix-dropdown-menu-trigger-width)"
                       >
-                        {stageFilterLabel(value, locale)}
-                      </DropdownMenuCheckboxItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-
-              {/* --------------------------------------------------- cases */}
-              {visible.length === 0 ? (
-                <p className="rounded-xl border border-dashed border-border py-12 text-center text-body-compact text-muted-foreground">
-                  {pick(copy.noCases, locale)}
-                </p>
-              ) : (
-                <>
-                  {/* The table needs room: a mouse and a dialog body at least 768px
-                      wide (the dialog sits beside the rail, so the screen's width
-                      says little). Touch, or a narrower dialog, gets the list. */}
-                  <div className="flex flex-col gap-6 pointer-fine:@3xl/access:hidden">
-                    {groups.map((group) => (
-                      <section
-                        key={group.key}
-                        aria-labelledby={`access-group-${group.key}`}
-                      >
-                        <GroupLabel
-                          id={`access-group-${group.key}`}
-                          label={pick(group.label, locale)}
-                          count={group.entries.length}
-                          className="rounded-lg bg-surface-sunken px-3 py-2"
-                        />
-                        <ul className="flex flex-col divide-y divide-hairline">
-                          {group.entries.map((entry) => (
-                            <li key={entry.id}>
-                              <CaseRow
-                                entry={entry}
-                                locale={locale}
-                                checked={ticked.has(entry.id)}
-                                held={saved.has(entry.id)}
-                                since={
-                                  person.grants.find(
-                                    (g) => g.caseId === entry.id,
-                                  )?.since
-                                }
-                                onCheck={(value) => toggleCase(entry.id, value)}
-                                onOpen={() => go(openCaseHref(entry))}
-                              />
-                            </li>
-                          ))}
-                        </ul>
-                      </section>
-                    ))}
-                  </div>
-
-                  <div className="hidden pointer-fine:@3xl/access:block">
-                    <Table
-                      className="w-full border-separate border-spacing-0"
-                      aria-labelledby="person-access-cases"
-                    >
-                      <TableHeader>
-                        <TableRow className={TABLE_HEAD_ROW}>
-                          <TableHead className={cn(TABLE_HEAD, "w-12 px-1")}>
-                            {/* The rows in view only. "All cases" above speaks for the docket. */}
-                            <div className="flex justify-center">
-                              <Checkbox
-                                checked={headerState}
-                                onCheckedChange={(value) =>
-                                  setMany(
-                                    visible.map((c) => c.id),
-                                    value === true,
-                                  )
-                                }
-                                aria-label={fillCopy(
-                                  headerState === true
-                                    ? copy.clearShown
-                                    : copy.selectShown,
-                                  locale,
-                                  { count: String(visible.length) },
-                                )}
-                              />
-                            </div>
-                          </TableHead>
-                          <TableHead className={TABLE_HEAD}>
-                            {pick(copy.columnCase, locale)}
-                          </TableHead>
-                          <TableHead className={cn(TABLE_HEAD, "w-48")}>
-                            {pick(copy.columnStage, locale)}
-                          </TableHead>
-                          <TableHead className={cn(TABLE_HEAD, "w-48")}>
-                            {pick(copy.columnAccess, locale)}
-                          </TableHead>
-                          <TableHead className={cn(TABLE_HEAD, "w-12 px-1")}>
-                            <span className="sr-only">
-                              {pick(peopleCopy.openCase, locale)}
-                            </span>
-                          </TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody className={tableBodyClass()}>
-                        {groups.map((group, index) => (
-                          <React.Fragment key={group.key}>
-                            {/* The group's name as a row of its own: the cases
-                                they have, then the ones that can be given. */}
-                            <TableRow
-                              className={tableRowClass({ hover: false })}
-                            >
-                              <TableCell
-                                colSpan={5}
-                                className={cn(
-                                  TABLE_CELL,
-                                  "h-auto px-3 pb-2",
-                                  index ? "pt-8" : "pt-4",
-                                )}
-                              >
-                                <GroupLabel
-                                  label={pick(group.label, locale)}
-                                  count={group.entries.length}
-                                />
-                              </TableCell>
-                            </TableRow>
-                            {group.entries.map((entry) => (
-                              <CaseTableRow
-                                key={entry.id}
-                                entry={entry}
-                                locale={locale}
-                                checked={ticked.has(entry.id)}
-                                held={saved.has(entry.id)}
-                                since={
-                                  person.grants.find(
-                                    (g) => g.caseId === entry.id,
-                                  )?.since
-                                }
-                                onCheck={(value) => toggleCase(entry.id, value)}
-                                onOpen={() => go(openCaseHref(entry))}
-                              />
-                            ))}
-                          </React.Fragment>
+                        <DropdownMenuCheckboxItem
+                          checked={stages.length === 0}
+                          onSelect={(event) => event.preventDefault()}
+                          onCheckedChange={() => setStages([])}
+                        >
+                          {pick(copy.stageAll, locale)}
+                        </DropdownMenuCheckboxItem>
+                        <DropdownMenuSeparator />
+                        {STAGE_OPTIONS.map((value) => (
+                          <DropdownMenuCheckboxItem
+                            key={value}
+                            checked={stages.includes(value)}
+                            onSelect={(event) => event.preventDefault()}
+                            onCheckedChange={(on) =>
+                              setStages((current) =>
+                                on
+                                  ? STAGE_OPTIONS.filter(
+                                      (v) => v === value || current.includes(v),
+                                    )
+                                  : current.filter((v) => v !== value),
+                              )
+                            }
+                          >
+                            {stageFilterLabel(value, locale)}
+                          </DropdownMenuCheckboxItem>
                         ))}
-                      </TableBody>
-                    </Table>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    {/* Which side the advocate is for in the case (owner, Oct 24). */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          aria-label={`${pick(copy.sideLabel, locale)}: ${sideSummary}`}
+                          className={cn(
+                            "w-full justify-between font-normal @lg/access:w-56",
+                            side !== null &&
+                              cn(
+                                FILTER_ON,
+                                "aria-expanded:bg-brand-muted aria-expanded:text-brand-muted-foreground",
+                              ),
+                          )}
+                        >
+                          <span className="truncate">{sideSummary}</span>
+                          <ChevronDownIcon
+                            aria-hidden
+                            className="text-muted-foreground"
+                          />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        align="end"
+                        sideOffset={4}
+                        collisionPadding={16}
+                        className="w-(--radix-dropdown-menu-trigger-width)"
+                      >
+                        <DropdownMenuRadioGroup
+                          value={side ?? "all"}
+                          onValueChange={(value) =>
+                            setSide(
+                              value === "all" ? null : (value as CounselSide),
+                            )
+                          }
+                        >
+                          <DropdownMenuRadioItem value="all">
+                            {pick(copy.sideAll, locale)}
+                          </DropdownMenuRadioItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuRadioItem value="complainant">
+                            {pick(copy.sideComplainant, locale)}
+                          </DropdownMenuRadioItem>
+                          <DropdownMenuRadioItem value="accused">
+                            {pick(copy.sideAccused, locale)}
+                          </DropdownMenuRadioItem>
+                        </DropdownMenuRadioGroup>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
+
+                  {/* --------------------------------------------------- cases */}
+                  {visible.length === 0 ? (
+                    <p className="rounded-xl border border-dashed border-border py-12 text-center text-body-compact text-muted-foreground">
+                      {pick(copy.noCases, locale)}
+                    </p>
+                  ) : (
+                    <>
+                      {/* The table needs room: a dialog body at least 768px wide (the
+                      dialog sits beside the rail, so the screen's width says
+                      little). A narrower dialog gets the list. */}
+                      <div className="flex flex-col gap-6 @3xl/access:hidden">
+                        {groups.map((group) => (
+                          <section
+                            key={group.key}
+                            aria-labelledby={`access-group-${group.key}`}
+                          >
+                            <GroupLabel
+                              id={`access-group-${group.key}`}
+                              label={pick(group.label, locale)}
+                              count={group.entries.length}
+                              className="rounded-lg bg-surface-sunken px-3 py-2"
+                            />
+                            <ul className="flex flex-col divide-y divide-hairline">
+                              {group.entries.map((entry) => (
+                                <li key={entry.id}>
+                                  <CaseRow
+                                    entry={entry}
+                                    locale={locale}
+                                    checked={ticked.has(entry.id)}
+                                    held={saved.has(entry.id)}
+                                    onCheck={(value) =>
+                                      toggleCase(entry.id, value)
+                                    }
+                                    onOpen={() => go(openCaseHref(entry))}
+                                  />
+                                </li>
+                              ))}
+                            </ul>
+                          </section>
+                        ))}
+                      </div>
+
+                      <div className="hidden @3xl/access:block">
+                        <Table
+                          className="w-full border-separate border-spacing-0"
+                          aria-labelledby="person-access-cases"
+                        >
+                          <TableHeader>
+                            <TableRow className={TABLE_HEAD_ROW}>
+                              <TableHead
+                                className={cn(TABLE_HEAD, "w-12 px-1")}
+                              >
+                                {/* The rows in view only. "All cases" above speaks for the docket. */}
+                                <div className="flex justify-center">
+                                  <Checkbox
+                                    checked={headerState}
+                                    onCheckedChange={(value) =>
+                                      setMany(
+                                        visible.map((c) => c.id),
+                                        value === true,
+                                      )
+                                    }
+                                    aria-label={fillCopy(
+                                      headerState === true
+                                        ? copy.clearShown
+                                        : copy.selectShown,
+                                      locale,
+                                      { count: String(visible.length) },
+                                    )}
+                                  />
+                                </div>
+                              </TableHead>
+                              <TableHead className={cn(TABLE_HEAD, "w-44")}>
+                                {pick(copy.columnCaseNumber, locale)}
+                              </TableHead>
+                              <TableHead className={TABLE_HEAD}>
+                                {pick(copy.columnCase, locale)}
+                              </TableHead>
+                              <TableHead className={cn(TABLE_HEAD, "w-48")}>
+                                {pick(copy.columnStage, locale)}
+                              </TableHead>
+                              <TableHead className={cn(TABLE_HEAD, "w-44")}>
+                                {pick(copy.sideLabel, locale)}
+                              </TableHead>
+                              <TableHead
+                                className={cn(TABLE_HEAD, "w-12 px-1")}
+                              >
+                                <span className="sr-only">
+                                  {pick(peopleCopy.openCase, locale)}
+                                </span>
+                              </TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody className={tableBodyClass()}>
+                            {groups.map((group, index) => (
+                              <React.Fragment key={group.key}>
+                                {/* The group's name as a row of its own: the cases
+                                they have, then the ones that can be given. */}
+                                <TableRow
+                                  className={tableRowClass({ hover: false })}
+                                >
+                                  <TableCell
+                                    colSpan={6}
+                                    className={cn(
+                                      TABLE_CELL,
+                                      "h-auto px-3 pb-2",
+                                      index ? "pt-8" : "pt-4",
+                                    )}
+                                  >
+                                    <GroupLabel
+                                      label={pick(group.label, locale)}
+                                      count={group.entries.length}
+                                    />
+                                  </TableCell>
+                                </TableRow>
+                                {group.entries.map((entry) => (
+                                  <CaseTableRow
+                                    key={entry.id}
+                                    entry={entry}
+                                    locale={locale}
+                                    checked={ticked.has(entry.id)}
+                                    held={saved.has(entry.id)}
+                                    onCheck={(value) =>
+                                      toggleCase(entry.id, value)
+                                    }
+                                    onOpen={() => go(openCaseHref(entry))}
+                                  />
+                                ))}
+                              </React.Fragment>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </>
+                  )}
                 </>
-              )}
+              ) : null}
             </section>
           </div>
 
@@ -1250,24 +1320,16 @@ export function PersonAccessDialog({
   );
 }
 
-/** The access cell: when it was given, or what Save will do to it. Words, never colour alone. */
-function AccessState({
+/** What Save will do to a case, in words, never colour alone. Nothing when
+    Save leaves it as it is. */
+function PendingBadge({
   locale,
   checked,
   held,
-  since,
-  dateOnly = false,
-  labelled = false,
 }: {
   locale: Locale;
   checked: boolean;
   held: boolean;
-  since?: string;
-  /** Under the table's "Access granted" heading the date stands alone; the
-      phone list has no heading, so it keeps "Since". */
-  dateOnly?: boolean;
-  /** In a list, where no column heading names the date. */
-  labelled?: boolean;
 }) {
   if (checked && !held) {
     return <Badge variant="success">{pick(copy.willAdd, locale)}</Badge>;
@@ -1275,24 +1337,6 @@ function AccessState({
   if (!checked && held) {
     return <Badge variant="destructive">{pick(copy.willRemove, locale)}</Badge>;
   }
-  if (held && since) {
-    return (
-      <span className="text-muted-foreground">
-        {labelled ? (
-          <>
-            {pick(copy.columnAccess, locale)}
-            <span aria-hidden> · </span>
-            <span className="text-foreground">{since}</span>
-          </>
-        ) : dateOnly ? (
-          since
-        ) : (
-          fillCopy(copy.since, locale, { date: since })
-        )}
-      </span>
-    );
-  }
-  // Under "No access yet" the group heading already says it.
   return null;
 }
 
@@ -1302,7 +1346,6 @@ function CaseTableRow({
   locale,
   checked,
   held,
-  since,
   onCheck,
   onOpen,
 }: {
@@ -1310,7 +1353,6 @@ function CaseTableRow({
   locale: Locale;
   checked: boolean;
   held: boolean;
-  since?: string;
   onCheck: (on: boolean) => void;
   onOpen: () => void;
 }) {
@@ -1334,10 +1376,14 @@ function CaseTableRow({
           />
         </div>
       </TableCell>
+      {/* Number and name in columns of their own (owner, Oct 24). */}
+      <TableCell className={cn(TABLE_CELL, "whitespace-nowrap")}>
+        <CaseMeta entry={entry} locale={locale} />
+      </TableCell>
       <TableCell className={cn(TABLE_CELL, "min-w-64 whitespace-normal")}>
-        <div className="flex flex-col gap-0.5">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="font-medium text-pretty">{entry.title}</span>
-          <CaseMeta entry={entry} locale={locale} />
+          <PendingBadge locale={locale} checked={checked} held={held} />
         </div>
       </TableCell>
       <TableCell
@@ -1345,14 +1391,10 @@ function CaseTableRow({
       >
         {stageText(entry, locale)}
       </TableCell>
-      <TableCell className={cn(TABLE_CELL, "whitespace-nowrap")}>
-        <AccessState
-          locale={locale}
-          checked={checked}
-          held={held}
-          since={since}
-          dateOnly
-        />
+      <TableCell
+        className={cn(TABLE_CELL, "whitespace-nowrap text-muted-foreground")}
+      >
+        {sideText(entry, locale)}
       </TableCell>
       <TableCell className={cn(TABLE_CELL, "w-12 px-1")}>
         <div className="flex justify-center">
@@ -1440,9 +1482,17 @@ function OpenCaseButton({
 }
 
 /** Under a case's name: its number, or that it is a draft not filed yet. */
-function CaseMeta({ entry, locale }: { entry: AccessCase; locale: Locale }) {
+function CaseMeta({
+  entry,
+  locale,
+  className = "text-muted-foreground",
+}: {
+  entry: AccessCase;
+  locale: Locale;
+  className?: string;
+}) {
   return (
-    <span className="text-caption text-muted-foreground">
+    <span className={className}>
       {entry.draft ? (
         pick(copy.notFiled, locale)
       ) : (
@@ -1453,8 +1503,8 @@ function CaseMeta({ entry, locale }: { entry: AccessCase; locale: Locale }) {
 }
 
 /**
- * One case: the tick, the title with its number and stage under it, what Save
- * will do or since when they have it, and a way into the case. The whole row
+ * One case: the tick, the title with its number, stage and side under it, what Save
+ * will do to it, and a way into the case. The whole row
  * ticks, the way a label does; its own controls keep their clicks.
  */
 function CaseRow({
@@ -1462,7 +1512,6 @@ function CaseRow({
   locale,
   checked,
   held,
-  since,
   onCheck,
   onOpen,
 }: {
@@ -1470,7 +1519,6 @@ function CaseRow({
   locale: Locale;
   checked: boolean;
   held: boolean;
-  since?: string;
   onCheck: (on: boolean) => void;
   onOpen: () => void;
 }) {
@@ -1500,19 +1548,12 @@ function CaseRow({
             <CaseMeta entry={entry} locale={locale} />
             <span aria-hidden>·</span>
             <span>{stageText(entry, locale)}</span>
+            <span aria-hidden>·</span>
+            <span>{sideText(entry, locale)}</span>
           </span>
         </div>
-        {/* A list has no column heading, so the date carries its own label,
-            "Access granted", on a line set apart from the case's number and
-            stage (owner, Oct 23). Beside the case on a wide list. */}
         <div className="mt-2 shrink-0 text-caption empty:hidden @lg/access:mt-0 @lg/access:pt-0.5 @lg/access:text-right">
-          <AccessState
-            locale={locale}
-            checked={checked}
-            held={held}
-            since={since}
-            labelled
-          />
+          <PendingBadge locale={locale} checked={checked} held={held} />
         </div>
       </div>
       <OpenCaseButton
