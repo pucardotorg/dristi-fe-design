@@ -18,6 +18,7 @@
  */
 
 import * as React from "react";
+import type { LucideIcon } from "lucide-react";
 
 import type { StepId } from "@/lib/filing/types";
 import { SectionNotice } from "@/components/filing/notices";
@@ -40,6 +41,30 @@ export type FieldPolicy = {
    * section or case that needs something, rather than through every clean section.
    */
   next?: { label: string; href: string; status?: React.ReactNode } | null;
+  /**
+   * Which groups of the list of documents to show, when the host collects only some of
+   * them here. Bulk filing's setup shows the complainants' documents alone; each case's
+   * own are uploaded per case.
+   */
+  documentGroups?: (groupId: string) => boolean;
+  /**
+   * Steps of the host's own, listed in the sections rail after the filing's, in the same
+   * rows: bulk filing's upload continues past the sections it borrows (the Excel file,
+   * matching, review) without leaving the filing's frame.
+   */
+  hostSteps?: { group: string; steps: HostStep[] };
+};
+
+/** A host step in the sections rail. */
+export type HostStep = {
+  id: string;
+  title: string;
+  icon: LucideIcon;
+  href: string;
+  active: boolean;
+  done?: boolean;
+  /** Not reachable yet (nothing to match before a file is read); listed for orientation. */
+  disabled?: boolean;
 };
 
 const FieldPolicyContext = React.createContext<FieldPolicy | null>(null);

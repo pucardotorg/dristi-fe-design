@@ -71,7 +71,6 @@ type Props = {
 /** Sections in the single filing's order. */
 const ORDER: GroupId[] = [
   "case",
-  "complainant",
   "accused",
   "cheque",
   "notice",
@@ -82,7 +81,6 @@ const ORDER: GroupId[] = [
 
 /** The single filing step each section belongs to, for its name, icon and place in the nav. */
 const STEP: Partial<Record<GroupId, StepId>> = {
-  complainant: "complainant",
   accused: "accused",
   cheque: "cheque",
   notice: "demand-notice",
@@ -100,7 +98,6 @@ const cardTitle = (g: Group) =>
 
 /** "Accused", "Cheques": what a count of a section is called. */
 const PLURAL: Partial<Record<GroupId, string>> = {
-  complainant: "Further complainants",
   accused: "Accused",
   cheque: "Cheques",
   notice: "Demand notices",
@@ -110,7 +107,6 @@ const PLURAL: Partial<Record<GroupId, string>> = {
 
 /** Singular and plural names for a count in a sentence: "1 accused", "2 cheques". */
 const NOUN: Partial<Record<GroupId, [string, string]>> = {
-  complainant: ["further complainant", "further complainants"],
   accused: ["accused", "accused"],
   cheque: ["cheque", "cheques"],
   notice: ["demand notice", "demand notices"],
@@ -730,7 +726,7 @@ export function ColumnMapping(props: Props) {
     Boolean,
   );
   const children = (g: Group) => GROUPS.filter((x) => x.parent === g.id);
-  // A section a case may not have at all (witnesses, further complainants, other pending
+  // A section a case may not have at all (witnesses, other pending
   // cases) shows once it has a count, or with the optional fields.
   const visible = (g: Group) =>
     g.always || instances[g.id].length > 0 || showOptional;

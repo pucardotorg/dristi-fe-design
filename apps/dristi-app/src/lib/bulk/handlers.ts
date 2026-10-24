@@ -27,6 +27,7 @@ import { aiModeFrom } from "./ai-review";
 import type { ApiBatchRequest, ApiBatchResponse, ApiDocument } from "./contract";
 import { localizeCaseNumber } from "@/lib/court/localize";
 import { buildBatch, validateRequest } from "./intake";
+import { applyParties, type BatchParties } from "./parties";
 import { caseFlags } from "./scrutiny";
 import type { BulkStore, FileMeta } from "./store";
 import type { BulkSignMethod } from "./types";
@@ -57,11 +58,16 @@ export type CreateBody = {
   from?: "excel" | "documents";
   /** For case documents: each case's original file and its text, by case reference. */
   originals?: Record<string, { file: StoredFileRef; text: string | null }>;
+  /**
+   * The batch's complainants, advocates and their documents as entered on the setup
+   * screens (`BLK-05`): put on every case in place of the request's complainant block.
+   */
+  parties?: BatchParties;
 };
 
 /** An Excel upload, already parsed and mapped in the browser into the API's shape. */
 export async function createBatch(store: BulkStore, body: CreateBody): Promise<Reply> {
-  const { request, fileName, from, originals } = body;
+  const { request, fileName, from, originals, parties } = body;
   const errors = validateRequest(request);
   if (errors.length) return fail("Not a valid batch.", 422, errors);
   const source =
@@ -70,6 +76,11 @@ export async function createBatch(store: BulkStore, body: CreateBody): Promise<R
       : { kind: "excel" as const, system: "Excel upload", reference: fileName };
   const built = await buildBatch(request, source, async () => null);
   for (const bc of built.cases) {
+    if (parties) {
+      applyParties(bc.draft, parties);
+      // The names come from the Bar register on the setup screen, not from a request.
+      bc.unknownBar = [];
+    }
     const o = originals?.[bc.reference];
     if (!o) continue;
     bc.original = o.file;

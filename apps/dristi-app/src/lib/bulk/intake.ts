@@ -249,7 +249,7 @@ async function buildDraft(
     payeeFetched: !!payee,
     payeePolice: own ? trim(j.complainantBranchPoliceStation) : "",
     drawerPolice: own ? "" : trim(j.drawerBranchPoliceStation),
-    otherPending: others.length ? "yes" : "no",
+    otherPending: (j.otherPending ?? others.length > 0) ? "yes" : "no",
     otherCases: others.length
       ? others.map((o) => ({ court: trim(o.court), caseNumber: trim(o.caseNumber) }))
       : [{ court: "", caseNumber: "" }],
@@ -259,6 +259,9 @@ async function buildDraft(
   /* ADR and prayers (PRY). The prayers and affidavit keep the standard templates. */
   if (req.adr) draft.adr.adr = req.adr;
   draft.adr.otherDetails = paragraphs(c.otherDetails);
+  if (trim(c.interimRelief)) draft.adr.interimRelief = paragraphs(c.interimRelief);
+  if (trim(c.finalRelief)) draft.adr.finalRelief = paragraphs(c.finalRelief);
+  if (trim(c.affidavit)) draft.affidavit = paragraphs(c.affidavit);
 
   /* Witnesses (WIT), 0..n. With none, the draft keeps the single blank row a filing starts with. */
   if (c.witnesses?.length) {
