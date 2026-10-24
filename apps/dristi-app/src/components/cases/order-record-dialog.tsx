@@ -1,6 +1,6 @@
 "use client";
 
-import { DownloadIcon, FileClockIcon, XIcon } from "lucide-react";
+import { DownloadIcon, XIcon } from "lucide-react";
 
 import { PdfViewer } from "@/components/cases/pdf-viewer";
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
@@ -11,13 +11,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
 import {
   Dialog,
   DialogClose,
@@ -32,6 +25,9 @@ import { cn } from "@/lib/utils";
  * Opening an order shows the order (ORD-03): a tall dialog, a little short of
  * the screen so the case stays visible behind it, holding the PDF, Download
  * and close. The slim bar names the document, which a dialog needs anyway.
+ *
+ * Every order has its signed copy (`ordersFile`; owner, 2026-10-23): there is no "not
+ * uploaded yet" state to show.
  */
 export function OrderRecordDialog({
   order,
@@ -95,38 +91,7 @@ export function OrderRecordDialog({
                 title={order.title}
                 className="flex-1 rounded-none"
               />
-            ) : (
-              /* A published order normally carries its PDF (ORD-10). This is
-                 the gap between the court passing an order and the signed
-                 copy being uploaded, so the reader still gets what was
-                 ordered, from the business of the day. */
-              <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-6 overflow-y-auto bg-surface-sunken p-6">
-                <Empty className="flex-none">
-                  <EmptyHeader>
-                    <EmptyMedia variant="icon">
-                      <FileClockIcon aria-hidden />
-                    </EmptyMedia>
-                    <EmptyTitle className="text-body font-semibold">
-                      The signed order is not uploaded yet
-                    </EmptyTitle>
-                    <EmptyDescription>
-                      It appears here as soon as the court uploads it. You do
-                      not need to do anything.
-                    </EmptyDescription>
-                  </EmptyHeader>
-                </Empty>
-                {order.botd ? (
-                  <div className="flex w-full max-w-xl flex-col gap-1.5 rounded-lg border border-hairline bg-card p-4">
-                    <p className="text-caption font-medium text-muted-foreground">
-                      Business of the day
-                    </p>
-                    <p className="text-body-compact text-pretty text-foreground">
-                      {order.botd}
-                    </p>
-                  </div>
-                ) : null}
-              </div>
-            )}
+            ) : null}
           </>
         ) : null}
       </FlowDialogContent>

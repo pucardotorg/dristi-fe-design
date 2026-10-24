@@ -1,5 +1,13 @@
+"use client";
+
 import { CaseLink as Link } from "@/components/cases/case-reader";
+import * as React from "react";
 import { ChevronRightIcon, HistoryIcon } from "lucide-react";
+
+import {
+  HistoryTypeFilter,
+  type TypeOption,
+} from "@/components/employee/order-case-history";
 
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
@@ -20,7 +28,9 @@ import { Timeline, TimelineItem } from "@/components/ui/timeline";
 import {
   caseTimelineModel,
   type CaseTimelineEvent,
+  type CaseTimelineEventType,
 } from "@/lib/cases/timeline";
+import { HISTORY_TYPES } from "@/lib/employee/order-case-history";
 import {
   CASE_SECTIONS,
   caseSectionHref,
@@ -32,11 +42,58 @@ import { PANEL_CLASS } from "@/components/shell/panel";
 import { cn } from "@/lib/utils";
 import { BotdText } from "@/components/cases/botd-text";
 
+/**
+ * What each event is, for the filter: the event catalogue's categories, as the case
+ * history beside an order has them (`HistoryTypeFilter`; owner, 2026-10-23), with the
+ * cheque's chain before filing as one more.
+ */
+const EVENT_CATEGORY: Record<CaseTimelineEventType, string> = {
+  "application.submitted": "submissions",
+  "case.disposed": "orders",
+  "case.registered": "filing",
+  "cheque.dishonoured": "before-filing",
+  "document.filed": "submissions",
+  "hearing.appearance": "hearing",
+  "hearing.held": "hearing",
+  "hearing.part-heard": "hearing",
+  "hearing.plea-recorded": "hearing",
+  "memo.received": "before-filing",
+  "notice.dispatch-proof": "before-filing",
+  "notice.issued": "before-filing",
+  "order.cognizance": "orders",
+  "order.hearing-scheduled": "orders",
+  "summons.issued": "process",
+};
+const TYPE_OPTIONS: TypeOption[] = [
+  { value: "before-filing", label: "Before filing" },
+  ...HISTORY_TYPES,
+];
+
 export function CaseTimeline({ record }: { record: CaseRecord }) {
   const model = caseTimelineModel(
     record,
     new Date(`${FIXTURE_TODAY}T23:59:59`).getTime()
   );
+  const [types, setTypes] = React.useState<string[]>([]);
+  /* Only the types this case has, in the filter's own order. */
+  const present = new Set(
+    model.days.flatMap((day) =>
+      day.events.map((event) => EVENT_CATEGORY[event.type])
+    )
+  );
+  const options = TYPE_OPTIONS.filter((option) => present.has(option.value));
+  /* A day keeps the events that match; a day left with none drops out. */
+  const days =
+    types.length === 0
+      ? model.days
+      : model.days
+          .map((day) => ({
+            ...day,
+            events: day.events.filter((event) =>
+              types.includes(EVENT_CATEGORY[event.type])
+            ),
+          }))
+          .filter((day) => day.events.length > 0);
 
   return (
     <section
@@ -80,35 +137,47 @@ export function CaseTimeline({ record }: { record: CaseRecord }) {
               </p>
             </div>
           </CardHeader>
-          <CardContent>
-            <Timeline aria-label="Case History, newest first">
-              {model.days.map((day) => (
-                <TimelineItem
-                  key={day.on}
-                  status={day.status}
-                  aria-current={day.status === "current" ? "true" : undefined}
-                >
-                  <div className="flex min-w-0 flex-col gap-1">
-                    <time
-                      dateTime={day.on}
-                      className="text-body-compact font-semibold tabular-nums text-foreground"
-                    >
-                      {day.dateLabel}
-                    </time>
+          <CardContent className="flex min-w-0 flex-col gap-4">
+            <HistoryTypeFilter
+              options={options}
+              value={types}
+              onValueChange={setTypes}
+              pinned={false}
+            />
+            {days.length === 0 ? (
+              <p className="text-body-compact text-muted-foreground">
+                Nothing of these types on this case.
+              </p>
+            ) : (
+              <Timeline aria-label="Case History, newest first">
+                {days.map((day) => (
+                  <TimelineItem
+                    key={day.on}
+                    status={day.status}
+                    aria-current={day.status === "current" ? "true" : undefined}
+                  >
+                    <div className="flex min-w-0 flex-col gap-1">
+                      <time
+                        dateTime={day.on}
+                        className="text-body-compact font-semibold tabular-nums text-foreground"
+                      >
+                        {day.dateLabel}
+                      </time>
 
-                    <ItemGroup>
-                      {day.events.map((event) => (
-                        <TimelineEvent
-                          key={event.id}
-                          caseId={record.id}
-                          event={event}
-                        />
-                      ))}
-                    </ItemGroup>
-                  </div>
-                </TimelineItem>
-              ))}
-            </Timeline>
+                      <ItemGroup>
+                        {day.events.map((event) => (
+                          <TimelineEvent
+                            key={event.id}
+                            caseId={record.id}
+                            event={event}
+                          />
+                        ))}
+                      </ItemGroup>
+                    </div>
+                  </TimelineItem>
+                ))}
+              </Timeline>
+            )}
           </CardContent>
         </Card>
       )}
@@ -157,23 +226,23 @@ function TimelineEvent({
 
   return (
     <>
-    <Item
-      asChild
-      size="sm"
-      className="-mx-2 w-auto px-2 py-1.5 hover:bg-surface-sunken"
-    >
-      <Link
-        href={caseSectionHref(caseId, event.ref)}
-        role="listitem"
-        aria-label={`${event.label}, open ${sectionLabel(event.ref)}`}
+      <Item
+        asChild
+        size="sm"
+        className="-mx-2 w-auto px-2 py-1.5 hover:bg-surface-sunken"
       >
-        {title}
-        <ItemActions aria-hidden>
-          <ChevronRightIcon className="size-4 text-muted-foreground" />
-        </ItemActions>
-      </Link>
-    </Item>
-    {botd}
+        <Link
+          href={caseSectionHref(caseId, event.ref)}
+          role="listitem"
+          aria-label={`${event.label}, open ${sectionLabel(event.ref)}`}
+        >
+          {title}
+          <ItemActions aria-hidden>
+            <ChevronRightIcon className="size-4 text-muted-foreground" />
+          </ItemActions>
+        </Link>
+      </Item>
+      {botd}
     </>
   );
 }
