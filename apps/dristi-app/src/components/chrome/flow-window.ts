@@ -101,6 +101,20 @@ export function useBottomSheet(): {
 let guards = 0;
 
 /**
+ * The entry this module pushed, by a token of its own. A plain `flowWindow: true`
+ * was not enough: Next.js copies `history.state` into its own replaceState on the
+ * page's real entry, so the flag outlived the guard. The next close then saw the
+ * flag on the real page, stepped back, and left the page entirely (owner, Oct 23:
+ * switching a phone view back to desktop landed on an old filing). Only an entry
+ * carrying the current token is ours to pop.
+ */
+let ownedToken: string | null = null;
+
+function isOurEntry(): boolean {
+  return ownedToken !== null && window.history.state?.flowWindow === ownedToken;
+}
+
+/**
  * The phone's own back button (or back swipe) steps out of an open flow window
  * instead of leaving the page underneath it.
  *
@@ -121,8 +135,9 @@ export function useBackCloses(active: boolean, onBack: () => void) {
     if (!active) return;
     guards += 1;
     const stand = () => {
-      if (!window.history.state?.flowWindow) {
-        window.history.pushState({ flowWindow: true }, "");
+      if (!isOurEntry()) {
+        ownedToken = `flow-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        window.history.pushState({ flowWindow: ownedToken }, "");
       }
     };
     stand();
@@ -143,7 +158,9 @@ export function useBackCloses(active: boolean, onBack: () => void) {
       // so a remount in the same tick (one step handing over to the next, or
       // React's development double mount) keeps the entry instead of racing it.
       window.setTimeout(() => {
-        if (guards === 0 && window.history.state?.flowWindow) window.history.back();
+        if (guards !== 0) return;
+        if (isOurEntry()) window.history.back();
+        ownedToken = null;
       }, 0);
     };
   }, [active]);

@@ -129,6 +129,8 @@ export function PeopleInviteField({
   disabled = false,
   registeredOnly = false,
   copy: copyOverride,
+  invalid = false,
+  describedBy,
 }: {
   id: string;
   /** The field's accessible name; the visible heading sits above it. */
@@ -147,6 +149,10 @@ export function PeopleInviteField({
   registeredOnly?: boolean;
   /** Wording for a narrower use — co-advocates on a vakalatnama rather than the team. */
   copy?: Partial<typeof inviteFieldCopy>;
+  /** Marks the input invalid, which reddens the chips box (DS `has-aria-invalid`). */
+  invalid?: boolean;
+  /** The id of the message that explains the error. */
+  describedBy?: string;
 }) {
   const copy = { ...inviteFieldCopy, ...copyOverride };
   /* Searched as shown: names and Bar IDs in the selected court's terms, so typing what
@@ -231,6 +237,8 @@ export function PeopleInviteField({
               <ComboboxChipsInput
                 id={id}
                 aria-label={label}
+                aria-invalid={invalid || undefined}
+                aria-describedby={describedBy}
                 autoComplete="off"
                 placeholder={
                   people.length ? undefined : pick(copy.placeholder, locale)

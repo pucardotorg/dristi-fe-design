@@ -1,6 +1,6 @@
 import type { Copy } from "@/lib/onboarding/content";
 import { CASES } from "@/lib/cases/fixtures";
-import { partiesLabel } from "@/lib/cases/types";
+import { ACTIVE_STAGES, partiesLabel, type ActiveStage } from "@/lib/cases/types";
 import { viewerAccess as recordViewerAccess } from "@/lib/cases/viewer";
 
 export { fill as fillCopy } from "@/lib/join/content";
@@ -45,6 +45,9 @@ export type AccessCase = {
   /** An e-filing draft the advocate is on (OFC-04): shared like a case, but it
       has no case number or case page yet. */
   draft?: boolean;
+  /** Where the case sits (PM, Oct 23: the person's case table filters on it).
+      Absent on drafts, which have no stage yet. */
+  stage?: ActiveStage | "disposed";
 };
 
 /** How a case is named in a sentence: its number, or a draft's title. */
@@ -771,6 +774,97 @@ export const peopleCopy = {
   ),
 };
 
+/* One person's access dialog (PM, Oct 23): every case in one table, ticked where they
+   have access, so giving and removing access is the same act. "All cases" is a
+   checkbox, and new cases can only ride on it (OFC-24 unchanged). */
+export const personAccessCopy = {
+  close: t("Close", "അടയ്ക്കുക"),
+  addTitle: t("Add person", "ആളെ ചേർക്കുക"),
+  addIntro: t(
+    "Give a registered advocate or clerk access to your cases. They can work on the cases you pick, but they're not on the vakalatnama, so they can't e-sign.",
+    "രജിസ്റ്റർ ചെയ്ത ഒരു അഭിഭാഷകനോ ക്ലർക്കിനോ നിങ്ങളുടെ കേസുകളിലേക്ക് ആക്‌സസ് നൽകുക. നിങ്ങൾ തിരഞ്ഞെടുക്കുന്ന കേസുകളിൽ അവർക്ക് പ്രവർത്തിക്കാം, പക്ഷേ വക്കാലത്ത്നാമയിൽ ഇല്ലാത്തതിനാൽ ഇ-സൈൻ ചെയ്യാനാകില്ല.",
+  ),
+  whoLabel: t("People", "ആളുകൾ"),
+  groupYourCases: t("Your cases", "നിങ്ങളുടെ കേസുകൾ"),
+  addAction: t("Add to office", "ഓഫീസിൽ ചേർക്കുക"),
+  needPerson: t("Choose at least one person.", "ഒരാളെയെങ്കിലും തിരഞ്ഞെടുക്കുക."),
+  needCases: t("Tick at least one case.", "ഒരു കേസെങ്കിലും ടിക്ക് ചെയ്യുക."),
+  addConfirmTitle: t("Add {names} to your office?", "{names}-നെ നിങ്ങളുടെ ഓഫീസിൽ ചേർക്കണോ?"),
+  addedToast: t("Access given to {names}.", "{names}-ന് ആക്‌സസ് നൽകി."),
+  leaveBodyAdd: t(
+    "The people you picked have not been added yet.",
+    "നിങ്ങൾ തിരഞ്ഞെടുത്തവരെ ഇതുവരെ ചേർത്തിട്ടില്ല.",
+  ),
+  moreActions: t("More actions", "കൂടുതൽ പ്രവർത്തനങ്ങൾ"),
+  groupHeld: t("Has access", "ആക്‌സസ് ഉണ്ട്"),
+  groupOther: t("No access yet", "ഇതുവരെ ആക്‌സസ് ഇല്ല"),
+  casesSection: t("Access to cases", "കേസുകളിലേക്കുള്ള ആക്‌സസ്"),
+  futureLocked: t(
+    "Available only with All cases.",
+    "എല്ലാ കേസുകളും ഉള്ളപ്പോൾ മാത്രം ലഭ്യം.",
+  ),
+  searchPlaceholder: t("Search case name or number", "കേസിന്റെ പേരോ നമ്പറോ തിരയുക"),
+  casesIntro: t(
+    "Tick a case to give access. Untick it to remove access.",
+    "ആക്‌സസ് നൽകാൻ കേസ് ടിക്ക് ചെയ്യുക. ആക്‌സസ് നീക്കാൻ ടിക്ക് മാറ്റുക.",
+  ),
+  allCases: t("All cases", "എല്ലാ കേസുകളും"),
+  future: t(
+    "Share new cases automatically",
+    "പുതിയ കേസുകൾ സ്വയമേവ പങ്കിടുക",
+  ),
+  stageLabel: t("Stage", "ഘട്ടം"),
+  stageAll: t("All stages", "എല്ലാ ഘട്ടങ്ങളും"),
+  stageDisposed: t("Disposed", "തീർപ്പാക്കി"),
+  columnCase: t("Case", "കേസ്"),
+  columnStage: t("Stage", "ഘട്ടം"),
+  columnAccess: t("Access granted", "ആക്‌സസ് നൽകിയത്"),
+  notFiled: t("Not filed yet", "ഇതുവരെ ഫയൽ ചെയ്തിട്ടില്ല"),
+  openDraft: t("Open draft", "കരട് തുറക്കുക"),
+  since: t("Since {date}", "{date} മുതൽ"),
+  willAdd: t("Will be added", "ചേർക്കും"),
+  willRemove: t("Will be removed", "നീക്കം ചെയ്യും"),
+  selectShown: t("Tick the {count} cases shown", "കാണിച്ച {count} കേസുകൾ ടിക്ക് ചെയ്യുക"),
+  clearShown: t("Untick the {count} cases shown", "കാണിച്ച {count} കേസുകളുടെ ടിക്ക് മാറ്റുക"),
+  selectCase: t("Access to {case}", "{case}-ലേക്കുള്ള ആക്‌സസ്"),
+  noCases: t("No cases match these filters.", "ഈ ഫിൽട്ടറുകൾക്ക് അനുയോജ്യമായ കേസുകളില്ല."),
+  pendingAddOne: t("+1 case", "+1 കേസ്"),
+  pendingAdd: t("+{count} cases", "+{count} കേസുകൾ"),
+  pendingRemoveOne: t("−1 case", "−1 കേസ്"),
+  pendingRemove: t("−{count} cases", "−{count} കേസുകൾ"),
+  save: t("Save changes", "മാറ്റങ്ങൾ സേവ് ചെയ്യുക"),
+  confirmTitle: t("Save changes to {name}'s access?", "{name}-ന്റെ ആക്‌സസിലെ മാറ്റങ്ങൾ സേവ് ചെയ്യണോ?"),
+  pointAddAll: t("Gets access to all cases ({count})", "എല്ലാ കേസുകളിലേക്കും ആക്‌സസ് ലഭിക്കും ({count})"),
+  confirmFutureOn: t(
+    "New cases are shared automatically",
+    "പുതിയ കേസുകൾ സ്വയമേവ പങ്കിടും",
+  ),
+  confirmOutsideFilter: t(
+    "A filter is on, so not every case was in view. Review before saving.",
+    "ഒരു ഫിൽട്ടർ ഓണാണ്, എല്ലാ കേസുകളും കാണിച്ചിരുന്നില്ല. സേവ് ചെയ്യുന്നതിന് മുമ്പ് പരിശോധിക്കുക.",
+  ),
+  pointAddOne: t("Gets access to 1 case", "1 കേസിലേക്ക് ആക്‌സസ് ലഭിക്കും"),
+  pointAdd: t("Gets access to {count} cases", "{count} കേസുകളിലേക്ക് ആക്‌സസ് ലഭിക്കും"),
+  pointRemoveOne: t("Loses access to 1 case", "1 കേസിലെ ആക്‌സസ് നഷ്ടപ്പെടും"),
+  pointRemove: t("Loses access to {count} cases", "{count} കേസുകളിലെ ആക്‌സസ് നഷ്ടപ്പെടും"),
+  confirmFutureOff: t(
+    "New cases stop being shared automatically",
+    "പുതിയ കേസുകൾ സ്വയമേവ പങ്കിടുന്നത് നിർത്തും",
+  ),
+  confirmLeave: t(
+    "Leaves your office, with no cases left",
+    "കേസുകളൊന്നും ബാക്കിയില്ലാത്തതിനാൽ നിങ്ങളുടെ ഓഫീസിൽ നിന്ന് പുറത്താകും",
+  ),
+  savedToast: t("Access updated for {name}.", "{name}-ന്റെ ആക്‌സസ് പുതുക്കി."),
+  leaveTitle: t("Discard your changes?", "നിങ്ങളുടെ മാറ്റങ്ങൾ ഉപേക്ഷിക്കണോ?"),
+  leaveBody: t(
+    "Your changes to {name}'s access are not saved yet.",
+    "{name}-ന്റെ ആക്‌സസിലെ നിങ്ങളുടെ മാറ്റങ്ങൾ ഇതുവരെ സേവ് ചെയ്തിട്ടില്ല.",
+  ),
+  leaveConfirm: t("Discard changes", "മാറ്റങ്ങൾ ഉപേക്ഷിക്കുക"),
+  leaveCancel: t("Keep editing", "എഡിറ്റിംഗ് തുടരുക"),
+};
+
 /* What the person added sees in their own notifications (OFC-08, N1 to N3).
    In-app only in the prototype; the SMS is not shown. */
 export const officeNoticeCopy = {
@@ -813,37 +907,6 @@ export const casesCopy = {
 };
 
 /* The Add person flow (OFC-20 to OFC-28). Malayalam drafted — needs review. */
-export const addPersonCopy = {
-  title: t("Add person", "ആളെ ചേർക്കുക"),
-  titleMore: t("Give {name} access to more cases", "{name}-ന് കൂടുതൽ കേസുകളിലേക്ക് ആക്‌സസ് നൽകുക"),
-  body: t(
-    "Add a registered advocate or clerk to your office. They can work on the cases you choose but are not on the vakalatnama, and cannot e-sign.",
-    "രജിസ്റ്റർ ചെയ്ത ഒരു അഭിഭാഷകനെയോ ക്ലർക്കിനെയോ നിങ്ങളുടെ ഓഫീസിൽ ചേർക്കുക. നിങ്ങൾ തിരഞ്ഞെടുക്കുന്ന കേസുകളിൽ അവർക്ക് പ്രവർത്തിക്കാം, പക്ഷേ അവർ വക്കാലത്ത്നാമയിൽ ഉണ്ടാകില്ല, ഇ-സൈൻ ചെയ്യാനാകില്ല.",
-  ),
-  peopleLabel: t("Who", "ആരെ"),
-  casesLabel: t("Which cases", "ഏതൊക്കെ കേസുകൾ"),
-  allCurrent: t("All cases", "എല്ലാ കേസുകളും"),
-  allCurrentHint: t(
-    "Every case you are on the vakalatnama for and your drafts, {count} now. Every case you file or join from now on is added.",
-    "നിങ്ങൾ വക്കാലത്ത്നാമയിലുള്ള എല്ലാ കേസുകളും നിങ്ങളുടെ കരടുകളും, ഇപ്പോൾ {count}. ഇനി ഫയൽ ചെയ്യുന്നതോ ചേരുന്നതോ ആയ എല്ലാ കേസുകളും ചേർക്കും.",
-  ),
-  specific: t("Specific cases", "തിരഞ്ഞെടുത്ത കേസുകൾ"),
-  specificHint: t(
-    "Only the cases you choose below. New cases are not shared automatically.",
-    "താഴെ നിങ്ങൾ തിരഞ്ഞെടുക്കുന്ന കേസുകൾ മാത്രം. പുതിയ കേസുകൾ സ്വയമേവ പങ്കിടില്ല.",
-  ),
-  caseSearch: t("Search your cases", "നിങ്ങളുടെ കേസുകൾ തിരയുക"),
-  selectedCount: t("{count} selected", "{count} തിരഞ്ഞെടുത്തു"),
-  alreadyHas: t("Already has access", "ഇതിനകം ആക്‌സസ് ഉണ്ട്"),
-  needPerson: t("Choose at least one person.", "ഒരാളെയെങ്കിലും തിരഞ്ഞെടുക്കുക."),
-  needCases: t("Choose at least one case.", "ഒരു കേസെങ്കിലും തിരഞ്ഞെടുക്കുക."),
-  cancel: t("Cancel", "റദ്ദാക്കുക"),
-  submit: t("Add", "ചേർക്കുക"),
-  submitMore: t("Give access", "ആക്‌സസ് നൽകുക"),
-  doneToast: t("{names} added to {count} cases", "{names} {count} കേസുകളിൽ ചേർത്തു"),
-  doneToastOne: t("{names} added to 1 case", "{names} 1 കേസിൽ ചേർത്തു"),
-};
-
 /* Your cases joins the docket, so "All cases" means every case the advocate
    sees there (OFC-25, OFC-52), not only the access fixtures. Drafts arrive at
    run time from the filing store (`AccessProvider`). */
@@ -856,5 +919,13 @@ for (const record of CASES) {
     court: record.court,
     nextHearing: record.nextHearing?.on ?? "—",
     viewerAccess: recordViewerAccess(record).kind,
+    stage: record.disposal ? "disposed" : record.stage,
   });
 }
+
+/* The access fixtures predate stages. They take one in turn down the active
+   ladder so the stage filter has something to narrow; wireframe data only. */
+ACCESS_CASES.forEach((entry, index) => {
+  if (entry.stage || entry.draft) return;
+  entry.stage = ACTIVE_STAGES[index % ACTIVE_STAGES.length].value;
+});
