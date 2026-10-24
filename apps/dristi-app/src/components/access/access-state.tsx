@@ -403,6 +403,7 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
             court: "",
             nextHearing: "—",
             draft: true,
+            side: "complainant",
           }),
         );
         casesAdded(fresh.map((d) => d.id));
