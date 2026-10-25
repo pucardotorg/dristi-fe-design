@@ -53,7 +53,13 @@ import { SIGN_BAIL_BOND_QUEUE_COUNT } from "./sign-bail-bonds";
 import { SIGN_EVIDENCE_QUEUE_COUNT } from "./sign-evidence";
 import { SIGN_FORM_QUEUE_COUNT } from "./sign-forms";
 import { SIGN_ORDER_PENDING_COUNT } from "./sign-orders";
-import { PROCESS_QUEUE_COUNT } from "./sign-process";
+import {
+  PROCESS_LINE,
+  PROCESS_QUEUE_COUNT,
+  processQueueCount,
+  processScopeFor,
+  scopeLine,
+} from "./sign-process";
 import { WITNESS_DEPOSITION_QUEUE_COUNT } from "./sign-witness-deposition";
 import type { CourtRole } from "./content";
 
@@ -477,6 +483,8 @@ function cognizanceChildren(): CourtNavItem[] {
  */
 const SEAT_ROWS: Partial<Record<CourtRole, ReadonlySet<string>>> = {
   "scrutiny-officer": new Set(["dashboard", "scrutiny", "approve-registrations", "configurations"]),
+  /* Owner, 2026-10-25: the Post officer sees Sign process and nothing else. */
+  "post-officer": new Set(["sign-process"]),
 };
 
 /**
@@ -552,7 +560,16 @@ export function courtNavItemsForSeat(
   role: CourtRole,
   court: CourtId = "kerala",
 ): CourtNavItem[] {
-  return items.filter((item) => seatHasNavRow(role, item.id, court));
+  return items
+    .filter((item) => seatHasNavRow(role, item.id, court))
+    .map((item) => (item.id === "sign-process" ? withSeatProcessCount(item, role) : item));
+}
+
+/** Sign process counts what the seat's own scope of the line holds — e-Post alone for the Post officer. */
+function withSeatProcessCount(item: CourtNavItem, role: CourtRole): CourtNavItem {
+  const scope = processScopeFor(role);
+  if (!scope.channels) return item;
+  return { ...item, count: processQueueCount(scopeLine(PROCESS_LINE, scope)) };
 }
 
 /** Groups, less the rows this seat does not see — and less any group left empty. */

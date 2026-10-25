@@ -28,6 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import type { CourtRole } from "@/lib/employee/content";
 import { setCourtSession } from "@/lib/employee/session";
 import {
   accountFor,
@@ -79,6 +80,11 @@ import {
 /** Where the court's day starts — and so where signing in lands. */
 const AFTER_SIGN_IN = "/employee/hearings";
 
+/** A seat whose rail is one row lands on that row, not on a screen it is not offered. */
+const AFTER_SIGN_IN_FOR: Partial<Record<CourtRole, string>> = {
+  "post-officer": "/employee/sign-process",
+};
+
 export function CourtSignInBlock() {
   const router = useRouter();
 
@@ -127,7 +133,7 @@ export function CourtSignInBlock() {
       district: courtroom.district,
       court: courtroom.name,
     });
-    router.push(AFTER_SIGN_IN);
+    router.push(AFTER_SIGN_IN_FOR[account.role] ?? AFTER_SIGN_IN);
   }
 
   return (
