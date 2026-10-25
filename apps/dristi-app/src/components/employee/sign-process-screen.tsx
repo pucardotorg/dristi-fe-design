@@ -63,7 +63,7 @@ import {
   formatProcessDate,
   groupSelectionByCase,
   hasPills,
-  NON_SERVICE_REASONS,
+  nonServiceReasonsFor,
   OUTCOME_FILTERS,
   orderForView,
   pileFor,
@@ -107,7 +107,7 @@ import {
   type SelectedCase,
 } from "@/lib/employee/sign-process";
 import { Identifier } from "@/components/chrome/identifier";
-import { useCourtText } from "@/components/court/court-provider";
+import { useCourt, useCourtText } from "@/components/court/court-provider";
 import { useCourtRole } from "@/components/employee/use-court-role";
 
 function plural(count: number, one: string, many: string): string {
@@ -783,6 +783,7 @@ function ProcessFiltersForm({
   /** Enter in the box. Where the view is paper in hand it is the pile's fast path. */
   onSubmit: () => void;
 }) {
+  const { court } = useCourt();
   const fields: CourtFilterField[] = [
     {
       id: "sign-process-type",
@@ -839,7 +840,7 @@ function ProcessFiltersForm({
         value: filters.reason,
         all: "all",
         allLabel: "All reasons",
-        options: NON_SERVICE_REASONS.map((reason) => ({
+        options: nonServiceReasonsFor(court).map((reason) => ({
           value: reason,
           label: reason,
         })),

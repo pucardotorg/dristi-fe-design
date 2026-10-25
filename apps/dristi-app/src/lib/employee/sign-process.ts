@@ -26,7 +26,7 @@
  * *To post* until someone marks it posted. A process going **By hand** waits under
  * *To hand over* until the CMO marks it sent. A send can also fail before
  * the process ever leaves (ICOPS not answering); that is still the court's to fix, so it
- * waits under *Error* in the same tab, not under Service.
+ * waits under *Errored* in the same tab, not under Service.
  *
  * **What came back is the channel's word, and only paper is recorded by the court.**
  * Electronic channels report their own outcome. A registered-post acknowledgement, or the
@@ -50,6 +50,7 @@ import { CURRENT_STAFF, type CourtRole } from "./content";
 import { matchesQuery } from "./filter-state";
 import { causeTitle, formatListingDate, parseIsoDay } from "./hearings";
 import { localizeForDownload, voicedForDownload } from "@/lib/court/browser";
+import type { CourtId } from "@/lib/court/profiles";
 
 /**
  * Which instrument the row is — the "Process type" column.
@@ -128,7 +129,7 @@ export function courtProcessTypeInline(id: CourtProcessTypeId): string {
  * for a warrant or a proclamation. They split three ways, and the split is the whole
  * reason Issuance has a To post and a To hand over pill:
  *
- * - **post** — paper. A cover is collected before signing, and after signing it still has
+ * - **post** — paper: RPAD, or Police (RPAD) to the station. A cover is collected before signing, and after signing it still has
  *   to be carried to the post office. Its outcome comes back as paper too, so the clerk
  *   records it.
  * - **electronic** — the system sends it on signing and the channel reports back by
@@ -143,7 +144,9 @@ export function courtProcessTypeInline(id: CourtProcessTypeId): string {
 export type ProcessChannelId =
   | "rpad"
   | "e-post"
-  | "police"
+  | "police-rpad"
+  | "police-nstep"
+  | "police-icops"
   | "sms"
   | "email"
   | "by-hand";
@@ -152,8 +155,6 @@ export type ProcessChannel = {
   id: ProcessChannelId;
   label: string;
   dispatch: "post" | "electronic" | "hand" | "e-post";
-  /** What the channel is reached through, where that is not the channel's own name. */
-  via?: string;
 };
 
 export const PROCESS_CHANNELS: ProcessChannel[] = [
@@ -161,7 +162,11 @@ export const PROCESS_CHANNELS: ProcessChannel[] = [
   { id: "rpad", label: "RPAD", dispatch: "post" },
   // The channel's own spelling (process-handover §6.2).
   { id: "e-post", label: "e-Post", dispatch: "e-post" },
-  { id: "police", label: "Police", dispatch: "electronic", via: "ICOPS" },
+  /* The three police channels (§6.2): Police (RPAD) is registered post to the station,
+     with its own cover; NSTEP and iCOPS are sent and report back by the system. */
+  { id: "police-rpad", label: "Police (RPAD)", dispatch: "post" },
+  { id: "police-nstep", label: "Police (NSTEP)", dispatch: "electronic" },
+  { id: "police-icops", label: "Police (iCOPS)", dispatch: "electronic" },
   { id: "sms", label: "SMS", dispatch: "electronic" },
   { id: "email", label: "Email", dispatch: "electronic" },
   { id: "by-hand", label: "By hand", dispatch: "hand" },
@@ -198,23 +203,41 @@ export function recordedByCourt(process: Pick<CourtProcess, "channel">): boolean
 }
 
 /**
- * Why a registered-post cover came back unserved — the reasons the reference's delivery
- * dialog offers, word for word bar sentence case.
+ * Why a process came back Not delivered or Not executed (`DSP-09`). A master each state
+ * configures, not a fixed list: until a state sends its own, it starts on the reasons
+ * the reference's delivery dialog offers, word for word bar sentence case.
  */
-export const NON_SERVICE_REASONS = [
+const REFERENCE_REASONS = [
   "Address not found",
   "Door locked",
   "Person not present",
   "Delivery refused",
   "Other",
-] as const;
+];
 
-export type NonServiceReason = (typeof NON_SERVICE_REASONS)[number];
+export const NON_SERVICE_REASONS: Record<CourtId, readonly string[]> = {
+  kerala: REFERENCE_REASONS,
+  gujarat: REFERENCE_REASONS,
+  "punjab-haryana": REFERENCE_REASONS,
+};
 
-/** What the channel reported. `reason` only when it was not served. */
-export type ProcessOutcome =
-  | { served: true }
-  | { served: false; reason: NonServiceReason };
+/** A reason from the state's master. A string, because the master is the state's. */
+export type NonServiceReason = string;
+
+/** The reasons a state's master offers (`DSP-09`). */
+export function nonServiceReasonsFor(court: CourtId): readonly string[] {
+  return NON_SERVICE_REASONS[court];
+}
+
+/**
+ * What came back (`DSP-08`): the status, a free-text comment, and an optional supporting
+ * file. `reason` only when it was not served (`DSP-09`). The file is held in memory, as
+ * the rest of the line is.
+ */
+export type ProcessOutcome = {
+  comment?: string;
+  file?: File;
+} & ({ served: true } | { served: false; reason: NonServiceReason });
 
 /** Where a row is. The pill it appears under. */
 export type ProcessStatusId =
@@ -370,10 +393,10 @@ export const PROCESS_STATUSES: ProcessStatus[] = [
     hint: "Signed, but the channel did not accept it. Resend to try again.",
     counted: true,
     tab: "issuance",
-    label: "Error",
+    label: "Errored",
     act: "resend",
     empty: {
-      title: "No errors",
+      title: "Nothing errored",
       description: "Every electronic process this court has signed went out.",
     },
   },
@@ -445,7 +468,7 @@ export function processStatusLine(process: CourtProcess): ProcessStatusLine {
     case "to-send":
       return { word: "Signed", day: process.signedOn, warn: false };
     case "send-failed":
-      return { word: "Error", reason: process.sendFailure, warn: true };
+      return { word: "Errored", reason: process.sendFailure, warn: true };
     case "in-progress":
       return { word: "Sent", day: process.sentOn, warn: false };
     case "completed": {
@@ -496,8 +519,9 @@ export type ProcessTab = {
    */
   dateColumn: string;
   /**
-   * The channel every row here carries, where the tab is defined by one. Only RPAD waits
-   * for a cover, so the channel filter has one possible answer there and is not drawn.
+   * The channel every row here carries, where the tab is defined by one, so the channel
+   * filter has one possible answer there and is not drawn — the Post officer's e-Post
+   * view. RPAD collection is not one: RPAD and Police (RPAD) both wait for a cover.
    */
   onlyChannel?: ProcessChannelId;
   /**
@@ -520,7 +544,6 @@ export const PROCESS_TABS: ProcessTab[] = [
     defaultView: "awaiting-cover",
     countedStatuses: ["awaiting-cover"],
     dateColumn: "Payment made",
-    onlyChannel: "rpad",
     outcomeFilters: false,
     allHint: "Everything waiting for its cover.",
     empty: processStatusEmpty("awaiting-cover"),
@@ -1027,7 +1050,8 @@ export const PROCESS_LINE: CourtProcess[] = [
       accused: "Rajeev Sankaran",
     },
     type: "summons",
-    channel: "rpad",
+    /* Registered post to the police station: its own cover, collected like any other. */
+    channel: "police-rpad",
     status: "awaiting-cover",
     paidOn: "2026-09-04",
     hearingDate: "2026-10-05",
@@ -1164,7 +1188,7 @@ export const PROCESS_LINE: CourtProcess[] = [
     caseNumber: "ST/1322/2026",
     parties: { complainant: "Lekha Vijayan", accused: "Sudheer Nadesan" },
     type: "warrant",
-    channel: "police",
+    channel: "police-nstep",
     status: "to-sign",
     paidOn: "2026-08-31",
     issuedOn: "2026-09-03",
@@ -1250,7 +1274,7 @@ export const PROCESS_LINE: CourtProcess[] = [
       accused: "Rahul Krishnan",
     },
     type: "warrant",
-    channel: "police",
+    channel: "police-icops",
     status: "to-sign",
     paidOn: "2026-08-18",
     issuedOn: "2026-08-26",
@@ -1312,7 +1336,7 @@ export const PROCESS_LINE: CourtProcess[] = [
       accused: "Manoj Chandran",
     },
     type: "warrant",
-    channel: "police",
+    channel: "police-icops",
     status: "send-failed",
     paidOn: "2026-08-12",
     issuedOn: "2026-08-19",
@@ -1365,7 +1389,7 @@ export const PROCESS_LINE: CourtProcess[] = [
     caseNumber: "ST/1392/2026",
     parties: { complainant: "Paravur Fisheries Co-operative", accused: "Biju Thomas" },
     type: "attachment",
-    channel: "police",
+    channel: "police-icops",
     status: "in-progress",
     paidOn: "2026-08-02",
     issuedOn: "2026-08-07",
@@ -1448,7 +1472,7 @@ export const PROCESS_LINE: CourtProcess[] = [
       accused: "Prakashan Achari",
     },
     type: "warrant",
-    channel: "police",
+    channel: "police-icops",
     status: "in-progress",
     paidOn: "2026-07-28",
     issuedOn: "2026-08-04",
@@ -1546,7 +1570,7 @@ export const PROCESS_LINE: CourtProcess[] = [
       accused: "Seema Joseph",
     },
     type: "warrant",
-    channel: "police",
+    channel: "police-icops",
     status: "completed",
     paidOn: "2026-07-10",
     issuedOn: "2026-07-17",

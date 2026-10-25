@@ -16,6 +16,8 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Dialog, DialogDescription } from "@/components/ui/dialog";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { UploadedDocField } from "@/components/cases/uploaded-doc-field";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
@@ -28,7 +30,7 @@ import { causeTitle, isoDay } from "@/lib/employee/hearings";
 import {
   courtProcessTypeInline,
   courtProcessTypeLabel,
-  NON_SERVICE_REASONS,
+  nonServiceReasonsFor,
   processAct,
   processOutcomeWord,
   type CourtProcess,
@@ -36,7 +38,7 @@ import {
   type ProcessOutcome,
 } from "@/lib/employee/sign-process";
 import { cn } from "@/lib/utils";
-import { useCourtText } from "@/components/court/court-provider";
+import { useCourt, useCourtText } from "@/components/court/court-provider";
 
 /** The covers being marked, then what was recorded — one scene, settling in place. */
 type Stage = "record" | "done";
@@ -46,7 +48,27 @@ const SCENE: Record<Stage, string> = { record: "act", done: "act" };
 const ACT = processAct("record");
 
 /** What the clerk has marked for one cover so far. */
-export type ReturnMark = { served?: boolean; reason?: NonServiceReason };
+export type ReturnMark = {
+  served?: boolean;
+  reason?: NonServiceReason;
+  comment?: string;
+  file?: File | null;
+};
+
+/**
+ * The outcome a finished mark records (`DSP-08`): the status, the reason where it was not
+ * served (`DSP-09`), the comment and the file, each only where given.
+ */
+export function outcomeOf(mark: ReturnMark | undefined): ProcessOutcome {
+  const comment = mark?.comment?.trim();
+  const extra = {
+    ...(comment ? { comment } : {}),
+    ...(mark?.file ? { file: mark.file } : {}),
+  };
+  return mark?.served
+    ? { served: true, ...extra }
+    : { served: false, reason: mark?.reason ?? "Other", ...extra };
+}
 
 function plural(count: number, one: string, many: string): string {
   return count === 1 ? one : many;
@@ -64,8 +86,10 @@ function plural(count: number, one: string, many: string): string {
  * - Each row is a two-way choice in the cover's own words — Delivered / Not delivered,
  *   or Executed / Not executed for a warrant — on the DS radio, as the app asks
  *   every yes/no (`YesNoField`).
- * - A cover that came back unserved asks why, from the reference's own reasons. The
- *   question appears only then; a served cover has nothing more to say.
+ * - A cover that came back unserved asks why, from the state's reason master (`DSP-09`).
+ *   The question appears only then.
+ * - Once a cover has an answer, it takes a comment and a supporting file (`DSP-08`) —
+ *   the acknowledgement card, or the station's report. Neither holds Record back.
  * - The common case is one press: everything served.
  *
  * Record waits until every cover has an answer. The line beside it says how many are
@@ -151,20 +175,22 @@ function RecordReturnsBody({
   }
 
   function markAllServed() {
-    setMarks(Object.fromEntries(rows.map((process) => [process.id, { served: true }])));
+    /* Every cover served, keeping any comment or file already given. */
+    setMarks((current) =>
+      Object.fromEntries(
+        rows.map((process) => [
+          process.id,
+          { ...current[process.id], served: true, reason: undefined },
+        ]),
+      ),
+    );
   }
 
   function record() {
     if (!ready || !returnedOn) return;
     const outcomes = new Map<string, ProcessOutcome>();
     for (const process of rows) {
-      const entry = marks[process.id];
-      outcomes.set(
-        process.id,
-        entry?.served
-          ? { served: true }
-          : { served: false, reason: entry?.reason ?? "Other" },
-      );
+      outcomes.set(process.id, outcomeOf(marks[process.id]));
     }
     recorded.current = true;
     setTally({
@@ -304,7 +330,8 @@ export function ReturnedOnField({
 }
 
 /**
- * One cover: which process it is, what it says, and — only if it was not served — why.
+ * One cover: which process it is, what it says, and — only if it was not served — why;
+ * then, once answered, a comment and a supporting file (`DSP-08`).
  *
  * The instrument leads, because a case can have three covers in the pile and the number
  * alone does not say which this is. The rows are separated by a hairline, not boxed: the
@@ -320,8 +347,10 @@ export function ReturnRow({
   onMark: (next: ReturnMark) => void;
 }) {
   const courtText = useCourtText();
+  const { court } = useCourt();
   const inline = courtProcessTypeInline(process.type);
   const reasonId = React.useId();
+  const commentId = React.useId();
   const radioId = React.useId();
   const value =
     mark?.served === true ? "served" : mark?.served === false ? "unserved" : "";
@@ -380,7 +409,7 @@ export function ReturnRow({
               <SelectValue placeholder="Choose a reason" />
             </SelectTrigger>
             <SelectContent>
-              {NON_SERVICE_REASONS.map((reason) => (
+              {nonServiceReasonsFor(court).map((reason) => (
                 <SelectItem key={reason} value={reason}>
                   {reason}
                 </SelectItem>
@@ -388,6 +417,28 @@ export function ReturnRow({
             </SelectContent>
           </Select>
         </Field>
+      ) : null}
+
+      {mark?.served !== undefined ? (
+        <>
+          <Field>
+            <FieldLabel htmlFor={commentId}>
+              Comment
+              <span className="font-normal text-muted-foreground"> (optional)</span>
+            </FieldLabel>
+            <Textarea
+              id={commentId}
+              value={mark.comment ?? ""}
+              rows={2}
+              onChange={(event) => onMark({ comment: event.target.value })}
+            />
+          </Field>
+          <UploadedDocField
+            label="Supporting file"
+            file={mark.file ?? null}
+            onFileChange={(file) => onMark({ file })}
+          />
+        </>
       ) : null}
     </li>
   );

@@ -85,9 +85,10 @@ describe("PROCESS_LINE", () => {
   });
 
   it("holds only paper where only paper can be", () => {
-    /* A cover is collected, and later posted, only for registered post. */
+    /* A cover is collected, and later posted, only for registered post — RPAD, or
+       Police (RPAD) to the station. */
     for (const process of processesAt(PROCESS_LINE, "awaiting-cover")) {
-      assert.equal(process.channel, "rpad", process.id);
+      assert.ok(goesByPost(process), process.id);
     }
     for (const process of processesAt(PROCESS_LINE, "to-post")) {
       assert.ok(goesByPost(process), process.id);
@@ -480,7 +481,7 @@ describe("finding a process that has moved on", () => {
 
   it("does not carry a tab's own channel onto a tab that is not defined by one", () => {
     const police = PROCESS_LINE.find(
-      (process) => process.status === "to-sign" && process.channel === "police",
+      (process) => process.status === "to-sign" && process.channel === "police-icops",
     );
     assert.ok(police);
     const filters = { ...defaultProcessFilters(collection), query: police.caseNumber };
@@ -496,11 +497,10 @@ describe("finding a process that has moved on", () => {
   it("keeps a channel the bench chose for itself", () => {
     const from = processTab("issuance");
     const to = processTab("service");
-    const chosen = { ...defaultProcessFilters(from), channel: "police" as const };
-    assert.equal(rebaseFilters(chosen, from, to).channel, "police");
-    const pinned = defaultProcessFilters(collection);
-    assert.equal(pinned.channel, "rpad");
-    assert.equal(rebaseFilters(pinned, collection, to).channel, "all");
+    const chosen = { ...defaultProcessFilters(from), channel: "police-icops" as const };
+    assert.equal(rebaseFilters(chosen, from, to).channel, "police-icops");
+    /* RPAD collection holds RPAD and Police (RPAD), so it pins no channel. */
+    assert.equal(defaultProcessFilters(collection).channel, "all");
   });
 
   it("does not find a row by the cause title the Case name column prints", () => {
@@ -810,7 +810,7 @@ describe("the confirmation's success", () => {
       ids.has(p.id),
     );
     assert.equal(landedLine(after), "It is now in To post in Issuance.");
-    assert.equal(refusedLine(after), "1 could not be sent and is in Error in Issuance.");
+    assert.equal(refusedLine(after), "1 could not be sent and is in Errored in Issuance.");
     assert.equal(processAct("sign").done("2 processes"), "2 processes signed");
   });
 });
@@ -820,7 +820,7 @@ describe("attachment (carried over from #43)", () => {
 
   it("is on the line, executed by the police", () => {
     assert.ok(attachment);
-    assert.equal(attachment.channel, "police");
+    assert.equal(attachment.channel, "police-icops");
     assert.equal(
       COURT_PROCESS_TYPES.find((type) => type.id === "attachment")?.executed,
       true,

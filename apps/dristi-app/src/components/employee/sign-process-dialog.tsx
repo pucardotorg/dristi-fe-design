@@ -13,6 +13,7 @@ import { DocumentPreview } from "@/components/cases/document-preview";
 import {
   ReturnedOnField,
   ReturnRow,
+  outcomeOf,
   type ReturnMark,
 } from "@/components/employee/record-returns-dialog";
 import {
@@ -191,13 +192,7 @@ function SignProcessBody({
 
   function runRecord() {
     if (!marked || !returnedOn || !mark) return;
-    onRecord(
-      process,
-      mark.served
-        ? { served: true }
-        : { served: false, reason: mark.reason ?? "Other" },
-      isoDay(returnedOn),
-    );
+    onRecord(process, outcomeOf(mark), isoDay(returnedOn));
     settle(processAct("record"));
   }
 
@@ -450,6 +445,11 @@ function ProcessFacts({ process }: { process: CourtProcess }) {
   if (process.returnedOn) {
     rows.push(["Came back", formatProcessDate(process.returnedOn)]);
   }
+  /* What was recorded with the outcome (`DSP-08`), only where given. The reason is
+     already in the Status line. */
+  const outcome = process.outcome;
+  if (outcome?.comment) rows.push(["Comment", outcome.comment]);
+  if (outcome?.file) rows.push(["Supporting file", outcome.file.name]);
 
   return (
     <div className="rounded-lg bg-surface-sunken px-4">
