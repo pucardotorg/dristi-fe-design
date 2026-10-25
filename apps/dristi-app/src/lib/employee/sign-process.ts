@@ -570,19 +570,27 @@ export const DEFAULT_PROCESS_TAB: ProcessTabId = PROCESS_TABS[0].id;
  * rows can stand in.
  *
  * The Post officer holds Process dispatcher and Process reporter for e-Post only
- * (court-roles §3), so it sees e-Post rows and nothing else (owner, 2026-10-25). RPAD
- * collection is a tab defined by RPAD, so it is not theirs to see. Every other seat sees
+ * (court-roles §3), so it sees e-Post rows and nothing else, and nothing until it is
+ * signed (owner, 2026-10-25). RPAD collection is a tab defined by RPAD, so it is not
+ * theirs to see. Every other seat sees
  * the whole line. **A view rule, not a permission**, like the rail's seat rows.
  */
 export type ProcessScope = {
   /** The channels shown; every channel where absent. */
   channels?: readonly ProcessChannelId[];
+  /** Statuses not shown — rows standing in them are left out. */
+  hidden?: readonly ProcessStatusId[];
   /** The tabs shown, in order. With one channel, each is pinned to it. */
   tabs: ProcessTab[];
 };
 
 const SEAT_CHANNELS: Partial<Record<CourtRole, readonly ProcessChannelId[]>> = {
   "post-officer": ["e-post"],
+};
+
+/* Not a Process signer, so nothing unsigned (owner, 2026-10-25). */
+const SEAT_HIDDEN_STATUSES: Partial<Record<CourtRole, readonly ProcessStatusId[]>> = {
+  "post-officer": ["to-sign"],
 };
 
 /**
@@ -601,9 +609,11 @@ const STATUS_DISPATCH: Partial<Record<ProcessStatusId, ProcessChannel["dispatch"
 export function processScopeFor(seat: CourtRole): ProcessScope {
   const channels = SEAT_CHANNELS[seat];
   if (!channels) return { tabs: PROCESS_TABS };
+  const hidden = SEAT_HIDDEN_STATUSES[seat] ?? [];
   const only = channels.length === 1 ? channels[0] : undefined;
   /* A pill no row in scope can ever stand in is not drawn. */
   const reached = (id: ProcessStatusId) => {
+    if (hidden.includes(id)) return false;
     const dispatch = STATUS_DISPATCH[id];
     return (
       dispatch === undefined ||
@@ -612,19 +622,33 @@ export function processScopeFor(seat: CourtRole): ProcessScope {
   };
   return {
     channels,
-    tabs: PROCESS_TABS.filter((tab) => tab.statuses.some(reached)).map((tab) => ({
-      ...tab,
-      statuses: tab.statuses.filter(reached),
-      countedStatuses: tab.countedStatuses.filter(reached),
-      onlyChannel: only ?? tab.onlyChannel,
-    })),
+    hidden,
+    tabs: PROCESS_TABS.filter((tab) => tab.statuses.some(reached)).map((tab) => {
+      const statuses = tab.statuses.filter(reached);
+      return {
+        ...tab,
+        statuses,
+        countedStatuses: tab.countedStatuses.filter(reached),
+        /* Opens on the first status left where its own is hidden. */
+        defaultView:
+          tab.defaultView === "all" || statuses.includes(tab.defaultView)
+            ? tab.defaultView
+            : statuses[0],
+        onlyChannel: only ?? tab.onlyChannel,
+      };
+    }),
   };
 }
 
 /** The rows a scope shows. */
 export function scopeLine(rows: CourtProcess[], scope: ProcessScope): CourtProcess[] {
-  const channels = scope.channels;
-  return channels ? rows.filter((process) => channels.includes(process.channel)) : rows;
+  const { channels, hidden } = scope;
+  if (!channels && !hidden?.length) return rows;
+  return rows.filter(
+    (process) =>
+      (!channels || channels.includes(process.channel)) &&
+      !hidden?.includes(process.status),
+  );
 }
 
 /** Whether a tab has more than one status, and so a pill row. */

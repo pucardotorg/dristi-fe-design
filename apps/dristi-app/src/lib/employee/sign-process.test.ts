@@ -908,7 +908,7 @@ describe("e-Post and the Post officer", () => {
     assert.equal(recordedByCourt(out), true);
   });
 
-  it("shows the Post officer e-Post rows only, and no RPAD collection", () => {
+  it("shows the Post officer signed e-Post rows only, and no RPAD collection", () => {
     const scope = processScopeFor("post-officer");
     const rows = scopeLine(PROCESS_LINE, scope);
     assert.ok(rows.length > 0);
@@ -918,7 +918,9 @@ describe("e-Post and the Post officer", () => {
       ["issuance", "service"],
     );
     assert.ok(scope.tabs.every((tab) => tab.onlyChannel === "e-post"));
-    assert.deepEqual(scope.tabs[0].statuses, ["to-sign", "to-send"]);
+    assert.deepEqual(scope.tabs[0].statuses, ["to-send"]);
+    assert.equal(scope.tabs[0].defaultView, "to-send");
+    assert.ok(rows.every((p) => p.status !== "to-sign"));
   });
 
   it("leaves every other seat the whole line", () => {

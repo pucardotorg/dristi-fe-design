@@ -1171,7 +1171,7 @@ function ProcessItemList({
   const bands: { status: ProcessStatus | null; rows: CourtProcess[] }[] = banded
     ? bandByStatus(rows, tab)
     : [{ status: null, rows }];
-  const statusLine = tab.statuses.length > 1;
+  const statusLine = tab.dateColumn === "Status";
 
   return (
     <div className="flex flex-col gap-4">
