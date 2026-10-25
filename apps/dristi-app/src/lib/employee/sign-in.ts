@@ -41,6 +41,7 @@ export const COURT_SIGN_IN_ROLES: CourtRole[] = [
   "typist",
   "steno",
   "ahlmad",
+  "post-officer",
 ];
 
 /**
@@ -138,6 +139,13 @@ export const COURT_ACCOUNTS: Record<CourtRole, CourtAccount> = {
     role: "ahlmad",
     courtrooms: [jmfcCourt(1)],
   },
+  /* Post office staff who send and report e-Post (court-roles §3), every state. */
+  "post-officer": {
+    username: "rameshPostOfficer",
+    name: "Ramesh N",
+    role: "post-officer",
+    courtrooms: [jmfcCourt(1)],
+  },
 };
 
 /**
@@ -152,6 +160,7 @@ const PUNJAB_HARYANA_USERNAMES: Partial<Record<CourtRole, string>> = {
   typist: "typist",
   steno: "steno",
   ahlmad: "ahlmad",
+  "post-officer": "postofficer",
 };
 
 /**

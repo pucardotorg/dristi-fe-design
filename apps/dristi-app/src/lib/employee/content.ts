@@ -23,7 +23,9 @@ export type CourtRole =
      fills order data, separate from the Typist. `seat-roles.ts` says which state has
      which seat. */
   | "steno"
-  | "ahlmad";
+  | "ahlmad"
+  /* All three states (court-roles §3): dispatches and reports e-Post process only. */
+  | "post-officer";
 
 /**
  * How a role is written where it is shown to the person holding it.
@@ -46,6 +48,7 @@ export const COURT_ROLE_LABEL: Record<CourtRole, string> = {
   typist: "Typist",
   steno: "Steno",
   ahlmad: "Ahlmad",
+  "post-officer": "Post officer",
 };
 
 /**
@@ -94,6 +97,7 @@ export const COURT_SEATS: CourtRole[] = [
   "bench-clerk",
   "scrutiny-officer",
   "typist",
+  "post-officer",
 ];
 
 /**

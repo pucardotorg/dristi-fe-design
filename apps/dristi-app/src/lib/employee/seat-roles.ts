@@ -8,9 +8,10 @@
  * fills order data" is true in Kerala and Gujarat and false in Punjab & Haryana, where
  * the Ahlmad does — and the code reads that from here.
  *
- * Keep this table identical to court-roles §3. A title the table marks *Not known* (the
- * Post officer outside Kerala) has no seat here, and the Post officer is not a court-room
- * seat in this build at all.
+ * Keep this table identical to court-roles §3. The Post officer is a seat in all three
+ * states: it holds Process dispatcher and Process reporter for e-Post only, and Evidence
+ * marker (court-roles §3, v10.3). Which channel a dispatcher or reporter role covers is
+ * not carried here — `sign-process.ts` scopes the Post officer to e-Post.
  *
  * **Still a view rule, not a permission.** Nothing here authenticates anybody; it decides
  * what a screen offers. A real build reads roles from the court directory and enforces
@@ -35,6 +36,7 @@ export type StaffRole =
   | "process-signer"
   | "warrant-signer"
   | "process-dispatcher"
+  | "process-reporter"
   | "evidence-marker"
   | "a-diary-editor"
   | "a-diary-signer";
@@ -66,6 +68,13 @@ const SCRUTINY: readonly StaffRole[] = ["scrutiny-officer"];
 /* court-roles §3.2, §3.3: the Reader also dispatches process in Gujarat and P&H. */
 const READER_DISPATCHER: readonly StaffRole[] = [...BENCH_CLERK, "process-dispatcher"];
 
+/* court-roles §3.1–§3.3: dispatcher and reporter for e-Post, and nothing it signs. */
+const POST_OFFICER: readonly StaffRole[] = [
+  "process-dispatcher",
+  "process-reporter",
+  "evidence-marker",
+];
+
 /**
  * court-roles §3.1–§3.3. A seat missing from a state's entry does not exist there: only
  * Punjab & Haryana has a separate Steno and Ahlmad.
@@ -76,6 +85,7 @@ const SEAT_ROLES: Record<CourtId, Partial<Record<CourtRole, readonly StaffRole[]
     "scrutiny-officer": SCRUTINY,
     "bench-clerk": BENCH_CLERK,
     typist: ["order-drafter", "order-data-filler", "next-hearing-setter"],
+    "post-officer": POST_OFFICER,
   },
   gujarat: {
     magistrate: MAGISTRATE,
@@ -83,6 +93,7 @@ const SEAT_ROLES: Record<CourtId, Partial<Record<CourtRole, readonly StaffRole[]
     "scrutiny-officer": ["scrutiny-officer", "account-approver"],
     "bench-clerk": READER_DISPATCHER,
     typist: ["order-drafter", "order-data-filler"],
+    "post-officer": POST_OFFICER,
   },
   "punjab-haryana": {
     magistrate: MAGISTRATE,
@@ -92,6 +103,7 @@ const SEAT_ROLES: Record<CourtId, Partial<Record<CourtRole, readonly StaffRole[]
     steno: ["order-drafter"],
     /* court-roles §3.3: the Ahlmad also approves accounts. */
     ahlmad: ["order-data-filler", "account-approver"],
+    "post-officer": POST_OFFICER,
   },
 };
 
@@ -103,6 +115,7 @@ const SEAT_ORDER: readonly CourtRole[] = [
   "typist",
   "steno",
   "ahlmad",
+  "post-officer",
 ];
 
 export function seatsIn(court: CourtId): CourtRole[] {

@@ -7,8 +7,20 @@ import { rolesOf, seatHolds, seatsIn } from "./seat-roles";
    prototype has to follow. */
 describe("seat roles follow court-roles §3", () => {
   it("gives each state its own seats", () => {
-    assert.deepEqual(seatsIn("kerala"), ["magistrate", "bench-clerk", "scrutiny-officer", "typist"]);
-    assert.deepEqual(seatsIn("gujarat"), ["magistrate", "bench-clerk", "scrutiny-officer", "typist"]);
+    assert.deepEqual(seatsIn("kerala"), [
+      "magistrate",
+      "bench-clerk",
+      "scrutiny-officer",
+      "typist",
+      "post-officer",
+    ]);
+    assert.deepEqual(seatsIn("gujarat"), [
+      "magistrate",
+      "bench-clerk",
+      "scrutiny-officer",
+      "typist",
+      "post-officer",
+    ]);
     assert.deepEqual(seatsIn("punjab-haryana"), [
       "magistrate",
       "bench-clerk",
@@ -16,7 +28,19 @@ describe("seat roles follow court-roles §3", () => {
       "typist",
       "steno",
       "ahlmad",
+      "post-officer",
     ]);
+  });
+
+  it("gives the Post officer e-Post dispatch and report, and no signing", () => {
+    for (const court of ["kerala", "gujarat", "punjab-haryana"] as const) {
+      assert.deepEqual(rolesOf("post-officer", court), [
+        "process-dispatcher",
+        "process-reporter",
+        "evidence-marker",
+      ]);
+      assert.equal(seatHolds("post-officer", court, "process-signer"), false);
+    }
   });
 
   it("lets only the magistrate sign orders", () => {

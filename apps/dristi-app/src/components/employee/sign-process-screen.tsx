@@ -58,7 +58,6 @@ import {
   COURT_PROCESS_TYPES,
   defaultProcessFilters,
   downloadProcessBundle,
-  DEFAULT_PROCESS_TAB,
   executeOnDownload,
   filterProcesses,
   formatProcessDate,
@@ -71,7 +70,7 @@ import {
   pilePool,
   PROCESS_CHANNELS,
   PROCESS_LINE,
-  PROCESS_TABS,
+  processScopeFor,
   allCounted,
   DEFAULT_PROCESS_SORT,
   moveLine,
@@ -89,6 +88,7 @@ import {
   spansStatuses,
   recordProcessReturns,
   runProcessAct,
+  scopeLine,
   singleCaseMatch,
   tabCount,
   todayIsoDay,
@@ -98,6 +98,7 @@ import {
   type ProcessFilters,
   type ProcessOutcome,
   type ProcessPile,
+  type ProcessScope,
   type ProcessSort,
   type ProcessStatus,
   type ProcessTab,
@@ -107,6 +108,7 @@ import {
 } from "@/lib/employee/sign-process";
 import { Identifier } from "@/components/chrome/identifier";
 import { useCourt, useCourtText } from "@/components/court/court-provider";
+import { useCourtRole } from "@/components/employee/use-court-role";
 
 function plural(count: number, one: string, many: string): string {
   return count === 1 ? one : many;
@@ -140,11 +142,22 @@ function plural(count: number, one: string, many: string): string {
  * **Nothing is signed, sent, posted or recorded.** Every act moves a row in the demo line.
  */
 export function SignProcessScreen() {
+  /* Keyed on the seat: switching seat is a different person at the screen, so the tab,
+     pill, filters and selection all start again from that seat's own line. */
+  const seat = useCourtRole();
+  return <SignProcessLine key={seat} scope={processScopeFor(seat)} />;
+}
+
+function SignProcessLine({ scope }: { scope: ProcessScope }) {
   /* One list, so the tabs, the pills, the rail count and the bar can never disagree
-     about where a row is. */
-  const [line, setLine] = React.useState<CourtProcess[]>(PROCESS_LINE);
-  const [tabId, setTabId] = React.useState<ProcessTabId>(DEFAULT_PROCESS_TAB);
-  const tab = processTab(tabId);
+     about where a row is. The seat sees its scope of it (`processScopeFor`); every act
+     runs over the whole list, so nothing outside the scope is lost. */
+  const [allRows, setLine] = React.useState<CourtProcess[]>(PROCESS_LINE);
+  const line = scopeLine(allRows, scope);
+  const scopedTab = (id: ProcessTabId) =>
+    scope.tabs.find((entry) => entry.id === id) ?? processTab(id);
+  const [tabId, setTabId] = React.useState<ProcessTabId>(scope.tabs[0].id);
+  const tab = scopedTab(tabId);
   const [view, setView] = React.useState<ProcessView>(tab.defaultView);
 
   const [filters, setFilters] = React.useState<ProcessFilters>(() =>
@@ -231,7 +244,7 @@ export function SignProcessScreen() {
     nextView?: ProcessView,
     carry?: ProcessFilters,
   ) {
-    const nextTab = processTab(next);
+    const nextTab = scopedTab(next);
     setTabId(next);
     setView(nextView ?? nextTab.defaultView);
     setFilters(
@@ -355,8 +368,8 @@ export function SignProcessScreen() {
     actId: Exclude<ProcessActId, "record">,
     ids: ReadonlySet<string>,
   ) {
-    const next = runProcessAct(line, actId, ids, todayIsoDay());
-    const moved = line.filter(
+    const next = runProcessAct(allRows, actId, ids, todayIsoDay());
+    const moved = allRows.filter(
       (process, index) => ids.has(process.id) && next[index] !== process,
     );
     if (moved.length === 0) return;
@@ -379,8 +392,8 @@ export function SignProcessScreen() {
   function download(rows: CourtProcess[]) {
     downloadProcessBundle(rows);
     const ids = new Set(rows.map((process) => process.id));
-    const next = executeOnDownload(line, ids, todayIsoDay());
-    const executed = next.filter((process, index) => process !== line[index]).length;
+    const next = executeOnDownload(allRows, ids, todayIsoDay());
+    const executed = next.filter((process, index) => process !== allRows[index]).length;
     if (executed === 0) return;
     setLine(next);
     forget(ids);
@@ -424,7 +437,7 @@ export function SignProcessScreen() {
             aria-label="Process line"
             className="h-10 w-max min-w-full justify-start rounded-none p-0 group-data-horizontal/tabs:h-10"
           >
-            {PROCESS_TABS.map((entry) => {
+            {scope.tabs.map((entry) => {
               const count = tabCount(line, entry);
               return (
                 <TabsTrigger
@@ -443,7 +456,7 @@ export function SignProcessScreen() {
           </TabsList>
         </div>
 
-        {PROCESS_TABS.map((entry) => (
+        {scope.tabs.map((entry) => (
           <TabsContent
             key={entry.id}
             value={entry.id}
@@ -606,8 +619,8 @@ export function SignProcessScreen() {
           record(new Map([[process.id, outcome]]), on)
         }
         onDownloaded={(process) => {
-          const next = executeOnDownload(line, new Set([process.id]), todayIsoDay());
-          if (next.some((row, index) => row !== line[index])) setLine(next);
+          const next = executeOnDownload(allRows, new Set([process.id]), todayIsoDay());
+          if (next.some((row, index) => row !== allRows[index])) setLine(next);
         }}
         onReturnFocus={returnFocus}
       />
@@ -1159,7 +1172,7 @@ function ProcessItemList({
   const bands: { status: ProcessStatus | null; rows: CourtProcess[] }[] = banded
     ? bandByStatus(rows, tab)
     : [{ status: null, rows }];
-  const statusLine = tab.statuses.length > 1;
+  const statusLine = tab.dateColumn === "Status";
 
   return (
     <div className="flex flex-col gap-4">
