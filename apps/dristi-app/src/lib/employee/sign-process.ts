@@ -50,6 +50,7 @@ import { CURRENT_STAFF } from "./content";
 import { matchesQuery } from "./filter-state";
 import { causeTitle, formatListingDate, parseIsoDay } from "./hearings";
 import { localizeForDownload, voicedForDownload } from "@/lib/court/browser";
+import type { CourtId } from "@/lib/court/profiles";
 
 /**
  * Which instrument the row is — the "Process type" column.
@@ -181,23 +182,41 @@ export function recordedByCourt(process: Pick<CourtProcess, "channel">): boolean
 }
 
 /**
- * Why a registered-post cover came back unserved — the reasons the reference's delivery
- * dialog offers, word for word bar sentence case.
+ * Why a process came back Not delivered or Not executed (`DSP-09`). A master each state
+ * configures, not a fixed list: until a state sends its own, it starts on the reasons
+ * the reference's delivery dialog offers, word for word bar sentence case.
  */
-export const NON_SERVICE_REASONS = [
+const REFERENCE_REASONS = [
   "Address not found",
   "Door locked",
   "Person not present",
   "Delivery refused",
   "Other",
-] as const;
+];
 
-export type NonServiceReason = (typeof NON_SERVICE_REASONS)[number];
+export const NON_SERVICE_REASONS: Record<CourtId, readonly string[]> = {
+  kerala: REFERENCE_REASONS,
+  gujarat: REFERENCE_REASONS,
+  "punjab-haryana": REFERENCE_REASONS,
+};
 
-/** What the channel reported. `reason` only when it was not served. */
-export type ProcessOutcome =
-  | { served: true }
-  | { served: false; reason: NonServiceReason };
+/** A reason from the state's master. A string, because the master is the state's. */
+export type NonServiceReason = string;
+
+/** The reasons a state's master offers (`DSP-09`). */
+export function nonServiceReasonsFor(court: CourtId): readonly string[] {
+  return NON_SERVICE_REASONS[court];
+}
+
+/**
+ * What came back (`DSP-08`): the status, a free-text comment, and an optional supporting
+ * file. `reason` only when it was not served (`DSP-09`). The file is held in memory, as
+ * the rest of the line is.
+ */
+export type ProcessOutcome = {
+  comment?: string;
+  file?: File;
+} & ({ served: true } | { served: false; reason: NonServiceReason });
 
 /** Where a row is. The pill it appears under. */
 export type ProcessStatusId =
