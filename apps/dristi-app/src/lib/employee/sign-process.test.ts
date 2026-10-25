@@ -38,6 +38,8 @@ import {
   moveLine,
   refusedLine,
   processAct,
+  processScopeFor,
+  scopeLine,
   sortProcesses,
   type CourtProcess,
   type ProcessOutcome,
@@ -144,6 +146,7 @@ describe("PROCESS_TABS", () => {
       "to-sign",
       "to-post",
       "to-hand",
+      "to-send",
       "send-failed",
     ]);
     assert.deepEqual(processTab("service").statuses, [
@@ -888,3 +891,39 @@ describe("By hand", () => {
   });
 });
 
+
+describe("e-Post and the Post officer", () => {
+  it("signs e-Post into To send, and marks it sent from there", () => {
+    const row = only(
+      PROCESS_LINE.filter((p) => p.channel === "e-post" && p.status === "to-sign"),
+      "an e-Post row to sign",
+    );
+    const signed = runProcessAct(PROCESS_LINE, "sign", new Set([row.id]), ON);
+    const moved = only(signed.filter((p) => p.id === row.id), "the signed row");
+    assert.equal(moved.status, "to-send");
+    const sent = runProcessAct(signed, "send", new Set([row.id]), ON);
+    const out = only(sent.filter((p) => p.id === row.id), "the sent row");
+    assert.equal(out.status, "in-progress");
+    assert.equal(out.sentOn, ON);
+    assert.equal(recordedByCourt(out), true);
+  });
+
+  it("shows the Post officer e-Post rows only, and no RPAD collection", () => {
+    const scope = processScopeFor("post-officer");
+    const rows = scopeLine(PROCESS_LINE, scope);
+    assert.ok(rows.length > 0);
+    assert.ok(rows.every((p) => p.channel === "e-post"));
+    assert.deepEqual(
+      scope.tabs.map((tab) => tab.id),
+      ["issuance", "service"],
+    );
+    assert.ok(scope.tabs.every((tab) => tab.onlyChannel === "e-post"));
+    assert.deepEqual(scope.tabs[0].statuses, ["to-sign", "to-send"]);
+  });
+
+  it("leaves every other seat the whole line", () => {
+    const scope = processScopeFor("bench-clerk");
+    assert.equal(scopeLine(PROCESS_LINE, scope), PROCESS_LINE);
+    assert.equal(scope.tabs, PROCESS_TABS);
+  });
+});
