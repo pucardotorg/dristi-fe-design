@@ -820,6 +820,12 @@ export const personAccessCopy = {
     "അവർക്ക് നിങ്ങളുടെ ഏതൊക്കെ കേസുകളിൽ പ്രവർത്തിക്കാമെന്ന് തിരഞ്ഞെടുക്കുക. നിങ്ങൾ ചേർക്കുന്ന എല്ലാവർക്കും ഒരേ ആക്‌സസ് ലഭിക്കും.",
   ),
   scopePlaceholder: t("Select", "തിരഞ്ഞെടുക്കുക"),
+  chooseAccessTitle: t("Choose access to continue", "തുടരാൻ ആക്‌സസ് തിരഞ്ഞെടുക്കുക"),
+  chooseAccessBody: t(
+    "All cases shares every case you have and every new one. Specific cases lets you pick.",
+    "എല്ലാ കേസുകളും എന്നാൽ ഇപ്പോഴുള്ളതും പുതിയതുമായ എല്ലാ കേസുകളും. തിരഞ്ഞെടുത്ത കേസുകൾ എന്നാൽ നിങ്ങൾ തിരഞ്ഞെടുക്കുന്നവ മാത്രം.",
+  ),
+  noneSelected: t("No cases selected yet", "ഇതുവരെ കേസുകളൊന്നും തിരഞ്ഞെടുത്തിട്ടില്ല"),
   futureNoteAdd: t(
     "They'll access all {count} of your cases. Any new case you get is shared with them automatically.",
     "നിങ്ങളുടെ {count} കേസുകളും അവർക്ക് ആക്‌സസ് ചെയ്യാം. നിങ്ങൾക്ക് ലഭിക്കുന്ന ഓരോ പുതിയ കേസും അവരുമായി സ്വയമേവ പങ്കിടും.",

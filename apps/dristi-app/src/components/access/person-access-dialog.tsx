@@ -8,6 +8,7 @@ import {
   EllipsisIcon,
   ExternalLinkIcon,
   FolderCheckIcon,
+  FolderKeyIcon,
   InfoIcon,
   SearchXIcon,
   SearchIcon,
@@ -1148,7 +1149,11 @@ export function PersonAccessDialog({
             {adding && addStep === 1 ? null : (
               <section
                 aria-labelledby="person-access-cases"
-                className="flex flex-col gap-6"
+                className={cn(
+                  "flex flex-col gap-6",
+                  // Room for the prompt to sit in the middle of the body.
+                  adding && mode === null && "flex-1",
+                )}
               >
                 {/* The heading and the scope on one line, phones too: the
                     dropdown names what they have and changes it. */}
@@ -1250,7 +1255,13 @@ export function PersonAccessDialog({
                           })}
                     </AlertDescription>
                   </Alert>
-                ) : adding ? null : (
+                ) : adding ? (
+                  /* Where All cases puts its note (owner, Oct 26): what to
+                     do with the list, over its search. */
+                  <p className="text-body-compact text-pretty text-muted-foreground">
+                    {pick(copy.accessIntroOne, locale)}
+                  </p>
+                ) : (
                   /* Two tabs, not two stacked groups: a long Has access
                      list buried the cases they do not have yet. */
                   <Tabs
@@ -1286,7 +1297,25 @@ export function PersonAccessDialog({
                   </p>
                 ) : null}
 
-                {adding && mode === null ? null : !adding &&
+                {adding && mode === null ? (
+                  /* Not an empty state: a pointer to the dropdown, in the
+                     middle where the eye lands when the body is bare (owner,
+                     Oct 26). No button, so nothing is chosen by accident. */
+                  <Empty className="flex-1 py-12">
+                    <EmptyHeader className="max-w-md">
+                      <EmptyMedia
+                        variant="icon"
+                        className="size-16 rounded-full bg-brand-muted text-brand-muted-foreground [&_svg:not([class*='size-'])]:size-8"
+                      >
+                        <FolderKeyIcon aria-hidden />
+                      </EmptyMedia>
+                      <EmptyTitle>{pick(copy.chooseAccessTitle, locale)}</EmptyTitle>
+                      <EmptyDescription>
+                        {pick(copy.chooseAccessBody, locale)}
+                      </EmptyDescription>
+                    </EmptyHeader>
+                  </Empty>
+                ) : !adding &&
                   !savedFuture &&
                   tab === "other" &&
                   otherTotal === 0 ? (
@@ -1330,7 +1359,7 @@ export function PersonAccessDialog({
                                 )
                               : pick(
                                   adding
-                                    ? copy.accessIntroOne
+                                    ? copy.noneSelected
                                     : tab === "other"
                                       ? copy.selectHintOther
                                       : copy.selectHintHeld,
