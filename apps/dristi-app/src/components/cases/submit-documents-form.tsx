@@ -30,6 +30,12 @@ import { localFileSrc } from "@/components/cases/pdf-viewer";
 import { useProfile } from "@/components/shell/profile";
 import { Button } from "@/components/ui/button";
 import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import {
   Dialog,
   DialogClose,
   DialogDescription,
@@ -148,6 +154,13 @@ function useDocumentFiler(caseId: string | undefined) {
         (viewer.role === "advocate" && viewerAccess(record).kind === "office");
       const signers = handsOff ? advocates.map((person) => person.id) : [];
       return {
+        /* The same people as Raise application (PM, Oct 26): an advocate,
+           a party in person or a clerk. A litigant with an advocate, or a
+           PoA holder, does not file; their advocate does. */
+        canSubmit:
+          viewer.role === "advocate" ||
+          viewer.role === "pip" ||
+          viewer.role === "clerk",
         personId: viewer.personId,
         signerId: signers[0] ?? viewer.personId,
         signers,
@@ -316,6 +329,16 @@ export function SubmitDocumentsDialog({
     else requestClose();
   });
 
+  if (filer && !filer.canSubmit) {
+    return (
+      <AdvocateFilesDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        caseLine={caseLine}
+      />
+    );
+  }
+
   return (
     <>
       {/* One dialog at a time: the form steps aside for the review. */}
@@ -442,6 +465,54 @@ export function SubmitDocumentsDialog({
     </>
   );
 }
+/**
+ * What a litigant with an advocate, or a PoA holder, sees instead of the
+ * form: Raise application's own words for the same rule, in this dialog's
+ * frame, with the one way out.
+ */
+function AdvocateFilesDialog({
+  open,
+  onOpenChange,
+  caseLine,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  caseLine?: React.ReactNode;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <FlowDialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md">
+        <DialogHeader className="shrink-0 border-b border-hairline px-6 py-4 pr-12 text-left">
+          <DialogTitle className="text-title-s font-semibold text-balance">
+            Submit documents
+          </DialogTitle>
+          {caseLine ? (
+            <p className="text-caption text-muted-foreground">{caseLine}</p>
+          ) : null}
+        </DialogHeader>
+        <Empty className="px-6 py-10">
+          <EmptyHeader className="gap-3">
+            <EmptyMedia className="mb-1 size-14 rounded-2xl bg-brand-muted text-brand-muted-foreground">
+              <FileTextIcon className="size-7" aria-hidden />
+            </EmptyMedia>
+            <EmptyTitle className="text-body font-semibold text-foreground">
+              Your advocate submits documents for you
+            </EmptyTitle>
+            <DialogDescription className="text-body-compact text-muted-foreground">
+              Once they do, you can see them on the case&apos;s Documents tab.
+            </DialogDescription>
+          </EmptyHeader>
+        </Empty>
+        <footer className="flex shrink-0 justify-end border-t border-hairline bg-surface-sunken px-6 py-4">
+          <Button type="button" onClick={() => onOpenChange(false)}>
+            Close
+          </Button>
+        </footer>
+      </FlowDialogContent>
+    </Dialog>
+  );
+}
+
 /**
  * Review, in the record dialogs' frame (owner, Oct 26): the facts on the left
  * with every file listed, the file itself on the right at the height the

@@ -691,7 +691,7 @@ function emptyDescription(kind: DocumentKind, filtered: boolean): string {
   }
   return kind === "bail-bonds"
     ? "Bail bonds recorded for this case will appear here."
-    : "Use Make filings to submit documents.";
+    : "Documents placed on the case record will appear here.";
 }
 
 function uniqueSubmitters(
