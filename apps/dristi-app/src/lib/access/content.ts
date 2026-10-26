@@ -877,6 +877,54 @@ export const personAccessCopy = {
     "കേസുകളൊന്നും ബാക്കിയില്ലാത്തതിനാൽ നിങ്ങളുടെ ഓഫീസിൽ നിന്ന് പുറത്താകും",
   ),
   savedToast: t("Access updated for {name}.", "{name}-ന്റെ ആക്‌സസ് പുതുക്കി."),
+
+  /* A person's own access (lead designer, Oct 26): the scope is a dropdown by the
+     heading, All cases is a list to look at, Specific cases splits into two tabs,
+     and a tick only selects. Every act applies on its own confirmation. */
+  scopeLabel: t("Access", "ആക്‌സസ്"),
+  futureNote: t(
+    "{name} has all {count} of your cases, and gets every new case automatically.",
+    "നിങ്ങളുടെ {count} കേസുകളും {name}-ന് ഉണ്ട്, ഓരോ പുതിയ കേസും സ്വയമേവ ലഭിക്കും.",
+  ),
+  casesTabs: t("Cases by access", "ആക്‌സസ് അനുസരിച്ച് കേസുകൾ"),
+  tabOther: t("No access", "ആക്‌സസ് ഇല്ല"),
+  selectHintHeld: t(
+    "Select cases to remove access.",
+    "ആക്‌സസ് നീക്കാൻ കേസുകൾ തിരഞ്ഞെടുക്കുക.",
+  ),
+  selectHintOther: t(
+    "Select cases to give access.",
+    "ആക്‌സസ് നൽകാൻ കേസുകൾ തിരഞ്ഞെടുക്കുക.",
+  ),
+  selectedOne: t("1 selected", "1 തിരഞ്ഞെടുത്തു"),
+  selectedMany: t("{count} selected", "{count} തിരഞ്ഞെടുത്തു"),
+  clearSelection: t("Clear", "മായ്ക്കുക"),
+  selectAllShown: t(
+    "Select all {count}",
+    "എല്ലാ {count} എണ്ണവും തിരഞ്ഞെടുക്കുക",
+  ),
+  selectRow: t("Select {case}", "{case} തിരഞ്ഞെടുക്കുക"),
+  removeAccess: t("Remove access", "ആക്‌സസ് നീക്കുക"),
+  giveAccess: t("Give access", "ആക്‌സസ് നൽകുക"),
+  allAction: t(
+    "Give access to all cases",
+    "എല്ലാ കേസുകളിലേക്കും ആക്‌സസ് നൽകുക",
+  ),
+  emptyOther: t(
+    "{name} has every case you have now.",
+    "നിങ്ങളുടെ ഇപ്പോഴുള്ള എല്ലാ കേസുകളും {name}-ന് ഉണ്ട്.",
+  ),
+  removeTitle: t("Remove {name}'s access?", "{name}-ന്റെ ആക്‌സസ് നീക്കണോ?"),
+  giveTitle: t("Give {name} access?", "{name}-ന് ആക്‌സസ് നൽകണോ?"),
+  allTitle: t(
+    "Give {name} access to all cases?",
+    "{name}-ന് എല്ലാ കേസുകളിലേക്കും ആക്‌സസ് നൽകണോ?",
+  ),
+  limitedToast: t(
+    "New cases are no longer shared with {name}.",
+    "പുതിയ കേസുകൾ ഇനി {name}-മായി പങ്കിടില്ല.",
+  ),
+  undo: t("Undo", "പഴയപടിയാക്കുക"),
   leaveTitle: t("Discard your changes?", "നിങ്ങളുടെ മാറ്റങ്ങൾ ഉപേക്ഷിക്കണോ?"),
   leaveBody: t(
     "Your changes to {name}'s access are not saved yet.",

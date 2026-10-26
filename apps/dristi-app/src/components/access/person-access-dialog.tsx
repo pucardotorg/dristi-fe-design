@@ -7,6 +7,7 @@ import {
   ChevronDownIcon,
   EllipsisIcon,
   ExternalLinkIcon,
+  InfoIcon,
   SearchIcon,
   UserPlusIcon,
   UserXIcon,
@@ -69,6 +70,14 @@ import {
   FieldTitle,
 } from "@/components/ui/field";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Tooltip,
   TooltipContent,
@@ -143,6 +152,12 @@ const NEW_PERSON: AccessPerson = {
 
 /** All cases, or only the cases ticked. */
 type Mode = "all" | "specific";
+
+/** Specific cases, split by what is saved: the ones they have, the rest. */
+type AccessTab = "held" | "other";
+
+/** An act waiting on its confirmation. */
+type Act = "remove" | "give" | "all";
 
 /** What the list is being edited towards. `null` means no edits yet. */
 type Draft = { ticked: Set<string>; mode: Mode };
@@ -274,6 +289,11 @@ export function PersonAccessDialog({
   const [confirmRemoveAll, setConfirmRemoveAll] = React.useState(false);
   /** Unsaved ticks asked about before the dialog closes or a case opens. */
   const [leave, setLeave] = React.useState<Leave | null>(null);
+  /* A person's own access (lead designer, Oct 26): the open tab, the cases
+     selected in it, and the act waiting on its confirmation. */
+  const [tab, setTab] = React.useState<AccessTab>("held");
+  const [selected, setSelected] = React.useState<Set<string>>(new Set());
+  const [act, setAct] = React.useState<Act | null>(null);
 
   const saved = React.useMemo(
     () => new Set(live?.grants.map((g) => g.caseId) ?? []),
@@ -474,6 +494,96 @@ export function PersonAccessDialog({
       : `/cases?case=${encodeURIComponent(entry.id)}`;
   }
 
+  /* ------------------------------------------- a person's own access */
+  /* No Save (owner, Oct 26): each act applies on its own confirmation, the
+     way Remove from office does, so nothing waits half done. */
+  const heldTotal = shareableCases.filter((c) => saved.has(c.id)).length;
+  const otherTotal = total - heldTotal;
+  const inTab = (id: string) =>
+    tab === "held" ? saved.has(id) : !saved.has(id);
+  const tabRows = savedFuture ? visible : visible.filter((e) => inTab(e.id));
+  /* Only what is still in this tab: a case that moved under the selection is
+     not acted on from here. */
+  const selectedIds = shareableCases
+    .filter((c) => selected.has(c.id) && inTab(c.id))
+    .map((c) => c.id);
+  const shownSelected = tabRows.filter((e) => selected.has(e.id)).length;
+  const selectState: boolean | "indeterminate" =
+    shownSelected === 0
+      ? false
+      : shownSelected === tabRows.length
+        ? true
+        : "indeterminate";
+  const leftAfterRemove = heldTotal - selectedIds.length;
+
+  function select(id: string, on: boolean) {
+    setSelected((current) => {
+      const next = new Set(current);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
+  function selectShown(on: boolean) {
+    setSelected((current) => {
+      const next = new Set(current);
+      tabRows.forEach((e) => (on ? next.add(e.id) : next.delete(e.id)));
+      return next;
+    });
+  }
+
+  function switchTab(next: AccessTab) {
+    setTab(next);
+    setSelected(new Set());
+  }
+
+  /**
+   * The dropdown. Specific to All asks first, since it gives every case. All
+   * to Specific applies at once (owner, Oct 26): they keep every case they
+   * have, only new ones stop, and the toast can undo it.
+   */
+  function chooseScope(next: Mode) {
+    if (!live || next === (savedFuture ? "all" : "specific")) return;
+    if (next === "all") {
+      setAct("all");
+      return;
+    }
+    const id = live.id;
+    setAllCases(id, false);
+    setTab("held");
+    setSelected(new Set());
+    toast(fillCopy(copy.limitedToast, locale, { name: live.name }), {
+      action: {
+        label: pick(copy.undo, locale),
+        onClick: () => setAllCases(id, true),
+      },
+    });
+  }
+
+  function doAct() {
+    if (!live || !act) return;
+    const name = live.name;
+    if (act === "remove") {
+      selectedIds.forEach((id) => removeGrant(live.id, id));
+      if (leftAfterRemove === 0) {
+        // No case left: they leave the office, and the dialog with them.
+        toast.success(fillCopy(peopleCopy.removedAllNote, locale, { name }));
+        onOpenChange(false);
+      } else {
+        toast.success(fillCopy(copy.savedToast, locale, { name }));
+      }
+    } else if (act === "give") {
+      invite([live.phone], selectedIds);
+      toast.success(fillCopy(copy.savedToast, locale, { name }));
+    } else {
+      setAllCases(live.id, true);
+      toast.success(fillCopy(copy.savedToast, locale, { name }));
+    }
+    setSelected(new Set());
+    setAct(null);
+  }
+
   if (!person) return null;
   const stageSummary =
     stages.length === 0
@@ -532,6 +642,71 @@ export function PersonAccessDialog({
     count === 1
       ? pick(one, locale)
       : fillCopy(many, locale, { count: String(count) });
+  /* The act's confirmation, in the points the save used to show: + gives in
+     the success ink, − takes in the destructive ink, the words saying it too. */
+  const actName = { name: displayName(person) };
+  const actTitle =
+    act === "remove"
+      ? fillCopy(copy.removeTitle, locale, actName)
+      : act === "give"
+        ? fillCopy(copy.giveTitle, locale, actName)
+        : fillCopy(copy.allTitle, locale, actName);
+  const actPoints: { key: string; sign?: "+" | "−"; text: string }[] =
+    act === "remove"
+      ? [
+          {
+            key: "remove",
+            sign: "−",
+            text: casesWord(
+              selectedIds.length,
+              copy.pointRemoveOne,
+              copy.pointRemove,
+            ),
+          },
+          ...(leftAfterRemove === 0
+            ? [{ key: "leave", text: pick(copy.confirmLeave, locale) }]
+            : []),
+        ]
+      : act === "give"
+        ? [
+            {
+              key: "give",
+              sign: "+",
+              text: casesWord(
+                selectedIds.length,
+                copy.pointAddOne,
+                copy.pointAdd,
+              ),
+            },
+          ]
+        : [
+            ...(otherTotal
+              ? [
+                  {
+                    key: "give",
+                    sign: "+" as const,
+                    text: casesWord(
+                      otherTotal,
+                      copy.pointAddOne,
+                      copy.pointAdd,
+                    ),
+                  },
+                ]
+              : []),
+            {
+              key: "future",
+              sign: "+" as const,
+              text: pick(copy.confirmFutureOn, locale),
+            },
+          ];
+  const actLabel = pick(
+    act === "remove"
+      ? copy.removeAccess
+      : act === "give"
+        ? copy.giveAccess
+        : copy.allAction,
+    locale,
+  );
   const confirmPoints: {
     key: string;
     sign?: "+" | "−";
@@ -574,6 +749,138 @@ export function PersonAccessDialog({
       ? [{ key: "leave", text: pick(copy.confirmLeave, locale) }]
       : []),
   ];
+
+  /* Search, Stage and Representation: one toolbar for every case list here. */
+  const toolbar = (
+    <>
+      {/* Search takes the width, Stage sits at its end. The cases list's
+                  toolbar grammar: no visible label over the box, the label kept
+                  for screen readers and voice. */}
+      <div className="flex flex-col gap-3 @lg/access:flex-row">
+        <Field className="min-w-0 flex-1 gap-0">
+          <FieldLabel className="sr-only">
+            {pick(peopleCopy.caseSearchLabel, locale)}
+          </FieldLabel>
+          <InputGroup>
+            <InputGroupAddon>
+              <SearchIcon aria-hidden />
+            </InputGroupAddon>
+            <InputGroupInput
+              type="search"
+              autoComplete="off"
+              placeholder={pick(copy.searchPlaceholder, locale)}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </InputGroup>
+        </Field>
+        {/* Several stages at once (owner, Oct 23). "All stages" sits over a
+                    hairline: it is the absence of the others, so ticking it
+                    clears them and ticking any stage clears it. The menu keeps
+                    to the room on screen and scrolls inside it. */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              aria-label={`${pick(copy.stageLabel, locale)}: ${stageSummary}`}
+              className={cn(
+                "w-full justify-between font-normal @lg/access:w-56",
+                // Teal while open too: the outline button's own open
+                // fill otherwise covers it until the menu closes.
+                stages.length > 0 &&
+                  cn(
+                    FILTER_ON,
+                    "aria-expanded:bg-brand-muted aria-expanded:text-brand-muted-foreground",
+                  ),
+              )}
+            >
+              <span className="truncate">{stageSummary}</span>
+              <ChevronDownIcon aria-hidden className="text-muted-foreground" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="end"
+            sideOffset={4}
+            collisionPadding={16}
+            className="w-(--radix-dropdown-menu-trigger-width)"
+          >
+            <DropdownMenuCheckboxItem
+              checked={stages.length === 0}
+              onSelect={(event) => event.preventDefault()}
+              onCheckedChange={() => setStages([])}
+            >
+              {pick(copy.stageAll, locale)}
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuSeparator />
+            {STAGE_OPTIONS.map((value) => (
+              <DropdownMenuCheckboxItem
+                key={value}
+                checked={stages.includes(value)}
+                onSelect={(event) => event.preventDefault()}
+                onCheckedChange={(on) =>
+                  setStages((current) =>
+                    on
+                      ? STAGE_OPTIONS.filter(
+                          (v) => v === value || current.includes(v),
+                        )
+                      : current.filter((v) => v !== value),
+                  )
+                }
+              >
+                {stageFilterLabel(value, locale)}
+              </DropdownMenuCheckboxItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        {/* Which side the advocate is for in the case (owner, Oct 24). */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              aria-label={`${pick(copy.sideLabel, locale)}: ${sideSummary}`}
+              className={cn(
+                "w-full justify-between font-normal @lg/access:w-56",
+                side !== null &&
+                  cn(
+                    FILTER_ON,
+                    "aria-expanded:bg-brand-muted aria-expanded:text-brand-muted-foreground",
+                  ),
+              )}
+            >
+              <span className="truncate">{sideSummary}</span>
+              <ChevronDownIcon aria-hidden className="text-muted-foreground" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="end"
+            sideOffset={4}
+            collisionPadding={16}
+            className="w-(--radix-dropdown-menu-trigger-width)"
+          >
+            <DropdownMenuRadioGroup
+              value={side ?? "all"}
+              onValueChange={(value) =>
+                setSide(value === "all" ? null : (value as CounselSide))
+              }
+            >
+              <DropdownMenuRadioItem value="all">
+                {pick(copy.sideAll, locale)}
+              </DropdownMenuRadioItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuRadioItem value="complainant">
+                {pick(copy.sideComplainant, locale)}
+              </DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="accused">
+                {pick(copy.sideAccused, locale)}
+              </DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </>
+  );
 
   return (
     <>
@@ -738,7 +1045,7 @@ export function PersonAccessDialog({
               repeats it. */}
           <div className="@container/access flex min-h-0 flex-1 flex-col gap-8 overflow-y-auto p-6">
             <DialogDescription className="sr-only">
-              {pick(copy.casesIntro, locale)}
+              {pick(adding ? copy.casesIntro : copy.casesSection, locale)}
             </DialogDescription>
 
             {adding ? (
@@ -783,395 +1090,497 @@ export function PersonAccessDialog({
               </section>
             ) : null}
 
-            {/* One heading for the whole block (owner, Oct 23): "Access to
-                cases", the two settings on its line at the right with a
-                hairline between them, then the search and the table. On a
-                phone the settings drop under the heading. */}
-            <section
-              aria-labelledby="person-access-cases"
-              className="flex flex-col gap-4"
-            >
-              <h3 id="person-access-cases" className="text-body font-semibold">
-                {pick(copy.casesSection, locale)}
-              </h3>
-              <Field data-invalid={modeError || undefined} className="gap-2">
-                <RadioGroup
-                  value={mode ?? ""}
-                  onValueChange={(value) => chooseMode(value as Mode)}
-                  aria-labelledby="person-access-cases"
-                  aria-invalid={modeError || undefined}
-                  className="grid gap-3 @2xl/access:grid-cols-2"
+            {/* Add person (owner, Oct 23): the All or Specific choice, then
+                the cases to tick. A person's own access is told by the
+                dropdown and changed by named acts (owner, Oct 26). */}
+            {adding ? (
+              <section
+                aria-labelledby="person-access-cases"
+                className="flex flex-col gap-4"
+              >
+                <h3
+                  id="person-access-cases"
+                  className="text-body font-semibold"
                 >
-                  <FieldLabel htmlFor="access-mode-all">
-                    <Field orientation="horizontal">
-                      <RadioGroupItem value="all" id="access-mode-all" />
-                      <FieldContent>
-                        <FieldTitle className="text-body font-semibold">
-                          {pick(copy.allCases, locale)}
-                        </FieldTitle>
-                        <FieldDescription>
-                          {fillCopy(copy.allCasesHint, locale, {
-                            count: String(total),
-                          })}
-                        </FieldDescription>
-                      </FieldContent>
-                    </Field>
-                  </FieldLabel>
-                  <FieldLabel htmlFor="access-mode-specific">
-                    <Field orientation="horizontal">
-                      <RadioGroupItem
-                        value="specific"
-                        id="access-mode-specific"
-                      />
-                      <FieldContent>
-                        <FieldTitle className="text-body font-semibold">
-                          {pick(copy.specificCases, locale)}
-                        </FieldTitle>
-                        <FieldDescription>
-                          {pick(copy.specificCasesHint, locale)}
-                        </FieldDescription>
-                      </FieldContent>
-                    </Field>
-                  </FieldLabel>
-                </RadioGroup>
-                <FieldError>
-                  {modeError ? pick(copy.needMode, locale) : null}
-                </FieldError>
-              </Field>
-
-              {casesError ? (
-                <p role="alert" className="text-body-compact text-destructive">
-                  {pick(copy.needCases, locale)}
-                </p>
-              ) : null}
-
-              {mode === "specific" ? (
-                <>
-                  {/* ------------------------------------------------ toolbar */}
-                  {/* Search takes the width, Stage sits at its end. The cases list's
-                  toolbar grammar: no visible label over the box, the label kept
-                  for screen readers and voice. */}
-                  <div className="flex flex-col gap-3 @lg/access:flex-row">
-                    <Field className="min-w-0 flex-1 gap-0">
-                      <FieldLabel className="sr-only">
-                        {pick(peopleCopy.caseSearchLabel, locale)}
-                      </FieldLabel>
-                      <InputGroup>
-                        <InputGroupAddon>
-                          <SearchIcon aria-hidden />
-                        </InputGroupAddon>
-                        <InputGroupInput
-                          type="search"
-                          autoComplete="off"
-                          placeholder={pick(copy.searchPlaceholder, locale)}
-                          value={query}
-                          onChange={(event) => setQuery(event.target.value)}
+                  {pick(copy.casesSection, locale)}
+                </h3>
+                <Field data-invalid={modeError || undefined} className="gap-2">
+                  <RadioGroup
+                    value={mode ?? ""}
+                    onValueChange={(value) => chooseMode(value as Mode)}
+                    aria-labelledby="person-access-cases"
+                    aria-invalid={modeError || undefined}
+                    className="grid gap-3 @2xl/access:grid-cols-2"
+                  >
+                    <FieldLabel htmlFor="access-mode-all">
+                      <Field orientation="horizontal">
+                        <RadioGroupItem value="all" id="access-mode-all" />
+                        <FieldContent>
+                          <FieldTitle className="text-body font-semibold">
+                            {pick(copy.allCases, locale)}
+                          </FieldTitle>
+                          <FieldDescription>
+                            {fillCopy(copy.allCasesHint, locale, {
+                              count: String(total),
+                            })}
+                          </FieldDescription>
+                        </FieldContent>
+                      </Field>
+                    </FieldLabel>
+                    <FieldLabel htmlFor="access-mode-specific">
+                      <Field orientation="horizontal">
+                        <RadioGroupItem
+                          value="specific"
+                          id="access-mode-specific"
                         />
-                      </InputGroup>
-                    </Field>
-                    {/* Several stages at once (owner, Oct 23). "All stages" sits over a
-                    hairline: it is the absence of the others, so ticking it
-                    clears them and ticking any stage clears it. The menu keeps
-                    to the room on screen and scrolls inside it. */}
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          aria-label={`${pick(copy.stageLabel, locale)}: ${stageSummary}`}
-                          className={cn(
-                            "w-full justify-between font-normal @lg/access:w-56",
-                            // Teal while open too: the outline button's own open
-                            // fill otherwise covers it until the menu closes.
-                            stages.length > 0 &&
-                              cn(
-                                FILTER_ON,
-                                "aria-expanded:bg-brand-muted aria-expanded:text-brand-muted-foreground",
-                              ),
-                          )}
+                        <FieldContent>
+                          <FieldTitle className="text-body font-semibold">
+                            {pick(copy.specificCases, locale)}
+                          </FieldTitle>
+                          <FieldDescription>
+                            {pick(copy.specificCasesHint, locale)}
+                          </FieldDescription>
+                        </FieldContent>
+                      </Field>
+                    </FieldLabel>
+                  </RadioGroup>
+                  <FieldError>
+                    {modeError ? pick(copy.needMode, locale) : null}
+                  </FieldError>
+                </Field>
+
+                {casesError ? (
+                  <p
+                    role="alert"
+                    className="text-body-compact text-destructive"
+                  >
+                    {pick(copy.needCases, locale)}
+                  </p>
+                ) : null}
+
+                {mode === "specific" ? (
+                  <>
+                    {toolbar}
+
+                    {/* --------------------------------------------------- cases */}
+                    {visible.length === 0 ? (
+                      <p className="rounded-xl border border-dashed border-border py-12 text-center text-body-compact text-muted-foreground">
+                        {pick(copy.noCases, locale)}
+                      </p>
+                    ) : (
+                      <>
+                        {/* The table needs room: a dialog body at least 768px wide (the
+                        dialog sits beside the rail, so the screen's width says
+                        little). A narrower dialog gets the list. */}
+                        <div className="flex flex-col gap-6 @3xl/access:hidden">
+                          {groups.map((group) => (
+                            <section
+                              key={group.key}
+                              aria-labelledby={`access-group-${group.key}`}
+                            >
+                              <GroupLabel
+                                id={`access-group-${group.key}`}
+                                label={pick(group.label, locale)}
+                                count={group.entries.length}
+                                className="rounded-lg bg-surface-sunken px-3 py-2"
+                              />
+                              <ul className="flex flex-col divide-y divide-hairline">
+                                {group.entries.map((entry) => (
+                                  <li key={entry.id}>
+                                    <CaseRow
+                                      entry={entry}
+                                      locale={locale}
+                                      checked={ticked.has(entry.id)}
+                                      held={saved.has(entry.id)}
+                                      onCheck={(value) =>
+                                        toggleCase(entry.id, value)
+                                      }
+                                      onOpen={() => go(openCaseHref(entry))}
+                                    />
+                                  </li>
+                                ))}
+                              </ul>
+                            </section>
+                          ))}
+                        </div>
+
+                        <div className="hidden @3xl/access:block">
+                          <Table
+                            className="w-full border-separate border-spacing-0"
+                            aria-labelledby="person-access-cases"
+                          >
+                            <TableHeader>
+                              <TableRow className={TABLE_HEAD_ROW}>
+                                <TableHead
+                                  className={cn(TABLE_HEAD, "w-12 px-1")}
+                                >
+                                  {/* The rows in view only. "All cases" above speaks for the docket. */}
+                                  <div className="flex justify-center">
+                                    <Checkbox
+                                      checked={headerState}
+                                      onCheckedChange={(value) =>
+                                        setMany(
+                                          visible.map((c) => c.id),
+                                          value === true,
+                                        )
+                                      }
+                                      aria-label={fillCopy(
+                                        headerState === true
+                                          ? copy.clearShown
+                                          : copy.selectShown,
+                                        locale,
+                                        { count: String(visible.length) },
+                                      )}
+                                    />
+                                  </div>
+                                </TableHead>
+                                <TableHead className={cn(TABLE_HEAD, "w-44")}>
+                                  {pick(copy.columnCaseNumber, locale)}
+                                </TableHead>
+                                <TableHead className={TABLE_HEAD}>
+                                  {pick(copy.columnCase, locale)}
+                                </TableHead>
+                                <TableHead className={cn(TABLE_HEAD, "w-48")}>
+                                  {pick(copy.columnStage, locale)}
+                                </TableHead>
+                                <TableHead className={cn(TABLE_HEAD, "w-44")}>
+                                  {pick(copy.sideLabel, locale)}
+                                </TableHead>
+                                <TableHead
+                                  className={cn(TABLE_HEAD, "w-12 px-1")}
+                                >
+                                  <span className="sr-only">
+                                    {pick(peopleCopy.openCase, locale)}
+                                  </span>
+                                </TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody className={tableBodyClass()}>
+                              {groups.map((group, index) => (
+                                <React.Fragment key={group.key}>
+                                  {/* The group's name as a row of its own: the cases
+                                  they have, then the ones that can be given. */}
+                                  <TableRow
+                                    className={tableRowClass({ hover: false })}
+                                  >
+                                    <TableCell
+                                      colSpan={6}
+                                      className={cn(
+                                        TABLE_CELL,
+                                        "h-auto px-3 pb-2",
+                                        index ? "pt-8" : "pt-4",
+                                      )}
+                                    >
+                                      <GroupLabel
+                                        label={pick(group.label, locale)}
+                                        count={group.entries.length}
+                                      />
+                                    </TableCell>
+                                  </TableRow>
+                                  {group.entries.map((entry) => (
+                                    <CaseTableRow
+                                      key={entry.id}
+                                      entry={entry}
+                                      locale={locale}
+                                      checked={ticked.has(entry.id)}
+                                      held={saved.has(entry.id)}
+                                      onCheck={(value) =>
+                                        toggleCase(entry.id, value)
+                                      }
+                                      onOpen={() => go(openCaseHref(entry))}
+                                    />
+                                  ))}
+                                </React.Fragment>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </>
+                    )}
+                  </>
+                ) : null}
+              </section>
+            ) : (
+              <section
+                aria-labelledby="person-access-cases"
+                className="flex flex-col gap-4"
+              >
+                {/* The heading and the scope on one line, phones too: the
+                    dropdown names what they have and changes it. */}
+                <div className="flex items-center justify-between gap-3">
+                  <h3
+                    id="person-access-cases"
+                    className="text-body font-semibold"
+                  >
+                    {pick(copy.casesSection, locale)}
+                  </h3>
+                  <Select
+                    value={savedFuture ? "all" : "specific"}
+                    onValueChange={(value) => chooseScope(value as Mode)}
+                  >
+                    <SelectTrigger
+                      aria-label={pick(copy.scopeLabel, locale)}
+                      className="min-w-40"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent align="end">
+                      <SelectItem value="all">
+                        {pick(copy.allCases, locale)}
+                      </SelectItem>
+                      <SelectItem value="specific">
+                        {pick(copy.specificCases, locale)}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {savedFuture ? (
+                  /* All cases says plainly that new cases follow, and lists
+                     what they can open. Nothing to select: to take a case
+                     away, Specific cases first. */
+                  <p className="flex items-start gap-2 text-body-compact text-pretty text-muted-foreground">
+                    <InfoIcon aria-hidden className="mt-0.5 size-4 shrink-0" />
+                    {fillCopy(copy.futureNote, locale, {
+                      name: displayName(person),
+                      count: String(total),
+                    })}
+                  </p>
+                ) : (
+                  /* Two tabs, not two stacked groups: a long Has access
+                     list buried the cases they do not have yet. */
+                  <Tabs
+                    value={tab}
+                    onValueChange={(value) => switchTab(value as AccessTab)}
+                  >
+                    <TabsList aria-label={pick(copy.casesTabs, locale)}>
+                      <TabsTrigger value="held" className="px-3">
+                        {pick(copy.groupHeld, locale)}
+                        <span className="text-muted-foreground tabular-nums">
+                          {heldTotal}
+                        </span>
+                      </TabsTrigger>
+                      <TabsTrigger value="other" className="px-3">
+                        {pick(copy.tabOther, locale)}
+                        <span className="text-muted-foreground tabular-nums">
+                          {otherTotal}
+                        </span>
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                )}
+
+                {!savedFuture && tab === "other" && otherTotal === 0 ? (
+                  <p className="rounded-xl border border-dashed border-border px-6 py-12 text-center text-body-compact text-pretty text-muted-foreground">
+                    {fillCopy(copy.emptyOther, locale, {
+                      name: displayName(person),
+                    })}
+                  </p>
+                ) : (
+                  <>
+                    {toolbar}
+
+                    {/* What is selected and the one act for it, on a plain
+                        line over the list. Sticky, so a selection made far
+                        down keeps its button in view. */}
+                    {!savedFuture ? (
+                      <div className="sticky top-0 z-10 -my-2 flex min-h-14 items-center gap-3 bg-card py-2">
+                        <p
+                          className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 text-body-compact text-muted-foreground"
+                          aria-live="polite"
                         >
-                          <span className="truncate">{stageSummary}</span>
-                          <ChevronDownIcon
-                            aria-hidden
-                            className="text-muted-foreground"
-                          />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent
-                        align="end"
-                        sideOffset={4}
-                        collisionPadding={16}
-                        className="w-(--radix-dropdown-menu-trigger-width)"
-                      >
-                        <DropdownMenuCheckboxItem
-                          checked={stages.length === 0}
-                          onSelect={(event) => event.preventDefault()}
-                          onCheckedChange={() => setStages([])}
-                        >
-                          {pick(copy.stageAll, locale)}
-                        </DropdownMenuCheckboxItem>
-                        <DropdownMenuSeparator />
-                        {STAGE_OPTIONS.map((value) => (
-                          <DropdownMenuCheckboxItem
-                            key={value}
-                            checked={stages.includes(value)}
-                            onSelect={(event) => event.preventDefault()}
-                            onCheckedChange={(on) =>
-                              setStages((current) =>
-                                on
-                                  ? STAGE_OPTIONS.filter(
-                                      (v) => v === value || current.includes(v),
-                                    )
-                                  : current.filter((v) => v !== value),
-                              )
+                          <span className="tabular-nums">
+                            {selectedIds.length
+                              ? casesWord(
+                                  selectedIds.length,
+                                  copy.selectedOne,
+                                  copy.selectedMany,
+                                )
+                              : pick(
+                                  tab === "held"
+                                    ? copy.selectHintHeld
+                                    : copy.selectHintOther,
+                                  locale,
+                                )}
+                          </span>
+                          {selectedIds.length ? (
+                            <Button
+                              type="button"
+                              variant="link"
+                              className="h-auto p-0 font-normal underline"
+                              onClick={() => setSelected(new Set())}
+                            >
+                              {pick(copy.clearSelection, locale)}
+                            </Button>
+                          ) : null}
+                        </p>
+                        {selectedIds.length ? (
+                          <Button
+                            type="button"
+                            variant={tab === "held" ? "destructive" : "default"}
+                            onClick={() =>
+                              setAct(tab === "held" ? "remove" : "give")
                             }
                           >
-                            {stageFilterLabel(value, locale)}
-                          </DropdownMenuCheckboxItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                    {/* Which side the advocate is for in the case (owner, Oct 24). */}
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          aria-label={`${pick(copy.sideLabel, locale)}: ${sideSummary}`}
-                          className={cn(
-                            "w-full justify-between font-normal @lg/access:w-56",
-                            side !== null &&
-                              cn(
-                                FILTER_ON,
-                                "aria-expanded:bg-brand-muted aria-expanded:text-brand-muted-foreground",
-                              ),
-                          )}
-                        >
-                          <span className="truncate">{sideSummary}</span>
-                          <ChevronDownIcon
-                            aria-hidden
-                            className="text-muted-foreground"
-                          />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent
-                        align="end"
-                        sideOffset={4}
-                        collisionPadding={16}
-                        className="w-(--radix-dropdown-menu-trigger-width)"
-                      >
-                        <DropdownMenuRadioGroup
-                          value={side ?? "all"}
-                          onValueChange={(value) =>
-                            setSide(
-                              value === "all" ? null : (value as CounselSide),
-                            )
-                          }
-                        >
-                          <DropdownMenuRadioItem value="all">
-                            {pick(copy.sideAll, locale)}
-                          </DropdownMenuRadioItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuRadioItem value="complainant">
-                            {pick(copy.sideComplainant, locale)}
-                          </DropdownMenuRadioItem>
-                          <DropdownMenuRadioItem value="accused">
-                            {pick(copy.sideAccused, locale)}
-                          </DropdownMenuRadioItem>
-                        </DropdownMenuRadioGroup>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
+                            {pick(
+                              tab === "held"
+                                ? copy.removeAccess
+                                : copy.giveAccess,
+                              locale,
+                            )}
+                          </Button>
+                        ) : null}
+                      </div>
+                    ) : null}
 
-                  {/* --------------------------------------------------- cases */}
-                  {visible.length === 0 ? (
-                    <p className="rounded-xl border border-dashed border-border py-12 text-center text-body-compact text-muted-foreground">
-                      {pick(copy.noCases, locale)}
-                    </p>
-                  ) : (
-                    <>
-                      {/* The table needs room: a dialog body at least 768px wide (the
-                      dialog sits beside the rail, so the screen's width says
-                      little). A narrower dialog gets the list. */}
-                      <div className="flex flex-col gap-6 @3xl/access:hidden">
-                        {groups.map((group) => (
-                          <section
-                            key={group.key}
-                            aria-labelledby={`access-group-${group.key}`}
+                    {tabRows.length === 0 ? (
+                      <p className="rounded-xl border border-dashed border-border py-12 text-center text-body-compact text-muted-foreground">
+                        {pick(copy.noCases, locale)}
+                      </p>
+                    ) : (
+                      <>
+                        <ul className="flex flex-col divide-y divide-hairline @3xl/access:hidden">
+                          {tabRows.map((entry) => (
+                            <li key={entry.id}>
+                              <CaseRow
+                                entry={entry}
+                                locale={locale}
+                                checked={selected.has(entry.id)}
+                                held={selected.has(entry.id)}
+                                selectOnly
+                                readOnly={savedFuture}
+                                onCheck={(value) => select(entry.id, value)}
+                                onOpen={() => go(openCaseHref(entry))}
+                              />
+                            </li>
+                          ))}
+                        </ul>
+                        <div className="hidden @3xl/access:block">
+                          <Table
+                            className="w-full border-separate border-spacing-0"
+                            aria-labelledby="person-access-cases"
                           >
-                            <GroupLabel
-                              id={`access-group-${group.key}`}
-                              label={pick(group.label, locale)}
-                              count={group.entries.length}
-                              className="rounded-lg bg-surface-sunken px-3 py-2"
-                            />
-                            <ul className="flex flex-col divide-y divide-hairline">
-                              {group.entries.map((entry) => (
-                                <li key={entry.id}>
-                                  <CaseRow
-                                    entry={entry}
-                                    locale={locale}
-                                    checked={ticked.has(entry.id)}
-                                    held={saved.has(entry.id)}
-                                    onCheck={(value) =>
-                                      toggleCase(entry.id, value)
-                                    }
-                                    onOpen={() => go(openCaseHref(entry))}
-                                  />
-                                </li>
-                              ))}
-                            </ul>
-                          </section>
-                        ))}
-                      </div>
-
-                      <div className="hidden @3xl/access:block">
-                        <Table
-                          className="w-full border-separate border-spacing-0"
-                          aria-labelledby="person-access-cases"
-                        >
-                          <TableHeader>
-                            <TableRow className={TABLE_HEAD_ROW}>
-                              <TableHead
-                                className={cn(TABLE_HEAD, "w-12 px-1")}
-                              >
-                                {/* The rows in view only. "All cases" above speaks for the docket. */}
-                                <div className="flex justify-center">
-                                  <Checkbox
-                                    checked={headerState}
-                                    onCheckedChange={(value) =>
-                                      setMany(
-                                        visible.map((c) => c.id),
-                                        value === true,
-                                      )
-                                    }
-                                    aria-label={fillCopy(
-                                      headerState === true
-                                        ? copy.clearShown
-                                        : copy.selectShown,
-                                      locale,
-                                      { count: String(visible.length) },
-                                    )}
-                                  />
-                                </div>
-                              </TableHead>
-                              <TableHead className={cn(TABLE_HEAD, "w-44")}>
-                                {pick(copy.columnCaseNumber, locale)}
-                              </TableHead>
-                              <TableHead className={TABLE_HEAD}>
-                                {pick(copy.columnCase, locale)}
-                              </TableHead>
-                              <TableHead className={cn(TABLE_HEAD, "w-48")}>
-                                {pick(copy.columnStage, locale)}
-                              </TableHead>
-                              <TableHead className={cn(TABLE_HEAD, "w-44")}>
-                                {pick(copy.sideLabel, locale)}
-                              </TableHead>
-                              <TableHead
-                                className={cn(TABLE_HEAD, "w-12 px-1")}
-                              >
-                                <span className="sr-only">
-                                  {pick(peopleCopy.openCase, locale)}
-                                </span>
-                              </TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody className={tableBodyClass()}>
-                            {groups.map((group, index) => (
-                              <React.Fragment key={group.key}>
-                                {/* The group's name as a row of its own: the cases
-                                they have, then the ones that can be given. */}
-                                <TableRow
-                                  className={tableRowClass({ hover: false })}
-                                >
-                                  <TableCell
-                                    colSpan={6}
-                                    className={cn(
-                                      TABLE_CELL,
-                                      "h-auto px-3 pb-2",
-                                      index ? "pt-8" : "pt-4",
-                                    )}
+                            <TableHeader>
+                              <TableRow className={TABLE_HEAD_ROW}>
+                                {savedFuture ? null : (
+                                  <TableHead
+                                    className={cn(TABLE_HEAD, "w-12 px-1")}
                                   >
-                                    <GroupLabel
-                                      label={pick(group.label, locale)}
-                                      count={group.entries.length}
-                                    />
-                                  </TableCell>
-                                </TableRow>
-                                {group.entries.map((entry) => (
-                                  <CaseTableRow
-                                    key={entry.id}
-                                    entry={entry}
-                                    locale={locale}
-                                    checked={ticked.has(entry.id)}
-                                    held={saved.has(entry.id)}
-                                    onCheck={(value) =>
-                                      toggleCase(entry.id, value)
-                                    }
-                                    onOpen={() => go(openCaseHref(entry))}
-                                  />
-                                ))}
-                              </React.Fragment>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </>
-                  )}
-                </>
-              ) : null}
-            </section>
+                                    <div className="flex justify-center">
+                                      <Checkbox
+                                        checked={selectState}
+                                        onCheckedChange={(value) =>
+                                          selectShown(value === true)
+                                        }
+                                        aria-label={fillCopy(
+                                          copy.selectAllShown,
+                                          locale,
+                                          {
+                                            count: String(tabRows.length),
+                                          },
+                                        )}
+                                      />
+                                    </div>
+                                  </TableHead>
+                                )}
+                                <TableHead className={cn(TABLE_HEAD, "w-44")}>
+                                  {pick(copy.columnCaseNumber, locale)}
+                                </TableHead>
+                                <TableHead className={TABLE_HEAD}>
+                                  {pick(copy.columnCase, locale)}
+                                </TableHead>
+                                <TableHead className={cn(TABLE_HEAD, "w-48")}>
+                                  {pick(copy.columnStage, locale)}
+                                </TableHead>
+                                <TableHead className={cn(TABLE_HEAD, "w-44")}>
+                                  {pick(copy.sideLabel, locale)}
+                                </TableHead>
+                                <TableHead
+                                  className={cn(TABLE_HEAD, "w-12 px-1")}
+                                >
+                                  <span className="sr-only">
+                                    {pick(peopleCopy.openCase, locale)}
+                                  </span>
+                                </TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody className={tableBodyClass()}>
+                              {tabRows.map((entry) => (
+                                <CaseTableRow
+                                  key={entry.id}
+                                  entry={entry}
+                                  locale={locale}
+                                  checked={selected.has(entry.id)}
+                                  held={selected.has(entry.id)}
+                                  selectOnly
+                                  readOnly={savedFuture}
+                                  onCheck={(value) => select(entry.id, value)}
+                                  onOpen={() => go(openCaseHref(entry))}
+                                />
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </>
+                    )}
+                  </>
+                )}
+              </section>
+            )}
           </div>
 
           {/* ------------------------------------------------------- footer */}
-          {/* The bail dialog's footer: the sunken well under a hairline. */}
-          <div className="flex shrink-0 flex-col gap-3 border-t border-hairline bg-surface-sunken px-6 py-4 pb-[calc(--spacing(4)+env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between sm:pb-4">
-            <p
-              className={cn(
-                "flex min-h-10 flex-wrap items-center gap-x-2 text-body-compact text-muted-foreground tabular-nums",
-                // Nothing pending: no empty line over the buttons on a phone.
-                pending.length === 0 && "max-sm:hidden",
-              )}
-              aria-live="polite"
-            >
-              {/* How many cases they have now, then what Save will change. */}
-              {pending.map((part, index) => (
-                <React.Fragment key={part.text}>
-                  {index ? <span aria-hidden>·</span> : null}
-                  <span
-                    className={cn(
-                      part.tone && "font-medium",
-                      part.tone === "add" && "text-success-ink",
-                      part.tone === "remove" && "text-destructive-ink",
-                    )}
-                  >
-                    {part.text}
-                  </span>
-                </React.Fragment>
-              ))}
-            </p>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                className="flex-1 sm:flex-none"
-                onClick={requestClose}
+          {/* The bail dialog's footer: the sunken well under a hairline. A
+              person's own access has none: each act applies on its confirm. */}
+          {adding ? (
+            <div className="flex shrink-0 flex-col gap-3 border-t border-hairline bg-surface-sunken px-6 py-4 pb-[calc(--spacing(4)+env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between sm:pb-4">
+              <p
+                className={cn(
+                  "flex min-h-10 flex-wrap items-center gap-x-2 text-body-compact text-muted-foreground tabular-nums",
+                  // Nothing pending: no empty line over the buttons on a phone.
+                  pending.length === 0 && "max-sm:hidden",
+                )}
+                aria-live="polite"
               >
-                {pick(peopleCopy.removeAllCancel, locale)}
-              </Button>
-              <Button
-                type="button"
-                className="flex-1 sm:flex-none"
-                // A person's access has nothing to save until something
-                // changes; Add person always answers, pointing at what is
-                // missing.
-                disabled={adding ? false : !canSave}
-                onClick={save}
-              >
-                {saveLabel}
-              </Button>
+                {/* How many cases they have now, then what Save will change. */}
+                {pending.map((part, index) => (
+                  <React.Fragment key={part.text}>
+                    {index ? <span aria-hidden>·</span> : null}
+                    <span
+                      className={cn(
+                        part.tone && "font-medium",
+                        part.tone === "add" && "text-success-ink",
+                        part.tone === "remove" && "text-destructive-ink",
+                      )}
+                    >
+                      {part.text}
+                    </span>
+                  </React.Fragment>
+                ))}
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1 sm:flex-none"
+                  onClick={requestClose}
+                >
+                  {pick(peopleCopy.removeAllCancel, locale)}
+                </Button>
+                <Button
+                  type="button"
+                  className="flex-1 sm:flex-none"
+                  // A person's access has nothing to save until something
+                  // changes; Add person always answers, pointing at what is
+                  // missing.
+                  disabled={adding ? false : !canSave}
+                  onClick={save}
+                >
+                  {saveLabel}
+                </Button>
+              </div>
             </div>
-          </div>
+          ) : null}
         </FlowDialogContent>
       </Dialog>
 
@@ -1236,6 +1645,58 @@ export function PersonAccessDialog({
               onClick={apply}
             >
               {saveLabel}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </ChromeAlertDialogContent>
+      </AlertDialog>
+
+      {/* ------------------------------------------------- confirm an act */}
+      <AlertDialog
+        open={act !== null}
+        onOpenChange={(next) => {
+          if (!next) setAct(null);
+        }}
+      >
+        <ChromeAlertDialogContent className={CONFIRM_CONTENT}>
+          <AlertDialogHeader className={CONFIRM_HEADER}>
+            <div className={CONFIRM_HEAD_BLOCK}>
+              <AlertDialogTitle className="text-body font-semibold text-pretty">
+                {actTitle}
+              </AlertDialogTitle>
+            </div>
+            <AlertDialogDescription asChild>
+              <ul className="flex w-full flex-col gap-2 text-left text-pretty">
+                {actPoints.map((point) => (
+                  <li
+                    key={point.key}
+                    className="grid grid-cols-[--spacing(4)_minmax(0,1fr)] items-baseline gap-x-2 text-foreground"
+                  >
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "text-center font-semibold",
+                        point.sign === "+" && "text-success-ink",
+                        point.sign === "−" && "text-destructive-ink",
+                        !point.sign && "text-muted-foreground",
+                      )}
+                    >
+                      {point.sign ?? "•"}
+                    </span>
+                    <span>{point.text}</span>
+                  </li>
+                ))}
+              </ul>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              {pick(peopleCopy.removeAllCancel, locale)}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant={act === "remove" ? "destructive" : "default"}
+              onClick={doAct}
+            >
+              {actLabel}
             </AlertDialogAction>
           </AlertDialogFooter>
         </ChromeAlertDialogContent>
@@ -1346,6 +1807,8 @@ function CaseTableRow({
   locale,
   checked,
   held,
+  selectOnly = false,
+  readOnly = false,
   onCheck,
   onOpen,
 }: {
@@ -1353,29 +1816,40 @@ function CaseTableRow({
   locale: Locale;
   checked: boolean;
   held: boolean;
+  /** The tick selects for an act; it says nothing about access. */
+  selectOnly?: boolean;
+  /** A list to look at: no tick, and the row does not select. */
+  readOnly?: boolean;
   onCheck: (on: boolean) => void;
   onOpen: () => void;
 }) {
   return (
     <TableRow
-      className={cn(tableRowClass(), "cursor-pointer")}
+      className={cn(tableRowClass({ hover: !readOnly }), !readOnly && "cursor-pointer")}
       onClick={(event) => {
+        if (readOnly) return;
         if ((event.target as HTMLElement).closest("button, a, [role=checkbox]"))
           return;
         onCheck(!checked);
       }}
     >
-      <TableCell className={cn(TABLE_CELL, "w-12 px-1")}>
-        <div className="flex justify-center">
-          <Checkbox
-            checked={checked}
-            onCheckedChange={(value) => onCheck(value === true)}
-            aria-label={fillCopy(copy.selectCase, locale, {
-              case: caseLabel(entry),
-            })}
-          />
-        </div>
-      </TableCell>
+      {readOnly ? null : (
+        <TableCell className={cn(TABLE_CELL, "w-12 px-1")}>
+          <div className="flex justify-center">
+            <Checkbox
+              checked={checked}
+              onCheckedChange={(value) => onCheck(value === true)}
+              aria-label={fillCopy(
+                selectOnly ? copy.selectRow : copy.selectCase,
+                locale,
+                {
+                  case: caseLabel(entry),
+                },
+              )}
+            />
+          </div>
+        </TableCell>
+      )}
       {/* Number and name in columns of their own (owner, Oct 24). */}
       <TableCell className={cn(TABLE_CELL, "whitespace-nowrap")}>
         <CaseMeta entry={entry} locale={locale} />
@@ -1512,6 +1986,8 @@ function CaseRow({
   locale,
   checked,
   held,
+  selectOnly = false,
+  readOnly = false,
   onCheck,
   onOpen,
 }: {
@@ -1519,26 +1995,40 @@ function CaseRow({
   locale: Locale;
   checked: boolean;
   held: boolean;
+  /** The tick selects for an act; it says nothing about access. */
+  selectOnly?: boolean;
+  /** A list to look at: no tick, and the row does not select. */
+  readOnly?: boolean;
   onCheck: (on: boolean) => void;
   onOpen: () => void;
 }) {
   return (
     <div
-      className="flex cursor-pointer items-start gap-3 rounded-lg px-3 py-4 transition-colors hover:bg-accent"
+      className={cn(
+        "flex items-start gap-3 rounded-lg px-3 py-4",
+        !readOnly && "cursor-pointer transition-colors hover:bg-accent",
+      )}
       onClick={(event) => {
+        if (readOnly) return;
         if ((event.target as HTMLElement).closest("button, a, [role=checkbox]"))
           return;
         onCheck(!checked);
       }}
     >
-      <Checkbox
-        className="mt-0.5"
-        checked={checked}
-        onCheckedChange={(value) => onCheck(value === true)}
-        aria-label={fillCopy(copy.selectCase, locale, {
-          case: caseLabel(entry),
-        })}
-      />
+      {readOnly ? null : (
+        <Checkbox
+          className="mt-0.5"
+          checked={checked}
+          onCheckedChange={(value) => onCheck(value === true)}
+          aria-label={fillCopy(
+            selectOnly ? copy.selectRow : copy.selectCase,
+            locale,
+            {
+              case: caseLabel(entry),
+            },
+          )}
+        />
+      )}
       <div className="flex min-w-0 flex-1 flex-col gap-1.5 @lg/access:flex-row @lg/access:items-start @lg/access:gap-6">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <span className="text-body-compact font-medium text-pretty">
