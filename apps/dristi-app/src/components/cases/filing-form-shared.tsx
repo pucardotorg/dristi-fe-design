@@ -675,7 +675,7 @@ export function DiscardFilingDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <ChromeAlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Discard this application?</AlertDialogTitle>
+          <AlertDialogTitle>Discard this {noun}?</AlertDialogTitle>
           <AlertDialogDescription>
             Anything you entered will be lost.
           </AlertDialogDescription>

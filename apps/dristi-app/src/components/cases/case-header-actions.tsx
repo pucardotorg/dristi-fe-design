@@ -25,6 +25,10 @@ import { useCaseBail } from "@/components/cases/case-bail-flow";
 import { useCaseReader } from "@/components/cases/case-reader";
 import { Identifier } from "@/components/chrome/identifier";
 import { SubmitDocumentsDialog } from "@/components/cases/submit-documents-form";
+import { useCourt } from "@/components/court/court-provider";
+import { useCourtSession } from "@/components/employee/use-court-role";
+import { courtRoleLabel } from "@/lib/employee/content";
+import { rebaseCaseHref } from "@/lib/cases/case-reader";
 import { caseSectionHref } from "@/lib/cases/sections";
 import { DownloadCaseFileDialog } from "@/components/cases/download-case-file-dialog";
 import type { AccessCase } from "@/lib/access/content";
@@ -88,6 +92,8 @@ export function CaseHeaderActions({
      access — case access is the parties' to give — and Generate order where the
      advocate's Make filings stands. Download stays for both. */
   const court = useCaseReader() === "court";
+  const courtSession = useCourtSession();
+  const { court: courtId } = useCourt();
 
   return (
     <TooltipProvider>
@@ -130,6 +136,19 @@ export function CaseHeaderActions({
           </TooltipTrigger>
           <TooltipContent side="bottom">Download case file</TooltipContent>
         </Tooltip>
+
+        {court ? (
+          /* The court submits documents too, and signs its own (DSB-04,
+             DSB-18; PM, Oct 26): beside the order, never its primary. */
+          <Button
+            type="button"
+            variant="outline"
+            className="flex-1 md:pointer-fine:flex-none md:landscape:flex-none"
+            onClick={() => setSubmitOpen(true)}
+          >
+            Submit documents
+          </Button>
+        ) : null}
 
         {court ? (
           orderHref ? (
@@ -204,6 +223,15 @@ export function CaseHeaderActions({
         open={submitOpen}
         onOpenChange={setSubmitOpen}
         caseId={caseId}
+        court={
+          court
+            ? {
+                name: courtSession.name,
+                role: courtRoleLabel(courtSession.role, courtId),
+                court: courtSession.court,
+              }
+            : undefined
+        }
         caseLine={
           <>
             <Identifier value={accessCase.caseNumber} label="case number" />
@@ -212,7 +240,14 @@ export function CaseHeaderActions({
           </>
         }
         // Lands on the register the submission is designed to appear in.
-        onSubmitted={() => router.push(caseSectionHref(caseId, "documents"))}
+        onSubmitted={() =>
+          router.push(
+            rebaseCaseHref(
+              caseSectionHref(caseId, "documents"),
+              court ? "court" : "advocate"
+            )
+          )
+        }
       />
 
       <DownloadCaseFileDialog

@@ -68,6 +68,7 @@ import {
 import {
   Tooltip,
   TooltipContent,
+  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
@@ -83,6 +84,7 @@ import {
   documentsFile,
   documentFromFiling,
   documentsFromApplication,
+  documentsFromCourt,
   documentNotSubmitted,
   documentPeopleFromFilings,
   evidenceNumberShown,
@@ -124,8 +126,11 @@ import { SignReviewDialog } from "@/components/cases/sign-review-dialog";
 import { SubmitDocumentsDialog } from "@/components/cases/submit-documents-form";
 import {
   findDocumentSubmission,
+  parseSavedDocumentSubmissions,
+  savedDocumentSubmissionsKey,
   type SavedDocumentSubmission,
 } from "@/lib/cases/saved-document-submissions";
+import { useSessionValue } from "@/lib/cases/demo-session";
 import { localFileSrc } from "@/components/cases/pdf-viewer";
 import {
   groupActions,
@@ -162,15 +167,26 @@ export function CaseDocuments({ record }: { record: CaseRecord }) {
   /* Memos and affidavits filed on the case come from the filings record the
      Applications tab reads, so a step taken on either shows on both. */
   const { register } = useFilingsRegister(record);
+  /* What the court submitted from its own case page, already on the record. */
+  const savedRaw = useSessionValue(savedDocumentSubmissionsKey(record.id));
+  const fromCourt = useMemo(
+    () => documentsFromCourt(parseSavedDocumentSubmissions(savedRaw)),
+    [savedRaw]
+  );
 
   if (!file) return <DocumentsError />;
+  /* Its own tooltip provider: the court's case page has no app-wide one, and
+     the Submitted by cell's tooltip threw there. */
   return (
-    <DocumentsReady
-      record={record}
-      file={file}
-      filings={register?.documents ?? NO_FILINGS}
-      applications={register?.applications ?? NO_FILINGS}
-    />
+    <TooltipProvider>
+      <DocumentsReady
+        record={record}
+        file={file}
+        filings={register?.documents ?? NO_FILINGS}
+        applications={register?.applications ?? NO_FILINGS}
+        fromCourt={fromCourt}
+      />
+    </TooltipProvider>
   );
 }
 
@@ -220,6 +236,7 @@ function DocumentsReady({
   file,
   filings: filed,
   applications,
+  fromCourt,
 }: {
   record: CaseRecord;
   file: DocumentsFile;
@@ -228,6 +245,8 @@ function DocumentsReady({
   /** Applications this viewer may see; each submitted one, with its
    *  attachments, is on this register too (DSB-11, DSB-23). */
   applications: ApplicationRecord[];
+  /** What a member of the court submitted (DSB-04). */
+  fromCourt: { documents: CaseDocument[]; people: DocumentPerson[] };
 }) {
   const [kind, setKind] = useState<DocumentKind>("documents");
   const [typeIds, setTypeIds] = useState<string[]>([]);
@@ -267,13 +286,15 @@ function DocumentsReady({
       withProvisionalIds([
         ...filings.map(documentFromFiling),
         ...applications.flatMap(documentsFromApplication),
+        ...fromCourt.documents,
         ...file.documents,
       ]).filter((document) => !documentNotSubmitted(document)),
-    [filings, applications, file.documents]
+    [filings, applications, fromCourt.documents, file.documents]
   );
   const peopleById = new Map(
     [
       ...documentPeopleFromFilings([...filings, ...applications]),
+      ...fromCourt.people,
       ...file.people,
     ].map((person) => [
       person.id,

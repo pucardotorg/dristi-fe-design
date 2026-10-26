@@ -71,7 +71,10 @@ import {
   type ObjectionTask,
   filingNoun,
 } from "@/lib/cases/application-record";
-import { resolveApplicationViewer } from "@/lib/cases/application-access";
+import {
+  resolveApplicationViewer,
+  type ApplicationViewer,
+} from "@/lib/cases/application-access";
 import {
   FILING_STATUSES,
   applicationsFile,
@@ -93,6 +96,7 @@ import {
   savedDraftsKey,
 } from "@/lib/cases/saved-application-drafts";
 import { DocumentSignatureDialog } from "@/components/cases/document-signature-dialog";
+import { useCaseReader } from "@/components/cases/case-reader";
 import {
   parseSavedDocumentSubmissions,
   savedDocumentRows,
@@ -440,11 +444,15 @@ export function CaseApplications({ record }: { record: CaseRecord }) {
  */
 export function useFilingsRegister(record: CaseRecord) {
   const { profileRole, accountName } = useProfile();
+  /* On the court's case page the reader is the court, whoever the demo
+     profile says is signed in on the advocate side. */
+  const court = useCaseReader() === "court";
   /* Signing and paying move a filing on for this visit (demo-session.ts):
      it holds across tabs and pages, and a refresh restores every scenario. */
   const movesRaw = useSessionValue(movesKey(record.id));
   const moves = useMemo(() => parseMoves(movesRaw), [movesRaw]);
-  const viewer = useMemo(() => {
+  const viewer = useMemo<ApplicationViewer | null>(() => {
+    if (court) return { role: "court", side: "complainant" };
     try {
       return resolveApplicationViewer({
         file: applicationsFile(record),
@@ -456,16 +464,18 @@ export function useFilingsRegister(record: CaseRecord) {
     } catch {
       return null;
     }
-  }, [record, profileRole, accountName]);
+  }, [record, profileRole, accountName, court]);
   /* What the Raise application form filed during this visit. */
   const savedRaw = useSessionValue(savedDraftsKey(record.id));
   /* What Submit documents filed during this visit, one row per document. */
   const savedDocumentsRaw = useSessionValue(savedDocumentSubmissionsKey(record.id));
   const saved = useMemo(
     () => [
-      ...parseSavedDocumentSubmissions(savedDocumentsRaw).flatMap(
-        savedDocumentRows
-      ),
+      /* The court's own go on the Documents tab directly, not through the
+         parties' filings. */
+      ...parseSavedDocumentSubmissions(savedDocumentsRaw)
+        .filter((item) => !item.byCourt)
+        .flatMap(savedDocumentRows),
       ...parseSavedDrafts(savedRaw).map(savedDraftSubmission),
     ],
     [savedRaw, savedDocumentsRaw]

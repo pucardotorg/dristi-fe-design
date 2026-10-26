@@ -12,6 +12,7 @@ import pack from "./documents-dummy.json";
 import { counselFor, type CaseRecord, type Parties } from "./types";
 import type { ApplicationRecord } from "./application-record";
 import { isSubmittedToCourt } from "./applications";
+import type { SavedDocumentSubmission } from "./saved-document-submissions";
 
 /**
  * Mutually exclusive populations on the documents register. The court's own
@@ -553,6 +554,57 @@ export function documentsFromApplication(item: ApplicationRecord): CaseDocument[
       )
     )
   );
+}
+
+/** Who stands for the court in this register's Submitted by. */
+export const COURT_PERSON_ID = "court";
+
+/**
+ * What a member of the court submitted from the court's case page (DSB-04),
+ * as rows of this register: signed by them as they submitted it (DSB-18), so
+ * on the record at once. Submitted by reads "Court", with the seat beneath.
+ */
+export function documentsFromCourt(saved: SavedDocumentSubmission[]): {
+  documents: CaseDocument[];
+  people: DocumentPerson[];
+} {
+  const mine = saved.filter(
+    (item) => item.byCourt && item.status === "submitted"
+  );
+  const seat = mine[0]?.byCourt;
+  return {
+    documents: mine.flatMap((item) =>
+      item.documents.map((doc) => {
+        const files = doc.files.map((file) => ({ label: file.label, src: file.href }));
+        return {
+          id: doc.id,
+          filingId: doc.id,
+          title: doc.title,
+          type: FILING_TYPE[doc.type] ?? "evidence",
+          submissionStatus: "submitted" as const,
+          submittedOn: item.submittedOn ?? item.addedOn.slice(0, 10),
+          submittedById: COURT_PERSON_ID,
+          source: "submission" as const,
+          linkedApplication: null,
+          linkedHearing: null,
+          provisionalId: null,
+          evidenceNumber: null,
+          href: files[0]?.src,
+          files,
+        };
+      })
+    ),
+    people: seat
+      ? [
+          {
+            id: COURT_PERSON_ID,
+            name: seat.name,
+            role: `${seat.role}, ${seat.court}`,
+            filterLabel: "Court",
+          },
+        ]
+      : [],
+  };
 }
 
 const FILING_TYPE: Record<string, DocumentTypeId> = {

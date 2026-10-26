@@ -34,7 +34,10 @@ export type ApplicationRole =
   | "pip"
   | "clerk"
   | "litigant"
-  | "poa-holder";
+  | "poa-holder"
+  /** A member of the court reading the case from the court's own page: sees
+   *  whatever is on the record, and has no filer's step on anyone's filing. */
+  | "court";
 
 export type CaseSide = "complainant" | "accused";
 
@@ -60,6 +63,7 @@ const ROLE_LABEL: Record<ApplicationRole, string> = {
   clerk: "Clerk",
   litigant: "Litigant",
   "poa-holder": "PoA holder",
+  court: "Court",
 };
 
 export function applicationRoleLabel(role: ApplicationRole): string {
@@ -127,6 +131,7 @@ export function canSeeApplication(
   submission: Submission,
   file: ApplicationsFile
 ): boolean {
+  if (viewer.role === "court") return isSubmittedToCourt(submission.status);
   const people = peopleById(file);
   const side = submissionSide(submission, people);
   if (side !== viewer.side) {

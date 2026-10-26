@@ -57,6 +57,7 @@ import {
 } from "@/lib/cases/applications";
 import { FIXTURE_TODAY } from "@/lib/cases/fixtures";
 import { displayName } from "@/lib/cases/names";
+import { COURT_PERSON_ID } from "@/lib/cases/documents";
 import { findCaseRecord } from "@/lib/cases/party-cases";
 import {
   newDocumentSubmissionId,
@@ -207,6 +208,7 @@ export function SubmitDocumentsDialog({
   caseLine,
   initial,
   resume,
+  court,
   onSubmitted,
 }: {
   open: boolean;
@@ -228,9 +230,25 @@ export function SubmitDocumentsDialog({
   initial?: { type?: SubmissionDocumentTypeId; title?: string };
   /** A saved draft, reopened by Continue draft. Mount per draft (a `key`). */
   resume?: SavedDocumentSubmission;
+  /**
+   * Set on the court's case page: a member of the court submits, and signs
+   * their own (DSB-04, DSB-18). Signed there and then, so no draft and no
+   * sign later.
+   */
+  court?: { name: string; role: string; court: string };
   onSubmitted: () => void;
 }) {
-  const filer = useDocumentFiler(caseId);
+  const partyFiler = useDocumentFiler(court ? undefined : caseId);
+  const filer = court
+    ? {
+        canSubmit: true,
+        personId: COURT_PERSON_ID,
+        signerId: COURT_PERSON_ID,
+        signers: [],
+        partyId: COURT_PERSON_ID,
+        handoffTo: undefined,
+      }
+    : partyFiler;
   const formRef = useRef<HTMLFormElement>(null);
   const formId = useId();
   const [start] = useState<DocumentDraft>(() => {
@@ -315,6 +333,7 @@ export function SubmitDocumentsDialog({
         onBehalfOfId: filer.partyId,
         addedOn: resume?.addedOn ?? new Date().toISOString(),
         submittedOn: status === "submitted" ? FIXTURE_TODAY : undefined,
+        byCourt: court,
       },
       new Map([[draft.id, draft.files]])
     );
@@ -450,7 +469,7 @@ export function SubmitDocumentsDialog({
         onBack={() => setStage("review")}
         onComplete={() => finish("submitted")}
         onSignLater={
-          caseId && filer
+          caseId && filer && !court
             ? () => finish("pending-signature", "Saved. Waiting for your signature")
             : undefined
         }
@@ -460,7 +479,7 @@ export function SubmitDocumentsDialog({
         open={discardOpen}
         onOpenChange={setDiscardOpen}
         onDiscard={closeNow}
-        onSaveDraft={caseId && filer ? saveDraft : undefined}
+        onSaveDraft={caseId && filer && !court ? saveDraft : undefined}
         noun="document"
         finishIn="Documents"
       />

@@ -51,6 +51,11 @@ export type SavedDocumentSubmission = {
   addedOn: string;
   /** ISO day, once signed. */
   submittedOn?: string;
+  /**
+   * Set when a member of the court submitted it from the court's case page
+   * (DSB-04): they sign their own (DSB-18), and it reads as the court's.
+   */
+  byCourt?: { name: string; role: string; court: string };
 };
 
 export function savedDocumentSubmissionsKey(caseId: string): string {
