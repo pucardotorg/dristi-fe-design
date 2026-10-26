@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -17,7 +17,10 @@ import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 import { useBackCloses, useFlowWindow } from "@/components/chrome/flow-window";
 
 import { SelectField, TextField } from "@/components/cases/application-type-fields";
-import { DocumentPreview } from "@/components/cases/document-preview";
+import {
+  DocumentPreview,
+  DocumentPreviewActions,
+} from "@/components/cases/document-preview";
 import { Fact, FactGroup } from "@/components/cases/application-record-dialog";
 import {
   DiscardFilingDialog,
@@ -26,7 +29,11 @@ import {
   isPreviewableImage,
 } from "@/components/cases/filing-form-shared";
 import { DocumentSignatureDialog } from "@/components/cases/document-signature-dialog";
-import { localFileSrc } from "@/components/cases/pdf-viewer";
+import {
+  PdfViewer,
+  localFileSrc,
+  parsePdfSrc,
+} from "@/components/cases/pdf-viewer";
 import { useProfile } from "@/components/shell/profile";
 import { Button } from "@/components/ui/button";
 import {
@@ -78,6 +85,10 @@ type Errors = { type?: string; title?: string; files?: string };
 
 function emptyDraft(): DocumentDraft {
   return { id: newSavedDocumentId(), type: "", title: "", files: [] };
+}
+
+function isPdfFile(file: File): boolean {
+  return file.type === "application/pdf" || /\.pdf$/i.test(file.name);
 }
 
 function validate(draft: DocumentDraft): Errors {
@@ -543,6 +554,60 @@ function ReviewDialog({
     setIndex((value) => Math.min(files.length - 1, Math.max(0, value + by)));
   }
 
+  /* An object URL for a PDF, made once per file and let go when it changes. */
+  const currentPdf = useMemo(
+    () =>
+      current && isPdfFile(current)
+        ? parsePdfSrc(localFileSrc(current)).url
+        : null,
+    [current]
+  );
+  useEffect(
+    () => () => {
+      if (currentPdf) URL.revokeObjectURL(currentPdf);
+    },
+    [currentPdf]
+  );
+
+  const header = current ? (
+    <div className="flex min-w-0 items-center gap-2 py-1.5 pl-4">
+      <h3 className="min-w-0 truncate text-caption font-semibold text-foreground">
+        {current.name}
+      </h3>
+      {files.length > 1 ? (
+        <span className="shrink-0 text-caption tabular-nums text-muted-foreground">
+          {index + 1} of {files.length}
+        </span>
+      ) : null}
+    </div>
+  ) : null;
+
+  const arrows =
+    files.length > 1 ? (
+      <>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label="Previous file"
+          disabled={index === 0}
+          onClick={() => step(-1)}
+        >
+          <ChevronLeftIcon aria-hidden />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label="Next file"
+          disabled={index === files.length - 1}
+          onClick={() => step(1)}
+        >
+          <ChevronRightIcon aria-hidden />
+        </Button>
+      </>
+    ) : null;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <FlowDialogContent
@@ -627,7 +692,33 @@ function ReviewDialog({
             {/* The file on the tinted stage the court's reading panes use, as a
                 framed sheet that takes the height left over. */}
             <div className="flex min-h-80 min-w-0 flex-1 flex-col bg-muted p-4 dark:bg-background">
-              {current ? (
+              {current && currentPdf ? (
+                /* A PDF in the PDF viewer the record dialogs read with, in the
+                   same framed sheet the other files get: the shared preview
+                   only draws pictures from a file on this computer. */
+                <section
+                  aria-label={current.name}
+                  className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-hairline bg-card"
+                >
+                  <div className="flex shrink-0 items-stretch justify-between gap-2 border-b border-hairline pr-1.5">
+                    {header}
+                    <DocumentPreviewActions
+                      iconOnly
+                      title={current.name}
+                      source={{ kind: "file", file: current }}
+                      className="self-center"
+                    >
+                      {arrows}
+                    </DocumentPreviewActions>
+                  </div>
+                  <PdfViewer
+                    key={currentPdf}
+                    src={currentPdf}
+                    title={current.name}
+                    className="min-h-64 flex-1 rounded-none"
+                  />
+                </section>
+              ) : current ? (
                 <DocumentPreview
                   key={`${current.name}-${current.size}-${current.lastModified}`}
                   title={current.name}
@@ -636,44 +727,8 @@ function ReviewDialog({
                   surface="card"
                   height="fill"
                   className="flex-1"
-                  header={
-                    <div className="flex min-w-0 items-center gap-2 py-1.5 pl-4">
-                      <h3 className="min-w-0 truncate text-caption font-semibold text-foreground">
-                        {current.name}
-                      </h3>
-                      {files.length > 1 ? (
-                        <span className="shrink-0 text-caption tabular-nums text-muted-foreground">
-                          {index + 1} of {files.length}
-                        </span>
-                      ) : null}
-                    </div>
-                  }
-                  actions={
-                    files.length > 1 ? (
-                      <>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Previous file"
-                          disabled={index === 0}
-                          onClick={() => step(-1)}
-                        >
-                          <ChevronLeftIcon aria-hidden />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Next file"
-                          disabled={index === files.length - 1}
-                          onClick={() => step(1)}
-                        >
-                          <ChevronRightIcon aria-hidden />
-                        </Button>
-                      </>
-                    ) : null
-                  }
+                  header={header}
+                  actions={arrows}
                 />
               ) : (
                 <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-xl bg-card p-6 text-center">
