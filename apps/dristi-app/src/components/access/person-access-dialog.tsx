@@ -7,7 +7,9 @@ import {
   ChevronDownIcon,
   EllipsisIcon,
   ExternalLinkIcon,
+  CheckCheckIcon,
   InfoIcon,
+  SearchXIcon,
   SearchIcon,
   UserPlusIcon,
   UserXIcon,
@@ -78,7 +80,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import {
   Tooltip,
   TooltipContent,
@@ -1313,7 +1323,7 @@ export function PersonAccessDialog({
             ) : (
               <section
                 aria-labelledby="person-access-cases"
-                className="flex flex-col gap-4"
+                className="flex flex-col gap-6"
               >
                 {/* The heading and the scope on one line, phones too: the
                     dropdown names what they have and changes it. */}
@@ -1349,16 +1359,13 @@ export function PersonAccessDialog({
                   /* All cases says plainly that new cases follow, and lists
                      what they can open. Nothing to select: to take a case
                      away, Specific cases first. */
-                  <Alert variant="info">
+                  <Alert variant="info" className="px-3 py-2.5">
                     <InfoIcon aria-hidden />
-                    <AlertTitle>
-                      {fillCopy(copy.futureTitle, locale, {
+                    <AlertDescription className="text-body-compact text-pretty">
+                      {fillCopy(copy.futureNote, locale, {
                         name: displayName(person),
                         count: String(total),
                       })}
-                    </AlertTitle>
-                    <AlertDescription>
-                      {pick(copy.futureNote, locale)}
                     </AlertDescription>
                   </Alert>
                 ) : (
@@ -1370,15 +1377,15 @@ export function PersonAccessDialog({
                   >
                     <TabsList
                       aria-label={pick(copy.casesTabs, locale)}
-                      className="w-full group-data-horizontal/tabs:h-10"
+                      className="w-full group-data-horizontal/tabs:h-11"
                     >
-                      <TabsTrigger value="held" className="px-3 text-body-compact">
+                      <TabsTrigger value="held" className="px-3 text-body">
                         {pick(copy.groupHeld, locale)}
                         <span className="text-muted-foreground tabular-nums">
                           {heldTotal}
                         </span>
                       </TabsTrigger>
-                      <TabsTrigger value="other" className="px-3 text-body-compact">
+                      <TabsTrigger value="other" className="px-3 text-body">
                         {pick(copy.tabOther, locale)}
                         <span className="text-muted-foreground tabular-nums">
                           {otherTotal}
@@ -1389,20 +1396,39 @@ export function PersonAccessDialog({
                 )}
 
                 {!savedFuture && tab === "other" && otherTotal === 0 ? (
-                  <p className="rounded-xl border border-dashed border-border px-6 py-12 text-center text-body-compact text-pretty text-muted-foreground">
-                    {fillCopy(copy.emptyOther, locale, {
-                      name: displayName(person),
-                    })}
-                  </p>
+                  <Empty className="rounded-xl border border-solid border-hairline py-12">
+                    <EmptyHeader>
+                      <EmptyMedia variant="icon">
+                        <CheckCheckIcon aria-hidden />
+                      </EmptyMedia>
+                      <EmptyTitle>
+                        {fillCopy(copy.emptyOtherTitle, locale, {
+                          name: displayName(person),
+                        })}
+                      </EmptyTitle>
+                      <EmptyDescription>
+                        {pick(copy.emptyOtherBody, locale)}
+                      </EmptyDescription>
+                    </EmptyHeader>
+                    <EmptyContent>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setAct("all")}
+                      >
+                        {pick(copy.allAction, locale)}
+                      </Button>
+                    </EmptyContent>
+                  </Empty>
                 ) : (
-                  <>
+                  <div className="flex flex-col gap-4">
                     {toolbar}
 
                     {/* What is selected and the one act for it, on a plain
-                        line over the list. Sticky, so a selection made far
-                        down keeps its button in view. */}
-                    {!savedFuture ? (
-                      <div className="sticky top-0 z-10 -my-2 flex min-h-14 items-center gap-3 bg-card py-2">
+                        line over the list. It stays put: pinned, it slid over
+                        the table's header (owner, Oct 26). */}
+                    {!savedFuture && tabRows.length > 0 ? (
+                      <div className="flex min-h-10 items-center gap-3">
                         <p
                           className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 text-body-compact text-muted-foreground"
                           aria-live="polite"
@@ -1452,9 +1478,30 @@ export function PersonAccessDialog({
                     ) : null}
 
                     {tabRows.length === 0 ? (
-                      <p className="rounded-xl border border-dashed border-border py-12 text-center text-body-compact text-muted-foreground">
-                        {pick(copy.noCases, locale)}
-                      </p>
+                      <Empty className="rounded-xl border border-solid border-hairline py-12">
+                        <EmptyHeader>
+                          <EmptyMedia variant="icon">
+                            <SearchXIcon aria-hidden />
+                          </EmptyMedia>
+                          <EmptyTitle>{pick(copy.noMatchTitle, locale)}</EmptyTitle>
+                          <EmptyDescription>
+                            {pick(copy.noMatchBody, locale)}
+                          </EmptyDescription>
+                        </EmptyHeader>
+                        <EmptyContent>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                              setQuery("");
+                              setStages([]);
+                              setSide(null);
+                            }}
+                          >
+                            {pick(copy.clearFilters, locale)}
+                          </Button>
+                        </EmptyContent>
+                      </Empty>
                     ) : (
                       <>
                         <ul className="flex flex-col divide-y divide-hairline @3xl/access:hidden">
@@ -1541,7 +1588,7 @@ export function PersonAccessDialog({
                         </div>
                       </>
                     )}
-                  </>
+                  </div>
                 )}
               </section>
             )}

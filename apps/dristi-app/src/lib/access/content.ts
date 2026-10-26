@@ -882,13 +882,9 @@ export const personAccessCopy = {
      heading, All cases is a list to look at, Specific cases splits into two tabs,
      and a tick only selects. Every act applies on its own confirmation. */
   scopeLabel: t("Access", "ആക്‌സസ്"),
-  futureTitle: t(
-    "{name} can access all {count} of your cases",
-    "നിങ്ങളുടെ {count} കേസുകളും {name}-ന് ആക്‌സസ് ചെയ്യാം",
-  ),
   futureNote: t(
-    "Any new case you get is shared with them automatically.",
-    "നിങ്ങൾക്ക് ലഭിക്കുന്ന ഓരോ പുതിയ കേസും അവരുമായി സ്വയമേവ പങ്കിടും.",
+    "{name} can access all {count} of your cases. Any new case you get is shared with them automatically.",
+    "നിങ്ങളുടെ {count} കേസുകളും {name}-ന് ആക്‌സസ് ചെയ്യാം. നിങ്ങൾക്ക് ലഭിക്കുന്ന ഓരോ പുതിയ കേസും അവരുമായി സ്വയമേവ പങ്കിടും.",
   ),
   casesTabs: t("Cases by access", "ആക്‌സസ് അനുസരിച്ച് കേസുകൾ"),
   tabOther: t("No access", "ആക്‌സസ് ഇല്ല"),
@@ -914,10 +910,20 @@ export const personAccessCopy = {
     "Give access to all cases",
     "എല്ലാ കേസുകളിലേക്കും ആക്‌സസ് നൽകുക",
   ),
-  emptyOther: t(
-    "{name} has every case you have now.",
-    "നിങ്ങളുടെ ഇപ്പോഴുള്ള എല്ലാ കേസുകളും {name}-ന് ഉണ്ട്.",
+  emptyOtherTitle: t(
+    "{name} has every case you have",
+    "നിങ്ങളുടെ എല്ലാ കേസുകളും {name}-ന് ഉണ്ട്",
   ),
+  emptyOtherBody: t(
+    "New cases are not shared with them. To share those too, give access to all cases.",
+    "പുതിയ കേസുകൾ അവരുമായി പങ്കിടില്ല. അവയും പങ്കിടാൻ, എല്ലാ കേസുകളിലേക്കും ആക്‌സസ് നൽകുക.",
+  ),
+  noMatchTitle: t("No cases match", "അനുയോജ്യമായ കേസുകളില്ല"),
+  noMatchBody: t(
+    "Try another name or number, or clear the filters.",
+    "മറ്റൊരു പേരോ നമ്പറോ ശ്രമിക്കുക, അല്ലെങ്കിൽ ഫിൽട്ടറുകൾ മായ്ക്കുക.",
+  ),
+  clearFilters: t("Clear filters", "ഫിൽട്ടറുകൾ മായ്ക്കുക"),
   removeTitle: t("Remove {name}'s access?", "{name}-ന്റെ ആക്‌സസ് നീക്കണോ?"),
   giveTitle: t("Give {name} access?", "{name}-ന് ആക്‌സസ് നൽകണോ?"),
   allTitle: t(
