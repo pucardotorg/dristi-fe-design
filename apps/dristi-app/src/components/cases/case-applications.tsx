@@ -92,6 +92,7 @@ import {
   savedDraftSubmission,
   savedDraftsKey,
 } from "@/lib/cases/saved-application-drafts";
+import { DocumentSignatureDialog } from "@/components/cases/document-signature-dialog";
 import {
   parseSavedDocumentSubmissions,
   savedDocumentRows,
@@ -355,12 +356,12 @@ export function CaseApplications({ record }: { record: CaseRecord }) {
           </EmptyHeader>
         </Empty>
       ) : (
-        <ApplicationsTable
-          rows={rows}
-          onOpen={setRecordOpen}
-          recentId={recentId}
-          recentRowRef={recentRowRef}
-        />
+          <ApplicationsTable
+            rows={rows}
+            onOpen={setRecordOpen}
+            recentId={recentId}
+            recentRowRef={recentRowRef}
+          />
       )}
 
       <ApplicationRecordDialog
@@ -535,6 +536,26 @@ export function SignAndPayDialogs({
 
   return (
     <>
+      {documents ? (
+        /* A document signs in e-filing's model and never pays: signed is
+           submitted (DSB-19; PM, Oct 26). */
+        <DocumentSignatureDialog
+          open={signing.length > 0}
+          count={count}
+          onBack={() => {
+            const batch = signing;
+            onSigningChange([]);
+            onBack?.(batch);
+          }}
+          onComplete={() => {
+            move(
+              signing.map((item) => item.id),
+              () => ({ status: "submitted", submittedOn: FIXTURE_TODAY })
+            );
+            onSigningChange([]);
+          }}
+        />
+      ) : (
       <PartySignatureDialog
         open={signing.length > 0}
         onClose={() => onSigningChange([])}
@@ -550,10 +571,7 @@ export function SignAndPayDialogs({
         onComplete={() => {
           move(
             signing.map((item) => item.id),
-            () =>
-              documents
-                ? { status: "submitted", submittedOn: FIXTURE_TODAY }
-                : { status: "pending-payment" }
+            () => ({ status: "pending-payment" })
           );
           onSigningChange([]);
         }}
@@ -563,12 +581,11 @@ export function SignAndPayDialogs({
             : `How is this ${noun} signed?`
         }
         noun={filingNoun(signed, 1)}
-        onRecord={documents}
         submitLabel="Submit signed copy"
         /* Signed goes on to the fee, as it does from the Raise application
            form; only an advocate or party in person signs, and both may pay
            (owner, Sept 24: signing stopped short of payment here). */
-        proceed={documents ? undefined : {
+        proceed={{
           label: "Proceed to payment",
           laterLabel: "Pay later",
           onClick: () => {
@@ -582,17 +599,7 @@ export function SignAndPayDialogs({
           },
         }}
         confirmation={
-          documents
-            ? count > 1
-              ? {
-                  title: `${count} documents submitted`,
-                  description: "They are on the case record now. Everyone on the case can see them.",
-                }
-              : {
-                  title: "Document submitted",
-                  description: "It is on the case record now. Everyone on the case can see it.",
-                }
-            : count > 1
+          count > 1
             ? {
                 title: `${count} ${noun} signed`,
                 description: "Pay the court fee to submit them to the court.",
@@ -603,6 +610,7 @@ export function SignAndPayDialogs({
               }
         }
       />
+      )}
       <ApplicationPaymentDialog
         applications={paying}
         onOpenChange={(open) => {

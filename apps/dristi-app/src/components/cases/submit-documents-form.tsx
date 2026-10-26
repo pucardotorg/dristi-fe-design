@@ -25,7 +25,7 @@ import {
   focusFirstInvalid,
   isPreviewableImage,
 } from "@/components/cases/filing-form-shared";
-import { PartySignatureDialog } from "@/components/cases/party-application";
+import { DocumentSignatureDialog } from "@/components/cases/document-signature-dialog";
 import { localFileSrc } from "@/components/cases/pdf-viewer";
 import { useProfile } from "@/components/shell/profile";
 import { Button } from "@/components/ui/button";
@@ -434,24 +434,15 @@ export function SubmitDocumentsDialog({
         }
       />
 
-      <PartySignatureDialog
+      <DocumentSignatureDialog
         open={open && stage === "sign"}
-        onClose={() => setStage("review")}
+        onBack={() => setStage("review")}
         onComplete={() => finish("submitted")}
         onSignLater={
           caseId && filer
             ? () => finish("pending-signature", "Saved. Waiting for your signature")
             : undefined
         }
-        chooseTitle="How is this document signed?"
-        noun="document"
-        onRecord
-        submitLabel="Submit document"
-        confirmation={{
-          title: "Document submitted",
-          description:
-            "It is on the case record now. Everyone on the case can see it.",
-        }}
       />
 
       <DiscardFilingDialog

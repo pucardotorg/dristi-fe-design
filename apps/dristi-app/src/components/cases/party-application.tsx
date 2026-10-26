@@ -26,7 +26,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
   DownloadIcon,
-  CheckIcon,
   HourglassIcon,
   Maximize2Icon,
   SignatureIcon,
@@ -303,8 +302,6 @@ export function PartySignatureDialog({
   chooseTitle = "How is this application signed?",
   noun = "application",
   proceed,
-  onSignLater,
-  onRecord = false,
 }: {
   open: boolean;
   /** Dismiss the sign dialog only — the review stays open behind it. */
@@ -328,18 +325,6 @@ export function PartySignatureDialog({
    * confirmation ends on Done, as every party application does.
    */
   proceed?: { label: string; laterLabel: string; onClick: () => void };
-  /**
-   * Leave it unsigned for now, as the Raise application chain's "I'll sign
-   * later" does: the caller keeps it as Pending signature. Absent, there is
-   * no such way out.
-   */
-  onSignLater?: () => void;
-  /**
-   * Signing finishes it: a submitted document is on the record at once, so
-   * the confirmation is a success, not the hourglass of a filing that waits
-   * on the court.
-   */
-  onRecord?: boolean;
 }) {
   const [step, setStep] = useState<SignStep>("choose");
   /* The case page cannot tell the profile; a litigant or party in person
@@ -401,15 +386,9 @@ export function PartySignatureDialog({
           <>
             <DialogHeader className="shrink-0 px-6 py-5 pr-14 text-left">
               <div className="flex items-center gap-4">
-                {onRecord ? (
-                  <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-success-muted text-success-muted-foreground">
-                    <CheckIcon className="size-7" aria-hidden />
-                  </span>
-                ) : (
-                  <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-info-muted text-info-muted-foreground">
-                    <HourglassIcon className="size-7" aria-hidden />
-                  </span>
-                )}
+                <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-info-muted text-info-muted-foreground">
+                  <HourglassIcon className="size-7" aria-hidden />
+                </span>
                 <div className="flex min-w-0 flex-col gap-1.5">
                   <DialogTitle className="text-body font-semibold text-balance">
                     {confirmation.title}
@@ -576,20 +555,10 @@ export function PartySignatureDialog({
                 }}
               />
             </div>
-            <footer
-              className={cn(
-                FLOW_FOOTER,
-                "flex shrink-0 flex-col-reverse gap-2 border-t border-hairline px-6 py-4 sm:flex-row sm:items-center sm:justify-between"
-              )}
-            >
+            <footer className={cn(FLOW_FOOTER, "flex shrink-0 items-center border-t border-hairline px-6 py-4")}>
               <Button type="button" variant="outline" onClick={onBack ?? onClose}>
                 Back
               </Button>
-              {onSignLater ? (
-                <Button type="button" variant="ghost" onClick={onSignLater}>
-                  I&rsquo;ll sign later
-                </Button>
-              ) : null}
             </footer>
           </>
         )}
