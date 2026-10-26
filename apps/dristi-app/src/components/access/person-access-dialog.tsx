@@ -9,6 +9,8 @@ import {
   ExternalLinkIcon,
   FolderCheckIcon,
   FolderKeyIcon,
+  LayersIcon,
+  ListChecksIcon,
   InfoIcon,
   SearchXIcon,
   SearchIcon,
@@ -1195,6 +1197,14 @@ export function PersonAccessDialog({
                         "min-w-44 flex-1 font-medium @md/access:flex-none",
                         adding &&
                           "order-2 w-full @3xl/access:order-none @3xl/access:w-auto",
+                        /* The scope stands out by ink and an icon, never by
+                           size or a fill (owner, Oct 26): a teal fill means a
+                           filter is on. Unchosen in Add people, a teal edge. */
+                        "font-semibold text-brand-muted-foreground data-placeholder:font-medium",
+                        adding &&
+                          mode === null &&
+                          !modeError &&
+                          "border-brand-accent",
                       )}
                     >
                       <SelectValue
@@ -1202,10 +1212,14 @@ export function PersonAccessDialog({
                       />
                     </SelectTrigger>
                     <SelectContent align="start">
+                      {/* The icon shows in the trigger too, so the scope reads
+                          at a glance. */}
                       <SelectItem value="all">
+                        <LayersIcon aria-hidden className="text-brand-muted-foreground" />
                         {pick(copy.allCases, locale)}
                       </SelectItem>
                       <SelectItem value="specific">
+                        <ListChecksIcon aria-hidden className="text-brand-muted-foreground" />
                         {pick(copy.specificCases, locale)}
                       </SelectItem>
                     </SelectContent>
