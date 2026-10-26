@@ -34,7 +34,10 @@ export type ApplicationRole =
   | "pip"
   | "clerk"
   | "litigant"
-  | "poa-holder";
+  | "poa-holder"
+  /** A member of the court reading the case from the court's own page: sees
+   *  whatever is on the record, and has no filer's step on anyone's filing. */
+  | "court";
 
 export type CaseSide = "complainant" | "accused";
 
@@ -60,6 +63,7 @@ const ROLE_LABEL: Record<ApplicationRole, string> = {
   clerk: "Clerk",
   litigant: "Litigant",
   "poa-holder": "PoA holder",
+  court: "Court",
 };
 
 export function applicationRoleLabel(role: ApplicationRole): string {
@@ -127,6 +131,7 @@ export function canSeeApplication(
   submission: Submission,
   file: ApplicationsFile
 ): boolean {
+  if (viewer.role === "court") return isSubmittedToCourt(submission.status);
   const people = peopleById(file);
   const side = submissionSide(submission, people);
   if (side !== viewer.side) {
@@ -138,7 +143,12 @@ export function canSeeApplication(
     case "advocate":
     case "pip":
     case "clerk":
-      return fromOffice(submission, officeOf(viewer, people));
+      /* Whoever it was sent to for signing sees it too (DSB-18). */
+      return (
+        fromOffice(submission, officeOf(viewer, people)) ||
+        (viewer.personId !== undefined &&
+          (submission.signers ?? []).includes(viewer.personId))
+      );
     case "litigant":
     case "poa-holder":
       return (
@@ -173,7 +183,9 @@ export function applicationStepFor(
       return drafter && fromOffice(submission, office) ? "continue" : null;
     case "pending-signature":
       return (viewer.role === "advocate" || viewer.role === "pip") &&
-        submission.submittedById === viewer.personId
+        viewer.personId !== undefined &&
+        (submission.submittedById === viewer.personId ||
+          (submission.signers ?? []).includes(viewer.personId))
         ? "sign"
         : null;
     case "pending-payment":

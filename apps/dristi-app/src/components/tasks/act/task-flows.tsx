@@ -94,13 +94,13 @@ export function applicationTypeOf(task: Task): ApplicationTypeId {
   return "application-others";
 }
 
-/** The Submit documents type a document task's words name. */
-function documentTypeOf(task: Task): SubmissionDocumentTypeId {
+/** The Submit documents type a document task's words name, if they name one;
+ *  otherwise the filer picks it. */
+function documentTypeOf(task: Task): SubmissionDocumentTypeId | undefined {
   const words = task.title.toLowerCase();
   if (/\baffidavit\b/.test(words)) return "affidavits";
   if (/\bmemo\b/.test(words)) return "memos";
-  if (/\b(reply|objection)\b/.test(words)) return "objections";
-  return "document-others";
+  return undefined;
 }
 
 /** "File the proof affidavit of the complainant" → "Proof affidavit of the complainant". */
@@ -375,8 +375,8 @@ export function TaskPaymentDialog({
 
 /**
  * File the document a task asks for, in View case's Submit documents: opened with the
- * document's type and name, and the reason the task records, so only the files are
- * left to add. Submitting files the task with the court.
+ * document's type and name, so only the file is left to add. Submitting files the task
+ * with the court.
  */
 export function TaskDocumentsDialog({
   ctx,
@@ -398,7 +398,6 @@ export function TaskDocumentsDialog({
       initial={{
         type: documentTypeOf(task),
         title: documentTitleOf(task),
-        reason: task.why.event,
       }}
       onSubmitted={() => {
         void act(task.id, (x, c) => file(x, c)).then((t) => {

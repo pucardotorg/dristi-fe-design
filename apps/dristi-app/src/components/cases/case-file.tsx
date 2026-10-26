@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useCaseRouter } from "@/components/cases/case-reader";
 import {
   ChevronDownIcon,
   ChevronRightIcon,
   ChevronUpIcon,
+  EllipsisVerticalIcon,
   PanelLeftOpenIcon,
 } from "lucide-react";
 
@@ -47,11 +48,31 @@ import {
   type CaseFileNode,
   type CaseFileView,
 } from "@/lib/cases/case-file";
-import { caseFileDigitalPane } from "@/lib/cases/case-file-digital";
+import {
+  caseFileDigitalPane,
+  caseFileRegisterDocumentId,
+} from "@/lib/cases/case-file-digital";
+import { useSessionValue } from "@/lib/cases/demo-session";
+import { documentsFile } from "@/lib/cases/documents";
+import {
+  evidenceMarksKey,
+  parseEvidenceMarks,
+} from "@/lib/cases/evidence-marks";
+import {
+  MarkEvidenceDialog,
+  useCanMarkEvidence,
+} from "@/components/cases/mark-evidence-dialog";
 import { type ComplaintPane } from "@/lib/cases/complaint";
 import { type CaseRecord } from "@/lib/cases/types";
 import { cn } from "@/lib/utils";
 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -123,12 +144,53 @@ export function CaseFile({
     });
   }
 
+  /* Marking from the case file (DSB-20): a leaf that is a row of the
+     Documents register, not yet marked, for a seat that marks evidence. */
+  const canMark = useCanMarkEvidence();
+  const marksRaw = useSessionValue(evidenceMarksKey(record.id));
+  const marks = useMemo(() => parseEvidenceMarks(marksRaw), [marksRaw]);
+  const register = useMemo(() => {
+    try {
+      return documentsFile(record).documents.map((document) => ({
+        ...document,
+        evidenceNumber: marks[document.id] ?? document.evidenceNumber,
+      }));
+    } catch {
+      return [];
+    }
+  }, [record, marks]);
+  const [marking, setMarking] = useState<{ id: string; title: string } | null>(null);
+  /**
+   * What marking a leaf marks, and the number it already has. Any document
+   * in the case file can be marked (DSB-12): one that is a Documents row is
+   * marked there, so both places show it; anything else (an order, a
+   * process, a receipt) is marked as the case file item itself.
+   */
+  const evidenceTarget = (nodeId: string) => {
+    const id = caseFileRegisterDocumentId(nodeId);
+    const document = id ? register.find((item) => item.id === id) : undefined;
+    if (document) {
+      return { key: document.id, title: document.title, number: document.evidenceNumber };
+    }
+    const node = findNode(CASE_FILE_TREE, nodeId);
+    const key = `casefile:${nodeId}`;
+    return { key, title: node?.label ?? nodeId, number: marks[key] ?? null };
+  };
+
   const indexProps = {
     nodes: CASE_FILE_TREE,
     selectedId: docId,
     openIds,
     onSelect: selectDoc,
     onFolderOpenChange: setFolderOpen,
+    evidence: {
+      numberFor: (nodeId: string) => evidenceTarget(nodeId).number ?? undefined,
+      canMark: (nodeId: string) => canMark && !evidenceTarget(nodeId).number,
+      onMark: (nodeId: string) => {
+        const target = evidenceTarget(nodeId);
+        if (!target.number) setMarking({ id: target.key, title: target.title });
+      },
+    },
   };
 
   return (
@@ -250,6 +312,19 @@ export function CaseFile({
           />
         </div>
       </Card>
+      <MarkEvidenceDialog
+        caseId={record.id}
+        document={marking}
+        /* Every number given in the case, from any tab: a submitted document
+           marked from Documents is not in the case file's own list. */
+        taken={[
+          ...register.map((document) => document.evidenceNumber),
+          ...Object.values(marks),
+        ]}
+        onOpenChange={(open) => {
+          if (!open) setMarking(null);
+        }}
+      />
     </div>
   );
 }
@@ -266,6 +341,7 @@ export function CaseFileIndex({
   openIds,
   onSelect,
   onFolderOpenChange,
+  evidence,
   depth = 0,
 }: {
   nodes: CaseFileNode[];
@@ -273,6 +349,16 @@ export function CaseFileIndex({
   openIds: Set<string>;
   onSelect: (id: string) => void;
   onFolderOpenChange: (id: string, open: boolean) => void;
+  /**
+   * Evidence on each leaf: its number once marked, and marking it, for a
+   * seat that marks evidence (DSB-12, DSB-20). Absent where the tree is
+   * only read (the order composer).
+   */
+  evidence?: {
+    numberFor: (id: string) => string | undefined;
+    canMark: (id: string) => boolean;
+    onMark: (id: string) => void;
+  };
   depth?: number;
 }) {
   return (
@@ -319,6 +405,7 @@ export function CaseFileIndex({
                     openIds={openIds}
                     onSelect={onSelect}
                     onFolderOpenChange={onFolderOpenChange}
+                    evidence={evidence}
                     depth={depth + 1}
                   />
                 ) : (
@@ -335,39 +422,82 @@ export function CaseFileIndex({
             </Collapsible>
           ) : (
             <div className={rowShell}>
-              {/* DET-12. Right-click, the menu key, or a long press. Marking is
-                  the court's; everyone with access to the case can download. */}
-              <ContextMenu>
-                <ContextMenuTrigger asChild>
-                  <button
-                    type="button"
-                    aria-current={selectedId === node.id ? "page" : undefined}
-                    onClick={() => onSelect(node.id)}
-                    className={cn(
-                      rowClass,
-                      depthPad[Math.min(depth, depthPad.length - 1)],
-                      selectedId === node.id &&
-                        "bg-accent font-medium hover:bg-accent"
-                    )}
-                  >
-                    <IndexLabel number={node.number} label={node.label} />
-                  </button>
-                </ContextMenuTrigger>
-                <ContextMenuContent>
-                  {VIEWER_IS_COURT ? (
-                    <>
-                      <ContextMenuItem>Mark as Evidence</ContextMenuItem>
-                      <ContextMenuItem>Mark as Void</ContextMenuItem>
-                      <ContextMenuSeparator />
-                    </>
-                  ) : null}
-                  <ContextMenuItem asChild>
-                    <a href={node.href} download>
-                      Download
-                    </a>
-                  </ContextMenuItem>
-                </ContextMenuContent>
-              </ContextMenu>
+              {/* DET-12. The row's actions twice over: on a ⋮ at its right end,
+                  where they can be seen (owner, Oct 26), and on right-click,
+                  the menu key or a long press. Marking is the court's;
+                  everyone with access to the case can download. */}
+              <div className="relative">
+                <ContextMenu>
+                  <ContextMenuTrigger asChild>
+                    <button
+                      type="button"
+                      aria-current={selectedId === node.id ? "page" : undefined}
+                      onClick={() => onSelect(node.id)}
+                      className={cn(
+                        rowClass,
+                        depthPad[Math.min(depth, depthPad.length - 1)],
+                        "pr-12",
+                        selectedId === node.id &&
+                          "bg-accent font-medium hover:bg-accent"
+                      )}
+                    >
+                      <IndexLabel number={node.number} label={node.label} />
+                      {evidence?.numberFor(node.id) ? (
+                        <Badge
+                          variant="secondary"
+                          className="shrink-0 font-mono"
+                          aria-label={`Marked as evidence, ${evidence.numberFor(node.id)}`}
+                        >
+                          {evidence.numberFor(node.id)}
+                        </Badge>
+                      ) : null}
+                    </button>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent>
+                    {evidence?.canMark(node.id) ? (
+                      <>
+                        <ContextMenuItem onSelect={() => evidence.onMark(node.id)}>
+                          Mark as evidence
+                        </ContextMenuItem>
+                        <ContextMenuSeparator />
+                      </>
+                    ) : null}
+                    <ContextMenuItem asChild>
+                      <a href={node.href} download>
+                        Download
+                      </a>
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      className="absolute top-1 right-1 text-muted-foreground md:pointer-fine:top-0.5 md:landscape:top-0.5"
+                      aria-label={`Actions for ${node.label}`}
+                    >
+                      <EllipsisVerticalIcon aria-hidden />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="min-w-44">
+                    {evidence?.canMark(node.id) ? (
+                      <>
+                        <DropdownMenuItem onSelect={() => evidence.onMark(node.id)}>
+                          Mark as evidence
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                      </>
+                    ) : null}
+                    <DropdownMenuItem asChild>
+                      <a href={node.href} download>
+                        Download
+                      </a>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
           )}
         </li>
@@ -377,10 +507,6 @@ export function CaseFileIndex({
 }
 
 /** Hairline on the shell, fill on the row — same split as Item + ItemSeparator. */
-/** This build is the advocate and litigant view; court staff and the
- *  magistrate also get Mark as Evidence and Mark as Void (DET-12). */
-const VIEWER_IS_COURT = false;
-
 const rowShell = "py-1";
 
 const rowClass =

@@ -198,7 +198,7 @@ function PrefilledField({
   );
 }
 
-function TextField({
+export function TextField({
   label,
   value,
   error,
@@ -274,7 +274,7 @@ function TextAreaField({
 }
 
 /** A single pick from a list, on the DS Select, labelled like every field. */
-function SelectField({
+export function SelectField({
   label,
   value,
   options,

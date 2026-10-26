@@ -11,204 +11,98 @@
 import pack from "./documents-dummy.json";
 import { counselFor, type CaseRecord, type Parties } from "./types";
 import type { ApplicationRecord } from "./application-record";
-
-/** Mutually exclusive populations on the documents register. */
-export type DocumentKind = "documents" | "bail-bonds";
-
-export type DocumentGroupId =
-  | "complaint-pack"
-  | "affidavits"
-  | "memos"
-  | "exhibits"
-  | "witness-records"
-  | "court-forms"
-  | "bail-bonds";
-
-/** Register document heads — submission-flow buckets live in applications.ts. */
-export type DocumentTypeId =
-  | "legal-demand-notice"
-  | "proof-of-dispatch"
-  | "dishonoured-cheque"
-  | "cheque-return-memo"
-  | "vakalatnama"
-  | "party-in-person-affidavit"
-  | "affidavit-223-bnss"
-  | "affidavit-225-bnss"
-  | "affidavit-145-ni"
-  | "affidavit"
-  | "memo"
-  | "account-records"
-  | "proof-of-debt-or-liability"
-  | "proof-of-deposit-of-cheque"
-  | "exhibit-index"
-  | "documentary"
-  | "witness-deposition"
-  | "plea-record"
-  | "questionnaire-351-bnss"
-  | "mediation"
-  | "bail-bond";
-
-export type DocumentSourceId =
-  | "case-filing"
-  | "application"
-  | "hearing"
-  | "court"
-  | "submission";
+import { isSubmittedToCourt } from "./applications";
+import type { SavedDocumentSubmission } from "./saved-document-submissions";
 
 /**
- * Filing-workflow values — not evidence state. The register once shared the
- * Applications workflow outright; Applications now carries the court's
- * lifecycle (Application Lifecycle PRD), which a document does not go
- * through, so the two lists are separate. This one keeps the Document
- * Execution step: every party has signed and the document is with the
- * magistrate.
+ * Mutually exclusive populations on the documents register. The court's own
+ * papers (plea record, questionnaire) are on the record for the case file,
+ * but the Document Submission PRD gives them no source or type, so the
+ * Documents tab lists neither.
+ */
+export type DocumentKind = "documents" | "bail-bonds" | "court-records";
+
+/**
+ * The Documents tab's types (DSB-11): the three a filer picks in Submit
+ * documents, then one per other source. Bail bonds and court records are
+ * their own populations, never a filter value.
+ */
+export type DocumentTypeId =
+  | "affidavit"
+  | "memo"
+  | "evidence"
+  | "deposition"
+  | "filing"
+  | "application"
+  | "bail-bond"
+  | "court-record";
+
+/** Where a document came from, shown under its title (DSB-22). */
+export type DocumentSourceId =
+  | "complaint"
+  | "application"
+  | "submission"
+  | "deposition"
+  | "court";
+
+/**
+ * Held for every document, never shown as a column (DSB-05). A draft or one
+ * waiting for its signature is only under Needs attention (DSB-09); Marked as
+ * evidence is read off `evidenceNumber`. Pending review is the bail bond's
+ * own step (with the magistrate), outside this PRD.
  */
 export type DocumentStatus =
   | "draft"
   | "pending-signature"
-  | "pending-review"
-  | "pending-payment"
-  | "completed"
-  | "rejected"
-  | "expired";
-
-/** Court treatment after the document submission workflow is complete. */
-export type EvidenceStatus = "marked" | "void";
+  | "submitted"
+  | "pending-review";
 
 export const DOCUMENT_KINDS: { id: DocumentKind; label: string }[] = [
   { id: "documents", label: "Documents" },
   { id: "bail-bonds", label: "Bail bonds" },
 ];
 
-export const DOCUMENT_GROUPS: { id: DocumentGroupId; label: string }[] = [
-  { id: "complaint-pack", label: "Complaint pack" },
-  { id: "affidavits", label: "Affidavits" },
-  { id: "memos", label: "Memos" },
-  { id: "exhibits", label: "Exhibits" },
-  { id: "witness-records", label: "Witness records" },
-  { id: "court-forms", label: "Court forms" },
-  { id: "bail-bonds", label: "Bail bonds" },
-];
-
-/** Register document heads — submission-flow buckets live in applications.ts. */
 export const DOCUMENT_TYPES: {
   id: DocumentTypeId;
   label: string;
-  groupId: DocumentGroupId;
+  kind: DocumentKind;
 }[] = [
-  {
-    id: "legal-demand-notice",
-    label: "Legal demand notice",
-    groupId: "complaint-pack",
-  },
-  {
-    id: "proof-of-dispatch",
-    label: "Proof of dispatch of legal demand notice",
-    groupId: "complaint-pack",
-  },
-  {
-    id: "dishonoured-cheque",
-    label: "Dishonoured cheque",
-    groupId: "complaint-pack",
-  },
-  {
-    id: "cheque-return-memo",
-    label: "Cheque return memo",
-    groupId: "complaint-pack",
-  },
-  { id: "vakalatnama", label: "Vakalatnama", groupId: "complaint-pack" },
-  {
-    id: "party-in-person-affidavit",
-    label: "Party-in-person affidavit",
-    groupId: "complaint-pack",
-  },
-  {
-    id: "affidavit-223-bnss",
-    label: "Affidavit under section 223 BNSS",
-    groupId: "affidavits",
-  },
-  {
-    id: "affidavit-225-bnss",
-    label: "Affidavit under section 225 BNSS",
-    groupId: "affidavits",
-  },
-  {
-    id: "affidavit-145-ni",
-    label: "Affidavit under section 145 of the Negotiable Instruments Act",
-    groupId: "affidavits",
-  },
-  /* Filed during the case through the document submission flow (memos and
-     affidavits; PM, Oct 8): the pack names no finer type. */
-  { id: "affidavit", label: "Affidavit", groupId: "affidavits" },
-  { id: "memo", label: "Memo", groupId: "memos" },
-  {
-    id: "account-records",
-    label: "Account records",
-    groupId: "exhibits",
-  },
-  {
-    id: "proof-of-debt-or-liability",
-    label: "Proof of debt or liability",
-    groupId: "exhibits",
-  },
-  {
-    id: "proof-of-deposit-of-cheque",
-    label: "Proof of deposit of cheque",
-    groupId: "exhibits",
-  },
-  { id: "exhibit-index", label: "Exhibit index", groupId: "exhibits" },
-  { id: "documentary", label: "Documentary", groupId: "exhibits" },
-  {
-    id: "witness-deposition",
-    label: "Witness deposition",
-    groupId: "witness-records",
-  },
-  { id: "plea-record", label: "Plea record", groupId: "court-forms" },
-  {
-    id: "questionnaire-351-bnss",
-    label: "Questionnaire under section 351 BNSS",
-    groupId: "court-forms",
-  },
-  { id: "mediation", label: "Mediation", groupId: "court-forms" },
-  { id: "bail-bond", label: "Bail bond", groupId: "bail-bonds" },
+  { id: "affidavit", label: "Affidavit", kind: "documents" },
+  { id: "memo", label: "Memo", kind: "documents" },
+  { id: "evidence", label: "Evidence", kind: "documents" },
+  { id: "deposition", label: "Deposition", kind: "documents" },
+  { id: "filing", label: "Filing", kind: "documents" },
+  { id: "application", label: "Application", kind: "documents" },
+  { id: "bail-bond", label: "Bail bond", kind: "bail-bonds" },
+  { id: "court-record", label: "Court record", kind: "court-records" },
 ];
+
+/** The Type filter: the six of DSB-11, in the PRD's order. */
+export const DOCUMENT_FILTER_TYPES = DOCUMENT_TYPES.filter(
+  (item) => item.kind === "documents"
+);
 
 export const DOCUMENT_SOURCES: { id: DocumentSourceId; label: string }[] = [
-  { id: "case-filing", label: "Case filing" },
+  { id: "complaint", label: "Complaint" },
   { id: "application", label: "Application" },
-  { id: "hearing", label: "Hearing" },
+  { id: "submission", label: "Submitted directly" },
+  { id: "deposition", label: "Deposition" },
   { id: "court", label: "Court" },
-  { id: "submission", label: "Document submission" },
 ];
 
-/**
- * The register's own status list: the filing steps, Pending review (between
- * signature and the magistrate's decision), and the endings.
- */
 export const DOCUMENT_STATUSES: { id: DocumentStatus; label: string }[] = [
   { id: "draft", label: "Draft" },
   { id: "pending-signature", label: "Pending signature" },
+  { id: "submitted", label: "Submitted" },
   { id: "pending-review", label: "Pending review" },
-  { id: "pending-payment", label: "Pending payment" },
-  { id: "completed", label: "Completed" },
-  { id: "rejected", label: "Rejected" },
-  { id: "expired", label: "Expired" },
 ];
 
 export function documentTypeLabel(id: DocumentTypeId): string {
   return DOCUMENT_TYPES.find((item) => item.id === id)?.label ?? id;
 }
 
-export function documentGroupLabel(id: DocumentGroupId): string {
-  return DOCUMENT_GROUPS.find((item) => item.id === id)?.label ?? id;
-}
-
-export function documentTypeGroup(id: DocumentTypeId): DocumentGroupId {
-  return DOCUMENT_TYPES.find((item) => item.id === id)?.groupId ?? "exhibits";
-}
-
 export function documentKind(type: DocumentTypeId): DocumentKind {
-  return documentTypeGroup(type) === "bail-bonds" ? "bail-bonds" : "documents";
+  return DOCUMENT_TYPES.find((item) => item.id === type)?.kind ?? "documents";
 }
 
 export function isDocumentKind(value: string): value is DocumentKind {
@@ -229,24 +123,6 @@ export function documentSourceLabel(id: DocumentSourceId): string {
 
 export function documentStatusLabel(status: DocumentStatus): string {
   return DOCUMENT_STATUSES.find((item) => item.id === status)?.label ?? status;
-}
-
-/**
- * Completed carries the success tint (the same one it had when this list was
- * shared with Applications); every
- * colour remains paired with text. Pending states stay in the amber family.
- * This register has no Needs-attention pinning the way Applications does,
- * so amber here reads "in flight" rather than "you owe a step" — Pending
- * review is waiting on the magistrate, not on you (Laws: colour is never
- * the only carrier).
- */
-export function documentStatusVariant(
-  status: DocumentStatus
-): "warning" | "destructive" | "secondary" | "success" {
-  if (status === "rejected") return "destructive";
-  if (status === "expired") return "secondary";
-  if (status === "completed") return "success";
-  return "warning";
 }
 
 export type DocumentPerson = {
@@ -273,9 +149,17 @@ export type CaseDocument = {
   source: DocumentSourceId;
   linkedApplication: LinkedRecord | null;
   linkedHearing: LinkedRecord | null;
+  /**
+   * DOC-1, DOC-2…, counted within the case, given when the document enters
+   * the record (DSB-15). Null until then. Stays after marking.
+   */
+  provisionalId: string | null;
+  /** P1, P2… or D1, D2…, given at marking (DSB-14). Null until marked. */
   evidenceNumber: string | null;
-  evidenceStatus: EvidenceStatus | null;
   href?: string;
+  /** Every file of a document filed with several (Submit documents); `href`
+   *  is the first. */
+  files?: { label: string; src: string }[];
   page?: number;
 };
 
@@ -327,10 +211,6 @@ export function documentSrc(document: CaseDocument): string | undefined {
   return document.page ? `${document.href}#page=${document.page}` : document.href;
 }
 
-export function evidenceStatusLabel(status: EvidenceStatus): string {
-  return status === "marked" ? "Marked" : "Void";
-}
-
 function typeFromPack(label: string): DocumentTypeId {
   const normalized = label.trim().toLowerCase();
   const match = DOCUMENT_TYPES.find(
@@ -362,14 +242,6 @@ function submissionStatusFromPack(value: string): DocumentStatus {
     throw new Error(`Unknown document status in dummy pack: ${value}`);
   }
   return match.id;
-}
-
-function evidenceStatusFromPack(value: string | null): EvidenceStatus | null {
-  if (!value) return null;
-  const normalized = value.trim().toLowerCase();
-  if (normalized === "marked") return "marked";
-  if (normalized === "void") return "void";
-  throw new Error(`Unknown evidence status in dummy pack: ${value}`);
 }
 
 function linkedFromPack(
@@ -407,7 +279,6 @@ type PackDocumentRow = {
   submittedById: string;
   source: string;
   evidenceNumber: string | null;
-  evidenceStatus: string | null;
   linkedApplication?: { id: string; label: string } | null;
   linkedHearing?: { id: string; label: string } | null;
   href?: string;
@@ -426,8 +297,8 @@ function documentFromPack(row: PackDocumentRow): CaseDocument {
     source: sourceFromPack(row.source),
     linkedApplication: linkedFromPack(row.linkedApplication ?? undefined),
     linkedHearing: linkedFromPack(row.linkedHearing ?? undefined),
+    provisionalId: null,
     evidenceNumber: row.evidenceNumber,
-    evidenceStatus: evidenceStatusFromPack(row.evidenceStatus),
     // Defensive: href and page are optional on a pack row — a file-less
     // register entry stays representable.
     href: row.href,
@@ -531,7 +402,8 @@ export function selectDocuments(options: {
   kind: DocumentKind;
   typeId: DocumentTypeId | null;
   submittedById: string | null;
-  /** Case-insensitive filing-id fragment; empty/whitespace means no search. */
+  /** Case-insensitive fragment of the title, DOC-n or evidence number;
+   *  empty/whitespace means no search. */
   filingQuery?: string;
   /** A pager size, or any count when the list grows by "Show more". */
   pageSize: number;
@@ -547,7 +419,12 @@ export function selectDocuments(options: {
     }
     // The search spans both registers, like the submitter filter, so the
     // group-tab counts answer "where did my match land".
-    if (query && !document.filingId.toLowerCase().includes(query)) {
+    if (
+      query &&
+      ![document.title, document.provisionalId, document.evidenceNumber].some(
+        (value) => value?.toLowerCase().includes(query)
+      )
+    ) {
       return false;
     }
     return true;
@@ -556,7 +433,9 @@ export function selectDocuments(options: {
   const documentsCount = shared.filter(
     (item) => documentKind(item.type) === "documents"
   ).length;
-  const bailBondsCount = shared.length - documentsCount;
+  const bailBondsCount = shared.filter(
+    (item) => documentKind(item.type) === "bail-bonds"
+  ).length;
 
   const matched = shared.filter((document) => {
     if (documentKind(document.type) !== options.kind) return false;
@@ -607,18 +486,20 @@ export function documentPageWindow(
 }
 
 /**
- * A memo or affidavit filed through the document submission flow, as a row
- * of this register (PM, Oct 8: uploads, not applications, so they live here
- * with their sign and pay steps). The row keeps the filing's id, so the
- * register can open the filing itself, steps and all.
+ * A document filed through Submit documents, as a row of this register: one
+ * row per document, whatever its submission carried (DSB-02). The row keeps
+ * the filing's id, so the register can open the filing itself, steps and all.
  */
 export function documentFromFiling(item: ApplicationRecord): CaseDocument {
-  const file = item.documents.find((doc) => doc.src);
+  const files = item.documents.flatMap((doc) =>
+    doc.src ? [{ label: doc.label, src: doc.src }] : []
+  );
+  const file = files[0];
   return {
     id: item.id,
-    filingId: item.temporaryId ?? "",
+    filingId: item.id,
     title: item.name,
-    type: item.typeLabel.toLowerCase().startsWith("memo") ? "memo" : "affidavit",
+    type: FILING_TYPE[item.source.type] ?? "evidence",
     submissionStatus: documentStatusFromFiling(item.status),
     // Not yet filed: the day it was started, so it sorts among its peers.
     submittedOn: item.submittedOn ?? item.createdOn,
@@ -626,11 +507,111 @@ export function documentFromFiling(item: ApplicationRecord): CaseDocument {
     source: "submission",
     linkedApplication: null,
     linkedHearing: null,
+    provisionalId: null,
     evidenceNumber: null,
-    evidenceStatus: null,
     href: file?.src,
+    files,
   };
 }
+
+/**
+ * A submitted application's attachments on this register (DSB-11, DSB-22,
+ * DSB-23), each named by its field or by the filer. Only the attachments: the
+ * application itself is read on the Applications tab, which already shows
+ * its papers (PM, Oct 26). Only once it is submitted: a draft, or one still
+ * to be signed or paid, is not on the record. Who may see it follows the
+ * Applications tab, which has already filtered the rows it gets.
+ */
+export function documentsFromApplication(item: ApplicationRecord): CaseDocument[] {
+  if (!isSubmittedToCourt(item.status)) return [];
+  const submittedOn = item.submittedOn ?? item.createdOn;
+  const row = (
+    id: string,
+    title: string,
+    files: { label: string; src: string }[]
+  ): CaseDocument => ({
+    id,
+    filingId: id,
+    title,
+    type: "application",
+    submissionStatus: "submitted",
+    submittedOn,
+    submittedById: item.filedById,
+    source: "application",
+    linkedApplication: null,
+    linkedHearing: null,
+    provisionalId: null,
+    evidenceNumber: null,
+    href: files[0]?.src,
+    files,
+  });
+  return (item.source.attachments ?? []).map((attachment, index) =>
+    row(
+      `${item.id}:attachment-${index}`,
+      attachment.label,
+      attachment.files.flatMap((file) =>
+        file.href ? [{ label: file.label, src: file.href }] : []
+      )
+    )
+  );
+}
+
+/** Who stands for the court in this register's Submitted by. */
+export const COURT_PERSON_ID = "court";
+
+/**
+ * What a member of the court submitted from the court's case page (DSB-04),
+ * as rows of this register: signed by them as they submitted it (DSB-18), so
+ * on the record at once. Submitted by reads "Court", with the seat beneath.
+ */
+export function documentsFromCourt(saved: SavedDocumentSubmission[]): {
+  documents: CaseDocument[];
+  people: DocumentPerson[];
+} {
+  const mine = saved.filter(
+    (item) => item.byCourt && item.status === "submitted"
+  );
+  const seat = mine[0]?.byCourt;
+  return {
+    documents: mine.flatMap((item) =>
+      item.documents.map((doc) => {
+        const files = doc.files.map((file) => ({ label: file.label, src: file.href }));
+        return {
+          id: doc.id,
+          filingId: doc.id,
+          title: doc.title,
+          type: FILING_TYPE[doc.type] ?? "evidence",
+          submissionStatus: "submitted" as const,
+          submittedOn: item.submittedOn ?? item.addedOn.slice(0, 10),
+          submittedById: COURT_PERSON_ID,
+          source: "submission" as const,
+          linkedApplication: null,
+          linkedHearing: null,
+          provisionalId: null,
+          evidenceNumber: null,
+          href: files[0]?.src,
+          files,
+        };
+      })
+    ),
+    people: seat
+      ? [
+          {
+            id: COURT_PERSON_ID,
+            name: seat.name,
+            role: `${seat.role}, ${seat.court}`,
+            filterLabel: "Court",
+          },
+        ]
+      : [],
+  };
+}
+
+const FILING_TYPE: Record<string, DocumentTypeId> = {
+  affidavits: "affidavit",
+  memos: "memo",
+  evidence: "evidence",
+};
 
 /** Who filed them, in this register's people shape. */
 export function documentPeopleFromFilings(
@@ -650,32 +631,51 @@ export function documentPeopleFromFilings(
   return [...seen.values()];
 }
 
+/** No payment for a document (DSB-19): it is a draft, waits for its
+ *  signature, or is on the record. */
 function documentStatusFromFiling(
   status: ApplicationRecord["status"]
 ): DocumentStatus {
-  switch (status) {
-    case "draft":
-    case "pending-signature":
-    case "pending-payment":
-    case "expired":
-    case "rejected":
-      return status;
-    case "accepted":
-      return "completed";
-    case "dismissed":
-      return "rejected";
-    default:
-      // Submitted, or with the court: filed and waiting on it.
-      return "pending-review";
-  }
+  return status === "draft" || status === "pending-signature"
+    ? status
+    : "submitted";
 }
 
 /** Still the filer's to finish: nothing has gone to the court yet. */
 export function documentNotSubmitted(document: CaseDocument): boolean {
   return (
     document.submissionStatus === "draft" ||
-    document.submissionStatus === "pending-signature" ||
-    document.submissionStatus === "pending-payment"
+    document.submissionStatus === "pending-signature"
   );
 }
 
+/**
+ * Give every document on the record its DOC-n, in the order it entered the
+ * record, counted within the case (DSB-15). Drafts and documents waiting for
+ * a signature are not on the record yet and get none. Bail bonds are the
+ * tab's sibling population and the court's papers are not listed, so only
+ * the Documents list is counted.
+ */
+export function withProvisionalIds(documents: CaseDocument[]): CaseDocument[] {
+  const order = documents
+    .filter(
+      (document) =>
+        !documentNotSubmitted(document) &&
+        documentKind(document.type) === "documents"
+    )
+    .sort(
+      (a, b) =>
+        a.submittedOn.localeCompare(b.submittedOn) || a.id.localeCompare(b.id)
+    );
+  const ids = new Map(order.map((document, index) => [document.id, `DOC-${index + 1}`]));
+  return documents.map((document) => ({
+    ...document,
+    provisionalId: ids.get(document.id) ?? null,
+  }));
+}
+
+/** The Evidence number column: the evidence number once marked, the DOC-n
+ *  in its place until then (DSB-10). */
+export function evidenceNumberShown(document: CaseDocument): string | null {
+  return document.evidenceNumber ?? document.provisionalId;
+}

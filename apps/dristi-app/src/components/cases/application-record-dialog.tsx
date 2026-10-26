@@ -137,12 +137,9 @@ function RecordBody({
   onReplaceFile?: (application: ApplicationRecord, file: File) => void;
   onObject?: (applicationId: string) => void;
 }) {
-  /* An application draft reopens over this page (onAct); only a document
-     draft still has its own page to go to. */
-  const draftHref =
-    application.source.kind === "application" && onAct
-      ? null
-      : resumeDraftHref(caseId, application.source);
+  /* A draft reopens over this page (onAct); only without one does it go to
+     its own page. */
+  const draftHref = onAct ? null : resumeDraftHref(caseId, application.source);
   const viewable = application.documents.filter((doc) => doc.src);
   /* The application itself, set out from its details when its file is not
      on record (the demo has few): the page the filer saw before signing.

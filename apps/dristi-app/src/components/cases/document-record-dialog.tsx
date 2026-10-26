@@ -1,14 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { DownloadIcon, FileXIcon, XIcon } from "lucide-react";
+import { DownloadIcon, FileTextIcon, FileXIcon, XIcon } from "lucide-react";
 
 import {
   Fact,
   FactGroup,
   Muted,
 } from "@/components/cases/application-record-dialog";
-import { PdfViewer, isPdfSrc, parsePdfSrc } from "@/components/cases/pdf-viewer";
+import {
+  ComposedDocumentViewer,
+  PdfViewer,
+  isImageSrc,
+  isPdfSrc,
+  parsePdfSrc,
+} from "@/components/cases/pdf-viewer";
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 import { Identifier } from "@/components/chrome/identifier";
 import { Badge } from "@/components/ui/badge";
@@ -37,10 +43,7 @@ import {
 import {
   documentSrc,
   documentSourceLabel,
-  documentStatusLabel,
-  documentStatusVariant,
   documentTypeLabel,
-  evidenceStatusLabel,
   submittedByName,
   submittedByRole,
   type CaseDocument,
@@ -49,6 +52,7 @@ import {
 } from "@/lib/cases/documents";
 import { displayName } from "@/lib/cases/names";
 import { formatCaseDate } from "@/lib/cases/types";
+import { cn } from "@/lib/utils";
 
 /**
  * One filed document, in the application record's frame (owner, Oct 8: the
@@ -104,8 +108,13 @@ function DocumentBody({
   document: CaseDocument;
   peopleById: Map<string, DocumentPerson>;
 }) {
-  const src = documentSrc(document);
+  /* A document filed with several files lists them; the one picked shows. */
+  const files = document.files ?? [];
+  const [openSrc, setOpenSrc] = useState(files[0]?.src);
+  const src = openSrc ?? documentSrc(document);
   const pdf = src && isPdfSrc(src) ? parsePdfSrc(src) : null;
+  const image = src && !pdf && isImageSrc(src) ? parsePdfSrc(src).url : null;
+  const openLabel = files.find((item) => item.src === src)?.label ?? document.title;
   const role = submittedByRole(document, peopleById);
   // Status-driven, not kind-driven: depositions and pleas reach Pending
   // review too.
@@ -118,9 +127,13 @@ function DocumentBody({
           <DialogTitle className="text-body-compact font-semibold text-pretty sm:truncate">
             {document.title}
           </DialogTitle>
-          <Badge variant={documentStatusVariant(document.submissionStatus)}>
-            {documentStatusLabel(document.submissionStatus)}
-          </Badge>
+          {/* The status is held, not shown (DSB-05); only the two that change
+              what the reader does with it are said. */}
+          {document.evidenceNumber ? (
+            <Badge variant="secondary">Marked as evidence</Badge>
+          ) : pendingReview ? (
+            <Badge variant="warning">Pending review</Badge>
+          ) : null}
           <DialogDescription className="sr-only">
             {documentTypeLabel(document.type)} filed on {file.caseNumber}
           </DialogDescription>
@@ -166,15 +179,15 @@ function DocumentBody({
               ) : null}
 
               <FactGroup>
-                <Fact label="Filing ID">
-                  {document.filingId ? (
+                <Fact label="ID">
+                  {document.provisionalId ? (
                     /* Copyable like every other identifier here (owner,
                        Oct 8), and only as wide as itself. */
                     <span className="flex">
-                      <Identifier value={document.filingId} label="filing ID" />
+                      <Identifier value={document.provisionalId} label="document ID" />
                     </span>
                   ) : (
-                    <Muted>Allotted when submitted</Muted>
+                    <Muted>Given when submitted</Muted>
                   )}
                 </Fact>
               </FactGroup>
@@ -201,18 +214,13 @@ function DocumentBody({
                 </Fact>
               </FactGroup>
 
-              {document.evidenceNumber || document.evidenceStatus ? (
-                <FactGroup columns={2}>
-                  {document.evidenceNumber ? (
-                    <Fact label="Evidence no.">
-                      <span className="font-mono">{document.evidenceNumber}</span>
-                    </Fact>
-                  ) : null}
-                  {document.evidenceStatus ? (
-                    <Fact label="Evidence status">
-                      {evidenceStatusLabel(document.evidenceStatus)}
-                    </Fact>
-                  ) : null}
+              {document.evidenceNumber ? (
+                <FactGroup>
+                  <Fact label="Evidence number">
+                    <span className="flex">
+                      <Identifier value={document.evidenceNumber} label="evidence number" />
+                    </span>
+                  </Fact>
                 </FactGroup>
               ) : null}
 
@@ -248,10 +256,48 @@ function DocumentBody({
               ) : null}
             </div>
 
+            {files.length > 1 ? (
+              <div className="flex flex-col gap-1.5 border-t border-hairline pt-3">
+                <h3 className="text-caption font-medium text-muted-foreground">
+                  Files
+                </h3>
+                <ul className="-mx-2 flex flex-col gap-0.5">
+                  {files.map((item) => (
+                    <li key={item.src}>
+                      <button
+                        type="button"
+                        aria-pressed={item.src === src}
+                        onClick={() => setOpenSrc(item.src)}
+                        className={cn(
+                          "flex min-h-10 w-full items-center gap-2 rounded-lg px-2 text-left text-body-compact outline-none transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50",
+                          item.src === src && "bg-accent-strong font-medium"
+                        )}
+                      >
+                        <FileTextIcon
+                          aria-hidden
+                          className="size-4 shrink-0 text-muted-foreground"
+                        />
+                        <span className="min-w-0 break-words">{item.label}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
             <Comments fieldId={`document-comment-${document.id}`} />
           </div>
 
-          {pdf ? (
+          {image ? (
+            <ComposedDocumentViewer
+              key={src}
+              title={openLabel}
+              className="min-h-64 min-w-0 flex-1 rounded-none"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element -- a local file's object URL */}
+              <img src={image} alt={openLabel} className="block w-full" />
+            </ComposedDocumentViewer>
+          ) : pdf ? (
             <PdfViewer
               key={src}
               src={pdf.url}

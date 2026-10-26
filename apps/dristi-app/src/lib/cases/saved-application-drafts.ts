@@ -46,6 +46,8 @@ export type SavedApplicationDraft = {
   /** Set once paid: submitted (ALC-01) and allotted its temporary ID (ALC-02). */
   submittedOn?: string;
   temporaryId?: string;
+  /** What it carries besides itself, as object URLs (DSB-23). */
+  attachments?: { label: string; files: { label: string; href: string }[] }[];
 };
 
 export function savedDraftsKey(caseId: string): string {
@@ -111,5 +113,6 @@ export function savedDraftSubmission(draft: SavedApplicationDraft): Submission {
     documents: [
       { label: filed ? "Filed application" : "Draft application" },
     ],
+    attachments: draft.attachments,
   };
 }
