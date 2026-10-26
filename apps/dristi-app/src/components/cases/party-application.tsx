@@ -23,17 +23,9 @@
  * an application.
  */
 
-import { useEffect, useState, type ReactNode } from "react";
-import {
-  DownloadIcon,
-  HourglassIcon,
-  Maximize2Icon,
-  SignatureIcon,
-  UploadIcon,
-  XCircleIcon,
-} from "lucide-react";
+import { type ReactNode } from "react";
+import { DownloadIcon, Maximize2Icon } from "lucide-react";
 
-import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import {
   DescriptionDetails,
@@ -48,19 +40,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
-import { Spinner } from "@/components/ui/spinner";
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
-import {
-  UPLOAD_HELP,
-  UploadedDocField,
-} from "@/components/cases/uploaded-doc-field";
 import { SELF } from "@/lib/access/content";
 import { formatCaseDate } from "@/lib/cases/types";
 import { cn } from "@/lib/utils";
 import { DOCUMENT_GROUND } from "@/components/cases/document-ground";
 import { useProfile } from "@/components/shell/profile";
-import { OFFICE_NO_ESIGN, useCaseOfficeAccess } from "@/components/cases/case-office-access";
+import { useCaseOfficeAccess } from "@/components/cases/case-office-access";
+import { ESignDialog } from "@/components/cases/e-sign-dialog";
 import { Identifier } from "@/components/chrome/identifier";
 import { useCourtLocalized } from "@/components/court/court-provider";
 
@@ -281,17 +268,12 @@ function downloadPartyApplication(
 /* Sign — a small dialog OVER the review                               */
 /* ------------------------------------------------------------------ */
 
-type SignStep = "choose" | "upload" | "aadhaar" | "done";
-type AadhaarPhase = "authenticating" | "failure";
-
 /**
- * Every footer in the signing flow (choose a method, upload, signed, failed)
- * sits on the warm well rather than the dialog's white, so the step's actions
- * read as a band of their own under the content (owner, Sept 18). The DS
- * footer's `bg-muted` is one hair off white and did not read as a fill at all.
+ * Signing a party application, in the product's one signing (`ESignDialog`,
+ * e-filing's; PM, Oct 26: the older two cards, Aadhaar and upload, were not
+ * the signing model). Kept as its own name so every party flow signs the
+ * same way without each changing how it asks.
  */
-const FLOW_FOOTER = "bg-surface-sunken";
-
 export function PartySignatureDialog({
   open,
   onClose,
@@ -316,7 +298,7 @@ export function PartySignatureDialog({
   submitLabel?: string;
   /** The first step's heading; callers signing several at once reword it. */
   chooseTitle?: string;
-  /** What is signed, for the step's note: "application" or "document". */
+  /** What is signed, for the steps' copy: "application" or "document". */
   noun?: string;
   /**
    * A next step straight from the confirmation, beside a way to leave it for
@@ -326,244 +308,23 @@ export function PartySignatureDialog({
    */
   proceed?: { label: string; laterLabel: string; onClick: () => void };
 }) {
-  const [step, setStep] = useState<SignStep>("choose");
   /* The case page cannot tell the profile; a litigant or party in person
      signing their own never holds office access. */
   const { profileRole } = useProfile();
   const officeAccess = useCaseOfficeAccess() && profileRole !== "litigant";
-  const [aadhaar, setAadhaar] = useState<AadhaarPhase>("authenticating");
-  const [signedFile, setSignedFile] = useState<File | null>(null);
-  const [error, setError] = useState<string | undefined>(undefined);
-
-  // Start fresh each time the dialog opens — reset here, at render on the
-  // open→shut edge (React's "adjust state when a prop changes" pattern), not on
-  // close: resetting on close would flash the chooser as the dialog animates
-  // out. Not an effect, so no cascading render.
-  const [wasOpen, setWasOpen] = useState(open);
-  if (open !== wasOpen) {
-    setWasOpen(open);
-    if (open) {
-      setStep("choose");
-      setAadhaar("authenticating");
-      setSignedFile(null);
-      setError(undefined);
-    }
-  }
-
-  /**
-   * Aadhaar e-sign: in the live service the person is taken to the e-sign
-   * provider and the system is told when they finish. Here that round trip is
-   * stood in for — after a moment the signature is detected as complete. The
-   * failure path is designed and reachable so the screen exists for when the
-   * service says no.
-   */
-  useEffect(() => {
-    if (!open || step !== "aadhaar" || aadhaar !== "authenticating") return;
-    const timer = setTimeout(() => setStep("done"), 2000);
-    return () => clearTimeout(timer);
-  }, [open, step, aadhaar]);
-
-  function submitUpload() {
-    if (!signedFile) {
-      setError("Upload the signed application to continue.");
-      return;
-    }
-    setStep("done");
-  }
-
   return (
-    <Dialog
+    <ESignDialog
       open={open}
-      onOpenChange={(next) => {
-        if (next) return;
-        // Success is committed — closing the confirmation finishes the flow.
-        if (step === "done") onComplete();
-        else onClose();
-      }}
-    >
-      <FlowDialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md">
-        {step === "done" ? (
-          <>
-            <DialogHeader className="shrink-0 px-6 py-5 pr-14 text-left">
-              <div className="flex items-center gap-4">
-                <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-info-muted text-info-muted-foreground">
-                  <HourglassIcon className="size-7" aria-hidden />
-                </span>
-                <div className="flex min-w-0 flex-col gap-1.5">
-                  <DialogTitle className="text-body font-semibold text-balance">
-                    {confirmation.title}
-                  </DialogTitle>
-                  <DialogDescription>{confirmation.description}</DialogDescription>
-                </div>
-              </div>
-            </DialogHeader>
-            <footer className={cn(FLOW_FOOTER, "flex shrink-0 justify-end gap-2 border-t border-hairline px-6 py-4")}>
-              {proceed ? (
-                <>
-                  <Button type="button" variant="outline" onClick={onComplete}>
-                    {proceed.laterLabel}
-                  </Button>
-                  <Button type="button" onClick={proceed.onClick}>
-                    {proceed.label}
-                  </Button>
-                </>
-              ) : (
-                <Button type="button" onClick={onComplete}>
-                  Done
-                </Button>
-              )}
-            </footer>
-          </>
-        ) : step === "aadhaar" && aadhaar === "authenticating" ? (
-          <div className="flex flex-col items-center gap-4 px-6 py-10 text-center">
-            <Spinner className="size-8 text-primary" />
-            <div className="flex flex-col gap-1.5">
-              <DialogTitle className="text-body font-semibold">
-                Signing with Aadhaar
-              </DialogTitle>
-              <DialogDescription>
-                Complete the signature in the Aadhaar e-sign service. We record
-                it here as soon as it is done.
-              </DialogDescription>
-            </div>
-            <p className="text-caption text-muted-foreground">
-              Sandbox — this completes automatically in a moment.
-            </p>
-            <Button
-              type="button"
-              variant="link"
-              className="h-auto p-0 text-caption"
-              onClick={() => setAadhaar("failure")}
-            >
-              Simulate a failed signature
-            </Button>
-          </div>
-        ) : step === "aadhaar" && aadhaar === "failure" ? (
-          <>
-            <div className="flex flex-1 flex-col items-center gap-4 px-6 py-10 text-center">
-              <span
-                aria-hidden
-                className="flex size-14 shrink-0 items-center justify-center rounded-full bg-destructive-muted text-destructive-ink"
-              >
-                <XCircleIcon className="size-7" />
-              </span>
-              <div className="flex flex-col gap-1.5">
-                <DialogTitle className="text-body font-semibold text-balance">
-                  Signature not completed
-                </DialogTitle>
-                <DialogDescription className="text-balance">
-                  The Aadhaar e-sign service could not complete the signature.
-                  Nothing was recorded. Try again, or upload a signed copy
-                  instead.
-                </DialogDescription>
-              </div>
-            </div>
-            <footer className={cn(FLOW_FOOTER, "flex shrink-0 flex-col-reverse gap-2 border-t border-hairline px-6 py-4 sm:flex-row sm:items-center sm:justify-between")}>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setStep("choose")}
-              >
-                Back
-              </Button>
-              <Button
-                type="button"
-                onClick={() => setAadhaar("authenticating")}
-              >
-                Try again
-              </Button>
-            </footer>
-          </>
-        ) : step === "upload" ? (
-          <>
-            <DialogHeader className="shrink-0 gap-1.5 border-b border-hairline px-6 py-5 pr-14 text-left">
-              <DialogTitle className="text-body font-semibold text-balance">
-                Upload a signed copy
-              </DialogTitle>
-              <DialogDescription>
-                The application, signed on paper or with a Digital Signature
-                Certificate.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-5">
-              <Field data-invalid={Boolean(error) && !signedFile}>
-                <FieldLabel className="block w-full font-semibold leading-snug">
-                  Signed application
-                </FieldLabel>
-                <UploadedDocField
-                  label="Signed application"
-                  required
-                  file={signedFile}
-                  onFileChange={(file) => {
-                    setSignedFile(file);
-                    setError(undefined);
-                  }}
-                />
-                <FieldDescription>{UPLOAD_HELP}</FieldDescription>
-              </Field>
-              <FieldError>{error}</FieldError>
-            </div>
-            <footer className={cn(FLOW_FOOTER, "flex shrink-0 flex-col-reverse gap-2 border-t border-hairline px-6 py-4 sm:flex-row sm:items-center sm:justify-between")}>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setError(undefined);
-                  setStep("choose");
-                }}
-              >
-                Back
-              </Button>
-              <Button type="button" onClick={submitUpload}>
-                {submitLabel}
-              </Button>
-            </footer>
-          </>
-        ) : (
-          <>
-            <DialogHeader className="shrink-0 gap-1.5 border-b border-hairline px-6 py-5 pr-14 text-left">
-              <DialogTitle className="text-body font-semibold text-balance">
-                {chooseTitle}
-              </DialogTitle>
-              <DialogDescription>
-                An unsigned {noun} cannot be submitted to the court.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-6 py-5">
-              {officeAccess ? (
-                <Banner variant="info">{OFFICE_NO_ESIGN}</Banner>
-              ) : (
-                <SignMethodCard
-                  icon={<SignatureIcon className="size-5" />}
-                  tone="info"
-                  title="E-Sign with Aadhaar OTP"
-                  description="You are taken to the Aadhaar e-sign service. The signature is recorded here as soon as it is done."
-                  onClick={() => {
-                    setAadhaar("authenticating");
-                    setStep("aadhaar");
-                  }}
-                />
-              )}
-              <SignMethodCard
-                icon={<UploadIcon className="size-5" />}
-                tone="warning"
-                title="Upload a signed copy"
-                description="One file that already carries the signature, on paper or by DSC."
-                onClick={() => {
-                  setError(undefined);
-                  setStep("upload");
-                }}
-              />
-            </div>
-            <footer className={cn(FLOW_FOOTER, "flex shrink-0 items-center border-t border-hairline px-6 py-4")}>
-              <Button type="button" variant="outline" onClick={onBack ?? onClose}>
-                Back
-              </Button>
-            </footer>
-          </>
-        )}
-      </FlowDialogContent>
-    </Dialog>
+      noun={noun}
+      chooseTitle={chooseTitle}
+      submitLabel={submitLabel}
+      officeAccess={officeAccess}
+      onBack={onBack ?? onClose}
+      onDismiss={onClose}
+      onComplete={onComplete}
+      confirmation={{ ...confirmation, tone: "waiting" }}
+      proceed={proceed}
+    />
   );
 }
 

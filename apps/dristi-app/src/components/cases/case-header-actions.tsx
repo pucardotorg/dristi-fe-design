@@ -86,6 +86,10 @@ export function CaseHeaderActions({
   const [shareOpen, setShareOpen] = React.useState(false);
   const [downloadOpen, setDownloadOpen] = React.useState(false);
   const [submitOpen, setSubmitOpen] = React.useState(false);
+  /* Held here so an item that opens a dialog also closes the menu: the
+     items keep the menu from closing itself (so focus is not thrown back to
+     the trigger under the dialog), and it was left open behind it. */
+  const [filingsOpen, setFilingsOpen] = React.useState(false);
   const router = useRouter();
   const caseId = accessCase.id;
   /* The court reads this same header with two changes (owner, 2026-10-13): no Share
@@ -172,7 +176,7 @@ export function CaseHeaderActions({
             </Tooltip>
           )
         ) : (
-        <DropdownMenu>
+        <DropdownMenu open={filingsOpen} onOpenChange={setFilingsOpen}>
           <DropdownMenuTrigger asChild>
             <Button type="button" className="order-first flex-1 md:pointer-fine:order-none md:pointer-fine:flex-none md:landscape:order-none md:landscape:flex-none">
               Make filings
@@ -189,6 +193,7 @@ export function CaseHeaderActions({
             <DropdownMenuItem
               onSelect={(event) => {
                 event.preventDefault();
+                setFilingsOpen(false);
                 setSubmitOpen(true);
               }}
             >
@@ -199,6 +204,7 @@ export function CaseHeaderActions({
               <DropdownMenuItem
                 onSelect={(event) => {
                   event.preventDefault();
+                  setFilingsOpen(false);
                   bail.openBondDirect();
                 }}
               >
@@ -209,6 +215,7 @@ export function CaseHeaderActions({
             <DropdownMenuItem
               onSelect={(event) => {
                 event.preventDefault();
+                setFilingsOpen(false);
                 bail.openStatus();
               }}
             >

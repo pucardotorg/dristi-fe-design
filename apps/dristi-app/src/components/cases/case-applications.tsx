@@ -95,7 +95,7 @@ import {
   savedDraftSubmission,
   savedDraftsKey,
 } from "@/lib/cases/saved-application-drafts";
-import { DocumentSignatureDialog } from "@/components/cases/document-signature-dialog";
+import { DocumentSignatureDialog } from "@/components/cases/e-sign-dialog";
 import { useCaseReader } from "@/components/cases/case-reader";
 import {
   parseSavedDocumentSubmissions,

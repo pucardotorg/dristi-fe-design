@@ -28,7 +28,7 @@ import {
   focusFirstInvalid,
   isPreviewableImage,
 } from "@/components/cases/filing-form-shared";
-import { DocumentSignatureDialog } from "@/components/cases/document-signature-dialog";
+import { DocumentSignatureDialog } from "@/components/cases/e-sign-dialog";
 import {
   PdfViewer,
   localFileSrc,
