@@ -195,6 +195,19 @@ function OrderDoorBody({ door }: { door: OrderDoor }) {
       purpose={hearing?.purpose}
       fixedIds={door.fixedIds}
       applicationItem={door.applicationItem}
+      evidence={
+        /* Only a hearing's order: the evidence is taken at the hearing. */
+        hearing
+          ? {
+              caseNumber: door.document.caseNumber,
+              hearingId: hearing.hearing.id,
+              matter: door.document.matter,
+              purpose: hearing.purpose,
+              people: context.people,
+              today,
+            }
+          : undefined
+      }
     />
   );
 }
