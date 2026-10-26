@@ -6,6 +6,7 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   ChevronUpIcon,
+  EllipsisVerticalIcon,
   PanelLeftOpenIcon,
 } from "lucide-react";
 
@@ -65,6 +66,13 @@ import { type ComplaintPane } from "@/lib/cases/complaint";
 import { type CaseRecord } from "@/lib/cases/types";
 import { cn } from "@/lib/utils";
 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -152,10 +160,21 @@ export function CaseFile({
     }
   }, [record, marks]);
   const [marking, setMarking] = useState<{ id: string; title: string } | null>(null);
-  const markableDocument = (nodeId: string) => {
+  /**
+   * What marking a leaf marks, and the number it already has. Any document
+   * in the case file can be marked (DSB-12): one that is a Documents row is
+   * marked there, so both places show it; anything else (an order, a
+   * process, a receipt) is marked as the case file item itself.
+   */
+  const evidenceTarget = (nodeId: string) => {
     const id = caseFileRegisterDocumentId(nodeId);
     const document = id ? register.find((item) => item.id === id) : undefined;
-    return document && !document.evidenceNumber ? document : undefined;
+    if (document) {
+      return { key: document.id, title: document.title, number: document.evidenceNumber };
+    }
+    const node = findNode(CASE_FILE_TREE, nodeId);
+    const key = `casefile:${nodeId}`;
+    return { key, title: node?.label ?? nodeId, number: marks[key] ?? null };
   };
 
   const indexProps = {
@@ -164,15 +183,14 @@ export function CaseFile({
     openIds,
     onSelect: selectDoc,
     onFolderOpenChange: setFolderOpen,
-    mark: canMark
-      ? {
-          can: (nodeId: string) => Boolean(markableDocument(nodeId)),
-          onMark: (nodeId: string) => {
-            const document = markableDocument(nodeId);
-            if (document) setMarking({ id: document.id, title: document.title });
-          },
-        }
-      : undefined,
+    evidence: {
+      numberFor: (nodeId: string) => evidenceTarget(nodeId).number ?? undefined,
+      canMark: (nodeId: string) => canMark && !evidenceTarget(nodeId).number,
+      onMark: (nodeId: string) => {
+        const target = evidenceTarget(nodeId);
+        if (!target.number) setMarking({ id: target.key, title: target.title });
+      },
+    },
   };
 
   return (
@@ -323,7 +341,7 @@ export function CaseFileIndex({
   openIds,
   onSelect,
   onFolderOpenChange,
-  mark,
+  evidence,
   depth = 0,
 }: {
   nodes: CaseFileNode[];
@@ -331,8 +349,16 @@ export function CaseFileIndex({
   openIds: Set<string>;
   onSelect: (id: string) => void;
   onFolderOpenChange: (id: string, open: boolean) => void;
-  /** Set for a seat that marks evidence (DET-12, DSB-20). */
-  mark?: { can: (id: string) => boolean; onMark: (id: string) => void };
+  /**
+   * Evidence on each leaf: its number once marked, and marking it, for a
+   * seat that marks evidence (DSB-12, DSB-20). Absent where the tree is
+   * only read (the order composer).
+   */
+  evidence?: {
+    numberFor: (id: string) => string | undefined;
+    canMark: (id: string) => boolean;
+    onMark: (id: string) => void;
+  };
   depth?: number;
 }) {
   return (
@@ -379,7 +405,7 @@ export function CaseFileIndex({
                     openIds={openIds}
                     onSelect={onSelect}
                     onFolderOpenChange={onFolderOpenChange}
-                    mark={mark}
+                    evidence={evidence}
                     depth={depth + 1}
                   />
                 ) : (
@@ -396,40 +422,82 @@ export function CaseFileIndex({
             </Collapsible>
           ) : (
             <div className={rowShell}>
-              {/* DET-12. Right-click, the menu key, or a long press. Marking is
-                  the court's; everyone with access to the case can download. */}
-              <ContextMenu>
-                <ContextMenuTrigger asChild>
-                  <button
-                    type="button"
-                    aria-current={selectedId === node.id ? "page" : undefined}
-                    onClick={() => onSelect(node.id)}
-                    className={cn(
-                      rowClass,
-                      depthPad[Math.min(depth, depthPad.length - 1)],
-                      selectedId === node.id &&
-                        "bg-accent font-medium hover:bg-accent"
-                    )}
-                  >
-                    <IndexLabel number={node.number} label={node.label} />
-                  </button>
-                </ContextMenuTrigger>
-                <ContextMenuContent>
-                  {mark?.can(node.id) ? (
-                    <>
-                      <ContextMenuItem onSelect={() => mark.onMark(node.id)}>
-                        Mark as Evidence
-                      </ContextMenuItem>
-                      <ContextMenuSeparator />
-                    </>
-                  ) : null}
-                  <ContextMenuItem asChild>
-                    <a href={node.href} download>
-                      Download
-                    </a>
-                  </ContextMenuItem>
-                </ContextMenuContent>
-              </ContextMenu>
+              {/* DET-12. The row's actions twice over: on a ⋮ at its right end,
+                  where they can be seen (owner, Oct 26), and on right-click,
+                  the menu key or a long press. Marking is the court's;
+                  everyone with access to the case can download. */}
+              <div className="relative">
+                <ContextMenu>
+                  <ContextMenuTrigger asChild>
+                    <button
+                      type="button"
+                      aria-current={selectedId === node.id ? "page" : undefined}
+                      onClick={() => onSelect(node.id)}
+                      className={cn(
+                        rowClass,
+                        depthPad[Math.min(depth, depthPad.length - 1)],
+                        "pr-12",
+                        selectedId === node.id &&
+                          "bg-accent font-medium hover:bg-accent"
+                      )}
+                    >
+                      <IndexLabel number={node.number} label={node.label} />
+                      {evidence?.numberFor(node.id) ? (
+                        <Badge
+                          variant="secondary"
+                          className="shrink-0 font-mono"
+                          aria-label={`Marked as evidence, ${evidence.numberFor(node.id)}`}
+                        >
+                          {evidence.numberFor(node.id)}
+                        </Badge>
+                      ) : null}
+                    </button>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent>
+                    {evidence?.canMark(node.id) ? (
+                      <>
+                        <ContextMenuItem onSelect={() => evidence.onMark(node.id)}>
+                          Mark as evidence
+                        </ContextMenuItem>
+                        <ContextMenuSeparator />
+                      </>
+                    ) : null}
+                    <ContextMenuItem asChild>
+                      <a href={node.href} download>
+                        Download
+                      </a>
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      className="absolute top-1 right-1 text-muted-foreground md:pointer-fine:top-0.5 md:landscape:top-0.5"
+                      aria-label={`Actions for ${node.label}`}
+                    >
+                      <EllipsisVerticalIcon aria-hidden />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="min-w-44">
+                    {evidence?.canMark(node.id) ? (
+                      <>
+                        <DropdownMenuItem onSelect={() => evidence.onMark(node.id)}>
+                          Mark as evidence
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                      </>
+                    ) : null}
+                    <DropdownMenuItem asChild>
+                      <a href={node.href} download>
+                        Download
+                      </a>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
           )}
         </li>

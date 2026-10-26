@@ -277,7 +277,9 @@ export function RaiseApplicationForm({
   const handoffTo =
     seat.role === "clerk" ||
     // Office access never e-signs (OFC-06): it drafts, an advocate on the nama signs.
-    viewerAccess(record).kind === "office" ||
+    // It is an advocate's way onto a case; a party in person on a case with no
+    // advocate on record is not that, and signs their own.
+    (seat.role === "advocate" && viewerAccess(record).kind === "office") ||
     (raisedByPerson && raisedByPerson.id !== seat.personId)
       ? (raisedByPerson?.name ?? seat.signer ?? "your advocate")
       : undefined;

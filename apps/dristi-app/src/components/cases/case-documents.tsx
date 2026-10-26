@@ -633,7 +633,11 @@ function DocumentsReady({
       <MarkEvidenceDialog
         caseId={record.id}
         document={marking}
-        taken={documents.map((document) => document.evidenceNumber)}
+        /* Every number given in the case, a case file item's included. */
+        taken={[
+          ...documents.map((document) => document.evidenceNumber),
+          ...Object.values(parseEvidenceMarks(marksRaw)),
+        ]}
         onOpenChange={(open) => {
           if (!open) setMarking(null);
         }}

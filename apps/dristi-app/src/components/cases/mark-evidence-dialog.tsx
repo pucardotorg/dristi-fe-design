@@ -63,10 +63,7 @@ export function MarkEvidenceDialog({
     setError(undefined);
   }
 
-  const options = EVIDENCE_SIDES.map((item) => ({
-    id: item.id,
-    label: `${item.label}, becomes ${nextEvidenceNumber(taken, item.id)}`,
-  }));
+  const options = EVIDENCE_SIDES.map((item) => ({ id: item.id, label: item.label }));
 
   function mark() {
     if (!shown) return;
@@ -104,10 +101,16 @@ export function MarkEvidenceDialog({
               setError(undefined);
             }}
           />
-          <p className="text-body-compact text-muted-foreground">
-            The number takes the place of its document ID. It cannot be changed
-            here once given.
-          </p>
+          {/* The number the choice gives, once there is a choice (DSB-14). */}
+          {side ? (
+            <p className="text-body-compact text-foreground">
+              It becomes{" "}
+              <span className="font-mono font-medium">
+                {nextEvidenceNumber(taken, side)}
+              </span>
+              .
+            </p>
+          ) : null}
         </div>
         <footer className="flex shrink-0 flex-col-reverse gap-2 border-t border-hairline bg-surface-sunken px-6 py-4 sm:flex-row sm:justify-end">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

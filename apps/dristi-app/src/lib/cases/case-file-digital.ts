@@ -57,10 +57,25 @@ const DOCUMENT_BY_DOC: Record<string, string> = {
   "questionnaire-351-bnss": "KL-DUMMY-001386-2026-AR1",
 };
 
+/**
+ * Case file leaves that are papers on the Documents register but read in the
+ * case file as their own scan, so they have no digital pane of their own:
+ * marking one from the case file marks that register row (DSB-12, DSB-20).
+ */
+const ON_REGISTER: Record<string, string> = {
+  "dishonoured-cheque": "KL-DUMMY-001386-2026-AR7",
+  "cheque-return-memo": "KL-DUMMY-001386-2026-AR9",
+  "legal-demand-notice": "KL-DUMMY-001386-2026-AR5",
+  "proof-of-dispatch": "KL-DUMMY-001386-2026-AR4",
+  "vakalatnama-1": "KL-DUMMY-001386-2026-AR8",
+  "witness-deposition-pw1": "KL-DUMMY-001386-2026-AR12",
+  "witness-deposition-dw1": "KL-DUMMY-001386-2026-AR13",
+};
+
 /** The Documents register row a case file leaf is, if any: what marking it
  *  from the case file marks (DSB-20). */
 export function caseFileRegisterDocumentId(docId: string): string | undefined {
-  return DOCUMENT_BY_DOC[docId];
+  return DOCUMENT_BY_DOC[docId] ?? ON_REGISTER[docId];
 }
 
 /** Case file leaf → hearing deposition ids, in file order. */
