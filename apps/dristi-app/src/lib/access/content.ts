@@ -882,9 +882,13 @@ export const personAccessCopy = {
      heading, All cases is a list to look at, Specific cases splits into two tabs,
      and a tick only selects. Every act applies on its own confirmation. */
   scopeLabel: t("Access", "ആക്‌സസ്"),
+  futureTitle: t(
+    "{name} can access all {count} of your cases",
+    "നിങ്ങളുടെ {count} കേസുകളും {name}-ന് ആക്‌സസ് ചെയ്യാം",
+  ),
   futureNote: t(
-    "{name} has all {count} of your cases, and gets every new case automatically.",
-    "നിങ്ങളുടെ {count} കേസുകളും {name}-ന് ഉണ്ട്, ഓരോ പുതിയ കേസും സ്വയമേവ ലഭിക്കും.",
+    "Any new case you get is shared with them automatically.",
+    "നിങ്ങൾക്ക് ലഭിക്കുന്ന ഓരോ പുതിയ കേസും അവരുമായി സ്വയമേവ പങ്കിടും.",
   ),
   casesTabs: t("Cases by access", "ആക്‌സസ് അനുസരിച്ച് കേസുകൾ"),
   tabOther: t("No access", "ആക്‌സസ് ഇല്ല"),
@@ -920,11 +924,15 @@ export const personAccessCopy = {
     "Give {name} access to all cases?",
     "{name}-ന് എല്ലാ കേസുകളിലേക്കും ആക്‌സസ് നൽകണോ?",
   ),
-  limitedToast: t(
-    "New cases are no longer shared with {name}.",
-    "പുതിയ കേസുകൾ ഇനി {name}-മായി പങ്കിടില്ല.",
+  specificTitle: t(
+    "Change {name} to specific cases?",
+    "{name}-നെ തിരഞ്ഞെടുത്ത കേസുകളിലേക്ക് മാറ്റണോ?",
   ),
-  undo: t("Undo", "പഴയപടിയാക്കുക"),
+  pointKeep: t(
+    "Keeps access to the {count} cases they have now",
+    "ഇപ്പോഴുള്ള {count} കേസുകളിലെ ആക്‌സസ് തുടരും",
+  ),
+  specificAction: t("Change to specific cases", "തിരഞ്ഞെടുത്ത കേസുകളിലേക്ക് മാറ്റുക"),
   leaveTitle: t("Discard your changes?", "നിങ്ങളുടെ മാറ്റങ്ങൾ ഉപേക്ഷിക്കണോ?"),
   leaveBody: t(
     "Your changes to {name}'s access are not saved yet.",

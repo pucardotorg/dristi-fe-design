@@ -78,6 +78,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Tooltip,
   TooltipContent,
@@ -157,7 +158,7 @@ type Mode = "all" | "specific";
 type AccessTab = "held" | "other";
 
 /** An act waiting on its confirmation. */
-type Act = "remove" | "give" | "all";
+type Act = "remove" | "give" | "all" | "specific";
 
 /** What the list is being edited towards. `null` means no edits yet. */
 type Draft = { ticked: Set<string>; mode: Mode };
@@ -539,26 +540,13 @@ export function PersonAccessDialog({
   }
 
   /**
-   * The dropdown. Specific to All asks first, since it gives every case. All
-   * to Specific applies at once (owner, Oct 26): they keep every case they
-   * have, only new ones stop, and the toast can undo it.
+   * The dropdown. Either way it asks first, in the same points (owner, Oct
+   * 26): All gives every case and new ones; Specific keeps their cases and
+   * stops new ones.
    */
   function chooseScope(next: Mode) {
     if (!live || next === (savedFuture ? "all" : "specific")) return;
-    if (next === "all") {
-      setAct("all");
-      return;
-    }
-    const id = live.id;
-    setAllCases(id, false);
-    setTab("held");
-    setSelected(new Set());
-    toast(fillCopy(copy.limitedToast, locale, { name: live.name }), {
-      action: {
-        label: pick(copy.undo, locale),
-        onClick: () => setAllCases(id, true),
-      },
-    });
+    setAct(next);
   }
 
   function doAct() {
@@ -575,6 +563,10 @@ export function PersonAccessDialog({
       }
     } else if (act === "give") {
       invite([live.phone], selectedIds);
+      toast.success(fillCopy(copy.savedToast, locale, { name }));
+    } else if (act === "specific") {
+      setAllCases(live.id, false);
+      setTab("held");
       toast.success(fillCopy(copy.savedToast, locale, { name }));
     } else {
       setAllCases(live.id, true);
@@ -650,7 +642,9 @@ export function PersonAccessDialog({
       ? fillCopy(copy.removeTitle, locale, actName)
       : act === "give"
         ? fillCopy(copy.giveTitle, locale, actName)
-        : fillCopy(copy.allTitle, locale, actName);
+        : act === "specific"
+          ? fillCopy(copy.specificTitle, locale, actName)
+          : fillCopy(copy.allTitle, locale, actName);
   const actPoints: { key: string; sign?: "+" | "−"; text: string }[] =
     act === "remove"
       ? [
@@ -679,6 +673,20 @@ export function PersonAccessDialog({
               ),
             },
           ]
+        : act === "specific"
+          ? [
+              {
+                key: "future",
+                sign: "−" as const,
+                text: pick(copy.confirmFutureOff, locale),
+              },
+              {
+                key: "keep",
+                text: fillCopy(copy.pointKeep, locale, {
+                  count: String(heldTotal),
+                }),
+              },
+            ]
         : [
             ...(otherTotal
               ? [
@@ -704,7 +712,9 @@ export function PersonAccessDialog({
       ? copy.removeAccess
       : act === "give"
         ? copy.giveAccess
-        : copy.allAction,
+        : act === "specific"
+          ? copy.specificAction
+          : copy.allAction,
     locale,
   );
   const confirmPoints: {
@@ -1307,7 +1317,7 @@ export function PersonAccessDialog({
               >
                 {/* The heading and the scope on one line, phones too: the
                     dropdown names what they have and changes it. */}
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                   <h3
                     id="person-access-cases"
                     className="text-body font-semibold"
@@ -1320,11 +1330,11 @@ export function PersonAccessDialog({
                   >
                     <SelectTrigger
                       aria-label={pick(copy.scopeLabel, locale)}
-                      className="min-w-40"
+                      className="min-w-44 font-medium"
                     >
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent align="end">
+                    <SelectContent align="start">
                       <SelectItem value="all">
                         {pick(copy.allCases, locale)}
                       </SelectItem>
@@ -1339,13 +1349,18 @@ export function PersonAccessDialog({
                   /* All cases says plainly that new cases follow, and lists
                      what they can open. Nothing to select: to take a case
                      away, Specific cases first. */
-                  <p className="flex items-start gap-2 text-body-compact text-pretty text-muted-foreground">
-                    <InfoIcon aria-hidden className="mt-0.5 size-4 shrink-0" />
-                    {fillCopy(copy.futureNote, locale, {
-                      name: displayName(person),
-                      count: String(total),
-                    })}
-                  </p>
+                  <Alert variant="info">
+                    <InfoIcon aria-hidden />
+                    <AlertTitle>
+                      {fillCopy(copy.futureTitle, locale, {
+                        name: displayName(person),
+                        count: String(total),
+                      })}
+                    </AlertTitle>
+                    <AlertDescription>
+                      {pick(copy.futureNote, locale)}
+                    </AlertDescription>
+                  </Alert>
                 ) : (
                   /* Two tabs, not two stacked groups: a long Has access
                      list buried the cases they do not have yet. */
@@ -1353,14 +1368,17 @@ export function PersonAccessDialog({
                     value={tab}
                     onValueChange={(value) => switchTab(value as AccessTab)}
                   >
-                    <TabsList aria-label={pick(copy.casesTabs, locale)}>
-                      <TabsTrigger value="held" className="px-3">
+                    <TabsList
+                      aria-label={pick(copy.casesTabs, locale)}
+                      className="w-full group-data-horizontal/tabs:h-10"
+                    >
+                      <TabsTrigger value="held" className="px-3 text-body-compact">
                         {pick(copy.groupHeld, locale)}
                         <span className="text-muted-foreground tabular-nums">
                           {heldTotal}
                         </span>
                       </TabsTrigger>
-                      <TabsTrigger value="other" className="px-3">
+                      <TabsTrigger value="other" className="px-3 text-body-compact">
                         {pick(copy.tabOther, locale)}
                         <span className="text-muted-foreground tabular-nums">
                           {otherTotal}
@@ -1693,7 +1711,11 @@ export function PersonAccessDialog({
               {pick(peopleCopy.removeAllCancel, locale)}
             </AlertDialogCancel>
             <AlertDialogAction
-              variant={act === "remove" ? "destructive" : "default"}
+              variant={
+                act === "remove" || act === "specific"
+                  ? "destructive"
+                  : "default"
+              }
               onClick={doAct}
             >
               {actLabel}
