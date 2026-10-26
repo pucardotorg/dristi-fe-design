@@ -1288,15 +1288,11 @@ export function PersonAccessDialog({
                     >
                       <TabsTrigger value="held" className="px-3 text-body-compact">
                         {pick(copy.groupHeld, locale)}
-                        <span className="text-muted-foreground tabular-nums">
-                          {heldTotal}
-                        </span>
+                        <TabCount count={heldTotal} active={tab === "held"} />
                       </TabsTrigger>
                       <TabsTrigger value="other" className="px-3 text-body-compact">
                         {pick(copy.tabOther, locale)}
-                        <span className="text-muted-foreground tabular-nums">
-                          {otherTotal}
-                        </span>
+                        <TabCount count={otherTotal} active={tab === "other"} />
                       </TabsTrigger>
                     </TabsList>
                   </Tabs>
@@ -1856,6 +1852,26 @@ function CaseTableRow({
         </div>
       </TableCell>
     </TableRow>
+  );
+}
+
+/**
+ * A tab's count as a small pill (owner, Oct 26): the plain grey number was
+ * lost. Teal on the open tab; white on the grey track for the other, since a
+ * grey pill would vanish into it.
+ */
+function TabCount({ count, active }: { count: number; active: boolean }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex min-w-6 items-center justify-center rounded-full px-1.5 py-0.5 text-caption font-medium tabular-nums",
+        active
+          ? "bg-brand-muted text-brand-muted-foreground"
+          : "bg-card text-muted-foreground",
+      )}
+    >
+      {count}
+    </span>
   );
 }
 

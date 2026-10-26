@@ -924,7 +924,8 @@ export const personAccessCopy = {
     "നിങ്ങളുടെ {count} കേസുകളും {name}-ന് ആക്‌സസ് ചെയ്യാം. നിങ്ങൾക്ക് ലഭിക്കുന്ന ഓരോ പുതിയ കേസും അവരുമായി സ്വയമേവ പങ്കിടും.",
   ),
   casesTabs: t("Cases by access", "ആക്‌സസ് അനുസരിച്ച് കേസുകൾ"),
-  tabOther: t("No access", "ആക്‌സസ് ഇല്ല"),
+  /* "Yet" softens it: access can still be given (owner, Oct 26). */
+  tabOther: t("No access yet", "ഇതുവരെ ആക്‌സസ് ഇല്ല"),
   selectHintHeld: t(
     "Select cases to remove access.",
     "ആക്‌സസ് നീക്കാൻ കേസുകൾ തിരഞ്ഞെടുക്കുക.",
