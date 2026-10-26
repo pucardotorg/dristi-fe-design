@@ -125,6 +125,14 @@ import {
 import { SignReviewDialog } from "@/components/cases/sign-review-dialog";
 import { SubmitDocumentsDialog } from "@/components/cases/submit-documents-form";
 import {
+  MarkEvidenceDialog,
+  useCanMarkEvidence,
+} from "@/components/cases/mark-evidence-dialog";
+import {
+  evidenceMarksKey,
+  parseEvidenceMarks,
+} from "@/lib/cases/evidence-marks";
+import {
   findDocumentSubmission,
   parseSavedDocumentSubmissions,
   savedDocumentSubmissionsKey,
@@ -281,16 +289,29 @@ function DocumentsReady({
      filing itself, with its step (PM, Oct 8). */
   /* Every document carries its DOC-n (DSB-15). One still a draft or
      waiting for a signature is only under Needs attention (DSB-09). */
-  const documents = useMemo(
-    () =>
-      withProvisionalIds([
-        ...filings.map(documentFromFiling),
-        ...applications.flatMap(documentsFromApplication),
-        ...fromCourt.documents,
-        ...file.documents,
-      ]).filter((document) => !documentNotSubmitted(document)),
-    [filings, applications, fromCourt.documents, file.documents]
-  );
+  /* What the court marked in this visit, over what the record already
+     carries (DSB-14). */
+  const marksRaw = useSessionValue(evidenceMarksKey(record.id));
+  const documents = useMemo(() => {
+    const marks = parseEvidenceMarks(marksRaw);
+    return withProvisionalIds([
+      ...filings.map(documentFromFiling),
+      ...applications.flatMap(documentsFromApplication),
+      ...fromCourt.documents,
+      ...file.documents,
+    ])
+      .filter((document) => !documentNotSubmitted(document))
+      .map((document) =>
+        marks[document.id]
+          ? { ...document, evidenceNumber: marks[document.id] }
+          : document
+      );
+  }, [filings, applications, fromCourt.documents, file.documents, marksRaw]);
+  /* Marking is the court's, for a seat with the Evidence marker role
+     (DSB-12, DSB-20). */
+  const canMark = useCanMarkEvidence();
+  const [marking, setMarking] = useState<CaseDocument | null>(null);
+  const onMark = canMark ? setMarking : undefined;
   const peopleById = new Map(
     [
       ...documentPeopleFromFilings([...filings, ...applications]),
@@ -521,6 +542,7 @@ function DocumentsReady({
                   rows={selection.rows}
                   peopleById={peopleById}
                   onOpenRecord={openRecord}
+                  onMark={onMark}
                 />
               </div>
               {/* No inset of its own: the panel already pads it, and a second
@@ -530,6 +552,7 @@ function DocumentsReady({
                   rows={selection.rows}
                   peopleById={peopleById}
                   onOpenRecord={openRecord}
+                  onMark={onMark}
                 />
               </div>
             </div>
@@ -607,6 +630,14 @@ function DocumentsReady({
           </div>
         )}
       </DocumentsPanel>
+      <MarkEvidenceDialog
+        caseId={record.id}
+        document={marking}
+        taken={documents.map((document) => document.evidenceNumber)}
+        onOpenChange={(open) => {
+          if (!open) setMarking(null);
+        }}
+      />
       <DocumentRecordDialog
         file={file}
         peopleById={peopleById}
@@ -864,11 +895,14 @@ function DocumentsTable({
   rows,
   peopleById,
   onOpenRecord,
+  onMark,
 }: {
   caption: string;
   rows: CaseDocument[];
   peopleById: Map<string, DocumentPerson>;
   onOpenRecord: (document: CaseDocument) => void;
+  /** Set for an evidence marker: marks a document not yet marked. */
+  onMark?: (document: CaseDocument) => void;
 }) {
   return (
     <Table>
@@ -919,11 +953,27 @@ function DocumentsTable({
                   download. Icon-only with the label on hover/focus, per the
                   Aug 31 correction round (legacy's three-dot menu held only
                   Download). */}
-              <DownloadFilingButton
-                label={`Download filing: ${document.title}`}
-                tooltip="Download filing"
-                href={documentSrc(document)}
-              />
+              <div className="flex items-center gap-1">
+                <DownloadFilingButton
+                  label={`Download filing: ${document.title}`}
+                  tooltip="Download filing"
+                  href={documentSrc(document)}
+                />
+                {onMark && !document.evidenceNumber ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    aria-label={`Mark as evidence: ${document.title}`}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onMark(document);
+                    }}
+                  >
+                    Mark
+                  </Button>
+                ) : null}
+              </div>
             </TableCell>
           </TableRow>
         ))}
@@ -980,10 +1030,12 @@ function DocumentsItemList({
   rows,
   peopleById,
   onOpenRecord,
+  onMark,
 }: {
   rows: CaseDocument[];
   peopleById: Map<string, DocumentPerson>;
   onOpenRecord: (document: CaseDocument) => void;
+  onMark?: (document: CaseDocument) => void;
 }) {
   const tray = useOneOpen<string>();
   return (
@@ -995,9 +1047,16 @@ function DocumentsItemList({
             open={tray.isOpen(document.id)}
             onOpenChange={tray.toggle(document.id)}
             actions={
-              <Button type="button" onClick={() => onOpenRecord(document)}>
-                View document
-              </Button>
+              <>
+                {onMark && !document.evidenceNumber ? (
+                  <Button type="button" variant="outline" onClick={() => onMark(document)}>
+                    Mark as evidence
+                  </Button>
+                ) : null}
+                <Button type="button" onClick={() => onOpenRecord(document)}>
+                  View document
+                </Button>
+              </>
             }
           >
             {/* Under the title's stretched hit area, so the face only: the

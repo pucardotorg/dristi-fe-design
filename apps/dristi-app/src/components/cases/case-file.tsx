@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useCaseRouter } from "@/components/cases/case-reader";
 import {
   ChevronDownIcon,
@@ -47,7 +47,20 @@ import {
   type CaseFileNode,
   type CaseFileView,
 } from "@/lib/cases/case-file";
-import { caseFileDigitalPane } from "@/lib/cases/case-file-digital";
+import {
+  caseFileDigitalPane,
+  caseFileRegisterDocumentId,
+} from "@/lib/cases/case-file-digital";
+import { useSessionValue } from "@/lib/cases/demo-session";
+import { documentsFile } from "@/lib/cases/documents";
+import {
+  evidenceMarksKey,
+  parseEvidenceMarks,
+} from "@/lib/cases/evidence-marks";
+import {
+  MarkEvidenceDialog,
+  useCanMarkEvidence,
+} from "@/components/cases/mark-evidence-dialog";
 import { type ComplaintPane } from "@/lib/cases/complaint";
 import { type CaseRecord } from "@/lib/cases/types";
 import { cn } from "@/lib/utils";
@@ -123,12 +136,43 @@ export function CaseFile({
     });
   }
 
+  /* Marking from the case file (DSB-20): a leaf that is a row of the
+     Documents register, not yet marked, for a seat that marks evidence. */
+  const canMark = useCanMarkEvidence();
+  const marksRaw = useSessionValue(evidenceMarksKey(record.id));
+  const marks = useMemo(() => parseEvidenceMarks(marksRaw), [marksRaw]);
+  const register = useMemo(() => {
+    try {
+      return documentsFile(record).documents.map((document) => ({
+        ...document,
+        evidenceNumber: marks[document.id] ?? document.evidenceNumber,
+      }));
+    } catch {
+      return [];
+    }
+  }, [record, marks]);
+  const [marking, setMarking] = useState<{ id: string; title: string } | null>(null);
+  const markableDocument = (nodeId: string) => {
+    const id = caseFileRegisterDocumentId(nodeId);
+    const document = id ? register.find((item) => item.id === id) : undefined;
+    return document && !document.evidenceNumber ? document : undefined;
+  };
+
   const indexProps = {
     nodes: CASE_FILE_TREE,
     selectedId: docId,
     openIds,
     onSelect: selectDoc,
     onFolderOpenChange: setFolderOpen,
+    mark: canMark
+      ? {
+          can: (nodeId: string) => Boolean(markableDocument(nodeId)),
+          onMark: (nodeId: string) => {
+            const document = markableDocument(nodeId);
+            if (document) setMarking({ id: document.id, title: document.title });
+          },
+        }
+      : undefined,
   };
 
   return (
@@ -250,6 +294,19 @@ export function CaseFile({
           />
         </div>
       </Card>
+      <MarkEvidenceDialog
+        caseId={record.id}
+        document={marking}
+        /* Every number given in the case, from any tab: a submitted document
+           marked from Documents is not in the case file's own list. */
+        taken={[
+          ...register.map((document) => document.evidenceNumber),
+          ...Object.values(marks),
+        ]}
+        onOpenChange={(open) => {
+          if (!open) setMarking(null);
+        }}
+      />
     </div>
   );
 }
@@ -266,6 +323,7 @@ export function CaseFileIndex({
   openIds,
   onSelect,
   onFolderOpenChange,
+  mark,
   depth = 0,
 }: {
   nodes: CaseFileNode[];
@@ -273,6 +331,8 @@ export function CaseFileIndex({
   openIds: Set<string>;
   onSelect: (id: string) => void;
   onFolderOpenChange: (id: string, open: boolean) => void;
+  /** Set for a seat that marks evidence (DET-12, DSB-20). */
+  mark?: { can: (id: string) => boolean; onMark: (id: string) => void };
   depth?: number;
 }) {
   return (
@@ -319,6 +379,7 @@ export function CaseFileIndex({
                     openIds={openIds}
                     onSelect={onSelect}
                     onFolderOpenChange={onFolderOpenChange}
+                    mark={mark}
                     depth={depth + 1}
                   />
                 ) : (
@@ -354,10 +415,11 @@ export function CaseFileIndex({
                   </button>
                 </ContextMenuTrigger>
                 <ContextMenuContent>
-                  {VIEWER_IS_COURT ? (
+                  {mark?.can(node.id) ? (
                     <>
-                      <ContextMenuItem>Mark as Evidence</ContextMenuItem>
-                      <ContextMenuItem>Mark as Void</ContextMenuItem>
+                      <ContextMenuItem onSelect={() => mark.onMark(node.id)}>
+                        Mark as Evidence
+                      </ContextMenuItem>
                       <ContextMenuSeparator />
                     </>
                   ) : null}
@@ -377,10 +439,6 @@ export function CaseFileIndex({
 }
 
 /** Hairline on the shell, fill on the row — same split as Item + ItemSeparator. */
-/** This build is the advocate and litigant view; court staff and the
- *  magistrate also get Mark as Evidence and Mark as Void (DET-12). */
-const VIEWER_IS_COURT = false;
-
 const rowShell = "py-1";
 
 const rowClass =

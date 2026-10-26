@@ -171,7 +171,7 @@ export function ESignDialog({
     >
       <FlowDialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md">
         {step === "done" ? (
-          <DialogHeader className="shrink-0 px-6 py-5 pr-14 text-left">
+          <DialogHeader className="shrink-0 px-6 py-6 pr-12 text-left">
             <div className="flex items-center gap-4">
               <span
                 aria-hidden

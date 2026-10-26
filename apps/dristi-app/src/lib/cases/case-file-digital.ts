@@ -57,6 +57,12 @@ const DOCUMENT_BY_DOC: Record<string, string> = {
   "questionnaire-351-bnss": "KL-DUMMY-001386-2026-AR1",
 };
 
+/** The Documents register row a case file leaf is, if any: what marking it
+ *  from the case file marks (DSB-20). */
+export function caseFileRegisterDocumentId(docId: string): string | undefined {
+  return DOCUMENT_BY_DOC[docId];
+}
+
 /** Case file leaf → hearing deposition ids, in file order. */
 const DEPOSITIONS_BY_DOC: Record<string, string[]> = {
   "witness-deposition-pw1": ["DEP-PW1-001", "DEP-PW1-002"],

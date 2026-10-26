@@ -511,7 +511,7 @@ function AdvocateFilesDialog({
             <p className="text-caption text-muted-foreground">{caseLine}</p>
           ) : null}
         </DialogHeader>
-        <Empty className="px-6 py-10">
+        <Empty className="px-6 py-12">
           <EmptyHeader className="gap-3">
             <EmptyMedia className="mb-1 size-14 rounded-2xl bg-brand-muted text-brand-muted-foreground">
               <FileTextIcon className="size-7" aria-hidden />
