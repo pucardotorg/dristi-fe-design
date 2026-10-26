@@ -775,3 +775,45 @@ export function validateApplication(
 
   return { fields: errors };
 }
+
+/**
+ * The files an application carries besides itself, each named the way the
+ * Documents tab titles it (Document Submission PRD, DSB-23): a fixed
+ * attachment by its field's name, a supporting document by the name the
+ * filer gave it. A name that comes up twice is numbered in order, as the
+ * complaint's upload slots are.
+ */
+export function applicationAttachments(
+  draft: ApplicationDraft,
+  personName: (id: string) => string
+): { label: string; files: File[] }[] {
+  const found: { label: string; files: File[] }[] = [];
+  const add = (label: string, files: File[]) => {
+    if (files.length > 0 && label.trim()) found.push({ label: label.trim(), files });
+  };
+  /* Only the chosen type's own fields: a draft keeps what was entered under
+     a type the filer then moved away from. */
+  if (draft.type === "bail" && draft.bailType === "surety") {
+    for (const surety of draft.sureties) {
+      add("Surety ID proof", surety.identityProof);
+      add("Proof of solvency", surety.solvencyProof);
+    }
+  }
+  if (draft.type === "production-of-documents") {
+    for (const row of draft.productionDocuments) add(row.type, row.files);
+  }
+  if (draft.type === "poa-change") for (const id of draft.poaLitigantIds) {
+    add(`Authorization document of ${personName(id)}`, draft.poaAuthorizations[id] ?? []);
+  }
+  for (const row of draft.supportingDocuments) add(row.name, row.files);
+
+  const totals = new Map<string, number>();
+  for (const item of found) totals.set(item.label, (totals.get(item.label) ?? 0) + 1);
+  const seen = new Map<string, number>();
+  return found.map((item) => {
+    if ((totals.get(item.label) ?? 0) < 2) return item;
+    const count = (seen.get(item.label) ?? 0) + 1;
+    seen.set(item.label, count);
+    return { ...item, label: `${item.label} ${count}` };
+  });
+}

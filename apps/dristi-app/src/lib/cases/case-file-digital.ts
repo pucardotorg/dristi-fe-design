@@ -14,7 +14,6 @@ import {
   documentStatusLabel,
   documentsFile,
   documentTypeLabel,
-  evidenceStatusLabel,
   submittedByName,
   submittedByRole,
   type CaseDocument,
@@ -199,9 +198,6 @@ function documentPane(
       field("Submitted by", submittedBy),
       ...(document.evidenceNumber
         ? [idField("Evidence no.", document.evidenceNumber)]
-        : []),
-      ...(document.evidenceStatus
-        ? [field("Evidence status", evidenceStatusLabel(document.evidenceStatus))]
         : []),
       ...(document.linkedApplication
         ? [

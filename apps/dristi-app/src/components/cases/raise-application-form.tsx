@@ -52,6 +52,7 @@ import {
 import {
   EMPTY_APPLICATION_DRAFT,
   EMPTY_APPLICATION_ERRORS,
+  applicationAttachments,
   applicationDraftFrom,
   draftRequestText,
   hasApplicationErrors,
@@ -90,6 +91,7 @@ import { isViewer, viewerAccess, viewerRepresentation } from "@/lib/cases/viewer
 import { useProfile } from "@/components/shell/profile";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { localFileSrc } from "@/components/cases/pdf-viewer";
 import { useSessionValue } from "@/lib/cases/demo-session";
 import {
   newSavedDraftId,
@@ -419,6 +421,11 @@ export function RaiseApplicationForm({
     closeForm();
   }
 
+  /** A litigant's name, for an attachment titled after them (a PoA's). */
+  function personName(id: string): string {
+    return caseLitigants(record).find((item) => item.id === id)?.name ?? "the litigant";
+  }
+
   /**
    * Put the filing in the Applications register (this browser only), at the
    * status it stopped at: a draft, waiting for a signature (the advocate's,
@@ -455,6 +462,13 @@ export function RaiseApplicationForm({
           : (stop.status as FilingStatus),
         submittedOn: paid ? new Date().toISOString().slice(0, 10) : undefined,
         temporaryId: paid && "temporaryId" in stop ? stop.temporaryId : undefined,
+        attachments: applicationAttachments(draft, personName).map((item) => ({
+          label: item.label,
+          files: item.files.map((file) => ({
+            label: file.name,
+            href: localFileSrc(file),
+          })),
+        })),
       });
     return true;
   }

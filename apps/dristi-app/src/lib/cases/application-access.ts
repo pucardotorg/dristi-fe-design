@@ -138,7 +138,12 @@ export function canSeeApplication(
     case "advocate":
     case "pip":
     case "clerk":
-      return fromOffice(submission, officeOf(viewer, people));
+      /* Whoever it was sent to for signing sees it too (DSB-18). */
+      return (
+        fromOffice(submission, officeOf(viewer, people)) ||
+        (viewer.personId !== undefined &&
+          (submission.signers ?? []).includes(viewer.personId))
+      );
     case "litigant":
     case "poa-holder":
       return (
@@ -173,7 +178,9 @@ export function applicationStepFor(
       return drafter && fromOffice(submission, office) ? "continue" : null;
     case "pending-signature":
       return (viewer.role === "advocate" || viewer.role === "pip") &&
-        submission.submittedById === viewer.personId
+        viewer.personId !== undefined &&
+        (submission.submittedById === viewer.personId ||
+          (submission.signers ?? []).includes(viewer.personId))
         ? "sign"
         : null;
     case "pending-payment":

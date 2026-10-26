@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useRef, useState, type ReactNode } from "react";
-import { CaseLink as Link } from "@/components/cases/case-reader";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   ChevronDownIcon,
@@ -77,7 +76,6 @@ import {
   FILING_STATUSES,
   applicationsFile,
   quotedOthersTitle,
-  resumeDraftHref,
   type FilingStatus,
   type Submission,
 } from "@/lib/cases/applications";
@@ -94,6 +92,11 @@ import {
   savedDraftSubmission,
   savedDraftsKey,
 } from "@/lib/cases/saved-application-drafts";
+import {
+  parseSavedDocumentSubmissions,
+  savedDocumentRows,
+  savedDocumentSubmissionsKey,
+} from "@/lib/cases/saved-document-submissions";
 import { type CaseRecord } from "@/lib/cases/types";
 import { cn } from "@/lib/utils";
 import { RegisterTrayCard, useOneOpen } from "@/components/cases/register-card";
@@ -455,9 +458,16 @@ export function useFilingsRegister(record: CaseRecord) {
   }, [record, profileRole, accountName]);
   /* What the Raise application form filed during this visit. */
   const savedRaw = useSessionValue(savedDraftsKey(record.id));
+  /* What Submit documents filed during this visit, one row per document. */
+  const savedDocumentsRaw = useSessionValue(savedDocumentSubmissionsKey(record.id));
   const saved = useMemo(
-    () => parseSavedDrafts(savedRaw).map(savedDraftSubmission),
-    [savedRaw]
+    () => [
+      ...parseSavedDocumentSubmissions(savedDocumentsRaw).flatMap(
+        savedDocumentRows
+      ),
+      ...parseSavedDrafts(savedRaw).map(savedDraftSubmission),
+    ],
+    [savedRaw, savedDocumentsRaw]
   );
   const register = useMemo(() => {
     try {
@@ -507,6 +517,9 @@ export function SignAndPayDialogs({
   if (signing.length > 0 && signing !== signed) setSigned(signing);
   const count = signed.length;
   const noun = filingNoun(signed);
+  /* A document never pays (DSB-19): signed is submitted, onto the record. */
+  const documents =
+    signed.length > 0 && signed.every((item) => item.source.kind === "document");
 
   function move(ids: string[], next: (item: ApplicationRecord) => ApplicationMove) {
     /* Read fresh, not from this render: signing then paying writes twice
@@ -537,7 +550,10 @@ export function SignAndPayDialogs({
         onComplete={() => {
           move(
             signing.map((item) => item.id),
-            () => ({ status: "pending-payment" })
+            () =>
+              documents
+                ? { status: "submitted", submittedOn: FIXTURE_TODAY }
+                : { status: "pending-payment" }
           );
           onSigningChange([]);
         }}
@@ -547,11 +563,12 @@ export function SignAndPayDialogs({
             : `How is this ${noun} signed?`
         }
         noun={filingNoun(signed, 1)}
+        onRecord={documents}
         submitLabel="Submit signed copy"
         /* Signed goes on to the fee, as it does from the Raise application
            form; only an advocate or party in person signs, and both may pay
            (owner, Sept 24: signing stopped short of payment here). */
-        proceed={{
+        proceed={documents ? undefined : {
           label: "Proceed to payment",
           laterLabel: "Pay later",
           onClick: () => {
@@ -565,7 +582,17 @@ export function SignAndPayDialogs({
           },
         }}
         confirmation={
-          count > 1
+          documents
+            ? count > 1
+              ? {
+                  title: `${count} documents submitted`,
+                  description: "They are on the case record now. Everyone on the case can see them.",
+                }
+              : {
+                  title: "Document submitted",
+                  description: "It is on the case record now. Everyone on the case can see it.",
+                }
+            : count > 1
             ? {
                 title: `${count} ${noun} signed`,
                 description: "Pay the court fee to submit them to the court.",
@@ -746,20 +773,6 @@ export function NeedsAction({
   );
 }
 
-/**
- * Where a draft's Continue draft goes when it leaves this tab: only a
- * document draft does, to its own page. An application draft reopens its
- * form over this tab (`act`), so the page under the dialog never changes.
- */
-function documentDraftHref(
-  caseId: string,
-  application: ApplicationRecord
-): string | null {
-  return application.source.kind === "application"
-    ? null
-    : resumeDraftHref(caseId, application.source);
-}
-
 const STEP_COPY = {
   continue: "Continue draft",
   sign: "Add signature",
@@ -826,9 +839,8 @@ function filedLine(application: ApplicationRecord): string {
     : application.filedBy;
 }
 
-/** What the step's button does: a draft goes back to its form, the rest act here. */
+/** What the step's button does: every step opens over this tab. */
 function StepAction({
-  caseId,
   application,
   onAct,
 }: {
@@ -837,13 +849,10 @@ function StepAction({
   onAct: (applications: ApplicationRecord[]) => void;
 }) {
   if (!application.step) return null;
+  /* Every step, a draft's too, opens over the tab it is on (`onAct`), so
+     the page under the dialog never changes. */
   const step = STEP_COPY[application.step];
-  const draftHref = documentDraftHref(caseId, application);
-  return application.step === "continue" && draftHref ? (
-    <Button asChild>
-      <Link href={draftHref}>{step}</Link>
-    </Button>
-  ) : (
+  return (
     <Button type="button" onClick={() => onAct([application])}>
       {step}
     </Button>
@@ -1048,7 +1057,6 @@ function GroupMemberCard({
 }
 
 function ActionRow({
-  caseId,
   application,
   onAct,
   onOpen,
@@ -1062,7 +1070,6 @@ function ActionRow({
   nested?: boolean;
 }) {
   const step = application.step ? STEP_COPY[application.step] : null;
-  const draftHref = documentDraftHref(caseId, application);
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2.5">
       <div className="flex min-w-0 flex-1 flex-col gap-1 max-sm:basis-full">
@@ -1094,14 +1101,6 @@ function ActionRow({
         </p>
       </div>
       {step ? (
-        application.step === "continue" && draftHref ? (
-          <Button variant="outline" size="sm" className="max-sm:h-10" asChild>
-            <Link href={draftHref}>
-              {step}
-              <span className="sr-only">: {application.typeLabel}</span>
-            </Link>
-          </Button>
-        ) : (
           <Button
             type="button"
             variant={nested ? "ghost" : "outline"}
@@ -1112,7 +1111,6 @@ function ActionRow({
             {step}
             <span className="sr-only">: {application.typeLabel}</span>
           </Button>
-        )
       ) : null}
     </div>
   );

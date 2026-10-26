@@ -167,7 +167,7 @@
     {
       "id": "sub-1001-memo-signature",
       "kind": "Document submission",
-      "type": "Memos",
+      "type": "Memo",
       "title": "Memo of calculation of cheque amount and interest",
       "status": "Pending signature",
       "addedOn": "2026-08-08",
@@ -189,7 +189,7 @@
     {
       "id": "sub-1001-affidavit-return-memo-signature",
       "kind": "Document submission",
-      "type": "Affidavits",
+      "type": "Affidavit",
       "title": "Affidavit of the complainant on the cheque return memo",
       "status": "Pending signature",
       "addedOn": "2026-08-07",
@@ -256,7 +256,7 @@
     {
       "id": "sub-1001-affidavit-pw2",
       "kind": "Document submission",
-      "type": "Affidavits",
+      "type": "Affidavit",
       "title": "Chief affidavit of PW-2",
       "status": "Submitted",
       "addedOn": "2026-07-28",
@@ -337,27 +337,6 @@
         {
           "label": "Draft application",
           "href": "/case-file/11-application-early-listing.pdf"
-        }
-      ]
-    },
-    {
-      "id": "sub-1001-affidavit-pw1",
-      "kind": "Document submission",
-      "type": "Affidavits",
-      "title": "PW-1 chief affidavit under section 145 of the Negotiable Instruments Act",
-      "status": "Submitted",
-      "addedOn": "2025-06-16",
-      "submittedById": "ADV-C-000",
-      "temporaryId": "KL-DUMMY-001386-2025-DS1",
-      "request": null,
-      "courtResult": null,
-      "linkedOrder": null,
-      "defects": [],
-      "documents": [
-        {
-          "label": "Filed affidavit",
-          "href": "/case-file/03-affidavits.pdf",
-          "page": 4
         }
       ]
     },
@@ -644,7 +623,7 @@
       {
         "id": "sub-1004-affidavit",
         "kind": "Document submission",
-        "type": "Affidavits",
+        "type": "Affidavit",
         "title": "PW-1 chief affidavit under section 145 of the Negotiable Instruments Act",
         "status": "Submitted",
         "addedOn": "2026-08-05",
@@ -688,7 +667,7 @@
       {
         "id": "sub-1005-memo",
         "kind": "Document submission",
-        "type": "Memos",
+        "type": "Memo",
         "title": "Memo on the execution of the non-bailable warrant",
         "status": "Submitted",
         "addedOn": "2026-07-21",
@@ -754,7 +733,7 @@
       {
         "id": "sub-tw412-affidavit",
         "kind": "Document submission",
-        "type": "Affidavits",
+        "type": "Affidavit",
         "title": "PW-1 chief affidavit under section 145 of the Negotiable Instruments Act",
         "status": "Submitted",
         "addedOn": "2026-07-30",
@@ -798,7 +777,7 @@
       {
         "id": "sub-tw88-proof",
         "kind": "Document submission",
-        "type": "Others",
+        "type": "Evidence",
         "title": "Proof of service of the legal demand notice",
         "status": "Pending signature",
         "addedOn": "2026-08-08",
@@ -819,7 +798,7 @@
       {
         "id": "sub-tw941-affidavit",
         "kind": "Document submission",
-        "type": "Affidavits",
+        "type": "Affidavit",
         "title": "PW-1 chief affidavit under section 145 of the Negotiable Instruments Act",
         "status": "Submitted",
         "addedOn": "2026-07-08",

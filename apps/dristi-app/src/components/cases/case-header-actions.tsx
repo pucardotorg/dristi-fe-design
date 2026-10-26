@@ -203,9 +203,10 @@ export function CaseHeaderActions({
       <SubmitDocumentsDialog
         open={submitOpen}
         onOpenChange={setSubmitOpen}
+        caseId={caseId}
         caseLine={
           <>
-            <Identifier value={accessCase.caseNumber} label="case number" copyable={false} />
+            <Identifier value={accessCase.caseNumber} label="case number" />
             <span aria-hidden> · </span>
             {accessCase.title}
           </>
