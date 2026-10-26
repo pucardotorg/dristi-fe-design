@@ -776,7 +776,7 @@ export function PersonAccessDialog({
       {/* Search takes the width, Stage sits at its end. The cases list's
                   toolbar grammar: no visible label over the box, the label kept
                   for screen readers and voice. */}
-      <div className="flex flex-col gap-3 @lg/access:flex-row">
+      <div className="flex flex-col gap-3 @3xl/access:flex-row">
         <Field className="min-w-0 flex-1 gap-0">
           <FieldLabel className="sr-only">
             {pick(peopleCopy.caseSearchLabel, locale)}
@@ -794,6 +794,9 @@ export function PersonAccessDialog({
             />
           </InputGroup>
         </Field>
+        {/* The filters share a row under the search until all three fit
+            on one line, so the search is never squeezed (iPad mini). */}
+        <div className="grid gap-3 @md/access:grid-cols-2 @3xl/access:flex @3xl/access:shrink-0">
         {/* Several stages at once (owner, Oct 23). "All stages" sits over a
                     hairline: it is the absence of the others, so ticking it
                     clears them and ticking any stage clears it. The menu keeps
@@ -805,7 +808,7 @@ export function PersonAccessDialog({
               variant="outline"
               aria-label={`${pick(copy.stageLabel, locale)}: ${stageSummary}`}
               className={cn(
-                "w-full justify-between font-normal @lg/access:w-56",
+                "w-full justify-between font-normal @3xl/access:w-56",
                 // Teal while open too: the outline button's own open
                 // fill otherwise covers it until the menu closes.
                 stages.length > 0 &&
@@ -861,7 +864,7 @@ export function PersonAccessDialog({
               variant="outline"
               aria-label={`${pick(copy.sideLabel, locale)}: ${sideSummary}`}
               className={cn(
-                "w-full justify-between font-normal @lg/access:w-56",
+                "w-full justify-between font-normal @3xl/access:w-56",
                 side !== null &&
                   cn(
                     FILTER_ON,
@@ -898,6 +901,7 @@ export function PersonAccessDialog({
             </DropdownMenuRadioGroup>
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
       </div>
     </>
   );
