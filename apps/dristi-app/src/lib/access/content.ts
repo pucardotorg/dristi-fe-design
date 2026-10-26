@@ -915,8 +915,8 @@ export const personAccessCopy = {
     "നിങ്ങളുടെ എല്ലാ കേസുകളും {name}-ന് ഉണ്ട്",
   ),
   emptyOtherBody: t(
-    "New cases are not shared with them. To share those too, give access to all cases.",
-    "പുതിയ കേസുകൾ അവരുമായി പങ്കിടില്ല. അവയും പങ്കിടാൻ, എല്ലാ കേസുകളിലേക്കും ആക്‌സസ് നൽകുക.",
+    "New cases are not shared with them. To share those too, choose All cases.",
+    "പുതിയ കേസുകൾ അവരുമായി പങ്കിടില്ല. അവയും പങ്കിടാൻ, എല്ലാ കേസുകളും തിരഞ്ഞെടുക്കുക.",
   ),
   noMatchTitle: t("No cases match", "അനുയോജ്യമായ കേസുകളില്ല"),
   noMatchBody: t(

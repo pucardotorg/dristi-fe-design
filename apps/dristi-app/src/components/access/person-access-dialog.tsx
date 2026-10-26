@@ -7,7 +7,7 @@ import {
   ChevronDownIcon,
   EllipsisIcon,
   ExternalLinkIcon,
-  CheckCheckIcon,
+  FolderCheckIcon,
   InfoIcon,
   SearchXIcon,
   SearchIcon,
@@ -1377,15 +1377,15 @@ export function PersonAccessDialog({
                   >
                     <TabsList
                       aria-label={pick(copy.casesTabs, locale)}
-                      className="w-full group-data-horizontal/tabs:h-11"
+                      className="w-full group-data-horizontal/tabs:h-10"
                     >
-                      <TabsTrigger value="held" className="px-3 text-body">
+                      <TabsTrigger value="held" className="px-3 text-body-compact">
                         {pick(copy.groupHeld, locale)}
                         <span className="text-muted-foreground tabular-nums">
                           {heldTotal}
                         </span>
                       </TabsTrigger>
-                      <TabsTrigger value="other" className="px-3 text-body">
+                      <TabsTrigger value="other" className="px-3 text-body-compact">
                         {pick(copy.tabOther, locale)}
                         <span className="text-muted-foreground tabular-nums">
                           {otherTotal}
@@ -1396,10 +1396,13 @@ export function PersonAccessDialog({
                 )}
 
                 {!savedFuture && tab === "other" && otherTotal === 0 ? (
-                  <Empty className="rounded-xl border border-solid border-hairline py-12">
-                    <EmptyHeader>
-                      <EmptyMedia variant="icon">
-                        <CheckCheckIcon aria-hidden />
+                  <Empty className="py-16">
+                    <EmptyHeader className="max-w-xl">
+                      <EmptyMedia
+                        variant="icon"
+                        className="size-12 rounded-full bg-brand-muted text-brand-muted-foreground [&_svg:not([class*='size-'])]:size-6"
+                      >
+                        <FolderCheckIcon aria-hidden />
                       </EmptyMedia>
                       <EmptyTitle>
                         {fillCopy(copy.emptyOtherTitle, locale, {
@@ -1410,15 +1413,6 @@ export function PersonAccessDialog({
                         {pick(copy.emptyOtherBody, locale)}
                       </EmptyDescription>
                     </EmptyHeader>
-                    <EmptyContent>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setAct("all")}
-                      >
-                        {pick(copy.allAction, locale)}
-                      </Button>
-                    </EmptyContent>
                   </Empty>
                 ) : (
                   <div className="flex flex-col gap-4">
@@ -1478,9 +1472,12 @@ export function PersonAccessDialog({
                     ) : null}
 
                     {tabRows.length === 0 ? (
-                      <Empty className="rounded-xl border border-solid border-hairline py-12">
-                        <EmptyHeader>
-                          <EmptyMedia variant="icon">
+                      <Empty className="py-16">
+                        <EmptyHeader className="max-w-xl">
+                          <EmptyMedia
+                            variant="icon"
+                            className="size-12 rounded-full bg-muted [&_svg:not([class*='size-'])]:size-6"
+                          >
                             <SearchXIcon aria-hidden />
                           </EmptyMedia>
                           <EmptyTitle>{pick(copy.noMatchTitle, locale)}</EmptyTitle>
