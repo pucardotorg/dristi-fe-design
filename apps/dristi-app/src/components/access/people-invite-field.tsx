@@ -103,6 +103,12 @@ function keyOf(person: InvitePerson): string {
     : (person.barId ?? "").toUpperCase();
 }
 
+/** As the field shows it: the name alone, since the role is on the line under
+    it (owner, Oct 26). */
+function shownLabel(person: InvitePerson): string {
+  return inviteLabel(person).replace(/^Adv\.\s*/, "");
+}
+
 /** What a chip or option reads as: the name you know them by, otherwise the identifier typed. */
 export function inviteLabel(person: InvitePerson): string {
   return (
@@ -252,7 +258,7 @@ export function PeopleInviteField({
             <>
               {people.map((person) => (
                 <ComboboxChip key={keyOf(person)} className="tabular-nums">
-                  {inviteLabel(person)}
+                  {shownLabel(person)}
                 </ComboboxChip>
               ))}
               <ComboboxChipsInput
@@ -312,7 +318,7 @@ export function PeopleInviteField({
               </Avatar>
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate text-body-compact font-medium tabular-nums">
-                  {inviteLabel(person)}
+                  {shownLabel(person)}
                 </span>
                 <span
                   className={

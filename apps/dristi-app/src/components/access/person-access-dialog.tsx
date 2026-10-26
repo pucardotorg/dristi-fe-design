@@ -1208,7 +1208,9 @@ export function PersonAccessDialog({
                   {/* Said once for everyone being added, never as a list of
                       names (owner, Oct 26). Stacked, it sits between the
                       heading and the dropdown; side by side, under both. */}
-                  {adding ? (
+                  {/* Only before a choice: once one is made, the note or the
+                      list's own line says it (owner, Oct 26). */}
+                  {adding && mode === null ? (
                     <p className="order-1 text-body-compact text-pretty text-muted-foreground @3xl/access:order-last @3xl/access:basis-full">
                       {pick(
                         chosen.length === 1
@@ -1327,9 +1329,11 @@ export function PersonAccessDialog({
                                   copy.selectedMany,
                                 )
                               : pick(
-                                  adding || tab === "other"
-                                    ? copy.selectHintOther
-                                    : copy.selectHintHeld,
+                                  adding
+                                    ? copy.accessIntroOne
+                                    : tab === "other"
+                                      ? copy.selectHintOther
+                                      : copy.selectHintHeld,
                                   locale,
                                 )}
                           </span>

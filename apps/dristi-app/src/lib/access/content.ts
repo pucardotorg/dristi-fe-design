@@ -799,7 +799,7 @@ export const personAccessCopy = {
   close: t("Close", "അടയ്ക്കുക"),
   addTitle: t("Add people", "ആളുകളെ ചേർക്കുക"),
   addIntro: t(
-    "Give a registered advocate or clerk access to your cases. They can work on the cases you pick, but they're not on the vakalatnama, so they can't e-sign.",
+    "Give a registered advocate or clerk access to your cases. They can work on the cases you pick, but can't e-sign as they're not on the vakalatnama.",
     "രജിസ്റ്റർ ചെയ്ത ഒരു അഭിഭാഷകനോ ക്ലർക്കിനോ നിങ്ങളുടെ കേസുകളിലേക്ക് ആക്‌സസ് നൽകുക. നിങ്ങൾ തിരഞ്ഞെടുക്കുന്ന കേസുകളിൽ അവർക്ക് പ്രവർത്തിക്കാം, പക്ഷേ വക്കാലത്ത്നാമയിൽ ഇല്ലാത്തതിനാൽ ഇ-സൈൻ ചെയ്യാനാകില്ല.",
   ),
   groupYourCases: t("Your cases", "നിങ്ങളുടെ കേസുകൾ"),
