@@ -931,8 +931,8 @@ export const personAccessCopy = {
     "{name}-ന് എല്ലാ കേസുകളിലേക്കും ആക്‌സസ് നൽകണോ?",
   ),
   specificTitle: t(
-    "Change {name} to specific cases?",
-    "{name}-നെ തിരഞ്ഞെടുത്ത കേസുകളിലേക്ക് മാറ്റണോ?",
+    "Change {name}'s access to specific cases?",
+    "{name}-ന്റെ ആക്‌സസ് തിരഞ്ഞെടുത്ത കേസുകളിലേക്ക് മാറ്റണോ?",
   ),
   pointKeep: t(
     "Keeps access to the {count} cases they have now",
