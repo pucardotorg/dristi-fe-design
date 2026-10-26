@@ -514,11 +514,12 @@ export function documentFromFiling(item: ApplicationRecord): CaseDocument {
 }
 
 /**
- * A submitted application on this register (DSB-11, DSB-22, DSB-23): the
- * application itself, named by its type, then each of its attachments, named
- * by its field or by the filer. Only once it is submitted: a draft, or one
- * still to be signed or paid, is not on the record. Who may see it follows
- * the Applications tab, which has already filtered the rows it gets.
+ * A submitted application's attachments on this register (DSB-11, DSB-22,
+ * DSB-23), each named by its field or by the filer. Only the attachments: the
+ * application itself is read on the Applications tab, which already shows
+ * its papers (PM, Oct 26). Only once it is submitted: a draft, or one still
+ * to be signed or paid, is not on the record. Who may see it follows the
+ * Applications tab, which has already filtered the rows it gets.
  */
 export function documentsFromApplication(item: ApplicationRecord): CaseDocument[] {
   if (!isSubmittedToCourt(item.status)) return [];
@@ -543,21 +544,15 @@ export function documentsFromApplication(item: ApplicationRecord): CaseDocument[
     href: files[0]?.src,
     files,
   });
-  const own = item.documents.flatMap((doc) =>
-    doc.src ? [{ label: doc.label, src: doc.src }] : []
-  );
-  return [
-    row(`${item.id}:application`, item.name, own),
-    ...(item.source.attachments ?? []).map((attachment, index) =>
-      row(
-        `${item.id}:attachment-${index}`,
-        attachment.label,
-        attachment.files.flatMap((file) =>
-          file.href ? [{ label: file.label, src: file.href }] : []
-        )
+  return (item.source.attachments ?? []).map((attachment, index) =>
+    row(
+      `${item.id}:attachment-${index}`,
+      attachment.label,
+      attachment.files.flatMap((file) =>
+        file.href ? [{ label: file.label, src: file.href }] : []
       )
-    ),
-  ];
+    )
+  );
 }
 
 const FILING_TYPE: Record<string, DocumentTypeId> = {
