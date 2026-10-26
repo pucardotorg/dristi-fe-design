@@ -295,9 +295,10 @@ export function PeoplePage({ locale }: { locale: Locale }) {
             </h1>
             <p className={PAGE_SUBTITLE}>{pick(peopleCopy.subtitle, locale)}</p>
           </div>
+          {/* Full width on a phone, like the page's other lone actions. */}
           <Button
             type="button"
-            className="self-start"
+            className="self-stretch sm:self-start"
             onClick={() => {
               setAddOpening((n) => n + 1);
               setAddOpen(true);

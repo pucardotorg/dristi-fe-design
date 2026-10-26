@@ -11,13 +11,13 @@ import {
   InfoIcon,
   SearchXIcon,
   SearchIcon,
-  UserPlusIcon,
   UserXIcon,
   XIcon,
 } from "lucide-react";
 
 import { ChromeAlertDialogContent } from "@/components/chrome/app-chrome";
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
+import { FlowStepper } from "@/components/cases/flow-stepper";
 import { Identifier } from "@/components/chrome/identifier";
 import {
   TABLE_CELL,
@@ -65,13 +65,9 @@ import {
 } from "@/components/ui/input-group";
 import {
   Field,
-  FieldContent,
-  FieldDescription,
   FieldError,
   FieldLabel,
-  FieldTitle,
 } from "@/components/ui/field";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
   SelectContent,
@@ -166,6 +162,9 @@ type Mode = "all" | "specific";
 
 /** Specific cases, split by what is saved: the ones they have, the rest. */
 type AccessTab = "held" | "other";
+
+/** Add person's two steps (owner, Oct 26): who, then what they can access. */
+type AddStep = 1 | 2;
 
 /** An act waiting on its confirmation. */
 type Act = "remove" | "give" | "all" | "specific";
@@ -273,22 +272,21 @@ export function PersonAccessDialog({
   const [chosen, setChosen] = React.useState<InvitePerson[]>([]);
   /** Add to office was pressed with something missing: show what. */
   const [tried, setTried] = React.useState(false);
-  /* People already in the office are not offered: their access is changed
-     from their own row on People (owner, Oct 24). */
-  const known = directoryOptions([]).filter(
-    (option) =>
-      !office.some(
-        (p) => p.phone.replace(/\D/g, "") === option.phone?.replace(/\D/g, ""),
-      ),
-  );
-  /* Demo only (owner, Oct 24): a name, a number and a Bar ID from the
-     registry who are not in the office yet, so the search has something to
-     find. Remove with the demo registry. */
+  /* The whole registry, the office marked: people already in it show greyed
+     when searched, so the search says why they can't be added (owner, Oct
+     26). Their access is changed from their own row on People. */
+  const known = directoryOptions(office.map((p) => p.phone));
+  const outside = known.filter((option) => !option.inOffice);
+  /* Demo only (Anshumanth, Oct 26): two whole numbers and a Bar ID of people
+     not in the office yet, and the name of someone who is, so every kind of
+     search has something to find. Remove with the demo registry. */
   const examples = [
-    known.find((option) => option.type === "advocate")?.name,
-    known.find((option) => option.type === "clerk")?.phone,
-    known.filter((option) => option.barId)[1]?.barId,
+    outside.find((option) => option.type === "advocate")?.phone,
+    outside.find((option) => option.type === "clerk")?.phone,
+    outside.filter((option) => option.barId)[1]?.barId,
+    known.find((option) => option.inOffice)?.name,
   ].filter((value): value is string => Boolean(value));
+  const [addStep, setAddStep] = React.useState<AddStep>(1);
 
   const [draft, setDraft] = React.useState<Draft | null>(null);
   const closeRef = React.useRef<HTMLButtonElement>(null);
@@ -348,27 +346,6 @@ export function PersonAccessDialog({
     // On what is saved, so unticking a row does not make it vanish.
     return true;
   });
-  /* Two groups, by what is saved, so a row stays in its group while it is
-     being ticked or unticked: the cases they have, then the rest. */
-  const groups = [
-    {
-      key: "held",
-      label: copy.groupHeld,
-      entries: visible.filter((e) => saved.has(e.id)),
-    },
-    {
-      key: "other",
-      label: adding ? copy.groupYourCases : copy.groupOther,
-      entries: visible.filter((e) => !saved.has(e.id)),
-    },
-  ].filter((group) => group.entries.length > 0);
-  const visibleTicked = visible.filter((entry) => ticked.has(entry.id)).length;
-  const headerState: boolean | "indeterminate" =
-    visibleTicked === 0
-      ? false
-      : visibleTicked === visible.length
-        ? true
-        : "indeterminate";
   const adds = shareableCases.filter(
     (c) => ticked.has(c.id) && !saved.has(c.id),
   );
@@ -384,10 +361,8 @@ export function PersonAccessDialog({
     : Boolean(draft) && (!sameSet(ticked, saved) || futureChanged);
   /** Add person needs someone, and All cases or at least one case. */
   const hasAccess = future || tickedCount > 0;
-  const canSave = adding ? chosen.length > 0 && hasAccess : dirty;
-  const chosenNames = chosen.map((p) => p.name ?? p.phone ?? "").join(", ");
   // Each clears the moment it is put right.
-  const whoError = adding && tried && chosen.length === 0;
+  const whoError = adding && tried && addStep === 1 && chosen.length === 0;
   const modeError = adding && tried && mode === null;
   const casesError =
     adding && tried && mode === "specific" && tickedCount === 0;
@@ -398,20 +373,22 @@ export function PersonAccessDialog({
   }
 
   /**
-   * All cases ticks every case. Specific cases keeps what they hold now, so
-   * moving off All cases starts from their cases and stops new ones (OFC-31);
-   * on Add person it starts empty.
+   * Add person's dropdown. The cases picked under Specific cases are kept
+   * while All cases is on, so trying All and coming back loses nothing.
    */
   function chooseMode(next: Mode) {
-    setDraft({
-      mode: next,
-      ticked:
-        next === "all"
-          ? new Set(shareableCases.map((c) => c.id))
-          : adding
-            ? new Set()
-            : new Set(saved),
-    });
+    setDraft({ mode: next, ticked: draft?.ticked ?? new Set() });
+    clearFilters();
+  }
+
+  /**
+   * A new scope asks a new question, so the list starts unfiltered (owner,
+   * Oct 26): a filter left on from Specific made All cases look like fewer.
+   */
+  function clearFilters() {
+    setQuery("");
+    setStages([]);
+    setSide(null);
   }
 
   function toggleCase(caseId: string, on: boolean) {
@@ -451,7 +428,13 @@ export function PersonAccessDialog({
           phones,
           shareableCases.filter((c) => ticked.has(c.id)).map((c) => c.id),
         );
-      toast.success(fillCopy(copy.addedToast, locale, { names: chosenNames }));
+      toast.success(
+        chosen.length === 1
+          ? pick(copy.addedToastOne, locale)
+          : fillCopy(copy.addedToast, locale, {
+              count: String(chosen.length),
+            }),
+      );
       setDraft(null);
       setChosen([]);
       onOpenChange(false);
@@ -481,17 +464,29 @@ export function PersonAccessDialog({
     toast.success(fillCopy(copy.savedToast, locale, { name: live.name }));
   }
 
+  /** Add person's Continue: who first, then on to their access. */
+  function toAccess() {
+    if (chosen.length === 0) {
+      setTried(true);
+      document.getElementById("person-access-who-field")?.focus();
+      return;
+    }
+    setTried(false);
+    setAddStep(2);
+  }
+
   function save() {
     // Add person never greys its button out (owner, Oct 23): pressing it with
     // something missing points at what is missing instead.
-    if (adding && (chosen.length === 0 || !hasAccess)) {
+    if (adding && !hasAccess) {
       setTried(true);
-      const target =
-        chosen.length === 0
-          ? document.getElementById("person-access-who-field")
-          : document.getElementById("person-access-cases");
-      target?.scrollIntoView({ block: "center", behavior: "smooth" });
-      if (chosen.length === 0) target?.focus();
+      if (mode === null) {
+        document.getElementById("person-access-scope")?.focus();
+      } else {
+        document
+          .getElementById("person-access-cases")
+          ?.scrollIntoView({ block: "start", behavior: "smooth" });
+      }
       return;
     }
     // Every save shows what it will change first (owner, Oct 23). Removals
@@ -518,14 +513,42 @@ export function PersonAccessDialog({
   const selectedIds = shareableCases
     .filter((c) => selected.has(c.id) && inTab(c.id))
     .map((c) => c.id);
-  const shownSelected = tabRows.filter((e) => selected.has(e.id)).length;
-  const selectState: boolean | "indeterminate" =
-    shownSelected === 0
+  const leftAfterRemove = heldTotal - selectedIds.length;
+
+  /* Add person's access step shares this list (owner, Oct 26): the same
+     dropdown, tabs and selection line. Nobody has a case yet, so its tabs are
+     Your cases and Selected, and a tick is the pick itself. */
+  const listAll = adding ? mode === "all" : savedFuture;
+  const listRows = adding ? visible : tabRows;
+  const listChecked = (id: string) =>
+    adding ? ticked.has(id) : selected.has(id);
+  const listCount = adding ? tickedCount : selectedIds.length;
+  const listShownChecked = listRows.filter((e) => listChecked(e.id)).length;
+  const listSelectState: boolean | "indeterminate" =
+    listShownChecked === 0
       ? false
-      : shownSelected === tabRows.length
+      : listShownChecked === listRows.length
         ? true
         : "indeterminate";
-  const leftAfterRemove = heldTotal - selectedIds.length;
+
+  function listCheck(id: string, on: boolean) {
+    if (adding) toggleCase(id, on);
+    else select(id, on);
+  }
+
+  function listSelectShown(on: boolean) {
+    if (adding)
+      setMany(
+        listRows.map((e) => e.id),
+        on,
+      );
+    else selectShown(on);
+  }
+
+  function clearSelection() {
+    if (adding) commit(new Set());
+    else setSelected(new Set());
+  }
 
   function select(id: string, on: boolean) {
     setSelected((current) => {
@@ -577,9 +600,11 @@ export function PersonAccessDialog({
     } else if (act === "specific") {
       setAllCases(live.id, false);
       setTab("held");
+      clearFilters();
       toast.success(fillCopy(copy.savedToast, locale, { name }));
     } else {
       setAllCases(live.id, true);
+      clearFilters();
       toast.success(fillCopy(copy.savedToast, locale, { name }));
     }
     setSelected(new Set());
@@ -598,46 +623,17 @@ export function PersonAccessDialog({
   const sideSummary = side
     ? pick(side === "accused" ? copy.sideAccused : copy.sideComplainant, locale)
     : pick(copy.sideAll, locale);
-  /* The footer: only what Save will change; the groups' badges already say
-     how many they have (owner, Oct 23). Adds in
-     the success ink and removals in the destructive ink, each with its sign
-     and its words, so the colour is never the only cue. */
-  const pending: { text: string; tone?: "add" | "remove" }[] = [
-    ...(adds.length
-      ? [
-          {
-            text:
-              adds.length === 1
-                ? pick(copy.pendingAddOne, locale)
-                : fillCopy(copy.pendingAdd, locale, {
-                    count: String(adds.length),
-                  }),
-            tone: "add" as const,
-          },
-        ]
-      : []),
-    ...(removes.length
-      ? [
-          {
-            text:
-              removes.length === 1
-                ? pick(copy.pendingRemoveOne, locale)
-                : fillCopy(copy.pendingRemove, locale, {
-                    count: String(removes.length),
-                  }),
-            tone: "remove" as const,
-          },
-        ]
-      : []),
-  ];
-
   /* The save confirmation (owner, Oct 23): one heading and one button for
      every save, the changes as points under it. The button turns red when
      the save takes access away. */
   const futureOff = futureChanged && !future;
   const confirmTakesAway = removes.length > 0 || futureOff;
   const confirmTitle = adding
-    ? fillCopy(copy.addConfirmTitle, locale, { names: chosenNames })
+    ? chosen.length === 1
+      ? pick(copy.addConfirmTitleOne, locale)
+      : fillCopy(copy.addConfirmTitle, locale, {
+          count: String(chosen.length),
+        })
     : fillCopy(copy.confirmTitle, locale, { name: person.name });
   const saveLabel = pick(adding ? copy.addAction : copy.save, locale);
   const casesWord = (count: number, one: Copy, many: Copy) =>
@@ -732,7 +728,24 @@ export function PersonAccessDialog({
     sign?: "+" | "−";
     text: string;
     note?: boolean;
-  }[] = [
+  }[] = adding
+    ? future
+      ? [
+          {
+            key: "all",
+            sign: "+",
+            text: fillCopy(copy.pointAddAll, locale, { count: String(total) }),
+          },
+          { key: "future-on", sign: "+", text: pick(copy.confirmFutureOn, locale) },
+        ]
+      : [
+          {
+            key: "add",
+            sign: "+",
+            text: casesWord(tickedCount, copy.pointAddOne, copy.pointAdd),
+          },
+        ]
+    : [
     ...(adds.length
       ? [
           {
@@ -769,6 +782,10 @@ export function PersonAccessDialog({
       ? [{ key: "leave", text: pick(copy.confirmLeave, locale) }]
       : []),
   ];
+  const addSteps = [
+    { step: 1, title: pick(copy.stepPeople, locale) },
+    { step: 2, title: pick(copy.stepAccess, locale) },
+  ];
 
   /* Search, Stage and Representation: one toolbar for every case list here. */
   const toolbar = (
@@ -796,7 +813,7 @@ export function PersonAccessDialog({
         </Field>
         {/* The filters share a row under the search until all three fit
             on one line, so the search is never squeezed (iPad mini). */}
-        <div className="grid gap-3 @md/access:grid-cols-2 @3xl/access:flex @3xl/access:shrink-0">
+        <div className="grid grid-cols-2 gap-3 @3xl/access:flex @3xl/access:shrink-0">
         {/* Several stages at once (owner, Oct 23). "All stages" sits over a
                     hairline: it is the absence of the others, so ticking it
                     clears them and ticking any stage clears it. The menu keeps
@@ -934,32 +951,34 @@ export function PersonAccessDialog({
         >
           {/* ------------------------------------------------------- header */}
           {adding ? (
-            <div className="flex shrink-0 items-start gap-3 border-b border-hairline py-4 pr-3 pl-6">
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-muted text-brand-muted-foreground">
-                <UserPlusIcon aria-hidden className="size-5" />
-              </span>
-              <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <DialogTitle className="text-body font-semibold text-pretty">
+            <>
+              {/* The Add Power of Attorney holder dialog's step band (owner,
+                  Oct 26), centred on its own line under a hairline. */}
+              <div className="relative shrink-0 border-b border-hairline px-14 pt-6 pb-4">
+                {/* One heading per step, in the body (owner, Oct 26). */}
+                <DialogTitle className="sr-only">
                   {pick(copy.addTitle, locale)}
                 </DialogTitle>
-                {/* Everything the old three-line intro and option hints said,
-                    in one sentence (owner, Oct 23). */}
-                <p className="text-body-compact text-pretty text-muted-foreground">
-                  {pick(copy.addIntro, locale)}
-                </p>
+                <div className="mx-auto max-w-md">
+                  <FlowStepper
+                    steps={addSteps}
+                    current={addStep}
+                    label={pick(copy.addProgress, locale)}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  ref={closeRef}
+                  aria-label={pick(copy.close, locale)}
+                  onClick={requestClose}
+                  className="absolute top-3 right-3 pointer-coarse:size-10"
+                >
+                  <XIcon aria-hidden />
+                </Button>
               </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                ref={closeRef}
-                aria-label={pick(copy.close, locale)}
-                onClick={requestClose}
-                className="pointer-coarse:size-10"
-              >
-                <XIcon aria-hidden />
-              </Button>
-            </div>
+            </>
           ) : (
             <div className="flex shrink-0 items-start gap-3 border-b border-hairline py-4 pr-3 pl-6 sm:items-center">
               <Avatar className="size-10 shrink-0">
@@ -1072,14 +1091,22 @@ export function PersonAccessDialog({
               {pick(adding ? copy.casesIntro : copy.casesSection, locale)}
             </DialogDescription>
 
-            {adding ? (
+            {adding && addStep === 1 ? (
               <section
                 aria-labelledby="person-access-who"
                 className="flex flex-col gap-3"
               >
-                <h3 id="person-access-who" className="text-body font-semibold">
-                  {pick(copy.whoLabel, locale)}
-                </h3>
+                <div className="flex flex-col gap-1">
+                  <h3
+                    id="person-access-who"
+                    className="text-body font-semibold"
+                  >
+                    {pick(copy.peopleHeading, locale)}
+                  </h3>
+                  <p className="text-body-compact text-pretty text-muted-foreground">
+                    {pick(copy.addIntro, locale)}
+                  </p>
+                </div>
                 <Field data-invalid={whoError || undefined} className="gap-2">
                   <PeopleInviteField
                     id="person-access-who-field"
@@ -1089,6 +1116,7 @@ export function PersonAccessDialog({
                     onValueChange={setChosen}
                     locale={locale}
                     registeredOnly
+                    officeTaken
                     invalid={whoError}
                     describedBy={
                       whoError ? "person-access-who-error" : undefined
@@ -1114,239 +1142,59 @@ export function PersonAccessDialog({
               </section>
             ) : null}
 
-            {/* Add person (owner, Oct 23): the All or Specific choice, then
-                the cases to tick. A person's own access is told by the
-                dropdown and changed by named acts (owner, Oct 26). */}
-            {adding ? (
-              <section
-                aria-labelledby="person-access-cases"
-                className="flex flex-col gap-4"
-              >
-                <h3
-                  id="person-access-cases"
-                  className="text-body font-semibold"
-                >
-                  {pick(copy.casesSection, locale)}
-                </h3>
-                <Field data-invalid={modeError || undefined} className="gap-2">
-                  <RadioGroup
-                    value={mode ?? ""}
-                    onValueChange={(value) => chooseMode(value as Mode)}
-                    aria-labelledby="person-access-cases"
-                    aria-invalid={modeError || undefined}
-                    className="grid gap-3 @2xl/access:grid-cols-2"
-                  >
-                    <FieldLabel htmlFor="access-mode-all">
-                      <Field orientation="horizontal">
-                        <RadioGroupItem value="all" id="access-mode-all" />
-                        <FieldContent>
-                          <FieldTitle className="text-body font-semibold">
-                            {pick(copy.allCases, locale)}
-                          </FieldTitle>
-                          <FieldDescription>
-                            {fillCopy(copy.allCasesHint, locale, {
-                              count: String(total),
-                            })}
-                          </FieldDescription>
-                        </FieldContent>
-                      </Field>
-                    </FieldLabel>
-                    <FieldLabel htmlFor="access-mode-specific">
-                      <Field orientation="horizontal">
-                        <RadioGroupItem
-                          value="specific"
-                          id="access-mode-specific"
-                        />
-                        <FieldContent>
-                          <FieldTitle className="text-body font-semibold">
-                            {pick(copy.specificCases, locale)}
-                          </FieldTitle>
-                          <FieldDescription>
-                            {pick(copy.specificCasesHint, locale)}
-                          </FieldDescription>
-                        </FieldContent>
-                      </Field>
-                    </FieldLabel>
-                  </RadioGroup>
-                  <FieldError>
-                    {modeError ? pick(copy.needMode, locale) : null}
-                  </FieldError>
-                </Field>
-
-                {casesError ? (
-                  <p
-                    role="alert"
-                    className="text-body-compact text-destructive"
-                  >
-                    {pick(copy.needCases, locale)}
-                  </p>
-                ) : null}
-
-                {mode === "specific" ? (
-                  <>
-                    {toolbar}
-
-                    {/* --------------------------------------------------- cases */}
-                    {visible.length === 0 ? (
-                      <p className="rounded-xl border border-dashed border-border py-12 text-center text-body-compact text-muted-foreground">
-                        {pick(copy.noCases, locale)}
-                      </p>
-                    ) : (
-                      <>
-                        {/* The table needs room: a dialog body at least 768px wide (the
-                        dialog sits beside the rail, so the screen's width says
-                        little). A narrower dialog gets the list. */}
-                        <div className="flex flex-col gap-6 @3xl/access:hidden">
-                          {groups.map((group) => (
-                            <section
-                              key={group.key}
-                              aria-labelledby={`access-group-${group.key}`}
-                            >
-                              <GroupLabel
-                                id={`access-group-${group.key}`}
-                                label={pick(group.label, locale)}
-                                count={group.entries.length}
-                                className="rounded-lg bg-surface-sunken px-3 py-2"
-                              />
-                              <ul className="flex flex-col divide-y divide-hairline">
-                                {group.entries.map((entry) => (
-                                  <li key={entry.id}>
-                                    <CaseRow
-                                      entry={entry}
-                                      locale={locale}
-                                      checked={ticked.has(entry.id)}
-                                      held={saved.has(entry.id)}
-                                      onCheck={(value) =>
-                                        toggleCase(entry.id, value)
-                                      }
-                                      onOpen={() => go(openCaseHref(entry))}
-                                    />
-                                  </li>
-                                ))}
-                              </ul>
-                            </section>
-                          ))}
-                        </div>
-
-                        <div className="hidden @3xl/access:block">
-                          <Table
-                            className="w-full border-separate border-spacing-0"
-                            aria-labelledby="person-access-cases"
-                          >
-                            <TableHeader>
-                              <TableRow className={TABLE_HEAD_ROW}>
-                                <TableHead
-                                  className={cn(TABLE_HEAD, "w-12 px-1")}
-                                >
-                                  {/* The rows in view only. "All cases" above speaks for the docket. */}
-                                  <div className="flex justify-center">
-                                    <Checkbox
-                                      checked={headerState}
-                                      onCheckedChange={(value) =>
-                                        setMany(
-                                          visible.map((c) => c.id),
-                                          value === true,
-                                        )
-                                      }
-                                      aria-label={fillCopy(
-                                        headerState === true
-                                          ? copy.clearShown
-                                          : copy.selectShown,
-                                        locale,
-                                        { count: String(visible.length) },
-                                      )}
-                                    />
-                                  </div>
-                                </TableHead>
-                                <TableHead className={cn(TABLE_HEAD, "w-44")}>
-                                  {pick(copy.columnCaseNumber, locale)}
-                                </TableHead>
-                                <TableHead className={TABLE_HEAD}>
-                                  {pick(copy.columnCase, locale)}
-                                </TableHead>
-                                <TableHead className={cn(TABLE_HEAD, "w-48")}>
-                                  {pick(copy.columnStage, locale)}
-                                </TableHead>
-                                <TableHead className={cn(TABLE_HEAD, "w-44")}>
-                                  {pick(copy.sideLabel, locale)}
-                                </TableHead>
-                                <TableHead
-                                  className={cn(TABLE_HEAD, "w-12 px-1")}
-                                >
-                                  <span className="sr-only">
-                                    {pick(peopleCopy.openCase, locale)}
-                                  </span>
-                                </TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody className={tableBodyClass()}>
-                              {groups.map((group, index) => (
-                                <React.Fragment key={group.key}>
-                                  {/* The group's name as a row of its own: the cases
-                                  they have, then the ones that can be given. */}
-                                  <TableRow
-                                    className={tableRowClass({ hover: false })}
-                                  >
-                                    <TableCell
-                                      colSpan={6}
-                                      className={cn(
-                                        TABLE_CELL,
-                                        "h-auto px-3 pb-2",
-                                        index ? "pt-8" : "pt-4",
-                                      )}
-                                    >
-                                      <GroupLabel
-                                        label={pick(group.label, locale)}
-                                        count={group.entries.length}
-                                      />
-                                    </TableCell>
-                                  </TableRow>
-                                  {group.entries.map((entry) => (
-                                    <CaseTableRow
-                                      key={entry.id}
-                                      entry={entry}
-                                      locale={locale}
-                                      checked={ticked.has(entry.id)}
-                                      held={saved.has(entry.id)}
-                                      onCheck={(value) =>
-                                        toggleCase(entry.id, value)
-                                      }
-                                      onOpen={() => go(openCaseHref(entry))}
-                                    />
-                                  ))}
-                                </React.Fragment>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      </>
-                    )}
-                  </>
-                ) : null}
-              </section>
-            ) : (
+            {/* Who has what, and changing it (lead designer, Oct 26): the
+                dropdown names the scope, the tabs split the cases, a tick
+                only selects. Add person's access step is the same list. */}
+            {adding && addStep === 1 ? null : (
               <section
                 aria-labelledby="person-access-cases"
                 className="flex flex-col gap-6"
               >
                 {/* The heading and the scope on one line, phones too: the
                     dropdown names what they have and changes it. */}
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <div className="flex flex-col gap-1">
+                {/* Add people stacks the heading over the dropdown until the
+                    dialog is wide (phones, iPad mini upright), where a side by
+                    side pair read cramped (owner, Oct 26). */}
+                <div
+                  className={cn(
+                    "flex flex-wrap items-center gap-x-3 gap-y-2",
+                    adding &&
+                      "flex-col items-stretch @3xl/access:flex-row @3xl/access:items-center",
+                  )}
+                >
                   <h3
                     id="person-access-cases"
                     className="text-body font-semibold"
                   >
-                    {pick(copy.casesSection, locale)}
+                    {pick(adding ? copy.accessHeading : copy.casesSection, locale)}
                   </h3>
                   <Select
-                    value={savedFuture ? "all" : "specific"}
-                    onValueChange={(value) => chooseScope(value as Mode)}
+                    value={
+                      adding ? (mode ?? "") : savedFuture ? "all" : "specific"
+                    }
+                    onValueChange={(value) =>
+                      adding
+                        ? chooseMode(value as Mode)
+                        : chooseScope(value as Mode)
+                    }
                   >
                     <SelectTrigger
+                      id="person-access-scope"
                       aria-label={pick(copy.scopeLabel, locale)}
-                      className="min-w-44 font-medium"
+                      aria-invalid={modeError || undefined}
+                      aria-describedby={
+                        modeError ? "person-access-scope-error" : undefined
+                      }
+                      className={cn(
+                        "min-w-44 flex-1 font-medium @md/access:flex-none",
+                        adding &&
+                          "order-2 w-full @3xl/access:order-none @3xl/access:w-auto",
+                      )}
                     >
-                      <SelectValue />
+                      <SelectValue
+                        placeholder={pick(copy.scopePlaceholder, locale)}
+                      />
                     </SelectTrigger>
                     <SelectContent align="start">
                       <SelectItem value="all">
@@ -1357,22 +1205,50 @@ export function PersonAccessDialog({
                       </SelectItem>
                     </SelectContent>
                   </Select>
+                  {/* Said once for everyone being added, never as a list of
+                      names (owner, Oct 26). Stacked, it sits between the
+                      heading and the dropdown; side by side, under both. */}
+                  {adding ? (
+                    <p className="order-1 text-body-compact text-pretty text-muted-foreground @3xl/access:order-last @3xl/access:basis-full">
+                      {pick(
+                        chosen.length === 1
+                          ? copy.accessIntroOne
+                          : copy.accessIntro,
+                        locale,
+                      )}
+                    </p>
+                  ) : null}
+                </div>
                 </div>
 
-                {savedFuture ? (
+                {modeError ? (
+                  <p
+                    id="person-access-scope-error"
+                    role="alert"
+                    className="-mt-4 text-body-compact text-destructive"
+                  >
+                    {pick(copy.needMode, locale)}
+                  </p>
+                ) : null}
+
+                {adding && mode === null ? null : listAll ? (
                   /* All cases says plainly that new cases follow, and lists
                      what they can open. Nothing to select: to take a case
                      away, Specific cases first. */
                   <Alert variant="info" className="px-3 py-2.5">
                     <InfoIcon aria-hidden />
                     <AlertDescription className="text-body-compact text-pretty">
-                      {fillCopy(copy.futureNote, locale, {
-                        name: displayName(person),
-                        count: String(total),
-                      })}
+                      {adding
+                        ? fillCopy(copy.futureNoteAdd, locale, {
+                            count: String(total),
+                          })
+                        : fillCopy(copy.futureNote, locale, {
+                            name: displayName(person),
+                            count: String(total),
+                          })}
                     </AlertDescription>
                   </Alert>
-                ) : (
+                ) : adding ? null : (
                   /* Two tabs, not two stacked groups: a long Has access
                      list buried the cases they do not have yet. */
                   <Tabs
@@ -1399,7 +1275,19 @@ export function PersonAccessDialog({
                   </Tabs>
                 )}
 
-                {!savedFuture && tab === "other" && otherTotal === 0 ? (
+                {casesError ? (
+                  <p
+                    role="alert"
+                    className="-mt-4 text-body-compact text-destructive"
+                  >
+                    {pick(copy.needCases, locale)}
+                  </p>
+                ) : null}
+
+                {adding && mode === null ? null : !adding &&
+                  !savedFuture &&
+                  tab === "other" &&
+                  otherTotal === 0 ? (
                   <Empty className="py-16">
                     <EmptyHeader className="max-w-xl">
                       <EmptyMedia
@@ -1425,38 +1313,39 @@ export function PersonAccessDialog({
                     {/* What is selected and the one act for it, on a plain
                         line over the list. It stays put: pinned, it slid over
                         the table's header (owner, Oct 26). */}
-                    {!savedFuture && tabRows.length > 0 ? (
+                    {!listAll && listRows.length > 0 ? (
                       <div className="flex min-h-10 items-center gap-3">
                         <p
                           className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 text-body-compact text-muted-foreground"
                           aria-live="polite"
                         >
                           <span className="tabular-nums">
-                            {selectedIds.length
+                            {listCount
                               ? casesWord(
-                                  selectedIds.length,
+                                  listCount,
                                   copy.selectedOne,
                                   copy.selectedMany,
                                 )
                               : pick(
-                                  tab === "held"
-                                    ? copy.selectHintHeld
-                                    : copy.selectHintOther,
+                                  adding || tab === "other"
+                                    ? copy.selectHintOther
+                                    : copy.selectHintHeld,
                                   locale,
                                 )}
                           </span>
-                          {selectedIds.length ? (
+                          {listCount ? (
                             <Button
                               type="button"
                               variant="link"
                               className="h-auto p-0 font-normal underline"
-                              onClick={() => setSelected(new Set())}
+                              onClick={clearSelection}
                             >
                               {pick(copy.clearSelection, locale)}
                             </Button>
                           ) : null}
                         </p>
-                        {selectedIds.length ? (
+                        {/* Add person gives the picks with Add to office. */}
+                        {!adding && selectedIds.length ? (
                           <Button
                             type="button"
                             variant={tab === "held" ? "destructive" : "default"}
@@ -1475,7 +1364,7 @@ export function PersonAccessDialog({
                       </div>
                     ) : null}
 
-                    {tabRows.length === 0 ? (
+                    {listRows.length === 0 ? (
                       <Empty className="py-16">
                         <EmptyHeader className="max-w-xl">
                           <EmptyMedia
@@ -1493,11 +1382,7 @@ export function PersonAccessDialog({
                           <Button
                             type="button"
                             variant="outline"
-                            onClick={() => {
-                              setQuery("");
-                              setStages([]);
-                              setSide(null);
-                            }}
+                            onClick={clearFilters}
                           >
                             {pick(copy.clearFilters, locale)}
                           </Button>
@@ -1506,16 +1391,16 @@ export function PersonAccessDialog({
                     ) : (
                       <>
                         <ul className="flex flex-col divide-y divide-hairline @3xl/access:hidden">
-                          {tabRows.map((entry) => (
+                          {listRows.map((entry) => (
                             <li key={entry.id}>
                               <CaseRow
                                 entry={entry}
                                 locale={locale}
-                                checked={selected.has(entry.id)}
-                                held={selected.has(entry.id)}
+                                checked={listChecked(entry.id)}
+                                held={listChecked(entry.id)}
                                 selectOnly
-                                readOnly={savedFuture}
-                                onCheck={(value) => select(entry.id, value)}
+                                readOnly={listAll}
+                                onCheck={(value) => listCheck(entry.id, value)}
                                 onOpen={() => go(openCaseHref(entry))}
                               />
                             </li>
@@ -1528,21 +1413,21 @@ export function PersonAccessDialog({
                           >
                             <TableHeader>
                               <TableRow className={TABLE_HEAD_ROW}>
-                                {savedFuture ? null : (
+                                {listAll ? null : (
                                   <TableHead
                                     className={cn(TABLE_HEAD, "w-12 px-1")}
                                   >
                                     <div className="flex justify-center">
                                       <Checkbox
-                                        checked={selectState}
+                                        checked={listSelectState}
                                         onCheckedChange={(value) =>
-                                          selectShown(value === true)
+                                          listSelectShown(value === true)
                                         }
                                         aria-label={fillCopy(
                                           copy.selectAllShown,
                                           locale,
                                           {
-                                            count: String(tabRows.length),
+                                            count: String(listRows.length),
                                           },
                                         )}
                                       />
@@ -1571,16 +1456,16 @@ export function PersonAccessDialog({
                               </TableRow>
                             </TableHeader>
                             <TableBody className={tableBodyClass()}>
-                              {tabRows.map((entry) => (
+                              {listRows.map((entry) => (
                                 <CaseTableRow
                                   key={entry.id}
                                   entry={entry}
                                   locale={locale}
-                                  checked={selected.has(entry.id)}
-                                  held={selected.has(entry.id)}
+                                  checked={listChecked(entry.id)}
+                                  held={listChecked(entry.id)}
                                   selectOnly
-                                  readOnly={savedFuture}
-                                  onCheck={(value) => select(entry.id, value)}
+                                  readOnly={listAll}
+                                  onCheck={(value) => listCheck(entry.id, value)}
                                   onOpen={() => go(openCaseHref(entry))}
                                 />
                               ))}
@@ -1600,51 +1485,29 @@ export function PersonAccessDialog({
               person's own access has none: each act applies on its confirm. */}
           {adding ? (
             <div className="flex shrink-0 flex-col gap-3 border-t border-hairline bg-surface-sunken px-6 py-4 pb-[calc(--spacing(4)+env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between sm:pb-4">
-              <p
-                className={cn(
-                  "flex min-h-10 flex-wrap items-center gap-x-2 text-body-compact text-muted-foreground tabular-nums",
-                  // Nothing pending: no empty line over the buttons on a phone.
-                  pending.length === 0 && "max-sm:hidden",
-                )}
-                aria-live="polite"
-              >
-                {/* How many cases they have now, then what Save will change. */}
-                {pending.map((part, index) => (
-                  <React.Fragment key={part.text}>
-                    {index ? <span aria-hidden>·</span> : null}
-                    <span
-                      className={cn(
-                        part.tone && "font-medium",
-                        part.tone === "add" && "text-success-ink",
-                        part.tone === "remove" && "text-destructive-ink",
-                      )}
-                    >
-                      {part.text}
-                    </span>
-                  </React.Fragment>
-                ))}
-              </p>
-              <div className="flex gap-2">
+              {/* The PoA dialog's footer: Back on the left from step 2,
+                  the step's one act on the right (owner, Oct 26). */}
+              {addStep === 2 ? (
                 <Button
                   type="button"
                   variant="outline"
-                  className="flex-1 sm:flex-none"
-                  onClick={requestClose}
+                  className="max-sm:order-last"
+                  onClick={() => {
+                    setTried(false);
+                    setAddStep(1);
+                  }}
                 >
-                  {pick(peopleCopy.removeAllCancel, locale)}
+                  {pick(copy.back, locale)}
                 </Button>
-                <Button
-                  type="button"
-                  className="flex-1 sm:flex-none"
-                  // A person's access has nothing to save until something
-                  // changes; Add person always answers, pointing at what is
-                  // missing.
-                  disabled={adding ? false : !canSave}
-                  onClick={save}
-                >
-                  {saveLabel}
-                </Button>
-              </div>
+              ) : (
+                <span aria-hidden className="hidden sm:block" />
+              )}
+              <Button
+                type="button"
+                onClick={addStep === 1 ? toAccess : save}
+              >
+                {pick(addStep === 1 ? copy.continueAction : copy.addAction, locale)}
+              </Button>
             </div>
           ) : null}
         </FlowDialogContent>
@@ -1667,7 +1530,7 @@ export function PersonAccessDialog({
                   change: the advocate picked from a narrowed list, so it is
                   worth a second look (owner, Oct 23). Warning ink to catch the
                   eye; the words carry it, not the colour. */}
-              {filtered ? (
+              {filtered && !(adding && future) ? (
                 <p className="text-caption font-medium text-warning-ink">
                   {pick(copy.confirmOutsideFilter, locale)}
                 </p>
@@ -1946,34 +1809,6 @@ function CaseTableRow({
         </div>
       </TableCell>
     </TableRow>
-  );
-}
-
-/** A group's name and how many cases it holds, over its rows. */
-function GroupLabel({
-  id,
-  label,
-  count,
-  className,
-}: {
-  id?: string;
-  label: string;
-  count: number;
-  className?: string;
-}) {
-  return (
-    <h4
-      id={id}
-      className={cn(
-        "flex items-center gap-2 text-body-compact font-semibold",
-        className,
-      )}
-    >
-      {label}
-      <Badge variant="secondary" className="tabular-nums">
-        {count}
-      </Badge>
-    </h4>
   );
 }
 

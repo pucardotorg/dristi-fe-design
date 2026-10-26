@@ -601,6 +601,7 @@ export const inviteFieldCopy = {
   ),
   suggested: t("Your office", "നിങ്ങളുടെ ഓഫീസ്"),
   inOffice: t("In your office", "നിങ്ങളുടെ ഓഫീസിൽ"),
+  alreadyInOffice: t("Already in your office", "ഇതിനകം നിങ്ങളുടെ ഓഫീസിൽ"),
   newNumber: t(
     "They'll get an access link by SMS and in DRISTI.",
     "അവർക്ക് SMS വഴിയും DRISTI-യിലും ആക്‌സസ് ലിങ്ക് ലഭിക്കും.",
@@ -608,6 +609,10 @@ export const inviteFieldCopy = {
   keepTyping: t(
     "No registered advocate or clerk matches. Only people registered on DRISTI can be added.",
     "രജിസ്റ്റർ ചെയ്ത അഭിഭാഷകരോ ക്ലർക്കുമാരോ പൊരുത്തപ്പെടുന്നില്ല. DRISTI-യിൽ രജിസ്റ്റർ ചെയ്തവരെ മാത്രമേ ചേർക്കാനാകൂ.",
+  ),
+  fullNumber: t(
+    "Type the full 10-digit mobile number.",
+    "മുഴുവൻ 10 അക്ക മൊബൈൽ നമ്പർ ടൈപ്പ് ചെയ്യുക.",
   ),
   typeAdvocate: t("Advocate", "അഭിഭാഷകൻ"),
   typeClerk: t("Clerk", "ക്ലർക്ക്"),
@@ -684,10 +689,11 @@ export const listCopy = {
 export const peopleCopy = {
   title: t("People", "ആളുകൾ"),
   subtitle: t(
-    "Your office: the advocates and clerks you have given access to your cases. Open a person to see their cases or remove access.",
-    "നിങ്ങളുടെ ഓഫീസ്: നിങ്ങളുടെ കേസുകളിലേക്ക് ആക്‌സസ് നൽകിയ അഭിഭാഷകരും ക്ലർക്കുമാരും. ഒരാളെ തുറന്നാൽ അവരുടെ കേസുകൾ കാണാം അല്ലെങ്കിൽ ആക്‌സസ് നീക്കം ചെയ്യാം.",
+    "Your office: the advocates and clerks you've given access to your cases. Open a person to manage their access.",
+    "നിങ്ങളുടെ ഓഫീസ്: നിങ്ങളുടെ കേസുകളിലേക്ക് ആക്‌സസ് നൽകിയ അഭിഭാഷകരും ക്ലർക്കുമാരും. ഒരാളുടെ ആക്‌സസ് നിയന്ത്രിക്കാൻ അവരെ തുറക്കുക.",
   ),
-  addPerson: t("Add person", "ആളെ ചേർക്കുക"),
+  /* Several can be added at once (owner, Oct 26). */
+  addPerson: t("Add people", "ആളുകളെ ചേർക്കുക"),
   futureBadge: t("All cases", "എല്ലാ കേസുകളും"),
   searchPlaceholder: t("Search people…", "ആളുകളെ തിരയുക…"),
   searchLabel: t("Search", "തിരയുക"),
@@ -791,18 +797,43 @@ export const peopleCopy = {
    choice: every case now and every new one (owner, Oct 24). */
 export const personAccessCopy = {
   close: t("Close", "അടയ്ക്കുക"),
-  addTitle: t("Add person", "ആളെ ചേർക്കുക"),
+  addTitle: t("Add people", "ആളുകളെ ചേർക്കുക"),
   addIntro: t(
     "Give a registered advocate or clerk access to your cases. They can work on the cases you pick, but they're not on the vakalatnama, so they can't e-sign.",
     "രജിസ്റ്റർ ചെയ്ത ഒരു അഭിഭാഷകനോ ക്ലർക്കിനോ നിങ്ങളുടെ കേസുകളിലേക്ക് ആക്‌സസ് നൽകുക. നിങ്ങൾ തിരഞ്ഞെടുക്കുന്ന കേസുകളിൽ അവർക്ക് പ്രവർത്തിക്കാം, പക്ഷേ വക്കാലത്ത്നാമയിൽ ഇല്ലാത്തതിനാൽ ഇ-സൈൻ ചെയ്യാനാകില്ല.",
   ),
-  whoLabel: t("People", "ആളുകൾ"),
   groupYourCases: t("Your cases", "നിങ്ങളുടെ കേസുകൾ"),
   addAction: t("Add to office", "ഓഫീസിൽ ചേർക്കുക"),
+  /* Add person in two steps (owner, Oct 26): who, then what they can access.
+     Everyone added together gets the same access. */
+  addProgress: t("Add person progress", "ആളെ ചേർക്കുന്നതിന്റെ പുരോഗതി"),
+  stepPeople: t("Add people", "ആളുകളെ ചേർക്കുക"),
+  stepAccess: t("Set access", "ആക്‌സസ് നിശ്ചയിക്കുക"),
+  peopleHeading: t("Choose people", "ആളുകളെ തിരഞ്ഞെടുക്കുക"),
+  accessHeading: t("Choose access", "ആക്‌സസ് തിരഞ്ഞെടുക്കുക"),
+  accessIntroOne: t(
+    "Choose which of your cases they can work on.",
+    "അവർക്ക് നിങ്ങളുടെ ഏതൊക്കെ കേസുകളിൽ പ്രവർത്തിക്കാമെന്ന് തിരഞ്ഞെടുക്കുക.",
+  ),
+  accessIntro: t(
+    "Choose which of your cases they can work on. Everyone you're adding gets the same access.",
+    "അവർക്ക് നിങ്ങളുടെ ഏതൊക്കെ കേസുകളിൽ പ്രവർത്തിക്കാമെന്ന് തിരഞ്ഞെടുക്കുക. നിങ്ങൾ ചേർക്കുന്ന എല്ലാവർക്കും ഒരേ ആക്‌സസ് ലഭിക്കും.",
+  ),
+  scopePlaceholder: t("Select", "തിരഞ്ഞെടുക്കുക"),
+  futureNoteAdd: t(
+    "They'll access all {count} of your cases. Any new case you get is shared with them automatically.",
+    "നിങ്ങളുടെ {count} കേസുകളും അവർക്ക് ആക്‌സസ് ചെയ്യാം. നിങ്ങൾക്ക് ലഭിക്കുന്ന ഓരോ പുതിയ കേസും അവരുമായി സ്വയമേവ പങ്കിടും.",
+  ),
+  continueAction: t("Continue", "തുടരുക"),
+  back: t("Back", "തിരികെ"),
   needPerson: t("Choose at least one person.", "ഒരാളെയെങ്കിലും തിരഞ്ഞെടുക്കുക."),
-  needCases: t("Tick at least one case.", "ഒരു കേസെങ്കിലും ടിക്ക് ചെയ്യുക."),
-  addConfirmTitle: t("Add {names} to your office?", "{names}-നെ നിങ്ങളുടെ ഓഫീസിൽ ചേർക്കണോ?"),
-  addedToast: t("Access given to {names}.", "{names}-ന് ആക്‌സസ് നൽകി."),
+  needCases: t("Select at least one case.", "ഒരു കേസെങ്കിലും തിരഞ്ഞെടുക്കുക."),
+  /* Counts, never names: one person or twenty, the line reads the same
+     (owner, Oct 26). */
+  addConfirmTitleOne: t("Add 1 person to your office?", "1 ആളെ നിങ്ങളുടെ ഓഫീസിൽ ചേർക്കണോ?"),
+  addConfirmTitle: t("Add {count} people to your office?", "{count} പേരെ നിങ്ങളുടെ ഓഫീസിൽ ചേർക്കണോ?"),
+  addedToastOne: t("1 person added to your office.", "1 ആളെ നിങ്ങളുടെ ഓഫീസിൽ ചേർത്തു."),
+  addedToast: t("{count} people added to your office.", "{count} പേരെ നിങ്ങളുടെ ഓഫീസിൽ ചേർത്തു."),
   leaveBodyAdd: t(
     "The people you picked have not been added yet.",
     "നിങ്ങൾ തിരഞ്ഞെടുത്തവരെ ഇതുവരെ ചേർത്തിട്ടില്ല.",
