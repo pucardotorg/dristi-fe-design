@@ -111,9 +111,27 @@ function fileSize(bytes: number) {
 }
 
 /** JOIN-23: the one accused, when there is only one; otherwise no pick. */
-/** One "How will you appear?" option; the chosen one takes the selected-card fill. */
+/**
+ * One "How will you appear?" option; the chosen one takes the selected-card fill. A
+ * two-column grid so the radio centres on the option's title line and every hint sits
+ * the same distance under its title.
+ */
 const APPEAR_OPTION =
-  "flex items-start gap-2 rounded-lg border border-hairline px-3 py-1 has-data-[state=checked]:border-primary has-data-[state=checked]:bg-brand-muted";
+  "grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-0.5 rounded-lg border border-hairline px-4 py-3 has-data-[state=checked]:border-primary has-data-[state=checked]:bg-brand-muted";
+const APPEAR_HINT = "col-start-2 text-left text-caption font-normal text-muted-foreground";
+
+/** Fills `{key}` slots with their values, set in a heavier weight than the line. */
+function emphasise(text: string, values: Record<string, string>) {
+  return text.split(/\{(\w+)\}/).map((part, index) =>
+    index % 2 === 1 ? (
+      <strong key={index} className="font-semibold text-foreground">
+        {values[part] ?? ""}
+      </strong>
+    ) : (
+      part
+    ),
+  );
+}
 
 function soleAccusedId(joinCase: JoinCase | undefined) {
   return joinCase?.accused.length === 1 ? joinCase.accused[0].id : "";
@@ -353,8 +371,7 @@ export function JoinCaseDialog({
   const isSummonsFirst = mode === "summons" && stage === "code" && Boolean(joinCase);
   const caseFacts = {
     complainant: joinCase?.complainant ?? "",
-    court: joinCase?.court ?? "",
-    district: joinCase?.district ?? "",
+    court: [joinCase?.court, joinCase?.district].filter(Boolean).join(", "),
   };
 
   return (
@@ -413,7 +430,18 @@ export function JoinCaseDialog({
                   : isSummonsIntro
                     ? pick(summonsModal.body, locale)
                     : isSummonsFirst
-                      ? fill(summonsModal.firstBody, locale, caseFacts)
+                      ? (
+                          <>
+                            <span className="block">
+                              {emphasise(pick(summonsModal.firstBody, locale), caseFacts)}
+                            </span>
+                            <span className="mt-3 block">
+                              {emphasise(pick(summonsModal.firstCode, locale), {
+                                code: pick(summonsModal.codeWord, locale),
+                              })}
+                            </span>
+                          </>
+                        )
                     : stage === "lookup"
                       ? pick(joinDialog.lookupBody, locale)
                       : stage === "code"
@@ -651,58 +679,42 @@ export function JoinCaseDialog({
                     {/* The chosen option reads as chosen, not only by its dot (field
                         feedback row 99): the registration role picker's selected card. */}
                     <div className={APPEAR_OPTION}>
-                      <RadioGroupItem value="hire" id="join-appear-hire" className="mt-2.5" />
-                      <div className="flex min-w-0 flex-col items-start gap-0.5">
-                        <div className="flex min-h-10 items-center gap-1">
-                          <Label htmlFor="join-appear-hire" className="text-left leading-snug">
-                            {pick(joinDialog.appearHire, locale)}
-                          </Label>
-                          {/* Straight to free legal aid at the District Legal Services
-                              Authority (owner, 2026-10-14), not a note about it. */}
-                          <Button asChild variant="link" size="sm" className="h-auto px-1">
-                            <a href={joinDialog.findAdvocateHref} target="_blank" rel="noreferrer">
-                              {pick(joinDialog.openBarCouncil, locale)}
-                              <span className="sr-only"> (opens in a new tab)</span>
-                              <ExternalLinkIcon data-icon="inline-end" aria-hidden />
-                            </a>
-                          </Button>
-                        </div>
-                        <Label htmlFor="join-appear-hire" className="text-caption font-normal text-muted-foreground">
-                          {pick(joinDialog.appearHireHint, locale)}
+                      <RadioGroupItem value="hire" id="join-appear-hire" />
+                      <div className="flex min-w-0 flex-wrap items-center gap-x-1">
+                        <Label htmlFor="join-appear-hire" className="text-left leading-snug">
+                          {pick(joinDialog.appearHire, locale)}
                         </Label>
+                        {/* Straight to free legal aid at the District Legal Services
+                            Authority (owner, 2026-10-14), not a note about it. */}
+                        <Button asChild variant="link" size="sm" className="h-auto px-1">
+                          <a href={joinDialog.findAdvocateHref} target="_blank" rel="noreferrer">
+                            {pick(joinDialog.openBarCouncil, locale)}
+                            <span className="sr-only"> (opens in a new tab)</span>
+                            <ExternalLinkIcon data-icon="inline-end" aria-hidden />
+                          </a>
+                        </Button>
                       </div>
+                      <Label htmlFor="join-appear-hire" className={APPEAR_HINT}>
+                        {pick(joinDialog.appearHireHint, locale)}
+                      </Label>
                     </div>
                     <div className={APPEAR_OPTION}>
-                      <RadioGroupItem
-                        value="advocate"
-                        id="join-appear-advocate"
-                        className="mt-2.5"
-                      />
-                      <Label
-                        htmlFor="join-appear-advocate"
-                        className="flex min-h-10 flex-col items-start justify-center gap-0.5 text-left leading-snug"
-                      >
+                      <RadioGroupItem value="advocate" id="join-appear-advocate" />
+                      <Label htmlFor="join-appear-advocate" className="text-left leading-snug">
                         {pick(joinDialog.appearAdvocate, locale)}
-                        <span className="text-caption font-normal text-muted-foreground">
-                          {pick(joinDialog.appearAdvocateHint, locale)}
-                        </span>
+                      </Label>
+                      <Label htmlFor="join-appear-advocate" className={APPEAR_HINT}>
+                        {pick(joinDialog.appearAdvocateHint, locale)}
                       </Label>
                     </div>
                     {accusedAdvocateJoined ? null : (
                       <div className={APPEAR_OPTION}>
-                        <RadioGroupItem
-                          value="self"
-                          id="join-appear-self"
-                          className="mt-2.5"
-                        />
-                        <Label
-                          htmlFor="join-appear-self"
-                          className="flex min-h-10 flex-col items-start justify-center gap-0.5 text-left leading-snug"
-                        >
+                        <RadioGroupItem value="self" id="join-appear-self" />
+                        <Label htmlFor="join-appear-self" className="text-left leading-snug">
                           {pick(joinDialog.appearSelf, locale)}
-                          <span className="text-caption font-normal text-muted-foreground">
-                            {pick(joinDialog.appearSelfHint, locale)}
-                          </span>
+                        </Label>
+                        <Label htmlFor="join-appear-self" className={APPEAR_HINT}>
+                          {pick(joinDialog.appearSelfHint, locale)}
                         </Label>
                       </div>
                     )}

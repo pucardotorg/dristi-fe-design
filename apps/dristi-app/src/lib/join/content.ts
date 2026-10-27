@@ -162,10 +162,16 @@ export const summonsModal = {
     "A cheque bounce case under Section 138 of the NI Act has been instituted against you",
     "നെഗോഷ്യബിൾ ഇൻസ്ട്രുമെന്റ്സ് ആക്ടിലെ 138-ാം വകുപ്പ് പ്രകാരം നിങ്ങൾക്കെതിരെ ഒരു ചെക്ക് മടക്ക കേസ് ഫയൽ ചെയ്തിട്ടുണ്ട്",
   ),
+  /* {placeholders} render in a heavier weight (owner, 2026-10-27). */
   firstBody: t(
-    "{complainant} filed it, and it is pending before {court}, {district}. Enter the six-digit access code printed on your summons.",
-    "{complainant} നൽകിയ പരാതിയിൽ {court}, {district} മുമ്പാകെ കേസ് നിലവിലുണ്ട്. സമൻസിൽ അച്ചടിച്ചിട്ടുള്ള ആറക്ക ആക്‌സസ് കോഡ് നൽകുക.",
+    "{complainant} filed it, and it is pending before {court}.",
+    "{complainant} നൽകിയ പരാതിയിൽ {court} മുമ്പാകെ കേസ് നിലവിലുണ്ട്.",
   ),
+  firstCode: t(
+    "Enter the {code} printed on your summons.",
+    "സമൻസിൽ അച്ചടിച്ചിട്ടുള്ള {code} നൽകുക.",
+  ),
+  codeWord: t("six-digit access code", "ആറക്ക ആക്‌സസ് കോഡ്"),
   heading: t(
     "Review this cheque bounce case",
     "ഈ ചെക്ക് മടക്ക കേസ് പരിശോധിക്കുക",

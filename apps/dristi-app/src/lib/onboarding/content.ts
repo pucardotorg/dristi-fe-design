@@ -100,6 +100,13 @@ export const summaryFields: {
     label: t("Case number", "കേസ് നമ്പർ"),
     fallback: t("On your summons", "സമൻസിൽ"),
   },
+  /* The court on the first screen after the QR scan (field feedback row 81).
+     Malayalam drafted — needs review. */
+  {
+    key: "court",
+    label: t("Court", "കോടതി"),
+    fallback: t("On your summons", "സമൻസിൽ"),
+  },
   {
     key: "complainant",
     label: t("Filed by", "പരാതി നൽകിയത്"),
