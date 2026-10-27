@@ -391,11 +391,13 @@ export function JoinCaseDialog({
       >
         {/* The same header on every stage, the outcome included (owner, Oct 6):
             only the words change, so the outcome reads as this window settling. */}
-        <DialogHeader className="shrink-0 gap-2 border-b border-hairline p-6 pr-16 text-left">
+        {/* Only the title keeps clear of the close button; the lines under it run the
+            full width (owner, 2026-10-27). */}
+        <DialogHeader className="shrink-0 gap-2 border-b border-hairline p-6 text-left">
           <DialogTitle
             ref={titleRef}
             tabIndex={-1}
-            className="text-title-s font-semibold text-balance outline-none"
+            className="pr-10 text-title-s font-semibold text-balance outline-none"
           >
             {leaving ? (
               pick(joinDialog.leaveTitle, locale)
@@ -432,7 +434,7 @@ export function JoinCaseDialog({
                     : isSummonsFirst
                       ? (
                           <>
-                            <span className="block">
+                            <span className="mt-1 block">
                               {emphasise(pick(summonsModal.firstBody, locale), caseFacts)}
                             </span>
                             <span className="mt-3 block">

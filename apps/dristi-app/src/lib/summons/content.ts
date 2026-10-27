@@ -33,9 +33,15 @@ export const SUMMONS_FACTS = {
   caseNumber: "ST/847/2026",
   complainant: "South Indian Bank Ltd.",
   accused: "Rajan Krishnan Nair",
+  /** Every other accused in the complaint (field feedback row 95). */
+  otherAccused: ["Suresh Babu P"],
+  /** When the complaint was filed (field feedback row 95). */
+  filingDate: "31 July 2026",
   accusedAddress: ["TC 14/2201, Manakkal House, Vadakkevila", "Kollam 691010, Kerala"],
   complainantAdvocate: "Adv. Anitha Menon",
   chequeNumber: "004512",
+  /** A summons can arrive months late; the date pins the cheque (field feedback row 93). */
+  chequeDate: "2 May 2026",
   amount: "INR 1,85,000",
   hearingDate: "18 September 2026",
   hearingDay: "Friday, 10:30 AM",

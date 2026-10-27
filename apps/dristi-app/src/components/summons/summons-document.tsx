@@ -86,12 +86,13 @@ export function SummonsDocument({ court }: Props) {
               <td style={{ width: "98mm", verticalAlign: "middle" }}>
                 <div className="label">Case number</div>
                 <div className="pt1 big">{caseNumber}</div>
+                <div className="t2 pt1 muted">Filed on {f.filingDate}</div>
                 <div className="s4" />
                 <div className="label">In the matter of</div>
                 <div className="pt1 big" style={{ lineHeight: 1.3 }}>
                   {t(f.complainant)}
                   <br />
-                  versus {t(f.accused)}
+                  versus {[f.accused, ...f.otherAccused].map((name) => t(name)).join(" and ")}
                 </div>
               </td>
               <td style={{ paddingBottom: "2mm" }}>
@@ -137,7 +138,7 @@ export function SummonsDocument({ court }: Props) {
         <p className="last">
           {t(f.complainant)} has filed a complaint against you under Section 138 of the
           Negotiable Instruments Act, 1881 (dishonour of a cheque, commonly called
-          “cheque bounce”), in respect of Cheque No. {f.chequeNumber} for {f.amount}.
+          “cheque bounce”), in respect of Cheque No. {f.chequeNumber} dated {f.chequeDate} for {f.amount}.
           You are required to appear before this Court, in person or by pleader, on{" "}
           <b>{f.hearingDate}</b>.
         </p>
@@ -254,10 +255,11 @@ export function SummonsDocument({ court }: Props) {
           and 2 end this case without a trial.
         </p>
 
+        {/* The date is on the portal; no helpline for it (field feedback row 155). */}
         <div className="bar">
           <p className="last keep12">
             <b>If today is already on or after {f.hearingDate},</b> do not ignore this.
-            Check {portal()} for your new date, or call {phone(local.helpline)} first.
+            Check {portal()} for your new date.
           </p>
         </div>
 
