@@ -25,6 +25,8 @@ import { TASKS_HOME } from "@/lib/tasks/routes";
 import { summaryOf } from "@/lib/tasks/selectors";
 import { resetBulk } from "@/components/bulk/api";
 import { resetSampleDrafts } from "@/lib/filing/sample-drafts";
+import { setNewAdvocateShell } from "@/lib/advocate/new-account";
+import { DEMO_PROFILE_NAME } from "@/lib/join/content";
 import { OFFICE_PEOPLE_IDS } from "@/lib/tasks/sandbox";
 import { useTasks } from "@/lib/tasks/store";
 import { BrandGlyph } from "@/components/brand-lockup";
@@ -456,14 +458,14 @@ const PROFILE_HOME: Record<ProfileRole, string> = {
  * it is an identity mark with nothing beside it to be distinguished from.
  */
 function ProfileFooter() {
-  const { state, people, user, setUser, resetSandbox } = useTasks();
+  const { state, people, setUser, resetSandbox } = useTasks();
   const {
     profileRole,
     advocateProfileAvailable,
     accountName,
     displayName,
     setProfileRole,
-    viewAsAdvocate,
+    viewAsPerson,
   } = useProfile();
   const router = useRouter();
   const roleLabel = PROFILE_LABEL[profileRole];
@@ -488,14 +490,21 @@ function ProfileFooter() {
     router.push(PROFILE_HOME[role]);
   }
 
-  // "Viewing as" acts as that person straight away, from any profile, and opens their
-  // home when the role changes (owner, 2026-10-27): no second sign-in.
+  // "Viewing as" becomes that person, as signing in as them would, and opens their
+  // home (owner, 2026-10-27). Their own profiles are then under Switch profile.
   function viewAs(person: { id: string; name: string }) {
-    const wasAdvocate = profileRole === "advocate";
-    if (person.name === accountName) setProfileRole("advocate");
-    else viewAsAdvocate(person.name);
+    if (person.name === accountName && profileRole === "advocate") return;
+    // The new-advocate empty home belongs to that account, not to whoever is picked.
+    setNewAdvocateShell(false);
+    viewAsPerson(person.name, "advocate");
     void setUser(person.id);
-    if (!wasAdvocate) router.push(PROFILE_HOME.advocate);
+    router.push(PROFILE_HOME.advocate);
+  }
+
+  function viewAsLitigant() {
+    if (accountName === DEMO_PROFILE_NAME && profileRole === "litigant") return;
+    viewAsPerson(DEMO_PROFILE_NAME, "litigant");
+    router.push(PROFILE_HOME.litigant);
   }
 
   function viewAsClerk() {
@@ -632,9 +641,9 @@ function ProfileFooter() {
                         <span className="text-caption text-muted-foreground">
                           {p.role === "junior" ? "Junior advocate" : "Advocate"}
                         </span>
-                        {/* Ticked only while acting as an advocate: a litigant is
-                            nobody on this list. */}
-                        {profileRole === "advocate" && p.id === user.id ? (
+                        {/* Ticked for the person you are, on either of their
+                            profiles. */}
+                        {profileRole !== "clerk" && p.name === accountName ? (
                           <CheckIcon aria-hidden />
                         ) : null}
                       </Button>
@@ -663,6 +672,23 @@ function ProfileFooter() {
                       ) : null}
                     </React.Fragment>
                   ))}
+                  {/* The demo's litigant, a person of his own: no advocate
+                      profile, so Switch profile offers only Litigant (owner,
+                      2026-10-27). */}
+                  <p className="mt-1 border-t border-hairline px-2 pt-2 pb-0.5 text-caption text-muted-foreground">
+                    Litigants
+                  </p>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start font-normal"
+                    onClick={viewAsLitigant}
+                  >
+                    <span className="flex-1 truncate text-left">{DEMO_PROFILE_NAME}</span>
+                    <span className="text-caption text-muted-foreground">Litigant</span>
+                    {profileRole === "litigant" && accountName === DEMO_PROFILE_NAME ? (
+                      <CheckIcon aria-hidden />
+                    ) : null}
+                  </Button>
                   <Button
                     variant="ghost"
                     className="w-full justify-start font-normal text-muted-foreground"

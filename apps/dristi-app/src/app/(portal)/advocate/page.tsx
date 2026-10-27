@@ -26,7 +26,7 @@ import { homeConfigFor } from "@/lib/advocate/config";
  */
 function AdvocatePage() {
   const { locale } = useLocale();
-  const { displayName, switchProfile, viewingAsName, profileRole } = useProfile();
+  const { displayName, switchProfile, profileRole } = useProfile();
   const router = useRouter();
   const searchParams = useSearchParams();
   // A litigant profile does not get the advocate home under its name (the clerk's Home is this one).
@@ -47,9 +47,9 @@ function AdvocatePage() {
     if (shellParam === "full") setNewAdvocateShell(false);
   }, [shellParam]);
   const storedNew = useLocalStorageValue(NEW_ADVOCATE_SHELL_KEY) === "1";
-  // The empty shell is the new account's own home: viewing as another advocate, or as
-  // the office clerk, shows that person's full home (owner, 2026-10-27).
-  const actingAsAccount = profileRole === "advocate" && !viewingAsName;
+  // The empty shell is the new account's own home; the office clerk sees the office's
+  // full home (owner, 2026-10-27). Viewing as someone else clears the flag itself.
+  const actingAsAccount = profileRole === "advocate";
   const newAccount =
     actingAsAccount && (shellParam === "new" || (shellParam !== "full" && storedNew));
 
