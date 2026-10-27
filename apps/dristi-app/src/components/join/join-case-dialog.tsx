@@ -111,6 +111,10 @@ function fileSize(bytes: number) {
 }
 
 /** JOIN-23: the one accused, when there is only one; otherwise no pick. */
+/** One "How will you appear?" option; the chosen one takes the selected-card fill. */
+const APPEAR_OPTION =
+  "flex items-start gap-2 rounded-lg border border-hairline px-3 py-1 has-data-[state=checked]:border-primary has-data-[state=checked]:bg-brand-muted";
+
 function soleAccusedId(joinCase: JoinCase | undefined) {
   return joinCase?.accused.length === 1 ? joinCase.accused[0].id : "";
 }
@@ -345,6 +349,13 @@ export function JoinCaseDialog({
   }
 
   const isSummonsIntro = mode === "summons" && stage === "details";
+  // The first screen a summoned person sees after sign-in (field feedback row 92).
+  const isSummonsFirst = mode === "summons" && stage === "code" && Boolean(joinCase);
+  const caseFacts = {
+    complainant: joinCase?.complainant ?? "",
+    court: joinCase?.court ?? "",
+    district: joinCase?.district ?? "",
+  };
 
   return (
     <>
@@ -377,7 +388,9 @@ export function JoinCaseDialog({
                   ? pick(joinDialog.joinedTitle, locale)
                   : isSummonsIntro
                     ? pick(summonsModal.heading, locale)
-                    : pick(joinDialog.title, locale)}
+                    : isSummonsFirst
+                      ? pick(summonsModal.firstHeading, locale)
+                      : pick(joinDialog.title, locale)}
               </>
             )}
           </DialogTitle>
@@ -399,6 +412,8 @@ export function JoinCaseDialog({
                     )
                   : isSummonsIntro
                     ? pick(summonsModal.body, locale)
+                    : isSummonsFirst
+                      ? fill(summonsModal.firstBody, locale, caseFacts)
                     : stage === "lookup"
                       ? pick(joinDialog.lookupBody, locale)
                       : stage === "code"
@@ -633,7 +648,9 @@ export function JoinCaseDialog({
                     }}
                     className="flex flex-col gap-3"
                   >
-                    <div className="flex items-start gap-2">
+                    {/* The chosen option reads as chosen, not only by its dot (field
+                        feedback row 99): the registration role picker's selected card. */}
+                    <div className={APPEAR_OPTION}>
                       <RadioGroupItem value="hire" id="join-appear-hire" className="mt-2.5" />
                       <div className="flex min-w-0 flex-col items-start gap-0.5">
                         <div className="flex min-h-10 items-center gap-1">
@@ -655,7 +672,7 @@ export function JoinCaseDialog({
                         </Label>
                       </div>
                     </div>
-                    <div className="flex items-start gap-2">
+                    <div className={APPEAR_OPTION}>
                       <RadioGroupItem
                         value="advocate"
                         id="join-appear-advocate"
@@ -672,7 +689,7 @@ export function JoinCaseDialog({
                       </Label>
                     </div>
                     {accusedAdvocateJoined ? null : (
-                      <div className="flex items-start gap-2">
+                      <div className={APPEAR_OPTION}>
                         <RadioGroupItem
                           value="self"
                           id="join-appear-self"

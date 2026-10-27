@@ -42,6 +42,8 @@ export type JoinCase = {
   court: string;
   /** The room inside the court the case is heard in — its own fact, not part of the court's name. */
   courtroom: string;
+  /** The district the court sits in, which the court switch names per state. */
+  district?: string;
   hearingDate: string;
   chequeAmount: string;
   complainant: string;
@@ -72,6 +74,7 @@ export const DEMO_JOIN_CASE: JoinCase = {
   /* The product's own court, which the court switch names per state ("SARAS Court"). */
   court: "24×7 ON Court",
   courtroom: "Court No. 3",
+  district: "Kollam",
   hearingDate: "Friday, 18 September 2026, 10:30 AM",
   chequeAmount: "₹1,85,000",
   complainant: "South Indian Bank Ltd.",
@@ -152,6 +155,17 @@ export const home = {
 /* ------------------------------------------------------------ summons auto-modal */
 
 export const summonsModal = {
+  /* The first screen after sign-in from a summons (the access code) states the case
+     plainly (field feedback row 92); the statement runs across the title and its
+     first lines. Malayalam drafted — needs review. */
+  firstHeading: t(
+    "A cheque bounce case under Section 138 of the NI Act has been instituted against you",
+    "നെഗോഷ്യബിൾ ഇൻസ്ട്രുമെന്റ്സ് ആക്ടിലെ 138-ാം വകുപ്പ് പ്രകാരം നിങ്ങൾക്കെതിരെ ഒരു ചെക്ക് മടക്ക കേസ് ഫയൽ ചെയ്തിട്ടുണ്ട്",
+  ),
+  firstBody: t(
+    "{complainant} filed it, and it is pending before {court}, {district}. Enter the six-digit access code printed on your summons.",
+    "{complainant} നൽകിയ പരാതിയിൽ {court}, {district} മുമ്പാകെ കേസ് നിലവിലുണ്ട്. സമൻസിൽ അച്ചടിച്ചിട്ടുള്ള ആറക്ക ആക്‌സസ് കോഡ് നൽകുക.",
+  ),
   heading: t(
     "Review this cheque bounce case",
     "ഈ ചെക്ക് മടക്ക കേസ് പരിശോധിക്കുക",
@@ -307,7 +321,8 @@ export const joinDialog = {
   ),
   /* "Find a lawyer", pointing to free legal aid at the District Legal Services
      Authority (owner, 2026-10-14). Malayalam drafted — needs review. */
-  appearHire: t("Find a lawyer", "അഭിഭാഷകനെ കണ്ടെത്തുക"),
+  /* Field feedback row 163. Malayalam drafted — needs review. */
+  appearHire: t("I want to find a lawyer", "എനിക്ക് ഒരു അഭിഭാഷകനെ കണ്ടെത്തണം"),
   appearHireHint: t(
     "You can join now and add an advocate later.",
     "ഇപ്പോൾ ചേരുകയും പിന്നീട് അഭിഭാഷകനെ ചേർക്കുകയും ചെയ്യാം.",

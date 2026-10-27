@@ -36,8 +36,13 @@ export type CaseSummary = {
   courtAddress?: string;
   hearingDate?: string;
   complainant?: string;
+  /** Every accused named in the complaint, not only the person served. */
+  filedAgainst?: string;
+  filingDate?: string;
   chequeAmount?: string;
   chequeNumber?: string;
+  /** A summons can arrive months late; the cheque date anchors which cheque it is. */
+  chequeDate?: string;
 };
 
 export type StepId = "papers" | "choices" | "date" | "help" | "join";
@@ -100,6 +105,23 @@ export const summaryFields: {
     label: t("Filed by", "പരാതി നൽകിയത്"),
     fallback: t("On your summons", "സമൻസിൽ"),
   },
+  /* Filed against, filed on, hearing date and cheque date: field feedback rows 93–95
+     (Oct 2026). Malayalam drafted — needs review. */
+  {
+    key: "filedAgainst",
+    label: t("Filed against", "ആർക്കെതിരെ"),
+    fallback: t("On your summons", "സമൻസിൽ"),
+  },
+  {
+    key: "filingDate",
+    label: t("Filed on", "ഫയൽ ചെയ്ത തീയതി"),
+    fallback: t("On your summons", "സമൻസിൽ"),
+  },
+  {
+    key: "hearingDate",
+    label: t("Hearing date", "ഹിയറിംഗ് തീയതി"),
+    fallback: t("On your summons", "സമൻസിൽ"),
+  },
   {
     key: "chequeAmount",
     label: t("Amount claimed", "ആവശ്യപ്പെടുന്ന തുക"),
@@ -108,6 +130,11 @@ export const summaryFields: {
   {
     key: "chequeNumber",
     label: t("Cheque number", "ചെക്ക് നമ്പർ"),
+    fallback: t("On your summons", "സമൻസിൽ"),
+  },
+  {
+    key: "chequeDate",
+    label: t("Cheque date", "ചെക്കിന്റെ തീയതി"),
     fallback: t("On your summons", "സമൻസിൽ"),
   },
 ];
@@ -242,8 +269,9 @@ export const join = {
     "ലോഗിൻ ചെയ്തോ രജിസ്റ്റർ ചെയ്തോ കേസിൽ ചേരുക",
   ),
   body: t(
-    "Sign in to read the full complaint, pay, ask for a new date, apply for bail, and add your lawyer.",
-    "പൂർണ്ണ പരാതി വായിക്കാനും, പണം അടയ്ക്കാനും, പുതിയ തീയതി ചോദിക്കാനും, ജാമ്യത്തിന് അപേക്ഷിക്കാനും, അഭിഭാഷകനെ ചേർക്കാനും സൈൻ ഇൻ ചെയ്യുക.",
+    // "Apply for bail" removed (field feedback row 160).
+    "Sign in to read the full complaint, pay, ask for a new date, and add your lawyer.",
+    "പൂർണ്ണ പരാതി വായിക്കാനും, പണം അടയ്ക്കാനും, പുതിയ തീയതി ചോദിക്കാനും, അഭിഭാഷകനെ ചേർക്കാനും സൈൻ ഇൻ ചെയ്യുക.",
   ),
   safety: t(
     "Your access code is on your summons. Share it only with your lawyer.",
@@ -355,8 +383,9 @@ export const helpPanel: Record<StepId, HelpEntry[]> = {
     {
       q: t("What if my date has passed?", "തീയതി കഴിഞ്ഞുപോയെങ്കിൽ?"),
       a: t(
-        "Do not ignore it. Sign in to see your new date, or call 0000 000000.",
-        "അവഗണിക്കരുത്. പുതിയ തീയതി അറിയാൻ സൈൻ ഇൻ ചെയ്യുക, അല്ലെങ്കിൽ 0000 000000 വിളിക്കുക.",
+        // The date is on the platform; no helpline for it (field feedback row 155).
+        "Do not ignore it. Sign in to see your new date.",
+        "അവഗണിക്കരുത്. പുതിയ തീയതി അറിയാൻ സൈൻ ഇൻ ചെയ്യുക.",
       ),
     },
     {
@@ -467,13 +496,7 @@ export const helpPanel: Record<StepId, HelpEntry[]> = {
         "കോടതി അതിലേക്ക് ഒറ്റത്തവണ കോഡ് അയക്കും, ഹിയറിംഗ് തീയതികളും ഉത്തരവുകളും അറിയിക്കാൻ ഉപയോഗിക്കും. ഇമെയിൽ നിർബന്ധമല്ല.",
       ),
     },
-    {
-      q: t("Can I join later instead?", "പിന്നീട് ചേരാമോ?"),
-      a: t(
-        "Yes, at any stage. But the sooner you do, the more of your options are still open.",
-        "അതെ, ഏത് ഘട്ടത്തിലും. പക്ഷേ എത്ര നേരത്തെയോ അത്രയും കൂടുതൽ വഴികൾ തുറന്നിരിക്കും.",
-      ),
-    },
+    /* "Can I join later instead?" removed (field feedback row 160). */
     {
       q: t("Is my information private?", "എന്റെ വിവരങ്ങൾ രഹസ്യമാണോ?"),
       a: t(

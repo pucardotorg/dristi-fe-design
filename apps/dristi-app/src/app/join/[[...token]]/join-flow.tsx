@@ -33,8 +33,11 @@ const DEMO_CASE: CaseSummary = {
   courtAddress: "District Court Complex",
   hearingDate: "Friday, 18 September 2026, 10:30 AM",
   complainant: "South Indian Bank Ltd.",
+  filedAgainst: "Rajan Krishnan Nair, Suresh Babu P",
+  filingDate: "31 July 2026",
   chequeAmount: "₹1,85,000",
   chequeNumber: "004512",
+  chequeDate: "2 May 2026",
 };
 
 function JoinFlow() {
