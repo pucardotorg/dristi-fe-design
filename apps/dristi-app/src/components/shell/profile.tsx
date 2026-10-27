@@ -50,6 +50,11 @@ export type ProfileValue = {
   switchProfile: () => void;
   /** Act as this profile. The only way into the demo clerk profile. */
   setProfileRole: (role: ProfileRole) => void;
+  /** Demo "Viewing as": act as another advocate in the office, by name, without
+   *  signing in again. Any other profile change returns to the account's own self. */
+  viewAsAdvocate: (name: string) => void;
+  /** The advocate being viewed as, when it is someone other than the account. */
+  viewingAsName: string | null;
   /** Grant the advocate profile — the elevation-approved path (from Settings). */
   enableAdvocateProfile: () => void;
 };
@@ -60,6 +65,8 @@ const ProfileContext = React.createContext<ProfileValue | null>(null);
 export const PROFILE_ROLE_KEY = "dristi-demo-profile-role";
 export const ADVOCATE_AVAILABLE_KEY = "dristi-demo-advocate-available";
 export const ACCOUNT_NAME_KEY = "dristi-demo-account-name";
+/** The advocate picked under "Viewing as"; empty when acting as the account itself. */
+export const VIEWING_AS_NAME_KEY = "dristi-demo-viewing-as-name";
 
 export function ProfileProvider({
   children,
@@ -89,8 +96,12 @@ export function ProfileProvider({
       : advocateProfileAvailable;
 
   const accountName = useLocalStorageValue(ACCOUNT_NAME_KEY) || "Anjali Nair";
+  const viewingAsName = useLocalStorageValue(VIEWING_AS_NAME_KEY) || null;
 
+  // Switching the account's own profile, or into the demo clerk, leaves whoever was
+  // picked under "Viewing as": the screen is the account's (or the clerk's) again.
   const switchProfile = React.useCallback(() => {
+    writeLocalStorageValue(VIEWING_AS_NAME_KEY, "");
     writeLocalStorageValue(
       PROFILE_ROLE_KEY,
       profileRole === "litigant" ? "advocate" : "litigant",
@@ -98,7 +109,15 @@ export function ProfileProvider({
   }, [profileRole]);
 
   const setProfileRole = React.useCallback((role: ProfileRole) => {
+    writeLocalStorageValue(VIEWING_AS_NAME_KEY, "");
     writeLocalStorageValue(PROFILE_ROLE_KEY, role);
+  }, []);
+
+  // Everyone under "Viewing as" is an advocate, so picking one acts as an advocate,
+  // whichever profile the account was on (owner, 2026-10-27).
+  const viewAsAdvocate = React.useCallback((name: string) => {
+    writeLocalStorageValue(VIEWING_AS_NAME_KEY, name);
+    writeLocalStorageValue(PROFILE_ROLE_KEY, "advocate");
   }, []);
 
   const enableAdvocateProfile = React.useCallback(() => {
@@ -110,17 +129,26 @@ export function ProfileProvider({
       profileRole,
       advocateProfileAvailable: advocateAvailable,
       accountName,
-      displayName: profileRole === "clerk" ? VIEWER_CLERK_NAME : accountName,
+      displayName:
+        profileRole === "clerk"
+          ? VIEWER_CLERK_NAME
+          : profileRole === "advocate" && viewingAsName
+            ? viewingAsName
+            : accountName,
       switchProfile,
       setProfileRole,
+      viewAsAdvocate,
+      viewingAsName: profileRole === "advocate" ? viewingAsName : null,
       enableAdvocateProfile,
     }),
     [
       profileRole,
       advocateAvailable,
       accountName,
+      viewingAsName,
       switchProfile,
       setProfileRole,
+      viewAsAdvocate,
       enableAdvocateProfile,
     ],
   );

@@ -91,6 +91,7 @@ import {
   ACCOUNT_NAME_KEY,
   ADVOCATE_AVAILABLE_KEY,
   PROFILE_ROLE_KEY,
+  VIEWING_AS_NAME_KEY,
 } from "@/components/shell/profile";
 import {
   linkedComplaintHref,
@@ -266,6 +267,8 @@ function SignLinkBody({
     // in their own shell, with the signing window over it.
     try {
       window.localStorage.setItem(PROFILE_ROLE_KEY, isAdvocate ? "advocate" : "litigant");
+      // A fresh sign-in is the account itself, not whoever was viewed as before.
+      window.localStorage.setItem(VIEWING_AS_NAME_KEY, "");
       // A signing link brings the complaint back onto this account's home.
       setNewAccountShell(false);
       window.localStorage.setItem(ADVOCATE_AVAILABLE_KEY, isAdvocate ? "true" : "false");

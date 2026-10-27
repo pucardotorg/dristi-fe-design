@@ -456,8 +456,14 @@ const PROFILE_HOME: Record<ProfileRole, string> = {
  */
 function ProfileFooter() {
   const { state, people, user, setUser, resetSandbox } = useTasks();
-  const { profileRole, advocateProfileAvailable, displayName, setProfileRole } =
-    useProfile();
+  const {
+    profileRole,
+    advocateProfileAvailable,
+    accountName,
+    displayName,
+    setProfileRole,
+    viewAsAdvocate,
+  } = useProfile();
   const router = useRouter();
   const roleLabel = PROFILE_LABEL[profileRole];
 
@@ -475,7 +481,26 @@ function ProfileFooter() {
   function switchTo(role: ProfileRole) {
     if (role === profileRole) return;
     setProfileRole(role);
+    // Back on the account's own advocate profile, the sandbox acts as the account too.
+    const self = people.find((p) => p.name === accountName);
+    if (role === "advocate" && self) void setUser(self.id);
     router.push(PROFILE_HOME[role]);
+  }
+
+  // "Viewing as" acts as that person straight away, from any profile, and opens their
+  // home when the role changes (owner, 2026-10-27): no second sign-in.
+  function viewAs(person: { id: string; name: string }) {
+    const wasAdvocate = profileRole === "advocate";
+    if (person.name === accountName) setProfileRole("advocate");
+    else viewAsAdvocate(person.name);
+    void setUser(person.id);
+    if (!wasAdvocate) router.push(PROFILE_HOME.advocate);
+  }
+
+  function viewAsClerk() {
+    if (profileRole === "clerk") return;
+    setProfileRole("clerk");
+    router.push(PROFILE_HOME.clerk);
   }
   const [confirmReset, setConfirmReset] = React.useState(false);
   const onResetSandbox = React.useCallback(() => setConfirmReset(true), []);
@@ -584,17 +609,14 @@ function ProfileFooter() {
                         variant="ghost"
                         className="w-full justify-start font-normal"
                         disabled={state !== "ready"}
-                        onClick={() => {
-                          // Everyone in the sandbox is an advocate; picking one
-                          // leaves the clerk's seat.
-                          if (profileRole === "clerk") setProfileRole("advocate");
-                          void setUser(p.id);
-                        }}
+                        onClick={() => viewAs(p)}
                       >
                         <span className="flex-1 truncate text-left">
                           {p.name}
                         </span>
-                        {profileRole !== "clerk" && p.id === user.id ? (
+                        {/* Ticked only while acting as an advocate: a litigant is
+                            nobody on this list. */}
+                        {profileRole === "advocate" && p.id === user.id ? (
                           <CheckIcon aria-hidden />
                         ) : null}
                       </Button>
@@ -608,7 +630,7 @@ function ProfileFooter() {
                         <Button
                           variant="ghost"
                           className="w-full justify-start font-normal"
-                          onClick={() => setProfileRole("clerk")}
+                          onClick={viewAsClerk}
                         >
                           <span className="flex-1 truncate text-left">
                             {VIEWER_CLERK_NAME}

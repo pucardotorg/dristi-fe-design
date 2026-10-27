@@ -11,6 +11,7 @@ import {
   ACCOUNT_NAME_KEY,
   ADVOCATE_AVAILABLE_KEY,
   PROFILE_ROLE_KEY,
+  VIEWING_AS_NAME_KEY,
 } from "@/components/shell/profile";
 import { SignInBlock } from "@/components/sign-in-block";
 import type { CaseSummary, Locale } from "@/lib/onboarding/content";
@@ -84,6 +85,8 @@ function JoinFlow() {
         PROFILE_ROLE_KEY,
         advocate ? "advocate" : "litigant",
       );
+      // A fresh sign-in is the account itself, not whoever was viewed as before.
+      window.localStorage.setItem(VIEWING_AS_NAME_KEY, "");
       window.localStorage.setItem(
         ADVOCATE_AVAILABLE_KEY,
         advocate ? "true" : "false",
