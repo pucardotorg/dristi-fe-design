@@ -71,6 +71,10 @@ export const PEOPLE: Person[] = [
   { id: "p-o12", name: "Nisha Rawther", initials: "NR", role: "senior" },
 ];
 
+/** Anjali's own office (her and the advocates she works with); everyone else above
+ *  is another advocate on the court's docket. "Viewing as" groups them this way. */
+export const OFFICE_PEOPLE_IDS = new Set(["p-an", "p-sp", "p-dv", "p-rm", "p-ri"]);
+
 /** Who the sandbox signs in as until the account menu says otherwise. */
 export const DEFAULT_USER_ID = "p-an";
 

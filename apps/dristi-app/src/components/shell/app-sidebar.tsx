@@ -25,6 +25,7 @@ import { TASKS_HOME } from "@/lib/tasks/routes";
 import { summaryOf } from "@/lib/tasks/selectors";
 import { resetBulk } from "@/components/bulk/api";
 import { resetSampleDrafts } from "@/lib/filing/sample-drafts";
+import { OFFICE_PEOPLE_IDS } from "@/lib/tasks/sandbox";
 import { useTasks } from "@/lib/tasks/store";
 import { BrandGlyph } from "@/components/brand-lockup";
 import { ConfirmDialog } from "@/components/shell/confirm-dialog";
@@ -603,8 +604,22 @@ function ProfileFooter() {
                   <p className="px-2 py-1.5 text-caption font-semibold text-muted-foreground">
                     Viewing as
                   </p>
+                  {/* Who is who (owner, 2026-10-27): every row says what the person
+                      is, and the advocates outside Anjali's office sit under their
+                      own heading. Nobody here is court staff. */}
                   {people.map((p, index) => (
                     <React.Fragment key={p.id}>
+                      {index === 0 && OFFICE_PEOPLE_IDS.has(p.id) ? (
+                        <p className="px-2 pt-1 pb-0.5 text-caption text-muted-foreground">
+                          Office of {p.name}
+                        </p>
+                      ) : null}
+                      {!OFFICE_PEOPLE_IDS.has(p.id) &&
+                      (index === 0 || OFFICE_PEOPLE_IDS.has(people[index - 1].id)) ? (
+                        <p className="mt-1 border-t border-hairline px-2 pt-2 pb-0.5 text-caption text-muted-foreground">
+                          Other advocates on the docket
+                        </p>
+                      ) : null}
                       <Button
                         variant="ghost"
                         className="w-full justify-start font-normal"
@@ -613,6 +628,9 @@ function ProfileFooter() {
                       >
                         <span className="flex-1 truncate text-left">
                           {p.name}
+                        </span>
+                        <span className="text-caption text-muted-foreground">
+                          {p.role === "junior" ? "Junior advocate" : "Advocate"}
                         </span>
                         {/* Ticked only while acting as an advocate: a litigant is
                             nobody on this list. */}

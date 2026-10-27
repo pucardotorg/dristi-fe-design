@@ -26,10 +26,10 @@ import { homeConfigFor } from "@/lib/advocate/config";
  */
 function AdvocatePage() {
   const { locale } = useLocale();
-  const { displayName, switchProfile } = useProfile();
+  const { displayName, switchProfile, viewingAsName, profileRole } = useProfile();
   const router = useRouter();
   const searchParams = useSearchParams();
-  // A litigant or clerk profile does not get the advocate home under its name.
+  // A litigant profile does not get the advocate home under its name (the clerk's Home is this one).
   const handingOver = useHomeFollowsProfile("advocate");
 
   const token = searchParams.get("token");
@@ -47,7 +47,11 @@ function AdvocatePage() {
     if (shellParam === "full") setNewAdvocateShell(false);
   }, [shellParam]);
   const storedNew = useLocalStorageValue(NEW_ADVOCATE_SHELL_KEY) === "1";
-  const newAccount = shellParam === "new" || (shellParam !== "full" && storedNew);
+  // The empty shell is the new account's own home: viewing as another advocate, or as
+  // the office clerk, shows that person's full home (owner, 2026-10-27).
+  const actingAsAccount = profileRole === "advocate" && !viewingAsName;
+  const newAccount =
+    actingAsAccount && (shellParam === "new" || (shellParam !== "full" && storedNew));
 
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [autoOpened, setAutoOpened] = React.useState(false);

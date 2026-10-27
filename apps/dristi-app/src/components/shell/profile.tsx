@@ -170,7 +170,17 @@ export function ProfileProvider({
   );
 }
 
+/** Where each profile's Home is. The clerk's is the advocate home, greeting him by
+ *  name (owner, 2026-10-22), not a home of his own. */
 const PROFILE_HOME_PATH: Record<ProfileRole, string> = {
+  litigant: "/home",
+  advocate: "/advocate",
+  clerk: "/advocate",
+};
+
+/** Where a wrong home sends each profile: the same place switching to it lands, so
+ *  the clerk goes to Cases, as the account menu takes him (owner, 2026-09-24). */
+const HAND_OVER_TO: Record<ProfileRole, string> = {
   litigant: "/home",
   advocate: "/advocate",
   clerk: "/cases",
@@ -194,15 +204,16 @@ export function useHomeFollowsProfile(home: "litigant" | "advocate"): boolean {
   const searchParams = useSearchParams();
   const role =
     stored === "litigant" || stored === "advocate" || stored === "clerk" ? stored : null;
-  const mismatch = hydrated && role !== null && role !== home;
+  const homeOfRole = role === null ? null : PROFILE_HOME_PATH[role];
+  const mismatch = hydrated && homeOfRole !== null && homeOfRole !== PROFILE_HOME_PATH[home];
 
   React.useEffect(() => {
     if (!hydrated) return;
     // Nobody signed in: each home shows its own default, nothing is redirected.
     if (role === null) return;
-    if (role === home) return;
+    if (PROFILE_HOME_PATH[role] === PROFILE_HOME_PATH[home]) return;
     const query = searchParams.toString();
-    router.replace(`${PROFILE_HOME_PATH[role]}${query ? `?${query}` : ""}`);
+    router.replace(`${HAND_OVER_TO[role]}${query ? `?${query}` : ""}`);
   }, [hydrated, role, home, router, searchParams]);
 
   return mismatch;
