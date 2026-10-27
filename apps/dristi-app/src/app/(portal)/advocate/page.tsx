@@ -9,7 +9,7 @@ import { useLocalStorageValue } from "@/hooks/use-local-storage-value";
 import { NEW_ADVOCATE_SHELL_KEY, setNewAdvocateShell } from "@/lib/advocate/new-account";
 import { AdvocateJoinCaseDialog } from "@/components/advocate/join-case-dialog";
 import { useLocale } from "@/components/shell/locale";
-import { useProfile } from "@/components/shell/profile";
+import { useHomeFollowsProfile, useProfile } from "@/components/shell/profile";
 import { ADVOCATE_JOIN_CASE } from "@/lib/advocate/content";
 import { homeConfigFor } from "@/lib/advocate/config";
 
@@ -29,6 +29,8 @@ function AdvocatePage() {
   const { displayName, switchProfile } = useProfile();
   const router = useRouter();
   const searchParams = useSearchParams();
+  // A litigant or clerk profile does not get the advocate home under its name.
+  const handingOver = useHomeFollowsProfile("advocate");
 
   const token = searchParams.get("token");
   const hasCase = searchParams.get("nocase") !== "1";
@@ -59,6 +61,8 @@ function AdvocatePage() {
     }, 1200);
     return () => window.clearTimeout(timer);
   }, [summonsCase, autoOpened]);
+
+  if (handingOver) return null;
 
   return (
     <>

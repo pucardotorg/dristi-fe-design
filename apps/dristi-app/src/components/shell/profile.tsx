@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { VIEWER_CLERK_NAME } from "@/lib/cases/viewer";
 
@@ -156,6 +157,61 @@ export function ProfileProvider({
   return (
     <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>
   );
+}
+
+const PROFILE_HOME_PATH: Record<ProfileRole, string> = {
+  litigant: "/home",
+  advocate: "/advocate",
+  clerk: "/cases",
+};
+
+const subscribeNothing = () => () => {};
+
+/**
+ * Keeps a role's home and the profile in step (owner, 2026-10-27). Each home used to
+ * draw itself whatever profile was on, so an old tab, the back button or a link could
+ * show the litigant home under "Anjali · Advocate". Now a home whose profile is not
+ * the one in use hands over to that profile's home, query and all (the summons token
+ * included). Before anyone signs in nothing is stored, and a litigant home claims the
+ * litigant profile for itself. Returns true while it is handing over, so the page can
+ * stay blank rather than flash the wrong home.
+ */
+export function useHomeFollowsProfile(home: "litigant" | "advocate"): boolean {
+  const stored = useLocalStorageValue(PROFILE_ROLE_KEY);
+  // False through hydration, true after: the stored role is only real from then on.
+  const hydrated = React.useSyncExternalStore(subscribeNothing, () => true, () => false);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const role =
+    stored === "litigant" || stored === "advocate" || stored === "clerk" ? stored : null;
+  const mismatch = hydrated && role !== null && role !== home;
+
+  React.useEffect(() => {
+    if (!hydrated) return;
+    if (role === null) {
+      // Nobody signed in: the litigant home is the summoned litigant's (Rajan, the
+      // demo's litigant account), a base litigant with no advocate profile.
+      if (home === "litigant") {
+        let named = false;
+        try {
+          named = Boolean(window.localStorage.getItem(ACCOUNT_NAME_KEY));
+        } catch {
+          /* private mode: treat as unnamed */
+        }
+        if (!named) {
+          writeLocalStorageValue(ACCOUNT_NAME_KEY, "Rajan K. Nair");
+          writeLocalStorageValue(ADVOCATE_AVAILABLE_KEY, "false");
+        }
+        writeLocalStorageValue(PROFILE_ROLE_KEY, "litigant");
+      }
+      return;
+    }
+    if (role === home) return;
+    const query = searchParams.toString();
+    router.replace(`${PROFILE_HOME_PATH[role]}${query ? `?${query}` : ""}`);
+  }, [hydrated, role, home, router, searchParams]);
+
+  return mismatch;
 }
 
 export function useProfile(): ProfileValue {

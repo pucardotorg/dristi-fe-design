@@ -4,6 +4,7 @@ import * as React from "react";
 import { useSearchParams } from "next/navigation";
 
 import { HomeScreen } from "@/components/home/home-screen";
+import { useHomeFollowsProfile } from "@/components/shell/profile";
 import { SECOND_LANGUAGE } from "@/lib/locale-config";
 import type { Locale } from "@/lib/onboarding/content";
 
@@ -26,6 +27,9 @@ function HomePage() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
   const lang = searchParams.get("lang");
+  // An advocate or clerk profile does not get the litigant home under its name.
+  const handingOver = useHomeFollowsProfile("litigant");
+  if (handingOver) return null;
 
   return (
     <HomeScreen
