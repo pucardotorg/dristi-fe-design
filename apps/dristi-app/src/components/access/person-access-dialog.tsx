@@ -1635,6 +1635,15 @@ export function PersonAccessDialog({
               <AlertDialogTitle className="text-body font-semibold text-pretty">
                 {actTitle}
               </AlertDialogTitle>
+              {/* The save's filter warning, kept for Remove / Give access:
+                  ticks outlive a filter change, so the selection can hold
+                  cases the filters hide (owner, Oct 27). A scope switch acts
+                  on every case, so it needs no warning. */}
+              {filtered && (act === "remove" || act === "give") ? (
+                <p className="text-caption font-medium text-warning-ink">
+                  {pick(copy.confirmOutsideFilter, locale)}
+                </p>
+              ) : null}
             </div>
             <AlertDialogDescription asChild>
               <ul className="flex w-full flex-col gap-2 text-left text-pretty">
