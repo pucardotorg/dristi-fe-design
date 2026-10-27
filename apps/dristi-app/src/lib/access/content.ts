@@ -898,8 +898,8 @@ export const personAccessCopy = {
     "പുതിയ കേസുകൾ സ്വയമേവ പങ്കിടും",
   ),
   confirmOutsideFilter: t(
-    "A filter is on, so not every case was in view. Review before saving.",
-    "ഒരു ഫിൽട്ടർ ഓണാണ്, എല്ലാ കേസുകളും കാണിച്ചിരുന്നില്ല. സേവ് ചെയ്യുന്നതിന് മുമ്പ് പരിശോധിക്കുക.",
+    "Some filters were on, so not every case was in view while you chose. Review carefully before you confirm.",
+    "ചില ഫിൽട്ടറുകൾ ഓണായിരുന്നു, തിരഞ്ഞെടുക്കുമ്പോൾ എല്ലാ കേസുകളും കാണിച്ചിരുന്നില്ല. സ്ഥിരീകരിക്കുന്നതിന് മുമ്പ് ശ്രദ്ധയോടെ പരിശോധിക്കുക.",
   ),
   pointAddOne: t("Gets access to 1 case", "1 കേസിലേക്ക് ആക്‌സസ് ലഭിക്കും"),
   pointAdd: t("Gets access to {count} cases", "{count} കേസുകളിലേക്ക് ആക്‌സസ് ലഭിക്കും"),
