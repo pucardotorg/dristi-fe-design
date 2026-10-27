@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { VIEWER_CLERK_NAME } from "@/lib/cases/viewer";
 
@@ -83,20 +83,31 @@ export function ProfileProvider({
   // defaults and the stored value takes over right after — no effect, no second
   // setState pass. A base litigant has no advocate profile until elevated.
   const storedRole = useLocalStorageValue(PROFILE_ROLE_KEY);
+  // Nobody signed in on the litigant home: show it as the demo's summoned litigant
+  // (Rajan, no advocate profile) rather than the advocate default. Display only;
+  // nothing is stored, so the other homes keep their own defaults (owner, 2026-10-27).
+  const pathname = usePathname();
+  const unsignedLitigantHome = storedRole === null && (pathname ?? "").startsWith("/home");
   const profileRole: ProfileRole =
     storedRole === "litigant" ||
     storedRole === "advocate" ||
     storedRole === "clerk"
       ? storedRole
-      : initialRole;
+      : unsignedLitigantHome
+        ? "litigant"
+        : initialRole;
 
   const storedAvail = useLocalStorageValue(ADVOCATE_AVAILABLE_KEY);
   const advocateAvailable =
     storedAvail === "true" || storedAvail === "false"
       ? storedAvail === "true"
-      : advocateProfileAvailable;
+      : unsignedLitigantHome
+        ? false
+        : advocateProfileAvailable;
 
-  const accountName = useLocalStorageValue(ACCOUNT_NAME_KEY) || "Anjali Nair";
+  const accountName =
+    useLocalStorageValue(ACCOUNT_NAME_KEY) ||
+    (unsignedLitigantHome ? "Rajan K. Nair" : "Anjali Nair");
   const viewingAsName = useLocalStorageValue(VIEWING_AS_NAME_KEY) || null;
 
   // Switching the account's own profile, or into the demo clerk, leaves whoever was
@@ -172,9 +183,8 @@ const subscribeNothing = () => () => {};
  * draw itself whatever profile was on, so an old tab, the back button or a link could
  * show the litigant home under "Anjali · Advocate". Now a home whose profile is not
  * the one in use hands over to that profile's home, query and all (the summons token
- * included). Before anyone signs in nothing is stored, and a litigant home claims the
- * litigant profile for itself. Returns true while it is handing over, so the page can
- * stay blank rather than flash the wrong home.
+ * included). Before anyone signs in nothing is stored and nothing moves. Returns true
+ * while it is handing over, so the page can stay blank rather than flash the wrong home.
  */
 export function useHomeFollowsProfile(home: "litigant" | "advocate"): boolean {
   const stored = useLocalStorageValue(PROFILE_ROLE_KEY);
@@ -188,24 +198,8 @@ export function useHomeFollowsProfile(home: "litigant" | "advocate"): boolean {
 
   React.useEffect(() => {
     if (!hydrated) return;
-    if (role === null) {
-      // Nobody signed in: the litigant home is the summoned litigant's (Rajan, the
-      // demo's litigant account), a base litigant with no advocate profile.
-      if (home === "litigant") {
-        let named = false;
-        try {
-          named = Boolean(window.localStorage.getItem(ACCOUNT_NAME_KEY));
-        } catch {
-          /* private mode: treat as unnamed */
-        }
-        if (!named) {
-          writeLocalStorageValue(ACCOUNT_NAME_KEY, "Rajan K. Nair");
-          writeLocalStorageValue(ADVOCATE_AVAILABLE_KEY, "false");
-        }
-        writeLocalStorageValue(PROFILE_ROLE_KEY, "litigant");
-      }
-      return;
-    }
+    // Nobody signed in: each home shows its own default, nothing is redirected.
+    if (role === null) return;
     if (role === home) return;
     const query = searchParams.toString();
     router.replace(`${PROFILE_HOME_PATH[role]}${query ? `?${query}` : ""}`);
