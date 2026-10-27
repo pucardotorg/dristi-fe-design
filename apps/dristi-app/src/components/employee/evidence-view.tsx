@@ -163,13 +163,13 @@ function statusVariant(record: EvidenceRecord): "success" | "warning" | "info" {
 }
 
 /**
- * The order screen's Evidence view: everything recorded at this hearing, in one place
+ * The order screen's Examinations view: everything recorded at this hearing, in one place
  * (owner, 2026-10-27, after a header button, a side-panel tab and a case-page menu read
  * as "fragmented"). One tab per witness or accused, as DRISTI 1.0 had; the text with the
  * order screen's `/` shortcuts put to questions; then the sheet, signed by the person who
  * gave it before they leave the court. The case file stays beside it in the side panel.
  *
- * It is the third choice of "What to work on" because the evidence is the third thing the
+ * It is the third choice of "What to work on" because what was taken is the third thing the
  * typist works on at a hearing, after the order and its data. It does not touch the
  * order page, which stays the signed order's rendering (`ORD-13`), and it works whether
  * the order is a draft or already sent for signing.
@@ -403,6 +403,14 @@ function EvidenceRecordEditor({
       <div className="grid gap-6 md:grid-cols-2">
         <Field data-invalid={Boolean(errors.person)}>
           <FieldLabel htmlFor={personFieldId}>{deposition ? "Witness" : "Accused"}</FieldLabel>
+          {/* Above the list: who is on it, and where “Add a witness” sits, before the list opens. */}
+          <FieldDescription>
+            {deposition
+              ? "The complainant and the witnesses on this case. Someone else: Add a witness, at the end of the list."
+              : accused.length === 0
+                ? "No accused is recorded on this case."
+                : "Examined in person, and not on oath."}
+          </FieldDescription>
           <Select
             value={record.personId}
             disabled={!editable}
@@ -446,13 +454,6 @@ function EvidenceRecordEditor({
               ) : null}
             </SelectContent>
           </Select>
-          <FieldDescription>
-            {deposition
-              ? "The complainant and the witnesses on this case. Someone else: Add a witness, at the end of the list."
-              : accused.length === 0
-                ? "No accused is recorded on this case."
-                : "Examined in person, and not on oath."}
-          </FieldDescription>
           <FieldError>{errors.person}</FieldError>
         </Field>
 

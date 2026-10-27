@@ -1,11 +1,11 @@
 # Witness deposition and examination of the accused
 Updated: 2026-10-27
-Status: implemented, not committed: an Evidence view on the court's order screen (branch `feature-witness-deposition`)
+Status: implemented: an Examinations view on the court's order screen (branch `feature-witness-deposition`)
 
 ## Current outcome
 
 On the court's order screen for a hearing, the view switch reads **Order | Order data |
-Evidence**. Evidence holds what was taken at this hearing. Each record is about one
+Examinations**. Examinations holds what was taken at this hearing. Each record is about one
 person: a witness's deposition or the accused's S. 351 examination.
 
 - **Way in.** The view is there in every order state: draft, and sent for signing. A
@@ -18,9 +18,11 @@ person: a witness's deposition or the accused's S. 351 examination.
   another** menu adds the other kind. An unsigned record can be discarded after a
   confirmation.
 - **Who.** The witness picker lists the complainant (unless they are already a listed
-  witness), then the case's witnesses, then **Add a witness**. That form asks for a
-  name, who called them, and an optional mobile number. A new witness shows the next
-  free number on their side, and keeps it once they sign.
+  witness), then the case's witnesses, then **Add a witness**. The line that says who
+  is on the list sits above the dropdown, so it is read before the list opens. The
+  accused field's hint sits in the same place. The add-a-witness form asks for a name,
+  who called them, and an optional mobile number. A new witness shows the next free
+  number on their side, and keeps it once they sign.
 - **Typing.** A person picker shows the witness number and side. Typing uses the rich
   text field with the `/` deposition shortcuts and a Shortcuts dialog. **Review and
   sign** needs a person, some text and no `[blank]` left. If one is missing, it focuses
@@ -53,6 +55,8 @@ Files:
 | 2026-10-26 | **Revised proposal after Anshumanth's "Order and Hearing Entity Explainer".** A deposition is a record of the hearing (like Attendance), not an order item or an item workflow: an item belongs to one order and its workflow runs only after the order is signed and its data complete, while a witness signs before leaving and evidence can span hearings (`WitnessDeposition.hearingIds`). Proposed: a section under Attendance on the order page titled by the hearing's purpose, listing what was recorded and whether signed, writing an editable line into the order text; a quiet button beside Shortcuts for other hearings; the court case page ⋮ outside a hearing. One section for the four section workflows in `docs/product/order-templates.md`. Eight questions for Anshumanth listed in the review. | Agent analysis, same artifact (v2) | Awaiting Neer / Anshumanth |
 | 2026-10-27 | **Built: the Evidence view (v4).** Neer approved it ("I like this direction now, can you build this for me in the product"). Built as reviewed, except that entry from the court case page outside a hearing is not built yet. A deposition is stored as a hearing record keyed by hearing id, not as an order item. | Neer | Implemented, not committed |
 | 2026-10-27 | **Witnesses can be added while recording.** Most demo cases list no witnesses, so the picker was a dead end. Now the picker offers: the complainant first, unless they're already listed as a witness, because in a cheque case they are usually PW-1; then the listed witnesses; then **Add a witness** at the end. The form asks for a name, the side the witness is for (prosecution, defence or court) and an optional mobile number. Nobody chooses the number: it is the next free one on that side (PW-, DW- or CW-), shown before signing and fixed when the witness signs. Added witnesses are kept per case in this browser, so they appear at the next hearing. Not yet decided: whether they also join the case's Parties tab (for Anshumanth). | Neer: "yes build it" | Implemented, not committed |
+| 2026-10-27 | **The person field's help sits above the dropdown.** Neer pointed at the witness hint ("The complainant and the witnesses on this case…") and asked for it above the list. The same field is used for the accused, so that hint moves with it. The validation message stays under the dropdown. | Neer | Implemented, not committed |
+| 2026-10-27 | **The view is named Examinations.** The order-screen switch reads Order, Order data, Examinations. An accused's S. 351 answers are not evidence, and "evidence" already names the marked exhibits. | Neer | Implemented |
 | 2026-10-27 | Sides are named in the court's terms, which the letters stand for: "Witness for" Prosecution (complainant) / Defence (accused) / Court. The beside-picker line reads "Prosecution witness, called by the complainant". Before this, the labels were Complainant / Accused / Court. | Neer | Implemented, not committed |
 | 2026-10-27 | **Entry point consolidated: an Evidence view on the order screen.** Neer found the header button + side-panel tab + order line + case page "fragmented". Revised to one place: a third choice, Evidence, in the order screen's view switch (`aria-label="What to work on"`, beside Order and Order data), hosting the deposition design in place of its dialog; a count on the switch for unsigned records; purpose decides the first choice in the empty view; present in every order state. Case page opens the same view outside a hearing. Review v4, same link. | Neer feedback; agent proposal | Approved 2026-10-27 |
 | 2026-10-27 | **Entry point revised to the order screen's chrome.** Keep the deposition window as designed. Way in: a split button in the order screen header beside Side panel, labelled by the hearing's purpose (Take deposition / Examine accused / Record plea), the others behind the chevron (the cause list's Pass-over pattern). Status: an Evidence tab in the side panel listing this hearing's records and earlier ones. Replaces the section-under-Attendance idea: the order page is the signed order's rendering (`ORD-13`) and goes read-only once sent for signing; the Shortcuts row exists only in the draft Order view. Review v3: https://claude.ai/artifact/T9w5JAHNt3a8ap8z8BAZ4p | Neer asked to settle the entry point on the order page; agent proposal | Superseded by the Evidence view |
@@ -109,6 +113,23 @@ Checked on the owner's dev server (localhost:3000, this checkout, DS pin
   - Added witnesses are still there after a reload.
   - h-241 doesn't list the complainant twice.
 - Checked at 390px (no overflow) and in dark mode. `npm test`: 1414 pass.
+
+### Help above the person dropdown (2026-10-27)
+
+Checked on the owner's dev server (localhost:3000, this checkout, branch
+`feature-witness-deposition`) in the IDE browser, light theme, desktop width, on
+ST/254/2026 → Examinations → a new deposition:
+
+- The hint is between the Witness label and the "Choose the witness" dropdown.
+- Review and sign with nobody chosen shows "Choose the witness." under the dropdown,
+  and the hint stays above it.
+- The accused field uses the same order (hint, then the dropdown). Seen on an
+  examination of Sabari Textiles before that draft was no longer on the hearing.
+- A 375px capture did not apply: the viewport override left the tab at desktop width.
+  The field is one column, so the order is the same when the page is narrow.
+- The field itself was not captured in dark theme. Switching the page to dark happened
+  after the draft was already gone. Light was restored.
+- This check was the agent's own, not an independent review.
 
 Not built or open:
 - Whether an added witness joins the case's Parties tab.

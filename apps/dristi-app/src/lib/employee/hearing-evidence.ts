@@ -1,6 +1,6 @@
 /**
  * The evidence recorded at a hearing: a witness's deposition, or the court's examination
- * of an accused under S. 351 BNSS (owner, 2026-10-27: the order screen's Evidence view).
+ * of an accused under S. 351 BNSS (owner, 2026-10-27: the order screen's Examinations view).
  *
  * **A record of the hearing, not of the order.** It is typed while the order is open, by
  * the same person, but an order item belongs to one order and its workflow runs only once
@@ -164,7 +164,7 @@ export function unsignedCount(records: readonly EvidenceRecord[]): number {
   return records.filter((record) => record.status !== "signed").length;
 }
 
-/** What an empty Evidence view offers first: the record the hearing is listed for. */
+/** What an empty Examinations view offers first: the record the hearing is listed for. */
 export function firstKindFor(
   purpose: CourtHearingPurposeId | undefined,
 ): EvidenceKind {

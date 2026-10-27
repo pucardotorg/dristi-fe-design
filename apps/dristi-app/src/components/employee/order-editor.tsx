@@ -914,7 +914,7 @@ export function OrderEditorComposer({
   historyContent?: React.ReactNode;
   /** The Data flags tab (ORD-15) — the listing's attendance history. */
   dataFlagsContent?: React.ReactNode;
-  /** Only on a hearing: what the Evidence view records against. */
+  /** Only on a hearing: what the Examinations view records against. */
   evidence?: EvidenceContext;
 }) {
   const rootRef = React.useRef<HTMLDivElement>(null);
@@ -1034,11 +1034,13 @@ export function OrderEditorComposer({
               <SegmentedControlItem value="workflow">
                 Order data
               </SegmentedControlItem>
-              {/* The evidence taken at this hearing is the third thing worked on here
-                  (owner, 2026-10-27). Only a hearing's order has one. */}
+              {/* What was taken at this hearing is the third thing worked on here
+                  (owner, 2026-10-27). "Examinations", not "Evidence": an accused's
+                  S. 351 answers are not evidence, and "evidence" already names the
+                  marked exhibits. Only a hearing's order has one. */}
               {evidence ? (
                 <SegmentedControlItem value="evidence">
-                  Evidence
+                  Examinations
                   {unsigned > 0 ? (
                     <Badge variant="warning" className="ml-1.5 tabular-nums">
                       {unsigned}
