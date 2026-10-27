@@ -434,7 +434,10 @@ export function JoinCaseDialog({
                     : isSummonsFirst
                       ? (
                           <>
-                            <span className="mt-1 block">
+                            {/* Plain wrapping: the line fills to the edge instead of
+                                pulling words down to even out the last line (owner,
+                                2026-10-27). */}
+                            <span className="mt-1 block text-wrap">
                               {emphasise(pick(summonsModal.firstBody, locale), caseFacts)}
                             </span>
                             <span className="mt-3 block">
