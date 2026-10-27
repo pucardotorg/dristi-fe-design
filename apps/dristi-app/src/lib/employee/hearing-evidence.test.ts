@@ -50,19 +50,21 @@ const ADDED: Record<string, AddedWitness> = {
   w2: { id: "w2", caseNumber: "ST/999/2026", name: "Someone elsewhere", side: "accused", addedOn: "2026-10-27T10:00:00.000Z" },
 };
 
-test("a deposition is of the complainant, a listed witness or one added here", () => {
+test("a deposition is of a party, a listed witness or one added here", () => {
   const deponents = deponentsFor("ST/241/2026", PEOPLE, ADDED, {});
-  assert.deepEqual(deponents.map((d) => d.id), ["complainant", "pw-2", "w1"]);
+  assert.deepEqual(deponents.map((d) => d.id), ["complainant", "pw-2", "w1", "accused-1"]);
   assert.equal(deponents[0].number, undefined);
+  assert.equal(nextWitnessNumber(deponents[3].side, deponents), "DW-1");
   assert.deepEqual(accusedOf(PEOPLE).map((p) => p.id), ["accused-1"]);
 });
 
-test("a complainant already listed as a witness is not offered twice", () => {
+test("a party already listed as a witness is not offered twice", () => {
   const listed = [
     ...PEOPLE,
     personOf({ id: "pw-1", name: "Sunil  varghese", kind: "witness", role: "PW-1", side: "complainant" }),
+    personOf({ id: "dw-1", name: "anand traders", kind: "witness", role: "DW-1", side: "accused" }),
   ];
-  assert.deepEqual(deponentsFor("ST/241/2026", listed, {}, {}).map((d) => d.id), ["pw-2", "pw-1"]);
+  assert.deepEqual(deponentsFor("ST/241/2026", listed, {}, {}).map((d) => d.id), ["pw-2", "pw-1", "dw-1"]);
 });
 
 test("a new witness takes the next free number on their side, and keeps it once signed", () => {

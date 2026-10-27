@@ -9,6 +9,7 @@ import {
   blankRepresentative,
 } from "@/lib/filing/blank";
 import { useCourt } from "@/components/court/court-provider";
+import { normalizeMobileNumber } from "@/lib/cases/witnesses";
 import { policeStationsFor } from "@/lib/filing/options";
 import type { AddressBlock, Contact, Representative } from "@/lib/filing/types";
 import { Button } from "@/components/ui/button";
@@ -50,6 +51,7 @@ export function ContactList({
   mobilePlaceholder = "10-digit number",
   emailPlaceholder = "name@example.com",
   optional = false,
+  allowAdd = true,
 }: {
   contacts: Contact[];
   onChange: (next: Contact[]) => void;
@@ -60,6 +62,8 @@ export function ContactList({
   /** Marks the mobile and email labels optional — the marker sits on the fields,
       not on the section heading (owner, Sept 2). */
   optional?: boolean;
+  /** False hides the add-row control; a single contact row is enough. */
+  allowAdd?: boolean;
 }) {
   const setAt = (i: number, patch: Partial<Contact>) =>
     onChange(contacts.map((c, k) => (k === i ? { ...c, ...patch } : c)));
@@ -73,13 +77,12 @@ export function ContactList({
                 prefix="+91"
                 value={c.mobile}
                 // A +91 mobile is ten digits; keep only digits and cap the length
-                // so the field can never overflow (owner, Sept 2).
-                onChange={(v) =>
-                  setAt(i, { mobile: v.replace(/\D/g, "").slice(0, 10) })
-                }
+                // so the field can never overflow (owner, Sept 2). The cap is on the
+                // digits, not the input: a maxLength cut a pasted "98470 12345" or
+                // "+91 98470 12345" short before its spaces and prefix were dropped.
+                onChange={(v) => setAt(i, { mobile: normalizeMobileNumber(v) })}
                 placeholder={mobilePlaceholder}
                 inputMode="numeric"
-                maxLength={10}
                 autoComplete="tel-national"
               />
             </FormField>
@@ -101,15 +104,17 @@ export function ContactList({
           ) : null}
         </div>
       ))}
-      <Button
-        type="button"
-        variant="outline"
-        className="w-fit"
-        onClick={() => onChange([...contacts, blankContact()])}
-      >
-        <PlusIcon data-icon="inline-start" aria-hidden />
-        {addLabel}
-      </Button>
+      {allowAdd ? (
+        <Button
+          type="button"
+          variant="outline"
+          className="w-fit"
+          onClick={() => onChange([...contacts, blankContact()])}
+        >
+          <PlusIcon data-icon="inline-start" aria-hidden />
+          {addLabel}
+        </Button>
+      ) : null}
     </div>
   );
 }
@@ -125,10 +130,14 @@ export function AddressBlockList({
   blocks,
   onChange,
   addLabel = "Add another address",
+  optional = false,
 }: {
   blocks: AddressBlock[];
   onChange: (next: AddressBlock[]) => void;
   addLabel?: string;
+  /** No address is needed: the last one can be removed too, and no field is marked
+      required (a started address still has to be complete; the host says so). */
+  optional?: boolean;
 }) {
   const { court } = useCourt();
   const setAt = (i: number, patch: Partial<AddressBlock>) =>
@@ -143,7 +152,7 @@ export function AddressBlockList({
         >
           <div className="flex items-center justify-between gap-3">
             <FormSubhead>Address {i + 1}</FormSubhead>
-            {blocks.length > 1 ? (
+            {blocks.length > 1 || optional ? (
               <RemoveButton
                 label={`Remove address ${i + 1}`}
                 onClick={() => onChange(blocks.filter((_, k) => k !== i))}
@@ -154,6 +163,7 @@ export function AddressBlockList({
             value={b.addr}
             onChange={(addr) => setAt(i, { addr })}
             name={`addresses.${i}.addr`}
+            required={!optional}
           />
           <HalfWidth>
             {/* Item 7: a station list is far too long to scan, so it is searched. It
@@ -162,7 +172,7 @@ export function AddressBlockList({
             <FormField
               label="Police station"
               name={`addresses.${i}.police`}
-              required
+              required={!optional}
               help="The station this address falls under."
             >
               <ComboField

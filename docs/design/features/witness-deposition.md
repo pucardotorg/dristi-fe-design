@@ -15,18 +15,22 @@ person: a witness's deposition or the accused's S. 351 examination.
   has the view; cognizance and application orders do not.
 - **Tabs.** One tab per record, labelled "PW-2 · Name" or the accused's name, with its
   status (Not signed / Sent to sign / Signed by the witness or accused). A **Record
-  another** menu adds the other kind. An unsigned record can be discarded after a
+  another** menu adds the other kind. A draft can be discarded from its tab, after a
   confirmation.
-- **Who.** The witness picker lists the complainant (unless they are already a listed
-  witness), then the case's witnesses, then **Add a witness**. The line that says who
-  is on the list sits above the dropdown, so it is read before the list opens. The
-  accused field's hint sits in the same place. The add-a-witness form asks for a name,
-  who called them, and an optional mobile number. A new witness shows the next free
-  number on their side, and keeps it once they sign.
-- **Typing.** A person picker shows the witness number and side. Typing uses the rich
-  text field with the `/` deposition shortcuts and a Shortcuts dialog. **Review and
-  sign** needs a person, some text and no `[blank]` left. If one is missing, it focuses
-  the editor and selects the first blank.
+- **Who.** The witness picker groups the complainant, the case's witnesses, then each
+  accused who is not already listed, then **Add a witness**. A party already on the
+  witness list is not offered twice. The hint sits under the dropdown, so the label and
+  box line up with the read-only witness mark beside them. Add a witness asks the way
+  the advocate's form does: a full name or a designation, optional age, one contact,
+  optional addresses, who called them, and what they will prove. Only the name or
+  designation is required; a started address must be complete. The number is the next
+  free one on that side, and it is kept once they sign. Closing a half-filled form asks
+  before discarding it.
+- **Typing.** The witness mark is a read-only field. Typing uses the rich text field
+  with the `/` deposition shortcuts and a Shortcuts dialog: the list on the left, the
+  add or edit form beside it from a medium width up. **Review and sign** needs a
+  person, some text and no `[blank]` left. If one is missing, it focuses the editor and
+  selects the first blank.
 - **Signing**, in one dialog: the sheet, dated by the court's day → the method → done.
   - Witness: Aadhaar OTP or an uploaded paper copy → Signed.
   - Accused: SMS link to a 10-digit mobile → Sent to sign; or paper → Signed.
@@ -55,7 +59,8 @@ Files:
 | 2026-10-26 | **Revised proposal after Anshumanth's "Order and Hearing Entity Explainer".** A deposition is a record of the hearing (like Attendance), not an order item or an item workflow: an item belongs to one order and its workflow runs only after the order is signed and its data complete, while a witness signs before leaving and evidence can span hearings (`WitnessDeposition.hearingIds`). Proposed: a section under Attendance on the order page titled by the hearing's purpose, listing what was recorded and whether signed, writing an editable line into the order text; a quiet button beside Shortcuts for other hearings; the court case page ⋮ outside a hearing. One section for the four section workflows in `docs/product/order-templates.md`. Eight questions for Anshumanth listed in the review. | Agent analysis, same artifact (v2) | Awaiting Neer / Anshumanth |
 | 2026-10-27 | **Built: the Evidence view (v4).** Neer approved it ("I like this direction now, can you build this for me in the product"). Built as reviewed, except that entry from the court case page outside a hearing is not built yet. A deposition is stored as a hearing record keyed by hearing id, not as an order item. | Neer | Implemented, not committed |
 | 2026-10-27 | **Witnesses can be added while recording.** Most demo cases list no witnesses, so the picker was a dead end. Now the picker offers: the complainant first, unless they're already listed as a witness, because in a cheque case they are usually PW-1; then the listed witnesses; then **Add a witness** at the end. The form asks for a name, the side the witness is for (prosecution, defence or court) and an optional mobile number. Nobody chooses the number: it is the next free one on that side (PW-, DW- or CW-), shown before signing and fixed when the witness signs. Added witnesses are kept per case in this browser, so they appear at the next hearing. Not yet decided: whether they also join the case's Parties tab (for Anshumanth). | Neer: "yes build it" | Implemented, not committed |
-| 2026-10-27 | **The person field's help sits above the dropdown.** Neer pointed at the witness hint ("The complainant and the witnesses on this case…") and asked for it above the list. The same field is used for the accused, so that hint moves with it. The validation message stays under the dropdown. | Neer | Implemented, not committed |
+| 2026-10-27 | **The person field's help sits above the dropdown.** Neer pointed at the witness hint ("The complainant and the witnesses on this case…") and asked for it above the list. The same field is used for the accused, so that hint moves with it. The validation message stays under the dropdown. | Neer | Superseded the same day: the hint sits under the dropdown so the label lines up with the witness mark |
+| 2026-10-27 | **The parties are offered, and Add a witness matches the advocate form.** The picker groups complainant, witnesses, then each accused not already listed. The hint sits under the dropdown again so that field lines up with the read-only witness mark. A draft is discarded from its tab. Shortcuts list on the left with the form beside them. Add a witness asks for a name or designation, age, one contact, addresses and what they will prove; only the name or designation is required. A half-filled form asks before it is discarded. | Neer | Implemented |
 | 2026-10-27 | **The view is named Examinations.** The order-screen switch reads Order, Order data, Examinations. An accused's S. 351 answers are not evidence, and "evidence" already names the marked exhibits. | Neer | Implemented |
 | 2026-10-27 | Sides are named in the court's terms, which the letters stand for: "Witness for" Prosecution (complainant) / Defence (accused) / Court. The beside-picker line reads "Prosecution witness, called by the complainant". Before this, the labels were Complainant / Accused / Court. | Neer | Implemented, not committed |
 | 2026-10-27 | **Entry point consolidated: an Evidence view on the order screen.** Neer found the header button + side-panel tab + order line + case page "fragmented". Revised to one place: a third choice, Evidence, in the order screen's view switch (`aria-label="What to work on"`, beside Order and Order data), hosting the deposition design in place of its dialog; a count on the switch for unsigned records; purpose decides the first choice in the empty view; present in every order state. Case page opens the same view outside a hearing. Review v4, same link. | Neer feedback; agent proposal | Approved 2026-10-27 |

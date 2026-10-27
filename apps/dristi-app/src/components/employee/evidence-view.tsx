@@ -23,6 +23,11 @@ import {
 import { UPLOAD_HELP, UploadedDocField } from "@/components/cases/uploaded-doc-field";
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 import { PaperFallbackLink } from "@/components/filing/paper-fallback";
+import { FormRow } from "@/components/filing/form-card";
+import { FormField } from "@/components/filing/form-field";
+import { TextField } from "@/components/filing/inputs";
+import { SectionNotice } from "@/components/filing/notices";
+import { AddressBlockList, ContactList } from "@/components/filing/repeat-lists";
 import { ChoiceCard, OtpEntry } from "@/components/filing/sign-stages";
 import {
   AlertDialog,
@@ -61,6 +66,7 @@ import {
   FieldError,
   FieldLabel,
   FieldLegend,
+  FieldSeparator,
   FieldSet,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -68,11 +74,16 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
+import { isValidEmail } from "@/lib/cases/witnesses";
 import type { CasePerson } from "@/lib/employee/case-people";
 import {
   accusedOf,
@@ -101,6 +112,8 @@ import {
   type WitnessSide,
 } from "@/lib/employee/hearing-evidence";
 import { formatOrderDate, type CourtHearingPurposeId } from "@/lib/employee/hearings";
+import { blankAddressBlock, blankContact } from "@/lib/filing/blank";
+import type { AddressBlock, Contact } from "@/lib/filing/types";
 import { cn } from "@/lib/utils";
 
 /** Where the view sits: the hearing its records belong to, and the case's people. */
@@ -156,6 +169,14 @@ const SIDE_BADGE: Record<
 
 /** Not a person: the picker's last line, which opens the Add a witness form. */
 const ADD_WITNESS = "add-witness";
+
+/** The witness picker's headings, in the order a clerk looks: the complainant is
+ *  almost always the first to depose. A party on the witness list is a witness. */
+const DEPONENT_GROUPS: readonly { label: string; sources: readonly Deponent["source"][] }[] = [
+  { label: "Complainant", sources: ["complainant"] },
+  { label: "Witnesses", sources: ["listed", "added"] },
+  { label: "Accused", sources: ["accused"] },
+];
 
 function statusVariant(record: EvidenceRecord): "success" | "warning" | "info" {
   if (record.status === "signed") return "success";
@@ -239,22 +260,45 @@ export function EvidenceView({ context }: { context: EvidenceContext }) {
       >
         {records.map((record) => {
           const current = record.id === active?.id;
+          const label = evidenceLabel(record, context.people, deponents);
+          /* Discard sits beside the name it removes, a sibling of the tab button: a
+             button cannot hold another. Only a draft can be discarded. */
           return (
-            <button
+            <div
               key={record.id}
-              type="button"
-              aria-current={current ? "true" : undefined}
-              onClick={() => setActiveId(record.id)}
               className={cn(
-                "-mb-px flex min-h-12 shrink-0 items-center gap-2 border-b-2 px-3 text-body-compact whitespace-nowrap outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
-                current
-                  ? "border-primary font-medium text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground",
+                "-mb-px flex min-h-12 shrink-0 items-center gap-1 border-b-2",
+                current ? "border-primary" : "border-transparent",
               )}
             >
-              {evidenceLabel(record, context.people, deponents)}
-              <Badge variant={statusVariant(record)}>{evidenceStatusLabel(record)}</Badge>
-            </button>
+              <button
+                type="button"
+                aria-current={current ? "true" : undefined}
+                onClick={() => setActiveId(record.id)}
+                className={cn(
+                  "flex min-h-12 items-center gap-2 px-3 text-body-compact whitespace-nowrap outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+                  record.status === "draft" && "pr-1",
+                  current
+                    ? "font-medium text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {label}
+                <Badge variant={statusVariant(record)}>{evidenceStatusLabel(record)}</Badge>
+              </button>
+              {record.status === "draft" ? (
+                <Button
+                  type="button"
+                  variant="destructive-ghost"
+                  size="icon-xs"
+                  className="mr-1 max-md:size-10"
+                  aria-label={`Discard ${label}`}
+                  onClick={() => setDiscarding(record)}
+                >
+                  <Trash2Icon aria-hidden className="size-4" />
+                </Button>
+              ) : null}
+            </div>
           );
         })}
         <DropdownMenu>
@@ -280,7 +324,6 @@ export function EvidenceView({ context }: { context: EvidenceContext }) {
           record={active}
           context={context}
           deponents={deponents}
-          onDiscard={() => setDiscarding(active)}
         />
       ) : null}
 
@@ -324,12 +367,10 @@ function EvidenceRecordEditor({
   record,
   context,
   deponents,
-  onDiscard,
 }: {
   record: EvidenceRecord;
   context: EvidenceContext;
   deponents: readonly Deponent[];
-  onDiscard: () => void;
 }) {
   const suggestion = useDepositionSuggestion(record.kind);
   const personFieldId = React.useId();
@@ -403,14 +444,6 @@ function EvidenceRecordEditor({
       <div className="grid gap-6 md:grid-cols-2">
         <Field data-invalid={Boolean(errors.person)}>
           <FieldLabel htmlFor={personFieldId}>{deposition ? "Witness" : "Accused"}</FieldLabel>
-          {/* Above the list: who is on it, and where “Add a witness” sits, before the list opens. */}
-          <FieldDescription>
-            {deposition
-              ? "The complainant and the witnesses on this case. Someone else: Add a witness, at the end of the list."
-              : accused.length === 0
-                ? "No accused is recorded on this case."
-                : "Examined in person, and not on oath."}
-          </FieldDescription>
           <Select
             value={record.personId}
             disabled={!editable}
@@ -428,68 +461,100 @@ function EvidenceRecordEditor({
             <SelectTrigger id={personFieldId} className="w-full" aria-invalid={Boolean(errors.person)}>
               <SelectValue placeholder={deposition ? "Choose the witness" : "Choose the accused"} />
             </SelectTrigger>
-            <SelectContent>
-              {deposition
-                ? deponents.map((entry) => (
-                    <SelectItem key={entry.id} value={entry.id}>
-                      {/* The number first: a long name is what gets cut in the trigger. */}
-                      {entry.number
-                        ? `${entry.number} · ${entry.name}`
-                        : `${entry.name} · ${entry.source === "complainant" ? "complainant" : "no number yet"}`}
-                    </SelectItem>
-                  ))
-                : accused.map((entry) => (
+            {/* Items sit in groups: the group, not the content, insets the hover fill.
+                A deposition's list is labelled by who the person is on the case. It opens
+                below the field, as the filing form's does, not over it. */}
+            <SelectContent
+              position="popper"
+              align="start"
+              sideOffset={4}
+              className="w-(--radix-select-trigger-width)"
+            >
+              {deposition ? (
+                DEPONENT_GROUPS.map((group) => {
+                  const members = deponents.filter((entry) => group.sources.includes(entry.source));
+                  return members.length === 0 ? null : (
+                    <SelectGroup key={group.label}>
+                      <SelectLabel>{group.label}</SelectLabel>
+                      {members.map((entry) => (
+                        <SelectItem key={entry.id} value={entry.id}>
+                          {/* The number first: a long name is what gets cut in the trigger. */}
+                          {entry.number
+                            ? `${entry.number} · ${entry.name}`
+                            : `${entry.name} · ${
+                                entry.source === "complainant" || entry.source === "accused"
+                                  ? entry.source
+                                  : "no number yet"
+                              }`}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  );
+                })
+              ) : (
+                <SelectGroup>
+                  {accused.map((entry) => (
                     <SelectItem key={entry.id} value={entry.id}>
                       {entry.name}
                     </SelectItem>
                   ))}
+                </SelectGroup>
+              )}
               {deposition ? (
                 <>
                   <SelectSeparator />
-                  <SelectItem value={ADD_WITNESS} className="text-primary">
-                    <PlusIcon aria-hidden className="text-primary" />
-                    Add a witness
-                  </SelectItem>
+                  <SelectGroup>
+                    <SelectItem value={ADD_WITNESS} className="text-primary">
+                      <PlusIcon aria-hidden className="text-primary" />
+                      Add a witness
+                    </SelectItem>
+                  </SelectGroup>
                 </>
               ) : null}
             </SelectContent>
           </Select>
+          {/* Below the list, as the field beside it has, so the two labels and boxes line up. */}
+          <FieldDescription>
+            {deposition
+              ? "The parties and the witnesses on this case. Someone else? Add a witness, at the end of the list."
+              : accused.length === 0
+                ? "No accused is recorded on this case."
+                : "Examined in person, and not on oath."}
+          </FieldDescription>
           <FieldError>{errors.person}</FieldError>
         </Field>
 
+        {/* Not chosen: the mark follows from the witness, so it reads as a field that
+            cannot be typed in. The side is said in words below it. */}
         {deponent && numbered ? (
-          <div className="flex flex-col gap-2">
-            <span className="text-body-compact font-medium">Witness number</span>
-            <div className="flex min-h-10 flex-wrap items-center gap-2">
-              <Badge
-                variant={SIDE_BADGE[deponent.side].variant}
-                className={cn("font-mono", SIDE_BADGE[deponent.side].stroke)}
-              >
-                {numbered.number}
-              </Badge>
-              <span className="text-body-compact text-muted-foreground">
-                {SIDE_NAME[deponent.side].name} witness
-                {SIDE_NAME[deponent.side].party
-                  ? `, called by the ${SIDE_NAME[deponent.side].party}`
-                  : ""}
-                {numbered.fixed
-                  ? deponent.examined
-                    ? " · examined before"
-                    : ""
-                  : " · the next free number, theirs once they sign"}
-              </span>
-            </div>
-          </div>
+          <Field>
+            <FieldLabel htmlFor={`${personFieldId}-mark`}>Witness mark as</FieldLabel>
+            <Input
+              id={`${personFieldId}-mark`}
+              readOnly
+              value={numbered.number}
+              className="tabular-nums"
+            />
+            <FieldDescription>
+              {SIDE_NAME[deponent.side].name} witness
+              {SIDE_NAME[deponent.side].party
+                ? `, called by the ${SIDE_NAME[deponent.side].party}`
+                : ""}
+              {numbered.fixed
+                ? deponent.examined
+                  ? ". Examined before."
+                  : "."
+                : ". Confirmed when they sign."}
+            </FieldDescription>
+          </Field>
         ) : null}
         {/* An accused's standing only where it says more than the field's own label:
             "Accused 2 · person in charge", not "Accused". */}
         {examined && examined.role !== "Accused" ? (
-          <div className="flex flex-col gap-2">
-            <span className="text-body-compact font-medium">Standing</span>
-            <div className="flex min-h-10 flex-wrap items-center gap-2">
-              <span className="text-body-compact text-muted-foreground">{examined.role}</span>
-            </div>
-          </div>
+          <Field>
+            <FieldLabel htmlFor={`${personFieldId}-standing`}>Standing</FieldLabel>
+            <Input id={`${personFieldId}-standing`} readOnly value={examined.role} />
+          </Field>
         ) : null}
       </div>
 
@@ -544,29 +609,20 @@ function EvidenceRecordEditor({
       )}
 
       {editable ? (
-        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <Button
-            type="button"
-            variant="destructive-ghost"
-            className="sm:-ml-3"
-            onClick={onDiscard}
-          >
-            <Trash2Icon aria-hidden />
-            Discard
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+          <span aria-live="polite" className="text-body-compact text-muted-foreground">
+            Saved
+          </span>
+          <Button type="button" variant="outline" onClick={review}>
+            Review and sign
           </Button>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <span aria-live="polite" className="text-body-compact text-muted-foreground">
-              Saved
-            </span>
-            <Button type="button" variant="outline" onClick={review}>
-              Review and sign
-            </Button>
-          </div>
         </div>
       ) : null}
 
       <Dialog open={shortcutsOpen} onOpenChange={setShortcutsOpen}>
-        <DialogContent className="flex max-h-[90svh] flex-col gap-6 overflow-y-auto sm:max-w-3xl">
+        {/* Side by side from md, each pane scrolling on its own; stacked below, the
+            window scrolls. */}
+        <DialogContent className="flex max-h-[90svh] flex-col gap-6 overflow-y-auto sm:max-w-3xl md:max-w-5xl md:overflow-hidden">
           <DialogHeader>
             <DialogTitle>Shortcuts</DialogTitle>
             <DialogDescription>
@@ -1044,12 +1100,59 @@ const SIDE_NAME: Record<WitnessSide, { name: string; party?: string }> = {
   court: { name: "Court" },
 };
 
+/** An address with nothing typed in it yet: left out, not held against the form. */
+function addressBlank({ addr, police }: AddressBlock): boolean {
+  return ![addr.line1, addr.pin, addr.city, addr.district, addr.state, police].some((v) =>
+    v.trim(),
+  );
+}
+
+/** The advocate form's rule for an address it keeps: every field, police station included. */
+function addressComplete({ addr, police }: AddressBlock): boolean {
+  return [addr.line1, addr.pin, addr.city, addr.district, addr.state, police].every((v) =>
+    v.trim(),
+  );
+}
+
+/** The first thing the form cannot take, in the order it is read; null when it can. */
+function witnessFormError(form: {
+  fullName: string;
+  designation: string;
+  contacts: Contact[];
+  addresses: AddressBlock[];
+}): string | null {
+  if (!form.fullName.trim() && !form.designation.trim()) {
+    return "Enter the witness's full name or their designation.";
+  }
+  const shortMobile = form.contacts.findIndex(
+    (c) => c.mobile.length > 0 && c.mobile.length !== 10,
+  );
+  if (shortMobile >= 0) {
+    return `Mobile number ${shortMobile + 1} needs all ten digits, or leave it empty.`;
+  }
+  const badEmail = form.contacts.findIndex((c) => c.email.trim() && !isValidEmail(c.email));
+  if (badEmail >= 0) {
+    return `Email ID ${badEmail + 1} is not a complete email address.`;
+  }
+  const partAddress = form.addresses.findIndex(
+    (block) => !addressBlank(block) && !addressComplete(block),
+  );
+  if (partAddress >= 0) {
+    return `Address ${partAddress + 1} needs every field, police station included, or remove it.`;
+  }
+  return null;
+}
+
 /**
  * Add the person in the witness box to the case's witnesses, when they are not on its
- * list (owner, 2026-10-27). DRISTI 1.0's Add New Witness, cut to what a deposition needs:
- * their name, who called them — which gives the letters of their number — and a mobile
- * for the Aadhaar OTP. The number itself is not chosen: it is the next free one on that
- * side, and it becomes theirs when they sign.
+ * list. DRISTI 1.0's Add Witness Details (owner, 2026-10-27), asked the way the advocate's
+ * Add witnesses form asks it, from the same filing kit: a full name or a designation,
+ * age, contact rows, addresses, and what they will prove. Only the name or designation is
+ * required; the witness is in court, so the rest is for reaching them later. Documents
+ * are not uploaded here: what a witness produces is marked as an exhibit.
+ *
+ * Who called them stays this form's own: it gives the letters of their number. The
+ * number is not chosen: it is the next free one on that side, theirs when they sign.
  */
 function AddWitnessDialog({
   open,
@@ -1067,46 +1170,69 @@ function AddWitnessDialog({
   returnFocusTo: string;
   onAdded: (witness: { id: string; name: string }) => void;
 }) {
-  const nameId = React.useId();
-  const mobileId = React.useId();
-  const [name, setName] = React.useState("");
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+  const [fullName, setFullName] = React.useState("");
+  const [designation, setDesignation] = React.useState("");
+  const [age, setAge] = React.useState("");
   const [side, setSide] = React.useState<WitnessSide>("complainant");
-  const [mobile, setMobile] = React.useState("");
-  const [errors, setErrors] = React.useState<{ name?: string; mobile?: string }>({});
+  const [prove, setProve] = React.useState("");
+  const [contacts, setContacts] = React.useState<Contact[]>(() => [blankContact()]);
+  const [addresses, setAddresses] = React.useState<AddressBlock[]>(() => [blankAddressBlock()]);
+  const [error, setError] = React.useState<string>();
+  const [discarding, setDiscarding] = React.useState(false);
 
   /* Fresh each time it opens, at render on the closed→open edge. */
   const [wasOpen, setWasOpen] = React.useState(open);
   if (open !== wasOpen) {
     setWasOpen(open);
     if (open) {
-      setName("");
+      setFullName("");
+      setDesignation("");
+      setAge("");
       setSide("complainant");
-      setMobile("");
-      setErrors({});
+      setProve("");
+      setContacts([blankContact()]);
+      setAddresses([blankAddressBlock()]);
+      setError(undefined);
+      setDiscarding(false);
     }
+  }
+
+  const dirty =
+    Boolean(fullName.trim() || designation.trim() || age.trim() || prove.trim()) ||
+    contacts.some((c) => c.mobile || c.email.trim()) ||
+    addresses.some((block) => !addressBlank(block));
+
+  /* A half-filled form is not lost to a stray Escape or a click outside. */
+  function requestClose() {
+    if (dirty) setDiscarding(true);
+    else onOpenChange(false);
   }
 
   function submit(event: React.FormEvent) {
     event.preventDefault();
-    const digits = mobile.replace(/\D/g, "");
-    const next = {
-      name: name.trim() ? undefined : "Enter the witness's name.",
-      mobile: digits.length === 0 || digits.length === 10 ? undefined : "Enter a 10-digit mobile number, or leave it empty.",
-    };
-    setErrors(next);
-    if (next.name) {
-      window.document.getElementById(nameId)?.focus();
+    const problem = witnessFormError({ fullName, designation, contacts, addresses });
+    setError(problem ?? undefined);
+    if (problem) {
+      /* The notice heads the form; bring it into view. It is read out as it appears. */
+      scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
-    if (next.mobile) {
-      window.document.getElementById(mobileId)?.focus();
-      return;
-    }
+    const tidy = (value: string) => value.trim().replace(/\s+/g, " ");
+    const mobiles = contacts.map((c) => c.mobile).filter(Boolean);
+    const emails = contacts.map((c) => c.email.trim()).filter(Boolean);
+    const kept = addresses.filter((block) => !addressBlank(block));
     const witness = addWitness({
       caseNumber,
-      name: name.trim().replace(/\s+/g, " "),
+      name: tidy(fullName) || tidy(designation),
+      designation: tidy(designation) || undefined,
       side,
-      mobile: digits || undefined,
+      age: age || undefined,
+      mobile: mobiles[0],
+      mobiles: mobiles.length ? mobiles : undefined,
+      emails: emails.length ? emails : undefined,
+      addresses: kept.length ? kept : undefined,
+      prove: prove.trim() || undefined,
     });
     onAdded(witness);
     onOpenChange(false);
@@ -1116,104 +1242,185 @@ function AddWitnessDialog({
     "flex shrink-0 flex-col-reverse gap-2 border-t border-hairline bg-surface-sunken px-6 py-4 sm:flex-row sm:items-center sm:justify-end";
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <FlowDialogContent
-        className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md"
-        onCloseAutoFocus={(event) => {
-          event.preventDefault();
-          window.document.getElementById(returnFocusTo)?.focus();
+    <>
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          if (next) onOpenChange(true);
+          else requestClose();
         }}
       >
-        <form noValidate onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
-          <DialogHeader className="shrink-0 gap-1.5 border-b border-hairline px-6 py-4 pr-12 text-left">
-            <DialogTitle className="text-body font-semibold">Add a witness</DialogTitle>
-            <DialogDescription>
-              Someone giving evidence who is not on this case&apos;s list.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 py-6">
-            <Field data-invalid={Boolean(errors.name)}>
-              <FieldLabel htmlFor={nameId}>Name</FieldLabel>
-              <Input
-                id={nameId}
-                autoComplete="off"
-                value={name}
-                aria-invalid={Boolean(errors.name)}
-                onChange={(event) => {
-                  setName(event.target.value);
-                  setErrors((current) => ({ ...current, name: undefined }));
-                }}
-              />
-              <FieldDescription>
-                As the witness gives it. For an office, its holder: &quot;Branch Manager,
-                Federal Bank&quot;.
-              </FieldDescription>
-              <FieldError>{errors.name}</FieldError>
-            </Field>
+        <FlowDialogContent
+          className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            window.document.getElementById(returnFocusTo)?.focus();
+          }}
+        >
+          <form noValidate onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
+            <DialogHeader className="shrink-0 gap-1.5 border-b border-hairline px-6 py-4 pr-12 text-left">
+              <DialogTitle className="text-body font-semibold">Add a witness</DialogTitle>
+              <DialogDescription>
+                Someone giving evidence who is not on this case&apos;s list.
+              </DialogDescription>
+            </DialogHeader>
+            <div
+              ref={scrollRef}
+              className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 py-6"
+            >
+              {error ? (
+                <SectionNotice variant="destructive" announce="assertive">
+                  {error}
+                </SectionNotice>
+              ) : null}
 
-            <FieldSet>
-              <FieldLegend variant="label">Witness for</FieldLegend>
-              <RadioGroup
-                value={side}
-                onValueChange={(next) => setSide(next as WitnessSide)}
-                className="gap-1"
-              >
-                {WITNESS_SIDES.map((entry) => (
-                  <label
-                    key={entry}
-                    className="flex min-h-10 cursor-pointer items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-accent"
-                  >
-                    <RadioGroupItem value={entry} />
-                    <span className="flex min-w-0 flex-1 items-center justify-between gap-3 text-body-compact">
-                      <span>
-                        {SIDE_NAME[entry].name}
-                        {SIDE_NAME[entry].party ? (
-                          <span className="text-muted-foreground">
-                            {" "}
-                            ({SIDE_NAME[entry].party})
-                          </span>
-                        ) : null}
+              {/* Who they are first, then how to reach them, then why they are here
+                  (owner, 2026-10-27): name and age share a row, the designation runs
+                  the full width under it. A plain form: field labels and dividers, no
+                  section headings or copy (owner). The "or" says a name or designation
+                  is enough; the notice says so when neither is given. */}
+              <FormRow>
+                <FormField label="Full name">
+                  <TextField
+                    value={fullName}
+                    onChange={(next) => {
+                      setFullName(next);
+                      setError(undefined);
+                    }}
+                    placeholder="As the witness gives it"
+                    autoComplete="off"
+                  />
+                </FormField>
+                <FieldSeparator className="md:col-span-2">or</FieldSeparator>
+                <FormField label="Designation" className="md:col-span-2">
+                  <TextField
+                    value={designation}
+                    onChange={(next) => {
+                      setDesignation(next);
+                      setError(undefined);
+                    }}
+                    placeholder="e.g. Branch Manager, Federal Bank"
+                    autoComplete="off"
+                  />
+                </FormField>
+                {/* Last in the source, so on a phone the "or" sits between the two
+                    it joins; beside the name from md up. */}
+                <FormField label="Age" optional className="md:col-start-2 md:row-start-1">
+                  <TextField
+                    value={age}
+                    onChange={(next) => setAge(next.replace(/\D/g, "").slice(0, 3))}
+                    placeholder="In years"
+                    inputMode="numeric"
+                    maxLength={3}
+                  />
+                </FormField>
+              </FormRow>
+
+              <Separator />
+
+              <ContactList
+                contacts={contacts}
+                onChange={(next) => {
+                  setContacts(next);
+                  setError(undefined);
+                }}
+                emailLabel="Email ID"
+                mobilePlaceholder="10-digit number"
+                emailPlaceholder="name@example.com"
+                optional
+                allowAdd={false}
+              />
+
+              <Separator />
+
+              <AddressBlockList
+                blocks={addresses}
+                onChange={(next) => {
+                  setAddresses(next);
+                  setError(undefined);
+                }}
+                addLabel="Add address"
+                optional
+              />
+
+              <Separator />
+
+              <FieldSet>
+                <FieldLegend variant="label">Witness for</FieldLegend>
+                <RadioGroup
+                  value={side}
+                  onValueChange={(next) => setSide(next as WitnessSide)}
+                  className="gap-1"
+                >
+                  {WITNESS_SIDES.map((entry) => (
+                    <label
+                      key={entry}
+                      className="flex min-h-10 cursor-pointer items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-accent"
+                    >
+                      <RadioGroupItem value={entry} />
+                      <span className="flex min-w-0 flex-1 items-center justify-between gap-3 text-body-compact">
+                        <span>
+                          {SIDE_NAME[entry].name}
+                          {SIDE_NAME[entry].party ? (
+                            <span className="text-muted-foreground">
+                              {" "}
+                              ({SIDE_NAME[entry].party})
+                            </span>
+                          ) : null}
+                        </span>
+                        <Badge
+                          variant={SIDE_BADGE[entry].variant}
+                          className={cn("font-mono", SIDE_BADGE[entry].stroke)}
+                        >
+                          {nextWitnessNumber(entry, deponents)}
+                        </Badge>
                       </span>
-                      <Badge
-                        variant={SIDE_BADGE[entry].variant}
-                        className={cn("font-mono", SIDE_BADGE[entry].stroke)}
-                      >
-                        {nextWitnessNumber(entry, deponents)}
-                      </Badge>
-                    </span>
-                  </label>
-                ))}
-              </RadioGroup>
-              <FieldDescription>
-                Gives the number: the next free one on that side, theirs once they sign.
-              </FieldDescription>
-            </FieldSet>
+                    </label>
+                  ))}
+                </RadioGroup>
+              </FieldSet>
 
-            <Field data-invalid={Boolean(errors.mobile)}>
-              <FieldLabel htmlFor={mobileId}>Mobile number (optional)</FieldLabel>
-              <Input
-                id={mobileId}
-                inputMode="tel"
-                autoComplete="off"
-                value={mobile}
-                aria-invalid={Boolean(errors.mobile)}
-                onChange={(event) => {
-                  setMobile(event.target.value);
-                  setErrors((current) => ({ ...current, mobile: undefined }));
-                }}
-              />
-              <FieldDescription>Ten digits, without +91.</FieldDescription>
-              <FieldError>{errors.mobile}</FieldError>
-            </Field>
-          </div>
-          <footer className={FOOTER}>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
+              <FormField label="What will this witness prove?" optional>
+                <Textarea
+                  value={prove}
+                  onChange={(event) => setProve(event.target.value)}
+                  placeholder="e.g. Confirms the cheque was handed over on 4 March"
+                />
+              </FormField>
+            </div>
+            <footer className={FOOTER}>
+              <Button type="button" variant="outline" onClick={requestClose}>
+                Cancel
+              </Button>
+              <Button type="submit">Add witness</Button>
+            </footer>
+          </form>
+        </FlowDialogContent>
+      </Dialog>
+
+      <AlertDialog open={discarding} onOpenChange={setDiscarding}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard this witness?</AlertDialogTitle>
+            <AlertDialogDescription>
+              What has been typed here is lost. They are not added to the case.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep editing</AlertDialogCancel>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => {
+                setDiscarding(false);
+                onOpenChange(false);
+              }}
+            >
+              Discard
             </Button>
-            <Button type="submit">Add witness</Button>
-          </footer>
-        </form>
-      </FlowDialogContent>
-    </Dialog>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

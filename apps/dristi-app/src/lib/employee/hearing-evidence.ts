@@ -21,6 +21,7 @@
 import type { CourtHearingPurposeId } from "./hearings";
 import type { CasePerson } from "./case-people";
 import { restoreRecord, saveRecord, watchRecord } from "./browser-record";
+import type { AddressBlock } from "@/lib/filing/types";
 
 export type EvidenceKind = "deposition" | "examination";
 
@@ -221,14 +222,26 @@ const PREFIX: Record<WitnessSide, string> = {
  * case's list (owner, 2026-10-27: "there are no witnesses on the case"). DRISTI 1.0 had
  * an Add New Witness form in the same place. Kept per case, so they are on the list at
  * the next hearing. Whether they also join the case's Parties tab is Anshumanth's call.
+ *
+ * The details are DRISTI 1.0's Add Witness Details, asked the way the advocate's Add
+ * witnesses form asks them (owner, 2026-10-27): only a name or designation is required.
  */
 export type AddedWitness = {
   id: string;
   caseNumber: string;
+  /** Their full name, or the designation when only the office is known. */
   name: string;
+  /** The office they hold, when given beside a name or instead of one. */
+  designation?: string;
   side: WitnessSide;
-  /** Ten digits, for the Aadhaar OTP; optional. */
+  age?: string;
+  /** The first of `mobiles`: ten digits, pre-filled when a signing link is sent. */
   mobile?: string;
+  mobiles?: string[];
+  emails?: string[];
+  addresses?: AddressBlock[];
+  /** What the witness will prove. */
+  prove?: string;
   addedOn: string;
 };
 
@@ -266,8 +279,8 @@ export type Deponent = {
   number?: string;
   examined?: boolean;
   mobile?: string;
-  /** Listed on the case, the complainant, or added here. */
-  source: "listed" | "complainant" | "added";
+  /** Listed on the case, a party to it, or added here. */
+  source: "listed" | "complainant" | "accused" | "added";
 };
 
 function sameName(a: string, b: string): boolean {
@@ -278,7 +291,9 @@ function sameName(a: string, b: string): boolean {
 /**
  * Who a deposition can be of, in the order a clerk looks for them. The complainant first
  * when not already a listed witness: in a cheque case they are almost always the first
- * witness, PW-1. Then the case's listed witnesses, then those added here.
+ * witness, PW-1. Then the case's listed witnesses, then those added here, then each
+ * accused not already listed (owner, 2026-10-27: the parties on the case are offered),
+ * numbered on the defence side like any witness of theirs.
  */
 export function deponentsFor(
   caseNumber: string,
@@ -330,6 +345,20 @@ export function deponentsFor(
         number: signedNumber(witness.id),
         mobile: witness.mobile,
         source: "added" as const,
+      })),
+    ...people
+      .filter(
+        (person) =>
+          person.kind === "accused" &&
+          !listed.some((witness) => sameName(witness.name, person.name)),
+      )
+      .map((person) => ({
+        id: person.id,
+        name: person.name,
+        side: "accused" as const,
+        number: signedNumber(person.id),
+        mobile: mobileOf(person),
+        source: "accused" as const,
       })),
   ];
 }
