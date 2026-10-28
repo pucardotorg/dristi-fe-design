@@ -5,6 +5,7 @@ import * as React from "react";
 import { VIEWER_CLERK_NAME } from "@/lib/cases/viewer";
 
 import {
+  removeLocalStorageValue,
   useLocalStorageValue,
   writeLocalStorageValue,
 } from "@/hooks/use-local-storage-value";
@@ -52,6 +53,8 @@ export type ProfileValue = {
   setProfileRole: (role: ProfileRole) => void;
   /** Grant the advocate profile — the elevation-approved path (from Settings). */
   enableAdvocateProfile: () => void;
+  /** Forget what sign-in stashed, so the next sign-in starts from nobody. */
+  signOut: () => void;
 };
 
 const ProfileContext = React.createContext<ProfileValue | null>(null);
@@ -104,6 +107,11 @@ export function ProfileProvider({
   const enableAdvocateProfile = React.useCallback(() => {
     writeLocalStorageValue(ADVOCATE_AVAILABLE_KEY, "true");
   }, []);
+  const signOut = React.useCallback(() => {
+    removeLocalStorageValue(PROFILE_ROLE_KEY);
+    removeLocalStorageValue(ADVOCATE_AVAILABLE_KEY);
+    removeLocalStorageValue(ACCOUNT_NAME_KEY);
+  }, []);
 
   const value = React.useMemo<ProfileValue>(
     () => ({
@@ -114,6 +122,7 @@ export function ProfileProvider({
       switchProfile,
       setProfileRole,
       enableAdvocateProfile,
+      signOut,
     }),
     [
       profileRole,
@@ -122,6 +131,7 @@ export function ProfileProvider({
       switchProfile,
       setProfileRole,
       enableAdvocateProfile,
+      signOut,
     ],
   );
 

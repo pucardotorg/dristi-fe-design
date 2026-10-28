@@ -36,6 +36,16 @@ export function writeLocalStorageValue(key: string, value: string) {
   emit(key)
 }
 
+export function removeLocalStorageValue(key: string) {
+  try {
+    window.localStorage.removeItem(key)
+  } catch {
+    /* Private mode: nothing was persisted, and the in-memory value goes below. */
+  }
+  unpersisted.delete(key)
+  emit(key)
+}
+
 export function useLocalStorageValue(key: string): string | null {
   const subscribe = useCallback(
     (callback: () => void) => {
