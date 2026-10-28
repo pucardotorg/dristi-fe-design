@@ -415,7 +415,6 @@ export function SubmitDocumentsDialog({
             <TextField
               label="Document title"
               value={draft.title}
-              description="What the Documents tab calls it."
               error={errors.title}
               onChange={(title) => update({ title })}
             />

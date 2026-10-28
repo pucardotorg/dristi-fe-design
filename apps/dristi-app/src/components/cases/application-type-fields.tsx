@@ -11,7 +11,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
   Field,
-  FieldDescription,
   FieldError,
   FieldLabel,
 } from "@/components/ui/field";
@@ -49,7 +48,6 @@ import {
 import {
   applicationsFile,
   submissionTypeLabel,
-  type ApplicationTypeId,
 } from "@/lib/cases/applications";
 import { formatCaseDate, type CaseRecord } from "@/lib/cases/types";
 import {
@@ -173,11 +171,9 @@ function FieldName({ label, optional }: { label: string; optional?: boolean }) {
 function PrefilledField({
   label,
   value: stored,
-  description,
 }: {
   label: string;
   value: string;
-  description?: string;
 }) {
   // Read-only, so it can show the record in the selected court's terms (`CourtSwitch`).
   const value = useCourtText()(stored);
@@ -194,7 +190,6 @@ function PrefilledField({
         // read as locked; this is one step under it (owner, Sept 21).
         className="read-only:bg-accent read-only:text-muted-foreground focus-visible:ring-0"
       />
-      {description ? <FieldDescription>{description}</FieldDescription> : null}
     </Field>
   );
 }
@@ -204,7 +199,6 @@ export function TextField({
   value,
   error,
   optional,
-  description,
   inputMode,
   type,
   onChange,
@@ -213,7 +207,6 @@ export function TextField({
   value: string;
   error?: string;
   optional?: boolean;
-  description?: string;
   inputMode?: "numeric" | "tel" | "email" | "decimal";
   type?: "email" | "tel";
   onChange: (value: string) => void;
@@ -232,7 +225,6 @@ export function TextField({
         aria-invalid={Boolean(error)}
         onChange={(event) => onChange(event.target.value)}
       />
-      {description ? <FieldDescription>{description}</FieldDescription> : null}
       <FieldError>{error}</FieldError>
     </Field>
   );
@@ -243,7 +235,6 @@ function TextAreaField({
   value,
   error,
   optional,
-  description,
   rows = 4,
   onChange,
 }: {
@@ -251,7 +242,6 @@ function TextAreaField({
   value: string;
   error?: string;
   optional?: boolean;
-  description?: string;
   rows?: number;
   onChange: (value: string) => void;
 }) {
@@ -268,7 +258,6 @@ function TextAreaField({
         aria-invalid={Boolean(error)}
         onChange={(event) => onChange(event.target.value)}
       />
-      {description ? <FieldDescription>{description}</FieldDescription> : null}
       <FieldError>{error}</FieldError>
     </Field>
   );
@@ -282,7 +271,6 @@ export function SelectField({
   placeholder,
   error,
   optional,
-  description,
   onChange,
 }: {
   label: string;
@@ -291,7 +279,6 @@ export function SelectField({
   placeholder: string;
   error?: string;
   optional?: boolean;
-  description?: string;
   onChange: (value: string) => void;
 }) {
   const id = useId();
@@ -312,7 +299,6 @@ export function SelectField({
           ))}
         </SelectContent>
       </Select>
-      {description ? <FieldDescription>{description}</FieldDescription> : null}
       <FieldError>{error}</FieldError>
     </Field>
   );
@@ -383,13 +369,11 @@ function DateField({
   label,
   value,
   error,
-  description,
   onChange,
 }: {
   label: string;
   value: Date | undefined;
   error?: string;
-  description?: string;
   onChange: (value: Date | undefined) => void;
 }) {
   const labelId = useId();
@@ -404,7 +388,6 @@ function DateField({
           className="w-full sm:w-60"
         />
       </div>
-      {description ? <FieldDescription>{description}</FieldDescription> : null}
       <FieldError>{error}</FieldError>
     </Field>
   );
@@ -418,13 +401,11 @@ function AddressField({
   label,
   value,
   error,
-  description,
   onChange,
 }: {
   label: string;
   value: Address;
   error?: string;
-  description?: string;
   onChange: (value: Address) => void;
 }) {
   const id = useId();
@@ -438,11 +419,6 @@ function AddressField({
       <p id={`${id}-label`} className="text-body-compact font-medium">
         {label}
       </p>
-      {description ? (
-        <p className="-mt-2 text-body-compact text-muted-foreground">
-          {description}
-        </p>
-      ) : null}
       <AddressFields value={value} onChange={onChange} idPrefix={id} />
       {error ? (
         <Field data-invalid>
@@ -499,7 +475,6 @@ function RowWell({
  */
 function RepeatingSection({
   heading,
-  description,
   optional,
   addLabel,
   emptyLabel,
@@ -509,7 +484,6 @@ function RepeatingSection({
   children,
 }: {
   heading: string;
-  description?: string;
   optional?: boolean;
   addLabel: string;
   emptyLabel: string;
@@ -538,11 +512,6 @@ function RepeatingSection({
           <h3 id={headingId} className="text-body-compact font-medium">
             <FieldName label={heading} optional={optional} />
           </h3>
-          {description ? (
-            <p className="mt-1 text-body-compact text-muted-foreground">
-              {description}
-            </p>
-          ) : null}
         </div>
         {count ? null : addButton}
       </div>
@@ -582,7 +551,6 @@ function EveryApplicationTop({
         value={draft.raisedById}
         options={peopleOptions(raisedByOptions)}
         placeholder="Choose who is raising it"
-        description="The person who signs this application."
         error={errors.fields.raisedById}
         onChange={(value) => actions.update("raisedById", value)}
       />
@@ -593,7 +561,6 @@ function EveryApplicationTop({
         placeholder={
           draft.raisedById ? "Choose the litigant" : "Choose Raised by first"
         }
-        description="Whom this application is raised on behalf of."
         error={errors.fields.litigantId}
         onChange={(value) => actions.update("litigantId", value)}
       />
@@ -650,7 +617,6 @@ function EveryApplicationBottom({ draft, errors, actions }: FieldsProps) {
             <FileField
               required
               label="File"
-              description="PDF or JPEG."
               files={row.files}
               error={errors.fields[`${row.id}.files`]}
               onFilesChange={(files) =>
@@ -669,31 +635,6 @@ function EveryApplicationBottom({ draft, errors, actions }: FieldsProps) {
 }
 
 /**
- * What each type's details cover, in the words of the box it replaced — the
- * type's reason box, or Other details where the type had none — so nothing
- * the PRD asks of a type is lost by folding the boxes into one.
- */
-const OTHER_DETAILS_HINT = "Anything else the court should know about this application.";
-const DETAILS_HINT: Partial<Record<ApplicationTypeId, string>> = {
-  bail: "The reason for bail.",
-  "edit-litigant-details": "The reason for editing.",
-  settlement: "The reason for settlement.",
-  transfer: "The reason for transfer.",
-  withdrawal: "The reason for withdrawal.",
-  "condonation-of-delay": "The reasons for delay.",
-  "application-others": "The details of the application.",
-  "advancement-reschedule": OTHER_DETAILS_HINT,
-  postpone: OTHER_DETAILS_HINT,
-  "poa-change": "The reason for the change.",
-  "production-of-documents": "The reason for the application.",
-  "addition-of-witness": OTHER_DETAILS_HINT,
-  "warrant-by-hand": OTHER_DETAILS_HINT,
-  "absent-application": "The reason for absence.",
-  "reopen-evidence": "The reason for reopening.",
-  objection: "The reason for objection.",
-};
-
-/**
  * The application in the filer's own words: the full-size editor, not a
  * dialog-sized box, because for most types this is the application.
  */
@@ -703,13 +644,11 @@ function ApplicationDetailsField({
   actions,
 }: Pick<FieldsProps, "draft" | "errors" | "actions">) {
   const labelId = useId();
-  const hint = draft.type ? DETAILS_HINT[draft.type] : undefined;
   return (
     <Field data-invalid={Boolean(errors.fields.applicationDetails)}>
       <FieldLabel id={labelId}>
         <FieldName label="Application Details" />
       </FieldLabel>
-      {hint ? <FieldDescription>{hint}</FieldDescription> : null}
       <RichTextField
         labelId={labelId}
         value={draft.applicationDetails}
@@ -766,7 +705,6 @@ function BailFields({ draft, errors, actions }: FieldsProps) {
             label="Number of sureties"
             value={draft.suretyCount}
             inputMode="numeric"
-            description="A set of details follows for each surety."
             error={errors.fields.suretyCount}
             onChange={(value) => {
               const count = value.replace(/\D/g, "").slice(0, 2);
@@ -815,7 +753,6 @@ function BailFields({ draft, errors, actions }: FieldsProps) {
               <FileField
                 required
                 label="Surety ID proof"
-                description="Proof of the surety's identity."
                 files={item.identityProof}
                 error={errors.fields[`${item.id}.identityProof`]}
                 onFilesChange={(identityProof) => updateSurety(item.id, { identityProof })}
@@ -826,7 +763,6 @@ function BailFields({ draft, errors, actions }: FieldsProps) {
               <FileField
                 required
                 label="Proof of solvency"
-                description="Proof that the surety can stand security for the bail amount."
                 files={item.solvencyProof}
                 error={errors.fields[`${item.id}.solvencyProof`]}
                 onFilesChange={(solvencyProof) => updateSurety(item.id, { solvencyProof })}
@@ -888,7 +824,6 @@ function EditLitigantFields(props: FieldsProps) {
           label: `${item.name} — ${item.side === "accused" ? "Accused" : "Complainant"}`,
         }))}
         placeholder="Choose a litigant"
-        description="Their current details fill the fields below. Change only what is wrong."
         error={errors.fields.editLitigantId}
         onChange={(value) => {
           const litigant = litigants.find((item) => item.id === value);
@@ -956,7 +891,6 @@ function ComplainantIndividual(props: FieldsProps) {
           value={l.phone}
           inputMode="tel"
           type="tel"
-          description="Must not match anyone else's on the case."
           error={error("phone")}
           onChange={(value) => set("phone", value)}
         />
@@ -1276,7 +1210,6 @@ function GenericFields({ draft, errors, actions }: FieldsProps) {
       <TextField
         label="Application title"
         value={draft.title}
-        description="Used as the application's heading."
         error={errors.fields.title}
         onChange={(value) => actions.update("title", value)}
       />
@@ -1311,7 +1244,6 @@ function RescheduleFields({ draft, errors, record, actions }: FieldsProps) {
       <DateField
         label="Proposed hearing date"
         value={draft.proposedHearingDate}
-        description="The date from which the party is available."
         error={errors.fields.proposedHearingDate}
         onChange={(value) => actions.update("proposedHearingDate", value)}
       />
@@ -1370,7 +1302,6 @@ function PoaChangeFields({ draft, errors, record, actions }: FieldsProps) {
           key={item.id}
           required
           label={`Authorization document — ${item.name}`}
-          description="The power of attorney this litigant gave the applicant."
           files={draft.poaAuthorizations[item.id] ?? []}
           error={errors.fields[`poa.${item.id}`]}
           onFilesChange={(files) =>
@@ -1394,7 +1325,6 @@ function ProductionFields({ draft, errors, actions }: FieldsProps) {
     <>
       <RepeatingSection
         heading="Documents"
-        description="PDF or JPEG, one entry per document."
         addLabel="Add a document"
         emptyLabel="No documents added."
         count={rows.length}
@@ -1430,7 +1360,6 @@ function ProductionFields({ draft, errors, actions }: FieldsProps) {
             <FileField
               required
               label="File"
-              description="PDF or JPEG."
               files={row.files}
               error={errors.fields[`${row.id}.files`]}
               onFilesChange={(files) =>
@@ -1464,7 +1393,6 @@ function WitnessFields({ draft, errors, actions }: FieldsProps) {
   return (
     <RepeatingSection
       heading="Witnesses"
-      description="Give a full name, a designation, or both."
       addLabel="Add a witness"
       emptyLabel="No witnesses added."
       count={witnesses.length}
@@ -1642,11 +1570,6 @@ function WarrantByHandFields({ draft, errors, record, actions }: FieldsProps) {
         <AddressField
           label="Address for delivery"
           value={draft.deliveryAddress}
-          description={
-            onFile.length
-              ? "From the case file. Change it if the warrant should go elsewhere."
-              : "The case file holds no address for this accused. Enter where the warrant should go."
-          }
           error={errors.fields.deliveryAddress}
           onChange={(value) => actions.update("deliveryAddress", value)}
         />
@@ -1677,11 +1600,6 @@ function ObjectionFields({ draft, record }: FieldsProps) {
       <PrefilledField
         label="Objection to"
         value={targetLabel}
-        description={
-          target?.decisionOn
-            ? `The court decides it on ${formatCaseDate(target.decisionOn)}.`
-            : undefined
-        }
       />
     </>
   );
