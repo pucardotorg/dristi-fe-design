@@ -205,7 +205,7 @@ function buildDraft(): FilingDraft {
   d.intake.cheques.push(intakeChequeGroup(2));
   const c1 = d.intake.cheques[0];
   fill(c1.slots[0], SCRUTINY_FILES.cheque1);
-  fill(c1.slots[4], SCRUTINY_FILES.adCard); // Defect 8 — the AD card, scanned at an angle.
+  fill(d.intake.notices[0].slots[2], SCRUTINY_FILES.adCard); // Defect 8 — the AD card, scanned at an angle.
   const c2 = d.intake.cheques[1];
   fill(c2.slots[0], SCRUTINY_FILES.cheque2);
   fill(c2.slots[1], SCRUTINY_FILES.memo2);
@@ -341,7 +341,7 @@ function buildRafiDraft(): FilingDraft {
   d.jurisdiction.filingDate = "2026-07-15";
 
   // Defect 2 — the AD card, cut off at the fold.
-  fill(d.intake.cheques[0].slots[4], SCRUTINY_FILES.adCard);
+  fill(d.intake.notices[0].slots[2], SCRUTINY_FILES.adCard);
 
   d.documents = buildDocumentGroups(d);
   d.scrutinyReturn = { resubmittedAt: null };

@@ -3,7 +3,8 @@
 /**
  * Case documents upload — the intake step that runs before the filing form.
  *
- * One card per cheque and per party, supporting documents at the end, each holding DS
+ * One card per cheque, per demand notice and per party, supporting documents at the end,
+ * each holding DS
  * `DocumentSlot` rows. A file arrives by drop or by the picker; it is stored (IndexedDB)
  * and, for the document types we can read, run through document reading in the browser —
  * progress is the real read, and whatever it finds lands on the draft as machine-read
@@ -20,6 +21,7 @@ import * as React from "react";
 import {
   CreditCardIcon,
   FileTextIcon,
+  MailIcon,
   PlusIcon,
   UserIcon,
 } from "lucide-react";
@@ -28,6 +30,7 @@ import { ChromeDialogContent } from "@/components/chrome/app-chrome";
 
 import {
   intakeChequeGroup,
+  intakeNoticeGroup,
   intakeOtherPartyDoc,
   intakePartyGroup,
 } from "@/lib/filing/blank";
@@ -79,6 +82,7 @@ import { pickErrorMessage, useFilePicker } from "@/components/filing/use-file-pi
 function allSlots(intake: Intake): IntakeSlot[] {
   return [
     ...intake.cheques.flatMap((g) => g.slots),
+    ...intake.notices.flatMap((g) => g.slots),
     ...intake.parties.flatMap((g) => g.slots),
     ...intake.supporting,
   ];
@@ -139,6 +143,7 @@ function PreviewBody({ slot }: { slot: IntakeSlot }) {
 
 type Pending =
   | { kind: "cheque"; index: number }
+  | { kind: "notice"; index: number }
   | { kind: "party"; index: number }
   | { kind: "slot"; key: string };
 
@@ -344,6 +349,28 @@ export function UploadSection() {
     announce(`Cheque ${group.n} removed.`);
   };
 
+  const addNotice = () =>
+    update((d) => {
+      const group = intakeNoticeGroup(d.intake.notices.length + 1);
+      group.slots = withUniqueKeys(group.slots, takenKeys(d.intake));
+      d.intake.notices.push(group);
+    });
+
+  const removeNotice = (index: number) => {
+    const group = intake.notices[index];
+    if (!group) return;
+    for (const slot of group.slots) runs.current[slot.key] = (runs.current[slot.key] ?? 0) + 1;
+    update((d) => {
+      for (const slot of d.intake.notices[index]?.slots ?? []) clearExtraction(d, slot.key);
+      d.intake.notices.splice(index, 1);
+      d.intake.notices.forEach((n, i) => {
+        n.n = i + 1;
+      });
+    });
+    dropFiles(group.slots.map((s) => s.file));
+    announce(`Demand notice ${group.n} removed.`);
+  };
+
   const addParty = () =>
     update((d) => {
       const group = intakePartyGroup(d.intake.parties.length + 1);
@@ -404,8 +431,17 @@ export function UploadSection() {
       };
     }
     const group =
-      pending.kind === "cheque" ? intake.cheques[pending.index] : intake.parties[pending.index];
-    const name = pending.kind === "cheque" ? `cheque ${group?.n}` : `party ${group?.n}`;
+      pending.kind === "cheque"
+        ? intake.cheques[pending.index]
+        : pending.kind === "notice"
+          ? intake.notices[pending.index]
+          : intake.parties[pending.index];
+    const name =
+      pending.kind === "cheque"
+        ? `cheque ${group?.n}`
+        : pending.kind === "notice"
+          ? `demand notice ${group?.n}`
+          : `party ${group?.n}`;
     const files = group?.slots.filter((s) => s.file).length ?? 0;
     return {
       title: `Remove ${name}?`,
@@ -420,6 +456,7 @@ export function UploadSection() {
     if (!pending) return;
     if (pending.kind === "slot") deleteFile(pending.key);
     else if (pending.kind === "cheque") removeCheque(pending.index);
+    else if (pending.kind === "notice") removeNotice(pending.index);
     else removeParty(pending.index);
     setPending(null);
   };
@@ -513,6 +550,42 @@ export function UploadSection() {
                 <Button type="button" variant="outline" className="w-fit" onClick={addCheque}>
                   <PlusIcon data-icon="inline-start" aria-hidden />
                   Add another cheque
+                </Button>
+              )}
+            </section>
+          ) : null}
+
+          {/* ── The demand notices — counted apart from the cheques: one notice often
+              covers several cheques (`DCM-3`…`DCM-6`). ── */}
+          {intake.notices.length > 0 ? (
+            <section className="flex flex-col gap-4">
+              <h2 className="text-caption font-semibold text-muted-foreground">
+                The demand notices
+              </h2>
+
+              {intake.notices.map((notice, index) => (
+                <DocumentCard
+                  key={notice.slots[0]?.key ?? `notice-${index}`}
+                  icon={MailIcon}
+                  title={`Demand notice ${notice.n}`}
+                  slots={notice.slots}
+                  onRemove={
+                    intake.notices.length > 1 && !inCorrection
+                      ? () => setPending({ kind: "notice", index })
+                      : undefined
+                  }
+                  removeLabel={`Remove demand notice ${notice.n}`}
+                  onChoose={chooseFile}
+                  onPreview={setPreviewKey}
+                  onDelete={(key) => setPending({ kind: "slot", key })}
+                  onDropFiles={dropIntoKeys}
+                />
+              ))}
+
+              {inCorrection ? null : (
+                <Button type="button" variant="outline" className="w-fit" onClick={addNotice}>
+                  <PlusIcon data-icon="inline-start" aria-hidden />
+                  Add another demand notice
                 </Button>
               )}
             </section>

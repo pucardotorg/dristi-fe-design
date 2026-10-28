@@ -1,6 +1,6 @@
 /**
  * Move a slot's extracted fields onto the draft, and take them back off when the upload
- * goes. Intake cheque group n ↔ draft.cheques[n-1] and draft.notices[n-1]; party group n
+ * goes. Intake cheque group n ↔ draft.cheques[n-1]; notice group n ↔ draft.notices[n-1]; party group n
  * ↔ draft.complainants[n-1] — by the group's position, never by parsing the slot key
  * (keys can carry a "-2" suffix after a remove/add).
  *
@@ -14,12 +14,20 @@ import type { Address, ExtractedField, FilingDraft, Intake, IntakeSlot } from ".
 
 /* ───────────────────────────── Locate ───────────────────────────── */
 
-type SlotLocation = { slot: IntakeSlot; kind: "cheque" | "party" | "supporting"; index: number };
+type SlotLocation = {
+  slot: IntakeSlot;
+  kind: "cheque" | "notice" | "party" | "supporting";
+  index: number;
+};
 
 export function locateSlot(intake: Intake, key: string): SlotLocation | null {
   for (let i = 0; i < intake.cheques.length; i++) {
     const slot = intake.cheques[i].slots.find((s) => s.key === key);
     if (slot) return { slot, kind: "cheque", index: i };
+  }
+  for (let i = 0; i < intake.notices.length; i++) {
+    const slot = intake.notices[i].slots.find((s) => s.key === key);
+    if (slot) return { slot, kind: "notice", index: i };
   }
   for (let i = 0; i < intake.parties.length; i++) {
     const slot = intake.parties[i].slots.find((s) => s.key === key);
@@ -98,13 +106,13 @@ export function applyExtraction(draft: FilingDraft, slotKey: string): void {
       return;
     }
     case "demand-notice": {
-      if (loc.kind !== "cheque") return;
+      if (loc.kind !== "notice") return;
       const n = ensure(draft.notices, loc.index, blankNotice);
       put(n, "dispatchDate", f("dispatchDate"));
       return;
     }
     case "dispatch-proof": {
-      if (loc.kind !== "cheque") return;
+      if (loc.kind !== "notice") return;
       const n = ensure(draft.notices, loc.index, blankNotice);
       if (!n.dispatchDate) put(n, "dispatchDate", f("dispatchDate"));
       put(n, "tracking", f("tracking"));
@@ -112,7 +120,7 @@ export function applyExtraction(draft: FilingDraft, slotKey: string): void {
       return;
     }
     case "delivery-proof": {
-      if (loc.kind !== "cheque") return;
+      if (loc.kind !== "notice") return;
       const n = ensure(draft.notices, loc.index, blankNotice);
       if (put(n, "deliveryDate", f("deliveryDate"))) n.delivered = "yes";
       return;
@@ -184,13 +192,13 @@ export function clearExtraction(draft: FilingDraft, slotKey: string): void {
       return;
     }
     case "demand-notice": {
-      const n = loc.kind === "cheque" ? draft.notices[loc.index] : undefined;
+      const n = loc.kind === "notice" ? draft.notices[loc.index] : undefined;
       if (!n) return;
       take(n, "dispatchDate", f("dispatchDate"));
       return;
     }
     case "dispatch-proof": {
-      const n = loc.kind === "cheque" ? draft.notices[loc.index] : undefined;
+      const n = loc.kind === "notice" ? draft.notices[loc.index] : undefined;
       if (!n) return;
       take(n, "dispatchDate", f("dispatchDate"));
       take(n, "tracking", f("tracking"));
@@ -198,7 +206,7 @@ export function clearExtraction(draft: FilingDraft, slotKey: string): void {
       return;
     }
     case "delivery-proof": {
-      const n = loc.kind === "cheque" ? draft.notices[loc.index] : undefined;
+      const n = loc.kind === "notice" ? draft.notices[loc.index] : undefined;
       if (!n) return;
       take(n, "deliveryDate", f("deliveryDate"));
       return;

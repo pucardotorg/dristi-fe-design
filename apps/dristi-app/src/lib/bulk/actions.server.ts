@@ -15,6 +15,7 @@ import {
   blankWitness,
   buildDocumentGroups,
   intakeChequeGroup,
+  intakeNoticeGroup,
 } from "@/lib/filing/blank";
 import { newCaseFileNumber, newId, newPaymentRef } from "@/lib/filing/data";
 import { DELIVERY_CHANNEL } from "@/lib/filing/options";
@@ -402,7 +403,7 @@ export function attachToSlot(
   poor = false,
 ): boolean {
   const d = bc.draft;
-  const slot = [...d.intake.cheques, ...d.intake.parties]
+  const slot = [...d.intake.cheques, ...d.intake.notices, ...d.intake.parties]
     .flatMap((g) => g.slots)
     .concat(d.intake.supporting)
     .find((s) => s.key === slotKey);
@@ -585,6 +586,7 @@ export function changePart(
       return `A case needs at least ${keep[part]} ${part}.`;
     list.pop();
     if (part === "cheque") d.intake.cheques.pop();
+    if (part === "notice") d.intake.notices.pop();
     d.documents = buildDocumentGroups(d);
     return null;
   }
@@ -594,9 +596,13 @@ export function changePart(
   else if (part === "cheque") {
     d.cheques.push(blankCheque());
     d.intake.cheques.push(intakeChequeGroup(d.cheques.length));
-  } else if (part === "notice") d.notices.push(blankNotice());
+  } else if (part === "notice") {
+    d.notices.push(blankNotice());
+    d.intake.notices.push(intakeNoticeGroup(d.notices.length));
+  }
   else d.witnesses.push(blankWitness());
-  // The documents follow the parts: a new cheque brings its cheque, memo and notice papers.
+  // The documents follow the parts: a new cheque brings its cheque and memo, a new notice
+  // its notice papers.
   d.documents = buildDocumentGroups(d);
   return null;
 }

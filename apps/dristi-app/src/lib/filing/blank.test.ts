@@ -160,3 +160,71 @@ describe("draftProgress — only what the person has done", () => {
     assert.equal(sectionState(draft, "documents"), "untouched");
   });
 });
+
+/**
+ * Each cheque's intake group used to carry its own demand notice and proofs. The documents
+ * are counted per cheque (`DCM-1`, `DCM-2`) and per notice (`DCM-3`…`DCM-6`) now, so an
+ * older draft's notice uploads move to notice groups without losing a file.
+ */
+describe("migrateDraft — notice documents counted apart from cheques", () => {
+  const file = (id: string) => ({ id, name: `${id}.pdf`, size: 1, type: "application/pdf", ext: "PDF" });
+
+  /** Two cheques, each group holding the six old slots, the second keyed after a re-add. */
+  function perChequeShaped(): FilingDraft {
+    const draft = createBlankDraft("draft-per-cheque");
+    const old = (n: string, sfx = "") =>
+      ["f", "m", "dn", "dp", "ad", "rp"].map((k) => ({
+        key: `c${n}${k}${sfx}`,
+        docType: "other" as const,
+        label: k,
+        required: true,
+        file: null as ReturnType<typeof file> | null,
+      }));
+    draft.intake.cheques = [
+      { n: 1, slots: old("1") },
+      { n: 2, slots: old("2", "-2") },
+    ];
+    draft.intake.cheques[0].slots[2].file = file("notice-1");
+    draft.intake.cheques[1].slots[4].file = file("ad-2");
+    draft.documents = [
+      { id: "case", title: "Case details", docs: [{ id: "d1", name: "Demand notice 1", required: true, intakeKey: "c1dn", file: null }] },
+    ] as FilingDraft["documents"];
+    delete (draft.intake as { notices?: unknown }).notices;
+    return draft;
+  }
+
+  it("leaves each cheque group holding only the cheque and its memo", () => {
+    const draft = migrateDraft(perChequeShaped());
+    assert.deepEqual(
+      draft.intake.cheques.map((g) => g.slots.map((s) => s.key)),
+      [
+        ["c1f", "c1m"],
+        ["c2f-2", "c2m-2"],
+      ]
+    );
+  });
+
+  it("moves the notice slots, files and all, to notice groups under n-keys", () => {
+    const draft = migrateDraft(perChequeShaped());
+    assert.deepEqual(
+      draft.intake.notices.map((g) => g.slots.map((s) => s.key)),
+      [
+        ["n1dn", "n1dp", "n1ad", "n1rp"],
+        ["n2dn-2", "n2dp-2", "n2ad-2", "n2rp-2"],
+      ]
+    );
+    assert.equal(draft.intake.notices[0].slots[0].file?.id, "notice-1");
+    assert.equal(draft.intake.notices[1].slots[2].file?.id, "ad-2");
+  });
+
+  it("re-points the list of documents at the new keys", () => {
+    const draft = migrateDraft(perChequeShaped());
+    assert.equal(draft.documents[0].docs[0].intakeKey, "n1dn");
+  });
+
+  it("leaves a current draft alone", () => {
+    const fresh = createBlankDraft("draft-current");
+    const before = JSON.stringify(fresh.intake);
+    assert.equal(JSON.stringify(migrateDraft(fresh).intake), before);
+  });
+});

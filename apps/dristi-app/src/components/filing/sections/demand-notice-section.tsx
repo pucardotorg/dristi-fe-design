@@ -21,7 +21,7 @@ import {
   PAYMENT_STATUS,
 } from "@/lib/filing/options";
 import {
-  chequeSourceSlot,
+  noticeSourceSlot,
   firstReadField,
   noticeComplete,
   noticeDispatchIssue,
@@ -150,9 +150,9 @@ export function DemandNoticeSection() {
 
   // The three uploads behind this notice; any of them may not be uploaded yet.
   const slots = {
-    "demand-notice": chequeSourceSlot(draft, index, "demand-notice"),
-    "dispatch-proof": chequeSourceSlot(draft, index, "dispatch-proof"),
-    "delivery-proof": chequeSourceSlot(draft, index, "delivery-proof"),
+    "demand-notice": noticeSourceSlot(draft, index, "demand-notice"),
+    "dispatch-proof": noticeSourceSlot(draft, index, "dispatch-proof"),
+    "delivery-proof": noticeSourceSlot(draft, index, "delivery-proof"),
   };
 
   /** Where the panel lands: the first field any of the three uploads was read for. */

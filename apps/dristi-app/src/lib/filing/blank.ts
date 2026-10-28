@@ -189,7 +189,7 @@ export const blankWitness = (): Witness => ({
 
 /* ───────────────────────────── Intake groups ───────────────────────── */
 
-/** The six documents every cheque needs (five required + the optional reply). */
+/** The two documents every cheque needs (`DCM-1`, `DCM-2`). */
 export function intakeChequeGroup(n: number): IntakeGroup {
   return {
     n,
@@ -210,8 +210,17 @@ export function intakeChequeGroup(n: number): IntakeGroup {
         required: true,
         file: null,
       },
+    ],
+  };
+}
+
+/** The documents every demand notice needs, plus the optional reply (`DCM-3`…`DCM-6`). */
+export function intakeNoticeGroup(n: number): IntakeGroup {
+  return {
+    n,
+    slots: [
       {
-        key: `c${n}dn`,
+        key: `n${n}dn`,
         docType: "demand-notice",
         label: "Demand notice",
         desc: "The statutory demand notice sent to the accused.",
@@ -219,7 +228,7 @@ export function intakeChequeGroup(n: number): IntakeGroup {
         file: null,
       },
       {
-        key: `c${n}dp`,
+        key: `n${n}dp`,
         docType: "dispatch-proof",
         label: "Proof of dispatch of demand notice (postal receipt)",
         desc: "Speed post / RPAD receipt showing dispatch.",
@@ -227,7 +236,7 @@ export function intakeChequeGroup(n: number): IntakeGroup {
         file: null,
       },
       {
-        key: `c${n}ad`,
+        key: `n${n}ad`,
         docType: "delivery-proof",
         label: "Proof of delivery of demand notice (AD card)",
         desc: "Acknowledgement-due card or tracking proof of delivery.",
@@ -235,7 +244,7 @@ export function intakeChequeGroup(n: number): IntakeGroup {
         file: null,
       },
       {
-        key: `c${n}rp`,
+        key: `n${n}rp`,
         docType: "notice-reply",
         label: "Reply to the demand notice",
         desc: "The accused's reply to the notice, if any.",
@@ -339,6 +348,7 @@ function docRow(spec: DocSpec, existing: CaseDocument | undefined, slot?: Intake
 export function buildDocumentGroups(draft: FilingDraft): DocumentGroup[] {
   const slotByKey = new Map<string, IntakeSlot>();
   for (const g of draft.intake.cheques) g.slots.forEach((s) => slotByKey.set(s.key, s));
+  for (const g of draft.intake.notices) g.slots.forEach((s) => slotByKey.set(s.key, s));
   for (const g of draft.intake.parties) g.slots.forEach((s) => slotByKey.set(s.key, s));
   draft.intake.supporting.forEach((s) => slotByKey.set(s.key, s));
 
@@ -355,19 +365,27 @@ export function buildDocumentGroups(draft: FilingDraft): DocumentGroup[] {
 
   const groups: DocumentGroup[] = [];
 
-  // Case details — per cheque.
-  const many = draft.intake.cheques.length > 1;
-  const caseSpecs: DocSpec[] = draft.intake.cheques.flatMap((g) => {
-    const sfx = many ? ` ${g.n}` : "";
-    return [
-      { name: `Cheque${sfx}`, required: true, intakeKey: `c${g.n}f` },
-      { name: `Cheque return memo${sfx}`, required: true, intakeKey: `c${g.n}m` },
-      { name: `Demand notice${sfx}`, required: true, intakeKey: `c${g.n}dn` },
-      { name: `Proof of dispatch of demand notice (postal receipt)${sfx}`, required: true, intakeKey: `c${g.n}dp` },
-      { name: `Proof of delivery of demand notice (AD card)${sfx}`, required: true, intakeKey: `c${g.n}ad` },
-      { name: `Reply to the demand notice${sfx}`, required: false, intakeKey: `c${g.n}rp` },
-    ];
-  });
+  // Case details — per cheque, then per demand notice (`DCM-1`…`DCM-6`).
+  const manyCheques = draft.intake.cheques.length > 1;
+  const manyNotices = draft.intake.notices.length > 1;
+  const caseSpecs: DocSpec[] = [
+    ...draft.intake.cheques.flatMap((g) => {
+      const sfx = manyCheques ? ` ${g.n}` : "";
+      return [
+        { name: `Cheque${sfx}`, required: true, intakeKey: `c${g.n}f` },
+        { name: `Cheque return memo${sfx}`, required: true, intakeKey: `c${g.n}m` },
+      ];
+    }),
+    ...draft.intake.notices.flatMap((g) => {
+      const sfx = manyNotices ? ` ${g.n}` : "";
+      return [
+        { name: `Demand notice${sfx}`, required: true, intakeKey: `n${g.n}dn` },
+        { name: `Proof of dispatch of demand notice (postal receipt)${sfx}`, required: true, intakeKey: `n${g.n}dp` },
+        { name: `Proof of delivery of demand notice (AD card)${sfx}`, required: true, intakeKey: `n${g.n}ad` },
+        { name: `Reply to the demand notice${sfx}`, required: false, intakeKey: `n${g.n}rp` },
+      ];
+    }),
+  ];
   // Intake keys can carry a "-2" suffix after a remove/add; resolve by prefix.
   const resolveSlot = (key?: string) => {
     if (!key) return undefined;
@@ -426,6 +444,7 @@ export function createBlankDraft(id: string, profile?: UserProfile | null): Fili
     visited: [],
     intake: {
       cheques: [intakeChequeGroup(1)],
+      notices: [intakeNoticeGroup(1)],
       parties: [intakePartyGroup(1)],
       supporting: intakeSupporting(),
     },
@@ -532,9 +551,11 @@ export function migrateDraft(draft: FilingDraft): FilingDraft {
 
   draft.intake ??= {
     cheques: [intakeChequeGroup(1)],
+    notices: [intakeNoticeGroup(1)],
     parties: [intakePartyGroup(1)],
     supporting: intakeSupporting(),
   };
+  migrateNoticeIntake(draft);
   draft.complainants ??= [blankComplainant()];
   draft.advocates ??= [blankAdvocate()];
   draft.accused ??= [blankAccused()];
@@ -615,6 +636,37 @@ export function migrateDraft(draft: FilingDraft): FilingDraft {
   migrateAdvocateSignatures(draft);
   draft.version = 7;
   return draft;
+}
+
+/**
+ * Give the demand notices their own intake groups.
+ *
+ * Each cheque's group used to carry a demand notice and its proofs, which asked a filer
+ * with three cheques and one notice for three notices. The documents table counts them
+ * apart (`DCM-1`/`DCM-2` per cheque, `DCM-3`…`DCM-6` per notice), so an older draft's
+ * notice slots move to notice group n, keeping their files and reads, and their keys go
+ * from `c<n>…` to `n<n>…` — on the list of documents too, which points at them by key.
+ */
+const OLD_NOTICE_KEY = /^c(\d+)(dn|dp|ad|rp)(-\d+)?$/;
+
+function migrateNoticeIntake(draft: FilingDraft) {
+  if (draft.intake.notices) return;
+  const rekey = (key: string) => key.replace(OLD_NOTICE_KEY, "n$1$2$3");
+  draft.intake.notices = draft.intake.cheques.map((g) => {
+    const moved = g.slots.filter((s) => OLD_NOTICE_KEY.test(s.key));
+    g.slots = g.slots.filter((s) => !OLD_NOTICE_KEY.test(s.key));
+    return {
+      n: g.n,
+      slots: moved.length
+        ? moved.map((s) => ({ ...s, key: rekey(s.key) }))
+        : intakeNoticeGroup(g.n).slots,
+    };
+  });
+  // A setup draft holds no cheques, and so no notices; a filing always has one.
+  if (draft.intake.notices.length === 0 && draft.intake.cheques.length > 0)
+    draft.intake.notices = [intakeNoticeGroup(1)];
+  for (const group of draft.documents ?? [])
+    for (const doc of group.docs) if (doc.intakeKey) doc.intakeKey = rekey(doc.intakeKey);
 }
 
 /**
