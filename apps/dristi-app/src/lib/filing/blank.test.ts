@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { createBlankDraft, migrateDraft } from "./blank";
+import {
+  blankCheque,
+  buildDocumentGroups,
+  createBlankDraft,
+  migrateDraft,
+  removeCaseRecord,
+  syncIntakeCounts,
+} from "./blank";
 import { FINAL_RELIEF_TEMPLATE } from "./options";
 import { draftProgress, sectionComplete, sectionState } from "./selectors";
 import type { FilingDraft } from "./types";
@@ -226,5 +233,50 @@ describe("migrateDraft — notice documents counted apart from cheques", () => {
     const fresh = createBlankDraft("draft-current");
     const before = JSON.stringify(fresh.intake);
     assert.equal(JSON.stringify(migrateDraft(fresh).intake), before);
+  });
+});
+
+/**
+ * The form's cheques and notices and the upload groups that hold their documents are kept
+ * the same in number, whichever side adds one — or the list of documents never asks for a
+ * cheque added on the Cheque step.
+ */
+describe("syncIntakeCounts — form and documents stay in step", () => {
+  const names = (d: FilingDraft) =>
+    buildDocumentGroups(d)
+      .find((g) => g.id === "case")!
+      .docs.map((x) => x.name);
+
+  it("asks for a second cheque's documents once the Cheque step adds it", () => {
+    const draft = createBlankDraft("draft-form-cheque");
+    draft.cheques.push(blankCheque());
+    syncIntakeCounts(draft);
+    assert.equal(draft.intake.cheques.length, 2);
+    assert.ok(names(draft).includes("Cheque 2"));
+    assert.ok(names(draft).includes("Cheque return memo 2"));
+    assert.ok(names(draft).includes("Demand notice"), "one notice stays unnumbered");
+  });
+
+  it("gives the form a notice once the upload step adds one", () => {
+    const draft = createBlankDraft("draft-upload-notice");
+    draft.intake.notices.push({ n: 2, slots: [] });
+    syncIntakeCounts(draft);
+    assert.equal(draft.notices.length, 2);
+  });
+
+  it("removes a cheque from both sides and renumbers the groups after it", () => {
+    const draft = createBlankDraft("draft-remove");
+    draft.cheques.push(blankCheque(), blankCheque());
+    syncIntakeCounts(draft);
+    removeCaseRecord(draft, "cheque", 0);
+    assert.equal(draft.cheques.length, 2);
+    assert.deepEqual(draft.intake.cheques.map((g) => g.n), [1, 2]);
+  });
+
+  it("keeps the last cheque", () => {
+    const draft = createBlankDraft("draft-last");
+    removeCaseRecord(draft, "cheque", 0);
+    assert.equal(draft.cheques.length, 1);
+    assert.equal(draft.intake.cheques.length, 1);
   });
 });

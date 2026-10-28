@@ -33,6 +33,8 @@ import {
   intakeNoticeGroup,
   intakeOtherPartyDoc,
   intakePartyGroup,
+  removeCaseRecord,
+  uniqueSlotKeys,
 } from "@/lib/filing/blank";
 import { getRepository, storeUpload } from "@/lib/filing/data";
 import { forgetFile, getFileBlob, useFilePreview } from "@/lib/filing/files";
@@ -86,23 +88,6 @@ function allSlots(intake: Intake): IntakeSlot[] {
     ...intake.parties.flatMap((g) => g.slots),
     ...intake.supporting,
   ];
-}
-
-/**
- * Keep slot keys unique. The factories derive keys from the group number, so adding a
- * group after a removal can otherwise reuse a key that is still on the draft.
- */
-function withUniqueKeys(slots: IntakeSlot[], taken: Set<string>): IntakeSlot[] {
-  return slots.map((slot) => {
-    let key = slot.key;
-    let suffix = 2;
-    while (taken.has(key)) {
-      key = `${slot.key}-${suffix}`;
-      suffix += 1;
-    }
-    taken.add(key);
-    return key === slot.key ? slot : { ...slot, key };
-  });
 }
 
 function takenKeys(intake: Intake): Set<string> {
@@ -330,7 +315,7 @@ export function UploadSection() {
   const addCheque = () =>
     update((d) => {
       const group = intakeChequeGroup(d.intake.cheques.length + 1);
-      group.slots = withUniqueKeys(group.slots, takenKeys(d.intake));
+      group.slots = uniqueSlotKeys(group.slots, takenKeys(d.intake));
       d.intake.cheques.push(group);
     });
 
@@ -340,10 +325,8 @@ export function UploadSection() {
     for (const slot of group.slots) runs.current[slot.key] = (runs.current[slot.key] ?? 0) + 1;
     update((d) => {
       for (const slot of d.intake.cheques[index]?.slots ?? []) clearExtraction(d, slot.key);
-      d.intake.cheques.splice(index, 1);
-      d.intake.cheques.forEach((c, i) => {
-        c.n = i + 1;
-      });
+      // The form's cheque goes with its card, so the two stay the same in number.
+      removeCaseRecord(d, "cheque", index);
     });
     dropFiles(group.slots.map((s) => s.file));
     announce(`Cheque ${group.n} removed.`);
@@ -352,7 +335,7 @@ export function UploadSection() {
   const addNotice = () =>
     update((d) => {
       const group = intakeNoticeGroup(d.intake.notices.length + 1);
-      group.slots = withUniqueKeys(group.slots, takenKeys(d.intake));
+      group.slots = uniqueSlotKeys(group.slots, takenKeys(d.intake));
       d.intake.notices.push(group);
     });
 
@@ -362,10 +345,8 @@ export function UploadSection() {
     for (const slot of group.slots) runs.current[slot.key] = (runs.current[slot.key] ?? 0) + 1;
     update((d) => {
       for (const slot of d.intake.notices[index]?.slots ?? []) clearExtraction(d, slot.key);
-      d.intake.notices.splice(index, 1);
-      d.intake.notices.forEach((n, i) => {
-        n.n = i + 1;
-      });
+      // The form's notice goes with its card, so the two stay the same in number.
+      removeCaseRecord(d, "notice", index);
     });
     dropFiles(group.slots.map((s) => s.file));
     announce(`Demand notice ${group.n} removed.`);
@@ -374,7 +355,7 @@ export function UploadSection() {
   const addParty = () =>
     update((d) => {
       const group = intakePartyGroup(d.intake.parties.length + 1);
-      group.slots = withUniqueKeys(group.slots, takenKeys(d.intake));
+      group.slots = uniqueSlotKeys(group.slots, takenKeys(d.intake));
       d.intake.parties.push(group);
     });
 
@@ -397,7 +378,7 @@ export function UploadSection() {
     update((d) => {
       const party = d.intake.parties[index];
       if (!party) return;
-      const [doc] = withUniqueKeys(
+      const [doc] = uniqueSlotKeys(
         [intakeOtherPartyDoc(party.n, party.slots.length + 1)],
         takenKeys(d.intake)
       );

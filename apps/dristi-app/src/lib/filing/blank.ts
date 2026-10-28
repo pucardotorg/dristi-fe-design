@@ -31,6 +31,7 @@ import type {
   IntakeSlot,
   Jurisdiction,
   SignInstrument,
+  StoredFileRef,
   UserProfile,
   Representative,
   Witness,
@@ -253,6 +254,71 @@ export function intakeNoticeGroup(n: number): IntakeGroup {
       },
     ],
   };
+}
+
+/**
+ * Keep the cheques and notices the form holds and the upload groups that hold their
+ * documents the same in number. Either side can add one — the Cheque step's "Add cheque",
+ * the upload step's "Add another cheque" — and the list of documents is built from the
+ * upload groups, so a cheque added on the form would otherwise never be asked for.
+ * Grows the shorter side only; removal is done by whoever removes, on both sides.
+ * A side with no upload groups at all (a bulk setup) is left alone.
+ */
+export function syncIntakeCounts(draft: FilingDraft): void {
+  const taken = new Set(
+    [...draft.intake.cheques, ...draft.intake.notices, ...draft.intake.parties]
+      .flatMap((g) => g.slots)
+      .map((s) => s.key)
+  );
+  const grow = (groups: IntakeGroup[], records: unknown[], make: (n: number) => IntakeGroup, blank: () => unknown) => {
+    if (groups.length === 0) return;
+    while (groups.length < records.length) {
+      const group = make(groups.length + 1);
+      group.slots = uniqueSlotKeys(group.slots, taken);
+      groups.push(group);
+    }
+    while (records.length < groups.length) records.push(blank());
+  };
+  grow(draft.intake.cheques, draft.cheques, intakeChequeGroup, blankCheque);
+  grow(draft.intake.notices, draft.notices, intakeNoticeGroup, blankNotice);
+}
+
+/**
+ * Remove cheque or notice `index` (0-based) from the form and its upload group with it,
+ * renumbering the groups after it. Returns the files that group held, for the caller to
+ * delete from storage.
+ */
+export function removeCaseRecord(
+  draft: FilingDraft,
+  kind: "cheque" | "notice",
+  index: number
+): StoredFileRef[] {
+  const records: unknown[] = kind === "cheque" ? draft.cheques : draft.notices;
+  const groups = kind === "cheque" ? draft.intake.cheques : draft.intake.notices;
+  if (records.length > 1 && index < records.length) records.splice(index, 1);
+  if (groups.length <= 1 || index >= groups.length) return [];
+  const [gone] = groups.splice(index, 1);
+  groups.forEach((g, i) => {
+    g.n = i + 1;
+  });
+  return gone.slots.flatMap((s) => (s.file ? [s.file] : []));
+}
+
+/**
+ * Keep slot keys unique. The factories derive keys from the group number, so adding a
+ * group after a removal can otherwise reuse a key that is still on the draft.
+ */
+export function uniqueSlotKeys(slots: IntakeSlot[], taken: Set<string>): IntakeSlot[] {
+  return slots.map((slot) => {
+    let key = slot.key;
+    let suffix = 2;
+    while (taken.has(key)) {
+      key = `${slot.key}-${suffix}`;
+      suffix += 1;
+    }
+    taken.add(key);
+    return key === slot.key ? slot : { ...slot, key };
+  });
 }
 
 export function intakePartyGroup(n: number): IntakeGroup {
@@ -564,6 +630,12 @@ export function migrateDraft(draft: FilingDraft): FilingDraft {
   draft.jurisdiction ??= blankJurisdiction();
   draft.witnesses ??= [blankWitness()];
   draft.documents ??= [];
+  // Cheques and notices added on the form steps never reached the upload groups before
+  // they were kept in step; give such a draft the groups its form already has.
+  const groupsBefore = draft.intake.cheques.length + draft.intake.notices.length;
+  syncIntakeCounts(draft);
+  if (draft.intake.cheques.length + draft.intake.notices.length !== groupsBefore)
+    draft.documents = buildDocumentGroups(draft);
   draft.sign ??= {
     mode: "digital",
     requestedAt: null,

@@ -13,7 +13,7 @@
 import * as React from "react";
 import { usePathname } from "next/navigation";
 
-import { buildDocumentGroups } from "./blank";
+import { buildDocumentGroups, syncIntakeCounts } from "./blank";
 import { deleteDraftWithFiles, getRepository, setActiveRepository } from "./data";
 import type { FilingRepository } from "./data";
 import { sectionOpened } from "./selectors";
@@ -202,7 +202,9 @@ export function FilingProvider({
         if (prev.status !== "ready") return prev;
         const next = structuredClone(prev.draft);
         recipe(next);
-        // The list of documents mirrors the case (cheques, parties, intake) — keep it in step.
+        // The list of documents mirrors the case (cheques, notices, parties, intake) — keep
+        // the upload groups as many as the form's cheques and notices, then rebuild it.
+        syncIntakeCounts(next);
         next.documents = buildDocumentGroups(next);
         next.updatedAt = new Date().toISOString();
         draftRef.current = next;
