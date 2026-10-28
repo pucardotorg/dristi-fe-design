@@ -1,8 +1,11 @@
+import { ANSWER_LABEL } from "@/lib/employee/scrutiny/returns";
 import type {
   BundleDoc,
   Field,
   Filing,
+  FlatField,
   HistoryEvent,
+  ReturnRound,
   SectionDef,
 } from "@/lib/employee/scrutiny/types";
 
@@ -504,6 +507,8 @@ export function deriveScrutinyCase(filing: Filing): DerivedCase {
 export function deriveHistory(
   filing: Filing,
   party: DerivedCase["party"],
+  returned: ReturnRound | null = null,
+  fieldById: Record<string, FlatField> = {},
 ): { history: HistoryEvent[]; historySummary: string; historyRound: number } {
   const filedShort = party.submitted.replace(/^Submitted /, "");
   /* An unclaimed filing has "—" for its officer; in a history line that reads as a hole,
@@ -566,6 +571,37 @@ export function deriveHistory(
       ],
       historySummary: `1 round · ${filing.reason.toLowerCase()}`,
       historyRound: 1,
+    };
+  }
+
+  /* A resubmission with its round on record says what went back and how each item was
+     answered — "Sent back with 3 items" and nothing under it left the officer to recall
+     which three. Each item is a way back into the work, as on the authored case. */
+  if (filing.ball === "registry" && /re-scrutiny/.test(stage) && returned) {
+    const n = returned.items.length;
+    return {
+      history: [
+        filed,
+        {
+          status: "past",
+          title: `Sent back with ${n} item${n === 1 ? "" : "s"}`,
+          meta: `${returned.sentBack} · ${returned.sentBackBy}`,
+          items: returned.items.map((item) => ({
+            ref: item.fieldId,
+            what: fieldById[item.fieldId]?.label ?? item.fieldId,
+            was: item.was,
+            status: `${ANSWER_LABEL[item.answer].toLowerCase()} ${item.answered.replace(/ \d{4}$/, "")}`,
+          })),
+        },
+        {
+          status: "past",
+          title: "Resubmitted",
+          meta: `${returned.resubmitted} · ${returned.resubmittedBy}`,
+        },
+        { status: "current", title: "Returned to scrutiny", meta: "Awaiting re-check" },
+      ],
+      historySummary: `${returned.round} rounds · ${n} item${n === 1 ? "" : "s"} to re-check`,
+      historyRound: returned.round,
     };
   }
 

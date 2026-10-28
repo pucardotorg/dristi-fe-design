@@ -221,6 +221,47 @@ export interface HistoryEvent {
   items?: HistoryItem[];
 }
 
+/* ── the round that came back ────────────────────────────────────────────── */
+
+/**
+ * How the advocate answered one returned item — the advocate side's `Resolution.how`
+ * (`lib/tasks/types.ts`), so the two ends of the round trip speak one vocabulary.
+ *
+ * `kept` is the advocate leaving the filed value as it was. No reason is asked for on
+ * that side, so none is shown here: the card says so rather than calling it "contested".
+ */
+export type ReturnAnswer = "edited" | "kept" | "replaced";
+
+/** One item the officer sent back, and what came back for it. */
+export interface ReturnedItem {
+  /** The row it was raised on — a value row, or a document row in Evidence › Documents. */
+  fieldId: string;
+  /** The officer's note, as sent. The whole instruction. */
+  note: string;
+  /** The value (or file) as scrutiny saw it when it went back. Now is the row's own value. */
+  was: string;
+  answer: ReturnAnswer;
+  /** "9 Jun 2026" — when the advocate answered it. */
+  answered: string;
+}
+
+/**
+ * The last send-back and its answers — what a re-scrutiny is for.
+ *
+ * Only these items can differ from what the officer last saw: the advocate's correction
+ * screen locks every field that was not flagged (`correction-screen.tsx`, D3). So this
+ * list is the whole of "what changed", not a sample of it.
+ */
+export interface ReturnRound {
+  /** The round now being scrutinised (2 for the first resubmission). */
+  round: number;
+  sentBack: string;
+  sentBackBy: string;
+  resubmitted: string;
+  resubmittedBy: string;
+  items: ReturnedItem[];
+}
+
 /* ── one case, assembled ─────────────────────────────────────────────────── */
 
 /** The party names and provenance line the case bar prints. */
@@ -257,6 +298,8 @@ export interface ScrutinyCase {
   history: HistoryEvent[];
   historySummary: string;
   historyRound: number;
+  /** The send-back this filing came back from, or `null` on a first scrutiny. */
+  returned: ReturnRound | null;
 }
 
 /**

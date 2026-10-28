@@ -12,7 +12,10 @@ import { useRoomInRem } from "@/hooks/use-min-width";
 import { nextFilingAfter } from "@/lib/employee/scrutiny/queue";
 import type { AiMode } from "@/lib/court/profiles";
 import type { Rect, ScrutinyCase } from "@/lib/employee/scrutiny/types";
-import { useScrutinyState } from "@/lib/employee/scrutiny/use-scrutiny-state";
+import {
+  uncheckedCount,
+  useScrutinyState,
+} from "@/lib/employee/scrutiny/use-scrutiny-state";
 import { ScrutinyCaseProvider } from "@/components/employee/scrutiny/scrutiny-case-context";
 import { Identifier } from "@/components/chrome/identifier";
 import { ARRIVAL } from "@/components/chrome/motion";
@@ -26,6 +29,7 @@ import { ChecksPopover } from "@/components/employee/scrutiny/checks-popover";
 import {
   FieldsPanel,
   type FieldsPanelHandle,
+  type FieldsView,
 } from "@/components/employee/scrutiny/fields-panel";
 import { HistorySheet } from "@/components/employee/scrutiny/history-sheet";
 import {
@@ -111,7 +115,7 @@ export function CaseWorkbench({
     return () => setSidebar(restore);
   }, []);
 
-  const { party, allFields, fieldById, historyRound } = caseData;
+  const { party, allFields, fieldById, historyRound, returned } = caseData;
   const filingNo = caseData.filing.no;
   const controller = useScrutinyState(caseData);
   const bundle = React.useRef<BundleHandle>(null);
@@ -125,6 +129,11 @@ export function CaseWorkbench({
      not measured. */
   const threePane = useRoomInRem(64);
   const [pane, setPane] = React.useState<"fields" | "bundle">("fields");
+  /* A resubmission opens on what came back (`ChangesList`); a first scrutiny has only
+     the full filing. */
+  const [view, setView] = React.useState<FieldsView>(
+    returned ? "changes" : "full",
+  );
   const [indexOpen, setIndexOpen] = React.useState(false);
 
   // The case title is the officer's to correct (a mis-spelt party name is exactly the
@@ -181,10 +190,12 @@ export function CaseWorkbench({
     (fieldId: string) => {
       if (!fieldById[fieldId]) return;
       setPane("fields");
+      // A field that did not come back has no card in Changes; its row is in the filing.
+      if (!returned?.items.some((item) => item.fieldId === fieldId)) setView("full");
       controller.selectField(fieldId);
       requestAnimationFrame(() => fields.current?.scrollToRow(fieldId));
     },
-    [controller, fieldById],
+    [controller, fieldById, returned],
   );
 
   /** The mirror of `goToItem`: a document is read on the bundle. */
@@ -194,6 +205,23 @@ export function CaseWorkbench({
       requestAnimationFrame(() => goToDoc(docId));
     },
     [goToDoc],
+  );
+
+  /**
+   * A returned item's "Show in bundle": select it, and put its document in front of the
+   * officer. Selecting alone scrolls the bundle only when the selection changes, so the
+   * document is asked for directly — a second press still lands on it.
+   */
+  const showItem = React.useCallback(
+    (fieldId: string) => {
+      const field = fieldById[fieldId];
+      const docId = field?.docrow ?? field?.doc ?? field?.thumb;
+      controller.selectField(fieldId);
+      if (!docId) return;
+      if (threePane) goToDoc(docId);
+      else showDoc(docId);
+    },
+    [controller, fieldById, goToDoc, showDoc, threePane],
   );
 
   React.useEffect(() => {
@@ -208,6 +236,13 @@ export function CaseWorkbench({
   const raised = allFields.filter((f) => controller.flags[f.id]).length;
 
   const tally = raised ? [`${raised} flag${raised > 1 ? "s" : ""}`] : [];
+
+  /* Re-scrutiny is checking what came back, so forwarding waits until every returned
+     item has an answer — accepted, or raised again. The reason is said in the bar beside
+     the button, because a disabled button cannot be focused to ask it why. */
+  const unchecked = uncheckedCount(controller, returned);
+  const returnedTotal = returned?.items.length ?? 0;
+  const forwardBlocked = unchecked > 0;
 
   return (
     /*
@@ -252,7 +287,9 @@ export function CaseWorkbench({
               home in the eyebrow. */}
           <p className="text-body-compact font-medium text-muted-foreground">
             <Identifier value={filingNo} label="filing number" />
-            {` · ${party.submitted}`}
+            {returned
+              ? ` · Resubmitted ${returned.resubmitted} by ${returned.resubmittedBy}`
+              : ` · ${party.submitted}`}
           </p>
           {editingTitle ? (
             <TitleEditor
@@ -364,6 +401,9 @@ export function CaseWorkbench({
               controller={controller}
               aiOn={aiOn}
               onGoToItem={goToItem}
+              view={view}
+              onViewChange={setView}
+              onShowItem={showItem}
             />
           </ResizablePanel>
           <ResizableHandle withHandle />
@@ -392,6 +432,9 @@ export function CaseWorkbench({
               controller={controller}
               aiOn={aiOn}
               onGoToItem={goToItem}
+              view={view}
+              onViewChange={setView}
+              onShowItem={showItem}
             />
           ) : (
             <BundleView ref={bundle} aiOn={aiOn} spot={spot} />
@@ -406,7 +449,21 @@ export function CaseWorkbench({
          * numbers). Red because it is the officer's own error tally, and it has to
          * be findable from anywhere on the screen.
          */}
-        <span className="text-body-compact text-muted-foreground">
+        <span
+          id="decision-tally"
+          className="text-body-compact text-muted-foreground"
+        >
+          {returned ? (
+            <>
+              <b className="font-semibold text-foreground tabular-nums">
+                {`${returnedTotal - unchecked} of ${returnedTotal} checked`}
+              </b>
+              {forwardBlocked
+                ? ` · answer each returned item to ${canRegister ? "register" : "forward"}`
+                : null}
+              {tally.length > 0 ? " · " : null}
+            </>
+          ) : null}
           {tally.length > 0 ? (
             <>
               {tally.map((t, i) => (
@@ -430,9 +487,19 @@ export function CaseWorkbench({
             holding Scrutiny officer alone forwards it to Registration (`SCR-06`,
             `SCR-11`). */}
         {canRegister ? (
-          <Button onClick={() => setDecision("register")}>Register case</Button>
+          <Button
+            disabled={forwardBlocked}
+            aria-describedby={returned ? "decision-tally" : undefined}
+            onClick={() => setDecision("register")}
+          >
+            Register case
+          </Button>
         ) : (
-          <Button onClick={() => setDecision("forward")}>
+          <Button
+            disabled={forwardBlocked}
+            aria-describedby={returned ? "decision-tally" : undefined}
+            onClick={() => setDecision("forward")}
+          >
             Forward for registration
           </Button>
         )}

@@ -5,22 +5,27 @@ import * as React from "react";
 import { GROUP_ICONS } from "@/lib/employee/scrutiny/icons";
 import type { ScrutinyController } from "@/lib/employee/scrutiny/use-scrutiny-state";
 import { cn } from "@/lib/utils";
+import { ChangesList } from "@/components/employee/scrutiny/changes-list";
 import { FieldRow } from "@/components/employee/scrutiny/field-row";
+import { SHEET } from "@/components/employee/scrutiny/sheet";
 import { useScrutinyCase } from "@/components/employee/scrutiny/scrutiny-case-context";
 import { Card } from "@/components/ui/card";
 import { DescriptionList } from "@/components/ui/description-list";
+import {
+  SegmentedControl,
+  SegmentedControlItem,
+} from "@/components/ui/segmented-control";
 
-/**
- * The group card's recipe, shared with Register cases and Take cognizance
- * (`register-case-screen.tsx`, `cognizance-case-screen.tsx`): a hairline-edged, raised
- * sheet with no padding of its own, so a header band and the rows below it each set their
- * own — divided by one hairline, the same stroke the case file uses.
- */
-const SHEET = "gap-0 overflow-hidden border-hairline py-0 shadow-raised";
 
 export interface FieldsPanelHandle {
   scrollToRow: (fieldId: string) => void;
 }
+
+/**
+ * What the pane shows on a resubmitted filing: the returned items, or every field.
+ * A first scrutiny has only the full filing, and the switch is not drawn.
+ */
+export type FieldsView = "changes" | "full";
 
 /**
  * Filed information: one continuous scroll through every section.
@@ -39,15 +44,23 @@ export function FieldsPanel({
   controller,
   aiOn,
   onGoToItem,
+  view,
+  onViewChange,
+  onShowItem,
   ref,
 }: {
   controller: ScrutinyController;
   aiOn: boolean;
   /** Selects a row and scrolls to it — how a linked pair reads in both directions. */
   onGoToItem: (fieldId: string) => void;
+  view: FieldsView;
+  onViewChange: (view: FieldsView) => void;
+  /** Selects a returned item and brings its document up in the bundle. */
+  onShowItem: (fieldId: string) => void;
   ref?: React.Ref<FieldsPanelHandle>;
 }) {
-  const { sections, fieldById } = useScrutinyCase();
+  const { sections, fieldById, returned } = useScrutinyCase();
+  const changes = !!returned && view === "changes";
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const [active, setActive] = React.useState(sections[0].id);
   const lock = React.useRef(false);
@@ -136,12 +149,51 @@ export function FieldsPanel({
       className="flex h-full min-h-0 flex-col bg-surface-sunken"
       aria-label="Filed information"
     >
+      {/* On a resubmission the pane opens on what came back — the advocate's own
+          correction screen opens on the flagged parts the same way — and the full filing
+          is one switch away. The switch is its own bar, above the section tabs rather than
+          beside them: sharing one band pushed the tabs into a sideways scroll (owner,
+          2026-10-28). `h-14` keeps it level with the bundle's and the index's bars.
+          Compact: a secondary choice in dense chrome, with the 40px target kept (the
+          control's own reason for that size). */}
+      {returned ? (
+        <div className="flex h-14 shrink-0 items-center border-b border-hairline bg-card px-4">
+          <SegmentedControl
+            size="compact"
+            type="single"
+            value={view}
+            onValueChange={(value) => value && onViewChange(value as FieldsView)}
+            aria-label="What to show"
+            className="shrink-0"
+          >
+            <SegmentedControlItem value="changes">
+              Changes
+              <span className="ms-1.5 tabular-nums text-muted-foreground">
+                {returned.items.length}
+              </span>
+            </SegmentedControlItem>
+            <SegmentedControlItem value="full">Full filing</SegmentedControlItem>
+          </SegmentedControl>
+        </div>
+      ) : null}
+
       {/* Chrome: white, hairline seam — never `border-border`. The line-tabs shape the
           court screens already use: the rule and the horizontal scroll sit on the band,
           and each mark hangs at `-bottom-px` so it lands ON that rule rather than
           floating above it as a second horizontal line (ui-craft §2). The old pill track
-          fought the primitive for the same effect and clipped its own labels to "ails". */}
-      <div className="flex h-14 shrink-0 items-stretch overflow-x-auto border-b border-hairline bg-card px-4">
+          fought the primitive for the same effect and clipped its own labels to "ails".
+          The Changes view has no sections, so it has no tabs.
+
+          No scrollbar, either way (owner, 2026-10-28). The marks used to hang 1px below
+          the band onto its rule, and since `overflow-x: auto` makes the other axis scroll
+          too, that pixel made the band vertically scrollable — a desktop that always
+          shows scrollbars drew a thumb beside four tabs that do not scroll. The marks now
+          sit on the rule from inside (`bottom-0`) and the band never scrolls vertically.
+          Where the tabs are wider than the pane (Gujarat's "Affidavit and oath") they
+          still pan sideways by trackpad or focus, without a track — the pill row's rule
+          (`chrome/pill-plate.ts`). */}
+      {changes ? null : (
+      <div className="flex h-14 shrink-0 items-stretch overflow-x-auto overflow-y-hidden border-b border-hairline bg-card px-4 [scrollbar-width:none]">
         <nav aria-label="Sections" className="flex items-stretch gap-1">
           {sections.map((section) => {
             const current = active === section.id;
@@ -153,7 +205,7 @@ export function FieldsPanel({
                 onClick={() => jumpTo(section.id)}
                 className={cn(
                   "relative flex shrink-0 items-center px-3 text-body-compact font-medium whitespace-nowrap transition-colors",
-                  "after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:bg-brand-accent after:opacity-0 after:transition-opacity after:content-['']",
+                  "after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-brand-accent after:opacity-0 after:transition-opacity after:content-['']",
                   "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring",
                   current
                     ? "text-primary after:opacity-100"
@@ -166,9 +218,16 @@ export function FieldsPanel({
           })}
         </nav>
       </div>
+      )}
 
       <div className="relative flex-1 overflow-y-auto p-4" ref={scrollRef}>
-        {sections.map((section, index) => (
+        {changes ? (
+          <ChangesList
+            controller={controller}
+            onShowItem={onShowItem}
+            onGoToItem={onGoToItem}
+          />
+        ) : sections.map((section, index) => (
           <section
             className={cn(
               "flex scroll-mt-3 flex-col gap-3",

@@ -4,6 +4,7 @@ import * as React from "react";
 import { VideoIcon, ZoomInIcon, ZoomOutIcon } from "lucide-react";
 
 import { rectStyle } from "@/lib/employee/scrutiny/field";
+import { replacedDocs } from "@/lib/employee/scrutiny/returns";
 import type { BundleDoc, Rect } from "@/lib/employee/scrutiny/types";
 import { formatDuration, getFileUrl } from "@/lib/filing/files";
 import {
@@ -89,9 +90,14 @@ export function BundleView({
   spot: { doc: string; rect: Rect } | null;
   ref?: React.Ref<BundleHandle>;
 }) {
-  const { bundle } = useScrutinyCase();
+  const { bundle, returned, fieldById } = useScrutinyCase();
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const [zoomBase, setZoomBase] = React.useState(880);
+  /* Documents re-uploaded this round open beside the upload that was sent back — the
+     question re-scrutiny asks of them is "is this one better?" — and the officer can put
+     the old one away. */
+  const replaced = replacedDocs(returned, fieldById);
+  const [hidePrevious, setHidePrevious] = React.useState<Record<string, boolean>>({});
 
   /*
    * Zoom is persisted state, so it lives in localStorage and not in `useState`: the
@@ -328,14 +334,8 @@ export function BundleView({
           }
         >
           {bundle.map((doc) => {
-            /* A derived filing draws every page as an illegible facsimile; the authored
-               case has real scans and legible generated pages. The facsimile is a
-               `size-full` SVG with no intrinsic height, so — unlike an `<img>`, which
-               sizes its own box — its page needs an explicit aspect ratio from the kind's
-               own `SHEET_BOX`, the same frame the read-only scroller uses. */
-            const sheet = doc.kind === "facsimile" ? doc.sheet : undefined;
-            const box = sheet ? SHEET_BOX[sheet] : null;
-            const Generated = sheet ? undefined : GENERATED_PAGES[doc.id];
+            const item = replaced[doc.id];
+            const comparing = !!item && !hidePrevious[doc.id];
             return (
               <div
                 className="flex scroll-mt-3 flex-col gap-1.5"
@@ -344,47 +344,102 @@ export function BundleView({
               >
                 {/* The only navigational anchor in a scroll this long, so it reads as
                     one: caption size, but foreground ink at 600 rather than grey. */}
-                <div className="text-caption font-semibold text-foreground">
-                  <span className="tabular-nums">{doc.no}</span> · {doc.name}
-                </div>
-                <div
-                  className={cn(
-                    "relative overflow-hidden rounded-xl shadow-raised",
-                    doc.kind === "video" ? "bg-card" : "bg-paper",
-                  )}
-                  style={box ? { aspectRatio: `${box.w} / ${box.h}` } : undefined}
-                >
-                  {doc.kind === "video" ? (
-                    <OathRecording doc={doc} />
-                  ) : doc.kind === "image" && doc.src ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={doc.src}
-                      alt={doc.name}
-                      className="block h-auto w-full select-none"
-                      draggable={false}
-                    />
-                  ) : sheet ? (
-                    <PageSheet kind={sheet} />
-                  ) : Generated ? (
-                    <Generated />
+                <div className="flex items-center gap-2">
+                  <div className="min-w-0 flex-1 text-caption font-semibold text-foreground">
+                    <span className="tabular-nums">{doc.no}</span> · {doc.name}
+                  </div>
+                  {item ? (
+                    /* The label says what pressing does next, so it carries no
+                       `aria-pressed` as well — a pressed "Hide…" reads as a double negative. */
+                    <Button
+                      variant="ghost"
+                      onClick={() =>
+                        setHidePrevious((h) => ({ ...h, [doc.id]: comparing }))
+                      }
+                    >
+                      {comparing ? "Hide previous upload" : "Compare with previous upload"}
+                    </Button>
                   ) : null}
-
-                  {/* Where AI read the selected field from — a halo, never a mark. */}
-                  {aiOn && spot?.doc === doc.id ? (
-                    <div
-                      className="pointer-events-none absolute z-2 rounded-md border-2 border-primary bg-halo ring-3 ring-halo transition-all"
-                      style={rectStyle(spot.rect)}
-                      aria-hidden="true"
-                    />
-                  ) : null}
-
                 </div>
+                {comparing ? (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex min-w-0 flex-col gap-1.5">
+                      <div className="text-caption font-medium text-muted-foreground">
+                        Previous upload · sent back {returned?.sentBack}
+                      </div>
+                      {/* The upload that went back. The demo keeps one file per document,
+                          so it is drawn from the same page, softened to stand in for the
+                          scan the officer could not read — never a legible fake of it. */}
+                      <div aria-hidden="true" className="opacity-80 blur-xs">
+                        {renderPage(doc, null)}
+                      </div>
+                    </div>
+                    <div className="flex min-w-0 flex-col gap-1.5">
+                      <div className="text-caption font-medium text-muted-foreground">
+                        Now · re-uploaded {item.answered}
+                      </div>
+                      {renderPage(doc, aiOn ? spot : null)}
+                    </div>
+                  </div>
+                ) : (
+                  renderPage(doc, aiOn ? spot : null)
+                )}
               </div>
             );
           })}
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * One bundle document's page, with the AI halo over it when the selected field was read
+ * from it. A derived filing draws every page as an illegible facsimile; the authored case
+ * has real scans and legible generated pages. The facsimile is a `size-full` SVG with no
+ * intrinsic height, so — unlike an `<img>`, which sizes its own box — its page needs an
+ * explicit aspect ratio from the kind's own `SHEET_BOX`, the same frame the read-only
+ * scroller uses.
+ */
+function renderPage(
+  doc: BundleDoc,
+  spot: { doc: string; rect: Rect } | null,
+) {
+  const sheet = doc.kind === "facsimile" ? doc.sheet : undefined;
+  const box = sheet ? SHEET_BOX[sheet] : null;
+  const Generated = sheet ? undefined : GENERATED_PAGES[doc.id];
+  return (
+    <div
+      className={cn(
+        "relative overflow-hidden rounded-xl shadow-raised",
+        doc.kind === "video" ? "bg-card" : "bg-paper",
+      )}
+      style={box ? { aspectRatio: `${box.w} / ${box.h}` } : undefined}
+    >
+      {doc.kind === "video" ? (
+        <OathRecording doc={doc} />
+      ) : doc.kind === "image" && doc.src ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={doc.src}
+          alt={doc.name}
+          className="block h-auto w-full select-none"
+          draggable={false}
+        />
+      ) : sheet ? (
+        <PageSheet kind={sheet} />
+      ) : Generated ? (
+        <Generated />
+      ) : null}
+
+      {/* Where AI read the selected field from — a halo, never a mark. */}
+      {spot?.doc === doc.id ? (
+        <div
+          className="pointer-events-none absolute z-2 rounded-md border-2 border-primary bg-halo ring-3 ring-halo transition-all"
+          style={rectStyle(spot.rect)}
+          aria-hidden="true"
+        />
+      ) : null}
     </div>
   );
 }

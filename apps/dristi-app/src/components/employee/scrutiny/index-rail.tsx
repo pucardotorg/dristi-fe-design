@@ -1,6 +1,7 @@
 "use client";
 
 import { shortDocName } from "@/lib/employee/scrutiny/bundle";
+import { replacedDocs } from "@/lib/employee/scrutiny/returns";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -124,7 +125,8 @@ function IndexRows({
   aiOn: boolean;
   onGoToDoc: (docId: string) => void;
 }) {
-  const { bundle } = useScrutinyCase();
+  const { bundle, returned, fieldById } = useScrutinyCase();
+  const replaced = replacedDocs(returned, fieldById);
   return (
     <>
       {bundle.map((doc) => {
@@ -162,6 +164,21 @@ function IndexRows({
             {/* The badges are marks, so what they mean is said in words for anyone who
                 cannot read a shape — never a `title` attribute, which no touch or
                 keyboard user reaches. */}
+            {/* Re-uploaded this round: a word, not a dot — the rail is where the officer
+                looks for "which documents are new", and a shape alone says nothing. */}
+            {replaced[doc.id] ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="info" className="shrink-0">
+                    New
+                    <span className="sr-only"> upload this round</span>
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Re-uploaded on {replaced[doc.id].answered}
+                </TooltipContent>
+              </Tooltip>
+            ) : null}
             {aiOn && doc.poorScan ? (
               <Tooltip>
                 <TooltipTrigger asChild>

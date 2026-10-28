@@ -5,10 +5,15 @@ import { buildScrutinyCase, HERO_FILING_NO } from "./case";
 import { findFiling } from "./queue";
 import type { Draft, FlagMap, ScrutinyLookups } from "./types";
 import {
+  applyAccept,
   applyLinkDoc as applyLinkDocRaw,
+  applyRaiseAgain,
   applyRemoveFlag,
   applySaveFlag as applySaveFlagRaw,
+  applyUndoAccept,
   survivingPartner,
+  uncheckedCount,
+  verdictOf,
   type ScrutinyState,
 } from "./use-scrutiny-state";
 
@@ -35,6 +40,7 @@ function draft(over: Partial<Draft> = {}): Draft {
 function state(over: Partial<ScrutinyState> = {}): ScrutinyState {
   return {
     flags: {},
+    accepted: {},
     selectedId: null,
     composeField: null,
     draft: null,
@@ -194,5 +200,59 @@ describe("removal never cascades", () => {
     const next = applyRemoveFlag(editing, "c1-name");
     assert.equal(next.composeField, null);
     assert.equal(next.draft, null);
+  });
+});
+
+describe("re-scrutiny verdicts", () => {
+  /** The resubmitted filing: three items came back, one of each answer. */
+  const RESUB = buildScrutinyCase(findFiling("F/AHM/2026/00338")!);
+  const RESUB_LOOK: ScrutinyLookups = { fieldById: RESUB.fieldById, docRow: RESUB.docRow };
+
+  it("attaches the round to a resubmitted filing and none to a fresh one", () => {
+    assert.equal(RESUB.returned?.items.length, 3);
+    assert.equal(RESUB.historyRound, RESUB.returned?.round);
+    for (const item of RESUB.returned!.items) assert.ok(RESUB.fieldById[item.fieldId], item.fieldId);
+    assert.equal(buildScrutinyCase(findFiling("F/AHM/2026/00319")!).returned, null);
+  });
+
+  it("names every returned item in the derived history", () => {
+    const sent = RESUB.history.find((e) => e.items);
+    assert.deepEqual(sent?.items?.map((i) => i.ref), ["q1-amt", "c1-name", "d-c1ad"]);
+  });
+
+  it("the hero round names a real row", () => {
+    for (const item of HERO.returned!.items) assert.ok(FIELD_BY_ID[item.fieldId], item.fieldId);
+  });
+
+  it("counts every item unchecked until the officer answers it", () => {
+    const s = state();
+    assert.equal(uncheckedCount(s, RESUB.returned), 3);
+    assert.equal(verdictOf(s, "q1-amt"), "unchecked");
+  });
+
+  it("accepting settles an item, and undo puts it back", () => {
+    const s = applyAccept(state(), "q1-amt");
+    assert.equal(verdictOf(s, "q1-amt"), "accepted");
+    assert.equal(uncheckedCount(s, RESUB.returned), 2);
+    assert.equal(verdictOf(applyUndoAccept(s, "q1-amt"), "q1-amt"), "unchecked");
+  });
+
+  it("raising again opens the composer on the last note and drops an acceptance", () => {
+    const note = RESUB.returned!.items[1].note;
+    const s = applyRaiseAgain(applyAccept(state(), "c1-name"), "c1-name", note, RESUB_LOOK);
+    assert.equal(s.composeField, "c1-name");
+    assert.equal(s.draft?.text, note);
+    assert.equal(s.accepted["c1-name"], undefined);
+  });
+
+  it("a saved re-raise is a flag, outranks acceptance, and counts as checked", () => {
+    const note = RESUB.returned!.items[1].note;
+    const raised = applySaveFlagRaw(applyRaiseAgain(state(), "c1-name", note, RESUB_LOOK), RESUB_LOOK);
+    assert.equal(verdictOf(raised, "c1-name"), "raised");
+    assert.equal(uncheckedCount(raised, RESUB.returned), 2);
+    // Accept is refused while the item stands raised.
+    assert.equal(applyAccept(raised, "c1-name"), raised);
+    // Withdrawing the flag returns it to unchecked, not to accepted.
+    assert.equal(verdictOf(applyRemoveFlag(raised, "c1-name"), "c1-name"), "unchecked");
   });
 });

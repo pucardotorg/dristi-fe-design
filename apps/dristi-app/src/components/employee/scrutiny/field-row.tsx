@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 
 import { docName } from "@/lib/employee/scrutiny/field";
+import { ANSWER_LABEL } from "@/lib/employee/scrutiny/returns";
 import type {
   Flag as FlagType,
   FlatField,
@@ -263,9 +264,20 @@ function Hints({
   flag?: FlagType;
   aiOn: boolean;
 }) {
-  const { docById } = useScrutinyCase();
+  const { docById, returned } = useScrutinyCase();
   const lines: React.ReactNode[] = [];
   const flagged = !!flag;
+  /* In the full filing, a row that went back last round says so — otherwise a returned
+     item is indistinguishable from the fields nobody touched. A standing fact about the
+     record, so it shows with AI off. */
+  const back = returned?.items.find((item) => item.fieldId === field.id);
+  if (back && returned) {
+    lines.push(
+      <HintLine key="returned" tone="muted" icon={<HistoryIcon />}>
+        {`Sent back ${returned.sentBack} · ${ANSWER_LABEL[back.answer].toLowerCase()} ${back.answered}`}
+      </HintLine>,
+    );
+  }
   const thumbId = field.thumb ?? field.docrow;
   const thumbDoc = thumbId ? docById[thumbId] : undefined;
   if (thumbDoc?.src) {
