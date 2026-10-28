@@ -5,22 +5,49 @@ import { CAUSE_LIST } from "./hearings";
 import { appearancesFor, attendanceRecital } from "./order-draft";
 
 /* `ATT-01`: every complainant, every accused and every PoA holder; one advocate line
-   per party; none for a party in person. */
+   per litigant, named for them; none for a party in person. */
 describe("the attendance roll", () => {
   const hearing = CAUSE_LIST.find((entry) => entry.id === "h-254")!;
 
-  it("lists every party and PoA holder, with one advocate line per represented party", () => {
+  it("lists every party with their advocate and PoA holder under them", () => {
     assert.deepEqual(
-      appearancesFor(hearing).map((row) => `${row.kind}:${row.name}`),
+      appearancesFor(hearing).map((row) => `${row.kind}:${row.name}:${row.party}`),
       [
-        "party:Priya Menon",
-        "counsel:Advocate for the complainant",
-        "poa:Arun Menon",
-        "party:Sabari Textiles",
-        "counsel:Advocate for Sabari Textiles",
+        "party:Priya Menon:Priya Menon",
+        "counsel:Advocate for Priya Menon:Priya Menon",
+        "poa:Arun Menon:Priya Menon",
+        "party:Sabari Textiles:Sabari Textiles",
+        "counsel:Advocate for Sabari Textiles:Sabari Textiles",
         /* The partner appears in person: no advocate line. */
-        "party:Ramesh Kumar",
+        "party:Ramesh Kumar:Ramesh Kumar",
       ],
+    );
+  });
+
+  it("gives a litigant with several advocates one line and one mark", () => {
+    const counsel = appearancesFor(hearing).filter((row) => row.kind === "counsel");
+    assert.deepEqual(
+      counsel.map((row) => [row.name, row.advocates]),
+      [
+        ["Advocate for Priya Menon", ["Adv. Anitha George"]],
+        ["Advocate for Sabari Textiles", ["Adv. Feroz Hameed", "Adv. Latha Krishnan"]],
+      ],
+    );
+  });
+
+  it("names each complainant's own advocate after them, never the side", () => {
+    const rows = appearancesFor({
+      ...hearing,
+      otherParties: [{ name: "Meera Menon", side: "complainant" }],
+      counsel: [
+        { name: "Adv. Anitha George", side: "complainant", party: "Priya Menon" },
+        { name: "Adv. Nisha Thomas", side: "complainant", party: "Meera Menon" },
+      ],
+      poaHolders: [],
+    });
+    assert.deepEqual(
+      rows.filter((row) => row.side === "complainant").map((row) => row.name),
+      ["Priya Menon", "Advocate for Priya Menon", "Meera Menon", "Advocate for Meera Menon"],
     );
   });
 

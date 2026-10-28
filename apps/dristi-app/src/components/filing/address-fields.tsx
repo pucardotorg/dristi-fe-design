@@ -33,6 +33,7 @@ export function AddressFields({
   idPrefix,
   name,
   required = true,
+  stateFirst = false,
 }: {
   value: Address;
   onChange: (next: Address) => void;
@@ -47,6 +48,11 @@ export function AddressFields({
   name?: string;
   /** False where the whole address is optional: no field is marked required. */
   required?: boolean;
+  /**
+   * Pincode · state, then city · district: the PIN's answers beside it, in the order a
+   * court's witness form asks them (owner, 2026-10-28).
+   */
+  stateFirst?: boolean;
 }) {
   const key = (k: keyof Address) => (name ? `${name}.${k}` : undefined);
   const set = (k: keyof Address) => (v: string) => onChange({ ...value, [k]: v });
@@ -116,6 +122,64 @@ export function AddressFields({
           ? "State"
           : null;
 
+  const pinField = (
+    <FormField label="Pincode" name={key("pin")} required={required}>
+      <TextField
+        value={value.pin}
+        onChange={set("pin")}
+        placeholder="6-digit"
+        inputMode="numeric"
+        maxLength={6}
+        prefilled={pf("pin")}
+        onViewSource={src("pin")}
+        autoComplete="postal-code"
+      />
+    </FormField>
+  );
+  const cityField = (
+    <FormField label="City / town" name={key("city")} required={required}>
+      <TextField
+        value={value.city}
+        onChange={set("city")}
+        placeholder="City or town"
+        prefilled={pf("city")}
+        onViewSource={src("city")}
+        autoComplete="address-level2"
+      />
+    </FormField>
+  );
+  const districtField = (
+    <FormField label="District" name={key("district")} required={required}>
+      <TextField
+        value={value.district}
+        onChange={setDistrict}
+        placeholder="District"
+        prefilled={pf("district")}
+        onViewSource={src("district")}
+      />
+    </FormField>
+  );
+  const stateField = (
+    <FormField label="State / UT" name={key("state")} required={required}>
+      <OptionSelect
+        value={value.state}
+        onValueChange={setState}
+        options={STATES}
+        placeholder="Select state"
+        prefilled={pf("state")}
+        onViewSource={src("state")}
+        /* The field's label does not reach a select's button; name it here. */
+        ariaLabel="State / UT"
+      />
+    </FormField>
+  );
+  /* Mounted whether or not it has anything to say, so the fill is announced. */
+  const lookupStatus = (
+    <LookupStatus>
+      {filledLabel && shownFill ? `${filledLabel} filled from PIN ${shownFill.pin}` : null}
+    </LookupStatus>
+  );
+
   return (
     <div className="flex flex-col gap-4">
       <FormField label="Address line" name={key("line1")} required={required}>
@@ -129,61 +193,37 @@ export function AddressFields({
           autoComplete="address-line1"
         />
       </FormField>
-      {/* PIN first: it is the field that fills the two below it, so it comes before the
-          ones it answers rather than after them. */}
-      <FormRow>
-        <FormField label="Pincode" name={key("pin")} required={required}>
-          <TextField
-            value={value.pin}
-            onChange={set("pin")}
-            placeholder="6-digit"
-            inputMode="numeric"
-            maxLength={6}
-            prefilled={pf("pin")}
-                onViewSource={src("pin")}
-            autoComplete="postal-code"
-          />
-        </FormField>
-        <FormField label="City / town" name={key("city")} required={required}>
-          <TextField
-            value={value.city}
-            onChange={set("city")}
-            placeholder="City or town"
-            prefilled={pf("city")}
-                onViewSource={src("city")}
-            autoComplete="address-level2"
-          />
-        </FormField>
-      </FormRow>
-      <div className="flex flex-col gap-2">
-        <FormRow>
-          <FormField label="District" name={key("district")} required={required}>
-            <TextField
-              value={value.district}
-              onChange={setDistrict}
-              placeholder="District"
-              prefilled={pf("district")}
-                onViewSource={src("district")}
-            />
-          </FormField>
-          <FormField label="State / UT" name={key("state")} required={required}>
-            <OptionSelect
-              value={value.state}
-              onValueChange={setState}
-              options={STATES}
-              placeholder="Select state"
-              prefilled={pf("state")}
-                onViewSource={src("state")}
-            />
-          </FormField>
-        </FormRow>
-        {/* Mounted whether or not it has anything to say, so the fill is announced. */}
-        <LookupStatus>
-          {filledLabel && shownFill
-            ? `${filledLabel} filled from PIN ${shownFill.pin}`
-            : null}
-        </LookupStatus>
-      </div>
+      {stateFirst ? (
+        <>
+          <div className="flex flex-col gap-2">
+            <FormRow>
+              {pinField}
+              {stateField}
+            </FormRow>
+            {lookupStatus}
+          </div>
+          <FormRow>
+            {cityField}
+            {districtField}
+          </FormRow>
+        </>
+      ) : (
+        <>
+          {/* PIN first: it is the field that fills the two below it, so it comes before
+              the ones it answers rather than after them. */}
+          <FormRow>
+            {pinField}
+            {cityField}
+          </FormRow>
+          <div className="flex flex-col gap-2">
+            <FormRow>
+              {districtField}
+              {stateField}
+            </FormRow>
+            {lookupStatus}
+          </div>
+        </>
+      )}
     </div>
   );
 }

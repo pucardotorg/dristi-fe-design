@@ -19,6 +19,7 @@ import {
 } from "@/components/employee/order-shortcuts-dialog";
 import {
   EvidenceView,
+  startEvidenceRecord,
   useHearingEvidence,
   type EvidenceContext,
 } from "@/components/employee/evidence-view";
@@ -65,6 +66,7 @@ import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { appendShortcut } from "@/lib/employee/order-shortcuts";
 import { derivedOrderTitle, orderTitle } from "@/lib/employee/order-title";
 import { unsignedCount } from "@/lib/employee/hearing-evidence";
 import {
@@ -187,26 +189,36 @@ export function OrderEditorHeader({
  * side panel and the editor's toolbar sit level under the head as the page scrolls.
  */
 function useBands(rootRef: React.RefObject<HTMLDivElement | null>) {
-  const [bands, setBands] = React.useState({ head: 0, foot: 0 });
+  const [bands, setBands] = React.useState({ head: 0, tabs: 0, foot: 0 });
   React.useEffect(() => {
     const root = rootRef.current;
     const head = root?.querySelector<HTMLElement>("header[data-order-head]");
+    const tabs = root?.querySelector<HTMLElement>("[data-order-tabs]");
     const foot = root?.querySelector<HTMLElement>("footer[data-order-foot]");
-    if (!head || !foot) return;
+    if (!head || !tabs || !foot) return;
     const measure = () =>
       setBands((current) =>
-        current.head === head.offsetHeight && current.foot === foot.offsetHeight
+        current.head === head.offsetHeight &&
+        current.tabs === tabs.offsetHeight &&
+        current.foot === foot.offsetHeight
           ? current
-          : { head: head.offsetHeight, foot: foot.offsetHeight },
+          : {
+              head: head.offsetHeight,
+              tabs: tabs.offsetHeight,
+              foot: foot.offsetHeight,
+            },
       );
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(head);
+    observer.observe(tabs);
     observer.observe(foot);
     return () => observer.disconnect();
   }, [rootRef]);
   return {
     "--order-head-bottom": `calc(3.5rem + ${bands.head}px)`,
+    /* Below the tabs band's strip of page (its foot, `h-4`). */
+    "--order-page-top": `calc(3.5rem + ${bands.head}px + ${bands.tabs}px + 1rem)`,
     "--order-panel-top": `calc(3.5rem + ${bands.head}px + 2rem)`,
     "--order-panel-fill": `calc(100svh - 3.5rem - ${bands.head}px - ${bands.foot}px - 2rem)`,
   } as React.CSSProperties;
@@ -348,8 +360,8 @@ const PAPER = cn(
 /**
  * The order as one page: the court's heading and the signature block are fixed — shown,
  * never typed into — and everything between them is the order's own rich text (owner,
- * 2026-10-14). The formatting toolbar rides at the top of the page and stays under the
- * head band as a long order scrolls.
+ * 2026-10-14). The rich text is a box of its own on the page, its toolbar holding under
+ * the view switch as a long order scrolls.
  */
 export function OrderPaperEditor({
   frame,
@@ -368,34 +380,48 @@ export function OrderPaperEditor({
   /** The `/` shortcuts (`order-shortcuts.ts`). */
   suggestion?: RichTextSuggestion;
 }) {
+  /* The typed part is a text box on the page, between Attendance and Next hearing, as
+     Recorded statements has one (owner, 2026-10-29): its toolbar and its focus ring are
+     the box's, not the whole paper's. */
   return (
-    <div className="flex min-w-0 flex-col gap-2">
-      <span id="order-paper-label" className="sr-only">
-        Order text
-      </span>
-      <RichTextField
-        key={revision}
-        value={value}
-        onChange={onChange}
-        labelId="order-paper-label"
-        suggestion={suggestion}
-        tables
-        header={<PaperHead frame={frame} attendance={parts?.attendance} />}
-        footer={<PaperFoot frame={frame} nextHearing={parts?.nextHearing} />}
-        className={cn(
-          PAPER,
-          "border-hairline",
-          /* The toolbar holds under the head band while the page scrolls. */
-          "[&_[role=toolbar]]:sticky [&_[role=toolbar]]:top-(--order-head-bottom) [&_[role=toolbar]]:z-10 [&_[role=toolbar]]:rounded-t-xl [&_[role=toolbar]]:bg-card [&_[role=toolbar]]:px-3",
-          /* The typed text on the page's margins, a paragraph's breath between lines. */
-          "[&_[data-slot=input-group-control]]:min-h-[55svh] [&_[data-slot=input-group-control]]:px-6 [&_[data-slot=input-group-control]]:py-6 md:[&_[data-slot=input-group-control]]:px-12 [&_[data-slot=input-group-control]>*+*]:mt-4",
-          /* An empty page says where the order goes (owner, 2026-10-16: "it's not
-             obvious where they should click and start typing"). Drawn at the first
-             line's place, in muted ink, and gone the moment anything is typed. */
-          isBlankOrder(value) &&
-            "[&_[data-slot=input-group-control]]:relative [&_[data-slot=input-group-control]]:before:pointer-events-none [&_[data-slot=input-group-control]]:before:absolute [&_[data-slot=input-group-control]]:before:inset-x-6 [&_[data-slot=input-group-control]]:before:top-6 md:[&_[data-slot=input-group-control]]:before:inset-x-12 [&_[data-slot=input-group-control]]:before:text-muted-foreground [&_[data-slot=input-group-control]]:before:content-['Click_here_and_type_the_order._Type_/_for_a_shortcut.']",
-        )}
-      />
+    <div className={cn(PAPER, "border-hairline")}>
+      <PaperHead frame={frame} attendance={parts?.attendance} />
+      <div className={cn("flex min-w-0 flex-col gap-3 pt-6 pb-2", PAGE_X)}>
+        <h2 id="order-paper-label" className="text-body-compact font-semibold">
+          Order text
+        </h2>
+        <RichTextField
+          key={revision}
+          value={value}
+          onChange={onChange}
+          labelId="order-paper-label"
+          suggestion={suggestion}
+          tables
+          className={cn(
+            /* The toolbar holds under the view switch while a long order scrolls. */
+            "[&>[role=toolbar]]:sticky [&>[role=toolbar]]:top-(--order-page-top) [&>[role=toolbar]]:z-10 [&>[role=toolbar]]:bg-card",
+            /* Held there, it is still the box's rounded top (owner, 2026-10-29). The box's
+               own top edge has scrolled away, so the toolbar draws it: it reaches 4px past
+               the box on three sides — over the border and the 3px focus ring, which would
+               otherwise run straight up past its corners — and an overlay draws the
+               rounded edge and ring back where the box's were, cut off at the bottom. Its
+               hairline is drawn inside the box's edges, not across the wider strip. */
+            "[&>[role=toolbar]]:-mx-1 [&>[role=toolbar]]:-mt-1 [&>[role=toolbar]]:w-auto [&>[role=toolbar]]:border-b-0 [&>[role=toolbar]]:px-2 [&>[role=toolbar]]:pt-2",
+            "[&>[role=toolbar]]:after:pointer-events-none [&>[role=toolbar]]:after:absolute [&>[role=toolbar]]:after:inset-x-1 [&>[role=toolbar]]:after:bottom-0 [&>[role=toolbar]]:after:h-px [&>[role=toolbar]]:after:bg-hairline [&>[role=toolbar]]:after:content-['']",
+            "[&>[role=toolbar]]:before:pointer-events-none [&>[role=toolbar]]:before:absolute [&>[role=toolbar]]:before:inset-x-0.75 [&>[role=toolbar]]:before:top-0.75 [&>[role=toolbar]]:before:bottom-0 [&>[role=toolbar]]:before:rounded-t-lg [&>[role=toolbar]]:before:border [&>[role=toolbar]]:before:border-b-0 [&>[role=toolbar]]:before:border-input [&>[role=toolbar]]:before:[clip-path:inset(-3px_-3px_0_-3px)] [&>[role=toolbar]]:before:content-['']",
+            "has-[[data-slot=input-group-control]:focus-visible]:[&>[role=toolbar]]:before:border-ring has-[[data-slot=input-group-control]:focus-visible]:[&>[role=toolbar]]:before:ring-3 has-[[data-slot=input-group-control]:focus-visible]:[&>[role=toolbar]]:before:ring-ring/50",
+            /* Room to write an order before the box grows — 480px (owner, 2026-10-29: the
+               box was too short) — and a paragraph's breath between lines. */
+            "[&_[data-slot=input-group-control]]:min-h-120 [&_[data-slot=input-group-control]>*+*]:mt-4",
+            /* An empty box says where the order goes (owner, 2026-10-16: "it's not
+               obvious where they should click and start typing"). Drawn at the first
+               line's place, in muted ink, and gone the moment anything is typed. */
+            isBlankOrder(value) &&
+              "[&_[data-slot=input-group-control]]:relative [&_[data-slot=input-group-control]]:before:pointer-events-none [&_[data-slot=input-group-control]]:before:absolute [&_[data-slot=input-group-control]]:before:inset-x-4 [&_[data-slot=input-group-control]]:before:top-3 [&_[data-slot=input-group-control]]:before:text-muted-foreground [&_[data-slot=input-group-control]]:before:content-['Click_here_and_type_the_order._Type_/_for_a_shortcut.']",
+          )}
+        />
+      </div>
+      <PaperFoot frame={frame} nextHearing={parts?.nextHearing} />
     </div>
   );
 }
@@ -914,7 +940,7 @@ export function OrderEditorComposer({
   historyContent?: React.ReactNode;
   /** The Data flags tab (ORD-15) — the listing's attendance history. */
   dataFlagsContent?: React.ReactNode;
-  /** Only on a hearing: what the Examinations view records against. */
+  /** Only on a hearing: what the Recorded statements view records against. */
   evidence?: EvidenceContext;
 }) {
   const rootRef = React.useRef<HTMLDivElement>(null);
@@ -926,6 +952,8 @@ export function OrderEditorComposer({
   const [sentOpen, setSentOpen] = React.useState(false);
   const router = useRouter();
   const [shortcutsOpen, setShortcutsOpen] = React.useState(false);
+  /* Bumped when Insert in Shortcuts changes the text, so the page re-reads it. */
+  const [revision, setRevision] = React.useState(0);
   const shortcuts = useShortcutSuggestion();
   const pending = usePendingOrders();
   const signing = useOrderSigning();
@@ -939,7 +967,8 @@ export function OrderEditorComposer({
   /* Where the drafter goes once this one is sent: the next order still in Drafting. */
   const nextDraft = nextDraftOrder(pending, signing, queue.key);
   /* What at this hearing its person has not signed yet, on the switch. */
-  const unsigned = unsignedCount(useHearingEvidence(evidence?.hearingId ?? ""));
+  const recorded = useHearingEvidence(evidence?.hearingId ?? "");
+  const unsigned = unsignedCount(recorded);
 
   /* Once there are words, the order is in Pending orders — every order, a hearing's or
      not (owner, 2026-10-14). */
@@ -1015,61 +1044,89 @@ export function OrderEditorComposer({
         )}
       >
         <div className="flex min-w-0 flex-col gap-4 lg:pb-8">
-          <div className="mx-auto flex w-full max-w-4xl items-center justify-between gap-4">
-            <SegmentedControl
-              type="single"
-              size="compact"
-              value={view}
-              onValueChange={(next) => {
-                if (
-                  next === "order" ||
-                  next === "workflow" ||
-                  (next === "evidence" && evidence)
-                )
-                  setView(next);
-              }}
-              aria-label="What to work on"
-            >
-              <SegmentedControlItem value="order">Order</SegmentedControlItem>
-              <SegmentedControlItem value="workflow">
-                Order data
-              </SegmentedControlItem>
-              {/* What was taken at this hearing is the third thing worked on here
-                  (owner, 2026-10-27). "Examinations", not "Evidence": an accused's
-                  S. 351 answers are not evidence, and "evidence" already names the
-                  marked exhibits. Only a hearing's order has one. */}
-              {evidence ? (
-                <SegmentedControlItem value="evidence">
-                  Examinations
-                  {unsigned > 0 ? (
-                    <Badge variant="warning" className="ml-1.5 tabular-nums">
-                      {unsigned}
-                      <span className="sr-only"> not signed</span>
-                    </Badge>
-                  ) : null}
+          {/* The view switch holds under the head band, and the order's toolbar under
+              it: only the page below them scrolls, on the window's own scrollbar. The
+              band reaches up into the grid's padding, down over the gap and out past
+              the page's focus ring, so the page passes under solid ground rather than
+              showing through a slit. */}
+          <div
+            data-order-tabs=""
+            className="sticky top-(--order-head-bottom) z-10 -mx-3 -mt-6 -mb-4 bg-muted px-3 pt-6 pb-4 md:-mt-8 md:pt-8 dark:bg-background"
+          >
+            <div className="mx-auto flex w-full max-w-4xl items-center justify-between gap-4">
+              <SegmentedControl
+                type="single"
+                size="compact"
+                value={view}
+                onValueChange={(next) => {
+                  if (next === "order" || next === "workflow") setView(next);
+                  else if (next === "evidence" && evidence) {
+                    /* Nothing recorded yet: open on a new statement, not an empty state. */
+                    if (recorded.length === 0) startEvidenceRecord(evidence);
+                    setView(next);
+                  }
+                }}
+                aria-label="What to work on"
+              >
+                <SegmentedControlItem value="order">Order</SegmentedControlItem>
+                <SegmentedControlItem value="workflow">
+                  Order data
                 </SegmentedControlItem>
+                {/* What was taken at this hearing is the third thing worked on here
+                    (owner, 2026-10-28). "Recorded statements": one screen for
+                    complainant evidence, witness deposition and examination of the
+                    accused. "Evidence" already names marked exhibits. Only a
+                    hearing's order has one. */}
+                {evidence ? (
+                  <SegmentedControlItem value="evidence">
+                    Recorded statements
+                    {unsigned > 0 ? (
+                      <Badge variant="warning" className="ml-1.5 tabular-nums">
+                        {unsigned}
+                        <span className="sr-only"> not signed</span>
+                      </Badge>
+                    ) : null}
+                  </SegmentedControlItem>
+                ) : null}
+              </SegmentedControl>
+              {view === "evidence" ? null : finished ? (
+                <OrderProgress
+                  stage={stage}
+                  workflowComplete={Boolean(entry?.workflowComplete)}
+                />
+              ) : view === "order" ? (
+                <div className="flex items-center gap-3">
+                  <span className="hidden text-body-compact text-muted-foreground sm:inline">
+                    Type <kbd className="font-mono">/</kbd> for a shortcut
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShortcutsOpen(true)}
+                  >
+                    Shortcuts
+                  </Button>
+                </div>
               ) : null}
-            </SegmentedControl>
-            {view === "evidence" ? null : finished ? (
-              <OrderProgress
-                stage={stage}
-                workflowComplete={Boolean(entry?.workflowComplete)}
-              />
-            ) : view === "order" ? (
-              <div className="flex items-center gap-3">
-                <span className="hidden text-body-compact text-muted-foreground sm:inline">
-                  Type <kbd className="font-mono">/</kbd> for a shortcut
-                </span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShortcutsOpen(true)}
-                >
-                  Shortcuts
-                </Button>
-              </div>
-            ) : null}
+            </div>
+            {/* The page's rounded top, held at the band's foot (owner, 2026-10-29): every
+                view puts a rounded card here, and once its own top has scrolled under
+                the band this keeps the corners. Ground fills outside the curve, and a
+                little past the sides over the card's shadow, which would otherwise run
+                straight up beside it; the card's hairline draws the curve. At rest it
+                lies on the card's own edge. On
+                the order's paper it is also a strip of the page, so the held toolbar
+                sits a margin below the page's edge with nothing showing between —
+                the paper opens with more empty margin than that, so at rest it hides
+                nothing. Recorded statements' card has its names at the very top. */}
+            <div
+              aria-hidden
+              className={cn(
+                "pointer-events-none absolute inset-x-3 top-full mx-auto h-4 max-w-4xl rounded-t-xl border border-b-0 border-hairline shadow-[0_0_0_1rem_var(--color-muted)] [clip-path:inset(0_-0.5rem)] dark:shadow-[0_0_0_1rem_var(--color-background)]",
+                view !== "evidence" && "bg-card",
+              )}
+            />
           </div>
 
           {view === "evidence" && evidence ? (
@@ -1092,6 +1149,7 @@ export function OrderEditorComposer({
                 onChange: () => noteOrderTextEdited(queue.key),
               })}
               value={body}
+              revision={revision}
               onChange={(value) => {
                 setDraft((current) => ({ ...current, body: value }));
                 /* Edited after its workflow was completed: the workflow goes back to
@@ -1284,6 +1342,15 @@ export function OrderEditorComposer({
       <OrderShortcutsDialog
         open={shortcutsOpen}
         onOpenChange={setShortcutsOpen}
+        onInsert={(shortcut) => {
+          setDraft((current) => ({
+            ...current,
+            body: appendShortcut(current.body ?? { html: "", text: "" }, shortcut),
+          }));
+          noteOrderTextEdited(queue.key);
+          setRevision((value) => value + 1);
+          setShortcutsOpen(false);
+        }}
       />
 
       {applicationDialog?.((id, decision) =>

@@ -625,10 +625,12 @@ export const CAUSE_LIST: CourtHearing[] = [
     counsel: [
       { name: "Adv. Anitha George", side: "complainant" },
       { name: "Adv. Feroz Hameed", side: "accused", party: "Sabari Textiles" },
+      { name: "Adv. Latha Krishnan", side: "accused", party: "Sabari Textiles" },
     ],
-    /* A firm and its partner, both accused (§141 NI Act); the partner appears in person.
-       The complainant is represented on a power of attorney too. A sample for
-       `ATT-01`'s roll: every party and PoA holder, one advocate line per party. */
+    /* A firm and its partner, both accused (§141 NI Act); the firm has two advocates on
+       record and the partner appears in person. The complainant is represented on a
+       power of attorney too. A sample for `ATT-01`'s roll: every party and PoA holder,
+       one advocate line per party however many advocates it has. */
     otherParties: [{ name: "Ramesh Kumar", side: "accused" }],
     poaHolders: [{ name: "Arun Menon", side: "complainant", for: "Priya Menon" }],
     stage: "arguments",

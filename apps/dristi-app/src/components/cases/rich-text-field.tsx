@@ -1,7 +1,7 @@
 "use client";
 
 import type * as React from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import {
   AlignCenterIcon,
   AlignLeftIcon,
@@ -18,6 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 import {
   GHOST_ATTRIBUTE,
+  matchSpan,
   pickSuggestion,
   readProsePrefix,
   readSuggestTrigger,
@@ -46,7 +47,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useFieldControlProps } from "@/components/ui/field";
+import { MENU_GROW } from "@/components/chrome/motion";
 import { InputGroup } from "@/components/ui/input-group";
+import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 /**
@@ -186,12 +189,27 @@ export type RichTextInsertion =
  */
 export type SuggestMode = "trigger" | "prose";
 
+/**
+ * One answer. Finishing a sentence, `ghost` is shown and `label` is said. Naming one
+ * after the trigger, the slash menu lists `label`, with `detail` — a line of what it
+ * puts in — under it.
+ */
+type SuggestAnswer = { key: string; label: string; ghost: string; detail?: string };
+
+/**
+ * The slash menu: every answer to the query, the one Enter would take, and what was
+ * typed. Kept, with `open` false, while it fades out, so it does not empty as it goes.
+ */
+type SlashMenu = {
+  answers: readonly SuggestAnswer[];
+  active: number;
+  query: string;
+  open: boolean;
+};
+
 export type RichTextSuggestion = {
-  /** What the typed words could become, best first. `ghost` is shown; `label` is said. */
-  resolve: (
-    query: string,
-    mode: SuggestMode,
-  ) => readonly { key: string; label: string; ghost: string }[];
+  /** What the typed words could become, best first. */
+  resolve: (query: string, mode: SuggestMode) => readonly SuggestAnswer[];
   /** Accepted — record it, and return what to put in the document. */
   accept: (
     key: string,
@@ -261,6 +279,18 @@ export function RichTextField({
   const [shown, setShown] = useState<{ key: string; label: string } | null>(
     null,
   );
+  const [menu, setMenu] = useState<SlashMenu | null>(null);
+  /** What the menu hangs from: the slash and the query typed after it, live. */
+  const anchorRef = useRef<{
+    getBoundingClientRect: () => DOMRect;
+    contextElement: Element;
+  } | null>(null);
+  /** The slash Escape put away, so typing on after it does not bring the menu back. */
+  const dismissedRef = useRef<{ host: Node; slash: number } | null>(null);
+  const menuContentRef = useRef<HTMLDivElement>(null);
+  const listboxId = useId();
+  const menuLabelId = useId();
+  const optionId = (index: number) => `${listboxId}-option-${index}`;
   /**
    * The table cell the caret was last in. Held rather than read at the moment of use,
    * because opening the table menu moves focus off the editor — the menu acts on the
@@ -323,6 +353,51 @@ export function RichTextField({
     ghostRef.current = null;
     setShown((current) => (current === null ? current : null));
   }, []);
+
+  const closeMenu = useCallback(() => {
+    setMenu((current) => (current?.open ? { ...current, open: false } : current));
+  }, []);
+
+  /** Put away whatever is offered — the preview or the menu. */
+  const dismiss = useCallback(() => {
+    clearGhost();
+    closeMenu();
+  }, [clearGhost, closeMenu]);
+
+  /* Whether the menu's list runs past its top or foot — drawn as fades. */
+  const [listOverflow, setListOverflow] = useState<ListOverflow>({
+    above: false,
+    below: false,
+  });
+  const measureList = useCallback((node: HTMLElement) => {
+    setListOverflow((current) => readOverflow(node, current));
+  }, []);
+  /* Measured as the list mounts — in a portal, a render after the menu opens — and
+     again when its height or its rows change: typing narrows it under the fades. */
+  const watchList = useCallback(
+    (node: HTMLUListElement | null) => {
+      if (!node) return;
+      const measure = () => measureList(node);
+      const resize = new ResizeObserver(measure);
+      const rows = new MutationObserver(measure);
+      resize.observe(node);
+      rows.observe(node, { childList: true });
+      measure();
+      return () => {
+        resize.disconnect();
+        rows.disconnect();
+      };
+    },
+    [measureList],
+  );
+
+  /* The row ↑ and ↓ land on stays in view in a list longer than the menu. */
+  useEffect(() => {
+    if (!menu?.open || menu.active < 0) return;
+    document
+      .getElementById(`${listboxId}-option-${menu.active}`)
+      ?.scrollIntoView({ block: "nearest" });
+  }, [menu, listboxId]);
 
   /**
    * Where the caret is, in the terms the trigger rule is written in.
@@ -457,7 +532,8 @@ export function RichTextField({
       queryRef.current = null;
       modeRef.current = null;
       ghostRef.current = null;
-      clearGhost();
+      dismissedRef.current = null;
+      dismiss();
       return;
     }
     if (query !== queryRef.current || mode !== modeRef.current) {
@@ -466,6 +542,12 @@ export function RichTextField({
       indexRef.current = 0;
     }
     const answers = suggestion.resolve(query, mode);
+    if (mode === "trigger") {
+      ghostRef.current = null;
+      showMenu(reading, query, answers);
+      return;
+    }
+    closeMenu();
     if (answers.length === 0) {
       ghostRef.current = null;
       clearGhost();
@@ -479,28 +561,9 @@ export function RichTextField({
     }
     heldRef.current = pick.key;
 
-    /**
-     * **What the preview says is the name, not the passage.**
-     *
-     * It was the whole of what would land, on the reasoning that nobody should accept
-     * text they have not read. On the render that reasoning produced the opposite of a
-     * completion: a standing direction runs three or four lines, so `/su` dropped a
-     * paragraph of grey text under the caret, reflowed the line, and rewrote itself on
-     * the next keystroke (owner, 2026-09-16: *not fluid at all, looks forced*).
-     *
-     * A name is what an inline completion is *for*: one line, no reflow, and it reads as
-     * the continuation of the word being typed. What guards the accept instead is
-     * everything that happens after it — the passage lands where it can be read, the
-     * caret goes to the first blank in it, the row appears under *Pulled into this
-     * order*, and both of those are one keystroke from being undone.
-     *
-     * For the three phrases the name *is* the sentence, so nothing is lost there: `/hea`
-     * completes to "Heard both sides." exactly as it will land.
-     */
-    /* Exactly what the caller said to show. Naming a standing order, that is its name —
-       one line, no reflow. Finishing a sentence, it is the part not yet typed, which
-       joins the words already on the line with no space of its own. */
-    const words = mode === "trigger" ? ` ${pick.label}` : pick.ghost;
+    /* Exactly what the caller said to show: the part of the sentence not yet typed,
+       which joins the words already on the line with no space of its own. */
+    const words = pick.ghost;
     /* The same node, moved, when it says the same thing: a held candidate is the common
        case while a query narrows, and replacing the node then would restart it. */
     if (standing && standing.textContent === words) {
@@ -512,6 +575,99 @@ export function RichTextField({
     setShown((current) =>
       current?.key === pick.key ? current : { key: pick.key, label: pick.label },
     );
+  }
+
+  /**
+   * **The slash opens a menu of every shortcut, and typing narrows it** (owner,
+   * 2026-10-29, after Notion's slash command). It replaced one muted guess drawn after
+   * the caret, which showed a single name at a time and hid that any others existed:
+   * ↓ walked through them blind.
+   *
+   * The top row is the best match and the one Enter takes; the letters typed are set in
+   * bold in each name, so it is plain why a row is there. The menu hangs from the slash
+   * and moves with it — **always below it** (owner, 2026-10-29: flipped above the line it
+   * *looks weird*). With the slash near the foot of the screen, the page scrolls up to
+   * make room as it opens, and whatever room is left caps the list, which scrolls inside
+   * it. A query that has run into a space and names nothing is a
+   * sentence, not a search, and closes the menu; a single word that names nothing keeps
+   * it open to say so.
+   */
+  function showMenu(
+    reading: { host: HTMLElement; before: string },
+    query: string,
+    answers: readonly SuggestAnswer[],
+  ) {
+    const slash = reading.before.length - query.length - 1;
+    const dismissed = dismissedRef.current;
+    if (dismissed && dismissed.host === reading.host && dismissed.slash === slash) {
+      dismiss();
+      return;
+    }
+    dismissedRef.current = null;
+    if (answers.length === 0 && /\s/.test(query)) {
+      dismiss();
+      return;
+    }
+    const start = pointAt(reading.host, slash);
+    const selection = window.getSelection();
+    if (start && selection && selection.rangeCount > 0) {
+      const caret = selection.getRangeAt(0);
+      const search = document.createRange();
+      search.setStart(start.node, start.offset);
+      search.setEnd(caret.startContainer, caret.startOffset);
+      anchorRef.current = {
+        /* Always below the slash, so it cannot step aside on the screen's edge: it is
+           held inside the gutter here instead, by its own width. */
+        getBoundingClientRect: () => {
+          const rect = search.getBoundingClientRect();
+          const width = menuContentRef.current?.offsetWidth ?? 0;
+          const last = document.documentElement.clientWidth - MENU_GUTTER - width;
+          const left = Math.max(MENU_GUTTER, Math.min(rect.left, last));
+          return new DOMRect(left, rect.top, rect.width, rect.height);
+        },
+        /* So the menu follows the page when the order scrolls inside its frame. */
+        contextElement: reading.host,
+      };
+      if (!menu?.open) {
+        makeRoomBelow(reading.host, search.getBoundingClientRect().bottom);
+      }
+    }
+    const count = answers.length;
+    const active = count === 0 ? -1 : ((indexRef.current % count) + count) % count;
+    const pick = active < 0 ? null : answers[active];
+    setMenu({ answers, active, query, open: true });
+    setShown((current) =>
+      !pick
+        ? null
+        : current?.key === pick.key
+          ? current
+          : { key: pick.key, label: pick.label },
+    );
+  }
+
+  /**
+   * Escape on the menu: hold that slash closed while the typing goes on after it. Called
+   * from the Popover's own Escape as well as the field's — the Popover hears the key
+   * first and closes, so by the field's turn the menu may already read as shut.
+   */
+  function rememberDismissal() {
+    const reading = caretReading();
+    const query = queryRef.current;
+    if (!reading || query === null || modeRef.current !== "trigger") return;
+    dismissedRef.current = {
+      host: reading.host,
+      slash: reading.before.length - query.length - 1,
+    };
+  }
+
+  /** The row under the pointer becomes the one Enter takes, as the keys would make it. */
+  function pointMenuAt(index: number) {
+    if (!menu || menu.active === index) return;
+    const answer = menu.answers[index];
+    if (!answer) return;
+    indexRef.current = index;
+    setMenu({ ...menu, active: index });
+    setShown({ key: answer.key, label: answer.label });
   }
 
   /**
@@ -527,12 +683,11 @@ export function RichTextField({
    * collapsed in front of it: the token is a thing to be replaced, and a typist who
    * accepted an order with three blanks in it is going to type over the first.
    */
-  function acceptSuggestion() {
-    if (!suggestion || !shown) return false;
-    const key = shown.key;
+  function acceptSuggestion(key = shown?.key) {
+    if (!suggestion || !key) return false;
     const query = queryRef.current;
     const mode = modeRef.current;
-    clearGhost();
+    dismiss();
     const reading = caretReading();
     if (!reading || query === null || mode === null) return false;
     const selection = window.getSelection();
@@ -631,7 +786,7 @@ export function RichTextField({
   function insertTable() {
     const editor = editorRef.current;
     if (!editor) return;
-    clearGhost();
+    dismiss();
     const wasFocused = document.activeElement === editor;
     if (!wasFocused) editor.focus();
     const selection = window.getSelection();
@@ -711,6 +866,8 @@ export function RichTextField({
     syncToolbar();
   }
 
+  const menuListed = menu !== null && menu.open && menu.answers.length > 0;
+
   const editable = (
     <div
       {...fieldProps}
@@ -719,6 +876,13 @@ export function RichTextField({
       role="textbox"
       aria-multiline="true"
       aria-labelledby={labelId}
+      /* The slash menu is this field's popup list: focus stays here, and the row Enter
+         would take is pointed to, as a combobox does (WAI-ARIA 1.2). */
+      aria-autocomplete={suggestion ? "list" : undefined}
+      aria-controls={menuListed ? listboxId : undefined}
+      aria-activedescendant={
+        menuListed && menu.active >= 0 ? optionId(menu.active) : undefined
+      }
       contentEditable
       suppressContentEditableWarning
       className={cn(
@@ -734,21 +898,24 @@ export function RichTextField({
         paintSuggestion();
       }}
       onFocus={syncToolbar}
-      onBlur={clearGhost}
+      onBlur={dismiss}
       /**
-       * The keys the completion answers to, and the one it deliberately does not.
+       * The keys the completion answers to.
        *
-       * **Tab accepts; Enter never does.** Enter is a paragraph break in an editor, so
-       * a typist reaching for a new line would otherwise put the court's words into
-       * the order instead of a line into their own writing. Tab is the convention for
-       * accepting an inline completion and it costs this field nothing: a
-       * `contentEditable` region has no tab stop inside it to lose.
+       * **In the slash menu, Enter and Tab both take the highlighted row** and ↑ ↓ move
+       * it, wrapping round, as in Notion (owner, 2026-10-29). Enter is safe there because
+       * the menu is on screen saying what it will do; with no row to take — nothing
+       * matches — Enter is a new line as ever. Not while an input method is composing:
+       * Indic keyboards use Enter to commit a word.
        *
-       * ↓ and ↑ walk the other answers without opening a list, which is the whole
-       * point of completing inline rather than in a menu. Escape puts the preview away
-       * and leaves every character the reader typed, including the slash: taking their
-       * text back out on their behalf would be this field editing a court record
-       * nobody asked it to touch.
+       * **Finishing a sentence, Tab accepts and Enter never does.** Enter is a paragraph
+       * break, and the preview is easy to miss, so a typist reaching for a new line
+       * would otherwise put the court's words into the order. ↓ and ↑ walk the other
+       * answers inline.
+       *
+       * Escape puts either away and leaves every character the reader typed, including
+       * the slash: taking their text back out on their behalf would be this field
+       * editing a court record nobody asked it to touch.
        *
        * **Only the keys that could edit *into* the node take it down.** Every key used
        * to, and redrawing on the `input` that followed meant the preview blinked out
@@ -763,15 +930,39 @@ export function RichTextField({
         /* A shown completion takes Tab first; with none, Tab in a table walks it. */
         if (tables && !(suggestion && shown)) tabThroughTable(event);
         if (event.defaultPrevented || !suggestion) return;
-        if (shown && event.key === "Tab") {
+        if (event.nativeEvent.isComposing) return;
+        const menuOpen = Boolean(menu?.open);
+        if (
+          shown &&
+          (event.key === "Tab" ||
+            (menuOpen && event.key === "Enter" && !event.shiftKey))
+        ) {
           event.preventDefault();
           acceptSuggestion();
           return;
         }
-        if (shown && event.key === "Escape") {
+        if ((shown || menuOpen) && event.key === "Escape") {
           event.preventDefault();
+          if (menuOpen) rememberDismissal();
           queryRef.current = null;
-          clearGhost();
+          dismiss();
+          return;
+        }
+        if (menu?.open && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
+          event.preventDefault();
+          if (menu.answers.length === 0) return;
+          indexRef.current = menu.active + (event.key === "ArrowDown" ? 1 : -1);
+          paintSuggestion();
+          return;
+        }
+        /* The caret walking off the end of the search ends it. */
+        if (
+          menuOpen &&
+          ["ArrowLeft", "ArrowRight", "Home", "End", "PageUp", "PageDown"].includes(
+            event.key,
+          )
+        ) {
+          dismiss();
           return;
         }
         if (shown && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
@@ -972,13 +1163,168 @@ export function RichTextField({
           What they get instead is the offer itself, politely, with the key that takes
           it — the DS's own rule for content that changes without a press
           (ACCESSIBILITY §3). Off entirely on the three fields that pass no
-          `suggestion`. */}
+          `suggestion`. In the slash menu it says where the highlight is and how many
+          there are — `aria-activedescendant` alone is read unevenly in an editable
+          region. */}
       {suggestion ? (
         <p aria-live="polite" className="sr-only">
-          {shown ? `Suggestion: ${shown.label}. Press Tab to accept.` : ""}
+          {menu?.open
+            ? menu.answers.length === 0
+              ? "No shortcut matches."
+              : `${shown?.label ?? ""}, ${menu.active + 1} of ${menu.answers.length}. Press Enter to insert.`
+            : shown
+              ? `Suggestion: ${shown.label}. Press Tab to accept.`
+              : ""}
         </p>
       ) : null}
+
+      {/* The Popover places the menu and keeps it on screen; it is never focused, so
+          the typing never leaves the page. Its own dialog role is set aside: what it
+          holds is this field's popup list, and the field points into it. Pressing in it
+          keeps the caret in the page (mousedown), so a click takes the row there. */}
+      {suggestion ? (
+        <Popover
+          open={Boolean(menu?.open)}
+          onOpenChange={(open) => {
+            if (!open) dismiss();
+          }}
+        >
+          <PopoverAnchor virtualRef={anchorRef} />
+          <PopoverContent
+            ref={menuContentRef}
+            role="presentation"
+            side="bottom"
+            align="start"
+            avoidCollisions={false}
+            collisionPadding={MENU_GUTTER}
+            onOpenAutoFocus={(event) => event.preventDefault()}
+            onCloseAutoFocus={(event) => event.preventDefault()}
+            onEscapeKeyDown={rememberDismissal}
+            onMouseDown={(event) => event.preventDefault()}
+            className={cn(
+              "w-80 max-w-(--radix-popover-content-available-width) max-h-(--radix-popover-content-available-height) gap-1 p-1",
+              MENU_GROW,
+            )}
+          >
+            <p
+              id={menuLabelId}
+              className="px-2.5 pt-1.5 text-caption font-medium text-muted-foreground"
+            >
+              Shortcuts
+            </p>
+            {menu && menu.answers.length > 0 ? (
+              <div className="relative flex min-h-0 flex-col">
+                <ul
+                  ref={watchList}
+                  onScroll={(event) => measureList(event.currentTarget)}
+                  role="listbox"
+                  id={listboxId}
+                  aria-labelledby={menuLabelId}
+                  /* No scrollbar (owner, 2026-10-29), as on the pill row
+                     (`chrome/pill-plate.ts`). What the list holds past its edges is
+                     drawn as fades instead, as in the Shortcuts window's list (owner,
+                     same day: *not clear that there is more below*). The scroll padding
+                     keeps the row ↑ ↓ land on clear of the fade. The WebKit rule covers
+                     Safari before it took `scrollbar-width`. */
+                  className="flex max-h-72 min-h-0 scroll-py-12 flex-col overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                >
+                  {menu.answers.map((answer, index) => (
+                    <li
+                      key={answer.key}
+                      id={optionId(index)}
+                      role="option"
+                      aria-selected={index === menu.active}
+                      onPointerMove={() => pointMenuAt(index)}
+                      onClick={() => acceptSuggestion(answer.key)}
+                      className="flex min-h-10 cursor-default flex-col justify-center gap-0.5 rounded-md px-2.5 py-2 select-none aria-selected:bg-accent aria-selected:text-accent-foreground"
+                    >
+                      <span className="text-body-compact">
+                        <MatchedName name={answer.label} query={menu.query} />
+                      </span>
+                      {answer.detail ? (
+                        <span className="line-clamp-1 text-caption text-muted-foreground">
+                          {answer.detail}
+                        </span>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+                <div
+                  aria-hidden
+                  data-shown={listOverflow.above}
+                  className="pointer-events-none absolute inset-x-0 top-0 h-12 bg-linear-to-b from-popover to-transparent opacity-0 transition-opacity data-[shown=true]:opacity-100 motion-reduce:transition-none"
+                />
+                <div
+                  aria-hidden
+                  data-shown={listOverflow.below}
+                  className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-linear-to-t from-popover to-transparent opacity-0 transition-opacity data-[shown=true]:opacity-100 motion-reduce:transition-none"
+                />
+              </div>
+            ) : (
+              <p className="px-2.5 py-2 text-body-compact text-muted-foreground">
+                No shortcut matches “{menu?.query}”.
+              </p>
+            )}
+          </PopoverContent>
+        </Popover>
+      ) : null}
     </InputGroup>
+  );
+}
+
+/** The slash menu's distance from the screen's edges — the product's phone gutter. */
+const MENU_GUTTER = 16;
+
+/** Room the slash menu wants below the slash on opening: its heading and five rows. */
+const MENU_ROOM = 240;
+
+/**
+ * Scroll whatever holds the page up until `MENU_ROOM` fits below `bottom` — the slash's
+ * foot — so the menu can open under it near the end of the screen. Each scrolling
+ * ancestor gives what it can, nearest first; the window gives the rest.
+ */
+function makeRoomBelow(from: Element, bottom: number) {
+  const viewport = window.visualViewport?.height ?? window.innerHeight;
+  let short = bottom + MENU_ROOM - (viewport - MENU_GUTTER);
+  if (short <= 0) return;
+  const behavior: ScrollBehavior = window.matchMedia(
+    "(prefers-reduced-motion: reduce)",
+  ).matches
+    ? "auto"
+    : "smooth";
+  for (let node = from.parentElement; node && short > 0; node = node.parentElement) {
+    if (!/auto|scroll/.test(getComputedStyle(node).overflowY)) continue;
+    const spare = node.scrollHeight - node.clientHeight - node.scrollTop;
+    if (spare <= 0) continue;
+    const by = Math.min(short, spare);
+    node.scrollBy({ top: by, behavior });
+    short -= by;
+  }
+  if (short > 0) window.scrollBy({ top: short, behavior });
+}
+
+type ListOverflow = { above: boolean; below: boolean };
+
+/**
+ * Whether a list runs past its top or foot — the same object when nothing changed. The
+ * Shortcuts window's list reads its edges the same way (`shortcuts-panel.tsx`).
+ */
+function readOverflow(node: HTMLElement, current: ListOverflow): ListOverflow {
+  const above = node.scrollTop > 1;
+  const below = node.scrollHeight - node.scrollTop - node.clientHeight > 1;
+  return above === current.above && below === current.below ? current : { above, below };
+}
+
+/** A shortcut's name in the slash menu, with the letters typed so far in bold. */
+function MatchedName({ name, query }: { name: string; query: string }) {
+  const span = matchSpan(name, query);
+  if (!span) return name;
+  return (
+    <>
+      {name.slice(0, span.start)}
+      <span className="font-semibold">{name.slice(span.start, span.end)}</span>
+      {name.slice(span.end)}
+    </>
   );
 }
 

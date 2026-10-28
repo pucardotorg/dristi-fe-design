@@ -90,25 +90,26 @@ export const FRAMED_HEAD =
 export const FRAMED_BODY = "p-4 md:p-6";
 
 /**
- * The role on one line: "Advocate for the complainant" reads as "Complainant's advocate",
- * the same fact in fewer words.
+ * Under a litigant's advocate row, who is on record. One name sits as a line; several
+ * names sit as a list — not "Any one of A, B".
  */
-function shortRole(role: string): string {
-  const advocate = /^advocate for the (.+)$/i.exec(role);
-  if (!advocate) return role;
-  const party = advocate[1];
-  return `${party.charAt(0).toUpperCase()}${party.slice(1)}'s advocate`;
+function AdvocatesOnRecord({ advocates }: { advocates: readonly string[] }) {
+  if (advocates.length === 1) {
+    return <span className="text-muted-foreground">{advocates[0]}</span>;
+  }
+  return (
+    <ul className="list-disc pl-4 text-muted-foreground">
+      {advocates.map((name) => (
+        <li key={name}>{name}</li>
+      ))}
+    </ul>
+  );
 }
 
-/**
- * Under a side's counsel row, who is on record: the one advocate, or — with several — that
- * any one of them is enough to mark the side present.
- */
-function advocatesLine(advocates: readonly string[]): string {
-  return advocates.length === 1
-    ? advocates[0]
-    : `Any one of ${advocates.join(", ")}`;
-}
+const SIDES = [
+  { side: "complainant", heading: "Complainant side" },
+  { side: "accused", heading: "Accused side" },
+] as const;
 
 export function AttendanceSection({
   attendance,
@@ -143,58 +144,78 @@ export function AttendanceSection({
         )}
       </div>
       {/* A container, so every row changes shape together at the list's width — never
-          one row wrapping because its name happens to be long. */}
-      <div className="min-w-0">
-        <ul className="@container flex min-w-0 flex-col divide-y divide-hairline rounded-xl border border-hairline">
-          {attendance.appearances.map((appearance) => {
-            const mark = attendance.marks[appearance.id];
-            return (
-              <li
-                key={appearance.id}
-                className="flex min-w-0 flex-col gap-2 py-2 pr-2 pl-4 @min-[24rem]:flex-row @min-[24rem]:items-center @min-[24rem]:justify-between @min-[24rem]:gap-3"
+          one row wrapping because its name happens to be long. Each side heads its rows in
+          the sunken strip the tables' headers wear, so a long roll breaks in two. */}
+      <div className="@container min-w-0 overflow-hidden rounded-xl border border-hairline">
+        {SIDES.map(({ side, heading }) => {
+          const rows = attendance.appearances.filter((entry) => entry.side === side);
+          if (rows.length === 0) return null;
+          return (
+            <div key={side} className="min-w-0">
+              <h3
+                id={`order-attendance-${side}`}
+                className="flex min-h-10 items-center bg-surface-sunken px-4 py-2 text-body-compact font-semibold text-muted-foreground"
               >
-                <p className="flex min-w-0 flex-col text-body-compact">
-                  <span className="font-medium">{appearance.name}</span>
-                  <span className="text-muted-foreground">
-                    {appearance.advocates
-                      ? advocatesLine(appearance.advocates)
-                      : shortRole(appearance.role)}
-                  </span>
-                </p>
-                <div
-                  role="radiogroup"
-                  aria-label={appearance.name}
-                  className="grid shrink-0 grid-cols-2 gap-1 @min-[24rem]:w-48"
-                >
-                  <MarkButton
-                    label="Present"
-                    checked={mark === "present"}
-                    tone="present"
-                    disabled={disabled}
-                    onClick={() =>
-                      attendance.onMark(
-                        appearance.id,
-                        mark === "present" ? undefined : "present",
-                      )
-                    }
-                  />
-                  <MarkButton
-                    label="Absent"
-                    checked={mark === "absent"}
-                    tone="absent"
-                    disabled={disabled}
-                    onClick={() =>
-                      attendance.onMark(
-                        appearance.id,
-                        mark === "absent" ? undefined : "absent",
-                      )
-                    }
-                  />
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+                {heading}
+              </h3>
+              <ul
+                aria-labelledby={`order-attendance-${side}`}
+                className="flex min-w-0 flex-col divide-y divide-hairline"
+              >
+                {rows.map((appearance) => {
+                  const mark = attendance.marks[appearance.id];
+                  return (
+                    <li
+                      key={appearance.id}
+                      className="flex min-w-0 flex-col gap-2 py-2 pr-2 pl-4 @min-[24rem]:flex-row @min-[24rem]:items-center @min-[24rem]:justify-between @min-[24rem]:gap-3"
+                    >
+                      <div className="flex min-w-0 flex-col text-body-compact">
+                        <span className="font-medium">{appearance.name}</span>
+                        {appearance.advocates ? (
+                          <AdvocatesOnRecord advocates={appearance.advocates} />
+                        ) : (
+                          <span className="text-muted-foreground">
+                            {appearance.role}
+                          </span>
+                        )}
+                      </div>
+                      <div
+                        role="radiogroup"
+                        aria-label={appearance.name}
+                        className="grid shrink-0 grid-cols-2 gap-1 @min-[24rem]:w-48"
+                      >
+                        <MarkButton
+                          label="Present"
+                          checked={mark === "present"}
+                          tone="present"
+                          disabled={disabled}
+                          onClick={() =>
+                            attendance.onMark(
+                              appearance.id,
+                              mark === "present" ? undefined : "present",
+                            )
+                          }
+                        />
+                        <MarkButton
+                          label="Absent"
+                          checked={mark === "absent"}
+                          tone="absent"
+                          disabled={disabled}
+                          onClick={() =>
+                            attendance.onMark(
+                              appearance.id,
+                              mark === "absent" ? undefined : "absent",
+                            )
+                          }
+                        />
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          );
+        })}
       </div>
       {/* `ATT-02`: the screen leaves *not required* out as a button and lets it follow
           from leaving a person unmarked — so the roll is never incomplete, and attendance

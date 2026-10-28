@@ -256,7 +256,7 @@ export function isExaminationShortcut(entry: DepositionShortcut): boolean {
  * The shortcuts a `/` query names, best first — the order screen's ranking (a name that
  * starts with it, then a word that does, then anywhere) — and, within a rank, the ones
  * for what is being recorded: the questions for the accused in an examination, the rest
- * in a deposition.
+ * in a deposition. The bare slash names them all, every name starting with nothing.
  */
 export function matchDepositionShortcuts(
   list: readonly DepositionShortcut[],
@@ -264,7 +264,6 @@ export function matchDepositionShortcuts(
   kind: "deposition" | "examination"
 ): DepositionShortcut[] {
   const wanted = query.trim().toLowerCase();
-  if (!wanted) return [];
   const rank = (name: string) => {
     const lower = name.toLowerCase();
     if (lower.startsWith(wanted)) return 0;
