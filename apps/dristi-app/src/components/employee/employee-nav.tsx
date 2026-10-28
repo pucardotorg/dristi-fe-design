@@ -2,8 +2,13 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { ChevronDownIcon, SearchIcon, SettingsIcon } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import {
+  ChevronDownIcon,
+  LogOutIcon,
+  SearchIcon,
+  SettingsIcon,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -15,6 +20,7 @@ import {
   type CourtRole,
 } from "@/lib/employee/content";
 import { setCourtRole } from "@/lib/employee/court-role";
+import { clearCourtSession } from "@/lib/employee/session";
 import { COURT_ACCOUNTS, courtAccounts } from "@/lib/employee/sign-in";
 import { seatsIn } from "@/lib/employee/seat-roles";
 import {
@@ -92,6 +98,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -1227,59 +1238,86 @@ function CourtSettingsControl() {
 /**
  * The rail's foot: who is sitting, and on which bench.
  *
- * A block, not a menu. The advocate's footer is a popover because an advocate's account
- * has things to switch between — a litigant profile, a sandbox user, a rail plate. None
- * of those exist here: the court side runs as whoever came through `/employee/login`,
- * and the plate is charcoal by decision rather than by preference (`rail-plate.ts`). The one
- * thing there *is* to switch — the seat — belongs to the settings control beside this
- * block, where a court would look for a setting; folding it into the person's name would
- * hide it behind an identity that is not itself a menu.
+ * The name opens a small menu whose one item is Sign out. It used to be a block that
+ * reported and did not act, because the court side had nothing to switch; but every
+ * profile needs a way out (PM, 2026-10-28), and people look for it under their own name,
+ * the same place the advocate's rail keeps it. The seat stays in the settings control
+ * beside it, where a court would look for a setting.
  *
- * So the block reports and does not act. It shows one thing, the username (owner,
- * 2026-10-14), taken from the live seat rather than the sign-in, because the two must not
- * disagree about the same visit: the switch is one control away, and a footer still
- * reading the bench clerk's username after the menu says Typist would be the screen
- * contradicting itself. In Punjab & Haryana the username is the seat's own name.
+ * It shows one thing, the username (owner, 2026-10-14), taken from the live seat rather
+ * than the sign-in, because the two must not disagree about the same visit: the switch is
+ * one control away, and a footer still reading the bench clerk's username after the menu
+ * says Typist would be the screen contradicting itself. In Punjab & Haryana the username
+ * is the seat's own name.
  *
- * Folded, the text goes `sr-only` rather than `hidden`. The disc keeps the initial, and
- * the identity stays in the accessibility tree in both states — which is what a static
- * block can offer in place of the tooltip a control would get, and it beats hanging a
- * person's name off a hover the keyboard cannot reach.
+ * Folded, the disc stays and is still the menu's trigger; the name moves to its tooltip
+ * and its accessible name.
  */
 function CourtIdentityFooter() {
   const role = useCourtRole();
   const { court: state } = useCourt();
+  const router = useRouter();
   /* The username alone (owner, 2026-10-14) — the live seat's, so switching the seat
      in settings changes it too. In P&H it is the seat's own name ("reader"). */
   const username = (courtAccounts(state)[role] ?? COURT_ACCOUNTS[role]).username;
   /* The settings control leaves the layout with the labels, so folding while it holds
      focus drops the keyboard the same way a section's rows do. Its fallback is the fold
      control — the one thing that caused the change and is on screen either side of it,
-     though not the same element either side: see `focusChromeFoldTrigger`. The identity
-     block itself is static and takes no focus to lose. */
+     though not the same element either side: see `focusChromeFoldTrigger`. The name's
+     trigger stays on screen folded, so it has no focus to lose. */
   const handoff = useFoldFocusHandoff(
     useRailCollapsed(),
     focusChromeFoldTrigger,
   );
+
+  // Back to the court sign-in, with nobody seated.
+  function onSignOut() {
+    clearCourtSession();
+    router.push("/employee/login");
+  }
+
   return (
     <div
       {...handoff}
-      className={`flex items-center gap-3 border-t ${RAIL_SEAM} p-3 group-data-[collapsible=icon]:justify-center`}
+      className={`flex items-center gap-1 border-t ${RAIL_SEAM} p-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0`}
     >
-      <span
-        aria-hidden
-        className="flex size-8 shrink-0 items-center justify-center rounded-full bg-(--rail-avatar) text-caption font-semibold text-(--rail-avatar-ink)"
-      >
-        {username.charAt(0).toUpperCase()}
-      </span>
-      {/* One line: the account's username. It still wraps rather than truncates
-          (`ACCESSIBILITY.md` §10, §13), and `wrap-break-word` catches a long unspaced
-          username a space-based wrap would push past the rail's edge. */}
-      <div className="flex min-w-0 flex-1 flex-col leading-tight group-data-[collapsible=icon]:sr-only">
-        <span className="wrap-break-word text-body-compact font-medium">
-          {username}
-        </span>
-      </div>
+      <Popover>
+        <PopoverTrigger asChild>
+          <SidebarMenuButton
+            className={`${RAIL_ROW} h-auto min-h-12 flex-1 py-2 group-data-[collapsible=icon]:min-h-0 group-data-[collapsible=icon]:flex-none`}
+            tooltip={username}
+            aria-label={`${username} · Account menu`}
+          >
+            <span
+              aria-hidden
+              className="flex size-8 shrink-0 items-center justify-center rounded-full bg-(--rail-avatar) text-caption font-semibold text-(--rail-avatar-ink)"
+            >
+              {username.charAt(0).toUpperCase()}
+            </span>
+            {/* One line: the account's username. It still wraps rather than truncates
+                (`ACCESSIBILITY.md` §10, §13), and `wrap-break-word` catches a long
+                unspaced username a space-based wrap would push past the rail's edge. */}
+            <span className="min-w-0 flex-1 text-left leading-tight font-medium whitespace-normal wrap-break-word group-data-[collapsible=icon]:hidden">
+              {username}
+            </span>
+          </SidebarMenuButton>
+        </PopoverTrigger>
+        <PopoverContent
+          side="top"
+          align="start"
+          collisionPadding={16}
+          className="w-56 p-2"
+        >
+          <Button
+            variant="ghost"
+            className="w-full justify-start"
+            onClick={onSignOut}
+          >
+            <LogOutIcon aria-hidden />
+            <span className="flex-1 text-left">Sign out</span>
+          </Button>
+        </PopoverContent>
+      </Popover>
       <CourtSettingsControl />
     </div>
   );

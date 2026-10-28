@@ -134,7 +134,7 @@ export function setCourtSession(next: Partial<CourtSession>): void {
   for (const listener of listeners) listener();
 }
 
-/** Back to nobody signed in. Used by tests; a sign-out control does not exist yet. */
+/** Back to nobody signed in: the court rail's Sign out, and tests. */
 export function clearCourtSession(): void {
   session = DEFAULT_COURT_SESSION;
   if (typeof window !== "undefined") {
