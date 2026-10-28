@@ -228,6 +228,9 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
    * catches up on commit.
    */
   const [keeps, setKeeps] = React.useState<Record<number, boolean>>({});
+  /** The reason typed with each keep, by defect number — recorded with it. */
+  const [reasons, setReasons] = React.useState<Record<number, string>>({});
+  const reasonOf = (defect: Defect) => reasons[defect.n] ?? defect.resolution?.reason;
 
   /**
    * The defects as the screen sees them: the task's record, with any keep not yet
@@ -240,10 +243,16 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
       recorded.map((d) => {
         const keep = keeps[d.n];
         if (keep === undefined) return d;
-        const next = intendedResolution(d, readTarget(draft, d.target), keep, d.resolution?.at ?? "");
+        const next = intendedResolution(
+          d,
+          readTarget(draft, d.target),
+          keep,
+          d.resolution?.at ?? "",
+          reasons[d.n] ?? d.resolution?.reason
+        );
         return sameResolution(d.resolution, next) ? d : { ...d, resolution: next };
       }),
-    [recorded, keeps, draft]
+    [recorded, keeps, reasons, draft]
   );
 
   /* ── Where we are ────────────────────────────────────────────────── */
@@ -302,13 +311,13 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
         const value = valueOf(defect);
         /* A target this draft cannot resolve is not evidence that nothing was done. */
         if (value === undefined) continue;
-        next = intendedResolution(defect, value, keepOf(defect), at);
+        next = intendedResolution(defect, value, keepOf(defect), at, reasonOf(defect));
       }
       if (!sameResolution(defect.resolution, next)) changes.push({ n: defect.n, resolution: next });
     }
     return changes;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recorded, draft, keeps, valueOf, task.status]);
+  }, [recorded, draft, keeps, reasons, valueOf, task.status]);
 
   /**
    * Write the gap to the task — one dispatch, and one history line per defect actually
@@ -517,7 +526,8 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
     },
     keep:
       defect.target.kind === "field"
-        ? () => {
+        ? (reason) => {
+            setReasons((prev) => ({ ...prev, [defect.n]: reason }));
             setKeep(defect.n, true);
             setActiveDefect(defect.n);
             commitSoon.current = true;
@@ -538,6 +548,7 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
             });
           }
           setKeep(defect.n, false);
+          setReasons((prev) => ({ ...prev, [defect.n]: "" }));
           commitSoon.current = true;
         }
       : undefined,

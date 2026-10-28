@@ -227,8 +227,9 @@ export interface HistoryEvent {
  * How the advocate answered one returned item — the advocate side's `Resolution.how`
  * (`lib/tasks/types.ts`), so the two ends of the round trip speak one vocabulary.
  *
- * `kept` is the advocate leaving the filed value as it was. No reason is asked for on
- * that side, so none is shown here: the card says so rather than calling it "contested".
+ * `kept` is the advocate leaving the filed value as it was. That side now asks why
+ * (`Resolution.reason`); a keep answered before it did carries none, and the card says
+ * so rather than calling it "contested".
  */
 export type ReturnAnswer = "edited" | "kept" | "replaced";
 
@@ -241,6 +242,8 @@ export interface ReturnedItem {
   /** The value (or file) as scrutiny saw it when it went back. Now is the row's own value. */
   was: string;
   answer: ReturnAnswer;
+  /** `kept` only: the advocate's reason the filed value is right, as written. */
+  reason?: string;
   /** "9 Jun 2026" — when the advocate answered it. */
   answered: string;
 }

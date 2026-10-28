@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { VideoIcon, ZoomInIcon, ZoomOutIcon } from "lucide-react";
+import { ChevronDownIcon, VideoIcon, ZoomInIcon, ZoomOutIcon } from "lucide-react";
 
 import { rectStyle } from "@/lib/employee/scrutiny/field";
 import { replacedDocs } from "@/lib/employee/scrutiny/returns";
@@ -16,6 +16,11 @@ import { GENERATED_PAGES } from "@/components/employee/scrutiny/generated-pages"
 import { PageSheet, SHEET_BOX } from "@/components/employee/page-facsimile";
 import { useScrutinyCase } from "@/components/employee/scrutiny/scrutiny-case-context";
 import { Button } from "@/components/ui/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   Tooltip,
   TooltipContent,
@@ -353,42 +358,75 @@ export function BundleView({
               >
                 {/* The only navigational anchor in a scroll this long, so it reads as
                     one: caption size, but foreground ink at 600 rather than grey. */}
-                <div className="flex items-center gap-2">
-                  <div className="min-w-0 flex-1 text-caption font-semibold text-foreground">
-                    <span className="tabular-nums">{doc.no}</span> · {doc.name}
-                  </div>
-                  {item ? (
-                    /* Outline, not ghost: beside the document title a ghost control
-                       reads as a caption, not a press. The label still says what pressing
-                       does next, so it carries no `aria-pressed` as well — a pressed
-                       "Hide…" would read as a double negative. */
-                    <Button
-                      variant="outline"
-                      onClick={() =>
-                        setHidePrevious((h) => ({ ...h, [doc.id]: comparing }))
+                <div className="min-w-0 text-caption font-semibold text-foreground">
+                  <span className="tabular-nums">{doc.no}</span> · {doc.name}
+                </div>
+                {item ? (
+                  <div
+                    className={cn(
+                      "grid items-start gap-x-4 gap-y-2",
+                      comparing && "grid-cols-2",
+                    )}
+                  >
+                    {/* The previous upload is its own framed object, and its header
+                        opens and closes it — so the control says what it governs, and
+                        nothing beside the title competes with the flagging controls.
+                        Closed, the frame keeps only that header, with a thumbnail so
+                        it still reads as a document folded away rather than a caption
+                        over the new page. The trigger stays one element in both
+                        states, so focus stays on it. */}
+                    <Collapsible
+                      className={cn(
+                        "min-w-0 overflow-hidden rounded-xl border border-hairline",
+                        !comparing && "justify-self-start",
+                      )}
+                      open={comparing}
+                      onOpenChange={(open) =>
+                        setHidePrevious((h) => ({ ...h, [doc.id]: !open }))
                       }
                     >
-                      {comparing ? "Hide previous upload" : "Compare with previous upload"}
-                    </Button>
-                  ) : null}
-                </div>
-                {comparing ? (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="flex min-w-0 flex-col gap-1.5">
-                      <div className="text-caption font-medium text-muted-foreground">
-                        Previous upload · sent back {returned?.sentBack}
-                      </div>
-                      {/* The upload that went back. The demo keeps one file per document,
-                          so it is drawn from the same page, softened to stand in for the
-                          scan the officer could not read — never a legible fake of it. */}
-                      <div aria-hidden="true" className="opacity-80 blur-xs">
-                        {renderPage(doc, null)}
-                      </div>
-                    </div>
-                    <div className="flex min-w-0 flex-col gap-1.5">
-                      <div className="text-caption font-medium text-muted-foreground">
-                        Now · re-uploaded {item.answered}
-                      </div>
+                      <CollapsibleTrigger className="group/previous flex min-h-10 w-full min-w-0 items-center gap-2 py-1 pr-2 pl-3 text-left text-caption font-medium text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset">
+                        {comparing ? null : (
+                          /* The page at a tenth of the bundle's base width: too small
+                             to read, so no blur is needed to keep it from passing for
+                             the scan that went back. */
+                          <div aria-hidden="true" className="w-6 shrink-0 opacity-80">
+                            <div style={{ width: 240, zoom: 0.1 }}>
+                              {renderPage(doc, null)}
+                            </div>
+                          </div>
+                        )}
+                        <span className="min-w-0 flex-1">
+                          Previous upload · sent back {returned?.sentBack}
+                        </span>
+                        <ChevronDownIcon
+                          aria-hidden
+                          className="size-4 shrink-0 transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] group-aria-expanded/previous:rotate-180 motion-reduce:transition-none"
+                        />
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="px-2 pb-2">
+                        {/* The upload that went back. The demo keeps one file per
+                            document, so it is drawn from the same page, softened to
+                            stand in for the scan the officer could not read — never a
+                            legible fake of it. */}
+                        <div aria-hidden="true" className="opacity-80 blur-xs">
+                          {renderPage(doc, null)}
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+                    {/* Open, the same transparent edge and inset as the frame, so the
+                        caption sits level with its header and both pages match. */}
+                    <div
+                      className={cn(
+                        "flex min-w-0 flex-col",
+                        comparing && "border border-transparent px-2 pb-2",
+                      )}
+                    >
+                      {comparing ? (
+                        <div className="flex min-h-10 items-center pl-1 text-caption font-medium text-muted-foreground">
+                          Now · re-uploaded {item.answered}
+                        </div>
+                      ) : null}
                       {renderPage(doc, aiOn ? spot : null)}
                     </div>
                   </div>

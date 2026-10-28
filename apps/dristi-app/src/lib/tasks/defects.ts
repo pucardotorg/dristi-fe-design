@@ -10,9 +10,9 @@
  *   · the flagged document was replaced.
  *
  * The officer says what is wrong in a note; the advocate makes the fix. There is no
- * proposed value to accept and no reply to write (owner, 2026-10-08). Keeping the filed
- * value needs no reason — the advocate is not forced to change a value they believe is
- * right just to get past the submit gate (owner, 2026-10-08).
+ * proposed value to accept (owner, 2026-10-08). The advocate is never forced to change a
+ * value they believe is right just to get past the submit gate, but keeping it takes a
+ * reason, so scrutiny reads an override rather than a silence (design sync, 2026-10-28).
  *
  * Two tiers, because two callers need different things:
  *   `defectState(defect, value)` — the screen, which holds the live draft value.
@@ -144,11 +144,17 @@ export function intendedResolution(
   defect: Defect,
   value: string | undefined,
   keep: boolean,
-  at: string
+  at: string,
+  /** Why the filed value stands — recorded with a keep, ignored otherwise. */
+  reason?: string
 ): Resolution | undefined {
   if (defect.target.kind === "doc") return defect.resolution;
   if (changed(defect, value)) return { how: "edited", value: value ?? "", at };
-  return keep ? { how: "kept", value: norm(defect.valueAtReturn), at } : undefined;
+  if (!keep) return undefined;
+  const why = norm(reason);
+  return why
+    ? { how: "kept", value: norm(defect.valueAtReturn), reason: why, at }
+    : { how: "kept", value: norm(defect.valueAtReturn), at };
 }
 
 /**
@@ -160,6 +166,7 @@ export function sameResolution(a: Resolution | undefined, b: Resolution | undefi
   return (
     a.how === b.how &&
     norm(a.value) === norm(b.value) &&
+    norm(a.reason) === norm(b.reason) &&
     (a.replacement?.id ?? null) === (b.replacement?.id ?? null)
   );
 }

@@ -13,10 +13,7 @@ import { nextFilingAfter } from "@/lib/employee/scrutiny/queue";
 import { returnedDocIds } from "@/lib/employee/scrutiny/returns";
 import type { AiMode } from "@/lib/court/profiles";
 import type { Rect, ScrutinyCase } from "@/lib/employee/scrutiny/types";
-import {
-  uncheckedCount,
-  useScrutinyState,
-} from "@/lib/employee/scrutiny/use-scrutiny-state";
+import { useScrutinyState } from "@/lib/employee/scrutiny/use-scrutiny-state";
 import { ScrutinyCaseProvider } from "@/components/employee/scrutiny/scrutiny-case-context";
 import { Identifier } from "@/components/chrome/identifier";
 import { ARRIVAL } from "@/components/chrome/motion";
@@ -83,19 +80,10 @@ import { scrutinyRegistersIn } from "@/lib/employee/court-role";
 export function CaseWorkbench({
   caseData,
   ai = "on",
-  resubLayout = "split",
 }: {
   caseData: ScrutinyCase;
   /** Without AI the workbench still works; it just stops asserting readings (`AiMode`). */
   ai?: AiMode;
-  /**
-   * How a resubmission is read. Both open on the Changes list, with the full filing one
-   * switch away. `split`: each returned item is accepted or raised again, and forwarding
-   * waits for every answer. `inline`: no per-item Accept — an item left alone is accepted,
-   * Raise again is the only act — and in the full filing every returned row opens its
-   * record in place, so the officer sees what was asked and what it was in context.
-   */
-  resubLayout?: "split" | "inline";
 }) {
   const aiOn = ai === "on";
   const arrival = useArrival();
@@ -126,7 +114,6 @@ export function CaseWorkbench({
 
   const { party, allFields, fieldById, historyRound, returned } = caseData;
   const filingNo = caseData.filing.no;
-  const inline = resubLayout === "inline" && !!caseData.returned;
   const controller = useScrutinyState(caseData);
   const bundle = React.useRef<BundleHandle>(null);
   const fields = React.useRef<FieldsPanelHandle>(null);
@@ -257,14 +244,10 @@ export function CaseWorkbench({
 
   const tally = raised ? [`${raised} flag${raised > 1 ? "s" : ""}`] : [];
 
-  /* Re-scrutiny is checking what came back, so forwarding waits until every returned
-     item has an answer — accepted, or raised again. The reason is said in the bar beside
-     the button, because a disabled button cannot be focused to ask it why. */
-  /* In place there is no per-item answer to wait for: a returned item the officer does not
-     raise again is accepted by being left alone, so nothing is gated. */
-  const unchecked = inline ? 0 : uncheckedCount(controller, returned);
+  /* There is no per-item answer to wait for: a returned item the officer does not raise
+     again is accepted by being left alone, so nothing is gated (owner, 2026-10-28: no
+     Accept on the change cards). */
   const returnedTotal = returned?.items.length ?? 0;
-  const forwardBlocked = unchecked > 0;
 
   return (
     /*
@@ -426,7 +409,6 @@ export function CaseWorkbench({
               view={view}
               onViewChange={setView}
               onShowItem={showItem}
-              inlineReturns={inline}
             />
           </ResizablePanel>
           <ResizableHandle withHandle />
@@ -459,7 +441,6 @@ export function CaseWorkbench({
               view={view}
               onViewChange={setView}
               onShowItem={showItem}
-              inlineReturns={inline}
             />
           ) : (
             <BundleView ref={bundle} aiOn={aiOn} spot={spot} onlyDocs={focusDocs} />
@@ -478,21 +459,11 @@ export function CaseWorkbench({
           id="decision-tally"
           className="text-body-compact text-muted-foreground"
         >
-          {returned && inline ? (
+          {returned ? (
             <>
               <b className="font-semibold text-foreground tabular-nums">
                 {`${returnedTotal} returned item${returnedTotal === 1 ? "" : "s"}`}
               </b>
-              {tally.length > 0 ? " · " : null}
-            </>
-          ) : returned ? (
-            <>
-              <b className="font-semibold text-foreground tabular-nums">
-                {`${returnedTotal - unchecked} of ${returnedTotal} checked`}
-              </b>
-              {forwardBlocked
-                ? ` · answer each returned item to ${canRegister ? "register" : "forward"}`
-                : null}
               {tally.length > 0 ? " · " : null}
             </>
           ) : null}
@@ -518,7 +489,6 @@ export function CaseWorkbench({
             separate Case registerer takes the file (`SCR-06`, `SCR-11`). */}
         {canRegister ? (
           <Button
-            disabled={forwardBlocked}
             aria-describedby={returned ? "decision-tally" : undefined}
             onClick={() => setDecision("register")}
           >
@@ -526,7 +496,6 @@ export function CaseWorkbench({
           </Button>
         ) : (
           <Button
-            disabled={forwardBlocked}
             aria-describedby={returned ? "decision-tally" : undefined}
             onClick={() => setDecision("forward")}
           >

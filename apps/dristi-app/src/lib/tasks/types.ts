@@ -160,10 +160,16 @@ export type DefectTarget = FieldTarget | DocTarget;
  * `defects.ts` derives "resolved" from it plus the live value.
  */
 export type Resolution = {
-  /** `kept`: the advocate left the filed value as it was — no reason asked for. */
+  /** `kept`: the advocate left the filed value as it was, and says why in `reason`. */
   how: "edited" | "kept" | "replaced";
   /** The value now in the filing (field defects) — for the record, not the gate. */
   value?: string;
+  /**
+   * `kept` only: why the filed value is right, as the advocate wrote it. Scrutiny reads
+   * it beside the value (design sync, 2026-10-28). Absent on keeps recorded before the
+   * screen asked for one.
+   */
+  reason?: string;
   /** The upload that replaced the flagged document. */
   replacement?: StoredFileRef;
   at: string;

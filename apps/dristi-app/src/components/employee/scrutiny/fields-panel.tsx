@@ -48,7 +48,6 @@ export function FieldsPanel({
   view,
   onViewChange,
   onShowItem,
-  inlineReturns = false,
   ref,
 }: {
   controller: ScrutinyController;
@@ -59,8 +58,6 @@ export function FieldsPanel({
   onViewChange: (view: FieldsView) => void;
   /** Selects a returned item and brings its document up in the bundle. */
   onShowItem: (fieldId: string) => void;
-  /** No per-item Accept; returned rows open their record in place in the full filing. */
-  inlineReturns?: boolean;
   ref?: React.Ref<FieldsPanelHandle>;
 }) {
   const { sections, fieldById, returned } = useScrutinyCase();
@@ -71,13 +68,11 @@ export function FieldsPanel({
      "4. Affidavit and oath" out of a band with no scrollbar, and a dot alone would be
      colour without words. */
   const returnedIn = { group: {} as Record<string, number> };
-  if (inlineReturns) {
-    for (const item of returned?.items ?? []) {
-      const field = fieldById[item.fieldId];
-      if (!field) continue;
-      const key = `${field.sectionId}/${field.group}`;
-      returnedIn.group[key] = (returnedIn.group[key] ?? 0) + 1;
-    }
+  for (const item of returned?.items ?? []) {
+    const field = fieldById[item.fieldId];
+    if (!field) continue;
+    const key = `${field.sectionId}/${field.group}`;
+    returnedIn.group[key] = (returnedIn.group[key] ?? 0) + 1;
   }
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const [active, setActive] = React.useState(sections[0].id);
@@ -244,7 +239,6 @@ export function FieldsPanel({
             controller={controller}
             onShowItem={onShowItem}
             onGoToItem={onGoToItem}
-            acceptEach={!inlineReturns}
           />
         ) : sections.map((section, index) => (
           <section
@@ -307,7 +301,6 @@ export function FieldsPanel({
                           controller={controller}
                           aiOn={aiOn}
                           onGoToItem={onGoToItem}
-                          inlineReturns={inlineReturns}
                         />
                       ))}
                     </DescriptionList>

@@ -36,6 +36,7 @@ export const RETURNS: Record<string, ReturnRound> = {
         note: "The name on the Aadhaar card reads “Meenaben Shah”. Correct the name or file proof that both are the same person.",
         was: "Meena Shah",
         answer: "kept",
+        reason: "“Ben” is a Gujarati suffix of respect, not part of her legal name. The cheque, the bank account and the vakalatnama all read Meena Shah.",
         answered: "9 Jun 2026",
       },
       {

@@ -101,6 +101,15 @@ describe("what the record should say — written on commit, not per keystroke", 
     });
   });
 
+  it("a keep carries the advocate's reason, and a new reason is a new record", () => {
+    const d = makeDefect();
+    const kept = intendedResolution(d, "KLGB0040231", true, AT, "  Matches the passbook.  ");
+    assert.equal(kept?.reason, "Matches the passbook.");
+    assert.equal(sameResolution(kept, intendedResolution(d, "KLGB0040231", true, AT)), false);
+    // An edit is a correction: the reason typed for a keep is not recorded with it.
+    assert.equal(intendedResolution(d, "KLGB0040213", true, AT, "x")?.reason, undefined);
+  });
+
   it("a changed value wins over an earlier keep", () => {
     assert.equal(intendedResolution(makeDefect(), "KLGB0040213", true, AT)?.how, "edited");
   });
