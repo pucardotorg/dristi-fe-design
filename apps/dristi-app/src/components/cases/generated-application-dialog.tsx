@@ -8,6 +8,7 @@ import {
   FactGroup,
 } from "@/components/cases/application-record-dialog";
 import { ReviewRow } from "@/components/cases/filing-form-shared";
+import { RichTextValueView } from "@/components/cases/rich-text-field";
 import { ComposedDocumentViewer } from "@/components/cases/pdf-viewer";
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 import { Identifier } from "@/components/chrome/identifier";
@@ -249,9 +250,15 @@ export function GeneratedApplicationDocument({
             </ReviewRow>
           ))}
         </DescriptionList>
-      ) : (
+      ) : document.details.text.trim() ? null : (
         <p className="text-body text-paper-muted-foreground">Nothing entered.</p>
       )}
+
+      {/* Application details is the body of the application, so it reads as
+          the filer formatted it rather than as one more row. */}
+      {document.details.text.trim() ? (
+        <RichTextValueView value={document.details} className="text-body" />
+      ) : null}
 
       <footer className="flex flex-col gap-6">
         <p className="self-end text-body">{datedThis(generatedOn)}</p>

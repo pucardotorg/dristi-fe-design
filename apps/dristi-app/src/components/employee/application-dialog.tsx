@@ -410,7 +410,7 @@ function ObjectionPaper({
   objection: LifecycleApplication;
   court: string;
 }) {
-  const reason = decodeDraft(objection.form).objectionReason;
+  const reason = decodeDraft(objection.form).applicationDetails.text.trim();
   return (
     <article className="flex flex-col gap-6 rounded-md bg-paper p-6 text-paper-foreground">
       <header className="flex flex-col gap-2 text-center">
