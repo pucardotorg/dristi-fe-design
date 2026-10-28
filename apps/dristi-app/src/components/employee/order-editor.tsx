@@ -1073,13 +1073,13 @@ export function OrderEditorComposer({
                   Order data
                 </SegmentedControlItem>
                 {/* What was taken at this hearing is the third thing worked on here
-                    (owner, 2026-10-28). "Recorded statements": one screen for
-                    complainant evidence, witness deposition and examination of the
-                    accused. "Evidence" already names marked exhibits. Only a
-                    hearing's order has one. */}
+                    (owner, 2026-10-28; rename 2026-10-29). "Record statements": one
+                    screen for complainant evidence, witness deposition and
+                    examination of the accused. "Evidence" already names marked
+                    exhibits. Only a hearing's order has one. */}
                 {evidence ? (
                   <SegmentedControlItem value="evidence">
-                    Recorded statements
+                    Record statements
                     {unsigned > 0 ? (
                       <Badge variant="warning" className="ml-1.5 tabular-nums">
                         {unsigned}
