@@ -8,6 +8,7 @@
  */
 import {
   EMPTY_APPLICATION_DRAFT,
+  applicationDetailsFromPlain,
   type ApplicationDraft,
 } from "@/lib/cases/application-draft";
 
@@ -49,9 +50,39 @@ export function encodeDraft(draft: ApplicationDraft): unknown {
   return encode(draft);
 }
 
+/**
+ * The text boxes Application details replaced (2026-10-28). A draft stored
+ * before then holds its words under these keys; they are read once, in this
+ * order, into Application details so nothing typed is lost.
+ */
+const LEGACY_TEXT_KEYS = [
+  "bailReason",
+  "editReason",
+  "settlementReason",
+  "transferReason",
+  "withdrawalReason",
+  "delayReason",
+  "details",
+  "poaReason",
+  "productionReason",
+  "absenceReason",
+  "reopenReason",
+  "objectionReason",
+  "otherDetails",
+] as const;
+
 export function decodeDraft(stored: unknown): ApplicationDraft {
   if (!stored || typeof stored !== "object") return EMPTY_APPLICATION_DRAFT;
-  return { ...EMPTY_APPLICATION_DRAFT, ...(decode(stored) as Partial<ApplicationDraft>) };
+  const decoded = decode(stored) as Partial<ApplicationDraft> & Stored;
+  const draft: ApplicationDraft = { ...EMPTY_APPLICATION_DRAFT, ...decoded };
+  if (!decoded.applicationDetails) {
+    const legacy = LEGACY_TEXT_KEYS.map((key) => decoded[key])
+      .filter((value): value is string => typeof value === "string" && Boolean(value.trim()))
+      .join("\n");
+    draft.applicationDetails = applicationDetailsFromPlain(legacy);
+  }
+  for (const key of LEGACY_TEXT_KEYS) delete (draft as Stored)[key];
+  return draft;
 }
 
 /** The names of every file attached anywhere in the draft. */
