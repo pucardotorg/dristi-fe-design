@@ -12,7 +12,9 @@
 
 import * as React from "react";
 
-import { blankNotice } from "@/lib/filing/blank";
+import { blankNotice, removeCaseRecord } from "@/lib/filing/blank";
+import { getRepository } from "@/lib/filing/data";
+import { forgetFile } from "@/lib/filing/files";
 import { fromDisplayDate, toDisplayDate } from "@/lib/filing/format";
 import {
   MODE_OF_SERVICE,
@@ -21,7 +23,7 @@ import {
   PAYMENT_STATUS,
 } from "@/lib/filing/options";
 import {
-  chequeSourceSlot,
+  noticeSourceSlot,
   firstReadField,
   noticeComplete,
   noticeDispatchIssue,
@@ -150,9 +152,9 @@ export function DemandNoticeSection() {
 
   // The three uploads behind this notice; any of them may not be uploaded yet.
   const slots = {
-    "demand-notice": chequeSourceSlot(draft, index, "demand-notice"),
-    "dispatch-proof": chequeSourceSlot(draft, index, "dispatch-proof"),
-    "delivery-proof": chequeSourceSlot(draft, index, "delivery-proof"),
+    "demand-notice": noticeSourceSlot(draft, index, "demand-notice"),
+    "dispatch-proof": noticeSourceSlot(draft, index, "dispatch-proof"),
+    "delivery-proof": noticeSourceSlot(draft, index, "delivery-proof"),
   };
 
   /** Where the panel lands: the first field any of the three uploads was read for. */
@@ -233,9 +235,15 @@ export function DemandNoticeSection() {
     const i = removeIndex;
     setRemoveOpen(false);
     if (notices.length <= 1) return;
+    // Its upload group goes with it, so the list of documents stops asking for it.
+    let files: ReturnType<typeof removeCaseRecord> = [];
     update((d) => {
-      d.notices.splice(i, 1);
+      files = removeCaseRecord(d, "notice", i);
     });
+    for (const f of files) {
+      forgetFile(f.id);
+      void getRepository().deleteFile(f.id);
+    }
     const remaining = notices.length - 1;
     let a = index;
     if (i < a) a -= 1;
@@ -480,7 +488,7 @@ export function DemandNoticeSection() {
         open={removeOpen}
         onOpenChange={setRemoveOpen}
         title={`Remove demand notice ${removeIndex + 1}`}
-        description="Are you sure you want to delete the details of this demand notice? This cannot be undone."
+        description="Are you sure you want to delete the details of this demand notice and any documents added for it? This cannot be undone."
         confirmLabel="Yes, remove"
         onConfirm={confirmRemove}
       />

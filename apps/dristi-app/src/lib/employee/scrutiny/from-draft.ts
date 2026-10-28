@@ -24,6 +24,7 @@ import {
 import {
   advocateName,
   chequeSourceSlot,
+  noticeSourceSlot,
   complainantLabel,
   limitationView,
   oathCarriedOver,
@@ -591,9 +592,9 @@ function noticeGroups(draft: FilingDraft): FieldGroupDef[] {
   return draft.notices.map((nt, i) => {
     const n = i + 1;
     const p = `n${n}`;
-    const letter = chequeSourceSlot(draft, i, "demand-notice");
-    const dispatch = chequeSourceSlot(draft, i, "dispatch-proof");
-    const delivery = chequeSourceSlot(draft, i, "delivery-proof");
+    const letter = noticeSourceSlot(draft, i, "demand-notice");
+    const dispatch = noticeSourceSlot(draft, i, "dispatch-proof");
+    const delivery = noticeSourceSlot(draft, i, "delivery-proof");
     const fields: Field[] = [
       {
         id: `${p}-nature`,
@@ -817,6 +818,7 @@ interface BundleBuild {
 function intakeByKey(draft: FilingDraft): Map<string, IntakeSlot> {
   const slots = [
     ...draft.intake.cheques.flatMap((g) => g.slots),
+    ...draft.intake.notices.flatMap((g) => g.slots),
     ...draft.intake.parties.flatMap((g) => g.slots),
     ...draft.intake.supporting,
   ];

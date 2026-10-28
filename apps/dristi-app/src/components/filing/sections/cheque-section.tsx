@@ -13,7 +13,9 @@
 import * as React from "react";
 import { CreditCardIcon } from "lucide-react";
 
-import { blankCheque } from "@/lib/filing/blank";
+import { blankCheque, removeCaseRecord } from "@/lib/filing/blank";
+import { getRepository } from "@/lib/filing/data";
+import { forgetFile } from "@/lib/filing/files";
 import { fromDisplayDate, toDisplayDate } from "@/lib/filing/format";
 import type { IfscResult } from "@/lib/filing/lookups";
 import { RETURN_REASONS, S138_SAFE_REASONS } from "@/lib/filing/options";
@@ -240,9 +242,15 @@ export function ChequeSection() {
     const i = removeIndex;
     setRemoveOpen(false);
     if (cheques.length <= 1) return;
+    // Its upload group goes with it, so the list of documents stops asking for it.
+    let files: ReturnType<typeof removeCaseRecord> = [];
     update((d) => {
-      d.cheques.splice(i, 1);
+      files = removeCaseRecord(d, "cheque", i);
     });
+    for (const f of files) {
+      forgetFile(f.id);
+      void getRepository().deleteFile(f.id);
+    }
     const remaining = cheques.length - 1;
     let a = index;
     if (i < a) a -= 1;
@@ -519,7 +527,7 @@ export function ChequeSection() {
         open={removeOpen}
         onOpenChange={setRemoveOpen}
         title={`Remove cheque ${removeIndex + 1}`}
-        description="Are you sure you want to delete the details of this cheque? This also removes its return memo details."
+        description="Are you sure you want to delete the details of this cheque? This also removes its return memo details and any documents added for it."
         confirmLabel="Yes, remove"
         onConfirm={confirmRemove}
       />

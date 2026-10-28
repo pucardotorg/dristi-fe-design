@@ -86,6 +86,7 @@ export function draftFileIds(draft: FilingDraft): string[] {
     if (ref) ids.push(ref.id);
   };
   for (const g of draft.intake.cheques) g.slots.forEach((s) => push(s.file));
+  for (const g of draft.intake.notices) g.slots.forEach((s) => push(s.file));
   for (const g of draft.intake.parties) g.slots.forEach((s) => push(s.file));
   draft.intake.supporting.forEach((s) => push(s.file));
   for (const g of draft.documents) g.docs.forEach((d) => push(d.file));
