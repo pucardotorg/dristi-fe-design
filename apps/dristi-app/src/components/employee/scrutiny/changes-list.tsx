@@ -1,9 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { TriangleAlertIcon } from "lucide-react";
 
-import { ANSWER_LABEL } from "@/lib/employee/scrutiny/returns";
 import type { ReturnedItem } from "@/lib/employee/scrutiny/types";
 import {
   verdictOf,
@@ -12,7 +10,7 @@ import {
 } from "@/lib/employee/scrutiny/use-scrutiny-state";
 import { cn } from "@/lib/utils";
 import { FlagComposer } from "@/components/employee/scrutiny/flag-composer";
-import { FieldValue } from "@/components/employee/scrutiny/record-rows";
+import { ReturnedValue } from "@/components/employee/scrutiny/returned-value";
 import { useScrutinyCase } from "@/components/employee/scrutiny/scrutiny-case-context";
 import { SHEET } from "@/components/employee/scrutiny/sheet";
 import { Badge } from "@/components/ui/badge";
@@ -184,6 +182,12 @@ function ChangeCard({
 
       {folded ? null : (
         <div className="flex flex-col gap-3 border-t border-hairline px-4 py-3">
+          {/* The change first, in the colour that means "came back" — the same value
+              and chip the full filing's row carries (`ReturnedValue`). A tint with its
+              solid as an edge (DS 6a), so the band holds on the white card. */}
+          <div className="rounded-lg border border-info bg-info-muted px-3 py-2">
+            <ReturnedValue field={field} item={item} detail />
+          </div>
           <DescriptionList>
             <Row term="You asked">
               <span className="flex flex-col gap-0.5">
@@ -193,12 +197,15 @@ function ChangeCard({
                 </span>
               </span>
             </Row>
-            <Row term={item.answer === "replaced" ? "Before" : "Filed"}>
-              <span className="text-muted-foreground">{item.was}</span>
-            </Row>
-            <Row term="Now">
-              <NowValue item={item} />
-            </Row>
+            {/* A corrected value shows its before in the band; a document's before is a
+                file, so it is said here. */}
+            {item.answer === "replaced" ? (
+              <Row term="Before">
+                <span className="text-muted-foreground line-through decoration-muted-foreground">
+                  {item.was}
+                </span>
+              </Row>
+            ) : null}
             {flag && !composing ? (
               <Row term="Your note now">
                 {flag.comment ?? flag.reason ?? "Raised without a note"}
@@ -274,35 +281,5 @@ function Row({ term, children }: { term: string; children: React.ReactNode }) {
       <DescriptionTerm>{term}</DescriptionTerm>
       <DescriptionDetails className="min-w-0 break-words">{children}</DescriptionDetails>
     </DescriptionRow>
-  );
-}
-
-/** What is on file now, said in the advocate's own terms for how it got there. */
-function NowValue({ item }: { item: ReturnedItem }) {
-  const { fieldById } = useScrutinyCase();
-  const field = fieldById[item.fieldId];
-  const answered = `${ANSWER_LABEL[item.answer]} on ${item.answered}`;
-
-  if (item.answer === "kept") {
-    return (
-      <span className="flex flex-col gap-0.5">
-        <span className="font-medium">Unchanged</span>
-        {/* The advocate is not asked for a reason when they keep a value, so the card
-            says there is none rather than inventing a "contested" claim. */}
-        <span className="flex items-start gap-1.5 text-caption font-medium text-warning-muted-foreground">
-          <TriangleAlertIcon className="mt-px size-3.5 shrink-0" aria-hidden="true" />
-          <span>{`${answered}. No reason given.`}</span>
-        </span>
-      </span>
-    );
-  }
-
-  return (
-    <span className="flex flex-col gap-0.5">
-      <span className="font-medium">
-        <FieldValue field={field} value={field.value} />
-      </span>
-      <span className="text-caption font-medium text-muted-foreground">{answered}</span>
-    </span>
   );
 }

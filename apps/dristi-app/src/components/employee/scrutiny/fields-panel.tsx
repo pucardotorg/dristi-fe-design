@@ -5,6 +5,7 @@ import * as React from "react";
 import { GROUP_ICONS } from "@/lib/employee/scrutiny/icons";
 import type { ScrutinyController } from "@/lib/employee/scrutiny/use-scrutiny-state";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import { ChangesList } from "@/components/employee/scrutiny/changes-list";
 import { FieldRow } from "@/components/employee/scrutiny/field-row";
 import { SHEET } from "@/components/employee/scrutiny/sheet";
@@ -64,6 +65,20 @@ export function FieldsPanel({
 }) {
   const { sections, fieldById, returned } = useScrutinyCase();
   const changes = !!returned && view === "changes";
+
+  /* Where the returned items sit, so each group card can say so before the officer reads
+     its rows: "1 returned" on Cheque 1. Not on the section tabs — a count there pushed
+     "4. Affidavit and oath" out of a band with no scrollbar, and a dot alone would be
+     colour without words. */
+  const returnedIn = { group: {} as Record<string, number> };
+  if (inlineReturns) {
+    for (const item of returned?.items ?? []) {
+      const field = fieldById[item.fieldId];
+      if (!field) continue;
+      const key = `${field.sectionId}/${field.group}`;
+      returnedIn.group[key] = (returnedIn.group[key] ?? 0) + 1;
+    }
+  }
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const [active, setActive] = React.useState(sections[0].id);
   const lock = React.useRef(false);
@@ -267,6 +282,11 @@ export function FieldsPanel({
                       <h3 className="min-w-0 truncate text-body-compact font-semibold">
                         {group.title}
                       </h3>
+                      {returnedIn.group[`${section.id}/${group.title}`] ? (
+                        <Badge variant="info" className="ms-auto border-info tabular-nums">
+                          {`${returnedIn.group[`${section.id}/${group.title}`]} returned`}
+                        </Badge>
+                      ) : null}
                       <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-hairline bg-card text-muted-foreground">
                         <Icon className="size-5" />
                       </span>

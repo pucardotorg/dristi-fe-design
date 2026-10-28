@@ -19,6 +19,7 @@ import type {
 import type { ScrutinyController } from "@/lib/employee/scrutiny/use-scrutiny-state";
 import { cn } from "@/lib/utils";
 import { FlagComposer } from "@/components/employee/scrutiny/flag-composer";
+import { ReturnedValue } from "@/components/employee/scrutiny/returned-value";
 import { useScrutinyCase } from "@/components/employee/scrutiny/scrutiny-case-context";
 import { RESOLVE_IN_PLACE } from "@/components/chrome/motion";
 import {
@@ -98,6 +99,11 @@ export function FieldRow({
           "before:absolute before:inset-y-0 before:start-0 before:w-0.5 before:bg-primary before:content-['']",
         // While composing, the composer's well is the surface; a row fill under it
         // would stack two greys and blur the well's edge.
+        // A returned row carries the one colour that means "came back" (owner, 2026-10-28):
+        // info, because red is a new flag, amber an AI reading, navy the selection. A tint
+        // with its own solid as an inset edge — DS 6a — so it holds against the white card.
+        // Labels stay muted on it: 5.08:1 light, 7.14:1 dark.
+        back && "bg-info-muted ring-1 ring-info ring-inset hover:bg-info-muted-hover",
         composing && "bg-transparent hover:bg-transparent",
       )}
       role="option"
@@ -128,7 +134,11 @@ export function FieldRow({
              */}
             {composing ? null : (
               <>
-                <ValueLines field={field} />
+                {back ? (
+                  <ReturnedValue field={field} item={back} />
+                ) : (
+                  <ValueLines field={field} />
+                )}
                 <Hints field={field} flag={flag} aiOn={aiOn} inlineReturns={inlineReturns} />
               </>
             )}
@@ -404,23 +414,29 @@ function ReturnedRecord({
   const answered = `${ANSWER_LABEL[item.answer]} on ${item.answered}`;
 
   return (
-    <div className="col-span-full my-1 flex flex-col gap-3 rounded-lg border border-hairline bg-surface-sunken p-3 @container">
-      {/* No buttons in here. Selecting the row turns the bundle to its page, and the
-          row's own flag is Raise again (it starts from this note) — a second button
-          for either would be two names for one job (owner, 2026-10-28). */}
-      <Badge variant="info">Sent back {sentBack}</Badge>
+    /* Paper on the tinted row: a card-white well with a hairline, so the record reads as
+       one object on the row rather than a second tint. No buttons in here — selecting
+       the row turns the bundle to its page, and the row's flag is Raise again (owner,
+       2026-10-28: one control per job). */
+    <div className="col-span-full my-1 rounded-lg border border-hairline bg-card p-3 @container">
       <RecordList>
         <RecordRow label="You asked">
-          <span className="break-words">{item.note}</span>
+          <span className="flex flex-col gap-0.5">
+            <span className="break-words">{item.note}</span>
+            <span className="text-caption font-medium text-muted-foreground">
+              Sent back {sentBack}
+            </span>
+          </span>
         </RecordRow>
-        {/* Kept as filed has no "before": it is the value above, unchanged. */}
-        {item.answer === "kept" ? null : (
-          <RecordRow label={item.answer === "replaced" ? "Before" : "Was"}>
+        {/* A corrected value shows its before in the value itself; a document's before
+            is a file, so it is said here. Kept as filed has no before. */}
+        {item.answer === "replaced" ? (
+          <RecordRow label="Before">
             <span className="text-muted-foreground line-through decoration-muted-foreground">
               {item.was}
             </span>
           </RecordRow>
-        )}
+        ) : null}
         <RecordRow label="Advocate">
           {item.answer === "kept" ? (
             /* No reason is asked for on the advocate's side, so none is claimed here. */

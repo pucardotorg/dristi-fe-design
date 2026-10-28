@@ -39,6 +39,7 @@ Review page with the before state and proposal: https://claude.ai/artifact/77o38
 | 2026-10-28 | Gate forwarding/registering until every returned item is answered. | Claude's recommendation; Neer has not answered | Built by default, open |
 | 2026-10-28 | Open on Changes, not Full filing. | Claude's recommendation; Neer has not answered | Built by default, open |
 | 2026-10-28 | "Kept as filed" shows "No reason given". It is not called "contested", because the advocate is never asked for a reason. | Claude's recommendation; Neer has not answered | Built by default, open |
+| 2026-10-28 | The decision-bar action follows the court, not the seat. Gujarat and Punjab & Haryana say "Register case"; Kerala says "Forward for registration". A typist in Ahmedabad was offered Forward, which names a Register cases queue that court does not have. | Neer, on the 00338 workbench | Implemented |
 
 ## Variant B: in context (`?resub=inline`), 2026-10-28
 
@@ -101,6 +102,44 @@ Neer: "too many buttons on these cards", and "Show in filing" and "Show in bundl
   amount card's buttons are its title plus Raise again. A clicked card is marked
   selected. Full filing shows all 17 documents, and the record has no buttons. No page
   errors. Tests pass 1413/1413, and the gates are clean on these files.
+
+### Returned rows stand out, 2026-10-28 (`?resub=inline`, Full filing)
+
+Anshumanth: "There's a slight highlight here, yes, but I can't see what the actual
+correction requested was or what the previous value was." Neer asked for a way to
+highlight the change that "grabs the eye immediately".
+- **The change is in the value.** A corrected value reads "~~₹6,05,000~~ → **₹6,50,000**"
+  with a "Corrected" chip. Kept and re-uploaded rows show the value with a "Kept as
+  filed" or "Re-uploaded" chip. A screen reader hears "₹6,05,000 changed to ₹6,50,000,
+  Corrected".
+- **One colour means "came back": info blue.** Red is a new flag, amber an AI reading,
+  navy the selection. The row gets an `info-muted` tint with an inset `info` edge. The
+  chips get a solid `border-info` edge, because a tint on a tint lost its pill (DS 6a).
+  Measured contrast on the tint: muted labels 5.08:1 light and 7.14:1 dark, chip ink
+  4.64:1 light.
+- **The record box under the row** is card-white with a hairline. It shows You asked
+  (with the sent-back date), Before (re-uploads only, since a corrected value shows its
+  before in the value) and Advocate.
+- **Signposts:** a "1 returned" chip on each group card. Counts on the section tabs were
+  tried and removed: they pushed "4. Affidavit and oath" out of a band with no
+  scrollbar, and a dot alone would be colour without words.
+- Checked on :3000 in light and dark: amount, name and AD card rows, Cheque 1 group, tab
+  band (back to the 34px overflow that `main` already has). No page errors. Tests pass
+  1413/1413, and the gates are clean on these files.
+
+### The change highlighted on the cards too, 2026-10-28
+
+Neer: "it needs to be highlighted in the card as well". He was looking at the Changes
+tab, and the highlight had only been built for Full filing.
+- **Each change card opens with a blue band** (`info-muted`, `border-info` edge) holding
+  the change: old → new for a correction, the value for kept or re-uploaded, the answer
+  chip and its date. Kept as filed adds "No reason given" (warning ink on the tint,
+  4.73:1 light). The "Filed / Now" rows are gone. "Before" stays only for re-uploads.
+- The value and chip are one component, `returned-value.tsx`, shared by the card and the
+  Full filing row, so the two can't drift apart. This applies on both links (the default
+  card keeps its Accept and "To check").
+- Checked on :3000: cards on `?resub=inline` (light and dark) and on the default link.
+  No page errors. Tests pass 1413/1413, and the gates are clean on these files.
 
 ## Changes and tradeoffs
 
