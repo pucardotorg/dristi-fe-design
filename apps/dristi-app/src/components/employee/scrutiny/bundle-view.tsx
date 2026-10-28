@@ -83,11 +83,14 @@ function OathRecording({ doc }: { doc: BundleDoc }) {
 export function BundleView({
   aiOn,
   spot,
+  onlyDocs = null,
   ref,
 }: {
   aiOn: boolean;
   /** The AI evidence region for the selected field, if it has one. */
   spot: { doc: string; rect: Rect } | null;
+  /** Show only these documents — the ones behind the returned items, on the Changes tab. */
+  onlyDocs?: string[] | null;
   ref?: React.Ref<BundleHandle>;
 }) {
   const { bundle, returned, fieldById } = useScrutinyCase();
@@ -97,6 +100,7 @@ export function BundleView({
      question re-scrutiny asks of them is "is this one better?" — and the officer can put
      the old one away. */
   const replaced = replacedDocs(returned, fieldById);
+  const shown = onlyDocs ? bundle.filter((doc) => onlyDocs.includes(doc.id)) : bundle;
   const [hidePrevious, setHidePrevious] = React.useState<Record<string, boolean>>({});
 
   /*
@@ -273,6 +277,11 @@ export function BundleView({
          */}
         <b className="me-auto min-w-0 flex-1 truncate text-body-compact font-semibold">
           Case bundle
+          {onlyDocs ? (
+            <span className="font-normal text-muted-foreground tabular-nums">
+              {` · ${shown.length} of ${bundle.length} documents`}
+            </span>
+          ) : null}
         </b>
 
         <Tooltip>
@@ -333,7 +342,7 @@ export function BundleView({
             } as React.CSSProperties
           }
         >
-          {bundle.map((doc) => {
+          {shown.map((doc) => {
             const item = replaced[doc.id];
             const comparing = !!item && !hidePrevious[doc.id];
             return (
@@ -349,10 +358,12 @@ export function BundleView({
                     <span className="tabular-nums">{doc.no}</span> · {doc.name}
                   </div>
                   {item ? (
-                    /* The label says what pressing does next, so it carries no
-                       `aria-pressed` as well — a pressed "Hide…" reads as a double negative. */
+                    /* Outline, not ghost: beside the document title a ghost control
+                       reads as a caption, not a press. The label still says what pressing
+                       does next, so it carries no `aria-pressed` as well — a pressed
+                       "Hide…" would read as a double negative. */
                     <Button
-                      variant="ghost"
+                      variant="outline"
                       onClick={() =>
                         setHidePrevious((h) => ({ ...h, [doc.id]: comparing }))
                       }

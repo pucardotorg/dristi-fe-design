@@ -37,12 +37,15 @@ export function IndexRail({
   relatedDocId,
   aiOn,
   onGoToDoc,
+  onlyDocs = null,
 }: {
   /** Doc the selected field points at — highlighted, not filtered away. */
   relatedDocId: string | null;
   /** Poor-scan detection is an AI reading; without AI the badge is not shown. */
   aiOn: boolean;
   onGoToDoc: (docId: string) => void;
+  /** Only the documents behind the returned items, on the Changes tab. */
+  onlyDocs?: string[] | null;
 }) {
   return (
     <aside
@@ -62,6 +65,7 @@ export function IndexRail({
           relatedDocId={relatedDocId}
           aiOn={aiOn}
           onGoToDoc={onGoToDoc}
+          onlyDocs={onlyDocs}
         />
       </div>
     </aside>
@@ -81,12 +85,14 @@ export function IndexSheet({
   relatedDocId,
   aiOn,
   onGoToDoc,
+  onlyDocs = null,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   relatedDocId: string | null;
   aiOn: boolean;
   onGoToDoc: (docId: string) => void;
+  onlyDocs?: string[] | null;
 }) {
   const { bundle } = useScrutinyCase();
   return (
@@ -105,6 +111,7 @@ export function IndexSheet({
             relatedDocId={relatedDocId}
             aiOn={aiOn}
             onGoToDoc={onGoToDoc}
+            onlyDocs={onlyDocs}
           />
         </div>
       </SheetContent>
@@ -120,16 +127,25 @@ function IndexRows({
   relatedDocId,
   aiOn,
   onGoToDoc,
+  onlyDocs,
 }: {
   relatedDocId: string | null;
   aiOn: boolean;
   onGoToDoc: (docId: string) => void;
+  onlyDocs: string[] | null;
 }) {
   const { bundle, returned, fieldById } = useScrutinyCase();
   const replaced = replacedDocs(returned, fieldById);
+  const shown = onlyDocs ? bundle.filter((doc) => onlyDocs.includes(doc.id)) : bundle;
   return (
     <>
-      {bundle.map((doc) => {
+      {/* Said, so a short index reads as a choice and not as a bundle gone missing. */}
+      {onlyDocs ? (
+        <p className="px-2 pb-1 text-caption font-medium text-muted-foreground">
+          Documents behind the returned items. Full filing shows all {bundle.length}.
+        </p>
+      ) : null}
+      {shown.map((doc) => {
         const current = relatedDocId === doc.id;
         return (
           <Button

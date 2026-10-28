@@ -47,6 +47,7 @@ export function FieldsPanel({
   view,
   onViewChange,
   onShowItem,
+  inlineReturns = false,
   ref,
 }: {
   controller: ScrutinyController;
@@ -57,6 +58,8 @@ export function FieldsPanel({
   onViewChange: (view: FieldsView) => void;
   /** Selects a returned item and brings its document up in the bundle. */
   onShowItem: (fieldId: string) => void;
+  /** No per-item Accept; returned rows open their record in place in the full filing. */
+  inlineReturns?: boolean;
   ref?: React.Ref<FieldsPanelHandle>;
 }) {
   const { sections, fieldById, returned } = useScrutinyCase();
@@ -226,6 +229,7 @@ export function FieldsPanel({
             controller={controller}
             onShowItem={onShowItem}
             onGoToItem={onGoToItem}
+            acceptEach={!inlineReturns}
           />
         ) : sections.map((section, index) => (
           <section
@@ -283,6 +287,7 @@ export function FieldsPanel({
                           controller={controller}
                           aiOn={aiOn}
                           onGoToItem={onGoToItem}
+                          inlineReturns={inlineReturns}
                         />
                       ))}
                     </DescriptionList>

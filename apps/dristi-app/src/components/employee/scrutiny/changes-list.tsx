@@ -42,11 +42,18 @@ export function ChangesList({
   controller,
   onShowItem,
   onGoToItem,
+  acceptEach = true,
 }: {
   controller: ScrutinyController;
   /** Selects the item and brings its document up in the bundle. */
   onShowItem: (fieldId: string) => void;
   onGoToItem: (fieldId: string) => void;
+  /**
+   * Whether each item takes an explicit Accept. Without it (`?resub=inline`), an item the
+   * officer leaves alone is accepted and Raise again is the only act (Anshumanth,
+   * 2026-10-28: "Do we need to add an accept option at each individual level?").
+   */
+  acceptEach?: boolean;
 }) {
   const { returned } = useScrutinyCase();
   if (!returned) return null;
@@ -73,6 +80,7 @@ export function ChangesList({
               controller={controller}
               onShowItem={onShowItem}
               onGoToItem={onGoToItem}
+              acceptEach={acceptEach}
             />
           </li>
         ))}
@@ -96,12 +104,14 @@ function ChangeCard({
   controller,
   onShowItem,
   onGoToItem,
+  acceptEach,
 }: {
   item: ReturnedItem;
   sentBack: string;
   controller: ScrutinyController;
   onShowItem: (fieldId: string) => void;
   onGoToItem: (fieldId: string) => void;
+  acceptEach: boolean;
 }) {
   const { fieldById } = useScrutinyCase();
   const field = fieldById[item.fieldId];
@@ -114,7 +124,6 @@ function ChangeCard({
   // An accepted item has had its answer; it folds to its header and can be undone.
   const folded = verdict === "accepted" && !composing;
   const badge = VERDICT_BADGE[verdict];
-  const hasDoc = !!(field.docrow ?? field.doc ?? field.thumb);
   const titleId = `chg-${field.id}`;
 
   return (
@@ -130,19 +139,35 @@ function ChangeCard({
         selected &&
           "before:absolute before:inset-y-0 before:start-0 before:z-1 before:w-0.5 before:bg-primary before:content-['']",
       )}
-      // A pointer convenience only; the keyboard path is the explicit buttons below.
-      onClick={() => controller.selectField(field.id)}
+      /* Picking the card is how its document comes up in the bundle — no "Show in
+         bundle" / "Show in filing" buttons beside it, which read as two names for one
+         job (owner, 2026-10-28). The title is the keyboard path to the same act. */
+      onClick={() => onShowItem(field.id)}
     >
       <div className="flex items-center gap-3 bg-surface-sunken px-4 py-3">
         <div className="flex min-w-0 flex-1 flex-col">
           <h3 id={titleId} className="text-body-compact font-semibold">
-            {field.label}
+            <button
+              type="button"
+              className="rounded-sm text-start focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              aria-current={selected ? "true" : undefined}
+              onClick={(event) => {
+                event.stopPropagation();
+                onShowItem(field.id);
+              }}
+            >
+              {field.label}
+            </button>
           </h3>
           <p className="text-caption font-medium text-muted-foreground">
             {field.section} › {field.group}
           </p>
         </div>
-        <Badge variant={badge.variant}>{badge.label}</Badge>
+        {/* Without a per-item Accept, "To check" would never clear, so only a re-raise
+            earns a badge. */}
+        {acceptEach || verdict === "raised" ? (
+          <Badge variant={badge.variant}>{badge.label}</Badge>
+        ) : null}
         {folded ? (
           <Button
             variant="ghost"
@@ -189,17 +214,6 @@ function ChangeCard({
             />
           ) : (
             <div className="flex flex-wrap items-center gap-2">
-              {hasDoc ? (
-                <Button
-                  variant="ghost"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onShowItem(field.id);
-                  }}
-                >
-                  {item.answer === "replaced" ? "Compare in bundle" : "Show in bundle"}
-                </Button>
-              ) : null}
               <span className="flex-1" />
               {flag ? (
                 <>
@@ -233,15 +247,17 @@ function ChangeCard({
                   >
                     Raise again
                   </Button>
-                  <Button
-                    variant="outline"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      controller.accept(field.id);
-                    }}
-                  >
-                    Accept
-                  </Button>
+                  {acceptEach ? (
+                    <Button
+                      variant="outline"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        controller.accept(field.id);
+                      }}
+                    >
+                      Accept
+                    </Button>
+                  ) : null}
                 </>
               )}
             </div>

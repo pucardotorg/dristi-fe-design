@@ -91,3 +91,21 @@ export function replacedDocs(
   }
   return byDoc;
 }
+
+/**
+ * The bundle documents behind the returned items — what the Changes tab shows in the
+ * bundle and the index, instead of the whole bundle again (owner, 2026-10-28). A value
+ * row brings the document it was read from; a document row brings itself.
+ */
+export function returnedDocIds(
+  round: ReturnRound | null,
+  fieldById: Record<string, FlatField>,
+): string[] {
+  const ids: string[] = [];
+  for (const item of round?.items ?? []) {
+    const field = fieldById[item.fieldId];
+    const docId = field?.docrow ?? field?.doc ?? field?.thumb;
+    if (docId && !ids.includes(docId)) ids.push(docId);
+  }
+  return ids;
+}

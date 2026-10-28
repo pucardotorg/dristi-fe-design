@@ -26,16 +26,25 @@ export default async function EmployeeScrutinyCasePage({
   searchParams,
 }: {
   params: Promise<{ filingNo: string }>;
-  searchParams: Promise<{ ai?: string | string[] }>;
+  searchParams: Promise<{ ai?: string | string[]; resub?: string | string[] }>;
 }) {
   const { filingNo } = await params;
   const profile = courtProfile(await serverCourt());
   const caseData = scrutinyCaseFor(decodeURIComponent(filingNo), profile.signing);
   if (!caseData) notFound();
 
-  const { ai } = await searchParams;
+  const { ai, resub } = await searchParams;
   const mode: AiMode =
     ai === "on" || ai === "unavailable" || ai === "off" ? ai : profile.aiMode;
 
-  return <CaseWorkbench caseData={caseData} ai={mode} />;
+  /* `?resub=inline` is the in-context re-scrutiny under review (Anshumanth, 2026-10-28):
+     returned items read in place in the full filing, no per-item Accept. Without it the
+     resubmission opens on the Changes list. */
+  return (
+    <CaseWorkbench
+      caseData={caseData}
+      ai={mode}
+      resubLayout={resub === "inline" ? "inline" : "split"}
+    />
+  );
 }

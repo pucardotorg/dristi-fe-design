@@ -40,6 +40,68 @@ Review page with the before state and proposal: https://claude.ai/artifact/77o38
 | 2026-10-28 | Open on Changes, not Full filing. | Claude's recommendation; Neer has not answered | Built by default, open |
 | 2026-10-28 | "Kept as filed" shows "No reason given". It is not called "contested", because the advocate is never asked for a reason. | Claude's recommendation; Neer has not answered | Built by default, open |
 
+## Variant B: in context (`?resub=inline`), 2026-10-28
+
+Built from Anshumanth's feedback for Neer to compare. The default URL still shows the split version above.
+- **No per-item Accept.** A returned item the officer leaves alone is accepted. The only
+  act is Raise again, from the record's button or the row's flag, and both start from the
+  earlier note. Nothing is gated. The bar reads "3 returned items" plus the usual flag count.
+- **In context, not isolated.** There's no Changes / Full filing switch. The full filing
+  opens on the first returned item. Each returned row opens a record in place: an info
+  badge "Sent back 3 Jun 2026", then You asked, Was (struck through; Before for
+  documents; left out for Kept as filed) and Advocate (the answer and its date). The row's
+  value above it is what's on file now. The record uses the same well and `RecordList`
+  as a raised flag.
+- **Stepper.** "Returned item 1 of 3" with previous and next arrows takes the switch's
+  bar. Stepping selects and scrolls the row, the bundle turns to its page, and it wraps
+  around at the ends.
+- Files: `field-row.tsx` (`ReturnedRecord`, the flag button raises again),
+  `fields-panel.tsx` (`ReturnedStepper`), `case-workbench.tsx` (`resubLayout` prop, no
+  gate when inline), the route `page.tsx` (`?resub=inline`), and `use-scrutiny-state.ts`
+  (optional initial selection).
+- Checked on :3000: opens on 1 of 3, steps and wraps, Raise again is pre-filled, no
+  Accept, Register enabled, default URL unchanged, fresh 00319 unaffected, dark mode,
+  820px. No page errors. Tests pass 1413/1413, and the gates are clean on these files.
+- Tradeoff: with no Accept and no gate, nothing makes sure each item was looked at.
+  The stepper makes visiting them easy, but it doesn't record that they were visited.
+
+### Variant B revised: Changes tab kept, 2026-10-28
+
+Neer: "we should have kept the change tab, doesn't make sense to go through the entire
+thing again". `?resub=inline` now combines the two:
+- It opens on **Changes** again, so the officer doesn't walk the whole file. The
+  "Returned item 1 of 3" stepper is removed, because the list does that job.
+- **No per-item Accept** (Anshumanth's point 1, not overruled). Cards carry only Raise
+  again, and a badge appears only once an item is raised again. Nothing is gated.
+- **Full filing shows the returned records in place** (Anshumanth's point 2): You asked,
+  Was and Advocate on each returned row.
+- **"Show in filing"** on every change card, in both layouts, switches to Full filing
+  on that row and turns the bundle to its page.
+- Checked on :3000: opens on Changes, no Accept, no "To check", Register enabled, the
+  raise survives switching tabs, Show in filing selects the row with its record. The
+  default URL still has Accept and the gate. No page errors. Tests pass 1413/1413, and
+  the gates are clean on these files.
+
+### Fewer buttons; bundle narrowed on Changes, 2026-10-28
+
+Neer: "too many buttons on these cards", and "Show in filing" and "Show in bundle" are
+"the same thing doing the same job with two different texts".
+- **One action per card: Raise again** (plus Accept on the default URL). "Show in
+  filing", "Show in bundle" and "Compare in bundle" are gone. Picking the card, or its
+  title with the keyboard (`aria-current` when selected), turns the bundle to its
+  document.
+- **No buttons in the Full filing record.** Selecting the row turns the bundle, and the
+  row's flag is Raise again, starting from the earlier note.
+- **On Changes, the bundle and the index hold only the documents behind the returned
+  items** (`returnedDocIds`): 3 of 17 for 00338. The bundle header says "3 of 17
+  documents" and the index says "Documents behind the returned items. Full filing shows
+  all 17." Full filing restores the whole bundle. I read "sections which are written"
+  as these documents; Neer hasn't confirmed that.
+- Checked on :3000: Changes bundle and index = Cheque 1, AD card, Identity proof. The
+  amount card's buttons are its title plus Raise again. A clicked card is marked
+  selected. Full filing shows all 17 documents, and the record has no buttons. No page
+  errors. Tests pass 1413/1413, and the gates are clean on these files.
+
 ## Changes and tradeoffs
 
 - Files: `components/employee/scrutiny/{changes-list.tsx (new), sheet.ts (new), case-workbench.tsx, fields-panel.tsx, field-row.tsx, bundle-view.tsx, index-rail.tsx}`

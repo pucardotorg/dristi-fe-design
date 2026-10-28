@@ -10,6 +10,7 @@ import {
 
 import { useRoomInRem } from "@/hooks/use-min-width";
 import { nextFilingAfter } from "@/lib/employee/scrutiny/queue";
+import { returnedDocIds } from "@/lib/employee/scrutiny/returns";
 import type { AiMode } from "@/lib/court/profiles";
 import type { Rect, ScrutinyCase } from "@/lib/employee/scrutiny/types";
 import {
@@ -83,10 +84,19 @@ import { registersAtScrutiny } from "@/lib/employee/court-role";
 export function CaseWorkbench({
   caseData,
   ai = "on",
+  resubLayout = "split",
 }: {
   caseData: ScrutinyCase;
   /** Without AI the workbench still works; it just stops asserting readings (`AiMode`). */
   ai?: AiMode;
+  /**
+   * How a resubmission is read. Both open on the Changes list, with the full filing one
+   * switch away. `split`: each returned item is accepted or raised again, and forwarding
+   * waits for every answer. `inline`: no per-item Accept — an item left alone is accepted,
+   * Raise again is the only act — and in the full filing every returned row opens its
+   * record in place, so the officer sees what was asked and what it was in context.
+   */
+  resubLayout?: "split" | "inline";
 }) {
   const aiOn = ai === "on";
   const arrival = useArrival();
@@ -117,6 +127,7 @@ export function CaseWorkbench({
 
   const { party, allFields, fieldById, historyRound, returned } = caseData;
   const filingNo = caseData.filing.no;
+  const inline = resubLayout === "inline" && !!caseData.returned;
   const controller = useScrutinyState(caseData);
   const bundle = React.useRef<BundleHandle>(null);
   const fields = React.useRef<FieldsPanelHandle>(null);
@@ -131,10 +142,17 @@ export function CaseWorkbench({
   const [pane, setPane] = React.useState<"fields" | "bundle">("fields");
   /* A resubmission opens on what came back (`ChangesList`); a first scrutiny has only
      the full filing. */
+  /* Not walking the whole file again is the point of a re-scrutiny (owner, 2026-10-28,
+     after trying a full-filing-only layout). */
   const [view, setView] = React.useState<FieldsView>(
     returned ? "changes" : "full",
   );
   const [indexOpen, setIndexOpen] = React.useState(false);
+  /* On the Changes tab the bundle and the index hold only the documents behind the
+     returned items — the officer is checking those, not re-reading the file (owner,
+     2026-10-28). The full filing brings the whole bundle back. */
+  const focusDocs =
+    view === "changes" && returned ? returnedDocIds(returned, fieldById) : null;
 
   // The case title is the officer's to correct (a mis-spelt party name is exactly the
   // kind of thing scrutiny exists to catch). Local until a case service owns it.
@@ -208,7 +226,7 @@ export function CaseWorkbench({
   );
 
   /**
-   * A returned item's "Show in bundle": select it, and put its document in front of the
+   * Picking a change card: select its item, and put its document in front of the
    * officer. Selecting alone scrolls the bundle only when the selection changes, so the
    * document is asked for directly — a second press still lands on it.
    */
@@ -240,7 +258,9 @@ export function CaseWorkbench({
   /* Re-scrutiny is checking what came back, so forwarding waits until every returned
      item has an answer — accepted, or raised again. The reason is said in the bar beside
      the button, because a disabled button cannot be focused to ask it why. */
-  const unchecked = uncheckedCount(controller, returned);
+  /* In place there is no per-item answer to wait for: a returned item the officer does not
+     raise again is accepted by being left alone, so nothing is gated. */
+  const unchecked = inline ? 0 : uncheckedCount(controller, returned);
   const returnedTotal = returned?.items.length ?? 0;
   const forwardBlocked = unchecked > 0;
 
@@ -404,17 +424,19 @@ export function CaseWorkbench({
               view={view}
               onViewChange={setView}
               onShowItem={showItem}
+              inlineReturns={inline}
             />
           </ResizablePanel>
           <ResizableHandle withHandle />
           <ResizablePanel defaultSize="52%" minSize="22rem">
-            <BundleView ref={bundle} aiOn={aiOn} spot={spot} />
+            <BundleView ref={bundle} aiOn={aiOn} spot={spot} onlyDocs={focusDocs} />
           </ResizablePanel>
           <ResizableHandle withHandle />
           {/* A document index is a short list, so it takes a rail's width, not a pane's:
               the room it does not need goes to the bundle, which is the thing being read. */}
           <ResizablePanel defaultSize="14%" minSize="10rem" maxSize="20rem">
             <IndexRail
+              onlyDocs={focusDocs}
               relatedDocId={aiOn ? relatedDocId : null}
               aiOn={aiOn}
               onGoToDoc={goToDoc}
@@ -435,9 +457,10 @@ export function CaseWorkbench({
               view={view}
               onViewChange={setView}
               onShowItem={showItem}
+              inlineReturns={inline}
             />
           ) : (
-            <BundleView ref={bundle} aiOn={aiOn} spot={spot} />
+            <BundleView ref={bundle} aiOn={aiOn} spot={spot} onlyDocs={focusDocs} />
           )}
         </div>
       )}
@@ -453,7 +476,14 @@ export function CaseWorkbench({
           id="decision-tally"
           className="text-body-compact text-muted-foreground"
         >
-          {returned ? (
+          {returned && inline ? (
+            <>
+              <b className="font-semibold text-foreground tabular-nums">
+                {`${returnedTotal} returned item${returnedTotal === 1 ? "" : "s"}`}
+              </b>
+              {tally.length > 0 ? " · " : null}
+            </>
+          ) : returned ? (
             <>
               <b className="font-semibold text-foreground tabular-nums">
                 {`${returnedTotal - unchecked} of ${returnedTotal} checked`}
@@ -514,6 +544,7 @@ export function CaseWorkbench({
       {/* The index, as a detour, only where there is no room for it as a column. */}
       {threePane ? null : (
         <IndexSheet
+          onlyDocs={focusDocs}
           open={indexOpen}
           onOpenChange={setIndexOpen}
           relatedDocId={aiOn ? relatedDocId : null}

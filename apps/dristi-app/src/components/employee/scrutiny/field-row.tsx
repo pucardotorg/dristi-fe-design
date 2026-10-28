@@ -14,6 +14,7 @@ import { ANSWER_LABEL } from "@/lib/employee/scrutiny/returns";
 import type {
   Flag as FlagType,
   FlatField,
+  ReturnedItem,
 } from "@/lib/employee/scrutiny/types";
 import type { ScrutinyController } from "@/lib/employee/scrutiny/use-scrutiny-state";
 import { cn } from "@/lib/utils";
@@ -55,21 +56,29 @@ export function FieldRow({
   controller,
   aiOn,
   onGoToItem,
+  inlineReturns = false,
 }: {
   field: FlatField;
   controller: ScrutinyController;
   aiOn: boolean;
   onGoToItem: (fieldId: string) => void;
+  /** A returned item opens its record in place on this row (`?resub=inline`). */
+  inlineReturns?: boolean;
 }) {
-  const { docById } = useScrutinyCase();
+  const { docById, returned } = useScrutinyCase();
   const flag = controller.flags[field.id];
   const selected = controller.selectedId === field.id;
   const composing = controller.composeField === field.id;
+  const back = inlineReturns
+    ? returned?.items.find((item) => item.fieldId === field.id)
+    : undefined;
   const flagTitle = flag
     ? "Edit this flag"
-    : field.docrow
-      ? "Flag document"
-      : "Flag";
+    : back
+      ? "Raise again"
+      : field.docrow
+        ? "Flag document"
+        : "Flag";
 
   return (
     <DescriptionRow
@@ -120,7 +129,7 @@ export function FieldRow({
             {composing ? null : (
               <>
                 <ValueLines field={field} />
-                <Hints field={field} flag={flag} aiOn={aiOn} />
+                <Hints field={field} flag={flag} aiOn={aiOn} inlineReturns={inlineReturns} />
               </>
             )}
           </div>
@@ -162,7 +171,9 @@ export function FieldRow({
                   aria-label={`${flagTitle}: ${field.label}`}
                   onClick={(event) => {
                     event.stopPropagation();
-                    controller.openComposer(field.id);
+                    // A returned item is raised again from the note that went back.
+                    if (back && !flag) controller.raiseAgain(field.id, back.note);
+                    else controller.openComposer(field.id);
                   }}
                 >
                   <FlagIcon />
@@ -180,6 +191,11 @@ export function FieldRow({
        * badge, a claim and two buttons — and editing an item now unfolds it in place
        * instead of moving it.
        */}
+      {/* The returned record stays while the officer writes or holds a new flag: what was
+          asked last time is the context for what they ask now. */}
+      {back && returned ? (
+        <ReturnedRecord item={back} sentBack={returned.sentBack} />
+      ) : null}
       {composing ? (
         <FlagComposer field={field} controller={controller} onGoToItem={onGoToItem} />
       ) : flag ? (
@@ -259,10 +275,13 @@ function Hints({
   field,
   flag,
   aiOn,
+  inlineReturns,
 }: {
   field: FlatField;
   flag?: FlagType;
   aiOn: boolean;
+  /** In place, the returned record says it all, so the one-line hint stands down. */
+  inlineReturns: boolean;
 }) {
   const { docById, returned } = useScrutinyCase();
   const lines: React.ReactNode[] = [];
@@ -271,7 +290,7 @@ function Hints({
      item is indistinguishable from the fields nobody touched. A standing fact about the
      record, so it shows with AI off. */
   const back = returned?.items.find((item) => item.fieldId === field.id);
-  if (back && returned) {
+  if (back && returned && !inlineReturns) {
     lines.push(
       <HintLine key="returned" tone="muted" icon={<HistoryIcon />}>
         {`Sent back ${returned.sentBack} · ${ANSWER_LABEL[back.answer].toLowerCase()} ${back.answered}`}
@@ -360,6 +379,59 @@ function HintLine({
     <div className={cn("flex items-start gap-1.5 text-caption", HINT_TONE[tone])}>
       <span className="mt-px shrink-0 [&>svg]:size-3.5">{icon}</span>
       <span>{children}</span>
+    </div>
+  );
+}
+
+/**
+ * A returned item, read in place: what the officer asked, what was on file, and how the
+ * advocate answered — the row's value above it is what is on file now (Anshumanth,
+ * 2026-10-28: "I can't see what the actual correction requested was or what the
+ * previous value was").
+ *
+ * The raised item's well and grammar (`RaisedItem`, `RecordList`), so the officer's
+ * earlier ask and a new flag read as the same kind of record. The badge is `info` rather
+ * than `destructive`: this one is the advocate's answer awaiting a look, not an open
+ * defect. There is no Accept — leaving it alone accepts it; the row's flag raises it again.
+ */
+function ReturnedRecord({
+  item,
+  sentBack,
+}: {
+  item: ReturnedItem;
+  sentBack: string;
+}) {
+  const answered = `${ANSWER_LABEL[item.answer]} on ${item.answered}`;
+
+  return (
+    <div className="col-span-full my-1 flex flex-col gap-3 rounded-lg border border-hairline bg-surface-sunken p-3 @container">
+      {/* No buttons in here. Selecting the row turns the bundle to its page, and the
+          row's own flag is Raise again (it starts from this note) — a second button
+          for either would be two names for one job (owner, 2026-10-28). */}
+      <Badge variant="info">Sent back {sentBack}</Badge>
+      <RecordList>
+        <RecordRow label="You asked">
+          <span className="break-words">{item.note}</span>
+        </RecordRow>
+        {/* Kept as filed has no "before": it is the value above, unchanged. */}
+        {item.answer === "kept" ? null : (
+          <RecordRow label={item.answer === "replaced" ? "Before" : "Was"}>
+            <span className="text-muted-foreground line-through decoration-muted-foreground">
+              {item.was}
+            </span>
+          </RecordRow>
+        )}
+        <RecordRow label="Advocate">
+          {item.answer === "kept" ? (
+            /* No reason is asked for on the advocate's side, so none is claimed here. */
+            <span className="text-warning-muted-foreground">
+              {`${answered}. No reason given.`}
+            </span>
+          ) : (
+            answered
+          )}
+        </RecordRow>
+      </RecordList>
     </div>
   );
 }
