@@ -32,6 +32,10 @@ export const PROPOSED_CSS = `
 @keyframes sb-flip { 0%,35% { transform: rotate(0) } 100% { transform: rotate(180deg) } }
 @keyframes sb-chip { from { transform: scale(.88); opacity: 0 } to { transform: none; opacity: 1 } }
 @keyframes sb-shake { 0%,100% { transform: none } 20%,60% { transform: translateX(-3px) } 40%,80% { transform: translateX(3px) } }
+@keyframes sb-stroke { 0% { transform: scale(0); opacity: 0 } 60% { transform: scale(1.18); opacity: 1 } 100% { transform: scale(1) } }
+@keyframes sb-bar { 0% { transform: translateY(-9px); opacity: 0 } 65% { transform: translateY(1.5px); opacity: 1 } 100% { transform: none } }
+@keyframes sb-ring-soft { 0% { transform: scale(1); opacity: .3 } 100% { transform: scale(1.7); opacity: 0 } }
+@keyframes sb-dot { 0% { transform: scale(0) } 60% { transform: scale(1.45) } 100% { transform: scale(1) } }
 @keyframes sb-fill { from { transform: scaleX(0) } to { transform: scaleX(1) } }
 .sb-pop { animation: sb-pop 520ms cubic-bezier(.34,1.56,.64,1) both }
 .sb-draw { stroke-dasharray: 30; animation: sb-draw 360ms 260ms cubic-bezier(.65,0,.35,1) both }
@@ -43,48 +47,91 @@ export const PROPOSED_CSS = `
 .sb-land { animation: sb-land 2600ms ease-out both }
 .sb-flip { transform-box: fill-box; transform-origin: center; animation: sb-flip 900ms 250ms cubic-bezier(.65,0,.35,1) both }
 .sb-chip { animation: sb-chip 220ms cubic-bezier(.2,.8,.2,1) both }
-.sb-shake { animation: sb-shake 380ms 520ms ease-in-out both }
+.sb-shake { animation: sb-shake 380ms 640ms ease-in-out both }
+.sb-stroke { transform-box: fill-box; transform-origin: center; animation: sb-stroke 340ms 200ms cubic-bezier(.34,1.56,.64,1) both }
+.sb-bar { animation: sb-bar 380ms 200ms cubic-bezier(.34,1.56,.64,1) both }
+.sb-dot { transform-box: fill-box; transform-origin: center; animation: sb-dot 300ms 480ms cubic-bezier(.34,1.56,.64,1) both }
+.sb-ring-soft { animation: sb-ring-soft 900ms 560ms ease-out both }
 .sb-fill { transform-origin: left; animation: sb-fill 700ms cubic-bezier(.2,.8,.2,1) both }
 @media (prefers-reduced-motion: reduce) {
-  .sb-pop, .sb-draw, .sb-ring, .sb-rise, .sb-band, .sb-toast, .sb-drain, .sb-land, .sb-fill, .sb-flip, .sb-chip, .sb-shake { animation: none }
+  .sb-pop, .sb-draw, .sb-ring, .sb-rise, .sb-band, .sb-toast, .sb-drain, .sb-land, .sb-fill, .sb-flip, .sb-chip, .sb-shake, .sb-stroke, .sb-bar, .sb-dot, .sb-ring-soft { animation: none }
+  .sb-ring-soft { opacity: 0 }
   .sb-ring { opacity: 0 }
 }
 `;
 
-export type Tone = "success" | "info" | "error" | "warning";
+export type Tone = "success" | "info" | "error" | "warning" | "neutral";
 const TONE: Record<Tone, { solid: string; fg: string; muted: string; edge: string }> = {
   error: { solid: "var(--destructive)", fg: "var(--destructive-foreground)", muted: "var(--destructive-muted)", edge: "var(--destructive-7)" },
   warning: { solid: "var(--warning)", fg: "var(--warning-foreground)", muted: "var(--warning-muted)", edge: "var(--warning-7)" },
   success: { solid: "var(--success)", fg: "var(--success-foreground)", muted: "var(--success-muted)", edge: "var(--success-7)" },
   info: { solid: "var(--info)", fg: "var(--info-foreground)", muted: "var(--info-muted)", edge: "var(--info-7)" },
+  /* Not good or bad news: a quiet disc with a hairline ring and the act's own icon. */
+  neutral: {
+    solid: "var(--surface-sunken)",
+    fg: "color-mix(in oklab, var(--foreground) 78%, transparent)",
+    muted: "var(--surface-sunken)",
+    edge: "var(--border)",
+  },
 };
 
-/** The one mark, in four tones. Success: drawn check and one ring pulse. Error: drawn
-    cross and a small shake, no pulse (nothing to celebrate). Warning: drawn "!".
-    Info (sent, not decided): today's hourglass, turned over once. */
-export function SuccessMark({ size = 72, tone = "success" }: { size?: number; tone?: Tone }) {
+/** The one mark, in five tones.
+    Success: the check draws, one ring pulse.
+    Error: each stroke of the cross springs out from the centre, then the disc gives one
+    small shake. No pulse: nothing to celebrate.
+    Warning: the bar drops in, the dot pops under it, one soft amber pulse.
+    Info (sent, not decided): today's hourglass, turned over once.
+    Neutral: no motion beyond the pop; carries the act's own icon. */
+export function SuccessMark({
+  size = 72,
+  tone = "success",
+  icon: Icon,
+}: {
+  size?: number;
+  tone?: Tone;
+  icon?: React.ComponentType<{ className?: string; style?: React.CSSProperties; strokeWidth?: number }>;
+}) {
   const t = TONE[tone];
+  // Small marks need a heavier stroke and a larger glyph to register at all.
+  const stroke = size <= 24 ? 3.4 : size <= 44 ? 3 : 2.6;
+  const glyph = tone === "success" || tone === "info" ? 0.5 : 0.62;
   return (
     <span className={"relative flex shrink-0 items-center justify-center " + (tone === "error" ? "sb-shake" : "")} style={{ width: size, height: size }}>
-      {tone === "success" ? <span className="sb-ring absolute inset-0 rounded-full" style={{ background: t.solid }} /> : null}
+      {tone === "success" || tone === "warning" ? (
+        <span className={"absolute inset-0 rounded-full " + (tone === "success" ? "sb-ring" : "sb-ring-soft")} style={{ background: t.solid }} />
+      ) : null}
       <span
-        className="sb-pop relative flex size-full items-center justify-center rounded-full shadow-raised"
-        style={{ background: t.solid, color: t.fg }}
+        className={"sb-pop relative flex size-full items-center justify-center rounded-full " + (tone === "neutral" ? "" : "shadow-raised")}
+        style={{
+          background: t.solid,
+          color: t.fg,
+          boxShadow: tone === "neutral" ? "inset 0 0 0 1px color-mix(in oklab, var(--foreground) 30%, transparent)" : undefined,
+        }}
       >
-        <svg viewBox="0 0 24 24" width={size * 0.5} height={size * 0.5} fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          {tone === "success" ? (
-            <path className="sb-draw" d="M5 12.5l4.5 4.5L19 7.5" />
-          ) : tone === "error" ? (
-            <path className="sb-draw" d="M7.5 7.5l9 9M16.5 7.5l-9 9" />
-          ) : tone === "warning" ? (
-            <path className="sb-draw" strokeWidth={3} d="M12 6.5v7M12 17.5v.01" />
-          ) : (
-            /* Sent, not decided: the same hourglass as today, turned over once. */
-            <g className="sb-flip" strokeWidth={2.2}>
-              <path d="M5 22h14M5 2h14M17 22v-4.17a2 2 0 0 0-.59-1.42L12 12l-4.41 4.41A2 2 0 0 0 7 17.83V22M7 2v4.17a2 2 0 0 0 .59 1.42L12 12l4.41-4.41A2 2 0 0 0 17 6.17V2" />
-            </g>
-          )}
-        </svg>
+        {tone === "neutral" && Icon ? (
+          <Icon style={{ width: size * 0.46, height: size * 0.46 }} strokeWidth={size <= 28 ? 2.4 : 2} />
+        ) : (
+          <svg viewBox="0 0 24 24" width={size * glyph} height={size * glyph} fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            {tone === "success" ? (
+              <path className="sb-draw" d="M5 12.5l4.5 4.5L19 7.5" />
+            ) : tone === "error" ? (
+              <>
+                <path className="sb-stroke" d="M6.5 6.5l11 11" />
+                <path className="sb-stroke" style={{ animationDelay: "290ms" }} d="M17.5 6.5l-11 11" />
+              </>
+            ) : tone === "warning" ? (
+              <>
+                <path className="sb-bar" d="M12 4v10" />
+                <circle className="sb-dot" cx="12" cy="19.5" r="1.9" fill="currentColor" stroke="none" />
+              </>
+            ) : (
+              /* Sent, not decided: the same hourglass as today, turned over once. */
+              <g className="sb-flip" strokeWidth={2.2}>
+                <path d="M5 22h14M5 2h14M17 22v-4.17a2 2 0 0 0-.59-1.42L12 12l-4.41 4.41A2 2 0 0 0 7 17.83V22M7 2v4.17a2 2 0 0 0 .59 1.42L12 12l4.41-4.41A2 2 0 0 0 17 6.17V2" />
+              </g>
+            )}
+          </svg>
+        )}
       </span>
     </span>
   );
@@ -174,12 +221,12 @@ const Mono = ({ children }: { children: React.ReactNode }) => <span className="f
 
 /** Straight accent bar, full height and flush left. The card's rounded corners clip its
     ends, so it reads as a straight edge cut by the radius, never one that bends. */
-export const Rail = ({ tone = "success" }: { tone?: "success" | "muted" | "error" | "warning" }) => (
+export const Rail = ({ tone = "success" }: { tone?: "success" | "muted" | "neutral" | "error" | "warning" | "info" }) => (
   <span
     aria-hidden
     className={
       "absolute inset-y-0 left-0 w-[3px] " +
-      (tone === "success" ? "bg-success" : tone === "error" ? "bg-destructive" : tone === "warning" ? "bg-warning" : "bg-muted-foreground/50")
+      ({ success: "bg-success", error: "bg-destructive", warning: "bg-warning", info: "bg-info", muted: "bg-muted-foreground/50", neutral: "bg-muted-foreground/50" } as const)[tone]
     }
   />
 );
@@ -190,11 +237,14 @@ export function ConfirmToast({
   action,
   neutral,
   tone = neutral ? "neutral" : "success",
+  icon = ArchiveIcon,
 }: {
   title: string;
   description?: string;
   action?: string;
   neutral?: boolean;
+  /** The neutral toast's own icon: what the message is about, not how it went. */
+  icon?: React.ComponentType<{ className?: string; style?: React.CSSProperties; strokeWidth?: number }>;
   /** error: stays until closed (no timer) and carries a close button. */
   tone?: "success" | "neutral" | "error" | "warning";
 }) {
@@ -206,9 +256,7 @@ export function ConfirmToast({
           the title and the detail's first line (20 + 2 + 20 = 42, so 21px down). */}
       <span className={description ? "mt-[8px] self-start" : "self-center"}>
         {tone === "neutral" ? (
-          <span className="flex size-[26px] shrink-0 items-center justify-center rounded-full bg-surface-sunken text-foreground/75 ring-1 ring-foreground/35">
-            <ArchiveIcon className="size-3.5" />
-          </span>
+          <SuccessMark size={26} tone="neutral" icon={icon} />
         ) : (
           <span className="flex size-[26px] items-center justify-center"><SuccessMark size={22} tone={tone} /></span>
         )}

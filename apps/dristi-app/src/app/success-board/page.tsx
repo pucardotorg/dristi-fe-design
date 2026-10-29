@@ -497,11 +497,11 @@ export default function SuccessBoardPage() {
                     </div>
                     <div className="grid grid-cols-3 gap-6">
                       <Rule t="Error · red cross" b="The act did not happen or was refused. Same takeover, toast and inline line as success. Error toasts stay until closed." />
-                      <Rule t="Warning · amber !" b="It happened with a catch, or something needs a look: partial results, late notices, offline, not found. Warning toasts keep 4s." />
-                      <Rule t="One rule for confirms" b="A mark names the risk. Removes or destroys: solid red button. Irreversible but not destructive (sign, pay, file): primary button." />
+                      <Rule t="Warning · amber !" b="Only where today is already a warning: partial results, late notices, offline, lookups that miss. Warning toasts keep 4s." />
+                      <Rule t="Neutral · grey ring" b="Gates, questions and dead ends are not bad news. A quiet disc with the act's own icon. Confirms use it too, with today's soft red button for removals." />
                     </div>
                     <p className="text-body text-muted-foreground">
-                      Missing input never gets a toast: the field turns red, says what is missing and takes focus. Error motion: the cross draws and the disc gives one small shake; no ring pulse.
+                      Missing input points at the field: it turns red, says what is missing and takes focus. Motion: the cross springs out stroke by stroke, then one small shake; the “!” bar drops in, its dot pops, one soft pulse. The last lane designs the failure states the product does not have yet.
                     </p>
                   </div>
                 </>

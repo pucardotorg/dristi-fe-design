@@ -1,10 +1,20 @@
 "use client";
 
 import * as React from "react";
+import {
+  FileQuestionIcon,
+  FileTextIcon,
+  FileXIcon,
+  LinkIcon,
+  LockIcon,
+  PenLineIcon,
+  Trash2Icon,
+  UserXIcon,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Field, FieldError, FieldLabel } from "@/components/ui/field";
+import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -12,11 +22,14 @@ import { FactRows } from "./fail-current";
 import { DialogBox, FauxPage, Screen } from "./frames";
 import { ConfirmToast, Facts, Footer, Hero, Rail, SuccessMark, Summary, type Tone } from "./proposed";
 
-/* Proposed failure and warning language: the same mark and the same three weights as
-   success, in two more tones.
-   - Error (red, drawn cross, a small shake): the act did not happen, or was refused.
-   - Warning (amber, drawn "!"): it happened with a catch, or something needs a look.
-   Error toasts stay until closed; warning toasts keep today's 4s. */
+/* Proposed failure and warning language: the same mark and weights as success.
+   - Error (red cross): the act did not happen, or was refused.
+   - Warning (amber !): it happened with a catch, or something needs a look. Used only
+     where today is already a warning.
+   - Neutral (grey ring, the act's own icon): a gate, a question, a dead end. Not news.
+   Error toasts stay until closed; warning and neutral toasts keep today's 4s. */
+
+type Icon = React.ComponentType<{ className?: string; style?: React.CSSProperties; strokeWidth?: number }>;
 
 function ToastOnPage({ children }: { children: React.ReactNode }) {
   return (
@@ -30,11 +43,13 @@ function ToastOnPage({ children }: { children: React.ReactNode }) {
 /** Same white line as the success one, in a tone, with an optional title and action. */
 export function InlineNote({
   tone,
+  icon,
   title,
   children,
   action,
 }: {
-  tone: Exclude<Tone, "info">;
+  tone: Tone;
+  icon?: Icon;
   title?: string;
   children: React.ReactNode;
   action?: string;
@@ -42,7 +57,8 @@ export function InlineNote({
   return (
     <div className="sb-rise relative flex items-center gap-3 overflow-hidden rounded-lg bg-card py-3 pr-3 pl-4 ring-1 ring-hairline">
       <Rail tone={tone} />
-      <span className={title ? "mt-[1px] self-start" : "self-center"}><SuccessMark size={22} tone={tone} /></span>
+      {/* With a title: centred on the title and the first body line. */}
+      <span className={title ? "mt-[7px] self-start" : "self-center"}><SuccessMark size={26} tone={tone} icon={icon} /></span>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         {title ? <p className="text-body-compact font-semibold">{title}</p> : null}
         <p className={"text-body-compact " + (title ? "text-muted-foreground" : "font-semibold")}>{children}</p>
@@ -61,7 +77,7 @@ export const ErrToastDescNext = () => (
   <ToastOnPage><ConfirmToast tone="error" title="The case file could not be prepared" description="Try again. Nothing was downloaded." /></ToastOnPage>
 );
 
-/** A blocked press points at what is missing, on the field itself (Submit points at missing). */
+/** The press points at what is missing, where it is missing (Submit points at missing). */
 export function BlockToastNext() {
   return (
     <Screen height={420} scrim={false}>
@@ -70,7 +86,7 @@ export function BlockToastNext() {
         <Field data-invalid>
           <FieldLabel className="text-body font-semibold">Order text</FieldLabel>
           <Textarea aria-invalid className="min-h-40 text-body ring-3 ring-destructive/20" />
-          <FieldError>Type the order before sending it for signing.</FieldError>
+          <ErrLine>Type the order before sending it for signing.</ErrLine>
         </Field>
         <div className="flex justify-end"><Button>Send for signing</Button></div>
       </div>
@@ -78,8 +94,9 @@ export function BlockToastNext() {
   );
 }
 
+/** A gate is not a warning: nothing is wrong yet, the step just is not open. */
 export const GateToastNext = () => (
-  <ToastOnPage><ConfirmToast tone="warning" title="The court fee opens once every signature and oath is in." /></ToastOnPage>
+  <ToastOnPage><ConfirmToast tone="neutral" icon={LockIcon} title="The court fee opens once every signature and oath is in." /></ToastOnPage>
 );
 
 /* ------------------------------------------------------ failure takeovers */
@@ -129,6 +146,7 @@ export function RedStripNext() {
   );
 }
 
+/** The person and their ID side by side, so the card uses its width; reason under both. */
 export function RejectedNext() {
   return (
     <Screen height={640}>
@@ -136,15 +154,19 @@ export function RejectedNext() {
         <Hero compact tone="error" title="Advocate registration rejected" />
         <Facts>
           <Summary tone="error" label="Account rejected">
-            <div className="flex flex-col items-start gap-1 py-3">
-              <Badge variant="secondary">Advocate</Badge>
-              <p className="text-title-s font-semibold">Meera Nair</p>
-              <p className="font-mono text-body-compact text-muted-foreground">KL-ADV-123456-2026</p>
+            <div className="grid grid-cols-[1fr_auto] items-center gap-6 py-4">
+              <div className="flex min-w-0 flex-col items-start gap-1">
+                <Badge variant="secondary">Advocate</Badge>
+                <p className="text-title-s font-semibold">Meera Nair</p>
+                <p className="font-mono text-body-compact text-muted-foreground">KL-ADV-123456-2026</p>
+              </div>
+              <div className="h-24 w-40 rounded-md border border-hairline bg-card" aria-label="ID card" />
+            </div>
+            <div className="border-t border-hairline py-3">
+              <p className="text-caption font-medium text-muted-foreground">Reason</p>
+              <p className="text-body-compact">The name entered does not match the Bar Council record. Please check and submit again.</p>
             </div>
           </Summary>
-          <div className="mt-3 rounded-lg bg-surface-sunken p-3 text-body-compact">
-            The name entered does not match the Bar Council record. Please check and submit again.
-          </div>
         </Facts>
         <Footer>
           <Button variant="outline">Close</Button>
@@ -157,13 +179,30 @@ export function RejectedNext() {
 
 /* --------------------------------------------- partly failed in a success */
 
+/** One line per outcome, each with its own mark, and a tally bar that shows the split at a
+    glance. The hero says only what fully happened (all three are signed). */
+function Tally({ ok, bad, okLine, badLine, label }: { ok: number; bad: number; okLine: string; badLine: string; label: string }) {
+  return (
+    <Summary label={label} aside={<span className="text-body-compact tabular-nums text-muted-foreground">{ok} of {ok + bad}</span>}>
+      <div className="flex gap-1 pt-3">
+        {Array.from({ length: ok }).map((_, i) => <span key={`o${i}`} className="sb-fill h-2 flex-1 rounded-full bg-success" style={{ animationDelay: `${300 + i * 80}ms` }} />)}
+        {Array.from({ length: bad }).map((_, i) => <span key={`b${i}`} className="sb-fill h-2 flex-1 rounded-full bg-warning" style={{ animationDelay: `${300 + (ok + i) * 80}ms` }} />)}
+      </div>
+      <ul className="flex flex-col py-1">
+        <li className="flex items-center gap-2.5 border-b border-hairline py-2.5"><SuccessMark size={20} /> <span className="text-body-compact">{okLine}</span></li>
+        <li className="flex items-center gap-2.5 py-2.5"><SuccessMark size={20} tone="warning" /> <span className="text-body-compact font-semibold">{badLine}</span></li>
+      </ul>
+    </Summary>
+  );
+}
+
 export function PartialCalloutNext() {
   return (
-    <Screen height={480}>
-      <DialogBox width={400} close={false}>
-        <Hero compact title="3 processes signed" body="2 are now in Sent in Service." />
+    <Screen height={540}>
+      <DialogBox width={448} close={false}>
+        <Hero compact title="3 processes signed" />
         <Facts>
-          <InlineNote tone="warning">1 could not be sent and is in Errored in Issuance.</InlineNote>
+          <Tally label="Sending" ok={2} bad={1} okLine="2 are now in Sent in Service." badLine="1 could not be sent and is in Errored in Issuance." />
         </Facts>
         <Footer>
           <Button variant="outline">Download 3 documents</Button>
@@ -174,18 +213,18 @@ export function PartialCalloutNext() {
   );
 }
 
+/** The viewer stays open: the footer states both acts, each with its own mark. */
 export function PartialFooterNext() {
   return (
-    <Screen height={480}>
+    <Screen height={500}>
       <DialogBox width={760}>
         <div className="flex shrink-0 border-b border-hairline p-6 pr-16"><h2 className="text-title-s font-semibold">Summons · ST/0412/2026</h2></div>
-        <div className="flex h-64 items-center justify-center bg-card"><div className="h-56 w-44 rounded border border-hairline bg-surface-sunken" /></div>
-        <div className="sb-band flex items-center gap-3 border-t px-6 py-4" style={{ borderColor: "var(--warning-7)", background: "var(--warning-muted)" }}>
-          <SuccessMark size={36} tone="warning" />
-          <p className="sb-rise mr-auto flex flex-col" style={{ animationDelay: "180ms" }}>
-            <span className="text-body font-semibold text-foreground">Process signed.</span>
-            <span className="text-body-compact text-muted-foreground">1 could not be sent and is in Errored in Issuance.</span>
-          </p>
+        <div className="flex h-60 items-center justify-center bg-card"><div className="h-52 w-40 rounded border border-hairline bg-surface-sunken" /></div>
+        <div className="flex items-center gap-4 border-t border-hairline bg-card px-6 py-4">
+          <ul className="mr-auto flex flex-col gap-1.5">
+            <li className="flex items-center gap-2.5"><SuccessMark size={20} /><span className="text-body-compact font-semibold">Process signed.</span></li>
+            <li className="sb-rise flex items-center gap-2.5" style={{ animationDelay: "300ms" }}><SuccessMark size={20} tone="warning" /><span className="text-body-compact font-semibold">1 could not be sent and is in Errored in Issuance.</span></li>
+          </ul>
           <Button variant="outline">Download</Button>
           <Button>Done</Button>
         </div>
@@ -232,26 +271,43 @@ export const FloatingWarningNext = () => (
 
 /* --------------------------------------------------------- confirm dialogs */
 
-/** Same words; a small mark names the risk, and the confirm button follows one rule:
-    removes or destroys → solid red; irreversible but not destructive → primary. */
+/** A confirm is a question, not an outcome, so it never wears the cross or "!".
+    The mark shows the act; the danger lives in the button, in today's soft red.
+    "Cannot be undone / reversed" gets its own line with a lock, so it is read, not skimmed. */
 function ConfirmBox({
-  tone,
+  danger,
+  icon,
   title,
   body,
+  note,
   children,
 }: {
-  tone: "error" | "warning";
+  danger?: boolean;
+  icon: Icon;
   title: string;
   body: string;
+  note?: string;
   children: React.ReactNode;
 }) {
+  const Mark = icon;
   return (
-    <DialogBox width={400} close={false}>
+    <DialogBox width={420} close={false}>
       <div className="flex items-start gap-4 p-6">
-        <SuccessMark size={40} tone={tone} />
+        {danger ? (
+          <span className="sb-pop flex size-10 shrink-0 items-center justify-center rounded-full bg-destructive-muted text-destructive-ink">
+            <Mark className="size-5" />
+          </span>
+        ) : (
+          <SuccessMark size={40} tone="neutral" icon={icon} />
+        )}
         <div className="flex min-w-0 flex-col gap-1.5 pt-1">
           <h2 className="text-body font-semibold text-balance">{title}</h2>
           <p className="text-body-compact text-pretty text-muted-foreground">{body}</p>
+          {note ? (
+            <p className="mt-1 flex items-center gap-1.5 text-body-compact font-medium text-foreground">
+              <LockIcon className="size-3.5 shrink-0" />{note}
+            </p>
+          ) : null}
         </div>
       </div>
       <Footer>{children}</Footer>
@@ -261,25 +317,25 @@ function ConfirmBox({
 
 export const ConfirmRemoveNext = () => (
   <Screen height={420}>
-    <ConfirmBox tone="error" title="Remove Rahul from your office?" body="They will lose access to 14 cases immediately and leave your office. You can add them again at any time.">
+    <ConfirmBox danger icon={UserXIcon} title="Remove Rahul from your office?" body="They will lose access to 14 cases immediately and leave your office. You can add them again at any time.">
       <Button variant="outline">Cancel</Button>
-      <Button variant="destructive-solid">Remove from office</Button>
+      <Button variant="destructive">Remove from office</Button>
     </ConfirmBox>
   </Screen>
 );
 
 export const ConfirmDiscardNext = () => (
   <Screen height={420}>
-    <ConfirmBox tone="error" title="Discard this draft?" body="Its text and order data are removed, and it leaves Pending orders. Nothing is issued or recorded on the case. This cannot be undone.">
+    <ConfirmBox danger icon={Trash2Icon} title="Discard this draft?" body="Its text and order data are removed, and it leaves Pending orders. Nothing is issued or recorded on the case." note="This cannot be undone.">
       <Button variant="outline">Keep the draft</Button>
-      <Button variant="destructive-solid">Discard draft</Button>
+      <Button variant="destructive">Discard draft</Button>
     </ConfirmBox>
   </Screen>
 );
 
 export const ConfirmSignNext = () => (
   <Screen height={420}>
-    <ConfirmBox tone="warning" title="Sign 8 orders?" body="Your signature issues each order. Its order data is triggered once it is complete — at once, for any the steno has already completed. This cannot be reversed.">
+    <ConfirmBox icon={PenLineIcon} title="Sign 8 orders?" body="Your signature issues each order. Its order data is triggered once it is complete — at once, for any the steno has already completed." note="This cannot be reversed.">
       <Button variant="outline">Back</Button>
       <Button>Sign</Button>
     </ConfirmBox>
@@ -288,12 +344,14 @@ export const ConfirmSignNext = () => (
 
 /* ------------------------------------------------------------- field errors */
 
-const ErrLine = ({ children }: { children: React.ReactNode }) => (
-  <FieldError className="flex items-start gap-1.5 text-destructive-ink">
-    <span className="mt-[3px]"><SuccessMark size={14} tone="error" /></span>
-    <span>{children}</span>
-  </FieldError>
-);
+function ErrLine({ children }: { children: React.ReactNode }) {
+  return (
+    <FieldError className="flex items-center gap-1.5 text-destructive-ink">
+      <SuccessMark size={16} tone="error" />
+      <span>{children}</span>
+    </FieldError>
+  );
+}
 
 export function FieldErrorsNext() {
   return (
@@ -319,17 +377,23 @@ export function FieldErrorsNext() {
 
 /* --------------------------------------------------------- dead ends, pages */
 
+function DeadEnd({ icon, title, body, action }: { icon: Icon; title: string; body: string; action?: string }) {
+  return (
+    <div className="flex flex-col items-center gap-3 px-6 text-center">
+      <SuccessMark size={56} tone="neutral" icon={icon} />
+      <p className="sb-rise text-title-s font-semibold" style={{ animationDelay: "150ms" }}>{title}</p>
+      <p className="sb-rise max-w-md text-body text-muted-foreground" style={{ animationDelay: "210ms" }}>{body}</p>
+      {action ? <Button variant="outline" className="mt-3">{action}</Button> : null}
+    </div>
+  );
+}
+
 export function DeadEndNext() {
   return (
     <Screen height={480} scrim={false}>
       <div className="absolute inset-0 bg-background" />
       <div className="relative w-full max-w-xl rounded-xl border border-hairline bg-card py-12 shadow-raised">
-        <div className="flex flex-col items-center gap-3 px-6 text-center">
-          <SuccessMark size={56} tone="warning" />
-          <p className="sb-rise text-title-s font-semibold" style={{ animationDelay: "180ms" }}>This task is not here</p>
-          <p className="sb-rise text-body text-muted-foreground" style={{ animationDelay: "240ms" }}>It may have been reset with the sandbox, or the link is wrong.</p>
-          <Button variant="outline" className="mt-3">Back to tasks</Button>
-        </div>
+        <DeadEnd icon={FileTextIcon} title="This task is not here" body="It may have been reset with the sandbox, or the link is wrong." action="Back to tasks" />
       </div>
     </Screen>
   );
@@ -341,9 +405,9 @@ export function LinkDeadNext() {
       <div className="absolute inset-0 flex flex-col bg-background">
         <div className="flex h-14 items-center border-b border-hairline px-6"><div className="h-6 w-28 rounded bg-surface-sunken" /></div>
         <div className="mx-auto flex w-full max-w-2xl flex-col items-start gap-4 px-4 py-12">
-          <SuccessMark size={56} tone="warning" />
-          <h1 className="sb-rise text-title font-semibold text-balance" style={{ animationDelay: "180ms" }}>This link is no longer active</h1>
-          <p className="sb-rise text-body text-muted-foreground" style={{ animationDelay: "240ms" }}>
+          <SuccessMark size={56} tone="neutral" icon={LinkIcon} />
+          <h1 className="sb-rise text-title font-semibold text-balance" style={{ animationDelay: "150ms" }}>This link is no longer active</h1>
+          <p className="sb-rise text-body text-muted-foreground" style={{ animationDelay: "210ms" }}>
             The complaint may have been changed and sent again, or the request recalled. Ask the advocate filing it to send you a new link.
           </p>
         </div>
@@ -357,13 +421,12 @@ export function LinkDeadNext() {
 export function QuietFailuresNext() {
   return (
     <div className="flex w-[820px] shrink-0 flex-col gap-6 rounded-lg border border-hairline bg-background p-8">
-      <InlineNote tone="warning" title="We could not load your case">Your case number and hearing date are on your summons.</InlineNote>
+      <InlineNote tone="info" icon={FileQuestionIcon} title="We could not load your case">Your case number and hearing date are on your summons.</InlineNote>
       <div className="flex flex-col items-center gap-3 rounded-lg border border-hairline bg-card p-6 text-center">
-        <SuccessMark size={40} tone="error" />
+        <SuccessMark size={44} tone="neutral" icon={FileXIcon} />
         <p className="text-body-compact text-muted-foreground">This document could not be shown. Try downloading it instead.</p>
       </div>
-      <div className="flex flex-col items-center gap-3 text-center">
-        <SuccessMark size={56} tone="warning" />
+      <div className="flex flex-col items-center gap-2 text-center">
         <h1 className="text-title font-semibold text-balance">Your registration was not approved</h1>
         <p className="text-body text-muted-foreground">Correct your details and resubmit for approval.</p>
       </div>
@@ -373,8 +436,7 @@ export function QuietFailuresNext() {
 
 /* ------------------------------------------------------------ warning marks */
 
-/** One small mark per tone, the same shape as the success dot. */
-const Dot = ({ tone }: { tone: "error" | "warning" }) => <SuccessMark size={14} tone={tone} />;
+const Dot = ({ tone }: { tone: "error" | "warning" }) => <SuccessMark size={16} tone={tone} />;
 
 export function WarnMarksNext() {
   return (
@@ -388,6 +450,117 @@ export function WarnMarksNext() {
       <span className="flex items-center gap-1.5 text-caption font-medium text-warning-ink"><Dot tone="warning" />Incomplete</span>
       <span className="flex items-center gap-1.5 text-body-compact text-destructive-ink"><Dot tone="error" />Couldn&apos;t save. Retrying</span>
     </div>
+  );
+}
+
+/* =================================================== states missing today */
+/* Copy here is new and marked as draft on the board: there is nothing to keep. */
+
+export function PayDeclinedNext() {
+  return (
+    <Screen height={520}>
+      <DialogBox width={512}>
+        <Hero compact tone="error" title="Payment did not go through" body="Nothing was paid. You can try again now, or pay later from Take action." />
+        <Facts>
+          <Summary>
+            <FactRows rows={[["Fee", "Court fee"], ["Amount", "₹1,250"], ["Reference", "PAY-55107"]]} />
+          </Summary>
+        </Facts>
+        <Footer>
+          <Button variant="outline">Pay later</Button>
+          <Button>Try again</Button>
+        </Footer>
+      </DialogBox>
+    </Screen>
+  );
+}
+
+function OtpSlots({ value, invalid }: { value: string; invalid?: boolean }) {
+  return (
+    <div className={"flex w-full max-w-sm overflow-hidden rounded-lg border " + (invalid ? "border-destructive ring-3 ring-destructive/20" : "border-input")}>
+      {value.split("").map((d, i) => (
+        <span key={i} className="flex h-12 flex-1 items-center justify-center border-r border-input text-body font-semibold last:border-r-0">{d}</span>
+      ))}
+    </div>
+  );
+}
+
+export function OtpWrongNext() {
+  return (
+    <div className="flex h-[420px] w-[820px] shrink-0 items-center justify-center rounded-lg border border-hairline bg-background p-8">
+      <div className="flex w-full max-w-md flex-col gap-3 rounded-lg bg-surface-sunken p-4">
+        <Field data-invalid>
+          <FieldDescription>We sent a code to +91 98••• ••210.</FieldDescription>
+          <OtpSlots value="482913" invalid />
+          <ErrLine>That code is not right. Check the SMS and try again.</ErrLine>
+        </Field>
+        <p className="text-body-compact text-muted-foreground">Resend code in 0:24</p>
+      </div>
+    </div>
+  );
+}
+
+export function OtpExpiredNext() {
+  return (
+    <div className="flex h-[420px] w-[820px] shrink-0 items-center justify-center rounded-lg border border-hairline bg-background p-8">
+      <div className="flex w-full max-w-md flex-col gap-3 rounded-lg bg-surface-sunken p-4">
+        <Field data-invalid>
+          <FieldDescription>We sent a code to +91 98••• ••210.</FieldDescription>
+          <OtpSlots value="482913" invalid />
+          <ErrLine>This code has expired.</ErrLine>
+        </Field>
+        <Button variant="link" className="h-auto self-start p-0">Send a new code</Button>
+      </div>
+    </div>
+  );
+}
+
+export function BatchPartialNext() {
+  return (
+    <Screen height={540}>
+      <DialogBox width={448} close={false}>
+        <Hero compact title="3 documents signed" />
+        <Facts>
+          <Tally label="Signing" ok={3} bad={1} okLine="3 are signed and ready to pay." badLine="1 was not signed. Open it from this tab to try again." />
+        </Facts>
+        <Footer><Button>Done</Button></Footer>
+      </DialogBox>
+    </Screen>
+  );
+}
+
+export function DscMissingNext() {
+  return (
+    <div className="flex h-[420px] w-[820px] shrink-0 items-center rounded-lg border border-hairline bg-background p-8">
+      <div className="w-full">
+        <InlineNote tone="error" title="No certificate found on this computer" action="Try again">
+          Plug in your DSC token, then try again. Or sign with Aadhaar OTP instead.
+        </InlineNote>
+      </div>
+    </div>
+  );
+}
+
+export function NotFoundNext() {
+  return (
+    <Screen height={480} scrim={false}>
+      <div className="absolute inset-0 bg-background" />
+      <DeadEnd icon={FileQuestionIcon} title="This page is not here" body="The link may be wrong, or the page has moved." action="Go to home" />
+    </Screen>
+  );
+}
+
+export function PageErrorNext() {
+  return (
+    <Screen height={480} scrim={false}>
+      <div className="absolute inset-0 bg-background" />
+      <div className="flex flex-col items-center gap-3 px-6 text-center">
+        <SuccessMark size={56} tone="error" />
+        <p className="sb-rise text-title-s font-semibold" style={{ animationDelay: "150ms" }}>This page could not load</p>
+        <p className="sb-rise max-w-md text-body text-muted-foreground" style={{ animationDelay: "210ms" }}>Nothing was changed. Reload to try again.</p>
+        <Button className="mt-3">Reload</Button>
+      </div>
+    </Screen>
   );
 }
 

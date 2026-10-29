@@ -149,7 +149,7 @@ export function RedStripToday() {
 
 export function RejectedStripToday() {
   return (
-    <Screen height={600}>
+    <Screen height={700}>
       <DialogBox width={672}>
         <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-hairline p-6 pr-16">
           <h2 className="text-title-s font-semibold">Advocate registration rejected</h2>
@@ -165,6 +165,9 @@ export function RejectedStripToday() {
               <Badge variant="secondary">Advocate</Badge>
               <p className="text-title-s font-semibold">Meera Nair</p>
               <p className="font-mono text-body-compact text-muted-foreground">KL-ADV-123456-2026</p>
+            </div>
+            <div className="border-t border-hairline bg-surface-sunken p-3">
+              <div className="mx-auto h-28 w-44 rounded-md border border-hairline bg-card" />
             </div>
             <div className="border-t border-hairline px-4 py-4">
               <div className="min-h-24 rounded-lg bg-surface-sunken p-3 text-body-compact">
@@ -442,3 +445,16 @@ export const FactRows = ({ rows }: { rows: [string, string][] }) => (
     ))}
   </DescriptionList>
 );
+
+/* ------------------------------------------------- states missing today */
+
+/** What happens today where a failure state should be. */
+export function MissingToday({ what, children }: { what: string; children: React.ReactNode }) {
+  return (
+    <div className="flex h-[420px] w-[820px] shrink-0 flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-border bg-background p-10 text-center">
+      <span className="rounded-full bg-surface-sunken px-3 py-1 text-body-compact font-semibold text-muted-foreground ring-1 ring-hairline">Does not exist today</span>
+      <p className="text-title-s font-semibold">{what}</p>
+      <p className="max-w-md text-body text-muted-foreground">{children}</p>
+    </div>
+  );
+}
