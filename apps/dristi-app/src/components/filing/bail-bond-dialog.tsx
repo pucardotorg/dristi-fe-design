@@ -1118,9 +1118,9 @@ export function BailBondDialog({
               </DescriptionList>
 
               {method === "esign" ? (
-                /* A secondary act under the facts: centred on a phone, at the right edge
-                   from tablet up, where the eye ends the record (owner, Oct 29). */
-                <div className="flex flex-col items-center gap-1.5 text-center sm:items-end sm:text-right">
+                /* A secondary act under the facts: centred on a phone, left-aligned with
+                   the facts from tablet up (owner, Oct 29). */
+                <div className="flex flex-col items-center gap-1.5 text-center sm:items-start sm:text-left">
                   {/* The demo stand-in for the SMS/email the parties receive. */}
                   <Button asChild type="button" variant="outline" data-icon="inline-start">
                     <a href={BOND_SIGN_PATH} target="_blank" rel="noreferrer">

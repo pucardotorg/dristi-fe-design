@@ -237,8 +237,10 @@ function BatchBody({
         ? through.length
           ? `${through.length} ${through.length === 1 ? "document" : "documents"} signed`
           : "Nothing was signed"
-        : through.length
-          ? `${through.length} ${through.length === 1 ? "fee" : "fees"} paid`
+        : /* A payment's outcome leads with the amount, as every payment in the product
+             does ("₹452 paid"); the count labels the list under it. */
+          through.length
+          ? `${rupees(through.reduce((sum, o) => sum + (o.task.amountPaise ?? 0), 0))} paid`
           : "Nothing was paid",
   }[flow.stage];
 
@@ -366,7 +368,7 @@ function BatchBody({
                     ? "Signed with your DSC"
                     : "Signed with Aadhaar OTP"
                   : through.length
-                    ? `${rupees(through.reduce((sum, o) => sum + (o.task.amountPaise ?? 0), 0))} paid`
+                    ? `${through.length} ${through.length === 1 ? "fee" : "fees"} paid`
                     : "Nothing was paid"
               }
               ok={through.length > 0}

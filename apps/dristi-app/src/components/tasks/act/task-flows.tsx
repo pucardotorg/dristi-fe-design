@@ -211,22 +211,21 @@ export function TaskPaymentDialog({
         onOpenChange(next);
       }}
     >
-      <FlowDialogContent className="max-h-[85svh] w-full overflow-y-auto sm:max-w-lg">
+      {/* Header and footer hold still; only the middle scrolls, so the act is always in reach. */}
+      <FlowDialogContent className="flex max-h-[85svh] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
         {stage === "paid" ? (
-          /* The payment's outcome takes the window over (skill `feedback-states`); the
-             negative inset carries the band to the dialog's edges. */
+          /* The payment's outcome takes the window over (skill `feedback-states`). */
           <OutcomeHeader
             compact
             titleFrom="dialog"
             focusTitle
-            className="-mx-6 -mt-6"
             title={title}
             body={<TaskCaseLine kase={kase} />}
           >
             {amount ? <OutcomeAmount label="Amount paid" value={amount} /> : null}
           </OutcomeHeader>
         ) : (
-        <DialogHeader className="pr-8 text-left">
+        <DialogHeader className="shrink-0 border-b border-hairline px-6 pt-6 pr-14 pb-4 text-left">
           <DialogTitle className="text-title-s font-semibold text-balance">
             {title}
           </DialogTitle>
@@ -236,6 +235,7 @@ export function TaskPaymentDialog({
         </DialogHeader>
         )}
 
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-6">
         {stage === "pay" ? (
           <div className="flex flex-col gap-4">
             {failed ? (
@@ -312,8 +312,10 @@ export function TaskPaymentDialog({
           />
         ) : null}
 
+        </div>
+
         {stage === "pay" ? (
-          <DialogFooter className="gap-2 sm:justify-between">
+          <DialogFooter className="mx-0 mb-0 shrink-0 gap-2 border-hairline bg-surface-sunken px-6 py-4 sm:justify-between">
             <Button
               type="button"
               variant="outline"
@@ -368,7 +370,7 @@ export function TaskPaymentDialog({
         ) : null}
 
         {stage === "paid" ? (
-          <DialogFooter>
+          <DialogFooter className="mx-0 mb-0 shrink-0 border-hairline bg-surface-sunken px-6 py-4">
             <Button
               type="button"
               onClick={() => finish(`Paid ${amount ?? ""}`.trim())}

@@ -59,7 +59,7 @@ Ask, in order:
    - A record reopened on its outcome: `still` (on `SettledCard` too).
    - A dead end or outcome page with nothing else on it: centre it on the page, both ways.
    - A secondary act under an outcome's facts (open a link, download): centred on a phone,
-     at the right edge from tablet up.
+     left-aligned with the facts from tablet up.
    - The lock line (`note`) follows the text above it: centred on a phone, left from tablet.
    - Every outcome stage closes on the warm footer band: `border-t border-hairline
      bg-surface-sunken`, buttons on it, never loose in the white body.

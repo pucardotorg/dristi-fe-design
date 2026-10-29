@@ -145,12 +145,15 @@ export function TaskActModal({
   // height of the screen.
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <FlowDialogContent className={`max-h-[85svh] w-full overflow-y-auto ${WIDTH[mode]}`}>
-        <DialogHeader className="pr-8 text-left">
+      {/* The header holds still; only the record and its act cards scroll. */}
+      <FlowDialogContent className={`flex max-h-[85svh] w-full flex-col gap-0 overflow-hidden p-0 ${WIDTH[mode]}`}>
+        <DialogHeader className="shrink-0 border-b border-hairline px-6 pt-6 pr-14 pb-4 text-left">
           <DialogTitle className="text-title-s font-semibold text-balance">{task.title}</DialogTitle>
           <DialogDescription className="text-caption text-muted-foreground">{caseLine}</DialogDescription>
         </DialogHeader>
-        <Body ctx={ctx} mode={mode} />
+        <div className="min-h-0 flex-1 overflow-y-auto p-6">
+          <Body ctx={ctx} mode={mode} />
+        </div>
       </FlowDialogContent>
     </Dialog>
   );
