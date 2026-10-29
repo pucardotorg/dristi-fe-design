@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import {
   GHOST_ATTRIBUTE,
+  matchSpan,
   pickSuggestion,
   readSuggestTrigger,
   readProsePrefix,
@@ -55,6 +56,28 @@ describe("stripGhostHtml", () => {
   });
 });
 
+describe("matchSpan", () => {
+  it("finds the query where the shortcuts are ranked by it", () => {
+    assert.deepEqual(matchSpan("Summons to accused", "sum"), { start: 0, end: 3 });
+    /* The start of a word beats an earlier match inside one. */
+    assert.deepEqual(matchSpan("Consumer summons", "sum"), { start: 9, end: 12 });
+    assert.deepEqual(matchSpan("Reissue", "iss"), { start: 2, end: 5 });
+  });
+
+  it("ignores case and the query's own spaces", () => {
+    assert.deepEqual(matchSpan("Bail granted", " BAIL "), { start: 0, end: 4 });
+  });
+
+  it("finds nothing for an empty query or a name without it", () => {
+    assert.equal(matchSpan("Bail granted", ""), null);
+    assert.equal(matchSpan("Bail granted", "warrant"), null);
+  });
+
+  it("reads punctuation in the query as itself", () => {
+    assert.deepEqual(matchSpan("Exhibit (P1) marked", "(p1"), { start: 8, end: 11 });
+  });
+});
+
 /**
  * When a completion is being asked for. The negative cases are the point: this court's
  * text carries slashes in case numbers, application numbers, dates and the court's own
@@ -66,13 +89,11 @@ describe("readSuggestTrigger", () => {
     assert.equal(readSuggestTrigger("/bail"), "bail");
   });
 
-  it("asks nothing until a word has been typed", () => {
-    /* The slash arms the search; the word is what makes it one (owner, 2026-09-16).
-       Offering on the bare trigger put a whole standing direction on screen before the
-       reader had said anything about which one they meant. */
-    assert.equal(readSuggestTrigger("/"), null);
-    assert.equal(readSuggestTrigger("/s"), null);
-    assert.equal(readSuggestTrigger("/su"), "su");
+  it("opens on the bare slash, so the menu can list every shortcut", () => {
+    /* Owner, 2026-10-29: the slash opens a list of all of them, as in Notion. */
+    assert.equal(readSuggestTrigger("/"), "");
+    assert.equal(readSuggestTrigger("Heard. /"), "");
+    assert.equal(readSuggestTrigger("/s"), "s");
   });
 
   it("takes the last slash, so a second search after a first one still reads", () => {

@@ -34,7 +34,12 @@ import {
   type CourtHearingPurposeId,
 } from "./hearings";
 
-export type AttendanceMark = "present" | "absent";
+/**
+ * Present, absent, or skipped — `not-required`, Data flags' word for it. Skip is asked of
+ * each person, not of the whole roll (owner, 2026-10-29): a skipped person, like one left
+ * unmarked, is not printed on the order.
+ */
+export type AttendanceMark = "present" | "absent" | "not-required";
 
 /** One person who can be marked present or absent on this listing. */
 export type Appearance = {
@@ -48,6 +53,8 @@ export type Appearance = {
   side: CounselSide;
   /** The party themselves, counsel appearing for them, or their PoA holder. */
   kind: "party" | "counsel" | "poa";
+  /** The litigant the row belongs to: the party, or whom the advocate or PoA holder is for. */
+  party: string;
   /**
    * Counsel only: the advocates on record for the side. The roll asks once whether the
    * side is represented — any one of them appearing is enough — so they are named here
@@ -57,14 +64,15 @@ export type Appearance = {
 };
 
 /**
- * Who appears, in the order a day-order names them (`ATT-01`): **every complainant**, each
- * followed by **one advocate line** for them, then the complainant side's **PoA holders**;
- * then the same for every accused. One advocate line per party, not per advocate: with
- * several on record, one of them appearing is enough. A party appearing in person — no
- * advocate on record for them — has no advocate line.
+ * Who appears (`ATT-01`), side by side: **every complainant**, each followed by **one
+ * advocate line** named for them and then their **PoA holders**; then the same for every
+ * accused. One advocate line per litigant, not per advocate (design sync, 2026-10-28):
+ * with several on record, one of them appearing is enough, and naming the litigant lets
+ * the roll say accused 1 was represented and accused 2 was not. A party appearing in
+ * person — no advocate on record for them — has no advocate line.
  *
- * The first party on each side keeps the ids the roll has always used (`complainant`,
- * `complainant-counsel`), so marks saved on an existing draft still apply.
+ * Ids are unchanged (`complainant`, `complainant-counsel`, `complainant-poa-1`), so marks
+ * saved on an existing draft still apply.
  */
 export function appearancesFor(hearing: CourtHearing): Appearance[] {
   return (["complainant", "accused"] as const).flatMap((side): Appearance[] => {
@@ -76,22 +84,6 @@ export function appearancesFor(hearing: CourtHearing): Appearance[] {
         .map((party) => party.name),
     ];
     const counsel = counselFor(hearing, side);
-    const rows = parties.flatMap((name, index): Appearance[] => {
-      const id = index === 0 ? side : `${side}-${index + 1}`;
-      const party: Appearance = { id, name, role, side, kind: "party" };
-      const advocates = counsel
-        .filter((entry) => !entry.party || entry.party === name)
-        .map((entry) => entry.name);
-      if (advocates.length === 0) return [party];
-      /* With one party on the side, the office says the side; with several, it names
-         whose advocate this is. */
-      const office =
-        parties.length === 1 ? `Advocate for the ${side}` : `Advocate for ${name}`;
-      return [
-        party,
-        { id: `${id}-counsel`, name: office, role: office, side, kind: "counsel", advocates },
-      ];
-    });
     const poa = (hearing.poaHolders ?? [])
       .filter((holder) => holder.side === side)
       .map(
@@ -101,9 +93,37 @@ export function appearancesFor(hearing: CourtHearing): Appearance[] {
           role: `PoA holder for ${holder.for}`,
           side,
           kind: "poa",
+          party: holder.for,
         }),
       );
-    return [...rows, ...poa];
+    const rows = parties.flatMap((name, index): Appearance[] => {
+      const id = index === 0 ? side : `${side}-${index + 1}`;
+      const party: Appearance = { id, name, role, side, kind: "party", party: name };
+      const advocates = counsel
+        .filter((entry) => !entry.party || entry.party === name)
+        .map((entry) => entry.name);
+      const office = `Advocate for ${name}`;
+      return [
+        party,
+        ...(advocates.length > 0
+          ? [
+              {
+                id: `${id}-counsel`,
+                name: office,
+                role: office,
+                side,
+                kind: "counsel" as const,
+                party: name,
+                advocates,
+              },
+            ]
+          : []),
+        ...poa.filter((holder) => holder.party === name),
+      ];
+    });
+    /* A PoA holder for someone not on the side's list still appears, at its end. */
+    const unplaced = poa.filter((holder) => !parties.includes(holder.party));
+    return [...rows, ...unplaced];
   });
 }
 
@@ -374,9 +394,7 @@ export function hearingOrderDocument(
     caseNumber: hearing.caseNumber,
     matter: causeTitle(hearing),
     day,
-    opening: attendanceRecital(appearancesFor(hearing), draft.marks).map(
-      recitalText,
-    ),
+    opening: attendanceRecital(appearancesFor(hearing), draft.marks).map(recitalText),
     blocks: draft.blocks,
     closing: nextListingRecital(draft).map(recitalText),
   });

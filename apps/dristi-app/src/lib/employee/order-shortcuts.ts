@@ -211,6 +211,25 @@ export function shortcutHtml(entry: OrderShortcut): string {
     .join("<br>");
 }
 
+/**
+ * The order with a shortcut put in from the Shortcuts window's Insert. The caret is in
+ * the window, not on the page, so it goes in at the end, as its own paragraph — on an
+ * empty page, as the first.
+ */
+export function appendShortcut(
+  body: { html: string; text: string },
+  entry: OrderShortcut,
+): { html: string; text: string } {
+  const insertion = shortcutInsertion(entry);
+  const html = insertion.kind === "block" ? insertion.html : `<p>${shortcutHtml(entry)}</p>`;
+  const blank =
+    !/<(table|li|hr|img)[\s>]/i.test(body.html) &&
+    !body.html.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim();
+  return blank
+    ? { html, text: entry.text }
+    : { html: `${body.html}${html}`, text: `${body.text}\n${entry.text}` };
+}
+
 export function removeOrderShortcut(id: string): void {
   write(readOrderShortcuts().filter((entry) => entry.id !== id));
 }
@@ -229,14 +248,14 @@ export function shortcutNameTaken(
 
 /**
  * The shortcuts a `/` query names, best first: a name that starts with it, then one with
- * a word that starts with it, then one that merely contains it.
+ * a word that starts with it, then one that merely contains it. The bare slash names them
+ * all, in their own order — every name starts with nothing.
  */
 export function matchOrderShortcuts(
   list: readonly OrderShortcut[],
   query: string,
 ): OrderShortcut[] {
   const wanted = query.trim().toLowerCase();
-  if (!wanted) return [];
   const rank = (name: string) => {
     const lower = name.toLowerCase();
     if (lower.startsWith(wanted)) return 0;
