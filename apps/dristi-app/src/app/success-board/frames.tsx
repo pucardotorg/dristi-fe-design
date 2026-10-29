@@ -134,3 +134,24 @@ export function ToastScreen({ children, height = 420 }: { children: React.ReactN
     </div>
   );
 }
+
+/** A stand-in for the uploaded ID card photo the approver sees: photo, name, number lines. */
+export function IdCard({ className = "h-28 w-44" }: { className?: string }) {
+  return (
+    <div aria-label="ID card photo" className={"flex shrink-0 flex-col gap-2 rounded-md border border-hairline bg-card p-2.5 shadow-raised " + className}>
+      <div className="flex items-center gap-1.5">
+        <span className="h-2 w-2 rounded-full bg-brand-muted" />
+        <span className="h-1.5 w-16 rounded bg-surface-sunken" />
+      </div>
+      <div className="flex flex-1 gap-2.5">
+        <span className="w-10 rounded bg-surface-sunken" />
+        <div className="flex flex-1 flex-col justify-center gap-1.5">
+          <span className="h-1.5 w-full rounded bg-surface-sunken" />
+          <span className="h-1.5 w-3/4 rounded bg-surface-sunken" />
+          <span className="h-1.5 w-1/2 rounded bg-surface-sunken" />
+        </div>
+      </div>
+      <span className="text-[9px] font-medium tracking-wide text-muted-foreground uppercase">ID card photo</span>
+    </div>
+  );
+}

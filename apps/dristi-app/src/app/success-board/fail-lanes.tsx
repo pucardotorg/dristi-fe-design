@@ -76,7 +76,7 @@ export const FAIL_LANES: Lane[] = [
     weight: 2,
     note: "The part that worked is solid green; the part that failed is a small amber line under it. The eye stops at the green.",
     specimens: [
-      { label: "Bulk: one refused", now: <Now.PartialCalloutToday />, next: <Next.PartialCalloutNext />, why: "Two acts, two answers. The hero says what fully happened (all signed). Under it, a Sending card with a 2-and-1 bar and one line per outcome, each with its own mark. 'Sending' is the only new word." },
+      { label: "Bulk: one refused", now: <Now.PartialCalloutToday />, next: <Next.PartialCalloutNext />, why: "Two acts, two answers. The hero says what fully happened (all signed). Under it, a card headed 'Sent · 2 of 3' with a 2-and-1 bar and one line per outcome, each with its own mark. 'Sent' is the only new word." },
       { label: "Single: refused", now: <Now.PartialFooterToday />, next: <Next.PartialFooterNext />, why: "The footer lists both acts, each with its own mark: signed (green), could not be sent (amber)." },
     ],
     flows: [

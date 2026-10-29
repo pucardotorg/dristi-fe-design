@@ -10,6 +10,7 @@ import * as Now from "./current";
 import { FAIL_LANES } from "./fail-lanes";
 import { f, type Lane, type Persona } from "./types";
 import * as Next from "./proposed";
+import { MarkPicker } from "./picker";
 import { BailProposed, BailToday, DEVICES, ToastProposed, ToastToday } from "./devices";
 
 /* Success board: every "it worked" moment on main @ 90bbc31, grouped by visual pattern,
@@ -375,6 +376,7 @@ export default function SuccessBoardPage() {
   const [replay, setReplay] = React.useState(0);
   // Which board: success, or failure and warning. Kept in the URL hash so a link opens it.
   const [section, setSection] = React.useState<Section>("success");
+  const [mark, setMark] = React.useState<Next.MarkStyle>(Next.DEFAULT_MARK);
   React.useEffect(() => {
     if (window.location.hash === "#failure") setSection("failure");
   }, []);
@@ -428,6 +430,7 @@ export default function SuccessBoardPage() {
       onScroll={(e) => { e.currentTarget.scrollTop = 0; e.currentTarget.scrollLeft = 0; }}
     >
       <style>{Next.PROPOSED_CSS}</style>
+      <Next.MarkStyleContext.Provider value={mark}>
       <div
         ref={viewport}
         className="absolute inset-0 cursor-grab touch-none active:cursor-grabbing"
@@ -514,12 +517,17 @@ export default function SuccessBoardPage() {
                 <DeviceLane all={replay} />
               </>
             ) : (
-              FAIL_LANES.map((lane) => <LaneRow key={lane.id} lane={lane} focus={focus} all={replay} />)
+              <>
+                <MarkPicker value={mark} onChange={setMark} />
+                {FAIL_LANES.map((lane) => <LaneRow key={lane.id} lane={lane} focus={focus} all={replay} />)}
+              </>
             )}
 
           </div>
         </div>
       </div>
+
+      </Next.MarkStyleContext.Provider>
 
       {/* --------------------------------------------------------- HUD */}
       <div className="pointer-events-none absolute inset-x-0 top-0 flex flex-wrap items-center justify-between gap-3 p-4">

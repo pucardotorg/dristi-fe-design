@@ -26,7 +26,7 @@ import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
-import { DialogBox, FauxPage, Screen, ToastScreen } from "./frames";
+import { DialogBox, FauxPage, IdCard, Screen, ToastScreen } from "./frames";
 
 /* Faithful redraws of today's failure, error and warning states (main @ 90bbc31).
    Copy is the product's own; markup and classes follow the source file on each card. */
@@ -167,7 +167,7 @@ export function RejectedStripToday() {
               <p className="font-mono text-body-compact text-muted-foreground">KL-ADV-123456-2026</p>
             </div>
             <div className="border-t border-hairline bg-surface-sunken p-3">
-              <div className="mx-auto h-28 w-44 rounded-md border border-hairline bg-card" />
+              <div className="flex justify-center"><IdCard /></div>
             </div>
             <div className="border-t border-hairline px-4 py-4">
               <div className="min-h-24 rounded-lg bg-surface-sunken p-3 text-body-compact">

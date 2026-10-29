@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
 import { FactRows } from "./fail-current";
-import { DialogBox, FauxPage, Screen } from "./frames";
+import { DialogBox, FauxPage, IdCard, Screen } from "./frames";
 import { ConfirmToast, Facts, Footer, Hero, Rail, SuccessMark, Summary, type Tone } from "./proposed";
 
 /* Proposed failure and warning language: the same mark and weights as success.
@@ -160,7 +160,7 @@ export function RejectedNext() {
                 <p className="text-title-s font-semibold">Meera Nair</p>
                 <p className="font-mono text-body-compact text-muted-foreground">KL-ADV-123456-2026</p>
               </div>
-              <div className="h-24 w-40 rounded-md border border-hairline bg-card" aria-label="ID card" />
+              <IdCard />
             </div>
             <div className="border-t border-hairline py-3">
               <p className="text-caption font-medium text-muted-foreground">Reason</p>
@@ -202,7 +202,7 @@ export function PartialCalloutNext() {
       <DialogBox width={448} close={false}>
         <Hero compact title="3 processes signed" />
         <Facts>
-          <Tally label="Sending" ok={2} bad={1} okLine="2 are now in Sent in Service." badLine="1 could not be sent and is in Errored in Issuance." />
+          <Tally label="Sent" ok={2} bad={1} okLine="2 are now in Sent in Service." badLine="1 could not be sent and is in Errored in Issuance." />
         </Facts>
         <Footer>
           <Button variant="outline">Download 3 documents</Button>
@@ -289,17 +289,10 @@ function ConfirmBox({
   note?: string;
   children: React.ReactNode;
 }) {
-  const Mark = icon;
   return (
     <DialogBox width={420} close={false}>
       <div className="flex items-start gap-4 p-6">
-        {danger ? (
-          <span className="sb-pop flex size-10 shrink-0 items-center justify-center rounded-full bg-destructive-muted text-destructive-ink">
-            <Mark className="size-5" />
-          </span>
-        ) : (
-          <SuccessMark size={40} tone="neutral" icon={icon} />
-        )}
+        <SuccessMark size={40} tone={danger ? "danger" : "neutral"} icon={icon} />
         <div className="flex min-w-0 flex-col gap-1.5 pt-1">
           <h2 className="text-body font-semibold text-balance">{title}</h2>
           <p className="text-body-compact text-pretty text-muted-foreground">{body}</p>
@@ -521,7 +514,7 @@ export function BatchPartialNext() {
       <DialogBox width={448} close={false}>
         <Hero compact title="3 documents signed" />
         <Facts>
-          <Tally label="Signing" ok={3} bad={1} okLine="3 are signed and ready to pay." badLine="1 was not signed. Open it from this tab to try again." />
+          <Tally label="Signed" ok={3} bad={1} okLine="3 are signed and ready to pay." badLine="1 was not signed. Open it from this tab to try again." />
         </Facts>
         <Footer><Button>Done</Button></Footer>
       </DialogBox>
