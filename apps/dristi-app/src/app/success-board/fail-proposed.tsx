@@ -367,14 +367,11 @@ export const ConfirmSignNext = () => (
 /* The words appear at once, so they can be read at once; the icon alone carries the
    motion, with the same scale-in as the small marks. */
 function ErrLine({ children, still }: { children: React.ReactNode; still?: boolean }) {
-  /* The room opens, the cross arrives first where it sits, then the words drop in
-     beside it. */
+  /* The room opens and the cross and the words drop in together, as one line. */
   const line = (
-    <FieldError className="flex items-center gap-1.5 pt-0.5 text-destructive-ink">
-      <span className={still ? "flex shrink-0" : "sb-icon flex shrink-0"} style={still ? undefined : { animationDelay: "60ms" }}>
-        <CircleXIcon className="size-3.5" strokeWidth={2.4} />
-      </span>
-      <span className={still ? undefined : "sb-errdrop"} style={still ? undefined : { animationDelay: "300ms" }}>{children}</span>
+    <FieldError className={(still ? "" : "sb-errdrop ") + "flex items-center gap-1.5 pt-0.5 text-destructive-ink"}>
+      <CircleXIcon className="size-3.5 shrink-0" strokeWidth={2.4} />
+      <span>{children}</span>
     </FieldError>
   );
   return still ? line : <div className="sb-reveal"><div>{line}</div></div>;
