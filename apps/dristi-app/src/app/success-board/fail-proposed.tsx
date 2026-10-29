@@ -354,10 +354,14 @@ export const ConfirmSignNext = () => (
 
 /** Field errors stay light: a 14px outline cross, no disc. Heroes and toasts carry the
     solid marks; a long form with several errors should not fill with red discs. */
+/* The words appear at once, so they can be read at once; the icon alone carries the
+   motion, with the same scale-in as the small marks. */
 function ErrLine({ children, still }: { children: React.ReactNode; still?: boolean }) {
   return (
-    <FieldError className={(still ? "" : "sb-errline ") + "flex items-center gap-1.5 text-destructive-ink"}>
-      <CircleXIcon className="size-3.5 shrink-0" strokeWidth={2.4} />
+    <FieldError className="flex items-center gap-1.5 text-destructive-ink">
+      <span className={still ? "flex shrink-0" : "sb-icon flex shrink-0"} style={still ? undefined : { animationDelay: "0ms" }}>
+        <CircleXIcon className="size-3.5" strokeWidth={2.4} />
+      </span>
       <span>{children}</span>
     </FieldError>
   );

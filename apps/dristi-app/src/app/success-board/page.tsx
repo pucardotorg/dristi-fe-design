@@ -505,7 +505,7 @@ export default function SuccessBoardPage() {
                       <Rule t="Neutral · grey ring" b="Gates, questions and dead ends are not bad news. A quiet disc with the act's own icon. Confirms use it too, with today's soft red button for removals." />
                     </div>
                     <p className="text-body text-muted-foreground">
-                      Missing input points at the field: it turns red, says what is missing and takes focus. Motion is budgeted by size: heroes play the full mark (about 600ms); toasts and inline lines only pop in (250ms); badges and field errors move only when they change. One animated mark per view; marks that belong together play in order. Shake only when the person’s input was refused. The last lane designs the failure states the product does not have yet.
+                      Missing input points at the field: it turns red, says what is missing and takes focus. Motion is budgeted by size: heroes play the full mark (about 600ms); toasts and inline lines pop in and their glyph scales in after (about 550ms); badges and field errors move only when they change. One animated mark per view; marks that belong together play in order. Shake only when the person’s input was refused. The last lane designs the failure states the product does not have yet.
                     </p>
                   </div>
                 </>

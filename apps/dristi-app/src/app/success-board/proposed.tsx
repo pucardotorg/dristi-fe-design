@@ -216,10 +216,13 @@ export function SuccessMark({
         }}
       >
         {iconTone && Icon ? (
-          <span className={still ? "flex" : "sb-icon flex"}>
+          <span className={still ? "flex" : "sb-icon flex"} style={delay ? { animationDelay: `${delay + 180}ms` } : undefined}>
             <Icon style={{ width: size * 0.46, height: size * 0.46 }} strokeWidth={size <= 28 ? 2.4 : 2} />
           </span>
         ) : (
+          /* Small marks: the glyph scales in after the disc, the same beat as the icon marks
+             (the lock on a gate toast). Heroes draw their glyph instead. */
+          <span className={quick ? "sb-icon flex" : "flex"} style={quick && delay ? { animationDelay: `${delay + 180}ms` } : undefined}>
           <svg viewBox="0 0 24 24" width={size * glyph} height={size * glyph} fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             {tone === "success" ? (
               <path className={full ? "sb-draw" : undefined} d="M5 12.5l4.5 4.5L19 7.5" />
@@ -243,6 +246,7 @@ export function SuccessMark({
               </g>
             )}
           </svg>
+          </span>
         )}
       </span>
     </span>

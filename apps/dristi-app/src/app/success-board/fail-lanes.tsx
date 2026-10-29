@@ -15,7 +15,7 @@ export const FAIL_LANES: Lane[] = [
     weight: 1,
     note: "The success toast in red: 13px on a pale tint, gone in 4s today. An error that disappears before it is read is the worst case of the same problem.",
     specimens: [
-      { label: "Title only", now: <Now.ErrToastToday />, next: <Next.ErrToastNext />, why: "Same sleek toast in red, with the cross mark. It stays until closed: errors do not time out, and a stray click does not dismiss them." },
+      { label: "Title only", now: <Now.ErrToastToday />, next: <Next.ErrToastNext />, why: "Same sleek toast in red. The disc pops and the cross scales in, the same beat as the lock on the gate toast. It stays until closed: errors do not time out, and a stray click does not dismiss them." },
       { label: "With detail", now: <Now.ErrToastDescToday />, next: <Next.ErrToastDescNext />, why: "Same words. Mark centred on the title and first detail line; close button instead of a timer." },
     ],
     flows: [
@@ -32,7 +32,7 @@ export const FAIL_LANES: Lane[] = [
     weight: 1,
     note: "A plain grey toast explains why a press did nothing. It looks like an acknowledgement, sits far from the thing to fix, and vanishes.",
     specimens: [
-      { label: "Missing input", now: <Now.BlockToastToday />, next: <Next.BlockToastNext />, why: "The field turns red and the line under it fades in where it sits, with focus already in the field. Where the fix is not a field (answer questions through a pencil), the toast stays." },
+      { label: "Missing input", now: <Now.BlockToastToday />, next: <Next.BlockToastNext />, why: "The field turns red with focus already in it. The words under it appear at once, to be read at once; only the small cross scales in. Where the fix is not a field (answer questions through a pencil), the toast stays." },
       { label: "Step not open yet", now: <Now.GateToastToday />, next: <Next.GateToastNext />, why: "Not a warning: nothing is wrong, the step just is not open. Neutral toast with a lock, 2.75s, gone on any click." },
     ],
     flows: [
