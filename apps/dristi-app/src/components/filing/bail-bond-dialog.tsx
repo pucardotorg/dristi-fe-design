@@ -240,8 +240,9 @@ export function BailBondDialog({
   /* A window on a phone, the phone's Back doing what the footer's does: the
      form meets the discard warning, the later steps return to the one before. */
   const { phone } = useFlowWindow();
-  useBackCloses(phone && open && !discardOpen, () => {
-    if (view === "generated") setView("form");
+  useBackCloses(phone && open, () => {
+    if (discardOpen) setDiscardOpen(false);
+    else if (view === "generated") setView("form");
     else if (view === "form") requestClose();
   });
 
@@ -318,7 +319,7 @@ export function BailBondDialog({
         out.
       */}
       <Dialog
-        open={open && view === "form" && !discardOpen}
+        open={open && view === "form"}
         onOpenChange={(next) => {
           if (!next) requestClose();
         }}
