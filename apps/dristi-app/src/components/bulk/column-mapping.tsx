@@ -1,17 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {
-  ArrowDownIcon,
-  SearchIcon,
-  CheckIcon,
-  HashIcon,
-  ArrowRightIcon,
-  ChevronDownIcon,
-  FileSpreadsheetIcon,
-  MinusIcon,
-  PlusIcon,
-} from "lucide-react";
+import { ArrowDownIcon, ArrowLeftRightIcon, ArrowRightIcon, CheckIcon, ChevronDownIcon, FileSpreadsheetIcon, HashIcon, MinusIcon, PlusIcon, SearchIcon } from "lucide-react";
 
 import {
   columnFit,
@@ -515,6 +505,7 @@ function FieldRow({
             if (!open) setPending(null);
           }}
           destructive={false}
+          icon={ArrowLeftRightIcon}
           title={`Move "${pending ? props.headers[Number(pending.value)] : ""}" to ${column.header}?`}
           description={
             pending

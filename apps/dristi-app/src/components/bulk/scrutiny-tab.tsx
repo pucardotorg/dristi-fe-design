@@ -15,7 +15,6 @@ import { money } from "@/lib/filing/format";
 import { cn } from "@/lib/utils";
 import { FilingFooter } from "@/components/filing/filing-footer";
 import { PANEL_CLASS } from "@/components/filing/form-card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -23,6 +22,7 @@ import { Card } from "@/components/ui/card";
 import { bulkApi, caseFlowHref, type CaseView } from "./api";
 import { CaseStateBadge } from "./case-list";
 import type { BatchCtx } from "./batch-screen";
+import { StatusLine } from "@/components/feedback";
 
 type Kind = "hold" | "check";
 const kindOf = (f: Flag): Kind =>
@@ -156,18 +156,16 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
 
   if (!open.length)
     return (
-      <Alert variant="success">
-        <AlertDescription>
-          Nothing open here.{" "}
-          <button
-            type="button"
-            className="underline"
-            onClick={() => go("sign")}
-          >
-            Go to Sign
-          </button>
-        </AlertDescription>
-      </Alert>
+      <StatusLine tone="success" still>
+        Nothing open here.{" "}
+        <button
+          type="button"
+          className="underline"
+          onClick={() => go("sign")}
+        >
+          Go to Sign
+        </button>
+      </StatusLine>
     );
 
   return (
@@ -197,9 +195,7 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
       </div>
 
       {error ? (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
+        <StatusLine tone="error">{error}</StatusLine>
       ) : null}
 
       <Card className={cn(PANEL_CLASS, "gap-0 py-1")}>

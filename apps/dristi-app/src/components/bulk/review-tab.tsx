@@ -13,6 +13,7 @@ import { bulkFetch, type CaseView } from "./api";
 import type { BatchCtx } from "./batch-screen";
 import { CaseList } from "./case-list";
 import { detailFlags } from "./scrutiny-tab";
+import { StatusLine } from "@/components/feedback";
 
 /**
  * Review: each open case read as the single filing shows it before signing, its synopsis
@@ -72,9 +73,7 @@ export function ReviewTab({ batch, go }: BatchCtx) {
   return (
     <div className="flex flex-col gap-4">
       {error ? (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
+        <StatusLine tone="error">{error}</StatusLine>
       ) : null}
       <div className="lg:grid lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start lg:gap-6">
         <CaseList

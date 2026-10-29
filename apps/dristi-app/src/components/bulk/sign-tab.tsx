@@ -3,7 +3,6 @@
 import * as React from "react";
 import {
   CheckIcon,
-  InfoIcon,
   KeyRoundIcon,
   PenToolIcon,
   SmartphoneIcon,
@@ -18,9 +17,9 @@ import {
 } from "@/lib/bulk/types";
 import { money } from "@/lib/filing/format";
 import { cn } from "@/lib/utils";
+import { PaymentFacts } from "@/components/payment/payment-steps";
 import { ChromeDialogContent } from "@/components/chrome/app-chrome";
 import { PANEL_CLASS } from "@/components/filing/form-card";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -57,6 +56,7 @@ import {
 import { bulkApi, type CaseView } from "./api";
 import type { BatchCtx } from "./batch-screen";
 import { FileDrop } from "./file-drop";
+import { OutcomeHeader, StatusLine, StatusMark } from "@/components/feedback";
 
 type Signer = { id: string; name: string; role: string; mobile?: string };
 
@@ -155,13 +155,16 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
   return (
     <div className="flex flex-col gap-6">
       {held || unanswered ? (
-        <Alert variant="warning">
-          <InfoIcon aria-hidden />
-          <AlertTitle className="tabular-nums">
-            {held + unanswered} case
-            {held + unanswered === 1 ? " isn't" : "s aren't"} ready to sign yet
-          </AlertTitle>
-          <AlertDescription>
+        <StatusLine
+          tone="warning"
+          still
+          title={
+            <span className="tabular-nums">
+              {held + unanswered} case
+              {held + unanswered === 1 ? " isn't" : "s aren't"} ready to sign yet
+            </span>
+          }
+        >
             Finish the case details first:{" "}
             {[
               held ? `${held} need${held === 1 ? "s" : ""} fixing` : "",
@@ -177,8 +180,7 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
             >
               Go to Case details
             </button>
-          </AlertDescription>
-        </Alert>
+        </StatusLine>
       ) : null}
 
       {clear.length === 0 ? (
@@ -530,55 +532,47 @@ function SignFlow({
       >
         {done ? (
           <>
-            <div className="flex shrink-0 flex-col items-center gap-2 bg-success p-6 text-center text-success-foreground">
-              <span className="flex size-12 items-center justify-center rounded-full bg-success-foreground text-success">
-                <CheckIcon className="size-6" aria-hidden />
-              </span>
-              <DialogTitle className="text-title-s font-semibold">
-                Signing complete
-              </DialogTitle>
-              <DialogDescription className="text-body-compact text-success-foreground">
-                <span className="tabular-nums">{signed.length}</span> case
-                {signed.length === 1 ? " is" : "s are"} signed and ready to pay.
-              </DialogDescription>
-            </div>
+            {/* The signing's outcome takes the window over (skill `feedback-states`). */}
+            <OutcomeHeader
+              compact
+              titleFrom="dialog"
+              focusTitle
+              title="Signing complete"
+              body={
+                <>
+                  <span className="tabular-nums">{signed.length}</span> case
+                  {signed.length === 1 ? " is" : "s are"} signed and ready to pay.
+                </>
+              }
+            />
 
             <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-6">
-              <div className="flex items-center justify-between gap-4 text-body-compact">
-                <span className="text-muted-foreground">Signed with</span>
-                <span className="font-semibold text-foreground">
-                  {METHODS.find((m) => m.id === method)?.title}
-                </span>
-              </div>
-              <div className="flex items-start justify-between gap-4 text-body-compact">
-                <span className="shrink-0 text-muted-foreground">
-                  Signed by
-                </span>
-                <span className="text-right text-foreground">
-                  {signers.map((x) => x.name).join(", ")}
-                </span>
-              </div>
-              <div className="flex items-center justify-between gap-4 text-body-compact">
-                <span className="text-muted-foreground">Signed on</span>
-                <span className="text-foreground tabular-nums">
-                  {signedAt.toLocaleString("en-IN", {
-                    timeZone: "Asia/Kolkata",
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  })}{" "}
-                  IST
-                </span>
-              </div>
+              <PaymentFacts
+                rows={[
+                  { label: "Signed with", value: METHODS.find((m) => m.id === method)?.title ?? "" },
+                  { label: "Signed by", value: signers.map((x) => x.name).join(", ") },
+                  {
+                    label: "Signed on",
+                    value: (
+                      <span className="tabular-nums">
+                        {signedAt.toLocaleString("en-IN", {
+                          timeZone: "Asia/Kolkata",
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        })}{" "}
+                        IST
+                      </span>
+                    ),
+                  },
+                ]}
+              />
               <ul className="flex flex-col divide-y divide-hairline rounded-lg border border-hairline">
                 {signed.map((c) => (
                   <li
                     key={c.id}
                     className="flex items-center gap-3 px-3 py-2 text-body-compact"
                   >
-                    <CheckIcon
-                      className="size-4 shrink-0 text-success-ink"
-                      aria-hidden
-                    />
+                    <StatusMark size={16} still />
                     <span className="min-w-0 flex-1 truncate">
                       {c.accused || c.title}
                     </span>
@@ -591,20 +585,17 @@ function SignFlow({
                   </li>
                 ))}
               </ul>
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="flex-1"
-                  onClick={onClose}
-                >
-                  Back to signing
-                </Button>
-                <Button size="lg" className="flex-1" onClick={onPay}>
-                  Pay for {signed.length} case{signed.length === 1 ? "" : "s"}
-                </Button>
-              </div>
             </div>
+
+            {/* The warm band every outcome closes on; it stays put while the list scrolls. */}
+            <footer className="flex shrink-0 flex-col-reverse gap-3 border-t border-hairline bg-surface-sunken px-6 pt-4 pb-[calc(--spacing(4)+env(safe-area-inset-bottom))] sm:flex-row">
+              <Button variant="outline" size="lg" className="sm:flex-1" onClick={onClose}>
+                Back to signing
+              </Button>
+              <Button size="lg" className="sm:flex-1" onClick={onPay}>
+                Pay for {signed.length} case{signed.length === 1 ? "" : "s"}
+              </Button>
+            </footer>
           </>
         ) : method === "upload" ? (
           <>

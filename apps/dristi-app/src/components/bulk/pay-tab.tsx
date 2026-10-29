@@ -3,7 +3,6 @@
 import * as React from "react";
 import { useSearchParams } from "next/navigation";
 import {
-  CheckIcon,
   ChevronRightIcon,
   FlagIcon,
   WalletIcon,
@@ -21,7 +20,8 @@ import {
   tableRowClass,
 } from "@/components/chrome/table-plate";
 import { PANEL_CLASS } from "@/components/filing/form-card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { OutcomeAmount, OutcomeHeader, StatusLine } from "@/components/feedback";
+import { PaymentFacts } from "@/components/payment/payment-steps";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -31,7 +31,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { Dialog } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -179,9 +179,7 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
   return (
     <div className="flex flex-col gap-6">
       {error ? (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
+        <StatusLine tone="error">{error}</StatusLine>
       ) : null}
 
       {due.length === 0 ? (
@@ -324,41 +322,33 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
         >
           {dialog === "done" && last ? (
             <>
-              <div className="flex shrink-0 flex-col items-center gap-2 bg-success p-6 text-center text-success-foreground">
-                <span className="flex size-12 items-center justify-center rounded-full bg-success-foreground text-success">
-                  <CheckIcon className="size-6" aria-hidden />
-                </span>
-                <DialogTitle className="text-title-s font-semibold">
-                  Payment successful
-                </DialogTitle>
-                <DialogDescription className="text-body-compact text-success-foreground">
-                  <span className="tabular-nums">{last.caseIds.length}</span>{" "}
-                  case file{last.caseIds.length === 1 ? " is" : "s are"}{" "}
-                  complete.
-                </DialogDescription>
-              </div>
+              {/* The payment's outcome takes the window over (skill `feedback-states`). */}
+              <OutcomeHeader
+                compact
+                titleFrom="dialog"
+                focusTitle
+                title="Payment successful"
+                body={
+                  <>
+                    <span className="tabular-nums">{last.caseIds.length}</span>{" "}
+                    case file{last.caseIds.length === 1 ? " is" : "s are"}{" "}
+                    complete.
+                  </>
+                }
+              >
+                <OutcomeAmount label="Amount paid" value={money(last.amount)} />
+              </OutcomeHeader>
 
               <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-6">
-                <div className="flex items-center justify-between gap-4 text-body-compact">
-                  <span className="text-muted-foreground">Amount paid</span>
-                  <span className="font-semibold text-foreground tabular-nums">
-                    {money(last.amount)}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-4 text-body-compact">
-                  <span className="text-muted-foreground">
-                    Payment reference
-                  </span>
-                  <span className="text-foreground">
-                    <Identifier value={last.ref} label="payment reference" />
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-4 text-body-compact">
-                  <span className="text-muted-foreground">Filed on</span>
-                  <span className="text-foreground tabular-nums">
-                    {ist(last.at)}
-                  </span>
-                </div>
+                <PaymentFacts
+                  rows={[
+                    {
+                      label: "Payment reference",
+                      value: <Identifier value={last.ref} label="payment reference" />,
+                    },
+                    { label: "Filed on", value: <span className="tabular-nums">{ist(last.at)}</span> },
+                  ]}
+                />
 
                 {/* Filed and still pending on tabs: the window scrolls, never a box inside it. */}
                 <Tabs defaultValue="filed" className="gap-3">
@@ -437,13 +427,15 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
                     </TabsContent>
                   ) : null}
                 </Tabs>
+              </div>
 
-                <div className="flex flex-col gap-3 sm:flex-row">
+              {/* The warm band every outcome closes on; it stays put while the lists scroll. */}
+              <footer className="flex shrink-0 flex-col gap-3 border-t border-hairline bg-surface-sunken px-6 pt-4 pb-[calc(--spacing(4)+env(safe-area-inset-bottom))] sm:flex-row">
                   {pendingAfter.length ? (
                     <Button
                       variant="outline"
                       size="lg"
-                      className="flex-1"
+                      className="sm:flex-1"
                       onClick={() => {
                         setDialog(null);
                         go(
@@ -464,7 +456,7 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
                   <Button
                     variant="outline"
                     size="lg"
-                    className="flex-1"
+                    className="sm:flex-1"
                     onClick={() => {
                       setDialog(null);
                       go("filed");
@@ -472,8 +464,7 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
                   >
                     See filed cases
                   </Button>
-                </div>
-              </div>
+              </footer>
             </>
           ) : (
             /* A sandbox payment gateway: UPI, card or NEFT, each ending in the payment. */
