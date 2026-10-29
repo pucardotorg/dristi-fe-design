@@ -24,6 +24,20 @@
       ],
       "port": 3001,
       "autoPort": true
+    },
+    {
+      "name": "states-board",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "-w",
+        "@pucar/dristi-app",
+        "--",
+        "-p",
+        "4500"
+      ],
+      "port": 4500
     }
   ]
 }
