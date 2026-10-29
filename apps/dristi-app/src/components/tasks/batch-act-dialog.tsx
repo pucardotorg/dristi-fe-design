@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { FlaskConicalIcon } from "lucide-react";
+import { FlaskConicalIcon, ListChecksIcon } from "lucide-react";
 
 import { IrreversibleNote, OutcomeHeader, OutcomeSummary, OutcomeTally, notify } from "@/components/feedback";
 import { Identifier } from "@/components/chrome/identifier";
@@ -522,10 +522,11 @@ function OutcomeCard({
   const doneCount = outcomes.length - failedCount;
   return (
     <>
-      {/* Some did not go through: the amber "!", never the big tick that says all is well
-          (owner, Oct 29). */}
+      {/* Some did not go through: neutral, with a checklist. Neither the big tick (all is
+          well) nor the "!" (alarm): the tally below says what happened (owner, Oct 29). */}
       <OutcomeHeader
-        tone={partial ? "warning" : ok ? "success" : "error"}
+        tone={partial ? "neutral" : ok ? "success" : "error"}
+        icon={partial ? ListChecksIcon : undefined}
         titleFrom="dialog"
         focusTitle
         title={title}
