@@ -292,7 +292,7 @@ DS was never touched, so there is nothing to undo.
 - **Kit safety nets:**
   - An error toast raised while a dialog is open waits for the dialog to close.
   - The staged overlay's outcome stage drops its height floor.
-- **Known gaps** (need an owner call; left as neutral toasts):
+- **Known gaps** (owner, Oct 29: partial lines approved as written; the order editor and approve registrations are on hold, leave as is, revisit later):
   - Missing input in the court order editor ("Type the order before sending…", "Set the next hearing's date…") and the pending order's "questions still to answer". The rule says to point at the field, but there the "field" is a block in a composed order.
   - The approve-registrations overlay still ends on its thin status strip. Making its outcome a takeover would hide the record it walks through.
   - A mid-sentence "cannot be reversed" stays plain in three footers: diary day, deposition, evidence.
