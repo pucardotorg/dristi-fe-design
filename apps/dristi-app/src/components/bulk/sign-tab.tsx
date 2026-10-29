@@ -8,6 +8,7 @@ import {
   SmartphoneIcon,
   UploadIcon,
   UserCheckIcon,
+  ClipboardListIcon,
 } from "lucide-react";
 
 import {
@@ -155,8 +156,10 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
   return (
     <div className="flex flex-col gap-6">
       {held || unanswered ? (
+        /* A gate, not a warning: the step is not open yet (owner rule). */
         <StatusLine
-          tone="warning"
+          tone="neutral"
+          icon={ClipboardListIcon}
           still
           title={
             <span className="tabular-nums">

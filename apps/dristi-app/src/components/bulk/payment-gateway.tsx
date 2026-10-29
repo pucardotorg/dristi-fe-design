@@ -12,7 +12,8 @@ import { money } from "@/lib/filing/format";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { Field, FieldError, FieldLabel } from "@/components/ui/field";
+import { Field, FieldLabel } from "@/components/ui/field";
+import { StatusFieldControl, StatusFieldError, useRefusal } from "@/components/feedback";
 import { Input } from "@/components/ui/input";
 import {
   InputOTP,
@@ -100,13 +101,24 @@ export function PaymentGateway({
     }
   }, [stage, mode, onPaid]);
 
+  /* A refused press points at the field (skill `feedback-states`): the first wrong one
+     takes focus, its line drops in, and a repeat press shakes it. */
+  const { attempt, refuse } = useRefusal();
+  const firstCardError = (["number", "expiry", "cvv", "name"] as const).find((k) => cardErrors[k]);
+
   const start = () => {
     setTried(true);
     if (mode === "card") {
-      if (Object.values(cardErrors).some(Boolean)) return;
+      if (Object.values(cardErrors).some(Boolean)) {
+        refuse();
+        return;
+      }
       setStage("card-otp");
     } else if (mode === "upi") {
-      if (upiError) return;
+      if (upiError) {
+        refuse();
+        return;
+      }
       setLeft(5);
       setStage("upi-wait");
     } else {
@@ -172,17 +184,25 @@ export function PaymentGateway({
                   data-invalid={tried && !!cardErrors.number}
                 >
                   <FieldLabel htmlFor="gw-card">Card number</FieldLabel>
-                  <Input
-                    id="gw-card"
-                    inputMode="numeric"
-                    autoComplete="off"
-                    value={card.number}
-                    onChange={(e) =>
-                      setCard({ ...card, number: groupCard(e.target.value) })
-                    }
-                  />
+                  <StatusFieldControl attempt={firstCardError === "number" ? attempt : 0}>
+                    <Input
+                      aria-invalid={tried && !!cardErrors.number}
+                      id="gw-card"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      value={card.number}
+                      onChange={(e) =>
+                        setCard({ ...card, number: groupCard(e.target.value) })
+                      }
+                    />
+                  </StatusFieldControl>
                   {tried && cardErrors.number ? (
-                    <FieldError>{cardErrors.number}</FieldError>
+                    <StatusFieldError
+                      attempt={firstCardError === "number" ? attempt : undefined}
+                      still={firstCardError !== "number"}
+                    >
+                      {cardErrors.number}
+                    </StatusFieldError>
                   ) : null}
                 </Field>
                 <Field
@@ -190,16 +210,24 @@ export function PaymentGateway({
                   data-invalid={tried && !!cardErrors.expiry}
                 >
                   <FieldLabel htmlFor="gw-exp">Expiry</FieldLabel>
-                  <Input
-                    id="gw-exp"
-                    placeholder="MM/YY"
-                    value={card.expiry}
-                    onChange={(e) =>
-                      setCard({ ...card, expiry: e.target.value.slice(0, 5) })
-                    }
-                  />
+                  <StatusFieldControl attempt={firstCardError === "expiry" ? attempt : 0}>
+                    <Input
+                      aria-invalid={tried && !!cardErrors.expiry}
+                      id="gw-exp"
+                      placeholder="MM/YY"
+                      value={card.expiry}
+                      onChange={(e) =>
+                        setCard({ ...card, expiry: e.target.value.slice(0, 5) })
+                      }
+                    />
+                  </StatusFieldControl>
                   {tried && cardErrors.expiry ? (
-                    <FieldError>{cardErrors.expiry}</FieldError>
+                    <StatusFieldError
+                      attempt={firstCardError === "expiry" ? attempt : undefined}
+                      still={firstCardError !== "expiry"}
+                    >
+                      {cardErrors.expiry}
+                    </StatusFieldError>
                   ) : null}
                 </Field>
                 <Field
@@ -207,21 +235,29 @@ export function PaymentGateway({
                   data-invalid={tried && !!cardErrors.cvv}
                 >
                   <FieldLabel htmlFor="gw-cvv">CVV</FieldLabel>
-                  <Input
-                    id="gw-cvv"
-                    type="password"
-                    inputMode="numeric"
-                    autoComplete="off"
-                    value={card.cvv}
-                    onChange={(e) =>
-                      setCard({
-                        ...card,
-                        cvv: e.target.value.replace(/\D/g, "").slice(0, 3),
-                      })
-                    }
-                  />
+                  <StatusFieldControl attempt={firstCardError === "cvv" ? attempt : 0}>
+                    <Input
+                      aria-invalid={tried && !!cardErrors.cvv}
+                      id="gw-cvv"
+                      type="password"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      value={card.cvv}
+                      onChange={(e) =>
+                        setCard({
+                          ...card,
+                          cvv: e.target.value.replace(/\D/g, "").slice(0, 3),
+                        })
+                      }
+                    />
+                  </StatusFieldControl>
                   {tried && cardErrors.cvv ? (
-                    <FieldError>{cardErrors.cvv}</FieldError>
+                    <StatusFieldError
+                      attempt={firstCardError === "cvv" ? attempt : undefined}
+                      still={firstCardError !== "cvv"}
+                    >
+                      {cardErrors.cvv}
+                    </StatusFieldError>
                   ) : null}
                 </Field>
                 <Field
@@ -229,26 +265,37 @@ export function PaymentGateway({
                   data-invalid={tried && !!cardErrors.name}
                 >
                   <FieldLabel htmlFor="gw-name">Name on card</FieldLabel>
-                  <Input
-                    id="gw-name"
-                    value={card.name}
-                    onChange={(e) => setCard({ ...card, name: e.target.value })}
-                  />
+                  <StatusFieldControl attempt={firstCardError === "name" ? attempt : 0}>
+                    <Input
+                      aria-invalid={tried && !!cardErrors.name}
+                      id="gw-name"
+                      value={card.name}
+                      onChange={(e) => setCard({ ...card, name: e.target.value })}
+                    />
+                  </StatusFieldControl>
                   {tried && cardErrors.name ? (
-                    <FieldError>{cardErrors.name}</FieldError>
+                    <StatusFieldError
+                      attempt={firstCardError === "name" ? attempt : undefined}
+                      still={firstCardError !== "name"}
+                    >
+                      {cardErrors.name}
+                    </StatusFieldError>
                   ) : null}
                 </Field>
               </div>
             ) : mode === "upi" ? (
               <Field className="gap-1.5" data-invalid={tried && !!upiError}>
                 <FieldLabel htmlFor="gw-upi">UPI ID</FieldLabel>
-                <Input
-                  id="gw-upi"
-                  autoComplete="off"
-                  value={upi}
-                  onChange={(e) => setUpi(e.target.value)}
-                />
-                {tried && upiError ? <FieldError>{upiError}</FieldError> : null}
+                <StatusFieldControl attempt={attempt}>
+                  <Input
+                    aria-invalid={tried && !!upiError}
+                    id="gw-upi"
+                    autoComplete="off"
+                    value={upi}
+                    onChange={(e) => setUpi(e.target.value)}
+                  />
+                </StatusFieldControl>
+                {tried && upiError ? <StatusFieldError attempt={attempt}>{upiError}</StatusFieldError> : null}
                 <span className="text-caption text-muted-foreground">
                   A payment request goes to this UPI ID.
                 </span>

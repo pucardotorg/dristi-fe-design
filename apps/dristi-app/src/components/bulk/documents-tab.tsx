@@ -4,7 +4,6 @@ import * as React from "react";
 import {
   CircleAlertIcon,
   WandSparklesIcon,
-  TriangleAlertIcon,
   UploadIcon,
 } from "lucide-react";
 
@@ -312,7 +311,7 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
         ) : null}
         {scans ? (
           <span className="flex items-center gap-2">
-            <TriangleAlertIcon className="size-4 text-warning-ink" aria-hidden />
+            <StatusMark tone="warning" size={16} still />
             <span className="tabular-nums">
               {scans} scan{scans === 1 ? "" : "s"} hard to read
             </span>
