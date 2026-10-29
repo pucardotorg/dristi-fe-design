@@ -24,7 +24,7 @@ const ROWS: {
     title: "Cross · motion",
     tone: "error",
     options: [
-      { value: "spring", name: "Spring and shake", note: "Each stroke springs out from the centre, then one small sideways shake." },
+      { value: "spring", name: "Spring and shake", note: "Each stroke springs out from the centre, then one small sideways shake. Your pick." },
       { value: "spin", name: "Spin in", note: "The cross turns half a circle into place and settles. No shake." },
       { value: "stamp", name: "Stamp", note: "The disc lands from slightly larger, like a rubber stamp, with a tiny thud." },
       { value: "nod", name: "Head shake", note: "Strokes spring out, then the disc tilts left-right once, like 'no'." },
@@ -38,7 +38,7 @@ const ROWS: {
       { value: "triangle", name: "Triangle", note: "The road-sign triangle, inside the disc. The most widely read warning." },
       { value: "flag", name: "Flag", note: "Flagged for a look. Softer than a triangle; reads as 'needs attention'." },
       { value: "minus", name: "Dash", note: "Neither done nor failed. The quietest; may read as 'partial'." },
-      { value: "bang", name: "Exclamation", note: "Today's proposal, for comparison." },
+      { value: "bang", name: "Exclamation", note: "The bar drops in, the dot pops under it. Your pick." },
     ],
   },
   {
@@ -46,7 +46,8 @@ const ROWS: {
     title: "Warning · motion",
     tone: "warning",
     options: [
-      { value: "swing", name: "Swing", note: "Hangs from the top and swings twice, like a sign in the wind." },
+      { value: "sway", name: "Sway and pulse", note: "One small tilt and back, with a soft ring pulse. Notices you without ringing like a bell." },
+      { value: "swing", name: "Swing", note: "Hangs from the top and swings twice. Reads as a bell." },
       { value: "glow", name: "Glow", note: "An amber halo breathes out twice around the disc." },
       { value: "drop", name: "Drop", note: "Falls in from above and bounces once." },
       { value: "pulse", name: "Pulse", note: "One soft ring pulse, like the success mark but quieter." },

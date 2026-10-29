@@ -42,6 +42,7 @@ export const PROPOSED_CSS = `
 @keyframes sb-thud { 0%,100% { transform: none } 30% { transform: translateY(2px) } }
 @keyframes sb-nod { 0%,100% { transform: none } 20% { transform: rotate(-12deg) } 45% { transform: rotate(10deg) } 70% { transform: rotate(-5deg) } }
 @keyframes sb-swing { 0%,100% { transform: none } 20% { transform: rotate(16deg) } 45% { transform: rotate(-11deg) } 70% { transform: rotate(5deg) } }
+@keyframes sb-sway { 0%,100% { transform: none } 30% { transform: rotate(5deg) } 65% { transform: rotate(-3deg) } }
 @keyframes sb-glow { 0%,100% { box-shadow: 0 0 0 0 transparent } 30%,70% { box-shadow: 0 0 0 8px color-mix(in oklab, var(--warning) 28%, transparent) } 50% { box-shadow: 0 0 0 3px color-mix(in oklab, var(--warning) 18%, transparent) } }
 @keyframes sb-drop { 0% { transform: translateY(-28px); opacity: 0 } 55% { transform: translateY(3px); opacity: 1 } 75% { transform: translateY(-4px) } 100% { transform: none } }
 @keyframes sb-glyph { 0% { transform: scale(.3); opacity: 0 } 65% { transform: scale(1.12); opacity: 1 } 100% { transform: none } }
@@ -54,7 +55,7 @@ export const PROPOSED_CSS = `
 .sb-rise { animation: sb-rise 360ms cubic-bezier(.2,.8,.2,1) both }
 .sb-band { animation: sb-band 300ms ease-out both }
 .sb-toast { animation: sb-toast 420ms cubic-bezier(.2,.8,.2,1) both }
-.sb-drain { transform-origin: left; animation: sb-drain 4s linear both }
+.sb-drain { transform-origin: left; animation: sb-drain var(--sb-life, 2.75s) linear both }
 .sb-land { animation: sb-land 2600ms ease-out both }
 .sb-flip { transform-box: fill-box; transform-origin: center; animation: sb-flip 900ms 250ms cubic-bezier(.65,0,.35,1) both }
 .sb-chip { animation: sb-chip 220ms cubic-bezier(.2,.8,.2,1) both }
@@ -69,6 +70,7 @@ export const PROPOSED_CSS = `
 .sb-thud { animation: sb-thud 220ms 300ms ease-out both }
 .sb-nod { animation: sb-nod 620ms 560ms ease-in-out both }
 .sb-swing { transform-origin: 50% 8%; animation: sb-swing 900ms 420ms ease-in-out both }
+.sb-sway { transform-origin: 50% 15%; animation: sb-sway 700ms 520ms ease-in-out both }
 .sb-glow > span { animation: sb-glow 1400ms 380ms ease-in-out both }
 .sb-drop { animation: sb-drop 640ms cubic-bezier(.3,1.3,.5,1) both }
 .sb-glyph { transform-box: fill-box; transform-origin: center; animation: sb-glyph 420ms 180ms cubic-bezier(.34,1.56,.64,1) both }
@@ -76,7 +78,7 @@ export const PROPOSED_CSS = `
 .sb-widen { transform-box: fill-box; transform-origin: center; animation: sb-widen 360ms 200ms cubic-bezier(.34,1.56,.64,1) both }
 .sb-fill { transform-origin: left; animation: sb-fill 700ms cubic-bezier(.2,.8,.2,1) both }
 @media (prefers-reduced-motion: reduce) {
-  .sb-pop, .sb-draw, .sb-ring, .sb-rise, .sb-band, .sb-toast, .sb-drain, .sb-land, .sb-fill, .sb-flip, .sb-chip, .sb-shake, .sb-stroke, .sb-bar, .sb-dot, .sb-ring-soft, .sb-icon, .sb-spin, .sb-stamp, .sb-thud, .sb-nod, .sb-swing, .sb-glow > span, .sb-drop, .sb-glyph, .sb-wave, .sb-widen { animation: none }
+  .sb-pop, .sb-draw, .sb-ring, .sb-rise, .sb-band, .sb-toast, .sb-drain, .sb-land, .sb-fill, .sb-flip, .sb-chip, .sb-shake, .sb-stroke, .sb-bar, .sb-dot, .sb-ring-soft, .sb-icon, .sb-spin, .sb-stamp, .sb-thud, .sb-nod, .sb-swing, .sb-sway, .sb-glow > span, .sb-drop, .sb-glyph, .sb-wave, .sb-widen { animation: none }
   .sb-ring-soft { opacity: 0 }
   .sb-ring { opacity: 0 }
 }
@@ -103,9 +105,9 @@ const TONE: Record<Tone, { solid: string; fg: string; muted: string; edge: strin
 
 export type ErrorAnim = "spring" | "spin" | "stamp" | "nod";
 export type WarnGlyph = "bang" | "triangle" | "flag" | "minus";
-export type WarnAnim = "pulse" | "swing" | "glow" | "drop";
+export type WarnAnim = "sway" | "pulse" | "swing" | "glow" | "drop";
 export type MarkStyle = { errorAnim: ErrorAnim; warnGlyph: WarnGlyph; warnAnim: WarnAnim };
-export const DEFAULT_MARK: MarkStyle = { errorAnim: "spring", warnGlyph: "triangle", warnAnim: "swing" };
+export const DEFAULT_MARK: MarkStyle = { errorAnim: "spring", warnGlyph: "bang", warnAnim: "sway" };
 /** The board's chosen style; the picker sets it and every mark on the board follows. */
 export const MarkStyleContext = React.createContext<MarkStyle>(DEFAULT_MARK);
 
@@ -164,13 +166,13 @@ export function SuccessMark({
     tone === "error"
       ? { spring: "sb-shake", spin: "", stamp: "sb-thud", nod: "sb-nod" }[m.errorAnim]
       : tone === "warning"
-        ? { pulse: "", swing: "sb-swing", glow: "sb-glow", drop: "sb-drop" }[m.warnAnim]
+        ? { sway: "sb-sway", pulse: "", swing: "sb-swing", glow: "sb-glow", drop: "sb-drop" }[m.warnAnim]
         : "";
   const pop = tone === "error" && m.errorAnim === "stamp" ? "sb-stamp" : tone === "warning" && m.warnAnim === "drop" ? "" : "sb-pop";
   const iconTone = tone === "neutral" || tone === "danger";
   return (
     <span className={"relative flex shrink-0 items-center justify-center " + outer} style={{ width: size, height: size }}>
-      {tone === "success" || (tone === "warning" && m.warnAnim === "pulse") ? (
+      {tone === "success" || (tone === "warning" && (m.warnAnim === "pulse" || m.warnAnim === "sway")) ? (
         <span className={"absolute inset-0 rounded-full " + (tone === "success" ? "sb-ring" : "sb-ring-soft")} style={{ background: t.solid }} />
       ) : null}
       <span
@@ -347,7 +349,7 @@ export function ConfirmToast({
       {persistent ? (
         <span className="flex size-7 shrink-0 items-center justify-center self-start text-muted-foreground"><XIcon className="size-4" /></span>
       ) : (
-        /* Same 4s life the toasts have today (Sonner's default). */
+        /* 2.75s (lead designer, Oct 29; today is Sonner's 4s). Any click dismisses it. */
         <span
           className={
             "sb-drain absolute inset-x-0 bottom-0 h-[2px] " +
@@ -803,6 +805,75 @@ export function MarksAfter() {
         <Dot />Sent to scrutiny
       </span>
       <span className="sb-pop relative flex size-8 items-center justify-center rounded-full bg-success text-success-foreground"><Tick /></span>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------- tryout */
+
+/** Press Show toast, then wait or click anywhere in the frame. Today: 4s, clicks do
+    nothing. Proposed: 2.5s or 2.75s, and any click on the page dismisses it. */
+export function ToastTryout({ today }: { today?: boolean }) {
+  const [life, setLife] = React.useState(2.75);
+  const [shown, setShown] = React.useState(0);
+  const [visible, setVisible] = React.useState(false);
+  const ms = (today ? 4 : life) * 1000;
+  React.useEffect(() => {
+    if (!visible) return;
+    const t = window.setTimeout(() => setVisible(false), ms);
+    return () => window.clearTimeout(t);
+  }, [visible, shown, ms]);
+  const show = () => {
+    setShown((n) => n + 1);
+    setVisible(true);
+  };
+  return (
+    <div
+      className="relative h-[420px] w-[820px] shrink-0 overflow-hidden rounded-lg border border-hairline bg-background"
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        if (!today && visible) setVisible(false);
+      }}
+    >
+      <FauxPage />
+      <div className="absolute top-4 right-4 flex items-center gap-2" onPointerDown={(e) => e.stopPropagation()}>
+        {today ? null : (
+          <span className="flex rounded-lg bg-surface-sunken p-0.5 ring-1 ring-hairline">
+            {[2.5, 2.75].map((v) => (
+              <Button key={v} size="sm" variant={life === v ? "outline" : "ghost"} onClick={() => setLife(v)}>{v}s</Button>
+            ))}
+          </span>
+        )}
+        <Button size="sm" onClick={show}>Show toast</Button>
+      </div>
+      <p className="pointer-events-none absolute top-16 right-4 max-w-[260px] text-right text-caption text-muted-foreground">
+        {today ? "Stays 4s. Clicking the page does nothing." : "Wait, or click anywhere on the page to dismiss."}
+      </p>
+      <div className="absolute inset-x-0 bottom-[56px] flex justify-center pl-44">
+        {visible ? (
+          today ? (
+            <div key={shown} className="sb-toast">
+              <ToastBoxStatic />
+            </div>
+          ) : (
+            <div key={shown} style={{ ["--sb-life" as string]: `${life}s` }}>
+              <ConfirmToast title="Access given to Adv. Meera Nair" />
+            </div>
+          )
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function ToastBoxStatic() {
+  return (
+    <div
+      className="flex w-[356px] items-center gap-1.5 border p-4 text-[13px]"
+      style={{ background: "var(--success-muted)", color: "var(--success-muted-foreground)", borderColor: "var(--success-7)", borderRadius: "var(--radius)", boxShadow: "var(--shadow-overlay)" }}
+    >
+      <CheckIcon className="mr-1 size-4 shrink-0" />
+      <span className="font-medium">Access given to Adv. Meera Nair</span>
     </div>
   );
 }

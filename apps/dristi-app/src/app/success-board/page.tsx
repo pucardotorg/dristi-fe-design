@@ -30,7 +30,8 @@ const LANES: Lane[] = [
     weight: 1,
     note: "13px text on a step-3 tint, 56px off the bottom edge, gone in 4s. Lands far from where the eye was (the button just pressed). Most common success in the product.",
     specimens: [
-      { label: "Title only", now: <Now.ToastSuccess />, next: <Next.ToastTitleAfter />, why: "Sleeker: white, 22px solid mark centred on the text, 14px semibold title, a straight rail clipped by the corner. Same 4s life as today, shown as a thin timer." },
+      { label: "Title only", now: <Now.ToastSuccess />, next: <Next.ToastTitleAfter />, why: "Sleeker: white, 22px solid mark centred on the text, 14px semibold title, a straight rail clipped by the corner. Lasts 2.75s (today 4s), shown as a thin timer; any click on the page dismisses it." },
+      { label: "Try it: timing and click-away", now: <Next.ToastTryout today />, next: <Next.ToastTryout />, why: "Press Show toast on each side. Today stays 4s whatever you do. Proposed: switch between 2.5s and 2.75s, and click anywhere on the page to dismiss. Hovering would pause it in the product, as Sonner does." },
       { label: "Longer message", now: <Now.ToastSuccessDesc />, next: <Next.ToastLongAfter />, why: "Same toast. One line, same words as today, no added button." },
     ],
     flows: [
@@ -491,7 +492,7 @@ export default function SuccessBoardPage() {
                     <Stat n={String(FAIL_STATS.moments)} l="failure and warning moments mapped" />
                     <Stat n={String(FAIL_STATS.patterns)} l="visual patterns" />
                     <Stat n="1" l="failure drawn in success green" />
-                    <Stat n={String(FAIL_STATS.vanish)} l="vanish in 4s as a toast" />
+                    <Stat n={String(FAIL_STATS.vanish)} l="vanish in 4s as a toast today" />
                   </div>
                   <div className="flex flex-col gap-4 rounded-2xl border-2 border-destructive bg-card p-8">
                     <div className="flex items-baseline gap-4">
@@ -500,7 +501,7 @@ export default function SuccessBoardPage() {
                     </div>
                     <div className="grid grid-cols-3 gap-6">
                       <Rule t="Error · red cross" b="The act did not happen or was refused. Same takeover, toast and inline line as success. Error toasts stay until closed." />
-                      <Rule t="Warning · amber !" b="Only where today is already a warning: partial results, late notices, offline, lookups that miss. Warning toasts keep 4s." />
+                      <Rule t="Warning · amber !" b="Only where today is already a warning: partial results, late notices, offline, lookups that miss. Warning toasts last 2.75s." />
                       <Rule t="Neutral · grey ring" b="Gates, questions and dead ends are not bad news. A quiet disc with the act's own icon. Confirms use it too, with today's soft red button for removals." />
                     </div>
                     <p className="text-body text-muted-foreground">

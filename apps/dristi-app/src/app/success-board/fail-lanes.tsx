@@ -13,9 +13,9 @@ export const FAIL_LANES: Lane[] = [
     id: "err-toast",
     name: "Red toast",
     weight: 1,
-    note: "The success toast in red: 13px on a pale tint, gone in 4s. An error that disappears before it is read is the worst case of the same problem.",
+    note: "The success toast in red: 13px on a pale tint, gone in 4s today. An error that disappears before it is read is the worst case of the same problem.",
     specimens: [
-      { label: "Title only", now: <Now.ErrToastToday />, next: <Next.ErrToastNext />, why: "Same sleek toast in red, with the cross mark. It stays until closed: errors do not time out." },
+      { label: "Title only", now: <Now.ErrToastToday />, next: <Next.ErrToastNext />, why: "Same sleek toast in red, with the cross mark. It stays until closed: errors do not time out, and a stray click does not dismiss them." },
       { label: "With detail", now: <Now.ErrToastDescToday />, next: <Next.ErrToastDescNext />, why: "Same words. Mark centred on the title and first detail line; close button instead of a timer." },
     ],
     flows: [
@@ -33,7 +33,7 @@ export const FAIL_LANES: Lane[] = [
     note: "A plain grey toast explains why a press did nothing. It looks like an acknowledgement, sits far from the thing to fix, and vanishes.",
     specimens: [
       { label: "Missing input", now: <Now.BlockToastToday />, next: <Next.BlockToastNext />, why: "Kept on reflection. Picture the drafter: they press Send at the bottom, the editor above them turns red, the line under it says what is missing, and the cursor is already in it. A toast would sit at the bottom, a long way from the thing to fix, and vanish. Next hearing already moves focus to its field today. Where the fix is not a field (answer questions through a pencil), the toast stays." },
-      { label: "Step not open yet", now: <Now.GateToastToday />, next: <Next.GateToastNext />, why: "Not a warning: nothing is wrong, the step just is not open. Neutral toast with a lock, 4s, as today." },
+      { label: "Step not open yet", now: <Now.GateToastToday />, next: <Next.GateToastNext />, why: "Not a warning: nothing is wrong, the step just is not open. Neutral toast with a lock, 2.75s, gone on any click." },
     ],
     flows: [
       f("Type the order before sending it for signing", ["staff"], "employee/order-editor"),
@@ -110,7 +110,7 @@ export const FAIL_LANES: Lane[] = [
     note: "The same three components in amber. One warning banner shows two icons, and the documents step pins its own floating alert that behaves like a toast.",
     specimens: [
       { label: "The four inline ambers", now: <Now.InlineWarningsToday />, next: <Next.InlineWarningsNext />, why: "One shape with the warning mark and a straight amber rail. One icon, always." },
-      { label: "Floating warning", now: <Now.FloatingWarningToday />, next: <Next.FloatingWarningNext />, why: "It is a toast in all but name, so it becomes the warning toast, in the toast's place." },
+      { label: "Floating warning", now: <Now.FloatingWarningToday />, next: <Next.FloatingWarningNext />, why: "It is a toast in all but name, so it becomes the warning toast, in the toast's place: 2.75s, gone on any click." },
     ],
     flows: [
       f("You are offline (tasks read-only)", ["adv"], "tasks/tasks-screen"),

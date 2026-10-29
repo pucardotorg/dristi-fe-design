@@ -27,7 +27,7 @@ import { ConfirmToast, Facts, Footer, Hero, Rail, SuccessMark, Summary, type Ton
    - Warning (amber !): it happened with a catch, or something needs a look. Used only
      where today is already a warning.
    - Neutral (grey ring, the act's own icon): a gate, a question, a dead end. Not news.
-   Error toasts stay until closed; warning and neutral toasts keep today's 4s. */
+   Error toasts stay until closed; warning and neutral toasts last 2.75s and go on any click. */
 
 type Icon = React.ComponentType<{ className?: string; style?: React.CSSProperties; strokeWidth?: number }>;
 
