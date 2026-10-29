@@ -356,6 +356,8 @@ export const Rail = ({ tone = "success" }: { tone?: Tone | "muted" }) => (
   />
 );
 
+/* In dark, popover is the page colour, so the toast lifts to the raised surface with a
+   full border or it disappears into the page. */
 export function ConfirmToast({
   title,
   description,
@@ -375,7 +377,7 @@ export function ConfirmToast({
 }) {
   const persistent = tone === "error";
   return (
-    <div className="sb-toast relative flex w-[380px] items-center gap-2.5 overflow-hidden rounded-lg bg-popover py-3 pr-3 pl-4 text-popover-foreground shadow-overlay ring-1 ring-hairline">
+    <div className="sb-toast relative flex w-[380px] items-center gap-2.5 overflow-hidden rounded-lg bg-popover py-3 pr-3 pl-4 text-popover-foreground shadow-overlay ring-1 ring-hairline dark:bg-surface-raised dark:ring-border">
       <Rail tone={tone === "neutral" ? "muted" : tone} />
       {/* One block of text: the icon sits in its middle. With a detail line: centred on
           the title and the detail's first line (20 + 2 + 20 = 42, so 21px down). */}
