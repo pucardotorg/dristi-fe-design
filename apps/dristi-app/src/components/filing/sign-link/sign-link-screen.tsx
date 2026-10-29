@@ -662,6 +662,8 @@ function SignLinkWizard({
       title={title}
       titleRef={flow.titleRef}
       description={description}
+      /* The settled stages take the window over: mark, then title (owner, Oct 29). */
+      outcome={flow.stage === "signed" || flow.stage === "done"}
       sceneKey={flow.sceneKey}
       motion={flow.motion}
       footer={footer}
@@ -759,8 +761,8 @@ function SignLinkWizard({
           <DscLookup found={dscFound} holder="" />
         </StageColumn>
       ) : flow.stage === "signed" ? (
-        <StageColumn>
           <SettledCard
+            title={title}
             headline={
               signedWith ? INSTRUMENT_LABEL[signedWith] : onPaper ? "Confirmed" : "Signature added"
             }
@@ -769,15 +771,14 @@ function SignLinkWizard({
               sworn ? "Next, record your oath." : "Nothing more is needed from you."
             }
           />
-        </StageColumn>
       ) : flow.stage === "oath" ? (
         <StageColumn>
           {acts.length > 1 ? <StepTrail steps={trail("oath")} /> : null}
           <OathCapture name={oathName} value={oath} onChange={onOath} />
         </StageColumn>
       ) : (
-        <StageColumn>
           <SettledCard
+            title={title}
             headline={
               onPaper
                 ? sworn
@@ -791,7 +792,6 @@ function SignLinkWizard({
             footnote={`Nothing more is needed from you. ${filer} will file the case.`}
             still={start === "done"}
           />
-        </StageColumn>
       )}
     </StagedOverlay>
   );
@@ -816,12 +816,12 @@ function LinkUnavailable({ inShell = false }: { inShell?: boolean }) {
           <BrandLockup className="h-9" />
         </header>
       )}
-      <main className="mx-auto flex w-full max-w-2xl flex-col px-4 py-12">
+      {/* Nothing else is on the page, so the dead end sits in its middle. */}
+      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center px-4 py-12">
         {/* A dead end, not bad news: neutral, with the link's own mark. */}
         <PageOutcome
           tone="neutral"
           icon={LinkIcon}
-          align="start"
           className="px-0 py-0"
           title="This link is no longer active"
           body="The complaint may have been changed and sent again, or the request recalled. Ask the advocate filing it to send you a new link."

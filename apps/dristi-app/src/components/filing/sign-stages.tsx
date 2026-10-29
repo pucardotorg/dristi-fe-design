@@ -43,37 +43,52 @@ export function StageColumn({ children }: { children: React.ReactNode }) {
 /**
  * **What just happened, on the thing it happened to.**
  *
- * The overlay's header keeps the outcome as its title (it stays on every stage). The card
- * under it is the act's record: a band with the feedback mark and what comes next, then
- * the roster in a well labelled with what is true of it ("Every signature is in"). It
- * replaces the thin status strip (owner 2026-09-11) with the feedback system the owner
- * approved on the states board (2026-10-29, skill `feedback-states`): the act is still
- * stamped on its record, now at a weight people notice. `tone="info"` when the act only
- * sent the request out and the outcome is still waiting on others.
+ * The settled stage of a staged overlay (pass the overlay `outcome`): the outcome takes the
+ * window over as in every other dialog, the mark on top and the title under it (owner, Oct
+ * 29, skill `feedback-states`). Under it the act's record: the roster in a well labelled
+ * with what is true of it ("Every signature is in"), carrying the overlay's count badge.
+ * `tone="info"` when the act only sent the request out and the outcome is still waiting on
+ * others.
  */
 export function SettledCard({
+  title,
   headline,
+  aside,
   rows,
   footnote,
   tone = "success",
   still = false,
 }: {
+  /** The window's title for this stage ("Signature added"); it becomes the dialog title. */
+  title: string;
   headline: string;
+  /** The overlay's count badge ("1 of 2 signed"), on the well's label row. */
+  aside?: React.ReactNode;
   rows: Signatory[];
   footnote: string;
   tone?: "success" | "info";
   /** The flow opened on this outcome (a settled filing reopened): nothing plays. */
   still?: boolean;
 }) {
+  /* A label that only repeats the title says nothing ("Signed copy accepted" twice). */
+  const label = headline === title ? undefined : headline;
   return (
-    <div className="overflow-hidden rounded-xl border border-hairline bg-card shadow-raised">
-      <OutcomeHeader compact tone={tone} body={footnote} surface="card" still={still} />
-      <div className="p-4">
+    <>
+      <OutcomeHeader
+        tone={tone}
+        titleFrom="dialog"
+        focusTitle={!still}
+        title={title}
+        body={footnote}
+        surface="card"
+        still={still}
+      />
+      <div className="mx-auto flex w-full max-w-xl flex-col p-4 sm:p-6">
         <OutcomeSummary
           tone={tone === "success" ? "success" : undefined}
           still={still}
-          /* The headline is the outcome itself: announced when it happens, not on reopen. */
-          label={<span role={still ? undefined : "status"}>{headline}</span>}
+          label={label}
+          aside={label ? aside : undefined}
         >
           <ul className="flex flex-col">
             {rows.map((s) => (
@@ -106,7 +121,7 @@ export function SettledCard({
           </ul>
         </OutcomeSummary>
       </div>
-    </div>
+    </>
   );
 }
 

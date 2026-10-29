@@ -35,9 +35,11 @@ Ask, in order:
    title comes from:
    - in a plain `Dialog` whose header the outcome replaces: `titleFrom="dialog"`;
    - in an `AlertDialog` that turns into its result: `titleFrom="alert-dialog"`;
-   - in `StagedOverlay` (which already renders the dialog title): leave the default
-     `"plain"`, pass the overlay `padded={false}`, and `surface="canvas"` (or `"card"`
-     for a card-surface stage);
+   - in `StagedOverlay`: pass the overlay `outcome` on the settled stage, so its header
+     steps aside, and render `OutcomeHeader titleFrom="dialog"` with the stage's title.
+     The title always sits under the mark, never in a header above it (owner, Oct 29).
+     The overlay's badge moves to the facts well's `aside`. In the filing flows,
+     `SettledCard` does all of this;
    - when it replaces a stage in an already-open dialog: `focusTitle`.
     Facts go
    below it in `OutcomeSummary`. Label any amount with `OutcomeAmount` ("Amount paid").
@@ -55,6 +57,10 @@ Ask, in order:
    - Two outcome stages in one dialog (paid, then filed): give each `OutcomeHeader` its own
      `key`, or React reuses it and the second one neither plays nor takes focus.
    - A record reopened on its outcome: `still` (on `SettledCard` too).
+   - A dead end or outcome page with nothing else on it: centre it on the page, both ways.
+   - A secondary act under an outcome's facts (open a link, download): centred on a phone,
+     at the right edge from tablet up.
+   - The lock line (`note`) follows the text above it: centred on a phone, left from tablet.
    - Some went through: the header says only what fully happened; `OutcomeTally` shows
      the split, one marked line per outcome.
 4. **Is it a quick act where the page stays put** (access given, reminder sent,

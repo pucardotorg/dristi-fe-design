@@ -547,6 +547,15 @@ function SignFlowBody({
   /* Once the host has acted (sent to scrutiny), the roster stages say so. */
   const settledStage = flow.stage === "done" || flow.stage === "sworn";
   const title = outcome && settledStage ? outcome.title : baseTitle;
+  const settledOrUploaded =
+    flow.stage === "done" || flow.stage === "uploaded" || flow.stage === "sworn";
+  /* How many have signed, on the roster's label row now that the header steps aside. */
+  const signedCount = (
+    <Badge variant="success">
+      <CheckIcon aria-hidden />
+      {everyone.length - pending} of {everyone.length} signed
+    </Badge>
+  );
 
   const description = {
     choose:
@@ -669,14 +678,8 @@ function SignFlowBody({
         className="sm:max-w-2xl"
         title={title}
         titleRef={flow.titleRef}
-        titleAside={
-          flow.stage === "done" || flow.stage === "uploaded" || flow.stage === "sworn" ? (
-            <Badge variant="success">
-              <CheckIcon aria-hidden />
-              {everyone.length - pending} of {everyone.length} signed
-            </Badge>
-          ) : null
-        }
+        /* The settled stages take the window over: mark, then title (owner, Oct 29). */
+        outcome={settledOrUploaded}
         description={description}
         sceneKey={flow.sceneKey}
         motion={flow.motion}
@@ -762,8 +765,9 @@ function SignFlowBody({
             <DscLookup found={dscFound} holder={certHolder} />
           </StageColumn>
         ) : flow.stage === "done" ? (
-          <StageColumn>
             <SettledCard
+              title={title}
+              aside={signedCount}
               /* Reopened onto where signing stands: already true, so nothing plays. */
               still={start === "status"}
               /* Only sent out, others still to sign: sent, not decided. */
@@ -790,7 +794,6 @@ function SignFlowBody({
                     : `It waits under Take action until every signature${signingRules().oath ? " and oath" : ""} is in.`
               }
             />
-          </StageColumn>
         ) : flow.stage === "paper" ? (
           <PaperStage
             file={sign.signedCopy}
@@ -824,8 +827,9 @@ function SignFlowBody({
             onPrint={onPrint}
           />
         ) : flow.stage === "uploaded" ? (
-          <StageColumn>
             <SettledCard
+              title={title}
+              aside={signedCount}
               headline="Signed copy accepted"
               rows={everyone}
               footnote={
@@ -834,15 +838,15 @@ function SignFlowBody({
                   : `${unlocks} once every signature is in.`
               }
             />
-          </StageColumn>
         ) : flow.stage === "oath" ? (
           <StageColumn>
             <StepTrail steps={trail("oath")} />
             <OathCapture name={oathName} forWhom={oathFor} value={yourOath} onChange={saveOath} />
           </StageColumn>
         ) : (
-          <StageColumn>
             <SettledCard
+              title={title}
+              aside={signedCount}
               headline={outcome ? outcome.headline : "Oath recorded"}
               rows={everyone}
               footnote={
@@ -853,7 +857,6 @@ function SignFlowBody({
                   : `It waits under Take action until every signature${signingRules().oath ? " and oath" : ""} is in.`
               }
             />
-          </StageColumn>
         )}
       </StagedOverlay>
     </>

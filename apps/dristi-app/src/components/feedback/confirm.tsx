@@ -32,12 +32,17 @@ export function ConfirmMark({
   );
 }
 
-/** "This cannot be undone." on its own line with a lock, so it is read, not skimmed. */
+/**
+ * "This cannot be undone." on its own line with a lock, so it is read, not skimmed. It
+ * follows the text it sits under: centred in a phone's alert dialog, left from tablet up.
+ */
 export function IrreversibleNote({ children }: { children: React.ReactNode }) {
   return (
-    <span className="mt-1 flex items-center gap-1.5 text-body-compact font-medium text-foreground">
-      <LockIcon className="size-3.5 shrink-0" aria-hidden />
-      {children}
+    <span className="mt-3 block">
+      <span className="inline-flex items-center gap-1.5 text-body-compact font-medium text-foreground">
+        <LockIcon className="size-3.5 shrink-0" aria-hidden />
+        {children}
+      </span>
     </span>
   );
 }

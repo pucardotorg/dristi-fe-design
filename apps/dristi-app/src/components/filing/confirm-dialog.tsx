@@ -55,8 +55,8 @@ export function ConfirmDialog({
           {destructive || icon ? <ConfirmMark danger={destructive} icon={icon} /> : null}
           <AlertDialogTitle>{title}</AlertDialogTitle>
           {description || note ? (
-            <AlertDialogDescription className="flex flex-col">
-              {description ? <span>{description}</span> : null}
+            <AlertDialogDescription>
+              {description ? <span className="block">{description}</span> : null}
               {note ? <IrreversibleNote>{note}</IrreversibleNote> : null}
             </AlertDialogDescription>
           ) : null}
