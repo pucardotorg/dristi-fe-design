@@ -50,7 +50,7 @@ export const FAIL_LANES: Lane[] = [
     weight: 4,
     note: "Nothing was signed or paid, but the panel is solid green with a tick. The loudest thing on screen says the opposite of what happened.",
     specimens: [
-      { label: "Nothing was signed", now: <Now.NothingSignedToday />, next: <Next.NothingSignedNext />, why: "Same hero as success, in red. The cross springs out stroke by stroke, then one small shake. Same words." },
+      { label: "Nothing was signed", now: <Now.NothingSignedToday />, next: <Next.NothingSignedNext />, why: "Same hero as success, in red. Both strokes of the cross spring out, 60ms apart. No shake: the system failed, the person did nothing wrong. Same words." },
     ],
     flows: [
       f("Filings dashboard: Nothing was signed / paid", ["adv"], "filing/dashboard/batch-filing-dialog"),
@@ -76,7 +76,7 @@ export const FAIL_LANES: Lane[] = [
     weight: 2,
     note: "The part that worked is solid green; the part that failed is a small amber line under it. The eye stops at the green.",
     specimens: [
-      { label: "Bulk: one refused", now: <Now.PartialCalloutToday />, next: <Next.PartialCalloutNext />, why: "Two acts, two answers. The hero says what fully happened (all signed). Under it, a card headed 'Sent · 2 of 3' with a 2-and-1 bar and one line per outcome, each with its own mark. 'Sent' is the only new word." },
+      { label: "Bulk: one refused", now: <Now.PartialCalloutToday />, next: <Next.PartialCalloutNext />, why: "Two acts, two answers. The hero says what fully happened (all signed). Under it, 'Sent · 2 of 3': a bar where the failed share is set apart by a gap and stripes, then one line per outcome with its own mark. 'Sent' is the only new word." },
       { label: "Single: refused", now: <Now.PartialFooterToday />, next: <Next.PartialFooterNext />, why: "The footer lists both acts, each with its own mark: signed (green), could not be sent (amber)." },
     ],
     flows: [
@@ -91,7 +91,7 @@ export const FAIL_LANES: Lane[] = [
     weight: 2,
     note: "Three components (Banner, Alert, SectionNotice) and a no-icon variant, all pale red boxes. Same weight as a warning or a tip.",
     specimens: [
-      { label: "The four inline reds", now: <Now.InlineErrorsToday />, next: <Next.InlineErrorsNext />, why: "One shape, the same as the inline success line: white, straight red rail, cross mark, optional title and action. Same words." },
+      { label: "The four inline reds", now: <Now.InlineErrorsToday />, next: <Next.InlineErrorsNext />, why: "One shape, the same as the inline success line: white, straight red rail, cross mark, optional title and action. Only the first animates. Same words." },
     ],
     flows: [
       f("The payment did not go through", ["adv"], "advocate/join-case-dialog · tasks/act/task-flows"),
@@ -109,7 +109,7 @@ export const FAIL_LANES: Lane[] = [
     weight: 2,
     note: "The same three components in amber. One warning banner shows two icons, and the documents step pins its own floating alert that behaves like a toast.",
     specimens: [
-      { label: "The four inline ambers", now: <Now.InlineWarningsToday />, next: <Next.InlineWarningsNext />, why: "One shape with the warning mark and a straight amber rail. One icon, always." },
+      { label: "The four inline ambers", now: <Now.InlineWarningsToday />, next: <Next.InlineWarningsNext />, why: "One shape, one icon, a straight amber rail. Only the first note in a view animates; the rest arrive still. 'No case matches this number' moves to neutral: it is a miss, not a warning." },
       { label: "Floating warning", now: <Now.FloatingWarningToday />, next: <Next.FloatingWarningNext />, why: "It is a toast in all but name, so it becomes the warning toast, in the toast's place: 2.75s, gone on any click." },
     ],
     flows: [
@@ -131,7 +131,7 @@ export const FAIL_LANES: Lane[] = [
     weight: 2,
     note: "Plain text dialogs, no mark. The confirm button is soft red in most places, solid red in some, and primary teal for 'Discard draft'. 'Cannot be undone' hides at the end of the body.",
     specimens: [
-      { label: "Removes something", now: <Now.ConfirmRemoveToday />, next: <Next.ConfirmRemoveNext />, why: "A confirm is a question, not an outcome, so no cross. A soft red disc shows the act; the button stays today's soft red." },
+      { label: "Removes something", now: <Now.ConfirmRemoveToday />, next: <Next.ConfirmRemoveNext />, why: "A confirm is a question, not an outcome, so no cross. A soft red disc shows the act and fades in, no turn; the button stays today's soft red." },
       { label: "Destroys a draft", now: <Now.ConfirmDiscardToday />, next: <Next.ConfirmDiscardNext />, why: "Soft red like every other removal, not primary teal. 'This cannot be undone' moves to its own line with a lock, so it is read. Same words." },
       { label: "Cannot be reversed", now: <Now.ConfirmSignToday />, next: <Next.ConfirmSignNext />, why: "Not a warning: signing is the job. A neutral mark shows the act (a pen); 'This cannot be reversed' gets its own line with a lock. Button stays primary." },
     ],
@@ -153,7 +153,7 @@ export const FAIL_LANES: Lane[] = [
     weight: 2,
     note: "The DS field error is sound: red label, red ring, red line. A few forms skip it and print a loose red paragraph.",
     specimens: [
-      { label: "Field errors", now: <Now.FieldErrorsToday />, next: <Next.FieldErrorsNext />, why: "Kept. Adds the small cross mark to the line, and the loose red paragraph becomes a proper field error." },
+      { label: "Field errors", now: <Now.FieldErrorsToday />, next: <Next.FieldErrorsNext />, why: "Light on purpose: a 14px outline cross, no disc, so a long form does not fill with red. The first invalid field takes focus and shakes once, because the input was refused; the rest stay still." },
     ],
     flows: [
       f("Registration, sign-in, OTP", ["adv", "lit"], "registration/* · sign-in-block"),
@@ -216,8 +216,8 @@ export const FAIL_LANES: Lane[] = [
     note: "Places where something can fail but the product has no failure state. Designed here in the same system; their copy is new and draft.",
     specimens: [
       { label: "Payment declined", now: <Now.MissingToday what="Payment declined">Court fee, bail fee and application fee payments always succeed. Only advocate join has a failure line.</Now.MissingToday>, next: <Next.PayDeclinedNext />, why: "Red hero, the fee it was for, and the two ways on: Try again or Pay later. Draft copy." },
-      { label: "Wrong OTP", now: <Now.MissingToday what="Wrong OTP">Any six digits are accepted. The only OTP error is "Enter all 6 digits."</Now.MissingToday>, next: <Next.OtpWrongNext />, why: "The code boxes turn red and the line says what to do; the resend timer stays. Draft copy." },
-      { label: "Expired OTP", now: <Now.MissingToday what="Expired OTP">There is no expiry, so there is no expired state.</Now.MissingToday>, next: <Next.OtpExpiredNext />, why: "Same field, a different line, and the way out is the resend link. Draft copy." },
+      { label: "Wrong OTP", now: <Now.MissingToday what="Wrong OTP">Any six digits are accepted. The only OTP error is "Enter all 6 digits."</Now.MissingToday>, next: <Next.OtpWrongNext />, why: "The code boxes turn red and shake once: the person's input was refused. The line says what to do; the resend timer stays. Draft copy." },
+      { label: "Expired OTP", now: <Now.MissingToday what="Expired OTP">There is no expiry, so there is no expired state.</Now.MissingToday>, next: <Next.OtpExpiredNext />, why: "Same field, no shake (the code ran out, nobody typed it wrong), and the way out is the resend link. Draft copy." },
       { label: "Batch partly signed", now: <Now.MissingToday what="Batch partly signed">The filings dashboard batch has no partial branch: it is all, or nothing drawn as success.</Now.MissingToday>, next: <Next.BatchPartialNext />, why: "The same tally as the process line: what fully happened in the hero, the split in a bar, one line per outcome. Draft copy." },
       { label: "DSC not found", now: <Now.MissingToday what="DSC not found">The certificate lookup only shows searching or found.</Now.MissingToday>, next: <Next.DscMissingNext />, why: "Inline error line in the signing step with Try again, and the other way to sign. Draft copy." },
       { label: "Page not found", now: <Now.MissingToday what="Page not found">The app has no not-found page; Next.js shows its default 404.</Now.MissingToday>, next: <Next.NotFoundNext />, why: "Neutral, like the other dead ends, with one way home. Draft copy." },

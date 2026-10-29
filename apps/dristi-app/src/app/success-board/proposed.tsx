@@ -31,12 +31,13 @@ export const PROPOSED_CSS = `
 @keyframes sb-land { 0%,35% { background: var(--success-muted); box-shadow: inset 3px 0 0 var(--success) } 100% { background: transparent; box-shadow: inset 3px 0 0 transparent } }
 @keyframes sb-flip { 0%,35% { transform: rotate(0) } 100% { transform: rotate(180deg) } }
 @keyframes sb-chip { from { transform: scale(.88); opacity: 0 } to { transform: none; opacity: 1 } }
-@keyframes sb-shake { 0%,100% { transform: none } 20%,60% { transform: translateX(-3px) } 40%,80% { transform: translateX(3px) } }
+@keyframes sb-shake { 0%,100% { transform: none } 25% { transform: translateX(-2px) } 50% { transform: translateX(2px) } 75% { transform: translateX(-1px) } }
 @keyframes sb-stroke { 0% { transform: scale(0); opacity: 0 } 60% { transform: scale(1.18); opacity: 1 } 100% { transform: scale(1) } }
 @keyframes sb-bar { 0% { transform: translateY(-9px); opacity: 0 } 65% { transform: translateY(1.5px); opacity: 1 } 100% { transform: none } }
 @keyframes sb-ring-soft { 0% { transform: scale(1); opacity: .3 } 100% { transform: scale(1.7); opacity: 0 } }
 @keyframes sb-dot { 0% { transform: scale(0) } 60% { transform: scale(1.45) } 100% { transform: scale(1) } }
-@keyframes sb-icon { 0% { transform: rotate(-24deg) scale(.5); opacity: 0 } 60% { transform: rotate(6deg) scale(1.08); opacity: 1 } 100% { transform: none } }
+@keyframes sb-icon { from { transform: scale(.85); opacity: 0 } to { transform: none; opacity: 1 } }
+@keyframes sb-pop-quick { 0% { transform: scale(.7); opacity: 0 } 70% { transform: scale(1.04); opacity: 1 } 100% { transform: none } }
 @keyframes sb-spin { 0% { transform: rotate(-180deg) scale(.2); opacity: 0 } 70% { transform: rotate(12deg) scale(1.08); opacity: 1 } 100% { transform: none } }
 @keyframes sb-stamp { 0% { transform: scale(1.6); opacity: 0 } 55% { transform: scale(.94); opacity: 1 } 100% { transform: scale(1) } }
 @keyframes sb-thud { 0%,100% { transform: none } 30% { transform: translateY(2px) } }
@@ -49,7 +50,7 @@ export const PROPOSED_CSS = `
 @keyframes sb-wave { 0% { transform: rotate(-35deg) scale(.6); opacity: 0 } 50% { transform: rotate(10deg) scale(1); opacity: 1 } 75% { transform: rotate(-5deg) } 100% { transform: none } }
 @keyframes sb-widen { from { transform: scaleX(0) } to { transform: scaleX(1) } }
 @keyframes sb-fill { from { transform: scaleX(0) } to { transform: scaleX(1) } }
-.sb-pop { animation: sb-pop 520ms cubic-bezier(.34,1.56,.64,1) both }
+.sb-pop { animation: sb-pop 420ms cubic-bezier(.34,1.56,.64,1) both }
 .sb-draw { stroke-dasharray: 30; animation: sb-draw 360ms 260ms cubic-bezier(.65,0,.35,1) both }
 .sb-ring { animation: sb-ring 900ms 200ms ease-out both }
 .sb-rise { animation: sb-rise 360ms cubic-bezier(.2,.8,.2,1) both }
@@ -59,18 +60,19 @@ export const PROPOSED_CSS = `
 .sb-land { animation: sb-land 2600ms ease-out both }
 .sb-flip { transform-box: fill-box; transform-origin: center; animation: sb-flip 900ms 250ms cubic-bezier(.65,0,.35,1) both }
 .sb-chip { animation: sb-chip 220ms cubic-bezier(.2,.8,.2,1) both }
-.sb-shake { animation: sb-shake 380ms 640ms ease-in-out both }
-.sb-stroke { transform-box: fill-box; transform-origin: center; animation: sb-stroke 340ms 200ms cubic-bezier(.34,1.56,.64,1) both }
-.sb-bar { animation: sb-bar 380ms 200ms cubic-bezier(.34,1.56,.64,1) both }
-.sb-dot { transform-box: fill-box; transform-origin: center; animation: sb-dot 300ms 480ms cubic-bezier(.34,1.56,.64,1) both }
-.sb-ring-soft { animation: sb-ring-soft 900ms 560ms ease-out both }
-.sb-icon { animation: sb-icon 520ms 160ms cubic-bezier(.34,1.56,.64,1) both }
+.sb-shake { animation: sb-shake 240ms 400ms ease-in-out both }
+.sb-stroke { transform-box: fill-box; transform-origin: center; animation: sb-stroke 280ms 160ms cubic-bezier(.34,1.56,.64,1) both }
+.sb-bar { animation: sb-bar 280ms 150ms cubic-bezier(.34,1.56,.64,1) both }
+.sb-dot { transform-box: fill-box; transform-origin: center; animation: sb-dot 220ms 330ms cubic-bezier(.34,1.56,.64,1) both }
+.sb-ring-soft { animation: sb-ring-soft 650ms 330ms ease-out both }
+.sb-icon { animation: sb-icon 150ms 80ms ease-out both }
+.sb-pop-quick { animation: sb-pop-quick 250ms cubic-bezier(.2,.9,.3,1.2) both }
 .sb-spin { transform-box: fill-box; transform-origin: center; animation: sb-spin 560ms 160ms cubic-bezier(.34,1.56,.64,1) both }
 .sb-stamp { animation: sb-stamp 380ms cubic-bezier(.2,.9,.3,1) both }
 .sb-thud { animation: sb-thud 220ms 300ms ease-out both }
 .sb-nod { animation: sb-nod 620ms 560ms ease-in-out both }
 .sb-swing { transform-origin: 50% 8%; animation: sb-swing 900ms 420ms ease-in-out both }
-.sb-sway { transform-origin: 50% 15%; animation: sb-sway 700ms 520ms ease-in-out both }
+.sb-sway { transform-origin: 50% 15%; animation: sb-sway 420ms 330ms ease-in-out both }
 .sb-glow > span { animation: sb-glow 1400ms 380ms ease-in-out both }
 .sb-drop { animation: sb-drop 640ms cubic-bezier(.3,1.3,.5,1) both }
 .sb-glyph { transform-box: fill-box; transform-origin: center; animation: sb-glyph 420ms 180ms cubic-bezier(.34,1.56,.64,1) both }
@@ -78,7 +80,7 @@ export const PROPOSED_CSS = `
 .sb-widen { transform-box: fill-box; transform-origin: center; animation: sb-widen 360ms 200ms cubic-bezier(.34,1.56,.64,1) both }
 .sb-fill { transform-origin: left; animation: sb-fill 700ms cubic-bezier(.2,.8,.2,1) both }
 @media (prefers-reduced-motion: reduce) {
-  .sb-pop, .sb-draw, .sb-ring, .sb-rise, .sb-band, .sb-toast, .sb-drain, .sb-land, .sb-fill, .sb-flip, .sb-chip, .sb-shake, .sb-stroke, .sb-bar, .sb-dot, .sb-ring-soft, .sb-icon, .sb-spin, .sb-stamp, .sb-thud, .sb-nod, .sb-swing, .sb-sway, .sb-glow > span, .sb-drop, .sb-glyph, .sb-wave, .sb-widen { animation: none }
+  .sb-pop, .sb-draw, .sb-ring, .sb-rise, .sb-band, .sb-toast, .sb-drain, .sb-land, .sb-fill, .sb-flip, .sb-chip, .sb-shake, .sb-stroke, .sb-bar, .sb-dot, .sb-ring-soft, .sb-icon, .sb-spin, .sb-stamp, .sb-thud, .sb-nod, .sb-swing, .sb-sway, .sb-glow > span, .sb-drop, .sb-glyph, .sb-wave, .sb-widen, .sb-pop-quick { animation: none }
   .sb-ring-soft { opacity: 0 }
   .sb-ring { opacity: 0 }
 }
@@ -113,10 +115,11 @@ export const MarkStyleContext = React.createContext<MarkStyle>(DEFAULT_MARK);
 
 type IconType = React.ComponentType<{ className?: string; style?: React.CSSProperties; strokeWidth?: number }>;
 
-function WarnPath({ glyph }: { glyph: WarnGlyph }) {
+function WarnPath({ glyph, anim, small }: { glyph: WarnGlyph; anim: boolean; small: boolean }) {
+  const c = (name: string) => (anim ? name : undefined);
   if (glyph === "triangle") {
     return (
-      <g className="sb-glyph">
+      <g className={c("sb-glyph")}>
         <path d="M12 3.6 21.4 19.8H2.6Z" strokeWidth={2.2} />
         <path d="M12 9.6v4.6" strokeWidth={2.4} />
         <circle cx="12" cy="17" r="1.25" fill="currentColor" stroke="none" />
@@ -125,59 +128,79 @@ function WarnPath({ glyph }: { glyph: WarnGlyph }) {
   }
   if (glyph === "flag") {
     return (
-      <g className="sb-wave">
+      <g className={c("sb-wave")}>
         <path d="M4.5 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" strokeWidth={2.2} />
         <path d="M4.5 22v-7" strokeWidth={2.2} />
       </g>
     );
   }
-  if (glyph === "minus") return <path className="sb-widen" d="M6 12h12" />;
-  /* Filled, not stroked: a solid bar and a solid dot with a clear gap between them,
-     so the shape still reads as "!" at toast and badge sizes, without the colour. */
+  if (glyph === "minus") return <path className={c("sb-widen")} d="M6 12h12" />;
+  /* A filled bar and dot with a clear gap: the shape reads as "!" without the colour.
+     Slim at hero size; a touch heavier when small so it does not break up. */
+  const w = small ? 3.6 : 3;
   return (
     <g fill="currentColor" stroke="none">
-      <rect className="sb-bar" x="9.6" y="2.6" width="4.8" height="12.2" rx="2.4" />
-      <circle className="sb-dot" cx="12" cy="19.6" r="2.6" />
+      <rect className={c("sb-bar")} x={12 - w / 2} y="3.5" width={w} height="11" rx={w / 2} />
+      <circle className={c("sb-dot")} cx="12" cy="19.2" r={small ? 2.1 : 1.8} />
     </g>
   );
 }
 
 /** The one mark, in six tones.
-    Success: the check draws, one ring pulse.
-    Error and warning: glyph and motion come from the picked style (see the picker lane).
-    Info (sent, not decided): today's hourglass, turned over once.
-    Neutral and danger: carry the act's own icon, which turns and settles into place. */
+    Motion is budgeted by size: a hero (44px and up) plays the full sequence; anything
+    smaller (toasts, inline lines, tallies) only pops in, about 250ms; `still` plays
+    nothing, for every mark after the first in a view and for states shown on load.
+    Success: check draws, one ring pulse. Error: both strokes spring out 60ms apart.
+    It shakes only with `reject`, when the person's own input was refused. Warning: bar
+    drops, dot pops, a small sway with a soft pulse. Info: today's hourglass, turned once.
+    Neutral and danger: the act's own icon fades and scales in, no turn. */
 export function SuccessMark({
   size = 72,
   tone = "success",
   icon: Icon,
   style: override,
+  still = false,
+  reject = false,
 }: {
   size?: number;
   tone?: Tone;
   icon?: IconType;
   style?: Partial<MarkStyle>;
+  still?: boolean;
+  reject?: boolean;
 }) {
   const picked = React.useContext(MarkStyleContext);
   const m = { ...picked, ...override };
   const t = TONE[tone];
-  // Small marks need a heavier stroke and a larger glyph to register at all.
+  const full = !still && size >= 44;
+  const quick = !still && !full;
+  const small = size <= 28;
   const stroke = size <= 24 ? 3.4 : size <= 44 ? 3 : 2.6;
   const glyph =
     tone === "success" || tone === "info" ? 0.5 : tone === "warning" && (m.warnGlyph === "triangle" || m.warnGlyph === "bang") ? 0.7 : 0.62;
-  const outer =
-    tone === "error"
-      ? { spring: "sb-shake", spin: "", stamp: "sb-thud", nod: "sb-nod" }[m.errorAnim]
+  const outer = !full
+    ? ""
+    : tone === "error"
+      ? reject
+        ? "sb-shake"
+        : { spring: "", spin: "", stamp: "sb-thud", nod: "sb-nod" }[m.errorAnim]
       : tone === "warning"
         ? { sway: "sb-sway", pulse: "", swing: "sb-swing", glow: "sb-glow", drop: "sb-drop" }[m.warnAnim]
         : "";
-  const pop = tone === "error" && m.errorAnim === "stamp" ? "sb-stamp" : tone === "warning" && m.warnAnim === "drop" ? "" : "sb-pop";
+  const pop = still
+    ? ""
+    : quick
+      ? "sb-pop-quick"
+      : tone === "error" && m.errorAnim === "stamp"
+        ? "sb-stamp"
+        : tone === "warning" && m.warnAnim === "drop"
+          ? ""
+          : "sb-pop";
   const iconTone = tone === "neutral" || tone === "danger";
+  const ring = full && (tone === "success" || (tone === "warning" && (m.warnAnim === "pulse" || m.warnAnim === "sway")));
   return (
     <span className={"relative flex shrink-0 items-center justify-center " + outer} style={{ width: size, height: size }}>
-      {tone === "success" || (tone === "warning" && (m.warnAnim === "pulse" || m.warnAnim === "sway")) ? (
-        <span className={"absolute inset-0 rounded-full " + (tone === "success" ? "sb-ring" : "sb-ring-soft")} style={{ background: t.solid }} />
-      ) : null}
+      {ring ? <span className={"absolute inset-0 rounded-full " + (tone === "success" ? "sb-ring" : "sb-ring-soft")} style={{ background: t.solid }} /> : null}
       <span
         className={pop + " relative flex size-full items-center justify-center rounded-full " + (iconTone ? "" : "shadow-raised")}
         style={{
@@ -187,29 +210,29 @@ export function SuccessMark({
         }}
       >
         {iconTone && Icon ? (
-          <span className="sb-icon flex">
+          <span className={still ? "flex" : "sb-icon flex"}>
             <Icon style={{ width: size * 0.46, height: size * 0.46 }} strokeWidth={size <= 28 ? 2.4 : 2} />
           </span>
         ) : (
           <svg viewBox="0 0 24 24" width={size * glyph} height={size * glyph} fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             {tone === "success" ? (
-              <path className="sb-draw" d="M5 12.5l4.5 4.5L19 7.5" />
+              <path className={full ? "sb-draw" : undefined} d="M5 12.5l4.5 4.5L19 7.5" />
             ) : tone === "error" ? (
-              m.errorAnim === "spin" ? (
-                <g className="sb-spin"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" /></g>
-              ) : m.errorAnim === "stamp" ? (
+              !full || m.errorAnim === "stamp" ? (
                 <path d="M6.5 6.5l11 11M17.5 6.5l-11 11" />
+              ) : m.errorAnim === "spin" ? (
+                <g className="sb-spin"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" /></g>
               ) : (
                 <>
                   <path className="sb-stroke" d="M6.5 6.5l11 11" />
-                  <path className="sb-stroke" style={{ animationDelay: "290ms" }} d="M17.5 6.5l-11 11" />
+                  <path className="sb-stroke" style={{ animationDelay: "220ms" }} d="M17.5 6.5l-11 11" />
                 </>
               )
             ) : tone === "warning" ? (
-              <WarnPath glyph={m.warnGlyph} />
+              <WarnPath glyph={m.warnGlyph} anim={full} small={small} />
             ) : (
               /* Sent, not decided: the same hourglass as today, turned over once. */
-              <g className="sb-flip" strokeWidth={2.2}>
+              <g className={full ? "sb-flip" : undefined} strokeWidth={2.2}>
                 <path d="M5 22h14M5 2h14M17 22v-4.17a2 2 0 0 0-.59-1.42L12 12l-4.41 4.41A2 2 0 0 0 7 17.83V22M7 2v4.17a2 2 0 0 0 .59 1.42L12 12l4.41-4.41A2 2 0 0 0 17 6.17V2" />
               </g>
             )}

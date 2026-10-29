@@ -2,11 +2,13 @@
 
 import * as React from "react";
 import {
+  CircleXIcon,
   FileQuestionIcon,
   FileTextIcon,
   FileXIcon,
   LinkIcon,
   LockIcon,
+  SearchXIcon,
   PenLineIcon,
   Trash2Icon,
   UserXIcon,
@@ -47,18 +49,21 @@ export function InlineNote({
   title,
   children,
   action,
+  still,
 }: {
   tone: Tone;
   icon?: Icon;
   title?: string;
   children: React.ReactNode;
   action?: string;
+  /** Every note after the first in a view arrives without motion. */
+  still?: boolean;
 }) {
   return (
-    <div className="sb-rise relative flex items-center gap-3 overflow-hidden rounded-lg bg-card py-3 pr-3 pl-4 ring-1 ring-hairline">
+    <div className={(still ? "" : "sb-rise ") + "relative flex items-center gap-3 overflow-hidden rounded-lg bg-card py-3 pr-3 pl-4 ring-1 ring-hairline"}>
       <Rail tone={tone} />
       {/* With a title: centred on the title and the first body line. */}
-      <span className={title ? "mt-[7px] self-start" : "self-center"}><SuccessMark size={26} tone={tone} icon={icon} /></span>
+      <span className={title ? "mt-[7px] self-start" : "self-center"}><SuccessMark size={26} tone={tone} icon={icon} still={still} /></span>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         {title ? <p className="text-body-compact font-semibold">{title}</p> : null}
         <p className={"text-body-compact " + (title ? "text-muted-foreground" : "font-semibold")}>{children}</p>
@@ -186,11 +191,21 @@ function Tally({ ok, bad, okLine, badLine, label }: { ok: number; bad: number; o
     <Summary label={label} aside={<span className="text-body-compact tabular-nums text-muted-foreground">{ok} of {ok + bad}</span>}>
       <div className="flex gap-1 pt-3">
         {Array.from({ length: ok }).map((_, i) => <span key={`o${i}`} className="sb-fill h-2 flex-1 rounded-full bg-success" style={{ animationDelay: `${300 + i * 80}ms` }} />)}
-        {Array.from({ length: bad }).map((_, i) => <span key={`b${i}`} className="sb-fill h-2 flex-1 rounded-full bg-warning" style={{ animationDelay: `${300 + (ok + i) * 80}ms` }} />)}
+        {/* The failed share is set apart by a gap and stripes, not by colour alone. */}
+        {Array.from({ length: bad }).map((_, i) => (
+          <span
+            key={`b${i}`}
+            className={"sb-fill h-2 flex-1 rounded-full " + (i === 0 ? "ml-2" : "")}
+            style={{
+              animationDelay: `${300 + (ok + i) * 80}ms`,
+              background: "repeating-linear-gradient(135deg, var(--warning) 0 4px, color-mix(in oklab, var(--warning) 45%, var(--card)) 4px 7px)",
+            }}
+          />
+        ))}
       </div>
       <ul className="flex flex-col py-1">
-        <li className="flex items-center gap-2.5 border-b border-hairline py-2.5"><SuccessMark size={20} /> <span className="text-body-compact">{okLine}</span></li>
-        <li className="flex items-center gap-2.5 py-2.5"><SuccessMark size={20} tone="warning" /> <span className="text-body-compact font-semibold">{badLine}</span></li>
+        <li className="flex items-center gap-2.5 border-b border-hairline py-2.5"><SuccessMark size={20} still /> <span className="text-body-compact">{okLine}</span></li>
+        <li className="flex items-center gap-2.5 py-2.5"><SuccessMark size={20} tone="warning" still /> <span className="text-body-compact font-semibold">{badLine}</span></li>
       </ul>
     </Summary>
   );
@@ -222,7 +237,7 @@ export function PartialFooterNext() {
         <div className="flex h-60 items-center justify-center bg-card"><div className="h-52 w-40 rounded border border-hairline bg-surface-sunken" /></div>
         <div className="flex items-center gap-4 border-t border-hairline bg-card px-6 py-4">
           <ul className="mr-auto flex flex-col gap-1.5">
-            <li className="flex items-center gap-2.5"><SuccessMark size={20} /><span className="text-body-compact font-semibold">Process signed.</span></li>
+            <li className="flex items-center gap-2.5"><SuccessMark size={20} still /><span className="text-body-compact font-semibold">Process signed.</span></li>
             <li className="sb-rise flex items-center gap-2.5" style={{ animationDelay: "300ms" }}><SuccessMark size={20} tone="warning" /><span className="text-body-compact font-semibold">1 could not be sent and is in Errored in Issuance.</span></li>
           </ul>
           <Button variant="outline">Download</Button>
@@ -240,9 +255,9 @@ export function InlineErrorsNext() {
     <div className="w-[820px] shrink-0 rounded-lg border border-hairline bg-background p-8">
       <div className="flex flex-col gap-5">
         <InlineNote tone="error">The payment did not go through. Nothing was paid; try again.</InlineNote>
-        <InlineNote tone="error" title="Last attempt failed">Ref PAY-55102 on 24-08-2026, 11:40. Nothing was paid; try again.</InlineNote>
-        <InlineNote tone="error" action="Try again">Cases could not be loaded. Nothing has been changed — try again in a moment.</InlineNote>
-        <InlineNote tone="error">No case rows were found in this file.</InlineNote>
+        <InlineNote still tone="error" title="Last attempt failed">Ref PAY-55102 on 24-08-2026, 11:40. Nothing was paid; try again.</InlineNote>
+        <InlineNote still tone="error" action="Try again">Cases could not be loaded. Nothing has been changed — try again in a moment.</InlineNote>
+        <InlineNote still tone="error">No case rows were found in this file.</InlineNote>
       </div>
     </div>
   );
@@ -255,11 +270,11 @@ export function InlineWarningsNext() {
         <InlineNote tone="warning">
           You are offline. The table is read-only until the connection returns — nothing is queued, so payments and signatures are never sent twice.
         </InlineNote>
-        <InlineNote tone="warning" title="12 days beyond the one-month limit">
+        <InlineNote still tone="warning" title="12 days beyond the one-month limit">
           The court can still take this on file, but it must be asked to condone the delay.
         </InlineNote>
-        <InlineNote tone="warning">AI review unavailable. Documents are not compared with the cases; check them manually.</InlineNote>
-        <InlineNote tone="warning">No case matches this number. Check your summons, or the case may not be in the system yet.</InlineNote>
+        <InlineNote still tone="warning">AI review unavailable. Documents are not compared with the cases; check them manually.</InlineNote>
+        <InlineNote still tone="neutral" icon={SearchXIcon}>No case matches this number. Check your summons, or the case may not be in the system yet.</InlineNote>
       </div>
     </div>
   );
@@ -337,10 +352,12 @@ export const ConfirmSignNext = () => (
 
 /* ------------------------------------------------------------- field errors */
 
-function ErrLine({ children }: { children: React.ReactNode }) {
+/** Field errors stay light: a 14px outline cross, no disc. Heroes and toasts carry the
+    solid marks; a long form with several errors should not fill with red discs. */
+function ErrLine({ children, still }: { children: React.ReactNode; still?: boolean }) {
   return (
-    <FieldError className="flex items-center gap-1.5 text-destructive-ink">
-      <SuccessMark size={16} tone="error" />
+    <FieldError className={(still ? "" : "sb-icon ") + "flex items-center gap-1.5 text-destructive-ink"}>
+      <CircleXIcon className="size-3.5 shrink-0" strokeWidth={2.4} />
       <span>{children}</span>
     </FieldError>
   );
@@ -349,20 +366,22 @@ function ErrLine({ children }: { children: React.ReactNode }) {
 export function FieldErrorsNext() {
   return (
     <div className="flex w-[820px] shrink-0 flex-col gap-6 rounded-lg border border-hairline bg-background p-8">
+      {/* Rejected input: the first invalid field takes focus and shakes once. The rest
+          are marked, still. */}
       <Field data-invalid>
         <FieldLabel>Full name <span className="text-destructive">*</span></FieldLabel>
-        <Input aria-invalid defaultValue="" />
+        <div className="sb-shake"><Input aria-invalid defaultValue="" className="ring-3 ring-destructive/20" /></div>
         <ErrLine>Enter your name as it appears on your ID.</ErrLine>
       </Field>
       <Field data-invalid>
         <FieldLabel className="text-body-compact font-medium">Why are you sending this back?</FieldLabel>
         <Textarea aria-invalid className="min-h-24 text-body-compact" />
-        <ErrLine>Write a reason first.</ErrLine>
+        <ErrLine still>Write a reason first.</ErrLine>
       </Field>
       <Field data-invalid>
         <FieldLabel>PIN code</FieldLabel>
         <Input aria-invalid defaultValue="6820" />
-        <ErrLine>PIN codes are 6 digits.</ErrLine>
+        <ErrLine still>PIN codes are 6 digits.</ErrLine>
       </Field>
     </div>
   );
@@ -484,7 +503,7 @@ export function OtpWrongNext() {
       <div className="flex w-full max-w-md flex-col gap-3 rounded-lg bg-surface-sunken p-4">
         <Field data-invalid>
           <FieldDescription>We sent a code to +91 98••• ••210.</FieldDescription>
-          <OtpSlots value="482913" invalid />
+          <div className="sb-shake"><OtpSlots value="482913" invalid /></div>
           <ErrLine>That code is not right. Check the SMS and try again.</ErrLine>
         </Field>
         <p className="text-body-compact text-muted-foreground">Resend code in 0:24</p>
@@ -547,7 +566,7 @@ export function PageErrorNext() {
   return (
     <Screen height={480} scrim={false}>
       {/* Same soft glow as the success page, in the error tint. */}
-      <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 50% 32%, var(--destructive-muted), var(--background) 60%)" }} />
+      <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 50% 32%, color-mix(in oklab, var(--destructive-muted) 45%, var(--background)), var(--background) 55%)" }} />
       <div className="relative flex flex-col items-center gap-3 px-6 text-center">
         <SuccessMark size={56} tone="error" />
         <p className="sb-rise text-title-s font-semibold" style={{ animationDelay: "150ms" }}>This page could not load</p>

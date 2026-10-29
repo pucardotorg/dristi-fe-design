@@ -24,7 +24,7 @@ const ROWS: {
     title: "Cross · motion",
     tone: "error",
     options: [
-      { value: "spring", name: "Spring and shake", note: "Each stroke springs out from the centre, then one small sideways shake. Your pick." },
+      { value: "spring", name: "Spring and shake", note: "Both strokes spring out, 60ms apart. A small shake is added only when the person's own input was refused (wrong OTP, a field). Your pick." },
       { value: "spin", name: "Spin in", note: "The cross turns half a circle into place and settles. No shake." },
       { value: "stamp", name: "Stamp", note: "The disc lands from slightly larger, like a rubber stamp, with a tiny thud." },
       { value: "nod", name: "Head shake", note: "Strokes spring out, then the disc tilts left-right once, like 'no'." },
@@ -106,7 +106,7 @@ export function MarkPicker({ value, onChange }: { value: MarkStyle; onChange: (n
       <div className="flex w-[420px] shrink-0 flex-col gap-3 rounded-xl border border-hairline bg-card p-6 shadow-raised">
         <h2 className="text-title-s font-semibold">Pick the marks</h2>
         <p className="text-body-compact text-pretty text-muted-foreground">
-          Choose one motion for the cross, one icon and one motion for the warning. Each tile plays on its own; Use this applies it to every mark on the board, so you can scroll down and see it in place. Each tile shows the mark at hero size and at toast size.
+          Choose one motion for the cross, one icon and one motion for the warning. Each tile plays on its own; Use this applies it to every mark on the board, so you can scroll down and see it in place. Each tile shows the mark at hero size, which plays the full motion, and at toast size, which only pops in.
         </p>
       </div>
       <div className="flex flex-col gap-10">
