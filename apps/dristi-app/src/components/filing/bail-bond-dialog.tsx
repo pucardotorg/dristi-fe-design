@@ -178,6 +178,7 @@ export function BailBondDialog({
   // Direct-mode fields; in task/edit mode the magistrate's terms stand in.
   const [petitionerId, setPetitionerId] = React.useState("");
   const [father, setFather] = React.useState("");
+  const [fatherPrefilled, setFatherPrefilled] = React.useState(false);
   const [amount, setAmount] = React.useState("");
   const [bondType, setBondType] = React.useState<"" | "surety" | "personal">("");
   const [count, setCount] = React.useState("");
@@ -217,6 +218,7 @@ export function BailBondDialog({
     setErrors({});
     setPetitionerId("");
     setFather("");
+    setFatherPrefilled(false);
     setAmount("");
     setBondType("");
     setCount("");
@@ -258,8 +260,12 @@ export function BailBondDialog({
   function choosePetitioner(id: string) {
     setPetitionerId(id);
     const entry = BAIL_PETITIONERS.find((option) => option.id === id);
-    // The record knows the father's name; it stays the filer's to change.
-    if (entry && !father.trim()) setFather(entry.father);
+    // The record knows the father's name: filled in, tinted until the filer
+    // changes it, and replaced on a new petitioner while still untouched.
+    if (entry && (!father.trim() || fatherPrefilled)) {
+      setFather(entry.father);
+      setFatherPrefilled(true);
+    }
     touch("petitioner", "father");
   }
 
@@ -371,9 +377,11 @@ export function BailBondDialog({
                   <TextField
                     label="Petitioner's father's name"
                     value={father}
+                    prefilled={fatherPrefilled}
                     error={errors.father}
                     onChange={(value) => {
                       setFather(value);
+                      setFatherPrefilled(false);
                       touch("father");
                     }}
                   />

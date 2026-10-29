@@ -201,6 +201,7 @@ export function TextField({
   optional,
   inputMode,
   type,
+  prefilled,
   onChange,
 }: {
   label: string;
@@ -209,6 +210,8 @@ export function TextField({
   optional?: boolean;
   inputMode?: "numeric" | "tel" | "email" | "decimal";
   type?: "email" | "tel";
+  /** Filled in from the record and not yet changed: the DS yellow tint. */
+  prefilled?: boolean;
   onChange: (value: string) => void;
 }) {
   const id = useId();
@@ -222,6 +225,7 @@ export function TextField({
         value={value}
         type={type}
         inputMode={inputMode}
+        prefilled={prefilled}
         aria-invalid={Boolean(error)}
         onChange={(event) => onChange(event.target.value)}
       />
