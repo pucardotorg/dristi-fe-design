@@ -280,7 +280,7 @@ export function PrepareCard({
   children?: React.ReactNode;
 }) {
   const { task, people, kase, online, finish } = ctx;
-  const { act, busy } = useTaskActions();
+  const { act, busy, error } = useTaskActions({ inDialog: true });
   const [note, setNote] = React.useState<string>(task.draft?.note ?? task.prepared?.note ?? "");
   const signatories = signatoriesOf(kase, people).map((p) => p.name);
   const who = signatories.length ? signatories.join(" or ") : "A signatory";
@@ -295,6 +295,7 @@ export function PrepareCard({
           : `${who} must ${what} this. Prepare it here, then mark it ready — they will be asked to ${what} it.`
       }
     >
+      {error ? <StatusLine tone="error">{error}</StatusLine> : null}
       {children}
       <Field>
         <FieldLabel htmlFor="prepare-note">Note to the signatory</FieldLabel>
@@ -420,7 +421,7 @@ function OtpForm({
  */
 export function CourtSandbox({ ctx }: { ctx: ActContext }) {
   const { task, online, finish } = ctx;
-  const { act, busy } = useTaskActions();
+  const { act, busy, error } = useTaskActions({ inDialog: true });
   const [open, setOpen] = React.useState(false);
   const [defects, setDefects] = React.useState<string[]>(["", "", ""]);
   const filled = defects.map((d) => d.trim()).filter(Boolean);
@@ -430,6 +431,7 @@ export function CourtSandbox({ ctx }: { ctx: ActContext }) {
       title="With the court"
       description="Filed — the registry has it now. These controls stand in for the registry's answer."
     >
+      {error ? <StatusLine tone="error">{error}</StatusLine> : null}
       <div className="flex flex-wrap gap-2">
         <Button
           variant="outline"

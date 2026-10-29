@@ -87,7 +87,8 @@ export function SettledCard({
         <OutcomeSummary
           tone={tone === "success" ? "success" : undefined}
           still={still}
-          label={label}
+          /* With no label of its own, the count badge leads the well's top row. */
+          label={label ?? aside}
           aside={label ? aside : undefined}
         >
           <ul className="flex flex-col">

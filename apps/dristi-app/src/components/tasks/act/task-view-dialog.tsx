@@ -28,6 +28,7 @@ import { canComplete } from "@/lib/tasks/permissions";
 import { useTasks } from "@/lib/tasks/store";
 import { confirmPayment } from "@/lib/tasks/transitions";
 import type { Case, Task } from "@/lib/tasks/types";
+import { StatusLine } from "@/components/feedback";
 
 /**
  * **A task to look at, not to act on — in a window over the list** (owner, 2026-10-14).
@@ -65,7 +66,7 @@ export function TaskViewDialog({
 
 function ViewBody({ task, kase, onClose }: { task: Task; kase: Case; onClose: () => void }) {
   const { people, user, online } = useTasks();
-  const { act, busy } = useTaskActions();
+  const { act, busy, error } = useTaskActions({ inDialog: true });
   const closed = ["done", "expired", "obsolete", "archived"].includes(task.status) || Boolean(task.archived);
   const standing = closed ? outcomeOf(task) : waitingOnOf(task, kase, people);
   const by = people.find((p) => p.id === task.completion?.by);
@@ -77,7 +78,7 @@ function ViewBody({ task, kase, onClose }: { task: Task; kase: Case; onClose: ()
   return (
     /* Header and footer hold still; only the record scrolls, so Close is always in reach. */
     <FlowDialogContent className="flex max-h-[85svh] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-xl">
-      <DialogHeader className="shrink-0 border-b border-hairline px-6 pt-6 pr-14 pb-4 text-left">
+      <DialogHeader className="shrink-0 border-b border-hairline px-6 pt-6 pr-16 pb-4 text-left">
         <div className="flex flex-wrap items-center gap-2">
           <DialogTitle className="text-title-s font-semibold text-balance">{task.title}</DialogTitle>
           <Badge variant={task.status === "done" ? "success" : closed ? "secondary" : "info"}>
@@ -179,6 +180,7 @@ function ViewBody({ task, kase, onClose }: { task: Task; kase: Case; onClose: ()
         </section>
       ) : null}
 
+      {error ? <StatusLine tone="error">{error}</StatusLine> : null}
       </div>
 
       <DialogFooter className="mx-0 mb-0 shrink-0 border-hairline bg-surface-sunken px-6 py-4">

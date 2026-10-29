@@ -81,9 +81,16 @@ export function draftFlowOf(task: Task): Flow | null {
  * `dispatch` with the toast and error handling every screen wants: a quiet success
  * message, and the transition's own words when it refuses.
  */
-export function useTaskActions() {
+export function useTaskActions({ inDialog = false }: { inDialog?: boolean } = {}) {
   const { dispatch, online } = useTasks();
   const [busy, setBusy] = React.useState<TaskId | null>(null);
+  /* Inside a dialog a failure is never a toast (it would sit behind the dialog, unclosable):
+     it is held here for the dialog to say in place, as a `StatusLine`. */
+  const [error, setError] = React.useState<string | null>(null);
+  const fail = React.useCallback(
+    (message: string) => (inDialog ? setError(message) : notify.error(message)),
+    [inDialog],
+  );
 
   const act = React.useCallback(
     async (
@@ -93,8 +100,9 @@ export function useTaskActions() {
          a task restored), said quietly with the act's own icon (skill `feedback-states`). */
       done?: string | { title: string; icon: LucideIcon },
     ): Promise<Task | null> => {
+      setError(null);
       if (!online) {
-        notify.error("You are offline. Nothing was changed.");
+        fail("You are offline. Nothing was changed.");
         return null;
       }
       setBusy(taskId);
@@ -106,14 +114,14 @@ export function useTaskActions() {
       } catch (e) {
         const message =
           e instanceof TransitionError ? e.message : "Something went wrong. Nothing was changed.";
-        notify.error(message);
+        fail(message);
         return null;
       } finally {
         setBusy(null);
       }
     },
-    [dispatch, online]
+    [dispatch, online, fail]
   );
 
-  return { act, busy, online };
+  return { act, busy, online, error };
 }

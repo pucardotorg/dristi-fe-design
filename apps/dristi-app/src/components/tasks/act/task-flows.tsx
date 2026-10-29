@@ -165,7 +165,7 @@ export function TaskPaymentDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const { task, kase, online, finish } = ctx;
-  const { act, busy } = useTaskActions();
+  const { act, busy, error } = useTaskActions({ inDialog: true });
   const [stage, setStage] = React.useState<PayStage>("pay");
   const [outcome, setOutcome] = React.useState<PaymentResult>("success");
   const [failed, setFailed] = React.useState(false);
@@ -225,7 +225,7 @@ export function TaskPaymentDialog({
             {amount ? <OutcomeAmount label="Amount paid" value={amount} /> : null}
           </OutcomeHeader>
         ) : (
-        <DialogHeader className="shrink-0 border-b border-hairline px-6 pt-6 pr-14 pb-4 text-left">
+        <DialogHeader className="shrink-0 border-b border-hairline px-6 pt-6 pr-16 pb-4 text-left">
           <DialogTitle className="text-title-s font-semibold text-balance">
             {title}
           </DialogTitle>
@@ -240,7 +240,8 @@ export function TaskPaymentDialog({
           <div className="flex flex-col gap-4">
             {failed ? (
               <StatusLine tone="error">
-                The payment did not go through. Nothing was paid; try again.
+                {/* Offline or refused: its own words; otherwise the gateway said no. */}
+                {error ?? "The payment did not go through. Nothing was paid; try again."}
               </StatusLine>
             ) : null}
             <DescriptionList className="rounded-xl bg-surface-sunken px-4 py-1">

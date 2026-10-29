@@ -390,6 +390,8 @@ export function TasksScreen() {
         {state === "error" ? (
           <StatusLine
             tone="error"
+            /* One animated mark per screen: the offline line above may already have played. */
+            still={!online}
             action={
               <Button variant="outline" onClick={() => void reload()}>
                 Retry

@@ -467,6 +467,9 @@ function SignLinkWizard({
 }) {
   const courtText = useCourtText();
   const flow = useStagedFlow<Stage>({ order: ORDER[start], scene: SCENES, arrival: "forward" });
+  /* Opened on the outcome and never left it: it stands still. Acting and coming back is news. */
+  const [leftOpening, setLeftOpening] = React.useState(false);
+  if (!leftOpening && flow.stage !== ORDER[start][0]) setLeftOpening(true);
   /** Only a complainant records an oath (`OTH-3`), and only where the state asks for one. */
   const sworn = swears && signingRules().oath;
 
@@ -790,7 +793,7 @@ function SignLinkWizard({
             }
             rows={[settledRow]}
             footnote={`Nothing more is needed from you. ${filer} will file the case.`}
-            still={start === "done"}
+            still={start === "done" && !leftOpening}
           />
       )}
     </StagedOverlay>

@@ -85,8 +85,15 @@ export function TaskActModal({
   const [payingId, setPayingId] = React.useState<string | null>(null);
   const opensToPay =
     open && mode === "pay" && !!task && !!kase && canComplete(user, kase) && ACTIONABLE.has(task.status);
-  if (opensToPay && payingId !== task.id) setPayingId(task.id);
-  if (!open && payingId !== null) setPayingId(null);
+  /* Re-derived each time the window opens, never while it closes: clearing it on close
+     swapped the window out mid-exit. */
+  const [wasOpen, setWasOpen] = React.useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setPayingId(opensToPay ? task!.id : null);
+  } else if (opensToPay && payingId !== task!.id) {
+    setPayingId(task!.id);
+  }
 
   if (!task || !kase || !mode) return null;
 
@@ -147,7 +154,7 @@ export function TaskActModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* The header holds still; only the record and its act cards scroll. */}
       <FlowDialogContent className={`flex max-h-[85svh] w-full flex-col gap-0 overflow-hidden p-0 ${WIDTH[mode]}`}>
-        <DialogHeader className="shrink-0 border-b border-hairline px-6 pt-6 pr-14 pb-4 text-left">
+        <DialogHeader className="shrink-0 border-b border-hairline px-6 pt-6 pr-16 pb-4 text-left">
           <DialogTitle className="text-title-s font-semibold text-balance">{task.title}</DialogTitle>
           <DialogDescription className="text-caption text-muted-foreground">{caseLine}</DialogDescription>
         </DialogHeader>

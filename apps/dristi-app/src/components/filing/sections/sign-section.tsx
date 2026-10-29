@@ -1565,7 +1565,7 @@ export function SignSection() {
           </div>
 
           {/* The warm band every outcome dialog closes on. */}
-          <footer className="flex shrink-0 flex-col gap-3 border-t border-hairline bg-surface-sunken px-6 py-4 sm:flex-row">
+          <footer className="flex shrink-0 flex-col gap-3 border-t border-hairline bg-surface-sunken px-6 pt-4 pb-[calc(--spacing(4)+env(safe-area-inset-bottom))] sm:flex-row">
             <Button asChild variant="outline" size="lg" className="sm:flex-1">
               <Link href={FILINGS_HOME}>Back to dashboard</Link>
             </Button>

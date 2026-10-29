@@ -3,7 +3,7 @@
 import * as React from "react";
 import { FlaskConicalIcon } from "lucide-react";
 
-import { IrreversibleNote, OutcomeHeader, OutcomeSummary, notify } from "@/components/feedback";
+import { IrreversibleNote, OutcomeHeader, OutcomeSummary, OutcomeTally, notify } from "@/components/feedback";
 import { Identifier } from "@/components/chrome/identifier";
 import { useStageFade } from "@/components/chrome/stage-fade";
 import { StagedOverlay } from "@/components/chrome/staged-overlay";
@@ -322,9 +322,28 @@ function BatchBody({
       showCloseButton={!running}
       /* The settled stage takes the window over: mark, then title (owner, Oct 29). */
       outcome={flow.stage === "done"}
+      /* The outcome has a title and no body line: say so, rather than leave Radix
+         looking for a description that is not there. */
+      {...(flow.stage === "done" ? { "aria-describedby": undefined } : {})}
       onEscapeKeyDown={(e) => running && e.preventDefault()}
     >
       <div key={flow.stage} className={cn("flex min-h-0 flex-1 flex-col", flow.sceneClassName)}>
+        {flow.stage === "done" ? (
+          /* Full bleed: the band meets the window's edges; the facts keep their measure. */
+          <OutcomeCard
+            title={title}
+            outcomes={outcomes}
+            caseOf={caseOf}
+            headline={
+              kind === "sign"
+                ? signedWith === "dsc"
+                  ? "Signed with your DSC"
+                  : "Signed with Aadhaar OTP"
+                : `${through.length} ${through.length === 1 ? "fee" : "fees"} paid`
+            }
+            ok={through.length > 0}
+          />
+        ) : (
         <div className="mx-auto flex w-full max-w-xl flex-col gap-4">
           {flow.stage === "confirm" ? (
             <TaskList tasks={batch} caseOf={caseOf} pay={kind === "pay"} total={total} />
@@ -355,26 +374,11 @@ function BatchBody({
             />
           ) : flow.stage === "dsc" ? (
             <DscLookup found={dscFound} holder="" />
-          ) : flow.stage === "processing" ? (
-            <PaymentProcessing />
           ) : (
-            <OutcomeCard
-              title={title}
-              outcomes={outcomes}
-              caseOf={caseOf}
-              headline={
-                kind === "sign"
-                  ? signedWith === "dsc"
-                    ? "Signed with your DSC"
-                    : "Signed with Aadhaar OTP"
-                  : through.length
-                    ? `${through.length} ${through.length === 1 ? "fee" : "fees"} paid`
-                    : "Nothing was paid"
-              }
-              ok={through.length > 0}
-            />
+            <PaymentProcessing />
           )}
         </div>
+        )}
       </div>
     </StagedOverlay>
   );
@@ -513,11 +517,33 @@ function OutcomeCard({
 }) {
   /* The window's title says only what fully happened; any that did not go through are
      named in the list under it, in red with why (skill `feedback-states`). */
+  const failedCount = outcomes.filter((o) => o.mark === "failed").length;
+  const partial = ok && failedCount > 0;
+  const doneCount = outcomes.length - failedCount;
   return (
     <>
       <OutcomeHeader tone={ok ? "success" : "error"} titleFrom="dialog" focusTitle title={title} surface="card" />
       <div className="mx-auto flex w-full max-w-xl flex-col p-4 sm:p-6">
-        <OutcomeSummary tone={ok ? "success" : "error"} label={headline === title ? undefined : headline}>
+        {partial ? (
+          /* Some went through: the title says only what did; the split is shown here. */
+          <OutcomeTally
+            label={headline}
+            done={doneCount}
+            failed={failedCount}
+            /* Draft lines for the partial case, in the words this flow already uses;
+               pending PM copy sign-off (feature record). */
+            doneLine={`${doneCount} went through`}
+            failedLine={`${failedCount} did not go through`}
+            failedTone="error"
+          />
+        ) : null}
+        <OutcomeSummary
+          tone={ok ? "success" : "error"}
+          className={partial ? "mt-4" : undefined}
+          /* Nothing went through: an instrument or a count would claim what did not happen.
+             A partial result already carries it on the tally above. */
+          label={!ok || partial || headline === title ? undefined : headline}
+        >
       <ul className="flex flex-col">
         {outcomes.map((o) => (
           <TaskRow

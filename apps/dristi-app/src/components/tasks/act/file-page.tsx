@@ -42,6 +42,7 @@ import {
   RecordCard,
   signatoryLine,
 } from "@/components/tasks/act/shared";
+import { StatusLine } from "@/components/feedback";
 
 /** The slots, editable while the task is open to this person. */
 function Documents({
@@ -105,11 +106,12 @@ function Documents({
 /** A signatory's rail: file with the court, or save what is attached for later. */
 function FileCard({ ctx, files, complete }: { ctx: ActContext; files: StoredFileRef[]; complete: boolean }) {
   const { task, online, finish } = ctx;
-  const { act, busy } = useTaskActions();
+  const { act, busy, error } = useTaskActions({ inDialog: true });
   const [confirm, setConfirm] = React.useState(false);
   const n = files.length;
   return (
     <RailCard title="File with the court" description={signatoryLine(ctx, "Filing")}>
+      {error ? <StatusLine tone="error">{error}</StatusLine> : null}
       <PreparedNote ctx={ctx} />
       <div className="flex flex-col gap-2">
         <Button size="lg" disabled={!online || !!busy || !complete} onClick={() => setConfirm(true)}>

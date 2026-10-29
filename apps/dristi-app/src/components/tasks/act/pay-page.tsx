@@ -9,7 +9,7 @@
  */
 
 import * as React from "react";
-import { StatusMark } from "@/components/feedback";
+import { StatusMark, StatusLine } from "@/components/feedback";
 
 import { ChromeAlertDialogContent } from "@/components/chrome/app-chrome";
 
@@ -69,7 +69,7 @@ const OUTCOMES: { value: PaymentResult; label: string; hint: string }[] = [
 /** The signatory's pay rail: pick the sandbox outcome, confirm, pay. */
 function PayCard({ ctx }: { ctx: ActContext }) {
   const { task, kase, online, finish } = ctx;
-  const { act, busy } = useTaskActions();
+  const { act, busy, error } = useTaskActions({ inDialog: true });
   const [outcome, setOutcome] = React.useState<PaymentResult>("success");
   const [confirm, setConfirm] = React.useState(false);
   // Set when the attempt just made failed: the notice announces and takes focus, and the
@@ -101,6 +101,7 @@ function PayCard({ ctx }: { ctx: ActContext }) {
 
   return (
     <RailCard title="Pay" description={signatoryLine(ctx, "Paying")}>
+      {error ? <StatusLine tone="error">{error}</StatusLine> : null}
       <PreparedNote ctx={ctx} />
       {task.lastPayment?.result === "failed" ? (
         <div ref={failedRef} tabIndex={-1} className="rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -179,12 +180,13 @@ function PayCard({ ctx }: { ctx: ActContext }) {
 
 function ConfirmingCard({ ctx }: { ctx: ActContext }) {
   const { task, online, finish } = ctx;
-  const { act, busy } = useTaskActions();
+  const { act, busy, error } = useTaskActions({ inDialog: true });
   return (
     <RailCard
       title="Payment confirming"
       description={`Paid ${task.lastPayment ? `on ${dateTime(task.lastPayment.at)}` : ""} — the gateway has not confirmed yet. Ref ${task.lastPayment?.ref ?? "—"}.`}
     >
+      {error ? <StatusLine tone="error">{error}</StatusLine> : null}
       <Button
         variant="outline"
         disabled={!online || !!busy}

@@ -245,6 +245,10 @@ function SignFlowBody({
     /* The window is already rising; a stage that rises inside it is one gesture twice. */
     arrival: "forward",
   });
+  /* Opened on the roster and never left it: the outcome is already true, so it stands
+     still. Once the person moves on and acts, coming back to it is news again. */
+  const [leftOpening, setLeftOpening] = React.useState(false);
+  if (!leftOpening && flow.stage !== ORDER[start][0]) setLeftOpening(true);
 
   const sign = draft.sign;
 
@@ -769,7 +773,7 @@ function SignFlowBody({
               title={title}
               aside={signedCount}
               /* Reopened onto where signing stands: already true, so nothing plays. */
-              still={start === "status"}
+              still={start === "status" && !leftOpening}
               /* Only sent out, others still to sign: sent, not decided. */
               tone={!outcome && !(youSigned && signedWith) && outstanding !== 0 ? "info" : "success"}
               headline={

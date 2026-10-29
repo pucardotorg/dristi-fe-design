@@ -212,6 +212,34 @@ DS was never touched, so there is nothing to undo.
   - Mark as evidence.
   - The load-error lines.
 
+**29 Oct · owner round on the live screens, sandbox copy, batch 3 (tasks).**
+- **Owner fixes:**
+  - The title sits under the mark in every outcome. StagedOverlay gains `outcome`; the "header on every stage" rule no longer applies to the settled stage.
+  - Outcomes close on the warm footer band with its divider.
+  - The lock line has more room above it and centres on phones.
+  - The dead link page is centred.
+  - Bond "Open the signing link" is centred on phones and left-aligned from tablet up.
+  - Task windows pin their header and footer, so only the middle scrolls.
+  - Batch pay leads with the amount.
+- **Sandbox copy:** reassurance lines removed product-wide (926affe). Demo controls kept.
+- **Data:** case c-847 got a parties pack, so its Parties section loads. Add advocate, remove advocate and six of the seven discard confirms were then verified in the browser.
+- **Batch 3 (tasks):**
+  - Toasts moved to `notify`: archive and restore are neutral; draft saves are neutral with the save icon.
+  - Offline and load-error lines, confirm marks, the payment takeover, batch outcomes (with a tally when only some went through), and inline errors in task dialogs.
+  - Fixed: the task payment window replaced itself with the record the moment money landed (on main too), so no success ever showed.
+- **Independent review:** 9 findings, all fixed:
+  - the band not reaching the edges
+  - the count badge lost
+  - error toasts behind dialogs
+  - the latch cutting the exit animation
+  - partial results
+  - focus after re-signing
+  - the missing description warning
+  - the safe area
+  - two animated lines
+- **Pending PM copy:** the partial tally lines "N went through" and "N did not go through".
+- **Open for the owner:** the act window keeps its actions in cards inside the body, with no footer band. Moving them is a layout change.
+
 ## Verification and open work
 
 - Verified on the board: desktop light, every pair. Dark mode: one fix (the toast),
