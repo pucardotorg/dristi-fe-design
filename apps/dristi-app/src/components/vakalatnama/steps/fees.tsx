@@ -7,7 +7,7 @@
  */
 
 import * as React from "react";
-import { CheckCircle2Icon, InfoIcon } from "lucide-react";
+import { InfoIcon } from "lucide-react";
 
 import { FormCard } from "@/components/filing/form-card";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import { feesTotal, rupee } from "@/lib/vakalatnama/format";
 import type { Vakalatnama } from "@/lib/vakalatnama/types";
 import { Identifier } from "@/components/chrome/identifier";
 import { useCourt } from "@/components/court/court-provider";
+import { StatusLine } from "@/components/feedback";
 
 function boundNumber(vak: Vakalatnama): string | undefined {
   if (vak.scope.type !== "specific" || vak.scope.caseState !== "not_filed") return undefined;
@@ -60,10 +61,7 @@ export function FeesStep({ vak: stored }: { vak: Vakalatnama }) {
     const board = reconcileSigners(vak);
     return (
       <div className="flex flex-col gap-6">
-        <Alert variant="success">
-          <CheckCircle2Icon aria-hidden />
-          <AlertTitle>Vakalatnama executed</AlertTitle>
-          <AlertDescription>
+        <StatusLine tone="success" title="Vakalatnama executed">
             Fees paid and all parties signed. The instrument is sealed with its audit trail
             {vak.boundCaseNumber ? (
               <>
@@ -74,8 +72,7 @@ export function FeesStep({ vak: stored }: { vak: Vakalatnama }) {
               </>
             ) : null}
             .
-          </AlertDescription>
-        </Alert>
+        </StatusLine>
 
         <VakalatnamaDocument vak={vak} />
 

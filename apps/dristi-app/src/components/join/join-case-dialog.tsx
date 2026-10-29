@@ -4,13 +4,7 @@ import { SUMMONS_FACTS } from "@/lib/summons/content";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { REGEXP_ONLY_DIGITS } from "input-otp";
-import {
-  ArrowLeftIcon,
-  ArrowRightIcon,
-  ExternalLinkIcon,
-  FileTextIcon,
-  SearchIcon,
-} from "lucide-react";
+import { ArrowLeftIcon, ArrowRightIcon, ExternalLinkIcon, FileTextIcon, SearchIcon, SearchXIcon, UserCheckIcon } from "lucide-react";
 
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 import { JOIN_DEMO_CASE_ID } from "@/lib/cases/party-cases";
@@ -67,7 +61,7 @@ import {
   type CaseParty,
   type JoinCase,
 } from "@/lib/join/content";
-import { OutcomeHeader } from "@/components/feedback";
+import { OutcomeHeader, StatusLine } from "@/components/feedback";
 
 /**
  * Post-login join-a-case dialog.
@@ -477,7 +471,7 @@ export function JoinCaseDialog({
                 </FieldError>
               </Field>
               {lookupMiss ? (
-                <Banner variant="warning" className="items-start">{pick(joinDialog.lookupMiss, locale)}</Banner>
+                <StatusLine tone="neutral" icon={SearchXIcon}>{pick(joinDialog.lookupMiss, locale)}</StatusLine>
               ) : null}
             </form>
           ) : null}
@@ -635,9 +629,10 @@ export function JoinCaseDialog({
               ) : null}
 
               {party && blocked ? (
-                <Banner variant="warning" className="items-start">
+                /* A dead end, not bad news: neutral (skill `feedback-states`). */
+                <StatusLine tone="neutral" icon={UserCheckIcon}>
                   {fill(joinDialog.alreadyJoined, locale, { name: party.name })}
-                </Banner>
+                </StatusLine>
               ) : null}
 
               {kind === "self" && party && !blocked ? (

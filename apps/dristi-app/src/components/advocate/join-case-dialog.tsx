@@ -3,22 +3,8 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { REGEXP_ONLY_DIGITS } from "input-otp";
-import {
-  ArrowLeftIcon,
-  ArrowRightIcon,
-  WalletIcon,
-  DownloadIcon,
-  FlaskConicalIcon,
-  MinusIcon,
-  PlusIcon,
-  SearchIcon,
-} from "lucide-react";
-import {
-  OutcomeAmount,
-  OutcomeHeader,
-  StatusLine,
-  notify,
-} from "@/components/feedback";
+import { ArrowLeftIcon, ArrowRightIcon, DownloadIcon, FlaskConicalIcon, MinusIcon, PlusIcon, SearchIcon, SearchXIcon, WalletIcon } from "lucide-react";
+import { OutcomeAmount, OutcomeHeader, StatusLine, notify } from "@/components/feedback";
 
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 import { useStageFade } from "@/components/chrome/stage-fade";
@@ -861,7 +847,7 @@ export function AdvocateJoinCaseDialog({
                 </FieldError>
               </Field>
               {lookupMiss ? (
-                <Banner variant="warning" className="items-start">{pick(joinDialog.lookupMiss, locale)}</Banner>
+                <StatusLine tone="neutral" icon={SearchXIcon}>{pick(joinDialog.lookupMiss, locale)}</StatusLine>
               ) : null}
             </form>
           ) : null}
@@ -1345,7 +1331,7 @@ export function AdvocateJoinCaseDialog({
                   tabIndex={-1}
                   className="rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <Banner variant="error" className="items-start">{pick(advDialog.payFailed, locale)}</Banner>
+                  <StatusLine tone="error">{pick(advDialog.payFailed, locale)}</StatusLine>
                 </div>
               ) : null}
               <DescriptionList className="rounded-xl bg-surface-sunken px-4 py-1">

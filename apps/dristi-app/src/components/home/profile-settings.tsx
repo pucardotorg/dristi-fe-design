@@ -1,9 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { CheckCircle2Icon, CheckIcon, ChevronsUpDownIcon, ExternalLinkIcon, FileTextIcon, PencilIcon, PlusIcon } from "lucide-react";
+import { CheckIcon, ChevronsUpDownIcon, ExternalLinkIcon, FileTextIcon, PencilIcon, PlusIcon } from "lucide-react";
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import type { Locale } from "@/lib/onboarding/content";
 import { Identifier } from "@/components/chrome/identifier";
 import { useCourtText } from "@/components/court/court-provider";
 import type { ProfileRole } from "@/components/shell/profile";
+import { StatusLine } from "@/components/feedback";
 
 const REQUIRED_MARK = <span className="text-destructive">*</span>;
 
@@ -168,7 +169,7 @@ export function ProfileSettings({ locale, profileName, idSubmitted, submittedId,
             ) : null}
           </div>
         </div>
-        {advocateRequest && !advocateProfileAvailable ? <Alert variant="success"><CheckCircle2Icon aria-hidden /><AlertTitle>Your request has been submitted</AlertTitle><AlertDescription>We will notify you when your advocate profile is approved. Your litigant profile remains active.</AlertDescription></Alert> : null}
+        {advocateRequest && !advocateProfileAvailable ? <StatusLine tone="info" still title="Your request has been submitted">We will notify you when your advocate profile is approved. Your litigant profile remains active.</StatusLine> : null}
         {upgradeDetailsOpen && advocateRequest ? (
           <DescriptionList className="rounded-lg bg-muted px-4">
             <DescriptionRow><DescriptionTerm>Bar registration number</DescriptionTerm><DescriptionDetails><Identifier value={advocateRequest.barNumber} label="bar registration number" /></DescriptionDetails></DescriptionRow>
