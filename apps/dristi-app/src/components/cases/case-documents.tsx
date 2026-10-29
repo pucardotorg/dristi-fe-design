@@ -1104,8 +1104,9 @@ function DocumentsItemList({
                     Mark as evidence
                   </Button>
                 ) : null}
+                {/* The bond's row opens its status, not a document record. */}
                 <Button type="button" onClick={() => onOpenRecord(document)}>
-                  View document
+                  {document.id === BOND_ROW_ID ? "View bond status" : "View document"}
                 </Button>
               </>
             }

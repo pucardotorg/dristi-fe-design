@@ -702,8 +702,15 @@ function GeneratedBondDialog({
             <div className="flex max-h-72 shrink-0 flex-col overflow-y-auto border-b border-hairline p-4 @3xl/record:max-h-none @3xl/record:w-80 @3xl/record:border-r @3xl/record:border-b-0">
               <div className="flex flex-col divide-y divide-hairline">
                 <FactGroup>
+                  {/* The surety count rides on the filing line, so the facts
+                      stay as tall as the application's and leave the bond its
+                      room where the halves stack (tablets). */}
                   <Fact label="Filing">
-                    {terms.personal ? "Personal bond" : "Surety bond"}
+                    {terms.personal
+                      ? "Personal bond"
+                      : `Surety bond · ${terms.sureties.length} ${
+                          terms.sureties.length === 1 ? "surety" : "sureties"
+                        }`}
                   </Fact>
                 </FactGroup>
                 <FactGroup columns={2}>
@@ -717,11 +724,6 @@ function GeneratedBondDialog({
                   <Fact label="Bail amount">
                     <span className="tabular-nums">{terms.amount}</span>
                   </Fact>
-                  {terms.personal ? null : (
-                    <Fact label="Sureties">
-                      <span className="tabular-nums">{terms.sureties.length}</span>
-                    </Fact>
-                  )}
                 </FactGroup>
               </div>
             </div>
@@ -1194,7 +1196,6 @@ function BondSignatureDialog({
             >
               Back
             </Button>
-            <span aria-hidden />
           </footer>
         ) : null}
 
