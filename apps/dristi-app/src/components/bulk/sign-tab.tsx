@@ -591,7 +591,7 @@ function SignFlow({
             </div>
 
             {/* The warm band every outcome closes on; it stays put while the list scrolls. */}
-            <footer className="flex shrink-0 flex-col-reverse gap-3 border-t border-hairline bg-surface-sunken px-6 pt-4 pb-[calc(--spacing(4)+env(safe-area-inset-bottom))] sm:flex-row">
+            <footer className="flex shrink-0 flex-col gap-3 border-t border-hairline bg-surface-sunken px-6 pt-4 pb-[calc(--spacing(4)+env(safe-area-inset-bottom))] sm:flex-row">
               <Button variant="outline" size="lg" className="sm:flex-1" onClick={onClose}>
                 Back to signing
               </Button>

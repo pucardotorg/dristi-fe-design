@@ -156,7 +156,8 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
 
   if (!open.length)
     return (
-      <StatusLine tone="success" still>
+      /* Nothing to do here is not news: neutral. */
+      <StatusLine tone="neutral" still>
         Nothing open here.{" "}
         <button
           type="button"

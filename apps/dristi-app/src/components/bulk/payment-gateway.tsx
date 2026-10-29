@@ -103,20 +103,30 @@ export function PaymentGateway({
 
   /* A refused press points at the field (skill `feedback-states`): the first wrong one
      takes focus, its line drops in, and a repeat press shakes it. */
-  const { attempt, refuse } = useRefusal();
-  const firstCardError = (["number", "expiry", "cvv", "name"] as const).find((k) => cardErrors[k]);
+  const { attempt, refuse, reset } = useRefusal();
+  /* The field the last press pointed at, fixed at the press: typing never moves focus. */
+  const [refused, setRefused] = React.useState<"number" | "expiry" | "cvv" | "name" | "upi" | null>(null);
+  const pointAt = (field: NonNullable<typeof refused>) => {
+    if (field !== refused) {
+      /* A different field is a first refusal: it takes focus, it does not shake. */
+      setRefused(field);
+      reset();
+    }
+    refuse();
+  };
 
   const start = () => {
     setTried(true);
     if (mode === "card") {
-      if (Object.values(cardErrors).some(Boolean)) {
-        refuse();
+      const first = (["number", "expiry", "cvv", "name"] as const).find((k) => cardErrors[k]);
+      if (first) {
+        pointAt(first);
         return;
       }
       setStage("card-otp");
     } else if (mode === "upi") {
       if (upiError) {
-        refuse();
+        pointAt("upi");
         return;
       }
       setLeft(5);
@@ -158,6 +168,9 @@ export function PaymentGateway({
               value={mode}
               onValueChange={(v) => {
                 setMode(v as PayMode);
+                /* A new way to pay starts clean: its first refusal is a first refusal. */
+                setRefused(null);
+                reset();
                 setTried(false);
               }}
             >
@@ -184,7 +197,7 @@ export function PaymentGateway({
                   data-invalid={tried && !!cardErrors.number}
                 >
                   <FieldLabel htmlFor="gw-card">Card number</FieldLabel>
-                  <StatusFieldControl attempt={firstCardError === "number" ? attempt : 0}>
+                  <StatusFieldControl attempt={refused === "number" ? attempt : 0}>
                     <Input
                       aria-invalid={tried && !!cardErrors.number}
                       id="gw-card"
@@ -198,8 +211,8 @@ export function PaymentGateway({
                   </StatusFieldControl>
                   {tried && cardErrors.number ? (
                     <StatusFieldError
-                      attempt={firstCardError === "number" ? attempt : undefined}
-                      still={firstCardError !== "number"}
+                      attempt={refused === "number" ? attempt : undefined}
+                      still={refused !== "number"}
                     >
                       {cardErrors.number}
                     </StatusFieldError>
@@ -210,7 +223,7 @@ export function PaymentGateway({
                   data-invalid={tried && !!cardErrors.expiry}
                 >
                   <FieldLabel htmlFor="gw-exp">Expiry</FieldLabel>
-                  <StatusFieldControl attempt={firstCardError === "expiry" ? attempt : 0}>
+                  <StatusFieldControl attempt={refused === "expiry" ? attempt : 0}>
                     <Input
                       aria-invalid={tried && !!cardErrors.expiry}
                       id="gw-exp"
@@ -223,8 +236,8 @@ export function PaymentGateway({
                   </StatusFieldControl>
                   {tried && cardErrors.expiry ? (
                     <StatusFieldError
-                      attempt={firstCardError === "expiry" ? attempt : undefined}
-                      still={firstCardError !== "expiry"}
+                      attempt={refused === "expiry" ? attempt : undefined}
+                      still={refused !== "expiry"}
                     >
                       {cardErrors.expiry}
                     </StatusFieldError>
@@ -235,7 +248,7 @@ export function PaymentGateway({
                   data-invalid={tried && !!cardErrors.cvv}
                 >
                   <FieldLabel htmlFor="gw-cvv">CVV</FieldLabel>
-                  <StatusFieldControl attempt={firstCardError === "cvv" ? attempt : 0}>
+                  <StatusFieldControl attempt={refused === "cvv" ? attempt : 0}>
                     <Input
                       aria-invalid={tried && !!cardErrors.cvv}
                       id="gw-cvv"
@@ -253,8 +266,8 @@ export function PaymentGateway({
                   </StatusFieldControl>
                   {tried && cardErrors.cvv ? (
                     <StatusFieldError
-                      attempt={firstCardError === "cvv" ? attempt : undefined}
-                      still={firstCardError !== "cvv"}
+                      attempt={refused === "cvv" ? attempt : undefined}
+                      still={refused !== "cvv"}
                     >
                       {cardErrors.cvv}
                     </StatusFieldError>
@@ -265,7 +278,7 @@ export function PaymentGateway({
                   data-invalid={tried && !!cardErrors.name}
                 >
                   <FieldLabel htmlFor="gw-name">Name on card</FieldLabel>
-                  <StatusFieldControl attempt={firstCardError === "name" ? attempt : 0}>
+                  <StatusFieldControl attempt={refused === "name" ? attempt : 0}>
                     <Input
                       aria-invalid={tried && !!cardErrors.name}
                       id="gw-name"
@@ -275,8 +288,8 @@ export function PaymentGateway({
                   </StatusFieldControl>
                   {tried && cardErrors.name ? (
                     <StatusFieldError
-                      attempt={firstCardError === "name" ? attempt : undefined}
-                      still={firstCardError !== "name"}
+                      attempt={refused === "name" ? attempt : undefined}
+                      still={refused !== "name"}
                     >
                       {cardErrors.name}
                     </StatusFieldError>
@@ -286,7 +299,7 @@ export function PaymentGateway({
             ) : mode === "upi" ? (
               <Field className="gap-1.5" data-invalid={tried && !!upiError}>
                 <FieldLabel htmlFor="gw-upi">UPI ID</FieldLabel>
-                <StatusFieldControl attempt={attempt}>
+                <StatusFieldControl attempt={refused === "upi" ? attempt : 0}>
                   <Input
                     aria-invalid={tried && !!upiError}
                     id="gw-upi"
@@ -295,7 +308,7 @@ export function PaymentGateway({
                     onChange={(e) => setUpi(e.target.value)}
                   />
                 </StatusFieldControl>
-                {tried && upiError ? <StatusFieldError attempt={attempt}>{upiError}</StatusFieldError> : null}
+                {tried && upiError ? <StatusFieldError attempt={refused === "upi" ? attempt : undefined}>{upiError}</StatusFieldError> : null}
                 <span className="text-caption text-muted-foreground">
                   A payment request goes to this UPI ID.
                 </span>

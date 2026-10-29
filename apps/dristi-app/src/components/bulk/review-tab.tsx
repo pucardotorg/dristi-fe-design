@@ -5,7 +5,6 @@ import * as React from "react";
 import type { FilingDraft } from "@/lib/filing/types";
 import { CourtDocument } from "@/components/filing/sections/preview/court-document";
 import { FilingFooter } from "@/components/filing/filing-footer";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -49,9 +48,7 @@ export function ReviewTab({ batch, go }: BatchCtx) {
 
   if (!open.length)
     return (
-      <Alert>
-        <AlertDescription>Nothing to review.</AlertDescription>
-      </Alert>
+      <StatusLine tone="neutral" still>Nothing to review.</StatusLine>
     );
 
   const c = open.find((x) => x.id === selectedId) ?? open[0];
@@ -73,7 +70,7 @@ export function ReviewTab({ batch, go }: BatchCtx) {
   return (
     <div className="flex flex-col gap-4">
       {error ? (
-        <StatusLine tone="error">{error}</StatusLine>
+        <StatusLine tone="error" still>{error}</StatusLine>
       ) : null}
       <div className="lg:grid lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start lg:gap-6">
         <CaseList
