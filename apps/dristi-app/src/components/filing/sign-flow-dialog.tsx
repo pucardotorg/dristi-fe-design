@@ -1168,7 +1168,7 @@ function ConfirmRow({
       {you && open && !otpIn && tail ? (
         <div className="mt-3 flex flex-col gap-3 rounded-lg bg-surface-sunken p-4">
           <p className="text-body-compact text-muted-foreground">
-            In the live service, a 6-digit OTP goes to{" "}
+            A 6-digit OTP goes to{" "}
             <strong className="font-semibold text-foreground tabular-nums">
               •••• {tail}
             </strong>
@@ -1201,9 +1201,6 @@ function ConfirmRow({
                 ))}
               </InputOTPGroup>
             </InputOTP>
-            <p className="text-body-compact text-muted-foreground">
-              Sandbox — any 6-digit code is accepted here.
-            </p>
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-2">

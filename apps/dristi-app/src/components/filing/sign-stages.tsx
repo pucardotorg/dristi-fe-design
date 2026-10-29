@@ -242,9 +242,6 @@ export function OtpEntry({
       >
         {resent ? "Sent again" : "Send it again"}
       </Button>
-      <p className="text-body-compact text-muted-foreground">
-        Sandbox — any six digits work.
-      </p>
     </div>
   );
 }
@@ -268,9 +265,6 @@ export function DscLookup({ found, holder }: { found: boolean; holder: string })
               {holder
                 ? "Class 3 individual certificate, found on this computer"
                 : "Class 3 individual certificate"}
-            </p>
-            <p className="text-body-compact text-muted-foreground">
-              Sandbox — no certificate store is read.
             </p>
           </div>
         </div>

@@ -845,10 +845,6 @@ export function SignSection() {
           Print or save as PDF
         </Button>
       </div>
-
-      <p className="text-caption text-muted-foreground">
-        Sandbox: this filing has not been sent to a real court.
-      </p>
     </div>
   );
 
@@ -1488,10 +1484,6 @@ export function SignSection() {
             Pay {money(bill.total)} online
           </Button>
 
-          <p className="text-caption text-muted-foreground">
-            Sandbox payment. No money moves.
-          </p>
-
           <DialogFooter>
             <Button
               type="button"
@@ -1520,9 +1512,6 @@ export function SignSection() {
             <DialogDescription className="text-body-compact">
               Please don’t close or refresh this window while we confirm your payment.
             </DialogDescription>
-            <p className="text-caption text-muted-foreground">
-              Sandbox payment. No money moves.
-            </p>
           </div>
         </ChromeDialogContent>
       </Dialog>
@@ -1538,7 +1527,7 @@ export function SignSection() {
             compact
             titleFrom="dialog"
             title="Payment successful"
-            body="Your case file is complete. This is a sandbox. Nothing has been sent to a real court."
+            body="Your case file is complete."
           >
             <OutcomeAmount label="Amount paid" value={money(sign.paidAmount ?? bill.total)} />
           </OutcomeHeader>

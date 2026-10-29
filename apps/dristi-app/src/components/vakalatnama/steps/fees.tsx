@@ -73,7 +73,7 @@ export function FeesStep({ vak: stored }: { vak: Vakalatnama }) {
                 <Identifier value={vak.boundCaseNumber} label="case number" copyable={false} />
               </>
             ) : null}
-            . Sandbox — no real payment or signature service was used.
+            .
           </AlertDescription>
         </Alert>
 
@@ -127,7 +127,6 @@ export function FeesStep({ vak: stored }: { vak: Vakalatnama }) {
           <Button type="button" onClick={pay}>
             Pay {rupee(total)} &amp; complete
           </Button>
-          <span className="text-caption text-muted-foreground">Sandbox — no card needed</span>
         </div>
       </FormCard>
     </div>

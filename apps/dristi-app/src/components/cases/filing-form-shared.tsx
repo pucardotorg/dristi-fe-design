@@ -30,7 +30,6 @@ import {
   AttachmentMedia,
   AttachmentTitle,
 } from "@/components/ui/attachment";
-import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -157,7 +156,6 @@ export function FilingFrame({
   caseNumber,
   complainantName,
   onExit,
-  showPrototypeBanner = true,
   showCaseContext = true,
   /** "wide" gives a two-column body room; single-column forms stay default. */
   contentWidth = "default",
@@ -168,7 +166,6 @@ export function FilingFrame({
   caseNumber?: string;
   complainantName?: string;
   onExit: () => void;
-  showPrototypeBanner?: boolean;
   showCaseContext?: boolean;
   contentWidth?: "default" | "wide";
   children: ReactNode;
@@ -193,13 +190,6 @@ export function FilingFrame({
           {description}
         </p>
       </header>
-
-      {showPrototypeBanner ? (
-        <Banner variant="neutral">
-          Prototype only — filing details and selected files will not be saved
-          or sent.
-        </Banner>
-      ) : null}
 
       {showCaseContext && caseNumber ? (
         <Card size="sm" className="hover:bg-card">

@@ -134,7 +134,7 @@ export function PaymentGateway({
           </span>
           <span className="flex items-center gap-1 text-caption text-muted-foreground">
             <LockIcon className="size-3" aria-hidden />
-            Sandbox gateway
+            Payment gateway
           </span>
         </div>
       </div>
@@ -238,9 +238,6 @@ export function PaymentGateway({
                     <FieldError>{cardErrors.name}</FieldError>
                   ) : null}
                 </Field>
-                <span className="col-span-2 text-caption text-muted-foreground">
-                  Sandbox test card. Nothing is charged.
-                </span>
               </div>
             ) : mode === "upi" ? (
               <Field className="gap-1.5" data-invalid={tried && !!upiError}>
@@ -253,8 +250,7 @@ export function PaymentGateway({
                 />
                 {tried && upiError ? <FieldError>{upiError}</FieldError> : null}
                 <span className="text-caption text-muted-foreground">
-                  A payment request goes to this UPI ID. Sandbox: it approves
-                  itself.
+                  A payment request goes to this UPI ID.
                 </span>
               </Field>
             ) : (
@@ -276,8 +272,7 @@ export function PaymentGateway({
                   <dd className="tabular-nums">{money(amount)}</dd>
                 </dl>
                 <span className="text-caption text-muted-foreground">
-                  This account is only for this payment. Sandbox: no transfer is
-                  needed.
+                  This account is only for this payment.
                 </span>
               </div>
             )}
@@ -295,7 +290,7 @@ export function PaymentGateway({
               </InputOTPGroup>
             </InputOTP>
             <span className="text-caption text-muted-foreground">
-              Card ending {card.number.slice(-4)}. Sandbox: any 6 digits.
+              Card ending {card.number.slice(-4)}.
             </span>
           </Field>
         ) : (
@@ -313,9 +308,9 @@ export function PaymentGateway({
             </p>
             <p className="text-caption text-muted-foreground">
               {stage === "upi-wait"
-                ? `Sent to ${upi}. Sandbox: approves in ${left}s.`
+                ? `Sent to ${upi}. Approves in ${left}s.`
                 : stage === "neft-wait"
-                  ? `Sandbox: found in ${left}s.`
+                  ? `Found in ${left}s.`
                   : "Please don't close this window."}
             </p>
           </div>

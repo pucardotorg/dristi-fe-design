@@ -297,9 +297,6 @@ export function ReviewSignStep({ vak }: { vak: Vakalatnama }) {
           <Button type="button" size="lg" className="w-full" disabled={otp.length < 6} onClick={verifyEsign}>
             Verify and sign
           </Button>
-          <p className="text-center text-caption text-muted-foreground">
-            Sandbox — any six digits work.
-          </p>
         </ChromeDialogContent>
       </Dialog>
 

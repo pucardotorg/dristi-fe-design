@@ -183,15 +183,8 @@ export function BatchFilingDialog({
                     ))}
                   </InputOTPGroup>
                 </InputOTP>
-                <p className="text-caption text-muted-foreground">
-                  Sandbox — any six digits work.
-                </p>
               </div>
-            ) : (
-              <p className="text-caption text-muted-foreground">
-                Sandbox payment — no money moves.
-              </p>
-            )}
+            ) : null}
 
             <DialogFooter>
               <Button type="button" variant="outline" disabled={running} onClick={close}>
@@ -252,7 +245,7 @@ export function BatchFilingDialog({
                         ? "Your oath is still to be taken on one of them. Open it from this tab to record it."
                         : `Your oath is still to be taken on ${sworeLater} of them. Open each from this tab to record it.`
                     : "One OTP covered the set, the same as signing one at a time. A filing still waiting on another party stays on this tab until they sign."
-                  : "This is a sandbox — nothing has been sent to a real court."
+                  : undefined
               }
             />
             <DialogFooter className="mx-0 mb-0 border-hairline bg-surface-sunken">

@@ -372,7 +372,7 @@ function OtpForm({
       <DialogHeader>
         <DialogTitle>{title}</DialogTitle>
         <DialogDescription>
-          In the live service, a 6-digit OTP goes to{" "}
+          A 6-digit OTP goes to{" "}
           <strong className="font-semibold text-foreground">{signer.name}</strong>’s Aadhaar-linked
           mobile. The signature applied is theirs.
         </DialogDescription>
@@ -388,7 +388,6 @@ function OtpForm({
             ))}
           </InputOTPGroup>
         </InputOTP>
-        <p className="text-caption text-muted-foreground">Sandbox — any 6-digit code is accepted here.</p>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-body-compact text-muted-foreground">Didn’t get it?</span>

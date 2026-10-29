@@ -146,11 +146,9 @@ function PayCard({ ctx }: { ctx: ActContext }) {
         >
           Pay{task.amountPaise !== undefined ? ` ${rupees(task.amountPaise)}` : ""}
         </Button>
-        <p className="text-caption text-muted-foreground">
-          {task.amountPaise === undefined
-            ? "Amount to be fetched — the fee is not on the task yet."
-            : "Sandbox payment — no money moves."}
-        </p>
+        {task.amountPaise === undefined ? (
+          <p className="text-caption text-muted-foreground">Amount to be fetched. The fee is not on the task yet.</p>
+        ) : null}
       </div>
 
       <AlertDialog open={confirm} onOpenChange={setConfirm}>
@@ -166,7 +164,7 @@ function PayCard({ ctx }: { ctx: ActContext }) {
                   <Identifier value={kase.stNumber} label="case number" copyable={false} />
                 </>
               ) : null}
-              . In the live service this goes to the payment gateway now and cannot be recalled.
+              . This goes to the payment gateway now and cannot be recalled.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -197,7 +195,6 @@ function ConfirmingCard({ ctx }: { ctx: ActContext }) {
       >
         Gateway: confirm
       </Button>
-      <p className="text-caption text-muted-foreground">Sandbox — stands in for the gateway&apos;s callback.</p>
     </RailCard>
   );
 }

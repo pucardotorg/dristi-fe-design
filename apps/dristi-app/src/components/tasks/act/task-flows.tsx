@@ -268,9 +268,6 @@ export function TaskPaymentDialog({
                 </DescriptionRow>
               ) : null}
             </DescriptionList>
-            <p className="text-caption text-muted-foreground">
-              Sandbox payment — no money moves.
-            </p>
           </div>
         ) : null}
 

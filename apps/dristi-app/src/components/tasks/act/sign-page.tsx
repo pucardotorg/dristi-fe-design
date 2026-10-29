@@ -42,7 +42,7 @@ function SignCard({ ctx }: { ctx: ActContext }) {
         E-Sign with Aadhaar OTP
       </Button>
       <p className="text-caption text-muted-foreground">
-        The signed document is attached to the task and the case file. Sandbox — nothing reaches a court.
+        The signed document is attached to the task and the case file.
       </p>
       <OtpDialog
         open={otpOpen}

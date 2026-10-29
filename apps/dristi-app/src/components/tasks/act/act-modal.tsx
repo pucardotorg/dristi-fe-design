@@ -36,12 +36,6 @@ import {
 import { Identifier } from "@/components/chrome/identifier";
 import { useCourtText } from "@/components/court/court-provider";
 
-/** The one quiet line per flow that says what is not real here. */
-const SANDBOX: Record<ActMode, string> = {
-  pay: "Sandbox — no money moves; the gateway's answer is whatever you pick and the receipt is generated locally.",
-  file: "Sandbox — uploads stay in this browser and the registry's answer is whatever you pick.",
-};
-
 /** The document column reads better with room; pay is a summary and stays narrow. */
 const WIDTH: Record<ActMode, string> = {
   pay: "sm:max-w-xl",
@@ -147,7 +141,6 @@ export function TaskActModal({
           <DialogTitle className="text-title-s font-semibold text-balance">{task.title}</DialogTitle>
           <DialogDescription className="text-caption text-muted-foreground">{caseLine}</DialogDescription>
         </DialogHeader>
-        <p className="text-caption text-muted-foreground">{SANDBOX[mode]}</p>
         <Body ctx={ctx} mode={mode} />
       </FlowDialogContent>
     </Dialog>

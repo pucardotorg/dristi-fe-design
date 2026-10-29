@@ -841,7 +841,6 @@ export const advDialog = {
   paySandboxTip: t("Sandbox: choose the gateway result", "സാൻഡ്‌ബോക്സ്: ഗേറ്റ്‌വേ ഫലം തിരഞ്ഞെടുക്കുക"),
   payOutcomeSuccess: t("Success", "വിജയം"),
   payOutcomeFailed: t("Failed", "പരാജയപ്പെട്ടു"),
-  paySandboxNote: t("Sandbox payment — no money moves.", "സാൻഡ്‌ബോക്സ് പേയ്‌മെന്റ് — പണം കൈമാറുന്നില്ല."),
   payFailed: t(
     "The payment did not go through. Nothing was paid; try again.",
     "പേയ്‌മെന്റ് നടന്നില്ല. ഒന്നും അടച്ചിട്ടില്ല; വീണ്ടും ശ്രമിക്കുക.",

@@ -830,9 +830,6 @@ function SignFlow({
                               {step.cases.length === 1 ? "" : "s"}
                             </span>
                           ) : null}
-                          <span className="text-caption text-muted-foreground">
-                            Sandbox: any 6 digits.
-                          </span>
                         </div>
                       ) : null}
                     </li>

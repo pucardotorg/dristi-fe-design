@@ -903,9 +903,6 @@ export function ComplainantSection() {
                 ))}
               </InputOTPGroup>
             </InputOTP>
-            <p className="text-caption text-muted-foreground">
-              Sandbox: no OTP is sent, and any 6-digit code is accepted here.
-            </p>
           </div>
 
           <Button

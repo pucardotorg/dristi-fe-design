@@ -127,14 +127,13 @@ function FileCard({ ctx, files, complete }: { ctx: ActContext; files: StoredFile
           Save for later
         </Button>
       </div>
-      <p className="text-caption text-muted-foreground">Sandbox — nothing reaches the registry.</p>
       <AlertDialog open={confirm} onOpenChange={setConfirm}>
         <ChromeAlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>File with the court?</AlertDialogTitle>
             <AlertDialogDescription>
-              {n === 1 ? "1 document goes" : `${n} documents go`} to the registry for scrutiny. In the live
-              service this cannot be recalled; defects come back as a new task.
+              {n === 1 ? "1 document goes" : `${n} documents go`} to the registry for scrutiny. This cannot be
+              recalled; defects come back as a new task.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
