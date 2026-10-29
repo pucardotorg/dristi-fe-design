@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { CheckIcon, ChevronRightIcon, RotateCcwIcon } from "lucide-react";
+import { ChevronRightIcon, RotateCcwIcon } from "lucide-react";
 
 import type {
   Filing,
@@ -223,8 +223,6 @@ export function ReviewDialog({
              (2026-09-18), and it was the weaker reading anyway — an elbow pointing left
              is "back" in the browser sense, while this file has gone round for another
              round, which is the word the case history already uses. */
-          tone: "bg-secondary text-secondary-foreground",
-          Icon: RotateCcwIcon,
         }
       : decision === "forward"
       ? {
@@ -235,10 +233,6 @@ export function ReviewDialog({
                 total > 1 ? "s" : ""
               } attached.`
             : `On Register cases${chosenLine}.`,
-          /* Scrutiny is done with the file, which is this desk's good outcome, so it
-             wears the same mark as registering. */
-          tone: "bg-success-muted text-success-muted-foreground",
-          Icon: CheckIcon,
         }
       : {
           title: "Case registered",
@@ -248,10 +242,6 @@ export function ReviewDialog({
                 total > 1 ? "s" : ""
               } attached.`
             : "On the Magistrate's list for cognizance.",
-          /* Registering *is* a terminal good outcome, so this one keeps the success
-             muted and the tick. */
-          tone: "bg-success-muted text-success-muted-foreground",
-          Icon: CheckIcon,
         };
 
   const needsAck = decision !== "send-back" && total > 0;
@@ -382,7 +372,8 @@ export function ReviewDialog({
              a list that stayed. Centred by `my-auto` rather than `justify-center`, so it
              gives way to the scroll if a long advocate name ever grows it past the
              canvas. */
-          <div className="flex flex-col">
+          /* Centred in the tall window: a short outcome hung from the top leaves a hole. */
+          <div className="my-auto flex flex-col">
             <OutcomeHeader
               titleFrom="dialog"
               focusTitle
@@ -392,10 +383,14 @@ export function ReviewDialog({
               tone={decision === "send-back" ? "neutral" : "success"}
               icon={decision === "send-back" ? RotateCcwIcon : undefined}
               title={settled.title}
-              body={settled.body}
-            >
-              <span className="text-body-compact font-semibold">{settled.state}</span>
-            </OutcomeHeader>
+              /* The state, then what it means. */
+              body={
+                <>
+                  <span className="block font-semibold text-foreground">{settled.state}</span>
+                  {settled.body}
+                </>
+              }
+            />
           </div>
         ) : total || choosing ? (
           /* The list, and **only the list scrolls** — the frame around it does not move,

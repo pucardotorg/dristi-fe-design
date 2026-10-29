@@ -1642,7 +1642,8 @@ function RescheduleOverlay({
          are what describe this window, before the signature and after it, so they are
          pointed at directly. Left unset the primitive would go looking for a description
          that is deliberately not there. */
-      aria-describedby={stage === "day" ? undefined : factId}
+      /* On the outcome the header's own description says "Order signed": leave it. */
+      aria-describedby={stage === "sign" ? factId : undefined}
       /* The question, not the first control the overlay happens to contain — which is
          the calendar's previous-month arrow, and a ring around that on open reads as a
          starting point the bench does not have. */

@@ -117,8 +117,7 @@ function SignWitnessDepositionBody({
       motion="forward"
       footer={
         <>
-          {/* What the act means, and what this build does not do — said at the moment of
-              the act rather than left for the bench to discover. */}
+          {/* What the act means, said at the moment of the act. */}
           <p className="text-caption text-muted-foreground sm:mr-auto sm:text-left">
             Signing publishes this deposition and cannot be reversed.
           </p>

@@ -101,9 +101,7 @@ export function SignatureStage({
 
       {warning ? (
         /* The irreversible line, with its lock, so it is read (skill `feedback-states`). */
-        <p className="text-body-compact text-muted-foreground">
-          <IrreversibleNote>{warning}</IrreversibleNote>
-        </p>
+        <IrreversibleNote className="mt-0">{warning}</IrreversibleNote>
       ) : null}
     </div>
   );

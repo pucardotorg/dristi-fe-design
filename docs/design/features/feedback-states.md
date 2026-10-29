@@ -128,6 +128,8 @@ and documented rules:
 - **Waiting on the person** (sign later, pay later) is neutral with a clock, never amber.
   Waiting on someone else is info (the hourglass).
 - **Nothing to do, nothing wrong** (every item already done) is a neutral takeover.
+- **A staged overlay's outcome stage has no height floor:** a short outcome over an empty canvas reads as a hole.
+- **Partial standing states** ("10 of 12 filed") and gates ("not ready yet") are neutral with the act's icon.
 - **Errors raised inside a dialog are said in the dialog,** never as a toast behind it.
   The app's `useTaskActions({ inDialog })` does this today.
 
@@ -269,6 +271,33 @@ DS was never touched, so there is nothing to undo.
   - two animated lines
 - **Pending PM copy:** the partial tally lines "N went through" and "N did not go through".
 - **Open for the owner:** the act window keeps its actions in cards inside the body, with no footer band. Moving them is a layout change.
+
+**29 Oct · batch 4 (access and bulk), batch 5 (court side), final sweep.**
+- **Batch 4:**
+  - Bulk signing and payment outcomes moved to the takeover with the footer band. The phone button collapse is fixed.
+  - The "not ready to sign" gate is neutral. "N of M filed" (partial) is neutral with a checklist.
+  - Row marks, access toasts, the remove-access confirm, and payment-gateway field refusals (`useRefusal`) moved over.
+  - Review: 6 findings, all fixed.
+- **Batch 5:**
+  - Every court signing window ends on the outcome pattern: sign queues, order signing, record returns, scrutiny review (send-back is neutral with the loop), bulk reschedule.
+  - Confirms carry marks and the lock line. The order discard is soft red.
+  - Toasts moved to `notify`. Banners moved to `StatusLine`.
+  - Review: 7 findings, 6 fixed.
+- **Final sweep:**
+  - Registration results are page outcomes: success hero, and the info hourglass for "waiting for approval".
+  - Case pay-later dialogs use the takeover.
+  - Vakalatnama, profile, onboarding and advocate home notices moved over.
+  - Citizen and advocate join "no match" and "already joined" are neutral.
+  - The copy toast moved over.
+- **Kit safety nets:**
+  - An error toast raised while a dialog is open waits for the dialog to close.
+  - The staged overlay's outcome stage drops its height floor.
+- **Known gaps** (need an owner call; left as neutral toasts):
+  - Missing input in the court order editor ("Type the order before sending…", "Set the next hearing's date…") and the pending order's "questions still to answer". The rule says to point at the field, but there the "field" is a block in a composed order.
+  - The approve-registrations overlay still ends on its thin status strip. Making its outcome a takeover would hide the record it walks through.
+  - A mid-sentence "cannot be reversed" stays plain in three footers: diary day, deposition, evidence.
+  - Bulk pay failure is said at the top of the page after the window closes (from before batch 4).
+  - Batch partial lines need PM copy sign-off.
 
 ## Verification and open work
 

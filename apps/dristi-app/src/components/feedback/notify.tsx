@@ -83,9 +83,29 @@ function show(tone: Tone, title: React.ReactNode, options: Options = {}) {
   return id;
 }
 
+/* An error toast behind an open dialog cannot be closed (it stays until closed, and the
+   dialog blocks the page). Callers should say it inside the dialog; as a safety net, one
+   raised while a dialog is open waits for the last dialog to close. */
+function dialogOpen() {
+  return (
+    typeof document !== "undefined" &&
+    !!document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]')
+  );
+}
+
+function whenNoDialog(run: () => void) {
+  if (!dialogOpen()) return run();
+  const observer = new MutationObserver(() => {
+    if (dialogOpen()) return;
+    observer.disconnect();
+    run();
+  });
+  observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-state"] });
+}
+
 export const notify = {
   success: (title: React.ReactNode, options?: Options) => show("success", title, options),
-  error: (title: React.ReactNode, options?: Options) => show("error", title, options),
+  error: (title: React.ReactNode, options?: Options) => whenNoDialog(() => show("error", title, options)),
   warning: (title: React.ReactNode, options?: Options) => show("warning", title, options),
   neutral: (title: React.ReactNode, options?: Options) => show("neutral", title, options),
 };

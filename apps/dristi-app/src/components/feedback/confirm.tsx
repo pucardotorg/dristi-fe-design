@@ -4,6 +4,7 @@ import * as React from "react";
 import { LockIcon } from "lucide-react";
 
 import { AlertDialogMedia } from "@/components/ui/alert-dialog";
+import { cn } from "@/lib/utils";
 
 import { StatusMark } from "./mark";
 
@@ -36,9 +37,16 @@ export function ConfirmMark({
  * "This cannot be undone." on its own line with a lock, so it is read, not skimmed. It
  * follows the text it sits under: centred in a phone's alert dialog, left from tablet up.
  */
-export function IrreversibleNote({ children }: { children: React.ReactNode }) {
+export function IrreversibleNote({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  /** In a flex column that already spaces its children, pass `mt-0`. */
+  className?: string;
+}) {
   return (
-    <span className="mt-3 block">
+    <span className={cn("mt-3 block", className)}>
       <span className="inline-flex items-center gap-1.5 text-body-compact font-medium text-foreground">
         <LockIcon className="size-3.5 shrink-0" aria-hidden />
         {children}
