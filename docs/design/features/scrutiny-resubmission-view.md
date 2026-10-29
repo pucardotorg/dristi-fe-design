@@ -166,9 +166,10 @@ and asked for them to be built in the product.
 - **Wording:** "Returned items" became "Errors marked" in the Changes heading, the
   group-card chip ("1 error marked"), the footer tally ("4 errors marked") and the
   index note.
-- **Fixture:** 00338 gains a fourth item, a long Interim relief prayer corrected from a
-  fixed sum to the Section 143A wording, so the long case can be seen
-  (`returns.ts`; test counts updated from 3 to 4).
+- **Fixture:** 00338 briefly gained a fourth item, a long Interim relief prayer, so the
+  long case could be seen. Removed 2026-10-30 (Neer): that field is not linked to any
+  bundle document, so the Changes index showed 3 documents against 4 errors marked.
+  00338 is back to its three items, and no fixture now shows a long correction.
 
 | Date | Decision and reason | Source | Status |
 |---|---|---|---|
