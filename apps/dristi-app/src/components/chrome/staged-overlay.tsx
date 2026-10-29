@@ -271,7 +271,10 @@ export function StagedOverlay({
         className={cn(
           "relative flex min-h-0 flex-1 flex-col overflow-hidden",
           surface === "card" || outcome ? "bg-card" : "bg-muted dark:bg-background",
+          /* The settled stage drops the floor: a short outcome over an empty canvas reads
+             as a hole, and nothing follows it that the floor would be holding room for. */
           floor &&
+            !outcome &&
             "sm:[@media(min-height:680px)]:min-h-96 sm:[@media(min-height:720px)]:min-h-112",
         )}
       >
