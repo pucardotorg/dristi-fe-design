@@ -156,6 +156,30 @@ DS was never touched, so there is nothing to undo.
 - **Test note:** the preview pane was hidden, so animation frames were paused. Toast
   removal was tested with frames stood in by a timer.
 
+**29 Oct · batch 1, filing (commits 9206b0f, 5c4b453).**
+- **Moved onto the shared pieces:** filing notices, both confirm dialogs (with the lock
+  note), bail application and bail bond outcomes, bond edit confirm, signing outcomes
+  (`SettledCard`), e-filing payment success, batch sign and pay success, documents
+  warning toast, dead signing link, new-filing and dashboard errors. Copy unchanged.
+- **Verified in the browser:** desktop for every one of those; phone sheet, iPad mini and
+  dark for batch pay and e-filing payment success; the bail paid then filed sequence
+  (through a temporary trigger, since the dialog has no button on main; removed after).
+- **Fixed while checking:** e-filing payment success buttons collapsed to 22px on a phone
+  (`flex-1` in a column), a bug from main.
+- **Independent review** (separate reviewer, code only): 7 findings, all fixed:
+  - the bail filed outcome reused the paid one, so it neither played nor took focus
+  - the case line was lost on the bail paid stage
+  - settled signing cards and on-arrival notices animated on every reopen
+  - the signing headline was no longer announced
+  - a batch where everything was already done showed red; now a new neutral takeover
+  - the bond edit confirm had turned red; back to its primary button
+- **Not driven in the browser:** the signing link wizard (needs a signed-in party), the
+  oath camera and cheque notices, and the batch "nothing to do" case (shown on
+  `/feedback-kit` instead).
+- **Left for later batches:** "N required documents still needed" stays a toast as today,
+  though the rules say missing input belongs on the field (needs an owner call). The bulk
+  pay and sign tabs have the same `flex-1` phone bug (batch 4).
+
 ## Verification and open work
 
 - Verified on the board: desktop light, every pair. Dark mode: one fix (the toast),
