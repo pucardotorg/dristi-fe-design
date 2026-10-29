@@ -50,6 +50,15 @@ size and context. The rules and reasons are listed below.
 | 29 Oct | Dark mode: the toast lifts to the raised surface with a full border. Otherwise it disappears into the page. | Claude, dark pass | rule |
 | 29 Oct | **Order of work: flows first, design system later.** The new pieces are built once in the app, composed only from existing design-system parts and tokens, and rolled into every flow. The same pieces go to the design system as a PR for discussion. On approval they move there, and the screens look identical. | Lead designer, owner | decided |
 
+## Branches (all of them, so none is forgotten)
+
+| # | Repo | Branch | Job | When |
+|---|---|---|---|---|
+| 1 | dristi-fe-design | `feature/states-board` | The before-and-after board, kept as the reference. Never merged into the product. | exists |
+| 2 | dristi-fe-design | `feature/feedback-states-rollout` | The pieces, the skill, and every flow moved onto them, in five batches (commits, not branches). One PR into `main`. | exists |
+| 3 | dristi-design-system | `feature/feedback-states` | The design-system PR for discussion: foundations, components, docs, rules, deprecations (plan step 2). | **to make** after the rollout PR, when the owner says start |
+| 4 | dristi-fe-design | a `ds:bump` branch from `origin/main` | Moves the app's DS pin to the approved version, on its own as repo rules require; then the flows switch to the DS copies (plan step 3). | **to make** only after #3 is approved and merged |
+
 ## The plan
 
 ### 1. Rollout branch (app repo)
