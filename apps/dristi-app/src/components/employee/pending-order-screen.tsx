@@ -475,9 +475,7 @@ function triggerSummary(
   listing: ListingApplication[],
 ): { label: string; value: string }[] {
   const lines: { label: string; value: string }[] = [];
-  if (appearances && draft.attendanceSkipped) {
-    lines.push({ label: "Attendance", value: "Skipped" });
-  } else if (appearances) {
+  if (appearances) {
     const recital = attendanceRecital(appearances, draft.marks);
     const unmarked = appearances.filter(
       (appearance) => !draft.marks[appearance.id],

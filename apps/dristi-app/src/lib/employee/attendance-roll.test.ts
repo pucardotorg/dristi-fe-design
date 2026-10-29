@@ -69,4 +69,14 @@ describe("the attendance roll", () => {
       { label: "Absent", value: "Ramesh Kumar, the accused." },
     ]);
   });
+
+  /* Skip is asked of each person (owner, 2026-10-29): a skipped person is not printed. */
+  it("leaves a skipped person off the order", () => {
+    const lines = attendanceRecital(appearancesFor(hearing), {
+      complainant: "present",
+      "complainant-poa-1": "not-required",
+      "accused-2": "not-required",
+    });
+    assert.deepEqual(lines, [{ label: "Present", value: "Priya Menon, the complainant." }]);
+  });
 });

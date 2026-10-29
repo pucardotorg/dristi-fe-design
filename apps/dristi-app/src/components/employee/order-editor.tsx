@@ -324,8 +324,7 @@ export function orderPaperRecitals(
   appearances?: Appearance[],
 ): OrderPaperParts {
   return {
-    /* Skipped, the order says nothing about who came. */
-    attendance: appearances && !draft.attendanceSkipped ? (
+    attendance: appearances ? (
       <PaperRecital
         label="Attendance"
         lines={attendanceRecital(appearances, draft.marks)}
@@ -535,12 +534,6 @@ export function orderPaperFields({
         attendance={{
           appearances,
           marks: draft.marks,
-          skipped: Boolean(draft.attendanceSkipped),
-          onSkippedChange: (skipped) =>
-            update((current) => ({
-              ...current,
-              attendanceSkipped: skipped || undefined,
-            })),
           onMark: (id, mark) =>
             update((current) => ({
               ...current,
