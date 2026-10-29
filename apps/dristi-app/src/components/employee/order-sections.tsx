@@ -48,6 +48,9 @@ export type ComposerFact = {
 export type ComposerAttendance = {
   appearances: Appearance[];
   marks: Readonly<Record<string, AttendanceMark | undefined>>;
+  /** Not taken at this hearing: the roll folds away and the order prints none. */
+  skipped: boolean;
+  onSkippedChange: (skipped: boolean) => void;
   onMark: (id: string, mark: AttendanceMark | undefined) => void;
   onMarkAllPresent: () => void;
 };
@@ -106,11 +109,6 @@ function AdvocatesOnRecord({ advocates }: { advocates: readonly string[] }) {
   );
 }
 
-const SIDES = [
-  { side: "complainant", heading: "Complainant side" },
-  { side: "accused", heading: "Accused side" },
-] as const;
-
 export function AttendanceSection({
   attendance,
   disabled,
@@ -132,97 +130,106 @@ export function AttendanceSection({
         >
           Attendance
         </h2>
-        {disabled ? null : (
+        {/* Skip sits before Mark all present: the roll's one-press answers, the
+            rarer one first so Mark all present keeps its place at the edge. */}
+        {disabled ? null : attendance.skipped ? (
           <Button
             type="button"
             variant="ghost"
             className="-mr-3 text-body-compact"
-            onClick={attendance.onMarkAllPresent}
+            onClick={() => attendance.onSkippedChange(false)}
           >
-            Mark all present
+            Take attendance
           </Button>
+        ) : (
+          <div className="-mr-3 flex items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-body-compact"
+              onClick={() => attendance.onSkippedChange(true)}
+            >
+              Skip attendance
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-body-compact"
+              onClick={attendance.onMarkAllPresent}
+            >
+              Mark all present
+            </Button>
+          </div>
         )}
       </div>
-      {/* A container, so every row changes shape together at the list's width — never
-          one row wrapping because its name happens to be long. Each side heads its rows in
-          the sunken strip the tables' headers wear, so a long roll breaks in two. */}
-      <div className="@container min-w-0 overflow-hidden rounded-xl border border-hairline">
-        {SIDES.map(({ side, heading }) => {
-          const rows = attendance.appearances.filter((entry) => entry.side === side);
-          if (rows.length === 0) return null;
-          return (
-            <div key={side} className="min-w-0">
-              <h3
-                id={`order-attendance-${side}`}
-                className="flex min-h-10 items-center bg-surface-sunken px-4 py-2 text-body-compact font-semibold text-muted-foreground"
-              >
-                {heading}
-              </h3>
-              <ul
-                aria-labelledby={`order-attendance-${side}`}
-                className="flex min-w-0 flex-col divide-y divide-hairline"
-              >
-                {rows.map((appearance) => {
-                  const mark = attendance.marks[appearance.id];
-                  return (
-                    <li
-                      key={appearance.id}
-                      className="flex min-w-0 flex-col gap-2 py-2 pr-2 pl-4 @min-[24rem]:flex-row @min-[24rem]:items-center @min-[24rem]:justify-between @min-[24rem]:gap-3"
+      {attendance.skipped ? (
+        <p className="text-body-compact text-muted-foreground">
+          Attendance skipped for this hearing. It is not printed on the order.
+        </p>
+      ) : (
+        <>
+          {/* A container, so every row changes shape together at the list's width — never
+              one row wrapping because its name happens to be long. */}
+          <div className="min-w-0">
+            <ul className="@container flex min-w-0 flex-col divide-y divide-hairline rounded-xl border border-hairline">
+              {attendance.appearances.map((appearance) => {
+                const mark = attendance.marks[appearance.id];
+                return (
+                  <li
+                    key={appearance.id}
+                    className="flex min-w-0 flex-col gap-2 py-2 pr-2 pl-4 @min-[24rem]:flex-row @min-[24rem]:items-center @min-[24rem]:justify-between @min-[24rem]:gap-3"
+                  >
+                    <div className="flex min-w-0 flex-col text-body-compact">
+                      <span className="font-medium">{appearance.name}</span>
+                      {appearance.advocates ? (
+                        <AdvocatesOnRecord advocates={appearance.advocates} />
+                      ) : (
+                        <span className="text-muted-foreground">{appearance.role}</span>
+                      )}
+                    </div>
+                    <div
+                      role="radiogroup"
+                      aria-label={appearance.name}
+                      className="grid shrink-0 grid-cols-2 gap-1 @min-[24rem]:w-48"
                     >
-                      <div className="flex min-w-0 flex-col text-body-compact">
-                        <span className="font-medium">{appearance.name}</span>
-                        {appearance.advocates ? (
-                          <AdvocatesOnRecord advocates={appearance.advocates} />
-                        ) : (
-                          <span className="text-muted-foreground">
-                            {appearance.role}
-                          </span>
-                        )}
-                      </div>
-                      <div
-                        role="radiogroup"
-                        aria-label={appearance.name}
-                        className="grid shrink-0 grid-cols-2 gap-1 @min-[24rem]:w-48"
-                      >
-                        <MarkButton
-                          label="Present"
-                          checked={mark === "present"}
-                          tone="present"
-                          disabled={disabled}
-                          onClick={() =>
-                            attendance.onMark(
-                              appearance.id,
-                              mark === "present" ? undefined : "present",
-                            )
-                          }
-                        />
-                        <MarkButton
-                          label="Absent"
-                          checked={mark === "absent"}
-                          tone="absent"
-                          disabled={disabled}
-                          onClick={() =>
-                            attendance.onMark(
-                              appearance.id,
-                              mark === "absent" ? undefined : "absent",
-                            )
-                          }
-                        />
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          );
-        })}
-      </div>
-      {/* `ATT-02`: the screen leaves *not required* out as a button and lets it follow
-          from leaving a person unmarked — so the roll is never incomplete, and attendance
-          never holds up sending for signing (`ATT-04`). */}
-      <p className="text-caption text-muted-foreground">
-        Anyone left unmarked is recorded as not required, and is not printed on the order.
-      </p>
+                      <MarkButton
+                        label="Present"
+                        checked={mark === "present"}
+                        tone="present"
+                        disabled={disabled}
+                        onClick={() =>
+                          attendance.onMark(
+                            appearance.id,
+                            mark === "present" ? undefined : "present",
+                          )
+                        }
+                      />
+                      <MarkButton
+                        label="Absent"
+                        checked={mark === "absent"}
+                        tone="absent"
+                        disabled={disabled}
+                        onClick={() =>
+                          attendance.onMark(
+                            appearance.id,
+                            mark === "absent" ? undefined : "absent",
+                          )
+                        }
+                      />
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+          {/* `ATT-02`: the screen leaves *not required* out as a button and lets it follow
+              from leaving a person unmarked — so the roll is never incomplete, and attendance
+              never holds up sending for signing (`ATT-04`). */}
+          <p className="text-caption text-muted-foreground">
+            Anyone left unmarked is recorded as not required, and is not printed on the order.
+          </p>
+        </>
+      )}
     </section>
   );
 }

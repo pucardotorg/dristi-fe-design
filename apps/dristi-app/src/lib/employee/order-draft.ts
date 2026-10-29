@@ -127,6 +127,12 @@ export type NextListingChoice = "list" | "none";
 export type OrderDraft = {
   marks: Readonly<Record<string, AttendanceMark | undefined>>;
   /**
+   * Attendance not taken at this hearing (Anshumanth, 2026-10-29): the roll folds away
+   * and the order prints no attendance. The marks are kept, so taking it after all
+   * brings them back.
+   */
+  attendanceSkipped?: boolean;
+  /**
    * How each application standing on this listing was decided, keyed by application id.
    * The decision itself is an order item block in `blocks`; this is the record the
    * Applications region and the signing list read, kept in step with it.
@@ -389,9 +395,9 @@ export function hearingOrderDocument(
     caseNumber: hearing.caseNumber,
     matter: causeTitle(hearing),
     day,
-    opening: attendanceRecital(appearancesFor(hearing), draft.marks).map(
-      recitalText,
-    ),
+    opening: draft.attendanceSkipped
+      ? []
+      : attendanceRecital(appearancesFor(hearing), draft.marks).map(recitalText),
     blocks: draft.blocks,
     closing: nextListingRecital(draft).map(recitalText),
   });

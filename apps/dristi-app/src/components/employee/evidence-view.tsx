@@ -24,11 +24,10 @@ import { UPLOAD_HELP, UploadedDocField } from "@/components/cases/uploaded-doc-f
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 import { PaperFallbackLink } from "@/components/filing/paper-fallback";
 import { FormRow } from "@/components/filing/form-card";
-import { FormField } from "@/components/filing/form-field";
-import { TextField } from "@/components/filing/inputs";
+import { FormField, RequiredMark } from "@/components/filing/form-field";
+import { PrefixInput, TextField } from "@/components/filing/inputs";
 import { SectionNotice } from "@/components/filing/notices";
 import { AddressFields } from "@/components/filing/address-fields";
-import { ContactList } from "@/components/filing/repeat-lists";
 import { ChoiceCard, OtpEntry } from "@/components/filing/sign-stages";
 import {
   AlertDialog,
@@ -60,22 +59,20 @@ import {
   FieldDescription,
   FieldError,
   FieldLabel,
-  FieldSeparator,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
   SelectContent,
   SelectGroup,
   SelectItem,
   SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Textarea } from "@/components/ui/textarea";
-import { isValidEmail } from "@/lib/cases/witnesses";
+import { isValidEmail, normalizeMobileNumber } from "@/lib/cases/witnesses";
 import type { CasePerson } from "@/lib/employee/case-people";
 import {
   accusedOf,
@@ -106,12 +103,11 @@ import {
   type Deponent,
   type EvidenceRecord,
   type StatementType,
-  type WitnessAddressType,
   type WitnessSide,
 } from "@/lib/employee/hearing-evidence";
 import { formatOrderDate, type CourtHearingPurposeId } from "@/lib/employee/hearings";
-import { blankAddressBlock, blankContact } from "@/lib/filing/blank";
-import type { Address, Contact } from "@/lib/filing/types";
+import { blankAddressBlock } from "@/lib/filing/blank";
+import type { Address } from "@/lib/filing/types";
 import { cn } from "@/lib/utils";
 
 /** Where the view sits: the hearing its records belong to, and the case's people. */
@@ -159,6 +155,9 @@ const SIDE_BADGE: Record<
   accused: { variant: "destructive", stroke: "border-destructive" },
   court: { variant: "info", stroke: "border-info" },
 };
+
+/** Not a person: the picker's last line, which opens the Add a witness form. */
+const ADD_WITNESS = "add-witness";
 
 /** The witness picker's headings, in the order a clerk looks: the complainant is
  *  almost always the first to depose. A party on the witness list is a witness. */
@@ -543,26 +542,16 @@ function EvidenceRecordEditor({
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         <Field data-invalid={Boolean(errors.person)}>
-          {/* Adding a witness sits beside the label, not inside the list (owner,
-              2026-10-28). Link-height, so this label stays level with its neighbour's. */}
-          <div className="flex items-center justify-between gap-2">
-            <FieldLabel htmlFor={personFieldId}>{personLabelFor(type)}</FieldLabel>
-            {type === "witness-deposition" && editable ? (
-              <Button
-                type="button"
-                variant="link"
-                className="-my-1 h-auto p-0"
-                onClick={() => setAdding(true)}
-              >
-                <PlusIcon aria-hidden />
-                Add a witness
-              </Button>
-            ) : null}
-          </div>
+          <FieldLabel htmlFor={personFieldId}>{personLabelFor(type)}</FieldLabel>
           <Select
             value={record.personId}
             disabled={!editable}
             onValueChange={(personId) => {
+              /* The last line opens the form; the person stays who they were. */
+              if (personId === ADD_WITNESS) {
+                setAdding(true);
+                return;
+              }
               /* Another witness starts on their own side, not the last one's. */
               updateEvidence(record.id, { personId, witnessSide: undefined });
               setErrors((current) => ({ ...current, person: undefined }));
@@ -581,7 +570,8 @@ function EvidenceRecordEditor({
               className="w-(--radix-select-trigger-width)"
             >
               {type === "witness-deposition" ? (
-                DEPONENT_GROUPS.map((group) => {
+                <>
+                {DEPONENT_GROUPS.map((group) => {
                   const members = deponents.filter((entry) => group.sources.includes(entry.source));
                   return members.length === 0 ? null : (
                     <SelectGroup key={group.label}>
@@ -600,7 +590,17 @@ function EvidenceRecordEditor({
                       ))}
                     </SelectGroup>
                   );
-                })
+                })}
+                {/* Someone not on the list is found missing here, so adding them is the
+                    list's last line (Anshumanth, 2026-10-29: back from beside the label). */}
+                <SelectSeparator />
+                <SelectGroup>
+                  <SelectItem value={ADD_WITNESS} className="text-primary">
+                    <PlusIcon aria-hidden className="text-primary" />
+                    Add a witness
+                  </SelectItem>
+                </SelectGroup>
+                </>
               ) : type === "complainant-evidence" ? (
                 <SelectGroup>
                   {complainants.map((entry) => (
@@ -1278,60 +1278,40 @@ function MarkBadge({ side, mark }: { side: WitnessSide; mark: string }) {
   );
 }
 
-/** The address types a witness's location can be. */
-const ADDRESS_TYPES: readonly { id: WitnessAddressType; label: string }[] = [
-  { id: "residential", label: "Residential" },
-  { id: "office", label: "Office" },
-];
-
-/** Nothing about where they are typed or chosen yet: left out, not held against the form. */
-function locationBlank(type: string, addr: Address): boolean {
-  return ![type, addr.line1, addr.pin, addr.state, addr.city, addr.district].some((v) =>
-    v.trim(),
-  );
+/** No part of the address typed yet: left out, not held against the form. */
+function addressBlank(addr: Address): boolean {
+  return ![addr.line1, addr.pin, addr.state, addr.city, addr.district].some((v) => v.trim());
 }
 
-/** A location the form keeps: its type and every field. */
-function locationComplete(type: string, addr: Address): boolean {
-  return [type, addr.line1, addr.pin, addr.state, addr.city, addr.district].every((v) =>
-    v.trim(),
-  );
+/** An address the form keeps: every field. */
+function addressComplete(addr: Address): boolean {
+  return [addr.line1, addr.pin, addr.state, addr.city, addr.district].every((v) => v.trim());
 }
 
 /** The first thing the form cannot take, in the order it is read; null when it can. */
 function witnessFormError(form: {
-  firstName: string;
-  designation: string;
-  contact: Contact;
-  addressType: string;
+  name: string;
+  mobile: string;
+  email: string;
   address: Address;
 }): string | null {
-  if (!form.firstName.trim() && !form.designation.trim()) {
-    return "Enter the witness's first name or their designation.";
-  }
-  if (form.contact.mobile.length > 0 && form.contact.mobile.length !== 10) {
-    return "The mobile number needs all ten digits, or leave it empty.";
-  }
-  if (form.contact.email.trim() && !isValidEmail(form.contact.email)) {
+  if (!form.name.trim()) return "Enter the witness's name or designation.";
+  if (!form.mobile) return "Enter the witness's mobile number.";
+  if (form.mobile.length !== 10) return "The mobile number needs all ten digits.";
+  if (form.email.trim() && !isValidEmail(form.email)) {
     return "The email ID is not a complete email address.";
   }
-  if (
-    !locationBlank(form.addressType, form.address) &&
-    !locationComplete(form.addressType, form.address)
-  ) {
-    return "The witness location needs the type of address and every field, or leave it empty.";
+  if (!addressBlank(form.address) && !addressComplete(form.address)) {
+    return "The address needs every field, or leave it empty.";
   }
   return null;
 }
 
 /**
  * Add the person in the witness box to the case's witnesses, when they are not on its
- * list. DRISTI 1.0's Add Witness Details, in its sections (owner, 2026-10-28): basic
- * details (a name, or a designation, and age), contact details, location (its type,
- * then the address), and the purpose or documents they bring. Only a first name or the
- * designation is required; the witness is in court, so the rest is for reaching them
- * later. Documents are not uploaded here: what a witness produces is marked as an
- * exhibit.
+ * list. Four things only (Anshumanth, 2026-10-29): a name or designation, a mobile
+ * number — required, it is where a signing link goes — an email ID, and an address.
+ * Documents are not uploaded here: what a witness produces is marked as an exhibit.
  *
  * Who called them is not asked here: the deposition's Witness mark as chooses the side
  * (owner, 2026-10-28). They start as the prosecution's until it says otherwise.
@@ -1351,15 +1331,10 @@ function AddWitnessDialog({
   onAdded: (witness: { id: string; name: string }) => void;
 }) {
   const scrollRef = React.useRef<HTMLDivElement>(null);
-  const [firstName, setFirstName] = React.useState("");
-  const [middleName, setMiddleName] = React.useState("");
-  const [lastName, setLastName] = React.useState("");
-  const [designation, setDesignation] = React.useState("");
-  const [age, setAge] = React.useState("");
-  const [contact, setContact] = React.useState<Contact>(blankContact);
-  const [addressType, setAddressType] = React.useState<WitnessAddressType | "">("");
+  const [name, setName] = React.useState("");
+  const [mobile, setMobile] = React.useState("");
+  const [email, setEmail] = React.useState("");
   const [address, setAddress] = React.useState<Address>(() => blankAddressBlock().addr);
-  const [purpose, setPurpose] = React.useState("");
   const [error, setError] = React.useState<string>();
   const [discarding, setDiscarding] = React.useState(false);
 
@@ -1368,26 +1343,17 @@ function AddWitnessDialog({
   if (open !== wasOpen) {
     setWasOpen(open);
     if (open) {
-      setFirstName("");
-      setMiddleName("");
-      setLastName("");
-      setDesignation("");
-      setAge("");
-      setContact(blankContact());
-      setAddressType("");
+      setName("");
+      setMobile("");
+      setEmail("");
       setAddress(blankAddressBlock().addr);
-      setPurpose("");
       setError(undefined);
       setDiscarding(false);
     }
   }
 
   const dirty =
-    [firstName, middleName, lastName, designation, age, purpose, contact.email].some((v) =>
-      v.trim(),
-    ) ||
-    Boolean(contact.mobile) ||
-    !locationBlank(addressType, address);
+    [name, email].some((v) => v.trim()) || Boolean(mobile) || !addressBlank(address);
 
   /* A half-filled form is not lost to a stray Escape or a click outside. */
   function requestClose() {
@@ -1397,28 +1363,22 @@ function AddWitnessDialog({
 
   function submit(event: React.FormEvent) {
     event.preventDefault();
-    const problem = witnessFormError({ firstName, designation, contact, addressType, address });
+    const problem = witnessFormError({ name, mobile, email, address });
     setError(problem ?? undefined);
     if (problem) {
       /* The notice heads the form; bring it into view. It is read out as it appears. */
       scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
-    const tidy = (value: string) => value.trim().replace(/\s+/g, " ");
-    const email = contact.email.trim();
-    const located = !locationBlank(addressType, address);
+    const typedEmail = email.trim();
     const witness = addWitness({
       caseNumber,
-      name: tidy(`${firstName} ${middleName} ${lastName}`) || tidy(designation),
-      designation: tidy(designation) || undefined,
+      name: name.trim().replace(/\s+/g, " "),
       side: "complainant",
-      age: age || undefined,
-      mobile: contact.mobile || undefined,
-      mobiles: contact.mobile ? [contact.mobile] : undefined,
-      emails: email ? [email] : undefined,
-      addressType: located && addressType ? addressType : undefined,
-      addresses: located ? [{ addr: address, police: "" }] : undefined,
-      prove: purpose.trim() || undefined,
+      mobile,
+      mobiles: [mobile],
+      emails: typedEmail ? [typedEmail] : undefined,
+      addresses: addressBlank(address) ? undefined : [{ addr: address, police: "" }],
     });
     onAdded(witness);
     onOpenChange(false);
@@ -1460,103 +1420,51 @@ function AddWitnessDialog({
                 </SectionNotice>
               ) : null}
 
-              {/* DRISTI 1.0's sections, in its order (owner, 2026-10-28). The "or" says
-                  a name or a designation is enough; the notice says so when neither is
-                  given. */}
-              <section aria-labelledby="witness-basic" className="flex flex-col gap-4">
-                <h3 id="witness-basic" className="text-body font-semibold leading-snug">
-                  Witness basic details
-                </h3>
-                <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-3 md:gap-x-6">
-                  <FormField label="First name">
-                    <TextField
-                      value={firstName}
-                      onChange={(next) => {
-                        setFirstName(next);
-                        setError(undefined);
-                      }}
-                      autoComplete="off"
-                    />
-                  </FormField>
-                  <FormField label="Middle name" optional>
-                    <TextField value={middleName} onChange={setMiddleName} autoComplete="off" />
-                  </FormField>
-                  <FormField label="Last name" optional>
-                    <TextField value={lastName} onChange={setLastName} autoComplete="off" />
-                  </FormField>
-                </div>
-                <FieldSeparator>or</FieldSeparator>
-                <FormRow>
-                  <FormField label="Witness designation">
-                    <TextField
-                      value={designation}
-                      onChange={(next) => {
-                        setDesignation(next);
-                        setError(undefined);
-                      }}
-                      placeholder="e.g. Branch Manager, Federal Bank"
-                      autoComplete="off"
-                    />
-                  </FormField>
-                  <FormField label="Age" optional>
-                    <TextField
-                      value={age}
-                      onChange={(next) => setAge(next.replace(/\D/g, "").slice(0, 3))}
-                      placeholder="In years"
-                      inputMode="numeric"
-                      maxLength={3}
-                    />
-                  </FormField>
-                </FormRow>
-              </section>
-
-              <Separator />
-
-              <section aria-labelledby="witness-contact" className="flex flex-col gap-4">
-                <h3 id="witness-contact" className="text-body font-semibold leading-snug">
-                  Witness contact details
-                </h3>
-                <ContactList
-                  contacts={[contact]}
+              <FormField label="Name or designation">
+                <TextField
+                  value={name}
                   onChange={(next) => {
-                    setContact(next[0] ?? blankContact());
+                    setName(next);
                     setError(undefined);
                   }}
-                  emailLabel="Email ID"
-                  mobilePlaceholder="10-digit number"
-                  emailPlaceholder="name@example.com"
-                  optional
-                  allowAdd={false}
+                  placeholder="e.g. Ramesh Nair, or Branch Manager, Federal Bank"
+                  autoComplete="off"
                 />
-              </section>
+              </FormField>
+              <FormRow>
+                <FormField label="Mobile number">
+                  <PrefixInput
+                    prefix="+91"
+                    value={mobile}
+                    onChange={(next) => {
+                      setMobile(normalizeMobileNumber(next));
+                      setError(undefined);
+                    }}
+                    placeholder="10-digit number"
+                    inputMode="numeric"
+                    autoComplete="off"
+                  />
+                </FormField>
+                <FormField label="Email ID" optional>
+                  <TextField
+                    type="email"
+                    value={email}
+                    onChange={(next) => {
+                      setEmail(next);
+                      setError(undefined);
+                    }}
+                    placeholder="name@example.com"
+                    autoComplete="off"
+                  />
+                </FormField>
+              </FormRow>
 
               <Separator />
 
-              <section aria-labelledby="witness-location" className="flex flex-col gap-4">
-                <h3 id="witness-location" className="text-body font-semibold leading-snug">
-                  Witness location
+              <section aria-labelledby="witness-address" className="flex flex-col gap-4">
+                <h3 id="witness-address" className="text-body font-semibold leading-snug">
+                  Address <RequiredMark optional />
                 </h3>
-                <FormField asGroup label="Type of address">
-                  <RadioGroup
-                    value={addressType}
-                    onValueChange={(next) => {
-                      setAddressType(next as WitnessAddressType);
-                      setError(undefined);
-                    }}
-                    aria-label="Type of address"
-                    className="flex flex-wrap gap-x-6 gap-y-0"
-                  >
-                    {ADDRESS_TYPES.map((entry) => (
-                      <label
-                        key={entry.id}
-                        className="flex min-h-10 cursor-pointer items-center gap-3 text-body-compact"
-                      >
-                        <RadioGroupItem value={entry.id} />
-                        {entry.label}
-                      </label>
-                    ))}
-                  </RadioGroup>
-                </FormField>
                 <AddressFields
                   value={address}
                   onChange={(next) => {
@@ -1567,16 +1475,6 @@ function AddWitnessDialog({
                   stateFirst
                 />
               </section>
-
-              <Separator />
-
-              <FormField label="Purpose / documents to be presented" optional>
-                <Textarea
-                  value={purpose}
-                  onChange={(event) => setPurpose(event.target.value)}
-                  placeholder="e.g. Confirms the cheque was handed over on 4 March; brings the bank statement"
-                />
-              </FormField>
             </div>
             <footer className={FOOTER}>
               <Button type="button" variant="outline" onClick={requestClose}>
