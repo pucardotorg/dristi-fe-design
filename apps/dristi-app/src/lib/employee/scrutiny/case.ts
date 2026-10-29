@@ -3,6 +3,7 @@ import { caseFromDraft } from "@/lib/employee/scrutiny/from-draft";
 import { CASE, HISTORY, HISTORY_ROUND, HISTORY_SUMMARY } from "@/lib/employee/scrutiny/history";
 import { mockFiling, SCRUTINY_SIGNING } from "@/lib/employee/scrutiny/mock-filings";
 import { findFiling } from "@/lib/employee/scrutiny/queue";
+import { returnRoundFor } from "@/lib/employee/scrutiny/returns";
 import { CHECKS } from "@/lib/employee/scrutiny/sections";
 import type { SigningRules } from "@/lib/filing/config";
 import type {
@@ -58,21 +59,24 @@ export function buildScrutinyCase(
       poorScans: mock.poorScans,
     });
     const allFields = flatten(read.sections);
+    const fieldById = indexBy(allFields);
+    const returned = returnRoundFor(filing.no);
     const history =
       filing.no === HERO_FILING_NO
         ? { history: HISTORY, historySummary: HISTORY_SUMMARY, historyRound: HISTORY_ROUND }
-        : deriveHistory(filing, read.party);
+        : deriveHistory(filing, read.party, returned, fieldById);
     return {
       filing,
       party: read.party,
       sections: read.sections,
       allFields,
-      fieldById: indexBy(allFields),
+      fieldById,
       bundle: read.bundle,
       docById: indexBy<BundleDoc>(read.bundle),
       docRow: read.docRow,
       checks: CHECKS,
       ...history,
+      returned,
     };
   }
 
@@ -91,6 +95,8 @@ export function buildScrutinyCase(
     history: derived.history,
     historySummary: derived.historySummary,
     historyRound: derived.historyRound,
+    // No e-filing draft behind a derived matter, so no field a returned item could name.
+    returned: null,
   };
 }
 

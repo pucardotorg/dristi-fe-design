@@ -4,6 +4,7 @@ import * as React from "react";
 import { VideoIcon, ZoomInIcon, ZoomOutIcon } from "lucide-react";
 
 import { rectStyle } from "@/lib/employee/scrutiny/field";
+import { replacedDocs } from "@/lib/employee/scrutiny/returns";
 import type { BundleDoc, Rect } from "@/lib/employee/scrutiny/types";
 import { formatDuration, getFileUrl } from "@/lib/filing/files";
 import {
@@ -15,6 +16,10 @@ import { GENERATED_PAGES } from "@/components/employee/scrutiny/generated-pages"
 import { PageSheet, SHEET_BOX } from "@/components/employee/page-facsimile";
 import { useScrutinyCase } from "@/components/employee/scrutiny/scrutiny-case-context";
 import { Button } from "@/components/ui/button";
+import {
+  SegmentedControl,
+  SegmentedControlItem,
+} from "@/components/ui/segmented-control";
 import {
   Tooltip,
   TooltipContent,
@@ -82,16 +87,27 @@ function OathRecording({ doc }: { doc: BundleDoc }) {
 export function BundleView({
   aiOn,
   spot,
+  onlyDocs = null,
   ref,
 }: {
   aiOn: boolean;
   /** The AI evidence region for the selected field, if it has one. */
   spot: { doc: string; rect: Rect } | null;
+  /** Show only these documents — the ones behind the returned items, on the Changes tab. */
+  onlyDocs?: string[] | null;
   ref?: React.Ref<BundleHandle>;
 }) {
-  const { bundle } = useScrutinyCase();
+  const { bundle, returned, fieldById } = useScrutinyCase();
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const [zoomBase, setZoomBase] = React.useState(880);
+  /* A document re-uploaded this round is the one page the officer must check properly,
+     so it stays as wide as every other page; the upload that was sent back flips into
+     the same frame, at the same size (Anshumanth, 2026-10-29: side by side, the new file
+     was "the only thing in that view which is actually looking small"). Each opens on
+     the new upload. */
+  const replaced = replacedDocs(returned, fieldById);
+  const shown = onlyDocs ? bundle.filter((doc) => onlyDocs.includes(doc.id)) : bundle;
+  const [showPrevious, setShowPrevious] = React.useState<Record<string, boolean>>({});
 
   /*
    * Zoom is persisted state, so it lives in localStorage and not in `useState`: the
@@ -267,6 +283,11 @@ export function BundleView({
          */}
         <b className="me-auto min-w-0 flex-1 truncate text-body-compact font-semibold">
           Case bundle
+          {onlyDocs ? (
+            <span className="font-normal text-muted-foreground tabular-nums">
+              {` · ${shown.length} of ${bundle.length} documents`}
+            </span>
+          ) : null}
         </b>
 
         <Tooltip>
@@ -327,64 +348,112 @@ export function BundleView({
             } as React.CSSProperties
           }
         >
-          {bundle.map((doc) => {
-            /* A derived filing draws every page as an illegible facsimile; the authored
-               case has real scans and legible generated pages. The facsimile is a
-               `size-full` SVG with no intrinsic height, so — unlike an `<img>`, which
-               sizes its own box — its page needs an explicit aspect ratio from the kind's
-               own `SHEET_BOX`, the same frame the read-only scroller uses. */
-            const sheet = doc.kind === "facsimile" ? doc.sheet : undefined;
-            const box = sheet ? SHEET_BOX[sheet] : null;
-            const Generated = sheet ? undefined : GENERATED_PAGES[doc.id];
+          {shown.map((doc) => {
+            const item = replaced[doc.id];
+            const before = !!item && !!showPrevious[doc.id];
             return (
               <div
                 className="flex scroll-mt-3 flex-col gap-1.5"
                 id={`doc-${doc.id}`}
                 key={doc.id}
               >
-                {/* The only navigational anchor in a scroll this long, so it reads as
-                    one: caption size, but foreground ink at 600 rather than grey. */}
-                <div className="text-caption font-semibold text-foreground">
-                  <span className="tabular-nums">{doc.no}</span> · {doc.name}
-                </div>
-                <div
-                  className={cn(
-                    "relative overflow-hidden rounded-xl shadow-raised",
-                    doc.kind === "video" ? "bg-card" : "bg-paper",
-                  )}
-                  style={box ? { aspectRatio: `${box.w} / ${box.h}` } : undefined}
-                >
-                  {doc.kind === "video" ? (
-                    <OathRecording doc={doc} />
-                  ) : doc.kind === "image" && doc.src ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={doc.src}
-                      alt={doc.name}
-                      className="block h-auto w-full select-none"
-                      draggable={false}
-                    />
-                  ) : sheet ? (
-                    <PageSheet kind={sheet} />
-                  ) : Generated ? (
-                    <Generated />
+                <div className="flex min-w-0 flex-wrap items-center gap-x-3">
+                  {/* The only navigational anchor in a scroll this long, so it reads
+                      as one: caption size, but foreground ink at 600 rather than grey. */}
+                  <div className="min-w-0 flex-1 text-caption font-semibold text-foreground">
+                    <span className="tabular-nums">{doc.no}</span> · {doc.name}
+                  </div>
+                  {item ? (
+                    /* The same Now / Before switch as a corrected value
+                       (`returned-value.tsx`), on the title row it governs. */
+                    <SegmentedControl
+                      size="compact"
+                      type="single"
+                      value={before ? "before" : "now"}
+                      onValueChange={(value) =>
+                        value &&
+                        setShowPrevious((open) => ({ ...open, [doc.id]: value === "before" }))
+                      }
+                      aria-label={`Which upload of ${doc.name}`}
+                    >
+                      <SegmentedControlItem value="now">Now</SegmentedControlItem>
+                      <SegmentedControlItem value="before">Before</SegmentedControlItem>
+                    </SegmentedControl>
                   ) : null}
-
-                  {/* Where AI read the selected field from — a halo, never a mark. */}
-                  {aiOn && spot?.doc === doc.id ? (
-                    <div
-                      className="pointer-events-none absolute z-2 rounded-md border-2 border-primary bg-halo ring-3 ring-halo transition-all"
-                      style={rectStyle(spot.rect)}
-                      aria-hidden="true"
-                    />
-                  ) : null}
-
                 </div>
+                {before ? (
+                  <>
+                    {/* A full page can scroll its title row and switch out of view, so
+                        the old scan names itself. No date: that lives in case history. */}
+                    <span className="text-caption font-medium text-muted-foreground">
+                      Previous upload
+                    </span>
+                    {/* The upload that went back. The demo keeps one file per document,
+                        so it is drawn from the same page, softened to stand in for the
+                        scan the officer could not read — never a legible fake of it. */}
+                    <div aria-hidden="true" className="opacity-80 blur-xs">
+                      {renderPage(doc, null)}
+                    </div>
+                  </>
+                ) : (
+                  renderPage(doc, aiOn ? spot : null)
+                )}
               </div>
             );
           })}
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * One bundle document's page, with the AI halo over it when the selected field was read
+ * from it. A derived filing draws every page as an illegible facsimile; the authored case
+ * has real scans and legible generated pages. The facsimile is a `size-full` SVG with no
+ * intrinsic height, so — unlike an `<img>`, which sizes its own box — its page needs an
+ * explicit aspect ratio from the kind's own `SHEET_BOX`, the same frame the read-only
+ * scroller uses.
+ */
+function renderPage(
+  doc: BundleDoc,
+  spot: { doc: string; rect: Rect } | null,
+) {
+  const sheet = doc.kind === "facsimile" ? doc.sheet : undefined;
+  const box = sheet ? SHEET_BOX[sheet] : null;
+  const Generated = sheet ? undefined : GENERATED_PAGES[doc.id];
+  return (
+    <div
+      className={cn(
+        "relative overflow-hidden rounded-xl shadow-raised",
+        doc.kind === "video" ? "bg-card" : "bg-paper",
+      )}
+      style={box ? { aspectRatio: `${box.w} / ${box.h}` } : undefined}
+    >
+      {doc.kind === "video" ? (
+        <OathRecording doc={doc} />
+      ) : doc.kind === "image" && doc.src ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={doc.src}
+          alt={doc.name}
+          className="block h-auto w-full select-none"
+          draggable={false}
+        />
+      ) : sheet ? (
+        <PageSheet kind={sheet} />
+      ) : Generated ? (
+        <Generated />
+      ) : null}
+
+      {/* Where AI read the selected field from — a halo, never a mark. */}
+      {spot?.doc === doc.id ? (
+        <div
+          className="pointer-events-none absolute z-2 rounded-md border-2 border-primary bg-halo ring-3 ring-halo transition-all"
+          style={rectStyle(spot.rect)}
+          aria-hidden="true"
+        />
+      ) : null}
     </div>
   );
 }

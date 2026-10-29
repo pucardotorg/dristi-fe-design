@@ -10,6 +10,7 @@ import {
 
 import { useRoomInRem } from "@/hooks/use-min-width";
 import { nextFilingAfter } from "@/lib/employee/scrutiny/queue";
+import { returnedDocIds } from "@/lib/employee/scrutiny/returns";
 import type { AiMode } from "@/lib/court/profiles";
 import type { Rect, ScrutinyCase } from "@/lib/employee/scrutiny/types";
 import { useScrutinyState } from "@/lib/employee/scrutiny/use-scrutiny-state";
@@ -26,6 +27,7 @@ import { ChecksPopover } from "@/components/employee/scrutiny/checks-popover";
 import {
   FieldsPanel,
   type FieldsPanelHandle,
+  type FieldsView,
 } from "@/components/employee/scrutiny/fields-panel";
 import { HistorySheet } from "@/components/employee/scrutiny/history-sheet";
 import {
@@ -53,8 +55,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useCourt, useCourtText } from "@/components/court/court-provider";
-import { useCourtRole } from "@/components/employee/use-court-role";
-import { registersAtScrutiny } from "@/lib/employee/court-role";
+import { scrutinyRegistersIn } from "@/lib/employee/court-role";
 
 /**
  * The case review: filed fields on the left, the bundle in the centre, the document
@@ -111,7 +112,7 @@ export function CaseWorkbench({
     return () => setSidebar(restore);
   }, []);
 
-  const { party, allFields, fieldById, historyRound } = caseData;
+  const { party, allFields, fieldById, historyRound, returned } = caseData;
   const filingNo = caseData.filing.no;
   const controller = useScrutinyState(caseData);
   const bundle = React.useRef<BundleHandle>(null);
@@ -125,15 +126,30 @@ export function CaseWorkbench({
      not measured. */
   const threePane = useRoomInRem(64);
   const [pane, setPane] = React.useState<"fields" | "bundle">("fields");
+  /* A resubmission opens on what came back (`ChangesList`); a first scrutiny has only
+     the full filing. */
+  /* Not walking the whole file again is the point of a re-scrutiny (owner, 2026-10-28,
+     after trying a full-filing-only layout). */
+  const [view, setView] = React.useState<FieldsView>(
+    returned ? "changes" : "full",
+  );
   const [indexOpen, setIndexOpen] = React.useState(false);
+  /* On the Changes tab the bundle and the index hold only the documents behind the
+     returned items — the officer is checking those, not re-reading the file (owner,
+     2026-10-28). The full filing brings the whole bundle back. */
+  const focusDocs =
+    view === "changes" && returned ? returnedDocIds(returned, fieldById) : null;
 
   // The case title is the officer's to correct (a mis-spelt party name is exactly the
   // kind of thing scrutiny exists to catch). Local until a case service owns it.
   // The editable title starts as the heading shows it (Settings' court switch).
   const courtText = useCourtText();
-  /* Register here only for someone holding both roles in this court room (`SCR-11`). */
+  /* The button is the handover this court has (`SCR-11`), whichever seat has the
+     screen open. Gujarat and Punjab & Haryana register here; Kerala forwards.
+     Keying it off the seat offered Forward for registration to a typist in a court
+     that has no Register cases queue. */
   const { court } = useCourt();
-  const canRegister = registersAtScrutiny(useCourtRole(), court);
+  const canRegister = scrutinyRegistersIn(court);
   // One line of text, not two names: the officer may correct anything in it.
   const [title, setTitle] = React.useState(
     () => `${courtText(party.complainant)} v. ${courtText(party.accused)}`,
@@ -181,10 +197,12 @@ export function CaseWorkbench({
     (fieldId: string) => {
       if (!fieldById[fieldId]) return;
       setPane("fields");
+      // A field that did not come back has no card in Changes; its row is in the filing.
+      if (!returned?.items.some((item) => item.fieldId === fieldId)) setView("full");
       controller.selectField(fieldId);
       requestAnimationFrame(() => fields.current?.scrollToRow(fieldId));
     },
-    [controller, fieldById],
+    [controller, fieldById, returned],
   );
 
   /** The mirror of `goToItem`: a document is read on the bundle. */
@@ -194,6 +212,23 @@ export function CaseWorkbench({
       requestAnimationFrame(() => goToDoc(docId));
     },
     [goToDoc],
+  );
+
+  /**
+   * Picking a change card: select its item, and put its document in front of the
+   * officer. Selecting alone scrolls the bundle only when the selection changes, so the
+   * document is asked for directly — a second press still lands on it.
+   */
+  const showItem = React.useCallback(
+    (fieldId: string) => {
+      const field = fieldById[fieldId];
+      const docId = field?.docrow ?? field?.doc ?? field?.thumb;
+      controller.selectField(fieldId);
+      if (!docId) return;
+      if (threePane) goToDoc(docId);
+      else showDoc(docId);
+    },
+    [controller, fieldById, goToDoc, showDoc, threePane],
   );
 
   React.useEffect(() => {
@@ -208,6 +243,11 @@ export function CaseWorkbench({
   const raised = allFields.filter((f) => controller.flags[f.id]).length;
 
   const tally = raised ? [`${raised} flag${raised > 1 ? "s" : ""}`] : [];
+
+  /* There is no per-item answer to wait for: a returned item the officer does not raise
+     again is accepted by being left alone, so nothing is gated (owner, 2026-10-28: no
+     Accept on the change cards). */
+  const returnedTotal = returned?.items.length ?? 0;
 
   return (
     /*
@@ -252,7 +292,9 @@ export function CaseWorkbench({
               home in the eyebrow. */}
           <p className="text-body-compact font-medium text-muted-foreground">
             <Identifier value={filingNo} label="filing number" />
-            {` · ${party.submitted}`}
+            {returned
+              ? ` · Resubmitted ${returned.resubmitted} by ${returned.resubmittedBy}`
+              : ` · ${party.submitted}`}
           </p>
           {editingTitle ? (
             <TitleEditor
@@ -364,17 +406,21 @@ export function CaseWorkbench({
               controller={controller}
               aiOn={aiOn}
               onGoToItem={goToItem}
+              view={view}
+              onViewChange={setView}
+              onShowItem={showItem}
             />
           </ResizablePanel>
           <ResizableHandle withHandle />
           <ResizablePanel defaultSize="52%" minSize="22rem">
-            <BundleView ref={bundle} aiOn={aiOn} spot={spot} />
+            <BundleView ref={bundle} aiOn={aiOn} spot={spot} onlyDocs={focusDocs} />
           </ResizablePanel>
           <ResizableHandle withHandle />
           {/* A document index is a short list, so it takes a rail's width, not a pane's:
               the room it does not need goes to the bundle, which is the thing being read. */}
           <ResizablePanel defaultSize="14%" minSize="10rem" maxSize="20rem">
             <IndexRail
+              onlyDocs={focusDocs}
               relatedDocId={aiOn ? relatedDocId : null}
               aiOn={aiOn}
               onGoToDoc={goToDoc}
@@ -392,9 +438,12 @@ export function CaseWorkbench({
               controller={controller}
               aiOn={aiOn}
               onGoToItem={goToItem}
+              view={view}
+              onViewChange={setView}
+              onShowItem={showItem}
             />
           ) : (
-            <BundleView ref={bundle} aiOn={aiOn} spot={spot} />
+            <BundleView ref={bundle} aiOn={aiOn} spot={spot} onlyDocs={focusDocs} />
           )}
         </div>
       )}
@@ -406,7 +455,18 @@ export function CaseWorkbench({
          * numbers). Red because it is the officer's own error tally, and it has to
          * be findable from anywhere on the screen.
          */}
-        <span className="text-body-compact text-muted-foreground">
+        <span
+          id="decision-tally"
+          className="text-body-compact text-muted-foreground"
+        >
+          {returned ? (
+            <>
+              <b className="font-semibold text-foreground tabular-nums">
+                {`${returnedTotal} ${returnedTotal === 1 ? "error" : "errors"} marked`}
+              </b>
+              {tally.length > 0 ? " · " : null}
+            </>
+          ) : null}
           {tally.length > 0 ? (
             <>
               {tally.map((t, i) => (
@@ -425,14 +485,20 @@ export function CaseWorkbench({
             Send back to advocate
           </Button>
         ) : null}
-        {/* Someone holding both the Scrutiny officer and Case registerer roles here
-            registers the case; forwarding would only send it to themselves. Anyone
-            holding Scrutiny officer alone forwards it to Registration (`SCR-06`,
-            `SCR-11`). */}
+        {/* Register where this court registers at scrutiny. Forward only where a
+            separate Case registerer takes the file (`SCR-06`, `SCR-11`). */}
         {canRegister ? (
-          <Button onClick={() => setDecision("register")}>Register case</Button>
+          <Button
+            aria-describedby={returned ? "decision-tally" : undefined}
+            onClick={() => setDecision("register")}
+          >
+            Register case
+          </Button>
         ) : (
-          <Button onClick={() => setDecision("forward")}>
+          <Button
+            aria-describedby={returned ? "decision-tally" : undefined}
+            onClick={() => setDecision("forward")}
+          >
             Forward for registration
           </Button>
         )}
@@ -447,6 +513,7 @@ export function CaseWorkbench({
       {/* The index, as a detour, only where there is no room for it as a column. */}
       {threePane ? null : (
         <IndexSheet
+          onlyDocs={focusDocs}
           open={indexOpen}
           onOpenChange={setIndexOpen}
           relatedDocId={aiOn ? relatedDocId : null}

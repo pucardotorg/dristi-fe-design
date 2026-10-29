@@ -19,7 +19,6 @@ import {
   Field,
   FieldDescription,
   FieldError,
-  FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
@@ -36,7 +35,9 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
  * It renders as a third grid item spanning both columns of its description row, so it
  * gets the whole panel width instead of the ~380px the value column can spare.
  *
- * Below the note, one commit zone: what saving will grant, and the buttons that save.
+ * One sunken well, two tiers: the note, then one action row — the whole-document switch
+ * on the start side, the commit pair on the end. No rule and no question caption between
+ * them; the old middle tier was most of the height (owner, 2026-10-28).
  */
 export function FlagComposer({
   field,
@@ -85,94 +86,100 @@ export function FlagComposer({
 
   return (
     /*
-     * A sunken well: editing is a mode, and the well is what says so. The DS textareas
-     * keep their own card fill, so the fields read as paper on the work surface.
+     * The sunken ground says editing is a mode (owner, 2026-10-28: keep the beige). It
+     * holds controls, so it takes the hairline the DS asks of an interactive well, and it
+     * is the same box as the raised record it replaces on Edit, so nothing jumps. The
+     * DS textareas keep their own card fill, so the fields read as paper on the well.
      */
     <div
       className={cn(
-        "col-span-full my-1 flex flex-col gap-4 rounded-lg border border-hairline bg-surface-sunken p-3",
+        "col-span-full my-1 flex flex-col gap-3 rounded-lg border border-hairline bg-surface-sunken p-3",
         // Unfolds in place when the row opens — the same short expand Register cases uses
         // for a section opening, rather than snapping into the layout.
         "animate-in fade-in-0 slide-in-from-top-1 duration-200 motion-reduce:animate-none",
       )}
+      data-flag-composer=""
       onClick={(event) => event.stopPropagation()}
     >
-      <FieldGroup className="gap-4">
-        <Field data-invalid={speechless}>
-            {/*
-             * A visible label whenever the box is visible: placeholder-only fields are a
-             * listed accessibility defect, and a voice user says the label.
-             */}
-            <FieldLabel>
-              {isDocRow ? "What’s wrong with this document?" : "Note for the advocate"}
-            </FieldLabel>
+      <Field data-invalid={speechless}>
+        {/*
+         * A visible label whenever the box is visible: placeholder-only fields are a
+         * listed accessibility defect, and a voice user says the label.
+         */}
+        <FieldLabel>
+          {isDocRow ? "What’s wrong with this document?" : "Note for the advocate"}
+        </FieldLabel>
 
-            <Textarea
-              ref={noteRef}
-              className="max-h-32 min-h-16"
-              placeholder={
-                isDocRow
-                  ? "e.g. Only the address side was uploaded — please upload the front."
-                  : "e.g. The amount does not match the cheque — check it against the instrument."
-              }
-              value={draft.text}
-              onClick={(event) => event.stopPropagation()}
-              onKeyDown={onKeyDown}
-              onChange={(event) =>
-                controller.updateDraft({ text: event.target.value })
-              }
-            />
+        <Textarea
+          ref={noteRef}
+          className="max-h-32 min-h-16"
+          placeholder={
+            isDocRow
+              ? "e.g. Only the address side was uploaded — please upload the front."
+              : "e.g. The amount does not match the cheque — check it against the instrument."
+          }
+          value={draft.text}
+          onClick={(event) => event.stopPropagation()}
+          onKeyDown={onKeyDown}
+          onChange={(event) =>
+            controller.updateDraft({ text: event.target.value })
+          }
+        />
 
-            {/* Structured reasons qualify the note; the note comes first. */}
-            {isDocRow ? (
-              <ReasonChips
-                value={draft.reason}
-                onChange={(reason) => controller.updateDraft({ reason })}
-              />
-            ) : null}
+        {/* Structured reasons qualify the note; the note comes first. */}
+        {isDocRow ? (
+          <ReasonChips
+            value={draft.reason}
+            onChange={(reason) => controller.updateDraft({ reason })}
+          />
+        ) : null}
 
-            {/*
-             * The save gate, said out loud, only when it is actually holding the save:
-             * a permanently visible helper was one more line on every open.
-             */}
-            {speechless ? (
-              <FieldError>
-                {isDocRow
-                  ? "Say what’s wrong — pick a reason or write a line."
-                  : "Say what’s wrong — one line is enough."}
-              </FieldError>
-            ) : null}
-        </Field>
-      </FieldGroup>
+        {/*
+         * The save gate, said out loud, only when it is actually holding the save:
+         * a permanently visible helper was one more line on every open.
+         */}
+        {speechless ? (
+          <FieldError>
+            {isDocRow
+              ? "Say what’s wrong — pick a reason or write a line."
+              : "Say what’s wrong — one line is enough."}
+          </FieldError>
+        ) : null}
+      </Field>
+
+      {/* The second item, once asked for, sits between the note and the Save it joins. */}
+      {draft.linked ? <LinkedBlock controller={controller} /> : null}
 
       {/*
-       * The commit zone. One hairline separates what the officer authors from what
-       * saving it means — the consequence, the question a mark raises, or the linked
-       * second item — and the buttons that commit it.
+       * One action row. The whole-document switch takes the start side, in view at rest
+       * without standing between the note and Save; the commit pair keeps the end. Every
+       * control here is default height, so the row reads as one line of acts. On a narrow
+       * card the switch wraps above and the pair stays at the end.
        */}
-      <div className="flex flex-col gap-3 border-t border-hairline pt-3">
-      <ConsequenceStrip
-        field={field}
-        controller={controller}
-        onGoToItem={onGoToItem}
-      />
-
-      {/* The two controls that commit the officer's work: default size, like every act
-          on a court screen. */}
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        <Button variant="ghost" onClick={() => controller.closeComposer()}>
-          Cancel
-        </Button>
-        <Button
-          disabled={!canSave}
-          aria-label={
-            draft.linked ? "Save the flag and the document issue" : undefined
-          }
-          onClick={() => controller.saveFlag()}
-        >
-          {draft.linked ? "Save both" : isDocRow ? "Save issue" : "Save flag"}
-        </Button>
-      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <DocSwitch
+          field={field}
+          controller={controller}
+          onGoToItem={onGoToItem}
+        />
+        <div className="ms-auto flex items-center gap-2">
+          <Button variant="ghost" onClick={() => controller.closeComposer()}>
+            Cancel
+          </Button>
+          {/*
+           * Primary, like the workbench's other inline Save (the case-title editor): the
+           * card is its own region, and an officer mid-note is looking for one commit.
+           */}
+          <Button
+            disabled={!canSave}
+            aria-label={
+              draft.linked ? "Save the flag and the document issue" : undefined
+            }
+            onClick={() => controller.saveFlag()}
+          >
+            {draft.linked ? "Save both" : isDocRow ? "Save issue" : "Save flag"}
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -199,8 +206,8 @@ function ReasonChips({
      * whose whole light half spans 255→229. Measured on the render it read as "slightly
      * greyer", which is not a selected state. So the chip states differ three ways at
      * once: a check appears, the fill goes to `secondary`, and the label takes 500.
-     * Unset chips drop their white fill and let the well show through — four white
-     * boxes on a grey well was most of why this region read as muddled.
+     * Unset chips carry no fill of their own and take whatever surface hosts them, so
+     * only the chosen one reads as a filled mark.
      */
     <ToggleGroup
       type="single"
@@ -228,14 +235,14 @@ function ReasonChips({
 }
 
 /**
- * One region, two states: the question of whether the whole document is the problem,
- * and the second item it can grant instead.
+ * The start side of the action row: whether the whole document is the problem.
  *
  * The officer who types "re-upload the front side of the Aadhaar" into a field flag has
  * not asked for a re-upload — the transcripts say that is exactly what they do — so the
- * question sits here at rest, always, on any field read from an uploaded document.
+ * switch sits here at rest, always, on any field read from an uploaded document. Once
+ * used, the linked block above carries it, so the row gives the space back.
  */
-function ConsequenceStrip({
+function DocSwitch({
   field,
   controller,
   onGoToItem,
@@ -246,50 +253,69 @@ function ConsequenceStrip({
 }) {
   const { docById, docRow } = useScrutinyCase();
   const draft = controller.draft;
-  if (!draft) return null;
-
-  if (draft.linked) {
-    return <LinkedBlock controller={controller} />;
-  }
+  if (!draft || draft.linked) return null;
 
   // The field's own source document, when that document is an upload someone could be
   // asked to send again. Generated pages ARE the fields, so they have no row to flag.
   const sourceDoc = field.doc ?? null;
   const rowId = sourceDoc ? docRow[sourceDoc] : null;
-  const raised = !!rowId && !!controller.flags[rowId];
-
   if (!sourceDoc || !rowId) return null;
+  const raised = !!controller.flags[rowId];
 
   /*
-   * The question, not the rule. "Lets the advocate edit this value only" stated the
-   * boundary in the abstract; the officer's actual decision is whether the document
-   * itself is the problem, so ask that and make the answer a button.
+   * The question, as its answer. The button names the act, so a caption asking the
+   * question above it was a third tier saying the same thing. Ghost, so it never competes
+   * with Save; the re-upload glyph is the one the linked block's header carries, so the
+   * click and what it opens read as one thing. The negative start margin lines the glyph
+   * up with the label above, and the label may wrap: a long document name or a
+   * translated string must never run out of the card.
    */
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-2">
-      <span className="text-caption text-muted-foreground">
-        {raised
-          ? `${docName(sourceDoc, docById)} is already flagged for re-upload.`
-          : "Is something wrong with the entire document?"}
-      </span>
+  const switchClass = "-ms-3 h-auto min-h-10 py-2 text-start whitespace-normal";
+
+  if (raised) {
+    return (
       <Button
-        variant={raised ? "ghost" : "outline"}
-        size="xs"
-        className="[@media(pointer:coarse)]:h-10"
+        variant="ghost"
+        className={switchClass}
         onClick={(event) => {
           event.stopPropagation();
-          /*
-           * Also the accessibility answer: a rectangle can only be drawn with a pointer
-           * drag, so a keyboard-only officer can never reach the question. This reaches
-           * the same outcome in one click, always.
-           */
-          if (raised) onGoToItem(rowId);
-          else controller.linkDoc(sourceDoc);
+          onGoToItem(rowId);
         }}
       >
-        {raised ? "Open that flag" : "Flag the entire document instead"}
+        <FileUpIcon data-icon="inline-start" aria-hidden="true" />
+        {`Open the re-upload flag on ${docName(sourceDoc, docById)}`}
       </Button>
-    </div>
+    );
+  }
+
+  return (
+    <Button
+      variant="ghost"
+      className={switchClass}
+      data-doc-switch=""
+      onClick={(event) => {
+        event.stopPropagation();
+        /*
+         * Also the accessibility answer: a rectangle can only be drawn with a pointer
+         * drag, so a keyboard-only officer can never reach the question. This reaches the
+         * same outcome in one click, always.
+         */
+        const composer = event.currentTarget.closest("[data-flag-composer]");
+        controller.linkDoc(sourceDoc);
+        // This button leaves with the click, so focus goes where the work now is — the
+        // first reason — rather than falling to the page.
+        requestAnimationFrame(() =>
+          composer
+            ?.querySelector<HTMLElement>(
+              "[data-linked-block] [data-slot=toggle-group-item]",
+            )
+            ?.focus(),
+        );
+      }}
+    >
+      <FileUpIcon data-icon="inline-start" aria-hidden="true" />
+      Flag the entire document instead
+    </Button>
   );
 }
 
@@ -309,11 +335,14 @@ function LinkedBlock({ controller }: { controller: ScrutinyController }) {
 
   return (
     /*
-     * Not a box in the box: the commit zone's hairline already introduced this section,
-     * and a card-filled block inside a sunken well was surface-on-surface noise. The
-     * header row and the undo carry it.
+     * Not a box in the box, and no rule: the well's edge is the only stroke. A wider step
+     * above and the re-upload header row — glyph, item name, Undo — say a second item
+     * starts here, so the two textareas never read as one note.
      */
-    <div className="flex flex-col gap-2">
+    <div
+      className="flex flex-col gap-2 pt-1"
+      data-linked-block=""
+    >
       <div className="flex flex-wrap items-center gap-2">
         <FileUpIcon
           className="size-3.5 shrink-0 text-muted-foreground"
@@ -328,7 +357,12 @@ function LinkedBlock({ controller }: { controller: ScrutinyController }) {
           className="[@media(pointer:coarse)]:h-10"
           onClick={(event) => {
             event.stopPropagation();
+            const composer = event.currentTarget.closest("[data-flag-composer]");
             controller.clearLinked();
+            // Undo removes this block, so focus returns to the switch that opened it.
+            requestAnimationFrame(() =>
+              composer?.querySelector<HTMLElement>("[data-doc-switch]")?.focus(),
+            );
           }}
         >
           Undo
