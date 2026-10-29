@@ -46,6 +46,15 @@ export const RETURNS: Record<string, ReturnRound> = {
         answer: "replaced",
         answered: "9 Jun 2026",
       },
+      /* A long prose correction, so the marked-in-place value can be seen on a
+         paragraph and not only on a short amount (Anshumanth, 2026-10-29). */
+      {
+        fieldId: "p-interim",
+        note: "Interim compensation must be prayed for under Section 143A, as a share of the cheque amount not exceeding 20%. The filing asks for a fixed sum.",
+        was: "It is, therefore, most respectfully prayed that this Hon'ble Court may be pleased to:\n\nDirect the Accused to pay interim compensation of ₹1,30,000 to the Complainant during the pendency of the trial, within 60 days of the order.",
+        answer: "edited",
+        answered: "9 Jun 2026",
+      },
     ],
   },
   "F/AHM/2026/00341": {

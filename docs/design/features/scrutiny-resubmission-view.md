@@ -1,6 +1,6 @@
 # Re-scrutiny view for a resubmitted case
-Updated: 2026-10-28
-Status: implemented (uncommitted on `feature/revamp-scrutiny-resubmission`)
+Updated: 2026-10-29
+Status: implemented (2026-10-29 changes uncommitted on `revamp-scrutiny-resubmission`)
 
 ## Current outcome
 
@@ -141,6 +141,48 @@ tab, and the highlight had only been built for Full filing.
 - Checked on :3000: cards on `?resub=inline` (light and dark) and on the default link.
   No page errors. Tests pass 1413/1413, and the gates are clean on these files.
 
+### Errors marked: long values and re-uploads, 2026-10-29
+
+Anshumanth, on Slack: the crossed-out old value followed by the new one may not scale
+to "a larger text field". Side by side, the new file "is the one thing that they
+definitely have to check properly", yet it was "the only thing in that view which is
+actually looking small". He also wrote "let's not call it 'returned items.' They are
+'errors marked.'" Neer compared options in a prototype artifact
+(https://claude.ai/artifact/292enxVN8vhkgkzcK1ykEV), settled on its recommendations,
+and asked for them to be built in the product.
+- **A corrected value appears once, with the change marked inside it**
+  (`returned-value.tsx`). Removed words are struck through in muted ink. Added words are
+  semibold with an info underline. The word diff is the `diff` package (jsdiff, already
+  installed through shadcn, now declared in the app's `package.json`), splitting on
+  whitespace only, so an amount or PIN code changes as one token
+  (`lib/employee/scrutiny/word-diff.ts`, with tests). There are no rules by field type
+  or length. A short amount still reads "~~₹6,05,000~~ ₹6,50,000".
+- **A Now / Before switch** (DS `SegmentedControl`, compact) shows the value as it went
+  back, in the same spot, captioned "As sent back on 3 Jun 2026". It always opens on Now.
+  A value that was empty says "Previously empty" and has no switch.
+- **A re-uploaded document is full width**, with the same Now / Before switch on its
+  title row in the bundle (`bundle-view.tsx`). Before shows the blurred stand-in in the
+  same frame, at the same size. The side-by-side collapsible is gone.
+- **Wording:** "Returned items" became "Errors marked" in the Changes heading, the
+  group-card chip ("1 error marked"), the footer tally ("4 errors marked") and the
+  index note.
+- **Fixture:** 00338 gains a fourth item, a long Interim relief prayer corrected from a
+  fixed sum to the Section 143A wording, so the long case can be seen
+  (`returns.ts`; test counts updated from 3 to 4).
+
+| Date | Decision and reason | Source | Status |
+|---|---|---|---|
+| 2026-10-29 | Mark the change inside the new value, and put the old value behind a Now / Before switch, the same switch for fields and documents. | Neer, from the prototype's recommendation | Implemented |
+| 2026-10-29 | "Errors marked" instead of "returned items". | Anshumanth | Implemented |
+| 2026-10-29 | No "As sent back on 3 Jun 2026" caption under Before on a field: the switch already says Before, and the send-back date lives in case history. The bundle's old scan keeps a dateless "Previous upload" label, because a full page can scroll its switch out of view. | Neer agreed to Claude's suggestion | Implemented |
+| 2026-10-29 | Now shows only the current value. Removed words no longer appear struck through in it; they are only under Before. New words keep their underline. Consequence: a correction that only deleted text marks nothing in Now, and the officer has to flip to Before to see what went. | Neer, artifact comment ("Now should show only the current stuff not the old one") | Implemented (supersedes the struck-through removed words above) |
+| 2026-10-29 | Underline and weight for added words, not the prototype's translucent fill, because DS Laws ban alpha status fills. | Implementation choice | Implemented |
+| 2026-10-29 | Kept as filed keeps the existing "Unchanged" chip and the advocate's reason. The prototype's "Not changed" warning band and its Raise again button were not carried over: the 2026-10-28 treatment already shows the reason the prototype leaves out. | Implementation choice; Neer to confirm | Open |
+
+Not built from the prototype: the document cases "More pages now" (page counts),
+"Newly added" and "Same file again" (file-hash check). The demo data has no page counts,
+no newly added documents and no file fingerprints, and the hash check needs a backend.
+
 ## Changes and tradeoffs
 
 - Files: `components/employee/scrutiny/{changes-list.tsx (new), sheet.ts (new), case-workbench.tsx, fields-panel.tsx, field-row.tsx, bundle-view.tsx, index-rail.tsx}`
@@ -167,6 +209,21 @@ Checked on 2026-10-28, against the dev server on localhost:3000 serving this bra
   - No page errors.
 - Not checked: screen readers, 200% zoom, touch hardware. The review was Claude's own
   pass, not an independent one.
+
+Checked on 2026-10-29 for the "errors marked" change, against :3000 serving this
+checkout (DS pin e0cadea6b9d4, `check:ds-fresh` passes), scrutiny-officer seat, on 00338:
+- eslint is clean on the scrutiny folders. `tsc` is clean for app source; the only
+  errors are stale generated `.next` route types. The five DS gates report nothing in
+  scrutiny files. `check:typography` and `check:spacing` still fail on the same
+  untouched files as before, and repo eslint now also fails on three `provakil/` files.
+  Scrutiny tests pass 54/54.
+- Rendered in headless Chromium: Changes at 1440px in light and dark, and at 375px; the
+  interim card and the AD card in Now and Before; Full filing. No page errors and no
+  horizontal overflow. The switch's hit target is 40px.
+- Not checked: "Previously empty" and identifier values (no fixture has them), screen
+  readers, and 200% zoom. The bundle's switch sits inside the zoomed column, so at 50%
+  zoom its target shrinks, as the old toggle's did. The review was Claude's own pass,
+  not an independent one.
 
 Open:
 1. Neer to confirm the three default decisions above.

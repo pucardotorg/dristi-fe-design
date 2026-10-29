@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ChevronDownIcon, VideoIcon, ZoomInIcon, ZoomOutIcon } from "lucide-react";
+import { VideoIcon, ZoomInIcon, ZoomOutIcon } from "lucide-react";
 
 import { rectStyle } from "@/lib/employee/scrutiny/field";
 import { replacedDocs } from "@/lib/employee/scrutiny/returns";
@@ -17,10 +17,9 @@ import { PageSheet, SHEET_BOX } from "@/components/employee/page-facsimile";
 import { useScrutinyCase } from "@/components/employee/scrutiny/scrutiny-case-context";
 import { Button } from "@/components/ui/button";
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+  SegmentedControl,
+  SegmentedControlItem,
+} from "@/components/ui/segmented-control";
 import {
   Tooltip,
   TooltipContent,
@@ -101,12 +100,14 @@ export function BundleView({
   const { bundle, returned, fieldById } = useScrutinyCase();
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const [zoomBase, setZoomBase] = React.useState(880);
-  /* Documents re-uploaded this round open beside the upload that was sent back — the
-     question re-scrutiny asks of them is "is this one better?" — and the officer can put
-     the old one away. */
+  /* A document re-uploaded this round is the one page the officer must check properly,
+     so it stays as wide as every other page; the upload that was sent back flips into
+     the same frame, at the same size (Anshumanth, 2026-10-29: side by side, the new file
+     was "the only thing in that view which is actually looking small"). Each opens on
+     the new upload. */
   const replaced = replacedDocs(returned, fieldById);
   const shown = onlyDocs ? bundle.filter((doc) => onlyDocs.includes(doc.id)) : bundle;
-  const [hidePrevious, setHidePrevious] = React.useState<Record<string, boolean>>({});
+  const [showPrevious, setShowPrevious] = React.useState<Record<string, boolean>>({});
 
   /*
    * Zoom is persisted state, so it lives in localStorage and not in `useState`: the
@@ -349,87 +350,51 @@ export function BundleView({
         >
           {shown.map((doc) => {
             const item = replaced[doc.id];
-            const comparing = !!item && !hidePrevious[doc.id];
+            const before = !!item && !!showPrevious[doc.id];
             return (
               <div
                 className="flex scroll-mt-3 flex-col gap-1.5"
                 id={`doc-${doc.id}`}
                 key={doc.id}
               >
-                {/* The only navigational anchor in a scroll this long, so it reads as
-                    one: caption size, but foreground ink at 600 rather than grey. */}
-                <div className="min-w-0 text-caption font-semibold text-foreground">
-                  <span className="tabular-nums">{doc.no}</span> · {doc.name}
-                </div>
-                {item ? (
-                  <div
-                    className={cn(
-                      "grid items-start gap-x-4 gap-y-2",
-                      comparing && "grid-cols-2",
-                    )}
-                  >
-                    {/* The previous upload is its own framed object, and its header
-                        opens and closes it — so the control says what it governs, and
-                        nothing beside the title competes with the flagging controls.
-                        Closed, the frame keeps only that header, with a thumbnail so
-                        it still reads as a document folded away rather than a caption
-                        over the new page. The trigger stays one element in both
-                        states, so focus stays on it. */}
-                    <Collapsible
-                      className={cn(
-                        "min-w-0 overflow-hidden rounded-xl border border-hairline",
-                        !comparing && "justify-self-start",
-                      )}
-                      open={comparing}
-                      onOpenChange={(open) =>
-                        setHidePrevious((h) => ({ ...h, [doc.id]: !open }))
-                      }
-                    >
-                      <CollapsibleTrigger className="group/previous flex min-h-10 w-full min-w-0 items-center gap-2 py-1 pr-2 pl-3 text-left text-caption font-medium text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset">
-                        {comparing ? null : (
-                          /* The page at a tenth of the bundle's base width: too small
-                             to read, so no blur is needed to keep it from passing for
-                             the scan that went back. */
-                          <div aria-hidden="true" className="w-6 shrink-0 opacity-80">
-                            <div style={{ width: 240, zoom: 0.1 }}>
-                              {renderPage(doc, null)}
-                            </div>
-                          </div>
-                        )}
-                        <span className="min-w-0 flex-1">
-                          Previous upload · sent back {returned?.sentBack}
-                        </span>
-                        <ChevronDownIcon
-                          aria-hidden
-                          className="size-4 shrink-0 transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] group-aria-expanded/previous:rotate-180 motion-reduce:transition-none"
-                        />
-                      </CollapsibleTrigger>
-                      <CollapsibleContent className="px-2 pb-2">
-                        {/* The upload that went back. The demo keeps one file per
-                            document, so it is drawn from the same page, softened to
-                            stand in for the scan the officer could not read — never a
-                            legible fake of it. */}
-                        <div aria-hidden="true" className="opacity-80 blur-xs">
-                          {renderPage(doc, null)}
-                        </div>
-                      </CollapsibleContent>
-                    </Collapsible>
-                    {/* Open, the same transparent edge and inset as the frame, so the
-                        caption sits level with its header and both pages match. */}
-                    <div
-                      className={cn(
-                        "flex min-w-0 flex-col",
-                        comparing && "border border-transparent px-2 pb-2",
-                      )}
-                    >
-                      {comparing ? (
-                        <div className="flex min-h-10 items-center pl-1 text-caption font-medium text-muted-foreground">
-                          Now · re-uploaded {item.answered}
-                        </div>
-                      ) : null}
-                      {renderPage(doc, aiOn ? spot : null)}
-                    </div>
+                <div className="flex min-w-0 flex-wrap items-center gap-x-3">
+                  {/* The only navigational anchor in a scroll this long, so it reads
+                      as one: caption size, but foreground ink at 600 rather than grey. */}
+                  <div className="min-w-0 flex-1 text-caption font-semibold text-foreground">
+                    <span className="tabular-nums">{doc.no}</span> · {doc.name}
                   </div>
+                  {item ? (
+                    /* The same Now / Before switch as a corrected value
+                       (`returned-value.tsx`), on the title row it governs. */
+                    <SegmentedControl
+                      size="compact"
+                      type="single"
+                      value={before ? "before" : "now"}
+                      onValueChange={(value) =>
+                        value &&
+                        setShowPrevious((open) => ({ ...open, [doc.id]: value === "before" }))
+                      }
+                      aria-label={`Which upload of ${doc.name}`}
+                    >
+                      <SegmentedControlItem value="now">Now</SegmentedControlItem>
+                      <SegmentedControlItem value="before">Before</SegmentedControlItem>
+                    </SegmentedControl>
+                  ) : null}
+                </div>
+                {before ? (
+                  <>
+                    {/* A full page can scroll its title row and switch out of view, so
+                        the old scan names itself. No date: that lives in case history. */}
+                    <span className="text-caption font-medium text-muted-foreground">
+                      Previous upload
+                    </span>
+                    {/* The upload that went back. The demo keeps one file per document,
+                        so it is drawn from the same page, softened to stand in for the
+                        scan the officer could not read — never a legible fake of it. */}
+                    <div aria-hidden="true" className="opacity-80 blur-xs">
+                      {renderPage(doc, null)}
+                    </div>
+                  </>
                 ) : (
                   renderPage(doc, aiOn ? spot : null)
                 )}

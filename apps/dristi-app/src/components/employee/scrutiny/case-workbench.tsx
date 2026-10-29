@@ -462,7 +462,7 @@ export function CaseWorkbench({
           {returned ? (
             <>
               <b className="font-semibold text-foreground tabular-nums">
-                {`${returnedTotal} returned item${returnedTotal === 1 ? "" : "s"}`}
+                {`${returnedTotal} ${returnedTotal === 1 ? "error" : "errors"} marked`}
               </b>
               {tally.length > 0 ? " · " : null}
             </>

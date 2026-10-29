@@ -41,6 +41,8 @@ export type FieldsView = "changes" | "full";
  * light and, in dark, sits *above* `card` — so the pane read as flat in one theme and
  * inverted in the other. `surface-sunken` is a well in both.
  */
+const errorsMarked = (n: number) => `${n} ${n === 1 ? "error" : "errors"} marked`;
+
 export function FieldsPanel({
   controller,
   aiOn,
@@ -64,7 +66,7 @@ export function FieldsPanel({
   const changes = !!returned && view === "changes";
 
   /* Where the returned items sit, so each group card can say so before the officer reads
-     its rows: "1 returned" on Cheque 1. Not on the section tabs — a count there pushed
+     its rows: "1 error marked" on Cheque 1. Not on the section tabs — a count there pushed
      "4. Affidavit and oath" out of a band with no scrollbar, and a dot alone would be
      colour without words. */
   const returnedIn = { group: {} as Record<string, number> };
@@ -278,7 +280,7 @@ export function FieldsPanel({
                       </h3>
                       {returnedIn.group[`${section.id}/${group.title}`] ? (
                         <Badge variant="info" className="ms-auto border-info tabular-nums">
-                          {`${returnedIn.group[`${section.id}/${group.title}`]} returned`}
+                          {errorsMarked(returnedIn.group[`${section.id}/${group.title}`])}
                         </Badge>
                       ) : null}
                       <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-hairline bg-card text-muted-foreground">

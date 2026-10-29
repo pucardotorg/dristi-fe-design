@@ -142,7 +142,7 @@ function IndexRows({
       {/* Said, so a short index reads as a choice and not as a bundle gone missing. */}
       {onlyDocs ? (
         <p className="px-2 pb-1 text-caption font-medium text-muted-foreground">
-          Documents behind the returned items. Full filing shows all {bundle.length}.
+          Documents behind the errors marked. Full filing shows all {bundle.length}.
         </p>
       ) : null}
       {shown.map((doc) => {

@@ -58,7 +58,9 @@ export function ChangesList({
         id="changes-title"
         className="flex items-center gap-3 px-4 py-2 text-caption font-medium text-muted-foreground after:h-px after:flex-1 after:bg-hairline after:content-['']"
       >
-        <span>Returned items</span>
+        {/* Not "returned": in these cases that already means the cheque that came back
+            unpaid (Anshumanth, 2026-10-29: "They are 'errors marked.'"). */}
+        <span>Errors marked</span>
       </h2>
       <ul className="flex flex-col gap-4">
         {returned.items.map((item) => (

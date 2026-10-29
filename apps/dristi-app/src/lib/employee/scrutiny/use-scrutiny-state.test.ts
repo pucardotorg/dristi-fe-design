@@ -204,12 +204,12 @@ describe("removal never cascades", () => {
 });
 
 describe("re-scrutiny verdicts", () => {
-  /** The resubmitted filing: three items came back, one of each answer. */
+  /** The resubmitted filing: four items came back, one of each answer plus a long prose correction. */
   const RESUB = buildScrutinyCase(findFiling("F/AHM/2026/00338")!);
   const RESUB_LOOK: ScrutinyLookups = { fieldById: RESUB.fieldById, docRow: RESUB.docRow };
 
   it("attaches the round to a resubmitted filing and none to a fresh one", () => {
-    assert.equal(RESUB.returned?.items.length, 3);
+    assert.equal(RESUB.returned?.items.length, 4);
     assert.equal(RESUB.historyRound, RESUB.returned?.round);
     for (const item of RESUB.returned!.items) assert.ok(RESUB.fieldById[item.fieldId], item.fieldId);
     assert.equal(buildScrutinyCase(findFiling("F/AHM/2026/00319")!).returned, null);
@@ -217,7 +217,7 @@ describe("re-scrutiny verdicts", () => {
 
   it("names every returned item in the derived history", () => {
     const sent = RESUB.history.find((e) => e.items);
-    assert.deepEqual(sent?.items?.map((i) => i.ref), ["q1-amt", "c1-name", "d-c1ad"]);
+    assert.deepEqual(sent?.items?.map((i) => i.ref), ["q1-amt", "c1-name", "d-c1ad", "p-interim"]);
   });
 
   it("the hero round names a real row", () => {
@@ -226,14 +226,14 @@ describe("re-scrutiny verdicts", () => {
 
   it("counts every item unchecked until the officer answers it", () => {
     const s = state();
-    assert.equal(uncheckedCount(s, RESUB.returned), 3);
+    assert.equal(uncheckedCount(s, RESUB.returned), 4);
     assert.equal(verdictOf(s, "q1-amt"), "unchecked");
   });
 
   it("accepting settles an item, and undo puts it back", () => {
     const s = applyAccept(state(), "q1-amt");
     assert.equal(verdictOf(s, "q1-amt"), "accepted");
-    assert.equal(uncheckedCount(s, RESUB.returned), 2);
+    assert.equal(uncheckedCount(s, RESUB.returned), 3);
     assert.equal(verdictOf(applyUndoAccept(s, "q1-amt"), "q1-amt"), "unchecked");
   });
 
@@ -249,7 +249,7 @@ describe("re-scrutiny verdicts", () => {
     const note = RESUB.returned!.items[1].note;
     const raised = applySaveFlagRaw(applyRaiseAgain(state(), "c1-name", note, RESUB_LOOK), RESUB_LOOK);
     assert.equal(verdictOf(raised, "c1-name"), "raised");
-    assert.equal(uncheckedCount(raised, RESUB.returned), 2);
+    assert.equal(uncheckedCount(raised, RESUB.returned), 3);
     // Accept is refused while the item stands raised.
     assert.equal(applyAccept(raised, "c1-name"), raised);
     // Withdrawing the flag returns it to unchecked, not to accepted.
