@@ -13,11 +13,11 @@ import {
   PAYMENT_PROCESSING_TITLE,
   PAYMENT_SUCCESS_TITLE,
   PaymentProcessing,
-  PaymentReceipt,
+  PaymentFacts,
 } from "@/components/payment/payment-steps";
 import { type ActContext } from "@/components/tasks/act/shared";
 import { useTaskActions } from "@/components/tasks/use-task-actions";
-import { Banner } from "@/components/ui/banner";
+import { OutcomeAmount, OutcomeHeader, StatusLine } from "@/components/feedback";
 import { Button } from "@/components/ui/button";
 import {
   DescriptionDetails,
@@ -212,6 +212,20 @@ export function TaskPaymentDialog({
       }}
     >
       <FlowDialogContent className="max-h-[85svh] w-full overflow-y-auto sm:max-w-lg">
+        {stage === "paid" ? (
+          /* The payment's outcome takes the window over (skill `feedback-states`); the
+             negative inset carries the band to the dialog's edges. */
+          <OutcomeHeader
+            compact
+            titleFrom="dialog"
+            focusTitle
+            className="-mx-6 -mt-6"
+            title={title}
+            body={<TaskCaseLine kase={kase} />}
+          >
+            {amount ? <OutcomeAmount label="Amount paid" value={amount} /> : null}
+          </OutcomeHeader>
+        ) : (
         <DialogHeader className="pr-8 text-left">
           <DialogTitle className="text-title-s font-semibold text-balance">
             {title}
@@ -220,13 +234,14 @@ export function TaskPaymentDialog({
             <TaskCaseLine kase={kase} />
           </DialogDescription>
         </DialogHeader>
+        )}
 
         {stage === "pay" ? (
           <div className="flex flex-col gap-4">
             {failed ? (
-              <Banner variant="error">
+              <StatusLine tone="error">
                 The payment did not go through. Nothing was paid; try again.
-              </Banner>
+              </StatusLine>
             ) : null}
             <DescriptionList className="rounded-xl bg-surface-sunken px-4 py-1">
               {task.feeHead ? (
@@ -274,8 +289,7 @@ export function TaskPaymentDialog({
         {stage === "processing" ? <PaymentProcessing /> : null}
 
         {stage === "paid" ? (
-          <PaymentReceipt
-            amount={amount ?? ""}
+          <PaymentFacts
             rows={[
               ...(task.feeHead ? [{ label: "Fee", value: task.feeHead }] : []),
               {

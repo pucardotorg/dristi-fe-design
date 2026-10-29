@@ -8,8 +8,9 @@
  */
 
 import * as React from "react";
-import { toast } from "sonner";
-import { CheckIcon, FileTextIcon, SignatureIcon, TrashIcon } from "lucide-react";
+import { FileTextIcon, SaveIcon, SignatureIcon, TrashIcon } from "lucide-react";
+
+import { StatusLine, StatusMark } from "@/components/feedback";
 
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 
@@ -198,16 +199,19 @@ export function FileSlot({
 }) {
   const inputRef = React.useRef<HTMLInputElement>(null);
   const [busy, setBusy] = React.useState(false);
+  const [failed, setFailed] = React.useState(false);
   const id = `slot-${name.replace(/\W+/g, "-").toLowerCase()}`;
 
   const pick = async (f: File | undefined) => {
     if (!f) return;
     setBusy(true);
+    setFailed(false);
     try {
       const ref = await storeUpload(f);
       onFile({ ...ref, slot: name });
     } catch {
-      toast.error("That file could not be stored in this browser.");
+      /* Said at the slot, never as a toast: the slot may sit in a dialog. */
+      setFailed(true);
     } finally {
       setBusy(false);
       if (inputRef.current) inputRef.current.value = "";
@@ -221,8 +225,8 @@ export function FileSlot({
           {name}
         </FieldLabel>
         {file ? (
-          <span className="inline-flex items-center gap-1 text-caption text-success-ink">
-            <CheckIcon aria-hidden className="size-3.5" />
+          <span className="inline-flex items-center gap-1.5 text-caption text-success-ink">
+            <StatusMark size={14} still />
             Attached
           </span>
         ) : (
@@ -242,6 +246,11 @@ export function FileSlot({
             onChange={(e) => void pick(e.target.files?.[0])}
             className="max-w-sm cursor-pointer file:mr-3 file:font-medium"
           />
+          {failed ? (
+            <StatusLine tone="error" className="mt-2">
+              That file could not be stored in this browser.
+            </StatusLine>
+          ) : null}
         </Field>
       )}
     </li>
@@ -314,7 +323,7 @@ export function PrepareCard({
         <Button
           variant={ready ? "outline" : "ghost"}
           disabled={!online || !!busy}
-          onClick={() => void act(task.id, (x, c) => saveDraft(x, c, note, files), "Saved as a draft")}
+          onClick={() => void act(task.id, (x, c) => saveDraft(x, c, note, files), { title: "Saved as a draft", icon: SaveIcon })}
         >
           Save as draft
         </Button>

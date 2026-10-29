@@ -11,7 +11,7 @@
  */
 
 import * as React from "react";
-import { SendIcon } from "lucide-react";
+import { SaveIcon, SendIcon } from "lucide-react";
 
 import { ChromeAlertDialogContent } from "@/components/chrome/app-chrome";
 
@@ -122,7 +122,7 @@ function FileCard({ ctx, files, complete }: { ctx: ActContext; files: StoredFile
         <Button
           variant="ghost"
           disabled={!online || !!busy}
-          onClick={() => void act(task.id, (t, c) => saveDraft(t, c, undefined, files), "Saved as a draft")}
+          onClick={() => void act(task.id, (t, c) => saveDraft(t, c, undefined, files), { title: "Saved as a draft", icon: SaveIcon })}
         >
           Save for later
         </Button>

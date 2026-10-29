@@ -1,7 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { toast } from "sonner";
+import type { LucideIcon } from "lucide-react";
+
+import { notify } from "@/components/feedback";
 
 import { PAGED_KINDS } from "@/lib/tasks/permissions";
 import { useTasks } from "@/lib/tasks/store";
@@ -84,20 +86,27 @@ export function useTaskActions() {
   const [busy, setBusy] = React.useState<TaskId | null>(null);
 
   const act = React.useCallback(
-    async (taskId: TaskId, transition: Transition, done?: string): Promise<Task | null> => {
+    async (
+      taskId: TaskId,
+      transition: Transition,
+      /* What to say once it lands. An `icon` makes it neutral: not news (a draft saved,
+         a task restored), said quietly with the act's own icon (skill `feedback-states`). */
+      done?: string | { title: string; icon: LucideIcon },
+    ): Promise<Task | null> => {
       if (!online) {
-        toast.error("You are offline — nothing was changed.");
+        notify.error("You are offline. Nothing was changed.");
         return null;
       }
       setBusy(taskId);
       try {
         const task = await dispatch(taskId, transition);
-        if (done) toast.success(done);
+        if (typeof done === "string") notify.success(done);
+        else if (done) notify.neutral(done.title, { icon: done.icon });
         return task;
       } catch (e) {
         const message =
-          e instanceof TransitionError ? e.message : "Something went wrong — nothing was changed.";
-        toast.error(message);
+          e instanceof TransitionError ? e.message : "Something went wrong. Nothing was changed.";
+        notify.error(message);
         return null;
       } finally {
         setBusy(null);

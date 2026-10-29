@@ -12,7 +12,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { notify } from "@/components/feedback";
 import { ArrowLeftIcon, FileTextIcon } from "lucide-react";
 
 import { canComplete, canView } from "@/lib/tasks/permissions";
@@ -80,7 +80,7 @@ export function TaskActPage({ action }: { action: ActPageAction }) {
     (message?: string, taskId?: string) => {
       const target = taskId ?? id;
       requestHighlight(target);
-      if (message) toast.success(message);
+      if (message) notify.success(message);
       router.push(`/tasks?task=${encodeURIComponent(target)}`);
     },
     [id, requestHighlight, router]

@@ -1,10 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { CircleAlertIcon, CircleCheckIcon, FlaskConicalIcon } from "lucide-react";
-import { toast } from "sonner";
+import { FlaskConicalIcon } from "lucide-react";
 
-import { RESOLVE_IN_PLACE } from "@/components/chrome/motion";
+import { IrreversibleNote, OutcomeHeader, OutcomeSummary, notify } from "@/components/feedback";
 import { Identifier } from "@/components/chrome/identifier";
 import { useStageFade } from "@/components/chrome/stage-fade";
 import { StagedOverlay } from "@/components/chrome/staged-overlay";
@@ -97,7 +96,7 @@ export function BatchActDialog({
 
   function close() {
     if (running) return;
-    if (settled.current) toast.success(settled.current);
+    if (settled.current) notify.success(settled.current);
     settled.current = null;
     onOpenChange(false);
   }
@@ -319,6 +318,8 @@ function BatchBody({
       motion="forward"
       footer={footer}
       showCloseButton={!running}
+      /* The settled stage takes the window over: mark, then title (owner, Oct 29). */
+      outcome={flow.stage === "done"}
       onEscapeKeyDown={(e) => running && e.preventDefault()}
     >
       <div key={flow.stage} className={cn("flex min-h-0 flex-1 flex-col", flow.sceneClassName)}>
@@ -338,7 +339,8 @@ function BatchBody({
                 }}
               />
               <p className="text-body-compact text-muted-foreground">
-                Signing applies to every document selected. It cannot be reversed.
+                Signing applies to every document selected.
+                <IrreversibleNote>It cannot be reversed.</IrreversibleNote>
               </p>
             </>
           ) : flow.stage === "otp" ? (
@@ -355,6 +357,7 @@ function BatchBody({
             <PaymentProcessing />
           ) : (
             <OutcomeCard
+              title={title}
               outcomes={outcomes}
               caseOf={caseOf}
               headline={
@@ -494,34 +497,26 @@ function TaskList({
  * tasks under it, and any that did not go through named as such with why.
  */
 function OutcomeCard({
+  title,
   outcomes,
   caseOf,
   headline,
   ok,
 }: {
+  title: string;
   outcomes: Outcome[];
   caseOf: (task: Task) => Case | undefined;
   headline: string;
   ok: boolean;
 }) {
+  /* The window's title says only what fully happened; any that did not go through are
+     named in the list under it, in red with why (skill `feedback-states`). */
   return (
-    <div className={cn("overflow-hidden rounded-xl border border-hairline bg-card shadow-raised", RESOLVE_IN_PLACE)}>
-      <div
-        className={cn(
-          "flex items-center gap-2 px-4 py-2.5 text-body-compact",
-          ok ? "bg-success-muted text-success-muted-foreground" : "bg-destructive-muted text-destructive-muted-foreground"
-        )}
-      >
-        {ok ? (
-          <CircleCheckIcon aria-hidden className="size-4 shrink-0" />
-        ) : (
-          <CircleAlertIcon aria-hidden className="size-4 shrink-0" />
-        )}
-        <span role="status" className="font-medium">
-          {headline}
-        </span>
-      </div>
-      <ul className="flex flex-col px-4">
+    <>
+      <OutcomeHeader tone={ok ? "success" : "error"} titleFrom="dialog" focusTitle title={title} surface="card" />
+      <div className="mx-auto flex w-full max-w-xl flex-col p-4 sm:p-6">
+        <OutcomeSummary tone={ok ? "success" : "error"} label={headline === title ? undefined : headline}>
+      <ul className="flex flex-col">
         {outcomes.map((o) => (
           <TaskRow
             key={o.task.id}
@@ -544,6 +539,8 @@ function OutcomeCard({
           />
         ))}
       </ul>
-    </div>
+        </OutcomeSummary>
+      </div>
+    </>
   );
 }

@@ -9,7 +9,7 @@
  */
 
 import * as React from "react";
-import { CircleCheckIcon } from "lucide-react";
+import { StatusMark } from "@/components/feedback";
 
 import { ChromeAlertDialogContent } from "@/components/chrome/app-chrome";
 
@@ -251,7 +251,7 @@ export function PayBody({ ctx }: { ctx: ActContext }) {
           {task.completion?.receipt ? (
             <Row label="Receipt">
               <span className="inline-flex items-center gap-1.5">
-                <CircleCheckIcon aria-hidden className="size-4 text-success-ink" />
+                <StatusMark size={16} still />
                 <Identifier value={task.completion.receipt} label="receipt" />
               </span>
             </Row>

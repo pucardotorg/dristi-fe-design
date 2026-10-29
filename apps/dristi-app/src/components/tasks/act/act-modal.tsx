@@ -10,7 +10,7 @@
  */
 
 import * as React from "react";
-import { toast } from "sonner";
+import { notify } from "@/components/feedback";
 
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 
@@ -72,7 +72,7 @@ export function TaskActModal({
 
   const finish = React.useCallback(
     (message?: string, taskId?: string) => {
-      if (message) toast.success(message);
+      if (message) notify.success(message);
       onOpenChange(false);
       if (task) onFinished?.(taskId ?? task.id);
     },
