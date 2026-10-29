@@ -36,7 +36,8 @@ export const PROPOSED_CSS = `
 @keyframes sb-bar { 0% { transform: translateY(-9px); opacity: 0 } 65% { transform: translateY(1.5px); opacity: 1 } 100% { transform: none } }
 @keyframes sb-ring-soft { 0% { transform: scale(1); opacity: .3 } 100% { transform: scale(1.7); opacity: 0 } }
 @keyframes sb-dot { 0% { transform: scale(0) } 60% { transform: scale(1.45) } 100% { transform: scale(1) } }
-@keyframes sb-icon { from { transform: scale(.85); opacity: 0 } to { transform: none; opacity: 1 } }
+@keyframes sb-icon { 0% { transform: scale(.55); opacity: 0 } 70% { transform: scale(1.06); opacity: 1 } 100% { transform: none } }
+@keyframes sb-errline { from { opacity: 0; transform: translateY(-3px) } to { opacity: 1; transform: none } }
 @keyframes sb-pop-quick { 0% { transform: scale(.7); opacity: 0 } 70% { transform: scale(1.04); opacity: 1 } 100% { transform: none } }
 @keyframes sb-spin { 0% { transform: rotate(-180deg) scale(.2); opacity: 0 } 70% { transform: rotate(12deg) scale(1.08); opacity: 1 } 100% { transform: none } }
 @keyframes sb-stamp { 0% { transform: scale(1.6); opacity: 0 } 55% { transform: scale(.94); opacity: 1 } 100% { transform: scale(1) } }
@@ -60,12 +61,13 @@ export const PROPOSED_CSS = `
 .sb-land { animation: sb-land 2600ms ease-out both }
 .sb-flip { transform-box: fill-box; transform-origin: center; animation: sb-flip 900ms 250ms cubic-bezier(.65,0,.35,1) both }
 .sb-chip { animation: sb-chip 220ms cubic-bezier(.2,.8,.2,1) both }
-.sb-shake { animation: sb-shake 240ms 400ms ease-in-out both }
-.sb-stroke { transform-box: fill-box; transform-origin: center; animation: sb-stroke 280ms 160ms cubic-bezier(.34,1.56,.64,1) both }
+.sb-shake { animation: sb-shake 260ms 620ms ease-in-out both }
+.sb-stroke { transform-box: fill-box; transform-origin: center; animation: sb-stroke 400ms 200ms cubic-bezier(.34,1.56,.64,1) both }
 .sb-bar { animation: sb-bar 280ms 150ms cubic-bezier(.34,1.56,.64,1) both }
 .sb-dot { transform-box: fill-box; transform-origin: center; animation: sb-dot 220ms 330ms cubic-bezier(.34,1.56,.64,1) both }
 .sb-ring-soft { animation: sb-ring-soft 650ms 330ms ease-out both }
-.sb-icon { animation: sb-icon 150ms 80ms ease-out both }
+.sb-icon { animation: sb-icon 380ms 180ms cubic-bezier(.3,1.3,.5,1) both }
+.sb-errline { animation: sb-errline 220ms ease-out both }
 .sb-pop-quick { animation: sb-pop-quick 250ms cubic-bezier(.2,.9,.3,1.2) both }
 .sb-spin { transform-box: fill-box; transform-origin: center; animation: sb-spin 560ms 160ms cubic-bezier(.34,1.56,.64,1) both }
 .sb-stamp { animation: sb-stamp 380ms cubic-bezier(.2,.9,.3,1) both }
@@ -80,7 +82,7 @@ export const PROPOSED_CSS = `
 .sb-widen { transform-box: fill-box; transform-origin: center; animation: sb-widen 360ms 200ms cubic-bezier(.34,1.56,.64,1) both }
 .sb-fill { transform-origin: left; animation: sb-fill 700ms cubic-bezier(.2,.8,.2,1) both }
 @media (prefers-reduced-motion: reduce) {
-  .sb-pop, .sb-draw, .sb-ring, .sb-rise, .sb-band, .sb-toast, .sb-drain, .sb-land, .sb-fill, .sb-flip, .sb-chip, .sb-shake, .sb-stroke, .sb-bar, .sb-dot, .sb-ring-soft, .sb-icon, .sb-spin, .sb-stamp, .sb-thud, .sb-nod, .sb-swing, .sb-sway, .sb-glow > span, .sb-drop, .sb-glyph, .sb-wave, .sb-widen, .sb-pop-quick { animation: none }
+  .sb-pop, .sb-draw, .sb-ring, .sb-rise, .sb-band, .sb-toast, .sb-drain, .sb-land, .sb-fill, .sb-flip, .sb-chip, .sb-shake, .sb-stroke, .sb-bar, .sb-dot, .sb-ring-soft, .sb-icon, .sb-spin, .sb-stamp, .sb-thud, .sb-nod, .sb-swing, .sb-sway, .sb-glow > span, .sb-drop, .sb-glyph, .sb-wave, .sb-widen, .sb-pop-quick, .sb-errline { animation: none }
   .sb-ring-soft { opacity: 0 }
   .sb-ring { opacity: 0 }
 }
@@ -161,6 +163,7 @@ export function SuccessMark({
   style: override,
   still = false,
   reject = false,
+  delay,
 }: {
   size?: number;
   tone?: Tone;
@@ -168,6 +171,8 @@ export function SuccessMark({
   style?: Partial<MarkStyle>;
   still?: boolean;
   reject?: boolean;
+  /** Start later, so lines that belong together play one after the other. */
+  delay?: number;
 }) {
   const picked = React.useContext(MarkStyleContext);
   const m = { ...picked, ...override };
@@ -204,6 +209,7 @@ export function SuccessMark({
       <span
         className={pop + " relative flex size-full items-center justify-center rounded-full " + (iconTone ? "" : "shadow-raised")}
         style={{
+          animationDelay: delay ? `${delay}ms` : undefined,
           background: t.solid,
           color: t.fg,
           boxShadow: tone === "neutral" ? "inset 0 0 0 1px color-mix(in oklab, var(--foreground) 30%, transparent)" : undefined,
@@ -225,7 +231,7 @@ export function SuccessMark({
               ) : (
                 <>
                   <path className="sb-stroke" d="M6.5 6.5l11 11" />
-                  <path className="sb-stroke" style={{ animationDelay: "220ms" }} d="M17.5 6.5l-11 11" />
+                  <path className="sb-stroke" style={{ animationDelay: "340ms" }} d="M17.5 6.5l-11 11" />
                 </>
               )
             ) : tone === "warning" ? (

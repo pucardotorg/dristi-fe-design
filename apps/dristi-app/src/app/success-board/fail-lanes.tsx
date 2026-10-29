@@ -32,7 +32,7 @@ export const FAIL_LANES: Lane[] = [
     weight: 1,
     note: "A plain grey toast explains why a press did nothing. It looks like an acknowledgement, sits far from the thing to fix, and vanishes.",
     specimens: [
-      { label: "Missing input", now: <Now.BlockToastToday />, next: <Next.BlockToastNext />, why: "Kept on reflection. Picture the drafter: they press Send at the bottom, the editor above them turns red, the line under it says what is missing, and the cursor is already in it. A toast would sit at the bottom, a long way from the thing to fix, and vanish. Next hearing already moves focus to its field today. Where the fix is not a field (answer questions through a pencil), the toast stays." },
+      { label: "Missing input", now: <Now.BlockToastToday />, next: <Next.BlockToastNext />, why: "The field turns red and the line under it fades in where it sits, with focus already in the field. Where the fix is not a field (answer questions through a pencil), the toast stays." },
       { label: "Step not open yet", now: <Now.GateToastToday />, next: <Next.GateToastNext />, why: "Not a warning: nothing is wrong, the step just is not open. Neutral toast with a lock, 2.75s, gone on any click." },
     ],
     flows: [
@@ -76,8 +76,8 @@ export const FAIL_LANES: Lane[] = [
     weight: 2,
     note: "The part that worked is solid green; the part that failed is a small amber line under it. The eye stops at the green.",
     specimens: [
-      { label: "Bulk: one refused", now: <Now.PartialCalloutToday />, next: <Next.PartialCalloutNext />, why: "Two acts, two answers. The hero says what fully happened (all signed). Under it, 'Sent · 2 of 3': a bar where the failed share is set apart by a gap and stripes, then one line per outcome with its own mark. 'Sent' is the only new word." },
-      { label: "Single: refused", now: <Now.PartialFooterToday />, next: <Next.PartialFooterNext />, why: "The footer lists both acts, each with its own mark: signed (green), could not be sent (amber)." },
+      { label: "Bulk: one refused", now: <Now.PartialCalloutToday />, next: <Next.PartialCalloutNext />, why: "Two acts, two answers. The hero says what fully happened (all signed). Under it, 'Sent · 2 of 3': the failed share of the bar carries fine stripes, so it does not rely on colour, then one line per outcome, each mark popping in order. 'Sent' is the only new word." },
+      { label: "Single: refused", now: <Now.PartialFooterToday />, next: <Next.PartialFooterNext />, why: "The footer lists both acts, each with its own mark, popping in order: signed (green), then could not be sent (amber)." },
     ],
     flows: [
       f("N processes signed / resent, some could not be sent", ["staff", "mag"], "employee/process-move-dialog"),
@@ -91,7 +91,7 @@ export const FAIL_LANES: Lane[] = [
     weight: 2,
     note: "Three components (Banner, Alert, SectionNotice) and a no-icon variant, all pale red boxes. Same weight as a warning or a tip.",
     specimens: [
-      { label: "The four inline reds", now: <Now.InlineErrorsToday />, next: <Next.InlineErrorsNext />, why: "One shape, the same as the inline success line: white, straight red rail, cross mark, optional title and action. Only the first animates. Same words." },
+      { label: "The four inline reds", now: <Now.InlineErrorsToday />, next: <Next.InlineErrorsNext />, why: "One shape, the same as the inline success line: white, straight red rail, cross mark, optional title and action. Each example is from a different screen, so each plays. Same words." },
     ],
     flows: [
       f("The payment did not go through", ["adv"], "advocate/join-case-dialog · tasks/act/task-flows"),
@@ -109,7 +109,7 @@ export const FAIL_LANES: Lane[] = [
     weight: 2,
     note: "The same three components in amber. One warning banner shows two icons, and the documents step pins its own floating alert that behaves like a toast.",
     specimens: [
-      { label: "The four inline ambers", now: <Now.InlineWarningsToday />, next: <Next.InlineWarningsNext />, why: "One shape, one icon, a straight amber rail. Only the first note in a view animates; the rest arrive still. 'No case matches this number' moves to neutral: it is a miss, not a warning." },
+      { label: "The four inline ambers", now: <Now.InlineWarningsToday />, next: <Next.InlineWarningsNext />, why: "One shape, one icon, a straight amber rail. Each example is from a different screen, so each plays. 'No case matches this number' moves to neutral: it is a miss, not a warning." },
       { label: "Floating warning", now: <Now.FloatingWarningToday />, next: <Next.FloatingWarningNext />, why: "It is a toast in all but name, so it becomes the warning toast, in the toast's place: 2.75s, gone on any click." },
     ],
     flows: [

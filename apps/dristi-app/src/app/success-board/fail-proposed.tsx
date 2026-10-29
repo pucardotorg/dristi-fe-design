@@ -191,21 +191,21 @@ function Tally({ ok, bad, okLine, badLine, label }: { ok: number; bad: number; o
     <Summary label={label} aside={<span className="text-body-compact tabular-nums text-muted-foreground">{ok} of {ok + bad}</span>}>
       <div className="flex gap-1 pt-3">
         {Array.from({ length: ok }).map((_, i) => <span key={`o${i}`} className="sb-fill h-2 flex-1 rounded-full bg-success" style={{ animationDelay: `${300 + i * 80}ms` }} />)}
-        {/* The failed share is set apart by a gap and stripes, not by colour alone. */}
+        {/* The failed share carries fine stripes, so it does not rely on colour alone. */}
         {Array.from({ length: bad }).map((_, i) => (
           <span
             key={`b${i}`}
-            className={"sb-fill h-2 flex-1 rounded-full " + (i === 0 ? "ml-2" : "")}
+            className="sb-fill h-2 flex-1 rounded-full"
             style={{
               animationDelay: `${300 + (ok + i) * 80}ms`,
-              background: "repeating-linear-gradient(135deg, var(--warning) 0 4px, color-mix(in oklab, var(--warning) 45%, var(--card)) 4px 7px)",
+              background: "repeating-linear-gradient(45deg, var(--warning) 0 3px, color-mix(in oklab, var(--warning) 62%, var(--card)) 3px 5px)",
             }}
           />
         ))}
       </div>
       <ul className="flex flex-col py-1">
-        <li className="flex items-center gap-2.5 border-b border-hairline py-2.5"><SuccessMark size={20} still /> <span className="text-body-compact">{okLine}</span></li>
-        <li className="flex items-center gap-2.5 py-2.5"><SuccessMark size={20} tone="warning" still /> <span className="text-body-compact font-semibold">{badLine}</span></li>
+        <li className="flex items-center gap-2.5 border-b border-hairline py-2.5"><SuccessMark size={20} delay={520} /> <span className="text-body-compact">{okLine}</span></li>
+        <li className="flex items-center gap-2.5 py-2.5"><SuccessMark size={20} tone="warning" delay={680} /> <span className="text-body-compact font-semibold">{badLine}</span></li>
       </ul>
     </Summary>
   );
@@ -237,8 +237,8 @@ export function PartialFooterNext() {
         <div className="flex h-60 items-center justify-center bg-card"><div className="h-52 w-40 rounded border border-hairline bg-surface-sunken" /></div>
         <div className="flex items-center gap-4 border-t border-hairline bg-card px-6 py-4">
           <ul className="mr-auto flex flex-col gap-1.5">
-            <li className="flex items-center gap-2.5"><SuccessMark size={20} still /><span className="text-body-compact font-semibold">Process signed.</span></li>
-            <li className="sb-rise flex items-center gap-2.5" style={{ animationDelay: "300ms" }}><SuccessMark size={20} tone="warning" /><span className="text-body-compact font-semibold">1 could not be sent and is in Errored in Issuance.</span></li>
+            <li className="flex items-center gap-2.5"><SuccessMark size={20} /><span className="text-body-compact font-semibold">Process signed.</span></li>
+            <li className="sb-rise flex items-center gap-2.5" style={{ animationDelay: "200ms" }}><SuccessMark size={20} tone="warning" delay={260} /><span className="text-body-compact font-semibold">1 could not be sent and is in Errored in Issuance.</span></li>
           </ul>
           <Button variant="outline">Download</Button>
           <Button>Done</Button>
@@ -255,9 +255,9 @@ export function InlineErrorsNext() {
     <div className="w-[820px] shrink-0 rounded-lg border border-hairline bg-background p-8">
       <div className="flex flex-col gap-5">
         <InlineNote tone="error">The payment did not go through. Nothing was paid; try again.</InlineNote>
-        <InlineNote still tone="error" title="Last attempt failed">Ref PAY-55102 on 24-08-2026, 11:40. Nothing was paid; try again.</InlineNote>
-        <InlineNote still tone="error" action="Try again">Cases could not be loaded. Nothing has been changed — try again in a moment.</InlineNote>
-        <InlineNote still tone="error">No case rows were found in this file.</InlineNote>
+        <InlineNote tone="error" title="Last attempt failed">Ref PAY-55102 on 24-08-2026, 11:40. Nothing was paid; try again.</InlineNote>
+        <InlineNote tone="error" action="Try again">Cases could not be loaded. Nothing has been changed — try again in a moment.</InlineNote>
+        <InlineNote tone="error">No case rows were found in this file.</InlineNote>
       </div>
     </div>
   );
@@ -270,11 +270,11 @@ export function InlineWarningsNext() {
         <InlineNote tone="warning">
           You are offline. The table is read-only until the connection returns — nothing is queued, so payments and signatures are never sent twice.
         </InlineNote>
-        <InlineNote still tone="warning" title="12 days beyond the one-month limit">
+        <InlineNote tone="warning" title="12 days beyond the one-month limit">
           The court can still take this on file, but it must be asked to condone the delay.
         </InlineNote>
-        <InlineNote still tone="warning">AI review unavailable. Documents are not compared with the cases; check them manually.</InlineNote>
-        <InlineNote still tone="neutral" icon={SearchXIcon}>No case matches this number. Check your summons, or the case may not be in the system yet.</InlineNote>
+        <InlineNote tone="warning">AI review unavailable. Documents are not compared with the cases; check them manually.</InlineNote>
+        <InlineNote tone="neutral" icon={SearchXIcon}>No case matches this number. Check your summons, or the case may not be in the system yet.</InlineNote>
       </div>
     </div>
   );
@@ -356,7 +356,7 @@ export const ConfirmSignNext = () => (
     solid marks; a long form with several errors should not fill with red discs. */
 function ErrLine({ children, still }: { children: React.ReactNode; still?: boolean }) {
   return (
-    <FieldError className={(still ? "" : "sb-icon ") + "flex items-center gap-1.5 text-destructive-ink"}>
+    <FieldError className={(still ? "" : "sb-errline ") + "flex items-center gap-1.5 text-destructive-ink"}>
       <CircleXIcon className="size-3.5 shrink-0" strokeWidth={2.4} />
       <span>{children}</span>
     </FieldError>
