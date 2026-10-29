@@ -61,6 +61,8 @@ Ask, in order:
    - A secondary act under an outcome's facts (open a link, download): centred on a phone,
      at the right edge from tablet up.
    - The lock line (`note`) follows the text above it: centred on a phone, left from tablet.
+   - Every outcome stage closes on the warm footer band: `border-t border-hairline
+     bg-surface-sunken`, buttons on it, never loose in the white body.
    - Some went through: the header says only what fully happened; `OutcomeTally` shows
      the split, one marked line per outcome.
 4. **Is it a quick act where the page stays put** (access given, reminder sent,

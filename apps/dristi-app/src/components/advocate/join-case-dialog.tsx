@@ -1494,7 +1494,7 @@ export function AdvocateJoinCaseDialog({
 
         {/* ------------------------------------------------------------ footer */}
         <footer
-          className={`flex shrink-0 flex-col-reverse gap-2 border-t border-hairline px-6 pt-4 pb-[calc(--spacing(4)+env(safe-area-inset-bottom))] sm:flex-row sm:items-center ${unpaidOutcome ? "sm:justify-end" : "sm:justify-between"} ${stage === "processing" ? "hidden" : ""}`}
+          className={`flex shrink-0 flex-col-reverse gap-2 border-t border-hairline px-6 pt-4 pb-[calc(--spacing(4)+env(safe-area-inset-bottom))] sm:flex-row sm:items-center ${unpaidOutcome ? "sm:justify-end" : "sm:justify-between"} ${stage === "processing" ? "hidden" : ""} ${!leaving && (stage === "paid" || stage === "done") ? "bg-surface-sunken" : ""}`}
         >
           {leaving ? (
             <>

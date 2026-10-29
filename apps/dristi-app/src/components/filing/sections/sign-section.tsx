@@ -1562,22 +1562,24 @@ export function SignSection() {
               </DescriptionList>
             </OutcomeSummary>
 
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <Button asChild variant="outline" size="lg" className="sm:flex-1">
-                <Link href={FILINGS_HOME}>Back to dashboard</Link>
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="lg"
-                className="sm:flex-1"
-                onClick={printFile}
-              >
-                <PrinterIcon data-icon="inline-start" aria-hidden />
-                Print or save as PDF
-              </Button>
-            </div>
           </div>
+
+          {/* The warm band every outcome dialog closes on. */}
+          <footer className="flex shrink-0 flex-col gap-3 border-t border-hairline bg-surface-sunken px-6 py-4 sm:flex-row">
+            <Button asChild variant="outline" size="lg" className="sm:flex-1">
+              <Link href={FILINGS_HOME}>Back to dashboard</Link>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              className="sm:flex-1"
+              onClick={printFile}
+            >
+              <PrinterIcon data-icon="inline-start" aria-hidden />
+              Print or save as PDF
+            </Button>
+          </footer>
         </ChromeDialogContent>
       </Dialog>
 

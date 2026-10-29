@@ -851,7 +851,11 @@ export function JoinCaseDialog({
 
         {/* ------------------------------------------------------------ footer */}
         <footer
-          className="flex shrink-0 flex-col-reverse gap-2 border-t border-hairline px-6 pt-4 pb-[calc(--spacing(4)+env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between"
+          className={cn(
+            "flex shrink-0 flex-col-reverse gap-2 border-t border-hairline px-6 pt-4 pb-[calc(--spacing(4)+env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between",
+            /* Under the outcome, the warm band every outcome dialog closes on. */
+            stage === "done" && !leaving && "bg-surface-sunken",
+          )}
         >
           {leaving ? (
             <>

@@ -186,7 +186,7 @@ function RemovalConsentDialog({
                   : `${fixture.requester} will be notified. They can still apply to the magistrate for an order.`
               }
             />
-            <footer className="flex shrink-0 justify-end border-t border-hairline px-6 py-4">
+            <footer className="flex shrink-0 justify-end border-t border-hairline bg-surface-sunken px-6 py-4">
               <Button type="button" onClick={close}>
                 Done
               </Button>

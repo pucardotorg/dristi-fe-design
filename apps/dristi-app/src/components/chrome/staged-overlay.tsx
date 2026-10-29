@@ -294,7 +294,14 @@ export function StagedOverlay({
           stage the two would merge into one grey band and the footer would stop reading as
           a separate register from the work. */}
       {footer ? (
-        <DialogFooter className="mx-0 mb-0 shrink-0 border-hairline bg-card">
+        /* On the settled stage the stage is white, so the footer goes back to the
+           DS's own warm band and divider, as under every other outcome dialog. */
+        <DialogFooter
+          className={cn(
+            "mx-0 mb-0 shrink-0 border-hairline",
+            outcome ? "bg-surface-sunken" : "bg-card",
+          )}
+        >
           {footer}
         </DialogFooter>
       ) : null}

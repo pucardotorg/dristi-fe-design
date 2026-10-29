@@ -1138,7 +1138,13 @@ export function BailBondDialog({
         </div>
 
         {/* ------------------------------------------------------------ footer */}
-        <footer className="flex shrink-0 flex-col-reverse gap-2 border-t border-hairline px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <footer
+          className={cn(
+            "flex shrink-0 flex-col-reverse gap-2 border-t border-hairline px-6 py-4 sm:flex-row sm:items-center sm:justify-between",
+            /* Under an outcome, the warm band every outcome dialog closes on. */
+            stage === "done" && "bg-surface-sunken",
+          )}
+        >
           {stage === "details" ? (
             <>
               <span aria-hidden className="hidden sm:block" />
