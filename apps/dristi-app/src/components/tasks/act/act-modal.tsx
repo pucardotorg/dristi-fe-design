@@ -79,6 +79,15 @@ export function TaskActModal({
     [onOpenChange, onFinished, task]
   );
 
+  /* The task this window opened to pay. Paying moves the task out of "needs action", and
+     without this the window swapped itself for the task's record the moment the money
+     landed, so the payment's own success screen never showed. */
+  const [payingId, setPayingId] = React.useState<string | null>(null);
+  const opensToPay =
+    open && mode === "pay" && !!task && !!kase && canComplete(user, kase) && ACTIONABLE.has(task.status);
+  if (opensToPay && payingId !== task.id) setPayingId(task.id);
+  if (!open && payingId !== null) setPayingId(null);
+
   if (!task || !kase || !mode) return null;
 
   const ctx: ActContext = {
@@ -95,7 +104,7 @@ export function TaskActModal({
      payment window, View case's Raise application, or its Submit documents. Preparing
      for a signatory, and confirming a payment the gateway is still settling, stay here. */
   const actionable = ctx.signatory && ACTIONABLE.has(task.status);
-  if (actionable && mode === "pay") {
+  if (mode === "pay" && (actionable || payingId === task.id)) {
     return <TaskPaymentDialog key={task.id} ctx={ctx} open={open} onOpenChange={onOpenChange} />;
   }
   if (

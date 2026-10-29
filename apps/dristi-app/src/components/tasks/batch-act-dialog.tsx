@@ -525,7 +525,9 @@ function OutcomeCard({
             trailing={
               <span
                 className={cn(
-                  "shrink-0 text-right text-body-compact",
+                  /* On a phone the note wraps ("Receipt" over the number) so the task's
+                     own name keeps the width. */
+                  "max-w-32 shrink-0 text-right text-body-compact text-pretty sm:max-w-none",
                   o.mark === "failed"
                     ? "text-destructive-ink"
                     : o.mark === "confirming"
@@ -533,7 +535,15 @@ function OutcomeCard({
                       : "text-muted-foreground"
                 )}
               >
-                {o.note}
+                {/* A reference never breaks inside itself: the label wraps above it. */}
+                {o.note.startsWith("Receipt ") ? (
+                  <>
+                    Receipt{" "}
+                    <span className="whitespace-nowrap">{o.note.slice("Receipt ".length)}</span>
+                  </>
+                ) : (
+                  o.note
+                )}
               </span>
             }
           />
