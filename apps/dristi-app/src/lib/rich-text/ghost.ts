@@ -37,21 +37,15 @@ export function stripGhostHtml(html: string): string {
 const MAX_QUERY = 40;
 
 /**
- * How much has to be typed before anything is offered.
+ * How much has to be typed before anything is offered: nothing past the slash.
  *
- * **The trigger on its own is not a question** (owner, 2026-09-16: *the suggestion
- * should show only when I type a word, not from the very start*). A completion that
- * appeared on the bare slash put a whole standing direction on screen before the reader
- * had said anything about which one they wanted — the corpus has eighteen answers at
- * that point, so the one shown was the sitting's best guess rather than *their* answer,
- * and it arrived as several lines of muted text under the caret.
- *
- * Two characters rather than one: a single letter narrows eighteen to a handful and the
- * passage shown would still be close to arbitrary, and it is the point at which what has
- * been typed reads as a word being aimed somewhere. One would be defensible; this is a
- * judgment and it is one number.
+ * **The bare slash opens the list** (owner, 2026-10-29: *a small container opens up and
+ * shows all the shortcuts*, as Notion's slash menu does). It used to wait for two
+ * characters (owner, 2026-09-16), because what it offered then was one inline guess, and
+ * a guess before a word is typed is arbitrary. A list is not a guess — it shows every
+ * answer and lets the typing narrow it — so the reason for the wait went with the guess.
  */
-const MIN_QUERY = 2;
+const MIN_QUERY = 0;
 
 /**
  * What the reader has typed after the trigger, or `null` when they have not asked for a
@@ -75,8 +69,7 @@ const MIN_QUERY = 2;
  * to look for it. What ends the search then is the corpus rather than this rule: the
  * caller drops the suggestion the moment nothing answers what has been typed.
  *
- * And nothing is asked at all until `MIN_QUERY` characters are in: the slash arms the
- * search, the word is what makes it one.
+ * The slash alone is a search for everything (`MIN_QUERY`); the word narrows it.
  */
 export function readSuggestTrigger(before: string): string | null {
   const slash = before.lastIndexOf("/");
@@ -111,6 +104,30 @@ export function pickSuggestion<Answer extends { key: string }>(
   if (index > 0) return answers[index % answers.length] ?? null;
   const keep = held && answers.find((answer) => answer.key === held);
   return keep || answers[0];
+}
+
+/**
+ * Where in a name the typed query was found — what the slash menu sets in bold — by the
+ * same order the shortcuts are ranked in: the start of the name, then the start of a
+ * word, then anywhere. `null` when the query is empty or not in the name.
+ */
+export function matchSpan(
+  name: string,
+  query: string,
+): { start: number; end: number } | null {
+  const wanted = query.trim().toLowerCase();
+  if (!wanted) return null;
+  const lower = name.toLowerCase();
+  let start = lower.startsWith(wanted) ? 0 : -1;
+  if (start < 0) {
+    const word = new RegExp(`\\s${escapeRegExp(wanted)}`).exec(lower);
+    start = word ? word.index + 1 : lower.indexOf(wanted);
+  }
+  return start < 0 ? null : { start, end: start + wanted.length };
+}
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 /** `Node.ELEMENT_NODE`, spelled out: this module is read by tests that have no DOM. */

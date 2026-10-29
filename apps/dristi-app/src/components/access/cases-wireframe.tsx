@@ -318,7 +318,6 @@ export function CasesWireframe({
           open={bondOpen}
           onOpenChange={setBondOpen}
           accessCase={openCase}
-          locale={locale}
           mode={bondMode}
           onSubmitted={(result) => {
             setBondPhase(result.method === "esign" ? "signing" : "review");

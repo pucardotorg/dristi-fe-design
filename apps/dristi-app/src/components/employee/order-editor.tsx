@@ -17,6 +17,12 @@ import {
   useShortcutSuggestion,
 } from "@/components/employee/order-shortcuts-dialog";
 import {
+  EvidenceView,
+  startEvidenceRecord,
+  useHearingEvidence,
+  type EvidenceContext,
+} from "@/components/employee/evidence-view";
+import {
   ApplicationsSection,
   AttendanceSection,
   FRAMED_BODY,
@@ -59,7 +65,9 @@ import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { appendShortcut } from "@/lib/employee/order-shortcuts";
 import { derivedOrderTitle, orderTitle } from "@/lib/employee/order-title";
+import { unsignedCount } from "@/lib/employee/hearing-evidence";
 import {
   SegmentedControl,
   SegmentedControlItem,
@@ -848,7 +856,7 @@ export function decideOnly(
 
 /* ─────────────────────────────── version E ─────────────────────────────────── */
 
-type EditorView = "order" | "workflow";
+type EditorView = "order" | "workflow" | "evidence";
 
 /**
  * Version E of the order screen — the order as one full-page document (owner,
@@ -881,6 +889,7 @@ export function OrderEditorComposer({
   purpose,
   fixedIds,
   applicationItem,
+  evidence,
 }: {
   /** An order on an application: its Application item in the order data. */
   applicationItem?: ApplicationOutcomeSubject;
@@ -907,6 +916,8 @@ export function OrderEditorComposer({
   historyContent?: React.ReactNode;
   /** The Data flags tab (ORD-15) — the listing's attendance history. */
   dataFlagsContent?: React.ReactNode;
+  /** Only on a hearing: what the Recorded statements view records against. */
+  evidence?: EvidenceContext;
 }) {
   const rootRef = React.useRef<HTMLDivElement>(null);
   const bands = useBands(rootRef);
@@ -917,6 +928,8 @@ export function OrderEditorComposer({
   const [sentOpen, setSentOpen] = React.useState(false);
   const router = useRouter();
   const [shortcutsOpen, setShortcutsOpen] = React.useState(false);
+  /* Bumped when Insert in Shortcuts changes the text, so the page re-reads it. */
+  const [revision, setRevision] = React.useState(0);
   const shortcuts = useShortcutSuggestion();
   const pending = usePendingOrders();
   const signing = useOrderSigning();
@@ -929,6 +942,9 @@ export function OrderEditorComposer({
   const title = orderTitle(draft);
   /* Where the drafter goes once this one is sent: the next order still in Drafting. */
   const nextDraft = nextDraftOrder(pending, signing, queue.key);
+  /* What at this hearing its person has not signed yet, on the switch. */
+  const recorded = useHearingEvidence(evidence?.hearingId ?? "");
+  const unsigned = unsignedCount(recorded);
 
   /* Once there are words, the order is in Pending orders — every order, a hearing's or
      not (owner, 2026-10-14). */
@@ -979,7 +995,7 @@ export function OrderEditorComposer({
       <OrderEditorHeader
         heading={heading}
         facts={facts}
-        panelOpen={view === "order" && panelOpen}
+        panelOpen={view !== "workflow" && panelOpen}
         onPanelToggle={() => {
           /* In Workflow the right is the workflow's; the case file comes back with the
              order view. */
@@ -1012,6 +1028,11 @@ export function OrderEditorComposer({
               value={view}
               onValueChange={(next) => {
                 if (next === "order" || next === "workflow") setView(next);
+                else if (next === "evidence" && evidence) {
+                  /* Nothing recorded yet: open on a new statement, not an empty state. */
+                  if (recorded.length === 0) startEvidenceRecord(evidence);
+                  setView(next);
+                }
               }}
               aria-label="What to work on"
             >
@@ -1019,8 +1040,24 @@ export function OrderEditorComposer({
               <SegmentedControlItem value="workflow">
                 Order data
               </SegmentedControlItem>
+              {/* What was taken at this hearing is the third thing worked on here
+                  (owner, 2026-10-28; rename 2026-10-29). "Record statements": one
+                  screen for complainant evidence, witness deposition and
+                  examination of the accused. "Evidence" already names marked
+                  exhibits. Only a hearing's order has one. */}
+              {evidence ? (
+                <SegmentedControlItem value="evidence">
+                  Record statements
+                  {unsigned > 0 ? (
+                    <Badge variant="warning" className="ml-1.5 tabular-nums">
+                      {unsigned}
+                      <span className="sr-only"> not signed</span>
+                    </Badge>
+                  ) : null}
+                </SegmentedControlItem>
+              ) : null}
             </SegmentedControl>
-            {finished ? (
+            {view === "evidence" ? null : finished ? (
               <OrderProgress
                 stage={stage}
                 workflowComplete={Boolean(entry?.workflowComplete)}
@@ -1042,7 +1079,9 @@ export function OrderEditorComposer({
             ) : null}
           </div>
 
-          {view === "workflow" || finished ? (
+          {view === "evidence" && evidence ? (
+            <EvidenceView context={evidence} />
+          ) : view === "workflow" || finished ? (
             <OrderPaperView
               frame={frame}
               value={body}
@@ -1060,6 +1099,7 @@ export function OrderEditorComposer({
                 onChange: () => noteOrderTextEdited(queue.key),
               })}
               value={body}
+              revision={revision}
               onChange={(value) => {
                 setDraft((current) => ({ ...current, body: value }));
                 /* Edited after its workflow was completed: the workflow goes back to
@@ -1258,6 +1298,15 @@ export function OrderEditorComposer({
       <OrderShortcutsDialog
         open={shortcutsOpen}
         onOpenChange={setShortcutsOpen}
+        onInsert={(shortcut) => {
+          setDraft((current) => ({
+            ...current,
+            body: appendShortcut(current.body ?? { html: "", text: "" }, shortcut),
+          }));
+          noteOrderTextEdited(queue.key);
+          setRevision((value) => value + 1);
+          setShortcutsOpen(false);
+        }}
       />
 
       {applicationDialog?.((id, decision) =>

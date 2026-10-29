@@ -521,6 +521,32 @@ function files(errors: Errors, key: string, value: File[], message: string) {
 }
 
 /**
+ * Every surety's fields, keyed `<surety id>.<field>`. The bail application
+ * and the bail bond take the same sureties, so they say the same things.
+ */
+export function validateSureties(sureties: readonly SuretyDraft[]): Errors {
+  const errors: Errors = {};
+  for (const surety of sureties) {
+    required(errors, `${surety.id}.fullName`, surety.fullName, "Enter the surety's name.");
+    required(errors, `${surety.id}.parentName`, surety.parentName, "Enter the father's or mother's name.");
+    phone(errors, `${surety.id}.phone`, surety.phone);
+    email(errors, `${surety.id}.email`, surety.email);
+    address(errors, `${surety.id}.address`, surety.address);
+    files(errors, `${surety.id}.identityProof`, surety.identityProof, "Attach the surety's ID proof.");
+    files(errors, `${surety.id}.solvencyProof`, surety.solvencyProof, "Attach the proof of solvency.");
+  }
+  return errors;
+}
+
+/** A phone (required) and email (optional), keyed `<prefix>.phone` / `<prefix>.email`. */
+export function validateContact(prefix: string, phoneValue: string, emailValue: string): Errors {
+  const errors: Errors = {};
+  phone(errors, `${prefix}.phone`, phoneValue);
+  email(errors, `${prefix}.email`, emailValue);
+  return errors;
+}
+
+/**
  * The Supporting documents on every application. Adding a row is the only
  * way one exists, so each row is checked whole; an empty one is removed,
  * not tolerated.
@@ -621,15 +647,7 @@ export function validateApplication(
       }
       if (draft.bailType === "surety") {
         wholeNumber(errors, "suretyCount", draft.suretyCount);
-        for (const surety of draft.sureties) {
-          required(errors, `${surety.id}.fullName`, surety.fullName, "Enter the surety's name.");
-          required(errors, `${surety.id}.parentName`, surety.parentName, "Enter the father's or mother's name.");
-          phone(errors, `${surety.id}.phone`, surety.phone);
-          email(errors, `${surety.id}.email`, surety.email);
-          address(errors, `${surety.id}.address`, surety.address);
-          files(errors, `${surety.id}.identityProof`, surety.identityProof, "Attach the surety's ID proof.");
-          files(errors, `${surety.id}.solvencyProof`, surety.solvencyProof, "Attach the proof of solvency.");
-        }
+        Object.assign(errors, validateSureties(draft.sureties));
       }
       break;
     }

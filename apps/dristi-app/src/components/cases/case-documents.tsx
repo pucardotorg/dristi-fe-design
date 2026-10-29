@@ -137,6 +137,9 @@ import {
   type SavedDocumentSubmission,
 } from "@/lib/cases/saved-document-submissions";
 import { useSessionValue } from "@/lib/cases/demo-session";
+import { useOptionalCaseBail } from "@/components/cases/case-bail-flow";
+import { useCaseReader } from "@/components/cases/case-reader";
+import { BOND_ID, BOND_LITIGANT, BOND_SUBMITTED_ON } from "@/lib/filing/content";
 import { localFileSrc } from "@/components/cases/pdf-viewer";
 import {
   groupActions,
@@ -198,6 +201,32 @@ export function CaseDocuments({ record }: { record: CaseRecord }) {
 }
 
 const NO_FILINGS: ApplicationRecord[] = [];
+
+const BOND_ROW_ID = "bail-bond-status";
+
+/**
+ * The demo bond as a Bail bonds row. The bail bond is the accused's, so it
+ * is listed as their counsel's, or the accused's where no counsel is known.
+ */
+function bondDocument(record: CaseRecord, people: DocumentPerson[]): CaseDocument {
+  const filer =
+    people.find((person) => person.role === "Accused counsel") ??
+    people.find((person) => person.role === "Accused");
+  return {
+    id: BOND_ROW_ID,
+    filingId: BOND_ID,
+    title: `Surety bail bond of ${BOND_LITIGANT.name}`,
+    type: "bail-bond",
+    submissionStatus: "pending-review",
+    submittedOn: BOND_SUBMITTED_ON,
+    submittedById: filer?.id ?? `${record.id}-accused`,
+    source: "submission",
+    linkedApplication: null,
+    linkedHearing: null,
+    provisionalId: null,
+    evidenceNumber: null,
+  };
+}
 
 export function DocumentsLoading() {
   return (
@@ -302,6 +331,20 @@ function DocumentsReady({
   }, [filings, applications, fromCourt.documents, file.documents, marksRaw]);
   /* Marking is the court's, for a seat with the Evidence marker role
      (DSB-12, DSB-20). */
+  /* The bond's own row under Bail bonds, opening its status (owner, Oct 29:
+     Bond status left Make filings). Where it connects next is not designed,
+     so the row keeps the flow reachable rather than inventing a home for it.
+     The status view is the filer's, so the court's case page has no row. */
+  const bail = useOptionalCaseBail();
+  const court = useCaseReader() === "court";
+  const bondRow = useMemo(
+    () => (bail && !court ? bondDocument(record, file.people) : null),
+    [bail, court, record, file.people]
+  );
+  const listed = useMemo(
+    () => (bondRow ? [bondRow, ...documents] : documents),
+    [bondRow, documents]
+  );
   const canMark = useCanMarkEvidence();
   const [marking, setMarking] = useState<CaseDocument | null>(null);
   const onMark = canMark ? setMarking : undefined;
@@ -341,6 +384,10 @@ function DocumentsReady({
   /* Every row in the list is on the record, so every row opens as a document,
      with its DOC-n; a filing's own steps are reached from Needs attention. */
   function openRecord(document: CaseDocument) {
+    if (document.id === BOND_ROW_ID && bail) {
+      bail.openStatus();
+      return;
+    }
     setRecordOpen(document);
   }
 
@@ -362,7 +409,7 @@ function DocumentsReady({
     }
   }
 
-  const kindDocuments = documents.filter(
+  const kindDocuments = listed.filter(
     (document) => documentKind(document.type) === kind
   );
   const submitterOptions = uniqueSubmitters(kindDocuments, peopleById);
@@ -375,7 +422,7 @@ function DocumentsReady({
   const selection = selectDocuments({
     /* The filters take any number of values, so they narrow the list here
        and the selector only handles kind, search and paging. */
-    documents: documents.filter(
+    documents: listed.filter(
       (document) =>
         (typeIds.length === 0 || typeIds.includes(document.type)) &&
         (submitterIds.length === 0 ||
@@ -445,7 +492,7 @@ function DocumentsReady({
     />
   );
 
-  if (documents.length === 0) {
+  if (listed.length === 0) {
     return (
       <DocumentsPanel switcher={switcher}>
         <DocumentsEmpty
@@ -1050,8 +1097,9 @@ function DocumentsItemList({
                     Mark as evidence
                   </Button>
                 ) : null}
+                {/* The bond's row opens its status, not a document record. */}
                 <Button type="button" onClick={() => onOpenRecord(document)}>
-                  View document
+                  {document.id === BOND_ROW_ID ? "View bond status" : "View document"}
                 </Button>
               </>
             }
