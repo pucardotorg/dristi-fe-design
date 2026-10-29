@@ -168,7 +168,7 @@ function FieldName({ label, optional }: { label: string; optional?: boolean }) {
  * readOnly rather than disabled so it stays keyboard reachable, selectable and
  * read by assistive tech; the fill and ink are the disabled control's.
  */
-function PrefilledField({
+export function PrefilledField({
   label,
   value: stored,
 }: {
@@ -201,6 +201,7 @@ export function TextField({
   optional,
   inputMode,
   type,
+  prefilled,
   onChange,
 }: {
   label: string;
@@ -209,6 +210,8 @@ export function TextField({
   optional?: boolean;
   inputMode?: "numeric" | "tel" | "email" | "decimal";
   type?: "email" | "tel";
+  /** Filled in from the record and not yet changed: the DS yellow tint. */
+  prefilled?: boolean;
   onChange: (value: string) => void;
 }) {
   const id = useId();
@@ -222,6 +225,7 @@ export function TextField({
         value={value}
         type={type}
         inputMode={inputMode}
+        prefilled={prefilled}
         aria-invalid={Boolean(error)}
         onChange={(event) => onChange(event.target.value)}
       />
@@ -397,7 +401,7 @@ function DateField({
  * The e-filing address composite (PRD: "uses the e-filing address
  * composite"), under one label, with one message for whatever is missing.
  */
-function AddressField({
+export function AddressField({
   label,
   value,
   error,
@@ -434,7 +438,7 @@ function AddressField({
  * well per entry, as the bail dialog groups one person's fields: depth is
  * fill, never a bordered card inside the dialog.
  */
-function RowWell({
+export function RowWell({
   legend,
   removeLabel,
   onRemove,
