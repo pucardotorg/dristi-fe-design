@@ -5,8 +5,6 @@ import {
   CheckCircle2Icon,
   HourglassIcon,
   PlusIcon,
-  SignatureIcon,
-  SmartphoneIcon,
   Trash2Icon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -20,15 +18,12 @@ import {
   RichTextValueView,
   type RichTextValue,
 } from "@/components/cases/rich-text-field";
-import { UPLOAD_HELP, UploadedDocField } from "@/components/cases/uploaded-doc-field";
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
-import { PaperFallbackLink } from "@/components/filing/paper-fallback";
 import { FormRow } from "@/components/filing/form-card";
 import { FormField, RequiredMark } from "@/components/filing/form-field";
 import { PrefixInput, TextField } from "@/components/filing/inputs";
 import { SectionNotice } from "@/components/filing/notices";
 import { AddressFields } from "@/components/filing/address-fields";
-import { ChoiceCard, OtpEntry } from "@/components/filing/sign-stages";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -56,7 +51,6 @@ import {
 } from "@/components/ui/empty";
 import {
   Field,
-  FieldDescription,
   FieldError,
   FieldLabel,
 } from "@/components/ui/field";
@@ -145,16 +139,6 @@ function useDeponents(context: EvidenceContext): Deponent[] {
   );
   return deponentsFor(context.caseNumber, context.people, added, all);
 }
-
-/** The Parties tab's pair for a witness number: its side's status tint, with an edge. */
-const SIDE_BADGE: Record<
-  WitnessSide,
-  { variant: "success" | "destructive" | "info"; stroke: string }
-> = {
-  complainant: { variant: "success", stroke: "border-success" },
-  accused: { variant: "destructive", stroke: "border-destructive" },
-  court: { variant: "info", stroke: "border-info" },
-};
 
 /** Not a person: the picker's last line, which opens the Add a witness form. */
 const ADD_WITNESS = "add-witness";
@@ -656,7 +640,6 @@ function EvidenceRecordEditor({
                         >
                           <SideName side={side} />
                           <MarkBadge
-                            side={side}
                             mark={witnessNumberOf(record, deponent, deponents, all, side).number}
                           />
                         </SelectItem>
@@ -717,8 +700,8 @@ function EvidenceRecordEditor({
         <div className="flex flex-col gap-3">
           <p className="text-body-compact text-muted-foreground">
             {record.status === "signed"
-              ? `${evidenceStatusLabel(record)}${record.signedWith === "paper" ? " on paper" : " with Aadhaar OTP"}. It goes to the magistrate to sign.`
-              : `Sent to +91 ${record.sentTo ?? ""} to sign. It goes to the magistrate once signed.`}
+              ? `${evidenceStatusLabel(record)}${record.signedWith === "paper" ? " on paper" : ""}.`
+              : `Sent to +91 ${record.sentTo ?? ""} to sign.`}
           </p>
           <RichTextValueView
             value={{ html: record.html, text: record.text }}
@@ -822,7 +805,7 @@ function selectFirstBlank(root: HTMLElement): void {
   }
 }
 
-type SignStage = "review" | "method" | "otp" | "upload" | "link" | "done";
+type SignStage = "review" | "link" | "done";
 
 /** Who signs the sheet: a witness with their number, or the accused. */
 type EvidenceSubject = {
@@ -835,9 +818,10 @@ type EvidenceSubject = {
 };
 
 /**
- * The sheet, then its first signature: the witness signs in court with Aadhaar e-sign, or
- * a paper copy is uploaded; the accused is sent a link to sign on their own phone, as in
- * DRISTI 1.0. The e-sign dialog's own stages, in the person's name rather than "you".
+ * The sheet, then its first signature. Whoever gave the statement signs it on their own
+ * phone, from a link sent by SMS, with whichever digital signature they have — never at
+ * the court's keyboard, and never Aadhaar alone (Anshumanth, 2026-10-29). The court only
+ * sends it: the sheet, then the number, then sent.
  */
 function EvidenceSignDialog({
   open,
@@ -853,14 +837,9 @@ function EvidenceSignDialog({
   context: EvidenceContext;
 }) {
   const person = subject;
-  const deposition = record.kind === "deposition";
   const titleRef = React.useRef<HTMLHeadingElement>(null);
   const mobileId = React.useId();
   const [stage, setStage] = React.useState<SignStage>("review");
-  const [otp, setOtp] = React.useState("");
-  const [otpResent, setOtpResent] = React.useState(false);
-  const [file, setFile] = React.useState<File | null>(null);
-  const [fileError, setFileError] = React.useState<string>();
   const [mobile, setMobile] = React.useState(subject.mobile ?? "");
   const [mobileError, setMobileError] = React.useState<string>();
 
@@ -870,51 +849,27 @@ function EvidenceSignDialog({
     setWasOpen(open);
     if (open) {
       setStage("review");
-      setOtp("");
-      setOtpResent(false);
-      setFile(null);
-      setFileError(undefined);
+      setMobile(subject.mobile ?? "");
       setMobileError(undefined);
     }
   }
 
-  /* A new stage replaces the content; its title takes focus. Not the OTP's: its first
-     box does, and the code is what is typed next. */
+  /* A new stage replaces the content; its title takes focus. */
   React.useEffect(() => {
-    if (open && stage !== "otp") titleRef.current?.focus();
+    if (open) titleRef.current?.focus();
   }, [open, stage]);
 
   const type = statementTypeOf(record);
-  const typeLabel = statementTypeLabel(type).toLowerCase();
   const sheetTitle =
     type === "accused-examination"
       ? `Examination of the accused · ${person.name}`
       : type === "complainant-evidence"
         ? `Evidence of the complainant · ${person.name}`
         : `Deposition of ${subject.number ?? ""} · ${person.name}`;
-  const header: Record<Exclude<SignStage, "done">, { title: string; description: string }> = {
-    review: {
-      title: sheetTitle,
-      description: `Check the sheet. ${person.name} signs it next, then the magistrate.`,
-    },
-    method: {
-      title: deposition
-        ? `How is this ${typeLabel} signed?`
-        : `How does ${person.name} sign?`,
-      description: `An unsigned ${typeLabel} cannot go to the magistrate.`,
-    },
-    otp: {
-      title: "Enter the OTP",
-      description: `Sent to ${person.name}'s Aadhaar-linked mobile.`,
-    },
-    upload: {
-      title: "Upload a signed copy",
-      description: `The ${typeLabel}, signed on paper by ${person.name}.`,
-    },
-    link: {
-      title: "Send the signing link",
-      description: "By SMS. Only this number can open it.",
-    },
+  /* Titles only: what each stage asks is in the stage itself. */
+  const title: Record<Exclude<SignStage, "done">, string> = {
+    review: sheetTitle,
+    link: "Send the signing link",
   };
 
   function finish(change: Partial<EvidenceRecord>) {
@@ -928,6 +883,7 @@ function EvidenceSignDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <FlowDialogContent
+        aria-describedby={undefined}
         className={cn(
           "flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0",
           stage === "review" ? "sm:max-w-3xl" : "sm:max-w-md",
@@ -961,11 +917,11 @@ function EvidenceSignDialog({
                     ? `Signed by ${person.name}`
                     : `Sent to ${person.name} to sign`}
                 </DialogTitle>
-                <DialogDescription>
-                  {record.status === "signed"
-                    ? "It goes to the magistrate to sign."
-                    : `The link went by SMS to +91 ${record.sentTo ?? ""}. It goes to the magistrate once ${person.name} signs.`}
-                </DialogDescription>
+                {record.status === "signed" ? null : (
+                  <p className="text-body-compact text-muted-foreground">
+                    By SMS to +91 {record.sentTo}
+                  </p>
+                )}
               </div>
             </div>
           </DialogHeader>
@@ -976,9 +932,8 @@ function EvidenceSignDialog({
               tabIndex={-1}
               className="text-body font-semibold text-balance outline-none"
             >
-              {header[stage].title}
+              {title[stage]}
             </DialogTitle>
-            <DialogDescription>{header[stage].description}</DialogDescription>
           </DialogHeader>
         )}
 
@@ -986,7 +941,6 @@ function EvidenceSignDialog({
           <div
             className={cn(
               "flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-6",
-              stage === "method" && "bg-muted dark:bg-background",
             )}
           >
             {stage === "review" ? (
@@ -1066,84 +1020,21 @@ function EvidenceSignDialog({
               </div>
             ) : null}
 
-            {stage === "method" ? (
-              <>
-                {deposition ? (
-                  <ChoiceCard
-                    title="Sign digitally"
-                    tone="bg-brand-muted text-brand-muted-foreground"
-                    icon={<SignatureIcon className="size-5" />}
-                    onClick={() => setStage("otp")}
-                  >
-                    {person.name} signs with Aadhaar e-sign. A six-digit code goes to the mobile
-                    number registered with their Aadhaar.
-                  </ChoiceCard>
-                ) : (
-                  <ChoiceCard
-                    title="Send a signing link"
-                    tone="bg-brand-muted text-brand-muted-foreground"
-                    icon={<SmartphoneIcon className="size-5" />}
-                    onClick={() => setStage("link")}
-                  >
-                    {person.name} opens it on their phone, confirms their number and signs with
-                    Aadhaar e-sign.
-                  </ChoiceCard>
-                )}
-                <PaperFallbackLink
-                  onClick={() => {
-                    setFileError(undefined);
-                    setStage("upload");
-                  }}
-                />
-              </>
-            ) : null}
-
-            {stage === "otp" ? (
-              <OtpEntry
-                id="evidence-otp"
-                value={otp}
-                onChange={setOtp}
-                resent={otpResent}
-                onResend={() => setOtpResent(true)}
-              />
-            ) : null}
-
-            {stage === "upload" ? (
-              <>
-                <Field data-invalid={Boolean(fileError) && !file}>
-                  <FieldLabel className="block w-full font-semibold leading-snug">
-                    Signed {typeLabel}
-                  </FieldLabel>
-                  <UploadedDocField
-                    label={`Signed ${typeLabel}`}
-                    required
-                    file={file}
-                    onFileChange={(next) => {
-                      setFile(next);
-                      setFileError(undefined);
-                    }}
-                  />
-                  <FieldDescription>{UPLOAD_HELP}</FieldDescription>
-                </Field>
-                <FieldError>{fileError}</FieldError>
-              </>
-            ) : null}
-
             {stage === "link" ? (
               <Field data-invalid={Boolean(mobileError)}>
                 <FieldLabel htmlFor={mobileId}>{person.name}&apos;s mobile number</FieldLabel>
-                <Input
+                <PrefixInput
                   id={mobileId}
-                  inputMode="tel"
+                  prefix="+91"
+                  inputMode="numeric"
                   autoComplete="off"
                   value={mobile}
                   aria-invalid={Boolean(mobileError)}
-                  onChange={(event) => {
-                    setMobile(event.target.value);
+                  onChange={(next) => {
+                    setMobile(normalizeMobileNumber(next));
                     setMobileError(undefined);
                   }}
                 />
-                <FieldDescription>Ten digits, without +91.</FieldDescription>
                 <FieldError>{mobileError}</FieldError>
               </Field>
             ) : null}
@@ -1155,74 +1046,31 @@ function EvidenceSignDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Back to editing
             </Button>
-            <Button type="button" onClick={() => setStage("method")}>
+            <Button type="button" onClick={() => setStage("link")}>
               Continue to signing
-            </Button>
-          </footer>
-        ) : null}
-
-        {stage === "method" ? (
-          <footer className={FOOTER}>
-            <Button type="button" variant="outline" onClick={() => setStage("review")}>
-              Back
-            </Button>
-          </footer>
-        ) : null}
-
-        {stage === "otp" ? (
-          <footer className={FOOTER}>
-            <Button type="button" variant="outline" onClick={() => setStage("method")}>
-              Back
-            </Button>
-            <Button
-              type="button"
-              disabled={otp.length < 6}
-              onClick={() =>
-                finish({ status: "signed", signedWith: "aadhaar", witnessNumber: subject.number })
-              }
-            >
-              Verify and sign
-            </Button>
-          </footer>
-        ) : null}
-
-        {stage === "upload" ? (
-          <footer className={FOOTER}>
-            <Button type="button" variant="outline" onClick={() => setStage("method")}>
-              Back
-            </Button>
-            <Button
-              type="button"
-              onClick={() => {
-                if (!file) {
-                  setFileError(`Upload the signed ${typeLabel} to continue.`);
-                  return;
-                }
-                finish({ status: "signed", signedWith: "paper", witnessNumber: subject.number });
-              }}
-            >
-              Submit signed copy
             </Button>
           </footer>
         ) : null}
 
         {stage === "link" ? (
           <footer className={FOOTER}>
-            <Button type="button" variant="outline" onClick={() => setStage("method")}>
+            <Button type="button" variant="outline" onClick={() => setStage("review")}>
               Back
             </Button>
             <Button
               type="button"
               onClick={() => {
-                const digits = mobile.replace(/\D/g, "");
-                if (digits.length !== 10) {
+                if (mobile.length !== 10) {
                   setMobileError("Enter a 10-digit mobile number.");
                   window.document.getElementById(mobileId)?.focus();
                   return;
                 }
+                /* The sheet that goes out already names the witness's number: it is
+                   theirs from here, not only once they sign. */
                 finish({
                   status: "awaiting-signature",
-                  sentTo: `${digits.slice(0, 5)} ${digits.slice(5)}`,
+                  sentTo: `${mobile.slice(0, 5)} ${mobile.slice(5)}`,
+                  witnessNumber: subject.number,
                 });
               }}
             >
@@ -1247,32 +1095,28 @@ const WITNESS_SIDES: readonly WitnessSide[] = ["complainant", "accused", "court"
 
 /**
  * The court's names for the sides, which the letters stand for: Prosecution, Defence,
- * Court (owner, 2026-10-27). In a cheque case the complainant prosecutes, so the party
- * stays in brackets for a reader who knows the case by its parties.
+ * Court (owner, 2026-10-27). No "(complainant)" after them (owner, 2026-10-29): in a
+ * cheque case the sides are always the same parties, and the Witness field names the
+ * person beside it.
  */
-const SIDE_NAME: Record<WitnessSide, { name: string; party?: string }> = {
-  complainant: { name: "Prosecution", party: "complainant" },
-  accused: { name: "Defence", party: "accused" },
-  court: { name: "Court" },
+const SIDE_NAME: Record<WitnessSide, string> = {
+  complainant: "Prosecution",
+  accused: "Defence",
+  court: "Court",
 };
 
 function SideName({ side }: { side: WitnessSide }) {
-  return (
-    <span className="min-w-0 truncate">
-      {SIDE_NAME[side].name}
-      {SIDE_NAME[side].party ? (
-        <span className="text-muted-foreground"> ({SIDE_NAME[side].party})</span>
-      ) : null}
-    </span>
-  );
+  return <span className="min-w-0 truncate">{SIDE_NAME[side]}</span>;
 }
 
-function MarkBadge({ side, mark }: { side: WitnessSide; mark: string }) {
+/**
+ * The mark a side gives, as the Parties tab's detail pane shows a witness number: a
+ * neutral badge in the registry's mono. The side tints are for telling many witnesses
+ * apart in a list; here each row already names its side, and a red DW read as an error.
+ */
+function MarkBadge({ mark }: { mark: string }) {
   return (
-    <Badge
-      variant={SIDE_BADGE[side].variant}
-      className={cn("font-mono tabular-nums", SIDE_BADGE[side].stroke)}
-    >
+    <Badge variant="secondary" className="shrink-0 font-mono tabular-nums">
       {mark}
     </Badge>
   );
@@ -1397,6 +1241,7 @@ function AddWitnessDialog({
         }}
       >
         <FlowDialogContent
+          aria-describedby={undefined}
           className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
           onCloseAutoFocus={(event) => {
             event.preventDefault();
@@ -1406,9 +1251,6 @@ function AddWitnessDialog({
           <form noValidate onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
             <DialogHeader className="shrink-0 gap-1.5 border-b border-hairline px-6 py-4 pr-12 text-left">
               <DialogTitle className="text-body font-semibold">Add a witness</DialogTitle>
-              <DialogDescription>
-                Someone giving evidence who is not on this case&apos;s list.
-              </DialogDescription>
             </DialogHeader>
             <div
               ref={scrollRef}
