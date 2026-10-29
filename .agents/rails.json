@@ -52,7 +52,7 @@
     },
     {
       "name": "dev-server",
-      "description": "Protect the owner’s running server and other checkouts; use localhost only for the verified checkout.",
+      "description": "Protect the owner\u2019s running server and other checkouts; use localhost only for the verified checkout.",
       "source": ".agents/policies/dev-server.md"
     }
   ],
@@ -63,6 +63,7 @@
     "pull-ui-from-ds",
     "review-ui-ds",
     "ui-craft",
-    "design-review"
+    "design-review",
+    "feedback-states"
   ]
 }
