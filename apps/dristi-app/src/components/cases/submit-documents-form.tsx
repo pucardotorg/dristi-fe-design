@@ -8,8 +8,10 @@ import {
   FileTextIcon,
   ImageIcon,
   XIcon,
+  SendIcon,
+  SaveIcon,
 } from "lucide-react";
-import { toast } from "sonner";
+import { notify } from "@/components/feedback";
 
 import { useRouter } from "next/navigation";
 
@@ -341,14 +343,15 @@ export function SubmitDocumentsDialog({
 
   function finish(status: SavedDocumentSubmission["status"], message?: string) {
     keep(status);
-    if (message) toast(message);
+    /* Out for signature: sent, not decided, so neutral with the act's icon. */
+    if (message) notify.neutral(message, { icon: status === "pending-signature" ? SendIcon : undefined });
     closeNow();
     onSubmitted();
   }
 
   function saveDraft() {
     keep("draft");
-    toast("Saved as a draft");
+    notify.neutral("Saved as a draft", { icon: SaveIcon });
     closeNow();
   }
 

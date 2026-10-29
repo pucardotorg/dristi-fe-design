@@ -67,6 +67,7 @@ import {
   type CaseParty,
   type JoinCase,
 } from "@/lib/join/content";
+import { OutcomeHeader } from "@/components/feedback";
 
 /**
  * Post-login join-a-case dialog.
@@ -361,8 +362,26 @@ export function JoinCaseDialog({
           if (document.querySelector('[data-slot="combobox-content"]')) event.preventDefault();
         }}
       >
-        {/* The same header on every stage, the outcome included (owner, Oct 6):
-            only the words change, so the outcome reads as this window settling. */}
+        {/* The same header on every stage (owner, Oct 6), except the outcome: that takes
+            the window over, as the owner approved on the states board (Oct 29, skill
+            `feedback-states`). */}
+        {stage === "done" && !leaving ? (
+          <OutcomeHeader
+            titleFrom="dialog"
+            focusTitle
+            title={pick(joinDialog.joinedTitle, locale)}
+            body={fill(
+              kind === "poa" ? joinDialog.poaJoinedBody : joinDialog.joinedBody,
+              locale,
+              {
+                name:
+                  kind === "poa"
+                    ? poaSelected.map((entry) => entry.name).join(", ")
+                    : (party?.name ?? ""),
+              },
+            )}
+          />
+        ) : (
         <DialogHeader className="shrink-0 gap-2 border-b border-hairline p-6 pr-16 text-left">
           <DialogTitle
             ref={titleRef}
@@ -413,6 +432,7 @@ export function JoinCaseDialog({
             )}
           </DialogDescription>
         </DialogHeader>
+        )}
 
         {/* The stage: warm canvas, white panels. It hugs each step's height, which
             changes while the window is faded out (`useStageFade`). */}

@@ -6,14 +6,19 @@ import { REGEXP_ONLY_DIGITS } from "input-otp";
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
-  CheckCircle2Icon,
+  WalletIcon,
   DownloadIcon,
   FlaskConicalIcon,
   MinusIcon,
   PlusIcon,
   SearchIcon,
 } from "lucide-react";
-import { toast } from "sonner";
+import {
+  OutcomeAmount,
+  OutcomeHeader,
+  StatusLine,
+  notify,
+} from "@/components/feedback";
 
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 import { useStageFade } from "@/components/chrome/stage-fade";
@@ -110,7 +115,7 @@ import { newPaymentRef } from "@/lib/filing/data";
 import { rupees } from "@/lib/tasks/format";
 import { Identifier } from "@/components/chrome/identifier";
 import { JoinedCaseBail } from "@/components/join/joined-case-bail";
-import { GATEWAY_MS, PaymentProcessing, PaymentReceipt } from "@/components/payment/payment-steps";
+import { GATEWAY_MS, PaymentProcessing, PaymentFacts } from "@/components/payment/payment-steps";
 import {
   directoryOptions,
   inviteLabel,
@@ -647,7 +652,7 @@ export function AdvocateJoinCaseDialog({
       reportJoined(true);
       // The co-advocates named on the vakalatnama get their SMS once it is paid for.
       if (needsCoAdvocates && vkAdvocates.length) {
-        toast.success(
+        notify.success(
           fill(advDialog.vkInviteToast, locale, { names: vkAdvocates.map(inviteLabel).join(", ") }),
         );
       }
@@ -692,7 +697,7 @@ export function AdvocateJoinCaseDialog({
     // The confirmation shows the batch just sent and replaces any earlier one — a
     // later send swaps the old notification out rather than growing it.
     setTeamInvited(team.map(inviteLabel));
-    toast.success(fill(shareCopy.inviteToast, locale, { names: team.map(inviteLabel).join(", ") }));
+    notify.success(fill(shareCopy.inviteToast, locale, { names: team.map(inviteLabel).join(", ") }));
     setTeam([]);
   }
 
@@ -765,6 +770,24 @@ export function AdvocateJoinCaseDialog({
             product's staged overlays carry, so the outcome reads as this window
             settling rather than a different one (owner, Oct 6). Only the words
             change; the frame holds still while the stage below it moves. */}
+        {/* ...except the outcomes: payment and joining take the window over, as the owner
+            approved on the states board (Oct 29, skill `feedback-states`). Waiting on the
+            fee is a gate, not news: neutral. */}
+        {!leaving && stage === "paid" ? (
+          <OutcomeHeader key="paid" titleFrom="dialog" focusTitle title={headerCopy.title} body={headerCopy.body}>
+            <OutcomeAmount label={pick(advDialog.paidAmount, locale)} value={fee} />
+          </OutcomeHeader>
+        ) : !leaving && stage === "done" ? (
+          <OutcomeHeader
+            key={unpaidOutcome ? "unpaid" : "joined"}
+            titleFrom="dialog"
+            focusTitle
+            tone={unpaidOutcome ? "neutral" : "success"}
+            icon={unpaidOutcome ? WalletIcon : undefined}
+            title={pick(unpaidOutcome ? advDialog.unpaidTitle : advDialog.joinedTitle, locale)}
+            body={pick(unpaidOutcome ? advDialog.unpaidBody : advDialog.joinedBody, locale)}
+          />
+        ) : (
         <DialogHeader className="shrink-0 gap-2 border-b border-hairline p-6 pr-16 text-left">
           <DialogTitle
             ref={titleRef}
@@ -785,6 +808,7 @@ export function AdvocateJoinCaseDialog({
                 : headerCopy.body}
           </DialogDescription>
         </DialogHeader>
+        )}
 
         {/* The stage: the warm canvas the case and the questions are laid on as
             white panels, the product's staged-overlay surface. It hugs each
@@ -1365,8 +1389,7 @@ export function AdvocateJoinCaseDialog({
           {/* ------------------------------------------------------ receipt */}
           {stage === "paid" && joinCase ? (
             <div className={JOIN_PANEL}>
-              <PaymentReceipt
-                amount={fee}
+              <PaymentFacts
                 rows={[
                   { label: pick(advDialog.payFeeHead, locale), value: pick(advDialog.payFeeName, locale) },
                   {
@@ -1455,13 +1478,10 @@ export function AdvocateJoinCaseDialog({
                 {/* One-line confirmation: a single tick, then the numbers just invited,
                     inline and comma-separated. Replaced (not grown) on the next send. */}
                 {teamInvited.length ? (
-                  <p className="flex items-start gap-1.5 rounded-lg border border-success bg-success-muted px-3 py-2 text-body-compact font-medium text-success-muted-foreground">
-                    <CheckCircle2Icon className="mt-0.5 size-4 shrink-0" aria-hidden />
-                    <span>
-                      {pick(advDialog.teamInviteSentNote, locale)}{" "}
-                      <span className="tabular-nums">{teamInvited.join(", ")}</span>
-                    </span>
-                  </p>
+                  <StatusLine key={teamInvited.join(",")} tone="success">
+                    {pick(advDialog.teamInviteSentNote, locale)}{" "}
+                    <span className="tabular-nums">{teamInvited.join(", ")}</span>
+                  </StatusLine>
                 ) : null}
               </div>
             </div>

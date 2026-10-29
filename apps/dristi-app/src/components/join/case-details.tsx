@@ -1,5 +1,5 @@
 import * as React from "react";
-import { CircleCheckIcon, InfoIcon, PhoneIcon } from "lucide-react";
+import { InfoIcon, PhoneIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -17,7 +17,7 @@ import { pick, type Locale } from "@/lib/onboarding/content";
 import { caseDetails, type JoinCase } from "@/lib/join/content";
 import { cn } from "@/lib/utils";
 import { Identifier } from "@/components/chrome/identifier";
-import { RESOLVE_IN_PLACE } from "@/components/chrome/motion";
+import { OutcomeSummary } from "@/components/feedback";
 
 /**
  * The one case-details block, shared by the summons modal, the join dialog, and the
@@ -326,21 +326,15 @@ export function CaseDetails({
 
   if (!outcome) return <div className={cn(JOIN_PANEL, className)}>{content}</div>;
   return (
-    <div
-      className={cn(
-        "overflow-hidden rounded-xl border border-hairline bg-card",
-        RESOLVE_IN_PLACE,
-        className,
-      )}
+    /* The board's join outcome (skill `feedback-states`): the facts in one well, named
+       by what is now true ("Joined as …") in success green. */
+    <OutcomeSummary
+      tone="success"
+      className={className}
+      /* Spoken: focus lands on the header title, which announces only itself. */
+      label={<span role="status">{outcome}</span>}
     >
-      <div className="flex items-center gap-2 bg-success-muted px-4 py-2.5 text-body-compact text-success-muted-foreground sm:px-6">
-        <CircleCheckIcon aria-hidden className="size-4 shrink-0" />
-        {/* Spoken: focus lands on the header title, which announces only itself. */}
-        <span role="status" className="font-medium">
-          {outcome}
-        </span>
-      </div>
-      <div className="flex flex-col gap-4 p-4 sm:p-6">{content}</div>
-    </div>
+      <div className="flex flex-col gap-4 py-3">{content}</div>
+    </OutcomeSummary>
   );
 }

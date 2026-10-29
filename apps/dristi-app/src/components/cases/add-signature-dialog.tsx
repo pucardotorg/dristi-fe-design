@@ -2,8 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  CheckCircle2Icon,
-  ClockIcon,
   DownloadIcon,
   SignatureIcon,
 } from "lucide-react";
@@ -23,14 +21,19 @@ import {
   PAYMENT_PROCESSING_TITLE,
   PAYMENT_SUCCESS_TITLE,
   PaymentProcessing,
-  PaymentReceipt,
+  PaymentFacts,
 } from "@/components/payment/payment-steps";
+import {
+  OutcomeAmount,
+  OutcomeHeader,
+  OutcomeSummary,
+  StatusLine,
+} from "@/components/feedback";
 import {
   UPLOAD_HELP,
   UploadedDocField,
 } from "@/components/cases/uploaded-doc-field";
 import { Badge } from "@/components/ui/badge";
-import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import {
   DescriptionDetails,
@@ -301,9 +304,8 @@ export function AddSignatureDialog({
         }}
       >
         {step === "success" ? (
-          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+          <div className="min-h-0 flex-1 overflow-y-auto">
             <SuccessContent
-              titleRef={titleRef}
               paid={paid}
               temporaryId={temporaryId}
               noun={Noun}
@@ -317,33 +319,30 @@ export function AddSignatureDialog({
             Amber, not green: nothing is filed yet, and the register will call
             this Pending signature in the same colour.
           */
-          <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 py-6 pr-12">
-            <div className="flex items-center gap-4">
-              <span
-                aria-hidden
-                className="flex size-14 shrink-0 items-center justify-center rounded-full bg-warning-muted text-warning-muted-foreground"
-              >
-                <ClockIcon className="size-7" />
-              </span>
-              <div className="flex min-w-0 flex-col gap-1.5">
-                <DialogTitle
-                  ref={titleRef}
-                  tabIndex={-1}
-                  className="text-body font-semibold text-balance outline-none"
-                >
-                  {handoffTo
-                    ? `Saved. Waiting for ${handoffTo} to sign`
-                    : "Saved. Waiting for your signature"}
-                </DialogTitle>
-                <DialogDescription>
-                  {handoffTo
-                    ? "Nothing has gone to the court yet. They sign it from the case's Applications tab."
-                    : "Nothing has gone to the court yet. Sign it from the case's Applications tab when you are ready."}
-                </DialogDescription>
-              </div>
-            </div>
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+            {/* Waiting on someone else: sent, not decided (the hourglass). Waiting on
+                you: amber, as today, because it needs your hand. */}
+            <OutcomeHeader
+              key="pending"
+              compact
+              titleFrom="dialog"
+              focusTitle
+              tone={handoffTo ? "info" : "warning"}
+              title={
+                handoffTo
+                  ? `Saved. Waiting for ${handoffTo} to sign`
+                  : "Saved. Waiting for your signature"
+              }
+              body={
+                handoffTo
+                  ? "Nothing has gone to the court yet. They sign it from the case's Applications tab."
+                  : "Nothing has gone to the court yet. Sign it from the case's Applications tab when you are ready."
+              }
+            />
 
-            <dl className="flex flex-col rounded-lg bg-surface-sunken px-4 py-1 text-body-compact">
+            <div className="px-6 py-6">
+            <OutcomeSummary>
+            <dl className="flex flex-col text-body-compact">
               <div className="flex items-baseline justify-between gap-4 border-b border-hairline py-2.5">
                 <dt className="text-muted-foreground">{Noun}</dt>
                 <dd className="min-w-0 text-right font-medium">
@@ -366,9 +365,16 @@ export function AddSignatureDialog({
                 </dd>
               </div>
             </dl>
+            </OutcomeSummary>
+            </div>
           </div>
         ) : (
           <>
+            {step === "receipt" ? (
+              <OutcomeHeader key="receipt" compact titleFrom="dialog" focusTitle title={stepTitle} body={stepDescription}>
+                <OutcomeAmount label="Amount paid" value={COURT_FEE} />
+              </OutcomeHeader>
+            ) : (
             <DialogHeader className="shrink-0 gap-1.5 border-b border-hairline px-6 py-4 pr-12 text-left">
               {/* The chip is the step's own status, so only the two steps that
                   report one carry it. */}
@@ -386,6 +392,7 @@ export function AddSignatureDialog({
               </div>
               <DialogDescription>{stepDescription}</DialogDescription>
             </DialogHeader>
+            )}
 
             <div
               className={cn(
@@ -476,13 +483,13 @@ export function AddSignatureDialog({
               ) : null}
 
               {step === "signed" ? (
-                <Banner variant="success">
+                <StatusLine tone="success">
                   {signedWith === "aadhaar"
                     ? "Signed with Aadhaar OTP."
                     : signedWith === "dsc"
                       ? "Signed with a DSC."
                       : `Signed copy added to this ${noun}.`}
-                </Banner>
+                </StatusLine>
               ) : null}
 
               {/* The register's payment dialog shows the same block. */}
@@ -491,8 +498,7 @@ export function AddSignatureDialog({
               {step === "processing" ? <PaymentProcessing /> : null}
 
               {step === "receipt" ? (
-                <PaymentReceipt
-                  amount={COURT_FEE}
+                <PaymentFacts
                   rows={[
                     {
                       label: "Case",
@@ -680,13 +686,11 @@ export function AddSignatureDialog({
  * allotted on submission (ALC-02).
  */
 function SuccessContent({
-  titleRef,
   paid,
   temporaryId,
   noun,
   objection,
 }: {
-  titleRef: React.Ref<HTMLHeadingElement>;
   paid: boolean;
   temporaryId: string;
   noun: string;
@@ -698,75 +702,62 @@ function SuccessContent({
       }.`
     : "It is with the court now. The court takes it up next and gives it an application number.";
   return (
-    <div className="flex flex-col gap-4">
-      {/* The bail dialog's done header: the mark in a tinted disc, then what
-          happened. The legacy's solid green slab was the one screen in the
-          chain that did not look like the rest of it. */}
-      <div className="flex items-center gap-4 pr-8">
-        <span
-          aria-hidden
-          className={cn(
-            "flex size-14 shrink-0 items-center justify-center rounded-full",
-            paid
-              ? "bg-success-muted text-success-muted-foreground"
-              : "bg-warning-muted text-warning-muted-foreground",
-          )}
-        >
-          {paid ? (
-            <CheckCircle2Icon className="size-7" />
-          ) : (
-            <ClockIcon className="size-7" />
-          )}
-        </span>
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <DialogTitle
-            ref={titleRef}
-            tabIndex={-1}
-            className="text-body font-semibold text-balance outline-none"
-          >
-            {paid ? `${noun} submitted` : "Signed. Waiting for payment"}
-          </DialogTitle>
-          <DialogDescription>
-            {paid
-              ? next
-              : "Nothing reaches the court until the court fee is paid. Pay it here, or later from the case's Applications tab."}
-          </DialogDescription>
-        </div>
-      </div>
+    <>
+      {/* The filing's outcome takes over the window (skill `feedback-states`). Unpaid
+          stays amber, as today: it needs your hand before anything reaches the court. */}
+      <OutcomeHeader
+        key="success"
+        compact
+        titleFrom="dialog"
+        focusTitle
+        tone={paid ? "success" : "warning"}
+        title={paid ? `${noun} submitted` : "Signed. Waiting for payment"}
+        body={
+          paid
+            ? next
+            : "Nothing reaches the court until the court fee is paid. Pay it here, or later from the case's Applications tab."
+        }
+      />
 
-      {paid ? (
-        <Banner variant="success">Court fee of {COURT_FEE} paid.</Banner>
-      ) : null}
-
-      <DescriptionList className="rounded-lg bg-surface-sunken px-4 py-1">
-        <DescriptionRow className="grid-cols-[1fr_auto] items-center">
-          <DescriptionTerm className="text-body-compact">
-            {paid ? "Submission date" : "Signed on"}
-          </DescriptionTerm>
-          <DescriptionDetails className="text-body-compact">
-            {formatCaseDate(new Date().toISOString())}
-          </DescriptionDetails>
-        </DescriptionRow>
+      <div className="flex flex-col gap-4 px-6 py-6">
         {paid ? (
-          <DescriptionRow className="grid-cols-[1fr_auto] items-center">
+          <StatusLine tone="success" still>
+            Court fee of {COURT_FEE} paid.
+          </StatusLine>
+        ) : null}
+
+        <OutcomeSummary>
+        <DescriptionList>
+          <DescriptionRow className="grid-cols-[1fr_auto] items-center border-hairline">
             <DescriptionTerm className="text-body-compact">
-              {objection ? "Filing ID" : "Temporary ID"}
+              {paid ? "Submission date" : "Signed on"}
             </DescriptionTerm>
-            {/* The value is its own copy control now, so the icon button beside it
-                went with the conversion — same confirmation, one thing to hit. */}
-            <DescriptionDetails className="flex items-center gap-2 text-body-compact font-medium">
-              <Identifier value={temporaryId} label="temporary id" />
+            <DescriptionDetails className="text-body-compact">
+              {formatCaseDate(new Date().toISOString())}
             </DescriptionDetails>
           </DescriptionRow>
-        ) : (
-          <DescriptionRow className="grid-cols-[1fr_auto] items-center">
-            <DescriptionTerm className="text-body-compact">Status</DescriptionTerm>
-            <DescriptionDetails>
-              <Badge variant="warning">Pending payment</Badge>
-            </DescriptionDetails>
-          </DescriptionRow>
-        )}
-      </DescriptionList>
-    </div>
+          {paid ? (
+            <DescriptionRow className="grid-cols-[1fr_auto] items-center border-hairline">
+              <DescriptionTerm className="text-body-compact">
+                {objection ? "Filing ID" : "Temporary ID"}
+              </DescriptionTerm>
+              {/* The value is its own copy control now, so the icon button beside it
+                  went with the conversion — same confirmation, one thing to hit. */}
+              <DescriptionDetails className="flex items-center gap-2 text-body-compact font-medium">
+                <Identifier value={temporaryId} label="temporary id" />
+              </DescriptionDetails>
+            </DescriptionRow>
+          ) : (
+            <DescriptionRow className="grid-cols-[1fr_auto] items-center border-hairline">
+              <DescriptionTerm className="text-body-compact">Status</DescriptionTerm>
+              <DescriptionDetails>
+                <Badge variant="warning">Pending payment</Badge>
+              </DescriptionDetails>
+            </DescriptionRow>
+          )}
+        </DescriptionList>
+        </OutcomeSummary>
+      </div>
+    </>
   );
 }

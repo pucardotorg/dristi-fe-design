@@ -7,8 +7,7 @@ import {
   FileTextIcon,
   PlusIcon,
   Trash2Icon,
-  UserRoundIcon,
-} from "lucide-react";
+  UserRoundIcon, FileXIcon } from "lucide-react";
 
 import { ChromeAlertDialogContent } from "@/components/chrome/app-chrome";
 
@@ -53,6 +52,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { RequiredMark } from "@/components/filing/form-field";
 import { cn } from "@/lib/utils";
 import { Identifier } from "@/components/chrome/identifier";
+import { ConfirmMark } from "@/components/feedback";
 
 export const MAX_FILING_FILE_SIZE = 10 * 1024 * 1024;
 const ACCEPTED_FILE_EXTENSIONS = ["pdf", "jpg", "jpeg", "png"];
@@ -675,6 +675,7 @@ export function DiscardFilingDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <ChromeAlertDialogContent>
         <AlertDialogHeader>
+          <ConfirmMark danger icon={FileXIcon} />
           <AlertDialogTitle>Discard this {noun}?</AlertDialogTitle>
           <AlertDialogDescription>
             Anything you entered will be lost.
@@ -682,7 +683,7 @@ export function DiscardFilingDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Keep editing</AlertDialogCancel>
-          <AlertDialogAction variant="destructive-solid" onClick={onDiscard}>
+          <AlertDialogAction variant="destructive" onClick={onDiscard}>
             Discard
           </AlertDialogAction>
         </AlertDialogFooter>

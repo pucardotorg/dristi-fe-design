@@ -1,9 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { toast } from "sonner";
 
 import { ChromeDialogContent } from "@/components/chrome/app-chrome";
+import { StatusLine, notify } from "@/components/feedback";
 import { useCaseNumber, useCourtText } from "@/components/court/court-provider";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -52,6 +52,7 @@ export function DownloadCaseFileDialog({
   const [format, setFormat] = React.useState<Format>("pdf");
   const [sections, setSections] = React.useState<string[]>([]);
   const [preparing, setPreparing] = React.useState(false);
+  const [failed, setFailed] = React.useState(false);
   // The PDF is drawn outside the DOM, so the court text layer never reaches
   // it: re-voice for the selected state here, as the header shows them.
   const localNumber = useCaseNumber();
@@ -66,14 +67,14 @@ export function DownloadCaseFileDialog({
 
   async function download() {
     if (format === "zip") {
-      toast.success("Preparing your download", {
-        position: "bottom-center",
+      notify.success("Preparing your download", {
         description: `${caseNumber}. It will start in a moment.`,
       });
       onOpenChange(false);
       return;
     }
     setPreparing(true);
+    setFailed(false);
     try {
       // Picked sections keep their case-file numbers, so the docket pages
       // still point at the same place in the tree.
@@ -95,10 +96,9 @@ export function DownloadCaseFileDialog({
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
       onOpenChange(false);
     } catch {
-      toast.error("The case file could not be prepared", {
-        position: "bottom-center",
-        description: "Try again. Nothing was downloaded.",
-      });
+      /* The window is still open, so the failure is said inside it, never as a toast
+         behind it (skill `feedback-states`). */
+      setFailed(true);
     } finally {
       setPreparing(false);
     }
@@ -155,6 +155,12 @@ export function DownloadCaseFileDialog({
                 </div>
               ))}
             </fieldset>
+          ) : null}
+
+          {failed ? (
+            <StatusLine tone="error" title="The case file could not be prepared">
+              Try again. Nothing was downloaded.
+            </StatusLine>
           ) : null}
         </div>
 
