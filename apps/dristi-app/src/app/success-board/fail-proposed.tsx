@@ -367,12 +367,14 @@ export const ConfirmSignNext = () => (
 /* The words appear at once, so they can be read at once; the icon alone carries the
    motion, with the same scale-in as the small marks. */
 function ErrLine({ children, still }: { children: React.ReactNode; still?: boolean }) {
+  /* The room opens, the cross arrives first where it sits, then the words drop in
+     beside it. */
   const line = (
-    <FieldError className={(still ? "" : "sb-errdrop ") + "flex items-center gap-1.5 pt-0.5 text-destructive-ink"}>
-      <span className={still ? "flex shrink-0" : "sb-icon flex shrink-0"} style={still ? undefined : { animationDelay: "200ms" }}>
+    <FieldError className="flex items-center gap-1.5 pt-0.5 text-destructive-ink">
+      <span className={still ? "flex shrink-0" : "sb-icon flex shrink-0"} style={still ? undefined : { animationDelay: "60ms" }}>
         <CircleXIcon className="size-3.5" strokeWidth={2.4} />
       </span>
-      <span>{children}</span>
+      <span className={still ? undefined : "sb-errdrop"} style={still ? undefined : { animationDelay: "300ms" }}>{children}</span>
     </FieldError>
   );
   return still ? line : <div className="sb-reveal"><div>{line}</div></div>;
@@ -465,15 +467,19 @@ export function QuietFailuresNext() {
 
 const Dot = ({ tone }: { tone: "error" | "warning" }) => <SuccessMark size={16} tone={tone} />;
 
+/* A 16px disc in a 24px pill: 4px from the top, the bottom and the end (3px padding
+   plus the badge's 1px border), so the disc is concentric with the pill's rounded end. */
+const PILL = "gap-1.5 pl-[3px]";
+
 export function WarnMarksNext() {
   return (
     <div className="flex w-[820px] shrink-0 flex-wrap items-center gap-4 rounded-lg border border-hairline bg-background p-8">
-      <Badge variant="destructive" className="sb-chip"><Dot tone="error" />Overdue</Badge>
-      <Badge variant="warning" className="sb-chip"><Dot tone="warning" />Due today</Badge>
-      <Badge variant="warning" className="sb-chip"><Dot tone="warning" />Pending review</Badge>
-      <Badge variant="warning" className="sb-chip"><Dot tone="warning" />3 actions to take</Badge>
+      <Badge variant="destructive" className={"sb-chip " + PILL}><Dot tone="error" />Overdue</Badge>
+      <Badge variant="warning" className={"sb-chip " + PILL}><Dot tone="warning" />Due today</Badge>
+      <Badge variant="warning" className={"sb-chip " + PILL}><Dot tone="warning" />Pending review</Badge>
+      <Badge variant="warning" className={"sb-chip " + PILL}><Dot tone="warning" />3 actions to take</Badge>
       <span className="inline-flex items-center gap-1.5 text-body-compact font-medium text-destructive-ink"><Dot tone="error" />4 days overdue</span>
-      <span className="flex items-center gap-2 text-body-compact"><Badge variant="warning"><Dot tone="warning" />Errored</Badge><span className="text-muted-foreground">No response from ICOPS</span></span>
+      <span className="flex items-center gap-2 text-body-compact"><Badge variant="warning" className={PILL}><Dot tone="warning" />Errored</Badge><span className="text-muted-foreground">No response from ICOPS</span></span>
       <span className="flex items-center gap-1.5 text-caption font-medium text-warning-ink"><Dot tone="warning" />Incomplete</span>
       <span className="flex items-center gap-1.5 text-body-compact text-destructive-ink"><Dot tone="error" />Couldn&apos;t save. Retrying</span>
     </div>

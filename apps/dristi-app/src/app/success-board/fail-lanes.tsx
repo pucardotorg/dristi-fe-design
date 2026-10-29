@@ -32,7 +32,7 @@ export const FAIL_LANES: Lane[] = [
     weight: 1,
     note: "A plain grey toast explains why a press did nothing. It looks like an acknowledgement, sits far from the thing to fix, and vanishes.",
     specimens: [
-      { label: "Missing input", now: <Now.BlockToastToday />, next: <Next.BlockToastNext />, why: "The field's red ring grows in, and the line drops out from under the field (it opens its own room, so nothing jumps). Press Send again: the field gives one small shake and the line plays again, so a repeat press is never met with nothing. Where the fix is not a field (answer questions through a pencil), the toast stays." },
+      { label: "Missing input", now: <Now.BlockToastToday />, next: <Next.BlockToastNext />, why: "The field's red ring grows in, the line opens its own room (nothing jumps), the cross arrives first, then the words drop in beside it. Press Send again: the field gives one small shake and the line plays again, so a repeat press is never met with nothing. Where the fix is not a field (answer questions through a pencil), the toast stays." },
       { label: "Step not open yet", now: <Now.GateToastToday />, next: <Next.GateToastNext />, why: "Not a warning: nothing is wrong, the step just is not open. Neutral toast with a lock, 2.75s, gone on any click." },
     ],
     flows: [
