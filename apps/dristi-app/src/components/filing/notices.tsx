@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { StatusLine } from "@/components/feedback";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 
@@ -102,6 +103,31 @@ export function SectionNotice({
   onDismiss?: () => void;
   className?: string;
 }) {
+  /* A notice that reports a status (it worked, it failed, it needs a look) is a feedback
+     line: the same shape as every other success, failure and warning in the product
+     (`components/feedback`, skill `feedback-states`). Info and neutral notices are
+     guidance, not outcomes, and keep the panel below. A standing notice (announce none)
+     arrives still; one raised by what the person just did plays and is announced. */
+  if (variant === "success" || variant === "warning" || variant === "destructive") {
+    return (
+      <StatusLine
+        tone={variant === "destructive" ? "error" : variant}
+        title={title}
+        still={announce === "none"}
+        role={NOTICE_ROLE[announce]}
+        className={className}
+        action={
+          onDismiss ? (
+            <Button type="button" variant="ghost" size="icon" aria-label="Dismiss" onClick={onDismiss} className="text-muted-foreground">
+              <XIcon aria-hidden />
+            </Button>
+          ) : undefined
+        }
+      >
+        {children}
+      </StatusLine>
+    );
+  }
   const { Icon, alert, surface, icon, dismiss } = NOTICE_STYLE[variant];
   return (
     <Alert

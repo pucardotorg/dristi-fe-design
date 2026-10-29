@@ -69,7 +69,9 @@ export function OutcomeHeader({
   className,
 }: {
   tone?: HeaderTone;
-  title: React.ReactNode;
+  /** Omit when the dialog's own header already says the outcome (StagedOverlay keeps its
+      header on every stage, owner 2026-09): the band then carries the mark and the line. */
+  title?: React.ReactNode;
   body?: React.ReactNode;
   /** Dialogs narrower than about 480px, and phone sheets. */
   compact?: boolean;
@@ -106,6 +108,7 @@ export function OutcomeHeader({
     >
       <StatusMark tone={tone} size={compact ? 60 : 72} reject={reject} still={still} />
       <div className="flex max-w-md flex-col items-center gap-1.5">
+        {title ? (
         <Title
           ref={titleRef}
           tabIndex={focusTitle ? -1 : undefined}
@@ -118,8 +121,9 @@ export function OutcomeHeader({
         >
           {title}
         </Title>
+        ) : null}
         {body ? (
-          <Body className={cn("text-body text-pretty text-muted-foreground", !still && "fb-rise")} style={rise(240)}>
+          <Body className={cn("text-body text-pretty", title ? "text-muted-foreground" : "text-foreground", !still && "fb-rise")} style={rise(240)}>
             {body}
           </Body>
         ) : null}
@@ -315,7 +319,8 @@ export function PageOutcome({
         />
       ) : null}
       <StatusMark tone={tone} icon={icon} size={scale === "hero" ? 96 : 56} still={still} />
-      <div className={cn("flex max-w-md flex-col gap-2", align === "center" && "items-center")}>
+      {/* Centred text keeps a short measure; a left-aligned page keeps its column's. */}
+      <div className={cn("flex flex-col gap-2", align === "center" ? "max-w-md items-center" : "max-w-2xl")}>
         <Heading
           className={cn("font-semibold text-balance", scale === "hero" ? "text-display-s" : "text-title", !still && "fb-rise")}
           style={rise(150)}

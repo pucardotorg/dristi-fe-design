@@ -983,6 +983,7 @@ export function ComplainantSection() {
       </Dialog>
 
       <ConfirmDialog
+        note="This cannot be undone."
         open={pendingRemove !== null}
         onOpenChange={(open) => {
           if (!open) setPendingRemove(null);
@@ -992,7 +993,7 @@ export function ComplainantSection() {
             ? `Remove ${complainantLabel(complainants[pendingRemove], pendingRemove)}`
             : "Remove complainant"
         }
-        description="Are you sure you want to delete this complainant and all their details? This cannot be undone."
+        description="Are you sure you want to delete this complainant and all their details?"
         onConfirm={() => {
           if (pendingRemove !== null) removeComplainant(pendingRemove);
           setPendingRemove(null);

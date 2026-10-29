@@ -40,11 +40,14 @@
 
 import { setNewAccountShell } from "@/lib/filing/linked-complaints";
 import * as React from "react";
+
+import { PageOutcome } from "@/components/feedback";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   LogInIcon,
   SignatureIcon,
   VideoIcon,
+  LinkIcon,
 } from "lucide-react";
 
 import { useStagedFlow, StagedOverlay } from "@/components/chrome/staged-overlay";
@@ -812,12 +815,16 @@ function LinkUnavailable({ inShell = false }: { inShell?: boolean }) {
           <BrandLockup className="h-9" />
         </header>
       )}
-      <main className="mx-auto flex w-full max-w-2xl flex-col gap-3 px-4 py-12">
-        <h1 className="text-title text-balance font-semibold">This link is no longer active</h1>
-        <p className="text-body text-muted-foreground">
-          The complaint may have been changed and sent again, or the request recalled. Ask
-          the advocate filing it to send you a new link.
-        </p>
+      <main className="mx-auto flex w-full max-w-2xl flex-col px-4 py-12">
+        {/* A dead end, not bad news: neutral, with the link's own mark. */}
+        <PageOutcome
+          tone="neutral"
+          icon={LinkIcon}
+          align="start"
+          className="px-0 py-0"
+          title="This link is no longer active"
+          body="The complaint may have been changed and sent again, or the request recalled. Ask the advocate filing it to send you a new link."
+        />
       </main>
     </div>
   );

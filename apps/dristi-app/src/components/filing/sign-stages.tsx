@@ -11,19 +11,18 @@ import * as React from "react";
 import {
   CheckIcon,
   ChevronRightIcon,
-  CircleCheckIcon,
   ShieldCheckIcon,
   SignatureIcon,
 } from "lucide-react";
 
 import type { Signatory } from "@/lib/filing/types";
+import { OutcomeHeader, OutcomeSummary } from "@/components/feedback";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Spinner } from "@/components/ui/spinner";
 import { Stepper, StepperItem } from "@/components/ui/stepper";
-import { RESOLVE_IN_PLACE } from "@/components/chrome/motion";
 
 /**
  * A stage's column: reading width, at the top of the canvas.
@@ -44,70 +43,61 @@ export function StageColumn({ children }: { children: React.ReactNode }) {
 /**
  * **What just happened, on the thing it happened to.**
  *
- * The product settles an act by stamping the record it acted on — a status strip across
- * the top of the card in the status's own muted pair, with the roster underneath — rather
- * than by swapping the stage for a green box (`approve-registrations-dialog`'s
- * `StatusStrip`, owner-approved 2026-09-11). A signature's record is who has signed and
- * who has not, so that is what the card carries.
+ * The overlay's header keeps the outcome as its title (it stays on every stage). The card
+ * under it is the act's record: a band with the feedback mark and what comes next, then
+ * the roster in a well labelled with what is true of it ("Every signature is in"). It
+ * replaces the thin status strip (owner 2026-09-11) with the feedback system the owner
+ * approved on the states board (2026-10-29, skill `feedback-states`): the act is still
+ * stamped on its record, now at a weight people notice. `tone="info"` when the act only
+ * sent the request out and the outcome is still waiting on others.
  */
 export function SettledCard({
   headline,
   rows,
   footnote,
+  tone = "success",
 }: {
   headline: string;
   rows: Signatory[];
   footnote: string;
+  tone?: "success" | "info";
 }) {
   return (
-    <div
-      className={cn(
-        "overflow-hidden rounded-xl border border-hairline bg-card shadow-raised",
-        RESOLVE_IN_PLACE
-      )}
-    >
-      <div className="flex items-center gap-2 bg-success-muted px-4 py-2.5 text-body-compact text-success-muted-foreground">
-        <CircleCheckIcon aria-hidden className="size-4 shrink-0" />
-        {/* `role="status"` gets the outcome spoken: focus lands on the header title,
-            which announces itself and nothing below it. */}
-        <span role="status" className="font-medium">
-          {headline}
-        </span>
+    <div className="overflow-hidden rounded-xl border border-hairline bg-card shadow-raised">
+      <OutcomeHeader compact tone={tone} body={footnote} surface="card" />
+      <div className="p-4">
+        <OutcomeSummary tone={tone === "success" ? "success" : undefined} label={headline}>
+          <ul className="flex flex-col">
+            {rows.map((s) => (
+              <li
+                key={s.id}
+                className="flex items-center gap-3 border-b border-hairline py-3 last:border-b-0"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-body-compact font-semibold text-foreground">
+                    {s.name}
+                    {s.you ? (
+                      <span className="ps-2 font-medium text-muted-foreground">You</span>
+                    ) : null}
+                  </p>
+                  <p className="text-body-compact text-muted-foreground">{s.role}</p>
+                </div>
+                {s.status === "signed" && s.oathTaken === false ? (
+                  <Badge variant="secondary">Oath pending</Badge>
+                ) : s.status === "signed" ? (
+                  <Badge variant="success">
+                    <CheckIcon aria-hidden />
+                    {s.oathTaken ? "Signed and sworn" : "Signed"}
+                  </Badge>
+                ) : (
+                  /* Says what is waiting, not just that something is (owner, 2026-10-13). */
+                  <Badge variant="secondary">Signature pending</Badge>
+                )}
+              </li>
+            ))}
+          </ul>
+        </OutcomeSummary>
       </div>
-
-      <ul className="flex flex-col px-4">
-        {rows.map((s) => (
-          <li
-            key={s.id}
-            className="flex items-center gap-3 border-b border-hairline py-3 last:border-b-0"
-          >
-            <div className="min-w-0 flex-1">
-              <p className="text-body-compact font-semibold text-foreground">
-                {s.name}
-                {s.you ? (
-                  <span className="ps-2 font-medium text-muted-foreground">You</span>
-                ) : null}
-              </p>
-              <p className="text-body-compact text-muted-foreground">{s.role}</p>
-            </div>
-            {s.status === "signed" && s.oathTaken === false ? (
-              <Badge variant="secondary">Oath pending</Badge>
-            ) : s.status === "signed" ? (
-              <Badge variant="success">
-                <CheckIcon aria-hidden />
-                {s.oathTaken ? "Signed and sworn" : "Signed"}
-              </Badge>
-            ) : (
-              /* Says what is waiting, not just that something is (owner, 2026-10-13). */
-              <Badge variant="secondary">Signature pending</Badge>
-            )}
-          </li>
-        ))}
-      </ul>
-
-      <p className="border-t border-hairline px-4 py-3 text-body-compact text-muted-foreground">
-        {footnote}
-      </p>
     </div>
   );
 }

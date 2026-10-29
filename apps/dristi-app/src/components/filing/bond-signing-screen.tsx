@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+
+import { StatusLine } from "@/components/feedback";
 import { PenLineIcon } from "lucide-react";
 
 import { Banner } from "@/components/ui/banner";
@@ -155,12 +157,9 @@ export function BondSigningScreen() {
         ) : (
           <div className="flex flex-col gap-5">
             {signedSelf ? (
-              <Banner variant="success">
-                <span>
-                  <span className="font-semibold">{pick(bondCopy.partySignedTitle, locale)}</span>{" "}
-                  {pick(bondCopy.partySignedBody, locale)}
-                </span>
-              </Banner>
+              <StatusLine tone="success" title={pick(bondCopy.partySignedTitle, locale)}>
+                {pick(bondCopy.partySignedBody, locale)}
+              </StatusLine>
             ) : (
               <Banner variant="info">{pick(bailDialog.esignNote, locale)}</Banner>
             )}

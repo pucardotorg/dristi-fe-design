@@ -10,6 +10,7 @@ import {
   DescriptionTerm,
 } from "@/components/ui/description-list";
 import { Spinner } from "@/components/ui/spinner";
+import { OutcomeSummary } from "@/components/feedback";
 
 /**
  * The two screens every payment passes through after Pay, shared so a fee reads the same
@@ -64,5 +65,26 @@ export function PaymentReceipt({
         ))}
       </DescriptionList>
     </div>
+  );
+}
+
+/**
+ * The receipt's facts, for a payment outcome told by `OutcomeHeader` (skill
+ * `feedback-states`): the header carries the mark, "Payment successful" and the amount,
+ * labelled with `OutcomeAmount`; this carries what was paid for and its reference.
+ * Replaces `PaymentReceipt` as each flow moves onto the feedback pieces.
+ */
+export function PaymentFacts({ rows }: { rows: { label: string; value: React.ReactNode }[] }) {
+  return (
+    <OutcomeSummary>
+      <DescriptionList>
+        {rows.map((row) => (
+          <DescriptionRow key={row.label} className="border-hairline">
+            <DescriptionTerm>{row.label}</DescriptionTerm>
+            <DescriptionDetails>{row.value}</DescriptionDetails>
+          </DescriptionRow>
+        ))}
+      </DescriptionList>
+    </OutcomeSummary>
   );
 }

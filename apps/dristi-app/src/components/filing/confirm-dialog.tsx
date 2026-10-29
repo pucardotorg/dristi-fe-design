@@ -3,6 +3,7 @@
 import * as React from "react";
 
 import { ChromeAlertDialogContent } from "@/components/chrome/app-chrome";
+import { ConfirmMark, IrreversibleNote, StatusMark } from "@/components/feedback";
 
 import {
   AlertDialog,
@@ -13,9 +14,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { buttonVariants } from "@/components/ui/button";
 
-/** "Are you sure?" for removals — the destructive action is explicit and cancellable. */
+/**
+ * "Are you sure?" before a risky act. It is a question, not an outcome
+ * (skill `feedback-states`):
+ * - `destructive` (the default, for removals and discards): a soft red mark showing the
+ *   act (`icon`, a bin by default) and the soft red confirm button, never solid red.
+ * - not destructive: a neutral mark when an `icon` is given (an act that cannot be taken
+ *   back, such as signing), otherwise a plain question. The confirm stays primary.
+ * - `note`: "This cannot be undone." on its own line with a lock, so it is read.
+ */
 export function ConfirmDialog({
   open,
   onOpenChange,
@@ -24,6 +32,8 @@ export function ConfirmDialog({
   confirmLabel = "Yes, remove",
   cancelLabel = "Cancel",
   destructive = true,
+  icon,
+  note,
   onConfirm,
 }: {
   open: boolean;
@@ -33,25 +43,27 @@ export function ConfirmDialog({
   confirmLabel?: string;
   cancelLabel?: string;
   destructive?: boolean;
+  /** The act itself (a person leaving, a bin, a pen). */
+  icon?: React.ComponentProps<typeof StatusMark>["icon"];
+  note?: React.ReactNode;
   onConfirm: () => void;
 }) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <ChromeAlertDialogContent>
         <AlertDialogHeader>
+          {destructive || icon ? <ConfirmMark danger={destructive} icon={icon} /> : null}
           <AlertDialogTitle>{title}</AlertDialogTitle>
-          {description ? (
-            <AlertDialogDescription>{description}</AlertDialogDescription>
+          {description || note ? (
+            <AlertDialogDescription className="flex flex-col">
+              {description ? <span>{description}</span> : null}
+              {note ? <IrreversibleNote>{note}</IrreversibleNote> : null}
+            </AlertDialogDescription>
           ) : null}
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>{cancelLabel}</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={onConfirm}
-            className={
-              destructive ? buttonVariants({ variant: "destructive-solid" }) : undefined
-            }
-          >
+          <AlertDialogAction onClick={onConfirm} variant={destructive ? "destructive" : "default"}>
             {confirmLabel}
           </AlertDialogAction>
         </AlertDialogFooter>

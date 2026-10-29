@@ -1,7 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { CheckIcon, PenToolIcon, WalletIcon } from "lucide-react";
+
+import { OutcomeHeader } from "@/components/feedback";
+
+import { cn } from "@/lib/utils";
+import { PenToolIcon, WalletIcon } from "lucide-react";
 
 import { getRepository, newCaseFileNumber, newPaymentRef } from "@/lib/filing/data";
 import { money } from "@/lib/filing/format";
@@ -128,7 +132,7 @@ export function BatchFilingDialog({
       onOpenChange={(next) => (next ? undefined : close())}
     >
       <ChromeDialogContent mobileSheet
-        className="sm:max-w-md"
+        className={cn("sm:max-w-md", step === "success" && "gap-0 overflow-hidden p-0")}
         showCloseButton={step === "confirm" && !running}
         onEscapeKeyDown={(e) => running && e.preventDefault()}
         onPointerDownOutside={(e) => running && e.preventDefault()}
@@ -221,41 +225,37 @@ export function BatchFilingDialog({
           </>
         ) : (
           <>
-            {/* The product's confirmation panel (see BatchActDialog): the verb the
-                question asked, answered, with the tick under it. The act's own control
-                stays off this fill — an outline button reads as white-on-white against
-                the success background, which is exactly why the primitive draws its own
-                opaque fill instead of inheriting one. */}
-            <div className="flex flex-col items-center gap-4 rounded-lg bg-success p-6 text-center">
-              <div className="flex flex-col gap-1.5">
-                <DialogTitle className="text-title-s font-semibold tabular-nums text-success-foreground">
-                  {kind === "sign"
-                    ? acted === 0
-                      ? "Nothing was signed"
-                      : acted === 1
-                        ? "Document signed"
-                        : `${acted} documents signed`
-                    : acted === 0
-                      ? "Nothing was paid"
-                      : `${money(total)} paid`}
-                </DialogTitle>
-                <DialogDescription className="text-body-compact text-pretty text-success-foreground">
-                  {kind === "sign"
-                    ? sworeLater > 0
-                      ? acted === 1
-                        ? "Your oath is still to be taken on this filing. Open it from this tab to record it."
-                        : sworeLater === 1
-                          ? "Your oath is still to be taken on one of them. Open it from this tab to record it."
-                          : `Your oath is still to be taken on ${sworeLater} of them. Open each from this tab to record it.`
-                      : "One OTP covered the set, the same as signing one at a time. A filing still waiting on another party stays on this tab until they sign."
-                    : "This is a sandbox — nothing has been sent to a real court."}
-                </DialogDescription>
-              </div>
-              <span className="flex size-10 items-center justify-center rounded-full bg-success-foreground">
-                <CheckIcon className="size-6 text-success" aria-hidden />
-              </span>
-            </div>
-            <DialogFooter>
+            {/* The outcome takes over the window (skill `feedback-states`). Nothing done is a
+                failure and says so in red; it never wears the success green. */}
+            <OutcomeHeader
+              compact
+              titleFrom="dialog"
+              focusTitle
+              tone={acted === 0 ? "error" : "success"}
+              title={
+                kind === "sign"
+                  ? acted === 0
+                    ? "Nothing was signed"
+                    : acted === 1
+                      ? "Document signed"
+                      : `${acted} documents signed`
+                  : acted === 0
+                    ? "Nothing was paid"
+                    : `${money(total)} paid`
+              }
+              body={
+                kind === "sign"
+                  ? sworeLater > 0
+                    ? acted === 1
+                      ? "Your oath is still to be taken on this filing. Open it from this tab to record it."
+                      : sworeLater === 1
+                        ? "Your oath is still to be taken on one of them. Open it from this tab to record it."
+                        : `Your oath is still to be taken on ${sworeLater} of them. Open each from this tab to record it.`
+                    : "One OTP covered the set, the same as signing one at a time. A filing still waiting on another party stays on this tab until they sign."
+                  : "This is a sandbox — nothing has been sent to a real court."
+              }
+            />
+            <DialogFooter className="mx-0 mb-0 border-hairline bg-surface-sunken">
               <Button type="button" onClick={close}>
                 Done
               </Button>

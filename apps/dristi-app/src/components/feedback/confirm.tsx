@@ -21,7 +21,8 @@ export function ConfirmMark({
   icon,
   danger = false,
 }: {
-  icon: React.ComponentProps<typeof StatusMark>["icon"];
+  /** The act itself; a bin for a removal, an info icon otherwise, if none is given. */
+  icon?: React.ComponentProps<typeof StatusMark>["icon"];
   danger?: boolean;
 }) {
   return (

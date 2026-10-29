@@ -4,7 +4,6 @@ import * as React from "react";
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
-  CheckCircle2Icon,
   CheckIcon,
   ChevronDownIcon,
   CopyIcon,
@@ -12,6 +11,7 @@ import {
   ExternalLinkIcon,
   PenLineIcon,
 } from "lucide-react";
+import { OutcomeHeader, StatusLine } from "@/components/feedback";
 
 import { ChromeDialogContent } from "@/components/chrome/app-chrome";
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
@@ -494,29 +494,21 @@ export function BailBondDialog({
         className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
         onInteractOutside={(event) => event.preventDefault()}
       >
+        {/* The bond's outcome takes over the top of the window (skill `feedback-states`). */}
         {stage === "done" ? (
-          <DialogHeader className="shrink-0 border-b border-hairline px-6 py-5 pr-14 text-left">
-            <div className="flex items-center gap-4">
-              <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-success-muted text-success-muted-foreground">
-                <CheckCircle2Icon className="size-7" aria-hidden />
-              </span>
-              <div className="flex min-w-0 flex-col gap-1.5">
-                <DialogTitle className="text-title-s font-semibold text-balance">
-                  {pick(mode === "edit" ? bondCopy.doneTitleEdited : bondCopy.doneTitle, locale)}
-                </DialogTitle>
-                <DialogDescription className="text-pretty">
-                  {pick(
-                    mode === "edit"
-                      ? bondCopy.doneBodyEdited
-                      : method === "esign"
-                        ? bondCopy.doneBodyEsign
-                        : bondCopy.doneBodyUpload,
-                    locale,
-                  )}
-                </DialogDescription>
-              </div>
-            </div>
-          </DialogHeader>
+          <OutcomeHeader
+            titleFrom="dialog"
+            focusTitle
+            title={pick(mode === "edit" ? bondCopy.doneTitleEdited : bondCopy.doneTitle, locale)}
+            body={pick(
+              mode === "edit"
+                ? bondCopy.doneBodyEdited
+                : method === "esign"
+                  ? bondCopy.doneBodyEsign
+                  : bondCopy.doneBodyUpload,
+              locale,
+            )}
+          />
         ) : (
           <DialogHeader className="shrink-0 border-b border-hairline px-6 py-5 pr-14 text-left">
             <DialogTitle className="text-title-s font-semibold text-balance">
@@ -1027,18 +1019,18 @@ export function BailBondDialog({
                   </TabsList>
                   <TabsContent value="esign" className="flex flex-col gap-4 pt-3">
                     {esigned ? (
-                      <Banner variant="success">
+                      <StatusLine tone="success">
                         {fillCopy(bailDialog.signedNote, locale, { name: ADVOCATE_PROFILE_NAME })}
-                      </Banner>
+                      </StatusLine>
                     ) : (
                       <Banner variant="info">{pick(bailDialog.esignNote, locale)}</Banner>
                     )}
                   </TabsContent>
                   <TabsContent value="upload" className="flex flex-col gap-4 pt-3">
                     {signedFile ? (
-                      <Banner variant="success">
+                      <StatusLine tone="success">
                         {fillCopy(bailDialog.signedNote, locale, { name: ADVOCATE_PROFILE_NAME })}
-                      </Banner>
+                      </StatusLine>
                     ) : (
                       <>
                         {/* This path carries every signature on paper — the

@@ -28,7 +28,13 @@ import * as React from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { notify, OutcomeAmount, OutcomeHeader, OutcomeSummary } from "@/components/feedback";
+import {
+  DescriptionDetails,
+  DescriptionList,
+  DescriptionRow,
+  DescriptionTerm,
+} from "@/components/ui/description-list";
 import {
   BellIcon,
   CheckIcon,
@@ -37,6 +43,10 @@ import {
   PrinterIcon,
   SignatureIcon,
   UploadIcon,
+  PenOffIcon,
+  SendIcon,
+  FileXIcon,
+  LockIcon,
 } from "lucide-react";
 
 import { signingRules } from "@/lib/filing/config";
@@ -1060,7 +1070,7 @@ export function SignSection() {
   const sendBack = async () => {
     setSendOpen(false);
     if (!returnTask) {
-      toast.error("The scrutiny return for this filing could not be found.");
+      notify.error("The scrutiny return for this filing could not be found.");
       return;
     }
     const done = await act(returnTask.id, refile, "Corrections sent to scrutiny");
@@ -1162,11 +1172,11 @@ export function SignSection() {
           showSaveState={false}
           onContinue={() => {
             if (resubmitted) {
-              toast("These corrections have already been sent to scrutiny.");
+              notify.neutral("These corrections have already been sent to scrutiny.", { icon: SendIcon });
               return;
             }
             if (!complete) {
-              toast(payGate);
+              notify.neutral(payGate, { icon: LockIcon });
               return;
             }
             if (returned) {
@@ -1521,55 +1531,45 @@ export function SignSection() {
           showCloseButton={false}
           className="gap-0 overflow-hidden p-0 sm:max-w-lg"
         >
-          <div className="flex flex-col items-center gap-2 bg-success p-6 text-center text-success-foreground">
-            <span className="flex size-12 items-center justify-center rounded-full bg-success-foreground text-success">
-              <CheckIcon className="size-6" aria-hidden />
-            </span>
-            <DialogTitle className="text-title-s font-semibold">
-              Payment successful
-            </DialogTitle>
-            <DialogDescription className="text-body-compact text-success-foreground">
-              Your case file is complete. This is a sandbox. Nothing has been sent to a
-              real court.
-            </DialogDescription>
-          </div>
+          {/* The filing's outcome takes over the window (skill `feedback-states`). */}
+          <OutcomeHeader
+            compact
+            titleFrom="dialog"
+            title="Payment successful"
+            body="Your case file is complete. This is a sandbox. Nothing has been sent to a real court."
+          >
+            <OutcomeAmount label="Amount paid" value={money(sign.paidAmount ?? bill.total)} />
+          </OutcomeHeader>
 
           <div className="flex flex-col gap-4 p-6">
-            <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg bg-surface-sunken p-4">
-              <div>
-                <p className="text-caption font-medium text-muted-foreground">
-                  Case file number
-                </p>
-                <p className="text-body font-semibold">
-                  {sign.caseFileNumber ? (
-                    <Identifier value={sign.caseFileNumber} label="case file number" />
-                  ) : (
-                    <span className="tabular-nums">—</span>
-                  )}
-                </p>
-              </div>
-              <Button type="button" variant="ghost" onClick={copyLink}>
-                <CopyIcon data-icon="inline-start" aria-hidden />
-                {copied ? "Copied" : "Copy link"}
-              </Button>
-            </div>
-
-            <div className="flex items-center justify-between gap-4 text-body-compact">
-              <span className="text-muted-foreground">Amount paid</span>
-              <span className="font-semibold text-foreground tabular-nums">
-                {money(sign.paidAmount ?? bill.total)}
-              </span>
-            </div>
-            <div className="flex items-center justify-between gap-4 text-body-compact">
-              <span className="text-muted-foreground">Payment reference</span>
-              <span className="text-foreground">
-                {sign.paymentRef ? (
-                  <Identifier value={sign.paymentRef} label="payment reference" />
-                ) : (
-                  "—"
-                )}
-              </span>
-            </div>
+            <OutcomeSummary>
+              <DescriptionList>
+                <DescriptionRow className="items-center border-hairline">
+                  <DescriptionTerm>Case file number</DescriptionTerm>
+                  <DescriptionDetails className="flex flex-wrap items-center justify-end gap-2">
+                    {sign.caseFileNumber ? (
+                      <Identifier value={sign.caseFileNumber} label="case file number" />
+                    ) : (
+                      <span className="tabular-nums">—</span>
+                    )}
+                    <Button type="button" variant="ghost" size="sm" onClick={copyLink}>
+                      <CopyIcon data-icon="inline-start" aria-hidden />
+                      {copied ? "Copied" : "Copy link"}
+                    </Button>
+                  </DescriptionDetails>
+                </DescriptionRow>
+                <DescriptionRow className="border-hairline">
+                  <DescriptionTerm>Payment reference</DescriptionTerm>
+                  <DescriptionDetails>
+                    {sign.paymentRef ? (
+                      <Identifier value={sign.paymentRef} label="payment reference" />
+                    ) : (
+                      "—"
+                    )}
+                  </DescriptionDetails>
+                </DescriptionRow>
+              </DescriptionList>
+            </OutcomeSummary>
 
             <div className="flex flex-col gap-3 sm:flex-row">
               <Button asChild variant="outline" size="lg" className="flex-1">
@@ -1612,6 +1612,7 @@ export function SignSection() {
         }
         confirmLabel={anySigned ? "Go back and re-sign" : "Go back and recall"}
         cancelLabel="Stay here"
+        icon={PenOffIcon}
         onConfirm={confirmLeave}
       />
 
@@ -1624,6 +1625,7 @@ export function SignSection() {
         confirmLabel="Send to scrutiny"
         cancelLabel="Not yet"
         destructive={false}
+        icon={SendIcon}
         onConfirm={() => void sendBack()}
       />
 
@@ -1639,6 +1641,7 @@ export function SignSection() {
         }
         confirmLabel="E-sign instead"
         cancelLabel="Keep the physical document"
+        icon={FileXIcon}
         onConfirm={backToDigital}
       />
     </>
