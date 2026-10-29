@@ -93,6 +93,8 @@ function RefusalDemo() {
   const { attempt, refuse } = useRefusal();
   return (
     <Card className="flex max-w-xl flex-col gap-4 p-6">
+      {/* The caller sets `data-invalid` and `aria-invalid`; the DS Field ties the error to
+          the control with `aria-describedby`. */}
       <Field data-invalid={attempt > 0}>
         <FieldLabel htmlFor="kit-order">Order text</FieldLabel>
         <StatusFieldControl attempt={attempt}>
@@ -150,6 +152,7 @@ export default function FeedbackKitPage() {
             <Button variant="outline" onClick={() => notify.error("The case file could not be prepared", { description: "Try again. Nothing was downloaded." })}>Error (stays)</Button>
             <Button variant="outline" onClick={() => notify.warning("2 required documents still needed")}>Warning</Button>
             <Button variant="outline" onClick={() => notify.neutral("The court fee opens once every signature and oath is in.", { icon: LockIcon })}>Neutral</Button>
+            <Button variant="outline" onClick={() => notify.neutral("Saved as a draft")}>Neutral, no icon</Button>
             <Button variant="outline" onClick={() => notify.neutral("Task archived", { description: "Pay court fee. You can find it under Take action, Archive.", icon: Trash2Icon, action: { label: "Undo", onClick: () => undefined } })}>Neutral with action</Button>
           </div>
         </Section>
@@ -157,7 +160,7 @@ export default function FeedbackKitPage() {
         <Section title="Takeover (dialog)">
           <div className="flex flex-wrap gap-2">
             <OutcomeDialog label="Success, wide">
-              <OutcomeHeader title="Bail application submitted" body="The court has received your application. You will be told by SMS when a decision is made." />
+              <OutcomeHeader titleFrom="dialog" title="Bail application submitted" body="The court has received your application. You will be told by SMS when a decision is made." />
               <div className="px-6 py-4">
                 <DescriptionList>
                   <Row term="Submitted on">24-08-2026</Row>
@@ -168,7 +171,7 @@ export default function FeedbackKitPage() {
               <Footer><Button>Done</Button></Footer>
             </OutcomeDialog>
             <OutcomeDialog label="Payment, compact">
-              <OutcomeHeader compact title="Payment successful" body="Your case file is complete.">
+              <OutcomeHeader titleFrom="dialog" compact title="Payment successful" body="Your case file is complete.">
                 <OutcomeAmount label="Amount paid" value="₹1,250" />
               </OutcomeHeader>
               <div className="px-6 py-4">
@@ -182,22 +185,29 @@ export default function FeedbackKitPage() {
               <Footer><Button>Done</Button></Footer>
             </OutcomeDialog>
             <OutcomeDialog label="Error">
-              <OutcomeHeader tone="error" compact title="Nothing was signed" body="One OTP covered the set, the same as signing one at a time." />
+              <OutcomeHeader titleFrom="dialog" tone="error" compact title="Nothing was signed" body="One OTP covered the set, the same as signing one at a time." />
               <Footer><Button>Done</Button></Footer>
             </OutcomeDialog>
             <OutcomeDialog label="Info (sent, not decided)">
-              <OutcomeHeader tone="info" compact title="Application sent to the magistrate" body="Signed with Aadhaar OTP. Adv. R. Pillai stays on the case until the order is passed." />
+              <OutcomeHeader titleFrom="dialog" tone="info" compact title="Application sent to the magistrate" body="Signed with Aadhaar OTP. Adv. R. Pillai stays on the case until the order is passed." />
               <Footer><Button>Done</Button></Footer>
             </OutcomeDialog>
             <OutcomeDialog label="Partial (tally)">
-              <OutcomeHeader compact title="3 processes signed" />
+              <OutcomeHeader titleFrom="dialog" compact title="3 processes signed" />
               <div className="px-6 py-4">
                 <OutcomeTally label="Sent" done={2} failed={1} doneLine="2 are now in Sent in Service." failedLine="1 could not be sent and is in Errored in Issuance." />
               </div>
               <Footer><Button>Done</Button></Footer>
             </OutcomeDialog>
+            <OutcomeDialog label="Bulk tally (60)">
+              <OutcomeHeader titleFrom="dialog" compact title="60 processes signed" />
+              <div className="px-6 py-4">
+                <OutcomeTally label="Sent" done={57} failed={3} doneLine="57 are now in Sent in Service." failedLine="3 could not be sent and are in Errored in Issuance." />
+              </div>
+              <Footer><Button>Done</Button></Footer>
+            </OutcomeDialog>
             <OutcomeDialog label="Labelled summary">
-              <OutcomeHeader title="Everyone has signed" body="You can pay the court fee now." />
+              <OutcomeHeader titleFrom="dialog" title="Everyone has signed" body="You can pay the court fee now." />
               <div className="px-6 py-4">
                 <OutcomeSummary tone="success" label="Every signature is in" aside={<Badge variant="success" className={BADGE_WITH_MARK}><StatusMark size={14} still />3 of 3 signed</Badge>}>
                   <p className="py-3 text-body-compact">Adv. Meera Nair · Suresh Kumar · Anita Kumar</p>
@@ -298,7 +308,7 @@ export default function FeedbackKitPage() {
 
         <Section title="Page outcomes">
           <div className="grid gap-6 md:grid-cols-3">
-            <Card className="items-center p-6"><PageOutcome tone="success" title="Your account is ready" body="You can add your address and official ID from your profile." action={<Button>Go to your home page</Button>} /></Card>
+            <Card className="items-center p-6"><PageOutcome tone="success" scale="hero" title="Your account is ready" body="You can add your address and official ID from your profile." action={<Button>Go to your home page</Button>} /></Card>
             <Card className="items-center p-6"><PageOutcome tone="error" title="This page could not load" body="Nothing was changed. Reload to try again." action={<Button>Reload</Button>} /></Card>
             <Card className="items-center p-6"><PageOutcome tone="neutral" icon={LinkIcon} title="This link is no longer active" body="Ask the advocate filing it to send you a new link." /></Card>
           </div>

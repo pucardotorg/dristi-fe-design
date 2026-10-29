@@ -62,11 +62,16 @@ import { Toaster } from "@/components/ui/sonner";
  * passing a partial object would drop the rest of the DS's mapping on the floor.
  */
 export function AppToaster() {
-  /* Feedback toasts (`notify`) leave as soon as the person clicks anywhere on the page
-     (lead designer, 2026-10-29). Capture phase, so a click that a page handler stops still
-     counts. Error toasts are not in the set and stay until closed. */
+  /* Feedback toasts (`notify`) leave as soon as the person presses anywhere on the page
+     (lead designer, 2026-10-29). Capture phase, so a press that a page handler stops still
+     counts. A press on the toasts themselves is left alone, or an Undo would dismiss its
+     own toast before its click lands. Error toasts are not in the set and stay until
+     closed. */
   React.useEffect(() => {
-    const onPress = () => dismissOnPageClick();
+    const onPress = (event: PointerEvent) => {
+      if ((event.target as Element | null)?.closest?.("[data-sonner-toaster]")) return;
+      dismissOnPageClick();
+    };
     document.addEventListener("pointerdown", onPress, true);
     return () => document.removeEventListener("pointerdown", onPress, true);
   }, []);

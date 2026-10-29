@@ -48,13 +48,14 @@ export function StatusLine({
   icon?: React.ComponentProps<typeof StatusMark>["icon"];
   /** Every line after the first in one screen arrives without motion. */
   still?: boolean;
-  /** `alert` for a failure the person must act on now; `status` otherwise. */
+  /** Announced when it appears after an act: `alert` for a failure, `status` otherwise.
+      A `still` line (already true when the screen opened) is not a live region. */
   role?: "status" | "alert";
   className?: string;
 }) {
   return (
     <div
-      role={role ?? (tone === "error" ? "alert" : "status")}
+      role={still ? undefined : (role ?? (tone === "error" ? "alert" : "status"))}
       className={cn(
         "relative flex items-center gap-3 overflow-hidden rounded-lg bg-card py-3 pr-3 pl-4 ring-1 ring-hairline",
         !still && "fb-rise",
@@ -88,9 +89,10 @@ export function useRefusal() {
 }
 
 /**
- * Wrap the control so it shakes once on each repeat refusal. The control is never
- * remounted (that would drop what was typed and the focus); the animation is restarted
- * on the wrapper instead.
+ * Wrap the refused control. On every refusal it takes focus; its red ring (from the DS
+ * `aria-invalid` state, which the caller sets) grows in the first time; each repeat
+ * refusal shakes it once. The control is never remounted (that would drop what was
+ * typed and the focus); the animation is restarted on the wrapper instead.
  */
 export function StatusFieldControl({
   attempt,
@@ -102,15 +104,22 @@ export function StatusFieldControl({
   className?: string;
 }) {
   const ref = React.useRef<HTMLDivElement>(null);
+  /* The attempt this wrapper last saw: mounting at attempt 3 (a remounted stage) is not a
+     new refusal and must not shake or steal focus. */
+  const seen = React.useRef(attempt);
   React.useEffect(() => {
     const el = ref.current;
-    if (!el || attempt < 2) return;
+    if (!el || attempt === seen.current) return;
+    seen.current = attempt;
+    if (attempt < 1) return;
+    el.querySelector<HTMLElement>("input, textarea, select, button, [tabindex]")?.focus();
+    if (attempt < 2) return;
     el.classList.remove("fb-shake");
     void el.offsetWidth; // restart the animation from its first frame
     el.classList.add("fb-shake");
   }, [attempt]);
   return (
-    <div ref={ref} className={className}>
+    <div ref={ref} className={cn("fb-field", className)}>
       {children}
     </div>
   );

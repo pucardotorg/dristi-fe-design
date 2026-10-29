@@ -644,6 +644,13 @@ Closes when the DS ships a status mark in six tones, a takeover header, an inlin
 status line, a field-error entrance and a tally. It must also deprecate the old
 patterns with "use instead" notes.
 
+It also asks for one exception to rule 6 (three treatments per status) to be decided. The
+takeover band fades from a status `-muted` fill into the surface behind it (a
+`color-mix` of two opaque tokens), and full-page outcomes sit on a radial glow of the
+same fill. The tally marks its failed share with stripes of the status solid mixed into
+`card`. None of these use alpha, but each is a blend the DS does not define yet. Until it
+rules, they live only in `components/feedback`.
+
 ## 25. `Badge` has no leading-mark slot
 
 `Badge` is 24px tall with 8px start padding and a 1px border. A 16px round mark

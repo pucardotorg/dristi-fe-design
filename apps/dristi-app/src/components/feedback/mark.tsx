@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { InfoIcon, Trash2Icon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -20,9 +21,10 @@ import { cn } from "@/lib/utils";
  *   Use it only where something happened with a catch, or needs a look.
  * - **info**: sent, not decided. The hourglass, turned over once.
  * - **neutral**: not news at all (a gate, a question, a dead end). A quiet disc with a dark
- *   hairline ring, carrying the act's own `icon`.
+ *   hairline ring, carrying the act's own `icon` (an info icon if none is given).
  * - **danger**: the question before a removal. The soft red of the destructive button,
- *   carrying the act's own `icon`. It is a question, so it never wears the cross.
+ *   carrying the act's own `icon` (a bin if none is given). It is a question, so it never
+ *   wears the cross.
  *
  * **Motion is budgeted by size.** 44px and up plays the full sequence (about 600ms).
  * Anything smaller pops its disc and scales its glyph in after it (one beat, about half a
@@ -31,7 +33,7 @@ import { cn } from "@/lib/utils";
  */
 
 export type MarkTone = "success" | "error" | "warning" | "info" | "neutral" | "danger";
-export type MarkSize = 14 | 16 | 20 | 24 | 40 | 56 | 60 | 72;
+export type MarkSize = 14 | 16 | 20 | 24 | 40 | 56 | 60 | 72 | 96;
 
 type IconType = React.ComponentType<{ className?: string; strokeWidth?: number; "aria-hidden"?: boolean }>;
 
@@ -44,6 +46,7 @@ const SIZE: Record<MarkSize, string> = {
   56: "size-14",
   60: "size-15",
   72: "size-18",
+  96: "size-24",
 };
 
 /* Status pairs only: solid + foreground, or muted + its ink. No alpha. */
@@ -64,7 +67,7 @@ const RING: Partial<Record<MarkTone, string>> = {
 export function StatusMark({
   tone = "success",
   size = 24,
-  icon: Icon,
+  icon,
   still = false,
   reject = false,
   delay,
@@ -92,7 +95,9 @@ export function StatusMark({
   const iconTone = tone === "neutral" || tone === "danger";
   const glyphShare = tone === "success" || tone === "info" ? 0.5 : tone === "warning" ? 0.7 : 0.62;
   const ring = full ? RING[tone] : undefined;
-  const lagged = (ms: number) => (delay ? { animationDelay: `${delay + ms}ms` } : undefined);
+  /* A neutral or danger mark always shows an icon of its own: never the info hourglass,
+     which means "sent, not decided". */
+  const Icon = iconTone ? (icon ?? (tone === "danger" ? Trash2Icon : InfoIcon)) : undefined;
 
   return (
     <span
@@ -106,12 +111,15 @@ export function StatusMark({
         full && tone === "error" && reject && "fb-shake",
         className,
       )}
-      style={full && reject ? { animationDelay: `${(delay ?? 0) + 620}ms` } : undefined}
+      style={{
+        /* Every part of the mark reads this, so `delay` moves the whole sequence. */
+        ["--fb-delay" as string]: delay ? `${delay}ms` : undefined,
+        animationDelay: full && reject ? `${(delay ?? 0) + 620}ms` : undefined,
+      }}
     >
       {ring ? (
         <span
           className={cn("absolute inset-0 rounded-full", ring, tone === "success" ? "fb-ring" : "fb-ring-soft")}
-          style={lagged(tone === "success" ? 200 : 330)}
         />
       ) : null}
       <span
@@ -122,16 +130,15 @@ export function StatusMark({
           full && "fb-pop",
           quick && "fb-pop-quick",
         )}
-        style={lagged(0)}
       >
         {iconTone && Icon ? (
-          <span className={cn("flex", !still && "fb-glyph-in")} style={lagged(180)}>
-            <Icon className={size <= 16 ? "size-2.5" : size <= 24 ? "size-3.5" : size <= 40 ? "size-5" : "size-7"} strokeWidth={size <= 24 ? 2.4 : 2} aria-hidden />
+          <span className={cn("flex", !still && "fb-glyph-in")}>
+            <Icon className={size <= 16 ? "size-2.5" : size <= 24 ? "size-3.5" : size <= 40 ? "size-5" : size <= 72 ? "size-7" : "size-10"} strokeWidth={size <= 24 ? 2.4 : 2} aria-hidden />
           </span>
         ) : (
           <span
             className={cn("flex items-center justify-center", quick && "fb-glyph-in")}
-            style={{ width: `${glyphShare * 100}%`, height: `${glyphShare * 100}%`, ...lagged(180) }}
+            style={{ width: `${glyphShare * 100}%`, height: `${glyphShare * 100}%` }}
           >
             <svg viewBox="0 0 24 24" className="size-full" fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <Glyph tone={tone} full={full} small={small} />
