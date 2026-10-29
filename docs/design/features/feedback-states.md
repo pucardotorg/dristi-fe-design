@@ -180,6 +180,38 @@ DS was never touched, so there is nothing to undo.
   though the rules say missing input belongs on the field (needs an owner call). The bulk
   pay and sign tabs have the same `flex-1` phone bug (batch 4).
 
+**29 Oct · batch 2, cases and join.**
+- **Moved onto the shared pieces:**
+  - Raise application signing (signed line, payment, submitted, sign later).
+  - The e-sign outcome shared by the party applications.
+  - Add advocate and remove advocate outcomes, and the removal consent decision.
+  - Seven "Discard draft" confirms (now soft red with a file mark, were solid red) and two removal buttons (soft red).
+  - Download, archive, evidence and draft toasts.
+  - Three "could not be loaded" lines.
+  - Citizen and advocate join outcomes, the vakalatnama payment, and the team invite line.
+  - Copy is unchanged, except one item: the paid court fee is now a fact row, "Court fee · ₹20 paid", not a second green line.
+- **Decisions:**
+  - The join dialogs' outcome now takes over the header, as approved on the board. This replaces the Oct 6 "same header on every stage" rule for the outcome stage only.
+  - "Waiting for your signature" and "Signed. Waiting for payment" are neutral with today's clock, not amber "!". The Pending badge keeps the amber.
+  - The download failure is now said inside the open dialog, not as a toast.
+  - On phones, the full-size takeover uses the compact measure (60px mark, smaller title).
+- **Verified in the browser:**
+  - Advocate join through payment and joined, plus the invite line, on desktop, phone and dark.
+  - Citizen join to joined.
+  - Raise application: draft toast, signed line, payment, submitted, and sign later. Checked on desktop, phone and iPad mini.
+  - Download and archive toasts.
+- **Independent review:** 6 findings, all fixed:
+  - the download failure line lingering on reopen
+  - the wrong icon on "waiting for your signature"
+  - load errors that animated on arrival
+  - the invite announced twice
+  - a missing icon on "Request rejected"
+  - an unused import
+- **Not driven:**
+  - Parties, so add advocate, remove advocate, removal consent and the seven discard confirms. Case c-847's Parties section crashes on main: "No party register row for South Indian Bank Ltd.", a data gap in `lib/cases/parties.ts`, not this branch. Those confirms use the same markup as batch 1's verified discard.
+  - Mark as evidence.
+  - The load-error lines.
+
 ## Verification and open work
 
 - Verified on the board: desktop light, every pair. Dark mode: one fix (the toast),

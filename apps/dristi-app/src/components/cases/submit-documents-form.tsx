@@ -10,6 +10,7 @@ import {
   XIcon,
   SendIcon,
   SaveIcon,
+  ClockIcon,
 } from "lucide-react";
 import { notify } from "@/components/feedback";
 
@@ -341,10 +342,14 @@ export function SubmitDocumentsDialog({
     );
   }
 
-  function finish(status: SavedDocumentSubmission["status"], message?: string) {
+  function finish(
+    status: SavedDocumentSubmission["status"],
+    message?: string,
+    icon?: typeof SendIcon,
+  ) {
     keep(status);
-    /* Out for signature: sent, not decided, so neutral with the act's icon. */
-    if (message) notify.neutral(message, { icon: status === "pending-signature" ? SendIcon : undefined });
+    /* Not news yet (sent to someone, or waiting on you): neutral with the act's icon. */
+    if (message) notify.neutral(message, { icon });
     closeNow();
     onSubmitted();
   }
@@ -454,7 +459,7 @@ export function SubmitDocumentsDialog({
         actionLabel={filer?.handoffTo ? "Send for signature" : "Sign"}
         onAction={() => {
           if (filer?.handoffTo) {
-            finish("pending-signature", `Sent to ${filer.handoffTo} to sign`);
+            finish("pending-signature", `Sent to ${filer.handoffTo} to sign`, SendIcon);
           } else {
             setStage("sign");
           }
@@ -472,7 +477,7 @@ export function SubmitDocumentsDialog({
         onComplete={() => finish("submitted")}
         onSignLater={
           caseId && filer && !court
-            ? () => finish("pending-signature", "Saved. Waiting for your signature")
+            ? () => finish("pending-signature", "Saved. Waiting for your signature", ClockIcon)
             : undefined
         }
       />

@@ -330,7 +330,8 @@ export function CaseDetails({
        by what is now true ("Joined as …") in success green. */
     <OutcomeSummary
       tone="success"
-      className={className}
+      /* It sits on the join window's warm canvas, where every panel is white. */
+      className={cn("border border-hairline bg-card", className)}
       /* Spoken: focus lands on the header title, which announces only itself. */
       label={<span role="status">{outcome}</span>}
     >

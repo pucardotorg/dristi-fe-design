@@ -47,6 +47,11 @@ Ask, in order:
    - Sent but not decided (an application awaiting an order): `tone="info"`.
    - Nothing to do, nothing wrong (every item was already done): `tone="neutral"`, with the
      act's `icon` if it has one.
+   - Saved and waiting on the person (sign later, pay later): `tone="neutral"` with a clock
+     (or the act's icon), never a warning. Waiting on someone else: `tone="info"`. Any
+     amber stays on the status badge.
+   - A status line inside the same screen as a toast that already says it: `still`, so it
+     is neither announced nor animated twice.
    - Two outcome stages in one dialog (paid, then filed): give each `OutcomeHeader` its own
      `key`, or React reuses it and the second one neither plays nor takes focus.
    - A record reopened on its outcome: `still` (on `SettledCard` too).

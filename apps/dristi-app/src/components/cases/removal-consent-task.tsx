@@ -24,6 +24,7 @@ import { useState, type ReactNode } from "react";
 import {
   DownloadIcon,
   Maximize2Icon,
+  UserCheckIcon,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -177,6 +178,7 @@ function RemovalConsentDialog({
               titleFrom="dialog"
               focusTitle
               tone={decision === "accepted" ? "success" : "neutral"}
+              icon={decision === "accepted" ? undefined : UserCheckIcon}
               title={decision === "accepted" ? "Removal accepted" : "Request rejected"}
               body={
                 decision === "accepted"

@@ -162,7 +162,7 @@ export function CaseApplications({ record }: { record: CaseRecord }) {
   if (!register) {
     return (
       <ApplicationsPanel>
-        <StatusLine tone="error" title="Applications could not be loaded">
+        <StatusLine tone="error" still title="Applications could not be loaded">
           Refresh the page to try again.
         </StatusLine>
       </ApplicationsPanel>

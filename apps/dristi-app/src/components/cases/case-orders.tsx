@@ -94,7 +94,7 @@ export function CaseOrders({ record }: { record: CaseRecord }) {
   if (!orders) {
     return (
       <OrdersPanel>
-        <StatusLine tone="error" title="Orders and notifications could not be loaded">
+        <StatusLine tone="error" still title="Orders and notifications could not be loaded">
           Refresh the page to try again.
         </StatusLine>
       </OrdersPanel>

@@ -106,12 +106,13 @@ export function OutcomeHeader({
       className={cn(
         "relative flex shrink-0 flex-col items-center gap-4 border-b border-hairline text-center",
         !still && "fb-band",
-        compact ? "px-6 pt-8 pb-6" : "px-12 pt-12 pb-8",
+        /* Full size from tablet up; a phone sheet always gets the compact measure. */
+        compact ? "px-6 pt-8 pb-6" : "px-6 pt-8 pb-6 sm:px-12 sm:pt-12 sm:pb-8",
         className,
       )}
       style={{ background: `linear-gradient(180deg, ${BAND[tone]} 0%, color-mix(in oklab, ${BAND[tone]} 55%, ${SURFACE[surface]}) 100%)` }}
     >
-      <StatusMark tone={tone} icon={icon} size={compact ? 60 : 72} reject={reject} still={still} />
+      <StatusMark tone={tone} icon={icon} size={compact ? 60 : 72} reject={reject} still={still} className={compact ? undefined : "max-sm:size-15"} />
       <div className="flex max-w-md flex-col items-center gap-1.5">
         {title ? (
         <Title
@@ -120,7 +121,7 @@ export function OutcomeHeader({
           className={cn(
             "text-balance text-foreground outline-none",
             !still && "fb-rise",
-            compact ? "text-title-s font-semibold" : "text-title font-semibold",
+            compact ? "text-title-s font-semibold" : "text-title-s font-semibold sm:text-title",
           )}
           style={rise(180)}
         >

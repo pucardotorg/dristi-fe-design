@@ -225,7 +225,7 @@ export function DocumentsLoading() {
 function DocumentsError() {
   return (
     <DocumentsPanel>
-      <StatusLine tone="error" title="Documents could not be loaded">
+      <StatusLine tone="error" still title="Documents could not be loaded">
         Refresh the page to try again.
       </StatusLine>
     </DocumentsPanel>

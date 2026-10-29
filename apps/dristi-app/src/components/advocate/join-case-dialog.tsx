@@ -1478,7 +1478,9 @@ export function AdvocateJoinCaseDialog({
                 {/* One-line confirmation: a single tick, then the numbers just invited,
                     inline and comma-separated. Replaced (not grown) on the next send. */}
                 {teamInvited.length ? (
-                  <StatusLine key={teamInvited.join(",")} tone="success">
+                  /* The toast announces the send and plays the mark; this line is the
+                     record of it in the window, so it stands still (as before). */
+                  <StatusLine tone="success" still>
                     {pick(advDialog.teamInviteSentNote, locale)}{" "}
                     <span className="tabular-nums">{teamInvited.join(", ")}</span>
                   </StatusLine>

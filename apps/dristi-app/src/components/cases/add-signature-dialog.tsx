@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  ClockIcon,
   DownloadIcon,
   SignatureIcon,
 } from "lucide-react";
@@ -321,13 +322,15 @@ export function AddSignatureDialog({
           */
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
             {/* Waiting on someone else: sent, not decided (the hourglass). Waiting on
-                you: amber, as today, because it needs your hand. */}
+                you: a normal step, not a warning (owner rule), so neutral with today's
+                clock; the Pending badge below keeps the amber. */}
             <OutcomeHeader
               key="pending"
               compact
               titleFrom="dialog"
               focusTitle
-              tone={handoffTo ? "info" : "warning"}
+              tone={handoffTo ? "info" : "neutral"}
+              icon={handoffTo ? undefined : ClockIcon}
               title={
                 handoffTo
                   ? `Saved. Waiting for ${handoffTo} to sign`
@@ -703,14 +706,16 @@ function SuccessContent({
     : "It is with the court now. The court takes it up next and gives it an application number.";
   return (
     <>
-      {/* The filing's outcome takes over the window (skill `feedback-states`). Unpaid
-          stays amber, as today: it needs your hand before anything reaches the court. */}
+      {/* The filing's outcome takes over the window (skill `feedback-states`). Unpaid is
+          a normal next step, not a warning: neutral with today's clock, and the amber
+          stays on the Pending payment badge. */}
       <OutcomeHeader
         key="success"
         compact
         titleFrom="dialog"
         focusTitle
-        tone={paid ? "success" : "warning"}
+        tone={paid ? "success" : "neutral"}
+        icon={paid ? undefined : ClockIcon}
         title={paid ? `${noun} submitted` : "Signed. Waiting for payment"}
         body={
           paid
@@ -720,12 +725,6 @@ function SuccessContent({
       />
 
       <div className="flex flex-col gap-4 px-6 py-6">
-        {paid ? (
-          <StatusLine tone="success" still>
-            Court fee of {COURT_FEE} paid.
-          </StatusLine>
-        ) : null}
-
         <OutcomeSummary>
         <DescriptionList>
           <DescriptionRow className="grid-cols-[1fr_auto] items-center border-hairline">
@@ -745,6 +744,16 @@ function SuccessContent({
                   went with the conversion — same confirmation, one thing to hit. */}
               <DescriptionDetails className="flex items-center gap-2 text-body-compact font-medium">
                 <Identifier value={temporaryId} label="temporary id" />
+              </DescriptionDetails>
+            </DescriptionRow>
+          ) : null}
+          {paid ? (
+            /* One mark on the screen: the fee is a fact here, as on the bail filing's
+               outcome, not a second green line. */
+            <DescriptionRow className="grid-cols-[1fr_auto] items-center border-hairline">
+              <DescriptionTerm className="text-body-compact">Court fee</DescriptionTerm>
+              <DescriptionDetails className="text-body-compact tabular-nums">
+                {COURT_FEE} paid
               </DescriptionDetails>
             </DescriptionRow>
           ) : (

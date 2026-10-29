@@ -33,7 +33,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2Icon, FilePlus2Icon, XIcon, FileXIcon } from "lucide-react";
+import { FilePlus2Icon, XIcon, FileXIcon } from "lucide-react";
 
 import {
   AlertDialog,
