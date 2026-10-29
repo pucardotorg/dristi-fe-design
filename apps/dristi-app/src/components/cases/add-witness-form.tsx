@@ -446,7 +446,8 @@ export function AddWitnessDialog({
           if (!nextOpen) setRemoveId(null);
         }}
         title={`Remove witness ${removeNumber}`}
-        description="Are you sure you want to delete this witness and all their details? This cannot be undone."
+        description="Are you sure you want to delete this witness and all their details?"
+        note="This cannot be undone."
         confirmLabel="Yes, remove"
         onConfirm={confirmRemove}
       />

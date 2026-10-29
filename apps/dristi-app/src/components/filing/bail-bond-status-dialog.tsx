@@ -103,8 +103,9 @@ export function BailBondStatusDialog({
           <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
             <ChromeAlertDialogContent lang={locale}>
               <AlertDialogHeader>
-                {/* Editing voids every signature already made: a destructive act. */}
-                <ConfirmMark danger icon={PenOffIcon} />
+                {/* Editing voids the signatures, but it is a normal act, not a removal: a
+                    neutral mark, and the button stays primary as it was. */}
+                <ConfirmMark icon={PenOffIcon} />
                 <AlertDialogTitle>{pick(bondCopy.invalidateTitle, locale)}</AlertDialogTitle>
                 <AlertDialogDescription className="text-pretty">
                   {pick(bondCopy.invalidateBody, locale)}
@@ -112,7 +113,7 @@ export function BailBondStatusDialog({
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>{pick(bondCopy.cancel, locale)}</AlertDialogCancel>
-                <AlertDialogAction variant="destructive" onClick={onEdit}>
+                <AlertDialogAction onClick={onEdit}>
                   {pick(bondCopy.invalidateConfirm, locale)}
                 </AlertDialogAction>
               </AlertDialogFooter>

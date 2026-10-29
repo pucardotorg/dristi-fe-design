@@ -225,13 +225,13 @@ export function BatchFilingDialog({
           </>
         ) : (
           <>
-            {/* The outcome takes over the window (skill `feedback-states`). Nothing done is a
-                failure and says so in red; it never wears the success green. */}
+            {/* The outcome takes over the window (skill `feedback-states`). Nothing done means
+                every item was already settled: not news, so neutral, never green or red. */}
             <OutcomeHeader
               compact
               titleFrom="dialog"
               focusTitle
-              tone={acted === 0 ? "error" : "success"}
+              tone={acted === 0 ? "neutral" : "success"}
               title={
                 kind === "sign"
                   ? acted === 0

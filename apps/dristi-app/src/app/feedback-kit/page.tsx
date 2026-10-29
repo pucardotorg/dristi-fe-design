@@ -185,7 +185,11 @@ export default function FeedbackKitPage() {
               <Footer><Button>Done</Button></Footer>
             </OutcomeDialog>
             <OutcomeDialog label="Error">
-              <OutcomeHeader titleFrom="dialog" tone="error" compact title="Nothing was signed" body="One OTP covered the set, the same as signing one at a time." />
+              <OutcomeHeader titleFrom="dialog" tone="error" compact title="Payment failed" body="One OTP covered the set, the same as signing one at a time." />
+              <Footer><Button>Done</Button></Footer>
+            </OutcomeDialog>
+            <OutcomeDialog label="Neutral (all already done)">
+              <OutcomeHeader titleFrom="dialog" tone="neutral" compact title="Nothing was signed" body="One OTP covered the set, the same as signing one at a time." />
               <Footer><Button>Done</Button></Footer>
             </OutcomeDialog>
             <OutcomeDialog label="Info (sent, not decided)">

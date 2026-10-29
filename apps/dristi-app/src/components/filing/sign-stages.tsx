@@ -56,17 +56,25 @@ export function SettledCard({
   rows,
   footnote,
   tone = "success",
+  still = false,
 }: {
   headline: string;
   rows: Signatory[];
   footnote: string;
   tone?: "success" | "info";
+  /** The flow opened on this outcome (a settled filing reopened): nothing plays. */
+  still?: boolean;
 }) {
   return (
     <div className="overflow-hidden rounded-xl border border-hairline bg-card shadow-raised">
-      <OutcomeHeader compact tone={tone} body={footnote} surface="card" />
+      <OutcomeHeader compact tone={tone} body={footnote} surface="card" still={still} />
       <div className="p-4">
-        <OutcomeSummary tone={tone === "success" ? "success" : undefined} label={headline}>
+        <OutcomeSummary
+          tone={tone === "success" ? "success" : undefined}
+          still={still}
+          /* The headline is the outcome itself: announced when it happens, not on reopen. */
+          label={<span role={still ? undefined : "status"}>{headline}</span>}
+        >
           <ul className="flex flex-col">
             {rows.map((s) => (
               <li

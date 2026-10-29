@@ -45,6 +45,11 @@ Ask, in order:
    - Nothing went through: `tone="error"`, with no shake (the system failed, not the
      person).
    - Sent but not decided (an application awaiting an order): `tone="info"`.
+   - Nothing to do, nothing wrong (every item was already done): `tone="neutral"`, with the
+     act's `icon` if it has one.
+   - Two outcome stages in one dialog (paid, then filed): give each `OutcomeHeader` its own
+     `key`, or React reuses it and the second one neither plays nor takes focus.
+   - A record reopened on its outcome: `still` (on `SettledCard` too).
    - Some went through: the header says only what fully happened; `OutcomeTally` shows
      the split, one marked line per outcome.
 4. **Is it a quick act where the page stays put** (access given, reminder sent,

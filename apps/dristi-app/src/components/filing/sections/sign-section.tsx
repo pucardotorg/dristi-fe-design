@@ -473,6 +473,8 @@ export function SignSection() {
   const allSigned = everyone.length > 0 && everyone.every((s) => s.status === "signed");
   /** Signatures *and* oaths — what the court fee actually waits on. */
   const complete = everyone.length > 0 && !everyone.some(isOutstanding);
+  /* Already complete when the page opened: the notice stands still (skill `feedback-states`). */
+  const [completeOnOpen] = React.useState(complete);
   const anySigned = everyone.some((s) => s.status === "signed");
   const pending = everyone.filter((s) => s.status === "pending").length;
   /** Complainants who have signed and not yet sworn — advocates carry no oath (`OTH-3`). */
@@ -925,7 +927,7 @@ export function SignSection() {
   ) : complete ? (
     /* ── Every signature and oath is in ── */
     <div className="flex flex-col gap-3">
-      <SectionNotice variant="success" announce="polite">
+      <SectionNotice variant="success" announce="polite" still={completeOnOpen}>
         {onPaper ? "The uploaded copy carries every signature" : "Every party has signed"}
         {signingRules().oath ? ", and everyone has taken the oath." : "."}{" "}
         {returned ? "You can send the corrections to scrutiny now." : "You can pay the court fee now."}
@@ -1552,7 +1554,7 @@ export function SignSection() {
                     ) : (
                       <span className="tabular-nums">—</span>
                     )}
-                    <Button type="button" variant="ghost" size="sm" onClick={copyLink}>
+                    <Button type="button" variant="ghost" onClick={copyLink}>
                       <CopyIcon data-icon="inline-start" aria-hidden />
                       {copied ? "Copied" : "Copy link"}
                     </Button>
@@ -1572,14 +1574,14 @@ export function SignSection() {
             </OutcomeSummary>
 
             <div className="flex flex-col gap-3 sm:flex-row">
-              <Button asChild variant="outline" size="lg" className="flex-1">
+              <Button asChild variant="outline" size="lg" className="sm:flex-1">
                 <Link href={FILINGS_HOME}>Back to dashboard</Link>
               </Button>
               <Button
                 type="button"
                 variant="outline"
                 size="lg"
-                className="flex-1"
+                className="sm:flex-1"
                 onClick={printFile}
               >
                 <PrinterIcon data-icon="inline-start" aria-hidden />

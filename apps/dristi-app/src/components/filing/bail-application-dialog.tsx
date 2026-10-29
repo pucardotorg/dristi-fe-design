@@ -612,14 +612,21 @@ export function BailApplicationDialog({
             the fee paid, then the application filed. */}
         {stage === "done" ? (
           <OutcomeHeader
+            key="done"
             titleFrom="dialog"
             focusTitle
             title={pick(bailDialog.doneTitle, locale)}
             body={pick(bailDialog.doneBody, locale)}
           />
         ) : stage === "paid" ? (
-          <OutcomeHeader titleFrom="dialog" focusTitle title={headerCopy.title} body={headerCopy.body}>
+          <OutcomeHeader key="paid" titleFrom="dialog" focusTitle title={headerCopy.title} body={headerCopy.body}>
             <OutcomeAmount label={pick(advDialog.paidAmount, locale)} value={BAIL_FEE} />
+            {/* The case this filing belongs to, as on every other stage. */}
+            <p className="pt-2 text-caption text-muted-foreground">
+              <Identifier value={accessCase.caseNumber} label="case number" />
+              <span aria-hidden> · </span>
+              {accessCase.title}
+            </p>
           </OutcomeHeader>
         ) : (
           <DialogHeader className="shrink-0 border-b border-hairline px-6 py-5 pr-14 text-left">

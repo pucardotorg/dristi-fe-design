@@ -764,6 +764,8 @@ function SignFlowBody({
         ) : flow.stage === "done" ? (
           <StageColumn>
             <SettledCard
+              /* Reopened onto where signing stands: already true, so nothing plays. */
+              still={start === "status"}
               /* Only sent out, others still to sign: sent, not decided. */
               tone={!outcome && !(youSigned && signedWith) && outstanding !== 0 ? "info" : "success"}
               headline={

@@ -789,6 +789,7 @@ function SignLinkWizard({
             }
             rows={[settledRow]}
             footnote={`Nothing more is needed from you. ${filer} will file the case.`}
+            still={start === "done"}
           />
         </StageColumn>
       )}

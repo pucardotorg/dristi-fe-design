@@ -91,6 +91,7 @@ export function SectionNotice({
   children,
   variant = "neutral",
   announce = "none",
+  still = announce === "none",
   onDismiss,
   className,
 }: {
@@ -100,6 +101,9 @@ export function SectionNotice({
   variant?: NoticeVariant;
   /** "polite" for a result the user is waiting for; "assertive" only for real errors. */
   announce?: "none" | "polite" | "assertive";
+  /** Already true when the page opened: no motion. Defaults to still for a standing
+      notice; pass it for a polite one that can also be there on arrival. */
+  still?: boolean;
   onDismiss?: () => void;
   className?: string;
 }) {
@@ -113,8 +117,8 @@ export function SectionNotice({
       <StatusLine
         tone={variant === "destructive" ? "error" : variant}
         title={title}
-        still={announce === "none"}
-        role={NOTICE_ROLE[announce]}
+        still={still}
+        role={still ? undefined : NOTICE_ROLE[announce]}
         className={className}
         action={
           onDismiss ? (

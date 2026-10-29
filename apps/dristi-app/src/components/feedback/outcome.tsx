@@ -26,7 +26,7 @@ import { StatusMark, type MarkTone } from "./mark";
  * an entrance.
  */
 
-type HeaderTone = Exclude<MarkTone, "neutral" | "danger">;
+type HeaderTone = Exclude<MarkTone, "danger">;
 
 /* The band fades from the tone's muted fill into the surface it sits on. Both ends are
    opaque tokens; the blend itself is on record as a DS request (ds-requests #24). */
@@ -35,6 +35,8 @@ const BAND: Record<HeaderTone, string> = {
   error: "var(--destructive-muted)",
   warning: "var(--warning-muted)",
   info: "var(--info-muted)",
+  /* Nothing happened, and nothing went wrong (every item was already done). */
+  neutral: "var(--surface-sunken)",
 };
 
 const SURFACE = {
@@ -65,10 +67,13 @@ export function OutcomeHeader({
   surface = "popover",
   still = false,
   reject = false,
+  icon,
   children,
   className,
 }: {
   tone?: HeaderTone;
+  /** Neutral only: the act's own icon. */
+  icon?: React.ComponentProps<typeof StatusMark>["icon"];
   /** Omit when the dialog's own header already says the outcome (StagedOverlay keeps its
       header on every stage, owner 2026-09): the band then carries the mark and the line. */
   title?: React.ReactNode;
@@ -106,7 +111,7 @@ export function OutcomeHeader({
       )}
       style={{ background: `linear-gradient(180deg, ${BAND[tone]} 0%, color-mix(in oklab, ${BAND[tone]} 55%, ${SURFACE[surface]}) 100%)` }}
     >
-      <StatusMark tone={tone} size={compact ? 60 : 72} reject={reject} still={still} />
+      <StatusMark tone={tone} icon={icon} size={compact ? 60 : 72} reject={reject} still={still} />
       <div className="flex max-w-md flex-col items-center gap-1.5">
         {title ? (
         <Title
