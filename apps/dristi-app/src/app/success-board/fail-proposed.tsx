@@ -546,8 +546,9 @@ export function NotFoundNext() {
 export function PageErrorNext() {
   return (
     <Screen height={480} scrim={false}>
-      <div className="absolute inset-0 bg-background" />
-      <div className="flex flex-col items-center gap-3 px-6 text-center">
+      {/* Same soft glow as the success page, in the error tint. */}
+      <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 50% 32%, var(--destructive-muted), var(--background) 60%)" }} />
+      <div className="relative flex flex-col items-center gap-3 px-6 text-center">
         <SuccessMark size={56} tone="error" />
         <p className="sb-rise text-title-s font-semibold" style={{ animationDelay: "150ms" }}>This page could not load</p>
         <p className="sb-rise max-w-md text-body text-muted-foreground" style={{ animationDelay: "210ms" }}>Nothing was changed. Reload to try again.</p>

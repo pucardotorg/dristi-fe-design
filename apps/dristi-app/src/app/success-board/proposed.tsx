@@ -132,11 +132,13 @@ function WarnPath({ glyph }: { glyph: WarnGlyph }) {
     );
   }
   if (glyph === "minus") return <path className="sb-widen" d="M6 12h12" />;
+  /* Filled, not stroked: a solid bar and a solid dot with a clear gap between them,
+     so the shape still reads as "!" at toast and badge sizes, without the colour. */
   return (
-    <>
-      <path className="sb-bar" d="M12 4v10" />
-      <circle className="sb-dot" cx="12" cy="19.5" r="1.9" fill="currentColor" stroke="none" />
-    </>
+    <g fill="currentColor" stroke="none">
+      <rect className="sb-bar" x="9.6" y="2.6" width="4.8" height="12.2" rx="2.4" />
+      <circle className="sb-dot" cx="12" cy="19.6" r="2.6" />
+    </g>
   );
 }
 
@@ -161,7 +163,8 @@ export function SuccessMark({
   const t = TONE[tone];
   // Small marks need a heavier stroke and a larger glyph to register at all.
   const stroke = size <= 24 ? 3.4 : size <= 44 ? 3 : 2.6;
-  const glyph = tone === "success" || tone === "info" ? 0.5 : m.warnGlyph === "triangle" && tone === "warning" ? 0.7 : 0.62;
+  const glyph =
+    tone === "success" || tone === "info" ? 0.5 : tone === "warning" && (m.warnGlyph === "triangle" || m.warnGlyph === "bang") ? 0.7 : 0.62;
   const outer =
     tone === "error"
       ? { spring: "sb-shake", spin: "", stamp: "sb-thud", nod: "sb-nod" }[m.errorAnim]
