@@ -522,7 +522,15 @@ function OutcomeCard({
   const doneCount = outcomes.length - failedCount;
   return (
     <>
-      <OutcomeHeader tone={ok ? "success" : "error"} titleFrom="dialog" focusTitle title={title} surface="card" />
+      {/* Some did not go through: the amber "!", never the big tick that says all is well
+          (owner, Oct 29). */}
+      <OutcomeHeader
+        tone={partial ? "warning" : ok ? "success" : "error"}
+        titleFrom="dialog"
+        focusTitle
+        title={title}
+        surface="card"
+      />
       <div className="mx-auto flex w-full max-w-xl flex-col p-4 sm:p-6">
         {partial ? (
           /* Some went through: the title says only what did; the split is shown here. */

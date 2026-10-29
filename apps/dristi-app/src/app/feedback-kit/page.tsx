@@ -197,14 +197,14 @@ export default function FeedbackKitPage() {
               <Footer><Button>Done</Button></Footer>
             </OutcomeDialog>
             <OutcomeDialog label="Partial (tally)">
-              <OutcomeHeader titleFrom="dialog" compact title="3 processes signed" />
+              <OutcomeHeader titleFrom="dialog" tone="warning" compact title="3 processes signed" />
               <div className="px-6 py-4">
                 <OutcomeTally label="Sent" done={2} failed={1} doneLine="2 are now in Sent in Service." failedLine="1 could not be sent and is in Errored in Issuance." />
               </div>
               <Footer><Button>Done</Button></Footer>
             </OutcomeDialog>
             <OutcomeDialog label="Bulk tally (60)">
-              <OutcomeHeader titleFrom="dialog" compact title="60 processes signed" />
+              <OutcomeHeader titleFrom="dialog" tone="warning" compact title="60 processes signed" />
               <div className="px-6 py-4">
                 <OutcomeTally label="Sent" done={57} failed={3} doneLine="57 are now in Sent in Service." failedLine="3 could not be sent and are in Errored in Issuance." />
               </div>

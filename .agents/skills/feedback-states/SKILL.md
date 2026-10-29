@@ -63,7 +63,7 @@ Ask, in order:
    - The lock line (`note`) follows the text above it: centred on a phone, left from tablet.
    - Every outcome stage closes on the warm footer band: `border-t border-hairline
      bg-surface-sunken`, buttons on it, never loose in the white body.
-   - Some went through: the header says only what fully happened; `OutcomeTally` shows
+   - Some went through: `tone="warning"` (the amber "!", never the big tick, owner Oct 29); the header says only what fully happened; `OutcomeTally` shows
      the split, one marked line per outcome.
 4. **Is it a quick act where the page stays put** (access given, reminder sent,
    archived)? Use `notify.success`, `notify.error`, `notify.warning` or

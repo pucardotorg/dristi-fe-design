@@ -223,7 +223,7 @@ export function OutcomeTally({
 }) {
   const total = done + failed;
   const fill = failedTone === "warning" ? "var(--warning)" : "var(--destructive)";
-  const stripes = `repeating-linear-gradient(45deg, ${fill} 0 3px, color-mix(in oklab, ${fill} 62%, var(--card)) 3px 5px)`;
+  const stripes = `repeating-linear-gradient(45deg, ${fill} 0 3px, color-mix(in oklab, ${fill} 40%, var(--card)) 3px 5px)`;
   const segments: { ok: boolean; grow: number }[] =
     total <= PER_ITEM_MAX
       ? Array.from({ length: total }, (_, i) => ({ ok: i < done, grow: 1 }))
