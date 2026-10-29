@@ -1,6 +1,6 @@
 # Feedback states (success, failure, warning)
 Updated: 29 Oct 2026
-Status: decided (design) · rollout not started · design-system PR not opened
+Status: shared pieces implemented and verified · flows not yet moved · design-system PR not opened
 
 ## Current outcome
 
@@ -107,6 +107,45 @@ size and context. The rules and reasons are listed below.
 **If the discussion changes something:** change it in the app folder; every flow
 follows. **If it is discarded:** the app folder stays as the product's own pieces. The
 DS was never touched, so there is nothing to undo.
+
+## Progress
+
+**29 Oct · shared pieces (branch `feature/feedback-states-rollout`).**
+- **Built:** `components/feedback` (mark, outcome header, summary, tally, page outcome,
+  status line, field error with refusal, confirm mark, `notify` toasts), the motion in
+  `app/feedback.css`, and click-away plus the 380px measure in `AppToaster`. Every piece
+  is shown live at `/feedback-kit`. Agents get the `feedback-states` skill (linked from
+  `ui-craft`).
+- **Snapped to the DS:**
+  - Marks use the Tailwind sizes 14, 16, 20, 24, 40, 56, 60, 72 and 96px. The board's 22
+    and 26px became 24px; the badge mark is 14px, concentric with pill padding.
+  - Rails are 4px.
+  - The neutral ring uses `input`, not an alpha mix.
+  - The takeover band's bottom edge is `hairline`, where the board used a tinted raw ramp
+    step. That is a small visible difference, and it is DS-correct.
+- **Independent review** (separate reviewer, code only): 18 findings, all fixed. Among
+  them:
+  - a press on a toast's own Undo being swallowed
+  - the header crashing inside an `AlertDialog`
+  - an error toast that could be dismissed by a reused id
+  - a neutral mark falling back to the hourglass
+  - a double toast entrance
+  - 36px touch targets
+  - nested live regions
+  - delays not reaching hero glyphs
+  - bulk tallies taking about 5s
+  - a field remount losing typed text
+- **Verified in the browser:**
+  - Viewports: 375, 768×1024, 1024×768, 1024×1366 and 1366×1024. Every size gives a
+    centred 380px toast 56px up (64px and full width on a phone), centred dialogs or a
+    phone bottom sheet, and no sideways scroll.
+  - Dark mode.
+  - Reduced motion: all 135 animated elements appear settled.
+  - Toast life, click-away, errors persisting and presses inside a toast.
+  - Field refusal: focus, the growing ring, the repeat shake, and typed text kept.
+  - Concentric badges (5px each side), and screen-reader wiring of titles and errors.
+- **Test note:** the preview pane was hidden, so animation frames were paused. Toast
+  removal was tested with frames stood in by a timer.
 
 ## Verification and open work
 
