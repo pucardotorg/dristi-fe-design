@@ -83,17 +83,27 @@ export const ErrToastDescNext = () => (
 );
 
 /** The press points at what is missing, where it is missing (Submit points at missing). */
+/** Press Send for signing to try it. First press: the field's red ring grows in and the
+    line drops out from under it. Every press after that, while it is still empty, the
+    field gives one small shake and the line plays again, so a repeat press is never
+    met with nothing. */
 export function BlockToastNext() {
+  const [presses, setPresses] = React.useState(1);
   return (
     <Screen height={420} scrim={false}>
       <div className="absolute inset-0 bg-background" />
       <div className="relative flex w-full max-w-2xl flex-col gap-4 rounded-xl border border-hairline bg-card p-6 shadow-raised">
         <Field data-invalid>
           <FieldLabel className="text-body font-semibold">Order text</FieldLabel>
-          <Textarea aria-invalid className="min-h-40 text-body ring-3 ring-destructive/20" />
-          <ErrLine>Type the order before sending it for signing.</ErrLine>
+          <div key={`f${presses}`} className={presses > 1 ? "sb-shake" : ""} style={presses > 1 ? { animationDelay: "0ms" } : undefined}>
+            <Textarea aria-invalid className="sb-ringin min-h-40 rounded-lg text-body" />
+          </div>
+          <ErrLine key={`e${presses}`}>Type the order before sending it for signing.</ErrLine>
         </Field>
-        <div className="flex justify-end"><Button>Send for signing</Button></div>
+        <div className="flex items-center justify-end gap-3" onPointerDown={(e) => e.stopPropagation()}>
+          <span className="text-caption text-muted-foreground">Press again to see the repeat</span>
+          <Button onClick={() => setPresses((n) => n + 1)}>Send for signing</Button>
+        </div>
       </div>
     </Screen>
   );
@@ -357,14 +367,15 @@ export const ConfirmSignNext = () => (
 /* The words appear at once, so they can be read at once; the icon alone carries the
    motion, with the same scale-in as the small marks. */
 function ErrLine({ children, still }: { children: React.ReactNode; still?: boolean }) {
-  return (
-    <FieldError className="flex items-center gap-1.5 text-destructive-ink">
-      <span className={still ? "flex shrink-0" : "sb-icon flex shrink-0"} style={still ? undefined : { animationDelay: "0ms" }}>
+  const line = (
+    <FieldError className={(still ? "" : "sb-errdrop ") + "flex items-center gap-1.5 pt-0.5 text-destructive-ink"}>
+      <span className={still ? "flex shrink-0" : "sb-icon flex shrink-0"} style={still ? undefined : { animationDelay: "200ms" }}>
         <CircleXIcon className="size-3.5" strokeWidth={2.4} />
       </span>
       <span>{children}</span>
     </FieldError>
   );
+  return still ? line : <div className="sb-reveal"><div>{line}</div></div>;
 }
 
 export function FieldErrorsNext() {

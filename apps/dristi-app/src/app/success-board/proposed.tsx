@@ -37,6 +37,9 @@ export const PROPOSED_CSS = `
 @keyframes sb-ring-soft { 0% { transform: scale(1); opacity: .3 } 100% { transform: scale(1.7); opacity: 0 } }
 @keyframes sb-dot { 0% { transform: scale(0) } 60% { transform: scale(1.45) } 100% { transform: scale(1) } }
 @keyframes sb-icon { 0% { transform: scale(.55); opacity: 0 } 70% { transform: scale(1.06); opacity: 1 } 100% { transform: none } }
+@keyframes sb-reveal { from { grid-template-rows: 0fr } to { grid-template-rows: 1fr } }
+@keyframes sb-errdrop { from { opacity: 0; transform: translateY(-8px) } to { opacity: 1; transform: none } }
+@keyframes sb-ringin { from { box-shadow: 0 0 0 0 color-mix(in oklab, var(--destructive) 40%, transparent) } to { box-shadow: 0 0 0 3px color-mix(in oklab, var(--destructive) 20%, transparent) } }
 @keyframes sb-errline { from { opacity: 0; transform: translateY(-3px) } to { opacity: 1; transform: none } }
 @keyframes sb-pop-quick { 0% { transform: scale(.7); opacity: 0 } 70% { transform: scale(1.04); opacity: 1 } 100% { transform: none } }
 @keyframes sb-spin { 0% { transform: rotate(-180deg) scale(.2); opacity: 0 } 70% { transform: rotate(12deg) scale(1.08); opacity: 1 } 100% { transform: none } }
@@ -68,6 +71,12 @@ export const PROPOSED_CSS = `
 .sb-ring-soft { animation: sb-ring-soft 650ms 330ms ease-out both }
 .sb-icon { animation: sb-icon 380ms 180ms cubic-bezier(.3,1.3,.5,1) both }
 .sb-errline { animation: sb-errline 220ms ease-out both }
+/* An error line opens its own room and drops out from under the field, clipped at the
+   field's edge, so it reads as coming from the field, not fading in from nowhere. */
+.sb-reveal { display: grid; animation: sb-reveal 220ms cubic-bezier(.2,.8,.2,1) both }
+.sb-reveal > * { min-height: 0; overflow: hidden }
+.sb-errdrop { animation: sb-errdrop 300ms 60ms cubic-bezier(.2,.8,.2,1) both }
+.sb-ringin { animation: sb-ringin 260ms ease-out both }
 .sb-pop-quick { animation: sb-pop-quick 250ms cubic-bezier(.2,.9,.3,1.2) both }
 .sb-spin { transform-box: fill-box; transform-origin: center; animation: sb-spin 560ms 160ms cubic-bezier(.34,1.56,.64,1) both }
 .sb-stamp { animation: sb-stamp 380ms cubic-bezier(.2,.9,.3,1) both }
@@ -82,7 +91,7 @@ export const PROPOSED_CSS = `
 .sb-widen { transform-box: fill-box; transform-origin: center; animation: sb-widen 360ms 200ms cubic-bezier(.34,1.56,.64,1) both }
 .sb-fill { transform-origin: left; animation: sb-fill 700ms cubic-bezier(.2,.8,.2,1) both }
 @media (prefers-reduced-motion: reduce) {
-  .sb-pop, .sb-draw, .sb-ring, .sb-rise, .sb-band, .sb-toast, .sb-drain, .sb-land, .sb-fill, .sb-flip, .sb-chip, .sb-shake, .sb-stroke, .sb-bar, .sb-dot, .sb-ring-soft, .sb-icon, .sb-spin, .sb-stamp, .sb-thud, .sb-nod, .sb-swing, .sb-sway, .sb-glow > span, .sb-drop, .sb-glyph, .sb-wave, .sb-widen, .sb-pop-quick, .sb-errline { animation: none }
+  .sb-pop, .sb-draw, .sb-ring, .sb-rise, .sb-band, .sb-toast, .sb-drain, .sb-land, .sb-fill, .sb-flip, .sb-chip, .sb-shake, .sb-stroke, .sb-bar, .sb-dot, .sb-ring-soft, .sb-icon, .sb-spin, .sb-stamp, .sb-thud, .sb-nod, .sb-swing, .sb-sway, .sb-glow > span, .sb-drop, .sb-glyph, .sb-wave, .sb-widen, .sb-pop-quick, .sb-errline, .sb-reveal, .sb-errdrop, .sb-ringin { animation: none }
   .sb-ring-soft { opacity: 0 }
   .sb-ring { opacity: 0 }
 }
