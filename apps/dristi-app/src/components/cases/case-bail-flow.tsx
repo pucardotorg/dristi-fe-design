@@ -60,6 +60,11 @@ export function useCaseBail(): CaseBailValue {
   return value;
 }
 
+/** The bail lifecycle where a surface may sit outside the provider (the court's case page). */
+export function useOptionalCaseBail(): CaseBailValue | null {
+  return React.useContext(CaseBailContext);
+}
+
 export function CaseBailProvider({
   accessCase,
   initialBondPhase = "task",
@@ -120,7 +125,6 @@ export function CaseBailProvider({
         open={bondOpen}
         onOpenChange={setBondOpen}
         accessCase={accessCase}
-        locale={locale}
         mode={bondMode}
         onSubmitted={(result) => {
           setBondMethod(result.method);
