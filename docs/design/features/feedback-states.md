@@ -103,6 +103,36 @@ size and context. The rules and reasons are listed below.
 
   Removal happens only after the rollout has moved every flow off them.
 
+**Decided during the rollout. Carry every one into the DS PR** (owner, Oct 29). Each is
+already in `components/feedback` and the skill. In the DS they become component defaults
+and documented rules:
+- **The title always sits under the mark,** never in a header above it. That includes
+  staged overlays: their settled stage drops the header (`StagedOverlay outcome`). This
+  supersedes the "header on every stage" rule for the outcome stage.
+- **Every outcome closes on the warm footer band:** `border-t border-hairline
+  bg-surface-sunken`, with the buttons on it, never loose in the body. The DS
+  `DialogFooter` default is `bg-muted`; the DS should settle which one is the outcome band.
+- **Dialogs pin their header and footer; only the middle scrolls.**
+- **On a phone the takeover is compact:** a 60px mark and a `title-s` title, with the
+  full size from `sm` up.
+- **Partial result:** a neutral mark with a checklist icon, never the big tick (reads as
+  all well) or the "!" (reads as alarm). The tally below says what happened.
+- **Tally stripes:** the failed share stripes the status solid with a 40% mix into `card`.
+  The 62% mix was too faint to read as stripes.
+- **Lock line (irreversible note):** 12px above it, and it follows the description's
+  alignment, centred in a phone's alert dialog and left from tablet up.
+- **Dead ends and outcome-only pages are centred on the page both ways,** icon included.
+- **A secondary act under an outcome's facts** (open a link, download) is centred on a
+  phone and left-aligned with the facts from tablet up.
+- **Payment outcomes lead with the amount** ("₹65 paid"). A count labels the list.
+- **Waiting on the person** (sign later, pay later) is neutral with a clock, never amber.
+  Waiting on someone else is info (the hourglass).
+- **Nothing to do, nothing wrong** (every item already done) is a neutral takeover.
+- **Errors raised inside a dialog are said in the dialog,** never as a toast behind it.
+  The app's `useTaskActions({ inDialog })` does this today.
+
+See ds-requests #27 for the dialog-level ones.
+
 ### 3. When the design-system PR is approved
 
 1. Merge the DS PR.

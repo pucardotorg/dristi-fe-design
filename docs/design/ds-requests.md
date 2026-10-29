@@ -670,3 +670,18 @@ toast disappears. `AppToaster` can carry these as app settings.
 Closes when the DS toaster recipe documents the duration, click-away, error persistence
 and a raised dark surface, or exposes them as variants.
 
+## 27. Dialogs have no outcome layout rules
+
+The rollout settled how a dialog looks when it becomes an outcome (owner, Oct 29), and
+none of it is in the DS:
+- The mark first, then the title, then the facts. The title is never in a header above.
+- A footer band with a divider, carrying the buttons. `DialogFooter` defaults to `bg-muted`;
+  the product's warm band is `bg-surface-sunken`. The two need reconciling.
+- Header and footer pinned, with only the body scrolling. Today each dialog builds this
+  by hand: `flex flex-col p-0`, a `shrink-0` header, a `min-h-0 flex-1 overflow-y-auto`
+  body and a `shrink-0` footer with `mx-0 mb-0`, which undoes the footer's negative margins.
+- In `AlertDialog`, extra lines under the description (the lock line) must follow the
+  description's alignment: centred on phones, left from `sm`.
+
+Closes when the DS dialog primitives (or a documented recipe) provide an outcome layout,
+a pinned-body variant and the footer band, so the app stops hand-building them.
