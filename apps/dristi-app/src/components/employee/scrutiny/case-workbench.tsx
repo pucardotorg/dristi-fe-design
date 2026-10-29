@@ -5,8 +5,7 @@ import {
   ClockIcon,
   FilesIcon,
   PencilIcon,
-  TriangleAlertIcon,
-} from "lucide-react";
+  } from "lucide-react";
 
 import { useRoomInRem } from "@/hooks/use-min-width";
 import { nextFilingAfter } from "@/lib/employee/scrutiny/queue";
@@ -36,7 +35,6 @@ import {
   IndexRail,
   IndexSheet,
 } from "@/components/employee/scrutiny/index-rail";
-import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -55,6 +53,7 @@ import {
 import { useCourt, useCourtText } from "@/components/court/court-provider";
 import { useCourtRole } from "@/components/employee/use-court-role";
 import { registersAtScrutiny } from "@/lib/employee/court-role";
+import { StatusLine } from "@/components/feedback";
 
 /**
  * The case review: filed fields on the left, the bundle in the centre, the document
@@ -332,15 +331,12 @@ export function CaseWorkbench({
         </div>
       </div>
 
-      {/* A standing condition, not feedback on an action → Banner. */}
+      {/* A standing condition, said still (skill `feedback-states`). */}
       {ai === "unavailable" ? (
-        <Banner variant="warning">
-          <TriangleAlertIcon />
-          <div className="min-w-0 flex-1 leading-snug">
-            AI assistance unavailable — no document readings or consistency checks
-            on this file.
-          </div>
-        </Banner>
+        <StatusLine tone="warning" still>
+          AI assistance unavailable — no document readings or consistency checks
+          on this file.
+        </StatusLine>
       ) : null}
 
       {threePane ? (

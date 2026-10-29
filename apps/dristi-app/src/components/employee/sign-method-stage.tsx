@@ -5,6 +5,7 @@ import {
   type SignatureChoice,
 } from "@/components/employee/sign-signature-fields";
 import { Button } from "@/components/ui/button";
+import { IrreversibleNote } from "@/components/feedback";
 
 /**
  * **Add signature — a stage of the window that was reading the paper, not a second
@@ -99,7 +100,10 @@ export function SignatureStage({
       />
 
       {warning ? (
-        <p className="text-caption text-muted-foreground">{warning}</p>
+        /* The irreversible line, with its lock, so it is read (skill `feedback-states`). */
+        <p className="text-body-compact text-muted-foreground">
+          <IrreversibleNote>{warning}</IrreversibleNote>
+        </p>
       ) : null}
     </div>
   );

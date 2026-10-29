@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { toast } from "sonner";
+import { notify } from "@/components/feedback";
 import {
   FileTextIcon,
   FlagIcon,
@@ -430,7 +430,7 @@ function RaisedItem({
                * Removal never cascades: a bad scan is still a bad scan. Say what stayed
                * behind, and offer the second removal rather than performing it.
                */
-              toast(
+              notify.neutral(
                 `Flag removed. The document issue on ${docName(
                   fieldById[stranded]?.docrow ?? "",
                   docById,

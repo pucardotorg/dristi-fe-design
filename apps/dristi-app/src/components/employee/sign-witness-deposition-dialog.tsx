@@ -120,8 +120,7 @@ function SignWitnessDepositionBody({
           {/* What the act means, and what this build does not do — said at the moment of
               the act rather than left for the bench to discover. */}
           <p className="text-caption text-muted-foreground sm:mr-auto sm:text-left">
-            Signing publishes this deposition and cannot be reversed. Not part of
-            this build — nothing is signed, published or sent.
+            Signing publishes this deposition and cannot be reversed.
           </p>
           {/* `sm:self-center` because the frame owns the footer's own classes and this
               row pairs a caption that wraps to two lines with a 40px control: without it

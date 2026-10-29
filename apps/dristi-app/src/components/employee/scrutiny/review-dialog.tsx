@@ -11,7 +11,6 @@ import type {
   FlatField,
 } from "@/lib/employee/scrutiny/types";
 import { markArrival } from "@/components/employee/use-arrival";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -26,6 +25,7 @@ import {
 import { useScrutinyCase } from "@/components/employee/scrutiny/scrutiny-case-context";
 import { useCourt } from "@/components/court/court-provider";
 import type { RegistrationType } from "@/lib/court/profiles";
+import { OutcomeHeader } from "@/components/feedback";
 
 /**
  * `forward` hands the case to Registration, for a Case registerer; `register` registers it
@@ -289,6 +289,8 @@ export function ReviewDialog({
            sizes. The definite height is what makes that affordable — the header loses two
            rows and the stage absorbs them, so the panel does not move. */
         description={done ? undefined : head.body}
+        /* The settled stage takes the window over: mark, then title (owner, Oct 29). */
+        outcome={done}
         sceneKey={flow.sceneKey}
         motion={flow.motion}
         footer={
@@ -380,30 +382,20 @@ export function ReviewDialog({
              a list that stayed. Centred by `my-auto` rather than `justify-center`, so it
              gives way to the scroll if a long advocate name ever grows it past the
              canvas. */
-          <div className="my-auto flex flex-col items-center gap-4 p-6 text-center">
-            <div
-              className={cn(
-                "flex size-14 items-center justify-center rounded-full",
-                settled.tone,
-              )}
+          <div className="flex flex-col">
+            <OutcomeHeader
+              titleFrom="dialog"
+              focusTitle
+              surface="card"
+              /* A return is the ordinary route, not a win: neutral with the loop. Forwarding
+                 and registering are this desk's good outcomes. */
+              tone={decision === "send-back" ? "neutral" : "success"}
+              icon={decision === "send-back" ? RotateCcwIcon : undefined}
+              title={settled.title}
+              body={settled.body}
             >
-              <settled.Icon
-                aria-hidden="true"
-                className="size-7"
-                strokeWidth={2.2}
-              />
-            </div>
-            {/* The state, then what it means. `role="status"` is what gets the outcome
-                spoken: focus lands on the header title, which announces itself and
-                nothing under it. The measure is held to a readable line length — a
-                sentence running the full width of a 2xl dialog under a centred mark
-                reads as a paragraph that lost its column. */}
-            <div role="status" className="flex max-w-sm flex-col gap-1">
-              <p className="text-body font-semibold">{settled.state}</p>
-              <p className="text-body-compact text-muted-foreground">
-                {settled.body}
-              </p>
-            </div>
+              <span className="text-body-compact font-semibold">{settled.state}</span>
+            </OutcomeHeader>
           </div>
         ) : total || choosing ? (
           /* The list, and **only the list scrolls** — the frame around it does not move,

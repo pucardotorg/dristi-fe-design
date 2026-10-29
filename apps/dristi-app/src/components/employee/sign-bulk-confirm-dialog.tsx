@@ -1,9 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { CircleCheckIcon } from "lucide-react";
 
-import { RESOLVE_IN_PLACE } from "@/components/chrome/motion";
 import {
   StagedOverlay,
   useStagedFlow,
@@ -20,6 +18,7 @@ import {
 } from "@/components/ui/description-list";
 import { Dialog, DialogDescription } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { IrreversibleNote, OutcomeHeader, OutcomeSummary } from "@/components/feedback";
 
 /**
  * What the court is acting on in bulk.
@@ -321,6 +320,8 @@ function SignBulkConfirmBody({
          under the bench at the exact moment this design is claiming that nothing moves.
          The floor takes that difference inside the canvas instead. */
       floor
+      /* The settled stage takes the window over: mark, then title (owner, Oct 29). */
+      outcome={done}
       onCloseAutoFocus={(event) => {
         /* Backing out returns the bench to the button it left; signing sends it to the
            search field, because signing is what disabled that button — and on the queues
@@ -379,9 +380,26 @@ function SignBulkConfirmBody({
       {/* Centred in the canvas while there is room for it, and pushed back to the top by
           its own content when there is not — `my-auto` gives way to overflow, which a
           `justify-center` on the scroller would not. */}
-      <div className="my-auto flex w-full flex-col">
-        <ActCard act={act} one={one} signed={signed} done={done} />
-      </div>
+      {done ? (
+        <>
+          <OutcomeHeader
+            titleFrom="dialog"
+            focusTitle
+            surface="card"
+            title={act.done(phrase)}
+            body={act.outcome(one)}
+          />
+          <div className="mx-auto flex w-full max-w-xl flex-col p-4 sm:p-6">
+            <OutcomeSummary>
+              <SignedFigures signed={signed} />
+            </OutcomeSummary>
+          </div>
+        </>
+      ) : (
+        <div className="my-auto flex w-full flex-col">
+          <ActCard act={act} one={one} signed={signed} />
+        </div>
+      )}
     </StagedOverlay>
   );
 }
@@ -423,78 +441,60 @@ function ActCard({
   act,
   one,
   signed,
-  done,
 }: {
   act: SignBulkAct;
   /** Whether the run is a single document, which is what the copy branches on. */
   one: boolean;
   signed: Signed;
-  /** The act has run: the same card, stamped. */
-  done: boolean;
 }) {
+  /* "This cannot be reversed." on its own line with a lock, so it is read, not skimmed. */
+  const meaning = act.meaning(one);
+  const [lead, irreversible] = meaning.endsWith(IRREVERSIBLE)
+    ? [meaning.slice(0, -IRREVERSIBLE.length).trimEnd(), IRREVERSIBLE.trim()]
+    : [meaning, null];
   return (
     /* Flush: the band and the rows draw their own rules edge to edge, so the card's own
        padding is off and `overflow-hidden` is what keeps the band inside the radius. */
     <Card size="sm" className={cn(PANEL_CLASS, "gap-0 overflow-hidden py-0")}>
-      <div
-        /* Keyed on the act so the band mounts when it changes and plays its entrance;
-           the rows below it are not keyed and do not move. */
-        key={done ? "done" : "asking"}
-        className={cn(
-          "flex items-center gap-2 px-4 py-3",
-          done
-            ? /* The transparent rule is load-bearing: the unstamped band carries a
-                 hairline, and a solid band without one is 1px shorter — which is 1px of
-                 the card moving at the exact moment this design is claiming that nothing
-                 does. */
-              cn(
-                "border-b border-transparent bg-success text-success-foreground",
-                RESOLVE_IN_PLACE,
-              )
-            : "border-b border-hairline",
-        )}
-      >
-        {done ? (
-          <CircleCheckIcon aria-hidden className="size-5 shrink-0" />
-        ) : null}
-        {/* The dialog's description, in the card rather than in the header, because this
-            is the sentence that describes the window at both moments — and keeping it
-            inside the stage is what lets the header hold its height while it changes.
-
-            `role="status"` on the settled stage is what gets the outcome spoken: focus
-            lands on the header's heading, which announces the title and its role and
-            nothing under it. */}
-        <DialogDescription
-          role={done ? "status" : undefined}
-          className={cn(
-            "text-body text-pretty",
-            done ? "text-success-foreground" : "text-muted-foreground",
-          )}
-        >
-          {done ? act.outcome(one) : act.meaning(one)}
+      <div className="border-b border-hairline px-4 py-3">
+        {/* The dialog's description, in the card rather than in the header. */}
+        <DialogDescription className="text-body text-pretty text-muted-foreground">
+          <span className="block">{lead}</span>
+          {irreversible ? <IrreversibleNote>{irreversible}</IrreversibleNote> : null}
         </DialogDescription>
       </div>
+      <div className="px-4">
+        <SignedFigures signed={signed} />
+      </div>
+    </Card>
+  );
+}
 
-      <DescriptionList className="px-4">
-        {signed.kinds.map((kind) => (
-          <DescriptionRow
-            key={kind.label}
-            className="grid-cols-[1fr_auto] items-center border-hairline"
-          >
-            <DescriptionTerm className="text-body">{kind.label}</DescriptionTerm>
-            <DescriptionDetails className="text-body tabular-nums">
-              {kind.count}
-            </DescriptionDetails>
-          </DescriptionRow>
-        ))}
-        <DescriptionRow className="grid-cols-[1fr_auto] items-center border-hairline">
-          <DescriptionTerm className="text-body">Cases</DescriptionTerm>
+const IRREVERSIBLE = " This cannot be reversed.";
+
+/** What kinds are in the run and how many cases it touches: the same figures before the
+    act and after it. */
+function SignedFigures({ signed }: { signed: Signed }) {
+  return (
+    <DescriptionList>
+      {signed.kinds.map((kind) => (
+        <DescriptionRow
+          key={kind.label}
+          className="grid-cols-[1fr_auto] items-center border-hairline"
+        >
+          <DescriptionTerm className="text-body">{kind.label}</DescriptionTerm>
           <DescriptionDetails className="text-body tabular-nums">
-            {signed.cases === 1 ? "1 case" : `${signed.cases} cases`}
+            {kind.count}
           </DescriptionDetails>
         </DescriptionRow>
-      </DescriptionList>
-    </Card>
+      ))}
+      <DescriptionRow className="grid-cols-[1fr_auto] items-center border-hairline">
+        <DescriptionTerm className="text-body">Cases</DescriptionTerm>
+        <DescriptionDetails className="text-body tabular-nums">
+          {signed.cases === 1 ? "1 case" : `${signed.cases} cases`}
+        </DescriptionDetails>
+      </DescriptionRow>
+    </DescriptionList>
   );
 }
 
