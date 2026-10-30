@@ -51,9 +51,10 @@ export function dismissOnPageClick() {
   clickAway.clear();
 }
 
-/* Error cards on screen now, by what they say. The same error again replaces its card
-   instead of stacking a copy (owner, 2026-10-30). */
-const openErrors = new Map<string, string | number>();
+/* Error cards by what they say. The same error again replaces its card instead of stacking
+   a copy (owner, 2026-10-30). An entry is either on screen (`id`) or waiting out the gap
+   before it rises (`timer`), so a fast double repeat still ends in one card. */
+const openErrors = new Map<string, { id?: string | number; timer?: number }>();
 
 /* The repeat starts rising as the old card leaves (sonner's exit is about 200ms), so two
    identical cards are never both in full view. */
@@ -61,7 +62,7 @@ const REPEAT_GAP_MS = 120;
 
 function forget(id: string | number) {
   clickAway.delete(id);
-  for (const [key, open] of openErrors) if (open === id) openErrors.delete(key);
+  for (const [key, open] of openErrors) if (open.id === id) openErrors.delete(key);
 }
 
 function showError(title: React.ReactNode, options: Options = {}) {
@@ -69,12 +70,13 @@ function showError(title: React.ReactNode, options: Options = {}) {
   const raise = () => {
     /* A fresh id every time, so sonner plays the entrance rather than updating in place. */
     const id = show("error", title, { ...options, id: undefined });
-    if (key) openErrors.set(key, id);
+    if (key) openErrors.set(key, { id });
   };
   const previous = key ? openErrors.get(key) : undefined;
-  if (previous === undefined) return raise();
-  toast.dismiss(previous);
-  window.setTimeout(raise, REPEAT_GAP_MS);
+  if (!key || !previous) return raise();
+  if (previous.timer !== undefined) window.clearTimeout(previous.timer);
+  if (previous.id !== undefined) toast.dismiss(previous.id);
+  openErrors.set(key, { timer: window.setTimeout(raise, REPEAT_GAP_MS) });
 }
 
 /* Each show gets its own key, so reusing an id restarts the card's timer bar with
@@ -111,29 +113,43 @@ function show(tone: Tone, title: React.ReactNode, options: Options = {}) {
   return id;
 }
 
-/* An error toast behind an open dialog cannot be closed (it stays until closed, and the
-   dialog blocks the page). Callers should say it inside the dialog; as a safety net, one
-   raised while a dialog is open waits for the last dialog to close. */
-function dialogOpen() {
-  return (
-    typeof document !== "undefined" &&
-    !!document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]')
-  );
+/* An error toast behind an open modal cannot be closed (it stays until closed, and the
+   modal blocks the page). Callers should say it inside the modal; as a safety net, one
+   raised while a modal is open waits for it to close. Only modal surfaces count: a popover
+   or date picker is also `role="dialog"` but leaves the page usable. */
+const MODAL_OPEN = ["dialog-content", "alert-dialog-content", "sheet-content", "drawer-content"]
+  .map((slot) => `[data-slot="${slot}"][data-state="open"]`)
+  .concat('[role="dialog"][aria-modal="true"]')
+  .join(", ");
+
+/* The longest an error waits behind a modal. Past this it shows anyway: an error shown late
+   beats an error never shown. */
+const MODAL_WAIT_MS = 30_000;
+
+function modalOpen() {
+  return typeof document !== "undefined" && !!document.querySelector(MODAL_OPEN);
 }
 
-function whenNoDialog(run: () => void) {
-  if (!dialogOpen()) return run();
-  const observer = new MutationObserver(() => {
-    if (dialogOpen()) return;
+function whenNoModal(run: () => void) {
+  if (!modalOpen()) return run();
+  let done = false;
+  const finish = () => {
+    if (done) return;
+    done = true;
     observer.disconnect();
+    window.clearTimeout(timeout);
     run();
+  };
+  const observer = new MutationObserver(() => {
+    if (!modalOpen()) finish();
   });
+  const timeout = window.setTimeout(finish, MODAL_WAIT_MS);
   observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-state"] });
 }
 
 export const notify = {
   success: (title: React.ReactNode, options?: Options) => show("success", title, options),
-  error: (title: React.ReactNode, options?: Options) => whenNoDialog(() => showError(title, options)),
+  error: (title: React.ReactNode, options?: Options) => whenNoModal(() => showError(title, options)),
   warning: (title: React.ReactNode, options?: Options) => show("warning", title, options),
   neutral: (title: React.ReactNode, options?: Options) => show("neutral", title, options),
 };
