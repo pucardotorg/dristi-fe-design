@@ -115,7 +115,8 @@ neutral, choose neutral.
   system failure.
 - **Toasts last 2.75s** and leave on any press on the page outside the toasts; their
   timer pauses while the pointer is over them. **Error toasts stay until closed** and
-  ignore page presses. Success, warning and neutral
+  ignore page presses. The same error again never stacks a copy: the old card leaves and
+  it comes up from the bottom afresh (`notify.error` does this). Success, warning and neutral
   toasts are for quick acts only; anything that needs action is a dialog or inline.
 - **Never colour alone.** Every mark has a distinct glyph: check, cross, "!", hourglass,
   or the act's icon (a neutral mark without one shows an info icon; pass the real one). A

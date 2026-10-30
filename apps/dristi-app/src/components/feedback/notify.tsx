@@ -17,6 +17,8 @@ import { StatusMark } from "./mark";
  * - **error**: an act that did not happen, raised from a page. **Stays until closed** and
  *   carries a close button: an error that times out before it is read is the worst case
  *   of the problem this system fixes. A click on the page does not dismiss it.
+ *   The same error again never stacks a copy: the old card leaves and the error comes up
+ *   from the bottom afresh, so a retry that failed again reads as new news.
  *   Inside an open dialog, a failure is never a toast (the dialog blocks the page, so the
  *   toast could not be closed): use `StatusLine` or `OutcomeHeader` there.
  * - **warning**: only where the product already treats it as a warning.
@@ -49,6 +51,32 @@ export function dismissOnPageClick() {
   clickAway.clear();
 }
 
+/* Error cards on screen now, by what they say. The same error again replaces its card
+   instead of stacking a copy (owner, 2026-10-30). */
+const openErrors = new Map<string, string | number>();
+
+/* The repeat starts rising as the old card leaves (sonner's exit is about 200ms), so two
+   identical cards are never both in full view. */
+const REPEAT_GAP_MS = 120;
+
+function forget(id: string | number) {
+  clickAway.delete(id);
+  for (const [key, open] of openErrors) if (open === id) openErrors.delete(key);
+}
+
+function showError(title: React.ReactNode, options: Options = {}) {
+  const key = options.id != null ? `id:${String(options.id)}` : typeof title === "string" ? `title:${title}` : undefined;
+  const raise = () => {
+    /* A fresh id every time, so sonner plays the entrance rather than updating in place. */
+    const id = show("error", title, { ...options, id: undefined });
+    if (key) openErrors.set(key, id);
+  };
+  const previous = key ? openErrors.get(key) : undefined;
+  if (previous === undefined) return raise();
+  toast.dismiss(previous);
+  window.setTimeout(raise, REPEAT_GAP_MS);
+}
+
 /* Each show gets its own key, so reusing an id restarts the card's timer bar with
    sonner's timer instead of leaving it half drained. */
 let shown = 0;
@@ -74,8 +102,8 @@ function show(tone: Tone, title: React.ReactNode, options: Options = {}) {
       duration: persistent ? Number.POSITIVE_INFINITY : TOAST_LIFE_MS,
       /* The card draws its own surface and shadow; the list item stays bare. */
       style: { boxShadow: "none" },
-      onDismiss: (t) => clickAway.delete(t.id),
-      onAutoClose: (t) => clickAway.delete(t.id),
+      onDismiss: (t) => forget(t.id),
+      onAutoClose: (t) => forget(t.id),
     },
   );
   if (persistent) clickAway.delete(id);
@@ -105,7 +133,7 @@ function whenNoDialog(run: () => void) {
 
 export const notify = {
   success: (title: React.ReactNode, options?: Options) => show("success", title, options),
-  error: (title: React.ReactNode, options?: Options) => whenNoDialog(() => show("error", title, options)),
+  error: (title: React.ReactNode, options?: Options) => whenNoDialog(() => showError(title, options)),
   warning: (title: React.ReactNode, options?: Options) => show("warning", title, options),
   neutral: (title: React.ReactNode, options?: Options) => show("neutral", title, options),
 };

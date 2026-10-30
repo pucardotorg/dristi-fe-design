@@ -53,6 +53,7 @@ size and context. The rules and reasons are listed below.
 | 30 Oct | **The success ring pulses once.** Tried and dropped the same day: an endless loop, and three pulses (also slowing and fading). Both read as too busy. | Owner | rule |
 | 30 Oct | **Approve registrations ends on the inline line,** not the tinted strip. It stays until the dialog closes or moves on. Rejected uses the soft red danger mark. | Owner | decided |
 | 30 Oct | **Order editor missing-input toasts stay toasts.** Another designer chose them; their call is kept. | Owner | decided |
+| 30 Oct | **A repeated error re-enters, never stacks.** Error toasts stay until closed, so a retry that fails again would pile up copies. The old card leaves and the same error comes up from the bottom afresh, so it reads as new news. Different errors still stack. Before the redesign errors left after 4s with no close button. | Owner | rule |
 | 29 Oct | **Order of work: flows first, design system later.** The new pieces are built once in the app, composed only from existing design-system parts and tokens, and rolled into every flow. The same pieces go to the design system as a PR for discussion. On approval they move there, and the screens look identical. | Lead designer, owner | decided |
 
 ## Branches (all of them, so none is forgotten)
@@ -135,6 +136,8 @@ and documented rules:
   the opening frames. The outcome's words shift with it. A DS motion token.
 - **Small success ticks draw themselves** (Oct 30): disc pops 250ms, tick draws 280ms from
   120ms. Other small glyphs scale in. Replaces the Oct 29 scale-in for ticks.
+- **A repeated error toast re-enters instead of stacking** (Oct 30): the old card leaves,
+  the same error rises from the bottom afresh. Different errors stack.
 - **The success ring pulses once, then rests** (Oct 30). Tried and dropped: an endless loop
   (reads as "still going", pulls the eye off the facts, needs a pause control past 5s per
   WCAG 2.2.2) and three pulses, even slowing and fading (too busy).
