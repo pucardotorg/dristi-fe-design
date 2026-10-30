@@ -11,7 +11,7 @@ import { FAIL_LANES } from "./fail-lanes";
 import { f, type Lane, type Persona } from "./types";
 import * as Next from "./proposed";
 import { MarkPicker } from "./picker";
-import { ProductSection, PRODUCT_SCREENS } from "./product";
+import { ProductSection, SCREEN_COUNT } from "./product";
 import { BailProposed, BailToday, DEVICES, ToastProposed, ToastToday } from "./devices";
 
 /* Success board: every "it worked" moment on main @ 90bbc31, grouped by visual pattern,
@@ -464,12 +464,12 @@ export default function SuccessBoardPage() {
               {section === "product" ? (
                 <>
                   <p className="text-title-s font-semibold text-muted-foreground">TEMPORARY · In the product · feature/feedback-states-rollout · 29 Oct 2026</p>
-                  <h1 className="text-[72px] leading-none font-semibold tracking-tight">Batch 1, in place</h1>
+                  <h1 className="text-[72px] leading-none font-semibold tracking-tight">Batches 1 and 2, in place</h1>
                   <p className="max-w-[1200px] text-title-s text-muted-foreground">
-                    Temporary tab. Static screenshots of every batch 1 feedback state, taken from the running product with the marks settled. Each row is one screen: phone, iPad mini, iPad Pro, desktop, then phone and desktop in dark. Click any image to open it full size.
+                    Temporary tab. Static screenshots of every batch 1 and batch 2 feedback state, taken from the running product with the marks settled. Each row is one screen: phone, iPad mini, iPad Pro, desktop, then phone and desktop in dark. Click any image to open it full size.
                   </p>
                   <div className="flex gap-10 text-title-s">
-                    <Stat n={String(PRODUCT_SCREENS.length)} l="screens, kit page included" />
+                    <Stat n={String(SCREEN_COUNT)} l="screens, kit page included" />
                   </div>
                 </>
               ) : section === "success" ? (
@@ -552,7 +552,7 @@ export default function SuccessBoardPage() {
           <span className="flex rounded-lg bg-surface-sunken p-0.5">
             <Button size="sm" variant={section === "success" ? "outline" : "ghost"} onClick={() => show("success")}>Success</Button>
             <Button size="sm" variant={section === "failure" ? "outline" : "ghost"} onClick={() => show("failure")}>Failure &amp; warning</Button>
-            <Button size="sm" variant={section === "product" ? "outline" : "ghost"} onClick={() => show("product")}>In the product (batch 1)</Button>
+            <Button size="sm" variant={section === "product" ? "outline" : "ghost"} onClick={() => show("product")}>In the product</Button>
           </span>
           <Button size="sm" variant="ghost" onClick={() => jump("current")}>Top</Button>
           <Button size="sm" variant="ghost" onClick={() => setReplay((r) => r + 1)}><RotateCcwIcon data-icon="inline-start" />Play all motion</Button>

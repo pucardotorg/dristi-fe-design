@@ -2,9 +2,10 @@
 
 import * as React from "react";
 
-/* TEMPORARY: static screenshots of every batch 1 feedback state, captured from the real
-   product (feature/feedback-states-rollout) at phone, iPad mini, iPad Pro and desktop,
-   plus dark on phone and desktop. Remove this section once batch 1 has been looked over.
+/* TEMPORARY: static screenshots of every batch 1 (filing) and batch 2 (cases and join)
+   feedback state, captured from the real product (feature/feedback-states-rollout) at
+   phone, iPad mini, iPad Pro and desktop, plus dark on phone and desktop. Remove this
+   section once the rollout has been looked over.
    Images live in public/success-board/product/<screen>-<device>[-dark].png at 2x. */
 
 type Shot = { device: string; file: string; w: number };
@@ -19,6 +20,7 @@ const VIEWS: Shot[] = [
 ];
 
 type Screen = { id: string; name: string; path: string; note: string; views?: string[] };
+type Missing = { name: string; path: string; why: string };
 
 export const PRODUCT_SCREENS: Screen[] = [
   {
@@ -108,7 +110,7 @@ export const PRODUCT_SCREENS: Screen[] = [
   },
 ];
 
-export const NOT_CAPTURED: { name: string; path: string; why: string }[] = [
+export const NOT_CAPTURED: Missing[] = [
   {
     name: "Signing window done stage: “Sent for signature” in the info hourglass tone",
     path: "/filings/sample-draft-1/sign",
@@ -118,6 +120,136 @@ export const NOT_CAPTURED: { name: string; path: string; why: string }[] = [
     name: "Batch sign with more than one document (“N documents signed”)",
     path: "/filings?tab=pendingSignature",
     why: "Only one filing in the sandbox can be signed from the queue, so the takeover says “Document signed”.",
+  },
+];
+
+export const BATCH2_SCREENS: Screen[] = [
+  {
+    id: "ra-signed",
+    name: "Raise application: signed",
+    path: "/cases/c-847/filings/application",
+    note: "Generic application, Generate, Add signature, Sign digitally, Aadhaar OTP. The signed line.",
+  },
+  {
+    id: "ra-paid",
+    name: "Raise application: payment successful",
+    path: "/cases/c-847/filings/application",
+    note: "Proceed to payment, Make payment. ₹20 court fee.",
+  },
+  {
+    id: "ra-submitted",
+    name: "Raise application: submitted",
+    path: "/cases/c-847/filings/application",
+    note: "Continue after paying. The paid court fee is a fact row, “Court fee · ₹20 paid”.",
+  },
+  {
+    id: "ra-sign-later",
+    name: "Raise application: waiting for your signature",
+    path: "/cases/c-847/filings/application",
+    note: "I’ll sign later. Neutral with the clock, not amber.",
+  },
+  {
+    id: "ra-pay-later",
+    name: "Raise application: signed, waiting for payment",
+    path: "/cases/c-847/filings/application",
+    note: "Signed, then Skip on the payment step. Neutral with the clock.",
+  },
+  {
+    id: "ra-save-draft",
+    name: "Save this application as a draft? confirm",
+    path: "/cases/c-847/filings/application",
+    note: "Type a title, then close the form.",
+  },
+  {
+    id: "toast-draft",
+    name: "Toast: saved as a draft",
+    path: "/cases/c-847/filings/application",
+    note: "Save as draft from the confirm. Neutral toast with the save icon.",
+  },
+  {
+    id: "adv-join-paid",
+    name: "Advocate join: vakalatnama fee paid",
+    path: "/cases → Join a case",
+    note: "Any case number, any six-digit code, Advocate, Accused, Rajan Krishnan Nair, mobile, vakalatnama, Pay ₹25.",
+  },
+  {
+    id: "adv-joined",
+    name: "Advocate join: you have joined",
+    path: "/cases → Join a case",
+    note: "Continue after paying. The outcome takes over the header.",
+  },
+  {
+    id: "adv-invite",
+    name: "Advocate join: team invite line",
+    path: "/cases → Join a case",
+    note: "Add your team, pick Priya Nair, Give access. The line under the field, with its toast.",
+  },
+  {
+    id: "adv-pay-later",
+    name: "Advocate join: pay the fee to get access",
+    path: "/cases → Join a case",
+    note: "Pay later on the fee step. Neutral with the clock.",
+  },
+  {
+    id: "citizen-joined",
+    name: "Citizen join: you have joined",
+    path: "/home?join=handoff&as=self",
+    note: "Join as Litigant from the advocate flow, then I am the accused, Rajan Krishnan Nair, I already have an advocate.",
+  },
+  {
+    id: "add-advocate",
+    name: "Add advocate: advocate added",
+    path: "/cases/c-847 → Parties → Add people",
+    note: "Add an advocate, 98470 98765, for Rajan Krishnan Nair, vakalatnama uploaded.",
+  },
+  {
+    id: "remove-advocate",
+    name: "Remove advocate: request sent",
+    path: "/cases/c-847 → Parties",
+    note: "Remove the advocate just added, by consent. Info hourglass: sent, not decided.",
+  },
+  {
+    id: "discard-advocate-draft",
+    name: "Discard advocate draft? confirm",
+    path: "/cases/c-847 → Parties → Add people",
+    note: "Pick an advocate, then close. One of the seven discard confirms; the other six share its markup.",
+  },
+  {
+    id: "consent-accepted",
+    name: "Removal request: accepted",
+    path: "/cases/c-1001 → Respond to a removal request",
+    note: "The outgoing advocate accepts.",
+  },
+  {
+    id: "consent-rejected",
+    name: "Removal request: rejected",
+    path: "/cases/c-1001 → Respond to a removal request",
+    note: "The outgoing advocate rejects. Neutral.",
+  },
+  {
+    id: "toast-archive",
+    name: "Toast: task archived",
+    path: "/cases/c-847",
+    note: "Archive the Raise bail bond task. Toast with Undo.",
+  },
+  {
+    id: "toast-download",
+    name: "Toast: preparing your download",
+    path: "/cases/c-847 → Download",
+    note: "Full case file, separate files.",
+  },
+];
+
+export const BATCH2_NOT_CAPTURED: Missing[] = [
+  {
+    name: "Mark as evidence toast (“Marked as …”)",
+    path: "/cases/<id>/documents",
+    why: "Only court staff with the evidence-marker seat can mark evidence, on the court side. The advocate sandbox has no such button.",
+  },
+  {
+    name: "The three “could not be loaded” lines",
+    path: "Case orders, applications and documents",
+    why: "They show only when the case data fails to load, and the sandbox always loads. Reaching them would mean breaking the product.",
   },
 ];
 
@@ -150,10 +282,33 @@ function Tile({ screen, view }: { screen: Screen; view: Shot }) {
   );
 }
 
+const GROUPS: { title: string; sub: string; screens: Screen[]; missing: Missing[] }[] = [
+  { title: "Batch 1 · filing", sub: "Bail bond, signing, e-filing payment, batch sign and pay, filing confirms.", screens: PRODUCT_SCREENS, missing: NOT_CAPTURED },
+  { title: "Batch 2 · cases and join", sub: "Raise application, joining a case, case toasts and confirms.", screens: BATCH2_SCREENS, missing: BATCH2_NOT_CAPTURED },
+];
+
+export const SCREEN_COUNT = GROUPS.reduce((n, g) => n + g.screens.length, 0);
+
 export function ProductSection() {
   return (
     <>
-      {PRODUCT_SCREENS.map((s) => {
+      {GROUPS.map((g) => (
+        <React.Fragment key={g.title}>
+          <header className="flex flex-col gap-2 border-t-2 border-foreground pt-8">
+            <h2 className="text-[48px] leading-none font-semibold tracking-tight">{g.title}</h2>
+            <p className="text-title-s text-muted-foreground">{g.sub}</p>
+          </header>
+          <ScreenRows screens={g.screens} missing={g.missing} />
+        </React.Fragment>
+      ))}
+    </>
+  );
+}
+
+function ScreenRows({ screens, missing }: { screens: Screen[]; missing: Missing[] }) {
+  return (
+    <>
+      {screens.map((s) => {
         const views = s.views ? VIEWS.filter((v) => s.views!.includes(v.file)) : VIEWS;
         return (
           <section key={s.id} className="flex items-start gap-10">
@@ -168,11 +323,11 @@ export function ProductSection() {
           </section>
         );
       })}
-      {NOT_CAPTURED.length > 0 ? (
+      {missing.length > 0 ? (
         <section className="flex w-[1600px] flex-col gap-4 rounded-xl border border-hairline bg-card p-6 shadow-raised">
           <h2 className="text-title-s font-semibold">Not captured</h2>
           <ul className="flex flex-col divide-y divide-hairline">
-            {NOT_CAPTURED.map((n) => (
+            {missing.map((n) => (
               <li key={n.name} className="flex flex-col gap-1 py-3">
                 <span className="text-body font-medium">{n.name}</span>
                 <span className="font-mono text-caption text-muted-foreground">{n.path}</span>
