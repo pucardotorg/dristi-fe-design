@@ -20,13 +20,8 @@ import { DialogBox, FauxPage, Screen } from "./frames";
    3. Landing       — the row that changed glows once when the dialog closes onto it.
    Built only from DS tokens; motion respects prefers-reduced-motion. */
 
-/* Success says itself three times, fainter each time, then rests (owner, 2026-10-30).
-   Hero marks and their words start 160ms late (\`--sb-start\`), once the window settles. */
-const SUCCESS_PULSES = [
-  { at: 0, peak: 0.45 },
-  { at: 1200, peak: 0.3 },
-  { at: 2400, peak: 0.18 },
-];
+/* Hero marks and their words start 160ms late (\`--sb-start\`), once the window settles
+   (owner, 2026-10-30). The success ring pulses once. */
 
 /** Hold a hero mark on its first frame until painted; the timer covers a hidden tab. */
 function usePainted(enabled: boolean) {
@@ -50,7 +45,7 @@ function usePainted(enabled: boolean) {
 export const PROPOSED_CSS = `
 @keyframes sb-pop { 0% { transform: scale(.55); opacity: 0 } 60% { transform: scale(1.06); opacity: 1 } 100% { transform: scale(1) } }
 @keyframes sb-draw { from { stroke-dashoffset: 30 } to { stroke-dashoffset: 0 } }
-@keyframes sb-ring { 0% { transform: scale(1); opacity: var(--sb-peak, .45) } 100% { transform: scale(1.9); opacity: 0 } }
+@keyframes sb-ring { 0% { transform: scale(1); opacity: .45 } 100% { transform: scale(1.9); opacity: 0 } }
 @keyframes sb-rise { from { transform: translateY(8px); opacity: 0 } to { transform: none; opacity: 1 } }
 @keyframes sb-band { from { opacity: 0 } to { opacity: 1 } }
 @keyframes sb-toast { 0% { transform: translateY(24px) scale(.96); opacity: 0 } 70% { transform: translateY(-2px) scale(1); opacity: 1 } 100% { transform: none } }
@@ -83,7 +78,7 @@ export const PROPOSED_CSS = `
 @keyframes sb-fill { from { transform: scaleX(0) } to { transform: scaleX(1) } }
 .sb-pop { animation: sb-pop 420ms var(--sb-start, 0ms) cubic-bezier(.34,1.56,.64,1) both }
 .sb-draw { stroke-dasharray: 30; animation: sb-draw 360ms calc(var(--sb-start, 0ms) + 260ms) cubic-bezier(.65,0,.35,1) both }
-.sb-ring { animation: sb-ring 900ms calc(var(--sb-start, 0ms) + 200ms + var(--sb-pulse, 0ms)) ease-out both }
+.sb-ring { animation: sb-ring 900ms calc(var(--sb-start, 0ms) + 200ms) ease-out both }
 .sb-rise { animation: sb-rise 360ms cubic-bezier(.2,.8,.2,1) both }
 .sb-band { animation: sb-band 300ms ease-out both }
 .sb-toast { animation: sb-toast 420ms cubic-bezier(.2,.8,.2,1) both }
@@ -245,15 +240,7 @@ export function SuccessMark({
   const painted = usePainted(full);
   return (
     <span className={"relative flex shrink-0 items-center justify-center " + outer + (full && !painted ? " sb-hold" : "")} style={{ width: size, height: size }}>
-      {ring && tone === "success"
-        ? SUCCESS_PULSES.map((p) => (
-            <span
-              key={p.at}
-              className="sb-ring absolute inset-0 rounded-full"
-              style={{ background: t.solid, ["--sb-pulse" as string]: `${p.at}ms`, ["--sb-peak" as string]: p.peak }}
-            />
-          ))
-        : ring ? <span className="sb-ring-soft absolute inset-0 rounded-full" style={{ background: t.solid }} /> : null}
+      {ring ? <span className={"absolute inset-0 rounded-full " + (tone === "success" ? "sb-ring" : "sb-ring-soft")} style={{ background: t.solid }} /> : null}
       <span
         className={pop + " relative flex size-full items-center justify-center rounded-full " + (iconTone ? "" : "shadow-raised")}
         style={{
