@@ -208,21 +208,21 @@ export function OrderCasePanel({
           >
             <TabsTrigger
               value="case-file"
-              className="h-full flex-none px-3 text-body-compact group-data-horizontal/tabs:after:-bottom-px"
+              className="h-full flex-none text-body-compact"
             >
               Case file
             </TabsTrigger>
             {historyContent ? (
               <TabsTrigger
                 value="history"
-                className="h-full flex-none px-3 text-body-compact group-data-horizontal/tabs:after:-bottom-px"
+                className="h-full flex-none text-body-compact"
               >
                 Case history
               </TabsTrigger>
             ) : null}
             <TabsTrigger
               value="data-flags"
-              className="h-full flex-none px-3 text-body-compact group-data-horizontal/tabs:after:-bottom-px"
+              className="h-full flex-none text-body-compact"
             >
               Data flags
             </TabsTrigger>

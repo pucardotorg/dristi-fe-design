@@ -222,16 +222,7 @@ export function ResubmissionFlow({
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 md:gap-10">
       <div className="mx-auto w-full max-w-2xl">
         <Stepper
-          className={cn(
-            "w-full",
-            "[&_[data-slot=stepper-item]]:items-center",
-            "[&_[data-slot=stepper-item]>div:first-child]:relative [&_[data-slot=stepper-item]>div:first-child]:justify-center",
-            "[&_[data-slot=stepper-connector]]:absolute [&_[data-slot=stepper-connector]]:top-4 [&_[data-slot=stepper-connector]]:left-[calc(50%+1rem)] [&_[data-slot=stepper-connector]]:mx-0 [&_[data-slot=stepper-connector]]:h-px [&_[data-slot=stepper-connector]]:w-[calc(100%-2rem)]",
-            /* Three short labels fit a phone, so they stay at every width —
-               the full registration hides its six below md, this does not. */
-            "[&_[data-slot=stepper-item]>div:last-child]:w-full [&_[data-slot=stepper-item]>div:last-child]:pr-0 [&_[data-slot=stepper-item]>div:last-child]:text-center"
-          )}
-          aria-label={pick(registrationUi.stepOf, locale)
+                    aria-label={pick(registrationUi.stepOf, locale)
             .replace("{current}", String(stepIndex + 1))
             .replace("{total}", String(STEP_KEYS.length))}
         >
