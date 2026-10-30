@@ -296,6 +296,7 @@ function WorkflowDoorBody({ door }: { door: OrderDoor }) {
               inHearing={Boolean(door.hearing)}
               fixedIds={door.fixedIds}
               disabled={!canFill}
+              orderKey={door.draftKey}
             />
           </div>
         </div>

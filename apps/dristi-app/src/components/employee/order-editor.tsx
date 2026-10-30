@@ -46,6 +46,7 @@ import {
   ItemsCard,
 } from "@/components/employee/order-items";
 import { OrderSaveIndicator } from "@/components/employee/order-save-indicator";
+import { useCourt } from "@/components/court/court-provider";
 import { useOrderSigning } from "@/components/employee/use-order-signing";
 import { usePendingOrders } from "@/components/employee/use-pending-orders";
 import { PANEL_CLASS } from "@/components/shell/panel";
@@ -112,6 +113,11 @@ import {
   type PendingOrderMeta,
   type PendingOrderStage,
 } from "@/lib/employee/pending-orders";
+import {
+  companionLabel,
+  orderTypeLabel,
+  orderTypeOf,
+} from "@/lib/employee/order-type";
 import { cn } from "@/lib/utils";
 import { ConfirmMark, IrreversibleNote, notify } from "@/components/feedback";
 
@@ -597,7 +603,10 @@ export function OrderWorkflowFields({
   orderText = "",
   titleLocked = false,
   applicationItem,
+  orderKey,
 }: {
+  /** The order's draft key, which its type defaults from (`order-type.ts`). */
+  orderKey: string;
   /** An order on an application: its Application item, first among the items. */
   applicationItem?: ApplicationOutcomeSubject;
   /** The order's typed text, which the A-Diary text starts from when unticked. */
@@ -672,6 +681,12 @@ export function OrderWorkflowFields({
   }
 
   const aDiarySame = draft.aDiarySame !== false;
+  /* The companion text, under the state's own name — none on an order of the state's
+     alternative type, whose order text is the entry, nor where the state has none. */
+  const { profile } = useCourt();
+  const rules = profile.orderTypes;
+  const type = orderTypeOf(draft, orderKey, rules);
+  const companion = companionLabel(type, rules);
 
   return (
     <div className="flex min-w-0 flex-col gap-6">
@@ -754,10 +769,12 @@ export function OrderWorkflowFields({
         </Card>
       ) : null}
 
-      {/* The A-Diary text, last (§6, `PUB-04`): the order text by default, or its own. */}
+      {/* The companion text, last (§6, `PUB-04`): the order text by default, or its own.
+          Kerala's A-Diary text, Gujarat's Roznama, P&H's Summary; none on a Roznama order. */}
+      {companion ? (
       <Card className={cn(PANEL_CLASS, "min-w-0 gap-0 p-0")}>
         <div className={FRAMED_HEAD}>
-          <h2 className="text-body-compact font-semibold">A-Diary text</h2>
+          <h2 className="text-body-compact font-semibold">{companion}</h2>
         </div>
         <div className={cn(FRAMED_BODY, "flex min-w-0 flex-col gap-3")}>
           <div className="flex items-start gap-3">
@@ -778,17 +795,16 @@ export function OrderWorkflowFields({
               }
             />
             <label htmlFor="order-adiary-same" className="text-body-compact">
-              The A-Diary text and order text are the same
+              The {companion} and order text are the same
             </label>
           </div>
           {aDiarySame ? (
             <p className="text-caption text-muted-foreground">
-              The A-Diary entry is the order text in full, with its attendance and next
-              hearing lines.
+              {`The ${companion} entry is the order text in full, with its attendance and next hearing lines.`}
             </p>
           ) : (
             <Textarea
-              aria-label="A-Diary text"
+              aria-label={companion}
               value={draft.aDiaryText ?? ""}
               disabled={disabled}
               rows={5}
@@ -800,6 +816,7 @@ export function OrderWorkflowFields({
           )}
         </div>
       </Card>
+      ) : null}
 
       {applicationItem && outcome ? (
         <ApplicationOutcomeDialog
@@ -833,6 +850,53 @@ export function OrderWorkflowFields({
           setEditing(null);
         }}
       />
+    </div>
+  );
+}
+
+/**
+ * The order's type — Order or the state's alternative (Roznama, Zimni), shown only where
+ * the state has one. It opens as the way in set it (`defaultOrderType`) and can be
+ * changed until the order is signed (owner, 2026-10-30, proposed).
+ */
+function OrderTypeControl({
+  draft,
+  setDraft,
+  orderKey,
+  locked,
+}: {
+  draft: OrderDraft;
+  setDraft: (update: (current: OrderDraft) => OrderDraft) => void;
+  orderKey: string;
+  locked: boolean;
+}) {
+  const { profile } = useCourt();
+  const rules = profile.orderTypes;
+  if (!rules.alternative) return null;
+  const type = orderTypeOf(draft, orderKey, rules);
+  return (
+    <div className="mr-auto flex items-center gap-2">
+      <span id="order-type-label" className="text-body-compact text-muted-foreground">
+        Type
+      </span>
+      <SegmentedControl
+        type="single"
+        size="compact"
+        value={type}
+        aria-labelledby="order-type-label"
+        disabled={locked}
+        onValueChange={(next) => {
+          if (next === "regular" || next === "alternative")
+            setDraft((current) => ({ ...current, orderType: next }));
+        }}
+      >
+        <SegmentedControlItem value="regular">
+          {orderTypeLabel("regular", rules)}
+        </SegmentedControlItem>
+        <SegmentedControlItem value="alternative">
+          {orderTypeLabel("alternative", rules)}
+        </SegmentedControlItem>
+      </SegmentedControl>
     </div>
   );
 }
@@ -1024,7 +1088,7 @@ export function OrderEditorComposer({
         )}
       >
         <div className="flex min-w-0 flex-col gap-4 lg:pb-8">
-          <div className="mx-auto flex w-full max-w-4xl items-center justify-between gap-4">
+          <div className="mx-auto flex w-full max-w-4xl flex-wrap items-center justify-between gap-x-4 gap-y-3">
             <SegmentedControl
               type="single"
               size="compact"
@@ -1060,6 +1124,12 @@ export function OrderEditorComposer({
                 </SegmentedControlItem>
               ) : null}
             </SegmentedControl>
+            <OrderTypeControl
+              draft={draft}
+              setDraft={setDraft}
+              orderKey={queue.key}
+              locked={signing[queue.key] === "signed"}
+            />
             {view === "evidence" ? null : finished ? (
               <OrderProgress
                 stage={stage}
@@ -1132,6 +1202,7 @@ export function OrderEditorComposer({
               orderText={body.text}
               titleLocked={stage === "triggered"}
               applicationItem={applicationItem}
+              orderKey={queue.key}
             />
           </div>
         ) : panelOpen ? (

@@ -37,7 +37,7 @@ import { type CognizanceLayout, readCognizanceLayout } from "./cognizance-layout
 import { hearingById, TODAYS_HEARING_COUNT } from "./hearings";
 import type { CourtNavLayout } from "./nav-layout";
 import { findCaseRecord } from "../cases/party-cases";
-import type { CourtId } from "../court/profiles";
+import { courtProfile, type CourtId } from "../court/profiles";
 import { scrutinyRegistersIn } from "./court-role";
 import {
   APPROVE_REGISTRATIONS_TITLE,
@@ -593,6 +593,10 @@ export function courtNavGroupsForSeat(
  * screens, the dashboard and search.
  */
 export function courtHasNavRow(court: CourtId, id: string): boolean {
+  /* A state with no day A-Diary signs no A-Diary: Gujarat signs each Roznama in Pending
+     orders, Punjab & Haryana signs none (`OrderTypeRules`, owner, 2026-10-30). */
+  if (id === "sign-a-diary" && courtProfile(court).orderTypes.companion?.signing !== "day")
+    return false;
   return !(id === "register-cases" && scrutinyRegistersIn(court));
 }
 
