@@ -539,7 +539,7 @@ export function PendingOrdersScreen({
             <DialogDescription>
               {reading?.caseNumber} · from its order
               {reading?.title ? ` “${reading.title}”` : ""}, whose order data is
-              complete. It carries no order data and sets nothing moving.
+              complete. Signing it doesn't trigger workflows.
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-[50vh] overflow-y-auto whitespace-pre-wrap rounded-lg border border-hairline bg-muted p-4 text-body">
