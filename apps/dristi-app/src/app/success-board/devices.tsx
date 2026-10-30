@@ -149,7 +149,7 @@ export function BailProposed({ d }: { d: Device }) {
           title="Bail application submitted"
           body="The court has received your application. You will be told by SMS when a decision is made."
         />
-        <div className="sb-rise px-6 py-4" style={{ animationDelay: "320ms" }}><Facts /></div>
+        <div className="sb-rise px-6 py-4" style={{ animationDelay: `calc(var(--sb-start, 0ms) + 320ms)` }}><Facts /></div>
         <Foot d={d} />
       </Surface>
     </Frame>

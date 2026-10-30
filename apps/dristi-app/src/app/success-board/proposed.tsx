@@ -20,10 +20,37 @@ import { DialogBox, FauxPage, Screen } from "./frames";
    3. Landing       — the row that changed glows once when the dialog closes onto it.
    Built only from DS tokens; motion respects prefers-reduced-motion. */
 
+/* Success says itself three times, fainter each time, then rests (owner, 2026-10-30).
+   Hero marks and their words start 160ms late (\`--sb-start\`), once the window settles. */
+const SUCCESS_PULSES = [
+  { at: 0, peak: 0.45 },
+  { at: 1200, peak: 0.3 },
+  { at: 2400, peak: 0.18 },
+];
+
+/** Hold a hero mark on its first frame until painted; the timer covers a hidden tab. */
+function usePainted(enabled: boolean) {
+  const [painted, setPainted] = React.useState(!enabled);
+  React.useEffect(() => {
+    if (!enabled) return;
+    let inner = 0;
+    const outer = requestAnimationFrame(() => {
+      inner = requestAnimationFrame(() => setPainted(true));
+    });
+    const fallback = window.setTimeout(() => setPainted(true), 120);
+    return () => {
+      cancelAnimationFrame(outer);
+      cancelAnimationFrame(inner);
+      window.clearTimeout(fallback);
+    };
+  }, [enabled]);
+  return painted;
+}
+
 export const PROPOSED_CSS = `
 @keyframes sb-pop { 0% { transform: scale(.55); opacity: 0 } 60% { transform: scale(1.06); opacity: 1 } 100% { transform: scale(1) } }
 @keyframes sb-draw { from { stroke-dashoffset: 30 } to { stroke-dashoffset: 0 } }
-@keyframes sb-ring { 0% { transform: scale(1); opacity: .45 } 100% { transform: scale(1.9); opacity: 0 } }
+@keyframes sb-ring { 0% { transform: scale(1); opacity: var(--sb-peak, .45) } 100% { transform: scale(1.9); opacity: 0 } }
 @keyframes sb-rise { from { transform: translateY(8px); opacity: 0 } to { transform: none; opacity: 1 } }
 @keyframes sb-band { from { opacity: 0 } to { opacity: 1 } }
 @keyframes sb-toast { 0% { transform: translateY(24px) scale(.96); opacity: 0 } 70% { transform: translateY(-2px) scale(1); opacity: 1 } 100% { transform: none } }
@@ -54,21 +81,21 @@ export const PROPOSED_CSS = `
 @keyframes sb-wave { 0% { transform: rotate(-35deg) scale(.6); opacity: 0 } 50% { transform: rotate(10deg) scale(1); opacity: 1 } 75% { transform: rotate(-5deg) } 100% { transform: none } }
 @keyframes sb-widen { from { transform: scaleX(0) } to { transform: scaleX(1) } }
 @keyframes sb-fill { from { transform: scaleX(0) } to { transform: scaleX(1) } }
-.sb-pop { animation: sb-pop 420ms cubic-bezier(.34,1.56,.64,1) both }
-.sb-draw { stroke-dasharray: 30; animation: sb-draw 360ms 260ms cubic-bezier(.65,0,.35,1) both }
-.sb-ring { animation: sb-ring 900ms 200ms ease-out both }
+.sb-pop { animation: sb-pop 420ms var(--sb-start, 0ms) cubic-bezier(.34,1.56,.64,1) both }
+.sb-draw { stroke-dasharray: 30; animation: sb-draw 360ms calc(var(--sb-start, 0ms) + 260ms) cubic-bezier(.65,0,.35,1) both }
+.sb-ring { animation: sb-ring 900ms calc(var(--sb-start, 0ms) + 200ms + var(--sb-pulse, 0ms)) ease-out both }
 .sb-rise { animation: sb-rise 360ms cubic-bezier(.2,.8,.2,1) both }
 .sb-band { animation: sb-band 300ms ease-out both }
 .sb-toast { animation: sb-toast 420ms cubic-bezier(.2,.8,.2,1) both }
 .sb-drain { transform-origin: left; animation: sb-drain var(--sb-life, 2.75s) linear both }
 .sb-land { animation: sb-land 2600ms ease-out both }
-.sb-flip { transform-box: fill-box; transform-origin: center; animation: sb-flip 900ms 250ms cubic-bezier(.65,0,.35,1) both }
+.sb-flip { transform-box: fill-box; transform-origin: center; animation: sb-flip 900ms calc(var(--sb-start, 0ms) + 250ms) cubic-bezier(.65,0,.35,1) both }
 .sb-chip { animation: sb-chip 220ms cubic-bezier(.2,.8,.2,1) both }
-.sb-shake { animation: sb-shake 260ms 620ms ease-in-out both }
-.sb-stroke { transform-box: fill-box; transform-origin: center; animation: sb-stroke 400ms 200ms cubic-bezier(.34,1.56,.64,1) both }
-.sb-bar { animation: sb-bar 280ms 150ms cubic-bezier(.34,1.56,.64,1) both }
-.sb-dot { transform-box: fill-box; transform-origin: center; animation: sb-dot 220ms 330ms cubic-bezier(.34,1.56,.64,1) both }
-.sb-ring-soft { animation: sb-ring-soft 650ms 330ms ease-out both }
+.sb-shake { animation: sb-shake 260ms calc(var(--sb-start, 0ms) + 620ms) ease-in-out both }
+.sb-stroke { transform-box: fill-box; transform-origin: center; animation: sb-stroke 400ms calc(var(--sb-start, 0ms) + 200ms) cubic-bezier(.34,1.56,.64,1) both }
+.sb-bar { animation: sb-bar 280ms calc(var(--sb-start, 0ms) + 150ms) cubic-bezier(.34,1.56,.64,1) both }
+.sb-dot { transform-box: fill-box; transform-origin: center; animation: sb-dot 220ms calc(var(--sb-start, 0ms) + 330ms) cubic-bezier(.34,1.56,.64,1) both }
+.sb-ring-soft { animation: sb-ring-soft 650ms calc(var(--sb-start, 0ms) + 330ms) ease-out both }
 .sb-icon { animation: sb-icon 380ms 180ms cubic-bezier(.3,1.3,.5,1) both }
 .sb-errline { animation: sb-errline 220ms ease-out both }
 /* An error line opens its own room and drops out from under the field, clipped at the
@@ -78,17 +105,20 @@ export const PROPOSED_CSS = `
 .sb-errdrop { animation: sb-errdrop 300ms 60ms cubic-bezier(.2,.8,.2,1) both }
 .sb-ringin { animation: sb-ringin 260ms ease-out both }
 .sb-pop-quick { animation: sb-pop-quick 250ms cubic-bezier(.2,.9,.3,1.2) both }
-.sb-spin { transform-box: fill-box; transform-origin: center; animation: sb-spin 560ms 160ms cubic-bezier(.34,1.56,.64,1) both }
-.sb-stamp { animation: sb-stamp 380ms cubic-bezier(.2,.9,.3,1) both }
-.sb-thud { animation: sb-thud 220ms 300ms ease-out both }
-.sb-nod { animation: sb-nod 620ms 560ms ease-in-out both }
-.sb-swing { transform-origin: 50% 8%; animation: sb-swing 900ms 420ms ease-in-out both }
-.sb-sway { transform-origin: 50% 15%; animation: sb-sway 420ms 330ms ease-in-out both }
-.sb-glow > span { animation: sb-glow 1400ms 380ms ease-in-out both }
-.sb-drop { animation: sb-drop 640ms cubic-bezier(.3,1.3,.5,1) both }
-.sb-glyph { transform-box: fill-box; transform-origin: center; animation: sb-glyph 420ms 180ms cubic-bezier(.34,1.56,.64,1) both }
-.sb-wave { transform-box: fill-box; transform-origin: 10% 100%; animation: sb-wave 700ms 180ms ease-out both }
-.sb-widen { transform-box: fill-box; transform-origin: center; animation: sb-widen 360ms 200ms cubic-bezier(.34,1.56,.64,1) both }
+.sb-spin { transform-box: fill-box; transform-origin: center; animation: sb-spin 560ms calc(var(--sb-start, 0ms) + 160ms) cubic-bezier(.34,1.56,.64,1) both }
+.sb-stamp { animation: sb-stamp 380ms var(--sb-start, 0ms) cubic-bezier(.2,.9,.3,1) both }
+.sb-thud { animation: sb-thud 220ms calc(var(--sb-start, 0ms) + 300ms) ease-out both }
+.sb-nod { animation: sb-nod 620ms calc(var(--sb-start, 0ms) + 560ms) ease-in-out both }
+.sb-swing { transform-origin: 50% 8%; animation: sb-swing 900ms calc(var(--sb-start, 0ms) + 420ms) ease-in-out both }
+.sb-sway { transform-origin: 50% 15%; animation: sb-sway 420ms calc(var(--sb-start, 0ms) + 330ms) ease-in-out both }
+.sb-glow > span { animation: sb-glow 1400ms calc(var(--sb-start, 0ms) + 380ms) ease-in-out both }
+.sb-drop { animation: sb-drop 640ms var(--sb-start, 0ms) cubic-bezier(.3,1.3,.5,1) both }
+.sb-glyph { transform-box: fill-box; transform-origin: center; animation: sb-glyph 420ms calc(var(--sb-start, 0ms) + 180ms) cubic-bezier(.34,1.56,.64,1) both }
+.sb-wave { transform-box: fill-box; transform-origin: 10% 100%; animation: sb-wave 700ms calc(var(--sb-start, 0ms) + 180ms) ease-out both }
+.sb-widen { transform-box: fill-box; transform-origin: center; animation: sb-widen 360ms calc(var(--sb-start, 0ms) + 200ms) cubic-bezier(.34,1.56,.64,1) both }
+:root { --sb-start: 160ms }
+/* A hero mark holds its first frame until painted (SuccessMark). */
+.sb-hold, .sb-hold * { animation-play-state: paused !important }
 .sb-fill { transform-origin: left; animation: sb-fill 700ms cubic-bezier(.2,.8,.2,1) both }
 @media (prefers-reduced-motion: reduce) {
   .sb-pop, .sb-draw, .sb-ring, .sb-rise, .sb-band, .sb-toast, .sb-drain, .sb-land, .sb-fill, .sb-flip, .sb-chip, .sb-shake, .sb-stroke, .sb-bar, .sb-dot, .sb-ring-soft, .sb-icon, .sb-spin, .sb-stamp, .sb-thud, .sb-nod, .sb-swing, .sb-sway, .sb-glow > span, .sb-drop, .sb-glyph, .sb-wave, .sb-widen, .sb-pop-quick, .sb-errline, .sb-reveal, .sb-errdrop, .sb-ringin { animation: none }
@@ -212,13 +242,22 @@ export function SuccessMark({
           : "sb-pop";
   const iconTone = tone === "neutral" || tone === "danger";
   const ring = full && (tone === "success" || (tone === "warning" && (m.warnAnim === "pulse" || m.warnAnim === "sway")));
+  const painted = usePainted(full);
   return (
-    <span className={"relative flex shrink-0 items-center justify-center " + outer} style={{ width: size, height: size }}>
-      {ring ? <span className={"absolute inset-0 rounded-full " + (tone === "success" ? "sb-ring" : "sb-ring-soft")} style={{ background: t.solid }} /> : null}
+    <span className={"relative flex shrink-0 items-center justify-center " + outer + (full && !painted ? " sb-hold" : "")} style={{ width: size, height: size }}>
+      {ring && tone === "success"
+        ? SUCCESS_PULSES.map((p) => (
+            <span
+              key={p.at}
+              className="sb-ring absolute inset-0 rounded-full"
+              style={{ background: t.solid, ["--sb-pulse" as string]: `${p.at}ms`, ["--sb-peak" as string]: p.peak }}
+            />
+          ))
+        : ring ? <span className="sb-ring-soft absolute inset-0 rounded-full" style={{ background: t.solid }} /> : null}
       <span
         className={pop + " relative flex size-full items-center justify-center rounded-full " + (iconTone ? "" : "shadow-raised")}
         style={{
-          animationDelay: delay ? `${delay}ms` : undefined,
+          animationDelay: delay ? `calc(var(--sb-start, 0ms) + ${delay}ms)` : undefined,
           background: t.solid,
           color: t.fg,
           boxShadow: tone === "neutral" ? "inset 0 0 0 1px color-mix(in oklab, var(--foreground) 30%, transparent)" : undefined,
@@ -243,7 +282,7 @@ export function SuccessMark({
               ) : (
                 <>
                   <path className="sb-stroke" d="M6.5 6.5l11 11" />
-                  <path className="sb-stroke" style={{ animationDelay: "340ms" }} d="M17.5 6.5l-11 11" />
+                  <path className="sb-stroke" style={{ animationDelay: `calc(var(--sb-start, 0ms) + 340ms)` }} d="M17.5 6.5l-11 11" />
                 </>
               )
             ) : tone === "warning" ? (
@@ -283,11 +322,11 @@ export function Hero({
     >
       <SuccessMark size={compact ? 60 : 72} tone={tone} />
       <div className="flex max-w-md flex-col items-center gap-1.5">
-        <h2 className={"sb-rise font-semibold text-balance text-foreground " + (compact ? "text-title-s" : "text-title")} style={{ animationDelay: "180ms" }}>
+        <h2 className={"sb-rise font-semibold text-balance text-foreground " + (compact ? "text-title-s" : "text-title")} style={{ animationDelay: `calc(var(--sb-start, 0ms) + 180ms)` }}>
           {title}
         </h2>
         {body ? (
-          <p className="sb-rise text-body text-pretty text-muted-foreground" style={{ animationDelay: "240ms" }}>
+          <p className="sb-rise text-body text-pretty text-muted-foreground" style={{ animationDelay: `calc(var(--sb-start, 0ms) + 240ms)` }}>
             {body}
           </p>
         ) : null}
@@ -305,7 +344,7 @@ export const Row = ({ term, children }: { term: string; children: React.ReactNod
 );
 
 export const Facts = ({ children, className = "px-6 py-4" }: { children: React.ReactNode; className?: string }) => (
-  <div className={"sb-rise " + className} style={{ animationDelay: "320ms" }}>
+  <div className={"sb-rise " + className} style={{ animationDelay: `calc(var(--sb-start, 0ms) + 320ms)` }}>
     {children}
   </div>
 );
@@ -533,7 +572,7 @@ export function SlabAfter() {
     <Screen height={620}>
       <DialogBox width={512} close={false}>
         <Hero title="Payment successful" body="Your case file is complete.">
-          <div className="sb-rise flex flex-col items-center pt-2" style={{ animationDelay: "280ms" }}>
+          <div className="sb-rise flex flex-col items-center pt-2" style={{ animationDelay: `calc(var(--sb-start, 0ms) + 280ms)` }}>
             <span className="text-caption font-medium text-muted-foreground">Amount paid</span>
             <span className="text-title-s font-semibold tabular-nums">₹1,250</span>
           </div>
@@ -602,7 +641,7 @@ export function ReceiptAfter() {
     <Screen height={600}>
       <DialogBox width={512}>
         <Hero compact title="Payment successful" body="Suresh Kumar vs. Rajan Traders · ST/0412/2026">
-          <div className="sb-rise flex flex-col items-center pt-2" style={{ animationDelay: "280ms" }}>
+          <div className="sb-rise flex flex-col items-center pt-2" style={{ animationDelay: `calc(var(--sb-start, 0ms) + 280ms)` }}>
             <span className="text-caption font-medium text-muted-foreground">Amount paid</span>
             <span className="text-title-s font-semibold tabular-nums">₹50</span>
           </div>
@@ -712,7 +751,7 @@ export function FooterLineAfter() {
           style={{ borderColor: "var(--success-7)", background: "var(--success-muted)" }}
         >
           <SuccessMark size={36} />
-          <p className="sb-rise mr-auto flex flex-col" style={{ animationDelay: "180ms" }}>
+          <p className="sb-rise mr-auto flex flex-col" style={{ animationDelay: `calc(var(--sb-start, 0ms) + 180ms)` }}>
             <span className="text-body font-semibold text-foreground">Process signed</span>
             <span className="text-body-compact text-muted-foreground">It is now in To post in Issuance.</span>
           </p>
@@ -733,12 +772,12 @@ export function FullPageAfter() {
       <div className="relative mx-auto flex w-full max-w-lg flex-col items-center gap-6 text-center">
         <SuccessMark size={96} />
         <div className="flex flex-col items-center gap-2">
-          <h1 className="sb-rise text-display-s font-semibold text-balance" style={{ animationDelay: "180ms" }}>Your account is ready</h1>
-          <p className="sb-rise text-body text-pretty text-muted-foreground" style={{ animationDelay: "240ms" }}>
+          <h1 className="sb-rise text-display-s font-semibold text-balance" style={{ animationDelay: `calc(var(--sb-start, 0ms) + 180ms)` }}>Your account is ready</h1>
+          <p className="sb-rise text-body text-pretty text-muted-foreground" style={{ animationDelay: `calc(var(--sb-start, 0ms) + 240ms)` }}>
             You can add your address and official ID from your profile after entering the portal.
           </p>
         </div>
-        <Button size="lg" className="sb-rise" style={{ animationDelay: "320ms" }}>Go to your home page</Button>
+        <Button size="lg" className="sb-rise" style={{ animationDelay: `calc(var(--sb-start, 0ms) + 320ms)` }}>Go to your home page</Button>
       </div>
     </Screen>
   );
@@ -752,8 +791,8 @@ function PageBanner({ title, body, action }: { title: string; body: string; acti
     <div className="sb-band flex items-center gap-4 rounded-xl border p-4" style={{ borderColor: "var(--success-7)", background: "var(--success-muted)" }}>
       <SuccessMark size={44} />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <p className="sb-rise text-title-s font-semibold text-foreground" style={{ animationDelay: "180ms" }}>{title}</p>
-        <p className="sb-rise text-body-compact text-muted-foreground" style={{ animationDelay: "240ms" }}>{body}</p>
+        <p className="sb-rise text-title-s font-semibold text-foreground" style={{ animationDelay: `calc(var(--sb-start, 0ms) + 180ms)` }}>{title}</p>
+        <p className="sb-rise text-body-compact text-muted-foreground" style={{ animationDelay: `calc(var(--sb-start, 0ms) + 240ms)` }}>{body}</p>
       </div>
       {action ? <Button>{action}<ArrowRightIcon data-icon="inline-end" /></Button> : null}
     </div>

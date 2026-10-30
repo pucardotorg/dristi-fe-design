@@ -248,7 +248,7 @@ export function PartialFooterNext() {
         <div className="flex items-center gap-4 border-t border-hairline bg-card px-6 py-4">
           <ul className="mr-auto flex flex-col gap-1.5">
             <li className="flex items-center gap-2.5"><SuccessMark size={20} /><span className="text-body-compact font-semibold">Process signed.</span></li>
-            <li className="sb-rise flex items-center gap-2.5" style={{ animationDelay: "200ms" }}><SuccessMark size={20} tone="warning" delay={260} /><span className="text-body-compact font-semibold">1 could not be sent and is in Errored in Issuance.</span></li>
+            <li className="sb-rise flex items-center gap-2.5" style={{ animationDelay: `calc(var(--sb-start, 0ms) + 200ms)` }}><SuccessMark size={20} tone="warning" delay={260} /><span className="text-body-compact font-semibold">1 could not be sent and is in Errored in Issuance.</span></li>
           </ul>
           <Button variant="outline">Download</Button>
           <Button>Done</Button>
@@ -407,8 +407,8 @@ function DeadEnd({ icon, title, body, action }: { icon: Icon; title: string; bod
   return (
     <div className="flex flex-col items-center gap-3 px-6 text-center">
       <SuccessMark size={56} tone="neutral" icon={icon} />
-      <p className="sb-rise text-title-s font-semibold" style={{ animationDelay: "150ms" }}>{title}</p>
-      <p className="sb-rise max-w-md text-body text-muted-foreground" style={{ animationDelay: "210ms" }}>{body}</p>
+      <p className="sb-rise text-title-s font-semibold" style={{ animationDelay: `calc(var(--sb-start, 0ms) + 150ms)` }}>{title}</p>
+      <p className="sb-rise max-w-md text-body text-muted-foreground" style={{ animationDelay: `calc(var(--sb-start, 0ms) + 210ms)` }}>{body}</p>
       {action ? <Button variant="outline" className="mt-3">{action}</Button> : null}
     </div>
   );
@@ -432,8 +432,8 @@ export function LinkDeadNext() {
         <div className="flex h-14 items-center border-b border-hairline px-6"><div className="h-6 w-28 rounded bg-surface-sunken" /></div>
         <div className="mx-auto flex w-full max-w-2xl flex-col items-start gap-4 px-4 py-12">
           <SuccessMark size={56} tone="neutral" icon={LinkIcon} />
-          <h1 className="sb-rise text-title font-semibold text-balance" style={{ animationDelay: "150ms" }}>This link is no longer active</h1>
-          <p className="sb-rise text-body text-muted-foreground" style={{ animationDelay: "210ms" }}>
+          <h1 className="sb-rise text-title font-semibold text-balance" style={{ animationDelay: `calc(var(--sb-start, 0ms) + 150ms)` }}>This link is no longer active</h1>
+          <p className="sb-rise text-body text-muted-foreground" style={{ animationDelay: `calc(var(--sb-start, 0ms) + 210ms)` }}>
             The complaint may have been changed and sent again, or the request recalled. Ask the advocate filing it to send you a new link.
           </p>
         </div>
@@ -587,8 +587,8 @@ export function PageErrorNext() {
       <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 50% 32%, color-mix(in oklab, var(--destructive-muted) 45%, var(--background)), var(--background) 55%)" }} />
       <div className="relative flex flex-col items-center gap-3 px-6 text-center">
         <SuccessMark size={56} tone="error" />
-        <p className="sb-rise text-title-s font-semibold" style={{ animationDelay: "150ms" }}>This page could not load</p>
-        <p className="sb-rise max-w-md text-body text-muted-foreground" style={{ animationDelay: "210ms" }}>Nothing was changed. Reload to try again.</p>
+        <p className="sb-rise text-title-s font-semibold" style={{ animationDelay: `calc(var(--sb-start, 0ms) + 150ms)` }}>This page could not load</p>
+        <p className="sb-rise max-w-md text-body text-muted-foreground" style={{ animationDelay: `calc(var(--sb-start, 0ms) + 210ms)` }}>Nothing was changed. Reload to try again.</p>
         <Button className="mt-3">Reload</Button>
       </div>
     </Screen>
