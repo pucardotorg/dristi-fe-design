@@ -11,8 +11,15 @@ const toggleVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-transparent",
-        outline: "border border-input bg-card hover:bg-accent",
+        /* A toggle shows its edge before it is pressed (owner review, 2026-10-30): an
+           edgeless toggle reads as a letter, not a control. */
+        default: "border border-border bg-card hover:bg-accent",
+        outline: "border border-border bg-card hover:bg-accent",
+        /* Filter pills, as the product draws them (its pill-plate): round, and the
+           chosen ones take the brand tint. */
+        pill: "rounded-full border border-border bg-card px-3 data-[state=on]:border-brand-accent data-[state=on]:bg-brand-muted data-[state=on]:font-semibold data-[state=on]:text-brand-muted-foreground data-[state=on]:hover:bg-brand-muted-hover data-[state=on]:hover:text-brand-muted-foreground",
+        /* No edge: only inside a toolbar that is itself the edge (rich-text formatting). */
+        ghost: "bg-transparent",
       },
       size: {
         default:
