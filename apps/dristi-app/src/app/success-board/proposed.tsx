@@ -78,6 +78,7 @@ export const PROPOSED_CSS = `
 @keyframes sb-fill { from { transform: scaleX(0) } to { transform: scaleX(1) } }
 .sb-pop { animation: sb-pop 420ms var(--sb-start, 0ms) cubic-bezier(.34,1.56,.64,1) both }
 .sb-draw { stroke-dasharray: 30; animation: sb-draw 360ms calc(var(--sb-start, 0ms) + 260ms) cubic-bezier(.65,0,.35,1) both }
+.sb-draw-quick { stroke-dasharray: 30; animation: sb-draw 280ms 120ms cubic-bezier(.65,0,.35,1) both }
 .sb-ring { animation: sb-ring 900ms calc(var(--sb-start, 0ms) + 200ms) ease-out both }
 .sb-rise { animation: sb-rise 360ms cubic-bezier(.2,.8,.2,1) both }
 .sb-band { animation: sb-band 300ms ease-out both }
@@ -116,7 +117,7 @@ export const PROPOSED_CSS = `
 .sb-hold, .sb-hold * { animation-play-state: paused !important }
 .sb-fill { transform-origin: left; animation: sb-fill 700ms cubic-bezier(.2,.8,.2,1) both }
 @media (prefers-reduced-motion: reduce) {
-  .sb-pop, .sb-draw, .sb-ring, .sb-rise, .sb-band, .sb-toast, .sb-drain, .sb-land, .sb-fill, .sb-flip, .sb-chip, .sb-shake, .sb-stroke, .sb-bar, .sb-dot, .sb-ring-soft, .sb-icon, .sb-spin, .sb-stamp, .sb-thud, .sb-nod, .sb-swing, .sb-sway, .sb-glow > span, .sb-drop, .sb-glyph, .sb-wave, .sb-widen, .sb-pop-quick, .sb-errline, .sb-reveal, .sb-errdrop, .sb-ringin { animation: none }
+  .sb-pop, .sb-draw, .sb-draw-quick, .sb-ring, .sb-rise, .sb-band, .sb-toast, .sb-drain, .sb-land, .sb-fill, .sb-flip, .sb-chip, .sb-shake, .sb-stroke, .sb-bar, .sb-dot, .sb-ring-soft, .sb-icon, .sb-spin, .sb-stamp, .sb-thud, .sb-nod, .sb-swing, .sb-sway, .sb-glow > span, .sb-drop, .sb-glyph, .sb-wave, .sb-widen, .sb-pop-quick, .sb-errline, .sb-reveal, .sb-errdrop, .sb-ringin { animation: none }
   .sb-ring-soft { opacity: 0 }
   .sb-ring { opacity: 0 }
 }
@@ -257,10 +258,15 @@ export function SuccessMark({
         ) : (
           /* Small marks: the glyph scales in after the disc, the same beat as the icon marks
              (the lock on a gate toast). Heroes draw their glyph instead. */
-          <span className={quick ? "sb-icon flex" : "flex"} style={quick && delay ? { animationDelay: `${delay + 180}ms` } : undefined}>
+          <span className={quick && tone !== "success" ? "sb-icon flex" : "flex"} style={quick && tone !== "success" && delay ? { animationDelay: `${delay + 180}ms` } : undefined}>
           <svg viewBox="0 0 24 24" width={size * glyph} height={size * glyph} fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             {tone === "success" ? (
-              <path className={full ? "sb-draw" : undefined} d="M5 12.5l4.5 4.5L19 7.5" />
+              /* A small tick draws itself too, only quicker (owner, 2026-10-30). */
+              <path
+                className={full ? "sb-draw" : quick ? "sb-draw-quick" : undefined}
+                style={quick && delay ? { animationDelay: `${delay + 120}ms` } : undefined}
+                d="M5 12.5l4.5 4.5L19 7.5"
+              />
             ) : tone === "error" ? (
               !full || m.errorAnim === "stamp" ? (
                 <path d="M6.5 6.5l11 11M17.5 6.5l-11 11" />
@@ -856,13 +862,13 @@ export function SilentAfter() {
 export function MarksAfter() {
   const Tick = () => (
     <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path className="sb-draw" d="M5 12.5l4.5 4.5L19 7.5" />
+      <path className="sb-draw-quick" d="M5 12.5l4.5 4.5L19 7.5" />
     </svg>
   );
   const Dot = () => (
-    <span className="sb-pop flex size-4 items-center justify-center rounded-full bg-success text-success-foreground">
+    <span className="sb-pop-quick flex size-4 items-center justify-center rounded-full bg-success text-success-foreground">
       <svg viewBox="0 0 24 24" className="size-2.5" fill="none" stroke="currentColor" strokeWidth={3.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <path className="sb-draw" d="M5 12.5l4.5 4.5L19 7.5" />
+        <path className="sb-draw-quick" d="M5 12.5l4.5 4.5L19 7.5" />
       </svg>
     </span>
   );
@@ -877,7 +883,7 @@ export function MarksAfter() {
       <span className="sb-chip inline-flex h-11 items-center gap-2 rounded-md bg-success-muted px-5 text-body-compact font-medium text-success-muted-foreground ring-1" style={{ ["--tw-ring-color" as string]: "var(--success-7)" }}>
         <Dot />Sent to scrutiny
       </span>
-      <span className="sb-pop relative flex size-8 items-center justify-center rounded-full bg-success text-success-foreground"><Tick /></span>
+      <span className="sb-pop-quick relative flex size-8 items-center justify-center rounded-full bg-success text-success-foreground"><Tick /></span>
     </div>
   );
 }
