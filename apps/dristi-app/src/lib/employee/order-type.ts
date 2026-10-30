@@ -8,8 +8,9 @@
  * is the entry.
  *
  * Where the state signs the companion text one at a time (Gujarat), a regular order's
- * Roznama becomes its own document once the order is triggered, listed in Pending orders
- * under Awaiting signature and signed there by the order signer. Its signature is kept
+ * Roznama becomes its own document once the order data is marked complete — not waiting
+ * for the order's signature — listed in Pending orders under Awaiting signature and
+ * signed there by the order signer (owner, 2026-10-30). Its signature is kept
  * in `order-signing.ts` under `companionKey`.
  */
 
@@ -44,7 +45,7 @@ export function companionLabel(type: OrderType, rules: OrderTypeRules): string |
   return type === "regular" && rules.companion ? rules.companion.label : null;
 }
 
-/** Whether a regular order's companion text is signed on its own, after triggering. */
+/** Whether a regular order's companion text is signed on its own, once its data is complete. */
 export function companionSignedEach(type: OrderType, rules: OrderTypeRules): boolean {
   return type === "regular" && rules.companion?.signing === "each";
 }

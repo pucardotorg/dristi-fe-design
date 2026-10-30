@@ -40,7 +40,11 @@ type SampleOrder = {
    * Typed as a regular order where the state offers another type (`order-type.ts`), so a
    * Gujarat demo has a regular order's Roznama to sign. Kerala ignores it.
    */
-  regular?: { companion?: string };
+  regular?: {
+    companion?: string;
+    /** Order data marked complete while the order still awaits its signature. */
+    dataComplete?: boolean;
+  };
 };
 
 const ORDERS: SampleOrder[] = [
@@ -157,7 +161,7 @@ const ORDERS: SampleOrder[] = [
   },
   {
     id: "h-245",
-    regular: {},
+    regular: { dataComplete: true },
     heading: "Rajeev Menon v. Ferns Interiors",
     caseNumber: "ST/245/2026",
     origin: "Hearing · Delay condonation",
@@ -301,7 +305,8 @@ function seedFrom(orders: readonly SampleOrder[]): SittingSeed {
           origin: order.origin,
           orderHref: `/employee/hearings/${order.id}/order`,
           sent: order.stage !== "drafting",
-          workflowComplete: order.stage === "triggered",
+          workflowComplete:
+            order.stage === "triggered" || Boolean(order.regular?.dataComplete),
         },
       ]),
     ),

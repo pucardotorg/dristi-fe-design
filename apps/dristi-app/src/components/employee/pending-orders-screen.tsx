@@ -104,7 +104,7 @@ type Row = PendingOrder & {
   /**
    * A regular order's companion document, signed on its own (Gujarat's Roznama): the key
    * of the order it belongs to. Its own key is `companionKey(order)`. It has no order
-   * data and no workflows; it is listed once its order is triggered.
+   * data and no workflows; it is listed once its order's data is marked complete.
    */
   companionOf?: string;
 };
@@ -158,10 +158,12 @@ export function PendingOrdersScreen({
       typeLabel: orderTypeLabel(type, rules),
     };
   });
-  /* Gujarat: a regular order's Roznama, once the order is triggered, to be signed on its
-     own (owner, 2026-10-22). Listed after the orders. */
+  /* Gujarat: a regular order's Roznama, to be signed on its own once the order data is
+     marked complete — whether or not the order itself is signed yet, so the order and its
+     Roznama can await a signature at the same time (owner, 2026-10-30). Listed after the
+     orders. */
   const companionRows: Row[] = orderRows
-    .filter((row) => row.stage === "triggered" && companionSignedEach(row.type, rules))
+    .filter((row) => row.workflowComplete && companionSignedEach(row.type, rules))
     .map((row) => ({
       ...row,
       key: companionKey(row.key),
@@ -536,8 +538,8 @@ export function PendingOrdersScreen({
             </DialogTitle>
             <DialogDescription>
               {reading?.caseNumber} · from its order
-              {reading?.title ? ` “${reading.title}”` : ""}, now triggered. It carries
-              no order data and sets nothing moving.
+              {reading?.title ? ` “${reading.title}”` : ""}, whose order data is
+              complete. It carries no order data and sets nothing moving.
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-[50vh] overflow-y-auto whitespace-pre-wrap rounded-lg border border-hairline bg-muted p-4 text-body">

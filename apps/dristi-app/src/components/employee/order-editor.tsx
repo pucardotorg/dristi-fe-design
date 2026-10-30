@@ -800,7 +800,7 @@ export function OrderWorkflowFields({
           {aDiarySame ? (
             <p className="text-caption text-muted-foreground">
               {signedEach
-                ? `The ${companion} is the order text in full. Once the order is triggered, it is signed on its own, in Pending orders.`
+                ? `The ${companion} is the order text in full. Once the order data is marked complete, it is signed on its own, in Pending orders.`
                 : `The ${companion} entry is the order text in full, with its attendance and next hearing lines.`}
             </p>
           ) : (
