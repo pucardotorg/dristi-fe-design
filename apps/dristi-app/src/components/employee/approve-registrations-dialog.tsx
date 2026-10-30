@@ -4,9 +4,9 @@ import * as React from "react";
 import {
   ArrowRightIcon,
   ChevronDownIcon,
-  CircleCheckIcon,
   CircleXIcon,
   ImageOffIcon,
+  UserXIcon,
 } from "lucide-react";
 
 import {
@@ -64,6 +64,7 @@ import {
 } from "@/lib/employee/approve-registrations";
 import { cn } from "@/lib/utils";
 import { Identifier } from "@/components/chrome/identifier";
+import { StatusLine } from "@/components/feedback";
 
 /**
  * One registration request, verified and then approved or rejected — the whole decision,
@@ -731,11 +732,12 @@ function CardPhoto({ request }: { request: RegistrationRequest }) {
 /**
  * The one thing that changes when the act is performed.
  *
- * Before: a sunken strip naming what is about to happen. After: the same strip in the
- * status's own muted pair, with a 16px mark and one line saying what did. Keyed on the
- * stage so the swap re-mounts and plays its entrance — a fade and a millimetre of rise,
- * which is the whole of the "motion" the owner asked for and as much as a court screen
- * should spend on a decision taken forty times a day.
+ * Before: a white strip with a rule under it, naming what is about to happen. After: the
+ * product's inline line (`StatusLine`) in the same place, flush with the card's top edge.
+ * It is the officer's record that this one is done, so it stays until the dialog closes or
+ * moves on, never on a timer (owner, 2026-10-30). Rejected is the soft red danger mark,
+ * the way removals read, not the error cross: it is a decision, not a failure, and the
+ * owner asked for it not to alarm (2026-09-11).
  */
 function StatusStrip({
   stage,
@@ -746,49 +748,33 @@ function StatusStrip({
   rejecting: boolean;
   settled: boolean;
 }) {
-  const approved = stage === "approved";
+  if (settled) {
+    const approved = stage === "approved";
+    return (
+      /* **What happened to the account, not what happened to the reason** (owner,
+         2026-09-11): created / rejected, the same kind of fact whichever way it went.
+         Keyed on the stage so the line plays its entrance when the act lands. */
+      <StatusLine
+        key={stage}
+        tone={approved ? "success" : "danger"}
+        icon={approved ? undefined : UserXIcon}
+        className="rounded-none border-b border-hairline ring-0"
+      >
+        {approved ? "Account created" : "Account rejected"}
+      </StatusLine>
+    );
+  }
 
   return (
+    /* White, with a rule under it, rather than a sunken fill: the fill it used to carry
+       is the stage's own tone, so the card began in the page. */
     <div
       key={stage}
-      className={cn(
-        "flex items-center gap-2 px-4 py-2.5 text-body-compact animate-in fade-in-0 duration-500 motion-reduce:animate-none",
-        settled
-          ? "slide-in-from-top-1"
-          : /* White, with a rule under it, rather than a sunken fill: the fill it used to
-               carry is the stage's own tone, so the card began in the page. The rule is
-               what separates it from the name below, and the card's shadow is what
-               separates the whole thing from the stage. */
-            "border-b border-hairline text-muted-foreground",
-        approved && "bg-success-muted text-success-muted-foreground",
-        stage === "rejected" &&
-          "bg-destructive-muted text-destructive-muted-foreground",
-      )}
+      className="flex items-center gap-2 border-b border-hairline px-4 py-2.5 text-body-compact text-muted-foreground animate-in fade-in-0 duration-500 motion-reduce:animate-none"
     >
-      {settled ? (
-        <>
-          {approved ? (
-            <CircleCheckIcon aria-hidden className="size-4 shrink-0" />
-          ) : (
-            <CircleXIcon aria-hidden className="size-4 shrink-0" />
-          )}
-          {/* `role="status"` gets the outcome spoken: focus lands on the header title,
-              which announces itself and nothing below it. */}
-          {/* **What happened to the account, not what happened to the reason** (owner,
-              2026-09-11: *"the actual action here was the account didn't get created…
-              reason sent to advocate is just a byproduct"*). The two strings are now a
-              pair — created / rejected — so the strip reports the same kind of fact
-              whichever way the decision went, and the reason sitting in the well below
-              needs no sentence to explain that it was sent. */}
-          <span role="status" className="font-medium">
-            {approved ? "Account created" : "Account rejected"}
-          </span>
-        </>
-      ) : (
-        <span className="font-medium">
-          {rejecting ? "You are rejecting" : "You are approving"}
-        </span>
-      )}
+      <span className="font-medium">
+        {rejecting ? "You are rejecting" : "You are approving"}
+      </span>
     </div>
   );
 }

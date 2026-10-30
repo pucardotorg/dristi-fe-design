@@ -292,9 +292,10 @@ DS was never touched, so there is nothing to undo.
 - **Kit safety nets:**
   - An error toast raised while a dialog is open waits for the dialog to close.
   - The staged overlay's outcome stage drops its height floor.
-- **Known gaps** (owner, Oct 29: partial lines approved as written; the order editor and approve registrations are on hold, leave as is, revisit later):
+- **Known gaps** (owner, Oct 29: partial lines approved as written; the order editor and approve registrations are on hold, leave as is, revisit later. Oct 30: both settled, see below):
   - Missing input in the court order editor ("Type the order before sending…", "Set the next hearing's date…") and the pending order's "questions still to answer". The rule says to point at the field, but there the "field" is a block in a composed order.
-  - The approve-registrations overlay still ends on its thin status strip. Making its outcome a takeover would hide the record it walks through.
+  - Settled Oct 30: the order editor's missing-input toasts stay toasts. Another designer chose them, and the owner keeps that call.
+  - Settled Oct 30: approve registrations' tinted strip is now the inline line (`StatusLine`), flush with the card's top. The card and flow are unchanged. It stays until the dialog closes or moves on, so an officer who looks away still sees what they decided. A takeover was ruled out because it would hide the record. Rejected uses the soft red danger mark with a user-cross icon: a decision, not a failure.
   - A mid-sentence "cannot be reversed" stays plain in three footers: diary day, deposition, evidence.
   - Bulk pay failure is said at the top of the page after the window closes (from before batch 4).
   - Batch partial lines need PM copy sign-off.
