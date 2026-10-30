@@ -54,10 +54,20 @@ broken images. (`sizes.mjs`.)
 Seat switching for captures: set `role` in localStorage key `dristi-demo-court-session`.
 The capture browser kept the magistrate seat afterwards. That's only in its own profile.
 
+## How the owner decides
+
+Every example and every card has Agree / Keep as today / Different call plus a note box.
+Decisions are saved in that browser's localStorage (`coverage-board-decisions`). "Copy
+decisions" at the top puts a plain-text list on the clipboard to paste into the chat.
+
+Owner feedback so far (30 Oct): the "after" for "Mobile number verified" (big StatusLine) is
+too heavy; the old small green line looked right. Recommended: a 16px `StatusMark` + words
+(the small inline mark the app already uses next to receipts and uploads), and one line of
+DS guidance for quiet field-level confirmations. Not built yet.
+
 ## Next
 
-1. Owner + lead designer review the board and decide per lane (Skip / Different call per
-   card for exceptions).
+1. Owner + lead designer review the board and decide per example and card.
 2. Then fix lane by lane in small PRs from main, using the board's list as the checklist,
    and extend `check:ds-retired` so the retired patterns can't return.
 3. Optional: find why ST/1334 doesn't list, and capture its after.
