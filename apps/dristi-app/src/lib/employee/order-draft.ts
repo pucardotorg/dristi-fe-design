@@ -127,6 +127,8 @@ export function appearancesFor(hearing: CourtHearing): Appearance[] {
   });
 }
 
+export type OrderType = "regular" | "alternative";
+
 export type NextListingChoice = "list" | "none";
 
 export type OrderDraft = {
@@ -162,6 +164,11 @@ export type OrderDraft = {
    */
   aDiarySame?: boolean;
   aDiaryText?: string;
+  /**
+   * The order's type (`order-type.ts`). Left out, it follows how the order was opened:
+   * a hearing's or an application's is the state's alternative type, any other regular.
+   */
+  orderType?: OrderType;
   /**
    * An order on an application: its Application item's answers
    * (`application-outcome.ts`). Absent on every other order.

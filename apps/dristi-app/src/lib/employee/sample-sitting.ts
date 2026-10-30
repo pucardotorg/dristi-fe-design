@@ -36,6 +36,11 @@ type SampleOrder = {
   text: string[];
   marks: OrderDraft["marks"];
   posting?: { nextDate: string; nextPurpose: OrderDraft["nextPurpose"] };
+  /**
+   * Typed as a regular order where the state offers another type (`order-type.ts`), so a
+   * Gujarat demo has a regular order's Roznama to sign. Kerala ignores it.
+   */
+  regular?: { companion?: string };
 };
 
 const ORDERS: SampleOrder[] = [
@@ -58,6 +63,7 @@ const ORDERS: SampleOrder[] = [
   },
   {
     id: "h-250",
+    regular: {},
     heading: "Fathima Beevi v. Nithin Jose",
     caseNumber: "ST/250/2026",
     origin: "Hearing · Evidence of complainant",
@@ -92,6 +98,10 @@ const ORDERS: SampleOrder[] = [
   },
   {
     id: "h-244",
+    regular: {
+      companion:
+        "Heard the complainant. Accused absent. Bailable warrant issued; next on 3 November 2026.",
+    },
     heading: "Kiran Mathew v. Harbour Line Shipping",
     caseNumber: "ST/244/2026",
     origin: "Hearing · Appearance",
@@ -109,6 +119,7 @@ const ORDERS: SampleOrder[] = [
   },
   {
     id: "h-251",
+    regular: {},
     heading: "Ganesh Iyer v. Backwater Marine Logistics and Warehousing Company Pvt Ltd",
     caseNumber: "ST/251/2026",
     origin: "Hearing · For reports (to be received from forensics, ADR, etc)",
@@ -146,6 +157,7 @@ const ORDERS: SampleOrder[] = [
   },
   {
     id: "h-245",
+    regular: {},
     heading: "Rajeev Menon v. Ferns Interiors",
     caseNumber: "ST/245/2026",
     origin: "Hearing · Delay condonation",
@@ -267,6 +279,14 @@ function seedFrom(orders: readonly SampleOrder[]): SittingSeed {
             html: order.text.map((line) => `<p>${escapeHtml(line)}</p>`).join(""),
             text: order.text.join("\n"),
           },
+          ...(order.regular
+            ? {
+                orderType: "regular" as const,
+                ...(order.regular.companion
+                  ? { aDiarySame: false, aDiaryText: order.regular.companion }
+                  : {}),
+              }
+            : {}),
         } satisfies OrderDraft,
       ]),
     ),

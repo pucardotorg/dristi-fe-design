@@ -54,6 +54,24 @@ export type AiMode = "on" | "unavailable" | "off";
  */
 export type RegistrationType = { code: string | null; name: string };
 
+/**
+ * What kinds of order a state's courts draft, and the second text a regular order
+ * carries (owner, 2026-10-30; proposal in chat, not yet in order-generation.md).
+ *
+ * - `alternative` — the other type offered beside a regular order: Gujarat's Roznama,
+ *   Punjab & Haryana's Zimni. `null` where there is none, and no choice is shown. The
+ *   type changes nothing about the order except whether it carries a companion text.
+ * - `companion` — the text a *regular* order carries beside its order text, what the
+ *   state calls it, and how it is signed: `day` goes into the day's A-Diary, signed once
+ *   a day (Kerala, `ADY-12`); `each` becomes its own document, signed one at a time by
+ *   the order signer once the order is triggered (Gujarat). `null` where there is none.
+ *   An order of the alternative type never carries one: its order text is the entry.
+ */
+export type OrderTypeRules = {
+  alternative: string | null;
+  companion: { label: string; signing: "day" | "each" } | null;
+};
+
 export type CourtProfile = {
   id: CourtId;
   /** What the court switch calls this deployment. */
@@ -113,6 +131,8 @@ export type CourtProfile = {
    * case is registered as it; with more, the officer chooses at Forward or Register.
    */
   registrationTypes: RegistrationType[];
+  /** Order types and the companion text (`OrderTypeRules`). */
+  orderTypes: OrderTypeRules;
 };
 
 export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
@@ -131,6 +151,10 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     singleCourt: null,
     cognizanceSplit: "delay",
     registrationTypes: [{ code: null, name: "Criminal complaint" }],
+    orderTypes: {
+      alternative: null,
+      companion: { label: "A-Diary text", signing: "day" },
+    },
   },
   gujarat: {
     id: "gujarat",
@@ -154,6 +178,10 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
       { code: "eCR EN", name: "Criminal Inquiry Case" },
       { code: "eCR MA", name: "Criminal Miscellaneous Application" },
     ],
+    orderTypes: {
+      alternative: "Roznama",
+      companion: { label: "Roznama", signing: "each" },
+    },
   },
   /*
    * One deployment under the Punjab and Haryana High Court (owner, 2026-10-12). It took
@@ -177,6 +205,7 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     singleCourt: "24×7 ON Court",
     cognizanceSplit: "delay",
     registrationTypes: [{ code: "NACT", name: "NACT" }],
+    orderTypes: { alternative: "Zimni", companion: null },
   },
 };
 
