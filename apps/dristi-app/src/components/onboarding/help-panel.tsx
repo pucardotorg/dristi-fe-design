@@ -55,7 +55,7 @@ export function HelpPanel({ step, locale }: { step: StepId; locale: Locale }) {
   const entries = helpPanel[step];
 
   return (
-    <Card className="border-hairline shadow-raised" role="region" aria-label={pick(ui.helpTitle, locale)}>
+    <Card variant="raised" role="region" aria-label={pick(ui.helpTitle, locale)}>
       <CardHeader>
         <h3 className="text-title-s font-semibold text-foreground">
           {pick(ui.helpTitle, locale)}

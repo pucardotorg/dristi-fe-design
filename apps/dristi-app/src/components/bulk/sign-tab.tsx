@@ -20,7 +20,6 @@ import { money } from "@/lib/filing/format";
 import { cn } from "@/lib/utils";
 import { PaymentFacts } from "@/components/payment/payment-steps";
 import { ChromeDialogContent } from "@/components/chrome/app-chrome";
-import { PANEL_CLASS } from "@/components/filing/form-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -187,14 +186,14 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
       ) : null}
 
       {clear.length === 0 ? (
-        <Card className={PANEL_CLASS}>
+        <Card variant="raised">
           <CardContent className="text-body-compact text-muted-foreground">
             Nothing to sign yet. Finish the documents and case details first.
           </CardContent>
         </Card>
       ) : (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-          <Card className={cn(PANEL_CLASS, "lg:col-span-2")}>
+          <Card variant="raised" className="lg:col-span-2">
             <CardHeader>
               <CardTitle className="text-body font-semibold">
                 Cases to sign
@@ -258,7 +257,7 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
             </CardContent>
           </Card>
 
-          <Card className={cn(PANEL_CLASS, "lg:col-span-3")}>
+          <Card variant="raised" className="lg:col-span-3">
             <CardHeader>
               <CardTitle className="text-body font-semibold">
                 How to sign

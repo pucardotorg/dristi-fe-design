@@ -429,9 +429,10 @@ export function ReviewDialog({
                 </h3>
                 {byOwner(groups[g]).map(([owner, list]) => (
                   <Card
+                    variant="raised"
                     key={owner || g}
                     size="sm"
-                    className="gap-0 border-hairline py-0 shadow-raised"
+                    className="gap-0 py-0"
                   >
                     {owner ? (
                       <p className="border-b border-hairline px-4 py-3 text-body-compact font-semibold text-muted-foreground">
@@ -574,7 +575,7 @@ function TypeChoice({
       <h3 id="rv-type" className="text-caption font-semibold text-muted-foreground">
         Register as
       </h3>
-      <Card size="sm" className="gap-0 border-hairline py-0 shadow-raised">
+      <Card variant="raised" size="sm" className="gap-0 py-0">
         <RadioGroup
           value={value}
           onValueChange={onChange}

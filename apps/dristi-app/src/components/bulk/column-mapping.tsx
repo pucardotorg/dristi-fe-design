@@ -29,7 +29,6 @@ import {
 import { cn } from "@/lib/utils";
 import { BrandGlyph } from "@/components/brand-lockup";
 import { ConfirmDialog } from "@/components/shell/confirm-dialog";
-import { PANEL_CLASS } from "@/components/filing/form-card";
 import { Card } from "@/components/ui/card";
 import { SectionTabs } from "@/components/filing/section-tabs";
 import { RAIL_ROW, RAIL_ROW_ACTIVE } from "@/components/filing/sections-rail";
@@ -970,10 +969,8 @@ export function ColumnMapping(props: Props) {
                             </h4>
                           ) : null}
                           <Card
-                            className={cn(
-                              PANEL_CLASS,
-                              "relative gap-0 px-6 py-2",
-                            )}
+                            variant="raised"
+                            className="relative gap-0 px-6 py-2"
                           >
                             {/* The middle column of field 1fr, 3.5rem, column 1.2fr, inside px-6. */}
                             <span

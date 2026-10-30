@@ -87,7 +87,7 @@ export function PapersStep({ locale, caseSummary }: StepProps) {
           </Alert>
         )}
 
-        <Card className="border-hairline shadow-raised">
+        <Card variant="raised">
           <CardContent>
             <DescriptionList>
               {summaryFields.map((field) => {
@@ -144,7 +144,7 @@ export function ChoicesStep({ locale }: StepProps) {
 
         {/* Title and one-line summary always visible; detail opens one path at a time.
             The first path starts open, matching the reviewed designer treatment. */}
-        <Card className="border-hairline shadow-raised" size="sm">
+        <Card variant="raised" size="sm">
           <CardContent>
             <Accordion type="single" collapsible defaultValue="pay">
               {choices.cards.map((card, index) => (
@@ -207,7 +207,7 @@ export function DateStep({ locale, caseSummary }: StepProps) {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-4">
-        <Card className="border-hairline shadow-raised">
+        <Card variant="raised">
           <CardContent>
             <div className="flex flex-col gap-2">
               <p className="text-body text-muted-foreground">
@@ -252,7 +252,7 @@ export function HelpStep({ locale }: StepProps) {
       </div>
 
       {/* One number. The one that gets a lawyer into this court for you. */}
-      <Card className="border-hairline shadow-raised">
+      <Card variant="raised">
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <p className="text-title-s font-semibold text-pretty text-foreground">

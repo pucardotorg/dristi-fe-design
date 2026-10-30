@@ -7,7 +7,6 @@ import {
   useStagedFlow,
 } from "@/components/chrome/staged-overlay";
 import { Identifier } from "@/components/chrome/identifier";
-import { PANEL_CLASS } from "@/components/shell/panel";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -35,7 +34,6 @@ import {
   type NonServiceReason,
   type ProcessOutcome,
 } from "@/lib/employee/sign-process";
-import { cn } from "@/lib/utils";
 import { useCourt, useCourtText } from "@/components/court/court-provider";
 import { OutcomeHeader } from "@/components/feedback";
 
@@ -289,7 +287,7 @@ function RecordReturnsBody({
 
           {/* The covers are one grouped thing on the canvas, so they sit on one lifted
               panel — the card the bulk confirmation uses — with hairlines between them. */}
-          <Card size="sm" className={cn(PANEL_CLASS, "gap-0 py-0")}>
+          <Card variant="raised" size="sm" className="gap-0 py-0">
             <ul className="flex flex-col px-4">
               {rows.map((process) => (
                 <ReturnRow

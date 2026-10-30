@@ -38,8 +38,6 @@ import {
 } from "@/lib/cases/sections";
 import { FIXTURE_TODAY } from "@/lib/cases/fixtures";
 import { type CaseRecord } from "@/lib/cases/types";
-import { PANEL_CLASS } from "@/components/shell/panel";
-import { cn } from "@/lib/utils";
 import { BotdText } from "@/components/cases/botd-text";
 
 /**
@@ -123,7 +121,7 @@ export function CaseTimeline({ record }: { record: CaseRecord }) {
           </EmptyHeader>
         </Empty>
       ) : (
-        <Card className={cn(PANEL_CLASS, "gap-4 hover:bg-card")}>
+        <Card variant="raised" className="gap-4 hover:bg-card">
           <CardHeader>
             <div className="flex min-w-0 flex-col gap-1">
               <h3

@@ -12,7 +12,6 @@ import {
 import { DocumentSlot } from "@/components/ui/document-slot";
 import { Separator } from "@/components/ui/separator";
 import { Stepper, StepperItem } from "@/components/ui/stepper";
-import { PANEL_CLASS } from "@/components/filing/form-card";
 import { Segmented } from "@/components/filing/segmented";
 import { ConfirmDialog } from "@/components/shell/confirm-dialog";
 import { InfoWell, SectionNotice } from "@/components/shell/notices";
@@ -148,7 +147,7 @@ export default function DsAuditPage() {
         >
           <div className="flex flex-col gap-4">
             {ORPHANS.map((o) => (
-              <Card key={o.file} className={`${PANEL_CLASS} gap-4 p-6`}>
+              <Card key={o.file} variant="raised" className="gap-4 p-6">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <FileMeta file={o.file} lines={0} origin={o.origin} />
                   <VerdictChip verdict={o.verdict} />
@@ -193,7 +192,7 @@ export default function DsAuditPage() {
         >
           <div className="flex flex-col gap-4">
             {DIVERGED.map((d) => (
-              <Card key={d.file} className={`${PANEL_CLASS} gap-4 p-6`}>
+              <Card key={d.file} variant="raised" className="gap-4 p-6">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <FileMeta file={d.file} lines={d.diffLines} origin={`${d.origin} · diverges by`} />
                   <VerdictChip verdict={d.verdict} />
@@ -278,7 +277,7 @@ export default function DsAuditPage() {
         >
           <div className="flex flex-col gap-4">
             {DUPLICATES.map((p) => (
-              <Card key={p.id} className={`${PANEL_CLASS} gap-4 p-6`}>
+              <Card key={p.id} variant="raised" className="gap-4 p-6">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <h3 className="text-body font-semibold">{p.role}</h3>
                   <VerdictChip verdict={p.verdict} />
@@ -382,7 +381,7 @@ export default function DsAuditPage() {
           count={TOKEN_CANDIDATES.length}
           lede="App-level tokens in globals.css. Syncing tokens from the DS deletes these and flattens the sign-in panel, so they are the strongest case for going upstream."
         >
-          <Card className={`${PANEL_CLASS} gap-4 p-6`}>
+          <Card variant="raised" className="gap-4 p-6">
             <div className="flex flex-col gap-3">
               {TOKEN_CANDIDATES.map((t) => (
                 <div key={t.name} className="flex items-start gap-4">

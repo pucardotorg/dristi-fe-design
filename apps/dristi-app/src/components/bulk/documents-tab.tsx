@@ -8,7 +8,6 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { PANEL_CLASS } from "@/components/filing/form-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
@@ -337,7 +336,7 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
       ) : null}
 
       {open.length === 0 ? (
-        <Card className={PANEL_CLASS}>
+        <Card variant="raised">
           <CardContent className="text-body-compact text-muted-foreground">
             All documents are in.
           </CardContent>
@@ -348,7 +347,7 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
             const complete = c.docs.have >= c.docs.need;
             return (
               <li key={c.id}>
-                <Card className={cn(PANEL_CLASS, "gap-0 py-4")}>
+                <Card variant="raised" className="gap-0 py-4">
                   {/* The case in brief beside its slots: what each paper should show. */}
                   <CardContent className="grid grid-cols-1 gap-4 px-4 md:grid-cols-[minmax(0,15rem)_minmax(0,1fr)] md:gap-6">
                     <div className="flex min-w-0 flex-col gap-3">

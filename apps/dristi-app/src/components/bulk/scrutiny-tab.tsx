@@ -14,7 +14,6 @@ import type { Flag } from "@/lib/bulk/scrutiny";
 import { money } from "@/lib/filing/format";
 import { cn } from "@/lib/utils";
 import { FilingFooter } from "@/components/filing/filing-footer";
-import { PANEL_CLASS } from "@/components/filing/form-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -199,7 +198,7 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
         <StatusLine tone="error">{error}</StatusLine>
       ) : null}
 
-      <Card className={cn(PANEL_CLASS, "gap-0 py-1")}>
+      <Card variant="raised" className="gap-0 py-1">
         <ul className="flex flex-col divide-y divide-hairline">
           {listed.map((c) => {
             const f = detailFlags(c);
@@ -243,7 +242,7 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
       {skipped.length ? (
         <section className="flex flex-col gap-2">
           <h3 className="text-body font-semibold">Skipped checks</h3>
-          <Card className={cn(PANEL_CLASS, "gap-0 px-4 py-1")}>
+          <Card variant="raised" className="gap-0 px-4 py-1">
             <ul className="flex flex-col divide-y divide-hairline">
               {skipped.map(({ c, f }) => (
                 <li

@@ -17,7 +17,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { PANEL_CLASS } from "@/components/filing/form-card";
 import { useProfile } from "@/components/shell/profile";
 import { createVak, discardVak, useVakList, useStoreReady } from "@/lib/vakalatnama/store";
 import { executantName, scopeLabel, statusLabel } from "@/lib/vakalatnama/format";
@@ -68,7 +67,7 @@ export default function VakalatnamaListPage() {
           <h2 className="text-body font-semibold">Your vakalatnamas</h2>
 
           {!ready ? null : list.length === 0 ? (
-            <Card className={PANEL_CLASS}>
+            <Card variant="raised">
               <Empty>
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
@@ -100,7 +99,7 @@ function VakRow({ vak, onDiscard }: { vak: Vakalatnama; onDiscard: () => void })
 
   return (
     <li>
-      <Card className={PANEL_CLASS + " p-0"}>
+      <Card variant="raised" className="p-0">
         <div className="flex items-center gap-4 p-4">
           <Link
             href={`/vakalatnama/${vak.id}`}
