@@ -10,10 +10,7 @@ import {
 } from "lucide-react";
 
 import { CaseStage } from "@/components/cases/case-identity";
-import {
-  CasePeekPushRegion,
-  PEEK_PUSH_CLASS,
-} from "@/components/cases/case-peek";
+import { CasePeekPushRegion } from "@/components/cases/case-peek";
 import { COLLAPSE_MOTION } from "@/components/cases/motion";
 import { RegisterSearch } from "@/components/cases/register-controls";
 import {
@@ -22,6 +19,7 @@ import {
   useCasePeek,
 } from "@/components/cases/use-case-peek";
 import { Identifier } from "@/components/chrome/identifier";
+import { SIDE_PANEL_PUSH } from "@/components/ui/side-panel";
 import {
   PAGE_GROUND,
   PAGE_GUTTER,
@@ -114,16 +112,15 @@ export function RaiseApplicationCaseChooser({
 
   return (
     <TooltipProvider>
-      <CasePeekProvider now={now} docked>
+      <CasePeekProvider now={now}>
         {/* The Cases page's docked peek, on the same terms: the header eases aside,
         the list keeps its width and the panel slides over its far edge. */}
         <CasePeekPushRegion
-      mobileDrawer
-          className={cn("flex flex-1 flex-col", PAGE_GROUND, PAGE_GUTTER)}
+          className={cn(PAGE_GROUND, PAGE_GUTTER)}
         >
           <div className="flex w-full flex-col gap-6">
             {/* Keyed to the column, not the viewport; see FilingFrame's header. */}
-            <header className={cn("@container", PEEK_PUSH_CLASS)}>
+            <header className={cn("@container", SIDE_PANEL_PUSH)}>
               <div className="flex flex-col gap-4 @2xl:flex-row @2xl:items-center @2xl:justify-between @2xl:gap-8">
                 <h1 className={PAGE_TITLE}>Raise application</h1>
                 <RegisterSearch
@@ -144,7 +141,7 @@ export function RaiseApplicationCaseChooser({
           would cover it and the next case could not be previewed. */}
             <section
               aria-labelledby={headingId}
-              className={cn("flex flex-col gap-4", PEEK_PUSH_CLASS)}
+              className={cn("flex flex-col gap-4", SIDE_PANEL_PUSH)}
             >
               <h2 id={headingId} className="text-body font-semibold">
                 Choose the case
