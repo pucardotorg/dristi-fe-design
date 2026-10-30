@@ -10,7 +10,7 @@
 import * as React from "react";
 import { FileTextIcon, SaveIcon, SignatureIcon, TrashIcon } from "lucide-react";
 
-import { StatusLine, StatusMark } from "@/components/feedback";
+import { StatusFieldControl, StatusFieldError, StatusLine, StatusMark, useRefusal } from "@/components/feedback";
 
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 
@@ -377,6 +377,9 @@ function OtpForm({
 }) {
   const [otp, setOtp] = React.useState("");
   const [resent, setResent] = React.useState(false);
+  /* Sign stays pressable; a short code is refused at the field (skill `feedback-states`). */
+  const { attempt, refuse, reset } = useRefusal();
+  const refused = attempt > 0 && otp.length < 6;
   return (
     <>
       <DialogHeader>
@@ -387,25 +390,43 @@ function OtpForm({
           mobile. The signature applied is theirs.
         </DialogDescription>
       </DialogHeader>
-      <div className="flex flex-col gap-2">
+      <Field data-invalid={refused} className="gap-2">
         <Label htmlFor="esign-otp" className="text-body-compact">
           Enter OTP
         </Label>
-        <InputOTP id="esign-otp" maxLength={6} value={otp} onChange={setOtp} containerClassName="gap-2">
-          <InputOTPGroup className="gap-2">
-            {[0, 1, 2, 3, 4, 5].map((i) => (
-              <InputOTPSlot key={i} index={i} className="size-10 rounded-lg border border-input" />
-            ))}
-          </InputOTPGroup>
-        </InputOTP>
-      </div>
+        <StatusFieldControl attempt={attempt}>
+          <InputOTP
+            id="esign-otp"
+            maxLength={6}
+            value={otp}
+            onChange={(v) => {
+              setOtp(v);
+              if (v.length === 6) reset();
+            }}
+            containerClassName="gap-2"
+          >
+            <InputOTPGroup className="gap-2">
+              {[0, 1, 2, 3, 4, 5].map((i) => (
+                <InputOTPSlot
+                  key={i}
+                  index={i}
+                  aria-invalid={refused}
+                  className="size-10 rounded-lg border border-input"
+                />
+              ))}
+            </InputOTPGroup>
+          </InputOTP>
+        </StatusFieldControl>
+        {/* Draft copy, needs PM sign-off. */}
+        {refused ? <StatusFieldError attempt={attempt}>Enter the 6-digit OTP.</StatusFieldError> : null}
+      </Field>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-body-compact text-muted-foreground">Didn’t get it?</span>
         <Button type="button" variant="link" className="h-auto p-0 underline" onClick={() => setResent(true)}>
           {resent ? "Sent again" : "Resend OTP"}
         </Button>
       </div>
-      <Button size="lg" className="w-full" disabled={otp.length < 6} onClick={onSign}>
+      <Button size="lg" className="w-full" onClick={() => (otp.length < 6 ? refuse() : onSign())}>
         <SignatureIcon data-icon="inline-start" aria-hidden />
         {confirmLabel}
       </Button>

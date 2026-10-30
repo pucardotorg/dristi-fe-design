@@ -4,6 +4,7 @@ import * as React from "react";
 import { InfoIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { StatusFieldControl, StatusFieldError } from "@/components/feedback";
 import { Button } from "@/components/ui/button";
 import {
   Field,
@@ -87,6 +88,7 @@ export function FormField({
   help,
   helpPlacement = "below",
   error: ownError,
+  refusal,
   asGroup = false,
   className,
   children,
@@ -105,6 +107,11 @@ export function FormField({
   helpPlacement?: "above" | "below";
   /** What is wrong with the current value. Shown under the control, read out with it. */
   error?: React.ReactNode;
+  /**
+   * The press that refused this field, from `useRefusal` (skill `feedback-states`). With it,
+   * the control takes focus and its ring grows in, the error drops in, and a repeat shakes.
+   */
+  refusal?: { attempt: number };
   asGroup?: boolean;
   className?: string;
   children: React.ReactNode;
@@ -180,10 +187,16 @@ export function FormField({
       )}
       {help && helpPlacement === "above" ? <FieldDescription>{help}</FieldDescription> : null}
       <SourceFieldLabel.Provider value={typeof label === "string" ? label : "this field"}>
-        {children}
+        {refusal ? <StatusFieldControl attempt={refusal.attempt}>{children}</StatusFieldControl> : children}
       </SourceFieldLabel.Provider>
       {help && helpPlacement === "below" ? <FieldDescription>{help}</FieldDescription> : null}
-      {error ? <FieldError>{error}</FieldError> : null}
+      {error ? (
+        refusal ? (
+          <StatusFieldError attempt={refusal.attempt}>{error}</StatusFieldError>
+        ) : (
+          <FieldError>{error}</FieldError>
+        )
+      ) : null}
     </Field>
   );
 

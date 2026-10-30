@@ -120,6 +120,8 @@ export const home = {
   ),
   linkYes: t("Yes, this is me", "അതെ, ഇത് ഞാനാണ്"),
   linkNo: t("No, this isn't me", "ഇല്ല, ഇത് ഞാനല്ല"),
+  /* Draft copy, needs PM sign-off (coverage board, Oct 30). */
+  linkAddedTitle: t("This case was added", "ഈ കേസ് ചേർത്തു"),
   linkDeclinedTitle: t("This case was not added", "ഈ കേസ് ചേർത്തിട്ടില്ല"),
   linkDeclinedBody: t(
     "Thank you. The case has not been linked to your account.",

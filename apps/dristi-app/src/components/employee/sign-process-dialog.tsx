@@ -1,14 +1,15 @@
 "use client";
 
 import * as React from "react";
-import { CircleCheckIcon, TriangleAlertIcon } from "lucide-react";
+import { ListChecksIcon } from "lucide-react";
+
+import { OutcomeHeader } from "@/components/feedback";
 
 import {
   StagedOverlay,
   useStagedFlow,
 } from "@/components/chrome/staged-overlay";
 import { Identifier } from "@/components/chrome/identifier";
-import { RESOLVE_IN_PLACE } from "@/components/chrome/motion";
 import { DocumentPreview } from "@/components/cases/document-preview";
 import {
   ReturnedOnField,
@@ -32,7 +33,6 @@ import {
 } from "@/components/ui/description-list";
 import { Dialog, DialogDescription } from "@/components/ui/dialog";
 import { causeTitle, isoDay } from "@/lib/employee/hearings";
-import { cn } from "@/lib/utils";
 import {
   actTakes,
   buildProcessDocument,
@@ -274,31 +274,10 @@ function SignProcessBody({
       </>
     );
   } else if (settled) {
-    /* What the act did, where the question stood: the success ink and a tick, then
-       where the row is now — read off the live row, because signing forks. A refused
-       send says so in the warning ink instead. */
-    const refused = process.status === "send-failed";
-    const noun = settled.noun?.one ?? (settled.id === "record" ? "return" : "process");
+    /* What the act did takes the window over (skill `feedback-states`); the outcome is
+       drawn in the body below. Only Download and Done stay in the footer. */
     footer = (
       <>
-        <p
-          role="status"
-          className={cn(
-            "mr-auto flex items-start gap-2 self-center text-body-compact max-sm:order-last",
-            refused ? "text-warning-ink" : "text-success-ink",
-            RESOLVE_IN_PLACE,
-          )}
-        >
-          {refused ? (
-            <TriangleAlertIcon aria-hidden className="mt-0.5 size-4 shrink-0" />
-          ) : (
-            <CircleCheckIcon aria-hidden className="mt-0.5 size-4 shrink-0" />
-          )}
-          <span>
-            <span className="font-medium">{settled.done(noun)}.</span>{" "}
-            {refused ? refusedLine([process]) : landedLine([process])}
-          </span>
-        </p>
         {download}
         <Button type="button" onClick={onClose}>
           Done
@@ -325,8 +304,15 @@ function SignProcessBody({
     );
   }
 
-  const title =
-    stage === "sign"
+  /* Signing forks: a refused send means signed but not sent, so some of it went through. */
+  const refusedSend = process.status === "send-failed";
+  const settledNoun = settled
+    ? (settled.noun?.one ?? (settled.id === "record" ? "return" : "process"))
+    : "";
+
+  const title = settled
+    ? settled.done(settledNoun)
+    : stage === "sign"
       ? "Add signature"
       : mode === "act" && asking
         ? asking.question(`this ${asking.noun?.one ?? "process"}`)
@@ -338,6 +324,7 @@ function SignProcessBody({
       className="h-[85dvh] sm:max-w-4xl xl:max-w-6xl"
       title={title}
       titleRef={flow.titleRef}
+      outcome={Boolean(settled)}
       description={
         <DialogDescription className="text-body-compact text-muted-foreground">
           {causeTitle(process)} <span aria-hidden>· </span>
@@ -362,7 +349,18 @@ function SignProcessBody({
       }}
       footer={footer}
     >
-      {stage === "read" ? (
+      {settled ? (
+        <OutcomeHeader
+          titleFrom="dialog"
+          focusTitle
+          surface="card"
+          /* Sent for signature waits on someone else: info, not success (tone table). */
+          tone={refusedSend ? "neutral" : settled.id === "collect" ? "info" : "success"}
+          icon={refusedSend ? ListChecksIcon : undefined}
+          title={title}
+          body={refusedSend ? refusedLine([process]) : landedLine([process])}
+        />
+      ) : stage === "read" ? (
         <div className="grid min-h-0 flex-1 grid-rows-[auto_auto] gap-6 overflow-y-auto p-6 md:grid-rows-[auto_minmax(0,1fr)] md:overflow-hidden xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] xl:grid-rows-1">
           {/* The facts column. It scrolls on its own beside the paper once they are side
               by side; stacked, the whole stage scrolls. */}

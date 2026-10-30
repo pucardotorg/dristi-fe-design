@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { notify } from "@/components/feedback";
+import { ConfirmMark, notify } from "@/components/feedback";
 import {
   ChevronDownIcon,
   EllipsisIcon,
@@ -1689,9 +1689,10 @@ export function PersonAccessDialog({
 
       {/* ----------------------------------------------- remove from office */}
       <AlertDialog open={confirmRemoveAll} onOpenChange={setConfirmRemoveAll}>
-        <ChromeAlertDialogContent className={CONFIRM_CONTENT}>
-          <AlertDialogHeader className={CONFIRM_HEADER}>
-            <AlertDialogTitle className={CONFIRM_TITLE}>
+        <ChromeAlertDialogContent>
+          <AlertDialogHeader>
+            <ConfirmMark danger icon={UserXIcon} />
+            <AlertDialogTitle>
               {fillCopy(peopleCopy.removeAllTitle, locale, {
                 name: person.name,
               })}

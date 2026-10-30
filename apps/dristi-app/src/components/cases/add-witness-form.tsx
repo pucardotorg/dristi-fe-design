@@ -65,7 +65,7 @@ import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 import { blankWitness } from "@/lib/filing/blank";
 import { witnessComplete } from "@/lib/filing/selectors";
 import type { AddressBlock, Witness } from "@/lib/filing/types";
-import { ConfirmMark } from "@/components/feedback";
+import { ConfirmMark, useRefusal } from "@/components/feedback";
 
 /** The filing witness, plus this flow's optional document uploads. */
 type DialogWitness = Witness & { docs: File[] };
@@ -111,6 +111,9 @@ export function AddWitnessDialog({
   ]);
   const [activeId, setActiveId] = useState(() => witnesses[0].id);
   const [error, setError] = useState<string | undefined>(undefined);
+  /* No name or designation is refused on that field (skill `feedback-states`). */
+  const [nameMissing, setNameMissing] = useState(false);
+  const { attempt, refuse } = useRefusal();
   const [filesErrors, setFilesErrors] = useState<Record<string, string>>({});
   const [removeId, setRemoveId] = useState<string | null>(null);
   const [removeNumber, setRemoveNumber] = useState(1);
@@ -201,10 +204,14 @@ export function AddWitnessDialog({
     const missing = witnesses.findIndex((item) => !witnessReady(item));
     if (missing >= 0) {
       setActiveId(witnesses[missing].id);
+      if (!witnessComplete(witnesses[missing])) {
+        setError(undefined);
+        setNameMissing(true);
+        refuse();
+        return;
+      }
       setError(
-        witnessComplete(witnesses[missing])
-          ? `Witness ${missing + 1} needs at least one complete address, police station included.`
-          : `Witness ${missing + 1} needs a name or a designation.`
+        `Witness ${missing + 1} needs at least one complete address, police station included.`
       );
       // Surface the error where the action is — the notice sits at the top of
       // the scroll region, so bring it into view.
@@ -289,6 +296,8 @@ export function AddWitnessDialog({
                     asGroup
                     label="How is this witness identified?"
                     required
+                    error={nameMissing && !witnessComplete(w) ? `Witness ${index + 1} needs a name or a designation.` : undefined}
+                    refusal={nameMissing ? { attempt } : undefined}
                     // One line on purpose: the DS description balances its
                     // lines, so two-line help breaks mid-phrase.
                     help="Their full name, or their designation if you only know the office they hold."

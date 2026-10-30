@@ -19,6 +19,7 @@ import {
   useSignatureChoice,
 } from "@/components/employee/sign-signature-fields";
 import { useHeldRecord } from "@/components/employee/use-held-record";
+import { OutcomeHeader, OutcomeSummary } from "@/components/feedback";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -83,6 +84,7 @@ export function SignFormDialog({
           key={opening}
           form={held}
           onSign={onSign}
+          onClose={() => onOpenChange(null)}
           onReturnFocus={onReturnFocus}
         />
       ) : null}
@@ -93,12 +95,17 @@ export function SignFormDialog({
 function SignFormBody({
   form,
   onSign,
+  onClose,
   onReturnFocus,
 }: {
   form: SignForm;
   onSign: (form: SignForm) => void;
+  onClose: () => void;
   onReturnFocus: () => void;
 }) {
+  /* Signed: the window turns into its outcome, as order signing does (skill
+     `feedback-states`), instead of closing with nothing said. */
+  const [signed, setSigned] = React.useState(false);
   const courtText = useCourtText();
   const flow = useStagedFlow<SignStage>({
     order: SIGN_STAGES,
@@ -113,14 +120,15 @@ function SignFormBody({
       /* The width and the height the *document* needs, held for both stages — see
          `SignOrderDialog` for why the height is definite at every width. */
       className="h-[85dvh] sm:max-w-4xl"
-      title={reading ? signFormProcessLabel(form.process) : "Add signature"}
+      title={signed ? "Form signed" : reading ? signFormProcessLabel(form.process) : "Add signature"}
       titleRef={flow.titleRef}
+      outcome={signed}
       /* The form's own state — waiting for this bench's signature — in the DS's sentence
          case rather than the reference's `PENDING_REVIEW`. `warning` is the variant
          `ReschedulingRequestDialog` already spends on a pending application, so the two
          court-side review overlays report a pending state the same way. It stands on both
          stages, because nothing has been signed until Submit. */
-      titleAside={<Badge variant="warning">Pending signature</Badge>}
+      titleAside={signed ? null : <Badge variant="warning">Pending signature</Badge>}
       description={
         <DialogDescription className="text-body-compact text-muted-foreground">
           {causeTitle(form)} <span aria-hidden>· </span>
@@ -135,7 +143,11 @@ function SignFormBody({
         onReturnFocus();
       }}
       footer={
-        reading ? (
+        signed ? (
+          <Button type="button" onClick={onClose}>
+            Done
+          </Button>
+        ) : reading ? (
           <Button type="button" onClick={() => flow.go("sign")}>
             Proceed to sign
           </Button>
@@ -143,12 +155,28 @@ function SignFormBody({
           <SignatureActions
             choice={choice}
             onBack={() => flow.go("read")}
-            onSubmit={() => onSign(form)}
+            onSubmit={() => {
+              onSign(form);
+              setSigned(true);
+            }}
           />
         )
       }
     >
-      {reading ? (
+      {signed ? (
+        <>
+          <OutcomeHeader titleFrom="dialog" focusTitle surface="card" title="Form signed" />
+          <div className="mx-auto flex w-full max-w-xl flex-col p-4 sm:p-6">
+            <OutcomeSummary tone="success" label="Signed">
+              <p className="text-body-compact">
+                {signFormProcessLabel(form.process)} <span aria-hidden>· </span>
+                {causeTitle(form)} <span aria-hidden>· </span>
+                <Identifier value={form.caseNumber} label="case number" copyable={false} />
+              </p>
+            </OutcomeSummary>
+          </div>
+        </>
+      ) : reading ? (
         <DocumentPreview
           /* The stage canvas is a flex column, so the preview only takes the height the
              window can spare if it says so: a flex item's height is never stretched for

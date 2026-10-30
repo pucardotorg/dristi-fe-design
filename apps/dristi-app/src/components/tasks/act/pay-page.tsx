@@ -9,7 +9,8 @@
  */
 
 import * as React from "react";
-import { StatusMark, StatusLine } from "@/components/feedback";
+import { ConfirmMark, IrreversibleNote, StatusMark, StatusLine } from "@/components/feedback";
+import { WalletIcon } from "lucide-react";
 
 import { ChromeAlertDialogContent } from "@/components/chrome/app-chrome";
 
@@ -155,8 +156,10 @@ function PayCard({ ctx }: { ctx: ActContext }) {
       <AlertDialog open={confirm} onOpenChange={setConfirm}>
         <ChromeAlertDialogContent>
           <AlertDialogHeader>
+            <ConfirmMark icon={WalletIcon} />
             <AlertDialogTitle>Pay {amount}?</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogDescription className="flex flex-col">
+              <span>
               {task.feeHead ?? "Court fee"} · {kase.parties}
               {kase.stNumber ? (
                 <>
@@ -165,7 +168,9 @@ function PayCard({ ctx }: { ctx: ActContext }) {
                   <Identifier value={kase.stNumber} label="case number" copyable={false} />
                 </>
               ) : null}
-              . This goes to the payment gateway now and cannot be recalled.
+              . This goes to the payment gateway now.
+              </span>
+              <IrreversibleNote>This cannot be recalled.</IrreversibleNote>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

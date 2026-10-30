@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+
+import { notify } from "@/components/feedback";
 import { ArrowRightIcon, FilePlus2Icon, ScaleIcon } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -247,12 +249,13 @@ export function HomeScreen({
               {pick(home.linkNo, locale)}
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={() =>
+              onClick={() => {
                 setCases((current) => [
                   ...current.filter((entry) => entry.joinCase.cnr !== DEMO_JOIN_CASE.cnr),
                   { joinCase: DEMO_JOIN_CASE, status: "joined" },
-                ])
-              }
+                ]);
+                notify.success(pick(home.linkAddedTitle, locale));
+              }}
             >
               {pick(home.linkYes, locale)}
             </AlertDialogAction>

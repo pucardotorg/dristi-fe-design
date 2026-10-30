@@ -12,7 +12,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { notify } from "@/components/feedback";
+import { notify, PageOutcome } from "@/components/feedback";
 import { ArrowLeftIcon, FileTextIcon } from "lucide-react";
 
 import { canComplete, canView } from "@/lib/tasks/permissions";
@@ -21,14 +21,6 @@ import type { Task } from "@/lib/tasks/types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Breadcrumbs } from "@/components/shell/chrome";
 import { useOrigin } from "@/components/shell/origin";
@@ -101,26 +93,24 @@ export function TaskActPage({ action }: { action: ActPageAction }) {
               <Skeleton className="h-64 w-full rounded-xl" />
             </>
           ) : (
-            <Card className={cn(PANEL_CLASS, "py-0")}>
-              <Empty className="py-12">
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <FileTextIcon aria-hidden />
-                  </EmptyMedia>
-                  <EmptyTitle>{forbidden ? "Not on your access" : "This task is not here"}</EmptyTitle>
-                  <EmptyDescription>
-                    {forbidden
-                      ? "You are not on this case's vakalatnama or its access list."
-                      : "The link may be wrong."}
-                  </EmptyDescription>
-                </EmptyHeader>
-                <EmptyContent>
+            /* A dead end: neutral, the act's icon, centred both ways (skill `feedback-states`). */
+            <div className="flex min-h-[60vh] flex-col items-center justify-center">
+              <PageOutcome
+                tone="neutral"
+                icon={FileTextIcon}
+                title={forbidden ? "Not on your access" : "This task is not here"}
+                body={
+                  forbidden
+                    ? "You are not on this case's vakalatnama or its access list."
+                    : "The link may be wrong."
+                }
+                action={
                   <Button asChild variant="outline">
                     <Link href="/tasks">Back to tasks</Link>
                   </Button>
-                </EmptyContent>
-              </Empty>
-            </Card>
+                }
+              />
+            </div>
           )}
         </div>
       </main>

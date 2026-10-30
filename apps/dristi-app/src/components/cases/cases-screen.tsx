@@ -6,6 +6,8 @@ import { SIDE_PANEL_PUSH } from "@/components/ui/side-panel";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 import * as React from "react";
+
+import { StatusLine } from "@/components/feedback";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   BookmarkIcon,
@@ -16,7 +18,6 @@ import {
   UserPlusIcon,
 } from "lucide-react";
 
-import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -292,17 +293,17 @@ export function CasesScreen({
 
   const panel =
     query.demo === "error" ? (
-      <Banner
-        variant="error"
+      <StatusLine
+        tone="error"
         action={
           <Button variant="outline" onClick={() => go({ demo: null })}>
             Try again
           </Button>
         }
       >
-        Cases could not be loaded. Nothing has been changed — try again in a
+        Cases could not be loaded. Nothing has been changed. Try again in a
         moment.
-      </Banner>
+      </StatusLine>
     ) : (
       <div
         className={cn(

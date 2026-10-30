@@ -74,7 +74,7 @@ export function DownloadCaseFileDialog({
 
   async function download() {
     if (format === "zip") {
-      notify.success("Preparing your download", {
+      notify.neutral("Preparing your download", {
         description: `${caseNumber}. It will start in a moment.`,
       });
       onOpenChange(false);

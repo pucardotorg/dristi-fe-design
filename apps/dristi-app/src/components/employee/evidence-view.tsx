@@ -102,7 +102,7 @@ import { formatOrderDate, type CourtHearingPurposeId } from "@/lib/employee/hear
 import { blankAddressBlock } from "@/lib/filing/blank";
 import type { Address } from "@/lib/filing/types";
 import { cn } from "@/lib/utils";
-import { notify } from "@/components/feedback";
+import { ConfirmMark, notify } from "@/components/feedback";
 
 /** Where the view sits: the hearing its records belong to, and the case's people. */
 export type EvidenceContext = {
@@ -328,6 +328,7 @@ export function EvidenceView({ context }: { context: EvidenceContext }) {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
+            <ConfirmMark danger icon={Trash2Icon} />
             <AlertDialogTitle>Discard this recorded statement?</AlertDialogTitle>
             <AlertDialogDescription>
               What has been typed in it is lost. Nothing has been signed.
@@ -1331,6 +1332,7 @@ function AddWitnessDialog({
       <AlertDialog open={discarding} onOpenChange={setDiscarding}>
         <AlertDialogContent>
           <AlertDialogHeader>
+            <ConfirmMark danger icon={Trash2Icon} />
             <AlertDialogTitle>Discard this witness?</AlertDialogTitle>
             <AlertDialogDescription>
               What has been typed here is lost. They are not added to the case.

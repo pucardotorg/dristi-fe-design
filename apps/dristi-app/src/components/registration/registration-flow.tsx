@@ -3,7 +3,6 @@
 import * as React from "react";
 import {
   ArrowLeftIcon,
-  CheckCircle2Icon,
   CheckIcon,
   CircleAlertIcon,
   EyeIcon,
@@ -43,7 +42,7 @@ import { cn } from "@/lib/utils";
 
 import { MaskedOtp, OTP_LENGTH } from "./masked-otp";
 import { Identifier } from "@/components/chrome/identifier";
-import { PageOutcome } from "@/components/feedback";
+import { PageOutcome, StatusLine } from "@/components/feedback";
 
 type Step = "role" | "name" | "contact" | "password" | "verification" | "terms" | "success" | "application";
 type AccountRole = "litigant" | "advocate" | "advocateClerk" | "poa" | "";
@@ -271,7 +270,7 @@ export function RegistrationFlow({ locale, summoned, toSign = false, initialMobi
                 )}
               </div>
               {otpVerified ? (
-                <p className="flex items-center gap-1.5 text-body-compact text-success-ink"><CheckCircle2Icon className="size-4" aria-hidden />{pick(contactStep.verified, locale)}</p>
+                <StatusLine tone="success">{pick(contactStep.verified, locale)}</StatusLine>
               ) : (
                 <FieldDescription>{pick(contactStep.mobileHint, locale)}</FieldDescription>
               )}

@@ -68,7 +68,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Field,
   FieldDescription,
-  FieldError,
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -103,7 +102,7 @@ import {
   type PartyOption,
 } from "@/lib/cases/party-actions";
 import { Identifier } from "@/components/chrome/identifier";
-import { ConfirmMark, OutcomeHeader } from "@/components/feedback";
+import { ConfirmMark, OutcomeHeader, StatusFieldControl, StatusFieldError, useRefusal } from "@/components/feedback";
 
 type AdvocateStep = 1 | 2 | 3;
 
@@ -162,6 +161,17 @@ export function AddAdvocateDialog({
   const [done, setDone] = useState(false);
   const partiesLive = usePartiesLive();
   const [errors, setErrors] = useState<Errors>({});
+  /* A refused Continue points at the first missing field (skill `feedback-states`): it
+     takes focus and its line drops in; a repeat press on the same field shakes it. */
+  const { attempt, refuse, reset: resetRefusal } = useRefusal();
+  const [refused, setRefused] = useState<keyof Errors | null>(null);
+  const pointAt = (field: keyof Errors) => {
+    if (field !== refused) {
+      setRefused(field);
+      resetRefusal();
+    }
+    refuse();
+  };
   const [exitConfirmationOpen, setExitConfirmationOpen] = useState(false);
 
   const current = STEPS.find((item) => item.step === step) ?? STEPS[0];
@@ -249,6 +259,7 @@ export function AddAdvocateDialog({
       if (pendingInvite) {
         if (!inviteName.trim()) {
           setErrors((c) => ({ ...c, advocates: "Enter the advocate's name." }));
+          pointAt("advocates");
           return;
         }
         commitInvite();
@@ -262,7 +273,10 @@ export function AddAdvocateDialog({
         next.parties = "Pick at least one party for the advocates to represent.";
       }
       setErrors(next);
-      if (next.advocates || next.parties) return;
+      if (next.advocates || next.parties) {
+        pointAt(next.advocates ? "advocates" : "parties");
+        return;
+      }
       setStep(2);
       return;
     }
@@ -274,6 +288,7 @@ export function AddAdvocateDialog({
           ...c,
           vakalatnama: "Attach a vakalatnama to continue.",
         }));
+        pointAt("vakalatnama");
         return;
       }
       setStep(3);
@@ -421,6 +436,7 @@ export function AddAdvocateDialog({
                       </div>
                     ) : null}
 
+                    <StatusFieldControl attempt={refused === "advocates" ? attempt : 0}>
                     {pendingInvite ? (
                       /* The picked number keeps its own box, read-only,
                          and the name gets its own box beside it. One
@@ -436,6 +452,7 @@ export function AddAdvocateDialog({
                         />
                         <Input
                           id="advocate-phone"
+                          aria-invalid={Boolean(errors.advocates)}
                           autoFocus
                           autoComplete="off"
                           className="min-w-0 flex-1"
@@ -486,6 +503,7 @@ export function AddAdvocateDialog({
                         </InputGroupAddon>
                         <InputGroupInput
                           id="advocate-phone"
+                          aria-invalid={Boolean(errors.advocates)}
                           type="tel"
                           inputMode="numeric"
                           autoComplete="off"
@@ -558,6 +576,7 @@ export function AddAdvocateDialog({
                       ) : null}
                     </div>
                     )}
+                    </StatusFieldControl>
 
                     {alreadyStacked ? (
                       <FieldDescription>
@@ -565,7 +584,14 @@ export function AddAdvocateDialog({
                       </FieldDescription>
                     ) : null}
 
-                    <FieldError>{errors.advocates}</FieldError>
+                    {errors.advocates ? (
+                      <StatusFieldError
+                        attempt={refused === "advocates" ? attempt : undefined}
+                        still={refused !== "advocates"}
+                      >
+                        {errors.advocates}
+                      </StatusFieldError>
+                    ) : null}
                     {/* While naming an invitee the demo numbers are noise;
                         the line explains the register-on-join instead. */}
                     <p className="text-caption text-muted-foreground tabular-nums">
@@ -585,6 +611,7 @@ export function AddAdvocateDialog({
                       Your clients on this case. The vakalatnama must be signed
                       by every party picked here.
                     </FieldDescription>
+                    <StatusFieldControl attempt={refused === "parties" ? attempt : 0}>
                     <div className="flex flex-col gap-1">
                       {litigants.map((party) => (
                         <div
@@ -614,7 +641,15 @@ export function AddAdvocateDialog({
                         </div>
                       ))}
                     </div>
-                    <FieldError>{errors.parties}</FieldError>
+                    </StatusFieldControl>
+                    {errors.parties ? (
+                      <StatusFieldError
+                        attempt={refused === "parties" ? attempt : undefined}
+                        still={refused !== "parties"}
+                      >
+                        {errors.parties}
+                      </StatusFieldError>
+                    ) : null}
                   </Field>
                 </>
               ) : step === 2 ? (
@@ -653,7 +688,14 @@ export function AddAdvocateDialog({
                             }}
                           />
                           <FieldDescription>{UPLOAD_HELP}</FieldDescription>
-                          <FieldError>{errors.vakalatnama}</FieldError>
+                          {errors.vakalatnama ? (
+                            <StatusFieldError
+                              attempt={refused === "vakalatnama" ? attempt : undefined}
+                              still={refused !== "vakalatnama"}
+                            >
+                              {errors.vakalatnama}
+                            </StatusFieldError>
+                          ) : null}
                         </Field>
                       </TabsContent>
                       <TabsContent value="saved" className="flex flex-col gap-2 pt-3">
@@ -670,7 +712,14 @@ export function AddAdvocateDialog({
                             }}
                             locale="en"
                           />
-                          <FieldError>{errors.vakalatnama}</FieldError>
+                          {errors.vakalatnama ? (
+                            <StatusFieldError
+                              attempt={refused === "vakalatnama" ? attempt : undefined}
+                              still={refused !== "vakalatnama"}
+                            >
+                              {errors.vakalatnama}
+                            </StatusFieldError>
+                          ) : null}
                         </Field>
                       </TabsContent>
                     </Tabs>

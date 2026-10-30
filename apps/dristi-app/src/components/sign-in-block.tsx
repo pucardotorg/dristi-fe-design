@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+
+import { StatusFieldControl, StatusFieldError, useRefusal } from "@/components/feedback";
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
@@ -220,6 +222,9 @@ export function SignInBlock({
   const [notFound, setNotFound] = React.useState(false);
 
   const badMobile = touched && mobile.length !== 10;
+  /* A refused Continue points at the number (skill `feedback-states`): focus, the ring
+     grows in, the line drops in; a repeat press shakes the field. */
+  const mobileRefusal = useRefusal();
   const badPassword = touched && method === "password" && !password;
   const badCode = touched && method === "otp" && codeSent && code.length !== OTP_LENGTH;
 
@@ -255,7 +260,10 @@ export function SignInBlock({
   function submitNumber(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setTouched(true);
-    if (mobile.length !== 10) return;
+    if (mobile.length !== 10) {
+      mobileRefusal.refuse();
+      return;
+    }
 
     /* A rejected registration counts as a known number: the account does not exist
        yet, but the person was told to sign in to fix it, and the credential step is
@@ -263,9 +271,11 @@ export function SignInBlock({
     const known = rejectedRegistrationFor(mobile) || registeredRole(mobile);
     if (!known) {
       setNotFound(true);
+      mobileRefusal.refuse();
       return;
     }
     setNotFound(false);
+    mobileRefusal.reset();
     goTo("credential", "forward");
   }
 
@@ -455,32 +465,33 @@ export function SignInBlock({
                   >
                     <Field data-invalid={badMobile || notFound}>
                       <FieldLabel>{pick(form.mobileLabel, locale)}</FieldLabel>
-                      <InputGroup>
-                        <InputGroupAddon variant="field">
-                          <InputGroupText>+91</InputGroupText>
-                        </InputGroupAddon>
-                        <InputGroupInput
-                          type="tel"
-                          inputMode="numeric"
-                          autoComplete="tel-national"
-                          maxLength={10}
-                          placeholder={pick(form.mobilePlaceholder, locale)}
-                          value={mobile}
-                          onChange={(event) => {
-                            setMobile(
-                              event.target.value.replace(DIGITS, "").slice(0, 10),
-                            );
-                            invalidate();
-                          }}
-                        />
-                      </InputGroup>
-                      <FieldError>
-                        {badMobile
-                          ? pick(form.mobileError, locale)
-                          : notFound
-                            ? pick(form.notFound, locale)
-                            : null}
-                      </FieldError>
+                      <StatusFieldControl attempt={mobileRefusal.attempt}>
+                        <InputGroup>
+                          <InputGroupAddon variant="field">
+                            <InputGroupText>+91</InputGroupText>
+                          </InputGroupAddon>
+                          <InputGroupInput
+                            aria-invalid={badMobile || notFound}
+                            type="tel"
+                            inputMode="numeric"
+                            autoComplete="tel-national"
+                            maxLength={10}
+                            placeholder={pick(form.mobilePlaceholder, locale)}
+                            value={mobile}
+                            onChange={(event) => {
+                              setMobile(
+                                event.target.value.replace(DIGITS, "").slice(0, 10),
+                              );
+                              invalidate();
+                            }}
+                          />
+                        </InputGroup>
+                      </StatusFieldControl>
+                      {badMobile || notFound ? (
+                        <StatusFieldError attempt={mobileRefusal.attempt}>
+                          {badMobile ? pick(form.mobileError, locale) : pick(form.notFound, locale)}
+                        </StatusFieldError>
+                      ) : null}
                     </Field>
 
                     <Button type="submit" size="lg" className="w-full">

@@ -193,7 +193,7 @@ export function SignFormsScreen() {
   }
 
   function signOne(form: SignForm) {
-    setOpen(null);
+    /* The window stays open on its outcome; Done or close leaves it. */
     removeFromQueue([form.id], `${causeTitle(form)} left the signing queue.`);
   }
 

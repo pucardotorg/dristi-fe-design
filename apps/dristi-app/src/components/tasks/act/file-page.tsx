@@ -42,7 +42,7 @@ import {
   RecordCard,
   signatoryLine,
 } from "@/components/tasks/act/shared";
-import { StatusLine } from "@/components/feedback";
+import { ConfirmMark, IrreversibleNote, StatusLine } from "@/components/feedback";
 
 /** The slots, editable while the task is open to this person. */
 function Documents({
@@ -132,10 +132,14 @@ function FileCard({ ctx, files, complete }: { ctx: ActContext; files: StoredFile
       <AlertDialog open={confirm} onOpenChange={setConfirm}>
         <ChromeAlertDialogContent>
           <AlertDialogHeader>
+            <ConfirmMark icon={SendIcon} />
             <AlertDialogTitle>File with the court?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {n === 1 ? "1 document goes" : `${n} documents go`} to the registry for scrutiny. This cannot be
-              recalled; defects come back as a new task.
+            <AlertDialogDescription className="flex flex-col">
+              <span>
+                {n === 1 ? "1 document goes" : `${n} documents go`} to the registry for scrutiny. Defects come
+                back as a new task.
+              </span>
+              <IrreversibleNote>This cannot be recalled.</IrreversibleNote>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
