@@ -355,7 +355,7 @@ function CasePeekBody({
           <TabsList
             variant="line"
             aria-label="Case peek sections"
-            className="h-10 w-full justify-start rounded-none p-0 group-data-horizontal/tabs:h-10"
+            className="h-10 w-full justify-start rounded-none"
           >
             <TabsTrigger
               value="overview"

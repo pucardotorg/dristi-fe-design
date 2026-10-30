@@ -55,7 +55,7 @@ const VIEWS: TaskView[] = ["needs-action", "waiting", "completed", "archived"];
  * read as misaligned (owner, 2026-09-16). Text next to text aligns on the baseline.
  */
 const TAB_CLASS =
-  "-mb-px flex-none items-baseline gap-1.5 rounded-none px-0 pb-2.5 text-body-compact group-data-horizontal/tabs:h-10 group-data-horizontal/tabs:after:bottom-0 group-data-[variant=line]/tabs-list:data-active:after:bg-brand-accent";
+  "-mb-px flex-none items-baseline gap-1.5 rounded-none group-data-[variant=line]/tabs-list:px-0 pb-2.5 text-body-compact group-data-horizontal/tabs:h-10 group-data-horizontal/tabs:after:bottom-0 group-data-[variant=line]/tabs-list:data-active:after:bg-brand-accent";
 
 /** A clock that ticks once a minute so due cues stay honest on a long-open tab. */
 function useNow(): Date {

@@ -310,21 +310,6 @@ const SPOKEN_STATE = {
   next: "next",
 } as const;
 
-/*
- * The DS stepper drawn the way the product's dialogs already draw it (the Add-people
- * dialogs' band, registration's journey row): each mark centred over its name, the
- * connector running from one circle's edge to the next. The DS default hangs every mark
- * at the left of its half, which with two steps leaves the second circle alone in the
- * middle of the row. Names stay visible at every width — two short ones fit a phone.
- */
-const CENTRED_TRAIL = cn(
-  "w-full",
-  "[&_[data-slot=stepper-item]]:items-center",
-  "[&_[data-slot=stepper-item]>div:first-child]:relative [&_[data-slot=stepper-item]>div:first-child]:justify-center",
-  "[&_[data-slot=stepper-connector]]:absolute [&_[data-slot=stepper-connector]]:top-4 [&_[data-slot=stepper-connector]]:left-[calc(50%+1rem)] [&_[data-slot=stepper-connector]]:mx-0 [&_[data-slot=stepper-connector]]:w-[calc(100%-2rem)] [&_[data-slot=stepper-connector]]:min-w-0 [&_[data-slot=stepper-connector]]:flex-none",
-  "[&_[data-slot=stepper-item]>div:last-child]:w-full [&_[data-slot=stepper-item]>div:last-child]:pr-0 [&_[data-slot=stepper-item]>div:last-child]:text-center"
-);
-
 /**
  * A complainant's signing, where the state asks for an oath, is two acts — the
  * e-signature (or, on paper, the OTP confirmation), then the oath — and both are named
@@ -342,7 +327,7 @@ const CENTRED_TRAIL = cn(
  */
 export function StepTrail({ steps }: { steps: TrailStep[] }) {
   return (
-    <Stepper aria-label="Your steps" className={cn(CENTRED_TRAIL, "pb-2")}>
+    <Stepper aria-label="Your steps" className="pb-2">
       {steps.map((step, i) => (
         <StepperItem
           key={step.label}

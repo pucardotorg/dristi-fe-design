@@ -6,7 +6,7 @@ import { LockIcon } from "lucide-react";
 import { AlertDialogMedia } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 
-import { StatusMark } from "./mark";
+import { StatusMark } from "@/components/ui/status-mark";
 
 /**
  * The question before a risky act. A confirm is a question, not an outcome, so it never

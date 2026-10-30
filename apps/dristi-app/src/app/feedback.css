@@ -1,9 +1,9 @@
 /*
  * Feedback motion: how a success, failure, warning or notice arrives.
  *
- * App-owned, like chrome.css, until the DS carries a motion foundation (ds-requests #23).
- * The components in `components/feedback/` are the only callers; screens never use these
- * classes directly. Every value here was tuned on the states board with the owner and the
+ * The motion foundation (/foundations/motion). The status components in `components/ui/`
+ * (status-mark, outcome, status-line, notify) are the only callers; screens never use
+ * these classes directly. Every value here was tuned on the states board with the owner and the
  * lead designer (docs/design/features/feedback-states.md, 2026-10-29).
  *
  * The budget, by size:
@@ -97,10 +97,6 @@
   from { opacity: 0; transform: translateY(-8px); }
   to { opacity: 1; transform: none; }
 }
-@keyframes fb-chip {
-  from { transform: scale(0.88); opacity: 0; }
-  to { transform: none; opacity: 1; }
-}
 @keyframes fb-land {
   0%, 35% { background-color: var(--success-muted); box-shadow: inset 4px 0 0 var(--success); }
   100% { background-color: transparent; box-shadow: inset 4px 0 0 transparent; }
@@ -137,7 +133,6 @@
 .fb-reveal { display: grid; animation: fb-reveal 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 .fb-reveal > * { min-height: 0; overflow: hidden; }
 .fb-drop { animation: fb-drop 300ms 60ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
-.fb-chip { animation: fb-chip 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 .fb-land { animation: fb-land 2600ms ease-out both; }
 /* A hero mark holds its first frame until it has been painted (`StatusMark`). */
 .fb-hold, .fb-hold * { animation-play-state: paused !important; }
@@ -154,7 +149,7 @@
 @media (prefers-reduced-motion: reduce) {
   .fb-pop, .fb-pop-quick, .fb-glyph-in, .fb-draw, .fb-draw-quick, .fb-stroke, .fb-bar, .fb-dot, .fb-flip,
   .fb-ring, .fb-ring-soft, .fb-sway, .fb-shake, .fb-rise, .fb-band, .fb-fill,
-  .fb-reveal, .fb-drop, .fb-chip, .fb-land,
+  .fb-reveal, .fb-drop, .fb-land,
   .fb-field [aria-invalid="true"] { animation: none; }
   .fb-ring, .fb-ring-soft { opacity: 0; }
   /* The toast's timer still runs (the toast still leaves), it just does not draw. */

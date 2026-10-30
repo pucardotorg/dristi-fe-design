@@ -51,17 +51,22 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  pinned = false,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
+  /** Header and footer stay put; only `DialogBody` scrolls. For long dialogs and outcomes. */
+  pinned?: boolean
 }) {
   return (
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Content
         data-slot="dialog-content"
+        data-pinned={pinned || undefined}
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-6 text-sm text-popover-foreground ring-1 ring-hairline shadow-modal duration-100 outline-none focus-visible:ring-3 focus-visible:ring-ring/50 sm:max-w-90 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          "group/dialog-content fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-6 text-sm text-popover-foreground ring-1 ring-hairline shadow-modal duration-100 outline-none focus-visible:ring-3 focus-visible:ring-ring/50 sm:max-w-90 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          pinned && "flex max-h-[85dvh] flex-col gap-0 overflow-hidden p-0",
           className
         )}
         {...props}
@@ -89,7 +94,10 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-header"
-      className={cn("flex flex-col gap-2", className)}
+      className={cn(
+        "flex flex-col gap-2 group-data-pinned/dialog-content:shrink-0 group-data-pinned/dialog-content:px-6 group-data-pinned/dialog-content:pt-6 group-data-pinned/dialog-content:pb-4",
+        className
+      )}
       {...props}
     />
   )
@@ -107,7 +115,7 @@ function DialogFooter({
     <div
       data-slot="dialog-footer"
       className={cn(
-        "-mx-6 -mb-6 flex flex-col-reverse gap-2 rounded-b-xl border-t bg-muted p-6 sm:flex-row sm:justify-end",
+        "-mx-6 -mb-6 flex flex-col-reverse gap-2 rounded-b-xl border-t border-hairline bg-surface-sunken p-6 sm:flex-row sm:justify-end group-data-pinned/dialog-content:mx-0 group-data-pinned/dialog-content:mb-0 group-data-pinned/dialog-content:shrink-0",
         className
       )}
       {...props}
@@ -119,6 +127,20 @@ function DialogFooter({
         </DialogPrimitive.Close>
       )}
     </div>
+  )
+}
+
+/** The scrolling middle of a `pinned` dialog. In an ordinary dialog it is a plain block. */
+function DialogBody({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="dialog-body"
+      className={cn(
+        "group-data-pinned/dialog-content:min-h-0 group-data-pinned/dialog-content:flex-1 group-data-pinned/dialog-content:overflow-y-auto group-data-pinned/dialog-content:px-6 group-data-pinned/dialog-content:py-4",
+        className
+      )}
+      {...props}
+    />
   )
 }
 
@@ -156,6 +178,7 @@ function DialogDescription({
 
 export {
   Dialog,
+  DialogBody,
   DialogClose,
   DialogContent,
   DialogDescription,

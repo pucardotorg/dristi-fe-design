@@ -42,11 +42,11 @@ export function KindPills({
     <ToggleGroup
       type="single"
       size="lg"
-      /* `default`, not `outline`: an outlined row gives every pill a card fill, and a
+      /* `ghost`, not `outline` or `pill`: those give every pill a card fill, and a
          tinted chosen pill among six filled ones reads softer than its neighbours — it
          looked disabled (render, 2026-09-15). Transparent pills leave the chosen one as
-         the only fill on the row. */
-      variant="default"
+         the only fill on the row; `PILL_ITEM` draws the edge. */
+      variant="ghost"
       value={active[0] ?? "all"}
       onValueChange={(value) => {
         // One kind at a time (owner, 2026-10-14 — reversing Sept 21's any combination):

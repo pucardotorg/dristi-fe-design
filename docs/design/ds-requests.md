@@ -29,10 +29,6 @@ Each entry says what is missing, why the product hit it, and what would close it
 | 19 | Autofill rule squares every autofilled input (`border-radius: inherit`) | Pre-demo UI fixes (Oct 9) | open, patched in `chrome.css` |
 | 20 | `InputGroup` control overlaps the group's 1px border | Pre-demo UI fixes (Oct 9) | open, patched in `chrome.css` |
 | 21 | `ChartContainer` hides the keyboard focus ring on the chart surface | [court-dashboard-and-registers.md](features/court-dashboard-and-registers.md) | open |
-| 23 | No motion foundation: no duration, easing or delay tokens, no motion budget | [feedback-states.md](features/feedback-states.md) | open |
-| 24 | No status mark or feedback components (takeover header, inline status line, tally) | [feedback-states.md](features/feedback-states.md) | open |
-| 25 | `Badge` has no leading-mark slot; a round mark is not concentric with the pill end | [feedback-states.md](features/feedback-states.md) | open |
-| 26 | Toaster defaults: 4s, no click-away, `popover` toast vanishes on the dark page | [feedback-states.md](features/feedback-states.md) | open |
 
 ---
 
@@ -623,6 +619,8 @@ Closes when `DateRangePicker` (and `DatePicker`) accept a `disabled` matcher, or
 
 ## 23. No motion foundation
 
+**Closed by DS 2a3ce00 (Oct 30): the Motion foundations page and its tokens.**
+
 The DS has foundations for colour, type, spacing, radius and elevation, but none for
 motion: no duration, easing or delay tokens, and no rule for how much a thing may move
 at a given size. Every flow invents its own (`RESOLVE_IN_PLACE`, `OVERLAY_RISE`, local
@@ -634,6 +632,8 @@ Closes with a Motion foundations page and tokens, taken from
 [feedback-states.md](features/feedback-states.md), including reduced-motion behaviour.
 
 ## 24. No status mark or feedback components
+
+**Closed by DS 2a3ce00 (Oct 30): `StatusMark`, `Outcome*`, `StatusLine`, `ConfirmMark`, `notify`, with rule 11 and the blend exception to rule 6. The app now uses them through `@/components/feedback`.**
 
 Success, failure and warning are expressed in 23 different ways across the product
 (board: `/success-board` on `feature/states-board`). Six dialogs copy the same
@@ -653,6 +653,8 @@ rules, they live only in `components/feedback`.
 
 ## 25. `Badge` has no leading-mark slot
 
+**Closed by DS 2a3ce00 (Oct 30): `Badge` insets a `StatusMark` itself; `BADGE_WITH_MARK` is retired.**
+
 `Badge` is 24px tall with 8px start padding and a 1px border. A 16px round mark
 inside it sits 4px from the top and bottom but 9px from the end, so it is not
 concentric with the pill's curve. The board corrects it per use with `pl-[3px]`.
@@ -661,6 +663,8 @@ Closes when `Badge` takes a leading mark that sets its own inset to match the ve
 inset.
 
 ## 26. Toaster defaults do not fit the feedback system
+
+**Closed by DS 2a3ce00 (Oct 30): `FeedbackToaster` carries the duration, click-away, error persistence and fills; `AppToaster` is retired.**
 
 Sonner's 4s life, its lack of a click-away dismissal and the `popover` fill are product
 choices that now differ. The lead designer asked for 2.75s and dismissal on any click,
@@ -671,6 +675,8 @@ Closes when the DS toaster recipe documents the duration, click-away, error pers
 and a raised dark surface, or exposes them as variants.
 
 ## 27. Dialogs have no outcome layout rules
+
+**Closed by DS 2a3ce00 (Oct 30): `DialogContent pinned` with `DialogBody`, and the `surface-sunken` footer band in `Dialog` and `AlertDialog`.**
 
 The rollout settled how a dialog looks when it becomes an outcome (owner, Oct 29), and
 none of it is in the DS:

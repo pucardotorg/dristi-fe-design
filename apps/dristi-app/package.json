@@ -8,7 +8,7 @@
     "prebuild": "node scripts/copy-runtime-assets.mjs",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint && npm run check:tokens && npm run check:typography && npm run check:ui-sync && npm run check:spacing && npm run check:table-rows",
+    "lint": "eslint && npm run check:tokens && npm run check:typography && npm run check:ui-sync && npm run check:spacing && npm run check:table-rows && npm run check:ds-retired",
     "test": "node --import tsx --test src/lib/rich-text/*.test.ts src/lib/tasks/*.test.ts src/lib/filing/*.test.ts src/lib/advocate/*.test.ts src/lib/nav/*.test.ts src/lib/registration/*.test.ts src/lib/employee/*.test.ts src/lib/employee/scrutiny/*.test.ts src/lib/cases/*.test.ts src/lib/applications/*.test.ts src/lib/court/*.test.ts src/lib/bulk/*.test.ts",
     "check:tokens": "node scripts/check-tokens.mjs",
     "check:ds-fresh": "node scripts/check-ds-fresh.mjs",
@@ -16,6 +16,7 @@
     "check:ui-sync": "node scripts/check-ui-sync.mjs",
     "check:spacing": "node scripts/check-spacing.mjs",
     "check:table-rows": "node scripts/check-table-rows.mjs",
+    "check:ds-retired": "node scripts/check-ds-retired.mjs",
     "sync:ui": "node scripts/sync-ui-from-ds.mjs",
     "assets:runtime": "node scripts/copy-runtime-assets.mjs"
   },

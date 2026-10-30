@@ -987,7 +987,7 @@ function StatusPills({
       <ToggleGroup
         type="single"
         size="lg"
-        variant="default"
+        variant="ghost"
         value={value}
         onValueChange={(next) => {
           if (next) onChange(next);

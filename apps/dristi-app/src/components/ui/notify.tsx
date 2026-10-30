@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-import { StatusMark } from "./mark";
+import { StatusMark } from "@/components/ui/status-mark";
 
 /**
  * The product's toasts, for quick acts where the page stays put. Call these instead of
@@ -27,7 +27,7 @@ import { StatusMark } from "./mark";
  * Success, warning and neutral toasts last **2.75s** (the old default was 4s; lead
  * designer, 2026-10-29), show a thin timer, pause while the pointer is over them, and
  * leave as soon as the person presses anywhere on the page outside the toasts
- * (`AppToaster` listens).
+ * (`FeedbackToaster` listens).
  *
  * Missing input is never a toast: point at the field (`StatusFieldError`).
  */
@@ -45,7 +45,7 @@ type Options = {
 /* Toasts a page press may dismiss. Errors never join, and leave it if an id is reused. */
 const clickAway = new Set<string | number>();
 
-/** Called by `AppToaster` on any pointer press outside the toasts. */
+/** Called by `FeedbackToaster` on any pointer press outside the toasts. */
 export function dismissOnPageClick() {
   for (const id of clickAway) toast.dismiss(id);
   clickAway.clear();
@@ -115,8 +115,9 @@ function show(tone: Tone, title: React.ReactNode, options: Options = {}) {
 
 /* An error toast behind an open modal cannot be closed (it stays until closed, and the
    modal blocks the page). Callers should say it inside the modal; as a safety net, one
-   raised while a modal is open waits for it to close. Only modal surfaces count: a popover
-   or date picker is also `role="dialog"` but leaves the page usable. */
+   raised while a modal is open waits for it to close. Only modal surfaces count (the DS
+   modals, or a hand-built `aria-modal` dialog): a popover or date picker is also
+   `role="dialog"` but leaves the page usable. */
 const MODAL_OPEN = ["dialog-content", "alert-dialog-content", "sheet-content", "drawer-content"]
   .map((slot) => `[data-slot="${slot}"][data-state="open"]`)
   .concat('[role="dialog"][aria-modal="true"]')

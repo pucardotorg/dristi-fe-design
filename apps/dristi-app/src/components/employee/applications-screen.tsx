@@ -352,7 +352,7 @@ function ViewPills({
       <ToggleGroup
         type="single"
         size="lg"
-        variant="default"
+        variant="ghost"
         value={view}
         onValueChange={(next) => {
           if (next) onChange(next as ApplicationView);

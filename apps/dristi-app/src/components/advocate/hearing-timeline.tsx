@@ -1873,8 +1873,8 @@ function SlotTabs({
             if (daySlots.some((s) => s.key === value)) setActive(value);
           }}
           moreLabel={pick(advHome.moreSittings, locale)}
-          className="h-10 w-full justify-start rounded-none p-0 group-data-horizontal/tabs:h-10"
-          triggerClassName="flex-none gap-1.5 px-2.5"
+          className="h-10 w-full justify-start rounded-none"
+          triggerClassName="flex-none gap-1.5 group-data-[variant=line]/tabs-list:px-2.5"
           items={daySlots.map((slot) => ({
             value: slot.key,
             measure: `${shortSitting(slot.window)}${slot.live ? "*" : ""}`,

@@ -192,7 +192,7 @@ export function PendingOrdersScreen({
             <TabsList
               variant="line"
               aria-label="Which orders to show"
-              className="h-10 w-max min-w-full justify-start rounded-none p-0 group-data-horizontal/tabs:h-10"
+              className="h-10 w-max min-w-full justify-start rounded-none"
             >
               {[
                 ...PENDING_ORDER_STAGES.map(
@@ -203,7 +203,7 @@ export function PendingOrdersScreen({
                 <TabsTrigger
                   key={value}
                   value={value}
-                  className="h-10 flex-none gap-2 px-3 text-body-compact group-data-horizontal/tabs:after:-bottom-px"
+                  className="h-10 flex-none gap-2 text-body-compact"
                 >
                   {label}
                   <span className="font-normal tabular-nums">{total}</span>

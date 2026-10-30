@@ -178,13 +178,13 @@ export function CognizanceScreen() {
                 ? "Whether the complaint was filed in time"
                 : "The type the case was registered as"
             }
-            className="h-10 w-max min-w-full justify-start rounded-none p-0 group-data-horizontal/tabs:h-10"
+            className="h-10 w-max min-w-full justify-start rounded-none"
           >
             {tabs.map((queueTab) => (
               <TabsTrigger
                 key={queueTab.id}
                 value={queueTab.id}
-                className="h-10 flex-none gap-2 px-3 text-body-compact group-data-horizontal/tabs:after:-bottom-px"
+                className="h-10 flex-none gap-2 text-body-compact"
               >
                 {queueTab.label}
                 {/* How many stand here, counted over the whole queue so the number does

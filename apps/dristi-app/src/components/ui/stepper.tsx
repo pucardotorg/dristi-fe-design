@@ -15,7 +15,7 @@ function Stepper({ className, ...props }: React.ComponentProps<"ol">) {
 }
 
 const stepperItemVariants = cva(
-  "group/stepper-item relative flex min-w-0 flex-1 flex-col items-start gap-2",
+  "group/stepper-item relative flex min-w-0 flex-1 flex-col items-center gap-2",
   {
     variants: {
       status: {
@@ -79,7 +79,7 @@ function StepperItem({
       className={cn(stepperItemVariants({ status }), className)}
       {...props}
     >
-      <div className="flex w-full items-center">
+      <div className="relative flex w-full items-center justify-center">
         {onActivate ? (
           <button
             type="button"
@@ -105,13 +105,16 @@ function StepperItem({
           aria-hidden
           data-slot="stepper-connector"
           className={cn(
-            "mx-2 h-px min-w-4 flex-1 group-last/stepper-item:hidden",
+            /* Joined to the circles: from this circle's edge to the next one's (each
+               circle is 2rem, so the line starts 1rem right of centre and spans the
+               gap). Owner, 2026-09-01: no visible gap at either end. */
+            "absolute top-4 left-[calc(50%+1rem)] h-px w-[calc(100%-2rem)] group-last/stepper-item:hidden",
             status === "complete" ? "bg-primary" : "bg-border"
           )}
         />
       </div>
       {title || children ? (
-        <div className="pr-4">
+        <div className="w-full text-center">
           {title ? (
             onActivate ? (
               <button

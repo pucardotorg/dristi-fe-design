@@ -5,7 +5,6 @@ import { FileQuestionIcon, LinkIcon, ListChecksIcon, LockIcon, PenLineIcon, Rota
 
 import { ChromeAlertDialogContent, ChromeDialogContent } from "@/components/chrome/app-chrome";
 import {
-  BADGE_WITH_MARK,
   ConfirmMark,
   IrreversibleNote,
   LANDING,
@@ -23,7 +22,7 @@ import {
   type MarkSize,
   type MarkTone,
 } from "@/components/feedback";
-import { AppToaster } from "@/components/shell/app-toaster";
+import { FeedbackToaster } from "@/components/ui/feedback-toaster";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -113,7 +112,7 @@ export default function FeedbackKitPage() {
   const [run, setRun] = React.useState(0);
   return (
     <main className="min-h-dvh bg-muted dark:bg-background">
-      <AppToaster />
+      <FeedbackToaster />
       <div key={run} className="mx-auto flex w-full max-w-5xl flex-col gap-12 px-4 py-8 md:px-8">
         <header className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-col gap-1">
@@ -213,7 +212,7 @@ export default function FeedbackKitPage() {
             <OutcomeDialog label="Labelled summary">
               <OutcomeHeader titleFrom="dialog" title="Everyone has signed" body="You can pay the court fee now." />
               <div className="px-6 py-4">
-                <OutcomeSummary tone="success" label="Every signature is in" aside={<Badge variant="success" className={BADGE_WITH_MARK}><StatusMark size={14} still />3 of 3 signed</Badge>}>
+                <OutcomeSummary tone="success" label="Every signature is in" aside={<Badge variant="success"><StatusMark size={14} still />3 of 3 signed</Badge>}>
                   <p className="py-3 text-body-compact">Adv. Meera Nair · Suresh Kumar · Anita Kumar</p>
                 </OutcomeSummary>
               </div>
@@ -292,10 +291,10 @@ export default function FeedbackKitPage() {
 
         <Section title="Badges with a mark">
           <div className="flex flex-wrap items-center gap-3">
-            <Badge variant="success" className={BADGE_WITH_MARK}><StatusMark size={14} />Signed</Badge>
-            <Badge variant="destructive" className={BADGE_WITH_MARK}><StatusMark size={14} tone="error" />Overdue</Badge>
-            <Badge variant="warning" className={BADGE_WITH_MARK}><StatusMark size={14} tone="warning" />Due today</Badge>
-            <Badge variant="warning" className={BADGE_WITH_MARK}><StatusMark size={14} tone="warning" />Errored</Badge>
+            <Badge variant="success"><StatusMark size={14} />Signed</Badge>
+            <Badge variant="destructive"><StatusMark size={14} tone="error" />Overdue</Badge>
+            <Badge variant="warning"><StatusMark size={14} tone="warning" />Due today</Badge>
+            <Badge variant="warning"><StatusMark size={14} tone="warning" />Errored</Badge>
           </div>
         </Section>
 
