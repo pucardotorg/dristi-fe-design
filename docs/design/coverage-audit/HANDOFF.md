@@ -63,10 +63,13 @@ decisions" at the top puts a plain-text list on the clipboard to paste into the 
 Owner feedback so far (30 Oct): the "after" for "Mobile number verified" (big StatusLine) is
 too heavy; the old small green line looked right. Recommended: a 16px `StatusMark` + words
 (the small inline mark the app already uses next to receipts and uploads), and one line of
-DS guidance for quiet field-level confirmations. Not built yet.
+DS guidance for quiet field-level confirmations. The 16px version is now built on the branch
+(14a1eb59); the DS guidance is not written yet (see DS-GUIDANCE-GAP.md).
 
 ## Next
 
+0. **First, when limits refresh:** the design-system guidance gap the owner raised. See
+   `DS-GUIDANCE-GAP.md` (feedback pieces are picked by type, never by size; proposed small DS PR).
 1. Owner + lead designer review the board and decide per example and card.
 2. Then fix lane by lane in small PRs from main, using the board's list as the checklist,
    and extend `check:ds-retired` so the retired patterns can't return.
