@@ -64,6 +64,48 @@ const RING: Partial<Record<MarkTone, string>> = {
   warning: "bg-warning",
 };
 
+/**
+ * A hero mark waits this long before it plays, and an outcome's words wait with it
+ * (owner, 2026-10-30). The window has just changed under the person's eyes; they need about
+ * this long to look back at it, and the window needs it to settle. Under 200ms it reads
+ * as the window settling, not as lag.
+ */
+export const HERO_START = 160;
+
+/**
+ * Success says itself three times, each fainter, then rests (owner, 2026-10-30): someone
+ * who glanced away still catches one, and a pulse that never stops would read as "still
+ * going". Peaks are the ring's opacity; offsets are from the ring's own start.
+ */
+const SUCCESS_PULSES = [
+  { at: 0, peak: 0.45 },
+  { at: 1200, peak: 0.3 },
+  { at: 2400, peak: 0.18 },
+];
+
+/**
+ * Hold a hero mark on its first frame until the browser has painted it, so a slow first
+ * render cannot eat the start of the motion. Two frames is "painted"; the timer is the
+ * fallback for a hidden tab, where frames never come.
+ */
+function usePainted(enabled: boolean) {
+  const [painted, setPainted] = React.useState(!enabled);
+  React.useEffect(() => {
+    if (!enabled) return;
+    let inner = 0;
+    const outer = requestAnimationFrame(() => {
+      inner = requestAnimationFrame(() => setPainted(true));
+    });
+    const fallback = window.setTimeout(() => setPainted(true), 120);
+    return () => {
+      cancelAnimationFrame(outer);
+      cancelAnimationFrame(inner);
+      window.clearTimeout(fallback);
+    };
+  }, [enabled]);
+  return painted;
+}
+
 export function StatusMark({
   tone = "success",
   size = 24,
@@ -95,6 +137,9 @@ export function StatusMark({
   const iconTone = tone === "neutral" || tone === "danger";
   const glyphShare = tone === "success" || tone === "info" ? 0.5 : tone === "warning" ? 0.7 : 0.62;
   const ring = full ? RING[tone] : undefined;
+  const painted = usePainted(full);
+  /* A hero mark starts after `HERO_START`; `delay` is on top of it. */
+  const start = (full ? HERO_START : 0) + (delay ?? 0);
   /* A neutral or danger mark always shows an icon of its own: never the info hourglass,
      which means "sent, not decided". */
   const Icon = iconTone ? (icon ?? (tone === "danger" ? Trash2Icon : InfoIcon)) : undefined;
@@ -109,19 +154,29 @@ export function StatusMark({
         SIZE[size],
         full && tone === "warning" && "fb-sway",
         full && tone === "error" && reject && "fb-shake",
+        full && !painted && "fb-hold",
         className,
       )}
       style={{
         /* Every part of the mark reads this, so `delay` moves the whole sequence. */
-        ["--fb-delay" as string]: delay ? `${delay}ms` : undefined,
-        animationDelay: full && reject ? `${(delay ?? 0) + 620}ms` : undefined,
+        ["--fb-delay" as string]: start ? `${start}ms` : undefined,
+        animationDelay: full && reject ? `${start + 620}ms` : undefined,
       }}
     >
-      {ring ? (
-        <span
-          className={cn("absolute inset-0 rounded-full", ring, tone === "success" ? "fb-ring" : "fb-ring-soft")}
-        />
-      ) : null}
+      {ring && tone === "success"
+        ? SUCCESS_PULSES.map((pulse) => (
+            <span
+              key={pulse.at}
+              className={cn("absolute inset-0 rounded-full fb-ring", ring)}
+              style={{
+                ["--fb-pulse" as string]: `${pulse.at}ms`,
+                ["--fb-peak" as string]: pulse.peak,
+              }}
+            />
+          ))
+        : ring ? (
+            <span className={cn("absolute inset-0 rounded-full fb-ring-soft", ring)} />
+          ) : null}
       <span
         className={cn(
           "relative flex size-full items-center justify-center rounded-full",

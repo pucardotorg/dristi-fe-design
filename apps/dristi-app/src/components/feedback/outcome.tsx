@@ -6,7 +6,7 @@ import { AlertDialogDescription, AlertDialogTitle } from "@/components/ui/alert-
 import { DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
-import { StatusMark, type MarkTone } from "./mark";
+import { HERO_START, StatusMark, type MarkTone } from "./mark";
 
 /**
  * Outcomes: what an act came to, said at the weight the act deserves.
@@ -99,7 +99,8 @@ export function OutcomeHeader({
   React.useEffect(() => {
     if (focusTitle) titleRef.current?.focus();
   }, [focusTitle]);
-  const rise = (ms: number) => (still ? undefined : { animationDelay: `${ms}ms` });
+  /* The words follow the mark, so they wait for it too. */
+  const rise = (ms: number) => (still ? undefined : { animationDelay: `${HERO_START + ms}ms` });
 
   return (
     <div
@@ -174,7 +175,7 @@ export function OutcomeSummary({
   return (
     <div
       className={cn("overflow-hidden rounded-xl bg-surface-sunken", !still && "fb-rise", className)}
-      style={still ? undefined : { animationDelay: "320ms" }}
+      style={still ? undefined : { animationDelay: `${HERO_START + 320}ms` }}
     >
       {label ? (
         <div className="flex items-center justify-between gap-3 border-b border-hairline px-4 py-2.5">
@@ -232,7 +233,7 @@ export function OutcomeTally({
           { ok: false, grow: failed },
         ].filter((s) => s.grow > 0);
   const step = segments.length > 1 ? Math.min(80, FILL_SPAN_MS / segments.length) : 0;
-  const linesAt = 300 + segments.length * step + 120;
+  const linesAt = HERO_START + 300 + segments.length * step + 120;
 
   return (
     <OutcomeSummary
@@ -252,7 +253,7 @@ export function OutcomeTally({
             style={{
               flexGrow: s.grow,
               flexBasis: 0,
-              animationDelay: still ? undefined : `${300 + i * step}ms`,
+              animationDelay: still ? undefined : `${HERO_START + 300 + i * step}ms`,
               background: s.ok ? undefined : stripes,
             }}
           />
@@ -308,7 +309,8 @@ export function PageOutcome({
       : tone === "error"
         ? "color-mix(in oklab, var(--destructive-muted) 45%, var(--background))"
         : undefined;
-  const rise = (ms: number) => (still ? undefined : { animationDelay: `${ms}ms` });
+  /* The words follow the mark, so they wait for it too. */
+  const rise = (ms: number) => (still ? undefined : { animationDelay: `${HERO_START + ms}ms` });
   return (
     <div
       className={cn(
