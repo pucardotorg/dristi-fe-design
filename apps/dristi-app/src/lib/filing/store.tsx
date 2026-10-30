@@ -16,6 +16,7 @@ import { usePathname } from "next/navigation";
 import { buildDocumentGroups, syncIntakeCounts } from "./blank";
 import { deleteDraftWithFiles, getRepository, setActiveRepository } from "./data";
 import type { FilingRepository } from "./data";
+import { missingRequired, type MissingField } from "./missing";
 import { sectionOpened } from "./selectors";
 import { FILING_STEPS, stepFromPathname, stepHref, WALK_ORDER } from "./steps";
 import type { FilingDraft, StepId } from "./types";
@@ -33,6 +34,8 @@ type FilingContextValue = {
   hrefFor: (step: StepId) => string;
   /** The steps this draft is walked through: every one, unless its host leaves some out. */
   steps: StepId[];
+  /** The person left the section on screen earlier and has come back to it. */
+  returned: boolean;
   /** Persist immediately (used before navigating away from a critical action). */
   flush: () => Promise<void>;
   /** Delete this draft and its files. The caller navigates afterwards. */
@@ -247,15 +250,73 @@ export function FilingProvider({
     await deleteDraftWithFiles(draftId);
   }, [draftId]);
 
+  // Whether the person came back to this section after leaving it, read as they arrive —
+  // before the effect above records the visit. Reloading the section they were on is not
+  // coming back: they never left it.
+  const arrivalKey = `${draftId}:${step}`;
+  const [arrival, setArrival] = React.useState<{ key: string; returned: boolean } | null>(null);
+  if (state.status === "ready" && step && arrival?.key !== arrivalKey) {
+    setArrival({
+      key: arrivalKey,
+      returned: sectionOpened(state.draft, step) && state.draft.lastStep !== step,
+    });
+  }
+  const returned = arrival?.key === arrivalKey && arrival.returned;
+
   const draft = state.status === "ready" ? state.draft : null;
   const value = React.useMemo<FilingContextValue | null>(
-    () => (draft ? { draft, saveState, update: commit, hrefFor, steps, flush, discard } : null),
-    [draft, saveState, commit, hrefFor, steps, flush, discard]
+    () =>
+      draft ? { draft, saveState, update: commit, hrefFor, steps, returned, flush, discard } : null,
+    [draft, saveState, commit, hrefFor, steps, returned, flush, discard]
   );
+
+  // Derived on every render, not memoised: the lint's compiler pass refuses a memo whose
+  // input comes from an imported helper, and the list is short.
+  const shownMissing = draft && step && returned ? missingRequired(draft, step) : NONE_MISSING;
+
+  // Continue on a section with required fields empty shows them, as coming back would,
+  // and says the person should stay (owner, 2026-10-30).
+  const stopIfMissing = () => {
+    if (!draft || !step || missingRequired(draft, step).length === 0) return false;
+    setArrival({ key: arrivalKey, returned: true });
+    return true;
+  };
 
   if (state.status === "loading") return <>{fallback}</>;
   if (state.status === "missing") return <>{notFound}</>;
-  return <FilingContext.Provider value={value}>{children}</FilingContext.Provider>;
+  return (
+    <FilingContext.Provider value={value}>
+      <MissingGuardContext.Provider value={stopIfMissing}>
+        <ShownMissingContext.Provider value={shownMissing}>{children}</ShownMissingContext.Provider>
+      </MissingGuardContext.Provider>
+    </FilingContext.Provider>
+  );
+}
+
+const NONE_MISSING: MissingField[] = [];
+
+const MissingGuardContext = React.createContext<(() => boolean) | null>(null);
+
+/**
+ * For Continue: shows the required fields of the section on screen that are still empty
+ * and returns `true` when there are any, so the caller stays. `null` outside a filing.
+ */
+export function useMissingGuard(): (() => boolean) | null {
+  return React.useContext(MissingGuardContext);
+}
+
+/**
+ * The required fields of the section on screen that are still empty, once the person has
+ * come back to it (design feedback #11). Empty on a first visit, so a form is never red
+ * before anyone has had the chance to fill it in.
+ */
+const ShownMissingContext = React.createContext<MissingField[]>(NONE_MISSING);
+
+/** What to show under a required field left empty, or `null`. */
+export function useMissingFieldMessage(instance: number, name: string | undefined): string | null {
+  const shown = React.useContext(ShownMissingContext);
+  if (!name) return null;
+  return shown.find((m) => m.instance === instance && m.name === name)?.message ?? null;
 }
 
 export function useFiling(): FilingContextValue {

@@ -3,20 +3,20 @@
 /**
  * Advocate details — the advocates on the Vakalatnama, and which complainant each acts for.
  *
- * An advocate is found once, not described twice: one search box takes either a name or
- * a bar number and looks both up in the register (`lib/filing/registry.ts` — a stand-in
- * for the real one). What it finds is then shown as a result — name, number and bar
+ * An advocate is found once, not described twice: one search box takes a name, a bar
+ * number or a full mobile number and looks it up in the register
+ * (`lib/filing/registry.ts` — a stand-in for the real one). What it finds is then shown as a result — name, number and bar
  * council — so the spelling that reaches the Vakalatnama is the register's rather than a
  * re-keying of it. An advocate the register does not list is entered by hand instead, one
- * click away. An advocate filing for themselves can fill their own row from their profile
- * in one click, and the panel beside the form reads the uploaded Vakalatnama.
+ * click away. An advocate filing for themselves starts with their own row filled from
+ * their profile, and the panel beside the form reads the uploaded Vakalatnama.
  */
 
 import * as React from "react";
 import Link from "next/link";
 import { CheckIcon, ChevronDownIcon, PlusIcon, UserRoundIcon } from "lucide-react";
 
-import { blankAdvocate } from "@/lib/filing/blank";
+import { blankAdvocate, isAdvocateProfile } from "@/lib/filing/blank";
 import { useProfile } from "@/lib/filing/profile";
 import {
   findAdvocate,
@@ -55,6 +55,9 @@ import {
 
 /** A filing carries at most six advocates. */
 const MAX_ADVOCATES = 6;
+
+const sameBarNumber = (a: string, b: string) =>
+  a.trim().toUpperCase() === b.trim().toUpperCase();
 
 export function AdvocateSection() {
   const { draft, update, hrefFor } = useFiling();
@@ -125,13 +128,19 @@ export function AdvocateSection() {
   );
   const vakalatnama = partySourceSlot(draft, vakalatnamaParty, "vakalatnama");
 
-  /** The signed-in person filling in their own row — name and bar number in one action. */
-  const canUseProfile = !!(profile?.name.trim() || profile?.barNumber.trim());
+  /**
+   * The signed-in advocate filling in their own row — name and bar number in one action.
+   * A new draft already starts with them as Advocate 1, so this is the way back after
+   * removing themselves; once they are on the filing it is offered nowhere.
+   */
+  const canUseProfile =
+    isAdvocateProfile(profile) &&
+    !advocates.some((a) => sameBarNumber(a.barNumber, profile.barNumber));
   const fillFromProfile = (index: number) =>
     update((d) => {
-      if (!profile) return;
-      d.advocates[index].name = profile.name;
-      d.advocates[index].barNumber = profile.barNumber;
+      if (!isAdvocateProfile(profile)) return;
+      d.advocates[index].name = profile.name.trim();
+      d.advocates[index].barNumber = profile.barNumber.trim();
     });
 
   const toggleComplainant = (index: number, choice: number) =>
@@ -219,8 +228,14 @@ export function AdvocateSection() {
           // Indices are kept even if a complainant is removed or turns party-in-person;
           // only the ones an advocate may still act for count as selected.
           const selected = a.forComplainants.filter((k) => represented.includes(k));
-          // A row filled from the register — the source of truth for "already found".
-          const onRegister = findAdvocate(a.barNumber);
+          // A row that holds an advocate shows them as found, in the register's spelling
+          // where it lists them. The demo register is incomplete, so a draft's own name and
+          // bar number (a sample, or the signed-in advocate) must not read as a blank box.
+          const onRegister =
+            findAdvocate(a.barNumber) ??
+            (a.name.trim() && a.barNumber.trim()
+              ? { name: a.name, barNumber: a.barNumber }
+              : undefined);
           const allSelected =
             represented.length > 0 && selected.length === represented.length;
           // "All complainants" is only true when none were held back for appearing in
@@ -247,7 +262,7 @@ export function AdvocateSection() {
             >
               {/* A lone short answer takes half the card, like every other one. */}
               <HalfWidth>
-                <FormField asGroup label="Advocate for" required>
+                <FormField asGroup label="Advocate for" name={`advocates.${i}.for`} required>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
@@ -305,13 +320,13 @@ export function AdvocateSection() {
               </HalfWidth>
 
               {/*
-                One search, not two fields. The bar number and the name are the same
-                lookup from two directions, so asking for both put one register behind
-                two boxes. Only advocates on the register can appear on a filing, so the
+                One search, not two fields. The bar number, the name and the mobile
+                number are the same lookup from different directions, so asking for each
+                would put one register behind several boxes. Only advocates on the register can appear on a filing, so the
                 register is the whole path — there is nothing to type by hand.
               */}
               {onRegister ? (
-                <FormField asGroup label="Advocate" required>
+                <FormField asGroup label="Advocate" name={`advocates.${i}.advocate`} required>
                   <div className="flex items-start gap-3 rounded-lg bg-surface-sunken p-4">
                     <span
                       aria-hidden
@@ -348,7 +363,7 @@ export function AdvocateSection() {
                   </div>
                 </FormField>
               ) : (
-                <FormField label="Advocate" required>
+                <FormField label="Advocate" name={`advocates.${i}.advocate`} required>
                   <ComboField
                     value={queries[a.id] ?? ""}
                     onChange={(v: string) => {
@@ -383,14 +398,14 @@ export function AdvocateSection() {
                         </span>
                       );
                     }}
-                    placeholder="Name or bar number"
+                    placeholder="Name, bar number or mobile"
                     emptyLabel="No one on the register by that name or number."
                     ariaLabel="Advocate"
                   />
                 </FormField>
               )}
 
-              {canUseProfile ? (
+              {canUseProfile && !onRegister ? (
                 <Button
                   type="button"
                   variant="ghost"

@@ -22,6 +22,7 @@
  */
 
 import type { SigningRules } from "@/lib/filing/config";
+import type { Locale } from "@/lib/onboarding/content";
 import type { FeeSchedule } from "./fees";
 import { GUJARAT_FEES, KERALA_FEES, PUNJAB_HARYANA_FEES } from "./fees";
 
@@ -91,6 +92,12 @@ export type CourtProfile = {
    * a decision about any state.
    */
   signing: SigningRules;
+  /**
+   * The languages the oath's words can be read in, English first. With more than one, the
+   * oath screen offers a switch for the words alone; the rest of the page keeps the site
+   * language (Gujarat High Court feedback #40). The wording in each comes from the court.
+   */
+  oathLanguages: Locale[];
   fees: FeeSchedule;
   /** Whether scrutiny opens with AI assistance — never `unavailable`, which is per file. */
   aiMode: Exclude<AiMode, "unavailable">;
@@ -126,6 +133,7 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     courtName: null,
     benchName: null,
     signing: { oath: false, everyAdvocate: false },
+    oathLanguages: ["en"],
     fees: KERALA_FEES,
     aiMode: "on",
     singleCourt: null,
@@ -145,6 +153,7 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     courtName: "SARAS Court",
     benchName: "SARAS Court",
     signing: { oath: true, everyAdvocate: true },
+    oathLanguages: ["en", "gu"],
     fees: GUJARAT_FEES,
     aiMode: "on",
     singleCourt: null,
@@ -171,6 +180,7 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     courtName: null,
     benchName: null,
     signing: { oath: false, everyAdvocate: false },
+    oathLanguages: ["en"],
     fees: PUNJAB_HARYANA_FEES,
     aiMode: "off",
     // One 24×7 ON Court for the whole deployment (owner, 2026-10-12 and 2026-10-13).

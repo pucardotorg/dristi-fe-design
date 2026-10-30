@@ -186,7 +186,7 @@ export function JurisdictionSection() {
                 {j.otherCases.map((oc, i) => (
                   <div key={i} className="flex items-end gap-3">
                     <FormRow className="flex-1">
-                      <FormField label="Court" required>
+                      <FormField label="Court" name={`otherCases.${i}.court`} required>
                         <TextField
                           value={oc.court}
                           onChange={(v) =>
@@ -197,7 +197,7 @@ export function JurisdictionSection() {
                           placeholder="e.g. JMFC-II"
                         />
                       </FormField>
-                      <FormField label="Case number" required>
+                      <FormField label="Case number" name={`otherCases.${i}.caseNumber`} required>
                         <TextField
                           value={oc.caseNumber}
                           onChange={(v) =>

@@ -22,6 +22,7 @@ import {
   accusedHasContact,
   accusedLabel,
 } from "@/lib/filing/selectors";
+import { missingRequired } from "@/lib/filing/missing";
 import { nameList } from "@/lib/filing/format";
 import { neighbours } from "@/lib/filing/steps";
 import { useFiling } from "@/lib/filing/store";
@@ -50,6 +51,7 @@ import {
   ContactList,
   RepresentativeList,
 } from "@/components/filing/repeat-lists";
+import { PartyRoster } from "@/components/filing/party-roster";
 import { SectionTabs } from "@/components/filing/section-tabs";
 import { YesNoSegmented } from "@/components/filing/segmented";
 
@@ -87,6 +89,9 @@ export function AccusedSection() {
     });
     setActiveId(created.id);
   };
+
+  /** Required fields still empty, per accused: an accused with any is not complete. */
+  const missingHere = missingRequired(draft, "accused");
 
   const askRemove = (id: string) => {
     const i = draft.accused.findIndex((x) => x.id === id);
@@ -274,6 +279,18 @@ export function AccusedSection() {
           </FormField>
         </FormCard>
         </CorrectionInstance>
+
+        <PartyRoster
+          title="Accused on this filing"
+          parties={draft.accused.map((acc, i) => ({
+            id: acc.id,
+            name: accusedLabel(acc, i),
+            complete: accusedComplete(acc) && !missingHere.some((m) => m.instance === i),
+            started: !!acc.name.trim(),
+          }))}
+          addLabel="Add another accused"
+          onAdd={addAccused}
+        />
       </FilingMain>
 
       <FilingFooter

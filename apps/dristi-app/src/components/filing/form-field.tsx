@@ -24,6 +24,7 @@ import {
   useCorrectionInstance,
 } from "@/components/filing/posture";
 import { useFieldPolicy } from "@/components/filing/field-policy";
+import { useMissingFieldMessage } from "@/lib/filing/store";
 import { defectState } from "@/lib/tasks/defects";
 
 const SourceFieldLabel = React.createContext("this field");
@@ -113,7 +114,14 @@ export function FormField({
   const instance = useCorrectionInstance();
   // A host's check on this field (bulk filing), when the section has nothing of its own to say.
   const policy = useFieldPolicy();
-  const error = ownError ?? (policy && name ? policy.issueAt(instance, name) : null) ?? undefined;
+  // Left empty on a section the person has come back to (#11). The ordinary flow only: a
+  // host and a correction round each say what is wrong in their own way.
+  const missing = useMissingFieldMessage(instance, required ? name : undefined);
+  const error =
+    ownError ??
+    (policy && name ? policy.issueAt(instance, name) : null) ??
+    (policy || correction ? null : missing) ??
+    undefined;
   const defect =
     correction && name ? correction.defectAt(correction.step, instance, name) : null;
   const locked = !!correction && !defect;

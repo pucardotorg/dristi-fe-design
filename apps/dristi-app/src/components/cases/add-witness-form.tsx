@@ -352,7 +352,7 @@ export function AddWitnessDialog({
                     addLabel="Add more"
                     emailLabel="Email ID"
                     mobilePlaceholder="Enter mobile number"
-                    emailPlaceholder="ex: xyz@gmail.com"
+                    emailPlaceholder="name@domain.com"
                     optional
                   />
                 </section>

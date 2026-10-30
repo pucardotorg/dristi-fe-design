@@ -49,7 +49,7 @@ export function ContactList({
   addLabel = "Add another contact",
   emailLabel = "Email address",
   mobilePlaceholder = "10-digit number",
-  emailPlaceholder = "name@example.com",
+  emailPlaceholder = "name@domain.com",
   optional = false,
   allowAdd = true,
 }: {
@@ -265,7 +265,7 @@ export function RepresentativeList({
                 type="email"
                 value={r.email}
                 onChange={(v) => setAt(i, { email: v })}
-                placeholder="optional@example.com"
+                placeholder="name@domain.com"
                 autoComplete="off"
               />
             </FormField>
