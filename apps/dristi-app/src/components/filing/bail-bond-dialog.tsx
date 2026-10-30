@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import {
-  CheckCircle2Icon,
   CopyIcon,
   CheckIcon,
   DownloadIcon,
@@ -10,7 +9,6 @@ import {
   SignatureIcon,
   XIcon,
 } from "lucide-react";
-import { toast } from "sonner";
 
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 import { useBackCloses, useFlowWindow } from "@/components/chrome/flow-window";
@@ -96,6 +94,7 @@ import {
 } from "@/lib/filing/content";
 import { pick } from "@/lib/onboarding/content";
 import { cn } from "@/lib/utils";
+import { OutcomeHeader, OutcomeSummary, StatusLine, notify } from "@/components/feedback";
 
 /**
  * The bail bond, in its three entries:
@@ -636,7 +635,7 @@ type BondTerms = {
 };
 
 function downloadNotice() {
-  toast(pick(bondCopy.downloadBondPrototype, "en"));
+  notify.neutral(pick(bondCopy.downloadBondPrototype, "en"), { icon: DownloadIcon });
 }
 
 /**
@@ -984,50 +983,39 @@ function BondSignatureDialog({
         }}
       >
         {step === "done" ? (
-          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-6">
-            {/* The submission confirmation's grammar: the mark in a tinted
-                disc, what happened, then the facts of what was filed. */}
-            <div className="flex items-center gap-4 pr-8">
-              <span
-                aria-hidden
-                className="flex size-14 shrink-0 items-center justify-center rounded-full bg-success-muted text-success-muted-foreground"
-              >
-                <CheckCircle2Icon className="size-7" />
-              </span>
-              <div className="flex min-w-0 flex-col gap-1.5">
-                <DialogTitle
-                  ref={titleRef}
-                  tabIndex={-1}
-                  className="text-body font-semibold text-balance outline-none"
-                >
-                  {pick(edited ? bondCopy.doneTitleEdited : bondCopy.doneTitle, "en")}
-                </DialogTitle>
-                <DialogDescription>
-                  {edited
-                    ? pick(bondCopy.doneBodyEdited, "en")
-                    : method === "upload"
-                      ? pick(bondCopy.doneBodyUpload, "en")
-                      : hasSureties
-                        ? pick(bondCopy.doneBodyEsign, "en")
-                        : "The litigant has been sent a link by SMS, and email, if given, to add their signature."}
-                </DialogDescription>
-              </div>
-            </div>
-
-            <DescriptionList className="rounded-lg bg-surface-sunken px-4 py-1">
-              <DescriptionRow className="grid-cols-[1fr_auto] items-center">
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+            {/* The filing's outcome takes the window over (skill `feedback-states`). */}
+            <OutcomeHeader
+              compact
+              titleFrom="dialog"
+              focusTitle
+              title={pick(edited ? bondCopy.doneTitleEdited : bondCopy.doneTitle, "en")}
+              body={
+                edited
+                  ? pick(bondCopy.doneBodyEdited, "en")
+                  : method === "upload"
+                    ? pick(bondCopy.doneBodyUpload, "en")
+                    : hasSureties
+                      ? pick(bondCopy.doneBodyEsign, "en")
+                      : "The litigant has been sent a link by SMS, and email, if given, to add their signature."
+              }
+            />
+          <div className="flex flex-col gap-4 px-6 py-6">
+            <OutcomeSummary>
+            <DescriptionList>
+              <DescriptionRow className="grid-cols-[1fr_auto] items-center border-hairline">
                 <DescriptionTerm className="text-body-compact">Submission date</DescriptionTerm>
                 <DescriptionDetails className="text-body-compact">
                   {formatCaseDate(new Date().toISOString())}
                 </DescriptionDetails>
               </DescriptionRow>
-              <DescriptionRow className="grid-cols-[1fr_auto] items-center">
+              <DescriptionRow className="grid-cols-[1fr_auto] items-center border-hairline">
                 <DescriptionTerm className="text-body-compact">Bond ID</DescriptionTerm>
                 <DescriptionDetails className="flex items-center gap-2 text-body-compact font-medium">
                   <Identifier value={BOND_ID} label="bond number" />
                 </DescriptionDetails>
               </DescriptionRow>
-              <DescriptionRow className="grid-cols-[1fr_auto] items-center">
+              <DescriptionRow className="grid-cols-[1fr_auto] items-center border-hairline">
                 <DescriptionTerm className="text-body-compact">Status</DescriptionTerm>
                 <DescriptionDetails>
                   <Badge variant="warning">
@@ -1039,6 +1027,7 @@ function BondSignatureDialog({
                 </DescriptionDetails>
               </DescriptionRow>
             </DescriptionList>
+            </OutcomeSummary>
 
             {method === "esign" ? (
               <div className="flex flex-col gap-2">
@@ -1064,8 +1053,9 @@ function BondSignatureDialog({
                     )}
                   </Button>
                 </div>
-                {/* The demo stand-in for the SMS/email the parties receive. */}
-                <Button asChild variant="outline" className="self-start">
+                {/* The demo stand-in for the SMS/email the parties receive. Centred on a
+                    phone, left with the facts from tablet up (owner, Oct 29). */}
+                <Button asChild variant="outline" className="self-center sm:self-start">
                   <a href={BOND_SIGN_PATH} target="_blank" rel="noreferrer">
                     <ExternalLinkIcon data-icon="inline-start" aria-hidden />
                     {pick(bondCopy.openLinkDemo, "en")}
@@ -1073,6 +1063,7 @@ function BondSignatureDialog({
                 </Button>
               </div>
             ) : null}
+          </div>
           </div>
         ) : (
           <>
@@ -1177,13 +1168,13 @@ function BondSignatureDialog({
               ) : null}
 
               {step === "signed" ? (
-                <Banner variant="success">
+                <StatusLine tone="success">
                   {signedWith === "aadhaar"
                     ? "Signed with Aadhaar OTP."
                     : signedWith === "dsc"
                       ? "Signed with a DSC."
                       : "Signed copy added to this bail bond."}
-                </Banner>
+                </StatusLine>
               ) : null}
             </div>
           </>

@@ -18,7 +18,7 @@
  */
 
 import * as React from "react";
-import { ArrowLeftIcon, ClockIcon } from "lucide-react";
+import { ArrowLeftIcon, } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -58,6 +58,7 @@ import {
 import type { RejectedRegistration } from "@/lib/registration/rejection";
 import { cn } from "@/lib/utils";
 import { Identifier } from "@/components/chrome/identifier";
+import { PageOutcome } from "@/components/feedback";
 
 type Step = "name" | "contact" | "verification" | "success" | "application";
 type StepKey = (typeof STEP_KEYS)[number];
@@ -158,24 +159,18 @@ export function ResubmissionFlow({
 
   if (step === "success") {
     return (
-      <div className="mx-auto flex min-h-[60vh] w-full max-w-lg flex-col items-center justify-center gap-6 text-center">
-        <span className="flex size-14 items-center justify-center rounded-full bg-warning-muted text-warning-muted-foreground">
-          <ClockIcon className="size-7" aria-hidden />
-        </span>
-        <div className="flex flex-col items-center gap-2 text-center">
-          <h1 className="text-title text-balance font-semibold">
-            {pick(rejectionUi.resubmittedTitle, locale)}
-          </h1>
-          <p className="text-body text-pretty text-muted-foreground">
-            {pick(rejectionUi.resubmittedBody, locale).replace(
-              "{id}",
-              rejection.applicationId
-            )}
-          </p>
-        </div>
-        <Button size="lg" onClick={() => setStep("application")}>
-          {pick(approvalStep.action, locale)}
-        </Button>
+      /* Sent back to the court, not decided yet: the hourglass. */
+      <div className="mx-auto flex min-h-[60vh] w-full max-w-lg flex-col justify-center">
+        <PageOutcome
+          tone="info"
+          title={pick(rejectionUi.resubmittedTitle, locale)}
+          body={pick(rejectionUi.resubmittedBody, locale).replace("{id}", rejection.applicationId)}
+          action={
+            <Button size="lg" onClick={() => setStep("application")}>
+              {pick(approvalStep.action, locale)}
+            </Button>
+          }
+        />
       </div>
     );
   }

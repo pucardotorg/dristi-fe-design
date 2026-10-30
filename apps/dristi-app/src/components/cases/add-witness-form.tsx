@@ -22,6 +22,7 @@
  * untouched underneath.
  */
 
+import { FileXIcon } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 
 import {
@@ -64,6 +65,7 @@ import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 import { blankWitness } from "@/lib/filing/blank";
 import { witnessComplete } from "@/lib/filing/selectors";
 import type { AddressBlock, Witness } from "@/lib/filing/types";
+import { ConfirmMark } from "@/components/feedback";
 
 /** The filing witness, plus this flow's optional document uploads. */
 type DialogWitness = Witness & { docs: File[] };
@@ -446,7 +448,8 @@ export function AddWitnessDialog({
           if (!nextOpen) setRemoveId(null);
         }}
         title={`Remove witness ${removeNumber}`}
-        description="Are you sure you want to delete this witness and all their details? This cannot be undone."
+        description="Are you sure you want to delete this witness and all their details?"
+        note="This cannot be undone."
         confirmLabel="Yes, remove"
         onConfirm={confirmRemove}
       />
@@ -457,6 +460,7 @@ export function AddWitnessDialog({
       >
         <ChromeAlertDialogContent>
           <AlertDialogHeader>
+            <ConfirmMark danger icon={FileXIcon} />
             <AlertDialogTitle>Discard witness draft?</AlertDialogTitle>
             <AlertDialogDescription>
               The information entered here will be lost if you discard this
@@ -465,7 +469,7 @@ export function AddWitnessDialog({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Keep editing</AlertDialogCancel>
-            <AlertDialogAction variant="destructive-solid" onClick={closeClean}>
+            <AlertDialogAction variant="destructive" onClick={closeClean}>
               Discard draft
             </AlertDialogAction>
           </AlertDialogFooter>

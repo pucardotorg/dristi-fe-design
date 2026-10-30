@@ -27,6 +27,7 @@ import {
   type Submission,
 } from "@/lib/cases/applications";
 import { formatCaseDate } from "@/lib/cases/types";
+import { OutcomeHeader } from "@/components/feedback";
 
 /** Dummy court fee, from the legacy portal's payment screen. */
 export const COURT_FEE = "₹20";
@@ -128,6 +129,21 @@ function PaymentBody({
 
   return (
     <ChromeDialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-lg">
+      {paid ? (
+        /* The payment's outcome takes the window over (skill `feedback-states`); the
+           negative inset carries the band to the dialog's edges. */
+        <OutcomeHeader
+          compact
+          titleFrom="dialog"
+          focusTitle
+          className="-mx-6 -mt-6"
+          title="Payment"
+          body={<>Court fee of {COURT_FEE} paid.</>}
+        >
+          <Badge variant="success">Paid</Badge>
+          <span className="pt-1 text-body-compact text-muted-foreground">{submission.title}</span>
+        </OutcomeHeader>
+      ) : (
       <DialogHeader>
         <div className="flex flex-wrap items-center gap-2">
           <DialogTitle
@@ -147,13 +163,12 @@ function PaymentBody({
           {submission.title}
         </DialogDescription>
       </DialogHeader>
+      )}
 
       {paid ? (
         <div className="flex flex-col gap-4">
-          <Banner variant="success">Court fee of {COURT_FEE} paid.</Banner>
-
           <DescriptionList className="rounded-lg bg-surface-sunken px-4 py-1">
-            <DescriptionRow className="grid-cols-[1fr_auto] items-center">
+            <DescriptionRow className="grid-cols-[1fr_auto] items-center border-hairline">
               <DescriptionTerm className="text-body">
                 Payment date
               </DescriptionTerm>

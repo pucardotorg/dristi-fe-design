@@ -7,12 +7,10 @@ import {
   ArrowLeftIcon,
   ChevronDownIcon,
   CircleCheckIcon,
-  TriangleAlertIcon,
-} from "lucide-react";
+  } from "lucide-react";
 
 import { aiModeFrom } from "@/lib/bulk/ai-review";
 import { useCourt } from "@/components/court/court-provider";
-import { Banner } from "@/components/ui/banner";
 
 import { toLongDate } from "@/lib/filing/format";
 import { cn } from "@/lib/utils";
@@ -40,6 +38,7 @@ import { ReviewTab } from "./review-tab";
 import { ScrutinyTab } from "./scrutiny-tab";
 import { SignTab } from "./sign-tab";
 import { STAGE, STAGE_ORDER, StageBar, StageTip } from "./stage";
+import { StatusLine } from "@/components/feedback";
 
 /**
  * A step's tab. A coloured count is work waiting on this step now. When there is none, the
@@ -188,10 +187,9 @@ export function BatchScreen({ batchId }: { batchId: string }) {
           PAGE_GUTTER,
         )}
       >
-        <Alert variant="destructive">
-          <AlertTitle>This batch could not be opened</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
+        <StatusLine tone="error" still title="This batch could not be opened">
+          {error}
+        </StatusLine>
         <Button asChild variant="outline" className="w-fit">
           <Link href="/filings/bulk">
             <ArrowLeftIcon data-icon="inline-start" aria-hidden />
@@ -272,28 +270,23 @@ export function BatchScreen({ batchId }: { batchId: string }) {
         </div>
       </header>
 
-      {/* A standing condition, as on the scrutiny workbench → Banner. */}
+      {/* A standing condition, said still (skill `feedback-states`). */}
       {ai === "unavailable" ? (
-        <Banner variant="warning">
-          <TriangleAlertIcon />
-          <div className="min-w-0 flex-1 leading-snug">
-            AI review unavailable. Documents are not compared with the cases;
-            check them manually.
-          </div>
-        </Banner>
+        <StatusLine tone="warning" still>
+          AI review unavailable. Documents are not compared with the cases;
+          check them manually.
+        </StatusLine>
       ) : null}
 
       {batch.total > 0 && batch.counts.filed === batch.total ? (
-        <Alert variant="success">
-          <CircleCheckIcon aria-hidden />
-          <AlertTitle className="tabular-nums">
-            Done: all {batch.total} cases filed
-          </AlertTitle>
-          <AlertDescription>
-            Last payment{" "}
-            {batch.payments.at(-1) ? ist(batch.payments.at(-1)!.at) : ""}.
-          </AlertDescription>
-        </Alert>
+        <StatusLine
+          tone="success"
+          still
+          title={<span className="tabular-nums">Done: all {batch.total} cases filed</span>}
+        >
+          Last payment{" "}
+          {batch.payments.at(-1) ? ist(batch.payments.at(-1)!.at) : ""}.
+        </StatusLine>
       ) : null}
 
       {batch.clubbedInto ? (

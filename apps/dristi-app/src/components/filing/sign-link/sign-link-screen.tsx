@@ -40,11 +40,14 @@
 
 import { setNewAccountShell } from "@/lib/filing/linked-complaints";
 import * as React from "react";
+
+import { PageOutcome } from "@/components/feedback";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   LogInIcon,
   SignatureIcon,
   VideoIcon,
+  LinkIcon,
 } from "lucide-react";
 
 import { useStagedFlow, StagedOverlay } from "@/components/chrome/staged-overlay";
@@ -464,6 +467,9 @@ function SignLinkWizard({
 }) {
   const courtText = useCourtText();
   const flow = useStagedFlow<Stage>({ order: ORDER[start], scene: SCENES, arrival: "forward" });
+  /* Opened on the outcome and never left it: it stands still. Acting and coming back is news. */
+  const [leftOpening, setLeftOpening] = React.useState(false);
+  if (!leftOpening && flow.stage !== ORDER[start][0]) setLeftOpening(true);
   /** Only a complainant records an oath (`OTH-3`), and only where the state asks for one. */
   const sworn = swears && signingRules().oath;
 
@@ -659,6 +665,8 @@ function SignLinkWizard({
       title={title}
       titleRef={flow.titleRef}
       description={description}
+      /* The settled stages take the window over: mark, then title (owner, Oct 29). */
+      outcome={flow.stage === "signed" || flow.stage === "done"}
       sceneKey={flow.sceneKey}
       motion={flow.motion}
       footer={footer}
@@ -756,8 +764,8 @@ function SignLinkWizard({
           <DscLookup found={dscFound} holder="" />
         </StageColumn>
       ) : flow.stage === "signed" ? (
-        <StageColumn>
           <SettledCard
+            title={title}
             headline={
               signedWith ? INSTRUMENT_LABEL[signedWith] : onPaper ? "Confirmed" : "Signature added"
             }
@@ -766,15 +774,14 @@ function SignLinkWizard({
               sworn ? "Next, record your oath." : "Nothing more is needed from you."
             }
           />
-        </StageColumn>
       ) : flow.stage === "oath" ? (
         <StageColumn>
           {acts.length > 1 ? <StepTrail steps={trail("oath")} /> : null}
           <OathCapture name={oathName} value={oath} onChange={onOath} />
         </StageColumn>
       ) : (
-        <StageColumn>
           <SettledCard
+            title={title}
             headline={
               onPaper
                 ? sworn
@@ -786,8 +793,8 @@ function SignLinkWizard({
             }
             rows={[settledRow]}
             footnote={`Nothing more is needed from you. ${filer} will file the case.`}
+            still={start === "done" && !leftOpening}
           />
-        </StageColumn>
       )}
     </StagedOverlay>
   );
@@ -812,12 +819,16 @@ function LinkUnavailable({ inShell = false }: { inShell?: boolean }) {
           <BrandLockup className="h-9" />
         </header>
       )}
-      <main className="mx-auto flex w-full max-w-2xl flex-col gap-3 px-4 py-12">
-        <h1 className="text-title text-balance font-semibold">This link is no longer active</h1>
-        <p className="text-body text-muted-foreground">
-          The complaint may have been changed and sent again, or the request recalled. Ask
-          the advocate filing it to send you a new link.
-        </p>
+      {/* Nothing else is on the page, so the dead end sits in its middle. */}
+      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center px-4 py-12">
+        {/* A dead end, not bad news: neutral, with the link's own mark. */}
+        <PageOutcome
+          tone="neutral"
+          icon={LinkIcon}
+          className="px-0 py-0"
+          title="This link is no longer active"
+          body="The complaint may have been changed and sent again, or the request recalled. Ask the advocate filing it to send you a new link."
+        />
       </main>
     </div>
   );

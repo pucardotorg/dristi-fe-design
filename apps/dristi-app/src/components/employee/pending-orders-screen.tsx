@@ -3,8 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FileClockIcon } from "lucide-react";
-import { toast } from "sonner";
+import { FileClockIcon, PenLineIcon } from "lucide-react";
 
 import { Identifier } from "@/components/chrome/identifier";
 import {
@@ -72,6 +71,7 @@ import {
   rowOpenerClass,
 } from "@/lib/employee/row-activation";
 import { cn } from "@/lib/utils";
+import { ConfirmMark, IrreversibleNote, notify } from "@/components/feedback";
 
 type Tab = PendingOrderStage | "all";
 
@@ -429,17 +429,20 @@ export function PendingOrdersScreen({
       <AlertDialog open={askSign} onOpenChange={setAskSign}>
         <AlertDialogContent>
           <AlertDialogHeader>
+            <ConfirmMark icon={PenLineIcon} />
             <AlertDialogTitle>
               {chosen.length === 1
                 ? "Sign this order?"
                 : `Sign ${chosen.length} orders?`}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Your signature issues{" "}
-              {chosen.length === 1 ? "the order" : "each order"}. Its order
-              data is triggered once it is complete — at once, for any the
-              steno has already completed.
-              This cannot be reversed.
+              <span className="block">
+                Your signature issues{" "}
+                {chosen.length === 1 ? "the order" : "each order"}. Its order
+                data is triggered once it is complete — at once, for any the
+                steno has already completed.
+              </span>
+              <IrreversibleNote>This cannot be reversed.</IrreversibleNote>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -448,7 +451,7 @@ export function PendingOrdersScreen({
               onClick={() => {
                 markOrdersSigned(chosen.map((row) => row.key));
                 setSelected(new Set());
-                toast(
+                notify.success(
                   chosen.length === 1
                     ? "Signed and issued."
                     : `${chosen.length} orders signed and issued.`,

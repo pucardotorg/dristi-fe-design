@@ -432,7 +432,8 @@ function registerRow(name: string): { kind: PartyKind; entityType?: string } {
  */
 function assertCauseTitle(record: CaseRecord, parties: CaseParty[]): void {
   for (const side of ["complainant", "accused"] as const) {
-    const expected = normalize(record.parties[side]);
+    /* A cause title may close on "and 1 other": the lead party is the one named. */
+    const expected = normalize(record.parties[side]).replace(/ and \d+ others?$/, "");
     const found = parties.some(
       (party) => party.side === side && normalize(party.name) === expected
     );

@@ -32,6 +32,7 @@ import {
   type CaseSummary,
   type Locale,
 } from "@/lib/onboarding/content";
+import { StatusLine } from "@/components/feedback";
 
 /**
  * Step bodies.
@@ -124,10 +125,7 @@ export function PapersStep({ locale, caseSummary }: StepProps) {
           {pick(ui.notMe, locale)}
         </Button>
         {notMeOpen && (
-          <Alert variant="warning">
-            <TriangleAlertIcon aria-hidden />
-            <AlertDescription>{pick(ui.notMeBody, locale)}</AlertDescription>
-          </Alert>
+          <StatusLine tone="warning">{pick(ui.notMeBody, locale)}</StatusLine>
         )}
       </div>
     </div>

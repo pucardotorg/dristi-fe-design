@@ -11,19 +11,18 @@ import * as React from "react";
 import {
   CheckIcon,
   ChevronRightIcon,
-  CircleCheckIcon,
   ShieldCheckIcon,
   SignatureIcon,
 } from "lucide-react";
 
 import type { Signatory } from "@/lib/filing/types";
+import { OutcomeHeader, OutcomeSummary } from "@/components/feedback";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Spinner } from "@/components/ui/spinner";
 import { Stepper, StepperItem } from "@/components/ui/stepper";
-import { RESOLVE_IN_PLACE } from "@/components/chrome/motion";
 
 /**
  * A stage's column: reading width, at the top of the canvas.
@@ -44,71 +43,86 @@ export function StageColumn({ children }: { children: React.ReactNode }) {
 /**
  * **What just happened, on the thing it happened to.**
  *
- * The product settles an act by stamping the record it acted on — a status strip across
- * the top of the card in the status's own muted pair, with the roster underneath — rather
- * than by swapping the stage for a green box (`approve-registrations-dialog`'s
- * `StatusStrip`, owner-approved 2026-09-11). A signature's record is who has signed and
- * who has not, so that is what the card carries.
+ * The settled stage of a staged overlay (pass the overlay `outcome`): the outcome takes the
+ * window over as in every other dialog, the mark on top and the title under it (owner, Oct
+ * 29, skill `feedback-states`). Under it the act's record: the roster in a well labelled
+ * with what is true of it ("Every signature is in"), carrying the overlay's count badge.
+ * `tone="info"` when the act only sent the request out and the outcome is still waiting on
+ * others.
  */
 export function SettledCard({
+  title,
   headline,
+  aside,
   rows,
   footnote,
+  tone = "success",
+  still = false,
 }: {
+  /** The window's title for this stage ("Signature added"); it becomes the dialog title. */
+  title: string;
   headline: string;
+  /** The overlay's count badge ("1 of 2 signed"), on the well's label row. */
+  aside?: React.ReactNode;
   rows: Signatory[];
   footnote: string;
+  tone?: "success" | "info";
+  /** The flow opened on this outcome (a settled filing reopened): nothing plays. */
+  still?: boolean;
 }) {
+  /* A label that only repeats the title says nothing ("Signed copy accepted" twice). */
+  const label = headline === title ? undefined : headline;
   return (
-    <div
-      className={cn(
-        "overflow-hidden rounded-xl border border-hairline bg-card shadow-raised",
-        RESOLVE_IN_PLACE
-      )}
-    >
-      <div className="flex items-center gap-2 bg-success-muted px-4 py-2.5 text-body-compact text-success-muted-foreground">
-        <CircleCheckIcon aria-hidden className="size-4 shrink-0" />
-        {/* `role="status"` gets the outcome spoken: focus lands on the header title,
-            which announces itself and nothing below it. */}
-        <span role="status" className="font-medium">
-          {headline}
-        </span>
+    <>
+      <OutcomeHeader
+        tone={tone}
+        titleFrom="dialog"
+        focusTitle={!still}
+        title={title}
+        body={footnote}
+        surface="card"
+        still={still}
+      />
+      <div className="mx-auto flex w-full max-w-xl flex-col p-4 sm:p-6">
+        <OutcomeSummary
+          tone={tone === "success" ? "success" : undefined}
+          still={still}
+          /* With no label of its own, the count badge leads the well's top row. */
+          label={label ?? aside}
+          aside={label ? aside : undefined}
+        >
+          <ul className="flex flex-col">
+            {rows.map((s) => (
+              <li
+                key={s.id}
+                className="flex items-center gap-3 border-b border-hairline py-3 last:border-b-0"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-body-compact font-semibold text-foreground">
+                    {s.name}
+                    {s.you ? (
+                      <span className="ps-2 font-medium text-muted-foreground">You</span>
+                    ) : null}
+                  </p>
+                  <p className="text-body-compact text-muted-foreground">{s.role}</p>
+                </div>
+                {s.status === "signed" && s.oathTaken === false ? (
+                  <Badge variant="secondary">Oath pending</Badge>
+                ) : s.status === "signed" ? (
+                  <Badge variant="success">
+                    <CheckIcon aria-hidden />
+                    {s.oathTaken ? "Signed and sworn" : "Signed"}
+                  </Badge>
+                ) : (
+                  /* Says what is waiting, not just that something is (owner, 2026-10-13). */
+                  <Badge variant="secondary">Signature pending</Badge>
+                )}
+              </li>
+            ))}
+          </ul>
+        </OutcomeSummary>
       </div>
-
-      <ul className="flex flex-col px-4">
-        {rows.map((s) => (
-          <li
-            key={s.id}
-            className="flex items-center gap-3 border-b border-hairline py-3 last:border-b-0"
-          >
-            <div className="min-w-0 flex-1">
-              <p className="text-body-compact font-semibold text-foreground">
-                {s.name}
-                {s.you ? (
-                  <span className="ps-2 font-medium text-muted-foreground">You</span>
-                ) : null}
-              </p>
-              <p className="text-body-compact text-muted-foreground">{s.role}</p>
-            </div>
-            {s.status === "signed" && s.oathTaken === false ? (
-              <Badge variant="secondary">Oath pending</Badge>
-            ) : s.status === "signed" ? (
-              <Badge variant="success">
-                <CheckIcon aria-hidden />
-                {s.oathTaken ? "Signed and sworn" : "Signed"}
-              </Badge>
-            ) : (
-              /* Says what is waiting, not just that something is (owner, 2026-10-13). */
-              <Badge variant="secondary">Signature pending</Badge>
-            )}
-          </li>
-        ))}
-      </ul>
-
-      <p className="border-t border-hairline px-4 py-3 text-body-compact text-muted-foreground">
-        {footnote}
-      </p>
-    </div>
+    </>
   );
 }
 
@@ -244,9 +258,6 @@ export function OtpEntry({
       >
         {resent ? "Sent again" : "Send it again"}
       </Button>
-      <p className="text-body-compact text-muted-foreground">
-        Sandbox — any six digits work.
-      </p>
     </div>
   );
 }
@@ -270,9 +281,6 @@ export function DscLookup({ found, holder }: { found: boolean; holder: string })
               {holder
                 ? "Class 3 individual certificate, found on this computer"
                 : "Class 3 individual certificate"}
-            </p>
-            <p className="text-body-compact text-muted-foreground">
-              Sandbox — no certificate store is read.
             </p>
           </div>
         </div>

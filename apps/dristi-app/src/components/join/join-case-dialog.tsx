@@ -4,13 +4,7 @@ import { SUMMONS_FACTS } from "@/lib/summons/content";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { REGEXP_ONLY_DIGITS } from "input-otp";
-import {
-  ArrowLeftIcon,
-  ArrowRightIcon,
-  ExternalLinkIcon,
-  FileTextIcon,
-  SearchIcon,
-} from "lucide-react";
+import { ArrowLeftIcon, ArrowRightIcon, ExternalLinkIcon, FileTextIcon, SearchIcon, SearchXIcon, UserCheckIcon } from "lucide-react";
 
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 import { JOIN_DEMO_CASE_ID } from "@/lib/cases/party-cases";
@@ -67,6 +61,7 @@ import {
   type CaseParty,
   type JoinCase,
 } from "@/lib/join/content";
+import { OutcomeHeader, StatusLine } from "@/components/feedback";
 
 /**
  * Post-login join-a-case dialog.
@@ -361,8 +356,26 @@ export function JoinCaseDialog({
           if (document.querySelector('[data-slot="combobox-content"]')) event.preventDefault();
         }}
       >
-        {/* The same header on every stage, the outcome included (owner, Oct 6):
-            only the words change, so the outcome reads as this window settling. */}
+        {/* The same header on every stage (owner, Oct 6), except the outcome: that takes
+            the window over, as the owner approved on the states board (Oct 29, skill
+            `feedback-states`). */}
+        {stage === "done" && !leaving ? (
+          <OutcomeHeader
+            titleFrom="dialog"
+            focusTitle
+            title={pick(joinDialog.joinedTitle, locale)}
+            body={fill(
+              kind === "poa" ? joinDialog.poaJoinedBody : joinDialog.joinedBody,
+              locale,
+              {
+                name:
+                  kind === "poa"
+                    ? poaSelected.map((entry) => entry.name).join(", ")
+                    : (party?.name ?? ""),
+              },
+            )}
+          />
+        ) : (
         <DialogHeader className="shrink-0 gap-2 border-b border-hairline p-6 pr-16 text-left">
           <DialogTitle
             ref={titleRef}
@@ -413,6 +426,7 @@ export function JoinCaseDialog({
             )}
           </DialogDescription>
         </DialogHeader>
+        )}
 
         {/* The stage: warm canvas, white panels. It hugs each step's height, which
             changes while the window is faded out (`useStageFade`). */}
@@ -457,7 +471,7 @@ export function JoinCaseDialog({
                 </FieldError>
               </Field>
               {lookupMiss ? (
-                <Banner variant="warning" className="items-start">{pick(joinDialog.lookupMiss, locale)}</Banner>
+                <StatusLine tone="neutral" icon={SearchXIcon}>{pick(joinDialog.lookupMiss, locale)}</StatusLine>
               ) : null}
             </form>
           ) : null}
@@ -615,9 +629,10 @@ export function JoinCaseDialog({
               ) : null}
 
               {party && blocked ? (
-                <Banner variant="warning" className="items-start">
+                /* A dead end, not bad news: neutral (skill `feedback-states`). */
+                <StatusLine tone="neutral" icon={UserCheckIcon}>
                   {fill(joinDialog.alreadyJoined, locale, { name: party.name })}
-                </Banner>
+                </StatusLine>
               ) : null}
 
               {kind === "self" && party && !blocked ? (
@@ -831,7 +846,11 @@ export function JoinCaseDialog({
 
         {/* ------------------------------------------------------------ footer */}
         <footer
-          className="flex shrink-0 flex-col-reverse gap-2 border-t border-hairline px-6 pt-4 pb-[calc(--spacing(4)+env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between"
+          className={cn(
+            "flex shrink-0 flex-col-reverse gap-2 border-t border-hairline px-6 pt-4 pb-[calc(--spacing(4)+env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between",
+            /* Under the outcome, the warm band every outcome dialog closes on. */
+            stage === "done" && !leaving && "bg-surface-sunken",
+          )}
         >
           {leaving ? (
             <>

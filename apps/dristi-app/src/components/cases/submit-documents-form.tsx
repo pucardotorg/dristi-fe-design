@@ -8,8 +8,11 @@ import {
   FileTextIcon,
   ImageIcon,
   XIcon,
+  SendIcon,
+  SaveIcon,
+  ClockIcon,
 } from "lucide-react";
-import { toast } from "sonner";
+import { notify } from "@/components/feedback";
 
 import { useRouter } from "next/navigation";
 
@@ -339,16 +342,21 @@ export function SubmitDocumentsDialog({
     );
   }
 
-  function finish(status: SavedDocumentSubmission["status"], message?: string) {
+  function finish(
+    status: SavedDocumentSubmission["status"],
+    message?: string,
+    icon?: typeof SendIcon,
+  ) {
     keep(status);
-    if (message) toast(message);
+    /* Not news yet (sent to someone, or waiting on you): neutral with the act's icon. */
+    if (message) notify.neutral(message, { icon });
     closeNow();
     onSubmitted();
   }
 
   function saveDraft() {
     keep("draft");
-    toast("Saved as a draft");
+    notify.neutral("Saved as a draft", { icon: SaveIcon });
     closeNow();
   }
 
@@ -451,7 +459,7 @@ export function SubmitDocumentsDialog({
         actionLabel={filer?.handoffTo ? "Send for signature" : "Sign"}
         onAction={() => {
           if (filer?.handoffTo) {
-            finish("pending-signature", `Sent to ${filer.handoffTo} to sign`);
+            finish("pending-signature", `Sent to ${filer.handoffTo} to sign`, SendIcon);
           } else {
             setStage("sign");
           }
@@ -469,7 +477,7 @@ export function SubmitDocumentsDialog({
         onComplete={() => finish("submitted")}
         onSignLater={
           caseId && filer && !court
-            ? () => finish("pending-signature", "Saved. Waiting for your signature")
+            ? () => finish("pending-signature", "Saved. Waiting for your signature", ClockIcon)
             : undefined
         }
       />

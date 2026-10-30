@@ -7,7 +7,6 @@ import {
   PlusIcon,
   Trash2Icon,
 } from "lucide-react";
-import { toast } from "sonner";
 
 import {
   DepositionShortcutsPanel,
@@ -103,6 +102,7 @@ import { formatOrderDate, type CourtHearingPurposeId } from "@/lib/employee/hear
 import { blankAddressBlock } from "@/lib/filing/blank";
 import type { Address } from "@/lib/filing/types";
 import { cn } from "@/lib/utils";
+import { notify } from "@/components/feedback";
 
 /** Where the view sits: the hearing its records belong to, and the case's people. */
 export type EvidenceContext = {
@@ -342,7 +342,7 @@ export function EvidenceView({ context }: { context: EvidenceContext }) {
                 if (discarding) discardEvidence(discarding.id);
                 setDiscarding(null);
                 setActiveId(null);
-                toast("Discarded.");
+                notify.neutral("Discarded.", { icon: Trash2Icon });
               }}
             >
               Discard
@@ -775,12 +775,12 @@ function EvidenceRecordEditor({
               };
               saveEvidence(next);
               onOpenRecord(next.id);
-              toast(`${witness.name} added as a witness, in a new statement.`);
+              notify.success(`${witness.name} added as a witness, in a new statement.`);
               return;
             }
             updateEvidence(record.id, { personId: witness.id, witnessSide: undefined });
             setErrors((current) => ({ ...current, person: undefined }));
-            toast(`${witness.name} added as a witness.`);
+            notify.success(`${witness.name} added as a witness.`);
           }}
         />
       ) : null}

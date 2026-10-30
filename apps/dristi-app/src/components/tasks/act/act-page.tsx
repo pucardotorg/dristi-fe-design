@@ -12,7 +12,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { notify } from "@/components/feedback";
 import { ArrowLeftIcon, FileTextIcon } from "lucide-react";
 
 import { canComplete, canView } from "@/lib/tasks/permissions";
@@ -48,20 +48,12 @@ const CRUMB: Record<ActPageAction, string> = {
   continue: "Continue",
 };
 
-/** The one quiet notice per page: what is interim, and what is not real here. */
+/** The one quiet notice per page: what is interim. Signing needs none. */
 function Notice({ action, task }: { action: ActPageAction; task: Task }) {
-  if (action === "sign" || (action === "continue" && task.kind === "sign")) {
-    return (
-      <SectionNotice variant="neutral" title="Sandbox">
-        Any 6-digit OTP is accepted and the signature stamp is generated locally — nothing
-        reaches a court.
-      </SectionNotice>
-    );
-  }
+  if (action === "sign" || (action === "continue" && task.kind === "sign")) return null;
   return (
     <SectionNotice variant="neutral" title="Interim screen">
-      The e-filing flow is not built yet — this stands in for it. Sandbox: uploads stay in
-      this browser and the registry&apos;s answer is whatever you pick.
+      The e-filing flow is not built yet. This stands in for it.
     </SectionNotice>
   );
 }
@@ -88,7 +80,7 @@ export function TaskActPage({ action }: { action: ActPageAction }) {
     (message?: string, taskId?: string) => {
       const target = taskId ?? id;
       requestHighlight(target);
-      if (message) toast.success(message);
+      if (message) notify.success(message);
       router.push(`/tasks?task=${encodeURIComponent(target)}`);
     },
     [id, requestHighlight, router]
@@ -119,7 +111,7 @@ export function TaskActPage({ action }: { action: ActPageAction }) {
                   <EmptyDescription>
                     {forbidden
                       ? "You are not on this case's vakalatnama or its access list."
-                      : "It may have been reset with the sandbox, or the link is wrong."}
+                      : "The link may be wrong."}
                   </EmptyDescription>
                 </EmptyHeader>
                 <EmptyContent>

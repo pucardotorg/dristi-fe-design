@@ -9,6 +9,7 @@
  * typed from memory, and an unlisted one is still accepted.
  */
 
+import * as React from "react";
 import Link from "next/link";
 import { PlusIcon } from "lucide-react";
 
@@ -62,6 +63,9 @@ export function JurisdictionSection() {
     </button>
   );
   const { elapsed: delay, withinLimit, overBy } = limitation;
+  /* The verdict that was already there on arrival stands still; a new one plays. */
+  const [verdictOnOpen] = React.useState(delay === null ? null : withinLimit);
+  const verdictStill = delay !== null && verdictOnOpen === withinLimit;
   // Shown in the derivation line, so the date it counts from is checkable.
   const serviceDate = draft.notices
     .map(noticeServiceDate)
@@ -317,7 +321,7 @@ export function JurisdictionSection() {
             court has to be asked to condone anything.
           */}
           {delay === null ? null : withinLimit ? (
-            <SectionNotice variant="success" announce="polite">
+            <SectionNotice variant="success" announce="polite" still={verdictStill}>
               Within the limitation period: filed {delay} day{delay === 1 ? "" : "s"}{" "}
               after the cause of action arose.
             </SectionNotice>
@@ -325,6 +329,7 @@ export function JurisdictionSection() {
             <SectionNotice
               variant="warning"
               announce="polite"
+              still={verdictStill}
               title={`${overBy} day${overBy === 1 ? "" : "s"} beyond the one-month limit`}
             >
               The court can still take this on file, but it must be asked to condone the

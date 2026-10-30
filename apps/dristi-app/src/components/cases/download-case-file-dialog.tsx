@@ -1,9 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { toast } from "sonner";
 
 import { ChromeDialogContent } from "@/components/chrome/app-chrome";
+import { StatusLine, notify } from "@/components/feedback";
 import { useCaseNumber, useCourtText } from "@/components/court/court-provider";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -52,6 +52,13 @@ export function DownloadCaseFileDialog({
   const [format, setFormat] = React.useState<Format>("pdf");
   const [sections, setSections] = React.useState<string[]>([]);
   const [preparing, setPreparing] = React.useState(false);
+  const [failed, setFailed] = React.useState(false);
+  /* A failure belongs to the attempt that failed: a reopened window starts clean. */
+  const [wasOpen, setWasOpen] = React.useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setFailed(false);
+  }
   // The PDF is drawn outside the DOM, so the court text layer never reaches
   // it: re-voice for the selected state here, as the header shows them.
   const localNumber = useCaseNumber();
@@ -59,6 +66,7 @@ export function DownloadCaseFileDialog({
   const blocked = (format === "sections" && sections.length === 0) || preparing;
 
   function toggleSection(id: string, checked: boolean) {
+    setFailed(false);
     setSections((current) =>
       checked ? [...current, id] : current.filter((item) => item !== id)
     );
@@ -66,14 +74,14 @@ export function DownloadCaseFileDialog({
 
   async function download() {
     if (format === "zip") {
-      toast.success("Preparing your download", {
-        position: "bottom-center",
+      notify.success("Preparing your download", {
         description: `${caseNumber}. It will start in a moment.`,
       });
       onOpenChange(false);
       return;
     }
     setPreparing(true);
+    setFailed(false);
     try {
       // Picked sections keep their case-file numbers, so the docket pages
       // still point at the same place in the tree.
@@ -95,10 +103,9 @@ export function DownloadCaseFileDialog({
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
       onOpenChange(false);
     } catch {
-      toast.error("The case file could not be prepared", {
-        position: "bottom-center",
-        description: "Try again. Nothing was downloaded.",
-      });
+      /* The window is still open, so the failure is said inside it, never as a toast
+         behind it (skill `feedback-states`). */
+      setFailed(true);
     } finally {
       setPreparing(false);
     }
@@ -119,7 +126,10 @@ export function DownloadCaseFileDialog({
         <div className="flex min-h-0 flex-col gap-4 overflow-y-auto px-6 py-4">
           <RadioGroup
             value={format}
-            onValueChange={(value) => setFormat(value as Format)}
+            onValueChange={(value) => {
+              setFormat(value as Format);
+              setFailed(false);
+            }}
             aria-label="What to download"
             className="flex flex-col gap-1"
           >
@@ -155,6 +165,12 @@ export function DownloadCaseFileDialog({
                 </div>
               ))}
             </fieldset>
+          ) : null}
+
+          {failed ? (
+            <StatusLine tone="error" title="The case file could not be prepared">
+              Try again. Nothing was downloaded.
+            </StatusLine>
           ) : null}
         </div>
 

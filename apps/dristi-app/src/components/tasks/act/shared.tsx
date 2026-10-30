@@ -8,8 +8,9 @@
  */
 
 import * as React from "react";
-import { toast } from "sonner";
-import { CheckIcon, FileTextIcon, SignatureIcon, TrashIcon } from "lucide-react";
+import { FileTextIcon, SaveIcon, SignatureIcon, TrashIcon } from "lucide-react";
+
+import { StatusLine, StatusMark } from "@/components/feedback";
 
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 
@@ -198,16 +199,19 @@ export function FileSlot({
 }) {
   const inputRef = React.useRef<HTMLInputElement>(null);
   const [busy, setBusy] = React.useState(false);
+  const [failed, setFailed] = React.useState(false);
   const id = `slot-${name.replace(/\W+/g, "-").toLowerCase()}`;
 
   const pick = async (f: File | undefined) => {
     if (!f) return;
     setBusy(true);
+    setFailed(false);
     try {
       const ref = await storeUpload(f);
       onFile({ ...ref, slot: name });
     } catch {
-      toast.error("That file could not be stored in this browser.");
+      /* Said at the slot, never as a toast: the slot may sit in a dialog. */
+      setFailed(true);
     } finally {
       setBusy(false);
       if (inputRef.current) inputRef.current.value = "";
@@ -221,8 +225,8 @@ export function FileSlot({
           {name}
         </FieldLabel>
         {file ? (
-          <span className="inline-flex items-center gap-1 text-caption text-success-ink">
-            <CheckIcon aria-hidden className="size-3.5" />
+          <span className="inline-flex items-center gap-1.5 text-caption text-success-ink">
+            <StatusMark size={14} still />
             Attached
           </span>
         ) : (
@@ -242,6 +246,11 @@ export function FileSlot({
             onChange={(e) => void pick(e.target.files?.[0])}
             className="max-w-sm cursor-pointer file:mr-3 file:font-medium"
           />
+          {failed ? (
+            <StatusLine tone="error" className="mt-2">
+              That file could not be stored in this browser.
+            </StatusLine>
+          ) : null}
         </Field>
       )}
     </li>
@@ -271,7 +280,7 @@ export function PrepareCard({
   children?: React.ReactNode;
 }) {
   const { task, people, kase, online, finish } = ctx;
-  const { act, busy } = useTaskActions();
+  const { act, busy, error } = useTaskActions({ inDialog: true });
   const [note, setNote] = React.useState<string>(task.draft?.note ?? task.prepared?.note ?? "");
   const signatories = signatoriesOf(kase, people).map((p) => p.name);
   const who = signatories.length ? signatories.join(" or ") : "A signatory";
@@ -286,6 +295,7 @@ export function PrepareCard({
           : `${who} must ${what} this. Prepare it here, then mark it ready — they will be asked to ${what} it.`
       }
     >
+      {error ? <StatusLine tone="error">{error}</StatusLine> : null}
       {children}
       <Field>
         <FieldLabel htmlFor="prepare-note">Note to the signatory</FieldLabel>
@@ -314,7 +324,7 @@ export function PrepareCard({
         <Button
           variant={ready ? "outline" : "ghost"}
           disabled={!online || !!busy}
-          onClick={() => void act(task.id, (x, c) => saveDraft(x, c, note, files), "Saved as a draft")}
+          onClick={() => void act(task.id, (x, c) => saveDraft(x, c, note, files), { title: "Saved as a draft", icon: SaveIcon })}
         >
           Save as draft
         </Button>
@@ -372,7 +382,7 @@ function OtpForm({
       <DialogHeader>
         <DialogTitle>{title}</DialogTitle>
         <DialogDescription>
-          In the live service, a 6-digit OTP goes to{" "}
+          A 6-digit OTP goes to{" "}
           <strong className="font-semibold text-foreground">{signer.name}</strong>’s Aadhaar-linked
           mobile. The signature applied is theirs.
         </DialogDescription>
@@ -388,7 +398,6 @@ function OtpForm({
             ))}
           </InputOTPGroup>
         </InputOTP>
-        <p className="text-caption text-muted-foreground">Sandbox — any 6-digit code is accepted here.</p>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-body-compact text-muted-foreground">Didn’t get it?</span>
@@ -412,7 +421,7 @@ function OtpForm({
  */
 export function CourtSandbox({ ctx }: { ctx: ActContext }) {
   const { task, online, finish } = ctx;
-  const { act, busy } = useTaskActions();
+  const { act, busy, error } = useTaskActions({ inDialog: true });
   const [open, setOpen] = React.useState(false);
   const [defects, setDefects] = React.useState<string[]>(["", "", ""]);
   const filled = defects.map((d) => d.trim()).filter(Boolean);
@@ -422,6 +431,7 @@ export function CourtSandbox({ ctx }: { ctx: ActContext }) {
       title="With the court"
       description="Filed — the registry has it now. These controls stand in for the registry's answer."
     >
+      {error ? <StatusLine tone="error">{error}</StatusLine> : null}
       <div className="flex flex-wrap gap-2">
         <Button
           variant="outline"

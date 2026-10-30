@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { toast } from "sonner";
+import { notify } from "@/components/feedback";
 
 import { ChoicePillGroup } from "@/components/cases/filing-form-shared";
 import { useCaseReader } from "@/components/cases/case-reader";
@@ -73,7 +73,7 @@ export function MarkEvidenceDialog({
     }
     const number = nextEvidenceNumber(taken, side);
     markEvidence(caseId, shown.id, number);
-    toast(`Marked as ${number}`);
+    notify.success(`Marked as ${number}`);
     onOpenChange(false);
   }
 

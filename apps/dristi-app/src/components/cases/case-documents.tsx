@@ -3,14 +3,12 @@
 import { useMemo, useState, type MouseEvent, type ReactNode } from "react";
 import {
   ChevronDownIcon,
-  CircleAlertIcon,
   FileSearchIcon,
   FileTextIcon,
 } from "lucide-react";
 
 import { DocumentRecordDialog } from "@/components/cases/document-record-dialog";
 import { DownloadFilingButton } from "@/components/cases/download-filing-button";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -148,6 +146,7 @@ import {
   type ActionEntry,
   type ApplicationRecord,
 } from "@/lib/cases/application-record";
+import { StatusLine } from "@/components/feedback";
 
 type SubmitterOption = {
   value: string;
@@ -255,15 +254,9 @@ export function DocumentsLoading() {
 function DocumentsError() {
   return (
     <DocumentsPanel>
-      <Alert variant="destructive">
-        <CircleAlertIcon aria-hidden />
-        <AlertTitle>
-          Documents could not be loaded
-        </AlertTitle>
-        <AlertDescription>
-          Refresh the page to try again.
-        </AlertDescription>
-      </Alert>
+      <StatusLine tone="error" still title="Documents could not be loaded">
+        Refresh the page to try again.
+      </StatusLine>
     </DocumentsPanel>
   );
 }

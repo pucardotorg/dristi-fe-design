@@ -1,0 +1,162 @@
+/*
+ * Feedback motion: how a success, failure, warning or notice arrives.
+ *
+ * App-owned, like chrome.css, until the DS carries a motion foundation (ds-requests #23).
+ * The components in `components/feedback/` are the only callers; screens never use these
+ * classes directly. Every value here was tuned on the states board with the owner and the
+ * lead designer (docs/design/features/feedback-states.md, 2026-10-29).
+ *
+ * The budget, by size:
+ * - A hero mark (44px and up) plays its full sequence, about 600ms: the disc pops, then the
+ *   glyph draws (check), springs out stroke by stroke (cross), or drops and settles (!).
+ * - A small mark (toasts, inline lines, tallies, badges) pops its disc; a tick draws itself
+ *   inside it, any other glyph scales in after it. About half a second, one beat.
+ * - Text never scales or slides sideways: a line that moves while it is read is harder to
+ *   read. An error line opens its own room and drops out from under its field instead.
+ * - Shake only says "your input was refused". It is never used for a system failure.
+ */
+
+@keyframes fb-pop {
+  0% { transform: scale(0.55); opacity: 0; }
+  60% { transform: scale(1.06); opacity: 1; }
+  100% { transform: none; }
+}
+@keyframes fb-pop-quick {
+  0% { transform: scale(0.7); opacity: 0; }
+  70% { transform: scale(1.04); opacity: 1; }
+  100% { transform: none; }
+}
+@keyframes fb-glyph-in {
+  0% { transform: scale(0.55); opacity: 0; }
+  70% { transform: scale(1.06); opacity: 1; }
+  100% { transform: none; }
+}
+@keyframes fb-draw {
+  from { stroke-dashoffset: 30; }
+  to { stroke-dashoffset: 0; }
+}
+@keyframes fb-stroke {
+  0% { transform: scale(0); opacity: 0; }
+  60% { transform: scale(1.18); opacity: 1; }
+  100% { transform: none; }
+}
+@keyframes fb-bar {
+  0% { transform: translateY(-9px); opacity: 0; }
+  65% { transform: translateY(1.5px); opacity: 1; }
+  100% { transform: none; }
+}
+@keyframes fb-dot {
+  0% { transform: scale(0); }
+  60% { transform: scale(1.45); }
+  100% { transform: none; }
+}
+@keyframes fb-flip {
+  0%, 35% { transform: rotate(0); }
+  100% { transform: rotate(180deg); }
+}
+@keyframes fb-ring {
+  0% { transform: scale(1); opacity: 0.45; }
+  100% { transform: scale(1.9); opacity: 0; }
+}
+@keyframes fb-ring-soft {
+  0% { transform: scale(1); opacity: 0.3; }
+  100% { transform: scale(1.7); opacity: 0; }
+}
+@keyframes fb-sway {
+  0%, 100% { transform: none; }
+  30% { transform: rotate(5deg); }
+  65% { transform: rotate(-3deg); }
+}
+@keyframes fb-shake {
+  0%, 100% { transform: none; }
+  25% { transform: translateX(-2px); }
+  50% { transform: translateX(2px); }
+  75% { transform: translateX(-1px); }
+}
+@keyframes fb-rise {
+  from { transform: translateY(8px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes fb-band {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes fb-drain {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+@keyframes fb-fill {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+@keyframes fb-reveal {
+  from { grid-template-rows: 0fr; }
+  to { grid-template-rows: 1fr; }
+}
+@keyframes fb-drop {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes fb-chip {
+  from { transform: scale(0.88); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes fb-land {
+  0%, 35% { background-color: var(--success-muted); box-shadow: inset 4px 0 0 var(--success); }
+  100% { background-color: transparent; box-shadow: inset 4px 0 0 transparent; }
+}
+
+/* The staged-overlay canvas an outcome band can fade into (`bg-muted dark:bg-background`). */
+:root { --fb-canvas: var(--muted); }
+.dark { --fb-canvas: var(--background); }
+
+/* `--fb-delay` (set by a mark) shifts every part of it together, so marks can play in order.
+   Every class holds its first frame (`both`) so nothing flashes at rest before it starts. */
+.fb-pop { animation: fb-pop 420ms var(--fb-delay, 0ms) cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.fb-pop-quick { animation: fb-pop-quick 250ms var(--fb-delay, 0ms) cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+.fb-glyph-in { animation: fb-glyph-in 380ms calc(var(--fb-delay, 0ms) + 180ms) cubic-bezier(0.3, 1.3, 0.5, 1) both; }
+/* A small success tick draws inside its disc's pop: about 400ms in all, the small budget. */
+.fb-draw-quick { stroke-dasharray: 30; animation: fb-draw 280ms calc(var(--fb-delay, 0ms) + 120ms) cubic-bezier(0.65, 0, 0.35, 1) both; }
+.fb-draw { stroke-dasharray: 30; animation: fb-draw 360ms calc(var(--fb-delay, 0ms) + 260ms) cubic-bezier(0.65, 0, 0.35, 1) both; }
+.fb-stroke { transform-box: fill-box; transform-origin: center; animation: fb-stroke 400ms calc(var(--fb-delay, 0ms) + 200ms) cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.fb-stroke-2 { animation-delay: calc(var(--fb-delay, 0ms) + 340ms); }
+.fb-bar { animation: fb-bar 280ms calc(var(--fb-delay, 0ms) + 150ms) cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.fb-dot { transform-box: fill-box; transform-origin: center; animation: fb-dot 220ms calc(var(--fb-delay, 0ms) + 330ms) cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.fb-flip { transform-box: fill-box; transform-origin: center; animation: fb-flip 900ms calc(var(--fb-delay, 0ms) + 250ms) cubic-bezier(0.65, 0, 0.35, 1) both; }
+/* One ring pulse, then rest. Three pulses were tried and read as too busy (owner, 2026-10-30). */
+.fb-ring { animation: fb-ring 900ms calc(var(--fb-delay, 0ms) + 200ms) ease-out both; }
+.fb-ring-soft { animation: fb-ring-soft 650ms calc(var(--fb-delay, 0ms) + 330ms) ease-out both; }
+.fb-sway { transform-origin: 50% 15%; animation: fb-sway 420ms calc(var(--fb-delay, 0ms) + 330ms) ease-in-out both; }
+.fb-shake { animation: fb-shake 260ms ease-in-out both; }
+.fb-rise { animation: fb-rise 360ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.fb-band { animation: fb-band 300ms ease-out both; }
+.fb-drain { transform-origin: left; animation: fb-drain var(--fb-life, 2.75s) linear both; }
+.fb-fill { transform-origin: left; animation: fb-fill 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+/* An error line opens its own room, then drops out from under its field, clipped at the
+   field's edge: it reads as coming from the field. */
+.fb-reveal { display: grid; animation: fb-reveal 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.fb-reveal > * { min-height: 0; overflow: hidden; }
+.fb-drop { animation: fb-drop 300ms 60ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.fb-chip { animation: fb-chip 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.fb-land { animation: fb-land 2600ms ease-out both; }
+/* A hero mark holds its first frame until it has been painted (`StatusMark`). */
+.fb-hold, .fb-hold * { animation-play-state: paused !important; }
+
+/* Sonner pauses a toast's timer while the pointer is over the stack or the stack is open;
+   the bar pauses with it. (A hidden tab pauses sonner but not CSS: accepted.) */
+[data-sonner-toaster]:hover .fb-drain,
+[data-sonner-toast][data-expanded="true"] .fb-drain { animation-play-state: paused; }
+
+/* A refused field: its red ring grows in from nothing to the DS invalid ring. */
+@keyframes fb-ring-in { from { box-shadow: 0 0 0 0 transparent; } }
+.fb-field [aria-invalid="true"] { animation: fb-ring-in 260ms ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fb-pop, .fb-pop-quick, .fb-glyph-in, .fb-draw, .fb-draw-quick, .fb-stroke, .fb-bar, .fb-dot, .fb-flip,
+  .fb-ring, .fb-ring-soft, .fb-sway, .fb-shake, .fb-rise, .fb-band, .fb-fill,
+  .fb-reveal, .fb-drop, .fb-chip, .fb-land,
+  .fb-field [aria-invalid="true"] { animation: none; }
+  .fb-ring, .fb-ring-soft { opacity: 0; }
+  /* The toast's timer still runs (the toast still leaves), it just does not draw. */
+  .fb-drain { animation: none; opacity: 0; }
+}

@@ -4,12 +4,10 @@ import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   CheckCircle2Icon,
-  CircleAlertIcon,
   DownloadIcon,
   FileSpreadsheetIcon,
   FileTextIcon,
-  XCircleIcon,
-} from "lucide-react";
+  } from "lucide-react";
 
 import { aiModeFrom } from "@/lib/bulk/ai-review";
 import type { CaseExtraction } from "@/lib/bulk/case-doc";
@@ -41,7 +39,6 @@ import {
   tableRowClass,
 } from "@/components/chrome/table-plate";
 import { PANEL_CLASS } from "@/components/filing/form-card";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -85,6 +82,8 @@ import { BatchParties, type Adr } from "./batch-parties";
 import { FileDrop } from "./file-drop";
 import { bulkFetch } from "./api";
 import { setupHref, uploadHref, useReportUploadState, type UploadStep } from "./setup-flow";
+import { StatusMark } from "@/components/feedback";
+import { StatusLine } from "@/components/feedback";
 
 
 /** The demo spreadsheets the upload offers, from `public/samples/` (`scripts/bulk-demo-files.mts`). */
@@ -129,17 +128,11 @@ function ReadingCard({ rows }: { rows: ReadingRow[] }) {
           >
             <span className="flex size-5 shrink-0 items-center justify-center">
               {r.state === "done" ? (
-                <CheckCircle2Icon
-                  className="size-5 text-success-ink"
-                  aria-label="Read"
-                />
+                <StatusMark size={20} still label="Read" />
               ) : r.state === "reading" ? (
                 <Spinner className="size-4 text-primary" aria-label="Reading" />
               ) : r.state === "failed" ? (
-                <XCircleIcon
-                  className="size-5 text-destructive-ink"
-                  aria-label="Not read"
-                />
+                <StatusMark tone="error" size={20} still label="Not read" />
               ) : (
                 <FileTextIcon
                   className="size-4 text-muted-foreground"
@@ -442,9 +435,7 @@ export function UploadScreen() {
   if (!ready) return null;
 
   const errorNotice = error ? (
-    <Alert variant="destructive">
-      <AlertDescription>{error}</AlertDescription>
-    </Alert>
+    <StatusLine tone="error">{error}</StatusLine>
   ) : null;
   const backFromReview: UploadStep = unknownLists.length ? "values" : template || docs ? "file" : "map";
   const PREVIEW = ["reference", "accusedName", "chequeNumber", "chequeAmount", "returnReason", "dispatchDate"];
@@ -636,20 +627,18 @@ export function UploadScreen() {
           />
           {errorNotice}
           {missing.length ? (
-            <Alert variant="warning">
-              <CircleAlertIcon aria-hidden />
-              <AlertTitle>
-                {missing.length} required field{missing.length === 1 ? " is" : "s are"} not in your file
-              </AlertTitle>
-              <AlertDescription>
+            <StatusLine
+              tone="warning"
+              still
+              title={`${missing.length} required field${missing.length === 1 ? " is" : "s are"} not in your file`}
+            >
                 Every case will arrive without{" "}
                 {new Intl.ListFormat("en", { type: "conjunction" }).format(
                   missing.map((c) => c.header.toLowerCase()),
                 )}
                 . Each case stays in draft until you enter {missing.length === 1 ? "it" : "them"} on
                 its Case details.
-              </AlertDescription>
-            </Alert>
+            </StatusLine>
           ) : null}
           <Card className={PANEL_CLASS}>
             <CardHeader>

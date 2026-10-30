@@ -22,10 +22,9 @@ import {
 } from "@/components/cases/case-overview-card";
 import { useState, type ReactNode } from "react";
 import {
-  CheckCircle2Icon,
   DownloadIcon,
-  InfoIcon,
   Maximize2Icon,
+  UserCheckIcon,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -45,6 +44,7 @@ import { Field, FieldLabel } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 import { displayName } from "@/lib/cases/names";
+import { OutcomeHeader } from "@/components/feedback";
 
 type RemovalConsentFixture = {
   /** The advocate who raised the request. */
@@ -172,36 +172,21 @@ function RemovalConsentDialog({
       <FlowDialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl">
         {decision ? (
           <>
-            <DialogHeader className="shrink-0 px-6 py-5 pr-14 text-left">
-              <div className="flex items-center gap-4">
-                <span
-                  className={
-                    decision === "accepted"
-                      ? "flex size-14 shrink-0 items-center justify-center rounded-full bg-success-muted text-success-muted-foreground"
-                      : "flex size-14 shrink-0 items-center justify-center rounded-full bg-info-muted text-info-muted-foreground"
-                  }
-                >
-                  {decision === "accepted" ? (
-                    <CheckCircle2Icon className="size-7" aria-hidden />
-                  ) : (
-                    <InfoIcon className="size-7" aria-hidden />
-                  )}
-                </span>
-                <div className="flex min-w-0 flex-col gap-1.5">
-                  <DialogTitle className="text-title-s font-semibold text-balance">
-                    {decision === "accepted"
-                      ? "Removal accepted"
-                      : "Request rejected"}
-                  </DialogTitle>
-                  <DialogDescription>
-                    {decision === "accepted"
-                      ? `You come off ${fixture.party}'s vakalatnama and your access to this case ends.`
-                      : `${fixture.requester} will be notified. They can still apply to the magistrate for an order.`}
-                  </DialogDescription>
-                </div>
-              </div>
-            </DialogHeader>
-            <footer className="flex shrink-0 justify-end border-t border-hairline px-6 py-4">
+            {/* Accepted is done; rejected changes nothing for you, so it is neutral (it
+                showed the info mark before, never the "sent, not decided" hourglass). */}
+            <OutcomeHeader
+              titleFrom="dialog"
+              focusTitle
+              tone={decision === "accepted" ? "success" : "neutral"}
+              icon={decision === "accepted" ? undefined : UserCheckIcon}
+              title={decision === "accepted" ? "Removal accepted" : "Request rejected"}
+              body={
+                decision === "accepted"
+                  ? `You come off ${fixture.party}'s vakalatnama and your access to this case ends.`
+                  : `${fixture.requester} will be notified. They can still apply to the magistrate for an order.`
+              }
+            />
+            <footer className="flex shrink-0 justify-end border-t border-hairline bg-surface-sunken px-6 py-4">
               <Button type="button" onClick={close}>
                 Done
               </Button>
@@ -272,7 +257,7 @@ function RemovalConsentDialog({
               </Button>
               <Button
                 type="button"
-                variant="destructive-solid"
+                variant="destructive"
                 onClick={() => setDecision("accepted")}
               >
                 Accept removal

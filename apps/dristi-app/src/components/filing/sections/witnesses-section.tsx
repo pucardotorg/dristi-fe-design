@@ -197,12 +197,13 @@ export function WitnessesSection() {
       />
 
       <ConfirmDialog
+        note="This cannot be undone."
         open={removeId !== null}
         onOpenChange={(open) => {
           if (!open) setRemoveId(null);
         }}
         title={`Remove witness ${removeNumber}`}
-        description="Are you sure you want to delete this witness and all their details? This cannot be undone."
+        description="Are you sure you want to delete this witness and all their details?"
         confirmLabel="Yes, remove"
         onConfirm={confirmRemove}
       />

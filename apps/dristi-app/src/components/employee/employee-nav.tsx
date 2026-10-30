@@ -3,13 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import {
-  ChevronDownIcon,
-  LogOutIcon,
-  SearchIcon,
-  SettingsIcon,
-} from "lucide-react";
-import { toast } from "sonner";
+import { ChevronDownIcon, LogOutIcon, RotateCcwIcon, SearchIcon, SettingsIcon } from "lucide-react";
 
 import {
   useCourtRole,
@@ -135,6 +129,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useCourt, useCourtText } from "@/components/court/court-provider";
 import { COURT_IDS, courtProfile, isCourtId } from "@/lib/court/profiles";
+import { ConfirmMark, IrreversibleNote, notify } from "@/components/feedback";
 
 /**
  * The court-side navigation rail — the magistrate's own, not the advocate's.
@@ -986,7 +981,7 @@ function CourtSettingsControl() {
       onChange: (next) => {
         if (next === demoSeed) return;
         loadDemoSeed(next as DemoSeed);
-        toast(
+        notify.neutral(
           next === "empty"
             ? "Empty day loaded: no hearing heard, no order drafted."
             : "Orders in every state loaded.",
@@ -1209,11 +1204,15 @@ function CourtSettingsControl() {
       <AlertDialog open={confirmReset} onOpenChange={setConfirmReset}>
         <AlertDialogContent>
           <AlertDialogHeader>
+            <ConfirmMark danger icon={RotateCcwIcon} />
             <AlertDialogTitle>Reset sandbox data?</AlertDialogTitle>
             <AlertDialogDescription>
+              <span className="block">
               The sample applications come back, and the hearings and orders go
               back to the chosen demo data. Applications filed, orders typed and bulk
-              batches made in this browser are removed. This cannot be undone.
+              batches made in this browser are removed.
+              </span>
+              <IrreversibleNote>This cannot be undone.</IrreversibleNote>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1223,7 +1222,7 @@ function CourtSettingsControl() {
               onClick={() => {
                 resetSandboxData();
                 void resetBulk();
-                toast("Sandbox data reset. The sample applications are back.");
+                notify.neutral("Sandbox data reset. The sample applications are back.", { icon: RotateCcwIcon });
               }}
             >
               Reset

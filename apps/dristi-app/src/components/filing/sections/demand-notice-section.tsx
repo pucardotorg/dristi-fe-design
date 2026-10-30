@@ -485,10 +485,11 @@ export function DemandNoticeSection() {
       />
 
       <ConfirmDialog
+        note="This cannot be undone."
         open={removeOpen}
         onOpenChange={setRemoveOpen}
         title={`Remove demand notice ${removeIndex + 1}`}
-        description="Are you sure you want to delete the details of this demand notice and any documents added for it? This cannot be undone."
+        description="Are you sure you want to delete the details of this demand notice and any documents added for it?"
         confirmLabel="Yes, remove"
         onConfirm={confirmRemove}
       />

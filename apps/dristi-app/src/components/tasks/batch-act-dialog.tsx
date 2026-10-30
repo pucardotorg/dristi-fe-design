@@ -1,10 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { CircleAlertIcon, CircleCheckIcon, FlaskConicalIcon } from "lucide-react";
-import { toast } from "sonner";
+import { FlaskConicalIcon, ListChecksIcon } from "lucide-react";
 
-import { RESOLVE_IN_PLACE } from "@/components/chrome/motion";
+import { IrreversibleNote, OutcomeHeader, OutcomeSummary, OutcomeTally, notify } from "@/components/feedback";
 import { Identifier } from "@/components/chrome/identifier";
 import { useStageFade } from "@/components/chrome/stage-fade";
 import { StagedOverlay } from "@/components/chrome/staged-overlay";
@@ -97,7 +96,7 @@ export function BatchActDialog({
 
   function close() {
     if (running) return;
-    if (settled.current) toast.success(settled.current);
+    if (settled.current) notify.success(settled.current);
     settled.current = null;
     onOpenChange(false);
   }
@@ -238,8 +237,10 @@ function BatchBody({
         ? through.length
           ? `${through.length} ${through.length === 1 ? "document" : "documents"} signed`
           : "Nothing was signed"
-        : through.length
-          ? `${through.length} ${through.length === 1 ? "fee" : "fees"} paid`
+        : /* A payment's outcome leads with the amount, as every payment in the product
+             does ("₹452 paid"); the count labels the list under it. */
+          through.length
+          ? `${rupees(through.reduce((sum, o) => sum + (o.task.amountPaise ?? 0), 0))} paid`
           : "Nothing was paid",
   }[flow.stage];
 
@@ -319,9 +320,30 @@ function BatchBody({
       motion="forward"
       footer={footer}
       showCloseButton={!running}
+      /* The settled stage takes the window over: mark, then title (owner, Oct 29). */
+      outcome={flow.stage === "done"}
+      /* The outcome has a title and no body line: say so, rather than leave Radix
+         looking for a description that is not there. */
+      {...(flow.stage === "done" ? { "aria-describedby": undefined } : {})}
       onEscapeKeyDown={(e) => running && e.preventDefault()}
     >
       <div key={flow.stage} className={cn("flex min-h-0 flex-1 flex-col", flow.sceneClassName)}>
+        {flow.stage === "done" ? (
+          /* Full bleed: the band meets the window's edges; the facts keep their measure. */
+          <OutcomeCard
+            title={title}
+            outcomes={outcomes}
+            caseOf={caseOf}
+            headline={
+              kind === "sign"
+                ? signedWith === "dsc"
+                  ? "Signed with your DSC"
+                  : "Signed with Aadhaar OTP"
+                : `${through.length} ${through.length === 1 ? "fee" : "fees"} paid`
+            }
+            ok={through.length > 0}
+          />
+        ) : (
         <div className="mx-auto flex w-full max-w-xl flex-col gap-4">
           {flow.stage === "confirm" ? (
             <TaskList tasks={batch} caseOf={caseOf} pay={kind === "pay"} total={total} />
@@ -338,7 +360,8 @@ function BatchBody({
                 }}
               />
               <p className="text-body-compact text-muted-foreground">
-                Signing applies to every document selected. It cannot be reversed.
+                Signing applies to every document selected.
+                <IrreversibleNote>It cannot be reversed.</IrreversibleNote>
               </p>
             </>
           ) : flow.stage === "otp" ? (
@@ -351,25 +374,11 @@ function BatchBody({
             />
           ) : flow.stage === "dsc" ? (
             <DscLookup found={dscFound} holder="" />
-          ) : flow.stage === "processing" ? (
-            <PaymentProcessing />
           ) : (
-            <OutcomeCard
-              outcomes={outcomes}
-              caseOf={caseOf}
-              headline={
-                kind === "sign"
-                  ? signedWith === "dsc"
-                    ? "Signed with your DSC"
-                    : "Signed with Aadhaar OTP"
-                  : through.length
-                    ? `${rupees(through.reduce((sum, o) => sum + (o.task.amountPaise ?? 0), 0))} paid`
-                    : "Nothing was paid"
-              }
-              ok={through.length > 0}
-            />
+            <PaymentProcessing />
           )}
         </div>
+        )}
       </div>
     </StagedOverlay>
   );
@@ -494,34 +503,57 @@ function TaskList({
  * tasks under it, and any that did not go through named as such with why.
  */
 function OutcomeCard({
+  title,
   outcomes,
   caseOf,
   headline,
   ok,
 }: {
+  title: string;
   outcomes: Outcome[];
   caseOf: (task: Task) => Case | undefined;
   headline: string;
   ok: boolean;
 }) {
+  /* The window's title says only what fully happened; any that did not go through are
+     named in the list under it, in red with why (skill `feedback-states`). */
+  const failedCount = outcomes.filter((o) => o.mark === "failed").length;
+  const partial = ok && failedCount > 0;
+  const doneCount = outcomes.length - failedCount;
   return (
-    <div className={cn("overflow-hidden rounded-xl border border-hairline bg-card shadow-raised", RESOLVE_IN_PLACE)}>
-      <div
-        className={cn(
-          "flex items-center gap-2 px-4 py-2.5 text-body-compact",
-          ok ? "bg-success-muted text-success-muted-foreground" : "bg-destructive-muted text-destructive-muted-foreground"
-        )}
-      >
-        {ok ? (
-          <CircleCheckIcon aria-hidden className="size-4 shrink-0" />
-        ) : (
-          <CircleAlertIcon aria-hidden className="size-4 shrink-0" />
-        )}
-        <span role="status" className="font-medium">
-          {headline}
-        </span>
-      </div>
-      <ul className="flex flex-col px-4">
+    <>
+      {/* Some did not go through: neutral, with a checklist. Neither the big tick (all is
+          well) nor the "!" (alarm): the tally below says what happened (owner, Oct 29). */}
+      <OutcomeHeader
+        tone={partial ? "neutral" : ok ? "success" : "error"}
+        icon={partial ? ListChecksIcon : undefined}
+        titleFrom="dialog"
+        focusTitle
+        title={title}
+        surface="card"
+      />
+      <div className="mx-auto flex w-full max-w-xl flex-col p-4 sm:p-6">
+        {partial ? (
+          /* Some went through: the title says only what did; the split is shown here. */
+          <OutcomeTally
+            label={headline}
+            done={doneCount}
+            failed={failedCount}
+            /* Draft lines for the partial case, in the words this flow already uses;
+               pending PM copy sign-off (feature record). */
+            doneLine={`${doneCount} went through`}
+            failedLine={`${failedCount} did not go through`}
+            failedTone="error"
+          />
+        ) : null}
+        <OutcomeSummary
+          tone={ok ? "success" : "error"}
+          className={partial ? "mt-4" : undefined}
+          /* Nothing went through: an instrument or a count would claim what did not happen.
+             A partial result already carries it on the tally above. */
+          label={!ok || partial || headline === title ? undefined : headline}
+        >
+      <ul className="flex flex-col">
         {outcomes.map((o) => (
           <TaskRow
             key={o.task.id}
@@ -530,7 +562,9 @@ function OutcomeCard({
             trailing={
               <span
                 className={cn(
-                  "shrink-0 text-right text-body-compact",
+                  /* On a phone the note wraps ("Receipt" over the number) so the task's
+                     own name keeps the width. */
+                  "max-w-32 shrink-0 text-right text-body-compact text-pretty sm:max-w-none",
                   o.mark === "failed"
                     ? "text-destructive-ink"
                     : o.mark === "confirming"
@@ -538,12 +572,22 @@ function OutcomeCard({
                       : "text-muted-foreground"
                 )}
               >
-                {o.note}
+                {/* A reference never breaks inside itself: the label wraps above it. */}
+                {o.note.startsWith("Receipt ") ? (
+                  <>
+                    Receipt{" "}
+                    <span className="whitespace-nowrap">{o.note.slice("Receipt ".length)}</span>
+                  </>
+                ) : (
+                  o.note
+                )}
               </span>
             }
           />
         ))}
       </ul>
-    </div>
+        </OutcomeSummary>
+      </div>
+    </>
   );
 }

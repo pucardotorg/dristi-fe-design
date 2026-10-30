@@ -1,5 +1,8 @@
 "use client";
 
+import * as React from "react";
+
+import { dismissOnPageClick } from "@/components/feedback/notify";
 import { Toaster } from "@/components/ui/sonner";
 
 /**
@@ -59,6 +62,20 @@ import { Toaster } from "@/components/ui/sonner";
  * passing a partial object would drop the rest of the DS's mapping on the floor.
  */
 export function AppToaster() {
+  /* Feedback toasts (`notify`) leave as soon as the person presses anywhere on the page
+     (lead designer, 2026-10-29). Capture phase, so a press that a page handler stops still
+     counts. A press on the toasts themselves is left alone, or an Undo would dismiss its
+     own toast before its click lands. Error toasts are not in the set and stay until
+     closed. */
+  React.useEffect(() => {
+    const onPress = (event: PointerEvent) => {
+      if ((event.target as Element | null)?.closest?.("[data-sonner-toaster]")) return;
+      dismissOnPageClick();
+    };
+    document.addEventListener("pointerdown", onPress, true);
+    return () => document.removeEventListener("pointerdown", onPress, true);
+  }, []);
+
   return (
     <Toaster
       position="bottom-center"
@@ -92,6 +109,10 @@ export function AppToaster() {
           "--info-border": "var(--info-7)",
 
           "--border-radius": "var(--radius)",
+
+          /* The feedback toast's measure: wide enough for a full-sentence title on two
+             lines at most. Sonner's default is 356px. */
+          "--width": "380px",
         } as React.CSSProperties
       }
       toastOptions={{

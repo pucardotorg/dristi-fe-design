@@ -161,7 +161,7 @@ export function ScrutinyReturnPage() {
     return (
       <Dead
         title="This task is not here"
-        description="It may have been reset with the sandbox, or the link is wrong."
+        description="The link may be wrong."
         origin={origin}
       />
     );
