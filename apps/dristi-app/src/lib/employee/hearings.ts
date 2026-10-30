@@ -327,6 +327,22 @@ export function courtHearingPurposeLabel(id: CourtHearingPurposeId): string {
 }
 
 /**
+ * The hearing purpose a case record's free-text purpose names, or `undefined` when it
+ * names none of them. Case records write it as prose ("Evidence of the complainant"), so
+ * the match ignores case and "the".
+ */
+export function hearingPurposeFromText(
+  text: string | undefined,
+): CourtHearingPurposeId | undefined {
+  if (!text) return undefined;
+  const plain = (value: string) =>
+    value.toLowerCase().replace(/\bthe\s+/g, "").replace(/\s+/g, " ").trim();
+  const said = plain(text);
+  return COURT_HEARING_PURPOSES.find((entry) => said.startsWith(plain(entry.label)))
+    ?.id;
+}
+
+/**
  * Where the case itself has reached — not what this one sitting is listed for.
  *
  * A hearing's purpose and its case's stage are different facts and the court reads both:
