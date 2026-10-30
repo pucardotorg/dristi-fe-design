@@ -1,0 +1,3 @@
+{
+ "reg": [{"go":"/citizen","settle":4000},{"click":"Create an account","wait":2500},{"click":"/^Litigant/","wait":600},{"click":"Continue","wait":1500},{"type":"main input","text":"Test Person"},{"click":"Continue","wait":1500},{"type":"main input[type=tel]","text":"9876543210"},{"click":"Send one-time code","wait":1500},{"click":"Show the code","wait":800},{"js":"const m=document.body.innerText.match(/\\b\\d{6}\\b/); const inp=[...document.querySelectorAll('main input')].find(i=>i.getBoundingClientRect().width>0 && i.type!=='tel' && i.type!=='email'); inp.focus(); return m&&m[0]","log":true}]
+}

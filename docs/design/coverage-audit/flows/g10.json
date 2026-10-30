@@ -1,0 +1,1 @@
+{"dl": [{"go":"/cases/c-847","settle":5000},{"click":"Download case file","wait":1500},{"js":"return [...document.querySelectorAll('[role=dialog] button,[role=dialog] label,[role=dialog] [role=radio]')].map(b=>(b.getAttribute('aria-label')||b.textContent).trim().slice(0,40))","log":true}]}

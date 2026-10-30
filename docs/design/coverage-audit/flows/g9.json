@@ -1,0 +1,3 @@
+{
+ "reg": [{"go":"/citizen","settle":4000},{"click":"Create an account","wait":2500},{"click":"/^Litigant/","wait":600},{"click":"Continue","wait":1500},{"type":"main input","text":"Test Person"},{"click":"Continue","wait":1500},{"type":"main input[type=tel]","text":"9876543210"},{"click":"Send one-time code","wait":1500},{"js":"const i=[...document.querySelectorAll('main input')].filter(i=>i.getBoundingClientRect().width>0 && i.type!=='tel' && i.type!=='email'); i[0].focus(); return i.map(x=>x.outerHTML.slice(0,120))","log":true},{"type":"main input:focus","text":"123456"},{"click":"Verify","wait":1200},{"shot":"reg-otp-verified"}]
+}

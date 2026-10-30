@@ -3,6 +3,7 @@
 import * as React from "react";
 
 import { StagedOverlay } from "@/components/chrome/staged-overlay";
+import { OutcomeHeader } from "@/components/feedback";
 import { DocumentPreview } from "@/components/cases/document-preview";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogDescription } from "@/components/ui/dialog";
@@ -51,6 +52,7 @@ export function SignADiaryDayDialog({
           day={day}
           register={register}
           onSign={onSign}
+          onClose={() => onOpenChange(false)}
           onReturnFocus={onReturnFocus}
         />
       ) : null}
@@ -62,13 +64,18 @@ function SignADiaryDayBody({
   day,
   register,
   onSign,
+  onClose,
   onReturnFocus,
 }: {
   day: string;
   register: ADiaryEntry[];
   onSign: (day: string) => void;
+  onClose: () => void;
   onReturnFocus: () => void;
 }) {
+  /* Signed: the window turns into its outcome (skill `feedback-states`) rather than
+     closing onto a page that only says so in an empty state. */
+  const [signed, setSigned] = React.useState(false);
   /* Built once, when the dialog opens: this is the document being signed, and it must
      not shift under the signer while they read it. */
   const [document] = React.useState(() => buildADiaryDayDocument(day, register));
@@ -78,8 +85,9 @@ function SignADiaryDayBody({
   return (
     <StagedOverlay
       className="sm:max-w-5xl lg:h-[85dvh]"
-      title="Sign the A-Diary"
+      title={signed ? "A-Diary signed" : "Sign the A-Diary"}
       titleRef={titleRef}
+      outcome={signed}
       description={
         <DialogDescription className="text-body-compact text-muted-foreground">
           <span className="tabular-nums">{formatADiaryDate(day)}</span> ·{" "}
@@ -90,6 +98,11 @@ function SignADiaryDayBody({
       motion="forward"
       padded={false}
       footer={
+        signed ? (
+          <Button type="button" onClick={onClose}>
+            Done
+          </Button>
+        ) : (
         <>
           <p className="text-caption text-muted-foreground sm:mr-auto sm:text-left">
             You sign the whole day as one document. Once signed, no entry in it can be
@@ -98,11 +111,15 @@ function SignADiaryDayBody({
           <Button
             type="button"
             className="sm:self-center"
-            onClick={() => onSign(day)}
+            onClick={() => {
+              onSign(day);
+              setSigned(true);
+            }}
           >
             Sign the A-Diary
           </Button>
         </>
+        )
       }
       /* The title takes focus rather than the first control in the document frame: it
          names what is being signed, which is what the signer reads first. */
@@ -115,6 +132,15 @@ function SignADiaryDayBody({
         onReturnFocus();
       }}
     >
+      {signed ? (
+        <OutcomeHeader
+          titleFrom="dialog"
+          focusTitle
+          surface="card"
+          title="A-Diary signed"
+          body={`The A-Diary for ${formatADiaryDate(day)} is signed. No entry in it can be changed now.`}
+        />
+      ) : (
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-6 lg:overflow-hidden">
         <DocumentPreview
           variant="quiet"
@@ -132,6 +158,7 @@ function SignADiaryDayBody({
           }}
         />
       </div>
+      )}
     </StagedOverlay>
   );
 }

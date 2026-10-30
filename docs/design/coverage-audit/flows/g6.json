@@ -1,0 +1,5 @@
+{
+ "discard": [{"go":"/employee/hearings/h-241/order","settle":6000},{"click":"/^Record statements/","wait":1800},{"click":"Discard Sunil Varghese","wait":1200},{"shot":"evidence-discard-statement-confirm"}],
+ "file": [{"go":"/tasks/t-affidavit509/continue","settle":5000},{"js":"return [...document.querySelectorAll('input[type=file]')].length","log":true},{"js":"return [...document.querySelectorAll('[role=dialog] button, main button, main input')].filter(b=>b.getBoundingClientRect().width>0).map(b=>(b.getAttribute('aria-label')||b.placeholder||b.textContent).trim().slice(0,40)).slice(0,30)","log":true}],
+ "reg": [{"go":"/citizen","settle":4000},{"click":"Create an account","wait":2500},{"click":"/^Litigant/","wait":600},{"click":"Continue","wait":1500},{"type":"main input","text":"Test Person"},{"click":"Continue","wait":1500},{"js":"return [...document.querySelectorAll('[role=dialog] button, main button, main input')].filter(b=>b.getBoundingClientRect().width>0).map(b=>(b.getAttribute('aria-label')||b.placeholder||b.textContent).trim().slice(0,40)).slice(0,30)","log":true}]
+}

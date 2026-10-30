@@ -1,0 +1,3 @@
+{
+ "proc": [{"go":"/employee/sign-process","settle":4000},{"js":"const k='dristi-demo-court-session'; const v=JSON.parse(localStorage.getItem(k)||sessionStorage.getItem(k)||'{}'); v.role='magistrate'; localStorage.setItem(k,JSON.stringify(v)); sessionStorage.setItem(k,JSON.stringify(v)); return v","log":true},{"go":"/employee/sign-process","settle":5000},{"click":"/^Issuance/","wait":1500},{"js":"return [...document.querySelectorAll('main button')].map(b=>(b.getAttribute('aria-label')||b.textContent).trim().slice(0,60)).filter(t=>/1334/.test(t))","log":true}]
+}

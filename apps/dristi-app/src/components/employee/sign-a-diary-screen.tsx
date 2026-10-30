@@ -157,7 +157,7 @@ export function SignADiaryScreen() {
   function signDay(day: string) {
     setRegister((current) => signADiaryDay(current, day));
     setSignedDays((current) => [...current, day]);
-    setSigningDay(null);
+    /* The window stays open on its outcome; Done or close leaves it. */
     setAnnouncement(`The A-Diary for ${formatCourtDay(day)} is signed.`);
   }
 

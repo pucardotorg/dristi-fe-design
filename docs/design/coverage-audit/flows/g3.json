@@ -1,0 +1,4 @@
+{
+ "diaryday": [{"go":"/employee/sign-a-diary","settle":5000},{"js":"const b=[...document.querySelectorAll('button')].find(e=>/October 2026/.test(e.textContent)); b.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0,pointerType:'mouse'})); b.click(); await new Promise(r=>setTimeout(r,900)); return [...document.querySelectorAll('[role=option],[role=gridcell] button,[role=dialog] button')].map(e=>(e.getAttribute('aria-label')||e.textContent).trim()).slice(0,40)","log":true}],
+ "proc": [{"go":"/employee/sign-process","settle":5000},{"click":"/^Issuance/","wait":1500},{"type":"main input[type=search], main input[placeholder]","text":"1334"},{"wait":1500},{"js":"return [...document.querySelectorAll('main button')].map(b=>(b.getAttribute('aria-label')||b.textContent).trim().slice(0,60)).filter(t=>/Read|Select/.test(t)).slice(0,8)","log":true}]
+}

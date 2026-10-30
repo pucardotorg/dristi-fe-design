@@ -1,0 +1,6 @@
+{
+ "diary": [{"go":"/employee/sign-a-diary","settle":5000},{"js":"return [...document.querySelectorAll('[role=dialog] button, main button')].filter(b=>b.getBoundingClientRect().width>0).map(b=>(b.getAttribute('aria-label')||b.textContent).trim().slice(0,40)).slice(0,30)","log":true}],
+ "order": [{"go":"/employee/hearings/h-241/order","settle":6000},{"click":"Record statements","wait":1800},{"js":"return [...document.querySelectorAll('[role=dialog] button, main button')].filter(b=>b.getBoundingClientRect().width>0).map(b=>(b.getAttribute('aria-label')||b.textContent).trim().slice(0,40)).slice(0,30)","log":true}],
+ "proc": [{"go":"/employee/sign-process","settle":5000},{"click":"/^Read the warrant in Mundakkal/","wait":1800},{"js":"return [...document.querySelectorAll('[role=dialog] button, main button')].filter(b=>b.getBoundingClientRect().width>0).map(b=>(b.getAttribute('aria-label')||b.textContent).trim().slice(0,40)).slice(0,30)","log":true}],
+ "reg": [{"go":"/citizen","settle":4000},{"click":"Create an account","wait":2500},{"js":"return document.body.innerText.slice(0,500)","log":true},{"js":"return [...document.querySelectorAll('[role=dialog] button, main button')].filter(b=>b.getBoundingClientRect().width>0).map(b=>(b.getAttribute('aria-label')||b.textContent).trim().slice(0,40)).slice(0,30)","log":true}]
+}

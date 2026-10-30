@@ -1,0 +1,1 @@
+{"dl": [{"go":"/cases/c-847","settle":5000},{"click":"Download case file","wait":1500},{"click":"/separate files/","in":"[role=dialog]","wait":500},{"click":"Download","in":"[role=dialog]","wait":900},{"shot":"download-zip-toast"}]}

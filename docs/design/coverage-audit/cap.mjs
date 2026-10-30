@@ -4,8 +4,8 @@ import { readFileSync } from "node:fs";
 import sharp from "/Users/mohitkhetrapal/Documents/PUCAR/Case Access management/dristi-ds-bump/node_modules/sharp/lib/index.js";
 import { connect } from "./lib.mjs";
 
-const OUT = "/Users/mohitkhetrapal/Documents/PUCAR/Case Access management/dristi-ds-bump/apps/dristi-app/public/coverage-board/after/";
-const BASE = "http://localhost:4701";
+const OUT = process.env.OUT ?? "/Users/mohitkhetrapal/Documents/PUCAR/Case Access management/dristi-ds-bump/apps/dristi-app/public/coverage-board/after/";
+const BASE = process.env.BASE ?? "http://localhost:4701";
 const flows = JSON.parse(readFileSync(new URL(process.argv[2], import.meta.url), "utf8"));
 const c = await connect(9371);
 await c.viewport(1366, 900, false);
@@ -28,6 +28,12 @@ for (const [name, steps] of Object.entries(flows)) {
         await c.ev(`const el=document.querySelector(${JSON.stringify(s.type)}); el.focus(); return 1`);
         await c.send("Input.insertText", { text: s.text });
         await new Promise((r) => setTimeout(r, 400));
+      }
+      if (s.files) {
+        const doc = (await c.send("DOM.getDocument", { depth: -1 })).result.root.nodeId;
+        const ids = (await c.send("DOM.querySelectorAll", { nodeId: doc, selector: "input[type=file]" })).result.nodeIds;
+        for (const nodeId of ids) await c.send("DOM.setFileInputFiles", { nodeId, files: [s.files] });
+        await new Promise((r) => setTimeout(r, 1500));
       }
       if (s.js) {
         const r = await c.ev(s.js);

@@ -8,7 +8,8 @@ import { DocumentPreview } from "@/components/cases/document-preview";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogDescription } from "@/components/ui/dialog";
-import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { StatusFieldControl, StatusFieldError, useRefusal } from "@/components/feedback";
 import { Textarea } from "@/components/ui/textarea";
 import { causeTitle } from "@/lib/employee/hearings";
 import {
@@ -105,8 +106,18 @@ function SignADiaryBody({
   const blank = text === "";
   const dirty = text !== entry.business;
 
+  /* Save stays pressable when the field is empty: the press is refused at the field
+     (owner rule: submit points at what is missing; skill `feedback-states`). */
+  const { attempt, refuse, reset } = useRefusal();
+  const refused = blank && attempt > 0;
+
   function save() {
-    if (blank || !dirty) return;
+    if (blank) {
+      refuse();
+      return;
+    }
+    if (!dirty) return;
+    reset();
     onSave(entry, text);
     setSaved("Business of the day saved on this screen. Nothing was filed.");
   }
@@ -163,7 +174,7 @@ function SignADiaryBody({
           <Button
             type="button"
             className="sm:self-center"
-            disabled={blank || !dirty}
+            disabled={!blank && !dirty}
             onClick={save}
           >
             Save
@@ -206,21 +217,24 @@ function SignADiaryBody({
             separates them (ui-craft §4). */}
         <Card className="min-w-0 border-hairline shadow-raised lg:min-h-0">
           <CardContent className="flex flex-col gap-4 lg:min-h-0 lg:flex-1">
-            <Field data-invalid={blank} className="lg:min-h-0 lg:flex-1">
+            <Field data-invalid={refused} className="lg:min-h-0 lg:flex-1">
               <FieldLabel className="text-body">Business of the day</FieldLabel>
               {/* Stacked it grows with what is typed, from a four-line floor. Beside the
                   document it takes the panel's remaining height instead and scrolls
                   inside it — `field-sizing-fixed`, or the field's own content sizing
                   would fight the flex and push the Save row off the panel. */}
-              <Textarea
-                value={draft}
-                rows={4}
-                className="text-body lg:min-h-0 lg:flex-1 lg:field-sizing-fixed"
-                onChange={(event) => {
-                  setDraft(event.target.value);
-                  setSaved("");
-                }}
-              />
+              <StatusFieldControl attempt={attempt} className="flex flex-col lg:min-h-0 lg:flex-1">
+                <Textarea
+                  value={draft}
+                  rows={4}
+                  aria-invalid={refused}
+                  className="text-body lg:min-h-0 lg:flex-1 lg:field-sizing-fixed"
+                  onChange={(event) => {
+                    setDraft(event.target.value);
+                    setSaved("");
+                  }}
+                />
+              </StatusFieldControl>
               <FieldDescription className="text-body-compact">
                 What this court did on {formatADiaryDate(entry.dated)}, in the
                 court&apos;s own words. It can be corrected until the day&apos;s
@@ -234,10 +248,10 @@ function SignADiaryBody({
                   empty children but still registers its id with the `Field`, so leaving
                   it mounted points `aria-describedby` at an element that is not there —
                   upstream DS quirk, logged in the build report. */}
-              {blank ? (
-                <FieldError className="text-body-compact">
+              {refused ? (
+                <StatusFieldError attempt={attempt} className="text-body-compact">
                   The day&apos;s business cannot be left blank.
-                </FieldError>
+                </StatusFieldError>
               ) : null}
             </Field>
 

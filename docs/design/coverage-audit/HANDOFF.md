@@ -41,22 +41,31 @@ only (error cases the demo can't trigger, or added by the review).
 - Pushing: this Mac's refs folder has `Feature/` with a capital F, so push with
   `git push origin HEAD:refs/heads/feature/coverage-board`.
 
-## Status of the examples
+## Status of the examples (30 Oct, late)
 
-See `examples.ts`: every example either has an `after` or a note saying why not. Open items
-are kept current in the "Next" list below.
+All 12 lanes have at least one real before/after: 17 "after" screenshots in all. One box is
+still empty, on purpose: "processes signed, some not sent". The fix is built, but the one
+demo process set to fail (ST/1334, `demoSendFailure`) doesn't appear in the Issuance list
+for either the clerk or the magistrate seat, so it couldn't be captured.
+
+The board was checked at 390 (phone), 820 (iPad) and 1440 dark: no sideways overflow, no
+broken images. (`sizes.mjs`.)
+
+Seat switching for captures: set `role` in localStorage key `dristi-demo-court-session`.
+The capture browser kept the magistrate seat afterwards. That's only in its own profile.
 
 ## Next
 
-1. Finish the remaining examples (owner asked, 30 Oct).
-2. Check the board on phone, iPad and dark.
-3. Owner + lead designer decide per lane (Skip / Different call per card for exceptions).
-4. Then fix lane by lane in small PRs from main, using the board's list as the checklist,
+1. Owner + lead designer review the board and decide per lane (Skip / Different call per
+   card for exceptions).
+2. Then fix lane by lane in small PRs from main, using the board's list as the checklist,
    and extend `check:ds-retired` so the retired patterns can't return.
+3. Optional: find why ST/1334 doesn't list, and capture its after.
 
 ## Known gaps and calls for the owner
 
-- Draft copy for the PM: "Enter the 6-digit OTP.", "This case was added.", "Form signed".
+- Draft copy for the PM: "Enter the 6-digit OTP.", "This case was added.", "Form signed",
+  "A-Diary signed" and its line.
 - The 108 form errors were never clearly in the rollout's scope; the owner may park them.
 - Process outcome sits in a tall window with empty space (layout call).
 - Add a witness: the message moved onto the field, but the two inputs don't get the red ring yet.
