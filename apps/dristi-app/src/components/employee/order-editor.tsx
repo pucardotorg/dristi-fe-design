@@ -635,7 +635,10 @@ export function OrderWorkflowFields({
 
   function reasonFor(template: OrderTemplate): string | null {
     return (
-      unavailableReason(template, { hearingOngoing: inHearing }) ??
+      unavailableReason(template, {
+        hearingOngoing: inHearing,
+        hearingScheduled: Boolean(context.scheduledHearing),
+      }) ??
       combinationConflict(
         template.id,
         items.map((block) => ({
