@@ -1,6 +1,6 @@
 {
   "_comment": "The one design-system version this repo builds against. Everyone gets this exact commit; npm install checks it out. Change it only via `npm run ds:bump`, on a dedicated upgrade branch into `main`, never by hand on a feature branch.",
   "remote": "pucardotorg/dristi-design-system",
-  "commit": "cdb96954b54dcd93c547cac49dbbe0486c23dfec",
+  "commit": "e2cce9b88c2f6443d8266429f0ad6cf32fefd22a",
   "bumpedOn": "2026-10-30"
 }

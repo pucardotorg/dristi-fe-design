@@ -89,7 +89,9 @@ function SidePanelRegion({
   const ref = React.useRef<HTMLDivElement>(null)
   /* Push only what the panel covers, plus a 2rem gutter. Content that already ends
      clear of the panel does not move; content that runs to the window's edge (the
-     product's list screens) moves the full panel width and keeps its edge gap. */
+     product's list screens) moves the full panel width and keeps its edge gap.
+     Measured from the content edge, inside the region's own padding: the padding is
+     already a gap, and counting the border edge pushed a padded page 2rem too far. */
   React.useLayoutEffect(() => {
     const el = ref.current
     if (!el) return
@@ -101,7 +103,10 @@ function SidePanelRegion({
       const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
       const panel = 27 * rem
       const gutter = 2 * rem
-      const gap = window.innerWidth - el.getBoundingClientRect().right
+      const style = getComputedStyle(el)
+      const contentRight =
+        el.getBoundingClientRect().right - parseFloat(style.paddingRight) - parseFloat(style.borderRightWidth)
+      const gap = window.innerWidth - contentRight
       el.style.setProperty("--side-panel-mr", `${Math.max(0, panel + gutter - gap)}px`)
     }
     measure()
@@ -225,7 +230,7 @@ function SidePanel({
             if (returnFocus.current?.isConnected) returnFocus.current.focus({ preventScroll: true })
           }}
         >
-          <div className="shrink-0">
+          <div data-orientation="horizontal" className="group/tabs shrink-0">
             <header className="p-4">{titleRow(DrawerTitle, "icon")}</header>
             {header}
           </div>
@@ -252,7 +257,10 @@ function SidePanel({
         className
       )}
     >
-      <div className="shrink-0">
+      {/* The panel portals away from the page, so line tabs in `header` are cut off
+          from their Tabs root, whose horizontal `group/tabs` places the active mark.
+          This wrapper stands in for it, in both shapes. */}
+      <div data-orientation="horizontal" className="group/tabs shrink-0">
         <header className="p-6 pb-4">{titleRow("h2", "icon-sm")}</header>
         {header}
       </div>

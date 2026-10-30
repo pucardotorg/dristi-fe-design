@@ -116,7 +116,7 @@ export function RaiseApplicationCaseChooser({
         {/* The Cases page's docked peek, on the same terms: the header eases aside,
         the list keeps its width and the panel slides over its far edge. */}
         <CasePeekPushRegion
-          className={cn(PAGE_GROUND, PAGE_GUTTER)}
+          className={cn("flex flex-1 flex-col", PAGE_GROUND, PAGE_GUTTER)}
         >
           <div className="flex w-full flex-col gap-6">
             {/* Keyed to the column, not the viewport; see FilingFrame's header. */}

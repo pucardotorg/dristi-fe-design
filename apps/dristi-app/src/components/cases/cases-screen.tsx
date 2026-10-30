@@ -352,8 +352,7 @@ export function CasesScreen({
           its edge stand off the page (owner, Sept 18). */}
       <CasePeekPushRegion
         pushWhen={TABLE_QUERY}
-        className="bg-muted p-6 md:p-8 dark:bg-background"
-        regionClassName="gap-6 md:gap-8"
+        className="flex min-w-0 flex-1 flex-col gap-6 bg-muted p-6 md:gap-8 md:p-8 dark:bg-background"
       >
         {/* One plane above the panel: the title, then on the right the Bookmarked
             lens and the page's one bg-primary action (Laws: ration teal). Bookmarked is

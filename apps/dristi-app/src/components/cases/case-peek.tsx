@@ -87,8 +87,7 @@ export function CasePeekSurface({
 }
 
 /**
- * Wraps the whole cases column, inside its page padding: the panel's push is measured
- * from the region's edge, so padding on the region itself would count twice. Only the light chrome given `SIDE_PANEL_PUSH` steps
+ * Wraps the whole cases column. Only the light chrome given `SIDE_PANEL_PUSH` steps
  * aside; the wide table keeps its width and the panel slides over its right edge.
  *
  * Why: pushing the column with one margin meant the content-sized table re-measured
@@ -98,14 +97,10 @@ export function CasePeekSurface({
 export function CasePeekPushRegion({
   children,
   className,
-  regionClassName,
   pushWhen = "(min-width: 640px)",
 }: {
   children: ReactNode;
-  /** The page's ground and padding, outside the region. */
   className?: string;
-  /** Layout inside the padding: the column's own gaps. */
-  regionClassName?: string;
   /** Where the docked panel makes room for itself. Elsewhere it lies over the
    *  page and nothing behind it moves. Defaults to `sm`, the panel's own width rule. */
   pushWhen?: string;
@@ -116,15 +111,13 @@ export function CasePeekPushRegion({
   const pushes = useMediaQuery(pushWhen);
   return (
     <>
-      <div className={cn("flex min-w-0 flex-1 flex-col", className)}>
-        <SidePanelRegion
-          open={pushes && Boolean(record) && !closing}
-          push="marked"
-          className={cn("flex min-w-0 flex-1 flex-col", regionClassName)}
-        >
-          {children}
-        </SidePanelRegion>
-      </div>
+      <SidePanelRegion
+        open={pushes && Boolean(record) && !closing}
+        push="marked"
+        className={className}
+      >
+        {children}
+      </SidePanelRegion>
       <CasePeek />
     </>
   );
@@ -255,13 +248,8 @@ function CasePeekPanel({
           </div>
           {/* The row's bottom edge is the tab mark's line, so the divider sits on it.
               Compact type: these are section tabs in a dense inspector, not page
-              headings (owner, Sept 11). The panel portals away from the Tabs root,
-              and the line variant draws its mark from the root's `group/tabs`
-              orientation, so this row stands in for it. */}
-          <div
-            data-orientation="horizontal"
-            className={cn("group/tabs border-b border-hairline", SIDE_PANEL_INSET)}
-          >
+              headings (owner, Sept 11). */}
+          <div className={cn("border-b border-hairline", SIDE_PANEL_INSET)}>
             <TabsList
               variant="line"
               aria-label="Case peek sections"
