@@ -51,6 +51,28 @@ guidance at all. The gap came in with the new feedback rules (DS PR #1), written
 4. **Add one line to the agent rules:** compare each changed screen's feedback against what's
    around it for weight, and prefer the smallest existing piece that fits.
 
+## Owner's line (30 Oct) and suggested wording
+
+The owner wants one or two lines asking for a visual judgment on how big the moment is.
+Suggested, so it is concrete rather than "use judgment":
+
+> **Match the feedback to the size of the moment.** Before picking a piece, ask where the
+> message belongs: one field, a section, a dialog or the whole page. Use the lightest piece for
+> that scope. Then look at it on the screen next to what's around it: if it's louder than the
+> thing it's about, it's the wrong size.
+
+Keep it short, with the scope table above as its reference. More rules make the guidance
+easier to skip (the earlier agent-guidance audit found the docs too long).
+
+## How to know it worked: test, don't trust
+
+After the DS change, give a fresh session 4 or 5 small tasks with no "before" to copy from,
+for example: show that a PIN code was looked up; confirm a document was attached; tell the
+clerk a batch was saved; say an upload failed inside a dialog; a page whose link has expired.
+Check that it picks the right weight. Where it doesn't, that's the next rule to sharpen.
+The owner's Agree / Keep as today / Different call pass on the board does the same job for
+existing screens.
+
 ## Where things are
 
 - Board and examples: branch `feature/coverage-board`, `/coverage-board`. See `HANDOFF.md`.
