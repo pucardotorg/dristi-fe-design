@@ -1,0 +1,1444 @@
+{
+ "confirms": [
+  {
+   "file": "components/access/person-access-dialog.tsx",
+   "line": 1564,
+   "title": "{confirmTitle}",
+   "hasMark": false
+  },
+  {
+   "file": "components/access/person-access-dialog.tsx",
+   "line": 1632,
+   "title": "{actTitle}",
+   "hasMark": false
+  },
+  {
+   "file": "components/access/person-access-dialog.tsx",
+   "line": 1692,
+   "title": "{fillCopy(peopleCopy.removeAllTitle, locale, { name: person.name",
+   "hasMark": false
+  },
+  {
+   "file": "components/access/person-access-dialog.tsx",
+   "line": 1735,
+   "title": "{pick(copy.leaveTitle, locale)}",
+   "hasMark": false
+  },
+  {
+   "file": "components/access/share-dialog.tsx",
+   "line": 320,
+   "title": "{fillCopy(peopleCopy.removeOneTitle, locale, { name: confirmTarg",
+   "hasMark": true
+  },
+  {
+   "file": "components/cases/add-advocate-dialog.tsx",
+   "line": 779,
+   "title": "Discard advocate draft?",
+   "hasMark": true
+  },
+  {
+   "file": "components/cases/add-poa-dialog.tsx",
+   "line": 568,
+   "title": "Discard this application?",
+   "hasMark": true
+  },
+  {
+   "file": "components/cases/add-witness-form.tsx",
+   "line": 461,
+   "title": "Discard witness draft?",
+   "hasMark": true
+  },
+  {
+   "file": "components/cases/edit-litigant-dialog.tsx",
+   "line": 635,
+   "title": "Discard this application?",
+   "hasMark": true
+  },
+  {
+   "file": "components/cases/filing-form-shared.tsx",
+   "line": 644,
+   "title": "Save this {noun} as a draft?",
+   "hasMark": false
+  },
+  {
+   "file": "components/cases/filing-form-shared.tsx",
+   "line": 666,
+   "title": "Discard this {noun}?",
+   "hasMark": true
+  },
+  {
+   "file": "components/cases/poa-holder-actions.tsx",
+   "line": 824,
+   "title": "Discard this application?",
+   "hasMark": true
+  },
+  {
+   "file": "components/cases/remove-advocate-dialog.tsx",
+   "line": 494,
+   "title": "Discard this request?",
+   "hasMark": true
+  },
+  {
+   "file": "components/employee/approve-copy-application-screen.tsx",
+   "line": 409,
+   "title": "{selectedIds.size === 1 ? \"Accept this copy application?\"",
+   "hasMark": false
+  },
+  {
+   "file": "components/employee/employee-nav.tsx",
+   "line": 1205,
+   "title": "Reset sandbox data?",
+   "hasMark": true
+  },
+  {
+   "file": "components/employee/evidence-view.tsx",
+   "line": 329,
+   "title": "Discard this recorded statement?",
+   "hasMark": false
+  },
+  {
+   "file": "components/employee/evidence-view.tsx",
+   "line": 1332,
+   "title": "Discard this witness?",
+   "hasMark": false
+  },
+  {
+   "file": "components/employee/order-editor.tsx",
+   "line": 1218,
+   "title": "Send this order for signing?",
+   "hasMark": false
+  },
+  {
+   "file": "components/employee/order-editor.tsx",
+   "line": 1240,
+   "title": "Sent for signing",
+   "hasMark": false
+  },
+  {
+   "file": "components/employee/order-editor.tsx",
+   "line": 1272,
+   "title": "Discard this draft?",
+   "hasMark": true
+  },
+  {
+   "file": "components/employee/pending-order-screen.tsx",
+   "line": 367,
+   "title": "Sign this order?",
+   "hasMark": true
+  },
+  {
+   "file": "components/employee/pending-orders-screen.tsx",
+   "line": 430,
+   "title": "{chosen.length === 1 ? \"Sign this order?\" : `Sig",
+   "hasMark": true
+  },
+  {
+   "file": "components/employee/process-move-dialog.tsx",
+   "line": 116,
+   "title": "{done ? act.done(one ? noun.one : `${count} ${noun.many}`)",
+   "hasMark": false
+  },
+  {
+   "file": "components/filing/bail-application-dialog.tsx",
+   "line": 1587,
+   "title": "{pick(bailDialog.discardTitle, locale)}",
+   "hasMark": true
+  },
+  {
+   "file": "components/filing/bail-bond-status-dialog.tsx",
+   "line": 104,
+   "title": "{pick(bondCopy.invalidateTitle, locale)}",
+   "hasMark": true
+  },
+  {
+   "file": "components/filing/confirm-dialog.tsx",
+   "line": 53,
+   "title": "{title}",
+   "hasMark": true
+  },
+  {
+   "file": "components/filing/other-details-field.tsx",
+   "line": 188,
+   "title": "{pending?.id === current?.id ? \"Write the text again with the fo",
+   "hasMark": false
+  },
+  {
+   "file": "components/home/home-screen.tsx",
+   "line": 235,
+   "title": "{pick(home.linkTitle, locale)}",
+   "hasMark": false
+  },
+  {
+   "file": "components/shell/confirm-dialog.tsx",
+   "line": 53,
+   "title": "{title}",
+   "hasMark": true
+  },
+  {
+   "file": "components/tasks/act/file-page.tsx",
+   "line": 133,
+   "title": "File with the court?",
+   "hasMark": false
+  },
+  {
+   "file": "components/tasks/act/pay-page.tsx",
+   "line": 156,
+   "title": "Pay {amount}?",
+   "hasMark": false
+  }
+ ],
+ "fieldErrors": [
+  {
+   "file": "components/access/person-access-dialog.tsx",
+   "line": 1128,
+   "snippet": "<FieldError id=\"person-access-who-error\"> {whoError ? pick(copy.needPerson, locale) : null} </FieldError> "
+  },
+  {
+   "file": "components/advocate/join-case-dialog.tsx",
+   "line": 843,
+   "snippet": "<FieldError> {queryTouched && query.trim().length < 4 ? pick(joinDialog.lookupError, locale) : null} "
+  },
+  {
+   "file": "components/advocate/join-case-dialog.tsx",
+   "line": 944,
+   "snippet": "<FieldError> {codeTouched && code.length !== CODE_LENGTH ? pick(joinDialog.codeError, locale) : null} "
+  },
+  {
+   "file": "components/advocate/join-case-dialog.tsx",
+   "line": 987,
+   "snippet": "<FieldError> {roleTouched && !side ? pick(advDialog.sideError, locale) : null} </FieldError> </Field> "
+  },
+  {
+   "file": "components/advocate/join-case-dialog.tsx",
+   "line": 1050,
+   "snippet": "<FieldError> {roleTouched && partyIds.length === 0 ? pick(advDialog.whichError, locale) : null} "
+  },
+  {
+   "file": "components/advocate/join-case-dialog.tsx",
+   "line": 1105,
+   "snippet": "<FieldError> {invalid ? pick(advDialog.contactMobileError, locale) : null} </FieldError> </Field> "
+  },
+  {
+   "file": "components/advocate/join-case-dialog.tsx",
+   "line": 1153,
+   "snippet": "<FieldError> {vkTouched && !vkAttached ? pick(advDialog.vkAttachError, locale) : null} </FieldError> </Fie"
+  },
+  {
+   "file": "components/advocate/join-case-dialog.tsx",
+   "line": 1181,
+   "snippet": "<FieldError> {vkTouched && !vkOthers ? pick(advDialog.vkOthersError, locale) : null} </FieldError> {vkOthers ="
+  },
+  {
+   "file": "components/advocate/join-case-dialog.tsx",
+   "line": 1250,
+   "snippet": "<FieldError> {vkTouched && !vkCountValid ? pick(advDialog.vkCountError, locale) : null} </FieldError> "
+  },
+  {
+   "file": "components/advocate/join-case-dialog.tsx",
+   "line": 1290,
+   "snippet": "<FieldError> {vkTouched && vkCountValid && !coAdvocatesComplete ? coAdvocatesNeeded === 1 "
+  },
+  {
+   "file": "components/cases/add-advocate-dialog.tsx",
+   "line": 568,
+   "snippet": "<FieldError>{errors.advocates}</FieldError> {/* While naming an invitee the demo numbers are noise; the line explain"
+  },
+  {
+   "file": "components/cases/add-advocate-dialog.tsx",
+   "line": 617,
+   "snippet": "<FieldError>{errors.parties}</FieldError> </Field> </> ) : step === 2 ? ( <> <"
+  },
+  {
+   "file": "components/cases/add-advocate-dialog.tsx",
+   "line": 656,
+   "snippet": "<FieldError>{errors.vakalatnama}</FieldError> </Field> </TabsContent> <TabsContent value=\"sa"
+  },
+  {
+   "file": "components/cases/add-advocate-dialog.tsx",
+   "line": 673,
+   "snippet": "<FieldError>{errors.vakalatnama}</FieldError> </Field> </TabsContent> </Tabs> "
+  },
+  {
+   "file": "components/cases/add-poa-dialog.tsx",
+   "line": 344,
+   "snippet": "<FieldError>{errors.party}</FieldError> </Field> <Field> <FieldLabel className=\"block w-full text-body "
+  },
+  {
+   "file": "components/cases/add-poa-dialog.tsx",
+   "line": 395,
+   "snippet": "<FieldError>{errors.holderName}</FieldError> </Field> <Field data-invalid={Boolean(errors.holderPhone)}> "
+  },
+  {
+   "file": "components/cases/add-poa-dialog.tsx",
+   "line": 415,
+   "snippet": "<FieldError>{errors.holderPhone}</FieldError> </Field> </> ) : ( <Field data-inv"
+  },
+  {
+   "file": "components/cases/add-poa-dialog.tsx",
+   "line": 455,
+   "snippet": "<FieldError>{errors.existing}</FieldError> </Field> )} </> ) : step === 2 ? ( "
+  },
+  {
+   "file": "components/cases/add-poa-dialog.tsx",
+   "line": 486,
+   "snippet": "<FieldError>{errors.reason}</FieldError> </Field> <Field data-invalid={Boolean(errors.deed)}> <FieldLab"
+  },
+  {
+   "file": "components/cases/add-poa-dialog.tsx",
+   "line": 507,
+   "snippet": "<FieldError>{errors.deed}</FieldError> </Field> </> ) : ( <PartyApplicationDocument "
+  },
+  {
+   "file": "components/cases/add-signature-dialog.tsx",
+   "line": 471,
+   "snippet": "<FieldError>{fileError}</FieldError> {/* Where e-filing keeps it: the unsigned copy is only needed to sign on paper, so "
+  },
+  {
+   "file": "components/cases/application-type-fields.tsx",
+   "line": 232,
+   "snippet": "<FieldError>{error}</FieldError> </Field> ); } function TextAreaField({ label, value, error, optional, rows = 4, onChange, }: { label: stri"
+  },
+  {
+   "file": "components/cases/application-type-fields.tsx",
+   "line": 265,
+   "snippet": "<FieldError>{error}</FieldError> </Field> ); } /** A single pick from a list, on the DS Select, labelled like every field. */ export function SelectField"
+  },
+  {
+   "file": "components/cases/application-type-fields.tsx",
+   "line": 306,
+   "snippet": "<FieldError>{error}</FieldError> </Field> ); } function asOptions(values: readonly string[]): Option[] { return values.map((value) => ({ value, label: "
+  },
+  {
+   "file": "components/cases/application-type-fields.tsx",
+   "line": 358,
+   "snippet": "<FieldError>{error}</FieldError> </Field> ); } const YES_NO: { value: YesNo; label: string }[] = [ { value: \"yes\", label: \"Yes\" }, { value: \"no\", lab"
+  },
+  {
+   "file": "components/cases/application-type-fields.tsx",
+   "line": 395,
+   "snippet": "<FieldError>{error}</FieldError> </Field> ); } /** * The e-filing address composite (PRD: \"uses the e-filing address * composite\"), under one label, wi"
+  },
+  {
+   "file": "components/cases/application-type-fields.tsx",
+   "line": 429,
+   "snippet": "<FieldError>{error}</FieldError> </Field> ) : null} </div> ); } /** * One entry in a repeating list — a surety, a witness, a document. A s"
+  },
+  {
+   "file": "components/cases/application-type-fields.tsx",
+   "line": 524,
+   "snippet": "<FieldError>{error}</FieldError> </Field> ) : null} {count ? ( <div className=\"flex flex-col gap-6\">{children}</div> ) : ( "
+  },
+  {
+   "file": "components/cases/application-type-fields.tsx",
+   "line": 661,
+   "snippet": "<FieldError>{errors.fields.applicationDetails}</FieldError> </Field> ); } /* ---------------------------------------------------------------- bail -- */ "
+  },
+  {
+   "file": "components/cases/application-type-fields.tsx",
+   "line": 1302,
+   "snippet": "<FieldError>{errors.fields.poaLitigantIds}</FieldError> </Field> {chosen.map((item) => ( <FileField key={item.id} requir"
+  },
+  {
+   "file": "components/cases/application-type-fields.tsx",
+   "line": 1505,
+   "snippet": "<FieldError>{errors.fields[`${witness.id}.addresses`]}</FieldError> <Button type=\"button\" variant=\"outline\" size=\""
+  },
+  {
+   "file": "components/cases/e-sign-dialog.tsx",
+   "line": 279,
+   "snippet": "<FieldError>{fileError}</FieldError> </> ) : null} </div> </> )} {step === \"method\" || step"
+  },
+  {
+   "file": "components/cases/edit-litigant-dialog.tsx",
+   "line": 398,
+   "snippet": "<FieldError>{errors.name}</FieldError> </Field> {isEntity ? ( <Field> "
+  },
+  {
+   "file": "components/cases/filing-form-shared.tsx",
+   "line": 347,
+   "snippet": "<FieldError className=\"text-body-compact\">{error}</FieldError> <input ref={inputRef} type=\"file\" multiple accept={ACCEPTE"
+  },
+  {
+   "file": "components/cases/filing-form-shared.tsx",
+   "line": 509,
+   "snippet": "<FieldError className=\"text-body-compact\">{error}</FieldError> </FieldSet> ); } export function ReviewRow({ term, className, children, }: { term:"
+  },
+  {
+   "file": "components/cases/poa-holder-actions.tsx",
+   "line": 316,
+   "snippet": "<FieldError>{errors.reason}</FieldError> </Field> <Field data-invalid={Boolean(errors.document)}> "
+  },
+  {
+   "file": "components/cases/poa-holder-actions.tsx",
+   "line": 333,
+   "snippet": "<FieldError>{errors.document}</FieldError> </Field> </> ) : ( <PartyApplicationD"
+  },
+  {
+   "file": "components/cases/poa-holder-actions.tsx",
+   "line": 629,
+   "snippet": "<FieldError>{errors.holderName}</FieldError> </Field> <Field data-invalid={Boolean(errors.holderPhone)}> "
+  },
+  {
+   "file": "components/cases/poa-holder-actions.tsx",
+   "line": 654,
+   "snippet": "<FieldError>{errors.holderPhone}</FieldError> </Field> </> ) : ( "
+  },
+  {
+   "file": "components/cases/poa-holder-actions.tsx",
+   "line": 697,
+   "snippet": "<FieldError>{errors.existing}</FieldError> </Field> )} </> ) : step === 2 ? "
+  },
+  {
+   "file": "components/cases/poa-holder-actions.tsx",
+   "line": 727,
+   "snippet": "<FieldError>{errors.reason}</FieldError> </Field> <Field data-invalid={Boolean(errors.deed)}> "
+  },
+  {
+   "file": "components/cases/poa-holder-actions.tsx",
+   "line": 748,
+   "snippet": "<FieldError>{errors.deed}</FieldError> </Field> </> ) : ( <PartyApplicationDocum"
+  },
+  {
+   "file": "components/cases/remove-advocate-dialog.tsx",
+   "line": 335,
+   "snippet": "<FieldError>{errors.route}</FieldError> </Field> ) : step === 2 ? ( <> <Field da"
+  },
+  {
+   "file": "components/cases/remove-advocate-dialog.tsx",
+   "line": 371,
+   "snippet": "<FieldError>{errors.reason}</FieldError> </Field> <Field data-invalid={Boolean(errors.document)}> "
+  },
+  {
+   "file": "components/cases/remove-advocate-dialog.tsx",
+   "line": 398,
+   "snippet": "<FieldError>{errors.document}</FieldError> </Field> </> ) : route === \"magistrate\" ? ( "
+  },
+  {
+   "file": "components/employee/approve-registrations-dialog.tsx",
+   "line": 681,
+   "snippet": "<FieldError>Write a reason first.</FieldError> ) : null} </Field> )} </div> ) : rest.length > 0 ? ( "
+  },
+  {
+   "file": "components/employee/court-sign-in-block.tsx",
+   "line": 213,
+   "snippet": "<FieldError> {badUsername ? \"Enter your username.\" : unknownUsername ? \"No court"
+  },
+  {
+   "file": "components/employee/court-sign-in-block.tsx",
+   "line": 248,
+   "snippet": "<FieldError> {badPassword ? \"Enter your password.\" : null} </FieldError> </Field> {/* The court r"
+  },
+  {
+   "file": "components/employee/evidence-view.tsx",
+   "line": 607,
+   "snippet": "<FieldError>{errors.person}</FieldError> </Field> {/* Beside the witness: who called them, as the side in words and the mark it gives "
+  },
+  {
+   "file": "components/employee/evidence-view.tsx",
+   "line": 697,
+   "snippet": "<FieldError>{errors.text}</FieldError> </Field> ) : ( <div className=\"flex flex-col gap-3\"> <p className=\"text-body-compact text"
+  },
+  {
+   "file": "components/employee/evidence-view.tsx",
+   "line": 1038,
+   "snippet": "<FieldError>{mobileError}</FieldError> </Field> ) : null} </div> ) : null} {stage === \"review\" ? ( "
+  },
+  {
+   "file": "components/employee/listing-date-field.tsx",
+   "line": 146,
+   "snippet": "<FieldError id={`${id}-error`}>Choose a sitting day after today.</FieldError> ) : description ? ( <FieldDescription id={descriptionId}>{descriptio"
+  },
+  {
+   "file": "components/employee/register-case-screen.tsx",
+   "line": 1233,
+   "snippet": "<FieldError>Write a reason first.</FieldError> : null} </Field> ) ) : ( <p className=\"text-body-compact text-pretty\"> "
+  },
+  {
+   "file": "components/employee/scrutiny/flag-composer.tsx",
+   "line": 139,
+   "snippet": "<FieldError> {isDocRow ? \"Say what’s wrong — pick a reason or write a line.\" : \"Say what’s wrong — one line "
+  },
+  {
+   "file": "components/employee/shortcuts-panel.tsx",
+   "line": 217,
+   "snippet": "<FieldError>{nameError}</FieldError> : null} </Field> <Field data-invalid={tried && textError ? true : undefined}> <FieldLabel id={tex"
+  },
+  {
+   "file": "components/employee/shortcuts-panel.tsx",
+   "line": 230,
+   "snippet": "<FieldError>{textError}</FieldError> : null} </Field> <div className=\"flex flex-col-reverse gap-3 sm:flex-row sm:justify-end\"> {editin"
+  },
+  {
+   "file": "components/employee/sign-a-diary-dialog.tsx",
+   "line": 238,
+   "snippet": "<FieldError className=\"text-body-compact\"> The day&apos;s business cannot be left blank. </FieldError> ) : null}"
+  },
+  {
+   "file": "components/employee/sign-evidence-dialog.tsx",
+   "line": 357,
+   "snippet": "<FieldError className=\"text-body-compact\"> Write what the court did with this document before signing it. </FieldError> "
+  },
+  {
+   "file": "components/employee/sign-evidence-dialog.tsx",
+   "line": 477,
+   "snippet": "<FieldError className=\"text-body-compact\">{error}</FieldError> ) : null} </Field> </form> </CardContent> </Card> ); } "
+  },
+  {
+   "file": "components/employee/sign-signature-fields.tsx",
+   "line": 326,
+   "snippet": "<FieldError className=\"text-body-compact\"> {choice.fileError} </FieldError> {choice.file ? ( <AttachmentGroup className=\"flex-col o"
+  },
+  {
+   "file": "components/filing/bail-application-dialog.tsx",
+   "line": 671,
+   "snippet": "<FieldError> {detailsTouched && !petitionerId ? pick(bailDialog.petitionerError, locale) :"
+  },
+  {
+   "file": "components/filing/bail-application-dialog.tsx",
+   "line": 692,
+   "snippet": "<FieldError> {detailsTouched && !father.trim() ? pick(bailDialog.fatherError, locale) : nu"
+  },
+  {
+   "file": "components/filing/bail-application-dialog.tsx",
+   "line": 715,
+   "snippet": "<FieldError> {detailsTouched && !grounds.trim() ? pick(bailDialog.groundsError, locale) : "
+  },
+  {
+   "file": "components/filing/bail-application-dialog.tsx",
+   "line": 739,
+   "snippet": "<FieldError> {detailsTouched && !prayer.trim() ? pick(bailDialog.prayerError, locale) : nu"
+  },
+  {
+   "file": "components/filing/bail-application-dialog.tsx",
+   "line": 814,
+   "snippet": "<FieldError>{errors.type}</FieldError> </Field> <Field data-invalid={Boolean(errors.title)}> "
+  },
+  {
+   "file": "components/filing/bail-application-dialog.tsx",
+   "line": 825,
+   "snippet": "<FieldError>{errors.title}</FieldError> </Field> </div> <Field data-invalid={Boo"
+  },
+  {
+   "file": "components/filing/bail-application-dialog.tsx",
+   "line": 841,
+   "snippet": "<FieldError>{errors.file}</FieldError> </Field> </fieldset> ); })} "
+  },
+  {
+   "file": "components/filing/bail-application-dialog.tsx",
+   "line": 942,
+   "snippet": "<FieldError> {showInvalid && !surety.name.trim() ? pick(bailDialog.requiredError, locale) "
+  },
+  {
+   "file": "components/filing/bail-application-dialog.tsx",
+   "line": 958,
+   "snippet": "<FieldError> {showInvalid && !surety.father.trim() ? pick(bailDialog.requiredError, locale) "
+  },
+  {
+   "file": "components/filing/bail-application-dialog.tsx",
+   "line": 982,
+   "snippet": "<FieldError> {showInvalid && surety.phone.length !== 10 ? pick(bailDialog.phoneError, locale) "
+  },
+  {
+   "file": "components/filing/bail-application-dialog.tsx",
+   "line": 1022,
+   "snippet": "<FieldError> {showInvalid && !surety.address1.trim() ? pick(bailDialog.requiredError, locale) "
+  },
+  {
+   "file": "components/filing/bail-application-dialog.tsx",
+   "line": 1039,
+   "snippet": "<FieldError> {showInvalid && !surety.city.trim() ? pick(bailDialog.requiredError, locale) "
+  },
+  {
+   "file": "components/filing/bail-application-dialog.tsx",
+   "line": 1060,
+   "snippet": "<FieldError> {showInvalid && surety.pincode.length !== 6 ? pick(bailDialog.pincodeError, local"
+  },
+  {
+   "file": "components/filing/bail-application-dialog.tsx",
+   "line": 1080,
+   "snippet": "<FieldError> {showInvalid && !surety.district.trim() ? pick(bailDialog.requiredError, locale) "
+  },
+  {
+   "file": "components/filing/bail-application-dialog.tsx",
+   "line": 1096,
+   "snippet": "<FieldError> {showInvalid && !surety.state.trim() ? pick(bailDialog.requiredError, locale) "
+  },
+  {
+   "file": "components/filing/bail-application-dialog.tsx",
+   "line": 1118,
+   "snippet": "<FieldError> {showInvalid && !surety.idProof ? pick(bailDialog.idProofError, locale) "
+  },
+  {
+   "file": "components/filing/bail-application-dialog.tsx",
+   "line": 1138,
+   "snippet": "<FieldError> {showInvalid && !surety.solvency ? pick(bailDialog.solvencyError, locale) "
+  },
+  {
+   "file": "components/filing/bail-application-dialog.tsx",
+   "line": 1332,
+   "snippet": "<FieldError> {signTouched && !signed ? pick(bailDialog.signError, locale) : null} </FieldError> </Field> "
+  },
+  {
+   "file": "components/filing/bail-bond-dialog.tsx",
+   "line": 1155,
+   "snippet": "<FieldError>{fileError}</FieldError> <p className=\"flex flex-wrap items-center gap-1 text-body-compact\"> Need the unsigned"
+  },
+  {
+   "file": "components/filing/bond-signing-screen.tsx",
+   "line": 140,
+   "snippet": "<FieldError> {phoneTouched && phone.length !== 10 ? pick(bailDialog.phoneError, locale) : phoneU"
+  },
+  {
+   "file": "components/filing/form-field.tsx",
+   "line": 186,
+   "snippet": "<FieldError>{error}</FieldError> : null} </Field> ); if (!correction) return field; if (defect) { /* * Flagged: a rule down the left, and n"
+  },
+  {
+   "file": "components/home/add-id-dialog.tsx",
+   "line": 256,
+   "snippet": "<FieldError> {fileError ? pick(idUpload.badFile, locale) : touched && (!idType || !file) "
+  },
+  {
+   "file": "components/home/profile-settings.tsx",
+   "line": 186,
+   "snippet": "<FieldError>{upgradeTouched && !barNumber.trim() ? \"Enter your Bar registration number.\" : null}</FieldError> </Field> </div> "
+  },
+  {
+   "file": "components/home/profile-settings.tsx",
+   "line": 194,
+   "snippet": "<FieldError>{upgradeTouched && !barId ? \"Upload your Bar Council ID.\" : null}</FieldError> </Field> <div className=\"flex justify-end gap"
+  },
+  {
+   "file": "components/join/join-case-dialog.tsx",
+   "line": 467,
+   "snippet": "<FieldError> {queryTouched && query.trim().length < 4 ? pick(joinDialog.lookupError, locale) : null} "
+  },
+  {
+   "file": "components/join/join-case-dialog.tsx",
+   "line": 515,
+   "snippet": "<FieldError> {codeTouched && code.length !== CODE_LENGTH ? pick(joinDialog.codeError, locale) : null} "
+  },
+  {
+   "file": "components/join/join-case-dialog.tsx",
+   "line": 568,
+   "snippet": "<FieldError> {identityTouched && !kind ? pick(joinDialog.whichError, locale) : null} <"
+  },
+  {
+   "file": "components/join/join-case-dialog.tsx",
+   "line": 618,
+   "snippet": "<FieldError> {identityTouched && !partyId ? pick(joinDialog.whichError, locale) : null} "
+  },
+  {
+   "file": "components/join/join-case-dialog.tsx",
+   "line": 713,
+   "snippet": "<FieldError> {identityTouched && !appearance ? pick(joinDialog.appearError, locale) : null} "
+  },
+  {
+   "file": "components/join/join-case-dialog.tsx",
+   "line": 759,
+   "snippet": "<FieldError> {identityTouched && !pipFile ? pick(joinDialog.pipDocError, locale) : null} </FieldError> </F"
+  },
+  {
+   "file": "components/join/poa-join-fields.tsx",
+   "line": 157,
+   "snippet": "<FieldError>{invalid ? pick(joinDialog.poaDocError, locale) : null}</FieldError> </Field> ); } export function PoaJoinFields({ joinCase, locale, si"
+  },
+  {
+   "file": "components/join/poa-join-fields.tsx",
+   "line": 218,
+   "snippet": "<FieldError>{touched && !side ? pick(joinDialog.poaSideError, locale) : null}</FieldError> </Field> {side ? ( <Field data-invalid={touched "
+  },
+  {
+   "file": "components/join/poa-join-fields.tsx",
+   "line": 264,
+   "snippet": "<FieldError> {touched && selected.length === 0 ? pick(joinDialog.whichPoaError, locale) : null} </FieldError> </Field> ) : n"
+  },
+  {
+   "file": "components/join/poa-join-fields.tsx",
+   "line": 330,
+   "snippet": "<FieldError> {phoneInvalid ? pick(joinDialog.poaAccusedPhoneError, locale) : null} </FieldError> </Field> "
+  },
+  {
+   "file": "components/registration/registration-flow.tsx",
+   "line": 234,
+   "snippet": "<FieldError>{touched && !role ? pick(roleStep.required, locale) : null}</FieldError> </Field> <Button type=\"submit\">{pick(registrationUi"
+  },
+  {
+   "file": "components/registration/registration-flow.tsx",
+   "line": 249,
+   "snippet": "<FieldError>{touched && !fullName.trim() ? pick(nameStep.error, locale) : null}</FieldError> </Field> <Actions locale={locale} onBack={("
+  },
+  {
+   "file": "components/registration/registration-flow.tsx",
+   "line": 278,
+   "snippet": "<FieldError>{touched && mobile.length !== 10 ? pick(contactStep.mobileError, locale) : touched && !otpVerified ? pick(contactStep.verifyFirst, locale) : null}</"
+  },
+  {
+   "file": "components/registration/registration-flow.tsx",
+   "line": 293,
+   "snippet": "<FieldError>{otpTouched && otpCode.length !== OTP_LENGTH ? pick(contactStep.otpError, locale) : null}</FieldError> {/* One row under the boxes: "
+  },
+  {
+   "file": "components/registration/registration-flow.tsx",
+   "line": 319,
+   "snippet": "<FieldError>{touched && email && !EMAIL.test(email) ? pick(contactStep.emailError, locale) : null}</FieldError></Field> <Actions locale={locale} onB"
+  },
+  {
+   "file": "components/registration/registration-flow.tsx",
+   "line": 346,
+   "snippet": "<FieldError>{pick(passwordStep.problem[problem], locale)}</FieldError> ) : ( <FieldDescription aria-live=\""
+  },
+  {
+   "file": "components/registration/registration-flow.tsx",
+   "line": 396,
+   "snippet": "<FieldError>{touched && password !== confirmPassword ? pick(passwordStep.confirmError, locale) : null}</FieldError> </Field> {/* Skip d"
+  },
+  {
+   "file": "components/registration/registration-flow.tsx",
+   "line": 418,
+   "snippet": "<FieldError>{touched && !regNumber.trim() ? pick(verification.numberError, locale) : null}</FieldError> </Field> <Field data-invalid={to"
+  },
+  {
+   "file": "components/registration/registration-flow.tsx",
+   "line": 438,
+   "snippet": "<FieldError>{touched && !idFile ? pick(verification.uploadError, locale) : null}</FieldError> </Field> <Actions locale={locale} onBack={"
+  },
+  {
+   "file": "components/registration/registration-flow.tsx",
+   "line": 448,
+   "snippet": "<FieldError>{touched && !termsAccepted ? pick(termsStep.error, locale) : null}</FieldError></Field> <Actions locale={locale} onBack={() => { setTouc"
+  },
+  {
+   "file": "components/registration/resubmission-flow.tsx",
+   "line": 315,
+   "snippet": "<FieldError> {touched && !fullName.trim() ? pick(nameStep.error, locale) : null} </FieldError>"
+  },
+  {
+   "file": "components/registration/resubmission-flow.tsx",
+   "line": 378,
+   "snippet": "<FieldError> {touched && email && !EMAIL.test(email) ? pick(contactStep.emailError, locale) : null} "
+  },
+  {
+   "file": "components/registration/resubmission-flow.tsx",
+   "line": 436,
+   "snippet": "<FieldError> {touched && !regNumber.trim() ? pick(verification.numberError, locale) : null} </"
+  },
+  {
+   "file": "components/registration/resubmission-flow.tsx",
+   "line": 466,
+   "snippet": "<FieldError> {touched && !idFile ? pick(verification.uploadError, locale) : null} </FieldError> </Field> <"
+  },
+  {
+   "file": "components/sign-in-block.tsx",
+   "line": 477,
+   "snippet": "<FieldError> {badMobile ? pick(form.mobileError, locale) : notFound "
+  },
+  {
+   "file": "components/sign-in-block.tsx",
+   "line": 630,
+   "snippet": "<FieldError> {badPassword ? pick(form.passwordError, locale) : null} </FieldError> </Fie"
+  },
+  {
+   "file": "components/sign-in-block.tsx",
+   "line": 664,
+   "snippet": "<FieldError> {badCode ? pick(otp.error, locale) : null} </FieldError> <div className=\""
+  }
+ ],
+ "moments": [
+  {
+   "moment": "A-Diary business saved (caption)",
+   "who": "mag",
+   "files": "employee/sign-a-diary-dialog"
+  },
+  {
+   "moment": "AI review / assistance unavailable (two icons)",
+   "who": "adv, staff",
+   "files": "bulk/batch-screen · scrutiny/case-workbench"
+  },
+  {
+   "moment": "Access given (in dialog)",
+   "who": "adv",
+   "files": "access/share-dialog · advocate/join-case-dialog"
+  },
+  {
+   "moment": "Access given / updated / removed",
+   "who": "adv",
+   "files": "access/share-dialog · person-access-dialog"
+  },
+  {
+   "moment": "Action on the application failed",
+   "who": "mag, staff",
+   "files": "employee/application-decision-panel"
+  },
+  {
+   "moment": "Advocate / clerk registration rejected",
+   "who": "staff",
+   "files": "employee/approve-registrations-dialog"
+  },
+  {
+   "moment": "Advocate joined the case",
+   "who": "adv",
+   "files": "advocate/join-case-dialog"
+  },
+  {
+   "moment": "Advocate profile request submitted",
+   "who": "lit",
+   "files": "home/profile-settings"
+  },
+  {
+   "moment": "Advocate(s) added",
+   "who": "adv",
+   "files": "cases/add-advocate-dialog"
+  },
+  {
+   "moment": "All N corrected",
+   "who": "adv",
+   "files": "scrutiny/correction-screen"
+  },
+  {
+   "moment": "Already deferred once",
+   "who": "mag, staff",
+   "files": "employee/application-decision-panel"
+  },
+  {
+   "moment": "Any broken link or crash",
+   "who": "adv, lit, mag, staff",
+   "files": "app/ (no not-found.tsx / error.tsx)"
+  },
+  {
+   "moment": "Application / objection submitted",
+   "who": "adv, lit",
+   "files": "cases/add-signature-dialog"
+  },
+  {
+   "moment": "Application could not be updated / accepted / rejected",
+   "who": "mag",
+   "files": "employee/application-order-triggers"
+  },
+  {
+   "moment": "Application court fee paid",
+   "who": "adv, lit",
+   "files": "cases/add-signature-dialog"
+  },
+  {
+   "moment": "Application sent to the magistrate ×6 (blue)",
+   "who": "adv",
+   "files": "remove-advocate · edit-litigant · poa · add-witness"
+  },
+  {
+   "moment": "Application(s) signed",
+   "who": "adv",
+   "files": "cases/case-applications"
+  },
+  {
+   "moment": "Awaiting approval (amber clock)",
+   "who": "adv",
+   "files": "registration/registration-flow · resubmission-flow"
+  },
+  {
+   "moment": "Back to draft · Draft discarded",
+   "who": "staff",
+   "files": "employee/order-editor"
+  },
+  {
+   "moment": "Bail application fee paid",
+   "who": "adv, lit",
+   "files": "filing/bail-application-dialog"
+  },
+  {
+   "moment": "Bail application submitted",
+   "who": "adv, lit",
+   "files": "filing/bail-application-dialog"
+  },
+  {
+   "moment": "Bail bond submitted / updated",
+   "who": "adv",
+   "files": "filing/bail-bond-dialog"
+  },
+  {
+   "moment": "Bulk batch created (just navigates)",
+   "who": "adv",
+   "files": "bulk/upload-screen"
+  },
+  {
+   "moment": "Bulk: payment successful",
+   "who": "adv",
+   "files": "bulk/pay-tab"
+  },
+  {
+   "moment": "Bulk: signing complete",
+   "who": "adv",
+   "files": "bulk/sign-tab"
+  },
+  {
+   "moment": "Camera or microphone failed (oath)",
+   "who": "lit, adv",
+   "files": "filing/oath-capture"
+  },
+  {
+   "moment": "Cases / tasks / documents / orders could not be loaded",
+   "who": "adv, lit",
+   "files": "cases/* · tasks/tasks-screen"
+  },
+  {
+   "moment": "Cheque late · notice late · beyond limitation · S-138 check",
+   "who": "adv",
+   "files": "filing/sections/*"
+  },
+  {
+   "moment": "Complaint registered · Sent back",
+   "who": "staff, mag",
+   "files": "employee/register-case-screen"
+  },
+  {
+   "moment": "Complaint signed / everyone has signed",
+   "who": "adv, lit",
+   "files": "filing/sign-flow-dialog"
+  },
+  {
+   "moment": "Copied (case number, link)",
+   "who": "adv, lit, mag, staff",
+   "files": "chrome/identifier"
+  },
+  {
+   "moment": "Corrections already sent to scrutiny",
+   "who": "adv",
+   "files": "filing/sections/sign-section"
+  },
+  {
+   "moment": "Corrections sent to scrutiny",
+   "who": "adv",
+   "files": "tasks/use-task-actions"
+  },
+  {
+   "moment": "Couldn't save. Retrying",
+   "who": "adv",
+   "files": "filing/saving-indicator"
+  },
+  {
+   "moment": "Court fee (e-filing) · bail fee · application fee · submission fee",
+   "who": "adv, lit",
+   "files": "filing/sections/sign-section · cases/*-payment-dialog · payment/payment-steps"
+  },
+  {
+   "moment": "Court fee opens once every signature is in",
+   "who": "adv",
+   "files": "filing/sections/sign-section"
+  },
+  {
+   "moment": "Court sign-in, reasons, exhibit numbers, dates",
+   "who": "mag, staff",
+   "files": "employee/*"
+  },
+  {
+   "moment": "DSC lookup",
+   "who": "adv, mag",
+   "files": "filing/sign-stages"
+  },
+  {
+   "moment": "Discard changes / draft / application (×8 dialogs)",
+   "who": "adv, lit",
+   "files": "cases/* · filing/*"
+  },
+  {
+   "moment": "Discard this draft (primary button)",
+   "who": "staff",
+   "files": "employee/order-editor"
+  },
+  {
+   "moment": "Document / application text could not be shown",
+   "who": "adv, lit, mag, staff",
+   "files": "cases/pdf-viewer · employee/application-dialog"
+  },
+  {
+   "moment": "Document(s) submitted",
+   "who": "adv, lit",
+   "files": "cases/e-sign-dialog"
+  },
+  {
+   "moment": "Done: all N cases filed",
+   "who": "adv",
+   "files": "bulk/batch-screen · filed-tab"
+  },
+  {
+   "moment": "E-filing: payment successful",
+   "who": "adv, lit",
+   "files": "filing/sections/sign-section"
+  },
+  {
+   "moment": "E-sign N exhibits",
+   "who": "mag",
+   "files": "employee/sign-evidence"
+  },
+  {
+   "moment": "Edit litigant address (loose red text)",
+   "who": "adv",
+   "files": "cases/edit-litigant-dialog · alternate-addresses"
+  },
+  {
+   "moment": "Edit the bail bond (invalidates signatures)",
+   "who": "adv",
+   "files": "filing/bail-bond-status-dialog"
+  },
+  {
+   "moment": "Errored · Not delivered (process rows)",
+   "who": "staff",
+   "files": "employee/sign-process-table"
+  },
+  {
+   "moment": "Every party has signed (e-filing rail)",
+   "who": "adv, lit",
+   "files": "filing/sections/sign-section"
+  },
+  {
+   "moment": "Field verified · password ok",
+   "who": "adv, lit",
+   "files": "registration/*"
+  },
+  {
+   "moment": "Filings dashboard batch sign / pay",
+   "who": "adv",
+   "files": "filing/dashboard/batch-filing-dialog"
+  },
+  {
+   "moment": "Filings dashboard: N signed / ₹ paid",
+   "who": "adv",
+   "files": "filing/dashboard/batch-filing-dialog"
+  },
+  {
+   "moment": "Filings dashboard: Nothing was signed / paid",
+   "who": "adv",
+   "files": "filing/dashboard/batch-filing-dialog"
+  },
+  {
+   "moment": "Flag removed. The document issue stays",
+   "who": "staff",
+   "files": "employee/scrutiny/field-row"
+  },
+  {
+   "moment": "Forms / bail bonds / depositions signed",
+   "who": "mag",
+   "files": "employee/sign-bulk-confirm-dialog"
+  },
+  {
+   "moment": "Forwarded for registration · Case registered",
+   "who": "staff",
+   "files": "employee/scrutiny/review-dialog"
+  },
+  {
+   "moment": "Going back voids the signatures · e-sign instead",
+   "who": "adv",
+   "files": "filing/sections/sign-section"
+  },
+  {
+   "moment": "Hearings rescheduled (order signed)",
+   "who": "mag",
+   "files": "employee/bulk-reschedule-screen"
+  },
+  {
+   "moment": "Incomplete · needs fixing · to check",
+   "who": "adv",
+   "files": "filing/* · bulk/*"
+  },
+  {
+   "moment": "Invite sent to co-advocates",
+   "who": "adv",
+   "files": "advocate/join-case-dialog"
+  },
+  {
+   "moment": "Join case, bail, PoA, add advocate, raise application",
+   "who": "adv, lit",
+   "files": "join/* · cases/* · filing/*"
+  },
+  {
+   "moment": "Last attempt failed (pay rail)",
+   "who": "adv",
+   "files": "tasks/act/pay-page"
+  },
+  {
+   "moment": "Listing / complaint / application not here",
+   "who": "mag, staff",
+   "files": "employee/*-screen"
+  },
+  {
+   "moment": "Marked as Exhibit P-4",
+   "who": "staff",
+   "files": "cases/mark-evidence-dialog"
+  },
+  {
+   "moment": "Marked done · Archived N tasks",
+   "who": "adv",
+   "files": "tasks/tasks-screen"
+  },
+  {
+   "moment": "N documents signed / fees paid (tasks)",
+   "who": "adv",
+   "files": "tasks/batch-act-dialog"
+  },
+  {
+   "moment": "N orders signed and issued (after dialog)",
+   "who": "mag",
+   "files": "employee/sign-order-flow"
+  },
+  {
+   "moment": "N processes signed / resent, some could not be sent",
+   "who": "staff, mag",
+   "files": "employee/process-move-dialog"
+  },
+  {
+   "moment": "No case matches · already joined · PoA taken",
+   "who": "adv, lit",
+   "files": "join/* · advocate/join-case-dialog"
+  },
+  {
+   "moment": "Nothing was paid / Nothing was signed (tasks batch)",
+   "who": "adv",
+   "files": "tasks/batch-act-dialog"
+  },
+  {
+   "moment": "Order items added, some left out (grey text)",
+   "who": "staff",
+   "files": "employee/pending-orders-bulk"
+  },
+  {
+   "moment": "Order signed. Application accepted",
+   "who": "mag",
+   "files": "employee/applications-screen"
+  },
+  {
+   "moment": "Order(s) signed and issued",
+   "who": "mag",
+   "files": "employee/sign-order-flow"
+  },
+  {
+   "moment": "Overdue · Due today · Pending review · N actions",
+   "who": "adv, mag, staff",
+   "files": "many"
+  },
+  {
+   "moment": "Pay ₹X? · File with the court? · Mark as done?",
+   "who": "adv",
+   "files": "tasks/act/*"
+  },
+  {
+   "moment": "Payment complete (applications)",
+   "who": "adv, lit",
+   "files": "cases/application-payment-dialog"
+  },
+  {
+   "moment": "Payment · Paid badge (submissions)",
+   "who": "adv, lit",
+   "files": "cases/submission-payment-dialog"
+  },
+  {
+   "moment": "People added to your office",
+   "who": "adv",
+   "files": "access/person-access-dialog"
+  },
+  {
+   "moment": "Preparing your download",
+   "who": "adv, lit",
+   "files": "cases/download-case-file-dialog"
+  },
+  {
+   "moment": "Process signed / posted / return recorded",
+   "who": "staff",
+   "files": "employee/sign-process-dialog"
+  },
+  {
+   "moment": "Process signed, could not be sent",
+   "who": "staff",
+   "files": "employee/sign-process-dialog"
+  },
+  {
+   "moment": "Processes sent / signed / posted",
+   "who": "staff",
+   "files": "employee/process-move-dialog"
+  },
+  {
+   "moment": "Questions still to answer / mandatory details to fill",
+   "who": "mag, staff",
+   "files": "employee/pending-order-screen"
+  },
+  {
+   "moment": "Registration approved / rejected",
+   "who": "staff",
+   "files": "employee/approve-registrations-dialog"
+  },
+  {
+   "moment": "Registration photo could not be opened",
+   "who": "staff",
+   "files": "employee/approve-registrations-dialog"
+  },
+  {
+   "moment": "Registration, sign-in, OTP",
+   "who": "adv, lit",
+   "files": "registration/* · sign-in-block"
+  },
+  {
+   "moment": "Reminder sent",
+   "who": "adv",
+   "files": "scrutiny/correction-screen"
+  },
+  {
+   "moment": "Removal accepted · Request rejected",
+   "who": "adv",
+   "files": "cases/removal-consent-task"
+  },
+  {
+   "moment": "Remove complainant / accused / cheque / witness / document",
+   "who": "adv",
+   "files": "filing/sections/*"
+  },
+  {
+   "moment": "Remove from office · remove access · remove from case",
+   "who": "adv",
+   "files": "access/*"
+  },
+  {
+   "moment": "Request accepted / declined",
+   "who": "adv",
+   "files": "tasks/respond-dialog"
+  },
+  {
+   "moment": "Required documents still needed (floating)",
+   "who": "adv",
+   "files": "filing/sections/documents-section"
+  },
+  {
+   "moment": "Required fields not in your file · not ready to sign",
+   "who": "adv",
+   "files": "bulk/upload-screen · sign-tab"
+  },
+  {
+   "moment": "Reset sandbox",
+   "who": "adv, mag, staff",
+   "files": "shell/app-sidebar · employee/employee-nav"
+  },
+  {
+   "moment": "Returns recorded",
+   "who": "staff",
+   "files": "employee/record-returns-dialog"
+  },
+  {
+   "moment": "Saved as a draft",
+   "who": "adv, lit",
+   "files": "cases/raise-application-form · submit-documents-form"
+  },
+  {
+   "moment": "Saved indicator · Linked",
+   "who": "staff",
+   "files": "employee/order-*"
+  },
+  {
+   "moment": "Sent back to advocate (grey)",
+   "who": "staff",
+   "files": "employee/scrutiny/review-dialog"
+  },
+  {
+   "moment": "Sent for signing (order)",
+   "who": "staff",
+   "files": "employee/order-editor"
+  },
+  {
+   "moment": "Sent to scrutiny (corrections)",
+   "who": "adv",
+   "files": "scrutiny/correction-screen"
+  },
+  {
+   "moment": "Sent to the Magistrate for signing",
+   "who": "staff",
+   "files": "employee/application-decision-panel"
+  },
+  {
+   "moment": "Sent to {name} to sign",
+   "who": "adv",
+   "files": "cases/submit-documents-form"
+  },
+  {
+   "moment": "Set the next hearing's date and purpose",
+   "who": "staff",
+   "files": "employee/order-editor"
+  },
+  {
+   "moment": "Sign an A-Diary day",
+   "who": "mag",
+   "files": "employee/sign-a-diary-dialog"
+  },
+  {
+   "moment": "Sign one form / bail bond / exhibit / deposition",
+   "who": "mag",
+   "files": "employee/sign-*-dialog"
+  },
+  {
+   "moment": "Sign order(s) · e-sign exhibits · complete order data",
+   "who": "mag",
+   "files": "employee/pending-order(s)-screen · sign-evidence"
+  },
+  {
+   "moment": "Sign-in, registration, e-sign OTP",
+   "who": "adv, lit",
+   "files": "sign-in-block · registration/* · filing/sign-stages"
+  },
+  {
+   "moment": "Signed / Done / Filed badges",
+   "who": "adv, lit, mag, staff",
+   "files": "many"
+  },
+  {
+   "moment": "Signed and issued. Order data triggered",
+   "who": "mag",
+   "files": "employee/pending-order-screen"
+  },
+  {
+   "moment": "Signed copy accepted · Oath recorded",
+   "who": "adv, lit",
+   "files": "filing/sign-flow-dialog"
+  },
+  {
+   "moment": "Signed. Waiting for payment (amber)",
+   "who": "adv, lit",
+   "files": "cases/add-signature-dialog"
+  },
+  {
+   "moment": "Signing link: signed / all done",
+   "who": "lit",
+   "files": "filing/sign-link/sign-link-screen"
+  },
+  {
+   "moment": "Task act failed (offline, something went wrong, not allowed)",
+   "who": "adv",
+   "files": "tasks/use-task-actions"
+  },
+  {
+   "moment": "Task archived (Undo)",
+   "who": "adv",
+   "files": "cases/case-overview"
+  },
+  {
+   "moment": "Task fee paid",
+   "who": "adv",
+   "files": "tasks/act/task-flows"
+  },
+  {
+   "moment": "Task paid / signed / filed / ready",
+   "who": "adv",
+   "files": "tasks/act/*"
+  },
+  {
+   "moment": "That file could not be stored in this browser",
+   "who": "adv",
+   "files": "tasks/act/shared"
+  },
+  {
+   "moment": "That file wasn't added",
+   "who": "adv",
+   "files": "filing/sections/upload-section · sign-flow-dialog"
+  },
+  {
+   "moment": "The case file could not be prepared",
+   "who": "adv, lit",
+   "files": "cases/download-case-file-dialog"
+  },
+  {
+   "moment": "The payment did not go through",
+   "who": "adv",
+   "files": "advocate/join-case-dialog · tasks/act/task-flows"
+  },
+  {
+   "moment": "The scrutiny return could not be found",
+   "who": "adv",
+   "files": "filing/sections/sign-section"
+  },
+  {
+   "moment": "This batch could not be opened · bulk API errors",
+   "who": "adv",
+   "files": "bulk/*"
+  },
+  {
+   "moment": "This is not about me · deposit warning",
+   "who": "lit",
+   "files": "onboarding/steps"
+  },
+  {
+   "moment": "This is sworn evidence",
+   "who": "adv",
+   "files": "filing/sections/affidavit-section"
+  },
+  {
+   "moment": "This link is no longer active",
+   "who": "lit",
+   "files": "filing/sign-link/sign-link-screen"
+  },
+  {
+   "moment": "This task is not here · not on your access",
+   "who": "adv",
+   "files": "tasks/act/act-page · scrutiny/scrutiny-page"
+  },
+  {
+   "moment": "This upload has expired",
+   "who": "adv",
+   "files": "bulk/setup-flow"
+  },
+  {
+   "moment": "Type the order before sending it for signing",
+   "who": "staff",
+   "files": "employee/order-editor"
+  },
+  {
+   "moment": "Vakalatnama executed · All signatures collected",
+   "who": "adv",
+   "files": "vakalatnama/steps/*"
+  },
+  {
+   "moment": "Vakalatnama fee paid",
+   "who": "adv",
+   "files": "advocate/join-case-dialog"
+  },
+  {
+   "moment": "We could not load your case",
+   "who": "lit",
+   "files": "onboarding/steps"
+  },
+  {
+   "moment": "We couldn't create a draft",
+   "who": "adv",
+   "files": "filing/new-filing"
+  },
+  {
+   "moment": "Witness needs a complete address",
+   "who": "adv",
+   "files": "cases/add-witness-form"
+  },
+  {
+   "moment": "You are offline (tasks read-only)",
+   "who": "adv",
+   "files": "tasks/tasks-screen"
+  },
+  {
+   "moment": "You have joined this case",
+   "who": "lit",
+   "files": "join/join-case-dialog"
+  },
+  {
+   "moment": "You have signed (signing link page)",
+   "who": "lit",
+   "files": "filing/sign-link/sign-link-screen"
+  },
+  {
+   "moment": "You have signed the bail bond",
+   "who": "lit",
+   "files": "filing/bond-signing-screen"
+  },
+  {
+   "moment": "Your account is ready",
+   "who": "lit",
+   "files": "registration/registration-flow"
+  },
+  {
+   "moment": "Your registration was not approved",
+   "who": "adv",
+   "files": "registration/resubmission-flow"
+  }
+ ]
+}

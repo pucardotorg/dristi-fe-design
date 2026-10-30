@@ -1,0 +1,3 @@
+{
+ "adv": [{"go":"/cases/c-847","settle":5000},{"click":"Parties","wait":2000},{"js":"return [...document.querySelectorAll('button')].filter(b=>b.getBoundingClientRect().width>0).map(b=>(b.getAttribute('aria-label')||b.textContent).trim().slice(0,30)).filter(t=>/add|people|witness/i.test(t))","log":true},{"click":"/Add people/","wait":1200},{"js":"return [...document.querySelectorAll('[role=menuitem],[role=menu] button')].map(e=>e.textContent.trim())","log":true}]
+}

@@ -1,0 +1,8 @@
+{
+ "signin": [{"go":"/citizen"},{"click":"Continue","wait":900},{"shot":"signin-empty-submit"}],
+ "pay": [{"go":"/tasks/t-fee-hd3/continue"},{"click":"/^Pay ₹/","wait":1200},{"shot":"t-pay-page-confirm"}],
+ "notfound": [{"go":"/tasks/t-nope/continue","settle":4500},{"shot":"task-notfound"}],
+ "caseserr": [{"go":"/cases?demo=error"},{"shot":"cases-error"}],
+ "homeyes": [{"go":"/home?link=pending","settle":4500},{"click":"Yes, this is me","wait":700},{"shot":"home-link-yes"}],
+ "sign": [{"go":"/tasks/t-sign-hd2/continue","settle":4500},{"js":"return [...document.querySelectorAll('button')].filter(b=>b.getBoundingClientRect().width>0).map(b=>b.textContent.trim().slice(0,30))","log":true}]
+}

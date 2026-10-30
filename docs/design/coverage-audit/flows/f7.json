@@ -1,0 +1,5 @@
+{
+ "forms": [{"go":"/employee/sign-forms","settle":5000},{"click":"/^Read and sign Kavitha/","wait":1500},{"click":"Proceed to sign","in":"[role=dialog]","wait":1500},{"click":"E-sign","in":"[role=dialog]","wait":700},{"type":"[role=dialog] input[data-input-otp], [role=dialog] input[autocomplete=one-time-code]","text":"123456"},{"click":"Submit","in":"[role=dialog]","wait":1800},{"shot":"sign-form-after-submit"}],
+ "proc": [{"go":"/employee/sign-process","settle":5000},{"click":"/^Read the DCA notice/","wait":1500},{"click":"Send for signature","in":"[role=dialog]","wait":1200},{"click":"Send for signature","in":"[role=dialog]","wait":1800},{"shot":"process-single-after-send"}],
+ "adv": [{"go":"/cases/c-847","settle":5000},{"click":"Parties","wait":1500},{"js":"return [...document.querySelectorAll('main button')].filter(b=>b.getBoundingClientRect().width>0).map(b=>(b.getAttribute('aria-label')||b.textContent).trim().slice(0,30)).slice(0,30)","log":true}]
+}

@@ -1,0 +1,4 @@
+{
+ "otp": [{"go":"/tasks/t-sign-hd2/continue","settle":4500},{"click":"E-Sign with Aadhaar OTP","wait":1500},{"js":"return [...document.querySelectorAll('[role=dialog] button')].map(b=>b.textContent.trim())","log":true}],
+ "people": [{"go":"/people","settle":4500},{"js":"return [...document.querySelectorAll('main button, main a')].filter(b=>b.getBoundingClientRect().width>0).map(b=>(b.getAttribute('aria-label')||b.textContent).trim().slice(0,40)).slice(0,30)","log":true}]
+}

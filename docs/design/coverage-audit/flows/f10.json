@@ -1,0 +1,1 @@
+{"menu": [{"go":"/cases/c-847?section=parties","settle":6000},{"click":"Add people","wait":1200},{"js":"return [...document.querySelectorAll('[role=menuitem]')].map(e=>e.textContent.trim())","log":true}]}

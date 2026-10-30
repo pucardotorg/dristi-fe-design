@@ -1,0 +1,10 @@
+import { connect } from "./lib.mjs";
+import { writeFileSync } from "node:fs";
+const c = await connect(9371);
+await c.viewport(1440, 900, false);
+await c.go("http://localhost:4701/coverage-board", 4000);
+const info = await c.ev(`return {imgs:document.images.length, broken:[...document.images].filter(i=>i.complete&&i.naturalWidth===0).map(i=>i.src).slice(0,5), lanes:[...document.querySelectorAll('h2')].map(h=>h.textContent)}`);
+console.log(JSON.stringify(info));
+await c.ev(`[...document.querySelectorAll('nav button')].find(b=>b.textContent.startsWith('Confirms before remove'))?.click(); await new Promise(r=>setTimeout(r,800)); return 1`);
+writeFileSync("board-danger.png", Buffer.from((await c.send("Page.captureScreenshot",{format:"png"})).result.data,"base64"));
+c.close();

@@ -1,0 +1,5 @@
+{
+ "adv": [{"go":"/cases/c-847?section=parties","settle":5000},{"click":"/^Add people/","wait":900},{"js":"return [...document.querySelectorAll('[role=menuitem]')].map(e=>e.textContent.trim())","log":true}],
+ "forms": [{"go":"/employee/sign-forms","settle":5000},{"js":"return [...document.querySelectorAll('main button, main a')].filter(b=>b.getBoundingClientRect().width>0).map(b=>(b.getAttribute('aria-label')||b.textContent).trim().slice(0,40)).slice(0,25)","log":true}],
+ "proc": [{"go":"/employee/sign-process","settle":5000},{"js":"return [...document.querySelectorAll('main button, main a')].filter(b=>b.getBoundingClientRect().width>0).map(b=>(b.getAttribute('aria-label')||b.textContent).trim().slice(0,40)).slice(0,25)","log":true}]
+}

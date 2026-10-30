@@ -1,0 +1,709 @@
+{
+ "note": "Row refs are '#<index in combined.json> <id>'. Code checked at 8d53f22 via git show; the worktree is at 0ab02ff (PR #181 only touched case-peek/side-panel files). Paths are under apps/dristi-app/src/.",
+ "false_done": [
+  {
+   "file": "components/filing/bail-application-dialog.tsx:1589",
+   "finding": "Discard confirm uses ConfirmMark danger with no act icon (skill: danger plus the act's icon); also the whole dialog is unreachable (openApplication is never called).",
+   "rows": [
+    "#8 components/filing/bail-application-dialog.tsx:1587"
+   ]
+  },
+  {
+   "file": "components/filing/sections/sign-section.tsx:1068-1075 (+1613-1623)",
+   "finding": "'Corrections sent to scrutiny' reaches the court yet ends on a notify.success via act(); rule 3 wants OutcomeHeader (info: sent, not decided), as correction-screen's own SignFlowDialog does; the confirm also leaves 'A re-submission cannot be recalled' inline instead of in IrreversibleNote.",
+   "rows": [
+    "#85 Corrections sent to scrutiny"
+   ]
+  },
+  {
+   "file": "components/cases/download-case-file-dialog.tsx:77",
+   "finding": "'Preparing your download' is notify.success for something that has not happened yet; tone table says neutral (not news).",
+   "rows": [
+    "#112 Preparing your download"
+   ]
+  },
+  {
+   "file": "components/home/profile-settings.tsx:172",
+   "finding": "'Your request has been submitted' StatusLine is always still, so the fresh result of the press is neither animated nor announced; still is for reopening only.",
+   "rows": [
+    "#288 Advocate profile request submitted"
+   ]
+  },
+  {
+   "file": "components/filing/sign-link/sign-link-screen.tsx:352",
+   "finding": "Success SectionNotice is announce=polite and not still, so it replays and re-announces on every visit and right after the SettledCard outcome (two success announcements); needs still on arrival, as sign-section.tsx:926 does.",
+   "rows": [
+    "#125 Signing link: signed / all done",
+    "#143 You have signed (signing link page)"
+   ]
+  },
+  {
+   "file": "components/employee/application-quick-order.tsx:214",
+   "finding": "'Sent to the Magistrate for signing.' is notify.success; the act is sent and waiting on someone else, which the citizen side tells in info/neutral (row #74). Judgment.",
+   "rows": [
+    "#215 moments#100"
+   ]
+  },
+  {
+   "file": "components/advocate/join-case-dialog.tsx:686",
+   "finding": "Invite toast fires at the same moment as the 'Payment successful' hero, two animated, announced outcomes on one screen (one animated mark per screen). Low.",
+   "rows": [
+    "#297 Invite sent to co-advocates"
+   ]
+  },
+  {
+   "file": "components/filing/sections/affidavit-section.tsx:63",
+   "finding": "'This is sworn evidence' is a warning StatusLine, but it is guidance before an act, not a catch the product treats as a warning; tone table says neutral when unsure. Judgment, low.",
+   "rows": [
+    "#136 This is sworn evidence"
+   ]
+  }
+ ],
+ "wrong_missed": [
+  {
+   "file": "components/filing/bail-application-dialog.tsx (18 FieldErrors)",
+   "finding": "BailApplicationDialog is unreachable at 8d53f22: CaseBailProvider exposes openApplication but nothing calls it (case-documents/case-header-actions only call openStatus/openBondDirect), and cases-wireframe.tsx is imported by no route. These 18 rows are not live moments; drop or park them (the audit's own row #151 says so but still counts them).",
+   "rows": [
+    "#49 components/filing/bail-application-dialog.tsx:671",
+    "#50 components/filing/bail-application-dialog.tsx:692",
+    "#51 components/filing/bail-application-dialog.tsx:715",
+    "#52 components/filing/bail-application-dialog.tsx:739",
+    "#53 components/filing/bail-application-dialog.tsx:814",
+    "#54 components/filing/bail-application-dialog.tsx:825",
+    "#55 components/filing/bail-application-dialog.tsx:841",
+    "#56 components/filing/bail-application-dialog.tsx:942",
+    "#57 components/filing/bail-application-dialog.tsx:958",
+    "#58 components/filing/bail-application-dialog.tsx:982",
+    "#59 components/filing/bail-application-dialog.tsx:1022",
+    "#60 components/filing/bail-application-dialog.tsx:1039",
+    "#61 components/filing/bail-application-dialog.tsx:1060",
+    "#62 components/filing/bail-application-dialog.tsx:1080",
+    "#63 components/filing/bail-application-dialog.tsx:1096",
+    "#64 components/filing/bail-application-dialog.tsx:1118",
+    "#65 components/filing/bail-application-dialog.tsx:1138",
+    "#66 components/filing/bail-application-dialog.tsx:1332"
+   ]
+  },
+  {
+   "file": "components/filing/sections/documents-section.tsx:154 / :276-279",
+   "finding": "Row #324 is the accepted 'N required documents still needed' toast exception (row #116) reached from bulk; it cannot be both exception and missed.",
+   "rows": [
+    "#324 components/filing/sections/documents-section.tsx:276-279 (reached via /filings/bulk/upload/<setup>/documents)"
+   ]
+  },
+  {
+   "file": "components/access/person-access-dialog.tsx:1564, :1632 (act=give, act=all)",
+   "finding": "Adding a person to the office and giving access are reversible (there are remove acts); rule 2 governs risky or irreversible acts, so a plain question is not a violation. The auditor flagged it as judgment; should be 'not a moment' or owner call.",
+   "rows": [
+    "#235 components/access/person-access-dialog.tsx:1564",
+    "#238 components/access/person-access-dialog.tsx:1632 (act=give)",
+    "#239 components/access/person-access-dialog.tsx:1632 (act=all)"
+   ]
+  },
+  {
+   "file": "components/access/person-access-dialog.tsx:1259",
+   "finding": "Alert info '{name} can access all N of your cases' is standing guidance, not an outcome; dozens of identical guidance Banners (join dialogs, bail bond, payment dialogs) were not flagged, so this one is inconsistent.",
+   "rows": [
+    "#318 components/access/person-access-dialog.tsx:1259"
+   ]
+  },
+  {
+   "file": "components/bulk/upload-screen.tsx:428",
+   "finding": "Creating a batch navigates to the new batch; no skill rule requires extra feedback for a navigation that lands on the created thing (auditor says so). Not a miss.",
+   "rows": [
+    "#290 Bulk batch created (just navigates)"
+   ]
+  },
+  {
+   "file": "components/home/profile-settings.tsx:121",
+   "finding": "'Address added' already shows as the saved address and badge in place; a toast would add feedback for a change the page shows. Judgment, low.",
+   "rows": [
+    "#328 components/home/profile-settings.tsx:121"
+   ]
+  },
+  {
+   "file": "(umbrella rows)",
+   "finding": "These rows restate other rows and double-count the miss: #102 = all citizen field rows, #187 = fieldErrors#45-59, #109 = #12+#13, #219 = #190+#228, #303 = #236/#237/#240, #121 overlaps #97 and #150. Keep as notes, not separate misses.",
+   "rows": [
+    "#102 Join case, bail, PoA, add advocate, raise application",
+    "#187 moments#36",
+    "#109 Pay ₹X? · File with the court? · Mark as done?",
+    "#219 moments#105",
+    "#303 Remove from office · remove access · remove from case",
+    "#121 Sign-in, registration, e-sign OTP"
+   ]
+  }
+ ],
+ "wrong_should_be": [
+  {
+   "file": "components/filing/saving-indicator.tsx:22-31",
+   "finding": "'Couldn't save. Retrying' is prescribed as a warning StatusLine; the save did not happen, so the tone is error. The row also misses the other half: 'Saved' in success-ink (a saved draft is neutral).",
+   "rows": [
+    "#86 Couldn't save. Retrying"
+   ]
+  },
+  {
+   "file": "components/employee/sign-bail-bond-dialog.tsx:166",
+   "finding": "Rejecting a bail bond is a court decision that cannot be taken back, not a removal or discard: ConfirmMark neutral with the reject icon and a primary button, not danger. Judgment.",
+   "rows": [
+    "#223 x1"
+   ]
+  },
+  {
+   "file": "components/cases/pdf-viewer.tsx:199; employee/application-dialog.tsx:145; employee/approve-registrations-dialog.tsx:1144",
+   "finding": "Prescriptions hedge 'error, or neutral'; a document or photo that could not be shown is a system failure, so StatusLine error. Decide, do not leave the tone open.",
+   "rows": [
+    "#91 Document / application text could not be shown",
+    "#189 moments#40",
+    "#207 moments#84"
+   ]
+  },
+  {
+   "file": "components/employee/pending-order-screen.tsx:239,250",
+   "finding": "Prescribes StatusFieldError on 'the item', but the missing details live in order blocks edited through their own pencil dialogs, not in a field on this screen; the refusal should mark and focus the block (StatusLine error on the block, focus its pencil). Judgment.",
+   "rows": [
+    "#205 moments#82"
+   ]
+  }
+ ],
+ "not_in_list": [
+  {
+   "file": "components/filing/sign-flow-dialog.tsx:739",
+   "finding": "'Sent for signature' is a success StatusLine; others now hold a request, waiting on someone else, so info."
+  },
+  {
+   "file": "components/filing/sign-flow-dialog.tsx:717",
+   "finding": "Warning StatusLine 'This withdraws the e-sign requests' sits before an act that voids signatures; warning is never for an irreversible act (neutral or IrreversibleNote), and the copy has an em dash."
+  },
+  {
+   "file": "components/filing/sign-flow-dialog.tsx:927",
+   "finding": "Warning StatusLine 'Every party's signature should be on the PDF' is an instruction, not a catch: neutral."
+  },
+  {
+   "file": "components/filing/sign-flow-dialog.tsx:665; filing/sign-link/sign-link-screen.tsx:643",
+   "finding": "'Submit oath' is greyed until an oath is recorded (owner rule: submit points at missing)."
+  },
+  {
+   "file": "components/filing/sections/complainant-section.tsx:937-976",
+   "finding": "'Continue without a CIN or PAN?' is a hand-built question with a warning icon tile instead of AlertDialog + ConfirmMark (neutral, a gate is never warning), and 'Continue without it' is disabled until the checkbox is ticked."
+  },
+  {
+   "file": "components/filing/sections/accused-section.tsx:284-308, :312-347",
+   "finding": "'No contact details added' is a hand-built question with an info icon tile (no ConfirmMark), and 'Confirm: proceed without details' greys Confirm until the checkbox is ticked."
+  },
+  {
+   "file": "components/scrutiny/correction-screen.tsx:1236",
+   "finding": "'Sign the corrected complaint?' is a plain ConfirmDialog (destructive=false, no icon) though it takes the signatures off; needs ConfirmMark with the act's icon."
+  },
+  {
+   "file": "components/cases/alternate-addresses.tsx:141-145, :195",
+   "finding": "Loose red <p> refusals ('Complete the address…', 'PIN codes are 6 digits.') with no field marked; same defect as row #94 in a different file."
+  },
+  {
+   "file": "components/filing/saving-indicator.tsx:29-30",
+   "finding": "'Saved' in success-ink check; a saved draft is neutral, not success (the court twin order-save-indicator was noted, this one was not)."
+  },
+  {
+   "file": "components/filing/ifsc-field.tsx:132-143 + filing/lookup-status.tsx:8-11",
+   "finding": "Hand-built lookup line: 'We couldn't find this IFSC' in warning ink is a missed lookup (neutral), the registry-unreachable line is a system failure (error), and the success fill is hand-built rather than StatusLine; address-fields.tsx:178 PIN fill uses the same hand-built line."
+  },
+  {
+   "file": "components/scrutiny/defect-card.tsx:324-332",
+   "finding": "Settled defect is a hand-built role=status line with a green CircleCheck and success-ink 'Corrected'; StatusLine success."
+  },
+  {
+   "file": "components/bulk/case-flow.tsx:188-191",
+   "finding": "Hand-built green 'This case is ready' with a check icon; StatusLine success."
+  },
+  {
+   "file": "components/bulk/case-flow.tsx:248-264",
+   "finding": "'This case isn't in the batch' is a DS Empty dead end; PageOutcome neutral with the act's icon, centred."
+  },
+  {
+   "file": "components/scrutiny/scrutiny-page.tsx:198-215",
+   "finding": "'This filing was not made in DRISTI' is a DS Empty dead end (row #221 covers only line 76 of the same file); PageOutcome neutral."
+  },
+  {
+   "file": "components/advocate/advocate-home.tsx:447-465",
+   "finding": "'Could not load the day' is a failure drawn as a DS Empty with Retry; PageOutcome error (or the 'page failed to load' exception if the owner says so; the copy exists)."
+  },
+  {
+   "file": "components/employee/evidence-view.tsx:893-905",
+   "finding": "Same retired 56px tinted disc as row #231 (x9), but its 'Signed by {name}' success branch (bg-success-muted + CheckCircle2) is not listed; OutcomeHeader success."
+  },
+  {
+   "file": "components/shell/notices.tsx:103",
+   "finding": "This second SectionNotice renders DS Alert for success/warning/destructive (retired), unlike filing/notices.tsx which renders StatusLine; used by tasks/act/pay-page.tsx:108 ('Last attempt failed') and act-page.tsx:55. Row #103 wrongly says it renders StatusLine."
+  },
+  {
+   "file": "components/employee/application-outcome-dialog.tsx:210",
+   "finding": "Save greyed while answers are missing (gaps.length > 0)."
+  },
+  {
+   "file": "components/employee/scrutiny/review-dialog.tsx:329",
+   "finding": "Forward/send-back confirm greyed until the acknowledgement is ticked or a choice is made."
+  },
+  {
+   "file": "components/employee/scrutiny/flag-composer.tsx:167",
+   "finding": "Save greyed (!canSave) while the flag says nothing; row #171 calls this 'not a moment' because the FieldError is dead, but the greyed Save is the miss."
+  },
+  {
+   "file": "components/employee/application-quick-order.tsx:263",
+   "finding": "'Sign order' / 'Send for signing' greyed until the order is ready."
+  },
+  {
+   "file": "components/employee/cause-list-bulk.tsx:400",
+   "finding": "'Apply to N hearings' greyed until a change is made."
+  },
+  {
+   "file": "components/employee/sign-order-flow.tsx:281, :295, :309",
+   "finding": "Magistrate OTP, DSC and file submit greyed until complete (court side of rows #121/#150, not listed)."
+  },
+  {
+   "file": "components/filing/profile-dialog.tsx:123",
+   "finding": "'Save details' greyed until a name is typed."
+  },
+  {
+   "file": "components/bulk/upload-screen.tsx:519",
+   "finding": "Continue greyed until a file is chosen (continueDisabled={!file})."
+  },
+  {
+   "file": "components/bulk/case-flow.tsx:581",
+   "finding": "Apply greyed until a value is typed."
+  },
+  {
+   "file": "components/bulk/payment-gateway.tsx:396",
+   "finding": "Gateway OTP 'Pay' greyed until 6 digits, though the same screen already uses StatusFieldError for card fields."
+  },
+  {
+   "file": "components/tasks/act/shared.tsx:477",
+   "finding": "Submit greyed until at least one item is filled."
+  },
+  {
+   "file": "components/vakalatnama/steps/advocates.tsx:122",
+   "finding": "Add advocate greyed until a name is typed."
+  },
+  {
+   "file": "components/filing/sections/complainant-section.tsx:912",
+   "finding": "Mobile OTP Verify greyed until 6 digits."
+  },
+  {
+   "file": "components/cases/add-signature-dialog.tsx:552; cases/e-sign-dialog.tsx:308; filing/bail-bond-dialog.tsx:1207; filing/sign-flow-dialog.tsx:595,1225; filing/sign-link/sign-link-screen.tsx:599,614",
+   "finding": "Each e-sign OTP button is greyed until 6 digits; row #121 names this only generically ('e-sign OTP'), so each site needs its own row for the fix list."
+  },
+  {
+   "file": "components/cases/document-record-dialog.tsx:391",
+   "finding": "Post note greyed until text is typed. Low."
+  },
+  {
+   "file": "components/bulk/batch-screen.tsx:293",
+   "finding": "'Clubbed into X. This batch is closed.' is a DS Alert info for a dead-end state; StatusLine neutral. Low."
+  },
+  {
+   "file": "components/tasks/batch-act-dialog.tsx:192-200, :521-528",
+   "finding": "Payments 'still confirming' count as through, so the header can say success while money is unsettled; single-task version is row #149 (info). Low."
+  }
+ ],
+ "bad_exceptions": [
+  {
+   "file": "components/employee/pending-order-screen.tsx:318",
+   "finding": "Row #185 stretches the order-editor exception to pending-order-screen.tsx, a different file; it conforms anyway, so it is 'done', not an exception.",
+   "rows": [
+    "#185 moments#18"
+   ]
+  },
+  {
+   "file": "components/employee/order-save-indicator.tsx:24-25; employee/order-case-panel.tsx:285,638",
+   "finding": "Row #211 treats separate files as order-editor.tsx; the exception names only order-editor.tsx. Owner should confirm; under the tone table 'Saved' is neutral.",
+   "rows": [
+    "#211 moments#96"
+   ]
+  },
+  {
+   "file": "components/tasks/act/pay-page.tsx:108",
+   "finding": "Row #103 is a valid exception (payment declined), but its description is wrong: shell/notices SectionNotice renders DS Alert destructive, not StatusLine.",
+   "rows": [
+    "#103 Last attempt failed (pay rail)"
+   ]
+  },
+  {
+   "file": "components/employee/order-editor.tsx 'Sent for signing'",
+   "finding": "Rows #158 and #213 are the same moment counted twice.",
+   "rows": [
+    "#158 confirms#18",
+    "#213 moments#98"
+   ]
+  },
+  {
+   "file": "components/filing/form-field.tsx:186",
+   "finding": "Row #69 'not a moment': live date-order and format errors are refusals of invalid input (skill rule 1 says 'empty or invalid field'); they should at least render as still StatusFieldError. Judgment.",
+   "rows": [
+    "#69 components/filing/form-field.tsx:186"
+   ]
+  },
+  {
+   "file": "components/employee/scrutiny/flag-composer.tsx:139/167",
+   "finding": "Row #171 'not a moment' is wrong: the dead FieldError hides a greyed Save, which is a miss under the owner rule.",
+   "rows": [
+    "#171 fieldErrors#53"
+   ]
+  },
+  {
+   "file": "(out-of-area placeholders)",
+   "finding": "Rows #117, #120, #145, #146 are 'not a moment' only because another auditor owns them; they are duplicates, not verdicts, and should be removed.",
+   "rows": [
+    "#117 Required fields not in your file · not ready to sign",
+    "#120 Sign order(s) · e-sign exhibits · complete order data",
+    "#145 Done: all N cases filed",
+    "#146 Awaiting approval (amber clock)"
+   ]
+  }
+ ],
+ "patterns": [
+  {
+   "name": "Field refusal",
+   "change": "Plain red FieldError text becomes StatusFieldError: red ring grows in, focus moves into the field, line drops in, repeat press shakes.",
+   "count": 105,
+   "ids": [
+    "#14 components/cases/add-advocate-dialog.tsx:568",
+    "#15 components/cases/add-advocate-dialog.tsx:617",
+    "#16 components/cases/add-advocate-dialog.tsx:656",
+    "#17 components/cases/add-advocate-dialog.tsx:673",
+    "#18 components/cases/add-poa-dialog.tsx:344",
+    "#19 components/cases/add-poa-dialog.tsx:395",
+    "#20 components/cases/add-poa-dialog.tsx:415",
+    "#21 components/cases/add-poa-dialog.tsx:455",
+    "#22 components/cases/add-poa-dialog.tsx:486",
+    "#23 components/cases/add-poa-dialog.tsx:507",
+    "#24 components/cases/add-signature-dialog.tsx:471",
+    "#25 components/cases/application-type-fields.tsx:232",
+    "#26 components/cases/application-type-fields.tsx:265",
+    "#27 components/cases/application-type-fields.tsx:306",
+    "#28 components/cases/application-type-fields.tsx:358",
+    "#29 components/cases/application-type-fields.tsx:395",
+    "#30 components/cases/application-type-fields.tsx:429",
+    "#31 components/cases/application-type-fields.tsx:524",
+    "#32 components/cases/application-type-fields.tsx:661",
+    "#33 components/cases/application-type-fields.tsx:1302",
+    "#34 components/cases/application-type-fields.tsx:1505",
+    "#35 components/cases/e-sign-dialog.tsx:279",
+    "#36 components/cases/edit-litigant-dialog.tsx:398",
+    "#37 components/cases/filing-form-shared.tsx:347",
+    "#38 components/cases/filing-form-shared.tsx:509",
+    "#39 components/cases/poa-holder-actions.tsx:316",
+    "#40 components/cases/poa-holder-actions.tsx:333",
+    "#41 components/cases/poa-holder-actions.tsx:629",
+    "#42 components/cases/poa-holder-actions.tsx:654",
+    "#43 components/cases/poa-holder-actions.tsx:697",
+    "#44 components/cases/poa-holder-actions.tsx:727",
+    "#45 components/cases/poa-holder-actions.tsx:748",
+    "#46 components/cases/remove-advocate-dialog.tsx:335",
+    "#47 components/cases/remove-advocate-dialog.tsx:371",
+    "#48 components/cases/remove-advocate-dialog.tsx:398",
+    "#49 components/filing/bail-application-dialog.tsx:671",
+    "#50 components/filing/bail-application-dialog.tsx:692",
+    "#51 components/filing/bail-application-dialog.tsx:715",
+    "#52 components/filing/bail-application-dialog.tsx:739",
+    "#53 components/filing/bail-application-dialog.tsx:814",
+    "#54 components/filing/bail-application-dialog.tsx:825",
+    "#55 components/filing/bail-application-dialog.tsx:841",
+    "#56 components/filing/bail-application-dialog.tsx:942",
+    "#57 components/filing/bail-application-dialog.tsx:958",
+    "#58 components/filing/bail-application-dialog.tsx:982",
+    "#59 components/filing/bail-application-dialog.tsx:1022",
+    "#60 components/filing/bail-application-dialog.tsx:1039",
+    "#61 components/filing/bail-application-dialog.tsx:1060",
+    "#62 components/filing/bail-application-dialog.tsx:1080",
+    "#63 components/filing/bail-application-dialog.tsx:1096",
+    "#64 components/filing/bail-application-dialog.tsx:1118",
+    "#65 components/filing/bail-application-dialog.tsx:1138",
+    "#66 components/filing/bail-application-dialog.tsx:1332",
+    "#67 components/filing/bail-bond-dialog.tsx:1155",
+    "#68 components/filing/bond-signing-screen.tsx:140",
+    "#102 Join case, bail, PoA, add advocate, raise application",
+    "#164 fieldErrors#46",
+    "#165 fieldErrors#47",
+    "#166 fieldErrors#48",
+    "#167 fieldErrors#49",
+    "#168 fieldErrors#50",
+    "#170 fieldErrors#52",
+    "#172 fieldErrors#54",
+    "#173 fieldErrors#55",
+    "#187 moments#36",
+    "#245 components/access/person-access-dialog.tsx:1128",
+    "#246 components/advocate/join-case-dialog.tsx:843",
+    "#247 components/advocate/join-case-dialog.tsx:944",
+    "#248 components/advocate/join-case-dialog.tsx:987",
+    "#249 components/advocate/join-case-dialog.tsx:1050",
+    "#250 components/advocate/join-case-dialog.tsx:1105",
+    "#251 components/advocate/join-case-dialog.tsx:1153",
+    "#252 components/advocate/join-case-dialog.tsx:1181",
+    "#253 components/advocate/join-case-dialog.tsx:1250",
+    "#254 components/advocate/join-case-dialog.tsx:1290",
+    "#255 components/home/add-id-dialog.tsx:256",
+    "#256 components/home/profile-settings.tsx:186",
+    "#257 components/home/profile-settings.tsx:194",
+    "#258 components/join/join-case-dialog.tsx:467",
+    "#259 components/join/join-case-dialog.tsx:515",
+    "#260 components/join/join-case-dialog.tsx:568",
+    "#261 components/join/join-case-dialog.tsx:618",
+    "#262 components/join/join-case-dialog.tsx:713",
+    "#263 components/join/join-case-dialog.tsx:759",
+    "#264 components/join/poa-join-fields.tsx:157",
+    "#265 components/join/poa-join-fields.tsx:218",
+    "#266 components/join/poa-join-fields.tsx:264",
+    "#267 components/join/poa-join-fields.tsx:330",
+    "#268 components/registration/registration-flow.tsx:234",
+    "#269 components/registration/registration-flow.tsx:249",
+    "#270 components/registration/registration-flow.tsx:278",
+    "#271 components/registration/registration-flow.tsx:293",
+    "#272 components/registration/registration-flow.tsx:319",
+    "#273 components/registration/registration-flow.tsx:346",
+    "#274 components/registration/registration-flow.tsx:396",
+    "#275 components/registration/registration-flow.tsx:418",
+    "#276 components/registration/registration-flow.tsx:438",
+    "#277 components/registration/registration-flow.tsx:448",
+    "#278 components/registration/resubmission-flow.tsx:315",
+    "#279 components/registration/resubmission-flow.tsx:378",
+    "#280 components/registration/resubmission-flow.tsx:436",
+    "#281 components/registration/resubmission-flow.tsx:466",
+    "#282 components/sign-in-block.tsx:477",
+    "#283 components/sign-in-block.tsx:630",
+    "#284 components/sign-in-block.tsx:664"
+   ],
+   "examples": [
+    "#14 add-advocate-dialog.tsx:568 (shots/citizen/adv-add-refuse.jpg)",
+    "#282 sign-in-block.tsx:477 (shots/access/signin-empty-submit.jpg)",
+    "#165 court-sign-in-block.tsx:213 (shots/court/court-signin-empty.jpg)",
+    "note: #49-#66 (18) are unreachable bail-application-dialog code"
+   ]
+  },
+  {
+   "name": "Greyed submit",
+   "change": "Disabled submit stays enabled; pressing it refuses on the missing field (ring, focus, line).",
+   "count": 13,
+   "ids": [
+    "#97 Filings dashboard batch sign / pay",
+    "#121 Sign-in, registration, e-sign OTP",
+    "#150 EXTRA: greyed-out submit for missing input",
+    "#163 fieldErrors#45",
+    "#174 fieldErrors#56",
+    "#175 fieldErrors#57",
+    "#176 fieldErrors#58",
+    "#177 fieldErrors#59",
+    "#232 x10",
+    "#319 components/access/share-dialog.tsx:229",
+    "#320 components/advocate/join-case-dialog.tsx:1451",
+    "#321 components/vakalatnama/steps/review-sign.tsx:293",
+    "#323 components/bulk/sign-tab.tsx:653, :835"
+   ],
+   "examples": [
+    "#121 e-sign OTP (shots/citizen/t-sign-otp.jpg)",
+    "#232 x10 court disabled submits (shots/court/application-onboard-nodate.jpg)",
+    "#174 sign-a-diary Save (shots/court/adiary-business-blank.jpg)"
+   ]
+  },
+  {
+   "name": "Missing input told away from the field",
+   "change": "Top-of-dialog banner, toast, loose red paragraph or browser bubble moves onto the field itself as a refusal.",
+   "count": 8,
+   "ids": [
+    "#94 Edit litigant address (loose red text)",
+    "#141 Witness needs a complete address",
+    "#205 moments#82",
+    "#230 x8",
+    "#316 components/access/person-access-dialog.tsx:1245",
+    "#317 components/access/person-access-dialog.tsx:1300",
+    "#324 components/filing/sections/documents-section.tsx:276-279 (reached via /filings/bulk/upload/<setup>/documents)",
+    "#327 components/home/profile-settings.tsx:121-132"
+   ],
+   "examples": [
+    "#141 add-witness top banner (shots/citizen/aw-refuse.jpg)",
+    "#205 pending-order mandatory toast (shots/court/pending-order-mandatory-toast.jpg)",
+    "#94 edit-litigant loose red text (shots/citizen/el-address.jpg)"
+   ]
+  },
+  {
+   "name": "Plain question before a sign, pay or file",
+   "change": "Bare AlertDialog gains a neutral ConfirmMark with the act's icon and an IrreversibleNote line; button stays primary.",
+   "count": 14,
+   "ids": [
+    "#12 components/tasks/act/file-page.tsx:133",
+    "#13 components/tasks/act/pay-page.tsx:156",
+    "#109 Pay ₹X? · File with the court? · Mark as done?",
+    "#153 confirms#13",
+    "#190 moments#44",
+    "#219 moments#105",
+    "#226 x4",
+    "#227 x5",
+    "#228 x6",
+    "#229 x7",
+    "#235 components/access/person-access-dialog.tsx:1564",
+    "#238 components/access/person-access-dialog.tsx:1632 (act=give)",
+    "#239 components/access/person-access-dialog.tsx:1632 (act=all)",
+    "#243 components/home/home-screen.tsx:235"
+   ],
+   "examples": [
+    "#13 tasks Pay ₹8? (shots/citizen/t-pay-page-confirm.jpg)",
+    "#12 File with the court? (shots/citizen/t-file-confirm.jpg)",
+    "#190 E-sign N exhibits (shots/court/evidence-bulk-question.jpg)"
+   ]
+  },
+  {
+   "name": "Plain removal or discard question",
+   "change": "Bare AlertDialog gains a danger ConfirmMark with the act's icon; confirm is the soft red destructive button.",
+   "count": 10,
+   "ids": [
+    "#11 components/filing/other-details-field.tsx:188",
+    "#155 confirms#15",
+    "#156 confirms#16",
+    "#223 x1",
+    "#236 components/access/person-access-dialog.tsx:1632 (act=remove)",
+    "#237 components/access/person-access-dialog.tsx:1632 (act=specific)",
+    "#240 components/access/person-access-dialog.tsx:1692",
+    "#241 components/access/person-access-dialog.tsx:1735",
+    "#303 Remove from office · remove access · remove from case",
+    "#330 components/advocate/join-case-dialog.tsx:1485 + components/join/join-case-dialog.tsx:385"
+   ],
+   "examples": [
+    "#236 Remove access (shots/access/pad-act-remove-confirm.jpg)",
+    "#155 Discard recorded statement (shots/court/evidence-discard-statement-confirm.jpg)",
+    "#330 Leave without joining (shots/access/ajoin-leaving.jpg)"
+   ]
+  },
+  {
+   "name": "Court act ends silently or on a toast",
+   "change": "The dialog (or act page) turns into an OutcomeHeader takeover with facts on the warm footer band, instead of closing silently or toasting after; a failure is told inside the dialog, not by notify.error.",
+   "count": 12,
+   "ids": [
+    "#129 Task paid / signed / filed / ready",
+    "#144 You have signed the bail bond",
+    "#149 EXTRA: payment 'still confirming' (tasks)",
+    "#184 moments#13",
+    "#200 moments#71",
+    "#217 moments#103",
+    "#218 moments#104",
+    "#220 moments#108",
+    "#224 x2",
+    "#233 x11",
+    "#310 Vakalatnama executed",
+    "#322 components/vakalatnama/steps/review-sign.tsx:95-100"
+   ],
+   "examples": [
+    "#218 sign form/bond closes silently (shots/court/sign-form-after-submit.jpg)",
+    "#217 A-Diary sign (shots/court/adiary-after-sign.jpg)",
+    "#129 task paid/signed only a later toast (shots/citizen/t-sign-done.jpg)"
+   ]
+  },
+  {
+   "name": "Hand-built outcome slab or footer line",
+   "change": "Solid green slab, amber footer line or tinted disc header becomes OutcomeHeader (success / info / neutral with checklist + OutcomeTally for partial).",
+   "count": 7,
+   "ids": [
+    "#162 confirms#22",
+    "#186 moments#28",
+    "#198 moments#67",
+    "#202 moments#79",
+    "#203 moments#80",
+    "#204 moments#81",
+    "#231 x9"
+   ],
+   "examples": [
+    "#198 process-move green slab + amber line (shots/court/process-bulk-sign-outcome.jpg)",
+    "#203 'Process signed. 1 could not be sent' (shots/court/process-signed-not-sent.jpg)",
+    "#186 register-case badge morph"
+   ]
+  },
+  {
+   "name": "Hand-built status words",
+   "change": "Coloured text, tinted strips, muted captions and plain warning words become StatusLine (or Badge + StatusMark for a row state) in the right tone.",
+   "count": 9,
+   "ids": [
+    "#86 Couldn't save. Retrying",
+    "#91 Document / application text could not be shown",
+    "#178 moments#0",
+    "#182 moments#9",
+    "#189 moments#40",
+    "#191 moments#47",
+    "#207 moments#84",
+    "#294 Field verified (mobile)",
+    "#315 Your registration was not approved"
+   ],
+   "examples": [
+    "#294 'Mobile number verified' green line (shots/access/reg-otp-verified.jpg)",
+    "#315 not-approved warm well (shots/access/resub-not-approved.jpg)",
+    "#182 correction 'All N corrected' green strip"
+   ]
+  },
+  {
+   "name": "Dead end drawn as an empty state",
+   "change": "DS Empty block becomes a centred PageOutcome, neutral, with the act's icon.",
+   "count": 5,
+   "ids": [
+    "#138 This task is not here · not on your access",
+    "#147 EXTRA: 'This draft isn't here any more' (filing/draft-frame.tsx:56)",
+    "#196 moments#62",
+    "#221 moments#125",
+    "#309 This upload has expired"
+   ],
+   "examples": [
+    "#196 court dead ends (shots/court/deadend-listing-not-here.jpg)",
+    "#138 task not here (shots/citizen/task-notfound.jpg)",
+    "#309 upload expired (shots/access/bulk-upload-expired.jpg)"
+   ]
+  },
+  {
+   "name": "Retired Alert or Banner as feedback",
+   "change": "DS Alert/Banner used for an error, gate or result becomes a StatusLine in the right tone (error, neutral gate, info).",
+   "count": 8,
+   "ids": [
+    "#80 Cases / tasks / documents / orders could not be loaded",
+    "#135 This is not about me · deposit warning",
+    "#139 We could not load your case",
+    "#234 x12",
+    "#300 PoA taken",
+    "#318 components/access/person-access-dialog.tsx:1259",
+    "#325 components/home/home-screen.tsx:212",
+    "#329 components/join/join-case-dialog.tsx:798"
+   ],
+   "examples": [
+    "#80 cases list Banner error (shots/citizen/cases-error.jpg)",
+    "#325 'This case was not added' Alert (shots/access/home-link-declined.jpg)",
+    "#300 PoA taken Banner warning → neutral"
+   ]
+  },
+  {
+   "name": "Quick act with no feedback",
+   "change": "A page act that changes nothing visible (or only a muted footer) gets notify.success / notify.neutral.",
+   "count": 6,
+   "ids": [
+    "#148 EXTRA: e-filing 'Send a reminder' (sign-section rail)",
+    "#199 moments#70",
+    "#225 x3",
+    "#290 Bulk batch created (just navigates)",
+    "#326 components/home/home-screen.tsx:249",
+    "#328 components/home/profile-settings.tsx:121"
+   ],
+   "examples": [
+    "#225 bulk accept, rows vanish (shots/court/copy-app-after-accept.jpg)",
+    "#326 'Yes, this is me' (shots/access/home-link-yes.jpg)",
+    "#148 e-filing Send a reminder (shots/citizen/ef-reminder.jpg)"
+   ]
+  },
+  {
+   "name": "Right piece, wrong tone, icon or copy",
+   "change": "An existing OutcomeHeader changes tone or gains its act icon; feedback copy loses em dashes.",
+   "count": 3,
+   "ids": [
+    "#75 Application(s) signed",
+    "#99 Filings dashboard: Nothing was signed / paid",
+    "#152 EXTRA: em dashes in feedback copy"
+   ],
+   "examples": [
+    "#75 'Application signed' info → neutral clock (shots/citizen/appsign-signed.jpg)",
+    "#99 neutral without act icon",
+    "#152 em dashes in task toasts (shots/citizen/t-paypage-success.jpg)"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,1 @@
+{"proc": [{"go":"/employee/sign-process","settle":5000},{"click":"/^Read the DCA notice/","wait":1500},{"click":"Send for signature","in":"[role=dialog]","wait":1200},{"click":"Send for signature","in":"[role=dialog]","wait":1800},{"shot":"process-single-after-send"}]}

@@ -1,0 +1,5 @@
+{
+ "forms": [{"go":"/employee/sign-forms","settle":5000},{"click":"/^Read and sign Kavitha/","wait":1500},{"click":"Proceed to sign","in":"[role=dialog]","wait":1500},{"click":"E-sign","in":"[role=dialog]","wait":700},{"click":"Submit","in":"[role=dialog]","wait":1800},{"shot":"sign-form-after-submit"}],
+ "proc": [{"go":"/employee/sign-process","settle":5000},{"click":"/^Read the DCA notice/","wait":1500},{"click":"Send for signature","in":"[role=dialog]","wait":1200},{"js":"return [...document.querySelectorAll('[role=dialog] button')].map(b=>b.textContent.trim().slice(0,40))","log":true}],
+ "adv": [{"go":"/cases/c-847","settle":5000},{"js":"return [...document.querySelectorAll('button,[role=tab],a')].filter(b=>b.getBoundingClientRect().width>0).map(b=>(b.getAttribute('aria-label')||b.textContent).trim().slice(0,30)).slice(8,40)","log":true}]
+}

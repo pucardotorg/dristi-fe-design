@@ -1,0 +1,4 @@
+{
+ "adv": [{"go":"/cases/c-847?section=parties","settle":6000},{"js":"const b=[...document.querySelectorAll('button')].find(e=>e.textContent.trim()==='Add people'); b.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0,pointerType:'mouse'})); await new Promise(r=>setTimeout(r,800)); return 1"},{"click":"Add an advocate","in":"[role=menu]","wait":1500},{"click":"Continue","in":"[role=dialog]","wait":1200},{"shot":"adv-add-refuse"}],
+ "aw": [{"go":"/cases/c-847?section=parties","settle":6000},{"js":"const b=[...document.querySelectorAll('button')].find(e=>e.textContent.trim()==='Add people'); b.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0,pointerType:'mouse'})); await new Promise(r=>setTimeout(r,800)); return 1"},{"click":"Add a witness","in":"[role=menu]","wait":1500},{"click":"Continue","in":"[role=dialog]","wait":1200},{"shot":"aw-refuse"}]
+}

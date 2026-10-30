@@ -1,0 +1,4 @@
+{
+ "otp": [{"go":"/tasks/t-sign-hd2/continue","settle":4500},{"click":"E-Sign with Aadhaar OTP","wait":1500},{"click":"Sign","in":"[role=dialog]","wait":1200},{"shot":"t-sign-otp"}],
+ "office": [{"go":"/people","settle":4500},{"click":"/^ARAnil Raghavan/","wait":1800},{"click":"Remove from office","in":"[role=dialog]","wait":1500},{"shot":"pad-remove-from-office-confirm"}]
+}
