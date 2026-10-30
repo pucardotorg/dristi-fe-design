@@ -128,9 +128,9 @@ and documented rules:
 - **Hero marks start 160ms late and only once painted** (Oct 30). Fired at mount, the pop
   and tick were over before eyes came back from the spinner, and a slow first render ate
   the opening frames. The outcome's words shift with it. A DS motion token.
-- **The success ring pulses three times, fainter each time, then rests** (Oct 30): peaks
-  0.45, 0.3, 0.18, 1.2s apart. Never an endless loop: it reads as "still going", pulls the
-  eye off the facts, and would need a pause control past 5s (WCAG 2.2.2).
+- **The success ring pulses once, then rests** (Oct 30). Tried and dropped: an endless loop
+  (reads as "still going", pulls the eye off the facts, needs a pause control past 5s per
+  WCAG 2.2.2) and three pulses, even slowing and fading (too busy).
 - **Waiting on the person** (sign later, pay later) is neutral with a clock, never amber.
   Waiting on someone else is info (the hourglass).
 - **Nothing to do, nothing wrong** (every item already done) is a neutral takeover.

@@ -103,9 +103,8 @@ neutral, choose neutral.
 - **A hero mark waits 160ms (`HERO_START`) and holds until painted.** The window has just
   changed and the person needs that long to look back; a slow first render must not eat
   the motion. The outcome's words wait with it. Never add your own delay on top.
-- **Success pulses three times, fainter each time, then rests** (about 0.4s, 1.6s, 2.8s).
-  Never loop: a pulse that never stops reads as "still going". Warning keeps its one soft
-  ring; reduced motion shows none.
+- **Success pulses its ring once, then rests.** Three pulses (even slowing and fading) were
+  tried and read as too busy; never loop, a pulse that never stops reads as "still going".
 - **One animated mark per screen.** Pass `still` to every mark, line, field error or
   outcome piece after the first, and to anything already true when the screen opens (a
   dialog reopened onto a settled act). Marks that belong together play in order

@@ -72,16 +72,6 @@ const RING: Partial<Record<MarkTone, string>> = {
  */
 export const HERO_START = 160;
 
-/**
- * Success says itself three times, each fainter, then rests (owner, 2026-10-30): someone
- * who glanced away still catches one, and a pulse that never stops would read as "still
- * going". Peaks are the ring's opacity; offsets are from the ring's own start.
- */
-const SUCCESS_PULSES = [
-  { at: 0, peak: 0.45 },
-  { at: 1200, peak: 0.3 },
-  { at: 2400, peak: 0.18 },
-];
 
 /**
  * Hold a hero mark on its first frame until the browser has painted it, so a slow first
@@ -163,20 +153,11 @@ export function StatusMark({
         animationDelay: full && reject ? `${start + 620}ms` : undefined,
       }}
     >
-      {ring && tone === "success"
-        ? SUCCESS_PULSES.map((pulse) => (
-            <span
-              key={pulse.at}
-              className={cn("absolute inset-0 rounded-full fb-ring", ring)}
-              style={{
-                ["--fb-pulse" as string]: `${pulse.at}ms`,
-                ["--fb-peak" as string]: pulse.peak,
-              }}
-            />
-          ))
-        : ring ? (
-            <span className={cn("absolute inset-0 rounded-full fb-ring-soft", ring)} />
-          ) : null}
+      {ring ? (
+        <span
+          className={cn("absolute inset-0 rounded-full", ring, tone === "success" ? "fb-ring" : "fb-ring-soft")}
+        />
+      ) : null}
       <span
         className={cn(
           "relative flex size-full items-center justify-center rounded-full",

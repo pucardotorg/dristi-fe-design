@@ -55,7 +55,7 @@
   100% { transform: rotate(180deg); }
 }
 @keyframes fb-ring {
-  0% { transform: scale(1); opacity: var(--fb-peak, 0.45); }
+  0% { transform: scale(1); opacity: 0.45; }
   100% { transform: scale(1.9); opacity: 0; }
 }
 @keyframes fb-ring-soft {
@@ -121,9 +121,8 @@
 .fb-bar { animation: fb-bar 280ms calc(var(--fb-delay, 0ms) + 150ms) cubic-bezier(0.34, 1.56, 0.64, 1) both; }
 .fb-dot { transform-box: fill-box; transform-origin: center; animation: fb-dot 220ms calc(var(--fb-delay, 0ms) + 330ms) cubic-bezier(0.34, 1.56, 0.64, 1) both; }
 .fb-flip { transform-box: fill-box; transform-origin: center; animation: fb-flip 900ms calc(var(--fb-delay, 0ms) + 250ms) cubic-bezier(0.65, 0, 0.35, 1) both; }
-/* A success ring pulses three times, fainter each time (`--fb-pulse`, `--fb-peak`, set by
-   the mark), then rests. */
-.fb-ring { animation: fb-ring 900ms calc(var(--fb-delay, 0ms) + 200ms + var(--fb-pulse, 0ms)) ease-out both; }
+/* One ring pulse, then rest. Three pulses were tried and read as too busy (owner, 2026-10-30). */
+.fb-ring { animation: fb-ring 900ms calc(var(--fb-delay, 0ms) + 200ms) ease-out both; }
 .fb-ring-soft { animation: fb-ring-soft 650ms calc(var(--fb-delay, 0ms) + 330ms) ease-out both; }
 .fb-sway { transform-origin: 50% 15%; animation: fb-sway 420ms calc(var(--fb-delay, 0ms) + 330ms) ease-in-out both; }
 .fb-shake { animation: fb-shake 260ms ease-in-out both; }
