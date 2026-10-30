@@ -3,7 +3,7 @@
 import { bailDialog } from "@/lib/filing/content";
 import { pick } from "@/lib/onboarding/content";
 import { useCallback, useId, useMemo, useRef, useState } from "react";
-import { FilePenLineIcon } from "lucide-react";
+import { FilePenLineIcon, SaveIcon } from "lucide-react";
 
 import { AddSignatureDialog } from "@/components/cases/add-signature-dialog";
 import {
@@ -90,7 +90,7 @@ import { displayName } from "@/lib/cases/names";
 import { isViewer, viewerAccess, viewerRepresentation } from "@/lib/cases/viewer";
 import { useProfile } from "@/components/shell/profile";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { notify } from "@/components/feedback";
 import { localFileSrc } from "@/components/cases/pdf-viewer";
 import { useSessionValue } from "@/lib/cases/demo-session";
 import {
@@ -416,7 +416,8 @@ export function RaiseApplicationForm({
    */
   function saveDraft() {
     if (recordFiling({ status: "draft" })) {
-      toast("Saved as a draft", {
+      notify.neutral("Saved as a draft", {
+        icon: SaveIcon,
         description: "Finish it later from Applications.",
       });
     }

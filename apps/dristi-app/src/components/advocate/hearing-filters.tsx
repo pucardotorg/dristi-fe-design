@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import type { CSSProperties } from "react";
 
 import { CheckGroup } from "@/components/cases/cases-filters";
 import { Button } from "@/components/ui/button";
@@ -216,18 +215,9 @@ export function HearingFiltersSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      {/* The Cases sheet's motion: a full slide from the right, no dissolve. */}
       <SheetContent
         side="right"
-        className="w-full duration-300 ease-out sm:max-w-sm"
-        style={
-          {
-            "--tw-enter-opacity": "1",
-            "--tw-exit-opacity": "1",
-            "--tw-enter-translate-x": "100%",
-            "--tw-exit-translate-x": "100%",
-          } as CSSProperties
-        }
+        className="w-full sm:max-w-sm"
       >
         <SheetHeader>
           <SheetTitle className="text-title-s font-semibold">{title}</SheetTitle>

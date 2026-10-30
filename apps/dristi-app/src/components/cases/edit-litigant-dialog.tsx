@@ -12,7 +12,7 @@
  */
 
 import { useMemo, useState } from "react";
-import { PencilIcon } from "lucide-react";
+import { PencilIcon, FileXIcon } from "lucide-react";
 
 import {
   AlertDialog,
@@ -78,6 +78,7 @@ import {
 } from "@/components/ui/select";
 import { idUpload } from "@/lib/join/content";
 import { useCourtLocalized, useCourtText } from "@/components/court/court-provider";
+import { ConfirmMark } from "@/components/feedback";
 
 /** The record's address — the app's one structured grammar. */
 export type EditableAddress = StructuredAddress;
@@ -633,6 +634,7 @@ function EditLitigantDialog({
       >
         <ChromeAlertDialogContent>
           <AlertDialogHeader>
+            <ConfirmMark danger icon={FileXIcon} />
             <AlertDialogTitle>Discard this application?</AlertDialogTitle>
             <AlertDialogDescription>
               The details entered here will be lost if you discard this draft.
@@ -640,7 +642,7 @@ function EditLitigantDialog({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Keep editing</AlertDialogCancel>
-            <AlertDialogAction variant="destructive-solid" onClick={closeClean}>
+            <AlertDialogAction variant="destructive" onClick={closeClean}>
               Discard draft
             </AlertDialogAction>
           </AlertDialogFooter>

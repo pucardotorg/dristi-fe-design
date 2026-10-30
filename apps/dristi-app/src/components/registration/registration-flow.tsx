@@ -6,7 +6,6 @@ import {
   CheckCircle2Icon,
   CheckIcon,
   CircleAlertIcon,
-  ClockIcon,
   EyeIcon,
   EyeOffIcon,
 } from "lucide-react";
@@ -44,6 +43,7 @@ import { cn } from "@/lib/utils";
 
 import { MaskedOtp, OTP_LENGTH } from "./masked-otp";
 import { Identifier } from "@/components/chrome/identifier";
+import { PageOutcome } from "@/components/feedback";
 
 type Step = "role" | "name" | "contact" | "password" | "verification" | "terms" | "success" | "application";
 type AccountRole = "litigant" | "advocate" | "advocateClerk" | "poa" | "";
@@ -154,24 +154,31 @@ export function RegistrationFlow({ locale, summoned, toSign = false, initialMobi
   if (step === "success") {
     if (needsVerification) {
       return (
-        <div className="mx-auto flex min-h-[60vh] w-full max-w-lg flex-col items-center justify-center gap-6 text-center">
-          <span className="flex size-14 items-center justify-center rounded-full bg-warning-muted text-warning-muted-foreground">
-            <ClockIcon className="size-7" aria-hidden />
-          </span>
-          <Heading title={pick(approvalStep.title, locale)} body={pick(approvalStep.body, locale).replace("{id}", appId)} />
-          <Button size="lg" onClick={() => setStep("application")}>{pick(approvalStep.action, locale)}</Button>
+        /* Submitted, waiting on the court's approval: sent, not decided (the hourglass). */
+        <div className="mx-auto flex min-h-[60vh] w-full max-w-lg flex-col justify-center">
+          <PageOutcome
+            tone="info"
+            title={pick(approvalStep.title, locale)}
+            body={pick(approvalStep.body, locale).replace("{id}", appId)}
+            action={<Button size="lg" onClick={() => setStep("application")}>{pick(approvalStep.action, locale)}</Button>}
+          />
         </div>
       );
     }
     return (
+      /* The account is ready: the whole page is the outcome (skill `feedback-states`). */
       <div className="mx-auto flex min-h-[60vh] w-full max-w-lg flex-col items-center justify-center gap-6 text-center">
-        <span className="flex size-14 items-center justify-center rounded-full bg-success-muted text-success-muted-foreground">
-          <CheckCircle2Icon className="size-7" aria-hidden />
-        </span>
-        <Heading title={pick(successStep.title, locale)} body={pick(toSign ? successStep.signBody : successStep.body, locale)} />
-        <Button size="lg" onClick={() => onFinish ? onFinish({ idSkipped: true, profileIncomplete: true }) : setDestinationNotice(true)}>
-          {pick(toSign ? successStep.signAction : summoned ? successStep.summonedAction : successStep.generalAction, locale)}
-        </Button>
+        <PageOutcome
+          tone="success"
+          scale="hero"
+          title={pick(successStep.title, locale)}
+          body={pick(toSign ? successStep.signBody : successStep.body, locale)}
+          action={
+            <Button size="lg" onClick={() => onFinish ? onFinish({ idSkipped: true, profileIncomplete: true }) : setDestinationNotice(true)}>
+              {pick(toSign ? successStep.signAction : summoned ? successStep.summonedAction : successStep.generalAction, locale)}
+            </Button>
+          }
+        />
         {destinationNotice ? <Alert variant="info" className="text-left"><AlertTitle>Prototype: destination not connected</AlertTitle><AlertDescription>This action will open your portal home.</AlertDescription></Alert> : null}
       </div>
     );

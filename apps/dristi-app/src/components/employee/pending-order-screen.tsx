@@ -3,7 +3,6 @@
 import { seatHolds } from "@/lib/employee/seat-roles";
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
 
 import { useCourt, useCourtText } from "@/components/court/court-provider";
 import { useApplicationOrderDoor } from "@/components/employee/application-order-screen";
@@ -89,6 +88,8 @@ import {
   setOrderWorkflowComplete,
   type PendingOrderStage,
 } from "@/lib/employee/pending-orders";
+import { ConfirmMark, IrreversibleNote, notify } from "@/components/feedback";
+import { PenLineIcon, PencilLineIcon, Undo2Icon } from "lucide-react";
 
 /**
  * One pending order, for the magistrate and the steno alike (owner, 2026-10-14): the
@@ -235,8 +236,9 @@ function WorkflowDoorBody({ door }: { door: OrderDoor }) {
         Boolean(door.applicationItem.workflow),
       ).length > 0
     ) {
-      toast(
+      notify.neutral(
         `Application · ${door.applicationItem.label} has questions still to answer. Use its pencil to answer them.`,
+        { icon: PencilLineIcon },
       );
       return;
     }
@@ -245,8 +247,9 @@ function WorkflowDoorBody({ door }: { door: OrderDoor }) {
         block.kind === "item" && missingMandatory(block, door.context).length > 0,
     );
     if (unfilled && unfilled.kind === "item") {
-      toast(
+      notify.neutral(
         `${orderTemplate(unfilled.type).label} has mandatory details still to fill. Use its pencil to fill them.`,
+        { icon: PencilLineIcon },
       );
       return;
     }
@@ -313,8 +316,9 @@ function WorkflowDoorBody({ door }: { door: OrderDoor }) {
                 onClick={() => {
                   moveOrderBackToDraft(door.draftKey, signing);
                   returnOrderToDraft(door.draftKey);
-                  toast(
+                  notify.neutral(
                     "Back to draft. Send it for signing again when it is ready.",
+                    { icon: Undo2Icon },
                   );
                   if (entry) router.push(entry.orderHref);
                 }}
@@ -365,12 +369,15 @@ function WorkflowDoorBody({ door }: { door: OrderDoor }) {
           {ask === "sign" ? (
             <>
               <AlertDialogHeader>
+                <ConfirmMark icon={PenLineIcon} />
                 <AlertDialogTitle>Sign this order?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  {complete
-                    ? "Your signature issues the order, and its order data is triggered at once: it has been completed."
-                    : "Your signature issues the order. Its order data is triggered once it has been completed."}{" "}
-                  This cannot be reversed.
+                  <span className="block">
+                    {complete
+                      ? "Your signature issues the order, and its order data is triggered at once: it has been completed."
+                      : "Your signature issues the order. Its order data is triggered once it has been completed."}
+                  </span>
+                  <IrreversibleNote>This cannot be reversed.</IrreversibleNote>
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -378,7 +385,7 @@ function WorkflowDoorBody({ door }: { door: OrderDoor }) {
                 <AlertDialogAction
                   onClick={() => {
                     markOrdersSigned([door.draftKey]);
-                    toast(
+                    notify.success(
                       complete
                         ? "Signed and issued. Its order data has been triggered."
                         : "Signed and issued. Its order data is still to be completed.",
@@ -416,7 +423,7 @@ function WorkflowDoorBody({ door }: { door: OrderDoor }) {
                 <AlertDialogAction
                   onClick={() => {
                     setOrderWorkflowComplete(door.draftKey, true, signing);
-                    toast(
+                    notify.success(
                       signed
                         ? "Order data complete, and triggered."
                         : "Order data complete. It is triggered when the order is signed.",

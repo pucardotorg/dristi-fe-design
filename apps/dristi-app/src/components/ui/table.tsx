@@ -12,7 +12,7 @@ function Table({ className, ...props }: React.ComponentProps<"table">) {
     >
       <table
         data-slot="table"
-        className={cn("w-full caption-bottom text-sm", className)}
+        className={cn("w-full caption-bottom border-separate border-spacing-0 text-sm", className)}
         {...props}
       />
     </div>
@@ -23,7 +23,7 @@ function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
   return (
     <thead
       data-slot="table-header"
-      className={cn("[&_tr]:border-b", className)}
+      className={cn("[&_tr]:hover:bg-transparent [&_th:first-child]:rounded-l-lg [&_th:last-child]:rounded-r-lg", className)}
       {...props}
     />
   )
@@ -33,7 +33,12 @@ function TableBody({ className, ...props }: React.ComponentProps<"tbody">) {
   return (
     <tbody
       data-slot="table-body"
-      className={cn("[&_tr:last-child]:border-0", className)}
+      className={cn(
+        /* A row cannot see its neighbours, so the body hides the rule above a lit row
+           (the product's table treatment, promoted from its table-plate). */
+        "[&_tr:last-child_td]:border-b-0 [&>tr:has(+_tr:hover)>td]:border-transparent [&>tr:has(+_tr:has([aria-expanded=true]))>td]:border-transparent [&>tr[data-state=selected]>td]:border-transparent [&>tr:has(+_tr[data-state=selected])>td]:border-transparent [&>tr:not([data-state=selected])+tr[data-state=selected]>td:first-child]:rounded-tl-lg [&>tr:not([data-state=selected])+tr[data-state=selected]>td:last-child]:rounded-tr-lg [&>tr[data-state=selected]:first-child>td:first-child]:rounded-tl-lg [&>tr[data-state=selected]:first-child>td:last-child]:rounded-tr-lg [&>tr[data-state=selected]:not(:has(+_tr[data-state=selected]))>td:first-child]:rounded-bl-lg [&>tr[data-state=selected]:not(:has(+_tr[data-state=selected]))>td:last-child]:rounded-br-lg",
+        className
+      )}
       {...props}
     />
   )
@@ -57,7 +62,9 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
     <tr
       data-slot="table-row"
       className={cn(
-        "border-b transition-colors hover:bg-accent has-aria-expanded:bg-accent data-[state=selected]:bg-accent-strong",
+        /* Fills live on the cells: a row cannot round its corners. Hover and an open
+           menu light the row in the warm well with rounded ends; selected is stronger. */
+        "[&>td]:bg-card [&>td]:transition-[background-color,border-color,border-radius] hover:[&>td]:border-transparent hover:[&>td]:bg-surface-sunken hover:[&>td:first-child]:rounded-l-lg hover:[&>td:last-child]:rounded-r-lg has-aria-expanded:[&>td]:border-transparent has-aria-expanded:[&>td]:bg-surface-sunken has-aria-expanded:[&>td:first-child]:rounded-l-lg has-aria-expanded:[&>td:last-child]:rounded-r-lg data-[state=selected]:[&>td]:bg-accent-strong",
         className
       )}
       {...props}
@@ -70,7 +77,7 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
     <th
       data-slot="table-head"
       className={cn(
-        "h-10 px-2 text-left align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0",
+        "h-10 bg-surface-sunken px-4 py-3 text-left align-middle text-body-compact font-semibold whitespace-nowrap text-muted-foreground [&:has([role=checkbox])]:pr-0",
         className
       )}
       {...props}
@@ -83,7 +90,7 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
     <td
       data-slot="table-cell"
       className={cn(
-        "p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0",
+        "h-16 border-b border-hairline px-4 py-2.5 text-left align-middle text-body-compact whitespace-nowrap [&:has([role=checkbox])]:pr-0",
         className
       )}
       {...props}

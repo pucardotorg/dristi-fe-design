@@ -2,6 +2,8 @@
 
 import * as React from "react";
 
+import { StatusLine } from "@/components/feedback";
+
 import {
   draftRows,
   pendingPaymentRows,
@@ -115,7 +117,7 @@ export function FilingsDashboard() {
         </p>
       </header>
 
-      {error ? <p className="text-body text-destructive-ink">{error}</p> : null}
+      {error ? <StatusLine tone="error">{error}</StatusLine> : null}
 
       <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-2">
         <StartFilingCard />
@@ -133,6 +135,7 @@ export function FilingsDashboard() {
       />
 
       <ConfirmDialog
+        note="This cannot be undone."
         open={confirmIds.length > 0}
         onOpenChange={(open) => {
           if (!open) setConfirmIds([]);
@@ -144,8 +147,8 @@ export function FilingsDashboard() {
         }
         description={
           confirmIds.length === 1
-            ? "Everything entered and uploaded for this filing will be removed. This cannot be undone."
-            : `Everything entered and uploaded for these ${confirmIds.length} filings will be removed. This cannot be undone.`
+            ? "Everything entered and uploaded for this filing will be removed."
+            : `Everything entered and uploaded for these ${confirmIds.length} filings will be removed.`
         }
         confirmLabel={
           confirmIds.length === 1 ? "Discard draft" : `Discard ${confirmIds.length} drafts`

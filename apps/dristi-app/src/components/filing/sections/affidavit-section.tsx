@@ -94,6 +94,7 @@ export function AffidavitSection() {
       <ConfirmDialog
         open={resetOpen}
         onOpenChange={setResetOpen}
+        icon={RotateCcwIcon}
         title="Restore the standard affidavit?"
         description="Your edits are discarded and the text goes back to the standard wording."
         confirmLabel="Restore"

@@ -32,6 +32,7 @@ import {
   type CaseSummary,
   type Locale,
 } from "@/lib/onboarding/content";
+import { StatusLine } from "@/components/feedback";
 
 /**
  * Step bodies.
@@ -86,7 +87,7 @@ export function PapersStep({ locale, caseSummary }: StepProps) {
           </Alert>
         )}
 
-        <Card>
+        <Card className="border-hairline shadow-raised">
           <CardContent>
             <DescriptionList>
               {summaryFields.map((field) => {
@@ -124,10 +125,7 @@ export function PapersStep({ locale, caseSummary }: StepProps) {
           {pick(ui.notMe, locale)}
         </Button>
         {notMeOpen && (
-          <Alert variant="warning">
-            <TriangleAlertIcon aria-hidden />
-            <AlertDescription>{pick(ui.notMeBody, locale)}</AlertDescription>
-          </Alert>
+          <StatusLine tone="warning">{pick(ui.notMeBody, locale)}</StatusLine>
         )}
       </div>
     </div>
@@ -146,7 +144,7 @@ export function ChoicesStep({ locale }: StepProps) {
 
         {/* Title and one-line summary always visible; detail opens one path at a time.
             The first path starts open, matching the reviewed designer treatment. */}
-        <Card size="sm">
+        <Card className="border-hairline shadow-raised" size="sm">
           <CardContent>
             <Accordion type="single" collapsible defaultValue="pay">
               {choices.cards.map((card, index) => (
@@ -209,7 +207,7 @@ export function DateStep({ locale, caseSummary }: StepProps) {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-4">
-        <Card>
+        <Card className="border-hairline shadow-raised">
           <CardContent>
             <div className="flex flex-col gap-2">
               <p className="text-body text-muted-foreground">
@@ -254,7 +252,7 @@ export function HelpStep({ locale }: StepProps) {
       </div>
 
       {/* One number. The one that gets a lawyer into this court for you. */}
-      <Card>
+      <Card className="border-hairline shadow-raised">
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <p className="text-title-s font-semibold text-pretty text-foreground">

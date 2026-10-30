@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import type { CSSProperties } from "react";
 import { SearchIcon, SlidersHorizontalIcon, XIcon } from "lucide-react";
 
 import { AppliedChip } from "@/components/shell/applied-chip";
@@ -254,25 +253,12 @@ export function CasesFiltersButton({
           ) : null}
         </Button>
       </SheetTrigger>
-      {/* Same motion as the case peek: a full slide in from the right, no dissolve
-          (owner, Sept 11). The DS sheet slides only 10 and fades; the tw-animate keyframes
-          read their travel and opacity off `@property` vars, so setting those inline (which
-          beats the class's `fade-in-0` / `slide-…-10`) holds opacity at 1 — no dissolve —
-          and makes the panel travel its full width, at the peek's 300ms ease-out. The scrim
-          still fades: the sheet comes over the page rather than pushing it, the one intended
-          difference. `aria-describedby` is cleared since the how-to copy is gone. */}
+      {/* The DS sheet slides in full from the right with no dissolve, as the case peek
+          does (owner, Sept 11). `aria-describedby` is cleared since the how-to copy is gone. */}
       <SheetContent
         side="right"
         aria-describedby={undefined}
-        className="w-full duration-300 ease-out sm:max-w-sm"
-        style={
-          {
-            "--tw-enter-opacity": "1",
-            "--tw-exit-opacity": "1",
-            "--tw-enter-translate-x": "100%",
-            "--tw-exit-translate-x": "100%",
-          } as CSSProperties
-        }
+        className="w-full sm:max-w-sm"
       >
         <SheetHeader>
           <SheetTitle className="text-title-s font-semibold">Filters</SheetTitle>

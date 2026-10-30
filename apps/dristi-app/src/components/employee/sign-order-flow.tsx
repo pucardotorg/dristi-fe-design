@@ -1,10 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { CircleCheckIcon } from "lucide-react";
-import { toast } from "sonner";
+import { IrreversibleNote, OutcomeHeader, OutcomeSummary, notify } from "@/components/feedback";
 
-import { RESOLVE_IN_PLACE } from "@/components/chrome/motion";
 import { Identifier } from "@/components/chrome/identifier";
 import { useStageFade } from "@/components/chrome/stage-fade";
 import { StagedOverlay } from "@/components/chrome/staged-overlay";
@@ -121,7 +119,7 @@ export function SignOrderFlow({
   function close() {
     const count = signedCount.current;
     signedCount.current = 0;
-    if (count > 0) toast.success(`${orders(count)} signed and issued`);
+    if (count > 0) notify.success(`${orders(count)} signed and issued`);
     onOpenChange(false);
   }
 
@@ -237,8 +235,14 @@ function SignOrderFlowBody({
 
   const description = {
     read: recordLine,
-    confirm:
-      "Each is signed with your signature and published to its case file. This cannot be reversed.",
+    confirm: (
+      <DialogDescription className="text-body-compact text-muted-foreground">
+        <span className="block">
+          Each is signed with your signature and published to its case file.
+        </span>
+        <IrreversibleNote>This cannot be reversed.</IrreversibleNote>
+      </DialogDescription>
+    ),
     sign: single ? recordLine : "One signature goes on every order selected.",
     otp: "Sent to your Aadhaar-linked mobile.",
     dsc: "Your certificate has to be plugged in, with the signing utility running on this computer.",
@@ -326,6 +330,8 @@ function SignOrderFlowBody({
       title={title}
       titleRef={titleRef}
       style={flow.panelStyle}
+      /* The settled stage takes the window over: mark, then title (owner, Oct 29). */
+      outcome={flow.stage === "done"}
       titleAside={
         single && (flow.stage === "read" || flow.stage === "sign") ? (
           <Badge variant={pending ? "warning" : "success"}>
@@ -392,10 +398,9 @@ function SignOrderFlowBody({
             {single ? <PaperFallbackLink onClick={() => go("paper")} /> : null}
             <p className="text-body-compact text-muted-foreground">
               {single
-                ? courtText(
-                    `Signing publishes this order to ${single.caseNumber}. It cannot be reversed.`,
-                  )
-                : "Signing publishes every order selected. It cannot be reversed."}
+                ? courtText(`Signing publishes this order to ${single.caseNumber}.`)
+                : "Signing publishes every order selected."}
+              <IrreversibleNote>It cannot be reversed.</IrreversibleNote>
             </p>
           </Column>
         ) : flow.stage === "otp" ? (
@@ -417,12 +422,11 @@ function SignOrderFlowBody({
             <SignedCopyUpload choice={choice} noun="order" />
           </Column>
         ) : flow.stage === "done" ? (
-          <Column>
-            <SignedCard
-              list={list}
-              headline={signedWith ? SIGNED_WITH[signedWith] : "Signed"}
-            />
-          </Column>
+          <SignedCard
+            title={title}
+            list={list}
+            headline={signedWith ? SIGNED_WITH[signedWith] : "Signed"}
+          />
         ) : null}
       </div>
     </StagedOverlay>
@@ -481,41 +485,42 @@ function OrderList({ list }: { list: SignOrder[] }) {
 }
 
 /**
- * What just happened, on the thing it happened to — the product's settled card: the
- * outcome across the top in the success pair, the orders it happened to beneath, and
- * where they went.
+ * What just happened, on the thing it happened to: the outcome takes the window over (the
+ * mark, then the title, owner Oct 29), then the orders it happened to in a well labelled
+ * with how they were signed (skill `feedback-states`).
  */
 function SignedCard({
+  title,
   list,
   headline,
 }: {
+  title: string;
   list: SignOrder[];
   headline: string;
 }) {
   return (
-    <div
-      className={cn(
-        "overflow-hidden rounded-xl border border-hairline bg-card shadow-raised",
-        RESOLVE_IN_PLACE,
-      )}
-    >
-      <div className="flex items-center gap-2 bg-success-muted px-4 py-2.5 text-body-compact text-success-muted-foreground">
-        <CircleCheckIcon aria-hidden className="size-4 shrink-0" />
-        <span role="status" className="font-medium">
-          {headline}
-        </span>
+    <>
+      <OutcomeHeader
+        titleFrom="dialog"
+        focusTitle
+        surface="card"
+        title={title}
+        body={
+          list.length === 1
+            ? "Published to its case file."
+            : "Each is published to its own case file."
+        }
+      />
+      <div className="mx-auto flex w-full max-w-xl flex-col p-4 sm:p-6">
+        <OutcomeSummary tone="success" label={headline}>
+          <ul className="flex flex-col">
+            {list.map((order) => (
+              <OrderRow key={order.id} order={order} />
+            ))}
+          </ul>
+        </OutcomeSummary>
       </div>
-      <ul className="flex flex-col px-4">
-        {list.map((order) => (
-          <OrderRow key={order.id} order={order} />
-        ))}
-      </ul>
-      <p className="border-t border-hairline px-4 py-3 text-body-compact text-muted-foreground">
-        {list.length === 1
-          ? "Published to its case file."
-          : "Each is published to its own case file."}
-      </p>
-    </div>
+    </>
   );
 }
 

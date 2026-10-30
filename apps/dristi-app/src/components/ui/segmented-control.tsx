@@ -35,12 +35,15 @@ const SegmentedControlContext = React.createContext<{
 }>({ size: "default" })
 
 /**
+ * The pill sits the same distance from the well on every side and from its neighbours
+ * (`--segment-inset`), so its corners stay parallel to the well's.
+ *
  * Both sizes keep a 40px row and a 40px hit target; only the *visible* well and pill
  * shrink. The well is a pseudo-element rather than the root's own background so the
  * items can stay full height underneath it.
  */
 const segmentedControlVariants = cva(
-  "relative flex h-10 w-fit flex-row items-center gap-0 before:pointer-events-none before:absolute before:inset-x-0 before:rounded-lg before:border before:border-hairline before:bg-surface-sunken",
+  "relative flex h-10 w-fit flex-row items-center gap-(--segment-inset) px-(--segment-inset) before:pointer-events-none before:absolute before:inset-x-0 before:rounded-lg before:border before:border-hairline before:bg-surface-sunken",
   {
     variants: {
       size: {
@@ -59,9 +62,9 @@ const segmentedControlItemVariants = cva(
   {
     variants: {
       size: {
-        default: "min-w-16 px-0.5 data-[state=on]:font-semibold data-[state=on]:text-foreground",
+        default: "min-w-16 px-0 data-[state=on]:font-semibold data-[state=on]:text-foreground",
         compact:
-          "min-w-10 px-0.5 font-medium data-[state=on]:font-semibold data-[state=on]:text-foreground",
+          "min-w-10 px-0 font-medium data-[state=on]:font-semibold data-[state=on]:text-foreground",
       },
     },
     defaultVariants: { size: "default" },

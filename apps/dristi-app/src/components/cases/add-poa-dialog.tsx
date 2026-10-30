@@ -22,6 +22,7 @@
  * case-screen style and was rejected (Sept 1).
  */
 
+import { FileXIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import {
@@ -70,6 +71,7 @@ import {
   POA_REASON_MAX_LENGTH,
   type PartyOption,
 } from "@/lib/cases/party-actions";
+import { ConfirmMark } from "@/components/feedback";
 
 type PoaStep = 1 | 2 | 3;
 
@@ -565,6 +567,7 @@ export function AddPoaDialog({
       >
         <ChromeAlertDialogContent>
           <AlertDialogHeader>
+            <ConfirmMark danger icon={FileXIcon} />
             <AlertDialogTitle>Discard this application?</AlertDialogTitle>
             <AlertDialogDescription>
               The details entered here will be lost if you discard this draft.
@@ -572,7 +575,7 @@ export function AddPoaDialog({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Keep editing</AlertDialogCancel>
-            <AlertDialogAction variant="destructive-solid" onClick={closeClean}>
+            <AlertDialogAction variant="destructive" onClick={closeClean}>
               Discard draft
             </AlertDialogAction>
           </AlertDialogFooter>

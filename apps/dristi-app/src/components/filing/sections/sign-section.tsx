@@ -28,7 +28,13 @@ import * as React from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { notify, OutcomeAmount, OutcomeHeader, OutcomeSummary } from "@/components/feedback";
+import {
+  DescriptionDetails,
+  DescriptionList,
+  DescriptionRow,
+  DescriptionTerm,
+} from "@/components/ui/description-list";
 import {
   BellIcon,
   CheckIcon,
@@ -37,6 +43,10 @@ import {
   PrinterIcon,
   SignatureIcon,
   UploadIcon,
+  PenOffIcon,
+  SendIcon,
+  FileXIcon,
+  LockIcon,
 } from "lucide-react";
 
 import { signingRules } from "@/lib/filing/config";
@@ -463,6 +473,8 @@ export function SignSection() {
   const allSigned = everyone.length > 0 && everyone.every((s) => s.status === "signed");
   /** Signatures *and* oaths — what the court fee actually waits on. */
   const complete = everyone.length > 0 && !everyone.some(isOutstanding);
+  /* Already complete when the page opened: the notice stands still (skill `feedback-states`). */
+  const [completeOnOpen] = React.useState(complete);
   const anySigned = everyone.some((s) => s.status === "signed");
   const pending = everyone.filter((s) => s.status === "pending").length;
   /** Complainants who have signed and not yet sworn — advocates carry no oath (`OTH-3`). */
@@ -833,10 +845,6 @@ export function SignSection() {
           Print or save as PDF
         </Button>
       </div>
-
-      <p className="text-caption text-muted-foreground">
-        Sandbox: this filing has not been sent to a real court.
-      </p>
     </div>
   );
 
@@ -915,7 +923,7 @@ export function SignSection() {
   ) : complete ? (
     /* ── Every signature and oath is in ── */
     <div className="flex flex-col gap-3">
-      <SectionNotice variant="success" announce="polite">
+      <SectionNotice variant="success" announce="polite" still={completeOnOpen}>
         {onPaper ? "The uploaded copy carries every signature" : "Every party has signed"}
         {signingRules().oath ? ", and everyone has taken the oath." : "."}{" "}
         {returned ? "You can send the corrections to scrutiny now." : "You can pay the court fee now."}
@@ -1060,7 +1068,7 @@ export function SignSection() {
   const sendBack = async () => {
     setSendOpen(false);
     if (!returnTask) {
-      toast.error("The scrutiny return for this filing could not be found.");
+      notify.error("The scrutiny return for this filing could not be found.");
       return;
     }
     const done = await act(returnTask.id, refile, "Corrections sent to scrutiny");
@@ -1162,11 +1170,11 @@ export function SignSection() {
           showSaveState={false}
           onContinue={() => {
             if (resubmitted) {
-              toast("These corrections have already been sent to scrutiny.");
+              notify.neutral("These corrections have already been sent to scrutiny.", { icon: SendIcon });
               return;
             }
             if (!complete) {
-              toast(payGate);
+              notify.neutral(payGate, { icon: LockIcon });
               return;
             }
             if (returned) {
@@ -1476,10 +1484,6 @@ export function SignSection() {
             Pay {money(bill.total)} online
           </Button>
 
-          <p className="text-caption text-muted-foreground">
-            Sandbox payment. No money moves.
-          </p>
-
           <DialogFooter>
             <Button
               type="button"
@@ -1508,9 +1512,6 @@ export function SignSection() {
             <DialogDescription className="text-body-compact">
               Please don’t close or refresh this window while we confirm your payment.
             </DialogDescription>
-            <p className="text-caption text-muted-foreground">
-              Sandbox payment. No money moves.
-            </p>
           </div>
         </ChromeDialogContent>
       </Dialog>
@@ -1521,72 +1522,64 @@ export function SignSection() {
           showCloseButton={false}
           className="gap-0 overflow-hidden p-0 sm:max-w-lg"
         >
-          <div className="flex flex-col items-center gap-2 bg-success p-6 text-center text-success-foreground">
-            <span className="flex size-12 items-center justify-center rounded-full bg-success-foreground text-success">
-              <CheckIcon className="size-6" aria-hidden />
-            </span>
-            <DialogTitle className="text-title-s font-semibold">
-              Payment successful
-            </DialogTitle>
-            <DialogDescription className="text-body-compact text-success-foreground">
-              Your case file is complete. This is a sandbox. Nothing has been sent to a
-              real court.
-            </DialogDescription>
-          </div>
+          {/* The filing's outcome takes over the window (skill `feedback-states`). */}
+          <OutcomeHeader
+            compact
+            titleFrom="dialog"
+            title="Payment successful"
+            body="Your case file is complete."
+          >
+            <OutcomeAmount label="Amount paid" value={money(sign.paidAmount ?? bill.total)} />
+          </OutcomeHeader>
 
           <div className="flex flex-col gap-4 p-6">
-            <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg bg-surface-sunken p-4">
-              <div>
-                <p className="text-caption font-medium text-muted-foreground">
-                  Case file number
-                </p>
-                <p className="text-body font-semibold">
-                  {sign.caseFileNumber ? (
-                    <Identifier value={sign.caseFileNumber} label="case file number" />
-                  ) : (
-                    <span className="tabular-nums">—</span>
-                  )}
-                </p>
-              </div>
-              <Button type="button" variant="ghost" onClick={copyLink}>
-                <CopyIcon data-icon="inline-start" aria-hidden />
-                {copied ? "Copied" : "Copy link"}
-              </Button>
-            </div>
+            <OutcomeSummary>
+              <DescriptionList>
+                <DescriptionRow className="items-center border-hairline">
+                  <DescriptionTerm>Case file number</DescriptionTerm>
+                  <DescriptionDetails className="flex flex-wrap items-center justify-end gap-2">
+                    {sign.caseFileNumber ? (
+                      <Identifier value={sign.caseFileNumber} label="case file number" />
+                    ) : (
+                      <span className="tabular-nums">—</span>
+                    )}
+                    <Button type="button" variant="ghost" onClick={copyLink}>
+                      <CopyIcon data-icon="inline-start" aria-hidden />
+                      {copied ? "Copied" : "Copy link"}
+                    </Button>
+                  </DescriptionDetails>
+                </DescriptionRow>
+                <DescriptionRow className="border-hairline">
+                  <DescriptionTerm>Payment reference</DescriptionTerm>
+                  <DescriptionDetails>
+                    {sign.paymentRef ? (
+                      <Identifier value={sign.paymentRef} label="payment reference" />
+                    ) : (
+                      "—"
+                    )}
+                  </DescriptionDetails>
+                </DescriptionRow>
+              </DescriptionList>
+            </OutcomeSummary>
 
-            <div className="flex items-center justify-between gap-4 text-body-compact">
-              <span className="text-muted-foreground">Amount paid</span>
-              <span className="font-semibold text-foreground tabular-nums">
-                {money(sign.paidAmount ?? bill.total)}
-              </span>
-            </div>
-            <div className="flex items-center justify-between gap-4 text-body-compact">
-              <span className="text-muted-foreground">Payment reference</span>
-              <span className="text-foreground">
-                {sign.paymentRef ? (
-                  <Identifier value={sign.paymentRef} label="payment reference" />
-                ) : (
-                  "—"
-                )}
-              </span>
-            </div>
-
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <Button asChild variant="outline" size="lg" className="flex-1">
-                <Link href={FILINGS_HOME}>Back to dashboard</Link>
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="lg"
-                className="flex-1"
-                onClick={printFile}
-              >
-                <PrinterIcon data-icon="inline-start" aria-hidden />
-                Print or save as PDF
-              </Button>
-            </div>
           </div>
+
+          {/* The warm band every outcome dialog closes on. */}
+          <footer className="flex shrink-0 flex-col gap-3 border-t border-hairline bg-surface-sunken px-6 pt-4 pb-[calc(--spacing(4)+env(safe-area-inset-bottom))] sm:flex-row">
+            <Button asChild variant="outline" size="lg" className="sm:flex-1">
+              <Link href={FILINGS_HOME}>Back to dashboard</Link>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              className="sm:flex-1"
+              onClick={printFile}
+            >
+              <PrinterIcon data-icon="inline-start" aria-hidden />
+              Print or save as PDF
+            </Button>
+          </footer>
         </ChromeDialogContent>
       </Dialog>
 
@@ -1612,6 +1605,7 @@ export function SignSection() {
         }
         confirmLabel={anySigned ? "Go back and re-sign" : "Go back and recall"}
         cancelLabel="Stay here"
+        icon={PenOffIcon}
         onConfirm={confirmLeave}
       />
 
@@ -1624,6 +1618,7 @@ export function SignSection() {
         confirmLabel="Send to scrutiny"
         cancelLabel="Not yet"
         destructive={false}
+        icon={SendIcon}
         onConfirm={() => void sendBack()}
       />
 
@@ -1639,6 +1634,7 @@ export function SignSection() {
         }
         confirmLabel="E-sign instead"
         cancelLabel="Keep the physical document"
+        icon={FileXIcon}
         onConfirm={backToDigital}
       />
     </>

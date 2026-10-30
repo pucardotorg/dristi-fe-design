@@ -18,7 +18,7 @@
  */
 
 import * as React from "react";
-import { ArrowLeftIcon, ClockIcon } from "lucide-react";
+import { ArrowLeftIcon, } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -58,6 +58,7 @@ import {
 import type { RejectedRegistration } from "@/lib/registration/rejection";
 import { cn } from "@/lib/utils";
 import { Identifier } from "@/components/chrome/identifier";
+import { PageOutcome } from "@/components/feedback";
 
 type Step = "name" | "contact" | "verification" | "success" | "application";
 type StepKey = (typeof STEP_KEYS)[number];
@@ -158,24 +159,18 @@ export function ResubmissionFlow({
 
   if (step === "success") {
     return (
-      <div className="mx-auto flex min-h-[60vh] w-full max-w-lg flex-col items-center justify-center gap-6 text-center">
-        <span className="flex size-14 items-center justify-center rounded-full bg-warning-muted text-warning-muted-foreground">
-          <ClockIcon className="size-7" aria-hidden />
-        </span>
-        <div className="flex flex-col items-center gap-2 text-center">
-          <h1 className="text-title text-balance font-semibold">
-            {pick(rejectionUi.resubmittedTitle, locale)}
-          </h1>
-          <p className="text-body text-pretty text-muted-foreground">
-            {pick(rejectionUi.resubmittedBody, locale).replace(
-              "{id}",
-              rejection.applicationId
-            )}
-          </p>
-        </div>
-        <Button size="lg" onClick={() => setStep("application")}>
-          {pick(approvalStep.action, locale)}
-        </Button>
+      /* Sent back to the court, not decided yet: the hourglass. */
+      <div className="mx-auto flex min-h-[60vh] w-full max-w-lg flex-col justify-center">
+        <PageOutcome
+          tone="info"
+          title={pick(rejectionUi.resubmittedTitle, locale)}
+          body={pick(rejectionUi.resubmittedBody, locale).replace("{id}", rejection.applicationId)}
+          action={
+            <Button size="lg" onClick={() => setStep("application")}>
+              {pick(approvalStep.action, locale)}
+            </Button>
+          }
+        />
       </div>
     );
   }
@@ -227,16 +222,7 @@ export function ResubmissionFlow({
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 md:gap-10">
       <div className="mx-auto w-full max-w-2xl">
         <Stepper
-          className={cn(
-            "w-full",
-            "[&_[data-slot=stepper-item]]:items-center",
-            "[&_[data-slot=stepper-item]>div:first-child]:relative [&_[data-slot=stepper-item]>div:first-child]:justify-center",
-            "[&_[data-slot=stepper-connector]]:absolute [&_[data-slot=stepper-connector]]:top-4 [&_[data-slot=stepper-connector]]:left-[calc(50%+1rem)] [&_[data-slot=stepper-connector]]:mx-0 [&_[data-slot=stepper-connector]]:h-px [&_[data-slot=stepper-connector]]:w-[calc(100%-2rem)]",
-            /* Three short labels fit a phone, so they stay at every width —
-               the full registration hides its six below md, this does not. */
-            "[&_[data-slot=stepper-item]>div:last-child]:w-full [&_[data-slot=stepper-item]>div:last-child]:pr-0 [&_[data-slot=stepper-item]>div:last-child]:text-center"
-          )}
-          aria-label={pick(registrationUi.stepOf, locale)
+                    aria-label={pick(registrationUi.stepOf, locale)
             .replace("{current}", String(stepIndex + 1))
             .replace("{total}", String(STEP_KEYS.length))}
         >

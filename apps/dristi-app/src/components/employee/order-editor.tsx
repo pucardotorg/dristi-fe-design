@@ -3,8 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { PanelRightIcon } from "lucide-react";
-import { toast } from "sonner";
+import { FileXIcon, PanelRightIcon, PencilLineIcon, Trash2Icon, Undo2Icon } from "lucide-react";
 
 import { Identifier } from "@/components/chrome/identifier";
 import {
@@ -120,6 +119,7 @@ import {
   orderTypeOf,
 } from "@/lib/employee/order-type";
 import { cn } from "@/lib/utils";
+import { ConfirmMark, IrreversibleNote, notify } from "@/components/feedback";
 
 /* ───────────────────────────────── the header ───────────────────────────────── */
 
@@ -644,7 +644,10 @@ export function OrderWorkflowFields({
 
   function reasonFor(template: OrderTemplate): string | null {
     return (
-      unavailableReason(template, { hearingOngoing: inHearing }) ??
+      unavailableReason(template, {
+        hearingOngoing: inHearing,
+        hearingScheduled: Boolean(context.scheduledHearing),
+      }) ??
       combinationConflict(
         template.id,
         items.map((block) => ({
@@ -1027,13 +1030,14 @@ export function OrderEditorComposer({
   function finish() {
     if (empty) {
       setView("order");
-      toast("Type the order before sending it for signing.");
+      notify.neutral("Type the order before sending it for signing.", { icon: PencilLineIcon });
       return;
     }
     if (appearances && !postingSettled(draft)) {
       setView("order");
-      toast(
+      notify.neutral(
         "Set the next hearing’s date and purpose, or tick Not listed again.",
+        { icon: PencilLineIcon },
       );
       window.requestAnimationFrame(() =>
         window.document.getElementById("order-next-hearing")?.focus(),
@@ -1251,8 +1255,9 @@ export function OrderEditorComposer({
                 moveOrderBackToDraft(queue.key, signing);
                 returnOrderToDraft(queue.key);
                 setView("order");
-                toast(
+                notify.neutral(
                   "Back to draft. Send it for signing again when it is ready.",
+                  { icon: Undo2Icon },
                 );
               }}
             >
@@ -1337,20 +1342,25 @@ export function OrderEditorComposer({
       <AlertDialog open={askDiscard} onOpenChange={setAskDiscard}>
         <AlertDialogContent>
           <AlertDialogHeader>
+            <ConfirmMark danger icon={FileXIcon} />
             <AlertDialogTitle>Discard this draft?</AlertDialogTitle>
             <AlertDialogDescription>
-              Its text and order data are removed, and it leaves Pending orders. Nothing is
-              issued or recorded on the case. This cannot be undone.
+              <span className="block">
+                Its text and order data are removed, and it leaves Pending orders. Nothing is
+                issued or recorded on the case.
+              </span>
+              <IrreversibleNote>This cannot be undone.</IrreversibleNote>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Keep the draft</AlertDialogCancel>
             <AlertDialogAction
+              variant="destructive"
               onClick={() => {
                 setDraft(() => EMPTY_ORDER_DRAFT);
                 removePendingOrder(queue.key);
                 setView("order");
-                toast("Draft discarded.");
+                notify.neutral("Draft discarded.", { icon: Trash2Icon });
               }}
             >
               Discard draft

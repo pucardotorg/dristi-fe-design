@@ -2,10 +2,10 @@
 
 import * as React from "react";
 import { CheckIcon, CopyIcon } from "lucide-react";
-import { toast } from "sonner";
 
 import { useCaseNumber } from "@/components/court/court-provider";
 import { cn } from "@/lib/utils";
+import { notify } from "@/components/feedback";
 
 /**
  * A unique identifier, in the one treatment the product gives them: monospaced, with
@@ -124,11 +124,11 @@ export function Identifier({
         setCopied(true);
         if (timer.current) window.clearTimeout(timer.current);
         timer.current = window.setTimeout(() => setCopied(false), 1600);
-        toast(
+        notify.neutral(
           <span>
             Copied <span className="font-mono tabular-nums">{value}</span>
           </span>,
-          { icon: <CopyIcon className="size-4" aria-hidden /> }
+          { icon: CopyIcon },
         );
       })
       .catch(() => {

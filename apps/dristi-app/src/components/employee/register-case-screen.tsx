@@ -384,7 +384,7 @@ function useComplaintTab(): [ComplaintTab, (next: ComplaintTab) => void] {
  * cause title above it.
  */
 const TRIGGER =
-  "h-full flex-none px-0 text-body-compact group-data-horizontal/tabs:after:-bottom-px";
+  "h-full flex-none group-data-[variant=line]/tabs-list:px-0 text-body-compact";
 
 function ComplaintTabs({
   tab,

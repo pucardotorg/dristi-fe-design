@@ -11,7 +11,7 @@
  */
 
 import * as React from "react";
-import { SendIcon } from "lucide-react";
+import { SaveIcon, SendIcon } from "lucide-react";
 
 import { ChromeAlertDialogContent } from "@/components/chrome/app-chrome";
 
@@ -42,6 +42,7 @@ import {
   RecordCard,
   signatoryLine,
 } from "@/components/tasks/act/shared";
+import { StatusLine } from "@/components/feedback";
 
 /** The slots, editable while the task is open to this person. */
 function Documents({
@@ -105,11 +106,12 @@ function Documents({
 /** A signatory's rail: file with the court, or save what is attached for later. */
 function FileCard({ ctx, files, complete }: { ctx: ActContext; files: StoredFileRef[]; complete: boolean }) {
   const { task, online, finish } = ctx;
-  const { act, busy } = useTaskActions();
+  const { act, busy, error } = useTaskActions({ inDialog: true });
   const [confirm, setConfirm] = React.useState(false);
   const n = files.length;
   return (
     <RailCard title="File with the court" description={signatoryLine(ctx, "Filing")}>
+      {error ? <StatusLine tone="error">{error}</StatusLine> : null}
       <PreparedNote ctx={ctx} />
       <div className="flex flex-col gap-2">
         <Button size="lg" disabled={!online || !!busy || !complete} onClick={() => setConfirm(true)}>
@@ -122,19 +124,18 @@ function FileCard({ ctx, files, complete }: { ctx: ActContext; files: StoredFile
         <Button
           variant="ghost"
           disabled={!online || !!busy}
-          onClick={() => void act(task.id, (t, c) => saveDraft(t, c, undefined, files), "Saved as a draft")}
+          onClick={() => void act(task.id, (t, c) => saveDraft(t, c, undefined, files), { title: "Saved as a draft", icon: SaveIcon })}
         >
           Save for later
         </Button>
       </div>
-      <p className="text-caption text-muted-foreground">Sandbox — nothing reaches the registry.</p>
       <AlertDialog open={confirm} onOpenChange={setConfirm}>
         <ChromeAlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>File with the court?</AlertDialogTitle>
             <AlertDialogDescription>
-              {n === 1 ? "1 document goes" : `${n} documents go`} to the registry for scrutiny. In the live
-              service this cannot be recalled; defects come back as a new task.
+              {n === 1 ? "1 document goes" : `${n} documents go`} to the registry for scrutiny. This cannot be
+              recalled; defects come back as a new task.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

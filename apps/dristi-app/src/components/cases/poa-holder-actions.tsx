@@ -21,8 +21,7 @@ import { useMemo, useState } from "react";
 import {
   EllipsisVerticalIcon,
   Trash2Icon,
-  UserRoundPenIcon,
-} from "lucide-react";
+  UserRoundPenIcon, FileXIcon } from "lucide-react";
 
 import {
   AlertDialog,
@@ -71,6 +70,7 @@ import {
   UploadedDocField,
 } from "@/components/cases/uploaded-doc-field";
 import { POA_REASON_MAX_LENGTH } from "@/lib/cases/party-actions";
+import { ConfirmMark } from "@/components/feedback";
 
 /** Someone already on the case who could take the role over (scenario 8). */
 export type ExistingPersonOption = { key: string; name: string; detail: string };
@@ -823,6 +823,7 @@ function DiscardConfirm({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <ChromeAlertDialogContent>
         <AlertDialogHeader>
+          <ConfirmMark danger icon={FileXIcon} />
           <AlertDialogTitle>Discard this application?</AlertDialogTitle>
           <AlertDialogDescription>
             The details entered here will be lost if you discard this draft.
@@ -830,7 +831,7 @@ function DiscardConfirm({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Keep editing</AlertDialogCancel>
-          <AlertDialogAction variant="destructive-solid" onClick={onDiscard}>
+          <AlertDialogAction variant="destructive" onClick={onDiscard}>
             Discard draft
           </AlertDialogAction>
         </AlertDialogFooter>

@@ -5,6 +5,7 @@ import { TaskViewDialog } from "@/components/tasks/act/task-view-dialog";
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { ArrowRightIcon, ListChecksIcon } from "lucide-react";
 
 import { verbFor } from "@/lib/tasks/permissions";
 import { caseOf } from "@/lib/tasks/selectors";
@@ -140,6 +141,7 @@ export function useTaskAct() {
         description={flowNotice ? FLOW_DIALOG[flowNotice.flow].description : undefined}
         confirmLabel="Continue"
         destructive={false}
+        icon={ArrowRightIcon}
         onConfirm={() => {
           const notice = flowNotice;
           setFlowNotice(null);
@@ -158,6 +160,7 @@ export function useTaskAct() {
         }
         confirmLabel="Mark as done"
         destructive={false}
+        icon={ListChecksIcon}
         onConfirm={() => {
           const task = confirmDone;
           setConfirmDone(null);

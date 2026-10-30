@@ -1,8 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { CheckCircle2Icon, SearchIcon } from "lucide-react";
-import { toast } from "sonner";
+import { SearchIcon, UserXIcon } from "lucide-react";
 
 import {
   AlertDialog,
@@ -43,6 +42,7 @@ import {
   type AccessPerson,
 } from "@/lib/access/content";
 import { Identifier } from "@/components/chrome/identifier";
+import { ConfirmMark, StatusLine, notify } from "@/components/feedback";
 
 /**
  * The share-access modal — the single surface behind every entry point.
@@ -137,7 +137,7 @@ export function ShareDialog({
     if (personId.startsWith("derived-")) {
       setRemovedDerived((current) => new Set(current).add(personId));
     }
-    toast.success(
+    notify.success(
       fillCopy(peopleCopy.removedNote, locale, {
         name: confirmTarget.name,
         case: caseLabel(single),
@@ -151,7 +151,7 @@ export function ShareDialog({
     if (!batch.length) return;
     const result = invite(batch.map((c) => c.phone ?? ""), cases.map((c) => c.id));
     setResult(result);
-    toast.success(fill(shareCopy.inviteToast, locale, { names: result.names.join(", ") }));
+    notify.success(fill(shareCopy.inviteToast, locale, { names: result.names.join(", ") }));
     setChips([]);
   }
 
@@ -232,8 +232,9 @@ export function ShareDialog({
             </div>
 
             {result ? (
-              <p className="flex items-start gap-1.5 rounded-lg border border-success bg-success-muted px-3 py-2 text-body-compact font-medium text-success-muted-foreground">
-                <CheckCircle2Icon className="mt-0.5 size-4 shrink-0" aria-hidden />
+              /* The toast announces the send and plays the mark; this line is the record
+                 of it in the window, so it stands still. */
+              <StatusLine tone="success" still>
                 <span>
                   {pick(shareCopy.sentNote, locale)} {result.names.join(", ")}
                   {bulk ? (
@@ -253,7 +254,7 @@ export function ShareDialog({
                     </>
                   ) : null}
                 </span>
-              </p>
+              </StatusLine>
             ) : null}
           </div>
 
@@ -318,6 +319,7 @@ export function ShareDialog({
       >
         <ChromeAlertDialogContent>
           <AlertDialogHeader>
+            <ConfirmMark danger icon={UserXIcon} />
             <AlertDialogTitle>
               {fillCopy(peopleCopy.removeOneTitle, locale, {
                 name: confirmTarget?.name ?? "",

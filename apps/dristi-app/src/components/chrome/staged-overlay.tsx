@@ -128,6 +128,14 @@ export function StagedOverlay({
    * instead, which is how every other overlay in the product does it.
    */
   surface = "canvas",
+  /**
+   * **The settled stage.** The outcome takes the window over the way it does in every
+   * other dialog: the mark on top, the title under it, then the facts (owner, Oct 29,
+   * superseding the "header on every stage" rule above for this one stage). The header
+   * steps aside, the stage turns to the overlay's own white with no padding, and the
+   * scene renders an `OutcomeHeader` with `titleFrom="dialog"` as the window's title.
+   */
+  outcome = false,
   /** The stages themselves — one scene's worth at a time. */
   children,
   /** The footer, which is chrome and therefore does not move. */
@@ -153,6 +161,7 @@ export function StagedOverlay({
   floor?: boolean;
   padded?: boolean;
   surface?: "canvas" | "card";
+  outcome?: boolean;
   footer?: React.ReactNode;
 }) {
   /* The frame's own handle on the title, so the landing place below works whether or not
@@ -215,6 +224,7 @@ export function StagedOverlay({
           a success panel can carry its own heading is precisely the moment an overlay
           stops looking like the overlay. `pr-16` keeps the title clear of the ghost close
           button the DS places top-right. */}
+      {outcome ? null : (
       <DialogHeader
         key={headerKey}
         className={cn(
@@ -241,6 +251,7 @@ export function StagedOverlay({
           description
         )}
       </DialogHeader>
+      )}
 
       {/* The stage — **the only thing in this window that moves.** By default a tinted
           canvas under white cards: the scoped work canvas the order screen and the filing
@@ -259,8 +270,11 @@ export function StagedOverlay({
       <div
         className={cn(
           "relative flex min-h-0 flex-1 flex-col overflow-hidden",
-          surface === "card" ? "bg-card" : "bg-muted dark:bg-background",
+          surface === "card" || outcome ? "bg-card" : "bg-muted dark:bg-background",
+          /* The settled stage drops the floor: a short outcome over an empty canvas reads
+             as a hole, and nothing follows it that the floor would be holding room for. */
           floor &&
+            !outcome &&
             "sm:[@media(min-height:680px)]:min-h-96 sm:[@media(min-height:720px)]:min-h-112",
         )}
       >
@@ -271,7 +285,7 @@ export function StagedOverlay({
           key={sceneKey}
           className={cn(
             "flex min-h-0 flex-1 flex-col overflow-y-auto",
-            padded && "p-4 sm:p-6",
+            padded && !outcome && "p-4 sm:p-6",
             STAGE_SLIDE[motion],
           )}
         >
@@ -283,7 +297,14 @@ export function StagedOverlay({
           stage the two would merge into one grey band and the footer would stop reading as
           a separate register from the work. */}
       {footer ? (
-        <DialogFooter className="mx-0 mb-0 shrink-0 border-hairline bg-card">
+        /* On the settled stage the stage is white, so the footer goes back to the
+           DS's own warm band and divider, as under every other outcome dialog. */
+        <DialogFooter
+          className={cn(
+            "mx-0 mb-0 shrink-0 border-hairline",
+            outcome ? "bg-surface-sunken" : "bg-card",
+          )}
+        >
           {footer}
         </DialogFooter>
       ) : null}

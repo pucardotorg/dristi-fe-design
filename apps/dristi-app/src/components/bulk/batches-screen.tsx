@@ -29,7 +29,6 @@ import {
   PAGE_SUBTITLE,
   PAGE_TITLE,
 } from "@/components/shell/page-frame";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -58,6 +57,7 @@ import { useCourt } from "@/components/court/court-provider";
 import { bulkApi, type BatchSummary } from "./api";
 import { useGujarat } from "./court-guard";
 import { StageBar } from "./stage";
+import { StatusLine } from "@/components/feedback";
 
 export async function downloadTemplate() {
   const blob = await buildTemplate();
@@ -293,9 +293,7 @@ export function BatchesScreen() {
       </header>
 
       {error ? (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
+        <StatusLine tone="error">{error}</StatusLine>
       ) : null}
 
       <Card className={cn(PANEL_CLASS, "gap-0 py-0")}>

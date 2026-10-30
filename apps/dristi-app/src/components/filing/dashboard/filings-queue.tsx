@@ -726,8 +726,8 @@ export function FilingsQueue({
               if (!isQueueTab(value)) return;
               go({ tab: value, sort: defaultSortFor(value), page: 1 });
             }}
-            className="h-10 w-full justify-start rounded-none p-0 group-data-horizontal/tabs:h-10"
-            triggerClassName="h-10 flex-none gap-2 px-3 text-body-compact group-data-horizontal/tabs:after:-bottom-px"
+            className="h-10 w-full justify-start rounded-none"
+            triggerClassName="h-10 flex-none gap-2 text-body-compact"
             items={QUEUE_TABS.map((entry) => {
               const count = ready ? String(data[entry.id].length) : "–";
               return {

@@ -1,14 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { CircleCheckIcon } from "lucide-react";
 
 import {
   StagedOverlay,
   useStagedFlow,
 } from "@/components/chrome/staged-overlay";
 import { Identifier } from "@/components/chrome/identifier";
-import { RESOLVE_IN_PLACE } from "@/components/chrome/motion";
 import { PANEL_CLASS } from "@/components/shell/panel";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -39,6 +37,7 @@ import {
 } from "@/lib/employee/sign-process";
 import { cn } from "@/lib/utils";
 import { useCourt, useCourtText } from "@/components/court/court-provider";
+import { OutcomeHeader } from "@/components/feedback";
 
 /** The covers being marked, then what was recorded — one scene, settling in place. */
 type Stage = "record" | "done";
@@ -220,6 +219,8 @@ function RecordReturnsBody({
       sceneKey={flow.sceneKey}
       motion={flow.motion}
       floor
+      /* The settled stage takes the window over: mark, then title (owner, Oct 29). */
+      outcome={done}
       onCloseAutoFocus={(event) => {
         event.preventDefault();
         const trigger = triggerRef.current;
@@ -255,23 +256,24 @@ function RecordReturnsBody({
       }
     >
       {done ? (
-        /* The product's success band — solid fill and a tick — in the window the covers
-           were marked in, saying what was recorded and where the covers are now. */
-        <div className="my-auto flex w-full flex-col">
-          <p
-            role="status"
-            className={cn(
-              "flex items-start gap-2 rounded-lg bg-success px-4 py-3 text-body text-success-foreground",
-              RESOLVE_IN_PLACE,
-            )}
-          >
-            <CircleCheckIcon aria-hidden className="mt-0.5 size-5 shrink-0" />
-            <span>
+        /* What was recorded and where the covers are now, as the window's outcome
+           (skill `feedback-states`). */
+        <OutcomeHeader
+          titleFrom="dialog"
+          focusTitle
+          surface="card"
+          title={ACT.done(subject)}
+          body={
+            <>
               {tally.served} served, {tally.total - tally.served} not served.{" "}
               {tally.total === 1 ? "It is" : "They are"} now in Completed in Service.
-            </span>
-          </p>
-        </div>
+            </>
+          }
+        >
+          <span className="text-caption text-muted-foreground tabular-nums">
+            Across {cases} {plural(cases, "case", "cases")}
+          </span>
+        </OutcomeHeader>
       ) : (
         <div className="flex w-full flex-col gap-6">
           <DialogDescription className="text-body text-muted-foreground">

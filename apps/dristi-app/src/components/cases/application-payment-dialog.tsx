@@ -13,6 +13,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { filingNoun, type ApplicationRecord } from "@/lib/cases/application-record";
+import { OutcomeHeader } from "@/components/feedback";
+import { cn } from "@/lib/utils";
 
 /** Dummy court fee per application, from the legacy portal's payment screen. */
 const FEE_RUPEES = 20;
@@ -70,6 +72,29 @@ function PaymentBody({
 
   return (
     <FlowDialogContent className="flex max-h-[calc(100dvh---spacing(12))] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
+      {paid ? (
+        /* The payment's outcome takes the window over (skill `feedback-states`). */
+        <OutcomeHeader
+          compact
+          titleFrom="dialog"
+          focusTitle
+          title="Payment complete"
+          body={
+            <>
+              Court fee of {total} paid.{" "}
+              {count === 1
+                ? `The ${filingNoun(applications)} is submitted.`
+                : `All ${count} ${filingNoun(applications)} are submitted.`}
+            </>
+          }
+        >
+          <span className="text-caption font-medium text-muted-foreground">
+            {count === 1
+              ? applications[0].typeLabel
+              : `${count} ${filingNoun(applications)}, one payment`}
+          </span>
+        </OutcomeHeader>
+      ) : (
       <DialogHeader className="gap-1 border-b border-hairline px-6 py-4 text-left">
         <DialogTitle
           ref={titleRef}
@@ -84,19 +109,13 @@ function PaymentBody({
             : `${count} ${filingNoun(applications)}, one payment`}
         </DialogDescription>
       </DialogHeader>
+      )}
 
       {/* The body is the well and the fee breakdown is the sheet on it, not
           the other way round: the amounts are what the dialog is for, so they
           get the white (owner, Sept 18). */}
       <div className="flex min-h-0 flex-col gap-4 overflow-y-auto bg-surface-sunken px-6 py-4">
-        {paid ? (
-          <Banner variant="success">
-            Court fee of {total} paid.{" "}
-            {count === 1
-              ? `The ${filingNoun(applications)} is submitted.`
-              : `All ${count} ${filingNoun(applications)} are submitted.`}
-          </Banner>
-        ) : (
+        {paid ? null : (
           <Banner variant="info">
             Please visit the Nyay Mitra to make this payment offline.
           </Banner>
@@ -121,7 +140,7 @@ function PaymentBody({
         </dl>
       </div>
 
-      <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-hairline px-6 py-4 sm:flex-row sm:justify-end">
+      <div className={cn("flex shrink-0 flex-col-reverse gap-2 border-t border-hairline px-6 py-4 sm:flex-row sm:justify-end", paid && "bg-surface-sunken")}>
         {paid ? (
           <Button
             type="button"

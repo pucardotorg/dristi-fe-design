@@ -5,7 +5,8 @@ import { TaskViewDialog } from "@/components/tasks/act/task-view-dialog";
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { ArchiveIcon, ArchiveRestoreIcon, ArrowRightIcon, ListChecksIcon } from "lucide-react";
+import { StatusLine, notify } from "@/components/feedback";
 
 import {
   applyFilters,
@@ -26,7 +27,6 @@ import { useTasks } from "@/lib/tasks/store";
 import { archive, markDone, unarchive } from "@/lib/tasks/transitions";
 import type { TaskCategory, Task, TaskId, TaskView, Verb } from "@/lib/tasks/types";
 import { cn } from "@/lib/utils";
-import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { OverflowTabsList } from "@/components/chrome/overflow-tabs";
 import { Tabs } from "@/components/ui/tabs";
@@ -55,7 +55,7 @@ const VIEWS: TaskView[] = ["needs-action", "waiting", "completed", "archived"];
  * read as misaligned (owner, 2026-09-16). Text next to text aligns on the baseline.
  */
 const TAB_CLASS =
-  "-mb-px flex-none items-baseline gap-1.5 rounded-none px-0 pb-2.5 text-body-compact group-data-horizontal/tabs:h-10 group-data-horizontal/tabs:after:bottom-0 group-data-[variant=line]/tabs-list:data-active:after:bg-brand-accent";
+  "-mb-px flex-none items-baseline gap-1.5 rounded-none group-data-[variant=line]/tabs-list:px-0 pb-2.5 text-body-compact group-data-horizontal/tabs:h-10 group-data-horizontal/tabs:after:bottom-0 group-data-[variant=line]/tabs-list:data-active:after:bg-brand-accent";
 
 /** A clock that ticks once a minute so due cues stay honest on a long-open tab. */
 function useNow(): Date {
@@ -184,7 +184,7 @@ export function TasksScreen() {
           setConfirmDone([task]);
           return;
         case "Unarchive":
-          void act(task.id, unarchive, "Restored from the archive");
+          void act(task.id, unarchive, { title: "Restored from the archive", icon: ArchiveRestoreIcon });
           return;
         default:
           // "View" — a task waiting on someone else, closed, or held by a vakalatnama
@@ -278,14 +278,15 @@ export function TasksScreen() {
   const markAllDone = async (batch: Task[]) => {
     let ok = 0;
     for (const t of batch) if (await act(t.id, markDone)) ok += 1;
-    if (ok) toast.success(`Marked done ${ok} task${ok === 1 ? "" : "s"}`);
+    if (ok) notify.success(`Marked done ${ok} task${ok === 1 ? "" : "s"}`);
     setSelected(new Set());
   };
 
   const archiveAll = async () => {
     let ok = 0;
     for (const t of selectedTasks) if (await act(t.id, archive)) ok += 1;
-    if (ok) toast.success(`Archived ${ok} task${ok === 1 ? "" : "s"}`);
+    /* An archive is not news: neutral, with its own icon (skill `feedback-states`). */
+    if (ok) notify.neutral(`Archived ${ok} task${ok === 1 ? "" : "s"}`, { icon: ArchiveIcon });
     setSelected(new Set());
   };
 
@@ -380,15 +381,17 @@ export function TasksScreen() {
         </div>
 
         {!online ? (
-          <Banner variant="warning">
+          <StatusLine tone="warning">
             You are offline. The table is read-only until the connection returns — nothing is
             queued, so payments and signatures are never sent twice.
-          </Banner>
+          </StatusLine>
         ) : null}
 
         {state === "error" ? (
-          <Banner
-            variant="error"
+          <StatusLine
+            tone="error"
+            /* One animated mark per screen: the offline line above may already have played. */
+            still={!online}
             action={
               <Button variant="outline" onClick={() => void reload()}>
                 Retry
@@ -396,7 +399,7 @@ export function TasksScreen() {
             }
           >
             Tasks could not be loaded{error ? ` — ${error}` : ""}.
-          </Banner>
+          </StatusLine>
         ) : null}
 
         {/* Always mounted, so the first tick is announced: the bar's own summary is a
@@ -534,6 +537,7 @@ export function TasksScreen() {
         description={flowNotice ? FLOW_DIALOG[flowNotice.flow].description : undefined}
         confirmLabel="Continue"
         destructive={false}
+        icon={ArrowRightIcon}
         onConfirm={() => {
           const notice = flowNotice;
           setFlowNotice(null);
@@ -556,6 +560,7 @@ export function TasksScreen() {
         }
         confirmLabel="Mark as done"
         destructive={false}
+        icon={ListChecksIcon}
         onConfirm={() => {
           const batch = confirmDone;
           setConfirmDone(null);

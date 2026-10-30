@@ -67,9 +67,6 @@ function OathRecording({ doc }: { doc: BundleDoc }) {
           <span className="tabular-nums"> · {formatDuration(doc.durationSeconds)}</span>
         ) : null}
       </p>
-      <p className="max-w-xs text-body-compact text-muted-foreground">
-        Sandbox: this sample filing has no recording behind it. A filed oath plays here.
-      </p>
     </div>
   );
 }

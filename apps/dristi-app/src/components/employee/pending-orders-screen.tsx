@@ -3,8 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FileClockIcon } from "lucide-react";
-import { toast } from "sonner";
+import { FileClockIcon, PenLineIcon } from "lucide-react";
 
 import { Identifier } from "@/components/chrome/identifier";
 import {
@@ -89,6 +88,7 @@ import {
   rowOpenerClass,
 } from "@/lib/employee/row-activation";
 import { cn } from "@/lib/utils";
+import { ConfirmMark, IrreversibleNote, notify } from "@/components/feedback";
 
 type Tab = PendingOrderStage | "all";
 
@@ -278,7 +278,7 @@ export function PendingOrdersScreen({
             <TabsList
               variant="line"
               aria-label="Which orders to show"
-              className="h-10 w-max min-w-full justify-start rounded-none p-0 group-data-horizontal/tabs:h-10"
+              className="h-10 w-max min-w-full justify-start rounded-none"
             >
               {[
                 ...PENDING_ORDER_STAGES.map(
@@ -289,7 +289,7 @@ export function PendingOrdersScreen({
                 <TabsTrigger
                   key={value}
                   value={value}
-                  className="h-10 flex-none gap-2 px-3 text-body-compact group-data-horizontal/tabs:after:-bottom-px"
+                  className="h-10 flex-none gap-2 text-body-compact"
                 >
                   {label}
                   <span className="font-normal tabular-nums">{total}</span>
@@ -582,7 +582,7 @@ export function PendingOrdersScreen({
                   if (!reading) return;
                   markOrdersSigned([reading.key]);
                   setReading(null);
-                  toast(`${companionName} signed.`);
+                  notify.success(`${companionName} signed.`);
                 }}
               >
                 Sign {companionName}
@@ -595,6 +595,7 @@ export function PendingOrdersScreen({
       <AlertDialog open={askSign} onOpenChange={setAskSign}>
         <AlertDialogContent>
           <AlertDialogHeader>
+            <ConfirmMark icon={PenLineIcon} />
             <AlertDialogTitle>
               {chosen.length === 1
                 ? chosenCompanions
@@ -603,13 +604,21 @@ export function PendingOrdersScreen({
                 : `Sign ${chosenWhat}?`}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {chosenOrders
-                ? `Your signature issues ${chosenOrders === 1 ? "the order" : "each order"}. Its order data is triggered once it is complete — at once, for any the steno has already completed. `
-                : ""}
-              {chosenCompanions
-                ? `Each ${companionName} is signed on its own, and joins the case record. `
-                : ""}
-              This cannot be reversed.
+              {chosenOrders ? (
+                <span className="block">
+                  Your signature issues{" "}
+                  {chosenOrders === 1 ? "the order" : "each order"}. Its order
+                  data is triggered once it is complete — at once, for any the
+                  steno has already completed.
+                </span>
+              ) : null}
+              {chosenCompanions ? (
+                <span className="block">
+                  Each {companionName} is signed on its own, and joins the case
+                  record.
+                </span>
+              ) : null}
+              <IrreversibleNote>This cannot be reversed.</IrreversibleNote>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -618,7 +627,7 @@ export function PendingOrdersScreen({
               onClick={() => {
                 markOrdersSigned(chosen.map((row) => row.key));
                 setSelected(new Set());
-                toast(`Signed: ${chosenWhat}.`);
+                notify.success(`Signed: ${chosenWhat}.`);
               }}
             >
               Sign

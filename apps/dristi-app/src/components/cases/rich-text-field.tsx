@@ -1015,6 +1015,7 @@ export function RichTextField({
       >
         <ToggleGroup
           type="multiple"
+          variant="ghost"
           spacing={0}
           value={marks}
           onValueChange={(next: string[]) => run(changedCommands(next, marks))}
@@ -1034,6 +1035,7 @@ export function RichTextField({
 
         <ToggleGroup
           type="multiple"
+          variant="ghost"
           spacing={0}
           value={lists}
           onValueChange={(next: string[]) => run(changedCommands(next, lists))}
@@ -1060,6 +1062,7 @@ export function RichTextField({
         */}
         <ToggleGroup
           type="multiple"
+          variant="ghost"
           spacing={0}
           value={[alignment]}
           onValueChange={(next: string[]) => {
