@@ -173,7 +173,7 @@ export function AdvocateHome(props: {
     // Docked: the redesigned full-height panel that slides in from the right and
     // sits over the screen, the same shape the cases landing uses — not the older
     // inset floating card.
-    <CasePeekProvider now={now} docked>
+    <CasePeekProvider now={now}>
       <HomeBody {...props} now={now} />
     </CasePeekProvider>
   );
@@ -480,7 +480,7 @@ function HomeBody({
   const hasDay = daySlots.some((slot) => slot.hearings.length > 0);
 
   return (
-    <CasePeekSurface mobileDrawer className="flex min-h-0 min-w-0 flex-1">
+    <CasePeekSurface className="flex min-h-0 min-w-0 flex-1">
       {/* A container, not just a column: the rail narrows the board without
           narrowing the viewport, so what the timeline puts on one line has to
           answer to its own width. */}

@@ -8,7 +8,7 @@ import { type CaseRecord } from "@/lib/cases/types";
 export const CASE_PEEK_ID = "case-peek";
 
 /** How long the panel takes to slide out; the record is held this long past close so the
- *  exit can play. Must match the panel's transition duration in `case-peek.tsx`. */
+ *  exit can play. Matches the design system SidePanel's 300ms exit. */
 const PEEK_EXIT_MS = 300;
 
 type CasePeekContextValue = {
@@ -18,10 +18,6 @@ type CasePeekContextValue = {
    *  register — carried through so "Open case file" doesn't reintroduce a
    *  badge the register already established. */
   hideLongPendingFlag: boolean;
-  /** Docked mode: the panel connects to the viewport edges and pushes the column that
-   *  hosts it (the cases landing). Left off, the panel floats over its host inset from
-   *  the edges — the shape the advocate home and the folder/search screens still use. */
-  docked: boolean;
   /** True while the panel is sliding out — the record is still set (so the panel stays
    *  mounted) but everything that made room for it steps back. Drives the exit. */
   closing: boolean;
@@ -33,11 +29,9 @@ const CasePeekContext = React.createContext<CasePeekContextValue | null>(null);
 
 export function CasePeekProvider({
   now,
-  docked = false,
   children,
 }: {
   now: number;
-  docked?: boolean;
   children: React.ReactNode;
 }) {
   const [record, setRecord] = React.useState<CaseRecord | null>(null);
@@ -71,20 +65,9 @@ export function CasePeekProvider({
 
   React.useEffect(() => () => clearTimeout(exitTimer.current), []);
 
-  React.useEffect(() => {
-    if (!record) return;
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      close();
-    }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [record, close]);
-
   const value = React.useMemo(
-    () => ({ record, now, hideLongPendingFlag, docked, closing, open, close }),
-    [record, now, hideLongPendingFlag, docked, closing, open, close]
+    () => ({ record, now, hideLongPendingFlag, closing, open, close }),
+    [record, now, hideLongPendingFlag, closing, open, close]
   );
 
   return (

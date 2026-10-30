@@ -2,6 +2,7 @@
 
 import { PAGE_TITLE } from "@/components/shell/page-frame";
 import { Separator } from "@/components/ui/separator";
+import { SIDE_PANEL_PUSH } from "@/components/ui/side-panel";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 import * as React from "react";
@@ -52,7 +53,7 @@ import { useLocale } from "@/components/shell/locale";
 import { useProfile } from "@/components/shell/profile";
 
 import { CasesFiltersButton, CasesAppliedFilters } from "./cases-filters";
-import { CasePeekPushRegion, PEEK_PUSH_CLASS } from "./case-peek";
+import { CasePeekPushRegion } from "./case-peek";
 import {
   CARDS_ONLY,
   TABLE_FRAME,
@@ -329,7 +330,7 @@ export function CasesScreen({
           />
 
           {/* `empty:hidden`: with nothing applied this held a gap of its own. */}
-          <div className={cn(PEEK_PUSH_CLASS, "empty:hidden")}>
+          <div className={cn(SIDE_PANEL_PUSH, "empty:hidden")}>
             <CasesAppliedFilters query={effective} onChange={applyFilters} />
           </div>
 
@@ -346,12 +347,10 @@ export function CasesScreen({
         enabled: true,
       }}
     >
-      <CasePeekProvider now={now} docked>
+      <CasePeekProvider now={now}>
       {/* The Pending tasks ground, as on the case page, so the white panel and
           its edge stand off the page (owner, Sept 18). */}
       <CasePeekPushRegion
-        // On a phone the peek rises from the bottom, as it does from Home.
-        mobileDrawer
         pushWhen={TABLE_QUERY}
         className="flex min-w-0 flex-1 flex-col gap-6 bg-muted p-6 md:gap-8 md:p-8 dark:bg-background"
       >
@@ -364,7 +363,7 @@ export function CasesScreen({
             on this page that is theirs to do. */}
         <header
           className={
-            "flex flex-wrap items-center justify-between gap-4 " + PEEK_PUSH_CLASS
+            "flex flex-wrap items-center justify-between gap-4 " + SIDE_PANEL_PUSH
           }
         >
           <h1 className={PAGE_TITLE}>Cases</h1>
@@ -464,14 +463,14 @@ function CasesToolbar({
   search: string;
   onSearchChange: (value: string) => void;
 }) {
-  const { record, docked, closing } = useCasePeek();
+  const { record, closing } = useCasePeek();
   // Compress the moment a close begins (not when it ends), so the buttons morph back to
   // labels in step with the panel sliding out and the chrome easing back — no end-pop.
   // Only where the peek docks beside the table. On a phone it is a drawer and on an
   // upright tablet it lies over the cards, and the toolbar re-arranging itself
   // behind either was movement with no cause (owner, Sept 21).
   const pushes = useMediaQuery(TABLE_QUERY);
-  const squeezed = pushes && docked && Boolean(record) && !closing;
+  const squeezed = pushes && Boolean(record) && !closing;
   // A tablet held upright (iPad Air, 820) has room for one line only if the two
   // actions give up their words (owner, Sept 21). Same icon form the docked
   // peek already uses, so it is one compact state, reached two ways.
@@ -486,7 +485,7 @@ function CasesToolbar({
         // actions then search right.
         "flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center " +
         (compact ? "sm:flex-nowrap " : "sm:flex-wrap ") +
-        PEEK_PUSH_CLASS
+        SIDE_PANEL_PUSH
       }
     >
       <div className="flex min-w-0 flex-col gap-1 max-sm:order-1 sm:shrink-0">
