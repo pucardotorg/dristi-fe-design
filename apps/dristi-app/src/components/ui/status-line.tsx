@@ -6,7 +6,7 @@ import { CircleXIcon } from "lucide-react";
 import { FieldError } from "@/components/ui/field";
 import { cn } from "@/lib/utils";
 
-import { StatusMark, type MarkTone } from "./mark";
+import { StatusMark, type MarkTone } from "@/components/ui/status-mark";
 
 /**
  * Feedback inside a page or an open dialog.
@@ -14,12 +14,13 @@ import { StatusMark, type MarkTone } from "./mark";
  * - `StatusLine`: one shape for every inline note (success, error, warning, info,
  *   neutral). A white line with a straight rail in its tone, flush left and clipped by the
  *   corner radius, never bending with it. It replaces the success and failure uses of
- *   `Banner`, `Alert` and `SectionNotice`.
+ *   `Banner` and `Alert`.
  * - `StatusField*`: the field error. The field's red ring grows in, the line opens its own
  *   room, and the cross and the words drop in together from under the field. A repeat press
  *   shakes the field once and plays the line again (`useRefusal`).
- * - `StatusBadge*`: a mark inside a pill, concentric with the pill's rounded end.
- * - `landingClass`: the row a dialog acted on glows once when the dialog closes onto it.
+ * - `LANDING`: the row a dialog acted on glows once when the dialog closes onto it.
+ *
+ * A mark inside a `Badge` needs nothing from here: `Badge` sets its inset itself.
  */
 
 const RAIL: Record<MarkTone, string> = {
@@ -153,13 +154,6 @@ export function StatusFieldError({
     </div>
   );
 }
-
-/**
- * The class for a badge that carries a mark: 4px padding plus the badge's 1px border puts a
- * 14px mark 5px from the top, the bottom and the end of the 24px pill, so it is concentric
- * with the rounded end. Pair with `<StatusMark size={14} … />` (ds-requests #25).
- */
-export const BADGE_WITH_MARK = "gap-1.5 pl-1";
 
 /** The row a dialog acted on, for one glow when the dialog closes back onto the list. */
 export const LANDING = "fb-land";

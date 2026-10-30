@@ -5,8 +5,8 @@ description: "Use whenever a Dristi screen says something worked, failed, partly
 
 # Feedback states
 
-Every outcome in Dristi uses the feedback module (apps/dristi-app/src/components/feedback,
-imported as `@/components/feedback`). Never hand-build a success disc, a green strip, a red banner, a
+Every outcome in Dristi uses the feedback module (the design system's pieces in
+`components/ui`, imported through the barrel `@/components/feedback`). Never hand-build a success disc, a green strip, a red banner, a
 coloured toast or a confirm layout. The pieces carry the motion, sizes, tones and
 accessibility already; screens supply only the words and facts.
 
@@ -76,8 +76,8 @@ Ask, in order:
    get a soft glow; a dead end (not found, link expired) is `neutral` with the act's icon,
    and stays flat. A page whose only content is the outcome (account ready) takes
    `scale="hero"`.
-7. **Is it a standing state on a row** (Signed, Overdue, Errored)? Use a `Badge` with
-   `className={BADGE_WITH_MARK}` and `<StatusMark size={14} … />` (or a plain badge).
+7. **Is it a standing state on a row** (Signed, Overdue, Errored)? Put `<StatusMark size={14} … />`
+   inside a `Badge` (or use a plain badge). The badge sets its own inset; add no class.
 8. **Did a dialog close back onto a list?** Add `LANDING` to the row it changed, once.
 
 ## 2. Pick the tone, carefully
@@ -127,7 +127,7 @@ neutral, choose neutral.
 - **Rails are straight**, full height and flush left, clipped by the corner radius.
   They never bend with it.
 - **A mark in a pill is concentric**, with equal inset at the top, bottom and end
-  (`BADGE_WITH_MARK` with a 14px mark).
+  (the `Badge` does this itself for a 14px mark).
 - **Labels that state the outcome** (Every signature is in, Joined as …) use success
   green, never teal: teal is the action colour and reads as clickable.
 - **Dark mode:** the pieces lift themselves (the toast to `surface-raised`). Never put a

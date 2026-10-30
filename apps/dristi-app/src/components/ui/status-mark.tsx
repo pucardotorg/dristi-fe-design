@@ -136,6 +136,7 @@ export function StatusMark({
 
   return (
     <span
+      data-slot="status-mark"
       role={label ? "img" : undefined}
       aria-label={label}
       aria-hidden={label ? undefined : true}
