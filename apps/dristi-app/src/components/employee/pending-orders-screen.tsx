@@ -34,6 +34,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -63,7 +64,7 @@ import type { CourtId } from "@/lib/court/profiles";
 import type { CourtRole } from "@/lib/employee/content";
 import { seatHolds } from "@/lib/employee/seat-roles";
 import { orderTextPreview } from "@/lib/employee/order-bulk-items";
-import { editorDraftKey } from "@/lib/employee/order-drafts";
+import { editorDraftKey, updateOrderDraft } from "@/lib/employee/order-drafts";
 import { markOrdersSigned } from "@/lib/employee/order-signing";
 import type { OrderType } from "@/lib/employee/order-draft";
 import {
@@ -158,12 +159,14 @@ export function PendingOrdersScreen({
       typeLabel: orderTypeLabel(type, rules),
     };
   });
-  /* Gujarat: a regular order's Roznama, to be signed on its own once the order data is
-     marked complete — whether or not the order itself is signed yet, so the order and its
-     Roznama can await a signature at the same time (owner, 2026-10-30). Listed after the
-     orders. */
+  /* Gujarat: a regular order's Roznama, to be signed on its own once the order is
+     triggered — signed and its order data complete (order-types `RZN-01`). Listed after
+     the orders. */
   const companionRows: Row[] = orderRows
-    .filter((row) => row.workflowComplete && companionSignedEach(row.type, rules))
+    .filter(
+      (row) =>
+        row.stage === "triggered" && companionSignedEach(row.type, rules),
+    )
     .map((row) => ({
       ...row,
       key: companionKey(row.key),
@@ -538,17 +541,36 @@ export function PendingOrdersScreen({
             </DialogTitle>
             <DialogDescription>
               {reading?.caseNumber} · from its order
-              {reading?.title ? ` “${reading.title}”` : ""}, whose order data is
-              complete. Signing it doesn't trigger workflows.
+              {reading?.title ? ` “${reading.title}”` : ""}, signed and triggered.
+              Signing it doesn't trigger workflows.
             </DialogDescription>
           </DialogHeader>
-          <div className="max-h-[50vh] overflow-y-auto whitespace-pre-wrap rounded-lg border border-hairline bg-muted p-4 text-body">
-            {companionText(
-              reading?.companionOf
-                ? drafts[editorDraftKey(reading.companionOf)]
-                : undefined,
-            ) || "No text."}
-          </div>
+          {/* Editable until it is signed, by the order data filler or the order signer
+              (order-types `RZN-04`). An edit makes it its own text. */}
+          {reading?.stage === "awaiting-signature" && (signer || filler) ? (
+            <Textarea
+              aria-label={companionName}
+              rows={8}
+              value={companionText(drafts[editorDraftKey(reading.companionOf ?? "")])}
+              onChange={(event) => {
+                const aDiaryText = event.target.value;
+                if (!reading.companionOf) return;
+                updateOrderDraft(editorDraftKey(reading.companionOf), (current) => ({
+                  ...current,
+                  aDiarySame: false,
+                  aDiaryText,
+                }));
+              }}
+            />
+          ) : (
+            <div className="max-h-[50vh] overflow-y-auto whitespace-pre-wrap rounded-lg border border-hairline bg-muted p-4 text-body">
+              {companionText(
+                reading?.companionOf
+                  ? drafts[editorDraftKey(reading.companionOf)]
+                  : undefined,
+              ) || "No text."}
+            </div>
+          )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setReading(null)}>
               Close

@@ -63,13 +63,20 @@ export type RegistrationType = { code: string | null; name: string };
  *   type changes nothing about the order except whether it carries a companion text.
  * - `companion` — the text a *regular* order carries beside its order text, what the
  *   state calls it, and how it is signed: `day` goes into the day's A-Diary, signed once
- *   a day (Kerala, `ADY-12`); `each` becomes its own document, signed one at a time by
- *   the order signer once the order is triggered (Gujarat). `null` where there is none.
- *   An order of the alternative type never carries one: its order text is the entry.
+ *   a day (Kerala, `ADY-12`); `each` becomes its own document, signed by the order
+ *   signer once the order is triggered (Gujarat); `none` is kept and shown, never signed
+ *   (Punjab & Haryana's Summary). `null` where there is none.
+ * - `companion.onAlternative` — whether an order of the alternative type carries it too.
+ *   A Gujarat Roznama order does not: its order text is the entry, and no separate
+ *   document is made (order-types `DEN-03`).
  */
 export type OrderTypeRules = {
   alternative: string | null;
-  companion: { label: string; signing: "day" | "each" } | null;
+  companion: {
+    label: string;
+    signing: "day" | "each" | "none";
+    onAlternative: boolean;
+  } | null;
 };
 
 export type CourtProfile = {
@@ -153,7 +160,7 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     registrationTypes: [{ code: null, name: "Criminal complaint" }],
     orderTypes: {
       alternative: null,
-      companion: { label: "A-Diary text", signing: "day" },
+      companion: { label: "A-Diary text", signing: "day", onAlternative: false },
     },
   },
   gujarat: {
@@ -180,7 +187,7 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     ],
     orderTypes: {
       alternative: "Roznama",
-      companion: { label: "Roznama", signing: "each" },
+      companion: { label: "Roznama", signing: "each", onAlternative: false },
     },
   },
   /*
@@ -205,7 +212,10 @@ export const COURT_PROFILES: Record<CourtId, CourtProfile> = {
     singleCourt: "24×7 ON Court",
     cognizanceSplit: "delay",
     registrationTypes: [{ code: "NACT", name: "NACT" }],
-    orderTypes: { alternative: "Zimni", companion: null },
+    orderTypes: {
+      alternative: "Zimni",
+      companion: { label: "Summary", signing: "none", onAlternative: true },
+    },
   },
 };
 

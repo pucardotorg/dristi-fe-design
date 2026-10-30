@@ -116,7 +116,6 @@ import {
 } from "@/lib/employee/pending-orders";
 import {
   companionLabel,
-  companionSignedEach,
   orderTypeLabel,
   orderTypeOf,
 } from "@/lib/employee/order-type";
@@ -685,7 +684,6 @@ export function OrderWorkflowFields({
   const rules = profile.orderTypes;
   const type = orderTypeOf(draft, orderKey, rules);
   const companion = companionLabel(type, rules);
-  const signedEach = companionSignedEach(type, rules);
 
   return (
     <div className="flex min-w-0 flex-col gap-6">
@@ -769,7 +767,7 @@ export function OrderWorkflowFields({
       ) : null}
 
       {/* The companion text, last (§6, `PUB-04`): the order text by default, or its own.
-          Kerala's A-Diary text, Gujarat's Roznama; none on a Roznama or Zimni order. */}
+          Kerala's A-Diary text, Gujarat's Roznama, P&H's Summary; none on a Roznama order. */}
       {companion ? (
       <Card className={cn(PANEL_CLASS, "min-w-0 gap-0 p-0")}>
         <div className={FRAMED_HEAD}>
@@ -799,9 +797,7 @@ export function OrderWorkflowFields({
           </div>
           {aDiarySame ? (
             <p className="text-caption text-muted-foreground">
-              {signedEach
-                ? `The ${companion} is the order text in full. Once the order data is marked complete, it is signed on its own, in Pending orders.`
-                : `The ${companion} entry is the order text in full, with its attendance and next hearing lines.`}
+              {`The ${companion} entry is the order text in full, with its attendance and next hearing lines.`}
             </p>
           ) : (
             <Textarea

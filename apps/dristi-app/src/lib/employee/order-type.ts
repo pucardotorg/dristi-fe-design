@@ -3,15 +3,15 @@
  *
  * A state may offer a second type beside a regular order — Gujarat's Roznama, Punjab &
  * Haryana's Zimni (`OrderTypeRules` in `lib/court/profiles.ts`). The type changes
- * nothing about the order — its items, workflows, signing and triggering are the same —
- * except that an order of the alternative type carries no companion text: its order text
- * is the entry.
+ * nothing about the order — its items, workflows, signing and triggering are the same.
+ * Every order carries a companion text, except where the state says an order of the
+ * alternative type does not (Gujarat's Roznama order: its order text is the entry).
  *
- * Where the state signs the companion text one at a time (Gujarat), a regular order's
- * Roznama becomes its own document once the order data is marked complete — not waiting
- * for the order's signature — listed in Pending orders under Awaiting signature and
- * signed there by the order signer (owner, 2026-10-30). Its signature is kept
- * in `order-signing.ts` under `companionKey`.
+ * Where the state signs the companion text on its own (Gujarat), a regular order's
+ * Roznama becomes its own document once the order is triggered — signed and its order
+ * data complete — listed in Pending orders under Awaiting signature and signed there by
+ * the order signer. Its text stays editable until then (order-types `RZN-01`, `RZN-04`).
+ * Its signature is kept in `order-signing.ts` under `companionKey`.
  */
 
 import type { OrderTypeRules } from "@/lib/court/profiles";
@@ -42,10 +42,11 @@ export function orderTypeLabel(type: OrderType, rules: OrderTypeRules): string {
 
 /** The companion text's name on this order, or `null` where it carries none. */
 export function companionLabel(type: OrderType, rules: OrderTypeRules): string | null {
-  return type === "regular" && rules.companion ? rules.companion.label : null;
+  if (!rules.companion) return null;
+  return type === "regular" || rules.companion.onAlternative ? rules.companion.label : null;
 }
 
-/** Whether a regular order's companion text is signed on its own, once its data is complete. */
+/** Whether a regular order's companion text is signed on its own, once it is triggered. */
 export function companionSignedEach(type: OrderType, rules: OrderTypeRules): boolean {
   return type === "regular" && rules.companion?.signing === "each";
 }
