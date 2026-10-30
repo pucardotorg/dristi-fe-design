@@ -98,7 +98,8 @@ neutral, choose neutral.
 ## 3. Rules the pieces enforce, and why (do not override)
 
 - **Motion is budgeted by size.** Marks 44px and up play the full sequence (about
-  600ms). Smaller marks pop their disc and scale their glyph in after it, one beat. Text
+  600ms). Smaller marks pop their disc; a tick draws itself inside it (quicker than the
+  hero's), any other glyph scales in after it, one beat. Text
   never scales or slides sideways: a moving line is harder to read.
 - **A hero mark waits 160ms (`HERO_START`) and holds until painted.** The window has just
   changed and the person needs that long to look back; a slow first render must not eat

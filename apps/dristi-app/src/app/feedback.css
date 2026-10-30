@@ -9,8 +9,8 @@
  * The budget, by size:
  * - A hero mark (44px and up) plays its full sequence, about 600ms: the disc pops, then the
  *   glyph draws (check), springs out stroke by stroke (cross), or drops and settles (!).
- * - A small mark (toasts, inline lines, tallies, badges) pops its disc, then its glyph
- *   scales in after it. About half a second, one beat.
+ * - A small mark (toasts, inline lines, tallies, badges) pops its disc; a tick draws itself
+ *   inside it, any other glyph scales in after it. About half a second, one beat.
  * - Text never scales or slides sideways: a line that moves while it is read is harder to
  *   read. An error line opens its own room and drops out from under its field instead.
  * - Shake only says "your input was refused". It is never used for a system failure.
@@ -115,6 +115,8 @@
 .fb-pop { animation: fb-pop 420ms var(--fb-delay, 0ms) cubic-bezier(0.34, 1.56, 0.64, 1) both; }
 .fb-pop-quick { animation: fb-pop-quick 250ms var(--fb-delay, 0ms) cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
 .fb-glyph-in { animation: fb-glyph-in 380ms calc(var(--fb-delay, 0ms) + 180ms) cubic-bezier(0.3, 1.3, 0.5, 1) both; }
+/* A small success tick draws inside its disc's pop: about 400ms in all, the small budget. */
+.fb-draw-quick { stroke-dasharray: 30; animation: fb-draw 280ms calc(var(--fb-delay, 0ms) + 120ms) cubic-bezier(0.65, 0, 0.35, 1) both; }
 .fb-draw { stroke-dasharray: 30; animation: fb-draw 360ms calc(var(--fb-delay, 0ms) + 260ms) cubic-bezier(0.65, 0, 0.35, 1) both; }
 .fb-stroke { transform-box: fill-box; transform-origin: center; animation: fb-stroke 400ms calc(var(--fb-delay, 0ms) + 200ms) cubic-bezier(0.34, 1.56, 0.64, 1) both; }
 .fb-stroke-2 { animation-delay: calc(var(--fb-delay, 0ms) + 340ms); }
@@ -150,7 +152,7 @@
 .fb-field [aria-invalid="true"] { animation: fb-ring-in 260ms ease-out; }
 
 @media (prefers-reduced-motion: reduce) {
-  .fb-pop, .fb-pop-quick, .fb-glyph-in, .fb-draw, .fb-stroke, .fb-bar, .fb-dot, .fb-flip,
+  .fb-pop, .fb-pop-quick, .fb-glyph-in, .fb-draw, .fb-draw-quick, .fb-stroke, .fb-bar, .fb-dot, .fb-flip,
   .fb-ring, .fb-ring-soft, .fb-sway, .fb-shake, .fb-rise, .fb-band, .fb-fill,
   .fb-reveal, .fb-drop, .fb-chip, .fb-land,
   .fb-field [aria-invalid="true"] { animation: none; }

@@ -40,7 +40,7 @@ size and context. The rules and reasons are listed below.
 | 29 Oct | Removal buttons stay **soft red** (today's destructive variant), never solid red. | Owner | rule |
 | 29 Oct | Irreversible but normal acts (sign, pay, file) are not warnings. "Cannot be undone / reversed" gets its own line with a lock. | Owner | rule |
 | 29 Oct | Cross motion: spring (both strokes, 140ms apart). Warning icon: a slim exclamation (filled bar plus dot), not a triangle. Warning motion: a small sway with a soft pulse, never a bell-like swing. Picked from a lane of options on the board. | Owner | rule |
-| 29 Oct | Motion is budgeted by size. Heroes (44px and up) play the full mark, about 600ms. Toasts, inline lines and tallies pop the disc and then scale the glyph in, the same beat as the gate toast's lock. Badges and field errors move only when they change in view. | Owner, Claude review | rule |
+| 29 Oct | Motion is budgeted by size. Heroes (44px and up) play the full mark, about 600ms. Toasts, inline lines and tallies pop the disc and then scale the glyph in, the same beat as the gate toast's lock. Badges and field errors move only when they change in view. **Ticks updated 30 Oct, see below.** | Owner, Claude review | rule |
 | 29 Oct | Shake only when the person's own input was refused (wrong OTP, the first invalid field), never on system failures. A shake reads as "you did it wrong". | Claude review, owner | rule |
 | 29 Oct | Within one real screen, one mark animates; marks that belong together play in order. Separate examples on the board each play. | Owner | rule |
 | 29 Oct | Missing input points at the field. The red ring grows in, then the error line opens its room and the cross and words drop in together from under the field. A repeat press shakes the field once and replays the line. Instant text and a plain fade were both tried and rejected. | Owner | rule |
@@ -48,6 +48,11 @@ size and context. The rules and reasons are listed below.
 | 29 Oct | Colour-blind cues: glyphs must read at 16–20px without colour. The failed share of a tally bar carries fine stripes. | Owner | rule |
 | 29 Oct | Full-page states get a very subtle radial glow in their tone. Neutral dead ends stay flat. | Owner | rule |
 | 29 Oct | Dark mode: the toast lifts to the raised surface with a full border. Otherwise it disappears into the page. | Claude, dark pass | rule |
+| 30 Oct | **Small success ticks draw themselves,** like the hero's, only quicker: the disc pops (250ms), the tick draws inside it (280ms, from 120ms). Covers toasts, inline lines, tally lines, badges and footer bands. Crosses, "!" and icon marks still scale in. Replaces the 29 Oct scale-in for ticks. | Owner | rule |
+| 30 Oct | **Hero marks wait 160ms and hold until painted;** the outcome's words wait with them. Fired at mount, the motion was over before eyes came back from the spinner. | Owner | rule |
+| 30 Oct | **The success ring pulses once.** Tried and dropped the same day: an endless loop, and three pulses (also slowing and fading). Both read as too busy. | Owner | rule |
+| 30 Oct | **Approve registrations ends on the inline line,** not the tinted strip. It stays until the dialog closes or moves on. Rejected uses the soft red danger mark. | Owner | decided |
+| 30 Oct | **Order editor missing-input toasts stay toasts.** Another designer chose them; their call is kept. | Owner | decided |
 | 29 Oct | **Order of work: flows first, design system later.** The new pieces are built once in the app, composed only from existing design-system parts and tokens, and rolled into every flow. The same pieces go to the design system as a PR for discussion. On approval they move there, and the screens look identical. | Lead designer, owner | decided |
 
 ## Branches (all of them, so none is forgotten)
@@ -128,6 +133,8 @@ and documented rules:
 - **Hero marks start 160ms late and only once painted** (Oct 30). Fired at mount, the pop
   and tick were over before eyes came back from the spinner, and a slow first render ate
   the opening frames. The outcome's words shift with it. A DS motion token.
+- **Small success ticks draw themselves** (Oct 30): disc pops 250ms, tick draws 280ms from
+  120ms. Other small glyphs scale in. Replaces the Oct 29 scale-in for ticks.
 - **The success ring pulses once, then rests** (Oct 30). Tried and dropped: an endless loop
   (reads as "still going", pulls the eye off the facts, needs a pause control past 5s per
   WCAG 2.2.2) and three pulses, even slowing and fading (too busy).

@@ -173,11 +173,16 @@ export function StatusMark({
           </span>
         ) : (
           <span
-            className={cn("flex items-center justify-center", quick && "fb-glyph-in")}
+            className={cn(
+              "flex items-center justify-center",
+              /* A small tick draws itself like the hero's, only quicker; other small glyphs
+                 scale in after the disc (owner, 2026-10-30). */
+              quick && tone !== "success" && "fb-glyph-in",
+            )}
             style={{ width: `${glyphShare * 100}%`, height: `${glyphShare * 100}%` }}
           >
             <svg viewBox="0 0 24 24" className="size-full" fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <Glyph tone={tone} full={full} small={small} />
+              <Glyph tone={tone} full={full} quick={quick} small={small} />
             </svg>
           </span>
         )}
@@ -186,8 +191,10 @@ export function StatusMark({
   );
 }
 
-function Glyph({ tone, full, small }: { tone: MarkTone; full: boolean; small: boolean }) {
-  if (tone === "success") return <path className={full ? "fb-draw" : undefined} d="M5 12.5l4.5 4.5L19 7.5" />;
+function Glyph({ tone, full, quick, small }: { tone: MarkTone; full: boolean; quick: boolean; small: boolean }) {
+  if (tone === "success") {
+    return <path className={full ? "fb-draw" : quick ? "fb-draw-quick" : undefined} d="M5 12.5l4.5 4.5L19 7.5" />;
+  }
   if (tone === "error") {
     return full ? (
       <>
