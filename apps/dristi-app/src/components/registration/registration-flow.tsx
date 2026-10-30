@@ -42,7 +42,7 @@ import { cn } from "@/lib/utils";
 
 import { MaskedOtp, OTP_LENGTH } from "./masked-otp";
 import { Identifier } from "@/components/chrome/identifier";
-import { PageOutcome, StatusLine } from "@/components/feedback";
+import { PageOutcome, StatusMark } from "@/components/feedback";
 
 type Step = "role" | "name" | "contact" | "password" | "verification" | "terms" | "success" | "application";
 type AccountRole = "litigant" | "advocate" | "advocateClerk" | "poa" | "";
@@ -270,7 +270,12 @@ export function RegistrationFlow({ locale, summoned, toSign = false, initialMobi
                 )}
               </div>
               {otpVerified ? (
-                <StatusLine tone="success">{pick(contactStep.verified, locale)}</StatusLine>
+                /* Quiet, field-level: the 16px shared mark beside the words (owner, Oct 30:
+                   the full StatusLine was too heavy under one field). */
+                <p role="status" className="flex items-center gap-1.5 text-body-compact text-success-ink">
+                  <StatusMark size={16} />
+                  {pick(contactStep.verified, locale)}
+                </p>
               ) : (
                 <FieldDescription>{pick(contactStep.mobileHint, locale)}</FieldDescription>
               )}

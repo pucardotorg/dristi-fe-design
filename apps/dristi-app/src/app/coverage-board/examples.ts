@@ -34,7 +34,7 @@ export const EXAMPLES: Record<string, Example[]> = {
     { label: "Court · processes signed, some not sent", before: B("court", "process-signed-not-sent.jpg"), after: null, note: "Today: a hand-built amber line. Built (grey mark with a checklist), but couldn't be captured: the one demo process set to fail (ST/1334) doesn't appear in the Issuance list for the clerk or the magistrate seat in this build." },
   ],
   words: [
-    { label: "Registration · mobile number verified", before: B("access", "reg-otp-verified.jpg"), after: "/coverage-board/after/reg-otp-verified.jpg", note: "Today: a hand-built green line. Now: the shared success line with its mark. Same words." },
+    { label: "Registration · mobile number verified", before: B("access", "reg-otp-verified.jpg"), after: "/coverage-board/after/reg-otp-verified.jpg", note: "Today: a hand-built green line. Now (owner's call, 30 Oct): the same small green line, with the design system's 16px mark instead of a hand-picked icon. The first try used the full status line and was too heavy under one field." },
   ],
   deadend: [
     { label: "Take action · task not here", before: B("citizen", "task-notfound.jpg"), after: "/coverage-board/after/task-notfound.jpg", note: "Today: an empty-state block. Now: centred on the page, a grey mark with the task's icon. Same words and button." },
