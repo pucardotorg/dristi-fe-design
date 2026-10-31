@@ -310,8 +310,10 @@ on top of 166460a4), DS at the pin (e0cadea6b9d4):
     oath shows English / ગુજરાતી in the shared switch with no menu; the words carry
     `lang="en"`; choosing ગુજરાતી shows the awaited message and no recording option. The
     top bar's switch still offers हिन्दी, ગુજરાતી and ਪੰਜਾਬੀ and switches the page.
-- Not checked on screen: #32 on registration and the court staff evidence screen (one
-  placeholder string each); keyboard order beyond the focus checks above.
+  - #32 at 1440px: registration's contact step and the court staff's Add a witness dialog
+    (Record statements on the order screen) both show `name@domain.com`.
+- Not checked on screen: keyboard order beyond the focus checks above.
+- Screens of every item: https://claude.ai/artifact/HyKw8GAc779DiGgPcChJTV
 - Open from the review: whether an advocate the register does not list should show only
   for the signed-in advocate (#9), and the email example (#32).
 
