@@ -1,5 +1,5 @@
 # File a case: Gujarat design-validation feedback
-Updated: 2026-10-30
+Updated: 2026-10-31
 Status: in progress
 
 Design-validation feedback on the File a case flow, raised by the Gujarat High Court and
@@ -8,28 +8,35 @@ Tracker. Branch: `revamp-file-a-case` (first named `revamp-file-a-case-complaint
 `origin/main` at 2157a236.
 Review page with today/proposed mock-ups of all eight items:
 https://claude.ai/artifact/GU2NCBwad8Qu45bVuTtDLF
+PR #177 review (Anshumanth, changes requested 2026-10-30), shown as this-PR / his-ask
+mock-ups: https://claude.ai/artifact/JmbXiRjdTvobUz2BRLzeev
 
 ## Current outcome
 
 | # | Feedback | Where | State |
 |---|---|---|---|
-| 11 | Flag which required fields are pending after moving on | Every filing section | Built and checked on screen |
-| 6 | Name as on the verified ID, not the cheque | Complainant | Built and checked on screen |
-| 32 | Neutral email placeholder (domain.com) | Every email field in the filing | Built and checked on screen |
-| 12 | Find advocates by mobile number too | Advocate | Built and checked on screen |
-| 9 | Pre-fill the filing advocate's own details | Advocate | Built and checked on screen |
-| 13 | "Add complainant / accused" hard to find | Complainant, Accused | Built and checked on screen |
+| 11 | Flag which required fields are pending after moving on | Every filing section | Revised after PR review (2026-10-31); checked on screen |
+| 6 | Name as on the verified ID, not the cheque | Complainant | Labels reverted after PR review (2026-10-31); checked on screen |
+| 32 | Neutral email placeholder (domain.com) | Every email field in the product | Widened after PR review (2026-10-31); example still to agree with Anshumanth |
+| 12 | Find advocates by mobile number too | Advocate | Built and checked on screen; error copy fixed after PR review (2026-10-31) |
+| 9 | Pre-fill the filing advocate's own details | Advocate | Revised after PR review (2026-10-31); checked on screen |
+| 13 | "Add complainant / accused" hard to find | Complainant, Accused | Revised after PR review (2026-10-31); checked on screen |
 | 56 | Oath to cover later submissions | Sign · Record your oath | Waiting on court wording |
-| 40 | Language switch for the oath text | Sign · Record your oath | Switch built and checked on screen; Gujarati text awaited from the court |
+| 40 | Language switch for the oath text | Sign · Record your oath | Moved onto the top bar's shared switch after PR review (2026-10-31); checked on screen; Gujarati text awaited |
 
 ### #11 as built
 - When a person leaves a section with required fields empty, the Sections list shows a
   count in place of the tick ("3", read as "3 to fix"). It reuses the count bulk filing
   already shows for problems to fix, so one mark means one thing across the product.
-- Coming back to that section shows each empty required field in error with a short
-  instruction ("Enter the age."). Errors clear as fields are filled; the count follows.
-- A first visit is never shown in error, and reloading the section you are on is not
-  "coming back". Nobody sees red before they have had a chance to fill the form.
+- Errors show only after Continue (PR review, 2026-10-31). Continue with required fields
+  empty marks each one in error with a short instruction ("Enter the age."). Errors clear
+  as fields are filled. Opening a section, coming back to it through the Sections list or
+  Back, and adding a party or advocate show nothing in red, even after Continue: a row
+  added after Continue starts clean. Leaving the section forgets its errors.
+- Before the review, coming back to a section showed its errors too, which put a new
+  advocate's card in red the moment it was added.
+- On the section on screen, the Sections list counts the errors Continue is showing; on a
+  section left behind it counts every empty required field, as before.
 - A section is ticked only when every field marked with an asterisk is filled.
 - Continue on a section with required fields empty stays on it, shows the errors, and
   moves the cursor to the first empty field, scrolled to the middle of the screen. The
@@ -40,14 +47,15 @@ https://claude.ai/artifact/GU2NCBwad8Qu45bVuTtDLF
   to its icon. Without this the counts sit in a sheet nobody has a reason to open.
 - Bulk filing and scrutiny corrections keep their own checks and are not affected.
 - Code: `apps/dristi-app/src/lib/filing/missing.ts` (which fields are missing, with
-  tests in `missing.test.ts`), `lib/filing/store.tsx` (whether the person came back),
+  tests in `missing.test.ts`), `lib/filing/store.tsx` (what Continue found empty),
   `components/filing/form-field.tsx` (the field error),
   `components/filing/sections-rail.tsx` (the count).
 
 ### #6 as built
-- The name field reads "Full name as on government ID" for the complainant, the
-  company's authorised representative, and the PoA holder ("PoA holder full name as on
-  government ID").
+- The labels read "Full name" (complainant, company representative) and "PoA holder
+  full name", as on `main`. From 2026-10-30 they read "… as on government ID"; reverted
+  on 2026-10-31 at Anshumanth's review: the court objected to the placeholder, not the
+  field name.
 - The complainant name's placeholder "As printed on the cheque" is removed: it told
   filers to do the opposite of what the court asked.
 - Not changed: the accused's and witnesses' names (the filer may not know their ID
@@ -62,24 +70,25 @@ https://claude.ai/artifact/GU2NCBwad8Qu45bVuTtDLF
   and the witness field's `ex: xyz@gmail.com`, which named a real company's domain, the
   exact concern the court raised. The case page's "Add witness" form copies the filing's
   witness form and is changed with it.
-- Not changed: registration (Account & login) and the court staff's evidence screen,
-  which are outside the filing.
+- Since the PR review (2026-10-31) registration (`lib/registration/content.ts`) and the
+  court staff's evidence screen (`components/employee/evidence-view.tsx`) show
+  `name@domain.com` too, so every email field shows one example. Which example to use is
+  still to be agreed with Anshumanth; changing it is a find-and-replace.
 
 ### #13 as built
 - Before: "+ Add complainant" and "+ Add accused" sat only at the end of the tab row at
   the top of the section. The row does not stick, so after a long party form the filer
   had to scroll all the way back up.
-- Now a "Complainants on this filing" / "Accused on this filing" card closes the form,
-  where the filer finishes (option E of seven). It lists each party so far: initials in a
-  navy-tinted avatar, the name, and its state in the Sections list's words and marks
-  (tick "Complete", dashed ring "In progress", or "Not started"). Under the list,
-  "+ Add another complainant" / "+ Add another accused". Pressing it opens the new
-  party's tab, puts focus on that tab and returns to the top of the form. The tab row
-  keeps its button. Hidden in a scrutiny correction round, as the row's button is.
-- A party counts as complete only when its section's own rule is met and none of its
-  required fields is empty, the same rule as the #11 counts.
-- Code: `apps/dristi-app/src/components/filing/party-roster.tsx` (`PartyRoster`), used in
-  `complainant-section.tsx` and `accused-section.tsx`. The rejected dashed tile is removed.
+- Now an outlined "+ Add another complainant" / "+ Add another accused" button sits
+  below the last card, outside any card, the same as "Add another advocate" on the
+  Advocate page (PR review, 2026-10-31). Pressing it opens the new party's tab, puts
+  focus on that tab and returns to the top of the form. The tab row keeps its button.
+  Hidden in a scrutiny correction round, as the row's button is.
+- It replaces the "… on this filing" card (option E, 2026-10-30), which listed the parties
+  again and read as part of the first party's details.
+- Code: `apps/dristi-app/src/components/filing/add-party-button.tsx` (`AddPartyButton`),
+  used in `complainant-section.tsx` and `accused-section.tsx`. `party-roster.tsx` is
+  removed.
 
 ### #9 as built
 - Before: a new filing already copied the signed-in person's profile into Advocate 1,
@@ -95,10 +104,24 @@ https://claude.ai/artifact/GU2NCBwad8Qu45bVuTtDLF
 - It fills once, when the filing is created. An advocate who removes themselves is not
   put back; "Use my details" appears on an empty card for them instead, and nowhere once
   they are on the filing.
+- The demo behaves as if connected (PR review, 2026-10-31). Signed in as the demo
+  advocate, the profile is known with her bar number (K/1188/2011, the one the sample
+  drafts give her, shown as G/… on Gujarat), so every new filing opens with Advocate 1
+  filled and no setup. Details saved from the header avatar win; the litigant and clerk
+  profiles and any other account get nothing. Before, the profile was empty unless
+  someone typed a bar number into it, so the pre-fill never showed in a demo.
+- Side effect: signing now marks the demo advocate as "you" on drafts listing
+  K/1188/2011, the sample drafts included, as a connected session would.
+- The profile is read in the selected court's terms, as a draft is. Without this, on
+  Gujarat the profile's K/1188/2011 never matched the draft's G/1188/2011, so "Use my
+  details" showed on Advocate 2 while she was already Advocate 1 (found on screen,
+  2026-10-31).
 - Applies in every state: the pre-fill already existed everywhere and this makes it
   work; nothing in it is specific to Gujarat.
-- Code: `apps/dristi-app/src/lib/filing/blank.ts` (`blankAdvocate`, `isAdvocateProfile`,
-  tests in `blank.test.ts`), `components/filing/sections/advocate-section.tsx`.
+- Code: `apps/dristi-app/src/lib/filing/profile.tsx` (`asDemoAdvocate`, `DEMO_ADVOCATE`,
+  read through `useProfile()`; tests in `sample-drafts.test.ts`),
+  `lib/filing/blank.ts` (`blankAdvocate`, `isAdvocateProfile`, tests in `blank.test.ts`),
+  `components/filing/sections/advocate-section.tsx`.
 
 ### #12 as built
 - Before: the advocate search matched name and bar number only.
@@ -109,6 +132,8 @@ https://claude.ai/artifact/GU2NCBwad8Qu45bVuTtDLF
   the results show name and bar number, never the mobile. Otherwise anyone filing could
   type a few digits and read advocates' phone numbers off the list.
 - Parts of a name or bar number still match as before.
+- The empty-field error says "Find the advocate by name, bar number or mobile.", to match
+  the placeholder (PR review, 2026-10-31).
 - Applies in every state: it is one search box shared by all of them.
 - The demo register now carries a mobile number for each advocate (90000 1 followed by
   the middle of the bar number, e.g. K/0421/2004 → 9000010421). The real register must
@@ -120,9 +145,14 @@ https://claude.ai/artifact/GU2NCBwad8Qu45bVuTtDLF
 ### #40 as built
 - Before: the oath's words followed only the site's language switch in the top bar,
   which changes the whole page.
-- Now "Say these words" has its own English / ગુજરાતી switch. It changes only the
-  words to be read on camera; the rest of the page stays as it is. It starts on the
-  language already sworn in, else the site's language, else English.
+- Now "Say these words" uses the top bar's language switch, made a shared component
+  (PR review, 2026-10-31): English beside a second language, with a menu for which
+  second language that is. It lists the second languages the state's `oathLanguages`
+  allows; with only one (Gujarat), the menu has nothing to offer and is left out. It
+  changes only the words to be read on camera; the rest of the page stays as it is. It
+  starts on the language already sworn in, else the site's language, else English.
+- From 2026-10-30 to 2026-10-31 it was a fixed two-option switch of its own, which could
+  never offer more than two languages.
 - Each language is named in its own script on the switch, and the words carry the right
   language mark for screen readers.
 - The Gujarati wording has not come from the court yet. Choosing ગુજરાતી shows "The
@@ -137,7 +167,8 @@ https://claude.ai/artifact/GU2NCBwad8Qu45bVuTtDLF
   neither asks for an oath at signing today.
 - Fixed along the way: "Recording as Nasreen K.." printed a second full stop after a
   name ending in one.
-- Code: `apps/dristi-app/src/components/filing/oath-capture.tsx`,
+- Code: `apps/dristi-app/src/components/shell/language-toggle.tsx` (`LanguageToggle`,
+  shared with `top-bar.tsx`), `components/filing/oath-capture.tsx`,
   `lib/court/profiles.ts` (`oathLanguages`), `lib/filing/types.ts`
   (`OathVideo.language`).
 
@@ -180,13 +211,24 @@ https://claude.ai/artifact/GU2NCBwad8Qu45bVuTtDLF
 | 2026-10-30 | #40: Gujarat only, set per state on the court profile. Feedback applies to the state that raised it; the other states do not ask for an oath today. | Implementation choice, per Neer's standing rule | Built, open to change |
 | 2026-10-30 | #40: save the language with the recording and lock the switch while recording, so the court can tell which wording was sworn. | Recommended on the review page | Built |
 | 2026-10-30 | #40, #56: the oath wording and its Gujarati translation must come from the High Court through PUCAR. We do not draft legal wording or translate an oath ourselves; the review page shows only where the text goes. | Recommendation | Awaiting court text |
+| 2026-10-31 | #11: errors show only after Continue, on the fields it found empty. Opening or coming back to a section, and adding a party or advocate, show nothing in red; the skipped-section count stays. Reverses "coming back shows the missed fields in red" (2026-10-30). | Anshumanth, PR #177 review; Neer asked to build it | Built |
+| 2026-10-31 | #6: labels back to "Full name" / "PoA holder full name"; the cheque placeholder stays removed. Reverses "say 'as on government ID' in the label" (2026-10-30): the court objected to the placeholder, not the name. | Anshumanth, PR #177 review; Neer asked to build it | Built |
+| 2026-10-31 | #13: an outlined Add button after the last card, as on the Advocate page, replaces the "on this filing" card (option E). The card repeated the tabs and Sections list and sat at the wrong level. | Anshumanth, PR #177 review; Neer asked to build it | Built |
+| 2026-10-31 | #9: the demo advocate account carries a bar number and the pre-fill uses the signed-in demo advocate, kept in `useProfile()`. | Anshumanth, PR #177 review; Neer asked to build it | Built |
+| 2026-10-31 | #9: reuse K/1188/2011, the bar number the sample drafts and tests already give the demo advocate, rather than inventing another. | Implementation choice | Built, open to change |
+| 2026-10-31 | #9: read the profile in the selected court's terms, as drafts are, so the signed-in advocate matches their own row on every court. | Implementation choice, fixing a fault found on screen | Built |
+| 2026-10-31 | #12: the advocate field's error names mobile as well. | Anshumanth, PR #177 review | Built |
+| 2026-10-31 | #32: registration and the court staff evidence screen use `name@domain.com`, so every email field matches. The example itself is still to be agreed with Anshumanth before merge. | Anshumanth, PR #177 review; the choice of `name@domain.com` is an implementation choice | Built, example open |
+| 2026-10-31 | #40: Anshumanth asked to reuse the top bar's language switch (`LanguageToggle`) for the oath. Held back at first because Neer was unsure the review mock-up was right; then built as Anshumanth described it. | Anshumanth, PR #177 review; Neer asked to build all his asks as he wants them | Built |
+| 2026-10-31 | #40: the shared switch leaves out its menu when there is only one second language to offer, since it has nothing to choose. Gujarat's oath (English, Gujarati) therefore shows the two-option switch without a chevron. | Implementation choice | Built, open to change |
 
 ## Changes and tradeoffs
 
 - **#11, numbers versus a summary list.** The tracker card asked to "list what is
   pending". We show the list in place: the fields themselves are marked when the
   section is opened, rather than in a separate summary that the filer then has to
-  match to fields.
+  match to fields. Since 2026-10-31 they are marked when Continue is pressed,
+  not when the section is opened.
 - **#11, blocking.** The first mock-up kept Next moving and only left the count, on the
   reading that the court asked for a flag, not a block. Neer reversed this on the
   review page: stopping at Next with the errors shown is clearer, while the list
@@ -243,6 +285,35 @@ Checked on 2026-10-30 on `revamp-file-a-case`, DS at the pin (e0cadea6b9d4):
   tab shows a green "Complete" dot although every field is empty (its dot reflects only
   the "to review" flag). It now disagrees with the #11 count.
 - The review was the builder's own, not independent.
+
+Checked on 2026-10-31 after the PR review fixes, on `revamp-file-a-case` (uncommitted,
+on top of 166460a4), DS at the pin (e0cadea6b9d4):
+- App suite: 1,453 tests pass, including three new `asDemoAdvocate` tests.
+- Changed files: no type errors, no new lint warnings. The full UI check fails only on the
+  files listed above, as before.
+- The dev server stopped answering for a while and was restarted by Neer; nothing was
+  touched from here.
+- Checked on screen (localhost:3000 serving this checkout, Gujarat, headless Chromium):
+  - #11 at 1440px: a new filing's Advocate opens with no errors; Add another advocate
+    shows none; Continue stays, shows one error on Advocate 2 and focuses its search;
+    an advocate added after Continue starts clean; the Sections list shows "Advocate 2 to
+    fix" from Complainant; coming back through the list shows no errors. A newly added
+    complainant shows none. At 375px dark, Advocate opens with none.
+  - #12: the error reads "Find the advocate by name, bar number or mobile."
+  - #6 at 1440px: "Full name"; "government ID" appears nowhere on Complainant.
+  - #13 at 1440px light and 375px dark: no "on this filing" card on Complainant or
+    Accused; an outlined, 40px "Add another complainant" below the last card; pressing it
+    opens and focuses "Complainant 2". No sideways scroll on a phone.
+  - #9 at 1440px: a brand-new filing opens with Anjali Parmar, G/1188/2011 as Advocate 1;
+    after the court-terms fix, no "Use my details" with one or two advocates.
+  - #40 at 1440px light and 375px dark, complainant's sign link after Aadhaar OTP: the
+    oath shows English / ગુજરાતી in the shared switch with no menu; the words carry
+    `lang="en"`; choosing ગુજરાતી shows the awaited message and no recording option. The
+    top bar's switch still offers हिन्दी, ગુજરાતી and ਪੰਜਾਬੀ and switches the page.
+- Not checked on screen: #32 on registration and the court staff evidence screen (one
+  placeholder string each); keyboard order beyond the focus checks above.
+- Open from the review: whether an advocate the register does not list should show only
+  for the signed-in advocate (#9), and the email example (#32).
 
 Open:
 - The Preview step checks fewer fields than the asterisks mark (Age, Pincode and others),

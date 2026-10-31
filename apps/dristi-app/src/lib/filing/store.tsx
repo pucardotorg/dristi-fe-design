@@ -34,8 +34,6 @@ type FilingContextValue = {
   hrefFor: (step: StepId) => string;
   /** The steps this draft is walked through: every one, unless its host leaves some out. */
   steps: StepId[];
-  /** The person left the section on screen earlier and has come back to it. */
-  returned: boolean;
   /** Persist immediately (used before navigating away from a critical action). */
   flush: () => Promise<void>;
   /** Delete this draft and its files. The caller navigates afterwards. */
@@ -250,35 +248,34 @@ export function FilingProvider({
     await deleteDraftWithFiles(draftId);
   }, [draftId]);
 
-  // Whether the person came back to this section after leaving it, read as they arrive —
-  // before the effect above records the visit. Reloading the section they were on is not
-  // coming back: they never left it.
+  // The required fields Continue found empty on this visit to the section (design
+  // feedback #11). Only Continue shows errors: opening a section, coming back to it, or
+  // adding a party or advocate shows nothing. Leaving the section forgets them, and a row
+  // added after Continue is not among them.
   const arrivalKey = `${draftId}:${step}`;
-  const [arrival, setArrival] = React.useState<{ key: string; returned: boolean } | null>(null);
-  if (state.status === "ready" && step && arrival?.key !== arrivalKey) {
-    setArrival({
-      key: arrivalKey,
-      returned: sectionOpened(state.draft, step) && state.draft.lastStep !== step,
-    });
-  }
-  const returned = arrival?.key === arrivalKey && arrival.returned;
+  const [revealed, setRevealed] = React.useState<{ key: string; fields: string[] } | null>(null);
+  if (revealed && revealed.key !== arrivalKey) setRevealed(null);
 
   const draft = state.status === "ready" ? state.draft : null;
   const value = React.useMemo<FilingContextValue | null>(
-    () =>
-      draft ? { draft, saveState, update: commit, hrefFor, steps, returned, flush, discard } : null,
-    [draft, saveState, commit, hrefFor, steps, returned, flush, discard]
+    () => (draft ? { draft, saveState, update: commit, hrefFor, steps, flush, discard } : null),
+    [draft, saveState, commit, hrefFor, steps, flush, discard]
   );
 
   // Derived on every render, not memoised: the lint's compiler pass refuses a memo whose
-  // input comes from an imported helper, and the list is short.
-  const shownMissing = draft && step && returned ? missingRequired(draft, step) : NONE_MISSING;
+  // input comes from an imported helper, and the list is short. A field filled in since
+  // Continue drops out at once.
+  const shownMissing =
+    draft && step && revealed?.key === arrivalKey
+      ? missingRequired(draft, step).filter((m) => revealed.fields.includes(fieldKey(m)))
+      : NONE_MISSING;
 
-  // Continue on a section with required fields empty shows them, as coming back would,
-  // and says the person should stay (owner, 2026-10-30).
+  // Continue on a section with required fields empty shows them and says the person
+  // should stay (owner, 2026-10-30).
   const stopIfMissing = () => {
-    if (!draft || !step || missingRequired(draft, step).length === 0) return false;
-    setArrival({ key: arrivalKey, returned: true });
+    const missing = draft && step ? missingRequired(draft, step) : NONE_MISSING;
+    if (missing.length === 0) return false;
+    setRevealed({ key: arrivalKey, fields: missing.map(fieldKey) });
     return true;
   };
 
@@ -295,6 +292,8 @@ export function FilingProvider({
 
 const NONE_MISSING: MissingField[] = [];
 
+const fieldKey = (m: MissingField) => `${m.instance}:${m.name}`;
+
 const MissingGuardContext = React.createContext<(() => boolean) | null>(null);
 
 /**
@@ -306,11 +305,16 @@ export function useMissingGuard(): (() => boolean) | null {
 }
 
 /**
- * The required fields of the section on screen that are still empty, once the person has
- * come back to it (design feedback #11). Empty on a first visit, so a form is never red
+ * The required fields of the section on screen that Continue found empty and are still
+ * empty (design feedback #11). Empty until Continue is pressed, so a form is never red
  * before anyone has had the chance to fill it in.
  */
 const ShownMissingContext = React.createContext<MissingField[]>(NONE_MISSING);
+
+/** How many required fields the section on screen is showing as empty. */
+export function useShownMissingCount(): number {
+  return React.useContext(ShownMissingContext).length;
+}
 
 /** What to show under a required field left empty, or `null`. */
 export function useMissingFieldMessage(instance: number, name: string | undefined): string | null {

@@ -18,14 +18,12 @@ import { blankComplainant } from "@/lib/filing/blank";
 import { ENTITY_TYPES, GENDER_OPTIONS } from "@/lib/filing/options";
 import { fetchOnCourtRecord } from "@/lib/filing/registry";
 import {
-  complainantComplete,
   complainantLabel,
   complainantsMissingCinPan,
   isCinOrPan,
   normaliseCinPan,
   partySourceSlot,
 } from "@/lib/filing/selectors";
-import { missingRequired } from "@/lib/filing/missing";
 import { neighbours } from "@/lib/filing/steps";
 import { useFiling } from "@/lib/filing/store";
 import type {
@@ -70,7 +68,7 @@ import { OptionSelect, PrefixInput, TextField } from "@/components/filing/inputs
 import { InfoWell, SectionNotice } from "@/components/filing/notices";
 import { PrefillNotice } from "@/components/filing/prefill-notice";
 import { RichTextEditor } from "@/components/filing/rich-text-editor";
-import { PartyRoster } from "@/components/filing/party-roster";
+import { AddPartyButton } from "@/components/filing/add-party-button";
 import { SectionTabs } from "@/components/filing/section-tabs";
 import { Segmented, YesNoSegmented } from "@/components/filing/segmented";
 import { YesNoChoice } from "@/components/filing/yes-no-choice";
@@ -277,9 +275,6 @@ export function ComplainantSection() {
     });
     setActiveIndex(complainants.length);
   };
-
-  /** Required fields still empty, per complainant: a complainant with any is not complete. */
-  const missingHere = missingRequired(draft, "complainant");
 
   const removeComplainant = (index: number) => {
     if (complainants.length <= 1) return;
@@ -494,9 +489,10 @@ export function ComplainantSection() {
             {/* Who this person is; how to reach them is the card above. */}
             <FormCard title="Basic details">
               <FormRow>
-                {/* The name the court can verify, which may not be the one the cheque
-                    book prints (Gujarat HC, design feedback #6). */}
-                <FormField label="Full name as on government ID" name="name" required>
+                {/* No "As printed on the cheque" hint: the court wants the name it can
+                    verify, which may not be the one the cheque book prints (Gujarat HC,
+                    design feedback #6). The label stays "Full name". */}
+                <FormField label="Full name" name="name" required>
                   <TextField
                     value={c.name}
                     onChange={(v) => setRead("name", v)}
@@ -606,7 +602,7 @@ export function ComplainantSection() {
                     </FormField>
                   </HalfWidth>
                   <FormRow>
-                    <FormField label="PoA holder full name as on government ID" name="poaHolder.name" required>
+                    <FormField label="PoA holder full name" name="poaHolder.name" required>
                       <TextField
                         value={c.poaHolder.name}
                         onChange={(v) => setPoa("name", v)}
@@ -766,7 +762,7 @@ export function ComplainantSection() {
                 </FormField>
               </HalfWidth>
               <FormRow>
-                <FormField label="Full name as on government ID" name="rep.name" required>
+                <FormField label="Full name" name="rep.name" required>
                   <TextField
                     value={c.rep.name}
                     onChange={(v) => setRep("name", v)}
@@ -840,17 +836,7 @@ export function ComplainantSection() {
         ) : null}
         </CorrectionInstance>
 
-        <PartyRoster
-          title="Complainants on this filing"
-          parties={complainants.map((cp, i) => ({
-            id: cp.id,
-            name: complainantLabel(cp, i),
-            complete: complainantComplete(cp) && !missingHere.some((m) => m.instance === i),
-            started: !!(cp.name.trim() || cp.entName.trim() || cp.mobile.trim()),
-          }))}
-          addLabel="Add another complainant"
-          onAdd={addComplainant}
-        />
+        <AddPartyButton label="Add another complainant" onAdd={addComplainant} />
       </FilingMain>
 
       <FilingFooter

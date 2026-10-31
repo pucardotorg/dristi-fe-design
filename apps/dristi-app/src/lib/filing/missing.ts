@@ -106,7 +106,7 @@ export function missingRequired(draft: FilingDraft, step: StepId): MissingField[
         check(!forSomeone, `advocates.${i}.for`, "Choose who this advocate appears for.");
         // The draft's own record, as signing reads it — not whether the stand-in register
         // knows the number, which the sample drafts' advocates are not on.
-        check(blank(a.name) || blank(a.barNumber), `advocates.${i}.advocate`, "Find the advocate by name or bar number.");
+        check(blank(a.name) || blank(a.barNumber), `advocates.${i}.advocate`, "Find the advocate by name, bar number or mobile.");
       });
       break;
     }

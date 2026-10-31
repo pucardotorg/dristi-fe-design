@@ -28,15 +28,12 @@ import {
 import { getRepository, storeUpload } from "@/lib/filing/data";
 import { forgetFile, formatDuration, getFileUrl } from "@/lib/filing/files";
 import type { OathVideo, StoredFileRef } from "@/lib/filing/types";
-import { LANGUAGE_NAME } from "@/lib/locale-config";
+import type { SecondLanguage } from "@/lib/locale-config";
 import type { Locale } from "@/lib/onboarding/content";
 import { useCourt } from "@/components/court/court-provider";
+import { LanguageToggle } from "@/components/shell/language-toggle";
 import { useLocale } from "@/components/shell/locale";
 import { Button } from "@/components/ui/button";
-import {
-  SegmentedControl,
-  SegmentedControlItem,
-} from "@/components/ui/segmented-control";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SectionNotice } from "@/components/filing/notices";
 import { OathRecorderPanel } from "@/components/filing/oath-recorder";
@@ -131,6 +128,12 @@ export function OathCapture({
     [value?.language, locale].find((l): l is Locale => !!l && languages.includes(l)) ??
     languages[0]
   );
+  // The top bar's switch, offering the second languages the state allows beside English
+  // (design feedback #40). It starts on the language already chosen, else the first.
+  const seconds = languages.filter((l): l is SecondLanguage => l !== "en");
+  const [second, setSecond] = React.useState<SecondLanguage | undefined>(() =>
+    language !== "en" ? language : seconds[0]
+  );
   const words = OATH_WORDS[language];
 
   const commit = async (file: File, durationSeconds: number) => {
@@ -196,21 +199,20 @@ export function OathCapture({
           <h3 id="oath-words" className="text-body font-semibold">
             Say these words
           </h3>
-          {languages.length > 1 ? (
+          {languages.includes("en") && second ? (
             // Locked while recording, so the words cannot change mid-oath.
-            <SegmentedControl
-              type="single"
+            <LanguageToggle
               value={language}
-              onValueChange={(next) => next && setLanguage(next as Locale)}
+              onValueChange={setLanguage}
+              second={second}
+              onSecondChange={(next) => {
+                setSecond(next);
+                setLanguage(next);
+              }}
+              choices={seconds}
+              ariaLabel="Language of the oath"
               disabled={recording || busy}
-              aria-label="Language of the oath"
-            >
-              {languages.map((l) => (
-                <SegmentedControlItem key={l} value={l} lang={l}>
-                  {LANGUAGE_NAME[l]}
-                </SegmentedControlItem>
-              ))}
-            </SegmentedControl>
+            />
           ) : null}
         </div>
         {name.trim() ? (

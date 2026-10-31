@@ -19,7 +19,7 @@ import {
   stepGroups,
   type FilingStep,
 } from "@/lib/filing/steps";
-import { useFiling } from "@/lib/filing/store";
+import { useFiling, useShownMissingCount } from "@/lib/filing/store";
 import type { FilingDraft, StepId } from "@/lib/filing/types";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -95,18 +95,18 @@ function IssueMark({ count, className }: { count: number; className?: string }) 
 }
 
 /**
- * Required fields still empty in a section (#11), as the rail counts them: on a section
- * the person has left, and on the one they came back to, where the same fields show their
- * errors. Nothing on a section not yet opened, or on a first visit to the one on screen;
- * nothing under a host, which counts in its own way.
+ * Required fields still empty in a section (#11), as the rail counts them: every one on a
+ * section the person has left, and on the one on screen only the errors Continue is
+ * showing. Nothing on a section not yet opened; nothing under a host, which counts in its
+ * own way.
  */
 function missingShown(
   draft: FilingDraft,
   step: StepId,
-  { active, returned, hosted }: { active: boolean; returned: boolean; hosted: boolean }
+  { active, shown, hosted }: { active: boolean; shown: number; hosted: boolean }
 ): number {
-  if (hosted || (active && !returned) || sectionState(draft, step) === "untouched") return 0;
-  return missingRequired(draft, step).length;
+  if (hosted || sectionState(draft, step) === "untouched") return 0;
+  return active ? shown : missingRequired(draft, step).length;
 }
 
 /* ───────────────────────────── Rows ────────────────────────────────── */
@@ -142,14 +142,16 @@ function StepRow({
   onNavigate: () => void;
 }) {
   const courtText = useCourtText();
-  const { draft, hrefFor, returned } = useFiling();
+  const { draft, hrefFor } = useFiling();
+  const shown = useShownMissingCount();
   const blocked = useLeaveBlocked();
   const policy = useFieldPolicy();
   const issues = policy?.countFor(step.id) ?? 0;
   // A section with a required field still empty is never ticked, even where filing would
-  // accept it without (#11); the count itself shows only once the person has left it.
+  // accept it without (#11); the count itself shows once the person has left it, or on
+  // the section on screen once Continue shows its errors.
   const missing = policy ? 0 : missingRequired(draft, step.id).length;
-  const shownMissing = missingShown(draft, step.id, { active, returned, hosted: !!policy });
+  const shownMissing = missingShown(draft, step.id, { active, shown, hosted: !!policy });
   const state = sectionState(draft, step.id);
   const Icon = step.icon;
 
@@ -400,7 +402,8 @@ export function SectionsRail() {
  */
 export function SectionsTrigger() {
   const { sectionsSheetOpen, setSectionsSheetOpen } = useFilingChrome();
-  const { draft, returned } = useFiling();
+  const { draft } = useFiling();
+  const shown = useShownMissingCount();
   const active = useActiveStep();
   const policy = useFieldPolicy();
   const hostSteps = policy?.hostSteps?.steps ?? [];
@@ -414,7 +417,7 @@ export function SectionsTrigger() {
   // On a phone the rows sit behind this button, so it carries their total (#11): without
   // it the counts are only found by opening a sheet nobody has a reason to open.
   const toFix = sections.reduce(
-    (n, id) => n + missingShown(draft, id, { active: id === here, returned, hosted: !!policy }),
+    (n, id) => n + missingShown(draft, id, { active: id === here, shown, hosted: !!policy }),
     0
   );
 
