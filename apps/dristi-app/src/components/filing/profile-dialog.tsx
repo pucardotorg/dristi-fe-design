@@ -99,7 +99,7 @@ function ProfileForm({ onClose }: { onClose: () => void }) {
             value={form.email}
             onChange={(v) => set("email", v)}
             autoComplete="email"
-            placeholder="you@example.com"
+            placeholder="name@domain.com"
           />
         </FormField>
         <FormField

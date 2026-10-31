@@ -111,12 +111,22 @@ export function blankComplainant(): Complainant {
   };
 }
 
-export const blankAdvocate = (profile?: UserProfile | null): Advocate => ({
-  id: uid("adv"),
-  forComplainants: [0],
-  barNumber: profile?.barNumber ?? "",
-  name: profile?.name ?? "",
-});
+/**
+ * Only a person with a bar number is an advocate: a litigant or clerk filing gets an
+ * empty card rather than their own name on the Vakalatnama row.
+ */
+export const isAdvocateProfile = (profile?: UserProfile | null): profile is UserProfile =>
+  !!profile?.barNumber.trim();
+
+export const blankAdvocate = (profile?: UserProfile | null): Advocate => {
+  const self = isAdvocateProfile(profile) ? profile : null;
+  return {
+    id: uid("adv"),
+    forComplainants: [0],
+    barNumber: self?.barNumber.trim() ?? "",
+    name: self?.name.trim() ?? "",
+  };
+};
 
 export const blankAccused = (): Accused => ({
   id: uid("acc"),

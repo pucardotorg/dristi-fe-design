@@ -5,7 +5,8 @@ import { setSigningRules } from "./config";
 
 import { ADVOCATE_LINK_SAMPLES, OATH_DEMO_LINK, OATH_DEMO_SAMPLES, buildSampleDraft } from "./sample-drafts";
 import { complaintsNaming } from "./linked-complaints";
-import { asSignedIn } from "./profile";
+import { DEMO_ADVOCATE, EMPTY_PROFILE, asDemoAdvocate, asSignedIn } from "./profile";
+import { createBlankDraft } from "./blank";
 import { sameMobile, signatories } from "./selectors";
 
 /* The oath and per-advocate signing are Gujarat's rules (`config.ts`); this sample is
@@ -96,5 +97,25 @@ describe("the signed-in litigant in File a case", () => {
 
   it("leaves an advocate's profile alone", () => {
     assert.deepEqual(asSignedIn(stored, null), stored);
+  });
+});
+
+describe("the signed-in demo advocate in File a case", () => {
+  it("opens every new filing with them as Advocate 1, with no setup", () => {
+    const profile = asDemoAdvocate(EMPTY_PROFILE, null, null);
+    const [adv] = createBlankDraft("d-1", profile).advocates;
+    assert.equal(adv.name, DEMO_ADVOCATE.name);
+    assert.equal(adv.barNumber, DEMO_ADVOCATE.barNumber);
+  });
+
+  it("keeps details saved from the header avatar", () => {
+    const saved = { ...EMPTY_PROFILE, name: "Anjali Nair", barNumber: "K/0042/2009" };
+    assert.deepEqual(asDemoAdvocate(saved, "advocate", "Anjali Nair"), saved);
+  });
+
+  it("gives nothing to the litigant or clerk profile, or another account", () => {
+    assert.equal(asDemoAdvocate(EMPTY_PROFILE, "litigant", null).barNumber, "");
+    assert.equal(asDemoAdvocate(EMPTY_PROFILE, "clerk", null).barNumber, "");
+    assert.equal(asDemoAdvocate(EMPTY_PROFILE, "advocate", "Arjun Menon").barNumber, "");
   });
 });

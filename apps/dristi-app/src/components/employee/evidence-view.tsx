@@ -1295,7 +1295,7 @@ function AddWitnessDialog({
                       setEmail(next);
                       setError(undefined);
                     }}
-                    placeholder="name@example.com"
+                    placeholder="name@domain.com"
                     autoComplete="off"
                   />
                 </FormField>
