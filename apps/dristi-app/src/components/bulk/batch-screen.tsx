@@ -14,7 +14,6 @@ import { useCourt } from "@/components/court/court-provider";
 
 import { toLongDate } from "@/lib/filing/format";
 import { cn } from "@/lib/utils";
-import { PANEL_CLASS } from "@/components/filing/form-card";
 import {
   PAGE_GROUND,
   PAGE_GUTTER,
@@ -305,7 +304,7 @@ export function BatchScreen({ batchId }: { batchId: string }) {
       ) : null}
 
       {/* Folded to one line by default: what the batch is, at a glance; Details opens it. */}
-      <Card className={cn(PANEL_CLASS, "gap-0 overflow-hidden py-0")}>
+      <Card variant="raised" className="gap-0 overflow-hidden py-0">
         {/* The whole line opens and closes the details, not only its Details label. */}
         <button
           type="button"

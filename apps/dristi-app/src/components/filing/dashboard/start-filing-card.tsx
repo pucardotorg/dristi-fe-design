@@ -11,7 +11,6 @@ import {
 
 import { CASE_TYPE, PSS_CASE_TYPE } from "@/lib/filing/options";
 import { NEW_FILING, NEW_PSS_FILING } from "@/lib/filing/steps";
-import { cn } from "@/lib/utils";
 import {
   Card,
   CardContent,
@@ -19,7 +18,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { PANEL_CLASS } from "@/components/filing/form-card";
 
 /**
  * One case type as a row that is itself the button (owner, 2026-10-09: "keep it as a row
@@ -68,7 +66,7 @@ function CaseTypeRow({
 export function StartFilingCard() {
   const titleId = React.useId();
   return (
-    <Card className={cn(PANEL_CLASS, "gap-0")}>
+    <Card variant="raised" className="gap-0">
       <CardHeader className="flex flex-row items-start gap-3">
         <span
           aria-hidden

@@ -84,7 +84,6 @@ import {
   SegmentedControl,
   SegmentedControlItem,
 } from "@/components/ui/segmented-control";
-import { PANEL_CLASS } from "@/components/shell/panel";
 
 import { DOCUMENT_GROUND } from "./document-ground";
 import { COLLAPSE_MOTION, glideToTop } from "./motion";
@@ -230,10 +229,8 @@ export function CaseFile({
       </Sheet>
 
       <Card
-        className={cn(
-          PANEL_CLASS,
-          "flex min-h-0 flex-1 flex-col overflow-hidden py-0 hover:bg-card md:pointer-fine:flex-row md:landscape:flex-row md:pointer-fine:items-stretch md:landscape:items-stretch md:pointer-fine:gap-0 md:landscape:gap-0"
-        )}
+        variant="raised"
+        className="flex min-h-0 flex-1 flex-col overflow-hidden py-0 hover:bg-card md:pointer-fine:flex-row md:landscape:flex-row md:pointer-fine:items-stretch md:landscape:items-stretch md:pointer-fine:gap-0 md:landscape:gap-0"
       >
         <div className="hidden min-h-0 w-72 shrink-0 flex-col gap-2 overflow-hidden p-4 md:pointer-fine:flex md:landscape:flex">
           {/* The row height of the document's title bar beside it, so the two

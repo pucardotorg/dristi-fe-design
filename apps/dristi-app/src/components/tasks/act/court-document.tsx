@@ -7,7 +7,6 @@ import { signatoriesOf } from "@/lib/tasks/permissions";
 import type { Case, Person, Task } from "@/lib/tasks/types";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
-import { PANEL_CLASS } from "@/components/shell/panel";
 import { useCourtLocalized } from "@/components/court/court-provider";
 
 /** "Sign the vakalatnama for …" → "Vakalatnama for …". */
@@ -93,7 +92,7 @@ export function CourtDocument({
   const words = wordsFor(documentKindOf(task), kase.court, task.why.event);
 
   return (
-    <Card className={cn(PANEL_CLASS, "gap-0 p-6 md:p-10", className)}>
+    <Card variant="raised" className={cn("gap-0 p-6 md:p-10", className)}>
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 text-body">
         <header className="flex flex-col items-center gap-1 text-center">
           <p className="text-caption font-semibold text-paper-muted-foreground">Before the</p>

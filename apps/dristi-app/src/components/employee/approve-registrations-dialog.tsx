@@ -819,19 +819,17 @@ function StageCard({
   children: React.ReactNode;
 }) {
   return (
+    /* **Lifted at rest, always.** The pre-act strip is `surface-sunken` and the stage
+       under it is `muted` — measured 1.01:1 against each other, so the top of the card
+       dissolved into the page and the owner read the header as unreadable
+       (2026-09-11). A panel on a tinted stage is exactly what ui-craft §1 lifts with
+       a shadow rather than separating with a stroke; the shadow was previously
+       rationed to hover, which is a state a card on a decision screen is mostly not
+       in. */
     <Card
+      variant="raised"
       size="sm"
-      className={cn(
-        /* **Lifted at rest, always.** The pre-act strip is `surface-sunken` and the stage
-           under it is `muted` — measured 1.01:1 against each other, so the top of the card
-           dissolved into the page and the owner read the header as unreadable
-           (2026-09-11). A panel on a tinted stage is exactly what ui-craft §1 lifts with
-           a shadow rather than separating with a stroke; the shadow was previously
-           rationed to hover, which is a state a card on a decision screen is mostly not
-           in. */
-        "border-hairline shadow-raised",
-        flush && "gap-0 py-0",
-      )}
+      className={cn(flush && "gap-0 py-0")}
     >
       {flush ? (
         children

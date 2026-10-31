@@ -38,11 +38,9 @@ import { draftTitle } from "@/lib/filing/selectors";
 import { getStep, stepFromPathname } from "@/lib/filing/steps";
 import { FilingProvider, useFiling } from "@/lib/filing/store";
 import type { StepId } from "@/lib/filing/types";
-import { cn } from "@/lib/utils";
 import { useCourt, useCourtText } from "@/components/court/court-provider";
 import { DraftBreadcrumbLabel } from "@/components/filing/chrome";
 import { FieldPolicyProvider, type FieldPolicy } from "@/components/filing/field-policy";
-import { PANEL_CLASS } from "@/components/filing/form-card";
 import { FilingShell } from "@/components/filing/filing-shell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -367,7 +365,7 @@ function CaseBar({
   const later = c.flags.filter((f) => f.section !== step);
 
   return frame(
-    <Card className={cn(PANEL_CLASS, "gap-0 py-0")}>
+    <Card variant="raised" className="gap-0 py-0">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3">
         <Button asChild variant="ghost" className="-ml-2">
           <Link href={batchHref(batchId, "scrutiny", aiParam, c.id)}>

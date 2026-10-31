@@ -13,7 +13,6 @@ import { CASE_TYPE, COURT, RETURN_REASONS } from "@/lib/filing/options";
 import type { FilingDraft } from "@/lib/filing/types";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
-import { PANEL_CLASS } from "@/components/filing/form-card";
 import {
   INTERIM_RELIEF_SUMMARY,
   NOT_PROVIDED,
@@ -133,7 +132,7 @@ export function CourtDocument({ draft }: { draft: FilingDraft }) {
   const finalRelief = htmlToParagraphs(draft.adr.finalRelief);
 
   return (
-    <Card className={cn(PANEL_CLASS, "gap-0 p-6 font-sans text-foreground sm:p-8")}>
+    <Card variant="raised" className="gap-0 p-6 font-sans text-foreground sm:p-8">
       {/* Court and cause title */}
       <div className="flex flex-col gap-1 text-center">
         <p className="text-caption font-medium tracking-wide text-paper-muted-foreground">

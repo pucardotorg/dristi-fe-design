@@ -382,7 +382,7 @@ export function TasksTable(props: TasksTableProps) {
 
   if (rows.length === 0) {
     return (
-      <Card className={cn(PANEL_CLASS, "py-0")}>
+      <Card variant="raised" className="py-0">
         {emptyKind === "filtered" ? (
           <Empty className="py-12">
             <EmptyHeader>
@@ -439,7 +439,7 @@ export function TasksTable(props: TasksTableProps) {
     // clip is for the stacked list, which runs its rows and band strips full-bleed into
     // the card's rounded corners; the wide table is inset and rounds its own well.
     wide ? (
-      <Card className={cn(PANEL_CLASS, "@container gap-0 overflow-clip py-0")}>
+      <Card variant="raised" className="@container gap-0 overflow-clip py-0">
         <div ref={listRef} onKeyDown={onKeyDown}>
           <WideTable {...props} />
         </div>
@@ -900,7 +900,7 @@ function TaskCard({
 /** Rows still arriving: chrome intact, the table as calm placeholders. */
 export function TasksTableSkeleton() {
   return (
-    <Card className={cn(PANEL_CLASS, "gap-0 py-0")} aria-busy="true" aria-label="Loading tasks">
+    <Card variant="raised" className="gap-0 py-0" aria-busy="true" aria-label="Loading tasks">
       {/* Inset from `md` — the width at which the rows that arrive are the wide table,
           which its panel insets by the same 16px. Below that the stacked list runs
           full-bleed and so does this, so the rows never shift as they land. */}

@@ -1848,7 +1848,7 @@ function PickDay({
   earliest: string;
 }) {
   return (
-    <Card size="sm" className="border-hairline px-4 shadow-raised">
+    <Card variant="raised" size="sm" className="px-4">
       <div className="flex flex-col gap-3">
         {/* **No visible label over the grid any more.** It read *New hearing date*, 40px
             under a title that now reads *Pick a new date* — two lines naming the same
@@ -1963,8 +1963,9 @@ function SignOrder({
     /* Flush: the strip and the rows draw their own rules edge to edge, so the card's own
        padding is off and `overflow-hidden` is what keeps the band inside the radius. */
     <Card
+      variant="raised"
       size="sm"
-      className="gap-0 overflow-hidden border-hairline py-0 shadow-raised"
+      className="gap-0 overflow-hidden py-0"
     >
       {/* Once signed, the window's outcome above says so; the card keeps the facts. */}
       {signed ? null : (
