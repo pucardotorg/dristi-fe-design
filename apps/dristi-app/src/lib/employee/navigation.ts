@@ -522,8 +522,7 @@ const SEAT_HIDDEN_ROWS: Partial<Record<CourtRole, ReadonlySet<string>>> = {
   magistrate: HIDDEN_FROM_BENCH,
   "bench-clerk": HIDDEN_FROM_BENCH,
   typist: HIDDEN_FROM_STENO,
-  /* Punjab & Haryana's own Steno and Ahlmad (court-roles §3.3) hold no signing role. */
-  steno: HIDDEN_FROM_STENO,
+  /* Punjab & Haryana's Ahlmad (court-roles §3.3) holds no signing role. */
   ahlmad: HIDDEN_FROM_STENO,
 };
 
@@ -536,6 +535,9 @@ export function seatHasNavRow(
   /* Approve registrations goes to whoever holds Account approver in this state
      (court-roles §3: the Scrutiny officer in Gujarat, the Ahlmad in Punjab & Haryana).
      Where the table names nobody yet (Kerala), the seat rules below still decide. */
+  /* Scrutinise submitted cases goes to whoever holds Scrutiny officer in this state —
+     the Ahlmad in Punjab & Haryana (court-roles §3.3). */
+  if (id === "scrutiny") return seatHolds(role, court, "scrutiny-officer");
   if (id === "approve-registrations") {
     const approvers = seatsIn(court).filter((seat) =>
       seatHolds(seat, court, "account-approver"),

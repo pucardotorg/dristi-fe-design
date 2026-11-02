@@ -27,7 +27,7 @@
  * browser's hydration agreeing on the default before the stored session replaces it.
  */
 
-import { CURRENT_STAFF, type CourtRole } from "./content";
+import { COURT_ROLE_LABEL, CURRENT_STAFF, type CourtRole } from "./content";
 
 /** Namespaced like the citizen side's demo keys, and as disposable. */
 export const COURT_SESSION_KEY = "dristi-demo-court-session";
@@ -80,6 +80,9 @@ function restore(): void {
     /* Spread over the default rather than trusting the blob: a session written by an
        older build is missing whatever was added since, and a half-empty rail is a worse
        failure than an ignored field. */
+    /* A seat a later build dropped (Punjab & Haryana's separate Steno) falls back to the
+       default rather than naming a seat nothing can render. */
+    if (stored.role && !(stored.role in COURT_ROLE_LABEL)) delete stored.role;
     session = { ...DEFAULT_COURT_SESSION, ...stored };
   } catch {
     /* Private mode, a cleared quota, or a blob from an older build. The default stands;
