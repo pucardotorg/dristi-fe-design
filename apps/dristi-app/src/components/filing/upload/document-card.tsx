@@ -31,7 +31,6 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { PANEL_CLASS } from "@/components/filing/form-card";
 import { useInCorrection } from "@/components/filing/posture";
 import { IntakeSlotRow } from "@/components/filing/upload/slot-row";
 import {
@@ -128,11 +127,11 @@ export function DocumentCard({
 
   return (
     <Card
+      variant="raised"
       role="group"
       aria-labelledby={headingId}
       {...dropProps}
       className={cn(
-        PANEL_CLASS,
         "gap-6 transition-shadow",
         isOver && overRow === null && "ring-3 ring-focus-ring"
       )}

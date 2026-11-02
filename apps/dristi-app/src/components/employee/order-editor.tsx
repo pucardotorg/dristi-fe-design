@@ -692,7 +692,7 @@ export function OrderWorkflowFields({
     <div className="flex min-w-0 flex-col gap-6">
       {/* The order's title (`TIT-01`, `TIT-02`): from its items until someone types one,
           editable until the order is triggered. */}
-      <Card className={cn(PANEL_CLASS, "min-w-0 gap-0 p-0")}>
+      <Card variant="raised" className="min-w-0 gap-0 p-0">
         <div className={FRAMED_HEAD}>
           <h2 className="text-body-compact font-semibold">
             <label htmlFor="order-title">Title</label>
@@ -756,7 +756,7 @@ export function OrderWorkflowFields({
 
       {/* Pending applications last, under the items (owner, 2026-10-14). */}
       {applications && applications.length > 0 ? (
-        <Card className={cn(PANEL_CLASS, "min-w-0 gap-0 p-0")}>
+        <Card variant="raised" className="min-w-0 gap-0 p-0">
           <ApplicationsSection
             applications={{
               list: applications,
@@ -772,7 +772,7 @@ export function OrderWorkflowFields({
       {/* The companion text, last (§6, `PUB-04`): the order text by default, or its own.
           Kerala's A-Diary text, Gujarat's Roznama, P&H's Summary; none on a Roznama order. */}
       {companion ? (
-      <Card className={cn(PANEL_CLASS, "min-w-0 gap-0 p-0")}>
+      <Card variant="raised" className="min-w-0 gap-0 p-0">
         <div className={FRAMED_HEAD}>
           <h2 className="text-body-compact font-semibold">{companion}</h2>
         </div>

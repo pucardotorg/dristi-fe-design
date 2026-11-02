@@ -14,7 +14,6 @@ import {
   tableBodyClass,
   tableRowClass,
 } from "@/components/chrome/table-plate";
-import { PANEL_CLASS } from "@/components/filing/form-card";
 import { ChromeDialogContent } from "@/components/chrome/app-chrome";
 import { CourtDocument } from "@/components/filing/sections/preview/court-document";
 import { Dialog, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -70,7 +69,7 @@ export function FiledTab({ batch, go }: BatchCtx) {
 
   if (filed.length === 0) {
     return (
-      <Card className={PANEL_CLASS}>
+      <Card variant="raised">
         <CardContent className="text-body-compact text-muted-foreground">
           Nothing filed yet. Cases show here once they are paid for.
         </CardContent>
@@ -109,7 +108,7 @@ export function FiledTab({ batch, go }: BatchCtx) {
       {[...batch.payments].reverse().map((p) => {
         const cases = batch.cases.filter((c) => p.caseIds.includes(c.id));
         return (
-          <Card key={p.ref} className={cn(PANEL_CLASS, "gap-0 py-0")}>
+          <Card key={p.ref} variant="raised" className="gap-0 py-0">
             <CardHeader className="px-6 py-4">
               <CardTitle className="text-body font-semibold tabular-nums">
                 {cases.length} filed at {ist(p.at)}

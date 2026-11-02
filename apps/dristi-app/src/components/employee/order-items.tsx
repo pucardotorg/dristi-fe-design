@@ -10,7 +10,6 @@ import {
 import { FRAMED_BODY, FRAMED_HEAD } from "@/components/employee/order-sections";
 import { OrderItemFields } from "@/components/employee/order-item-fields";
 import { QueueSearchField } from "@/components/employee/queue-search-field";
-import { PANEL_CLASS } from "@/components/shell/panel";
 import {
   Popover,
   PopoverAnchor,
@@ -76,7 +75,7 @@ export function ItemsCard({
   onRemove: (block: ItemBlock) => void;
 }) {
   return (
-    <Card className={cn(PANEL_CLASS, "min-w-0 gap-0 p-0")}>
+    <Card variant="raised" className="min-w-0 gap-0 p-0">
       <div className={FRAMED_HEAD}>
         <h2 className="text-body-compact font-semibold">Items</h2>
         <span className="text-body-compact tabular-nums text-muted-foreground">

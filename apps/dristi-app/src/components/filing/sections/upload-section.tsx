@@ -64,7 +64,6 @@ import { ConfirmDialog } from "@/components/filing/confirm-dialog";
 import { FilingFooter } from "@/components/filing/filing-footer";
 import { FilingPageHeader } from "@/components/filing/filing-page-header";
 import { FilingMain } from "@/components/filing/filing-shell";
-import { PANEL_CLASS } from "@/components/filing/form-card";
 import { SectionNotice } from "@/components/filing/notices";
 import { useInCorrection } from "@/components/filing/posture";
 import { DocumentCard } from "@/components/filing/upload/document-card";
@@ -624,9 +623,9 @@ export function UploadSection() {
               </h2>
 
               <Card
+                variant="raised"
                 {...supporting.dropProps}
                 className={cn(
-                  PANEL_CLASS,
                   "transition-shadow",
                   supporting.isOver && "ring-3 ring-focus-ring"
                 )}

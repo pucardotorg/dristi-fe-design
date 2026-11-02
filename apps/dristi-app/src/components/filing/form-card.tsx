@@ -13,7 +13,8 @@ import {
 /**
  * How a panel sits on a filing screen: the DS Card lifted by the DS dual-layer
  * `shadow-raised` and edged with `hairline` — the same vocabulary as the owner's demo
- * (card + soft 5% shadow) and the accepted advocate-home build. Apply to every `Card`.
+ * (card + soft 5% shadow) and the accepted advocate-home build.
+ * A `Card` takes `variant="raised"` instead; this is for panels that are not a `Card`.
  */
 export const PANEL_CLASS = "border-hairline shadow-raised";
 
@@ -37,7 +38,7 @@ export function FormCard({
   contentClassName?: string;
 }) {
   return (
-    <Card className={cn(PANEL_CLASS, "gap-6", className)}>
+    <Card variant="raised" className={cn("gap-6", className)}>
       <CardHeader className={action && !description ? "items-center" : undefined}>
         <CardTitle className="text-body font-semibold">{title}</CardTitle>
         {description ? (

@@ -13,7 +13,6 @@ import {
 
 import { PdfViewer, parsePdfSrc } from "@/components/cases/pdf-viewer";
 import { OrderDataFlags } from "@/components/employee/order-data-flags";
-import { PANEL_CLASS } from "@/components/shell/panel";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -185,8 +184,8 @@ export function OrderCasePanel({
 
   return (
     <Card
+      variant="raised"
       className={cn(
-        PANEL_CLASS,
         "min-w-0 flex-col gap-0 overflow-hidden py-0",
         className,
       )}

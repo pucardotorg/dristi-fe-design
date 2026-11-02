@@ -122,7 +122,6 @@ import { SectionNotice } from "@/components/filing/notices";
 import { FilingFooter } from "@/components/filing/filing-footer";
 import { FilingPageHeader } from "@/components/filing/filing-page-header";
 import { FilingMain, useSourceRailSlot } from "@/components/filing/filing-shell";
-import { PANEL_CLASS } from "@/components/filing/form-card";
 import { useLeaveGuard } from "@/components/filing/leave-guard";
 import { useTaskActions } from "@/components/tasks/use-task-actions";
 import {
@@ -1104,7 +1103,7 @@ export function SignSection() {
         />
 
         {/* Below xl there is no width for a rail column, so the roster stacks here. */}
-        <Card className={cn(PANEL_CLASS, "xl:hidden")}>
+        <Card variant="raised" className="xl:hidden">
           <CardContent>{railBody}</CardContent>
         </Card>
 

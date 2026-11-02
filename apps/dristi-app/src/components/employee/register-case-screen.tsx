@@ -501,7 +501,7 @@ function ComplaintSummary({ summary }: { summary: CaseSummary }) {
 }
 
 /** A lifted white panel whose children draw their own padding and dividers. */
-const SHEET = "gap-0 overflow-hidden border-hairline py-0 shadow-raised";
+const SHEET = "gap-0 overflow-hidden py-0";
 
 /** An eyebrow over the surface it names. */
 function Panel({
@@ -543,7 +543,7 @@ function SynopsisPanel({ summary }: { summary: CaseSummary }) {
 
   return (
     <Panel id="synopsis-heading" label={SUMMARY_TERMS.synopsis} className="xl:col-span-3">
-      <Card className={cn(SHEET, "@container")}>
+      <Card variant="raised" className={cn(SHEET, "@container")}>
         <div className="grid gap-px bg-hairline @xl:grid-cols-2 @4xl:grid-cols-3">
           <SynopsisSection label={SUMMARY_TERMS.parties}>
             <Fact term={SYNOPSIS_FIELDS.complainant} note={summary.complainant.type}>
@@ -727,7 +727,7 @@ function ScrutinyPanel({ scrutiny }: { scrutiny: CaseScrutiny | undefined }) {
   if (!scrutiny) {
     return (
       <Panel id="scrutiny-heading" label={SUMMARY_TERMS.scrutiny}>
-        <Card className={cn(SHEET, "@container")}>
+        <Card variant="raised" className={cn(SHEET, "@container")}>
           <div className="p-6 md:p-8">
             <p className="text-body-compact text-muted-foreground">Not recorded</p>
           </div>
@@ -738,7 +738,7 @@ function ScrutinyPanel({ scrutiny }: { scrutiny: CaseScrutiny | undefined }) {
 
   return (
     <Panel id="scrutiny-heading" label={SUMMARY_TERMS.scrutiny}>
-      <Card className={cn(SHEET, "@container")}>
+      <Card variant="raised" className={cn(SHEET, "@container")}>
         <Collapsible open={open} onOpenChange={setOpen}>
           {/* Three facts, not four: what each round was sent back for is now the
               disclosure below, so the row at rest holds only figures and reads across in
@@ -850,7 +850,7 @@ function TimelinePanel({ summary }: { summary: CaseSummary }) {
 
   return (
     <Panel id="timeline-heading" label={SUMMARY_TERMS.timeline} className="xl:col-span-2">
-      <Card className={cn(SHEET, "@container")}>
+      <Card variant="raised" className={cn(SHEET, "@container")}>
         {/* One column, not two. Side by side, each phase had 278px to write in: the
             dates ended in a ragged column, every limit wrapped across two lines under
             one, and the shorter phase left a third of the card blank. Stacked, the two

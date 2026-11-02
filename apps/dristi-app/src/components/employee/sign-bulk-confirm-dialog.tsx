@@ -6,7 +6,6 @@ import {
   StagedOverlay,
   useStagedFlow,
 } from "@/components/chrome/staged-overlay";
-import { PANEL_CLASS } from "@/components/shell/panel";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -17,7 +16,6 @@ import {
   DescriptionTerm,
 } from "@/components/ui/description-list";
 import { Dialog, DialogDescription } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
 import { IrreversibleNote, OutcomeHeader, OutcomeSummary } from "@/components/feedback";
 
 /**
@@ -455,7 +453,7 @@ function ActCard({
   return (
     /* Flush: the band and the rows draw their own rules edge to edge, so the card's own
        padding is off and `overflow-hidden` is what keeps the band inside the radius. */
-    <Card size="sm" className={cn(PANEL_CLASS, "gap-0 overflow-hidden py-0")}>
+    <Card variant="raised" size="sm" className="gap-0 overflow-hidden py-0">
       <div className="border-b border-hairline px-4 py-3">
         {/* The dialog's description, in the card rather than in the header. */}
         <DialogDescription className="text-body text-pretty text-muted-foreground">

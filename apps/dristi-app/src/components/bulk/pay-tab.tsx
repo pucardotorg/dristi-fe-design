@@ -19,7 +19,6 @@ import {
   tableBodyClass,
   tableRowClass,
 } from "@/components/chrome/table-plate";
-import { PANEL_CLASS } from "@/components/filing/form-card";
 import { OutcomeAmount, OutcomeHeader, StatusLine } from "@/components/feedback";
 import { PaymentFacts } from "@/components/payment/payment-steps";
 import { Button } from "@/components/ui/button";
@@ -183,13 +182,13 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
       ) : null}
 
       {due.length === 0 ? (
-        <Card className={PANEL_CLASS}>
+        <Card variant="raised">
           <CardContent className="text-body-compact text-muted-foreground">
             Nothing to pay yet. Sign the cases first.
           </CardContent>
         </Card>
       ) : (
-        <Card className={cn(PANEL_CLASS, "gap-0 py-0")}>
+        <Card variant="raised" className="gap-0 py-0">
           <CardHeader className="px-6 py-4">
             <CardTitle className="text-body font-semibold">
               Signed, waiting for payment

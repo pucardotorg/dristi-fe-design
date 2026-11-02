@@ -24,7 +24,6 @@ import { FilingProvider } from "@/lib/filing/store";
 import { ProfileProvider } from "@/lib/filing/profile";
 import { canView } from "@/lib/tasks/permissions";
 import { useTasks } from "@/lib/tasks/store";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -36,7 +35,6 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PANEL_CLASS } from "@/components/shell/panel";
 import { CorrectionScreen } from "@/components/scrutiny/correction-screen";
 import { Breadcrumbs, type Crumb } from "@/components/shell/chrome";
 import { useOrigin } from "@/components/shell/origin";
@@ -72,7 +70,7 @@ function Dead({
   const back = origin?.href ?? (taskId ? `/tasks?task=${encodeURIComponent(taskId)}` : "/tasks");
   return (
     <Frame root={origin}>
-      <Card className={cn(PANEL_CLASS, "py-0")}>
+      <Card variant="raised" className="py-0">
         <Empty className="py-12">
           <EmptyHeader>
             <EmptyMedia variant="icon">
@@ -195,7 +193,7 @@ export function ScrutinyReturnPage() {
   if (!draftId) {
     return (
       <Frame root={origin}>
-        <Card className={cn(PANEL_CLASS, "py-0")}>
+        <Card variant="raised" className="py-0">
           <Empty className="py-12">
             <EmptyHeader>
               <EmptyMedia variant="icon">

@@ -68,7 +68,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { rowActivation, rowOpener } from "@/lib/employee/row-activation";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
-import { PANEL_CLASS } from "@/components/filing/form-card";
 
 
 /** The tone words, so a colour is never the only thing saying "this one is late". */
@@ -697,7 +696,7 @@ export function FilingsQueue({
   // makes `position: sticky` inert, so the tab strip would scroll away. Nothing sits on a
   // rounded corner here, so nothing needs the clip. Logged upstream.
   return (
-    <Card className={cn(PANEL_CLASS, "gap-0 overflow-visible py-0")}>
+    <Card variant="raised" className="gap-0 overflow-visible py-0">
       <div className={cn("flex flex-col gap-1 px-4 pt-4 pb-4", DESK_HEAD)}>
         <h2 className="text-title-s font-semibold text-foreground">Your filings</h2>
         <p className="text-body-compact text-muted-foreground">

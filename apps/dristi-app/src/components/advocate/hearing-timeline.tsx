@@ -26,7 +26,6 @@ import { QueueTag } from "@/components/advocate/queue-tag";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { PANEL_CLASS } from "@/components/filing/form-card";
 import { HOME_PANEL_PAD, HOME_RAIL_COLS } from "@/components/advocate/home-layout";
 import {
   Collapsible,
@@ -2037,7 +2036,7 @@ function SlotTabs({
             className="relative z-10"
           >
             {/* From a tablet up the sitting sits in the white panel its tab joins. */}
-            <Card className={cn(PANEL_CLASS, "max-md:contents md:gap-0 md:overflow-visible md:px-4 md:pt-4 md:pb-4", HOME_PANEL_PAD, i === 0 && "md:rounded-tl-none")}>
+            <Card variant="raised" className={cn("max-md:contents md:gap-0 md:overflow-visible md:px-4 md:pt-4 md:pb-4", HOME_PANEL_PAD, i === 0 && "md:rounded-tl-none")}>
               {empty && isFiltered(filter) ? (
                 <div className="flex flex-col gap-4 pb-4">
                   {filterRow}

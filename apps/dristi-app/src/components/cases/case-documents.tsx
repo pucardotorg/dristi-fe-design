@@ -23,7 +23,6 @@ import {
   tableBodyClass,
   tableRowClass,
 } from "@/components/chrome/table-plate";
-import { PANEL_CLASS } from "@/components/shell/panel";
 import {
   SegmentedControl,
   SegmentedControlItem,
@@ -827,7 +826,7 @@ function DocumentsPanel({
 }) {
   return (
     <section className="min-w-0" aria-busy={busy || undefined}>
-      <Card className={cn(PANEL_CLASS, "gap-4 hover:bg-card")}>
+      <Card variant="raised" className="gap-4 hover:bg-card">
         <CardHeader>
           <div className="flex flex-col gap-3">
             <h2 className="text-body font-semibold">Documents</h2>

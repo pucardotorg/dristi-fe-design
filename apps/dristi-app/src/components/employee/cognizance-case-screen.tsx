@@ -116,7 +116,7 @@ function openOrder(): void {
 }
 
 /** A lifted white panel whose children draw their own padding and dividers. */
-const SHEET = "gap-0 overflow-hidden border-hairline py-0 shadow-raised";
+const SHEET = "gap-0 overflow-hidden py-0";
 
 /* ────────────────────── the resizable document panel ─────────────────────── */
 
@@ -520,7 +520,7 @@ function CaseSummaryPanel({
           </Button>
         ) : null}
       </div>
-      <Card className={cn(SHEET, "@container")}>
+      <Card variant="raised" className={cn(SHEET, "@container")}>
         <dl className="grid gap-px bg-hairline @md:grid-cols-3">
           {cells.map((cell) => (
             <div key={cell.label} className="flex min-w-0 flex-col gap-1 bg-card p-6">
@@ -570,7 +570,7 @@ function CaseFactsPanel({
     // hairline under a quiet label, so the grouping the owner wanted kept for scanning
     // survives at a fraction of the height (owner, 2026-09-15). `@container` so the rows
     // below can turn horizontal on the sheet's own width, not the viewport's.
-    <Card className={cn(SHEET, "@container min-w-0")}>
+    <Card variant="raised" className={cn(SHEET, "@container min-w-0")}>
       {chunks.map((chunk, index) => (
         // Register cases' synopsis grammar (`register-case-screen.tsx`): the label above the
         // value, and two facts across where the sheet is wide enough — so the reading uses

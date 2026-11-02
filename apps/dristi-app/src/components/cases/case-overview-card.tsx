@@ -28,7 +28,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { PANEL_CLASS } from "@/components/shell/panel";
 import { type DueRamp, type DueStatusView } from "@/lib/cases/peek";
 import { cn } from "@/lib/utils";
 import { RegisterTrayCard } from "@/components/cases/register-card";
@@ -264,7 +263,7 @@ export function RestingCard({
   children: ReactNode;
 }) {
   return (
-    <Card className={cn(PANEL_CLASS, "hover:bg-card", className)}>
+    <Card variant="raised" className={cn("hover:bg-card", className)}>
       {children}
     </Card>
   );

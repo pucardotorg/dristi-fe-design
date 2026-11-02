@@ -204,7 +204,7 @@ function SignADiaryBody({
         {/* The editable record, as a panel on the stage — lifted at rest, because a white
             card and the canvas under it measure about 1.01:1 and a stroke is not what
             separates them (ui-craft §4). */}
-        <Card className="min-w-0 border-hairline shadow-raised lg:min-h-0">
+        <Card variant="raised" className="min-w-0 lg:min-h-0">
           <CardContent className="flex flex-col gap-4 lg:min-h-0 lg:flex-1">
             <Field data-invalid={blank} className="lg:min-h-0 lg:flex-1">
               <FieldLabel className="text-body">Business of the day</FieldLabel>

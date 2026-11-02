@@ -38,7 +38,6 @@ import {
   tableBodyClass,
   tableRowClass,
 } from "@/components/chrome/table-plate";
-import { PANEL_CLASS } from "@/components/filing/form-card";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -103,7 +102,7 @@ type ReadingRow = {
 function ReadingCard({ rows }: { rows: ReadingRow[] }) {
   const done = rows.filter((r) => r.state === "done").length;
   return (
-    <Card className={cn(PANEL_CLASS, "max-w-3xl gap-0 py-0")}>
+    <Card variant="raised" className="max-w-3xl gap-0 py-0">
       <CardHeader className="gap-3 px-6 py-6">
         <CardTitle className="flex items-center gap-2 text-body font-semibold">
           <Spinner className="size-4 text-primary" />
@@ -452,7 +451,7 @@ export function UploadScreen() {
           {reading ? (
             <ReadingCard rows={reading} />
           ) : (
-            <Card className={PANEL_CLASS}>
+            <Card variant="raised">
               <CardContent className="flex flex-col gap-6">
                 <Field className="gap-1.5">
                   <FieldLabel htmlFor="sheet">
@@ -500,7 +499,7 @@ export function UploadScreen() {
               </CardContent>
             </Card>
           )}
-          <Card className={PANEL_CLASS}>
+          <Card variant="raised">
             <CardHeader>
               <CardTitle className="text-body font-semibold">The same for every case in the file</CardTitle>
               <CardDescription>
@@ -560,7 +559,7 @@ export function UploadScreen() {
           />
           {errorNotice}
           {unknownLists.map((l) => (
-            <Card key={l} className={PANEL_CLASS}>
+            <Card key={l} variant="raised" >
               <CardHeader>
                 <CardTitle className="text-body font-semibold">{LIST_TITLE[l]}</CardTitle>
               </CardHeader>
@@ -640,7 +639,7 @@ export function UploadScreen() {
                 its Case details.
             </StatusLine>
           ) : null}
-          <Card className={PANEL_CLASS}>
+          <Card variant="raised">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-body font-semibold">
                 <CheckCircle2Icon className="size-5 text-success-ink" aria-hidden />

@@ -1,13 +1,16 @@
 "use client";
 
-import type { CSSProperties, ReactNode } from "react";
-import { useMemo, useRef, useSyncExternalStore } from "react";
-import { createPortal } from "react-dom";
+import type { ReactNode } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
-import { ExternalLinkIcon, XIcon } from "lucide-react";
+import { ExternalLinkIcon } from "lucide-react";
 
 import { REGISTER_CARDS_QUERY } from "@/components/cases/register-layout";
-import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
+import {
+  SIDE_PANEL_INSET,
+  SidePanel,
+  SidePanelRegion,
+} from "@/components/ui/side-panel";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,7 +34,6 @@ import {
   ItemGroup,
   ItemTitle,
 } from "@/components/ui/item";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Timeline, TimelineItem } from "@/components/ui/timeline";
 import {
@@ -65,68 +67,40 @@ import { Identifier } from "@/components/chrome/identifier";
 import { useCourtText } from "@/components/court/court-provider";
 
 /**
- * Card that owns peek state in the tree, floating variant. The panel portals to the
- * document so it can float over the screen — the app shell clips `fixed` descendants.
- * Used by the surfaces that keep the inset floating peek (advocate home, folder/search).
- * The cases landing uses `CasePeekPushRegion` instead.
+ * Card that owns peek state in the tree, for surfaces where nothing makes room for the
+ * panel: it docks over the page (advocate home, the case folders).
+ * The cases landing and the Raise application chooser use `CasePeekPushRegion`.
  */
 export function CasePeekSurface({
   children,
   className,
-  mobileDrawer = false,
 }: {
   children: ReactNode;
   className?: string;
-  /** Opt this surface into a modal bottom drawer on phones. */
-  mobileDrawer?: boolean;
 }) {
   return (
     <div className={className}>
       {children}
-      <CasePeek mobileDrawer={mobileDrawer} />
+      <CasePeek />
     </div>
   );
 }
 
-/** Panel width, shared by the docked panel and the push margin so they coincide. */
-const PEEK_WIDTH = "27rem";
-
 /**
- * The class that makes an element step aside for the docked peek. It reads `--peek-mr`
- * (set on the push region, inherited down) as a right margin, transitioned so the
- * element eases left as the panel slides in. Only from `sm` up, where there is room; on
- * a phone the panel covers the column and nothing moves.
+ * Wraps the whole cases column. Only the light chrome given `SIDE_PANEL_PUSH` steps
+ * aside; the wide table keeps its width and the panel slides over its right edge.
  *
- * A margin, not padding: the panel is wider than the spacing ladder's top rung and the
- * gate forbids raw-unit arbitrary spacing, but an arbitrary value that reads a CSS var
- * is allowed. Apply it ONLY to light chrome — the title row, the toolbar, the chips.
- * The table is deliberately left out (see `CasePeekPushRegion`).
- */
-export const PEEK_PUSH_CLASS =
-  "transition-[margin] duration-300 ease-out sm:mr-[var(--peek-mr,0px)]";
-
-/**
- * Wraps the whole cases column and sets `--peek-mr` for everything under it — 0 when the
- * peek is closed, the panel's width when it is open. It does NOT itself take the margin.
- *
- * Why the split: pushing the column with one margin meant the wide, content-sized table
- * re-measured every cell on every frame of the 300ms animation — the choppiness the
- * owner felt (Sept 11). So only the light chrome carries `PEEK_PUSH_CLASS` and eases
- * aside; the heavy table keeps its full width and never re-lays-out. The docked panel,
- * opaque with its own shadow, simply slides over the table's right edge — a panel over
- * content, not a table reflowing under one. Nothing animates layout on the hot path, so
- * the motion is smooth.
+ * Why: pushing the column with one margin meant the content-sized table re-measured
+ * every cell on every frame of the 300ms animation, the choppiness the owner felt
+ * (Sept 11). Nothing animates layout on the hot path, so the motion is smooth.
  */
 export function CasePeekPushRegion({
   children,
   className,
-  mobileDrawer = false,
   pushWhen = "(min-width: 640px)",
 }: {
   children: ReactNode;
   className?: string;
-  /** On a phone the peek rises as a bottom drawer instead of covering the screen. */
-  mobileDrawer?: boolean;
   /** Where the docked panel makes room for itself. Elsewhere it lies over the
    *  page and nothing behind it moves. Defaults to `sm`, the panel's own width rule. */
   pushWhen?: string;
@@ -135,258 +109,176 @@ export function CasePeekPushRegion({
   // Make room only while the panel is actually there. As soon as a close is asked for,
   // `closing` flips and the chrome eases back in step with the panel sliding out.
   const pushes = useMediaQuery(pushWhen);
-  const open = pushes && Boolean(record) && !closing;
   return (
     <>
-      <div
-        data-peek-open={open || undefined}
+      <SidePanelRegion
+        open={pushes && Boolean(record) && !closing}
+        push="marked"
         className={className}
-        style={{ "--peek-mr": open ? PEEK_WIDTH : "0px" } as CSSProperties}
       >
         {children}
-      </div>
-      <CasePeek mobileDrawer={mobileDrawer} />
+      </SidePanelRegion>
+      <CasePeek />
     </>
   );
 }
 
 /**
- * Two shapes, one panel. Docked (the cases landing): right edge, full height, over the
- * column it pushed — modal elevation and a hairline seam sell the lift the owner found
- * missing, and it enters on a short slide from the right in step with the column
- * reflowing left. Floating (advocate home, folder/search): inset from the edges, rounded,
- * overlay elevation — the original shape those surfaces were built around. Not a Sheet in
- * either shape: no scrim and no focus trap, so another case number stays the switcher;
- * and not the Card primitive, whose hover fill would wash the whole panel.
+ * The design system's side panel: docked at the right edge, or a bottom drawer wherever
+ * the list is cards (a phone, or a tablet held upright: owner, Sept 21). Not a Sheet:
+ * no scrim and no focus trap, so another case number stays the switcher.
  */
-/** A subscription with nothing to report — the mount state never changes back. */
-const emptySubscribe = () => () => {};
-
-export function CasePeek({ mobileDrawer = false }: { mobileDrawer?: boolean } = {}) {
-  // A phone, or a tablet held upright (owner, Sept 21): wherever the list is
-  // cards, the peek rises from the bottom instead of docking at the side.
+export function CasePeek() {
   const isMobile = useMediaQuery(REGISTER_CARDS_QUERY);
-  const returnFocus = useRef<HTMLElement | null>(null);
-  const { record, now, hideLongPendingFlag, docked, closing, close } = useCasePeek();
-  // Portal guard: the server (and the hydration render) has no document.body to
-  // portal into, so both report unmounted; the client re-renders once after
-  // hydration. The store shape of the old mounted-flag effect.
-  const mounted = useSyncExternalStore(
-    emptySubscribe,
-    () => true,
-    () => false
+  const { record, now, hideLongPendingFlag, closing, close } = useCasePeek();
+  // The provider drops the record one exit after a close; keep showing the last one
+  // so the panel slides out with its content rather than empty.
+  const [last, setLast] = useState(record);
+  if (record && record !== last) setLast(record);
+  const shown = record ?? last;
+  // Each case opens on Overview. Controlled, not keyed: a key would remount the panel
+  // and replay its slide-in every time another case is peeked.
+  const [tab, setTab] = useState("overview");
+  const [tabFor, setTabFor] = useState(shown?.id);
+  if (shown?.id !== tabFor) {
+    setTabFor(shown?.id);
+    setTab("overview");
+  }
+  const onOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open) close();
+    },
+    [close]
   );
 
-  if (!record || !mounted) return null;
+  if (!shown) return null;
 
-  if (mobileDrawer && isMobile) {
-    return (
-      <Drawer open={!closing} onOpenChange={(open) => { if (!open) close(); }} autoFocus>
-        <DrawerContent
-          id={CASE_PEEK_ID}
-          aria-labelledby="case-peek-title"
-          aria-describedby={undefined}
-          className="h-[80dvh] overflow-hidden data-[vaul-drawer-direction=bottom]:max-h-[80dvh] [&_[data-slot=button]]:min-h-10"
-          style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
-          onOpenAutoFocus={() => {
-            returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-          }}
-          onCloseAutoFocus={(event) => {
-            // There is no DrawerTrigger: the hearing card opens the shared provider.
-            // Keep its 300ms exit, then return to the actual invoking control.
-            event.preventDefault();
-            if (returnFocus.current?.isConnected) returnFocus.current.focus({ preventScroll: true });
-          }}
-        >
-          <CasePeekBody
-            record={record}
-            now={now}
-            hideLongPendingFlag={hideLongPendingFlag}
-            onClose={close}
-            mobileDrawer
-          />
-        </DrawerContent>
-      </Drawer>
-    );
-  }
-
-  return createPortal(
-    // The panel slides both ways. Enter is a keyframe that plays on mount; exit is the
-    // matching keyframe, played while `closing` holds the record mounted (the provider
-    // drops it one exit later). Unmounting on close instead snapped the covered table
-    // columns back in a single frame — the "glitch" the owner saw (Sept 11). No fade
-    // and no per-frame layout, so open and close read as the same smooth motion.
-    // Docked: w-[27rem] must equal PEEK_WIDTH so the panel fills the margin the chrome
-    // reserved. Floating: the original inset overlay.
-    <aside
-      id={CASE_PEEK_ID}
-      role="region"
-      aria-labelledby="case-peek-title"
-      data-state={closing ? "closed" : "open"}
-      className={cn(
-        "fixed z-50 flex flex-col overflow-hidden bg-popover text-popover-foreground fill-mode-forwards duration-300 ease-out motion-reduce:animate-none",
-        closing ? "animate-out" : "animate-in",
-        docked
-          ? cn(
-              "inset-y-0 right-0 w-full border-l border-hairline shadow-modal sm:w-[27rem]",
-              closing ? "slide-out-to-right-full" : "slide-in-from-right-full"
-            )
-          : cn(
-              "inset-y-6 right-6 w-3/4 max-w-md rounded-xl border border-border shadow-overlay",
-              closing
-                ? "fade-out-0 slide-out-to-right-2"
-                : "fade-in-0 slide-in-from-right-2"
-            )
-      )}
-    >
-      <CasePeekBody
-        record={record}
+  return (
+    // The tab row is pinned in the panel's header and the tab panels sit in its body,
+    // so the Tabs root wraps the panel; `contents` keeps it out of the page's layout.
+    <Tabs value={tab} onValueChange={setTab} className="contents">
+      <CasePeekPanel
+        record={shown}
+        open={Boolean(record) && !closing}
+        onOpenChange={onOpenChange}
         now={now}
         hideLongPendingFlag={hideLongPendingFlag}
-        onClose={close}
+        mobileDrawer={isMobile}
       />
-    </aside>,
-    document.body
+    </Tabs>
   );
 }
 
-function CasePeekBody({
+function CasePeekPanel({
   record,
+  open,
+  onOpenChange,
   now,
   hideLongPendingFlag,
-  onClose,
-  mobileDrawer = false,
+  mobileDrawer,
 }: {
   record: CaseRecord;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   now: number;
   hideLongPendingFlag: boolean;
-  onClose: () => void;
-  mobileDrawer?: boolean;
+  mobileDrawer: boolean;
 }) {
   const courtText = useCourtText();
-  const Title = mobileDrawer ? DrawerTitle : "h2";
-  const title = partiesLabel(record);
   const extras = peekExtras(record.id);
   const stage = record.disposal
     ? outcomeLabel(record.disposal.outcome)
     : record.substage ?? stageLabel(record.stage);
 
   return (
-    <>
-      {/* No eyebrow — the panel is plainly a case, and "Case peek" only named the
-          mechanism (owner, Sept 11). Close is the bare cross, top-right on the title's
-          line. The tab row below carries the only divider; the header runs into it. */}
-      <header className={cn("flex shrink-0 flex-col gap-4 p-6 pb-4", mobileDrawer && "p-4")}>
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <Title
-              id="case-peek-title"
-              className="text-title-s font-semibold text-balance"
-            >
-              {title}
-            </Title>
-            {/* Each `Identifier` holds a 14px box for its copy glyph, which read
-                as a gap before the next dot. The second number rests pulled
-                back over that box and steps aside while the first is hovered,
-                focused or showing its tick: the header's `CaseNumberLine`
-                move. The court has its own line, so nothing that can wrap
-                ever carries the offset. */}
-            <p className="flex flex-wrap items-baseline text-body-compact text-muted-foreground">
-              <Identifier
-                value={record.caseNumber}
-                label="case number"
-              />
-              {extras.altCaseNumber ? (
-                <>
-                  <span aria-hidden className="whitespace-pre">
-                    {" · "}
-                  </span>
-                  <Identifier
-                    value={extras.altCaseNumber}
-                    label="other case number"
-                  />
-                </>
-              ) : null}
-            </p>
-            {/* A step of air and a step of weight, so the court reads as its
-                own fact and not as a third number (owner, Sept 18). */}
-            <p className="mt-1.5 text-body-compact font-medium text-foreground">
-              {courtText(record.court)}
-            </p>
+    <SidePanel
+      id={CASE_PEEK_ID}
+      open={open}
+      onOpenChange={onOpenChange}
+      drawerWhen={REGISTER_CARDS_QUERY}
+      // A thumb's reach on the drawer: its outline actions stand 40px tall.
+      className={mobileDrawer ? "[&_[data-slot=button]]:min-h-10" : undefined}
+      // No eyebrow: the panel is plainly a case, and "Case peek" only named the
+      // mechanism (owner, Sept 11).
+      title={partiesLabel(record)}
+      subtitle={
+        <>
+          {/* Each `Identifier` holds a 14px box for its copy glyph, which read
+              as a gap before the next dot. The second number rests pulled
+              back over that box and steps aside while the first is hovered,
+              focused or showing its tick: the header's `CaseNumberLine`
+              move. The court has its own line, so nothing that can wrap
+              ever carries the offset. */}
+          <p className="flex flex-wrap items-baseline text-body-compact text-muted-foreground">
+            <Identifier value={record.caseNumber} label="case number" />
+            {extras.altCaseNumber ? (
+              <>
+                <span aria-hidden className="whitespace-pre">
+                  {" · "}
+                </span>
+                <Identifier
+                  value={extras.altCaseNumber}
+                  label="other case number"
+                />
+              </>
+            ) : null}
+          </p>
+          {/* A step of air and a step of weight, so the court reads as its
+              own fact and not as a third number (owner, Sept 18). */}
+          <p className="mt-1.5 text-body-compact font-medium text-foreground">
+            {courtText(record.court)}
+          </p>
+        </>
+      }
+      header={
+        <>
+          <div className={cn(SIDE_PANEL_INSET, "flex flex-col gap-4 pb-4")}>
+            {hideLongPendingFlag ? null : <CaseFlags record={record} />}
+            <Button variant="secondary" className="w-fit" asChild>
+              <Link
+                href={caseDetailHref(
+                  record.id,
+                  hideLongPendingFlag ? "long-pending" : undefined
+                )}
+              >
+                <ExternalLinkIcon data-icon="inline-start" aria-hidden />
+                Open case file
+              </Link>
+            </Button>
           </div>
-          <Button
-            variant="ghost"
-            size={mobileDrawer ? "icon" : "icon-sm"}
-            className="-mr-1 -mt-1 shrink-0 text-muted-foreground"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            <XIcon aria-hidden />
-          </Button>
-        </div>
-
-        {hideLongPendingFlag ? null : <CaseFlags record={record} />}
-
-        <Button variant="secondary" className="w-fit" asChild>
-          <Link
-            href={caseDetailHref(
-              record.id,
-              hideLongPendingFlag ? "long-pending" : undefined
-            )}
-          >
-            <ExternalLinkIcon data-icon="inline-start" aria-hidden />
-            Open case file
-          </Link>
-        </Button>
-      </header>
-
-      <Tabs
-        key={record.id}
-        defaultValue="overview"
-        className="flex min-h-0 flex-1 flex-col gap-0"
-      >
-        {/* The active mark is the DS line variant's `after`, drawn 5px below the
-            trigger; the divider must land on that exact line or the two read as two
-            rules. The trigger fills the row (`h-full`, not the DS 1px-short default) so
-            its bottom is the row's bottom, and `pb-1` puts the hairline rule where the
-            mark's centre sits. Compact type: these are section tabs in a dense inspector,
-            not page headings (owner, Sept 11). */}
-        <div className="shrink-0 border-b border-hairline px-6 pb-1">
-          <TabsList
-            variant="line"
-            aria-label="Case peek sections"
-            className="h-10 w-full justify-start rounded-none"
-          >
-            <TabsTrigger
-              value="overview"
-              className="h-full flex-none px-3 text-body-compact"
+          {/* The row's bottom edge is the tab mark's line, so the divider sits on it.
+              Compact type: these are section tabs in a dense inspector, not page
+              headings (owner, Sept 11). */}
+          <div className={cn("border-b border-hairline", SIDE_PANEL_INSET)}>
+            <TabsList
+              variant="line"
+              aria-label="Case peek sections"
+              className="h-10 w-full justify-start rounded-none"
             >
-              Overview
-            </TabsTrigger>
-            <TabsTrigger
-              value="history"
-              className="h-full flex-none px-3 text-body-compact"
-            >
-              Case History
-            </TabsTrigger>
-          </TabsList>
-        </div>
-
-        <ScrollArea className="min-h-0 flex-1">
-          <TabsContent value="overview" className="outline-none">
-            <CasePeekOverview
-              record={record}
-              now={now}
-              stage={stage}
-              extras={extras}
-            />
-          </TabsContent>
-          <TabsContent value="history" className="outline-none">
-            <CasePeekHistory record={record} now={now} />
-          </TabsContent>
-        </ScrollArea>
-      </Tabs>
-    </>
+              <TabsTrigger
+                value="overview"
+                className="h-full flex-none px-3 text-body-compact"
+              >
+                Overview
+              </TabsTrigger>
+              <TabsTrigger
+                value="history"
+                className="h-full flex-none px-3 text-body-compact"
+              >
+                Case History
+              </TabsTrigger>
+            </TabsList>
+          </div>
+        </>
+      }
+    >
+      <TabsContent value="overview" className="outline-none">
+        <CasePeekOverview record={record} now={now} stage={stage} extras={extras} />
+      </TabsContent>
+      <TabsContent value="history" className="outline-none">
+        <CasePeekHistory record={record} now={now} />
+      </TabsContent>
+    </SidePanel>
   );
 }
 
@@ -411,7 +303,7 @@ function CasePeekOverview({
   const accusedCounsel = counselFor(record, "accused");
 
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="flex flex-col gap-6 pt-6">
       <DescriptionList>
         <PeekRow term="Stage">{stage}</PeekRow>
         {record.nextHearing ? (
@@ -734,7 +626,7 @@ function CasePeekHistory({ record, now }: { record: CaseRecord; now: number }) {
   }, [record, now]);
 
   return (
-    <div className="p-6">
+    <div className="pt-6">
       <Timeline>
         {items.map((item) => (
           <TimelineItem
