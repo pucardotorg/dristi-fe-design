@@ -230,7 +230,14 @@ export function CourtFilters({
   multi = [],
   date,
   onClearAll,
+  compact = false,
 }: {
+  /**
+   * A narrow pane (Today's hearings, split layout): the search takes the row and Filters
+   * is an icon, its applied count a mark on the glyph. Pair it with an icon-only sort as
+   * `trailing`.
+   */
+  compact?: boolean;
   /**
    * What heads the row, ahead of the search — a screen's own view control, such as the
    * sign process' status pills. It takes the row's free width and pushes the search and
@@ -313,7 +320,7 @@ export function CourtFilters({
     <QueueSearchField
       label={search.label}
       labelClassName={labelHidden ? "sr-only" : undefined}
-      className={leading ? "sm:w-64" : "sm:w-80"}
+      className={compact ? "min-w-0 flex-1" : leading ? "sm:w-64" : "sm:w-80"}
       ref={searchRef}
       value={search.value}
       onChange={search.onChange}
@@ -408,13 +415,21 @@ export function CourtFilters({
              centres a 36px pill on the 40px input it sits beside. */
           <div className="min-w-0 flex-1 basis-96 pb-0.5">{leading}</div>
         ) : null}
-        <div className="flex min-w-0 items-end gap-3 max-sm:w-full max-sm:flex-col max-sm:items-stretch">
+        <div
+          className={cn(
+            "flex min-w-0 items-end gap-3",
+            compact
+              ? "flex-1"
+              : "max-sm:w-full max-sm:flex-col max-sm:items-stretch",
+          )}
+        >
           {searchNode}
           <CourtFiltersSheet
             fields={fields}
             multi={multi}
             date={date}
             applied={applied}
+            iconOnly={compact}
           />
           {trailing}
         </div>
@@ -478,11 +493,13 @@ function CourtFiltersSheet({
   multi,
   date,
   applied,
+  iconOnly = false,
 }: {
   fields: CourtFilterField[];
   multi: CourtFilterMultiField[];
   date?: CourtFilterDate;
   applied: number;
+  iconOnly?: boolean;
 }) {
   const seed = React.useCallback(
     () => ({
@@ -533,6 +550,36 @@ function CourtFiltersSheet({
 
   return (
     <Sheet onOpenChange={(next) => next && setDraft(seed())}>
+      {iconOnly ? (
+        /* The sort icon's dress: an outline square with the word in a tooltip, and the
+           applied count as a mark on the glyph's corner rather than beside a word. */
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <SheetTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="relative shrink-0"
+                  aria-label={`Filters${applied ? `, ${applied} applied` : ""}`}
+                >
+                  <SlidersHorizontalIcon aria-hidden />
+                  {applied ? (
+                    <span
+                      aria-hidden
+                      className="absolute -top-1.5 -right-1.5 inline-flex min-w-5 items-center justify-center rounded-full bg-primary px-1 text-caption font-medium tabular-nums text-primary-foreground"
+                    >
+                      {applied}
+                    </span>
+                  ) : null}
+                </Button>
+              </SheetTrigger>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Filters</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      ) : (
       <SheetTrigger asChild>
         <Button
           type="button"
@@ -549,6 +596,7 @@ function CourtFiltersSheet({
           ) : null}
         </Button>
       </SheetTrigger>
+      )}
       <SheetContent
         side="right"
         aria-describedby={undefined}

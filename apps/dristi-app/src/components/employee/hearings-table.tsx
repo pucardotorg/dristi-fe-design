@@ -150,11 +150,19 @@ const SESSION_SLOT_CLASS = "min-w-32";
 const ACTION_COLUMN_CLASS = "w-52 min-w-52";
 /**
  * The reader's Next hearing column: the date field over the purpose field, one field wide
- * (owner, 2026-10-15), at the Action column's width, so the reader's board fits a 1512px
- * laptop with the rail open. A longer purpose truncates in the field and reads whole in
- * its list.
+ * (owner, 2026-10-15). A longer purpose truncates in the field and reads whole in its
+ * list.
+ *
+ * **A 4px right gutter, not 16px** (2026-11-02). At `w-52` with the plate's `px-4` the
+ * reader's board asked 1141px against a 1142px panel at a 1512 viewport — no room at all,
+ * so a browser that draws a scrollbar (15px) tipped it into a sideways scroll, and the
+ * port's edge cut through these fields. The fields keep their 176px, which is what
+ * "Choose a purpose" needs unclipped; only the trailing gutter shrinks. It cannot go to
+ * nothing: the combobox's chevron addon sits about 4px past its field and the focus ring
+ * is 3px, and as the last column both would be clipped by the scroll port. Dragged
+ * between other columns it still has the next cell's `pl-4`.
  */
-const NEXT_HEARING_COLUMN_CLASS = "w-52 min-w-52";
+const NEXT_HEARING_COLUMN_CLASS = "w-49 min-w-49 pr-1";
 /** Exported because the Sign orders draft queue draws the same column at the same width. */
 export const ORDERS_COLUMN_CLASS = "w-18";
 /**
@@ -234,10 +242,17 @@ export function HearingSessionButton({
   onStartHearing,
   onEndHearing,
   onPassOver,
+  passOver = "menu",
   className,
 }: {
   hearing: CourtHearing;
   seat: CourtRole;
+  /**
+   * Where Pass over lives: behind the control's chevron (`menu`, the row and the
+   * overlay), or as a button of its own beside it (`button` — the split layout's detail
+   * pane, which has room for both, owner 2026-11-02).
+   */
+  passOver?: "menu" | "button";
   /**
    * The dress **Start hearing** wears. `outline` on a row — a teal edge rather than a
    * teal fill, because twenty-three filled buttons down a column would be the Ration
@@ -268,7 +283,7 @@ export function HearingSessionButton({
      button gives up its own right edge: the teal outline's 2px there was a second
      frame down the middle of one control, and a fill's transparent 1px let the page
      show through as a crack between two. */
-  const split = canPassOver(hearing.status);
+  const split = canPassOver(hearing.status) && passOver === "menu";
   let session: React.ReactNode = null;
   if (canStartHearing(hearing.status)) {
     session = (
@@ -364,6 +379,37 @@ export function HearingSessionButton({
       >
         End hearing
       </Button>
+    );
+  }
+  if (session && passOver === "button") {
+    return (
+      <div className={cn("flex flex-wrap items-center gap-3", className)}>
+        {session}
+        {canPassOver(hearing.status) ? (
+          <Button
+            type="button"
+            variant="outline"
+            /* Starts with the visible word, so a voice user can say it (§9). */
+            aria-label={`Pass over item ${hearing.item}, ${causeTitle(hearing)}`}
+            onClick={(event) => {
+              const host = event.currentTarget.closest("section");
+              onPassOver(hearing);
+              /* Pass over takes this button away (a listing is not passed over twice).
+                 Focus goes to the session control: this matter's, now Start hearing, or —
+                 where the pane has moved on to the next matter — that matter's. */
+              requestAnimationFrame(() => {
+                const own = sessionRef.current;
+                (own?.isConnected
+                  ? own
+                  : host?.querySelector<HTMLElement>("[data-session-control]")
+                )?.focus();
+              });
+            }}
+          >
+            Pass over
+          </Button>
+        ) : null}
+      </div>
     );
   }
   if (session) {
@@ -899,7 +945,9 @@ export function HearingRowActions({
 /** Each column's width, at the metrics the board was measured at. */
 const COLUMN_CLASS: Record<CauseListColumnId, string> = {
   item: "w-16 whitespace-nowrap",
-  caseName: "min-w-40 whitespace-normal",
+  /* `min-w-36`, down from 40 (2026-11-02): the cause title wraps anyway, and the 16px is
+     the reader's board's margin against a drawn scrollbar — see the Next hearing note. */
+  caseName: "min-w-36 whitespace-normal",
   caseNumber: "whitespace-nowrap",
   advocates: "min-w-48 whitespace-nowrap",
   purpose: "min-w-32 whitespace-normal",

@@ -34,7 +34,17 @@ import {
   HearingRowActions,
   HearingsTable,
 } from "@/components/employee/hearings-table";
+import { HearingsSplitView } from "@/components/employee/hearings-split-view";
 import { ListFooter } from "@/components/employee/list-footer";
+import {
+  SegmentedControl,
+  SegmentedControlItem,
+} from "@/components/ui/segmented-control";
+import {
+  useLocalStorageValue,
+  writeLocalStorageValue,
+} from "@/hooks/use-local-storage-value";
+import { useRoomInRem } from "@/hooks/use-min-width";
 import { QueueAnnouncer } from "@/components/employee/queue-announcer";
 import { useCourtRole } from "@/components/employee/use-court-role";
 import { useCourtToday } from "@/components/employee/use-court-today";
@@ -95,6 +105,7 @@ import {
   type TodaysCauseStatus,
 } from "@/lib/employee/hearings";
 import { Identifier } from "@/components/chrome/identifier";
+import { cn } from "@/lib/utils";
 import { QueueItemRow } from "@/components/employee/queue-item-row";
 import { CourtFilters, CourtSortSelect } from "@/components/employee/court-filters";
 import {
@@ -125,6 +136,19 @@ const HEARING_SORTS: CourtSortSpec<CourtHearing, HearingSort>[] = [
 const HEARING_PILLS: { id: TodaysCauseStatus; label: string }[] = (
   ["scheduled", "completed", "passed-over", "abandoned"] as const
 ).map((id) => ({ id, label: statusWord(id) }));
+
+/**
+ * Which layout the board is read in — the table, or the list beside one matter
+ * (`HearingsSplitView`). Kept per browser, so an exploration survives a reload.
+ */
+const LAYOUT_KEY = "dristi-hearings-layout";
+
+/**
+ * Room the split needs, in the page's own text: at 80rem the list pane still holds a
+ * cause title and its chip with the rail open. Below it — a tablet, or 200% text zoom —
+ * the board stays a table whichever layout was chosen.
+ */
+const SPLIT_MIN_REM = 80;
 
 /**
  * Today's hearings — the court's cause list for the day it is sitting, its pills
@@ -171,6 +195,16 @@ export function HearingsScreen() {
      case the row it names has just changed status, and a copy taken at click time would
      show the overlay a listing that is still scheduled. */
   const [openHearingId, setOpenHearingId] = React.useState<string | null>(null);
+
+  const roomForSplit = useRoomInRem(SPLIT_MIN_REM);
+  /* The bench clerk's seat only (owner, 2026-11-02): the clerk calls the list one matter
+     at a time and posts each one's next hearing, which is the job the split is shaped
+     for. Every other seat keeps the table, and is not offered the switch. */
+  const splitOffered = roomForSplit && seat === "bench-clerk";
+  const split = useLocalStorageValue(LAYOUT_KEY) === "split" && splitOffered;
+  /* The matter open on the right in the split. `null` until one is chosen: the view
+     opens on the matter in progress, else the next to call. */
+  const [splitId, setSplitId] = React.useState<string | null>(null);
 
   /* Today's board is live; a past day this browser worked is shown closed, with what
      was left unheard Abandoned (`HRG-05`, `boardForDay`); any other day is read from the
@@ -243,7 +277,9 @@ export function HearingsScreen() {
     next: postsNextHearing && seatPostsNextHearing(seat, court),
     text: seatDraftsOrders(seat, court),
   };
-  const bulk = hasBulkActs(bulkRoles) && !otherDay;
+  /* Not in the split: its rows are for choosing one matter, and a tick box on each would
+     be a second thing a press on the row could mean. */
+  const bulk = hasBulkActs(bulkRoles) && !otherDay && !split;
   const [bulkIds, setBulkIds] = React.useState<ReadonlySet<string>>(
     () => new Set(),
   );
@@ -266,6 +302,15 @@ export function HearingsScreen() {
   function openCase(hearing: CourtHearing) {
     setOpenHearingId(hearing.id);
   }
+
+  /* In the split, the matter chosen; else the one on its feet; else the next to call. */
+  const splitSelectedId =
+    (rows.some((hearing) => hearing.id === splitId)
+      ? splitId
+      : (rows.find((hearing) => hearing.status === "ongoing") ??
+          rows.find((hearing) => hearing.status === "scheduled") ??
+          rows[0]
+        )?.id) ?? null;
 
   /**
    * Calling a matter. It marks the listing ongoing and nothing else.
@@ -416,7 +461,15 @@ export function HearingsScreen() {
   }, []);
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-8 p-6 md:p-8">
+    <div
+      className={cn(
+        "flex min-w-0 flex-1 flex-col gap-8 p-6 md:p-8",
+        /* The split is one screen tall — the window less the 56px top bar — so its card
+           takes the rest below the header and only the list inside it scrolls. The case
+           file holds its panel to the window the same way (`case-file.tsx`). */
+        split && "h-[calc(100svh-theme(spacing.14))] min-h-0 flex-none",
+      )}
+    >
       {/* The board's day, chosen in the page header rather than inside Filters: it
           decides which list the panel holds, so it sits above the panel (owner,
           2026-10-22 — the advocate home's day control, for the court). As there: the
@@ -444,6 +497,19 @@ export function HearingsScreen() {
             </div>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            {splitOffered ? (
+              <SegmentedControl
+                type="single"
+                aria-label="Layout"
+                value={split ? "split" : "table"}
+                onValueChange={(next) => {
+                  if (next) writeLocalStorageValue(LAYOUT_KEY, next);
+                }}
+              >
+                <SegmentedControlItem value="table">Table</SegmentedControlItem>
+                <SegmentedControlItem value="split">Split</SegmentedControlItem>
+              </SegmentedControl>
+            ) : null}
             <JoinVideoCourt />
           </div>
         </div>
@@ -460,9 +526,85 @@ export function HearingsScreen() {
         />
       </header>
 
-      {/* One panel: filters, list and footer are one unit of work, so they share one
-          lifted sheet — the same recipe and the same `gap-6` / `p-6` the cases panel
-          uses. Nothing inside draws a second frame. */}
+      {split ? (
+        <>
+          <HearingsSplitView
+            rows={rows}
+            listedCount={listed.length}
+            seat={seat}
+            header={
+              <HearingsFilters
+                searchRef={searchRef}
+                leading={
+                  <StatusPills
+                    label="Hearing status"
+                    value={
+                      filters.statuses.length === 0
+                        ? "all"
+                        : filters.statuses.length === 1
+                          ? filters.statuses[0]
+                          : ""
+                    }
+                    onChange={(status) =>
+                      changeFilters({
+                        statuses:
+                          status === "all" ? [] : [status as TodaysCauseStatus],
+                      })
+                    }
+                    total={listed.length}
+                    options={HEARING_PILLS.map((pill) => ({
+                      value: pill.id,
+                      label: pill.label,
+                      count: listed.filter((hearing) => hearing.status === pill.id)
+                        .length,
+                    }))}
+                    wrap
+                  />
+                }
+                filters={filters}
+                advocates={advocatesOnList(listed)}
+                nextHearingColumn={nextHearingColumn}
+                onChange={changeFilters}
+                onClear={clearFilters}
+                /* Icons beside the search (owner, 2026-11-02); the split has no
+                   columns to choose. */
+                compact
+                trailing={
+                  <CourtSortSelect
+                    id="hearings-sort"
+                    iconOnly
+                    value={sort}
+                    options={sortOptions(HEARING_SORTS)}
+                    onChange={setSort}
+                  />
+                }
+              />
+            }
+            empty={
+              <HearingsEmpty
+                day={activeDay}
+                isFiltered={isFiltered}
+                onClear={clearFilters}
+              />
+            }
+            selectedId={splitSelectedId}
+            onSelect={(hearing) => setSplitId(hearing.id)}
+            onStartHearing={startHearing}
+            onEndHearing={endHearing}
+            onPassOver={passOverHearing}
+            postsNextHearing={postsNextHearing}
+            sitting={!otherDay}
+          />
+          {liveMessage ? (
+            <p className="sr-only" aria-live="polite">
+              {liveMessage}
+            </p>
+          ) : null}
+        </>
+      ) : (
+      /* One panel: filters, list and footer are one unit of work, so they share one
+         lifted sheet — the same recipe and the same `gap-6` / `p-6` the cases panel
+         uses. Nothing inside draws a second frame. */
       <div className="flex min-w-0 flex-col gap-6 rounded-xl border border-hairline bg-card p-6 shadow-raised">
         <HearingsFilters
           searchRef={searchRef}
@@ -605,6 +747,7 @@ export function HearingsScreen() {
           </div>
         )}
       </div>
+      )}
 
       {/* Up while something is ticked, and after an act until the next tick or filter
           change, so its outcome line ("9 hearings ended…") is still there to read. */}
@@ -661,8 +804,14 @@ function HearingsFilters({
   onChange,
   onClear,
   end,
+  trailing,
+  compact = false,
   nextHearingColumn,
 }: {
+  /** The split's narrow pane: search fills the row, Filters is an icon. */
+  compact?: boolean;
+  /** Right after Filters — the split's sort icon. */
+  trailing?: React.ReactNode;
   /** Whether Next hearing is a column for this person — its filter goes with it. */
   nextHearingColumn: boolean;
   /** The view's status pills, on a row above the filters. */
@@ -769,6 +918,8 @@ function HearingsFilters({
             : []),
         ]}
         end={end}
+        trailing={trailing}
+        compact={compact}
         onClearAll={onClear}
       />
     </div>
@@ -962,12 +1113,15 @@ function StatusPills({
   onChange,
   total,
   options,
+  wrap = false,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   total: number;
   options: { value: string; label: string; count: number; hint?: string }[];
+  /** Wrap onto a second row rather than scroll — the split's narrow list pane. */
+  wrap?: boolean;
 }) {
   return (
     <TooltipProvider delayDuration={300}>
@@ -980,7 +1134,7 @@ function StatusPills({
           if (next) onChange(next);
         }}
         aria-label={label}
-        className={PILL_ROW}
+        className={cn(PILL_ROW, wrap && "flex-wrap overflow-x-visible")}
       >
         <Pill value="all" label="All" count={total} />
         {options.map((option) => (
