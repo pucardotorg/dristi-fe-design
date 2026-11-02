@@ -8,10 +8,10 @@
  * fills order data" is true in Kerala and Gujarat and false in Punjab & Haryana, where
  * the Ahlmad does — and the code reads that from here.
  *
- * Keep this table identical to court-roles §3. The Post officer is a seat in all three
- * states: it holds Process dispatcher and Process reporter for e-Post only, and Evidence
- * marker (court-roles §3, v10.3). Which channel a dispatcher or reporter role covers is
- * not carried here — `sign-process.ts` scopes the Post officer to e-Post.
+ * Keep this table identical to court-roles §3 (v10.6). The Post officer is a seat in all
+ * three states: it holds Process dispatcher and Process reporter for e-Post only. Which
+ * process types and channels a process role covers (`RLE-09`) is not carried here —
+ * `sign-process.ts` scopes the Post officer to e-Post.
  *
  * **Still a view rule, not a permission.** Nothing here authenticates anybody; it decides
  * what a screen offers. A real build reads roles from the court directory and enforces
@@ -33,25 +33,41 @@ export type StaffRole =
   | "order-signer"
   | "hearing-controller"
   | "application-onboarder"
+  | "envelope-receiver"
   | "process-signer"
-  | "warrant-signer"
   | "process-dispatcher"
   | "process-reporter"
   | "evidence-marker"
   | "a-diary-editor"
   | "a-diary-signer";
 
+/* court-roles §3: the Magistrate signs process for warrants only (`RLE-09`); the scope is
+   not carried here. Only Kerala's Magistrate registers cases and keeps the A-Diary. */
 const MAGISTRATE: readonly StaffRole[] = [
-  "case-registerer",
   "order-drafter",
   "next-hearing-setter",
   "order-signer",
   "hearing-controller",
   "application-onboarder",
-  "warrant-signer",
+  "process-signer",
   "evidence-marker",
+];
+
+const KERALA_MAGISTRATE: readonly StaffRole[] = [
+  "case-registerer",
+  ...MAGISTRATE,
   "a-diary-editor",
   "a-diary-signer",
+];
+
+/* court-roles §3: process signer except for warrants, dispatcher and reporter except for
+   e-Post. Punjab & Haryana's Reader fills no order data — the Ahlmad does. */
+const READER_PROCESS: readonly StaffRole[] = [
+  "envelope-receiver",
+  "process-signer",
+  "process-dispatcher",
+  "process-reporter",
+  "evidence-marker",
 ];
 
 const BENCH_CLERK: readonly StaffRole[] = [
@@ -60,49 +76,40 @@ const BENCH_CLERK: readonly StaffRole[] = [
   "next-hearing-setter",
   "hearing-controller",
   "application-onboarder",
-  "process-signer",
+  ...READER_PROCESS,
 ];
 
-const SCRUTINY: readonly StaffRole[] = ["scrutiny-officer"];
-
-/* court-roles §3.2, §3.3: the Reader also dispatches process in Gujarat and P&H. */
-const READER_DISPATCHER: readonly StaffRole[] = [...BENCH_CLERK, "process-dispatcher"];
+const PUNJAB_HARYANA_READER: readonly StaffRole[] = BENCH_CLERK.filter(
+  (role) => role !== "order-data-filler",
+);
 
 /* court-roles §3.1–§3.3: dispatcher and reporter for e-Post, and nothing it signs. */
-const POST_OFFICER: readonly StaffRole[] = [
-  "process-dispatcher",
-  "process-reporter",
-  "evidence-marker",
-];
+const POST_OFFICER: readonly StaffRole[] = ["process-dispatcher", "process-reporter"];
 
 /**
- * court-roles §3.1–§3.3. A seat missing from a state's entry does not exist there: only
- * Punjab & Haryana has a separate Steno and Ahlmad.
+ * court-roles §3.1–§3.3. A seat missing from a state's entry does not exist there: Punjab
+ * & Haryana has no separate Scrutiny officer (the Ahlmad is one) and one Typist / Steno.
  */
 const SEAT_ROLES: Record<CourtId, Partial<Record<CourtRole, readonly StaffRole[]>>> = {
   kerala: {
-    magistrate: MAGISTRATE,
-    "scrutiny-officer": SCRUTINY,
+    magistrate: KERALA_MAGISTRATE,
+    "scrutiny-officer": ["scrutiny-officer"],
     "bench-clerk": BENCH_CLERK,
-    typist: ["order-drafter", "order-data-filler", "next-hearing-setter"],
+    typist: ["order-drafter", "order-data-filler", "next-hearing-setter", "evidence-marker"],
     "post-officer": POST_OFFICER,
   },
   gujarat: {
     magistrate: MAGISTRATE,
-    /* court-roles §3.2: the Scrutiny officer also approves accounts. */
-    "scrutiny-officer": ["scrutiny-officer", "account-approver"],
-    "bench-clerk": READER_DISPATCHER,
-    typist: ["order-drafter", "order-data-filler"],
+    "scrutiny-officer": ["scrutiny-officer", "case-registerer", "account-approver"],
+    "bench-clerk": BENCH_CLERK,
+    typist: ["order-drafter", "order-data-filler", "evidence-marker"],
     "post-officer": POST_OFFICER,
   },
   "punjab-haryana": {
     magistrate: MAGISTRATE,
-    "scrutiny-officer": SCRUTINY,
-    "bench-clerk": READER_DISPATCHER,
-    typist: ["order-drafter", "next-hearing-setter"],
-    steno: ["order-drafter"],
-    /* court-roles §3.3: the Ahlmad also approves accounts. */
-    ahlmad: ["order-data-filler", "account-approver"],
+    "bench-clerk": PUNJAB_HARYANA_READER,
+    typist: ["order-drafter"],
+    ahlmad: ["scrutiny-officer", "case-registerer", "order-data-filler", "account-approver"],
     "post-officer": POST_OFFICER,
   },
 };
@@ -113,7 +120,6 @@ const SEAT_ORDER: readonly CourtRole[] = [
   "bench-clerk",
   "scrutiny-officer",
   "typist",
-  "steno",
   "ahlmad",
   "post-officer",
 ];

@@ -218,3 +218,8 @@ test("Panchkula is Punjab & Haryana's, and moves elsewhere", () => {
   assert.equal(localizeCourtText("Panchkula Police Station", "punjab-haryana"), "Panchkula Police Station");
   assert.notEqual(localizeCourtText("Panchkula Police Station", "gujarat"), "Panchkula Police Station");
 });
+
+test("Punjab & Haryana's typist is the Steno, but its seat title stays Typist / Steno", () => {
+  assert.equal(localizeCourtText("Typist", "punjab-haryana"), "Steno");
+  assert.equal(localizeCourtText("Typist / Steno", "punjab-haryana"), "Typist / Steno");
+});
