@@ -1,12 +1,13 @@
 # Bulk actions on the cause list
-Updated: 2026-10-20
+Updated: 2026-11-02
 Status: implemented (checked on the render; not independently reviewed)
 
 ## Current outcome
 
-A **Bulk** button on Today's hearings switches the cause list into bulk mode: a checkbox
-on every row and a select-all box in the header. A bar at the foot of the page counts
-the selection and holds the act. **Exit bulk** leaves the mode and clears the selection.
+For a seat with a bulk act, Today's hearings shows a checkbox on every row and a
+select-all box in the header by default; there is no Bulk button (2026-11-02). A bar at
+the foot of the page comes up once a row is ticked, counts the selection and holds the
+act. It stays after an act to show the outcome, and goes when the selection is cleared.
 `components/employee/cause-list-bulk.tsx`, `hearings-screen.tsx`, `hearings-table.tsx`.
 
 - **Filters** — the existing Filters button and right-hand sheet, not a second set of
@@ -31,7 +32,9 @@ the selection and holds the act. **Exit bulk** leaves the mode and clears the se
   sent for signing or signed are left out and named. Nothing is sent for signing.
 - **Select all** takes every hearing in the filtered list, across pages. A tick hidden
   by a later filter is not acted on.
-- Magistrate, scrutiny officer, Classic flow, or the setting on Steno: no Bulk button.
+- A seat with no bulk act gets no checkboxes, and nobody gets them on another day's
+  list. On 2026-11-02 the magistrate, bench clerk and typist seats in the demo court
+  all had them (the seats now take their roles per state, court-roles §3).
 - **Demo data** — Court settings → More settings → *Demo data*: **Orders in every
   state** (default) or **Empty day**. Orders in every state opens twelve of today's
   hearings as heard, with three orders in each Pending orders stage: Drafting (items 8,
@@ -68,7 +71,8 @@ the selection and holds the act. **Exit bulk** leaves the mode and clears the se
 
 | Date | Decision and reason | Source | Status |
 |---|---|---|---|
-| 2026-10-15 | Reader gets a Bulk button when the reader enters the next hearing: checkboxes, filters by advocate, case stage and purpose, select one or all, then mark completed or passed over, or set stage, date and purpose. | Owner | Implemented, stage setting later removed |
+| 2026-11-02 | No Bulk button: the checkboxes are on by default for every seat that has a bulk act, and the bar shows only while something is ticked. Switching a mode on was an extra press that bought nothing; no reason for the mode was ever recorded. | Owner | Implemented |
+| 2026-10-15 | Reader gets a Bulk button when the reader enters the next hearing: checkboxes, filters by advocate, case stage and purpose, select one or all, then mark completed or passed over, or set stage, date and purpose. | Owner | Implemented, stage setting later removed; button removed 2026-11-02 |
 | 2026-10-20 | The Classic flow is removed, so the steno's Bulk button no longer depends on the order flow: the typist seat always has it. | Owner | Implemented |
 | 2026-10-15 | Steno can select several hearings and type one text that goes to all their orders. | Owner | Implemented |
 | 2026-10-15 | Stage was first settable in bulk; the case stage cannot be changed by the user, so it was removed. Stage is a filter only. | Owner | Implemented |
