@@ -454,13 +454,15 @@ describe("Register cases by who registers", () => {
     assert.ok(courtNavClubbed("actions", "kerala").some((item) => item.id === "register-cases"));
   });
 
-  it("drops Register cases where scrutiny registers, and nothing else", () => {
+  it("drops Register cases where scrutiny registers, and Sign A-Diary where no day A-Diary is signed", () => {
     for (const court of ["gujarat", "punjab-haryana"] as const) {
       const ids = (groups: typeof COURT_NAV_GROUPS) =>
         groups.flatMap((group) => group.items.map((item) => item.id));
       assert.deepEqual(
         ids(courtNavGroupsForCourt(COURT_NAV_GROUPS, court)),
-        ids(COURT_NAV_GROUPS).filter((id) => id !== "register-cases"),
+        ids(COURT_NAV_GROUPS).filter(
+          (id) => id !== "register-cases" && id !== "sign-a-diary",
+        ),
       );
       for (const layout of ["actions", "schedule"] as const) {
         assert.ok(courtNavClubbed(layout, court).every((item) => item.id !== "register-cases"));
