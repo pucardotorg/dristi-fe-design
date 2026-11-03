@@ -534,7 +534,7 @@ export function PendingOrdersScreen({
           if (!open) setReading(null);
         }}
       >
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-2xl" onInteractOutside={(event) => event.preventDefault()}>
           <DialogHeader>
             <DialogTitle>
               {companionName} · {reading?.heading}

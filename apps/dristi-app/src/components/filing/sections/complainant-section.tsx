@@ -872,7 +872,7 @@ export function ComplainantSection() {
           if (!open) setOtp("");
         }}
       >
-        <ChromeDialogContent mobileSheet className="sm:max-w-md">
+        <ChromeDialogContent mobileSheet className="sm:max-w-md" onInteractOutside={(event) => event.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Verify &amp; fetch details</DialogTitle>
             <DialogDescription>

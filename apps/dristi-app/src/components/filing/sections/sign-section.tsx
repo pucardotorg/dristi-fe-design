@@ -1207,7 +1207,7 @@ export function SignSection() {
         offered as declinable rather than offered and then refused.
       */}
       <Dialog open={modal === "procaddr"} onOpenChange={(open) => !open && closeModal()}>
-        <ChromeDialogContent mobileSheet className="grid-rows-[auto_minmax(0,1fr)_auto] max-h-[calc(100svh-2rem)] sm:max-w-2xl">
+        <ChromeDialogContent mobileSheet className="grid-rows-[auto_minmax(0,1fr)_auto] max-h-[calc(100svh-2rem)] sm:max-w-2xl" onInteractOutside={(event) => event.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Change process &amp; address</DialogTitle>
             <DialogDescription>
@@ -1439,7 +1439,7 @@ export function SignSection() {
         process by process, and this screen only adds it up.
       */}
       <Dialog open={modal === "payment"} onOpenChange={(open) => !open && closeModal()}>
-        <ChromeDialogContent mobileSheet className="grid-rows-[auto_minmax(0,1fr)_auto] max-h-[calc(100svh-2rem)] sm:max-w-xl">
+        <ChromeDialogContent mobileSheet className="grid-rows-[auto_minmax(0,1fr)_auto] max-h-[calc(100svh-2rem)] sm:max-w-xl" onInteractOutside={(event) => event.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Pay court fees</DialogTitle>
             <DialogDescription>

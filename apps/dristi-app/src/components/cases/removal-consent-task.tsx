@@ -308,7 +308,7 @@ function ConsentDocumentDialog({
         onOpenChange(next);
       }}
     >
-      <FlowDialogContent className="flex max-h-[90dvh] flex-col gap-4 overflow-hidden sm:max-w-lg">
+      <FlowDialogContent outsideCloses className="flex max-h-[90dvh] flex-col gap-4 overflow-hidden sm:max-w-lg">
         {/* Clear of the close control — flush against it, a save was one
             slip from a dismiss (owner, Sept 1). */}
         <Button

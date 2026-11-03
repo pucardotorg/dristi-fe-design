@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { AccessProvider } from "@/components/access/access-state";
 import { CourtProvider } from "@/components/court/court-provider";
+import { ConfirmOutsideCancels } from "@/components/chrome/confirm-outside-cancels";
 import { DesignModeLoader } from "@/components/design-mode-loader";
 import { FeedbackProvider } from "@/components/feedback-provider";
 import { LocaleProvider } from "@/components/shell/locale";
@@ -63,6 +64,8 @@ export default async function RootLayout({
                 <FeedbackProvider>{children}</FeedbackProvider>
               </AccessProvider>
               <DesignModeLoader />
+              {/* A click outside a confirmation is its Cancel, app-wide. */}
+              <ConfirmOutsideCancels />
             </CourtProvider>
           </LocaleProvider>
         </ThemeProvider>

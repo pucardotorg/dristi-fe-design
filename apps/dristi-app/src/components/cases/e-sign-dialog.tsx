@@ -158,9 +158,8 @@ export function ESignDialog({
   const FOOTER =
     "flex shrink-0 flex-col-reverse gap-2 border-t border-hairline bg-surface-sunken px-6 py-4 sm:flex-row sm:items-center sm:justify-between";
   const done = confirmation.tone === "done";
-  /* An OTP being typed or a signed copy attached: a click outside, Escape or the close
-     button asks before throwing it away (option 3, 2026-11-03). Choosing a method is not
-     an entry, so an untouched window still closes at once. */
+  /* An OTP being typed or a signed copy attached: Escape, the close button or Back asks
+     before throwing it away. A click outside does nothing (stakeholders, 2–3 Nov 2026). */
   const guard = useDiscardGuard(
     step !== "done" && (otp.length > 0 || file !== null),
     () => (onDismiss ?? onBack)(),

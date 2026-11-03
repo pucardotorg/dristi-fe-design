@@ -186,7 +186,7 @@ export function ReviewSignStep({ vak }: { vak: Vakalatnama }) {
 
       {/* ── Choose how to sign ── */}
       <Dialog open={modal === "choose"} onOpenChange={(open) => !open && setModal(null)}>
-        <ChromeDialogContent className="sm:max-w-lg">
+        <ChromeDialogContent className="sm:max-w-lg" onInteractOutside={(event) => event.preventDefault()}>
           <DialogHeader>
             <DialogTitle>How will {nextSigner?.label} sign?</DialogTitle>
             <DialogDescription>

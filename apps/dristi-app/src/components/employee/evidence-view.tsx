@@ -879,7 +879,7 @@ function EvidenceSignDialog({
   }
 
   /* A number typed for the signing link, different from the one on record, is an
-     entry: closing asks first (option 3, 2026-11-03). Reading the statement is not. */
+     entry: closing asks first. Reading the statement is not. */
   const guard = useDiscardGuard(
     stage === "link" && mobile.trim() !== (subject.mobile ?? "").trim(),
     () => onOpenChange(false),

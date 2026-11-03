@@ -43,9 +43,10 @@ export function onOwnLayer(target: EventTarget | null): boolean {
  *
  * Anshumanth's report (2026-10-21): a click away from a popup closed it and took what had
  * been typed with it. The rule that answers it is one rule for every popup that holds an
- * entry — anything typed, chosen or uploaded — and every way a popup closes by mistake: a
- * click outside, Escape, the close button, Cancel and the phone's Back. Nothing entered,
- * and the popup closes as it always has. Discarding closes it without saving.
+ * entry — anything typed, chosen or uploaded — and every way a person closes it: Escape,
+ * the close button, Cancel and the phone's Back. A click outside does not close it at all
+ * (below). Nothing entered, and the popup closes as it always has. Discarding closes it
+ * without saving.
  *
  * The question is a stage of the same window, never a second modal (`ui-craft`, motion;
  * owner, 2026-10-13 on the join dialogs). The window stays where it is, dimmed and inert,
@@ -54,15 +55,18 @@ export function onOwnLayer(target: EventTarget | null): boolean {
  *
  * The guard holds those closes at the popup's own surface, so it works whoever owns the
  * popup's open state: spread `guard.contentProps` and `guard.outsideProps` on the content
- * (Escape, the close button, the hidden close that Back presses in a flow window, and a
- * click outside), and point the popup's own Cancel at `guard.close`. Discarding calls
+ * (Escape, the close button, the hidden close that Back presses in a flow window, and the
+ * click outside it ignores), and point the popup's own Cancel at `guard.close`. Discarding calls
  * `onDiscard`, which is the popup's real close. While the question is up, any further
  * close means "keep editing": a second Escape or a click on the dimmed window never
  * discards.
  *
- * A click outside is one rule everywhere (Anshumanth, 2026-10-22, on Join a case ignoring
- * it): an empty popup closes, a popup holding an entry asks. A pick from one of the
- * popup's own floating lists (`onOwnLayer`) is not a click outside.
+ * A click outside a guarded popup does nothing (stakeholders, 2–3 Nov 2026, "Popup
+ * Click-Outside Inventory"): these popups take entries, and a stray click must neither
+ * close them nor raise the question. While the question is up, a click outside closes
+ * only the question — "keep editing", the safe answer — and the popup stays. Close
+ * controls, Escape and Cancel still ask as above. A pick from one of the popup's own
+ * floating lists (`onOwnLayer`) is never a click outside.
  */
 export function useDiscardGuard(dirty: boolean, onDiscard: () => void) {
   const [asking, setAsking] = React.useState(false);
@@ -106,13 +110,8 @@ export function useDiscardGuard(dirty: boolean, onDiscard: () => void) {
 
   const outsideProps = {
     onPointerDownOutside: (event: Event) => {
-      if (onOwnLayer(event.target)) {
-        event.preventDefault();
-        return;
-      }
-      if (!holding) return;
       event.preventDefault();
-      close();
+      if (asking && !onOwnLayer(event.target)) setAsking(false);
     },
   };
 

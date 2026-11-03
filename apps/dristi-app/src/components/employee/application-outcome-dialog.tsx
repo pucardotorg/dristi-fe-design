@@ -75,7 +75,7 @@ export function ApplicationOutcomeDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90dvh] flex-col gap-4 sm:max-w-2xl">
+      <DialogContent className="flex max-h-[90dvh] flex-col gap-4 sm:max-w-2xl" onInteractOutside={(event) => event.preventDefault()}>
         <DialogHeader>
           <DialogTitle className="text-title-s font-semibold">
             Application · {subject.label}

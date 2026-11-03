@@ -80,8 +80,9 @@ export function OrderShortcutsDialog({
   onInsert: (entry: OrderShortcut) => void;
 }) {
   const shortcuts = useOrderShortcuts();
-  /* A shortcut being written or changed and not saved: closing asks first (option 3,
-     2026-11-03). The panel unmounts with the window, so it starts clean each time. */
+  /* A shortcut being written or changed and not saved: Escape or ✕ asks first. A click
+     outside closes it — the inventory lists Shortcuts as a view (stakeholders, 2–3 Nov
+     2026). The panel unmounts with the window, so it starts clean each time. */
   const [entered, setEntered] = React.useState(false);
   const guard = useDiscardGuard(open && entered, () => {
     setEntered(false);
@@ -94,7 +95,6 @@ export function OrderShortcutsDialog({
       <DialogContent
         className="flex max-h-[90svh] flex-col gap-6 overflow-y-auto sm:max-w-3xl md:max-w-5xl md:overflow-hidden"
         {...guard.contentProps}
-        {...guard.outsideProps}
       >
         <DialogHeader>
           <DialogTitle>Shortcuts</DialogTitle>

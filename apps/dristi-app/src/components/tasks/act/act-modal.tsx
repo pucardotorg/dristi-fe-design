@@ -97,8 +97,8 @@ export function TaskActModal({
   /* Re-derived each time the window opens, never while it closes: clearing it on close
      swapped the window out mid-exit. */
   const [wasOpen, setWasOpen] = React.useState(open);
-  /* Files added in this window and not yet filed: closing it asks first (option 3,
-     2026-11-03). Reset each time it opens. */
+  /* Files added in this window and not yet filed: closing it asks first; a click outside
+     does nothing (stakeholders, 2–3 Nov 2026). Reset each time it opens. */
   const [entered, setEntered] = React.useState(false);
   if (open !== wasOpen) {
     setWasOpen(open);

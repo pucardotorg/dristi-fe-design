@@ -65,7 +65,7 @@ export function MarkEvidenceDialog({
   }
 
   const options = EVIDENCE_SIDES.map((item) => ({ id: item.id, label: item.label }));
-  /* A side chosen is an entry: Cancel, Escape or a click outside asks first. */
+  /* A side chosen is an entry: Cancel or Escape asks first; a click outside does nothing. */
   const guard = useDiscardGuard(side !== "", () => onOpenChange(false));
 
   function mark() {

@@ -142,10 +142,17 @@ export function StagedOverlay({
   /** The footer, which is chrome and therefore does not move. */
   footer,
   onOpenAutoFocus,
+  outsideCloses = false,
   onPointerDownOutside,
   onFocusOutside,
   ...props
 }: Omit<React.ComponentProps<typeof ChromeDialogContent>, "title"> & {
+  /**
+   * A click outside closes the overlay. Off by default: a stray click beside a
+   * half-done act must not lose it (stakeholders, 2–3 Nov 2026). An overlay that only
+   * shows something passes it.
+   */
+  outsideCloses?: boolean;
   title: React.ReactNode;
   titleRef?: React.RefObject<HTMLHeadingElement | null>;
   titleAside?: React.ReactNode;
@@ -207,14 +214,17 @@ export function StagedOverlay({
           ownTitleRef.current.focus();
         })
       }
-      /* A click outside follows the product's one rule (2026-10-22): an empty overlay
-         closes, one holding an entry asks first (`useDiscardGuard`). It used to ignore the
-         click (owner, 2026-10-13) so a misclick could not lose a half-done act; the guard
-         protects that now. A pick from a list a field opened past the edge is not a click
-         outside, and focus moving into one never closes the overlay. */
+      /* A click outside does nothing unless the overlay only shows something
+         (`outsideCloses`; stakeholders, 2–3 Nov 2026): a stray click beside a half-done
+         act must not lose it. A pick from a list a field opened past the edge is never a
+         click outside, and focus moving into one never closes the overlay. */
       onPointerDownOutside={(event) => {
-        if (onOwnLayer(event.target)) event.preventDefault();
-        else onPointerDownOutside?.(event);
+        if (onOwnLayer(event.target)) {
+          event.preventDefault();
+          return;
+        }
+        if (!outsideCloses) event.preventDefault();
+        onPointerDownOutside?.(event);
       }}
       onFocusOutside={(event) => {
         onFocusOutside?.(event);

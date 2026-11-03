@@ -391,9 +391,9 @@ export function SubmitDocumentsDialog({
           /* As tall as the review that follows, so a document of many files
              lists them without the box growing; the list scrolls inside it. */
           className="flex h-[calc(100dvh---spacing(12))] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
-          /* A click outside reaches onOpenChange like Cancel does (option 3, 2026-11-03):
-             an untouched form closes, one with something in it asks — save or discard.
-             The frame keeps a pick from the form's own lists from counting. */
+          /* A click outside does nothing — the frame's default (stakeholders, 2–3 Nov
+             2026). Cancel, ✕ and Escape still ask — save or discard — once something
+             is entered. */
         >
           <DialogHeader className="shrink-0 border-b border-hairline px-6 py-4 pr-12 text-left">
             <DialogTitle className="text-title-s font-semibold text-balance">
