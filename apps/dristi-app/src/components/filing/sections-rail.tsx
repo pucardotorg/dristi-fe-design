@@ -11,6 +11,7 @@ import {
   PanelLeftOpenIcon,
 } from "lucide-react";
 
+import { missingRequired } from "@/lib/filing/missing";
 import { draftProgress, sectionState, type SectionState } from "@/lib/filing/selectors";
 import {
   FILING_STEPS,
@@ -18,7 +19,8 @@ import {
   stepGroups,
   type FilingStep,
 } from "@/lib/filing/steps";
-import { useFiling } from "@/lib/filing/store";
+import { useFiling, useShownMissingCount } from "@/lib/filing/store";
+import type { FilingDraft, StepId } from "@/lib/filing/types";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -80,16 +82,31 @@ function useShownGroups() {
 }
 
 /**
- * What a host's checks found in a section (bulk filing), in place of its progress mark:
- * the count is what is left to do there.
+ * What is left to fix in a section, in place of its progress mark: a host's checks (bulk
+ * filing), or the required fields left empty in the ordinary flow (#11).
  */
-function IssueMark({ count }: { count: number }) {
+function IssueMark({ count, className }: { count: number; className?: string }) {
   return (
-    <Badge variant="warning" className="ml-auto shrink-0 tabular-nums">
+    <Badge variant="warning" className={cn("ml-auto shrink-0 tabular-nums", className)}>
       {count}
       <span className="sr-only"> to fix</span>
     </Badge>
   );
+}
+
+/**
+ * Required fields still empty in a section (#11), as the rail counts them: every one on a
+ * section the person has left, and on the one on screen only the errors Continue is
+ * showing. Nothing on a section not yet opened; nothing under a host, which counts in its
+ * own way.
+ */
+function missingShown(
+  draft: FilingDraft,
+  step: StepId,
+  { active, shown, hosted }: { active: boolean; shown: number; hosted: boolean }
+): number {
+  if (hosted || sectionState(draft, step) === "untouched") return 0;
+  return active ? shown : missingRequired(draft, step).length;
 }
 
 /* ───────────────────────────── Rows ────────────────────────────────── */
@@ -126,8 +143,16 @@ function StepRow({
 }) {
   const courtText = useCourtText();
   const { draft, hrefFor } = useFiling();
+  const shown = useShownMissingCount();
   const blocked = useLeaveBlocked();
-  const issues = useFieldPolicy()?.countFor(step.id) ?? 0;
+  const policy = useFieldPolicy();
+  const issues = policy?.countFor(step.id) ?? 0;
+  // A section with a required field still empty is never ticked, even where filing would
+  // accept it without (#11); the count itself shows once the person has left it, or on
+  // the section on screen once Continue shows its errors.
+  const missing = policy ? 0 : missingRequired(draft, step.id).length;
+  const shownMissing = missingShown(draft, step.id, { active, shown, hosted: !!policy });
+  const state = sectionState(draft, step.id);
   const Icon = step.icon;
 
   if (step.placeholder) {
@@ -172,7 +197,13 @@ function StepRow({
       >
         <Icon aria-hidden className={active ? undefined : "text-muted-foreground"} />
         <span className="min-w-0 truncate">{courtText(step.title)}</span>
-        {issues ? <IssueMark count={issues} /> : <SectionMark state={sectionState(draft, step.id)} />}
+        {issues ? (
+          <IssueMark count={issues} />
+        ) : shownMissing ? (
+          <IssueMark count={shownMissing} />
+        ) : (
+          <SectionMark state={state === "done" && missing > 0 ? "started" : state} />
+        )}
       </Link>
     </Button>
   );
@@ -371,17 +402,24 @@ export function SectionsRail() {
  */
 export function SectionsTrigger() {
   const { sectionsSheetOpen, setSectionsSheetOpen } = useFilingChrome();
+  const { draft } = useFiling();
+  const shown = useShownMissingCount();
   const active = useActiveStep();
-  const hostSteps = useFieldPolicy()?.hostSteps?.steps ?? [];
-  const walked = [
-    ...useShownGroups()
-      .flatMap((g) => g.steps)
-      .filter((s) => !s.placeholder)
-      .map((s) => s.id),
-    ...hostSteps.map((s) => s.id),
-  ];
+  const policy = useFieldPolicy();
+  const hostSteps = policy?.hostSteps?.steps ?? [];
+  const sections = useShownGroups()
+    .flatMap((g) => g.steps)
+    .filter((s) => !s.placeholder)
+    .map((s) => s.id);
+  const walked = [...sections, ...hostSteps.map((s) => s.id)];
   const here = active?.id ?? hostSteps.find((s) => s.active)?.id;
   const position = here ? walked.indexOf(here) + 1 : 0;
+  // On a phone the rows sit behind this button, so it carries their total (#11): without
+  // it the counts are only found by opening a sheet nobody has a reason to open.
+  const toFix = sections.reduce(
+    (n, id) => n + missingShown(draft, id, { active: id === here, shown, hosted: !!policy }),
+    0
+  );
 
   // The trigger sticks under the top bar so a thumb never has to scroll back up for it.
   // On the phone form it shrinks to its icon while the page rests and grows back the
@@ -418,8 +456,9 @@ export function SectionsTrigger() {
     };
   }, []);
   // Collapse only when it is stuck and the page is at rest; any scroll, focus or the open
-  // sheet keeps it full. `sm:` overrides the collapse, so tablets never shrink.
-  const shrink = stuck && !scrolling && !focused && !sectionsSheetOpen;
+  // sheet keeps it full, and so does a count to fix, which the icon alone would hide.
+  // `sm:` overrides the collapse, so tablets never shrink.
+  const shrink = stuck && !scrolling && !focused && !sectionsSheetOpen && toFix === 0;
 
   return (
     <>
@@ -461,6 +500,7 @@ export function SectionsTrigger() {
                 Step {position} of {walked.length}
               </span>
             ) : null}
+            {toFix ? <IssueMark count={toFix} className={position ? "ml-0" : undefined} /> : null}
             <ChevronRightIcon aria-hidden className="text-muted-foreground" />
           </span>
         </Button>

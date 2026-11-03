@@ -115,6 +115,7 @@ export function WitnessesSection() {
           <FormField
             asGroup
             label="How is this witness identified?"
+            name="identity"
             required
             help="Either one is enough. Use the designation if you only know the office they hold."
             helpPlacement="above"
@@ -173,7 +174,7 @@ export function WitnessesSection() {
             addLabel="Add more"
             emailLabel="Email ID"
             mobilePlaceholder="Enter mobile number"
-            emailPlaceholder="ex: xyz@gmail.com"
+            emailPlaceholder="name@domain.com"
           />
         </FormCard>
 
