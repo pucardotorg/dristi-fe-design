@@ -86,27 +86,33 @@ did before.
 - Open: Malayalam review; teammate sign-off on the citizen-area files. Your details leaves
   the profile menu open behind it after closing (seen while testing, not checked on `main`).
 
-## 2026-11-03: brought up to date with main
+## 2026-11-03: brought up to date with main, and the click-outside decision
 
-- **Decision (owner, from the Popup Click-Outside Inventory):** option 3 stands. A popup
-  with nothing entered closes on a click outside; one with something typed, chosen or
-  uploaded asks first. View-only popups close. Confirmations keep needing an answer.
+- **Decision (stakeholders, 2–3 Nov; "Popup Click-Outside Inventory" artifact, the source of
+  truth):** option 3 was not chosen. Multi-step popups and popups that take an entry (typing
+  or picking, one step or several) ignore a click outside. View-only and single-question
+  popups close on one. Confirmations close on a click outside as Cancel; one over a
+  protected popup closes alone. Court settings keeps closing (it applies as it goes). The
+  hearing overview is protected.
+- **Kept from the 22 Oct work:** Escape, close and Cancel still ask "Discard?" when something
+  is entered; the decision governs only the click outside. With the question up, a click
+  outside closes the question and keeps the popup.
 - **Merge:** `origin/main` (185 commits) merged in, 21 conflicts. Where main restyled a
   dialog's own "Discard draft?" alert, the shared question stays. Submit documents and the
-  bail bond keep main's `DiscardFilingDialog`, because its "Save as draft" answer (owner,
-  Sept 24) has no place in the shared question; a click outside now reaches the same close,
-  as Raise application already did.
-- **Guards added for popups main brought in:** E-sign (OTP typed or signed copy attached),
-  Mark as evidence (side chosen), Record a witness statement (mobile changed on the link
-  step), the task popup's file mode (files added), Order shortcuts (a shortcut being written).
-- **Checked and left alone:** Change process & address and the hearing overview save as they
-  change; bulk payment and court fees hold only while processing; Add your ID is an inline
-  form on main now, not a popup.
-- **Not changed, open:** five confirmation-style popups still close on a click outside (no
-  contact details, continue without CIN/PAN, open the section, review application, accept
-  copy application). The stakeholder question on option 3 vs "click outside does nothing"
-  for multi-step popups is recorded in the inventory as still to be confirmed.
+  bail bond keep main's `DiscardFilingDialog`, whose "Save as draft" answer (owner, Sept 24)
+  has no place in the shared question.
+- **How it is built:** the step frames ignore a click outside by default again, and viewers
+  pass `outsideCloses`. Guarded popups ignore it too. Plain popups that take an entry use
+  `onInteractOutside` to ignore it. Confirmations: the DS alert dialog holds the click by
+  design, so one app-wide listener (`ConfirmOutsideCancels`, root layout) sends the topmost
+  open confirmation an Escape.
+- **Guards added for popups main brought in:** E-sign, Mark as evidence, Record a witness
+  statement, the task popup's file mode, Order shortcuts (Escape and close only: the
+  inventory lists Shortcuts as a view, so a click outside closes it).
 - **Verified:** typecheck clean (bar Next's generated `PageProps`), eslint clean on changed
-  files, DS gates no hits, `npm test` 1440/1440. In the running app: Submit documents and the
-  bail bond close when empty and ask when something is typed. The new guards were reviewed
-  from source only. Self-review, not independent.
+  files apart from errors already on main, DS gates no hits, `npm test` 1440/1440. In the
+  running app: Submit documents ignores a click outside empty and typed; Escape asks "Save
+  this document as a draft?"; a click outside that question closes it and keeps the typed
+  text; the hearing overview ignores a click outside and closes on Escape. Not exercised on
+  the render: a frame viewer closing, the five new guards, the plain entry popups. Reviewed
+  from source. Self-review, not independent.
