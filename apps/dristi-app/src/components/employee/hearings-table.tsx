@@ -242,17 +242,10 @@ export function HearingSessionButton({
   onStartHearing,
   onEndHearing,
   onPassOver,
-  passOver = "menu",
   className,
 }: {
   hearing: CourtHearing;
   seat: CourtRole;
-  /**
-   * Where Pass over lives: behind the control's chevron (`menu`, the row and the
-   * overlay), or as a button of its own beside it (`button` — the split layout's detail
-   * pane, which has room for both, owner 2026-11-02).
-   */
-  passOver?: "menu" | "button";
   /**
    * The dress **Start hearing** wears. `outline` on a row — a teal edge rather than a
    * teal fill, because twenty-three filled buttons down a column would be the Ration
@@ -283,7 +276,7 @@ export function HearingSessionButton({
      button gives up its own right edge: the teal outline's 2px there was a second
      frame down the middle of one control, and a fill's transparent 1px let the page
      show through as a crack between two. */
-  const split = canPassOver(hearing.status) && passOver === "menu";
+  const split = canPassOver(hearing.status);
   let session: React.ReactNode = null;
   if (canStartHearing(hearing.status)) {
     session = (
@@ -379,37 +372,6 @@ export function HearingSessionButton({
       >
         End hearing
       </Button>
-    );
-  }
-  if (session && passOver === "button") {
-    return (
-      <div className={cn("flex flex-wrap items-center gap-3", className)}>
-        {session}
-        {canPassOver(hearing.status) ? (
-          <Button
-            type="button"
-            variant="outline"
-            /* Starts with the visible word, so a voice user can say it (§9). */
-            aria-label={`Pass over item ${hearing.item}, ${causeTitle(hearing)}`}
-            onClick={(event) => {
-              const host = event.currentTarget.closest("section");
-              onPassOver(hearing);
-              /* Pass over takes this button away (a listing is not passed over twice).
-                 Focus goes to the session control: this matter's, now Start hearing, or —
-                 where the pane has moved on to the next matter — that matter's. */
-              requestAnimationFrame(() => {
-                const own = sessionRef.current;
-                (own?.isConnected
-                  ? own
-                  : host?.querySelector<HTMLElement>("[data-session-control]")
-                )?.focus();
-              });
-            }}
-          >
-            Pass over
-          </Button>
-        ) : null}
-      </div>
     );
   }
   if (session) {
