@@ -85,3 +85,28 @@ did before.
 - Review was a separate self-review pass, not independent. No `ui-reviewer` was tagged.
 - Open: Malayalam review; teammate sign-off on the citizen-area files. Your details leaves
   the profile menu open behind it after closing (seen while testing, not checked on `main`).
+
+## 2026-11-03: brought up to date with main
+
+- **Decision (owner, from the Popup Click-Outside Inventory):** option 3 stands. A popup
+  with nothing entered closes on a click outside; one with something typed, chosen or
+  uploaded asks first. View-only popups close. Confirmations keep needing an answer.
+- **Merge:** `origin/main` (185 commits) merged in, 21 conflicts. Where main restyled a
+  dialog's own "Discard draft?" alert, the shared question stays. Submit documents and the
+  bail bond keep main's `DiscardFilingDialog`, because its "Save as draft" answer (owner,
+  Sept 24) has no place in the shared question; a click outside now reaches the same close,
+  as Raise application already did.
+- **Guards added for popups main brought in:** E-sign (OTP typed or signed copy attached),
+  Mark as evidence (side chosen), Record a witness statement (mobile changed on the link
+  step), the task popup's file mode (files added), Order shortcuts (a shortcut being written).
+- **Checked and left alone:** Change process & address and the hearing overview save as they
+  change; bulk payment and court fees hold only while processing; Add your ID is an inline
+  form on main now, not a popup.
+- **Not changed, open:** five confirmation-style popups still close on a click outside (no
+  contact details, continue without CIN/PAN, open the section, review application, accept
+  copy application). The stakeholder question on option 3 vs "click outside does nothing"
+  for multi-step popups is recorded in the inventory as still to be confirmed.
+- **Verified:** typecheck clean (bar Next's generated `PageProps`), eslint clean on changed
+  files, DS gates no hits, `npm test` 1440/1440. In the running app: Submit documents and the
+  bail bond close when empty and ask when something is typed. The new guards were reviewed
+  from source only. Self-review, not independent.
