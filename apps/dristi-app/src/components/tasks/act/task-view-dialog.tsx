@@ -77,7 +77,7 @@ function ViewBody({ task, kase, onClose }: { task: Task; kase: Case; onClose: ()
 
   return (
     /* Header and footer hold still; only the record scrolls, so Close is always in reach. */
-    <FlowDialogContent className="flex max-h-[85svh] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-xl">
+    <FlowDialogContent outsideCloses className="flex max-h-[85svh] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-xl">
       <DialogHeader className="shrink-0 border-b border-hairline px-6 pt-6 pr-16 pb-4 text-left">
         <div className="flex flex-wrap items-center gap-2">
           <DialogTitle className="text-title-s font-semibold text-balance">{task.title}</DialogTitle>

@@ -6,6 +6,7 @@ import {
   UploadIcon,
 } from "lucide-react";
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 import {
   ChoiceCard,
@@ -157,6 +158,12 @@ export function ESignDialog({
   const FOOTER =
     "flex shrink-0 flex-col-reverse gap-2 border-t border-hairline bg-surface-sunken px-6 py-4 sm:flex-row sm:items-center sm:justify-between";
   const done = confirmation.tone === "done";
+  /* An OTP being typed or a signed copy attached: Escape, the close button or Back asks
+     before throwing it away. A click outside does nothing (stakeholders, 2–3 Nov 2026). */
+  const guard = useDiscardGuard(
+    step !== "done" && (otp.length > 0 || file !== null),
+    () => (onDismiss ?? onBack)(),
+  );
 
   return (
     <Dialog
@@ -168,7 +175,11 @@ export function ESignDialog({
         else (onDismiss ?? onBack)();
       }}
     >
-      <FlowDialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md">
+      <FlowDialogContent
+        className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md"
+        {...guard.contentProps}
+        {...guard.outsideProps}
+      >
         {step === "done" ? (
           /* Signed and filed, or signed and sent (sent, not decided: the hourglass). */
           <OutcomeHeader
@@ -360,6 +371,7 @@ export function ESignDialog({
             )}
           </footer>
         ) : null}
+        <DiscardQuestion guard={guard} />
       </FlowDialogContent>
     </Dialog>
   );

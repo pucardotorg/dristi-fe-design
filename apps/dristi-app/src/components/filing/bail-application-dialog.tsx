@@ -12,20 +12,11 @@ import {
 } from "lucide-react";
 
 import {
-  ChromeAlertDialogContent,
   ChromeDialogContent,
 } from "@/components/chrome/app-chrome";
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 import { useBackCloses, useFlowWindow } from "@/components/chrome/flow-window";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 
 import { Banner } from "@/components/ui/banner";
 import { OFFICE_NO_ESIGN } from "@/components/cases/case-office-access";
@@ -82,7 +73,7 @@ import {
 import { ADVOCATE_PROFILE_NAME, advDialog } from "@/lib/advocate/content";
 import { newPaymentRef } from "@/lib/filing/data";
 import { GATEWAY_MS, PaymentFacts, PaymentProcessing } from "@/components/payment/payment-steps";
-import { ConfirmMark, OutcomeAmount, OutcomeHeader, StatusLine } from "@/components/feedback";
+import { OutcomeAmount, OutcomeHeader, StatusLine } from "@/components/feedback";
 import { cn } from "@/lib/utils";
 import { Identifier } from "@/components/chrome/identifier";
 import { useCourtText } from "@/components/court/court-provider";
@@ -434,7 +425,6 @@ export function BailApplicationDialog({
     same terms: only when something has been entered, and never once the
     application is filed, since by then there is nothing left to lose.
   */
-  const [discardOpen, setDiscardOpen] = React.useState(false);
   const entered =
     stage !== "done" &&
     (stage !== "details" ||
@@ -445,8 +435,9 @@ export function BailApplicationDialog({
       documents.length > 0 ||
       (father.trim() !== "" && !fatherPrefilled));
 
+  const guard = useDiscardGuard(entered, closeNow);
+
   function closeNow() {
-    setDiscardOpen(false);
     reset();
     onOpenChange(false);
   }
@@ -458,8 +449,7 @@ export function BailApplicationDialog({
     }
     // The gateway is confirming; the window holds until it answers.
     if (stage === "processing") return;
-    if (entered) setDiscardOpen(true);
-    else closeNow();
+    guard.close();
   }
 
   /* On a phone this is a window that slid in, and the phone's own Back works
@@ -468,7 +458,7 @@ export function BailApplicationDialog({
      application has nothing to go back to, so Back closes it. */
   const { phone } = useFlowWindow();
   useBackCloses(phone && open, () => {
-    if (discardOpen) setDiscardOpen(false);
+    if (guard.asking) guard.keep();
     else if (reviewFullscreen) setReviewFullscreen(false);
     else if (stage === "sureties") setStage("details");
     else if (stage === "review") setStage("sureties");
@@ -606,7 +596,6 @@ export function BailApplicationDialog({
           "flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl",
           stage === "processing" && "[&_[data-slot=dialog-close]]:hidden",
         )}
-        onInteractOutside={(event) => event.preventDefault()}
       >
         {/* The act's outcome takes over the top of the window (skill `feedback-states`):
             the fee paid, then the application filed. */}
@@ -1580,26 +1569,9 @@ export function BailApplicationDialog({
             </>
           ) : null}
         </footer>
+        <DiscardQuestion guard={guard} locale={locale} />
       </FlowDialogContent>
     </Dialog>
-
-    <AlertDialog open={discardOpen} onOpenChange={setDiscardOpen}>
-      <ChromeAlertDialogContent lang={locale}>
-        <AlertDialogHeader>
-          <ConfirmMark danger />
-          <AlertDialogTitle>{pick(bailDialog.discardTitle, locale)}</AlertDialogTitle>
-          <AlertDialogDescription>
-            {pick(bailDialog.discardBody, locale)}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>{pick(bailDialog.discardKeep, locale)}</AlertDialogCancel>
-          <AlertDialogAction variant="destructive" onClick={closeNow}>
-            {pick(bailDialog.discardConfirm, locale)}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </ChromeAlertDialogContent>
-    </AlertDialog>
     </>
   );
 }

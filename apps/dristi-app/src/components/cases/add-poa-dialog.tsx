@@ -22,18 +22,9 @@
  * case-screen style and was rejected (Sept 1).
  */
 
-import { FileXIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -53,9 +44,6 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { FlowStepper } from "@/components/cases/flow-stepper";
 import { usePartiesLive } from "@/components/cases/parties-live";
-import {
-  ChromeAlertDialogContent,
-} from "@/components/chrome/app-chrome";
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 import {
   PartyApplicationDocument,
@@ -71,7 +59,6 @@ import {
   POA_REASON_MAX_LENGTH,
   type PartyOption,
 } from "@/lib/cases/party-actions";
-import { ConfirmMark } from "@/components/feedback";
 
 type PoaStep = 1 | 2 | 3;
 
@@ -137,7 +124,6 @@ export function AddPoaDialog({
   /** The sign dialog, layered over the review (Sept 2). */
   const [signOpen, setSignOpen] = useState(false);
   const [errors, setErrors] = useState<Errors>({});
-  const [exitConfirmationOpen, setExitConfirmationOpen] = useState(false);
   /* Null outside the Parties tab (the dialog has other hosts). */
   const live = usePartiesLive();
 
@@ -173,7 +159,6 @@ export function AddPoaDialog({
     setDeedFile(null);
     setSignOpen(false);
     setErrors({});
-    setExitConfirmationOpen(false);
   }
 
   function closeClean() {
@@ -181,12 +166,10 @@ export function AddPoaDialog({
     onOpenChange(false);
   }
 
+  const guard = useDiscardGuard(isDirty, closeClean);
+
   function requestExit() {
-    if (isDirty) {
-      setExitConfirmationOpen(true);
-      return;
-    }
-    closeClean();
+    guard.close();
   }
 
   /** The generated application — the review sheet and the paper that is signed. */
@@ -540,6 +523,7 @@ export function AddPoaDialog({
           </footer>
             </>
           )}
+          <DiscardQuestion guard={guard} />
         </FlowDialogContent>
       </Dialog>
 
@@ -560,27 +544,6 @@ export function AddPoaDialog({
           description: `${holderDisplayName || "The holder"} is added as ${grantingParty?.name ?? "the party"}'s PoA-holder once the order is passed.`,
         }}
       />
-
-      <AlertDialog
-        open={exitConfirmationOpen}
-        onOpenChange={setExitConfirmationOpen}
-      >
-        <ChromeAlertDialogContent>
-          <AlertDialogHeader>
-            <ConfirmMark danger icon={FileXIcon} />
-            <AlertDialogTitle>Discard this application?</AlertDialogTitle>
-            <AlertDialogDescription>
-              The details entered here will be lost if you discard this draft.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Keep editing</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={closeClean}>
-              Discard draft
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </ChromeAlertDialogContent>
-      </AlertDialog>
     </>
   );
 }

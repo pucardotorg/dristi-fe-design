@@ -12,6 +12,7 @@ import { FileTextIcon, SaveIcon, SignatureIcon, TrashIcon } from "lucide-react";
 
 import { StatusLine, StatusMark } from "@/components/feedback";
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 
 import { fileUrl, formatBytes, storeUpload } from "@/lib/tasks/data";
@@ -354,11 +355,30 @@ export function OtpDialog({
   title?: string;
   confirmLabel?: string;
 }) {
+  /* The code lives here rather than in the form, so a close can ask before it throws a
+     part-typed code away; it starts empty on every opening. */
+  const [otp, setOtp] = React.useState("");
+  const [wasOpen, setWasOpen] = React.useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setOtp("");
+  }
+  const guard = useDiscardGuard(otp.length > 0, () => onOpenChange(false));
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <FlowDialogContent className="sm:max-w-md">
+      <FlowDialogContent className="sm:max-w-md" {...guard.contentProps} {...guard.outsideProps}>
         {/* Mounted per open, so the code always starts empty. */}
-        {open ? <OtpForm signer={signer} onSign={onSign} title={title} confirmLabel={confirmLabel} /> : null}
+        {open ? (
+          <OtpForm
+            signer={signer}
+            onSign={onSign}
+            title={title}
+            confirmLabel={confirmLabel}
+            otp={otp}
+            onOtpChange={setOtp}
+          />
+        ) : null}
+        <DiscardQuestion guard={guard} />
       </FlowDialogContent>
     </Dialog>
   );
@@ -369,13 +389,16 @@ function OtpForm({
   onSign,
   title,
   confirmLabel,
+  otp,
+  onOtpChange: setOtp,
 }: {
   signer: Person;
   onSign: () => void;
   title: string;
   confirmLabel: string;
+  otp: string;
+  onOtpChange: (otp: string) => void;
 }) {
-  const [otp, setOtp] = React.useState("");
   const [resent, setResent] = React.useState(false);
   return (
     <>

@@ -33,17 +33,9 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FilePlus2Icon, XIcon, FileXIcon } from "lucide-react";
+import { FilePlus2Icon, XIcon } from "lucide-react";
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -84,9 +76,6 @@ import { initials } from "@/components/access/access-list";
 import { VakalatnamaPicker } from "@/components/advocate/vakalatnama-picker";
 import { FlowStepper } from "@/components/cases/flow-stepper";
 import { usePartiesLive } from "@/components/cases/parties-live";
-import {
-  ChromeAlertDialogContent,
-} from "@/components/chrome/app-chrome";
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 import {
   ReviewDocValue,
@@ -103,7 +92,7 @@ import {
   type PartyOption,
 } from "@/lib/cases/party-actions";
 import { Identifier } from "@/components/chrome/identifier";
-import { ConfirmMark, OutcomeHeader } from "@/components/feedback";
+import { OutcomeHeader } from "@/components/feedback";
 
 type AdvocateStep = 1 | 2 | 3;
 
@@ -162,7 +151,6 @@ export function AddAdvocateDialog({
   const [done, setDone] = useState(false);
   const partiesLive = usePartiesLive();
   const [errors, setErrors] = useState<Errors>({});
-  const [exitConfirmationOpen, setExitConfirmationOpen] = useState(false);
 
   const current = STEPS.find((item) => item.step === step) ?? STEPS[0];
   const isDirty = useMemo(
@@ -195,7 +183,6 @@ export function AddAdvocateDialog({
     setVkSavedId("");
     setDone(false);
     setErrors({});
-    setExitConfirmationOpen(false);
   }
 
   function closeClean() {
@@ -203,12 +190,10 @@ export function AddAdvocateDialog({
     onOpenChange(false);
   }
 
+  const guard = useDiscardGuard(isDirty && !done, closeClean);
+
   function requestExit() {
-    if (isDirty && !done) {
-      setExitConfirmationOpen(true);
-      return;
-    }
-    closeClean();
+    guard.close();
   }
 
   function stack(chip: SelectedAdvocate) {
@@ -769,29 +754,9 @@ export function AddAdvocateDialog({
           </footer>
             </>
           )}
+          <DiscardQuestion guard={guard} />
         </FlowDialogContent>
       </Dialog>
-
-      <AlertDialog
-        open={exitConfirmationOpen}
-        onOpenChange={setExitConfirmationOpen}
-      >
-        <ChromeAlertDialogContent>
-          <AlertDialogHeader>
-            <ConfirmMark danger icon={FileXIcon} />
-            <AlertDialogTitle>Discard advocate draft?</AlertDialogTitle>
-            <AlertDialogDescription>
-              The details entered here will be lost if you discard this draft.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Keep editing</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={closeClean}>
-              Discard draft
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </ChromeAlertDialogContent>
-      </AlertDialog>
     </>
   );
 }

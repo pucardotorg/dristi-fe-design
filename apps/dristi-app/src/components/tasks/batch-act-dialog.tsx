@@ -3,6 +3,7 @@
 import * as React from "react";
 import { FlaskConicalIcon, ListChecksIcon } from "lucide-react";
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { IrreversibleNote, OutcomeHeader, OutcomeSummary, OutcomeTally, notify } from "@/components/feedback";
 import { Identifier } from "@/components/chrome/identifier";
 import { useStageFade } from "@/components/chrome/stage-fade";
@@ -159,6 +160,7 @@ function BatchBody({
   /* The set as it was when the window opened: applying it takes the rows away. */
   const [batch] = React.useState(tasks);
   const [otp, setOtp] = React.useState("");
+  const guard = useDiscardGuard(flow.stage === "otp" && otp.length > 0, onClose);
   const [resent, setResent] = React.useState(false);
   const [dscFound, setDscFound] = React.useState(false);
   const [gateway, setGateway] = React.useState<PaymentResult>("success");
@@ -325,7 +327,12 @@ function BatchBody({
       /* The outcome has a title and no body line: say so, rather than leave Radix
          looking for a description that is not there. */
       {...(flow.stage === "done" ? { "aria-describedby": undefined } : {})}
-      onEscapeKeyDown={(e) => running && e.preventDefault()}
+      onEscapeKeyDown={(e) => {
+        if (running) e.preventDefault();
+        else guard.contentProps.onEscapeKeyDown(e);
+      }}
+      onClickCapture={guard.contentProps.onClickCapture}
+      {...guard.outsideProps}
     >
       <div key={flow.stage} className={cn("flex min-h-0 flex-1 flex-col", flow.sceneClassName)}>
         {flow.stage === "done" ? (
@@ -380,6 +387,7 @@ function BatchBody({
         </div>
         )}
       </div>
+      <DiscardQuestion guard={guard} />
     </StagedOverlay>
   );
 }

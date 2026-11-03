@@ -9,6 +9,7 @@ import {
   XIcon,
 } from "lucide-react";
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import {
   StagedOverlay,
   useStagedFlow,
@@ -1429,6 +1430,7 @@ function CommitBar({
               onReschedule(day, moving);
             }}
             onReturnFocus={onReturnFocus}
+            onClose={() => setOpen(false)}
           />
         </Dialog>
       </div>
@@ -1549,6 +1551,7 @@ function RescheduleOverlay({
   range,
   onReschedule,
   onReturnFocus,
+  onClose,
 }: {
   /** Which opening of the overlay this is; a change starts the act over. */
   session: number;
@@ -1558,6 +1561,7 @@ function RescheduleOverlay({
   range: Span;
   onReschedule: (day: string, moving: ReschedulableHearing[]) => void;
   onReturnFocus: () => void;
+  onClose: () => void;
 }) {
   const [day, setDay] = React.useState<string | null>(null);
   /**
@@ -1568,6 +1572,7 @@ function RescheduleOverlay({
    * figure is zero. These are the ones that were committed.
    */
   const [outcome, setOutcome] = React.useState<Outcome | null>(null);
+  const guard = useDiscardGuard(day !== null && outcome === null, onClose);
 
   /**
    * The stage, its direction and the focus that follows it — `chrome/staged-overlay.tsx`,
@@ -1624,6 +1629,8 @@ function RescheduleOverlay({
 
   return (
     <StagedOverlay
+      {...guard.contentProps}
+      {...guard.outsideProps}
       /* Narrow: this act is one question at a time, not a document to read. No definite
          height either, so the canvas carries a `floor` — see the frame, which explains why
          it arrives in viewport-height steps rather than unconditionally. */
@@ -1806,6 +1813,7 @@ function RescheduleOverlay({
           />
         )}
       </div>
+      <DiscardQuestion guard={guard} />
     </StagedOverlay>
   );
 }

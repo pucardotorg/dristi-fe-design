@@ -161,7 +161,7 @@ function FullViewButton({
           <Maximize2Icon aria-hidden />
         </Button>
       </DialogTrigger>
-      <FlowDialogContent className="flex h-[92svh] flex-col gap-4 overflow-hidden sm:max-w-[calc(100%-4rem)]">
+      <FlowDialogContent outsideCloses className="flex h-[92svh] flex-col gap-4 overflow-hidden sm:max-w-[calc(100%-4rem)]">
         <DialogHeader className="pr-12">
           <DialogTitle className="text-title-s font-semibold break-words">
             {title}

@@ -754,7 +754,7 @@ export function PreviewSection() {
           if (!open) setEditKey(null);
         }}
       >
-        <ChromeDialogContent mobileSheet className="sm:max-w-md">
+        <ChromeDialogContent mobileSheet className="sm:max-w-md" onInteractOutside={(event) => event.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Open the {panel?.title ?? ""} section?</DialogTitle>
             <DialogDescription>

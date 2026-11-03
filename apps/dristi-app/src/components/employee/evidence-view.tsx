@@ -17,6 +17,7 @@ import {
   RichTextValueView,
   type RichTextValue,
 } from "@/components/cases/rich-text-field";
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 import { FormRow } from "@/components/filing/form-card";
 import { FormField, RequiredMark } from "@/components/filing/form-field";
@@ -877,6 +878,13 @@ function EvidenceSignDialog({
     setStage("done");
   }
 
+  /* A number typed for the signing link, different from the one on record, is an
+     entry: closing asks first. Reading the statement is not. */
+  const guard = useDiscardGuard(
+    stage === "link" && mobile.trim() !== (subject.mobile ?? "").trim(),
+    () => onOpenChange(false),
+  );
+
   const FOOTER =
     "flex shrink-0 flex-col-reverse gap-2 border-t border-hairline bg-surface-sunken px-6 py-4 sm:flex-row sm:items-center sm:justify-between";
 
@@ -888,6 +896,8 @@ function EvidenceSignDialog({
           "flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0",
           stage === "review" ? "sm:max-w-3xl" : "sm:max-w-md",
         )}
+        {...guard.contentProps}
+        {...guard.outsideProps}
       >
         {stage === "done" ? (
           <DialogHeader className="shrink-0 px-6 py-6 pr-12 text-left">
@@ -1086,6 +1096,7 @@ function EvidenceSignDialog({
             </Button>
           </footer>
         ) : null}
+        <DiscardQuestion guard={guard} />
       </FlowDialogContent>
     </Dialog>
   );

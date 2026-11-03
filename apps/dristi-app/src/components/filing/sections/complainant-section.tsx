@@ -872,7 +872,7 @@ export function ComplainantSection() {
           if (!open) setOtp("");
         }}
       >
-        <ChromeDialogContent mobileSheet className="sm:max-w-md">
+        <ChromeDialogContent mobileSheet className="sm:max-w-md" onInteractOutside={(event) => event.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Verify &amp; fetch details</DialogTitle>
             <DialogDescription>
@@ -926,6 +926,7 @@ export function ComplainantSection() {
       >
         <ChromeDialogContent
           mobileSheet
+          onInteractOutside={(event) => event.preventDefault()}
           className="sm:max-w-lg"
           onCloseAutoFocus={(event) => {
             if (!focusCinPan.current) return;

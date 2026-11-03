@@ -332,7 +332,9 @@ export function BailBondDialog({
         <FlowDialogContent
           ownBack
           className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
-          onInteractOutside={(event) => event.preventDefault()}
+          /* A click outside does nothing — the frame's default (stakeholders, 2–3 Nov
+             2026). Cancel, ✕ and Escape still ask — save or discard — once something
+             is entered. */
         >
           <DialogHeader className="shrink-0 border-b border-hairline px-6 py-4 pr-12 text-left">
             <DialogTitle className="text-title-s font-semibold text-balance">

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { ChromeDialogContent } from "@/components/chrome/app-chrome";
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { CaseFileView } from "@/components/employee/register-case-file";
 import { ARRIVAL, OVERLAY_RISE } from "@/components/chrome/motion";
 import { markArrival, useArrival } from "@/components/employee/use-arrival";
@@ -1112,6 +1113,7 @@ function ActBody({
   const titleRef = React.useRef<HTMLHeadingElement>(null);
   const reasonRef = React.useRef<HTMLTextAreaElement>(null);
   const settledBefore = React.useRef(settled);
+  const guard = useDiscardGuard(sending && !settled && !empty, onClose);
 
   /* Into the reason box, because writing it is the only thing that step is for; onto the
      title on every other step, because the title has just changed to say what happened
@@ -1145,6 +1147,8 @@ function ActBody({
         if (sending) reasonRef.current?.focus();
         else titleRef.current?.focus();
       }}
+      {...guard.contentProps}
+      {...guard.outsideProps}
     >
       {/* **One surface, and the outcome said once.** This was a white card on a tinted
           stage inside a white dialog — a box in a box in a box, and the owner read it as
@@ -1264,7 +1268,7 @@ function ActBody({
           </>
         ) : (
           <>
-            <Button type="button" variant="ghost" onClick={onClose}>
+            <Button type="button" variant="ghost" onClick={guard.close}>
               Cancel
             </Button>
             <Button type="button" onClick={confirm}>
@@ -1273,6 +1277,7 @@ function ActBody({
           </>
         )}
       </DialogFooter>
+      <DiscardQuestion guard={guard} />
     </ChromeDialogContent>
   );
 }

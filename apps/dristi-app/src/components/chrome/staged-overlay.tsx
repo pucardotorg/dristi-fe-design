@@ -3,6 +3,7 @@
 import * as React from "react";
 
 import { ChromeDialogContent } from "@/components/chrome/app-chrome";
+import { onOwnLayer } from "@/components/chrome/discard-guard";
 import {
   OVERLAY_RISE,
   STAGE_SLIDE,
@@ -142,13 +143,14 @@ export function StagedOverlay({
   footer,
   onOpenAutoFocus,
   outsideCloses = false,
-  onInteractOutside,
+  onPointerDownOutside,
+  onFocusOutside,
   ...props
 }: Omit<React.ComponentProps<typeof ChromeDialogContent>, "title"> & {
   /**
-   * A click outside closes the overlay. Off by default: a misclick beside a half-done
-   * flow lost the work (owner, 2026-10-13); Close and Escape still close it. An overlay
-   * that only shows something passes it.
+   * A click outside closes the overlay. Off by default: a stray click beside a
+   * half-done act must not lose it (stakeholders, 2–3 Nov 2026). An overlay that only
+   * shows something passes it.
    */
   outsideCloses?: boolean;
   title: React.ReactNode;
@@ -212,9 +214,21 @@ export function StagedOverlay({
           ownTitleRef.current.focus();
         })
       }
-      onInteractOutside={(event) => {
-        onInteractOutside?.(event);
+      /* A click outside does nothing unless the overlay only shows something
+         (`outsideCloses`; stakeholders, 2–3 Nov 2026): a stray click beside a half-done
+         act must not lose it. A pick from a list a field opened past the edge is never a
+         click outside, and focus moving into one never closes the overlay. */
+      onPointerDownOutside={(event) => {
+        if (onOwnLayer(event.target)) {
+          event.preventDefault();
+          return;
+        }
         if (!outsideCloses) event.preventDefault();
+        onPointerDownOutside?.(event);
+      }}
+      onFocusOutside={(event) => {
+        onFocusOutside?.(event);
+        event.preventDefault();
       }}
       {...props}
     >

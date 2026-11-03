@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 
 import { ChromeDialogContent } from "@/components/chrome/app-chrome";
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { quietTrigger } from "@/components/employee/application-order-triggers";
 import { ListingDateField } from "@/components/employee/listing-date-field";
 import { Button } from "@/components/ui/button";
@@ -121,6 +122,7 @@ export function ApplicationQuickOrder({
           on={on}
           hearing={hearing}
           view={view}
+          onClose={() => onOpenChange(false)}
           onDone={onDone}
         />
       ) : null}
@@ -138,6 +140,7 @@ function QuickOrderContent({
   on,
   hearing,
   view,
+  onClose,
   onDone,
 }: {
   onOpenAutoFocus: () => void;
@@ -149,6 +152,7 @@ function QuickOrderContent({
   on: string;
   hearing: { day: string | undefined };
   view: string;
+  onClose: () => void;
   onDone: (message: string) => void;
 }) {
   const router = useRouter();
@@ -157,6 +161,11 @@ function QuickOrderContent({
   const [text, setText] = React.useState(request.text);
   const [nextHearing, setNextHearing] = React.useState<Date | undefined>(undefined);
   const nextDay = nextHearing ? isoDay(nextHearing) : "";
+  /* Words changed from the catalogue's, or a next date picked: closing asks first. */
+  const guard = useDiscardGuard(
+    text !== request.text || nextHearing !== undefined,
+    onClose,
+  );
   const key = nextApplicationOrderKey(application);
   const href = applicationOrderHref(application.id, undefined, view);
   const outcome = setApplicationOutcome(initialApplicationOutcome(), request.answers);
@@ -225,6 +234,8 @@ function QuickOrderContent({
       onOpenAutoFocus={onOpenAutoFocus}
       onCloseAutoFocus={onCloseAutoFocus}
       className="flex max-h-[85dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
+      {...guard.contentProps}
+      {...guard.outsideProps}
     >
       <DialogHeader className="shrink-0 p-6 pr-16">
         <DialogTitle className="text-title-s font-semibold">{request.title}</DialogTitle>
@@ -264,6 +275,7 @@ function QuickOrderContent({
           {canSign ? "Sign order" : "Send for signing"}
         </Button>
       </DialogFooter>
+      <DiscardQuestion guard={guard} />
     </ChromeDialogContent>
   );
 }

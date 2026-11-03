@@ -12,17 +12,9 @@
  */
 
 import { useMemo, useState } from "react";
-import { PencilIcon, FileXIcon } from "lucide-react";
+import { PencilIcon } from "lucide-react";
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,9 +30,6 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import {
-  ChromeAlertDialogContent,
-} from "@/components/chrome/app-chrome";
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 import {
   PartyApplicationDocument,
@@ -78,7 +67,6 @@ import {
 } from "@/components/ui/select";
 import { idUpload } from "@/lib/join/content";
 import { useCourtLocalized, useCourtText } from "@/components/court/court-provider";
-import { ConfirmMark } from "@/components/feedback";
 
 /** The record's address — the app's one structured grammar. */
 export type EditableAddress = StructuredAddress;
@@ -238,7 +226,6 @@ function EditLitigantDialog({
   const [docFile, setDocFile] = useState<File | null>(null);
   const [signOpen, setSignOpen] = useState(false);
   const [errors, setErrors] = useState<Errors>({});
-  const [exitConfirmationOpen, setExitConfirmationOpen] = useState(false);
 
   const isEntity = litigant.entityRepresentative !== undefined;
 
@@ -283,7 +270,6 @@ function EditLitigantDialog({
     setDocFile(null);
     setSignOpen(false);
     setErrors({});
-    setExitConfirmationOpen(false);
   }
 
   function closeClean() {
@@ -291,12 +277,10 @@ function EditLitigantDialog({
     onOpenChange(false);
   }
 
+  const guard = useDiscardGuard(isDirty, closeClean);
+
   function requestExit() {
-    if (isDirty) {
-      setExitConfirmationOpen(true);
-      return;
-    }
-    closeClean();
+    guard.close();
   }
 
   /** The generated application — the review sheet and the paper that is signed. */
@@ -612,6 +596,7 @@ function EditLitigantDialog({
                 )}
               </footer>
             </>
+          <DiscardQuestion guard={guard} />
         </FlowDialogContent>
       </Dialog>
 
@@ -627,27 +612,6 @@ function EditLitigantDialog({
           description: `The record for ${litigant.name} stays as it is until the order is passed.`,
         }}
       />
-
-      <AlertDialog
-        open={exitConfirmationOpen}
-        onOpenChange={setExitConfirmationOpen}
-      >
-        <ChromeAlertDialogContent>
-          <AlertDialogHeader>
-            <ConfirmMark danger icon={FileXIcon} />
-            <AlertDialogTitle>Discard this application?</AlertDialogTitle>
-            <AlertDialogDescription>
-              The details entered here will be lost if you discard this draft.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Keep editing</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={closeClean}>
-              Discard draft
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </ChromeAlertDialogContent>
-      </AlertDialog>
     </>
   );
 }

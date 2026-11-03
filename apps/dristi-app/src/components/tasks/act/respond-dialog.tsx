@@ -9,6 +9,7 @@
 
 import * as React from "react";
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { dateTime } from "@/lib/tasks/format";
 import { respond } from "@/lib/tasks/transitions";
 import type { Case, Task } from "@/lib/tasks/types";
@@ -58,6 +59,8 @@ export function TaskRespondDialog({
     if (open) setNote("");
   }
 
+  const guard = useDiscardGuard(note.trim() !== "", () => onOpenChange(false));
+
   async function decide(accepted: boolean) {
     if (!task) return;
     const done = await act(
@@ -73,7 +76,7 @@ export function TaskRespondDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <FlowDialogContent className="sm:max-w-lg">
+      <FlowDialogContent className="sm:max-w-lg" {...guard.contentProps} {...guard.outsideProps}>
         <DialogHeader>
           <DialogTitle>Review the request</DialogTitle>
           <DialogDescription>
@@ -124,6 +127,7 @@ export function TaskRespondDialog({
             Accept
           </Button>
         </DialogFooter>
+        <DiscardQuestion guard={guard} />
       </FlowDialogContent>
     </Dialog>
   );

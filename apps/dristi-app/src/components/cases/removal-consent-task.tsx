@@ -27,6 +27,7 @@ import {
   UserCheckIcon,
 } from "lucide-react";
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { Button } from "@/components/ui/button";
 import {
   DescriptionDetails,
@@ -161,6 +162,8 @@ function RemovalConsentDialog({
     if (decided) onResolved();
   }
 
+  const guard = useDiscardGuard(decision === null && note.trim() !== "", close);
+
   return (
     <Dialog
       open={open}
@@ -169,7 +172,11 @@ function RemovalConsentDialog({
         else close();
       }}
     >
-      <FlowDialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl">
+      <FlowDialogContent
+        className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl"
+        {...guard.contentProps}
+        {...guard.outsideProps}
+      >
         {decision ? (
           <>
             {/* Accepted is done; rejected changes nothing for you, so it is neutral (it
@@ -265,6 +272,7 @@ function RemovalConsentDialog({
             </footer>
           </>
         )}
+        <DiscardQuestion guard={guard} />
       </FlowDialogContent>
 
       <ConsentDocumentDialog
@@ -300,7 +308,7 @@ function ConsentDocumentDialog({
         onOpenChange(next);
       }}
     >
-      <FlowDialogContent className="flex max-h-[90dvh] flex-col gap-4 overflow-hidden sm:max-w-lg">
+      <FlowDialogContent outsideCloses className="flex max-h-[90dvh] flex-col gap-4 overflow-hidden sm:max-w-lg">
         {/* Clear of the close control — flush against it, a save was one
             slip from a dismiss (owner, Sept 1). */}
         <Button

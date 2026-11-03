@@ -603,13 +603,14 @@ export const advDialog = {
   ),
   findAndJoin: t("Find case and join", "കേസ് കണ്ടെത്തി ചേരുക"),
   /* Closing partway through asks first (owner, 2026-10-13). Malayalam drafted. */
-  leaveTitle: t("Leave without joining?", "ചേരാതെ പുറത്തുകടക്കണോ?"),
+  /* The product's one discard question (`DiscardQuestion`), in this window's chrome. */
+  leaveTitle: t("Do you want to discard your progress?", "ഇതുവരെ നൽകിയത് ഉപേക്ഷിക്കണോ?"),
   leaveBody: t(
-    "What you have entered so far will not be kept.",
+    "What you've entered here will not be saved.",
     "ഇതുവരെ നൽകിയ വിവരങ്ങൾ സൂക്ഷിക്കില്ല.",
   ),
-  leaveStay: t("Keep going", "തുടരുക"),
-  leaveGo: t("Leave", "പുറത്തുകടക്കുക"),
+  leaveStay: t("Keep editing", "തിരുത്തൽ തുടരുക"),
+  leaveGo: t("Discard", "ഉപേക്ഷിക്കുക"),
   lookupSandboxTip: t("Sandbox: who you are on this case", "സാൻഡ്‌ബോക്സ്: ഈ കേസിൽ നിങ്ങൾ ആര്"),
   lookupSandboxLabel: t("For the case you look up", "നിങ്ങൾ തിരയുന്ന കേസിന്"),
   lookupSandboxNew: t("You are not on it yet", "നിങ്ങൾ ഇതുവരെ ഇതിലില്ല"),

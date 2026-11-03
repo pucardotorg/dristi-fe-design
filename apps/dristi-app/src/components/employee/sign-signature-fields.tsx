@@ -116,6 +116,10 @@ export function useSignatureChoice(noun = "form") {
     (method === "e-sign" && otp.length === OTP_LENGTH) ||
     (method === "upload" && file !== null);
 
+  /* Something a close would throw away: digits of the code, or the signed copy. Choosing
+     the method alone is the route, not yet an entry. */
+  const entered = otp.length > 0 || file !== null;
+
   return {
     method,
     choose,
@@ -126,6 +130,7 @@ export function useSignatureChoice(noun = "form") {
     otp,
     setOtp,
     canSubmit,
+    entered,
     reset,
   };
 }

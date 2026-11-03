@@ -17,6 +17,7 @@ import {
 
 import { ChromeDialogContent } from "@/components/chrome/app-chrome";
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -56,6 +57,7 @@ export function ReviewSignStep({ vak }: { vak: Vakalatnama }) {
 
   const [modal, setModal] = React.useState<ModalKey>(null);
   const [otp, setOtp] = React.useState("");
+  const otpGuard = useDiscardGuard(modal === "esign" && otp.length > 0, () => setModal(null));
   const timer = React.useRef<number | null>(null);
 
   React.useEffect(
@@ -184,7 +186,7 @@ export function ReviewSignStep({ vak }: { vak: Vakalatnama }) {
 
       {/* ── Choose how to sign ── */}
       <Dialog open={modal === "choose"} onOpenChange={(open) => !open && setModal(null)}>
-        <ChromeDialogContent className="sm:max-w-lg">
+        <ChromeDialogContent className="sm:max-w-lg" onInteractOutside={(event) => event.preventDefault()}>
           <DialogHeader>
             <DialogTitle>How will {nextSigner?.label} sign?</DialogTitle>
             <DialogDescription>
@@ -251,7 +253,11 @@ export function ReviewSignStep({ vak }: { vak: Vakalatnama }) {
 
       {/* ── eSign OTP ── */}
       <Dialog open={modal === "esign"} onOpenChange={(open) => !open && setModal(null)}>
-        <ChromeDialogContent className="sm:max-w-sm">
+        <ChromeDialogContent
+          className="sm:max-w-sm"
+          {...otpGuard.contentProps}
+          {...otpGuard.outsideProps}
+        >
           <DialogHeader>
             <DialogTitle>Enter the OTP</DialogTitle>
             <DialogDescription>
@@ -293,6 +299,7 @@ export function ReviewSignStep({ vak }: { vak: Vakalatnama }) {
           <Button type="button" size="lg" className="w-full" disabled={otp.length < 6} onClick={verifyEsign}>
             Verify and sign
           </Button>
+          <DiscardQuestion guard={otpGuard} />
         </ChromeDialogContent>
       </Dialog>
 

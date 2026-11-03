@@ -3,6 +3,7 @@
 import * as React from "react";
 
 import { ChromeDialogContent } from "@/components/chrome/app-chrome";
+import { onOwnLayer } from "@/components/chrome/discard-guard";
 import { OVERLAY_RISE } from "@/components/chrome/motion";
 import {
   useBackCloses,
@@ -23,10 +24,13 @@ import { cn } from "@/lib/utils";
  * step back) still happens. A flow with real steps wires `useBackCloses` itself
  * to walk them and passes `ownBack`, as do the dialogs it chains into.
  *
- * A click outside does not close it (owner, 2026-10-13): a misclick beside a
- * half-done flow lost every step entered. Close, Escape and the phone's Back
- * still do. A window that only shows something — a record, a document — passes
- * `outsideCloses`.
+ * A click outside does nothing (stakeholders, 2–3 Nov 2026, "Popup Click-Outside
+ * Inventory"): a flow takes entries, and a stray click beside it must not lose
+ * them. ✕, Escape, Cancel and the phone's Back still close it — through the
+ * popup's discard question where it has one. A window that only shows something
+ * (a record, a document) passes `outsideCloses`. A pick from a list a field
+ * opened past the window's edge is never a click outside, and focus moving into
+ * one never closes it.
  *
  * Confirmations and notices are not workflows and stay on the plain content,
  * which turns them into bottom sheets on a phone.
@@ -39,13 +43,14 @@ export function FlowDialogContent({
   rise = false,
   sheet = false,
   outsideCloses = false,
-  onInteractOutside,
+  onPointerDownOutside,
+  onFocusOutside,
   ...props
 }: React.ComponentProps<typeof ChromeDialogContent> & {
-  /** A viewer with nothing to lose: a click outside closes it, as a plain dialog. */
-  outsideCloses?: boolean;
   /** The flow handles the phone's Back itself. */
   ownBack?: boolean;
+  /** A viewer with nothing to lose: a click outside closes it, as a plain dialog. */
+  outsideCloses?: boolean;
   /**
    * Open with the product's overlay rise (`OVERLAY_RISE`) rather than the DS
    * zoom — the staged overlays' entrance. Only from `sm` up: on a phone the
@@ -91,9 +96,17 @@ export function FlowDialogContent({
     <ChromeDialogContent
       className={cn(rise && !flow.phone && OVERLAY_RISE, className, surface)}
       style={{ ...style, ...(sheet ? bottomSheet.style : flow.style) }}
-      onInteractOutside={(event) => {
-        onInteractOutside?.(event);
+      onPointerDownOutside={(event) => {
+        if (onOwnLayer(event.target)) {
+          event.preventDefault();
+          return;
+        }
         if (!outsideCloses) event.preventDefault();
+        onPointerDownOutside?.(event);
+      }}
+      onFocusOutside={(event) => {
+        onFocusOutside?.(event);
+        event.preventDefault();
       }}
       {...props}
     >

@@ -137,6 +137,7 @@ export function PeopleInviteField({
   registeredOnly = false,
   officeTaken = false,
   copy: copyOverride,
+  onQueryChange,
   invalid = false,
   describedBy,
 }: {
@@ -164,6 +165,8 @@ export function PeopleInviteField({
   officeTaken?: boolean;
   /** Wording for a narrower use — co-advocates on a vakalatnama rather than the team. */
   copy?: Partial<typeof inviteFieldCopy>;
+  /** What is typed and not yet added, for a popup that asks before it throws it away. */
+  onQueryChange?: (query: string) => void;
   /** Marks the input invalid, which reddens the chips box (DS `has-aria-invalid`). */
   invalid?: boolean;
   /** The id of the message that explains the error. */
@@ -175,7 +178,11 @@ export function PeopleInviteField({
   const known = useCourtLocalized(knownAsWritten);
   const anchor = useComboboxAnchor();
   const scroll = useScrollOutsideLock();
-  const [query, setQuery] = React.useState("");
+  const [query, setQueryState] = React.useState("");
+  function setQuery(next: string) {
+    setQueryState(next);
+    onQueryChange?.(next);
+  }
 
   const chosen = new Set(value.map(keyOf));
   const text = query.trim().toLowerCase();

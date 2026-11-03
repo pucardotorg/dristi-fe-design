@@ -128,7 +128,7 @@ function PaymentBody({
   }
 
   return (
-    <ChromeDialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-lg">
+    <ChromeDialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-lg" onInteractOutside={(event) => event.preventDefault()}>
       {paid ? (
         /* The payment's outcome takes the window over (skill `feedback-states`); the
            negative inset carries the band to the dialog's edges. */

@@ -312,6 +312,7 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
       >
         {/* Capped to the viewport: a batch's receipts can run to hundreds of rows. */}
         <ChromeDialogContent
+          onInteractOutside={(event) => event.preventDefault()}
           mobileSheet
           showCloseButton={dialog !== "done"}
           className={cn(

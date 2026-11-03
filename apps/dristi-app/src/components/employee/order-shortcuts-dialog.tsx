@@ -4,6 +4,7 @@ import * as React from "react";
 
 import type { RichTextSuggestion } from "@/components/cases/rich-text-field";
 import { ShortcutsPanel } from "@/components/employee/shortcuts-panel";
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import {
   Dialog,
   DialogContent,
@@ -79,11 +80,22 @@ export function OrderShortcutsDialog({
   onInsert: (entry: OrderShortcut) => void;
 }) {
   const shortcuts = useOrderShortcuts();
+  /* A shortcut being written or changed and not saved: Escape or ✕ asks first. A click
+     outside closes it — the inventory lists Shortcuts as a view (stakeholders, 2–3 Nov
+     2026). The panel unmounts with the window, so it starts clean each time. */
+  const [entered, setEntered] = React.useState(false);
+  const guard = useDiscardGuard(open && entered, () => {
+    setEntered(false);
+    onOpenChange(false);
+  });
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* Side by side from md, each pane scrolling on its own; stacked below, the
           window scrolls. */}
-      <DialogContent className="flex max-h-[90svh] flex-col gap-6 overflow-y-auto sm:max-w-3xl md:max-w-5xl md:overflow-hidden">
+      <DialogContent
+        className="flex max-h-[90svh] flex-col gap-6 overflow-y-auto sm:max-w-3xl md:max-w-5xl md:overflow-hidden"
+        {...guard.contentProps}
+      >
         <DialogHeader>
           <DialogTitle>Shortcuts</DialogTitle>
           <DialogDescription>
@@ -105,7 +117,9 @@ export function OrderShortcutsDialog({
           onInsert={onInsert}
           tables
           textClassName="[&_[data-slot=input-group-control]]:min-h-80 [&_[data-slot=input-group-control]>*+*]:mt-4"
+          onEntered={setEntered}
         />
+        <DiscardQuestion guard={guard} />
       </DialogContent>
     </Dialog>
   );

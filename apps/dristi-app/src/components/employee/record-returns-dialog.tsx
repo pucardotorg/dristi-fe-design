@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import {
   StagedOverlay,
   useStagedFlow,
@@ -156,6 +157,7 @@ function RecordReturnsBody({
     () => new Date(),
   );
   const [marks, setMarks] = React.useState<Record<string, ReturnMark>>({});
+  const guard = useDiscardGuard(!done && Object.keys(marks).length > 0, onClose);
 
   const answered = rows.filter((process) => {
     const mark = marks[process.id];
@@ -210,6 +212,8 @@ function RecordReturnsBody({
 
   return (
     <StagedOverlay
+      {...guard.contentProps}
+      {...guard.outsideProps}
       className="sm:max-w-2xl"
       title={done ? ACT.done(subject) : ACT.question(subject)}
       titleRef={flow.titleRef}
@@ -243,7 +247,7 @@ function RecordReturnsBody({
             >
               {left > 0 ? `${left} still to mark` : ""}
             </p>
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={guard.close}>
               Back
             </Button>
             <Button type="button" disabled={!ready} onClick={record}>
@@ -301,6 +305,7 @@ function RecordReturnsBody({
           </Card>
         </div>
       )}
+      <DiscardQuestion guard={guard} />
     </StagedOverlay>
   );
 }

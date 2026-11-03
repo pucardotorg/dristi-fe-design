@@ -3,6 +3,7 @@
 import * as React from "react";
 import { IrreversibleNote, OutcomeHeader, OutcomeSummary, notify } from "@/components/feedback";
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { Identifier } from "@/components/chrome/identifier";
 import { useStageFade } from "@/components/chrome/stage-fade";
 import { StagedOverlay } from "@/components/chrome/staged-overlay";
@@ -180,6 +181,10 @@ function SignOrderFlowBody({
   }, [flow.stage, flow.changed]);
   const choice = useSignatureChoice("order");
   const [otp, setOtp] = React.useState("");
+  const guard = useDiscardGuard(
+    flow.stage !== "done" && (otp.length > 0 || choice.entered),
+    onClose,
+  );
   const [resent, setResent] = React.useState(false);
   const [dscFound, setDscFound] = React.useState(false);
   const [signedWith, setSignedWith] = React.useState<Instrument | null>(null);
@@ -322,6 +327,8 @@ function SignOrderFlowBody({
 
   return (
     <StagedOverlay
+      {...guard.contentProps}
+      {...guard.outsideProps}
       /* The order is read wide and tall; every other step, a bulk run's list included,
          is the signing width at its own height. */
       className={
@@ -429,6 +436,7 @@ function SignOrderFlowBody({
           />
         ) : null}
       </div>
+      <DiscardQuestion guard={guard} />
     </StagedOverlay>
   );
 }

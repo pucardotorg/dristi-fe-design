@@ -7,6 +7,7 @@ import { OutcomeHeader } from "@/components/feedback";
 import { cn } from "@/lib/utils";
 import { PenToolIcon, WalletIcon } from "lucide-react";
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { getRepository, newCaseFileNumber, newPaymentRef } from "@/lib/filing/data";
 import { money } from "@/lib/filing/format";
 import { DELIVERY_CHANNEL } from "@/lib/filing/options";
@@ -125,6 +126,7 @@ export function BatchFilingDialog({
     onOpenChange(false);
     if (step === "success") onFinished();
   };
+  const guard = useDiscardGuard(step === "confirm" && !running && otp.length > 0, close);
 
   return (
     <Dialog
@@ -134,8 +136,15 @@ export function BatchFilingDialog({
       <ChromeDialogContent mobileSheet
         className={cn("sm:max-w-md", step === "success" && "gap-0 overflow-hidden p-0")}
         showCloseButton={step === "confirm" && !running}
-        onEscapeKeyDown={(e) => running && e.preventDefault()}
-        onPointerDownOutside={(e) => running && e.preventDefault()}
+        onEscapeKeyDown={(e) => {
+          if (running) e.preventDefault();
+          else guard.contentProps.onEscapeKeyDown(e);
+        }}
+        onPointerDownOutside={(e) => {
+          if (running) e.preventDefault();
+          else guard.outsideProps.onPointerDownOutside(e);
+        }}
+        onClickCapture={guard.contentProps.onClickCapture}
         onInteractOutside={(e) => running && e.preventDefault()}
       >
         {!kind ? null : step === "confirm" ? (
@@ -187,7 +196,7 @@ export function BatchFilingDialog({
             ) : null}
 
             <DialogFooter>
-              <Button type="button" variant="outline" disabled={running} onClick={close}>
+              <Button type="button" variant="outline" disabled={running} onClick={guard.close}>
                 Cancel
               </Button>
               <Button
@@ -255,6 +264,7 @@ export function BatchFilingDialog({
             </DialogFooter>
           </>
         )}
+        <DiscardQuestion guard={guard} />
       </ChromeDialogContent>
     </Dialog>
   );

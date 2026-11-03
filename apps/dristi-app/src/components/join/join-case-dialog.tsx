@@ -253,6 +253,7 @@ export function JoinCaseDialog({
      header and footer — never a second modal. */
   const [leaving, setLeaving] = React.useState(false);
   const entered =
+    (stage === "lookup" && query.trim() !== "") ||
     (stage === "code" && (mode !== "summons" || code.length > 0)) ||
     stage === "identity" ||
     (stage === "details" && mode !== "summons");
@@ -270,11 +271,19 @@ export function JoinCaseDialog({
       titleRef.current?.focus();
       return;
     }
-    if (!next) {
+    // A second close while the question is up keeps editing; only Discard leaves.
+    if (!next && leaving) {
       setLeaving(false);
-      reset();
+      return;
     }
-    onOpenChange(next);
+    if (!next) discard();
+    else onOpenChange(next);
+  }
+
+  function discard() {
+    setLeaving(false);
+    reset();
+    onOpenChange(false);
   }
 
   function submitLookup(event: React.FormEvent<HTMLFormElement>) {
@@ -857,7 +866,7 @@ export function JoinCaseDialog({
               <Button type="button" variant="outline" onClick={() => setLeaving(false)}>
                 {pick(joinDialog.leaveStay, locale)}
               </Button>
-              <Button type="button" onClick={() => handleOpenChange(false)}>
+              <Button type="button" variant="destructive-solid" onClick={discard}>
                 {pick(joinDialog.leaveGo, locale)}
               </Button>
             </>

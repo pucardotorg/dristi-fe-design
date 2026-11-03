@@ -33,6 +33,7 @@ export function ShortcutsPanel<T extends PanelShortcut>({
   textHint,
   tables,
   textClassName,
+  onEntered,
 }: {
   /** In the order they are listed. */
   shortcuts: readonly T[];
@@ -49,10 +50,18 @@ export function ShortcutsPanel<T extends PanelShortcut>({
   tables?: boolean;
   /** The text field's measure, to read here as it will where it goes. */
   textClassName?: string;
+  /** Told whether the form holds an unsaved change, for a window that asks before closing. */
+  onEntered?: (entered: boolean) => void;
 }) {
   const [editing, setEditing] = React.useState<string | null>(null);
   const [name, setName] = React.useState("");
   const [text, setText] = React.useState<RichTextValue>(EMPTY_RICH_TEXT);
+  /* What the form held when it was opened, so an untouched edit is not an entry. */
+  const [original, setOriginal] = React.useState({ name: "", text: "" });
+  const entered = name.trim() !== original.name.trim() || text.text.trim() !== original.text.trim();
+  React.useEffect(() => {
+    onEntered?.(entered);
+  }, [entered, onEntered]);
   /* The field reads its value once, when it mounts — so opening another shortcut, or
      clearing the form, mounts a fresh one. */
   const [formKey, setFormKey] = React.useState(0);
@@ -91,6 +100,7 @@ export function ShortcutsPanel<T extends PanelShortcut>({
     setEditing(null);
     setName("");
     setText(EMPTY_RICH_TEXT);
+    setOriginal({ name: "", text: "" });
     setFormKey((key) => key + 1);
     setTried(false);
   }
@@ -153,6 +163,7 @@ export function ShortcutsPanel<T extends PanelShortcut>({
                       setEditing(entry.id);
                       setName(entry.name);
                       setText({ html: htmlOf(entry), text: entry.text });
+                      setOriginal({ name: entry.name, text: entry.text });
                       setFormKey((key) => key + 1);
                       setTried(false);
                       nameRef.current?.focus();
