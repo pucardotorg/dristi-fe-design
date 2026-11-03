@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { CircleCheckIcon } from "lucide-react";
+import { ListChecksIcon } from "lucide-react";
 
 import type { FilingDraft } from "@/lib/filing/types";
 
@@ -14,10 +14,8 @@ import {
   tableBodyClass,
   tableRowClass,
 } from "@/components/chrome/table-plate";
-import { PANEL_CLASS } from "@/components/filing/form-card";
 import { ChromeDialogContent } from "@/components/chrome/app-chrome";
 import { CourtDocument } from "@/components/filing/sections/preview/court-document";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Dialog, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -38,6 +36,7 @@ import {
 
 import type { BatchCtx } from "./batch-screen";
 import { bulkFetch } from "./api";
+import { StatusLine } from "@/components/feedback";
 
 export const ist = (iso: string) =>
   `${new Date(iso).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" })} IST`;
@@ -70,7 +69,7 @@ export function FiledTab({ batch, go }: BatchCtx) {
 
   if (filed.length === 0) {
     return (
-      <Card className={PANEL_CLASS}>
+      <Card variant="raised">
         <CardContent className="text-body-compact text-muted-foreground">
           Nothing filed yet. Cases show here once they are paid for.
         </CardContent>
@@ -81,12 +80,14 @@ export function FiledTab({ batch, go }: BatchCtx) {
   return (
     <div className="flex flex-col gap-6">
       {left ? (
-        <Alert variant="success">
-          <CircleCheckIcon aria-hidden />
-          <AlertTitle className="tabular-nums">
-            {`${filed.length} of ${batch.total} cases filed`}
-          </AlertTitle>
-          <AlertDescription>
+        /* Some filed, some still to go: the partial state is neutral with a checklist,
+           never the green tick that says all is done (owner, Oct 29). */
+        <StatusLine
+          tone="neutral"
+          icon={ListChecksIcon}
+          still
+          title={<span className="tabular-nums">{`${filed.length} of ${batch.total} cases filed`}</span>}
+        >
             Each case now goes to the court on its own for checking.
             {left ? (
               <>
@@ -101,14 +102,13 @@ export function FiledTab({ batch, go }: BatchCtx) {
                 </button>
               </>
             ) : null}
-          </AlertDescription>
-        </Alert>
+        </StatusLine>
       ) : null}
 
       {[...batch.payments].reverse().map((p) => {
         const cases = batch.cases.filter((c) => p.caseIds.includes(c.id));
         return (
-          <Card key={p.ref} className={cn(PANEL_CLASS, "gap-0 py-0")}>
+          <Card key={p.ref} variant="raised" className="gap-0 py-0">
             <CardHeader className="px-6 py-4">
               <CardTitle className="text-body font-semibold tabular-nums">
                 {cases.length} filed at {ist(p.at)}

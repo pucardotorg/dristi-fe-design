@@ -3,7 +3,7 @@
 import { bailDialog } from "@/lib/filing/content";
 import { pick } from "@/lib/onboarding/content";
 import { useCallback, useId, useMemo, useRef, useState } from "react";
-import { FilePenLineIcon } from "lucide-react";
+import { FilePenLineIcon, SaveIcon } from "lucide-react";
 
 import { AddSignatureDialog } from "@/components/cases/add-signature-dialog";
 import {
@@ -52,6 +52,7 @@ import {
 import {
   EMPTY_APPLICATION_DRAFT,
   EMPTY_APPLICATION_ERRORS,
+  applicationAttachments,
   applicationDraftFrom,
   draftRequestText,
   hasApplicationErrors,
@@ -86,10 +87,11 @@ import {
   submissionTypeLabel,
 } from "@/lib/cases/applications";
 import { displayName } from "@/lib/cases/names";
-import { isViewer, viewerRepresentation } from "@/lib/cases/viewer";
+import { isViewer, viewerAccess, viewerRepresentation } from "@/lib/cases/viewer";
 import { useProfile } from "@/components/shell/profile";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { notify } from "@/components/feedback";
+import { localFileSrc } from "@/components/cases/pdf-viewer";
 import { useSessionValue } from "@/lib/cases/demo-session";
 import {
   newSavedDraftId,
@@ -274,6 +276,10 @@ export function RaiseApplicationForm({
      a clerk, or an advocate raising it for a colleague — hands it to them. */
   const handoffTo =
     seat.role === "clerk" ||
+    // Office access never e-signs (OFC-06): it drafts, an advocate on the nama signs.
+    // It is an advocate's way onto a case; a party in person on a case with no
+    // advocate on record is not that, and signs their own.
+    (seat.role === "advocate" && viewerAccess(record).kind === "office") ||
     (raisedByPerson && raisedByPerson.id !== seat.personId)
       ? (raisedByPerson?.name ?? seat.signer ?? "your advocate")
       : undefined;
@@ -410,11 +416,17 @@ export function RaiseApplicationForm({
    */
   function saveDraft() {
     if (recordFiling({ status: "draft" })) {
-      toast("Saved as a draft", {
+      notify.neutral("Saved as a draft", {
+        icon: SaveIcon,
         description: "Finish it later from Applications.",
       });
     }
     closeForm();
+  }
+
+  /** A litigant's name, for an attachment titled after them (a PoA's). */
+  function personName(id: string): string {
+    return caseLitigants(record).find((item) => item.id === id)?.name ?? "the litigant";
   }
 
   /**
@@ -453,6 +465,13 @@ export function RaiseApplicationForm({
           : (stop.status as FilingStatus),
         submittedOn: paid ? new Date().toISOString().slice(0, 10) : undefined,
         temporaryId: paid && "temporaryId" in stop ? stop.temporaryId : undefined,
+        attachments: applicationAttachments(draft, personName).map((item) => ({
+          label: item.label,
+          files: item.files.map((file) => ({
+            label: file.name,
+            href: localFileSrc(file),
+          })),
+        })),
       });
     return true;
   }

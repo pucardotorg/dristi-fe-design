@@ -26,7 +26,7 @@ import { homeConfigFor } from "@/lib/advocate/config";
  */
 function AdvocatePage() {
   const { locale } = useLocale();
-  const { accountName, switchProfile } = useProfile();
+  const { displayName, switchProfile } = useProfile();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -34,7 +34,7 @@ function AdvocatePage() {
   const hasCase = searchParams.get("nocase") !== "1";
   const summonsCase = token && hasCase ? ADVOCATE_JOIN_CASE : undefined;
 
-  const firstName = accountName.replace(/^Adv\.\s*/, "").split(" ")[0];
+  const firstName = displayName.replace(/^Adv\.\s*/, "").split(" ")[0];
   /* A new advocate — just registered, nothing listed — gets the shell home, and only
      the shell: Home must not fall back to the day's hearings (owner, 2026-10-14).
      `?shell=new` makes this browser's advocate the new account, so the rail's Home keeps

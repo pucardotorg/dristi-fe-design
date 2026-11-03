@@ -12,6 +12,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useFieldPolicy } from "@/components/filing/field-policy";
 import { useInCorrection } from "@/components/filing/posture";
 import { SavingIndicator } from "@/components/filing/saving-indicator";
 
@@ -73,6 +74,16 @@ export function FilingFooter({
    * (brief D14 — ration teal). So the walking footer stands down.
    */
   const inCorrection = useInCorrection();
+  // A host can send the primary action somewhere else (`FieldPolicy.next`).
+  const hostNext = useFieldPolicy()?.next ?? null;
+  if (hostNext) {
+    continueHref = hostNext.href;
+    continueLabel = hostNext.label;
+    continueDisabled = false;
+    continueBlocked = false;
+    onContinue = undefined;
+    if (hostNext.status !== undefined) status = hostNext.status;
+  }
   const back =
     backHref !== undefined ? (
       <Button asChild variant="outline" size="lg">

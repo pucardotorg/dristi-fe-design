@@ -9,7 +9,7 @@
  */
 
 import * as React from "react";
-import { CircleCheckIcon } from "lucide-react";
+import { StatusMark, StatusLine } from "@/components/feedback";
 
 import { ChromeAlertDialogContent } from "@/components/chrome/app-chrome";
 
@@ -69,7 +69,7 @@ const OUTCOMES: { value: PaymentResult; label: string; hint: string }[] = [
 /** The signatory's pay rail: pick the sandbox outcome, confirm, pay. */
 function PayCard({ ctx }: { ctx: ActContext }) {
   const { task, kase, online, finish } = ctx;
-  const { act, busy } = useTaskActions();
+  const { act, busy, error } = useTaskActions({ inDialog: true });
   const [outcome, setOutcome] = React.useState<PaymentResult>("success");
   const [confirm, setConfirm] = React.useState(false);
   // Set when the attempt just made failed: the notice announces and takes focus, and the
@@ -101,6 +101,7 @@ function PayCard({ ctx }: { ctx: ActContext }) {
 
   return (
     <RailCard title="Pay" description={signatoryLine(ctx, "Paying")}>
+      {error ? <StatusLine tone="error">{error}</StatusLine> : null}
       <PreparedNote ctx={ctx} />
       {task.lastPayment?.result === "failed" ? (
         <div ref={failedRef} tabIndex={-1} className="rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -146,11 +147,9 @@ function PayCard({ ctx }: { ctx: ActContext }) {
         >
           Pay{task.amountPaise !== undefined ? ` ${rupees(task.amountPaise)}` : ""}
         </Button>
-        <p className="text-caption text-muted-foreground">
-          {task.amountPaise === undefined
-            ? "Amount to be fetched — the fee is not on the task yet."
-            : "Sandbox payment — no money moves."}
-        </p>
+        {task.amountPaise === undefined ? (
+          <p className="text-caption text-muted-foreground">Amount to be fetched. The fee is not on the task yet.</p>
+        ) : null}
       </div>
 
       <AlertDialog open={confirm} onOpenChange={setConfirm}>
@@ -166,7 +165,7 @@ function PayCard({ ctx }: { ctx: ActContext }) {
                   <Identifier value={kase.stNumber} label="case number" copyable={false} />
                 </>
               ) : null}
-              . In the live service this goes to the payment gateway now and cannot be recalled.
+              . This goes to the payment gateway now and cannot be recalled.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -181,12 +180,13 @@ function PayCard({ ctx }: { ctx: ActContext }) {
 
 function ConfirmingCard({ ctx }: { ctx: ActContext }) {
   const { task, online, finish } = ctx;
-  const { act, busy } = useTaskActions();
+  const { act, busy, error } = useTaskActions({ inDialog: true });
   return (
     <RailCard
       title="Payment confirming"
       description={`Paid ${task.lastPayment ? `on ${dateTime(task.lastPayment.at)}` : ""} — the gateway has not confirmed yet. Ref ${task.lastPayment?.ref ?? "—"}.`}
     >
+      {error ? <StatusLine tone="error">{error}</StatusLine> : null}
       <Button
         variant="outline"
         disabled={!online || !!busy}
@@ -197,7 +197,6 @@ function ConfirmingCard({ ctx }: { ctx: ActContext }) {
       >
         Gateway: confirm
       </Button>
-      <p className="text-caption text-muted-foreground">Sandbox — stands in for the gateway&apos;s callback.</p>
     </RailCard>
   );
 }
@@ -254,7 +253,7 @@ export function PayBody({ ctx }: { ctx: ActContext }) {
           {task.completion?.receipt ? (
             <Row label="Receipt">
               <span className="inline-flex items-center gap-1.5">
-                <CircleCheckIcon aria-hidden className="size-4 text-success-ink" />
+                <StatusMark size={16} still />
                 <Identifier value={task.completion.receipt} label="receipt" />
               </span>
             </Row>

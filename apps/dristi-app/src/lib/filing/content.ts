@@ -78,6 +78,8 @@ export const BOND_REQUIRED_SURETIES = 3;
 export const BOND_TASK_DUE = "28 Aug 2026";
 /** The same deadline as an ISO date, for the ranked due-status line. */
 export const BOND_TASK_DUE_ON = "2026-08-28";
+/** When the demo bond reached the record, for its row under Documents › Bail bonds. */
+export const BOND_SUBMITTED_ON = "2026-08-26";
 /** The link the litigant and sureties receive by SMS/email. The demo route serves it. */
 export const BOND_SIGN_LINK = "https://dristi-kerala.pucar.org/bond?code=na5An";
 export const BOND_SIGN_PATH = "/bond";

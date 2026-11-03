@@ -617,6 +617,16 @@
     "Zenith Publishers": {
       "kind": "entity",
       "entityType": "Private limited company"
+    },
+    "South Indian Bank Ltd.": {
+      "kind": "entity",
+      "entityType": "Public limited company"
+    },
+    "Rajan Krishnan Nair": {
+      "kind": "individual"
+    },
+    "Suresh Babu P": {
+      "kind": "individual"
     }
   },
   "cases": {
@@ -808,6 +818,48 @@
           "powerOfAttorneyHolder": "Suma Chandran"
         }
       ]
+    },
+    "c-847": {
+      "parties": [
+        {
+          "id": "pty-847-c1",
+          "side": "complainant",
+          "name": "South Indian Bank Ltd."
+        },
+        {
+          "id": "pty-847-a1",
+          "side": "accused",
+          "name": "Rajan Krishnan Nair"
+        },
+        {
+          "id": "pty-847-a2",
+          "side": "accused",
+          "name": "Suresh Babu P"
+        }
+      ],
+      "legalTeams": [
+        {
+          "id": "team-847-0",
+          "advocate": "Adv. Meera Pillai",
+          "side": "complainant",
+          "clientPartyIds": [
+            "pty-847-c1"
+          ],
+          "juniors": [],
+          "clerks": []
+        },
+        {
+          "id": "team-847-1",
+          "advocate": "Adv. Anjali Nair",
+          "side": "accused",
+          "clientPartyIds": [
+            "pty-847-a1"
+          ],
+          "juniors": [],
+          "clerks": []
+        }
+      ],
+      "witnesses": []
     }
   }
 }

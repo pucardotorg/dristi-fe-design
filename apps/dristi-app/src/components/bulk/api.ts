@@ -27,6 +27,19 @@ export function bulkStoreWhere(): Promise<"server" | "browser"> {
 }
 
 /**
+ * "Reset sandbox data" for the bulk flow: every batch goes, from the server and from this
+ * browser, so the flow opens empty. Both, because which one held them depends on the
+ * deployment; a server that cannot write just declines.
+ */
+export async function resetBulk(): Promise<void> {
+  const { browserStore } = await import("@/lib/bulk/store.browser");
+  await Promise.all([
+    fetch("/api/bulk/batches", { method: "DELETE" }).catch(() => undefined),
+    browserStore.clear(),
+  ]);
+}
+
+/**
  * `fetch` for the bulk endpoints. Where the server keeps batches it is `fetch`; where it
  * cannot, the same handlers (`lib/bulk/handlers.ts`) run here against the browser's store
  * and answer with an ordinary `Response`, so the screens read it the same way.
@@ -62,6 +75,7 @@ export async function bulkFetch(url: string, init: RequestInit = {}): Promise<Re
       file: fileIn(f, "file"),
       caseId: String(f.get("caseId") ?? ""),
       slotKey: String(f.get("slotKey") ?? ""),
+      poor: f.get("poor") === "true",
       ai: f.get("ai")?.toString() ?? null,
     });
   } else if (a === "files" && id)
@@ -106,11 +120,13 @@ export const bulkApi = {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ ...body, ai: aiMode }),
     }).then((r) => json<BatchView>(r)),
-  attach: (id: string, caseId: string, slotKey: string, file: File) => {
+  /** `poor`: the browser's readability check found the scan too small to read. */
+  attach: (id: string, caseId: string, slotKey: string, file: File, poor = false) => {
     const form = new FormData();
     form.set("file", file);
     form.set("caseId", caseId);
     form.set("slotKey", slotKey);
+    form.set("poor", String(poor));
     form.set("ai", aiMode);
     return bulkFetch(`/api/bulk/batches/${id}/files`, { method: "POST", body: form }).then((r) => json<BatchView>(r));
   },

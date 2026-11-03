@@ -13,11 +13,11 @@ import {
   PAYMENT_PROCESSING_TITLE,
   PAYMENT_SUCCESS_TITLE,
   PaymentProcessing,
-  PaymentReceipt,
+  PaymentFacts,
 } from "@/components/payment/payment-steps";
 import { type ActContext } from "@/components/tasks/act/shared";
 import { useTaskActions } from "@/components/tasks/use-task-actions";
-import { Banner } from "@/components/ui/banner";
+import { OutcomeAmount, OutcomeHeader, StatusLine } from "@/components/feedback";
 import { Button } from "@/components/ui/button";
 import {
   DescriptionDetails,
@@ -94,13 +94,13 @@ export function applicationTypeOf(task: Task): ApplicationTypeId {
   return "application-others";
 }
 
-/** The Submit documents type a document task's words name. */
-function documentTypeOf(task: Task): SubmissionDocumentTypeId {
+/** The Submit documents type a document task's words name, if they name one;
+ *  otherwise the filer picks it. */
+function documentTypeOf(task: Task): SubmissionDocumentTypeId | undefined {
   const words = task.title.toLowerCase();
   if (/\baffidavit\b/.test(words)) return "affidavits";
   if (/\bmemo\b/.test(words)) return "memos";
-  if (/\b(reply|objection)\b/.test(words)) return "objections";
-  return "document-others";
+  return undefined;
 }
 
 /** "File the proof affidavit of the complainant" → "Proof affidavit of the complainant". */
@@ -165,7 +165,7 @@ export function TaskPaymentDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const { task, kase, online, finish } = ctx;
-  const { act, busy } = useTaskActions();
+  const { act, busy, error } = useTaskActions({ inDialog: true });
   const [stage, setStage] = React.useState<PayStage>("pay");
   const [outcome, setOutcome] = React.useState<PaymentResult>("success");
   const [failed, setFailed] = React.useState(false);
@@ -211,8 +211,21 @@ export function TaskPaymentDialog({
         onOpenChange(next);
       }}
     >
-      <FlowDialogContent className="max-h-[85svh] w-full overflow-y-auto sm:max-w-lg">
-        <DialogHeader className="pr-8 text-left">
+      {/* Header and footer hold still; only the middle scrolls, so the act is always in reach. */}
+      <FlowDialogContent className="flex max-h-[85svh] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
+        {stage === "paid" ? (
+          /* The payment's outcome takes the window over (skill `feedback-states`). */
+          <OutcomeHeader
+            compact
+            titleFrom="dialog"
+            focusTitle
+            title={title}
+            body={<TaskCaseLine kase={kase} />}
+          >
+            {amount ? <OutcomeAmount label="Amount paid" value={amount} /> : null}
+          </OutcomeHeader>
+        ) : (
+        <DialogHeader className="shrink-0 border-b border-hairline px-6 pt-6 pr-16 pb-4 text-left">
           <DialogTitle className="text-title-s font-semibold text-balance">
             {title}
           </DialogTitle>
@@ -220,13 +233,16 @@ export function TaskPaymentDialog({
             <TaskCaseLine kase={kase} />
           </DialogDescription>
         </DialogHeader>
+        )}
 
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-6">
         {stage === "pay" ? (
           <div className="flex flex-col gap-4">
             {failed ? (
-              <Banner variant="error">
-                The payment did not go through. Nothing was paid; try again.
-              </Banner>
+              <StatusLine tone="error">
+                {/* Offline or refused: its own words; otherwise the gateway said no. */}
+                {error ?? "The payment did not go through. Nothing was paid; try again."}
+              </StatusLine>
             ) : null}
             <DescriptionList className="rounded-xl bg-surface-sunken px-4 py-1">
               {task.feeHead ? (
@@ -268,17 +284,13 @@ export function TaskPaymentDialog({
                 </DescriptionRow>
               ) : null}
             </DescriptionList>
-            <p className="text-caption text-muted-foreground">
-              Sandbox payment — no money moves.
-            </p>
           </div>
         ) : null}
 
         {stage === "processing" ? <PaymentProcessing /> : null}
 
         {stage === "paid" ? (
-          <PaymentReceipt
-            amount={amount ?? ""}
+          <PaymentFacts
             rows={[
               ...(task.feeHead ? [{ label: "Fee", value: task.feeHead }] : []),
               {
@@ -301,8 +313,10 @@ export function TaskPaymentDialog({
           />
         ) : null}
 
+        </div>
+
         {stage === "pay" ? (
-          <DialogFooter className="gap-2 sm:justify-between">
+          <DialogFooter className="mx-0 mb-0 shrink-0 gap-2 border-hairline bg-surface-sunken px-6 py-4 sm:justify-between">
             <Button
               type="button"
               variant="outline"
@@ -357,7 +371,7 @@ export function TaskPaymentDialog({
         ) : null}
 
         {stage === "paid" ? (
-          <DialogFooter>
+          <DialogFooter className="mx-0 mb-0 shrink-0 border-hairline bg-surface-sunken px-6 py-4">
             <Button
               type="button"
               onClick={() => finish(`Paid ${amount ?? ""}`.trim())}
@@ -375,8 +389,8 @@ export function TaskPaymentDialog({
 
 /**
  * File the document a task asks for, in View case's Submit documents: opened with the
- * document's type and name, and the reason the task records, so only the files are
- * left to add. Submitting files the task with the court.
+ * document's type and name, so only the file is left to add. Submitting files the task
+ * with the court.
  */
 export function TaskDocumentsDialog({
   ctx,
@@ -398,7 +412,6 @@ export function TaskDocumentsDialog({
       initial={{
         type: documentTypeOf(task),
         title: documentTitleOf(task),
-        reason: task.why.event,
       }}
       onSubmitted={() => {
         void act(task.id, (x, c) => file(x, c)).then((t) => {

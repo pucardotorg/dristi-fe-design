@@ -27,7 +27,7 @@
  * listing stands as scheduled until the bench presses Start hearing; only then does
  * the chip read ongoing, and that matter's case overview opens over the list — the
  * glance the advocate list already ships, as an overlay the day sits behind. End
- * hearing, on the same control, marks that listing heard. Pass over, from the row overflow, sets
+ * hearing, on the same control, marks that listing heard. Pass over, behind that control's chevron, sets
  * it aside unheard, to be called again later the same day with Start hearing
  * (order-generation `HRG-04`). Nothing is filed, notified, or written back.
  *
@@ -324,6 +324,22 @@ export function courtHearingPurposeLabel(id: CourtHearingPurposeId): string {
   return (
     COURT_HEARING_PURPOSES.find((entry) => entry.id === id)?.label ?? id
   );
+}
+
+/**
+ * The hearing purpose a case record's free-text purpose names, or `undefined` when it
+ * names none of them. Case records write it as prose ("Evidence of the complainant"), so
+ * the match ignores case and "the".
+ */
+export function hearingPurposeFromText(
+  text: string | undefined,
+): CourtHearingPurposeId | undefined {
+  if (!text) return undefined;
+  const plain = (value: string) =>
+    value.toLowerCase().replace(/\bthe\s+/g, "").replace(/\s+/g, " ").trim();
+  const said = plain(text);
+  return COURT_HEARING_PURPOSES.find((entry) => said.startsWith(plain(entry.label)))
+    ?.id;
 }
 
 /**
@@ -625,10 +641,12 @@ export const CAUSE_LIST: CourtHearing[] = [
     counsel: [
       { name: "Adv. Anitha George", side: "complainant" },
       { name: "Adv. Feroz Hameed", side: "accused", party: "Sabari Textiles" },
+      { name: "Adv. Latha Krishnan", side: "accused", party: "Sabari Textiles" },
     ],
-    /* A firm and its partner, both accused (§141 NI Act); the partner appears in person.
-       The complainant is represented on a power of attorney too. A sample for
-       `ATT-01`'s roll: every party and PoA holder, one advocate line per party. */
+    /* A firm and its partner, both accused (§141 NI Act); the firm has two advocates on
+       record and the partner appears in person. The complainant is represented on a
+       power of attorney too. A sample for `ATT-01`'s roll: every party and PoA holder,
+       one advocate line per party however many advocates it has. */
     otherParties: [{ name: "Ramesh Kumar", side: "accused" }],
     poaHolders: [{ name: "Arun Menon", side: "complainant", for: "Priya Menon" }],
     stage: "arguments",

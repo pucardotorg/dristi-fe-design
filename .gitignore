@@ -37,7 +37,5 @@ apps/dristi-app/public/vendor/
 docs/design/explorations/*
 !docs/design/explorations/README.md
 
-# bulk filing demo: server-side batch store, and the Provakil mock's build output
+# bulk filing demo: server-side batch store
 apps/dristi-app/.data/
-apps/provakil-mock/.next/
-apps/provakil-mock/.data/

@@ -9,7 +9,6 @@
 
 import * as React from "react";
 import {
-  CheckCircle2Icon,
   CheckIcon,
   ChevronRightIcon,
   SignatureIcon,
@@ -31,12 +30,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+
 import { FormCard } from "@/components/filing/form-card";
 import { VakalatnamaDocument } from "@/components/vakalatnama/document";
 import { updateVak } from "@/lib/vakalatnama/store";
 import { reconcileSigners } from "@/lib/vakalatnama/signers";
 import type { SignMethod, Signer, Vakalatnama, VakStatus } from "@/lib/vakalatnama/types";
+import { StatusLine } from "@/components/feedback";
 
 type ModalKey = "choose" | "esign" | "processing" | null;
 
@@ -107,13 +107,9 @@ export function ReviewSignStep({ vak }: { vak: Vakalatnama }) {
   return (
     <div className="flex flex-col gap-6">
       {allSigned ? (
-        <Alert variant="success">
-          <CheckCircle2Icon aria-hidden />
-          <AlertTitle>All signatures collected</AlertTitle>
-          <AlertDescription>
-            Every party has signed. Continue to pay the fees and complete the vakalatnama.
-          </AlertDescription>
-        </Alert>
+        <StatusLine tone="success" title="All signatures collected">
+          Every party has signed. Continue to pay the fees and complete the vakalatnama.
+        </StatusLine>
       ) : null}
 
       {/* Signatures panel */}
@@ -303,9 +299,6 @@ export function ReviewSignStep({ vak }: { vak: Vakalatnama }) {
           <Button type="button" size="lg" className="w-full" disabled={otp.length < 6} onClick={verifyEsign}>
             Verify and sign
           </Button>
-          <p className="text-center text-caption text-muted-foreground">
-            Sandbox — any six digits work.
-          </p>
           <DiscardQuestion guard={otpGuard} />
         </ChromeDialogContent>
       </Dialog>

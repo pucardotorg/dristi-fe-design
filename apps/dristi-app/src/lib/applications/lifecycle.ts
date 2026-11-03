@@ -232,6 +232,21 @@ export type LinkedOrder = {
   signedOn: string;
 };
 
+/**
+ * An order passed on the application through the order screen, whatever it did — onboard
+ * it, list it, decide it (`lib/employee/application-outcome-steps.ts`). `key` is the
+ * order's draft key, so one order is never applied twice.
+ */
+export type PassedOrder = {
+  key: string;
+  id: string;
+  title: string;
+  text: string;
+  signedOn: string;
+  /** What its Application item did, in a line: "Onboarded; listed for 29 Oct". */
+  summary: string;
+};
+
 export type LifecycleEvent = { on: string; text: string };
 
 /**
@@ -274,6 +289,10 @@ export type LifecycleApplication = {
   objectionToId?: string;
   pendingOrder?: PendingOrder;
   linkedOrder?: LinkedOrder;
+  /** Orders passed on it from the order screen, oldest first. */
+  orders?: PassedOrder[];
+  /** The decision as the order recorded it — "Partly allowed" — where it says more than the status. */
+  decisionLabel?: string;
   /** What the type's own workflow did on acceptance (`ALC-16`). */
   workflowResult?: string;
   form: unknown;

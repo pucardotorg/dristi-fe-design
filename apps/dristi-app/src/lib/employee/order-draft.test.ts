@@ -22,7 +22,7 @@ describe("appearancesFor", () => {
     assert.ok(noAccusedCounsel);
     const rows = appearancesFor(noAccusedCounsel);
     assert.equal(
-      rows.some((row) => row.role === "Advocate for the accused"),
+      rows.some((row) => row.kind === "counsel" && row.side === "accused"),
       false,
     );
     assert.equal(rows[0].role, "Complainant");
@@ -39,14 +39,14 @@ describe("appearancesFor", () => {
       (row) => row.kind === "counsel" && row.side === "complainant",
     );
     assert.equal(sideRows.length, 1);
-    assert.equal(sideRows[0].name, "Advocate for the complainant");
+    assert.equal(sideRows[0].name, `Advocate for ${hearing.parties.complainant}`);
     assert.deepEqual(sideRows[0].advocates, [counsel.name, "Adv. Second Advocate"]);
   });
 
   it("recites a side's counsel by office alone, capitalised when it leads the line", () => {
     assert.deepEqual(
       attendanceRecital(appearancesFor(hearing), { "accused-counsel": "absent" }),
-      [{ label: "Absent", value: "Advocate for the accused." }],
+      [{ label: "Absent", value: `Advocate for ${hearing.parties.accused}.` }],
     );
   });
 });
@@ -68,7 +68,7 @@ describe("attendanceRecital", () => {
         {
           label: "Present",
           value:
-            "Sunil Varghese, the complainant; advocate for the complainant; advocate for the accused.",
+            "Sunil Varghese, the complainant; advocate for Sunil Varghese; advocate for Anand Traders.",
         },
         { label: "Absent", value: "Anand Traders, the accused." },
       ],

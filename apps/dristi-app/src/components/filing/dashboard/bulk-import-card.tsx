@@ -4,12 +4,10 @@ import Link from "next/link";
 import { ArrowRightIcon, DownloadIcon, UploadIcon } from "lucide-react";
 
 import { FILINGS_HOME } from "@/lib/filing/steps";
-import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { PANEL_CLASS } from "@/components/filing/form-card";
 import { StageBar } from "@/components/bulk/stage";
 import type { CaseStage } from "@/lib/bulk/types";
 
@@ -30,7 +28,7 @@ export type BulkBatch = {
 /** Cases a client's system pushed across for filing, as one batch. */
 export function BulkImportCard({ batch, needAction = 0 }: { batch: BulkBatch | null; needAction?: number }) {
   return (
-    <Card className={cn(PANEL_CLASS, "gap-0")}>
+    <Card variant="raised" className="gap-0">
       <CardHeader className="flex flex-row items-start gap-3">
         <span
           aria-hidden

@@ -9,8 +9,9 @@ import type {
   ComposerFact,
 } from "@/components/employee/order-sections";
 import { OrderDataFlags } from "@/components/employee/order-data-flags";
-import { OrderCaseHistory } from "@/components/employee/order-case-history";
+import { GroupedCaseHistory } from "@/components/employee/grouped-case-history";
 import { OrderEditorComposer } from "@/components/employee/order-editor";
+import type { ApplicationOutcomeSubject } from "@/components/employee/application-outcome-dialog";
 import { CausePostingContext } from "@/components/employee/cause-posting";
 import { useReaderPostsNextHearing } from "@/components/employee/use-next-hearing-entry";
 import { useHearingSession } from "@/components/employee/use-hearing-session";
@@ -68,6 +69,10 @@ export type OrderDoor = {
   origin?: string;
   /** Only on a hearing: the roll, the applications on the listing, what it was for. */
   hearing?: OrderDoorHearing;
+  /** An order on an application: its Application item in the order data. */
+  applicationItem?: ApplicationOutcomeSubject;
+  /** The Case history tab, for a door with no listing to build it from. */
+  history?: React.ReactNode;
 };
 
 export type OrderDoorHearing = {
@@ -103,7 +108,10 @@ function OrderDoorBody({ door }: { door: OrderDoor }) {
     () => orderInitialDraft(door.initial),
     [door.initial],
   );
-  const [stored, setDraft] = useOrderDraft(orderDraftKey(door.draftKey), initial);
+  const [stored, setDraft] = useOrderDraft(
+    orderDraftKey(door.draftKey),
+    initial,
+  );
   const draft = useCausePosting(door, stored);
   const [openApplication, setOpenApplication] =
     React.useState<ListingApplication | null>(null);
@@ -170,9 +178,15 @@ function OrderDoorBody({ door }: { door: OrderDoor }) {
       onOpenApplication={hearing ? openById : undefined}
       applicationDialog={applicationDialog}
       historyContent={
-        /* ORD-15: the case history with the case's orders in it. A door with no
-           listing (cognizance, an application) has no sittings to draw on. */
-        hearing ? <OrderCaseHistory hearing={hearing.hearing} /> : undefined
+        /* ORD-15: the case history with the case's orders in it — grouped, one line per
+           process and application, as the cause list's sheet has it (owner,
+           2026-10-23). A door with no listing (cognizance, an application) has no
+           sittings to draw on, so it brings its own (`door.history`). */
+        hearing ? (
+          <GroupedCaseHistory hearing={hearing.hearing} />
+        ) : (
+          door.history
+        )
       }
       dataFlagsContent={
         hearing ? <OrderDataFlags hearing={hearing.hearing} /> : undefined
@@ -180,6 +194,20 @@ function OrderDoorBody({ door }: { door: OrderDoor }) {
       context={context}
       purpose={hearing?.purpose}
       fixedIds={door.fixedIds}
+      applicationItem={door.applicationItem}
+      evidence={
+        /* Only a hearing's order: the evidence is taken at the hearing. */
+        hearing
+          ? {
+              caseNumber: door.document.caseNumber,
+              hearingId: hearing.hearing.id,
+              matter: door.document.matter,
+              purpose: hearing.purpose,
+              people: context.people,
+              today,
+            }
+          : undefined
+      }
     />
   );
 }
@@ -189,7 +217,10 @@ function OrderDoorBody({ door }: { door: OrderDoor }) {
  * door and the reader enters the next hearing — the posting is set on the cause list, and
  * the order only shows it.
  */
-export function useCausePosting(door: OrderDoor, draft: OrderDraft): OrderDraft {
+export function useCausePosting(
+  door: OrderDoor,
+  draft: OrderDraft,
+): OrderDraft {
   const session = useHearingSession();
   const readerPosts = useReaderPostsNextHearing();
   return door.hearing && readerPosts

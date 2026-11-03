@@ -40,6 +40,8 @@ export function FilingBreadcrumbs() {
     crumbs.push({ label: "New filing" });
   } else if (first === "bulk") {
     crumbs.push({ label: "Bulk filing" });
+  } else if (first === "formats") {
+    crumbs.push({ label: "Additional details formats" });
   } else if (stepId) {
     crumbs.push({
       label:

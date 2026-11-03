@@ -8,7 +8,6 @@ import {
   submissionTypeLabel,
   submittedByName,
   APPLICATION_TYPES,
-  SUBMISSION_DOCUMENT_TYPES,
   type ApplicationsFile,
   type FilingStatus,
   type Submission,
@@ -163,22 +162,18 @@ export function expiringSoon(application: ApplicationRecord): boolean {
  *  stand-in until product says how the screen learns this. */
 export const HAS_BULK_SIGNING_TOOL = true;
 
-/** The two catalogues as one list. Each had its own "Others"; one survives. */
+/** Generic sorts last, under the name the register gives it. */
 const OTHERS = "others";
 function flatType(id: string): string {
-  return id === "application-others" || id === "document-others" ? OTHERS : id;
+  return id === "application-others" ? OTHERS : id;
 }
 
 /**
- * The register's Type filter. The document bucket "Objections" is left out:
- * an objection is an application type now (Objection), and two near-identical
- * entries would split one kind of filing across two filters.
+ * The register's Type filter: application types only. Submitted documents
+ * live on the Documents tab with its own filter (DSB-11).
  */
 export const APPLICATION_TYPE_OPTIONS: { value: string; label: string }[] = [
-  ...[...APPLICATION_TYPES, ...SUBMISSION_DOCUMENT_TYPES]
-    .filter(
-      (item) => flatType(item.id) !== OTHERS && item.id !== "objections"
-    )
+  ...APPLICATION_TYPES.filter((item) => flatType(item.id) !== OTHERS)
     .map((item) => ({ value: item.id as string, label: item.label }))
     .sort((a, b) => a.label.localeCompare(b.label)),
   { value: OTHERS, label: "Generic" },

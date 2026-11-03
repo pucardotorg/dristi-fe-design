@@ -38,6 +38,8 @@ import {
   moveLine,
   refusedLine,
   processAct,
+  processScopeFor,
+  scopeLine,
   sortProcesses,
   type CourtProcess,
   type ProcessOutcome,
@@ -83,9 +85,10 @@ describe("PROCESS_LINE", () => {
   });
 
   it("holds only paper where only paper can be", () => {
-    /* A cover is collected, and later posted, only for registered post. */
+    /* A cover is collected, and later posted, only for registered post — RPAD, or
+       Police (RPAD) to the station. */
     for (const process of processesAt(PROCESS_LINE, "awaiting-cover")) {
-      assert.equal(process.channel, "rpad", process.id);
+      assert.ok(goesByPost(process), process.id);
     }
     for (const process of processesAt(PROCESS_LINE, "to-post")) {
       assert.ok(goesByPost(process), process.id);
@@ -144,6 +147,7 @@ describe("PROCESS_TABS", () => {
       "to-sign",
       "to-post",
       "to-hand",
+      "to-send",
       "send-failed",
     ]);
     assert.deepEqual(processTab("service").statuses, [
@@ -477,7 +481,7 @@ describe("finding a process that has moved on", () => {
 
   it("does not carry a tab's own channel onto a tab that is not defined by one", () => {
     const police = PROCESS_LINE.find(
-      (process) => process.status === "to-sign" && process.channel === "police",
+      (process) => process.status === "to-sign" && process.channel === "police-icops",
     );
     assert.ok(police);
     const filters = { ...defaultProcessFilters(collection), query: police.caseNumber };
@@ -493,11 +497,10 @@ describe("finding a process that has moved on", () => {
   it("keeps a channel the bench chose for itself", () => {
     const from = processTab("issuance");
     const to = processTab("service");
-    const chosen = { ...defaultProcessFilters(from), channel: "police" as const };
-    assert.equal(rebaseFilters(chosen, from, to).channel, "police");
-    const pinned = defaultProcessFilters(collection);
-    assert.equal(pinned.channel, "rpad");
-    assert.equal(rebaseFilters(pinned, collection, to).channel, "all");
+    const chosen = { ...defaultProcessFilters(from), channel: "police-icops" as const };
+    assert.equal(rebaseFilters(chosen, from, to).channel, "police-icops");
+    /* RPAD collection holds RPAD and Police (RPAD), so it pins no channel. */
+    assert.equal(defaultProcessFilters(collection).channel, "all");
   });
 
   it("does not find a row by the cause title the Case name column prints", () => {
@@ -807,7 +810,7 @@ describe("the confirmation's success", () => {
       ids.has(p.id),
     );
     assert.equal(landedLine(after), "It is now in To post in Issuance.");
-    assert.equal(refusedLine(after), "1 could not be sent and is in Error in Issuance.");
+    assert.equal(refusedLine(after), "1 could not be sent and is in Errored in Issuance.");
     assert.equal(processAct("sign").done("2 processes"), "2 processes signed");
   });
 });
@@ -817,7 +820,7 @@ describe("attachment (carried over from #43)", () => {
 
   it("is on the line, executed by the police", () => {
     assert.ok(attachment);
-    assert.equal(attachment.channel, "police");
+    assert.equal(attachment.channel, "police-icops");
     assert.equal(
       COURT_PROCESS_TYPES.find((type) => type.id === "attachment")?.executed,
       true,
@@ -888,3 +891,41 @@ describe("By hand", () => {
   });
 });
 
+
+describe("e-Post and the Post officer", () => {
+  it("signs e-Post into To send, and marks it sent from there", () => {
+    const row = only(
+      PROCESS_LINE.filter((p) => p.channel === "e-post" && p.status === "to-sign"),
+      "an e-Post row to sign",
+    );
+    const signed = runProcessAct(PROCESS_LINE, "sign", new Set([row.id]), ON);
+    const moved = only(signed.filter((p) => p.id === row.id), "the signed row");
+    assert.equal(moved.status, "to-send");
+    const sent = runProcessAct(signed, "send", new Set([row.id]), ON);
+    const out = only(sent.filter((p) => p.id === row.id), "the sent row");
+    assert.equal(out.status, "in-progress");
+    assert.equal(out.sentOn, ON);
+    assert.equal(recordedByCourt(out), true);
+  });
+
+  it("shows the Post officer signed e-Post rows only, and no RPAD collection", () => {
+    const scope = processScopeFor("post-officer");
+    const rows = scopeLine(PROCESS_LINE, scope);
+    assert.ok(rows.length > 0);
+    assert.ok(rows.every((p) => p.channel === "e-post"));
+    assert.deepEqual(
+      scope.tabs.map((tab) => tab.id),
+      ["issuance", "service"],
+    );
+    assert.ok(scope.tabs.every((tab) => tab.onlyChannel === "e-post"));
+    assert.deepEqual(scope.tabs[0].statuses, ["to-send"]);
+    assert.equal(scope.tabs[0].defaultView, "to-send");
+    assert.ok(rows.every((p) => p.status !== "to-sign"));
+  });
+
+  it("leaves every other seat the whole line", () => {
+    const scope = processScopeFor("bench-clerk");
+    assert.equal(scopeLine(PROCESS_LINE, scope), PROCESS_LINE);
+    assert.equal(scope.tabs, PROCESS_TABS);
+  });
+});

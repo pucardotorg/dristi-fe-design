@@ -5,12 +5,12 @@ import { PlusIcon, Trash2Icon } from "lucide-react";
 
 import { AddressFields } from "@/components/filing/address-fields";
 import { FileField } from "@/components/cases/filing-form-shared";
+import { RichTextField } from "@/components/cases/rich-text-field";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
   Field,
-  FieldDescription,
   FieldError,
   FieldLabel,
 } from "@/components/ui/field";
@@ -45,7 +45,10 @@ import {
   type CaseLitigant,
   type PersonOption,
 } from "@/lib/cases/application-options";
-import { applicationsFile, submissionTypeLabel } from "@/lib/cases/applications";
+import {
+  applicationsFile,
+  submissionTypeLabel,
+} from "@/lib/cases/applications";
 import { formatCaseDate, type CaseRecord } from "@/lib/cases/types";
 import {
   ACCUSED_ENTITY_TYPES,
@@ -82,8 +85,8 @@ type FieldsProps = {
  * The fields for the selected application type, from the Application
  * Lifecycle PRD's "Fields by application type".
  *
- * Every type opens with Raised by and Litigant and closes with Supporting
- * documents and Other details — the four fields on every application. The
+ * Every type opens with Raised by and Litigant and closes with Application
+ * details and Supporting documents — the four fields on every application. The
  * type's own fields sit between them. One column, no section headings: the
  * bail dialog set that for every filing dialog (owner, Sept 21).
  */
@@ -106,17 +109,13 @@ function typeFields(props: FieldsProps): React.ReactNode | undefined {
     case "edit-litigant-details":
       return <EditLitigantFields {...props} />;
     case "settlement":
-      return (
-        <ReasonField {...props} field="settlementReason" label="Reason for settlement" />
-      );
+      return null;
     case "transfer":
       return <TransferFields {...props} />;
     case "withdrawal":
-      return (
-        <ReasonField {...props} field="withdrawalReason" label="Reason for withdrawal" />
-      );
+      return null;
     case "condonation-of-delay":
-      return <ReasonField {...props} field="delayReason" label="Reasons for delay" />;
+      return null;
     case "application-others":
       return <GenericFields {...props} />;
     case "advancement-reschedule":
@@ -131,9 +130,9 @@ function typeFields(props: FieldsProps): React.ReactNode | undefined {
     case "warrant-by-hand":
       return <WarrantByHandFields {...props} />;
     case "absent-application":
-      return <ReasonField {...props} field="absenceReason" label="Reason for absence" />;
+      return null;
     case "reopen-evidence":
-      return <ReasonField {...props} field="reopenReason" label="Reason for reopening" />;
+      return null;
     case "objection":
       return <ObjectionFields {...props} />;
     default:
@@ -169,14 +168,12 @@ function FieldName({ label, optional }: { label: string; optional?: boolean }) {
  * readOnly rather than disabled so it stays keyboard reachable, selectable and
  * read by assistive tech; the fill and ink are the disabled control's.
  */
-function PrefilledField({
+export function PrefilledField({
   label,
   value: stored,
-  description,
 }: {
   label: string;
   value: string;
-  description?: string;
 }) {
   // Read-only, so it can show the record in the selected court's terms (`CourtSwitch`).
   const value = useCourtText()(stored);
@@ -193,28 +190,28 @@ function PrefilledField({
         // read as locked; this is one step under it (owner, Sept 21).
         className="read-only:bg-accent read-only:text-muted-foreground focus-visible:ring-0"
       />
-      {description ? <FieldDescription>{description}</FieldDescription> : null}
     </Field>
   );
 }
 
-function TextField({
+export function TextField({
   label,
   value,
   error,
   optional,
-  description,
   inputMode,
   type,
+  prefilled,
   onChange,
 }: {
   label: string;
   value: string;
   error?: string;
   optional?: boolean;
-  description?: string;
   inputMode?: "numeric" | "tel" | "email" | "decimal";
   type?: "email" | "tel";
+  /** Filled in from the record and not yet changed: the DS yellow tint. */
+  prefilled?: boolean;
   onChange: (value: string) => void;
 }) {
   const id = useId();
@@ -228,10 +225,10 @@ function TextField({
         value={value}
         type={type}
         inputMode={inputMode}
+        prefilled={prefilled}
         aria-invalid={Boolean(error)}
         onChange={(event) => onChange(event.target.value)}
       />
-      {description ? <FieldDescription>{description}</FieldDescription> : null}
       <FieldError>{error}</FieldError>
     </Field>
   );
@@ -242,7 +239,6 @@ function TextAreaField({
   value,
   error,
   optional,
-  description,
   rows = 4,
   onChange,
 }: {
@@ -250,7 +246,6 @@ function TextAreaField({
   value: string;
   error?: string;
   optional?: boolean;
-  description?: string;
   rows?: number;
   onChange: (value: string) => void;
 }) {
@@ -267,21 +262,19 @@ function TextAreaField({
         aria-invalid={Boolean(error)}
         onChange={(event) => onChange(event.target.value)}
       />
-      {description ? <FieldDescription>{description}</FieldDescription> : null}
       <FieldError>{error}</FieldError>
     </Field>
   );
 }
 
 /** A single pick from a list, on the DS Select, labelled like every field. */
-function SelectField({
+export function SelectField({
   label,
   value,
   options,
   placeholder,
   error,
   optional,
-  description,
   onChange,
 }: {
   label: string;
@@ -290,7 +283,6 @@ function SelectField({
   placeholder: string;
   error?: string;
   optional?: boolean;
-  description?: string;
   onChange: (value: string) => void;
 }) {
   const id = useId();
@@ -311,7 +303,6 @@ function SelectField({
           ))}
         </SelectContent>
       </Select>
-      {description ? <FieldDescription>{description}</FieldDescription> : null}
       <FieldError>{error}</FieldError>
     </Field>
   );
@@ -382,13 +373,11 @@ function DateField({
   label,
   value,
   error,
-  description,
   onChange,
 }: {
   label: string;
   value: Date | undefined;
   error?: string;
-  description?: string;
   onChange: (value: Date | undefined) => void;
 }) {
   const labelId = useId();
@@ -403,7 +392,6 @@ function DateField({
           className="w-full sm:w-60"
         />
       </div>
-      {description ? <FieldDescription>{description}</FieldDescription> : null}
       <FieldError>{error}</FieldError>
     </Field>
   );
@@ -413,17 +401,15 @@ function DateField({
  * The e-filing address composite (PRD: "uses the e-filing address
  * composite"), under one label, with one message for whatever is missing.
  */
-function AddressField({
+export function AddressField({
   label,
   value,
   error,
-  description,
   onChange,
 }: {
   label: string;
   value: Address;
   error?: string;
-  description?: string;
   onChange: (value: Address) => void;
 }) {
   const id = useId();
@@ -437,11 +423,6 @@ function AddressField({
       <p id={`${id}-label`} className="text-body-compact font-medium">
         {label}
       </p>
-      {description ? (
-        <p className="-mt-2 text-body-compact text-muted-foreground">
-          {description}
-        </p>
-      ) : null}
       <AddressFields value={value} onChange={onChange} idPrefix={id} />
       {error ? (
         <Field data-invalid>
@@ -457,7 +438,7 @@ function AddressField({
  * well per entry, as the bail dialog groups one person's fields: depth is
  * fill, never a bordered card inside the dialog.
  */
-function RowWell({
+export function RowWell({
   legend,
   removeLabel,
   onRemove,
@@ -498,7 +479,6 @@ function RowWell({
  */
 function RepeatingSection({
   heading,
-  description,
   optional,
   addLabel,
   emptyLabel,
@@ -508,7 +488,6 @@ function RepeatingSection({
   children,
 }: {
   heading: string;
-  description?: string;
   optional?: boolean;
   addLabel: string;
   emptyLabel: string;
@@ -537,11 +516,6 @@ function RepeatingSection({
           <h3 id={headingId} className="text-body-compact font-medium">
             <FieldName label={heading} optional={optional} />
           </h3>
-          {description ? (
-            <p className="mt-1 text-body-compact text-muted-foreground">
-              {description}
-            </p>
-          ) : null}
         </div>
         {count ? null : addButton}
       </div>
@@ -581,7 +555,6 @@ function EveryApplicationTop({
         value={draft.raisedById}
         options={peopleOptions(raisedByOptions)}
         placeholder="Choose who is raising it"
-        description="The person who signs this application."
         error={errors.fields.raisedById}
         onChange={(value) => actions.update("raisedById", value)}
       />
@@ -592,7 +565,6 @@ function EveryApplicationTop({
         placeholder={
           draft.raisedById ? "Choose the litigant" : "Choose Raised by first"
         }
-        description="Whom this application is raised on behalf of."
         error={errors.fields.litigantId}
         onChange={(value) => actions.update("litigantId", value)}
       />
@@ -600,11 +572,18 @@ function EveryApplicationTop({
   );
 }
 
-/** Supporting documents and Other details (PRD "Every application"). */
+/**
+ * Application details and Supporting documents (PRD "Every application").
+ * Application details is the one place the filer writes the application: it
+ * replaced each type's reason box and the Other details box under it (owner,
+ * 2026-10-28), so the form never asks for the same words twice. Required for every
+ * type.
+ */
 function EveryApplicationBottom({ draft, errors, actions }: FieldsProps) {
   const rows = draft.supportingDocuments;
   return (
     <>
+      <ApplicationDetailsField draft={draft} errors={errors} actions={actions} />
       <RepeatingSection
         heading="Supporting documents"
         optional
@@ -642,7 +621,6 @@ function EveryApplicationBottom({ draft, errors, actions }: FieldsProps) {
             <FileField
               required
               label="File"
-              description="PDF or JPEG."
               files={row.files}
               error={errors.fields[`${row.id}.files`]}
               onFilesChange={(files) =>
@@ -656,41 +634,32 @@ function EveryApplicationBottom({ draft, errors, actions }: FieldsProps) {
           </RowWell>
         ))}
       </RepeatingSection>
-
-      <TextAreaField
-        label="Other details"
-        optional
-        value={draft.otherDetails}
-        description="Anything else the court should know about this application."
-        onChange={(value) => actions.update("otherDetails", value)}
-      />
     </>
   );
 }
 
-/** A type whose only own field is one reason, typed. */
-function ReasonField({
+/**
+ * The application in the filer's own words: the full-size editor, not a
+ * dialog-sized box, because for most types this is the application.
+ */
+function ApplicationDetailsField({
   draft,
   errors,
   actions,
-  field,
-  label,
-}: FieldsProps & {
-  field:
-    | "settlementReason"
-    | "withdrawalReason"
-    | "delayReason"
-    | "absenceReason"
-    | "reopenReason";
-  label: string;
-}) {
+}: Pick<FieldsProps, "draft" | "errors" | "actions">) {
+  const labelId = useId();
   return (
-    <TextAreaField
-      label={label}
-      value={draft[field]}
-      error={errors.fields[field]}
-      onChange={(value) => actions.update(field, value)}
-    />
+    <Field data-invalid={Boolean(errors.fields.applicationDetails)}>
+      <FieldLabel id={labelId}>
+        <FieldName label="Application Details" />
+      </FieldLabel>
+      <RichTextField
+        labelId={labelId}
+        value={draft.applicationDetails}
+        onChange={(value) => actions.update("applicationDetails", value)}
+      />
+      <FieldError>{errors.fields.applicationDetails}</FieldError>
+    </Field>
   );
 }
 
@@ -740,7 +709,6 @@ function BailFields({ draft, errors, actions }: FieldsProps) {
             label="Number of sureties"
             value={draft.suretyCount}
             inputMode="numeric"
-            description="A set of details follows for each surety."
             error={errors.fields.suretyCount}
             onChange={(value) => {
               const count = value.replace(/\D/g, "").slice(0, 2);
@@ -789,7 +757,6 @@ function BailFields({ draft, errors, actions }: FieldsProps) {
               <FileField
                 required
                 label="Surety ID proof"
-                description="Proof of the surety's identity."
                 files={item.identityProof}
                 error={errors.fields[`${item.id}.identityProof`]}
                 onFilesChange={(identityProof) => updateSurety(item.id, { identityProof })}
@@ -800,7 +767,6 @@ function BailFields({ draft, errors, actions }: FieldsProps) {
               <FileField
                 required
                 label="Proof of solvency"
-                description="Proof that the surety can stand security for the bail amount."
                 files={item.solvencyProof}
                 error={errors.fields[`${item.id}.solvencyProof`]}
                 onFilesChange={(solvencyProof) => updateSurety(item.id, { solvencyProof })}
@@ -812,12 +778,6 @@ function BailFields({ draft, errors, actions }: FieldsProps) {
           ))}
         </>
       ) : null}
-      <TextAreaField
-        label="Reason for bail"
-        value={draft.bailReason}
-        error={errors.fields.bailReason}
-        onChange={(value) => actions.update("bailReason", value)}
-      />
     </>
   );
 }
@@ -868,7 +828,6 @@ function EditLitigantFields(props: FieldsProps) {
           label: `${item.name} — ${item.side === "accused" ? "Accused" : "Complainant"}`,
         }))}
         placeholder="Choose a litigant"
-        description="Their current details fill the fields below. Change only what is wrong."
         error={errors.fields.editLitigantId}
         onChange={(value) => {
           const litigant = litigants.find((item) => item.id === value);
@@ -878,12 +837,6 @@ function EditLitigantFields(props: FieldsProps) {
           actions.update("litigantType", type);
           actions.update("litigant", litigantDetailsFrom(litigant, litigant.institution));
         }}
-      />
-      <TextAreaField
-        label="Reason for editing"
-        value={draft.editReason}
-        error={errors.fields.editReason}
-        onChange={(value) => actions.update("editReason", value)}
       />
       {selected ? (
         <>
@@ -942,7 +895,6 @@ function ComplainantIndividual(props: FieldsProps) {
           value={l.phone}
           inputMode="tel"
           type="tel"
-          description="Must not match anyone else's on the case."
           error={error("phone")}
           onChange={(value) => set("phone", value)}
         />
@@ -1250,12 +1202,6 @@ function TransferFields({ draft, errors, record, actions }: FieldsProps) {
         error={errors.fields.requestedCourt}
         onChange={(value) => actions.update("requestedCourt", value)}
       />
-      <TextAreaField
-        label="Reason for transfer"
-        value={draft.transferReason}
-        error={errors.fields.transferReason}
-        onChange={(value) => actions.update("transferReason", value)}
-      />
     </>
   );
 }
@@ -1268,16 +1214,8 @@ function GenericFields({ draft, errors, actions }: FieldsProps) {
       <TextField
         label="Application title"
         value={draft.title}
-        description="Used as the application's heading."
         error={errors.fields.title}
         onChange={(value) => actions.update("title", value)}
-      />
-      <TextAreaField
-        label="Details"
-        value={draft.details}
-        rows={6}
-        error={errors.fields.details}
-        onChange={(value) => actions.update("details", value)}
       />
     </>
   );
@@ -1310,7 +1248,6 @@ function RescheduleFields({ draft, errors, record, actions }: FieldsProps) {
       <DateField
         label="Proposed hearing date"
         value={draft.proposedHearingDate}
-        description="The date from which the party is available."
         error={errors.fields.proposedHearingDate}
         onChange={(value) => actions.update("proposedHearingDate", value)}
       />
@@ -1369,7 +1306,6 @@ function PoaChangeFields({ draft, errors, record, actions }: FieldsProps) {
           key={item.id}
           required
           label={`Authorization document — ${item.name}`}
-          description="The power of attorney this litigant gave the applicant."
           files={draft.poaAuthorizations[item.id] ?? []}
           error={errors.fields[`poa.${item.id}`]}
           onFilesChange={(files) =>
@@ -1381,12 +1317,6 @@ function PoaChangeFields({ draft, errors, record, actions }: FieldsProps) {
           onErrorChange={(error) => actions.setError(`poa.${item.id}`, error)}
         />
       ))}
-      <TextAreaField
-        label="Reason for change"
-        value={draft.poaReason}
-        error={errors.fields.poaReason}
-        onChange={(value) => actions.update("poaReason", value)}
-      />
     </>
   );
 }
@@ -1397,15 +1327,8 @@ function ProductionFields({ draft, errors, actions }: FieldsProps) {
   const rows = draft.productionDocuments;
   return (
     <>
-      <TextAreaField
-        label="Reason for application"
-        value={draft.productionReason}
-        error={errors.fields.productionReason}
-        onChange={(value) => actions.update("productionReason", value)}
-      />
       <RepeatingSection
         heading="Documents"
-        description="PDF or JPEG, one entry per document."
         addLabel="Add a document"
         emptyLabel="No documents added."
         count={rows.length}
@@ -1441,7 +1364,6 @@ function ProductionFields({ draft, errors, actions }: FieldsProps) {
             <FileField
               required
               label="File"
-              description="PDF or JPEG."
               files={row.files}
               error={errors.fields[`${row.id}.files`]}
               onFilesChange={(files) =>
@@ -1475,7 +1397,6 @@ function WitnessFields({ draft, errors, actions }: FieldsProps) {
   return (
     <RepeatingSection
       heading="Witnesses"
-      description="Give a full name, a designation, or both."
       addLabel="Add a witness"
       emptyLabel="No witnesses added."
       count={witnesses.length}
@@ -1653,11 +1574,6 @@ function WarrantByHandFields({ draft, errors, record, actions }: FieldsProps) {
         <AddressField
           label="Address for delivery"
           value={draft.deliveryAddress}
-          description={
-            onFile.length
-              ? "From the case file. Change it if the warrant should go elsewhere."
-              : "The case file holds no address for this accused. Enter where the warrant should go."
-          }
           error={errors.fields.deliveryAddress}
           onChange={(value) => actions.update("deliveryAddress", value)}
         />
@@ -1673,7 +1589,7 @@ function WarrantByHandFields({ draft, errors, record, actions }: FieldsProps) {
  * side (ALC-12, ALC-24). What it objects to is fixed, so it is shown locked
  * rather than chosen.
  */
-function ObjectionFields({ draft, errors, record, actions }: FieldsProps) {
+function ObjectionFields({ draft, record }: FieldsProps) {
   const target = applicationsFile(record).submissions.find(
     (item) => item.id === draft.objectionToId,
   );
@@ -1688,17 +1604,6 @@ function ObjectionFields({ draft, errors, record, actions }: FieldsProps) {
       <PrefilledField
         label="Objection to"
         value={targetLabel}
-        description={
-          target?.decisionOn
-            ? `The court decides it on ${formatCaseDate(target.decisionOn)}.`
-            : undefined
-        }
-      />
-      <TextAreaField
-        label="Reason for objection"
-        value={draft.objectionReason}
-        error={errors.fields.objectionReason}
-        onChange={(value) => actions.update("objectionReason", value)}
       />
     </>
   );

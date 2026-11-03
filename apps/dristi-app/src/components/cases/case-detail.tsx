@@ -39,7 +39,10 @@ import {
   parseCaseSection,
 } from "@/lib/cases/sections";
 import { type CaseReader } from "@/lib/cases/case-reader";
+import type { AccessCase } from "@/lib/access/content";
 import { CaseReaderProvider } from "@/components/cases/case-reader";
+import { CaseOfficeAccessProvider } from "@/components/cases/case-office-access";
+import { viewerAccess } from "@/lib/cases/viewer";
 
 /**
  * One case, as its reader sees it — the advocate at `/cases/[caseId]`, the court at
@@ -85,16 +88,18 @@ export function CaseDetail({
      `?tab=` and `?side=` are simply unread. */
   const participantId = parseSelectedId(searchParams.selected);
 
-  const accessCase = {
+  const accessCase: AccessCase = {
     id: record.id,
     title: partiesLabel(record),
     caseNumber: record.caseNumber,
     court: record.court,
     nextHearing: record.nextHearing?.on ?? "—",
+    viewerAccess: viewerAccess(record).kind,
   };
 
   return (
     <CaseReaderProvider reader={reader}>
+    <CaseOfficeAccessProvider office={reader === "advocate" && accessCase.viewerAccess === "office"}>
     <CaseBailProvider accessCase={accessCase}>
       {/* The trail reads Cases › the number and stops there. The section tabs switch
           views of this one page, and a breadcrumb names pages, not tabs — moving
@@ -161,6 +166,7 @@ export function CaseDetail({
       <CaseLinkedHearing record={record} />
       </div>
     </CaseBailProvider>
+    </CaseOfficeAccessProvider>
     </CaseReaderProvider>
   );
 }

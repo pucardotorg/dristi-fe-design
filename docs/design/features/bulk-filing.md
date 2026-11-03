@@ -12,7 +12,7 @@ handover disagree, the handover wins.
 Two ways a batch of S-138 complaints reaches SARAS 2.0 (DRISTI's Gujarat deployment). Both
 land in **File a case › Bulk filing** as their own batch, never in the regular drafts list.
 
-1. **API push** from a litigation system, shown with `apps/provakil-mock`: a stand-in for
+1. **API push** from a litigation system, shown with the Provakil mock (`/provakil` in the same app): a stand-in for
    Tata Capital's Provakil workspace (Legal Collections, Section 138 workflow). The legal
    manager ticks the cases (Gmail style: Shift for a range, Ctrl or Cmd for one), chooses the
    court, then gives each case one of that court's advocates for the company. Each advocate's
@@ -32,7 +32,7 @@ Every batch then runs the same steps on one screen
 Pay. A case filed from a batch is an ordinary `FilingDraft`, built from `createBlankDraft` and
 checked with the single filing's own selectors (PRD §1, constraint 2).
 
-Run it with `npm run demo` (SARAS 2.0 on port 3000, Provakil on 3100). The team guide is
+Run it with `npm run demo` (SARAS 2.0 on port 3000, Provakil at `/provakil` on the same port). The team guide is
 `BULK-FILING-DEMO.md` at the repository root.
 
 ## Decisions
@@ -40,6 +40,7 @@ Run it with `npm run demo` (SARAS 2.0 on port 3000, Provakil on 3100). The team 
 | Date | Decision and reason | Source | Status |
 |---|---|---|---|
 | 2026-10-20 | Provakil mock is a second app in this repo (`apps/provakil-mock`), kept on the `bulk-filing` branch and not proposed for `main`. | Owner | superseded 2026-10-21 |
+| 2026-10-21 | Provakil mock moves into the DRISTI app at `/provakil`, so the demo runs from one port and one Vercel deployment. Its look is unchanged and none of DRISTI's chrome shows. Its own records (assignments, pushes) are kept in the browser; it reaches SARAS 2.0 only through Bulk Filing API v1, by HTTP where the server can write and by the same handlers (`receivePush`, `pushedBatches`) run in the browser where it cannot. The design-system gates skip its folders (`scripts/not-dristi.mjs`). | Owner | implemented |
 | 2026-10-20 | Cases are filed in Gujarat's deployment (SARAS 2.0, SARAS Court, Ahmedabad). S-138 goes to a magistrate, not the High Court. Bulk screens switch the court to Gujarat when opened. | Owner | implemented |
 | 2026-10-20 | Mapping and checks are rules. A separate AI review adds findings that are not validation (a document that disagrees with the case, a value that looks wrong next to the others). It follows the court's `aiMode` and `?ai=on\|off\|unavailable`; with AI off the flow is fully manual and nothing is marked as AI. The demo's AI is a rules stand-in (`ai-review.ts`). | Owner | implemented (stand-in) |
 | 2026-10-20 | Fields that can occur more than once repeat in the API as arrays and in Excel as numbered columns: `Cheque number_2`, and for a section inside an accused, accused then item (`Accused address_1_2`). Unnumbered means the first. Repeats are per case: the file carries as many numbered columns as its busiest case needs, and every other case leaves them blank. Which fields repeat follows the PRD's 1..n sections and the single filing flow (table below). | Owner; PRD §3.3 | implemented |
@@ -78,7 +79,7 @@ Run it with `npm run demo` (SARAS 2.0 on port 3000, Provakil on 3100). The team 
 Provakil keeps each NPA matter against a loan account number (LAN), with the borrower, the
 dishonoured cheque and the demand notice. The company, its authorised officer and the
 empanelled advocate are set in Provakil, not per matter. The rules live in
-`apps/provakil-mock/src/lib/connector.ts`, which the connector settings page also shows.
+`apps/dristi-app/src/provakil/lib/connector.ts`, which the connector settings page also shows.
 
 A value no rule can translate is sent as it is, and scrutiny holds it and names it.
 
@@ -284,9 +285,9 @@ notification for an unopened push is on the `bulk-filing` branch only, not on `m
 | AI review (stand-in) | `apps/dristi-app/src/lib/bulk/ai-review.ts`, `doc-text.ts` |
 | Case documents (stand-in reader, screen, route) | `lib/bulk/case-doc.ts`, `components/bulk/documents-screen.tsx`, `POST /api/bulk/extract` |
 | Column matching | `apps/dristi-app/src/components/bulk/column-mapping.tsx` |
-| Provakil filing dialog | `apps/provakil-mock/src/components/push-dialog.tsx` |
+| Provakil filing dialog | `apps/dristi-app/src/provakil/components/push-dialog.tsx` |
 | Screens | `apps/dristi-app/src/components/bulk/` |
-| Provakil mock | `apps/provakil-mock` |
+| Provakil mock | `apps/dristi-app/src/provakil/`, routes under `src/app/provakil/`; its back end `provakil/lib/workspace.ts`, its API client `provakil/lib/saras-link.ts` |
 
 ## Changes and tradeoffs
 

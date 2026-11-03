@@ -16,6 +16,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ batchId: strin
       file: file instanceof File ? file : null,
       caseId: String(form.get("caseId") ?? ""),
       slotKey: String(form.get("slotKey") ?? ""),
+      poor: form.get("poor") === "true",
       ai: form.get("ai")?.toString() ?? null,
     }),
   );

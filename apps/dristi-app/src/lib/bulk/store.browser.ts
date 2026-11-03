@@ -54,4 +54,8 @@ export const browserStore: BulkStore = {
     const hit = await (await db()).get("files", id);
     return hit ? { bytes: new Uint8Array(await hit.blob.arrayBuffer()), meta: hit.meta } : null;
   },
+  async clear() {
+    const d = await db();
+    await Promise.all([d.clear("batches"), d.clear("files")]);
+  },
 };

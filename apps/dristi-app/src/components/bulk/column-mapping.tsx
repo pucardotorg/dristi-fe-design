@@ -1,17 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {
-  ArrowDownIcon,
-  SearchIcon,
-  CheckIcon,
-  HashIcon,
-  ArrowRightIcon,
-  ChevronDownIcon,
-  FileSpreadsheetIcon,
-  MinusIcon,
-  PlusIcon,
-} from "lucide-react";
+import { ArrowDownIcon, ArrowLeftRightIcon, ArrowRightIcon, CheckIcon, ChevronDownIcon, FileSpreadsheetIcon, HashIcon, MinusIcon, PlusIcon, SearchIcon } from "lucide-react";
 
 import {
   columnFit,
@@ -39,7 +29,6 @@ import {
 import { cn } from "@/lib/utils";
 import { BrandGlyph } from "@/components/brand-lockup";
 import { ConfirmDialog } from "@/components/shell/confirm-dialog";
-import { PANEL_CLASS } from "@/components/filing/form-card";
 import { Card } from "@/components/ui/card";
 import { SectionTabs } from "@/components/filing/section-tabs";
 import { RAIL_ROW, RAIL_ROW_ACTIVE } from "@/components/filing/sections-rail";
@@ -71,7 +60,6 @@ type Props = {
 /** Sections in the single filing's order. */
 const ORDER: GroupId[] = [
   "case",
-  "complainant",
   "accused",
   "cheque",
   "notice",
@@ -82,7 +70,6 @@ const ORDER: GroupId[] = [
 
 /** The single filing step each section belongs to, for its name, icon and place in the nav. */
 const STEP: Partial<Record<GroupId, StepId>> = {
-  complainant: "complainant",
   accused: "accused",
   cheque: "cheque",
   notice: "demand-notice",
@@ -100,7 +87,6 @@ const cardTitle = (g: Group) =>
 
 /** "Accused", "Cheques": what a count of a section is called. */
 const PLURAL: Partial<Record<GroupId, string>> = {
-  complainant: "Further complainants",
   accused: "Accused",
   cheque: "Cheques",
   notice: "Demand notices",
@@ -110,7 +96,6 @@ const PLURAL: Partial<Record<GroupId, string>> = {
 
 /** Singular and plural names for a count in a sentence: "1 accused", "2 cheques". */
 const NOUN: Partial<Record<GroupId, [string, string]>> = {
-  complainant: ["further complainant", "further complainants"],
   accused: ["accused", "accused"],
   cheque: ["cheque", "cheques"],
   notice: ["demand notice", "demand notices"],
@@ -519,6 +504,7 @@ function FieldRow({
             if (!open) setPending(null);
           }}
           destructive={false}
+          icon={ArrowLeftRightIcon}
           title={`Move "${pending ? props.headers[Number(pending.value)] : ""}" to ${column.header}?`}
           description={
             pending
@@ -730,7 +716,7 @@ export function ColumnMapping(props: Props) {
     Boolean,
   );
   const children = (g: Group) => GROUPS.filter((x) => x.parent === g.id);
-  // A section a case may not have at all (witnesses, further complainants, other pending
+  // A section a case may not have at all (witnesses, other pending
   // cases) shows once it has a count, or with the optional fields.
   const visible = (g: Group) =>
     g.always || instances[g.id].length > 0 || showOptional;
@@ -983,10 +969,8 @@ export function ColumnMapping(props: Props) {
                             </h4>
                           ) : null}
                           <Card
-                            className={cn(
-                              PANEL_CLASS,
-                              "relative gap-0 px-6 py-2",
-                            )}
+                            variant="raised"
+                            className="relative gap-0 px-6 py-2"
                           >
                             {/* The middle column of field 1fr, 3.5rem, column 1.2fr, inside px-6. */}
                             <span

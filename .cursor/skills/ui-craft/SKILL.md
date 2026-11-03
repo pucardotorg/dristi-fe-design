@@ -31,6 +31,8 @@ within it; they do not authorize a second DS or invented behavior.
 - Panels, tables, rails, or repeated rows: [surfaces](references/surfaces.md).
 - Text hierarchy and density: [typography](references/typography.md), alongside DS typography.
 - Dialogs, staged flows, or animation: [motion](references/motion.md).
+- Success, failure, warning, notices, toasts, confirms, field errors, dead ends: the
+  `feedback-states` skill. Use `components/feedback`, never a hand-built status UI.
 - Explicit investigation of historical measurements/rationale:
   [research](references/research.md). Re-measure against the current DS; this is not a gate.
 

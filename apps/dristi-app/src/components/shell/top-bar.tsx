@@ -27,6 +27,9 @@ import { useChrome, type Crumb } from "@/components/shell/chrome";
 import { CourtSwitch } from "@/components/court/court-switch";
 import { useLocale } from "@/components/shell/locale";
 import { useProfile } from "@/components/shell/profile";
+import { noticeToShell, normalizePhone, useAccess } from "@/components/access/access-state";
+import { registeredUserByName } from "@/lib/access/content";
+import { VIEWER_CLERK_NAME } from "@/lib/cases/viewer";
 import {
   NotificationsBell,
   type ShellNotification,
@@ -441,8 +444,19 @@ function LanguageToggle() {
 export function TopBar() {
   const notifications = useTaskNotifications();
   const { profileRole } = useProfile();
+  const { locale } = useLocale();
+  const { notices, markNoticesRead } = useAccess();
+  /* The clerk profile is the one account in the demo that can be added to an
+     office, so it is where the person's side shows (OFC-08). */
+  const clerkPhone = registeredUserByName(VIEWER_CLERK_NAME)?.phone;
+  const officeItems =
+    profileRole === "clerk" && clerkPhone
+      ? notices
+          .filter((n) => n.to === normalizePhone(clerkPhone))
+          .map((n) => noticeToShell(n, locale))
+      : [];
   // A litigant's notifications are their own (empty in this demo) — no advocate alerts.
-  const items = profileRole === "litigant" ? [] : notifications.items;
+  const items = profileRole === "litigant" ? [] : [...officeItems, ...notifications.items];
 
   const { crumbs } = useChrome();
   const pathname = usePathname();
@@ -474,7 +488,10 @@ export function TopBar() {
           the one thing this bar owes you that the rail cannot give: what changed. */}
       <NotificationsBell
         notifications={items}
-        onRead={notifications.markAllRead}
+        onRead={() => {
+          notifications.markAllRead();
+          if (profileRole === "clerk" && clerkPhone) markNoticesRead(clerkPhone);
+        }}
         onClearAll={notifications.clearStale}
       />
      </div>

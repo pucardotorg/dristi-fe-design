@@ -25,6 +25,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 
+import { isNotDristi } from "./not-dristi.mjs";
 import { APP_ROOT } from "./resolve-ds.mjs";
 
 const SRC = join(APP_ROOT, "src");
@@ -70,7 +71,7 @@ const ROW_FILL = /\bbg-[a-z]/;
 function sourceFiles(dir) {
   return readdirSync(dir).flatMap((entry) => {
     const full = join(dir, entry);
-    if (statSync(full).isDirectory()) return sourceFiles(full);
+    if (statSync(full).isDirectory()) return isNotDristi(full) ? [] : sourceFiles(full);
     if (full === PLATE || full.startsWith(UI_PRIMITIVES)) return [];
     return /\.tsx?$/.test(entry) ? [full] : [];
   });

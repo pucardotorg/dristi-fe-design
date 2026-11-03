@@ -61,7 +61,6 @@ import { carryOverOaths, isOutstanding, signatories } from "@/lib/filing/selecto
 import { ConfirmDialog } from "@/components/filing/confirm-dialog";
 import { SignFlowDialog, type SignFlowStart } from "@/components/filing/sign-flow-dialog";
 import { signingRules } from "@/lib/filing/config";
-import { toast } from "sonner";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -115,6 +114,7 @@ import { Identifier } from "@/components/chrome/identifier";
 import { useOrigin } from "@/components/shell/origin";
 import { useCourt, useCourtText } from "@/components/court/court-provider";
 import { localizeCourtText } from "@/lib/court/localize";
+import { notify } from "@/components/feedback";
 
 /** Where the correction round starts when nothing is flagged on a step yet. */
 const FALLBACK_STEP: StepId = "cheque";
@@ -693,7 +693,7 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
       for (const s of othersWaiting) d.sign.notified[s.id] = now;
     });
     setReminded(true);
-    toast.success(
+    notify.success(
       othersWaiting.length === 1
         ? `Reminder sent to ${othersWaiting[0].name}`
         : `Reminder sent to ${othersWaiting.length} people`,

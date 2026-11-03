@@ -1,9 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { CheckCircle2Icon, CheckIcon, ChevronsUpDownIcon, FileTextIcon, PencilIcon, PlusIcon } from "lucide-react";
+import { CheckIcon, ChevronsUpDownIcon, ExternalLinkIcon, FileTextIcon, PencilIcon, PlusIcon } from "lucide-react";
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import type { Locale } from "@/lib/onboarding/content";
 import { Identifier } from "@/components/chrome/identifier";
 import { useCourtText } from "@/components/court/court-provider";
 import type { ProfileRole } from "@/components/shell/profile";
+import { StatusLine } from "@/components/feedback";
 
 const REQUIRED_MARK = <span className="text-destructive">*</span>;
 
@@ -168,7 +169,7 @@ export function ProfileSettings({ locale, profileName, idSubmitted, submittedId,
             ) : null}
           </div>
         </div>
-        {advocateRequest && !advocateProfileAvailable ? <Alert variant="success"><CheckCircle2Icon aria-hidden /><AlertTitle>Your request has been submitted</AlertTitle><AlertDescription>We will notify you when your advocate profile is approved. Your litigant profile remains active.</AlertDescription></Alert> : null}
+        {advocateRequest && !advocateProfileAvailable ? <StatusLine tone="info" still title="Your request has been submitted">We will notify you when your advocate profile is approved. Your litigant profile remains active.</StatusLine> : null}
         {upgradeDetailsOpen && advocateRequest ? (
           <DescriptionList className="rounded-lg bg-muted px-4">
             <DescriptionRow><DescriptionTerm>Bar registration number</DescriptionTerm><DescriptionDetails><Identifier value={advocateRequest.barNumber} label="bar registration number" /></DescriptionDetails></DescriptionRow>
@@ -206,6 +207,22 @@ export function ProfileSettings({ locale, profileName, idSubmitted, submittedId,
             <p className="text-body-compact text-muted-foreground">Set or change the password you use to sign in.</p>
           </div>
           <Button variant="outline">Set password</Button>
+        </div>
+      </section>
+
+      {/* Demo only: the litigation system that pushes cases through the Bulk Filing API (`src/provakil/`). */}
+      <section className="flex flex-col gap-5 border-t border-border pt-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-title-s font-semibold">Provakil (demo)</h2>
+            <p className="text-body-compact text-muted-foreground">A stand-in for a lender&apos;s legal case software, which files cases here through the Bulk Filing API.</p>
+          </div>
+          <Button variant="outline" asChild>
+            <a href="/provakil" target="_blank" rel="noreferrer">
+              Open Provakil
+              <ExternalLinkIcon data-icon="inline-end" aria-hidden />
+            </a>
+          </Button>
         </div>
       </section>
 

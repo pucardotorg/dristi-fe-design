@@ -31,8 +31,8 @@ export function applicationOrderHref(
   return search ? `${base}?${search}` : base;
 }
 
-/** The application itself, in the workstation, on the list it was being worked in. */
+/** The application itself: open as a pop-up over the list it was opened from. */
 export function applicationHref(applicationId: string, view?: string): string {
-  const base = `/employee/applications/${encodeURIComponent(applicationId)}`;
-  return view ? `${base}?view=${encodeURIComponent(view)}` : base;
+  const query = new URLSearchParams({ view: view || "all", open: applicationId });
+  return `/employee/applications?${query.toString()}`;
 }

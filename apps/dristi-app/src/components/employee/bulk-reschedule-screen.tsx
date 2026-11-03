@@ -5,13 +5,11 @@ import {
   CalendarCheck2Icon,
   CalendarDaysIcon,
   CalendarX2Icon,
-  CircleCheckIcon,
   SearchXIcon,
   XIcon,
 } from "lucide-react";
 
 import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
-import { RESOLVE_IN_PLACE } from "@/components/chrome/motion";
 import {
   StagedOverlay,
   useStagedFlow,
@@ -74,6 +72,7 @@ import { cn } from "@/lib/utils";
 import { Identifier } from "@/components/chrome/identifier";
 import { QueueItemRow } from "@/components/employee/queue-item-row";
 import { useCourtText } from "@/components/court/court-provider";
+import { OutcomeHeader } from "@/components/feedback";
 
 /**
  * The day the bench is standing on is the reader's, not the server's — the same clock
@@ -476,7 +475,7 @@ export function BulkRescheduleScreen() {
             <TabsList
               variant="line"
               aria-label="Which matters to show"
-              className="h-10 w-max min-w-full justify-start rounded-none p-0 group-data-horizontal/tabs:h-10"
+              className="h-10 w-max min-w-full justify-start rounded-none"
             >
               {(
                 [
@@ -503,7 +502,7 @@ export function BulkRescheduleScreen() {
                   key={value}
                   ref={value === "scheduled" ? scheduledTabRef : undefined}
                   value={value}
-                  className="h-10 flex-none gap-2 px-3 text-body-compact group-data-horizontal/tabs:after:-bottom-px"
+                  className="h-10 flex-none gap-2 text-body-compact"
                 >
                   {label}
                   {/* How much is standing here, inheriting the trigger's colour so the
@@ -1621,6 +1620,12 @@ function RescheduleOverlay({
   /* The days the calendar will not offer — the span the bench asked the board for, and
      everything in it. See `earliestNewListing`. */
   const earliestNewDay = earliestNewListing(rows, range.to, today);
+  const windowTitle =
+    stage === "signed" && outcome
+      ? `${outcome.moved} ${plural(outcome.moved, "hearing", "hearings")} rescheduled`
+      : stage === "sign"
+        ? "Sign the rescheduling order"
+        : "Pick a new date";
 
   return (
     <StagedOverlay
@@ -1634,13 +1639,9 @@ function RescheduleOverlay({
       /* The one line that rewrites itself, and it carries the outcome too — the success
          band below states the signature, not the count, so the two no longer say the same
          thing twice. */
-      title={
-        stage === "signed" && outcome
-          ? `${outcome.moved} ${plural(outcome.moved, "hearing", "hearings")} rescheduled`
-          : stage === "sign"
-            ? "Sign the rescheduling order"
-            : "Pick a new date"
-      }
+      title={windowTitle}
+      /* The settled stage takes the window over: mark, then title (owner, Oct 29). */
+      outcome={stage === "signed"}
       titleRef={flow.titleRef}
       sceneKey={flow.sceneKey}
       motion={flow.motion}
@@ -1648,7 +1649,8 @@ function RescheduleOverlay({
          are what describe this window, before the signature and after it, so they are
          pointed at directly. Left unset the primitive would go looking for a description
          that is deliberately not there. */
-      aria-describedby={stage === "day" ? undefined : factId}
+      /* On the outcome the header's own description says "Order signed": leave it. */
+      aria-describedby={stage === "sign" ? factId : undefined}
       /* The question, not the first control the overlay happens to contain — which is
          the calendar's previous-month arrow, and a ring around that on open reads as a
          starting point the bench does not have. */
@@ -1785,7 +1787,21 @@ function RescheduleOverlay({
           its own content when there is not — `my-auto` gives way to overflow, which a
           `justify-center` on the scroller would not: that clips the top of a stage taller
           than the window and puts it out of reach. */}
-      <div className="mx-auto my-auto flex w-full max-w-sm flex-col gap-4">
+      {stage === "signed" ? (
+        <OutcomeHeader
+          titleFrom="dialog"
+          focusTitle
+          surface="card"
+          title={windowTitle}
+          body="Order signed"
+        />
+      ) : null}
+      <div
+        className={cn(
+          "mx-auto flex w-full max-w-sm flex-col gap-4",
+          stage === "signed" ? "p-4 sm:p-6" : "my-auto",
+        )}
+      >
         {stage === "day" || day === null ? (
           <PickDay day={day} onDayChange={setDay} earliest={earliestNewDay} />
         ) : (
@@ -1840,7 +1856,7 @@ function PickDay({
   earliest: string;
 }) {
   return (
-    <Card size="sm" className="border-hairline px-4 shadow-raised">
+    <Card variant="raised" size="sm" className="px-4">
       <div className="flex flex-col gap-3">
         {/* **No visible label over the grid any more.** It read *New hearing date*, 40px
             under a title that now reads *Pick a new date* — two lines naming the same
@@ -1955,40 +1971,16 @@ function SignOrder({
     /* Flush: the strip and the rows draw their own rules edge to edge, so the card's own
        padding is off and `overflow-hidden` is what keeps the band inside the radius. */
     <Card
+      variant="raised"
       size="sm"
-      className="gap-0 overflow-hidden border-hairline py-0 shadow-raised"
+      className="gap-0 overflow-hidden py-0"
     >
-      <div
-        /* Keyed on the act so the band mounts when it changes and plays its entrance;
-           the rows below it are not keyed and do not move. */
-        key={signed ? "signed" : "unsigned"}
-        className={cn(
-          "flex items-center gap-2 px-4 py-2.5 text-body-compact",
-          signed
-            /* The transparent rule is load-bearing: the unsigned band carries a
-               hairline, and a solid band without one is 1px shorter — which is 1px of
-               the card moving at the exact moment this design is claiming that nothing
-               does (measured before this). */
-            ? cn(
-                "border-b border-transparent bg-success text-success-foreground",
-                RESOLVE_IN_PLACE,
-              )
-            : "border-b border-hairline text-muted-foreground",
-        )}
-      >
-        {signed ? (
-          <>
-            <CircleCheckIcon aria-hidden className="size-4 shrink-0" />
-            {/* `role="status"` is what gets the outcome spoken: focus lands on the header
-                title, which announces itself and nothing under it. */}
-            <span role="status" className="font-medium">
-              Order signed
-            </span>
-          </>
-        ) : (
+      {/* Once signed, the window's outcome above says so; the card keeps the facts. */}
+      {signed ? null : (
+        <div className="flex items-center gap-2 border-b border-hairline px-4 py-2.5 text-body-compact text-muted-foreground">
           <span className="font-medium">Preparing to move</span>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* **Subgrid, so the term column is as wide as the longest term and not a pixel
           more.** The DS row reserves up to 10rem for the term, which left *Thursday, 17

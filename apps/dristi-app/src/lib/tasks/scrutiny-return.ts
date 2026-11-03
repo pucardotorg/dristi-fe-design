@@ -135,7 +135,7 @@ export const SCRUTINY_DEFECTS: Defect[] = [
     target: {
       kind: "doc",
       step: "upload",
-      slotKey: "c1ad",
+      slotKey: "n1ad",
       label: "Proof of delivery of demand notice (AD card)",
       sectionLabel: "Documents",
     },
@@ -222,7 +222,7 @@ export const SCRUTINY_DEFECTS_RAFI: Defect[] = [
     target: {
       kind: "doc",
       step: "upload",
-      slotKey: "c1ad",
+      slotKey: "n1ad",
       label: "Proof of delivery of demand notice (AD card)",
       sectionLabel: "Documents",
     },

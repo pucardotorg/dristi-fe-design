@@ -7,8 +7,7 @@ import {
   FileTextIcon,
   PlusIcon,
   Trash2Icon,
-  UserRoundIcon,
-} from "lucide-react";
+  UserRoundIcon, FileXIcon } from "lucide-react";
 
 import { ChromeAlertDialogContent } from "@/components/chrome/app-chrome";
 
@@ -31,7 +30,6 @@ import {
   AttachmentMedia,
   AttachmentTitle,
 } from "@/components/ui/attachment";
-import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -53,6 +51,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { RequiredMark } from "@/components/filing/form-field";
 import { cn } from "@/lib/utils";
 import { Identifier } from "@/components/chrome/identifier";
+import { ConfirmMark } from "@/components/feedback";
 
 export const MAX_FILING_FILE_SIZE = 10 * 1024 * 1024;
 const ACCEPTED_FILE_EXTENSIONS = ["pdf", "jpg", "jpeg", "png"];
@@ -157,7 +156,6 @@ export function FilingFrame({
   caseNumber,
   complainantName,
   onExit,
-  showPrototypeBanner = true,
   showCaseContext = true,
   /** "wide" gives a two-column body room; single-column forms stay default. */
   contentWidth = "default",
@@ -168,7 +166,6 @@ export function FilingFrame({
   caseNumber?: string;
   complainantName?: string;
   onExit: () => void;
-  showPrototypeBanner?: boolean;
   showCaseContext?: boolean;
   contentWidth?: "default" | "wide";
   children: ReactNode;
@@ -193,13 +190,6 @@ export function FilingFrame({
           {description}
         </p>
       </header>
-
-      {showPrototypeBanner ? (
-        <Banner variant="neutral">
-          Prototype only — filing details and selected files will not be saved
-          or sent.
-        </Banner>
-      ) : null}
 
       {showCaseContext && caseNumber ? (
         <Card size="sm" className="hover:bg-card">
@@ -238,10 +228,14 @@ export function FileField({
   error,
   onFilesChange,
   onErrorChange,
+  compact = false,
 }: {
   label: string;
-  description: string;
+  /** Said ahead of the accepted formats; left out, only the formats show. */
+  description?: string;
   required?: boolean;
+  /** Smaller thumbnails, for a list that may run to ten files or more. */
+  compact?: boolean;
   files: File[];
   error?: string;
   onFilesChange: (files: File[]) => void;
@@ -249,6 +243,12 @@ export function FileField({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const attached = files.length > 0;
+  const hint = (
+    <FieldDescription className="text-body-compact">
+      {description ? `${description} ` : ""}PDF, JPG, JPEG or PNG; maximum 10
+      MB per file.
+    </FieldDescription>
+  );
 
   function addFiles(selected: File[]) {
     const validationError = validateSelectedFiles(selected);
@@ -276,52 +276,60 @@ export function FileField({
             <span>{label}</span>
             {required ? null : <RequiredMark optional />}
           </FieldLabel>
-          <AttachmentGroup className="flex-col overflow-visible py-0 *:data-[slot=attachment]:w-full">
-            {files.map((file) => (
-              <Attachment key={fileKey(file)} className="w-full">
-                <AttachmentMedia
-                  variant={isPreviewableImage(file) ? "image" : "icon"}
-                  className="w-20"
-                >
-                  {isPreviewableImage(file) ? (
-                    <FilePreviewImage file={file} />
-                  ) : (
-                    <FileTextIcon className="size-8" aria-hidden />
-                  )}
-                </AttachmentMedia>
-                <AttachmentContent>
-                  <AttachmentTitle>{file.name}</AttachmentTitle>
-                  <AttachmentDescription>
-                    {formatFileSize(file.size)} · selected locally
-                  </AttachmentDescription>
-                </AttachmentContent>
-                <AttachmentActions>
-                  <AttachmentAction
-                    type="button"
-                    variant="destructive-ghost"
-                    size="icon"
-                    aria-label={`Remove ${file.name}`}
-                    onClick={() =>
-                      onFilesChange(
-                        files.filter((item) => fileKey(item) !== fileKey(file))
-                      )
-                    }
+          {/* Add more sits as far below the last file as the files sit from
+              each other, at the right, with the format hint beside it on the
+              same line (owner, Oct 26). */}
+          <div className="flex flex-col gap-3">
+            <AttachmentGroup className="flex-col overflow-visible py-0 *:data-[slot=attachment]:w-full">
+              {files.map((file) => (
+                <Attachment key={fileKey(file)} className="w-full">
+                  <AttachmentMedia
+                    variant={isPreviewableImage(file) ? "image" : "icon"}
+                    className={compact ? "w-12" : "w-20"}
                   >
-                    <Trash2Icon aria-hidden />
-                  </AttachmentAction>
-                </AttachmentActions>
-              </Attachment>
-            ))}
-          </AttachmentGroup>
-          <Button
-            type="button"
-            variant="outline"
-            className="w-fit"
-            onClick={() => inputRef.current?.click()}
-          >
-            <PlusIcon data-icon="inline-start" aria-hidden />
-            Add more
-          </Button>
+                    {isPreviewableImage(file) ? (
+                      <FilePreviewImage file={file} />
+                    ) : (
+                      <FileTextIcon className="size-8" aria-hidden />
+                    )}
+                  </AttachmentMedia>
+                  <AttachmentContent>
+                    <AttachmentTitle>{file.name}</AttachmentTitle>
+                    <AttachmentDescription>
+                      {formatFileSize(file.size)} · selected locally
+                    </AttachmentDescription>
+                  </AttachmentContent>
+                  <AttachmentActions>
+                    <AttachmentAction
+                      type="button"
+                      variant="destructive-ghost"
+                      size="icon"
+                      aria-label={`Remove ${file.name}`}
+                      onClick={() =>
+                        onFilesChange(
+                          files.filter((item) => fileKey(item) !== fileKey(file))
+                        )
+                      }
+                    >
+                      <Trash2Icon aria-hidden />
+                    </AttachmentAction>
+                  </AttachmentActions>
+                </Attachment>
+              ))}
+            </AttachmentGroup>
+            <div className="flex items-center justify-between gap-3">
+              {hint}
+              <Button
+                type="button"
+                variant="outline"
+                className="w-fit shrink-0"
+                onClick={() => inputRef.current?.click()}
+              >
+                <PlusIcon data-icon="inline-start" aria-hidden />
+                Add more
+              </Button>
+            </div>
+          </div>
         </>
       ) : (
         <DocumentSlot
@@ -335,9 +343,7 @@ export function FileField({
         />
       )}
 
-      <FieldDescription className="text-body-compact">
-        {description} PDF, JPG, JPEG or PNG; maximum 10 MB per file.
-      </FieldDescription>
+      {attached ? null : hint}
       <FieldError className="text-body-compact">{error}</FieldError>
 
       <input
@@ -621,6 +627,7 @@ export function DiscardFilingDialog({
   onDiscard,
   onSaveDraft,
   noun = "application",
+  finishIn = "Applications",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -628,6 +635,8 @@ export function DiscardFilingDialog({
   onSaveDraft?: () => void;
   /** What is being filed, for the title: "application", "objection". */
   noun?: string;
+  /** The case tab the draft waits on. */
+  finishIn?: string;
 }) {
   if (onSaveDraft) {
     return (
@@ -636,7 +645,7 @@ export function DiscardFilingDialog({
           <AlertDialogHeader>
             <AlertDialogTitle>Save this {noun} as a draft?</AlertDialogTitle>
             <AlertDialogDescription>
-              Finish it later from Applications.
+              Finish it later from {finishIn}.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -656,14 +665,15 @@ export function DiscardFilingDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <ChromeAlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Discard this application?</AlertDialogTitle>
+          <ConfirmMark danger icon={FileXIcon} />
+          <AlertDialogTitle>Discard this {noun}?</AlertDialogTitle>
           <AlertDialogDescription>
             Anything you entered will be lost.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Keep editing</AlertDialogCancel>
-          <AlertDialogAction variant="destructive-solid" onClick={onDiscard}>
+          <AlertDialogAction variant="destructive" onClick={onDiscard}>
             Discard
           </AlertDialogAction>
         </AlertDialogFooter>

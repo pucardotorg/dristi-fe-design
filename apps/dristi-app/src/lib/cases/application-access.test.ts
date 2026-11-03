@@ -304,3 +304,53 @@ describe("a Generic application's title", () => {
   });
 });
 
+
+describe("document submission (DSB-06, DSB-18)", () => {
+  it("shows a submitted document to the other side at once", () => {
+    const file = fileFor("c-1001");
+    const document = file.submissions.find((item) => item.id === "sub-1001-affidavit-pw2");
+    assert.ok(document && document.kind === "document" && document.status === "submitted");
+    const accused: ApplicationViewer = {
+      role: "advocate",
+      side: "accused",
+      personId: "ADV-A-001",
+    };
+    assert.ok(canSeeApplication(accused, document, file));
+  });
+
+  it("keeps an unsigned document from the other side", () => {
+    const file = fileFor("c-1001");
+    const document = file.submissions.find(
+      (item) => item.id === "sub-1001-memo-signature"
+    )!;
+    const accused: ApplicationViewer = {
+      role: "advocate",
+      side: "accused",
+      personId: "ADV-A-001",
+    };
+    assert.ok(!canSeeApplication(accused, document, file));
+  });
+
+  it("lets any advocate a clerk sent it to sign, and never the clerk", () => {
+    const file = fileFor("c-1001");
+    const sent = {
+      ...file.submissions.find((item) => item.id === "sub-1001-memo-signature")!,
+      id: "sent-by-clerk",
+      createdById: "CLK-C-000",
+      submittedById: "ADV-C-000",
+      signers: ["ADV-C-000", "ADV-C-001"],
+    };
+    const coCounsel: ApplicationViewer = {
+      role: "advocate",
+      side: "complainant",
+      personId: "ADV-C-001",
+    };
+    assert.equal(applicationStepFor(coCounsel, sent, file), "sign");
+    assert.equal(applicationStepFor(viewerFor("c-1001", "clerk"), sent, file), null);
+  });
+
+  it("lets a party in person sign their own", () => {
+    assert.equal(viewerFor("lt-2201", "litigant").role, "pip");
+    assert.equal(stepOf("lt-2201", "litigant", "sub-lt-2201-sign"), "sign");
+  });
+});

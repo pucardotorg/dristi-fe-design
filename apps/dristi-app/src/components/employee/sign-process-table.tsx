@@ -137,7 +137,9 @@ export function SignProcessTable({
   const allSelected = rows.length > 0 && selectedOnPage === rows.length;
   const someSelected = selectedOnPage > 0 && !allSelected;
   const bands = banded ? bandByStatus(rows, tab) : null;
-  const statusColumn = tab.statuses.length > 1;
+  /* The fee day only where the tab says so (RPAD collection); a seat's one-status
+     Issuance still says which status a row is. */
+  const statusColumn = tab.dateColumn === "Status";
 
   const row = (process: CourtProcess) => (
     <ProcessRow

@@ -74,6 +74,11 @@ export type ComposerContext = {
   people: readonly CasePerson[];
   /** Whether the accused has joined the case — it moves the process default (`AUT-05/06`). */
   accusedJoined: boolean;
+  /**
+   * The hearing the case is already listed for, outside a hearing — what a *Rescheduling
+   * of hearing date* moves and takes its purpose from. Absent when nothing is listed.
+   */
+  scheduledHearing?: { date: string; purpose?: CourtHearingPurposeId };
 };
 
 /* ──────────────────────────────────── ids ──────────────────────────────────── */
@@ -128,6 +133,7 @@ export function fieldWording(
   if (!value) return "";
   switch (field.kind) {
     case "date":
+    case "fixed":
       return /^\d{4}-\d{2}-\d{2}$/.test(value) ? formatOrderDate(value) : value;
     case "amount": {
       const amount = Number(value);
@@ -247,6 +253,12 @@ export function createItemBlock(
       (person) => person.kind === "witness",
     );
     if (witnesses.length === 1) values.witness = witnesses[0].id;
+  }
+  if (type === "rescheduling-of-hearing" && context.scheduledHearing) {
+    values.originalDate = context.scheduledHearing.date;
+    if (context.scheduledHearing.purpose) {
+      values.purpose = context.scheduledHearing.purpose;
+    }
   }
   Object.assign(values, preset.values);
   /* A party choice is either/or, so it opens on an answer rather than none (owner,

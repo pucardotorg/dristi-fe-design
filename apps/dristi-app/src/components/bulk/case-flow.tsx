@@ -10,8 +10,8 @@
  *
  *   · Sign and Pay fees are left out: the batch signs and pays once. The intake upload is
  *     left out too: the batch's documents step did it.
- *   · The batch's complainant and advocates are set once for every case, so they read as
- *     values here and are changed on the batch (a batch-wide fix applies to every case).
+ *   · The batch's complainants and advocates were copied onto every case when it was
+ *     created; here they are the case's own, changed in this case alone (PRD `BLK-06`).
  *   · The batch's checks sit on the fields they are about and on the rail's rows, and the
  *     bar above the section lists what is open in it, with Skip where a check allows it.
  *   · The bar names the case in the batch and moves to the previous, next, or next case
@@ -38,13 +38,10 @@ import { draftTitle } from "@/lib/filing/selectors";
 import { getStep, stepFromPathname } from "@/lib/filing/steps";
 import { FilingProvider, useFiling } from "@/lib/filing/store";
 import type { StepId } from "@/lib/filing/types";
-import { cn } from "@/lib/utils";
 import { useCourt, useCourtText } from "@/components/court/court-provider";
 import { DraftBreadcrumbLabel } from "@/components/filing/chrome";
 import { FieldPolicyProvider, type FieldPolicy } from "@/components/filing/field-policy";
-import { PANEL_CLASS } from "@/components/filing/form-card";
 import { FilingShell } from "@/components/filing/filing-shell";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -67,6 +64,7 @@ import { demoFill } from "./demo-fill";
 import { OriginalDoc } from "./original-doc";
 import { FlagLine } from "./scrutiny-tab";
 import { CaseBadge } from "./stage";
+import { StatusLine } from "@/components/feedback";
 
 /** Where the batch is, on one of its tabs. */
 function batchHref(batchId: string, tab: string, ai: string | null, caseId?: string): string {
@@ -77,6 +75,14 @@ function batchHref(batchId: string, tab: string, ai: string | null, caseId?: str
 }
 
 const editable = (c: CaseView) => c.stage === "held" || c.stage === "ready";
+
+/** The next case, after this one and round to the start, that still has something to fix. */
+function nextToFix(cases: CaseView[], at: number): CaseView | null {
+  return (
+    [...cases.slice(at + 1), ...cases.slice(0, at)].find((x) => editable(x) && x.flags.length > 0) ??
+    null
+  );
+}
 
 /** Why nothing in a case can be changed here, or `null` when it can. */
 function closedBecause(batch: BatchView | null, c: CaseView | null): string | null {
@@ -152,8 +158,49 @@ export function BulkCaseFlow({
     [batchId, caseId, aiParam],
   );
 
+  const courtText = useCourtText();
   const c = batch?.cases.find((x) => x.id === caseId) ?? null;
   const closed = closedBecause(batch, c);
+
+  /*
+   * Where the footer's primary action goes. A case is not walked section by section: once
+   * nothing is open where you are, it goes to the next section with something open, and
+   * once nothing is open in the case, to the next case that needs fixing.
+   */
+  const next = React.useMemo<FieldPolicy["next"]>(() => {
+    if (!batch || !c) return null;
+    const flags = editable(c) ? c.flags : [];
+    if (flags.some((f) => f.section === step)) return null;
+    const elsewhere = flags.filter((f) => f.section !== step);
+    if (elsewhere.length) {
+      const s = firstFlaggedStep(elsewhere);
+      return {
+        label: `Next to ${elsewhere.some((f) => f.level === "hold") ? "fix" : "check"}: ${courtText(getStep(s).title)}`,
+        href: caseFlowHref(batchId, c, s, aiParam),
+      };
+    }
+    const cases = batch.cases;
+    const toFix = nextToFix(cases, cases.findIndex((x) => x.id === c.id));
+    const left = cases.filter((x) => x.id !== c.id && editable(x) && x.flags.length > 0).length;
+    const status = (
+      <span className="inline-flex items-center gap-2 text-body-compact text-success-ink">
+        <CheckIcon className="size-4" aria-hidden />
+        {editable(c) ? "This case is ready" : "Nothing to change here"}
+        {left ? (
+          <span className="text-muted-foreground tabular-nums">
+            · {left} more {left === 1 ? "case needs" : "cases need"} you
+          </span>
+        ) : null}
+      </span>
+    );
+    return toFix
+      ? {
+          label: "Next case to fix",
+          href: caseFlowHref(batchId, toFix, firstFlaggedStep(toFix.flags), aiParam),
+          status,
+        }
+      : { label: "Back to all cases", href: batchHref(batchId, "scrutiny", aiParam, c.id), status };
+  }, [batch, c, step, batchId, aiParam, courtText]);
 
   const policy = React.useMemo<FieldPolicy>(() => {
     const flags = c?.flags ?? [];
@@ -168,15 +215,12 @@ export function BulkCaseFlow({
       },
       lockedAt: (instance) => {
         if (closed) return instance === null ? closed : null;
-        if (step === "advocate" && instance === null)
-          return "The advocates are set once for the whole batch, so they cannot be changed in one case.";
-        if (step === "complainant" && instance === 0)
-          return "This complainant is set once for the whole batch, so it cannot be changed in one case. A further complainant on this case can be.";
         return null;
       },
       countFor: (s) => flags.filter((f) => f.section === s).length,
+      next,
     };
-  }, [c, step, closed]);
+  }, [c, step, closed, next]);
 
   if (!ready) return null;
 
@@ -299,9 +343,8 @@ function CaseBar({
 
   if (error && !batch)
     return frame(
-      <Alert variant="destructive">
-        <AlertDescription>{error}</AlertDescription>
-      </Alert>,
+      /* Already true when the page opened: it stands still. */
+      <StatusLine tone="error" still>{error}</StatusLine>,
     );
   if (!batch || !c) return frame(<Skeleton className="h-16 w-full rounded-xl" />);
 
@@ -309,10 +352,7 @@ function CaseBar({
   const at = cases.findIndex((x) => x.id === c.id);
   const prev = cases[at - 1] ?? null;
   const next = cases[at + 1] ?? null;
-  // The next case, after this one and round to the start, that still has something to fix.
-  const toFix =
-    [...cases.slice(at + 1), ...cases.slice(0, at)].find((x) => editable(x) && x.flags.length > 0) ??
-    null;
+  const toFix = nextToFix(cases, at);
   const sameStep = (x: CaseView) =>
     caseFlowHref(batchId, x, step && BULK_CASE_STEPS.includes(step) ? step : undefined, aiParam);
 
@@ -325,7 +365,7 @@ function CaseBar({
   const later = c.flags.filter((f) => f.section !== step);
 
   return frame(
-    <Card className={cn(PANEL_CLASS, "gap-0 py-0")}>
+    <Card variant="raised" className="gap-0 py-0">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3">
         <Button asChild variant="ghost" className="-ml-2">
           <Link href={batchHref(batchId, "scrutiny", aiParam, c.id)}>
@@ -419,9 +459,7 @@ function CaseBar({
             </p>
           ) : null}
           {problem ? (
-            <Alert variant="destructive">
-              <AlertDescription>{problem}</AlertDescription>
-            </Alert>
+            <StatusLine tone="error">{problem}</StatusLine>
           ) : null}
           {/* Demo: fills every date (consistent, filable today) and every empty required field. */}
           <Button

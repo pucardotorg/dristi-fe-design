@@ -68,7 +68,7 @@ export function HomeScreen({
   initialLocale?: Locale;
 }) {
   const { locale } = useLocale();
-  const { accountName } = useProfile();
+  const { displayName } = useProfile();
   const [dialogOpen, setDialogOpen] = React.useState(openManualJoin || Boolean(joinHandoff));
   const [dialogMode, setDialogMode] = React.useState<JoinMode>(
     joinHandoff ? "handoff" : "manual",
@@ -116,7 +116,7 @@ export function HomeScreen({
     <>
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-4 py-8 md:px-6 md:py-10">
         <h1 className="text-title text-balance font-semibold sm:text-title-l">
-          {fill(home.welcome, locale, { name: accountName })}
+          {fill(home.welcome, locale, { name: displayName })}
         </h1>
 
         <section className="flex flex-col gap-5" aria-label={pick(home.casesHeading, locale)}>

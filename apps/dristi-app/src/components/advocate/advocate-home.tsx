@@ -2,10 +2,9 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
 import type { CauseListRow, TimelineHearing } from "@/lib/advocate/home";
 import { courtIdentity, courtNumberFor } from "@/lib/advocate/courts";
-import { CloudAlert, RotateCw } from "lucide-react";
+import { CloudAlert, RotateCw, VideoOffIcon } from "lucide-react";
 
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
@@ -57,6 +56,7 @@ import { DayActions, HearingTimeline, type FilterVariant } from "@/components/ad
 import { HOME_FRAME } from "@/components/advocate/home-layout";
 import { CauseListDialog } from "@/components/advocate/cause-list-dialog";
 import { JoinHearingDialog } from "@/components/advocate/join-hearing-dialog";
+import { notify } from "@/components/feedback";
 
 /** The shell top bar is `h-14`; the sticky rail hangs below it. */
 const TOP_BAR = "3.5rem";
@@ -173,7 +173,7 @@ export function AdvocateHome(props: {
     // Docked: the redesigned full-height panel that slides in from the right and
     // sits over the screen, the same shape the cases landing uses — not the older
     // inset floating card.
-    <CasePeekProvider now={now} docked>
+    <CasePeekProvider now={now}>
       <HomeBody {...props} now={now} />
     </CasePeekProvider>
   );
@@ -292,7 +292,8 @@ function HomeBody({
   const onJoinCourt = React.useCallback(() => setJoinOpen(true), []);
   const announceJoin = React.useCallback(
     (parties: string, courtLabel: string, courtNumber: string | null) => {
-      toast.info(pick({ en: "Hearing link unavailable", ml: "വിചാരണ ലിങ്ക് ലഭ്യമല്ല" }, locale), {
+      notify.neutral(pick({ en: "Hearing link unavailable", ml: "വിചാരണ ലിങ്ക് ലഭ്യമല്ല" }, locale), {
+        icon: VideoOffIcon,
         description: `${parties} · ${courtLabel}${courtNumber ? ` · ${courtNumber}` : ""}`,
       });
     },
@@ -479,7 +480,7 @@ function HomeBody({
   const hasDay = daySlots.some((slot) => slot.hearings.length > 0);
 
   return (
-    <CasePeekSurface mobileDrawer className="flex min-h-0 min-w-0 flex-1">
+    <CasePeekSurface className="flex min-h-0 min-w-0 flex-1">
       {/* A container, not just a column: the rail narrows the board without
           narrowing the viewport, so what the timeline puts on one line has to
           answer to its own width. */}

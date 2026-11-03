@@ -11,7 +11,6 @@ import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-gu
 import { FRAMED_BODY, FRAMED_HEAD } from "@/components/employee/order-sections";
 import { OrderItemFields } from "@/components/employee/order-item-fields";
 import { QueueSearchField } from "@/components/employee/queue-search-field";
-import { PANEL_CLASS } from "@/components/shell/panel";
 import {
   Popover,
   PopoverAnchor,
@@ -59,7 +58,13 @@ export function ItemsCard({
   onChoose,
   onEdit,
   onRemove,
+  pinned,
 }: {
+  /**
+   * An item the order always carries ahead of the catalogue's — an application order's
+   * Application item. Its own pop-up, never removed.
+   */
+  pinned?: { label: string; gaps: number; onEdit: () => void };
   items: ItemBlock[];
   context: ComposerContext;
   purpose?: string;
@@ -71,16 +76,42 @@ export function ItemsCard({
   onRemove: (block: ItemBlock) => void;
 }) {
   return (
-    <Card className={cn(PANEL_CLASS, "min-w-0 gap-0 p-0")}>
+    <Card variant="raised" className="min-w-0 gap-0 p-0">
       <div className={FRAMED_HEAD}>
         <h2 className="text-body-compact font-semibold">Items</h2>
         <span className="text-body-compact tabular-nums text-muted-foreground">
-          {items.length} in this order
+          {items.length + (pinned ? 1 : 0)} in this order
         </span>
       </div>
       <div className={cn(FRAMED_BODY, "flex min-w-0 flex-col gap-4")}>
-        {items.length > 0 ? (
+        {items.length > 0 || pinned ? (
           <ol className="flex min-w-0 flex-col divide-y divide-hairline rounded-xl border border-hairline">
+            {pinned ? (
+              <li className="flex min-h-12 min-w-0 items-center gap-2 py-1 pr-1 pl-3">
+                <span className="text-body-compact tabular-nums text-muted-foreground">
+                  1.
+                </span>
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="text-body-compact">{pinned.label}</span>
+                  {pinned.gaps > 0 ? (
+                    <span className="text-caption text-warning-ink">
+                      {pinned.gaps} mandatory to fill
+                    </span>
+                  ) : null}
+                </span>
+                {disabled ? null : (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Edit ${pinned.label}`}
+                    onClick={pinned.onEdit}
+                  >
+                    <PencilIcon aria-hidden />
+                  </Button>
+                )}
+              </li>
+            ) : null}
             {items.map((block, index) => {
               const gaps = missingMandatory(block, context);
               const template = orderTemplate(block.type);
@@ -91,7 +122,7 @@ export function ItemsCard({
                   className="flex min-h-12 min-w-0 items-center gap-2 py-1 pr-1 pl-3"
                 >
                   <span className="text-body-compact tabular-nums text-muted-foreground">
-                    {index + 1}.
+                    {index + (pinned ? 2 : 1)}.
                   </span>
                   <span className="flex min-w-0 flex-1 flex-col">
                     <span className="text-body-compact">{template.label}</span>

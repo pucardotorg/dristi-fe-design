@@ -19,9 +19,11 @@ import {
 import { initials } from "@/components/access/access-list";
 import { useCourtLocalized } from "@/components/court/court-provider";
 import { formatPhone } from "@/components/access/access-state";
+import { cn } from "@/lib/utils";
 import { pick, type Locale } from "@/lib/onboarding/content";
 import {
   inviteFieldCopy,
+  REGISTERED_USERS,
   roleCopy,
   type AccessRole,
 } from "@/lib/access/content";
@@ -35,7 +37,27 @@ export type InvitePerson = {
   barId?: string;
   name?: string;
   role?: AccessRole;
+  /** A registered account's type — set on directory entries (`registeredOnly`). */
+  type?: "advocate" | "clerk";
+  /** Already in the signed-in advocate's office — listed first (OFC-22). */
+  inOffice?: boolean;
 };
+
+/**
+ * Every registered advocate and clerk, the signed-in advocate's office first
+ * (OFC-20, OFC-22). `officePhones` are the office's numbers, any format.
+ */
+export function directoryOptions(officePhones: Iterable<string>): InvitePerson[] {
+  const office = new Set([...officePhones].map(digitsOf));
+  const all = REGISTERED_USERS.map((user) => ({
+    name: user.name,
+    phone: user.phone,
+    ...(user.barId ? { barId: user.barId } : {}),
+    type: user.type,
+    inOffice: office.has(digitsOf(user.phone)),
+  }));
+  return [...all.filter((p) => p.inOffice), ...all.filter((p) => !p.inOffice)];
+}
 
 const MAX_SHOWN = 5;
 
@@ -81,6 +103,12 @@ function keyOf(person: InvitePerson): string {
     : (person.barId ?? "").toUpperCase();
 }
 
+/** As the field shows it: the name alone, since the role is on the line under
+    it (owner, Oct 26). */
+function shownLabel(person: InvitePerson): string {
+  return inviteLabel(person).replace(/^Adv\.\s*/, "");
+}
+
 /** What a chip or option reads as: the name you know them by, otherwise the identifier typed. */
 export function inviteLabel(person: InvitePerson): string {
   return (
@@ -106,8 +134,12 @@ export function PeopleInviteField({
   onValueChange,
   locale,
   disabled = false,
+  registeredOnly = false,
+  officeTaken = false,
   copy: copyOverride,
   onQueryChange,
+  invalid = false,
+  describedBy,
 }: {
   id: string;
   /** The field's accessible name; the visible heading sits above it. */
@@ -117,10 +149,28 @@ export function PeopleInviteField({
   onValueChange: (next: InvitePerson[]) => void;
   locale: Locale;
   disabled?: boolean;
+  /**
+   * Office management (owner, 2026-10-21): `known` is DRISTI's directory of
+   * registered advocates and clerks, searched by name, number or Bar ID. Only
+   * someone in it can be chosen — a typed number is never offered as itself —
+   * and with nothing typed the field suggests the office.
+   */
+  registeredOnly?: boolean;
+  /**
+   * Add person (Anshumanth + owner, Oct 26): nothing is suggested before
+   * typing, since you are adding someone new, and anyone already in the office
+   * still shows when searched, greyed and marked, so the search says why they
+   * can't be picked.
+   */
+  officeTaken?: boolean;
   /** Wording for a narrower use — co-advocates on a vakalatnama rather than the team. */
   copy?: Partial<typeof inviteFieldCopy>;
   /** What is typed and not yet added, for a popup that asks before it throws it away. */
   onQueryChange?: (query: string) => void;
+  /** Marks the input invalid, which reddens the chips box (DS `has-aria-invalid`). */
+  invalid?: boolean;
+  /** The id of the message that explains the error. */
+  describedBy?: string;
 }) {
   const copy = { ...inviteFieldCopy, ...copyOverride };
   /* Searched as shown: names and Bar IDs in the selected court's terms, so typing what
@@ -140,11 +190,23 @@ export function PeopleInviteField({
   const looksLikeNumber = text.length > 0 && /^[\d\s+]+$/.test(text);
   const looksLikeBarId = text.includes("/");
 
+  /* A mobile number is private (Anshumanth, Oct 26): a stranger in the
+     directory is found by number only when the whole number is typed, and
+     their number is never shown for a name or Bar ID search. The office's
+     own numbers are already on the People page. */
+  const numberShown = (person: InvitePerson) =>
+    !registeredOnly ||
+    Boolean(person.inOffice) ||
+    (digits.length === 10 && digitsOf(person.phone ?? "") === digits);
   const matches = known.filter((person) => {
     if (chosen.has(keyOf(person))) return false;
-    if (!text) return true;
+    if (!text)
+      return registeredOnly ? !officeTaken && Boolean(person.inOffice) : true;
     if (looksLikeNumber) {
-      return digits.length > 0 && digitsOf(person.phone ?? "").includes(digits);
+      if (!digits.length) return false;
+      return registeredOnly && !person.inOffice
+        ? digitsOf(person.phone ?? "") === digits
+        : digitsOf(person.phone ?? "").includes(digits);
     }
     if (looksLikeBarId)
       return person.barId?.toLowerCase().includes(text) ?? false;
@@ -163,6 +225,7 @@ export function PeopleInviteField({
         ? { barId: typedBarId }
         : null;
   const typedNew =
+    !registeredOnly &&
     typed &&
     !chosen.has(keyOf(typed)) &&
     !known.some(
@@ -202,12 +265,14 @@ export function PeopleInviteField({
             <>
               {people.map((person) => (
                 <ComboboxChip key={keyOf(person)} className="tabular-nums">
-                  {inviteLabel(person)}
+                  {shownLabel(person)}
                 </ComboboxChip>
               ))}
               <ComboboxChipsInput
                 id={id}
                 aria-label={label}
+                aria-invalid={invalid || undefined}
+                aria-describedby={describedBy}
                 autoComplete="off"
                 placeholder={
                   people.length ? undefined : pick(copy.placeholder, locale)
@@ -217,8 +282,23 @@ export function PeopleInviteField({
           )}
         </ComboboxValue>
       </ComboboxChips>
-      <ComboboxContent anchor={anchor} className="pointer-events-auto">
-        <ComboboxEmpty>{pick(copy.keepTyping, locale)}</ComboboxEmpty>
+      {/* Nothing typed and nothing to suggest: no list at all, since it could
+          only repeat the placeholder (owner, Oct 26). */}
+      <ComboboxContent
+        anchor={anchor}
+        className={cn(
+          "pointer-events-auto",
+          !text && options.length === 0 && "hidden",
+        )}
+      >
+        <ComboboxEmpty>
+          {pick(
+            registeredOnly && looksLikeNumber && digits.length < 10
+              ? copy.fullNumber
+              : copy.keepTyping,
+            locale,
+          )}
+        </ComboboxEmpty>
         {!text && options.length ? (
           <p className="px-3 pt-3 pb-1 text-caption font-medium text-muted-foreground">
             {pick(copy.suggested, locale)}
@@ -226,7 +306,12 @@ export function PeopleInviteField({
         ) : null}
         <ComboboxList {...scroll}>
           {(person: InvitePerson) => (
-            <ComboboxItem key={keyOf(person)} value={person} className="gap-3">
+            <ComboboxItem
+              key={keyOf(person)}
+              value={person}
+              disabled={officeTaken && person.inOffice}
+              className="gap-3"
+            >
               <Avatar className="size-8 shrink-0">
                 <AvatarFallback className="text-caption font-medium">
                   {person.name ? (
@@ -240,7 +325,7 @@ export function PeopleInviteField({
               </Avatar>
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate text-body-compact font-medium tabular-nums">
-                  {inviteLabel(person)}
+                  {shownLabel(person)}
                 </span>
                 <span
                   className={
@@ -252,12 +337,17 @@ export function PeopleInviteField({
                   {person.name ? (
                     <>
                       <span className="tabular-nums">
-                        {[person.barId, person.phone]
+                        {[person.barId, numberShown(person) && person.phone]
                           .filter(Boolean)
                           .join(" · ")}
                       </span>
-                      {person.role
-                        ? ` · ${pick(roleCopy[person.role], locale)}`
+                      {person.type
+                        ? ` · ${pick(person.type === "clerk" ? copy.typeClerk : copy.typeAdvocate, locale)}`
+                        : person.role
+                          ? ` · ${pick(roleCopy[person.role], locale)}`
+                          : null}
+                      {person.inOffice && registeredOnly
+                        ? ` · ${pick(officeTaken ? copy.alreadyInOffice : copy.inOffice, locale)}`
                         : null}
                     </>
                   ) : (

@@ -361,9 +361,10 @@ function GroupCard({
 
   return (
     <Card
+      variant="raised"
       size="sm"
       id={`file-group-${group.id}`}
-      className="@container scroll-mt-32 gap-0 border-hairline py-0 shadow-raised"
+      className="@container scroll-mt-32 gap-0 py-0"
     >
       {/* A heading band, not a first row: the card's name on the sunken fill the rest of
           the app uses for a well, so a long card reads as headed rather than as a list

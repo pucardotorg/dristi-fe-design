@@ -17,6 +17,7 @@ import {
   buildDocumentGroups,
   createBlankDraft,
   intakeChequeGroup,
+  intakeNoticeGroup,
   intakePartyGroup,
   uid,
 } from "@/lib/filing/blank";
@@ -42,6 +43,8 @@ import type {
   ApiDocument,
   ApiRepresentative,
 } from "./contract";
+import { localizeCourtText } from "@/lib/court/localize";
+import { generateDetails } from "@/lib/filing/detail-fields";
 import { slotKeyFor } from "./contract";
 import { COURT_DISTRICT, resolveBar, resolveIfsc, resolvePin } from "./reference";
 import type { Batch, BatchCase, BatchSource } from "./types";
@@ -247,7 +250,7 @@ async function buildDraft(
     payeeFetched: !!payee,
     payeePolice: own ? trim(j.complainantBranchPoliceStation) : "",
     drawerPolice: own ? "" : trim(j.drawerBranchPoliceStation),
-    otherPending: others.length ? "yes" : "no",
+    otherPending: (j.otherPending ?? others.length > 0) ? "yes" : "no",
     otherCases: others.length
       ? others.map((o) => ({ court: trim(o.court), caseNumber: trim(o.caseNumber) }))
       : [{ court: "", caseNumber: "" }],
@@ -257,6 +260,9 @@ async function buildDraft(
   /* ADR and prayers (PRY). The prayers and affidavit keep the standard templates. */
   if (req.adr) draft.adr.adr = req.adr;
   draft.adr.otherDetails = paragraphs(c.otherDetails);
+  if (trim(c.interimRelief)) draft.adr.interimRelief = paragraphs(c.interimRelief);
+  if (trim(c.finalRelief)) draft.adr.finalRelief = paragraphs(c.finalRelief);
+  if (trim(c.affidavit)) draft.affidavit = paragraphs(c.affidavit);
 
   /* Witnesses (WIT), 0..n. With none, the draft keeps the single blank row a filing starts with. */
   if (c.witnesses?.length) {
@@ -273,11 +279,13 @@ async function buildDraft(
     );
   }
 
+  draft.intake.notices = draft.notices.map((_, i) => intakeNoticeGroup(i + 1));
+
   /* Documents (DCM): fetched now, placed in the intake slot each code fills. */
   const fetchFailed: string[] = [];
   const docText: Record<string, string | null> = {};
   const slots = new Map(
-    [...draft.intake.cheques, ...draft.intake.parties]
+    [...draft.intake.cheques, ...draft.intake.notices, ...draft.intake.parties]
       .flatMap((g) => g.slots)
       .concat(draft.intake.supporting)
       .map((s) => [s.key, s])
@@ -297,10 +305,38 @@ async function buildDraft(
   // Every section was filled from the request, so each counts as opened.
   draft.visited = [...PROGRESS_STEPS.filter((s) => s !== "sign"), "witnesses", "affidavit", "preview"];
   draft.lastStep = "preview";
+  /* PRY-1 from the batch's format, for a case that brought no additional details. Written
+     last, so every value the format names is already on the draft. */
+  const format = req.detailsFormat;
+  if (format && !trim(c.otherDetails)) {
+    const court = format.court;
+    draft.adr.otherDetails = generateDetails(
+      formattingOnly(format.html),
+      draft,
+      court ? (text) => localizeCourtText(text, court) : undefined,
+    );
+    draft.adr.detailsFormat = format.id;
+  }
+
   draft.createdAt = now;
   draft.updatedAt = now;
 
   return { draft, unknownBar, fetchFailed, unknownService, unstated, docText };
+}
+
+/**
+ * A format's markup arrives over the API, so only plain formatting is kept — paragraphs,
+ * line breaks, bold, italic and lists, with no attributes. Anything else is dropped and
+ * its text kept, so nothing sent in can run in the page that shows the complaint.
+ */
+export function formattingOnly(html: string): string {
+  return String(html ?? "")
+    .replace(/<(script|style)\b[\s\S]*?<\/\1\s*>/gi, "")
+    .replace(/<\/?([a-z0-9]+)\b[^>]*>/gi, (tag, name: string) => {
+      const n = name.toLowerCase();
+      if (!["p", "br", "b", "strong", "i", "em", "ol", "ul", "li"].includes(n)) return "";
+      return tag.startsWith("</") ? `</${n}>` : `<${n}>`;
+    });
 }
 
 /** Requests that are not a batch at all are refused before anything is stored. */
@@ -312,6 +348,9 @@ export function validateRequest(req: unknown): string[] {
   if (!r.complainant?.name) errors.push("complainant.name is required.");
   if (!Array.isArray(r.advocates)) errors.push("advocates must be a list.");
   if (!Array.isArray(r.cases) || r.cases.length === 0) errors.push("cases must be a non-empty list.");
+  if (r.detailsFormat && (typeof r.detailsFormat.html !== "string" || typeof r.detailsFormat.id !== "string")) {
+    errors.push("detailsFormat needs an id and html.");
+  }
   const refs = new Set<string>();
   (r.cases ?? []).forEach((c, i) => {
     if (!c?.reference) errors.push(`cases[${i}].reference is required.`);

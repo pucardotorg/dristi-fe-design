@@ -406,7 +406,7 @@ export function SignOrdersScreen() {
             <TabsList
               variant="line"
               aria-label="Which orders to show"
-              className="h-10 w-max min-w-full justify-start rounded-none p-0 group-data-horizontal/tabs:h-10"
+              className="h-10 w-max min-w-full justify-start rounded-none"
             >
               {(
                 [
@@ -418,7 +418,7 @@ export function SignOrdersScreen() {
                 <TabsTrigger
                   key={value}
                   value={value}
-                  className="h-10 flex-none gap-2 px-3 text-body-compact group-data-horizontal/tabs:after:-bottom-px"
+                  className="h-10 flex-none gap-2 text-body-compact"
                 >
                   {label}
                   {/* How much is standing here, inheriting the trigger's colour so the

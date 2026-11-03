@@ -339,7 +339,7 @@ function DetailsStage({
 }) {
   return (
     <div className="flex flex-col gap-4">
-      <Card size="sm" className="border-hairline shadow-raised">
+      <Card variant="raised" size="sm">
         <CardContent>
           <DescriptionList>
             <ReviewRow term="Document title">
@@ -356,7 +356,7 @@ function DetailsStage({
         </CardContent>
       </Card>
 
-      <Card size="sm" className="border-hairline shadow-raised">
+      <Card variant="raised" size="sm">
         <CardContent>
           <Field data-invalid={blank}>
             <FieldLabel className="text-body">Business of the day</FieldLabel>
@@ -427,7 +427,7 @@ function MarkAsEvidenceStage({
   onProceed: () => void;
 }) {
   return (
-    <Card size="sm" className="border-hairline shadow-raised">
+    <Card variant="raised" size="sm">
       <CardContent>
         <form
           id="mark-as-evidence"

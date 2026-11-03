@@ -13,7 +13,7 @@ import {
   RETURN_REASONS,
 } from "../filing/options";
 
-import { COLUMNS, formatHint, isGuideRow, LISTS, listValue, normHeader } from "./excel-spec";
+import { COLUMNS, formatHint, headerFor, isGuideRow, LISTS, listValue, matchTemplateHeader, normHeader, templateColumns } from "./excel-spec";
 
 test("the template's lists are the form's lists", () => {
   assert.deepEqual(LISTS.accusedType, ACCUSED_TYPES);
@@ -27,16 +27,31 @@ test("the template's lists are the form's lists", () => {
   assert.deepEqual(LISTS.gender, GENDER_OPTIONS);
 });
 
-test("every police station the filing requires is required in the sheet", () => {
+test("every police station the PRD asks for is required in the sheet", () => {
   const req = (key: string) => COLUMNS.find((c) => c.key === key)!.required;
   assert.equal(req("accusedPolice"), "Yes");
-  assert.equal(req("payeePolice"), "When deposited in own account");
-  assert.equal(req("drawerPolice"), "When not deposited in own account");
-  assert.equal(req("witnessPolice"), "For each witness");
+  assert.equal(req("personPolice"), "When Institution");
+  assert.equal(req("payeePolice"), "When deposited in complainant's account");
+  assert.equal(req("drawerPolice"), "When not deposited in complainant's account");
 });
 
-test("the accused has no age column: the filing asks none", () => {
-  assert.ok(!COLUMNS.some((c) => c.key === "accusedAge"), "the filing asks no age for an accused");
+test("the template is the PRD's 79 columns, every repeat numbered", () => {
+  const all = templateColumns();
+  assert.equal(all.length, 79);
+  const headers = all.map((t) => t.header);
+  assert.equal(new Set(headers).size, 79, "no header twice");
+  for (const h of ["Case reference", "Accused 1 name", "Accused 2 name", "Accused 1 address 1 pincode", "Accused 2 person responsible 1 police station", "Cheque 1 complainant branch IFSC", "Demand notice 1 dispatch date", "Other complaint pending between the same parties", "Other pending case 1 case number", "Interim relief", "Affidavit", "Witness 1 address 1 pincode"])
+    assert.ok(headers.includes(h), h);
+  assert.ok(!headers.some((h) => /complainant (name|type)/i.test(h)), "no complainant columns: they are set on the upload screen");
+});
+
+test("a numbered header names its column and instance; an unnumbered one does not", () => {
+  const m = matchTemplateHeader("Accused 2 address 1 pincode")!;
+  assert.equal(m.column.key, "accusedPin");
+  assert.deepEqual(m.instance, [2, 1]);
+  assert.deepEqual(matchTemplateHeader("cheque-3 AMOUNT")!.instance, [3]);
+  assert.equal(matchTemplateHeader("Cheque amount"), null);
+  assert.equal(headerFor(COLUMNS.find((c) => c.key === "personName")!, [1, 2]), "Accused 1 person responsible 2 name");
 });
 
 test("headers and aliases never collide", () => {

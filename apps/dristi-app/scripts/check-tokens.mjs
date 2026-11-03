@@ -8,6 +8,8 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { isNotDristi } from "./not-dristi.mjs";
+
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SRC = join(ROOT, "src");
 const TOKEN_SOURCE = join(ROOT, "src/app/globals.css");
@@ -28,7 +30,7 @@ const ARBITRARY_METRIC =
 function sourceFiles(dir) {
   return readdirSync(dir).flatMap((entry) => {
     const full = join(dir, entry);
-    if (statSync(full).isDirectory()) return sourceFiles(full);
+    if (statSync(full).isDirectory()) return isNotDristi(full) ? [] : sourceFiles(full);
     return /\.(tsx?|css)$/.test(entry) && full !== TOKEN_SOURCE ? [full] : [];
   });
 }

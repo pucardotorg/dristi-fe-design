@@ -74,12 +74,11 @@ export type ApplicationTypeId =
    */
   | "objection";
 
-/** Submission-flow buckets — the register's document heads live in documents.ts. */
-export type SubmissionDocumentTypeId =
-  | "affidavits"
-  | "memos"
-  | "objections"
-  | "document-others";
+/**
+ * Submit documents' Document type: exactly these three (Document Submission
+ * PRD, DSB-01). The Documents tab's own six types live in documents.ts.
+ */
+export type SubmissionDocumentTypeId = "affidavits" | "memos" | "evidence";
 
 export type SubmissionTypeId = ApplicationTypeId | SubmissionDocumentTypeId;
 
@@ -115,15 +114,14 @@ export const APPLICATION_TYPES: {
   { id: "objection", label: "Objection" },
 ];
 
-/** Submission-flow buckets — the register's document heads live in documents.ts. */
+/** Submit documents' Document type (DSB-01). */
 export const SUBMISSION_DOCUMENT_TYPES: {
   id: SubmissionDocumentTypeId;
   label: string;
 }[] = [
-  { id: "affidavits", label: "Affidavits" },
-  { id: "memos", label: "Memos" },
-  { id: "objections", label: "Objections" },
-  { id: "document-others", label: "Others" },
+  { id: "affidavits", label: "Affidavit" },
+  { id: "memos", label: "Memo" },
+  { id: "evidence", label: "Evidence" },
 ];
 
 /** In lifecycle order, so the Status filter reads the way a filing moves. */
@@ -435,6 +433,12 @@ export type Submission = {
    * "Application Raised By"). On a draft, the one who will sign it.
    */
   submittedById: string;
+  /**
+   * Anyone else who may sign it. A clerk's submitted documents go to every
+   * advocate the clerk works for on the case, and the first to sign submits
+   * them (DSB-18). Absent: only `submittedById` signs.
+   */
+  signers?: string[];
   /** Who started the draft, when that is not the signer (a clerk or junior). */
   createdById: string;
   /** The litigant it is raised for (PRD "Application Raised On Behalf Of"). */
@@ -484,6 +488,12 @@ export type Submission = {
   linkedOrder: LinkedOrder | null;
   defects: string[];
   documents: SubmissionDocument[];
+  /**
+   * An application's attachments, each its own document on the Documents
+   * tab, titled by its field or the filer's name for it (DSB-23). Kept only
+   * for applications filed in this visit; the pack's carry none.
+   */
+  attachments?: { label: string; files: SubmissionDocument[] }[];
 };
 
 export type ApplicationsFile = {

@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+
+import { PageOutcome } from "@/components/feedback";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeftIcon } from "lucide-react";
@@ -35,14 +37,20 @@ export function NewFiling() {
 
   if (error) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 px-4 py-16 text-center">
-        <p className="text-body text-foreground">{error}</p>
-        <Button asChild variant="outline">
-          <Link href={FILINGS_HOME}>
-            <ArrowLeftIcon data-icon="inline-start" aria-hidden />
-            Back to dashboard
-          </Link>
-        </Button>
+      <div className="flex flex-1 flex-col items-center justify-center px-4 py-16">
+        <PageOutcome
+          tone="error"
+          as="p"
+          title={error}
+          action={
+            <Button asChild variant="outline">
+              <Link href={FILINGS_HOME}>
+                <ArrowLeftIcon data-icon="inline-start" aria-hidden />
+                Back to dashboard
+              </Link>
+            </Button>
+          }
+        />
       </div>
     );
   }

@@ -1,5 +1,7 @@
 "use client";
 
+import { CaseHistoryList } from "@/components/employee/grouped-case-history";
+import { cognizanceHistory } from "@/lib/employee/grouped-case-history";
 import * as React from "react";
 import Link from "next/link";
 import { FileQuestionIcon } from "lucide-react";
@@ -75,7 +77,11 @@ export function CognizanceOrderScreen({
 
   return (
     <div className={cn("min-w-0", arrival && ARRIVAL[arrival])}>
-      <CognizanceOrder key={`${matter.id}:${chosen}`} matter={matter} act={chosen} />
+      <CognizanceOrder
+        key={`${matter.id}:${chosen}`}
+        matter={matter}
+        act={chosen}
+      />
     </div>
   );
 }
@@ -152,6 +158,8 @@ export function useCognizanceOrderDoor(
       caseNumber: matter.caseNumber,
       matter: subjectCauseTitle(subject),
     },
+    /* Its filing, so the Case history tab is there here too (owner, 2026-10-23). */
+    history: <CaseHistoryList rows={cognizanceHistory(matter, today)} />,
   };
 }
 
@@ -172,8 +180,8 @@ export function OrderMissing() {
             This complaint is not waiting for cognizance
           </EmptyTitle>
           <EmptyDescription className="text-body">
-            An order is drawn up from a complaint on the list of those waiting for
-            cognizance. This one is not on it.
+            An order is drawn up from a complaint on the list of those waiting
+            for cognizance. This one is not on it.
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>

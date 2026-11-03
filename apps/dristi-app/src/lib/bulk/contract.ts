@@ -16,6 +16,8 @@
  * in the list is kept as sent and held at scrutiny, never guessed.
  */
 
+import type { CourtId } from "@/lib/court/profiles";
+
 export type ApiAddress = {
   line1: string;
   city: string;
@@ -147,7 +149,9 @@ export type ApiJurisdiction = {
   complainantBranchPoliceStation?: string;
   /** `JUR-6a`, when not. */
   drawerBranchPoliceStation?: string;
-  /** `JUR-6b`, `JUR-7`, `JUR-8`. */
+  /** `JUR-6b`. When absent, read from whether any other pending case is sent. */
+  otherPending?: boolean | null;
+  /** `JUR-7`, `JUR-8`. */
   otherPendingCases?: { court: string; caseNumber: string }[];
 };
 
@@ -193,6 +197,10 @@ export type ApiCase = {
   witnesses?: ApiWitness[];
   /** `PRY-1`: additional details for the court, as plain text. */
   otherDetails?: string;
+  /** `PRY-2`, `PRY-3`, `PRY-4`: the full, finished text, plain; each line break a paragraph. Absent keeps the standard text. */
+  interimRelief?: string;
+  finalRelief?: string;
+  affidavit?: string;
   documents?: ApiDocument[];
 };
 
@@ -209,6 +217,13 @@ export type ApiBatchRequest = {
   advocates: ApiAdvocate[];
   /** `PRY-5`, the same choices as the filing's ADR question. */
   adr?: "yes" | "no" | "maybe";
+  /**
+   * `PRY-1` for the whole batch: an additional-details format (`lib/filing/details-formats.ts`)
+   * whose text is generated for each case from that case's own details. A case that
+   * brings its own `otherDetails` keeps them. `html` is the format with its variables
+   * already named as e-filing fields; `court` is the court its values are worded for.
+   */
+  detailsFormat?: { id: string; html: string; court?: CourtId };
   cases: ApiCase[];
 };
 
@@ -256,7 +271,8 @@ export const DOC_CODE_LABEL: Record<DocCode, string> = {
 
 /**
  * The intake slot each code fills on a draft (`lib/filing/blank.ts`). Per-cheque codes take
- * the cheque's number; per-complainant codes (ID card, PoA, vakalatnama) the complainant's.
+ * the cheque's number, per-notice codes the notice's, and per-complainant codes (ID card,
+ * PoA, vakalatnama) the complainant's.
  */
 export function slotKeyFor(code: DocCode, index = 1): string {
   switch (code) {
@@ -265,13 +281,13 @@ export function slotKeyFor(code: DocCode, index = 1): string {
     case "DCM-2":
       return `c${index}m`;
     case "DCM-3":
-      return `c${index}dn`;
+      return `n${index}dn`;
     case "DCM-4":
-      return `c${index}dp`;
+      return `n${index}dp`;
     case "DCM-5":
-      return `c${index}ad`;
+      return `n${index}ad`;
     case "DCM-6":
-      return `c${index}rp`;
+      return `n${index}rp`;
     case "DCM-7":
       return "sl";
     case "DCM-9":
@@ -285,18 +301,12 @@ export function slotKeyFor(code: DocCode, index = 1): string {
 
 /** The reverse of `slotKeyFor`, for naming a slot by its code on screen. */
 export function codeForSlot(key: string): { code: DocCode; index: number } | null {
-  const cheque = /^c(\d+)(f|m|dn|dp|ad|rp)/.exec(key);
-  if (cheque) {
-    const index = Number(cheque[1]);
-    const map: Record<string, DocCode> = {
-      f: "DCM-1",
-      m: "DCM-2",
-      dn: "DCM-3",
-      dp: "DCM-4",
-      ad: "DCM-5",
-      rp: "DCM-6",
-    };
-    return { code: map[cheque[2]], index };
+  const cheque = /^c(\d+)(f|m)/.exec(key);
+  if (cheque) return { code: cheque[2] === "f" ? "DCM-1" : "DCM-2", index: Number(cheque[1]) };
+  const notice = /^n(\d+)(dn|dp|ad|rp)/.exec(key);
+  if (notice) {
+    const map: Record<string, DocCode> = { dn: "DCM-3", dp: "DCM-4", ad: "DCM-5", rp: "DCM-6" };
+    return { code: map[notice[2]], index: Number(notice[1]) };
   }
   if (key === "sl") return { code: "DCM-7", index: 1 };
   const party = /^p(\d+)(id|poa|vak)/.exec(key);

@@ -97,3 +97,23 @@ export function demoPdf(name: string): File {
     { type: "application/pdf" },
   );
 }
+
+/**
+ * A photo of a document too small to read (360px on its long edge, under the 500px the
+ * readability check asks for), so the demo shows the blurry-scan warning. Browser only.
+ */
+export async function demoBlurryScan(name: string): Promise<File> {
+  const canvas = new OffscreenCanvas(360, 240);
+  const ctx = canvas.getContext("2d")!;
+  ctx.fillStyle = "#f4f1ea";
+  ctx.fillRect(0, 0, 360, 240);
+  ctx.filter = "blur(2px)";
+  ctx.fillStyle = "#333";
+  ctx.font = "14px sans-serif";
+  ctx.fillText(`Demo document: ${name}`, 20, 40);
+  for (let y = 70; y < 220; y += 18) ctx.fillRect(20, y, 300 - (y % 50), 6);
+  const blob = await canvas.convertToBlob({ type: "image/png" });
+  return new File([blob], `${name.replace(/[^\w]+/g, "-").toLowerCase()}-photo.png`, {
+    type: "image/png",
+  });
+}

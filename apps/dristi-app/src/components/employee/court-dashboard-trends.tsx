@@ -171,12 +171,12 @@ export function Trends({ docket }: { docket: CourtDocket }) {
         />
       </PanelHeader>
 
-      <div className={cn(BOX, "grid overflow-hidden lg:grid-cols-[16rem_minmax(0,1fr)]")}>
+      <div className={cn(BOX, "grid items-start gap-4 p-4 sm:gap-6 sm:p-6 lg:grid-cols-[16rem_minmax(0,1fr)]")}>
         <div
           role="tablist"
           aria-label="Measures"
           aria-orientation="vertical"
-          className="flex min-w-0 overflow-x-auto border-hairline bg-muted max-lg:border-b lg:flex-col lg:border-r"
+          className="flex min-w-0 self-start overflow-x-auto rounded-lg border border-hairline bg-muted lg:sticky lg:top-6 lg:flex-col lg:overflow-hidden"
         >
           {trends.map((t, i) => {
             const on = t.id === trend.id;
@@ -341,7 +341,7 @@ function TrendPanel({ docket, trend, months }: { docket: CourtDocket; trend: Tre
       id="dash-trend-panel"
       role="tabpanel"
       aria-labelledby={`dash-trend-tab-${trend.id}`}
-      className={cn(STAGE_SLIDE.arrive, "flex min-w-0 flex-col gap-4 p-4 sm:p-6")}
+      className={cn(STAGE_SLIDE.arrive, "flex min-w-0 flex-col gap-3")}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-0.5">
@@ -374,7 +374,7 @@ function TrendPanel({ docket, trend, months }: { docket: CourtDocket; trend: Tre
 
       {real.length >= 2 ? (
         <figure className="flex min-w-0 flex-col gap-1">
-          <ChartContainer config={config} className="aspect-auto h-60 w-full">
+          <ChartContainer config={config} className="aspect-auto h-44 w-full">
             <ComposedChart
               accessibilityLayer
               data={rows}

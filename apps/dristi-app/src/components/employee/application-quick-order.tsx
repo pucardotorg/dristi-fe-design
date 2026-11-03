@@ -10,31 +10,29 @@ import { ListingDateField } from "@/components/employee/listing-date-field";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
+import type { LifecycleApplication } from "@/lib/applications/lifecycle";
+import { partiesLabel, type CaseRecord } from "@/lib/cases/types";
+import { applicationOrderHref } from "@/lib/employee/application-order-decision";
+import { nextApplicationOrderKey } from "@/lib/employee/application-order-draft";
 import {
-  acceptanceNeedsHearingDate,
-  type LifecycleApplication,
-} from "@/lib/applications/lifecycle";
-import type { CaseRecord } from "@/lib/cases/types";
-import {
-  applicationOrderHref,
-  type ApplicationOrderDecision,
-} from "@/lib/employee/application-order-decision";
-import {
-  applicationOrderContext,
-  applicationOrderKey,
-  applicationOrderMeta,
-  decisionItem,
-  quickOrderDraft,
-} from "@/lib/employee/application-order-draft";
+  applicationOutcomeGaps,
+  applicationWorkflow,
+  initialApplicationOutcome,
+  setApplicationOutcome,
+  type ApplicationOutcome,
+} from "@/lib/employee/application-outcome";
 import { isoDay } from "@/lib/employee/hearings";
 import { orderDraftKey } from "@/lib/employee/order-door";
-import { writeOrderDraft } from "@/lib/employee/order-drafts";
+import { EMPTY_ORDER_DRAFT, type OrderDraft } from "@/lib/employee/order-draft";
+import { readOrderDraft, writeOrderDraft } from "@/lib/employee/order-drafts";
+import { richTextFromPlain } from "@/lib/employee/order-text";
 import {
   markOrderReady,
   markOrdersSigned,
@@ -46,44 +44,35 @@ import {
   setOrderWorkflowComplete,
 } from "@/lib/employee/pending-orders";
 
-const TITLES: Record<ApplicationOrderDecision, string> = {
-  accept: "Accept application",
-  reject: "Reject application",
-  dismiss: "Dismiss application",
+/** What the panel asked for, as the quick order passes it. */
+export type QuickOrderRequest = {
+  /** "Onboard and list" — the modal's title. */
+  title: string;
+  /** The court's standard words for it, editable. */
+  text: string;
+  /** The panel's answers, written into the order's Application item. */
+  answers: Partial<ApplicationOutcome>;
+  /** An acceptance that moves the hearing (Postpone, Advance) asks for the new date. */
+  needsHearingDate?: boolean;
 };
-
-const SETTLED: Record<ApplicationOrderDecision, string> = {
-  accept: "accepted",
-  reject: "rejected",
-  dismiss: "dismissed",
-};
-
-/** What the bench has typed into one decision's order, kept while it moves between them. */
-export type QuickOrderEntry = { text?: string; nextHearing?: Date };
 
 /**
- * The order on an application in the court's standard words, passed without leaving the
- * workstation — the one modal on it, with nothing opened on top of it.
+ * The order on an application in a few words, passed without leaving the Applications
+ * pop-up (owner, 2026-10-22: bring back the quick order "which let them continue faster
+ * onto the next application", with the full order screen a button away).
  *
- * The words are the catalogue's for the decision (`decisionItem`), filled as the order
- * screen fills them, and may be edited. An acceptance that moves the hearing (Postpone,
- * Advance) also asks for the new date, as the order's next hearing.
+ * The primary writes a real order under the application's next order key, as the order
+ * screen would: its words, the panel's answers as its Application item, its line in
+ * Pending orders, sent for signing, its order data complete. The magistrate signs it
+ * here, which triggers it, and `ApplicationOrderTriggers` moves the application. Anyone
+ * else sends it to the magistrate.
  *
- * The primary writes a real order under the application's key, the way the full-page
- * editor would: its draft, its line in Pending orders, sent for signing, its workflow
- * complete (the decision is its only item, and it is answered). The magistrate signs it
- * here, which triggers it, and `ApplicationOrderTriggers` decides the application with
- * these words as its order. Anyone else sends it to the magistrate.
- *
- * *Open in order screen* saves the same order as a draft, in the shape of whichever order
- * screen will open, and goes there.
+ * *Open in order screen* saves the same order as a draft, not sent, and goes there.
  */
 export function ApplicationQuickOrder({
   application,
   record,
-  decision,
-  entry,
-  onEntry,
+  request,
   canSign,
   on,
   hearing,
@@ -93,10 +82,8 @@ export function ApplicationQuickOrder({
 }: {
   application: LifecycleApplication;
   record: CaseRecord;
-  /** The decision being ordered; `null` while the modal is closed. */
-  decision: ApplicationOrderDecision | null;
-  entry: QuickOrderEntry | undefined;
-  onEntry: (decision: ApplicationOrderDecision, entry: QuickOrderEntry) => void;
+  /** What is being ordered; `null` while the modal is closed. */
+  request: QuickOrderRequest | null;
   canSign: boolean;
   /** Today, `YYYY-MM-DD`. */
   on: string;
@@ -106,17 +93,17 @@ export function ApplicationQuickOrder({
   onOpenChange: (open: boolean) => void;
   onDone: (message: string) => void;
 }) {
-  /* The words of the last decision opened stay on screen while the modal animates out. */
-  const [shown, setShown] = React.useState(decision);
-  if (decision && decision !== shown) setShown(decision);
-  const kind = decision ?? shown;
+  /* The last request stays on screen while the modal animates out. */
+  const [shown, setShown] = React.useState(request);
+  if (request && request !== shown) setShown(request);
+  const current = request ?? shown;
   /* Opened from the panel's primary, not from a Radix trigger, so focus is handed back
      to whatever opened it by hand. */
   const opener = React.useRef<HTMLElement | null>(null);
 
   return (
-    <Dialog open={decision !== null} onOpenChange={onOpenChange}>
-      {kind ? (
+    <Dialog open={request !== null} onOpenChange={onOpenChange}>
+      {current ? (
         <QuickOrderContent
           /* Fired before focus moves in, so the opener is still the focused element. */
           onOpenAutoFocus={() => {
@@ -127,12 +114,10 @@ export function ApplicationQuickOrder({
             if (opener.current?.isConnected) opener.current.focus();
             opener.current = null;
           }}
-          key={kind}
+          key={current.title}
           application={application}
           record={record}
-          decision={kind}
-          entry={entry}
-          onEntry={(next) => onEntry(kind, next)}
+          request={current}
           canSign={canSign}
           on={on}
           hearing={hearing}
@@ -150,9 +135,7 @@ function QuickOrderContent({
   onCloseAutoFocus,
   application,
   record,
-  decision,
-  entry,
-  onEntry,
+  request,
   canSign,
   on,
   hearing,
@@ -164,9 +147,7 @@ function QuickOrderContent({
   onCloseAutoFocus: (event: Event) => void;
   application: LifecycleApplication;
   record: CaseRecord;
-  decision: ApplicationOrderDecision;
-  entry: QuickOrderEntry | undefined;
-  onEntry: (entry: QuickOrderEntry) => void;
+  request: QuickOrderRequest;
   canSign: boolean;
   on: string;
   hearing: { day: string | undefined };
@@ -177,32 +158,58 @@ function QuickOrderContent({
   const router = useRouter();
   const textId = React.useId();
   const dateId = React.useId();
-  /* One item for the life of the modal, so its id — the mark on the order's words — holds. */
-  const [item] = React.useState(() =>
-    decisionItem(application, decision, applicationOrderContext(record)),
+  const [text, setText] = React.useState(request.text);
+  const [nextHearing, setNextHearing] = React.useState<Date | undefined>(undefined);
+  const nextDay = nextHearing ? isoDay(nextHearing) : "";
+  /* Words changed from the catalogue's, or a next date picked: closing asks first. */
+  const guard = useDiscardGuard(
+    text !== request.text || nextHearing !== undefined,
+    onClose,
   );
-  const text = entry?.text ?? item.text;
-  const needsDate = decision === "accept" && acceptanceNeedsHearingDate(application.type);
-  const nextDay = entry?.nextHearing ? isoDay(entry.nextHearing) : "";
+  const key = nextApplicationOrderKey(application);
+  const href = applicationOrderHref(application.id, undefined, view);
+  const outcome = setApplicationOutcome(initialApplicationOutcome(), request.answers);
+  const answered =
+    applicationOutcomeGaps(
+      application.status === "pending-review" ? outcome : { ...outcome, onboard: "yes" },
+      Boolean(applicationWorkflow(application.type)),
+    ).length === 0;
   const ready =
-    text.trim().length > 0 && (!needsDate || (nextDay !== "" && nextDay > on));
-  /* The panel keeps the words across a close, so discarding is what puts the catalogue's
-     words back. */
-  const guard = useDiscardGuard(text !== item.text || Boolean(entry?.nextHearing), () => {
-    onEntry({});
-    onClose();
-  });
-  const key = applicationOrderKey(application.id);
-  const href = applicationOrderHref(application.id, decision, view);
+    answered &&
+    text.trim().length > 0 &&
+    (!request.needsHearingDate || (nextDay !== "" && nextDay > on));
+
+  /** The order as the order screen opens on it: these words, and the item's answers. */
+  function draft(): OrderDraft {
+    const lines = text
+      .split(/\n+/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+    const current = readOrderDraft(orderDraftKey(key), EMPTY_ORDER_DRAFT);
+    return {
+      ...current,
+      applicationOutcome: outcome,
+      body: {
+        html: lines.map((line) => richTextFromPlain(line).html).join(""),
+        text: lines.join("\n"),
+      },
+      ...(request.needsHearingDate && nextDay
+        ? { next: "list" as const, nextDate: nextDay }
+        : {}),
+    };
+  }
 
   function pass() {
     if (!ready) return;
-    const meta = applicationOrderMeta(application, record, href);
-    /* Pending orders, its page and the triggers read the full-page editor's draft. */
-    writeOrderDraft(
-      orderDraftKey(key),
-      quickOrderDraft(item, text, needsDate ? nextDay : undefined),
-    );
+    const meta = {
+      key,
+      heading: partiesLabel(record),
+      caseNumber: record.caseNumber,
+      origin: `Application · ${application.typeLabel}`,
+      orderHref: href,
+    };
+    /* Pending orders, its page and the triggers read the order screen's draft. */
+    writeOrderDraft(orderDraftKey(key), draft());
     noteOrderDraft(meta);
     sendOrderForSigning(meta);
     markOrderReady(key);
@@ -210,25 +217,20 @@ function QuickOrderContent({
     if (canSign) {
       quietTrigger(key);
       markOrdersSigned([key]);
-      onDone(`Order signed. The application is ${SETTLED[decision]}.`);
+      onDone("Order signed.");
       return;
     }
     onDone("Sent to the Magistrate for signing.");
   }
 
   function openInOrderScreen() {
-    /* Saved for the order screen that will open, under its own key, so it opens on these
-       words rather than on the catalogue's. Not sent. */
-    writeOrderDraft(
-      orderDraftKey(key),
-      quickOrderDraft(item, text, needsDate && nextDay ? nextDay : undefined),
-    );
+    /* Saved, not sent: the order screen opens on these words and these answers. */
+    writeOrderDraft(orderDraftKey(key), draft());
     router.push(href);
   }
 
   return (
     <ChromeDialogContent
-      aria-describedby={undefined}
       onOpenAutoFocus={onOpenAutoFocus}
       onCloseAutoFocus={onCloseAutoFocus}
       className="flex max-h-[85dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
@@ -236,7 +238,10 @@ function QuickOrderContent({
       {...guard.outsideProps}
     >
       <DialogHeader className="shrink-0 p-6 pr-16">
-        <DialogTitle className="text-title-s font-semibold">{TITLES[decision]}</DialogTitle>
+        <DialogTitle className="text-title-s font-semibold">{request.title}</DialogTitle>
+        <DialogDescription>
+          {application.typeLabel} · {partiesLabel(record)}
+        </DialogDescription>
       </DialogHeader>
 
       <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 pb-6">
@@ -246,18 +251,18 @@ function QuickOrderContent({
             id={textId}
             value={text}
             rows={8}
-            onChange={(event) => onEntry({ ...entry, text: event.target.value })}
+            onChange={(event) => setText(event.target.value)}
             className="min-h-48"
           />
         </Field>
-        {needsDate ? (
+        {request.needsHearingDate ? (
           <ListingDateField
             id={dateId}
             label="Next hearing"
-            value={entry?.nextHearing}
+            value={nextHearing}
             on={on}
             hearing={hearing}
-            onChange={(nextHearing) => onEntry({ ...entry, nextHearing })}
+            onChange={setNextHearing}
           />
         ) : null}
       </div>

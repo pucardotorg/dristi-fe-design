@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { autoMap, buildRequest, columnFit, followsTemplate, instancesIn, MUST_MAP, sourceFor, unmatchedRequired, type Workbookish } from "./excel";
-import { COLUMNS, GROUPS, parseHeader } from "./excel-spec";
+import { COLUMNS, GROUPS, parseHeader, templateColumns, templateHeader } from "./excel-spec";
 
 const complainant = {
   type: "institution" as const,
@@ -23,9 +23,9 @@ test("a header splits into its column and its repeat", () => {
 test("_2 columns become the second cheque, accused and witness; _1_2 a second address", () => {
   const headers = [
     "Case reference", "Accused name", "Accused address", "Accused address_1_2", "Accused name_2", "Accused address_2",
-    "Cheque number", "Cheque number_2", "Witness name", "Witness name_2", "Complainant name_2", "Complainant type_2",
+    "Cheque number", "Cheque number_2", "Witness name", "Witness name_2",
   ];
-  const row = ["R-1", "A One", "Addr 1", "Addr 1b", "A Two", "Addr 2", "111111", "222222", "W1", "W2", "Co Two", "Individual"];
+  const row = ["R-1", "A One", "Addr 1", "Addr 1b", "A Two", "Addr 2", "111111", "222222", "W1", "W2"];
   const inst = instancesIn(headers);
   assert.deepEqual(inst.accused, [[1], [2]]);
   // Accused 2 mirrors accused 1's two address slots; the blank one adds nothing below.
@@ -37,7 +37,25 @@ test("_2 columns become the second cheque, accused and witness; _1_2 a second ad
   assert.deepEqual(c.accused[1].addresses.map((a) => a.line1), ["Addr 2"]);
   assert.deepEqual(c.cheques.map((q) => q.number), ["111111", "222222"]);
   assert.deepEqual(c.witnesses?.map((w) => w.name), ["W1", "W2"]);
-  assert.equal(c.complainants?.[0].name, "Co Two");
+  assert.equal(c.complainants, undefined);
+});
+
+test("numbered template headers are read, and a file may carry more than the template", () => {
+  const headers = [
+    "Case reference", "Accused 1 name", "Accused 1 address 1 line", "Accused 1 address 2 line", "Accused 2 name", "Accused 2 address 1 line",
+    "Cheque 1 number", "Cheque 1 complainant branch IFSC", "Cheque 2 number", "Deposited in complainant's account",
+    "Other complaint pending between the same parties", "Interim relief", "Final relief", "Affidavit",
+  ];
+  const row = ["R-1", "A One", "Addr 1", "Addr 1b", "A Two", "Addr 2", "111111", "HDFC0000060", "222222", "Yes", "No", "Pay 20%.", "Convict.", "I swear.\nTrue."];
+  const req = buildRequest(book(headers, row), autoMap(headers), {}, { complainant, barNumbers: [], adr: "no", fileName: "t" });
+  const c = req.cases[0];
+  assert.deepEqual(c.accused.map((a) => a.name), ["A One", "A Two"]);
+  assert.deepEqual(c.accused[0].addresses.map((a) => a.line1), ["Addr 1", "Addr 1b"]);
+  assert.deepEqual(c.cheques.map((q) => q.number), ["111111", "222222"]);
+  assert.equal(c.jurisdiction.complainantBranchIfsc, "HDFC0000060");
+  assert.equal(c.jurisdiction.otherPending, false);
+  assert.equal(c.interimRelief, "Pay 20%.");
+  assert.equal(c.affidavit, "I swear.\nTrue.");
 });
 
 test("an optional section left blank on a row adds nothing to that case", () => {
@@ -80,23 +98,20 @@ test("a matched column is checked against its field: dates, pincodes, list words
   assert.equal(reason.ok, false);
 });
 
-test("bank names, jurisdiction and a witness's police station are read from their columns", () => {
-  const headers = ["Case reference", "Accused name", "Accused resides within jurisdiction", "Cheque number", "Drawer bank name", "Drawer bank branch", "Complainant bank name", "Witness name", "Witness police station"];
+test("jurisdiction and a person responsible's police station are read from their columns", () => {
+  const headers = ["Case reference", "Accused 1 type", "Accused 1 name", "Accused 1 resides within jurisdiction", "Accused 1 person responsible 1 name", "Accused 1 person responsible 1 address line", "Accused 1 person responsible 1 police station", "Cheque 1 number"];
   const req = buildRequest(
-    book(headers, ["R-1", "A One", "No", "111111", "Shree Bank", "Kalupur", "Payee Bank", "W1", "Satellite Police Station"]),
+    book(headers, ["R-1", "Institution", "A Pvt Ltd", "No", "P One", "Plot 4", "Naroda Police Station", "111111"]),
     autoMap(headers),
     {},
     { complainant, barNumbers: [], adr: "maybe", fileName: "t" }
   );
   const c = req.cases[0];
   assert.equal(c.accused[0].withinJurisdiction, false);
-  assert.equal(c.cheques[0].bankName, "Shree Bank");
-  assert.equal(c.cheques[0].bankBranch, "Kalupur");
-  assert.equal(c.jurisdiction.complainantBankName, "Payee Bank");
-  assert.equal(c.witnesses?.[0].address.policeStation, "Satellite Police Station");
+  assert.equal(c.accused[0].personsResponsible?.[0].address?.policeStation, "Naroda Police Station");
   assert.equal(req.adr, "maybe");
   // Left blank, jurisdiction is not sent: intake reads it from the address.
-  const blank = buildRequest(book(headers, ["R-2", "B", "", "222222", "", "", "", "", ""]), autoMap(headers), {}, { complainant, barNumbers: [], adr: "no", fileName: "t" });
+  const blank = buildRequest(book(headers, ["R-2", "Individual", "B", "", "", "", "", "222222"]), autoMap(headers), {}, { complainant, barNumbers: [], adr: "no", fileName: "t" });
   assert.equal(blank.cases[0].accused[0].withinJurisdiction, undefined);
 });
 
@@ -119,11 +134,12 @@ test("deposited and replied with no column are left unstated, not read as Yes an
 });
 
 test("the template is recognised without its optional columns, and not with a column of its own", () => {
-  const required = COLUMNS.filter((c) => MUST_MAP.includes(c.key) && GROUPS.find((g) => g.id === c.group)!.always).map((c) => c.header);
+  const required = COLUMNS.filter((c) => MUST_MAP.includes(c.key) && GROUPS.find((g) => g.id === c.group)!.always).map(templateHeader);
   assert.equal(followsTemplate(required), true);
-  assert.equal(followsTemplate([...required, "Drawer bank name", "Witness name_2"]), true);
+  assert.equal(followsTemplate(templateColumns().map((t) => t.header)), true);
+  assert.equal(followsTemplate([...required, "Cheque 2 number", "Witness 2 name"]), true);
   assert.equal(followsTemplate([...required, "Branch manager"]), false);
-  // A template from before a column was retired still goes straight in.
-  assert.equal(followsTemplate([...required, "Accused age", "Accused age_2"]), true);
-  assert.equal(followsTemplate(required.filter((h) => h !== "Cheque number")), false);
+  // The unnumbered headers of earlier layouts are another layout now, matched by name.
+  assert.equal(followsTemplate([...required, "Cheque number"]), false);
+  assert.equal(followsTemplate(required.filter((h) => h !== "Cheque 1 number")), false);
 });

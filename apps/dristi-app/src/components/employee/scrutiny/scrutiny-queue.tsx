@@ -166,13 +166,13 @@ export function ScrutinyQueue() {
           <TabsList
             variant="line"
             aria-label="Whose hands the filing is in"
-            className="h-10 w-max min-w-full justify-start rounded-none p-0 group-data-horizontal/tabs:h-10"
+            className="h-10 w-max min-w-full justify-start rounded-none"
           >
             {QUEUE_TABS.map((queueTab) => (
               <TabsTrigger
                 key={queueTab.id}
                 value={queueTab.id}
-                className="h-10 flex-none gap-2 px-3 text-body-compact group-data-horizontal/tabs:after:-bottom-px"
+                className="h-10 flex-none gap-2 text-body-compact"
               >
                 {queueTab.label}
                 {/* How much is standing here. One presentation across all three —

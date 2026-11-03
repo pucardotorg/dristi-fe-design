@@ -4,7 +4,6 @@ import * as React from "react";
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
-  CheckCircle2Icon,
   DownloadIcon,
   Maximize2Icon,
   PenLineIcon,
@@ -20,6 +19,7 @@ import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 import { useBackCloses, useFlowWindow } from "@/components/chrome/flow-window";
 
 import { Banner } from "@/components/ui/banner";
+import { OFFICE_NO_ESIGN } from "@/components/cases/case-office-access";
 import { Button } from "@/components/ui/button";
 import {
   DescriptionList,
@@ -72,7 +72,8 @@ import {
 } from "@/lib/filing/content";
 import { ADVOCATE_PROFILE_NAME, advDialog } from "@/lib/advocate/content";
 import { newPaymentRef } from "@/lib/filing/data";
-import { GATEWAY_MS, PaymentProcessing, PaymentReceipt } from "@/components/payment/payment-steps";
+import { GATEWAY_MS, PaymentFacts, PaymentProcessing } from "@/components/payment/payment-steps";
+import { OutcomeAmount, OutcomeHeader, StatusLine } from "@/components/feedback";
 import { cn } from "@/lib/utils";
 import { Identifier } from "@/components/chrome/identifier";
 import { useCourtText } from "@/components/court/court-provider";
@@ -367,7 +368,11 @@ export function BailApplicationDialog({
   const generateTimerRef = React.useRef<number | null>(null);
   const [reviewFullscreen, setReviewFullscreen] = React.useState(false);
 
-  const [signTab, setSignTab] = React.useState<"esign" | "upload">("esign");
+  // Office access never e-signs (OFC-06): the upload tab is the way.
+  const officeAccess = accessCase.viewerAccess === "office";
+  const [signTab, setSignTab] = React.useState<"esign" | "upload">(
+    officeAccess ? "upload" : "esign",
+  );
   const [signedFile, setSignedFile] = React.useState<File | null>(null);
   const [esigned, setEsigned] = React.useState(false);
   const [signTouched, setSignTouched] = React.useState(false);
@@ -406,7 +411,7 @@ export function BailApplicationDialog({
     setReviewFullscreen(false);
     if (generateTimerRef.current !== null) window.clearTimeout(generateTimerRef.current);
     generateTimerRef.current = null;
-    setSignTab("esign");
+    setSignTab(officeAccess ? "upload" : "esign");
     setSignedFile(null);
     setEsigned(false);
     setSignTouched(false);
@@ -592,22 +597,26 @@ export function BailApplicationDialog({
           stage === "processing" && "[&_[data-slot=dialog-close]]:hidden",
         )}
       >
+        {/* The act's outcome takes over the top of the window (skill `feedback-states`):
+            the fee paid, then the application filed. */}
         {stage === "done" ? (
-          <DialogHeader className="shrink-0 border-b border-hairline px-6 py-5 pr-14 text-left">
-            <div className="flex items-center gap-4">
-              <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-success-muted text-success-muted-foreground">
-                <CheckCircle2Icon className="size-7" aria-hidden />
-              </span>
-              <div className="flex min-w-0 flex-col gap-1.5">
-                <DialogTitle className="text-title-s font-semibold text-balance">
-                  {pick(bailDialog.doneTitle, locale)}
-                </DialogTitle>
-                <DialogDescription className="text-pretty">
-                  {pick(bailDialog.doneBody, locale)}
-                </DialogDescription>
-              </div>
-            </div>
-          </DialogHeader>
+          <OutcomeHeader
+            key="done"
+            titleFrom="dialog"
+            focusTitle
+            title={pick(bailDialog.doneTitle, locale)}
+            body={pick(bailDialog.doneBody, locale)}
+          />
+        ) : stage === "paid" ? (
+          <OutcomeHeader key="paid" titleFrom="dialog" focusTitle title={headerCopy.title} body={headerCopy.body}>
+            <OutcomeAmount label={pick(advDialog.paidAmount, locale)} value={BAIL_FEE} />
+            {/* The case this filing belongs to, as on every other stage. */}
+            <p className="pt-2 text-caption text-muted-foreground">
+              <Identifier value={accessCase.caseNumber} label="case number" />
+              <span aria-hidden> · </span>
+              {accessCase.title}
+            </p>
+          </OutcomeHeader>
         ) : (
           <DialogHeader className="shrink-0 border-b border-hairline px-6 py-5 pr-14 text-left">
             <DialogTitle className="text-title-s font-semibold text-balance">
@@ -1249,19 +1258,21 @@ export function BailApplicationDialog({
                     </TabsTrigger>
                   </TabsList>
                   <TabsContent value="esign" className="flex flex-col gap-4 pt-3">
-                    {esigned ? (
-                      <Banner variant="success">
+                    {officeAccess ? (
+                      <Banner variant="info">{OFFICE_NO_ESIGN}</Banner>
+                    ) : esigned ? (
+                      <StatusLine tone="success">
                         {fillCopy(bailDialog.signedNote, locale, { name: ADVOCATE_PROFILE_NAME })}
-                      </Banner>
+                      </StatusLine>
                     ) : (
                       <Banner variant="info">{pick(bailDialog.esignNote, locale)}</Banner>
                     )}
                   </TabsContent>
                   <TabsContent value="upload" className="flex flex-col gap-4 pt-3">
                     {signedFile ? (
-                      <Banner variant="success">
+                      <StatusLine tone="success">
                         {fillCopy(bailDialog.signedNote, locale, { name: ADVOCATE_PROFILE_NAME })}
-                      </Banner>
+                      </StatusLine>
                     ) : (
                       <>
                         {/* The download step belongs to this path only — the
@@ -1342,8 +1353,7 @@ export function BailApplicationDialog({
 
           {/* ------------------------------------------------------- receipt */}
           {stage === "paid" ? (
-            <PaymentReceipt
-              amount={BAIL_FEE}
+            <PaymentFacts
               rows={[
                 { label: pick(advDialog.payFeeHead, locale), value: pick(bailDialog.feeLine, locale) },
                 {
@@ -1483,6 +1493,7 @@ export function BailApplicationDialog({
               {signTab === "esign" && !esigned ? (
                 <Button
                   type="button"
+                  disabled={officeAccess}
                   data-icon="inline-start"
                   onClick={() => {
                     // Prototype: the Aadhaar e-sign round trip succeeds.

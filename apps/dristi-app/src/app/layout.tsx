@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { AccessProvider } from "@/components/access/access-state";
 import { CourtProvider } from "@/components/court/court-provider";
 import { DesignModeLoader } from "@/components/design-mode-loader";
 import { FeedbackProvider } from "@/components/feedback-provider";
@@ -12,6 +13,7 @@ import "./globals.css";
 import "./chrome.css";
 /* A state's own brand colour (Gujarat's navy), keyed off `data-brand-hue` below. */
 import "./court-palette.css";
+/* How a success, failure, warning or notice arrives (components/feedback). */
 
 /** The tab title names the product the state runs — SARAS 2.0 in Gujarat, never DRISTI. */
 export async function generateMetadata(): Promise<Metadata> {
@@ -55,7 +57,11 @@ export default async function RootLayout({
         >
           <LocaleProvider>
             <CourtProvider initialCourt={court}>
-              <FeedbackProvider>{children}</FeedbackProvider>
+              {/* Above both route groups, so office access given on a case
+                  (/cases) is still there on the People page (/people). */}
+              <AccessProvider>
+                <FeedbackProvider>{children}</FeedbackProvider>
+              </AccessProvider>
               <DesignModeLoader />
             </CourtProvider>
           </LocaleProvider>

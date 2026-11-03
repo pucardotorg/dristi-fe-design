@@ -10,7 +10,6 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
-import { PANEL_CLASS } from "@/components/filing/form-card";
 import {
   advocateNames,
   executantIntro,
@@ -48,7 +47,7 @@ export function VakalatnamaDocument({
         : vak.boundCaseNumber?.trim() || "______ of " + new Date().getFullYear();
 
   return (
-    <Card className={cn(PANEL_CLASS, "gap-8 p-8 md:p-12", className)}>
+    <Card variant="raised" className={cn("gap-8 p-8 md:p-12", className)}>
       {/* Court header */}
       <header className="flex flex-col items-center gap-1 text-center">
         <p className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">

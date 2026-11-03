@@ -39,8 +39,8 @@ export const COURT_SIGN_IN_ROLES: CourtRole[] = [
   "bench-clerk",
   "scrutiny-officer",
   "typist",
-  "steno",
   "ahlmad",
+  "post-officer",
 ];
 
 /**
@@ -125,33 +125,34 @@ export const COURT_ACCOUNTS: Record<CourtRole, CourtAccount> = {
     role: "typist",
     courtrooms: [jmfcCourt(1)],
   },
-  /* Punjab & Haryana only (court-roles §3.3); `courtAccounts` leaves them out elsewhere. */
-  steno: {
-    username: "steno",
-    name: "Harpreet K",
-    role: "steno",
-    courtrooms: [jmfcCourt(1)],
-  },
+  /* Punjab & Haryana only (court-roles §3.3); `courtAccounts` leaves it out elsewhere. */
   ahlmad: {
     username: "ahlmad",
     name: "Gurdeep S",
     role: "ahlmad",
     courtrooms: [jmfcCourt(1)],
   },
+  /* Post office staff who send and report e-Post (court-roles §3), every state. */
+  "post-officer": {
+    username: "rameshPostOfficer",
+    name: "Ramesh N",
+    role: "post-officer",
+    courtrooms: [jmfcCourt(1)],
+  },
 };
 
 /**
  * Punjab & Haryana's usernames: the seat's own name and nothing else — the magistrate,
- * the Reader, the Ahlmad and the Steno (owner, 2026-10-13/14). Same people, same rooms;
+ * the Reader, the Ahlmad and the Typist / Steno (owner, 2026-10-13/14). Same people, same rooms;
  * only the username a person types changes.
  */
 const PUNJAB_HARYANA_USERNAMES: Partial<Record<CourtRole, string>> = {
   magistrate: "magistrate",
   "bench-clerk": "reader",
   "scrutiny-officer": "scrutiny",
-  typist: "typist",
-  steno: "steno",
+  typist: "steno",
   ahlmad: "ahlmad",
+  "post-officer": "postofficer",
 };
 
 /**

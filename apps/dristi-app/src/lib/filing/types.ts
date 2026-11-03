@@ -118,7 +118,14 @@ export type IntakeSlot = {
 export type IntakeGroup = { n: number; slots: IntakeSlot[] };
 
 export type Intake = {
+  /** One group per cheque: the cheque and its return memo (`DCM-1`, `DCM-2`). */
   cheques: IntakeGroup[];
+  /**
+   * One group per demand notice: the notice, its dispatch and delivery proofs and any
+   * reply (`DCM-3`…`DCM-6`). Counted apart from the cheques — one notice often covers
+   * several cheques.
+   */
+  notices: IntakeGroup[];
   parties: IntakeGroup[];
   supporting: IntakeSlot[];
 };
@@ -325,6 +332,8 @@ export type Jurisdiction = {
 export type AdrPrayer = {
   adr: "yes" | "no" | "maybe";
   otherDetails: string;
+  /** The additional-details format the text was started from (`details-formats.ts`). */
+  detailsFormat?: string;
   interimRelief: string;
   finalRelief: string;
 };

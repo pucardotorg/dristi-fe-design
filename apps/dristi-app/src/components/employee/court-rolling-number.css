@@ -1,0 +1,23 @@
+/* The big day number's odometer roll — the advocate home's (`advocate/rolling-day.css`),
+   under the court's own names so the two stylesheets never meet. Each digit slides its
+   old face out and its new face in from the side the day moved toward. */
+
+@keyframes court-roll-in-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes court-roll-out-up { from { transform: translateY(0); } to { transform: translateY(-100%); } }
+@keyframes court-roll-in-down { from { transform: translateY(-100%); } to { transform: translateY(0); } }
+@keyframes court-roll-out-down { from { transform: translateY(0); } to { transform: translateY(100%); } }
+
+.court-roll-face {
+  animation-duration: 620ms;
+  animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
+  animation-fill-mode: both;
+}
+.court-roll-face[data-roll="in-up"] { animation-name: court-roll-in-up; }
+.court-roll-face[data-roll="out-up"] { animation-name: court-roll-out-up; }
+.court-roll-face[data-roll="in-down"] { animation-name: court-roll-in-down; }
+.court-roll-face[data-roll="out-down"] { animation-name: court-roll-out-down; }
+
+@media (prefers-reduced-motion: reduce) {
+  .court-roll-face { animation: none; }
+  .court-roll-face[data-roll^="out"] { display: none; }
+}

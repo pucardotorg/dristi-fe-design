@@ -26,6 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useTaskActions } from "@/components/tasks/use-task-actions";
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 import { Identifier } from "@/components/chrome/identifier";
+import { StatusLine } from "@/components/feedback";
 
 export function TaskRespondDialog({
   task,
@@ -41,7 +42,7 @@ export function TaskRespondDialog({
   /** Called with the task id once the decision lands — the row flashes. */
   onFinished?: (taskId: string) => void;
 }) {
-  const { act, busy } = useTaskActions();
+  const { act, busy, error } = useTaskActions({ inDialog: true });
   const [note, setNote] = React.useState("");
 
   /*
@@ -112,6 +113,7 @@ export function TaskRespondDialog({
 
         {/* The DS footer, so the pair is a full-width stack at the foot of the
             phone window and a right-aligned row from `sm`. */}
+        {error ? <StatusLine tone="error">{error}</StatusLine> : null}
         <DialogFooter>
           <Button
             type="button"

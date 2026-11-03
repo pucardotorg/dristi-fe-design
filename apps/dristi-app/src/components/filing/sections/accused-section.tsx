@@ -350,12 +350,13 @@ export function AccusedSection() {
       </Dialog>
 
       <ConfirmDialog
+        note="This cannot be undone."
         open={pendingRemove !== null}
         onOpenChange={(open) => {
           if (!open) setPendingRemove(null);
         }}
         title={`Remove ${pendingRemoveLabel || "accused"}`}
-        description="Are you sure you want to delete this accused and all their contact and address details? This cannot be undone."
+        description="Are you sure you want to delete this accused and all their contact and address details?"
         confirmLabel="Yes, remove"
         onConfirm={() => {
           if (pendingRemove) removeAccused(pendingRemove);

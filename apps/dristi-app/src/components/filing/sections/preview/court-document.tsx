@@ -13,7 +13,6 @@ import { CASE_TYPE, COURT, RETURN_REASONS } from "@/lib/filing/options";
 import type { FilingDraft } from "@/lib/filing/types";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
-import { PANEL_CLASS } from "@/components/filing/form-card";
 import {
   INTERIM_RELIEF_SUMMARY,
   NOT_PROVIDED,
@@ -133,7 +132,7 @@ export function CourtDocument({ draft }: { draft: FilingDraft }) {
   const finalRelief = htmlToParagraphs(draft.adr.finalRelief);
 
   return (
-    <Card className={cn(PANEL_CLASS, "gap-0 p-6 font-sans text-foreground sm:p-8")}>
+    <Card variant="raised" className="gap-0 p-6 font-sans text-foreground sm:p-8">
       {/* Court and cause title */}
       <div className="flex flex-col gap-1 text-center">
         <p className="text-caption font-medium tracking-wide text-paper-muted-foreground">
@@ -486,13 +485,20 @@ export function CourtDocument({ draft }: { draft: FilingDraft }) {
               {adrLabel(draft)}
             </DocCell>
           </tr>
-          <tr>
-            <DocCell label="Any additional details" span={3}>
-              {otherDetails.length ? otherDetails.join(" ") : NOT_PROVIDED}
-            </DocCell>
-          </tr>
         </tbody>
       </DocTable>
+      <p className="mt-4 text-body-compact font-semibold">Any additional details</p>
+      {otherDetails.length ? (
+        /* The filer's text as written — paragraphs and lists kept. */
+        <div
+          className="mt-2 flex flex-col gap-2 text-body-compact leading-relaxed [&_li]:mb-2 [&_ol]:list-decimal [&_ol]:pl-6 [&_ul]:list-disc [&_ul]:pl-6"
+          dangerouslySetInnerHTML={{
+            __html: courtText(draft.adr.otherDetails),
+          }}
+        />
+      ) : (
+        <DocP className="text-paper-muted-foreground">{NOT_PROVIDED}</DocP>
+      )}
       <p className="mt-4 text-body-compact font-semibold">Interim relief</p>
       {interimRelief.length ? (
         interimRelief.map((p, i) => <DocP key={i}>{p}</DocP>)

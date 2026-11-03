@@ -15,6 +15,7 @@ import {
   blankWitness,
   buildDocumentGroups,
   intakeChequeGroup,
+  intakeNoticeGroup,
 } from "@/lib/filing/blank";
 import { newCaseFileNumber, newId, newPaymentRef } from "@/lib/filing/data";
 import { DELIVERY_CHANNEL } from "@/lib/filing/options";
@@ -334,8 +335,7 @@ export async function applyFix(
 /**
  * Save a case as the single filing's sections left it: they write the whole draft, as
  * they do in the browser. What the batch owns is kept from the stored copy, whatever the
- * screen sent: its complainant (the first) and its advocates are set once for every case,
- * and signing, payment and filing happen on the batch. Returns why not, or `null`.
+ * screen sent: signing, payment and filing happen on the batch. Returns why not, or `null`.
  */
 export function replaceDraft(bc: BatchCase, incoming: FilingDraft): string | null {
   const stored = bc.draft;
@@ -343,13 +343,9 @@ export function replaceDraft(bc: BatchCase, incoming: FilingDraft): string | nul
   if (bc.signedWith || stored.status === "filed")
     return "A signed or filed case cannot be changed here.";
   if (!incoming || incoming.id !== stored.id) return "This is not that case's draft.";
-  const own = stored.complainants[0];
+  // The case's complainants and advocates are its own once the batch exists (PRD `BLK-06`).
   const next: FilingDraft = {
     ...incoming,
-    complainants: own
-      ? [own, ...incoming.complainants.filter((c) => c.id !== own.id)]
-      : incoming.complainants,
-    advocates: stored.advocates,
     sign: stored.sign,
     status: stored.status,
     filedAt: stored.filedAt,
@@ -404,15 +400,16 @@ export function attachToSlot(
   bc: BatchCase,
   slotKey: string,
   ref: StoredFileRef,
+  poor = false,
 ): boolean {
   const d = bc.draft;
-  const slot = [...d.intake.cheques, ...d.intake.parties]
+  const slot = [...d.intake.cheques, ...d.intake.notices, ...d.intake.parties]
     .flatMap((g) => g.slots)
     .concat(d.intake.supporting)
     .find((s) => s.key === slotKey);
   if (!slot) return false;
   slot.file = ref;
-  slot.poor = false;
+  slot.poor = poor;
   d.documents = buildDocumentGroups(d);
   d.updatedAt = new Date().toISOString();
   return true;
@@ -589,6 +586,7 @@ export function changePart(
       return `A case needs at least ${keep[part]} ${part}.`;
     list.pop();
     if (part === "cheque") d.intake.cheques.pop();
+    if (part === "notice") d.intake.notices.pop();
     d.documents = buildDocumentGroups(d);
     return null;
   }
@@ -598,9 +596,13 @@ export function changePart(
   else if (part === "cheque") {
     d.cheques.push(blankCheque());
     d.intake.cheques.push(intakeChequeGroup(d.cheques.length));
-  } else if (part === "notice") d.notices.push(blankNotice());
+  } else if (part === "notice") {
+    d.notices.push(blankNotice());
+    d.intake.notices.push(intakeNoticeGroup(d.notices.length));
+  }
   else d.witnesses.push(blankWitness());
-  // The documents follow the parts: a new cheque brings its cheque, memo and notice papers.
+  // The documents follow the parts: a new cheque brings its cheque and memo, a new notice
+  // its notice papers.
   d.documents = buildDocumentGroups(d);
   return null;
 }

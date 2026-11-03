@@ -12,13 +12,12 @@
 import * as React from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { notify } from "@/components/feedback";
 import { ArrowLeftIcon, FileTextIcon } from "lucide-react";
 
 import { canComplete, canView } from "@/lib/tasks/permissions";
 import { useTasks } from "@/lib/tasks/store";
 import type { Task } from "@/lib/tasks/types";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -33,7 +32,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Breadcrumbs } from "@/components/shell/chrome";
 import { useOrigin } from "@/components/shell/origin";
 import { SectionNotice } from "@/components/shell/notices";
-import { PANEL_CLASS } from "@/components/shell/panel";
 import { type ActContext } from "@/components/tasks/act/shared";
 import { FileBody } from "@/components/tasks/act/file-page";
 import { PayBody } from "@/components/tasks/act/pay-page";
@@ -48,20 +46,12 @@ const CRUMB: Record<ActPageAction, string> = {
   continue: "Continue",
 };
 
-/** The one quiet notice per page: what is interim, and what is not real here. */
+/** The one quiet notice per page: what is interim. Signing needs none. */
 function Notice({ action, task }: { action: ActPageAction; task: Task }) {
-  if (action === "sign" || (action === "continue" && task.kind === "sign")) {
-    return (
-      <SectionNotice variant="neutral" title="Sandbox">
-        Any 6-digit OTP is accepted and the signature stamp is generated locally — nothing
-        reaches a court.
-      </SectionNotice>
-    );
-  }
+  if (action === "sign" || (action === "continue" && task.kind === "sign")) return null;
   return (
     <SectionNotice variant="neutral" title="Interim screen">
-      The e-filing flow is not built yet — this stands in for it. Sandbox: uploads stay in
-      this browser and the registry&apos;s answer is whatever you pick.
+      The e-filing flow is not built yet. This stands in for it.
     </SectionNotice>
   );
 }
@@ -88,7 +78,7 @@ export function TaskActPage({ action }: { action: ActPageAction }) {
     (message?: string, taskId?: string) => {
       const target = taskId ?? id;
       requestHighlight(target);
-      if (message) toast.success(message);
+      if (message) notify.success(message);
       router.push(`/tasks?task=${encodeURIComponent(target)}`);
     },
     [id, requestHighlight, router]
@@ -109,7 +99,7 @@ export function TaskActPage({ action }: { action: ActPageAction }) {
               <Skeleton className="h-64 w-full rounded-xl" />
             </>
           ) : (
-            <Card className={cn(PANEL_CLASS, "py-0")}>
+            <Card variant="raised" className="py-0">
               <Empty className="py-12">
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
@@ -119,7 +109,7 @@ export function TaskActPage({ action }: { action: ActPageAction }) {
                   <EmptyDescription>
                     {forbidden
                       ? "You are not on this case's vakalatnama or its access list."
-                      : "It may have been reset with the sandbox, or the link is wrong."}
+                      : "The link may be wrong."}
                   </EmptyDescription>
                 </EmptyHeader>
                 <EmptyContent>
@@ -187,7 +177,7 @@ export function TaskActPage({ action }: { action: ActPageAction }) {
 
         {/* One lifted panel holds the flow; its wells sit inside it, per the layering.
             The Card's own --card-spacing supplies the vertical padding. */}
-        <Card className={cn(PANEL_CLASS, "px-6")}>
+        <Card variant="raised" className="px-6">
           <Body ctx={ctx} action={action} />
         </Card>
       </div>

@@ -13,6 +13,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { causeListColumn } from "@/lib/employee/cause-list-columns";
 
 import type { useCauseListColumns } from "./use-cause-list-columns";
@@ -31,12 +37,27 @@ export function CauseListColumnsMenu({
   const { columns, toggle, showAll, reset, isDefault, isAllVisible } = state;
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        <Button type="button" variant="outline" className="shrink-0">
-          <Columns3Icon aria-hidden />
-          Edit columns
-        </Button>
-      </PopoverTrigger>
+      {/* An icon at the row's far end (owner, 2026-11-02): it changes how the list looks,
+          not what is in it, so it gives its words up to the controls that narrow. The
+          name stays for screen readers and comes back on hover and focus. */}
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-label="Edit columns"
+                className="shrink-0"
+              >
+                <Columns3Icon aria-hidden />
+              </Button>
+            </PopoverTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Edit columns</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
       <PopoverContent align="end" className="w-64">
         <PopoverHeader className="px-2 pt-1">
           <PopoverTitle className="text-body-compact font-medium">

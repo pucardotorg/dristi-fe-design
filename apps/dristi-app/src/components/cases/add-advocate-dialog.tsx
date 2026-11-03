@@ -33,7 +33,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2Icon, FilePlus2Icon, XIcon } from "lucide-react";
+import { FilePlus2Icon, XIcon } from "lucide-react";
 
 import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -92,6 +92,7 @@ import {
   type PartyOption,
 } from "@/lib/cases/party-actions";
 import { Identifier } from "@/components/chrome/identifier";
+import { OutcomeHeader } from "@/components/feedback";
 
 type AdvocateStep = 1 | 2 | 3;
 
@@ -285,31 +286,26 @@ export function AddAdvocateDialog({
                dead disabled button asked the reader to imagine the ending
                (owner, Sept 1). */
             <>
-              <DialogHeader className="shrink-0 px-6 py-5 pr-14 text-left">
-                <div className="flex items-center gap-4">
-                  <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-success-muted text-success-muted-foreground">
-                    <CheckCircle2Icon className="size-7" aria-hidden />
-                  </span>
-                  <div className="flex min-w-0 flex-col gap-1.5">
-                    <DialogTitle className="text-title-s font-semibold text-balance">
-                      {chips.length === 1 ? "Advocate added" : "Advocates added"}
-                    </DialogTitle>
-                    <DialogDescription className="text-pretty">
-                      <NamesWithOthers
-                        names={advocateNames}
-                        othersLabel="Other advocates"
-                      />{" "}
-                      can now act on this case for{" "}
-                      <NamesWithOthers
-                        names={chosenParties.map((p) => p.name)}
-                        othersLabel="Other parties"
-                      />
-                      .
-                    </DialogDescription>
-                  </div>
-                </div>
-              </DialogHeader>
-              <footer className="flex shrink-0 justify-end border-t border-hairline px-6 py-4">
+              <OutcomeHeader
+                titleFrom="dialog"
+                focusTitle
+                title={chips.length === 1 ? "Advocate added" : "Advocates added"}
+                body={
+                  <>
+                    <NamesWithOthers
+                      names={advocateNames}
+                      othersLabel="Other advocates"
+                    />{" "}
+                    can now act on this case for{" "}
+                    <NamesWithOthers
+                      names={chosenParties.map((p) => p.name)}
+                      othersLabel="Other parties"
+                    />
+                    .
+                  </>
+                }
+              />
+              <footer className="flex shrink-0 justify-end border-t border-hairline bg-surface-sunken px-6 py-4">
                 <Button type="button" onClick={closeClean}>
                   Done
                 </Button>

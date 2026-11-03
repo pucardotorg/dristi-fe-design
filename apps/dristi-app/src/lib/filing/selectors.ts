@@ -34,6 +34,7 @@ import type {
 export function intakeSlots(intake: Intake): IntakeSlot[] {
   return [
     ...intake.cheques.flatMap((g) => g.slots),
+    ...intake.notices.flatMap((g) => g.slots),
     ...intake.parties.flatMap((g) => g.slots),
     ...intake.supporting,
   ];
@@ -47,6 +48,7 @@ export function findIntakeSlot(intake: Intake, key: string): IntakeSlot | undefi
 export function intakeProgress(intake: Intake) {
   const required = [
     ...intake.cheques.flatMap((g) => g.slots),
+    ...intake.notices.flatMap((g) => g.slots),
     ...intake.parties.flatMap((g) => g.slots),
   ].filter((s) => s.required);
   const done = required.filter((s) => s.file).length;
@@ -638,9 +640,18 @@ export function draftProgress(draft: FilingDraft): number {
 export function chequeSourceSlot(
   draft: FilingDraft,
   index: number,
-  docType: "cheque-front" | "return-memo" | "demand-notice" | "dispatch-proof" | "delivery-proof" | "notice-reply"
+  docType: "cheque-front" | "return-memo"
 ): IntakeSlot | undefined {
   return draft.intake.cheques[index]?.slots.find((s) => s.docType === docType);
+}
+
+/** The intake upload behind demand notice `index` (0-based) of the given kind, if any. */
+export function noticeSourceSlot(
+  draft: FilingDraft,
+  index: number,
+  docType: "demand-notice" | "dispatch-proof" | "delivery-proof" | "notice-reply"
+): IntakeSlot | undefined {
+  return draft.intake.notices[index]?.slots.find((s) => s.docType === docType);
 }
 
 /** The intake upload behind complainant `index` (0-based) of the given kind, if any. */

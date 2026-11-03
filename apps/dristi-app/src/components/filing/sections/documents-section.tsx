@@ -10,6 +10,8 @@
  */
 
 import * as React from "react";
+
+import { notify, StatusLine } from "@/components/feedback";
 import { useRouter } from "next/navigation";
 import {
   CheckIcon,
@@ -28,7 +30,9 @@ import { uid } from "@/lib/filing/blank";
 import { getRepository, storeUpload } from "@/lib/filing/data";
 import { forgetFile, formatBytes, useFilePreview } from "@/lib/filing/files";
 import { documentsProgress, intakeSlots } from "@/lib/filing/selectors";
+import { readability } from "@/lib/filing/readability";
 import { useFiling } from "@/lib/filing/store";
+import { useFieldPolicy } from "@/components/filing/field-policy";
 import type {
   CaseDocument,
   DocumentGroup,
@@ -38,7 +42,6 @@ import type {
 } from "@/lib/filing/types";
 import { REGISTER_CARDS_ONLY, REGISTER_TABLE_ONLY } from "@/components/cases/register-layout";
 import { cn } from "@/lib/utils";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -68,9 +71,6 @@ import { LabelTip, RequiredMark } from "@/components/filing/form-field";
 import { SectionNotice } from "@/components/filing/notices";
 import { pickErrorMessage, useFilePicker } from "@/components/filing/use-file-picker";
 
-/** Below this the court cannot read a scan — the same floor document reading uses. */
-const MIN_READABLE_EDGE = 500;
-
 function findDoc(
   groups: DocumentGroup[],
   docId: string
@@ -86,23 +86,6 @@ function findDoc(
 function resolveSlot(intake: Intake, key: string): IntakeSlot | undefined {
   const slots = intakeSlots(intake);
   return slots.find((s) => s.key === key) ?? slots.find((s) => s.key.startsWith(`${key}-`));
-}
-
-/**
- * Is this upload legible? Only the cheap, local check: a photo whose long edge is under
- * ~500px cannot be read at print size. PDFs carry their own resolution, so they pass.
- */
-async function readability(file: File): Promise<CaseDocument["quality"]> {
-  if (!file.type.startsWith("image/")) return "good";
-  try {
-    const bitmap = await createImageBitmap(file);
-    const longEdge = Math.max(bitmap.width, bitmap.height);
-    bitmap.close?.();
-    return longEdge < MIN_READABLE_EDGE ? "bad" : "good";
-  } catch {
-    // Can't decode it here — don't accuse the file; the court's own check is the backstop.
-    return "good";
-  }
 }
 
 /** Forget a stored file's bytes and its cached preview. */
@@ -152,7 +135,8 @@ function FilePreviewWell({ file }: { file: StoredFileRef | null }) {
 export function DocumentsSection() {
   const { draft, update, hrefFor } = useFiling();
   const router = useRouter();
-  const groups = draft.documents;
+  const showGroup = useFieldPolicy()?.documentGroups;
+  const groups = showGroup ? draft.documents.filter((g) => showGroup(g.id)) : draft.documents;
   const { remaining } = documentsProgress(groups);
   const { pick, input } = useFilePicker();
 
@@ -164,21 +148,10 @@ export function DocumentsSection() {
     hasFile: boolean;
   } | null>(null);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
-  /** Said where the pointer is: why Continue did nothing, or why a file was refused. */
-  const [flash, setFlash] = React.useState<string | null>(null);
-  const flashTimer = React.useRef<number | null>(null);
-
-  React.useEffect(
-    () => () => {
-      if (flashTimer.current) window.clearTimeout(flashTimer.current);
-    },
-    []
-  );
-
+  /** Why Continue did nothing, or why a file was refused: the warning toast, in the
+      toast's place, rather than an alert pinned to the corner (skill `feedback-states`). */
   const say = React.useCallback((message: string) => {
-    setFlash(message);
-    if (flashTimer.current) window.clearTimeout(flashTimer.current);
-    flashTimer.current = window.setTimeout(() => setFlash(null), 3500);
+    notify.warning(message);
   }, []);
 
   const patchDoc = (docId: string, patch: (doc: CaseDocument) => void) =>
@@ -613,21 +586,6 @@ export function DocumentsSection() {
         }
       />
 
-      {/* Blocked Continue and refused files — said where the pointer is. The live region
-          stays mounted so its content is announced when it appears. */}
-      <div
-        role="status"
-        aria-live="polite"
-        className="pointer-events-none fixed right-4 bottom-16 z-40 w-72 max-w-full sm:right-6"
-      >
-        {flash ? (
-          <Alert variant="warning" className="shadow-overlay">
-            <TriangleAlertIcon aria-hidden />
-            <AlertDescription>{flash}</AlertDescription>
-          </Alert>
-        ) : null}
-      </div>
-
       {/* Document preview */}
       <Dialog
         open={!!previewDoc}
@@ -650,20 +608,17 @@ export function DocumentsSection() {
 
           <FilePreviewWell file={previewFile} />
 
+          {/* What is true of the file when it opens: still, not news. */}
           {previewDoc?.quality === "bad" ? (
-            <Alert variant="warning">
-              <TriangleAlertIcon aria-hidden />
-              <AlertDescription>
-                This scan looks blurry or cropped. Please re-upload a clearer copy so the
-                court can read it.
-              </AlertDescription>
-            </Alert>
+            <StatusLine tone="warning" still>
+              This scan looks blurry or cropped. Please re-upload a clearer copy so the
+              court can read it.
+            </StatusLine>
           ) : null}
           {previewDoc?.quality === "good" ? (
-            <Alert variant="success">
-              <CheckIcon aria-hidden />
-              <AlertDescription>This document is clear and readable.</AlertDescription>
-            </Alert>
+            <StatusLine tone="success" still>
+              This document is clear and readable.
+            </StatusLine>
           ) : null}
 
           <DialogFooter className="sm:justify-between">
@@ -695,13 +650,14 @@ export function DocumentsSection() {
       </Dialog>
 
       <ConfirmDialog
+        note="This cannot be undone."
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
         title={`Remove ${deleteTarget?.name || "this document"}`}
         description={
           deleteTarget?.hasFile
-            ? "Are you sure you want to remove this document and the file attached to it? This cannot be undone."
-            : "Are you sure you want to remove this row and the details typed in it? This cannot be undone."
+            ? "Are you sure you want to remove this document and the file attached to it?"
+            : "Are you sure you want to remove this row and the details typed in it?"
         }
         confirmLabel="Yes, remove"
         onConfirm={() => {

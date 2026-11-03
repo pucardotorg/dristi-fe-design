@@ -24,8 +24,10 @@ import {
   type Part,
 } from "./actions.server";
 import { aiModeFrom } from "./ai-review";
-import type { ApiBatchRequest } from "./contract";
+import type { ApiBatchRequest, ApiBatchResponse, ApiDocument } from "./contract";
+import { localizeCaseNumber } from "@/lib/court/localize";
 import { buildBatch, validateRequest } from "./intake";
+import { applyParties, type BatchParties } from "./parties";
 import { caseFlags } from "./scrutiny";
 import type { BulkStore, FileMeta } from "./store";
 import type { BulkSignMethod } from "./types";
@@ -56,11 +58,16 @@ export type CreateBody = {
   from?: "excel" | "documents";
   /** For case documents: each case's original file and its text, by case reference. */
   originals?: Record<string, { file: StoredFileRef; text: string | null }>;
+  /**
+   * The batch's complainants, advocates and their documents as entered on the setup
+   * screens (`BLK-05`): put on every case in place of the request's complainant block.
+   */
+  parties?: BatchParties;
 };
 
 /** An Excel upload, already parsed and mapped in the browser into the API's shape. */
 export async function createBatch(store: BulkStore, body: CreateBody): Promise<Reply> {
-  const { request, fileName, from, originals } = body;
+  const { request, fileName, from, originals, parties } = body;
   const errors = validateRequest(request);
   if (errors.length) return fail("Not a valid batch.", 422, errors);
   const source =
@@ -69,6 +76,11 @@ export async function createBatch(store: BulkStore, body: CreateBody): Promise<R
       : { kind: "excel" as const, system: "Excel upload", reference: fileName };
   const built = await buildBatch(request, source, async () => null);
   for (const bc of built.cases) {
+    if (parties) {
+      applyParties(bc.draft, parties);
+      // The names come from the Bar register on the setup screen, not from a request.
+      bc.unknownBar = [];
+    }
     const o = originals?.[bc.reference];
     if (!o) continue;
     bc.original = o.file;
@@ -76,6 +88,65 @@ export async function createBatch(store: BulkStore, body: CreateBody): Promise<R
   }
   const batch = await store.insertBatch(built);
   return ok({ batchId: batch.id, batchNumber: batch.number }, 201);
+}
+
+/* ───────────────────────────── Bulk Filing API v1 ───────────────────────────── */
+
+/**
+ * A litigation system's push (`POST /api/bulk/v1/batches`): validated, its documents
+ * fetched from the sender and kept, and the cases held as one batch of drafts.
+ */
+export async function receivePush(store: BulkStore, body: unknown, origin: string): Promise<Reply> {
+  const errors = validateRequest(body);
+  if (errors.length) return fail("Not a valid batch.", 422, errors);
+  const request = body as ApiBatchRequest;
+  const fetchDocument = async (doc: ApiDocument) => {
+    try {
+      const res = await fetch(doc.url, { signal: AbortSignal.timeout(10_000) });
+      if (!res.ok) return null;
+      const bytes = new Uint8Array(await res.arrayBuffer());
+      const type = (doc.contentType || res.headers.get("content-type") || "application/octet-stream").split(";")[0];
+      const ref = await store.saveFile(bytes, doc.name, type);
+      return { ...ref, text: documentText(bytes, type) };
+    } catch {
+      return null;
+    }
+  };
+  const built = await buildBatch(
+    request,
+    { kind: "api", system: request.source.system, reference: request.source.reference, sentBy: request.source.sentBy },
+    fetchDocument
+  );
+  const batch = await store.insertBatch(built);
+  const response: ApiBatchResponse = {
+    batchId: batch.id,
+    batchNumber: batch.number,
+    receivedAt: batch.createdAt,
+    url: `${origin}/filings/bulk/${batch.id}`,
+    cases: batch.cases.map((c) => ({ reference: c.reference, caseId: c.id, status: "draft" })),
+  };
+  return ok(response, 201);
+}
+
+/** The sender's view of what it has pushed (`GET /api/bulk/v1/batches`). */
+export async function pushedBatches(store: BulkStore): Promise<Reply> {
+  const all = await store.listBatches();
+  return ok(
+    all.map((b) => ({
+      batchId: b.id,
+      batchNumber: b.number,
+      receivedAt: b.createdAt,
+      source: b.source,
+      clubbedInto: b.clubbedInto,
+      cases: b.cases.map((c) => ({
+        reference: c.reference,
+        caseId: c.id,
+        status: c.draft.status,
+        // In the deployment's own numbering, as the court's screens show it.
+        caseFileNumber: c.draft.sign.caseFileNumber ? localizeCaseNumber(c.draft.sign.caseFileNumber, "gujarat") : null,
+      })),
+    }))
+  );
 }
 
 export async function getBatchView(store: BulkStore, batchId: string, aiRaw: string | null): Promise<Reply> {
@@ -316,7 +387,7 @@ export async function putFile(store: BulkStore, fileId: string, file: File | nul
 export async function attach(
   store: BulkStore,
   batchId: string,
-  input: { file: File | null; caseId: string; slotKey: string; ai: string | null },
+  input: { file: File | null; caseId: string; slotKey: string; poor?: boolean; ai: string | null },
 ): Promise<Reply> {
   if (!input.file) return fail("No file.", 400);
   const bytes = new Uint8Array(await input.file.arrayBuffer());
@@ -327,7 +398,7 @@ export async function attach(
   const saved = await store.updateBatch(batchId, (batch) => {
     const bc = batch.cases.find((c) => c.id === input.caseId);
     if (!bc || bc.signedWith || bc.draft.status === "filed") return null;
-    done = attachToSlot(bc, input.slotKey, ref);
+    done = attachToSlot(bc, input.slotKey, ref, input.poor);
     if (done) bc.docText = { ...bc.docText, [ref.id]: text };
     return done ? batch : null;
   });

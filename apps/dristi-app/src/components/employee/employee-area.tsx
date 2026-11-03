@@ -8,7 +8,7 @@ import { CourtSearchProvider } from "@/components/employee/court-search";
 import { EmployeeNav } from "@/components/employee/employee-nav";
 import { EmployeeTopBar } from "@/components/employee/employee-top-bar";
 import { ApplicationOrderTriggers } from "@/components/employee/application-order-triggers";
-import { AppToaster } from "@/components/shell/app-toaster";
+import { FeedbackToaster } from "@/components/ui/feedback-toaster";
 
 /**
  * Which part of the bench's side a path belongs to — `AppShell`'s own `areaOf`, one
@@ -89,7 +89,7 @@ export function EmployeeArea({ children }: { children: React.ReactNode }) {
       </main>
       {/* Inside the page column, so it inherits the column's `--chrome-page-inset` and
           centres on the bench's workspace rather than on the window. */}
-      <AppToaster />
+      <FeedbackToaster />
       {/* A triggered order decides the applications in its workflow, wherever it was
           signed or completed (owner, 2026-10-14). */}
       <ApplicationOrderTriggers />

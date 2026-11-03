@@ -29,7 +29,7 @@ export type DayLoad = { total: number; purposes: PurposeLoad[] };
 
 /* The docket names a next hearing's purpose in its own words (`STAGES`); the cause list
    has one vocabulary of purposes, so they are read into it here. */
-const DOCKET_PURPOSE: Record<string, CourtHearingPurposeId> = {
+export const DOCKET_PURPOSE: Record<string, CourtHearingPurposeId> = {
   Cognizance: "cognizance",
   Appearance: "appearance",
   Bail: "bail",

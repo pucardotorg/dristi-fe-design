@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import {
   SAMPLE_SHORTCUTS,
+  appendShortcut,
   isFormatted,
   leadInParagraph,
   matchOrderShortcuts,
@@ -12,6 +13,23 @@ import {
 } from "./order-shortcuts";
 
 describe("order shortcuts", () => {
+  it("Insert puts a shortcut at the end of the order, or starts an empty one with it", () => {
+    const line = { id: "a", name: "Adjourned", text: "Adjourned at the accused's request." };
+    const formatted = { id: "b", name: "Bail", text: "Bail granted", html: "<p>Bail <b>granted</b></p>" };
+    assert.deepEqual(appendShortcut({ html: "<p><br></p>", text: "" }, line), {
+      html: "<p>Adjourned at the accused's request.</p>",
+      text: "Adjourned at the accused's request.",
+    });
+    assert.deepEqual(appendShortcut({ html: "<p>Heard.</p>", text: "Heard." }, formatted), {
+      html: "<p>Heard.</p><p>Bail <b>granted</b></p>",
+      text: "Heard.\nBail granted",
+    });
+    assert.equal(
+      appendShortcut({ html: "", text: "" }, { ...line, text: "a < b" }).html,
+      "<p>a &lt; b</p>",
+    );
+  });
+
   it("opens on the catalogue's order items that carry no variables", () => {
     assert.ok(SAMPLE_SHORTCUTS.length > 0);
     for (const entry of SAMPLE_SHORTCUTS) {
@@ -79,6 +97,17 @@ describe("order shortcuts", () => {
     );
     assert.deepEqual(matchOrderShortcuts(list, "DIS").map((entry) => entry.id), ["c"]);
     assert.deepEqual(matchOrderShortcuts(list, "zzz"), []);
+  });
+
+  it("lists every shortcut, in its own order, for the bare slash", () => {
+    const list = [
+      { id: "a", name: "Moving case out", text: "x" },
+      { id: "b", name: "Case transfer", text: "y" },
+    ];
+    assert.deepEqual(
+      matchOrderShortcuts(list, "").map((entry) => entry.id),
+      ["a", "b"],
+    );
   });
 
   it("refuses a second shortcut of the same name, whatever its case", () => {

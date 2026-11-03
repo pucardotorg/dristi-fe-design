@@ -11,6 +11,7 @@ import {
   buildDocumentGroups,
   createBlankDraft,
   intakeChequeGroup,
+  intakeNoticeGroup,
   intakePartyGroup,
 } from "@/lib/filing/blank";
 import { feeBill, oathTakerName, signatories } from "@/lib/filing/selectors";
@@ -234,15 +235,20 @@ function build(spec: Spec): FilingDraft {
 
   // Intake: one group per cheque and per complainant, every required upload made.
   draft.intake.cheques = draft.cheques.map((_, i) => intakeChequeGroup(i + 1));
+  draft.intake.notices = draft.notices.map((_, i) => intakeNoticeGroup(i + 1));
   draft.intake.parties = draft.complainants.map((_, i) => intakePartyGroup(i + 1));
   const optional = new Set(spec.optional ?? []);
   const poor = new Set(spec.poor ?? []);
 
-  draft.cheques.forEach((c, i) => {
-    const clean = cleanReads(c, draft.notices[i] ?? blankNotice());
-    for (const slot of draft.intake.cheques[i].slots) {
+  const groups = [
+    ...draft.intake.cheques.map((g, i) => ({ g, c: draft.cheques[i], n: draft.notices[0] })),
+    ...draft.intake.notices.map((g, i) => ({ g, c: draft.cheques[0], n: draft.notices[i] })),
+  ];
+  groups.forEach(({ g, c, n }) => {
+    const clean = cleanReads(c ?? blankCheque(), n ?? blankNotice());
+    for (const slot of g.slots) {
       if (!slot.required && !optional.has(slot.key)) continue;
-      const kind = slot.key.replace(/^c\d+/, "");
+      const kind = slot.key.replace(/^[cn]\d+/, "");
       const base = (clean[kind] ?? {}) as Read;
       const changes = spec.reads?.[slot.key] ?? {};
       const read: Read = { ...base };
@@ -736,7 +742,7 @@ const SPECS: Spec[] = [
         ],
       },
     ],
-    optional: ["c1rp", "sl"],
+    optional: ["n1rp", "sl"],
     sign: { instrument: "aadhaar", at: "2026-06-24T11:05:00.000Z" },
   },
 
@@ -1108,7 +1114,7 @@ const HERO_PAGES: Record<string, Pick<BundleDoc, "kind" | "src">> = {
   affidavit: { kind: "scan" },
   c1f: { kind: "image", src: "/employee/bundle/cheque.jpg" },
   c1m: { kind: "image", src: "/employee/bundle/memo.jpg" },
-  c1dn: { kind: "image", src: "/employee/bundle/notice.jpg" },
+  n1dn: { kind: "image", src: "/employee/bundle/notice.jpg" },
   p1id: { kind: "image", src: "/employee/bundle/aadhaar.jpg" },
 };
 

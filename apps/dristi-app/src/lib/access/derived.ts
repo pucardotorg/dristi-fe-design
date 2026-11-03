@@ -65,6 +65,9 @@ export function derivedAccessPeople(record: CaseRecord): AccessPerson[] {
       ...team.juniors.map((name) => ({ name, role: "junior" as const })),
       ...team.clerks.map((name) => ({ name, role: "clerk" as const })),
     ];
+    // The viewer's own staff are office access they gave, so theirs to remove;
+    // a co-advocate's are not (OFC-09).
+    const addedBy = team.advocate.includes(VIEWER_NAME) ? "self" : team.advocate;
     for (const person of staff) {
       if (seen.has(person.name)) continue;
       seen.add(person.name);
@@ -72,14 +75,14 @@ export function derivedAccessPeople(record: CaseRecord): AccessPerson[] {
         id: `derived-${record.id}-${team.id}-${person.role}-${person.name}`,
         name: person.name,
         phone: stablePhone(person.name),
-        addedBy: team.advocate,
+        addedBy,
         grants: [
           {
             caseId: record.id,
             role: person.role,
             status: "joined",
             since,
-            addedBy: team.advocate,
+            addedBy,
           },
         ],
       });

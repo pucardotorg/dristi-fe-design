@@ -10,6 +10,8 @@ import {
 } from "@/lib/employee/cognizance";
 import { isoDay } from "@/lib/employee/hearings";
 
+const DEMO_LISTING_ORDER_HREF = "/employee/hearings/h-241/order";
+
 /**
  * A complaint from the cognizance queue first, so its View case opens that complaint and
  * not a case on the advocate's list that happens to share its id.
@@ -23,7 +25,9 @@ function courtCase(caseId: string) {
     };
   }
   const record = findCaseRecord(caseId);
-  return record ? { record, orderHref: undefined } : undefined;
+  /* Any other case opens the order screen of the demo listing it stands in for — the
+     cause list's View case opens this case for every listing (owner, 2026-10-23). */
+  return record ? { record, orderHref: DEMO_LISTING_ORDER_HREF } : undefined;
 }
 
 export async function generateMetadata({
@@ -43,8 +47,8 @@ export async function generateMetadata({
  * `ProfileProvider` because the shared screen's bail and application panels read the
  * signed-in profile, and the court area does not mount the advocate's shell that holds it.
  *
- * Generate order opens the one order door this area has outside a hearing: a cognizance
- * act's. A case without one gets the button, stated as not yet connected.
+ * Generate order opens the order screen: a cognizance act's for a complaint in that
+ * queue, the demo listing's for any other case.
  */
 export default async function CourtCasePage({
   params,

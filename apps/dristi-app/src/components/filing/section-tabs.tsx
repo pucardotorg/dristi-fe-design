@@ -103,13 +103,13 @@ export function SectionTabs({
           // justify-start overrides the primitive's centering: a strip with one
           // or two tabs otherwise floats them mid-row, orphaned from the form
           // below (owner, Sept 3).
-          className="w-full min-w-0 flex-nowrap justify-start gap-1 overflow-x-auto p-0 group-data-horizontal/tabs:h-10"
+          className="w-full min-w-0 flex-nowrap justify-start gap-1 overflow-x-auto"
         >
           {tabs.map((t) => (
             <div key={t.id} className="flex shrink-0 items-center">
               <TabsTrigger
                 value={t.id}
-                className="h-10 flex-none gap-2 rounded-b-none px-3 text-body-compact group-data-horizontal/tabs:after:-bottom-px"
+                className="h-10 flex-none gap-2 rounded-b-none text-body-compact"
               >
                 <span
                   aria-hidden

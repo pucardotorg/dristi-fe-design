@@ -478,9 +478,9 @@ export function PreviewSection() {
 
         <Tabs value={view} onValueChange={setView} className="gap-6">
           <div className="flex flex-col items-start justify-between gap-2 border-b border-hairline sm:flex-row sm:items-end">
-            <TabsList variant="line" aria-label="Preview format" className="order-2 p-0 group-data-horizontal/tabs:h-10 sm:order-none">
-              <TabsTrigger value="synopsis" className="h-10 px-3 group-data-horizontal/tabs:after:-bottom-px">Complaint</TabsTrigger>
-              <TabsTrigger value="document" className="h-10 px-3 group-data-horizontal/tabs:after:-bottom-px">Complaint PDF</TabsTrigger>
+            <TabsList variant="line" aria-label="Preview format" className="order-2 sm:order-none">
+              <TabsTrigger value="synopsis" className="h-10 px-3">Complaint</TabsTrigger>
+              <TabsTrigger value="document" className="h-10 px-3">Complaint PDF</TabsTrigger>
             </TabsList>
             <Button type="button" variant="outline" onClick={printFile} className="sm:mb-2">
               <PrinterIcon data-icon="inline-start" aria-hidden />

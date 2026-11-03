@@ -46,7 +46,7 @@ export const SELF_BAR = "K/1450/2012";
  */
 export const OFFICE_ADVOCATES: { barNumber: string; name: string; you?: boolean }[] = [
   { barNumber: SELF_BAR, name: SELF.name.replace(/^Adv\.\s*/, ""), you: true },
-  ...ACCESS_PEOPLE.filter((p) => p.barId && !p.pending).map((p) => ({
+  ...ACCESS_PEOPLE.filter((p) => p.barId).map((p) => ({
     barNumber: p.barId!,
     name: p.name.replace(/^Adv\.\s*/, ""),
   })),

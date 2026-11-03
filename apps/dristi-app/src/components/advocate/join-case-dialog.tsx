@@ -3,17 +3,8 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { REGEXP_ONLY_DIGITS } from "input-otp";
-import {
-  ArrowLeftIcon,
-  ArrowRightIcon,
-  CheckCircle2Icon,
-  DownloadIcon,
-  FlaskConicalIcon,
-  MinusIcon,
-  PlusIcon,
-  SearchIcon,
-} from "lucide-react";
-import { toast } from "sonner";
+import { ArrowLeftIcon, ArrowRightIcon, DownloadIcon, FlaskConicalIcon, MinusIcon, PlusIcon, SearchIcon, SearchXIcon, WalletIcon } from "lucide-react";
+import { OutcomeAmount, OutcomeHeader, StatusLine, notify } from "@/components/feedback";
 
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 import { useStageFade } from "@/components/chrome/stage-fade";
@@ -110,13 +101,19 @@ import { newPaymentRef } from "@/lib/filing/data";
 import { rupees } from "@/lib/tasks/format";
 import { Identifier } from "@/components/chrome/identifier";
 import { JoinedCaseBail } from "@/components/join/joined-case-bail";
-import { GATEWAY_MS, PaymentProcessing, PaymentReceipt } from "@/components/payment/payment-steps";
+import { GATEWAY_MS, PaymentProcessing, PaymentFacts } from "@/components/payment/payment-steps";
 import {
+  directoryOptions,
   inviteLabel,
   PeopleInviteField,
   type InvitePerson,
 } from "@/components/access/people-invite-field";
-import { FREQUENT_COLLABORATORS, shareCopy } from "@/lib/access/content";
+import { useAccess } from "@/components/access/access-state";
+import {
+  joinOfficeCopy,
+  registerAccessCase,
+  shareCopy,
+} from "@/lib/access/content";
 import { JOIN_DEMO_CASE_ID } from "@/lib/cases/party-cases";
 import { useCourt } from "@/components/court/court-provider";
 import { cn } from "@/lib/utils";
@@ -384,6 +381,10 @@ export function AdvocateJoinCaseDialog({
   const [outcome, setOutcome] = React.useState<"joined" | "unpaid">("joined");
 
   const [team, setTeam] = React.useState<InvitePerson[]>([]);
+  const { invite, office, caseAdded } = useAccess();
+  /* Office members on All cases got this case the moment the advocate joined
+     (OFC-25, OFC-41); the step lists them rather than asking again. */
+  const allCasesOffice = office.filter((person) => person.allCases);
   const [teamInvited, setTeamInvited] = React.useState<string[]>([]);
 
   /* File bail application opens the application form at Bail, in place of
@@ -650,7 +651,7 @@ export function AdvocateJoinCaseDialog({
       reportJoined(true);
       // The co-advocates named on the vakalatnama get their SMS once it is paid for.
       if (needsCoAdvocates && vkAdvocates.length) {
-        toast.success(
+        notify.success(
           fill(advDialog.vkInviteToast, locale, { names: vkAdvocates.map(inviteLabel).join(", ") }),
         );
       }
@@ -668,12 +669,34 @@ export function AdvocateJoinCaseDialog({
     setVerifyTouched(false);
   }
 
+  /* The joined case enters the access world once the advocate is on it, and
+     everyone on All cases gets it then (OFC-25). Keyed by CNR so it runs once. */
+  const joinedCnr = stage === "done" && joinCase && !unpaidOutcome ? joinCase.cnr : null;
+  React.useEffect(() => {
+    if (!joinedCnr || !joinCase) return;
+    // The real case the demo join lands on, so the people added here show on its
+    // page (OFC-42). The advocate is now on its vakalatnama.
+    const caseId = JOIN_DEMO_CASE_ID;
+    registerAccessCase({
+      id: caseId,
+      viewerAccess: "vakalatnama",
+      title: joinCase.title,
+      caseNumber: joinCase.caseNumber,
+      court: joinCase.court,
+      nextHearing: joinCase.hearingDate,
+    });
+    caseAdded(caseId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per joined case
+  }, [joinedCnr]);
+
   function sendInvites() {
-    if (!team.length) return;
+    if (!team.length || !joinCase) return;
+    // Office access to the joined case as a specific case (OFC-42).
+    invite(team.map((person) => person.phone ?? ""), [JOIN_DEMO_CASE_ID]);
     // The confirmation shows the batch just sent and replaces any earlier one — a
     // later send swaps the old notification out rather than growing it.
     setTeamInvited(team.map(inviteLabel));
-    toast.success(fill(shareCopy.inviteToast, locale, { names: team.map(inviteLabel).join(", ") }));
+    notify.success(fill(shareCopy.inviteToast, locale, { names: team.map(inviteLabel).join(", ") }));
     setTeam([]);
   }
 
@@ -745,6 +768,24 @@ export function AdvocateJoinCaseDialog({
             product's staged overlays carry, so the outcome reads as this window
             settling rather than a different one (owner, Oct 6). Only the words
             change; the frame holds still while the stage below it moves. */}
+        {/* ...except the outcomes: payment and joining take the window over, as the owner
+            approved on the states board (Oct 29, skill `feedback-states`). Waiting on the
+            fee is a gate, not news: neutral. */}
+        {!leaving && stage === "paid" ? (
+          <OutcomeHeader key="paid" titleFrom="dialog" focusTitle title={headerCopy.title} body={headerCopy.body}>
+            <OutcomeAmount label={pick(advDialog.paidAmount, locale)} value={fee} />
+          </OutcomeHeader>
+        ) : !leaving && stage === "done" ? (
+          <OutcomeHeader
+            key={unpaidOutcome ? "unpaid" : "joined"}
+            titleFrom="dialog"
+            focusTitle
+            tone={unpaidOutcome ? "neutral" : "success"}
+            icon={unpaidOutcome ? WalletIcon : undefined}
+            title={pick(unpaidOutcome ? advDialog.unpaidTitle : advDialog.joinedTitle, locale)}
+            body={pick(unpaidOutcome ? advDialog.unpaidBody : advDialog.joinedBody, locale)}
+          />
+        ) : (
         <DialogHeader className="shrink-0 gap-2 border-b border-hairline p-6 pr-16 text-left">
           <DialogTitle
             ref={titleRef}
@@ -765,6 +806,7 @@ export function AdvocateJoinCaseDialog({
                 : headerCopy.body}
           </DialogDescription>
         </DialogHeader>
+        )}
 
         {/* The stage: the warm canvas the case and the questions are laid on as
             white panels, the product's staged-overlay surface. It hugs each
@@ -817,7 +859,7 @@ export function AdvocateJoinCaseDialog({
                 </FieldError>
               </Field>
               {lookupMiss ? (
-                <Banner variant="warning" className="items-start">{pick(joinDialog.lookupMiss, locale)}</Banner>
+                <StatusLine tone="neutral" icon={SearchXIcon}>{pick(joinDialog.lookupMiss, locale)}</StatusLine>
               ) : null}
             </form>
           ) : null}
@@ -1301,7 +1343,7 @@ export function AdvocateJoinCaseDialog({
                   tabIndex={-1}
                   className="rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <Banner variant="error" className="items-start">{pick(advDialog.payFailed, locale)}</Banner>
+                  <StatusLine tone="error">{pick(advDialog.payFailed, locale)}</StatusLine>
                 </div>
               ) : null}
               <DescriptionList className="rounded-xl bg-surface-sunken px-4 py-1">
@@ -1345,8 +1387,7 @@ export function AdvocateJoinCaseDialog({
           {/* ------------------------------------------------------ receipt */}
           {stage === "paid" && joinCase ? (
             <div className={JOIN_PANEL}>
-              <PaymentReceipt
-                amount={fee}
+              <PaymentFacts
                 rows={[
                   { label: pick(advDialog.payFeeHead, locale), value: pick(advDialog.payFeeName, locale) },
                   {
@@ -1391,17 +1432,29 @@ export function AdvocateJoinCaseDialog({
                   </p>
                 </div>
 
-                {/* People this office has added before surface as you type a name or
-                    number; anyone else is just their number (owner, 2026-10-12). */}
+                {allCasesOffice.length ? (
+                  <p className="text-body-compact text-pretty text-muted-foreground">
+                    {pick(joinOfficeCopy.alreadyAdded, locale)}{" "}
+                    <span className="font-medium text-foreground">
+                      {allCasesOffice.map((person) => person.name).join(", ")}
+                    </span>
+                  </p>
+                ) : null}
+
+                {/* The office is suggested; any registered advocate or clerk can be
+                    searched by name, number or Bar ID (owner, 2026-10-21, OFC-42). */}
                 <div className="flex items-start gap-2">
                   <div className="min-w-0 flex-1">
                     <PeopleInviteField
                       id="adv-team"
                       label={pick(advDialog.teamTitle, locale)}
-                      known={FREQUENT_COLLABORATORS}
+                      known={directoryOptions(office.map((person) => person.phone)).filter(
+                        (option) => !allCasesOffice.some((person) => person.phone === option.phone),
+                      )}
                       value={team}
                       onValueChange={setTeam}
                       locale={locale}
+                      registeredOnly
                     />
                   </div>
                   <Button
@@ -1423,13 +1476,12 @@ export function AdvocateJoinCaseDialog({
                 {/* One-line confirmation: a single tick, then the numbers just invited,
                     inline and comma-separated. Replaced (not grown) on the next send. */}
                 {teamInvited.length ? (
-                  <p className="flex items-start gap-1.5 rounded-lg border border-success bg-success-muted px-3 py-2 text-body-compact font-medium text-success-muted-foreground">
-                    <CheckCircle2Icon className="mt-0.5 size-4 shrink-0" aria-hidden />
-                    <span>
-                      {pick(advDialog.teamInviteSentNote, locale)}{" "}
-                      <span className="tabular-nums">{teamInvited.join(", ")}</span>
-                    </span>
-                  </p>
+                  /* The toast announces the send and plays the mark; this line is the
+                     record of it in the window, so it stands still (as before). */
+                  <StatusLine tone="success" still>
+                    {pick(advDialog.teamInviteSentNote, locale)}{" "}
+                    <span className="tabular-nums">{teamInvited.join(", ")}</span>
+                  </StatusLine>
                 ) : null}
               </div>
             </div>
@@ -1440,7 +1492,7 @@ export function AdvocateJoinCaseDialog({
 
         {/* ------------------------------------------------------------ footer */}
         <footer
-          className={`flex shrink-0 flex-col-reverse gap-2 border-t border-hairline px-6 pt-4 pb-[calc(--spacing(4)+env(safe-area-inset-bottom))] sm:flex-row sm:items-center ${unpaidOutcome ? "sm:justify-end" : "sm:justify-between"} ${stage === "processing" ? "hidden" : ""}`}
+          className={`flex shrink-0 flex-col-reverse gap-2 border-t border-hairline px-6 pt-4 pb-[calc(--spacing(4)+env(safe-area-inset-bottom))] sm:flex-row sm:items-center ${unpaidOutcome ? "sm:justify-end" : "sm:justify-between"} ${stage === "processing" ? "hidden" : ""} ${!leaving && (stage === "paid" || stage === "done") ? "bg-surface-sunken" : ""}`}
         >
           {leaving ? (
             <>
