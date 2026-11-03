@@ -37,7 +37,7 @@ import { type CognizanceLayout, readCognizanceLayout } from "./cognizance-layout
 import { hearingById, TODAYS_HEARING_COUNT } from "./hearings";
 import type { CourtNavLayout } from "./nav-layout";
 import { findCaseRecord } from "../cases/party-cases";
-import type { CourtId } from "../court/profiles";
+import { courtProfile, type CourtId } from "../court/profiles";
 import { scrutinyRegistersIn } from "./court-role";
 import {
   APPROVE_REGISTRATIONS_TITLE,
@@ -522,8 +522,7 @@ const SEAT_HIDDEN_ROWS: Partial<Record<CourtRole, ReadonlySet<string>>> = {
   magistrate: HIDDEN_FROM_BENCH,
   "bench-clerk": HIDDEN_FROM_BENCH,
   typist: HIDDEN_FROM_STENO,
-  /* Punjab & Haryana's own Steno and Ahlmad (court-roles §3.3) hold no signing role. */
-  steno: HIDDEN_FROM_STENO,
+  /* Punjab & Haryana's Ahlmad (court-roles §3.3) holds no signing role. */
   ahlmad: HIDDEN_FROM_STENO,
 };
 
@@ -536,6 +535,9 @@ export function seatHasNavRow(
   /* Approve registrations goes to whoever holds Account approver in this state
      (court-roles §3: the Scrutiny officer in Gujarat, the Ahlmad in Punjab & Haryana).
      Where the table names nobody yet (Kerala), the seat rules below still decide. */
+  /* Scrutinise submitted cases goes to whoever holds Scrutiny officer in this state —
+     the Ahlmad in Punjab & Haryana (court-roles §3.3). */
+  if (id === "scrutiny") return seatHolds(role, court, "scrutiny-officer");
   if (id === "approve-registrations") {
     const approvers = seatsIn(court).filter((seat) =>
       seatHolds(seat, court, "account-approver"),
@@ -593,6 +595,10 @@ export function courtNavGroupsForSeat(
  * screens, the dashboard and search.
  */
 export function courtHasNavRow(court: CourtId, id: string): boolean {
+  /* A state with no day A-Diary signs no A-Diary: Gujarat signs each Roznama in Pending
+     orders, Punjab & Haryana signs none (`OrderTypeRules`, owner, 2026-10-30). */
+  if (id === "sign-a-diary" && courtProfile(court).orderTypes.companion?.signing !== "day")
+    return false;
   return !(id === "register-cases" && scrutinyRegistersIn(court));
 }
 

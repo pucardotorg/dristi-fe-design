@@ -268,7 +268,7 @@ export function FieldsPanel({
                      sheet whose header band is divided from its rows by one hairline, the
                      same stroke Register cases and Take cognizance use. Layout unchanged —
                      the icon leads the title, the rows sit below. */
-                  <Card key={group.id} className={cn(SHEET, "w-full @container")}>
+                  <Card key={group.id} variant="raised" className={cn(SHEET, "w-full @container")}>
                     {/* The register case-file header (`register-case-file.tsx`): a sunken
                         band with the title at 14 — the panes are narrow, so the header
                         takes body-compact, not body (owner, 2026-09-15) — and the group

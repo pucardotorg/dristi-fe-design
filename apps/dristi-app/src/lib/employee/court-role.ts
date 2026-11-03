@@ -25,7 +25,7 @@ import {
   setCourtSession,
   subscribeToCourtSession,
 } from "./session";
-import { seatHolds } from "./seat-roles";
+import { seatHolds, seatsIn } from "./seat-roles";
 
 export function subscribeToCourtRole(listener: () => void): () => void {
   return subscribeToCourtSession(listener);
@@ -87,31 +87,22 @@ export function seatPostsNextHearing(role: CourtRole, court: CourtId): boolean {
   return seatHolds(role, court, "next-hearing-setter");
 }
 
-/**
- * Who holds the Case registerer role alongside Scrutiny officer, per state — the demo's
- * stand-in for the court directory. Roles are held per court room (`court-roles.md`
- * `RLE-02a`) and a real build reads them from there; this build has no directory, so it
- * staffs each state one way (owner, 2026-10-19):
- *
- * - Kerala: two people. The Scrutiny officer forwards, and someone else registers from
- *   Register cases.
- * - Gujarat, Punjab & Haryana: one person holds both, and registers at Scrutiny.
- *
- * This is staffing, not a rule about states: `SCR-11` has no setting for where a case is
- * registered, and swapping in a directory changes nothing else.
- */
-const SCRUTINY_HOLDS_CASE_REGISTERER: Record<CourtId, boolean> = {
-  kerala: false,
-  gujarat: true,
-  "punjab-haryana": true,
-};
+/** Whether this seat holds both Scrutiny officer and Case registerer in this state. */
+function seatScrutinisesAndRegisters(role: CourtRole, court: CourtId): boolean {
+  return (
+    seatHolds(role, court, "scrutiny-officer") && seatHolds(role, court, "case-registerer")
+  );
+}
 
 /**
- * Whether the Scrutiny officer in this state also holds Case registerer. Where they do,
- * nothing is ever forwarded, so the deployment has no Register cases queue.
+ * Whether the person who scrutinises in this state also holds Case registerer
+ * (court-roles §3). In Kerala they do not: the Scrutiny officer forwards, and the
+ * Magistrate registers from Register cases. In Gujarat the Scrutiny officer holds both,
+ * and in Punjab & Haryana the Ahlmad does. Where one person holds both, nothing is ever
+ * forwarded, so the deployment has no Register cases queue.
  */
 export function scrutinyRegistersIn(court: CourtId): boolean {
-  return SCRUTINY_HOLDS_CASE_REGISTERER[court];
+  return seatsIn(court).some((seat) => seatScrutinisesAndRegisters(seat, court));
 }
 
 /**
@@ -124,7 +115,9 @@ export function scrutinyRegistersIn(court: CourtId): boolean {
  * `scrutinyRegistersIn`: the screen shows the handover this court has, whichever
  * seat has it open. Offering Forward for registration to any other seat named a
  * Register cases queue those courts do not have.
+ *
+ * A view rule like the others here: it decides what the screen offers and grants nothing.
  */
 export function registersAtScrutiny(role: CourtRole, court: CourtId): boolean {
-  return role === "scrutiny-officer" && scrutinyRegistersIn(court);
+  return seatScrutinisesAndRegisters(role, court);
 }

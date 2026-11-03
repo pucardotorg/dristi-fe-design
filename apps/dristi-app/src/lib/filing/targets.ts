@@ -94,9 +94,9 @@ function rowFor(draft: FilingDraft, target: DefectTarget): Row | undefined {
   }
 }
 
-/** Every intake slot on the draft, by key — cheque groups, parties, supporting. */
+/** Every intake slot on the draft, by key — cheque and notice groups, parties, supporting. */
 export function intakeSlot(draft: FilingDraft, slotKey: string) {
-  for (const g of draft.intake.cheques) {
+  for (const g of [...draft.intake.cheques, ...draft.intake.notices]) {
     const hit = g.slots.find((s) => s.key === slotKey);
     if (hit) return hit;
   }

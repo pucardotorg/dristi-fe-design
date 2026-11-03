@@ -1,0 +1,530 @@
+/**
+ * The evidence recorded at a hearing: complainant evidence, a witness's deposition, or
+ * the court's examination of an accused (owner, 2026-10-28: the order screen's Recorded
+ * statements view — one typing screen, statement type and person as dropdowns).
+ *
+ * **A record of the hearing, not of the order.** It is typed while the order is open, by
+ * the same person, but an order item belongs to one order and its workflow runs only once
+ * the order is signed and its data complete — and a witness signs before leaving court,
+ * and their evidence can run over several hearings. So each record names the hearing it
+ * was taken at and the case it belongs to, and is signed on its own path: the witness or
+ * the accused first, then the magistrate. Anshumanth's entity explainer (2026-10-26)
+ * draws attendance the same way: entered on the order, owned by the hearing.
+ *
+ * One record per person per sitting: a witness cross-examined again at the next hearing
+ * gets a new record there. Whether a sheet should instead grow over sittings is open
+ * (`docs/design/features/witness-deposition.md`).
+ *
+ * Kept in this browser (`browser-record.ts`), like order drafts, so a half-typed
+ * deposition outlives a reload. A backend holds them for real.
+ */
+
+import type { CourtHearingPurposeId } from "./hearings";
+import type { CasePerson } from "./case-people";
+import { restoreRecord, saveRecord, watchRecord } from "./browser-record";
+import type { AddressBlock } from "@/lib/filing/types";
+
+/**
+ * How the sheet is signed: a deposition-family statement (speaker signs in court) or an
+ * examination of the accused (signing link). Kept separate from {@link StatementType},
+ * which is what the clerk names the record.
+ */
+export type EvidenceKind = "deposition" | "examination";
+
+/**
+ * What kind of recorded statement this is — court-facing labels, chosen in a dropdown
+ * (Anshumanth, 2026-10-28). More types can join this list as court master data; the
+ * typing screen stays the same.
+ */
+export type StatementType =
+  | "witness-deposition"
+  | "complainant-evidence"
+  | "accused-examination";
+
+export const STATEMENT_TYPES: readonly {
+  id: StatementType;
+  label: string;
+  kind: EvidenceKind;
+}[] = [
+  { id: "witness-deposition", label: "Witness deposition", kind: "deposition" },
+  {
+    id: "complainant-evidence",
+    label: "Evidence of the complainant",
+    kind: "deposition",
+  },
+  {
+    id: "accused-examination",
+    label: "Examination of the accused",
+    kind: "examination",
+  },
+];
+
+export type EvidenceStatus =
+  /** Being typed. */
+  | "draft"
+  /** An examination sent to the accused to sign on their own phone. */
+  | "awaiting-signature"
+  /** Signed by the witness or the accused; with the magistrate. */
+  | "signed";
+
+export type EvidenceRecord = {
+  id: string;
+  kind: EvidenceKind;
+  /**
+   * The clerk-facing type. Older drafts may omit it; {@link statementTypeOf} infers from
+   * `kind` then.
+   */
+  statementType?: StatementType;
+  caseNumber: string;
+  /** The listing it was taken at. */
+  hearingId: string;
+  /** The witness or the accused, from the case's people. Empty until chosen. */
+  personId: string;
+  html: string;
+  text: string;
+  status: EvidenceStatus;
+  signedWith?: "aadhaar" | "paper";
+  /** A deposition's witness number, fixed when the witness signs: "PW-3". */
+  witnessNumber?: string;
+  /** The side chosen in Witness mark as, before the number is fixed. Their own otherwise. */
+  witnessSide?: WitnessSide;
+  /** Where the accused's signing link went. */
+  sentTo?: string;
+  /** ISO timestamp it was started, for ordering. */
+  createdOn: string;
+  /** The court's day it was taken on — what the sheet is dated. Not the browser's clock. */
+  takenOn: string;
+};
+
+export function statementTypeOf(
+  record: Pick<EvidenceRecord, "kind" | "statementType">,
+): StatementType {
+  if (record.statementType) return record.statementType;
+  return record.kind === "examination"
+    ? "accused-examination"
+    : "witness-deposition";
+}
+
+export function statementTypeLabel(type: StatementType): string {
+  return STATEMENT_TYPES.find((entry) => entry.id === type)?.label ?? type;
+}
+
+export function kindForStatementType(type: StatementType): EvidenceKind {
+  return STATEMENT_TYPES.find((entry) => entry.id === type)?.kind ?? "deposition";
+}
+
+export type EvidenceRecords = Readonly<Record<string, EvidenceRecord>>;
+
+/**
+ * One keyed object in this browser, restored with its first subscriber (after hydration)
+ * and kept in step across tabs. The records and the witnesses added here are two.
+ */
+function browserStore<T extends object>(key: string, opening: T) {
+  let value = opening;
+  let restored = false;
+  const listeners = new Set<() => void>();
+  function restore(): void {
+    if (restored || typeof window === "undefined") return;
+    restored = true;
+    value = restoreRecord(key, opening);
+  }
+  function notify(): void {
+    for (const listener of listeners) listener();
+  }
+  return {
+    subscribe(listener: () => void): () => void {
+      listeners.add(listener);
+      if (!restored) {
+        restore();
+        notify();
+      }
+      watchRecord(key, () => {
+        value = restoreRecord(key, opening);
+        notify();
+      });
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    read: (): T => value,
+    server: (): T => opening,
+    current(): T {
+      restore();
+      return value;
+    },
+    write(next: T): void {
+      value = next;
+      saveRecord(key, next);
+      notify();
+    },
+  };
+}
+
+const OPENING: EvidenceRecords = Object.freeze({});
+const records = browserStore<EvidenceRecords>("dristi.hearing-evidence.v1", OPENING);
+
+export const subscribeToEvidence = records.subscribe;
+export const readEvidence = records.read;
+export const serverEvidence = records.server;
+
+export function saveEvidence(record: EvidenceRecord): void {
+  records.write({ ...records.current(), [record.id]: record });
+}
+
+export function updateEvidence(
+  id: string,
+  change: Partial<Omit<EvidenceRecord, "id">>,
+): void {
+  const all = records.current();
+  const current = all[id];
+  if (!current) return;
+  records.write({ ...all, [id]: { ...current, ...change } });
+}
+
+export function discardEvidence(id: string): void {
+  const all = records.current();
+  if (!all[id]) return;
+  records.write(Object.fromEntries(Object.entries(all).filter(([key]) => key !== id)));
+}
+
+export function newEvidenceRecord(
+  type: StatementType,
+  at: { caseNumber: string; hearingId: string; today: string },
+  now: Date = new Date(),
+): EvidenceRecord {
+  return {
+    id: `evidence-${now.getTime().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+    kind: kindForStatementType(type),
+    statementType: type,
+    caseNumber: at.caseNumber,
+    hearingId: at.hearingId,
+    personId: "",
+    /* An empty paragraph, so every line typed is one: a shortcut accepted on a bare line
+       would otherwise land inside it rather than after it. */
+    html: "<p><br></p>",
+    text: "",
+    status: "draft",
+    createdOn: now.toISOString(),
+    takenOn: at.today,
+  };
+}
+
+/** This hearing's records, oldest first — the order they were taken in. */
+export function evidenceAtHearing(
+  all: EvidenceRecords,
+  hearingId: string,
+): EvidenceRecord[] {
+  return Object.values(all)
+    .filter((record) => record.hearingId === hearingId)
+    .sort((a, b) => a.createdOn.localeCompare(b.createdOn));
+}
+
+/** Not yet signed by the person who gave it: the count the view's switch carries. */
+export function unsignedCount(records: readonly EvidenceRecord[]): number {
+  return records.filter((record) => record.status !== "signed").length;
+}
+
+/** What a new Recorded statements draft opens as: the type the hearing is listed for. */
+export function firstStatementTypeFor(
+  purpose: CourtHearingPurposeId | undefined,
+): StatementType {
+  if (purpose === "examination-of-accused-351") return "accused-examination";
+  if (purpose === "evidence-of-complainant") return "complainant-evidence";
+  return "witness-deposition";
+}
+
+/** @deprecated Prefer {@link firstStatementTypeFor}. */
+export function firstKindFor(
+  purpose: CourtHearingPurposeId | undefined,
+): EvidenceKind {
+  return kindForStatementType(firstStatementTypeFor(purpose));
+}
+
+/** The accused a record can be about. A deposition's witnesses are `deponentsFor`'s. */
+export function accusedOf(people: readonly CasePerson[]): CasePerson[] {
+  return people.filter((person) => person.kind === "accused");
+}
+
+/** Complainants offered for evidence of the complainant. */
+export function complainantsOf(people: readonly CasePerson[]): CasePerson[] {
+  return people.filter((person) => person.kind === "complainant");
+}
+
+/** How many square-bracket blanks are still in the text. */
+export function blanksIn(text: string): number {
+  return text.match(/\[[^\]]*\]/g)?.length ?? 0;
+}
+
+/** "PW-2 · Branch Manager…" for a numbered witness; the name otherwise. */
+export function evidenceLabel(
+  record: Pick<EvidenceRecord, "kind" | "statementType" | "personId" | "witnessNumber">,
+  people: readonly CasePerson[],
+  deponents: readonly Deponent[],
+): string {
+  const type = statementTypeOf(record);
+  if (type === "accused-examination") {
+    return (
+      people.find((entry) => entry.id === record.personId)?.name ??
+      "New examination"
+    );
+  }
+  if (type === "complainant-evidence") {
+    return (
+      people.find((entry) => entry.id === record.personId)?.name ??
+      "New complainant evidence"
+    );
+  }
+  const deponent = deponents.find((entry) => entry.id === record.personId);
+  if (!deponent) return "New deposition";
+  const number = record.witnessNumber ?? deponent.number;
+  return number ? `${number} · ${deponent.name}` : deponent.name;
+}
+
+/** What the record's tab says about where it stands. */
+export function evidenceStatusLabel(record: EvidenceRecord): string {
+  if (record.status === "signed") {
+    return record.kind === "deposition" ? "Signed by the witness" : "Signed by the accused";
+  }
+  if (record.status === "awaiting-signature") return "Sent to sign";
+  return "Not signed";
+}
+
+/* ─────────────────────────────── witnesses ─────────────────────────────────── */
+
+/** Who called a witness — and so the letters of their number. */
+export type WitnessSide = "complainant" | "accused" | "court";
+
+const PREFIX: Record<WitnessSide, string> = {
+  complainant: "PW",
+  accused: "DW",
+  court: "CW",
+};
+
+/**
+ * A witness the court added while recording, because the one in the box was not on the
+ * case's list (owner, 2026-10-27: "there are no witnesses on the case"). DRISTI 1.0 had
+ * an Add New Witness form in the same place. Kept per case, so they are on the list at
+ * the next hearing. Whether they also join the case's Parties tab is Anshumanth's call.
+ *
+ * The details are DRISTI 1.0's Add Witness Details, asked the way the advocate's Add
+ * witnesses form asks them (owner, 2026-10-27): only a name or designation is required.
+ */
+export type AddedWitness = {
+  id: string;
+  caseNumber: string;
+  /** Their full name, or the designation when only the office is known. */
+  name: string;
+  /** The office they hold, when given beside a name or instead of one. */
+  designation?: string;
+  side: WitnessSide;
+  age?: string;
+  /** The first of `mobiles`: ten digits, pre-filled when a signing link is sent. */
+  mobile?: string;
+  mobiles?: string[];
+  emails?: string[];
+  /** What kind of place `addresses` is. */
+  addressType?: WitnessAddressType;
+  addresses?: AddressBlock[];
+  /** Their purpose, or the documents they will present. */
+  prove?: string;
+  addedOn: string;
+};
+
+/** Where a witness can be found: at home or at work (DRISTI 1.0's type of address). */
+export type WitnessAddressType = "residential" | "office";
+
+export type AddedWitnesses = Readonly<Record<string, AddedWitness>>;
+
+const NO_WITNESSES: AddedWitnesses = Object.freeze({});
+const added = browserStore<AddedWitnesses>("dristi.added-witnesses.v1", NO_WITNESSES);
+
+export const subscribeToAddedWitnesses = added.subscribe;
+export const readAddedWitnesses = added.read;
+export const serverAddedWitnesses = added.server;
+
+export function addWitness(
+  witness: Omit<AddedWitness, "id" | "addedOn">,
+  now: Date = new Date(),
+): AddedWitness {
+  const entry: AddedWitness = {
+    ...witness,
+    id: `witness-${now.getTime().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+    addedOn: now.toISOString(),
+  };
+  added.write({ ...added.current(), [entry.id]: entry });
+  return entry;
+}
+
+/** Someone a deposition can be of. */
+export type Deponent = {
+  id: string;
+  name: string;
+  side: WitnessSide;
+  /**
+   * Their witness number once they have one: from the case's witness list, or given
+   * when an earlier deposition of theirs was signed. Absent until then.
+   */
+  number?: string;
+  examined?: boolean;
+  mobile?: string;
+  /** Listed on the case, a party to it, or added here. */
+  source: "listed" | "complainant" | "accused" | "added";
+};
+
+function sameName(a: string, b: string): boolean {
+  const plain = (name: string) => name.trim().toLowerCase().replace(/\s+/g, " ");
+  return plain(a) === plain(b);
+}
+
+/**
+ * Who a deposition can be of, in the order a clerk looks for them. The complainant first
+ * when not already a listed witness: in a cheque case they are almost always the first
+ * witness, PW-1. Then the case's listed witnesses, then those added here, then each
+ * accused not already listed (owner, 2026-10-27: the parties on the case are offered),
+ * numbered on the defence side like any witness of theirs.
+ */
+export function deponentsFor(
+  caseNumber: string,
+  people: readonly CasePerson[],
+  addedWitnesses: AddedWitnesses,
+  all: EvidenceRecords,
+): Deponent[] {
+  const signedNumber = (personId: string) =>
+    Object.values(all).find(
+      (record) =>
+        record.caseNumber === caseNumber &&
+        record.kind === "deposition" &&
+        record.personId === personId &&
+        record.witnessNumber,
+    )?.witnessNumber;
+  const listed = people.filter((person) => person.kind === "witness");
+  const complainant = people.find((person) => person.kind === "complainant");
+  const mobileOf = (person: CasePerson) =>
+    person.mobiles[0]?.value.replace(/^\+91\s*/, "").replace(/\s/g, "");
+  return [
+    ...(complainant && !listed.some((person) => sameName(person.name, complainant.name))
+      ? [
+          {
+            id: complainant.id,
+            name: complainant.name,
+            side: "complainant" as const,
+            number: signedNumber(complainant.id),
+            mobile: mobileOf(complainant),
+            source: "complainant" as const,
+          },
+        ]
+      : []),
+    ...listed.map((person) => ({
+      id: person.id,
+      name: person.name,
+      side: person.side,
+      number: person.role,
+      examined: person.examined,
+      mobile: mobileOf(person),
+      source: "listed" as const,
+    })),
+    ...Object.values(addedWitnesses)
+      .filter((witness) => witness.caseNumber === caseNumber)
+      .sort((a, b) => a.addedOn.localeCompare(b.addedOn))
+      .map((witness) => ({
+        id: witness.id,
+        name: witness.name,
+        side: witness.side,
+        number: signedNumber(witness.id),
+        mobile: witness.mobile,
+        source: "added" as const,
+      })),
+    ...people
+      .filter(
+        (person) =>
+          person.kind === "accused" &&
+          !listed.some((witness) => sameName(witness.name, person.name)),
+      )
+      .map((person) => ({
+        id: person.id,
+        name: person.name,
+        side: "accused" as const,
+        number: signedNumber(person.id),
+        mobile: mobileOf(person),
+        source: "accused" as const,
+      })),
+  ];
+}
+
+function nextMark(side: WitnessSide, taken: readonly string[]): string {
+  const prefix = PREFIX[side];
+  const numbers = taken
+    .map((mark) => new RegExp(`^${prefix}-(\\d+)$`).exec(mark))
+    .map((match) => (match ? Number(match[1]) : 0));
+  return `${prefix}-${Math.max(0, ...numbers) + 1}`;
+}
+
+/** The next free number on a side: after PW-1 and PW-2, "PW-3". */
+export function nextWitnessNumber(
+  side: WitnessSide,
+  deponents: readonly Deponent[],
+): string {
+  return nextMark(side, deponents.flatMap((deponent) => deponent.number ?? []));
+}
+
+/** The side a mark's letters stand for: "DW-2" → the accused's. */
+export function sideOfMark(mark: string): WitnessSide | undefined {
+  return (Object.keys(PREFIX) as WitnessSide[]).find((side) =>
+    mark.startsWith(`${PREFIX[side]}-`),
+  );
+}
+
+/**
+ * The marks a case's unsigned witnesses hold, by witness. Each holds the next free mark
+ * on their side in the order their depositions were started, so two new defence
+ * witnesses read DW-1 and DW-2, never both DW-1 (owner, 2026-10-28: "you can't say DW-1
+ * for everybody"). A held mark becomes theirs when they sign.
+ */
+export function heldMarks(
+  caseNumber: string,
+  deponents: readonly Deponent[],
+  all: EvidenceRecords,
+): ReadonlyMap<string, string> {
+  const byId = new Map(deponents.map((deponent) => [deponent.id, deponent]));
+  const taken = deponents.flatMap((deponent) => deponent.number ?? []);
+  const held = new Map<string, string>();
+  const waiting = Object.values(all)
+    .filter(
+      (record) =>
+        record.caseNumber === caseNumber &&
+        statementTypeOf(record) === "witness-deposition" &&
+        record.status !== "signed" &&
+        record.personId,
+    )
+    .sort((a, b) => a.createdOn.localeCompare(b.createdOn));
+  for (const record of waiting) {
+    const deponent = byId.get(record.personId);
+    if (!deponent || deponent.number || held.has(deponent.id)) continue;
+    const mark = nextMark(record.witnessSide ?? deponent.side, taken);
+    held.set(deponent.id, mark);
+    taken.push(mark);
+  }
+  return held;
+}
+
+/**
+ * The number a deposition's witness is shown with: theirs if they have one, otherwise
+ * the one they hold on the side chosen for them, which becomes theirs when they sign.
+ * `side` asks what they would hold on another side, for Witness mark as's list.
+ */
+export function witnessNumberOf(
+  record: EvidenceRecord,
+  deponent: Deponent,
+  deponents: readonly Deponent[],
+  all: EvidenceRecords,
+  side: WitnessSide | undefined = record.witnessSide,
+): { number: string; fixed: boolean } {
+  const number = record.witnessNumber ?? deponent.number;
+  if (number) return { number, fixed: true };
+  const asked = { ...record, witnessSide: side };
+  const held = heldMarks(record.caseNumber, deponents, { ...all, [record.id]: asked });
+  return {
+    number: held.get(deponent.id) ?? nextWitnessNumber(side ?? deponent.side, deponents),
+    fixed: false,
+  };
+}

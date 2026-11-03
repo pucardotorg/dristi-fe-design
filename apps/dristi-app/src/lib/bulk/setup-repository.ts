@@ -28,6 +28,7 @@ export function createSetupDraft(profile: UserProfile | null): FilingDraft {
   const draft = createBlankDraft(newId("setup"), profile);
   // Only the complainants' documents are set up here; each case's own come after.
   draft.intake.cheques = [];
+  draft.intake.notices = [];
   return draft;
 }
 

@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { CENTRED_STEPPER } from "@/components/chrome/stepper-layout";
 import { Stepper, StepperItem } from "@/components/ui/stepper";
 import { HelpPanel } from "@/components/onboarding/help-panel";
 import {
@@ -177,14 +178,7 @@ export function OnboardingModal({
             <div className="mx-auto w-full max-w-3xl px-6 py-4 md:max-w-6xl md:px-8 lg:px-12">
               <div className="flex w-full flex-col items-center gap-3">
                 <Stepper
-                  className={cn(
-                    "w-full",
-                    "[&_[data-slot=stepper-item]]:items-center",
-                    "[&_[data-slot=stepper-item]>div:first-child]:relative [&_[data-slot=stepper-item]>div:first-child]:justify-center",
-                    "[&_[data-slot=stepper-connector]]:absolute [&_[data-slot=stepper-connector]]:top-4 [&_[data-slot=stepper-connector]]:left-[calc(50%+1rem)] [&_[data-slot=stepper-connector]]:mx-0 [&_[data-slot=stepper-connector]]:h-px [&_[data-slot=stepper-connector]]:w-[calc(100%-2rem)] [&_[data-slot=stepper-connector]]:min-w-0 [&_[data-slot=stepper-connector]]:flex-none",
-                    "[&_[data-slot=stepper-item]>div:last-child]:w-full [&_[data-slot=stepper-item]>div:last-child]:pr-0 [&_[data-slot=stepper-item]>div:last-child]:text-center",
-                    "max-md:[&_[data-slot=stepper-item]>div:last-child]:hidden"
-                  )}
+                  className={CENTRED_STEPPER}
                 >
                   {STEP_ORDER.map((id, i) => (
                     <StepperItem

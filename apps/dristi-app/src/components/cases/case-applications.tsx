@@ -5,7 +5,6 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   ChevronDownIcon,
   ClockIcon,
-  CircleAlertIcon,
   FileSearchIcon,
   FileTextIcon,
 } from "lucide-react";
@@ -29,7 +28,6 @@ import {
   tableBodyClass,
   tableRowClass,
 } from "@/components/chrome/table-plate";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CardContent } from "@/components/ui/card";
@@ -114,6 +112,7 @@ import {
 import { COLLAPSE_MOTION } from "@/components/cases/motion";
 import { Identifier } from "@/components/chrome/identifier";
 import { SignReviewDialog } from "@/components/cases/sign-review-dialog";
+import { StatusLine } from "@/components/feedback";
 
 /**
  * Applications (§9). One kind of thing, many types. What the viewer still has
@@ -163,11 +162,9 @@ export function CaseApplications({ record }: { record: CaseRecord }) {
   if (!register) {
     return (
       <ApplicationsPanel>
-        <Alert variant="destructive">
-          <CircleAlertIcon aria-hidden />
-          <AlertTitle>Applications could not be loaded</AlertTitle>
-          <AlertDescription>Refresh the page to try again.</AlertDescription>
-        </Alert>
+        <StatusLine tone="error" still title="Applications could not be loaded">
+          Refresh the page to try again.
+        </StatusLine>
       </ApplicationsPanel>
     );
   }

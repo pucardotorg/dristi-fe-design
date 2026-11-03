@@ -40,7 +40,7 @@ export const RETURNS: Record<string, ReturnRound> = {
         answered: "9 Jun 2026",
       },
       {
-        fieldId: "d-c1ad",
+        fieldId: "d-n1ad",
         note: "The AD card is cut off at the fold, so the date of delivery can’t be read. Upload a clear scan of the whole card.",
         was: "ad-card.jpg · uploaded 1 Jun 2026",
         answer: "replaced",

@@ -13,6 +13,7 @@ import "./globals.css";
 import "./chrome.css";
 /* A state's own brand colour (Gujarat's navy), keyed off `data-brand-hue` below. */
 import "./court-palette.css";
+/* How a success, failure, warning or notice arrives (components/feedback). */
 
 /** The tab title names the product the state runs — SARAS 2.0 in Gujarat, never DRISTI. */
 export async function generateMetadata(): Promise<Metadata> {

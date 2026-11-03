@@ -4,7 +4,6 @@ import * as React from "react";
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
-  CheckCircle2Icon,
   DownloadIcon,
   Maximize2Icon,
   PenLineIcon,
@@ -13,20 +12,11 @@ import {
 } from "lucide-react";
 
 import {
-  ChromeAlertDialogContent,
   ChromeDialogContent,
 } from "@/components/chrome/app-chrome";
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 import { useBackCloses, useFlowWindow } from "@/components/chrome/flow-window";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 
 import { Banner } from "@/components/ui/banner";
 import { OFFICE_NO_ESIGN } from "@/components/cases/case-office-access";
@@ -82,7 +72,8 @@ import {
 } from "@/lib/filing/content";
 import { ADVOCATE_PROFILE_NAME, advDialog } from "@/lib/advocate/content";
 import { newPaymentRef } from "@/lib/filing/data";
-import { GATEWAY_MS, PaymentProcessing, PaymentReceipt } from "@/components/payment/payment-steps";
+import { GATEWAY_MS, PaymentFacts, PaymentProcessing } from "@/components/payment/payment-steps";
+import { OutcomeAmount, OutcomeHeader, StatusLine } from "@/components/feedback";
 import { cn } from "@/lib/utils";
 import { Identifier } from "@/components/chrome/identifier";
 import { useCourtText } from "@/components/court/court-provider";
@@ -434,7 +425,6 @@ export function BailApplicationDialog({
     same terms: only when something has been entered, and never once the
     application is filed, since by then there is nothing left to lose.
   */
-  const [discardOpen, setDiscardOpen] = React.useState(false);
   const entered =
     stage !== "done" &&
     (stage !== "details" ||
@@ -445,8 +435,9 @@ export function BailApplicationDialog({
       documents.length > 0 ||
       (father.trim() !== "" && !fatherPrefilled));
 
+  const guard = useDiscardGuard(entered, closeNow);
+
   function closeNow() {
-    setDiscardOpen(false);
     reset();
     onOpenChange(false);
   }
@@ -458,8 +449,7 @@ export function BailApplicationDialog({
     }
     // The gateway is confirming; the window holds until it answers.
     if (stage === "processing") return;
-    if (entered) setDiscardOpen(true);
-    else closeNow();
+    guard.close();
   }
 
   /* On a phone this is a window that slid in, and the phone's own Back works
@@ -468,7 +458,7 @@ export function BailApplicationDialog({
      application has nothing to go back to, so Back closes it. */
   const { phone } = useFlowWindow();
   useBackCloses(phone && open, () => {
-    if (discardOpen) setDiscardOpen(false);
+    if (guard.asking) guard.keep();
     else if (reviewFullscreen) setReviewFullscreen(false);
     else if (stage === "sureties") setStage("details");
     else if (stage === "review") setStage("sureties");
@@ -606,24 +596,27 @@ export function BailApplicationDialog({
           "flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl",
           stage === "processing" && "[&_[data-slot=dialog-close]]:hidden",
         )}
-        onInteractOutside={(event) => event.preventDefault()}
       >
+        {/* The act's outcome takes over the top of the window (skill `feedback-states`):
+            the fee paid, then the application filed. */}
         {stage === "done" ? (
-          <DialogHeader className="shrink-0 border-b border-hairline px-6 py-5 pr-14 text-left">
-            <div className="flex items-center gap-4">
-              <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-success-muted text-success-muted-foreground">
-                <CheckCircle2Icon className="size-7" aria-hidden />
-              </span>
-              <div className="flex min-w-0 flex-col gap-1.5">
-                <DialogTitle className="text-title-s font-semibold text-balance">
-                  {pick(bailDialog.doneTitle, locale)}
-                </DialogTitle>
-                <DialogDescription className="text-pretty">
-                  {pick(bailDialog.doneBody, locale)}
-                </DialogDescription>
-              </div>
-            </div>
-          </DialogHeader>
+          <OutcomeHeader
+            key="done"
+            titleFrom="dialog"
+            focusTitle
+            title={pick(bailDialog.doneTitle, locale)}
+            body={pick(bailDialog.doneBody, locale)}
+          />
+        ) : stage === "paid" ? (
+          <OutcomeHeader key="paid" titleFrom="dialog" focusTitle title={headerCopy.title} body={headerCopy.body}>
+            <OutcomeAmount label={pick(advDialog.paidAmount, locale)} value={BAIL_FEE} />
+            {/* The case this filing belongs to, as on every other stage. */}
+            <p className="pt-2 text-caption text-muted-foreground">
+              <Identifier value={accessCase.caseNumber} label="case number" />
+              <span aria-hidden> · </span>
+              {accessCase.title}
+            </p>
+          </OutcomeHeader>
         ) : (
           <DialogHeader className="shrink-0 border-b border-hairline px-6 py-5 pr-14 text-left">
             <DialogTitle className="text-title-s font-semibold text-balance">
@@ -1268,18 +1261,18 @@ export function BailApplicationDialog({
                     {officeAccess ? (
                       <Banner variant="info">{OFFICE_NO_ESIGN}</Banner>
                     ) : esigned ? (
-                      <Banner variant="success">
+                      <StatusLine tone="success">
                         {fillCopy(bailDialog.signedNote, locale, { name: ADVOCATE_PROFILE_NAME })}
-                      </Banner>
+                      </StatusLine>
                     ) : (
                       <Banner variant="info">{pick(bailDialog.esignNote, locale)}</Banner>
                     )}
                   </TabsContent>
                   <TabsContent value="upload" className="flex flex-col gap-4 pt-3">
                     {signedFile ? (
-                      <Banner variant="success">
+                      <StatusLine tone="success">
                         {fillCopy(bailDialog.signedNote, locale, { name: ADVOCATE_PROFILE_NAME })}
-                      </Banner>
+                      </StatusLine>
                     ) : (
                       <>
                         {/* The download step belongs to this path only — the
@@ -1360,8 +1353,7 @@ export function BailApplicationDialog({
 
           {/* ------------------------------------------------------- receipt */}
           {stage === "paid" ? (
-            <PaymentReceipt
-              amount={BAIL_FEE}
+            <PaymentFacts
               rows={[
                 { label: pick(advDialog.payFeeHead, locale), value: pick(bailDialog.feeLine, locale) },
                 {
@@ -1577,25 +1569,9 @@ export function BailApplicationDialog({
             </>
           ) : null}
         </footer>
+        <DiscardQuestion guard={guard} locale={locale} />
       </FlowDialogContent>
     </Dialog>
-
-    <AlertDialog open={discardOpen} onOpenChange={setDiscardOpen}>
-      <ChromeAlertDialogContent lang={locale}>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{pick(bailDialog.discardTitle, locale)}</AlertDialogTitle>
-          <AlertDialogDescription>
-            {pick(bailDialog.discardBody, locale)}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>{pick(bailDialog.discardKeep, locale)}</AlertDialogCancel>
-          <AlertDialogAction variant="destructive-solid" onClick={closeNow}>
-            {pick(bailDialog.discardConfirm, locale)}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </ChromeAlertDialogContent>
-    </AlertDialog>
     </>
   );
 }

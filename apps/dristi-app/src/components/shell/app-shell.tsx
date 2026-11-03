@@ -17,7 +17,7 @@ import {
   type Crumb,
 } from "@/components/shell/chrome";
 import { AppSearchProvider } from "@/components/shell/app-search";
-import { AppToaster } from "@/components/shell/app-toaster";
+import { FeedbackToaster } from "@/components/ui/feedback-toaster";
 import { ProfileProvider } from "@/components/shell/profile";
 import { RailThemeProvider } from "@/components/shell/rail-theme";
 import { TopBar } from "@/components/shell/top-bar";
@@ -128,7 +128,7 @@ export function AppShell({
                     {/* One toaster per area, mounted with the column it centres on rather
                         than by each layout — five layouts mounted one and the whole
                         /filings tree silently had none. */}
-                    <AppToaster />
+                    <FeedbackToaster />
                   </div>
                 </SidebarProvider>
               </ChromeRailFolds>

@@ -297,7 +297,7 @@ function DetailsFormatConfig() {
   }
 
   return (
-    <Card className="flex min-h-0 flex-1 overflow-hidden border-hairline shadow-raised">
+    <Card variant="raised" className="flex min-h-0 flex-1 overflow-hidden">
       <CardContent className="flex min-h-0 flex-1 flex-col p-0 md:flex-row">
         <div className="flex min-h-0 w-full flex-col border-b border-hairline md:w-60 md:shrink-0 md:border-r md:border-b-0 lg:w-64">
           <ScrollArea className="max-h-[40vh] min-h-0 flex-1 md:max-h-none">

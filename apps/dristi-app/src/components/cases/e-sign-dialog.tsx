@@ -2,12 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  CheckCircle2Icon,
-  HourglassIcon,
   SignatureIcon,
   UploadIcon,
 } from "lucide-react";
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 import {
   ChoiceCard,
@@ -36,6 +35,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { cn } from "@/lib/utils";
+import { OutcomeHeader } from "@/components/feedback";
 
 type Step = "method" | "instrument" | "otp" | "dsc" | "upload" | "done";
 
@@ -158,6 +158,12 @@ export function ESignDialog({
   const FOOTER =
     "flex shrink-0 flex-col-reverse gap-2 border-t border-hairline bg-surface-sunken px-6 py-4 sm:flex-row sm:items-center sm:justify-between";
   const done = confirmation.tone === "done";
+  /* An OTP being typed or a signed copy attached: Escape, the close button or Back asks
+     before throwing it away. A click outside does nothing (stakeholders, 2–3 Nov 2026). */
+  const guard = useDiscardGuard(
+    step !== "done" && (otp.length > 0 || file !== null),
+    () => (onDismiss ?? onBack)(),
+  );
 
   return (
     <Dialog
@@ -169,39 +175,21 @@ export function ESignDialog({
         else (onDismiss ?? onBack)();
       }}
     >
-      <FlowDialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md">
+      <FlowDialogContent
+        className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md"
+        {...guard.contentProps}
+        {...guard.outsideProps}
+      >
         {step === "done" ? (
-          <DialogHeader className="shrink-0 px-6 py-6 pr-12 text-left">
-            <div className="flex items-center gap-4">
-              <span
-                aria-hidden
-                className={cn(
-                  "flex size-14 shrink-0 items-center justify-center rounded-full",
-                  done
-                    ? "bg-success-muted text-success-muted-foreground"
-                    : "bg-info-muted text-info-muted-foreground"
-                )}
-              >
-                {done ? (
-                  <CheckCircle2Icon className="size-7" />
-                ) : (
-                  <HourglassIcon className="size-7" />
-                )}
-              </span>
-              <div className="flex min-w-0 flex-col gap-1.5">
-                <DialogTitle
-                  ref={titleRef}
-                  tabIndex={-1}
-                  className="text-body font-semibold text-balance outline-none"
-                >
-                  {confirmation.title}
-                </DialogTitle>
-                <DialogDescription>
-                  {SIGNED_WITH[signedWith]} {confirmation.description}
-                </DialogDescription>
-              </div>
-            </div>
-          </DialogHeader>
+          /* Signed and filed, or signed and sent (sent, not decided: the hourglass). */
+          <OutcomeHeader
+            compact
+            titleFrom="dialog"
+            focusTitle
+            tone={done ? "success" : "info"}
+            title={confirmation.title}
+            body={`${SIGNED_WITH[signedWith]} ${confirmation.description}`}
+          />
         ) : (
           <>
             <DialogHeader className="shrink-0 gap-1.5 border-b border-hairline px-6 py-4 pr-12 text-left">
@@ -383,6 +371,7 @@ export function ESignDialog({
             )}
           </footer>
         ) : null}
+        <DiscardQuestion guard={guard} />
       </FlowDialogContent>
     </Dialog>
   );

@@ -117,6 +117,16 @@ export const RESOLVE_IN_PLACE =
   "animate-in fade-in-0 slide-in-from-bottom-1 duration-500 motion-reduce:animate-none";
 
 /**
+ * **A menu growing out of the word that called it** — the slash menu in the order and
+ * the recorded statements (owner, 2026-10-29). It opens from its top-left corner, where
+ * the slash is, at half size and fades up to full over 200ms, so it reads as coming out
+ * of what was typed rather than appearing beside it. Leaving keeps the DS menu's quick
+ * fade. The guard is stacked on the state variant, as on `OVERLAY_RISE`, so it wins.
+ */
+export const MENU_GROW =
+  "data-open:zoom-in-50 data-open:duration-200 data-open:ease-out motion-reduce:data-open:animate-none motion-reduce:data-closed:animate-none";
+
+/**
  * One step of an overlay giving way to the next **when the steps differ in height**
  * (owner, 2026-10-06, on Join a Case): the window fades out softly, takes the next step
  * and its height while it is clear, and fades back in — with the content drifting a

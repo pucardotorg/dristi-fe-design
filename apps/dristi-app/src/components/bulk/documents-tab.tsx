@@ -2,17 +2,12 @@
 
 import * as React from "react";
 import {
-  CheckCircle2Icon,
   CircleAlertIcon,
   WandSparklesIcon,
-  CircleCheckIcon,
-  TriangleAlertIcon,
   UploadIcon,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { PANEL_CLASS } from "@/components/filing/form-card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
@@ -24,6 +19,7 @@ import { demoBlurryScan, demoPdf } from "./demo-fill";
 import { bulkApi, useBulkFileUrl, type CaseView } from "./api";
 import type { BatchCtx } from "./batch-screen";
 import { OriginalDoc } from "./original-doc";
+import { StatusLine, StatusMark } from "@/components/feedback";
 
 type Doc = CaseView["documents"][number];
 type Flag = CaseView["flags"][number];
@@ -104,15 +100,9 @@ export function Slot({
           {busy ? (
             <Spinner className="shrink-0" />
           ) : poor ? (
-            <TriangleAlertIcon
-              className="size-4 shrink-0 text-warning-ink"
-              aria-label="Uploaded, hard to read"
-            />
+            <StatusMark tone="warning" size={16} still label="Uploaded, hard to read" />
           ) : (
-            <CircleCheckIcon
-              className="size-4 shrink-0 text-success-ink"
-              aria-label="Uploaded"
-            />
+            <StatusMark size={16} still label="Uploaded" />
           )}
           {name}
           <Button
@@ -314,13 +304,13 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
           </span>
         ) : open.length ? (
           <span className="flex items-center gap-2">
-            <CheckCircle2Icon className="size-4 text-success-ink" aria-hidden />
+            <StatusMark size={16} still />
             Every required document is in
           </span>
         ) : null}
         {scans ? (
           <span className="flex items-center gap-2">
-            <TriangleAlertIcon className="size-4 text-warning-ink" aria-hidden />
+            <StatusMark tone="warning" size={16} still />
             <span className="tabular-nums">
               {scans} scan{scans === 1 ? "" : "s"} hard to read
             </span>
@@ -342,13 +332,11 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
       </div>
 
       {error ? (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
+        <StatusLine tone="error">{error}</StatusLine>
       ) : null}
 
       {open.length === 0 ? (
-        <Card className={PANEL_CLASS}>
+        <Card variant="raised">
           <CardContent className="text-body-compact text-muted-foreground">
             All documents are in.
           </CardContent>
@@ -359,7 +347,7 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
             const complete = c.docs.have >= c.docs.need;
             return (
               <li key={c.id}>
-                <Card className={cn(PANEL_CLASS, "gap-0 py-4")}>
+                <Card variant="raised" className="gap-0 py-4">
                   {/* The case in brief beside its slots: what each paper should show. */}
                   <CardContent className="grid grid-cols-1 gap-4 px-4 md:grid-cols-[minmax(0,15rem)_minmax(0,1fr)] md:gap-6">
                     <div className="flex min-w-0 flex-col gap-3">

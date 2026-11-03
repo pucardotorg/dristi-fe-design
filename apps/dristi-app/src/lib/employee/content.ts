@@ -19,10 +19,8 @@ export type CourtRole =
   | "bench-clerk"
   | "scrutiny-officer"
   | "typist"
-  /* Punjab & Haryana only (court-roles §3.3): a Steno who drafts and an Ahlmad who
-     fills order data, separate from the Typist. `seat-roles.ts` says which state has
-     which seat. */
-  | "steno"
+  /* Punjab & Haryana only (court-roles §3.3): the Ahlmad scrutinises, registers and
+     fills order data. `seat-roles.ts` says which state has which seat. */
   | "ahlmad"
   /* All three states (court-roles §3): dispatches and reports e-Post process only. */
   | "post-officer";
@@ -46,18 +44,17 @@ export const COURT_ROLE_LABEL: Record<CourtRole, string> = {
   "bench-clerk": "Bench clerk",
   "scrutiny-officer": "Scrutiny officer",
   typist: "Typist",
-  steno: "Steno",
   ahlmad: "Ahlmad",
   "post-officer": "Post officer",
 };
 
 /**
- * What Punjab & Haryana call a shared seat: the bench clerk is the "Reader". Its Steno
- * and Ahlmad are seats of their own there, with their own roles (court-roles §3.3), so
- * they are not relabelled typist or scrutiny-officer seats any more.
+ * What Punjab & Haryana call a shared seat: the bench clerk is the "Reader", and the
+ * typist and steno are one person, the "Typist / Steno" (court-roles §3.3).
  */
 const PUNJAB_HARYANA_ROLE_LABEL: Partial<Record<CourtRole, string>> = {
   "bench-clerk": "Reader",
+  typist: "Typist / Steno",
 };
 
 /** A seat's label in the selected state's own words; Kerala's where it has none. */

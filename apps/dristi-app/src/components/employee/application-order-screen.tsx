@@ -38,7 +38,7 @@ import {
   applicationWorkflow,
   initialApplicationOutcome,
 } from "@/lib/employee/application-outcome";
-import { caseOf } from "@/lib/employee/application-tasks";
+import { caseOf, nextHearingOf } from "@/lib/employee/application-tasks";
 import { CURRENT_STAFF } from "@/lib/employee/content";
 import { formatOrderDate } from "@/lib/employee/hearings";
 import { EMPTY_ORDER_DRAFT } from "@/lib/employee/order-draft";
@@ -133,7 +133,10 @@ export function useApplicationOrderDoor(
   const courtText = useCourtText();
   const matter = partiesLabel(record);
   const back = backTo(application.id, view);
-  const context = React.useMemo(() => applicationOrderContext(record), [record]);
+  const context = React.useMemo(
+    () => applicationOrderContext(record, nextHearingOf(application, today)),
+    [record, application, today],
+  );
   /* The Application item is in the order data from the start (owner, 2026-10-16), so
      it is answered before the order data can be complete — onboarding, the listing
      date and the call for objections included (owner, 2026-10-21). */

@@ -21,8 +21,8 @@ describe("court seats", () => {
      signed-in magistrate opens the settings menu onto a radio group with nothing
      selected. The two lists are the same list, in the same order. */
   it("offers every seat the sign-in offers, and starts signed out in the fixture's", () => {
-    /* Kerala's seats; Punjab & Haryana adds a Steno and an Ahlmad (court-roles §3). */
-    assert.deepEqual(COURT_SEATS, COURT_SIGN_IN_ROLES.filter((seat) => seat !== "steno" && seat !== "ahlmad"));
+    /* Kerala's seats; Punjab & Haryana adds an Ahlmad (court-roles §3). */
+    assert.deepEqual(COURT_SEATS, COURT_SIGN_IN_ROLES.filter((seat) => seat !== "ahlmad"));
     assert.equal(CURRENT_STAFF.role, "bench-clerk");
     assert.equal(readCourtRole(), CURRENT_STAFF.role);
   });
@@ -101,7 +101,6 @@ describe("seatHasBenchControls", () => {
       assert.equal(seatHasBenchControls("magistrate", court), true);
       assert.equal(seatHasBenchControls("typist", court), false);
     }
-    assert.equal(seatHasBenchControls("steno", "punjab-haryana"), false);
     assert.equal(seatHasBenchControls("ahlmad", "punjab-haryana"), false);
   });
 });
@@ -149,16 +148,15 @@ describe("the orders gate each seat reads", () => {
   });
 });
 
-/* `SCR-11`: Register at Scrutiny needs both roles; the demo staffs them per state. */
+/* `SCR-11`: Register at Scrutiny needs both roles (court-roles §3). */
 describe("registersAtScrutiny", () => {
   it("forwards in Kerala, where two people hold the two roles", () => {
     assert.equal(registersAtScrutiny("scrutiny-officer", "kerala"), false);
   });
 
   it("registers in Gujarat and Punjab & Haryana, where one person holds both", () => {
-    for (const court of ["gujarat", "punjab-haryana"] as const) {
-      assert.equal(registersAtScrutiny("scrutiny-officer", court), true, court);
-    }
+    assert.equal(registersAtScrutiny("scrutiny-officer", "gujarat"), true);
+    assert.equal(registersAtScrutiny("ahlmad", "punjab-haryana"), true);
   });
 
   it("does not register from a seat that is not the Scrutiny officer's", () => {

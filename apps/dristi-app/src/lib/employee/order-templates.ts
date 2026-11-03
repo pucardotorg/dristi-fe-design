@@ -62,8 +62,14 @@ export type OrderTemplateId =
  * one situational rule left, and it belongs to the screen rather than the catalogue:
  * *Scheduling of hearing date* is not offered inside a hearing, where the next date is set
  * in the Next hearing region instead (`ORD-09`, `NXT-03` of `order-generation.md`).
+ * `hearing-scheduled` is *Rescheduling of hearing date*: offered only outside a hearing,
+ * and only while the case already has a hearing listed to move (owner, 2026-10-22).
  */
-export type OrderDropdownRule = "always" | "context" | "hearing-not-ongoing";
+export type OrderDropdownRule =
+  | "always"
+  | "context"
+  | "hearing-not-ongoing"
+  | "hearing-scheduled";
 
 export type OrderGroupId =
   | "filings"
@@ -383,8 +389,8 @@ export const ORDER_TEMPLATES: OrderTemplate[] = [
     id: "rescheduling-of-hearing",
     number: 4,
     label: "Rescheduling of hearing date",
-    group: null,
-    dropdown: "context",
+    group: "case-management",
+    dropdown: "hearing-scheduled",
     botd: "Next hearing scheduled on [Original Hearing Date] for [Hearing Purpose] has been rescheduled to [New Hearing Date].",
     locked: [
       { name: "Original Hearing Date" },
@@ -392,27 +398,30 @@ export const ORDER_TEMPLATES: OrderTemplate[] = [
       { name: "New Hearing Date" },
     ],
     optional: [],
+    /* Only the new date and the purpose are asked (owner, 2026-10-22). The hearing being
+       moved is the one the case is listed for, and its purpose is the default. */
     fields: [
+      {
+        key: "newDate",
+        label: "New hearing date",
+        kind: "date",
+        locked: true,
+        required: true,
+      },
+      {
+        key: "purpose",
+        label: "Purpose of the hearing",
+        kind: "purpose",
+        locked: true,
+        required: true,
+      },
       {
         key: "originalDate",
         label: "Date of the hearing being moved",
         kind: "fixed",
         locked: true,
         required: false,
-      },
-      {
-        key: "purpose",
-        label: "Purpose of the rescheduled hearing",
-        kind: "purpose",
-        locked: true,
-        required: true,
-      },
-      {
-        key: "newDate",
-        label: "Date it moves to",
-        kind: "date",
-        locked: true,
-        required: true,
+        derived: true,
       },
     ],
     slots: ["originalDate", "purpose", "newDate"],
@@ -871,6 +880,8 @@ export function isOrderTemplateId(value: string): value is OrderTemplateId {
 export type OrderCatalogueContext = {
   /** The order belongs to a hearing (`ORD-05`), rather than to the case (`ORD-06`). */
   hearingOngoing: boolean;
+  /** The case already has a hearing listed — the one a rescheduling moves. */
+  hearingScheduled?: boolean;
 };
 
 /**
@@ -892,6 +903,9 @@ export function unavailableReason(
       return context.hearingOngoing
         ? "Set the next date under Next hearing"
         : null;
+    case "hearing-scheduled":
+      if (context.hearingOngoing) return "Set the next date under Next hearing";
+      return context.hearingScheduled ? null : "No hearing is scheduled";
   }
 }
 

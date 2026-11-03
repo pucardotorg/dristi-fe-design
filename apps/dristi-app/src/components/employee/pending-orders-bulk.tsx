@@ -3,6 +3,7 @@
 import * as React from "react";
 import { PlusIcon } from "lucide-react";
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { useCourtToday } from "@/components/employee/use-court-today";
 import { Button } from "@/components/ui/button";
 import {
@@ -76,6 +77,7 @@ export function AddOrderItemsDialog({
   const options = React.useMemo(() => bulkOrderItems(), []);
   const hearingOrders = orders.filter((order) => hearingById(order.key));
   const left = orders.length - hearingOrders.length;
+  const guard = useDiscardGuard(picked.length > 0, () => onOpenChange(false));
   const needDetails = picked.filter((template) => itemAsksDetails(template.id));
   /* Likely at these hearings — the order data panel's own suggestions, by each selected
      hearing's purpose, gathered once and offered while not yet picked. */
@@ -116,7 +118,7 @@ export function AddOrderItemsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg" {...guard.contentProps} {...guard.outsideProps}>
         <DialogHeader>
           <DialogTitle className="text-title-s font-semibold">
             Add order items
@@ -223,6 +225,7 @@ export function AddOrderItemsDialog({
             Add to {hearingOrders.length} {plural(hearingOrders.length, "order", "orders")}
           </Button>
         </DialogFooter>
+        <DiscardQuestion guard={guard} />
       </DialogContent>
     </Dialog>
   );

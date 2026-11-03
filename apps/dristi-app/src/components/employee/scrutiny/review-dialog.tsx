@@ -2,8 +2,9 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { CheckIcon, ChevronRightIcon, RotateCcwIcon } from "lucide-react";
+import { ChevronRightIcon, RotateCcwIcon } from "lucide-react";
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import type {
   Filing,
   Flag,
@@ -11,7 +12,6 @@ import type {
   FlatField,
 } from "@/lib/employee/scrutiny/types";
 import { markArrival } from "@/components/employee/use-arrival";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -26,6 +26,7 @@ import {
 import { useScrutinyCase } from "@/components/employee/scrutiny/scrutiny-case-context";
 import { useCourt } from "@/components/court/court-provider";
 import type { RegistrationType } from "@/lib/court/profiles";
+import { OutcomeHeader } from "@/components/feedback";
 
 /**
  * `forward` hands the case to Registration, for a Case registerer; `register` registers it
@@ -146,6 +147,10 @@ export function ReviewDialog({
       setTypeIndex("");
     },
   });
+  const guard = useDiscardGuard(
+    decision !== null && flow.stage !== "done" && (ack || typeIndex !== ""),
+    () => onOpenChange(false),
+  );
 
   const groups = React.useMemo(
     () => group(flags, allFields, fieldById),
@@ -224,8 +229,6 @@ export function ReviewDialog({
              (2026-09-18), and it was the weaker reading anyway — an elbow pointing left
              is "back" in the browser sense, while this file has gone round for another
              round, which is the word the case history already uses. */
-          tone: "bg-secondary text-secondary-foreground",
-          Icon: RotateCcwIcon,
         }
       : decision === "forward"
       ? {
@@ -236,10 +239,6 @@ export function ReviewDialog({
                 total > 1 ? "s" : ""
               } attached.`
             : `On Register cases${chosenLine}.`,
-          /* Scrutiny is done with the file, which is this desk's good outcome, so it
-             wears the same mark as registering. */
-          tone: "bg-success-muted text-success-muted-foreground",
-          Icon: CheckIcon,
         }
       : {
           title: "Case registered",
@@ -249,10 +248,6 @@ export function ReviewDialog({
                 total > 1 ? "s" : ""
               } attached.`
             : "On the Magistrate's list for cognizance.",
-          /* Registering *is* a terminal good outcome, so this one keeps the success
-             muted and the tick. */
-          tone: "bg-success-muted text-success-muted-foreground",
-          Icon: CheckIcon,
         };
 
   const needsAck = decision !== "send-back" && total > 0;
@@ -261,6 +256,8 @@ export function ReviewDialog({
   return (
     <Dialog open onOpenChange={onOpenChange}>
       <StagedOverlay
+        {...guard.contentProps}
+        {...guard.outsideProps}
         /* The measure of a long list, and a **definite height** rather than a floor.
            Two things change between the stages now — the list becomes a confirmation, and
            the header's line becomes a shorter one — and a floor only holds the first of
@@ -290,6 +287,8 @@ export function ReviewDialog({
            sizes. The definite height is what makes that affordable — the header loses two
            rows and the stage absorbs them, so the panel does not move. */
         description={done ? undefined : head.body}
+        /* The settled stage takes the window over: mark, then title (owner, Oct 29). */
+        outcome={done}
         sceneKey={flow.sceneKey}
         motion={flow.motion}
         footer={
@@ -331,7 +330,7 @@ export function ReviewDialog({
             </>
           ) : (
             <>
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
+              <Button variant="outline" onClick={guard.close}>
                 Keep reviewing
               </Button>
               <Button
@@ -381,30 +380,25 @@ export function ReviewDialog({
              a list that stayed. Centred by `my-auto` rather than `justify-center`, so it
              gives way to the scroll if a long advocate name ever grows it past the
              canvas. */
-          <div className="my-auto flex flex-col items-center gap-4 p-6 text-center">
-            <div
-              className={cn(
-                "flex size-14 items-center justify-center rounded-full",
-                settled.tone,
-              )}
-            >
-              <settled.Icon
-                aria-hidden="true"
-                className="size-7"
-                strokeWidth={2.2}
-              />
-            </div>
-            {/* The state, then what it means. `role="status"` is what gets the outcome
-                spoken: focus lands on the header title, which announces itself and
-                nothing under it. The measure is held to a readable line length — a
-                sentence running the full width of a 2xl dialog under a centred mark
-                reads as a paragraph that lost its column. */}
-            <div role="status" className="flex max-w-sm flex-col gap-1">
-              <p className="text-body font-semibold">{settled.state}</p>
-              <p className="text-body-compact text-muted-foreground">
-                {settled.body}
-              </p>
-            </div>
+          /* Centred in the tall window: a short outcome hung from the top leaves a hole. */
+          <div className="my-auto flex flex-col">
+            <OutcomeHeader
+              titleFrom="dialog"
+              focusTitle
+              surface="card"
+              /* A return is the ordinary route, not a win: neutral with the loop. Forwarding
+                 and registering are this desk's good outcomes. */
+              tone={decision === "send-back" ? "neutral" : "success"}
+              icon={decision === "send-back" ? RotateCcwIcon : undefined}
+              title={settled.title}
+              /* The state, then what it means. */
+              body={
+                <>
+                  <span className="block font-semibold text-foreground">{settled.state}</span>
+                  {settled.body}
+                </>
+              }
+            />
           </div>
         ) : total || choosing ? (
           /* The list, and **only the list scrolls** — the frame around it does not move,
@@ -443,9 +437,10 @@ export function ReviewDialog({
                 </h3>
                 {byOwner(groups[g]).map(([owner, list]) => (
                   <Card
+                    variant="raised"
                     key={owner || g}
                     size="sm"
-                    className="gap-0 border-hairline py-0 shadow-raised"
+                    className="gap-0 py-0"
                   >
                     {owner ? (
                       <p className="border-b border-hairline px-4 py-3 text-body-compact font-semibold text-muted-foreground">
@@ -480,6 +475,7 @@ export function ReviewDialog({
             </EmptyHeader>
           </Empty>
         )}
+        <DiscardQuestion guard={guard} />
       </StagedOverlay>
     </Dialog>
   );
@@ -588,7 +584,7 @@ function TypeChoice({
       <h3 id="rv-type" className="text-caption font-semibold text-muted-foreground">
         Register as
       </h3>
-      <Card size="sm" className="gap-0 border-hairline py-0 shadow-raised">
+      <Card variant="raised" size="sm" className="gap-0 py-0">
         <RadioGroup
           value={value}
           onValueChange={onChange}

@@ -283,7 +283,7 @@ export function AccusedSection() {
 
       {/* Continue while some accused — named here — has no phone or email. */}
       <Dialog open={noContactOpen} onOpenChange={setNoContactOpen}>
-        <ChromeDialogContent mobileSheet className="sm:max-w-lg">
+        <ChromeDialogContent mobileSheet className="sm:max-w-lg" onInteractOutside={(event) => event.preventDefault()}>
           <DialogHeader>
             <div className="flex items-center gap-3">
               <span
@@ -312,7 +312,7 @@ export function AccusedSection() {
 
       {/* The confirmation itself — the court is told this was a considered choice. */}
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <ChromeDialogContent mobileSheet aria-describedby={confirmStatementId} className="sm:max-w-lg">
+        <ChromeDialogContent mobileSheet aria-describedby={confirmStatementId} className="sm:max-w-lg" onInteractOutside={(event) => event.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Confirm: proceed without details</DialogTitle>
           </DialogHeader>
@@ -350,12 +350,13 @@ export function AccusedSection() {
       </Dialog>
 
       <ConfirmDialog
+        note="This cannot be undone."
         open={pendingRemove !== null}
         onOpenChange={(open) => {
           if (!open) setPendingRemove(null);
         }}
         title={`Remove ${pendingRemoveLabel || "accused"}`}
-        description="Are you sure you want to delete this accused and all their contact and address details? This cannot be undone."
+        description="Are you sure you want to delete this accused and all their contact and address details?"
         confirmLabel="Yes, remove"
         onConfirm={() => {
           if (pendingRemove) removeAccused(pendingRemove);

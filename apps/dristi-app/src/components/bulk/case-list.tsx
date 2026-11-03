@@ -4,7 +4,6 @@ import * as React from "react";
 import { ArrowDownIcon, ArrowUpIcon, CheckIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { PANEL_CLASS } from "@/components/filing/form-card";
 import { RAIL_ROW, RAIL_ROW_ACTIVE } from "@/components/filing/sections-rail";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -100,10 +99,8 @@ export function CaseList({
 
   return (
     <Card
-      className={cn(
-        PANEL_CLASS,
-        "sticky top-20 hidden gap-0 overflow-hidden py-0 lg:flex",
-      )}
+      variant="raised"
+      className="sticky top-20 hidden gap-0 overflow-hidden py-0 lg:flex"
     >
       <div className="flex items-center justify-between border-b border-hairline px-4 py-3">
         <span className="text-body-compact font-semibold">Cases</span>

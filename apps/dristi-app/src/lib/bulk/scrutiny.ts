@@ -1185,7 +1185,7 @@ export function caseFlags(bc: BatchCase): Flag[] {
         where: "Documents",
         level: "hold",
         at: `doc.${doc.intakeKey ?? doc.id}`,
-        message: `${code ? DOC_CODE_LABEL[code.code] : doc.name}${code && d.cheques.length > 1 && code.index ? ` ${code.index}` : ""} is missing.${bc.fetchFailed.length ? " It was sent but could not be fetched." : ""}`,
+        message: `${code ? DOC_CODE_LABEL[code.code] : doc.name}${code && code.index && (code.code === "DCM-1" || code.code === "DCM-2" ? d.cheques : d.notices).length > 1 ? ` ${code.index}` : ""} is missing.${bc.fetchFailed.length ? " It was sent but could not be fetched." : ""}`,
         fix: doc.intakeKey
           ? { kind: "upload", slotKey: doc.intakeKey, label: doc.name }
           : { kind: "documents" },

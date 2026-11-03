@@ -21,17 +21,8 @@
  */
 
 import { useMemo, useState } from "react";
-import { HourglassIcon } from "lucide-react";
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { Button } from "@/components/ui/button";
 import {
   DescriptionDetails,
@@ -55,9 +46,6 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { FlowStepper } from "@/components/cases/flow-stepper";
-import {
-  ChromeAlertDialogContent,
-} from "@/components/chrome/app-chrome";
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 import {
   PartyApplicationDocument,
@@ -69,6 +57,7 @@ import {
   UPLOAD_HELP,
   UploadedDocField,
 } from "@/components/cases/uploaded-doc-field";
+import { OutcomeHeader } from "@/components/feedback";
 
 type RemoveStep = 1 | 2 | 3;
 
@@ -134,7 +123,6 @@ export function RemoveAdvocateDialog({
   /** The magistrate route's sign dialog, layered over the review (Sept 2). */
   const [signOpen, setSignOpen] = useState(false);
   const [errors, setErrors] = useState<Errors>({});
-  const [exitConfirmationOpen, setExitConfirmationOpen] = useState(false);
 
   const current = STEPS.find((item) => item.step === step) ?? STEPS[0];
   const isDirty = useMemo(
@@ -150,7 +138,6 @@ export function RemoveAdvocateDialog({
     setDone(false);
     setSignOpen(false);
     setErrors({});
-    setExitConfirmationOpen(false);
   }
 
   function closeClean() {
@@ -158,12 +145,10 @@ export function RemoveAdvocateDialog({
     onOpenChange(false);
   }
 
+  const guard = useDiscardGuard(isDirty && !done, closeClean);
+
   function requestExit() {
-    if (isDirty && !done) {
-      setExitConfirmationOpen(true);
-      return;
-    }
-    closeClean();
+    guard.close();
   }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -223,26 +208,23 @@ export function RemoveAdvocateDialog({
         <FlowDialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl">
           {done ? (
             <>
-              <DialogHeader className="shrink-0 px-6 py-5 pr-14 text-left">
-                <div className="flex items-center gap-4">
-                  <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-info-muted text-info-muted-foreground">
-                    <HourglassIcon className="size-7" aria-hidden />
-                  </span>
-                  <div className="flex min-w-0 flex-col gap-1.5">
-                    <DialogTitle className="text-title-s font-semibold text-balance">
-                      {route === "consent"
-                        ? `Request sent to ${advocateName}`
-                        : "Application sent to the magistrate"}
-                    </DialogTitle>
-                    <DialogDescription className="text-pretty">
-                      {route === "consent"
-                        ? "They can accept or reject it. You'll be notified either way."
-                        : `${advocateName} stays on the case until the order is passed.`}
-                    </DialogDescription>
-                  </div>
-                </div>
-              </DialogHeader>
-              <footer className="flex shrink-0 justify-end border-t border-hairline px-6 py-4">
+              {/* Sent, not decided: the hourglass, as today. */}
+              <OutcomeHeader
+                titleFrom="dialog"
+                focusTitle
+                tone="info"
+                title={
+                  route === "consent"
+                    ? `Request sent to ${advocateName}`
+                    : "Application sent to the magistrate"
+                }
+                body={
+                  route === "consent"
+                    ? "They can accept or reject it. You'll be notified either way."
+                    : `${advocateName} stays on the case until the order is passed.`
+                }
+              />
+              <footer className="flex shrink-0 justify-end border-t border-hairline bg-surface-sunken px-6 py-4">
                 <Button type="button" onClick={closeClean}>
                   Done
                 </Button>
@@ -457,7 +439,7 @@ export function RemoveAdvocateDialog({
                 ) : route === "consent" ? (
                   <Button
                     type="button"
-                    variant="destructive-solid"
+                    variant="destructive"
                     onClick={() => {
                       onRequested?.("consent");
                       setDone(true);
@@ -473,6 +455,7 @@ export function RemoveAdvocateDialog({
               </footer>
             </>
           )}
+          <DiscardQuestion guard={guard} />
         </FlowDialogContent>
       </Dialog>
 
@@ -488,26 +471,6 @@ export function RemoveAdvocateDialog({
           description: `${advocateName} stays on the case until the order is passed.`,
         }}
       />
-
-      <AlertDialog
-        open={exitConfirmationOpen}
-        onOpenChange={setExitConfirmationOpen}
-      >
-        <ChromeAlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Discard this request?</AlertDialogTitle>
-            <AlertDialogDescription>
-              The details entered here will be lost if you discard this draft.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Keep editing</AlertDialogCancel>
-            <AlertDialogAction variant="destructive-solid" onClick={closeClean}>
-              Discard draft
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </ChromeAlertDialogContent>
-      </AlertDialog>
     </>
   );
 }

@@ -60,7 +60,6 @@ describe("the catalogue", () => {
       "accept-application",
       "reject-application",
       "acceptance-of-bail",
-      "rescheduling-of-hearing",
       "dismiss-application",
     ] as const) {
       assert.equal(
@@ -68,6 +67,44 @@ describe("the catalogue", () => {
         "Comes from an application",
       );
     }
+  });
+
+  it("offers rescheduling only outside a hearing, with a hearing listed", () => {
+    const rescheduling = orderTemplate("rescheduling-of-hearing");
+    assert.equal(
+      unavailableReason(rescheduling, { hearingOngoing: false }),
+      "No hearing is scheduled",
+    );
+    assert.equal(
+      unavailableReason(rescheduling, {
+        hearingOngoing: false,
+        hearingScheduled: true,
+      }),
+      null,
+    );
+    assert.ok(
+      unavailableReason(rescheduling, {
+        hearingOngoing: true,
+        hearingScheduled: true,
+      }),
+    );
+  });
+
+  it("asks rescheduling only for the new date and the purpose, purpose from the listing", () => {
+    const block = createItemBlock("rescheduling-of-hearing", {
+      people: [],
+      accusedJoined: false,
+      scheduledHearing: { date: "2026-11-04", purpose: "appearance" },
+    });
+    assert.deepEqual(
+      orderTemplate("rescheduling-of-hearing")
+        .fields.filter((field) => !field.derived)
+        .map((field) => field.key),
+      ["newDate", "purpose"],
+    );
+    assert.equal(block.values.purpose, "appearance");
+    assert.equal(block.values.originalDate, "2026-11-04");
+    assert.equal(block.values.newDate, undefined);
   });
 
   it("sets the next date in a hearing's own region, not with scheduling", () => {

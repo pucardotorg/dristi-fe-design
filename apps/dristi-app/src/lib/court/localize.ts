@@ -121,10 +121,11 @@ const NAME_RULES: Rule[] = [
   [/\bON Court\b/g, (p) => courtName(p, true)],
   // Punjab & Haryana's names for the court seats (owner, 2026-10-13): the bench clerk is
   // the Reader, the scrutiny officer the Ahlmad, and the typist the Steno. The case of
-  // the first letter is kept, so a label and a sentence both read right.
+  // the first letter is kept, so a label and a sentence both read right. The seat's own
+  // title, "Typist / Steno" (court-roles §3.3), is left as it is.
   [/\b([Bb])ench clerk(s?)\b/g, (p, b, s) => (p.id === "punjab-haryana" ? `${b === "B" ? "R" : "r"}eader${s}` : `${b}ench clerk${s}`)],
   [/\b([Ss])crutiny officer(s?)\b/g, (p, c, s) => (p.id === "punjab-haryana" ? `${c === "S" ? "A" : "a"}hlmad${s}` : `${c}crutiny officer${s}`)],
-  [/\b([Tt])ypist(s?)\b/g, (p, t, s) => (p.id === "punjab-haryana" ? `${t === "T" ? "S" : "s"}teno${s}` : `${t}ypist${s}`)],
+  [/\b([Tt])ypist(s?)\b(?! \/ Steno)/g, (p, t, s) => (p.id === "punjab-haryana" ? `${t === "T" ? "S" : "s"}teno${s}` : `${t}ypist${s}`)],
   // A bench names its state; one that already names a place is left alone.
   [/\bJMFC Court (\d+)\b(?!,)/g, (p, n) => `JMFC Court ${n}, ${p.state}`],
   [/\bJMFC COURT (\d+)\b(?!,)/g, (p, n) => `JMFC COURT ${n}, ${p.state.toUpperCase()}`],

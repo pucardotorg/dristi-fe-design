@@ -21,6 +21,14 @@ import {
   useComboboxAnchor,
 } from "@/components/ui/combobox";
 import { DatePicker } from "@/components/ui/date-picker";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -38,7 +46,12 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import type { CSSProperties } from "react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 /**
  * The court side's one filter surface — search inline, everything else behind a Filters
@@ -128,12 +141,59 @@ export function CourtSortSelect<T extends string>({
   value,
   options,
   onChange,
+  iconOnly = false,
 }: {
   id: string;
   value: T;
   options: CourtSortOption<T>[];
   onChange: (value: T) => void;
+  /**
+   * An icon button that opens the orders as a menu, for a row that keeps its words for
+   * the controls that narrow (Today's hearings, owner 2026-11-02). An order changes the
+   * arrangement, not what shows. The current order is in the button's name and its
+   * tooltip, and ticked in the menu.
+   */
+  iconOnly?: boolean;
 }) {
+  if (iconOnly) {
+    const current = options.find((option) => option.id === value)?.label ?? "";
+    return (
+      <DropdownMenu>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  id={id}
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  aria-label={`Sort by, ${current}`}
+                  className="shrink-0"
+                >
+                  <ArrowDownUpIcon aria-hidden />
+                </Button>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Sort: {current}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        <DropdownMenuContent align="end" className="min-w-52">
+          <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+          <DropdownMenuRadioGroup
+            value={value}
+            onValueChange={(next) => onChange(next as T)}
+          >
+            {options.map((option) => (
+              <DropdownMenuRadioItem key={option.id} value={option.id}>
+                {option.label}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
   return (
     <div className="flex min-w-0 flex-col max-sm:w-full">
       <Label htmlFor={id} className="sr-only">
@@ -159,17 +219,11 @@ export function CourtSortSelect<T extends string>({
   );
 }
 
-/** The case peek's motion: a full slide from the right, no dissolve (matches the advocate). */
-const SHEET_MOTION = {
-  "--tw-enter-opacity": "1",
-  "--tw-exit-opacity": "1",
-  "--tw-enter-translate-x": "100%",
-  "--tw-exit-translate-x": "100%",
-} as CSSProperties;
 
 export function CourtFilters({
   leading,
   trailing,
+  end,
   search,
   searchRef,
   fields,
@@ -191,6 +245,12 @@ export function CourtFilters({
    * show, and it is changed far more often than any filter.
    */
   trailing?: React.ReactNode;
+  /**
+   * View controls held at the row's far right edge, apart from the search and Filters:
+   * how the list is laid out and ordered, not what is in it (Today's hearings' columns
+   * and sort icons, owner 2026-11-02).
+   */
+  end?: React.ReactNode;
   search: {
     label: string;
     value: string;
@@ -324,6 +384,7 @@ export function CourtFilters({
             Clear filters
           </Button>
         ) : null}
+        {end ? <div className="ml-auto flex items-end gap-3">{end}</div> : null}
       </div>
     );
     /* A screen's own view control heads the row here too — the same arrangement as the
@@ -357,6 +418,7 @@ export function CourtFilters({
           />
           {trailing}
         </div>
+        {end ? <div className="ml-auto flex items-end gap-3">{end}</div> : null}
       </div>
 
       {/* What is applied stays out on the row as removable chips — a folded control must not
@@ -490,8 +552,7 @@ function CourtFiltersSheet({
       <SheetContent
         side="right"
         aria-describedby={undefined}
-        className="w-full duration-300 ease-out sm:max-w-sm"
-        style={SHEET_MOTION}
+        className="w-full sm:max-w-sm"
       >
         <SheetHeader>
           <SheetTitle className="text-title-s font-semibold">Filters</SheetTitle>

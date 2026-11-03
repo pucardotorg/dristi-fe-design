@@ -78,6 +78,8 @@ export const BOND_REQUIRED_SURETIES = 3;
 export const BOND_TASK_DUE = "28 Aug 2026";
 /** The same deadline as an ISO date, for the ranked due-status line. */
 export const BOND_TASK_DUE_ON = "2026-08-28";
+/** When the demo bond reached the record, for its row under Documents › Bail bonds. */
+export const BOND_SUBMITTED_ON = "2026-08-26";
 /** The link the litigant and sureties receive by SMS/email. The demo route serves it. */
 export const BOND_SIGN_LINK = "https://dristi-kerala.pucar.org/bond?code=na5An";
 export const BOND_SIGN_PATH = "/bond";
@@ -148,14 +150,6 @@ export const bailDialog = {
     "The bail conditions are printed on the summons, under “Contest the case”. You can copy them from there.",
     "ജാമ്യ വ്യവസ്ഥകൾ സമൻസിൽ “കേസ് എതിർക്കുക” എന്നതിന് കീഴിൽ അച്ചടിച്ചിട്ടുണ്ട്. അവിടെ നിന്ന് പകർത്താം.",
   ),
-  /* closing midway: the same question every filing dialog asks */
-  discardTitle: t("Discard this application?", "ഈ അപേക്ഷ ഉപേക്ഷിക്കണോ?"),
-  discardBody: t(
-    "Anything you entered will be lost.",
-    "നിങ്ങൾ നൽകിയതെല്ലാം നഷ്ടപ്പെടും.",
-  ),
-  discardKeep: t("Keep editing", "തിരുത്തൽ തുടരുക"),
-  discardConfirm: t("Discard", "ഉപേക്ഷിക്കുക"),
   title: t("Bail application", "ജാമ്യാപേക്ഷ"),
 
   /* application details */

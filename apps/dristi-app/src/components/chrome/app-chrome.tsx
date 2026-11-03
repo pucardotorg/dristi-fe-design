@@ -331,15 +331,8 @@ export function ChromeAlertDialogContent({
   ...props
 }: React.ComponentProps<typeof AlertDialogContent>) {
   const pageDialog = useChromePageDialog();
-  // On a phone every confirmation is a bottom sheet; see `useBottomSheet`.
-  const sheet = useBottomSheet();
-  return (
-    <AlertDialogContent
-      className={cn(className, pageDialog, sheet.className)}
-      style={{ ...style, ...sheet.style }}
-      {...props}
-    />
-  );
+  // On a phone the DS confirm already rises from the bottom edge as a sheet.
+  return <AlertDialogContent className={cn(className, pageDialog)} style={style} {...props} />;
 }
 
 /**

@@ -3,8 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { PanelRightIcon } from "lucide-react";
-import { toast } from "sonner";
+import { FileXIcon, PanelRightIcon, PencilLineIcon, Trash2Icon, Undo2Icon } from "lucide-react";
 
 import { Identifier } from "@/components/chrome/identifier";
 import {
@@ -17,6 +16,12 @@ import {
   OrderShortcutsDialog,
   useShortcutSuggestion,
 } from "@/components/employee/order-shortcuts-dialog";
+import {
+  EvidenceView,
+  startEvidenceRecord,
+  useHearingEvidence,
+  type EvidenceContext,
+} from "@/components/employee/evidence-view";
 import {
   ApplicationsSection,
   AttendanceSection,
@@ -41,6 +46,7 @@ import {
   ItemsCard,
 } from "@/components/employee/order-items";
 import { OrderSaveIndicator } from "@/components/employee/order-save-indicator";
+import { useCourt } from "@/components/court/court-provider";
 import { useOrderSigning } from "@/components/employee/use-order-signing";
 import { usePendingOrders } from "@/components/employee/use-pending-orders";
 import { PANEL_CLASS } from "@/components/shell/panel";
@@ -60,7 +66,9 @@ import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { appendShortcut } from "@/lib/employee/order-shortcuts";
 import { derivedOrderTitle, orderTitle } from "@/lib/employee/order-title";
+import { unsignedCount } from "@/lib/employee/hearing-evidence";
 import {
   SegmentedControl,
   SegmentedControlItem,
@@ -105,7 +113,13 @@ import {
   type PendingOrderMeta,
   type PendingOrderStage,
 } from "@/lib/employee/pending-orders";
+import {
+  companionLabel,
+  orderTypeLabel,
+  orderTypeOf,
+} from "@/lib/employee/order-type";
 import { cn } from "@/lib/utils";
+import { ConfirmMark, IrreversibleNote, notify } from "@/components/feedback";
 
 /* ───────────────────────────────── the header ───────────────────────────────── */
 
@@ -589,7 +603,10 @@ export function OrderWorkflowFields({
   orderText = "",
   titleLocked = false,
   applicationItem,
+  orderKey,
 }: {
+  /** The order's draft key, which its type defaults from (`order-type.ts`). */
+  orderKey: string;
   /** An order on an application: its Application item, first among the items. */
   applicationItem?: ApplicationOutcomeSubject;
   /** The order's typed text, which the A-Diary text starts from when unticked. */
@@ -627,7 +644,10 @@ export function OrderWorkflowFields({
 
   function reasonFor(template: OrderTemplate): string | null {
     return (
-      unavailableReason(template, { hearingOngoing: inHearing }) ??
+      unavailableReason(template, {
+        hearingOngoing: inHearing,
+        hearingScheduled: Boolean(context.scheduledHearing),
+      }) ??
       combinationConflict(
         template.id,
         items.map((block) => ({
@@ -661,12 +681,18 @@ export function OrderWorkflowFields({
   }
 
   const aDiarySame = draft.aDiarySame !== false;
+  /* The companion text, under the state's own name — none on an order of the state's
+     alternative type, whose order text is the entry, nor where the state has none. */
+  const { profile } = useCourt();
+  const rules = profile.orderTypes;
+  const type = orderTypeOf(draft, orderKey, rules);
+  const companion = companionLabel(type, rules);
 
   return (
     <div className="flex min-w-0 flex-col gap-6">
       {/* The order's title (`TIT-01`, `TIT-02`): from its items until someone types one,
           editable until the order is triggered. */}
-      <Card className={cn(PANEL_CLASS, "min-w-0 gap-0 p-0")}>
+      <Card variant="raised" className="min-w-0 gap-0 p-0">
         <div className={FRAMED_HEAD}>
           <h2 className="text-body-compact font-semibold">
             <label htmlFor="order-title">Title</label>
@@ -730,7 +756,7 @@ export function OrderWorkflowFields({
 
       {/* Pending applications last, under the items (owner, 2026-10-14). */}
       {applications && applications.length > 0 ? (
-        <Card className={cn(PANEL_CLASS, "min-w-0 gap-0 p-0")}>
+        <Card variant="raised" className="min-w-0 gap-0 p-0">
           <ApplicationsSection
             applications={{
               list: applications,
@@ -743,10 +769,12 @@ export function OrderWorkflowFields({
         </Card>
       ) : null}
 
-      {/* The A-Diary text, last (§6, `PUB-04`): the order text by default, or its own. */}
-      <Card className={cn(PANEL_CLASS, "min-w-0 gap-0 p-0")}>
+      {/* The companion text, last (§6, `PUB-04`): the order text by default, or its own.
+          Kerala's A-Diary text, Gujarat's Roznama, P&H's Summary; none on a Roznama order. */}
+      {companion ? (
+      <Card variant="raised" className="min-w-0 gap-0 p-0">
         <div className={FRAMED_HEAD}>
-          <h2 className="text-body-compact font-semibold">A-Diary text</h2>
+          <h2 className="text-body-compact font-semibold">{companion}</h2>
         </div>
         <div className={cn(FRAMED_BODY, "flex min-w-0 flex-col gap-3")}>
           <div className="flex items-start gap-3">
@@ -767,17 +795,16 @@ export function OrderWorkflowFields({
               }
             />
             <label htmlFor="order-adiary-same" className="text-body-compact">
-              The A-Diary text and order text are the same
+              The {companion} and order text are the same
             </label>
           </div>
           {aDiarySame ? (
             <p className="text-caption text-muted-foreground">
-              The A-Diary entry is the order text in full, with its attendance and next
-              hearing lines.
+              {`The ${companion} entry is the order text in full, with its attendance and next hearing lines.`}
             </p>
           ) : (
             <Textarea
-              aria-label="A-Diary text"
+              aria-label={companion}
               value={draft.aDiaryText ?? ""}
               disabled={disabled}
               rows={5}
@@ -789,6 +816,7 @@ export function OrderWorkflowFields({
           )}
         </div>
       </Card>
+      ) : null}
 
       {applicationItem && outcome ? (
         <ApplicationOutcomeDialog
@@ -826,6 +854,53 @@ export function OrderWorkflowFields({
   );
 }
 
+/**
+ * The order's type — Order or the state's alternative (Roznama, Zimni), shown only where
+ * the state has one. It opens as the way in set it (`defaultOrderType`) and can be
+ * changed until the order is signed (owner, 2026-10-30, proposed).
+ */
+function OrderTypeControl({
+  draft,
+  setDraft,
+  orderKey,
+  locked,
+}: {
+  draft: OrderDraft;
+  setDraft: (update: (current: OrderDraft) => OrderDraft) => void;
+  orderKey: string;
+  locked: boolean;
+}) {
+  const { profile } = useCourt();
+  const rules = profile.orderTypes;
+  if (!rules.alternative) return null;
+  const type = orderTypeOf(draft, orderKey, rules);
+  return (
+    <div className="mr-auto flex items-center gap-2">
+      <span id="order-type-label" className="text-body-compact text-muted-foreground">
+        Type
+      </span>
+      <SegmentedControl
+        type="single"
+        size="compact"
+        value={type}
+        aria-labelledby="order-type-label"
+        disabled={locked}
+        onValueChange={(next) => {
+          if (next === "regular" || next === "alternative")
+            setDraft((current) => ({ ...current, orderType: next }));
+        }}
+      >
+        <SegmentedControlItem value="regular">
+          {orderTypeLabel("regular", rules)}
+        </SegmentedControlItem>
+        <SegmentedControlItem value="alternative">
+          {orderTypeLabel("alternative", rules)}
+        </SegmentedControlItem>
+      </SegmentedControl>
+    </div>
+  );
+}
+
 /** An application already onboarded answers Onboard yes, whatever was stored. */
 export function withOnboarded(
   outcome: ApplicationOutcome,
@@ -848,7 +923,7 @@ export function decideOnly(
 
 /* ─────────────────────────────── version E ─────────────────────────────────── */
 
-type EditorView = "order" | "workflow";
+type EditorView = "order" | "workflow" | "evidence";
 
 /**
  * Version E of the order screen — the order as one full-page document (owner,
@@ -881,6 +956,7 @@ export function OrderEditorComposer({
   purpose,
   fixedIds,
   applicationItem,
+  evidence,
 }: {
   /** An order on an application: its Application item in the order data. */
   applicationItem?: ApplicationOutcomeSubject;
@@ -907,6 +983,8 @@ export function OrderEditorComposer({
   historyContent?: React.ReactNode;
   /** The Data flags tab (ORD-15) — the listing's attendance history. */
   dataFlagsContent?: React.ReactNode;
+  /** Only on a hearing: what the Recorded statements view records against. */
+  evidence?: EvidenceContext;
 }) {
   const rootRef = React.useRef<HTMLDivElement>(null);
   const bands = useBands(rootRef);
@@ -917,6 +995,8 @@ export function OrderEditorComposer({
   const [sentOpen, setSentOpen] = React.useState(false);
   const router = useRouter();
   const [shortcutsOpen, setShortcutsOpen] = React.useState(false);
+  /* Bumped when Insert in Shortcuts changes the text, so the page re-reads it. */
+  const [revision, setRevision] = React.useState(0);
   const shortcuts = useShortcutSuggestion();
   const pending = usePendingOrders();
   const signing = useOrderSigning();
@@ -929,6 +1009,9 @@ export function OrderEditorComposer({
   const title = orderTitle(draft);
   /* Where the drafter goes once this one is sent: the next order still in Drafting. */
   const nextDraft = nextDraftOrder(pending, signing, queue.key);
+  /* What at this hearing its person has not signed yet, on the switch. */
+  const recorded = useHearingEvidence(evidence?.hearingId ?? "");
+  const unsigned = unsignedCount(recorded);
 
   /* Once there are words, the order is in Pending orders — every order, a hearing's or
      not (owner, 2026-10-14). */
@@ -947,13 +1030,14 @@ export function OrderEditorComposer({
   function finish() {
     if (empty) {
       setView("order");
-      toast("Type the order before sending it for signing.");
+      notify.neutral("Type the order before sending it for signing.", { icon: PencilLineIcon });
       return;
     }
     if (appearances && !postingSettled(draft)) {
       setView("order");
-      toast(
+      notify.neutral(
         "Set the next hearing’s date and purpose, or tick Not listed again.",
+        { icon: PencilLineIcon },
       );
       window.requestAnimationFrame(() =>
         window.document.getElementById("order-next-hearing")?.focus(),
@@ -978,7 +1062,7 @@ export function OrderEditorComposer({
       <OrderEditorHeader
         heading={heading}
         facts={facts}
-        panelOpen={view === "order" && panelOpen}
+        panelOpen={view !== "workflow" && panelOpen}
         onPanelToggle={() => {
           /* In Workflow the right is the workflow's; the case file comes back with the
              order view. */
@@ -1004,13 +1088,18 @@ export function OrderEditorComposer({
         )}
       >
         <div className="flex min-w-0 flex-col gap-4 lg:pb-8">
-          <div className="mx-auto flex w-full max-w-4xl items-center justify-between gap-4">
+          <div className="mx-auto flex w-full max-w-4xl flex-wrap items-center justify-between gap-x-4 gap-y-3">
             <SegmentedControl
               type="single"
               size="compact"
               value={view}
               onValueChange={(next) => {
                 if (next === "order" || next === "workflow") setView(next);
+                else if (next === "evidence" && evidence) {
+                  /* Nothing recorded yet: open on a new statement, not an empty state. */
+                  if (recorded.length === 0) startEvidenceRecord(evidence);
+                  setView(next);
+                }
               }}
               aria-label="What to work on"
             >
@@ -1018,8 +1107,30 @@ export function OrderEditorComposer({
               <SegmentedControlItem value="workflow">
                 Order data
               </SegmentedControlItem>
+              {/* What was taken at this hearing is the third thing worked on here
+                  (owner, 2026-10-28; rename 2026-10-29). "Record statements": one
+                  screen for complainant evidence, witness deposition and
+                  examination of the accused. "Evidence" already names marked
+                  exhibits. Only a hearing's order has one. */}
+              {evidence ? (
+                <SegmentedControlItem value="evidence">
+                  Record statements
+                  {unsigned > 0 ? (
+                    <Badge variant="warning" className="ml-1.5 tabular-nums">
+                      {unsigned}
+                      <span className="sr-only"> not signed</span>
+                    </Badge>
+                  ) : null}
+                </SegmentedControlItem>
+              ) : null}
             </SegmentedControl>
-            {finished ? (
+            <OrderTypeControl
+              draft={draft}
+              setDraft={setDraft}
+              orderKey={queue.key}
+              locked={signing[queue.key] === "signed"}
+            />
+            {view === "evidence" ? null : finished ? (
               <OrderProgress
                 stage={stage}
                 workflowComplete={Boolean(entry?.workflowComplete)}
@@ -1041,7 +1152,9 @@ export function OrderEditorComposer({
             ) : null}
           </div>
 
-          {view === "workflow" || finished ? (
+          {view === "evidence" && evidence ? (
+            <EvidenceView context={evidence} />
+          ) : view === "workflow" || finished ? (
             <OrderPaperView
               frame={frame}
               value={body}
@@ -1059,6 +1172,7 @@ export function OrderEditorComposer({
                 onChange: () => noteOrderTextEdited(queue.key),
               })}
               value={body}
+              revision={revision}
               onChange={(value) => {
                 setDraft((current) => ({ ...current, body: value }));
                 /* Edited after its workflow was completed: the workflow goes back to
@@ -1088,6 +1202,7 @@ export function OrderEditorComposer({
               orderText={body.text}
               titleLocked={stage === "triggered"}
               applicationItem={applicationItem}
+              orderKey={queue.key}
             />
           </div>
         ) : panelOpen ? (
@@ -1140,8 +1255,9 @@ export function OrderEditorComposer({
                 moveOrderBackToDraft(queue.key, signing);
                 returnOrderToDraft(queue.key);
                 setView("order");
-                toast(
+                notify.neutral(
                   "Back to draft. Send it for signing again when it is ready.",
+                  { icon: Undo2Icon },
                 );
               }}
             >
@@ -1226,20 +1342,25 @@ export function OrderEditorComposer({
       <AlertDialog open={askDiscard} onOpenChange={setAskDiscard}>
         <AlertDialogContent>
           <AlertDialogHeader>
+            <ConfirmMark danger icon={FileXIcon} />
             <AlertDialogTitle>Discard this draft?</AlertDialogTitle>
             <AlertDialogDescription>
-              Its text and order data are removed, and it leaves Pending orders. Nothing is
-              issued or recorded on the case. This cannot be undone.
+              <span className="block">
+                Its text and order data are removed, and it leaves Pending orders. Nothing is
+                issued or recorded on the case.
+              </span>
+              <IrreversibleNote>This cannot be undone.</IrreversibleNote>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Keep the draft</AlertDialogCancel>
             <AlertDialogAction
+              variant="destructive"
               onClick={() => {
                 setDraft(() => EMPTY_ORDER_DRAFT);
                 removePendingOrder(queue.key);
                 setView("order");
-                toast("Draft discarded.");
+                notify.neutral("Draft discarded.", { icon: Trash2Icon });
               }}
             >
               Discard draft
@@ -1251,6 +1372,15 @@ export function OrderEditorComposer({
       <OrderShortcutsDialog
         open={shortcutsOpen}
         onOpenChange={setShortcutsOpen}
+        onInsert={(shortcut) => {
+          setDraft((current) => ({
+            ...current,
+            body: appendShortcut(current.body ?? { html: "", text: "" }, shortcut),
+          }));
+          noteOrderTextEdited(queue.key);
+          setRevision((value) => value + 1);
+          setShortcutsOpen(false);
+        }}
       />
 
       {applicationDialog?.((id, decision) =>

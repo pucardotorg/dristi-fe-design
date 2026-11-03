@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { StatusLine } from "@/components/feedback";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 
@@ -90,6 +91,7 @@ export function SectionNotice({
   children,
   variant = "neutral",
   announce = "none",
+  still = announce === "none",
   onDismiss,
   className,
 }: {
@@ -99,9 +101,37 @@ export function SectionNotice({
   variant?: NoticeVariant;
   /** "polite" for a result the user is waiting for; "assertive" only for real errors. */
   announce?: "none" | "polite" | "assertive";
+  /** Already true when the page opened: no motion. Defaults to still for a standing
+      notice; pass it for a polite one that can also be there on arrival. */
+  still?: boolean;
   onDismiss?: () => void;
   className?: string;
 }) {
+  /* A notice that reports a status (it worked, it failed, it needs a look) is a feedback
+     line: the same shape as every other success, failure and warning in the product
+     (`components/feedback`, skill `feedback-states`). Info and neutral notices are
+     guidance, not outcomes, and keep the panel below. A standing notice (announce none)
+     arrives still; one raised by what the person just did plays and is announced. */
+  if (variant === "success" || variant === "warning" || variant === "destructive") {
+    return (
+      <StatusLine
+        tone={variant === "destructive" ? "error" : variant}
+        title={title}
+        still={still}
+        role={still ? undefined : NOTICE_ROLE[announce]}
+        className={className}
+        action={
+          onDismiss ? (
+            <Button type="button" variant="ghost" size="icon" aria-label="Dismiss" onClick={onDismiss} className="text-muted-foreground">
+              <XIcon aria-hidden />
+            </Button>
+          ) : undefined
+        }
+      >
+        {children}
+      </StatusLine>
+    );
+  }
   const { Icon, alert, surface, icon, dismiss } = NOTICE_STYLE[variant];
   return (
     <Alert

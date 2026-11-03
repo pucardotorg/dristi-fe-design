@@ -7,7 +7,11 @@
  * Applications filed through the advocate side add to these. "Reset sandbox data"
  * (`resetApplications`) brings the samples back.
  */
-import { EMPTY_APPLICATION_DRAFT, type ApplicationDraft } from "@/lib/cases/application-draft";
+import {
+  EMPTY_APPLICATION_DRAFT,
+  applicationDetailsFromPlain,
+  type ApplicationDraft,
+} from "@/lib/cases/application-draft";
 import { CASES } from "@/lib/cases/fixtures";
 import { formatCaseDate } from "@/lib/cases/types";
 import { applicationTypeGuide } from "@/lib/cases/application-type-guide";
@@ -54,7 +58,9 @@ const SAMPLES: Sample[] = [
     filedDaysAgo: 1,
     form: {
       rescheduleReason: "Illness",
-      otherDetails: "The complainant is admitted in hospital and cannot depose.",
+      applicationDetails: applicationDetailsFromPlain(
+        "The complainant is admitted in hospital and cannot depose.",
+      ),
     },
   },
   {
@@ -63,8 +69,7 @@ const SAMPLES: Sample[] = [
     type: "condonation-of-delay",
     filedDaysAgo: 4,
     form: {
-      delayReason:
-        "The demand notice was returned unclaimed and the complainant learnt of it only after the period had run.",
+      applicationDetails: applicationDetailsFromPlain("The demand notice was returned unclaimed and the complainant learnt of it only after the period had run."),
     },
   },
   {
@@ -75,8 +80,7 @@ const SAMPLES: Sample[] = [
     reviewAgainIn: 4,
     form: {
       title: "Exemption from personal appearance",
-      details:
-        "The accused is the managing partner and is travelling abroad on business until the end of the month.",
+      applicationDetails: applicationDetailsFromPlain("The accused is the managing partner and is travelling abroad on business until the end of the month."),
     },
   },
   /* Decide on applications */
@@ -93,7 +97,7 @@ const SAMPLES: Sample[] = [
         "No settlement has been reached. The accused has not agreed to the instalments the complainant describes.",
     },
     form: {
-      settlementReason: "The parties have agreed to settle the cheque amount in three instalments.",
+      applicationDetails: applicationDetailsFromPlain("The parties have agreed to settle the cheque amount in three instalments."),
     },
   },
   {
@@ -103,7 +107,7 @@ const SAMPLES: Sample[] = [
     filedDaysAgo: 3,
     onboard: { daysAgo: 2 },
     form: {
-      withdrawalReason: "The cheque amount has been paid in full.",
+      applicationDetails: applicationDetailsFromPlain("The cheque amount has been paid in full."),
     },
   },
   {
@@ -113,8 +117,7 @@ const SAMPLES: Sample[] = [
     filedDaysAgo: 8,
     onboard: { daysAgo: 5, decideIn: 2, invite: true },
     form: {
-      productionReason:
-        "The bank's statement of account for the period is needed to show the cheque was issued as security.",
+      applicationDetails: applicationDetailsFromPlain("The bank's statement of account for the period is needed to show the cheque was issued as security."),
     },
   },
   /*
@@ -131,8 +134,7 @@ const SAMPLES: Sample[] = [
       bailType: "surety",
       bailAmount: "50000",
       suretyCount: "1",
-      bailReason:
-        "The accused has appeared on every date, has a fixed address in the city and undertakes to attend each hearing.",
+      applicationDetails: applicationDetailsFromPlain("The accused has appeared on every date, has a fixed address in the city and undertakes to attend each hearing."),
     },
   },
   /* To onboard: overdue, an Advance — accepting it moves the hearing. */
@@ -143,8 +145,7 @@ const SAMPLES: Sample[] = [
     filedDaysAgo: 3,
     form: {
       rescheduleReason: "A party or witness cannot attend",
-      otherDetails:
-        "The complainant's only witness leaves the country next month and asks for an earlier date to depose.",
+      applicationDetails: applicationDetailsFromPlain("The complainant's only witness leaves the country next month and asks for an earlier date to depose."),
     },
   },
   /* To onboard: back after one deferral, so deferring again warns. */
@@ -155,8 +156,7 @@ const SAMPLES: Sample[] = [
     filedDaysAgo: 5,
     reviewAgainIn: 0,
     form: {
-      otherDetails:
-        "The bank manager who returned the cheque is to be added as a witness for the complainant.",
+      applicationDetails: applicationDetailsFromPlain("The bank manager who returned the cheque is to be added as a witness for the complainant."),
     },
   },
   /* To onboard: due today, from the accused. */
@@ -166,8 +166,7 @@ const SAMPLES: Sample[] = [
     type: "reopen-evidence",
     filedDaysAgo: 1,
     form: {
-      reopenReason:
-        "A letter from the complainant acknowledging part payment was found after the evidence closed.",
+      applicationDetails: applicationDetailsFromPlain("A letter from the complainant acknowledging part payment was found after the evidence closed."),
     },
   },
   /* To onboard: a PoA change, filed two days ago. */
@@ -177,8 +176,7 @@ const SAMPLES: Sample[] = [
     type: "poa-change",
     filedDaysAgo: 2,
     form: {
-      poaReason:
-        "The earlier power of attorney holder has resigned from the complainant company.",
+      applicationDetails: applicationDetailsFromPlain("The earlier power of attorney holder has resigned from the complainant company."),
     },
   },
   /* To decide: a Postpone listed for today, no objection received — accepting it needs
@@ -191,7 +189,7 @@ const SAMPLES: Sample[] = [
     onboard: { daysAgo: 4, decideIn: 0, invite: true },
     form: {
       rescheduleReason: "Advocate unavailable",
-      otherDetails: "The complainant's counsel is appearing before the High Court on that date.",
+      applicationDetails: applicationDetailsFromPlain("The complainant's counsel is appearing before the High Court on that date."),
     },
   },
   /* To decide: taken up today, so it can still be listed for a date instead. */
@@ -203,8 +201,7 @@ const SAMPLES: Sample[] = [
     onboard: { daysAgo: 0 },
     form: {
       title: "Return of seized documents",
-      details:
-        "The accused's original partnership deed, produced at the first hearing, is needed for a bank audit.",
+      applicationDetails: applicationDetailsFromPlain("The accused's original partnership deed, produced at the first hearing, is needed for a bank audit."),
     },
   },
   /* To decide: overdue, with an objection from the other side. */
@@ -222,7 +219,7 @@ const SAMPLES: Sample[] = [
     },
     form: {
       rescheduleReason: "Other",
-      otherDetails: "The accused seeks an earlier date to close the matter before relocating.",
+      applicationDetails: applicationDetailsFromPlain("The accused seeks an earlier date to close the matter before relocating."),
     },
   },
 ];
@@ -339,7 +336,7 @@ export function sampleApplications(
             ...EMPTY_APPLICATION_DRAFT,
             type: "objection",
             filedForSide: otherSide,
-            objectionReason: sample.onboard.objection,
+            applicationDetails: applicationDetailsFromPlain(sample.onboard.objection),
           }),
           documents: [],
           history: [{ on, text: "Draft started" }],

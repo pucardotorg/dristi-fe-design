@@ -4,7 +4,6 @@ import { useCourt } from "@/components/court/court-provider";
 import * as React from "react";
 import {
   CalendarX2Icon,
-  ListChecksIcon,
   SearchXIcon,
   VideoIcon,
 } from "lucide-react";
@@ -118,11 +117,14 @@ const HEARING_SORTS: CourtSortSpec<CourtHearing, HearingSort>[] = [
 ];
 
 /**
- * The status pills: All, then each status in the board's own grouping order (`CLS-07`,
- * `CLS-02`), each in the status's own word.
+ * The status pills after All, in the owner's order (2026-11-02), each in the status
+ * chip's own word. Ongoing has no pill: it is the one matter on its feet, and it stays
+ * in All; the Filters panel still offers it. (Line tabs were tried the same day and
+ * reverted to the pills.)
  */
-const HEARING_PILLS: { id: TodaysCauseStatus; label: string }[] =
-  CAUSE_LIST_STATUS_ORDER.map((id) => ({ id, label: statusWord(id) }));
+const HEARING_PILLS: { id: TodaysCauseStatus; label: string }[] = (
+  ["scheduled", "completed", "passed-over", "abandoned"] as const
+).map((id) => ({ id, label: statusWord(id) }));
 
 /**
  * Today's hearings — the court's cause list for the day it is sitting, its pills
@@ -227,19 +229,21 @@ export function HearingsScreen() {
         column.id !== "orders" &&
         column.id !== "nextHearing"),
   );
-  /* Bulk mode follows the roles this seat stands for (`CLS-06`, `CLS-09`): a hearing
-     controller ends or passes over many listings; a next hearing setter, where the
-     next hearing is entered here, posts them in the same pop-up; an order drafter adds
-     one piece of text to many orders. A seat with none of them has no bulk mode, and a
-     day other than today has none for anyone. */
+  /* Bulk selection follows the roles this seat stands for (`CLS-06`, `CLS-09`): a
+     hearing controller ends or passes over many listings; a next hearing setter, where
+     the next hearing is entered here, posts them in the same pop-up; an order drafter
+     adds one piece of text to many orders. A seat with none of them gets no tick boxes,
+     and a day other than today has none for anyone.
+
+     The boxes are on by default (owner, 2026-11-02). They were behind a Bulk button
+     that switched a mode on (2026-10-15); the mode was one more press for nothing, so
+     the boxes are always there and the bar at the foot comes up once one is ticked. */
   const bulkRoles: BulkRoles = {
     hearing: seatHasBenchControls(seat, court),
     next: postsNextHearing && seatPostsNextHearing(seat, court),
     text: seatDraftsOrders(seat, court),
   };
-  const bulkOffered = hasBulkActs(bulkRoles) && !otherDay;
-  const [bulkOn, setBulkOn] = React.useState(false);
-  const bulk = bulkOffered && bulkOn;
+  const bulk = hasBulkActs(bulkRoles) && !otherDay;
   const [bulkIds, setBulkIds] = React.useState<ReadonlySet<string>>(
     () => new Set(),
   );
@@ -348,12 +352,6 @@ export function HearingsScreen() {
   function toggleBulkAll(select: boolean) {
     setBulkNotice("");
     setBulkIds(select ? new Set(rows.map((hearing) => hearing.id)) : new Set());
-  }
-
-  function setBulkMode(on: boolean) {
-    setBulkOn(on);
-    setBulkIds(new Set());
-    setBulkNotice("");
   }
 
   const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
@@ -503,28 +501,14 @@ export function HearingsScreen() {
             changeFilters(patch);
           }}
           onClear={clearFilters}
-          trailing={
+          end={
+            /* Icons at the row's far right (owner, 2026-11-02): order and columns
+               change how the list is laid out, not what is in it. The board's columns
+               are the advocate Cases list's Edit columns. */
             <>
-              {bulkOffered ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  aria-pressed={bulk}
-                  onClick={() => setBulkMode(!bulk)}
-                  className={
-                    bulk
-                      ? "border-primary bg-brand-muted text-brand-muted-foreground hover:bg-brand-muted"
-                      : undefined
-                  }
-                >
-                  <ListChecksIcon data-icon="inline-start" aria-hidden />
-                  {bulk ? "Exit bulk" : "Bulk"}
-                </Button>
-              ) : null}
-              {/* The board's columns, as the advocate Cases list offers them. */}
-              <CauseListColumnsMenu state={columnState} />
               <CourtSortSelect
                 id="hearings-sort"
+                iconOnly
                 value={sort}
                 options={sortOptions(HEARING_SORTS)}
                 onChange={(next) => {
@@ -532,6 +516,7 @@ export function HearingsScreen() {
                   setPage(1);
                 }}
               />
+              <CauseListColumnsMenu state={columnState} />
             </>
           }
         />
@@ -621,7 +606,9 @@ export function HearingsScreen() {
         )}
       </div>
 
-      {bulk ? (
+      {/* Up while something is ticked, and after an act until the next tick or filter
+          change, so its outcome line ("9 hearings ended…") is still there to read. */}
+      {bulk && (bulkSelected.length > 0 || bulkNotice) ? (
         <CauseListBulkBar
           roles={bulkRoles}
           selected={bulkSelected}
@@ -673,7 +660,7 @@ function HearingsFilters({
   advocates,
   onChange,
   onClear,
-  trailing,
+  end,
   nextHearingColumn,
 }: {
   /** Whether Next hearing is a column for this person — its filter goes with it. */
@@ -687,8 +674,8 @@ function HearingsFilters({
   /** Merge a change into the filters — a patch, not a whole set. */
   onChange: (patch: Partial<HearingFilters>) => void;
   onClear: () => void;
-  /** The list's sort control (`CourtSortSelect`), at the end of the row. */
-  trailing?: React.ReactNode;
+  /** The sort and columns icons, at the row's far right. */
+  end?: React.ReactNode;
 }) {
   /* The pills take a row of their own above the filters: sharing one, the last pill
      was clipped off the end at desktop width once there were five of them. */
@@ -781,7 +768,7 @@ function HearingsFilters({
               ]
             : []),
         ]}
-        trailing={trailing}
+        end={end}
         onClearAll={onClear}
       />
     </div>
@@ -987,7 +974,7 @@ function StatusPills({
       <ToggleGroup
         type="single"
         size="lg"
-        variant="default"
+        variant="ghost"
         value={value}
         onValueChange={(next) => {
           if (next) onChange(next);

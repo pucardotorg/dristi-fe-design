@@ -134,7 +134,7 @@ describe("the control the inset offers for a corrected value", () => {
       targetControlKind({
         kind: "doc",
         step: "upload",
-        slotKey: "c1ad",
+        slotKey: "n1ad",
         label: "AD card",
         sectionLabel: "Documents",
       }),

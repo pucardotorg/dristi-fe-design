@@ -872,7 +872,7 @@ export function ComplainantSection() {
           if (!open) setOtp("");
         }}
       >
-        <ChromeDialogContent mobileSheet className="sm:max-w-md">
+        <ChromeDialogContent mobileSheet className="sm:max-w-md" onInteractOutside={(event) => event.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Verify &amp; fetch details</DialogTitle>
             <DialogDescription>
@@ -903,9 +903,6 @@ export function ComplainantSection() {
                 ))}
               </InputOTPGroup>
             </InputOTP>
-            <p className="text-caption text-muted-foreground">
-              Sandbox: no OTP is sent, and any 6-digit code is accepted here.
-            </p>
           </div>
 
           <Button
@@ -929,6 +926,7 @@ export function ComplainantSection() {
       >
         <ChromeDialogContent
           mobileSheet
+          onInteractOutside={(event) => event.preventDefault()}
           className="sm:max-w-lg"
           onCloseAutoFocus={(event) => {
             if (!focusCinPan.current) return;
@@ -983,6 +981,7 @@ export function ComplainantSection() {
       </Dialog>
 
       <ConfirmDialog
+        note="This cannot be undone."
         open={pendingRemove !== null}
         onOpenChange={(open) => {
           if (!open) setPendingRemove(null);
@@ -992,7 +991,7 @@ export function ComplainantSection() {
             ? `Remove ${complainantLabel(complainants[pendingRemove], pendingRemove)}`
             : "Remove complainant"
         }
-        description="Are you sure you want to delete this complainant and all their details? This cannot be undone."
+        description="Are you sure you want to delete this complainant and all their details?"
         onConfirm={() => {
           if (pendingRemove !== null) removeComplainant(pendingRemove);
           setPendingRemove(null);

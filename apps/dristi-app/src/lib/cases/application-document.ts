@@ -13,10 +13,11 @@
  * (`useCourtLocalized`), so it names that state's court and seat.
  *
  * The content is, for now, every value the filer entered as a term and its
- * value. Turning those into the application's prose is still to be specified
+ * value, followed by Application details as the filer formatted it. Turning those into the application's prose is still to be specified
  * per type; until it is, the document states exactly what was entered and
  * nothing it was not.
  */
+import type { RichTextValue } from "@/components/cases/rich-text-field";
 import { type ApplicationDraft, type LitigantDetailsDraft } from "./application-draft";
 import { applicationsFile, submissionTypeLabel } from "./applications";
 import { caseLitigants } from "./application-options";
@@ -48,6 +49,11 @@ export type GeneratedApplication = {
   parties: Row[][];
   /** The content: every value entered, as term and value. */
   entries: Row[];
+  /**
+   * Application details — the filer's own words, formatted, set under the
+   * entries as the body of the application. Empty when nothing was written.
+   */
+  details: RichTextValue;
   /** Under the signature: "Advocate Signature" and "Advocate for …". */
   signatory: { signature: string; line: string };
   /*
@@ -165,13 +171,11 @@ export function applicationEntries(
           add(`${n} — proof of solvency`, fileNames(surety.solvencyProof));
         });
       }
-      add("Reason for bail", draft.bailReason);
       break;
 
     case "edit-litigant-details": {
       const edited = litigant(draft.editLitigantId);
       add("Litigant to edit", edited?.name);
-      add("Reason for editing", draft.editReason);
       add(
         "Litigant type",
         draft.litigantType === "institution"
@@ -187,26 +191,21 @@ export function applicationEntries(
     }
 
     case "settlement":
-      add("Reason for settlement", draft.settlementReason);
       break;
 
     case "transfer":
       add("Current court", record.court);
       add("Requested court", draft.requestedCourt);
-      add("Reason for transfer", draft.transferReason);
       break;
 
     case "withdrawal":
-      add("Reason for withdrawal", draft.withdrawalReason);
       break;
 
     case "condonation-of-delay":
-      add("Reasons for delay", draft.delayReason);
       break;
 
     case "application-others":
       add("Application title", draft.title);
-      add("Details", draft.details);
       break;
 
     case "advancement-reschedule":
@@ -239,11 +238,9 @@ export function applicationEntries(
           fileNames(draft.poaAuthorizations[id] ?? [])
         );
       }
-      add("Reason for change", draft.poaReason);
       break;
 
     case "production-of-documents":
-      add("Reason for application", draft.productionReason);
       draft.productionDocuments.forEach((row, index) => {
         add(`Document ${index + 1} — type`, row.type);
         add(`Document ${index + 1} — file`, fileNames(row.files));
@@ -276,11 +273,9 @@ export function applicationEntries(
       break;
 
     case "absent-application":
-      add("Reason for absence", draft.absenceReason);
       break;
 
     case "reopen-evidence":
-      add("Reason for reopening", draft.reopenReason);
       break;
 
     case "objection": {
@@ -295,7 +290,6 @@ export function applicationEntries(
               .join(" · ")
           : ""
       );
-      add("Reason for objection", draft.objectionReason);
       break;
     }
   }
@@ -306,7 +300,6 @@ export function applicationEntries(
       [trimmed(row.name), fileNames(row.files)].filter(Boolean).join(" — ")
     );
   });
-  add("Other details", draft.otherDetails);
   return rows;
 }
 
@@ -441,6 +434,7 @@ export function buildGeneratedApplication(
       : { signature: "Advocate Signature", line: `Advocate for ${filedFor}` };
 
   const entries = applicationEntries(draft, record);
+  const details = applicationDetailsOf(draft);
 
   return {
     court: APPLICATION_COURT_HEADING,
@@ -450,11 +444,42 @@ export function buildGeneratedApplication(
     filedFor,
     parties,
     entries,
+    details,
     signatory,
     facts: parties.flat().filter((row) => row.value),
-    paragraphs: entries.map((row) => `${row.term}: ${row.value}`),
+    paragraphs: [
+      ...entries.map((row) => `${row.term}: ${row.value}`),
+      ...detailsParagraphs(details),
+    ],
     prayer: "",
   };
+}
+
+/**
+ * A stored draft's Application details, or empty. The form is read back from
+ * storage, so the value is checked rather than trusted (see `add` in
+ * `applicationEntries`).
+ */
+function applicationDetailsOf(draft: ApplicationDraft): RichTextValue {
+  const value: unknown = draft.applicationDetails;
+  if (
+    value &&
+    typeof value === "object" &&
+    typeof (value as RichTextValue).html === "string" &&
+    typeof (value as RichTextValue).text === "string" &&
+    (value as RichTextValue).text.trim()
+  ) {
+    return value as RichTextValue;
+  }
+  return { html: "", text: "" };
+}
+
+/** The details as plain paragraphs, for the court's screens and the text copy. */
+function detailsParagraphs(details: RichTextValue): string[] {
+  return details.text
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
 }
 
 /** The case's applications file, or none for a case it cannot build one for. */
@@ -494,6 +519,9 @@ export function generatedApplicationText(
     "",
     ...generated.entries.map((row) => `${row.term}: ${row.value}`),
     "",
+    ...(generated.details.text.trim()
+      ? [...detailsParagraphs(generated.details).flatMap((line) => [line, ""])]
+      : []),
     datedThis(dated),
     "",
     generated.signatory.signature,

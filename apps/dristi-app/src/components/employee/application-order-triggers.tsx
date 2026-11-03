@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { toast } from "sonner";
 
 import { useHearingSession } from "@/components/employee/use-hearing-session";
 import { useReaderPostsNextHearing } from "@/components/employee/use-next-hearing-entry";
@@ -38,6 +37,7 @@ import { orderTitle } from "@/lib/employee/order-title";
 import { withCausePosting } from "@/lib/employee/order-draft";
 import { editorDraftKey } from "@/lib/employee/order-drafts";
 import { pendingOrderStage } from "@/lib/employee/pending-orders";
+import { notify } from "@/components/feedback";
 
 const SETTLED: Record<ApplicationOrderKind, string> = {
   accept: "accepted",
@@ -137,10 +137,10 @@ export function ApplicationOrderTriggers() {
         });
         const id = `${order.key}:outcome`;
         if (result.ok && summary) {
-          toast(`${owner.typeLabel} application: ${summary}.`);
+          notify.success(`${owner.typeLabel} application: ${summary}.`);
         } else if (!result.ok && !reported.current.has(id)) {
           reported.current.add(id);
-          toast.error(`${owner.typeLabel} application could not be updated: ${result.error}`);
+          notify.error(`${owner.typeLabel} application could not be updated: ${result.error}`);
         }
       }
       for (const outcome of applicationOrderOutcomes(draft.blocks)) {
@@ -167,11 +167,11 @@ export function ApplicationOrderTriggers() {
         const id = `${order.key}:${application.id}`;
         if (result.ok) {
           if (!told.delete(order.key)) {
-            toast(`${label} ${SETTLED[outcome.kind]} by the signed order.`);
+            notify.success(`${label} ${SETTLED[outcome.kind]} by the signed order.`);
           }
         } else if (!reported.current.has(id)) {
           reported.current.add(id);
-          toast.error(`${label} could not be ${SETTLED[outcome.kind]}: ${result.error}`);
+          notify.error(`${label} could not be ${SETTLED[outcome.kind]}: ${result.error}`);
         }
       }
     }

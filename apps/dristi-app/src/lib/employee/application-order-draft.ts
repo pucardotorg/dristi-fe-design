@@ -19,7 +19,11 @@ import {
 import { counselFor, partiesLabel, type CaseRecord } from "@/lib/cases/types";
 
 import type { ApplicationOrderDecision } from "./application-order-decision";
-import { formatOrderDate, type CourtCounsel } from "./hearings";
+import {
+  formatOrderDate,
+  hearingPurposeFromText,
+  type CourtCounsel,
+} from "./hearings";
 import {
   createItemBlock,
   type ComposerContext,
@@ -61,13 +65,27 @@ function counselOf(record: CaseRecord): CourtCounsel[] {
   );
 }
 
-/** The matter the order is on: its people, for the catalogue's items. */
-export function applicationOrderContext(record: CaseRecord): ComposerContext {
-  return composerContextFor({
-    caseNumber: record.caseNumber,
-    parties: record.parties,
-    counsel: counselOf(record),
-  });
+/**
+ * The matter the order is on: its people, for the catalogue's items, and the hearing the
+ * case is listed for (`listedOn`) — what a *Rescheduling of hearing date* moves.
+ */
+export function applicationOrderContext(
+  record: CaseRecord,
+  listedOn?: string,
+): ComposerContext {
+  return {
+    ...composerContextFor({
+      caseNumber: record.caseNumber,
+      parties: record.parties,
+      counsel: counselOf(record),
+    }),
+    scheduledHearing: listedOn
+      ? {
+          date: listedOn,
+          purpose: hearingPurposeFromText(record.nextHearing?.purpose),
+        }
+      : undefined,
+  };
 }
 
 /**

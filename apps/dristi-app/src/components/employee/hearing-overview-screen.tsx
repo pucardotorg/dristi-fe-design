@@ -290,7 +290,7 @@ export function HearingOverviewSections({
         <TabsList
           variant="line"
           aria-label="About this case"
-          className={`justify-start rounded-none p-0 ${TAB_LIST[surface]}`}
+          className={`justify-start rounded-none ${TAB_LIST[surface]}`}
         >
           {nextHearing ? (
             <TabsTrigger value="next-hearing" className={TAB_TRIGGER}>
@@ -358,11 +358,11 @@ const TAB_STRIP: Record<HearingOverviewSurface, string> = {
 };
 const TAB_LIST: Record<HearingOverviewSurface, string> = {
   page: "h-14 group-data-horizontal/tabs:h-14",
-  overlay: "h-10 group-data-horizontal/tabs:h-10",
+  overlay: "h-10",
   panel: "h-14 group-data-horizontal/tabs:h-14",
 };
 const TAB_TRIGGER =
-  "h-full flex-none px-3 text-body-compact group-data-horizontal/tabs:after:-bottom-px";
+  "h-full flex-none text-body-compact";
 /**
  * Each tab scrolls in its own box; `p-4` is what the history's pinned filter expects of
  * that box, as in the order screen's tab. On the page the box is a fixed height, the same

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { StagedOverlay } from "@/components/chrome/staged-overlay";
 
 import { DocumentPreview } from "@/components/cases/document-preview";
@@ -77,6 +78,7 @@ export function SignADiaryDialog({
           entry={entry}
           onSave={onSave}
           onReturnFocus={onReturnFocus}
+          onClose={() => onOpenChange(null)}
         />
       ) : null}
     </Dialog>
@@ -87,10 +89,12 @@ function SignADiaryBody({
   entry,
   onSave,
   onReturnFocus,
+  onClose,
 }: {
   entry: ADiaryEntry;
   onSave: (entry: ADiaryEntry, business: string) => void;
   onReturnFocus: () => void;
+  onClose: () => void;
 }) {
   const courtText = useCourtText();
   const document = React.useMemo(() => buildADiaryDocument(entry), [entry]);
@@ -104,6 +108,7 @@ function SignADiaryBody({
   const text = draft.trim();
   const blank = text === "";
   const dirty = text !== entry.business;
+  const guard = useDiscardGuard(dirty, onClose);
 
   function save() {
     if (blank || !dirty) return;
@@ -126,6 +131,8 @@ function SignADiaryBody({
          is for. A photograph does not do that, which is why `ApproveRegistrationsDialog`
          can split earlier than this one can. */
       className="sm:max-w-5xl lg:h-[85dvh]"
+      {...guard.contentProps}
+      {...guard.outsideProps}
       title="A-Diary entry"
       titleRef={titleRef}
       description={
@@ -204,7 +211,7 @@ function SignADiaryBody({
         {/* The editable record, as a panel on the stage — lifted at rest, because a white
             card and the canvas under it measure about 1.01:1 and a stroke is not what
             separates them (ui-craft §4). */}
-        <Card className="min-w-0 border-hairline shadow-raised lg:min-h-0">
+        <Card variant="raised" className="min-w-0 lg:min-h-0">
           <CardContent className="flex flex-col gap-4 lg:min-h-0 lg:flex-1">
             <Field data-invalid={blank} className="lg:min-h-0 lg:flex-1">
               <FieldLabel className="text-body">Business of the day</FieldLabel>
@@ -265,6 +272,7 @@ function SignADiaryBody({
           }}
         />
       </div>
+      <DiscardQuestion guard={guard} />
     </StagedOverlay>
   );
 }

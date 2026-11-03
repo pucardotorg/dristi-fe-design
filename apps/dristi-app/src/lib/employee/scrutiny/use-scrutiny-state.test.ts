@@ -217,7 +217,7 @@ describe("re-scrutiny verdicts", () => {
 
   it("names every returned item in the derived history", () => {
     const sent = RESUB.history.find((e) => e.items);
-    assert.deepEqual(sent?.items?.map((i) => i.ref), ["q1-amt", "c1-name", "d-c1ad"]);
+    assert.deepEqual(sent?.items?.map((i) => i.ref), ["q1-amt", "c1-name", "d-n1ad"]);
   });
 
   it("the hero round names a real row", () => {

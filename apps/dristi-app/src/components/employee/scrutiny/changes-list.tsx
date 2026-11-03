@@ -104,6 +104,7 @@ function ChangeCard({
          history item or the review dialog lands here by the same id in either. */
       id={`row-${field.id}`}
       aria-labelledby={titleId}
+      variant="raised"
       className={cn(
         SHEET,
         // `group/frow`: the raised record's Edit / Remove reveal keys off its host.

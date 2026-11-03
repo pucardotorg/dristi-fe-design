@@ -4,6 +4,7 @@ import * as React from "react";
 
 import { ChromeDialogContent } from "@/components/chrome/app-chrome";
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { EMPTY_PROFILE, useProfile } from "@/lib/filing/profile";
 import type { UserProfile } from "@/lib/filing/types";
 import { Button } from "@/components/ui/button";
@@ -29,19 +30,50 @@ export function ProfileDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { profile } = useProfile();
+  const stored = profile ?? EMPTY_PROFILE;
+  /* The form lives here rather than in `ProfileForm`, so a close can ask before it
+     throws changes away. It starts from the stored profile on every opening. */
+  const [form, setForm] = React.useState<UserProfile>(stored);
+  const [wasOpen, setWasOpen] = React.useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setForm(stored);
+  }
+  const changed = (Object.keys(stored) as (keyof UserProfile)[]).some(
+    (key) => String(form[key] ?? "").trim() !== String(stored[key] ?? "").trim(),
+  );
+  const guard = useDiscardGuard(changed, () => onOpenChange(false));
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <ChromeDialogContent mobileSheet className="sm:max-w-md">
+      <ChromeDialogContent
+        mobileSheet
+        className="sm:max-w-md"
+        {...guard.contentProps}
+        {...guard.outsideProps}
+      >
         {/* Mounted per open, so the form always starts from the stored profile. */}
-        {open ? <ProfileForm onClose={() => onOpenChange(false)} /> : null}
+        {open ? (
+          <ProfileForm form={form} setForm={setForm} onCancel={guard.close} onClose={() => onOpenChange(false)} />
+        ) : null}
+        <DiscardQuestion guard={guard} />
       </ChromeDialogContent>
     </Dialog>
   );
 }
 
-function ProfileForm({ onClose }: { onClose: () => void }) {
-  const { profile, save } = useProfile();
-  const [form, setForm] = React.useState<UserProfile>(profile ?? EMPTY_PROFILE);
+function ProfileForm({
+  form,
+  setForm,
+  onCancel,
+  onClose,
+}: {
+  form: UserProfile;
+  setForm: React.Dispatch<React.SetStateAction<UserProfile>>;
+  onCancel: () => void;
+  onClose: () => void;
+}) {
+  const { save } = useProfile();
   const [saving, setSaving] = React.useState(false);
 
   const set = <K extends keyof UserProfile>(key: K, value: UserProfile[K]) =>
@@ -117,7 +149,7 @@ function ProfileForm({ onClose }: { onClose: () => void }) {
       </div>
 
       <DialogFooter>
-        <Button type="button" variant="outline" onClick={onClose}>
+        <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
         <Button type="submit" disabled={saving || !form.name.trim()}>

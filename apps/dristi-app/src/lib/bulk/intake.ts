@@ -17,6 +17,7 @@ import {
   buildDocumentGroups,
   createBlankDraft,
   intakeChequeGroup,
+  intakeNoticeGroup,
   intakePartyGroup,
   uid,
 } from "@/lib/filing/blank";
@@ -278,11 +279,13 @@ async function buildDraft(
     );
   }
 
+  draft.intake.notices = draft.notices.map((_, i) => intakeNoticeGroup(i + 1));
+
   /* Documents (DCM): fetched now, placed in the intake slot each code fills. */
   const fetchFailed: string[] = [];
   const docText: Record<string, string | null> = {};
   const slots = new Map(
-    [...draft.intake.cheques, ...draft.intake.parties]
+    [...draft.intake.cheques, ...draft.intake.notices, ...draft.intake.parties]
       .flatMap((g) => g.slots)
       .concat(draft.intake.supporting)
       .map((s) => [s.key, s])

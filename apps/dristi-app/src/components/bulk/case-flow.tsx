@@ -38,13 +38,10 @@ import { draftTitle } from "@/lib/filing/selectors";
 import { getStep, stepFromPathname } from "@/lib/filing/steps";
 import { FilingProvider, useFiling } from "@/lib/filing/store";
 import type { StepId } from "@/lib/filing/types";
-import { cn } from "@/lib/utils";
 import { useCourt, useCourtText } from "@/components/court/court-provider";
 import { DraftBreadcrumbLabel } from "@/components/filing/chrome";
 import { FieldPolicyProvider, type FieldPolicy } from "@/components/filing/field-policy";
-import { PANEL_CLASS } from "@/components/filing/form-card";
 import { FilingShell } from "@/components/filing/filing-shell";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -67,6 +64,7 @@ import { demoFill } from "./demo-fill";
 import { OriginalDoc } from "./original-doc";
 import { FlagLine } from "./scrutiny-tab";
 import { CaseBadge } from "./stage";
+import { StatusLine } from "@/components/feedback";
 
 /** Where the batch is, on one of its tabs. */
 function batchHref(batchId: string, tab: string, ai: string | null, caseId?: string): string {
@@ -345,9 +343,8 @@ function CaseBar({
 
   if (error && !batch)
     return frame(
-      <Alert variant="destructive">
-        <AlertDescription>{error}</AlertDescription>
-      </Alert>,
+      /* Already true when the page opened: it stands still. */
+      <StatusLine tone="error" still>{error}</StatusLine>,
     );
   if (!batch || !c) return frame(<Skeleton className="h-16 w-full rounded-xl" />);
 
@@ -368,7 +365,7 @@ function CaseBar({
   const later = c.flags.filter((f) => f.section !== step);
 
   return frame(
-    <Card className={cn(PANEL_CLASS, "gap-0 py-0")}>
+    <Card variant="raised" className="gap-0 py-0">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3">
         <Button asChild variant="ghost" className="-ml-2">
           <Link href={batchHref(batchId, "scrutiny", aiParam, c.id)}>
@@ -462,9 +459,7 @@ function CaseBar({
             </p>
           ) : null}
           {problem ? (
-            <Alert variant="destructive">
-              <AlertDescription>{problem}</AlertDescription>
-            </Alert>
+            <StatusLine tone="error">{problem}</StatusLine>
           ) : null}
           {/* Demo: fills every date (consistent, filable today) and every empty required field. */}
           <Button

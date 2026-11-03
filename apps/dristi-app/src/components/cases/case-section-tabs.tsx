@@ -37,12 +37,8 @@ export const STRIP_ROW = "overflow-x-auto border-b border-hairline";
 export const STRIP_ITEM = "h-10 flex-none px-3 text-body-compact";
 
 /** The line `TabsList` and its triggers, as the strip sets them. */
-export const STRIP_LIST =
-  "h-10 w-full justify-start rounded-none p-0 group-data-horizontal/tabs:h-10";
-export const STRIP_TRIGGER = cn(
-  STRIP_ITEM,
-  "group-data-horizontal/tabs:after:-bottom-px"
-);
+export const STRIP_LIST = "h-10 w-full justify-start rounded-none";
+export const STRIP_TRIGGER = STRIP_ITEM;
 
 /**
  * `TabsTrigger`'s own resting appearance, for the branch that cannot use

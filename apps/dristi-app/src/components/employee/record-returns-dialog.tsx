@@ -1,15 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { CircleCheckIcon } from "lucide-react";
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import {
   StagedOverlay,
   useStagedFlow,
 } from "@/components/chrome/staged-overlay";
 import { Identifier } from "@/components/chrome/identifier";
-import { RESOLVE_IN_PLACE } from "@/components/chrome/motion";
-import { PANEL_CLASS } from "@/components/shell/panel";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -37,8 +35,8 @@ import {
   type NonServiceReason,
   type ProcessOutcome,
 } from "@/lib/employee/sign-process";
-import { cn } from "@/lib/utils";
 import { useCourt, useCourtText } from "@/components/court/court-provider";
+import { OutcomeHeader } from "@/components/feedback";
 
 /** The covers being marked, then what was recorded — one scene, settling in place. */
 type Stage = "record" | "done";
@@ -159,6 +157,7 @@ function RecordReturnsBody({
     () => new Date(),
   );
   const [marks, setMarks] = React.useState<Record<string, ReturnMark>>({});
+  const guard = useDiscardGuard(!done && Object.keys(marks).length > 0, onClose);
 
   const answered = rows.filter((process) => {
     const mark = marks[process.id];
@@ -213,6 +212,8 @@ function RecordReturnsBody({
 
   return (
     <StagedOverlay
+      {...guard.contentProps}
+      {...guard.outsideProps}
       className="sm:max-w-2xl"
       title={done ? ACT.done(subject) : ACT.question(subject)}
       titleRef={flow.titleRef}
@@ -220,6 +221,8 @@ function RecordReturnsBody({
       sceneKey={flow.sceneKey}
       motion={flow.motion}
       floor
+      /* The settled stage takes the window over: mark, then title (owner, Oct 29). */
+      outcome={done}
       onCloseAutoFocus={(event) => {
         event.preventDefault();
         const trigger = triggerRef.current;
@@ -244,7 +247,7 @@ function RecordReturnsBody({
             >
               {left > 0 ? `${left} still to mark` : ""}
             </p>
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={guard.close}>
               Back
             </Button>
             <Button type="button" disabled={!ready} onClick={record}>
@@ -255,23 +258,24 @@ function RecordReturnsBody({
       }
     >
       {done ? (
-        /* The product's success band — solid fill and a tick — in the window the covers
-           were marked in, saying what was recorded and where the covers are now. */
-        <div className="my-auto flex w-full flex-col">
-          <p
-            role="status"
-            className={cn(
-              "flex items-start gap-2 rounded-lg bg-success px-4 py-3 text-body text-success-foreground",
-              RESOLVE_IN_PLACE,
-            )}
-          >
-            <CircleCheckIcon aria-hidden className="mt-0.5 size-5 shrink-0" />
-            <span>
+        /* What was recorded and where the covers are now, as the window's outcome
+           (skill `feedback-states`). */
+        <OutcomeHeader
+          titleFrom="dialog"
+          focusTitle
+          surface="card"
+          title={ACT.done(subject)}
+          body={
+            <>
               {tally.served} served, {tally.total - tally.served} not served.{" "}
               {tally.total === 1 ? "It is" : "They are"} now in Completed in Service.
-            </span>
-          </p>
-        </div>
+            </>
+          }
+        >
+          <span className="text-caption text-muted-foreground tabular-nums">
+            Across {cases} {plural(cases, "case", "cases")}
+          </span>
+        </OutcomeHeader>
       ) : (
         <div className="flex w-full flex-col gap-6">
           <DialogDescription className="text-body text-muted-foreground">
@@ -287,7 +291,7 @@ function RecordReturnsBody({
 
           {/* The covers are one grouped thing on the canvas, so they sit on one lifted
               panel — the card the bulk confirmation uses — with hairlines between them. */}
-          <Card size="sm" className={cn(PANEL_CLASS, "gap-0 py-0")}>
+          <Card variant="raised" size="sm" className="gap-0 py-0">
             <ul className="flex flex-col px-4">
               {rows.map((process) => (
                 <ReturnRow
@@ -301,6 +305,7 @@ function RecordReturnsBody({
           </Card>
         </div>
       )}
+      <DiscardQuestion guard={guard} />
     </StagedOverlay>
   );
 }

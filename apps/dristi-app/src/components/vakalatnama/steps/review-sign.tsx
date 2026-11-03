@@ -9,7 +9,6 @@
 
 import * as React from "react";
 import {
-  CheckCircle2Icon,
   CheckIcon,
   ChevronRightIcon,
   SignatureIcon,
@@ -18,6 +17,7 @@ import {
 
 import { ChromeDialogContent } from "@/components/chrome/app-chrome";
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,12 +30,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+
 import { FormCard } from "@/components/filing/form-card";
 import { VakalatnamaDocument } from "@/components/vakalatnama/document";
 import { updateVak } from "@/lib/vakalatnama/store";
 import { reconcileSigners } from "@/lib/vakalatnama/signers";
 import type { SignMethod, Signer, Vakalatnama, VakStatus } from "@/lib/vakalatnama/types";
+import { StatusLine } from "@/components/feedback";
 
 type ModalKey = "choose" | "esign" | "processing" | null;
 
@@ -56,6 +57,7 @@ export function ReviewSignStep({ vak }: { vak: Vakalatnama }) {
 
   const [modal, setModal] = React.useState<ModalKey>(null);
   const [otp, setOtp] = React.useState("");
+  const otpGuard = useDiscardGuard(modal === "esign" && otp.length > 0, () => setModal(null));
   const timer = React.useRef<number | null>(null);
 
   React.useEffect(
@@ -105,13 +107,9 @@ export function ReviewSignStep({ vak }: { vak: Vakalatnama }) {
   return (
     <div className="flex flex-col gap-6">
       {allSigned ? (
-        <Alert variant="success">
-          <CheckCircle2Icon aria-hidden />
-          <AlertTitle>All signatures collected</AlertTitle>
-          <AlertDescription>
-            Every party has signed. Continue to pay the fees and complete the vakalatnama.
-          </AlertDescription>
-        </Alert>
+        <StatusLine tone="success" title="All signatures collected">
+          Every party has signed. Continue to pay the fees and complete the vakalatnama.
+        </StatusLine>
       ) : null}
 
       {/* Signatures panel */}
@@ -188,7 +186,7 @@ export function ReviewSignStep({ vak }: { vak: Vakalatnama }) {
 
       {/* ── Choose how to sign ── */}
       <Dialog open={modal === "choose"} onOpenChange={(open) => !open && setModal(null)}>
-        <ChromeDialogContent className="sm:max-w-lg">
+        <ChromeDialogContent className="sm:max-w-lg" onInteractOutside={(event) => event.preventDefault()}>
           <DialogHeader>
             <DialogTitle>How will {nextSigner?.label} sign?</DialogTitle>
             <DialogDescription>
@@ -255,7 +253,11 @@ export function ReviewSignStep({ vak }: { vak: Vakalatnama }) {
 
       {/* ── eSign OTP ── */}
       <Dialog open={modal === "esign"} onOpenChange={(open) => !open && setModal(null)}>
-        <ChromeDialogContent className="sm:max-w-sm">
+        <ChromeDialogContent
+          className="sm:max-w-sm"
+          {...otpGuard.contentProps}
+          {...otpGuard.outsideProps}
+        >
           <DialogHeader>
             <DialogTitle>Enter the OTP</DialogTitle>
             <DialogDescription>
@@ -297,9 +299,7 @@ export function ReviewSignStep({ vak }: { vak: Vakalatnama }) {
           <Button type="button" size="lg" className="w-full" disabled={otp.length < 6} onClick={verifyEsign}>
             Verify and sign
           </Button>
-          <p className="text-center text-caption text-muted-foreground">
-            Sandbox — any six digits work.
-          </p>
+          <DiscardQuestion guard={otpGuard} />
         </ChromeDialogContent>
       </Dialog>
 

@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
 
 import { Identifier } from "@/components/chrome/identifier";
 import {
@@ -13,7 +12,6 @@ import { ListingDateField } from "@/components/employee/listing-date-field";
 import { useCourtRole } from "@/components/employee/use-court-role";
 import { useOrderSigning } from "@/components/employee/use-order-signing";
 import { usePendingOrders } from "@/components/employee/use-pending-orders";
-import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import {
@@ -57,6 +55,7 @@ import {
   pendingOrderStage,
   pendingOrderStageLabel,
 } from "@/lib/employee/pending-orders";
+import { StatusLine, notify } from "@/components/feedback";
 
 /* ─────────────────────────────── what can be done with it ──────────────────────────── */
 
@@ -179,7 +178,7 @@ export function ApplicationDecisionPanel({
       return false;
     }
     setError(null);
-    toast.success(message);
+    notify.success(message);
     return true;
   }
 
@@ -381,9 +380,9 @@ export function ApplicationDecisionPanel({
         {choice === "defer" ? (
           <>
             {deferredBefore ? (
-              <Banner variant="warning">
+              <StatusLine tone="warning" still>
                 Review of this application has already been deferred once.
-              </Banner>
+              </StatusLine>
             ) : null}
             <ListingDateField
               id={`${app.id}-defer`}
@@ -655,7 +654,7 @@ export function ApplicationDecisionPanel({
     >
       <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto p-6">
         {body}
-        {error ? <Banner variant="error">{error}</Banner> : null}
+        {error ? <StatusLine tone="error">{error}</StatusLine> : null}
       </div>
       {footer ? (
         <div className="flex shrink-0 flex-col gap-2 border-t border-hairline px-6 py-4">

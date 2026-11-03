@@ -11,7 +11,6 @@ import {
   tableBodyClass,
   tableRowClass,
 } from "@/components/chrome/table-plate";
-import { PANEL_CLASS } from "@/components/filing/form-card";
 
 import { Card } from "@/components/ui/card";
 
@@ -49,7 +48,7 @@ export function CasesTab({ batch, go }: BatchCtx) {
         </p>
       ) : null}
       {pending.length ? (
-        <Card className={cn(PANEL_CLASS, "gap-0 py-0")}>
+        <Card variant="raised" className="gap-0 py-0">
           <div className="overflow-x-auto p-2">
             <Table
               className="border-separate border-spacing-0"

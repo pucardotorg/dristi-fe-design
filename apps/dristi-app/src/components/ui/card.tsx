@@ -2,17 +2,29 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * The background decides the look (owner, 2026-10-30):
+ * - `outline` (default): a defined `border` edge, no shadow. For cards on white.
+ * - `raised`: a soft `hairline` edge and a faint `shadow-raised`. For cards on a warm or
+ *   tinted surface (the muted page, dialog stages, wells).
+ * Media frames (a video, an image) stay `outline` on any background.
+ */
 function Card({
   className,
   size = "default",
+  variant = "outline",
   ...props
-}: React.ComponentProps<"div"> & { size?: "default" | "sm" }) {
+}: React.ComponentProps<"div"> & {
+  size?: "default" | "sm"
+  variant?: "outline" | "raised"
+}) {
   return (
     <div
       data-slot="card"
       data-size={size}
+      data-variant={variant}
       className={cn(
-        "group/card flex flex-col gap-(--card-spacing) overflow-hidden rounded-xl border border-border bg-card py-(--card-spacing) text-sm text-card-foreground [--card-spacing:--spacing(6)] has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(4)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl",
+        "group/card flex flex-col gap-(--card-spacing) overflow-hidden rounded-xl border border-border bg-card data-[variant=raised]:border-hairline data-[variant=raised]:shadow-raised py-(--card-spacing) text-sm text-card-foreground [--card-spacing:--spacing(6)] has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(4)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl",
         className
       )}
       {...props}
@@ -84,7 +96,9 @@ function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card-footer"
       className={cn(
-        "flex items-center rounded-b-xl border-t bg-muted p-(--card-spacing)",
+        /* On a raised card the page behind is already tinted, so the footer drops its fill
+           and keeps only the hairline divider; a muted band would merge with the page. */
+        "flex items-center justify-end gap-2 rounded-b-xl border-t bg-muted p-(--card-spacing) group-data-[variant=raised]/card:border-hairline group-data-[variant=raised]/card:bg-transparent",
         className
       )}
       {...props}

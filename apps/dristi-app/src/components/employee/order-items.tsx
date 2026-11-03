@@ -7,10 +7,10 @@ import {
   Trash2Icon,
 } from "lucide-react";
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { FRAMED_BODY, FRAMED_HEAD } from "@/components/employee/order-sections";
 import { OrderItemFields } from "@/components/employee/order-item-fields";
 import { QueueSearchField } from "@/components/employee/queue-search-field";
-import { PANEL_CLASS } from "@/components/shell/panel";
 import {
   Popover,
   PopoverAnchor,
@@ -76,7 +76,7 @@ export function ItemsCard({
   onRemove: (block: ItemBlock) => void;
 }) {
   return (
-    <Card className={cn(PANEL_CLASS, "min-w-0 gap-0 p-0")}>
+    <Card variant="raised" className="min-w-0 gap-0 p-0">
       <div className={FRAMED_HEAD}>
         <h2 className="text-body-compact font-semibold">Items</h2>
         <span className="text-body-compact tabular-nums text-muted-foreground">
@@ -528,6 +528,14 @@ export function ItemDialog({
      adding the item: it can be added half-filled and finished later (`VAR-06`). */
   const gaps = block ? missingMandatory(block, context) : [];
   const label = block ? orderTemplate(block.type).label : "";
+  /* The item as it opened, so a close asks only once something in it has changed. */
+  const [start, setStart] = React.useState<string | null>(null);
+  if (editing && start === null) setStart(JSON.stringify(editing.block));
+  if (!editing && start !== null) setStart(null);
+  const guard = useDiscardGuard(
+    editing !== null && start !== null && JSON.stringify(editing.block) !== start,
+    onClose,
+  );
   return (
     <Dialog
       open={editing !== null}
@@ -549,6 +557,8 @@ export function ItemDialog({
           search.dataset.quiet = "1";
           search.focus();
         }}
+        {...guard.contentProps}
+        {...guard.outsideProps}
       >
         <DialogHeader>
           <DialogTitle className="text-title-s font-semibold">
@@ -583,7 +593,7 @@ export function ItemDialog({
             type="button"
             variant="outline"
             className="w-full sm:w-auto"
-            onClick={onClose}
+            onClick={guard.close}
           >
             Cancel
           </Button>
@@ -603,6 +613,7 @@ export function ItemDialog({
             </Badge>
           ) : null}
         </DialogFooter>
+        <DiscardQuestion guard={guard} />
       </DialogContent>
     </Dialog>
   );

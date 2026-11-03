@@ -1,9 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { CheckCircle2Icon, SearchIcon } from "lucide-react";
-import { toast } from "sonner";
+import { SearchIcon, UserXIcon } from "lucide-react";
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,6 +43,7 @@ import {
   type AccessPerson,
 } from "@/lib/access/content";
 import { Identifier } from "@/components/chrome/identifier";
+import { ConfirmMark, StatusLine, notify } from "@/components/feedback";
 
 /**
  * The share-access modal — the single surface behind every entry point.
@@ -94,6 +95,7 @@ export function ShareDialog({
   const [chips, setChips] = React.useState<Chip[]>([]);
   const [result, setResult] = React.useState<InviteResult | null>(null);
   const [accessQuery, setAccessQuery] = React.useState("");
+  const [typing, setTyping] = React.useState("");
   /* An on-nama advocate whose Remove was clicked; opens the formal removal
      flow (3a/3b) over this dialog. Staff removal stays the one-click revoke. */
   const [removeTarget, setRemoveTarget] = React.useState<string | null>(null);
@@ -126,9 +128,16 @@ export function ShareDialog({
       setResult(null);
       setAccessQuery("");
       setRemovedDerived(new Set());
+      setTyping("");
     }
     onOpenChange(nextOpen);
   }
+
+  /* People stacked to invite, or a number or Bar ID still being typed. */
+  const guard = useDiscardGuard(
+    chips.length > 0 || typing.trim() !== "",
+    () => handleOpenChange(false),
+  );
 
   function confirmRemove() {
     if (!single || !confirmTarget) return;
@@ -137,7 +146,7 @@ export function ShareDialog({
     if (personId.startsWith("derived-")) {
       setRemovedDerived((current) => new Set(current).add(personId));
     }
-    toast.success(
+    notify.success(
       fillCopy(peopleCopy.removedNote, locale, {
         name: confirmTarget.name,
         case: caseLabel(single),
@@ -151,7 +160,7 @@ export function ShareDialog({
     if (!batch.length) return;
     const result = invite(batch.map((c) => c.phone ?? ""), cases.map((c) => c.id));
     setResult(result);
-    toast.success(fill(shareCopy.inviteToast, locale, { names: result.names.join(", ") }));
+    notify.success(fill(shareCopy.inviteToast, locale, { names: result.names.join(", ") }));
     setChips([]);
   }
 
@@ -166,7 +175,11 @@ export function ShareDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <FlowDialogContent className="flex max-h-[calc(100dvh---spacing(12))] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl">
+      <FlowDialogContent
+        className="flex max-h-[calc(100dvh---spacing(12))] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl"
+        {...guard.contentProps}
+        {...guard.outsideProps}
+      >
         {/* Header: what this is, then exactly what it applies to. */}
         <DialogHeader className="gap-2.5 border-b border-hairline px-6 py-5 text-left">
           <DialogTitle className="text-title-s font-semibold">
@@ -223,6 +236,7 @@ export function ShareDialog({
                   }}
                   locale={locale}
                   disabled={readOnly}
+                  onQueryChange={setTyping}
                   registeredOnly
                 />
               </div>
@@ -232,8 +246,9 @@ export function ShareDialog({
             </div>
 
             {result ? (
-              <p className="flex items-start gap-1.5 rounded-lg border border-success bg-success-muted px-3 py-2 text-body-compact font-medium text-success-muted-foreground">
-                <CheckCircle2Icon className="mt-0.5 size-4 shrink-0" aria-hidden />
+              /* The toast announces the send and plays the mark; this line is the record
+                 of it in the window, so it stands still. */
+              <StatusLine tone="success" still>
                 <span>
                   {pick(shareCopy.sentNote, locale)} {result.names.join(", ")}
                   {bulk ? (
@@ -253,7 +268,7 @@ export function ShareDialog({
                     </>
                   ) : null}
                 </span>
-              </p>
+              </StatusLine>
             ) : null}
           </div>
 
@@ -308,6 +323,7 @@ export function ShareDialog({
             </>
           ) : null}
         </div>
+        <DiscardQuestion guard={guard} locale={locale} />
       </FlowDialogContent>
 
       <AlertDialog
@@ -318,6 +334,7 @@ export function ShareDialog({
       >
         <ChromeAlertDialogContent>
           <AlertDialogHeader>
+            <ConfirmMark danger icon={UserXIcon} />
             <AlertDialogTitle>
               {fillCopy(peopleCopy.removeOneTitle, locale, {
                 name: confirmTarget?.name ?? "",

@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { CircleAlertIcon, FileSearchIcon } from "lucide-react";
+import { FileSearchIcon } from "lucide-react";
 
 import { RestingCard } from "@/components/cases/case-overview-card";
 import {
@@ -18,7 +18,6 @@ import {
   tableBodyClass,
   tableRowClass,
 } from "@/components/chrome/table-plate";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { CardContent } from "@/components/ui/card";
 import {
@@ -57,6 +56,7 @@ import {
   REGISTER_SWITCH,
   REGISTER_TABLE_ONLY,
 } from "@/components/cases/register-layout";
+import { StatusLine } from "@/components/feedback";
 
 const ORDER_PARAM = "order";
 
@@ -94,11 +94,9 @@ export function CaseOrders({ record }: { record: CaseRecord }) {
   if (!orders) {
     return (
       <OrdersPanel>
-        <Alert variant="destructive">
-          <CircleAlertIcon aria-hidden />
-          <AlertTitle>Orders and notifications could not be loaded</AlertTitle>
-          <AlertDescription>Refresh the page to try again.</AlertDescription>
-        </Alert>
+        <StatusLine tone="error" still title="Orders and notifications could not be loaded">
+          Refresh the page to try again.
+        </StatusLine>
       </OrdersPanel>
     );
   }

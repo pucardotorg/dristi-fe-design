@@ -10,6 +10,8 @@
  */
 
 import * as React from "react";
+
+import { notify, StatusLine } from "@/components/feedback";
 import { useRouter } from "next/navigation";
 import {
   CheckIcon,
@@ -40,7 +42,6 @@ import type {
 } from "@/lib/filing/types";
 import { REGISTER_CARDS_ONLY, REGISTER_TABLE_ONLY } from "@/components/cases/register-layout";
 import { cn } from "@/lib/utils";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -147,21 +148,10 @@ export function DocumentsSection() {
     hasFile: boolean;
   } | null>(null);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
-  /** Said where the pointer is: why Continue did nothing, or why a file was refused. */
-  const [flash, setFlash] = React.useState<string | null>(null);
-  const flashTimer = React.useRef<number | null>(null);
-
-  React.useEffect(
-    () => () => {
-      if (flashTimer.current) window.clearTimeout(flashTimer.current);
-    },
-    []
-  );
-
+  /** Why Continue did nothing, or why a file was refused: the warning toast, in the
+      toast's place, rather than an alert pinned to the corner (skill `feedback-states`). */
   const say = React.useCallback((message: string) => {
-    setFlash(message);
-    if (flashTimer.current) window.clearTimeout(flashTimer.current);
-    flashTimer.current = window.setTimeout(() => setFlash(null), 3500);
+    notify.warning(message);
   }, []);
 
   const patchDoc = (docId: string, patch: (doc: CaseDocument) => void) =>
@@ -596,21 +586,6 @@ export function DocumentsSection() {
         }
       />
 
-      {/* Blocked Continue and refused files — said where the pointer is. The live region
-          stays mounted so its content is announced when it appears. */}
-      <div
-        role="status"
-        aria-live="polite"
-        className="pointer-events-none fixed right-4 bottom-16 z-40 w-72 max-w-full sm:right-6"
-      >
-        {flash ? (
-          <Alert variant="warning" className="shadow-overlay">
-            <TriangleAlertIcon aria-hidden />
-            <AlertDescription>{flash}</AlertDescription>
-          </Alert>
-        ) : null}
-      </div>
-
       {/* Document preview */}
       <Dialog
         open={!!previewDoc}
@@ -633,20 +608,17 @@ export function DocumentsSection() {
 
           <FilePreviewWell file={previewFile} />
 
+          {/* What is true of the file when it opens: still, not news. */}
           {previewDoc?.quality === "bad" ? (
-            <Alert variant="warning">
-              <TriangleAlertIcon aria-hidden />
-              <AlertDescription>
-                This scan looks blurry or cropped. Please re-upload a clearer copy so the
-                court can read it.
-              </AlertDescription>
-            </Alert>
+            <StatusLine tone="warning" still>
+              This scan looks blurry or cropped. Please re-upload a clearer copy so the
+              court can read it.
+            </StatusLine>
           ) : null}
           {previewDoc?.quality === "good" ? (
-            <Alert variant="success">
-              <CheckIcon aria-hidden />
-              <AlertDescription>This document is clear and readable.</AlertDescription>
-            </Alert>
+            <StatusLine tone="success" still>
+              This document is clear and readable.
+            </StatusLine>
           ) : null}
 
           <DialogFooter className="sm:justify-between">
@@ -678,13 +650,14 @@ export function DocumentsSection() {
       </Dialog>
 
       <ConfirmDialog
+        note="This cannot be undone."
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
         title={`Remove ${deleteTarget?.name || "this document"}`}
         description={
           deleteTarget?.hasFile
-            ? "Are you sure you want to remove this document and the file attached to it? This cannot be undone."
-            : "Are you sure you want to remove this row and the details typed in it? This cannot be undone."
+            ? "Are you sure you want to remove this document and the file attached to it?"
+            : "Are you sure you want to remove this row and the details typed in it?"
         }
         confirmLabel="Yes, remove"
         onConfirm={() => {

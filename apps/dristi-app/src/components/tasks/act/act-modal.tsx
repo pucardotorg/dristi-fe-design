@@ -10,8 +10,9 @@
  */
 
 import * as React from "react";
-import { toast } from "sonner";
+import { notify } from "@/components/feedback";
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 
 import { ACTIONABLE, canComplete } from "@/lib/tasks/permissions";
@@ -36,24 +37,26 @@ import {
 import { Identifier } from "@/components/chrome/identifier";
 import { useCourtText } from "@/components/court/court-provider";
 
-/** The one quiet line per flow that says what is not real here. */
-const SANDBOX: Record<ActMode, string> = {
-  pay: "Sandbox — no money moves; the gateway's answer is whatever you pick and the receipt is generated locally.",
-  file: "Sandbox — uploads stay in this browser and the registry's answer is whatever you pick.",
-};
-
 /** The document column reads better with room; pay is a summary and stays narrow. */
 const WIDTH: Record<ActMode, string> = {
   pay: "sm:max-w-xl",
   file: "sm:max-w-2xl",
 };
 
-function Body({ ctx, mode }: { ctx: ActContext; mode: ActMode }) {
+function Body({
+  ctx,
+  mode,
+  onEntered,
+}: {
+  ctx: ActContext;
+  mode: ActMode;
+  onEntered: (entered: boolean) => void;
+}) {
   switch (mode) {
     case "pay":
       return <PayBody ctx={ctx} />;
     case "file":
-      return <FileBody ctx={ctx} />;
+      return <FileBody ctx={ctx} onEntered={onEntered} />;
   }
 }
 
@@ -78,12 +81,35 @@ export function TaskActModal({
 
   const finish = React.useCallback(
     (message?: string, taskId?: string) => {
-      if (message) toast.success(message);
+      if (message) notify.success(message);
       onOpenChange(false);
       if (task) onFinished?.(taskId ?? task.id);
     },
     [onOpenChange, onFinished, task]
   );
+
+  /* The task this window opened to pay. Paying moves the task out of "needs action", and
+     without this the window swapped itself for the task's record the moment the money
+     landed, so the payment's own success screen never showed. */
+  const [payingId, setPayingId] = React.useState<string | null>(null);
+  const opensToPay =
+    open && mode === "pay" && !!task && !!kase && canComplete(user, kase) && ACTIONABLE.has(task.status);
+  /* Re-derived each time the window opens, never while it closes: clearing it on close
+     swapped the window out mid-exit. */
+  const [wasOpen, setWasOpen] = React.useState(open);
+  /* Files added in this window and not yet filed: closing it asks first; a click outside
+     does nothing (stakeholders, 2–3 Nov 2026). Reset each time it opens. */
+  const [entered, setEntered] = React.useState(false);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setPayingId(opensToPay ? task!.id : null);
+      setEntered(false);
+    }
+  } else if (opensToPay && payingId !== task!.id) {
+    setPayingId(task!.id);
+  }
+  const guard = useDiscardGuard(entered, () => onOpenChange(false));
 
   if (!task || !kase || !mode) return null;
 
@@ -101,7 +127,7 @@ export function TaskActModal({
      payment window, View case's Raise application, or its Submit documents. Preparing
      for a signatory, and confirming a payment the gateway is still settling, stay here. */
   const actionable = ctx.signatory && ACTIONABLE.has(task.status);
-  if (actionable && mode === "pay") {
+  if (mode === "pay" && (actionable || payingId === task.id)) {
     return <TaskPaymentDialog key={task.id} ctx={ctx} open={open} onOpenChange={onOpenChange} />;
   }
   if (
@@ -142,13 +168,20 @@ export function TaskActModal({
   // height of the screen.
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <FlowDialogContent className={`max-h-[85svh] w-full overflow-y-auto ${WIDTH[mode]}`}>
-        <DialogHeader className="pr-8 text-left">
+      {/* The header holds still; only the record and its act cards scroll. */}
+      <FlowDialogContent
+        className={`flex max-h-[85svh] w-full flex-col gap-0 overflow-hidden p-0 ${WIDTH[mode]}`}
+        {...guard.contentProps}
+        {...guard.outsideProps}
+      >
+        <DialogHeader className="shrink-0 border-b border-hairline px-6 pt-6 pr-16 pb-4 text-left">
           <DialogTitle className="text-title-s font-semibold text-balance">{task.title}</DialogTitle>
           <DialogDescription className="text-caption text-muted-foreground">{caseLine}</DialogDescription>
         </DialogHeader>
-        <p className="text-caption text-muted-foreground">{SANDBOX[mode]}</p>
-        <Body ctx={ctx} mode={mode} />
+        <div className="min-h-0 flex-1 overflow-y-auto p-6">
+          <Body ctx={ctx} mode={mode} onEntered={setEntered} />
+        </div>
+        <DiscardQuestion guard={guard} />
       </FlowDialogContent>
     </Dialog>
   );

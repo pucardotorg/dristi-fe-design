@@ -3,7 +3,6 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { InboxIcon, SearchXIcon } from "lucide-react";
-import { toast } from "sonner";
 
 import { PILL_COUNT, PILL_ITEM, PILL_ROW } from "@/components/chrome/pill-plate";
 import {
@@ -78,6 +77,7 @@ import {
   rowOpenerClass,
 } from "@/lib/employee/row-activation";
 import { cn } from "@/lib/utils";
+import { notify } from "@/components/feedback";
 
 const EMPTY: Record<ApplicationView | "archive", { title: string; description: string }> = {
   all: {
@@ -311,7 +311,7 @@ export function ApplicationsScreen({
           if (!next) close();
         }}
         onDone={(id, message) => {
-          toast.success(message);
+          notify.success(message);
           /* On to the next in this list, as the workstation did: the one just ordered
              is left out even before its order moves it. */
           const index = rows.findIndex((row) => row.id === id);
@@ -352,7 +352,7 @@ function ViewPills({
       <ToggleGroup
         type="single"
         size="lg"
-        variant="default"
+        variant="ghost"
         value={view}
         onValueChange={(next) => {
           if (next) onChange(next as ApplicationView);

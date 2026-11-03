@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { toast } from "sonner";
+import { notify } from "@/components/feedback";
 
 import { ChoicePillGroup } from "@/components/cases/filing-form-shared";
 import { useCaseReader } from "@/components/cases/case-reader";
 import { useCourt } from "@/components/court/court-provider";
 import { useCourtRole } from "@/components/employee/use-court-role";
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 import { Button } from "@/components/ui/button";
 import {
@@ -64,6 +65,8 @@ export function MarkEvidenceDialog({
   }
 
   const options = EVIDENCE_SIDES.map((item) => ({ id: item.id, label: item.label }));
+  /* A side chosen is an entry: Cancel or Escape asks first; a click outside does nothing. */
+  const guard = useDiscardGuard(side !== "", () => onOpenChange(false));
 
   function mark() {
     if (!shown) return;
@@ -73,13 +76,17 @@ export function MarkEvidenceDialog({
     }
     const number = nextEvidenceNumber(taken, side);
     markEvidence(caseId, shown.id, number);
-    toast(`Marked as ${number}`);
+    notify.success(`Marked as ${number}`);
     onOpenChange(false);
   }
 
   return (
     <Dialog open={document !== null} onOpenChange={onOpenChange}>
-      <FlowDialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md">
+      <FlowDialogContent
+        className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md"
+        {...guard.contentProps}
+        {...guard.outsideProps}
+      >
         <DialogHeader className="shrink-0 border-b border-hairline px-6 py-4 pr-12 text-left">
           <DialogTitle className="text-title-s font-semibold text-balance">
             Mark as evidence
@@ -113,13 +120,14 @@ export function MarkEvidenceDialog({
           ) : null}
         </div>
         <footer className="flex shrink-0 flex-col-reverse gap-2 border-t border-hairline bg-surface-sunken px-6 py-4 sm:flex-row sm:justify-end">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button type="button" variant="outline" onClick={guard.close}>
             Cancel
           </Button>
           <Button type="button" onClick={mark}>
             Mark as evidence
           </Button>
         </footer>
+        <DiscardQuestion guard={guard} />
       </FlowDialogContent>
     </Dialog>
   );

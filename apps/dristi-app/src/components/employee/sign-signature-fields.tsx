@@ -116,6 +116,10 @@ export function useSignatureChoice(noun = "form") {
     (method === "e-sign" && otp.length === OTP_LENGTH) ||
     (method === "upload" && file !== null);
 
+  /* Something a close would throw away: digits of the code, or the signed copy. Choosing
+     the method alone is the route, not yet an entry. */
+  const entered = otp.length > 0 || file !== null;
+
   return {
     method,
     choose,
@@ -126,6 +130,7 @@ export function useSignatureChoice(noun = "form") {
     otp,
     setOtp,
     canSubmit,
+    entered,
     reset,
   };
 }
@@ -230,12 +235,10 @@ export function SignatureFields({
                 ))}
               </InputOTPGroup>
             </InputOTP>
-            {/* What the live service would do, and what this one does — said here rather
-                than left for the bench to infer from a code that accepts anything. */}
+            {/* Where the code goes and whose signature it applies. */}
             <p className="text-caption text-muted-foreground">
-              In the live service a {OTP_LENGTH}-digit code goes to your
-              Aadhaar-linked mobile and the signature applied is yours. Sandbox
-              — any {OTP_LENGTH}-digit code is accepted here.
+              A {OTP_LENGTH}-digit code goes to your Aadhaar-linked mobile and the
+              signature applied is yours.
             </p>
           </div>
 

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { ChromeDialogContent } from "@/components/chrome/app-chrome";
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { CaseFileView } from "@/components/employee/register-case-file";
 import { ARRIVAL, OVERLAY_RISE } from "@/components/chrome/motion";
 import { markArrival, useArrival } from "@/components/employee/use-arrival";
@@ -384,7 +385,7 @@ function useComplaintTab(): [ComplaintTab, (next: ComplaintTab) => void] {
  * cause title above it.
  */
 const TRIGGER =
-  "h-full flex-none px-0 text-body-compact group-data-horizontal/tabs:after:-bottom-px";
+  "h-full flex-none group-data-[variant=line]/tabs-list:px-0 text-body-compact";
 
 function ComplaintTabs({
   tab,
@@ -501,7 +502,7 @@ function ComplaintSummary({ summary }: { summary: CaseSummary }) {
 }
 
 /** A lifted white panel whose children draw their own padding and dividers. */
-const SHEET = "gap-0 overflow-hidden border-hairline py-0 shadow-raised";
+const SHEET = "gap-0 overflow-hidden py-0";
 
 /** An eyebrow over the surface it names. */
 function Panel({
@@ -543,7 +544,7 @@ function SynopsisPanel({ summary }: { summary: CaseSummary }) {
 
   return (
     <Panel id="synopsis-heading" label={SUMMARY_TERMS.synopsis} className="xl:col-span-3">
-      <Card className={cn(SHEET, "@container")}>
+      <Card variant="raised" className={cn(SHEET, "@container")}>
         <div className="grid gap-px bg-hairline @xl:grid-cols-2 @4xl:grid-cols-3">
           <SynopsisSection label={SUMMARY_TERMS.parties}>
             <Fact term={SYNOPSIS_FIELDS.complainant} note={summary.complainant.type}>
@@ -727,7 +728,7 @@ function ScrutinyPanel({ scrutiny }: { scrutiny: CaseScrutiny | undefined }) {
   if (!scrutiny) {
     return (
       <Panel id="scrutiny-heading" label={SUMMARY_TERMS.scrutiny}>
-        <Card className={cn(SHEET, "@container")}>
+        <Card variant="raised" className={cn(SHEET, "@container")}>
           <div className="p-6 md:p-8">
             <p className="text-body-compact text-muted-foreground">Not recorded</p>
           </div>
@@ -738,7 +739,7 @@ function ScrutinyPanel({ scrutiny }: { scrutiny: CaseScrutiny | undefined }) {
 
   return (
     <Panel id="scrutiny-heading" label={SUMMARY_TERMS.scrutiny}>
-      <Card className={cn(SHEET, "@container")}>
+      <Card variant="raised" className={cn(SHEET, "@container")}>
         <Collapsible open={open} onOpenChange={setOpen}>
           {/* Three facts, not four: what each round was sent back for is now the
               disclosure below, so the row at rest holds only figures and reads across in
@@ -850,7 +851,7 @@ function TimelinePanel({ summary }: { summary: CaseSummary }) {
 
   return (
     <Panel id="timeline-heading" label={SUMMARY_TERMS.timeline} className="xl:col-span-2">
-      <Card className={cn(SHEET, "@container")}>
+      <Card variant="raised" className={cn(SHEET, "@container")}>
         {/* One column, not two. Side by side, each phase had 278px to write in: the
             dates ended in a ragged column, every limit wrapped across two lines under
             one, and the shorter phase left a third of the card blank. Stacked, the two
@@ -1112,6 +1113,7 @@ function ActBody({
   const titleRef = React.useRef<HTMLHeadingElement>(null);
   const reasonRef = React.useRef<HTMLTextAreaElement>(null);
   const settledBefore = React.useRef(settled);
+  const guard = useDiscardGuard(sending && !settled && !empty, onClose);
 
   /* Into the reason box, because writing it is the only thing that step is for; onto the
      title on every other step, because the title has just changed to say what happened
@@ -1145,6 +1147,8 @@ function ActBody({
         if (sending) reasonRef.current?.focus();
         else titleRef.current?.focus();
       }}
+      {...guard.contentProps}
+      {...guard.outsideProps}
     >
       {/* **One surface, and the outcome said once.** This was a white card on a tinted
           stage inside a white dialog — a box in a box in a box, and the owner read it as
@@ -1264,7 +1268,7 @@ function ActBody({
           </>
         ) : (
           <>
-            <Button type="button" variant="ghost" onClick={onClose}>
+            <Button type="button" variant="ghost" onClick={guard.close}>
               Cancel
             </Button>
             <Button type="button" onClick={confirm}>
@@ -1273,6 +1277,7 @@ function ActBody({
           </>
         )}
       </DialogFooter>
+      <DiscardQuestion guard={guard} />
     </ChromeDialogContent>
   );
 }

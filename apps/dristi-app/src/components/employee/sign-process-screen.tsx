@@ -435,7 +435,7 @@ function SignProcessLine({ scope }: { scope: ProcessScope }) {
           <TabsList
             variant="line"
             aria-label="Process line"
-            className="h-10 w-max min-w-full justify-start rounded-none p-0 group-data-horizontal/tabs:h-10"
+            className="h-10 w-max min-w-full justify-start rounded-none"
           >
             {scope.tabs.map((entry) => {
               const count = tabCount(line, entry);
@@ -443,7 +443,7 @@ function SignProcessLine({ scope }: { scope: ProcessScope }) {
                 <TabsTrigger
                   key={entry.id}
                   value={entry.id}
-                  className="h-10 flex-none gap-2 px-3 text-body-compact group-data-horizontal/tabs:after:-bottom-px"
+                  className="h-10 flex-none gap-2 text-body-compact"
                 >
                   {entry.label}
                   {/* Counts mean work: Service carries none — see `ProcessTab.counted`. */}
@@ -663,7 +663,7 @@ function ProcessPills({
       <ToggleGroup
         type="single"
         size="lg"
-        variant="default"
+        variant="ghost"
         value={view}
         onValueChange={(next) => {
           if (next) onChange(next as ProcessView);

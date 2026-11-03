@@ -12,6 +12,7 @@ import {
   FolderClosedIcon,
   HouseIcon,
   ListChecksIcon,
+  LogOutIcon,
   RotateCcwIcon,
   ScrollTextIcon,
   SearchIcon,
@@ -456,8 +457,13 @@ const PROFILE_HOME: Record<ProfileRole, string> = {
  */
 function ProfileFooter() {
   const { state, people, user, setUser, resetSandbox } = useTasks();
-  const { profileRole, advocateProfileAvailable, displayName, setProfileRole } =
-    useProfile();
+  const {
+    profileRole,
+    advocateProfileAvailable,
+    displayName,
+    setProfileRole,
+    signOut,
+  } = useProfile();
   const router = useRouter();
   const roleLabel = PROFILE_LABEL[profileRole];
 
@@ -477,6 +483,12 @@ function ProfileFooter() {
     setProfileRole(role);
     router.push(PROFILE_HOME[role]);
   }
+
+  // Back to the citizen sign-in, the door this account came in by.
+  function onSignOut() {
+    signOut();
+    router.push("/citizen");
+  }
   const [confirmReset, setConfirmReset] = React.useState(false);
   const onResetSandbox = React.useCallback(() => setConfirmReset(true), []);
 
@@ -490,7 +502,7 @@ function ProfileFooter() {
                 <SidebarMenuButton
                   className={`${ROW} h-12 group-data-[collapsible=icon]:size-10!`}
                   tooltip={`${displayName} · ${roleLabel}`}
-                  aria-label={`${displayName} · ${roleLabel} · Switch profile`}
+                  aria-label={`${displayName} · ${roleLabel} · Account menu`}
                 >
                   <span className="relative shrink-0">
                     <span
@@ -523,48 +535,57 @@ function ProfileFooter() {
               <PopoverContent
                 side="top"
                 align="start"
-                collisionPadding={16}
+                collisionPadding={12}
                 // Taller than a laptop screen once every sandbox person and the
                 // rail plates are listed: held to the room Radix says is left,
                 // and scrolled, so the top of the list is always reachable.
-                className="max-h-(--radix-popover-content-available-height) w-64 overflow-y-auto overscroll-contain p-2"
+                // 14.5rem is the 16rem rail less the footer's 12px either side,
+                // so the menu lines up with the name it opens from and stays inside
+                // the rail instead of hanging past its edge. (The portal sits
+                // outside the rail, so `--sidebar-width` cannot be read here.)
+                className="max-h-(--radix-popover-content-available-height) w-[14.5rem] overflow-y-auto overscroll-contain p-2"
               >
-                <p className="px-2 py-1.5 text-caption font-semibold text-muted-foreground">
-                  Switch profile
-                </p>
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start"
-                  onClick={() => switchTo("litigant")}
-                >
-                  <span
-                    aria-hidden
-                    className="flex size-6 items-center justify-center rounded-full bg-surface-sunken text-caption font-semibold"
-                  >
-                    L
-                  </span>
-                  <span className="flex-1 text-left">Litigant</span>
-                  {profileRole === "litigant" ? (
-                    <CheckIcon aria-hidden />
-                  ) : null}
-                </Button>
+                {/* A switch needs two profiles. A litigant has one until an advocate
+                    profile is approved (Settings → request), so until then the
+                    section does not appear at all. */}
                 {advocateProfileAvailable ? (
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start"
-                    onClick={() => switchTo("advocate")}
-                  >
-                    <span
-                      aria-hidden
-                      className="flex size-6 items-center justify-center rounded-full bg-surface-sunken text-caption font-semibold"
+                  <>
+                    <p className="px-2 py-1.5 text-caption font-semibold text-muted-foreground">
+                      Switch profile
+                    </p>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => switchTo("litigant")}
                     >
-                      A
-                    </span>
-                    <span className="flex-1 text-left">Advocate</span>
-                    {profileRole === "advocate" ? (
-                      <CheckIcon aria-hidden />
-                    ) : null}
-                  </Button>
+                      <span
+                        aria-hidden
+                        className="flex size-6 items-center justify-center rounded-full bg-surface-sunken text-caption font-semibold"
+                      >
+                        L
+                      </span>
+                      <span className="flex-1 text-left">Litigant</span>
+                      {profileRole === "litigant" ? (
+                        <CheckIcon aria-hidden />
+                      ) : null}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => switchTo("advocate")}
+                    >
+                      <span
+                        aria-hidden
+                        className="flex size-6 items-center justify-center rounded-full bg-surface-sunken text-caption font-semibold"
+                      >
+                        A
+                      </span>
+                      <span className="flex-1 text-left">Advocate</span>
+                      {profileRole === "advocate" ? (
+                        <CheckIcon aria-hidden />
+                      ) : null}
+                    </Button>
+                  </>
                 ) : null}
 
                 {/* Only in an area that has a filing profile to edit. */}
@@ -644,6 +665,24 @@ function ProfileFooter() {
                 </div>
 
                 <RailThemePicker />
+
+                {/* Always the last line, pinned to the menu's foot in a band of its own:
+                    the list above scrolls on a short screen, and Sign out must not
+                    scroll away with it or sit lost in the middle of the sandbox's
+                    people. The band cancels the menu's padding so its rule runs edge to
+                    edge, and pads evenly above and below the row. Alone in the menu (a
+                    litigant with one profile) there is nothing to rule off, so the line
+                    goes and the band cancels the top padding too. */}
+                <div className="sticky -bottom-2 -mx-2 -mb-2 bg-popover p-2 not-first:border-t not-first:border-hairline first:-mt-2">
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start"
+                    onClick={onSignOut}
+                  >
+                    <LogOutIcon aria-hidden />
+                    <span className="flex-1 text-left">Sign out</span>
+                  </Button>
+                </div>
               </PopoverContent>
             </Popover>
           </div>

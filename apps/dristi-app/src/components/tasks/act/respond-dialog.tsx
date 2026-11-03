@@ -9,6 +9,7 @@
 
 import * as React from "react";
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { dateTime } from "@/lib/tasks/format";
 import { respond } from "@/lib/tasks/transitions";
 import type { Case, Task } from "@/lib/tasks/types";
@@ -25,6 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useTaskActions } from "@/components/tasks/use-task-actions";
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 import { Identifier } from "@/components/chrome/identifier";
+import { StatusLine } from "@/components/feedback";
 
 export function TaskRespondDialog({
   task,
@@ -40,7 +42,7 @@ export function TaskRespondDialog({
   /** Called with the task id once the decision lands — the row flashes. */
   onFinished?: (taskId: string) => void;
 }) {
-  const { act, busy } = useTaskActions();
+  const { act, busy, error } = useTaskActions({ inDialog: true });
   const [note, setNote] = React.useState("");
 
   /*
@@ -57,6 +59,8 @@ export function TaskRespondDialog({
     if (open) setNote("");
   }
 
+  const guard = useDiscardGuard(note.trim() !== "", () => onOpenChange(false));
+
   async function decide(accepted: boolean) {
     if (!task) return;
     const done = await act(
@@ -72,7 +76,7 @@ export function TaskRespondDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <FlowDialogContent className="sm:max-w-lg">
+      <FlowDialogContent className="sm:max-w-lg" {...guard.contentProps} {...guard.outsideProps}>
         <DialogHeader>
           <DialogTitle>Review the request</DialogTitle>
           <DialogDescription>
@@ -109,6 +113,7 @@ export function TaskRespondDialog({
 
         {/* The DS footer, so the pair is a full-width stack at the foot of the
             phone window and a right-aligned row from `sm`. */}
+        {error ? <StatusLine tone="error">{error}</StatusLine> : null}
         <DialogFooter>
           <Button
             type="button"
@@ -122,6 +127,7 @@ export function TaskRespondDialog({
             Accept
           </Button>
         </DialogFooter>
+        <DiscardQuestion guard={guard} />
       </FlowDialogContent>
     </Dialog>
   );

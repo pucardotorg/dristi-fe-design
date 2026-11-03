@@ -10,7 +10,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -211,16 +210,6 @@ export function CaseHeaderActions({
                 Generate bail bond
               </DropdownMenuItem>
             )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onSelect={(event) => {
-                event.preventDefault();
-                setFilingsOpen(false);
-                bail.openStatus();
-              }}
-            >
-              Bond status
-            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
         )}

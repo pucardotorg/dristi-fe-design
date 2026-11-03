@@ -603,13 +603,14 @@ export const advDialog = {
   ),
   findAndJoin: t("Find case and join", "കേസ് കണ്ടെത്തി ചേരുക"),
   /* Closing partway through asks first (owner, 2026-10-13). Malayalam drafted. */
-  leaveTitle: t("Leave without joining?", "ചേരാതെ പുറത്തുകടക്കണോ?"),
+  /* The product's one discard question (`DiscardQuestion`), in this window's chrome. */
+  leaveTitle: t("Do you want to discard your progress?", "ഇതുവരെ നൽകിയത് ഉപേക്ഷിക്കണോ?"),
   leaveBody: t(
-    "What you have entered so far will not be kept.",
+    "What you've entered here will not be saved.",
     "ഇതുവരെ നൽകിയ വിവരങ്ങൾ സൂക്ഷിക്കില്ല.",
   ),
-  leaveStay: t("Keep going", "തുടരുക"),
-  leaveGo: t("Leave", "പുറത്തുകടക്കുക"),
+  leaveStay: t("Keep editing", "തിരുത്തൽ തുടരുക"),
+  leaveGo: t("Discard", "ഉപേക്ഷിക്കുക"),
   lookupSandboxTip: t("Sandbox: who you are on this case", "സാൻഡ്‌ബോക്സ്: ഈ കേസിൽ നിങ്ങൾ ആര്"),
   lookupSandboxLabel: t("For the case you look up", "നിങ്ങൾ തിരയുന്ന കേസിന്"),
   lookupSandboxNew: t("You are not on it yet", "നിങ്ങൾ ഇതുവരെ ഇതിലില്ല"),
@@ -841,7 +842,6 @@ export const advDialog = {
   paySandboxTip: t("Sandbox: choose the gateway result", "സാൻഡ്‌ബോക്സ്: ഗേറ്റ്‌വേ ഫലം തിരഞ്ഞെടുക്കുക"),
   payOutcomeSuccess: t("Success", "വിജയം"),
   payOutcomeFailed: t("Failed", "പരാജയപ്പെട്ടു"),
-  paySandboxNote: t("Sandbox payment — no money moves.", "സാൻഡ്‌ബോക്സ് പേയ്‌മെന്റ് — പണം കൈമാറുന്നില്ല."),
   payFailed: t(
     "The payment did not go through. Nothing was paid; try again.",
     "പേയ്‌മെന്റ് നടന്നില്ല. ഒന്നും അടച്ചിട്ടില്ല; വീണ്ടും ശ്രമിക്കുക.",

@@ -7,7 +7,8 @@ import {
   CaseLink as Link,
   useCaseReader,
 } from "@/components/cases/case-reader";
-import { toast } from "sonner";
+import { ArchiveIcon } from "lucide-react";
+import { notify } from "@/components/feedback";
 
 import { CaseHearingsDialog } from "@/components/cases/case-hearings-dialog";
 import {
@@ -71,8 +72,8 @@ export function CaseOverview({
      prototype keeps it in memory, so Undo is the way back. */
   function archive(id: string, title: string) {
     setArchived((current) => [...current, id]);
-    toast("Task archived", {
-      position: "bottom-center",
+    notify.neutral("Task archived", {
+      icon: ArchiveIcon,
       description: `${title}. You can find it under Take action, Archive.`,
       action: {
         label: "Undo",

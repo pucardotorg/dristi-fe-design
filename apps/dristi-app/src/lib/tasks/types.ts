@@ -143,7 +143,7 @@ export type FieldTarget = {
   instanceLabel?: string;
 };
 
-/** A whole document, by the intake slot it fills ("c1ad" — the AD card for cheque 1). */
+/** A whole document, by the intake slot it fills ("n1ad" — the AD card for demand notice 1). */
 export type DocTarget = {
   kind: "doc";
   step: FilingStepId;

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { notify } from "@/components/feedback";
 import {
   ChevronDownIcon,
   EllipsisIcon,
@@ -431,7 +431,7 @@ export function PersonAccessDialog({
           phones,
           shareableCases.filter((c) => ticked.has(c.id)).map((c) => c.id),
         );
-      toast.success(
+      notify.success(
         chosen.length === 1
           ? pick(copy.addedToastOne, locale)
           : fillCopy(copy.addedToast, locale, {
@@ -458,13 +458,13 @@ export function PersonAccessDialog({
 
     if (tickedCount === 0 && !future) {
       // No case left: they leave the office, and the dialog with them.
-      toast.success(
+      notify.success(
         fillCopy(peopleCopy.removedAllNote, locale, { name: live.name }),
       );
       onOpenChange(false);
       return;
     }
-    toast.success(fillCopy(copy.savedToast, locale, { name: live.name }));
+    notify.success(fillCopy(copy.savedToast, locale, { name: live.name }));
   }
 
   /** Add person's Continue: who first, then on to their access. */
@@ -592,23 +592,23 @@ export function PersonAccessDialog({
       selectedIds.forEach((id) => removeGrant(live.id, id));
       if (leftAfterRemove === 0) {
         // No case left: they leave the office, and the dialog with them.
-        toast.success(fillCopy(peopleCopy.removedAllNote, locale, { name }));
+        notify.success(fillCopy(peopleCopy.removedAllNote, locale, { name }));
         onOpenChange(false);
       } else {
-        toast.success(fillCopy(copy.savedToast, locale, { name }));
+        notify.success(fillCopy(copy.savedToast, locale, { name }));
       }
     } else if (act === "give") {
       invite([live.phone], selectedIds);
-      toast.success(fillCopy(copy.savedToast, locale, { name }));
+      notify.success(fillCopy(copy.savedToast, locale, { name }));
     } else if (act === "specific") {
       setAllCases(live.id, false);
       setTab("held");
       clearFilters();
-      toast.success(fillCopy(copy.savedToast, locale, { name }));
+      notify.success(fillCopy(copy.savedToast, locale, { name }));
     } else {
       setAllCases(live.id, true);
       clearFilters();
-      toast.success(fillCopy(copy.savedToast, locale, { name }));
+      notify.success(fillCopy(copy.savedToast, locale, { name }));
     }
     setSelected(new Set());
     setAct(null);
@@ -1711,7 +1711,7 @@ export function PersonAccessDialog({
               onClick={() => {
                 removeAll(person.id);
                 setDraft(null);
-                toast.success(
+                notify.success(
                   fillCopy(peopleCopy.removedAllNote, locale, {
                     name: person.name,
                   }),

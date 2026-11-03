@@ -12,7 +12,8 @@ import { money } from "@/lib/filing/format";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { Field, FieldError, FieldLabel } from "@/components/ui/field";
+import { Field, FieldLabel } from "@/components/ui/field";
+import { StatusFieldControl, StatusFieldError, useRefusal } from "@/components/feedback";
 import { Input } from "@/components/ui/input";
 import {
   InputOTP,
@@ -100,13 +101,34 @@ export function PaymentGateway({
     }
   }, [stage, mode, onPaid]);
 
+  /* A refused press points at the field (skill `feedback-states`): the first wrong one
+     takes focus, its line drops in, and a repeat press shakes it. */
+  const { attempt, refuse, reset } = useRefusal();
+  /* The field the last press pointed at, fixed at the press: typing never moves focus. */
+  const [refused, setRefused] = React.useState<"number" | "expiry" | "cvv" | "name" | "upi" | null>(null);
+  const pointAt = (field: NonNullable<typeof refused>) => {
+    if (field !== refused) {
+      /* A different field is a first refusal: it takes focus, it does not shake. */
+      setRefused(field);
+      reset();
+    }
+    refuse();
+  };
+
   const start = () => {
     setTried(true);
     if (mode === "card") {
-      if (Object.values(cardErrors).some(Boolean)) return;
+      const first = (["number", "expiry", "cvv", "name"] as const).find((k) => cardErrors[k]);
+      if (first) {
+        pointAt(first);
+        return;
+      }
       setStage("card-otp");
     } else if (mode === "upi") {
-      if (upiError) return;
+      if (upiError) {
+        pointAt("upi");
+        return;
+      }
       setLeft(5);
       setStage("upi-wait");
     } else {
@@ -134,7 +156,7 @@ export function PaymentGateway({
           </span>
           <span className="flex items-center gap-1 text-caption text-muted-foreground">
             <LockIcon className="size-3" aria-hidden />
-            Sandbox gateway
+            Payment gateway
           </span>
         </div>
       </div>
@@ -146,6 +168,9 @@ export function PaymentGateway({
               value={mode}
               onValueChange={(v) => {
                 setMode(v as PayMode);
+                /* A new way to pay starts clean: its first refusal is a first refusal. */
+                setRefused(null);
+                reset();
                 setTried(false);
               }}
             >
@@ -172,17 +197,25 @@ export function PaymentGateway({
                   data-invalid={tried && !!cardErrors.number}
                 >
                   <FieldLabel htmlFor="gw-card">Card number</FieldLabel>
-                  <Input
-                    id="gw-card"
-                    inputMode="numeric"
-                    autoComplete="off"
-                    value={card.number}
-                    onChange={(e) =>
-                      setCard({ ...card, number: groupCard(e.target.value) })
-                    }
-                  />
+                  <StatusFieldControl attempt={refused === "number" ? attempt : 0}>
+                    <Input
+                      aria-invalid={tried && !!cardErrors.number}
+                      id="gw-card"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      value={card.number}
+                      onChange={(e) =>
+                        setCard({ ...card, number: groupCard(e.target.value) })
+                      }
+                    />
+                  </StatusFieldControl>
                   {tried && cardErrors.number ? (
-                    <FieldError>{cardErrors.number}</FieldError>
+                    <StatusFieldError
+                      attempt={refused === "number" ? attempt : undefined}
+                      still={refused !== "number"}
+                    >
+                      {cardErrors.number}
+                    </StatusFieldError>
                   ) : null}
                 </Field>
                 <Field
@@ -190,16 +223,24 @@ export function PaymentGateway({
                   data-invalid={tried && !!cardErrors.expiry}
                 >
                   <FieldLabel htmlFor="gw-exp">Expiry</FieldLabel>
-                  <Input
-                    id="gw-exp"
-                    placeholder="MM/YY"
-                    value={card.expiry}
-                    onChange={(e) =>
-                      setCard({ ...card, expiry: e.target.value.slice(0, 5) })
-                    }
-                  />
+                  <StatusFieldControl attempt={refused === "expiry" ? attempt : 0}>
+                    <Input
+                      aria-invalid={tried && !!cardErrors.expiry}
+                      id="gw-exp"
+                      placeholder="MM/YY"
+                      value={card.expiry}
+                      onChange={(e) =>
+                        setCard({ ...card, expiry: e.target.value.slice(0, 5) })
+                      }
+                    />
+                  </StatusFieldControl>
                   {tried && cardErrors.expiry ? (
-                    <FieldError>{cardErrors.expiry}</FieldError>
+                    <StatusFieldError
+                      attempt={refused === "expiry" ? attempt : undefined}
+                      still={refused !== "expiry"}
+                    >
+                      {cardErrors.expiry}
+                    </StatusFieldError>
                   ) : null}
                 </Field>
                 <Field
@@ -207,21 +248,29 @@ export function PaymentGateway({
                   data-invalid={tried && !!cardErrors.cvv}
                 >
                   <FieldLabel htmlFor="gw-cvv">CVV</FieldLabel>
-                  <Input
-                    id="gw-cvv"
-                    type="password"
-                    inputMode="numeric"
-                    autoComplete="off"
-                    value={card.cvv}
-                    onChange={(e) =>
-                      setCard({
-                        ...card,
-                        cvv: e.target.value.replace(/\D/g, "").slice(0, 3),
-                      })
-                    }
-                  />
+                  <StatusFieldControl attempt={refused === "cvv" ? attempt : 0}>
+                    <Input
+                      aria-invalid={tried && !!cardErrors.cvv}
+                      id="gw-cvv"
+                      type="password"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      value={card.cvv}
+                      onChange={(e) =>
+                        setCard({
+                          ...card,
+                          cvv: e.target.value.replace(/\D/g, "").slice(0, 3),
+                        })
+                      }
+                    />
+                  </StatusFieldControl>
                   {tried && cardErrors.cvv ? (
-                    <FieldError>{cardErrors.cvv}</FieldError>
+                    <StatusFieldError
+                      attempt={refused === "cvv" ? attempt : undefined}
+                      still={refused !== "cvv"}
+                    >
+                      {cardErrors.cvv}
+                    </StatusFieldError>
                   ) : null}
                 </Field>
                 <Field
@@ -229,32 +278,39 @@ export function PaymentGateway({
                   data-invalid={tried && !!cardErrors.name}
                 >
                   <FieldLabel htmlFor="gw-name">Name on card</FieldLabel>
-                  <Input
-                    id="gw-name"
-                    value={card.name}
-                    onChange={(e) => setCard({ ...card, name: e.target.value })}
-                  />
+                  <StatusFieldControl attempt={refused === "name" ? attempt : 0}>
+                    <Input
+                      aria-invalid={tried && !!cardErrors.name}
+                      id="gw-name"
+                      value={card.name}
+                      onChange={(e) => setCard({ ...card, name: e.target.value })}
+                    />
+                  </StatusFieldControl>
                   {tried && cardErrors.name ? (
-                    <FieldError>{cardErrors.name}</FieldError>
+                    <StatusFieldError
+                      attempt={refused === "name" ? attempt : undefined}
+                      still={refused !== "name"}
+                    >
+                      {cardErrors.name}
+                    </StatusFieldError>
                   ) : null}
                 </Field>
-                <span className="col-span-2 text-caption text-muted-foreground">
-                  Sandbox test card. Nothing is charged.
-                </span>
               </div>
             ) : mode === "upi" ? (
               <Field className="gap-1.5" data-invalid={tried && !!upiError}>
                 <FieldLabel htmlFor="gw-upi">UPI ID</FieldLabel>
-                <Input
-                  id="gw-upi"
-                  autoComplete="off"
-                  value={upi}
-                  onChange={(e) => setUpi(e.target.value)}
-                />
-                {tried && upiError ? <FieldError>{upiError}</FieldError> : null}
+                <StatusFieldControl attempt={refused === "upi" ? attempt : 0}>
+                  <Input
+                    aria-invalid={tried && !!upiError}
+                    id="gw-upi"
+                    autoComplete="off"
+                    value={upi}
+                    onChange={(e) => setUpi(e.target.value)}
+                  />
+                </StatusFieldControl>
+                {tried && upiError ? <StatusFieldError attempt={refused === "upi" ? attempt : undefined}>{upiError}</StatusFieldError> : null}
                 <span className="text-caption text-muted-foreground">
-                  A payment request goes to this UPI ID. Sandbox: it approves
-                  itself.
+                  A payment request goes to this UPI ID.
                 </span>
               </Field>
             ) : (
@@ -276,8 +332,7 @@ export function PaymentGateway({
                   <dd className="tabular-nums">{money(amount)}</dd>
                 </dl>
                 <span className="text-caption text-muted-foreground">
-                  This account is only for this payment. Sandbox: no transfer is
-                  needed.
+                  This account is only for this payment.
                 </span>
               </div>
             )}
@@ -295,7 +350,7 @@ export function PaymentGateway({
               </InputOTPGroup>
             </InputOTP>
             <span className="text-caption text-muted-foreground">
-              Card ending {card.number.slice(-4)}. Sandbox: any 6 digits.
+              Card ending {card.number.slice(-4)}.
             </span>
           </Field>
         ) : (
@@ -313,9 +368,9 @@ export function PaymentGateway({
             </p>
             <p className="text-caption text-muted-foreground">
               {stage === "upi-wait"
-                ? `Sent to ${upi}. Sandbox: approves in ${left}s.`
+                ? `Sent to ${upi}. Approves in ${left}s.`
                 : stage === "neft-wait"
-                  ? `Sandbox: found in ${left}s.`
+                  ? `Found in ${left}s.`
                   : "Please don't close this window."}
             </p>
           </div>
