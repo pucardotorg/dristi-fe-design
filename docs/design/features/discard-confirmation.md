@@ -1,7 +1,8 @@
 # Discard confirmation for popups with unsaved work
-Updated: 2026-10-22
-Status: implemented on `feature-cancellation-modal` (first pass pushed at 9de7c54; the
-click-outside rule below is uncommitted)
+Updated: 2026-11-03
+Status: implemented on `feature-cancellation-modal`, PR into `main` open. The current
+click-outside rule is in the 2026-11-03 sections at the end; the outcome below is the
+22 Oct state, kept as history.
 
 ## Current outcome
 
@@ -116,3 +117,46 @@ did before.
   text; the hearing overview ignores a click outside and closes on Escape. Not exercised on
   the render: a frame viewer closing, the five new guards, the plain entry popups. Reviewed
   from source. Self-review, not independent.
+
+## 2026-11-03 (later): warnings wait for an answer
+
+- **Decision (Neer, 3 Nov, "option 1"):** a warning stays until it is answered. The discard
+  question ("Do you want to discard your progress?") and confirmations ("Remove cheque 2?",
+  "Send this order for signing?") ignore a click outside, the usual behaviour for a warning,
+  so nobody dismisses one without noticing. This reverses two lines of the earlier 3 Nov
+  entry: confirmations no longer close on a click outside as Cancel, and with the discard
+  question up a click outside no longer closes the question. The rest of the stakeholder
+  decision stands: multi-step and entry popups ignore a click outside; view-only popups,
+  Court settings and the court's review windows (Review application, Accept copy
+  application) close on one.
+- **Why it came up:** the review found the discard question behaved two ways. A click
+  outside dismissed it in about 35 popups but not in 8 (Add advocate, Add PoA holder, Add
+  witnesses, Edit litigant details, Replace/remove PoA holder, Remove advocate, Order
+  shortcuts, Bail application). Asked whether those 8 were broken, Neer pointed out that
+  waiting for an answer is how a warning behaves, and chose that for all of them.
+- **How it is built:**
+  [discard-guard.tsx](../../../apps/dristi-app/src/components/chrome/discard-guard.tsx):
+  `outsideProps` only holds the click, with or without the question showing. Escape, the X
+  and Keep editing still answer the question; only Discard discards.
+  `ConfirmOutsideCancels` is removed from the root layout and deleted, so confirmations on
+  the DS alert dialog hold the click as the primitive does by design. Four confirmations
+  are plain dialogs and closed on a click outside even before this branch. They now hold it
+  with `onInteractOutside`: "No contact details added" and "Confirm: proceed without
+  details" (Accused), "Continue without a CIN or PAN?" (Complainant) and "Open the …
+  section?" (Preview).
+- **Verified, 3 Nov:** I ran a headless click-outside run on localhost:3000, which serves
+  this checkout, with the changes uncommitted on top of 24e28c9a. 69 of 76 scripted popups
+  matched the rule. The 7 others were six stale scripts from before the merge, whose
+  replacements passed, and the "Bail" listing-application window, a review window that
+  correctly closes. Covered: the 10 confirmations, including the four plain ones, ignore a
+  click outside; the discard question stays after a click outside in Your details, Add
+  witnesses, Edit litigant details and Add advocate; multi-step and entry popups stay
+  (empty and typed); view-only popups, Court settings and the two review windows close.
+  Checks: eslint shows no errors in changed files (the 4 repo errors are already on main);
+  the DS gates show no hits in changed files (typography and spacing hits are already on
+  main, in other files); `check:rails` passes; typecheck has errors only in Next's
+  generated `.next` route types. Self-review, not independent.
+- **Not exercised on the render:** a confirmation stacked on a protected popup (for example
+  Remove witness inside Add witnesses); Bulk payment, Payment for a submission, Verify
+  mobile number, Quick order and the order reading pane, which the scripts can't reach.
+  These are reviewed from source.
