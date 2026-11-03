@@ -1,6 +1,7 @@
 "use client";
 
 import { shortDocName } from "@/lib/employee/scrutiny/bundle";
+import { replacedDocs } from "@/lib/employee/scrutiny/returns";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -36,12 +37,15 @@ export function IndexRail({
   relatedDocId,
   aiOn,
   onGoToDoc,
+  onlyDocs = null,
 }: {
   /** Doc the selected field points at — highlighted, not filtered away. */
   relatedDocId: string | null;
   /** Poor-scan detection is an AI reading; without AI the badge is not shown. */
   aiOn: boolean;
   onGoToDoc: (docId: string) => void;
+  /** Only the documents behind the returned items, on the Changes tab. */
+  onlyDocs?: string[] | null;
 }) {
   return (
     <aside
@@ -61,6 +65,7 @@ export function IndexRail({
           relatedDocId={relatedDocId}
           aiOn={aiOn}
           onGoToDoc={onGoToDoc}
+          onlyDocs={onlyDocs}
         />
       </div>
     </aside>
@@ -80,12 +85,14 @@ export function IndexSheet({
   relatedDocId,
   aiOn,
   onGoToDoc,
+  onlyDocs = null,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   relatedDocId: string | null;
   aiOn: boolean;
   onGoToDoc: (docId: string) => void;
+  onlyDocs?: string[] | null;
 }) {
   const { bundle } = useScrutinyCase();
   return (
@@ -104,6 +111,7 @@ export function IndexSheet({
             relatedDocId={relatedDocId}
             aiOn={aiOn}
             onGoToDoc={onGoToDoc}
+            onlyDocs={onlyDocs}
           />
         </div>
       </SheetContent>
@@ -119,15 +127,25 @@ function IndexRows({
   relatedDocId,
   aiOn,
   onGoToDoc,
+  onlyDocs,
 }: {
   relatedDocId: string | null;
   aiOn: boolean;
   onGoToDoc: (docId: string) => void;
+  onlyDocs: string[] | null;
 }) {
-  const { bundle } = useScrutinyCase();
+  const { bundle, returned, fieldById } = useScrutinyCase();
+  const replaced = replacedDocs(returned, fieldById);
+  const shown = onlyDocs ? bundle.filter((doc) => onlyDocs.includes(doc.id)) : bundle;
   return (
     <>
-      {bundle.map((doc) => {
+      {/* Said, so a short index reads as a choice and not as a bundle gone missing. */}
+      {onlyDocs ? (
+        <p className="px-2 pb-1 text-caption font-medium text-muted-foreground">
+          Documents behind the errors marked. Full filing shows all {bundle.length}.
+        </p>
+      ) : null}
+      {shown.map((doc) => {
         const current = relatedDocId === doc.id;
         return (
           <Button
@@ -162,6 +180,21 @@ function IndexRows({
             {/* The badges are marks, so what they mean is said in words for anyone who
                 cannot read a shape — never a `title` attribute, which no touch or
                 keyboard user reaches. */}
+            {/* Re-uploaded this round: a word, not a dot — the rail is where the officer
+                looks for "which documents are new", and a shape alone says nothing. */}
+            {replaced[doc.id] ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="info" className="shrink-0">
+                    New
+                    <span className="sr-only"> upload this round</span>
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Re-uploaded on {replaced[doc.id].answered}
+                </TooltipContent>
+              </Tooltip>
+            ) : null}
             {aiOn && doc.poorScan ? (
               <Tooltip>
                 <TooltipTrigger asChild>

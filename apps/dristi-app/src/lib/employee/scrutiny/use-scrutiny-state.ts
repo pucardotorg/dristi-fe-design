@@ -7,6 +7,7 @@ import type {
   Draft,
   FlagMap,
   LinkedDoc,
+  ReturnRound,
   ScrutinyCase,
   ScrutinyLookups,
 } from "@/lib/employee/scrutiny/types"
@@ -16,6 +17,8 @@ export type PendingFocus = "note" | null
 
 export interface ScrutinyState {
   flags: FlagMap
+  /** Returned items the officer has accepted as answered, by field id. */
+  accepted: Record<string, true>
   selectedId: string | null
   composeField: string | null
   draft: Draft | null
@@ -24,6 +27,7 @@ export interface ScrutinyState {
 
 const EMPTY: ScrutinyState = {
   flags: {},
+  accepted: {},
   selectedId: null,
   composeField: null,
   draft: null,
@@ -140,6 +144,67 @@ export function applyLinkDoc(
         ? s.draft.linked
         : { rowId, docId, reason: null, note: "" },
     },
+  }
+}
+
+/* ── re-scrutiny: the officer's answer to each returned item ─────────────── */
+
+/**
+ * Where one returned item stands. Raising it again is an ordinary flag on the same row,
+ * so the send-back path, the review dialog and the advocate's screen need nothing new;
+ * a flag outranks an acceptance, because the two cannot both be the officer's answer.
+ */
+export type Verdict = "unchecked" | "accepted" | "raised"
+
+export function verdictOf(
+  s: Pick<ScrutinyState, "flags" | "accepted">,
+  fieldId: string,
+): Verdict {
+  if (s.flags[fieldId]) return "raised"
+  return s.accepted[fieldId] ? "accepted" : "unchecked"
+}
+
+/** Returned items with no answer from the officer yet — what holds forwarding back. */
+export function uncheckedCount(
+  s: Pick<ScrutinyState, "flags" | "accepted">,
+  round: ReturnRound | null,
+): number {
+  return (round?.items ?? []).filter(
+    (item) => verdictOf(s, item.fieldId) === "unchecked",
+  ).length
+}
+
+export function applyAccept(s: ScrutinyState, id: string): ScrutinyState {
+  if (s.flags[id]) return s
+  return { ...s, accepted: { ...s.accepted, [id]: true } }
+}
+
+export function applyUndoAccept(s: ScrutinyState, id: string): ScrutinyState {
+  if (!s.accepted[id]) return s
+  const accepted = { ...s.accepted }
+  delete accepted[id]
+  return { ...s, accepted }
+}
+
+/**
+ * Raise a returned item again: the ordinary composer on that row, started from the note
+ * that went back last time — the officer is usually repeating or sharpening it, and a
+ * blank box would make them retype their own words. Any acceptance is withdrawn.
+ */
+export function applyRaiseAgain(
+  s: ScrutinyState,
+  id: string,
+  note: string,
+  look: ScrutinyLookups,
+): ScrutinyState {
+  if (!look.fieldById[id] || s.flags[id]) return s
+  const settled = applyUndoAccept(s, id)
+  return {
+    ...settled,
+    selectedId: id,
+    composeField: id,
+    pendingFocus: "note",
+    draft: { text: note, reason: null, linked: null },
   }
 }
 
@@ -278,6 +343,23 @@ export function useScrutinyState(caseData: ScrutinyCase) {
     )
   }, [])
 
+  /* ── re-scrutiny ───────────────────────────────────────────────────────── */
+
+  const accept = React.useCallback((id: string) => {
+    setState((s) => applyAccept(s, id))
+  }, [])
+
+  const undoAccept = React.useCallback((id: string) => {
+    setState((s) => applyUndoAccept(s, id))
+  }, [])
+
+  const raiseAgain = React.useCallback(
+    (id: string, note: string) => {
+      setState((s) => applyRaiseAgain(s, id, note, look))
+    },
+    [look]
+  )
+
   const reset = React.useCallback(() => {
     setState(EMPTY)
   }, [])
@@ -294,6 +376,9 @@ export function useScrutinyState(caseData: ScrutinyCase) {
     linkDoc,
     updateLinked,
     clearLinked,
+    accept,
+    undoAccept,
+    raiseAgain,
     reset,
   }
 }

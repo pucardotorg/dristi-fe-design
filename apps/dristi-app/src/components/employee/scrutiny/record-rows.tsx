@@ -9,20 +9,14 @@ import { Identifier } from "@/components/chrome/identifier";
 import { useCourtText } from "@/components/court/court-provider";
 
 /**
- * The grammar a raised item is read in — one label column, one value column, rows only
- * where they apply.
+ * The grammar a raised or returned item is read in — label above fact, rows only where
+ * they apply.
  *
- * **The workbench's record.** It was the send-back dialog's too, on the argument that
- * one data type gets one rendering (ui-craft §2). That held while the dialog listed two
- * or three items and broke at twenty: a label column is the fastest way to *find* a
- * value in one record and the slowest way to *scan* many, because the names end up
- * outweighing the facts (owner, 2026-09-18). The two surfaces still share the
- * vocabulary — the same facts under the same names — and the dialog composes them for
- * scanning instead; see `SummaryItem` in `review-dialog.tsx`.
- *
- * The two columns collapse to one below `22rem` of container width, so a record stays
- * legible when the fields pane is dragged to its floor. `@container` is declared by the
- * caller, on whatever box actually constrains the rows.
+ * **The workbench's record.** Shared by the change card, the full-filing returned well,
+ * and a raised flag, so the same ask never reads as a table in one view and a stack in
+ * another. Side-by-side stole width from the note in the fields pane; vertical is the
+ * standing layout (owner, 2026-10-28). The send-back dialog still composes facts for
+ * scanning — see `SummaryItem` in `review-dialog.tsx`.
  */
 export function RecordList({
   className,
@@ -32,18 +26,11 @@ export function RecordList({
   children: React.ReactNode;
 }) {
   return (
-    <dl
-      className={cn(
-        "grid grid-cols-1 gap-x-3 gap-y-2 @[22rem]:grid-cols-[minmax(6rem,8rem)_1fr]",
-        className,
-      )}
-    >
-      {children}
-    </dl>
+    <dl className={cn("flex flex-col gap-2", className)}>{children}</dl>
   );
 }
 
-/** One row: a quiet label, then the fact. */
+/** One row: a quiet label above the fact. */
 export function RecordRow({
   label,
   children,
@@ -52,16 +39,13 @@ export function RecordRow({
   children: React.ReactNode;
 }) {
   return (
-    <>
+    <div className="flex flex-col gap-0.5">
       {/* 14px muted, not 12: the owner's standing rule for key-value data (2026-09-11,
-          restated 2026-09-18 on this dialog — *"avoid the use of 12 size copy for these
-          kind of things"*). Hierarchy here is colour and column, not size, so the label
-          and its value are one size and the whole record reads as one table. */}
+          restated 2026-09-18 — *"avoid the use of 12 size copy for these kind of
+          things"*). Hierarchy is colour and stack, not size. */}
       <dt className="text-body-compact text-muted-foreground">{label}</dt>
-      <dd className="-mt-1 min-w-0 text-body-compact leading-snug @[22rem]:mt-0">
-        {children}
-      </dd>
-    </>
+      <dd className="min-w-0 text-body-compact leading-snug">{children}</dd>
+    </div>
   );
 }
 

@@ -106,11 +106,15 @@ export function scrutinyRegistersIn(court: CourtId): boolean {
 }
 
 /**
- * Whether this person can register a case straight from Scrutiny — `SCR-11`
- * (scrutiny-registration handover §7). Only someone who holds **both** the Scrutiny
- * officer and the Case registerer roles in the case's court room can; they get Register
- * and not Forward for registration, which would only send the case to themselves. Anyone
- * holding Scrutiny officer alone forwards the case to Registration.
+ * Whether this seat holds both Scrutiny officer and Case registerer — `SCR-11`
+ * (scrutiny-registration handover §7). In the demo that is the Scrutiny officer in
+ * Gujarat and Punjab & Haryana. Kerala's Scrutiny officer holds that role alone and
+ * forwards.
+ *
+ * The scrutiny workbench does not use this for its button. The button follows
+ * `scrutinyRegistersIn`: the screen shows the handover this court has, whichever
+ * seat has it open. Offering Forward for registration to any other seat named a
+ * Register cases queue those courts do not have.
  *
  * A view rule like the others here: it decides what the screen offers and grants nothing.
  */

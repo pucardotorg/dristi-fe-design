@@ -30,8 +30,9 @@ import { OutcomeHeader } from "@/components/feedback";
 
 /**
  * `forward` hands the case to Registration, for a Case registerer; `register` registers it
- * here and skips Registration. Register is offered only to someone holding both the
- * Scrutiny officer and Case registerer roles in the court room (`SCR-06`, `SCR-11`).
+ * here and skips Registration. The workbench offers register wherever this court
+ * registers at scrutiny, and forward only where someone else registers (`SCR-06`,
+ * `SCR-11`).
  */
 export type Decision = "send-back" | "forward" | "register";
 

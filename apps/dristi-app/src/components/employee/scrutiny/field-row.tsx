@@ -13,10 +13,15 @@ import { docName } from "@/lib/employee/scrutiny/field";
 import type {
   Flag as FlagType,
   FlatField,
+  ReturnedItem,
 } from "@/lib/employee/scrutiny/types";
 import type { ScrutinyController } from "@/lib/employee/scrutiny/use-scrutiny-state";
 import { cn } from "@/lib/utils";
 import { FlagComposer } from "@/components/employee/scrutiny/flag-composer";
+import {
+  KeptReason,
+  ReturnedValue,
+} from "@/components/employee/scrutiny/returned-value";
 import { useScrutinyCase } from "@/components/employee/scrutiny/scrutiny-case-context";
 import { RESOLVE_IN_PLACE } from "@/components/chrome/motion";
 import {
@@ -60,15 +65,21 @@ export function FieldRow({
   aiOn: boolean;
   onGoToItem: (fieldId: string) => void;
 }) {
-  const { docById } = useScrutinyCase();
+  const { docById, returned } = useScrutinyCase();
   const flag = controller.flags[field.id];
   const selected = controller.selectedId === field.id;
   const composing = controller.composeField === field.id;
+  /* A returned item reads in place with the change the Changes card shows — the tint,
+     old → new and the answer chip — so the full filing never hides what came back
+     behind a grey hint (owner, 2026-10-28). */
+  const back = returned?.items.find((item) => item.fieldId === field.id);
   const flagTitle = flag
     ? "Edit this flag"
-    : field.docrow
-      ? "Flag document"
-      : "Flag";
+    : back
+      ? "Raise again"
+      : field.docrow
+        ? "Flag document"
+        : "Flag";
 
   return (
     <DescriptionRow
@@ -77,7 +88,12 @@ export function FieldRow({
         // `border-hairline` overrides the DS row default (`border-border`, a darker rule)
         // so the divider between rows matches the lighter hairline the case file uses
         // (owner, 2026-09-15).
-        "group/frow relative -mx-2 cursor-pointer grid-cols-[minmax(5.5rem,9rem)_1fr] border-hairline px-2 transition-colors",
+        "group/frow relative -mx-2 cursor-pointer grid-cols-[minmax(5.5rem,9rem)_minmax(0,1fr)] border-hairline px-2 transition-colors",
+        // At the panel's 18rem floor the value column had ~100px for a value, a chip and
+        // two 32px icons, so its min-content pushed the row — and the full-width wells
+        // under it — past the card. Below 20rem every row stacks, label over value, and
+        // `minmax(0,1fr)` keeps the value column from ever outgrowing the card.
+        "@max-xs:grid-cols-1 @max-xs:gap-1",
         "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring",
         "hover:bg-accent",
         // A machine observation carries no row fill. The `HintLine` under the value —
@@ -88,6 +104,11 @@ export function FieldRow({
           "before:absolute before:inset-y-0 before:start-0 before:w-0.5 before:bg-primary before:content-['']",
         // While composing, the composer's well is the surface; a row fill under it
         // would stack two greys and blur the well's edge.
+        // A returned row carries the one colour that means "came back" (owner, 2026-10-28):
+        // info, because red is a new flag, amber an AI reading, navy the selection. A tint
+        // with its own solid as an inset edge — DS 6a — so it holds against the white card.
+        // Labels stay muted on it: 5.08:1 light, 7.14:1 dark.
+        back && "bg-info-muted ring-1 ring-info ring-inset hover:bg-info-muted-hover",
         composing && "bg-transparent hover:bg-transparent",
       )}
       role="option"
@@ -118,7 +139,11 @@ export function FieldRow({
              */}
             {composing ? null : (
               <>
-                <ValueLines field={field} />
+                {back ? (
+                  <ReturnedValue field={field} item={back} withReason={false} />
+                ) : (
+                  <ValueLines field={field} />
+                )}
                 <Hints field={field} flag={flag} aiOn={aiOn} />
               </>
             )}
@@ -161,7 +186,9 @@ export function FieldRow({
                   aria-label={`${flagTitle}: ${field.label}`}
                   onClick={(event) => {
                     event.stopPropagation();
-                    controller.openComposer(field.id);
+                    // A returned item is raised again from the note that went back.
+                    if (back && !flag) controller.raiseAgain(field.id, back.note);
+                    else controller.openComposer(field.id);
                   }}
                 >
                   <FlagIcon />
@@ -179,6 +206,12 @@ export function FieldRow({
        * badge, a claim and two buttons — and editing an item now unfolds it in place
        * instead of moving it.
        */}
+      {/* The returned record stays while the officer writes or holds a new flag: what was
+          asked last time is the context for what they ask now. */}
+      {/* The value keeps its column like every other row; the white wells under it take
+          the row's full width (owner, 2026-10-28). */}
+      {back && !composing ? <KeptReason item={back} className="col-span-full" /> : null}
+      {back ? <ReturnedRecord item={back} /> : null}
       {composing ? (
         <FlagComposer field={field} controller={controller} onGoToItem={onGoToItem} />
       ) : flag ? (
@@ -263,6 +296,7 @@ function Hints({
   flag?: FlagType;
   aiOn: boolean;
 }) {
+  // A returned row says so in its own value and record, so no hint line repeats it.
   const { docById } = useScrutinyCase();
   const lines: React.ReactNode[] = [];
   const flagged = !!flag;
@@ -353,14 +387,54 @@ function HintLine({
 }
 
 /**
+ * A returned item, read in place: what the officer asked and what was on file (Anshumanth,
+ * 2026-10-28: "I can't see what the actual correction requested was or what the
+ * previous value was"). The row's value above it is what is on file now, and its chip —
+ * with a kept value's reason — is how the advocate answered, so the record does not
+ * repeat that as a row of its own (owner, 2026-10-28: status compact and inline).
+ *
+ * Same stacked `RecordList` as the change card and a raised flag, so the ask never
+ * flips between a table and a stack. There is no Accept — leaving it alone accepts it;
+ * the row's flag raises it again.
+ */
+function ReturnedRecord({ item }: { item: ReturnedItem }) {
+  return (
+    /* Paper on the tinted row: a card-white well with a hairline, so the record reads as
+       one object on the row rather than a second tint. No buttons in here — selecting
+       the row turns the bundle to its page, and the row's flag is Raise again (owner,
+       2026-10-28: one control per job). The send-back date lives in case history, not
+       under every ask (owner, 2026-10-28). */
+    <div className="col-span-full my-1 rounded-lg border border-hairline bg-card p-3">
+      <RecordList>
+        <RecordRow label="You asked">
+          <span className="break-words">{item.note}</span>
+        </RecordRow>
+        {/* A corrected value shows its before in the value itself; a document's before
+            is a file, so it is said here. Kept as filed has no before. */}
+        {item.answer === "replaced" ? (
+          <RecordRow label="Before">
+            <span className="text-muted-foreground line-through decoration-muted-foreground">
+              {item.was}
+            </span>
+          </RecordRow>
+        ) : null}
+      </RecordList>
+    </div>
+  );
+}
+
+/**
  * The record. Reading it answers four questions without a click: what kind, what is
  * wrong, what backs it up, and what it unlocks — in that fixed order.
  *
  * The Edit/Remove pair reveals on hover, selection and focus-within, and stays visible
  * on touch: a hover-only control is no control at all on a tablet, which is what the
  * registry actually uses.
+ *
+ * Exported for the change card, so a re-raise reads as the same record in either view.
+ * Its host carries `group/frow` for the reveal.
  */
-function RaisedItem({
+export function RaisedItem({
   field,
   flag,
   controller,
@@ -394,7 +468,7 @@ function RaisedItem({
   return (
     <div
       className={cn(
-        "col-span-full my-1 flex flex-col gap-3 rounded-lg border border-hairline bg-surface-sunken p-3 @container",
+        "col-span-full my-1 flex flex-col gap-3 rounded-lg border border-hairline bg-surface-sunken p-3",
         // The item settles into place when it is saved — the same resolve the case file
         // uses for a fact taking its outcome (`motion.ts`).
         RESOLVE_IN_PLACE,

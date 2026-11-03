@@ -19,8 +19,9 @@
  * The officer says what is wrong; the advocate makes the fix. There is no proposed value
  * to accept or reject, no voice note, no marked page, and no reply to scrutiny (owner,
  * 2026-10-08).
- * Keeping the filed value asks for no reason — the gate must not force an edit to a value
- * the advocate believes is correct (owner, 2026-10-08).
+ * The gate never forces an edit to a value the advocate believes is correct (owner,
+ * 2026-10-08), but keeping it overrides the officer, so it takes a reason the officer
+ * reads beside the value (design sync, 2026-10-28).
  *
  * Resolution is derived from the filing (D6), never self-certified: a field counts once
  * its value differs from what scrutiny saw, or once it is kept as filed. What is typed
@@ -39,7 +40,8 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { RESOLVE_IN_PLACE } from "@/components/chrome/motion";
-import { Field, FieldLabel } from "@/components/ui/field";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { Textarea } from "@/components/ui/textarea";
 import { DateField } from "@/components/filing/date-field";
 import { PrefixInput, TextField } from "@/components/filing/inputs";
 
@@ -58,8 +60,8 @@ const ROW_HEIGHT = 56;
 export type DefectActions = {
   /** Write the advocate's value at this defect's target. */
   setValue: (value: string) => void;
-  /** Leave the filed value standing. Field defects only. */
-  keep?: () => void;
+  /** Leave the filed value standing, with why. Field defects only. */
+  keep?: (reason: string) => void;
   /** Put the filing back the way scrutiny saw it and forget the resolution. */
   undo?: () => void;
   /** Document defects: open the file picker for the flagged slot. */
@@ -188,6 +190,21 @@ export function DefectCard({
      the one scrutiny saw. */
   const dirty = !isDoc && draft.trim() !== (value ?? "").trim();
   const atReturn = !isDoc && draft.trim() === (defect.valueAtReturn ?? "").trim();
+
+  /*
+   * Keeping the filed value is an override, so it asks why before it counts. The reason
+   * opens in the card's own fix area, and only a written one completes the keep — an
+   * empty override would leave the officer guessing (design sync, 2026-10-28). Editing
+   * the value instead closes it: a changed value is a correction, not a keep.
+   */
+  const [keeping, setKeeping] = React.useState(false);
+  const [reason, setReason] = React.useState(defect.resolution?.reason ?? "");
+  const reasonRef = React.useRef<HTMLTextAreaElement>(null);
+  const keepRef = React.useRef<HTMLButtonElement>(null);
+  const askingWhy = keeping && atReturn;
+  React.useEffect(() => {
+    if (askingWhy) reasonRef.current?.focus();
+  }, [askingWhy]);
 
   /**
    * Is the advocate mid-act inside the editing area?
@@ -332,6 +349,13 @@ export function DefectCard({
             <p className="min-h-5 text-body-compact text-success-ink">
               {resolutionLabel(defect, value) || (isDoc ? "Document replaced" : "Corrected")}
             </p>
+            {/* What the officer will read with the kept value, so the advocate sees their
+                override as it was recorded. */}
+            {defect.resolution?.how === "kept" && defect.resolution.reason ? (
+              <p className="text-body-compact break-words text-muted-foreground">
+                {defect.resolution.reason}
+              </p>
+            ) : null}
             {/* Which file now stands in for the flagged one, so the replacement is
                 visibly done (owner, 2026-10-12). */}
             {isDoc && file ? (
@@ -418,10 +442,56 @@ export function DefectCard({
           ) : (
             <>
               <OwnValue defect={defect} value={draft} onChange={setDraft} focusTarget />
-              {/* The act's own full stop. Resolution is derived, so this button changes
+              {askingWhy ? (
+                <>
+                  <Field className="gap-2">
+                    <FieldLabel htmlFor={`why-${defect.n}`} className="text-body-compact">
+                      Why the filed value is right
+                    </FieldLabel>
+                    <Textarea
+                      id={`why-${defect.n}`}
+                      ref={reasonRef}
+                      value={reason}
+                      onChange={(event) => setReason(event.target.value)}
+                      rows={3}
+                    />
+                    <FieldDescription>
+                      The scrutiny officer reads this beside the value.
+                    </FieldDescription>
+                  </Field>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        // Typed back to the filed value after a save: put it back first.
+                        if (dirty) actions.setValue(draft);
+                        actions.keep?.(reason.trim());
+                        setKeeping(false);
+                        finish();
+                      }}
+                      disabled={!reason.trim()}
+                      className="flex-1"
+                    >
+                      Keep as filed
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => {
+                        setKeeping(false);
+                        requestAnimationFrame(() => keepRef.current?.focus());
+                      }}
+                      className="shrink-0 text-muted-foreground"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </>
+              ) : (
+              /* The act's own full stop. Resolution is derived, so this button changes
                   no data — it ends the act, which is what lets the card collapse to its
                   one-line report. Without it the only way to finish was to click
-                  somewhere else, which nobody trusts as "saved". */}
+                  somewhere else, which nobody trusts as "saved". */
               <div className="flex flex-wrap items-center gap-2">
                 <Button
                   type="button"
@@ -438,20 +508,17 @@ export function DefectCard({
                     offered while the value is still the one scrutiny saw. */}
                 {!atReturn ? null : (
                   <Button
+                    ref={keepRef}
                     type="button"
                     variant="ghost"
-                    onClick={() => {
-                      // Typed back to the filed value after a save: put it back first.
-                      if (dirty) actions.setValue(draft);
-                      actions.keep?.();
-                      finish();
-                    }}
+                    onClick={() => setKeeping(true)}
                     className="shrink-0 text-muted-foreground"
                   >
                     Keep as filed
                   </Button>
                 )}
               </div>
+              )}
             </>
           )}
         </div>
