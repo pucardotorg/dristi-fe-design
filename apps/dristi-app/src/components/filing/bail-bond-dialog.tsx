@@ -10,7 +10,6 @@ import {
   XIcon,
 } from "lucide-react";
 
-import { onOwnLayer } from "@/components/chrome/discard-guard";
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 import { useBackCloses, useFlowWindow } from "@/components/chrome/flow-window";
 import { Identifier } from "@/components/chrome/identifier";
@@ -333,12 +332,9 @@ export function BailBondDialog({
         <FlowDialogContent
           ownBack
           className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
-          /* A click outside is the same close as Cancel (option 3, 2026-11-03): an
-             untouched form closes, one with something in it asks — save or discard. */
-          onInteractOutside={(event) => event.preventDefault()}
-          onPointerDownOutside={(event) => {
-            if (!onOwnLayer(event.target)) requestClose();
-          }}
+          /* A click outside reaches onOpenChange like Cancel does (option 3, 2026-11-03):
+             an untouched form closes, one with something in it asks — save or discard.
+             The frame keeps a pick from the form's own lists from counting. */
         >
           <DialogHeader className="shrink-0 border-b border-hairline px-6 py-4 pr-12 text-left">
             <DialogTitle className="text-title-s font-semibold text-balance">

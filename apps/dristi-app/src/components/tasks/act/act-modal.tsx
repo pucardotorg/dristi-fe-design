@@ -12,6 +12,7 @@
 import * as React from "react";
 import { notify } from "@/components/feedback";
 
+import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { FlowDialogContent } from "@/components/chrome/flow-dialog";
 
 import { ACTIONABLE, canComplete } from "@/lib/tasks/permissions";
@@ -42,12 +43,20 @@ const WIDTH: Record<ActMode, string> = {
   file: "sm:max-w-2xl",
 };
 
-function Body({ ctx, mode }: { ctx: ActContext; mode: ActMode }) {
+function Body({
+  ctx,
+  mode,
+  onEntered,
+}: {
+  ctx: ActContext;
+  mode: ActMode;
+  onEntered: (entered: boolean) => void;
+}) {
   switch (mode) {
     case "pay":
       return <PayBody ctx={ctx} />;
     case "file":
-      return <FileBody ctx={ctx} />;
+      return <FileBody ctx={ctx} onEntered={onEntered} />;
   }
 }
 
@@ -88,12 +97,19 @@ export function TaskActModal({
   /* Re-derived each time the window opens, never while it closes: clearing it on close
      swapped the window out mid-exit. */
   const [wasOpen, setWasOpen] = React.useState(open);
+  /* Files added in this window and not yet filed: closing it asks first (option 3,
+     2026-11-03). Reset each time it opens. */
+  const [entered, setEntered] = React.useState(false);
   if (open !== wasOpen) {
     setWasOpen(open);
-    if (open) setPayingId(opensToPay ? task!.id : null);
+    if (open) {
+      setPayingId(opensToPay ? task!.id : null);
+      setEntered(false);
+    }
   } else if (opensToPay && payingId !== task!.id) {
     setPayingId(task!.id);
   }
+  const guard = useDiscardGuard(entered, () => onOpenChange(false));
 
   if (!task || !kase || !mode) return null;
 
@@ -153,14 +169,19 @@ export function TaskActModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* The header holds still; only the record and its act cards scroll. */}
-      <FlowDialogContent className={`flex max-h-[85svh] w-full flex-col gap-0 overflow-hidden p-0 ${WIDTH[mode]}`}>
+      <FlowDialogContent
+        className={`flex max-h-[85svh] w-full flex-col gap-0 overflow-hidden p-0 ${WIDTH[mode]}`}
+        {...guard.contentProps}
+        {...guard.outsideProps}
+      >
         <DialogHeader className="shrink-0 border-b border-hairline px-6 pt-6 pr-16 pb-4 text-left">
           <DialogTitle className="text-title-s font-semibold text-balance">{task.title}</DialogTitle>
           <DialogDescription className="text-caption text-muted-foreground">{caseLine}</DialogDescription>
         </DialogHeader>
         <div className="min-h-0 flex-1 overflow-y-auto p-6">
-          <Body ctx={ctx} mode={mode} />
+          <Body ctx={ctx} mode={mode} onEntered={setEntered} />
         </div>
+        <DiscardQuestion guard={guard} />
       </FlowDialogContent>
     </Dialog>
   );

@@ -157,9 +157,20 @@ function FileCard({ ctx, files, complete }: { ctx: ActContext; files: StoredFile
 }
 
 /** The file flow inside the act modal: the document slots, then the action. */
-export function FileBody({ ctx }: { ctx: ActContext }) {
+export function FileBody({
+  ctx,
+  onEntered,
+}: {
+  ctx: ActContext;
+  /** Told when files differ from the task's own, for a window that asks before closing. */
+  onEntered?: (entered: boolean) => void;
+}) {
   const { task, signatory } = ctx;
-  const [files, setFiles] = React.useState<StoredFileRef[]>(task.files ?? []);
+  const [files, setFilesState] = React.useState<StoredFileRef[]>(task.files ?? []);
+  function setFiles(next: StoredFileRef[]) {
+    setFilesState(next);
+    onEntered?.(next.length !== (task.files ?? []).length || next.some((f, i) => f !== task.files?.[i]));
+  }
   const slots = task.documentsNeeded?.length ? task.documentsNeeded : ["Document"];
   const complete = slots.every((s) => files.some((f) => f.slot === s));
   const closed = TERMINAL.has(task.status);
