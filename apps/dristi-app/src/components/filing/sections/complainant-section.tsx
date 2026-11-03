@@ -926,6 +926,7 @@ export function ComplainantSection() {
       >
         <ChromeDialogContent
           mobileSheet
+          onInteractOutside={(event) => event.preventDefault()}
           className="sm:max-w-lg"
           onCloseAutoFocus={(event) => {
             if (!focusCinPan.current) return;
