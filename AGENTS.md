@@ -21,6 +21,13 @@ source; when the task gives exact paths, start there instead of reading the whol
   is building in this checkout, use an isolated worktree. Do not switch its branch,
   overwrite its files, share build output, or stop its server.
 - Before using a running app, follow `.agents/policies/dev-server.md`.
+- Commit often, one logical change per commit. When a branch carries several changes,
+  split them into separate commits rather than one bulk commit, so each can be reviewed
+  or reverted on its own. Each commit message says what changed and why, in plain
+  words; the subject names the change, the body lists what a reviewer would otherwise
+  have to work out from the diff. The PR description covers every change on the branch
+  (what, why, what was verified, what is still open) and is kept current as commits are
+  added.
 
 ## Route the task
 
