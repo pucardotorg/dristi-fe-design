@@ -57,16 +57,14 @@ export function onOwnLayer(target: EventTarget | null): boolean {
  * popup's open state: spread `guard.contentProps` and `guard.outsideProps` on the content
  * (Escape, the close button, the hidden close that Back presses in a flow window, and the
  * click outside it ignores), and point the popup's own Cancel at `guard.close`. Discarding calls
- * `onDiscard`, which is the popup's real close. While the question is up, any further
- * close means "keep editing": a second Escape or a click on the dimmed window never
- * discards.
+ * `onDiscard`, which is the popup's real close. While the question is up, a second
+ * Escape means "keep editing" and never discards.
  *
  * A click outside a guarded popup does nothing (stakeholders, 2–3 Nov 2026, "Popup
  * Click-Outside Inventory"): these popups take entries, and a stray click must neither
- * close them nor raise the question. While the question is up, a click outside closes
- * only the question — "keep editing", the safe answer — and the popup stays. Close
- * controls, Escape and Cancel still ask as above. A pick from one of the popup's own
- * floating lists (`onOwnLayer`) is never a click outside.
+ * close them nor raise the question. The question is a warning, and a warning waits for
+ * its answer (owner, 3 Nov 2026): a click outside leaves it showing until Keep editing or
+ * Discard is pressed. Close controls, Escape and Cancel still ask as above.
  */
 export function useDiscardGuard(dirty: boolean, onDiscard: () => void) {
   const [asking, setAsking] = React.useState(false);
@@ -108,10 +106,10 @@ export function useDiscardGuard(dirty: boolean, onDiscard: () => void) {
     },
   };
 
+  /* Nothing happens on a click outside, with or without the question showing. */
   const outsideProps = {
     onPointerDownOutside: (event: Event) => {
       event.preventDefault();
-      if (asking && !onOwnLayer(event.target)) setAsking(false);
     },
   };
 
