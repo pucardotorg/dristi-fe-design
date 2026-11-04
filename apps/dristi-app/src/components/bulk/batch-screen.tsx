@@ -210,6 +210,32 @@ export function BatchScreen({ batchId }: { batchId: string }) {
             { id: "filed", title: "Filed", href: batch.counts.filed ? q("filed") : undefined, done: allFiled },
           ]
         : null;
+  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  // Of those with something open, the ones held until fixed (the rest are checks to look at).
+  const fixing = open.filter((c) =>
+    c.flags.some(
+      (f) =>
+        f.level === "hold" &&
+        f.section !== "documents" &&
+        f.fix?.kind !== "upload" &&
+        f.fix?.kind !== "documents",
+    ),
+  ).length;
+  const shown: TabId = allFiled && tab !== "common" && tab !== "cases" ? "filed" : tab;
+  const title = {
+    common: "Common details",
+    cases: "Cases in this batch",
+    scrutiny: fixing
+      ? `${plural(fixing, "case needs", "cases need")} fixing`
+      : attention
+        ? `${plural(attention, "case", "cases")} to check`
+        : "Every case's details are complete",
+    documents: docsMissing ? `${plural(docsMissing, "case is", "cases are")} missing documents` : "Documents",
+    review: "Review",
+    sign: clear ? `Sign ${plural(clear, "case", "cases")}` : "Sign",
+    pay: batch.counts.signed ? `Pay for ${plural(batch.counts.signed, "case", "cases")}` : "Pay",
+    filed: `${plural(batch.counts.filed, "case", "cases")} filed`,
+  }[shown];
   const body = {
     common: <CommonDetails batch={batch} />,
     cases: <CasesTab {...ctx} />,
@@ -219,7 +245,7 @@ export function BatchScreen({ batchId }: { batchId: string }) {
     sign: <SignTab {...ctx} />,
     pay: <PayTab {...ctx} />,
     filed: <FiledTab {...ctx} />,
-  }[allFiled && tab !== "common" && tab !== "cases" ? "filed" : tab];
+  }[shown];
 
   return (
     <div className="flex w-full flex-1 flex-col">
@@ -233,13 +259,14 @@ export function BatchScreen({ batchId }: { batchId: string }) {
           PAGE_GUTTER,
         )}
       >
+        {/* Each step is titled by its job, the way the prototypes were; the batch it belongs
+            to is the line under it (and the breadcrumb). */}
         <header className="flex flex-col gap-1">
-          <h1 className={cn(PAGE_TITLE, "text-foreground tabular-nums")}>
-            Batch {batch.number}
-          </h1>
+          <h1 className={cn(PAGE_TITLE, "text-foreground tabular-nums")}>{title}</h1>
           <p className={PAGE_SUBTITLE}>
-            {batch.client} · <span className="tabular-nums">{batch.total}</span>{" "}
-            cases · received {toLongDate(batch.createdAt.slice(0, 10))}
+            <span className="tabular-nums">Batch {batch.number}</span> · {batch.client} ·{" "}
+            <span className="tabular-nums">{batch.total}</span> cases · received{" "}
+            {toLongDate(batch.createdAt.slice(0, 10))}
           </p>
         </header>
 
