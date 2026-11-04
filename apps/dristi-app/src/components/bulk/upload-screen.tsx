@@ -104,6 +104,9 @@ function downloadRows(book: Workbookish, rows: RowProblem[], fileName: string) {
   URL.revokeObjectURL(url);
 }
 
+/** A file without a column for any of these can't make cases (owner and PM, 2026-11-04). */
+const CORE_COLUMNS = ["accusedName", "chequeNumber", "chequeAmount"];
+
 /** The demo spreadsheets the upload offers, from `public/samples/` (`scripts/bulk-demo-files.mts`). */
 const SAMPLES = [
   { key: "tata-capital-bulk-filing-template.xlsx", label: "Sample file 1: template format" },
@@ -287,6 +290,8 @@ export function UploadScreen() {
   const unknownLists = Object.keys(unknown) as ListName[];
   // Required fields no column fills: every case arrives without them.
   const missing = book && !docs ? unmatchedRequired(book.cases.headers, map) : [];
+  // Without these the file can't make cases at all: every one would need them typed by hand.
+  const coreMissing = missing.filter((c) => CORE_COLUMNS.includes(c.key));
   // Rows that won't become cases (nothing identifies them, or they repeat one): left out
   // of this batch, and downloadable to fix. Everything else becomes a case.
   const cannot = React.useMemo<RowProblem[]>(
@@ -313,7 +318,13 @@ export function UploadScreen() {
     try {
       if (files.length > 1 && !docs)
         throw new Error("Upload one Excel file, or Word files and PDFs only.");
-      const b = docs ? await readDocuments() : await readWorkbook(file);
+      const b = docs
+        ? await readDocuments()
+        : await readWorkbook(file).catch(() => {
+            throw new Error(
+              `We couldn't read ${file.name}. It may be damaged or protected by a password. Open it in Excel, save a copy as .xlsx without a password, and upload that.`,
+            );
+          });
       if (!b.cases.rows.length)
         throw new Error("No case rows were found in this file.");
       // A corrected file in the same layout keeps the columns already matched.
@@ -662,7 +673,17 @@ export function UploadScreen() {
             }
           />
           {errorNotice}
-          {missing.length ? (
+          {coreMissing.length ? (
+            <StatusLine tone="error" still title="This file can't make cases">
+              It has no column for{" "}
+              {new Intl.ListFormat("en", { type: "disjunction" }).format(
+                coreMissing.map((c) => c.header.toLowerCase()),
+              )}
+              , and every case needs {coreMissing.length === 1 ? "it" : "them"} from the file.
+              Match {coreMissing.length === 1 ? "it" : "them"} on Match columns, or upload a file
+              that has {coreMissing.length === 1 ? "it" : "them"}.
+            </StatusLine>
+          ) : missing.length ? (
             <StatusLine
               tone="warning"
               still
@@ -801,7 +822,7 @@ export function UploadScreen() {
             ) : null
           }
           onContinue={() => void create()}
-          continueDisabled={busy || creating === 0}
+          continueDisabled={busy || creating === 0 || coreMissing.length > 0}
           continueLabel={busy ? "Creating batch…" : `Create ${creating} case${creating === 1 ? "" : "s"}`}
         />
       </>
