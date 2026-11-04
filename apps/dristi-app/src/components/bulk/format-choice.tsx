@@ -75,9 +75,9 @@ export function FormatChoice({
       <button
         type="button"
         onClick={() => onChoose("template")}
-        className="group flex min-w-0 flex-col gap-5 rounded-xl border border-primary bg-card p-6 text-left shadow-raised transition-colors outline-none hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="group flex min-w-0 flex-col gap-6 rounded-xl border border-primary bg-card p-6 text-left shadow-raised transition-colors outline-none hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50"
       >
-        <span className="flex items-center justify-center rounded-lg bg-brand-muted p-5">
+        <span className="flex items-center justify-center rounded-lg bg-brand-muted p-6">
           <SheetArt headers={TEMPLATE_HEADERS} ours />
         </span>
         <Badge variant="success" className="w-fit">
@@ -107,9 +107,9 @@ export function FormatChoice({
       <button
         type="button"
         onClick={() => onChoose("own")}
-        className="group flex min-w-0 flex-col gap-5 rounded-xl border border-hairline bg-card p-6 text-left transition-colors outline-none hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="group flex min-w-0 flex-col gap-6 rounded-xl border border-hairline bg-card p-6 text-left transition-colors outline-none hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50"
       >
-        <span className="flex items-center justify-center rounded-lg bg-surface-sunken p-5">
+        <span className="flex items-center justify-center rounded-lg bg-surface-sunken p-6">
           <SheetArt headers={OWN_HEADERS} ours={false} />
         </span>
         <span className="flex flex-wrap items-center gap-2">
