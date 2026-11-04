@@ -3,7 +3,8 @@ import { test } from "node:test";
 
 import { createBlankDraft } from "../filing/blank";
 
-import { applyFix, editable } from "./actions.server";
+import { applyFix, editable, removeCase } from "./actions.server";
+import type { Batch } from "./types";
 
 test("fixes write the field and redo what hangs off it", async () => {
   const d = createBlankDraft("t", null);
@@ -27,4 +28,15 @@ test("only listed fields can be written", () => {
   assert.ok(editable("notices.0.delivered"));
   assert.ok(!editable("sign.paid"));
   assert.ok(!editable("status"));
+});
+
+test("a case leaves its batch unless it is signed or filed", () => {
+  const one = (id: string) => ({ id, reference: id, draft: createBlankDraft(id, null), skipped: [], noContactDeclared: [] });
+  const batch = { cases: [one("a"), one("b"), one("c")] } as unknown as Batch;
+  assert.equal(removeCase(batch, "b"), null);
+  assert.deepEqual(batch.cases.map((c) => c.id), ["a", "c"]);
+  (batch.cases[0] as { signedWith?: string }).signedWith = "dsc";
+  assert.match(removeCase(batch, "a") ?? "", /signed or filed/);
+  assert.match(removeCase(batch, "x") ?? "", /not in this batch/);
+  assert.equal(batch.cases.length, 2);
 });

@@ -427,6 +427,20 @@ export function signable(batch: Batch): BatchCase[] {
   );
 }
 
+/**
+ * Take a case out of its batch, for one that won't be filed (PM review, 2026-11-03: a
+ * simple way to unblock the rest). Gone from the batch and every count; a signed or filed
+ * case can't be taken out. Returns the problem, or null when it was removed.
+ */
+export function removeCase(batch: Batch, caseId: string): string | null {
+  const at = batch.cases.findIndex((c) => c.id === caseId);
+  if (at < 0) return "That case is not in this batch.";
+  const bc = batch.cases[at];
+  if (bc.draft.status === "filed" || bc.signedWith) return "A signed or filed case can't be removed.";
+  batch.cases.splice(at, 1);
+  return null;
+}
+
 /** How many OTP rounds a method needs for `n` cases. */
 export function roundsFor(method: BulkSignMethod, n: number): number {
   return method === "aadhaar" ? Math.ceil(n / AADHAAR_DOCS_PER_OTP) : 1;

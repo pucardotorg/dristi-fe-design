@@ -16,6 +16,7 @@ import {
   draftForScreen,
   editable,
   payCases,
+  removeCase,
   replaceDraft,
   roundsFor,
   signable,
@@ -197,7 +198,8 @@ export type Action =
   | { action: "declare-no-contact"; caseId: string; accusedId: string }
   | { action: "part"; caseId: string; op: "add" | "remove"; part: Part; accused?: number }
   | { action: "sign"; caseIds: string[]; method: BulkSignMethod; round?: number }
-  | { action: "pay"; caseIds: string[] };
+  | { action: "pay"; caseIds: string[] }
+  | { action: "remove"; caseId: string };
 
 const METHODS: BulkSignMethod[] = ["mobile-otp", "dsc", "aadhaar", "upload"];
 
@@ -244,6 +246,10 @@ export async function act(store: BulkStore, batchId: string, body: Action & { ai
           return null;
         }
         problem = changePart(bc.draft, body.op, body.part, body.accused ?? 0);
+        return problem ? null : batch;
+      }
+      case "remove": {
+        problem = removeCase(batch, body.caseId);
         return problem ? null : batch;
       }
       case "declare-no-contact": {

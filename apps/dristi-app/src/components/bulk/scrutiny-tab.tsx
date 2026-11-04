@@ -7,6 +7,7 @@ import {
   ChevronRightIcon,
   CircleAlertIcon,
   OctagonAlertIcon,
+  Trash2Icon,
   Undo2Icon,
 } from "lucide-react";
 
@@ -14,6 +15,7 @@ import type { Flag } from "@/lib/bulk/scrutiny";
 import { money } from "@/lib/filing/format";
 import { cn } from "@/lib/utils";
 import { FilingFooter } from "@/components/filing/filing-footer";
+import { ConfirmDialog } from "@/components/shell/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -120,6 +122,7 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
   );
   const ordered = [...open].sort((a, b) => rankOf(a) - rankOf(b));
   const [show, setShow] = React.useState<Show>("all");
+  const [removing, setRemoving] = React.useState<CaseView | null>(null);
   const listed = ordered.filter(
     (c) => show === "all" || RANK[rankOf(c)] === show,
   );
@@ -201,11 +204,11 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
             const holds = f.filter((x) => x.level === "hold").length;
             const first = f.find((x) => x.level === "hold") ?? f[0];
             return (
-              <li key={c.id}>
+              <li key={c.id} className="flex items-center">
                 <Link
                   href={caseFlowHref(batch.id, c, undefined, ai)}
                   aria-current={c.id === last ? "true" : undefined}
-                  className="flex min-h-10 items-center gap-4 px-4 py-3 transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-focus-ring focus-visible:outline-none focus-visible:ring-inset aria-[current=true]:bg-accent"
+                  className="flex min-h-10 min-w-0 flex-1 items-center gap-4 py-3 pr-2 pl-4 transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-focus-ring focus-visible:outline-none focus-visible:ring-inset aria-[current=true]:bg-accent"
                 >
                   <span className="flex min-w-0 flex-1 flex-col">
                     <span className="text-body-compact font-medium">
@@ -229,6 +232,20 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
                     className="size-4 shrink-0 text-muted-foreground"
                   />
                 </Link>
+                {/* For a case that won't be filed: out of the batch, so the rest go on. */}
+                {!closed ? (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="mx-2 shrink-0 text-muted-foreground"
+                    aria-label={`Remove ${c.title} from this batch`}
+                    title="Remove from this batch"
+                    disabled={busy}
+                    onClick={() => setRemoving(c)}
+                  >
+                    <Trash2Icon aria-hidden />
+                  </Button>
+                ) : null}
               </li>
             );
           })}
@@ -267,6 +284,25 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
           </Card>
         </section>
       ) : null}
+
+      <ConfirmDialog
+        open={!!removing}
+        onOpenChange={(o) => {
+          if (!o) setRemoving(null);
+        }}
+        title="Remove this case from the batch?"
+        description={
+          removing
+            ? `${removing.title} · ${removing.reference} won't be filed with this batch.`
+            : undefined
+        }
+        confirmLabel="Remove"
+        cancelLabel="Back"
+        onConfirm={() => {
+          if (removing) void act({ action: "remove", caseId: removing.id });
+          setRemoving(null);
+        }}
+      />
 
       <FilingFooter
         showSaveState={false}
