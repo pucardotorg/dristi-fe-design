@@ -14,8 +14,8 @@ export type Option = { value: string; label: string };
 export const CASE_TYPE = {
   code: "s138",
   short: "S-138, NI Act",
-  /** The case-type column's label (owner, 2026-10-08). */
-  label: "S138 of NIA",
+  /** The case-type column's label, on every table that has one (owner, 2026-11-04). */
+  label: "S138/NIA",
   title: "Section 138 of Negotiable Instruments Act",
   offence: "Section 138, Negotiable Instruments Act, 1881",
   /** "Complaint under …" — the screen-length form of the proceeding's title. */
@@ -32,8 +32,8 @@ export const CASE_TYPE = {
 export const PSS_CASE_TYPE = {
   code: "pss25",
   short: "S-25, PSS Act",
-  /** The case-type column's label (owner, 2026-10-08). */
-  label: "S25 of PSA",
+  /** The case-type column's label, in the same form as S138/NIA (2026-11-04). */
+  label: "S25/PSA",
   title: "Section 25 of Payment and Settlement Systems Act",
   offence: "Section 25, Payment and Settlement Systems Act, 2007",
 } as const;

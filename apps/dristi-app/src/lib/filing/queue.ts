@@ -67,7 +67,7 @@ export type QueueRow = {
   info: { lead: string; sub?: string; tone: InfoTone };
   /** A count the info column shows as a chip instead of `info.lead`. Returned rows. */
   count?: number;
-  /** The case type's short label — "S138 of NIA". Every tab. */
+  /** The case type's short label — "S138/NIA". Every tab. */
   caseType?: string;
   /** When the draft was last touched. Drafts only. */
   progress?: { savedOn: string };
@@ -108,8 +108,8 @@ export type ColumnId =
 /**
  * What each tab actually shows.
  *
- * Every tab carries a Case type column now that there is more than one (S138 of NIA,
- * S25 of PSA — owner, 2026-10-08). Court is gone from drafts — a draft has not chosen one.
+ * Every tab carries a Case type column now that there is more than one (S138/NIA,
+ * S25/PSA — owner, 2026-10-08). Court is gone from drafts — a draft has not chosen one.
  *
  * Drafts split what used to be one "Time to file" cell into two questions a person asks
  * separately: by when (File by — the limitation date, or NA while the clock cannot start)
@@ -272,7 +272,7 @@ function enteredSigning(draft: FilingDraft): boolean {
   return draft.sign.requestedAt !== null || draft.sign.mode === "upload";
 }
 
-/** "S138 of NIA" / "S25 of PSA" — the Case type column, on every tab. */
+/** "S138/NIA" / "S25/PSA" — the Case type column, on every tab. */
 function caseTypeLabel(draft: FilingDraft): string {
   return draft.caseType === PSS_CASE_TYPE.code ? PSS_CASE_TYPE.label : CASE_TYPE.label;
 }
