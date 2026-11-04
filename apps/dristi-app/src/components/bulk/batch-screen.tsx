@@ -211,6 +211,8 @@ export function BatchScreen({ batchId }: { batchId: string }) {
           ]
         : null;
   const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  // Documents: cases with a file still to add, apart from scans that only need a look.
+  const lacking = open.filter((c) => c.docs.have < c.docs.need).length;
   // Of those with something open, the ones held until fixed (the rest are checks to look at).
   const fixing = open.filter((c) =>
     c.flags.some(
@@ -230,7 +232,11 @@ export function BatchScreen({ batchId }: { batchId: string }) {
       : attention
         ? `${plural(attention, "case", "cases")} to check`
         : "Every case's details are complete",
-    documents: docsMissing ? `${plural(docsMissing, "case is", "cases are")} missing documents` : "Documents",
+    documents: lacking
+      ? `${plural(lacking, "case is", "cases are")} missing documents`
+      : docsMissing
+        ? `${plural(docsMissing, "case has a scan", "cases have scans")} to check`
+        : "Every document is in",
     review: "Review",
     sign: clear ? `Sign ${plural(clear, "case", "cases")}` : "Sign",
     pay: batch.counts.signed ? `Pay for ${plural(batch.counts.signed, "case", "cases")}` : "Pay",
