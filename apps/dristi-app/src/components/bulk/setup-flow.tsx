@@ -52,7 +52,7 @@ export function setupHref(setupId: string, step: StepId): string {
 }
 
 /** The upload's own steps after the sections: the file, matching, review. */
-export type UploadStep = "file" | "map" | "values" | "review";
+export type UploadStep = "format" | "file" | "map" | "values" | "review";
 
 /** One of the upload's own steps. */
 export function uploadHref(setupId: string, step: UploadStep = "file", ai?: string | null): string {
@@ -73,6 +73,8 @@ export type UploadState = {
   matchValues: boolean;
   /** Reading case documents rather than a sheet (AI). */
   documents: boolean;
+  /** Template or own file, once chosen (`format-choice.tsx`). */
+  format: "template" | "own" | null;
 };
 
 const UploadStateContext = React.createContext<(s: UploadState) => void>(() => undefined);
@@ -97,6 +99,7 @@ export function BulkSetupFlow({
     matchColumns: false,
     matchValues: false,
     documents: false,
+    format: null,
   });
   const onFile = pathname.endsWith("/file");
   const uploadStep = (onFile ? params.get("step") ?? "file" : null) as UploadStep | null;
@@ -248,13 +251,18 @@ function SetupSteps({
     { id: "documents", title: "Documents for every case", href: setupHref(setupId, "documents") },
   ];
   const caseStages: Stage[] = [
+    { id: "format", title: "Choose a format", href: uploadHref(setupId, "format", ai), done: !!upload.format },
     { id: "file", title: upload.documents ? "Case documents" : "Excel file", href: uploadHref(setupId, "file", ai), done: upload.read },
     ...(upload.matchColumns ? [{ id: "map", title: "Match columns", href: upload.read ? uploadHref(setupId, "map", ai) : undefined }] : []),
     ...(upload.matchValues ? [{ id: "values", title: "Match values", href: upload.read ? uploadHref(setupId, "values", ai) : undefined }] : []),
     { id: "review", title: "Check", href: upload.read ? uploadHref(setupId, "review", ai) : undefined },
   ];
   const stages = inCases ? caseStages : commonStages;
-  const current = inCases ? uploadStep : (step ?? "complainant");
+  const current = inCases
+    ? uploadStep === "file" && !upload.format && !upload.read
+      ? "format"
+      : uploadStep
+    : (step ?? "complainant");
   const at = stages.findIndex((x) => x.id === current);
   return (
     <>

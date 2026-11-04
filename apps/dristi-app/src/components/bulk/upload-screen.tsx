@@ -83,6 +83,7 @@ import {
 } from "@/lib/filing/details-formats";
 import { BatchParties, type Adr } from "./batch-parties";
 import { FileDrop } from "./file-drop";
+import { FormatChoice, type UploadFormat } from "./format-choice";
 import { bulkFetch } from "./api";
 import { setupHref, uploadHref, useReportUploadState, type UploadStep } from "./setup-flow";
 import { StatusMark } from "@/components/feedback";
@@ -106,6 +107,18 @@ function downloadRows(book: Workbookish, rows: RowProblem[], fileName: string) {
 
 /** A file without a column for any of these can't make cases (owner and PM, 2026-11-04). */
 const CORE_COLUMNS = ["accusedName", "chequeNumber", "chequeAmount"];
+
+/** A numbered step of the template's two (download, fill and upload). */
+function StepNumber({ n }: { n: number }) {
+  return (
+    <span
+      aria-hidden
+      className="flex size-7 items-center justify-center rounded-full bg-brand-muted text-body-compact font-semibold text-brand-muted-foreground"
+    >
+      {n}
+    </span>
+  );
+}
 
 /** The demo spreadsheets the upload offers, from `public/samples/` (`scripts/bulk-demo-files.mts`). */
 const SAMPLES = [
@@ -246,7 +259,14 @@ export function UploadScreen() {
   // that needs a file read falls back to the file until there is one.
   const search = useSearchParams();
   const asked = search.get("step") as UploadStep | null;
-  const step: UploadStep = book && asked && ["map", "values", "review"].includes(asked) ? asked : "file";
+  // Template or own file, chosen first; kept while the upload is open.
+  const [format, setFormat] = React.useState<UploadFormat | null>(null);
+  const step: UploadStep =
+    asked === "format" || (!format && !book)
+      ? "format"
+      : book && asked && ["map", "values", "review"].includes(asked)
+        ? asked
+        : "file";
   const setStep = (s: UploadStep) => router.push(uploadHref(setupId, s, search.get("ai")));
   const [map, setMap] = React.useState<ColumnMap>({});
   const [counts, setCounts] = React.useState<InstanceCounts>({});
@@ -308,8 +328,8 @@ export function UploadScreen() {
   const matchColumns = !!book && !(template || docs);
   const matchValues = unknownLists.length > 0;
   React.useEffect(() => {
-    report({ read: !!book, matchColumns, matchValues, documents: docs });
-  }, [report, book, matchColumns, matchValues, docs]);
+    report({ read: !!book, matchColumns, matchValues, documents: docs, format });
+  }, [report, book, matchColumns, matchValues, docs, format]);
 
   const read = async () => {
     if (!file) return;
@@ -485,13 +505,60 @@ export function UploadScreen() {
   const backFromReview: UploadStep = unknownLists.length ? "values" : template || docs ? "file" : "map";
   const PREVIEW = ["reference", "accusedName", "chequeNumber", "chequeAmount", "returnReason", "dispatchDate"];
 
-  if (step === "file")
+  if (step === "format")
+    return (
+      <>
+        <FilingMain width="wide">
+          <FilingPageHeader
+            title="How will you send the cases?"
+            description="One Excel row is one case. Each upload becomes its own batch."
+          />
+          <FormatChoice
+            onChoose={(f) => {
+              if (f !== format) setFiles([]);
+              setFormat(f);
+              setStep("file");
+            }}
+          />
+          {ai === "on" ? (
+            <p className="flex flex-wrap items-center gap-x-1 text-body-compact text-muted-foreground">
+              Have one Word file or PDF per case instead?
+              <Button
+                variant="link"
+                className="px-0 underline"
+                onClick={() => {
+                  setFormat("own");
+                  setStep("file");
+                }}
+              >
+                Upload case documents
+              </Button>
+            </p>
+          ) : null}
+        </FilingMain>
+        {/* The choice is the cards themselves; the footer only waits for it. */}
+        <FilingFooter
+          showSaveState={false}
+          backHref={setupHref(setupId, "documents")}
+          continueBlocked
+          continueHint="Choose how you'll send the cases"
+        />
+      </>
+    );
+
+  if (step === "file") {
+    const template = format === "template";
+    const sample = SAMPLES[template ? 0 : 1];
     return (
       <>
         <FilingMain>
           <FilingPageHeader
-            title={ai === "on" ? "Excel file or case documents" : "Excel file"}
-            description="One row per case. Each upload becomes its own batch; the cases arrive as drafts and their documents are added after."
+            title={template ? "Upload the filled template" : ai === "on" ? "Upload your Excel or case documents" : "Upload your Excel"}
+            description={
+              template
+                ? "The cases go straight in. Every row is checked as soon as the file is read."
+                : "Upload it as it comes from your system. You match its columns next."
+            }
           />
           {errorNotice}
           {reading ? (
@@ -499,52 +566,76 @@ export function UploadScreen() {
           ) : (
             <Card variant="raised">
               <CardContent className="flex flex-col gap-6">
+                {template ? (
+                  <ol className="grid gap-6 sm:grid-cols-2">
+                    <li className="flex flex-col gap-3">
+                      <StepNumber n={1} />
+                      <span className="text-body-compact font-medium">Download the template</span>
+                      <span className="text-body-compact text-muted-foreground">
+                        A column for every case detail, with an example row and the court&apos;s
+                        lists built in.
+                      </span>
+                      <Button variant="outline" className="w-fit" onClick={() => void downloadTemplate()}>
+                        <DownloadIcon data-icon="inline-start" aria-hidden />
+                        Download template
+                      </Button>
+                    </li>
+                    <li className="flex flex-col gap-3">
+                      <StepNumber n={2} />
+                      <span className="text-body-compact font-medium">Fill one row per case, then upload it</span>
+                      <span className="text-body-compact text-muted-foreground">
+                        Leave a cell blank if you don&apos;t have it yet. You can complete it on
+                        Case details.
+                      </span>
+                    </li>
+                  </ol>
+                ) : null}
                 <Field className="gap-1.5">
                   <FieldLabel htmlFor="sheet">
-                    {ai === "on" ? "Excel file, or one document per case" : "Excel file"}
+                    {template ? "Filled template" : ai === "on" ? "Your Excel, or one document per case" : "Your Excel file"}
                   </FieldLabel>
                   <FileDrop
                     id="sheet"
-                    accept={ai === "on" ? ".xlsx,.csv,.docx,.pdf,.txt" : ".xlsx,.csv"}
-                    multiple={ai === "on"}
+                    accept={ai === "on" && !template ? ".xlsx,.csv,.docx,.pdf,.txt" : ".xlsx,.csv"}
+                    multiple={ai === "on" && !template}
                     files={files}
                     onFiles={setFiles}
-                    prompt={ai === "on" ? "Drag your Excel file or case documents here" : "Drag your Excel file here"}
-                    hint={ai === "on" ? ".xlsx or .csv, or Word and PDF files" : ".xlsx or .csv"}
+                    prompt={template ? "Drag the filled template here" : ai === "on" ? "Drag your Excel file or case documents here" : "Drag your Excel file here"}
+                    hint={ai === "on" && !template ? ".xlsx or .csv, or Word and PDF files" : ".xlsx or .csv"}
                   />
-                  <span className="text-caption text-muted-foreground">
-                    The template&apos;s columns go straight in. Any other layout is matched on the
-                    next step.
-                  </span>
                 </Field>
-                {/* Demo: the two sample spreadsheets, one click away instead of on disk. */}
-                <div className="flex flex-col gap-2">
-                  <span className="text-body-compact text-muted-foreground">Or try a sample file</span>
-                  <div className="flex flex-wrap gap-2">
-                    {SAMPLES.map((x) => (
-                      <Button
-                        key={x.key}
-                        variant="outline"
-                        disabled={busy || sampling !== null}
-                        onClick={() => void chooseSample(x.key)}
-                      >
-                        {sampling === x.key ? (
-                          <Spinner data-icon="inline-start" />
-                        ) : (
-                          <FileSpreadsheetIcon data-icon="inline-start" aria-hidden />
-                        )}
-                        {x.label}
-                      </Button>
-                    ))}
-                  </div>
+                {/* Demo: the matching sample spreadsheet, one click away instead of on disk. */}
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="text-body-compact text-muted-foreground">No file to hand?</span>
+                  <Button
+                    variant="outline"
+                    disabled={busy || sampling !== null}
+                    onClick={() => void chooseSample(sample.key)}
+                  >
+                    {sampling === sample.key ? (
+                      <Spinner data-icon="inline-start" />
+                    ) : (
+                      <FileSpreadsheetIcon data-icon="inline-start" aria-hidden />
+                    )}
+                    {template ? "Try a filled sample" : "Try a sample of a lender's export"}
+                  </Button>
                 </div>
-                <Button variant="outline" className="w-fit" onClick={() => void downloadTemplate()}>
-                  <DownloadIcon data-icon="inline-start" aria-hidden />
-                  Download template
-                </Button>
               </CardContent>
             </Card>
           )}
+          <p className="flex flex-wrap items-center gap-x-1 text-body-compact text-muted-foreground">
+            {template ? "Have a file from your own system instead?" : "The template is quicker and needs no matching."}
+            <Button
+              variant="link"
+              className="px-0 underline"
+              onClick={() => {
+                setFiles([]);
+                setFormat(template ? "own" : "template");
+              }}
+            >
+              {template ? "Use your own Excel" : "Use the template instead"}
+            </Button>
+          </p>
           <Card variant="raised">
             <CardHeader>
               <CardTitle className="text-body font-semibold">The same for every case in the file</CardTitle>
@@ -559,13 +650,14 @@ export function UploadScreen() {
         </FilingMain>
         <FilingFooter
           showSaveState={false}
-          backHref={setupHref(setupId, "documents")}
+          onBack={() => setStep("format")}
           onContinue={() => void read()}
           continueDisabled={!file || busy}
-          continueLabel={busy ? "Reading…" : "Continue"}
+          continueLabel={busy ? "Reading…" : template ? "Continue" : "Match columns"}
         />
       </>
     );
+  }
 
   if (step === "map" && book)
     return (
