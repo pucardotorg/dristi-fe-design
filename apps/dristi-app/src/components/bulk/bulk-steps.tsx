@@ -70,7 +70,11 @@ export function BulkStepRow({
             <StepperItem
               key={s.id}
               step={i + 1}
-              title={s.title}
+              // Six titles don't fit a phone: there only the current step keeps its words,
+              // the rest stay for screen readers.
+              title={
+                m.status === "current" ? s.title : <span className="max-sm:sr-only">{s.title}</span>
+              }
               status={m.status}
               aria-current={m.status === "current" ? "step" : undefined}
               onActivate={open ? () => router.push(open) : undefined}
@@ -79,7 +83,7 @@ export function BulkStepRow({
               {m.note ? (
                 <span
                   className={cn(
-                    "block text-body-compact tabular-nums",
+                    "block text-body-compact tabular-nums max-sm:sr-only",
                     m.tone === "ready" ? "text-muted-foreground" : "text-warning-ink",
                   )}
                 >
