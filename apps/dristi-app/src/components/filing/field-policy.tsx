@@ -53,6 +53,12 @@ export type FieldPolicy = {
    * matching, review) without leaving the filing's frame.
    */
   hostSteps?: { group: string; steps: HostStep[] };
+  /**
+   * `false` where the host reads nothing from an uploaded document, so there is no source
+   * to show: the source rail, "View source document" and the per-field source buttons are
+   * left out. Bulk filing's Common details enters the batch's parties by hand.
+   */
+  sources?: false;
 };
 
 /** A host step in the sections rail. */
@@ -81,6 +87,11 @@ export function FieldPolicyProvider({
 
 export function useFieldPolicy(): FieldPolicy | null {
   return React.useContext(FieldPolicyContext);
+}
+
+/** The host has no source documents here (`FieldPolicy.sources`). */
+export function useSourcesOff(): boolean {
+  return React.useContext(FieldPolicyContext)?.sources === false;
 }
 
 /**

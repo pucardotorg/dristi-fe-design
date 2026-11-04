@@ -4,6 +4,7 @@ import * as React from "react";
 import { FileSearchIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSourceFieldLabel } from "@/components/filing/form-field";
+import { useSourcesOff } from "@/components/filing/field-policy";
 
 import type { Option } from "@/lib/filing/options";
 import { cn } from "@/lib/utils";
@@ -48,7 +49,8 @@ import { useSourceDock } from "@/hooks/use-min-width";
 export function useSourceDocked() {
   const wide = useSourceDock();
   const inCorrection = useInCorrection();
-  return wide && !inCorrection;
+  const off = useSourcesOff();
+  return wide && !inCorrection && !off;
 }
 
 /** Shared filing composition: editing and inspecting provenance are separate actions. */
@@ -58,7 +60,8 @@ export function SourceField({ children, onViewSource, disabled }: {
   disabled?: boolean;
 }) {
   const label = useSourceFieldLabel();
-  if (!onViewSource) return children;
+  const off = useSourcesOff();
+  if (!onViewSource || off) return children;
   return (
     <div className="flex min-w-0 items-start gap-2">
       <div className="min-w-0 flex-1">{children}</div>

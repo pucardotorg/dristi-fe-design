@@ -38,6 +38,7 @@ import { TOP_BAR_HEIGHT } from "@/components/filing/chrome";
 import { useChrome } from "@/components/shell/chrome";
 import { useSourceRailSlot } from "@/components/filing/filing-shell";
 import { useInCorrection } from "@/components/filing/posture";
+import { useSourcesOff } from "@/components/filing/field-policy";
 import { Lightbox } from "@/components/filing/lightbox";
 
 export type SourceChip = { label: string; active: boolean; onClick: () => void };
@@ -99,9 +100,10 @@ export type SourcePanelProps = {
 export function useSourceOpenState(): [boolean, (open: boolean) => void] {
   const wide = useSourceDock();
   const inCorrection = useInCorrection();
+  const off = useSourcesOff();
   const docked = wide && !inCorrection;
   const [sheetOpen, setSheetOpen] = React.useState(false);
-  return [docked || sheetOpen, setSheetOpen];
+  return [!off && (docked || sheetOpen), setSheetOpen];
 }
 
 /**
@@ -119,6 +121,8 @@ export function useSourceOpenState(): [boolean, (open: boolean) => void] {
  * the upload, and no chip, filename or preview is drawn for a file that does not exist.
  */
 export function SourcePanel(props: SourcePanelProps) {
+  // Hooks run before the early return below, in the same order every render.
+  const off = useSourcesOff();
   /*
    * In a correction round the screen already spends its width on three panes (sections,
    * form, resolution queue), so the source rail gives up its column and stays a sheet —
@@ -136,12 +140,14 @@ export function SourcePanel(props: SourcePanelProps) {
    * its labels for it rather than the form its width — once, so a person who puts the
    * labels back is not overruled on the next render.
    */
-  const crowded = docked && !roomy;
+  const crowded = docked && !roomy && !off;
   const wasCrowded = React.useRef(false);
   React.useEffect(() => {
     if (crowded && !wasCrowded.current) foldNav();
     wasCrowded.current = crowded;
   }, [crowded, foldNav]);
+
+  if (off) return null;
 
   if (docked && slot) {
     return createPortal(
@@ -359,6 +365,8 @@ export function ViewSourceButton({
   onClick: () => void;
   className?: string;
 }) {
+  const off = useSourcesOff();
+  if (off) return null;
   return (
     <Button
       type="button"
