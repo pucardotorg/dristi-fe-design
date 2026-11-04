@@ -97,7 +97,13 @@ export function BulkStepRow({
   );
 }
 
-/** The pinned second row: a step's stages, with the one on screen raised. */
+/**
+ * The pinned second row: the current step's stages, as a child of that step. It is a tray
+ * in the current step's own tint (the DS stepper draws the current circle in brand-muted),
+ * with a pointer up to that circle, so it reads as "inside step 2" rather than as a second
+ * bar. Inside, the stages are a small stepper of their own: done in primary, the one on
+ * screen raised, the rest still to come.
+ */
 export function BulkStageRow({
   step,
   stages,
@@ -111,72 +117,79 @@ export function BulkStageRow({
 }) {
   const n = BULK_STEPS.findIndex((s) => s.id === step);
   const title = BULK_STEPS[n].title;
-  return (
-    <PinnedRow className={className}>
-      <nav aria-label={`Stages of ${title}`} className="flex items-center gap-3 overflow-x-auto py-2">
-        <span className="shrink-0 text-body-compact font-medium text-muted-foreground">
-          Step {n + 1} · {title}
-        </span>
-        <ol className="flex items-center gap-1">
-          {stages.map((s, i) => {
-            const here = s.id === current;
-            const mark = s.done && !here ? (
-              <CircleCheckIcon className="size-4 text-success-ink" aria-hidden />
-            ) : (
-              <span
-                aria-hidden
-                className={cn(
-                  "size-2.5 shrink-0 rounded-full border",
-                  here ? "border-primary bg-primary" : "border-input",
-                )}
-              />
-            );
-            const cls = cn(
-              "inline-flex h-9 items-center gap-2 rounded-lg px-2.5 text-body-compact whitespace-nowrap transition-colors",
-              here
-                ? "bg-card font-semibold text-foreground shadow-raised"
-                : s.href
-                  ? "text-foreground hover:bg-accent"
-                  : "text-muted-foreground",
-            );
-            return (
-              <React.Fragment key={s.id}>
-                {i ? (
-                  <li aria-hidden className="text-muted-foreground">
-                    ›
-                  </li>
-                ) : null}
-                <li className="shrink-0">
-                  {s.href && !here ? (
-                    <Link href={s.href} className={cls}>
-                      {mark}
-                      {s.title}
-                      {s.done ? <span className="sr-only">, done</span> : null}
-                    </Link>
-                  ) : (
-                    <span className={cls} aria-current={here ? "step" : undefined}>
-                      {mark}
-                      {s.title}
-                    </span>
-                  )}
-                </li>
-              </React.Fragment>
-            );
-          })}
-        </ol>
-      </nav>
-    </PinnedRow>
-  );
-}
-
-/** A strip pinned under the top bar, across the content column. */
-export function PinnedRow({ children, className }: { children: React.ReactNode; className?: string }) {
+  const at = stages.findIndex((s) => s.id === current);
   return (
     <div
-      className={cn("sticky z-20 border-y border-hairline bg-surface-sunken px-6 lg:px-12", className)}
+      className={cn("sticky z-20 border-b border-hairline bg-card px-6 pb-3 lg:px-12", className)}
       style={{ top: TOP_BAR_HEIGHT }}
     >
-      <div className="w-full max-w-5xl">{children}</div>
+      {/* The stepper's own width, so the pointer lands under the current circle. */}
+      <div className="relative w-full max-w-4xl">
+        <span
+          aria-hidden
+          className="absolute -top-1.5 size-3 rotate-45 rounded-xs bg-brand-muted"
+          style={{ left: `calc(${((n + 0.5) / BULK_STEPS.length) * 100}% - 0.375rem)` }}
+        />
+        <nav
+          aria-label={`Stages of step ${n + 1}, ${title}`}
+          className="relative flex items-center gap-3 overflow-x-auto rounded-lg bg-brand-muted px-2 py-1.5 text-brand-muted-foreground"
+        >
+          <span className="shrink-0 pl-1 text-body-compact font-semibold">
+            <span className="sr-only">Step </span>
+            {n + 1}. {title}
+          </span>
+          <span aria-hidden className="h-5 w-px shrink-0 bg-primary/25" />
+          <ol className="flex items-center">
+            {stages.map((s, i) => {
+              const here = i === at;
+              const done = s.done && !here;
+              const mark = done ? (
+                <CircleCheckIcon className="size-4 shrink-0 text-primary" aria-hidden />
+              ) : (
+                <span
+                  aria-hidden
+                  className={cn(
+                    "size-2.5 shrink-0 rounded-full border-2",
+                    here ? "border-primary bg-primary" : "border-primary/40",
+                  )}
+                />
+              );
+              const cls = cn(
+                "inline-flex h-8 items-center gap-2 rounded-md px-2.5 text-body-compact whitespace-nowrap transition-colors",
+                here
+                  ? "bg-card font-semibold text-foreground shadow-raised"
+                  : s.href
+                    ? "hover:bg-brand-muted-hover"
+                    : "",
+              );
+              return (
+                <React.Fragment key={s.id}>
+                  {i ? (
+                    <li
+                      aria-hidden
+                      className={cn("h-px w-4 shrink-0", i <= at ? "bg-primary" : "bg-primary/25")}
+                    />
+                  ) : null}
+                  <li className="shrink-0">
+                    {s.href && !here ? (
+                      <Link href={s.href} className={cls}>
+                        {mark}
+                        {s.title}
+                        {done ? <span className="sr-only">, done</span> : null}
+                      </Link>
+                    ) : (
+                      <span className={cls} aria-current={here ? "step" : undefined}>
+                        {mark}
+                        {s.title}
+                      </span>
+                    )}
+                  </li>
+                </React.Fragment>
+              );
+            })}
+          </ol>
+        </nav>
+      </div>
     </div>
   );
 }

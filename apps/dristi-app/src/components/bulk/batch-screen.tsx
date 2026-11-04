@@ -224,8 +224,8 @@ export function BatchScreen({ batchId }: { batchId: string }) {
   return (
     <div className="flex w-full flex-1 flex-col">
       {/* The batch page's own gutter (`PAGE_GUTTER`), so the steps line up with the page. */}
-      <BulkStepRow marks={marks} className="border-b border-hairline md:px-8 lg:px-8" />
-      {stages ? <BulkStageRow step={step} stages={stages} current={tab} className="border-t-0 md:px-8 lg:px-8" /> : null}
+      <BulkStepRow marks={marks} className={cn("md:px-8 lg:px-8", !stages && "border-b border-hairline")} />
+      {stages ? <BulkStageRow step={step} stages={stages} current={tab} className="md:px-8 lg:px-8" /> : null}
       <div
         className={cn(
           "flex w-full flex-1 flex-col gap-6",
