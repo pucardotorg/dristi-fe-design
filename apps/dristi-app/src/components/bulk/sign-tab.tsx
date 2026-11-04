@@ -57,6 +57,8 @@ import {
 import { bulkApi, type CaseView } from "./api";
 import type { BatchCtx } from "./batch-screen";
 import { FileDrop } from "./file-drop";
+import { PaperFallbackLink, PaperFallbackQuestion } from "@/components/filing/paper-fallback";
+import type { PaperFallbackReason } from "@/lib/filing/types";
 import { OutcomeHeader, StatusLine, StatusMark } from "@/components/feedback";
 
 type Signer = { id: string; name: string; role: string; mobile?: string };
@@ -270,7 +272,7 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
               <RadioGroup
-                value={method}
+                value={method === "upload" ? "" : method}
                 onValueChange={(v) => setMethod(v as BulkSignMethod)}
                 className="gap-2"
                 aria-label="Signing method"
@@ -364,27 +366,29 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
                     </label>
                   );
                 })}
-                {/* The manual route, kept but not offered as an equal: one quiet line. */}
-                <label className="flex min-h-10 cursor-pointer items-center gap-3 rounded-lg px-4 text-body-compact text-muted-foreground hover:bg-accent has-[[data-state=checked]]:text-foreground">
-                  <RadioGroupItem
-                    value="upload"
-                    id="sign-upload"
-                    aria-label="Upload signed copies (print, sign by hand, scan)"
-                  />
-                  <span>
-                    Or upload signed copies (print, sign by hand, scan)
-                  </span>
-                </label>
               </RadioGroup>
 
               <Button
                 size="lg"
                 disabled={chosen.length === 0 || !!batch.clubbedInto}
-                onClick={() => setFlowOpen(true)}
+                onClick={() => {
+                  if (method === "upload") setMethod("mobile-otp");
+                  setFlowOpen(true);
+                }}
               >
                 <PenToolIcon data-icon="inline-start" aria-hidden />
                 Sign {chosen.length} case{chosen.length === 1 ? "" : "s"}
               </Button>
+              {/* Paper is the fallback, as in the single filing: reached only by saying
+                  e-signing can't be done, and asked why before anything is uploaded. */}
+              {chosen.length && !batch.clubbedInto ? (
+                <PaperFallbackLink
+                  onClick={() => {
+                    setMethod("upload");
+                    setFlowOpen(true);
+                  }}
+                />
+              ) : null}
             </CardContent>
           </Card>
         </div>
@@ -472,6 +476,9 @@ function SignFlow({
   const [error, setError] = React.useState<string | null>(null);
   const [uploads, setUploads] = React.useState<Record<string, string>>({});
   const [signedFiles, setSignedFiles] = React.useState<File[]>([]);
+  // What stopped e-signing, asked before the paper route opens (`PAPER_FALLBACK_REASONS`).
+  const [reason, setReason] = React.useState<PaperFallbackReason | "">("");
+  const [reasonSet, setReasonSet] = React.useState(false);
   const [wasOpen, setWasOpen] = React.useState(open);
   if (open !== wasOpen) {
     setWasOpen(open);
@@ -482,6 +489,8 @@ function SignFlow({
       setError(null);
       setUploads({});
       setSignedFiles([]);
+      setReason("");
+      setReasonSet(false);
     }
   }
 
@@ -608,6 +617,24 @@ function SignFlow({
                 Pay for {signed.length} case{signed.length === 1 ? "" : "s"}
               </Button>
             </footer>
+          </>
+        ) : method === "upload" && !reasonSet ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>Unable to e-sign?</DialogTitle>
+              <DialogDescription>
+                Every party then signs each complaint by hand, and you upload the scans.
+              </DialogDescription>
+            </DialogHeader>
+            <PaperFallbackQuestion value={reason} onChange={setReason} />
+            <DialogFooter>
+              <Button variant="outline" onClick={guard.close}>
+                Back
+              </Button>
+              <Button disabled={!reason} onClick={() => setReasonSet(true)}>
+                Continue to upload
+              </Button>
+            </DialogFooter>
           </>
         ) : method === "upload" ? (
           <>
