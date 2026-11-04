@@ -140,10 +140,6 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
     }
   };
 
-  // Complete: ready, with nothing left to fix or check. What Sign offers.
-  const ready = batch.cases.filter(
-    (c) => c.stage === "ready" && c.flags.length === 0,
-  ).length;
   const skipped = open.flatMap((c) => c.skipped.map((f) => ({ c, f })));
 
   const chips: { id: Show; label: string; ink?: string }[] = [
@@ -274,18 +270,10 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
 
       <FilingFooter
         showSaveState={false}
-        // Signing never waits for the whole batch: once any case is complete it can go
-        // ahead on its own, and the rest stay here.
-        continueLabel={
-          ready
-            ? `Sign ${ready} complete case${ready === 1 ? "" : "s"}`
-            : "Sign"
-        }
-        continueBlocked={!ready}
-        continueHint="No case is complete yet"
-        onContinue={() => {
-          if (ready) go("sign");
-        }}
+        // Documents next, in the batch's order. The cases still to fix never hold the rest
+        // up: each step works on the cases ready for it.
+        continueLabel="Continue to documents"
+        onContinue={() => go("documents")}
         className="-mx-6 -mb-6 md:-mx-8 md:-mb-8"
       />
     </div>

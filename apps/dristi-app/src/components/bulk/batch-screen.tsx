@@ -3,11 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import {
-  ArrowLeftIcon,
-  ChevronDownIcon,
-  CircleCheckIcon,
-  } from "lucide-react";
+import { ArrowLeftIcon } from "lucide-react";
 
 import { aiModeFrom } from "@/lib/bulk/ai-review";
 import { useCourt } from "@/components/court/court-provider";
@@ -24,7 +20,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { bulkApi, caseFlowHref, setBulkAiMode, type BatchView, type CaseView } from "./api";
 import { SourceLabel } from "./batches-screen";
@@ -36,61 +31,9 @@ import { PayTab } from "./pay-tab";
 import { ReviewTab } from "./review-tab";
 import { ScrutinyTab } from "./scrutiny-tab";
 import { SignTab } from "./sign-tab";
-import { STAGE, STAGE_ORDER, StageBar, StageTip } from "./stage";
+import { StageBar } from "./stage";
+import { BulkStageRow, BulkStepRow, type BulkStepId, type StepMark } from "./bulk-steps";
 import { StatusLine } from "@/components/feedback";
-
-/**
- * A step's tab. A coloured count is work waiting on this step now. When there is none, the
- * tab is greyed: a grey count is cases still coming to this step once an earlier one is
- * done, and a tick means the step is complete. Counts are in words for screen readers.
- */
-function StepTab({
-  value,
-  label,
-  pending,
-  upcoming = 0,
-  tone,
-  what,
-  done,
-}: {
-  value: TabId;
-  label: string;
-  pending: number;
-  upcoming?: number;
-  tone: "warning" | "info" | "secondary";
-  what: string;
-  done: boolean;
-}) {
-  const idle = pending === 0;
-  const spoken = pending
-    ? `${label}, ${pending} ${what}`
-    : upcoming
-      ? `${label}, finish the earlier steps first`
-      : done
-        ? `${label}, completed`
-        : `${label}, nothing here`;
-  return (
-    <TabsTrigger value={value} aria-label={spoken} disabled={idle && !done}>
-      {label}
-      {pending ? (
-        // A count sized for the tab: the DS badge (24px) fills a 32px tab edge to edge.
-        <span className={cn(COUNT, COUNT_FILL[tone])}>{pending}</span>
-      ) : upcoming ? null : done ? (
-        <CircleCheckIcon className="text-success-ink" aria-hidden />
-      ) : null}
-    </TabsTrigger>
-  );
-}
-
-const COUNT_FILL = {
-  warning: "bg-warning-muted text-warning-muted-foreground",
-  info: "bg-info-muted text-info-muted-foreground",
-  secondary: "bg-secondary text-secondary-foreground",
-  success: "bg-success-muted text-success-muted-foreground",
-} as const;
-
-const COUNT =
-  "inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-caption leading-none font-medium tabular-nums";
 
 export type BatchCtx = {
   batch: BatchView;
@@ -101,21 +44,32 @@ export type BatchCtx = {
 };
 
 const TABS = [
+  "common",
   "cases",
-  "documents",
   "scrutiny",
+  "documents",
   "review",
   "sign",
   "pay",
   "filed",
 ] as const;
+
+/** Which of the batch's six steps a tab belongs to (`bulk-steps.tsx`). */
+const STEP_OF: Record<TabId, BulkStepId> = {
+  common: "common",
+  cases: "cases",
+  scrutiny: "details",
+  documents: "documents",
+  review: "sign",
+  sign: "sign",
+  pay: "pay",
+  filed: "pay",
+};
 export type TabId = (typeof TABS)[number];
 
 /** One batch: its cases, their documents, the checks, then signing and payment in bulk. */
 export function BatchScreen({ batchId }: { batchId: string }) {
   const ready = useGujarat();
-  // The batch summary starts folded to one line.
-  const [showInfo, setShowInfo] = React.useState(false);
   const { profile } = useCourt();
   const router = useRouter();
   const pathname = usePathname();
@@ -123,7 +77,7 @@ export function BatchScreen({ batchId }: { batchId: string }) {
   const tabParam = params.get("tab");
   const tab: TabId = (TABS as readonly string[]).includes(tabParam ?? "")
     ? (tabParam as TabId)
-    : "cases";
+    : "scrutiny";
   const [batch, setBatch] = React.useState<BatchView | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   // AI review follows `?ai=on|off|unavailable`, else the court's setting (on for Gujarat),
@@ -137,28 +91,6 @@ export function BatchScreen({ batchId }: { batchId: string }) {
     bulkApi.get(batchId).then(setBatch, (e: Error) => setError(e.message));
   }, [ready, batchId, ai]);
 
-  // Slide the highlight to the active tab rather than switching it in one frame. Written
-  // to the element directly, so moving it never re-renders the screen.
-  const tabsRef = React.useRef<HTMLDivElement>(null);
-  const highlightRef = React.useRef<HTMLSpanElement>(null);
-  React.useLayoutEffect(() => {
-    const list = tabsRef.current;
-    const mark = highlightRef.current;
-    if (!list || !mark) return;
-    const place = () => {
-      const active = list.querySelector<HTMLElement>(
-        '[role="tab"][data-state="active"]',
-      );
-      if (!active) return;
-      mark.style.transform = `translateX(${active.offsetLeft}px)`;
-      mark.style.width = `${active.offsetWidth}px`;
-    };
-    place();
-    const watch = new ResizeObserver(place);
-    watch.observe(list);
-    return () => watch.disconnect();
-  }, [tab, batch]);
-
   const go = React.useCallback(
     (next: TabId, caseId?: string) => {
       // A case is worked on in the single filing's sections, not on a tab.
@@ -168,7 +100,7 @@ export function BatchScreen({ batchId }: { batchId: string }) {
         return;
       }
       const q = new URLSearchParams();
-      if (next !== "cases") q.set("tab", next);
+      if (next !== "scrutiny") q.set("tab", next);
       if (caseId) q.set("case", caseId);
       if (aiParam) q.set("ai", aiParam);
       const qs = q.toString();
@@ -242,23 +174,66 @@ export function BatchScreen({ batchId }: { batchId: string }) {
     batch.counts.ready -
     batch.cases.filter((c) => c.stage === "ready" && c.flags.length > 0).length;
 
+  // The six steps, from what the batch already is to what is left. Common details and
+  // Cases were settled when the batch was created; both stay open to read.
+  const step = STEP_OF[tab];
+  const q = (t: TabId) => {
+    const p = new URLSearchParams();
+    if (t !== "scrutiny") p.set("tab", t);
+    if (aiParam) p.set("ai", aiParam);
+    const qs = p.toString();
+    return `${pathname}${qs ? `?${qs}` : ""}`;
+  };
+  const mark = (id: BulkStepId, done: boolean, href: string, note?: string, tone?: StepMark["tone"]): StepMark => ({
+    status: step === id ? "current" : done ? "complete" : "upcoming",
+    href,
+    note: step === id ? undefined : note,
+    tone,
+  });
+  const marks: Record<BulkStepId, StepMark> = {
+    common: mark("common", true, q("common")),
+    cases: mark("cases", true, q("cases")),
+    details: mark("details", workable > 0 && attention === 0, q("scrutiny"), attention ? `${attention} to fix` : undefined),
+    documents: mark("documents", workable > 0 && docsMissing === 0, q("documents"), docsMissing ? `${docsMissing} missing` : undefined),
+    sign: mark("sign", batch.counts.signed + batch.counts.filed > 0 && workable === 0, q("sign"), clear ? `${clear} ready` : undefined, "ready"),
+    pay: mark("pay", allFiled, q("pay")),
+  };
+  const stages =
+    step === "sign"
+      ? [
+          { id: "review", title: "Review", href: workable ? q("review") : undefined },
+          { id: "sign", title: "Sign", href: q("sign") },
+        ]
+      : step === "pay"
+        ? [
+            { id: "pay", title: "Pay", href: q("pay") },
+            { id: "filed", title: "Filed", href: batch.counts.filed ? q("filed") : undefined, done: allFiled },
+          ]
+        : null;
+  const body = {
+    common: <CommonDetails batch={batch} />,
+    cases: <CasesTab {...ctx} />,
+    scrutiny: <ScrutinyTab {...ctx} />,
+    documents: <DocumentsTab {...ctx} />,
+    review: <ReviewTab {...ctx} />,
+    sign: <SignTab {...ctx} />,
+    pay: <PayTab {...ctx} />,
+    filed: <FiledTab {...ctx} />,
+  }[allFiled && tab !== "common" && tab !== "cases" ? "filed" : tab];
+
   return (
-    <div
-      className={cn(
-        "flex w-full flex-1 flex-col gap-6",
-        PAGE_GROUND,
-        PAGE_GUTTER,
-      )}
-    >
-      <header className="flex flex-col gap-3">
-        <Link
-          href="/filings/bulk"
-          className="flex w-fit items-center gap-1 text-body-compact text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeftIcon className="size-4" aria-hidden />
-          Bulk filing
-        </Link>
-        <div className="flex flex-col gap-1">
+    <div className="flex w-full flex-1 flex-col">
+      {/* The batch page's own gutter (`PAGE_GUTTER`), so the steps line up with the page. */}
+      <BulkStepRow marks={marks} className="border-b border-hairline md:px-8 lg:px-8" />
+      {stages ? <BulkStageRow step={step} stages={stages} current={tab} className="border-t-0 md:px-8 lg:px-8" /> : null}
+      <div
+        className={cn(
+          "flex w-full flex-1 flex-col gap-6",
+          PAGE_GROUND,
+          PAGE_GUTTER,
+        )}
+      >
+        <header className="flex flex-col gap-1">
           <h1 className={cn(PAGE_TITLE, "text-foreground tabular-nums")}>
             Batch {batch.number}
           </h1>
@@ -266,261 +241,86 @@ export function BatchScreen({ batchId }: { batchId: string }) {
             {batch.client} · <span className="tabular-nums">{batch.total}</span>{" "}
             cases · received {toLongDate(batch.createdAt.slice(0, 10))}
           </p>
-        </div>
-      </header>
+        </header>
 
-      {/* A standing condition, said still (skill `feedback-states`). */}
-      {ai === "unavailable" ? (
-        <StatusLine tone="warning" still>
-          AI review unavailable. Documents are not compared with the cases;
-          check them manually.
-        </StatusLine>
-      ) : null}
-
-      {batch.total > 0 && batch.counts.filed === batch.total ? (
-        <StatusLine
-          tone="success"
-          still
-          title={<span className="tabular-nums">Done: all {batch.total} cases filed</span>}
-        >
-          Last payment{" "}
-          {batch.payments.at(-1) ? ist(batch.payments.at(-1)!.at) : ""}.
-        </StatusLine>
-      ) : null}
-
-      {batch.clubbedInto ? (
-        <Alert variant="info">
-          <AlertTitle>Clubbed into {batch.clubbedIntoNumber}</AlertTitle>
-          <AlertDescription>
-            The open cases moved there. This batch is closed.{" "}
-            <Link
-              className="underline"
-              href={`/filings/bulk/${batch.clubbedInto}`}
-            >
-              Open {batch.clubbedIntoNumber}
-            </Link>
-          </AlertDescription>
-        </Alert>
-      ) : null}
-
-      {/* Folded to one line by default: what the batch is, at a glance; Details opens it. */}
-      <Card variant="raised" className="gap-0 overflow-hidden py-0">
-        {/* The whole line opens and closes the details, not only its Details label. */}
-        <button
-          type="button"
-          aria-expanded={showInfo}
-          onClick={() => setShowInfo((v) => !v)}
-          className="flex min-h-12 w-full flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 text-left transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-focus-ring focus-visible:outline-none focus-visible:ring-inset sm:px-6"
-        >
-          <span className="min-w-0 truncate text-body-compact">
-            <span className="text-muted-foreground">
-              {batch.source.kind === "api"
-                ? `${batch.source.system} API`
-                : batch.source.kind === "excel"
-                  ? "Excel upload"
-                  : batch.source.kind === "documents"
-                    ? "Case documents"
-                    : "Clubbed"}
-            </span>
-            {" · "}
-            {batch.client}
-            {batch.advocates[0] ? (
-              <span className="text-muted-foreground">
-                {" "}
-                · {batch.advocates[0].name}
-              </span>
-            ) : null}
-          </span>
-          <span className="ml-auto flex items-center gap-3">
-            {/* The stage bar in brief: its colours, and how many are filed. */}
-            <span className="hidden items-center gap-2 sm:flex">
-              <StageTip counts={batch.counts}>
-                {" "}
-                <span
-                  aria-hidden
-                  className="flex h-1.5 w-32 divide-x-2 divide-card overflow-hidden rounded-full bg-track"
-                >
-                  {STAGE_ORDER.map((k) =>
-                    batch.counts[k] ? (
-                      <span
-                        key={k}
-                        className={STAGE[k].fill}
-                        style={{
-                          width: `${(batch.counts[k] / Math.max(1, batch.total)) * 100}%`,
-                        }}
-                      />
-                    ) : null,
-                  )}
-                </span>{" "}
-              </StageTip>
-              <span className="text-caption text-muted-foreground tabular-nums">
-                {batch.counts.filed} of {batch.total} filed
-              </span>
-            </span>
-            <span className="flex items-center gap-1 text-body-compact font-medium">
-              Details{" "}
-              <ChevronDownIcon
-                className={cn("transition-transform", showInfo && "rotate-180")}
-                aria-hidden
-              />
-            </span>
-          </span>
-        </button>
-        {showInfo ? (
-          <CardContent className="grid grid-cols-1 gap-6 border-t border-hairline p-6 md:grid-cols-2 xl:grid-cols-4">
-            <div className="flex flex-col gap-1">
-              <span className="text-caption text-muted-foreground">
-                Came in by
-              </span>
-              <SourceLabel source={batch.source} />
-            </div>
-            <div className="flex flex-col gap-1">
-              <span className="text-caption text-muted-foreground">
-                Complainant
-              </span>
-              <span className="text-body-compact">{batch.client}</span>
-              {batch.representative ? (
-                <span className="text-caption text-muted-foreground">
-                  Through {batch.representative.name},{" "}
-                  {batch.representative.designation}
-                </span>
-              ) : null}
-            </div>
-            <div className="flex flex-col gap-1">
-              <span className="text-caption text-muted-foreground">
-                Advocate{batch.advocates.length === 1 ? "" : "s"}
-              </span>
-              {batch.advocates.map((a) => (
-                <span key={a.barNumber} className="text-body-compact">
-                  {a.name || "Not found with the Bar Council"}{" "}
-                  <span className="text-caption text-muted-foreground tabular-nums">
-                    {a.barNumber}
-                  </span>
-                </span>
-              ))}
-            </div>
-            <div className="flex flex-col gap-2">
-              <span className="text-caption text-muted-foreground">
-                Where the cases stand
-              </span>
-              <StageBar counts={batch.counts} />
-            </div>
-          </CardContent>
+        {/* A standing condition, said still (skill `feedback-states`). */}
+        {ai === "unavailable" ? (
+          <StatusLine tone="warning" still>
+            AI review unavailable. Documents are not compared with the cases;
+            check them manually.
+          </StatusLine>
         ) : null}
-      </Card>
 
-      {/* Once every case is filed there are no steps left: only the filed cases. */}
-      {allFiled ? (
-        <FiledTab {...ctx} />
-      ) : (
-        <Tabs
-          value={tab}
-          onValueChange={(v) => go(v as TabId)}
-          className="gap-4"
-        >
-          <div className="overflow-x-auto">
-            <TabsList
-              ref={tabsRef}
-              aria-label="Batch steps"
-              className={cn(
-                "relative w-max",
-                // The sliding highlight below draws the active tab; the tab itself stays clear.
-                "[&>[role=tab]]:z-10 [&>[role=tab][data-state=active]]:bg-transparent [&>[role=tab][data-state=active]]:text-foreground [&>[role=tab][data-state=active]]:shadow-none",
-              )}
-            >
-              <span
-                ref={highlightRef}
-                aria-hidden
-                className="pointer-events-none absolute top-0.5 bottom-0.5 left-0 rounded-md bg-card shadow-sm transition-[transform,width] duration-200 ease-out motion-reduce:transition-none"
-              />
-              <StepTab
-                value="cases"
-                label="Cases"
-                pending={batch.total - batch.counts.filed}
-                tone="secondary"
-                what="not filed yet"
-                done={batch.total > 0}
-              />
-              <StepTab
-                value="documents"
-                label="Documents"
-                pending={docsMissing}
-                tone="warning"
-                what="cases with documents to add or check"
-                done={workable > 0}
-              />
-              <StepTab
-                value="scrutiny"
-                label="Case details"
-                pending={attention}
-                tone="warning"
-                what="to review"
-                done={workable > 0}
-              />
-              {/* Reading each case as the court will, before anyone signs it. A place to read,
-                not a step that completes, so it carries no count and no tick. */}
-              <TabsTrigger value="review" disabled={workable === 0}>
-                Review
-              </TabsTrigger>
-              <StepTab
-                value="sign"
-                label="Sign"
-                pending={clear}
-                upcoming={workable - clear}
-                tone="info"
-                what="ready to sign"
-                done={
-                  batch.counts.signed + batch.counts.filed > 0 && workable === 0
-                }
-              />
-              <StepTab
-                value="pay"
-                label="Pay"
-                pending={batch.counts.signed}
-                upcoming={workable}
-                tone="info"
-                what="waiting for payment"
-                done={
-                  batch.counts.filed > 0 && workable + batch.counts.signed === 0
-                }
-              />
-              <TabsTrigger
-                value="filed"
-                aria-label={`Filed, ${batch.counts.filed} of ${batch.total}`}
-                disabled={!batch.counts.filed}
+        {allFiled ? (
+          <StatusLine
+            tone="success"
+            still
+            title={<span className="tabular-nums">Done: all {batch.total} cases filed</span>}
+          >
+            Last payment{" "}
+            {batch.payments.at(-1) ? ist(batch.payments.at(-1)!.at) : ""}.
+          </StatusLine>
+        ) : null}
+
+        {batch.clubbedInto ? (
+          <Alert variant="info">
+            <AlertTitle>Clubbed into {batch.clubbedIntoNumber}</AlertTitle>
+            <AlertDescription>
+              The open cases moved there. This batch is closed.{" "}
+              <Link
+                className="underline"
+                href={`/filings/bulk/${batch.clubbedInto}`}
               >
-                Filed
-                {batch.counts.filed ? (
-                  <span className={cn(COUNT, COUNT_FILL.success)}>
-                    {batch.counts.filed}
-                  </span>
-                ) : null}
-              </TabsTrigger>
-            </TabsList>
-          </div>
-          <TabsContent value="cases">
-            <CasesTab {...ctx} />
-          </TabsContent>
-          <TabsContent value="documents">
-            <DocumentsTab {...ctx} />
-          </TabsContent>
-          <TabsContent value="scrutiny">
-            <ScrutinyTab {...ctx} />
-          </TabsContent>
-          <TabsContent value="review">
-            <ReviewTab {...ctx} />
-          </TabsContent>
-          <TabsContent value="sign">
-            <SignTab {...ctx} />
-          </TabsContent>
-          <TabsContent value="pay">
-            <PayTab {...ctx} />
-          </TabsContent>
-          <TabsContent value="filed">
-            <FiledTab {...ctx} />
-          </TabsContent>
-        </Tabs>
-      )}
+                Open {batch.clubbedIntoNumber}
+              </Link>
+            </AlertDescription>
+          </Alert>
+        ) : null}
+
+        {body}
+      </div>
     </div>
+  );
+}
+
+/** What the batch was made with: where it came from, its parties, and where its cases stand. */
+function CommonDetails({ batch }: { batch: BatchView }) {
+  return (
+    <Card variant="raised">
+      <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+        <div className="flex flex-col gap-1">
+          <span className="text-body-compact text-muted-foreground">Came in by</span>
+          <SourceLabel source={batch.source} />
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-body-compact text-muted-foreground">Complainant</span>
+          <span className="text-body-compact">{batch.client}</span>
+          {batch.representative ? (
+            <span className="text-body-compact text-muted-foreground">
+              Through {batch.representative.name}, {batch.representative.designation}
+            </span>
+          ) : null}
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-body-compact text-muted-foreground">
+            Advocate{batch.advocates.length === 1 ? "" : "s"}
+          </span>
+          {batch.advocates.map((a) => (
+            <span key={a.barNumber} className="text-body-compact">
+              {a.name || "Not found with the Bar Council"}{" "}
+              <span className="text-muted-foreground tabular-nums">{a.barNumber}</span>
+            </span>
+          ))}
+        </div>
+        <div className="flex flex-col gap-2">
+          <span className="text-body-compact text-muted-foreground">Where the cases stand</span>
+          <StageBar counts={batch.counts} />
+        </div>
+        <p className="text-body-compact text-muted-foreground md:col-span-2 xl:col-span-4">
+          Set once for every case when the batch was created. Each case can change them on its
+          own, from Case details.
+        </p>
+      </CardContent>
+    </Card>
   );
 }

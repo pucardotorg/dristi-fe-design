@@ -20,6 +20,7 @@ import { bulkApi, useBulkFileUrl, type CaseView } from "./api";
 import type { BatchCtx } from "./batch-screen";
 import { OriginalDoc } from "./original-doc";
 import { StatusLine, StatusMark } from "@/components/feedback";
+import { FilingFooter } from "@/components/filing/filing-footer";
 
 type Doc = CaseView["documents"][number];
 type Flag = CaseView["flags"][number];
@@ -422,6 +423,13 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
           })}
         </ul>
       )}
+      <FilingFooter
+        showSaveState={false}
+        onBack={() => go("scrutiny")}
+        continueLabel="Continue to review"
+        onContinue={() => go("review")}
+        className="-mx-6 -mb-6 md:-mx-8 md:-mb-8"
+      />
     </div>
   );
 }
