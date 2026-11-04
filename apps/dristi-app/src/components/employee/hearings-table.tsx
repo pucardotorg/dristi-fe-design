@@ -57,6 +57,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { CourtRole } from "@/lib/employee/content";
+import { CASE_TYPE } from "@/lib/filing/options";
 import {
   seatHasBenchControls,
   seatPostsNextHearing,
@@ -901,6 +902,7 @@ const COLUMN_CLASS: Record<CauseListColumnId, string> = {
   item: "w-16 whitespace-nowrap",
   caseName: "min-w-40 whitespace-normal",
   caseNumber: "whitespace-nowrap",
+  caseType: "whitespace-nowrap",
   advocates: "min-w-48 whitespace-nowrap",
   purpose: "min-w-32 whitespace-normal",
   stage: "min-w-28 whitespace-normal",
@@ -1066,6 +1068,9 @@ export function HearingsTable({
         /* The product's one identifier treatment; it stops its own click from reaching
            the row opener. */
         return <Identifier value={hearing.caseNumber} label="case number" />;
+      case "caseType":
+        /* Every case on the board is §138 until the record carries its own type. */
+        return CASE_TYPE.label;
       case "advocates":
         return (
           <CounselCell

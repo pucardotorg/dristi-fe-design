@@ -80,6 +80,26 @@ describe("cause list columns", () => {
     ]);
   });
 
+  it("offers Case type to every seat, hidden until it is added", () => {
+    for (const seat of ["magistrate", "bench-clerk", "typist"] as const) {
+      for (const readerPosts of [true, false]) {
+        const columns = defaultColumns(seat, readerPosts);
+        assert.ok(columns.order.includes("caseType"), seat);
+        assert.ok(!columns.visible.includes("caseType"), seat);
+        assert.ok(ids(toggleColumn(columns, "caseType")).includes("caseType"), seat);
+      }
+    }
+  });
+
+  it("slots a column added since the choice was stored, so a stored default stays default", () => {
+    const fresh = defaultColumns("magistrate", false);
+    const stored = {
+      order: fresh.order.filter((id) => id !== "caseType"),
+      visible: fresh.visible,
+    };
+    assert.deepEqual(normaliseColumns(stored, "magistrate", false), fresh);
+  });
+
   it("reads a stored choice back safely", () => {
     const read = normaliseColumns(
       { order: ["purpose", "bogus", "item", "action"], visible: ["purpose"] },

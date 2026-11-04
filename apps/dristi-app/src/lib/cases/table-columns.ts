@@ -13,6 +13,14 @@
 export const TABLE_COLUMNS = [
   { id: "caseNumber", label: "Case number", locked: true, defaultVisible: true },
   { id: "caseName", label: "Case name", locked: false, defaultVisible: true },
+  /* S138/NIA. Off by default; added from Edit columns by whoever wants it
+     (stakeholder call, 2026-11-04). Sits beside the case's own identity. */
+  {
+    id: "caseType",
+    label: "Case type",
+    locked: false,
+    defaultVisible: false,
+  },
   { id: "stage", label: "Stage", locked: false, defaultVisible: true },
   {
     id: "advocates",
@@ -149,9 +157,17 @@ export function canonicalOrder(ids: readonly string[]): TableColumnId[] {
       seen.add(id);
     }
   }
-  for (const id of DEFAULT_COLUMN_ORDER) {
-    if (!seen.has(id)) ordered.push(id);
-  }
+  /* A column added since the choice was stored takes its default slot, after
+     the nearest column that precedes it there — so a stored default order is
+     still the default, and the new column sits where it belongs. */
+  DEFAULT_COLUMN_ORDER.forEach((id, index) => {
+    if (seen.has(id)) return;
+    const before = DEFAULT_COLUMN_ORDER.slice(0, index)
+      .reverse()
+      .find((earlier) => seen.has(earlier));
+    ordered.splice(before === undefined ? 0 : ordered.indexOf(before) + 1, 0, id);
+    seen.add(id);
+  });
   return ordered;
 }
 

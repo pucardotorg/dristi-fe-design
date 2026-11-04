@@ -98,13 +98,13 @@ describe("draftClock — the File by column", () => {
     const [row] = draftRows([draftAt(5)]);
     assert.ok(row.progress, "a draft row carries its save date");
     assert.match(row.progress.savedOn, DATE);
-    assert.equal(row.caseType, "S138 of NIA");
+    assert.equal(row.caseType, "S138/NIA");
     assert.doesNotMatch(row.info.lead, /% complete/);
   });
 
   it("sends a PSA draft to the placeholder, since it has no filing flow yet", () => {
     const [row] = draftRows([{ ...draftAt(5), caseType: "pss25" }]);
-    assert.equal(row.caseType, "S25 of PSA");
+    assert.equal(row.caseType, "S25/PSA");
     assert.equal(row.action.href, "/filings/new/pss-act");
   });
 });
