@@ -1,25 +1,10 @@
 "use client";
 
-import { Columns3Icon } from "lucide-react";
-
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
+import { ColumnsMenu } from "@/components/employee/columns-menu";
 import {
-  Popover,
-  PopoverContent,
-  PopoverHeader,
-  PopoverTitle,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Separator } from "@/components/ui/separator";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { causeListColumn } from "@/lib/employee/cause-list-columns";
+  causeListColumn,
+  type CauseListColumnId,
+} from "@/lib/employee/cause-list-columns";
 
 import type { useCauseListColumns } from "./use-cause-list-columns";
 
@@ -36,80 +21,22 @@ export function CauseListColumnsMenu({
 }) {
   const { columns, toggle, showAll, reset, isDefault, isAllVisible } = state;
   return (
-    <Popover>
-      {/* An icon at the row's far end (owner, 2026-11-02): it changes how the list looks,
-          not what is in it, so it gives its words up to the controls that narrow. The
-          name stays for screen readers and comes back on hover and focus. */}
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <PopoverTrigger asChild>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                aria-label="Edit columns"
-                className="shrink-0"
-              >
-                <Columns3Icon aria-hidden />
-              </Button>
-            </PopoverTrigger>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">Edit columns</TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-      <PopoverContent align="end" className="w-64">
-        <PopoverHeader className="px-2 pt-1">
-          <PopoverTitle className="text-body-compact font-medium">
-            Show or hide columns
-          </PopoverTitle>
-        </PopoverHeader>
-        <ul className="flex flex-col">
-          {columns.order.map((id) => {
-            const column = causeListColumn(id);
-            const checkboxId = `cause-list-column-${id}`;
-            return (
-              <li key={id}>
-                <Label
-                  htmlFor={checkboxId}
-                  className="flex min-h-10 cursor-pointer items-center gap-3 rounded-md px-2 text-body-compact font-normal hover:bg-accent has-disabled:cursor-default has-disabled:hover:bg-transparent"
-                >
-                  <Checkbox
-                    id={checkboxId}
-                    checked={columns.visible.includes(id)}
-                    disabled={column.locked}
-                    onCheckedChange={() => toggle(id)}
-                  />
-                  {column.label}
-                </Label>
-              </li>
-            );
-          })}
-        </ul>
-        <Separator />
-        <div className="flex items-center justify-between gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="px-2 text-body-compact"
-            disabled={isAllVisible}
-            onClick={showAll}
-          >
-            Show all
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="px-2 text-body-compact"
-            disabled={isDefault}
-            onClick={reset}
-          >
-            Reset to default
-          </Button>
-        </div>
-      </PopoverContent>
-    </Popover>
+    <ColumnsMenu
+      idPrefix="cause-list-column"
+      items={columns.order.map((id) => {
+        const column = causeListColumn(id);
+        return {
+          id,
+          label: column.label,
+          locked: column.locked,
+          shown: columns.visible.includes(id),
+        };
+      })}
+      onToggle={(id) => toggle(id as CauseListColumnId)}
+      onShowAll={showAll}
+      onReset={reset}
+      isDefault={isDefault}
+      isAllVisible={isAllVisible}
+    />
   );
 }
