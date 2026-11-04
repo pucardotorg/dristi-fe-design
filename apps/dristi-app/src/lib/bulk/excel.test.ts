@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { autoMap, buildRequest, columnFit, followsTemplate, instancesIn, MUST_MAP, sourceFor, unmatchedRequired, type Workbookish } from "./excel";
+import { autoMap, buildRequest, columnFit, followsTemplate, instancesIn, MUST_MAP, rowsThatCannotBeCreated, sourceFor, unmatchedRequired, type Workbookish } from "./excel";
 import { COLUMNS, GROUPS, parseHeader, templateColumns, templateHeader } from "./excel-spec";
 
 const complainant = {
@@ -142,4 +142,23 @@ test("the template is recognised without its optional columns, and not with a co
   // The unnumbered headers of earlier layouts are another layout now, matched by name.
   assert.equal(followsTemplate([...required, "Cheque number"]), false);
   assert.equal(followsTemplate(required.filter((h) => h !== "Cheque 1 number")), false);
+});
+
+test("a row becomes a case unless nothing identifies it or it repeats an earlier one", () => {
+  const headers = ["Case reference", "Accused name", "Cheque number", "Cheque amount", "Date of return"];
+  const b = book(
+    headers,
+    ["R-1", "A One", "111111", "50000", ""], // missing date: still a case, fixed later
+    ["", "", "222222", "60000", "2026-09-01"], // nothing identifies it
+    ["R-1", "A Two", "333333", "70000", ""], // same reference as row 2
+    ["R-4", "A Four", "111111", "50,000", ""], // same cheque and amount as row 2
+    ["", "A Five", "", "", ""], // a name alone is enough
+    ["R-6", "A Six", "111111", "90000", ""], // same cheque, another amount: a case
+  );
+  const p = rowsThatCannotBeCreated(b, autoMap(headers));
+  assert.deepEqual(p.map((x) => x.row), [3, 4, 5]);
+  assert.match(p[0].why, /Nothing identifies/);
+  assert.equal(p[1].why, "Same reference as row 2");
+  assert.equal(p[2].why, "Same cheque and amount as row 2");
+  assert.equal(p[1].who, "A Two");
 });

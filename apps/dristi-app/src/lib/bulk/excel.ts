@@ -615,6 +615,45 @@ export function buildRequest(
 
 /* ───────────────────────────── Does a column fit its field ───────────────────────────── */
 
+/** A row of the file that won't become a case, and why, in the filer's words. */
+export type RowProblem = { index: number; row: number; who: string; why: string };
+
+/**
+ * The rows that can't become cases. Only two things stop a row: nothing identifies it (no
+ * reference and no accused name), or it repeats a case already in the file (the same
+ * reference, or the same cheque number for the same amount). Anything else a row lacks is
+ * a gap its case is created with and fixed in the filing form on Case details, so a
+ * missing cheque number or date never costs the filer the whole row.
+ */
+export function rowsThatCannotBeCreated(
+  book: Workbookish,
+  map: ColumnMap,
+  values: ValueMap = {},
+): RowProblem[] {
+  const { headers, rows, discarded } = book.cases;
+  const first: Instance = [1];
+  const none: Instance = [];
+  const refs = new Map<string, number>();
+  const cheques = new Map<string, number>();
+  const problems: RowProblem[] = [];
+  rows.forEach((row, index) => {
+    const r = reader(row, headers, map, values);
+    const sheetRow = index + 2 + discarded;
+    const reference = r.raw("reference", none);
+    const who = r.raw("accusedName", first);
+    const number = r.raw("chequeNumber", first);
+    const amount = r.raw("chequeAmount", first).replace(/[^\d.]/g, "");
+    const say = (why: string) => problems.push({ index, row: sheetRow, who, why });
+    if (!reference && !who) return say("Nothing identifies the case: no reference and no accused name");
+    if (reference && refs.has(reference)) return say(`Same reference as row ${refs.get(reference)}`);
+    const cheque = number && amount ? `${number}|${Number(amount)}` : "";
+    if (cheque && cheques.has(cheque)) return say(`Same cheque and amount as row ${cheques.get(cheque)}`);
+    if (reference) refs.set(reference, sheetRow);
+    if (cheque) cheques.set(cheque, sheetRow);
+  });
+  return problems;
+}
+
 export type ColumnFit = { ok: true } | { ok: false; note: string };
 
 const FIT_SHARE = 0.8;
