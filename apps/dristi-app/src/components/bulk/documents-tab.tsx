@@ -1,8 +1,11 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   CircleAlertIcon,
+  PlusIcon,
   WandSparklesIcon,
   UploadIcon,
 } from "lucide-react";
@@ -16,7 +19,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { readability } from "@/lib/filing/readability";
 
 import { demoBlurryScan, demoPdf } from "./demo-fill";
-import { bulkApi, useBulkFileUrl, type CaseView } from "./api";
+import { bulkApi, caseFlowHref, useBulkFileUrl, type CaseView } from "./api";
 import type { BatchCtx } from "./batch-screen";
 import { OriginalDoc } from "./original-doc";
 import { StatusLine, StatusMark } from "@/components/feedback";
@@ -202,6 +205,7 @@ export function Slot({
  * and filed cases are locked, so they are not listed here.
  */
 export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
+  const ai = useSearchParams().get("ai");
   const [busy, setBusy] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const closed = !!batch.clubbedInto;
@@ -396,6 +400,16 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
                       >
                         {c.docs.have} of {c.docs.need} required
                       </Badge>
+                      {/* Optional papers are the case's own: its filing Documents section
+                          takes them, and they show there and in the case file. */}
+                      {!closed ? (
+                        <Button asChild variant="ghost" className="-ml-3 w-fit">
+                          <Link href={caseFlowHref(batch.id, c, "documents", ai)}>
+                            <PlusIcon data-icon="inline-start" aria-hidden />
+                            Add other document
+                          </Link>
+                        </Button>
+                      ) : null}
                     </div>
                     <ul className="grid grid-cols-1 content-start gap-2 lg:grid-cols-2">
                       {c.documents.map((d) => {
