@@ -28,24 +28,27 @@ export function useSourceRailSlot(): HTMLElement | null {
 export function FilingShell({
   children,
   banner = null,
+  rail = true,
 }: {
   children: React.ReactNode;
   /** A host's own strip above every section (bulk filing: which case of the batch this is). */
   banner?: React.ReactNode;
+  /** Off where the host carries its own navigation (bulk filing's upload: its step row). */
+  rail?: boolean;
 }) {
   const [slot, setSlot] = React.useState<HTMLElement | null>(null);
 
   return (
     <LeaveGuardProvider>
       <SourceRailSlot.Provider value={slot}>
-        <SectionsRail />
+        {rail ? <SectionsRail /> : null}
 
         {/* The canvas tint (see `FilingMain`) runs the full column, not just the form
             card area, so the sticky Sections trigger can float transparently over the
             content that scrolls beneath it instead of masking it behind a band. `FilingMain`
             fills the rest, so this only ever shows in the trigger's own strip. */}
         <main className="flex min-w-0 flex-1 flex-col bg-muted dark:bg-background">
-          <SectionsTrigger />
+          {rail ? <SectionsTrigger /> : null}
           {banner}
           {children}
         </main>

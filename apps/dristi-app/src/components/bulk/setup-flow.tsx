@@ -15,7 +15,6 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
-  ArrowLeftIcon,
   ClipboardCheckIcon,
   Columns3Icon,
   FileQuestionIcon,
@@ -30,7 +29,6 @@ import type { StepId } from "@/lib/filing/types";
 import { DraftBreadcrumbLabel } from "@/components/filing/chrome";
 import { FieldPolicyProvider, type FieldPolicy } from "@/components/filing/field-policy";
 import { FilingShell } from "@/components/filing/filing-shell";
-import { SectionNotice } from "@/components/filing/notices";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -42,6 +40,7 @@ import {
 } from "@/components/ui/empty";
 import { Spinner } from "@/components/ui/spinner";
 
+import { BulkStageRow, BulkStepRow, type BulkStepId, type Stage, type StepMark } from "./bulk-steps";
 import { useGujarat } from "./court-guard";
 
 /** The sections the setup walks, in order. */
@@ -201,31 +200,67 @@ export function BulkSetupFlow({
       <DraftBreadcrumbLabel label={ai === "on" ? "Upload cases" : "Upload Excel"} />
       <UploadStateContext.Provider value={setUpload}>
         <FieldPolicyProvider value={policy}>
-          <FilingShell banner={<SetupBar />}>{children}</FilingShell>
+          <FilingShell
+            rail={false}
+            banner={<SetupSteps setupId={setupId} step={step} uploadStep={uploadStep} upload={upload} ai={ai} />}
+          >
+            {children}
+          </FilingShell>
         </FieldPolicyProvider>
       </UploadStateContext.Provider>
     </FilingProvider>
   );
 }
 
-/** Above every section: what this part of the upload is for. */
-function SetupBar() {
+/**
+ * Above every screen of the upload: the batch's steps, then where this screen sits in its
+ * step. Before the batch exists only Common details and Cases can be reached; the rest
+ * open once it is created. Matching shows only for a file that needs it.
+ */
+function SetupSteps({
+  setupId,
+  step,
+  uploadStep,
+  upload,
+  ai,
+}: {
+  setupId: string;
+  step: StepId | null;
+  uploadStep: UploadStep | null;
+  upload: UploadState;
+  ai: string | null;
+}) {
+  const inCases = uploadStep !== null;
+  const marks: Record<BulkStepId, StepMark> = {
+    common: { status: inCases ? "complete" : "current", href: setupHref(setupId, "complainant") },
+    cases: { status: inCases ? "current" : "upcoming", href: uploadHref(setupId, "file", ai) },
+    details: { status: "upcoming" },
+    documents: { status: "upcoming" },
+    sign: { status: "upcoming" },
+    pay: { status: "upcoming" },
+  };
+  const commonStages: Stage[] = [
+    { id: "complainant", title: "Complainant", href: setupHref(setupId, "complainant") },
+    { id: "advocate", title: "Advocate", href: setupHref(setupId, "advocate") },
+    { id: "documents", title: "Documents for every case", href: setupHref(setupId, "documents") },
+  ];
+  const caseStages: Stage[] = [
+    { id: "file", title: upload.documents ? "Case documents" : "Excel file", href: uploadHref(setupId, "file", ai), done: upload.read },
+    ...(upload.matchColumns ? [{ id: "map", title: "Match columns", href: upload.read ? uploadHref(setupId, "map", ai) : undefined }] : []),
+    ...(upload.matchValues ? [{ id: "values", title: "Match values", href: upload.read ? uploadHref(setupId, "values", ai) : undefined }] : []),
+    { id: "review", title: "Check", href: upload.read ? uploadHref(setupId, "review", ai) : undefined },
+  ];
+  const stages = inCases ? caseStages : commonStages;
+  const current = inCases ? uploadStep : (step ?? "complainant");
+  const at = stages.findIndex((x) => x.id === current);
   return (
-    <div className="bg-muted px-6 pt-6 lg:px-12 dark:bg-background">
-      <div className="flex w-full max-w-4xl flex-col gap-3">
-        <Link
-          href="/filings/bulk"
-          className="flex w-fit items-center gap-1 text-body-compact text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeftIcon className="size-4" aria-hidden />
-          Bulk filing
-        </Link>
-        <SectionNotice variant="neutral">
-          The complainants and advocates, and their documents, are entered once and go on
-          every case in the file. Once the batch is created, each case can change them on
-          its own.
-        </SectionNotice>
-      </div>
-    </div>
+    <>
+      <BulkStepRow marks={marks} />
+      <BulkStageRow
+        step={inCases ? "cases" : "common"}
+        stages={stages.map((x, i) => ({ ...x, done: x.done ?? i < at }))}
+        current={current}
+      />
+    </>
   );
 }
