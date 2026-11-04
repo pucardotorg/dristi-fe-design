@@ -10,7 +10,8 @@
  *
  *
  *   demo-files/tata-capital-bulk-filing-template.xlsx   follows the template (no matching)
- *   demo-files/tata-capital-recovery-mis.xlsx           the lender's own layout (matching screens)
+ *   demo-files/tata-capital-recovery-mis.xlsx           the lender's own layout (matching screens),
+ *                                                       with two rows Check leaves out
  *
  * The lender's layout has no cheque date and no presentation date: a recovery MIS records
  * the bounce, not those. Both are required, so every case it brings arrives held and has
@@ -280,9 +281,9 @@ async function misFile() {
   ];
   ws.columns = cols.map((h) => ({ header: h, key: h, width: Math.max(14, h.length + 4) }));
   header(ws);
-  CASES.forEach((c, i) => {
+  const rowOf = (c: Demo, i: number) => {
     const t = timeline(c);
-    ws.addRow({
+    return {
       "Sr No": i + 1,
       "Loan A/c No": c.ref,
       Product: c.ref.includes("-PL-") ? "Personal Loan" : c.ref.includes("-BL-") ? "Business Loan" : "Two Wheeler Loan",
@@ -320,8 +321,14 @@ async function misFile() {
             "Bounce Reason_2": MIS_REASON[c.reason],
           }
         : {}),
-    });
-  });
+    };
+  };
+  CASES.forEach((c, i) => ws.addRow(rowOf(c, i)));
+  // Two rows a real export carries and the upload leaves out on Check (owner and PM,
+  // 2026-11-04): the first case exported twice, and a row with a cheque but nothing that
+  // says whose case it is.
+  ws.addRow(rowOf(CASES[0], CASES.length));
+  ws.addRow({ "Sr No": CASES.length + 2, "Chq No": "498120", "Chq Amount (Rs)": "75,000", "Bounce Reason": "INSUFFICIENT FUNDS" });
   const file = path.join(OUT, "tata-capital-recovery-mis.xlsx");
   await wb.xlsx.writeFile(file);
   return file;

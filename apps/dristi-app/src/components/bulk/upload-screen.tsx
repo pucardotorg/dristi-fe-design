@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   CheckCircle2Icon,
+  CircleXIcon,
   DownloadIcon,
   FileSpreadsheetIcon,
   FileTextIcon,
@@ -19,10 +20,12 @@ import {
   followsTemplate,
   instancesIn,
   readWorkbook,
+  rowsThatCannotBeCreated,
   unknownValues,
   unmatchedRequired,
   type ColumnMap,
   type InstanceCounts,
+  type RowProblem,
   type ValueMap,
   type Workbookish,
 } from "@/lib/bulk/excel";
@@ -41,6 +44,7 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
@@ -84,6 +88,21 @@ import { setupHref, uploadHref, useReportUploadState, type UploadStep } from "./
 import { StatusMark } from "@/components/feedback";
 import { StatusLine } from "@/components/feedback";
 
+
+/** The rows left out, as a CSV in the file's own columns with the reason first, to fix and upload. */
+function downloadRows(book: Workbookish, rows: RowProblem[], fileName: string) {
+  const cell = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+  const lines = [
+    ["Why it was left out", "Row", ...book.cases.headers],
+    ...rows.map((x) => [x.why, String(x.row), ...book.cases.rows[x.index]]),
+  ].map((r) => r.map((v) => cell(v ?? "")).join(","));
+  const url = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/csv" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `rows-to-fix-${fileName.replace(/\.[^.]+$/, "")}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 /** The demo spreadsheets the upload offers, from `public/samples/` (`scripts/bulk-demo-files.mts`). */
 const SAMPLES = [
@@ -268,6 +287,13 @@ export function UploadScreen() {
   const unknownLists = Object.keys(unknown) as ListName[];
   // Required fields no column fills: every case arrives without them.
   const missing = book && !docs ? unmatchedRequired(book.cases.headers, map) : [];
+  // Rows that won't become cases (nothing identifies them, or they repeat one): left out
+  // of this batch, and downloadable to fix. Everything else becomes a case.
+  const cannot = React.useMemo<RowProblem[]>(
+    () => (book && !docs ? rowsThatCannotBeCreated(book, map, values) : []),
+    [book, docs, map, values],
+  );
+  const creating = book ? book.cases.rows.length - cannot.length : 0;
   const valuesDone = unknownLists.every((l) =>
     unknown[l]!.every((v) => values[l]?.[v]),
   );
@@ -290,10 +316,15 @@ export function UploadScreen() {
       const b = docs ? await readDocuments() : await readWorkbook(file);
       if (!b.cases.rows.length)
         throw new Error("No case rows were found in this file.");
+      // A corrected file in the same layout keeps the columns already matched.
+      const same =
+        !!book && book.cases.headers.join("\u0001") === b.cases.headers.join("\u0001");
       setBook(b);
-      const m = autoMap(b.cases.headers);
-      setMap(m);
-      setCounts({});
+      const m = same ? map : autoMap(b.cases.headers);
+      if (!same) {
+        setMap(m);
+        setCounts({});
+      }
       // Documents are read straight into the template's columns: nothing to match.
       const follows = docs || followsTemplate(b.cases.headers);
       setTemplate(follows);
@@ -394,8 +425,12 @@ export function UploadScreen() {
     try {
       if (!setup) throw new Error("Set the complainants and advocates first.");
       const parties = partiesOf(setup);
+      const left = new Set(cannot.map((x) => x.index));
+      const usable: Workbookish = {
+        cases: { ...book.cases, rows: book.cases.rows.filter((_, i) => !left.has(i)) },
+      };
       const request = buildRequest(
-        book,
+        usable,
         map,
         values,
         {
@@ -424,7 +459,7 @@ export function UploadScreen() {
       const json = await res.json();
       if (!res.ok)
         throw new Error([json.error, ...(json.details ?? [])].join(" "));
-      router.push(`/filings/bulk/${json.batchId}?tab=documents`);
+      router.push(`/filings/bulk/${json.batchId}?tab=scrutiny`);
     } catch (e) {
       setError((e as Error).message);
       setBusy(false);
@@ -606,21 +641,23 @@ export function UploadScreen() {
       </>
     );
 
-  if (step === "review" && book)
+  if (step === "review" && book) {
+    const left = new Set(cannot.map((x) => x.index));
+    const first = book.cases.rows.filter((_, i) => !left.has(i));
     return (
       <>
         <FilingMain width="wide">
           <FilingPageHeader
-            title="Review"
+            title="Check"
             description={
               <>
-                <span className="tabular-nums">{book.cases.rows.length}</span> cases read from {fileName}.{" "}
+                <span className="tabular-nums">{book.cases.rows.length}</span> rows read from {fileName}.{" "}
                 {docs ? "Read from the documents." : template ? "The file follows the template." : "Columns matched."}
                 {book.cases.discarded
-                  ? ` ${book.cases.discarded} template guide row${book.cases.discarded === 1 ? "" : "s"} (format or example) discarded.`
+                  ? ` ${book.cases.discarded} template guide row${book.cases.discarded === 1 ? "" : "s"} (format or example) skipped.`
                   : ""}
-                {repeatsFound ? ` Repeated sections: ${repeatsFound}.` : ""} The filing checks run once
-                the batch is created.
+                {repeatsFound ? ` Repeated sections: ${repeatsFound}.` : ""} Cases with details
+                missing are still created, and fixed on Case details.
               </>
             }
           />
@@ -638,6 +675,72 @@ export function UploadScreen() {
                 . Each case stays in draft until you enter {missing.length === 1 ? "it" : "them"} on
                 its Case details.
             </StatusLine>
+          ) : null}
+          <Card variant="raised">
+            <CardContent className="grid gap-6 sm:grid-cols-2">
+              <div className="flex flex-col gap-1">
+                <span className="text-title font-semibold tabular-nums">{creating}</span>
+                <span className="text-body-compact text-muted-foreground">
+                  {creating === 1 ? "case will be created" : "cases will be created"}
+                </span>
+              </div>
+              {cannot.length ? (
+                <div className="flex flex-col gap-1">
+                  <span className="text-title font-semibold tabular-nums text-destructive-ink">{cannot.length}</span>
+                  <span className="text-body-compact text-muted-foreground">
+                    {cannot.length === 1 ? "row can't be created" : "rows can't be created"}
+                  </span>
+                </div>
+              ) : null}
+            </CardContent>
+          </Card>
+          {cannot.length ? (
+            <Card variant="raised">
+              <CardHeader>
+                <CardTitle className="text-body font-semibold">
+                  {cannot.length === 1 ? "1 row can't be created" : `${cannot.length} rows can't be created`}
+                </CardTitle>
+                <CardDescription>
+                  {cannot.length === 1 ? "It's" : "They're"} left out of this batch. Fix{" "}
+                  {cannot.length === 1 ? "it" : "them"} in the downloaded file and upload{" "}
+                  {cannot.length === 1 ? "it" : "them"} as a new batch, or correct your file and
+                  upload it again here.
+                </CardDescription>
+                <CardAction>
+                  <Button variant="outline" onClick={() => downloadRows(book, cannot, fileName)}>
+                    <DownloadIcon data-icon="inline-start" aria-hidden />
+                    Download these rows
+                  </Button>
+                </CardAction>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <Table className="border-separate border-spacing-0" aria-label="Rows that can't be created">
+                    <TableHeader>
+                      <TableRow className={TABLE_HEAD_ROW}>
+                        <TableHead className={cn(TABLE_HEAD, "pl-4")}>Row</TableHead>
+                        <TableHead className={TABLE_HEAD}>Accused</TableHead>
+                        <TableHead className={TABLE_HEAD}>Why</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody className={tableBodyClass({ hover: false })}>
+                      {cannot.map((x) => (
+                        <TableRow key={x.index} className={tableRowClass({ hover: false })}>
+                          <TableCell className={cn(TABLE_CELL, "pl-4 tabular-nums")}>{x.row}</TableCell>
+                          <TableCell className={TABLE_CELL}>{x.who || "—"}</TableCell>
+                          <TableCell className={TABLE_CELL}>
+                            <span className="inline-flex items-start gap-2">
+                              <CircleXIcon className="mt-0.5 size-4 shrink-0 text-destructive-ink" aria-hidden />
+                              {x.why}
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
           ) : null}
           <Card variant="raised">
             <CardHeader>
@@ -659,7 +762,7 @@ export function UploadScreen() {
                     </TableRow>
                   </TableHeader>
                   <TableBody className={tableBodyClass({ hover: false })}>
-                    {book.cases.rows.slice(0, 8).map((row, n) => (
+                    {first.slice(0, 8).map((row, n) => (
                       <TableRow key={n} className={tableRowClass({ hover: false })}>
                         {PREVIEW.map((k) => {
                           const i = map[k];
@@ -677,23 +780,33 @@ export function UploadScreen() {
                   </TableBody>
                 </Table>
               </div>
-              {book.cases.rows.length > 8 ? (
+              {first.length > 8 ? (
                 <span className="text-caption text-muted-foreground tabular-nums">
-                  and {book.cases.rows.length - 8} more
+                  and {first.length - 8} more
                 </span>
               ) : null}
             </CardContent>
           </Card>
         </FilingMain>
+        {/* Two ways on, and only two: create the cases that can be, or correct the file
+            and upload it again. Rows left out never join this batch later. */}
         <FilingFooter
           showSaveState={false}
           onBack={() => setStep(backFromReview)}
+          extra={
+            cannot.length ? (
+              <Button variant="outline" size="lg" disabled={busy} onClick={() => setStep("file")}>
+                Upload a corrected file
+              </Button>
+            ) : null
+          }
           onContinue={() => void create()}
-          continueDisabled={busy}
-          continueLabel={busy ? "Creating batch…" : `Create batch of ${book.cases.rows.length}`}
+          continueDisabled={busy || creating === 0}
+          continueLabel={busy ? "Creating batch…" : `Create ${creating} case${creating === 1 ? "" : "s"}`}
         />
       </>
     );
+  }
 
   return null;
 }
