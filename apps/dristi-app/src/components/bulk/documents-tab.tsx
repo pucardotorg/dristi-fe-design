@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   CircleAlertIcon,
+  CirclePlayIcon,
   PlusIcon,
   WandSparklesIcon,
   UploadIcon,
@@ -22,6 +23,7 @@ import { demoBlurryScan, demoPdf } from "./demo-fill";
 import { bulkApi, caseFlowHref, useBulkFileUrl, type CaseView } from "./api";
 import type { BatchCtx } from "./batch-screen";
 import { OriginalDoc } from "./original-doc";
+import { DocumentsGuide, guideSeen } from "./documents-guide";
 import { StatusLine, StatusMark } from "@/components/feedback";
 import { FilingFooter } from "@/components/filing/filing-footer";
 
@@ -206,6 +208,16 @@ export function Slot({
  */
 export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
   const ai = useSearchParams().get("ai");
+  // The walkthrough, once per browser, the first time there is something to add. The tab
+  // only mounts once the batch has loaded in the browser, so storage can be read here.
+  const [guide, setGuide] = React.useState(
+    () =>
+      !batch.clubbedInto &&
+      batch.cases.some(
+        (c) => (c.stage === "held" || c.stage === "ready") && c.docs.have < c.docs.need,
+      ) &&
+      !guideSeen(),
+  );
   const [busy, setBusy] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const closed = !!batch.clubbedInto;
@@ -286,7 +298,12 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
 
   return (
     <div className="flex flex-col gap-4">
+      <DocumentsGuide open={guide} onOpenChange={setGuide} />
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-body-compact">
+        <Button variant="ghost" size="sm" className="-ml-3" onClick={() => setGuide(true)}>
+          <CirclePlayIcon data-icon="inline-start" aria-hidden />
+          How this works
+        </Button>
         {incomplete.length && !closed ? (
           <Button
             variant="outline"
