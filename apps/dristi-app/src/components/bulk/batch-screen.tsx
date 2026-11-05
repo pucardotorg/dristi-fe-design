@@ -31,7 +31,6 @@ import { PayTab } from "./pay-tab";
 import { ReviewTab } from "./review-tab";
 import { ScrutinyTab } from "./scrutiny-tab";
 import { SignTab } from "./sign-tab";
-import { StageBar } from "./stage";
 import { BulkStageRow, BulkStepRow, type BulkStepId, type StepMark } from "./bulk-steps";
 import { StatusLine } from "@/components/feedback";
 
@@ -174,6 +173,20 @@ export function BatchScreen({ batchId }: { batchId: string }) {
     batch.counts.ready -
     batch.cases.filter((c) => c.stage === "ready" && c.flags.length > 0).length;
 
+  // Of those with something open, the ones held until fixed (the rest are checks to look at).
+  const fixing = open.filter((c) =>
+    c.flags.some(
+      (f) =>
+        f.level === "hold" &&
+        f.section !== "documents" &&
+        f.fix?.kind !== "upload" &&
+        f.fix?.kind !== "documents",
+    ),
+  ).length;
+  // Case details' count, in the words its title uses: held cases are to fix, the rest
+  // with something open are only to check.
+  const detailsNote = fixing ? `${fixing} to fix` : attention ? `${attention} to check` : undefined;
+
   // The six steps, from what the batch already is to what is left. Common details and
   // Cases were settled when the batch was created; both stay open to read.
   const step = STEP_OF[tab];
@@ -193,7 +206,7 @@ export function BatchScreen({ batchId }: { batchId: string }) {
   const marks: Record<BulkStepId, StepMark> = {
     common: mark("common", true, q("common")),
     cases: mark("cases", true, q("cases")),
-    details: mark("details", workable > 0 && attention === 0, q("scrutiny"), attention ? `${attention} to fix` : undefined),
+    details: mark("details", workable > 0 && attention === 0, q("scrutiny"), detailsNote),
     documents: mark("documents", workable > 0 && docsMissing === 0, q("documents"), docsMissing ? `${docsMissing} missing` : undefined),
     sign: mark("sign", batch.counts.signed + batch.counts.filed > 0 && workable === 0, q("sign"), clear ? `${clear} ready` : undefined, "ready"),
     pay: mark("pay", allFiled, q("pay")),
@@ -213,16 +226,6 @@ export function BatchScreen({ batchId }: { batchId: string }) {
   const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
   // Documents: cases with a file still to add, apart from scans that only need a look.
   const lacking = open.filter((c) => c.docs.have < c.docs.need).length;
-  // Of those with something open, the ones held until fixed (the rest are checks to look at).
-  const fixing = open.filter((c) =>
-    c.flags.some(
-      (f) =>
-        f.level === "hold" &&
-        f.section !== "documents" &&
-        f.fix?.kind !== "upload" &&
-        f.fix?.kind !== "documents",
-    ),
-  ).length;
   const shown: TabId = allFiled && tab !== "common" && tab !== "cases" ? "filed" : tab;
   const title = {
     common: "Common details",
@@ -243,7 +246,17 @@ export function BatchScreen({ batchId }: { batchId: string }) {
     filed: `${plural(batch.counts.filed, "case", "cases")} filed`,
   }[shown];
   const body = {
-    common: <CommonDetails batch={batch} />,
+    common: (
+      <CommonDetails
+        batch={batch}
+        stand={[
+          { step: "Case details", value: detailsNote ?? "Complete", href: q("scrutiny"), open: attention > 0 },
+          { step: "Documents", value: docsMissing ? `${docsMissing} missing` : "Complete", href: q("documents"), open: docsMissing > 0 },
+          { step: "Ready to sign", value: String(clear), href: q("sign"), open: false },
+          { step: "Signed or filed", value: String(batch.counts.signed + batch.counts.filed), open: false },
+        ]}
+      />
+    ),
     cases: <CasesTab {...ctx} />,
     scrutiny: <ScrutinyTab {...ctx} />,
     documents: <DocumentsTab {...ctx} />,
@@ -317,7 +330,18 @@ export function BatchScreen({ batchId }: { batchId: string }) {
 }
 
 /** What the batch was made with: where it came from, its parties, and where its cases stand. */
-function CommonDetails({ batch }: { batch: BatchView }) {
+function CommonDetails({
+  batch,
+  stand,
+}: {
+  batch: BatchView;
+  /**
+   * Where the cases stand, step by step, in the stepper's own numbers and words. One
+   * definition per count: a bar of case stages here once said "Needs fixing 12" beside a
+   * stepper saying "3 to fix", because it counted missing documents too (bulk audit).
+   */
+  stand: { step: string; value: string; href?: string; open: boolean }[];
+}) {
   return (
     <Card variant="raised">
       <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
@@ -347,7 +371,24 @@ function CommonDetails({ batch }: { batch: BatchView }) {
         </div>
         <div className="flex flex-col gap-2">
           <span className="text-body-compact text-muted-foreground">Where the cases stand</span>
-          <StageBar counts={batch.counts} />
+          <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-body-compact">
+            {stand.map((r) => (
+              <React.Fragment key={r.step}>
+                <dt>
+                  {r.href ? (
+                    <Link href={r.href} className="underline-offset-4 hover:underline">
+                      {r.step}
+                    </Link>
+                  ) : (
+                    r.step
+                  )}
+                </dt>
+                <dd className={cn("text-right tabular-nums", r.open ? "text-warning-ink" : "text-muted-foreground")}>
+                  {r.value}
+                </dd>
+              </React.Fragment>
+            ))}
+          </dl>
         </div>
         <p className="text-body-compact text-muted-foreground md:col-span-2 xl:col-span-4">
           Set once for every case when the batch was created. Each case can change them on its
