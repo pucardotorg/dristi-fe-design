@@ -769,7 +769,18 @@ export function UploadScreen() {
           />
           {errorNotice}
           {coreMissing.length ? (
-            <StatusLine tone="error" still title="This file can't make cases">
+            <StatusLine
+              tone="error"
+              still
+              title="No cases can be created from this file yet"
+              action={
+                matchColumns ? (
+                  <Button variant="outline" onClick={() => setStep("map")}>
+                    Match columns
+                  </Button>
+                ) : null
+              }
+            >
               It has no column for{" "}
               {new Intl.ListFormat("en", { type: "disjunction" }).format(
                 coreMissing.map((c) => c.header.toLowerCase()),
@@ -792,25 +803,29 @@ export function UploadScreen() {
                 its Case details.
             </StatusLine>
           ) : null}
-          <Card variant="raised">
-            <CardContent className="grid gap-6 sm:grid-cols-2">
-              <div className="flex flex-col gap-1">
-                <span className="text-title font-semibold tabular-nums">{creating}</span>
-                <span className="text-body-compact text-muted-foreground">
-                  {creating === 1 ? "case will be created" : "cases will be created"}
-                </span>
-              </div>
-              {cannot.length ? (
+          {/* While the file can't make any case, no count is shown: a number of cases "to be
+              created" under that blocker says the opposite of it (bulk audit, 2026-11-04). */}
+          {coreMissing.length ? null : (
+            <Card variant="raised">
+              <CardContent className="grid gap-6 sm:grid-cols-2">
                 <div className="flex flex-col gap-1">
-                  <span className="text-title font-semibold tabular-nums text-destructive-ink">{cannot.length}</span>
+                  <span className="text-title font-semibold tabular-nums">{creating}</span>
                   <span className="text-body-compact text-muted-foreground">
-                    {cannot.length === 1 ? "row can't be created" : "rows can't be created"}
+                    {creating === 1 ? "case will be created" : "cases will be created"}
                   </span>
                 </div>
-              ) : null}
-            </CardContent>
-          </Card>
-          {cannot.length ? (
+                {cannot.length ? (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-title font-semibold tabular-nums text-destructive-ink">{cannot.length}</span>
+                    <span className="text-body-compact text-muted-foreground">
+                      {cannot.length === 1 ? "row can't be created" : "rows can't be created"}
+                    </span>
+                  </div>
+                ) : null}
+              </CardContent>
+            </Card>
+          )}
+          {cannot.length && !coreMissing.length ? (
             <Card variant="raised">
               <CardHeader>
                 <CardTitle className="text-body font-semibold">
@@ -916,9 +931,17 @@ export function UploadScreen() {
               </Button>
             ) : null
           }
-          onContinue={() => void create()}
-          continueDisabled={busy || creating === 0 || coreMissing.length > 0}
-          continueLabel={busy ? "Creating batch…" : `Create ${creating} case${creating === 1 ? "" : "s"}`}
+          onContinue={coreMissing.length ? undefined : () => void create()}
+          continueDisabled={busy || creating === 0}
+          continueBlocked={coreMissing.length > 0}
+          continueHint={coreMissing.length ? "Match the missing columns first" : undefined}
+          continueLabel={
+            busy
+              ? "Creating batch…"
+              : coreMissing.length
+                ? "Create cases"
+                : `Create ${creating} case${creating === 1 ? "" : "s"}`
+          }
         />
       </>
     );
