@@ -48,6 +48,11 @@ export type FieldPolicy = {
    */
   holdContinue?: string | null;
   /**
+   * The host's own content under the section's title, above its form: bulk filing lists
+   * what is open in the section there, next to the fields it is about.
+   */
+  underTitle?: React.ReactNode;
+  /**
    * Which groups of the list of documents to show, when the host collects only some of
    * them here. Bulk filing's setup shows the complainants' documents alone; each case's
    * own are uploaded per case.

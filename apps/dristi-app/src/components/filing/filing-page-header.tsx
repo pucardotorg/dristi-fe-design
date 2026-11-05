@@ -3,6 +3,7 @@
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
+import { useFieldPolicy } from "@/components/filing/field-policy";
 import { useInCorrection } from "@/components/filing/posture";
 
 /**
@@ -27,6 +28,7 @@ export function FilingPageHeader({
 }) {
   /* The correction screen owns the page's one `h1`; a section title under it is an `h2`. */
   const Heading = useInCorrection() ? "h2" : "h1";
+  const underTitle = useFieldPolicy()?.underTitle ?? null;
   return (
     <div className={cn("flex flex-col gap-4", className)}>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -43,6 +45,7 @@ export function FilingPageHeader({
         </div>
         {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
       </div>
+      {underTitle}
     </div>
   );
 }

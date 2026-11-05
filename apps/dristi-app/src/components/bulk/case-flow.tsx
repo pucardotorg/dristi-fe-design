@@ -12,10 +12,11 @@
  *     left out too: the batch's documents step did it.
  *   · The batch's complainants and advocates were copied onto every case when it was
  *     created; here they are the case's own, changed in this case alone (PRD `BLK-06`).
- *   · The batch's checks sit on the fields they are about and on the rail's rows, and the
- *     bar above the section lists what is open in it, with Skip where a check allows it.
- *   · The bar names the case in the batch and moves to the previous, next, or next case
- *     with something to fix.
+ *   · The batch's checks sit on the fields they are about and on the rail's rows; a short
+ *     card under the section's title lists what is open in it, with Skip where a check
+ *     allows it, and offers a shared gap filled here to every other case that has it.
+ *   · A strip pinned above names the case in the batch and moves to the cases either
+ *     side; the footer goes on to the next case to fix once this one is done.
  */
 
 import * as React from "react";
@@ -39,11 +40,11 @@ import { getStep, stepFromPathname } from "@/lib/filing/steps";
 import { FilingProvider, useFiling } from "@/lib/filing/store";
 import type { StepId } from "@/lib/filing/types";
 import { useCourt, useCourtText } from "@/components/court/court-provider";
-import { DraftBreadcrumbLabel } from "@/components/filing/chrome";
+import { DraftBreadcrumbLabel, TOP_BAR_HEIGHT } from "@/components/filing/chrome";
 import { FieldPolicyProvider, type FieldPolicy } from "@/components/filing/field-policy";
 import { FilingShell } from "@/components/filing/filing-shell";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Empty,
   EmptyContent,
@@ -52,15 +53,13 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 
 import { bulkApi, caseFlowHref, setBulkAiMode, type BatchView, type CaseView } from "./api";
 import { useGujarat } from "./court-guard";
 import { demoFill } from "./demo-fill";
+import { useDemoTools } from "./demo-tools";
 import { OriginalDoc } from "./original-doc";
 import { FlagLine } from "./scrutiny-tab";
 import { CaseBadge } from "./stage";
@@ -219,8 +218,21 @@ export function BulkCaseFlow({
       },
       countFor: (s) => flags.filter((f) => f.section === s).length,
       next,
+      // What is open in this section sits under its title, above the form it is about.
+      underTitle:
+        batch && c ? (
+          <FixList
+            batchId={batchId}
+            batch={batch}
+            c={c}
+            step={step}
+            aiParam={aiParam}
+            setBatch={setBatch}
+            onBatchFixed={() => setGeneration((g) => g + 1)}
+          />
+        ) : null,
     };
-  }, [c, step, closed, next]);
+  }, [c, step, closed, next, batch, batchId, aiParam]);
 
   if (!ready) return null;
 
@@ -269,16 +281,7 @@ export function BulkCaseFlow({
       <FieldPolicyProvider value={policy}>
         <FilingShell
           banner={
-            <CaseBar
-              batchId={batchId}
-              batch={batch}
-              c={c}
-              step={step}
-              aiParam={aiParam}
-              error={error}
-              setBatch={setBatch}
-              onBatchFixed={() => setGeneration((g) => g + 1)}
-            />
+            <CaseBar batchId={batchId} batch={batch} c={c} step={step} aiParam={aiParam} error={error} />
           }
         >
           {children}
@@ -294,8 +297,14 @@ function CaseTitle() {
   return <DraftBreadcrumbLabel label={draftTitle(draft)} />;
 }
 
-/* ───────────────────────────── The bar ───────────────────────────── */
+/* ───────────────────────────── The strip ───────────────────────────── */
 
+/**
+ * Which case of the batch this is, pinned under the top bar: back to the list, the case
+ * and where it stands, and the cases either side. It is a bar across the page rather than
+ * a card in it, so the section's own title stays the first thing in the column (bulk
+ * audit, 2026-11-04: a card with the fix form inside it pushed the title halfway down).
+ */
 function CaseBar({
   batchId,
   batch,
@@ -303,8 +312,6 @@ function CaseBar({
   step,
   aiParam,
   error,
-  setBatch,
-  onBatchFixed,
 }: {
   batchId: string;
   batch: BatchView | null;
@@ -312,13 +319,133 @@ function CaseBar({
   step: StepId | null;
   aiParam: string | null;
   error: string | null;
+}) {
+  const demo = useDemoTools();
+  const { update } = useFiling();
+
+  const strip = (body: React.ReactNode) => (
+    <div
+      className="sticky z-20 border-b border-hairline bg-card px-6 py-3 lg:px-12 lg:[main:has([data-source-open])_&]:px-6"
+      style={{ top: TOP_BAR_HEIGHT }}
+    >
+      {body}
+    </div>
+  );
+
+  if (error && !batch)
+    return strip(
+      /* Already true when the page opened: it stands still. */
+      <StatusLine tone="error" still>
+        {error}
+      </StatusLine>,
+    );
+  if (!batch || !c) return strip(<Skeleton className="h-10 w-full max-w-md rounded-lg" />);
+
+  const cases = batch.cases;
+  const at = cases.findIndex((x) => x.id === c.id);
+  const prev = cases[at - 1] ?? null;
+  const next = cases[at + 1] ?? null;
+  const sameStep = (x: CaseView) =>
+    caseFlowHref(batchId, x, step && BULK_CASE_STEPS.includes(step) ? step : undefined, aiParam);
+
+  const move = (x: CaseView | null, label: string, icon: React.ReactNode) =>
+    x ? (
+      <Button asChild variant="outline" size="icon" aria-label={`${label}: ${x.title}`}>
+        <Link href={sameStep(x)}>{icon}</Link>
+      </Button>
+    ) : (
+      <Button variant="outline" size="icon" aria-label={label} disabled>
+        {icon}
+      </Button>
+    );
+
+  return strip(
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+      <Button asChild variant="ghost" className="-ml-2.5">
+        <Link href={batchHref(batchId, "scrutiny", aiParam, c.id)}>
+          <ArrowLeftIcon data-icon="inline-start" aria-hidden />
+          All cases
+        </Link>
+      </Button>
+      <div className="flex min-w-0 flex-1 basis-64 flex-col">
+        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="text-body-compact font-semibold">{c.title}</span>
+          <CaseBadge c={c} />
+        </span>
+        <span className="flex flex-wrap items-center gap-x-2 text-body-compact text-muted-foreground tabular-nums">
+          <span>
+            Case {at + 1} of {cases.length}
+          </span>
+          <span aria-hidden>·</span>
+          <span>{c.reference}</span>
+          {c.cheque ? (
+            <>
+              <span aria-hidden>·</span>
+              <span>Cheque {c.cheque}</span>
+            </>
+          ) : null}
+          {c.original ? <OriginalDoc original={c.original} /> : null}
+        </span>
+      </div>
+      <nav aria-label="Cases in this batch" className="flex items-center gap-2">
+        {demo && editable(c) ? (
+          <Button variant="ghost" size="sm" onClick={() => update(demoFill)}>
+            <WandSparklesIcon data-icon="inline-start" aria-hidden />
+            Demo values
+          </Button>
+        ) : null}
+        {move(prev, "Previous case", <ChevronLeftIcon aria-hidden />)}
+        {move(next, "Next case", <ChevronRightIcon aria-hidden />)}
+      </nav>
+    </div>,
+  );
+}
+
+/* ───────────────────────────── What to fix here ───────────────────────────── */
+
+type ValueFix = Extract<FlagFix, { kind: "text" | "date" | "select" }>;
+
+const valueFixOf = (f: Flag): ValueFix | null =>
+  f.fix && (f.fix.kind === "text" || f.fix.kind === "date" || f.fix.kind === "select") ? f.fix : null;
+
+/** The value at a draft path such as `advocates.0.barNumber`. */
+function valueAt(draft: unknown, path: string): string {
+  const v = path
+    .split(".")
+    .reduce<unknown>((o, k) => (o && typeof o === "object" ? (o as Record<string, unknown>)[k] : undefined), draft);
+  return typeof v === "string" ? v.trim() : "";
+}
+
+/**
+ * Under the section's title: what is open in this section, in one short card. The fields
+ * themselves carry the fixes, so nothing here repeats a field (bulk audit: the advocate was
+ * asked for twice on one screen, with two different controls). What it adds is the batch:
+ * once a gap the batch shares is filled here, the same value can go on every other case
+ * that has it, in one press.
+ */
+function FixList({
+  batchId,
+  batch,
+  c,
+  step,
+  aiParam,
+  setBatch,
+  onBatchFixed,
+}: {
+  batchId: string;
+  batch: BatchView;
+  c: CaseView;
+  step: StepId | null;
+  aiParam: string | null;
   setBatch: (b: BatchView) => void;
   onBatchFixed: () => void;
 }) {
   const courtText = useCourtText();
-  const { flush, update } = useFiling();
+  const { flush, draft } = useFiling();
   const [busy, setBusy] = React.useState(false);
   const [problem, setProblem] = React.useState<string | null>(null);
+
+  if (!editable(c)) return null;
 
   const act = async (body: Record<string, unknown>, batchWide = false) => {
     setBusy(true);
@@ -335,27 +462,6 @@ function CaseBar({
     }
   };
 
-  const frame = (body: React.ReactNode) => (
-    <div className="bg-muted px-6 pt-6 lg:px-12 dark:bg-background">
-      <div className="flex w-full max-w-4xl flex-col gap-3">{body}</div>
-    </div>
-  );
-
-  if (error && !batch)
-    return frame(
-      /* Already true when the page opened: it stands still. */
-      <StatusLine tone="error" still>{error}</StatusLine>,
-    );
-  if (!batch || !c) return frame(<Skeleton className="h-16 w-full rounded-xl" />);
-
-  const cases = batch.cases;
-  const at = cases.findIndex((x) => x.id === c.id);
-  const prev = cases[at - 1] ?? null;
-  const next = cases[at + 1] ?? null;
-  const toFix = nextToFix(cases, at);
-  const sameStep = (x: CaseView) =>
-    caseFlowHref(batchId, x, step && BULK_CASE_STEPS.includes(step) ? step : undefined, aiParam);
-
   const here = c.flags.filter((f) => f.section === step);
   const elsewhere = BULK_CASE_STEPS.filter((s) => s !== step)
     .map((s) => ({ s, n: c.flags.filter((f) => f.section === s).length }))
@@ -364,117 +470,104 @@ function CaseBar({
   const verb = (flags: Flag[]) => (flags.some((f) => f.level === "hold") ? "fix" : "check");
   const later = c.flags.filter((f) => f.section !== step);
 
-  return frame(
-    <Card variant="raised" className="gap-0 py-0">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3">
-        <Button asChild variant="ghost" className="-ml-2">
-          <Link href={batchHref(batchId, "scrutiny", aiParam, c.id)}>
-            <ArrowLeftIcon data-icon="inline-start" aria-hidden />
-            All cases
-          </Link>
-        </Button>
-        <div className="flex min-w-0 flex-1 flex-col">
-          <span className="flex flex-wrap items-center gap-2">
-            <span className="text-body-compact font-semibold">{c.title}</span>
-            <CaseBadge c={c} />
-          </span>
-          <span className="flex flex-wrap gap-x-2 text-caption text-muted-foreground tabular-nums">
-            <span>
-              Case {at + 1} of {cases.length} in {batch.number}
-            </span>
-            <span>· {c.reference}</span>
-            {c.cheque ? <span>· Cheque {c.cheque}</span> : null}
-          </span>
-          {c.original ? (
-            <span className="mt-1">
-              <OriginalDoc original={c.original} />
-            </span>
-          ) : null}
-        </div>
-        <nav aria-label="Cases in this batch" className="flex flex-wrap items-center gap-2">
-          {prev ? (
-            <Button asChild variant="outline">
-              <Link href={sameStep(prev)}>
-                <ChevronLeftIcon data-icon="inline-start" aria-hidden />
-                Previous
-              </Link>
-            </Button>
-          ) : null}
-          {next ? (
-            <Button asChild variant="outline">
-              <Link href={sameStep(next)}>
-                Next
-                <ChevronRightIcon data-icon="inline-end" aria-hidden />
-              </Link>
-            </Button>
-          ) : null}
-          {toFix ? (
-            <Button asChild variant="outline">
-              <Link href={caseFlowHref(batchId, toFix, firstFlaggedStep(toFix.flags), aiParam)}>
-                Next case to fix
-                <ChevronRightIcon data-icon="inline-end" aria-hidden />
-              </Link>
-            </Button>
-          ) : null}
-        </nav>
-      </div>
+  // The batch's shared gaps in this section, and how many other open cases still have each.
+  const shared = new Map<string, { fix: ValueFix; n: number }>();
+  for (const x of batch.cases) {
+    if (x.id === c.id || !editable(x)) continue;
+    for (const f of x.flags) {
+      const fix = valueFixOf(f);
+      if (!f.batchWide || !fix || f.section !== step) continue;
+      const seen = shared.get(fix.path);
+      if (seen) seen.n += 1;
+      else shared.set(fix.path, { fix, n: 1 });
+    }
+  }
+  const stillHere = (path: string) => here.some((f) => valueFixOf(f)?.path === path);
+  const offers = [...shared.values()]
+    .map(({ fix, n }) => {
+      const value = valueAt(draft, fix.path);
+      const shown =
+        fix.kind === "select"
+          ? (fix.options.find((o) => o.value.toUpperCase() === value.toUpperCase())?.label ?? value)
+          : value;
+      return { fix, n, value, shown };
+    })
+    .filter((o) => o.value && !stillHere(o.fix.path));
 
-      {editable(c) ? (
-        <div className="flex flex-col gap-3 border-t border-hairline px-4 py-3">
-          {here.length ? (
-            <>
-              <h2 className="text-body-compact font-semibold">
-                To {verb(here)} in {courtText(step ? getStep(step).title : "this section")}
-              </h2>
-              <ul className="flex flex-col gap-3">
-                {here.map((f) => (
-                  <FlagRow key={f.id} f={f} caseId={c.id} busy={busy} act={act} />
-                ))}
-              </ul>
-            </>
-          ) : c.flags.length ? (
-            <p className="flex items-center gap-2 text-body-compact text-muted-foreground">
-              <CheckIcon aria-hidden className="size-4 text-success-ink" />
-              Nothing to fix or check in this section.
-            </p>
-          ) : (
-            <p className="flex items-center gap-2 text-body-compact text-muted-foreground">
-              <CheckIcon aria-hidden className="size-4 text-success-ink" />
-              Nothing to fix or check in this case.
-            </p>
-          )}
-          {elsewhere.length ? (
-            <p className="flex flex-wrap items-center gap-x-1 text-body-compact text-muted-foreground">
-              <span>
-                {here.length ? "Also" : "Still"} to {verb(later)}:
-              </span>
-              {elsewhere.map(({ s, n }, i) => (
-                <span key={s} className="tabular-nums">
-                  <Link href={caseFlowHref(batchId, c, s, aiParam)} className="font-medium text-foreground underline">
-                    {courtText(getStep(s).title)}
-                  </Link>{" "}
-                  ({n}){i < elsewhere.length - 1 ? "," : ""}
-                </span>
-              ))}
-            </p>
-          ) : null}
-          {problem ? (
-            <StatusLine tone="error">{problem}</StatusLine>
-          ) : null}
-          {/* Demo: fills every date (consistent, filable today) and every empty required field. */}
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-fit"
-            disabled={busy}
-            onClick={() => update(demoFill)}
-          >
-            <WandSparklesIcon data-icon="inline-start" aria-hidden />
-            Fill with demo values
-          </Button>
-        </div>
+  const elsewhereLine = elsewhere.length ? (
+    <p className="flex flex-wrap items-center gap-x-1 text-body-compact text-muted-foreground">
+      <span>
+        {here.length ? "Also" : "Still"} to {verb(later)}:
+      </span>
+      {elsewhere.map(({ s, n }, i) => (
+        <span key={s} className="tabular-nums">
+          <Link href={caseFlowHref(batchId, c, s, aiParam)} className="font-medium text-foreground underline">
+            {courtText(getStep(s).title)}
+          </Link>{" "}
+          ({n}){i < elsewhere.length - 1 ? "," : ""}
+        </span>
+      ))}
+    </p>
+  ) : null;
+
+  if (!here.length && !offers.length) return elsewhereLine;
+
+  const others = (n: number) => `${n} other ${n === 1 ? "case" : "cases"}`;
+
+  return (
+    <Card variant="raised">
+      {here.length ? (
+        <CardHeader>
+          <CardTitle className="text-body font-semibold">
+            To {verb(here)} in {courtText(step ? getStep(step).title : "this section")}
+          </CardTitle>
+        </CardHeader>
       ) : null}
-    </Card>,
+      <CardContent className="flex flex-col gap-3">
+        {here.length ? (
+          <ul className="flex flex-col gap-3">
+            {here.map((f) => {
+              const path = valueFixOf(f)?.path;
+              const n = f.batchWide && path ? (shared.get(path)?.n ?? 0) : 0;
+              return (
+                <FlagRow
+                  key={f.id}
+                  f={f}
+                  caseId={c.id}
+                  busy={busy}
+                  act={act}
+                  note={n ? `Fill it in below; then you can use it for the ${others(n)} missing it too.` : null}
+                />
+              );
+            })}
+          </ul>
+        ) : null}
+        {offers.map((o) => (
+          <div
+            key={o.fix.path}
+            className="flex flex-col gap-3 rounded-lg bg-brand-muted px-4 py-3 text-brand-muted-foreground sm:flex-row sm:items-center"
+          >
+            <p className="min-w-0 flex-1 text-body-compact">
+              <span className="tabular-nums">{others(o.n)}</span> {o.n === 1 ? "is" : "are"} missing the{" "}
+              {o.fix.label.toLowerCase()}. Use <span className="font-semibold">{o.shown}</span> on{" "}
+              {o.n === 1 ? "it" : "them"} too?
+            </p>
+            <Button
+              variant="outline"
+              className="w-fit shrink-0"
+              disabled={busy}
+              onClick={() =>
+                void act({ action: "fix", caseId: c.id, path: o.fix.path, value: o.value, everyCase: true }, true)
+              }
+            >
+              {o.n === 1 ? "Use on it" : `Use on all ${o.n}`}
+            </Button>
+          </div>
+        ))}
+        {elsewhereLine}
+        {problem ? <StatusLine tone="error">{problem}</StatusLine> : null}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -484,16 +577,17 @@ function FlagRow({
   caseId,
   busy,
   act,
+  note,
 }: {
   f: Flag;
   caseId: string;
   busy: boolean;
   act: (body: Record<string, unknown>, batchWide?: boolean) => Promise<void>;
+  note: string | null;
 }) {
   const fix = f.fix;
-  const valueFix = fix && (fix.kind === "text" || fix.kind === "date" || fix.kind === "select") ? fix : null;
   return (
-    <li className="flex flex-col gap-2">
+    <li className="flex flex-col gap-1">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-4">
         <div className="min-w-0 flex-1">
           <FlagLine flag={f} />
@@ -519,68 +613,7 @@ function FlagRow({
           </Button>
         ) : null}
       </div>
-      {/* What the batch owns is locked in the case, so it is fixed here, once, for every case. */}
-      {f.batchWide && valueFix ? (
-        <BatchFix
-          key={f.id}
-          fix={valueFix}
-          busy={busy}
-          onApply={(value) =>
-            act({ action: "fix", caseId, path: valueFix.path, value, everyCase: true }, true)
-          }
-        />
-      ) : null}
+      {note ? <p className="ml-8 text-body-compact text-muted-foreground">{note}</p> : null}
     </li>
-  );
-}
-
-type ValueFix = Extract<FlagFix, { kind: "text" | "date" | "select" }>;
-
-function BatchFix({
-  fix,
-  busy,
-  onApply,
-}: {
-  fix: ValueFix;
-  busy: boolean;
-  onApply: (value: string) => Promise<void>;
-}) {
-  const id = React.useId();
-  const [value, setValue] = React.useState(fix.value ?? "");
-  return (
-    <div className="ml-8 flex max-w-md flex-col gap-2">
-      <Field className="gap-1.5">
-        <FieldLabel htmlFor={id} className="text-body-compact">
-          {fix.label}
-        </FieldLabel>
-        {fix.kind === "select" ? (
-          <NativeSelect id={id} value={value} onChange={(e) => setValue(e.target.value)} className="w-full">
-            <NativeSelectOption value="">Select</NativeSelectOption>
-            {fix.options.map((o) => (
-              <NativeSelectOption key={o.value} value={o.value}>
-                {o.label}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-        ) : (
-          <Input
-            id={id}
-            type={fix.kind === "date" ? "date" : "text"}
-            inputMode={fix.kind === "text" ? fix.inputMode : undefined}
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-          />
-        )}
-        <FieldDescription>Applies to every case in the batch that is not signed yet.</FieldDescription>
-      </Field>
-      <Button
-        variant="outline"
-        className="w-fit"
-        disabled={busy || !value.trim()}
-        onClick={() => void onApply(value)}
-      >
-        Apply to every case
-      </Button>
-    </div>
   );
 }

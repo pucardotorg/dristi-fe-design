@@ -115,6 +115,8 @@ export function FilingMain({
 
   return (
     <div
+      // Lets a host strip above the column match its gutter (bulk filing's case strip).
+      data-source-open={sourceOpen || undefined}
       className={cn(
         /* 24px gutters at every width, the page frame's own (`PAGE_GUTTER`): at 16 the
            title sat tighter to the glass than on any other screen. The cards give the
