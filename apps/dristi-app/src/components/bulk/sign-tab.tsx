@@ -13,12 +13,14 @@
  * anyone else (round-2 audit; the build's one "Mobile OTP" for both parties is retired).
  *
  * The batch's cases are marked signed once every party has signed, through the same
- * `sign` action as before. Until then who has signed is held in this tab (sandbox: the
- * other party's signature is marked by hand, as v8 does).
+ * `sign` action as before. Until then who has signed is kept in this browser, so it
+ * survives a reload or a second tab, and the batch list can say who is still to sign
+ * (sandbox: the other party's signature is marked by hand, as v8 does). Keeping it on the
+ * server, for a second device, is the backend's.
  */
 
 import * as React from "react";
-import { ClipboardListIcon, FileUpIcon, SignatureIcon } from "lucide-react";
+import { ClipboardListIcon, DownloadIcon, FileUpIcon, SignatureIcon } from "lucide-react";
 
 import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { StagedOverlay, useStagedFlow } from "@/components/chrome/staged-overlay";
@@ -33,7 +35,7 @@ import {
   SettledCard,
   StageColumn,
 } from "@/components/filing/sign-stages";
-import { AADHAAR_DOCS_PER_OTP, type BulkSignMethod } from "@/lib/bulk/types";
+import { AADHAAR_DOCS_PER_OTP, AADHAAR_LIMIT_SOURCE, type BulkSignMethod } from "@/lib/bulk/types";
 import { money } from "@/lib/filing/format";
 import type { PaperFallbackReason, Signatory } from "@/lib/filing/types";
 import { cn } from "@/lib/utils";
@@ -53,42 +55,16 @@ import {
 } from "@/components/chrome/table-plate";
 import { StatusLine } from "@/components/feedback";
 
+import { buildPrintPack } from "@/lib/bulk/print-pack";
+
 import { bulkApi, type CaseView } from "./api";
 import { BatchFooter } from "./batch-footer";
+import { batchTallies } from "./batch-marks";
+import { readRound, writeRound, type Round } from "./signing-round";
 import type { BatchCtx } from "./batch-screen";
 import { FileDrop } from "./file-drop";
 
-type Signer = { id: string; name: string; role: string; initials: string; you?: boolean };
-
-/** Where this round of signing stands, kept in the tab until the batch's cases are signed. */
-type Round = {
-  caseIds: string[];
-  method: BulkSignMethod;
-  /** Other parties sent their link. */
-  sent: boolean;
-  /** Signer ids that have signed (you, by OTP or DSC, or by uploading the signed copies). */
-  signed: string[];
-};
-
-const KEY = (batchId: string) => `dristi.bulk.signing.${batchId}`;
-
-function readRound(batchId: string): Round | null {
-  try {
-    const raw = window.sessionStorage.getItem(KEY(batchId));
-    return raw ? (JSON.parse(raw) as Round) : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeRound(batchId: string, round: Round | null) {
-  try {
-    if (round) window.sessionStorage.setItem(KEY(batchId), JSON.stringify(round));
-    else window.sessionStorage.removeItem(KEY(batchId));
-  } catch {
-    /* Blocked storage only means the round lasts as long as the page. */
-  }
-}
+type Signer = { id: string; name: string; role: string; initials: string; you?: boolean; mobile?: string };
 
 const initialsOf = (name: string) =>
   name
@@ -102,8 +78,15 @@ const initialsOf = (name: string) =>
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
+/** A mobile number as a link's destination is shown: only its last four digits. */
+export const maskMobile = (m: string) => {
+  const digits = m.replace(/\D/g, "");
+  return digits.length >= 4 ? `•••••• ${digits.slice(-4)}` : "";
+};
+
 export function SignTab({ batch, setBatch, go }: BatchCtx) {
-  const clear = batch.cases.filter((c) => c.stage === "ready" && c.flags.length === 0);
+  const tallies = batchTallies(batch);
+  const clear = tallies.completeCases;
   const [picked, setPicked] = React.useState<Set<string>>(() => new Set(clear.map((c) => c.id)));
   const [listOpen, setListOpen] = React.useState(false);
   const [flowOpen, setFlowOpen] = React.useState(false);
@@ -143,8 +126,14 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
           {
             id: "rep",
             name: batch.representative.name,
-            role: `${batch.representative.designation}, ${batch.client}`,
+            role: [
+              `${batch.representative.designation}, ${batch.client}`,
+              maskMobile(batch.representative.mobile)
+                ? `signs by link on ${maskMobile(batch.representative.mobile)}`
+                : "no mobile in Common details",
+            ].join(" · "),
             initials: initialsOf(batch.representative.name),
+            mobile: maskMobile(batch.representative.mobile),
           },
         ]
       : []),
@@ -153,8 +142,9 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
   const others = signers.filter((s) => s !== you);
   const signedIds = round?.signed ?? [];
   const allSigned = !!round && signers.every((s) => signedIds.includes(s.id));
-  const held = batch.cases.filter((c) => c.stage === "held").length;
-  const unanswered = batch.cases.filter((c) => c.stage === "ready" && c.flags.length > 0).length;
+  // Why the other open cases can't be signed yet, by cause, each with the step that fixes it.
+  const { fixing, checking, docsMissing } = tallies;
+  const waiting = fixing + checking + docsMissing;
 
   /** Every party has signed: the batch's cases are signed, by the method used, and pay opens. */
   const complete = async (r: Round) => {
@@ -173,48 +163,71 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
 
   const statusOf = (s: Signer) =>
     signedIds.includes(s.id) ? (
-      <Badge variant="success">{round?.method === "upload" ? "Confirmed" : "Signed"}</Badge>
+      <Badge variant="success" className="text-body-compact">{round?.method === "upload" ? "Confirmed" : "Signed"}</Badge>
     ) : round?.sent && !s.you ? (
-      <Badge variant="info">Link sent</Badge>
+      <Badge variant="info" className="text-body-compact">Link sent</Badge>
     ) : (
-      <Badge variant="secondary">Not signed</Badge>
+      <Badge variant="secondary" className="text-body-compact">Not signed</Badge>
     );
 
   const allOn = chosen.length === clear.length;
 
   return (
     <div className="flex flex-col gap-6">
-      {held || unanswered ? (
-        /* A gate, not a warning: these cases aren't open to sign yet. */
+      {waiting ? (
+        /* A gate, not a warning: these cases aren't open to sign yet. Each cause links to
+           the step that clears it (round 3: a missing file was sent to Case details). */
         <StatusLine
           tone="neutral"
           icon={ClipboardListIcon}
           still
           title={
             <span className="tabular-nums">
-              {held + unanswered} case{held + unanswered === 1 ? " isn't" : "s aren't"} ready to sign yet
+              {waiting} case{waiting === 1 ? " isn't" : "s aren't"} ready to sign yet
             </span>
           }
         >
-          Finish the case details first:{" "}
-          {[held ? `${held} need${held === 1 ? "s" : ""} fixing` : "", unanswered ? `${unanswered} to check` : ""]
-            .filter(Boolean)
-            .join(", ")}
-          .{" "}
-          <button type="button" className="underline" onClick={() => go("scrutiny")}>
-            Go to Case details
-          </button>
+          <span className="flex flex-col gap-1">
+            {fixing || checking ? (
+              <span className="tabular-nums">
+                {[fixing ? `${fixing} to fix` : "", checking ? `${checking} to check` : ""].filter(Boolean).join(" and ")}{" "}
+                at{" "}
+                <button type="button" className="underline" onClick={() => go("scrutiny")}>
+                  Case details
+                </button>
+              </span>
+            ) : null}
+            {docsMissing ? (
+              <span className="tabular-nums">
+                {docsMissing} missing a document at{" "}
+                <button type="button" className="underline" onClick={() => go("documents")}>
+                  Documents
+                </button>
+              </span>
+            ) : null}
+          </span>
         </StatusLine>
       ) : null}
 
       {error ? <StatusLine tone="error">{error}</StatusLine> : null}
 
       {clear.length === 0 ? (
-        <Card variant="raised">
-          <CardContent className="text-body-compact text-muted-foreground">
-            Nothing to sign yet. Cases arrive here once their details and documents are complete.
-          </CardContent>
-        </Card>
+        <>
+          <Card variant="raised">
+            <CardContent className="text-body-compact text-muted-foreground">
+              Nothing to sign yet. Cases arrive here once their details and documents are complete.
+            </CardContent>
+          </Card>
+          <BatchFooter>
+            <FilingFooter
+              showSaveState={false}
+              onBack={() => go("documents")}
+              continueLabel={batch.counts.signed ? `Pay for ${batch.counts.signed} signed` : "Continue to signing"}
+              continueDisabled={!batch.counts.signed}
+              onContinue={() => go("pay")}
+            />
+          </BatchFooter>
+        </>
       ) : (
         <>
           <Card variant="raised">
@@ -289,8 +302,8 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
                             onCheckedChange={(v) => setPicked(v === true ? new Set(clear.map((c) => c.id)) : new Set())}
                           />
                         </TableHead>
-                        <TableHead className={TABLE_HEAD}>Reference</TableHead>
                         <TableHead className={TABLE_HEAD}>Accused</TableHead>
+                        <TableHead className={TABLE_HEAD}>Your reference</TableHead>
                         <TableHead className={cn(TABLE_HEAD, "text-right")}>Cheque amount</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -314,8 +327,8 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
                                 }
                               />
                             </TableCell>
-                            <TableCell className={cn(TABLE_CELL, "font-medium tabular-nums")}>{c.reference}</TableCell>
                             <TableCell className={TABLE_CELL}>{c.accused}</TableCell>
+                            <TableCell className={cn(TABLE_CELL, "font-mono")}>{c.reference}</TableCell>
                             <TableCell className={cn(TABLE_CELL, "text-right tabular-nums")}>{money(c.amount)}</TableCell>
                           </TableRow>
                         );
@@ -428,6 +441,25 @@ function SignWindow({
   const [matched, setMatched] = React.useState<Record<string, string>>({});
   const [busy, setBusy] = React.useState(false);
   const [sentNow, setSentNow] = React.useState(false);
+  const [downloading, setDownloading] = React.useState(false);
+
+  /** Every complaint, one PDF each, to print and sign by hand. */
+  const download = async () => {
+    setDownloading(true);
+    try {
+      const blob = await buildPrintPack(
+        cases.map((c) => ({ reference: c.reference, title: c.title, accused: c.accused, cheque: c.cheque, amount: money(c.amount) })),
+        [you, ...others].map((s) => s.name),
+      );
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `complaints-to-sign-${cases.length}.zip`;
+      a.click();
+      window.setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const base: Round = round ?? { caseIds: cases.map((c) => c.id), method: "aadhaar", sent: false, signed: [] };
   const guard = useDiscardGuard(otp.length > 0 || files.length > 0 || (otpRound > 1 && flow.stage === "otp"), onClose);
@@ -515,7 +547,12 @@ function SignWindow({
         </Button>
       </>
     ),
-    sign: null,
+    // e-filing's own exit: nothing is signed yet, so it is a plain close.
+    sign: (
+      <Button variant="ghost" onClick={onClose}>
+        I&rsquo;ll sign later
+      </Button>
+    ),
     otp: (
       <>
         <Button variant="outline" onClick={() => flow.go("sign")}>
@@ -575,7 +612,11 @@ function SignWindow({
             onClick={chooseDigital}
           >
             You sign all {n} with your DSC or Aadhaar e-sign.
-            {others.length ? ` ${names(others)} ${others.length === 1 ? "gets" : "get"} a link on the mobile number in Common details.` : null}
+            {others.length
+              ? ` ${others
+                  .map((o) => (o.mobile ? `${o.name} gets a link on ${o.mobile}` : `${o.name} gets a link`))
+                  .join("; ")}.`
+              : null}
           </ChoiceCard>
           <PaperFallbackLink onClick={() => flow.go("fallback")} />
         </StageColumn>
@@ -603,7 +644,11 @@ function SignWindow({
           />
           {rounds > 1 ? (
             <p className="text-body-compact text-muted-foreground tabular-nums">
-              Aadhaar e-sign takes one OTP for every {AADHAAR_DOCS_PER_OTP} complaints: {rounds} OTPs for these {n}. A DSC signs them all at once.
+              Aadhaar e-sign takes one OTP for every {AADHAAR_DOCS_PER_OTP} complaints (
+              <a href={AADHAAR_LIMIT_SOURCE.url} target="_blank" rel="noreferrer" className="underline">
+                {AADHAAR_LIMIT_SOURCE.title}
+              </a>
+              ): {rounds} OTPs for these {n}. A DSC signs them all at once.
             </p>
           ) : null}
         </StageColumn>
@@ -617,6 +662,18 @@ function SignWindow({
             resent={resent}
             onResend={() => setResent(true)}
           />
+          {rounds > 1 ? (
+            <p className="text-body-compact text-muted-foreground">
+              This OTP signs{" "}
+              <span className="font-mono">
+                {cases
+                  .slice(first - 1, last)
+                  .map((c) => c.reference)
+                  .join(", ")}
+              </span>
+              .
+            </p>
+          ) : null}
         </StageColumn>
       ) : flow.stage === "dsc" ? (
         <StageColumn>
@@ -636,6 +693,15 @@ function SignWindow({
         />
       ) : flow.stage === "paper" ? (
         <StageColumn>
+          <div className="flex flex-col gap-2 rounded-lg border border-hairline bg-surface-sunken p-4 sm:flex-row sm:items-center">
+            <p className="min-w-0 flex-1 text-body-compact text-muted-foreground">
+              Each is already named the way it is matched back. Keep the name when you scan it.
+            </p>
+            <Button variant="outline" className="w-fit shrink-0" disabled={downloading} onClick={() => void download()}>
+              <DownloadIcon data-icon="inline-start" aria-hidden />
+              Download {plural(n, "complaint")}
+            </Button>
+          </div>
           <Field className="gap-1.5">
             <FieldLabel htmlFor="signed-copies">Signed copies</FieldLabel>
             <FileDrop
@@ -660,8 +726,12 @@ function SignWindow({
             {cases.map((c) => (
               <li key={c.id} className="flex items-center gap-3 border-b border-hairline px-3 py-2 text-body-compact last:border-b-0">
                 <FileUpIcon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-                <span className="min-w-0 flex-1 truncate tabular-nums">{c.reference}</span>
-                {matched[c.id] ? <Badge variant="success">Matched</Badge> : <Badge variant="secondary">Waiting</Badge>}
+                <span className="min-w-0 flex-1 truncate font-mono">{c.reference}</span>
+                {matched[c.id] ? (
+                  <Badge variant="success" className="text-body-compact">Matched</Badge>
+                ) : (
+                  <Badge variant="secondary" className="text-body-compact">Waiting</Badge>
+                )}
               </li>
             ))}
           </ul>

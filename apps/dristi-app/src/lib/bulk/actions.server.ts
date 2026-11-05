@@ -66,6 +66,8 @@ export type CaseView = {
   /** Soft flags the filer skipped. */
   skipped: Flag[];
   fee: number;
+  /** What the fee is made of, so Pay can show its basis (round 3: one unexplained sum). */
+  feeParts: { court: number; condonation: number; process: number; delivery: number };
   signedWith: BulkSignMethod | null;
   receiptNumber: string | null;
   paymentRef: string | null;
@@ -128,6 +130,10 @@ export function caseView(bc: BatchCase): CaseView {
   const required = docs.filter(({ doc }) => doc.required);
   const lim = limitationView(d);
   const cause = causeOfActionDate(d);
+  const bill = feeBill(d, FEES);
+  const condonation = bill.court
+    .filter((l) => l.key === FEES.condonation.key)
+    .reduce((n, l) => n + l.amount, 0);
   return {
     id: bc.id,
     reference: bc.reference,
@@ -150,7 +156,13 @@ export function caseView(bc: BatchCase): CaseView {
     skipped: every.filter(
       (f) => f.level === "soft" && bc.skipped.includes(f.id),
     ),
-    fee: d.sign.paidAmount ?? feeBill(d, FEES).total,
+    fee: d.sign.paidAmount ?? bill.total,
+    feeParts: {
+      court: bill.courtTotal - condonation,
+      condonation,
+      process: bill.processTotal,
+      delivery: bill.deliveryTotal,
+    },
     signedWith: bc.signedWith,
     receiptNumber: bc.receiptNumber,
     paymentRef: d.sign.paymentRef,

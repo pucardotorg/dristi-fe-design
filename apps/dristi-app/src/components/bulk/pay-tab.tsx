@@ -47,6 +47,7 @@ import { BatchFooter } from "./batch-footer";
 import type { BatchCtx } from "./batch-screen";
 import { FilingFooter } from "@/components/filing/filing-footer";
 import { CaseBadge } from "./stage";
+import { caseState } from "./batch-marks";
 
 const ist = (iso: string) =>
   `${new Date(iso).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" })} IST`;
@@ -143,7 +144,26 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
 
   const chosen = due.filter((c) => picked.has(c.id));
   const total = chosen.reduce((s, c) => s + c.fee, 0);
-  const sameFee = chosen.length > 0 && chosen.every((c) => c.fee === chosen[0].fee);
+  // The fee's parts across the chosen cases: each shown as cases × rate when every case
+  // pays the same, else as a sum the list breaks down (round 3: one unexplained lump).
+  const parts = (
+    [
+      ["court", "Court fee"],
+      ["condonation", "Delay condonation fee"],
+      ["process", "Process fee"],
+      ["delivery", "Summons delivery"],
+    ] as const
+  )
+    .map(([key, label]) => {
+      const paying = chosen.filter((c) => (c.feeParts?.[key] ?? 0) > 0);
+      const amounts = paying.map((c) => c.feeParts[key]);
+      const sum = amounts.reduce((n, a) => n + a, 0);
+      const rate = amounts.length && amounts.every((a) => a === amounts[0]) ? amounts[0] : null;
+      return { key, label, sum, n: paying.length, rate };
+    })
+    .filter((p) => p.sum > 0);
+  // Payments recorded before the parts existed fall back to the one sum.
+  const unexplained = total - parts.reduce((n, p) => n + p.sum, 0);
   const [listOpen, setListOpen] = React.useState(false);
   const last = batch.payments.at(-1);
   // What the batch still has to do after this payment, shown on the success screen.
@@ -151,7 +171,8 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
   /** The step a case waits on: paying, fixing or checking, or signing. */
   const openPending = (c: (typeof pendingAfter)[number]) => {
     setDialog(null);
-    go(c.stage === "signed" ? "pay" : c.flags.length ? "scrutiny" : "sign");
+    const state = caseState(c);
+    go(state === "signed" ? "pay" : state === "fix" || state === "check" ? "scrutiny" : state === "docs" ? "documents" : "sign");
     window.setTimeout(
       () =>
         document
@@ -186,11 +207,19 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
       ) : null}
 
       {due.length === 0 ? (
-        <Card variant="raised">
-          <CardContent className="text-body-compact text-muted-foreground">
-            Nothing to pay yet. Sign the cases first.
-          </CardContent>
-        </Card>
+        <>
+          <Card variant="raised">
+            <CardContent className="text-body-compact text-muted-foreground">
+              Nothing to pay yet. Cases come here once every party has signed them.{" "}
+              <button type="button" className="text-foreground underline" onClick={() => go("sign")}>
+                Go to Review and sign
+              </button>
+            </CardContent>
+          </Card>
+          <BatchFooter>
+            <FilingFooter showSaveState={false} onBack={() => go("sign")} continueLabel="Pay" continueDisabled />
+          </BatchFooter>
+        </>
       ) : (
         <>
           {/* The fees first, as one sum (v8); the cases it covers behind "Review the list". */}
@@ -200,17 +229,25 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
               <dl className="flex flex-col gap-2 text-body-compact">
-                <div className="flex items-baseline justify-between gap-4">
-                  <dt>
-                    Court fee
-                    <span className="text-muted-foreground tabular-nums">
-                      {" "}
-                      · {chosen.length} {chosen.length === 1 ? "case" : "cases"}
-                      {sameFee ? ` × ${money(chosen[0].fee)}` : ""}
-                    </span>
-                  </dt>
-                  <dd className="tabular-nums">{money(total)}</dd>
-                </div>
+                {parts.map((p) => (
+                  <div key={p.key} className="flex items-baseline justify-between gap-4">
+                    <dt>
+                      {p.label}
+                      <span className="text-muted-foreground tabular-nums">
+                        {" "}
+                        · {p.n} {p.n === 1 ? "case" : "cases"}
+                        {p.rate !== null ? ` × ${money(p.rate)}` : ", varies by case"}
+                      </span>
+                    </dt>
+                    <dd className="tabular-nums">{money(p.sum)}</dd>
+                  </div>
+                ))}
+                {unexplained > 0 ? (
+                  <div className="flex items-baseline justify-between gap-4">
+                    <dt>Fees</dt>
+                    <dd className="tabular-nums">{money(unexplained)}</dd>
+                  </div>
+                ) : null}
               </dl>
               <div className="flex items-baseline justify-between gap-4 border-t border-hairline pt-3">
                 <span className="text-title-s font-semibold">Total</span>
@@ -262,8 +299,8 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
                       aria-label="Select every case"
                     />
                   </TableHead>
-                  <TableHead className={TABLE_HEAD}>Reference</TableHead>
-                  <TableHead className={TABLE_HEAD}>Parties</TableHead>
+                  <TableHead className={TABLE_HEAD}>Accused</TableHead>
+                  <TableHead className={TABLE_HEAD}>Your reference</TableHead>
                   <TableHead className={cn(TABLE_HEAD, "pr-4 text-right")}>
                     Fees
                   </TableHead>
@@ -290,8 +327,8 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
                         aria-label={`Select ${c.reference}`}
                       />
                     </TableCell>
-                    <TableCell className={cn(TABLE_CELL, "font-medium tabular-nums")}>{c.reference}</TableCell>
-                    <TableCell className={cn(TABLE_CELL, "whitespace-normal")}>{c.title}</TableCell>
+                    <TableCell className={cn(TABLE_CELL, "whitespace-normal")}>{c.accused || c.title}</TableCell>
+                    <TableCell className={cn(TABLE_CELL, "font-mono")}>{c.reference}</TableCell>
                     <TableCell className={cn(TABLE_CELL, "pr-4 text-right tabular-nums")}>{money(c.fee)}</TableCell>
                   </TableRow>
                 ))}

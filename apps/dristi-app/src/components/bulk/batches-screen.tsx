@@ -6,8 +6,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   CircleCheckIcon,
   DownloadIcon,
-  FileSpreadsheetIcon,
-  FileTextIcon,
   Layers2Icon,
   UploadIcon,
 } from "lucide-react";
@@ -56,6 +54,7 @@ import { useCourt } from "@/components/court/court-provider";
 import { bulkApi, type BatchSummary } from "./api";
 import { useGujarat } from "./court-guard";
 import { StageBar } from "./stage";
+import { waitingOnOthers } from "./signing-round";
 import { StatusLine } from "@/components/feedback";
 
 export async function downloadTemplate() {
@@ -87,48 +86,26 @@ export function SourceLabel({
         : source.kind === "documents"
           ? "Case documents"
           : "Clubbed";
+  // No icon tile: the words say where it came from (round 3). A long file name keeps its
+  // end, where uploads that start alike ("tata-capital-…") differ.
   return (
-    <span className="flex min-w-0 items-center gap-3">
-      <span
-        aria-hidden
-        className={cn(
-          "flex size-9 shrink-0 items-center justify-center rounded-lg",
-          source.kind === "api" && "bg-info-muted text-info-muted-foreground",
-          source.kind === "excel" &&
-            "bg-success-muted text-success-muted-foreground",
-          source.kind === "documents" &&
-            "border border-hairline bg-card text-foreground",
-          source.kind === "clubbed" && "bg-muted text-muted-foreground",
-        )}
-      >
-        {source.kind === "api" ? (
-          <span className="text-caption font-bold tracking-wide">API</span>
-        ) : source.kind === "excel" ? (
-          <FileSpreadsheetIcon className="size-5" />
-        ) : source.kind === "documents" ? (
-          <FileTextIcon className="size-5" />
-        ) : (
-          <Layers2Icon className="size-5" />
-        )}
-      </span>
-      <span className="flex min-w-0 flex-col">
-        <span>{name}</span>
-        {source.reference ? (
-          <span
-            className="truncate text-caption text-muted-foreground"
-            title={source.reference}
-          >
-            {source.reference}
-          </span>
-        ) : null}
-        {to ? (
-          <span className="truncate text-caption text-muted-foreground">
-            To {to}
-          </span>
-        ) : null}
-      </span>
+    <span className="flex min-w-0 flex-col">
+      <span>{name}</span>
+      {source.reference ? (
+        <span className="text-body-compact text-muted-foreground" title={source.reference}>
+          {middle(source.reference)}
+        </span>
+      ) : null}
+      {to ? <span className="truncate text-body-compact text-muted-foreground">To {to}</span> : null}
     </span>
   );
+}
+
+/** A name shortened in the middle, keeping its start and its distinguishing end. */
+function middle(name: string, max = 30): string {
+  if (name.length <= max) return name;
+  const tail = Math.ceil((max - 1) / 2);
+  return `${name.slice(0, max - 1 - tail)}…${name.slice(-tail)}`;
 }
 
 /** Every batch, newest first. Batches never mix; clubbing is the filer's deliberate act. */
@@ -143,8 +120,13 @@ export function BatchesScreen() {
   const [picked, setPicked] = React.useState<Set<string>>(new Set());
   const [clubbing, setClubbing] = React.useState(false);
 
+  // Batches with a signing round out, waiting on another party (kept in this browser).
+  const [awaiting, setAwaiting] = React.useState<Set<string>>(new Set());
   const load = React.useCallback(() => {
-    bulkApi.list().then(setBatches, (e: Error) => setError(e.message));
+    bulkApi.list().then((list) => {
+      setBatches(list);
+      setAwaiting(new Set(list.filter((b) => waitingOnOthers(b.id)).map((b) => b.id)));
+    }, (e: Error) => setError(e.message));
   }, []);
   React.useEffect(() => {
     if (ready) load();
@@ -226,7 +208,7 @@ export function BatchesScreen() {
           </Badge>
         ) : null}
         {b.clubbedFrom.length ? (
-          <div className="text-caption font-normal text-muted-foreground">
+          <div className="text-body-compact font-normal text-muted-foreground">
             From {b.clubbedFrom.join(", ")}
           </div>
         ) : null}
@@ -237,7 +219,7 @@ export function BatchesScreen() {
           to={b.source.kind === "api" ? b.filingAdvocate?.name : null}
         />
       </TableCell>
-      <TableCell className={cn(TABLE_CELL, "whitespace-normal")}>
+      <TableCell className={cn(TABLE_CELL, "min-w-48 whitespace-normal")}>
         {b.client}
       </TableCell>
       <TableCell className={cn(TABLE_CELL, "tabular-nums")}>
@@ -255,7 +237,12 @@ export function BatchesScreen() {
             Done: all {b.total} filed
           </Badge>
         ) : (
-          <StageBar counts={b.counts} />
+          <span className="flex flex-col gap-1">
+            <StageBar counts={b.counts} />
+            {awaiting.has(b.id) ? (
+              <span className="text-body-compact text-info-ink">Waiting for another party to sign</span>
+            ) : null}
+          </span>
         )}
       </TableCell>
     </TableRow>
