@@ -1,11 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { ArrowDownIcon, ArrowLeftRightIcon, ArrowRightIcon, CheckIcon, ChevronDownIcon, FileSpreadsheetIcon, HashIcon, MinusIcon, PlusIcon, SearchIcon } from "lucide-react";
+import { ArrowLeftRightIcon, ArrowRightIcon, CheckIcon, FileSpreadsheetIcon, MinusIcon, PlusIcon, SearchIcon, WandSparklesIcon } from "lucide-react";
 
 import {
+  autoMap,
   columnFit,
   firstInstance,
+  suggestColumn,
   instancesIn,
   mapKey,
   MUST_MAP,
@@ -27,11 +29,8 @@ import {
   type ListName,
 } from "@/lib/bulk/excel-spec";
 import { cn } from "@/lib/utils";
-import { BrandGlyph } from "@/components/brand-lockup";
 import { ConfirmDialog } from "@/components/shell/confirm-dialog";
-import { Card } from "@/components/ui/card";
-import { SectionTabs } from "@/components/filing/section-tabs";
-import { RAIL_ROW, RAIL_ROW_ACTIVE } from "@/components/filing/sections-rail";
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getStep, type StepId } from "@/lib/filing/steps";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -55,6 +54,12 @@ type Props = {
   /** How many of each repeating section the filer says there are. */
   counts: InstanceCounts;
   onCounts: (next: InstanceCounts) => void;
+  /**
+   * Fields the filer chose to fill in each case later. A field the file's names did not
+   * match is unmatched, not decided, until the filer says so (v8: "Choose a column…").
+   */
+  later: Set<string>;
+  onLater: (next: Set<string>) => void;
 };
 
 /** Sections in the single filing's order. */
@@ -207,7 +212,7 @@ function FoundInFile({
 
 /** The choice that leaves a field unmatched: the default whenever no column fits. */
 const NONE = "none";
-export const SKIP = "Skip (fill manually later)";
+export const SKIP = "Fill in each case later";
 
 /** A sheet column as an option: its name, then its first value, smaller and in mono. */
 function ColumnOption({
@@ -300,7 +305,8 @@ function ColumnPicker({
     ],
     [headers, firsts, list],
   );
-  const selected = options.find((o) => o.value === value) ?? options[0];
+  // Nothing chosen yet: the field waits with a placeholder, not a decision (v8).
+  const selected = value === "" ? null : (options.find((o) => o.value === value) ?? options[0]);
   return (
     <Combobox
       items={options}
@@ -320,7 +326,7 @@ function ColumnPicker({
       filter={(o, q) => {
         const opt = o as PickOption;
         const query = q.trim().toLowerCase();
-        if (!query || query === selected.name.toLowerCase()) return true;
+        if (!query || query === selected?.name.toLowerCase()) return true;
         return `${opt.name} ${opt.sample ?? ""}`.toLowerCase().includes(query);
       }}
     >
@@ -343,7 +349,7 @@ function ColumnPicker({
           )}
           autoComplete="off"
           showTrigger={false}
-          placeholder="Type to search columns"
+          placeholder="Choose a column…"
           // A chosen column's name is selected on focus, so typing starts a new search.
           onFocus={(e) => e.currentTarget.select()}
         >
@@ -351,9 +357,9 @@ function ColumnPicker({
             <SearchIcon className="text-muted-foreground" aria-hidden />
           </InputGroupAddon>
           <InputGroupAddon align="inline-end">
-            {selected.sample ? (
+            {selected?.sample ? (
               <span className="max-w-40 truncate font-mono text-caption text-muted-foreground">
-                {selected.sample}
+                {selected?.sample}
               </span>
             ) : null}
             <InputGroupButton size="icon-xs" variant="ghost" asChild>
@@ -417,16 +423,24 @@ function FieldRow({
   column,
   instance,
   props,
+  label,
+  suggested,
 }: {
   column: Column;
   instance: Instance;
   props: Props;
+  /** The field's name with its instance when the file repeats the section. */
+  label?: string;
+  /** A likely column the filer can accept (`suggestColumn`). */
+  suggested?: number | null;
 }) {
   const g = GROUPS.find((x) => x.id === column.group)!;
   const src = sourceFor(column, instance, props.map, props.headers);
   const id = `map-${column.key}-${instanceKey(instance) || "0"}`;
   const used = React.useContext(UsedContext);
   const selfKey = mapKey(column.key, instance, g);
+  // Not chosen at all, as opposed to chosen to fill in each case later.
+  const unset = src === null && !props.later.has(selfKey);
   const [pending, setPending] = React.useState<{
     value: string;
     others: Use[];
@@ -443,6 +457,10 @@ function FieldRow({
       ...Object.fromEntries(clear.map((o) => [o.key, null])),
       [selfKey]: next,
     });
+    const later = new Set(props.later);
+    if (v === NONE) later.add(selfKey);
+    else later.delete(selfKey);
+    props.onLater(later);
   };
   // Each column's first value, so the choice can be made by what the column holds.
   const firsts = React.useMemo(
@@ -461,7 +479,7 @@ function FieldRow({
             props.rows.map((r) => r[src] ?? ""),
           )
         : { ok: true };
-  const state: Link = fit === null ? "none" : fit.ok ? "ok" : "warn";
+  const state: Link = unset ? "todo" : fit === null ? "none" : fit.ok ? "ok" : "warn";
   return (
     // One line per field, centred on its dropdown, with a hover band to follow the row across.
     <li
@@ -471,8 +489,11 @@ function FieldRow({
         htmlFor={id}
         className="flex min-w-0 items-center justify-between gap-2"
       >
-        <span className="min-w-0 truncate text-body-compact font-medium">
-          {column.header}
+        <span className="flex min-w-0 flex-col">
+          <span className="truncate text-body-compact font-medium">{label ?? column.header}</span>
+          {unset && suggested == null ? (
+            <span className="text-body-compact text-muted-foreground">Not in your file</span>
+          ) : null}
         </span>
         <LinkNode state={state} className="sm:hidden" />
       </label>
@@ -484,7 +505,7 @@ function FieldRow({
         <ColumnPicker
           id={id}
           label={`Column in your sheet for ${column.header}`}
-          value={sourceValue(src) || NONE}
+          value={unset ? "" : sourceValue(src) || NONE}
           headers={props.headers}
           firsts={firsts}
           list={column.list}
@@ -518,8 +539,20 @@ function FieldRow({
           }}
         />
         {fit && !fit.ok ? (
-          <span className="pt-1 pl-1 text-caption text-warning-ink">
+          <span className="pt-1 pl-1 text-body-compact text-warning-ink">
             {fit.note}
+          </span>
+        ) : null}
+        {/* A likely column, offered with its first value; it counts once accepted (v8). */}
+        {unset && suggested != null ? (
+          <span className="flex items-center gap-2 pt-1.5 pl-1 text-body-compact text-muted-foreground">
+            <span className="min-w-0 flex-1 truncate" title={`${props.headers[suggested]} · ${firsts[suggested]}`}>
+              Suggested: <span className="font-medium text-foreground">{props.headers[suggested]}</span>
+              {firsts[suggested] ? <span className="font-mono"> · {firsts[suggested]}</span> : null}
+            </span>
+            <Button variant="outline" size="sm" onClick={() => commit(String(suggested), [])}>
+              Accept
+            </Button>
           </span>
         ) : null}
       </div>
@@ -530,7 +563,7 @@ function FieldRow({
 /** Field, arrow, column (each option shows its first value): the same grid for the header and every row. */
 const ROW = "sm:grid-cols-[minmax(0,1fr)_3.5rem_minmax(0,1.2fr)]";
 
-type Link = "ok" | "warn" | "none";
+type Link = "ok" | "warn" | "none" | "todo";
 
 /**
  * A field's arrow on the connector. Green with a white arrow: matched, and the column's
@@ -544,7 +577,9 @@ function LinkNode({ state, className }: { state: Link; className?: string }) {
       ? "Matched"
       : state === "warn"
         ? "Matched, check the values"
-        : "Skipped, fill manually later";
+        : state === "todo"
+          ? "Not matched yet"
+          : "Filled in each case later";
   return (
     <span
       role="img"
@@ -555,6 +590,7 @@ function LinkNode({ state, className }: { state: Link; className?: string }) {
         state === "ok" && "bg-success text-success-foreground",
         state === "warn" && "bg-warning text-warning-foreground",
         state === "none" && "bg-muted-foreground text-background",
+        state === "todo" && "border border-input bg-card text-muted-foreground",
         className,
       )}
     >
@@ -563,17 +599,6 @@ function LinkNode({ state, className }: { state: Link; className?: string }) {
   );
 }
 
-/** The two sides as tiles, the way the batch list marks a source: app mark, Excel mark. */
-function AppTile() {
-  return (
-    <span
-      aria-hidden
-      className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-hairline bg-card"
-    >
-      <BrandGlyph className="h-5 w-auto" />
-    </span>
-  );
-}
 
 function SheetTile({ small = false }: { small?: boolean }) {
   return (
@@ -589,67 +614,7 @@ function SheetTile({ small = false }: { small?: boolean }) {
   );
 }
 
-/**
- * Which side is which, said with the two marks: the field in the case (ON Courts mark) on
- * the left takes its value from the column of your sheet (Excel mark) on the right. The
- * label avoids the product name, which the court text layer re-voices per state.
- */
-function SidesHeader() {
-  return (
-    // On a phone the rows stack (field, then its column below), so the header stacks too.
-    <div
-      className={cn(
-        "flex flex-col gap-2 sm:grid sm:items-center sm:gap-3",
-        ROW,
-      )}
-    >
-      <span className="flex items-center gap-3 text-body-compact font-semibold text-foreground">
-        <AppTile />
-        Field in the case
-      </span>
-      <span className="hidden sm:block" />
-      <ArrowDownIcon
-        className="ml-3 size-4 text-muted-foreground sm:hidden"
-        aria-hidden
-      />
-      <span className="flex items-center gap-3 text-body-compact font-semibold text-foreground">
-        <SheetTile />
-        Column in your sheet
-      </span>
-    </div>
-  );
-}
 
-/** Fields of one section, under a small heading. */
-function Section({
-  group,
-  columns,
-  instance,
-  props,
-  heading = true,
-}: {
-  group: Group;
-  columns: Column[];
-  instance: Instance;
-  props: Props;
-  heading?: boolean;
-}) {
-  if (!columns.length) return null;
-  return (
-    <section className="flex flex-col">
-      {heading ? (
-        <h4 className="text-caption font-semibold text-muted-foreground uppercase">
-          {group.label}
-        </h4>
-      ) : null}
-      <ul className="flex flex-col divide-y divide-hairline">
-        {columns.map((c) => (
-          <FieldRow key={c.key} column={c} instance={instance} props={props} />
-        ))}
-      </ul>
-    </section>
-  );
-}
 
 /**
  * Column matching for a sheet that is not the template. Required fields come first; the
@@ -690,313 +655,180 @@ export function ColumnMapping(props: Props) {
     }
     return out;
   }, [instances, props.map, props.headers]);
-  // Which tab is open in each repeating section; kept while counts change.
-  const [openTab, setOpenTab] = React.useState<
-    Partial<Record<GroupId, string>>
-  >({});
-
-  const isRequired = (c: Column) => MUST_MAP.includes(c.key);
-  const fieldsOf = (g: Group) =>
-    COLUMNS.filter(
-      (c) => c.group === g.id && (showOptional || isRequired(c) || !g.always),
+  // Every field the file has to fill, instance by instance, sorted into the ones its
+  // column names found and the ones that need the filer (v8's two cards).
+  const auto = React.useMemo(() => autoMap(props.headers), [props.headers]);
+  const slots = mappingSlots(props.headers, props.counts, showOptional);
+  // Found by its column name: the reader matched it and the filer has not changed it.
+  const byName = (x: Slot) =>
+    typeof auto[x.c.key] === "number" &&
+    props.map[x.c.key] === auto[x.c.key] &&
+    (x.key === x.c.key || props.map[x.key] === undefined) &&
+    sourceFor(x.c, x.i, props.map, props.headers) !== null;
+  const isUnset = (x: Slot) =>
+    sourceFor(x.c, x.i, props.map, props.headers) === null && !props.later.has(x.key);
+  const need = slots.filter((x) => x.required && !byName(x));
+  const found = slots.filter((x) => byName(x));
+  const optional = slots.filter((x) => !x.required && !byName(x));
+  const left = need.filter(isUnset).length;
+  // A likely column for each field still unset, each column offered once.
+  const suggestions = React.useMemo(() => {
+    const taken = new Set(
+      Object.values(props.map).filter((v): v is number => typeof v === "number"),
     );
+    const out = new Map<string, number>();
+    for (const x of need.filter(isUnset)) {
+      const k = suggestColumn(x.c, props.headers, props.rows, taken);
+      if (k !== null) {
+        out.set(x.key, k);
+        taken.add(k);
+      }
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.map, props.headers, props.rows, need.length]);
+  const [found_open, setFoundOpen] = React.useState(false);
+  const [repeatsOpen, setRepeatsOpen] = React.useState(false);
 
-  // Required fields across every case-level section and every tab of one a case always has.
-  const requiredSlots = GROUPS.flatMap((g) =>
-    COLUMNS.filter((c) => c.group === g.id && isRequired(c)).flatMap((c) =>
-      (g.always ? instances[g.id] : []).map((i) => ({ c, i })),
-    ),
-  );
-  const matched = requiredSlots.filter(
-    ({ c, i }) => sourceFor(c, i, props.map, props.headers) !== null,
-  ).length;
+  const sections = (list: Slot[]) =>
+    [...new Set(list.map((x) => x.section))].map((section) => (
+      <div key={section} className="flex flex-col">
+        <h3 className="pt-2 text-body-compact font-medium text-muted-foreground">{section}</h3>
+        <ul className="flex flex-col divide-y divide-hairline">
+          {list
+            .filter((x) => x.section === section)
+            .map((x) => (
+              <FieldRow
+                key={x.key}
+                column={x.c}
+                instance={x.i}
+                props={props}
+                label={x.label}
+                suggested={suggestions.get(x.key) ?? null}
+              />
+            ))}
+        </ul>
+      </div>
+    ));
 
-  // The single filing's order and names, so the two read the same.
-  const top = ORDER.map((id) => GROUPS.find((g) => g.id === id)!).filter(
-    Boolean,
-  );
-  const children = (g: Group) => GROUPS.filter((x) => x.parent === g.id);
-  // A section a case may not have at all (witnesses, other pending
-  // cases) shows once it has a count, or with the optional fields.
-  const visible = (g: Group) =>
-    g.always || instances[g.id].length > 0 || showOptional;
-  const optionalCount = COLUMNS.filter((c) => !isRequired(c)).length;
-
-  const navKey = (g: Group) => STEP[g.id] ?? g.id;
-  const shown = top.filter(visible);
-  const nav = shown.filter(
-    (g, k) => shown.findIndex((x) => navKey(x) === navKey(g)) === k,
-  );
-  // How many of a section's required fields are matched, across its tabs and the parts
-  // inside them (an accused's address). A section with none required counts every field.
-  const navCount = (key: string): { n: number; of: number } => {
-    const gs = shown
-      .filter((g) => navKey(g) === key)
-      .flatMap((g) => [g, ...children(g).filter((c) => c.always)]);
-    const slots = gs.flatMap((g) => {
-      const cols = COLUMNS.filter((c) => c.group === g.id);
-      const need = cols.filter(isRequired);
-      const inst = g.repeats ? instances[g.id] : [firstInstance(g)];
-      return (need.length ? need : cols).flatMap((c) =>
-        inst.map((i) => ({ c, i })),
-      );
-    });
-    return {
-      n: slots.filter(
-        ({ c, i }) => sourceFor(c, i, props.map, props.headers) !== null,
-      ).length,
-      of: slots.length,
-    };
-  };
-  const [activeNav, setActiveNav] = React.useState("case");
-  const cardsRef = React.useRef<HTMLDivElement>(null);
-  React.useEffect(() => {
-    const root = cardsRef.current;
-    if (!root) return;
-    // The section nearest the top of the screen is the one the nav marks.
-    const seen = new IntersectionObserver(
-      (entries) => {
-        const first = entries
-          .filter((e) => e.isIntersecting)
-          .sort(
-            (x, y) => x.boundingClientRect.top - y.boundingClientRect.top,
-          )[0];
-        if (first)
-          setActiveNav((first.target as HTMLElement).dataset.nav ?? "case");
-      },
-      { rootMargin: "-80px 0px -60% 0px" },
-    );
-    root.querySelectorAll("[data-nav]").forEach((el) => seen.observe(el));
-    return () => seen.disconnect();
-  }, [shown.length]);
-
-  // A tab is done when its required fields are matched (or, for an optional section, any field).
-  const tabDone = (g: Group, i: Instance) => {
-    const cols = COLUMNS.filter((c) => c.group === g.id);
-    const need = cols.filter(isRequired);
-    const has = (c: Column) =>
-      sourceFor(c, i, props.map, props.headers) !== null;
-    return need.length ? need.every(has) : cols.some(has);
-  };
-
-  const addOne = (g: Group) => {
-    const n = instances[g.id].length + 1;
-    props.onCounts({ ...props.counts, [g.id]: n });
-    setOpenTab((t) => ({ ...t, [g.id]: instanceKey([g.first + n - 1]) }));
-  };
+  const groupsWithRepeats = GROUPS.filter((g) => g.repeats && !g.parent);
+  const repeatLine = foundSentence(groupsWithRepeats, instances)[0];
 
   return (
     <UsedContext.Provider value={used}>
       <div className="flex flex-col gap-6">
-        <FoundInFile props={props} instances={instances} />
+        <Card variant="raised">
+          <CardHeader>
+            <CardTitle className="text-body font-semibold tabular-nums">
+              {left ? `${left} ${left === 1 ? "field needs" : "fields need"} you` : "Every field is matched"}
+            </CardTitle>
+            <CardDescription>
+              {repeatLine}{" "}
+              <Button variant="link" className="h-auto p-0" onClick={() => setRepeatsOpen((v) => !v)}>
+                {repeatsOpen ? "Done" : "Change"}
+              </Button>
+            </CardDescription>
+            {suggestions.size ? (
+              <CardAction>
+                <Button
+                  onClick={() =>
+                    props.onChange({ ...props.map, ...Object.fromEntries(suggestions) })
+                  }
+                >
+                  <WandSparklesIcon data-icon="inline-start" aria-hidden />
+                  Accept {suggestions.size} suggestion{suggestions.size === 1 ? "" : "s"}
+                </Button>
+              </CardAction>
+            ) : null}
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            {repeatsOpen ? <FoundInFile props={props} instances={instances} /> : null}
+            {need.length ? sections(need) : (
+              <p className="text-body-compact text-muted-foreground">Every required field was found by its column name.</p>
+            )}
+          </CardContent>
+        </Card>
 
-        <section className="flex flex-col gap-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <h3 className="text-body font-semibold">
-              Match each field to a column
-            </h3>
-            <Badge
-              variant={matched === requiredSlots.length ? "success" : "warning"}
-              className="tabular-nums"
-            >
-              {matched} of {requiredSlots.length} required matched
-            </Badge>
-            <Button
-              variant="ghost"
-              className="ml-auto"
-              aria-expanded={showOptional}
-              onClick={() => setShowOptional((v) => !v)}
-            >
-              <ChevronDownIcon
-                data-icon="inline-start"
-                className={cn(
-                  "transition-transform",
-                  showOptional && "rotate-180",
-                )}
-                aria-hidden
-              />
-              {showOptional
-                ? "Hide optional fields"
-                : `Show optional fields (${optionalCount})`}
-            </Button>
-          </div>
-
-          <div className="xl:grid xl:grid-cols-[13rem_minmax(0,1fr)] xl:items-start xl:gap-6">
-            {/* Secondary nav: the single filing's sections, to jump between them. */}
-            <nav
-              aria-label="Sections to match"
-              className="sticky top-20 hidden xl:block"
-            >
-              <ul className="flex flex-col gap-1">
-                {nav.map((g) => {
-                  const key = navKey(g);
-                  const step = STEP[g.id] ? getStep(STEP[g.id]!) : null;
-                  const Icon = step?.icon ?? HashIcon;
-                  const active = activeNav === key;
-                  return (
-                    <li key={key}>
-                      <Button
-                        variant="ghost"
-                        className={cn(RAIL_ROW, active && RAIL_ROW_ACTIVE)}
-                        aria-current={active ? "location" : undefined}
-                        onClick={() => {
-                          setActiveNav(key);
-                          document
-                            .getElementById(`map-sec-${key}`)
-                            ?.scrollIntoView({
-                              behavior: "smooth",
-                              block: "start",
-                            });
-                        }}
-                      >
-                        <Icon
-                          aria-hidden
-                          className={
-                            active ? undefined : "text-muted-foreground"
-                          }
-                        />
-                        <span className="min-w-0 truncate">
-                          {step?.title ?? "Case"}
-                        </span>
-                        {(() => {
-                          // Said in numbers, not a mark to decode: "2 of 5", or a tick when all are.
-                          const { n, of } = navCount(key);
-                          return n === of && of > 0 ? (
-                            <span className="ml-auto flex items-center gap-1 text-caption text-success-ink">
-                              <CheckIcon className="size-4" aria-hidden />
-                              <span className="sr-only">all {of} matched</span>
-                            </span>
-                          ) : (
-                            <span className="ml-auto text-caption tabular-nums text-muted-foreground">
-                              {n} of {of}
-                              <span className="sr-only"> matched</span>
-                            </span>
-                          );
-                        })()}
-                      </Button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </nav>
-
-            <div ref={cardsRef} className="flex flex-col gap-8">
-              <div className="px-6">
-                <SidesHeader />
-              </div>
-              {shown.map((g) => {
-                // Every section that can repeat has numbered tabs, even with one: Accused 1,
-                // then Accused 2 once the file (or the filer) says there is a second.
-                const list = g.repeats ? instances[g.id] : [firstInstance(g)];
-                const keys = list.map(instanceKey);
-                const chosen = openTab[g.id];
-                const current =
-                  chosen !== undefined && keys.includes(chosen)
-                    ? chosen
-                    : keys[0];
-                const name = (i: Instance) => `${g.label} ${i[0]}`;
-                return (
-                  // Laid out as the single filing lays out a section: heading, tabs, then cards.
-                  <section
-                    key={g.id}
-                    id={nav.includes(g) ? `map-sec-${navKey(g)}` : undefined}
-                    data-nav={navKey(g)}
-                    className="flex scroll-mt-20 flex-col gap-4"
-                  >
-                    <h3 className="text-title-s font-semibold">
-                      {cardTitle(g)}
-                    </h3>
-                    {g.repeats ? (
-                      <SectionTabs
-                        addAfterTabs
-                        tabs={list.map((i, k) => ({
-                          id: instanceKey(i),
-                          label: name(i),
-                          status: tabDone(g, i) ? "complete" : "attention",
-                          // Only the last can go: the numbers are the sheet's _2, _3.
-                          removable:
-                            k === list.length - 1 &&
-                            list.length > (g.always ? 1 : 0),
-                        }))}
-                        activeId={current ?? ""}
-                        onSelect={(v) =>
-                          setOpenTab((t) => ({ ...t, [g.id]: v }))
-                        }
-                        onRemove={() =>
-                          props.onCounts({
-                            ...props.counts,
-                            [g.id]: list.length - 1,
-                          })
-                        }
-                        addLabel={`Add ${g.label.toLowerCase()}`}
-                        onAdd={() => addOne(g)}
-                      />
-                    ) : null}
-                    {list
-                      .filter((i) => instanceKey(i) === current)
-                      .flatMap((i) => [
-                        {
-                          key: `${g.id}-${instanceKey(i)}`,
-                          // The section heading or the tab already names the main part.
-                          title: null as string | null,
-                          group: g,
-                          inst: i,
-                        },
-                        ...children(g)
-                          .flatMap((c) =>
-                            instances[c.id]
-                              .filter(([p]) => p === i[0])
-                              .map((ci) => ({ c, ci })),
-                          )
-                          .filter(
-                            ({ c }) =>
-                              fieldsOf(c).length && (c.always || showOptional),
-                          )
-                          .map(({ c, ci }) => ({
-                            key: `${c.id}-${instanceKey(ci)}`,
-                            title: `${c.label} ${ci[1]}`,
-                            group: c,
-                            inst: ci,
-                          })),
-                      ])
-                      .map((part) => (
-                        // Titles sit outside the card, so the card is only rows and the line
-                        // runs from its top edge to its bottom edge.
-                        <div key={part.key} className="flex flex-col gap-2">
-                          {part.title ? (
-                            <h4 className="text-body font-semibold">
-                              {part.title}
-                            </h4>
-                          ) : null}
-                          <Card
-                            variant="raised"
-                            className="relative gap-0 px-6 py-2"
-                          >
-                            {/* The middle column of field 1fr, 3.5rem, column 1.2fr, inside px-6. */}
-                            <span
-                              aria-hidden
-                              className="absolute inset-y-0 hidden w-px bg-hairline sm:block"
-                              style={{
-                                left: "calc(1.5rem + (100% - 6.5rem) / 2.2 + 1.75rem)",
-                              }}
-                            />
-                            <Section
-                              group={part.group}
-                              columns={fieldsOf(part.group)}
-                              instance={part.inst}
-                              props={props}
-                              heading={false}
-                            />
-                          </Card>
-                        </div>
-                      ))}
-                  </section>
-                );
-              })}
-            </div>
-          </div>
-        </section>
+        <Card variant="raised">
+          <CardHeader>
+            <CardTitle className="text-body font-semibold tabular-nums">
+              {found.length} found by name
+            </CardTitle>
+            {found_open ? null : (
+              <CardDescription>Matched by their column names. Open them to check or change one.</CardDescription>
+            )}
+            <CardAction>
+              <Button variant="ghost" size="sm" aria-expanded={found_open} onClick={() => setFoundOpen((v) => !v)}>
+                {found_open ? "Hide" : "Show"}
+              </Button>
+            </CardAction>
+          </CardHeader>
+          {found_open ? (
+            <CardContent className="flex flex-col gap-4">
+              {sections(found)}
+              {showOptional ? (
+                optional.length ? sections(optional) : null
+              ) : (
+                <Button variant="link" className="h-auto w-fit p-0" onClick={() => setShowOptional(true)}>
+                  Match optional fields too
+                </Button>
+              )}
+            </CardContent>
+          ) : null}
+        </Card>
       </div>
     </UsedContext.Provider>
   );
+}
+
+/** One field of one instance, where the file has to say which column fills it. */
+type Slot = {
+  c: Column;
+  i: Instance;
+  key: string;
+  required: boolean;
+  /** Its section, as the single filing names it. */
+  section: string;
+  /** The field's name, with the instance when the section repeats ("Cheque 2 · Cheque date"). */
+  label: string;
+};
+
+/** Every field the file can fill, instance by instance, in the single filing's order. */
+function mappingSlots(headers: string[], counts: InstanceCounts, optional: boolean): Slot[] {
+  const instances = instancesIn(headers, counts);
+  const out: Slot[] = [];
+  const top = ORDER.map((id) => GROUPS.find((g) => g.id === id)!).filter(Boolean);
+  for (const g of top) {
+    const parts = [g, ...GROUPS.filter((x) => x.parent === g.id)];
+    for (const part of parts) {
+      if (!part.always && instances[part.id].length === 0) continue;
+      const list = part.repeats ? instances[part.id] : [firstInstance(part)];
+      for (const i of list) {
+        const many = part.repeats && list.length > 1;
+        const prefix = part.parent
+          ? `${instances[part.parent].length > 1 ? `${GROUPS.find((x) => x.id === part.parent)!.label} ${i[0]} · ` : ""}${many ? `${part.label.replace(/^Accused /, "")} ${i[1]} · ` : ""}`
+          : many
+            ? `${part.label} ${i[0]} · `
+            : "";
+        for (const c of COLUMNS.filter((x) => x.group === part.id)) {
+          const required = MUST_MAP.includes(c.key) && part.always;
+          if (!required && !optional) continue;
+          out.push({ c, i, key: mapKey(c.key, i, part), required, section: cardTitle(g), label: `${prefix}${c.header}` });
+        }
+      }
+    }
+  }
+  return out;
+}
+
+/** Required fields not yet matched or set to fill in each case later: Match columns' "still to match". */
+export function mappingLeft(
+  headers: string[],
+  map: ColumnMap,
+  counts: InstanceCounts,
+  later: Set<string>,
+): number {
+  return mappingSlots(headers, counts, false).filter(
+    (x) => x.required && sourceFor(x.c, x.i, map, headers) === null && !later.has(x.key),
+  ).length;
 }

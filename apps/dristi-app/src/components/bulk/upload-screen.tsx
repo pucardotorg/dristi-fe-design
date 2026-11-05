@@ -79,7 +79,7 @@ import { FilingFooter } from "@/components/filing/filing-footer";
 import { FilingPageHeader } from "@/components/filing/filing-page-header";
 import { FilingMain } from "@/components/filing/filing-shell";
 
-import { ColumnMapping } from "./column-mapping";
+import { ColumnMapping, mappingLeft } from "./column-mapping";
 import { useGujarat } from "./court-guard";
 import {
   defaultFormat,
@@ -277,6 +277,8 @@ export function UploadScreen() {
   const setStep = (s: UploadStep) => router.push(uploadHref(setupId, s, search.get("ai")));
   const [map, setMap] = React.useState<ColumnMap>({});
   const [counts, setCounts] = React.useState<InstanceCounts>({});
+  // Fields the filer chose to fill in each case later, on Match columns.
+  const [later, setLater] = React.useState<Set<string>>(() => new Set());
   const [values, setValues] = React.useState<ValueMap>({});
   const [template, setTemplate] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
@@ -334,6 +336,8 @@ export function UploadScreen() {
     unknown[l]!.every((v) => values[l]?.[v]),
   );
 
+  // Required fields Match columns still waits on (a column, or "fill in each case later").
+  const mapLeft = book && !(template || docs) ? mappingLeft(book.cases.headers, map, counts, later) : 0;
   // The sections rail lists matching only where this file needs it.
   const report = useReportUploadState();
   const matchColumns = !!book && !(template || docs);
@@ -678,7 +682,7 @@ export function UploadScreen() {
         <FilingMain width="wide">
           <FilingPageHeader
             title="Match columns"
-            description="This file is not laid out like the template. Pick the column that holds each field. Fields already matched were found by name."
+            description={`${fileName} uses its own layout. Say which column holds each field, or that it's filled in each case later.`}
           />
           {errorNotice}
           <ColumnMapping
@@ -688,14 +692,23 @@ export function UploadScreen() {
             onChange={setMap}
             counts={counts}
             onCounts={setCounts}
+            later={later}
+            onLater={setLater}
           />
         </FilingMain>
-        {/* Continue always goes on: a field left on Skip is filled manually later, on
-            Case details, where each case's gaps are held with their fix in place. */}
+        {/* Every required field is answered before going on: a column, or "Fill in each
+            case later", which Case details then holds with its fix in place (v8). */}
         <FilingFooter
           showSaveState={false}
           onBack={() => setStep("file")}
-          onContinue={() => setStep(unknownLists.length ? "values" : "review")}
+          status={
+            mapLeft ? (
+              <span className="text-body-compact text-muted-foreground tabular-nums">{mapLeft} still to match</span>
+            ) : undefined
+          }
+          continueBlocked={mapLeft > 0}
+          continueHint={mapLeft ? "Choose a column, or Fill in each case later, for each field" : undefined}
+          onContinue={mapLeft ? undefined : () => setStep(unknownLists.length ? "values" : "review")}
         />
       </>
     );
