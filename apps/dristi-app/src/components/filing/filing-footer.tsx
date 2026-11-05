@@ -36,6 +36,8 @@ export function FilingFooter({
   leading,
   status,
   extra,
+  stackExtra = false,
+  noContinue = false,
   className,
 }: {
   backHref?: string;
@@ -66,6 +68,14 @@ export function FilingFooter({
   status?: React.ReactNode;
   /** Extra controls (buttons) between the save state and the primary action. */
   extra?: React.ReactNode;
+  /**
+   * On a phone, give `extra` a full-width row of its own under the primary, with Back
+   * last, instead of sharing Back's row. For an extra whose label is a sentence ("Continue
+   * with 10 complete"), which spilled out of a half-width button (bulk audit, round 3).
+   */
+  stackExtra?: boolean;
+  /** No primary at all: a step whose choice is made in the page itself (a set of cards). */
+  noContinue?: boolean;
   className?: string;
 }) {
   /*
@@ -121,8 +131,7 @@ export function FilingFooter({
     </Button>
   );
 
-  const primary =
-    continueBlocked && continueHint ? (
+  const primary = noContinue ? null : continueBlocked && continueHint ? (
       /* Radix opens it on focus as well as hover, and describes the button with it while
          it is open, so a keyboard reader hears the reason on the way past. */
       <TooltipProvider>
@@ -172,7 +181,13 @@ export function FilingFooter({
         {hasStatusLine ? (
           /* One quiet line. The save state always sits on the right (owner, Sept 22):
              alone, or closing the line after the step's own statement on the left. */
-          <div className="flex items-center justify-between gap-3 text-caption [&_*]:text-caption">
+          <div
+            className={cn(
+              "flex justify-between gap-3 text-caption [&_*]:text-caption",
+              // Two statements don't fit one phone line side by side: they stack.
+              leading && status ? "flex-col items-start gap-1" : "items-center",
+            )}
+          >
             {leading || status ? (
               <>
                 <div className="min-w-0">{leading ?? status}</div>
@@ -188,8 +203,10 @@ export function FilingFooter({
             )}
           </div>
         ) : null}
-        <div className="flex flex-col [&>*]:w-full">{primary}</div>
-        {back || extra ? (
+        {primary ? <div className="flex flex-col [&>*]:w-full">{primary}</div> : null}
+        {stackExtra && extra ? <div className="flex flex-col [&>*]:w-full">{extra}</div> : null}
+        {stackExtra && back ? <div className="flex flex-col [&>*]:w-full">{back}</div> : null}
+        {!stackExtra && (back || extra) ? (
           <div className="flex items-center gap-2 [&>*]:min-w-0 [&>*]:flex-1">
             {back}
             {extra}

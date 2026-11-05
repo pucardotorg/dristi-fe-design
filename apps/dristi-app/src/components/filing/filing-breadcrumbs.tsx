@@ -27,9 +27,10 @@ const CASE_FILING_LABEL = `Case filing under ${CASE_TYPE.short}`;
 export function FilingBreadcrumbs() {
   const courtText = useCourtText();
   const pathname = usePathname();
-  const { draftLabel } = useFilingChrome();
+  const { draftLabel, batchCrumb } = useFilingChrome();
 
-  const first = pathname.replace(/^\/filings\/?/, "").split("/").filter(Boolean)[0];
+  const parts = pathname.replace(/^\/filings\/?/, "").split("/").filter(Boolean);
+  const first = parts[0];
   const stepId = stepFromPathname(pathname);
 
   // The signing request publishes its own trail, named for the case it holds.
@@ -39,7 +40,20 @@ export function FilingBreadcrumbs() {
   if (first === "new") {
     crumbs.push({ label: "New filing" });
   } else if (first === "bulk") {
-    crumbs.push({ label: "Bulk filing" });
+    // Bulk filing › the batch › the case open in it (v8). Each level links back up.
+    const deeper = parts.length > 1;
+    crumbs.push({ label: "Bulk filing", href: deeper ? "/filings/bulk" : undefined });
+    const inCase = parts[2] === "cases" && parts[3];
+    if (batchCrumb && parts[1] === batchCrumb.id) {
+      crumbs.push({
+        label: batchCrumb.number,
+        href: inCase ? `/filings/bulk/${batchCrumb.id}` : undefined,
+        mono: true,
+      });
+    }
+    if ((inCase || parts[1] === "upload") && draftLabel && draftLabel !== "Untitled filing") {
+      crumbs.push({ label: draftLabel });
+    }
   } else if (first === "formats") {
     crumbs.push({ label: "Additional details formats" });
   } else if (stepId) {

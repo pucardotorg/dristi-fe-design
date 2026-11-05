@@ -75,6 +75,18 @@ export type FieldPolicy = {
    * rail and no source rail, so a left-aligned column would leave the right half empty.
    */
   centered?: true;
+  /**
+   * The source rail opens only when asked for, as a sheet, instead of docking as a column
+   * wherever there is room. Bulk filing's open case: a section docking it and the next not
+   * reflowed the whole case from one section to the next (round-3 audit).
+   */
+  sourcesOnDemand?: true;
+  /**
+   * `false` where every case is filed by an advocate, so "appearing in person?" is not a
+   * question: bulk filing (round-3 audit). Still shown on a complainant already marked as
+   * appearing in person, so that state is never hidden.
+   */
+  partyInPerson?: false;
 };
 
 /** A host step in the sections rail. */
@@ -106,6 +118,10 @@ export function useFieldPolicy(): FieldPolicy | null {
 }
 
 /** The host has no source documents here (`FieldPolicy.sources`). */
+export function useSourcesOnDemand(): boolean {
+  return React.useContext(FieldPolicyContext)?.sourcesOnDemand === true;
+}
+
 export function useSourcesOff(): boolean {
   return React.useContext(FieldPolicyContext)?.sources === false;
 }

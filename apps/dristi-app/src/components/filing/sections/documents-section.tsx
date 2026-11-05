@@ -423,7 +423,7 @@ export function DocumentsSection() {
       <FilingMain width="wide">
         <FilingPageHeader
           title="List of documents"
-          description="Check each one is the right way up and readable. The affidavit and delay-condonation application are not needed here."
+          description="Check each one is the right way up and readable. The affidavit and delay-condonation application are prepared in their own sections."
         />
 
         <SectionNotice variant="neutral">
@@ -433,7 +433,8 @@ export function DocumentsSection() {
 
         {groups.map((group) => (
           <section key={group.id} className="flex flex-col gap-3">
-            <h2 className="text-title-s font-semibold">{group.title}</h2>
+            {/* The case's own papers are its documents, not its "details" (round-3 audit). */}
+            <h2 className="text-title-s font-semibold">{group.id === "case" ? "Case documents" : group.title}</h2>
 
             <div className={cn(PANEL_CLASS, "rounded-xl border bg-card")}>
               {/* Phone and upright tablet: a list. The table's fixed columns need about

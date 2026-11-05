@@ -9,6 +9,8 @@
  */
 
 import * as React from "react";
+
+import { useFieldPolicy } from "@/components/filing/field-policy";
 import { useRouter } from "next/navigation";
 import { CheckIcon, TriangleAlertIcon } from "lucide-react";
 
@@ -348,6 +350,8 @@ export function ComplainantSection() {
   const mobile10 = c.mobile.replace(/\D/g, "");
   /** Appearing in person settles the PoA question — see the note on the control. */
   const inPerson = c.pip === "yes";
+  // A host whose cases are all advocate-filed doesn't ask (bulk filing).
+  const pipAsked = useFieldPolicy()?.partyInPerson !== false;
 
   /** Nothing to verify until there is a whole number to verify. */
   const canVerify = mobile10.length === 10;
@@ -420,16 +424,18 @@ export function ComplainantSection() {
         <CorrectionInstance value={active}>
         {/* Representation & type */}
         <FormCard title="Representation & type">
-          <FormField
-            asGroup
-            label="Is this complainant appearing in person (party-in-person)?"
-          >
-            <YesNoSegmented
-              value={c.pip}
-              onValueChange={(v) => set("pip", v)}
-              ariaLabel="Is this complainant appearing in person (party-in-person)?"
-            />
-          </FormField>
+          {pipAsked || c.pip === "yes" ? (
+            <FormField
+              asGroup
+              label="Is this complainant appearing in person (party-in-person)?"
+            >
+              <YesNoSegmented
+                value={c.pip}
+                onValueChange={(v) => set("pip", v)}
+                ariaLabel="Is this complainant appearing in person (party-in-person)?"
+              />
+            </FormField>
+          ) : null}
           <FormField asGroup label="Complainant type">
             <Segmented
               value={c.type}

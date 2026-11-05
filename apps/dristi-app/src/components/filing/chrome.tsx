@@ -19,6 +19,9 @@ export type FilingChromeValue = {
   /** Title of the draft currently loaded, for the breadcrumb. `null` outside a draft. */
   draftLabel: string | null;
   setDraftLabel: (label: string | null) => void;
+  /** The bulk batch on screen, for the breadcrumb: its number, and where it opens. */
+  batchCrumb: { number: string; id: string } | null;
+  setBatchCrumb: (crumb: { number: string; id: string } | null) => void;
 };
 
 export const FilingChromeContext =
@@ -47,6 +50,7 @@ export function FilingChromeProvider({
   }, []);
 
   const [draftLabel, setDraftLabel] = React.useState<string | null>(null);
+  const [batchCrumb, setBatchCrumb] = React.useState<{ number: string; id: string } | null>(null);
 
   const value = React.useMemo<FilingChromeValue>(
     () => ({
@@ -56,8 +60,10 @@ export function FilingChromeProvider({
       setSectionsSheetOpen,
       draftLabel,
       setDraftLabel,
+      batchCrumb,
+      setBatchCrumb,
     }),
-    [sectionsOpen, setSectionsOpen, sectionsSheetOpen, draftLabel],
+    [sectionsOpen, setSectionsOpen, sectionsSheetOpen, draftLabel, batchCrumb],
   );
 
   return (
@@ -90,6 +96,21 @@ export function DraftBreadcrumbLabel({ label }: { label: string }) {
     setDraftLabel(label);
     return () => setDraftLabel(null);
   }, [label, setDraftLabel]);
+
+  return null;
+}
+
+/**
+ * Publishes the bulk batch on screen to the breadcrumb, so "which batch" is answered in
+ * the bar on every screen of it (v8: "Bulk filing › BLK-2026-0003 › Nirali R. Modi").
+ */
+export function BatchBreadcrumbLabel({ number, id }: { number: string; id: string }) {
+  const { setBatchCrumb } = useFilingChrome();
+
+  React.useEffect(() => {
+    setBatchCrumb({ number, id });
+    return () => setBatchCrumb(null);
+  }, [number, id, setBatchCrumb]);
 
   return null;
 }

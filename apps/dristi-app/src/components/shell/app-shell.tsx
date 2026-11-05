@@ -32,9 +32,12 @@ function areaOf(pathname: string): "list" | "flow" {
     return pathname.replace(/^\/tasks\/?/, "") ? "flow" : "list";
   }
   if (pathname.startsWith("/filings")) {
-    // `/filings/new` and `/filings/bulk` are dashboard screens, not drafts.
-    const first = pathname.replace(/^\/filings\/?/, "").split("/")[0];
-    return first && first !== "new" && first !== "bulk" ? "flow" : "list";
+    // `/filings/new` and `/filings/bulk` are dashboard screens, not drafts. A case open
+    // inside a bulk batch is a draft like any other: the rail holds for every section of
+    // it, rather than folding only where a source panel needs the width (round-3 audit).
+    const parts = pathname.replace(/^\/filings\/?/, "").split("/");
+    if (parts[0] === "bulk") return parts[2] === "cases" && parts[3] ? "flow" : "list";
+    return parts[0] && parts[0] !== "new" ? "flow" : "list";
   }
   return "list";
 }

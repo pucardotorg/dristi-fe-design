@@ -38,7 +38,7 @@ import { TOP_BAR_HEIGHT } from "@/components/filing/chrome";
 import { useChrome } from "@/components/shell/chrome";
 import { useSourceRailSlot } from "@/components/filing/filing-shell";
 import { useInCorrection } from "@/components/filing/posture";
-import { useSourcesOff } from "@/components/filing/field-policy";
+import { useSourcesOff, useSourcesOnDemand } from "@/components/filing/field-policy";
 import { Lightbox } from "@/components/filing/lightbox";
 
 export type SourceChip = { label: string; active: boolean; onClick: () => void };
@@ -100,8 +100,9 @@ export type SourcePanelProps = {
 export function useSourceOpenState(): [boolean, (open: boolean) => void] {
   const wide = useSourceDock();
   const inCorrection = useInCorrection();
+  const onDemand = useSourcesOnDemand();
   const off = useSourcesOff();
-  const docked = wide && !inCorrection;
+  const docked = wide && !inCorrection && !onDemand;
   const [sheetOpen, setSheetOpen] = React.useState(false);
   return [!off && (docked || sheetOpen), setSheetOpen];
 }
@@ -130,7 +131,8 @@ export function SourcePanel(props: SourcePanelProps) {
    */
   const wide = useSourceDock();
   const inCorrection = useInCorrection();
-  const docked = wide && !inCorrection;
+  const onDemand = useSourcesOnDemand();
+  const docked = wide && !inCorrection && !onDemand;
   const roomy = useRoomForLabelledNav();
   const slot = useSourceRailSlot();
   const { foldNav } = useChrome();
