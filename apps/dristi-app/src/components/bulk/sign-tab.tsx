@@ -1,130 +1,124 @@
 "use client";
 
+/**
+ * **Sign: the single filing's model, for N complaints at once** (owner's v8; e-filing's
+ * `sign-flow-dialog`).
+ *
+ * The page holds who signs and what is being signed: a "Who signs" roster with each
+ * party's own status, and the complaints, which can be reviewed and unticked. The act
+ * happens in one staged window built from e-filing's own parts (`sign-stages`): one card
+ * that signs digitally, with paper only as a link beneath it; then your own e-signature,
+ * Aadhaar OTP or DSC; then what happened. Every other party signs on their own device,
+ * through the link sent to the mobile number in Common details: nobody's OTP signs for
+ * anyone else (round-2 audit; the build's one "Mobile OTP" for both parties is retired).
+ *
+ * The batch's cases are marked signed once every party has signed, through the same
+ * `sign` action as before. Until then who has signed is held in this tab (sandbox: the
+ * other party's signature is marked by hand, as v8 does).
+ */
+
 import * as React from "react";
-import {
-  CheckIcon,
-  KeyRoundIcon,
-  PenToolIcon,
-  SmartphoneIcon,
-  UploadIcon,
-  UserCheckIcon,
-  ClipboardListIcon,
-} from "lucide-react";
+import { ClipboardListIcon, FileUpIcon, SignatureIcon } from "lucide-react";
 
 import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
+import { StagedOverlay, useStagedFlow } from "@/components/chrome/staged-overlay";
+import { SectionNotice } from "@/components/filing/notices";
+import { PaperFallbackLink, PaperFallbackQuestion } from "@/components/filing/paper-fallback";
+import { FilingFooter } from "@/components/filing/filing-footer";
 import {
-  AADHAAR_DOCS_PER_OTP,
-  AADHAAR_LIMIT_SOURCE,
-  type BulkSignMethod,
-} from "@/lib/bulk/types";
+  ChoiceCard,
+  DscLookup,
+  InstrumentChoice,
+  OtpEntry,
+  SettledCard,
+  StageColumn,
+} from "@/components/filing/sign-stages";
+import { AADHAAR_DOCS_PER_OTP, type BulkSignMethod } from "@/lib/bulk/types";
 import { money } from "@/lib/filing/format";
+import type { PaperFallbackReason, Signatory } from "@/lib/filing/types";
 import { cn } from "@/lib/utils";
-import { PaymentFacts } from "@/components/payment/payment-steps";
-import { ChromeDialogContent } from "@/components/chrome/app-chrome";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Dialog,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog } from "@/components/ui/dialog";
 import { Field, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
-  InputOTP,
-  InputOTPGroup,
-  InputOTPSlot,
-} from "@/components/ui/input-otp";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Spinner } from "@/components/ui/spinner";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+  TABLE_CELL,
+  TABLE_HEAD,
+  TABLE_HEAD_ROW,
+  tableBodyClass,
+  tableRowClass,
+} from "@/components/chrome/table-plate";
+import { StatusLine } from "@/components/feedback";
 
 import { bulkApi, type CaseView } from "./api";
+import { BatchFooter } from "./batch-footer";
 import type { BatchCtx } from "./batch-screen";
 import { FileDrop } from "./file-drop";
-import { PaperFallbackLink, PaperFallbackQuestion } from "@/components/filing/paper-fallback";
-import type { PaperFallbackReason } from "@/lib/filing/types";
-import { OutcomeHeader, StatusLine, StatusMark } from "@/components/feedback";
 
-type Signer = { id: string; name: string; role: string; mobile?: string };
+type Signer = { id: string; name: string; role: string; initials: string; you?: boolean };
 
-const METHODS: {
-  id: BulkSignMethod;
-  title: string;
-  tag: string;
-  icon: React.ComponentType<{ className?: string }>;
-  /** One fixed line: what the method takes, never a count. */
-  hint: string;
-}[] = [
-  {
-    id: "mobile-otp",
-    title: "Mobile OTP",
-    tag: "Fastest",
-    icon: SmartphoneIcon,
-    hint: "One OTP to your mobile signs all cases.",
-  },
-  {
-    id: "dsc",
-    title: "Digital Signature Certificate (DSC)",
-    tag: "More secure · needs a DSC token",
-    icon: KeyRoundIcon,
-    hint: "Each signer uses their DSC token and PIN.",
-  },
-  {
-    id: "aadhaar",
-    title: "Aadhaar eSign",
-    tag: "Secure · slowest",
-    icon: UserCheckIcon,
-    // Only the rule; the Why link beside it gives the reason and its source.
-    hint: `Aadhaar can sign only ${AADHAAR_DOCS_PER_OTP} cases at a time.`,
-  },
-  {
-    id: "upload",
-    title: "Upload signed copies",
-    tag: "Most manual",
-    icon: UploadIcon,
-    hint: "Print, sign, scan and upload each complaint.",
-  },
-];
+/** Where this round of signing stands, kept in the tab until the batch's cases are signed. */
+type Round = {
+  caseIds: string[];
+  method: BulkSignMethod;
+  /** Other parties sent their link. */
+  sent: boolean;
+  /** Signer ids that have signed (you, by OTP or DSC, or by uploading the signed copies). */
+  signed: string[];
+};
 
-function chunk<T>(xs: T[], size: number): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < xs.length; i += size) out.push(xs.slice(i, i + size));
-  return out;
+const KEY = (batchId: string) => `dristi.bulk.signing.${batchId}`;
+
+function readRound(batchId: string): Round | null {
+  try {
+    const raw = window.sessionStorage.getItem(KEY(batchId));
+    return raw ? (JSON.parse(raw) as Round) : null;
+  } catch {
+    return null;
+  }
 }
 
-const tail = (m?: string) =>
-  m ? `••••${m.slice(-4)}` : "their registered mobile";
+function writeRound(batchId: string, round: Round | null) {
+  try {
+    if (round) window.sessionStorage.setItem(KEY(batchId), JSON.stringify(round));
+    else window.sessionStorage.removeItem(KEY(batchId));
+  } catch {
+    /* Blocked storage only means the round lasts as long as the page. */
+  }
+}
 
-/** Bulk signing: everyone who must sign each case (`SIG-03`), by one method for all (`SIG-04`). */
+const initialsOf = (name: string) =>
+  name
+    .replace(/^Adv\.\s*/, "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase();
+
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
 export function SignTab({ batch, setBatch, go }: BatchCtx) {
-  const clear = batch.cases.filter(
-    (c) => c.stage === "ready" && c.flags.length === 0,
-  );
-  const [picked, setPicked] = React.useState<Set<string>>(
-    () => new Set(clear.map((c) => c.id)),
-  );
-  const [method, setMethod] = React.useState<BulkSignMethod>("mobile-otp");
-  const justSigned = React.useRef<string[]>([]);
+  const clear = batch.cases.filter((c) => c.stage === "ready" && c.flags.length === 0);
+  const [picked, setPicked] = React.useState<Set<string>>(() => new Set(clear.map((c) => c.id)));
+  const [listOpen, setListOpen] = React.useState(false);
   const [flowOpen, setFlowOpen] = React.useState(false);
+  const [round, setRoundState] = React.useState<Round | null>(() => readRound(batch.id));
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const setRound = (r: Round | null) => {
+    setRoundState(r);
+    writeRound(batch.id, r);
+  };
 
-  // Re-select everything when the set on offer changes — adjusted during render, not in
-  // an effect, since it derives from props (the pattern BatchFilingDialog uses).
+  // A round whose cases are no longer on offer (signed elsewhere, removed) is over.
+  if (round && !clear.some((c) => round.caseIds.includes(c.id))) setRoundState(null);
+
+  // Re-select everything when the set on offer changes (derived from props, during render).
   const offerKey = clear.map((c) => c.id).join();
   const [offered, setOffered] = React.useState(offerKey);
   if (offerKey !== offered) {
@@ -132,377 +126,44 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
     setPicked(new Set(clear.map((c) => c.id)));
   }
 
-  const chosen = clear.filter((c) => picked.has(c.id));
+  // While a round is out, its cases are the ones being signed; they can't be changed.
+  const inRound = round ? clear.filter((c) => round.caseIds.includes(c.id)) : null;
+  const chosen = inRound ?? clear.filter((c) => picked.has(c.id));
+
   const signers: Signer[] = [
+    ...batch.advocates.map((a, i) => ({
+      id: `adv-${i}`,
+      name: a.name || a.barNumber,
+      role: `Advocate, ${a.barNumber}`,
+      initials: initialsOf(a.name || "Adv"),
+      you: i === 0,
+    })),
     ...(batch.representative
       ? [
           {
             id: "rep",
             name: batch.representative.name,
-            role: `For ${batch.client}, ${batch.representative.designation}`,
-            mobile: batch.representative.mobile,
+            role: `${batch.representative.designation}, ${batch.client}`,
+            initials: initialsOf(batch.representative.name),
           },
         ]
       : []),
-    ...batch.advocates.map((a, i) => ({
-      id: `adv-${i}`,
-      name: a.name || a.barNumber,
-      role: `Advocate, ${a.barNumber}`,
-    })),
   ];
+  const you = signers.find((s) => s.you) ?? signers[0];
+  const others = signers.filter((s) => s !== you);
+  const signedIds = round?.signed ?? [];
+  const allSigned = !!round && signers.every((s) => signedIds.includes(s.id));
   const held = batch.cases.filter((c) => c.stage === "held").length;
-  const unanswered = batch.cases.filter(
-    (c) => c.stage === "ready" && c.flags.length > 0,
-  ).length;
+  const unanswered = batch.cases.filter((c) => c.stage === "ready" && c.flags.length > 0).length;
 
-  return (
-    <div className="flex flex-col gap-6">
-      {held || unanswered ? (
-        /* A gate, not a warning: the step is not open yet (owner rule). */
-        <StatusLine
-          tone="neutral"
-          icon={ClipboardListIcon}
-          still
-          title={
-            <span className="tabular-nums">
-              {held + unanswered} case
-              {held + unanswered === 1 ? " isn't" : "s aren't"} ready to sign yet
-            </span>
-          }
-        >
-            Finish the case details first:{" "}
-            {[
-              held ? `${held} need${held === 1 ? "s" : ""} fixing` : "",
-              unanswered ? `${unanswered} to check` : "",
-            ]
-              .filter(Boolean)
-              .join(", ")}
-            .{" "}
-            <button
-              type="button"
-              className="underline"
-              onClick={() => go("scrutiny")}
-            >
-              Go to Case details
-            </button>
-        </StatusLine>
-      ) : null}
-
-      {clear.length === 0 ? (
-        <Card variant="raised">
-          <CardContent className="text-body-compact text-muted-foreground">
-            Nothing to sign yet. Finish the documents and case details first.
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-          <Card variant="raised" className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle className="text-body font-semibold">
-                Cases to sign
-              </CardTitle>
-              <CardDescription className="tabular-nums">
-                {chosen.length} of {clear.length} chosen
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-1">
-              <label className="flex min-h-10 items-center gap-3 rounded-lg px-2 hover:bg-accent">
-                <Checkbox
-                  aria-label="All clear cases"
-                  checked={
-                    chosen.length === clear.length
-                      ? true
-                      : chosen.length
-                        ? "indeterminate"
-                        : false
-                  }
-                  onCheckedChange={(v) =>
-                    setPicked(
-                      v === true ? new Set(clear.map((c) => c.id)) : new Set(),
-                    )
-                  }
-                />
-                <span className="text-body-compact font-medium">
-                  All clear cases
-                </span>
-              </label>
-              {clear.map((c) => (
-                <label
-                  key={c.id}
-                  id={`bulk-case-${c.id}`}
-                  className="flex min-h-10 scroll-mt-20 items-center gap-3 rounded-lg px-2 hover:bg-accent"
-                >
-                  <Checkbox
-                    aria-label={`${c.reference}, ${c.accused}`}
-                    checked={picked.has(c.id)}
-                    onCheckedChange={(v) =>
-                      setPicked((prev) => {
-                        const next = new Set(prev);
-                        if (v === true) next.add(c.id);
-                        else next.delete(c.id);
-                        return next;
-                      })
-                    }
-                  />
-                  <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="text-body-compact tabular-nums">
-                      {c.reference}
-                    </span>
-                    <span className="truncate text-caption text-muted-foreground">
-                      {c.accused}
-                    </span>
-                  </span>
-                  <span className="text-caption tabular-nums text-muted-foreground">
-                    {money(c.amount)}
-                  </span>
-                </label>
-              ))}
-            </CardContent>
-          </Card>
-
-          <Card variant="raised" className="lg:col-span-3">
-            <CardHeader>
-              <CardTitle className="text-body font-semibold">
-                How to sign
-              </CardTitle>
-              <CardDescription>
-                Every case needs {signers.map((s) => s.name).join(" and ")}. One
-                method for all of them.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4">
-              <RadioGroup
-                value={method === "upload" ? "" : method}
-                onValueChange={(v) => setMethod(v as BulkSignMethod)}
-                className="gap-2"
-                aria-label="Signing method"
-              >
-                {METHODS.filter((m) => m.id !== "upload").map((m) => {
-                  const Icon = m.icon;
-                  return (
-                    <label
-                      key={m.id}
-                      className="flex cursor-pointer items-start gap-3 rounded-lg border border-hairline p-4 transition-colors hover:bg-accent has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-accent-strong"
-                    >
-                      <RadioGroupItem
-                        value={m.id}
-                        id={`sign-${m.id}`}
-                        className="mt-1"
-                        aria-labelledby={`sign-${m.id}-title`}
-                        aria-describedby={`sign-${m.id}-hint`}
-                      />
-                      <Icon
-                        className="mt-0.5 size-5 shrink-0 text-muted-foreground"
-                        aria-hidden
-                      />
-                      <span className="flex min-w-0 flex-col gap-1">
-                        <span className="flex flex-wrap items-center gap-2">
-                          <span
-                            id={`sign-${m.id}-title`}
-                            className="text-body-compact font-medium"
-                          >
-                            {m.title}
-                          </span>
-                          <Badge
-                            variant={
-                              m.id === "mobile-otp"
-                                ? "success"
-                                : m.id === "aadhaar"
-                                  ? "warning"
-                                  : "secondary"
-                            }
-                          >
-                            {m.tag}
-                          </Badge>
-                        </span>
-                        <span
-                          id={`sign-${m.id}-hint`}
-                          className="text-caption text-muted-foreground"
-                        >
-                          {m.hint}
-                        </span>
-                        {/* The reason, and its source, on demand: a Why link with the citation in its tooltip. */}
-                        {m.id === "aadhaar" ? (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <a
-                                  href={AADHAAR_LIMIT_SOURCE.url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="w-fit text-caption text-primary underline"
-                                >
-                                  Why?
-                                  <span className="sr-only">
-                                    {" "}
-                                    (opens the specification in a new tab)
-                                  </span>
-                                </a>
-                              </TooltipTrigger>
-                              <TooltipContent
-                                side="bottom"
-                                className="max-w-xs text-left"
-                              >
-                                <span className="flex flex-col gap-2">
-                                  <span>
-                                    The government&apos;s rules for Aadhaar
-                                    eSign let one OTP sign at most{" "}
-                                    {AADHAAR_DOCS_PER_OTP} documents. So each
-                                    person signing gets one OTP for every{" "}
-                                    {AADHAAR_DOCS_PER_OTP} cases: 12 cases means
-                                    3 OTPs each.
-                                  </span>
-                                  <span>
-                                    Source: {AADHAAR_LIMIT_SOURCE.publisher},{" "}
-                                    {AADHAAR_LIMIT_SOURCE.title}.
-                                  </span>
-                                </span>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        ) : null}
-                      </span>
-                    </label>
-                  );
-                })}
-              </RadioGroup>
-
-              <Button
-                size="lg"
-                disabled={chosen.length === 0 || !!batch.clubbedInto}
-                onClick={() => {
-                  if (method === "upload") setMethod("mobile-otp");
-                  setFlowOpen(true);
-                }}
-              >
-                <PenToolIcon data-icon="inline-start" aria-hidden />
-                Sign {chosen.length} case{chosen.length === 1 ? "" : "s"}
-              </Button>
-              {/* Paper is the fallback, as in the single filing: reached only by saying
-                  e-signing can't be done, and asked why before anything is uploaded. */}
-              {chosen.length && !batch.clubbedInto ? (
-                <PaperFallbackLink
-                  onClick={() => {
-                    setMethod("upload");
-                    setFlowOpen(true);
-                  }}
-                />
-              ) : null}
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      <SignFlow
-        open={flowOpen}
-        method={method}
-        cases={chosen}
-        signers={signers}
-        onClose={() => setFlowOpen(false)}
-        onDone={async () => {
-          justSigned.current = chosen.map((c) => c.id);
-          const next = await bulkApi.act(batch.id, {
-            action: "sign",
-            method,
-            caseIds: chosen.map((c) => c.id),
-          });
-          setBatch(next);
-        }}
-        // Pay opens on the cases just signed, not every signed case in the batch.
-        onPay={() => {
-          setFlowOpen(false);
-          go("pay", justSigned.current.join(","));
-        }}
-      />
-    </div>
-  );
-}
-
-type Step = {
-  signer: Signer;
-  cases: CaseView[];
-  round: number;
-  rounds: number;
-};
-
-/**
- * The signing itself, step by step: per signer, one OTP or PIN for the batch, or — for
- * Aadhaar — one OTP per five cases. Sandbox: any 6 digits is accepted.
- */
-function SignFlow({
-  open,
-  method,
-  cases,
-  signers,
-  onClose,
-  onDone,
-  onPay,
-}: {
-  open: boolean;
-  method: BulkSignMethod;
-  cases: CaseView[];
-  signers: Signer[];
-  onClose: () => void;
-  onDone: () => Promise<void>;
-  onPay: () => void;
-}) {
-  const steps: Step[] = React.useMemo(() => {
-    if (method === "upload") return [];
-    // Mobile OTP: one OTP, to the filing advocate, for everyone on every case (owner,
-    // 2026-10-20). The others still go signer by signer.
-    if (method === "mobile-otp") {
-      const advocate = signers.find((s) => s.id === "adv-0") ?? signers[0];
-      return advocate ? [{ signer: advocate, cases, round: 1, rounds: 1 }] : [];
-    }
-    const groups =
-      method === "aadhaar" ? chunk(cases, AADHAAR_DOCS_PER_OTP) : [cases];
-    return signers.flatMap((s) =>
-      groups.map((g, i) => ({
-        signer: s,
-        cases: g,
-        round: i + 1,
-        rounds: groups.length,
-      })),
-    );
-  }, [method, cases, signers]);
-
-  const [at, setAt] = React.useState(0);
-  const [code, setCode] = React.useState("");
-  const [busy, setBusy] = React.useState(false);
-  const [done, setDone] = React.useState(false);
-  const [signedAt, setSignedAt] = React.useState(() => new Date());
-  const [signed, setSigned] = React.useState<CaseView[]>([]);
-  const [error, setError] = React.useState<string | null>(null);
-  const [uploads, setUploads] = React.useState<Record<string, string>>({});
-  const [signedFiles, setSignedFiles] = React.useState<File[]>([]);
-  // What stopped e-signing, asked before the paper route opens (`PAPER_FALLBACK_REASONS`).
-  const [reason, setReason] = React.useState<PaperFallbackReason | "">("");
-  const [reasonSet, setReasonSet] = React.useState(false);
-  const [wasOpen, setWasOpen] = React.useState(open);
-  if (open !== wasOpen) {
-    setWasOpen(open);
-    if (open) {
-      setAt(0);
-      setCode("");
-      setDone(false);
-      setError(null);
-      setUploads({});
-      setSignedFiles([]);
-      setReason("");
-      setReasonSet(false);
-    }
-  }
-
-  const finish = async () => {
+  /** Every party has signed: the batch's cases are signed, by the method used, and pay opens. */
+  const complete = async (r: Round) => {
     setBusy(true);
     setError(null);
     try {
-      // Kept as they were signed: the batch refreshes and they leave the list to sign.
-      setSigned(cases);
-      await onDone();
-      setSignedAt(new Date());
-      setDone(true);
+      setBatch(await bulkApi.act(batch.id, { action: "sign", method: r.method, caseIds: r.caseIds }));
+      setRound(null);
+      go("pay", r.caseIds.join(","));
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -510,382 +171,515 @@ function SignFlow({
     }
   };
 
-  const next = async () => {
-    setBusy(true);
-    await new Promise((r) => setTimeout(r, 700));
-    setBusy(false);
-    setCode("");
-    if (at + 1 < steps.length) setAt(at + 1);
-    else await finish();
-  };
+  const statusOf = (s: Signer) =>
+    signedIds.includes(s.id) ? (
+      <Badge variant="success">{round?.method === "upload" ? "Confirmed" : "Signed"}</Badge>
+    ) : round?.sent && !s.you ? (
+      <Badge variant="info">Link sent</Badge>
+    ) : (
+      <Badge variant="secondary">Not signed</Badge>
+    );
 
-  const step = steps[at];
-  // The people signing, in the order the steps take them, and who is signing now.
-  const signerOrder = steps.reduce<Signer[]>(
-    (acc, x) =>
-      acc.some((y) => y.id === x.signer.id) ? acc : [...acc, x.signer],
-    [],
-  );
-  const signerAt = step
-    ? signerOrder.findIndex((x) => x.id === step.signer.id)
-    : 0;
-  const matchedAll = cases.every((c) => uploads[c.id]);
-  /* A code being typed, signers already through, or signed copies attached. */
-  const guard = useDiscardGuard(
-    !done &&
-      !busy &&
-      (code.length > 0 || at > 0 || signedFiles.length > 0 || Object.keys(uploads).length > 0),
-    onClose,
-  );
+  const allOn = chosen.length === clear.length;
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && !busy && onClose()}>
-      <ChromeDialogContent
-        mobileSheet
-        showCloseButton={!done}
-        className={cn(
-          "flex max-h-[90dvh] flex-col sm:max-w-lg",
-          // The outcome is the payment's success window, case for case.
-          done ? "gap-0 overflow-hidden p-0" : "overflow-y-auto",
-        )}
-        {...guard.contentProps}
-        {...guard.outsideProps}
-      >
-        {done ? (
-          <>
-            {/* The signing's outcome takes the window over (skill `feedback-states`). */}
-            <OutcomeHeader
-              compact
-              titleFrom="dialog"
-              focusTitle
-              title="Signing complete"
-              body={
-                <>
-                  <span className="tabular-nums">{signed.length}</span> case
-                  {signed.length === 1 ? " is" : "s are"} signed and ready to pay.
-                </>
-              }
-            />
+    <div className="flex flex-col gap-6">
+      {held || unanswered ? (
+        /* A gate, not a warning: these cases aren't open to sign yet. */
+        <StatusLine
+          tone="neutral"
+          icon={ClipboardListIcon}
+          still
+          title={
+            <span className="tabular-nums">
+              {held + unanswered} case{held + unanswered === 1 ? " isn't" : "s aren't"} ready to sign yet
+            </span>
+          }
+        >
+          Finish the case details first:{" "}
+          {[held ? `${held} need${held === 1 ? "s" : ""} fixing` : "", unanswered ? `${unanswered} to check` : ""]
+            .filter(Boolean)
+            .join(", ")}
+          .{" "}
+          <button type="button" className="underline" onClick={() => go("scrutiny")}>
+            Go to Case details
+          </button>
+        </StatusLine>
+      ) : null}
 
-            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-6">
-              <PaymentFacts
-                rows={[
-                  { label: "Signed with", value: METHODS.find((m) => m.id === method)?.title ?? "" },
-                  { label: "Signed by", value: signers.map((x) => x.name).join(", ") },
-                  {
-                    label: "Signed on",
-                    value: (
-                      <span className="tabular-nums">
-                        {signedAt.toLocaleString("en-IN", {
-                          timeZone: "Asia/Kolkata",
-                          dateStyle: "medium",
-                          timeStyle: "short",
-                        })}{" "}
-                        IST
+      {error ? <StatusLine tone="error">{error}</StatusLine> : null}
+
+      {clear.length === 0 ? (
+        <Card variant="raised">
+          <CardContent className="text-body-compact text-muted-foreground">
+            Nothing to sign yet. Cases arrive here once their details and documents are complete.
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          <Card variant="raised">
+            <CardHeader>
+              <CardTitle className="text-body font-semibold">Who signs</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="flex flex-col">
+                {signers.map((s) => (
+                  <li key={s.id} className="flex flex-wrap items-center gap-3 border-b border-hairline py-3 last:border-b-0">
+                    <span
+                      aria-hidden
+                      className="flex size-9 items-center justify-center rounded-full bg-brand-muted text-caption font-semibold text-brand-muted-foreground"
+                    >
+                      {s.initials}
+                    </span>
+                    <span className="flex min-w-0 flex-1 basis-48 flex-col">
+                      <span className="text-body-compact font-medium">
+                        {s.name}
+                        {s.you ? <span className="font-normal text-muted-foreground"> · you</span> : null}
                       </span>
-                    ),
-                  },
-                ]}
-              />
-              <ul className="flex flex-col divide-y divide-hairline rounded-lg border border-hairline">
-                {signed.map((c) => (
-                  <li
-                    key={c.id}
-                    className="flex items-center gap-3 px-3 py-2 text-body-compact"
-                  >
-                    <StatusMark size={16} still />
-                    <span className="min-w-0 flex-1 truncate">
-                      {c.accused || c.title}
+                      <span className="text-body-compact text-muted-foreground">{s.role}</span>
                     </span>
-                    <span className="shrink-0 text-caption text-muted-foreground tabular-nums">
-                      {c.reference}
-                    </span>
-                    <span className="shrink-0 tabular-nums">
-                      {money(c.amount)}
+                    <span className="flex flex-wrap items-center gap-2">
+                      {/* Sandbox: the other party signs on their own device; here it is marked by hand. */}
+                      {round?.sent && !s.you && !signedIds.includes(s.id) ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setRound({ ...round, signed: [...round.signed, s.id] })}
+                        >
+                          Sandbox: mark {round.method === "upload" ? "confirmed" : "signed"}
+                        </Button>
+                      ) : null}
+                      {statusOf(s)}
                     </span>
                   </li>
                 ))}
               </ul>
-            </div>
+            </CardContent>
+          </Card>
 
-            {/* The warm band every outcome closes on; it stays put while the list scrolls. */}
-            <footer className="flex shrink-0 flex-col gap-3 border-t border-hairline bg-surface-sunken px-6 pt-4 pb-[calc(--spacing(4)+env(safe-area-inset-bottom))] sm:flex-row">
-              <Button variant="outline" size="lg" className="sm:flex-1" onClick={onClose}>
-                Back to signing
-              </Button>
-              <Button size="lg" className="sm:flex-1" onClick={onPay}>
-                Pay for {signed.length} case{signed.length === 1 ? "" : "s"}
-              </Button>
-            </footer>
-          </>
-        ) : method === "upload" && !reasonSet ? (
-          <>
-            <DialogHeader>
-              <DialogTitle>Unable to e-sign?</DialogTitle>
-              <DialogDescription>
-                Every party then signs each complaint by hand, and you upload the scans.
-              </DialogDescription>
-            </DialogHeader>
-            <PaperFallbackQuestion value={reason} onChange={setReason} />
-            <DialogFooter>
-              <Button variant="outline" onClick={guard.close}>
-                Back
-              </Button>
-              <Button disabled={!reason} onClick={() => setReasonSet(true)}>
-                Continue to upload
-              </Button>
-            </DialogFooter>
-          </>
-        ) : method === "upload" ? (
-          <>
-            <DialogHeader>
-              <DialogTitle>Upload signed copies</DialogTitle>
-              <DialogDescription>
-                One file per case, named{" "}
-                <span className="font-mono">reference_signed.pdf</span>. Each
-                must carry every signature.
-              </DialogDescription>
-            </DialogHeader>
-            <Field className="gap-1.5">
-              <FieldLabel htmlFor="signed-copies">Signed copies</FieldLabel>
-              <FileDrop
-                id="signed-copies"
-                accept=".pdf"
-                multiple
-                files={signedFiles}
-                onFiles={(picked) => {
-                  setSignedFiles((prev) => [...prev, ...picked]);
-                  const map: Record<string, string> = { ...uploads };
-                  for (const f of picked) {
-                    const c = cases.find((x) =>
-                      f.name
-                        .toLowerCase()
-                        .startsWith(`${x.reference.toLowerCase()}_signed`),
-                    );
-                    if (c) map[c.id] = f.name;
-                  }
-                  setUploads(map);
-                }}
-                prompt="Drag the signed copies here"
-                hint="PDF, one per case"
-              />
-            </Field>
-            <ul className="flex max-h-60 flex-col gap-1 overflow-y-auto text-body-compact">
-              {cases.map((c) => (
-                <li
-                  key={c.id}
-                  className="flex items-center justify-between gap-3"
-                >
-                  <span className="tabular-nums">{c.reference}</span>
-                  {uploads[c.id] ? (
-                    <Badge variant="success">Matched</Badge>
-                  ) : (
-                    <Badge variant="outline">Waiting</Badge>
-                  )}
-                </li>
-              ))}
-            </ul>
-            {error ? (
-              <p className="text-body-compact text-destructive-ink">{error}</p>
-            ) : null}
-            <DialogFooter>
-              <Button variant="outline" onClick={guard.close} disabled={busy}>
-                Cancel
-              </Button>
-              <Button
-                disabled={!matchedAll || busy}
-                onClick={() => void finish()}
-              >
-                {busy ? <Spinner data-icon="inline-start" /> : null}
-                Submit {cases.length} signed copies
-              </Button>
-            </DialogFooter>
-          </>
-        ) : step ? (
-          <>
-            {/* The window is about the people signing: each signs every case, one after
-                another, so each is a row; the one signing now holds the code field. */}
-            <DialogHeader>
-              <DialogTitle>
-                Sign {cases.length} case{cases.length === 1 ? "" : "s"} with{" "}
-                {method === "dsc"
-                  ? "DSC"
-                  : method === "aadhaar"
-                    ? "Aadhaar eSign"
-                    : "mobile OTP"}
-              </DialogTitle>
-              <DialogDescription className="tabular-nums">
-                {cases
-                  .slice(0, 3)
-                  .map((c) => c.reference)
-                  .join(", ")}
-                {cases.length > 3 ? ` and ${cases.length - 3} more` : ""}
-              </DialogDescription>
-            </DialogHeader>
-
-            <ol
-              className="flex flex-col divide-y divide-hairline rounded-lg border border-hairline"
-              aria-live="polite"
-            >
-              {(() => {
-                const list =
-                  method === "mobile-otp"
-                    ? [
-                        step.signer,
-                        ...signers.filter((x) => x.id !== step.signer.id),
-                      ]
-                    : signerOrder;
-                return list.map((x, k) => {
-                  const covered =
-                    method === "mobile-otp" && x.id !== step.signer.id;
-                  const state = covered
-                    ? "covered"
-                    : k < signerAt
-                      ? "done"
-                      : k === signerAt
-                        ? "now"
-                        : "next";
-                  return (
-                    <li
-                      key={x.id}
-                      className={cn(
-                        "relative flex flex-col gap-3 p-4",
-                        state === "now" && "bg-accent",
-                      )}
-                    >
-                      {/* The thread from one signer to the next, green once they have signed. */}
-                      {k < list.length - 1 ? (
-                        <span
-                          aria-hidden
-                          className={cn(
-                            "absolute top-12 bottom-0 left-8 w-0.5 -translate-x-1/2 translate-y-4",
-                            state === "done" ? "bg-success" : "bg-hairline",
-                          )}
-                        />
-                      ) : null}
-                      <div className="flex items-center gap-3">
-                        <span
-                          aria-hidden
-                          className={cn(
-                            "relative z-10 flex size-8 shrink-0 items-center justify-center rounded-full text-body-compact font-semibold tabular-nums",
-                            state === "done" &&
-                              "bg-success text-success-foreground",
-                            state === "now" &&
-                              "bg-primary text-primary-foreground",
-                            (state === "next" || state === "covered") &&
-                              "border border-hairline bg-card text-muted-foreground",
-                          )}
-                        >
-                          {state === "done" ? (
-                            <CheckIcon className="size-4" />
-                          ) : (
-                            k + 1
-                          )}
-                        </span>
-                        <span className="flex min-w-0 flex-1 flex-col">
-                          <span
-                            className={cn(
-                              "text-body-compact",
-                              state === "now" ? "font-semibold" : "font-medium",
-                              state === "next" && "text-muted-foreground",
-                            )}
-                          >
-                            {x.name}
-                          </span>
-                          <span className="truncate text-caption text-muted-foreground">
-                            {x.role}
-                          </span>
-                        </span>
-                        <span
-                          className={cn(
-                            "shrink-0 text-caption",
-                            state === "done"
-                              ? "text-success-ink"
-                              : state === "now"
-                                ? "font-medium text-foreground"
-                                : "text-muted-foreground",
-                          )}
-                        >
-                          {state === "done"
-                            ? "Signed"
-                            : state === "now"
-                              ? "Signing now"
-                              : state === "covered"
-                                ? "Signed by the same OTP"
-                                : "Next"}
-                        </span>
-                      </div>
-                      {state === "now" ? (
-                        // ds-spacing-allow: 44px is the 32px step marker plus its 12px gap, so the field lines up under the signer's name.
-                        <div className="flex flex-col gap-1.5 pl-11">
-                          {method === "dsc" ? (
-                            <Field className="gap-1.5">
-                              <FieldLabel htmlFor="dsc-pin">
-                                {x.name}&apos;s DSC token PIN
-                              </FieldLabel>
-                              <Input
-                                id="dsc-pin"
-                                type="password"
-                                inputMode="numeric"
-                                autoComplete="off"
-                                value={code}
-                                onChange={(e) => setCode(e.target.value)}
-                                className="max-w-56"
+          <Card variant="raised" className={cn(listOpen && "gap-4")}>
+            <CardHeader>
+              <CardTitle className="text-body font-semibold tabular-nums">
+                {allOn ? `All ${plural(clear.length, "ready complaint")}` : `${chosen.length} of ${clear.length} complaints`}
+              </CardTitle>
+              <CardDescription>
+                {inRound
+                  ? "Being signed now, so the list is fixed until every party has signed."
+                  : listOpen
+                    ? "Untick any to sign later."
+                    : "Read the list, or leave some to sign later."}
+              </CardDescription>
+              <CardAction>
+                <Button variant="outline" size="sm" onClick={() => setListOpen((v) => !v)}>
+                  {listOpen ? "Hide the list" : "Review the list"}
+                </Button>
+              </CardAction>
+            </CardHeader>
+            {listOpen ? (
+              <CardContent className="px-2">
+                <div className="overflow-x-auto">
+                  <Table className="border-separate border-spacing-0" aria-label="Complaints to sign">
+                    <TableHeader>
+                      <TableRow className={TABLE_HEAD_ROW}>
+                        <TableHead className={cn(TABLE_HEAD, "w-10")}>
+                          <Checkbox
+                            aria-label="Every complaint"
+                            disabled={!!inRound}
+                            checked={allOn ? true : chosen.length ? "indeterminate" : false}
+                            onCheckedChange={(v) => setPicked(v === true ? new Set(clear.map((c) => c.id)) : new Set())}
+                          />
+                        </TableHead>
+                        <TableHead className={TABLE_HEAD}>Reference</TableHead>
+                        <TableHead className={TABLE_HEAD}>Accused</TableHead>
+                        <TableHead className={cn(TABLE_HEAD, "text-right")}>Cheque amount</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody className={tableBodyClass({ selectable: true })}>
+                      {clear.map((c) => {
+                        const on = inRound ? inRound.includes(c) : picked.has(c.id);
+                        return (
+                          <TableRow key={c.id} className={tableRowClass({ selectable: true })} data-state={on ? "selected" : undefined}>
+                            <TableCell className={TABLE_CELL}>
+                              <Checkbox
+                                aria-label={`Sign ${c.reference}`}
+                                disabled={!!inRound}
+                                checked={on}
+                                onCheckedChange={(v) =>
+                                  setPicked((prev) => {
+                                    const next = new Set(prev);
+                                    if (v === true) next.add(c.id);
+                                    else next.delete(c.id);
+                                    return next;
+                                  })
+                                }
                               />
-                            </Field>
-                          ) : (
-                            <Field className="gap-1.5">
-                              <FieldLabel>
-                                {method === "aadhaar"
-                                  ? `OTP sent to ${x.name}'s Aadhaar-linked mobile`
-                                  : `OTP sent to ${tail(x.mobile)}`}
-                              </FieldLabel>
-                              <InputOTP
-                                maxLength={6}
-                                value={code}
-                                onChange={setCode}
-                              >
-                                <InputOTPGroup>
-                                  {Array.from({ length: 6 }, (_, i) => (
-                                    <InputOTPSlot key={i} index={i} />
-                                  ))}
-                                </InputOTPGroup>
-                              </InputOTP>
-                            </Field>
-                          )}
-                          {step.rounds > 1 ? (
-                            <span className="text-caption text-muted-foreground tabular-nums">
-                              OTP {step.round} of {step.rounds}:{" "}
-                              {step.cases.length} case
-                              {step.cases.length === 1 ? "" : "s"}
-                            </span>
-                          ) : null}
-                        </div>
-                      ) : null}
-                    </li>
-                  );
-                });
-              })()}
-            </ol>
-            {error ? (
-              <p className="text-body-compact text-destructive-ink">{error}</p>
+                            </TableCell>
+                            <TableCell className={cn(TABLE_CELL, "font-medium tabular-nums")}>{c.reference}</TableCell>
+                            <TableCell className={TABLE_CELL}>{c.accused}</TableCell>
+                            <TableCell className={cn(TABLE_CELL, "text-right tabular-nums")}>{money(c.amount)}</TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
             ) : null}
-            <DialogFooter>
-              <Button variant="outline" onClick={guard.close} disabled={busy}>
-                Cancel
-              </Button>
-              <Button
-                disabled={code.replace(/\D/g, "").length < 6 || busy}
-                onClick={() => void next()}
-              >
-                {busy ? <Spinner data-icon="inline-start" /> : null}
-                Sign as {step.signer.name.split(" ")[0]}
-              </Button>
-            </DialogFooter>
-          </>
+          </Card>
+        </>
+      )}
+
+      {clear.length ? (
+        <BatchFooter>
+          <FilingFooter
+            showSaveState={false}
+            onBack={() => go("documents")}
+            status={
+              <span className="text-body-compact text-muted-foreground tabular-nums">
+                {allSigned
+                  ? "Every signature is in"
+                  : `${signedIds.length} of ${signers.length} parties have signed`}
+              </span>
+            }
+            continueLabel={
+              busy
+                ? "Signing…"
+                : allSigned
+                  ? `Continue to pay for ${chosen.length}`
+                  : round && signedIds.includes(you.id)
+                    ? `Waiting for ${others.filter((o) => !signedIds.includes(o.id)).map((o) => o.name).join(" and ")}`
+                    : "Continue to signing"
+            }
+            continueDisabled={
+              busy || !!batch.clubbedInto || chosen.length === 0 || (!!round && signedIds.includes(you.id) && !allSigned)
+            }
+            onContinue={() => (allSigned && round ? void complete(round) : setFlowOpen(true))}
+          />
+        </BatchFooter>
+      ) : null}
+
+      <Dialog open={flowOpen} onOpenChange={(o) => !o && setFlowOpen(false)}>
+        {flowOpen ? (
+          <SignWindow
+            cases={chosen}
+            you={you}
+            others={others}
+            round={round}
+            onRound={(r) => {
+              setRound(r);
+              // With nobody else to sign, the cases are signed the moment you are.
+              if (signers.every((s) => r.signed.includes(s.id))) void complete(r);
+            }}
+            onClose={() => setFlowOpen(false)}
+          />
         ) : null}
-        <DiscardQuestion guard={guard} />
-      </ChromeDialogContent>
-    </Dialog>
+      </Dialog>
+    </div>
+  );
+}
+
+/* ───────────────────────────── The signing window ───────────────────────────── */
+
+const STAGES = ["choose", "fallback", "sign", "otp", "dsc", "done", "paper", "uploaded"] as const;
+type Stage = (typeof STAGES)[number];
+const SCENES: Record<Stage, string> = {
+  choose: "choose",
+  fallback: "fallback",
+  sign: "sign",
+  otp: "otp",
+  dsc: "dsc",
+  done: "done",
+  paper: "paper",
+  uploaded: "done",
+};
+
+const names = (xs: Signer[]) => new Intl.ListFormat("en", { type: "conjunction" }).format(xs.map((x) => x.name));
+
+/**
+ * The window: e-filing's stages, for N complaints at once. Choose (one card that signs
+ * digitally, paper as a link) → your e-signature (Aadhaar OTP or DSC) → what happened.
+ * Paper asks why first, then takes the signed copies, and each other party confirms them
+ * on their own device.
+ */
+function SignWindow({
+  cases,
+  you,
+  others,
+  round,
+  onRound,
+  onClose,
+}: {
+  cases: CaseView[];
+  you: Signer;
+  others: Signer[];
+  round: Round | null;
+  onRound: (r: Round) => void;
+  onClose: () => void;
+}) {
+  const n = cases.length;
+  const rounds = Math.ceil(n / AADHAAR_DOCS_PER_OTP);
+  const flow = useStagedFlow<Stage>({ order: STAGES, scene: SCENES, arrival: "forward" });
+  const [otp, setOtp] = React.useState("");
+  const [resent, setResent] = React.useState(false);
+  const [otpRound, setOtpRound] = React.useState(1);
+  const [dscFound, setDscFound] = React.useState(false);
+  const [reason, setReason] = React.useState<PaperFallbackReason | "">("");
+  const [files, setFiles] = React.useState<File[]>([]);
+  const [matched, setMatched] = React.useState<Record<string, string>>({});
+  const [busy, setBusy] = React.useState(false);
+  const [sentNow, setSentNow] = React.useState(false);
+
+  const base: Round = round ?? { caseIds: cases.map((c) => c.id), method: "aadhaar", sent: false, signed: [] };
+  const guard = useDiscardGuard(otp.length > 0 || files.length > 0 || (otpRound > 1 && flow.stage === "otp"), onClose);
+
+  // A DSC is read off this computer, and the utility takes a beat to answer.
+  React.useEffect(() => {
+    if (flow.stage !== "dsc") return;
+    const t = window.setTimeout(() => setDscFound(true), 1200);
+    return () => window.clearTimeout(t);
+  }, [flow.stage]);
+
+  const chooseDigital = () => {
+    if (others.length && !base.sent) setSentNow(true);
+    onRound({ ...base, sent: others.length > 0 || base.sent });
+    flow.go("sign");
+  };
+
+  const signAs = async (method: BulkSignMethod) => {
+    setBusy(true);
+    await new Promise((r) => setTimeout(r, 600));
+    setBusy(false);
+    onRound({ ...base, sent: others.length > 0 || base.sent, method, signed: [...new Set([...base.signed, you.id])] });
+    flow.go("done");
+  };
+
+  const submitOtp = () => {
+    if (otpRound < rounds) {
+      setOtp("");
+      setOtpRound(otpRound + 1);
+      return;
+    }
+    void signAs("aadhaar");
+  };
+
+  const uploadCopies = async () => {
+    setBusy(true);
+    await new Promise((r) => setTimeout(r, 600));
+    setBusy(false);
+    onRound({ ...base, method: "upload", sent: others.length > 0, signed: [you.id] });
+    flow.go("uploaded");
+  };
+
+  const roster = (r: Round): Signatory[] =>
+    [you, ...others].map((s) => ({
+      id: s.id,
+      name: s.name,
+      role: s.role,
+      you: s.you,
+      status: r.signed.includes(s.id) ? "signed" : "pending",
+    }));
+  const pending = others.filter((o) => !base.signed.includes(o.id));
+  const matchedAll = cases.every((c) => matched[c.id]);
+  const first = (otpRound - 1) * AADHAAR_DOCS_PER_OTP + 1;
+  const last = Math.min(n, otpRound * AADHAAR_DOCS_PER_OTP);
+
+  const copy: Record<Stage, { title: string; description?: string }> = {
+    choose: { title: "How will these complaints be signed?", description: `${plural(n, "complaint")}, one way for all of them.` },
+    fallback: { title: "Unable to e-sign?", description: "Tell us what went wrong. Nothing changes until you continue." },
+    sign: { title: "Add your e-signature", description: "Either one is your own signature. Use whichever you have." },
+    otp: {
+      title: "Enter the OTP",
+      description:
+        rounds > 1
+          ? `Sent to your Aadhaar-linked mobile. OTP ${otpRound} of ${rounds}: complaints ${first}–${last}.`
+          : "Sent to your Aadhaar-linked mobile.",
+    },
+    dsc: { title: "Sign with your DSC", description: `Signs all ${plural(n, "complaint")} at once.` },
+    done: { title: "Signature added" },
+    paper: {
+      title: "Upload the signed complaints",
+      description: "Print each one, have every party sign it by hand, and upload the scans.",
+    },
+    uploaded: { title: "Signed copies accepted" },
+  };
+
+  const footer: React.ReactNode = {
+    choose: null,
+    fallback: (
+      <>
+        <Button variant="outline" onClick={() => flow.go("choose")}>
+          Keep e-signing
+        </Button>
+        <Button disabled={!reason} onClick={() => flow.go("paper")}>
+          Continue to upload
+        </Button>
+      </>
+    ),
+    sign: null,
+    otp: (
+      <>
+        <Button variant="outline" onClick={() => flow.go("sign")}>
+          Back
+        </Button>
+        <Button disabled={otp.replace(/\D/g, "").length < 6 || busy} onClick={submitOtp}>
+          {otpRound < rounds ? `Sign complaints ${first}–${last}` : "Sign"}
+        </Button>
+      </>
+    ),
+    dsc: (
+      <>
+        <Button variant="outline" onClick={() => flow.go("sign")}>
+          Back
+        </Button>
+        <Button disabled={!dscFound || busy} onClick={() => void signAs("dsc")}>
+          Sign {plural(n, "complaint")}
+        </Button>
+      </>
+    ),
+    done: <Button onClick={onClose}>Done</Button>,
+    paper: (
+      <>
+        <Button variant="outline" onClick={() => flow.go("choose")}>
+          Choose another way
+        </Button>
+        <Button disabled={!matchedAll || busy} onClick={() => void uploadCopies()}>
+          Submit {plural(n, "signed copy", "signed copies")}
+        </Button>
+      </>
+    ),
+    uploaded: <Button onClick={onClose}>Done</Button>,
+  }[flow.stage];
+
+  const settled = flow.stage === "done" || flow.stage === "uploaded";
+
+  return (
+    <StagedOverlay
+      mobileSheet
+      {...guard.contentProps}
+      {...guard.outsideProps}
+      className="sm:max-w-2xl"
+      title={copy[flow.stage].title}
+      titleRef={flow.titleRef}
+      outcome={settled}
+      description={settled ? undefined : copy[flow.stage].description}
+      sceneKey={flow.sceneKey}
+      motion={flow.motion}
+      footer={footer}
+    >
+      {flow.stage === "choose" ? (
+        <StageColumn>
+          <ChoiceCard
+            title="Sign digitally"
+            tone="bg-brand-muted text-brand-muted-foreground"
+            icon={<SignatureIcon className="size-5" />}
+            onClick={chooseDigital}
+          >
+            You sign all {n} with your DSC or Aadhaar e-sign.
+            {others.length ? ` ${names(others)} ${others.length === 1 ? "gets" : "get"} a link on the mobile number in Common details.` : null}
+          </ChoiceCard>
+          <PaperFallbackLink onClick={() => flow.go("fallback")} />
+        </StageColumn>
+      ) : flow.stage === "fallback" ? (
+        <StageColumn>
+          <PaperFallbackQuestion value={reason} onChange={setReason} />
+        </StageColumn>
+      ) : flow.stage === "sign" ? (
+        <StageColumn>
+          {sentNow && others.length ? (
+            <SectionNotice variant="success" announce="polite" title="Sent for signature">
+              {names(others)} {others.length === 1 ? "has" : "have"} been sent a link to sign all {n}.
+            </SectionNotice>
+          ) : null}
+          <InstrumentChoice
+            onAadhaar={() => {
+              setOtp("");
+              setOtpRound(1);
+              flow.go("otp");
+            }}
+            onDsc={() => {
+              setDscFound(false);
+              flow.go("dsc");
+            }}
+          />
+          {rounds > 1 ? (
+            <p className="text-body-compact text-muted-foreground tabular-nums">
+              Aadhaar e-sign takes one OTP for every {AADHAAR_DOCS_PER_OTP} complaints: {rounds} OTPs for these {n}. A DSC signs them all at once.
+            </p>
+          ) : null}
+        </StageColumn>
+      ) : flow.stage === "otp" ? (
+        <StageColumn>
+          <OtpEntry
+            key={otpRound}
+            id="bulk-esign-otp"
+            value={otp}
+            onChange={setOtp}
+            resent={resent}
+            onResend={() => setResent(true)}
+          />
+        </StageColumn>
+      ) : flow.stage === "dsc" ? (
+        <StageColumn>
+          <DscLookup found={dscFound} holder={you.name} />
+        </StageColumn>
+      ) : flow.stage === "done" ? (
+        <SettledCard
+          title={copy.done.title}
+          tone={pending.length ? "info" : "success"}
+          headline={pending.length ? "Out for signature" : "Every signature is in"}
+          rows={roster(base)}
+          footnote={
+            pending.length
+              ? `You signed ${plural(n, "complaint")}. The court fee opens once ${names(pending)} ${pending.length === 1 ? "signs" : "sign"}.`
+              : "You can pay the court fee now."
+          }
+        />
+      ) : flow.stage === "paper" ? (
+        <StageColumn>
+          <Field className="gap-1.5">
+            <FieldLabel htmlFor="signed-copies">Signed copies</FieldLabel>
+            <FileDrop
+              id="signed-copies"
+              accept=".pdf"
+              multiple
+              files={files}
+              onFiles={(picked) => {
+                setFiles((prev) => [...prev, ...picked]);
+                const map: Record<string, string> = { ...matched };
+                for (const f of picked) {
+                  const c = cases.find((x) => f.name.toLowerCase().startsWith(`${x.reference.toLowerCase()}_signed`));
+                  if (c) map[c.id] = f.name;
+                }
+                setMatched(map);
+              }}
+              prompt="Drag the signed PDFs here"
+              hint={`One PDF per complaint, named reference_signed.pdf`}
+            />
+          </Field>
+          <ul className="flex max-h-60 flex-col overflow-y-auto rounded-lg border border-hairline">
+            {cases.map((c) => (
+              <li key={c.id} className="flex items-center gap-3 border-b border-hairline px-3 py-2 text-body-compact last:border-b-0">
+                <FileUpIcon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+                <span className="min-w-0 flex-1 truncate tabular-nums">{c.reference}</span>
+                {matched[c.id] ? <Badge variant="success">Matched</Badge> : <Badge variant="secondary">Waiting</Badge>}
+              </li>
+            ))}
+          </ul>
+        </StageColumn>
+      ) : (
+        <SettledCard
+          title={copy.uploaded.title}
+          tone={others.length ? "info" : "success"}
+          headline={others.length ? "Waiting for confirmation" : "Signed copies accepted"}
+          rows={roster(base)}
+          footnote={
+            others.length
+              ? `${plural(n, "signed copy", "signed copies")} are in. ${names(others)} ${others.length === 1 ? "confirms" : "confirm"} them by OTP through the link sent to ${others.length === 1 ? "their" : "each"} mobile.`
+              : "You can pay the court fee now."
+          }
+        />
+      )}
+      <DiscardQuestion guard={guard} />
+    </StagedOverlay>
   );
 }
