@@ -5,7 +5,6 @@ import { useSearchParams } from "next/navigation";
 import {
   ChevronRightIcon,
   FlagIcon,
-  WalletIcon,
 } from "lucide-react";
 
 import { money } from "@/lib/filing/format";
@@ -28,6 +27,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  CardAction,
 } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog } from "@/components/ui/dialog";
@@ -43,7 +43,9 @@ import {
 
 import { bulkApi, type BatchView } from "./api";
 import { PaymentGateway } from "./payment-gateway";
+import { BatchFooter } from "./batch-footer";
 import type { BatchCtx } from "./batch-screen";
+import { FilingFooter } from "@/components/filing/filing-footer";
 import { CaseBadge } from "./stage";
 
 const ist = (iso: string) =>
@@ -141,6 +143,8 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
 
   const chosen = due.filter((c) => picked.has(c.id));
   const total = chosen.reduce((s, c) => s + c.fee, 0);
+  const sameFee = chosen.length > 0 && chosen.every((c) => c.fee === chosen[0].fee);
+  const [listOpen, setListOpen] = React.useState(false);
   const last = batch.payments.at(-1);
   // What the batch still has to do after this payment, shown on the success screen.
   const pendingAfter = batch.cases.filter((c) => c.stage !== "filed");
@@ -188,16 +192,51 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
           </CardContent>
         </Card>
       ) : (
-        <Card variant="raised" className="gap-0 py-0">
-          <CardHeader className="px-6 py-4">
-            <CardTitle className="text-body font-semibold">
-              Signed, waiting for payment
-            </CardTitle>
-            <CardDescription>
-              Fees for each case. One payment covers every case you tick.
-            </CardDescription>
-          </CardHeader>
-          <div className="overflow-x-auto px-2">
+        <>
+          {/* The fees first, as one sum (v8); the cases it covers behind "Review the list". */}
+          <Card variant="raised">
+            <CardHeader>
+              <CardTitle className="text-body font-semibold">Fees</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              <dl className="flex flex-col gap-2 text-body-compact">
+                <div className="flex items-baseline justify-between gap-4">
+                  <dt>
+                    Court fee
+                    <span className="text-muted-foreground tabular-nums">
+                      {" "}
+                      · {chosen.length} {chosen.length === 1 ? "case" : "cases"}
+                      {sameFee ? ` × ${money(chosen[0].fee)}` : ""}
+                    </span>
+                  </dt>
+                  <dd className="tabular-nums">{money(total)}</dd>
+                </div>
+              </dl>
+              <div className="flex items-baseline justify-between gap-4 border-t border-hairline pt-3">
+                <span className="text-title-s font-semibold">Total</span>
+                <span className="text-title-s font-semibold tabular-nums">{money(total)}</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card variant="raised" className={cn(listOpen && "gap-4")}>
+            <CardHeader>
+              <CardTitle className="text-body font-semibold tabular-nums">
+                {chosen.length === due.length
+                  ? `All ${due.length} signed ${due.length === 1 ? "case" : "cases"}`
+                  : `${chosen.length} of ${due.length} signed cases`}
+              </CardTitle>
+              <CardDescription>
+                {listOpen ? "Untick any to pay for later." : "One payment files every case you keep ticked."}
+              </CardDescription>
+              <CardAction>
+                <Button variant="outline" size="sm" onClick={() => setListOpen((v) => !v)}>
+                  {listOpen ? "Hide the list" : "Review the list"}
+                </Button>
+              </CardAction>
+            </CardHeader>
+            {listOpen ? (
+          <div className="overflow-x-auto px-2 pb-2">
             <Table
               className="border-separate border-spacing-0"
               aria-label="Cases to pay for"
@@ -251,45 +290,32 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
                         aria-label={`Select ${c.reference}`}
                       />
                     </TableCell>
-                    <TableCell
-                      className={cn(TABLE_CELL, "font-medium tabular-nums")}
-                    >
-                      {c.reference}
-                    </TableCell>
-                    <TableCell className={cn(TABLE_CELL, "whitespace-normal")}>
-                      {c.title}
-                    </TableCell>
-                    <TableCell
-                      className={cn(TABLE_CELL, "pr-4 text-right tabular-nums")}
-                    >
-                      {money(c.fee)}
-                    </TableCell>
+                    <TableCell className={cn(TABLE_CELL, "font-medium tabular-nums")}>{c.reference}</TableCell>
+                    <TableCell className={cn(TABLE_CELL, "whitespace-normal")}>{c.title}</TableCell>
+                    <TableCell className={cn(TABLE_CELL, "pr-4 text-right tabular-nums")}>{money(c.fee)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </div>
-          <div className="flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center">
-            <div className="flex flex-col">
-              <span className="text-caption text-muted-foreground">
-                <span className="tabular-nums">{chosen.length}</span> case
-                {chosen.length === 1 ? "" : "s"}, one transaction
-              </span>
-              <span className="text-title-s font-semibold tabular-nums">
-                {money(total)}
-              </span>
-            </div>
-            <Button
-              size="lg"
-              className="sm:ml-auto"
-              disabled={!chosen.length || !!batch.clubbedInto}
-              onClick={() => setDialog("confirm")}
-            >
-              <WalletIcon data-icon="inline-start" aria-hidden />
-              Pay {money(total)}
-            </Button>
-          </div>
-        </Card>
+            ) : null}
+          </Card>
+
+          <BatchFooter>
+            <FilingFooter
+              showSaveState={false}
+              onBack={() => go("sign")}
+              status={
+                <span className="text-body-compact text-muted-foreground">
+                  You&apos;ll go to the payment gateway and come back here.
+                </span>
+              }
+              continueLabel={`Pay ${money(total)}`}
+              continueDisabled={!chosen.length || !!batch.clubbedInto}
+              onContinue={() => setDialog("confirm")}
+            />
+          </BatchFooter>
+        </>
       )}
 
       {batch.counts.filed ? (

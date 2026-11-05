@@ -178,7 +178,7 @@ export function BatchScreen({ batchId }: { batchId: string }) {
         : null;
   const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
   const shown: TabId = allFiled && tab !== "common" && tab !== "cases" ? "filed" : tab;
-  const width: BulkWidth = shown === "cases" || shown === "scrutiny" || shown === "documents" || shown === "filed" ? "wide" : "narrow";
+  const width: BulkWidth = shown === "cases" || shown === "scrutiny" || shown === "documents" || shown === "filed" ? "wide" : "medium";
   const title = {
     common: "Common details",
     cases: "Cases in this batch",
@@ -191,7 +191,7 @@ export function BatchScreen({ batchId }: { batchId: string }) {
     documents: "Documents",
     review: "Review",
     sign: clear ? `Sign ${plural(clear, "case", "cases")}` : "Sign",
-    pay: batch.counts.signed ? `Pay for ${plural(batch.counts.signed, "case", "cases")}` : "Pay",
+    pay: batch.counts.signed ? `Pay and file ${plural(batch.counts.signed, "case", "cases")}` : "Pay",
     filed: `${plural(batch.counts.filed, "case", "cases")} filed`,
   }[shown];
   const body = {
