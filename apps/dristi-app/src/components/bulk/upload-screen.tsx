@@ -11,8 +11,18 @@ import {
   DownloadIcon,
   FileSpreadsheetIcon,
   FileTextIcon,
+  FlaskConicalIcon,
   SearchIcon,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Label } from "@/components/ui/label";
 import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
@@ -75,7 +85,6 @@ import {
 
 import { downloadTemplate } from "./batches-screen";
 import { FilingFooter } from "@/components/filing/filing-footer";
-import { useDemoTools } from "./demo-tools";
 import { FilingPageHeader } from "@/components/filing/filing-page-header";
 import { FilingMain } from "@/components/filing/filing-shell";
 
@@ -129,9 +138,9 @@ function StepNumber({ n }: { n: number }) {
 
 /** The demo spreadsheets the upload offers, from `public/samples/` (`scripts/bulk-demo-files.mts`). */
 const SAMPLES = [
-  { key: "tata-capital-bulk-filing-template.xlsx", label: "Sample file 1: template format" },
-  { key: "tata-capital-recovery-mis.xlsx", label: "Sample file 2: custom format" },
-];
+  { key: "tata-capital-bulk-filing-template.xlsx", label: "Sample 1: the filled template", format: "template" },
+  { key: "tata-capital-recovery-mis.xlsx", label: "Sample 2: a lender's own export", format: "own" },
+] as const;
 
 type ReadingRow = {
   name: string;
@@ -286,7 +295,6 @@ export function UploadScreen() {
 
   // A sample spreadsheet, fetched and chosen as if it had been dropped.
   const [sampling, setSampling] = React.useState<string | null>(null);
-  const demo = useDemoTools();
   // Check's table: which rows show, a search over them, and the page (v8).
   const [checkShow, setCheckShow] = React.useState<"all" | "clean" | "blanks">("all");
   const [checkQ, setCheckQ] = React.useState("");
@@ -549,7 +557,6 @@ export function UploadScreen() {
 
   if (step === "file") {
     const template = format === "template";
-    const sample = SAMPLES[template ? 0 : 1];
     return (
       <>
         <FilingMain>
@@ -592,9 +599,60 @@ export function UploadScreen() {
                   </ol>
                 ) : null}
                 <Field className="gap-1.5">
-                  <FieldLabel htmlFor="sheet">
-                    {template ? "Filled template" : ai === "on" ? "Your Excel, or one document per case" : "Your Excel file"}
-                  </FieldLabel>
+                  <div className="flex items-center justify-between gap-3">
+                    <FieldLabel htmlFor="sheet">
+                      {template ? "Filled template" : ai === "on" ? "Your Excel, or one document per case" : "Your Excel file"}
+                    </FieldLabel>
+                    {/* Sandbox, the product's flask (as on e-filing's signing step): the demo
+                        spreadsheets, used here in one move or downloaded to show the upload. */}
+                    <DropdownMenu>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label="Sandbox: sample files"
+                                disabled={busy || sampling !== null}
+                                className="relative text-muted-foreground after:absolute after:-inset-1"
+                              >
+                                {sampling ? <Spinner /> : <FlaskConicalIcon aria-hidden />}
+                              </Button>
+                            </DropdownMenuTrigger>
+                          </TooltipTrigger>
+                          <TooltipContent>Sandbox: sample files</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                      <DropdownMenuContent align="end" className="w-72">
+                        <DropdownMenuLabel>Use a sample file</DropdownMenuLabel>
+                        {SAMPLES.map((x) => (
+                          <DropdownMenuItem
+                            key={x.key}
+                            onSelect={() => {
+                              // A sample in the other format switches the step to it first.
+                              if (x.format !== format) setFormat(x.format);
+                              void chooseSample(x.key);
+                            }}
+                          >
+                            <FileSpreadsheetIcon aria-hidden />
+                            {x.label}
+                          </DropdownMenuItem>
+                        ))}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuLabel>Download to upload yourself</DropdownMenuLabel>
+                        {SAMPLES.map((x) => (
+                          <DropdownMenuItem key={x.key} asChild>
+                            <a href={`/samples/${x.key}`} download={x.key}>
+                              <DownloadIcon aria-hidden />
+                              {x.label}
+                            </a>
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                   <FileDrop
                     id="sheet"
                     accept={ai === "on" && !template ? ".xlsx,.csv,.docx,.pdf,.txt" : ".xlsx,.csv"}
@@ -605,24 +663,6 @@ export function UploadScreen() {
                     hint={ai === "on" && !template ? ".xlsx or .csv, or Word and PDF files" : ".xlsx or .csv"}
                   />
                 </Field>
-                {/* Demo only (`?demo=1`): the matching sample spreadsheet, one click away. */}
-                {demo ? (
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="text-body-compact text-muted-foreground">No file to hand?</span>
-                  <Button
-                    variant="outline"
-                    disabled={busy || sampling !== null}
-                    onClick={() => void chooseSample(sample.key)}
-                  >
-                    {sampling === sample.key ? (
-                      <Spinner data-icon="inline-start" />
-                    ) : (
-                      <FileSpreadsheetIcon data-icon="inline-start" aria-hidden />
-                    )}
-                    {template ? "Try a filled sample" : "Try a sample of a lender's export"}
-                  </Button>
-                </div>
-                ) : null}
               </CardContent>
             </Card>
           )}
