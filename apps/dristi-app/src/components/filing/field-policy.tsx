@@ -42,6 +42,12 @@ export type FieldPolicy = {
    */
   next?: { label: string; href: string; status?: React.ReactNode } | null;
   /**
+   * Why the section's Continue can't go ahead yet, or `null` when it can. A single filing
+   * lets a section be left incomplete and catches it at preview; bulk filing's Common
+   * details can't, because one gap there becomes the same fix on every case.
+   */
+  holdContinue?: string | null;
+  /**
    * Which groups of the list of documents to show, when the host collects only some of
    * them here. Bulk filing's setup shows the complainants' documents alone; each case's
    * own are uploaded per case.

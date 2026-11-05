@@ -27,6 +27,13 @@ export function partiesOf(draft: FilingDraft): BatchParties {
   };
 }
 
+/** Why the batch's advocates can't go on every case yet, or `null` when they can. */
+export function advocatesMissing(advocates: { name: string }[]): string | null {
+  if (!advocates.length) return "Add the advocate who files these cases first";
+  if (advocates.some((a) => !a.name.trim())) return "Choose a registered advocate first";
+  return null;
+}
+
 /** A complainant's name as the batch list shows it. */
 export function complainantName(c: Complainant): string {
   return (c.type === "institution" ? c.entName : c.name).trim();

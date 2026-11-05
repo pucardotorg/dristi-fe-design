@@ -12,7 +12,7 @@ import {
 
 import { aiModeFrom } from "@/lib/bulk/ai-review";
 import type { CaseExtraction } from "@/lib/bulk/case-doc";
-import { apiComplainantOf, partiesOf } from "@/lib/bulk/parties";
+import { advocatesMissing, apiComplainantOf, partiesOf } from "@/lib/bulk/parties";
 import { useFiling } from "@/lib/filing/store";
 import {
   autoMap,
@@ -456,6 +456,9 @@ export function UploadScreen() {
     try {
       if (!setup) throw new Error("Set the complainants and advocates first.");
       const parties = partiesOf(setup);
+      // Reachable from the stepper without passing the Advocate section's own hold.
+      const noAdvocate = advocatesMissing(parties.advocates);
+      if (noAdvocate) throw new Error(`${noAdvocate}, in Common details.`);
       const left = new Set(cannot.map((x) => x.index));
       const usable: Workbookish = {
         cases: { ...book.cases, rows: book.cases.rows.filter((_, i) => !left.has(i)) },

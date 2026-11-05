@@ -22,9 +22,10 @@ import {
   ListChecksIcon,
 } from "lucide-react";
 
+import { advocatesMissing } from "@/lib/bulk/parties";
 import { BulkSetupRepository } from "@/lib/bulk/setup-repository";
 import { stepFromPathname } from "@/lib/filing/steps";
-import { FilingProvider } from "@/lib/filing/store";
+import { FilingProvider, useFiling } from "@/lib/filing/store";
 import type { StepId } from "@/lib/filing/types";
 import { DraftBreadcrumbLabel } from "@/components/filing/chrome";
 import { FieldPolicyProvider, type FieldPolicy } from "@/components/filing/field-policy";
@@ -205,17 +206,29 @@ export function BulkSetupFlow({
     >
       <DraftBreadcrumbLabel label={ai === "on" ? "Upload cases" : "Upload Excel"} />
       <UploadStateContext.Provider value={setUpload}>
-        <FieldPolicyProvider value={policy}>
+        <SetupPolicy policy={policy}>
           <FilingShell
             rail={false}
             banner={<SetupSteps setupId={setupId} step={step} uploadStep={uploadStep} upload={upload} ai={ai} />}
           >
             {children}
           </FilingShell>
-        </FieldPolicyProvider>
+        </SetupPolicy>
       </UploadStateContext.Provider>
     </FilingProvider>
   );
+}
+
+/**
+ * The setup's policy, with the Advocate section held until every advocate is a registered
+ * one. A single filing lets the section wait for preview; here one empty advocate would
+ * reach every case as the same fix (bulk audit, 2026-11-04).
+ */
+function SetupPolicy({ policy, children }: { policy: FieldPolicy; children: React.ReactNode }) {
+  const { draft } = useFiling();
+  const hold = policy.step === "advocate" ? advocatesMissing(draft.advocates) : null;
+  const value = React.useMemo(() => ({ ...policy, holdContinue: hold }), [policy, hold]);
+  return <FieldPolicyProvider value={value}>{children}</FieldPolicyProvider>;
 }
 
 /**

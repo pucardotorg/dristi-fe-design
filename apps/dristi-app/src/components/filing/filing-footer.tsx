@@ -75,7 +75,9 @@ export function FilingFooter({
    */
   const inCorrection = useInCorrection();
   // A host can send the primary action somewhere else (`FieldPolicy.next`).
-  const hostNext = useFieldPolicy()?.next ?? null;
+  const policy = useFieldPolicy();
+  const hostNext = policy?.next ?? null;
+  const hold = policy?.holdContinue ?? null;
   if (hostNext) {
     continueHref = hostNext.href;
     continueLabel = hostNext.label;
@@ -83,6 +85,12 @@ export function FilingFooter({
     continueBlocked = false;
     onContinue = undefined;
     if (hostNext.status !== undefined) status = hostNext.status;
+  }
+  if (hold) {
+    continueBlocked = true;
+    continueHint = hold;
+    continueHref = undefined;
+    onContinue = undefined;
   }
   const back =
     backHref !== undefined ? (

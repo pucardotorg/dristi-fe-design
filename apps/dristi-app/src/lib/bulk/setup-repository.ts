@@ -19,7 +19,7 @@ import type { Address, FilingDraft, UserProfile } from "@/lib/filing/types";
 import { bulkFetch } from "@/components/bulk/api";
 import { demoPdf } from "@/components/bulk/demo-fill";
 
-import { CLIENTS } from "./clients";
+import { CLIENTS, OFFICE_ADVOCATES } from "./clients";
 
 const KEY = (id: string) => `bulk-setup:${id}`;
 
@@ -29,6 +29,14 @@ export function createSetupDraft(profile: UserProfile | null): FilingDraft {
   // Only the complainants' documents are set up here; each case's own come after.
   draft.intake.cheques = [];
   draft.intake.notices = [];
+  // Prototype: the signed-in advocate (the shell's own user) files the batch when the
+  // filing profile hasn't been set up yet, so the setup never starts with nobody on record.
+  const first = draft.advocates[0];
+  const you = OFFICE_ADVOCATES.find((a) => a.you);
+  if (first && !first.name.trim() && you) {
+    first.name = you.name;
+    first.barNumber = you.barNumber;
+  }
   return draft;
 }
 
