@@ -23,7 +23,11 @@ import {
 } from "lucide-react";
 
 import { advocatesMissing } from "@/lib/bulk/parties";
-import { BulkSetupRepository } from "@/lib/bulk/setup-repository";
+import { CLIENTS } from "@/lib/bulk/clients";
+import { BulkSetupRepository, prefillKnownComplainant } from "@/lib/bulk/setup-repository";
+import { complainantName } from "@/lib/bulk/parties";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { stepFromPathname } from "@/lib/filing/steps";
 import { FilingProvider, useFiling } from "@/lib/filing/store";
 import type { StepId } from "@/lib/filing/types";
@@ -131,6 +135,7 @@ export function BulkSetupFlow({
       // The parties are entered by hand here, once for the batch: no document is read, so
       // no source rail beside the form (owner, 2026-11-04).
       sources: false,
+      partyInPerson: false,
       // No side panel in this flow, so the page sits in the middle of the screen (v8).
       centered: true,
       hostSteps: {
@@ -229,8 +234,54 @@ export function BulkSetupFlow({
 function SetupPolicy({ policy, children }: { policy: FieldPolicy; children: React.ReactNode }) {
   const { draft } = useFiling();
   const hold = policy.step === "advocate" ? advocatesMissing(draft.advocates) : null;
-  const value = React.useMemo(() => ({ ...policy, holdContinue: hold }), [policy, hold]);
+  const picker = React.useMemo(() => (policy.step === "complainant" ? <SavedComplainant /> : null), [policy.step]);
+  const value = React.useMemo(
+    () => ({ ...policy, holdContinue: hold, underTitle: picker ?? policy.underTitle }),
+    [policy, hold, picker],
+  );
   return <FieldPolicyProvider value={value}>{children}</FieldPolicyProvider>;
+}
+
+/**
+ * "Fill from a saved complainant" (v8): an institution files for the same complainant
+ * batch after batch, so the one it filed for last is picked in one move. Every field it
+ * fills stays editable below.
+ */
+function SavedComplainant() {
+  const { draft, update } = useFiling();
+  const [busy, setBusy] = React.useState(false);
+  const first = draft.complainants[0];
+  const current = first ? CLIENTS.find((c) => c.complainant.name === complainantName(first))?.id ?? "" : "";
+  return (
+    <Field className="gap-1.5 sm:max-w-96">
+      <FieldLabel htmlFor="saved-complainant">Fill from a saved complainant</FieldLabel>
+      <NativeSelect
+        id="saved-complainant"
+        value={current}
+        disabled={busy}
+        onChange={async (e) => {
+          const id = e.target.value;
+          if (!id) return;
+          setBusy(true);
+          const next = structuredClone(draft);
+          await prefillKnownComplainant(next, id);
+          update((d) => {
+            d.complainants = next.complainants;
+            d.intake.parties = next.intake.parties;
+          });
+          setBusy(false);
+        }}
+      >
+        <NativeSelectOption value="">Choose</NativeSelectOption>
+        {CLIENTS.map((c) => (
+          <NativeSelectOption key={c.id} value={c.id}>
+            {c.complainant.name}
+          </NativeSelectOption>
+        ))}
+      </NativeSelect>
+      <FieldDescription>Every field it fills can still be changed below.</FieldDescription>
+    </Field>
+  );
 }
 
 /**
@@ -282,8 +333,6 @@ function SetupSteps({
   return (
     <BulkSteps
       marks={marks}
-      // The same column as the page under it (FilingMain's default or wide).
-      width={["format", "map", "review"].includes(current ?? "") ? "medium" : "narrow"}
       second={
         <StageRow
           label={inCases ? "Step 2 · Cases" : "Step 1 · Common details"}

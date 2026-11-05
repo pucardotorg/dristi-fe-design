@@ -52,8 +52,8 @@ const DEMO_PLACES: Record<string, Pick<Address, "district" | "state">> = {
  * complainant filled in (`lib/bulk/clients.ts`, Tata Capital) and its identity proof
  * attached. The advocates, and the vakalatnama that names them, are left to the filer.
  */
-export async function prefillKnownComplainant(draft: FilingDraft): Promise<void> {
-  const src = CLIENTS[0].complainant;
+export async function prefillKnownComplainant(draft: FilingDraft, clientId = CLIENTS[0].id): Promise<void> {
+  const src = (CLIENTS.find((c) => c.id === clientId) ?? CLIENTS[0]).complainant;
   const addr = (a: { line1: string; city: string; pin: string }): Address => ({
     ...a,
     district: DEMO_PLACES[a.pin]?.district ?? "",

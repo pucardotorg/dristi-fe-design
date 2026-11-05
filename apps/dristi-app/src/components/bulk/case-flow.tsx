@@ -41,7 +41,7 @@ import { getStep, stepFromPathname } from "@/lib/filing/steps";
 import { FilingProvider, useFiling } from "@/lib/filing/store";
 import type { StepId } from "@/lib/filing/types";
 import { useCourt, useCourtText } from "@/components/court/court-provider";
-import { DraftBreadcrumbLabel, TOP_BAR_HEIGHT } from "@/components/filing/chrome";
+import { BatchBreadcrumbLabel, DraftBreadcrumbLabel, TOP_BAR_HEIGHT } from "@/components/filing/chrome";
 import { FieldPolicyProvider, type FieldPolicy } from "@/components/filing/field-policy";
 import { FilingShell } from "@/components/filing/filing-shell";
 import { Button } from "@/components/ui/button";
@@ -61,7 +61,7 @@ import { bulkApi, caseFlowHref, setBulkAiMode, type BatchView, type CaseView } f
 import { useGujarat } from "./court-guard";
 import { demoFill } from "./demo-fill";
 import { useDemoTools } from "./demo-tools";
-import { batchMarks } from "./batch-marks";
+import { batchMarks, caseState, detailFlags, documentFlags } from "./batch-marks";
 import { BulkSteps, type BulkStepId } from "./bulk-steps";
 import { OriginalDoc } from "./original-doc";
 import { FlagLine } from "./scrutiny-tab";
@@ -88,12 +88,16 @@ const BATCH_TAB: Record<BulkStepId, string> = {
 
 const editable = (c: CaseView) => c.stage === "held" || c.stage === "ready";
 
-/** The next case, after this one and round to the start, that still has something to fix. */
-function nextToFix(cases: CaseView[], at: number): CaseView | null {
-  return (
-    [...cases.slice(at + 1), ...cases.slice(0, at)].find((x) => editable(x) && x.flags.length > 0) ??
-    null
-  );
+/**
+ * The next case, after this one and round to the start, in Case details' own queues: one
+ * to fix, else one to check. Missing documents are the Documents step's, not a fix here.
+ */
+function nextToFix(cases: CaseView[], at: number): { c: CaseView; verb: "fix" | "check" } | null {
+  const around = [...cases.slice(at + 1), ...cases.slice(0, at)];
+  const fix = around.find((x) => caseState(x) === "fix");
+  if (fix) return { c: fix, verb: "fix" };
+  const check = around.find((x) => caseState(x) === "check");
+  return check ? { c: check, verb: "check" } : null;
 }
 
 /** Why nothing in a case can be changed here, or `null` when it can. */
@@ -181,7 +185,9 @@ export function BulkCaseFlow({
    */
   const next = React.useMemo<FieldPolicy["next"]>(() => {
     if (!batch || !c) return null;
-    const flags = editable(c) ? c.flags : [];
+    // The case's details only: its files are added at the batch's Documents step (round 3:
+    // a missing file blocked Continue here, though Documents comes after Case details).
+    const flags = editable(c) ? detailFlags(c) : [];
     if (flags.some((f) => f.section === step)) return null;
     const elsewhere = flags.filter((f) => f.section !== step);
     if (elsewhere.length) {
@@ -193,13 +199,13 @@ export function BulkCaseFlow({
     }
     const cases = batch.cases;
     const toFix = nextToFix(cases, cases.findIndex((x) => x.id === c.id));
-    const left = cases.filter((x) => x.id !== c.id && editable(x) && x.flags.length > 0).length;
+    const left = cases.filter((x) => x.id !== c.id && (caseState(x) === "fix" || caseState(x) === "check")).length;
     const status = (
       <span className="inline-flex items-center gap-2 text-body-compact text-success-ink">
         <CheckIcon className="size-4" aria-hidden />
-        {editable(c) ? "This case is ready" : "Nothing to change here"}
+        {editable(c) ? "Details done" : "Nothing to change here"}
         {left ? (
-          <span className="text-muted-foreground tabular-nums">
+          <span className="text-muted-foreground tabular-nums max-sm:hidden">
             · {left} more {left === 1 ? "case needs" : "cases need"} you
           </span>
         ) : null}
@@ -207,20 +213,23 @@ export function BulkCaseFlow({
     );
     return toFix
       ? {
-          label: "Next case to fix",
-          href: caseFlowHref(batchId, toFix, firstFlaggedStep(toFix.flags), aiParam),
+          label: `Next case to ${toFix.verb}`,
+          href: caseFlowHref(batchId, toFix.c, firstFlaggedStep(detailFlags(toFix.c)), aiParam),
           status,
         }
       : { label: "Back to all cases", href: batchHref(batchId, "scrutiny", aiParam, c.id), status };
   }, [batch, c, step, batchId, aiParam, courtText]);
 
   const policy = React.useMemo<FieldPolicy>(() => {
-    const flags = c?.flags ?? [];
+    const flags = c ? detailFlags(c) : [];
     const here = flags
       .map((f) => ({ f, at: flagPlace(f) }))
       .filter(({ at }) => at.step === step);
     return {
       step,
+      // One frame for every section of the case: the source opens when asked for (round 3).
+      sourcesOnDemand: true,
+      partyInPerson: false,
       issueAt: (instance, name) => {
         const hits = here.filter(({ at }) => at.instance === instance && at.name === name);
         return (hits.find(({ f }) => f.level === "hold") ?? hits[0])?.f.message ?? null;
@@ -291,6 +300,7 @@ export function BulkCaseFlow({
       }
     >
       <CaseTitle />
+      {batch ? <BatchBreadcrumbLabel number={batch.number} id={batch.id} /> : null}
       <FieldPolicyProvider value={policy}>
         <FilingShell
           banner={
@@ -344,7 +354,6 @@ function CaseBar({
       // the case is their second row.
       <BulkSteps
         marks={batchMarks(batch, "details", (id) => batchHref(batchId, BATCH_TAB[id], aiParam))}
-        width="full"
         gutter={gutter}
         second={<div className="py-2">{body}</div>}
       />
@@ -363,12 +372,17 @@ function CaseBar({
     );
   if (!batch || !c) return strip(<Skeleton className="h-10 w-full max-w-md rounded-lg" />);
 
+  // Counted and walked in the queue the list calls "To fix" (v8: "Case 1 of 19 to fix"); a
+  // case outside it is counted in the batch, and the arrows walk the batch.
   const cases = batch.cases;
-  const at = cases.findIndex((x) => x.id === c.id);
-  const prev = cases[at - 1] ?? null;
-  const next = cases[at + 1] ?? null;
-  const queue = cases.filter((x) => editable(x) && x.flags.some((f) => f.level === "hold"));
+  const queue = cases.filter((x) => caseState(x) === "fix");
   const queueAt = queue.findIndex((x) => x.id === c.id);
+  const walk = queueAt >= 0 ? queue : cases;
+  const at = walk.findIndex((x) => x.id === c.id);
+  const prev = walk[at - 1] ?? null;
+  const next = walk[at + 1] ?? null;
+  const inQueue = queueAt >= 0;
+  const docsLeft = c.docs.need - c.docs.have + (c.docs.need > c.docs.have ? 0 : documentFlags(c).length);
   const sameStep = (x: CaseView) =>
     caseFlowHref(batchId, x, step && BULK_CASE_STEPS.includes(step) ? step : undefined, aiParam);
 
@@ -384,43 +398,55 @@ function CaseBar({
     );
 
   return strip(
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-      <Button asChild variant="ghost" className="-ml-2.5">
-        <Link href={batchHref(batchId, "scrutiny", aiParam, c.id)}>
+    <div className="flex items-center gap-x-4 gap-y-2">
+      <Button asChild variant="ghost" className="-ml-2.5 max-sm:px-2.5">
+        <Link href={batchHref(batchId, "scrutiny", aiParam, c.id)} aria-label="All cases">
           <ArrowLeftIcon data-icon="inline-start" aria-hidden />
-          All cases
+          <span className="max-sm:hidden">All cases</span>
         </Link>
       </Button>
-      <div className="flex min-w-0 flex-1 basis-64 flex-col">
-        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="text-body-compact font-semibold">{c.title}</span>
-          <CaseBadge c={c} />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <span className="flex min-w-0 items-center gap-x-2">
+          <span className="truncate text-body-compact font-semibold">{c.title}</span>
+          <span className="shrink-0 max-sm:hidden">
+            <CaseBadge c={c} />
+          </span>
         </span>
         <span className="flex flex-wrap items-center gap-x-2 text-body-compact text-muted-foreground tabular-nums">
-          <span>
-            {/* Counted in the queue it belongs to, as v8 does: the cases to fix, or the batch. */}
-            {queueAt >= 0 ? `Case ${queueAt + 1} of ${queue.length} to fix` : `Case ${at + 1} of ${cases.length}`}
-          </span>
-          <span aria-hidden>·</span>
-          <span>{c.reference}</span>
+          <span>{inQueue ? `Case ${queueAt + 1} of ${queue.length} to fix` : `Case ${at + 1} of ${cases.length}`}</span>
+          <span aria-hidden className="max-sm:hidden">·</span>
+          <span className="font-mono max-sm:hidden">{c.reference}</span>
           {c.cheque ? (
             <>
-              <span aria-hidden>·</span>
-              <span>Cheque {c.cheque}</span>
+              <span aria-hidden className="max-sm:hidden">·</span>
+              <span className="max-sm:hidden">Cheque {c.cheque}</span>
             </>
           ) : null}
-          {c.original ? <OriginalDoc original={c.original} /> : null}
+          {/* Files are the Documents step's: said here, never counted as fixes. */}
+          {editable(c) && docsLeft > 0 && caseState(c) !== "docs" ? (
+            <>
+              <span aria-hidden className="max-sm:hidden">·</span>
+              <Link href={batchHref(batchId, "documents", aiParam)} className="underline-offset-4 hover:underline max-sm:hidden">
+                {docsLeft} {docsLeft === 1 ? "document" : "documents"} to add at Documents
+              </Link>
+            </>
+          ) : null}
+          {c.original ? (
+            <span className="max-sm:hidden">
+              <OriginalDoc original={c.original} />
+            </span>
+          ) : null}
         </span>
       </div>
-      <nav aria-label="Cases in this batch" className="flex items-center gap-2">
+      <nav aria-label="Cases in this batch" className="flex shrink-0 items-center gap-2">
         {demo && editable(c) ? (
-          <Button variant="ghost" size="sm" onClick={() => update(demoFill)}>
+          <Button variant="ghost" size="sm" className="max-sm:hidden" onClick={() => update(demoFill)}>
             <WandSparklesIcon data-icon="inline-start" aria-hidden />
             Demo values
           </Button>
         ) : null}
-        {move(prev, "Previous case", <ChevronLeftIcon aria-hidden />)}
-        {move(next, "Next case", <ChevronRightIcon aria-hidden />)}
+        {move(prev, inQueue ? "Previous case to fix" : "Previous case", <ChevronLeftIcon aria-hidden />)}
+        {move(next, inQueue ? "Next case to fix" : "Next case", <ChevronRightIcon aria-hidden />)}
       </nav>
     </div>,
   );
@@ -487,13 +513,14 @@ function FixList({
     }
   };
 
-  const here = c.flags.filter((f) => f.section === step);
+  const details = detailFlags(c);
+  const here = details.filter((f) => f.section === step);
   const elsewhere = BULK_CASE_STEPS.filter((s) => s !== step)
-    .map((s) => ({ s, n: c.flags.filter((f) => f.section === s).length }))
+    .map((s) => ({ s, n: details.filter((f) => f.section === s).length }))
     .filter(({ n }) => n > 0);
   // A hold has to be fixed; a check can be looked at and skipped. The words say which.
   const verb = (flags: Flag[]) => (flags.some((f) => f.level === "hold") ? "fix" : "check");
-  const later = c.flags.filter((f) => f.section !== step);
+  const later = details.filter((f) => f.section !== step);
 
   // The batch's shared gaps in this section, and how many other open cases still have each.
   const shared = new Map<string, { fix: ValueFix; n: number }>();
@@ -615,7 +642,7 @@ function FlagRow({
     <li className="flex flex-col gap-1">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-4">
         <div className="min-w-0 flex-1">
-          <FlagLine flag={f} />
+          <FlagLine flag={f} where={false} />
         </div>
         {fix?.kind === "declare-no-contact" ? (
           <Button
@@ -630,11 +657,11 @@ function FlagRow({
         {f.level === "soft" ? (
           <Button
             variant="ghost"
-            className="ml-8 w-fit shrink-0 sm:ml-0"
+            className="-mt-2 ml-6 w-fit shrink-0 sm:mt-0 sm:ml-0"
             disabled={busy}
             onClick={() => void act({ action: "skip", caseId, flagId: f.id })}
           >
-            Skip
+            {f.rule === "dcm-poor" ? "Keep this file" : "Skip this check"}
           </Button>
         ) : null}
       </div>

@@ -1,60 +1,36 @@
 "use client";
 
 import * as React from "react";
-import { ArrowDownIcon, ArrowUpIcon, CheckIcon } from "lucide-react";
+import { ArrowDownIcon, ArrowUpIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { RAIL_ROW, RAIL_ROW_ACTIVE } from "@/components/filing/sections-rail";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
 import type { CaseView } from "./api";
-
-/** Where a case stands, as a small badge: what it needs, or a tick when nothing. */
-export function CaseStateBadge({
-  holds,
-  checks,
-}: {
-  holds: number;
-  checks: number;
-}) {
-  if (holds)
-    return (
-      <Badge variant="destructive" className="shrink-0 tabular-nums">
-        {holds} field{holds === 1 ? "" : "s"} to complete
-      </Badge>
-    );
-  if (checks)
-    return (
-      <Badge variant="warning" className="shrink-0 tabular-nums">
-        {checks} to check
-      </Badge>
-    );
-  return (
-    <Badge variant="success" className="shrink-0">
-      <CheckIcon data-icon="inline-start" aria-hidden />
-      Complete
-    </Badge>
-  );
-}
+import { caseState } from "./batch-marks";
+import { CaseSearch, caseMatches } from "./case-list-tools";
+import { CaseBadge } from "./stage";
 
 /**
  * The batch's cases as a panel beside the case on screen: who each is against, its
- * reference, and where it stands. When the list runs past its height, a fade and a count
+ * reference, and where it stands; only a case that still needs something says so, so
+ * Complete stays the quiet default (round 3). It can be searched, as every list of the
+ * batch's cases can. When the list runs past its height, a fade and a count
  * at the hidden edge say how many more there are, and take you to them.
  */
 export function CaseList({
   cases,
   selectedId,
   onSelect,
-  stateOf,
 }: {
   cases: CaseView[];
   selectedId: string | null;
   onSelect: (id: string) => void;
-  stateOf: (c: CaseView) => { holds: number; checks: number };
 }) {
+  const [search, setSearch] = React.useState("");
+  const listed = cases.filter((c) => caseMatches(c, search));
   const scroller = React.useRef<HTMLUListElement>(null);
   const [hidden, setHidden] = React.useState({ above: 0, below: 0 });
 
@@ -81,7 +57,7 @@ export function CaseList({
     const watch = new ResizeObserver(measure);
     watch.observe(el);
     return () => watch.disconnect();
-  }, [measure, cases.length]);
+  }, [measure, listed.length]);
 
   // Keep the chosen case in view as it changes (Next case, a filter).
   React.useEffect(() => {
@@ -104,9 +80,12 @@ export function CaseList({
     >
       <div className="flex items-center justify-between border-b border-hairline px-4 py-3">
         <span className="text-body-compact font-semibold">Cases</span>
-        <span className="text-caption text-muted-foreground tabular-nums">
+        <span className="text-body-compact text-muted-foreground tabular-nums">
           {cases.length}
         </span>
+      </div>
+      <div className="border-b border-hairline p-2">
+        <CaseSearch id="review-search" className="sm:w-full" value={search} onChange={setSearch} />
       </div>
       <div className="relative min-h-0">
         <ul
@@ -115,9 +94,11 @@ export function CaseList({
           aria-label="Cases"
           className="flex max-h-[calc(100dvh-16rem)] flex-col gap-1 overflow-y-auto overscroll-contain p-2"
         >
-          {cases.map((c) => {
+          {listed.length === 0 ? (
+            <li className="px-2 py-3 text-body-compact text-muted-foreground">No case matches.</li>
+          ) : null}
+          {listed.map((c) => {
             const active = c.id === selectedId;
-            const s = stateOf(c);
             return (
               <li key={c.id}>
                 <Button
@@ -130,16 +111,16 @@ export function CaseList({
                   aria-current={active ? "true" : undefined}
                   onClick={() => onSelect(c.id)}
                 >
-                  <span className="flex min-w-0 flex-1 flex-col items-start text-left">
+                  <span className="flex min-w-0 flex-1 flex-col items-start gap-1 text-left">
                     <span className="w-full truncate font-medium">
                       {c.accused || c.title}
                     </span>
-                    <span className="w-full truncate text-caption text-muted-foreground tabular-nums">
-                      {c.reference}
-                      {c.cheque ? ` · ${c.cheque}` : ""}
+                    <span className="w-full truncate text-body-compact text-muted-foreground">
+                      <span className="font-mono">{c.reference}</span>
+                      {c.cheque ? <span className="tabular-nums"> · {c.cheque}</span> : null}
                     </span>
+                    {caseState(c) !== "complete" ? <CaseBadge c={c} /> : null}
                   </span>
-                  <CaseStateBadge {...s} />
                 </Button>
               </li>
             );

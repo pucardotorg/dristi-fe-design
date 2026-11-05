@@ -18,6 +18,8 @@ import { ChromeDialogContent } from "@/components/chrome/app-chrome";
 import { CourtDocument } from "@/components/filing/sections/preview/court-document";
 import { Dialog, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
+import { FilingFooter } from "@/components/filing/filing-footer";
+import { BatchFooter } from "./batch-footer";
 import {
   Card,
   CardContent,
@@ -69,11 +71,16 @@ export function FiledTab({ batch, go }: BatchCtx) {
 
   if (filed.length === 0) {
     return (
-      <Card variant="raised">
-        <CardContent className="text-body-compact text-muted-foreground">
-          Nothing filed yet. Cases show here once they are paid for.
-        </CardContent>
-      </Card>
+      <>
+        <Card variant="raised">
+          <CardContent className="text-body-compact text-muted-foreground">
+            Nothing filed yet. Cases show here once they are paid for.
+          </CardContent>
+        </Card>
+      <BatchFooter>
+        <FilingFooter showSaveState={false} onBack={() => go("pay")} continueLabel="All batches" continueHref="/filings/bulk" />
+      </BatchFooter>
+      </>
     );
   }
 
@@ -222,6 +229,9 @@ export function FiledTab({ batch, go }: BatchCtx) {
           ) : null}
         </ChromeDialogContent>
       </Dialog>
+      <BatchFooter>
+        <FilingFooter showSaveState={false} onBack={() => go("pay")} continueLabel="All batches" continueHref="/filings/bulk" />
+      </BatchFooter>
     </div>
   );
 }

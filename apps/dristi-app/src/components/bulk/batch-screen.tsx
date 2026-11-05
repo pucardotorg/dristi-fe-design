@@ -3,19 +3,19 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeftIcon } from "lucide-react";
+import { ArrowLeftIcon, CircleCheckIcon, CircleDashedIcon } from "lucide-react";
 
 import { aiModeFrom } from "@/lib/bulk/ai-review";
 import { useCourt } from "@/components/court/court-provider";
 
-import { toLongDate } from "@/lib/filing/format";
 import { cn } from "@/lib/utils";
 import {
   PAGE_GROUND,
   PAGE_GUTTER,
-  PAGE_SUBTITLE,
   PAGE_TITLE,
 } from "@/components/shell/page-frame";
+import { BatchBreadcrumbLabel } from "@/components/filing/chrome";
+import { FilingFooter } from "@/components/filing/filing-footer";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -33,7 +33,7 @@ import { ScrutinyTab } from "./scrutiny-tab";
 import { SignTab } from "./sign-tab";
 import { BULK_COLUMN, BulkSteps, StageRow, type BulkStepId, type BulkWidth } from "./bulk-steps";
 import { StatusLine } from "@/components/feedback";
-import { FooterSlot } from "./batch-footer";
+import { BatchFooter, FooterSlot } from "./batch-footer";
 import { batchMarks, batchTallies } from "./batch-marks";
 
 export type BatchCtx = {
@@ -150,7 +150,7 @@ export function BatchScreen({ batchId }: { batchId: string }) {
   }
 
   const ctx: BatchCtx = { batch, setBatch, go };
-  const { workable, allFiled, docsMissing, attention, fixing, clear, detailsNote } = batchTallies(batch);
+  const { workable, allFiled, docsMissing, attention, fixing, checking, clear, detailsNote } = batchTallies(batch);
 
   // The six steps, from what the batch already is to what is left. Common details and
   // Cases were settled when the batch was created; both stay open to read.
@@ -178,19 +178,19 @@ export function BatchScreen({ batchId }: { batchId: string }) {
         : null;
   const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
   const shown: TabId = allFiled && tab !== "common" && tab !== "cases" ? "filed" : tab;
-  const width: BulkWidth = shown === "cases" || shown === "scrutiny" || shown === "documents" || shown === "filed" ? "wide" : "medium";
+  const width: BulkWidth = shown === "cases" || shown === "scrutiny" || shown === "documents" || shown === "review" || shown === "filed" ? "wide" : "medium";
   const title = {
     common: "Common details",
     cases: "Cases in this batch",
     scrutiny: fixing
       ? `${plural(fixing, "case needs", "cases need")} fixing`
-      : attention
-        ? `${plural(attention, "case", "cases")} to check`
-        : "Every case's details are complete",
+      : checking
+        ? `${plural(checking, "case", "cases")} to check`
+        : "Every case's details are done",
     // The step's name; the card under it says how many cases are missing what (v8).
     documents: "Documents",
     review: "Review",
-    sign: clear ? `Sign ${plural(clear, "case", "cases")}` : "Sign",
+    sign: clear ? `Sign ${plural(clear, "complete case", "complete cases")}` : "Sign",
     pay: batch.counts.signed ? `Pay and file ${plural(batch.counts.signed, "case", "cases")}` : "Pay",
     filed: `${plural(batch.counts.filed, "case", "cases")} filed`,
   }[shown];
@@ -199,11 +199,13 @@ export function BatchScreen({ batchId }: { batchId: string }) {
       <CommonDetails
         batch={batch}
         stand={[
-          { step: "Case details", value: detailsNote ?? "Complete", href: q("scrutiny"), open: attention > 0 },
-          { step: "Documents", value: docsMissing ? `${docsMissing} missing` : "Complete", href: q("documents"), open: docsMissing > 0 },
-          { step: "Ready to sign", value: String(clear), href: q("sign"), open: false },
-          { step: "Signed or filed", value: String(batch.counts.signed + batch.counts.filed), open: false },
+          { step: "Case details", value: detailsNote ?? "Done", href: q("scrutiny"), open: attention > 0 },
+          { step: "Documents", value: docsMissing ? `${docsMissing} missing` : "Done", href: q("documents"), open: docsMissing > 0 },
+          { step: "Complete, ready to sign", value: String(clear), href: q("sign"), open: false },
+          { step: "Signed, to pay", value: String(batch.counts.signed), href: q("pay"), open: false },
+          { step: "Filed", value: String(batch.counts.filed), href: batch.counts.filed ? q("filed") : undefined, open: false },
         ]}
+        onContinue={() => go("cases")}
       />
     ),
     cases: <CasesTab {...ctx} />,
@@ -218,25 +220,18 @@ export function BatchScreen({ batchId }: { batchId: string }) {
   return (
     <FooterSlot.Provider value={footerSlot}>
     <div className="flex w-full flex-1 flex-col">
+      <BatchBreadcrumbLabel number={batch.number} id={batch.id} />
       <BulkSteps
         marks={marks}
-        width={width}
         second={stages ? <StageRow label={`Step ${step === "sign" ? 5 : 6} · ${step === "sign" ? "Review and sign" : "Pay"}`} stages={stages} current={tab} /> : undefined}
       />
       {/* No side panel on a batch's steps, so the page sits in the middle (v8): the narrow
           column for forms and summaries, the wide one for lists of cases. */}
       <div className={cn("flex w-full flex-1 px-6 pt-6 pb-8 lg:px-12", PAGE_GROUND)}>
         <div className={cn(BULK_COLUMN[width], "flex flex-col gap-6")}>
-        {/* Each step is titled by its job, the way the prototypes were; the batch it belongs
-            to is the line under it (and the breadcrumb). */}
-        <header className="flex flex-col gap-1">
-          <h1 className={cn(PAGE_TITLE, "text-foreground tabular-nums")}>{title}</h1>
-          <p className={PAGE_SUBTITLE}>
-            <span className="tabular-nums">Batch {batch.number}</span> · {batch.client} ·{" "}
-            <span className="tabular-nums">{batch.total}</span> cases · received{" "}
-            {toLongDate(batch.createdAt.slice(0, 10))}
-          </p>
-        </header>
+        {/* Each step is titled by its job, the way the prototypes were. Which batch it is
+            sits in the breadcrumb, not repeated under every title (round 3). */}
+        <h1 className={cn(PAGE_TITLE, "text-foreground tabular-nums")}>{title}</h1>
 
         {/* A standing condition, said still (skill `feedback-states`). */}
         {ai === "unavailable" ? (
@@ -281,10 +276,11 @@ export function BatchScreen({ batchId }: { batchId: string }) {
   );
 }
 
-/** What the batch was made with: where it came from, its parties, and where its cases stand. */
+/** What the batch was made with: where it came from, every value set for all its cases, and where they stand. */
 function CommonDetails({
   batch,
   stand,
+  onContinue,
 }: {
   batch: BatchView;
   /**
@@ -293,60 +289,100 @@ function CommonDetails({
    * stepper saying "3 to fix", because it counted missing documents too (bulk audit).
    */
   stand: { step: string; value: string; href?: string; open: boolean }[];
+  onContinue: () => void;
 }) {
+  // The documents set once for every case: each complainant's group, as the first case holds it.
+  const common = (batch.cases[0]?.documents ?? []).filter((d) => d.group.startsWith("Complainant"));
+  const label = "text-body-compact text-muted-foreground";
   return (
-    <Card variant="raised">
-      <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
-        <div className="flex flex-col gap-1">
-          <span className="text-body-compact text-muted-foreground">Came in by</span>
-          <SourceLabel source={batch.source} />
-        </div>
-        <div className="flex flex-col gap-1">
-          <span className="text-body-compact text-muted-foreground">Complainant</span>
-          <span className="text-body-compact">{batch.client}</span>
-          {batch.representative ? (
-            <span className="text-body-compact text-muted-foreground">
-              Through {batch.representative.name}, {batch.representative.designation}
-            </span>
+    <>
+      <Card variant="raised">
+        <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <div className="flex flex-col gap-1">
+            <span className={label}>Came in by</span>
+            <SourceLabel source={batch.source} />
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className={label}>Complainant</span>
+            <span className="text-body-compact">{batch.client}</span>
+            {batch.representative ? (
+              <span className="text-body-compact text-muted-foreground">
+                Through {batch.representative.name}
+                {batch.representative.designation ? `, ${batch.representative.designation}` : ""}
+                {batch.representative.mobile ? (
+                  <span className="tabular-nums"> · {batch.representative.mobile}</span>
+                ) : null}
+              </span>
+            ) : null}
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className={label}>Advocate{batch.advocates.length === 1 ? "" : "s"}</span>
+            {batch.advocates.map((a) => (
+              <span key={a.barNumber} className="text-body-compact">
+                {a.name || "Not found with the Bar Council"}{" "}
+                <span className="font-mono text-muted-foreground">{a.barNumber}</span>
+              </span>
+            ))}
+          </div>
+          {common.length ? (
+            <div className="flex flex-col gap-1">
+              <span className={label}>Documents for every case</span>
+              <ul className="flex flex-col gap-1">
+                {common.map((d) => (
+                  <li key={`${d.group}-${d.name}`} className="flex items-center gap-2 text-body-compact">
+                    {d.file ? (
+                      <CircleCheckIcon aria-hidden className="size-4 shrink-0 text-success" />
+                    ) : (
+                      <CircleDashedIcon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+                    )}
+                    <span>
+                      {d.name}
+                      <span className="sr-only">{d.file ? ", attached" : ", not attached"}</span>
+                    </span>
+                    {!d.file ? (
+                      <span className="text-muted-foreground">· {d.required ? "to add at Documents" : "optional"}</span>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
           ) : null}
-        </div>
-        <div className="flex flex-col gap-1">
-          <span className="text-body-compact text-muted-foreground">
-            Advocate{batch.advocates.length === 1 ? "" : "s"}
-          </span>
-          {batch.advocates.map((a) => (
-            <span key={a.barNumber} className="text-body-compact">
-              {a.name || "Not found with the Bar Council"}{" "}
-              <span className="text-muted-foreground tabular-nums">{a.barNumber}</span>
-            </span>
-          ))}
-        </div>
-        <div className="flex flex-col gap-2">
-          <span className="text-body-compact text-muted-foreground">Where the cases stand</span>
-          <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-body-compact">
-            {stand.map((r) => (
-              <React.Fragment key={r.step}>
-                <dt>
+          <p className="text-body-compact text-muted-foreground md:col-span-2">
+            Set once for every case when the batch was created. Each case can change them on its
+            own, from Case details.
+          </p>
+        </CardContent>
+      </Card>
+      <section className="flex flex-col gap-2">
+        <h2 className="text-body font-semibold">Where the cases stand</h2>
+        <Card variant="raised" className="gap-0 p-2">
+          <ul className="flex flex-col">
+            {stand.map((r) => {
+              const row = (
+                <>
+                  <span>{r.step}</span>
+                  <span className={cn("tabular-nums", r.open ? "text-warning-ink" : "text-muted-foreground")}>{r.value}</span>
+                </>
+              );
+              const cls = "flex min-h-10 items-center justify-between gap-4 rounded-lg px-3 text-body-compact";
+              return (
+                <li key={r.step}>
                   {r.href ? (
-                    <Link href={r.href} className="underline-offset-4 hover:underline">
-                      {r.step}
+                    <Link href={r.href} className={cn(cls, "hover:bg-accent")}>
+                      {row}
                     </Link>
                   ) : (
-                    r.step
+                    <span className={cls}>{row}</span>
                   )}
-                </dt>
-                <dd className={cn("text-right tabular-nums", r.open ? "text-warning-ink" : "text-muted-foreground")}>
-                  {r.value}
-                </dd>
-              </React.Fragment>
-            ))}
-          </dl>
-        </div>
-        <p className="text-body-compact text-muted-foreground md:col-span-2 xl:col-span-4">
-          Set once for every case when the batch was created. Each case can change them on its
-          own, from Case details.
-        </p>
-      </CardContent>
-    </Card>
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+      </section>
+      <BatchFooter>
+        <FilingFooter showSaveState={false} continueLabel="Cases" onContinue={onContinue} />
+      </BatchFooter>
+    </>
   );
 }

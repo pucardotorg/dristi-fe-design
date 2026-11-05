@@ -42,7 +42,8 @@ export type StepMark = {
   href?: string;
   /** Work waiting there, in words ("3 to fix"); `ready` for work that can simply go ahead. */
   note?: string;
-  tone?: "attention" | "ready";
+  /** `fix` blocks filing (red, as everywhere in the flow); `ready` can go ahead; else a check. */
+  tone?: "fix" | "attention" | "ready";
 };
 
 export type Stage = {
@@ -54,41 +55,80 @@ export type Stage = {
   warn?: boolean;
 };
 
-/** The column the steps line up with: the page's own content width. */
-export type BulkWidth = "narrow" | "medium" | "wide" | "full";
+/**
+ * The column the steps sit in: one centred width on every screen of a batch, whatever the
+ * page under it does. Round 3: the row took each page's width, so it slid between four left
+ * edges from step to step, and on a narrow page it scrolled the current step out of sight.
+ */
+export const STEPS_COLUMN = "mx-auto w-full max-w-6xl";
+
+/** The page columns under the steps: forms and summaries, and lists of cases (v8's two). */
+export type BulkWidth = "medium" | "wide";
 export const BULK_COLUMN: Record<BulkWidth, string> = {
-  narrow: "mx-auto w-full max-w-4xl",
-  medium: "mx-auto w-full max-w-5xl",
-  wide: "mx-auto w-full max-w-6xl",
-  full: "w-full",
+  medium: "mx-auto w-full max-w-4xl",
+  wide: STEPS_COLUMN,
 };
 
 /**
+ * How much of the row has to give way to fit: 0 shows everything; 1 drops the names of the
+ * steps you are not on (the dot and the count stay); 2 drops their counts too; 3 closes up
+ * the rules between the dots, which only a phone needs. The step you are on always keeps
+ * its name, and nothing scrolls or clips.
+ */
+function useFit(key: string) {
+  const ref = React.useRef<HTMLOListElement>(null);
+  const [level, setLevel] = React.useState(0);
+  // The row's full width at each level, measured when it was last shown at that level.
+  const widths = React.useRef<number[]>([]);
+  // New counts can change the row's width: measure again from the full row.
+  const [measured, setMeasured] = React.useState(key);
+  if (measured !== key) {
+    setMeasured(key);
+    setLevel(0);
+  }
+  React.useLayoutEffect(() => {
+    widths.current = [];
+  }, [key]);
+  React.useLayoutEffect(() => {
+    const ol = ref.current;
+    if (!ol) return;
+    const check = () => {
+      widths.current[level] = ol.scrollWidth;
+      if (ol.scrollWidth > ol.clientWidth + 1 && level < 3) setLevel(level + 1);
+      else if (level > 0 && ol.clientWidth >= (widths.current[level - 1] ?? Infinity)) setLevel(level - 1);
+    };
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(ol);
+    return () => ro.disconnect();
+  }, [level, key]);
+  return { ref, level };
+}
+
+/**
  * The pinned block: the six steps, and under them the current step's second row
- * (`<StageRow>` or the open case's strip).
+ * (`<StageRow>` or the open case's strip), both in the one steps column.
  */
 export function BulkSteps({
   marks,
   second,
-  width = "narrow",
   gutter = "px-6 lg:px-12",
   className,
 }: {
   marks: Record<BulkStepId, StepMark>;
   second?: React.ReactNode;
-  width?: BulkWidth;
   /** The page's own side padding, so the rows line up with the content under them. */
   gutter?: string;
   className?: string;
 }) {
-  const column = BULK_COLUMN[width];
+  const { ref, level } = useFit(JSON.stringify(marks));
   return (
     <div
       className={cn("sticky z-20 border-b border-hairline bg-card", className)}
       style={{ top: TOP_BAR_HEIGHT }}
     >
       <nav aria-label="Batch steps" className={gutter}>
-        <ol className={cn(column, "flex items-center gap-1 overflow-x-auto py-3")}>
+        <ol ref={ref} className={cn(STEPS_COLUMN, "flex items-center gap-1 overflow-hidden py-3")}>
           {BULK_STEPS.map((s, i) => {
             const m = marks[s.id];
             const current = m.status === "current";
@@ -108,27 +148,32 @@ export function BulkSteps({
                 {done ? <CheckIcon className="size-3.5" /> : i + 1}
               </span>
             );
+            // Past level 1 the count is left to the link's label: a badge can't be hidden
+            // with `sr-only`, whose 1px loses to the badge's own width.
             const count =
-              m.note && !current ? (
-                <Badge variant={m.tone === "ready" ? "secondary" : "warning"} className="tabular-nums">
+              m.note && !current && level < 2 ? (
+                <Badge
+                  variant={m.tone === "ready" ? "secondary" : m.tone === "fix" ? "destructive" : "warning"}
+                  className="text-body-compact tabular-nums"
+                >
                   {m.note}
                 </Badge>
               ) : null;
-            // Six names don't fit a phone: there only the current one keeps its words.
-            const label = <span className={current ? undefined : "max-sm:sr-only"}>{s.title}</span>;
+            const label = <span className={current || level === 0 ? undefined : "sr-only"}>{s.title}</span>;
             const cls = cn(
               "inline-flex h-10 items-center gap-2 rounded-lg text-body-compact whitespace-nowrap transition-colors",
-              i ? "px-2" : "pr-2",
+              i ? (level > 2 ? "px-1" : "px-2") : "pr-2",
             );
             return (
               <React.Fragment key={s.id}>
-                {i ? <li aria-hidden className="h-px max-w-6 min-w-4 flex-1 bg-border" /> : null}
+                {i ? <li aria-hidden className={cn("h-px max-w-6 min-w-2 flex-1 bg-border", level > 2 && "hidden")} /> : null}
                 <li className="shrink-0">
                   {m.href && !current ? (
                     <Link
                       href={m.href}
                       className={cn(cls, "text-foreground hover:bg-accent")}
                       aria-label={m.note ? `${s.title}, ${m.note}` : undefined}
+                      title={level ? s.title : undefined}
                     >
                       {dot}
                       {label}
@@ -152,7 +197,7 @@ export function BulkSteps({
       </nav>
       {second ? (
         <div className={cn("border-t border-hairline bg-surface-sunken", gutter)}>
-          <div className={column}>{second}</div>
+          <div className={STEPS_COLUMN}>{second}</div>
         </div>
       ) : null}
     </div>
@@ -174,9 +219,9 @@ export function StageRow({
 }) {
   const at = stages.findIndex((s) => s.id === current);
   return (
-    <nav aria-label={label} className="flex items-center gap-3 overflow-x-auto py-2">
-      <span className="shrink-0 text-caption font-medium text-muted-foreground">{label}</span>
-      <ol className="flex items-center gap-1">
+    <nav aria-label={label} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
+      <span className="shrink-0 text-body-compact text-muted-foreground">{label}</span>
+      <ol className="flex flex-wrap items-center gap-1">
         {stages.map((s, i) => {
           const here = i === at;
           const done = !here && (s.done ?? i < at);

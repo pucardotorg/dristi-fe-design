@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/tooltip";
 
 import type { CaseView } from "./api";
+import { caseState, detailFlags, documentFlags } from "./batch-marks";
 
 /** What each stage is called, and the status pair it wears. Never colour alone: the word is always there. */
 export const STAGE: Record<
@@ -24,7 +25,7 @@ export const STAGE: Record<
     fill: string;
   }
 > = {
-  held: { label: "Needs fixing", variant: "warning", fill: "bg-warning" },
+  held: { label: "Not ready yet", variant: "warning", fill: "bg-warning" },
   ready: { label: "Ready to sign", variant: "info", fill: "bg-info" },
   signed: {
     label: "Signed, ready to pay",
@@ -37,8 +38,10 @@ export const STAGE: Record<
 export const STAGE_ORDER: CaseStage[] = ["held", "ready", "signed", "filed"];
 
 /**
- * Where an open case stands, in numbers: how many fields are left to complete (or, when
- * only files are short, how many documents), or Complete. Signed and filed cases say so.
+ * Where a case stands, in one badge used everywhere the flow shows it (round 3: the same
+ * state was red on Review and amber elsewhere). Colour follows `caseState`: what blocks
+ * filing is red, a check or a missing file is amber, and Complete is the quiet default,
+ * an icon and a word rather than a pill, so only the cases that need you stand out.
  */
 export function CaseBadge({
   c,
@@ -48,47 +51,36 @@ export function CaseBadge({
   /** Fields filled on screen but not yet saved, so the count moves as they are filled. */
   done?: number;
 }) {
-  if (c.stage === "signed" || c.stage === "filed")
-    return <StageBadge stage={c.stage} />;
-  const holds = c.flags.filter((f) => f.level === "hold");
-  const fields =
-    holds.filter(
-      (f) =>
-        f.section !== "documents" &&
-        f.fix?.kind !== "upload" &&
-        f.fix?.kind !== "documents",
-    ).length - done;
-  const docs = c.docs.need - c.docs.have;
-  if (fields)
-    return (
-      <Badge variant="warning" className="tabular-nums">
-        {fields} field{fields === 1 ? "" : "s"} to complete
-      </Badge>
-    );
-  if (docs > 0)
-    return (
-      <Badge variant="warning" className="tabular-nums">
-        {docs} document{docs === 1 ? "" : "s"} missing
-      </Badge>
-    );
-  const scans = c.flags.filter((f) => f.rule === "dcm-poor").length;
-  if (scans)
-    return (
-      <Badge variant="warning" className="tabular-nums">
-        {scans} scan{scans === 1 ? "" : "s"} hard to read
-      </Badge>
-    );
-  return (
-    <Badge variant="success">
-      <CircleCheckIcon data-icon="inline-start" aria-hidden />
-      Complete
+  const state = caseState(c);
+  if (state === "signed" || state === "filed") return <StageBadge stage={state} />;
+  const pill = (variant: "destructive" | "warning", text: string) => (
+    <Badge variant={variant} className="text-body-compact tabular-nums">
+      {text}
     </Badge>
+  );
+  const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
+  if (state === "fix") {
+    const n = Math.max(1, detailFlags(c).filter((f) => f.level === "hold").length - done);
+    return pill("destructive", `${plural(n, "field")} to fix`);
+  }
+  if (state === "check") return pill("warning", `${plural(detailFlags(c).length, "detail")} to check`);
+  if (state === "docs") {
+    const missing = c.docs.need - c.docs.have;
+    if (missing > 0) return pill("warning", `${plural(missing, "document")} missing`);
+    const scans = documentFlags(c).length;
+    return pill("warning", `${plural(scans, "scan")} hard to read`);
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5 text-body-compact text-muted-foreground">
+      <CircleCheckIcon aria-hidden className="size-4 text-success" />
+      Complete
+    </span>
   );
 }
 
 export function StageBadge({ stage }: { stage: CaseStage }) {
   return (
-    <Badge variant={STAGE[stage].variant}>
+    <Badge variant={STAGE[stage].variant} className="text-body-compact">
       {stage === "filed" ? (
         <CircleCheckIcon data-icon="inline-start" aria-hidden />
       ) : null}
@@ -167,7 +159,7 @@ export function StageBar({
         {STAGE_ORDER.filter((k) => counts[k]).map((k) => (
           <li
             key={k}
-            className="flex items-center gap-1.5 text-caption text-muted-foreground"
+            className="flex items-center gap-1.5 text-body-compact text-muted-foreground"
           >
             <span
               aria-hidden

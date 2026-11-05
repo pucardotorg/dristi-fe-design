@@ -6,12 +6,10 @@ import { useSearchParams } from "next/navigation";
 import {
   ArrowRightIcon,
   CheckIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
   CircleAlertIcon,
   CircleXIcon,
+  EllipsisVerticalIcon,
   OctagonAlertIcon,
-  SearchIcon,
   Trash2Icon,
   TriangleAlertIcon,
   Undo2Icon,
@@ -26,7 +24,12 @@ import { ConfirmDialog } from "@/components/shell/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
@@ -41,7 +44,9 @@ import {
 
 import { bulkApi, caseFlowHref, type CaseView } from "./api";
 import { BatchFooter } from "./batch-footer";
+import { caseState, detailFlags, isOpen } from "./batch-marks";
 import type { BatchCtx } from "./batch-screen";
+import { CaseSearch, Pager, caseMatches, pageOf } from "./case-list-tools";
 import { StatusLine } from "@/components/feedback";
 
 type Kind = "hold" | "check";
@@ -75,8 +80,12 @@ const KIND: Record<
   },
 };
 
-/** One flag, as a line: a tinted mark for its kind, what is wrong, and where. */
-export function FlagLine({ flag }: { flag: Flag }) {
+/**
+ * One flag, as a line: a tinted mark for its kind, what is wrong, and where. Inside the
+ * section it is about, `where` is left off: a chip naming the page you are on is noise
+ * (round 3).
+ */
+export function FlagLine({ flag, where = true }: { flag: Flag; where?: boolean }) {
   const k = KIND[kindOf(flag)];
   return (
     <div className="flex items-start gap-2 text-body-compact">
@@ -91,36 +100,27 @@ export function FlagLine({ flag }: { flag: Flag }) {
       </span>
       <span className="min-w-0 pt-0.5">
         <span className="sr-only">{k.name}: </span>
-        {flag.message}{" "}
-        <Badge
-          variant="outline"
-          className="ml-1 align-middle font-normal text-muted-foreground"
-        >
-          {flag.where}
-        </Badge>
+        {flag.message}
+        {where ? (
+          <>
+            {" "}
+            <Badge variant="outline" className="ml-1 align-middle text-body-compact font-normal text-muted-foreground">
+              {flag.where}
+            </Badge>
+          </>
+        ) : null}
       </span>
     </div>
   );
 }
 
-/** A case's flags about its details; missing documents are shown on the Documents tab. */
-export const detailFlags = (c: CaseView) =>
-  c.flags.filter(
-    (f) =>
-      f.section !== "documents" &&
-      f.fix?.kind !== "upload" &&
-      f.fix?.kind !== "documents",
-  );
-
-/** Fixing first, then checking, then ready. */
+/** To fix first, then to check, then the cases whose details are done. */
 const rankOf = (c: CaseView) => {
-  const f = detailFlags(c);
-  return f.some((x) => x.level === "hold") ? 0 : f.length ? 1 : 2;
+  const s = caseState(c);
+  return s === "fix" ? 0 : s === "check" ? 1 : 2;
 };
 
-
 type Show = "fix" | "check" | "ready" | "all";
-const PAGE = 25;
 
 /** What a case still needs, in one line: the first thing to fix, or to check, or nothing. */
 function ToFix({ c }: { c: CaseView }) {
@@ -131,7 +131,7 @@ function ToFix({ c }: { c: CaseView }) {
     return (
       <span className="inline-flex items-center gap-1.5 text-muted-foreground">
         <CheckIcon aria-hidden className="size-4 text-success" />
-        Complete
+        Details done
       </span>
     );
   const hold = first.level === "hold";
@@ -214,23 +214,20 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
   // The case the filer came back from, marked so they can find their place.
   const last = params.get("case");
 
-  const open = batch.cases.filter((c) => c.stage === "held" || c.stage === "ready");
+  const open = batch.cases.filter(isOpen);
   const fixing = open.filter((c) => rankOf(c) === 0);
   const checking = open.filter((c) => rankOf(c) === 1);
-  const complete = open.filter((c) => rankOf(c) === 2);
+  // Details done; documents are the next step's (`complete` is reserved for both).
+  const done = open.filter((c) => rankOf(c) === 2);
   const [show, setShow] = React.useState<Show>(fixing.length ? "fix" : "all");
   const [search, setSearch] = React.useState("");
   const [page, setPage] = React.useState(0);
   const [removing, setRemoving] = React.useState<CaseView | null>(null);
 
   const term = search.trim().toLowerCase();
-  const inShow = { fix: fixing, check: checking, ready: complete, all: open }[show];
-  const listed = [...inShow]
-    .sort((a, b) => rankOf(a) - rankOf(b))
-    .filter((c) => !term || [c.accused, c.title, c.reference, c.cheque].some((v) => v.toLowerCase().includes(term)));
-  const pages = Math.max(1, Math.ceil(listed.length / PAGE));
-  const at = Math.min(page, pages - 1);
-  const shown = listed.slice(at * PAGE, (at + 1) * PAGE);
+  const inShow = { fix: fixing, check: checking, ready: done, all: open }[show];
+  const listed = [...inShow].sort((a, b) => rankOf(a) - rankOf(b)).filter((c) => caseMatches(c, term));
+  const { pages, at, shown } = pageOf(listed, page);
 
   // Shared gaps the batch can fix once: a batch-wide value fix on more than one case.
   const shared = new Map<string, { label: string; options: { value: string; label: string }[]; cases: CaseView[] }>();
@@ -297,32 +294,19 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
           aria-label="Show cases"
           className="max-w-full overflow-x-auto"
         >
-          <SegmentedControlItem value="fix">To fix {fixing.length}</SegmentedControlItem>
-          <SegmentedControlItem value="check">To check {checking.length}</SegmentedControlItem>
-          <SegmentedControlItem value="ready">Complete {complete.length}</SegmentedControlItem>
           <SegmentedControlItem value="all">All {open.length}</SegmentedControlItem>
+          {fixing.length ? <SegmentedControlItem value="fix">To fix {fixing.length}</SegmentedControlItem> : null}
+          {checking.length ? <SegmentedControlItem value="check">To check {checking.length}</SegmentedControlItem> : null}
+          {done.length ? <SegmentedControlItem value="ready">Details done {done.length}</SegmentedControlItem> : null}
         </SegmentedControl>
-        <div className="w-full sm:ml-auto sm:w-72">
-          <Label htmlFor="details-search" className="sr-only">
-            Search cases
-          </Label>
-          <InputGroup>
-            <InputGroupAddon>
-              <SearchIcon aria-hidden />
-            </InputGroupAddon>
-            <InputGroupInput
-              id="details-search"
-              type="search"
-              autoComplete="off"
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(0);
-              }}
-              placeholder="Accused, reference or cheque"
-            />
-          </InputGroup>
-        </div>
+        <CaseSearch
+          id="details-search"
+          value={search}
+          onChange={(v) => {
+            setSearch(v);
+            setPage(0);
+          }}
+        />
       </div>
 
       {error ? <StatusLine tone="error">{error}</StatusLine> : null}
@@ -341,7 +325,7 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
                   <TableRow className={TABLE_HEAD_ROW}>
                     <TableHead className={TABLE_HEAD}>Accused</TableHead>
                     <TableHead className={TABLE_HEAD}>Your reference</TableHead>
-                    <TableHead className={TABLE_HEAD}>To fix</TableHead>
+                    <TableHead className={TABLE_HEAD}>Status</TableHead>
                     <TableHead className={TABLE_HEAD}>
                       <span className="sr-only">Actions</span>
                     </TableHead>
@@ -365,7 +349,7 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
                             {c.amount ? ` · ${money(c.amount)}` : ""}
                           </span>
                         </TableCell>
-                        <TableCell className={cn(TABLE_CELL, "tabular-nums")}>{c.reference}</TableCell>
+                        <TableCell className={cn(TABLE_CELL, "font-mono")}>{c.reference}</TableCell>
                         <TableCell className={cn(TABLE_CELL, "w-full min-w-64 whitespace-normal")}>
                           <ToFix c={c} />
                         </TableCell>
@@ -398,60 +382,51 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
                 </TableBody>
               </Table>
             </div>
+            {/* Phone: the case is the link, Fix is the visible action, and Remove waits in a
+                menu so the destructive action is never the most prominent (round 3). */}
             <ul className="flex flex-col divide-y divide-hairline md:hidden">
-              {shown.map((c) => (
-                <li key={c.id} className="flex items-start">
-                  <Link
-                    href={caseFlowHref(batch.id, c, undefined, ai)}
-                    aria-current={c.id === last ? "true" : undefined}
-                    className="flex min-w-0 flex-1 flex-col gap-1 rounded-lg px-2 py-3 hover:bg-accent focus-visible:ring-3 focus-visible:ring-focus-ring focus-visible:outline-none aria-[current=true]:bg-accent"
-                  >
-                    <span className="text-body-compact font-medium">{c.accused || c.title}</span>
-                    <span className="text-body-compact text-muted-foreground tabular-nums">
-                      {c.reference}
-                      {c.cheque ? ` · Cheque ${c.cheque}` : ""}
+              {shown.map((c) => {
+                const href = caseFlowHref(batch.id, c, undefined, ai);
+                return (
+                  <li key={c.id} className="flex flex-col gap-2 px-2 py-3" aria-current={c.id === last ? "true" : undefined}>
+                    <Link href={href} className="flex min-w-0 flex-col gap-1 rounded-lg focus-visible:ring-3 focus-visible:ring-focus-ring focus-visible:outline-none">
+                      <span className="text-body-compact font-medium">{c.accused || c.title}</span>
+                      <span className="text-body-compact text-muted-foreground">
+                        <span className="font-mono">{c.reference}</span>
+                        {c.cheque ? <span className="tabular-nums"> · Cheque {c.cheque}</span> : null}
+                      </span>
+                      <span className="text-body-compact">
+                        <ToFix c={c} />
+                      </span>
+                    </Link>
+                    <span className="flex items-center gap-2">
+                      <Button asChild variant="outline" className="flex-1">
+                        <Link href={href}>{rankOf(c) === 2 ? "Open" : "Fix"}</Link>
+                      </Button>
+                      {!closed ? (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" aria-label={`More for ${c.title}`} disabled={busy}>
+                              <EllipsisVerticalIcon aria-hidden />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem variant="destructive" onSelect={() => setRemoving(c)}>
+                              <Trash2Icon aria-hidden />
+                              Remove from this batch
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      ) : null}
                     </span>
-                    <span className="text-body-compact">
-                      <ToFix c={c} />
-                    </span>
-                  </Link>
-                  {!closed ? (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="mt-1 shrink-0 text-muted-foreground"
-                      aria-label={`Remove ${c.title} from this batch`}
-                      disabled={busy}
-                      onClick={() => setRemoving(c)}
-                    >
-                      <Trash2Icon aria-hidden />
-                    </Button>
-                  ) : null}
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
           </>
         )}
-        {listed.length > PAGE ? (
-          <div className="flex items-center justify-between gap-3 px-2 pt-3 pb-1 text-body-compact text-muted-foreground">
-            <span className="tabular-nums">
-              {at * PAGE + 1}–{Math.min(listed.length, (at + 1) * PAGE)} of {listed.length}
-            </span>
-            <span className="flex items-center gap-1">
-              <Button variant="ghost" size="icon-sm" aria-label="Previous page" disabled={at === 0} onClick={() => setPage(at - 1)}>
-                <ChevronLeftIcon aria-hidden />
-              </Button>
-              <span className="tabular-nums">
-                Page {at + 1} of {pages}
-              </span>
-              <Button variant="ghost" size="icon-sm" aria-label="Next page" disabled={at >= pages - 1} onClick={() => setPage(at + 1)}>
-                <ChevronRightIcon aria-hidden />
-              </Button>
-            </span>
-          </div>
-        ) : null}
+        <Pager total={listed.length} at={at} pages={pages} onPage={setPage} />
       </Card>
-
       {skipped.length ? (
         <section className="flex flex-col gap-2">
           <h3 className="text-body font-semibold">Skipped checks</h3>
@@ -498,10 +473,11 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
           showSaveState={false}
           onBack={() => go("cases")}
           // The work first; the cases already complete go on without waiting for it (v8).
+          stackExtra
           extra={
-            firstToFix ? (
+            firstToFix && open.length > fixing.length ? (
               <Button variant="outline" size="lg" onClick={() => go("documents")}>
-                Continue with {open.length - fixing.length} complete
+                Continue with {open.length - fixing.length} {open.length - fixing.length === 1 ? "case" : "cases"}
                 <ArrowRightIcon data-icon="inline-end" aria-hidden />
               </Button>
             ) : null
