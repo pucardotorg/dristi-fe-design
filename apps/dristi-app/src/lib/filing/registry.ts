@@ -67,7 +67,11 @@ export async function searchAdvocates(query: string): Promise<RegisteredAdvocate
 export function findAdvocate(barNumber: string): RegisteredAdvocate | undefined {
   const key = barNumber.trim().toUpperCase();
   if (!key) return undefined;
-  return REGISTER.find((a) => a.barNumber.toUpperCase() === key);
+  // The demo's people are kept in Kerala form and shown in each state's own, so a Gujarat
+  // number (G/1450/2012) is the same enrolment as K/1450/2012 (as `resolveBar` reads it).
+  const kerala = key.replace(/^G\//, "K/");
+  const hit = REGISTER.find((a) => a.barNumber.toUpperCase() === key || a.barNumber.toUpperCase() === kerala);
+  return hit ? { ...hit, barNumber: key } : undefined;
 }
 
 /* ───────────────────────────── ON Court register ───────────────────── */

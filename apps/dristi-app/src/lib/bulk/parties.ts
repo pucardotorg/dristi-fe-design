@@ -7,6 +7,7 @@
  */
 
 import { buildDocumentGroups } from "@/lib/filing/blank";
+import { findAdvocate } from "@/lib/filing/registry";
 import type { Advocate, Complainant, FilingDraft, IntakeGroup } from "@/lib/filing/types";
 
 import type { ApiComplainant } from "./contract";
@@ -30,7 +31,8 @@ export function partiesOf(draft: FilingDraft): BatchParties {
 /** Why the batch's advocates can't go on every case yet, or `null` when they can. */
 export function advocatesMissing(advocates: { name: string; barNumber: string }[]): string | null {
   if (!advocates.length) return "Add the advocate who files these cases first";
-  if (advocates.some((a) => !a.name.trim() || !a.barNumber.trim())) return "Choose a registered advocate first";
+  // Registered means on the register the batch resolves names against when it is created.
+  if (advocates.some((a) => !a.barNumber.trim() || !findAdvocate(a.barNumber))) return "Choose a registered advocate first";
   return null;
 }
 
