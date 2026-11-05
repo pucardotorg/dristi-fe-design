@@ -367,6 +367,8 @@ function CaseBar({
   const at = cases.findIndex((x) => x.id === c.id);
   const prev = cases[at - 1] ?? null;
   const next = cases[at + 1] ?? null;
+  const queue = cases.filter((x) => editable(x) && x.flags.some((f) => f.level === "hold"));
+  const queueAt = queue.findIndex((x) => x.id === c.id);
   const sameStep = (x: CaseView) =>
     caseFlowHref(batchId, x, step && BULK_CASE_STEPS.includes(step) ? step : undefined, aiParam);
 
@@ -396,7 +398,8 @@ function CaseBar({
         </span>
         <span className="flex flex-wrap items-center gap-x-2 text-body-compact text-muted-foreground tabular-nums">
           <span>
-            Case {at + 1} of {cases.length}
+            {/* Counted in the queue it belongs to, as v8 does: the cases to fix, or the batch. */}
+            {queueAt >= 0 ? `Case ${queueAt + 1} of ${queue.length} to fix` : `Case ${at + 1} of ${cases.length}`}
           </span>
           <span aria-hidden>·</span>
           <span>{c.reference}</span>
