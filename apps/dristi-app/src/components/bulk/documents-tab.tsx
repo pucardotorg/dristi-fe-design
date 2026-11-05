@@ -23,6 +23,7 @@ import { readability } from "@/lib/filing/readability";
 
 import { demoBlurryScan, demoPdf } from "./demo-fill";
 import { bulkApi, caseFlowHref, useBulkFileUrl, type CaseView } from "./api";
+import { BatchFooter } from "./batch-footer";
 import type { BatchCtx } from "./batch-screen";
 import { OriginalDoc } from "./original-doc";
 import { DocumentsGuide, guideSeen } from "./documents-guide";
@@ -527,13 +528,14 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
           </button>
         </p>
       ) : null}
-      <FilingFooter
+      <BatchFooter>
+        <FilingFooter
         showSaveState={false}
         onBack={() => go("scrutiny")}
         continueLabel="Continue to review"
         onContinue={() => go("review")}
-        className="-mx-6 -mb-6 md:-mx-8 md:-mb-8"
       />
+      </BatchFooter>
     </div>
   );
 }

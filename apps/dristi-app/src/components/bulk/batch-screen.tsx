@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
-import { bulkApi, caseFlowHref, setBulkAiMode, type BatchView, type CaseView } from "./api";
+import { bulkApi, caseFlowHref, setBulkAiMode, type BatchView } from "./api";
 import { SourceLabel } from "./batches-screen";
 import { CasesTab } from "./cases-tab";
 import { useGujarat } from "./court-guard";
@@ -31,8 +31,10 @@ import { PayTab } from "./pay-tab";
 import { ReviewTab } from "./review-tab";
 import { ScrutinyTab } from "./scrutiny-tab";
 import { SignTab } from "./sign-tab";
-import { BulkStageRow, BulkStepRow, type BulkStepId, type StepMark } from "./bulk-steps";
+import { BULK_COLUMN, BulkSteps, StageRow, type BulkStepId, type BulkWidth } from "./bulk-steps";
 import { StatusLine } from "@/components/feedback";
+import { FooterSlot } from "./batch-footer";
+import { batchMarks, batchTallies } from "./batch-marks";
 
 export type BatchCtx = {
   batch: BatchView;
@@ -79,6 +81,7 @@ export function BatchScreen({ batchId }: { batchId: string }) {
     : "scrutiny";
   const [batch, setBatch] = React.useState<BatchView | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const [footerSlot, setFooterSlot] = React.useState<HTMLElement | null>(null);
   // AI review follows `?ai=on|off|unavailable`, else the court's setting (on for Gujarat),
   // the same switch as the scrutiny workbench.
   const aiParam = params.get("ai");
@@ -147,45 +150,7 @@ export function BatchScreen({ batchId }: { batchId: string }) {
   }
 
   const ctx: BatchCtx = { batch, setBatch, go };
-  // What is still to do, step by step; each tab carries its own count.
-  const open = batch.cases.filter(
-    (c) => c.stage === "held" || c.stage === "ready",
-  );
-  const workable = open.length;
-  const allFiled = batch.total > 0 && batch.counts.filed === batch.total;
-  // Documents counts the cases with a file missing or a scan too blurry to read.
-  const docsMissing = open.filter(
-    (c) =>
-      c.docs.have < c.docs.need || c.flags.some((f) => f.rule === "dcm-poor"),
-  ).length;
-  // Case details counts what it shows: flags about the details, not missing documents.
-  const detail = (c: CaseView) =>
-    c.flags.some(
-      (f) =>
-        f.section !== "documents" &&
-        f.fix?.kind !== "upload" &&
-        f.fix?.kind !== "documents",
-    );
-  const attention = open.filter(
-    (c) => (c.stage === "held" || c.stage === "ready") && detail(c),
-  ).length;
-  const clear =
-    batch.counts.ready -
-    batch.cases.filter((c) => c.stage === "ready" && c.flags.length > 0).length;
-
-  // Of those with something open, the ones held until fixed (the rest are checks to look at).
-  const fixing = open.filter((c) =>
-    c.flags.some(
-      (f) =>
-        f.level === "hold" &&
-        f.section !== "documents" &&
-        f.fix?.kind !== "upload" &&
-        f.fix?.kind !== "documents",
-    ),
-  ).length;
-  // Case details' count, in the words its title uses: held cases are to fix, the rest
-  // with something open are only to check.
-  const detailsNote = fixing ? `${fixing} to fix` : attention ? `${attention} to check` : undefined;
+  const { workable, allFiled, docsMissing, lacking, attention, fixing, clear, detailsNote } = batchTallies(batch);
 
   // The six steps, from what the batch already is to what is left. Common details and
   // Cases were settled when the batch was created; both stay open to read.
@@ -197,20 +162,8 @@ export function BatchScreen({ batchId }: { batchId: string }) {
     const qs = p.toString();
     return `${pathname}${qs ? `?${qs}` : ""}`;
   };
-  const mark = (id: BulkStepId, done: boolean, href: string, note?: string, tone?: StepMark["tone"]): StepMark => ({
-    status: step === id ? "current" : done ? "complete" : "upcoming",
-    href,
-    note: step === id ? undefined : note,
-    tone,
-  });
-  const marks: Record<BulkStepId, StepMark> = {
-    common: mark("common", true, q("common")),
-    cases: mark("cases", true, q("cases")),
-    details: mark("details", workable > 0 && attention === 0, q("scrutiny"), detailsNote),
-    documents: mark("documents", workable > 0 && docsMissing === 0, q("documents"), docsMissing ? `${docsMissing} missing` : undefined),
-    sign: mark("sign", batch.counts.signed + batch.counts.filed > 0 && workable === 0, q("sign"), clear ? `${clear} ready` : undefined, "ready"),
-    pay: mark("pay", allFiled, q("pay")),
-  };
+  const TAB_OF: Record<BulkStepId, TabId> = { common: "common", cases: "cases", details: "scrutiny", documents: "documents", sign: "sign", pay: "pay" };
+  const marks = batchMarks(batch, step, (id) => q(TAB_OF[id]));
   const stages =
     step === "sign"
       ? [
@@ -224,9 +177,8 @@ export function BatchScreen({ batchId }: { batchId: string }) {
           ]
         : null;
   const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
-  // Documents: cases with a file still to add, apart from scans that only need a look.
-  const lacking = open.filter((c) => c.docs.have < c.docs.need).length;
   const shown: TabId = allFiled && tab !== "common" && tab !== "cases" ? "filed" : tab;
+  const width: BulkWidth = shown === "cases" || shown === "scrutiny" || shown === "documents" || shown === "filed" ? "wide" : "narrow";
   const title = {
     common: "Common details",
     cases: "Cases in this batch",
@@ -267,17 +219,17 @@ export function BatchScreen({ batchId }: { batchId: string }) {
   }[shown];
 
   return (
+    <FooterSlot.Provider value={footerSlot}>
     <div className="flex w-full flex-1 flex-col">
-      {/* The batch page's own gutter (`PAGE_GUTTER`), so the steps line up with the page. */}
-      <BulkStepRow marks={marks} className={cn("md:px-8 lg:px-8", !stages && "border-b border-hairline")} />
-      {stages ? <BulkStageRow step={step} stages={stages} current={tab} className="md:px-8 lg:px-8" /> : null}
-      <div
-        className={cn(
-          "flex w-full flex-1 flex-col gap-6",
-          PAGE_GROUND,
-          PAGE_GUTTER,
-        )}
-      >
+      <BulkSteps
+        marks={marks}
+        width={width}
+        second={stages ? <StageRow label={`Step ${step === "sign" ? 5 : 6} · ${step === "sign" ? "Review and sign" : "Pay"}`} stages={stages} current={tab} /> : undefined}
+      />
+      {/* No side panel on a batch's steps, so the page sits in the middle (v8): the narrow
+          column for forms and summaries, the wide one for lists of cases. */}
+      <div className={cn("flex w-full flex-1 px-6 pt-6 pb-8 lg:px-12", PAGE_GROUND)}>
+        <div className={cn(BULK_COLUMN[width], "flex flex-col gap-6")}>
         {/* Each step is titled by its job, the way the prototypes were; the batch it belongs
             to is the line under it (and the breadcrumb). */}
         <header className="flex flex-col gap-1">
@@ -324,8 +276,11 @@ export function BatchScreen({ batchId }: { batchId: string }) {
         ) : null}
 
         {body}
+        </div>
       </div>
+      <div ref={setFooterSlot} className="sticky bottom-0 z-30" />
     </div>
+    </FooterSlot.Provider>
   );
 }
 

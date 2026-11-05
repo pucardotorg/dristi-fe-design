@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 
 import { aiModeFrom } from "@/lib/bulk/ai-review";
+import { cn } from "@/lib/utils";
 import { BULK_CASE_SAVED, BulkCaseRepository } from "@/lib/bulk/case-repository";
 import { BULK_CASE_STEPS, firstFlaggedStep, flagPlace } from "@/lib/bulk/flag-place";
 import type { Flag, FlagFix } from "@/lib/bulk/scrutiny";
@@ -60,6 +61,8 @@ import { bulkApi, caseFlowHref, setBulkAiMode, type BatchView, type CaseView } f
 import { useGujarat } from "./court-guard";
 import { demoFill } from "./demo-fill";
 import { useDemoTools } from "./demo-tools";
+import { batchMarks } from "./batch-marks";
+import { BulkSteps, type BulkStepId } from "./bulk-steps";
 import { OriginalDoc } from "./original-doc";
 import { FlagLine } from "./scrutiny-tab";
 import { CaseBadge } from "./stage";
@@ -72,6 +75,16 @@ function batchHref(batchId: string, tab: string, ai: string | null, caseId?: str
   if (ai) q.set("ai", ai);
   return `/filings/bulk/${encodeURIComponent(batchId)}?${q}`;
 }
+
+/** The batch tab each of its steps opens on. */
+const BATCH_TAB: Record<BulkStepId, string> = {
+  common: "common",
+  cases: "cases",
+  details: "scrutiny",
+  documents: "documents",
+  sign: "sign",
+  pay: "pay",
+};
 
 const editable = (c: CaseView) => c.stage === "held" || c.stage === "ready";
 
@@ -323,14 +336,23 @@ function CaseBar({
   const demo = useDemoTools();
   const { update } = useFiling();
 
-  const strip = (body: React.ReactNode) => (
-    <div
-      className="sticky z-20 border-b border-hairline bg-card px-6 py-3 lg:px-12 lg:[main:has([data-source-open])_&]:px-6"
-      style={{ top: TOP_BAR_HEIGHT }}
-    >
-      {body}
-    </div>
-  );
+  // The page's gutter, which narrows when the source rail docks beside the form.
+  const gutter = "px-6 lg:px-12 lg:[main:has([data-source-open])_&]:px-6";
+  const strip = (body: React.ReactNode) =>
+    batch ? (
+      // The batch's steps stay above the case, as on every other screen of the batch (v8);
+      // the case is their second row.
+      <BulkSteps
+        marks={batchMarks(batch, "details", (id) => batchHref(batchId, BATCH_TAB[id], aiParam))}
+        width="full"
+        gutter={gutter}
+        second={<div className="py-2">{body}</div>}
+      />
+    ) : (
+      <div className={cn("sticky z-20 border-b border-hairline bg-card py-3", gutter)} style={{ top: TOP_BAR_HEIGHT }}>
+        {body}
+      </div>
+    );
 
   if (error && !batch)
     return strip(

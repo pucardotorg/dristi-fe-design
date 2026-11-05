@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { bulkFetch, type CaseView } from "./api";
+import { BatchFooter } from "./batch-footer";
 import type { BatchCtx } from "./batch-screen";
 import { CaseList } from "./case-list";
 import { detailFlags } from "./scrutiny-tab";
@@ -99,7 +100,8 @@ export function ReviewTab({ batch, go }: BatchCtx) {
           )}
         </div>
       </div>
-      <FilingFooter
+      <BatchFooter>
+        <FilingFooter
         showSaveState={false}
         onBack={at > 0 ? () => move(at - 1) : undefined}
         backLabel="Previous case"
@@ -122,8 +124,8 @@ export function ReviewTab({ batch, go }: BatchCtx) {
         onContinue={() => {
           if (ready) go("sign");
         }}
-        className="-mx-6 -mb-6 md:-mx-8 md:-mb-8"
       />
+      </BatchFooter>
     </div>
   );
 }

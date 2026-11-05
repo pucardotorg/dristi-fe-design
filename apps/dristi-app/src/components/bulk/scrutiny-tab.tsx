@@ -22,6 +22,7 @@ import { Card } from "@/components/ui/card";
 
 import { bulkApi, caseFlowHref, type CaseView } from "./api";
 import { CaseStateBadge } from "./case-list";
+import { BatchFooter } from "./batch-footer";
 import type { BatchCtx } from "./batch-screen";
 import { StatusLine } from "@/components/feedback";
 
@@ -306,14 +307,15 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
         }}
       />
 
-      <FilingFooter
+      <BatchFooter>
+        <FilingFooter
         showSaveState={false}
         // Documents next, in the batch's order. The cases still to fix never hold the rest
         // up: each step works on the cases ready for it.
         continueLabel="Continue to documents"
         onContinue={() => go("documents")}
-        className="-mx-6 -mb-6 md:-mx-8 md:-mb-8"
       />
+      </BatchFooter>
     </div>
   );
 }

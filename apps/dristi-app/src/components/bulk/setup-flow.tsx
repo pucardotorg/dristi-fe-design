@@ -41,7 +41,7 @@ import {
 } from "@/components/ui/empty";
 import { Spinner } from "@/components/ui/spinner";
 
-import { BulkStageRow, BulkStepRow, type BulkStepId, type Stage, type StepMark } from "./bulk-steps";
+import { BulkSteps, StageRow, type BulkStepId, type Stage, type StepMark } from "./bulk-steps";
 import { useGujarat } from "./court-guard";
 
 /** The sections the setup walks, in order. */
@@ -131,6 +131,8 @@ export function BulkSetupFlow({
       // The parties are entered by hand here, once for the batch: no document is read, so
       // no source rail beside the form (owner, 2026-11-04).
       sources: false,
+      // No side panel in this flow, so the page sits in the middle of the screen (v8).
+      centered: true,
       hostSteps: {
         group: "Upload",
         steps: [
@@ -278,13 +280,17 @@ function SetupSteps({
     : (step ?? "complainant");
   const at = stages.findIndex((x) => x.id === current);
   return (
-    <>
-      <BulkStepRow marks={marks} />
-      <BulkStageRow
-        step={inCases ? "cases" : "common"}
-        stages={stages.map((x, i) => ({ ...x, done: x.done ?? i < at }))}
-        current={current}
-      />
-    </>
+    <BulkSteps
+      marks={marks}
+      // The same column as the page under it (FilingMain's default or wide).
+      width={["format", "map", "review"].includes(current ?? "") ? "medium" : "narrow"}
+      second={
+        <StageRow
+          label={inCases ? "Step 2 · Cases" : "Step 1 · Common details"}
+          stages={stages.map((x, i) => ({ ...x, done: x.done ?? i < at }))}
+          current={current ?? ""}
+        />
+      }
+    />
   );
 }

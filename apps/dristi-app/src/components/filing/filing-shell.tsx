@@ -104,7 +104,9 @@ export function FilingMain({
    */
   const inCorrection = useInCorrection();
   // A section a host has set for every case (bulk filing's advocates) is locked whole.
-  const locked = useFieldPolicy()?.lockedAt(null) ?? null;
+  const policy = useFieldPolicy();
+  const locked = policy?.lockedAt(null) ?? null;
+  const centered = policy?.centered === true;
   const body = locked ? <PolicyLock reason={locked}>{children}</PolicyLock> : children;
 
   if (inCorrection) {
@@ -130,6 +132,7 @@ export function FilingMain({
       <div
         className={cn(
           "flex w-full flex-col gap-6",
+          centered && "mx-auto",
           width === "default" && "max-w-4xl",
           width === "wide" && "max-w-5xl",
           width === "narrow" && "mx-auto max-w-2xl"

@@ -70,6 +70,11 @@ export type FieldPolicy = {
    * left out. Bulk filing's Common details enters the batch's parties by hand.
    */
   sources?: false;
+  /**
+   * The page column sits in the middle of the screen. Bulk filing's setup has no sections
+   * rail and no source rail, so a left-aligned column would leave the right half empty.
+   */
+  centered?: true;
 };
 
 /** A host step in the sections rail. */
