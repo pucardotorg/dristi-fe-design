@@ -876,7 +876,8 @@ export function UploadScreen() {
           <Card variant="raised">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-body font-semibold">
-                <CheckCircle2Icon className="size-5 text-success-ink" aria-hidden />
+                {/* A green tick over the rows reads as "good to go"; not while nothing can be created. */}
+                {coreMissing.length ? null : <CheckCircle2Icon className="size-5 text-success-ink" aria-hidden />}
                 First cases
               </CardTitle>
             </CardHeader>
