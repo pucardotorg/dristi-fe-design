@@ -10,7 +10,6 @@ import {
   CircleDashedIcon,
   CirclePlayIcon,
   PlusIcon,
-  SearchIcon,
   UploadIcon,
   WandSparklesIcon,
 } from "lucide-react";
@@ -18,8 +17,6 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
-import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 
 import { readability } from "@/lib/filing/readability";
@@ -28,6 +25,8 @@ import { demoBlurryScan, demoPdf } from "./demo-fill";
 import { bulkApi, caseFlowHref, useBulkFileUrl, type CaseView } from "./api";
 import { BatchFooter } from "./batch-footer";
 import type { BatchCtx } from "./batch-screen";
+import { batchTallies, caseState } from "./batch-marks";
+import { CaseSearch } from "./case-list-tools";
 import { DocumentsGuide, guideSeen } from "./documents-guide";
 import { useDemoTools } from "./demo-tools";
 import { StatusLine, StatusMark } from "@/components/feedback";
@@ -47,9 +46,23 @@ function sizeOf(bytes: number): string {
 }
 
 /**
- * One document of one case, as a line (v8): its state, its name, the file or what is
- * still wanted, and one button to add or replace it. A file can also be dropped on the
- * line. Locked once the case is signed, as a single filing is.
+ * Why a case asks for a document most cases don't, said on its line (v8's middle column).
+ * Plain lines say nothing there: the round-3 audit found the same hint repeated on every
+ * line, which buried the few reasons that mattered.
+ */
+export function reasonFor(doc: Doc): string | null {
+  if (/^Power of attorney/.test(doc.name)) return doc.required ? "Filed through a power of attorney holder" : null;
+  // Numbered lines ("Cheque 2", "Demand notice 2") exist only where a case has several.
+  if (/ \d+$/.test(doc.name))
+    return /notice/i.test(doc.name) ? "This case has more than one demand notice" : "This case has more than one cheque";
+  if (doc.group.startsWith("Complainant")) return "The complainant's, the same for every case";
+  return null;
+}
+
+/**
+ * One document of one case, as a line (v8): its state, its name, the file or why this case
+ * needs it, and one button to add or replace it. A file can also be dropped on the line.
+ * Locked once the case is signed, as a single filing is.
  */
 export function DocLine({
   doc,
@@ -73,6 +86,7 @@ export function DocLine({
   const has = !!doc.file;
   const href = useBulkFileUrl(doc.file?.id);
   const canUpload = !locked && !!doc.slotKey;
+  const reason = has ? null : reasonFor(doc);
   const choose = () => {
     if (canUpload && !busy) input.current?.click();
   };
@@ -92,7 +106,7 @@ export function DocLine({
       }}
       className={cn("flex flex-col rounded-lg px-2 py-1.5 transition-colors hover:bg-accent", over && "ring-2 ring-ring")}
     >
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <div className="flex min-h-10 items-center gap-3">
         {busy ? (
           <Spinner className="size-4 shrink-0" />
         ) : poor ? (
@@ -102,26 +116,32 @@ export function DocLine({
         ) : (
           <CircleDashedIcon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
         )}
-        <span className="min-w-0 text-body-compact sm:w-56 sm:shrink-0">
-          {doc.name}
-          {doc.required ? null : <span className="text-muted-foreground"> optional</span>}
-        </span>
-        <span className="min-w-0 flex-1 basis-32 truncate text-body-compact text-muted-foreground">
+        <span className="flex min-w-0 flex-1 flex-col sm:flex-row sm:items-center sm:gap-3">
+          <span className="min-w-0 text-body-compact sm:flex-1">
+            {doc.name}
+            {doc.required ? null : <span className="text-muted-foreground"> optional</span>}
+          </span>
           {doc.file ? (
-            <a href={href ?? undefined} target="_blank" rel="noreferrer" className="hover:underline" title={`${doc.file.name} · ${sizeOf(doc.file.size)}`}>
+            <a
+              href={href ?? undefined}
+              target="_blank"
+              rel="noreferrer"
+              className="min-w-0 truncate text-body-compact text-muted-foreground hover:underline sm:flex-1"
+              title={`${doc.file.name} · ${sizeOf(doc.file.size)}`}
+            >
               {doc.file.name}
             </a>
-          ) : canUpload ? (
-            "Click Add file, or drop it here"
+          ) : reason ? (
+            <span className="min-w-0 text-body-compact text-muted-foreground sm:flex-1">{reason}</span>
           ) : null}
         </span>
         {canUpload ? (
           has ? (
-            <Button variant="ghost" size="sm" disabled={busy} onClick={choose} aria-label={`Replace ${doc.name}`}>
+            <Button variant="ghost" size="sm" className="shrink-0 max-sm:h-10" disabled={busy} onClick={choose} aria-label={`Replace ${doc.name}`}>
               Replace
             </Button>
           ) : (
-            <Button variant="outline" size="sm" disabled={busy} onClick={choose} aria-label={`Add file: ${doc.name}`}>
+            <Button variant="outline" size="sm" className="shrink-0 max-sm:h-10" disabled={busy} onClick={choose} aria-label={`Add file: ${doc.name}`}>
               <UploadIcon data-icon="inline-start" aria-hidden />
               Add file
             </Button>
@@ -129,12 +149,12 @@ export function DocLine({
         ) : null}
       </div>
       {has && poor ? (
-        <p className="flex flex-wrap items-baseline gap-x-2 pl-7 text-body-compact text-warning-ink">
+        <p className="flex flex-wrap items-center gap-x-3 pl-7 text-body-compact text-warning-ink">
           <span>{poor.message}</span>
           {onKeep && canUpload ? (
-            <button type="button" className="text-foreground underline disabled:opacity-50" disabled={busy} onClick={onKeep}>
+            <Button variant="ghost" size="sm" className="-ml-2 text-foreground max-sm:h-10" disabled={busy} onClick={onKeep}>
               Keep this file
-            </button>
+            </Button>
           ) : null}
         </p>
       ) : null}
@@ -197,8 +217,11 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
     const i = order.indexOf(id);
     return i < 0 ? order.length : i;
   };
+  // Cases still being fixed join later, once their details are done (v8): their document
+  // list can change with the fix, so nothing is uploaded against it yet.
+  const { fixing } = batchTallies(batch);
   const open = batch.cases
-    .filter((c) => c.stage === "held" || c.stage === "ready")
+    .filter((c) => (c.stage === "held" || c.stage === "ready") && caseState(c) !== "fix")
     .sort((a, b) => rank(a.id) - rank(b.id));
   const locked = batch.cases.length - open.length;
   const incomplete = open.filter((c) => c.docs.have < c.docs.need);
@@ -272,12 +295,13 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
   const shownCases = base.filter(matches);
   const listed = shownCases.slice(0, limit);
   const lackingCases = open.filter(needsWork);
-  const complete = open.length - lackingCases.length;
+  // Complete in the flow's one sense: details and documents done (`caseState`).
+  const complete = open.filter((c) => caseState(c) === "complete").length;
   // What the cases still lack, in words: a file missing, or only a scan to look at again.
   const short = incomplete.length
     ? `${incomplete.length} ${incomplete.length === 1 ? "case is" : "cases are"} missing documents`
     : lackingCases.length
-      ? `${lackingCases.length} ${lackingCases.length === 1 ? "case has a scan" : "cases have scans"} to check`
+      ? `${lackingCases.length} ${lackingCases.length === 1 ? "case has a scan" : "cases have scans"} hard to read`
       : null;
 
   return (
@@ -315,27 +339,15 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center gap-3">
-            <div className="w-full sm:w-72">
-              <Label htmlFor="documents-search" className="sr-only">
-                Search cases
-              </Label>
-              <InputGroup>
-                <InputGroupAddon>
-                  <SearchIcon aria-hidden />
-                </InputGroupAddon>
-                <InputGroupInput
-                  id="documents-search"
-                  type="search"
-                  autoComplete="off"
-                  value={search}
-                  onChange={(e) => {
-                    setSearch(e.target.value);
-                    setLimit(PAGE);
-                  }}
-                  placeholder="Accused, reference or cheque"
-                />
-              </InputGroup>
-            </div>
+            <CaseSearch
+              id="documents-search"
+              className="sm:ml-0"
+              value={search}
+              onChange={(v) => {
+                setSearch(v);
+                setLimit(PAGE);
+              }}
+            />
             {base.length < open.length || showAll ? (
               <Button variant="ghost" size="sm" aria-pressed={showAll} onClick={() => setShowAll((v) => !v)}>
                 {showAll ? "Only cases missing files" : `Show all ${open.length} cases`}
@@ -352,7 +364,7 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
               <div className="hidden items-center gap-4 border-b border-hairline px-2 pb-2 text-body-compact font-medium text-muted-foreground sm:flex">
                 <span className="min-w-0 flex-1">Accused</span>
                 <span className="w-44 shrink-0">Your reference</span>
-                <span className="w-48 shrink-0">Documents</span>
+                <span className="w-56 shrink-0">Documents</span>
                 <span className="w-4 shrink-0" />
               </div>
               {listed.map((c) => {
@@ -362,6 +374,21 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
                 const isOpen = expanded === c.id;
                 const panel = `docs-${c.id}`;
                 const missingName = c.documents.find((d) => d.required && !d.file)?.name;
+                const status =
+                  left > 0 ? (
+                    <span className="text-body-compact text-warning-ink">
+                      {left === 1 && missingName ? `${missingName} missing` : left === need ? "None added yet" : `${left} missing`}
+                    </span>
+                  ) : poor ? (
+                    <span className="text-body-compact text-warning-ink tabular-nums">
+                      {poor} {poor === 1 ? "scan" : "scans"} hard to read
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 text-body-compact text-muted-foreground tabular-nums">
+                      <CheckIcon aria-hidden className="size-4 text-success" />
+                      All {need} added
+                    </span>
+                  );
                 return (
                   <div key={c.id} className="border-b border-hairline last:border-b-0">
                     <button
@@ -369,34 +396,21 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
                       aria-expanded={isOpen}
                       aria-controls={panel}
                       onClick={() => setExpanded(isOpen ? null : c.id)}
-                      className="flex w-full flex-wrap items-center gap-x-4 gap-y-1 rounded-lg px-2 py-3 text-left transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-focus-ring focus-visible:outline-none sm:flex-nowrap"
+                      className="flex w-full items-center gap-4 rounded-lg px-2 py-3 text-left transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-focus-ring focus-visible:outline-none"
                     >
-                      <span className="flex min-w-0 flex-1 basis-48 flex-col">
+                      <span className="flex min-w-0 flex-1 flex-col">
                         <span className="truncate text-body-compact font-medium">{c.accused || c.title}</span>
                         <span className="text-body-compact text-muted-foreground tabular-nums">
+                          <span className="font-mono sm:hidden">{c.reference} · </span>
                           {c.cheque ? `Cheque ${c.cheque}` : ""}
                         </span>
+                        <span className="sm:hidden">{status}</span>
                       </span>
-                      <span className="text-body-compact tabular-nums sm:w-44 sm:shrink-0">{c.reference}</span>
-                      <span className="sm:w-48 sm:shrink-0">
-                        {left > 0 ? (
-                          <span className="text-body-compact text-warning-ink">
-                            {left === 1 && missingName ? `${missingName} missing` : left === need ? "None added yet" : `${left} missing`}
-                          </span>
-                        ) : poor ? (
-                          <span className="text-body-compact text-warning-ink tabular-nums">
-                            {poor} {poor === 1 ? "scan" : "scans"} to check
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 text-body-compact text-muted-foreground tabular-nums">
-                            <CheckIcon aria-hidden className="size-4 text-success" />
-                            All {need} added
-                          </span>
-                        )}
-                      </span>
+                      <span className="hidden font-mono text-body-compact sm:block sm:w-44 sm:shrink-0">{c.reference}</span>
+                      <span className="hidden sm:block sm:w-56 sm:shrink-0">{status}</span>
                       <ChevronDownIcon
                         aria-hidden
-                        className={cn("ml-auto size-4 shrink-0 text-muted-foreground transition-transform sm:ml-0", isOpen && "rotate-180")}
+                        className={cn("size-4 shrink-0 text-muted-foreground transition-transform", isOpen && "rotate-180")}
                       />
                     </button>
                     {isOpen ? (
@@ -447,6 +461,15 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
           ) : null}
         </CardContent>
       </Card>
+      {fixing ? (
+        <p className="text-body-compact text-muted-foreground tabular-nums">
+          {fixing} {fixing === 1 ? "case is" : "cases are"} still being fixed. {fixing === 1 ? "It joins" : "They join"} this
+          list once {fixing === 1 ? "its" : "their"} details are done.{" "}
+          <button type="button" className="underline" onClick={() => go("scrutiny")}>
+            Go to Case details
+          </button>
+        </p>
+      ) : null}
       {locked ? (
         <p className="text-body-compact text-muted-foreground tabular-nums">
           {locked} case{locked === 1 ? " is" : "s are"} signed or filed, so {locked === 1 ? "its" : "their"}{" "}
@@ -463,9 +486,11 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
           status={
             short ? <span className="text-body-compact text-muted-foreground tabular-nums">{short}</span> : undefined
           }
-          // Cases still missing a file never hold the complete ones up (v8).
+          // Cases still missing a file never hold the complete ones up (v8); with none
+          // complete there is nothing to take on, and the status line says why.
           continueVariant={lackingCases.length ? "outline" : "default"}
-          continueLabel={lackingCases.length ? `Continue with ${complete} complete` : "Continue to signing"}
+          continueLabel={lackingCases.length && complete ? `Continue with ${complete} complete` : "Continue to signing"}
+          continueDisabled={!complete}
           onContinue={() => go("sign")}
         />
       </BatchFooter>
