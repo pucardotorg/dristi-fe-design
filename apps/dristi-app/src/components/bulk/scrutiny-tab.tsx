@@ -204,23 +204,25 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
             const holds = f.filter((x) => x.level === "hold").length;
             const first = f.find((x) => x.level === "hold") ?? f[0];
             return (
-              <li key={c.id} className="flex items-center">
+              <li key={c.id} className="flex items-start sm:items-center">
+                {/* On a phone the case takes the full width and its state drops to a line
+                    under it; side by side, the text was squeezed into a 90px column. */}
                 <Link
                   href={caseFlowHref(batch.id, c, undefined, ai)}
                   aria-current={c.id === last ? "true" : undefined}
-                  className="flex min-h-10 min-w-0 flex-1 items-center gap-4 py-3 pr-2 pl-4 transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-focus-ring focus-visible:outline-none focus-visible:ring-inset aria-[current=true]:bg-accent"
+                  className="flex min-h-10 min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-2 py-3 pr-2 pl-4 transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-focus-ring focus-visible:outline-none focus-visible:ring-inset aria-[current=true]:bg-accent sm:flex-nowrap"
                 >
-                  <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="flex min-w-0 basis-full flex-col sm:basis-auto sm:flex-1">
                     <span className="text-body-compact font-medium">
                       {c.title}
                     </span>
-                    <span className="flex flex-wrap gap-x-2 text-caption text-muted-foreground tabular-nums">
+                    <span className="flex flex-wrap gap-x-2 text-body-compact text-muted-foreground tabular-nums">
                       <span>{c.reference}</span>
                       {c.cheque ? <span>· Cheque {c.cheque}</span> : null}
                       {c.amount ? <span>· {money(c.amount)}</span> : null}
                     </span>
                     {first ? (
-                      <span className="mt-1 text-caption text-muted-foreground">
+                      <span className="mt-1 text-body-compact text-muted-foreground">
                         {first.where}: {first.message}
                         {f.length > 1 ? ` (and ${f.length - 1} more)` : ""}
                       </span>
@@ -229,7 +231,7 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
                   <CaseStateBadge holds={holds} checks={f.length - holds} />
                   <ChevronRightIcon
                     aria-hidden
-                    className="size-4 shrink-0 text-muted-foreground"
+                    className="ml-auto size-4 shrink-0 text-muted-foreground sm:ml-0"
                   />
                 </Link>
                 {/* For a case that won't be filed: out of the batch, so the rest go on. */}
@@ -237,7 +239,7 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="mx-2 shrink-0 text-muted-foreground"
+                    className="mx-2 mt-2 shrink-0 text-muted-foreground sm:mt-0"
                     aria-label={`Remove ${c.title} from this batch`}
                     title="Remove from this batch"
                     disabled={busy}
