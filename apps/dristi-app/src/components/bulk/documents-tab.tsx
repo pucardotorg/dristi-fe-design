@@ -4,17 +4,19 @@ import * as React from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
-  CircleAlertIcon,
+  ChevronDownIcon,
   CirclePlayIcon,
   PlusIcon,
+  SearchIcon,
   WandSparklesIcon,
   UploadIcon,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 
 import { readability } from "@/lib/filing/readability";
@@ -24,6 +26,7 @@ import { bulkApi, caseFlowHref, useBulkFileUrl, type CaseView } from "./api";
 import type { BatchCtx } from "./batch-screen";
 import { OriginalDoc } from "./original-doc";
 import { DocumentsGuide, guideSeen } from "./documents-guide";
+import { useDemoTools } from "./demo-tools";
 import { StatusLine, StatusMark } from "@/components/feedback";
 import { FilingFooter } from "@/components/filing/filing-footer";
 
@@ -31,6 +34,8 @@ type Doc = CaseView["documents"][number];
 type Flag = CaseView["flags"][number];
 
 const ACCEPT = ".pdf,.jpg,.jpeg,.png";
+/** Cases listed at a time; a batch of hundreds is read in pages, not one long scroll. */
+const PAGE = 25;
 
 function sizeOf(bytes: number): string {
   return bytes >= 1_000_000
@@ -202,9 +207,12 @@ export function Slot({
 }
 
 /**
- * Documents, case by case: every open case is a panel, and every document it needs is a
- * slot shown at once, to click or drop onto. Cases missing something come first. Signed
- * and filed cases are locked, so they are not listed here.
+ * Documents, case by case: a searchable list of the open cases, one row each, with the
+ * first case missing something open to its slots (click or drop a file onto one). Cases
+ * that were complete when the tab opened are kept out of the way until asked for, and the
+ * list is read in pages, so a batch of hundreds is not one long scroll of open panels
+ * (bulk audit, 2026-11-04; v8 prototype). Signed and filed cases are locked, so they are
+ * not listed here.
  */
 export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
   const ai = useSearchParams().get("ai");
@@ -221,6 +229,10 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
   const [busy, setBusy] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const closed = !!batch.clubbedInto;
+  const demo = useDemoTools();
+  const [search, setSearch] = React.useState("");
+  const [showAll, setShowAll] = React.useState(false);
+  const [limit, setLimit] = React.useState(PAGE);
 
   // Cases missing something first, in the order they had when the tab opened, so a case
   // does not jump away the moment its last document goes in.
@@ -246,6 +258,11 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
     0,
   );
   const scans = open.reduce((n, c) => n + poorOf(c).length, 0);
+  // The cases that had something to add when the tab opened, and the first of them open.
+  const [startedOpen] = React.useState(() => new Set(open.filter(needsWork).map((c) => c.id)));
+  const [expanded, setExpanded] = React.useState<string | null>(
+    () => open.find((c) => startedOpen.has(c.id))?.id ?? null,
+  );
 
   const upload = async (c: CaseView, d: Doc, file: File) => {
     if (!d.slotKey) return;
@@ -296,164 +313,220 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
     setBusy(null);
   };
 
+  // Which cases show: those with something to add, plus any searched for. A case that was
+  // complete when the tab opened stays out of the way until asked for; one finished here
+  // stays where it is, so the list never moves under the filer's hand.
+  const term = search.trim().toLowerCase();
+  const matches = (c: CaseView) =>
+    !term || [c.accused, c.title, c.reference, c.cheque].some((v) => v.toLowerCase().includes(term));
+  const doneAtOpen = (c: CaseView) => !startedOpen.has(c.id);
+  const hidden = open.filter((c) => doneAtOpen(c)).length;
+  const shownCases = open.filter((c) => matches(c) && (showAll || term || !doneAtOpen(c) || hidden === open.length));
+  const listed = shownCases.slice(0, limit);
+
   return (
     <div className="flex flex-col gap-4">
       <DocumentsGuide open={guide} onOpenChange={setGuide} />
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-body-compact">
-        <Button variant="ghost" size="sm" className="-ml-3" onClick={() => setGuide(true)}>
-          <CirclePlayIcon data-icon="inline-start" aria-hidden />
-          How this works
-        </Button>
-        {incomplete.length && !closed ? (
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!!busy}
-            onClick={() => void fillDemo(incomplete)}
-          >
-            <WandSparklesIcon data-icon="inline-start" aria-hidden />
-            Fill all with demo files
-          </Button>
-        ) : null}
-        {missing ? (
-          <span className="flex items-center gap-2">
-            <CircleAlertIcon className="size-4 text-warning-ink" aria-hidden />
-            <span className="tabular-nums">
-              {missing} required document{missing === 1 ? "" : "s"} missing
-              across {incomplete.length} case
-              {incomplete.length === 1 ? "" : "s"}
-            </span>
-          </span>
-        ) : open.length ? (
-          <span className="flex items-center gap-2">
-            <StatusMark size={16} still />
-            Every required document is in
-          </span>
-        ) : null}
-        {scans ? (
-          <span className="flex items-center gap-2">
-            <StatusMark tone="warning" size={16} still />
-            <span className="tabular-nums">
-              {scans} scan{scans === 1 ? "" : "s"} hard to read
-            </span>
-          </span>
-        ) : null}
-        {locked ? (
-          <span className="text-muted-foreground tabular-nums">
-            {locked} case{locked === 1 ? " is" : "s are"} signed or filed, so{" "}
-            {locked === 1 ? "its" : "their"} documents cannot change.{" "}
-            <button
-              type="button"
-              className="underline"
-              onClick={() => go(batch.counts.filed ? "filed" : "pay")}
-            >
-              {batch.counts.filed ? "See filed cases" : "Go to payment"}
-            </button>
-          </span>
-        ) : null}
-      </div>
 
-      {error ? (
-        <StatusLine tone="error">{error}</StatusLine>
-      ) : null}
+      {error ? <StatusLine tone="error">{error}</StatusLine> : null}
 
       {open.length === 0 ? (
         <Card variant="raised">
-          <CardContent className="text-body-compact text-muted-foreground">
-            All documents are in.
-          </CardContent>
+          <CardContent className="text-body-compact text-muted-foreground">All documents are in.</CardContent>
         </Card>
       ) : (
-        <ul className="flex flex-col gap-3">
-          {open.map((c) => {
-            const complete = c.docs.have >= c.docs.need;
-            return (
-              <li key={c.id}>
-                <Card variant="raised" className="gap-0 py-4">
-                  {/* The case in brief beside its slots: what each paper should show. */}
-                  <CardContent className="grid grid-cols-1 gap-4 px-4 md:grid-cols-[minmax(0,15rem)_minmax(0,1fr)] md:gap-6">
-                    <div className="flex min-w-0 flex-col gap-3">
-                      <div className="flex min-w-0 flex-col">
-                        <CardTitle className="truncate text-body font-semibold">
-                          {c.accused || c.title}
-                        </CardTitle>
-                        <span className="truncate text-body-compact text-muted-foreground tabular-nums">
+        <Card variant="raised" className="gap-0 py-0">
+          <div className="flex flex-col gap-4 border-b border-hairline p-4 sm:p-6">
+            <div className="flex flex-wrap items-start gap-x-4 gap-y-1">
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
+                <h2 className="text-body font-semibold tabular-nums">
+                  {missing
+                    ? `${missing} required document${missing === 1 ? "" : "s"} to add, across ${incomplete.length} case${incomplete.length === 1 ? "" : "s"}`
+                    : "Every required document is in"}
+                </h2>
+                <p className="text-body-compact text-muted-foreground tabular-nums">
+                  {[
+                    `${open.length - incomplete.length} of ${open.length} cases complete`,
+                    scans ? `${scans} scan${scans === 1 ? "" : "s"} hard to read` : null,
+                    locked ? `${locked} signed or filed, so locked` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {demo && incomplete.length && !closed ? (
+                  <Button variant="ghost" size="sm" disabled={!!busy} onClick={() => void fillDemo(incomplete)}>
+                    <WandSparklesIcon data-icon="inline-start" aria-hidden />
+                    Demo files for all
+                  </Button>
+                ) : null}
+                <Button variant="ghost" size="sm" className="-mr-2" onClick={() => setGuide(true)}>
+                  <CirclePlayIcon data-icon="inline-start" aria-hidden />
+                  How this works
+                </Button>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <div className="w-full sm:w-80">
+                <Label htmlFor="documents-search" className="sr-only">
+                  Search cases
+                </Label>
+                <InputGroup>
+                  <InputGroupAddon>
+                    <SearchIcon aria-hidden />
+                  </InputGroupAddon>
+                  <InputGroupInput
+                    id="documents-search"
+                    type="search"
+                    autoComplete="off"
+                    value={search}
+                    onChange={(e) => {
+                      setSearch(e.target.value);
+                      setLimit(PAGE);
+                    }}
+                    placeholder="Accused, reference or cheque"
+                  />
+                </InputGroup>
+              </div>
+              {hidden && hidden < open.length && !term ? (
+                <Button variant="ghost" className="-ml-2" aria-pressed={showAll} onClick={() => setShowAll((v) => !v)}>
+                  {showAll ? `Hide the ${hidden} complete` : `Show all ${open.length} cases`}
+                </Button>
+              ) : null}
+            </div>
+          </div>
+
+          {listed.length === 0 ? (
+            <p className="p-6 text-body-compact text-muted-foreground">No case matches “{search.trim()}”.</p>
+          ) : (
+            <ul className="flex flex-col divide-y divide-hairline">
+              {listed.map((c) => {
+                const complete = c.docs.have >= c.docs.need;
+                const poor = poorOf(c).length;
+                const isOpen = expanded === c.id;
+                const panel = `docs-${c.id}`;
+                return (
+                  <li key={c.id}>
+                    <button
+                      type="button"
+                      aria-expanded={isOpen}
+                      aria-controls={panel}
+                      onClick={() => setExpanded(isOpen ? null : c.id)}
+                      className="flex w-full flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 text-left transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-focus-ring focus-visible:outline-none focus-visible:ring-inset sm:px-6"
+                    >
+                      <span className="flex min-w-0 flex-1 basis-48 flex-col">
+                        <span className="text-body-compact font-medium">{c.accused || c.title}</span>
+                        <span className="text-body-compact text-muted-foreground tabular-nums">
                           {c.reference}
+                          {c.cheque ? ` · Cheque ${c.cheque}` : ""}
                         </span>
-                      </div>
-                      <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-caption">
-                        {c.facts.map((f, k) => (
-                          <React.Fragment key={k}>
-                            <dt className="text-muted-foreground">{f.label}</dt>
-                            <dd className="min-w-0 break-words tabular-nums">
-                              {f.value}
-                            </dd>
-                          </React.Fragment>
-                        ))}
-                      </dl>
-                      {c.original ? (
-                        <div className="border-t border-hairline pt-3">
-                          <OriginalDoc original={c.original} />
-                        </div>
-                      ) : null}
-                      {!complete && !closed ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="w-fit"
-                          disabled={!!busy}
-                          onClick={() => void fillDemo([c])}
-                        >
-                          <WandSparklesIcon
-                            data-icon="inline-start"
-                            aria-hidden
-                          />
-                          Fill with demo files
-                        </Button>
-                      ) : null}
-                      <Badge
-                        variant={complete ? "success" : "warning"}
-                        className="w-fit tabular-nums"
+                      </span>
+                      <span
+                        className={cn(
+                          "text-body-compact tabular-nums",
+                          complete && !poor ? "text-muted-foreground" : "text-warning-ink",
+                        )}
                       >
-                        {c.docs.have} of {c.docs.need} required
-                      </Badge>
-                      {/* Optional papers are the case's own: its filing Documents section
-                          takes them, and they show there and in the case file. */}
-                      {!closed ? (
-                        <Button asChild variant="ghost" className="-ml-3 w-fit">
-                          <Link href={caseFlowHref(batch.id, c, "documents", ai)}>
-                            <PlusIcon data-icon="inline-start" aria-hidden />
-                            Add other document
-                          </Link>
-                        </Button>
-                      ) : null}
-                    </div>
-                    <ul className="grid grid-cols-1 content-start gap-2 lg:grid-cols-2">
-                      {c.documents.map((d) => {
-                        const poor = poorOf(c).find(
-                          (f) => f.fix?.kind === "upload" && f.fix.slotKey === d.slotKey,
-                        );
-                        return (
-                          <li key={`${d.group}-${d.slotKey ?? d.name}`}>
-                            <Slot
-                              doc={d}
-                              locked={closed}
-                              busy={busy === `${c.id}:${d.slotKey}`}
-                              onFile={(file) => void upload(c, d, file)}
-                              poor={poor}
-                              onKeep={poor ? () => void keep(c, poor) : undefined}
-                            />
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </CardContent>
-                </Card>
-              </li>
-            );
-          })}
-        </ul>
+                        {complete
+                          ? poor
+                            ? `${poor} scan${poor === 1 ? "" : "s"} to check`
+                            : `All ${c.docs.need} added`
+                          : c.docs.have
+                            ? `${c.docs.need - c.docs.have} of ${c.docs.need} to add`
+                            : "None added yet"}
+                      </span>
+                      <ChevronDownIcon
+                        aria-hidden
+                        className={cn("ml-auto size-4 shrink-0 text-muted-foreground transition-transform sm:ml-0", isOpen && "rotate-180")}
+                      />
+                    </button>
+                    {isOpen ? (
+                      <div
+                        id={panel}
+                        className="grid grid-cols-1 gap-4 px-4 pb-4 md:grid-cols-[minmax(0,15rem)_minmax(0,1fr)] md:gap-6 sm:px-6"
+                      >
+                        {/* The case in brief beside its slots: what each paper should show. */}
+                        <div className="flex min-w-0 flex-col gap-3">
+                          <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-body-compact">
+                            {c.facts.map((f, k) => (
+                              <React.Fragment key={k}>
+                                <dt className="text-muted-foreground">{f.label}</dt>
+                                <dd className="min-w-0 break-words tabular-nums">{f.value}</dd>
+                              </React.Fragment>
+                            ))}
+                          </dl>
+                          {c.original ? (
+                            <div className="border-t border-hairline pt-3">
+                              <OriginalDoc original={c.original} />
+                            </div>
+                          ) : null}
+                        </div>
+                        <div className="flex min-w-0 flex-col gap-2">
+                          <ul className="grid grid-cols-1 content-start gap-2 lg:grid-cols-2">
+                            {c.documents.map((d) => {
+                              const flag = poorOf(c).find(
+                                (f) => f.fix?.kind === "upload" && f.fix.slotKey === d.slotKey,
+                              );
+                              return (
+                                <li key={`${d.group}-${d.slotKey ?? d.name}`}>
+                                  <Slot
+                                    doc={d}
+                                    locked={closed}
+                                    busy={busy === `${c.id}:${d.slotKey}`}
+                                    onFile={(file) => void upload(c, d, file)}
+                                    poor={flag}
+                                    onKeep={flag ? () => void keep(c, flag) : undefined}
+                                  />
+                                </li>
+                              );
+                            })}
+                          </ul>
+                          {/* Optional papers are the case's own: its filing Documents section
+                              takes them, and they show there and in the case file. */}
+                          <div className="flex flex-wrap items-center gap-2">
+                            {!closed ? (
+                              <Button asChild variant="ghost" className="-ml-3 w-fit">
+                                <Link href={caseFlowHref(batch.id, c, "documents", ai)}>
+                                  <PlusIcon data-icon="inline-start" aria-hidden />
+                                  Add other document
+                                </Link>
+                              </Button>
+                            ) : null}
+                            {demo && !complete && !closed ? (
+                              <Button variant="ghost" size="sm" disabled={!!busy} onClick={() => void fillDemo([c])}>
+                                <WandSparklesIcon data-icon="inline-start" aria-hidden />
+                                Demo files
+                              </Button>
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {shownCases.length > listed.length ? (
+            <div className="border-t border-hairline px-4 py-3 sm:px-6">
+              <Button variant="ghost" className="-ml-3" onClick={() => setLimit((n) => n + PAGE)}>
+                Show {Math.min(PAGE, shownCases.length - listed.length)} more of{" "}
+                {shownCases.length - listed.length}
+              </Button>
+            </div>
+          ) : null}
+        </Card>
       )}
+      {locked ? (
+        <p className="text-body-compact text-muted-foreground tabular-nums">
+          {locked} case{locked === 1 ? " is" : "s are"} signed or filed, so {locked === 1 ? "its" : "their"}{" "}
+          documents cannot change.{" "}
+          <button type="button" className="underline" onClick={() => go(batch.counts.filed ? "filed" : "pay")}>
+            {batch.counts.filed ? "See filed cases" : "Go to payment"}
+          </button>
+        </p>
+      ) : null}
       <FilingFooter
         showSaveState={false}
         onBack={() => go("scrutiny")}
