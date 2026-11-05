@@ -10,6 +10,8 @@
  * all three for the court's services behind these signatures.
  */
 
+import { findAdvocate } from "@/lib/filing/registry";
+
 import { OFFICE_ADVOCATES } from "./clients";
 
 export const IFSC_PATTERN = /^[A-Z]{4}0[A-Z0-9]{6}$/;
@@ -121,5 +123,7 @@ export function resolvePin(pin: string): Promise<PinRecord | null> {
  */
 export function resolveBar(barNumber: string): string | null {
   const n = barNumber.trim().toUpperCase();
-  return BAR_REGISTER[n] ?? BAR_REGISTER[n.replace(/^G\//, "K/")] ?? null;
+  // The same register the filing's advocate search uses, so a choice there resolves here.
+  const k = n.replace(/^G\//, "K/");
+  return BAR_REGISTER[n] ?? BAR_REGISTER[k] ?? findAdvocate(n)?.name ?? findAdvocate(k)?.name ?? null;
 }

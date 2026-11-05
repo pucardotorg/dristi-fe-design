@@ -33,7 +33,7 @@ export function createSetupDraft(profile: UserProfile | null): FilingDraft {
   // filing profile hasn't been set up yet, so the setup never starts with nobody on record.
   const first = draft.advocates[0];
   const you = OFFICE_ADVOCATES.find((a) => a.you);
-  if (first && !first.name.trim() && you) {
+  if (first && !first.barNumber.trim() && you) {
     first.name = you.name;
     first.barNumber = you.barNumber;
   }

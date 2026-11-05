@@ -13,6 +13,8 @@
  * register will never be complete.
  */
 
+import { OFFICE_ADVOCATES } from "@/lib/bulk/clients";
+
 export type RegisteredAdvocate = {
   barNumber: string;
   name: string;
@@ -25,7 +27,7 @@ export type RegisteredAdvocate = {
   bar?: string;
 };
 
-const REGISTER: RegisteredAdvocate[] = [
+const COURT_REGISTER: RegisteredAdvocate[] = [
   { barNumber: "K/0421/2004", name: "Anitha Raveendran" },
   { barNumber: "K/0876/2007", name: "Deepak Menon" },
   { barNumber: "K/1109/2009", name: "Fathima Beevi Rasheed" },
@@ -38,6 +40,17 @@ const REGISTER: RegisteredAdvocate[] = [
   { barNumber: "K/2914/2019", name: "Aparna Krishnan" },
   { barNumber: "K/3077/2020", name: "Thomas Kurian" },
   { barNumber: "K/3312/2021", name: "Meera Sudhakaran" },
+];
+
+/**
+ * The signed-in advocate and their office are on the register too. Bulk filing resolved
+ * names against its own list while its setup searched this one, so an advocate chosen in
+ * the setup reached every case as "not found with the Bar Council", and the filer could
+ * not choose themselves at all (bulk audit, 2026-11-05). One register now answers both.
+ */
+const REGISTER: RegisteredAdvocate[] = [
+  ...OFFICE_ADVOCATES.map(({ barNumber, name }) => ({ barNumber, name })),
+  ...COURT_REGISTER.filter((a) => !OFFICE_ADVOCATES.some((o) => o.barNumber === a.barNumber)),
 ];
 
 /** Matches on number or name, so a half-remembered registration still finds its row. */
