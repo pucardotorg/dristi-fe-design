@@ -25,7 +25,6 @@ import {
   autoMap,
   buildRequest,
   followsTemplate,
-  instancesIn,
   readWorkbook,
   rowsThatCannotBeCreated,
   unknownValues,
@@ -36,7 +35,7 @@ import {
   type ValueMap,
   type Workbookish,
 } from "@/lib/bulk/excel";
-import { COLUMNS, GROUPS, LISTS, type ListName } from "@/lib/bulk/excel-spec";
+import { COLUMNS, LISTS, type ListName } from "@/lib/bulk/excel-spec";
 import { money } from "@/lib/filing/format";
 import type { StoredFileRef } from "@/lib/filing/types";
 import { cn } from "@/lib/utils";
@@ -76,6 +75,7 @@ import {
 
 import { downloadTemplate } from "./batches-screen";
 import { FilingFooter } from "@/components/filing/filing-footer";
+import { useDemoTools } from "./demo-tools";
 import { FilingPageHeader } from "@/components/filing/filing-page-header";
 import { FilingMain } from "@/components/filing/filing-shell";
 
@@ -286,6 +286,7 @@ export function UploadScreen() {
 
   // A sample spreadsheet, fetched and chosen as if it had been dropped.
   const [sampling, setSampling] = React.useState<string | null>(null);
+  const demo = useDemoTools();
   // Check's table: which rows show, a search over them, and the page (v8).
   const [checkShow, setCheckShow] = React.useState<"all" | "clean" | "blanks">("all");
   const [checkQ, setCheckQ] = React.useState("");
@@ -306,19 +307,6 @@ export function UploadScreen() {
   };
 
   const headers = book?.cases.headers ?? [];
-  // "2 accused, 3 cheques, 1 witness": the sections the file repeats, for the review.
-  const repeatsFound = React.useMemo(() => {
-    if (!book) return "";
-    const inst = instancesIn(book.cases.headers, counts);
-    return GROUPS.filter((g) => g.repeats && !g.parent)
-      .map((g) => ({ g, n: inst[g.id].length }))
-      .filter(({ g, n }) => n > (g.always ? 1 : 0))
-      .map(
-        ({ g, n }) =>
-          `${g.label.toLowerCase()} up to ${g.first > 1 ? n + 1 : n}`,
-      )
-      .join(", ");
-  }, [book, counts]);
   const unknown = book ? unknownValues(book.cases, map, counts) : {};
   const unknownLists = Object.keys(unknown) as ListName[];
   // Required fields no column fills: every case arrives without them.
@@ -553,13 +541,9 @@ export function UploadScreen() {
             </p>
           ) : null}
         </FilingMain>
-        {/* The choice is the cards themselves; the footer only waits for it. */}
-        <FilingFooter
-          showSaveState={false}
-          backHref={setupHref(setupId, "documents")}
-          continueBlocked
-          continueHint="Choose how you'll send the cases"
-        />
+        {/* The choice is the cards themselves, so the footer has only Back (round 3: a
+            Continue that could never be pressed). */}
+        <FilingFooter showSaveState={false} backHref={setupHref(setupId, "documents")} noContinue />
       </>
     );
 
@@ -621,7 +605,8 @@ export function UploadScreen() {
                     hint={ai === "on" && !template ? ".xlsx or .csv, or Word and PDF files" : ".xlsx or .csv"}
                   />
                 </Field>
-                {/* Demo: the matching sample spreadsheet, one click away instead of on disk. */}
+                {/* Demo only (`?demo=1`): the matching sample spreadsheet, one click away. */}
+                {demo ? (
                 <div className="flex flex-wrap items-center gap-3">
                   <span className="text-body-compact text-muted-foreground">No file to hand?</span>
                   <Button
@@ -637,6 +622,7 @@ export function UploadScreen() {
                     {template ? "Try a filled sample" : "Try a sample of a lender's export"}
                   </Button>
                 </div>
+                ) : null}
               </CardContent>
             </Card>
           )}
@@ -849,7 +835,6 @@ export function UploadScreen() {
                   {book.cases.discarded
                     ? ` ${book.cases.discarded} template guide row${book.cases.discarded === 1 ? "" : "s"} skipped.`
                     : ""}
-                  {repeatsFound ? ` Repeated sections: ${repeatsFound}.` : ""}
                 </p>
               </CardContent>
             </Card>

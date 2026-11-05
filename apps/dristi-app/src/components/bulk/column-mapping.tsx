@@ -273,6 +273,7 @@ function ColumnPicker({
   list,
   onPick,
   state,
+  suggestion,
 }: {
   id: string;
   label: string;
@@ -281,8 +282,10 @@ function ColumnPicker({
   firsts: string[];
   list?: ListName;
   onPick: (value: string) => void;
-  /** Matched and fitting, matched but not fitting, or not matched: the field's outline says it. */
+  /** Matched but not fitting, or left to each case: the field's outline says it. */
   state: Link;
+  /** A likely column, shown in the empty field until it is accepted or another is chosen (v8). */
+  suggestion?: number | null;
 }) {
   const used = React.useContext(UsedContext);
   const anchor = useComboboxAnchor();
@@ -338,9 +341,8 @@ function ColumnPicker({
             "w-full",
             // Open, the field and its list read as one box: the field's lower corners square off.
             "has-[[data-popup-open]]:border-ring has-[[data-popup-open]]:ring-0 has-[[data-popup-side=bottom]]:rounded-b-none has-[[data-popup-side=top]]:rounded-t-none",
-            // The same colours as the row's arrow, on the field itself.
-            state === "ok" &&
-              "border-success bg-success-muted ring-1 ring-success/40",
+            // A match stays a plain field with its value (round 3: green fields read as
+            // alerts); only values that don't fit, or a field left to each case, are marked.
             state === "warn" &&
               "border-warning-ink bg-warning-muted ring-1 ring-warning/40",
             // Skipped: the same treatment in grey, so it reads as decided, not forgotten.
@@ -349,7 +351,7 @@ function ColumnPicker({
           )}
           autoComplete="off"
           showTrigger={false}
-          placeholder="Choose a column…"
+          placeholder={suggestion != null ? `Suggested: ${headers[suggestion]}` : "Choose a column…"}
           // A chosen column's name is selected on focus, so typing starts a new search.
           onFocus={(e) => e.currentTarget.select()}
         >
@@ -357,9 +359,9 @@ function ColumnPicker({
             <SearchIcon className="text-muted-foreground" aria-hidden />
           </InputGroupAddon>
           <InputGroupAddon align="inline-end">
-            {selected?.sample ? (
-              <span className="max-w-40 truncate font-mono text-caption text-muted-foreground">
-                {selected?.sample}
+            {selected?.sample || (!selected && suggestion != null && firsts[suggestion]) ? (
+              <span className="max-w-40 truncate font-mono text-body-compact text-muted-foreground">
+                {selected ? selected.sample : firsts[suggestion!]}
               </span>
             ) : null}
             <InputGroupButton size="icon-xs" variant="ghost" asChild>
@@ -502,6 +504,8 @@ function FieldRow({
         <LinkNode state={state} />
       </span>
       <div className="flex min-w-0 flex-col">
+        <div className="flex min-w-0 items-center gap-2">
+        <div className="min-w-0 flex-1">
         <ColumnPicker
           id={id}
           label={`Column in your sheet for ${column.header}`}
@@ -510,6 +514,7 @@ function FieldRow({
           firsts={firsts}
           list={column.list}
           state={state}
+          suggestion={unset ? suggested : null}
           onPick={(v) => {
             // A column already matched elsewhere moves here only once the filer agrees.
             const others = /^\d+$/.test(v)
@@ -519,6 +524,14 @@ function FieldRow({
             else commit(v, []);
           }}
         />
+        </div>
+        {/* Accepting the suggestion in the field, on the same line, so every row stays one row tall (v8). */}
+        {unset && suggested != null ? (
+          <Button variant="outline" className="shrink-0" onClick={() => commit(String(suggested), [])}>
+            Accept
+          </Button>
+        ) : null}
+        </div>
         <ConfirmDialog
           open={pending !== null}
           onOpenChange={(open) => {
@@ -541,18 +554,6 @@ function FieldRow({
         {fit && !fit.ok ? (
           <span className="pt-1 pl-1 text-body-compact text-warning-ink">
             {fit.note}
-          </span>
-        ) : null}
-        {/* A likely column, offered with its first value; it counts once accepted (v8). */}
-        {unset && suggested != null ? (
-          <span className="flex items-center gap-2 pt-1.5 pl-1 text-body-compact text-muted-foreground">
-            <span className="min-w-0 flex-1 truncate" title={`${props.headers[suggested]} · ${firsts[suggested]}`}>
-              Suggested: <span className="font-medium text-foreground">{props.headers[suggested]}</span>
-              {firsts[suggested] ? <span className="font-mono"> · {firsts[suggested]}</span> : null}
-            </span>
-            <Button variant="outline" size="sm" onClick={() => commit(String(suggested), [])}>
-              Accept
-            </Button>
           </span>
         ) : null}
       </div>
@@ -687,6 +688,8 @@ export function ColumnMapping(props: Props) {
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.map, props.headers, props.rows, need.length]);
+  // Unset with nothing to suggest: the file has no column for them.
+  const unfound = need.filter((x) => isUnset(x) && !suggestions.has(x.key));
   const [found_open, setFoundOpen] = React.useState(false);
   const [repeatsOpen, setRepeatsOpen] = React.useState(false);
 
@@ -743,6 +746,29 @@ export function ColumnMapping(props: Props) {
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             {repeatsOpen ? <FoundInFile props={props} instances={instances} /> : null}
+            {/* The fields the file has nothing for, decided in one move: each case gets them
+                filled in at Case details (round 3: one dropdown per field). Still a choice the
+                filer makes, and any can be changed back. */}
+            {unfound.length > 1 ? (
+              <div className="flex flex-col gap-3 rounded-lg bg-surface-sunken px-4 py-3 sm:flex-row sm:items-center">
+                <p className="min-w-0 flex-1 text-body-compact text-muted-foreground">
+                  <span className="tabular-nums">{unfound.length}</span> fields have no column in your file:{" "}
+                  {unfound.map((x) => x.label).join(", ")}.
+                </p>
+                <Button
+                  variant="outline"
+                  className="w-fit shrink-0"
+                  onClick={() => {
+                    const later = new Set(props.later);
+                    for (const x of unfound) later.add(x.key);
+                    props.onLater(later);
+                    props.onChange({ ...props.map, ...Object.fromEntries(unfound.map((x) => [x.key, null])) });
+                  }}
+                >
+                  Fill these in each case later
+                </Button>
+              </div>
+            ) : null}
             {need.length ? sections(need) : (
               <p className="text-body-compact text-muted-foreground">Every required field was found by its column name.</p>
             )}
