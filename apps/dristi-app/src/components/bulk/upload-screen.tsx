@@ -3,12 +3,19 @@
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  CheckCircle2Icon,
+  CheckIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  CircleAlertIcon,
   CircleXIcon,
   DownloadIcon,
   FileSpreadsheetIcon,
   FileTextIcon,
-  } from "lucide-react";
+  SearchIcon,
+} from "lucide-react";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { Label } from "@/components/ui/label";
+import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 
 import { aiModeFrom } from "@/lib/bulk/ai-review";
 import type { CaseExtraction } from "@/lib/bulk/case-doc";
@@ -277,6 +284,10 @@ export function UploadScreen() {
 
   // A sample spreadsheet, fetched and chosen as if it had been dropped.
   const [sampling, setSampling] = React.useState<string | null>(null);
+  // Check's table: which rows show, a search over them, and the page (v8).
+  const [checkShow, setCheckShow] = React.useState<"all" | "clean" | "blanks">("all");
+  const [checkQ, setCheckQ] = React.useState("");
+  const [checkPage, setCheckPage] = React.useState(0);
   const chooseSample = async (key: string) => {
     setSampling(key);
     setError(null);
@@ -506,7 +517,6 @@ export function UploadScreen() {
     <StatusLine tone="error">{error}</StatusLine>
   ) : null;
   const backFromReview: UploadStep = unknownLists.length ? "values" : template || docs ? "file" : "map";
-  const PREVIEW = ["reference", "accusedName", "chequeNumber", "chequeAmount", "returnReason", "dispatchDate"];
 
   if (step === "format")
     return (
@@ -749,23 +759,28 @@ export function UploadScreen() {
 
   if (step === "review" && book) {
     const left = new Set(cannot.map((x) => x.index));
-    const first = book.cases.rows.filter((_, i) => !left.has(i));
+    // The rows that become cases, with their Excel row number (headers are row 1).
+    const created = book.cases.rows
+      .map((cells, i) => ({ cells, row: i + 2 + (book.cases.discarded ?? 0), i }))
+      .filter((x) => !left.has(x.i));
+    // Of those, the ones that arrive with a required detail blank: a column the file lacks
+    // leaves every case blank there; otherwise the empty cells in the row.
+    const requiredCols = COLUMNS.filter((c) => c.required.startsWith("Yes") && typeof map[c.key] === "number");
+    const withBlanks = created
+      .map((x) => ({
+        row: x.row,
+        blanks: [
+          ...missing.map((c) => c.header),
+          ...requiredCols.filter((c) => !String(x.cells[map[c.key] as number] ?? "").trim()).map((c) => c.header),
+        ],
+      }))
+      .filter((x) => x.blanks.length);
     return (
       <>
         <FilingMain width="wide">
           <FilingPageHeader
-            title="Check"
-            description={
-              <>
-                <span className="tabular-nums">{book.cases.rows.length}</span> rows read from {fileName}.{" "}
-                {docs ? "Read from the documents." : template ? "The file follows the template." : "Columns matched."}
-                {book.cases.discarded
-                  ? ` ${book.cases.discarded} template guide row${book.cases.discarded === 1 ? "" : "s"} (format or example) skipped.`
-                  : ""}
-                {repeatsFound ? ` Repeated sections: ${repeatsFound}.` : ""} Cases with details
-                missing are still created, and fixed on Case details.
-              </>
-            }
+            title={coreMissing.length ? "Check" : `Create ${creating} case${creating === 1 ? "" : "s"}`}
+            description="Cases with details to fix are still created. You fix them in the filing form next."
           />
           {errorNotice}
           {coreMissing.length ? (
@@ -782,12 +797,10 @@ export function UploadScreen() {
               }
             >
               It has no column for{" "}
-              {new Intl.ListFormat("en", { type: "disjunction" }).format(
-                coreMissing.map((c) => c.header.toLowerCase()),
-              )}
-              , and every case needs {coreMissing.length === 1 ? "it" : "them"} from the file.
-              Match {coreMissing.length === 1 ? "it" : "them"} on Match columns, or upload a file
-              that has {coreMissing.length === 1 ? "it" : "them"}.
+              {new Intl.ListFormat("en", { type: "disjunction" }).format(coreMissing.map((c) => c.header.toLowerCase()))}
+              , and every case needs {coreMissing.length === 1 ? "it" : "them"} from the file. Match{" "}
+              {coreMissing.length === 1 ? "it" : "them"} on Match columns, or upload a file that has{" "}
+              {coreMissing.length === 1 ? "it" : "them"}.
             </StatusLine>
           ) : missing.length ? (
             <StatusLine
@@ -795,33 +808,36 @@ export function UploadScreen() {
               still
               title={`${missing.length} required field${missing.length === 1 ? " is" : "s are"} not in your file`}
             >
-                Every case will arrive without{" "}
-                {new Intl.ListFormat("en", { type: "conjunction" }).format(
-                  missing.map((c) => c.header.toLowerCase()),
-                )}
-                . Each case stays in draft until you enter {missing.length === 1 ? "it" : "them"} on
-                its Case details.
+              Every case will arrive without{" "}
+              {new Intl.ListFormat("en", { type: "conjunction" }).format(missing.map((c) => c.header.toLowerCase()))}
+              . Each case stays in draft until you enter {missing.length === 1 ? "it" : "them"} on its Case details.
             </StatusLine>
           ) : null}
           {/* While the file can't make any case, no count is shown: a number of cases "to be
               created" under that blocker says the opposite of it (bulk audit, 2026-11-04). */}
           {coreMissing.length ? null : (
             <Card variant="raised">
-              <CardContent className="grid gap-6 sm:grid-cols-2">
-                <div className="flex flex-col gap-1">
-                  <span className="text-title font-semibold tabular-nums">{creating}</span>
-                  <span className="text-body-compact text-muted-foreground">
-                    {creating === 1 ? "case will be created" : "cases will be created"}
-                  </span>
+              <CardContent className="flex flex-col gap-6">
+                <div className="grid gap-6 sm:grid-cols-3">
+                  {[
+                    { n: creating - withBlanks.length, label: "Ready to create", tone: "" },
+                    { n: withBlanks.length, label: "Created, with details to fix", tone: withBlanks.length ? "text-warning-ink" : "" },
+                    { n: cannot.length, label: "Can't be created", tone: cannot.length ? "text-destructive-ink" : "" },
+                  ].map((x) => (
+                    <div key={x.label} className="flex flex-col gap-1">
+                      <span className={cn("text-title font-semibold tabular-nums", x.tone)}>{x.n}</span>
+                      <span className="text-body-compact text-muted-foreground">{x.label}</span>
+                    </div>
+                  ))}
                 </div>
-                {cannot.length ? (
-                  <div className="flex flex-col gap-1">
-                    <span className="text-title font-semibold tabular-nums text-destructive-ink">{cannot.length}</span>
-                    <span className="text-body-compact text-muted-foreground">
-                      {cannot.length === 1 ? "row can't be created" : "rows can't be created"}
-                    </span>
-                  </div>
-                ) : null}
+                <p className="text-body-compact text-muted-foreground">
+                  <span className="tabular-nums">{book.cases.rows.length}</span> rows read from {fileName}.{" "}
+                  {docs ? "Read from the documents." : template ? "The file follows the template." : "Columns matched."}
+                  {book.cases.discarded
+                    ? ` ${book.cases.discarded} template guide row${book.cases.discarded === 1 ? "" : "s"} skipped.`
+                    : ""}
+                  {repeatsFound ? ` Repeated sections: ${repeatsFound}.` : ""}
+                </p>
               </CardContent>
             </Card>
           )}
@@ -832,93 +848,157 @@ export function UploadScreen() {
                   {cannot.length === 1 ? "1 row can't be created" : `${cannot.length} rows can't be created`}
                 </CardTitle>
                 <CardDescription>
-                  {cannot.length === 1 ? "It's" : "They're"} left out of this batch. Fix{" "}
-                  {cannot.length === 1 ? "it" : "them"} in the downloaded file and upload{" "}
-                  {cannot.length === 1 ? "it" : "them"} as a new batch, or correct your file and
+                  {cannot.length === 1 ? "It's" : "They're"} left out of this batch. Fix {cannot.length === 1 ? "it" : "them"} in
+                  the downloaded file and upload {cannot.length === 1 ? "it" : "them"} as a new batch, or correct your file and
                   upload it again here.
                 </CardDescription>
                 <CardAction>
-                  <Button variant="outline" onClick={() => downloadRows(book, cannot, fileName)}>
+                  <Button variant="outline" size="sm" onClick={() => downloadRows(book, cannot, fileName)}>
                     <DownloadIcon data-icon="inline-start" aria-hidden />
                     Download these rows
                   </Button>
                 </CardAction>
               </CardHeader>
               <CardContent>
-                <div className="overflow-x-auto">
-                  <Table className="border-separate border-spacing-0" aria-label="Rows that can't be created">
-                    <TableHeader>
-                      <TableRow className={TABLE_HEAD_ROW}>
-                        <TableHead className={cn(TABLE_HEAD, "pl-4")}>Row</TableHead>
-                        <TableHead className={TABLE_HEAD}>Accused</TableHead>
-                        <TableHead className={TABLE_HEAD}>Why</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody className={tableBodyClass({ hover: false })}>
-                      {cannot.map((x) => (
-                        <TableRow key={x.index} className={tableRowClass({ hover: false })}>
-                          <TableCell className={cn(TABLE_CELL, "pl-4 tabular-nums")}>{x.row}</TableCell>
-                          <TableCell className={TABLE_CELL}>{x.who || "—"}</TableCell>
-                          <TableCell className={TABLE_CELL}>
-                            <span className="inline-flex items-start gap-2">
-                              <CircleXIcon className="mt-0.5 size-4 shrink-0 text-destructive-ink" aria-hidden />
-                              {x.why}
-                            </span>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                <ul className="flex flex-col">
+                  {cannot.map((x) => (
+                    <li
+                      key={x.index}
+                      className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-hairline py-3 last:border-b-0"
+                    >
+                      <span className="w-20 shrink-0 text-body-compact text-muted-foreground tabular-nums">Row {x.row}</span>
+                      <span className="min-w-0 flex-1 text-body-compact">{x.who || "—"}</span>
+                      <span className="inline-flex items-center gap-1.5 text-body-compact text-destructive-ink">
+                        <CircleXIcon className="size-4 shrink-0" aria-hidden />
+                        {x.why}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               </CardContent>
             </Card>
           ) : null}
-          <Card variant="raised">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-body font-semibold">
-                {/* A green tick over the rows reads as "good to go"; not while nothing can be created. */}
-                {coreMissing.length ? null : <CheckCircle2Icon className="size-5 text-success-ink" aria-hidden />}
-                First cases
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4">
-              <div className="overflow-x-auto">
-                <Table className="border-separate border-spacing-0" aria-label="First rows">
-                  <TableHeader>
-                    <TableRow className={TABLE_HEAD_ROW}>
-                      {PREVIEW.map((k) => (
-                        <TableHead key={k} className={cn(TABLE_HEAD, k === "reference" && "pl-4")}>
-                          {COLUMNS.find((c) => c.key === k)!.header}
-                        </TableHead>
-                      ))}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody className={tableBodyClass({ hover: false })}>
-                    {first.slice(0, 8).map((row, n) => (
-                      <TableRow key={n} className={tableRowClass({ hover: false })}>
-                        {PREVIEW.map((k) => {
-                          const i = map[k];
+          {(() => {
+            // Every row that becomes a case, filterable and searchable, 25 at a time (v8).
+            const cell = (row: string[], k: string) => {
+              const i = map[k];
+              return typeof i === "number" ? row[i] || "" : i && typeof i === "object" ? i.every : "";
+            };
+            const blankSet = new Set(withBlanks.map((x) => x.row));
+            const q = checkQ.trim().toLowerCase();
+            const rows = created
+              .filter((x) =>
+                checkShow === "all" ? true : checkShow === "blanks" ? blankSet.has(x.row) : !blankSet.has(x.row),
+              )
+              .filter((x) => !q || ["accusedName", "reference", "chequeNumber"].some((k) => cell(x.cells, k).toLowerCase().includes(q)));
+            const pages = Math.max(1, Math.ceil(rows.length / 25));
+            const at = Math.min(checkPage, pages - 1);
+            const page = rows.slice(at * 25, (at + 1) * 25);
+            return (
+              <>
+                <div className="flex flex-wrap items-center gap-3">
+                  <SegmentedControl
+                    type="single"
+                    value={checkShow}
+                    onValueChange={(v) => {
+                      if (!v) return;
+                      setCheckShow(v as typeof checkShow);
+                      setCheckPage(0);
+                    }}
+                    aria-label="Show rows"
+                  >
+                    <SegmentedControlItem value="all">All {created.length}</SegmentedControlItem>
+                    <SegmentedControlItem value="clean">Ready {created.length - withBlanks.length}</SegmentedControlItem>
+                    <SegmentedControlItem value="blanks">To fix {withBlanks.length}</SegmentedControlItem>
+                  </SegmentedControl>
+                  <div className="w-full sm:ml-auto sm:w-72">
+                    <Label htmlFor="check-search" className="sr-only">
+                      Search rows
+                    </Label>
+                    <InputGroup>
+                      <InputGroupAddon>
+                        <SearchIcon aria-hidden />
+                      </InputGroupAddon>
+                      <InputGroupInput
+                        id="check-search"
+                        type="search"
+                        autoComplete="off"
+                        value={checkQ}
+                        onChange={(e) => {
+                          setCheckQ(e.target.value);
+                          setCheckPage(0);
+                        }}
+                        placeholder="Reference, accused or cheque"
+                      />
+                    </InputGroup>
+                  </div>
+                </div>
+                <Card variant="raised" className="gap-0 p-2">
+                  <div className="overflow-x-auto">
+                    <Table className="border-separate border-spacing-0" aria-label="Rows that become cases">
+                      <TableHeader>
+                        <TableRow className={TABLE_HEAD_ROW}>
+                          <TableHead className={TABLE_HEAD}>Row</TableHead>
+                          <TableHead className={TABLE_HEAD}>Accused</TableHead>
+                          <TableHead className={TABLE_HEAD}>Your reference</TableHead>
+                          <TableHead className={cn(TABLE_HEAD, "text-right")}>Cheque amount</TableHead>
+                          <TableHead className={TABLE_HEAD}>To fix</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody className={tableBodyClass({ hover: false })}>
+                        {page.map((x) => {
+                          const blanks = withBlanks.find((w) => w.row === x.row)?.blanks ?? [];
                           return (
-                            <TableCell
-                              key={k}
-                              className={cn(TABLE_CELL, "tabular-nums", k === "reference" && "pl-4 font-medium")}
-                            >
-                              {typeof i === "number" ? row[i] || "—" : i && typeof i === "object" ? i.every : "—"}
-                            </TableCell>
+                            <TableRow key={x.row} className={tableRowClass({ hover: false })}>
+                              <TableCell className={cn(TABLE_CELL, "text-muted-foreground tabular-nums")}>{x.row}</TableCell>
+                              <TableCell className={cn(TABLE_CELL, "font-medium")}>{cell(x.cells, "accusedName") || "—"}</TableCell>
+                              <TableCell className={cn(TABLE_CELL, "tabular-nums")}>{cell(x.cells, "reference") || "—"}</TableCell>
+                              <TableCell className={cn(TABLE_CELL, "text-right tabular-nums")}>{(() => {
+                                const raw = cell(x.cells, "chequeAmount");
+                                const n = Number(raw.replace(/[^\d.]/g, ""));
+                                return raw ? (n ? money(n) : raw) : "—";
+                              })()}</TableCell>
+                              <TableCell className={cn(TABLE_CELL, "whitespace-normal")}>
+                                {blanks.length ? (
+                                  <span className="inline-flex items-start gap-1.5">
+                                    <CircleAlertIcon aria-hidden className="mt-0.5 size-4 shrink-0 text-warning-ink" />
+                                    {blanks.join(", ")}
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                                    <CheckIcon aria-hidden className="size-4 text-success" />
+                                    Nothing missing
+                                  </span>
+                                )}
+                              </TableCell>
+                            </TableRow>
                           );
                         })}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-              {first.length > 8 ? (
-                <span className="text-caption text-muted-foreground tabular-nums">
-                  and {first.length - 8} more
-                </span>
-              ) : null}
-            </CardContent>
-          </Card>
+                      </TableBody>
+                    </Table>
+                  </div>
+                  {rows.length > 25 ? (
+                    <div className="flex items-center justify-between gap-3 px-2 pt-3 pb-1 text-body-compact text-muted-foreground">
+                      <span className="tabular-nums">
+                        {at * 25 + 1}–{Math.min(rows.length, (at + 1) * 25)} of {rows.length}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Button variant="ghost" size="icon-sm" aria-label="Previous page" disabled={at === 0} onClick={() => setCheckPage(at - 1)}>
+                          <ChevronLeftIcon aria-hidden />
+                        </Button>
+                        <span className="tabular-nums">
+                          Page {at + 1} of {pages}
+                        </span>
+                        <Button variant="ghost" size="icon-sm" aria-label="Next page" disabled={at >= pages - 1} onClick={() => setCheckPage(at + 1)}>
+                          <ChevronRightIcon aria-hidden />
+                        </Button>
+                      </span>
+                    </div>
+                  ) : null}
+                </Card>
+              </>
+            );
+          })()}
         </FilingMain>
         {/* Two ways on, and only two: create the cases that can be, or correct the file
             and upload it again. Rows left out never join this batch later. */}
