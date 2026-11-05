@@ -693,3 +693,70 @@ export function columnFit(column: Column, values: string[]): ColumnFit {
       return { ok: true };
   }
 }
+
+/* ───────────────────────────── Suggested columns ───────────────────────────── */
+
+/** Short forms a lender's export writes, read as the words the template uses. */
+const SHORT: Record<string, string> = {
+  chq: "cheque",
+  cheq: "cheque",
+  amt: "amount",
+  dt: "date",
+  no: "number",
+  num: "number",
+  ac: "account",
+  acc: "account",
+  cust: "customer",
+  addr: "address",
+  add: "address",
+  pin: "pincode",
+  ref: "reference",
+  bnc: "return",
+  bounce: "return",
+  ret: "return",
+  rsn: "reason",
+  ps: "police",
+  mob: "mobile",
+  ph: "phone",
+  dispatch: "dispatch",
+  disp: "dispatch",
+};
+
+const words = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/a\/c/g, "account")
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)
+    .map((w) => SHORT[w] ?? w);
+
+/**
+ * A likely column for a field the file's names did not match: the column whose words,
+ * short forms read out ("Chq Amt" as cheque amount), best overlap the field's name or one
+ * of its aliases, and whose values fit the field. Offered, never applied: the filer
+ * accepts it (v8's "Suggested: Loan A/c — TCL-AHD-PL-1001", with Accept).
+ */
+export function suggestColumn(
+  column: Column,
+  headers: string[],
+  rows: string[][],
+  taken: Set<number>,
+): number | null {
+  const targets = [column.header, ...column.aliases].map((t) => new Set(words(t)));
+  let best: { k: number; score: number } | null = null;
+  headers.forEach((h, k) => {
+    if (taken.has(k) || !h.trim()) return;
+    const ws = words(h);
+    if (!ws.length) return;
+    const score = Math.max(
+      ...targets.map((t) => {
+        const hit = ws.filter((w) => t.has(w)).length;
+        return hit / Math.max(t.size, ws.length);
+      }),
+    );
+    if (score >= 0.5 && (!best || score > best.score)) best = { k, score };
+  });
+  if (!best) return null;
+  const k = (best as { k: number }).k;
+  return columnFit(column, rows.map((r) => r[k] ?? "")).ok ? k : null;
+}
