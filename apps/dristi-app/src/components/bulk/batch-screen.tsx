@@ -150,7 +150,7 @@ export function BatchScreen({ batchId }: { batchId: string }) {
   }
 
   const ctx: BatchCtx = { batch, setBatch, go };
-  const { workable, allFiled, docsMissing, lacking, attention, fixing, clear, detailsNote } = batchTallies(batch);
+  const { workable, allFiled, docsMissing, attention, fixing, clear, detailsNote } = batchTallies(batch);
 
   // The six steps, from what the batch already is to what is left. Common details and
   // Cases were settled when the batch was created; both stay open to read.
@@ -187,11 +187,8 @@ export function BatchScreen({ batchId }: { batchId: string }) {
       : attention
         ? `${plural(attention, "case", "cases")} to check`
         : "Every case's details are complete",
-    documents: lacking
-      ? `${plural(lacking, "case is", "cases are")} missing documents`
-      : docsMissing
-        ? `${plural(docsMissing, "case has a scan", "cases have scans")} to check`
-        : "Every document is in",
+    // The step's name; the card under it says how many cases are missing what (v8).
+    documents: "Documents",
     review: "Review",
     sign: clear ? `Sign ${plural(clear, "case", "cases")}` : "Sign",
     pay: batch.counts.signed ? `Pay for ${plural(batch.counts.signed, "case", "cases")}` : "Pay",
