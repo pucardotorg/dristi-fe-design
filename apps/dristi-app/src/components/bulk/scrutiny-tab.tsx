@@ -4,11 +4,18 @@ import * as React from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
+  ArrowRightIcon,
+  CheckIcon,
+  ChevronLeftIcon,
   ChevronRightIcon,
   CircleAlertIcon,
+  CircleXIcon,
   OctagonAlertIcon,
+  SearchIcon,
   Trash2Icon,
+  TriangleAlertIcon,
   Undo2Icon,
+  WandSparklesIcon,
 } from "lucide-react";
 
 import type { Flag } from "@/lib/bulk/scrutiny";
@@ -19,9 +26,20 @@ import { ConfirmDialog } from "@/components/shell/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { Label } from "@/components/ui/label";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  TABLE_CELL,
+  TABLE_HEAD,
+  TABLE_HEAD_ROW,
+  tableBodyClass,
+  tableRowClass,
+} from "@/components/chrome/table-plate";
 
 import { bulkApi, caseFlowHref, type CaseView } from "./api";
-import { CaseStateBadge } from "./case-list";
 import { BatchFooter } from "./batch-footer";
 import type { BatchCtx } from "./batch-screen";
 import { StatusLine } from "@/components/feedback";
@@ -99,15 +117,93 @@ const rankOf = (c: CaseView) => {
   const f = detailFlags(c);
   return f.some((x) => x.level === "hold") ? 0 : f.length ? 1 : 2;
 };
-const RANK: Show[] = ["hold", "check", "ready"];
 
-type Show = "all" | "hold" | "check" | "ready";
+
+type Show = "fix" | "check" | "ready" | "all";
+const PAGE = 25;
+
+/** What a case still needs, in one line: the first thing to fix, or to check, or nothing. */
+function ToFix({ c }: { c: CaseView }) {
+  const f = detailFlags(c);
+  const holds = f.filter((x) => x.level === "hold");
+  const first = holds[0] ?? f[0];
+  if (!first)
+    return (
+      <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+        <CheckIcon aria-hidden className="size-4 text-success" />
+        Complete
+      </span>
+    );
+  const hold = first.level === "hold";
+  const Icon = hold ? CircleXIcon : TriangleAlertIcon;
+  return (
+    <span className="inline-flex min-w-0 items-start gap-1.5">
+      <Icon aria-hidden className={cn("mt-0.5 size-4 shrink-0", hold ? "text-destructive" : "text-warning-ink")} />
+      <span className="min-w-0">
+        <span className="sr-only">{hold ? "To fix: " : "To check: "}</span>
+        {first.where}: {first.message}
+        {f.length > 1 ? <span className="text-muted-foreground tabular-nums"> (and {f.length - 1} more)</span> : null}
+      </span>
+    </span>
+  );
+}
 
 /**
- * Case details: every open case of the batch, with what each still needs. A case opens in
- * the single filing's own sections (`case-flow.tsx`), at the first section with something
- * to fix: the one complete view of a case, with the batch's checks on its fields.
- * Documents are on their own tab.
+ * A gap the batch shares (its advocate), fixed once for every case that has it. Main's
+ * "Apply to every case", lifted to the list the way v8 lifted its batch fix ("Find for all").
+ */
+function SharedFix({
+  label,
+  options,
+  path,
+  cases,
+  busy,
+  onApply,
+}: {
+  label: string;
+  options: { value: string; label: string }[];
+  path: string;
+  cases: CaseView[];
+  busy: boolean;
+  onApply: (caseId: string, path: string, value: string) => void;
+}) {
+  const id = React.useId();
+  const [value, setValue] = React.useState("");
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-hairline bg-card px-6 py-4 shadow-raised">
+      <WandSparklesIcon aria-hidden className="size-5 text-muted-foreground" />
+      <div className="flex min-w-0 flex-1 basis-64 flex-col">
+        <span className="text-body-compact font-medium tabular-nums">
+          {cases.length} cases have no {label.toLowerCase()}
+        </span>
+        <span className="text-body-compact text-muted-foreground">Choose it once and it goes on all of them.</span>
+      </div>
+      <div className="w-full sm:w-72">
+        <Label htmlFor={id} className="sr-only">
+          {label} for all {cases.length}
+        </Label>
+        <NativeSelect id={id} value={value} onChange={(e) => setValue(e.target.value)} className="w-full">
+          <NativeSelectOption value="">Choose</NativeSelectOption>
+          {options.map((o) => (
+            <NativeSelectOption key={o.value} value={o.value}>
+              {o.label}
+            </NativeSelectOption>
+          ))}
+        </NativeSelect>
+      </div>
+      <Button variant="outline" disabled={busy || !value} onClick={() => onApply(cases[0].id, path, value)}>
+        Use for all {cases.length}
+      </Button>
+    </div>
+  );
+}
+
+/**
+ * Case details: the batch's open cases as v8 lists them. The list starts on the cases to
+ * fix, can be searched by accused, reference or cheque, and is read 25 at a time. A case
+ * opens in the single filing's own sections (`case-flow.tsx`), at the first section with
+ * something to fix. The footer's primary is the work itself ("Fix the first case"), with
+ * "Continue with N complete" beside it, so cases still to fix never hold the rest up.
  */
 export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
   const [busy, setBusy] = React.useState(false);
@@ -118,19 +214,33 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
   // The case the filer came back from, marked so they can find their place.
   const last = params.get("case");
 
-  const open = batch.cases.filter(
-    (c) => c.stage === "held" || c.stage === "ready",
-  );
-  const ordered = [...open].sort((a, b) => rankOf(a) - rankOf(b));
-  const [show, setShow] = React.useState<Show>("all");
+  const open = batch.cases.filter((c) => c.stage === "held" || c.stage === "ready");
+  const fixing = open.filter((c) => rankOf(c) === 0);
+  const checking = open.filter((c) => rankOf(c) === 1);
+  const complete = open.filter((c) => rankOf(c) === 2);
+  const [show, setShow] = React.useState<Show>(fixing.length ? "fix" : "all");
+  const [search, setSearch] = React.useState("");
+  const [page, setPage] = React.useState(0);
   const [removing, setRemoving] = React.useState<CaseView | null>(null);
-  const listed = ordered.filter(
-    (c) => show === "all" || RANK[rankOf(c)] === show,
-  );
-  const count = (s: Show) =>
-    s === "all"
-      ? open.length
-      : ordered.filter((c) => RANK[rankOf(c)] === s).length;
+
+  const term = search.trim().toLowerCase();
+  const inShow = { fix: fixing, check: checking, ready: complete, all: open }[show];
+  const listed = [...inShow]
+    .sort((a, b) => rankOf(a) - rankOf(b))
+    .filter((c) => !term || [c.accused, c.title, c.reference, c.cheque].some((v) => v.toLowerCase().includes(term)));
+  const pages = Math.max(1, Math.ceil(listed.length / PAGE));
+  const at = Math.min(page, pages - 1);
+  const shown = listed.slice(at * PAGE, (at + 1) * PAGE);
+
+  // Shared gaps the batch can fix once: a batch-wide value fix on more than one case.
+  const shared = new Map<string, { label: string; options: { value: string; label: string }[]; cases: CaseView[] }>();
+  for (const c of open)
+    for (const f of c.flags) {
+      if (!f.batchWide || f.fix?.kind !== "select") continue;
+      const g = shared.get(f.fix.path) ?? { label: f.fix.label, options: f.fix.options, cases: [] };
+      if (!g.cases.includes(c)) g.cases.push(c);
+      shared.set(f.fix.path, g);
+    }
 
   const act = async (body: Record<string, unknown>) => {
     setBusy(true);
@@ -146,113 +256,200 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
 
   const skipped = open.flatMap((c) => c.skipped.map((f) => ({ c, f })));
 
-  const chips: { id: Show; label: string; ink?: string }[] = [
-    { id: "all", label: "All" },
-    { id: "hold", label: "Needs fixing", ink: "text-destructive-ink" },
-    { id: "check", label: "To check", ink: "text-warning-ink" },
-    { id: "ready", label: "Ready", ink: "text-success-ink" },
-  ];
-
   if (!open.length)
     return (
       /* Nothing to do here is not news: neutral. */
       <StatusLine tone="neutral" still>
         Nothing open here.{" "}
-        <button
-          type="button"
-          className="underline"
-          onClick={() => go("sign")}
-        >
+        <button type="button" className="underline" onClick={() => go("sign")}>
           Go to Sign
         </button>
       </StatusLine>
     );
 
+  const firstToFix = fixing[0] ?? null;
+
   return (
     <div className="flex flex-col gap-4">
-      <div
-        className="flex flex-wrap items-center gap-2"
-        role="group"
-        aria-label="Show cases"
-      >
-        {chips.map((c) => (
-          <Button
-            key={c.id}
-            variant="outline"
-            aria-pressed={show === c.id}
-            disabled={c.id !== "all" && count(c.id) === 0}
-            onClick={() => setShow(c.id)}
-            className="rounded-full aria-pressed:border-primary aria-pressed:bg-accent-strong"
-          >
-            {c.label}
-            <span
-              className={cn("tabular-nums", c.ink ?? "text-muted-foreground")}
-            >
-              {count(c.id)}
-            </span>
-          </Button>
+      {[...shared.entries()]
+        .filter(([, g]) => g.cases.length > 1 && !closed)
+        .map(([path, g]) => (
+          <SharedFix
+            key={path}
+            label={g.label}
+            options={g.options}
+            path={path}
+            cases={g.cases}
+            busy={busy}
+            onApply={(caseId, p, value) => void act({ action: "fix", caseId, path: p, value, everyCase: true })}
+          />
         ))}
+
+      <div className="flex flex-wrap items-center gap-3">
+        <SegmentedControl
+          type="single"
+          value={show}
+          onValueChange={(v) => {
+            if (!v) return;
+            setShow(v as Show);
+            setPage(0);
+          }}
+          aria-label="Show cases"
+          className="max-w-full overflow-x-auto"
+        >
+          <SegmentedControlItem value="fix">To fix {fixing.length}</SegmentedControlItem>
+          <SegmentedControlItem value="check">To check {checking.length}</SegmentedControlItem>
+          <SegmentedControlItem value="ready">Complete {complete.length}</SegmentedControlItem>
+          <SegmentedControlItem value="all">All {open.length}</SegmentedControlItem>
+        </SegmentedControl>
+        <div className="w-full sm:ml-auto sm:w-72">
+          <Label htmlFor="details-search" className="sr-only">
+            Search cases
+          </Label>
+          <InputGroup>
+            <InputGroupAddon>
+              <SearchIcon aria-hidden />
+            </InputGroupAddon>
+            <InputGroupInput
+              id="details-search"
+              type="search"
+              autoComplete="off"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(0);
+              }}
+              placeholder="Accused, reference or cheque"
+            />
+          </InputGroup>
+        </div>
       </div>
 
-      {error ? (
-        <StatusLine tone="error">{error}</StatusLine>
-      ) : null}
+      {error ? <StatusLine tone="error">{error}</StatusLine> : null}
 
-      <Card variant="raised" className="gap-0 py-1">
-        <ul className="flex flex-col divide-y divide-hairline">
-          {listed.map((c) => {
-            const f = detailFlags(c);
-            const holds = f.filter((x) => x.level === "hold").length;
-            const first = f.find((x) => x.level === "hold") ?? f[0];
-            return (
-              <li key={c.id} className="flex items-start sm:items-center">
-                {/* On a phone the case takes the full width and its state drops to a line
-                    under it; side by side, the text was squeezed into a 90px column. */}
-                <Link
-                  href={caseFlowHref(batch.id, c, undefined, ai)}
-                  aria-current={c.id === last ? "true" : undefined}
-                  className="flex min-h-10 min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-2 py-3 pr-2 pl-4 transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-focus-ring focus-visible:outline-none focus-visible:ring-inset aria-[current=true]:bg-accent sm:flex-nowrap"
-                >
-                  <span className="flex min-w-0 basis-full flex-col sm:basis-auto sm:flex-1">
-                    <span className="text-body-compact font-medium">
-                      {c.title}
-                    </span>
-                    <span className="flex flex-wrap gap-x-2 text-body-compact text-muted-foreground tabular-nums">
-                      <span>{c.reference}</span>
-                      {c.cheque ? <span>· Cheque {c.cheque}</span> : null}
-                      {c.amount ? <span>· {money(c.amount)}</span> : null}
-                    </span>
-                    {first ? (
-                      <span className="mt-1 text-body-compact text-muted-foreground">
-                        {first.where}: {first.message}
-                        {f.length > 1 ? ` (and ${f.length - 1} more)` : ""}
-                      </span>
-                    ) : null}
-                  </span>
-                  <CaseStateBadge holds={holds} checks={f.length - holds} />
-                  <ChevronRightIcon
-                    aria-hidden
-                    className="ml-auto size-4 shrink-0 text-muted-foreground sm:ml-0"
-                  />
-                </Link>
-                {/* For a case that won't be filed: out of the batch, so the rest go on. */}
-                {!closed ? (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="mx-2 mt-2 shrink-0 text-muted-foreground sm:mt-0"
-                    aria-label={`Remove ${c.title} from this batch`}
-                    title="Remove from this batch"
-                    disabled={busy}
-                    onClick={() => setRemoving(c)}
+      <Card variant="raised" className="gap-0 p-2">
+        {shown.length === 0 ? (
+          <p className="p-4 text-body-compact text-muted-foreground">
+            {term ? `No case matches “${search.trim()}”.` : "No case here."}
+          </p>
+        ) : (
+          <>
+            {/* A table from md up; on a phone each case is a stacked row. */}
+            <div className="hidden overflow-x-auto md:block">
+              <Table className="border-separate border-spacing-0" aria-label="Cases">
+                <TableHeader>
+                  <TableRow className={TABLE_HEAD_ROW}>
+                    <TableHead className={TABLE_HEAD}>Accused</TableHead>
+                    <TableHead className={TABLE_HEAD}>Your reference</TableHead>
+                    <TableHead className={TABLE_HEAD}>To fix</TableHead>
+                    <TableHead className={TABLE_HEAD}>
+                      <span className="sr-only">Actions</span>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className={tableBodyClass()}>
+                  {shown.map((c) => {
+                    const href = caseFlowHref(batch.id, c, undefined, ai);
+                    return (
+                      <TableRow
+                        key={c.id}
+                        className={tableRowClass()}
+                        aria-current={c.id === last ? "true" : undefined}
+                      >
+                        <TableCell className={TABLE_CELL}>
+                          <Link href={href} className="font-medium hover:underline">
+                            {c.accused || c.title}
+                          </Link>
+                          <span className="block text-body-compact text-muted-foreground tabular-nums">
+                            {c.cheque ? `Cheque ${c.cheque}` : ""}
+                            {c.amount ? ` · ${money(c.amount)}` : ""}
+                          </span>
+                        </TableCell>
+                        <TableCell className={cn(TABLE_CELL, "tabular-nums")}>{c.reference}</TableCell>
+                        <TableCell className={cn(TABLE_CELL, "w-full min-w-64 whitespace-normal")}>
+                          <ToFix c={c} />
+                        </TableCell>
+                        <TableCell className={TABLE_CELL}>
+                          <span className="flex justify-end gap-1">
+                            <Button asChild variant="outline" size="sm">
+                              <Link href={href}>{rankOf(c) === 2 ? "Open" : "Fix"}</Link>
+                            </Button>
+                            {!closed ? (
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                className="text-muted-foreground"
+                                aria-label={`Remove ${c.title} from this batch`}
+                                title="Remove from this batch"
+                                disabled={busy}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setRemoving(c);
+                                }}
+                              >
+                                <Trash2Icon aria-hidden />
+                              </Button>
+                            ) : null}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+            <ul className="flex flex-col divide-y divide-hairline md:hidden">
+              {shown.map((c) => (
+                <li key={c.id} className="flex items-start">
+                  <Link
+                    href={caseFlowHref(batch.id, c, undefined, ai)}
+                    aria-current={c.id === last ? "true" : undefined}
+                    className="flex min-w-0 flex-1 flex-col gap-1 rounded-lg px-2 py-3 hover:bg-accent focus-visible:ring-3 focus-visible:ring-focus-ring focus-visible:outline-none aria-[current=true]:bg-accent"
                   >
-                    <Trash2Icon aria-hidden />
-                  </Button>
-                ) : null}
-              </li>
-            );
-          })}
-        </ul>
+                    <span className="text-body-compact font-medium">{c.accused || c.title}</span>
+                    <span className="text-body-compact text-muted-foreground tabular-nums">
+                      {c.reference}
+                      {c.cheque ? ` · Cheque ${c.cheque}` : ""}
+                    </span>
+                    <span className="text-body-compact">
+                      <ToFix c={c} />
+                    </span>
+                  </Link>
+                  {!closed ? (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="mt-1 shrink-0 text-muted-foreground"
+                      aria-label={`Remove ${c.title} from this batch`}
+                      disabled={busy}
+                      onClick={() => setRemoving(c)}
+                    >
+                      <Trash2Icon aria-hidden />
+                    </Button>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+        {listed.length > PAGE ? (
+          <div className="flex items-center justify-between gap-3 px-2 pt-3 pb-1 text-body-compact text-muted-foreground">
+            <span className="tabular-nums">
+              {at * PAGE + 1}–{Math.min(listed.length, (at + 1) * PAGE)} of {listed.length}
+            </span>
+            <span className="flex items-center gap-1">
+              <Button variant="ghost" size="icon-sm" aria-label="Previous page" disabled={at === 0} onClick={() => setPage(at - 1)}>
+                <ChevronLeftIcon aria-hidden />
+              </Button>
+              <span className="tabular-nums">
+                Page {at + 1} of {pages}
+              </span>
+              <Button variant="ghost" size="icon-sm" aria-label="Next page" disabled={at >= pages - 1} onClick={() => setPage(at + 1)}>
+                <ChevronRightIcon aria-hidden />
+              </Button>
+            </span>
+          </div>
+        ) : null}
       </Card>
 
       {skipped.length ? (
@@ -261,22 +458,15 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
           <Card variant="raised" className="gap-0 px-4 py-1">
             <ul className="flex flex-col divide-y divide-hairline">
               {skipped.map(({ c, f }) => (
-                <li
-                  key={`${c.id}-${f.id}`}
-                  className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center"
-                >
+                <li key={`${c.id}-${f.id}`} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center">
                   <div className="min-w-0 flex-1">
-                    <span className="text-body-compact font-medium">
-                      {c.title}
-                    </span>
+                    <span className="text-body-compact font-medium">{c.title}</span>
                     <FlagLine flag={f} />
                   </div>
                   <Button
                     variant="ghost"
                     disabled={busy || closed}
-                    onClick={() =>
-                      void act({ action: "unskip", caseId: c.id, flagId: f.id })
-                    }
+                    onClick={() => void act({ action: "unskip", caseId: c.id, flagId: f.id })}
                   >
                     <Undo2Icon data-icon="inline-start" aria-hidden />
                     Undo skip
@@ -294,11 +484,7 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
           if (!o) setRemoving(null);
         }}
         title="Remove this case from the batch?"
-        description={
-          removing
-            ? `${removing.title} · ${removing.reference} won't be filed with this batch.`
-            : undefined
-        }
+        description={removing ? `${removing.title} · ${removing.reference} won't be filed with this batch.` : undefined}
         confirmLabel="Remove"
         cancelLabel="Back"
         onConfirm={() => {
@@ -309,12 +495,21 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
 
       <BatchFooter>
         <FilingFooter
-        showSaveState={false}
-        // Documents next, in the batch's order. The cases still to fix never hold the rest
-        // up: each step works on the cases ready for it.
-        continueLabel="Continue to documents"
-        onContinue={() => go("documents")}
-      />
+          showSaveState={false}
+          onBack={() => go("cases")}
+          // The work first; the cases already complete go on without waiting for it (v8).
+          extra={
+            firstToFix ? (
+              <Button variant="outline" size="lg" onClick={() => go("documents")}>
+                Continue with {open.length - fixing.length} complete
+                <ArrowRightIcon data-icon="inline-end" aria-hidden />
+              </Button>
+            ) : null
+          }
+          continueLabel={firstToFix ? "Fix the first case" : "Continue to documents"}
+          continueHref={firstToFix ? caseFlowHref(batch.id, firstToFix, undefined, ai) : undefined}
+          onContinue={firstToFix ? undefined : () => go("documents")}
+        />
       </BatchFooter>
     </div>
   );
