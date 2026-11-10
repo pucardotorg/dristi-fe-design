@@ -1,16 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { ChevronRightIcon } from "lucide-react";
 
 import { useCourtText } from "@/components/court/court-provider";
-import {
-  TABLE_CELL,
-  TABLE_HEAD,
-  TABLE_HEAD_ROW,
-  tableBodyClass,
-  tableRowClass,
-} from "@/components/chrome/table-plate";
 import { RESOLVE_IN_PLACE } from "@/components/chrome/motion";
 import {
   BOX,
@@ -30,15 +22,6 @@ import { useCourtDocket } from "@/components/employee/docket-table";
 import { useCourtSession } from "@/components/employee/use-court-role";
 import { useCourtToday } from "@/components/employee/use-court-today";
 import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   COURT_LIMITS,
@@ -52,7 +35,6 @@ import {
 } from "@/lib/employee/court-docket";
 import {
   averageOver,
-  baselineWindows,
   closedCases,
   defaultSelection,
   filedAndClosed,
@@ -138,14 +120,6 @@ function periodName(reading: PeriodReading): string {
     return `${parts(from).day}–${p.day} ${MONTHS_LONG[p.month]} ${p.year}`;
   }
   return formatSpanFull(from, to);
-}
-
-/** One baseline window by name: "Thu 8 Oct", "September 2025", "1–19 Sep 2026". */
-function windowName(reading: PeriodReading, w: Period, latest: number): string {
-  if (reading.kind === "day") return weekdayDay(w.from, latest, reading.compare === "year");
-  /* A whole month baselines against whole months; month to date against the same days. */
-  if (reading.kind === "full") return monthLong(monthKey(w.from));
-  return formatSpanFull(w.from, w.to);
 }
 
 /** What the baseline is called in a sentence: "September 2026", "the 6-month average". */
@@ -276,7 +250,6 @@ type OverviewList =
   | "pending"
   | "awaiting"
   | `age-${0 | 1 | 2 | 3}`
-  | "oldest"
   | `stage-${StageKey}`
   | `late-${StageKey}`
   | `bin-${StageKey}-${number}`;
@@ -303,7 +276,6 @@ function Overview({
   const since = reading.kind === "day" ? formatDayShort(from - DAY_MS) : formatDayShort(from);
   const sets = pendingSets(docket, reading.selection);
   const ages = sets.ages.map((a) => a.length);
-  const oldest = sets.all[0] ?? null;
   const period = periodName(reading);
   const list = useCaseList<OverviewList>();
   const listId = "dash-overview-cases";
@@ -331,10 +303,6 @@ function Overview({
       const rows = key === "pending" ? sets.all : sets.awaitingRegistration;
       const what = key === "pending" ? "" : " · waiting to be registered";
       return { title: `${pendingName}${what}`, summary: `${plural(rows.length, "case", "cases")} · longest in court first`, rows, daysHeader: inCourt, details: pastNote };
-    }
-    if (key === "oldest") {
-      const rows = oldest ? [oldest] : [];
-      return { title: "Oldest pending case", summary: plural(rows.length, "case", "cases"), rows, daysHeader: inCourt, details: pastNote };
     }
     if (key.startsWith("age-")) {
       const i = Number(key.slice(4)) as 0 | 1 | 2 | 3;
@@ -441,7 +409,6 @@ function Overview({
             fact={`${formatCount(end.longPending)} more on the long pending register, not counted`}
           />
         </div>
-        <BaselineBreakdown docket={docket} reading={reading} />
       </div>
 
       <section aria-labelledby="dash-ages" className={cn(BOX, "flex flex-col gap-4 p-4 sm:px-6")}>
@@ -477,17 +444,6 @@ function Overview({
             );
           })}
         </ul>
-        {oldest ? (
-          <p className="flex flex-wrap items-baseline gap-x-3 border-t border-hairline pt-3 text-body-compact tabular-nums">
-            <span className="font-semibold">Oldest pending case</span>
-            <span className="text-muted-foreground">
-              filed {formatDay(oldest.case.filed)}, {plural(oldest.days, "day", "days")} ago
-            </span>
-            <CountButton name="oldest pending case" className="-my-3" {...opener("oldest")}>
-              Open the case
-            </CountButton>
-          </p>
-        ) : null}
       </section>
 
       <StagePath docket={docket} reading={reading} opener={opener} />
@@ -529,67 +485,6 @@ function OverviewCard({
       {change}
       <p className="mt-2 w-full border-t border-hairline pt-2 text-caption text-muted-foreground tabular-nums">{fact}</p>
     </div>
-  );
-}
-
-/** What the comparison is made of: each baseline window, with its filed and closed counts. */
-function BaselineBreakdown({ docket, reading }: { docket: CourtDocket; reading: PeriodReading }) {
-  if (reading.compare === "none" || !reading.baseline.length) return null;
-  const latest = docket.today;
-  const windows = baselineWindows(docket, reading);
-  const averaged = windows.length > 1;
-  const avg = (key: "filed" | "closed") => windows.reduce((sum, w) => sum + w[key], 0) / windows.length;
-  const one = (v: number) => (Number.isInteger(v) ? formatCount(v) : v.toFixed(1));
-  return (
-    <Collapsible className="flex min-w-0 flex-col gap-2">
-      <CollapsibleTrigger asChild>
-        <Button variant="link" className="group/base h-10 w-fit gap-1 px-0 text-body-compact">
-          <ChevronRightIcon aria-hidden className="transition-transform group-data-[state=open]/base:rotate-90 motion-reduce:transition-none" />
-          {averaged ? `What the ${windows.length}-period average is made of` : "What the comparison is made of"}
-        </Button>
-      </CollapsibleTrigger>
-      <CollapsibleContent className="min-w-0">
-        <div className="relative min-w-0 overflow-x-auto">
-          <Table className="w-full border-separate border-spacing-0 text-body-compact">
-            <caption className="sr-only">Comparison baseline, filed and closed in each window</caption>
-            <TableHeader>
-              <TableRow className={TABLE_HEAD_ROW}>
-                <TableHead className={cn(TABLE_HEAD, "whitespace-nowrap")}>
-                  {averaged ? "Window" : "Compared with"}
-                </TableHead>
-                <TableHead className={cn(TABLE_HEAD, "text-right whitespace-nowrap")}>Cases filed</TableHead>
-                <TableHead className={cn(TABLE_HEAD, "text-right whitespace-nowrap")}>Cases closed</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody className={tableBodyClass({ hover: false })}>
-              <tr aria-hidden="true">
-                <td colSpan={3} className="h-2 p-0" />
-              </tr>
-              {windows.map((w) => (
-                <TableRow key={w.period.from} className={tableRowClass({ hover: false })}>
-                  <TableCell className={cn(TABLE_CELL, "whitespace-nowrap")}>{windowName(reading, w.period, latest)}</TableCell>
-                  <TableCell className={cn(TABLE_CELL, "text-right tabular-nums")}>{formatCount(w.filed)}</TableCell>
-                  <TableCell className={cn(TABLE_CELL, "text-right tabular-nums")}>{formatCount(w.closed)}</TableCell>
-                </TableRow>
-              ))}
-              {averaged ? (
-                <TableRow className={tableRowClass({ hover: false })}>
-                  <TableCell className={cn(TABLE_CELL, "font-semibold")}>Average</TableCell>
-                  <TableCell className={cn(TABLE_CELL, "text-right font-semibold tabular-nums")}>
-                    {one(avg("filed"))}
-                    <span className="font-normal text-muted-foreground"> · shown as {formatCount(Math.round(avg("filed")))}</span>
-                  </TableCell>
-                  <TableCell className={cn(TABLE_CELL, "text-right font-semibold tabular-nums")}>
-                    {one(avg("closed"))}
-                    <span className="font-normal text-muted-foreground"> · shown as {formatCount(Math.round(avg("closed")))}</span>
-                  </TableCell>
-                </TableRow>
-              ) : null}
-            </TableBody>
-          </Table>
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
   );
 }
 
