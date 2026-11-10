@@ -230,6 +230,7 @@ export function BulkCaseFlow({
       // One frame for every section of the case: the source opens when asked for (round 3).
       sourcesOnDemand: true,
       partyInPerson: false,
+      guideMissing: true,
       issueAt: (instance, name) => {
         const hits = here.filter(({ at }) => at.instance === instance && at.name === name);
         return (hits.find(({ f }) => f.level === "hold") ?? hits[0])?.f.message ?? null;

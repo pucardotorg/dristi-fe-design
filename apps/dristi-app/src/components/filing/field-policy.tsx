@@ -87,6 +87,13 @@ export type FieldPolicy = {
    * appearing in person, so that state is never hidden.
    */
   partyInPerson?: false;
+  /**
+   * The list of documents names each group by its party with its own count, and the
+   * footer's "N required documents still needed" is a control: it marks every missing
+   * required row as a field error and takes you to the first. Bulk filing first (owner,
+   * 2026-11-10); the single filing adopts it by dropping this flag.
+   */
+  guideMissing?: true;
 };
 
 /** A host step in the sections rail. */

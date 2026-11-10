@@ -132,6 +132,7 @@ export function BulkSetupFlow({
       lockedAt: () => null,
       countFor: () => 0,
       documentGroups: (id) => id.startsWith("complainant-"),
+      guideMissing: true,
       // The parties are entered by hand here, once for the batch: no document is read, so
       // no source rail beside the form (owner, 2026-11-04).
       sources: false,

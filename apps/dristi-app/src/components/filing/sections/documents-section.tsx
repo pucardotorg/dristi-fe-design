@@ -29,7 +29,7 @@ import { ChromeDialogContent } from "@/components/chrome/app-chrome";
 import { uid } from "@/lib/filing/blank";
 import { getRepository, storeUpload } from "@/lib/filing/data";
 import { forgetFile, formatBytes, useFilePreview } from "@/lib/filing/files";
-import { documentsProgress, intakeSlots } from "@/lib/filing/selectors";
+import { complainantLabel, documentsProgress, intakeSlots } from "@/lib/filing/selectors";
 import { readability } from "@/lib/filing/readability";
 import { useFiling } from "@/lib/filing/store";
 import { useFieldPolicy } from "@/components/filing/field-policy";
@@ -45,6 +45,7 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { FieldError } from "@/components/ui/field";
 import {
   Dialog,
   DialogDescription,
@@ -135,7 +136,9 @@ function FilePreviewWell({ file }: { file: StoredFileRef | null }) {
 export function DocumentsSection() {
   const { draft, update, hrefFor } = useFiling();
   const router = useRouter();
-  const showGroup = useFieldPolicy()?.documentGroups;
+  const policy = useFieldPolicy();
+  const showGroup = policy?.documentGroups;
+  const guide = policy?.guideMissing === true;
   const groups = showGroup ? draft.documents.filter((g) => showGroup(g.id)) : draft.documents;
   const { remaining } = documentsProgress(groups);
   const { pick, input } = useFilePicker();
@@ -148,6 +151,8 @@ export function DocumentsSection() {
     hasFile: boolean;
   } | null>(null);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
+  /** The footer's count was pressed: missing required rows now read as field errors. */
+  const [reveal, setReveal] = React.useState(false);
   /** Why Continue did nothing, or why a file was refused: the warning toast, in the
       toast's place, rather than an alert pinned to the corner (skill `feedback-states`). */
   const say = React.useCallback((message: string) => {
@@ -273,13 +278,58 @@ export function DocumentsSection() {
     ? "All required documents added"
     : `${remaining} required document${remaining > 1 ? "s" : ""} still needed`;
 
+  const missing = (doc: CaseDocument) => doc.required && !doc.file;
+  const flagged = (doc: CaseDocument) => guide && reveal && missing(doc);
+  const errorId = (doc: CaseDocument) => `doc-missing-${doc.id}`;
+
+  /**
+   * Mark every missing required row and take the reader to the first: scrolled to the
+   * middle of the screen with its Upload focused, so Enter picks the file. The table and
+   * the phone list both render each row; only the one on screen has a layout box.
+   */
+  const revealMissing = () => {
+    setReveal(true);
+    requestAnimationFrame(() => {
+      const first = Array.from(
+        document.querySelectorAll<HTMLElement>("[data-missing-upload]"),
+      ).find((el) => el.getClientRects().length > 0);
+      if (!first) return;
+      const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      first.scrollIntoView({ block: "center", behavior: still ? "auto" : "smooth" });
+      first.focus({ preventScroll: true });
+    });
+  };
+
+  /** A group's heading: the party it belongs to, not "Complainant 1: documents". */
+  const groupHeading = (group: DocumentGroup) => {
+    if (group.id === "case") return { eyebrow: null, title: "Case documents" };
+    const n = Number(group.id.replace("complainant-", ""));
+    const c = draft.complainants[n - 1];
+    if (!c) return { eyebrow: null, title: group.title };
+    return {
+      eyebrow: draft.complainants.length > 1 ? `Complainant ${n}` : "Complainant",
+      title: complainantLabel(c, n - 1),
+    };
+  };
+
   const onContinue = () => {
     if (!allDone) {
       say(statusText);
+      if (guide) revealMissing();
       return;
     }
     router.push(hrefFor("preview"));
   };
+
+  /** An Upload for a missing required file: found by the guide, invalid once revealed. */
+  const missingProps = (doc: CaseDocument) =>
+    guide && missing(doc)
+      ? {
+          "data-missing-upload": "",
+          "aria-invalid": reveal || undefined,
+          "aria-describedby": reveal ? errorId(doc) : undefined,
+        }
+      : {};
 
   /* One row's four cells, written once. The table lays them out as columns; on a phone
      or an upright tablet the same four stack as a list row (see below), so the two
@@ -314,6 +364,7 @@ export function DocumentsSection() {
               Provided at case intake
             </span>
           ) : null}
+          {flagged(doc) ? <FieldError id={errorId(doc)}>Upload this to continue</FieldError> : null}
         </div>
       )}
       </>
@@ -343,13 +394,17 @@ export function DocumentsSection() {
             variant="outline"
             onClick={() => uploadDoc(doc.id)}
             aria-label={`Upload ${doc.name || `row ${index + 1}`}`}
+            {...missingProps(doc)}
           >
             <UploadIcon data-icon="inline-start" aria-hidden />
             Upload
           </Button>
-          <span className="text-caption text-muted-foreground">
-            No file chosen
-          </span>
+          {/* A native file input's words; the empty slot already says it (guide). */}
+          {guide ? null : (
+            <span className="text-caption text-muted-foreground">
+              No file chosen
+            </span>
+          )}
         </div>
       )}
       </>
@@ -431,12 +486,48 @@ export function DocumentsSection() {
           original digital file, such as an e-signed PDF, not a scan of a paper copy.
         </SectionNotice>
 
-        {groups.map((group) => (
-          <section key={group.id} className="flex flex-col gap-3">
-            {/* The case's own papers are its documents, not its "details" (round-3 audit). */}
-            <h2 className="text-title-s font-semibold">{group.id === "case" ? "Case documents" : group.title}</h2>
+        {groups.map((group) => {
+          const heading = groupHeading(group);
+          const need = group.docs.filter((d) => d.required);
+          const have = need.filter((d) => d.file).length;
+          return (
+          <section
+            key={group.id}
+            aria-labelledby={`doc-group-${group.id}`}
+            className="flex flex-col gap-3"
+          >
+            {guide ? null : (
+              /* The case's own papers are its documents, not its "details" (round-3 audit). */
+              <h2 className="text-title-s font-semibold">{group.id === "case" ? "Case documents" : group.title}</h2>
+            )}
 
             <div className={cn(PANEL_CLASS, "rounded-xl border bg-card")}>
+              {guide ? (
+                /* The group's party and its count, as the panel's own head: who these
+                   papers belong to, and how many of the required ones are in. */
+                <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-1 px-4 pt-4 pb-3">
+                  <div className="flex min-w-0 flex-col gap-0.5">
+                    {heading.eyebrow ? (
+                      <span className="text-body-compact text-muted-foreground">{heading.eyebrow}</span>
+                    ) : null}
+                    <h2 id={`doc-group-${group.id}`} className="text-title-s font-semibold">
+                      {heading.title}
+                    </h2>
+                  </div>
+                  {need.length ? (
+                    have === need.length ? (
+                      <span className="inline-flex items-center gap-1.5 text-body-compact text-success-ink">
+                        <CheckIcon className="size-4 shrink-0" aria-hidden />
+                        All required added
+                      </span>
+                    ) : (
+                      <span className="text-body-compact text-muted-foreground tabular-nums">
+                        {have} of {need.length} required added
+                      </span>
+                    )
+                  ) : null}
+                </div>
+              ) : null}
               {/* Phone and upright tablet: a list. The table's fixed columns need about
                   830px before the name gets any room; under that they overlapped. */}
               <ul className={cn(REGISTER_CARDS_ONLY, "divide-y divide-hairline")}>
@@ -477,6 +568,7 @@ export function DocumentsSection() {
                           className="w-full sm:order-last sm:w-64 sm:shrink-0"
                           onClick={() => uploadDoc(doc.id)}
                           aria-label={`Upload ${doc.name || `row ${index + 1}`}`}
+                          {...missingProps(doc)}
                         >
                           <UploadIcon data-icon="inline-start" aria-hidden />
                           Upload
@@ -516,7 +608,9 @@ export function DocumentsSection() {
                           </LabelTip>
                         </span>
                       </TableHead>
-                      <TableHead className="px-4 text-right">Actions</TableHead>
+                      <TableHead className="px-4 text-right">
+                        <span className={cn(guide && "sr-only")}>Actions</span>
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
 
@@ -563,7 +657,8 @@ export function DocumentsSection() {
               </div>
             </div>
           </section>
-        ))}
+          );
+        })}
       </FilingMain>
 
       <FilingFooter
@@ -578,6 +673,18 @@ export function DocumentsSection() {
               <CheckIcon className="size-4 shrink-0" aria-hidden />
               {statusText}
             </span>
+          ) : guide ? (
+            /* The count is the way to what it counts: pressed, it marks each missing row
+               and goes to the first (owner, 2026-11-10). */
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={revealMissing}
+              className="-ml-2 h-auto min-h-10 px-2 text-body-compact font-normal text-foreground"
+            >
+              <TriangleAlertIcon className="text-warning-ink" data-icon="inline-start" aria-hidden />
+              <span className="underline decoration-muted-foreground underline-offset-4">{statusText}</span>
+            </Button>
           ) : (
             <span className="inline-flex items-center gap-2 text-body-compact text-muted-foreground">
               <TriangleAlertIcon className="size-4 shrink-0" aria-hidden />
