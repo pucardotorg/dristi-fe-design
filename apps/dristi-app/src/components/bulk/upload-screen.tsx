@@ -521,10 +521,14 @@ export function UploadScreen() {
   if (step === "format")
     return (
       <>
-        <FilingMain width="wide">
+        {/* The choice sits in the middle of the canvas, a little above centre, rather than
+            hanging from the top with the lower half empty. PRD BLK-10: the batch comes from
+            one Excel file, so the two cards are the whole choice (the Word/PDF-per-case
+            entry is gone, owner 2026-11-10). */}
+        <FilingMain width="wide" className="flex flex-col justify-center-safe pb-[8vh]">
           <FilingPageHeader
             title="How will you send the cases?"
-            description="One Excel row is one case. Each upload becomes its own batch."
+            description="Put one case on each row. The cases in one file are filed together."
           />
           <FormatChoice
             onChoose={(f) => {
@@ -533,21 +537,6 @@ export function UploadScreen() {
               setStep("file");
             }}
           />
-          {ai === "on" ? (
-            <p className="flex flex-wrap items-center gap-x-1 text-body-compact text-muted-foreground">
-              Have one Word file or PDF per case instead?
-              <Button
-                variant="link"
-                className="px-0 underline"
-                onClick={() => {
-                  setFormat("own");
-                  setStep("file");
-                }}
-              >
-                Upload case documents
-              </Button>
-            </p>
-          ) : null}
         </FilingMain>
         {/* The choice is the cards themselves, so the footer has only Back (round 3: a
             Continue that could never be pressed). */}
