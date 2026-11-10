@@ -50,6 +50,7 @@ import {
   ContactList,
   RepresentativeList,
 } from "@/components/filing/repeat-lists";
+import { AddPartyButton } from "@/components/filing/add-party-button";
 import { SectionTabs } from "@/components/filing/section-tabs";
 import { YesNoSegmented } from "@/components/filing/segmented";
 
@@ -274,6 +275,8 @@ export function AccusedSection() {
           </FormField>
         </FormCard>
         </CorrectionInstance>
+
+        <AddPartyButton label="Add another accused" onAdd={addAccused} />
       </FilingMain>
 
       <FilingFooter

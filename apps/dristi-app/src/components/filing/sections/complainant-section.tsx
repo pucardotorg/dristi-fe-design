@@ -68,6 +68,7 @@ import { OptionSelect, PrefixInput, TextField } from "@/components/filing/inputs
 import { InfoWell, SectionNotice } from "@/components/filing/notices";
 import { PrefillNotice } from "@/components/filing/prefill-notice";
 import { RichTextEditor } from "@/components/filing/rich-text-editor";
+import { AddPartyButton } from "@/components/filing/add-party-button";
 import { SectionTabs } from "@/components/filing/section-tabs";
 import { Segmented, YesNoSegmented } from "@/components/filing/segmented";
 import { YesNoChoice } from "@/components/filing/yes-no-choice";
@@ -472,7 +473,7 @@ export function ComplainantSection() {
                     type="email"
                     value={c.email}
                     onChange={(v) => setRead("email", v)}
-                    placeholder="optional@example.com"
+                    placeholder="name@domain.com"
                     autoComplete="email"
                     prefilled={emailPrefilled}
                     onViewSource={() => openSource("email")}
@@ -488,11 +489,13 @@ export function ComplainantSection() {
             {/* Who this person is; how to reach them is the card above. */}
             <FormCard title="Basic details">
               <FormRow>
+                {/* No "As printed on the cheque" hint: the court wants the name it can
+                    verify, which may not be the one the cheque book prints (Gujarat HC,
+                    design feedback #6). The label stays "Full name". */}
                 <FormField label="Full name" name="name" required>
                   <TextField
                     value={c.name}
                     onChange={(v) => setRead("name", v)}
-                    placeholder="As printed on the cheque"
                     autoComplete="name"
                     prefilled={namePrefilled}
                     onViewSource={() => openSource("name")}
@@ -588,7 +591,7 @@ export function ComplainantSection() {
                   <FormDivider />
                   <FormSubhead>PoA holder details</FormSubhead>
                   <HalfWidth>
-                    <FormField label="PoA holder mobile number" required>
+                    <FormField label="PoA holder mobile number" name="poaHolder.mobile" required>
                       <PrefixInput
                         prefix="+91"
                         value={c.poaHolder.mobile}
@@ -599,14 +602,14 @@ export function ComplainantSection() {
                     </FormField>
                   </HalfWidth>
                   <FormRow>
-                    <FormField label="PoA holder full name" required>
+                    <FormField label="PoA holder full name" name="poaHolder.name" required>
                       <TextField
                         value={c.poaHolder.name}
                         onChange={(v) => setPoa("name", v)}
                         placeholder="Full name"
                       />
                     </FormField>
-                    <FormField label="PoA holder age" required>
+                    <FormField label="PoA holder age" name="poaHolder.age" required>
                       <TextField
                         value={c.poaHolder.age}
                         onChange={(v) => setPoa("age", v)}
@@ -683,7 +686,7 @@ export function ComplainantSection() {
                     type="email"
                     value={c.entEmail}
                     onChange={(v) => set("entEmail", v)}
-                    placeholder="optional@example.com"
+                    placeholder="name@domain.com"
                     autoComplete="email"
                   />
                 </FormField>
@@ -781,7 +784,7 @@ export function ComplainantSection() {
                     type="email"
                     value={c.rep.email}
                     onChange={(v) => setRep("email", v)}
-                    placeholder="optional@example.com"
+                    placeholder="name@domain.com"
                     autoComplete="email"
                   />
                 </FormField>
@@ -832,6 +835,8 @@ export function ComplainantSection() {
           </FormCard>
         ) : null}
         </CorrectionInstance>
+
+        <AddPartyButton label="Add another complainant" onAdd={addComplainant} />
       </FilingMain>
 
       <FilingFooter
