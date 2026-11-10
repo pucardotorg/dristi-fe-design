@@ -20,7 +20,6 @@ import {
   PANEL,
   PanelHeader,
   plural,
-  SegmentBar,
   useCaseList,
 } from "@/components/employee/court-dashboard-attention";
 import { Closures } from "@/components/employee/court-dashboard-closures";
@@ -30,7 +29,6 @@ import { DashboardDatePicker } from "@/components/employee/dashboard-date-picker
 import { useCourtDocket } from "@/components/employee/docket-table";
 import { useCourtSession } from "@/components/employee/use-court-role";
 import { useCourtToday } from "@/components/employee/use-court-today";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
@@ -65,6 +63,7 @@ import {
   formatSpanFull,
   nextDates,
   outcomesIn,
+  PENDING_AGE_GROUPS,
   pendingSets,
   periodReading,
   positionOn,
@@ -144,8 +143,8 @@ function periodName(reading: PeriodReading): string {
 /** One baseline window by name: "Thu 8 Oct", "September 2025", "1–19 Sep 2026". */
 function windowName(reading: PeriodReading, w: Period, latest: number): string {
   if (reading.kind === "day") return weekdayDay(w.from, latest, reading.compare === "year");
-  /* Month to date and whole months both baseline against whole months. */
-  if (reading.kind === "full" || reading.kind === "month") return monthLong(monthKey(w.from));
+  /* A whole month baselines against whole months; month to date against the same days. */
+  if (reading.kind === "full") return monthLong(monthKey(w.from));
   return formatSpanFull(w.from, w.to);
 }
 
@@ -163,7 +162,7 @@ function baselineName(reading: PeriodReading, latest: number, closures = false):
   const w = windows[0];
   const year = reading.compare === "year";
   if (reading.kind === "day") return weekdayDay(w.from, latest, year);
-  if (reading.kind === "full" || reading.kind === "month") return monthLong(monthKey(w.from));
+  if (reading.kind === "full") return monthLong(monthKey(w.from));
   return year || closures ? formatSpanFull(w.from, w.to) : formatSpan(w.from, w.to, latest);
 }
 
@@ -271,25 +270,13 @@ const STAGE_DESCRIPTION: Record<StageKey, string> = {
   judgement: "Reserved for judgement",
 };
 
-/**
- * How long the pending cases have been in court: an ordinal teal ramp, light to dark in
- * light mode (dark to light in dark mode, as the design has it). The lightest shade carries
- * a brand edge so it keeps a 3:1 boundary.
- */
-const AGE_SHADE = [
-  "bg-brand-muted ring-1 ring-brand-accent ring-inset",
-  "bg-brand-accent",
-  "bg-brand-muted-foreground",
-] as const;
-
 type OverviewList =
   | "filed"
   | "closed"
   | "pending"
-  | "cmp"
-  | "st"
   | "awaiting"
-  | `age-${0 | 1 | 2}`
+  | `age-${0 | 1 | 2 | 3}`
+  | "oldest"
   | `stage-${StageKey}`
   | `late-${StageKey}`
   | `bin-${StageKey}-${number}`;
@@ -311,21 +298,12 @@ function Overview({
   const end = positionOn(docket, to);
   const out = outcomesIn(docket, reading.selection);
   const disposed = now.closed - out.toLongPending;
-  const opening = from - DAY_MS < docket.start ? 0 : positionOn(docket, from - DAY_MS).pending;
-  const net = end.pending - opening;
-  const startWord =
-    reading.kind === "day"
-      ? "at the start of the day"
-      : reading.kind === "month" || reading.kind === "full"
-        ? `on 1 ${MONTHS_LONG[parts(to).month].slice(0, 3)}`
-        : `on ${formatDayShort(from)}`;
+  const opening = from - DAY_MS < docket.start ? null : positionOn(docket, from - DAY_MS).pending;
+  /* Pending is a position: compared with where it stood as the period began. */
+  const since = reading.kind === "day" ? formatDayShort(from - DAY_MS) : formatDayShort(from);
   const sets = pendingSets(docket, reading.selection);
   const ages = sets.ages.map((a) => a.length);
-  const ageLabels = [
-    reading.kind === "day" ? "Filed today" : "Filed in this period",
-    "Filed up to 6 months earlier",
-    "Filed more than 6 months earlier",
-  ];
+  const oldest = sets.all[0] ?? null;
   const period = periodName(reading);
   const list = useCaseList<OverviewList>();
   const listId = "dash-overview-cases";
@@ -349,15 +327,19 @@ function Overview({
         daysHeader: "Days from filing to closing",
       };
     }
-    if (key === "pending" || key === "cmp" || key === "st" || key === "awaiting") {
-      const rows = key === "pending" ? sets.all : key === "cmp" ? sets.cmp : key === "st" ? sets.st : sets.awaitingRegistration;
-      const what = key === "pending" ? "" : key === "cmp" ? " · CMP" : key === "st" ? " · ST" : " · awaiting registration";
+    if (key === "pending" || key === "awaiting") {
+      const rows = key === "pending" ? sets.all : sets.awaitingRegistration;
+      const what = key === "pending" ? "" : " · waiting to be registered";
       return { title: `${pendingName}${what}`, summary: `${plural(rows.length, "case", "cases")} · longest in court first`, rows, daysHeader: inCourt, details: pastNote };
     }
+    if (key === "oldest") {
+      const rows = oldest ? [oldest] : [];
+      return { title: "Oldest pending case", summary: plural(rows.length, "case", "cases"), rows, daysHeader: inCourt, details: pastNote };
+    }
     if (key.startsWith("age-")) {
-      const i = Number(key.slice(4)) as 0 | 1 | 2;
+      const i = Number(key.slice(4)) as 0 | 1 | 2 | 3;
       return {
-        title: `${ageLabels[i]}, still pending`,
+        title: `In court ${PENDING_AGE_GROUPS[i].toLowerCase()}, still pending`,
         summary: `${plural(sets.ages[i].length, "case", "cases")} of ${formatCount(end.pending)} pending · longest in court first`,
         rows: sets.ages[i],
         daysHeader: inCourt,
@@ -386,35 +368,33 @@ function Overview({
     onOpen: (from: HTMLElement) => list.toggle(key, from),
   });
 
+  /**
+   * The one way the Overview shows change: arrow and amount (in success or destructive
+   * ink only when the change is better or worse), then what it is compared with.
+   */
+  const change = (diff: number, base: string, goodUp: boolean | null) => {
+    if (!diff) return <p className="text-body-compact text-muted-foreground tabular-nums">No change {base}</p>;
+    const up = diff > 0;
+    const tone = goodUp === null ? null : up === goodUp ? "better" : "worse";
+    return (
+      <p className="text-body-compact text-muted-foreground tabular-nums">
+        <span className={cn("font-semibold", tone === "better" ? "text-success-ink" : tone === "worse" ? "text-destructive-ink" : "text-foreground")}>
+          <span aria-hidden>{up ? "▲ " : "▼ "}</span>
+          <span className="sr-only">{up ? "Up " : "Down "}</span>
+          {formatCount(Math.abs(diff))}
+          {tone ? <span className="sr-only">, {tone}</span> : null}
+        </span>{" "}
+        {base}
+      </p>
+    );
+  };
   const versus = (current: number, baseline: number | undefined, goodUp: boolean | null) => {
     if (reading.compare === "none") return null;
     if (baseline === undefined || name === null) {
       return <p className="text-body-compact text-muted-foreground">No earlier data to compare</p>;
     }
     const b = Math.round(baseline);
-    const diff = current - b;
-    if (!diff) {
-      return (
-        <p className="text-body-compact text-muted-foreground tabular-nums">
-          Same as {name} ({formatCount(b)})
-        </p>
-      );
-    }
-    const share = b ? ` (${Math.round((Math.abs(diff) / b) * 100)}%)` : "";
-    const tone = goodUp === null ? "flat" : diff > 0 === goodUp ? "good" : "bad";
-    return (
-      <p
-        className={cn(
-          "text-body-compact tabular-nums",
-          tone === "good" ? "text-success-ink" : tone === "bad" ? "text-destructive-ink" : "text-muted-foreground",
-        )}
-      >
-        <span aria-hidden>{diff > 0 ? "▲ " : "▼ "}</span>
-        {formatCount(Math.abs(diff))}
-        {share} {diff > 0 ? "more" : "fewer"} than {name}{" "}
-        <span className="text-muted-foreground">({formatCount(b)})</span>
-      </p>
-    );
+    return change(current - b, `vs ${name} (${formatCount(b)})`, goodUp);
   };
 
   return (
@@ -424,89 +404,91 @@ function Overview({
       </PanelHeader>
 
       <div className="flex min-w-0 flex-col gap-3">
-        <div className="grid min-w-0 gap-px overflow-hidden rounded-xl border border-hairline bg-hairline sm:grid-cols-2 xl:grid-cols-[repeat(3,minmax(0,1fr))_minmax(0,1.4fr)]">
-          <div className="flex min-w-0 flex-col items-start gap-1 bg-surface-sunken p-4 sm:px-6">
-            <p className="text-body-compact font-semibold">Cases filed</p>
-            <CountButton name="cases filed" className="text-title-l font-semibold" {...opener("filed")}>
-              <CountUp value={now.filed} format={countText} />
-            </CountButton>
-            {versus(now.filed, base?.filed, null)}
-          </div>
-          <div className="flex min-w-0 flex-col items-start gap-1 bg-surface-sunken p-4 sm:px-6">
-            <p className="text-body-compact font-semibold">Cases closed</p>
-            <CountButton name="cases closed" className="text-title-l font-semibold" {...opener("closed")}>
-              <CountUp value={now.closed} format={countText} />
-            </CountButton>
-            <p className="text-caption text-muted-foreground tabular-nums">
-              {formatCount(disposed)} disposed
-              {out.toLongPending ? ` · ${formatCount(out.toLongPending)} to long pending` : ""}
-            </p>
-            {versus(now.closed, base?.closed, true)}
-          </div>
-          <div className="flex min-w-0 flex-col items-start gap-1 bg-surface-sunken p-4 max-xl:sm:col-span-2 sm:px-6">
-            <p className="text-body-compact font-semibold">{pendingName}</p>
-            <CountButton name="pending" className="text-title-l font-semibold" {...opener("pending")}>
-              <CountUp value={end.pending} format={countText} />
-            </CountButton>
-            <Badge
-              variant={net < 0 ? "success" : net > 0 ? "destructive" : "secondary"}
-              className="h-auto max-w-full justify-start py-0.5 text-left whitespace-normal tabular-nums"
-            >
-              <span aria-hidden>{net < 0 ? "▼" : net > 0 ? "▲" : "■"}</span>
-              {net < 0
-                ? `${formatCount(-net)} fewer than ${startWord}`
-                : net > 0
-                  ? `${formatCount(net)} more than ${startWord}`
-                  : `Same as ${startWord}`}
-            </Badge>
-            <p className="flex flex-wrap gap-x-3 text-body-compact text-muted-foreground tabular-nums">
-              {(
-                [
-                  ["cmp", "CMP", sets.cmp.length],
-                  ["st", "ST", sets.st.length],
-                  ["awaiting", "Awaiting registration", sets.awaitingRegistration.length],
-                ] as const
-              ).map(([key, label, n]) => (
-                <span key={key} className="inline-flex items-center gap-1">
-                  {label}
-                  <CountButton name={`pending, ${label}`} className="font-semibold" {...opener(key)}>
-                    {formatCount(n)}
-                  </CountButton>
-                </span>
-              ))}
-            </p>
-          </div>
-          <div className="flex min-w-0 flex-col justify-center gap-3 bg-surface-sunken p-4 sm:col-span-2 sm:px-6 xl:col-span-1">
-            <p className="text-body-compact font-semibold">
-              How long the {formatCount(end.pending)} pending cases have been in court
-            </p>
-            <SegmentBar
-              label="Pending cases by when they were filed"
-              controls={listId}
-              className="h-3.5 [&>*:first-child]:rounded-l-sm [&>*:last-child]:rounded-r-sm"
-              segments={ages.map((value, i) => ({
-                key: String(i),
-                value,
-                className: AGE_SHADE[i],
-                tip: `${ageLabels[i]}: ${plural(value, "case", "cases")} (${pct(value / Math.max(1, end.pending))})`,
-                ...opener(`age-${i as 0 | 1 | 2}`),
-              }))}
-            />
-            <ul className="flex flex-col text-body-compact tabular-nums">
-              {ageLabels.map((label, i) => (
-                <li key={label} className="flex items-center gap-2">
-                  <span aria-hidden className={cn("size-3 shrink-0 rounded-xs", AGE_SHADE[i])} />
-                  <CountButton name={label.toLowerCase()} className="-my-1.5 font-semibold" {...opener(`age-${i as 0 | 1 | 2}`)}>
-                    {formatCount(ages[i])}
-                  </CountButton>
-                  {label.toLowerCase()}
-                </li>
-              ))}
-            </ul>
-          </div>
+        <div className="grid min-w-0 gap-3 md:grid-cols-3">
+          <OverviewCard
+            label="Cases filed"
+            count={<CountButton name="cases filed" className="text-title-l font-semibold" {...opener("filed")}><CountUp value={now.filed} format={countText} /></CountButton>}
+            change={versus(now.filed, base?.filed, null)}
+            fact={
+              sets.awaitingRegistration.length ? (
+                <>
+                  <CountButton name="waiting to be registered" className="-my-3 font-semibold" {...opener("awaiting")}>
+                    {formatCount(sets.awaitingRegistration.length)}
+                  </CountButton>{" "}
+                  still waiting to be registered
+                </>
+              ) : (
+                "All registered"
+              )
+            }
+          />
+          <OverviewCard
+            label="Cases closed"
+            count={<CountButton name="cases closed" className="text-title-l font-semibold" {...opener("closed")}><CountUp value={now.closed} format={countText} /></CountButton>}
+            change={versus(now.closed, base?.closed, true)}
+            fact={`${formatCount(disposed)} disposed · ${formatCount(out.toLongPending)} to long pending`}
+          />
+          <OverviewCard
+            label={pendingName}
+            count={<CountButton name="pending" className="text-title-l font-semibold" {...opener("pending")}><CountUp value={end.pending} format={countText} /></CountButton>}
+            change={
+              opening === null ? (
+                <p className="text-body-compact text-muted-foreground">No earlier data to compare</p>
+              ) : (
+                change(end.pending - opening, `since ${since} (${formatCount(opening)})`, false)
+              )
+            }
+            fact={`${formatCount(end.longPending)} more on the long pending register, not counted`}
+          />
         </div>
         <BaselineBreakdown docket={docket} reading={reading} />
       </div>
+
+      <section aria-labelledby="dash-ages" className={cn(BOX, "flex flex-col gap-4 p-4 sm:px-6")}>
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+          <h3 id="dash-ages" className="text-body font-semibold">
+            How long the {formatCount(end.pending)} pending cases have been in court
+          </h3>
+          <p className="text-caption text-muted-foreground">{reading.live ? "Today" : `On ${formatDayShort(to)}`}</p>
+        </div>
+        <ul className="flex flex-col gap-2 text-body-compact tabular-nums">
+          {PENDING_AGE_GROUPS.map((label, i) => {
+            const n = ages[i];
+            const share = n / Math.max(1, end.pending);
+            return (
+              <li key={label} className="grid grid-cols-[minmax(0,7rem)_minmax(0,1fr)_minmax(0,6rem)] items-center gap-4 max-sm:gap-2">
+                <span>{label}</span>
+                <span aria-hidden className="h-3 overflow-hidden rounded-full bg-surface-sunken">
+                  <span className="block h-full rounded-full bg-brand-accent" style={{ width: `${share * 100}%` }} />
+                </span>
+                <span className="flex items-baseline gap-2">
+                  {n ? (
+                    <>
+                      <CountButton name={`in court ${label.toLowerCase()}`} className="-my-3 font-semibold" {...opener(`age-${i as 0 | 1 | 2 | 3}`)}>
+                        {formatCount(n)}
+                      </CountButton>
+                      <span className="text-muted-foreground">{pct(share)}</span>
+                    </>
+                  ) : (
+                    <span className="text-muted-foreground">None</span>
+                  )}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+        {oldest ? (
+          <p className="flex flex-wrap items-baseline gap-x-3 border-t border-hairline pt-3 text-body-compact tabular-nums">
+            <span className="font-semibold">Oldest pending case</span>
+            <span className="text-muted-foreground">
+              filed {formatDay(oldest.case.filed)}, {plural(oldest.days, "day", "days")} ago
+            </span>
+            <CountButton name="oldest pending case" className="-my-3" {...opener("oldest")}>
+              Open the case
+            </CountButton>
+          </p>
+        ) : null}
+      </section>
 
       <StagePath docket={docket} reading={reading} opener={opener} />
 
@@ -525,6 +507,28 @@ function Overview({
         ) : null}
       </div>
     </section>
+  );
+}
+
+/** One Overview card: label, count, change, and one fact line — the same parts on all three. */
+function OverviewCard({
+  label,
+  count,
+  change,
+  fact,
+}: {
+  label: string;
+  count: React.ReactNode;
+  change: React.ReactNode;
+  fact: React.ReactNode;
+}) {
+  return (
+    <div className="flex min-w-0 flex-col items-start gap-1 rounded-xl bg-surface-sunken p-4 sm:px-6">
+      <p className="text-body-compact font-semibold">{label}</p>
+      {count}
+      {change}
+      <p className="mt-2 w-full border-t border-hairline pt-2 text-caption text-muted-foreground tabular-nums">{fact}</p>
+    </div>
   );
 }
 
