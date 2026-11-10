@@ -191,6 +191,7 @@ artifact (https://claude.ai/artifact/Vn5JjfdhnAGAzJRfQ4Db9k). Only Direction 1 a
 | 2026-11-10 | **"Where the pending cases are" leaves the Overview** for its own panel below it, with its own date picker and case list. It is the note's 1.2 C (outlier cases): its core is cases past each stage's limit; stage counts and typical days come from the public dashboard (1.1); in/out and the dot pills are not in the note. Content unchanged until that section is redesigned. | Owner | implemented |
 | 2026-11-10 | **Change lines colour only a worse change.** Black for filings beside green for closings was confusing. A better or neutral change now takes the line's muted grey (a first pass in black still read as a colour); a worse one (pending up, closings down) stays destructive ink. The stage panel's red / green over-limit changes are left for that section's redesign. | Owner | implemented |
 | 2026-11-10 | **Every fact-line number is a link.** Only "31 still waiting to be registered" opened a list. The coordinator proposed making all fact lines plain; the owner chose the opposite for consistency: disposed, moved to long pending and the long pending register now open their cases too. A zero stays plain. | Owner | implemented |
+| 2026-11-10 | **Age card title moved above its box**, as a section heading, instead of inside the border. | Owner | implemented |
 
 ## Changes and tradeoffs
 

@@ -441,42 +441,45 @@ function Overview({
         </div>
       </div>
 
-      <section aria-labelledby="dash-ages" className={cn(BOX, "flex flex-col gap-4 p-4 sm:px-6")}>
-        {/* No day tag: the count in the title is the Pending card's, and that card names the day. */}
+      <section aria-labelledby="dash-ages" className="flex min-w-0 flex-col gap-3">
+        {/* No day tag: the count in the title is the Pending card's, and that card names the day.
+            The title sits above the box, not inside it (owner, 2026-11-10). */}
         <h3 id="dash-ages" className="text-body font-semibold">
           How long the {formatCount(end.pending)} pending cases have been in court
         </h3>
-        {/* Four numbers, oldest on the right, each with its share: an old group gets the same
-            room as the newest, so it is never a sliver (owner, 2026-11-10). */}
-        <ul className="grid grid-cols-2 gap-y-4 tabular-nums md:grid-cols-4">
-          {PENDING_AGE_GROUPS.map((label, i) => {
-            const n = ages[i];
-            return (
-              <li
-                key={label}
-                className={cn(
-                  "flex min-w-0 flex-col items-start gap-1 px-4",
-                  /* Rules between columns: every second one on phones, all but the first from md. */
-                  i % 2 === 1 ? "border-l border-hairline" : "max-md:pl-0",
-                  i === 0 && "pl-0",
-                  i === 2 && "md:border-l md:border-hairline",
-                )}
-              >
-                <span className="text-caption text-muted-foreground">{label}</span>
-                {n ? (
-                  <CountButton name={`in court ${label.toLowerCase()}`} className="text-title-l font-semibold" {...opener(`age-${i as 0 | 1 | 2 | 3}`)}>
-                    {formatCount(n)}
-                  </CountButton>
-                ) : (
-                  <span className="inline-flex min-h-10 items-center text-title-l font-semibold text-muted-foreground">0</span>
-                )}
-                <span className="text-caption text-muted-foreground">
-                  {n ? `${pct(n / Math.max(1, end.pending))} of pending` : "None"}
-                </span>
-              </li>
-            );
-          })}
-        </ul>
+        <div className={cn(BOX, "p-4 sm:px-6")}>
+          {/* Four numbers, oldest on the right, each with its share: an old group gets the same
+              room as the newest, so it is never a sliver (owner, 2026-11-10). */}
+          <ul className="grid grid-cols-2 gap-y-4 tabular-nums md:grid-cols-4">
+            {PENDING_AGE_GROUPS.map((label, i) => {
+              const n = ages[i];
+              return (
+                <li
+                  key={label}
+                  className={cn(
+                    "flex min-w-0 flex-col items-start gap-1 px-4",
+                    /* Rules between columns: every second one on phones, all but the first from md. */
+                    i % 2 === 1 ? "border-l border-hairline" : "max-md:pl-0",
+                    i === 0 && "pl-0",
+                    i === 2 && "md:border-l md:border-hairline",
+                  )}
+                >
+                  <span className="text-caption text-muted-foreground">{label}</span>
+                  {n ? (
+                    <CountButton name={`in court ${label.toLowerCase()}`} className="text-title-l font-semibold" {...opener(`age-${i as 0 | 1 | 2 | 3}`)}>
+                      {formatCount(n)}
+                    </CountButton>
+                  ) : (
+                    <span className="inline-flex min-h-10 items-center text-title-l font-semibold text-muted-foreground">0</span>
+                  )}
+                  <span className="text-caption text-muted-foreground">
+                    {n ? `${pct(n / Math.max(1, end.pending))} of pending` : "None"}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       </section>
 
       <div id={listId} className="min-w-0 empty:hidden">
