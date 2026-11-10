@@ -27,7 +27,7 @@ import {
 import { aiModeFrom } from "./ai-review";
 import type { ApiBatchRequest, ApiBatchResponse, ApiDocument } from "./contract";
 import { localizeCaseNumber } from "@/lib/court/localize";
-import { buildBatch, validateRequest } from "./intake";
+import { buildBatch, validateRequest, writeFacts } from "./intake";
 import { applyParties, type BatchParties } from "./parties";
 import { caseFlags } from "./scrutiny";
 import type { BulkStore, FileMeta } from "./store";
@@ -81,6 +81,8 @@ export async function createBatch(store: BulkStore, body: CreateBody): Promise<R
       applyParties(bc.draft, parties);
       // The names come from the Bar register on the setup screen, not from a request.
       bc.unknownBar = [];
+      // A case given the batch's facts gets them again with its real parties in place.
+      if (request.detailsFormat && bc.draft.adr.detailsFormat) writeFacts(bc.draft, request.detailsFormat);
     }
     const o = originals?.[bc.reference];
     if (!o) continue;

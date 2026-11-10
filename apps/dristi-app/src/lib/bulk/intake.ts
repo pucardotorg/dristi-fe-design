@@ -307,21 +307,27 @@ async function buildDraft(
   draft.lastStep = "preview";
   /* PRY-1 from the batch's format, for a case that brought no additional details. Written
      last, so every value the format names is already on the draft. */
-  const format = req.detailsFormat;
-  if (format && !trim(c.otherDetails)) {
-    const court = format.court;
-    draft.adr.otherDetails = generateDetails(
-      formattingOnly(format.html),
-      draft,
-      court ? (text) => localizeCourtText(text, court) : undefined,
-    );
-    draft.adr.detailsFormat = format.id;
-  }
+  if (req.detailsFormat && !trim(c.otherDetails)) writeFacts(draft, req.detailsFormat);
 
   draft.createdAt = now;
   draft.updatedAt = now;
 
   return { draft, unknownBar, fetchFailed, unknownService, unstated, docText };
+}
+
+/**
+ * The batch's facts of the case (PRY-1) written for one case from its own details. Run
+ * again once the batch's own complainants and advocates are on the case (`applyParties`):
+ * written before, every complainant field stayed a blank (owner, 2026-11-10).
+ */
+export function writeFacts(draft: FilingDraft, format: NonNullable<ApiBatchRequest["detailsFormat"]>): void {
+  const court = format.court;
+  draft.adr.otherDetails = generateDetails(
+    formattingOnly(format.html),
+    draft,
+    court ? (text) => localizeCourtText(text, court) : undefined,
+  );
+  draft.adr.detailsFormat = format.id;
 }
 
 /**
