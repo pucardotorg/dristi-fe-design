@@ -39,6 +39,8 @@ import {
   filedAndClosed,
   monthlyTrends,
   outcomesIn,
+  PENDING_AGE_GROUPS,
+  pendingAgeGroup,
   pendingAges,
   periodReading,
   previousName,
@@ -217,15 +219,23 @@ describe("next dates, latest day", () => {
 });
 
 describe("the period under review", () => {
-  it("opens on this month so far, compared with the whole of last month", () => {
+  it("opens on this month so far, compared with the same days of last month", () => {
     const r = periodReading(defaultSelection(docket), docket);
     assert.deepEqual(r.selection, { from: d("2026-10-01"), to: d("2026-10-19") });
     assert.equal(r.kind, "month");
     assert.equal(r.isDefault, true);
-    assert.deepEqual(r.baseline, [{ from: d("2026-09-01"), to: d("2026-09-30") }]);
+    assert.deepEqual(r.baseline, [{ from: d("2026-09-01"), to: d("2026-09-19") }]);
+    assert.deepEqual(periodReading(defaultSelection(docket), docket, "year").baseline, [
+      { from: d("2025-10-01"), to: d("2025-10-19") },
+    ]);
     assert.equal(r.overdueSince, d("2026-10-01"));
-    assert.equal(previousName(r.selection), "Previous month");
-    assert.equal(compareShort("prev", r.selection), "vs last month");
+    assert.equal(previousName(r.selection), "Same days last month");
+    assert.equal(compareShort("prev", r.selection), "vs same days last month");
+  });
+
+  it("keeps month to date inside a shorter month before it", () => {
+    const march = { from: d("2026-03-01"), to: d("2026-03-30") };
+    assert.deepEqual(periodReading(march, docket).baseline, [{ from: d("2026-02-01"), to: d("2026-02-28") }]);
   });
 
   it("reads one day alone, against the same weekday a week earlier", () => {
@@ -274,6 +284,18 @@ describe("the period under review", () => {
     assert.equal(filedAndClosed(docket, period).filed, moved.cameIn.length);
     const ages = pendingAges(docket, period);
     assert.equal(ages[0] + ages[1] + ages[2], positionOn(docket, period.to).pending);
+  });
+
+  it("groups pending cases by time in court as the note does: 6, 12 and 24 months", () => {
+    const t = d("2026-11-10");
+    assert.equal(pendingAgeGroup(d("2026-05-11"), t), 0);
+    assert.equal(pendingAgeGroup(d("2026-05-10"), t), 1);
+    assert.equal(pendingAgeGroup(d("2025-11-11"), t), 1);
+    assert.equal(pendingAgeGroup(d("2025-11-10"), t), 2);
+    assert.equal(pendingAgeGroup(d("2024-11-10"), t), 3);
+    const sets = pendingSets(docket, { from: docket.today, to: docket.today });
+    assert.equal(PENDING_AGE_GROUPS.length, sets.ages.length);
+    assert.equal(sets.ages.reduce((n, g) => n + g.length, 0), sets.all.length);
   });
 });
 
@@ -346,7 +368,8 @@ describe("the cases behind each figure", () => {
     assert.equal(sets.cmp.length, position.cmp);
     assert.equal(sets.st.length, position.st);
     assert.equal(sets.awaitingRegistration.length, position.awaitingRegistration);
-    assert.deepEqual(sets.ages.map((a) => a.length), pendingAges(docket, period));
+    assert.equal(sets.ages.reduce((n, g) => n + g.length, 0), position.pending);
+    sets.ages.forEach((group, i) => group.forEach((row) => assert.equal(pendingAgeGroup(row.case.filed, period.to), i)));
   });
 
   it("spells out the baseline windows the average is taken over", () => {

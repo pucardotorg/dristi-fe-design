@@ -753,9 +753,9 @@ function monthsBack(t: number, months: number): number {
 }
 
 /**
- * The period `steps` back: a day by weeks (the same weekday), a whole month (or month
- * to date) by whole months, any other range by its own length. `null` once it would
- * begin before the records do.
+ * The period `steps` back: a day by weeks (the same weekday), a whole month by whole
+ * months, month to date by the same days of an earlier month, any other range by its
+ * own length. `null` once it would begin before the records do.
  */
 export function periodBack(selection: Period, steps: number, docket: CourtDocket): Period | null {
   const kind = periodKind(selection);
@@ -768,9 +768,10 @@ export function periodBack(selection: Period, steps: number, docket: CourtDocket
         : monthsBack(t, steps);
   const from = back(selection.from);
   if (from < docket.start) return null;
-  /* Month to date and a whole month both step to whole months — "vs last month" is the
-     full month before, not the same days of it. */
-  const to = kind === "full" || kind === "month" ? monthEnd(monthKey(from)) : back(selection.to);
+  /* A whole month steps to whole months. Month to date steps to the same days of the
+     earlier month (1–10 Nov against 1–10 Oct), so ten days are never read against a full
+     month (owner, 2026-11-10). */
+  const to = kind === "full" ? monthEnd(monthKey(from)) : back(selection.to);
   return { from, to };
 }
 
@@ -780,8 +781,8 @@ export function periodBack(selection: Period, steps: number, docket: CourtDocket
  *
  * - **One day** is that day alone, compared with the same weekday a week earlier.
  * - **A range** is read across itself; counts are taken on its last day.
- * - **Month to date** and a **whole month** compare with whole months one step back
- *   ("vs last month" is the full previous month, not the same days of it).
+ * - **Month to date** compares with the same days of the month before (1–10 Nov against
+ *   1–10 Oct); a **whole month** compares with the whole month before.
  * - **The same period last year** steps back 52 weeks, 12 months, or as many lengths as
  *   make a year; **the average of the last 6** averages up to six periods just before.
  * - A stage's waiting count is compared with the start of the range, or with 30 days
@@ -827,7 +828,8 @@ export function periodReading(
 export function previousName(selection: Period): string {
   const kind = periodKind(selection);
   if (kind === "day") return "Same day last week";
-  if (kind === "full" || kind === "month") return "Previous month";
+  if (kind === "month") return "Same days last month";
+  if (kind === "full") return "Previous month";
   return `Previous ${daysBetween(selection.from, selection.to) + 1} days`;
 }
 
@@ -839,6 +841,7 @@ export function compareShort(compare: CompareMode, selection: Period): string {
   if (compare === "avg") return "vs 6-period average";
   if (kind === "day") return "vs last week";
   if (kind === "span") return "vs previous period";
+  if (kind === "month") return "vs same days last month";
   return "vs last month";
 }
 
@@ -1129,15 +1132,26 @@ export type PendingSets = {
   cmp: DatedCase[];
   st: DatedCase[];
   awaitingRegistration: DatedCase[];
-  /** Filed in the period, up to six months before it, longer before it — as `pendingAges`. */
-  ages: [DatedCase[], DatedCase[], DatedCase[]];
+  /** By time in court on the last day, in the note's groups: `PENDING_AGE_GROUPS`. */
+  ages: [DatedCase[], DatedCase[], DatedCase[], DatedCase[]];
 };
+
+/** How long pending cases have been in court, in the groups of the note's section 5.3. */
+export const PENDING_AGE_GROUPS = ["0–6 months", "6–12 months", "1–2 years", "Over 2 years"] as const;
+
+/** The `PENDING_AGE_GROUPS` index for a case filed on `filed`, read on day `t`. */
+export function pendingAgeGroup(filed: number, t: number): 0 | 1 | 2 | 3 {
+  if (filed > monthsBack(t, 6)) return 0;
+  if (filed > monthsBack(t, 12)) return 1;
+  if (filed > monthsBack(t, 24)) return 2;
+  return 3;
+}
 
 /** The cases behind the Overview's pending figure and its parts. */
 export function pendingSets(docket: CourtDocket, period: Period): PendingSets {
   const t = period.to;
   const position = positionOn(docket, t);
-  const sets: PendingSets = { all: [], cmp: [], st: [], awaitingRegistration: [], ages: [[], [], []] };
+  const sets: PendingSets = { all: [], cmp: [], st: [], awaitingRegistration: [], ages: [[], [], [], []] };
   for (const stage of STAGES) {
     for (const c of position.byStage[stage.key]) {
       const row = { case: c, days: daysBetween(c.filed, t) };
@@ -1145,8 +1159,7 @@ export function pendingSets(docket: CourtDocket, period: Period): PendingSets {
       if (c.cognizanceAt !== null && c.cognizanceAt <= t) sets.st.push(row);
       else if (c.registeredAt !== null && c.registeredAt <= t) sets.cmp.push(row);
       else sets.awaitingRegistration.push(row);
-      const age = c.filed >= period.from ? 0 : daysBetween(c.filed, period.from) <= OLD_CASE_DAYS ? 1 : 2;
-      sets.ages[age].push(row);
+      sets.ages[pendingAgeGroup(c.filed, t)].push(row);
     }
   }
   const longest = (rows: DatedCase[]) => rows.sort((a, b) => b.days - a.days);
