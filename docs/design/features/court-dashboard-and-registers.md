@@ -187,6 +187,7 @@ artifact (https://claude.ai/artifact/Vn5JjfdhnAGAzJRfQ4Db9k). Only Direction 1 a
 | 2026-11-10 | **"What the comparison is made of" removed.** Owner: the chosen date range and the card's own line ("vs 1–10 Oct (32)") already say what the data is compared with. | Owner | implemented |
 | 2026-11-10 | **Oldest pending case line removed** from the age card. Owner: a pathway to one case does not belong there; each age group's count already opens its cases, longest first. | Owner | implemented |
 | 2026-11-10 | **Age card: four numbers, no chart** (option 1 of three; others: each group with its change since the period began, or with a 12-month line). Bars by share made the newest group dominate and the old groups slivers. The coordinator recommended the change option; the owner chose the simpler one. | Owner | implemented |
+| 2026-11-10 | **Day tag removed from the age card.** It repeated the Pending card's label ("Pending today" / "Pending on 31 Oct"), whose count the age card's title reuses. | Owner question, coordinator agreed | implemented |
 
 ## Changes and tradeoffs
 
