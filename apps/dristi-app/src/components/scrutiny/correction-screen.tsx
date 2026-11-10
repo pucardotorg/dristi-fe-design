@@ -833,6 +833,8 @@ export function CorrectionScreen({ task, kase }: { task: Task; kase: Case }) {
       setSectionsSheetOpen: setRailOpen,
       draftLabel: null,
       setDraftLabel: () => undefined,
+      batchCrumb: null,
+      setBatchCrumb: () => undefined,
     }),
     [railOpen]
   );
