@@ -3,17 +3,12 @@
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  CheckIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  CircleAlertIcon,
   CircleXIcon,
   DownloadIcon,
   FileSpreadsheetIcon,
   FileTextIcon,
   FlaskConicalIcon,
-  SearchIcon,
-} from "lucide-react";
+  } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,9 +18,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
-import { Label } from "@/components/ui/label";
-import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 
 import { aiModeFrom } from "@/lib/bulk/ai-review";
 import type { CaseExtraction } from "@/lib/bulk/case-doc";
@@ -45,18 +37,12 @@ import {
   type ValueMap,
   type Workbookish,
 } from "@/lib/bulk/excel";
-import { COLUMNS, LISTS, type ListName } from "@/lib/bulk/excel-spec";
+import { LISTS, type ListName } from "@/lib/bulk/excel-spec";
 import { money } from "@/lib/filing/format";
-import type { StoredFileRef } from "@/lib/filing/types";
+import type { FilingDraft, StoredFileRef } from "@/lib/filing/types";
+import type { ApiBatchRequest } from "@/lib/bulk/contract";
 import { cn } from "@/lib/utils";
 import { useCourt } from "@/components/court/court-provider";
-import {
-  TABLE_CELL,
-  TABLE_HEAD,
-  TABLE_HEAD_ROW,
-  tableBodyClass,
-  tableRowClass,
-} from "@/components/chrome/table-plate";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -74,14 +60,6 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 
 import { downloadTemplate } from "./batches-screen";
 import { FilingFooter } from "@/components/filing/filing-footer";
@@ -97,7 +75,7 @@ import {
   serverDetailsFormats,
   subscribeToDetailsFormats,
 } from "@/lib/filing/details-formats";
-import { DetailsFormatChoice } from "./batch-parties";
+import { CheckCases, FactsCard, checkCounts, useCheckCases } from "./check-step";
 import { FileDrop } from "./file-drop";
 import { FormatChoice, type UploadFormat } from "./format-choice";
 import { bulkFetch } from "./api";
@@ -232,6 +210,53 @@ const LIST_TITLE: Record<ListName, string> = {
   payment: "Payment after notice",
 };
 
+/** What Create sends: the rows that can be cases, the batch's parties and its facts. */
+function makeRequest({
+  book,
+  setup,
+  cannot,
+  map,
+  values,
+  counts,
+  fileName,
+  factsHtml,
+  factsId,
+  court,
+}: {
+  book: Workbookish;
+  setup: FilingDraft;
+  cannot: RowProblem[];
+  map: ColumnMap;
+  values: ValueMap;
+  counts: InstanceCounts;
+  fileName: string;
+  factsHtml: string;
+  factsId: string | undefined;
+  court: NonNullable<ApiBatchRequest["detailsFormat"]>["court"];
+}) {
+  const parties = partiesOf(setup);
+  const left = new Set(cannot.map((x) => x.index));
+  const usable: Workbookish = {
+    cases: { ...book.cases, rows: book.cases.rows.filter((_, i) => !left.has(i)) },
+  };
+  const hasFacts = !!factsHtml.replace(/<[^>]*>|&nbsp;/g, "").trim();
+  const request = buildRequest(
+    usable,
+    map,
+    values,
+    {
+      complainant: apiComplainantOf(parties),
+      barNumbers: parties.advocates.map((a) => a.barNumber),
+      // Asked with the complainants on Common details (BLK-05).
+      adr: setup.adr.adr,
+      fileName,
+      detailsFormat: hasFacts ? { id: factsId ?? "batch", html: factsHtml, court } : undefined,
+    },
+    counts,
+  );
+  return { request, parties };
+}
+
 /**
  * The upload's own steps, after the Complainant, Advocate and Documents sections it shares
  * the filing's frame with (`setup-flow.tsx`): the file, its columns matched only if it is
@@ -246,15 +271,18 @@ export function UploadScreen() {
   // (`setup-flow.tsx`): this screen is one of the setup's own.
   const { draft: setup } = useFiling();
   const setupId = setup.id;
-  // The additional-details format every case is generated from: what the filer chose
-  // ("" for none), or until they choose, the default format if one is set.
-  const [formatChoice, setFormatId] = React.useState<string | null>(null);
+  // The facts of the case (PRY-1) the cases without their own start with: until the filer
+  // touches it, the default template's text (else the first, the system's own), already
+  // written in; then whatever they made of it, including nothing.
+  const [factsChoice, setFactsChoice] = React.useState<{ id: string | undefined; html: string } | null>(null);
   const formats = React.useSyncExternalStore(
     subscribeToDetailsFormats,
     readDetailsFormats,
     serverDetailsFormats,
   );
-  const formatId = formatChoice ?? defaultFormat(formats)?.id ?? "";
+  const firstTemplate = defaultFormat(formats) ?? formats[0];
+  const factsId = factsChoice ? factsChoice.id : firstTemplate?.id;
+  const factsHtml = factsChoice?.html ?? (firstTemplate ? formatForFiler(firstTemplate) : "");
   const [files, setFiles] = React.useState<File[]>([]);
   const file = files[0] ?? null;
   // With AI on, a Word file or PDF per case can stand in for the sheet: each is read into
@@ -295,9 +323,6 @@ export function UploadScreen() {
   // A sample spreadsheet, fetched and chosen as if it had been dropped.
   const [sampling, setSampling] = React.useState<string | null>(null);
   // Check's table: which rows show, a search over them, and the page (v8).
-  const [checkShow, setCheckShow] = React.useState<"all" | "clean" | "blanks">("all");
-  const [checkQ, setCheckQ] = React.useState("");
-  const [checkPage, setCheckPage] = React.useState(0);
   const chooseSample = async (key: string) => {
     setSampling(key);
     setError(null);
@@ -327,6 +352,20 @@ export function UploadScreen() {
     [book, docs, map, values],
   );
   const creating = book ? book.cases.rows.length - cannot.length : 0;
+
+  const requestFor = () =>
+    book ? makeRequest({ book, setup, cannot, map, values, counts, fileName, factsHtml, factsId, court }) : null;
+
+  // Check judges each case as Case details will: built here as Create builds it.
+  const blocked = coreMissing.length > 0;
+  const preview = React.useMemo(
+    () =>
+      step === "review" && book && !blocked && !docs
+        ? makeRequest({ book, setup, cannot, map, values, counts, fileName, factsHtml, factsId, court })
+        : null,
+    [step, book, blocked, docs, setup, cannot, map, values, counts, fileName, factsHtml, factsId, court],
+  );
+  const checkCases = useCheckCases(preview?.request ?? null, preview?.parties ?? null);
   const valuesDone = unknownLists.every((l) =>
     unknown[l]!.every((v) => values[l]?.[v]),
   );
@@ -469,29 +508,9 @@ export function UploadScreen() {
       // Reachable from the stepper without passing the Advocate section's own hold.
       const noAdvocate = advocatesMissing(parties.advocates);
       if (noAdvocate) throw new Error(`${noAdvocate}, in Common details.`);
-      const left = new Set(cannot.map((x) => x.index));
-      const usable: Workbookish = {
-        cases: { ...book.cases, rows: book.cases.rows.filter((_, i) => !left.has(i)) },
-      };
-      const request = buildRequest(
-        usable,
-        map,
-        values,
-        {
-          complainant: apiComplainantOf(parties),
-          barNumbers: parties.advocates.map((a) => a.barNumber),
-          // Asked with the complainants on Common details (BLK-05).
-          adr: setup.adr.adr,
-          fileName,
-          detailsFormat: (() => {
-            const format = formats.find((f) => f.id === formatId);
-            return format
-              ? { id: format.id, html: formatForFiler(format), court }
-              : undefined;
-          })(),
-        },
-        counts,
-      );
+      const built = requestFor();
+      if (!built) return;
+      const { request } = built;
       const res = await bulkFetch("/api/bulk/batches", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -780,24 +799,25 @@ export function UploadScreen() {
     const created = book.cases.rows
       .map((cells, i) => ({ cells, row: i + 2 + (book.cases.discarded ?? 0), i }))
       .filter((x) => !left.has(x.i));
-    // Of those, the ones that arrive with a required detail blank: a column the file lacks
-    // leaves every case blank there; otherwise the empty cells in the row.
-    const requiredCols = COLUMNS.filter((c) => c.required.startsWith("Yes") && typeof map[c.key] === "number");
-    const withBlanks = created
-      .map((x) => ({
-        row: x.row,
-        blanks: [
-          ...missing.map((c) => c.header),
-          ...requiredCols.filter((c) => !String(x.cells[map[c.key] as number] ?? "").trim()).map((c) => c.header),
-        ],
-      }))
-      .filter((x) => x.blanks.length);
+    const counted = checkCases ? checkCounts(checkCases) : null;
+    const own =
+      typeof map.otherDetails === "number"
+        ? created.filter((x) => String(x.cells[map.otherDetails as number] ?? "").trim()).length
+        : 0;
     return (
       <>
         <FilingMain width="wide">
           <FilingPageHeader
             title={coreMissing.length ? "Check" : `Create ${creating} case${creating === 1 ? "" : "s"}`}
-            description="Cases with details to fix are still created. You fix them in the filing form next."
+            description={
+              coreMissing.length
+                ? undefined
+                : counted
+                  ? counted.fix + counted.check
+                    ? `From ${fileName}. Cases with something to fix or check are created too, and finished in Case details.`
+                    : `From ${fileName}. Every case is ready.`
+                  : `Reading ${fileName}…`
+            }
           />
           {errorNotice}
           {coreMissing.length ? (
@@ -830,48 +850,6 @@ export function UploadScreen() {
               . Each case stays in draft until you enter {missing.length === 1 ? "it" : "them"} on its Case details.
             </StatusLine>
           ) : null}
-          {/* While the file can't make any case, no count is shown: a number of cases "to be
-              created" under that blocker says the opposite of it (bulk audit, 2026-11-04). */}
-          {coreMissing.length ? null : (
-            <Card variant="raised">
-              <CardContent className="flex flex-col gap-6">
-                <div className="grid gap-6 sm:grid-cols-3">
-                  {[
-                    { n: creating - withBlanks.length, label: "Ready to create", tone: "" },
-                    { n: withBlanks.length, label: "Created, with details to fix", tone: withBlanks.length ? "text-warning-ink" : "" },
-                    { n: cannot.length, label: "Can't be created", tone: cannot.length ? "text-destructive-ink" : "" },
-                  ].map((x) => (
-                    <div key={x.label} className="flex flex-col gap-1">
-                      <span className={cn("text-title font-semibold tabular-nums", x.tone)}>{x.n}</span>
-                      <span className="text-body-compact text-muted-foreground">{x.label}</span>
-                    </div>
-                  ))}
-                </div>
-                <p className="text-body-compact text-muted-foreground">
-                  <span className="tabular-nums">{book.cases.rows.length}</span> rows read from {fileName}.{" "}
-                  {docs ? "Read from the documents." : template ? "The file follows the template." : "Columns matched."}
-                  {book.cases.discarded
-                    ? ` ${book.cases.discarded} template guide row${book.cases.discarded === 1 ? "" : "s"} skipped.`
-                    : ""}
-                </p>
-              </CardContent>
-            </Card>
-          )}
-          {/* Additional details are a column of the file (PRY-1); a format fills only the
-              cases whose row left it empty, so it is chosen here, against the real count. */}
-          {coreMissing.length || !created.length ? null : (
-            <DetailsFormatChoice
-              formats={formats}
-              formatId={formatId}
-              setFormatId={setFormatId}
-              own={
-                typeof map.otherDetails === "number"
-                  ? created.filter((x) => String(x.cells[map.otherDetails as number] ?? "").trim()).length
-                  : 0
-              }
-              total={created.length}
-            />
-          )}
           {cannot.length && !coreMissing.length ? (
             <Card variant="raised">
               <CardHeader>
@@ -897,7 +875,7 @@ export function UploadScreen() {
                       key={x.index}
                       className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-hairline py-3 last:border-b-0"
                     >
-                      <span className="w-20 shrink-0 text-body-compact text-muted-foreground tabular-nums">Row {x.row}</span>
+                      <span className="w-28 shrink-0 text-body-compact text-muted-foreground tabular-nums">Excel row {x.row}</span>
                       <span className="min-w-0 flex-1 text-body-compact">{x.who || "—"}</span>
                       <span className="inline-flex items-center gap-1.5 text-body-compact text-destructive-ink">
                         <CircleXIcon className="size-4 shrink-0" aria-hidden />
@@ -909,127 +887,24 @@ export function UploadScreen() {
               </CardContent>
             </Card>
           ) : null}
-          {(() => {
-            // Every row that becomes a case, filterable and searchable, 25 at a time (v8).
-            const cell = (row: string[], k: string) => {
-              const i = map[k];
-              return typeof i === "number" ? row[i] || "" : i && typeof i === "object" ? i.every : "";
-            };
-            const blankSet = new Set(withBlanks.map((x) => x.row));
-            const q = checkQ.trim().toLowerCase();
-            const rows = created
-              .filter((x) =>
-                checkShow === "all" ? true : checkShow === "blanks" ? blankSet.has(x.row) : !blankSet.has(x.row),
-              )
-              .filter((x) => !q || ["accusedName", "reference", "chequeNumber"].some((k) => cell(x.cells, k).toLowerCase().includes(q)));
-            const pages = Math.max(1, Math.ceil(rows.length / 25));
-            const at = Math.min(checkPage, pages - 1);
-            const page = rows.slice(at * 25, (at + 1) * 25);
-            return (
-              <>
-                <div className="flex flex-wrap items-center gap-3">
-                  <SegmentedControl
-                    type="single"
-                    value={checkShow}
-                    onValueChange={(v) => {
-                      if (!v) return;
-                      setCheckShow(v as typeof checkShow);
-                      setCheckPage(0);
-                    }}
-                    aria-label="Show rows"
-                  >
-                    <SegmentedControlItem value="all">All {created.length}</SegmentedControlItem>
-                    <SegmentedControlItem value="clean">Ready {created.length - withBlanks.length}</SegmentedControlItem>
-                    <SegmentedControlItem value="blanks">To fix {withBlanks.length}</SegmentedControlItem>
-                  </SegmentedControl>
-                  <div className="w-full sm:ml-auto sm:w-72">
-                    <Label htmlFor="check-search" className="sr-only">
-                      Search rows
-                    </Label>
-                    <InputGroup>
-                      <InputGroupAddon>
-                        <SearchIcon aria-hidden />
-                      </InputGroupAddon>
-                      <InputGroupInput
-                        id="check-search"
-                        type="search"
-                        autoComplete="off"
-                        value={checkQ}
-                        onChange={(e) => {
-                          setCheckQ(e.target.value);
-                          setCheckPage(0);
-                        }}
-                        placeholder="Reference, accused or cheque"
-                      />
-                    </InputGroup>
-                  </div>
-                </div>
-                <Card variant="raised" className="gap-0 p-2">
-                  <div className="overflow-x-auto">
-                    <Table className="border-separate border-spacing-0" aria-label="Rows that become cases">
-                      <TableHeader>
-                        <TableRow className={TABLE_HEAD_ROW}>
-                          <TableHead className={TABLE_HEAD}>Row</TableHead>
-                          <TableHead className={TABLE_HEAD}>Accused</TableHead>
-                          <TableHead className={TABLE_HEAD}>Your reference</TableHead>
-                          <TableHead className={cn(TABLE_HEAD, "text-right")}>Cheque amount</TableHead>
-                          <TableHead className={TABLE_HEAD}>To fix</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody className={tableBodyClass({ hover: false })}>
-                        {page.map((x) => {
-                          const blanks = withBlanks.find((w) => w.row === x.row)?.blanks ?? [];
-                          return (
-                            <TableRow key={x.row} className={tableRowClass({ hover: false })}>
-                              <TableCell className={cn(TABLE_CELL, "text-muted-foreground tabular-nums")}>{x.row}</TableCell>
-                              <TableCell className={cn(TABLE_CELL, "font-medium")}>{cell(x.cells, "accusedName") || "—"}</TableCell>
-                              <TableCell className={cn(TABLE_CELL, "tabular-nums")}>{cell(x.cells, "reference") || "—"}</TableCell>
-                              <TableCell className={cn(TABLE_CELL, "text-right tabular-nums")}>{(() => {
-                                const raw = cell(x.cells, "chequeAmount");
-                                const n = Number(raw.replace(/[^\d.]/g, ""));
-                                return raw ? (n ? money(n) : raw) : "—";
-                              })()}</TableCell>
-                              <TableCell className={cn(TABLE_CELL, "whitespace-normal")}>
-                                {blanks.length ? (
-                                  <span className="inline-flex items-start gap-1.5">
-                                    <CircleAlertIcon aria-hidden className="mt-0.5 size-4 shrink-0 text-warning-ink" />
-                                    {blanks.join(", ")}
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-                                    <CheckIcon aria-hidden className="size-4 text-success" />
-                                    Nothing missing
-                                  </span>
-                                )}
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </div>
-                  {rows.length > 25 ? (
-                    <div className="flex items-center justify-between gap-3 px-2 pt-3 pb-1 text-body-compact text-muted-foreground">
-                      <span className="tabular-nums">
-                        {at * 25 + 1}–{Math.min(rows.length, (at + 1) * 25)} of {rows.length}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Button variant="ghost" size="icon-sm" aria-label="Previous page" disabled={at === 0} onClick={() => setCheckPage(at - 1)}>
-                          <ChevronLeftIcon aria-hidden />
-                        </Button>
-                        <span className="tabular-nums">
-                          Page {at + 1} of {pages}
-                        </span>
-                        <Button variant="ghost" size="icon-sm" aria-label="Next page" disabled={at >= pages - 1} onClick={() => setCheckPage(at + 1)}>
-                          <ChevronRightIcon aria-hidden />
-                        </Button>
-                      </span>
-                    </div>
-                  ) : null}
-                </Card>
-              </>
-            );
-          })()}
+          {coreMissing.length || !created.length ? null : (
+            <FactsCard
+              formats={formats}
+              templateId={factsId}
+              html={factsHtml}
+              onChange={(id, html) => setFactsChoice({ id, html })}
+              own={own}
+              total={created.length}
+            />
+          )}
+          {/* Each case judged as Case details will judge it (owner, 2026-11-10). */}
+          {coreMissing.length || docs ? null : checkCases ? (
+            <CheckCases cases={checkCases} />
+          ) : (
+            <p role="status" className="text-body-compact text-muted-foreground">
+              Checking each case…
+            </p>
+          )}
         </FilingMain>
         {/* Two ways on, and only two: create the cases that can be, or correct the file
             and upload it again. Rows left out never join this batch later. */}

@@ -124,14 +124,22 @@ type Show = "fix" | "check" | "ready" | "all";
 
 /** What a case still needs, in one line: the first thing to fix, or to check, or nothing. */
 function ToFix({ c }: { c: CaseView }) {
-  const f = detailFlags(c);
+  return <FlagSummary flags={detailFlags(c)} />;
+}
+
+/**
+ * A case's details flags as one line: the first thing to fix (or check), and how many
+ * more. Shared with the upload's Check, so a case reads the same before and after it is
+ * created (owner, 2026-11-10: Check said "Nothing missing", Case details then said 2 to fix).
+ */
+export function FlagSummary({ flags: f, done = "Details done" }: { flags: Flag[]; done?: string }) {
   const holds = f.filter((x) => x.level === "hold");
   const first = holds[0] ?? f[0];
   if (!first)
     return (
       <span className="inline-flex items-center gap-1.5 text-muted-foreground">
         <CheckIcon aria-hidden className="size-4 text-success" />
-        Details done
+        {done}
       </span>
     );
   const hold = first.level === "hold";

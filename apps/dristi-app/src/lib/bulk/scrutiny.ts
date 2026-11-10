@@ -1206,10 +1206,11 @@ export function caseFlags(bc: BatchCase): Flag[] {
       rule: "pry-1-blanks",
       field: "PRY-1",
       section: "adr-prayer",
-      where: "Additional details",
+      where: "Facts of the case",
       level: "soft",
       at: "adr.otherDetails.blanks",
-      message: `${blanks.length} blank${blanks.length === 1 ? "" : "s"} still to write: ${blanks.map((b) => `[${b}]`).join(", ")}.`,
+      // The parts themselves are in the box, in brackets, where the case opens.
+      message: `${blanks.length === 1 ? "1 part" : `${blanks.length} parts`} in brackets still to write.`,
     });
 
   /*

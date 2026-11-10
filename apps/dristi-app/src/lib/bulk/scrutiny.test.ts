@@ -190,7 +190,6 @@ test("a format's unwritten blanks hold a case under To check, and only the case 
   const blanks = (i: number) => caseFlags(b.cases[i]).filter((f) => f.rule === "pry-1-blanks");
   assert.equal(blanks(0).length, 1);
   assert.equal(blanks(0)[0].level, "soft");
-  assert.match(blanks(0)[0].message, /\[Describe how the Complainant and the Accused know each other\]/);
-  assert.doesNotMatch(blanks(0)[0].message, /Accused Name/);
+  assert.match(blanks(0)[0].message, /^1 part in brackets still to write/);
   assert.equal(blanks(1).length, 0);
 });
