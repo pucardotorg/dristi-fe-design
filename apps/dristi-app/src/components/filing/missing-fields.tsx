@@ -5,9 +5,8 @@
  *
  * Every required `FormField` reports whether it is empty. The footer counts them ("3
  * required fields still needed") and the count is a button: pressed, each empty required
- * field shows the field error "Required" and the first is scrolled to and focused. The
- * preview's "sections incomplete" rows open a section with `?missing=1`, which does the
- * same on arrival (owner, 2026-11-10).
+ * field shows the field error "Required" and the first is scrolled to and focused. A
+ * link with `?missing=1` does the same on arrival (owner, 2026-11-10).
  *
  * Nothing is marked before it is asked for, so a half-filled section does not open red.
  * The count is of the fields on screen: a branch not taken asks for nothing.
@@ -19,13 +18,6 @@ import { TriangleAlertIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useFieldPolicy } from "@/components/filing/field-policy";
-
-/**
- * TEMPORARY (owner, 2026-11-10): the missing-fields and missing-documents guides in the
- * single filing, on trial until the owner says to remove them. Bulk filing keeps the
- * documents guide through `FieldPolicy.guideMissing` either way.
- */
-export const TRY_GUIDE_IN_SINGLE_FILING = true;
 
 type MissingFields = {
   revealed: boolean;
@@ -91,12 +83,13 @@ function Provider({ children }: { children: React.ReactNode }) {
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
-/** Around a filing's sections; a fresh count and an unrevealed screen per section. */
+/**
+ * Around a filing's sections; a fresh count and an unrevealed screen per section. Only
+ * where the host asks for it (`FieldPolicy.guideFields`): bulk filing's Common details.
+ */
 export function MissingFieldsProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  // A host (bulk filing) has its own checks under the fields; the trial is the single filing's.
-  const host = useFieldPolicy();
-  if (host || !TRY_GUIDE_IN_SINGLE_FILING) return <>{children}</>;
+  if (!useFieldPolicy()?.guideFields) return <>{children}</>;
   return <Provider key={pathname}>{children}</Provider>;
 }
 

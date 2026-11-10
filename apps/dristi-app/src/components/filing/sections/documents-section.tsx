@@ -33,7 +33,6 @@ import { complainantLabel, documentsProgress, intakeSlots } from "@/lib/filing/s
 import { readability } from "@/lib/filing/readability";
 import { useFiling } from "@/lib/filing/store";
 import { useFieldPolicy } from "@/components/filing/field-policy";
-import { TRY_GUIDE_IN_SINGLE_FILING } from "@/components/filing/missing-fields";
 import type {
   CaseDocument,
   DocumentGroup,
@@ -139,9 +138,7 @@ export function DocumentsSection() {
   const router = useRouter();
   const policy = useFieldPolicy();
   const showGroup = policy?.documentGroups;
-  // TEMPORARY (owner, 2026-11-10): on in the single filing too, until the owner says to
-  // remove it. To undo: revert this commit, leaving `policy?.guideMissing === true`.
-  const guide = policy?.guideMissing === true || TRY_GUIDE_IN_SINGLE_FILING;
+  const guide = policy?.guideMissing === true;
   const groups = showGroup ? draft.documents.filter((g) => showGroup(g.id)) : draft.documents;
   const { remaining } = documentsProgress(groups);
   const { pick, input } = useFilePicker();

@@ -94,6 +94,12 @@ export type FieldPolicy = {
    * 2026-11-10); the single filing adopts it by dropping this flag.
    */
   guideMissing?: true;
+  /**
+   * The footer counts the required fields still empty on screen, as a button that marks
+   * them and goes to the first (`missing-fields.tsx`). Bulk filing's Common details, where
+   * the batch's parties are typed in by hand (owner, 2026-11-10).
+   */
+  guideFields?: true;
 };
 
 /** A host step in the sections rail. */
