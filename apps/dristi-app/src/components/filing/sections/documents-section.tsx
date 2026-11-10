@@ -133,12 +133,17 @@ function FilePreviewWell({ file }: { file: StoredFileRef | null }) {
   );
 }
 
+/** TEMPORARY: the missing-documents guide outside bulk filing. Remove on the owner's word. */
+const TRY_GUIDE_IN_SINGLE_FILING = true;
+
 export function DocumentsSection() {
   const { draft, update, hrefFor } = useFiling();
   const router = useRouter();
   const policy = useFieldPolicy();
   const showGroup = policy?.documentGroups;
-  const guide = policy?.guideMissing === true;
+  // TEMPORARY (owner, 2026-11-10): on in the single filing too, until the owner says to
+  // remove it. To undo: revert this commit, leaving `policy?.guideMissing === true`.
+  const guide = policy?.guideMissing === true || TRY_GUIDE_IN_SINGLE_FILING;
   const groups = showGroup ? draft.documents.filter((g) => showGroup(g.id)) : draft.documents;
   const { remaining } = documentsProgress(groups);
   const { pick, input } = useFilePicker();
