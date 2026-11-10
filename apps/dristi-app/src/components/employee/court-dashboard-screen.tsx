@@ -412,12 +412,10 @@ function Overview({
       </div>
 
       <section aria-labelledby="dash-ages" className={cn(BOX, "flex flex-col gap-4 p-4 sm:px-6")}>
-        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-          <h3 id="dash-ages" className="text-body font-semibold">
-            How long the {formatCount(end.pending)} pending cases have been in court
-          </h3>
-          <p className="text-caption text-muted-foreground">{reading.live ? "Today" : `On ${formatDayShort(to)}`}</p>
-        </div>
+        {/* No day tag: the count in the title is the Pending card's, and that card names the day. */}
+        <h3 id="dash-ages" className="text-body font-semibold">
+          How long the {formatCount(end.pending)} pending cases have been in court
+        </h3>
         {/* Four numbers, oldest on the right, each with its share: an old group gets the same
             room as the newest, so it is never a sliver (owner, 2026-11-10). */}
         <ul className="grid grid-cols-2 gap-y-4 tabular-nums md:grid-cols-4">
