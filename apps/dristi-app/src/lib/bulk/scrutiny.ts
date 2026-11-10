@@ -17,6 +17,7 @@
  * filing would also call it complete (PRD constraint 2, one set of validation rules).
  */
 
+import { bracketsIn } from "@/lib/filing/detail-fields";
 import {
   ACCUSED_ENTITY_TYPES,
   ENTITY_TYPES,
@@ -1192,6 +1193,24 @@ export function caseFlags(bc: BatchCase): Flag[] {
       });
     }
   }
+
+  /*
+   * ── Additional details (PRY-1): blanks nobody has written ──
+   * A format generated for the batch leaves its "[Describe …]" parts, and any field the
+   * row did not hold, in brackets. Signed as is, the complaint would say "[Describe …]",
+   * so the case waits under To check until they are written (owner, 2026-11-10).
+   */
+  const blanks = bracketsIn(d.adr.otherDetails ?? "");
+  if (blanks.length)
+    push({
+      rule: "pry-1-blanks",
+      field: "PRY-1",
+      section: "adr-prayer",
+      where: "Additional details",
+      level: "soft",
+      at: "adr.otherDetails.blanks",
+      message: `${blanks.length} blank${blanks.length === 1 ? "" : "s"} still to write: ${blanks.map((b) => `[${b}]`).join(", ")}.`,
+    });
 
   /*
    * ── Parity with the single filing: a case clears only if every section would ──

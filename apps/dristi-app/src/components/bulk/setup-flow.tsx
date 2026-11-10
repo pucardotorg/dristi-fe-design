@@ -45,6 +45,7 @@ import {
 } from "@/components/ui/empty";
 import { Spinner } from "@/components/ui/spinner";
 
+import { BatchAdr } from "./batch-parties";
 import { BulkSteps, StageRow, type BulkStepId, type Stage, type StepMark } from "./bulk-steps";
 import { useGujarat } from "./court-guard";
 
@@ -237,9 +238,11 @@ function SetupPolicy({ policy, children }: { policy: FieldPolicy; children: Reac
   const { draft } = useFiling();
   const hold = policy.step === "advocate" ? advocatesMissing(draft.advocates) : null;
   const picker = React.useMemo(() => (policy.step === "complainant" ? <SavedComplainant /> : null), [policy.step]);
+  // ADR is a batch detail like the complainants (PRD BLK-05), so it is asked with them.
+  const adr = React.useMemo(() => (policy.step === "complainant" ? <BatchAdr /> : null), [policy.step]);
   const value = React.useMemo(
-    () => ({ ...policy, holdContinue: hold, underTitle: picker ?? policy.underTitle }),
-    [policy, hold, picker],
+    () => ({ ...policy, holdContinue: hold, underTitle: picker ?? policy.underTitle, belowForm: adr }),
+    [policy, hold, picker, adr],
   );
   return <FieldPolicyProvider value={value}>{children}</FieldPolicyProvider>;
 }

@@ -179,3 +179,18 @@ test("a deposit or a reply the sender does not state holds the case, with the qu
   assert.ok(holds.includes("LDN-9"));
   assert.ok(!caseFlags(stated).some((f) => f.field === "JUR-1" || f.field === "LDN-9"));
 });
+
+test("a format's unwritten blanks hold a case under To check, and only the case without its own text", async () => {
+  const req = request([goodCase("D-1"), goodCase("D-2", { otherDetails: "The parties are cousins." })]);
+  req.detailsFormat = {
+    id: "f1",
+    html: "<p>The Accused, [Accused Name]. [Describe how the Complainant and the Accused know each other]</p>",
+  };
+  const b = await buildBatch(req, { kind: "api", system: "Test" }, async () => null);
+  const blanks = (i: number) => caseFlags(b.cases[i]).filter((f) => f.rule === "pry-1-blanks");
+  assert.equal(blanks(0).length, 1);
+  assert.equal(blanks(0)[0].level, "soft");
+  assert.match(blanks(0)[0].message, /\[Describe how the Complainant and the Accused know each other\]/);
+  assert.doesNotMatch(blanks(0)[0].message, /Accused Name/);
+  assert.equal(blanks(1).length, 0);
+});

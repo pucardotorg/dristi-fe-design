@@ -97,7 +97,7 @@ import {
   serverDetailsFormats,
   subscribeToDetailsFormats,
 } from "@/lib/filing/details-formats";
-import { BatchParties, type Adr } from "./batch-parties";
+import { DetailsFormatChoice } from "./batch-parties";
 import { FileDrop } from "./file-drop";
 import { FormatChoice, type UploadFormat } from "./format-choice";
 import { bulkFetch } from "./api";
@@ -246,7 +246,6 @@ export function UploadScreen() {
   // (`setup-flow.tsx`): this screen is one of the setup's own.
   const { draft: setup } = useFiling();
   const setupId = setup.id;
-  const [adr, setAdr] = React.useState<Adr>("no");
   // The additional-details format every case is generated from: what the filer chose
   // ("" for none), or until they choose, the default format if one is set.
   const [formatChoice, setFormatId] = React.useState<string | null>(null);
@@ -481,7 +480,8 @@ export function UploadScreen() {
         {
           complainant: apiComplainantOf(parties),
           barNumbers: parties.advocates.map((a) => a.barNumber),
-          adr,
+          // Asked with the complainants on Common details (BLK-05).
+          adr: setup.adr.adr,
           fileName,
           detailsFormat: (() => {
             const format = formats.find((f) => f.id === formatId);
@@ -668,17 +668,6 @@ export function UploadScreen() {
               {template ? "Use your own Excel" : "Use the template instead"}
             </Button>
           </p>
-          <Card variant="raised">
-            <CardHeader>
-              <CardTitle className="text-body font-semibold">The same for every case in the file</CardTitle>
-              <CardDescription>
-                Like the complainants and advocates, these are set once here.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-6">
-              <BatchParties adr={adr} setAdr={setAdr} formatId={formatId} setFormatId={setFormatId} />
-            </CardContent>
-          </Card>
         </FilingMain>
         <FilingFooter
           showSaveState={false}
@@ -867,6 +856,21 @@ export function UploadScreen() {
                 </p>
               </CardContent>
             </Card>
+          )}
+          {/* Additional details are a column of the file (PRY-1); a format fills only the
+              cases whose row left it empty, so it is chosen here, against the real count. */}
+          {coreMissing.length || !created.length ? null : (
+            <DetailsFormatChoice
+              formats={formats}
+              formatId={formatId}
+              setFormatId={setFormatId}
+              own={
+                typeof map.otherDetails === "number"
+                  ? created.filter((x) => String(x.cells[map.otherDetails as number] ?? "").trim()).length
+                  : 0
+              }
+              total={created.length}
+            />
           )}
           {cannot.length && !coreMissing.length ? (
             <Card variant="raised">

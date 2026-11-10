@@ -53,6 +53,11 @@ export type FieldPolicy = {
    */
   underTitle?: React.ReactNode;
   /**
+   * The host's own content after the section's form: bulk filing asks its batch-wide ADR
+   * question under the complainants (BLK-05).
+   */
+  belowForm?: React.ReactNode;
+  /**
    * Which groups of the list of documents to show, when the host collects only some of
    * them here. Bulk filing's setup shows the complainants' documents alone; each case's
    * own are uploaded per case.
