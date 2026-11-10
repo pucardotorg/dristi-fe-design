@@ -351,7 +351,7 @@ function Overview({
   /**
    * The one way the Overview shows change: arrow and amount, then what it is compared
    * with. Colour only when the change is worse (destructive ink); a better or neutral
-   * change stays in foreground ink, so two colours never have to be decoded (owner,
+   * change keeps the line's muted ink, so only a worse change stands out (owner,
    * 2026-11-10).
    */
   const change = (diff: number, base: string, goodUp: boolean | null) => {
@@ -360,7 +360,7 @@ function Overview({
     const worse = goodUp !== null && up !== goodUp;
     return (
       <p className="text-body-compact text-muted-foreground tabular-nums">
-        <span className={cn("font-semibold", worse ? "text-destructive-ink" : "text-foreground")}>
+        <span className={cn("font-semibold", worse && "text-destructive-ink")}>
           <span aria-hidden>{up ? "▲ " : "▼ "}</span>
           <span className="sr-only">{up ? "Up " : "Down "}</span>
           {formatCount(Math.abs(diff))}
