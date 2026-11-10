@@ -21,7 +21,10 @@ import { DashboardDatePicker } from "@/components/employee/dashboard-date-picker
 import { useCourtDocket } from "@/components/employee/docket-table";
 import { useCourtSession } from "@/components/employee/use-court-role";
 import { useCourtToday } from "@/components/employee/use-court-today";
+import { TABLE_CELL, TABLE_HEAD, TABLE_HEAD_ROW, tableBodyClass, tableRowClass } from "@/components/chrome/table-plate";
 import { Button } from "@/components/ui/button";
+import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   COURT_LIMITS,
@@ -47,6 +50,7 @@ import {
   nextDates,
   outcomesIn,
   PENDING_AGE_GROUPS,
+  pendingAgeGroup,
   pendingSets,
   periodReading,
   positionOn,
@@ -255,6 +259,7 @@ type OverviewList =
   | "toLongPending"
   | "longPending"
   | `stage-${StageKey}`
+  | `cell-${StageKey}-${0 | 1 | 2 | 3}`
   | `age-${0 | 1 | 2 | 3}`;
 
 /** The cases a stage card opens: all in the stage, those past its limit, or one day bin. */
@@ -330,6 +335,20 @@ function Overview({
         details: pastNote,
       };
     }
+    if (key.startsWith("cell-")) {
+      const [, stageKey, group] = key.split("-") as [string, StageKey, string];
+      const stage = STAGES.find((x) => x.key === stageKey);
+      const i = Number(group) as 0 | 1 | 2 | 3;
+      if (!stage) return null;
+      const rows = sets.byStage[stage.key].filter((r) => pendingAgeGroup(r.case.filed, to) === i);
+      return {
+        title: `${pendingName} · ${stage.label} · in court ${PENDING_AGE_GROUPS[i].toLowerCase()}`,
+        summary: `${plural(rows.length, "case", "cases")} · longest in court first`,
+        rows,
+        daysHeader: inCourt,
+        details: pastNote,
+      };
+    }
     if (key.startsWith("stage-")) {
       const stage = STAGES.find((x) => `stage-${x.key}` === key);
       if (!stage) return null;
@@ -355,6 +374,22 @@ function Overview({
     return null;
   };
   const spec = list.open ? resolve(list.open) : null;
+  /* Cards by default; the table is the same cases cut both ways at once. */
+  const [pendingView, setPendingView] = React.useState<"cards" | "table">("cards");
+  const viewSwitch = (
+    <SegmentedControl
+      type="single"
+      size="compact"
+      value={pendingView}
+      onValueChange={(next) => {
+        if (next === "cards" || next === "table") setPendingView(next);
+      }}
+      aria-label="Show pending cases as"
+    >
+      <SegmentedControlItem value="cards">Cards</SegmentedControlItem>
+      <SegmentedControlItem value="table">Table</SegmentedControlItem>
+    </SegmentedControl>
+  );
   const opener = (key: OverviewList) => ({
     expanded: list.open === key,
     controls: listId,
@@ -454,70 +489,150 @@ function Overview({
         </div>
       </div>
 
-      {/* The two ways the pending cases split, as a pair: side by side on a wide screen,
-          stacked below that. Both read the Pending card's cases on its day, so neither
-          repeats the total or the day (owner, 2026-11-10). */}
-      <div className="grid min-w-0 gap-6 xl:grid-cols-5 xl:gap-4">
-        <section aria-labelledby="dash-ages" className="flex min-w-0 flex-col gap-3 xl:col-span-2">
-          <h3 id="dash-ages" className="text-body font-semibold">
-            Pending cases by time in court
-          </h3>
-          <div className={cn(BOX, "flex-1 p-4 sm:px-6")}>
-            {/* Four numbers, oldest last, each with its share: an old group gets the same room
-                as the newest, so it is never a sliver (owner, 2026-11-10). */}
-            <ul className="grid grid-cols-2 gap-y-4 tabular-nums md:grid-cols-4 xl:grid-cols-2">
-              {PENDING_AGE_GROUPS.map((label, i) => (
-                <PendingCount
-                  key={label}
-                  label={label}
-                  count={ages[i]}
-                  total={end.pending}
-                  name={`in court ${label.toLowerCase()}`}
-                  opener={opener(`age-${i as 0 | 1 | 2 | 3}`)}
-                  className={cn(i === 2 && "xl:border-l-0 xl:pl-0")}
-                  index={i}
-                />
-              ))}
-            </ul>
-          </div>
-        </section>
+      {/* The two ways the pending cases split, one under the other, in the same cells; or,
+          by the toggle, as one table of stage by time in court (owner, 2026-11-10: round 5,
+          option A with option C as a table view). Both read the Pending card's cases on
+          its day, so neither repeats the total or the day. */}
+      {pendingView === "cards" ? (
+        <>
+          <section aria-labelledby="dash-ages" className="flex min-w-0 flex-col gap-3">
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
+              <h3 id="dash-ages" className="text-body font-semibold">
+                Pending cases by time in court
+              </h3>
+              {viewSwitch}
+            </div>
+            <div className={cn(BOX, "p-4 sm:px-6")}>
+              {/* Four numbers, oldest last, each with its share: an old group gets the same
+                  room as the newest, so it is never a sliver (owner, 2026-11-10). */}
+              <ul className="grid grid-cols-2 gap-y-4 tabular-nums md:grid-cols-4">
+                {PENDING_AGE_GROUPS.map((label, i) => (
+                  <PendingCount
+                    key={label}
+                    label={label}
+                    count={ages[i]}
+                    total={end.pending}
+                    name={`in court ${label.toLowerCase()}`}
+                    opener={opener(`age-${i as 0 | 1 | 2 | 3}`)}
+                    index={i}
+                  />
+                ))}
+              </ul>
+            </div>
+          </section>
 
-        <section aria-labelledby="dash-by-stage" className="flex min-w-0 flex-col gap-3 xl:col-span-3">
-          <h3 id="dash-by-stage" className="text-body font-semibold">
-            Pending cases by stage
-          </h3>
-          {/* The same cells as the age card, grouped either side of cognizance. Cases at
-              registration are not on the CMP register yet, so the groups are named by
-              cognizance, not by register. */}
-          <div className={cn(BOX, "flex flex-1 flex-col gap-6 p-4 sm:px-6")}>
-            {STAGE_GROUPS.map((group) => {
-              const stages = STAGES.filter((stage) => group.keys.includes(stage.key));
-              const count = stages.reduce((sum, stage) => sum + sets.byStage[stage.key].length, 0);
-              const id = `dash-by-stage-${group.keys[0]}`;
-              return (
-                <div key={id} className="flex min-w-0 flex-col gap-3">
-                  <p id={id} className="border-b border-hairline pb-1.5 text-caption text-muted-foreground tabular-nums">
-                    {group.label} · {formatCount(count)}
-                  </p>
-                  <ul aria-labelledby={id} className="grid grid-cols-2 gap-y-4 tabular-nums md:grid-cols-4">
-                    {stages.map((stage, i) => (
-                      <PendingCount
-                        key={stage.key}
-                        label={stage.label}
-                        count={sets.byStage[stage.key].length}
-                        total={end.pending}
-                        name={`pending at ${stage.label.toLowerCase()}`}
-                        opener={opener(`stage-${stage.key}`)}
-                        index={i}
-                      />
-                    ))}
-                  </ul>
-                </div>
-              );
-            })}
+          <section aria-labelledby="dash-by-stage" className="flex min-w-0 flex-col gap-3">
+            <h3 id="dash-by-stage" className="text-body font-semibold">
+              Pending cases by stage
+            </h3>
+            {/* The same cells, grouped either side of cognizance: one row from xl, the
+                groups stacked below that. Cases at registration are not on the CMP register
+                yet, so the groups are named by cognizance, not by register. */}
+            <div className={cn(BOX, "flex flex-col gap-6 p-4 sm:px-6 xl:grid xl:grid-cols-6 xl:gap-0")}>
+              {STAGE_GROUPS.map((group, g) => {
+                const stages = STAGES.filter((stage) => group.keys.includes(stage.key));
+                const count = stages.reduce((sum, stage) => sum + sets.byStage[stage.key].length, 0);
+                const id = `dash-by-stage-${group.keys[0]}`;
+                return (
+                  <div
+                    key={id}
+                    className={cn(
+                      "flex min-w-0 flex-col gap-3",
+                      g === 0 ? "xl:col-span-2 xl:pr-4" : "xl:col-span-4 xl:border-l xl:border-hairline xl:pl-4",
+                    )}
+                  >
+                    <p id={id} className="border-b border-hairline pb-1.5 text-caption text-muted-foreground tabular-nums">
+                      {group.label} · {formatCount(count)}
+                    </p>
+                    <ul
+                      aria-labelledby={id}
+                      className={cn("grid grid-cols-2 gap-y-4 tabular-nums md:grid-cols-4", g === 0 && "xl:grid-cols-2")}
+                    >
+                      {stages.map((stage, i) => (
+                        <PendingCount
+                          key={stage.key}
+                          label={stage.label}
+                          count={sets.byStage[stage.key].length}
+                          total={end.pending}
+                          name={`pending at ${stage.label.toLowerCase()}`}
+                          opener={opener(`stage-${stage.key}`)}
+                          index={i}
+                        />
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        </>
+      ) : (
+        <section aria-labelledby="dash-pending-table" className="flex min-w-0 flex-col gap-3">
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
+            <h3 id="dash-pending-table" className="text-body font-semibold">
+              Pending cases by stage and time in court
+            </h3>
+            {viewSwitch}
+          </div>
+          <div className={cn(BOX, "p-2")}>
+            <Table aria-labelledby="dash-pending-table" className="tabular-nums">
+              <TableHeader>
+                <TableRow className={TABLE_HEAD_ROW}>
+                  <TableHead scope="col" className={TABLE_HEAD}>Stage</TableHead>
+                  {PENDING_AGE_GROUPS.map((label) => (
+                    <TableHead key={label} scope="col" className={cn(TABLE_HEAD, "text-right")}>{label}</TableHead>
+                  ))}
+                  <TableHead scope="col" className={cn(TABLE_HEAD, "text-right")}>All</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className={tableBodyClass({ hover: false })}>
+                {STAGES.map((stage) => {
+                  const rows = sets.byStage[stage.key];
+                  const split = [0, 0, 0, 0];
+                  for (const r of rows) split[pendingAgeGroup(r.case.filed, to)]++;
+                  return (
+                    <TableRow key={stage.key} className={tableRowClass({ hover: false })}>
+                      <th scope="row" className={cn(TABLE_CELL, "font-semibold")}>{stage.label}</th>
+                      {split.map((n, i) => (
+                        <TableCell key={i} className={cn(TABLE_CELL, "text-right")}>
+                          {n ? (
+                            <CountButton
+                              name={`at ${stage.label.toLowerCase()}, in court ${PENDING_AGE_GROUPS[i].toLowerCase()}`}
+                              {...opener(`cell-${stage.key}-${i as 0 | 1 | 2 | 3}`)}
+                            >
+                              {formatCount(n)}
+                            </CountButton>
+                          ) : (
+                            <span className="text-muted-foreground">0</span>
+                          )}
+                        </TableCell>
+                      ))}
+                      <TableCell className={cn(TABLE_CELL, "text-right")}>
+                        {rows.length ? (
+                          <CountButton name={`pending at ${stage.label.toLowerCase()}`} className="font-semibold" {...opener(`stage-${stage.key}`)}>
+                            {formatCount(rows.length)}
+                          </CountButton>
+                        ) : (
+                          <span className="font-semibold text-muted-foreground">0</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+                <TableRow className={tableRowClass({ hover: false })}>
+                  <th scope="row" className={cn(TABLE_CELL, "border-b-0 font-semibold")}>All pending</th>
+                  {ages.map((n, i) => (
+                    <TableCell key={i} className={cn(TABLE_CELL, "border-b-0 text-right font-semibold", !n && "text-muted-foreground")}>
+                      {formatCount(n)}
+                    </TableCell>
+                  ))}
+                  <TableCell className={cn(TABLE_CELL, "border-b-0 text-right font-semibold")}>{formatCount(end.pending)}</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
           </div>
         </section>
-      </div>
+      )}
 
       <div id={listId} className="min-w-0 empty:hidden">
         {spec && list.open ? (
