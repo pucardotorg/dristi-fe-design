@@ -16,8 +16,8 @@ note's 1.2: Overview, case status and disposal, time between hearings, outliers,
   A new card shows how long pending cases have been in court, in the note's 5.3 groups
   (0–6 months, 6–12 months, 1–2 years, over 2 years), shown as four numbers with their
   share of pending rather than bars. The comparison breakdown and the
-  oldest-case line were removed after owner review. The stage path below is unchanged
-  for now. Commits `628b6f73` (comparison
+  oldest-case line were removed after owner review. The stage path has moved out of the
+  Overview into its own panel, with its content unchanged for now. Commits `628b6f73` (comparison
   logic) and `d5994dff` (cards). Exploration artifact:
   https://claude.ai/artifact/C1mN8ALhhcnwpfwG1tSvFj (v3).
 - **Case status and disposal (picked, not built):** the "Register shelf", with the court
@@ -188,6 +188,7 @@ artifact (https://claude.ai/artifact/Vn5JjfdhnAGAzJRfQ4Db9k). Only Direction 1 a
 | 2026-11-10 | **Oldest pending case line removed** from the age card. Owner: a pathway to one case does not belong there; each age group's count already opens its cases, longest first. | Owner | implemented |
 | 2026-11-10 | **Age card: four numbers, no chart** (option 1 of three; others: each group with its change since the period began, or with a 12-month line). Bars by share made the newest group dominate and the old groups slivers. The coordinator recommended the change option; the owner chose the simpler one. | Owner | implemented |
 | 2026-11-10 | **Day tag removed from the age card.** It repeated the Pending card's label ("Pending today" / "Pending on 31 Oct"), whose count the age card's title reuses. | Owner question, coordinator agreed | implemented |
+| 2026-11-10 | **"Where the pending cases are" leaves the Overview** for its own panel below it, with its own date picker and case list. It is the note's 1.2 C (outlier cases): its core is cases past each stage's limit; stage counts and typical days come from the public dashboard (1.1); in/out and the dot pills are not in the note. Content unchanged until that section is redesigned. | Owner | implemented |
 
 ## Changes and tradeoffs
 
