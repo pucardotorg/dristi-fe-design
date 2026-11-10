@@ -116,6 +116,7 @@ export function WitnessesSection() {
             asGroup
             label="How is this witness identified?"
             required
+            empty={!w.fullName.trim() && !w.designation.trim()}
             help="Either one is enough. Use the designation if you only know the office they hold."
             helpPlacement="above"
           >

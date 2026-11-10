@@ -13,6 +13,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useFieldPolicy } from "@/components/filing/field-policy";
+import { MissingFieldsButton, useMissingFields } from "@/components/filing/missing-fields";
 import { useInCorrection } from "@/components/filing/posture";
 import { SavingIndicator } from "@/components/filing/saving-indicator";
 
@@ -84,6 +85,9 @@ export function FilingFooter({
    * (brief D14 — ration teal). So the walking footer stands down.
    */
   const inCorrection = useInCorrection();
+  // What is still empty on the screen, as the way to it, where the step says nothing else.
+  const missingFields = useMissingFields();
+  if (leading === undefined && missingFields && missingFields.count > 0) leading = <MissingFieldsButton />;
   // A host can send the primary action somewhere else (`FieldPolicy.next`).
   const policy = useFieldPolicy();
   const hostNext = policy?.next ?? null;

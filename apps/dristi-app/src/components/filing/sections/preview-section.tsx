@@ -342,6 +342,9 @@ function buildPanels(draft: FilingDraft): Record<PanelKey, EditPanel> {
 
 /* ───────────────────────────── Incomplete sections ─────────────────── */
 
+/** A section's address that opens with its empty required fields marked. */
+const withMissing = (href: string) => `${href}${href.includes("?") ? "&" : "?"}missing=1`;
+
 /**
  * The count of what is left, which opens into the sections themselves. A count alone
  * says something is missing without saying where; each row here goes straight to that
@@ -808,7 +811,8 @@ export function PreviewSection() {
               sections={incomplete.map((k) => ({
                 key: k,
                 title: courtText(panels[k].title),
-                href: hrefFor(panels[k].step),
+                // Opens the section with what is still empty marked (missing-fields.tsx).
+                href: withMissing(hrefFor(panels[k].step)),
               }))}
             />
           )

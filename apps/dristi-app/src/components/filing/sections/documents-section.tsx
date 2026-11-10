@@ -33,6 +33,7 @@ import { complainantLabel, documentsProgress, intakeSlots } from "@/lib/filing/s
 import { readability } from "@/lib/filing/readability";
 import { useFiling } from "@/lib/filing/store";
 import { useFieldPolicy } from "@/components/filing/field-policy";
+import { TRY_GUIDE_IN_SINGLE_FILING } from "@/components/filing/missing-fields";
 import type {
   CaseDocument,
   DocumentGroup,
@@ -132,9 +133,6 @@ function FilePreviewWell({ file }: { file: StoredFileRef | null }) {
     </div>
   );
 }
-
-/** TEMPORARY: the missing-documents guide outside bulk filing. Remove on the owner's word. */
-const TRY_GUIDE_IN_SINGLE_FILING = true;
 
 export function DocumentsSection() {
   const { draft, update, hrefFor } = useFiling();

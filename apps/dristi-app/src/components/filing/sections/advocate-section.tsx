@@ -247,7 +247,7 @@ export function AdvocateSection() {
             >
               {/* A lone short answer takes half the card, like every other one. */}
               <HalfWidth>
-                <FormField asGroup label="Advocate for" required>
+                <FormField asGroup label="Advocate for" required empty={selected.length === 0}>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
@@ -311,7 +311,7 @@ export function AdvocateSection() {
                 register is the whole path — there is nothing to type by hand.
               */}
               {onRegister ? (
-                <FormField asGroup label="Advocate" required>
+                <FormField asGroup label="Advocate" required empty={false}>
                   <div className="flex items-start gap-3 rounded-lg bg-surface-sunken p-4">
                     <span
                       aria-hidden
@@ -348,7 +348,8 @@ export function AdvocateSection() {
                   </div>
                 </FormField>
               ) : (
-                <FormField label="Advocate" required>
+                // Not on the register yet: none chosen, whatever is typed in the search.
+                <FormField label="Advocate" required empty>
                   <ComboField
                     value={queries[a.id] ?? ""}
                     onChange={(v: string) => {

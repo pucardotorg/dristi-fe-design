@@ -145,7 +145,7 @@ export function IfscField({
           : null;
 
   return (
-    <FormField label="IFSC code" name="ifsc" required tip={tip}>
+    <FormField label="IFSC code" name="ifsc" required tip={tip} empty={!value.trim()}>
       <div className="flex flex-col gap-2">
         <div className="flex items-start gap-2">
           <TextField

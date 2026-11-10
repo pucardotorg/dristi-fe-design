@@ -25,6 +25,7 @@ import {
 } from "@/components/filing/posture";
 import { useFieldPolicy } from "@/components/filing/field-policy";
 import { defectState } from "@/lib/tasks/defects";
+import { inferEmpty, useMissingField } from "@/components/filing/missing-fields";
 
 const SourceFieldLabel = React.createContext("this field");
 export function useSourceFieldLabel() { return React.useContext(SourceFieldLabel); }
@@ -87,6 +88,7 @@ export function FormField({
   help,
   helpPlacement = "below",
   error: ownError,
+  empty: emptyProp,
   asGroup = false,
   className,
   children,
@@ -105,6 +107,12 @@ export function FormField({
   helpPlacement?: "above" | "below";
   /** What is wrong with the current value. Shown under the control, read out with it. */
   error?: React.ReactNode;
+  /**
+   * Whether a required field is still empty, for the footer's count of what is left
+   * (`missing-fields.tsx`). Read from the one control's `value` when not passed; pass it
+   * where the field holds a group or its value is not the answer.
+   */
+  empty?: boolean;
   asGroup?: boolean;
   className?: string;
   children: React.ReactNode;
@@ -113,7 +121,13 @@ export function FormField({
   const instance = useCorrectionInstance();
   // A host's check on this field (bulk filing), when the section has nothing of its own to say.
   const policy = useFieldPolicy();
-  const error = ownError ?? (policy && name ? policy.issueAt(instance, name) : null) ?? undefined;
+  const { missing, flagged } = useMissingField(
+    required && !optional ? (emptyProp ?? inferEmpty(children)) : null,
+  );
+  const error =
+    ownError ??
+    (policy && name ? policy.issueAt(instance, name) : null) ??
+    (flagged ? "Required" : undefined);
   const defect =
     correction && name ? correction.defectAt(correction.step, instance, name) : null;
   const locked = !!correction && !defect;
@@ -172,7 +186,11 @@ export function FormField({
   );
 
   const field = (
-    <Field className={cn(asGroup ? "gap-3" : "gap-2", className)} data-invalid={error ? true : undefined}>
+    <Field
+      className={cn(asGroup ? "gap-3" : "gap-2", className)}
+      data-invalid={error ? true : undefined}
+      data-missing-field={missing || undefined}
+    >
       {asGroup ? (
         <FieldTitle className="text-body-compact">{labelBody}</FieldTitle>
       ) : (

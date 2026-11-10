@@ -5,6 +5,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 import { LeaveGuardProvider } from "@/components/filing/leave-guard";
 import { PolicyLock, useFieldPolicy } from "@/components/filing/field-policy";
+import { MissingFieldsProvider } from "@/components/filing/missing-fields";
 import { useInCorrection } from "@/components/filing/posture";
 import { SectionsRail, SectionsTrigger } from "@/components/filing/sections-rail";
 
@@ -50,7 +51,7 @@ export function FilingShell({
         <main className="flex min-w-0 flex-1 flex-col bg-muted dark:bg-background">
           {rail ? <SectionsTrigger /> : null}
           {banner}
-          {children}
+          <MissingFieldsProvider>{children}</MissingFieldsProvider>
         </main>
 
         {/* Zero-width until a source or signing rail mounts into it. */}
