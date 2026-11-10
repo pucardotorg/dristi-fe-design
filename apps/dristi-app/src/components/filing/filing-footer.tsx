@@ -15,24 +15,6 @@ import {
 import { useFieldPolicy } from "@/components/filing/field-policy";
 import { useInCorrection } from "@/components/filing/posture";
 import { SavingIndicator } from "@/components/filing/saving-indicator";
-import { useMissingGuard } from "@/lib/filing/store";
-
-/**
- * Once the errors have rendered, move to the first field in error and centre it, so it is
- * not left under the sticky footer — on a phone it is usually far above the button.
- */
-function focusFirstMissing() {
-  window.requestAnimationFrame(() => {
-    const field = document.querySelector<HTMLElement>('[data-slot="field"][data-invalid="true"]');
-    if (!field) return;
-    const control = Array.from(
-      field.querySelectorAll<HTMLElement>("input, textarea, button, [role='combobox'], [tabindex='0']")
-    ).find((el) => !el.closest("label, [data-slot='field-label']") && !el.hasAttribute("disabled"));
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    field.scrollIntoView({ block: "center", behavior: reduce ? "auto" : "smooth" });
-    control?.focus({ preventScroll: true });
-  });
-}
 
 /**
  * Sticky action bar under every filing screen: Back on the left, save state and the one
@@ -105,23 +87,10 @@ export function FilingFooter({
   }
 
   /*
-   * Continue does not leave a section with required fields empty: it shows them and puts
-   * the cursor in the first (#11, owner 2026-10-30). The Sections list and Back stay free.
-   * A host checks its cases its own way, so it is left alone.
+   * Continue always moves on, even past required fields left empty, so the person's
+   * progress is never held up; the rail keeps the count of what is still empty (#11,
+   * owner 2026-11-10, replacing the 2026-10-30 stop). Submitting still needs them.
    */
-  const guard = useMissingGuard();
-  const stopIfMissing = policy ? null : guard;
-  const stayed = () => {
-    if (!stopIfMissing?.()) return false;
-    focusFirstMissing();
-    return true;
-  };
-  if (stopIfMissing && onContinue) {
-    const go = onContinue;
-    onContinue = () => {
-      if (!stayed()) go();
-    };
-  }
   const back =
     backHref !== undefined ? (
       <Button asChild variant="outline" size="lg">
@@ -163,12 +132,7 @@ export function FilingFooter({
       </TooltipProvider>
     ) : continueHref !== undefined && !continueDisabled ? (
       <Button asChild size="lg" variant={continueVariant}>
-        <Link
-          href={continueHref}
-          onClick={(event) => {
-            if (stayed()) event.preventDefault();
-          }}
-        >
+        <Link href={continueHref}>
           {continueLabel}
           <ArrowRightIcon data-icon="inline-end" aria-hidden />
         </Link>

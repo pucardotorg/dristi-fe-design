@@ -248,13 +248,22 @@ export function FilingProvider({
     await deleteDraftWithFiles(draftId);
   }, [draftId]);
 
-  // The required fields Continue found empty on this visit to the section (design
-  // feedback #11). Only Continue shows errors: opening a section, coming back to it, or
-  // adding a party or advocate shows nothing. Leaving the section forgets them, and a row
-  // added after Continue is not among them.
+  // The required fields shown in red on this visit to the section (design feedback #11):
+  // coming back to a section left with required fields empty shows them, the same ones
+  // the Sections list counts (owner, 2026-11-10). A first visit shows nothing, and
+  // optional fields are never among them. The set is taken on arrival, so a row added
+  // during the visit is not red, and a field drops out once it is filled in.
   const arrivalKey = `${draftId}:${step}`;
   const [revealed, setRevealed] = React.useState<{ key: string; fields: string[] } | null>(null);
-  if (revealed && revealed.key !== arrivalKey) setRevealed(null);
+  if (state.status === "ready" && step && revealed?.key !== arrivalKey) {
+    // Read before this visit is recorded below, so `lastStep` is still where they came from.
+    const d = state.draft;
+    const returning = d.lastStep !== step && sectionOpened(d, step);
+    setRevealed({
+      key: arrivalKey,
+      fields: returning ? missingRequired(d, step).map(fieldKey) : [],
+    });
+  }
 
   const draft = state.status === "ready" ? state.draft : null;
   const value = React.useMemo<FilingContextValue | null>(
@@ -263,29 +272,18 @@ export function FilingProvider({
   );
 
   // Derived on every render, not memoised: the lint's compiler pass refuses a memo whose
-  // input comes from an imported helper, and the list is short. A field filled in since
-  // Continue drops out at once.
+  // input comes from an imported helper, and the list is short. A field filled in during
+  // the visit drops out at once.
   const shownMissing =
-    draft && step && revealed?.key === arrivalKey
+    draft && step && revealed?.key === arrivalKey && revealed.fields.length > 0
       ? missingRequired(draft, step).filter((m) => revealed.fields.includes(fieldKey(m)))
       : NONE_MISSING;
-
-  // Continue on a section with required fields empty shows them and says the person
-  // should stay (owner, 2026-10-30).
-  const stopIfMissing = () => {
-    const missing = draft && step ? missingRequired(draft, step) : NONE_MISSING;
-    if (missing.length === 0) return false;
-    setRevealed({ key: arrivalKey, fields: missing.map(fieldKey) });
-    return true;
-  };
 
   if (state.status === "loading") return <>{fallback}</>;
   if (state.status === "missing") return <>{notFound}</>;
   return (
     <FilingContext.Provider value={value}>
-      <MissingGuardContext.Provider value={stopIfMissing}>
-        <ShownMissingContext.Provider value={shownMissing}>{children}</ShownMissingContext.Provider>
-      </MissingGuardContext.Provider>
+      <ShownMissingContext.Provider value={shownMissing}>{children}</ShownMissingContext.Provider>
     </FilingContext.Provider>
   );
 }
@@ -294,20 +292,10 @@ const NONE_MISSING: MissingField[] = [];
 
 const fieldKey = (m: MissingField) => `${m.instance}:${m.name}`;
 
-const MissingGuardContext = React.createContext<(() => boolean) | null>(null);
-
 /**
- * For Continue: shows the required fields of the section on screen that are still empty
- * and returns `true` when there are any, so the caller stays. `null` outside a filing.
- */
-export function useMissingGuard(): (() => boolean) | null {
-  return React.useContext(MissingGuardContext);
-}
-
-/**
- * The required fields of the section on screen that Continue found empty and are still
- * empty (design feedback #11). Empty until Continue is pressed, so a form is never red
- * before anyone has had the chance to fill it in.
+ * The required fields of the section on screen that were empty when the person came back
+ * to it and are still empty (design feedback #11). Empty on a first visit, so a form is
+ * never red before anyone has had the chance to fill it in.
  */
 const ShownMissingContext = React.createContext<MissingField[]>(NONE_MISSING);
 

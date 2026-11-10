@@ -83,11 +83,12 @@ function useShownGroups() {
 
 /**
  * What is left to fix in a section, in place of its progress mark: a host's checks (bulk
- * filing), or the required fields left empty in the ordinary flow (#11).
+ * filing), or the required fields left empty in the ordinary flow (#11). Red, not amber:
+ * the filing cannot be submitted until these are fixed (owner, 2026-11-10).
  */
 function IssueMark({ count, className }: { count: number; className?: string }) {
   return (
-    <Badge variant="warning" className={cn("ml-auto shrink-0 tabular-nums", className)}>
+    <Badge variant="destructive" className={cn("ml-auto shrink-0 tabular-nums", className)}>
       {count}
       <span className="sr-only"> to fix</span>
     </Badge>
@@ -96,9 +97,9 @@ function IssueMark({ count, className }: { count: number; className?: string }) 
 
 /**
  * Required fields still empty in a section (#11), as the rail counts them: every one on a
- * section the person has left, and on the one on screen only the errors Continue is
- * showing. Nothing on a section not yet opened; nothing under a host, which counts in its
- * own way.
+ * section the person has left, and on the one on screen only the ones shown in red (those
+ * it had when the person came back to it). Nothing on a section not yet opened; nothing
+ * under a host, which counts in its own way.
  */
 function missingShown(
   draft: FilingDraft,
@@ -149,7 +150,7 @@ function StepRow({
   const issues = policy?.countFor(step.id) ?? 0;
   // A section with a required field still empty is never ticked, even where filing would
   // accept it without (#11); the count itself shows once the person has left it, or on
-  // the section on screen once Continue shows its errors.
+  // the section on screen when coming back to it shows them in red.
   const missing = policy ? 0 : missingRequired(draft, step.id).length;
   const shownMissing = missingShown(draft, step.id, { active, shown, hosted: !!policy });
   const state = sectionState(draft, step.id);
