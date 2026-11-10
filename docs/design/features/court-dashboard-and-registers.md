@@ -1,8 +1,26 @@
 # Court dashboard and registers
-Updated: 2026-10-19
-Status: implemented (uncommitted on `feature-courtside-dashboard-v3`); v2 is merged to `main`
+Updated: 2026-11-10
+Status: in progress. The Overview redesign is implemented and committed on `feature-courtside-dashboard-v3` (not pushed); v3 is merged to `main` through PR #148
 
 ## Current outcome
+
+**2026-11-10, section-by-section redesign (current).** The owner found the v4 dashboard
+visually inconsistent. Example: "compared with before" appeared as grey text, red text,
+a red pill and small coloured lines. The dashboard is now being redone one section at a
+time: agree the content first, then explore directions, then build. The order follows the
+note's 1.2: Overview, case status and disposal, time between hearings, outliers, process.
+
+- **Overview (built):** direction 1, "Calm cards". Cases filed, Cases closed and Pending
+  today share one card shape: label, count, change, one fact line. Change has one style:
+  arrow and amount, coloured only when better or worse, then what it is compared with.
+  A new card shows how long pending cases have been in court, in the note's 5.3 groups
+  (0–6 months, 6–12 months, 1–2 years, over 2 years), and ends with the oldest pending
+  case. The stage path below it is unchanged for now. Commits `628b6f73` (comparison
+  logic) and `d5994dff` (cards). Exploration artifact:
+  https://claude.ai/artifact/C1mN8ALhhcnwpfwG1tSvFj (v3).
+- **Case status and disposal (picked, not built):** the "Register shelf", with the court
+  term on each card and a plain line under it. It becomes the breakdown of the Overview
+  cards (pending by register; closed by how), so no number appears twice.
 
 **2026-10-19, fourth v3 build (current).** Rebuilt to the owner's revised
 `Case Flow Dashboard.html` (frozen at 18:06): four panels on the muted canvas.
@@ -156,6 +174,15 @@ artifact (https://claude.ai/artifact/Vn5JjfdhnAGAzJRfQ4Db9k). Only Direction 1 a
 | 2026-10-19 | The Trends chart no longer draws text inside the plot. The "100% level", "3-month average" and "Best"/"Worst" labels overlapped whenever their values sat close together (clearance), so they now appear in a key under the chart, which also gives the values. Worst is a square and best a circle. A month not over is labelled with its year ("Oct ’26"), not "Oct so far", which had pushed "Sep" off the axis. | Owner ("text are overlapping and it looks completely broken"); fix by the coordinator | implemented |
 | 2026-10-11 | The shared `ListFooter` now shortens long pagers (first, last, current ±1, with ellipses) above 7 pages, and wraps. Lists of 7 pages or fewer render as before. The calendar register's 255 page links had made the footer about 10,800px wide. | Coordinator (shared component) | implemented |
 
+| 2026-11-10 | Redesign the dashboard **section by section**: content first, then directions, then build. | Owner | confirmed |
+| 2026-11-10 | Six re-skins of the v4 Overview were all rejected; the owner asked for fresh directions in simple language. | Owner | confirmed |
+| 2026-11-10 | Case status and disposal: **Register shelf** chosen out of six directions. | Owner | confirmed; not built |
+| 2026-11-10 | A four-line summary Overview (one line per section) was built as a mock-up and rejected. The owner prefers the filed / closed / pending cards users already know, plus a separate, properly designed age card. | Owner | confirmed |
+| 2026-11-10 | Overview **direction 1, Calm cards** chosen out of four (others: cards with 12-month charts; in / out bars; change as chips). | Owner | confirmed; implemented |
+| 2026-11-10 | **Month to date compares with the same days of last month** (1–10 Nov against 1–10 Oct). Comparing ten days with all of October made closings read "73% fewer" when they had risen (34 against 32). This reverses the v3 rule that month to date compared with the whole month. Whole months still compare with whole months. | Coordinator proposal, part of the direction the owner picked | implemented |
+| 2026-11-10 | The age card uses the note's 5.3 groups instead of "filed in this period / up to 6 months earlier / more than 6 months earlier", whose first group moved with the date range. | Coordinator proposal, part of the chosen direction | implemented |
+| 2026-11-10 | The CMP / ST split left the Pending card; it belongs to the case status section. | Coordinator proposal, part of the chosen direction | implemented |
+
 ## Changes and tradeoffs
 
 - **Reversal.** The earlier dashboard rested on the Gujarat finding that judges did not
@@ -172,6 +199,38 @@ artifact (https://claude.ai/artifact/Vn5JjfdhnAGAzJRfQ4Db9k). Only Direction 1 a
   - Stat-tile figures use the title text role, because the DS has no stat-figure role.
 
 ## Verification and open work
+
+**Overview redesign, checked 2026-11-10 against `628b6f73` + `d5994dff` on
+`localhost:3000`, which serves this checkout. The DS matches pin `e2cce9b88c2f`.**
+- Tests: `court-flow.test.ts` 33/33 pass, including new tests for the same-days
+  baseline, the shorter-month case and the age-group boundaries.
+- Typecheck: the source is clean. The only errors are stale generated `.next` types for
+  `/join-case`.
+- ESLint passes on the changed files. `verify:ui` stops at lint because of 4 errors that
+  were already in untouched files (`provakil/*`, `case-file.tsx` and others).
+- Gates run directly: tokens, ui-sync, table-rows and ds-retired pass. Typography
+  (`mobile-hearing-card.tsx:91`) and spacing (5 advocate, filing and join files) fail
+  only in files this work does not touch.
+- Render, headless, Kerala skin, magistrate seat:
+  - Desktop 1440px in light theme and 375px in dark theme, with no horizontal scroll and
+    no page errors.
+  - "Open the case" opens ST/96/2026, 355 days in court.
+
+**Not checked:** a real screen reader, 200% zoom, Indic labels. This review was not
+independent: no `ui-reviewer` was tagged.
+
+**Open:**
+- `npm install` has not been run since this branch was fast-forwarded to `main`. The
+  package lists changed, and the dev server is running on the old install.
+- Case status and disposal (Register shelf) is still to build. Four questions for
+  Sathyajith:
+  - What counts as "monthly judgments"?
+  - What closes a CMP case?
+  - Does a move to the long pending register count as a disposal?
+  - Is a case that is filed but not yet registered counted as pending?
+- Count links stay teal, as on every other panel. The mock-up showed dark numbers; making
+  only the Overview dark would create a new inconsistency.
+- Stage path, Needs attention, Trends and Closures are not yet redesigned.
 
 **Fourth v3 build, checked 2026-10-19 on `localhost:3000`:** builder renders in
 `scratchpad/ui-designer/final3/` (1440/375, light/dark, picker with Compare with, each
