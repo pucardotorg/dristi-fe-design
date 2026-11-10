@@ -254,6 +254,7 @@ type OverviewList =
   | "disposed"
   | "toLongPending"
   | "longPending"
+  | `stage-${StageKey}`
   | `age-${0 | 1 | 2 | 3}`;
 
 /** The cases a stage card opens: all in the stage, those past its limit, or one day bin. */
@@ -324,6 +325,18 @@ function Overview({
       return {
         title: `On the long pending register · ${formatDayShort(to)}`,
         summary: `${plural(rows.length, "case", "cases")} · not counted as pending · longest in court first`,
+        rows,
+        daysHeader: inCourt,
+        details: pastNote,
+      };
+    }
+    if (key.startsWith("stage-")) {
+      const stage = STAGES.find((x) => `stage-${x.key}` === key);
+      if (!stage) return null;
+      const rows = sets.byStage[stage.key];
+      return {
+        title: `${pendingName} · ${stage.label}`,
+        summary: `${plural(rows.length, "case", "cases")} · ${STAGE_DESCRIPTION[stage.key].toLowerCase()} · longest in court first`,
         rows,
         daysHeader: inCourt,
         details: pastNote,
@@ -441,46 +454,70 @@ function Overview({
         </div>
       </div>
 
-      <section aria-labelledby="dash-ages" className="flex min-w-0 flex-col gap-3">
-        {/* No day tag or count: these are the Pending card's cases, and that card names the
-            day and the total. The title sits above the box, not inside it (owner, 2026-11-10). */}
-        <h3 id="dash-ages" className="text-body font-semibold">
-          Pending cases by time in court
-        </h3>
-        <div className={cn(BOX, "p-4 sm:px-6")}>
-          {/* Four numbers, oldest on the right, each with its share: an old group gets the same
-              room as the newest, so it is never a sliver (owner, 2026-11-10). */}
-          <ul className="grid grid-cols-2 gap-y-4 tabular-nums md:grid-cols-4">
-            {PENDING_AGE_GROUPS.map((label, i) => {
-              const n = ages[i];
-              return (
-                <li
+      {/* The two ways the pending cases split, as a pair: side by side on a wide screen,
+          stacked below that. Both read the Pending card's cases on its day, so neither
+          repeats the total or the day (owner, 2026-11-10). */}
+      <div className="grid min-w-0 gap-6 xl:grid-cols-5 xl:gap-4">
+        <section aria-labelledby="dash-ages" className="flex min-w-0 flex-col gap-3 xl:col-span-2">
+          <h3 id="dash-ages" className="text-body font-semibold">
+            Pending cases by time in court
+          </h3>
+          <div className={cn(BOX, "flex-1 p-4 sm:px-6")}>
+            {/* Four numbers, oldest last, each with its share: an old group gets the same room
+                as the newest, so it is never a sliver (owner, 2026-11-10). */}
+            <ul className="grid grid-cols-2 gap-y-4 tabular-nums md:grid-cols-4 xl:grid-cols-2">
+              {PENDING_AGE_GROUPS.map((label, i) => (
+                <PendingCount
                   key={label}
-                  className={cn(
-                    "flex min-w-0 flex-col items-start gap-1 px-4",
-                    /* Rules between columns: every second one on phones, all but the first from md. */
-                    i % 2 === 1 ? "border-l border-hairline" : "max-md:pl-0",
-                    i === 0 && "pl-0",
-                    i === 2 && "md:border-l md:border-hairline",
-                  )}
-                >
-                  <span className="text-caption text-muted-foreground">{label}</span>
-                  {n ? (
-                    <CountButton name={`in court ${label.toLowerCase()}`} className="text-title-l font-semibold" {...opener(`age-${i as 0 | 1 | 2 | 3}`)}>
-                      {formatCount(n)}
-                    </CountButton>
-                  ) : (
-                    <span className="inline-flex min-h-10 items-center text-title-l font-semibold text-muted-foreground">0</span>
-                  )}
-                  <span className="text-caption text-muted-foreground">
-                    {n ? `${pct(n / Math.max(1, end.pending))} of pending` : "None"}
-                  </span>
-                </li>
+                  label={label}
+                  count={ages[i]}
+                  total={end.pending}
+                  name={`in court ${label.toLowerCase()}`}
+                  opener={opener(`age-${i as 0 | 1 | 2 | 3}`)}
+                  className={cn(i === 2 && "xl:border-l-0 xl:pl-0")}
+                  index={i}
+                />
+              ))}
+            </ul>
+          </div>
+        </section>
+
+        <section aria-labelledby="dash-by-stage" className="flex min-w-0 flex-col gap-3 xl:col-span-3">
+          <h3 id="dash-by-stage" className="text-body font-semibold">
+            Pending cases by stage
+          </h3>
+          {/* The same cells as the age card, grouped either side of cognizance. Cases at
+              registration are not on the CMP register yet, so the groups are named by
+              cognizance, not by register. */}
+          <div className={cn(BOX, "flex flex-1 flex-col gap-6 p-4 sm:px-6")}>
+            {STAGE_GROUPS.map((group) => {
+              const stages = STAGES.filter((stage) => group.keys.includes(stage.key));
+              const count = stages.reduce((sum, stage) => sum + sets.byStage[stage.key].length, 0);
+              const id = `dash-by-stage-${group.keys[0]}`;
+              return (
+                <div key={id} className="flex min-w-0 flex-col gap-3">
+                  <p id={id} className="border-b border-hairline pb-1.5 text-caption text-muted-foreground tabular-nums">
+                    {group.label} · {formatCount(count)}
+                  </p>
+                  <ul aria-labelledby={id} className="grid grid-cols-2 gap-y-4 tabular-nums md:grid-cols-4">
+                    {stages.map((stage, i) => (
+                      <PendingCount
+                        key={stage.key}
+                        label={stage.label}
+                        count={sets.byStage[stage.key].length}
+                        total={end.pending}
+                        name={`pending at ${stage.label.toLowerCase()}`}
+                        opener={opener(`stage-${stage.key}`)}
+                        index={i}
+                      />
+                    ))}
+                  </ul>
+                </div>
               );
             })}
-          </ul>
-        </div>
-      </section>
+          </div>
+        </section>
+      </div>
 
       <div id={listId} className="min-w-0 empty:hidden">
         {spec && list.open ? (
@@ -501,6 +538,58 @@ function Overview({
 }
 
 /** One Overview card: label, count, change, and one fact line — the same parts on all three. */
+/** The two groups of the stage card, either side of cognizance. */
+const STAGE_GROUPS: { label: string; keys: StageKey[] }[] = [
+  { label: "Before cognizance", keys: ["registration", "cognizance"] },
+  { label: "After cognizance", keys: ["appearance", "bail", "trial", "judgement"] },
+];
+
+/**
+ * One count in the age and stage cards: label, number that opens its cases, share of
+ * pending. Rules between columns: every second one on phones, all but the first from md.
+ */
+function PendingCount({
+  label,
+  count,
+  total,
+  name,
+  opener,
+  index,
+  className,
+}: {
+  label: string;
+  count: number;
+  total: number;
+  name: string;
+  opener: { expanded: boolean; controls: string; onOpen: (from: HTMLElement) => void };
+  index: number;
+  className?: string;
+}) {
+  return (
+    <li
+      className={cn(
+        "flex min-w-0 flex-col items-start gap-1 px-4",
+        index % 2 === 1 ? "border-l border-hairline" : "max-md:pl-0",
+        index === 0 && "pl-0",
+        index === 2 && "md:border-l md:border-hairline",
+        className,
+      )}
+    >
+      <span className="text-caption text-muted-foreground">{label}</span>
+      {count ? (
+        <CountButton name={name} className="text-title-l font-semibold" {...opener}>
+          {formatCount(count)}
+        </CountButton>
+      ) : (
+        <span className="inline-flex min-h-10 items-center text-title-l font-semibold text-muted-foreground">0</span>
+      )}
+      <span className="text-caption text-muted-foreground">
+        {count ? `${pct(count / Math.max(1, total))} of pending` : "None"}
+      </span>
+    </li>
+  );
+}
+
 function OverviewCard({
   label,
   count,

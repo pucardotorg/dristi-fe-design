@@ -377,6 +377,7 @@ describe("the cases behind each figure", () => {
     assert.equal(sets.awaitingRegistration.length, position.awaitingRegistration);
     assert.equal(sets.ages.reduce((n, g) => n + g.length, 0), position.pending);
     sets.ages.forEach((group, i) => group.forEach((row) => assert.equal(pendingAgeGroup(row.case.filed, period.to), i)));
+    for (const stage of STAGES) assert.equal(sets.byStage[stage.key].length, position.byStage[stage.key].length, stage.key);
   });
 
   it("spells out the baseline windows the average is taken over", () => {

@@ -1134,6 +1134,8 @@ export type PendingSets = {
   awaitingRegistration: DatedCase[];
   /** By time in court on the last day, in the note's groups: `PENDING_AGE_GROUPS`. */
   ages: [DatedCase[], DatedCase[], DatedCase[], DatedCase[]];
+  /** By the stage each case is at on the last day. */
+  byStage: Record<StageKey, DatedCase[]>;
 };
 
 /** How long pending cases have been in court, in the groups of the note's section 5.3. */
@@ -1151,7 +1153,7 @@ export function pendingAgeGroup(filed: number, t: number): 0 | 1 | 2 | 3 {
 export function pendingSets(docket: CourtDocket, period: Period): PendingSets {
   const t = period.to;
   const position = positionOn(docket, t);
-  const sets: PendingSets = { all: [], cmp: [], st: [], awaitingRegistration: [], ages: [[], [], [], []] };
+  const sets: PendingSets = { all: [], cmp: [], st: [], awaitingRegistration: [], ages: [[], [], [], []], byStage: byStageOf<DatedCase>() };
   for (const stage of STAGES) {
     for (const c of position.byStage[stage.key]) {
       const row = { case: c, days: daysBetween(c.filed, t) };
@@ -1160,6 +1162,7 @@ export function pendingSets(docket: CourtDocket, period: Period): PendingSets {
       else if (c.registeredAt !== null && c.registeredAt <= t) sets.cmp.push(row);
       else sets.awaitingRegistration.push(row);
       sets.ages[pendingAgeGroup(c.filed, t)].push(row);
+      sets.byStage[stage.key].push(row);
     }
   }
   const longest = (rows: DatedCase[]) => rows.sort((a, b) => b.days - a.days);
@@ -1168,6 +1171,7 @@ export function pendingSets(docket: CourtDocket, period: Period): PendingSets {
   longest(sets.st);
   longest(sets.awaitingRegistration);
   sets.ages.forEach(longest);
+  for (const stage of STAGES) longest(sets.byStage[stage.key]);
   return sets;
 }
 
