@@ -14,8 +14,9 @@ note's 1.2: Overview, case status and disposal, time between hearings, outliers,
   today share one card shape: label, count, change, one fact line. Change has one style:
   arrow and amount, coloured only when better or worse, then what it is compared with.
   A new card shows how long pending cases have been in court, in the note's 5.3 groups
-  (0–6 months, 6–12 months, 1–2 years, over 2 years), and ends with the oldest pending
-  case. The stage path below it is unchanged for now. Commits `628b6f73` (comparison
+  (0–6 months, 6–12 months, 1–2 years, over 2 years). The comparison breakdown and the
+  oldest-case line were removed after owner review. The stage path below is unchanged
+  for now. Commits `628b6f73` (comparison
   logic) and `d5994dff` (cards). Exploration artifact:
   https://claude.ai/artifact/C1mN8ALhhcnwpfwG1tSvFj (v3).
 - **Case status and disposal (picked, not built):** the "Register shelf", with the court
@@ -182,6 +183,8 @@ artifact (https://claude.ai/artifact/Vn5JjfdhnAGAzJRfQ4Db9k). Only Direction 1 a
 | 2026-11-10 | **Month to date compares with the same days of last month** (1–10 Nov against 1–10 Oct). Comparing ten days with all of October made closings read "73% fewer" when they had risen (34 against 32). This reverses the v3 rule that month to date compared with the whole month. Whole months still compare with whole months. | Coordinator proposal, part of the direction the owner picked | implemented |
 | 2026-11-10 | The age card uses the note's 5.3 groups instead of "filed in this period / up to 6 months earlier / more than 6 months earlier", whose first group moved with the date range. | Coordinator proposal, part of the chosen direction | implemented |
 | 2026-11-10 | The CMP / ST split left the Pending card; it belongs to the case status section. | Coordinator proposal, part of the chosen direction | implemented |
+| 2026-11-10 | **"What the comparison is made of" removed.** Owner: the chosen date range and the card's own line ("vs 1–10 Oct (32)") already say what the data is compared with. | Owner | implemented |
+| 2026-11-10 | **Oldest pending case line removed** from the age card. Owner: a pathway to one case does not belong there; each age group's count already opens its cases, longest first. | Owner | implemented |
 
 ## Changes and tradeoffs
 
