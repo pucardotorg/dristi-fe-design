@@ -52,6 +52,7 @@ import {
   baselineWindows,
   closedCases,
   filedCases,
+  longPendingCases,
   pendingSets,
   trendDetail,
 } from "./court-flow";
@@ -349,6 +350,12 @@ describe("the trends date picker", () => {
 describe("the cases behind each figure", () => {
   const reading = periodReading(defaultSelection(docket), docket, "avg");
   const period = reading.selection;
+
+  it("lists the long pending register the Pending card counts", () => {
+    const rows = longPendingCases(docket, period.to);
+    assert.equal(rows.length, positionOn(docket, period.to).longPending);
+    for (let i = 1; i < rows.length; i++) assert.ok(rows[i - 1].days >= rows[i].days);
+  });
 
   it("lists exactly the cases filed and closed in the period", () => {
     const counts = filedAndClosed(docket, period);

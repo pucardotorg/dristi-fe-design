@@ -36,6 +36,7 @@ import {
 import {
   averageOver,
   closedCases,
+  longPendingCases,
   defaultSelection,
   filedAndClosed,
   filedCases,
@@ -250,6 +251,9 @@ type OverviewList =
   | "closed"
   | "pending"
   | "awaiting"
+  | "disposed"
+  | "toLongPending"
+  | "longPending"
   | `age-${0 | 1 | 2 | 3}`;
 
 /** The cases a stage card opens: all in the stage, those past its limit, or one day bin. */
@@ -305,6 +309,26 @@ function Overview({
       const what = key === "pending" ? "" : " · waiting to be registered";
       return { title: `${pendingName}${what}`, summary: `${plural(rows.length, "case", "cases")} · longest in court first`, rows, daysHeader: inCourt, details: pastNote };
     }
+    if (key === "disposed" || key === "toLongPending") {
+      const moved = key === "toLongPending";
+      const rows = closedCases(docket, reading.selection).filter((r) => (r.outcome === "toLongPending") === moved);
+      return {
+        title: `${moved ? "Moved to long pending" : "Disposed"} · ${period}`,
+        summary: plural(rows.length, "case", "cases"),
+        rows,
+        daysHeader: "Days from filing to closing",
+      };
+    }
+    if (key === "longPending") {
+      const rows = longPendingCases(docket, to);
+      return {
+        title: `On the long pending register · ${formatDayShort(to)}`,
+        summary: `${plural(rows.length, "case", "cases")} · not counted as pending · longest in court first`,
+        rows,
+        daysHeader: inCourt,
+        details: pastNote,
+      };
+    }
     if (key.startsWith("age-")) {
       const i = Number(key.slice(4)) as 0 | 1 | 2 | 3;
       return {
@@ -325,25 +349,37 @@ function Overview({
   });
 
   /**
-   * The one way the Overview shows change: arrow and amount (in success or destructive
-   * ink only when the change is better or worse), then what it is compared with.
+   * The one way the Overview shows change: arrow and amount, then what it is compared
+   * with. Colour only when the change is worse (destructive ink); a better or neutral
+   * change stays in foreground ink, so two colours never have to be decoded (owner,
+   * 2026-11-10).
    */
   const change = (diff: number, base: string, goodUp: boolean | null) => {
     if (!diff) return <p className="text-body-compact text-muted-foreground tabular-nums">No change {base}</p>;
     const up = diff > 0;
-    const tone = goodUp === null ? null : up === goodUp ? "better" : "worse";
+    const worse = goodUp !== null && up !== goodUp;
     return (
       <p className="text-body-compact text-muted-foreground tabular-nums">
-        <span className={cn("font-semibold", tone === "better" ? "text-success-ink" : tone === "worse" ? "text-destructive-ink" : "text-foreground")}>
+        <span className={cn("font-semibold", worse ? "text-destructive-ink" : "text-foreground")}>
           <span aria-hidden>{up ? "▲ " : "▼ "}</span>
           <span className="sr-only">{up ? "Up " : "Down "}</span>
           {formatCount(Math.abs(diff))}
-          {tone ? <span className="sr-only">, {tone}</span> : null}
+          {worse ? <span className="sr-only">, worse</span> : null}
         </span>{" "}
         {base}
       </p>
     );
   };
+  /* Every number in a fact line opens its cases, the same as the card's big number; a
+     zero has nothing to open and stays plain (owner, 2026-11-10). */
+  const factCount = (n: number, label: string, key: OverviewList) =>
+    n ? (
+      <CountButton name={label} className="-my-3 font-semibold" {...opener(key)}>
+        {formatCount(n)}
+      </CountButton>
+    ) : (
+      <span className="font-semibold">0</span>
+    );
   const versus = (current: number, baseline: number | undefined, goodUp: boolean | null) => {
     if (reading.compare === "none") return null;
     if (baseline === undefined || name === null) {
@@ -368,10 +404,7 @@ function Overview({
             fact={
               sets.awaitingRegistration.length ? (
                 <>
-                  <CountButton name="waiting to be registered" className="-my-3 font-semibold" {...opener("awaiting")}>
-                    {formatCount(sets.awaitingRegistration.length)}
-                  </CountButton>{" "}
-                  still waiting to be registered
+                  {factCount(sets.awaitingRegistration.length, "waiting to be registered", "awaiting")} still waiting to be registered
                 </>
               ) : (
                 "All registered"
@@ -382,7 +415,12 @@ function Overview({
             label="Cases closed"
             count={<CountButton name="cases closed" className="text-title-l font-semibold" {...opener("closed")}><CountUp value={now.closed} format={countText} /></CountButton>}
             change={versus(now.closed, base?.closed, true)}
-            fact={`${formatCount(disposed)} disposed · ${formatCount(out.toLongPending)} to long pending`}
+            fact={
+              <>
+                {factCount(disposed, "disposed", "disposed")} disposed ·{" "}
+                {factCount(out.toLongPending, "moved to long pending", "toLongPending")} to long pending
+              </>
+            }
           />
           <OverviewCard
             label={pendingName}
@@ -394,7 +432,11 @@ function Overview({
                 change(end.pending - opening, `since ${since} (${formatCount(opening)})`, false)
               )
             }
-            fact={`${formatCount(end.longPending)} more on the long pending register, not counted`}
+            fact={
+              <>
+                {factCount(end.longPending, "on the long pending register", "longPending")} more on the long pending register, not counted
+              </>
+            }
           />
         </div>
       </div>

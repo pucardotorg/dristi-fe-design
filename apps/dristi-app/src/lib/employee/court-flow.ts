@@ -1171,6 +1171,14 @@ export function pendingSets(docket: CourtDocket, period: Period): PendingSets {
   return sets;
 }
 
+/** Cases on the long pending register on day `t`, with days in court to `t`, longest first. */
+export function longPendingCases(docket: CourtDocket, t: number): DatedCase[] {
+  return docket.cases
+    .filter((c) => c.longPendingAt !== null && c.longPendingAt <= t)
+    .map((c) => ({ case: c, days: daysBetween(c.filed, t) }))
+    .sort((a, b) => b.days - a.days);
+}
+
 /** What a comparison baseline is made of: each window and its filed and closed counts. */
 export function baselineWindows(
   docket: CourtDocket,
