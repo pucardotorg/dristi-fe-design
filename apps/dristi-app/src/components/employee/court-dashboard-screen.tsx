@@ -418,27 +418,32 @@ function Overview({
           </h3>
           <p className="text-caption text-muted-foreground">{reading.live ? "Today" : `On ${formatDayShort(to)}`}</p>
         </div>
-        <ul className="flex flex-col gap-2 text-body-compact tabular-nums">
+        {/* Four numbers, oldest on the right, each with its share: an old group gets the same
+            room as the newest, so it is never a sliver (owner, 2026-11-10). */}
+        <ul className="grid grid-cols-2 gap-y-4 tabular-nums md:grid-cols-4">
           {PENDING_AGE_GROUPS.map((label, i) => {
             const n = ages[i];
-            const share = n / Math.max(1, end.pending);
             return (
-              <li key={label} className="grid grid-cols-[minmax(0,7rem)_minmax(0,1fr)_minmax(0,6rem)] items-center gap-4 max-sm:gap-2">
-                <span>{label}</span>
-                <span aria-hidden className="h-3 overflow-hidden rounded-full bg-surface-sunken">
-                  <span className="block h-full rounded-full bg-brand-accent" style={{ width: `${share * 100}%` }} />
-                </span>
-                <span className="flex items-baseline gap-2">
-                  {n ? (
-                    <>
-                      <CountButton name={`in court ${label.toLowerCase()}`} className="-my-3 font-semibold" {...opener(`age-${i as 0 | 1 | 2 | 3}`)}>
-                        {formatCount(n)}
-                      </CountButton>
-                      <span className="text-muted-foreground">{pct(share)}</span>
-                    </>
-                  ) : (
-                    <span className="text-muted-foreground">None</span>
-                  )}
+              <li
+                key={label}
+                className={cn(
+                  "flex min-w-0 flex-col items-start gap-1 px-4",
+                  /* Rules between columns: every second one on phones, all but the first from md. */
+                  i % 2 === 1 ? "border-l border-hairline" : "max-md:pl-0",
+                  i === 0 && "pl-0",
+                  i === 2 && "md:border-l md:border-hairline",
+                )}
+              >
+                <span className="text-caption text-muted-foreground">{label}</span>
+                {n ? (
+                  <CountButton name={`in court ${label.toLowerCase()}`} className="text-title-l font-semibold" {...opener(`age-${i as 0 | 1 | 2 | 3}`)}>
+                    {formatCount(n)}
+                  </CountButton>
+                ) : (
+                  <span className="inline-flex min-h-10 items-center text-title-l font-semibold text-muted-foreground">0</span>
+                )}
+                <span className="text-caption text-muted-foreground">
+                  {n ? `${pct(n / Math.max(1, end.pending))} of pending` : "None"}
                 </span>
               </li>
             );
