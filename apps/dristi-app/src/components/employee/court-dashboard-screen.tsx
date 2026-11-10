@@ -187,6 +187,7 @@ export function CourtDashboardScreen() {
             />
           }
         />
+        <StagesPanel docket={docket} />
         <NeedsAttention docket={docket} />
         <Trends docket={docket} />
         <ClosuresPanel docket={docket} />
@@ -249,10 +250,10 @@ type OverviewList =
   | "closed"
   | "pending"
   | "awaiting"
-  | `age-${0 | 1 | 2 | 3}`
-  | `stage-${StageKey}`
-  | `late-${StageKey}`
-  | `bin-${StageKey}-${number}`;
+  | `age-${0 | 1 | 2 | 3}`;
+
+/** The cases a stage card opens: all in the stage, those past its limit, or one day bin. */
+type StageList = `stage-${StageKey}` | `late-${StageKey}` | `bin-${StageKey}-${number}`;
 
 function Overview({
   docket,
@@ -314,20 +315,7 @@ function Overview({
         details: pastNote,
       };
     }
-    const [kind, stageKey, bin] = key.split("-") as [string, StageKey, string | undefined];
-    const stage = STAGES.find((x) => x.key === stageKey)!;
-    const limit = COURT_LIMITS.stages[stage.key];
-    const path = stagePathFor(docket, reading.selection)[stage.key];
-    const on = reading.live ? "" : ` · on ${formatDayShort(to)}`;
-    if (kind === "stage") {
-      return { title: `${stage.label}: all pending${on}`, summary: `${plural(path.rows.length, "case", "cases")} · longest in the stage first`, rows: path.rows, daysHeader: "Days in stage", details: pastNote };
-    }
-    if (kind === "bin") {
-      const b = path.bins[Number(bin)];
-      const span = b.to === null ? `${formatCount(b.from)}+ days` : b.from === b.to ? `${formatCount(b.from)} days` : `${formatCount(b.from)}–${formatCount(b.to)} days`;
-      return { title: `${stage.label}: ${span} in the stage${on}`, summary: plural(b.rows.length, "case", "cases"), rows: b.rows, daysHeader: "Days in stage", details: pastNote };
-    }
-    return { title: `${stage.label} over ${limit} days${on}`, summary: `${plural(end.overdue[stage.key].length, "case", "cases")} · longest first`, rows: end.overdue[stage.key], daysHeader: "Days in stage", details: pastNote };
+    return null;
   };
   const spec = list.open ? resolve(list.open) : null;
   const opener = (key: OverviewList) => ({
@@ -449,8 +437,6 @@ function Overview({
         </ul>
       </section>
 
-      <StagePath docket={docket} reading={reading} opener={opener} />
-
       <div id={listId} className="min-w-0 empty:hidden">
         {spec && list.open ? (
           <CaseListBox
@@ -491,7 +477,83 @@ function OverviewCard({
   );
 }
 
-type Opener = (key: OverviewList) => {
+/**
+ * Where the pending cases are: the stage path, in its own panel since 2026-11-10. It is
+ * the material of the note's 1.2 C (outlier cases), so it left the Overview (owner); its
+ * content is redesigned next. It reads its own period from its own picker.
+ */
+function StagesPanel({ docket }: { docket: CourtDocket }) {
+  const [picked, setPicked] = React.useState<Period | null>(null);
+  const opening = defaultSelection(docket);
+  const reading = periodReading(picked ?? opening, docket, "none");
+  const { to } = reading.selection;
+  const latest = docket.today;
+  const end = positionOn(docket, to);
+  const list = useCaseList<StageList>();
+  const listId = "dash-stages-cases";
+  const pastNote = reading.live
+    ? undefined
+    : [`Days are counted to ${formatDay(to)}. Stage and next hearing are as they stand on ${formatDay(latest)}.`];
+
+  const resolve = (key: StageList): ListSpec => {
+    const [kind, stageKey, bin] = key.split("-") as [string, StageKey, string | undefined];
+    const stage = STAGES.find((x) => x.key === stageKey)!;
+    const limit = COURT_LIMITS.stages[stage.key];
+    const path = stagePathFor(docket, reading.selection)[stage.key];
+    const on = reading.live ? "" : ` · on ${formatDayShort(to)}`;
+    if (kind === "stage") {
+      return { title: `${stage.label}: all pending${on}`, summary: `${plural(path.rows.length, "case", "cases")} · longest in the stage first`, rows: path.rows, daysHeader: "Days in stage", details: pastNote };
+    }
+    if (kind === "bin") {
+      const b = path.bins[Number(bin)];
+      const span = b.to === null ? `${formatCount(b.from)}+ days` : b.from === b.to ? `${formatCount(b.from)} days` : `${formatCount(b.from)}–${formatCount(b.to)} days`;
+      return { title: `${stage.label}: ${span} in the stage${on}`, summary: plural(b.rows.length, "case", "cases"), rows: b.rows, daysHeader: "Days in stage", details: pastNote };
+    }
+    return { title: `${stage.label} over ${limit} days${on}`, summary: `${plural(end.overdue[stage.key].length, "case", "cases")} · longest first`, rows: end.overdue[stage.key], daysHeader: "Days in stage", details: pastNote };
+  };
+  const spec = list.open ? resolve(list.open) : null;
+  const opener: Opener = (key) => ({
+    expanded: list.open === key,
+    controls: listId,
+    onOpen: (from: HTMLElement) => list.toggle(key, from),
+  });
+
+  return (
+    <section aria-labelledby="dash-stages" className={PANEL}>
+      <PanelHeader id="dash-stages" title="Where the pending cases are" note="Select a stage for its details.">
+        <DashboardDatePicker
+          docket={docket}
+          value={reading.selection}
+          defaultValue={opening}
+          idPrefix="dash-stages-picker"
+          dayNote="stages are read on this day"
+          rangeNote={() => "counted on its last day; moves in and out across the range"}
+          onChange={(next) => {
+            list.setOpen(null);
+            setPicked(next.from === opening.from && next.to === opening.to ? null : next);
+          }}
+        />
+      </PanelHeader>
+      <StagePath docket={docket} reading={reading} opener={opener} />
+      <div id={listId} className="min-w-0 empty:hidden">
+        {spec && list.open ? (
+          <CaseListBox
+            key={list.open}
+            id={`dash-stages-${list.open}`}
+            title={spec.title}
+            summary={spec.summary}
+            details={spec.details}
+            rows={spec.rows}
+            daysHeader={spec.daysHeader}
+            onClose={list.close}
+          />
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+type Opener = (key: StageList) => {
   expanded: boolean;
   controls: string;
   onOpen: (from: HTMLElement) => void;
@@ -574,10 +636,6 @@ function StagePath({
 
   return (
     <div className="flex min-w-0 flex-col gap-3">
-      <h3 className="text-body font-semibold">
-        Where the pending cases are{" "}
-        <span className="text-body-compact font-normal text-muted-foreground">· select a stage for details</span>
-      </h3>
       <div ref={box} className={cn(BOX, "flex flex-col pt-3")}>
         <div aria-hidden className="hidden grid-cols-6 px-2 pb-2 text-caption text-muted-foreground xl:grid">
           <span className="col-span-2 mx-1 border-b border-hairline px-3 pb-1.5">CMP · before cognizance</span>
