@@ -442,10 +442,10 @@ function Overview({
       </div>
 
       <section aria-labelledby="dash-ages" className="flex min-w-0 flex-col gap-3">
-        {/* No day tag: the count in the title is the Pending card's, and that card names the day.
-            The title sits above the box, not inside it (owner, 2026-11-10). */}
+        {/* No day tag or count: these are the Pending card's cases, and that card names the
+            day and the total. The title sits above the box, not inside it (owner, 2026-11-10). */}
         <h3 id="dash-ages" className="text-body font-semibold">
-          How long the {formatCount(end.pending)} pending cases have been in court
+          Pending cases by time in court
         </h3>
         <div className={cn(BOX, "p-4 sm:px-6")}>
           {/* Four numbers, oldest on the right, each with its share: an old group gets the same

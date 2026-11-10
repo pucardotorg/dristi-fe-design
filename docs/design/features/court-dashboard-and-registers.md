@@ -192,6 +192,7 @@ artifact (https://claude.ai/artifact/Vn5JjfdhnAGAzJRfQ4Db9k). Only Direction 1 a
 | 2026-11-10 | **Change lines colour only a worse change.** Black for filings beside green for closings was confusing. A better or neutral change now takes the line's muted grey (a first pass in black still read as a colour); a worse one (pending up, closings down) stays destructive ink. The stage panel's red / green over-limit changes are left for that section's redesign. | Owner | implemented |
 | 2026-11-10 | **Every fact-line number is a link.** Only "31 still waiting to be registered" opened a list. The coordinator proposed making all fact lines plain; the owner chose the opposite for consistency: disposed, moved to long pending and the long pending register now open their cases too. A zero stays plain. | Owner | implemented |
 | 2026-11-10 | **Age card title moved above its box**, as a section heading, instead of inside the border. | Owner | implemented |
+| 2026-11-10 | **Age card title shortened** from "How long the 875 pending cases have been in court" to "Pending cases by time in court". The total and the day are already on the Pending card beside it, and each group shows its share "of pending". | Owner asked; wording is the coordinator's | implemented |
 
 ## Changes and tradeoffs
 
