@@ -14,7 +14,8 @@ note's 1.2: Overview, case status and disposal, time between hearings, outliers,
   today share one card shape: label, count, change, one fact line. Change has one style:
   arrow and amount, coloured only when better or worse, then what it is compared with.
   A new card shows how long pending cases have been in court, in the note's 5.3 groups
-  (0–6 months, 6–12 months, 1–2 years, over 2 years). The comparison breakdown and the
+  (0–6 months, 6–12 months, 1–2 years, over 2 years), shown as four numbers with their
+  share of pending rather than bars. The comparison breakdown and the
   oldest-case line were removed after owner review. The stage path below is unchanged
   for now. Commits `628b6f73` (comparison
   logic) and `d5994dff` (cards). Exploration artifact:
@@ -185,6 +186,7 @@ artifact (https://claude.ai/artifact/Vn5JjfdhnAGAzJRfQ4Db9k). Only Direction 1 a
 | 2026-11-10 | The CMP / ST split left the Pending card; it belongs to the case status section. | Coordinator proposal, part of the chosen direction | implemented |
 | 2026-11-10 | **"What the comparison is made of" removed.** Owner: the chosen date range and the card's own line ("vs 1–10 Oct (32)") already say what the data is compared with. | Owner | implemented |
 | 2026-11-10 | **Oldest pending case line removed** from the age card. Owner: a pathway to one case does not belong there; each age group's count already opens its cases, longest first. | Owner | implemented |
+| 2026-11-10 | **Age card: four numbers, no chart** (option 1 of three; others: each group with its change since the period began, or with a 12-month line). Bars by share made the newest group dominate and the old groups slivers. The coordinator recommended the change option; the owner chose the simpler one. | Owner | implemented |
 
 ## Changes and tradeoffs
 
