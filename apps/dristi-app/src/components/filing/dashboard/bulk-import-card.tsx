@@ -18,7 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-import { EntryHead, EntryOption } from "./start-filing-card";
+import { EntryHead, EntryOption, OPTION_TRAY } from "./start-filing-card";
 
 /**
  * The latest batch — pushed in from a client's litigation system or uploaded from Excel —
@@ -56,7 +56,7 @@ export function BulkImportCard({ needAction = 0 }: { batch?: BulkBatch | null; n
         titleId={titleId}
         description="File many cases for one complainant together, as a batch."
         action={
-          <Button asChild variant="secondary">
+          <Button asChild variant="ghost" className="-mr-2">
             <Link href={BATCHES}>
               View all batches
               {needAction ? (
@@ -69,7 +69,7 @@ export function BulkImportCard({ needAction = 0 }: { batch?: BulkBatch | null; n
         }
       />
 
-      <ul aria-labelledby={titleId} className="flex flex-col gap-3">
+      <ul aria-labelledby={titleId} className={OPTION_TRAY}>
         <li>
           <EntryOption
             href={UPLOAD}

@@ -58,19 +58,18 @@ export function EntryHead({
   );
 }
 
-/* A lifted white card on the warm page (the DS raised recipe: a 10% hairline and a soft
-   shadow), never a drawn outline: full-strength strokes around every option read dated
-   (owner, 2026-11-11). Under the pointer it lifts further; the brand stays on the icon. */
+/* An inset grouped list: the options sit in one recessed tray (the passive container) and
+   each option is a white row inside it (the bright thing to pick). No drawn outlines, no
+   card nested in a card; the brand shows on the icon and under the pointer. */
+export const OPTION_TRAY = "flex flex-col gap-2 rounded-xl bg-surface-sunken p-2";
 const OPTION =
-  "group flex w-full items-center gap-4 rounded-xl border border-hairline bg-card p-4 text-left shadow-raised transition-[box-shadow,transform] outline-none hover:-translate-y-px hover:shadow-overlay focus-visible:ring-3 focus-visible:ring-focus-ring motion-reduce:hover:translate-y-0";
+  "group flex w-full items-center gap-4 rounded-lg bg-card px-4 py-3 text-left shadow-raised transition-colors outline-none hover:bg-brand-muted focus-visible:ring-3 focus-visible:ring-focus-ring";
 
 /**
- * One destination inside an entry panel, as a card that is itself the act (owner,
- * 2026-11-11: a hairline alone did not set the options apart). At rest the card is a sunken
- * well inside the white panel with a brand-tinted icon, so it reads as something to pick;
- * under the pointer it takes the brand edge and tint. Case types use it, and so do the
- * ways a batch comes in, so both panels share one kind of option. A link with `href`, a
- * button with `onClick`. `soon` greys the icon for a type not built yet.
+ * One destination inside an entry panel, as a white row in the panel's tray that is itself
+ * the act. Case types use it, and so do the ways a batch comes in. A link with `href`, a
+ * button with `onClick`. `soon` greys the icon and puts "Coming soon" where the chevron
+ * would be, so the name never wraps around a badge.
  */
 export function EntryOption({
   href,
@@ -78,7 +77,6 @@ export function EntryOption({
   icon: Icon,
   title,
   caption,
-  aside,
   soon,
 }: {
   href?: string;
@@ -86,7 +84,6 @@ export function EntryOption({
   icon: React.ComponentType<{ className?: string }>;
   title: string;
   caption: string;
-  aside?: React.ReactNode;
   soon?: boolean;
 }) {
   const body = (
@@ -95,24 +92,25 @@ export function EntryOption({
         aria-hidden
         className={cn(
           "flex size-10 shrink-0 items-center justify-center rounded-lg max-sm:hidden",
-          // Unavailable is the quietest thing in the panel, never brighter than what works.
-          soon ? "bg-muted text-muted-foreground" : "bg-brand-muted text-brand-muted-foreground",
+          soon ? "bg-muted text-muted-foreground" : "bg-brand-muted text-brand-muted-foreground group-hover:bg-card",
         )}
       >
         <Icon className="size-5" />
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        {/* A badge rides on the title's line, so on a phone it never squeezes the name. */}
-        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="text-body font-medium text-foreground">{title}</span>
-          {aside}
-        </span>
+        <span className="text-body font-medium text-foreground">{title}</span>
         <span className="text-body-compact text-muted-foreground">{caption}</span>
       </span>
-      <ChevronRightIcon
-        aria-hidden
-        className="size-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-brand-muted-foreground"
-      />
+      {soon ? (
+        <Badge variant="secondary" className="shrink-0">
+          Coming soon
+        </Badge>
+      ) : (
+        <ChevronRightIcon
+          aria-hidden
+          className="size-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-brand-muted-foreground"
+        />
+      )}
     </>
   );
   return href ? (
@@ -138,7 +136,7 @@ export function StartFilingCard() {
         description="File one case, step by step: parties, documents, then the court fee."
       />
       {/* More case types are more cards; the panel keeps its shape. */}
-      <ul aria-labelledby={titleId} className="flex flex-col gap-3">
+      <ul aria-labelledby={titleId} className={OPTION_TRAY}>
         <li>
           <EntryOption
             href={NEW_FILING}
@@ -154,11 +152,6 @@ export function StartFilingCard() {
             title={PSS_CASE_TYPE.title}
             caption="Dishonoured electronic fund transfers"
             soon
-            aside={
-              <Badge variant="secondary" className="shrink-0">
-                Coming soon
-              </Badge>
-            }
           />
         </li>
       </ul>

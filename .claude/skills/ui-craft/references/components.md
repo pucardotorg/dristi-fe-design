@@ -78,7 +78,11 @@ recipes and owner rulings (SKILL.md) win where these differ.
 - Primary entry panels (File a case's New filing and Bulk filing) open with a 48px icon
   tile (`rounded-xl`, the brand-muted pair for every entry, one hue) above a
   `text-title-s` title, each in its own raised panel (the panel is what separates the
-  entries), then their options as
+  entries), then their options as an inset grouped list: one recessed tray
+  (`OPTION_TRAY`, the passive container) holding white rows (the things to pick), no
+  outlines, brand on the icon and on hover. Earlier tries, each rejected: hairline rows (not
+  clear), grey cards (disabled), outlined cards (dated), white cards on a white panel (cards
+  in cards). Older text said options were
   lifted white cards with a brand-tinted icon (`EntryHead` / `EntryOption` in
   `filing/dashboard`). Minor panels and repeated rows get no tile.
 - An eyebrow earns its place only as context the title cannot carry. Otherwise put the role
