@@ -22,60 +22,78 @@ export function EntryHead({
   title,
   titleId,
   description,
+  action,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   tone: "brand" | "info";
   title: string;
   titleId?: string;
   description: string;
+  /** The panel's own act, on the tile's row at the right (Bulk filing: View all batches). */
+  action?: React.ReactNode;
 }) {
   return (
     <div className="flex flex-col gap-4">
-      <span
-        aria-hidden
-        className={cn(
-          "flex size-12 items-center justify-center rounded-xl",
-          tone === "brand" ? "bg-brand-muted text-brand-muted-foreground" : "bg-info-muted text-info-muted-foreground",
-        )}
-      >
-        <Icon className="size-6" />
-      </span>
+      <div className="flex items-center justify-between gap-4">
+        <span
+          aria-hidden
+          className={cn(
+            "flex size-12 shrink-0 items-center justify-center rounded-xl",
+            tone === "brand" ? "bg-brand-muted text-brand-muted-foreground" : "bg-info-muted text-info-muted-foreground",
+          )}
+        >
+          <Icon className="size-6" />
+        </span>
+        {/* Beside the tile from sm up; on a phone there is no room, so it follows the text. */}
+        {action ? <div className="max-sm:hidden">{action}</div> : null}
+      </div>
       <div className="flex flex-col gap-1">
         <h2 id={titleId} className="text-title-s font-semibold text-foreground">
           {title}
         </h2>
         <p className="text-body text-muted-foreground">{description}</p>
       </div>
+      {action ? <div className="sm:hidden">{action}</div> : null}
     </div>
   );
 }
 
+const OPTION =
+  "group flex w-full items-center gap-4 rounded-xl border border-hairline bg-surface-sunken p-4 text-left transition-colors outline-none hover:border-brand-accent hover:bg-brand-muted focus-visible:ring-3 focus-visible:ring-focus-ring";
+
 /**
- * One destination inside an entry panel, as a card that is itself the link: a small icon
- * tile, the name over one muted line, and a chevron. Case types use it, and so does the
- * Bulk filing panel's latest batch, so the two panels share one row.
+ * One destination inside an entry panel, as a card that is itself the act (owner,
+ * 2026-11-11: a hairline alone did not set the options apart). At rest the card is a sunken
+ * well inside the white panel with a brand-tinted icon, so it reads as something to pick;
+ * under the pointer it takes the brand edge and tint. Case types use it, and so do the
+ * ways a batch comes in, so both panels share one kind of option. A link with `href`, a
+ * button with `onClick`. `soon` greys the icon for a type not built yet.
  */
 export function EntryOption({
   href,
+  onClick,
   icon: Icon,
   title,
   caption,
   aside,
+  soon,
 }: {
-  href: string;
+  href?: string;
+  onClick?: () => void;
   icon: React.ComponentType<{ className?: string }>;
   title: string;
   caption: string;
   aside?: React.ReactNode;
+  soon?: boolean;
 }) {
-  return (
-    <Link
-      href={href}
-      className="group flex items-center gap-4 rounded-xl border border-hairline bg-card p-4 transition-colors outline-none hover:border-border hover:bg-surface-sunken focus-visible:ring-3 focus-visible:ring-focus-ring"
-    >
+  const body = (
+    <>
       <span
         aria-hidden
-        className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-surface-sunken text-muted-foreground transition-colors group-hover:bg-card group-hover:text-foreground max-sm:hidden"
+        className={cn(
+          "flex size-10 shrink-0 items-center justify-center rounded-lg max-sm:hidden",
+          soon ? "bg-card text-muted-foreground" : "bg-brand-muted text-brand-muted-foreground group-hover:bg-card",
+        )}
       >
         <Icon className="size-5" />
       </span>
@@ -89,9 +107,18 @@ export function EntryOption({
       </span>
       <ChevronRightIcon
         aria-hidden
-        className="size-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"
+        className="size-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-brand-muted-foreground"
       />
+    </>
+  );
+  return href ? (
+    <Link href={href} className={OPTION}>
+      {body}
     </Link>
+  ) : (
+    <button type="button" onClick={onClick} className={OPTION}>
+      {body}
+    </button>
   );
 }
 
@@ -123,6 +150,7 @@ export function StartFilingCard() {
             icon={ArrowLeftRightIcon}
             title={PSS_CASE_TYPE.title}
             caption="Dishonoured electronic fund transfers"
+            soon
             aside={
               <Badge variant="secondary" className="shrink-0">
                 Coming soon

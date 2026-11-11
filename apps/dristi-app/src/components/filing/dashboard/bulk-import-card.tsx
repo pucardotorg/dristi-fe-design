@@ -2,13 +2,12 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ChevronDownIcon, CopyIcon, FileStackIcon, LayersIcon } from "lucide-react";
+import { CopyIcon, FileSpreadsheetIcon, LayersIcon, PlugIcon } from "lucide-react";
 
 import { FILINGS_HOME } from "@/lib/filing/steps";
 import type { CaseState } from "@/lib/bulk/case-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ButtonGroup } from "@/components/ui/button-group";
 import { Card } from "@/components/ui/card";
 import { ChromeDialogContent } from "@/components/chrome/app-chrome";
 import {
@@ -18,12 +17,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 import { EntryHead, EntryOption } from "./start-filing-card";
 
@@ -47,74 +40,54 @@ const UPLOAD = `${FILINGS_HOME}/bulk/upload`;
 const BATCHES = `${FILINGS_HOME}/bulk`;
 
 /**
- * Bulk filing's entry: two acts, named for what they do (owner, 2026-11-11). "View all
- * batches" is every batch, however it came in; "Create a new batch" starts one, by Excel
- * upload in one press, with the way in chosen from its menu (Excel, or a client's system
- * through the API). The batch list holds the detail, so this panel says only what needs
- * attention.
+ * Bulk filing's entry, the same shape as New filing (owner, 2026-11-11): its options are the
+ * ways a batch comes in, so a new way is one more card, and nothing has to be read to be
+ * understood. Every batch, however it came, is one act away in the header, carrying how
+ * many need action.
  */
-export function BulkImportCard({ batch, needAction = 0 }: { batch: BulkBatch | null; needAction?: number }) {
+export function BulkImportCard({ needAction = 0 }: { batch?: BulkBatch | null; needAction?: number }) {
   const [api, setApi] = React.useState(false);
+  const titleId = React.useId();
   return (
     <Card variant="raised" className="gap-6 p-6">
       <EntryHead
         icon={LayersIcon}
         tone="info"
         title="Bulk filing"
+        titleId={titleId}
         description="File many cases for one complainant together, as a batch."
+        action={
+          <Button asChild variant="outline">
+            <Link href={BATCHES}>
+              View all batches
+              {needAction ? (
+                <Badge variant="warning" className="tabular-nums">
+                  {needAction} need action
+                </Badge>
+              ) : null}
+            </Link>
+          </Button>
+        }
       />
 
-      {/* The latest batch, in the same card as a case type, so both panels share a row. */}
-      {batch ? (
-        <EntryOption
-          href={`${BATCHES}/${batch.id}`}
-          icon={FileStackIcon}
-          title={batch.client}
-          caption={`Latest batch · ${batch.cases} case${batch.cases === 1 ? "" : "s"} · ${batch.receivedOn}`}
-        />
-      ) : (
-        <p className="text-body-compact text-muted-foreground">
-          No batches yet. Upload an Excel file, or have a client&apos;s system send its cases.
-        </p>
-      )}
-
-      <div className="mt-auto flex flex-wrap gap-2">
-        <ButtonGroup aria-label="Create a new batch">
-          <Button asChild>
-            <Link href={UPLOAD}>Create a new batch</Link>
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button size="icon" aria-label="Choose how the cases come in">
-                <ChevronDownIcon aria-hidden />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-64">
-              <DropdownMenuItem asChild>
-                <Link href={UPLOAD} className="flex flex-col items-start gap-0.5">
-                  <span>Upload an Excel file</span>
-                  <span className="text-body-compact text-muted-foreground">One row per case</span>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setApi(true)} className="flex flex-col items-start gap-0.5">
-                <span>From a client&apos;s system</span>
-                <span className="text-body-compact text-muted-foreground">Sent through the Bulk Filing API</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </ButtonGroup>
-        {/* What needs attention rides on the act that resolves it. */}
-        <Button asChild variant="outline">
-          <Link href={BATCHES}>
-            View all batches
-            {needAction ? (
-              <Badge variant="warning" className="tabular-nums">
-                {needAction} need action
-              </Badge>
-            ) : null}
-          </Link>
-        </Button>
-      </div>
+      <ul aria-labelledby={titleId} className="flex flex-col gap-3">
+        <li>
+          <EntryOption
+            href={UPLOAD}
+            icon={FileSpreadsheetIcon}
+            title="Upload an Excel file"
+            caption="One row per case, in the template or your own layout"
+          />
+        </li>
+        <li>
+          <EntryOption
+            onClick={() => setApi(true)}
+            icon={PlugIcon}
+            title="From a client's system"
+            caption="Their system sends the cases through the Bulk Filing API"
+          />
+        </li>
+      </ul>
 
       <ApiDialog open={api} onOpenChange={setApi} />
     </Card>
