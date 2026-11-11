@@ -112,3 +112,13 @@ export function FileBy({ c }: { c: Pick<CaseView, "fileBy" | "stage"> }) {
     </span>
   );
 }
+
+/** Under a case row, only when its last day to file has passed: said once, in amber. */
+export function LimitPassed({ c }: { c: Pick<CaseView, "fileBy" | "stage"> }) {
+  if (!c.fileBy || c.stage === "filed" || c.fileBy >= new Date().toISOString().slice(0, 10)) return null;
+  return (
+    <span className="block text-body-compact text-warning-ink tabular-nums">
+      File by {toLongDate(c.fileBy)} passed · needs condonation
+    </span>
+  );
+}

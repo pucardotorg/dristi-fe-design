@@ -15,7 +15,6 @@ import {
   PAGE_TITLE,
 } from "@/components/shell/page-frame";
 import { BatchBreadcrumbLabel } from "@/components/filing/chrome";
-import { FilingFooter } from "@/components/filing/filing-footer";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -163,6 +162,7 @@ export function BatchScreen({ batchId }: { batchId: string }) {
   // The six steps, from what the batch already is to what is left. Common details and
   // Cases were settled when the batch was created; both stay open to read.
   const step = STEP_OF[tab];
+  const fromFile = batch.source.kind === "excel" || batch.source.kind === "documents";
   const q = (t: TabId) => {
     const p = new URLSearchParams();
     if (t !== "scrutiny") p.set("tab", t);
@@ -172,8 +172,17 @@ export function BatchScreen({ batchId }: { batchId: string }) {
   };
   const TAB_OF: Record<BulkStepId, TabId> = { common: "common", cases: "cases", details: "scrutiny", documents: "documents", sign: "sign", pay: "pay" };
   const marks = batchMarks(batch, step, (id) => (id === "common" ? commonHref(batch.id) : q(TAB_OF[id])));
+  // The Cases step reopens on its Check, its earlier sub-steps ticked: the file was read
+  // and its facts chosen when the batch was made (owner, 2026-11-11).
   const stages =
-    step === "sign"
+    step === "cases" && fromFile
+      ? [
+          ...(batch.source.kind === "excel" ? [{ id: "format", title: "Choose a format", done: true }] : []),
+          { id: "file", title: batch.source.kind === "documents" ? "Case documents" : "Excel file", done: true },
+          { id: "facts", title: "Facts of the case", done: true },
+          { id: "cases", title: "Check", href: q("cases") },
+        ]
+      : step === "sign"
       ? [
           { id: "review", title: "Review", href: workable ? q("review") : undefined },
           { id: "sign", title: "Sign", href: q("sign") },
@@ -187,20 +196,29 @@ export function BatchScreen({ batchId }: { batchId: string }) {
   const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
   const shown: TabId = allFiled && tab !== "common" && tab !== "cases" ? "filed" : tab;
   const width: BulkWidth = shown === "cases" || shown === "scrutiny" || shown === "documents" || shown === "review" || shown === "filed" ? "wide" : "medium";
+  // The title is the step's (or sub-step's) name, so it never changes between visits; the
+  // counts are the subtitle's (audit rule 2, owner 2026-11-11).
   const title = {
     common: "Common details",
-    cases: "Cases in this batch",
-    scrutiny: fixing
-      ? `${plural(fixing, "case needs", "cases need")} fixing`
-      : checking
-        ? `${plural(checking, "case", "cases")} to check`
-        : "Every case's details are done",
-    // The step's name; the card under it says how many cases are missing what (v8).
+    cases: fromFile ? "Check" : "Cases",
+    scrutiny: "Case details",
     documents: "Documents",
     review: "Review",
-    sign: clear ? `Sign ${plural(clear, "complete case", "complete cases")}` : "Sign",
-    pay: batch.counts.signed ? `Pay and file ${plural(batch.counts.signed, "case", "cases")}` : "Pay",
-    filed: `${plural(batch.counts.filed, "case", "cases")} filed`,
+    sign: "Sign",
+    pay: "Pay",
+    filed: "Filed",
+  }[shown];
+  const subtitle: string | null = {
+    common: null,
+    cases: casesLine(batch),
+    scrutiny: fixing || checking
+      ? `${[fixing ? `${fixing} to fix` : "", checking ? `${checking} to check` : ""].filter(Boolean).join(" and ")}. Cases to check can go ahead once you've looked.`
+      : "Every case's details are done.",
+    documents: null,
+    review: null,
+    sign: clear ? `${plural(clear, "case is", "cases are")} ready to sign.` : null,
+    pay: batch.counts.signed ? `${plural(batch.counts.signed, "signed case", "signed cases")} to pay and file.` : null,
+    filed: `${plural(batch.counts.filed, "case", "cases")} filed.`,
   }[shown];
   const body = {
     common: null,
@@ -219,7 +237,15 @@ export function BatchScreen({ batchId }: { batchId: string }) {
       <BatchBreadcrumbLabel number={batch.number} id={batch.id} />
       <BulkSteps
         marks={marks}
-        second={stages ? <StageRow label={`Step ${step === "sign" ? 5 : 6} · ${step === "sign" ? "Review and sign" : "Pay"}`} stages={stages} current={tab} /> : undefined}
+        second={
+          stages ? (
+            <StageRow
+              label={step === "cases" ? "Step 2 · Cases" : `Step ${step === "sign" ? 5 : 6} · ${step === "sign" ? "Review and sign" : "Pay"}`}
+              stages={stages}
+              current={tab}
+            />
+          ) : undefined
+        }
       />
       {/* No side panel on a batch's steps, so the page sits in the middle (v8): the narrow
           column for forms and summaries, the wide one for lists of cases. */}
@@ -227,7 +253,10 @@ export function BatchScreen({ batchId }: { batchId: string }) {
         <div className={cn(BULK_COLUMN[width], "flex flex-col gap-6")}>
         {/* Each step is titled by its job, the way the prototypes were. Which batch it is
             sits in the breadcrumb, not repeated under every title (round 3). */}
-        <h1 className={cn(PAGE_TITLE, "text-foreground tabular-nums")}>{title}</h1>
+        <div className="flex flex-col gap-1">
+          <h1 className={cn(PAGE_TITLE, "text-foreground")}>{title}</h1>
+          {subtitle ? <p className="text-body text-muted-foreground tabular-nums">{subtitle}</p> : null}
+        </div>
 
         {/* A standing condition, said still (skill `feedback-states`). */}
         {ai === "unavailable" ? (
@@ -270,4 +299,10 @@ export function BatchScreen({ batchId }: { batchId: string }) {
     </div>
     </FooterSlot.Provider>
   );
+}
+
+/** The Cases step's subtitle: how many cases, and from where. The filters carry the counts. */
+function casesLine(batch: BatchView): string {
+  const from = batch.source.kind === "api" ? `, sent by ${batch.source.system}` : ` from ${batch.source.reference}`;
+  return `${batch.total} case${batch.total === 1 ? "" : "s"}${from}.`;
 }

@@ -25,8 +25,7 @@ import { applyParties, type BatchParties } from "@/lib/bulk/parties";
 import { caseFlags, type Flag } from "@/lib/bulk/scrutiny";
 import { detailField, bracketsIn } from "@/lib/filing/detail-fields";
 import { formatForFiler, type DetailsFormat } from "@/lib/filing/details-formats";
-import { money } from "@/lib/filing/format";
-import { cn } from "@/lib/utils";
+import { totalChequeAmount } from "@/lib/filing/selectors";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,7 +37,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -49,20 +48,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DetailFieldMenu } from "@/components/filing/detail-field-menu";
 import { RichTextEditor, type RichTextEditorHandle } from "@/components/filing/rich-text-editor";
-import {
-  TABLE_CELL,
-  TABLE_HEAD,
-  TABLE_HEAD_ROW,
-  tableBodyClass,
-  tableRowClass,
-} from "@/components/chrome/table-plate";
 
 import { aboutDetails } from "./batch-marks";
-import { CaseSearch, Pager, pageOf } from "./case-list-tools";
+import { CaseRows, type CaseRow } from "./case-rows";
 import { FlagSummary } from "./scrutiny-tab";
 
 /* ───────────────────────────── The cases, as Create will make them ───────────────────────────── */
@@ -72,6 +62,7 @@ export type CheckCase = {
   reference: string;
   accused: string;
   cheque: string;
+  cheques: number;
   amount: number;
   /** About the case's details; documents are the Documents step's. */
   flags: Flag[];
@@ -99,13 +90,15 @@ export function useCheckCases(request: ApiBatchRequest | null, parties: BatchPar
               if (request.detailsFormat && bc.draft.adr.detailsFormat) writeFacts(bc.draft, request.detailsFormat);
             }
             const flags = caseFlags(bc).filter(aboutDetails);
-            const q = bc.draft.cheques[0];
+            // Every accused and the total of every cheque: the batch's own rule, so a case
+            // reads the same on both sides of Create (audit, 2026-11-10).
             return {
               key: `${bc.reference}-${i}`,
               reference: bc.reference,
-              accused: bc.draft.accused[0]?.name || "",
-              cheque: q?.chequeNumber ?? "",
-              amount: Number(String(q?.amount ?? "").replace(/[^\d.]/g, "")) || 0,
+              accused: bc.draft.accused.map((a) => a.name).filter(Boolean).join(", "),
+              cheque: bc.draft.cheques[0]?.chequeNumber ?? "",
+              cheques: bc.draft.cheques.length,
+              amount: totalChequeAmount(bc.draft.cheques),
               flags,
               state: flags.some((f) => f.level === "hold") ? "fix" : flags.length ? "check" : "ready",
             };
@@ -131,90 +124,53 @@ export function checkCounts(cases: CheckCase[]) {
   };
 }
 
-type Show = "all" | "ready" | "fix" | "check";
-
-/** Every case the file makes, in Case details' own row: who, reference, what is left. */
+/** Every case the file makes, in the Cases step's one list. */
 export function CheckCases({ cases }: { cases: CheckCase[] }) {
-  const [show, setShow] = React.useState<Show>("all");
-  const [q, setQ] = React.useState("");
-  const [page, setPage] = React.useState(0);
-  const n = checkCounts(cases);
-  const term = q.trim().toLowerCase();
-  const list = cases
-    .filter((c) => show === "all" || c.state === show)
-    .filter((c) => !term || [c.accused, c.reference, c.cheque].some((v) => v.toLowerCase().includes(term)));
-  const { pages, at, shown } = pageOf(list, page);
-
+  const rows: CaseRow[] = cases.map((c) => ({
+    ...c,
+    // Before Create there are no documents yet, so nothing is "Ready to sign": a case
+    // with nothing open in its details says so.
+    status: <FlagSummary flags={c.flags} done="Details done" />,
+  }));
   return (
-    <section aria-label="The cases this file makes" className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-3">
-        <SegmentedControl
-          type="single"
-          value={show}
-          onValueChange={(v) => {
-            if (!v) return;
-            setShow(v as Show);
-            setPage(0);
-          }}
-          aria-label="Show cases"
-        >
-          <SegmentedControlItem value="all">All {cases.length}</SegmentedControlItem>
-          {n.fix ? <SegmentedControlItem value="fix">To fix {n.fix}</SegmentedControlItem> : null}
-          {n.check ? <SegmentedControlItem value="check">To check {n.check}</SegmentedControlItem> : null}
-          <SegmentedControlItem value="ready">Ready {n.ready}</SegmentedControlItem>
-        </SegmentedControl>
-        <CaseSearch
-          id="check-search"
-          value={q}
-          onChange={(v) => {
-            setQ(v);
-            setPage(0);
-          }}
-        />
-      </div>
-      <Card variant="raised" className="gap-0 p-2">
-        <div className="overflow-x-auto">
-          <Table className="border-separate border-spacing-0" aria-label="Cases this file makes">
-            <TableHeader>
-              <TableRow className={TABLE_HEAD_ROW}>
-                <TableHead className={TABLE_HEAD}>Accused</TableHead>
-                <TableHead className={TABLE_HEAD}>Your reference</TableHead>
-                <TableHead className={TABLE_HEAD}>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody className={tableBodyClass({ hover: false })}>
-              {shown.map((c) => (
-                <TableRow key={c.key} className={tableRowClass({ hover: false })}>
-                  <TableCell className={TABLE_CELL}>
-                    <span className="font-medium">{c.accused || "—"}</span>
-                    <span className="block text-body-compact text-muted-foreground tabular-nums">
-                      {c.cheque ? `Cheque ${c.cheque}` : ""}
-                      {c.amount ? ` · ${money(c.amount)}` : ""}
-                    </span>
-                  </TableCell>
-                  <TableCell className={cn(TABLE_CELL, "font-mono")}>{c.reference || "—"}</TableCell>
-                  <TableCell className={cn(TABLE_CELL, "w-full min-w-64 whitespace-normal")}>
-                    <FlagSummary flags={c.flags} done="Ready" />
-                  </TableCell>
-                </TableRow>
-              ))}
-              {shown.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={3} className={cn(TABLE_CELL, "py-8 text-center text-muted-foreground")}>
-                    No cases match.
-                  </TableCell>
-                </TableRow>
-              ) : null}
-            </TableBody>
-          </Table>
-        </div>
-        <Pager total={list.length} at={at} pages={pages} onPage={setPage} />
-      </Card>
-    </section>
+    <CaseRows
+      rows={rows}
+      label="The cases this file makes"
+      searchId="check-search"
+      filters={[
+        { id: "fix", label: "To fix" },
+        { id: "check", label: "To check" },
+        { id: "ready", label: "Details done" },
+      ]}
+    />
   );
 }
 
 /* ───────────────────────────── Facts of the case ───────────────────────────── */
+
+/**
+ * Check's one line about the facts decided on the step before, with the way back to it:
+ * the decision is made on its own sub-step, not again beside the cases.
+ */
+export function FactsLine({ name, cases, onEdit }: { name: string | null; cases: number; onEdit: () => void }) {
+  const n = `${cases} case${cases === 1 ? "" : "s"}`;
+  return (
+    <p className="flex flex-wrap items-baseline gap-x-2 text-body-compact text-muted-foreground tabular-nums">
+      <span>
+        {name ? (
+          <>
+            Facts of the case: <span className="text-foreground">{name}</span>, for {n}.
+          </>
+        ) : (
+          <>No facts of the case for {n}.</>
+        )}
+      </span>
+      <Button type="button" variant="link" className="h-auto p-0 text-body-compact" onClick={onEdit}>
+        Change
+      </Button>
+    </p>
+  );
+}
 
 const FORMATS_HREF = "/filings/formats";
 const isEmpty = (html: string) => !html.replace(/<[^>]*>|&nbsp;/g, "").trim();
@@ -268,9 +224,9 @@ export function FactsCard({
 
   return (
     <Card variant="raised">
+      {/* The page is titled Facts of the case; the card opens on what the file brought. */}
       <CardHeader>
-        <CardTitle className="text-body font-semibold">Facts of the case</CardTitle>
-        <CardDescription className="tabular-nums">{fact}</CardDescription>
+        <CardDescription className="text-body text-foreground tabular-nums">{fact}</CardDescription>
       </CardHeader>
       {rest > 0 ? (
         <CardContent className="flex flex-col gap-3">
