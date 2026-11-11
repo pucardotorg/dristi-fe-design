@@ -541,7 +541,7 @@ export function DocumentsSection() {
                 /* One line: whose papers these are, then their role, muted. The name sits on
                    the same left line as the column labels below (24px: the table's 8px inset
                    plus its 16px cell padding). */
-                <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 px-4 pt-4 pb-3 md:pointer-fine:px-6 md:landscape:px-6">
+                <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 px-4 pt-6 pb-4 md:pointer-fine:px-6 md:landscape:px-6">
                   {/* A clear step above the 14px semibold column labels under it, so the
                       block's title leads (owner, 2026-11-11). */}
                   <h2 id={`doc-group-${group.id}`} className="text-title-s font-semibold">
