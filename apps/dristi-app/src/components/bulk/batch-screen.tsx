@@ -157,7 +157,7 @@ export function BatchScreen({ batchId }: { batchId: string }) {
   }
 
   const ctx: BatchCtx = { batch, setBatch, go };
-  const { workable, allFiled, fixing, checking, clear } = batchTallies(batch);
+  const { workable, allFiled, fixing, checking, clear, docsMissing } = batchTallies(batch);
 
   // The six steps, from what the batch already is to what is left. Common details and
   // Cases were settled when the batch was created; both stay open to read.
@@ -214,7 +214,9 @@ export function BatchScreen({ batchId }: { batchId: string }) {
     scrutiny: fixing || checking
       ? `${[fixing ? `${fixing} to fix` : "", checking ? `${checking} to check` : ""].filter(Boolean).join(" and ")}. Cases to check can go ahead once you've looked.`
       : "Every case's details are done.",
-    documents: null,
+    documents: docsMissing
+      ? `${plural(docsMissing, "case is", "cases are")} missing documents. The complainant's are already on every case.`
+      : "Every case here has its documents.",
     review: null,
     sign: clear ? `${plural(clear, "case is", "cases are")} ready to sign.` : null,
     pay: batch.counts.signed ? `${plural(batch.counts.signed, "signed case", "signed cases")} to pay and file.` : null,
