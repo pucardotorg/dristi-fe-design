@@ -95,6 +95,8 @@ The small defects that make UI look unconsidered, with how to detect each. Items
 51. **(owner)** The unavailable option brighter than the available one (a white tile on
     the "coming soon" card).
 52. More than one accent hue in a region, or a semantic tone used as decoration.
+53. **(owner)** Drawn outlines on option cards and buttons inside a bordered panel: the
+    dated list-group look. Lift the options on the page instead; fill secondary buttons.
 
 ## States
 

@@ -17,8 +17,11 @@ fills fight it. Tokens come from the pinned DS; this is how to choose among them
 
 ## Fill direction encodes affordance
 
-- Actionable things sit bright and forward: white (`bg-card`) with a defined edge
-  (`border-border`, the DS outline card on a white panel), tint on hover or selection.
+- Actionable things sit bright and forward: a white card lifted by the DS raised recipe
+  (10% hairline + `shadow-raised`, lifting to `shadow-overlay` on hover), placed on the
+  warm page rather than inside another panel. Drawn outlines (`border-border`, outline
+  buttons) around options read dated (owner, 2026-11-11); for a secondary button beside
+  them, prefer the filled `secondary` variant.
 - Recessed fills (`bg-surface-sunken`, `bg-muted`) are for passive content: wells,
   previews, read-only values, control tracks, the table header strip. A grey card reads as
   disabled or inert. Never make the clickable options the dullest objects in a panel.
