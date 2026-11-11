@@ -13,10 +13,10 @@ export const aboutDetails = (f: CaseFlag) =>
   f.section !== "documents" && f.fix?.kind !== "upload" && f.fix?.kind !== "documents";
 
 /** A case's flags about its details; files are the Documents step's. */
-export const detailFlags = (c: CaseView) => c.flags.filter(aboutDetails);
+export const detailFlags = (c: Pick<CaseView, "flags">) => c.flags.filter(aboutDetails);
 
 /** A case's flags about its files: missing ones, and scans too blurry to read. */
-export const documentFlags = (c: CaseView) => c.flags.filter((f) => !aboutDetails(f));
+export const documentFlags = (c: Pick<CaseView, "flags">) => c.flags.filter((f) => !aboutDetails(f));
 
 /**
  * Where one case stands, first match wins:
@@ -29,7 +29,10 @@ export const documentFlags = (c: CaseView) => c.flags.filter((f) => !aboutDetail
  */
 export type CaseState = "fix" | "check" | "docs" | "complete" | "signed" | "filed";
 
-export function caseState(c: CaseView): CaseState {
+/** What `caseState` reads: a case view, or the same few facts without building one. */
+export type StateFacts = Pick<CaseView, "stage" | "flags" | "docs">;
+
+export function caseState(c: StateFacts): CaseState {
   if (c.stage === "filed") return "filed";
   if (c.stage === "signed") return "signed";
   const details = detailFlags(c);

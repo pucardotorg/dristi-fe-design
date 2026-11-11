@@ -210,8 +210,12 @@ export function summarise(
   let flagged = 0;
   for (const bc of batch.cases) {
     const flags = openFlags(bc);
-    counts[caseStage(bc, flags)] += 1;
-    states[caseState(caseView(bc))] += 1;
+    const stage = caseStage(bc, flags);
+    counts[stage] += 1;
+    // Only the facts caseState reads. A full caseView per case (fees, limitation, every
+    // flag) made this list take minutes on a few hundred cases.
+    const required = bc.draft.documents.flatMap((g) => g.docs).filter((d) => d.required);
+    states[caseState({ stage, flags, docs: { have: required.filter((d) => d.file).length, need: required.length } })] += 1;
     if (flags.length && bc.draft.status !== "filed" && !bc.signedWith)
       flagged += 1;
   }
