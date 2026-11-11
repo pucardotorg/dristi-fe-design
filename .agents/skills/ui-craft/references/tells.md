@@ -65,7 +65,8 @@ The small defects that make UI look unconsidered, with how to detect each. Items
     two-line link in one column, so the column edge disappears.
 33. Adjacent controls of different heights; 36px controls beside 40px ones.
 34. Icon sizes or strokes mixed in one region; icons darker than their text.
-35. Decorative icon tiles (an icon in a tinted square) on panel headers or rows.
+35. Icon tiles where they don't earn it (every row, minor panels), or **(owner)** the
+    reverse: a primary entry surface stripped of its anchor so it reads as a sub-action.
 36. Hit area under 40×40px; a checkbox whose label is not part of its target.
 37. Two primary actions in one region.
 
@@ -96,5 +97,6 @@ The small defects that make UI look unconsidered, with how to detect each. Items
 Box depth > 2 · dividers darker than a hairline · vertical cell borders or zebra stripes ·
 single-line rows over 56px · app buttons over 40px · more than 5 type sizes or 3 weights on
 one screen · more than one notice per region · more than 3 badge tones in one table ·
-status dots without text · more than one button variant among equal-rank actions · decorative
-icon tiles · every panel carrying a description line.
+status dots without text · more than one button variant among equal-rank actions · icon
+tiles on every row · every panel carrying a description line. The opposite failure is
+"undesigned": a primary surface flattened to text and a hairline, with no anchor or weight.

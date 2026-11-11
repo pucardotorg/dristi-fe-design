@@ -80,8 +80,14 @@ controls. Facts are attributes, guidance is copy.
 
 **Surfaces.** One separation device per boundary: space, fill, hairline or shadow. Not
 stacked. Two levels: canvas, then lifted panel, with sunken wells inside panels. Decorative
-strokes are hairlines; control edges meet 3:1. No cards on cards, no icon tiles as
-decoration, no accent bars.
+strokes are hairlines; control edges meet 3:1. No cards on cards, no accent bars.
+
+**Prominence matches importance.** Quiet is not the goal; the right weight is. A primary
+destination (an entry point like File a case, a step's main choice) gets a visual anchor
+before its heading (a 48px icon tile), a section-level title and options with presence.
+Secondary and repeated content stays quiet: no icon tiles on every row or minor panel.
+Removing anchors from a primary surface makes it read as a sub-action (2026-11-11: "it
+should look more prominent… a visual anchor before you read the heading").
 
 **Controls and icons.** One height per row of controls. One icon size and stroke per
 region; icon colour equals its text or one step muted. Targets ≥40×40px. One primary

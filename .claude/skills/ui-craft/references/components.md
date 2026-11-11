@@ -73,8 +73,12 @@ recipes and owner rulings (SKILL.md) win where these differ.
 - A card marks a real group acted on as a unit. If a region is already bounded, use space
   or a heading. Depth stops at canvas → panel (→ well).
 - Header: title, optional meta, actions on the title row at the right. A description stays
-  only if deleting it would lose a fact or an instruction. No icon tiles. A header that
-  repeats the page title is noise; drop it.
+  only if deleting it would lose a fact or an instruction. A header that repeats the page
+  title is noise; drop it.
+- Primary entry panels (File a case's New filing and Bulk filing) open with a 48px icon
+  tile (`rounded-xl`, the brand- or info-muted pair) above a `text-title-s` title, then
+  their options as cards (`EntryHead` / `EntryOption` in `filing/dashboard`). Minor panels
+  and repeated rows get no tile.
 - An eyebrow earns its place only as context the title cannot carry. Otherwise put the role
   after the name on one line, muted (see `typography.md`).
 - Title, body and actions share the panel's content-left keyline.
