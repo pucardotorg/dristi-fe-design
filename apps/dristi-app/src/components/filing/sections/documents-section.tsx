@@ -371,7 +371,21 @@ export function DocumentsSection() {
     ),
     file: (
       <>
-      {doc.file ? (
+      {doc.file && guide ? (
+        /* Bulk: the file sits where Upload sat, at Upload's height and padding, on one
+           line, so a filed row and an empty one line up (owner, 2026-11-11). */
+        <Button
+          type="button"
+          variant="ghost"
+          className="h-10 max-w-full justify-start font-normal"
+          onClick={() => setPreviewId(doc.id)}
+          aria-label={`Preview ${doc.file.name}`}
+        >
+          <FileTextIcon data-icon="inline-start" className="text-muted-foreground" aria-hidden />
+          <span className="min-w-0 truncate">{doc.file.name}</span>
+          <span className="shrink-0 text-muted-foreground tabular-nums">{formatBytes(doc.file.size)}</span>
+        </Button>
+      ) : doc.file ? (
         <Button
           type="button"
           variant="link"
@@ -476,20 +490,34 @@ export function DocumentsSection() {
     <>
       {input}
       <FilingMain width="wide">
-        <FilingPageHeader
-          title="List of documents"
-          description="Check each one is the right way up and readable. The affidavit and delay-condonation application are prepared in their own sections."
-        />
+        {guide ? (
+          /* Bulk's setup: the sub-step's own name (audit rule 2), and what these papers
+             are for, since every other document is added per case (BLK-05). */
+          <FilingPageHeader
+            title="Documents for every case"
+            description="These go on every case in the batch. Each case's own documents are added after the batch is created."
+          />
+        ) : (
+          <FilingPageHeader
+            title="List of documents"
+            description="Check each one is the right way up and readable. The affidavit and delay-condonation application are prepared in their own sections."
+          />
+        )}
 
-        <SectionNotice variant="neutral">
-          Tick <strong className="font-semibold">Natively digital</strong> for an
-          original digital file, such as an e-signed PDF, not a scan of a paper copy.
-        </SectionNotice>
+        {guide ? (
+          <SectionNotice variant="neutral">
+            A natively digital file was made on a computer, like an e-signed PDF, not scanned
+            from paper.
+          </SectionNotice>
+        ) : (
+          <SectionNotice variant="neutral">
+            Tick <strong className="font-semibold">Natively digital</strong> for an
+            original digital file, such as an e-signed PDF, not a scan of a paper copy.
+          </SectionNotice>
+        )}
 
         {groups.map((group) => {
           const heading = groupHeading(group);
-          const need = group.docs.filter((d) => d.required);
-          const have = need.filter((d) => d.file).length;
           return (
           <section
             key={group.id}
@@ -505,27 +533,15 @@ export function DocumentsSection() {
               {guide ? (
                 /* The group's party and its count, as the panel's own head: who these
                    papers belong to, and how many of the required ones are in. */
-                <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-1 px-4 pt-4 pb-3">
-                  <div className="flex min-w-0 flex-col gap-0.5">
-                    {heading.eyebrow ? (
-                      <span className="text-body-compact text-muted-foreground">{heading.eyebrow}</span>
-                    ) : null}
-                    <h2 id={`doc-group-${group.id}`} className="text-title-s font-semibold">
-                      {heading.title}
-                    </h2>
-                  </div>
-                  {need.length ? (
-                    have === need.length ? (
-                      <span className="inline-flex items-center gap-1.5 text-body-compact text-success-ink">
-                        <CheckIcon className="size-4 shrink-0" aria-hidden />
-                        All required added
-                      </span>
-                    ) : (
-                      <span className="text-body-compact text-muted-foreground tabular-nums">
-                        {have} of {need.length} required added
-                      </span>
-                    )
+                <div className="flex min-w-0 flex-col gap-0.5 px-4 pt-4 pb-3">
+                  {/* Whose papers these are. What is missing is said on its row and in
+                      the footer, not as a count floating beside the name (owner, 2026-11-11). */}
+                  {heading.eyebrow ? (
+                    <span className="text-body-compact text-muted-foreground">{heading.eyebrow}</span>
                   ) : null}
+                  <h2 id={`doc-group-${group.id}`} className="text-body font-semibold">
+                    {heading.title}
+                  </h2>
                 </div>
               ) : null}
               {/* Phone and upright tablet: a list. The table's fixed columns need about
@@ -776,3 +792,4 @@ export function DocumentsSection() {
     </>
   );
 }
+
