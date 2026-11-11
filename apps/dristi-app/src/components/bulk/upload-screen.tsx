@@ -75,7 +75,7 @@ import {
   serverDetailsFormats,
   subscribeToDetailsFormats,
 } from "@/lib/filing/details-formats";
-import { CheckCases, FactsCard, checkCounts, useCheckCases } from "./check-step";
+import { CheckCases, FactsCard, FactsLine, checkCounts, useCheckCases } from "./check-step";
 import { FileDrop } from "./file-drop";
 import { FormatChoice, type UploadFormat } from "./format-choice";
 import { bulkFetch } from "./api";
@@ -307,7 +307,7 @@ export function UploadScreen() {
   const step: UploadStep =
     asked === "format" || (!format && !book)
       ? "format"
-      : book && asked && ["map", "values", "review"].includes(asked)
+      : book && asked && ["map", "values", "facts", "review"].includes(asked)
         ? asked
         : "file";
   const setStep = (s: UploadStep) => router.push(uploadHref(setupId, s, search.get("ai")));
@@ -409,7 +409,7 @@ export function UploadScreen() {
       const follows = docs || followsTemplate(b.cases.headers);
       setTemplate(follows);
       const u = unknownValues(b.cases, m);
-      setStep(follows ? (Object.keys(u).length ? "values" : "review") : "map");
+      setStep(follows ? (Object.keys(u).length ? "values" : "facts") : "map");
     } catch (e) {
       setError((e as Error).message || "This file could not be read.");
     } finally {
@@ -535,7 +535,7 @@ export function UploadScreen() {
   const errorNotice = error ? (
     <StatusLine tone="error">{error}</StatusLine>
   ) : null;
-  const backFromReview: UploadStep = unknownLists.length ? "values" : template || docs ? "file" : "map";
+  const backFromFacts: UploadStep = unknownLists.length ? "values" : template || docs ? "file" : "map";
 
   if (step === "format")
     return (
@@ -731,7 +731,7 @@ export function UploadScreen() {
           }
           continueBlocked={mapLeft > 0}
           continueHint={mapLeft ? "Choose a column, or Fill in each case later, for each field" : undefined}
-          onContinue={mapLeft ? undefined : () => setStep(unknownLists.length ? "values" : "review")}
+          onContinue={mapLeft ? undefined : () => setStep(unknownLists.length ? "values" : "facts")}
         />
       </>
     );
@@ -786,36 +786,79 @@ export function UploadScreen() {
         <FilingFooter
           showSaveState={false}
           onBack={() => setStep(template ? "file" : "map")}
-          onContinue={() => setStep("review")}
+          onContinue={() => setStep("facts")}
           continueBlocked={!valuesDone}
           continueHint="Choose what each value means first."
         />
       </>
     );
 
-  if (step === "review" && book) {
+  // The rows that become cases, and how many bring their own facts in the file.
+  const createdRows = () => {
+    if (!book) return [];
     const left = new Set(cannot.map((x) => x.index));
-    // The rows that become cases, with their Excel row number (headers are row 1).
-    const created = book.cases.rows
+    return book.cases.rows
       .map((cells, i) => ({ cells, row: i + 2 + (book.cases.discarded ?? 0), i }))
       .filter((x) => !left.has(x.i));
+  };
+  const ownFacts = (rows: { cells: unknown[] }[]) =>
+    typeof map.otherDetails === "number"
+      ? rows.filter((x) => String(x.cells[map.otherDetails as number] ?? "").trim()).length
+      : 0;
+
+  // Facts of the case (PRY-1) is its own sub-step: a decision about the text every case
+  // starts with, made once, before the cases are checked (owner, 2026-11-10).
+  if (step === "facts" && book) {
+    const rows = createdRows();
+    return (
+      <>
+        <FilingMain>
+          <FilingPageHeader
+            title="Facts of the case"
+            description="Optional. Every case starts with this text, and each can change it on its own."
+          />
+          {errorNotice}
+          <FactsCard
+            formats={formats}
+            templateId={factsId}
+            html={factsHtml}
+            onChange={(id, html) => setFactsChoice({ id, html })}
+            own={ownFacts(rows)}
+            total={rows.length}
+          />
+        </FilingMain>
+        <FilingFooter
+          showSaveState={false}
+          onBack={() => setStep(backFromFacts)}
+          onContinue={() => setStep("review")}
+          continueLabel="Continue"
+        />
+      </>
+    );
+  }
+
+  if (step === "review" && book) {
+    const created = createdRows();
     const counted = checkCases ? checkCounts(checkCases) : null;
-    const own =
-      typeof map.otherDetails === "number"
-        ? created.filter((x) => String(x.cells[map.otherDetails as number] ?? "").trim()).length
-        : 0;
+    const own = ownFacts(created);
     return (
       <>
         <FilingMain width="wide">
+          {/* The title is the sub-step's name; the counts are the subtitle's (audit rule 2). */}
           <FilingPageHeader
-            title={coreMissing.length ? "Check" : `Create ${creating} case${creating === 1 ? "" : "s"}`}
+            title="Check"
             description={
               coreMissing.length
                 ? undefined
                 : counted
                   ? counted.fix + counted.check
-                    ? `From ${fileName}. Cases with something to fix or check are created too, and finished in Case details.`
-                    : `From ${fileName}. Every case is ready.`
+                    ? `${created.length} case${created.length === 1 ? "" : "s"} from ${fileName}: ${[
+                        counted.fix ? `${counted.fix} to fix` : "",
+                        counted.check ? `${counted.check} to check` : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" and ")}. They're created too, and finished in Case details.`
+                    : `${created.length} case${created.length === 1 ? "" : "s"} from ${fileName}. Every case is ready.`
                   : `Reading ${fileName}…`
             }
           />
@@ -887,14 +930,11 @@ export function UploadScreen() {
               </CardContent>
             </Card>
           ) : null}
-          {coreMissing.length || !created.length ? null : (
-            <FactsCard
-              formats={formats}
-              templateId={factsId}
-              html={factsHtml}
-              onChange={(id, html) => setFactsChoice({ id, html })}
-              own={own}
-              total={created.length}
+          {coreMissing.length || !created.length || own === created.length ? null : (
+            <FactsLine
+              name={factsHtml.replace(/<[^>]*>|&nbsp;/g, "").trim() ? (formats.find((f) => f.id === factsId)?.name ?? "Your own text") : null}
+              cases={created.length - own}
+              onEdit={() => setStep("facts")}
             />
           )}
           {/* Each case judged as Case details will judge it (owner, 2026-11-10). */}
@@ -910,7 +950,7 @@ export function UploadScreen() {
             and upload it again. Rows left out never join this batch later. */}
         <FilingFooter
           showSaveState={false}
-          onBack={() => setStep(backFromReview)}
+          onBack={() => setStep("facts")}
           extra={
             cannot.length ? (
               <Button variant="outline" size="lg" disabled={busy} onClick={() => setStep("file")}>

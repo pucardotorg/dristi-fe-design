@@ -79,7 +79,7 @@ function batchTabHref(batchId: string, tab: string | null, ai: string | null): s
 }
 
 /** The upload's own steps after the sections: the file, matching, review. */
-export type UploadStep = "format" | "file" | "map" | "values" | "review";
+export type UploadStep = "format" | "file" | "map" | "values" | "facts" | "review";
 
 /** One of the upload's own steps. */
 export function uploadHref(setupId: string, step: UploadStep = "file", ai?: string | null): string {
@@ -426,6 +426,7 @@ function SetupSteps({
     { id: "file", title: upload.documents ? "Case documents" : "Excel file", href: uploadHref(setupId, "file", ai), done: upload.read },
     ...(upload.matchColumns ? [{ id: "map", title: "Match columns", href: upload.read ? uploadHref(setupId, "map", ai) : undefined }] : []),
     ...(upload.matchValues ? [{ id: "values", title: "Match values", href: upload.read ? uploadHref(setupId, "values", ai) : undefined }] : []),
+    { id: "facts", title: "Facts of the case", href: upload.read ? uploadHref(setupId, "facts", ai) : undefined },
     { id: "review", title: "Check", href: upload.read ? uploadHref(setupId, "review", ai) : undefined },
   ];
   const stages = inCases ? caseStages : commonStages;
