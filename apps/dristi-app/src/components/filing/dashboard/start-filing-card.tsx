@@ -18,14 +18,12 @@ import { Card } from "@/components/ui/card";
  */
 export function EntryHead({
   icon: Icon,
-  tone,
   title,
   titleId,
   description,
   action,
 }: {
   icon: React.ComponentType<{ className?: string }>;
-  tone: "brand" | "info";
   title: string;
   titleId?: string;
   description: string;
@@ -39,7 +37,9 @@ export function EntryHead({
           aria-hidden
           className={cn(
             "flex size-12 shrink-0 items-center justify-center rounded-xl",
-            tone === "brand" ? "bg-brand-muted text-brand-muted-foreground" : "bg-info-muted text-info-muted-foreground",
+            // One brand tint for every entry: colour here marks "a place to start", not which
+          // kind of filing it is (info blue beside brand blue meant nothing).
+          "bg-brand-muted text-brand-muted-foreground",
           )}
         >
           <Icon className="size-6" />
@@ -58,8 +58,11 @@ export function EntryHead({
   );
 }
 
+/* White with a defined edge (the DS outline card on a white panel), not a sunken well: a
+   recessed grey fill reads as passive or disabled, the opposite of something to pick. The
+   brand appears only on the icon at rest and on the edge under the pointer. */
 const OPTION =
-  "group flex w-full items-center gap-4 rounded-xl border border-hairline bg-surface-sunken p-4 text-left transition-colors outline-none hover:border-brand-accent hover:bg-brand-muted focus-visible:ring-3 focus-visible:ring-focus-ring";
+  "group flex w-full items-center gap-4 rounded-xl border border-border bg-card p-4 text-left transition-colors outline-none hover:border-brand-accent hover:bg-brand-muted focus-visible:ring-3 focus-visible:ring-focus-ring";
 
 /**
  * One destination inside an entry panel, as a card that is itself the act (owner,
@@ -92,7 +95,8 @@ export function EntryOption({
         aria-hidden
         className={cn(
           "flex size-10 shrink-0 items-center justify-center rounded-lg max-sm:hidden",
-          soon ? "bg-card text-muted-foreground" : "bg-brand-muted text-brand-muted-foreground group-hover:bg-card",
+          // Unavailable is the quietest thing in the panel, never brighter than what works.
+          soon ? "bg-muted text-muted-foreground" : "bg-brand-muted text-brand-muted-foreground",
         )}
       >
         <Icon className="size-5" />
@@ -129,7 +133,6 @@ export function StartFilingCard() {
     <Card variant="raised" className="gap-6 p-6">
       <EntryHead
         icon={FilePlus2Icon}
-        tone="brand"
         title="New filing"
         titleId={titleId}
         description="File one case, step by step: parties, documents, then the court fee."

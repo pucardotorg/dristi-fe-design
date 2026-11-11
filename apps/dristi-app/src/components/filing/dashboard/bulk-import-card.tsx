@@ -52,7 +52,6 @@ export function BulkImportCard({ needAction = 0 }: { batch?: BulkBatch | null; n
     <Card variant="raised" className="gap-6 p-6">
       <EntryHead
         icon={LayersIcon}
-        tone="info"
         title="Bulk filing"
         titleId={titleId}
         description="File many cases for one complainant together, as a batch."
