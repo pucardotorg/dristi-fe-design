@@ -33,6 +33,7 @@ import type { FilingDraft, StoredFileRef } from "@/lib/filing/types";
 import type { AiMode } from "./ai-review";
 import { caseFacts, type CaseFact } from "./case-fields";
 import { resolveBar, resolveIfsc, resolvePin } from "./reference";
+import { caseState, type CaseState } from "./case-state";
 import { caseFlags, caseStage, openFlags, type Flag } from "./scrutiny";
 import {
   AADHAAR_DOCS_PER_OTP,
@@ -56,6 +57,8 @@ export type CaseView = {
   accused: string;
   /** The first cheque's number, to tell cases apart at a glance. */
   cheque: string;
+  /** How many cheques the case is on; the row says "2 cheques" rather than the first. */
+  cheques: number;
   amount: number;
   causeDate: string;
   /** Last day within the one-month limit, from the cause of action. */
@@ -98,6 +101,8 @@ export type BatchSummary = {
   clubbedFrom: string[];
   total: number;
   counts: Record<CaseStage, number>;
+  /** Cases by where they stand, as every screen says it (`case-state.ts`). */
+  states: Record<CaseState, number>;
   flagged: number;
   /** `null` while an API push is still unopened. */
   openedAt: string | null;
@@ -146,6 +151,7 @@ export function caseView(bc: BatchCase): CaseView {
       .filter(Boolean)
       .join(", "),
     cheque: d.cheques[0]?.chequeNumber ?? "",
+    cheques: d.cheques.length,
     amount: totalChequeAmount(d.cheques),
     causeDate: cause,
     fileBy: addMonth(cause),
@@ -200,10 +206,12 @@ export function summarise(
     signed: 0,
     filed: 0,
   };
+  const states: Record<CaseState, number> = { fix: 0, docs: 0, check: 0, complete: 0, signed: 0, filed: 0 };
   let flagged = 0;
   for (const bc of batch.cases) {
     const flags = openFlags(bc);
     counts[caseStage(bc, flags)] += 1;
+    states[caseState(caseView(bc))] += 1;
     if (flags.length && bc.draft.status !== "filed" && !bc.signedWith)
       flagged += 1;
   }
@@ -221,6 +229,7 @@ export function summarise(
     clubbedFrom: batch.clubbedFrom,
     total: batch.cases.length,
     counts,
+    states,
     flagged,
     openedAt: batch.openedAt === undefined ? batch.createdAt : batch.openedAt,
     filingAdvocate: filingAdvocate(batch),

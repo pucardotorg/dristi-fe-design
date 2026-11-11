@@ -5,13 +5,10 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   ArrowRightIcon,
-  CheckIcon,
   CircleAlertIcon,
-  CircleXIcon,
   EllipsisVerticalIcon,
   OctagonAlertIcon,
   Trash2Icon,
-  TriangleAlertIcon,
   Undo2Icon,
   WandSparklesIcon,
 } from "lucide-react";
@@ -44,9 +41,10 @@ import {
 
 import { bulkApi, caseFlowHref, type CaseView } from "./api";
 import { BatchFooter } from "./batch-footer";
-import { caseState, detailFlags, isOpen } from "./batch-marks";
+import { caseState, isOpen } from "./batch-marks";
 import type { BatchCtx } from "./batch-screen";
 import { CaseSearch, Pager, caseMatches, pageOf } from "./case-list-tools";
+import { CaseBadge, StatusWord, shortReason } from "./stage";
 import { StatusLine } from "@/components/feedback";
 
 type Kind = "hold" | "check";
@@ -120,11 +118,11 @@ const rankOf = (c: CaseView) => {
   return s === "fix" ? 0 : s === "check" ? 1 : 2;
 };
 
-type Show = "fix" | "check" | "ready" | "all";
+type Show = "fix" | "check" | "docs" | "complete" | "all";
 
-/** What a case still needs, in one line: the first thing to fix, or to check, or nothing. */
+/** Where a case stands, in the one status form: the state, the first reason, how many more. */
 function ToFix({ c }: { c: CaseView }) {
-  return <FlagSummary flags={detailFlags(c)} />;
+  return <CaseBadge c={c} />;
 }
 
 /**
@@ -135,25 +133,10 @@ function ToFix({ c }: { c: CaseView }) {
 export function FlagSummary({ flags: f, done = "Details done" }: { flags: Flag[]; done?: string }) {
   const holds = f.filter((x) => x.level === "hold");
   const first = holds[0] ?? f[0];
-  if (!first)
-    return (
-      <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-        <CheckIcon aria-hidden className="size-4 text-success" />
-        {done}
-      </span>
-    );
+  if (!first) return <StatusWord state="complete" word={done} />;
   const hold = first.level === "hold";
-  const Icon = hold ? CircleXIcon : TriangleAlertIcon;
-  return (
-    <span className="inline-flex min-w-0 items-start gap-1.5">
-      <Icon aria-hidden className={cn("mt-0.5 size-4 shrink-0", hold ? "text-destructive" : "text-warning-ink")} />
-      <span className="min-w-0">
-        <span className="sr-only">{hold ? "To fix: " : "To check: "}</span>
-        {first.where}: {first.message}
-        {f.length > 1 ? <span className="text-muted-foreground tabular-nums"> (and {f.length - 1} more)</span> : null}
-      </span>
-    </span>
-  );
+  const n = hold ? holds.length : f.length;
+  return <StatusWord state={hold ? "fix" : "check"} reason={shortReason(first.message)} more={n - 1} />;
 }
 
 /**
@@ -225,15 +208,16 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
   const open = batch.cases.filter(isOpen);
   const fixing = open.filter((c) => rankOf(c) === 0);
   const checking = open.filter((c) => rankOf(c) === 1);
-  // Details done; documents are the next step's (`complete` is reserved for both).
-  const done = open.filter((c) => rankOf(c) === 2);
+  // Details done: said as where they stand now, missing documents or ready to sign.
+  const docsOpen = open.filter((c) => caseState(c) === "docs");
+  const ready = open.filter((c) => caseState(c) === "complete");
   const [show, setShow] = React.useState<Show>(fixing.length ? "fix" : "all");
   const [search, setSearch] = React.useState("");
   const [page, setPage] = React.useState(0);
   const [removing, setRemoving] = React.useState<CaseView | null>(null);
 
   const term = search.trim().toLowerCase();
-  const inShow = { fix: fixing, check: checking, ready: done, all: open }[show];
+  const inShow = { fix: fixing, check: checking, docs: docsOpen, complete: ready, all: open }[show];
   const listed = [...inShow].sort((a, b) => rankOf(a) - rankOf(b)).filter((c) => caseMatches(c, term));
   const { pages, at, shown } = pageOf(listed, page);
 
@@ -305,7 +289,8 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
           <SegmentedControlItem value="all">All {open.length}</SegmentedControlItem>
           {fixing.length ? <SegmentedControlItem value="fix">To fix {fixing.length}</SegmentedControlItem> : null}
           {checking.length ? <SegmentedControlItem value="check">To check {checking.length}</SegmentedControlItem> : null}
-          {done.length ? <SegmentedControlItem value="ready">Details done {done.length}</SegmentedControlItem> : null}
+          {docsOpen.length ? <SegmentedControlItem value="docs">Missing documents {docsOpen.length}</SegmentedControlItem> : null}
+          {ready.length ? <SegmentedControlItem value="complete">Ready to sign {ready.length}</SegmentedControlItem> : null}
         </SegmentedControl>
         <CaseSearch
           id="details-search"

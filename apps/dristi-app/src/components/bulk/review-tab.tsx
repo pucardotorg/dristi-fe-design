@@ -109,11 +109,11 @@ export function ReviewTab({ batch, go }: BatchCtx) {
         }
         continueLabel={
           ready
-            ? `Sign ${ready} complete case${ready === 1 ? "" : "s"}`
+            ? `Sign ${ready} case${ready === 1 ? "" : "s"}`
             : "Sign"
         }
         continueBlocked={!ready}
-        continueHint="No case is complete yet"
+        continueHint="No case is ready to sign yet"
         onContinue={() => {
           if (ready) go("sign");
         }}

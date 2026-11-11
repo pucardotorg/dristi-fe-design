@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { StageBar } from "@/components/bulk/stage";
-import type { CaseStage } from "@/lib/bulk/types";
+import type { CaseState } from "@/lib/bulk/case-state";
 
 /**
  * The latest batch — pushed in from a client's litigation system or uploaded from Excel —
@@ -22,7 +22,7 @@ export type BulkBatch = {
   what: string;
   receivedOn: string;
   via: string;
-  counts: Record<CaseStage, number>;
+  counts: Record<CaseState, number>;
 };
 
 /** Cases a client's system pushed across for filing, as one batch. */

@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
 import type { CaseView } from "./api";
-import { caseState } from "./batch-marks";
 import { CaseSearch, caseMatches } from "./case-list-tools";
 import { CaseBadge } from "./stage";
 
@@ -119,7 +118,7 @@ export function CaseList({
                       <span className="font-mono">{c.reference}</span>
                       {c.cheque ? <span className="tabular-nums"> · {c.cheque}</span> : null}
                     </span>
-                    {caseState(c) !== "complete" ? <CaseBadge c={c} /> : null}
+                    <CaseBadge c={c} reason={false} />
                   </span>
                 </Button>
               </li>

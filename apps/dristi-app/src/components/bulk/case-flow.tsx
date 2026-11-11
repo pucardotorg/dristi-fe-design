@@ -411,7 +411,7 @@ function CaseBar({
         <span className="flex min-w-0 items-center gap-x-2">
           <span className="truncate text-body-compact font-semibold">{c.title}</span>
           <span className="shrink-0 max-sm:hidden">
-            <CaseBadge c={c} />
+            <CaseBadge c={c} reason={false} />
           </span>
         </span>
         <span className="flex flex-wrap items-center gap-x-2 text-body-compact text-muted-foreground tabular-nums">

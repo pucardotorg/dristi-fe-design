@@ -238,7 +238,7 @@ export function BatchesScreen() {
           </Badge>
         ) : (
           <span className="flex flex-col gap-1">
-            <StageBar counts={b.counts} />
+            <StageBar counts={b.states} />
             {awaiting.has(b.id) ? (
               <span className="text-body-compact text-info-ink">Waiting for another party to sign</span>
             ) : null}
@@ -416,7 +416,7 @@ export function BatchesScreen() {
                           Done: all {b.total} filed
                         </Badge>
                       ) : (
-                        <StageBar counts={b.counts} />
+                        <StageBar counts={b.states} />
                       )}
                     </Link>
                   </li>

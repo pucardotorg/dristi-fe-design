@@ -12,39 +12,8 @@
 import type { BatchView, CaseView } from "./api";
 import type { BulkStepId, StepMark } from "./bulk-steps";
 
-type CaseFlag = CaseView["flags"][number];
-
-/** A flag about the case's details, not about a document file. */
-export const aboutDetails = (f: CaseFlag) =>
-  f.section !== "documents" && f.fix?.kind !== "upload" && f.fix?.kind !== "documents";
-
-/** A case's flags about its details; files are the Documents step's. */
-export const detailFlags = (c: CaseView) => c.flags.filter(aboutDetails);
-
-/** A case's flags about its files: missing ones, and scans too blurry to read. */
-export const documentFlags = (c: CaseView) => c.flags.filter((f) => !aboutDetails(f));
-
-/**
- * Where one case stands, first match wins:
- *
- *  · `fix`      — a detail it can't be filed without. Case details' "To fix".
- *  · `check`    — a detail to look at, which can be skipped. Case details' "To check".
- *  · `docs`     — details done, a file missing or hard to read. The Documents step's.
- *  · `complete` — details and documents done: ready to sign.
- *  · `signed`, `filed` — past the steps where it can change.
- */
-export type CaseState = "fix" | "check" | "docs" | "complete" | "signed" | "filed";
-
-export function caseState(c: CaseView): CaseState {
-  if (c.stage === "filed") return "filed";
-  if (c.stage === "signed") return "signed";
-  const details = detailFlags(c);
-  if (details.some((f) => f.level === "hold")) return "fix";
-  if (details.length) return "check";
-  if (documentFlags(c).length || c.docs.have < c.docs.need) return "docs";
-  // A held case with nothing listed against it still can't be signed: treat it as one to fix.
-  return c.stage === "ready" ? "complete" : "fix";
-}
+export { aboutDetails, caseState, detailFlags, documentFlags, type CaseState } from "@/lib/bulk/case-state";
+import { caseState, documentFlags, type CaseState } from "@/lib/bulk/case-state";
 
 /** Cases that can still change: everything before signing. */
 export const isOpen = (c: CaseView) => c.stage === "held" || c.stage === "ready";
@@ -117,6 +86,8 @@ export function batchMarks(
       "documents",
       t.workable > 0 && t.docsMissing === 0 && t.fixing === 0,
       t.docsMissing ? `${t.docsMissing} missing` : undefined,
+      // Missing documents blocks filing, so it is red, as in every case row.
+      t.docsMissing ? "fix" : undefined,
     ),
     sign: mark("sign", batch.counts.signed + batch.counts.filed > 0 && t.workable === 0, t.clear ? `${t.clear} ready` : undefined, "ready"),
     pay: mark(
