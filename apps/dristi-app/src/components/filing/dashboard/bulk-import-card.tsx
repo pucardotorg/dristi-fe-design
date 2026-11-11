@@ -8,6 +8,7 @@ import { FILINGS_HOME } from "@/lib/filing/steps";
 import type { CaseState } from "@/lib/bulk/case-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { ChromeDialogContent } from "@/components/chrome/app-chrome";
 import {
   Dialog,
@@ -48,7 +49,7 @@ export function BulkImportCard({ needAction = 0 }: { batch?: BulkBatch | null; n
   const [api, setApi] = React.useState(false);
   const titleId = React.useId();
   return (
-    <section aria-labelledby={titleId} className="flex flex-col gap-6">
+    <Card variant="raised" aria-labelledby={titleId} className="gap-6 p-6">
       <EntryHead
         icon={LayersIcon}
         title="Bulk filing"
@@ -88,7 +89,7 @@ export function BulkImportCard({ needAction = 0 }: { batch?: BulkBatch | null; n
       </ul>
 
       <ApiDialog open={api} onOpenChange={setApi} />
-    </section>
+    </Card>
   );
 }
 

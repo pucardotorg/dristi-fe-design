@@ -96,7 +96,8 @@ The small defects that make UI look unconsidered, with how to detect each. Items
     the "coming soon" card).
 52. More than one accent hue in a region, or a semantic tone used as decoration.
 53. **(owner)** Drawn outlines on option cards and buttons inside a bordered panel: the
-    dated list-group look. Lift the options on the page instead; fill secondary buttons.
+    dated list-group look. Keep the panel, lift the options softly, fill secondary buttons. Never remove a
+    grouping container to get rid of a stroke.
 
 ## States
 

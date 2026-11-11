@@ -8,6 +8,7 @@ import { CASE_TYPE, PSS_CASE_TYPE } from "@/lib/filing/options";
 import { NEW_FILING, NEW_PSS_FILING } from "@/lib/filing/steps";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { Card } from "@/components/ui/card";
 
 /**
  * The panel's anchor: a 48px tile with the act's icon, above its title (owner, 2026-11-11:
@@ -129,9 +130,7 @@ export function EntryOption({
 export function StartFilingCard() {
   const titleId = React.useId();
   return (
-    // No panel around the entry: the section sits on the page and its options are the
-    // cards, so nothing is a box inside a box.
-    <section aria-labelledby={titleId} className="flex flex-col gap-6">
+    <Card variant="raised" aria-labelledby={titleId} className="gap-6 p-6">
       <EntryHead
         icon={FilePlus2Icon}
         title="New filing"
@@ -163,6 +162,6 @@ export function StartFilingCard() {
           />
         </li>
       </ul>
-    </section>
+    </Card>
   );
 }

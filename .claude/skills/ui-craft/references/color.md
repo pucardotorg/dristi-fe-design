@@ -18,8 +18,9 @@ fills fight it. Tokens come from the pinned DS; this is how to choose among them
 ## Fill direction encodes affordance
 
 - Actionable things sit bright and forward: a white card lifted by the DS raised recipe
-  (10% hairline + `shadow-raised`, lifting to `shadow-overlay` on hover), placed on the
-  warm page rather than inside another panel. Drawn outlines (`border-border`, outline
+  (10% hairline + `shadow-raised`, lifting to `shadow-overlay` on hover). Keep the panel
+  that groups them: removing it to lose a stroke merged two entries into one (owner,
+  2026-11-11). Drawn outlines (`border-border`, outline
   buttons) around options read dated (owner, 2026-11-11); for a secondary button beside
   them, prefer the filled `secondary` variant.
 - Recessed fills (`bg-surface-sunken`, `bg-muted`) are for passive content: wells,
