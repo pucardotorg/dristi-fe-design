@@ -31,7 +31,7 @@ import {
   prefillKnownComplainant,
 } from "@/lib/bulk/setup-repository";
 import { complainantName } from "@/lib/bulk/parties";
-import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { stepFromPathname } from "@/lib/filing/steps";
 import { FilingProvider, useFiling } from "@/lib/filing/store";
@@ -342,6 +342,7 @@ function BatchCommonSteps({ batch, step, ai }: { batch: BatchView; step: StepId 
   return (
     <BulkSteps
       marks={marks}
+      secondColumn="mx-auto w-full max-w-4xl"
       second={<StageRow label="Step 1 · Common details" stages={stages} current={step ?? "complainant"} />}
     />
   );
@@ -384,7 +385,6 @@ function SavedComplainant() {
           </NativeSelectOption>
         ))}
       </NativeSelect>
-      <FieldDescription>Every field it fills can still be changed below.</FieldDescription>
     </Field>
   );
 }
@@ -439,6 +439,8 @@ function SetupSteps({
   return (
     <BulkSteps
       marks={marks}
+      // The stages sit in the page's column: the form column, or Check's wide one.
+      secondColumn={uploadStep === "review" ? "mx-auto w-full max-w-5xl" : "mx-auto w-full max-w-4xl"}
       second={
         <StageRow
           label={inCases ? "Step 2 · Cases" : "Step 1 · Common details"}

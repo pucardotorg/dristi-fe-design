@@ -239,6 +239,7 @@ export function BatchScreen({ batchId }: { batchId: string }) {
       <BatchBreadcrumbLabel number={batch.number} id={batch.id} />
       <BulkSteps
         marks={marks}
+        secondColumn={BULK_COLUMN[width]}
         second={
           stages ? (
             <StageRow

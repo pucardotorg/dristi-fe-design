@@ -112,11 +112,18 @@ function useFit(key: string) {
 export function BulkSteps({
   marks,
   second,
+  secondColumn = STEPS_COLUMN,
   gutter = "px-6 lg:px-12",
   className,
 }: {
   marks: Record<BulkStepId, StepMark>;
   second?: React.ReactNode;
+  /**
+   * The column the second row sits in: the page's own (`BULK_COLUMN[width]`, or the form
+   * column), so the current step's stages start on the page title's left edge rather than
+   * floating in the wider steps column (owner, 2026-11-11).
+   */
+  secondColumn?: string;
   /** The page's own side padding, so the rows line up with the content under them. */
   gutter?: string;
   className?: string;
@@ -197,7 +204,7 @@ export function BulkSteps({
       </nav>
       {second ? (
         <div className={cn("border-t border-hairline bg-surface-sunken", gutter)}>
-          <div className={STEPS_COLUMN}>{second}</div>
+          <div className={secondColumn}>{second}</div>
         </div>
       ) : null}
     </div>
@@ -219,9 +226,11 @@ export function StageRow({
 }) {
   const at = stages.findIndex((s) => s.id === current);
   return (
-    <nav aria-label={label} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
-      <span className="shrink-0 text-body-compact text-muted-foreground">{label}</span>
-      <ol className="flex flex-wrap items-center gap-1">
+    // The label names the row for assistive tech only: on screen it repeated the step the
+    // row above already shows as current. The list is pulled out by the pills' own padding,
+    // so the first stage's text sits on the page column's edge and fills bleed outward.
+    <nav aria-label={label} className="py-2">
+      <ol className="-ml-2.5 flex flex-wrap items-center gap-1">
         {stages.map((s, i) => {
           const here = i === at;
           const done = !here && (s.done ?? i < at);
