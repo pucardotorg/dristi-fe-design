@@ -32,7 +32,7 @@ import {
 } from "@/lib/bulk/setup-repository";
 import { complainantName } from "@/lib/bulk/parties";
 import { Field, FieldLabel } from "@/components/ui/field";
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { OptionSelect } from "@/components/filing/inputs";
 import { stepFromPathname } from "@/lib/filing/steps";
 import { FilingProvider, useFiling } from "@/lib/filing/store";
 import type { StepId } from "@/lib/filing/types";
@@ -361,13 +361,15 @@ function SavedComplainant() {
   return (
     <Field className="gap-1.5 sm:max-w-96">
       <FieldLabel htmlFor="saved-complainant">Fill from a saved complainant</FieldLabel>
-      <NativeSelect
+      {/* The shared typeable select: a filer with many clients types the name. */}
+      <OptionSelect
         id="saved-complainant"
         value={current}
+        placeholder="Choose or type a name"
         disabled={busy}
-        onChange={async (e) => {
-          const id = e.target.value;
-          if (!id) return;
+        options={CLIENTS.map((c) => ({ value: c.id, label: c.complainant.name }))}
+        onValueChange={async (id) => {
+          if (!id || id === current) return;
           setBusy(true);
           const next = structuredClone(draft);
           await prefillKnownComplainant(next, id);
@@ -377,14 +379,7 @@ function SavedComplainant() {
           });
           setBusy(false);
         }}
-      >
-        <NativeSelectOption value="">Choose</NativeSelectOption>
-        {CLIENTS.map((c) => (
-          <NativeSelectOption key={c.id} value={c.id}>
-            {c.complainant.name}
-          </NativeSelectOption>
-        ))}
-      </NativeSelect>
+      />
     </Field>
   );
 }

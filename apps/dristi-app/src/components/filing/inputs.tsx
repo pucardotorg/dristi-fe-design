@@ -8,6 +8,7 @@ import { useSourcesOff } from "@/components/filing/field-policy";
 
 import type { Option } from "@/lib/filing/options";
 import { cn } from "@/lib/utils";
+import { useFieldContext } from "@/components/ui/field";
 import {
   Combobox,
   ComboboxContent,
@@ -23,13 +24,6 @@ import {
   InputGroupInput,
   InputGroupText,
 } from "@/components/ui/input-group";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   useFieldReadOnly,
   useFieldReadOnlyHint,
@@ -238,6 +232,8 @@ export function OptionSelect({
   const isDisabled = useLockedDisabled(disabled);
   const readOnly = useFieldReadOnly();
   const docked = useSourceDocked();
+  // The id the field's label points at: an explicit one, else the surrounding Field's.
+  const controlId = useFieldContext()?.controlId;
   /* A Select has no read-only state — a flagged one therefore shows its chosen option as
      a read-only value (brief §15.5, "rendered as text where the control type cannot be
      read-only"). Focusable and announced; simply not re-openable. */
@@ -253,34 +249,51 @@ export function OptionSelect({
     );
   }
   const inlineOpen = prefilled && !!value && !!onViewSource && docked;
+  const selected = opts.find((o) => o.value === value) ?? null;
   return (
     <SourceField onViewSource={prefilled && !!value && !docked ? onViewSource : undefined} disabled={isDisabled}>
-    <Select value={value || undefined} onValueChange={onValueChange} disabled={isDisabled}>
-      <SelectTrigger
+    {/* Typeable (owner, 2026-11-11): a person who knows the answer types it and the list
+        narrows, instead of scrolling for it. Still a pick from the list, never free text:
+        what is typed resets to the chosen option when the field is left. */}
+    <Combobox
+      items={opts}
+      value={selected}
+      onValueChange={(o) => {
+        if (o) onValueChange((o as Option).value);
+      }}
+      itemToStringLabel={(o) => (o as Option).label}
+      isItemEqualToValue={(a, b) => (a as Option).value === (b as Option).value}
+      openOnInputClick
+      autoHighlight
+      disabled={isDisabled}
+      // Base UI gives the input its own id unless the root is told; the field's label
+      // points at this one, so it goes here.
+      id={id ?? controlId}
+    >
+      <ComboboxInput
         id={id}
         aria-label={ariaLabel}
+        placeholder={placeholder}
+        autoComplete="off"
+        disabled={isDisabled}
         onPointerDown={inlineOpen ? onViewSource : undefined}
         className={cn(
           "w-full",
           prefilled && !!value && "border-dashed border-warning-ink bg-prefilled",
           className
         )}
-      >
-        <SelectValue placeholder={placeholder} />
-      </SelectTrigger>
-      {/*
-        The DS default is `item-aligned`, which lays the open list over the trigger — on a
-        form card that reads as the menu having eaten the label and the field below it.
-        Inside a form a menu belongs under the control it belongs to, at its width.
-      */}
-      <SelectContent position="popper" align="start" sideOffset={4} className="w-(--radix-select-trigger-width)">
-        {opts.map((o) => (
-          <SelectItem key={o.value} value={o.value}>
-            {o.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+      />
+      <ComboboxContent className="pointer-events-auto">
+        <ComboboxEmpty>No match</ComboboxEmpty>
+        <ComboboxList>
+          {(o: Option) => (
+            <ComboboxItem key={o.value} value={o}>
+              {o.label}
+            </ComboboxItem>
+          )}
+        </ComboboxList>
+      </ComboboxContent>
+    </Combobox>
     </SourceField>
   );
 }
