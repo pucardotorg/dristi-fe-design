@@ -16,6 +16,7 @@ import { useRouter } from "next/navigation";
 import {
   CheckIcon,
   FileTextIcon,
+  InfoIcon,
   PlusIcon,
   RefreshCwIcon,
   Trash2Icon,
@@ -506,10 +507,13 @@ export function DocumentsSection() {
         )}
 
         {guide ? (
-          <SectionNotice variant="neutral">
+          /* One hint line, said quietly: a bordered notice card outweighed the documents
+             it explains. */
+          <p className="flex items-center gap-2 text-body-compact text-muted-foreground">
+            <InfoIcon aria-hidden className="size-4 shrink-0" />
             A natively digital file was made on a computer, like an e-signed PDF, not scanned
             from paper.
-          </SectionNotice>
+          </p>
         ) : (
           <SectionNotice variant="neutral">
             Tick <strong className="font-semibold">Natively digital</strong> for an
@@ -538,7 +542,9 @@ export function DocumentsSection() {
                    the same left line as the column labels below (24px: the table's 8px inset
                    plus its 16px cell padding). */
                 <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 px-4 pt-4 pb-3 md:pointer-fine:px-6 md:landscape:px-6">
-                  <h2 id={`doc-group-${group.id}`} className="text-body font-semibold">
+                  {/* A clear step above the 14px semibold column labels under it, so the
+                      block's title leads (owner, 2026-11-11). */}
+                  <h2 id={`doc-group-${group.id}`} className="text-title-s font-semibold">
                     {heading.title}
                   </h2>
                   {heading.eyebrow ? (
