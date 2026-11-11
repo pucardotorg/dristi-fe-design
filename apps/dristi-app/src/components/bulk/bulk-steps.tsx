@@ -18,7 +18,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { CheckIcon, ChevronRightIcon, CircleAlertIcon, CircleCheckIcon } from "lucide-react";
+import { CheckIcon, CircleAlertIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { TOP_BAR_HEIGHT } from "@/components/filing/chrome";
@@ -231,56 +231,56 @@ export function StageRow({
 }) {
   const at = stages.findIndex((s) => s.id === current);
   return (
-    // The label names the row for assistive tech only: on screen it repeated the step the
-    // row above already shows as current. The current stage's raised pill starts on the page
-    // column's edge, not outset past it (owner, 2026-11-11).
+    // The stages speak the steps' language one size down (owner, 2026-11-11: the two rows
+    // used three vocabularies and their markers sat off one axis): the same filled "done"
+    // disc, the same short connector, the same 40px items, and no box around the current
+    // stage, so the first stage's disc stands under the first step's disc and the title.
+    // Current is the brand tint and semibold; solid navy stays the steps' own marker.
+    // The label names the row for assistive tech only.
     <nav aria-label={label} className="py-2">
       <ol className="flex flex-wrap items-center gap-1">
         {stages.map((s, i) => {
           const here = i === at;
           const done = !here && (s.done ?? i < at);
-          const mark = s.warn ? (
-            <CircleAlertIcon aria-hidden className="size-4 shrink-0 text-warning-ink" />
-          ) : done ? (
-            <CircleCheckIcon aria-hidden className="size-4 shrink-0 text-success" />
+          const dot = s.warn ? (
+            <CircleAlertIcon aria-hidden className="size-5 shrink-0 text-warning-ink" />
           ) : (
             <span
               aria-hidden
               className={cn(
-                "flex size-5 shrink-0 items-center justify-center rounded-full border text-caption tabular-nums",
-                // The steps above own solid navy for "you are here"; a stage's current disc
-                // is the brand tint, so the two levels never share a marker (owner, 2026-11-11).
-                here ? "border-brand-muted bg-brand-muted text-brand-muted-foreground" : "border-input",
+                "flex size-5 shrink-0 items-center justify-center rounded-full text-caption font-semibold tabular-nums",
+                here
+                  ? "bg-brand-muted text-brand-muted-foreground"
+                  : done
+                    ? "bg-success-muted text-success-muted-foreground"
+                    : "border border-input text-muted-foreground",
               )}
             >
-              {i + 1}
+              {done ? <CheckIcon className="size-3" /> : i + 1}
             </span>
           );
           const cls = cn(
-            "inline-flex h-9 items-center gap-2 rounded-lg px-2.5 text-body-compact whitespace-nowrap transition-colors",
+            "inline-flex h-10 items-center gap-2 rounded-lg text-body-compact whitespace-nowrap transition-colors",
+            i ? "px-2" : "pr-2",
             here
-              ? "bg-card font-semibold text-foreground shadow-raised"
+              ? "font-semibold text-foreground"
               : s.href
                 ? "text-foreground hover:bg-accent"
                 : "text-muted-foreground",
           );
           return (
             <React.Fragment key={s.id}>
-              {i ? (
-                <li aria-hidden className="text-muted-foreground">
-                  <ChevronRightIcon className="size-3.5" />
-                </li>
-              ) : null}
+              {i ? <li aria-hidden className="h-px w-6 shrink-0 bg-border" /> : null}
               <li className="shrink-0">
                 {s.href && !here ? (
                   <Link href={s.href} className={cls}>
-                    {mark}
+                    {dot}
                     {s.title}
                     {done ? <span className="sr-only">, done</span> : null}
                   </Link>
                 ) : (
                   <span className={cls} aria-current={here ? "step" : undefined}>
-                    {mark}
+                    {dot}
                     {s.title}
                   </span>
                 )}
