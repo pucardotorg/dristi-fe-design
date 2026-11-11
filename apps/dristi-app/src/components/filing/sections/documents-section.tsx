@@ -359,7 +359,7 @@ export function DocumentsSection() {
               </>
             ) : null}
           </span>
-          {doc.intakeKey && doc.file ? (
+          {doc.intakeKey && doc.file && !guide ? (
             <span className="text-caption text-muted-foreground">
               Provided at case intake
             </span>
@@ -377,12 +377,13 @@ export function DocumentsSection() {
         <Button
           type="button"
           variant="ghost"
-          className="h-10 max-w-full justify-start font-normal"
+          // No padding: the icon starts on the column label's line, as Upload's edge does.
+          className="group/file h-10 max-w-full justify-start px-0 font-normal hover:bg-transparent has-data-[icon=inline-start]:pl-0"
           onClick={() => setPreviewId(doc.id)}
           aria-label={`Preview ${doc.file.name}`}
         >
           <FileTextIcon data-icon="inline-start" className="text-muted-foreground" aria-hidden />
-          <span className="min-w-0 truncate">{doc.file.name}</span>
+          <span className="min-w-0 truncate underline-offset-4 group-hover/file:underline">{doc.file.name}</span>
           <span className="shrink-0 text-muted-foreground tabular-nums">{formatBytes(doc.file.size)}</span>
         </Button>
       ) : doc.file ? (
@@ -533,15 +534,16 @@ export function DocumentsSection() {
               {guide ? (
                 /* The group's party and its count, as the panel's own head: who these
                    papers belong to, and how many of the required ones are in. */
-                <div className="flex min-w-0 flex-col gap-0.5 px-4 pt-4 pb-3">
-                  {/* Whose papers these are. What is missing is said on its row and in
-                      the footer, not as a count floating beside the name (owner, 2026-11-11). */}
-                  {heading.eyebrow ? (
-                    <span className="text-body-compact text-muted-foreground">{heading.eyebrow}</span>
-                  ) : null}
+                /* One line: whose papers these are, then their role, muted. The name sits on
+                   the same left line as the column labels below (24px: the table's 8px inset
+                   plus its 16px cell padding). */
+                <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 px-4 pt-4 pb-3 md:pointer-fine:px-6 md:landscape:px-6">
                   <h2 id={`doc-group-${group.id}`} className="text-body font-semibold">
                     {heading.title}
                   </h2>
+                  {heading.eyebrow ? (
+                    <span className="text-body-compact text-muted-foreground">{heading.eyebrow}</span>
+                  ) : null}
                 </div>
               ) : null}
               {/* Phone and upright tablet: a list. The table's fixed columns need about
@@ -600,7 +602,7 @@ export function DocumentsSection() {
                 })}
               </ul>
 
-              <div className={cn(REGISTER_TABLE_ONLY, "overflow-x-auto")}>
+              <div className={cn(REGISTER_TABLE_ONLY, "overflow-x-auto", guide && "px-2")}>
                 <Table className="min-w-3xl table-fixed">
                   {/* Fixed column widths so the three groups line up as one list. */}
                   <colgroup>
@@ -615,7 +617,7 @@ export function DocumentsSection() {
                       <TableHead className="px-4">Sl. no</TableHead>
                       <TableHead>Document name</TableHead>
                       <TableHead>File</TableHead>
-                      <TableHead className="text-center">
+                      <TableHead className={guide ? undefined : "text-center"}>
                         <span className="inline-flex items-center gap-1">
                           Natively digital
                           <LabelTip>
@@ -647,7 +649,7 @@ export function DocumentsSection() {
                           {cells.file}
                         </TableCell>
 
-                        <TableCell className="py-2 text-center align-middle">
+                        <TableCell className={cn("py-2 align-middle", !guide && "text-center")}>
                           {cells.digital}
                         </TableCell>
 
@@ -661,7 +663,9 @@ export function DocumentsSection() {
                 </Table>
               </div>
 
-              <div className="border-t border-hairline p-2">
+              {/* Bulk: 12px here plus the button's own 12px puts its icon on the columns'
+                  24px line, with the heading and the labels above it. */}
+              <div className={cn("border-t border-hairline p-2", guide && "md:pointer-fine:px-3 md:landscape:px-3")}>
                 <Button
                   type="button"
                   variant="ghost"
