@@ -134,8 +134,10 @@ export function FilingMain({
         className={cn(
           "flex w-full flex-col gap-6",
           centered && "mx-auto",
-          width === "default" && "max-w-4xl",
-          width === "wide" && "max-w-5xl",
+          // Bulk's setup (`centered`) uses its flow's one column on every page, so the page
+          // title starts on the same line as the steps above it.
+          centered && width !== "narrow" ? "max-w-5xl" : width === "default" && "max-w-4xl",
+          !centered && width === "wide" && "max-w-5xl",
           width === "narrow" && "mx-auto max-w-2xl"
         )}
       >

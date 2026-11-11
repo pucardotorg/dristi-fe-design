@@ -60,12 +60,17 @@ export type Stage = {
  * page under it does. Round 3: the row took each page's width, so it slid between four left
  * edges from step to step, and on a narrow page it scrolled the current step out of sight.
  */
-export const STEPS_COLUMN = "mx-auto w-full max-w-6xl";
+export const STEPS_COLUMN = "mx-auto w-full max-w-5xl";
 
-/** The page columns under the steps: forms and summaries, and lists of cases (v8's two). */
+/**
+ * The page columns under the steps. One column for the whole flow (owner, 2026-11-11): with
+ * a form column and a list column, the steps, the stages and the title sat on three left
+ * edges and the title jumped between pages. Every screen now shares the steps' column, so
+ * all three start on one line. The two names stay for the screens that choose one.
+ */
 export type BulkWidth = "medium" | "wide";
 export const BULK_COLUMN: Record<BulkWidth, string> = {
-  medium: "mx-auto w-full max-w-4xl",
+  medium: STEPS_COLUMN,
   wide: STEPS_COLUMN,
 };
 

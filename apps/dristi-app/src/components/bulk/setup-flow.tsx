@@ -342,7 +342,6 @@ function BatchCommonSteps({ batch, step, ai }: { batch: BatchView; step: StepId 
   return (
     <BulkSteps
       marks={marks}
-      secondColumn="mx-auto w-full max-w-4xl"
       second={<StageRow label="Step 1 · Common details" stages={stages} current={step ?? "complainant"} />}
     />
   );
@@ -434,8 +433,6 @@ function SetupSteps({
   return (
     <BulkSteps
       marks={marks}
-      // The stages sit in the page's column: the form column, or Check's wide one.
-      secondColumn={uploadStep === "review" ? "mx-auto w-full max-w-5xl" : "mx-auto w-full max-w-4xl"}
       second={
         <StageRow
           label={inCases ? "Step 2 · Cases" : "Step 1 · Common details"}
