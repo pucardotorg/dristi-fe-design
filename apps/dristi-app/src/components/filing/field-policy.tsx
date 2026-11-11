@@ -105,6 +105,12 @@ export type FieldPolicy = {
    * the batch's parties are typed in by hand (owner, 2026-11-10).
    */
   guideFields?: true;
+  /**
+   * A whole-section lock says its reason the host's own way (under the title, through
+   * `underTitle`) instead of as a notice above the page header, so the title sits where
+   * it does on every other screen. Bulk filing's Common details after the batch exists.
+   */
+  lockReasonUnderTitle?: true;
 };
 
 /** A host step in the sections rail. */

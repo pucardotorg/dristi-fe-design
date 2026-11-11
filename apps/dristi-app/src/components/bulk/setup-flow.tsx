@@ -167,6 +167,8 @@ export function BulkSetupFlow({
       issueAt: () => null,
       // Once the batch exists these were copied onto every case; each case changes its own.
       lockedAt: (instance) => (batch && instance === null ? LOCKED : null),
+      // The read-only reason goes under the title, so the title keeps its place.
+      ...(batch ? { lockReasonUnderTitle: true as const } : {}),
       countFor: () => 0,
       documentGroups: (id) => id.startsWith("complainant-"),
       ...(batch ? {} : { guideMissing: true as const, guideFields: true as const }),
@@ -292,7 +294,12 @@ function SetupPolicy({
   const { draft } = useFiling();
   const hold = !locked && policy.step === "advocate" ? advocatesMissing(draft.advocates) : null;
   const picker = React.useMemo(
-    () => (!locked && policy.step === "complainant" ? <SavedComplainant /> : null),
+    () =>
+      locked ? (
+        <p className="text-body-compact text-muted-foreground">{LOCKED}</p>
+      ) : policy.step === "complainant" ? (
+        <SavedComplainant />
+      ) : null,
     [policy.step, locked],
   );
   // ADR is a batch detail like the complainants (PRD BLK-05), so it is asked with them. It

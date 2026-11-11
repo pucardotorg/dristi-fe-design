@@ -108,7 +108,17 @@ export function FilingMain({
   const policy = useFieldPolicy();
   const locked = policy?.lockedAt(null) ?? null;
   const centered = policy?.centered === true;
-  const body = locked ? <PolicyLock reason={locked}>{children}</PolicyLock> : children;
+  const body = locked ? (
+    policy?.lockReasonUnderTitle ? (
+      <fieldset disabled className="contents">
+        {children}
+      </fieldset>
+    ) : (
+      <PolicyLock reason={locked}>{children}</PolicyLock>
+    )
+  ) : (
+    children
+  );
 
   if (inCorrection) {
     return (

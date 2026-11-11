@@ -544,7 +544,7 @@ export function UploadScreen() {
             hanging from the top with the lower half empty. PRD BLK-10: the batch comes from
             one Excel file, so the two cards are the whole choice (the Word/PDF-per-case
             entry is gone, owner 2026-11-10). */}
-        <FilingMain width="wide" className="flex flex-col justify-center-safe pb-[8vh]">
+        <FilingMain width="wide">
           <FilingPageHeader
             title="How will you send the cases?"
             description="Put one case on each row. The cases in one file are filed together."
