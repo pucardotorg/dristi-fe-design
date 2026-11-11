@@ -8,7 +8,6 @@ import { CASE_TYPE, PSS_CASE_TYPE } from "@/lib/filing/options";
 import { NEW_FILING, NEW_PSS_FILING } from "@/lib/filing/steps";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { Card } from "@/components/ui/card";
 
 /**
  * The panel's anchor: a 48px tile with the act's icon, above its title (owner, 2026-11-11:
@@ -58,11 +57,11 @@ export function EntryHead({
   );
 }
 
-/* White with a defined edge (the DS outline card on a white panel), not a sunken well: a
-   recessed grey fill reads as passive or disabled, the opposite of something to pick. The
-   brand appears only on the icon at rest and on the edge under the pointer. */
+/* A lifted white card on the warm page (the DS raised recipe: a 10% hairline and a soft
+   shadow), never a drawn outline: full-strength strokes around every option read dated
+   (owner, 2026-11-11). Under the pointer it lifts further; the brand stays on the icon. */
 const OPTION =
-  "group flex w-full items-center gap-4 rounded-xl border border-border bg-card p-4 text-left transition-colors outline-none hover:border-brand-accent hover:bg-brand-muted focus-visible:ring-3 focus-visible:ring-focus-ring";
+  "group flex w-full items-center gap-4 rounded-xl border border-hairline bg-card p-4 text-left shadow-raised transition-[box-shadow,transform] outline-none hover:-translate-y-px hover:shadow-overlay focus-visible:ring-3 focus-visible:ring-focus-ring motion-reduce:hover:translate-y-0";
 
 /**
  * One destination inside an entry panel, as a card that is itself the act (owner,
@@ -130,7 +129,9 @@ export function EntryOption({
 export function StartFilingCard() {
   const titleId = React.useId();
   return (
-    <Card variant="raised" className="gap-6 p-6">
+    // No panel around the entry: the section sits on the page and its options are the
+    // cards, so nothing is a box inside a box.
+    <section aria-labelledby={titleId} className="flex flex-col gap-6">
       <EntryHead
         icon={FilePlus2Icon}
         title="New filing"
@@ -162,6 +163,6 @@ export function StartFilingCard() {
           />
         </li>
       </ul>
-    </Card>
+    </section>
   );
 }

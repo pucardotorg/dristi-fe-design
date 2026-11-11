@@ -8,7 +8,6 @@ import { FILINGS_HOME } from "@/lib/filing/steps";
 import type { CaseState } from "@/lib/bulk/case-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { ChromeDialogContent } from "@/components/chrome/app-chrome";
 import {
   Dialog,
@@ -49,14 +48,14 @@ export function BulkImportCard({ needAction = 0 }: { batch?: BulkBatch | null; n
   const [api, setApi] = React.useState(false);
   const titleId = React.useId();
   return (
-    <Card variant="raised" className="gap-6 p-6">
+    <section aria-labelledby={titleId} className="flex flex-col gap-6">
       <EntryHead
         icon={LayersIcon}
         title="Bulk filing"
         titleId={titleId}
         description="File many cases for one complainant together, as a batch."
         action={
-          <Button asChild variant="outline">
+          <Button asChild variant="secondary">
             <Link href={BATCHES}>
               View all batches
               {needAction ? (
@@ -89,7 +88,7 @@ export function BulkImportCard({ needAction = 0 }: { batch?: BulkBatch | null; n
       </ul>
 
       <ApiDialog open={api} onOpenChange={setApi} />
-    </Card>
+    </section>
   );
 }
 
