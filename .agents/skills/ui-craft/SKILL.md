@@ -82,6 +82,15 @@ controls. Facts are attributes, guidance is copy.
 stacked. Two levels: canvas, then lifted panel, with sunken wells inside panels. Decorative
 strokes are hairlines; control edges meet 3:1. No cards on cards, no accent bars.
 
+**Colour.** Every hue means something you can name; elements of the same kind share one.
+One accent (the brand) per view; semantic tones only for status or attention. Actionable
+things are bright and forward (white, defined edge, tint on hover); recessed grey fills are
+for passive wells. A grey option reads disabled. Unavailable is always the quietest.
+Neutrals stay in the canvas's warm family; no tinted tile on a tinted card. Run the colour
+census and the grayscale test (`color.md`). 2026-11-11: a layout the owner liked "looks
+ugly" because grey option cards, two meaningless blues and a bright "coming soon" tile
+fought it.
+
 **Prominence matches importance.** Quiet is not the goal; the right weight is. A primary
 destination (an entry point like File a case, a step's main choice) gets a visual anchor
 before its heading (a 48px icon tile), a section-level title and options with presence.
@@ -121,6 +130,8 @@ change.
   [tells](references/tells.md).
 - Tables, file or document rows, forms, buttons, panels, notices, copy:
   [components](references/components.md).
+- Any fill, tint, icon colour or badge tone, and every polish pass:
+  [colour](references/color.md).
 - Panels, wells, fills, radius, borders, shadows: [surfaces](references/surfaces.md).
 - Heading levels, eyebrows, label/value, density: [typography](references/typography.md),
   alongside the DS typography page.

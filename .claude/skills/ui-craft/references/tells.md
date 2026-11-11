@@ -84,6 +84,18 @@ The small defects that make UI look unconsidered, with how to detect each. Items
     its control.
 43. One meaning encoded three times (icon + pill + text), or one colour carrying two meanings.
 
+## Colour
+
+48. **(owner)** Clickable options filled with a sunken grey, so they read disabled and are
+    the dullest thing in the panel.
+49. **(owner)** Two hues for two things of the same kind (brand tile here, info tile there)
+    with no difference in meaning.
+50. **(owner)** Warm grey card holding a cool tinted tile: two temperatures and two fills in
+    one small object.
+51. **(owner)** The unavailable option brighter than the available one (a white tile on
+    the "coming soon" card).
+52. More than one accent hue in a region, or a semantic tone used as decoration.
+
 ## States
 
 44. Layout shift between states: bold-on-select widening a tab, a spinner replacing a

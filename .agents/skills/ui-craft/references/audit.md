@@ -96,6 +96,11 @@ needs a nudge.
 - Widows in headings, one word alone on a button's second line, truncation without a
   tooltip, units split from numbers.
 
+## Pass 5b: colour
+
+Run the colour census and the grayscale test from `color.md`. Name the role of every fill;
+check one accent per region, actionable items bright, unavailable quietest, neutrals warm.
+
 ## Pass 6: surfaces and edges (zoom 200–400%)
 
 - Zoom on every corner, seam and intersection: card corners, header band meeting the

@@ -10,8 +10,10 @@ composition convention, subordinate to the pinned DS and any explicitly approved
 - Panels: the shared `PANEL_CLASS` recipe in `components/filing/form-card.tsx` (hairline
   plus raised shadow), or `Card variant="raised"` on the warm canvas. Reuse the recipe;
   never copy class strings.
-- Wells: `bg-surface-sunken` inside panels. A well directly on the muted canvas can
-  disappear; keep a panel or another boundary between them.
+- Wells: `bg-surface-sunken` inside panels, for passive content (previews, read-only
+  values, control tracks, the table header strip), never for clickable options: a recessed
+  grey reads as inert. A well directly on the muted canvas can disappear; keep a panel or
+  another boundary between them.
 - Tables: `components/chrome/table-plate.ts`, inset 8px in the panel, fills on cells.
 - Dark mode stays flat (card = page); the edge still defines the panel.
 

@@ -76,9 +76,10 @@ recipes and owner rulings (SKILL.md) win where these differ.
   only if deleting it would lose a fact or an instruction. A header that repeats the page
   title is noise; drop it.
 - Primary entry panels (File a case's New filing and Bulk filing) open with a 48px icon
-  tile (`rounded-xl`, the brand- or info-muted pair) above a `text-title-s` title, then
-  their options as cards (`EntryHead` / `EntryOption` in `filing/dashboard`). Minor panels
-  and repeated rows get no tile.
+  tile (`rounded-xl`, the brand-muted pair for every entry, one hue) above a
+  `text-title-s` title, then their options as white outline cards with a brand-tinted icon
+  (`EntryHead` / `EntryOption` in `filing/dashboard`). Minor panels and repeated rows get
+  no tile.
 - An eyebrow earns its place only as context the title cannot carry. Otherwise put the role
   after the name on one line, muted (see `typography.md`).
 - Title, body and actions share the panel's content-left keyline.
