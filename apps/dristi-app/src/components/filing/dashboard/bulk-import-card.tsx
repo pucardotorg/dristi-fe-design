@@ -2,13 +2,14 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ChevronDownIcon, CopyIcon } from "lucide-react";
+import { ChevronDownIcon, CopyIcon, FileStackIcon, LayersIcon } from "lucide-react";
 
 import { FILINGS_HOME } from "@/lib/filing/steps";
 import type { CaseState } from "@/lib/bulk/case-state";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { ChromeDialogContent } from "@/components/chrome/app-chrome";
 import {
   Dialog,
@@ -24,6 +25,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+import { EntryHead, EntryOption } from "./start-filing-card";
+
 /**
  * The latest batch — pushed in from a client's litigation system or uploaded from Excel —
  * and where its cases have reached (docs/design/features/bulk-filing.md).
@@ -35,6 +38,8 @@ export type BulkBatch = {
   what: string;
   receivedOn: string;
   via: string;
+  /** How many cases the batch holds. */
+  cases: number;
   counts: Record<CaseState, number>;
 };
 
@@ -51,60 +56,65 @@ const BATCHES = `${FILINGS_HOME}/bulk`;
 export function BulkImportCard({ batch, needAction = 0 }: { batch: BulkBatch | null; needAction?: number }) {
   const [api, setApi] = React.useState(false);
   return (
-    <Card variant="raised" className="gap-0">
-      <CardHeader>
-        <CardTitle className="text-body font-semibold">Bulk filing</CardTitle>
-        <CardDescription className="text-body-compact">
-          Many cases for one complainant, filed together as a batch.
-        </CardDescription>
-      </CardHeader>
+    <Card variant="raised" className="gap-6 p-6">
+      <EntryHead
+        icon={LayersIcon}
+        tone="info"
+        title="Bulk filing"
+        description="File many cases for one complainant together, as a batch."
+      />
 
-      <CardContent className="flex flex-1 flex-col gap-4 pt-3">
-        <p className="text-body-compact text-muted-foreground tabular-nums">
-          {needAction ? (
-            <>
-              <span className="font-medium text-warning-ink">
-                {needAction} {needAction === 1 ? "batch needs" : "batches need"} action.
-              </span>{" "}
-              Open the list to pick up where each one stopped.
-            </>
-          ) : batch ? (
-            "Every batch is up to date."
-          ) : (
-            "No batches yet. Upload an Excel file, or have a client's system send its cases."
-          )}
+      {/* The latest batch, in the same card as a case type, so both panels share a row. */}
+      {batch ? (
+        <EntryOption
+          href={`${BATCHES}/${batch.id}`}
+          icon={FileStackIcon}
+          title={batch.client}
+          caption={`Latest batch · ${batch.cases} case${batch.cases === 1 ? "" : "s"} · ${batch.receivedOn}`}
+        />
+      ) : (
+        <p className="text-body-compact text-muted-foreground">
+          No batches yet. Upload an Excel file, or have a client&apos;s system send its cases.
         </p>
+      )}
 
-        <div className="flex flex-wrap gap-2">
-          <ButtonGroup aria-label="Create a new batch">
-            <Button asChild>
-              <Link href={UPLOAD}>Create a new batch</Link>
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button size="icon" aria-label="Choose how the cases come in">
-                  <ChevronDownIcon aria-hidden />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-64">
-                <DropdownMenuItem asChild>
-                  <Link href={UPLOAD} className="flex flex-col items-start gap-0.5">
-                    <span>Upload an Excel file</span>
-                    <span className="text-body-compact text-muted-foreground">One row per case</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setApi(true)} className="flex flex-col items-start gap-0.5">
-                  <span>From a client&apos;s system</span>
-                  <span className="text-body-compact text-muted-foreground">Sent through the Bulk Filing API</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </ButtonGroup>
-          <Button asChild variant="outline">
-            <Link href={BATCHES}>View all batches</Link>
+      <div className="mt-auto flex flex-wrap gap-2">
+        <ButtonGroup aria-label="Create a new batch">
+          <Button asChild>
+            <Link href={UPLOAD}>Create a new batch</Link>
           </Button>
-        </div>
-      </CardContent>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="icon" aria-label="Choose how the cases come in">
+                <ChevronDownIcon aria-hidden />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-64">
+              <DropdownMenuItem asChild>
+                <Link href={UPLOAD} className="flex flex-col items-start gap-0.5">
+                  <span>Upload an Excel file</span>
+                  <span className="text-body-compact text-muted-foreground">One row per case</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setApi(true)} className="flex flex-col items-start gap-0.5">
+                <span>From a client&apos;s system</span>
+                <span className="text-body-compact text-muted-foreground">Sent through the Bulk Filing API</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </ButtonGroup>
+        {/* What needs attention rides on the act that resolves it. */}
+        <Button asChild variant="outline">
+          <Link href={BATCHES}>
+            View all batches
+            {needAction ? (
+              <Badge variant="warning" className="tabular-nums">
+                {needAction} need action
+              </Badge>
+            ) : null}
+          </Link>
+        </Button>
+      </div>
 
       <ApiDialog open={api} onOpenChange={setApi} />
     </Card>
