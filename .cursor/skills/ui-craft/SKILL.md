@@ -1,42 +1,128 @@
 ---
 name: ui-craft
-description: "Apply Dristi's compact craft checklist to UI builds and reviews: hierarchy, surfaces, typography, motion, and render quality. Load detailed references only for the subject being changed."
+description: "Dristi's UI craft standard: how a world-class product designer sees, measures and polishes UI on the render. Load it for every UI build, polish or craft pass, design-mode report, review, or 'make it feel designed / polished / not chunky' request, even a one-line visual fix. Covers scoping (polish vs redesign), a measured render audit (alignment axes, padding and inset relationships, nested radius, hierarchy, icons, surfaces, states), component micro-craft (tables, file rows, forms, buttons, panels, notices, copy) and the finesse tells the owner catches."
 ---
 
 # UI craft
 
-Use with `pull-ui-from-ds` for implementation and `review-ui-ds` for review. The pinned
-DS governs tokens and primitives. These product conventions and judgment checks operate
-within it; they do not authorize a second DS or invented behavior.
+The owner judges UI the way a senior product designer does: at 200% zoom, on the render,
+by relationships. Whether an edge meets an edge, whether a label owns its column, whether a
+heading's levels differ enough, whether a line earns its place. "No one gave a thought about
+the padding" is the failure this skill exists to prevent. So is its opposite: asked to
+polish, rebuilding a component and making it "chunky and outdated".
 
-## Core checklist — every UI change
+Two habits carry the whole skill:
 
-- Preserve the agreed reference's structure, action scope, and interaction. Explain the
-  smallest necessary deviation for an actual DS/accessibility conflict to the coordinator.
-- Make canvas, chrome, panels, and wells distinguishable. Current product default:
-  `bg-muted dark:bg-background` canvas, lifted panels, sunken wells inside panels.
-- Use named DS text roles and foreground/fill pairs. Prefer clear hierarchy through
-  weight and color before increasing size. DS typography requirements outrank a two-weight
-  preference. Use `tabular-nums` for compared numbers, dates, counts, and currency.
-- Keep emphasis meaningful. Do not hide required actions or warnings to meet an arbitrary
-  count. Facts trace to actual fields or current requirements; guidance remains helpful copy.
-- Check affected sibling patterns, labels, keyboard/focus and touch access. Hover-only
-  affordances need keyboard and touch equivalents. Remove unnecessary decoration if present;
-  a clean screen requires no forced cosmetic change.
-- Judge affected UI at desktop and about 375px, both themes, with relevant states and long
-  labels. Follow `.agents/policies/verification.md`; unavailable render evidence stays pending.
+1. **See ink, measure relationships.** Judge what is visible (glyphs, strokes, edges), not
+   element boxes, and judge pairs (header ↔ cell, padding ↔ gap, outer ↔ inner radius,
+   eyebrow ↔ title) rather than single values. Measure on the running page; never declare
+   alignment from source.
+2. **Change the least that removes the defect.** Most finesse wins subtract: a border, a
+   line, a weight, a wrapper, padding. Keep the skeleton the owner already knows.
+
+Use with `pull-ui-from-ds` (implementation) and `review-ui-ds` (review). The pinned DS
+governs tokens and primitives; this skill operates inside it and never authorizes a second
+DS, a locally edited primitive or invented behaviour.
+
+## Scope before you touch
+
+Classify every request first and say which class you are working in:
+
+- **Polish** (the default for "polish", "craft pass", "clean up", "lacks care", "fix the
+  details", design-mode comments): change values inside the existing structure: spacing,
+  alignment, weight, colour token, radius, a removed line, copy. Same elements, same order,
+  same layout model.
+- **Adjust**: move, merge or remove elements within the same layout, only where a named
+  finding requires it, each one named in the report.
+- **Redesign**: a new layout model (table → rows, new panels, new hierarchy). Only on an
+  explicit request ("redesign", "rethink from first principles"). Even then, keep the
+  product's existing patterns (the shared table plate, pill filters, the one-modal flow).
+
+If polish findings point to a structural problem, report it as "Recommendation: needs your
+call". Do not build it. "Lacks design polish" is not permission to rebuild (2026-11-11: a
+documents table rebuilt into rows came back as "worse than before", reverted the same turn).
+
+## Workflow
+
+1. Load the DS baseline the policy requires (`pucar-design-system.md`), then this skill.
+2. Pass 0: scope and baseline. Screenshot at the owner's viewport and 375, and run the
+   measurement snippets. Without a baseline you cannot prove an improvement.
+3. Run the audit passes in order, looking only, before fixing: squint → hierarchy and
+   redundancy → alignment axes → spacing and containment → type → surfaces and edges →
+   controls and icons → states and viewports. Procedure and snippets: [audit](references/audit.md).
+4. Fix in the same layer order, at the source, once. Hierarchy and redundancy first (they
+   remove elements), then alignment, spacing, type, surfaces, states.
+5. Re-measure with the same snippets and viewports; diff against the baseline. Zoom on every
+   corner and seam you touched.
+6. Report verified / found but not fixed / would not change, with numbers (format in
+   `audit.md`).
+
+## The core rules (every UI change)
+
+**Alignment.** Each container has a few keylines: content-left, content-right, column lines.
+Every text start, leading icon and visible control edge sits on one within 1px; 2px is a
+defect; a needed 8px correction means the structure is wrong. In a column, the header
+label, every cell's ink and every control obey one rule (left to the label, or centred under
+it, never mixed). A panel's heading starts on its first column label's line. A borderless
+item aligns by its ink (a ghost button's icon), a bordered one by its border.
+
+**Spacing and containment.** Inside-group gaps are at most half the outside gaps. Container
+padding ≥ child gaps and steps down when nesting. Padding never stacks off the keyline.
+Fills inside a rounded container are full-bleed and clipped, or inset evenly with a
+concentric radius (inner = outer − gap). Never flush with rounded ends, never inset on one
+side. Every value on the DS spacing ladder.
+
+**Hierarchy.** Adjacent levels differ in one or two of size, weight and colour: not zero
+(they collapse) and rarely three (loud). About three type sizes per component, at most two
+text levels per row. A secondary line stays only if it is a distinct fact not already shown
+by a header, icon, chip or context: delete sub-lines that restate provenance, headings or
+controls. Facts are attributes, guidance is copy.
+
+**Surfaces.** One separation device per boundary: space, fill, hairline or shadow. Not
+stacked. Two levels: canvas, then lifted panel, with sunken wells inside panels. Decorative
+strokes are hairlines; control edges meet 3:1. No cards on cards, no icon tiles as
+decoration, no accent bars.
+
+**Controls and icons.** One height per row of controls. One icon size and stroke per
+region; icon colour equals its text or one step muted. Targets ≥40×40px. One primary
+(teal) action per region.
+
+**Copy.** Sentence case, verb + object, directive and specific. No filler, no "please",
+no sub-line that restates its heading, no status that names no object.
+
+**Accessibility and states.** DS floor: WCAG 2.1 AA, visible focus, labels, 200% zoom,
+Indic scripts. Walk hover, focus, selected, disabled, loading, empty, error, long labels.
+No layout shift between states. Desktop, ~375px and both themes when colour or surfaces
+change.
+
+## Product conventions (owner rulings that outrank generic advice)
+
+- Canvas `bg-muted dark:bg-background`, lifted white panels (`PANEL_CLASS`), sunken wells.
+- Tables compose from `chrome/table-plate.ts`, inset 8px in their panel, header strip with
+  rounded ends on the cells. Never a private table treatment.
+- Filters are the shared pill row (`chrome/pill-plate.ts`), not segmented controls.
+- No 12px in data UI: labels 14 muted, values 14 foreground, card titles 16 semibold.
+- Flows progress inside one modal; confirmations are the plain alert (question, one line,
+  Back / act). Feedback uses `components/feedback`.
+- Court-side screens are minimal: no panel headers, pills, hint rows or subtitles by default.
+- Status: one meaning per colour; a case's status uses the shared status words, not ad-hoc
+  pills.
+- Bulk filing changes reach shared filing sections only through `FieldPolicy` opt-ins.
 
 ## Read only what the task needs
 
-- Panels, tables, rails, or repeated rows: [surfaces](references/surfaces.md).
-- Text hierarchy and density: [typography](references/typography.md), alongside DS typography.
-- Dialogs, staged flows, or animation: [motion](references/motion.md).
-- Success, failure, warning, notices, toasts, confirms, field errors, dead ends: the
-  `feedback-states` skill. Use `components/feedback`, never a hand-built status UI.
-- Explicit investigation of historical measurements/rationale:
-  [research](references/research.md). Re-measure against the current DS; this is not a gate.
+- Any polish, craft pass, review, or design-mode report: [audit](references/audit.md) and
+  [tells](references/tells.md).
+- Tables, file or document rows, forms, buttons, panels, notices, copy:
+  [components](references/components.md).
+- Panels, wells, fills, radius, borders, shadows: [surfaces](references/surfaces.md).
+- Heading levels, eyebrows, label/value, density: [typography](references/typography.md),
+  alongside the DS typography page.
+- Dialogs, staged flows, animation: [motion](references/motion.md).
+- Success, failure, notices, toasts, confirms, field errors: the `feedback-states` skill.
+- Historical measurements only when explicitly investigating them:
+  [research](references/research.md).
 
-Reuse unchanged references already read in the task. Record an upstream issue only when
-it affects the work, with the observed value and consequence. Do not repeat a static
-backlog of old DS complaints in every build report. Visual judgment can produce a
-suggestion; required fixes need a demonstrated rule or acceptance failure.
+Reuse references already read in the task while unchanged. A required fix needs a measured
+defect or a demonstrated rule; taste alone is a P3 suggestion for the owner. Record an
+upstream DS issue only when it blocks the work, with the observed value and consequence.

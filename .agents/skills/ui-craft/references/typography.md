@@ -30,3 +30,26 @@ hierarchy; fix hierarchy with colour and spacing.
 Numbers: `tabular-nums` on anything columnar or compared (item numbers, dates, counts,
 amounts). Currency and counts right-align in tables. One `font-semibold` number per
 card is emphasis; five is noise.
+
+## Hierarchy relationships (what the owner checks)
+
+- **Steps between adjacent levels.** Change one or two of size, weight and colour. Zero
+  collapses the levels; all three is loud (page titles only). A size step is at least one
+  scale step (14 → 16); a weight step is 400 → 600; a colour step is foreground → muted.
+- **Eyebrow and title.** An eyebrow names the category ("Complainant") and the title the
+  instance ("Tata Capital Ltd"). A 14px muted eyebrow stacked over a 16px semibold title is
+  too close a step: the two compete. Prefer the instance leading, with the role after it on
+  the same line, muted and baseline-aligned (`flex items-baseline gap-2`). If an eyebrow
+  stays stacked, it sits tight to its title (about 2–4px), much closer than to anything
+  above, and is clearly subordinate. Ask first whether it is needed at all: labels are a
+  last resort.
+- **Label and value.** The label is subordinate (muted, regular); the value is content
+  (foreground). Never bold labels with regular values. Values in a group start on one x.
+- **Levels per component.** About three sizes and three contrast treatments per screen
+  region; at most two text levels in a table cell or list row. A secondary line must add a
+  distinct fact not shown by the header, an icon, a chip or the context. Otherwise delete
+  it.
+- **Proximity.** A heading sits closer to its own content than to the block above it.
+  Equal space above and below a heading makes it float.
+- **Line length.** Body copy runs 45–90 characters. Helper text stretched across a wide
+  panel needs a max width, not a smaller size.
