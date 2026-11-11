@@ -23,10 +23,10 @@ import {
   tableRowClass,
 } from "@/components/chrome/table-plate";
 import { Card } from "@/components/ui/card";
-import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 import { CaseSearch, Pager, pageOf } from "./case-list-tools";
+import { FilterPills } from "./filter-pills";
 
 export type CaseRow = {
   key: string;
@@ -39,11 +39,6 @@ export type CaseRow = {
   amount: number;
   /** Which filter the row is in. */
   state: string;
-  /**
-   * Other filters it also counts in: a case to check that is also missing a file counts
-   * under Missing documents too, so the filter says what the Documents step says.
-   */
-  also?: string[];
   status: React.ReactNode;
   /** Under the cheque line: the last day to file, for a case near it. */
   extra?: React.ReactNode;
@@ -72,7 +67,7 @@ export function CaseRows({
   const [show, setShow] = React.useState("all");
   const [q, setQ] = React.useState("");
   const [page, setPage] = React.useState(0);
-  const inFilter = (r: CaseRow, id: string) => r.state === id || !!r.also?.includes(id);
+  const inFilter = (r: CaseRow, id: string) => r.state === id;
   const count = (id: string) => rows.filter((r) => inFilter(r, id)).length;
   const term = q.trim().toLowerCase();
   const list = rows
@@ -92,26 +87,15 @@ export function CaseRows({
   return (
     <section aria-label={label} className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-3">
-        <SegmentedControl
-          type="single"
+        <FilterPills
           value={show}
-          onValueChange={(v) => {
-            if (!v) return;
+          onChange={(v) => {
             setShow(v);
             setPage(0);
           }}
-          aria-label="Show cases"
-          className="max-w-full overflow-x-auto"
-        >
-          <SegmentedControlItem value="all">All {rows.length}</SegmentedControlItem>
-          {filters
-            .filter((f) => count(f.id))
-            .map((f) => (
-              <SegmentedControlItem key={f.id} value={f.id}>
-                {f.label} {count(f.id)}
-              </SegmentedControlItem>
-            ))}
-        </SegmentedControl>
+          total={rows.length}
+          filters={filters.map((f) => ({ ...f, count: count(f.id) }))}
+        />
         <CaseSearch
           id={searchId}
           value={q}

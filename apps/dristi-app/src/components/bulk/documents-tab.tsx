@@ -14,7 +14,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 import { Spinner } from "@/components/ui/spinner";
 
 import { readability } from "@/lib/filing/readability";
@@ -26,6 +25,7 @@ import type { BatchCtx } from "./batch-screen";
 import { batchTallies, caseState } from "./batch-marks";
 import { CaseSearch } from "./case-list-tools";
 import { chequeLine } from "./case-rows";
+import { FilterPills } from "./filter-pills";
 import { DocumentsGuide, guideSeen } from "./documents-guide";
 import { useDemoTools } from "./demo-tools";
 import { StatusLine } from "@/components/feedback";
@@ -344,21 +344,18 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
       {error ? <StatusLine tone="error">{error}</StatusLine> : null}
 
       <div className="flex flex-wrap items-center gap-3">
-        <SegmentedControl
-          type="single"
+        <FilterPills
           value={show}
-          onValueChange={(v) => {
-            if (!v) return;
+          onChange={(v) => {
             setShow(v as Show);
             setLimit(PAGE);
           }}
-          aria-label="Show cases"
-          className="max-w-full overflow-x-auto"
-        >
-          {startedOpen.size ? <SegmentedControlItem value="missing">Missing {lackingCases.length}</SegmentedControlItem> : null}
-          <SegmentedControlItem value="complete">Complete {open.length - lackingCases.length}</SegmentedControlItem>
-          <SegmentedControlItem value="all">All {open.length}</SegmentedControlItem>
-        </SegmentedControl>
+          total={open.length}
+          filters={[
+            { id: "missing", label: "Missing documents", count: startedOpen.size ? lackingCases.length : 0 },
+            { id: "complete", label: "Documents added", count: open.length - lackingCases.length },
+          ]}
+        />
         <CaseSearch
           id="documents-search"
           value={search}

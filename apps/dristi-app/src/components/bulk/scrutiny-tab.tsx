@@ -29,7 +29,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
-import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   TABLE_CELL,
@@ -44,6 +43,7 @@ import { BatchFooter } from "./batch-footer";
 import { caseState, isOpen } from "./batch-marks";
 import type { BatchCtx } from "./batch-screen";
 import { CaseSearch, Pager, caseMatches, pageOf } from "./case-list-tools";
+import { FilterPills } from "./filter-pills";
 import { CaseBadge, StatusWord, shortReason } from "./stage";
 import { StatusLine } from "@/components/feedback";
 
@@ -275,23 +275,20 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
         ))}
 
       <div className="flex flex-wrap items-center gap-3">
-        <SegmentedControl
-          type="single"
+        <FilterPills
           value={show}
-          onValueChange={(v) => {
-            if (!v) return;
+          onChange={(v) => {
             setShow(v as Show);
             setPage(0);
           }}
-          aria-label="Show cases"
-          className="max-w-full overflow-x-auto"
-        >
-          <SegmentedControlItem value="all">All {open.length}</SegmentedControlItem>
-          {fixing.length ? <SegmentedControlItem value="fix">To fix {fixing.length}</SegmentedControlItem> : null}
-          {checking.length ? <SegmentedControlItem value="check">To check {checking.length}</SegmentedControlItem> : null}
-          {docsOpen.length ? <SegmentedControlItem value="docs">Missing documents {docsOpen.length}</SegmentedControlItem> : null}
-          {ready.length ? <SegmentedControlItem value="complete">Ready to sign {ready.length}</SegmentedControlItem> : null}
-        </SegmentedControl>
+          total={open.length}
+          filters={[
+            { id: "fix", label: "To fix", count: fixing.length },
+            { id: "check", label: "To check", count: checking.length },
+            { id: "docs", label: "Missing documents", count: docsOpen.length },
+            { id: "complete", label: "Ready to sign", count: ready.length },
+          ]}
+        />
         <CaseSearch
           id="details-search"
           value={search}

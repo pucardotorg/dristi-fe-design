@@ -7,7 +7,7 @@ import { FilingFooter } from "@/components/filing/filing-footer";
 
 import { caseFlowHref } from "./api";
 import { BatchFooter } from "./batch-footer";
-import { batchTallies, caseState } from "./batch-marks";
+import { caseState } from "./batch-marks";
 import type { BatchCtx } from "./batch-screen";
 import { CaseRows, type CaseRow } from "./case-rows";
 import { LimitPassed } from "./case-list-tools";
@@ -25,9 +25,8 @@ export function CasesTab({ batch, go }: BatchCtx) {
   const ai = useSearchParams().get("ai");
   const pending = batch.cases.filter((c) => c.stage !== "filed");
   const filed = batch.cases.length - pending.length;
-  // "Missing documents" is the Documents step's own count (`batchTallies`), the number the
-  // steps show, so it can include a case that also has a detail to check.
-  const docs = new Set(batchTallies(batch).docsCases.map((c) => c.id));
+  // Each case in exactly one filter, so the filters add up to All (owner's screenshot,
+  // 2026-11-11: To fix 2, Missing documents 10, To check 10 under All 12).
   const rows: CaseRow[] = pending.map((c) => ({
     key: c.id,
     reference: c.reference,
@@ -36,7 +35,6 @@ export function CasesTab({ batch, go }: BatchCtx) {
     cheques: c.cheques,
     amount: c.amount,
     state: caseState(c),
-    also: docs.has(c.id) ? ["docs"] : undefined,
     status: <CaseBadge c={c} />,
     extra: <LimitPassed c={c} />,
     href: caseFlowHref(batch.id, c, undefined, ai),
