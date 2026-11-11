@@ -24,7 +24,7 @@ export const STATE: Record<
   { word: string; icon: React.ComponentType<{ className?: string; "aria-hidden"?: boolean }>; ink: string; fill: string }
 > = {
   fix: { word: "To fix", icon: CircleXIcon, ink: "text-destructive-ink", fill: "bg-destructive" },
-  docs: { word: "Missing documents", icon: CircleDashedIcon, ink: "text-destructive-ink", fill: "bg-destructive/60" },
+  docs: { word: "Missing documents", icon: CircleDashedIcon, ink: "text-destructive-ink", fill: "bg-destructive-muted" },
   check: { word: "To check", icon: TriangleAlertIcon, ink: "text-warning-ink", fill: "bg-warning" },
   complete: { word: "Ready to sign", icon: CircleDotIcon, ink: "text-info-ink", fill: "bg-info" },
   signed: { word: "Signed", icon: CircleCheckIcon, ink: "text-foreground", fill: "bg-primary" },

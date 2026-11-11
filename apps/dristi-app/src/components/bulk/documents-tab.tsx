@@ -100,7 +100,7 @@ function SlotChip({
       if (file && canUpload && !busy) onFile(file);
     },
   };
-  const chip = "inline-flex h-9 max-w-full items-center gap-1.5 rounded-lg px-3 text-body-compact transition-colors focus-visible:ring-3 focus-visible:ring-focus-ring focus-visible:outline-none disabled:opacity-60";
+  const chip = "inline-flex h-10 max-w-full items-center gap-1.5 rounded-lg px-3 text-body-compact transition-colors focus-visible:ring-3 focus-visible:ring-focus-ring focus-visible:outline-none disabled:opacity-60";
   const picker = (
     <input
       ref={input}
@@ -407,7 +407,7 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
                   {/* Optional papers are the case's own: its filing Documents section takes
                       them, and they show there and in the case file. */}
                   {!closed ? (
-                    <Button asChild variant="ghost" size="sm" className="h-9">
+                    <Button asChild variant="ghost" size="sm" className="h-10">
                       <Link href={caseFlowHref(batch.id, c, "documents", ai)}>
                         <PlusIcon data-icon="inline-start" aria-hidden />
                         Other
@@ -415,7 +415,7 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
                     </Button>
                   ) : null}
                   {demo && c.docs.have < c.docs.need && !closed ? (
-                    <Button variant="ghost" size="sm" className="h-9" disabled={!!busy} onClick={() => void fillDemo([c])}>
+                    <Button variant="ghost" size="sm" className="h-10" disabled={!!busy} onClick={() => void fillDemo([c])}>
                       <WandSparklesIcon data-icon="inline-start" aria-hidden />
                       Demo files
                     </Button>
