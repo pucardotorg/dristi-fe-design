@@ -14,6 +14,18 @@ import type {
   StoredFileRef,
 } from "@/lib/filing/types";
 
+/**
+ * The batch's Common details as they were filled (BLK-05): its complainants, advocates,
+ * their documents and the ADR answer. Kept on the batch so the step reopens on the same
+ * pages it was filled on, read-only, rather than as a summary (owner, 2026-11-11).
+ */
+export type BatchCommon = {
+  complainants: FilingDraft["complainants"];
+  advocates: FilingDraft["advocates"];
+  documents: FilingDraft["intake"]["parties"];
+  adr: FilingDraft["adr"]["adr"];
+};
+
 export type BatchSourceKind = "api" | "excel" | "documents" | "clubbed";
 
 export type BatchSource = {
@@ -122,6 +134,11 @@ export type Batch = {
    * the bell flags it until someone does. Absent on batches stored before this existed.
    */
   openedAt?: string | null;
+  /**
+   * Common details as set when the batch was created. Absent on an API push and on batches
+   * stored before this existed: those read them from the first case, which got them first.
+   */
+  common?: BatchCommon;
 };
 
 /** Where one case stands in its batch. */

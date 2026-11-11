@@ -168,3 +168,46 @@ export class BulkSetupRepository implements FilingRepository {
     return this.local.putProfile(profile);
   }
 }
+
+/**
+ * A created batch's Common details, opened on the same sections they were filled on and
+ * locked (owner, 2026-11-11: a step reopens where it was, never as a summary). Read from the
+ * batch, written nowhere: a case's own parties change in that case (`BLK-06`). Files come
+ * from the bulk file store, as the setup's did.
+ */
+export class BatchCommonRepository extends BulkSetupRepository {
+  constructor(
+    private readonly draft: FilingDraft,
+  ) {
+    super(draft.id);
+  }
+
+  async listDrafts(): Promise<FilingDraft[]> {
+    return [this.draft];
+  }
+
+  async getDraft(): Promise<FilingDraft | null> {
+    return this.draft;
+  }
+
+  async putDraft(): Promise<void> {}
+
+  async deleteDraft(): Promise<void> {}
+}
+
+/** The draft the locked sections read: a blank one carrying the batch's Common details. */
+export function commonDraft(batchId: string, common: {
+  complainants: FilingDraft["complainants"];
+  advocates: FilingDraft["advocates"];
+  documents: FilingDraft["intake"]["parties"];
+  adr: FilingDraft["adr"]["adr"];
+}): FilingDraft {
+  const draft = createBlankDraft(`common-${batchId}`, null);
+  draft.complainants = structuredClone(common.complainants);
+  draft.advocates = structuredClone(common.advocates);
+  draft.intake.parties = structuredClone(common.documents);
+  draft.intake.cheques = [];
+  draft.intake.notices = [];
+  draft.adr.adr = common.adr;
+  return draft;
+}

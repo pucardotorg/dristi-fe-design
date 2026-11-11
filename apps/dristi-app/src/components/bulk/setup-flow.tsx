@@ -24,14 +24,19 @@ import {
 
 import { advocatesMissing } from "@/lib/bulk/parties";
 import { CLIENTS } from "@/lib/bulk/clients";
-import { BulkSetupRepository, prefillKnownComplainant } from "@/lib/bulk/setup-repository";
+import {
+  BatchCommonRepository,
+  BulkSetupRepository,
+  commonDraft,
+  prefillKnownComplainant,
+} from "@/lib/bulk/setup-repository";
 import { complainantName } from "@/lib/bulk/parties";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { stepFromPathname } from "@/lib/filing/steps";
 import { FilingProvider, useFiling } from "@/lib/filing/store";
 import type { StepId } from "@/lib/filing/types";
-import { DraftBreadcrumbLabel } from "@/components/filing/chrome";
+import { BatchBreadcrumbLabel, DraftBreadcrumbLabel } from "@/components/filing/chrome";
 import { FieldPolicyProvider, type FieldPolicy } from "@/components/filing/field-policy";
 import { FilingShell } from "@/components/filing/filing-shell";
 import { Button } from "@/components/ui/button";
@@ -45,6 +50,8 @@ import {
 } from "@/components/ui/empty";
 import { Spinner } from "@/components/ui/spinner";
 
+import type { BatchView } from "./api";
+import { batchMarks } from "./batch-marks";
 import { BatchAdr } from "./batch-parties";
 import { BulkSteps, StageRow, type BulkStepId, type Stage, type StepMark } from "./bulk-steps";
 import { useGujarat } from "./court-guard";
@@ -55,6 +62,20 @@ const SETUP_STEPS: StepId[] = ["complainant", "advocate", "documents"];
 /** One of the setup's sections. */
 export function setupHref(setupId: string, step: StepId): string {
   return `/filings/bulk/upload/${encodeURIComponent(setupId)}/${step}`;
+}
+
+/** One of a created batch's Common details sections, on the pages they were filled on. */
+export function commonHref(batchId: string, step: StepId = "complainant"): string {
+  return `/filings/bulk/${encodeURIComponent(batchId)}/common/${step}`;
+}
+
+/** A tab of a created batch. */
+function batchTabHref(batchId: string, tab: string | null, ai: string | null): string {
+  const q = new URLSearchParams();
+  if (tab) q.set("tab", tab);
+  if (ai) q.set("ai", ai);
+  const qs = q.toString();
+  return `/filings/bulk/${encodeURIComponent(batchId)}${qs ? `?${qs}` : ""}`;
 }
 
 /** The upload's own steps after the sections: the file, matching, review. */
@@ -90,9 +111,15 @@ export const useReportUploadState = () => React.useContext(UploadStateContext);
 
 export function BulkSetupFlow({
   setupId,
+  batch,
   children,
 }: {
   setupId: string;
+  /**
+   * The batch these Common details made, once it is created: the same sections open on
+   * what was filled, locked, under the batch's own steps (owner, 2026-11-11).
+   */
+  batch?: BatchView;
   children: React.ReactNode;
 }) {
   const ready = useGujarat();
@@ -110,7 +137,10 @@ export function BulkSetupFlow({
   const onFile = pathname.endsWith("/file");
   const uploadStep = (onFile ? params.get("step") ?? "file" : null) as UploadStep | null;
 
-  const repository = React.useMemo(() => new BulkSetupRepository(setupId), [setupId]);
+  const repository = React.useMemo(
+    () => (batch ? new BatchCommonRepository(commonDraft(batch.id, batch.common)) : new BulkSetupRepository(setupId)),
+    [setupId, batch],
+  );
 
   /*
    * Each section's own Continue and Back, so its checks still gate it. The sections'
@@ -119,22 +149,27 @@ export function BulkSetupFlow({
    */
   const hrefFor = React.useCallback(
     (s: StepId) => {
+      if (batch) {
+        if (s === "upload" || s === "accused") return commonHref(batch.id, "documents");
+        if (SETUP_STEPS.includes(s)) return commonHref(batch.id, s);
+        return batchTabHref(batch.id, "cases", ai);
+      }
       if (s === "upload" || s === "accused") return setupHref(setupId, "documents");
       if (SETUP_STEPS.includes(s)) return setupHref(setupId, s);
       return uploadHref(setupId, "file", ai);
     },
-    [setupId, ai],
+    [setupId, ai, batch],
   );
 
   const policy = React.useMemo<FieldPolicy>(
     () => ({
       step,
       issueAt: () => null,
-      lockedAt: () => null,
+      // Once the batch exists these were copied onto every case; each case changes its own.
+      lockedAt: (instance) => (batch && instance === null ? LOCKED : null),
       countFor: () => 0,
       documentGroups: (id) => id.startsWith("complainant-"),
-      guideMissing: true,
-      guideFields: true,
+      ...(batch ? {} : { guideMissing: true as const, guideFields: true as const }),
       // The parties are entered by hand here, once for the batch: no document is read, so
       // no source rail beside the form (owner, 2026-11-04).
       sources: false,
@@ -169,7 +204,7 @@ export function BulkSetupFlow({
         ],
       },
     }),
-    [step, upload, uploadStep, setupId, ai],
+    [step, upload, uploadStep, setupId, ai, batch],
   );
 
   if (!ready) return null;
@@ -214,12 +249,22 @@ export function BulkSetupFlow({
         </div>
       }
     >
-      <DraftBreadcrumbLabel label={ai === "on" ? "Upload cases" : "Upload Excel"} />
+      {batch ? (
+        <BatchBreadcrumbLabel number={batch.number} id={batch.id} />
+      ) : (
+        <DraftBreadcrumbLabel label={ai === "on" ? "Upload cases" : "Upload Excel"} />
+      )}
       <UploadStateContext.Provider value={setUpload}>
-        <SetupPolicy policy={policy}>
+        <SetupPolicy policy={policy} locked={!!batch}>
           <FilingShell
             rail={false}
-            banner={<SetupSteps setupId={setupId} step={step} uploadStep={uploadStep} upload={upload} ai={ai} />}
+            banner={
+              batch ? (
+                <BatchCommonSteps batch={batch} step={step} ai={ai} />
+              ) : (
+                <SetupSteps setupId={setupId} step={step} uploadStep={uploadStep} upload={upload} ai={ai} />
+              )
+            }
           >
             {children}
           </FilingShell>
@@ -234,17 +279,72 @@ export function BulkSetupFlow({
  * one. A single filing lets the section wait for preview; here one empty advocate would
  * reach every case as the same fix (bulk audit, 2026-11-04).
  */
-function SetupPolicy({ policy, children }: { policy: FieldPolicy; children: React.ReactNode }) {
+function SetupPolicy({
+  policy,
+  locked,
+  children,
+}: {
+  policy: FieldPolicy;
+  /** The batch is created: nothing here can be changed, so nothing holds or prefills. */
+  locked: boolean;
+  children: React.ReactNode;
+}) {
   const { draft } = useFiling();
-  const hold = policy.step === "advocate" ? advocatesMissing(draft.advocates) : null;
-  const picker = React.useMemo(() => (policy.step === "complainant" ? <SavedComplainant /> : null), [policy.step]);
-  // ADR is a batch detail like the complainants (PRD BLK-05), so it is asked with them.
-  const adr = React.useMemo(() => (policy.step === "complainant" ? <BatchAdr /> : null), [policy.step]);
+  const hold = !locked && policy.step === "advocate" ? advocatesMissing(draft.advocates) : null;
+  const picker = React.useMemo(
+    () => (!locked && policy.step === "complainant" ? <SavedComplainant /> : null),
+    [policy.step, locked],
+  );
+  // ADR is a batch detail like the complainants (PRD BLK-05), so it is asked with them. It
+  // sits after the form, outside the section's lock, so it takes the lock itself.
+  const adr = React.useMemo(
+    () =>
+      policy.step !== "complainant" ? null : locked ? (
+        <fieldset disabled className="contents">
+          <BatchAdr />
+        </fieldset>
+      ) : (
+        <BatchAdr />
+      ),
+    [policy.step, locked],
+  );
   const value = React.useMemo(
     () => ({ ...policy, holdContinue: hold, underTitle: picker ?? policy.underTitle, belowForm: adr }),
     [policy, hold, picker, adr],
   );
   return <FieldPolicyProvider value={value}>{children}</FieldPolicyProvider>;
+}
+
+/** Why a created batch's Common details can't be typed over, said once above the section. */
+const LOCKED = "Set for every case when this batch was created. A case's own parties are changed in that case, from Case details.";
+
+/**
+ * A created batch's steps over its Common details: the batch's own counts on the step
+ * row, and the three sections as they were when they were filled.
+ */
+function BatchCommonSteps({ batch, step, ai }: { batch: BatchView; step: StepId | null; ai: string | null }) {
+  const tabOf: Record<BulkStepId, string | null> = {
+    common: null,
+    cases: "cases",
+    details: null,
+    documents: "documents",
+    sign: "sign",
+    pay: "pay",
+  };
+  const marks = batchMarks(batch, "common", (id) =>
+    id === "common" ? commonHref(batch.id) : batchTabHref(batch.id, tabOf[id], ai),
+  );
+  const stages: Stage[] = [
+    { id: "complainant", title: "Complainant", href: commonHref(batch.id, "complainant"), done: true },
+    { id: "advocate", title: "Advocate", href: commonHref(batch.id, "advocate"), done: true },
+    { id: "documents", title: "Documents for every case", href: commonHref(batch.id, "documents"), done: true },
+  ];
+  return (
+    <BulkSteps
+      marks={marks}
+      second={<StageRow label="Step 1 · Common details" stages={stages} current={step ?? "complainant"} />}
+    />
+  );
 }
 
 /**

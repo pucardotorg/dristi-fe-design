@@ -64,6 +64,7 @@ import { useDemoTools } from "./demo-tools";
 import { batchMarks, caseState, detailFlags, documentFlags } from "./batch-marks";
 import { BulkSteps, type BulkStepId } from "./bulk-steps";
 import { OriginalDoc } from "./original-doc";
+import { commonHref } from "./setup-flow";
 import { FlagLine } from "./scrutiny-tab";
 import { CaseBadge } from "./stage";
 import { StatusLine } from "@/components/feedback";
@@ -354,7 +355,7 @@ function CaseBar({
       // The batch's steps stay above the case, as on every other screen of the batch (v8);
       // the case is their second row.
       <BulkSteps
-        marks={batchMarks(batch, "details", (id) => batchHref(batchId, BATCH_TAB[id], aiParam))}
+        marks={batchMarks(batch, "details", (id) => (id === "common" ? commonHref(batchId) : batchHref(batchId, BATCH_TAB[id], aiParam)))}
         gutter={gutter}
         second={<div className="py-2">{body}</div>}
       />

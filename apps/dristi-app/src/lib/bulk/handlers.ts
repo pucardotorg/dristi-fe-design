@@ -89,6 +89,7 @@ export async function createBatch(store: BulkStore, body: CreateBody): Promise<R
     bc.original = o.file;
     bc.docText = { ...bc.docText, [o.file.id]: o.text };
   }
+  if (parties) built.common = { ...parties, adr: request.adr ?? built.cases[0]?.draft.adr.adr ?? "" };
   const batch = await store.insertBatch(built);
   return ok({ batchId: batch.id, batchNumber: batch.number }, 201);
 }

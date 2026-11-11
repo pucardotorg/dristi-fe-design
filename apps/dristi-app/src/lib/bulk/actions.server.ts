@@ -38,6 +38,7 @@ import {
   AADHAAR_DOCS_PER_OTP,
   SIGN_INSTRUMENT,
   type Batch,
+  type BatchCommon,
   type BatchCase,
   type BulkSignMethod,
   type CaseStage,
@@ -113,6 +114,8 @@ export type BatchView = BatchSummary & {
   /** Everyone on record for the complainant; the first is the filing advocate. */
   advocates: { name: string; barNumber: string }[];
   representative: { name: string; designation: string; mobile: string } | null;
+  /** Common details as filled, for the step's own pages (`BatchCommon`). */
+  common: BatchCommon;
 };
 
 function addMonth(iso: string): string {
@@ -244,6 +247,12 @@ export function batchView(
     representative: rep?.name
       ? { name: rep.name, designation: rep.designation, mobile: rep.mobile }
       : null,
+    common: batch.common ?? {
+      complainants: first?.complainants ?? [],
+      advocates: first?.advocates ?? [],
+      documents: first?.intake.parties ?? [],
+      adr: first?.adr.adr ?? "",
+    },
   };
 }
 
