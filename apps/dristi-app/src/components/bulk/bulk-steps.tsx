@@ -18,7 +18,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { CheckIcon, ChevronRightIcon, CircleAlertIcon, CircleCheckIcon } from "lucide-react";
+import { CheckIcon, CircleAlertIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { TOP_BAR_HEIGHT } from "@/components/filing/chrome";
@@ -226,59 +226,44 @@ export function StageRow({
 }) {
   const at = stages.findIndex((s) => s.id === current);
   return (
-    // The label names the row for assistive tech only: on screen it repeated the step the
-    // row above already shows as current. The list is pulled out by the pills' own padding,
-    // so the first stage's text sits on the page column's edge and fills bleed outward.
-    <nav aria-label={label} className="py-2">
-      <ol className="-ml-2.5 flex flex-wrap items-center gap-1">
+    // The second level reads as tabs, not as a second stepper (owner, 2026-11-11): the
+    // steps above own the numbered discs and the navy "you are here"; here the current
+    // stage is weight and a dark underline, a done one a small check, so the two levels
+    // never share a marker. The label is for assistive tech only. Text starts on the page
+    // column's edge; nothing is outset.
+    <nav aria-label={label} className="-mb-px">
+      <ol className="flex flex-wrap items-center gap-x-6">
         {stages.map((s, i) => {
           const here = i === at;
           const done = !here && (s.done ?? i < at);
+          const cls = cn(
+            "inline-flex h-11 items-center gap-1.5 border-b-2 text-body-compact whitespace-nowrap transition-colors",
+            here
+              ? "border-foreground font-semibold text-foreground"
+              : s.href
+                ? "border-transparent text-muted-foreground hover:text-foreground"
+                : "border-transparent text-muted-foreground",
+          );
           const mark = s.warn ? (
             <CircleAlertIcon aria-hidden className="size-4 shrink-0 text-warning-ink" />
           ) : done ? (
-            <CircleCheckIcon aria-hidden className="size-4 shrink-0 text-success" />
-          ) : (
-            <span
-              aria-hidden
-              className={cn(
-                "flex size-5 shrink-0 items-center justify-center rounded-full border text-caption tabular-nums",
-                here ? "border-primary bg-primary text-primary-foreground" : "border-input",
-              )}
-            >
-              {i + 1}
-            </span>
-          );
-          const cls = cn(
-            "inline-flex h-9 items-center gap-2 rounded-lg px-2.5 text-body-compact whitespace-nowrap transition-colors",
-            here
-              ? "bg-card font-semibold text-foreground shadow-raised"
-              : s.href
-                ? "text-foreground hover:bg-accent"
-                : "text-muted-foreground",
-          );
+            <CheckIcon aria-hidden className="size-4 shrink-0 text-success" />
+          ) : null;
           return (
-            <React.Fragment key={s.id}>
-              {i ? (
-                <li aria-hidden className="text-muted-foreground">
-                  <ChevronRightIcon className="size-3.5" />
-                </li>
-              ) : null}
-              <li className="shrink-0">
-                {s.href && !here ? (
-                  <Link href={s.href} className={cls}>
-                    {mark}
-                    {s.title}
-                    {done ? <span className="sr-only">, done</span> : null}
-                  </Link>
-                ) : (
-                  <span className={cls} aria-current={here ? "step" : undefined}>
-                    {mark}
-                    {s.title}
-                  </span>
-                )}
-              </li>
-            </React.Fragment>
+            <li key={s.id} className="shrink-0">
+              {s.href && !here ? (
+                <Link href={s.href} className={cls}>
+                  {mark}
+                  {s.title}
+                  {done ? <span className="sr-only">, done</span> : null}
+                </Link>
+              ) : (
+                <span className={cls} aria-current={here ? "step" : undefined}>
+                  {mark}
+                  {s.title}
+                </span>
+              )}
+            </li>
           );
         })}
       </ol>
