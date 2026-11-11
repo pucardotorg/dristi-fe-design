@@ -2,15 +2,11 @@
 
 import * as React from "react";
 import Link from "next/link";
-import {
-  ArrowLeftRightIcon,
-  ChevronRightIcon,
-  CreditCardIcon,
-  FilePlusIcon,
-} from "lucide-react";
+import { ChevronRightIcon } from "lucide-react";
 
 import { CASE_TYPE, PSS_CASE_TYPE } from "@/lib/filing/options";
 import { NEW_FILING, NEW_PSS_FILING } from "@/lib/filing/steps";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -21,38 +17,38 @@ import {
 
 /**
  * One case type as a row that is itself the button (owner, 2026-10-09: "keep it as a row
- * button only"). The registration role card's frame: a bordered row with a hover fill,
- * its name over one muted line, and a chevron saying it goes somewhere.
+ * button only"). Rows sit in the panel's list as quiet lines, not boxes inside a box
+ * (owner, 2026-11-11: the bordered tiles read as undesigned and would not scale): the
+ * act's name over one muted line, a chevron, and the hover well. More case types are more
+ * rows, so the list grows without changing shape.
  */
 function CaseTypeRow({
   href,
-  icon: Icon,
   title,
   caption,
+  soon,
 }: {
   href: string;
-  icon: React.ComponentType<{ className?: string }>;
   title: string;
   caption: string;
+  /** Not built yet: the row still opens its placeholder, and says so. */
+  soon?: boolean;
 }) {
   return (
     <li>
       <Link
         href={href}
-        className="group flex items-center gap-3 rounded-lg border border-border p-4 transition-colors outline-none hover:bg-accent focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="group -mx-3 flex min-h-16 items-center gap-4 rounded-lg px-3 py-3 transition-colors outline-none hover:bg-surface-sunken focus-visible:ring-3 focus-visible:ring-focus-ring"
       >
-        <span
-          aria-hidden
-          className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-surface-sunken text-muted-foreground transition-colors group-hover:bg-card group-hover:text-foreground"
-        >
-          <Icon className="size-5" />
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="text-body font-medium">{title}</span>
+          <span className="text-body-compact text-muted-foreground">{caption}</span>
         </span>
-        <span className="flex min-w-0 flex-1 flex-col gap-1">
-          <span className="text-body-compact font-medium">{title}</span>
-          <span className="text-body-compact text-muted-foreground">
-            {caption}
-          </span>
-        </span>
+        {soon ? (
+          <Badge variant="secondary" className="shrink-0">
+            Coming soon
+          </Badge>
+        ) : null}
         <ChevronRightIcon
           aria-hidden
           className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"
@@ -67,37 +63,19 @@ export function StartFilingCard() {
   const titleId = React.useId();
   return (
     <Card variant="raised" className="gap-0">
-      <CardHeader className="flex flex-row items-start gap-3">
-        <span
-          aria-hidden
-          className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand-muted text-brand-muted-foreground"
-        >
-          <FilePlusIcon className="size-5" />
-        </span>
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <CardTitle id={titleId} className="text-body font-semibold">
-            Start a new filing
-          </CardTitle>
-          <CardDescription className="text-body-compact">
-            Step by step: parties, documents, then the court fee.
-          </CardDescription>
-        </div>
+      <CardHeader>
+        <CardTitle id={titleId} className="text-body font-semibold">
+          New filing
+        </CardTitle>
+        <CardDescription className="text-body-compact">
+          One case, step by step: parties, documents, then the court fee.
+        </CardDescription>
       </CardHeader>
 
-      <CardContent className="pt-4">
-        <ul aria-labelledby={titleId} className="flex flex-col gap-2">
-          <CaseTypeRow
-            href={NEW_FILING}
-            icon={CreditCardIcon}
-            title={CASE_TYPE.title}
-            caption="Dishonoured cheques · about 40 minutes"
-          />
-          <CaseTypeRow
-            href={NEW_PSS_FILING}
-            icon={ArrowLeftRightIcon}
-            title={PSS_CASE_TYPE.title}
-            caption="Coming soon"
-          />
+      <CardContent className="pt-3">
+        <ul aria-labelledby={titleId} className="flex flex-col divide-y divide-hairline">
+          <CaseTypeRow href={NEW_FILING} title={CASE_TYPE.title} caption="Dishonoured cheques · about 40 minutes" />
+          <CaseTypeRow href={NEW_PSS_FILING} title={PSS_CASE_TYPE.title} caption="Dishonoured electronic fund transfers" soon />
         </ul>
       </CardContent>
     </Card>
