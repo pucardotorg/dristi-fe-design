@@ -238,61 +238,72 @@ function SlotChip({
 }
 
 /**
- * A case's optional papers, in one column (a reply to the notice, a power of attorney,
- * anything else): a quiet "Add" that lists them, with how many are in once some are.
- * Optional, so never counted against the case.
+ * One cell holding several of the same document (three cheques, their three memos): a
+ * pill saying how many are in, "1/3", which lists each with its state. The column stays
+ * one mark wide however many a case has (owner, 2026-11-12: scale to two or more
+ * cheques). A file dropped on it goes into the first empty one.
  */
-function OptionalCell({
+function GroupCell({
   docs,
   locked,
   busy,
   onFile,
-  otherHref,
 }: {
   docs: Doc[];
   locked: boolean;
   busy: boolean;
   onFile: (d: Doc, file: File) => void;
-  otherHref: string;
 }) {
   const input = React.useRef<HTMLInputElement>(null);
   const [target, setTarget] = React.useState<Doc | null>(null);
-  const added = docs.filter((d) => d.file).length;
-  if (locked) return added ? <span className="text-body-compact text-muted-foreground tabular-nums">{added} added</span> : null;
+  const [over, setOver] = React.useState(false);
+  const have = docs.filter((d) => d.file).length;
+  const all = have === docs.length;
+  const firstEmpty = docs.find((d) => !d.file && d.slotKey);
+  const pick = (d: Doc) => {
+    setTarget(d);
+    input.current?.click();
+  };
   return (
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" className="h-9 text-body-compact text-muted-foreground" disabled={busy}>
-            {added ? `${added} added` : (
-              <>
-                <PlusIcon data-icon="inline-start" aria-hidden />
-                Add
-              </>
+          <button
+            type="button"
+            disabled={busy}
+            aria-label={`${docs.length} ${chipName(docs[0].name).replace(/\s\d+$/, "")} documents, ${have} added`}
+            onDragOver={(e) => {
+              if (locked || !firstEmpty) return;
+              e.preventDefault();
+              setOver(true);
+            }}
+            onDragLeave={() => setOver(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setOver(false);
+              const file = e.dataTransfer.files?.[0];
+              if (file && firstEmpty && !locked) onFile(firstEmpty, file);
+            }}
+            className={cn(
+              "inline-flex h-9 min-w-14 items-center justify-center gap-1 rounded-full px-3 text-body-compact font-medium tabular-nums transition-colors focus-visible:ring-3 focus-visible:ring-focus-ring focus-visible:outline-none disabled:opacity-60",
+              all
+                ? "bg-success-muted text-success-ink"
+                : "border border-dashed border-input text-muted-foreground hover:border-solid hover:border-ring hover:bg-brand-muted hover:text-brand-muted-foreground",
+              over && "border-solid border-ring bg-brand-muted",
             )}
-          </Button>
+          >
+            {busy ? <Spinner className="size-4" /> : all ? <CheckIcon aria-hidden className="size-4" /> : null}
+            {have}/{docs.length}
+          </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="center" className="min-w-60">
           {docs.map((d) => (
-            <DropdownMenuItem
-              key={d.slotKey ?? d.name}
-              disabled={!d.slotKey}
-              onSelect={() => {
-                setTarget(d);
-                input.current?.click();
-              }}
-            >
+            <DropdownMenuItem key={d.slotKey ?? d.name} disabled={locked || !d.slotKey} onSelect={() => pick(d)}>
               {d.file ? <CheckIcon aria-hidden className="text-success-ink" /> : <PlusIcon aria-hidden />}
               {chipName(d.name)}
-              {d.file ? <span className="ml-auto text-muted-foreground">Replace</span> : null}
+              <span className="ml-auto text-muted-foreground">{d.file ? "Replace" : "Add"}</span>
             </DropdownMenuItem>
           ))}
-          <DropdownMenuItem asChild>
-            <Link href={otherHref}>
-              <PlusIcon aria-hidden />
-              Another document
-            </Link>
-          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       <input
@@ -338,6 +349,8 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
   const closed = !!batch.clubbedInto;
   const demo = useDemoTools();
   const [search, setSearch] = React.useState("");
+  // Optional documents the filer has added to the table as columns.
+  const [extra, setExtra] = React.useState<string[]>([]);
   const [limit, setLimit] = React.useState(PAGE);
 
   // Cases missing something first, in the order they had when the tab opened, so a case
@@ -439,12 +452,23 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
       const key = typeOf(d);
       if (!columns.some((col) => col.key === key)) columns.push({ key, required: true });
     }
-  const optionalOf = (c: CaseView) => c.documents.filter((x) => !own(x) && !x.required);
+  // An optional paper becomes a column of its own once the filer adds it to the table, or
+  // once any case has one (owner, 2026-11-12: a new document is a new column), so a reply
+  // to the notice is collected down the batch like every other document.
+  const optionalTypes: string[] = [];
+  for (const c of open)
+    for (const d of c.documents.filter((x) => !own(x) && !x.required)) {
+      const key = typeOf(d);
+      if (!optionalTypes.includes(key)) optionalTypes.push(key);
+      if (d.file && !extra.includes(key) && !columns.some((col) => col.key === key)) columns.push({ key, required: false });
+    }
+  for (const key of extra) if (!columns.some((col) => col.key === key)) columns.push({ key, required: false });
+  const addable = optionalTypes.filter((t) => !columns.some((col) => col.key === t));
 
   // A row's rarer acts, out of the cells: optional papers go to the case's own Documents
   // section; demo files fill the row in the sandbox.
   const rowMenu = (c: CaseView) =>
-    closed || !demo || c.docs.have >= c.docs.need ? null : (
+    closed ? null : (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon-sm" className="text-muted-foreground" aria-label={`More for ${c.accused || c.title}`}>
@@ -452,10 +476,19 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-56">
-          <DropdownMenuItem disabled={!!busy} onSelect={() => void fillDemo([c])}>
-            <WandSparklesIcon aria-hidden />
-            Demo files
+          {/* A paper only this case has, with no column to go in: its own Documents section. */}
+          <DropdownMenuItem asChild>
+            <Link href={caseFlowHref(batch.id, c, "documents", ai)}>
+              <PlusIcon aria-hidden />
+              Another document for this case
+            </Link>
           </DropdownMenuItem>
+          {demo && c.docs.have < c.docs.need ? (
+            <DropdownMenuItem disabled={!!busy} onSelect={() => void fillDemo([c])}>
+              <WandSparklesIcon aria-hidden />
+              Demo files
+            </DropdownMenuItem>
+          ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
     );
@@ -512,6 +545,24 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
             { id: "complete", label: "Documents added", count: open.length - lackingCases.length },
           ]}
         />
+        {/* A new document is a new column, collected down the batch (owner, 2026-11-12). */}
+        {addable.length && !closed ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="text-body-compact">
+                <PlusIcon data-icon="inline-start" aria-hidden />
+                Add a document
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="min-w-56">
+              {addable.map((t) => (
+                <DropdownMenuItem key={t} onSelect={() => setExtra((x) => [...x, t])}>
+                  {t}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null}
         <CaseSearch
           id="documents-search"
           value={search}
@@ -540,18 +591,17 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
                     <TableHead className={cn(TABLE_HEAD, "w-full min-w-48")}>Accused</TableHead>
                     {columns.map((col) => (
                       // Two-word names wrap to two lines, so six documents fit the page's width.
-                      <TableHead key={col.key} className={cn(TABLE_HEAD, "w-20 text-center leading-tight whitespace-normal", !col.required && "font-normal")}>
+                      <TableHead key={col.key} className={cn(TABLE_HEAD, "w-20 px-2 text-center leading-tight whitespace-normal", !col.required && "font-normal")}>
                         {col.key}
                         {col.required ? null : <span className="sr-only"> (optional)</span>}
                       </TableHead>
                     ))}
-                    <TableHead className={cn(TABLE_HEAD, "text-center font-normal")}>Optional</TableHead>
                     <TableHead className={cn(TABLE_HEAD, "text-right")}>Added</TableHead>
-                    {demo ? (
+                    {closed ? null : (
                       <TableHead className={TABLE_HEAD}>
                         <span className="sr-only">More</span>
                       </TableHead>
-                    ) : null}
+                    )}
                   </TableRow>
                 </TableHeader>
                 <TableBody className={tableBodyClass({ hover: false })}>
@@ -568,23 +618,29 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
                           <span className="block truncate font-mono text-body-compact text-muted-foreground">{c.reference}</span>
                         </TableCell>
                         {columns.map((col) => {
-                          const ds = need.filter((x) => typeOf(x) === col.key);
+                          const ds = mine.filter((x) => typeOf(x) === col.key);
                           if (!ds.length)
                             return (
-                              <TableCell key={col.key} className={cn(TABLE_CELL, "text-center text-muted-foreground")}>
+                              <TableCell key={col.key} className={cn(TABLE_CELL, "px-2 text-center text-muted-foreground")}>
                                 <span aria-label="Not needed for this case">—</span>
                               </TableCell>
                             );
                           return (
-                            <TableCell key={col.key} className={cn(TABLE_CELL, "text-center")}>
-                              <span className="inline-flex items-center justify-center gap-2">
-                                {ds.map((d, k) => {
+                            <TableCell key={col.key} className={cn(TABLE_CELL, "px-2 text-center")}>
+                              {ds.length > 1 ? (
+                                <GroupCell
+                                  docs={ds}
+                                  locked={closed}
+                                  busy={ds.some((d) => busy === `${c.id}:${d.slotKey}`)}
+                                  onFile={(d, file) => void upload(c, d, file)}
+                                />
+                              ) : (
+                                (() => {
+                                  const d = ds[0];
                                   const flag = poorOf(c).find((f) => f.fix?.kind === "upload" && f.fix.slotKey === d.slotKey);
                                   return (
                                     <SlotChip
-                                      key={d.slotKey ?? d.name}
                                       cell
-                                      n={ds.length > 1 ? k + 1 : undefined}
                                       doc={d}
                                       locked={closed}
                                       busy={busy === `${c.id}:${d.slotKey}`}
@@ -593,20 +649,11 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
                                       onKeep={flag ? () => void keep(c, flag) : undefined}
                                     />
                                   );
-                                })}
-                              </span>
+                                })()
+                              )}
                             </TableCell>
                           );
                         })}
-                        <TableCell className={cn(TABLE_CELL, "text-center")}>
-                          <OptionalCell
-                            docs={optionalOf(c)}
-                            locked={closed}
-                            busy={!!busy && busy.startsWith(`${c.id}:`)}
-                            onFile={(d, file) => void upload(c, d, file)}
-                            otherHref={caseFlowHref(batch.id, c, "documents", ai)}
-                          />
-                        </TableCell>
                         <TableCell className={cn(TABLE_CELL, "text-right whitespace-nowrap tabular-nums")}>
                           {have === need.length ? (
                             <span className="inline-flex items-center gap-1.5 font-medium text-success-ink">
@@ -619,7 +666,7 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
                             </span>
                           )}
                         </TableCell>
-                        {demo ? <TableCell className={cn(TABLE_CELL, "w-12")}>{rowMenu(c)}</TableCell> : null}
+                        {closed ? null : <TableCell className={cn(TABLE_CELL, "w-12")}>{rowMenu(c)}</TableCell>}
                       </TableRow>
                     );
                   })}
