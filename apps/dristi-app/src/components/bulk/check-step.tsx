@@ -15,7 +15,6 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   ExternalLinkIcon,
-  FileSpreadsheetIcon,
   FileTextIcon,
   ChevronDownIcon,
   PlusIcon,
@@ -73,7 +72,7 @@ import { ChromeDialogContent } from "@/components/chrome/app-chrome";
 import { cn } from "@/lib/utils";
 
 import { aboutDetails } from "./batch-marks";
-import { StatusWord } from "./stage";
+import { STATE } from "./stage";
 
 /* ───────────────────────────── The cases, as Create will make them ───────────────────────────── */
 
@@ -157,16 +156,49 @@ export function checkCounts(cases: CheckCase[]) {
   };
 }
 
+/** One line of a reconciliation: what it is on the left, how many on the right. */
+function Tally({
+  label,
+  n,
+  icon,
+  total = false,
+  tone,
+}: {
+  label: string;
+  n: number | string;
+  icon?: React.ReactNode;
+  /** The line the others add up to. */
+  total?: boolean;
+  tone?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex items-center justify-between gap-6 tabular-nums",
+        total ? "mt-1 border-t border-hairline pt-3 text-body font-semibold" : "py-1.5 text-body-compact",
+      )}
+    >
+      <dt className={cn("flex min-w-0 items-center gap-2", !total && "text-muted-foreground")}>
+        {icon}
+        {label}
+      </dt>
+      <dd className={cn(total ? "text-title-s" : "text-foreground", tone)}>{n}</dd>
+    </div>
+  );
+}
+
 /**
- * Check's one decision, as one card (owner, 2026-11-12: three equal stat tiles read as a
- * sum and decided nothing). The file and what became of its rows (BLK-10, BLK-36), then
- * the cases it makes as the hero, then how many of those Case details will ask about, by
- * the same rules (`caseFlags`), so the counts agree after Create. Counts only: never a
- * list of cases or reasons, which would not scale to a 500-row file.
+ * Check's decision as a reconciliation (owner, 2026-11-12: stat tiles and a hero line
+ * read tacky). Left, the file: its rows, what was set aside or can't be made, adding up
+ * to the cases created (BLK-10, BLK-36). Right, how those cases split in Case details,
+ * by the same rules (`caseFlags`), so the counts agree after Create. Counts only, never a
+ * list. Colour sits on the two status glyphs and on rows that can't be made, nowhere else.
  */
 export function CheckCard({
   source,
-  meta,
+  rows,
+  setAside = 0,
+  cannot = 0,
   total,
   fix,
   check,
@@ -175,8 +207,10 @@ export function CheckCard({
 }: {
   /** The file, or the system that sent the batch. */
   source: string;
-  /** What became of the file's rows: "14 rows · 2 template rows set aside". */
-  meta?: string;
+  /** Rows read from the file, guide rows included; absent once the batch exists. */
+  rows?: number;
+  setAside?: number;
+  cannot?: number;
   total: number;
   fix: number;
   check: number;
@@ -186,38 +220,38 @@ export function CheckCard({
   footer?: React.ReactNode;
 }) {
   const done = total - fix - check;
+  const glyph = (state: "fix" | "check") => {
+    const Icon = STATE[state].icon;
+    return <Icon aria-hidden className={cn("size-4 shrink-0", STATE[state].ink)} />;
+  };
   return (
     <Card variant="raised" className="gap-0 p-0">
-      <div className="flex items-center gap-4 px-6 pt-6">
-        <span aria-hidden className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-brand-muted text-brand-muted-foreground">
-          <FileSpreadsheetIcon className="size-6" />
-        </span>
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <h2 className="truncate text-title-s font-semibold" title={source}>
+      <div className="grid md:grid-cols-2">
+        <section aria-labelledby="check-file" className="flex flex-col gap-3 p-6">
+          <h2 id="check-file" className="truncate text-body font-semibold" title={source}>
             {source}
           </h2>
-          {meta ? <p className="text-body-compact text-muted-foreground tabular-nums">{meta}</p> : null}
-        </div>
-      </div>
-      <div className="flex flex-col gap-3 px-6 pt-6 pb-6">
-        <p className="flex flex-wrap items-baseline gap-x-2 tabular-nums">
-          <span className="text-title-l font-semibold">
-            {total} {total === 1 ? "case" : "cases"}
-          </span>
-          <span className="text-body text-muted-foreground">{created ? "in this batch" : "will be created as drafts"}</span>
-        </p>
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-body-compact tabular-nums">
-          {fix ? <StatusWord state="fix" word={`${fix} to fix`} /> : null}
-          {check ? <StatusWord state="check" word={`${check} to check`} /> : null}
-          <span className="text-muted-foreground">
-            {done === total ? "Nothing to fix or check" : `${done} with nothing to fix or check`}
-          </span>
-        </div>
-        {fix + check ? (
-          <p className="text-body-compact text-muted-foreground">
-            {created ? "They're worked through in Case details." : "You'll work through them in Case details, after you create the batch."}
-          </p>
-        ) : null}
+          <dl className="flex flex-col">
+            {rows !== undefined ? <Tally label="Rows in the file" n={rows} /> : null}
+            {setAside ? <Tally label="Template rows set aside" n={`− ${setAside}`} /> : null}
+            {cannot ? <Tally label="Rows that can't be created" n={`− ${cannot}`} tone="text-destructive-ink" /> : null}
+            <Tally total label={created ? "Cases in this batch" : "Cases to create"} n={total} />
+          </dl>
+        </section>
+        <section
+          aria-labelledby="check-details"
+          className="flex flex-col gap-3 border-t border-hairline p-6 md:border-t-0 md:border-l"
+        >
+          <h2 id="check-details" className="text-body font-semibold">
+            In Case details{created ? "" : ", after you create them"}
+          </h2>
+          <dl className="flex flex-col">
+            <Tally label="To fix" n={fix} icon={glyph("fix")} />
+            <Tally label="To check" n={check} icon={glyph("check")} />
+            {/* A blank glyph slot keeps this label on the same line as the two above. */}
+            <Tally label="Nothing to fix or check" n={done} icon={<span aria-hidden className="size-4 shrink-0" />} />
+          </dl>
+        </section>
       </div>
       {footer ? <div className="border-t border-hairline px-6 py-4">{footer}</div> : null}
     </Card>

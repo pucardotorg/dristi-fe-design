@@ -912,13 +912,9 @@ export function UploadScreen() {
           {coreMissing.length || docs ? null : checkCases ? (
             <CheckCard
               source={fileName}
-              meta={[
-                `${book.cases.rows.length + (book.cases.discarded ?? 0)} ${book.cases.rows.length + (book.cases.discarded ?? 0) === 1 ? "row" : "rows"} in the file`,
-                book.cases.discarded ? `${book.cases.discarded} template ${book.cases.discarded === 1 ? "row" : "rows"} set aside` : "",
-                cannot.length ? `${cannot.length} can't be created` : "",
-              ]
-                .filter(Boolean)
-                .join(" · ")}
+              rows={book.cases.rows.length + (book.cases.discarded ?? 0)}
+              setAside={book.cases.discarded ?? 0}
+              cannot={cannot.length}
               total={checkCases.length}
               fix={checkCases.filter((c) => c.state === "fix").length}
               check={checkCases.filter((c) => c.state === "check").length}
