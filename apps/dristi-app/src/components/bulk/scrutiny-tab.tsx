@@ -67,7 +67,7 @@ const KIND: Record<
     disc: "bg-destructive-muted text-destructive-muted-foreground",
     ink: "text-destructive-ink",
     ring: "border-destructive-ink",
-    name: "Needs fixing",
+    name: "To fix",
   },
   check: {
     Icon: CircleAlertIcon,
@@ -132,7 +132,8 @@ function ToFix({ c }: { c: CaseView }) {
   // case itself says which, at the first one.
   const f = detailFlags(c);
   const n = rank === 0 ? f.filter((x) => x.level === "hold").length : f.length;
-  const what = rank === 0 ? (n === 1 ? "1 error" : `${n} errors`) : n === 1 ? "1 warning" : `${n} warnings`;
+  // "Field", not "error" (developer language); "warning" is the PRD's own word (BLK-12).
+  const what = rank === 0 ? (n === 1 ? "1 field" : `${n} fields`) : n === 1 ? "1 warning" : `${n} warnings`;
   return <StatusWord state={rank === 0 ? "fix" : "check"} reason={what} />;
 }
 
@@ -310,8 +311,13 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
 
       <Card variant="raised" className="gap-0 p-2">
         {shown.length === 0 ? (
-          <p className="p-4 text-body-compact text-muted-foreground">
-            {term ? `No case matches “${search.trim()}”.` : "No case here."}
+          <p className="flex flex-wrap items-center gap-x-2 p-4 text-body-compact text-muted-foreground">
+            {term ? `No case matches “${search.trim()}”.` : show === "fix" ? "Nothing left to fix." : show === "check" ? "Nothing left to check." : "No case here."}
+            {!term && show !== "all" ? (
+              <Button variant="link" className="h-auto p-0 text-body-compact" onClick={() => setShow("all")}>
+                Show all {open.length}
+              </Button>
+            ) : null}
           </p>
         ) : (
           <>
@@ -320,36 +326,41 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
               <Table className="border-separate border-spacing-0" aria-label="Cases">
                 <TableHeader>
                   <TableRow className={TABLE_HEAD_ROW}>
-                    <TableHead className={TABLE_HEAD}>Accused</TableHead>
-                    <TableHead className={TABLE_HEAD}>Your reference</TableHead>
+                    <TableHead className={cn(TABLE_HEAD, "w-full")}>Accused</TableHead>
                     <TableHead className={TABLE_HEAD}>Status</TableHead>
-                    <TableHead className={TABLE_HEAD}>
+                    <TableHead className={cn(TABLE_HEAD, "w-28")}>
                       <span className="sr-only">Actions</span>
                     </TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody className={tableBodyClass()}>
+                <TableBody className={tableBodyClass({ marksOpenRow: true })}>
                   {shown.map((c) => {
                     const href = caseFlowHref(batch.id, c, undefined, ai);
                     return (
                       <TableRow
                         key={c.id}
-                        className={cn(tableRowClass(), "cursor-pointer")}
+                        className={cn(tableRowClass({ open: c.id === last }), "cursor-pointer")}
                         aria-current={c.id === last ? "true" : undefined}
                         // The whole row opens the case; the name stays the keyboard's link.
                         onClick={() => router.push(href)}
                       >
-                        <TableCell className={TABLE_CELL}>
-                          <Link href={href} className="font-medium hover:underline">
+                        <TableCell className={cn(TABLE_CELL, "max-w-0")}>
+                          {/* The row's fill is the hover; the name stays the keyboard's link. */}
+                          <Link
+                            href={href}
+                            title={c.accused || c.title}
+                            className="block truncate font-medium outline-none focus-visible:underline"
+                          >
                             {c.accused || c.title}
                           </Link>
-                          <span className="block text-body-compact text-muted-foreground tabular-nums">
-                            {c.cheque ? `Cheque ${c.cheque}` : ""}
+                          {/* The filer's own reference, to find the case by (BLK-07): a quiet
+                              fact under the name, as on a phone, not a column of its own. */}
+                          <span className="block truncate text-body-compact text-muted-foreground tabular-nums">
+                            <span className="font-mono">{c.reference}</span>
                             {c.amount ? ` · ${money(c.amount)}` : ""}
                           </span>
                         </TableCell>
-                        <TableCell className={cn(TABLE_CELL, "font-mono")}>{c.reference}</TableCell>
-                        <TableCell className={cn(TABLE_CELL, "w-full min-w-64 whitespace-normal")}>
+                        <TableCell className={cn(TABLE_CELL, "whitespace-nowrap")}>
                           <ToFix c={c} />
                         </TableCell>
                         <TableCell className={TABLE_CELL}>
@@ -399,7 +410,7 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
                       <span className="text-body-compact font-medium">{c.accused || c.title}</span>
                       <span className="text-body-compact text-muted-foreground">
                         <span className="font-mono">{c.reference}</span>
-                        {c.cheque ? <span className="tabular-nums"> · Cheque {c.cheque}</span> : null}
+                        {c.amount ? <span className="tabular-nums"> · {money(c.amount)}</span> : null}
                       </span>
                       <span className="text-body-compact">
                         <ToFix c={c} />
