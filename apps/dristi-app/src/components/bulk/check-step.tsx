@@ -38,6 +38,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -54,7 +55,7 @@ import { DetailFieldMenu } from "@/components/filing/detail-field-menu";
 import { RichTextEditor, type BracketMarks, type RichTextEditorHandle } from "@/components/filing/rich-text-editor";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Dialog, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { OptionSelect } from "@/components/filing/inputs";
 import { ChromeDialogContent } from "@/components/chrome/app-chrome";
@@ -272,6 +273,15 @@ export function FactsCard({
     [first],
   );
 
+  const modeTabs = (
+    <TabsList>
+      <TabsTrigger value="write">Write</TabsTrigger>
+      <TabsTrigger value="preview" disabled={(empty && !own) || !cases?.length}>
+        Preview
+      </TabsTrigger>
+    </TabsList>
+  );
+
   const choose = (format: DetailsFormat) => {
     if (edited) setPending(format);
     else onChange(format.id, formatForFiler(format));
@@ -283,7 +293,7 @@ export function FactsCard({
         {/* What this text is for, up front: the empty rows. What becomes of the rows that
             already have a story is asked on Continue (owner, 2026-11-12). */}
         {own > 0 ? (
-          <div className="flex flex-col gap-0.5 border-b border-hairline pb-5 tabular-nums">
+          <div className="flex flex-col gap-0.5 tabular-nums">
             <p className="text-body-compact font-semibold">
               Writing for the {total - own} {total - own === 1 ? "case" : "cases"} with no story in the Excel
             </p>
@@ -295,17 +305,9 @@ export function FactsCard({
           </div>
         ) : null}
 
-        {/* Write and Preview share one box, so the preview is never a scroll away
-            (owner, 2026-11-12). */}
+        {/* Write and Preview are the box's own header, as on a comment box: one frame,
+            its first control the mode, its tools after it (owner, 2026-11-12). */}
         <Tabs value={mode} onValueChange={(v) => setMode(v as "write" | "preview")} className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <TabsList>
-              <TabsTrigger value="write">Write</TabsTrigger>
-              <TabsTrigger value="preview" disabled={(empty && !own) || !cases?.length}>
-                Preview
-              </TabsTrigger>
-            </TabsList>
-          </div>
           <TabsContent value="write" className="mt-0">
         <div className="flex flex-col gap-2">
             <RichTextEditor
@@ -317,6 +319,7 @@ export function FactsCard({
               contentClassName={STORY_CLASS}
               handleRef={editor}
               marks={marks}
+              toolbarStart={modeTabs}
               toolbarEnd={
                 <>
                   <DropdownMenu>
@@ -383,48 +386,48 @@ export function FactsCard({
             {preview ? (
               <div className="flex min-w-0 flex-col rounded-xl border border-input bg-card">
                 <div className="flex flex-wrap items-center gap-2 border-b border-hairline px-3 py-2">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="Previous case"
-                    disabled={at <= 0}
-                    onClick={() => setPreviewKey(listed[at - 1].key)}
-                  >
-                    <ChevronLeftIcon aria-hidden />
-                  </Button>
-                  <div className="w-64 min-w-0">
+                  {modeTabs}
+                  <span aria-hidden className="mx-1 h-5 w-px bg-border" />
+                  <div className="w-60 min-w-0">
                     <OptionSelect
                       ariaLabel="Case to preview"
                       value={preview.key}
                       onValueChange={setPreviewKey}
-                      options={listed.map((c) => ({
-                        value: c.key,
-                        label: `${c.accused || c.reference}${c.own && !c.fromBatch ? " · Excel story" : ""}`,
-                      }))}
+                      options={listed.map((c) => ({ value: c.key, label: c.accused || c.reference }))}
                     />
                   </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="Next case"
-                    disabled={at >= listed.length - 1}
-                    onClick={() => setPreviewKey(listed[at + 1].key)}
-                  >
-                    <ChevronRightIcon aria-hidden />
-                  </Button>
-                  <span className="text-body-compact text-muted-foreground tabular-nums">
-                    {at + 1} of {listed.length}
-                  </span>
-                  <span className="ml-auto pr-1 text-body-compact text-muted-foreground">
-                    {preview.own && !preview.fromBatch ? "Story from the Excel" : "Batch text"}
-                  </span>
+                  {preview.own && !preview.fromBatch ? <Badge variant="secondary">From the Excel</Badge> : null}
+                  {/* The pager where mail and document viewers keep it: count, then arrows. */}
+                  <div className="ml-auto flex items-center gap-1">
+                    <span className="mr-2 text-body-compact text-muted-foreground tabular-nums">
+                      {at + 1} of {listed.length}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label="Previous case"
+                      disabled={at <= 0}
+                      onClick={() => setPreviewKey(listed[at - 1].key)}
+                    >
+                      <ChevronLeftIcon aria-hidden />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label="Next case"
+                      disabled={at >= listed.length - 1}
+                      onClick={() => setPreviewKey(listed[at + 1].key)}
+                    >
+                      <ChevronRightIcon aria-hidden />
+                    </Button>
+                  </div>
                 </div>
                 <div
                   key={`${preview.key}-${preview.fromBatch}`}
                   className={cn(
-                    "min-h-96 animate-in text-foreground duration-200 fade-in-0 [&_li]:ml-4 [&_ol]:list-decimal [&_ul]:list-disc [&_p:last-child]:mb-0",
+                    "min-h-72 animate-in text-foreground duration-200 fade-in-0 [&_li]:ml-4 [&_ol]:list-decimal [&_ul]:list-disc [&_p:last-child]:mb-0",
                     STORY_CLASS,
                   )}
                   // The case's own facts, built by the app from its text and row (escaped there).
@@ -433,7 +436,7 @@ export function FactsCard({
               </div>
             ) : null}
             <p className="text-body-compact text-muted-foreground">
-              How each case reads in its complaint, under Facts of the case.
+              As it reads in each complaint, under Facts of the case.
             </p>
           </TabsContent>
         </Tabs>
@@ -486,9 +489,11 @@ export function FactsQuestion({
   onChoose: (everyCase: boolean) => void;
 }) {
   const [every, setEvery] = React.useState(initial);
+  const go = React.useRef<HTMLButtonElement>(null);
+  const empty = total - own;
   const choices = [
-    { value: "keep", label: own === 1 ? "Keep its story" : "Keep their stories" },
-    { value: "replace", label: `Use the batch text for all ${total}` },
+    { value: "keep", label: "Keep them", detail: `The batch text goes into the other ${empty}.` },
+    { value: "replace", label: "Replace them", detail: `All ${total} cases use the batch text.` },
   ];
   return (
     <Dialog
@@ -498,23 +503,33 @@ export function FactsQuestion({
         onOpenChange(next);
       }}
     >
-      <ChromeDialogContent showCloseButton={false} className="sm:max-w-md">
+      <ChromeDialogContent
+        showCloseButton={false}
+        className="sm:max-w-md"
+        // Focus lands on Continue, not on a radio: the choice is already made by default.
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          go.current?.focus();
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="tabular-nums">
-            {own === 1 ? "1 case already has a story in the Excel" : `${own} cases already have a story in the Excel`}
+            {own === 1 ? "1 case already has its own story" : `${own} cases already have their own story`}
           </DialogTitle>
+          <DialogDescription>It came in the Excel. What should happen to {own === 1 ? "it" : "them"}?</DialogDescription>
         </DialogHeader>
         <RadioGroup
           value={every ? "replace" : "keep"}
           onValueChange={(v) => setEvery(v === "replace")}
           aria-label="What happens to the stories in the Excel"
-          className="flex flex-col gap-1"
+          className="flex flex-col gap-4 py-1"
         >
           {choices.map((c) => (
-            <div key={c.value} className="flex min-h-10 items-center gap-3">
-              <RadioGroupItem value={c.value} id={`facts-${c.value}`} />
-              <Label htmlFor={`facts-${c.value}`} className="text-body-compact font-normal tabular-nums">
-                {c.label}
+            <div key={c.value} className="flex items-start gap-3">
+              <RadioGroupItem value={c.value} id={`facts-${c.value}`} className="mt-0.5" />
+              <Label htmlFor={`facts-${c.value}`} className="flex flex-col items-start gap-0.5 tabular-nums">
+                <span className="text-body-compact font-medium">{c.label}</span>
+                <span className="text-body-compact font-normal text-muted-foreground">{c.detail}</span>
               </Label>
             </div>
           ))}
@@ -523,7 +538,7 @@ export function FactsQuestion({
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Back
           </Button>
-          <Button type="button" onClick={() => onChoose(every)}>
+          <Button ref={go} type="button" onClick={() => onChoose(every)}>
             Continue
           </Button>
         </DialogFooter>
