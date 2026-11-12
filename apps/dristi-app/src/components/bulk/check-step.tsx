@@ -57,7 +57,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { OptionSelect } from "@/components/filing/inputs";
+import {
+  Combobox,
+  ComboboxCollection,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxGroup,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxLabel,
+  ComboboxList,
+} from "@/components/ui/combobox";
 import { ChromeDialogContent } from "@/components/chrome/app-chrome";
 import { cn } from "@/lib/utils";
 
@@ -389,12 +399,7 @@ export function FactsCard({
                   {modeTabs}
                   <span aria-hidden className="mx-1 h-5 w-px bg-border" />
                   <div className="w-60 min-w-0">
-                    <OptionSelect
-                      ariaLabel="Case to preview"
-                      value={preview.key}
-                      onValueChange={setPreviewKey}
-                      options={listed.map((c) => ({ value: c.key, label: c.accused || c.reference }))}
-                    />
+                    <CasePicker cases={listed} value={preview} onChange={(c) => setPreviewKey(c.key)} />
                   </div>
                   {preview.own && !preview.fromBatch ? <Badge variant="secondary">From the Excel</Badge> : null}
                   {/* The pager where mail and document viewers keep it: count, then arrows. */}
@@ -462,6 +467,63 @@ export function FactsCard({
         </AlertDialogContent>
       </AlertDialog>
     </Card>
+  );
+}
+
+type CaseGroup = { value: string; items: CheckCase[] };
+
+/**
+ * Preview's case picker, typeable like the filing's selects, with the cases grouped by
+ * where their story comes from, so the list itself says which are which (owner,
+ * 2026-11-12). Only the batch's own cases, so it lives here rather than in the shared
+ * `OptionSelect`.
+ */
+function CasePicker({
+  cases,
+  value,
+  onChange,
+}: {
+  cases: CheckCase[];
+  value: CheckCase;
+  onChange: (c: CheckCase) => void;
+}) {
+  const label = (c: CheckCase) => c.accused || c.reference;
+  const fromExcel = cases.filter((c) => c.own && !c.fromBatch);
+  const groups: CaseGroup[] = [
+    { value: `From the Excel · ${fromExcel.length}`, items: fromExcel },
+    { value: `Batch text · ${cases.length - fromExcel.length}`, items: cases.filter((c) => !(c.own && !c.fromBatch)) },
+  ].filter((g) => g.items.length);
+  return (
+    <Combobox
+      items={groups}
+      value={value}
+      onValueChange={(c) => {
+        if (c) onChange(c as CheckCase);
+      }}
+      itemToStringLabel={(c) => label(c as CheckCase)}
+      isItemEqualToValue={(a, b) => (a as CheckCase).key === (b as CheckCase).key}
+      openOnInputClick
+      autoHighlight
+    >
+      <ComboboxInput aria-label="Case to preview" autoComplete="off" className="w-full" />
+      <ComboboxContent className="pointer-events-auto">
+        <ComboboxEmpty>No match</ComboboxEmpty>
+        <ComboboxList>
+          {(group: CaseGroup) => (
+            <ComboboxGroup key={group.value} items={group.items} className="not-first:mt-1">
+              <ComboboxLabel className="text-body-compact tabular-nums">{group.value}</ComboboxLabel>
+              <ComboboxCollection>
+                {(c: CheckCase) => (
+                  <ComboboxItem key={c.key} value={c}>
+                    {label(c)}
+                  </ComboboxItem>
+                )}
+              </ComboboxCollection>
+            </ComboboxGroup>
+          )}
+        </ComboboxList>
+      </ComboboxContent>
+    </Combobox>
   );
 }
 
