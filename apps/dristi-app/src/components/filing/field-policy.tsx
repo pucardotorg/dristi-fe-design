@@ -42,6 +42,11 @@ export type FieldPolicy = {
    */
   next?: { label: string; href: string; status?: React.ReactNode } | null;
   /**
+   * No footer Back: the host's breadcrumb is the way up (bulk's case flow, where a footer
+   * Back would only step to the previous section of a case nobody walks in order).
+   */
+  noBack?: boolean;
+  /**
    * Why the section's Continue can't go ahead yet, or `null` when it can. A single filing
    * lets a section be left incomplete and catches it at preview; bulk filing's Common
    * details can't, because one gap there becomes the same fix on every case.

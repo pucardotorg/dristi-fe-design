@@ -106,8 +106,9 @@ export function FilingFooter({
     continueHref = undefined;
     onContinue = undefined;
   }
-  const back =
-    backHref !== undefined ? (
+  const back = policy?.noBack
+    ? null
+    : backHref !== undefined ? (
       <Button asChild variant="outline" size="lg">
         <Link href={backHref}>
           <ArrowLeftIcon data-icon="inline-start" aria-hidden />
