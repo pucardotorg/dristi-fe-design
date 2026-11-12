@@ -12,6 +12,8 @@
 
 import * as React from "react";
 import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
   ExternalLinkIcon,
   FileTextIcon,
   ChevronDownIcon,
@@ -52,8 +54,9 @@ import { DetailFieldMenu } from "@/components/filing/detail-field-menu";
 import { RichTextEditor, type BracketMarks, type RichTextEditorHandle } from "@/components/filing/rich-text-editor";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Dialog, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { OptionSelect } from "@/components/filing/inputs";
 import { ChromeDialogContent } from "@/components/chrome/app-chrome";
 import { cn } from "@/lib/utils";
 
@@ -256,6 +259,7 @@ export function FactsCard({
   // The cases with their own story first: they are the ones the question on Continue is about.
   const listed = cases ? [...ownCases, ...cases.filter((c) => !c.own)] : [];
   const preview = listed.find((c) => c.key === previewKey) ?? listed[0] ?? null;
+  const at = preview ? listed.indexOf(preview) : -1;
   // The editor's brackets: fields it offers on `[`, and a real case to show a field's value.
   const first = cases?.[0];
   const marks = React.useMemo<BracketMarks>(
@@ -373,58 +377,61 @@ export function FactsCard({
           </div>
           </TabsContent>
           <TabsContent value="preview" className="mt-0 flex flex-col gap-2">
-            {/* Every case on the left, the one chosen read as it will be filed on the right:
-                a click is answered by the page beside it. */}
-            <div className="grid gap-4 md:grid-cols-[17rem_minmax(0,1fr)]">
-              <ul aria-label="Cases" className="flex max-h-[34rem] flex-col gap-0.5 overflow-y-auto rounded-xl bg-surface-sunken p-1.5">
-                {listed.map((c, i) => {
-                  const on = c.key === preview?.key;
-                  const head = i === 0 && own > 0 ? `Own story in the Excel · ${own}` : i === own && own > 0 ? `No story in the Excel · ${total - own}` : null;
-                  return (
-                    <li key={c.key} className="flex flex-col">
-                      {head ? (
-                        <span className={cn("px-3 pb-1 text-body-compact text-muted-foreground tabular-nums", i ? "pt-4" : "pt-2")}>
-                          {head}
-                        </span>
-                      ) : null}
-                      <button
-                        type="button"
-                        aria-current={on || undefined}
-                        onClick={() => setPreviewKey(c.key)}
-                        className={cn(
-                          "flex min-h-10 w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-body-compact outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
-                          on ? "bg-card font-medium shadow-raised" : "hover:bg-accent",
-                        )}
-                      >
-                        <span className="min-w-0 truncate">{c.accused || c.reference}</span>
-                        {c.own ? (
-                          <span className="shrink-0 text-muted-foreground">{c.fromBatch ? "Batch text" : "Excel story"}</span>
-                        ) : null}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-              {preview ? (
-                <div className="flex min-w-0 flex-col rounded-xl border border-input bg-card">
-                  <div className="flex min-h-14 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-hairline py-2 pr-6 pl-6">
-                    <span className="min-w-0 truncate text-body font-semibold">{preview.accused || preview.reference}</span>
-                    <span className="text-body-compact text-muted-foreground">
-                      {preview.own && !preview.fromBatch ? "Excel story" : "Batch text"}
-                    </span>
+            {/* One document, read in the page's own scroll (owner, 2026-11-12: a list beside
+                it scrolled inside the scroll). Its toolbar moves between cases the way the
+                Write box's toolbar formats text: the same frame in both tabs. */}
+            {preview ? (
+              <div className="flex min-w-0 flex-col rounded-xl border border-input bg-card">
+                <div className="flex flex-wrap items-center gap-2 border-b border-hairline px-3 py-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="Previous case"
+                    disabled={at <= 0}
+                    onClick={() => setPreviewKey(listed[at - 1].key)}
+                  >
+                    <ChevronLeftIcon aria-hidden />
+                  </Button>
+                  <div className="w-64 min-w-0">
+                    <OptionSelect
+                      ariaLabel="Case to preview"
+                      value={preview.key}
+                      onValueChange={setPreviewKey}
+                      options={listed.map((c) => ({
+                        value: c.key,
+                        label: `${c.accused || c.reference}${c.own && !c.fromBatch ? " · Excel story" : ""}`,
+                      }))}
+                    />
                   </div>
-                  <div
-                    key={`${preview.key}-${preview.fromBatch}`}
-                    className={cn(
-                      "min-h-96 animate-in text-foreground duration-200 fade-in-0 [&_li]:ml-4 [&_ol]:list-decimal [&_ul]:list-disc [&_p:last-child]:mb-0",
-                      STORY_CLASS,
-                    )}
-                    // The case's own facts, built by the app from its text and row (escaped there).
-                    dangerouslySetInnerHTML={{ __html: previewHtml(preview.facts) || "<p>No facts of the case.</p>" }}
-                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="Next case"
+                    disabled={at >= listed.length - 1}
+                    onClick={() => setPreviewKey(listed[at + 1].key)}
+                  >
+                    <ChevronRightIcon aria-hidden />
+                  </Button>
+                  <span className="text-body-compact text-muted-foreground tabular-nums">
+                    {at + 1} of {listed.length}
+                  </span>
+                  <span className="ml-auto pr-1 text-body-compact text-muted-foreground">
+                    {preview.own && !preview.fromBatch ? "Story from the Excel" : "Batch text"}
+                  </span>
                 </div>
-              ) : null}
-            </div>
+                <div
+                  key={`${preview.key}-${preview.fromBatch}`}
+                  className={cn(
+                    "min-h-96 animate-in text-foreground duration-200 fade-in-0 [&_li]:ml-4 [&_ol]:list-decimal [&_ul]:list-disc [&_p:last-child]:mb-0",
+                    STORY_CLASS,
+                  )}
+                  // The case's own facts, built by the app from its text and row (escaped there).
+                  dangerouslySetInnerHTML={{ __html: previewHtml(preview.facts) || "<p>No facts of the case.</p>" }}
+                />
+              </div>
+            ) : null}
             <p className="text-body-compact text-muted-foreground">
               How each case reads in its complaint, under Facts of the case.
             </p>
@@ -457,10 +464,10 @@ export function FactsCard({
 
 /**
  * On leaving Facts, when some rows already have a story and the batch text exists: keep
- * their stories, or give every case the batch text. Built as the app's choice dialogs are
- * (`download-case-file-dialog.tsx`): a header band, a plain radio list, a footer band. It
- * speaks in counts, so it reads the same for 4 cases or 400; the safe choice is first and
- * chosen unless the filer chose the other before.
+ * their stories, or give every case the batch text. Built as plainly as
+ * the DS dialog, title, a plain radio list and the footer band, with no more copy than
+ * the two outcomes (owner, 2026-11-12). Counts only, so it reads the same for 4 cases or
+ * 400; the safe choice is first and chosen unless the filer chose the other before.
  */
 export function FactsQuestion({
   open,
@@ -479,19 +486,9 @@ export function FactsQuestion({
   onChoose: (everyCase: boolean) => void;
 }) {
   const [every, setEvery] = React.useState(initial);
-  const empty = total - own;
-  const one = own === 1;
   const choices = [
-    {
-      value: "keep",
-      label: one ? "Keep the story from the Excel" : `Keep the ${own} stories from the Excel`,
-      detail: `The batch text goes into the ${empty === 1 ? "1 case" : `${empty} cases`} without one.`,
-    },
-    {
-      value: "replace",
-      label: `Use the batch text for all ${total} cases`,
-      detail: one ? "The story in the Excel isn't used." : `The ${own} stories in the Excel aren't used.`,
-    },
+    { value: "keep", label: own === 1 ? "Keep its story" : "Keep their stories" },
+    { value: "replace", label: `Use the batch text for all ${total}` },
   ];
   return (
     <Dialog
@@ -501,41 +498,35 @@ export function FactsQuestion({
         onOpenChange(next);
       }}
     >
-      <ChromeDialogContent className="flex max-h-[calc(100dvh---spacing(12))] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
-        <DialogHeader className="gap-1 border-b border-hairline px-6 py-4 text-left">
-          <DialogTitle className="text-title-s font-semibold tabular-nums">
-            {one ? "1 case already has a story" : `${own} cases already have a story`}
+      <ChromeDialogContent showCloseButton={false} className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="tabular-nums">
+            {own === 1 ? "1 case already has a story in the Excel" : `${own} cases already have a story in the Excel`}
           </DialogTitle>
-          <DialogDescription>Choose what happens to {one ? "it" : "them"} before you continue.</DialogDescription>
         </DialogHeader>
-
-        <div className="flex min-h-0 flex-col overflow-y-auto px-6 py-4">
-          <RadioGroup
-            value={every ? "replace" : "keep"}
-            onValueChange={(v) => setEvery(v === "replace")}
-            aria-label="What happens to the stories in the Excel"
-            className="flex flex-col gap-4"
-          >
-            {choices.map((c) => (
-              <div key={c.value} className="flex items-start gap-3">
-                <RadioGroupItem value={c.value} id={`facts-${c.value}`} className="mt-0.5" />
-                <Label htmlFor={`facts-${c.value}`} className="flex flex-col items-start gap-0.5 tabular-nums">
-                  <span>{c.label}</span>
-                  <span className="font-normal text-muted-foreground">{c.detail}</span>
-                </Label>
-              </div>
-            ))}
-          </RadioGroup>
-        </div>
-
-        <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-hairline px-6 py-4 sm:flex-row sm:justify-end">
+        <RadioGroup
+          value={every ? "replace" : "keep"}
+          onValueChange={(v) => setEvery(v === "replace")}
+          aria-label="What happens to the stories in the Excel"
+          className="flex flex-col gap-1"
+        >
+          {choices.map((c) => (
+            <div key={c.value} className="flex min-h-10 items-center gap-3">
+              <RadioGroupItem value={c.value} id={`facts-${c.value}`} />
+              <Label htmlFor={`facts-${c.value}`} className="text-body-compact font-normal tabular-nums">
+                {c.label}
+              </Label>
+            </div>
+          ))}
+        </RadioGroup>
+        <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Back
           </Button>
           <Button type="button" onClick={() => onChoose(every)}>
             Continue
           </Button>
-        </div>
+        </DialogFooter>
       </ChromeDialogContent>
     </Dialog>
   );
