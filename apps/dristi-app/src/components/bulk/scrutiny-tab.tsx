@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowRightIcon,
   CircleAlertIcon,
@@ -118,11 +118,15 @@ const rankOf = (c: CaseView) => {
   return s === "fix" ? 0 : s === "check" ? 1 : 2;
 };
 
-type Show = "fix" | "check" | "docs" | "complete" | "all";
+type Show = "fix" | "check" | "all";
 
-/** Where a case stands, in the one status form: the state, the first reason, how many more. */
+/**
+ * A case's one status here: red To fix or amber To check with its first reason. A case
+ * whose details are done shows nothing: nothing on it needs the filer (owner, 2026-11-12).
+ * Documents are the Documents step's, never said here.
+ */
 function ToFix({ c }: { c: CaseView }) {
-  return <CaseBadge c={c} />;
+  return rankOf(c) < 2 ? <CaseBadge c={c} /> : null;
 }
 
 /**
@@ -201,6 +205,7 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
   const [error, setError] = React.useState<string | null>(null);
   const closed = !!batch.clubbedInto;
   const params = useSearchParams();
+  const router = useRouter();
   const ai = params.get("ai");
   // The case the filer came back from, marked so they can find their place.
   const last = params.get("case");
@@ -208,16 +213,13 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
   const open = batch.cases.filter(isOpen);
   const fixing = open.filter((c) => rankOf(c) === 0);
   const checking = open.filter((c) => rankOf(c) === 1);
-  // Details done: said as where they stand now, missing documents or ready to sign.
-  const docsOpen = open.filter((c) => caseState(c) === "docs");
-  const ready = open.filter((c) => caseState(c) === "complete");
   const [show, setShow] = React.useState<Show>(fixing.length ? "fix" : "all");
   const [search, setSearch] = React.useState("");
   const [page, setPage] = React.useState(0);
   const [removing, setRemoving] = React.useState<CaseView | null>(null);
 
   const term = search.trim().toLowerCase();
-  const inShow = { fix: fixing, check: checking, docs: docsOpen, complete: ready, all: open }[show];
+  const inShow = { fix: fixing, check: checking, all: open }[show];
   const listed = [...inShow].sort((a, b) => rankOf(a) - rankOf(b)).filter((c) => caseMatches(c, term));
   const { pages, at, shown } = pageOf(listed, page);
 
@@ -285,8 +287,6 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
           filters={[
             { id: "fix", label: "To fix", count: fixing.length },
             { id: "check", label: "To check", count: checking.length },
-            { id: "docs", label: "Missing documents", count: docsOpen.length },
-            { id: "complete", label: "Ready to sign", count: ready.length },
           ]}
         />
         <CaseSearch
@@ -327,8 +327,10 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
                     return (
                       <TableRow
                         key={c.id}
-                        className={tableRowClass()}
+                        className={cn(tableRowClass(), "cursor-pointer")}
                         aria-current={c.id === last ? "true" : undefined}
+                        // The whole row opens the case; the name stays the keyboard's link.
+                        onClick={() => router.push(href)}
                       >
                         <TableCell className={TABLE_CELL}>
                           <Link href={href} className="font-medium hover:underline">
@@ -344,25 +346,32 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
                           <ToFix c={c} />
                         </TableCell>
                         <TableCell className={TABLE_CELL}>
-                          <span className="flex justify-end gap-1">
-                            <Button asChild variant="outline" size="sm">
-                              <Link href={href}>{rankOf(c) === 2 ? "Open" : "Fix"}</Link>
-                            </Button>
-                            {!closed ? (
-                              <Button
-                                variant="ghost"
-                                size="icon-sm"
-                                className="text-muted-foreground"
-                                aria-label={`Remove ${c.title} from this batch`}
-                                title="Remove from this batch"
-                                disabled={busy}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setRemoving(c);
-                                }}
-                              >
-                                <Trash2Icon aria-hidden />
+                          <span className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                            {rankOf(c) < 2 ? (
+                              <Button asChild variant="ghost" size="sm" className="text-body-compact">
+                                <Link href={href}>{rankOf(c) === 0 ? "Fix" : "Check"}</Link>
                               </Button>
+                            ) : null}
+                            {!closed ? (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    className="text-muted-foreground"
+                                    aria-label={`More for ${c.title}`}
+                                    disabled={busy}
+                                  >
+                                    <EllipsisVerticalIcon aria-hidden />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem variant="destructive" onSelect={() => setRemoving(c)}>
+                                    <Trash2Icon aria-hidden />
+                                    Remove {c.title} from this batch
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             ) : null}
                           </span>
                         </TableCell>
@@ -390,9 +399,13 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
                       </span>
                     </Link>
                     <span className="flex items-center gap-2">
-                      <Button asChild variant="outline" className="flex-1">
-                        <Link href={href}>{rankOf(c) === 2 ? "Open" : "Fix"}</Link>
-                      </Button>
+                      {rankOf(c) < 2 ? (
+                        <Button asChild variant="secondary" className="flex-1">
+                          <Link href={href}>{rankOf(c) === 0 ? "Fix" : "Check"}</Link>
+                        </Button>
+                      ) : (
+                        <span className="flex-1" />
+                      )}
                       {!closed ? (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
