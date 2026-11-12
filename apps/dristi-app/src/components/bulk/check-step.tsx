@@ -13,7 +13,6 @@
 import * as React from "react";
 import {
   ExternalLinkIcon,
-  FileSpreadsheetIcon,
   FileTextIcon,
   ChevronDownIcon,
   PlusIcon,
@@ -51,7 +50,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { DetailFieldMenu } from "@/components/filing/detail-field-menu";
 import { RichTextEditor, type BracketMarks, type RichTextEditorHandle } from "@/components/filing/rich-text-editor";
-import { OptionSelect } from "@/components/filing/inputs";
+import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
@@ -251,26 +250,27 @@ export function FactsCard({
   const [pending, setPending] = React.useState<DetailsFormat | null>(null);
   const [previewKey, setPreviewKey] = React.useState<string>("");
   const [mode, setMode] = React.useState<"write" | "preview">("write");
-  // Preview lists only the cases with their own story, when asked from the census line.
-  const [onlyOwn, setOnlyOwn] = React.useState(false);
-  const [confirmAll, setConfirmAll] = React.useState(false);
+
   const current = formats.find((f) => f.id === templateId);
   const edited = current ? html !== formatForFiler(current) : !isEmpty(html);
   const blanks = writtenBlanks(html);
   const empty = isEmpty(html);
   const ownCases = cases?.filter((c) => c.own) ?? [];
-  const listed = onlyOwn && ownCases.length ? ownCases : (cases ?? []);
+  // The cases with their own story first: they are the ones with a choice.
+  const listed = cases ? [...ownCases, ...cases.filter((c) => !c.own)] : [];
   const preview = listed.find((c) => c.key === previewKey) ?? listed[0] ?? null;
   const replaced = replace.length;
   const rest = total - own;
-  const allReplaced = own > 0 && replaced >= own;
-  const showOwn = () => {
-    setOnlyOwn(true);
-    setPreviewKey(ownCases[0]?.key ?? "");
-    setMode("preview");
+  // The batch-wide choice; "" while the cases differ (some switched one at a time).
+  const choice = replaced === 0 ? "excel" : replaced >= own ? "batch" : "";
+  const chooseAll = (value: string) => {
+    if (value === "excel") onReplace([]);
+    else if (value === "batch") onReplace(ownCases.map((c) => c.reference));
   };
-  const switchCase = (c: CheckCase) =>
-    onReplace(c.fromBatch ? replace.filter((ref) => ref !== c.reference) : [...replace, c.reference]);
+  const chooseOne = (c: CheckCase, value: string) => {
+    if (value === "batch" && !c.fromBatch) onReplace([...replace, c.reference]);
+    if (value === "excel" && c.fromBatch) onReplace(replace.filter((ref) => ref !== c.reference));
+  };
   // The editor's brackets: fields it offers on `[`, and a real case to show a field's value.
   const first = cases?.[0];
   const marks = React.useMemo<BracketMarks>(
@@ -291,48 +291,33 @@ export function FactsCard({
   return (
     <Card variant="raised">
       <CardContent className="flex flex-col gap-5">
-        {/* Said, not asked: which rows keep their own story, and the one act that changes
-            all of them. Only when some rows bring a story in the file. */}
+        {/* One decision, as a control: the rows that bring their own story keep it or take
+            the batch text. The same control decides one case at a time in Preview. */}
         {own > 0 ? (
-          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-lg bg-surface-sunken py-2 pr-2 pl-4">
-            <p className="flex min-w-0 flex-1 items-start gap-2 text-body-compact tabular-nums">
-              <FileSpreadsheetIcon aria-hidden className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-              <span>
-                {allReplaced ? (
-                  <>
-                    All {total} cases use the text below, in place of {own === 1 ? "the story" : `${own} stories`} from
-                    the Excel.
-                  </>
-                ) : (
-                  <>
-                    {replaced
-                      ? `${own - replaced} of ${total} cases keep their story from the Excel.`
-                      : `${own} of ${total} rows ${own === 1 ? "has its" : "have their"} own story in the Excel.`}
-                    {rest + replaced ? ` The other ${rest + replaced} use the text below.` : ""}
-                  </>
-                )}{" "}
-                {ownCases.length ? (
-                  <Button type="button" variant="link" className="h-auto p-0 text-body-compact" onClick={showOwn}>
-                    See {own === 1 ? "it" : "them"}
-                  </Button>
-                ) : null}
-              </span>
-            </p>
-            {empty ? null : allReplaced ? (
-              <Button type="button" variant="ghost" className="shrink-0" onClick={() => onReplace([])}>
-                Keep the Excel {own === 1 ? "story" : "stories"}
-              </Button>
-            ) : (
-              <Button
-                type="button"
-                variant="ghost"
-                className="shrink-0"
-                disabled={!ownCases.length}
-                onClick={() => setConfirmAll(true)}
-              >
-                Use the text below for all {total}
-              </Button>
-            )}
+          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-hairline pb-5">
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <p className="text-body-compact font-semibold tabular-nums">
+                {own} of {total} rows have their own story in the Excel
+              </p>
+              <p className="text-body-compact text-muted-foreground tabular-nums">
+                {choice === "excel"
+                  ? `They keep it. The other ${rest} cases use the batch text.`
+                  : choice === "batch"
+                    ? `All ${total} cases use the batch text.`
+                    : `${replaced} of ${own} switched to the batch text in Preview.`}
+              </p>
+            </div>
+            <SegmentedControl
+              type="single"
+              value={choice}
+              onValueChange={chooseAll}
+              aria-label={`Story for the ${own} rows with their own`}
+            >
+              <SegmentedControlItem value="excel">Keep Excel story</SegmentedControlItem>
+              <SegmentedControlItem value="batch" disabled={empty || !ownCases.length}>
+                Use batch text
+              </SegmentedControlItem>
+            </SegmentedControl>
           </div>
         ) : null}
 
@@ -346,26 +331,6 @@ export function FactsCard({
                 Preview
               </TabsTrigger>
             </TabsList>
-            {mode === "preview" && listed.length ? (
-              <div className="flex w-full items-center gap-3 sm:w-auto">
-                {onlyOwn && ownCases.length ? (
-                  <Button type="button" variant="link" className="h-auto shrink-0 p-0 text-body-compact" onClick={() => setOnlyOwn(false)}>
-                    Show all {total}
-                  </Button>
-                ) : null}
-                <div className="min-w-0 flex-1 sm:w-80 sm:flex-none">
-                  <OptionSelect
-                    ariaLabel="Case to preview"
-                    value={preview?.key ?? ""}
-                    onValueChange={setPreviewKey}
-                    options={listed.map((c) => ({
-                      value: c.key,
-                      label: `${c.accused || c.reference}${c.own && !c.fromBatch ? " · from the Excel" : ""}`,
-                    }))}
-                  />
-                </div>
-              </div>
-            ) : null}
           </div>
           <TabsContent value="write" className="mt-0">
         <div className="flex flex-col gap-2">
@@ -438,62 +403,77 @@ export function FactsCard({
           </div>
           </TabsContent>
           <TabsContent value="preview" className="mt-0 flex flex-col gap-2">
-            {/* Where this case's story comes from, and the switch for this case alone. */}
-            {preview && own > 0 ? (
-              <div className="flex min-h-8 flex-wrap items-center justify-between gap-x-4 gap-y-1 text-body-compact">
-                <span className="text-muted-foreground">
-                  {!preview.own
-                    ? "From the batch text. This row has no story in the Excel."
-                    : preview.fromBatch
-                      ? "From the batch text, in place of this row's story in the Excel."
-                      : "From this row in the Excel."}
-                </span>
-                {preview.own && !empty ? (
-                  <Button type="button" variant="ghost" onClick={() => switchCase(preview)}>
-                    {preview.fromBatch ? "Use the Excel story instead" : "Use the batch text instead"}
-                  </Button>
-                ) : null}
-              </div>
-            ) : null}
-            {preview ? (
-              <div
-                className={cn(
-                  "min-h-96 rounded-lg bg-surface-sunken text-foreground [&_li]:ml-4 [&_ol]:list-decimal [&_ul]:list-disc [&_p:last-child]:mb-0",
-                  STORY_CLASS,
-                )}
-                // The case's own facts, built by the app from its text and row (escaped there).
-                dangerouslySetInnerHTML={{ __html: previewHtml(preview.facts) || "<p>No facts of the case.</p>" }}
-              />
-            ) : null}
+            {/* Every case on the left, the one chosen read as it will be filed on the right:
+                a click is answered by the page beside it. */}
+            <div className="grid gap-4 md:grid-cols-[17rem_minmax(0,1fr)]">
+              <ul aria-label="Cases" className="flex max-h-[34rem] flex-col gap-0.5 overflow-y-auto rounded-xl bg-surface-sunken p-1.5">
+                {listed.map((c, i) => {
+                  const on = c.key === preview?.key;
+                  const head = i === 0 && own > 0 ? `Own story in the Excel · ${own}` : i === own && own > 0 ? `No story in the Excel · ${total - own}` : null;
+                  return (
+                    <li key={c.key} className="flex flex-col">
+                      {head ? (
+                        <span className={cn("px-3 pb-1 text-body-compact text-muted-foreground tabular-nums", i ? "pt-4" : "pt-2")}>
+                          {head}
+                        </span>
+                      ) : null}
+                      <button
+                        type="button"
+                        aria-current={on || undefined}
+                        onClick={() => setPreviewKey(c.key)}
+                        className={cn(
+                          "flex min-h-10 w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-body-compact outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
+                          on ? "bg-card font-medium shadow-raised" : "hover:bg-accent",
+                        )}
+                      >
+                        <span className="min-w-0 truncate">{c.accused || c.reference}</span>
+                        {c.own ? (
+                          <span className="shrink-0 text-muted-foreground">{c.fromBatch ? "Batch text" : "Excel story"}</span>
+                        ) : null}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+              {preview ? (
+                <div className="flex min-w-0 flex-col rounded-xl border border-input bg-card">
+                  <div className="flex min-h-14 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-hairline py-2 pr-2 pl-6">
+                    <span className="min-w-0 truncate text-body font-semibold">{preview.accused || preview.reference}</span>
+                    {preview.own ? (
+                      <SegmentedControl
+                        type="single"
+                        size="compact"
+                        value={preview.fromBatch ? "batch" : "excel"}
+                        onValueChange={(v) => chooseOne(preview, v)}
+                        aria-label="Story for this case"
+                      >
+                        <SegmentedControlItem value="excel">Excel story</SegmentedControlItem>
+                        <SegmentedControlItem value="batch" disabled={empty}>
+                          Batch text
+                        </SegmentedControlItem>
+                      </SegmentedControl>
+                    ) : (
+                      <span className="pr-4 text-body-compact text-muted-foreground">Batch text</span>
+                    )}
+                  </div>
+                  <div
+                    key={`${preview.key}-${preview.fromBatch}`}
+                    className={cn(
+                      "min-h-96 animate-in text-foreground duration-200 fade-in-0 [&_li]:ml-4 [&_ol]:list-decimal [&_ul]:list-disc [&_p:last-child]:mb-0",
+                      STORY_CLASS,
+                    )}
+                    // The case's own facts, built by the app from its text and row (escaped there).
+                    dangerouslySetInnerHTML={{ __html: previewHtml(preview.facts) || "<p>No facts of the case.</p>" }}
+                  />
+                </div>
+              ) : null}
+            </div>
             <p className="text-body-compact text-muted-foreground">
-              How this reads in the complaint, under Facts of the case.
+              How each case reads in its complaint, under Facts of the case.
             </p>
           </TabsContent>
         </Tabs>
       </CardContent>
-
-      <AlertDialog open={confirmAll} onOpenChange={setConfirmAll}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Use the text below for all {total} cases?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {own === 1 ? "The story" : `The ${own} stories`} from the Excel won&apos;t be used. You can switch any case
-              back in Preview.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Keep the Excel {own === 1 ? "story" : "stories"}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                onReplace(ownCases.map((c) => c.reference));
-                setConfirmAll(false);
-              }}
-            >
-              Use for all {total}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <AlertDialog open={!!pending} onOpenChange={(open) => !open && setPending(null)}>
         <AlertDialogContent>
