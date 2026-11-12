@@ -119,6 +119,7 @@ export function RichTextEditor({
   minHeightClassName = "min-h-40",
   className,
   id,
+  toolbarStart,
   toolbarEnd,
   handleRef,
   marks,
@@ -131,6 +132,8 @@ export function RichTextEditor({
   minHeightClassName?: string;
   className?: string;
   id?: string;
+  /** Something before the formatting tools, divided from them (bulk facts: Write / Preview). */
+  toolbarStart?: React.ReactNode;
   /** Actions at the far end of the formatting strip. */
   toolbarEnd?: React.ReactNode;
   handleRef?: React.Ref<RichTextEditorHandle>;
@@ -354,6 +357,12 @@ export function RichTextEditor({
           dividers, so the box reads as one considered surface rather than a grey band over
           a field. Buttons stay 36px, `after:-inset-1` grows each hit area to 44px. */}
       <div role="toolbar" aria-label="Text formatting" className="flex flex-wrap items-center gap-1 border-b border-hairline px-3 py-2">
+        {toolbarStart ? (
+          <>
+            {toolbarStart}
+            <span aria-hidden className="mx-2 h-5 w-px bg-border" />
+          </>
+        ) : null}
         {TOOLS.map((group, g) => (
           <React.Fragment key={g}>
             {g ? <span aria-hidden className="mx-1 h-5 w-px bg-border" /> : null}
