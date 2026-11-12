@@ -51,6 +51,14 @@ export function FilingBreadcrumbs() {
         mono: true,
       });
     }
+    // A case is opened from Case details, so that list is the level above it (owner,
+    // 2026-11-12: the trail, not a Back button, is the way out of a case).
+    if (inCase && batchCrumb && parts[1] === batchCrumb.id) {
+      crumbs.push({
+        label: "Case details",
+        href: `/filings/bulk/${batchCrumb.id}?tab=scrutiny&case=${encodeURIComponent(parts[3])}`,
+      });
+    }
     if ((inCase || parts[1] === "upload") && draftLabel && draftLabel !== "Untitled filing") {
       crumbs.push({ label: draftLabel });
     }
