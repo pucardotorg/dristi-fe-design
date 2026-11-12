@@ -48,6 +48,8 @@ import { BatchBreadcrumbLabel, DraftBreadcrumbLabel, TOP_BAR_HEIGHT } from "@/co
 import { FieldPolicyProvider, type FieldPolicy } from "@/components/filing/field-policy";
 import { FilingShell } from "@/components/filing/filing-shell";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Empty,
   EmptyContent,
@@ -77,6 +79,40 @@ function batchHref(batchId: string, tab: string, ai: string | null, caseId?: str
 
 
 const editable = (c: CaseView) => c.stage === "held" || c.stage === "ready";
+
+/** A link to a case, saying which way the filer moved, so it can slide in from that side. */
+const withFrom = (href: string, from: "next" | "prev") => `${href}${href.includes("?") ? "&" : "?"}from=${from}`;
+
+/* "Show full filing" outlives a case: the filer chooses how they read, once. */
+const FOCUS_KEY = "bulk-case-focus";
+function readFocus(): boolean {
+  try {
+    return window.sessionStorage.getItem(FOCUS_KEY) !== "0";
+  } catch {
+    return true;
+  }
+}
+
+/*
+ * The cases the filer is working through, kept for the visit: a case fixed stays in the
+ * count as done instead of dropping out of it, so "Case 3 of 8" means the same case all
+ * the way through (owner, 2026-11-12: the count shifted under the filer).
+ */
+const queueKey = (batchId: string) => `bulk-queue:${batchId}`;
+function readQueue(batchId: string): string[] {
+  try {
+    return JSON.parse(window.sessionStorage.getItem(queueKey(batchId)) ?? "[]") as string[];
+  } catch {
+    return [];
+  }
+}
+function writeQueue(batchId: string, ids: string[]) {
+  try {
+    window.sessionStorage.setItem(queueKey(batchId), JSON.stringify(ids));
+  } catch {
+    /* A private window keeps no list; the count is then the live one. */
+  }
+}
 
 /**
  * The next case, after this one and round to the start, in Case details' own queues: one
@@ -115,6 +151,19 @@ export function BulkCaseFlow({
   const ai = aiModeFrom(aiParam, profile.aiMode);
   setBulkAiMode(ai);
   const step = stepFromPathname(usePathname());
+  const from = useSearchParams().get("from");
+  // Only what is open, until the filer asks for the whole filing (as scrutiny does).
+  const [focus, setFocusState] = React.useState(readFocus);
+  const setFocus = React.useCallback((v: boolean) => {
+    setFocusState(v);
+    try {
+      window.sessionStorage.setItem(FOCUS_KEY, v ? "1" : "0");
+    } catch {
+      /* Kept for this page only. */
+    }
+  }, []);
+  // A section whose open check sits on no field of its own shows in full, not empty.
+  const [fullAt, setFullAt] = React.useState<string | null>(null);
 
   const [batch, setBatch] = React.useState<BatchView | null>(null);
   const [error, setError] = React.useState<string | null>(null);
@@ -178,7 +227,9 @@ export function BulkCaseFlow({
     // The case's details only: its files are added at the batch's Documents step (round 3:
     // a missing file blocked Continue here, though Documents comes after Case details).
     const flags = editable(c) ? detailFlags(c) : [];
-    if (flags.some((f) => f.section === step)) return null;
+    // Continue is always "the next thing that needs you" (owner, 2026-11-12: Continue and
+    // the strip's arrow were two different nexts): the next section with something open,
+    // else the next case. A case left with something open waits (BLK-08).
     const elsewhere = flags.filter((f) => f.section !== step);
     if (elsewhere.length) {
       const s = firstFlaggedStep(elsewhere);
@@ -190,7 +241,7 @@ export function BulkCaseFlow({
     const cases = batch.cases;
     const toFix = nextToFix(cases, cases.findIndex((x) => x.id === c.id));
     const left = cases.filter((x) => x.id !== c.id && (caseState(x) === "fix" || caseState(x) === "check")).length;
-    const status = (
+    const status = flags.length ? undefined : (
       <span className="inline-flex items-center gap-2 text-body-compact text-success-ink">
         <CheckIcon className="size-4" aria-hidden />
         {editable(c) ? "Details done" : "Nothing to change here"}
@@ -232,6 +283,8 @@ export function BulkCaseFlow({
       countFor: (s) => flags.filter((f) => f.section === s).length,
       next,
       noBack: true,
+      focus: focus && fullAt !== `${caseId}:${step}`,
+      focusRail: focus,
       // What is open in this section sits under its title, above the form it is about.
       underTitle:
         batch && c ? (
@@ -245,7 +298,18 @@ export function BulkCaseFlow({
           />
         ) : null,
     };
-  }, [c, step, closed, next, batch, batchId]);
+  }, [c, step, closed, next, batch, batchId, focus, fullAt, caseId]);
+
+  // Focus hides the fields with nothing open; if this section's open check sits on none of
+  // its fields, show the section whole rather than an empty page.
+  const hereOpen = c && editable(c) ? detailFlags(c).some((f) => f.section === step) : false;
+  React.useEffect(() => {
+    if (!focus || !hereOpen) return;
+    const timer = window.setTimeout(() => {
+      if (!document.querySelector("main [data-flagged]")) setFullAt(`${caseId}:${step}`);
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [focus, hereOpen, caseId, step]);
 
   if (!ready) return null;
 
@@ -295,12 +359,33 @@ export function BulkCaseFlow({
       <FieldPolicyProvider value={policy}>
         <FilingShell
           banner={
-            <CaseBar batchId={batchId} batch={batch} c={c} step={step} aiParam={aiParam} error={error} />
+            <CaseBar
+              batchId={batchId}
+              batch={batch}
+              c={c}
+              step={step}
+              aiParam={aiParam}
+              error={error}
+              focus={focus}
+              onFocus={setFocus}
+            />
           }
         >
           {/* A case arriving fades in, so moving to the next one reads as a change of case
               rather than a reload. Opacity only: a transform would unpin the footer. */}
-          <div key={caseId} className="flex min-w-0 flex-1 flex-col animate-in fade-in-0 duration-300 motion-reduce:animate-none">
+          <div
+            key={caseId}
+            className={cn(
+              "flex min-w-0 flex-1 flex-col",
+              // The page arrives from the side the filer moved to; from the list, it fades.
+              // Only the page moves: a transform on the footer would unpin it.
+              "[&>*:first-child]:animate-in [&>*:first-child]:fade-in-0 [&>*:first-child]:duration-300 motion-reduce:[&>*:first-child]:animate-none",
+              from === "next" && "[&>*:first-child]:slide-in-from-right-8",
+              from === "prev" && "[&>*:first-child]:slide-in-from-left-8",
+              // Focus: cards and groups with nothing open go with their fields.
+              policy.focus && "[&_[data-slot=card]:not(:has([data-flagged]))]:hidden [&_section:not(:has([data-flagged]))]:hidden",
+            )}
+          >
             {children}
           </div>
         </FilingShell>
@@ -330,6 +415,8 @@ function CaseBar({
   step,
   aiParam,
   error,
+  focus,
+  onFocus,
 }: {
   batchId: string;
   batch: BatchView | null;
@@ -337,9 +424,18 @@ function CaseBar({
   step: StepId | null;
   aiParam: string | null;
   error: string | null;
+  focus: boolean;
+  onFocus: (focus: boolean) => void;
 }) {
   const demo = useDemoTools();
   const { update } = useFiling();
+  const [kept] = React.useState(() => readQueue(batchId));
+  const live = batch ? batch.cases.filter((x) => caseState(x) === "fix" || caseState(x) === "check").map((x) => x.id) : [];
+  const ids = new Set([...kept, ...live]);
+  const idsKey = [...ids].join(",");
+  React.useEffect(() => {
+    if (idsKey) writeQueue(batchId, idsKey.split(","));
+  }, [batchId, idsKey]);
 
   // The page's gutter, which narrows when the source rail docks beside the form.
   const gutter = "px-6 lg:px-12 lg:[main:has([data-source-open])_&]:px-6";
@@ -361,19 +457,19 @@ function CaseBar({
     );
   if (!batch || !c) return strip(<Skeleton className="h-6 w-full max-w-xs rounded-md" />);
 
-  // Counted and walked in the queue the list calls "To fix" (v8: "Case 1 of 19 to fix"); a
-  // case outside it is counted in the batch, and the arrows walk the batch.
+  // The cases being worked through this visit, in the batch's order: those to fix or check,
+  // and those fixed since, which stay in the count as done.
   const cases = batch.cases;
-  const queue = cases.filter((x) => caseState(x) === "fix");
-  const queueAt = queue.findIndex((x) => x.id === c.id);
-  const walk = queueAt >= 0 ? queue : cases;
+  const queue = cases.filter((x) => ids.has(x.id));
+  const inQueue = queue.some((x) => x.id === c.id);
+  const walk = inQueue ? queue : cases;
   const at = walk.findIndex((x) => x.id === c.id);
   const prev = walk[at - 1] ?? null;
   const next = walk[at + 1] ?? null;
-  const inQueue = queueAt >= 0;
+  const done = editable(c) && detailFlags(c).length === 0;
   // A case with something open opens where it is (as from the list); one without, at the
   // section on screen, so walking the batch keeps your place.
-  const sameStep = (x: CaseView) => {
+  const openAt = (x: CaseView) => {
     const open = editable(x) ? detailFlags(x) : [];
     return caseFlowHref(
       batchId,
@@ -383,27 +479,51 @@ function CaseBar({
     );
   };
 
-  const move = (x: CaseView | null, label: string, icon: React.ReactNode) =>
-    x ? (
-      <Button asChild variant="ghost" size="icon-sm" aria-label={`${label}: ${x.title}`} title={x.title}>
-        <Link href={sameStep(x)}>{icon}</Link>
+  const move = (x: CaseView | null, dir: "prev" | "next") => {
+    const label = dir === "prev" ? "Previous" : "Next";
+    const icon = dir === "prev" ? <ChevronLeftIcon data-icon="inline-start" aria-hidden /> : <ChevronRightIcon data-icon="inline-end" aria-hidden />;
+    const body =
+      dir === "prev" ? (
+        <>
+          {icon}
+          {label}
+        </>
+      ) : (
+        <>
+          {label}
+          {icon}
+        </>
+      );
+    return x ? (
+      <Button asChild variant="ghost" size="sm" className="text-body-compact" title={x.title}>
+        <Link href={withFrom(openAt(x), dir)} aria-label={`${label} case: ${x.title}`}>
+          {body}
+        </Link>
       </Button>
     ) : (
-      <Button variant="ghost" size="icon-sm" aria-label={label} disabled>
-        {icon}
+      <Button variant="ghost" size="sm" className="text-body-compact" disabled>
+        {body}
       </Button>
     );
+  };
 
   return strip(
     <div className="flex w-full items-center gap-4">
       <p className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 text-body-compact tabular-nums">
         <span className="font-medium">
-          {inQueue ? `Case ${queueAt + 1} of ${queue.length} to fix` : `Case ${at + 1} of ${cases.length}`}
+          {inQueue ? `Case ${at + 1} of ${queue.length} to fix or check` : `Case ${at + 1} of ${cases.length}`}
         </span>
         <span aria-hidden className="text-muted-foreground max-sm:hidden">
           ·
         </span>
         <span className="font-mono text-muted-foreground max-sm:hidden">{c.reference}</span>
+        {/* The moment a case is finished, said where the eye already is. */}
+        {done && inQueue ? (
+          <span key="done" role="status" className="fb-rise inline-flex items-center gap-1.5 font-medium text-success-ink">
+            <CheckIcon className="size-4" aria-hidden />
+            Details done
+          </span>
+        ) : null}
         {c.original ? (
           <span className="max-sm:hidden">
             <OriginalDoc original={c.original} />
@@ -416,9 +536,17 @@ function CaseBar({
           Demo values
         </Button>
       ) : null}
-      <nav aria-label="Cases in this batch" className="flex shrink-0 items-center gap-1">
-        {move(prev, inQueue ? "Previous case to fix" : "Previous case", <ChevronLeftIcon aria-hidden />)}
-        {move(next, inQueue ? "Next case to fix" : "Next case", <ChevronRightIcon aria-hidden />)}
+      {/* A reading mode, not an action, so a switch (as on scrutiny's corrections). */}
+      <div className="flex items-center gap-2 max-sm:hidden">
+        <Switch id="bulk-full-filing" checked={!focus} onCheckedChange={(on) => onFocus(!on)} />
+        <Label htmlFor="bulk-full-filing" className="text-body-compact font-normal text-muted-foreground">
+          Show full filing
+        </Label>
+      </div>
+      <span aria-hidden className="h-5 w-px bg-border max-sm:hidden" />
+      <nav aria-label="Cases in this batch" className="flex shrink-0 items-center">
+        {move(prev, "prev")}
+        {move(next, "next")}
       </nav>
     </div>,
   );
