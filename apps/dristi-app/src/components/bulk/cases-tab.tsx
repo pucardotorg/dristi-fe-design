@@ -7,7 +7,7 @@ import { FilingFooter } from "@/components/filing/filing-footer";
 import { BatchFooter } from "./batch-footer";
 import { caseState } from "./batch-marks";
 import type { BatchCtx } from "./batch-screen";
-import { CheckCounts } from "./check-step";
+import { CheckCard } from "./check-step";
 
 /**
  * The Cases step revisited: its Check as it was before Create, the counts of what Case
@@ -32,8 +32,9 @@ export function CasesTab({ batch, go }: BatchCtx) {
       ) : null}
       {pending.length ? (
         // Continue is the way to Case details; a second link to it would repeat the footer.
-        <CheckCounts
+        <CheckCard
           created
+          source={batch.source.kind === "api" ? `Sent by ${batch.source.system}` : (batch.source.reference ?? "This batch")}
           total={pending.length}
           fix={states.filter((x) => x === "fix").length}
           check={states.filter((x) => x === "check").length}

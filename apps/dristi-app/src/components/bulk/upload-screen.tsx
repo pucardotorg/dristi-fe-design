@@ -75,7 +75,7 @@ import {
   serverDetailsFormats,
   subscribeToDetailsFormats,
 } from "@/lib/filing/details-formats";
-import { CheckCounts, FactsCard, FactsLine, FactsQuestion, checkCounts, useCheckCases } from "./check-step";
+import { CheckCard, FactsCard, FactsLine, FactsQuestion, checkCounts, useCheckCases } from "./check-step";
 import { FileDrop } from "./file-drop";
 import { FormatChoice, type UploadFormat } from "./format-choice";
 import { bulkFetch } from "./api";
@@ -874,13 +874,7 @@ export function UploadScreen() {
           {/* The title is the sub-step's name; the counts are the subtitle's (audit rule 2). */}
           <FilingPageHeader
             title="Check"
-            description={
-              coreMissing.length
-                ? undefined
-                : counted
-                  ? `${created.length} row${created.length === 1 ? "" : "s"} read from ${fileName}.`
-                  : `Reading ${fileName}…`
-            }
+            description={coreMissing.length || counted ? undefined : `Reading ${fileName}…`}
           />
           {errorNotice}
           {coreMissing.length ? (
@@ -913,6 +907,36 @@ export function UploadScreen() {
               . Each case stays in draft until you enter {missing.length === 1 ? "it" : "them"} on its Case details.
             </StatusLine>
           ) : null}
+          {/* The decision, first: what the file makes, judged as Case details will judge it
+              (owner, 2026-11-10), never a second list of the cases (owner, 2026-11-12). */}
+          {coreMissing.length || docs ? null : checkCases ? (
+            <CheckCard
+              source={fileName}
+              meta={[
+                `${book.cases.rows.length + (book.cases.discarded ?? 0)} ${book.cases.rows.length + (book.cases.discarded ?? 0) === 1 ? "row" : "rows"} in the file`,
+                book.cases.discarded ? `${book.cases.discarded} template ${book.cases.discarded === 1 ? "row" : "rows"} set aside` : "",
+                cannot.length ? `${cannot.length} can't be created` : "",
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+              total={checkCases.length}
+              fix={checkCases.filter((c) => c.state === "fix").length}
+              check={checkCases.filter((c) => c.state === "check").length}
+              footer={
+                created.length && !(own === created.length && !everyCase) ? (
+                  <FactsLine
+                    name={factsHtml.replace(/<[^>]*>|&nbsp;/g, "").trim() ? (formats.find((f) => f.id === factsId)?.name ?? "Your own text") : null}
+                    cases={everyCase ? created.length : created.length - own}
+                    onEdit={() => setStep("facts")}
+                  />
+                ) : undefined
+              }
+            />
+          ) : (
+            <p role="status" className="text-body-compact text-muted-foreground">
+              Checking each case…
+            </p>
+          )}
           {cannot.length && !coreMissing.length ? (
             <Card variant="raised">
               <CardHeader>
@@ -933,7 +957,7 @@ export function UploadScreen() {
               </CardHeader>
               <CardContent>
                 <ul className="flex flex-col">
-                  {cannot.map((x) => (
+                  {cannot.slice(0, 5).map((x) => (
                     <li
                       key={x.index}
                       className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-hairline py-3 last:border-b-0"
@@ -947,30 +971,14 @@ export function UploadScreen() {
                     </li>
                   ))}
                 </ul>
+                {cannot.length > 5 ? (
+                  <p className="pt-3 text-body-compact text-muted-foreground tabular-nums">
+                    And {cannot.length - 5} more in the download.
+                  </p>
+                ) : null}
               </CardContent>
             </Card>
           ) : null}
-          {coreMissing.length || !created.length || (own === created.length && !everyCase) ? null : (
-            <FactsLine
-              name={factsHtml.replace(/<[^>]*>|&nbsp;/g, "").trim() ? (formats.find((f) => f.id === factsId)?.name ?? "Your own text") : null}
-              cases={everyCase ? created.length : created.length - own}
-              onEdit={() => setStep("facts")}
-            />
-          )}
-          {/* The counts, judged as Case details will judge them (owner, 2026-11-10), never a
-              second list of the cases (owner, 2026-11-12). */}
-          {coreMissing.length || docs ? null : checkCases ? (
-            <CheckCounts
-              total={checkCases.length}
-              fix={checkCases.filter((c) => c.state === "fix").length}
-              check={checkCases.filter((c) => c.state === "check").length}
-              cannot={cannot.length}
-            />
-          ) : (
-            <p role="status" className="text-body-compact text-muted-foreground">
-              Checking each case…
-            </p>
-          )}
         </FilingMain>
         {/* Two ways on, and only two: create the cases that can be, or correct the file
             and upload it again. Rows left out never join this batch later. */}

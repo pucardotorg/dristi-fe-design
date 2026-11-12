@@ -210,9 +210,11 @@ export function BatchScreen({ batchId }: { batchId: string }) {
   }[shown];
   const subtitle: string | null = {
     common: null,
-    cases: casesLine(batch),
+    // From a file, the Check card names it and counts the cases; a subtitle would repeat it.
+    cases: fromFile ? null : casesLine(batch),
     scrutiny: fixing || checking
-      ? `${[fixing ? `${fixing} to fix` : "", checking ? `${checking} to check` : ""].filter(Boolean).join(" and ")}. Cases to check can go ahead once you've looked.`
+      ? // The rule, not the counts the pills already give (BLK-08, BLK-12).
+        "Cases to fix wait until they're fixed. Cases to check can go ahead without changes."
       : "Every case's details are done.",
     documents: docsMissing
       ? `${plural(docsMissing, "case is", "cases are")} missing documents. The complainant's are already on every case.`

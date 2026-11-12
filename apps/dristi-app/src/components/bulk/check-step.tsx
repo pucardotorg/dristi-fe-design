@@ -15,6 +15,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   ExternalLinkIcon,
+  FileSpreadsheetIcon,
   FileTextIcon,
   ChevronDownIcon,
   PlusIcon,
@@ -72,6 +73,7 @@ import { ChromeDialogContent } from "@/components/chrome/app-chrome";
 import { cn } from "@/lib/utils";
 
 import { aboutDetails } from "./batch-marks";
+import { StatusWord } from "./stage";
 
 /* ───────────────────────────── The cases, as Create will make them ───────────────────────────── */
 
@@ -156,53 +158,68 @@ export function checkCounts(cases: CheckCase[]) {
 }
 
 /**
- * Check as counts, not a list (owner, 2026-11-12: listing every case, or every reason,
- * does not scale to a 500-row file; Case details is where cases are worked). How many
- * will be created, how many of those Case details will ask about, and how many rows the
- * file can't make. Counts come from the same caseFlags as Case details, so they agree.
- * Only "can't be created" carries colour, and only when there are some.
+ * Check's one decision, as one card (owner, 2026-11-12: three equal stat tiles read as a
+ * sum and decided nothing). The file and what became of its rows (BLK-10, BLK-36), then
+ * the cases it makes as the hero, then how many of those Case details will ask about, by
+ * the same rules (`caseFlags`), so the counts agree after Create. Counts only: never a
+ * list of cases or reasons, which would not scale to a 500-row file.
  */
-export function CheckCounts({
+export function CheckCard({
+  source,
+  meta,
   total,
   fix,
   check,
-  cannot,
   created = false,
+  footer,
 }: {
+  /** The file, or the system that sent the batch. */
+  source: string;
+  /** What became of the file's rows: "14 rows · 2 template rows set aside". */
+  meta?: string;
   total: number;
   fix: number;
   check: number;
-  /** Rows the file can't make; left out when the batch already exists. */
-  cannot?: number;
   /** The batch exists: say what it holds rather than what it will. */
   created?: boolean;
+  /** The facts of the case line, with its way back. */
+  footer?: React.ReactNode;
 }) {
-  const look = fix + check;
-  const stats: { n: number; label: string; detail?: string; tone?: string }[] = [
-    { n: total, label: created ? (total === 1 ? "case in this batch" : "cases in this batch") : total === 1 ? "case will be created" : "cases will be created" },
-    {
-      n: look,
-      label: "need a look in Case details",
-      detail: look ? [fix ? `${fix} to fix` : "", check ? `${check} to check` : ""].filter(Boolean).join(" · ") : "Nothing to fix or check",
-    },
-  ];
-  if (cannot !== undefined)
-    stats.push({
-      n: cannot,
-      label: cannot === 1 ? "row can't be created" : "rows can't be created",
-      tone: cannot ? "text-destructive-ink" : undefined,
-    });
+  const done = total - fix - check;
   return (
-    <Card variant="raised" className="p-6">
-      <dl className={cn("grid gap-6", stats.length === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2")}>
-        {stats.map((x) => (
-          <div key={x.label} className="flex flex-col gap-1">
-            <dd className={cn("order-first text-title-l font-semibold tabular-nums", x.tone)}>{x.n}</dd>
-            <dt className="text-body-compact">{x.label}</dt>
-            {x.detail ? <dd className="text-body-compact text-muted-foreground tabular-nums">{x.detail}</dd> : null}
-          </div>
-        ))}
-      </dl>
+    <Card variant="raised" className="gap-0 p-0">
+      <div className="flex items-center gap-4 px-6 pt-6">
+        <span aria-hidden className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-brand-muted text-brand-muted-foreground">
+          <FileSpreadsheetIcon className="size-6" />
+        </span>
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <h2 className="truncate text-title-s font-semibold" title={source}>
+            {source}
+          </h2>
+          {meta ? <p className="text-body-compact text-muted-foreground tabular-nums">{meta}</p> : null}
+        </div>
+      </div>
+      <div className="flex flex-col gap-3 px-6 pt-6 pb-6">
+        <p className="flex flex-wrap items-baseline gap-x-2 tabular-nums">
+          <span className="text-title-l font-semibold">
+            {total} {total === 1 ? "case" : "cases"}
+          </span>
+          <span className="text-body text-muted-foreground">{created ? "in this batch" : "will be created as drafts"}</span>
+        </p>
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-body-compact tabular-nums">
+          {fix ? <StatusWord state="fix" word={`${fix} to fix`} /> : null}
+          {check ? <StatusWord state="check" word={`${check} to check`} /> : null}
+          <span className="text-muted-foreground">
+            {done === total ? "Nothing to fix or check" : `${done} with nothing to fix or check`}
+          </span>
+        </div>
+        {fix + check ? (
+          <p className="text-body-compact text-muted-foreground">
+            {created ? "They're worked through in Case details." : "You'll work through them in Case details, after you create the batch."}
+          </p>
+        ) : null}
+      </div>
+      {footer ? <div className="border-t border-hairline px-6 py-4">{footer}</div> : null}
     </Card>
   );
 }
