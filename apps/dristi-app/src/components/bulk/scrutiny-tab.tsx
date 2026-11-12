@@ -40,11 +40,11 @@ import {
 
 import { bulkApi, caseFlowHref, type CaseView } from "./api";
 import { BatchFooter } from "./batch-footer";
-import { caseState, isOpen } from "./batch-marks";
+import { caseState, detailFlags, isOpen } from "./batch-marks";
 import type { BatchCtx } from "./batch-screen";
 import { CaseSearch, Pager, caseMatches, pageOf } from "./case-list-tools";
 import { FilterPills } from "./filter-pills";
-import { CaseBadge, StatusWord, shortReason } from "./stage";
+import { StatusWord, shortReason } from "./stage";
 import { StatusLine } from "@/components/feedback";
 
 type Kind = "hold" | "check";
@@ -126,7 +126,14 @@ type Show = "fix" | "check" | "all";
  * Documents are the Documents step's, never said here.
  */
 function ToFix({ c }: { c: CaseView }) {
-  return rankOf(c) < 2 ? <CaseBadge c={c} /> : null;
+  const rank = rankOf(c);
+  if (rank === 2) return null;
+  // How many, not which: a list of field names does not scale (owner, 2026-11-12). The
+  // case itself says which, at the first one.
+  const f = detailFlags(c);
+  const n = rank === 0 ? f.filter((x) => x.level === "hold").length : f.length;
+  const what = rank === 0 ? (n === 1 ? "1 error" : `${n} errors`) : n === 1 ? "1 warning" : `${n} warnings`;
+  return <StatusWord state={rank === 0 ? "fix" : "check"} reason={what} />;
 }
 
 /**
