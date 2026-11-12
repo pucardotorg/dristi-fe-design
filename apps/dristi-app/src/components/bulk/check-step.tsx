@@ -72,8 +72,7 @@ import { ChromeDialogContent } from "@/components/chrome/app-chrome";
 import { cn } from "@/lib/utils";
 
 import { aboutDetails } from "./batch-marks";
-import { CaseRows, type CaseRow } from "./case-rows";
-import { FlagSummary } from "./scrutiny-tab";
+import { STATE, StatusWord } from "./stage";
 
 /* ───────────────────────────── The cases, as Create will make them ───────────────────────────── */
 
@@ -157,25 +156,85 @@ export function checkCounts(cases: CheckCase[]) {
   };
 }
 
-/** Every case the file makes, in the Cases step's one list. */
-export function CheckCases({ cases }: { cases: CheckCase[] }) {
-  const rows: CaseRow[] = cases.map((c) => ({
-    ...c,
-    // Before Create there are no documents yet, so nothing is "Ready to sign": a case
-    // with nothing open in its details says so.
-    status: <FlagSummary flags={c.flags} done="Details done" />,
-  }));
+/**
+ * Check as a summary, not a second case list (owner, 2026-11-12: Check and Case details
+ * showed the same list twice). What Case details will ask for, grouped by reason, so a
+ * problem that repeats across rows reads as one thing to fix in the file. Counts come from
+ * the same rules Case details uses (`caseFlags`), so the two never disagree.
+ *
+ * Only the two section words carry colour; the reasons and counts are neutral.
+ */
+export type SummaryCase = { state: "fix" | "check" | "done"; flags: Flag[] };
+
+/** A rule's reason, without the one case's own value: `Pincode "38001" is not…` → `Pincode is not…`. */
+function ruleReason(flags: Flag[]): string {
+  const texts = [...new Set(flags.map((f) => f.message))];
+  // Differing texts differ by the case's own value or count: drop both, keep the rule.
+  const strip = (t: string) => {
+    const bare = t.replace(/\s*"[^"]*"/g, "").replace(/^\d+\s+/, "").replace(/\s{2,}/g, " ");
+    return bare.charAt(0).toUpperCase() + bare.slice(1);
+  };
+  const one = texts.length === 1 ? texts[0] : strip(texts[0]);
+  const m = /^(.+?[.?!])(\s|$)/.exec(one.trim());
+  return (m ? m[1] : one).replace(/[.]$/, "");
+}
+
+export function CheckSummary({ cases }: { cases: SummaryCase[] }) {
+  const sections = (["fix", "check"] as const).map((state) => {
+    const level = state === "fix" ? "hold" : undefined;
+    const groups = new Map<string, { flags: Flag[]; cases: Set<number> }>();
+    cases.forEach((c, i) => {
+      // Each section speaks for its own cases, so its rows never outnumber its heading.
+      if (c.state !== state) return;
+      for (const f of c.flags) {
+        if (state === "fix" ? f.level !== level : f.level === "hold") continue;
+        const g = groups.get(f.rule) ?? { flags: [], cases: new Set<number>() };
+        g.flags.push(f);
+        g.cases.add(i);
+        groups.set(f.rule, g);
+      }
+    });
+    const rows = [...groups.values()]
+      .map((g) => ({ reason: ruleReason(g.flags), count: g.cases.size }))
+      .sort((a, b) => b.count - a.count);
+    return { state, count: cases.filter((c) => c.state === state).length, rows };
+  });
+  const done = cases.filter((c) => c.state === "done").length;
+  const n = (k: number) => `${k} ${k === 1 ? "case" : "cases"}`;
+  const shown = sections.filter((x) => x.count && x.rows.length);
   return (
-    <CaseRows
-      rows={rows}
-      label="The cases this file makes"
-      searchId="check-search"
-      filters={[
-        { id: "fix", label: "To fix" },
-        { id: "check", label: "To check" },
-        { id: "ready", label: "Details done" },
-      ]}
-    />
+    <Card variant="raised" className="gap-0 p-2">
+      {shown.map((sec, i) => (
+        <section
+          key={sec.state}
+          aria-label={STATE[sec.state].word}
+          className={cn("flex flex-col py-2", i && "border-t border-hairline")}
+        >
+          <h3 className="flex items-center gap-2 px-4 py-2 text-body-compact">
+            <StatusWord state={sec.state} />
+            <span className="text-muted-foreground tabular-nums">{n(sec.count)}</span>
+          </h3>
+          <ul className="flex flex-col">
+            {sec.rows.map((r) => (
+              <li
+                key={r.reason}
+                className="flex items-baseline justify-between gap-6 px-4 py-2 pl-10 text-body-compact"
+              >
+                <span className="min-w-0">{r.reason}</span>
+                <span className="shrink-0 text-muted-foreground tabular-nums">{n(r.count)}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+      <p className={cn("px-4 py-3 text-body-compact text-muted-foreground tabular-nums", shown.length && "border-t border-hairline")}>
+        {done === cases.length
+          ? `Nothing to fix or check in ${cases.length === 1 ? "this case" : `any of the ${cases.length} cases`}.`
+          : done
+            ? `${n(done)} ${done === 1 ? "has" : "have"} nothing to fix or check.`
+            : "Every case has something to fix or check."}
+      </p>
+    </Card>
   );
 }
 
