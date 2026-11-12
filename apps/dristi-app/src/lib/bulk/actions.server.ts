@@ -83,6 +83,8 @@ export type CaseView = {
     required: boolean;
     file: StoredFileRef | null;
     slotKey: string | null;
+    /** Added by the filer for this case alone (not a document the case's data calls for). */
+    custom: boolean;
   }[];
   /** What the case's papers should show, for matching them on Documents. */
   facts: CaseFact[];
@@ -182,7 +184,10 @@ export function caseView(bc: BatchCase): CaseView {
       name: doc.name,
       required: doc.required,
       file: doc.file,
-      slotKey: doc.intakeKey ?? null,
+      // A paper the filer added to this case alone is addressed by its own id, so the
+      // batch's Documents grid can replace it like any slot.
+      slotKey: doc.intakeKey ?? (doc.custom ? `custom:${doc.id}` : null),
+      custom: !!doc.custom,
     })),
     facts: caseFacts(d),
     original: bc.original
@@ -441,10 +446,40 @@ export function attachToSlot(
     .flatMap((g) => g.slots)
     .concat(d.intake.supporting)
     .find((s) => s.key === slotKey);
-  if (!slot) return false;
+  if (!slot) return attachCustom(bc, slotKey, ref);
   slot.file = ref;
   slot.poor = poor;
   d.documents = buildDocumentGroups(d);
+  d.updatedAt = new Date().toISOString();
+  return true;
+}
+
+/**
+ * A paper only this case has, from the batch's Documents grid (owner, 2026-11-12: add a
+ * document there without leaving for the case). `custom:<id>` replaces the one with that
+ * id; `new:<name>` adds one under the case's documents, as e-filing's "Add another
+ * document" does, so the case's own Documents section and its file show it too.
+ */
+function attachCustom(bc: BatchCase, key: string, ref: StoredFileRef): boolean {
+  const d = bc.draft;
+  if (key.startsWith("custom:")) {
+    const doc = d.documents.flatMap((g) => g.docs).find((x) => x.custom && x.id === key.slice(7));
+    if (!doc) return false;
+    doc.file = ref;
+  } else if (key.startsWith("new:")) {
+    const name = key.slice(4).trim();
+    const group = d.documents.find((g) => g.id === "case");
+    if (!name || !group) return false;
+    group.docs.push({
+      id: `doc_${Math.random().toString(36).slice(2, 10)}`,
+      name,
+      required: false,
+      file: ref,
+      quality: null,
+      digital: false,
+      custom: true,
+    });
+  } else return false;
   d.updatedAt = new Date().toISOString();
   return true;
 }
