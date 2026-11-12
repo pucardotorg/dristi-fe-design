@@ -86,8 +86,9 @@ export function batchMarks(
       "documents",
       t.workable > 0 && t.docsMissing === 0 && t.fixing === 0,
       t.docsMissing ? `${t.docsMissing} missing` : undefined,
-      // Missing documents blocks filing, so it is red, as in every case row.
-      t.docsMissing ? "fix" : undefined,
+      // A count, not an alarm, until the filer reaches Documents: red there and after
+      // (owner, 2026-11-12: red on Case details shouted about a step not yet begun).
+      t.docsMissing ? (current === "sign" || current === "pay" ? "fix" : "neutral") : undefined,
     ),
     sign: mark("sign", batch.counts.signed + batch.counts.filed > 0 && t.workable === 0, t.clear ? `${t.clear} ready` : undefined, "ready"),
     pay: mark(

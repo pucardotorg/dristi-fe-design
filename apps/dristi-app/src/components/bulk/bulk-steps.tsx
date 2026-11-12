@@ -43,7 +43,7 @@ export type StepMark = {
   /** Work waiting there, in words ("3 to fix"); `ready` for work that can simply go ahead. */
   note?: string;
   /** `fix` blocks filing (red, as everywhere in the flow); `ready` can go ahead; else a check. */
-  tone?: "fix" | "attention" | "ready";
+  tone?: "fix" | "attention" | "ready" | "neutral";
 };
 
 export type Stage = {
@@ -165,7 +165,7 @@ export function BulkSteps({
             const count =
               m.note && !current && level < 2 ? (
                 <Badge
-                  variant={m.tone === "ready" ? "secondary" : m.tone === "fix" ? "destructive" : "warning"}
+                  variant={m.tone === "ready" || m.tone === "neutral" ? "secondary" : m.tone === "fix" ? "destructive" : "warning"}
                   className="text-body-compact tabular-nums"
                 >
                   {m.note}
