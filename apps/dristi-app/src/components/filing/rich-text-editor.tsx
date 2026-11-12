@@ -7,6 +7,8 @@ import {
   ItalicIcon,
   ListIcon,
   ListOrderedIcon,
+  Redo2Icon,
+  Undo2Icon,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -30,12 +32,19 @@ const TOOLS: { cmd: Command; label: string; icon: React.ComponentType<{ classNam
  */
 export type BracketMarks = { isField: (name: string) => boolean };
 
+/* A field reads as data already in place: brand ink, a dotted underline, no pill, so it does
+   not look like a button. A prompt reads as a blank to fill: italic in a dashed amber box. */
 const TOKEN_CLASS =
-  "mx-0.5 rounded-md bg-brand-muted px-1.5 py-0.5 font-medium text-brand-muted-foreground";
+  "cursor-default font-medium text-foreground underline decoration-muted-foreground decoration-dotted decoration-1 underline-offset-4";
 const PROMPT_CLASS =
-  "mx-0.5 cursor-text rounded-md border border-dashed border-warning-ink bg-warning-muted px-1.5 py-0.5 text-warning-muted-foreground";
+  "mx-0.5 cursor-text rounded-md border border-dashed border-warning-ink bg-warning-muted px-1.5 py-0.5 italic text-warning-muted-foreground";
 
 const attr = (t: string) => t.replace(/"/g, "&quot;");
+
+/** The time for coalescing typing into undo steps; only ever read from event handlers. */
+function clock(): number {
+  return performance.now();
+}
 
 /** Plain-bracket HTML to the marked display. Text nodes only, so tags are never touched. */
 function toDisplay(html: string, marks: BracketMarks): string {
@@ -43,8 +52,8 @@ function toDisplay(html: string, marks: BracketMarks): string {
     open +
     text.replace(/\[([^\]\n]+)\]/g, (_w, name: string) =>
       marks.isField(name)
-        ? `<span data-token="${attr(name)}" contenteditable="false" class="${TOKEN_CLASS}">${name}</span>`
-        : `<mark data-prompt="${attr(name)}" class="${PROMPT_CLASS}">${name}</mark>`,
+        ? `<span data-token="${attr(name)}" contenteditable="false" title="Filled in from each case's details" class="${TOKEN_CLASS}">${name}</span>`
+        : `<mark data-prompt="${attr(name)}" title="Click and type to write this for every case" class="${PROMPT_CLASS}">${name}</mark>`,
     ),
   );
 }
@@ -105,6 +114,12 @@ export function RichTextEditor({
   const lastValue = React.useRef<string>("");
   // The caret, kept while focus is away in a picker so an insert lands where it was.
   const caret = React.useRef<Range | null>(null);
+  /* Undo and redo of our own, for an editor with marks: redrawing the marks replaces the
+     box's content, which empties the browser's undo stack. Snapshots of the value, typing
+     coalesced into one step per pause. */
+  const past = React.useRef<string[]>([]);
+  const future = React.useRef<string[]>([]);
+  const lastPush = React.useRef(0);
 
   React.useEffect(() => {
     const keep = () => {
@@ -130,8 +145,27 @@ export function RichTextEditor({
   const emit = () => {
     const raw = ref.current?.innerHTML ?? "";
     const html = marks ? fromDisplay(raw) : raw;
+    if (marks && html !== lastValue.current) {
+      const now = clock();
+      if (now - lastPush.current > 800 || !past.current.length) past.current.push(lastValue.current);
+      lastPush.current = now;
+      future.current = [];
+    }
     lastValue.current = html;
     onChange(html);
+  };
+
+  /** Step back or forward through the snapshots, and redraw. */
+  const travel = (dir: "undo" | "redo") => {
+    const from = dir === "undo" ? past.current : future.current;
+    const to = dir === "undo" ? future.current : past.current;
+    const target = from.pop();
+    if (target === undefined || !ref.current || !marks) return;
+    to.push(lastValue.current);
+    lastValue.current = target;
+    lastPush.current = 0;
+    ref.current.innerHTML = toDisplay(target, marks);
+    onChange(target);
   };
 
   /** Redraw the marks from the value: a written prompt turns plain, a typed field a token. */
@@ -203,6 +237,35 @@ export function RichTextEditor({
             <t.icon className="size-4" aria-hidden />
           </Button>
         ))}
+        {marks ? (
+          <>
+            <span aria-hidden className="mx-1 h-5 w-px bg-border" />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Undo"
+              title="Undo (⌘Z)"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => travel("undo")}
+              className="relative after:absolute after:-inset-1"
+            >
+              <Undo2Icon className="size-4" aria-hidden />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Redo"
+              title="Redo (⇧⌘Z)"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => travel("redo")}
+              className="relative after:absolute after:-inset-1"
+            >
+              <Redo2Icon className="size-4" aria-hidden />
+            </Button>
+          </>
+        ) : null}
         {toolbarEnd ? (
           <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">{toolbarEnd}</div>
         ) : null}
@@ -225,6 +288,11 @@ export function RichTextEditor({
           contentEditable
           suppressContentEditableWarning
           onInput={emit}
+          onKeyDown={(e) => {
+            if (!marks || !(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "z") return;
+            e.preventDefault();
+            travel(e.shiftKey ? "redo" : "undo");
+          }}
           onBlur={() => {
             emit();
             redecorate();
