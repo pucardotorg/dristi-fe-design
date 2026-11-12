@@ -118,6 +118,7 @@ function StepNumber({ n }: { n: number }) {
 const SAMPLES = [
   { key: "tata-capital-bulk-filing-template.xlsx", label: "Sample 1: the filled template", format: "template" },
   { key: "tata-capital-recovery-mis.xlsx", label: "Sample 2: a lender's own export", format: "own" },
+  { key: "tata-capital-template-with-stories.xlsx", label: "Sample 3: the template, some rows with their own facts", format: "template" },
 ] as const;
 
 type ReadingRow = {
@@ -221,7 +222,7 @@ function makeRequest({
   fileName,
   factsHtml,
   factsId,
-  everyCase,
+  replace,
   court,
 }: {
   book: Workbookish;
@@ -233,7 +234,8 @@ function makeRequest({
   fileName: string;
   factsHtml: string;
   factsId: string | undefined;
-  everyCase: boolean;
+  /** Cases (by reference) whose own text in the file the batch's text replaces. */
+  replace: string[];
   court: NonNullable<ApiBatchRequest["detailsFormat"]>["court"];
 }) {
   const parties = partiesOf(setup);
@@ -252,7 +254,7 @@ function makeRequest({
       // Asked with the complainants on Common details (BLK-05).
       adr: setup.adr.adr,
       fileName,
-      detailsFormat: hasFacts ? { id: factsId ?? "batch", html: factsHtml, court, everyCase } : undefined,
+      detailsFormat: hasFacts ? { id: factsId ?? "batch", html: factsHtml, court, replace } : undefined,
     },
     counts,
   );
@@ -277,8 +279,9 @@ export function UploadScreen() {
   // touches it, the default template's text (else the first, the system's own), already
   // written in; then whatever they made of it, including nothing.
   const [factsChoice, setFactsChoice] = React.useState<{ id: string | undefined; html: string } | null>(null);
-  // The batch's facts also replace rows' own text (asked on Facts only when rows have some).
-  const [everyCase, setEveryCase] = React.useState(false);
+  // The rows whose own text in the file the batch's facts replace: none unless the filer
+  // says so on Facts, for one case or for all of them.
+  const [replace, setReplace] = React.useState<string[]>([]);
   const formats = React.useSyncExternalStore(
     subscribeToDetailsFormats,
     readDetailsFormats,
@@ -358,7 +361,7 @@ export function UploadScreen() {
   const creating = book ? book.cases.rows.length - cannot.length : 0;
 
   const requestFor = () =>
-    book ? makeRequest({ book, setup, cannot, map, values, counts, fileName, factsHtml, factsId, everyCase, court }) : null;
+    book ? makeRequest({ book, setup, cannot, map, values, counts, fileName, factsHtml, factsId, replace, court }) : null;
 
   // Check judges each case as Case details will: built here as Create builds it.
   const blocked = coreMissing.length > 0;
@@ -366,9 +369,9 @@ export function UploadScreen() {
     () =>
       // Built on Facts too, so its preview shows a real case as Create will make it.
       (step === "review" || step === "facts") && book && !blocked && !docs
-        ? makeRequest({ book, setup, cannot, map, values, counts, fileName, factsHtml, factsId, everyCase, court })
+        ? makeRequest({ book, setup, cannot, map, values, counts, fileName, factsHtml, factsId, replace, court })
         : null,
-    [step, book, blocked, docs, setup, cannot, map, values, counts, fileName, factsHtml, factsId, everyCase, court],
+    [step, book, blocked, docs, setup, cannot, map, values, counts, fileName, factsHtml, factsId, replace, court],
   );
   const checkCases = useCheckCases(preview?.request ?? null, preview?.parties ?? null);
   const valuesDone = unknownLists.every((l) =>
@@ -830,8 +833,8 @@ export function UploadScreen() {
             onChange={(id, html) => setFactsChoice({ id, html })}
             own={ownFacts(rows)}
             total={rows.length}
-            everyCase={everyCase}
-            onEveryCase={setEveryCase}
+            replace={replace}
+            onReplace={setReplace}
             cases={checkCases}
           />
         </FilingMain>
@@ -938,10 +941,10 @@ export function UploadScreen() {
               </CardContent>
             </Card>
           ) : null}
-          {coreMissing.length || !created.length || (own === created.length && !everyCase) ? null : (
+          {coreMissing.length || !created.length || (own === created.length && !replace.length) ? null : (
             <FactsLine
               name={factsHtml.replace(/<[^>]*>|&nbsp;/g, "").trim() ? (formats.find((f) => f.id === factsId)?.name ?? "Your own text") : null}
-              cases={everyCase ? created.length : created.length - own}
+              cases={created.length - own + replace.length}
               onEdit={() => setStep("facts")}
             />
           )}

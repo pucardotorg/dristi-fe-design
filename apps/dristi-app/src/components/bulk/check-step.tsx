@@ -13,6 +13,7 @@
 import * as React from "react";
 import {
   ExternalLinkIcon,
+  FileSpreadsheetIcon,
   FileTextIcon,
   ChevronDownIcon,
   PlusIcon,
@@ -51,7 +52,6 @@ import {
 import { DetailFieldMenu } from "@/components/filing/detail-field-menu";
 import { RichTextEditor, type BracketMarks, type RichTextEditorHandle } from "@/components/filing/rich-text-editor";
 import { OptionSelect } from "@/components/filing/inputs";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
@@ -70,6 +70,10 @@ export type CheckCase = {
   amount: number;
   /** The facts of the case this case will hold, as Create writes them. */
   facts: string;
+  /** Its row brings its own facts of the case in the file. */
+  own: boolean;
+  /** Its facts come from the batch's text (for an `own` case: chosen instead of the row's). */
+  fromBatch: boolean;
   /** What each field reads as in this case (first case only, for the editor's field card). */
   sample?: Record<string, string>;
   /** About the case's details; documents are the Documents step's. */
@@ -90,6 +94,7 @@ export function useCheckCases(request: ApiBatchRequest | null, parties: BatchPar
       try {
         const built = await buildBatch(request, { kind: "excel", system: "Excel upload" }, async () => null);
         if (!alive) return;
+        const ownText = new Set(request.cases.filter((c) => c.otherDetails?.trim()).map((c) => c.reference.trim()));
         setCases(
           built.cases.map((bc, i) => {
             if (parties) {
@@ -108,6 +113,8 @@ export function useCheckCases(request: ApiBatchRequest | null, parties: BatchPar
               cheques: bc.draft.cheques.length,
               amount: totalChequeAmount(bc.draft.cheques),
               facts: bc.draft.adr.otherDetails ?? "",
+              own: ownText.has(bc.reference),
+              fromBatch: !!bc.draft.adr.detailsFormat,
               sample: i === 0 ? Object.fromEntries(DETAIL_FIELDS.map((f) => [f.name, f.resolve(bc.draft)])) : undefined,
               flags,
               state: flags.some((f) => f.level === "hold") ? "fix" : flags.length ? "check" : "ready",
@@ -209,10 +216,12 @@ function previewHtml(html: string): string {
 /**
  * Facts of the case (PRD PRY-1, "Additional details" in the file; optional): the story the
  * advocate tells, written once here for the batch (owner, 2026-11-12). Fields in the text
- * are tokens each case fills; the parts no field can fill are highlighted to write here. A
- * row with its own text in the file keeps it unless the filer chooses this text for every
- * case, a choice offered only when such rows exist. Under the text, how it reads in a chosen
- * case's complaint.
+ * are tokens each case fills; the parts no field can fill are highlighted to write here.
+ *
+ * Rows that bring their own story in the file keep it (owner, 2026-11-12): the split is
+ * stated as a fact above the box, not asked; Preview marks where each case's story comes
+ * from and switches one case at a time; using this text for all of them is one confirmed
+ * act, because it sets aside text someone wrote.
  */
 export function FactsCard({
   formats,
@@ -221,8 +230,8 @@ export function FactsCard({
   onChange,
   own,
   total,
-  everyCase,
-  onEveryCase,
+  replace,
+  onReplace,
   cases,
 }: {
   formats: readonly DetailsFormat[];
@@ -232,9 +241,9 @@ export function FactsCard({
   /** Rows whose Additional details column has text. */
   own: number;
   total: number;
-  /** This text replaces the rows' own text too. */
-  everyCase: boolean;
-  onEveryCase: (everyCase: boolean) => void;
+  /** The `own` cases (by reference) that use this text instead of their row's. */
+  replace: string[];
+  onReplace: (replace: string[]) => void;
   /** The cases as Create will make them, for the preview; `null` while they are built. */
   cases: CheckCase[] | null;
 }) {
@@ -242,12 +251,26 @@ export function FactsCard({
   const [pending, setPending] = React.useState<DetailsFormat | null>(null);
   const [previewKey, setPreviewKey] = React.useState<string>("");
   const [mode, setMode] = React.useState<"write" | "preview">("write");
-  const rest = total - own;
+  // Preview lists only the cases with their own story, when asked from the census line.
+  const [onlyOwn, setOnlyOwn] = React.useState(false);
+  const [confirmAll, setConfirmAll] = React.useState(false);
   const current = formats.find((f) => f.id === templateId);
   const edited = current ? html !== formatForFiler(current) : !isEmpty(html);
   const blanks = writtenBlanks(html);
   const empty = isEmpty(html);
-  const preview = cases?.find((c) => c.key === previewKey) ?? cases?.[0] ?? null;
+  const ownCases = cases?.filter((c) => c.own) ?? [];
+  const listed = onlyOwn && ownCases.length ? ownCases : (cases ?? []);
+  const preview = listed.find((c) => c.key === previewKey) ?? listed[0] ?? null;
+  const replaced = replace.length;
+  const rest = total - own;
+  const allReplaced = own > 0 && replaced >= own;
+  const showOwn = () => {
+    setOnlyOwn(true);
+    setPreviewKey(ownCases[0]?.key ?? "");
+    setMode("preview");
+  };
+  const switchCase = (c: CheckCase) =>
+    onReplace(c.fromBatch ? replace.filter((ref) => ref !== c.reference) : [...replace, c.reference]);
   // The editor's brackets: fields it offers on `[`, and a real case to show a field's value.
   const first = cases?.[0];
   const marks = React.useMemo<BracketMarks>(
@@ -268,27 +291,48 @@ export function FactsCard({
   return (
     <Card variant="raised">
       <CardContent className="flex flex-col gap-5">
-        {/* Asked only when it matters: some rows bring their own text in the file. */}
+        {/* Said, not asked: which rows keep their own story, and the one act that changes
+            all of them. Only when some rows bring a story in the file. */}
         {own > 0 ? (
-          <div className="flex flex-col gap-2">
-            <p className="text-body-compact text-foreground tabular-nums">
-              {own === 1 ? "1 case has" : `${own} cases have`} their own text in the file. Use this text for:
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-lg bg-surface-sunken py-2 pr-2 pl-4">
+            <p className="flex min-w-0 flex-1 items-start gap-2 text-body-compact tabular-nums">
+              <FileSpreadsheetIcon aria-hidden className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+              <span>
+                {allReplaced ? (
+                  <>
+                    All {total} cases use the text below, in place of {own === 1 ? "the story" : `${own} stories`} from
+                    the Excel.
+                  </>
+                ) : (
+                  <>
+                    {replaced
+                      ? `${own - replaced} of ${total} cases keep their story from the Excel.`
+                      : `${own} of ${total} rows ${own === 1 ? "has its" : "have their"} own story in the Excel.`}
+                    {rest + replaced ? ` The other ${rest + replaced} use the text below.` : ""}
+                  </>
+                )}{" "}
+                {ownCases.length ? (
+                  <Button type="button" variant="link" className="h-auto p-0 text-body-compact" onClick={showOwn}>
+                    See {own === 1 ? "it" : "them"}
+                  </Button>
+                ) : null}
+              </span>
             </p>
-            <RadioGroup
-              value={everyCase ? "all" : "empty"}
-              onValueChange={(v) => onEveryCase(v === "all")}
-              className="flex flex-wrap gap-x-6 gap-y-2"
-              aria-label="Which cases this text is for"
-            >
-              <label className="flex items-center gap-2 text-body-compact tabular-nums">
-                <RadioGroupItem value="empty" />
-                {rest === 1 ? "The 1 case without text" : `The ${rest} cases without text`}
-              </label>
-              <label className="flex items-center gap-2 text-body-compact tabular-nums">
-                <RadioGroupItem value="all" />
-                {`All ${total} cases`}
-              </label>
-            </RadioGroup>
+            {empty ? null : allReplaced ? (
+              <Button type="button" variant="ghost" className="shrink-0" onClick={() => onReplace([])}>
+                Keep the Excel {own === 1 ? "story" : "stories"}
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="ghost"
+                className="shrink-0"
+                disabled={!ownCases.length}
+                onClick={() => setConfirmAll(true)}
+              >
+                Use the text below for all {total}
+              </Button>
+            )}
           </div>
         ) : null}
 
@@ -298,18 +342,28 @@ export function FactsCard({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <TabsList>
               <TabsTrigger value="write">Write</TabsTrigger>
-              <TabsTrigger value="preview" disabled={empty || !cases?.length}>
+              <TabsTrigger value="preview" disabled={(empty && !own) || !cases?.length}>
                 Preview
               </TabsTrigger>
             </TabsList>
-            {mode === "preview" && cases?.length ? (
-              <div className="w-full sm:w-72">
-                <OptionSelect
-                  ariaLabel="Case to preview"
-                  value={preview?.key ?? ""}
-                  onValueChange={setPreviewKey}
-                  options={cases.map((c) => ({ value: c.key, label: c.accused || c.reference }))}
-                />
+            {mode === "preview" && listed.length ? (
+              <div className="flex w-full items-center gap-3 sm:w-auto">
+                {onlyOwn && ownCases.length ? (
+                  <Button type="button" variant="link" className="h-auto shrink-0 p-0 text-body-compact" onClick={() => setOnlyOwn(false)}>
+                    Show all {total}
+                  </Button>
+                ) : null}
+                <div className="min-w-0 flex-1 sm:w-80 sm:flex-none">
+                  <OptionSelect
+                    ariaLabel="Case to preview"
+                    value={preview?.key ?? ""}
+                    onValueChange={setPreviewKey}
+                    options={listed.map((c) => ({
+                      value: c.key,
+                      label: `${c.accused || c.reference}${c.own && !c.fromBatch ? " · from the Excel" : ""}`,
+                    }))}
+                  />
+                </div>
               </div>
             ) : null}
           </div>
@@ -384,6 +438,23 @@ export function FactsCard({
           </div>
           </TabsContent>
           <TabsContent value="preview" className="mt-0 flex flex-col gap-2">
+            {/* Where this case's story comes from, and the switch for this case alone. */}
+            {preview && own > 0 ? (
+              <div className="flex min-h-8 flex-wrap items-center justify-between gap-x-4 gap-y-1 text-body-compact">
+                <span className="text-muted-foreground">
+                  {!preview.own
+                    ? "From the batch text. This row has no story in the Excel."
+                    : preview.fromBatch
+                      ? "From the batch text, in place of this row's story in the Excel."
+                      : "From this row in the Excel."}
+                </span>
+                {preview.own && !empty ? (
+                  <Button type="button" variant="ghost" onClick={() => switchCase(preview)}>
+                    {preview.fromBatch ? "Use the Excel story instead" : "Use the batch text instead"}
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
             {preview ? (
               <div
                 className={cn(
@@ -400,6 +471,29 @@ export function FactsCard({
           </TabsContent>
         </Tabs>
       </CardContent>
+
+      <AlertDialog open={confirmAll} onOpenChange={setConfirmAll}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Use the text below for all {total} cases?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {own === 1 ? "The story" : `The ${own} stories`} from the Excel won&apos;t be used. You can switch any case
+              back in Preview.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep the Excel {own === 1 ? "story" : "stories"}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                onReplace(ownCases.map((c) => c.reference));
+                setConfirmAll(false);
+              }}
+            >
+              Use for all {total}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={!!pending} onOpenChange={(open) => !open && setPending(null)}>
         <AlertDialogContent>
