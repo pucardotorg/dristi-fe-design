@@ -34,7 +34,6 @@ export function CasesTab({ batch, go }: BatchCtx) {
         // Continue is the way to Case details; a second link to it would repeat the footer.
         <CheckCard
           created
-          source={batch.source.kind === "api" ? `Sent by ${batch.source.system}` : (batch.source.reference ?? "This batch")}
           total={pending.length}
           fix={states.filter((x) => x === "fix").length}
           check={states.filter((x) => x === "check").length}

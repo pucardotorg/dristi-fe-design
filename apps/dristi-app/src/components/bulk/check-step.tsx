@@ -156,102 +156,56 @@ export function checkCounts(cases: CheckCase[]) {
   };
 }
 
-/** One line of a reconciliation: what it is on the left, how many on the right. */
-function Tally({
-  label,
-  n,
-  icon,
-  total = false,
-  tone,
-}: {
-  label: string;
-  n: number | string;
-  icon?: React.ReactNode;
-  /** The line the others add up to. */
-  total?: boolean;
-  tone?: string;
-}) {
-  return (
-    <div
-      className={cn(
-        "flex items-center justify-between gap-6 tabular-nums",
-        total ? "mt-1 border-t border-hairline pt-3 text-body font-semibold" : "py-1.5 text-body-compact",
-      )}
-    >
-      <dt className={cn("flex min-w-0 items-center gap-2", !total && "text-muted-foreground")}>
-        {icon}
-        {label}
-      </dt>
-      <dd className={cn(total ? "text-title-s" : "text-foreground", tone)}>{n}</dd>
-    </div>
-  );
-}
-
 /**
- * Check's decision as a reconciliation (owner, 2026-11-12: stat tiles and a hero line
- * read tacky). Left, the file: its rows, what was set aside or can't be made, adding up
- * to the cases created (BLK-10, BLK-36). Right, how those cases split in Case details,
- * by the same rules (`caseFlags`), so the counts agree after Create. Counts only, never a
- * list. Colour sits on the two status glyphs and on rows that can't be made, nowhere else.
+ * Check's decision, said plainly (owner, 2026-11-12, after stat tiles, a hero line and a
+ * ledger all read wrong): how many cases Create makes, then only what needs the filer,
+ * one short sentence each. A case with nothing open needs no line. Counts come from the
+ * same rules as Case details (`caseFlags`), so they agree after Create; never a list of
+ * cases or reasons, which would not scale to a 500-row file.
  */
 export function CheckCard({
-  source,
-  rows,
-  setAside = 0,
-  cannot = 0,
   total,
   fix,
   check,
+  cannot = 0,
   created = false,
   footer,
 }: {
-  /** The file, or the system that sent the batch. */
-  source: string;
-  /** Rows read from the file, guide rows included; absent once the batch exists. */
-  rows?: number;
-  setAside?: number;
-  cannot?: number;
   total: number;
   fix: number;
   check: number;
+  /** Rows the file can't make; listed in their own card below. */
+  cannot?: number;
   /** The batch exists: say what it holds rather than what it will. */
   created?: boolean;
   /** The facts of the case line, with its way back. */
   footer?: React.ReactNode;
 }) {
-  const done = total - fix - check;
-  const glyph = (state: "fix" | "check") => {
-    const Icon = STATE[state].icon;
-    return <Icon aria-hidden className={cn("size-4 shrink-0", STATE[state].ink)} />;
-  };
+  const lines: { state: "fix" | "check"; text: string }[] = [];
+  if (fix) lines.push({ state: "fix", text: `${fix} ${fix === 1 ? "needs" : "need"} fixing before ${fix === 1 ? "it can" : "they can"} be filed` });
+  if (check) lines.push({ state: "check", text: `${check} ${check === 1 ? "has" : "have"} warnings to look at` });
+  if (cannot) lines.push({ state: "fix", text: `${cannot} ${cannot === 1 ? "row" : "rows"} can't be created and ${cannot === 1 ? "is" : "are"} left out` });
   return (
     <Card variant="raised" className="gap-0 p-0">
-      <div className="grid md:grid-cols-2">
-        <section aria-labelledby="check-file" className="flex flex-col gap-3 p-6">
-          <h2 id="check-file" className="truncate text-body font-semibold" title={source}>
-            {source}
-          </h2>
-          <dl className="flex flex-col">
-            {rows !== undefined ? <Tally label="Rows in the file" n={rows} /> : null}
-            {setAside ? <Tally label="Template rows set aside" n={`− ${setAside}`} /> : null}
-            {cannot ? <Tally label="Rows that can't be created" n={`− ${cannot}`} tone="text-destructive-ink" /> : null}
-            <Tally total label={created ? "Cases in this batch" : "Cases to create"} n={total} />
-          </dl>
-        </section>
-        <section
-          aria-labelledby="check-details"
-          className="flex flex-col gap-3 border-t border-hairline p-6 md:border-t-0 md:border-l"
-        >
-          <h2 id="check-details" className="text-body font-semibold">
-            In Case details{created ? "" : ", after you create them"}
-          </h2>
-          <dl className="flex flex-col">
-            <Tally label="To fix" n={fix} icon={glyph("fix")} />
-            <Tally label="To check" n={check} icon={glyph("check")} />
-            {/* A blank glyph slot keeps this label on the same line as the two above. */}
-            <Tally label="Nothing to fix or check" n={done} icon={<span aria-hidden className="size-4 shrink-0" />} />
-          </dl>
-        </section>
+      <div className="flex flex-col gap-4 p-6">
+        <h2 className="text-title-s font-semibold tabular-nums">
+          {total} {total === 1 ? "case" : "cases"} {created ? "in this batch" : "will be created"}
+        </h2>
+        {lines.length ? (
+          <ul className="flex flex-col gap-2">
+            {lines.map((l) => {
+              const Icon = STATE[l.state].icon;
+              return (
+                <li key={l.text} className="flex items-center gap-3 text-body tabular-nums">
+                  <Icon aria-hidden className={cn("size-4 shrink-0", STATE[l.state].ink)} />
+                  {l.text}
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="text-body text-muted-foreground">Every case is complete.</p>
+        )}
       </div>
       {footer ? <div className="border-t border-hairline px-6 py-4">{footer}</div> : null}
     </Card>

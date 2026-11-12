@@ -874,7 +874,20 @@ export function UploadScreen() {
           {/* The title is the sub-step's name; the counts are the subtitle's (audit rule 2). */}
           <FilingPageHeader
             title="Check"
-            description={coreMissing.length || counted ? undefined : `Reading ${fileName}…`}
+            description={
+              coreMissing.length
+                ? undefined
+                : counted
+                  ? // The file and what became of its rows (BLK-10, BLK-36), as the page's facts.
+                    [
+                      fileName,
+                      `${book.cases.rows.length + (book.cases.discarded ?? 0)} rows`,
+                      book.cases.discarded ? `${book.cases.discarded} template ${book.cases.discarded === 1 ? "row" : "rows"} set aside` : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")
+                  : `Reading ${fileName}…`
+            }
           />
           {errorNotice}
           {coreMissing.length ? (
@@ -911,9 +924,6 @@ export function UploadScreen() {
               (owner, 2026-11-10), never a second list of the cases (owner, 2026-11-12). */}
           {coreMissing.length || docs ? null : checkCases ? (
             <CheckCard
-              source={fileName}
-              rows={book.cases.rows.length + (book.cases.discarded ?? 0)}
-              setAside={book.cases.discarded ?? 0}
               cannot={cannot.length}
               total={checkCases.length}
               fix={checkCases.filter((c) => c.state === "fix").length}
