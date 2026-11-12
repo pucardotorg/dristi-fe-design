@@ -52,15 +52,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Field, FieldLabel } from "@/components/ui/field";
 import {
   NativeSelect,
@@ -84,7 +75,7 @@ import {
   serverDetailsFormats,
   subscribeToDetailsFormats,
 } from "@/lib/filing/details-formats";
-import { CheckCases, FactsCard, FactsLine, checkCounts, useCheckCases } from "./check-step";
+import { CheckCases, FactsCard, FactsLine, FactsQuestion, checkCounts, useCheckCases } from "./check-step";
 import { FileDrop } from "./file-drop";
 import { FormatChoice, type UploadFormat } from "./format-choice";
 import { bulkFetch } from "./api";
@@ -859,29 +850,17 @@ export function UploadScreen() {
           onContinue={() => (ownCount && hasText ? setAskFacts(true) : setStep("review"))}
           continueLabel="Continue"
         />
-        {/* Asked when it matters: the text exists and some rows already have a story. Esc
-            stays on Facts; the last answer is where focus lands on a return. */}
-        <AlertDialog open={askFacts} onOpenChange={setAskFacts}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>
-                {ownCount === 1 ? "1 case already has" : `${ownCount} cases already have`} a story in the Excel
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                Your batch text goes into the other {rows.length - ownCount}. Should it replace{" "}
-                {ownCount === 1 ? "that story" : `the ${ownCount} stories`} too?
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogAction variant="outline" autoFocus={everyCase === true} onClick={() => leave(true)}>
-                Replace all {rows.length}
-              </AlertDialogAction>
-              <AlertDialogAction autoFocus={everyCase !== true} onClick={() => leave(false)}>
-                Only the {rows.length - ownCount} empty {rows.length - ownCount === 1 ? "one" : "ones"}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        {/* Asked when it matters: the text exists and some rows already have a story. A
+            choice between two outcomes, each with what it does; Back stays on Facts. */}
+        <FactsQuestion
+          open={askFacts}
+          onOpenChange={setAskFacts}
+          own={ownCount}
+          total={rows.length}
+          names={(checkCases ?? []).filter((c) => c.own).map((c) => c.accused.split(", ")[0] || c.reference)}
+          initial={everyCase === true}
+          onChoose={leave}
+        />
       </>
     );
   }

@@ -51,6 +51,9 @@ import {
 import { DetailFieldMenu } from "@/components/filing/detail-field-menu";
 import { RichTextEditor, type BracketMarks, type RichTextEditorHandle } from "@/components/filing/rich-text-editor";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ChromeDialogContent } from "@/components/chrome/app-chrome";
 import { cn } from "@/lib/utils";
 
 import { aboutDetails } from "./batch-marks";
@@ -272,6 +275,21 @@ export function FactsCard({
   return (
     <Card variant="raised">
       <CardContent className="flex flex-col gap-5">
+        {/* What this text is for, up front: the empty rows. What becomes of the rows that
+            already have a story is asked on Continue (owner, 2026-11-12). */}
+        {own > 0 ? (
+          <div className="flex flex-col gap-0.5 border-b border-hairline pb-5 tabular-nums">
+            <p className="text-body-compact font-semibold">
+              Writing for the {total - own} {total - own === 1 ? "case" : "cases"} with no story in the Excel
+            </p>
+            <p className="text-body-compact text-muted-foreground">
+              {own === 1
+                ? "1 case already has its own. You'll choose what happens to it when you continue."
+                : `${own} cases already have their own. You'll choose what happens to them when you continue.`}
+            </p>
+          </div>
+        ) : null}
+
         {/* Write and Preview share one box, so the preview is never a scroll away
             (owner, 2026-11-12). */}
         <Tabs value={mode} onValueChange={(v) => setMode(v as "write" | "preview")} className="flex flex-col gap-4">
@@ -433,5 +451,96 @@ export function FactsCard({
         </AlertDialogContent>
       </AlertDialog>
     </Card>
+  );
+}
+
+/** "Harsh V. Bhavsar, Pravin D. Solanki and 2 more". */
+function someNames(names: string[]): string {
+  if (names.length <= 2) return new Intl.ListFormat("en", { type: "conjunction" }).format(names);
+  return `${names.slice(0, 2).join(", ")} and ${names.length - 2} more`;
+}
+
+/**
+ * On leaving Facts, when some rows already have a story and the batch text exists: keep
+ * their stories, or give every case the batch text. Two outcomes, each saying what it does
+ * and to whom; the safe one is first and chosen unless the filer chose the other before.
+ */
+export function FactsQuestion({
+  open,
+  onOpenChange,
+  own,
+  total,
+  names,
+  initial,
+  onChoose,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  own: number;
+  total: number;
+  /** Who the rows with a story are, to name them. */
+  names: string[];
+  /** The filer chose to replace them before. */
+  initial: boolean;
+  onChoose: (everyCase: boolean) => void;
+}) {
+  const [every, setEvery] = React.useState(initial);
+  const titleId = React.useId();
+  const empty = total - own;
+  const them = own === 1 ? "it" : "them";
+  const choices = [
+    {
+      value: "keep",
+      title: own === 1 ? "Keep its story" : "Keep their stories",
+      detail: `${names.length ? someNames(names) : `These ${own}`} keep${own === 1 ? "s" : ""} the story from the Excel. The other ${empty} get the batch text.`,
+    },
+    {
+      value: "replace",
+      title: `Use the batch text for all ${total}`,
+      detail: `The ${own === 1 ? "story" : `${own} stories`} in the Excel ${own === 1 ? "isn't" : "aren't"} used. Each case can still be changed later.`,
+    },
+  ];
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (next) setEvery(initial);
+        onOpenChange(next);
+      }}
+    >
+      <ChromeDialogContent mobileSheet className="sm:max-w-lg" aria-labelledby={titleId}>
+        <DialogHeader>
+          <DialogTitle id={titleId}>
+            {own === 1 ? "1 case already has a story" : `${own} cases already have a story`} in the Excel
+          </DialogTitle>
+          <DialogDescription>What should happen to {them}?</DialogDescription>
+        </DialogHeader>
+        <RadioGroup
+          value={every ? "replace" : "keep"}
+          onValueChange={(v) => setEvery(v === "replace")}
+          aria-labelledby={titleId}
+          className="flex flex-col gap-2 rounded-xl bg-surface-sunken p-2"
+        >
+          {choices.map((c) => (
+            <label
+              key={c.value}
+              className="flex cursor-pointer items-start gap-3 rounded-lg bg-card px-4 py-3 shadow-raised transition-colors hover:bg-brand-muted has-data-checked:ring-2 has-data-checked:ring-primary"
+            >
+              <RadioGroupItem value={c.value} className="mt-0.5" />
+              <span className="flex min-w-0 flex-col gap-0.5">
+                <span className="text-body-compact font-semibold">{c.title}</span>
+                <span className="text-body-compact text-muted-foreground tabular-nums">{c.detail}</span>
+              </span>
+            </label>
+          ))}
+        </RadioGroup>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Back
+          </Button>
+          <Button onClick={() => onChoose(every)}>Continue</Button>
+        </DialogFooter>
+      </ChromeDialogContent>
+    </Dialog>
   );
 }
