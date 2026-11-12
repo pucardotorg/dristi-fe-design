@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { InfoIcon } from "lucide-react";
+import { CheckIcon, InfoIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -125,6 +125,8 @@ export function FormField({
     required && !optional ? (emptyProp ?? inferEmpty(children)) : null,
   );
   const hostIssue = policy && name ? policy.issueAt(instance, name) : null;
+  // Put right earlier in this visit: it stays where the filer fixed it, saying so.
+  const hostFixed = !hostIssue && !!policy && !!name && !!policy.fixedAt?.(instance, name);
   const error = ownError ?? hostIssue ?? (flagged ? "Required" : undefined);
   const defect =
     correction && name ? correction.defectAt(correction.step, instance, name) : null;
@@ -188,7 +190,7 @@ export function FormField({
       className={cn(asGroup ? "gap-3" : "gap-2", className)}
       data-invalid={error ? true : undefined}
       data-missing-field={missing || undefined}
-      data-flagged={hostIssue ? true : undefined}
+      data-flagged={hostIssue || hostFixed ? true : undefined}
     >
       {asGroup ? (
         <FieldTitle className="text-body-compact">{labelBody}</FieldTitle>
@@ -201,11 +203,17 @@ export function FormField({
       </SourceFieldLabel.Provider>
       {help && helpPlacement === "below" ? <FieldDescription>{help}</FieldDescription> : null}
       {error ? <FieldError>{error}</FieldError> : null}
+      {hostFixed && !error ? (
+        <p className="flex items-center gap-1.5 text-body-compact text-success-ink">
+          <CheckIcon aria-hidden className="size-4 shrink-0" />
+          Fixed
+        </p>
+      ) : null}
     </Field>
   );
 
   // A host showing only what it flagged (bulk's case flow): the rest steps out.
-  if (!correction && policy?.focus && !hostIssue) return null;
+  if (!correction && policy?.focus && !hostIssue && !hostFixed) return null;
   if (!correction) return field;
 
   if (defect) {

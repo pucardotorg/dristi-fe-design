@@ -55,6 +55,14 @@ export type FieldPolicy = {
   /** The rail's half of `focus`, kept when one section has to show its fields in full. */
   focusRail?: boolean;
   /**
+   * Under `focus`, a field that had an issue earlier in this visit and no longer does: it
+   * stays on screen, marked fixed, instead of vanishing the moment it is put right (owner,
+   * 2026-11-12: "things shouldn't disappear once I enter something").
+   */
+  fixedAt?: (instance: number, name: string) => boolean;
+  /** The rail's half of `fixedAt`: a section put right this visit stays listed. */
+  fixedStep?: (step: StepId) => boolean;
+  /**
    * Why the section's Continue can't go ahead yet, or `null` when it can. A single filing
    * lets a section be left incomplete and catches it at preview; bulk filing's Common
    * details can't, because one gap there becomes the same fix on every case.

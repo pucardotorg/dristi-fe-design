@@ -164,6 +164,8 @@ export function BulkCaseFlow({
   }, []);
   // A section whose open check sits on no field of its own shows in full, not empty.
   const [fullAt, setFullAt] = React.useState<string | null>(null);
+  // What each case had flagged this visit (fields and sections), kept as it is fixed.
+  const seenRef = React.useRef<Record<string, { fields: Set<string>; steps: Set<string> }>>({});
 
   const [batch, setBatch] = React.useState<BatchView | null>(null);
   const [error, setError] = React.useState<string | null>(null);
@@ -266,6 +268,14 @@ export function BulkCaseFlow({
     const here = flags
       .map((f) => ({ f, at: flagPlace(f) }))
       .filter(({ at }) => at.step === step);
+    // Everything flagged in this case this visit, so what the filer puts right stays on
+    // screen as fixed rather than vanishing under their hand.
+    const seen = (seenRef.current[caseId] ??= { fields: new Set<string>(), steps: new Set<string>() });
+    for (const f of flags) {
+      const at = flagPlace(f);
+      seen.steps.add(f.section);
+      if (at.name) seen.fields.add(`${at.step}|${at.instance ?? ""}|${at.name}`);
+    }
     return {
       step,
       // One frame for every section of the case: the source opens when asked for (round 3).
@@ -283,6 +293,8 @@ export function BulkCaseFlow({
       countFor: (s) => flags.filter((f) => f.section === s).length,
       next,
       noBack: true,
+      fixedAt: (instance, name) => seen.fields.has(`${step}|${instance ?? ""}|${name}`),
+      fixedStep: (s) => seen.steps.has(s),
       focus: focus && fullAt !== `${caseId}:${step}`,
       focusRail: focus,
       // What is open in this section sits under its title, above the form it is about.

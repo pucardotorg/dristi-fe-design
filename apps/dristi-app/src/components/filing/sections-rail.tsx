@@ -241,7 +241,12 @@ function StepList({
   const groups = useShownGroups()
     .map((g) =>
       (policy?.focusRail ?? policy?.focus)
-        ? { ...g, steps: g.steps.filter((s) => policy.countFor(s.id) > 0 || active?.id === s.id) }
+        ? {
+            ...g,
+            steps: g.steps.filter(
+              (s) => policy.countFor(s.id) > 0 || active?.id === s.id || !!policy.fixedStep?.(s.id),
+            ),
+          }
         : g,
     )
     .filter((g) => g.steps.length);
