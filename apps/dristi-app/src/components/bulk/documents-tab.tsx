@@ -1,8 +1,6 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { CheckIcon, CirclePlayIcon, EllipsisVerticalIcon, PlusIcon, TriangleAlertIcon, WandSparklesIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -15,6 +13,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Spinner } from "@/components/ui/spinner";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   TABLE_CELL,
@@ -27,7 +28,7 @@ import {
 import { readability } from "@/lib/filing/readability";
 
 import { demoBlurryScan, demoPdf } from "./demo-fill";
-import { bulkApi, caseFlowHref, useBulkFileUrl, type CaseView } from "./api";
+import { bulkApi, useBulkFileUrl, type CaseView } from "./api";
 import { BatchFooter } from "./batch-footer";
 import type { BatchCtx } from "./batch-screen";
 import { batchTallies, caseState } from "./batch-marks";
@@ -323,6 +324,149 @@ function GroupCell({
   );
 }
 
+/**
+ * A case's papers of its own, in the trailing "Other" column: a dashed ring while there
+ * are none, a count once there are, and in place a list of them (view, replace) with a
+ * name and a file to add another. Never counted against the case.
+ */
+function OtherCell({
+  docs,
+  locked,
+  busy,
+  open,
+  onOpenChange,
+  onAdd,
+  onReplace,
+}: {
+  docs: Doc[];
+  locked: boolean;
+  busy: boolean;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onAdd: (name: string, file: File) => void;
+  onReplace: (d: Doc, file: File) => void;
+}) {
+  const [name, setName] = React.useState("");
+  const addInput = React.useRef<HTMLInputElement>(null);
+  const replaceInput = React.useRef<HTMLInputElement>(null);
+  const [target, setTarget] = React.useState<Doc | null>(null);
+  const nameId = React.useId();
+  if (locked && !docs.length) return <span className="text-muted-foreground">—</span>;
+  return (
+    <Popover open={open} onOpenChange={onOpenChange}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          disabled={busy}
+          aria-label={docs.length ? `${docs.length} other ${docs.length === 1 ? "document" : "documents"}` : "Add another document"}
+          className={cn(
+            "inline-flex h-9 min-w-9 items-center justify-center rounded-full px-2.5 text-body-compact font-medium tabular-nums transition-colors focus-visible:ring-3 focus-visible:ring-focus-ring focus-visible:outline-none disabled:opacity-60",
+            docs.length
+              ? "bg-success-muted text-success-ink"
+              : "border border-dashed border-hairline text-muted-foreground hover:border-solid hover:border-ring hover:bg-brand-muted hover:text-brand-muted-foreground",
+          )}
+        >
+          {busy ? <Spinner className="size-4" /> : docs.length ? docs.length : <PlusIcon aria-hidden className="size-4" />}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="flex w-80 flex-col gap-3">
+        {docs.length ? (
+          <ul className="flex flex-col gap-1">
+            {docs.map((d) => (
+              <li key={d.slotKey ?? d.name} className="flex items-center gap-2 text-body-compact">
+                <CheckIcon aria-hidden className="size-4 shrink-0 text-success-ink" />
+                <span className="min-w-0 flex-1 truncate" title={d.name}>
+                  {d.name}
+                </span>
+                {d.file ? <OtherView fileId={d.file.id} /> : null}
+                {locked || !d.slotKey ? null : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-body-compact"
+                    onClick={() => {
+                      setTarget(d);
+                      replaceInput.current?.click();
+                    }}
+                  >
+                    Replace
+                  </Button>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {locked ? null : (
+          <form
+            className="flex flex-col gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (name.trim()) addInput.current?.click();
+            }}
+          >
+            <Label htmlFor={nameId} className="text-body-compact">
+              {docs.length ? "Add another" : "Document name"}
+            </Label>
+            <div className="flex gap-2">
+              <Input
+                id={nameId}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Loan agreement"
+                className="flex-1"
+              />
+              <Button type="submit" variant="secondary" disabled={!name.trim()}>
+                Choose file
+              </Button>
+            </div>
+          </form>
+        )}
+        <input
+          ref={addInput}
+          type="file"
+          accept={ACCEPT}
+          className="sr-only"
+          tabIndex={-1}
+          aria-hidden
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (file && name.trim()) {
+              onAdd(name.trim(), file);
+              setName("");
+            }
+          }}
+        />
+        <input
+          ref={replaceInput}
+          type="file"
+          accept={ACCEPT}
+          className="sr-only"
+          tabIndex={-1}
+          aria-hidden
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (file && target) onReplace(target, file);
+          }}
+        />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/** Opens one of a case's own papers in a new tab. */
+function OtherView({ fileId }: { fileId: string }) {
+  const href = useBulkFileUrl(fileId);
+  return (
+    <Button asChild variant="ghost" size="sm" className="text-body-compact">
+      <a href={href ?? undefined} target="_blank" rel="noreferrer">
+        View
+      </a>
+    </Button>
+  );
+}
+
 type Show = "missing" | "complete" | "all";
 
 /**
@@ -333,7 +477,6 @@ type Show = "missing" | "complete" | "all";
  * cases are locked. Read 25 at a time.
  */
 export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
-  const ai = useSearchParams().get("ai");
   // The walkthrough, once per browser, the first time there is something to add. The tab
   // only mounts once the batch has loaded in the browser, so storage can be read here.
   const [guide, setGuide] = React.useState(
@@ -351,6 +494,12 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
   const [search, setSearch] = React.useState("");
   // Optional documents the filer has added to the table as columns.
   const [extra, setExtra] = React.useState<string[]>([]);
+  // The "Other" column, opened before any case has a paper of its own; and whose
+  // "Other" popover is open (from the row menu).
+  const [otherCol, setOtherCol] = React.useState(false);
+  const [otherFor, setOtherFor] = React.useState<string | null>(null);
+  // Asked for from a row menu: opened once that menu has closed and handed focus back.
+  const pendingOther = React.useRef<string | null>(null);
   const [limit, setLimit] = React.useState(PAGE);
 
   // Cases missing something first, in the order they had when the tab opened, so a case
@@ -457,13 +606,28 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
   // to the notice is collected down the batch like every other document.
   const optionalTypes: string[] = [];
   for (const c of open)
-    for (const d of c.documents.filter((x) => !own(x) && !x.required)) {
+    for (const d of c.documents.filter((x) => !own(x) && !x.required && !x.custom)) {
       const key = typeOf(d);
       if (!optionalTypes.includes(key)) optionalTypes.push(key);
       if (d.file && !extra.includes(key) && !columns.some((col) => col.key === key)) columns.push({ key, required: false });
     }
   for (const key of extra) if (!columns.some((col) => col.key === key)) columns.push({ key, required: false });
   const addable = optionalTypes.filter((t) => !columns.some((col) => col.key === t));
+  // Papers only one case has share a trailing "Other" column, shown once any case has one
+  // or the filer starts one, so a one-off never adds a column every case would carry.
+  const customOf = (c: CaseView) => c.documents.filter((x) => x.custom);
+  const showOther = otherCol || listed.some((c) => customOf(c).length > 0);
+  const addOther = async (c: CaseView, name: string, file: File) => {
+    setBusy(`${c.id}:other`);
+    setError(null);
+    try {
+      setBatch(await bulkApi.attach(batch.id, c.id, `new:${name}`, file));
+    } catch (e) {
+      setError(`${file.name}: ${(e as Error).message}`);
+    } finally {
+      setBusy(null);
+    }
+  };
 
   // A row's rarer acts, out of the cells: optional papers go to the case's own Documents
   // section; demo files fill the row in the sandbox.
@@ -475,13 +639,29 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
             <EllipsisVerticalIcon aria-hidden />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="min-w-56">
-          {/* A paper only this case has, with no column to go in: its own Documents section. */}
-          <DropdownMenuItem asChild>
-            <Link href={caseFlowHref(batch.id, c, "documents", ai)}>
-              <PlusIcon aria-hidden />
-              Another document for this case
-            </Link>
+        <DropdownMenuContent
+          align="end"
+          className="min-w-56"
+          // The menu would hand focus back to its trigger and so close the popover it just
+          // asked for: open the popover instead, once the menu is gone.
+          onCloseAutoFocus={(e) => {
+            if (!pendingOther.current) return;
+            e.preventDefault();
+            const id = pendingOther.current;
+            pendingOther.current = null;
+            window.requestAnimationFrame(() => setOtherFor(id));
+          }}
+        >
+          {/* A paper only this case has: added right here, in the row's Other cell, never
+              by leaving for the case (owner, 2026-11-12). */}
+          <DropdownMenuItem
+            onSelect={() => {
+              setOtherCol(true);
+              pendingOther.current = c.id;
+            }}
+          >
+            <PlusIcon aria-hidden />
+            Another document for this case
           </DropdownMenuItem>
           {demo && c.docs.have < c.docs.need ? (
             <DropdownMenuItem disabled={!!busy} onSelect={() => void fillDemo([c])}>
@@ -546,7 +726,7 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
           ]}
         />
         {/* A new document is a new column, collected down the batch (owner, 2026-11-12). */}
-        {addable.length && !closed ? (
+        {(addable.length || !showOther) && !closed ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="text-body-compact">
@@ -558,8 +738,15 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
               {addable.map((t) => (
                 <DropdownMenuItem key={t} onSelect={() => setExtra((x) => [...x, t])}>
                   {t}
+                  <span className="ml-auto text-muted-foreground">Every case</span>
                 </DropdownMenuItem>
               ))}
+              {showOther ? null : (
+                <DropdownMenuItem onSelect={() => setOtherCol(true)}>
+                  Another document
+                  <span className="ml-auto text-muted-foreground">Some cases</span>
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         ) : null}
@@ -596,7 +783,9 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
                         {col.required ? null : <span className="sr-only"> (optional)</span>}
                       </TableHead>
                     ))}
-                    <TableHead className={cn(TABLE_HEAD, "text-right")}>Added</TableHead>
+                    {showOther ? (
+                      <TableHead className={cn(TABLE_HEAD, "w-20 px-2 text-center font-normal")}>Other</TableHead>
+                    ) : null}
                     {closed ? null : (
                       <TableHead className={TABLE_HEAD}>
                         <span className="sr-only">More</span>
@@ -612,6 +801,8 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
                     return (
                       <TableRow key={c.id} className={tableRowClass({ hover: false })}>
                         <TableCell className={cn(TABLE_CELL, "max-w-64")}>
+                          {/* The marks say what is missing; a screen reader gets it as a count. */}
+                          <span className="sr-only">{`${have} of ${need.length} required documents added. `}</span>
                           <span className="block truncate font-medium" title={c.accused || c.title}>
                             {c.accused || c.title}
                           </span>
@@ -654,18 +845,19 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
                             </TableCell>
                           );
                         })}
-                        <TableCell className={cn(TABLE_CELL, "text-right whitespace-nowrap tabular-nums")}>
-                          {have === need.length ? (
-                            <span className="inline-flex items-center gap-1.5 font-medium text-success-ink">
-                              <CheckIcon aria-hidden className="size-4" />
-                              All
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground">
-                              {have} of {need.length}
-                            </span>
-                          )}
-                        </TableCell>
+                        {showOther ? (
+                          <TableCell className={cn(TABLE_CELL, "px-2 text-center")}>
+                            <OtherCell
+                              docs={customOf(c)}
+                              locked={closed}
+                              busy={busy === `${c.id}:other` || customOf(c).some((d) => busy === `${c.id}:${d.slotKey}`)}
+                              open={otherFor === c.id}
+                              onOpenChange={(o) => setOtherFor(o ? c.id : null)}
+                              onAdd={(name, file) => void addOther(c, name, file)}
+                              onReplace={(d, file) => void upload(c, d, file)}
+                            />
+                          </TableCell>
+                        ) : null}
                         {closed ? null : <TableCell className={cn(TABLE_CELL, "w-12")}>{rowMenu(c)}</TableCell>}
                       </TableRow>
                     );
