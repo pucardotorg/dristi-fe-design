@@ -52,7 +52,8 @@ import { DetailFieldMenu } from "@/components/filing/detail-field-menu";
 import { RichTextEditor, type BracketMarks, type RichTextEditorHandle } from "@/components/filing/rich-text-editor";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { ChromeDialogContent } from "@/components/chrome/app-chrome";
 import { cn } from "@/lib/utils";
 
@@ -454,23 +455,18 @@ export function FactsCard({
   );
 }
 
-/** "Harsh V. Bhavsar, Pravin D. Solanki and 2 more". */
-function someNames(names: string[]): string {
-  if (names.length <= 2) return new Intl.ListFormat("en", { type: "conjunction" }).format(names);
-  return `${names.slice(0, 2).join(", ")} and ${names.length - 2} more`;
-}
-
 /**
  * On leaving Facts, when some rows already have a story and the batch text exists: keep
- * their stories, or give every case the batch text. Two outcomes, each saying what it does
- * and to whom; the safe one is first and chosen unless the filer chose the other before.
+ * their stories, or give every case the batch text. Built as the app's choice dialogs are
+ * (`download-case-file-dialog.tsx`): a header band, a plain radio list, a footer band. It
+ * speaks in counts, so it reads the same for 4 cases or 400; the safe choice is first and
+ * chosen unless the filer chose the other before.
  */
 export function FactsQuestion({
   open,
   onOpenChange,
   own,
   total,
-  names,
   initial,
   onChoose,
 }: {
@@ -478,26 +474,23 @@ export function FactsQuestion({
   onOpenChange: (open: boolean) => void;
   own: number;
   total: number;
-  /** Who the rows with a story are, to name them. */
-  names: string[];
   /** The filer chose to replace them before. */
   initial: boolean;
   onChoose: (everyCase: boolean) => void;
 }) {
   const [every, setEvery] = React.useState(initial);
-  const titleId = React.useId();
   const empty = total - own;
-  const them = own === 1 ? "it" : "them";
+  const one = own === 1;
   const choices = [
     {
       value: "keep",
-      title: own === 1 ? "Keep its story" : "Keep their stories",
-      detail: `${names.length ? someNames(names) : `These ${own}`} keep${own === 1 ? "s" : ""} the story from the Excel. The other ${empty} get the batch text.`,
+      label: one ? "Keep the story from the Excel" : `Keep the ${own} stories from the Excel`,
+      detail: `The batch text goes into the ${empty === 1 ? "1 case" : `${empty} cases`} without one.`,
     },
     {
       value: "replace",
-      title: `Use the batch text for all ${total}`,
-      detail: `The ${own === 1 ? "story" : `${own} stories`} in the Excel ${own === 1 ? "isn't" : "aren't"} used. Each case can still be changed later.`,
+      label: `Use the batch text for all ${total} cases`,
+      detail: one ? "The story in the Excel isn't used." : `The ${own} stories in the Excel aren't used.`,
     },
   ];
   return (
@@ -508,38 +501,41 @@ export function FactsQuestion({
         onOpenChange(next);
       }}
     >
-      <ChromeDialogContent mobileSheet className="sm:max-w-lg" aria-labelledby={titleId}>
-        <DialogHeader>
-          <DialogTitle id={titleId}>
-            {own === 1 ? "1 case already has a story" : `${own} cases already have a story`} in the Excel
+      <ChromeDialogContent className="flex max-h-[calc(100dvh---spacing(12))] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
+        <DialogHeader className="gap-1 border-b border-hairline px-6 py-4 text-left">
+          <DialogTitle className="text-title-s font-semibold tabular-nums">
+            {one ? "1 case already has a story" : `${own} cases already have a story`}
           </DialogTitle>
-          <DialogDescription>What should happen to {them}?</DialogDescription>
+          <DialogDescription>Choose what happens to {one ? "it" : "them"} before you continue.</DialogDescription>
         </DialogHeader>
-        <RadioGroup
-          value={every ? "replace" : "keep"}
-          onValueChange={(v) => setEvery(v === "replace")}
-          aria-labelledby={titleId}
-          className="flex flex-col gap-2 rounded-xl bg-surface-sunken p-2"
-        >
-          {choices.map((c) => (
-            <label
-              key={c.value}
-              className="flex cursor-pointer items-start gap-3 rounded-lg bg-card px-4 py-3 shadow-raised transition-colors hover:bg-brand-muted has-data-checked:ring-2 has-data-checked:ring-primary"
-            >
-              <RadioGroupItem value={c.value} className="mt-0.5" />
-              <span className="flex min-w-0 flex-col gap-0.5">
-                <span className="text-body-compact font-semibold">{c.title}</span>
-                <span className="text-body-compact text-muted-foreground tabular-nums">{c.detail}</span>
-              </span>
-            </label>
-          ))}
-        </RadioGroup>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+
+        <div className="flex min-h-0 flex-col overflow-y-auto px-6 py-4">
+          <RadioGroup
+            value={every ? "replace" : "keep"}
+            onValueChange={(v) => setEvery(v === "replace")}
+            aria-label="What happens to the stories in the Excel"
+            className="flex flex-col gap-4"
+          >
+            {choices.map((c) => (
+              <div key={c.value} className="flex items-start gap-3">
+                <RadioGroupItem value={c.value} id={`facts-${c.value}`} className="mt-0.5" />
+                <Label htmlFor={`facts-${c.value}`} className="flex flex-col items-start gap-0.5 tabular-nums">
+                  <span>{c.label}</span>
+                  <span className="font-normal text-muted-foreground">{c.detail}</span>
+                </Label>
+              </div>
+            ))}
+          </RadioGroup>
+        </div>
+
+        <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-hairline px-6 py-4 sm:flex-row sm:justify-end">
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Back
           </Button>
-          <Button onClick={() => onChoose(every)}>Continue</Button>
-        </DialogFooter>
+          <Button type="button" onClick={() => onChoose(every)}>
+            Continue
+          </Button>
+        </div>
       </ChromeDialogContent>
     </Dialog>
   );

@@ -857,7 +857,6 @@ export function UploadScreen() {
           onOpenChange={setAskFacts}
           own={ownCount}
           total={rows.length}
-          names={(checkCases ?? []).filter((c) => c.own).map((c) => c.accused.split(", ")[0] || c.reference)}
           initial={everyCase === true}
           onChoose={leave}
         />
