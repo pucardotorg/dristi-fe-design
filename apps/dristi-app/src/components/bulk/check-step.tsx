@@ -72,7 +72,6 @@ import { ChromeDialogContent } from "@/components/chrome/app-chrome";
 import { cn } from "@/lib/utils";
 
 import { aboutDetails } from "./batch-marks";
-import { STATE, StatusWord } from "./stage";
 
 /* ───────────────────────────── The cases, as Create will make them ───────────────────────────── */
 
@@ -157,83 +156,53 @@ export function checkCounts(cases: CheckCase[]) {
 }
 
 /**
- * Check as a summary, not a second case list (owner, 2026-11-12: Check and Case details
- * showed the same list twice). What Case details will ask for, grouped by reason, so a
- * problem that repeats across rows reads as one thing to fix in the file. Counts come from
- * the same rules Case details uses (`caseFlags`), so the two never disagree.
- *
- * Only the two section words carry colour; the reasons and counts are neutral.
+ * Check as counts, not a list (owner, 2026-11-12: listing every case, or every reason,
+ * does not scale to a 500-row file; Case details is where cases are worked). How many
+ * will be created, how many of those Case details will ask about, and how many rows the
+ * file can't make. Counts come from the same caseFlags as Case details, so they agree.
+ * Only "can't be created" carries colour, and only when there are some.
  */
-export type SummaryCase = { state: "fix" | "check" | "done"; flags: Flag[] };
-
-/** A rule's reason, without the one case's own value: `Pincode "38001" is not…` → `Pincode is not…`. */
-function ruleReason(flags: Flag[]): string {
-  const texts = [...new Set(flags.map((f) => f.message))];
-  // Differing texts differ by the case's own value or count: drop both, keep the rule.
-  const strip = (t: string) => {
-    const bare = t.replace(/\s*"[^"]*"/g, "").replace(/^\d+\s+/, "").replace(/\s{2,}/g, " ");
-    return bare.charAt(0).toUpperCase() + bare.slice(1);
-  };
-  const one = texts.length === 1 ? texts[0] : strip(texts[0]);
-  const m = /^(.+?[.?!])(\s|$)/.exec(one.trim());
-  return (m ? m[1] : one).replace(/[.]$/, "");
-}
-
-export function CheckSummary({ cases }: { cases: SummaryCase[] }) {
-  const sections = (["fix", "check"] as const).map((state) => {
-    const level = state === "fix" ? "hold" : undefined;
-    const groups = new Map<string, { flags: Flag[]; cases: Set<number> }>();
-    cases.forEach((c, i) => {
-      // Each section speaks for its own cases, so its rows never outnumber its heading.
-      if (c.state !== state) return;
-      for (const f of c.flags) {
-        if (state === "fix" ? f.level !== level : f.level === "hold") continue;
-        const g = groups.get(f.rule) ?? { flags: [], cases: new Set<number>() };
-        g.flags.push(f);
-        g.cases.add(i);
-        groups.set(f.rule, g);
-      }
+export function CheckCounts({
+  total,
+  fix,
+  check,
+  cannot,
+  created = false,
+}: {
+  total: number;
+  fix: number;
+  check: number;
+  /** Rows the file can't make; left out when the batch already exists. */
+  cannot?: number;
+  /** The batch exists: say what it holds rather than what it will. */
+  created?: boolean;
+}) {
+  const look = fix + check;
+  const stats: { n: number; label: string; detail?: string; tone?: string }[] = [
+    { n: total, label: created ? (total === 1 ? "case in this batch" : "cases in this batch") : total === 1 ? "case will be created" : "cases will be created" },
+    {
+      n: look,
+      label: "need a look in Case details",
+      detail: look ? [fix ? `${fix} to fix` : "", check ? `${check} to check` : ""].filter(Boolean).join(" · ") : "Nothing to fix or check",
+    },
+  ];
+  if (cannot !== undefined)
+    stats.push({
+      n: cannot,
+      label: cannot === 1 ? "row can't be created" : "rows can't be created",
+      tone: cannot ? "text-destructive-ink" : undefined,
     });
-    const rows = [...groups.values()]
-      .map((g) => ({ reason: ruleReason(g.flags), count: g.cases.size }))
-      .sort((a, b) => b.count - a.count);
-    return { state, count: cases.filter((c) => c.state === state).length, rows };
-  });
-  const done = cases.filter((c) => c.state === "done").length;
-  const n = (k: number) => `${k} ${k === 1 ? "case" : "cases"}`;
-  const shown = sections.filter((x) => x.count && x.rows.length);
   return (
-    <Card variant="raised" className="gap-0 p-2">
-      {shown.map((sec, i) => (
-        <section
-          key={sec.state}
-          aria-label={STATE[sec.state].word}
-          className={cn("flex flex-col py-2", i && "border-t border-hairline")}
-        >
-          <h3 className="flex items-center gap-2 px-4 py-2 text-body-compact">
-            <StatusWord state={sec.state} />
-            <span className="text-muted-foreground tabular-nums">{n(sec.count)}</span>
-          </h3>
-          <ul className="flex flex-col">
-            {sec.rows.map((r) => (
-              <li
-                key={r.reason}
-                className="flex items-baseline justify-between gap-6 px-4 py-2 pl-10 text-body-compact"
-              >
-                <span className="min-w-0">{r.reason}</span>
-                <span className="shrink-0 text-muted-foreground tabular-nums">{n(r.count)}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
-      <p className={cn("px-4 py-3 text-body-compact text-muted-foreground tabular-nums", shown.length && "border-t border-hairline")}>
-        {done === cases.length
-          ? `Nothing to fix or check in ${cases.length === 1 ? "this case" : `any of the ${cases.length} cases`}.`
-          : done
-            ? `${n(done)} ${done === 1 ? "has" : "have"} nothing to fix or check.`
-            : "Every case has something to fix or check."}
-      </p>
+    <Card variant="raised" className="p-6">
+      <dl className={cn("grid gap-6", stats.length === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2")}>
+        {stats.map((x) => (
+          <div key={x.label} className="flex flex-col gap-1">
+            <dd className={cn("order-first text-title-l font-semibold tabular-nums", x.tone)}>{x.n}</dd>
+            <dt className="text-body-compact">{x.label}</dt>
+            {x.detail ? <dd className="text-body-compact text-muted-foreground tabular-nums">{x.detail}</dd> : null}
+          </div>
+        ))}
+      </dl>
     </Card>
   );
 }

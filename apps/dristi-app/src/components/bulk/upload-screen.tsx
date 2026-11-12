@@ -75,7 +75,7 @@ import {
   serverDetailsFormats,
   subscribeToDetailsFormats,
 } from "@/lib/filing/details-formats";
-import { CheckSummary, FactsCard, FactsLine, FactsQuestion, checkCounts, useCheckCases } from "./check-step";
+import { CheckCounts, FactsCard, FactsLine, FactsQuestion, checkCounts, useCheckCases } from "./check-step";
 import { FileDrop } from "./file-drop";
 import { FormatChoice, type UploadFormat } from "./format-choice";
 import { bulkFetch } from "./api";
@@ -878,14 +878,7 @@ export function UploadScreen() {
               coreMissing.length
                 ? undefined
                 : counted
-                  ? counted.fix + counted.check
-                    ? `${created.length} case${created.length === 1 ? "" : "s"} from ${fileName}. ${[
-                        counted.fix ? `${counted.fix} need${counted.fix === 1 ? "s" : ""} a fix` : "",
-                        counted.check ? `${counted.check} need${counted.check === 1 ? "s" : ""} a look` : "",
-                      ]
-                        .filter(Boolean)
-                        .join(" and ")} in Case details, after you create them.`
-                    : `${created.length} case${created.length === 1 ? "" : "s"} from ${fileName}. Every case is ready.`
+                  ? `${created.length} row${created.length === 1 ? "" : "s"} read from ${fileName}.`
                   : `Reading ${fileName}…`
             }
           />
@@ -964,11 +957,14 @@ export function UploadScreen() {
               onEdit={() => setStep("facts")}
             />
           )}
-          {/* What Case details will ask for, grouped by reason: judged as Case details will
-              judge it (owner, 2026-11-10), but not listed twice (owner, 2026-11-12). */}
+          {/* The counts, judged as Case details will judge them (owner, 2026-11-10), never a
+              second list of the cases (owner, 2026-11-12). */}
           {coreMissing.length || docs ? null : checkCases ? (
-            <CheckSummary
-              cases={checkCases.map((c) => ({ state: c.state === "ready" ? "done" : c.state, flags: c.flags }))}
+            <CheckCounts
+              total={checkCases.length}
+              fix={checkCases.filter((c) => c.state === "fix").length}
+              check={checkCases.filter((c) => c.state === "check").length}
+              cannot={cannot.length}
             />
           ) : (
             <p role="status" className="text-body-compact text-muted-foreground">
