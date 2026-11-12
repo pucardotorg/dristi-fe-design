@@ -47,6 +47,14 @@ export type FieldPolicy = {
    */
   noBack?: boolean;
   /**
+   * Show only what the host flagged: fields without an issue step out (`FormField` returns
+   * null) and the rail lists only sections with something open, as scrutiny's corrections
+   * do until "Show full filing" brings the rest back (bulk's case flow).
+   */
+  focus?: boolean;
+  /** The rail's half of `focus`, kept when one section has to show its fields in full. */
+  focusRail?: boolean;
+  /**
    * Why the section's Continue can't go ahead yet, or `null` when it can. A single filing
    * lets a section be left incomplete and catches it at preview; bulk filing's Common
    * details can't, because one gap there becomes the same fix on every case.

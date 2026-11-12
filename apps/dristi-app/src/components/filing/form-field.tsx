@@ -124,10 +124,8 @@ export function FormField({
   const { missing, flagged } = useMissingField(
     required && !optional ? (emptyProp ?? inferEmpty(children)) : null,
   );
-  const error =
-    ownError ??
-    (policy && name ? policy.issueAt(instance, name) : null) ??
-    (flagged ? "Required" : undefined);
+  const hostIssue = policy && name ? policy.issueAt(instance, name) : null;
+  const error = ownError ?? hostIssue ?? (flagged ? "Required" : undefined);
   const defect =
     correction && name ? correction.defectAt(correction.step, instance, name) : null;
   const locked = !!correction && !defect;
@@ -190,6 +188,7 @@ export function FormField({
       className={cn(asGroup ? "gap-3" : "gap-2", className)}
       data-invalid={error ? true : undefined}
       data-missing-field={missing || undefined}
+      data-flagged={hostIssue ? true : undefined}
     >
       {asGroup ? (
         <FieldTitle className="text-body-compact">{labelBody}</FieldTitle>
@@ -205,6 +204,8 @@ export function FormField({
     </Field>
   );
 
+  // A host showing only what it flagged (bulk's case flow): the rest steps out.
+  if (!correction && policy?.focus && !hostIssue) return null;
   if (!correction) return field;
 
   if (defect) {

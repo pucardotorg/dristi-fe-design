@@ -234,16 +234,27 @@ function StepList({
 }) {
   const courtText = useCourtText();
   const active = useActiveStep();
-  const groups = useShownGroups();
-  const host = useFieldPolicy()?.hostSteps;
+  const policy = useFieldPolicy();
+  const host = policy?.hostSteps;
+  // A host showing only what it flagged lists only the sections with something open
+  // (and the one on screen); a group left empty goes with them.
+  const groups = useShownGroups()
+    .map((g) =>
+      (policy?.focusRail ?? policy?.focus)
+        ? { ...g, steps: g.steps.filter((s) => policy.countFor(s.id) > 0 || active?.id === s.id) }
+        : g,
+    )
+    .filter((g) => g.steps.length);
 
   return (
     <nav aria-label="Filing sections" className="flex flex-col gap-4 px-2">
-      <ul className="flex w-full flex-col gap-1">
-        <li>
-          <DocsRow onOpen={onOpenDocs} />
-        </li>
-      </ul>
+      {(policy?.focusRail ?? policy?.focus) ? null : (
+        <ul className="flex w-full flex-col gap-1">
+          <li>
+            <DocsRow onOpen={onOpenDocs} />
+          </li>
+        </ul>
+      )}
 
       {groups.map((g) => (
         <div key={g.group} className="flex w-full flex-col gap-1">
