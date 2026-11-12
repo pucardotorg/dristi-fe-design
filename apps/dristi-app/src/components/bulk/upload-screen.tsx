@@ -52,6 +52,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Field, FieldLabel } from "@/components/ui/field";
 import {
   NativeSelect,
@@ -222,7 +231,7 @@ function makeRequest({
   fileName,
   factsHtml,
   factsId,
-  replace,
+  everyCase,
   court,
 }: {
   book: Workbookish;
@@ -234,8 +243,8 @@ function makeRequest({
   fileName: string;
   factsHtml: string;
   factsId: string | undefined;
-  /** Cases (by reference) whose own text in the file the batch's text replaces. */
-  replace: string[];
+  /** The batch's text replaces rows' own text too. */
+  everyCase: boolean;
   court: NonNullable<ApiBatchRequest["detailsFormat"]>["court"];
 }) {
   const parties = partiesOf(setup);
@@ -254,7 +263,7 @@ function makeRequest({
       // Asked with the complainants on Common details (BLK-05).
       adr: setup.adr.adr,
       fileName,
-      detailsFormat: hasFacts ? { id: factsId ?? "batch", html: factsHtml, court, replace } : undefined,
+      detailsFormat: hasFacts ? { id: factsId ?? "batch", html: factsHtml, court, everyCase } : undefined,
     },
     counts,
   );
@@ -279,9 +288,10 @@ export function UploadScreen() {
   // touches it, the default template's text (else the first, the system's own), already
   // written in; then whatever they made of it, including nothing.
   const [factsChoice, setFactsChoice] = React.useState<{ id: string | undefined; html: string } | null>(null);
-  // The rows whose own text in the file the batch's facts replace: none unless the filer
-  // says so on Facts, for one case or for all of them.
-  const [replace, setReplace] = React.useState<string[]>([]);
+  // Whether the batch's facts replace rows' own text: asked on leaving Facts when rows
+  // bring some (owner, 2026-11-12); `null` until answered, then remembered.
+  const [everyCase, setEveryCase] = React.useState<boolean | null>(null);
+  const [askFacts, setAskFacts] = React.useState(false);
   const formats = React.useSyncExternalStore(
     subscribeToDetailsFormats,
     readDetailsFormats,
@@ -361,7 +371,7 @@ export function UploadScreen() {
   const creating = book ? book.cases.rows.length - cannot.length : 0;
 
   const requestFor = () =>
-    book ? makeRequest({ book, setup, cannot, map, values, counts, fileName, factsHtml, factsId, replace, court }) : null;
+    book ? makeRequest({ book, setup, cannot, map, values, counts, fileName, factsHtml, factsId, everyCase: !!everyCase, court }) : null;
 
   // Check judges each case as Case details will: built here as Create builds it.
   const blocked = coreMissing.length > 0;
@@ -369,9 +379,9 @@ export function UploadScreen() {
     () =>
       // Built on Facts too, so its preview shows a real case as Create will make it.
       (step === "review" || step === "facts") && book && !blocked && !docs
-        ? makeRequest({ book, setup, cannot, map, values, counts, fileName, factsHtml, factsId, replace, court })
+        ? makeRequest({ book, setup, cannot, map, values, counts, fileName, factsHtml, factsId, everyCase: !!everyCase, court })
         : null,
-    [step, book, blocked, docs, setup, cannot, map, values, counts, fileName, factsHtml, factsId, replace, court],
+    [step, book, blocked, docs, setup, cannot, map, values, counts, fileName, factsHtml, factsId, everyCase, court],
   );
   const checkCases = useCheckCases(preview?.request ?? null, preview?.parties ?? null);
   const valuesDone = unknownLists.every((l) =>
@@ -818,6 +828,13 @@ export function UploadScreen() {
   // starts with, made once, before the cases are checked (owner, 2026-11-10).
   if (step === "facts" && book) {
     const rows = createdRows();
+    const ownCount = ownFacts(rows);
+    const hasText = !!factsHtml.replace(/<[^>]*>|&nbsp;/g, "").trim();
+    const leave = (every: boolean) => {
+      setEveryCase(every);
+      setAskFacts(false);
+      setStep("review");
+    };
     return (
       <>
         <FilingMain>
@@ -831,19 +848,40 @@ export function UploadScreen() {
             templateId={factsId}
             html={factsHtml}
             onChange={(id, html) => setFactsChoice({ id, html })}
-            own={ownFacts(rows)}
+            own={ownCount}
             total={rows.length}
-            replace={replace}
-            onReplace={setReplace}
             cases={checkCases}
           />
         </FilingMain>
         <FilingFooter
           showSaveState={false}
           onBack={() => setStep(backFromFacts)}
-          onContinue={() => setStep("review")}
+          onContinue={() => (ownCount && hasText ? setAskFacts(true) : setStep("review"))}
           continueLabel="Continue"
         />
+        {/* Asked when it matters: the text exists and some rows already have a story. Esc
+            stays on Facts; the last answer is where focus lands on a return. */}
+        <AlertDialog open={askFacts} onOpenChange={setAskFacts}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {ownCount === 1 ? "1 case already has" : `${ownCount} cases already have`} a story in the Excel
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                Your batch text goes into the other {rows.length - ownCount}. Should it replace{" "}
+                {ownCount === 1 ? "that story" : `the ${ownCount} stories`} too?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogAction variant="outline" autoFocus={everyCase === true} onClick={() => leave(true)}>
+                Replace all {rows.length}
+              </AlertDialogAction>
+              <AlertDialogAction autoFocus={everyCase !== true} onClick={() => leave(false)}>
+                Only the {rows.length - ownCount} empty {rows.length - ownCount === 1 ? "one" : "ones"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </>
     );
   }
@@ -941,10 +979,10 @@ export function UploadScreen() {
               </CardContent>
             </Card>
           ) : null}
-          {coreMissing.length || !created.length || (own === created.length && !replace.length) ? null : (
+          {coreMissing.length || !created.length || (own === created.length && !everyCase) ? null : (
             <FactsLine
               name={factsHtml.replace(/<[^>]*>|&nbsp;/g, "").trim() ? (formats.find((f) => f.id === factsId)?.name ?? "Your own text") : null}
-              cases={created.length - own + replace.length}
+              cases={everyCase ? created.length : created.length - own}
               onEdit={() => setStep("facts")}
             />
           )}

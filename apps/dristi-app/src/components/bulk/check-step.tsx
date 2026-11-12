@@ -50,7 +50,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { DetailFieldMenu } from "@/components/filing/detail-field-menu";
 import { RichTextEditor, type BracketMarks, type RichTextEditorHandle } from "@/components/filing/rich-text-editor";
-import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
@@ -217,10 +216,9 @@ function previewHtml(html: string): string {
  * advocate tells, written once here for the batch (owner, 2026-11-12). Fields in the text
  * are tokens each case fills; the parts no field can fill are highlighted to write here.
  *
- * Rows that bring their own story in the file keep it (owner, 2026-11-12): the split is
- * stated as a fact above the box, not asked; Preview marks where each case's story comes
- * from and switches one case at a time; using this text for all of them is one confirmed
- * act, because it sets aside text someone wrote.
+ * Rows that bring their own story in the file: whether this text replaces theirs is asked
+ * on Continue, once the text exists (owner, 2026-11-12; `upload-screen.tsx`). Here Preview
+ * only shows where each case's story comes from, so the filer can read them first.
  */
 export function FactsCard({
   formats,
@@ -229,8 +227,6 @@ export function FactsCard({
   onChange,
   own,
   total,
-  replace,
-  onReplace,
   cases,
 }: {
   formats: readonly DetailsFormat[];
@@ -240,9 +236,6 @@ export function FactsCard({
   /** Rows whose Additional details column has text. */
   own: number;
   total: number;
-  /** The `own` cases (by reference) that use this text instead of their row's. */
-  replace: string[];
-  onReplace: (replace: string[]) => void;
   /** The cases as Create will make them, for the preview; `null` while they are built. */
   cases: CheckCase[] | null;
 }) {
@@ -256,21 +249,9 @@ export function FactsCard({
   const blanks = writtenBlanks(html);
   const empty = isEmpty(html);
   const ownCases = cases?.filter((c) => c.own) ?? [];
-  // The cases with their own story first: they are the ones with a choice.
+  // The cases with their own story first: they are the ones the question on Continue is about.
   const listed = cases ? [...ownCases, ...cases.filter((c) => !c.own)] : [];
   const preview = listed.find((c) => c.key === previewKey) ?? listed[0] ?? null;
-  const replaced = replace.length;
-  const rest = total - own;
-  // The batch-wide choice; "" while the cases differ (some switched one at a time).
-  const choice = replaced === 0 ? "excel" : replaced >= own ? "batch" : "";
-  const chooseAll = (value: string) => {
-    if (value === "excel") onReplace([]);
-    else if (value === "batch") onReplace(ownCases.map((c) => c.reference));
-  };
-  const chooseOne = (c: CheckCase, value: string) => {
-    if (value === "batch" && !c.fromBatch) onReplace([...replace, c.reference]);
-    if (value === "excel" && c.fromBatch) onReplace(replace.filter((ref) => ref !== c.reference));
-  };
   // The editor's brackets: fields it offers on `[`, and a real case to show a field's value.
   const first = cases?.[0];
   const marks = React.useMemo<BracketMarks>(
@@ -291,36 +272,6 @@ export function FactsCard({
   return (
     <Card variant="raised">
       <CardContent className="flex flex-col gap-5">
-        {/* One decision, as a control: the rows that bring their own story keep it or take
-            the batch text. The same control decides one case at a time in Preview. */}
-        {own > 0 ? (
-          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-hairline pb-5">
-            <div className="flex min-w-0 flex-col gap-0.5">
-              <p className="text-body-compact font-semibold tabular-nums">
-                {own} of {total} rows have their own story in the Excel
-              </p>
-              <p className="text-body-compact text-muted-foreground tabular-nums">
-                {choice === "excel"
-                  ? `They keep it. The other ${rest} cases use the batch text.`
-                  : choice === "batch"
-                    ? `All ${total} cases use the batch text.`
-                    : `${replaced} of ${own} switched to the batch text in Preview.`}
-              </p>
-            </div>
-            <SegmentedControl
-              type="single"
-              value={choice}
-              onValueChange={chooseAll}
-              aria-label={`Story for the ${own} rows with their own`}
-            >
-              <SegmentedControlItem value="excel">Keep Excel story</SegmentedControlItem>
-              <SegmentedControlItem value="batch" disabled={empty || !ownCases.length}>
-                Use batch text
-              </SegmentedControlItem>
-            </SegmentedControl>
-          </div>
-        ) : null}
-
         {/* Write and Preview share one box, so the preview is never a scroll away
             (owner, 2026-11-12). */}
         <Tabs value={mode} onValueChange={(v) => setMode(v as "write" | "preview")} className="flex flex-col gap-4">
@@ -437,24 +388,11 @@ export function FactsCard({
               </ul>
               {preview ? (
                 <div className="flex min-w-0 flex-col rounded-xl border border-input bg-card">
-                  <div className="flex min-h-14 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-hairline py-2 pr-2 pl-6">
+                  <div className="flex min-h-14 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-hairline py-2 pr-6 pl-6">
                     <span className="min-w-0 truncate text-body font-semibold">{preview.accused || preview.reference}</span>
-                    {preview.own ? (
-                      <SegmentedControl
-                        type="single"
-                        size="compact"
-                        value={preview.fromBatch ? "batch" : "excel"}
-                        onValueChange={(v) => chooseOne(preview, v)}
-                        aria-label="Story for this case"
-                      >
-                        <SegmentedControlItem value="excel">Excel story</SegmentedControlItem>
-                        <SegmentedControlItem value="batch" disabled={empty}>
-                          Batch text
-                        </SegmentedControlItem>
-                      </SegmentedControl>
-                    ) : (
-                      <span className="pr-4 text-body-compact text-muted-foreground">Batch text</span>
-                    )}
+                    <span className="text-body-compact text-muted-foreground">
+                      {preview.own && !preview.fromBatch ? "Excel story" : "Batch text"}
+                    </span>
                   </div>
                   <div
                     key={`${preview.key}-${preview.fromBatch}`}
