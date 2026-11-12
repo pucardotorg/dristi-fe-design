@@ -47,6 +47,14 @@ import { FilterPills } from "./filter-pills";
 import { StatusWord, shortReason } from "./stage";
 import { StatusLine } from "@/components/feedback";
 
+/**
+ * A row action on a lit row. The row's own fill is the sunken grey, so a ghost button's
+ * grey hover on it read as a smudge (owner, 2026-11-12). On the lit row the actions lift
+ * to white, and the one under the pointer takes the raised shadow.
+ */
+const ON_ROW =
+  "group-hover/row:bg-card hover:bg-card hover:shadow-raised aria-expanded:bg-card aria-expanded:shadow-raised";
+
 type Kind = "hold" | "check";
 const kindOf = (f: Flag): Kind =>
   f.level === "hold" ? "hold" : "check";
@@ -339,7 +347,7 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
                     return (
                       <TableRow
                         key={c.id}
-                        className={cn(tableRowClass({ open: c.id === last }), "cursor-pointer")}
+                        className={cn(tableRowClass({ open: c.id === last }), "group/row cursor-pointer")}
                         aria-current={c.id === last ? "true" : undefined}
                         // The whole row opens the case; the name stays the keyboard's link.
                         onClick={() => router.push(href)}
@@ -366,7 +374,7 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
                         <TableCell className={TABLE_CELL}>
                           <span className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                             {rankOf(c) < 2 ? (
-                              <Button asChild variant="ghost" size="sm" className="text-body-compact">
+                              <Button asChild variant="ghost" size="sm" className={cn("text-body-compact", ON_ROW)}>
                                 <Link href={href}>{rankOf(c) === 0 ? "Fix" : "Check"}</Link>
                               </Button>
                             ) : null}
@@ -376,7 +384,7 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
                                   <Button
                                     variant="ghost"
                                     size="icon-sm"
-                                    className="text-muted-foreground"
+                                    className={cn("text-muted-foreground", ON_ROW)}
                                     aria-label={`More for ${c.title}`}
                                     disabled={busy}
                                   >
