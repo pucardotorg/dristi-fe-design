@@ -221,6 +221,7 @@ function makeRequest({
   fileName,
   factsHtml,
   factsId,
+  everyCase,
   court,
 }: {
   book: Workbookish;
@@ -232,6 +233,7 @@ function makeRequest({
   fileName: string;
   factsHtml: string;
   factsId: string | undefined;
+  everyCase: boolean;
   court: NonNullable<ApiBatchRequest["detailsFormat"]>["court"];
 }) {
   const parties = partiesOf(setup);
@@ -250,7 +252,7 @@ function makeRequest({
       // Asked with the complainants on Common details (BLK-05).
       adr: setup.adr.adr,
       fileName,
-      detailsFormat: hasFacts ? { id: factsId ?? "batch", html: factsHtml, court } : undefined,
+      detailsFormat: hasFacts ? { id: factsId ?? "batch", html: factsHtml, court, everyCase } : undefined,
     },
     counts,
   );
@@ -275,6 +277,8 @@ export function UploadScreen() {
   // touches it, the default template's text (else the first, the system's own), already
   // written in; then whatever they made of it, including nothing.
   const [factsChoice, setFactsChoice] = React.useState<{ id: string | undefined; html: string } | null>(null);
+  // The batch's facts also replace rows' own text (asked on Facts only when rows have some).
+  const [everyCase, setEveryCase] = React.useState(false);
   const formats = React.useSyncExternalStore(
     subscribeToDetailsFormats,
     readDetailsFormats,
@@ -354,16 +358,17 @@ export function UploadScreen() {
   const creating = book ? book.cases.rows.length - cannot.length : 0;
 
   const requestFor = () =>
-    book ? makeRequest({ book, setup, cannot, map, values, counts, fileName, factsHtml, factsId, court }) : null;
+    book ? makeRequest({ book, setup, cannot, map, values, counts, fileName, factsHtml, factsId, everyCase, court }) : null;
 
   // Check judges each case as Case details will: built here as Create builds it.
   const blocked = coreMissing.length > 0;
   const preview = React.useMemo(
     () =>
-      step === "review" && book && !blocked && !docs
-        ? makeRequest({ book, setup, cannot, map, values, counts, fileName, factsHtml, factsId, court })
+      // Built on Facts too, so its preview shows a real case as Create will make it.
+      (step === "review" || step === "facts") && book && !blocked && !docs
+        ? makeRequest({ book, setup, cannot, map, values, counts, fileName, factsHtml, factsId, everyCase, court })
         : null,
-    [step, book, blocked, docs, setup, cannot, map, values, counts, fileName, factsHtml, factsId, court],
+    [step, book, blocked, docs, setup, cannot, map, values, counts, fileName, factsHtml, factsId, everyCase, court],
   );
   const checkCases = useCheckCases(preview?.request ?? null, preview?.parties ?? null);
   const valuesDone = unknownLists.every((l) =>
@@ -825,6 +830,9 @@ export function UploadScreen() {
             onChange={(id, html) => setFactsChoice({ id, html })}
             own={ownFacts(rows)}
             total={rows.length}
+            everyCase={everyCase}
+            onEveryCase={setEveryCase}
+            cases={checkCases}
           />
         </FilingMain>
         <FilingFooter
@@ -930,10 +938,10 @@ export function UploadScreen() {
               </CardContent>
             </Card>
           ) : null}
-          {coreMissing.length || !created.length || own === created.length ? null : (
+          {coreMissing.length || !created.length || (own === created.length && !everyCase) ? null : (
             <FactsLine
               name={factsHtml.replace(/<[^>]*>|&nbsp;/g, "").trim() ? (formats.find((f) => f.id === factsId)?.name ?? "Your own text") : null}
-              cases={created.length - own}
+              cases={everyCase ? created.length : created.length - own}
               onEdit={() => setStep("facts")}
             />
           )}

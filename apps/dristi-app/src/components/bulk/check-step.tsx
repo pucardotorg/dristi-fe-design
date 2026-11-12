@@ -37,7 +37,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -49,7 +49,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { DetailFieldMenu } from "@/components/filing/detail-field-menu";
-import { RichTextEditor, type RichTextEditorHandle } from "@/components/filing/rich-text-editor";
+import { RichTextEditor, type BracketMarks, type RichTextEditorHandle } from "@/components/filing/rich-text-editor";
+import { OptionSelect } from "@/components/filing/inputs";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 import { aboutDetails } from "./batch-marks";
 import { CaseRows, type CaseRow } from "./case-rows";
@@ -64,6 +66,8 @@ export type CheckCase = {
   cheque: string;
   cheques: number;
   amount: number;
+  /** The facts of the case this case will hold, as Create writes them. */
+  facts: string;
   /** About the case's details; documents are the Documents step's. */
   flags: Flag[];
   state: "ready" | "fix" | "check";
@@ -99,6 +103,7 @@ export function useCheckCases(request: ApiBatchRequest | null, parties: BatchPar
               cheque: bc.draft.cheques[0]?.chequeNumber ?? "",
               cheques: bc.draft.cheques.length,
               amount: totalChequeAmount(bc.draft.cheques),
+              facts: bc.draft.adr.otherDetails ?? "",
               flags,
               state: flags.some((f) => f.level === "hold") ? "fix" : flags.length ? "check" : "ready",
             };
@@ -180,11 +185,27 @@ export function writtenBlanks(html: string): string[] {
   return bracketsIn(html).filter((name) => !detailField(name));
 }
 
+const MARKS: BracketMarks = { isField: (name) => !!detailField(name) };
+
+/** A case's facts, read-only, with any part still to write marked as the editor marks it. */
+function previewHtml(html: string): string {
+  return html.replace(/(^|>)([^<]*)/g, (_, open: string, text: string) =>
+    open +
+    text.replace(
+      /\[([^\]\n]+)\]/g,
+      (_w, name: string) =>
+        `<mark class="rounded-md border border-dashed border-warning-ink bg-warning-muted px-1 text-warning-muted-foreground">${name}</mark>`,
+    ),
+  );
+}
+
 /**
- * The facts of the case the cases start with (PRD PRY-1, "Additional details" in the file
- * and the form; optional). The text arrives already written from the system template;
- * the filer edits it, switches template, or clears it, and is told what each means.
- * A row that brings its own text in the file keeps it.
+ * Facts of the case (PRD PRY-1, "Additional details" in the file; optional): the story the
+ * advocate tells, written once here for the batch (owner, 2026-11-12). Fields in the text
+ * are tokens each case fills; the parts no field can fill are highlighted to write here. A
+ * row with its own text in the file keeps it unless the filer chooses this text for every
+ * case, a choice offered only when such rows exist. Under the text, how it reads in a chosen
+ * case's complaint.
  */
 export function FactsCard({
   formats,
@@ -193,6 +214,9 @@ export function FactsCard({
   onChange,
   own,
   total,
+  everyCase,
+  onEveryCase,
+  cases,
 }: {
   formats: readonly DetailsFormat[];
   templateId: string | undefined;
@@ -201,35 +225,55 @@ export function FactsCard({
   /** Rows whose Additional details column has text. */
   own: number;
   total: number;
+  /** This text replaces the rows' own text too. */
+  everyCase: boolean;
+  onEveryCase: (everyCase: boolean) => void;
+  /** The cases as Create will make them, for the preview; `null` while they are built. */
+  cases: CheckCase[] | null;
 }) {
   const editor = React.useRef<RichTextEditorHandle>(null);
   const [pending, setPending] = React.useState<DetailsFormat | null>(null);
+  const [previewKey, setPreviewKey] = React.useState<string>("");
   const rest = total - own;
   const current = formats.find((f) => f.id === templateId);
   const edited = current ? html !== formatForFiler(current) : !isEmpty(html);
   const blanks = writtenBlanks(html);
   const empty = isEmpty(html);
+  const preview = cases?.find((c) => c.key === previewKey) ?? cases?.[0] ?? null;
 
   const choose = (format: DetailsFormat) => {
     if (edited) setPending(format);
     else onChange(format.id, formatForFiler(format));
   };
 
-  const fact =
-    own === 0
-      ? `No row has text in the file's Additional details column, so all ${total} cases start with the text below.`
-      : rest === 0
-        ? `All ${total} rows bring their own in the file's Additional details column, and keep it.`
-        : `${own} of ${total} rows bring their own in the file's Additional details column and keep it. The other ${rest} start with the text below.`;
-
   return (
     <Card variant="raised">
-      {/* The page is titled Facts of the case; the card opens on what the file brought. */}
-      <CardHeader>
-        <CardDescription className="text-body text-foreground tabular-nums">{fact}</CardDescription>
-      </CardHeader>
-      {rest > 0 ? (
-        <CardContent className="flex flex-col gap-3">
+      <CardContent className="flex flex-col gap-5">
+        {/* Asked only when it matters: some rows bring their own text in the file. */}
+        {own > 0 ? (
+          <div className="flex flex-col gap-2">
+            <p className="text-body-compact text-foreground tabular-nums">
+              {own === 1 ? "1 case has" : `${own} cases have`} their own text in the file. Use this text for:
+            </p>
+            <RadioGroup
+              value={everyCase ? "all" : "empty"}
+              onValueChange={(v) => onEveryCase(v === "all")}
+              className="flex flex-wrap gap-x-6 gap-y-2"
+              aria-label="Which cases this text is for"
+            >
+              <label className="flex items-center gap-2 text-body-compact tabular-nums">
+                <RadioGroupItem value="empty" />
+                {rest === 1 ? "The 1 case without text" : `The ${rest} cases without text`}
+              </label>
+              <label className="flex items-center gap-2 text-body-compact tabular-nums">
+                <RadioGroupItem value="all" />
+                {`All ${total} cases`}
+              </label>
+            </RadioGroup>
+          </div>
+        ) : null}
+
+        <div className="flex flex-col gap-2">
           <RichTextEditor
             value={html}
             onChange={(next) => onChange(templateId, next)}
@@ -237,6 +281,7 @@ export function FactsCard({
             ariaLabel="Facts of the case"
             minHeightClassName="min-h-64"
             handleRef={editor}
+            marks={MARKS}
             toolbarEnd={
               <>
                 <DropdownMenu>
@@ -280,32 +325,53 @@ export function FactsCard({
               </>
             }
           />
-
-          {/* What the text in the box means for the cases, in one place. */}
+          {/* One line, and only when something is left: the highlighted parts are the story. */}
           {empty ? (
             <p className="text-body-compact text-muted-foreground">
-              Left empty, the {rest} case{rest === 1 ? "" : "s"} go without facts of the case. They are
-              optional, and can still be written in each case.
+              Left empty, these cases go without facts of the case. They can still be written in each case.
             </p>
-          ) : (
-            <div className="flex flex-col gap-2 text-body-compact">
-              <p className="text-muted-foreground">
-                Each case gets this text with its own details in place of the fields in brackets.
-              </p>
-              {blanks.length ? (
-                <p className="flex items-start gap-2">
-                  <TriangleAlertIcon aria-hidden className="mt-0.5 size-4 shrink-0 text-warning-ink" />
-                  <span>
-                    {blanks.length === 1 ? "One part" : `${blanks.length} parts`} can only be written in each case
-                    ({blanks.map((b) => `“${b}”`).join(", ")}). Those cases wait under To check until{" "}
-                    {blanks.length === 1 ? "it is" : "they are"} written.
-                  </span>
+          ) : blanks.length ? (
+            <p className="flex items-start gap-2 text-body-compact">
+              <TriangleAlertIcon aria-hidden className="mt-0.5 size-4 shrink-0 text-warning-ink" />
+              <span>
+                {blanks.length === 1 ? "1 highlighted part is" : `${blanks.length} highlighted parts are`} still to
+                write. Write {blanks.length === 1 ? "it" : "them"} here for every case, or later in each one.
+              </span>
+            </p>
+          ) : null}
+        </div>
+
+        {/* How it reads in a real case's complaint: the section, filled in. */}
+        {!empty && cases && cases.length ? (
+          <section aria-labelledby="facts-preview" className="flex flex-col gap-3 border-t border-hairline pt-5">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div className="flex flex-col gap-0.5">
+                <h2 id="facts-preview" className="text-body font-semibold">
+                  Preview
+                </h2>
+                <p className="text-body-compact text-muted-foreground">
+                  How this reads in the complaint, under Facts of the case.
                 </p>
-              ) : null}
+              </div>
+              <div className="w-full sm:w-72">
+                <OptionSelect
+                  ariaLabel="Case to preview"
+                  value={preview?.key ?? ""}
+                  onValueChange={setPreviewKey}
+                  options={cases.map((c) => ({ value: c.key, label: c.accused || c.reference }))}
+                />
+              </div>
             </div>
-          )}
-        </CardContent>
-      ) : null}
+            {preview ? (
+              <div
+                className="rounded-lg bg-surface-sunken px-5 py-4 text-body-compact leading-relaxed text-foreground [&_li]:ml-4 [&_ol]:list-decimal [&_p]:mb-3 [&_p:last-child]:mb-0 [&_ul]:list-disc"
+                // The case's own facts, built by the app from its text and row (escaped there).
+                dangerouslySetInnerHTML={{ __html: previewHtml(preview.facts) || "<p>No facts of the case.</p>" }}
+              />
+            ) : null}
+          </section>
+        ) : null}
+      </CardContent>
 
       <AlertDialog open={!!pending} onOpenChange={(open) => !open && setPending(null)}>
         <AlertDialogContent>

@@ -22,6 +22,48 @@ const TOOLS: { cmd: Command; label: string; icon: React.ComponentType<{ classNam
   { cmd: "justifyLeft", label: "Align left", icon: AlignLeftIcon },
 ];
 
+/**
+ * Brackets shown for what they are (bulk filing's facts of the case, owner 2026-11-12): a
+ * `[Field]` the cases fill becomes a token that cannot be typed over, and any other
+ * `[…]` is a prompt to write, highlighted, selected whole on click so typing replaces it.
+ * The value stays plain brackets: the display is converted on the way in and out.
+ */
+export type BracketMarks = { isField: (name: string) => boolean };
+
+const TOKEN_CLASS =
+  "mx-px rounded-md bg-brand-muted px-1 py-px font-medium text-brand-muted-foreground";
+const PROMPT_CLASS =
+  "mx-px cursor-text rounded-md border border-dashed border-warning-ink bg-warning-muted px-1 text-warning-muted-foreground";
+
+const attr = (t: string) => t.replace(/"/g, "&quot;");
+
+/** Plain-bracket HTML to the marked display. Text nodes only, so tags are never touched. */
+function toDisplay(html: string, marks: BracketMarks): string {
+  return String(html ?? "").replace(/(^|>)([^<]*)/g, (_, open: string, text: string) =>
+    open +
+    text.replace(/\[([^\]\n]+)\]/g, (_w, name: string) =>
+      marks.isField(name)
+        ? `<span data-token="${attr(name)}" contenteditable="false" class="${TOKEN_CLASS}">${name}</span>`
+        : `<mark data-prompt="${attr(name)}" class="${PROMPT_CLASS}">${name}</mark>`,
+    ),
+  );
+}
+
+/** The marked display back to plain brackets: a prompt still unwritten stays a bracket. */
+function fromDisplay(html: string): string {
+  if (typeof document === "undefined") return html;
+  const box = document.createElement("div");
+  box.innerHTML = html;
+  box.querySelectorAll<HTMLElement>("[data-token]").forEach((el) => {
+    el.replaceWith(document.createTextNode(`[${el.dataset.token ?? el.textContent ?? ""}]`));
+  });
+  box.querySelectorAll<HTMLElement>("mark[data-prompt]").forEach((el) => {
+    const text = el.textContent ?? "";
+    el.replaceWith(document.createTextNode(text.trim() === (el.dataset.prompt ?? "").trim() ? `[${text}]` : text));
+  });
+  return box.innerHTML;
+}
+
 /** What a caller can do to the text from outside it — a picker that is not in the box. */
 export type RichTextEditorHandle = {
   /** Put `text` where the caret last was in the box, or at the end if it never was. */
@@ -42,6 +84,7 @@ export function RichTextEditor({
   id,
   toolbarEnd,
   handleRef,
+  marks,
 }: {
   value: string;
   onChange: (html: string) => void;
@@ -53,6 +96,7 @@ export function RichTextEditor({
   /** Actions at the far end of the formatting strip. */
   toolbarEnd?: React.ReactNode;
   handleRef?: React.Ref<RichTextEditorHandle>;
+  marks?: BracketMarks;
 }) {
   const ref = React.useRef<HTMLDivElement>(null);
   const lastValue = React.useRef<string>("");
@@ -75,15 +119,22 @@ export function RichTextEditor({
   React.useEffect(() => {
     if (!ref.current) return;
     if (value !== lastValue.current) {
-      ref.current.innerHTML = value || "";
+      ref.current.innerHTML = marks ? toDisplay(value || "", marks) : value || "";
       lastValue.current = value || "";
     }
-  }, [value]);
+  }, [value, marks]);
 
   const emit = () => {
-    const html = ref.current?.innerHTML ?? "";
+    const raw = ref.current?.innerHTML ?? "";
+    const html = marks ? fromDisplay(raw) : raw;
     lastValue.current = html;
     onChange(html);
+  };
+
+  /** Redraw the marks from the value: a written prompt turns plain, a typed field a token. */
+  const redecorate = () => {
+    if (!marks || !ref.current) return;
+    ref.current.innerHTML = toDisplay(lastValue.current, marks);
   };
 
   const run = (cmd: Command) => {
@@ -114,6 +165,7 @@ export function RichTextEditor({
       if (!restoreCaret()) return;
       document.execCommand("insertText", false, text);
       emit();
+      redecorate();
     },
   }));
 
@@ -170,7 +222,21 @@ export function RichTextEditor({
           contentEditable
           suppressContentEditableWarning
           onInput={emit}
-          onBlur={emit}
+          onBlur={() => {
+            emit();
+            redecorate();
+          }}
+          // A prompt is selected whole on click, so typing replaces it.
+          onClick={(e) => {
+            if (!marks) return;
+            const mark = (e.target as HTMLElement).closest<HTMLElement>("mark[data-prompt]");
+            if (!mark || (mark.textContent ?? "").trim() !== (mark.dataset.prompt ?? "").trim()) return;
+            const range = document.createRange();
+            range.selectNodeContents(mark);
+            const sel = document.getSelection();
+            sel?.removeAllRanges();
+            sel?.addRange(range);
+          }}
           className={cn(
             "prose-p:my-2 px-4 py-3 text-body-compact leading-relaxed text-foreground outline-none [&_li]:ml-4 [&_ol]:list-decimal [&_p]:mb-3 [&_p:last-child]:mb-0 [&_ul]:list-disc",
             minHeightClassName
