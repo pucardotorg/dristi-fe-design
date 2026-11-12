@@ -223,7 +223,11 @@ export type ApiBatchRequest = {
    * brings its own `otherDetails` keeps them. `html` is the format with its variables
    * already named as e-filing fields; `court` is the court its values are worded for.
    */
-  detailsFormat?: { id: string; html: string; court?: CourtId };
+  /**
+   * The facts of the case (PRY-1) for cases without their own. `everyCase` gives it to rows
+   * that bring their own text too, replacing it (the filer's choice on Facts of the case).
+   */
+  detailsFormat?: { id: string; html: string; court?: CourtId; everyCase?: boolean };
   cases: ApiCase[];
 };
 

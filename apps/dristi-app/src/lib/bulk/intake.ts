@@ -307,7 +307,7 @@ async function buildDraft(
   draft.lastStep = "preview";
   /* PRY-1 from the batch's format, for a case that brought no additional details. Written
      last, so every value the format names is already on the draft. */
-  if (req.detailsFormat && !trim(c.otherDetails)) writeFacts(draft, req.detailsFormat);
+  if (req.detailsFormat && (req.detailsFormat.everyCase || !trim(c.otherDetails))) writeFacts(draft, req.detailsFormat);
 
   draft.createdAt = now;
   draft.updatedAt = now;

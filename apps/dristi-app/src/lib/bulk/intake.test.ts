@@ -103,6 +103,20 @@ const withFormat = async (c: ApiCase, html: string) =>
     )
   ).cases[0].draft;
 
+test("a row's own additional details win, unless the batch's text is for every case", async () => {
+  const own = oneCase({ otherDetails: "Their own words" });
+  const kept = await withFormat(own, "<p>[Accused Name] owes the debt.</p>");
+  assert.equal(kept.adr.otherDetails, "<p>Their own words</p>");
+  const replaced = (
+    await buildBatch(
+      { ...request(own), detailsFormat: { id: "f1", html: "<p>[Accused Name] owes the debt.</p>", everyCase: true } },
+      { kind: "api", system: "Test" },
+      async () => null,
+    )
+  ).cases[0].draft;
+  assert.equal(replaced.adr.otherDetails, "<p>A One owes the debt.</p>");
+});
+
 test("the batch's format generates each case's additional details from its own row", async () => {
   const d = await withFormat(
     oneCase(),
