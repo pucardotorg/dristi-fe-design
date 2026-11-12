@@ -31,9 +31,9 @@ const TOOLS: { cmd: Command; label: string; icon: React.ComponentType<{ classNam
 export type BracketMarks = { isField: (name: string) => boolean };
 
 const TOKEN_CLASS =
-  "mx-px rounded-md bg-brand-muted px-1 py-px font-medium text-brand-muted-foreground";
+  "mx-0.5 rounded-md bg-brand-muted px-1.5 py-0.5 font-medium text-brand-muted-foreground";
 const PROMPT_CLASS =
-  "mx-px cursor-text rounded-md border border-dashed border-warning-ink bg-warning-muted px-1 text-warning-muted-foreground";
+  "mx-0.5 cursor-text rounded-md border border-dashed border-warning-ink bg-warning-muted px-1.5 py-0.5 text-warning-muted-foreground";
 
 const attr = (t: string) => t.replace(/"/g, "&quot;");
 
@@ -85,6 +85,7 @@ export function RichTextEditor({
   toolbarEnd,
   handleRef,
   marks,
+  contentClassName,
 }: {
   value: string;
   onChange: (html: string) => void;
@@ -97,6 +98,8 @@ export function RichTextEditor({
   toolbarEnd?: React.ReactNode;
   handleRef?: React.Ref<RichTextEditorHandle>;
   marks?: BracketMarks;
+  /** The text's own size and leading, where it is read as prose (bulk's facts of the case). */
+  contentClassName?: string;
 }) {
   const ref = React.useRef<HTMLDivElement>(null);
   const lastValue = React.useRef<string>("");
@@ -239,7 +242,8 @@ export function RichTextEditor({
           }}
           className={cn(
             "prose-p:my-2 px-4 py-3 text-body-compact leading-relaxed text-foreground outline-none [&_li]:ml-4 [&_ol]:list-decimal [&_p]:mb-3 [&_p:last-child]:mb-0 [&_ul]:list-disc",
-            minHeightClassName
+            minHeightClassName,
+            contentClassName
           )}
         />
       </div>

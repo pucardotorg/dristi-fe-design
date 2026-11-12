@@ -52,6 +52,8 @@ import { DetailFieldMenu } from "@/components/filing/detail-field-menu";
 import { RichTextEditor, type BracketMarks, type RichTextEditorHandle } from "@/components/filing/rich-text-editor";
 import { OptionSelect } from "@/components/filing/inputs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 
 import { aboutDetails } from "./batch-marks";
 import { CaseRows, type CaseRow } from "./case-rows";
@@ -186,6 +188,8 @@ export function writtenBlanks(html: string): string[] {
 }
 
 const MARKS: BracketMarks = { isField: (name) => !!detailField(name) };
+/** The story reads as prose: body size, open leading, room between its paragraphs. */
+const STORY_CLASS = "px-6 py-5 text-body leading-7 [&_li]:mb-2 [&_li]:pl-1 [&_ol]:ml-1 [&_p]:mb-4";
 
 /** A case's facts, read-only, with any part still to write marked as the editor marks it. */
 function previewHtml(html: string): string {
@@ -234,6 +238,7 @@ export function FactsCard({
   const editor = React.useRef<RichTextEditorHandle>(null);
   const [pending, setPending] = React.useState<DetailsFormat | null>(null);
   const [previewKey, setPreviewKey] = React.useState<string>("");
+  const [mode, setMode] = React.useState<"write" | "preview">("write");
   const rest = total - own;
   const current = formats.find((f) => f.id === templateId);
   const edited = current ? html !== formatForFiler(current) : !isEmpty(html);
@@ -273,86 +278,17 @@ export function FactsCard({
           </div>
         ) : null}
 
-        <div className="flex flex-col gap-2">
-          <RichTextEditor
-            value={html}
-            onChange={(next) => onChange(templateId, next)}
-            placeholder="Write the facts, or start from a template"
-            ariaLabel="Facts of the case"
-            minHeightClassName="min-h-64"
-            handleRef={editor}
-            marks={MARKS}
-            toolbarEnd={
-              <>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button type="button" variant="ghost" size="sm" className="max-w-64">
-                      <FileTextIcon data-icon="inline-start" aria-hidden />
-                      <span className="truncate">{current ? current.name : "Templates"}</span>
-                      <ChevronDownIcon data-icon="inline-end" aria-hidden />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="min-w-64">
-                    <DropdownMenuLabel>Start from a template</DropdownMenuLabel>
-                    <DropdownMenuRadioGroup
-                      value={current?.id ?? ""}
-                      onValueChange={(id) => {
-                        const format = formats.find((f) => f.id === id);
-                        if (format) choose(format);
-                      }}
-                    >
-                      {formats.map((f) => (
-                        <DropdownMenuRadioItem key={f.id} value={f.id}>
-                          {f.name || "Untitled"}
-                        </DropdownMenuRadioItem>
-                      ))}
-                    </DropdownMenuRadioGroup>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem asChild>
-                      <a href={FORMATS_HREF} target="_blank" rel="noopener">
-                        <PlusIcon aria-hidden />
-                        New template
-                        <ExternalLinkIcon aria-hidden className="ml-auto text-muted-foreground" />
-                        <span className="sr-only">(opens in a new tab)</span>
-                      </a>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <DetailFieldMenu
-                  onPick={(field) => editor.current?.insertText(`[${field.name}]`)}
-                  describe={() => "Filled in from each case"}
-                />
-              </>
-            }
-          />
-          {/* One line, and only when something is left: the highlighted parts are the story. */}
-          {empty ? (
-            <p className="text-body-compact text-muted-foreground">
-              Left empty, these cases go without facts of the case. They can still be written in each case.
-            </p>
-          ) : blanks.length ? (
-            <p className="flex items-start gap-2 text-body-compact">
-              <TriangleAlertIcon aria-hidden className="mt-0.5 size-4 shrink-0 text-warning-ink" />
-              <span>
-                {blanks.length === 1 ? "1 highlighted part is" : `${blanks.length} highlighted parts are`} still to
-                write. Write {blanks.length === 1 ? "it" : "them"} here for every case, or later in each one.
-              </span>
-            </p>
-          ) : null}
-        </div>
-
-        {/* How it reads in a real case's complaint: the section, filled in. */}
-        {!empty && cases && cases.length ? (
-          <section aria-labelledby="facts-preview" className="flex flex-col gap-3 border-t border-hairline pt-5">
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <div className="flex flex-col gap-0.5">
-                <h2 id="facts-preview" className="text-body font-semibold">
-                  Preview
-                </h2>
-                <p className="text-body-compact text-muted-foreground">
-                  How this reads in the complaint, under Facts of the case.
-                </p>
-              </div>
+        {/* Write and Preview share one box, so the preview is never a scroll away
+            (owner, 2026-11-12). */}
+        <Tabs value={mode} onValueChange={(v) => setMode(v as "write" | "preview")} className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <TabsList>
+              <TabsTrigger value="write">Write</TabsTrigger>
+              <TabsTrigger value="preview" disabled={empty || !cases?.length}>
+                Preview
+              </TabsTrigger>
+            </TabsList>
+            {mode === "preview" && cases?.length ? (
               <div className="w-full sm:w-72">
                 <OptionSelect
                   ariaLabel="Case to preview"
@@ -361,16 +297,94 @@ export function FactsCard({
                   options={cases.map((c) => ({ value: c.key, label: c.accused || c.reference }))}
                 />
               </div>
-            </div>
+            ) : null}
+          </div>
+          <TabsContent value="write" className="mt-0">
+        <div className="flex flex-col gap-2">
+            <RichTextEditor
+              value={html}
+              onChange={(next) => onChange(templateId, next)}
+              placeholder="Write the facts, or start from a template"
+              ariaLabel="Facts of the case"
+              minHeightClassName="min-h-96"
+              contentClassName={STORY_CLASS}
+              handleRef={editor}
+              marks={MARKS}
+              toolbarEnd={
+                <>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button type="button" variant="ghost" size="sm" className="max-w-64">
+                        <FileTextIcon data-icon="inline-start" aria-hidden />
+                        <span className="truncate">{current ? current.name : "Templates"}</span>
+                        <ChevronDownIcon data-icon="inline-end" aria-hidden />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="min-w-64">
+                      <DropdownMenuLabel>Start from a template</DropdownMenuLabel>
+                      <DropdownMenuRadioGroup
+                        value={current?.id ?? ""}
+                        onValueChange={(id) => {
+                          const format = formats.find((f) => f.id === id);
+                          if (format) choose(format);
+                        }}
+                      >
+                        {formats.map((f) => (
+                          <DropdownMenuRadioItem key={f.id} value={f.id}>
+                            {f.name || "Untitled"}
+                          </DropdownMenuRadioItem>
+                        ))}
+                      </DropdownMenuRadioGroup>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem asChild>
+                        <a href={FORMATS_HREF} target="_blank" rel="noopener">
+                          <PlusIcon aria-hidden />
+                          New template
+                          <ExternalLinkIcon aria-hidden className="ml-auto text-muted-foreground" />
+                          <span className="sr-only">(opens in a new tab)</span>
+                        </a>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <DetailFieldMenu
+                    onPick={(field) => editor.current?.insertText(`[${field.name}]`)}
+                    describe={() => "Filled in from each case"}
+                  />
+                </>
+              }
+            />
+            {/* One line, and only when something is left: the highlighted parts are the story. */}
+            {empty ? (
+              <p className="text-body-compact text-muted-foreground">
+                Left empty, these cases go without facts of the case. They can still be written in each case.
+              </p>
+            ) : blanks.length ? (
+              <p className="flex items-start gap-2 text-body-compact">
+                <TriangleAlertIcon aria-hidden className="mt-0.5 size-4 shrink-0 text-warning-ink" />
+                <span>
+                  {blanks.length === 1 ? "1 highlighted part is" : `${blanks.length} highlighted parts are`} still to
+                  write. Write {blanks.length === 1 ? "it" : "them"} here for every case, or later in each one.
+                </span>
+              </p>
+            ) : null}
+          </div>
+          </TabsContent>
+          <TabsContent value="preview" className="mt-0 flex flex-col gap-2">
             {preview ? (
               <div
-                className="rounded-lg bg-surface-sunken px-5 py-4 text-body-compact leading-relaxed text-foreground [&_li]:ml-4 [&_ol]:list-decimal [&_p]:mb-3 [&_p:last-child]:mb-0 [&_ul]:list-disc"
+                className={cn(
+                  "min-h-96 rounded-lg bg-surface-sunken text-foreground [&_li]:ml-4 [&_ol]:list-decimal [&_ul]:list-disc [&_p:last-child]:mb-0",
+                  STORY_CLASS,
+                )}
                 // The case's own facts, built by the app from its text and row (escaped there).
                 dangerouslySetInnerHTML={{ __html: previewHtml(preview.facts) || "<p>No facts of the case.</p>" }}
               />
             ) : null}
-          </section>
-        ) : null}
+            <p className="text-body-compact text-muted-foreground">
+              How this reads in the complaint, under Facts of the case.
+            </p>
+          </TabsContent>
+        </Tabs>
       </CardContent>
 
       <AlertDialog open={!!pending} onOpenChange={(open) => !open && setPending(null)}>
