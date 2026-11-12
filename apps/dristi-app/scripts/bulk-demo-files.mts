@@ -12,6 +12,9 @@
  *   demo-files/tata-capital-bulk-filing-template.xlsx   follows the template (no matching)
  *   demo-files/tata-capital-recovery-mis.xlsx           the lender's own layout (matching screens),
  *                                                       with two rows Check leaves out
+ *   demo-files/tata-capital-template-with-stories.xlsx  the template again, with four rows that
+ *                                                       bring their own facts of the case
+ *                                                       (Additional details) and eight that don't
  *
  * The lender's layout has no cheque date and no presentation date: a recovery MIS records
  * the bounce, not those. Both are required, so every case it brings arrives held and has
@@ -152,7 +155,22 @@ function texts(c: Demo) {
   return { interim, final, affidavit };
 }
 
-async function templateFile() {
+/**
+ * Facts of the case an advocate wrote into the sheet for some rows (owner, 2026-11-12): the
+ * rest are left empty and take the batch's text on Facts of the case.
+ */
+const STORIES: Record<string, string> = {
+  "TCL-AHD-PL-1001":
+    "The accused approached the complainant's C G Road branch in March 2025 for a personal loan to meet the costs of his daughter's wedding, and was sanctioned the loan after verification of his salary slips and bank statements.\n\nThe accused paid the first eleven instalments regularly and thereafter stopped paying. When the branch followed up, the accused admitted the outstanding amount in writing and issued the cheque in question towards part discharge of it.",
+  "TCL-AHD-BL-1003":
+    "The first accused, the proprietor of Solanki Packaging, availed a business loan from the complainant to buy a corrugation machine, with the second accused, his wife, joining as co-borrower.\n\nAfter the unit lost its main buyer, both accused met the complainant's officers at the Ashram Road branch and agreed a revised repayment schedule. The cheque in question was issued under that schedule and was returned unpaid.",
+  "TCL-AHD-PL-1007":
+    "The accused, then working in Ahmedabad, took the loan in his own name and has since moved to Vadodara. He was informed of the default by telephone and by letter on several occasions before the cheque in question was presented.",
+  "TCL-AHD-BL-1012":
+    "The accused firm availed a working-capital loan for its fabrication business. Its partner, Mahesh B. Anand, signed the loan agreement and the cheque in question on behalf of the firm and was in charge of and responsible for the conduct of its business at the time of the offence.",
+};
+
+async function templateFile(name = "tata-capital-bulk-filing-template.xlsx", stories: Record<string, string> = {}) {
   const wb = new ExcelJS.Workbook();
   wb.creator = "SARAS 2.0 bulk filing (demo)";
   const ws = wb.addWorksheet(CASES_SHEET);
@@ -239,6 +257,7 @@ async function templateFile() {
     set("interimRelief", [], x.interim);
     set("finalRelief", [], x.final);
     set("affidavit", [], x.affidavit);
+    if (stories[c.ref]) set("otherDetails", [], stories[c.ref]);
     (c.witnesses ?? []).forEach((w, i) => {
       const n = i + 1;
       set("witnessName", [n], w.name);
@@ -252,7 +271,7 @@ async function templateFile() {
     ws.addRow(row);
   }
 
-  const file = path.join(OUT, "tata-capital-bulk-filing-template.xlsx");
+  const file = path.join(OUT, name);
   await wb.xlsx.writeFile(file);
   return file;
 }
@@ -335,7 +354,7 @@ async function misFile() {
 }
 
 mkdirSync(OUT, { recursive: true });
-const files = [await templateFile(), await misFile()];
+const files = [await templateFile(), await misFile(), await templateFile("tata-capital-template-with-stories.xlsx", STORIES)];
 for (const f of files) console.log(`Wrote ${path.relative(process.cwd(), f)}`);
 
 // The upload's sample buttons serve the same two files as static assets, so they work
