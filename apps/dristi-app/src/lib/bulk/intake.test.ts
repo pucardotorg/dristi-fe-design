@@ -117,18 +117,6 @@ test("a row's own additional details win, unless the batch's text is for every c
   assert.equal(replaced.adr.otherDetails, "<p>A One owes the debt.</p>");
 });
 
-test("the batch's text replaces a row's own words only in the cases it names", async () => {
-  const own = oneCase({ otherDetails: "Their own words" });
-  const build = (replace: string[]) =>
-    buildBatch(
-      { ...request(own), detailsFormat: { id: "f1", html: "<p>[Accused Name] owes the debt.</p>", replace } },
-      { kind: "api", system: "Test" },
-      async () => null,
-    );
-  assert.equal((await build([own.reference])).cases[0].draft.adr.otherDetails, "<p>A One owes the debt.</p>");
-  assert.equal((await build(["someone-else"])).cases[0].draft.adr.otherDetails, "<p>Their own words</p>");
-});
-
 test("the batch's format generates each case's additional details from its own row", async () => {
   const d = await withFormat(
     oneCase(),

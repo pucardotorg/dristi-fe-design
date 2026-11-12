@@ -307,8 +307,7 @@ async function buildDraft(
   draft.lastStep = "preview";
   /* PRY-1 from the batch's format, for a case that brought no additional details. Written
      last, so every value the format names is already on the draft. */
-  const f = req.detailsFormat;
-  if (f && (f.everyCase || f.replace?.includes(trim(c.reference)) || !trim(c.otherDetails))) writeFacts(draft, f);
+  if (req.detailsFormat && (req.detailsFormat.everyCase || !trim(c.otherDetails))) writeFacts(draft, req.detailsFormat);
 
   draft.createdAt = now;
   draft.updatedAt = now;
@@ -357,9 +356,6 @@ export function validateRequest(req: unknown): string[] {
   if (!Array.isArray(r.cases) || r.cases.length === 0) errors.push("cases must be a non-empty list.");
   if (r.detailsFormat && (typeof r.detailsFormat.html !== "string" || typeof r.detailsFormat.id !== "string")) {
     errors.push("detailsFormat needs an id and html.");
-  }
-  if (r.detailsFormat?.replace !== undefined && !(Array.isArray(r.detailsFormat.replace) && r.detailsFormat.replace.every((x) => typeof x === "string"))) {
-    errors.push("detailsFormat.replace must be a list of case references.");
   }
   const refs = new Set<string>();
   (r.cases ?? []).forEach((c, i) => {
