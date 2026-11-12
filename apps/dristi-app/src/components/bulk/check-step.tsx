@@ -23,7 +23,7 @@ import type { ApiBatchRequest } from "@/lib/bulk/contract";
 import { buildBatch, writeFacts } from "@/lib/bulk/intake";
 import { applyParties, type BatchParties } from "@/lib/bulk/parties";
 import { caseFlags, type Flag } from "@/lib/bulk/scrutiny";
-import { detailField, bracketsIn } from "@/lib/filing/detail-fields";
+import { DETAIL_FIELDS, DETAIL_FIELD_GROUPS, detailField, bracketsIn } from "@/lib/filing/detail-fields";
 import { formatForFiler, type DetailsFormat } from "@/lib/filing/details-formats";
 import { totalChequeAmount } from "@/lib/filing/selectors";
 import {
@@ -70,6 +70,8 @@ export type CheckCase = {
   amount: number;
   /** The facts of the case this case will hold, as Create writes them. */
   facts: string;
+  /** What each field reads as in this case (first case only, for the editor's field card). */
+  sample?: Record<string, string>;
   /** About the case's details; documents are the Documents step's. */
   flags: Flag[];
   state: "ready" | "fix" | "check";
@@ -106,6 +108,7 @@ export function useCheckCases(request: ApiBatchRequest | null, parties: BatchPar
               cheques: bc.draft.cheques.length,
               amount: totalChequeAmount(bc.draft.cheques),
               facts: bc.draft.adr.otherDetails ?? "",
+              sample: i === 0 ? Object.fromEntries(DETAIL_FIELDS.map((f) => [f.name, f.resolve(bc.draft)])) : undefined,
               flags,
               state: flags.some((f) => f.level === "hold") ? "fix" : flags.length ? "check" : "ready",
             };
@@ -187,7 +190,7 @@ export function writtenBlanks(html: string): string[] {
   return bracketsIn(html).filter((name) => !detailField(name));
 }
 
-const MARKS: BracketMarks = { isField: (name) => !!detailField(name) };
+const FIELD_LIST = DETAIL_FIELD_GROUPS.flatMap((g) => g.fields.map((f) => ({ name: f.name, group: g.label })));
 /** The story reads as prose: body size, open leading, room between its paragraphs. */
 const STORY_CLASS = "px-6 py-5 text-body leading-7 [&_li]:mb-2 [&_li]:pl-1 [&_ol]:ml-1 [&_p]:mb-4";
 
@@ -245,6 +248,17 @@ export function FactsCard({
   const blanks = writtenBlanks(html);
   const empty = isEmpty(html);
   const preview = cases?.find((c) => c.key === previewKey) ?? cases?.[0] ?? null;
+  // The editor's brackets: fields it offers on `[`, and a real case to show a field's value.
+  const first = cases?.[0];
+  const marks = React.useMemo<BracketMarks>(
+    () => ({
+      isField: (name) => !!detailField(name),
+      fields: FIELD_LIST,
+      sample: (name) => first?.sample?.[detailField(name)?.name ?? name] || undefined,
+      sampleLabel: first?.accused || undefined,
+    }),
+    [first],
+  );
 
   const choose = (format: DetailsFormat) => {
     if (edited) setPending(format);
@@ -309,7 +323,7 @@ export function FactsCard({
               minHeightClassName="min-h-96"
               contentClassName={STORY_CLASS}
               handleRef={editor}
-              marks={MARKS}
+              marks={marks}
               toolbarEnd={
                 <>
                   <DropdownMenu>
