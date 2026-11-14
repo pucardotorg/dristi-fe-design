@@ -124,7 +124,7 @@ export function DashboardDatePicker({
   compare?: CompareMode;
   /** The opening selection, which Reset returns the draft to. */
   defaultValue: Period;
-  /** The opening selection's name, for its pill and Reset's accessible name. */
+  /** The opening selection's name, for Reset's accessible name. The pill shows only its dates. */
   defaultLabel?: string;
   /** The opening comparison, which Reset also returns to. */
   defaultCompare?: CompareMode;
@@ -148,9 +148,19 @@ export function DashboardDatePicker({
 
   const presets = presetList ?? pickerPresets(docket);
   const single = value.from === value.to;
-  const isLatest = single && value.to === latest;
   const isDefault = value.from === defaultValue.from && value.to === defaultValue.to;
-  const versus = compare === undefined ? null : compareShort(compare, value);
+  /* The pill shows only the dates until the viewer chooses something; then it names the
+     choice: the quick pick, and the comparison when it differs from the opening one. A
+     custom range is its own dates, so it adds nothing (owner, 2026-11-14). */
+  const pickedName = isDefault
+    ? null
+    : (presets.find((p) => p.period.from === value.from && p.period.to === value.to)?.label ?? null);
+  const versus =
+    compare === undefined || compare === defaultCompare
+      ? null
+      : compare === "none"
+        ? "No comparison"
+        : compareShort(compare, value);
 
   const openWith = (next: boolean) => {
     if (next) {
@@ -235,15 +245,11 @@ export function DashboardDatePicker({
             ) : (
               <span className="font-semibold">{formatSpanFull(value.from, value.to)}</span>
             )}{" "}
-            {isLatest || isDefault ? (
+            {pickedName ? (
               <Badge variant="secondary" className="bg-brand-muted text-brand-muted-foreground">
-                {isDefault ? defaultLabel : "Latest"}
+                {pickedName}
               </Badge>
-            ) : single ? null : (
-              <span className="text-muted-foreground">
-                {formatCount(daysBetween(value.from, value.to) + 1)} days
-              </span>
-            )}
+            ) : null}
             {versus ? (
               <>
                 {" "}
