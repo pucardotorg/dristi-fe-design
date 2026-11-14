@@ -18,6 +18,7 @@ import { CountUp, TrickleDots, useGrowIn } from "@/components/employee/court-das
 import { DashboardDatePicker } from "@/components/employee/dashboard-date-picker";
 import { useCourtDocket } from "@/components/employee/docket-table";
 import { useCourtSession } from "@/components/employee/use-court-role";
+import { CourtDayMark } from "@/components/employee/cause-list-date";
 import { useCourtToday } from "@/components/employee/use-court-today";
 import { TABLE_CELL, TABLE_HEAD, TABLE_HEAD_ROW, tableBodyClass, tableRowClass } from "@/components/chrome/table-plate";
 import { Button } from "@/components/ui/button";
@@ -177,11 +178,19 @@ export function CourtDashboardScreen() {
   return (
     <TooltipProvider>
       <div className="flex min-w-0 flex-1 flex-col gap-8 p-6 md:p-8">
-        <header className="flex min-w-0 flex-col gap-1">
-          <h1 className="text-title text-balance font-semibold">Dashboard</h1>
-          <p className="text-body-compact text-muted-foreground">
-            {courtText(court)} · {formatCourtDay(today)}
-          </p>
+        {/* Today's date drawn as Today's hearings draws its day, display only, with the
+            hairline before the title (owner, 2026-11-15: to see how it looks). As there, the
+            line under the title keeps the date only where the big one is hidden. */}
+        <header className="flex min-w-0 items-center">
+          <CourtDayMark day={today} className="hidden lg:flex" />
+          <span aria-hidden className="mx-8 hidden h-18 w-px bg-hairline lg:block" />
+          <div className="flex min-w-0 flex-col gap-1">
+            <h1 className="text-title text-balance font-semibold">Dashboard</h1>
+            <p className="text-body-compact text-muted-foreground">
+              {courtText(court)}
+              <span className="lg:hidden"> · {formatCourtDay(today)}</span>
+            </p>
+          </div>
         </header>
 
         <Overview

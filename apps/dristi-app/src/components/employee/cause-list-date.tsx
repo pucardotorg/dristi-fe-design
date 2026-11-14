@@ -247,3 +247,34 @@ export function CauseListDate({
     </div>
   );
 }
+
+/**
+ * The same date as `CauseListDate`, for show only: the month, the square with the day
+ * large, the weekday. No arrows, calendar or scrubbing, since nothing on the page it
+ * heads is chosen by it (the court dashboard, owner 2026-11-15: to see how it looks).
+ */
+export function CourtDayMark({ day, className }: { day: string; className?: string }) {
+  const date = parseIsoDay(day);
+  return (
+    <div className={cn("flex w-20 shrink-0 flex-col items-center", className)}>
+      <p
+        className={
+          // ds-typography-allow: the month as CauseListDate draws it (owner, 2026-10-22).
+          "mb-2 text-[0.6875rem] leading-4 font-semibold tracking-wide whitespace-nowrap text-brand-muted-foreground uppercase"
+        }
+      >
+        {MONTH_YEAR.format(date)}
+      </p>
+      <span className="flex h-18 w-full items-center justify-center rounded-xl border border-hairline bg-card text-brand-muted-foreground">
+        {/* ds-typography-allow: the day as CauseListDate draws it (owner, 2026-10-22). */}
+        <span aria-hidden className="text-[3.5rem] leading-none font-semibold tracking-tight tabular-nums">
+          {String(date.getDate()).padStart(2, "0")}
+        </span>
+        <span className="sr-only">{formatCourtDay(day)}</span>
+      </span>
+      <span aria-hidden className="mt-1 flex h-8 items-center whitespace-nowrap text-body-compact">
+        {WEEKDAY.format(date)}
+      </span>
+    </div>
+  );
+}
