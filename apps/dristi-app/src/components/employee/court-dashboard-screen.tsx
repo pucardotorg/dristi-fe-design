@@ -285,12 +285,14 @@ const METHODS: { key: DisposalMethod; fill: string; ink: string }[] = [
 ];
 
 /**
- * The Overview's containers. The Overview has no panel of its own: its title and date
- * picker sit on the page, and each block below sits in its own raised container (the
- * panel surface: card fill, hairline edge, raised shadow), its heading above it on the
- * page (owner, 2026-11-14).
+ * The Overview's containers: one per section, each holding its own heading and controls
+ * (the date picker in the first, the Cards / Table switch in the pending one) so a control
+ * reads as part of its section. The panel surface: card fill, hairline edge, raised
+ * shadow. They sit closer to each other than to the panels below, so they read as one
+ * Overview (owner, 2026-11-14: headings had first moved onto the page, which read as too
+ * fragmented).
  */
-const SURFACE = cn("min-w-0 rounded-xl border bg-card", PANEL_CLASS);
+const SECTION = cn("flex min-w-0 flex-col gap-4 rounded-xl border bg-card p-4 sm:p-6", PANEL_CLASS);
 
 /** The median of a list of days; `null` for none. */
 const medianOf = (days: number[]) => {
@@ -527,11 +529,11 @@ function Overview({
   const shown = METHODS.map((m) => ({ ...m, n: methodCount(m.key) }));
   const disposal = (
     <>
-      <section aria-labelledby="dash-ended" className="flex min-w-0 flex-col gap-3">
+      <section aria-labelledby="dash-ended" className={SECTION}>
         <h3 id="dash-ended" className="text-body font-semibold">
           How cases ended
         </h3>
-        <div className={cn(SURFACE, "flex flex-col gap-3 p-4 sm:px-6")}>
+        <div className="flex min-w-0 flex-col gap-3">
           {disposedRows.length ? (
             <>
               <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-6 gap-y-1 text-body-compact tabular-nums">
@@ -601,13 +603,13 @@ function Overview({
         </div>
       </section>
 
-      <section aria-labelledby="dash-time-to-disposal" className="flex min-w-0 flex-col gap-3">
+      <section aria-labelledby="dash-time-to-disposal" className={SECTION}>
         <h3 id="dash-time-to-disposal" className="text-body font-semibold">
           Time to disposal
         </h3>
         {/* Three medians in the cards' own form: filing to disposal for all disposed cases,
             then for each kind, so a slower kind shows even when the overall figure holds. */}
-        <div className={cn(SURFACE, "grid gap-3 p-4 sm:p-6 md:grid-cols-3")}>
+        <div className="grid min-w-0 gap-3 md:grid-cols-3">
           <OverviewCard
             label="Median, all disposed"
             count={days(medians.all)}
@@ -632,13 +634,13 @@ function Overview({
   );
 
   return (
-    <section aria-labelledby="dash-overview" className="flex min-w-0 flex-col gap-8">
-      <div className="flex min-w-0 flex-col gap-4">
+    <section aria-labelledby="dash-overview" className="flex min-w-0 flex-col gap-4">
+      <div className={SECTION}>
       <PanelHeader id="dash-overview" title="Overview">
         {picker}
       </PanelHeader>
 
-      <div className={cn(SURFACE, "flex flex-col gap-3 p-4 sm:p-6")}>
+      <div className="flex min-w-0 flex-col gap-3">
         <div className="grid min-w-0 gap-3 md:grid-cols-3">
           <OverviewCard
             label="Cases filed"
@@ -696,18 +698,18 @@ function Overview({
         <>
           {/* One section, one heading: the stage cells, then the time table under a rule, in
               one container (owner, 2026-11-14). */}
-          <section aria-labelledby="dash-pending-split" className="flex min-w-0 flex-col gap-3">
+          <section aria-labelledby="dash-pending-split" className={SECTION}>
             <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
               <h3 id="dash-pending-split" className="text-body font-semibold">
                 Pending cases by stage and time
               </h3>
               {viewSwitch}
             </div>
-            <div className={cn(SURFACE, "flex flex-col")}>
+            <div className="flex min-w-0 flex-col gap-4">
             {/* The same cells, grouped either side of cognizance: one row from xl, the
                 groups stacked below that. Cases at registration are not on the CMP register
                 yet, so the groups are named by cognizance, not by register. */}
-            <div aria-label="By stage" role="group" className="flex min-w-0 flex-col gap-6 p-4 sm:px-6 xl:grid xl:grid-cols-6 xl:gap-0">
+            <div aria-label="By stage" role="group" className="flex min-w-0 flex-col gap-6 xl:grid xl:grid-cols-6 xl:gap-0">
               {STAGE_GROUPS.map((group, g) => {
                 const stages = STAGES.filter((stage) => group.keys.includes(stage.key));
                 const count = stages.reduce((sum, stage) => sum + sets.byStage[stage.key].length, 0);
@@ -747,7 +749,7 @@ function Overview({
                 empty group is a quiet row rather than a card with a 0 in it. It replaces the
                 four cards, which gave the empty groups as much room as the full ones (owner,
                 2026-11-14). Every non-zero count opens its cases. */}
-            <div className="border-t border-hairline p-2">
+            <div className="min-w-0 border-t border-hairline pt-4">
               <Table aria-label="Pending cases by time in court" className="tabular-nums">
                 <TableHeader>
                   <TableRow className={TABLE_HEAD_ROW}>
@@ -792,14 +794,14 @@ function Overview({
         </>
       ) : (
         <>
-        <section aria-labelledby="dash-pending-table" className="flex min-w-0 flex-col gap-3">
+        <section aria-labelledby="dash-pending-table" className={SECTION}>
           <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
             <h3 id="dash-pending-table" className="text-body font-semibold">
               Pending cases by stage and time
             </h3>
             {viewSwitch}
           </div>
-          <div className={cn(SURFACE, "p-2")}>
+          <div className="min-w-0">
             <Table aria-labelledby="dash-pending-table" className="tabular-nums">
               <TableHeader>
                 <TableRow className={TABLE_HEAD_ROW}>
