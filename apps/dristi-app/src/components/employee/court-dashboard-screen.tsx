@@ -492,39 +492,18 @@ function Overview({
       {/* The two ways the pending cases split, one under the other, in the same cells; or,
           by the toggle, as one table of stage by time in court (owner, 2026-11-10: round 5,
           option A with option C as a table view). Both read the Pending card's cases on
-          its day, so neither repeats the total or the day. */}
+          its day, so neither repeats the total or the day. Stage comes first: for every
+          user, the overview cards then pending by stage lead the dashboard (11 Nov call
+          with Satya; owner, 2026-11-14). The switch sits on the first heading's row. */}
       {pendingView === "cards" ? (
         <>
-          <section aria-labelledby="dash-ages" className="flex min-w-0 flex-col gap-3">
+          <section aria-labelledby="dash-by-stage" className="flex min-w-0 flex-col gap-3">
             <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
-              <h3 id="dash-ages" className="text-body font-semibold">
-                Pending cases by time in court
+              <h3 id="dash-by-stage" className="text-body font-semibold">
+                Pending cases by stage
               </h3>
               {viewSwitch}
             </div>
-            <div className={cn(BOX, "p-4 sm:px-6")}>
-              {/* Four numbers, oldest last, each with its share: an old group gets the same
-                  room as the newest, so it is never a sliver (owner, 2026-11-10). */}
-              <ul className="grid grid-cols-2 gap-y-4 tabular-nums md:grid-cols-4">
-                {PENDING_AGE_GROUPS.map((label, i) => (
-                  <PendingCount
-                    key={label}
-                    label={label}
-                    count={ages[i]}
-                    total={end.pending}
-                    name={`in court ${label.toLowerCase()}`}
-                    opener={opener(`age-${i as 0 | 1 | 2 | 3}`)}
-                    index={i}
-                  />
-                ))}
-              </ul>
-            </div>
-          </section>
-
-          <section aria-labelledby="dash-by-stage" className="flex min-w-0 flex-col gap-3">
-            <h3 id="dash-by-stage" className="text-body font-semibold">
-              Pending cases by stage
-            </h3>
             {/* The same cells, grouped either side of cognizance: one row from xl, the
                 groups stacked below that. Cases at registration are not on the CMP register
                 yet, so the groups are named by cognizance, not by register. */}
@@ -563,6 +542,29 @@ function Overview({
                   </div>
                 );
               })}
+            </div>
+          </section>
+
+          <section aria-labelledby="dash-ages" className="flex min-w-0 flex-col gap-3">
+            <h3 id="dash-ages" className="text-body font-semibold">
+              Pending cases by time in court
+            </h3>
+            <div className={cn(BOX, "p-4 sm:px-6")}>
+              {/* Four numbers, oldest last, each with its share: an old group gets the same
+                  room as the newest, so it is never a sliver (owner, 2026-11-10). */}
+              <ul className="grid grid-cols-2 gap-y-4 tabular-nums md:grid-cols-4">
+                {PENDING_AGE_GROUPS.map((label, i) => (
+                  <PendingCount
+                    key={label}
+                    label={label}
+                    count={ages[i]}
+                    total={end.pending}
+                    name={`in court ${label.toLowerCase()}`}
+                    opener={opener(`age-${i as 0 | 1 | 2 | 3}`)}
+                    index={i}
+                  />
+                ))}
+              </ul>
             </div>
           </section>
         </>
