@@ -15,7 +15,6 @@ import {
   plural,
   useCaseList,
 } from "@/components/employee/court-dashboard-attention";
-import { Closures } from "@/components/employee/court-dashboard-closures";
 import { CountUp, TrickleDots, useGrowIn } from "@/components/employee/court-dashboard-motion";
 import { Trends } from "@/components/employee/court-dashboard-trends";
 import { DashboardDatePicker } from "@/components/employee/dashboard-date-picker";
@@ -68,7 +67,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * `/employee` — the magistrate dashboard, built to the owner's Case Flow design, version
- * 4 (2026-10-19), with its interaction and motion. Four panels on the work canvas:
+ * 4 (2026-10-19), with its interaction and motion. Panels on the work canvas:
  *
  * 1. **Overview** — the period under review (this month so far by default, set by the
  *    date picker in the panel), what was filed and closed against a chosen baseline, what
@@ -77,7 +76,9 @@ import { cn } from "@/lib/utils";
  *    in detail below the path. Every count opens its cases in the panel.
  * 2. **Needs attention** — the hearing-date and process checks, on its own date.
  * 3. **Trends** — five measures month by month, one at a time in detail.
- * 4. **How cases were closed** — outcomes against the baseline, and when they happened.
+ *
+ * "How cases were closed" left the page on 2026-11-14: the Overview's "How cases ended"
+ * and "Time to disposal" carry its outcomes and median (owner).
  *
  * Every mark tells its exact value in a DS tooltip on hover and keyboard focus, and keeps
  * it in its accessible name; a mark that counts cases opens them on a click or a tap.
@@ -198,47 +199,8 @@ export function CourtDashboardScreen() {
         <StagesPanel docket={docket} />
         <NeedsAttention docket={docket} />
         <Trends docket={docket} />
-        <ClosuresPanel docket={docket} />
       </div>
     </TooltipProvider>
-  );
-}
-
-/**
- * How cases were closed reads its own period and comparison, from its own picker: this
- * month and no comparison to begin with, and Reset in the picker returns there.
- */
-function ClosuresPanel({ docket }: { docket: CourtDocket }) {
-  const [picked, setPicked] = React.useState<Period | null>(null);
-  const [compare, setCompare] = React.useState<CompareMode>("none");
-  const opening = defaultSelection(docket);
-  const reading = periodReading(picked ?? opening, docket, compare);
-  const { from, to } = reading.selection;
-  return (
-    <Closures
-      docket={docket}
-      reading={reading}
-      period={periodName(reading)}
-      current={from === to ? formatDayShort(to) : formatSpan(from, to, docket.today)}
-      baselineLabel={baselineName(reading, docket.today, true)}
-      averaged={reading.baseline.length > 1}
-      picker={
-        <DashboardDatePicker
-          docket={docket}
-          value={reading.selection}
-          compare={compare}
-          defaultValue={opening}
-          defaultCompare="none"
-          idPrefix="dash-closures-picker"
-          dayNote="closures on this day"
-          daysNote="of closures"
-          onChange={(next, mode) => {
-            setPicked(next.from === opening.from && next.to === opening.to ? null : next);
-            setCompare(mode);
-          }}
-        />
-      }
-    />
   );
 }
 
@@ -527,6 +489,16 @@ function Overview({
     );
   const swatch = (fill: string) => <span aria-hidden className={cn("size-2.5 shrink-0 rounded-sm", fill)} />;
   const shown = METHODS.map((m) => ({ ...m, n: methodCount(m.key) }));
+  /* Contested in the bar's order; uncontested largest first. */
+  const groups = [
+    { key: "contested" as const, label: "Contested", rows: contestedRows, methods: shown.filter((m) => isContested(m.key)) },
+    {
+      key: "uncontested" as const,
+      label: "Uncontested",
+      rows: uncontestedRows,
+      methods: shown.filter((m) => !isContested(m.key)).sort((a, b) => b.n - a.n),
+    },
+  ];
   /* How cases ended and time to disposal share one container, each under its own heading,
      a hairline between them (owner, 2026-11-14). */
   const disposal = (
@@ -538,66 +510,84 @@ function Overview({
         <div className="flex min-w-0 flex-col gap-3">
           {disposedRows.length ? (
             <>
-              <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-6 gap-y-1 text-body-compact tabular-nums">
-                <span className="inline-flex items-center gap-2">
-                  {swatch("bg-brand-muted-foreground")}
-                  <CountButton name="contested" className="font-semibold" {...opener("contested")}>
-                    {formatCount(contestedRows.length)}
-                  </CountButton>
-                  contested · {contestedShare}%
-                </span>
-                {reading.compare === "none" ? null : baseShare === null || name === null ? (
-                  <p className="text-body-compact text-muted-foreground">No earlier data to compare</p>
-                ) : (
-                  change((contestedShare ?? 0) - baseShare, `pts contested vs ${name} (${baseShare}%)`, null)
-                )}
-                <span className="inline-flex items-center gap-2">
-                  <CountButton name="uncontested" className="font-semibold" {...opener("uncontested")}>
-                    {formatCount(uncontestedRows.length)}
-                  </CountButton>
-                  uncontested · {shareOf(uncontestedRows.length, disposedRows.length)}%
-                  {swatch("bg-border")}
-                </span>
-              </div>
+              {/* The bar, contested first, a wider gap between the two groups. A block names
+                  its method only where it has room; every method is named below. */}
               <div
                 role="img"
-                aria-label={shown.filter((m) => m.n).map((m) => `${m.key} ${m.n}`).join(", ")}
-                className="flex h-12 min-w-0 gap-0.5 overflow-hidden rounded-lg"
+                aria-label={groups.map((g) => `${g.label}: ${g.methods.filter((m) => m.n).map((m) => `${m.key} ${m.n}`).join(", ")}`).join("; ")}
+                className="flex h-12 min-w-0 gap-1 overflow-hidden rounded-lg"
               >
-                {shown
-                  .filter((m) => m.n)
-                  .map((m) => (
-                    <div
-                      key={m.key}
-                      style={{ flexGrow: m.n }}
-                      className={cn(
-                        "flex min-w-1.5 basis-0 items-center overflow-hidden px-2.5 text-body-compact font-semibold whitespace-nowrap tabular-nums",
-                        m.fill,
-                        m.ink,
-                      )}
-                    >
-                      <span aria-hidden>
-                        {m.n / disposedRows.length >= 0.15 ? <span className="max-sm:hidden">{m.key} </span> : null}
-                        {m.n}
-                      </span>
+                {groups
+                  .filter((g) => g.rows.length)
+                  .map((g) => (
+                    <div key={g.key} style={{ flexGrow: g.rows.length }} className="flex min-w-0 basis-0 gap-0.5">
+                      {g.methods
+                        .filter((m) => m.n)
+                        .map((m) => (
+                          <div
+                            key={m.key}
+                            style={{ flexGrow: m.n }}
+                            className={cn(
+                              "flex min-w-1.5 basis-0 items-center overflow-hidden px-2.5 text-body-compact font-semibold whitespace-nowrap tabular-nums",
+                              m.fill,
+                              m.ink,
+                            )}
+                          >
+                            <span aria-hidden>
+                              {m.n / disposedRows.length >= 0.15 ? <span className="max-sm:hidden">{m.key} </span> : null}
+                              {m.n}
+                            </span>
+                          </div>
+                        ))}
                     </div>
                   ))}
               </div>
-              <ul className="flex min-w-0 flex-wrap gap-x-4 gap-y-1 text-caption text-muted-foreground tabular-nums">
-                {shown.map((m) => (
-                  <li key={m.key} className="inline-flex items-center gap-1.5">
-                    {swatch(m.fill)}
-                    {m.key}{" "}
-                    {m.n ? (
-                      <CountButton name={`${m.key.toLowerCase()}`} className="-my-3 font-semibold" {...opener(`method-${m.key}`)}>
-                        {formatCount(m.n)}
-                      </CountButton>
-                    ) : (
-                      <span className="font-semibold">0</span>
-                    )}
-                  </li>
+              {/* One column per group: its total, share and change, then a row per method in
+                  body text, so the smallest methods read as easily as the largest. */}
+              <div className="grid min-w-0 gap-x-12 gap-y-6 md:grid-cols-2">
+                {groups.map((g) => (
+                  <div key={g.key} className="flex min-w-0 flex-col">
+                    <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 border-b border-hairline pb-1">
+                      <p className="inline-flex items-center gap-2 text-body-compact font-semibold tabular-nums">
+                        {g.label}
+                        {g.rows.length ? (
+                          <CountButton name={g.key} {...opener(g.key)}>
+                            {formatCount(g.rows.length)}
+                          </CountButton>
+                        ) : (
+                          <span className="inline-flex min-h-10 items-center">0</span>
+                        )}
+                        <span className="font-normal text-muted-foreground">· {shareOf(g.rows.length, disposedRows.length)}%</span>
+                      </p>
+                      {g.key === "contested"
+                        ? reading.compare === "none"
+                          ? null
+                          : baseShare === null || name === null
+                            ? <p className="text-body-compact text-muted-foreground">No earlier data to compare</p>
+                            : change((contestedShare ?? 0) - baseShare, `pts vs ${name} (${baseShare}%)`, null)
+                        : null}
+                    </div>
+                    <ul className="flex min-w-0 flex-col">
+                      {g.methods.map((m) => (
+                        <li key={m.key} className="flex min-w-0 items-center gap-3 border-b border-hairline text-body-compact tabular-nums last:border-b-0">
+                          {swatch(m.fill)}
+                          <span className="min-w-0 flex-1">{m.key}</span>
+                          {m.n ? (
+                            <CountButton name={m.key.toLowerCase()} className="font-semibold" {...opener(`method-${m.key}`)}>
+                              {formatCount(m.n)}
+                            </CountButton>
+                          ) : (
+                            <span className="inline-flex min-h-10 items-center text-muted-foreground">0</span>
+                          )}
+                          <span className="w-12 text-right text-muted-foreground">
+                            {m.n ? `${shareOf(m.n, disposedRows.length)}%` : "–"}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 ))}
-              </ul>
+              </div>
             </>
           ) : (
             <p className="text-body-compact text-muted-foreground">No cases disposed in this period</p>
@@ -622,7 +612,12 @@ function Overview({
             label="Median, contested"
             count={days(medians.contested)}
             change={medianVersus(medians.contested, baseMedians.contested)}
-            fact={<>{factCount(contestedRows.length, "contested", "contested")} contested</>}
+            fact={
+              <>
+                {factCount(contestedRows.length, "contested", "contested")} contested
+                {contestedRows.length ? ` · ${pct(methodCount("Convicted") / contestedRows.length)} convicted` : null}
+              </>
+            }
           />
           <OverviewCard
             label="Median, uncontested"
