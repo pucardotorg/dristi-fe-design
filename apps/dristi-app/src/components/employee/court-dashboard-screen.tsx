@@ -736,19 +736,22 @@ function Overview({
                   read as data beside the cards, not a lone card or a footnote (owner,
                   2026-11-14). */}
               {out.toLongPending ? (
-                <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 rounded-xl bg-surface-sunken px-4 py-2 sm:px-6">
-                  {/* Number first, then what it is, then its change in the Overview's one form,
-                      then why it sits apart: read left to right like a card. */}
-                  <p className="min-w-0 text-body-compact font-semibold">
-                    <CountButton name="moved to long pending" className="mr-2 align-middle text-title-s" {...opener("toLongPending")}>
+                <div className="grid min-w-0 gap-3 rounded-xl bg-surface-sunken p-4 sm:px-6 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] md:gap-6">
+                  {/* The cards' anatomy, label then number then change, with the reason it
+                      sits apart beside it behind a rule (owner, 2026-11-14: one line of three
+                      messages read as confusing). */}
+                  <div className="flex min-w-0 flex-col items-start gap-1">
+                    <span className="text-body-compact font-semibold">Moved to the long pending register</span>
+                    <CountButton name="moved to long pending" className="text-title-l font-semibold" {...opener("toLongPending")}>
                       {formatCount(out.toLongPending)}
                     </CountButton>
-                    {out.toLongPending === 1 ? "case" : "cases"} moved to the long pending register
+                    {baseToLongPending !== null && name !== null && reading.compare !== "none"
+                      ? change(out.toLongPending - baseToLongPending, `vs ${name} (${formatCount(baseToLongPending)})`, null)
+                      : null}
+                  </div>
+                  <p className="min-w-0 self-center border-t border-hairline pt-3 text-body-compact text-muted-foreground md:border-t-0 md:border-l md:pt-0 md:pl-6">
+                    These cases leave the pending count but are not disposals, so they are not in the contested or uncontested shares above.
                   </p>
-                  {baseToLongPending !== null && name !== null && reading.compare !== "none"
-                    ? change(out.toLongPending - baseToLongPending, `vs ${name} (${formatCount(baseToLongPending)})`, null)
-                    : null}
-                  <span className="text-caption text-muted-foreground sm:ml-auto">Not a disposal, so not in the shares above</span>
                 </div>
               ) : null}
             </>
