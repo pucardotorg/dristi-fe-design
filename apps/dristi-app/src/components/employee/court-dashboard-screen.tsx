@@ -542,11 +542,12 @@ function Overview({
                     </div>
                   ))}
               </div>
-              {/* One column per group: its total, share and change, then a row per method in
-                  body text, so the smallest methods read as easily as the largest. */}
-              <div className="grid min-w-0 gap-x-12 gap-y-6 md:grid-cols-2">
+              {/* One small container per group, in the cards' sunken form: its total, share
+                  and change, then a row per method in body text, so the smallest methods read
+                  as easily as the largest. Each is as tall as its rows (owner, 2026-11-14). */}
+              <div className="grid min-w-0 items-start gap-3 md:grid-cols-2">
                 {groups.map((g) => (
-                  <div key={g.key} className="flex min-w-0 flex-col">
+                  <div key={g.key} className="flex min-w-0 flex-col rounded-xl bg-surface-sunken px-4 py-2 sm:px-6">
                     <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 border-b border-hairline pb-1">
                       <p className="inline-flex items-center gap-2 text-body-compact font-semibold tabular-nums">
                         {g.label}
