@@ -231,19 +231,17 @@ type OverviewList =
   | `method-${DisposalMethod}`;
 
 /**
- * How cases ended, as one bar: a block per method, the contested ones first, in the
- * outcome palette "How cases were closed" uses, so the two panels read alike (contrast
- * measured there): convicted and acquitted the two teals, settled `border`, the rest
- * `track`. A block names its method only where it has room (a large block, from sm); the
- * line under the bar names every method with a count that opens its cases.
+ * How cases ended: a card per method, contested first. The bar that summed them went on
+ * 2026-11-14: the cards and the group headings already carry every count and share
+ * (owner).
  */
-const METHODS: { key: DisposalMethod; fill: string; ink: string }[] = [
-  { key: "Convicted", fill: "bg-brand-muted-foreground", ink: "text-primary-foreground" },
-  { key: "Acquitted", fill: "bg-brand-accent", ink: "text-foreground dark:text-primary-foreground" },
-  { key: "Settled", fill: "bg-border", ink: "text-foreground" },
-  { key: "Withdrawn", fill: "bg-track", ink: "text-foreground" },
-  { key: "Dismissed", fill: "bg-track", ink: "text-foreground" },
-  { key: "Returned", fill: "bg-track", ink: "text-foreground" },
+const METHODS: { key: DisposalMethod }[] = [
+  { key: "Convicted" },
+  { key: "Acquitted" },
+  { key: "Settled" },
+  { key: "Withdrawn" },
+  { key: "Dismissed" },
+  { key: "Returned" },
 ];
 
 /**
@@ -487,9 +485,8 @@ function Overview({
         <span className="text-body font-medium text-muted-foreground">days</span>
       </span>
     );
-  const swatch = (fill: string) => <span aria-hidden className={cn("size-2.5 shrink-0 rounded-sm", fill)} />;
   const shown = METHODS.map((m) => ({ ...m, n: methodCount(m.key) }));
-  /* Contested in the bar's order; uncontested largest first. */
+  /* Contested in a fixed order; uncontested largest first. */
   const groups = [
     { key: "contested" as const, label: "Contested", rows: contestedRows, methods: shown.filter((m) => isContested(m.key)) },
     {
@@ -499,49 +496,50 @@ function Overview({
       methods: shown.filter((m) => !isContested(m.key)).sort((a, b) => b.n - a.n),
     },
   ];
-  /* How cases ended and time to disposal share one container, each under its own heading,
+  /* Time to disposal, then how cases ended, in one container, each under its own heading,
      a hairline between them (owner, 2026-11-14). */
   const disposal = (
     <div className={cn(SECTION, "gap-6")}>
-      <section aria-labelledby="dash-ended" className="flex min-w-0 flex-col gap-4">
+      <section aria-labelledby="dash-time-to-disposal" className="flex min-w-0 flex-col gap-4">
+        <h3 id="dash-time-to-disposal" className="text-body font-semibold">
+          Time to disposal
+        </h3>
+        {/* Three medians in the cards' own form: filing to disposal for all disposed cases,
+            then for each kind, so a slower kind shows even when the overall figure holds. */}
+        <div className="grid min-w-0 gap-3 md:grid-cols-3">
+          <OverviewCard
+            label="Median, all disposed"
+            count={days(medians.all)}
+            change={medianVersus(medians.all, baseMedians.all)}
+            fact={<>{factCount(disposedRows.length, "disposed", "disposed")} disposed · filing to disposal</>}
+          />
+          <OverviewCard
+            label="Median, contested"
+            count={days(medians.contested)}
+            change={medianVersus(medians.contested, baseMedians.contested)}
+            fact={
+              <>
+                {factCount(contestedRows.length, "contested", "contested")} contested
+                {contestedRows.length ? ` · ${pct(methodCount("Convicted") / contestedRows.length)} convicted` : null}
+              </>
+            }
+          />
+          <OverviewCard
+            label="Median, uncontested"
+            count={days(medians.uncontested)}
+            change={medianVersus(medians.uncontested, baseMedians.uncontested)}
+            fact={<>{factCount(uncontestedRows.length, "uncontested", "uncontested")} uncontested</>}
+          />
+        </div>
+      </section>
+
+      <section aria-labelledby="dash-ended" className="flex min-w-0 flex-col gap-4 border-t border-hairline pt-6">
         <h3 id="dash-ended" className="text-body font-semibold">
           How cases ended
         </h3>
         <div className="flex min-w-0 flex-col gap-3">
           {disposedRows.length ? (
             <>
-              {/* The bar, contested first, a wider gap between the two groups. A block names
-                  its method only where it has room; every method is named below. */}
-              <div
-                role="img"
-                aria-label={groups.map((g) => `${g.label}: ${g.methods.filter((m) => m.n).map((m) => `${m.key} ${m.n}`).join(", ")}`).join("; ")}
-                className="flex h-12 min-w-0 gap-1 overflow-hidden rounded-lg"
-              >
-                {groups
-                  .filter((g) => g.rows.length)
-                  .map((g) => (
-                    <div key={g.key} style={{ flexGrow: g.rows.length }} className="flex min-w-0 basis-0 gap-0.5">
-                      {g.methods
-                        .filter((m) => m.n)
-                        .map((m) => (
-                          <div
-                            key={m.key}
-                            style={{ flexGrow: m.n }}
-                            className={cn(
-                              "flex min-w-1.5 basis-0 items-center overflow-hidden px-2.5 text-body-compact font-semibold whitespace-nowrap tabular-nums",
-                              m.fill,
-                              m.ink,
-                            )}
-                          >
-                            <span aria-hidden>
-                              {m.n / disposedRows.length >= 0.15 ? <span className="max-sm:hidden">{m.key} </span> : null}
-                              {m.n}
-                            </span>
-                          </div>
-                        ))}
-                    </div>
-                  ))}
-              </div>
               {/* A card per method under its group's heading, laid out like the stage cells:
                   contested over two columns, uncontested over four, one row from xl, so no
                   group leaves empty space beside the other (owner, 2026-11-14). */}
@@ -573,10 +571,7 @@ function Overview({
                     <ul className={cn("grid min-w-0 grid-cols-2 gap-3", g.key === "uncontested" && "md:grid-cols-4")}>
                       {g.methods.map((m) => (
                         <li key={m.key} className="flex min-w-0 flex-col items-start gap-1 rounded-xl bg-surface-sunken p-4">
-                          <span className="inline-flex items-center gap-2 text-body-compact font-semibold">
-                            {swatch(m.fill)}
-                            {m.key}
-                          </span>
+                          <span className="text-body-compact font-semibold">{m.key}</span>
                           {m.n ? (
                             <CountButton name={m.key.toLowerCase()} className="text-title-l font-semibold" {...opener(`method-${m.key}`)}>
                               {formatCount(m.n)}
@@ -597,39 +592,6 @@ function Overview({
           ) : (
             <p className="text-body-compact text-muted-foreground">No cases disposed in this period</p>
           )}
-        </div>
-      </section>
-
-      <section aria-labelledby="dash-time-to-disposal" className="flex min-w-0 flex-col gap-4 border-t border-hairline pt-6">
-        <h3 id="dash-time-to-disposal" className="text-body font-semibold">
-          Time to disposal
-        </h3>
-        {/* Three medians in the cards' own form: filing to disposal for all disposed cases,
-            then for each kind, so a slower kind shows even when the overall figure holds. */}
-        <div className="grid min-w-0 gap-3 md:grid-cols-3">
-          <OverviewCard
-            label="Median, all disposed"
-            count={days(medians.all)}
-            change={medianVersus(medians.all, baseMedians.all)}
-            fact={<>{factCount(disposedRows.length, "disposed", "disposed")} disposed · filing to disposal</>}
-          />
-          <OverviewCard
-            label="Median, contested"
-            count={days(medians.contested)}
-            change={medianVersus(medians.contested, baseMedians.contested)}
-            fact={
-              <>
-                {factCount(contestedRows.length, "contested", "contested")} contested
-                {contestedRows.length ? ` · ${pct(methodCount("Convicted") / contestedRows.length)} convicted` : null}
-              </>
-            }
-          />
-          <OverviewCard
-            label="Median, uncontested"
-            count={days(medians.uncontested)}
-            change={medianVersus(medians.uncontested, baseMedians.uncontested)}
-            fact={<>{factCount(uncontestedRows.length, "uncontested", "uncontested")} uncontested</>}
-          />
         </div>
       </section>
     </div>
