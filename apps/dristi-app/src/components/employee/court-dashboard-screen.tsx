@@ -30,6 +30,7 @@ import {
   COURT_LIMITS,
   DAY_MS,
   monthKey,
+  monthStart,
   msToDay,
   STAGES,
   UNCONTESTED,
@@ -228,7 +229,14 @@ type OverviewList =
   | `age-${0 | 1 | 2 | 3}`
   | "contested"
   | "uncontested"
-  | `method-${DisposalMethod}`;
+  | `method-${DisposalMethod}`
+  | "st"
+  | "cmp"
+  | "stDisposed"
+  | "cmpDisposed"
+  | `cohort-${number}`;
+
+const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /**
  * How cases ended: a card per method, contested first. The bar that summed them went on
@@ -320,8 +328,72 @@ function Overview({
     uncontested: medianOf(baseDisposed.filter((r) => !isContested(r.method)).map((r) => r.days)),
   };
 
+  /* The registers, to check against the physical ones (note 1.2, all users a(i)): pending on
+     each register on the period's last day, disposed from each in the period, and
+     judgments (convicted or acquitted) month by month for the 12 months to the period's. */
+  const spanShort = from === to ? formatDayShort(to) : formatSpan(from, to, latest);
+  const stDisposed = disposedRows.filter((r) => !r.beforeCognizance);
+  const cmpDisposed = disposedRows.filter((r) => r.beforeCognizance);
+  const lastMonth = monthKey(to);
+  const judgmentMonths = Array.from({ length: 12 }, (_, i) => {
+    const key = lastMonth - 11 + i;
+    const period = { from: monthStart(key), to: Math.min(monthStart(key + 1) - DAY_MS, latest) };
+    const n = period.from > latest ? 0 : closedCases(docket, period).filter((r) => r.method === "Convicted" || r.method === "Acquitted").length;
+    return { key, n, partial: key === monthKey(latest) && latest < monthStart(key + 1) - DAY_MS };
+  });
+  const judgmentMax = Math.max(1, ...judgmentMonths.map((m) => m.n));
+  const baseToLongPending = reading.baseline.length
+    ? Math.round(reading.baseline.reduce((sum, p) => sum + closedCases(docket, p).filter((r) => r.outcome === "toLongPending").length, 0) / reading.baseline.length)
+    : null;
+
+  /* Time to disposal by filing quarter (note 1.2, all users e: "track it by filing cohort"),
+     read on the period's last day: of the cases filed in each quarter, how many are
+     disposed, their median days, and how many are still pending. */
+  const quarterOf = (ms: number) => {
+    const key = monthKey(ms);
+    return key - (key % 3);
+  };
+  const cohorts = (() => {
+    const map = new Map<number, { filed: number; days: number[]; lpr: number }>();
+    for (const c of docket.cases) {
+      if (c.filed > to) continue;
+      const q = quarterOf(c.filed);
+      const entry = map.get(q) ?? { filed: 0, days: [], lpr: 0 };
+      entry.filed += 1;
+      if (c.disposal && c.disposal.date <= to) entry.days.push(Math.round((c.disposal.date - c.filed) / DAY_MS));
+      else if (c.longPendingAt !== null && c.longPendingAt <= to) entry.lpr += 1;
+      map.set(q, entry);
+    }
+    const firstKey = monthKey(docket.start);
+    return [...map.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([q, e]) => {
+        const fromKey = Math.max(q, firstKey);
+        const toKey = Math.min(q + 2, monthKey(to));
+        const year = Math.floor(toKey / 12);
+        const partEnd = toKey === monthKey(to) && to < monthStart(toKey + 1) - DAY_MS;
+        const end = partEnd ? `${formatDayShort(to)} ${year}` : `${MONTHS_SHORT[toKey % 12]} ${year}`;
+        const label = fromKey === toKey && !partEnd ? end : `${MONTHS_SHORT[fromKey % 12]}–${end}`;
+        const pending = sets.all.filter((r) => quarterOf(r.case.filed) === q);
+        return { q, label, filed: e.filed, disposed: e.days.length, median: medianOf(e.days), pending, lpr: e.lpr };
+      });
+  })();
+
   const resolve = (key: OverviewList): ListSpec | null => {
     const inCourt = "Days in court";
+    if (key === "st" || key === "cmp") {
+      const rows = key === "st" ? sets.st : sets.cmp;
+      return { title: `${pendingName} · ${key === "st" ? "ST register" : "CMP register"}`, summary: `${plural(rows.length, "case", "cases")} · longest in court first`, rows, daysHeader: inCourt, details: pastNote };
+    }
+    if (key === "stDisposed" || key === "cmpDisposed") {
+      const rows = key === "stDisposed" ? stDisposed : cmpDisposed;
+      return { title: `Disposed from the ${key === "stDisposed" ? "ST" : "CMP"} register · ${period}`, summary: plural(rows.length, "case", "cases"), rows, daysHeader: "Days from filing to disposal" };
+    }
+    if (key.startsWith("cohort-")) {
+      const cohort = cohorts.find((c) => `cohort-${c.q}` === key);
+      if (!cohort) return null;
+      return { title: `Filed ${cohort.label}, still pending`, summary: `${plural(cohort.pending.length, "case", "cases")} of ${formatCount(cohort.filed)} filed · longest in court first`, rows: cohort.pending, daysHeader: inCourt, details: pastNote };
+    }
     if (key === "contested" || key === "uncontested" || key.startsWith("method-")) {
       const rows =
         key === "contested" ? contestedRows : key === "uncontested" ? uncontestedRows : disposedRows.filter((r) => `method-${r.method}` === key);
@@ -531,6 +603,77 @@ function Overview({
             fact={<>{factCount(uncontestedRows.length, "uncontested", "uncontested")} uncontested</>}
           />
         </div>
+
+        {/* By filing quarter (note 1.2, all users e). The median counts only cases already
+            disposed, so a recent quarter reads fast until its slow cases finish. */}
+        <section aria-labelledby="dash-cohorts" className="flex min-w-0 flex-col gap-3 pt-2">
+          <h4 id="dash-cohorts" className="text-body-compact font-semibold">
+            By when cases were filed
+          </h4>
+          <div className="min-w-0 rounded-xl border border-hairline p-2">
+            <Table aria-labelledby="dash-cohorts" className="tabular-nums">
+              <TableHeader>
+                <TableRow className={TABLE_HEAD_ROW}>
+                  <TableHead scope="col" className={TABLE_HEAD}>Filed in</TableHead>
+                  <TableHead scope="col" className={cn(TABLE_HEAD, "text-right")}>Filed</TableHead>
+                  <TableHead scope="col" className={TABLE_HEAD}>Disposed so far</TableHead>
+                  <TableHead scope="col" className={cn(TABLE_HEAD, "text-right")}>Median days to disposal</TableHead>
+                  <TableHead scope="col" className={cn(TABLE_HEAD, "text-right")}>Still pending</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className={tableBodyClass({ hover: false })}>
+                {cohorts.map((c) => (
+                  <TableRow key={c.q} className={tableRowClass({ hover: false })}>
+                    <th scope="row" className={cn(TABLE_CELL, "font-semibold whitespace-nowrap")}>{c.label}</th>
+                    <TableCell className={cn(TABLE_CELL, "text-right")}>{formatCount(c.filed)}</TableCell>
+                    <TableCell className={TABLE_CELL}>
+                      <span className="flex min-w-40 items-center gap-3">
+                        <span aria-hidden className="h-2 flex-1 overflow-hidden rounded-full bg-surface-sunken">
+                          <span className="block h-full rounded-full bg-brand-muted-foreground" style={{ width: `${(c.disposed / Math.max(1, c.filed)) * 100}%` }} />
+                        </span>
+                        <span className="w-20 text-right">
+                          {formatCount(c.disposed)} · {c.disposed && c.disposed / c.filed < 0.005 ? "<1%" : pct(c.disposed / Math.max(1, c.filed))}
+                        </span>
+                      </span>
+                    </TableCell>
+                    <TableCell className={cn(TABLE_CELL, "text-right")}>{c.median === null ? <span className="text-muted-foreground">–</span> : formatCount(c.median)}</TableCell>
+                    <TableCell className={cn(TABLE_CELL, "text-right whitespace-nowrap")}>
+                      {c.pending.length ? (
+                        <CountButton name={`filed ${c.label}, still pending`} {...opener(`cohort-${c.q}`)}>
+                          {formatCount(c.pending.length)}
+                        </CountButton>
+                      ) : (
+                        <span className="text-muted-foreground">0</span>
+                      )}
+                      {c.lpr ? <span className="text-muted-foreground"> · {formatCount(c.lpr)} on LPR</span> : null}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <p className="text-caption text-muted-foreground">
+            The median counts only the cases already disposed, so a recent quarter reads fast until its slower cases finish.
+          </p>
+        </section>
+
+        {/* Mediated or not (note 1.2, all users e): DRISTI does not record mediation yet, so
+            the comparison is held open rather than left out (owner, 2026-11-14). */}
+        <section aria-labelledby="dash-mediation" className="flex min-w-0 flex-col gap-3 pt-2">
+          <h4 id="dash-mediation" className="text-body-compact font-semibold">
+            Mediated or not
+          </h4>
+          <div className="grid min-w-0 gap-3 md:grid-cols-2">
+            {["Median, mediated", "Median, not mediated"].map((label) => (
+              <div key={label} className="flex min-w-0 flex-col items-start gap-1 rounded-xl bg-surface-sunken p-4">
+                <span className="text-body-compact font-semibold">{label}</span>
+                <span className="inline-flex min-h-10 items-center text-title-s font-semibold text-muted-foreground">–</span>
+                <span className="text-caption text-muted-foreground">No data yet</span>
+              </div>
+            ))}
+          </div>
+          <p className="text-caption text-muted-foreground">DRISTI does not yet record whether a case went to mediation.</p>
+        </section>
       </section>
 
       <section aria-labelledby="dash-ended" className="flex min-w-0 flex-col gap-4 border-t border-hairline pt-6">
@@ -542,8 +685,10 @@ function Overview({
             <>
               {/* A card per method under its group's heading, laid out like the stage cells:
                   contested over two columns, uncontested over four, one row from xl, so no
-                  group leaves empty space beside the other (owner, 2026-11-14). */}
-              <div className="flex min-w-0 flex-col gap-6 xl:grid xl:grid-cols-6 xl:gap-3">
+                  group leaves empty space beside the other (owner, 2026-11-14). Moves to the
+                  long pending register follow as their own group: the note lists them as a
+                  way cases end, but they are not disposals, so they stay out of the shares. */}
+              <div className="flex min-w-0 flex-col gap-6 xl:grid xl:grid-cols-6 xl:gap-3 2xl:grid-cols-7">
                 {groups.map((g) => (
                   <div key={g.key} className={cn("flex min-w-0 flex-col gap-3", g.key === "contested" ? "xl:col-span-2" : "xl:col-span-4")}>
                     {/* Total on one line, its change on the next, for both groups, so the two
@@ -587,6 +732,29 @@ function Overview({
                     </ul>
                   </div>
                 ))}
+                <div className="flex min-w-0 flex-col gap-3 xl:col-span-2 2xl:col-span-1">
+                  <div className="flex min-w-0 flex-col border-b border-hairline pb-2">
+                    <p className="inline-flex min-h-10 items-center text-body-compact font-semibold">Not disposed</p>
+                    <p className="text-body-compact text-muted-foreground">Out of the shares</p>
+                  </div>
+                  <div className="grid min-w-0 grid-cols-2 gap-3 2xl:grid-cols-1">
+                  <div className="flex min-w-0 flex-col items-start gap-1 rounded-xl bg-surface-sunken p-4">
+                    <span className="text-body-compact font-semibold">To long pending</span>
+                    {out.toLongPending ? (
+                      <CountButton name="moved to long pending" className="text-title-l font-semibold" {...opener("toLongPending")}>
+                        {formatCount(out.toLongPending)}
+                      </CountButton>
+                    ) : (
+                      <span className="inline-flex min-h-10 items-center text-title-l font-semibold text-muted-foreground">0</span>
+                    )}
+                    <span className="text-caption text-muted-foreground tabular-nums">
+                      {baseToLongPending === null || name === null || reading.compare === "none"
+                        ? "Moved to the register"
+                        : `${formatCount(baseToLongPending)} in ${name}`}
+                    </span>
+                  </div>
+                  </div>
+                </div>
               </div>
             </>
           ) : (
@@ -649,6 +817,67 @@ function Overview({
           />
         </div>
       </div>
+
+      {/* The registers (note 1.2, all users a(i)): the counts staff check against the paper
+          registers. Pending is read on the period's last day; disposed and judgments over the
+          period. Judgments carry the last 12 months as small bars (owner, 2026-11-14). */}
+      <section aria-labelledby="dash-registers" className="flex min-w-0 flex-col gap-3 border-t border-hairline pt-6">
+        <h3 id="dash-registers" className="text-body font-semibold">
+          Registers
+        </h3>
+        <ul className="grid min-w-0 grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+          {(
+            [
+              ["ST pending", sets.st.length, "st", "after cognizance"],
+              ["ST disposed", stDisposed.length, "stDisposed", spanShort],
+              ["CMP pending", sets.cmp.length, "cmp", "awaiting cognizance"],
+              ["CMP disposed", cmpDisposed.length, "cmpDisposed", spanShort],
+              ["LPR", end.longPending, "longPending", `on the register · ${formatCount(out.toLongPending)} moved in`],
+            ] as [string, number, OverviewList, string][]
+          ).map(([label, n, key, sub]) => (
+            <li key={label} className="flex min-w-0 flex-col items-start gap-1 rounded-xl bg-surface-sunken p-4">
+              <span className="text-body-compact font-semibold">{label}</span>
+              {n ? (
+                <CountButton name={label.toLowerCase()} className="text-title-s font-semibold" {...opener(key)}>
+                  {formatCount(n)}
+                </CountButton>
+              ) : (
+                <span className="inline-flex min-h-10 items-center text-title-s font-semibold text-muted-foreground">0</span>
+              )}
+              <span className="text-caption text-muted-foreground">{sub}</span>
+            </li>
+          ))}
+          <li className="flex min-w-0 flex-col items-start gap-1 rounded-xl bg-surface-sunken p-4">
+            <span className="text-body-compact font-semibold">Judgments</span>
+            {contestedRows.length ? (
+              <CountButton name="judgments" className="text-title-s font-semibold" {...opener("contested")}>
+                {formatCount(contestedRows.length)}
+              </CountButton>
+            ) : (
+              <span className="inline-flex min-h-10 items-center text-title-s font-semibold text-muted-foreground">0</span>
+            )}
+            <div
+              role="img"
+              aria-label={`Judgments each month: ${judgmentMonths.map((m) => `${MONTHS_SHORT[m.key % 12]} ${m.n}`).join(", ")}`}
+              className="flex h-10 w-full items-end gap-0.5"
+            >
+              {judgmentMonths.map((m) => (
+                <span
+                  key={m.key}
+                  style={{ height: `${Math.max(4, (m.n / judgmentMax) * 100)}%` }}
+                  className={cn("flex-1 rounded-t-sm", m.partial ? "bg-brand-accent" : "bg-brand-muted-foreground")}
+                />
+              ))}
+            </div>
+            <span className="text-caption text-muted-foreground">Last 12 months</span>
+          </li>
+        </ul>
+        {sets.awaitingRegistration.length ? (
+          <p className="text-caption text-muted-foreground tabular-nums">
+            {factCount(sets.awaitingRegistration.length, "waiting to be registered", "awaiting")} filed cases are on no register yet: they are waiting to be registered.
+          </p>
+        ) : null}
+      </section>
       </div>
 
       {/* The two ways the pending cases split, one under the other, in the same cells; or,
