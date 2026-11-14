@@ -339,14 +339,6 @@ function Overview({
   const spanShort = from === to ? formatDayShort(to) : formatSpan(from, to, latest);
   const stDisposed = disposedRows.filter((r) => !r.beforeCognizance);
   const cmpDisposed = disposedRows.filter((r) => r.beforeCognizance);
-  const lastMonth = monthKey(to);
-  const judgmentMonths = Array.from({ length: 12 }, (_, i) => {
-    const key = lastMonth - 11 + i;
-    const period = { from: monthStart(key), to: Math.min(monthStart(key + 1) - DAY_MS, latest) };
-    const n = period.from > latest ? 0 : closedCases(docket, period).filter((r) => r.method === "Convicted" || r.method === "Acquitted").length;
-    return { key, n, partial: key === monthKey(latest) && latest < monthStart(key + 1) - DAY_MS };
-  });
-  const judgmentMax = Math.max(1, ...judgmentMonths.map((m) => m.n));
   const baseToLongPending = reading.baseline.length
     ? Math.round(reading.baseline.reduce((sum, p) => sum + closedCases(docket, p).filter((r) => r.outcome === "toLongPending").length, 0) / reading.baseline.length)
     : null;
@@ -940,7 +932,8 @@ function Overview({
 
       {/* The registers (note 1.2, all users a(i)): the counts staff check against the paper
           registers. Pending is read on the period's last day; disposed and judgments over the
-          period. Judgments carry the last 12 months as small bars (owner, 2026-11-14). */}
+          period. Judgments read like the other disposed counts, no bars; cases awaiting
+          registration are on the Cases filed card, not repeated here (owner, 2026-11-15). */}
       <section aria-labelledby="dash-registers" className="flex min-w-0 flex-col gap-3 border-t border-hairline pt-6">
         <h3 id="dash-registers" className="text-body font-semibold">
           Registers
@@ -953,6 +946,7 @@ function Overview({
               ["CMP pending", sets.cmp.length, "cmp", "awaiting cognizance"],
               ["CMP disposed", cmpDisposed.length, "cmpDisposed", spanShort],
               ["LPR", end.longPending, "longPending", `on the register · ${formatCount(out.toLongPending)} moved in`],
+              ["Judgments", contestedRows.length, "contested", spanShort],
             ] as [string, number, OverviewList, string][]
           ).map(([label, n, key, sub]) => (
             <li key={label} className="flex min-w-0 flex-col items-start gap-1 rounded-xl bg-surface-sunken p-4">
@@ -967,36 +961,7 @@ function Overview({
               <span className="text-caption text-muted-foreground">{sub}</span>
             </li>
           ))}
-          <li className="flex min-w-0 flex-col items-start gap-1 rounded-xl bg-surface-sunken p-4">
-            <span className="text-body-compact font-semibold">Judgments</span>
-            {contestedRows.length ? (
-              <CountButton name="judgments" className="text-title-s font-semibold" {...opener("contested")}>
-                {formatCount(contestedRows.length)}
-              </CountButton>
-            ) : (
-              <span className="inline-flex min-h-10 items-center text-title-s font-semibold text-muted-foreground">0</span>
-            )}
-            <div
-              role="img"
-              aria-label={`Judgments each month: ${judgmentMonths.map((m) => `${MONTHS_SHORT[m.key % 12]} ${m.n}`).join(", ")}`}
-              className="flex h-10 w-full items-end gap-0.5"
-            >
-              {judgmentMonths.map((m) => (
-                <span
-                  key={m.key}
-                  style={{ height: `${Math.max(4, (m.n / judgmentMax) * 100)}%` }}
-                  className={cn("flex-1 rounded-t-sm", m.partial ? "bg-brand-accent" : "bg-brand-muted-foreground")}
-                />
-              ))}
-            </div>
-            <span className="text-caption text-muted-foreground">Last 12 months</span>
-          </li>
         </ul>
-        {sets.awaitingRegistration.length ? (
-          <p className="text-caption text-muted-foreground tabular-nums">
-            {factCount(sets.awaitingRegistration.length, "waiting to be registered", "awaiting")} filed cases are on no register yet: they are waiting to be registered.
-          </p>
-        ) : null}
       </section>
       </div>
 
