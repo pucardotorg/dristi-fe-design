@@ -542,13 +542,15 @@ function Overview({
                     </div>
                   ))}
               </div>
-              {/* One small container per group, in the cards' sunken form: its total, share
-                  and change, then a row per method in body text, so the smallest methods read
-                  as easily as the largest. Each is as tall as its rows (owner, 2026-11-14). */}
-              <div className="grid min-w-0 items-start gap-3 md:grid-cols-2">
+              {/* A card per method under its group's heading, laid out like the stage cells:
+                  contested over two columns, uncontested over four, one row from xl, so no
+                  group leaves empty space beside the other (owner, 2026-11-14). */}
+              <div className="flex min-w-0 flex-col gap-6 xl:grid xl:grid-cols-6 xl:gap-3">
                 {groups.map((g) => (
-                  <div key={g.key} className="flex min-w-0 flex-col rounded-xl bg-surface-sunken px-4 py-2 sm:px-6">
-                    <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 border-b border-hairline pb-1">
+                  <div key={g.key} className={cn("flex min-w-0 flex-col gap-3", g.key === "contested" ? "xl:col-span-2" : "xl:col-span-4")}>
+                    {/* Total on one line, its change on the next, for both groups, so the two
+                        rows of cards start level at every width. */}
+                    <div className="flex min-w-0 flex-col border-b border-hairline pb-2">
                       <p className="inline-flex items-center gap-2 text-body-compact font-semibold tabular-nums">
                         {g.label}
                         {g.rows.length ? (
@@ -560,28 +562,30 @@ function Overview({
                         )}
                         <span className="font-normal text-muted-foreground">· {shareOf(g.rows.length, disposedRows.length)}%</span>
                       </p>
-                      {g.key === "contested"
-                        ? reading.compare === "none"
-                          ? null
-                          : baseShare === null || name === null
-                            ? <p className="text-body-compact text-muted-foreground">No earlier data to compare</p>
-                            : change((contestedShare ?? 0) - baseShare, `pts vs ${name} (${baseShare}%)`, null)
-                        : null}
+                      {reading.compare === "none" ? null : baseShare === null || name === null ? (
+                        <p className="text-body-compact text-muted-foreground">No earlier data to compare</p>
+                      ) : g.key === "contested" ? (
+                        change((contestedShare ?? 0) - baseShare, `pts vs ${name} (${baseShare}%)`, null)
+                      ) : (
+                        change(baseShare - (contestedShare ?? 0), `pts vs ${name} (${100 - baseShare}%)`, null)
+                      )}
                     </div>
-                    <ul className="flex min-w-0 flex-col">
+                    <ul className={cn("grid min-w-0 grid-cols-2 gap-3", g.key === "uncontested" && "md:grid-cols-4")}>
                       {g.methods.map((m) => (
-                        <li key={m.key} className="flex min-w-0 items-center gap-3 border-b border-hairline text-body-compact tabular-nums last:border-b-0">
-                          {swatch(m.fill)}
-                          <span className="min-w-0 flex-1">{m.key}</span>
+                        <li key={m.key} className="flex min-w-0 flex-col items-start gap-1 rounded-xl bg-surface-sunken p-4">
+                          <span className="inline-flex items-center gap-2 text-body-compact font-semibold">
+                            {swatch(m.fill)}
+                            {m.key}
+                          </span>
                           {m.n ? (
-                            <CountButton name={m.key.toLowerCase()} className="font-semibold" {...opener(`method-${m.key}`)}>
+                            <CountButton name={m.key.toLowerCase()} className="text-title-l font-semibold" {...opener(`method-${m.key}`)}>
                               {formatCount(m.n)}
                             </CountButton>
                           ) : (
-                            <span className="inline-flex min-h-10 items-center text-muted-foreground">0</span>
+                            <span className="inline-flex min-h-10 items-center text-title-l font-semibold text-muted-foreground">0</span>
                           )}
-                          <span className="w-12 text-right text-muted-foreground">
-                            {m.n ? `${shareOf(m.n, disposedRows.length)}%` : "–"}
+                          <span className="text-caption text-muted-foreground tabular-nums">
+                            {m.n ? `${shareOf(m.n, disposedRows.length)}% of disposed` : "None"}
                           </span>
                         </li>
                       ))}
