@@ -627,6 +627,7 @@ function Overview({
      each under its own heading, a hairline between them (owner, 2026-11-14). */
   const disposal = (
     <div className={cn(SECTION, "gap-6")}>
+      <h2 className="text-title-s font-semibold">Disposal</h2>
       <section aria-labelledby="dash-time-to-disposal" className="flex min-w-0 flex-col gap-4">
         <h3 id="dash-time-to-disposal" className="text-body font-semibold">
           Time to disposal
@@ -673,7 +674,7 @@ function Overview({
                disposals and stay out of the shares. A column for the baseline gives every
                row its comparison (owner, 2026-11-14; replaces the method cards and the
                separate long-pending container). */
-            <div className="min-w-0 rounded-xl border border-hairline p-2">
+            <div className="min-w-0">
               <Table aria-labelledby="dash-ended" className="tabular-nums">
                 <TableHeader>
                   <TableRow className={TABLE_HEAD_ROW}>
@@ -1012,9 +1013,9 @@ function Overview({
               one container (owner, 2026-11-14). */}
           <section aria-labelledby="dash-pending-split" className={SECTION}>
             <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
-              <h3 id="dash-pending-split" className="text-body font-semibold">
+              <h2 id="dash-pending-split" className="text-title-s font-semibold">
                 Pending cases by stage and time
-              </h3>
+              </h2>
               {viewSwitch}
             </div>
             <div className="flex min-w-0 flex-col gap-4">
@@ -1108,9 +1109,9 @@ function Overview({
         <>
         <section aria-labelledby="dash-pending-table" className={SECTION}>
           <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
-            <h3 id="dash-pending-table" className="text-body font-semibold">
+            <h2 id="dash-pending-table" className="text-title-s font-semibold">
               Pending cases by stage and time
-            </h3>
+            </h2>
             {viewSwitch}
           </div>
           <div className="min-w-0">
@@ -1231,7 +1232,7 @@ function PendingCount({
         className,
       )}
     >
-      <span className="text-caption text-muted-foreground">{label}</span>
+      <span className="text-body-compact font-semibold">{label}</span>
       {count ? (
         <CountButton name={name} className="text-title-l font-semibold" {...opener}>
           {formatCount(count)}
