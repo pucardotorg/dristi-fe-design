@@ -733,7 +733,7 @@ function Overview({
 
           <section aria-labelledby="dash-ages" className="flex min-w-0 flex-col gap-3">
             <h3 id="dash-ages" className="text-body font-semibold">
-              Pending cases by time in court
+              Pending cases by time
             </h3>
             {/* A plain table, oldest last: an ordered split of one total reads as rows, and an
                 empty group is a quiet row rather than a card with a 0 in it. It replaces the
