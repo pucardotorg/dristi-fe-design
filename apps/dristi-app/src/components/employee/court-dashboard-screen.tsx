@@ -314,8 +314,6 @@ function Overview({
   const uncontestedRows = disposedRows.filter((r) => !isContested(r.method));
   const baseContested = baseDisposed.filter((r) => isContested(r.method));
   const shareOf = (part: number, whole: number) => (whole ? Math.round((part / whole) * 100) : null);
-  const contestedShare = shareOf(contestedRows.length, disposedRows.length);
-  const baseShare = shareOf(baseContested.length, baseDisposed.length);
   const methodCount = (key: DisposalMethod) => disposedRows.filter((r) => r.method === key).length;
   const medians = {
     all: medianOf(disposedRows.map((r) => r.days)),
@@ -558,6 +556,16 @@ function Overview({
       </span>
     );
   const shown = METHODS.map((m) => ({ ...m, n: methodCount(m.key) }));
+  /* Four columns fit a phone only with narrower cell padding, and headings allowed to
+     wrap, there. */
+  const TIGHT = "max-sm:px-2 max-sm:whitespace-normal";
+  /* The baseline column: each count averaged over the baseline's windows. */
+  const showBase = reading.compare !== "none" && name !== null && reading.baseline.length > 0;
+  const baseCount = (key: "contested" | "uncontested" | "all" | DisposalMethod) => {
+    const rows =
+      key === "all" ? baseDisposed : key === "contested" ? baseContested : key === "uncontested" ? baseDisposed.filter((r) => !isContested(r.method)) : baseDisposed.filter((r) => r.method === key);
+    return Math.round(rows.length / Math.max(1, reading.baseline.length));
+  };
   /* Contested in a fixed order; uncontested largest first. */
   const groups = [
     { key: "contested" as const, label: "Contested", rows: contestedRows, methods: shown.filter((m) => isContested(m.key)) },
@@ -682,73 +690,96 @@ function Overview({
         </h3>
         <div className="flex min-w-0 flex-col gap-3">
           {disposedRows.length ? (
-            <>
-              {/* A card per method under its group's heading, laid out like the stage cells:
-                  contested over two columns, uncontested over four, one row from xl, so no
-                  group leaves empty space beside the other (owner, 2026-11-14). */}
-              <div className="flex min-w-0 flex-col gap-6 xl:grid xl:grid-cols-6 xl:gap-3">
-                {groups.map((g) => (
-                  <div key={g.key} className={cn("flex min-w-0 flex-col gap-3", g.key === "contested" ? "xl:col-span-2" : "xl:col-span-4")}>
-                    {/* Total on one line, its change on the next, for both groups, so the two
-                        rows of cards start level at every width. */}
-                    <div className="flex min-w-0 flex-col border-b border-hairline pb-2">
-                      <p className="inline-flex items-center gap-2 text-body-compact font-semibold tabular-nums">
-                        {g.label}
-                        {g.rows.length ? (
-                          <CountButton name={g.key} {...opener(g.key)}>
-                            {formatCount(g.rows.length)}
-                          </CountButton>
-                        ) : (
-                          <span className="inline-flex min-h-10 items-center">0</span>
-                        )}
-                        <span className="font-normal text-muted-foreground">· {shareOf(g.rows.length, disposedRows.length)}%</span>
-                      </p>
-                      {reading.compare === "none" ? null : baseShare === null || name === null ? (
-                        <p className="text-body-compact text-muted-foreground">No earlier data to compare</p>
-                      ) : g.key === "contested" ? (
-                        change((contestedShare ?? 0) - baseShare, `pts vs ${name} (${baseShare}%)`, null)
-                      ) : (
-                        change(baseShare - (contestedShare ?? 0), `pts vs ${name} (${100 - baseShare}%)`, null)
-                      )}
-                    </div>
-                    <ul className={cn("grid min-w-0 grid-cols-2 gap-3", g.key === "uncontested" && "md:grid-cols-4")}>
-                      {g.methods.map((m) => (
-                        <li key={m.key} className="flex min-w-0 flex-col items-start gap-1 rounded-xl bg-surface-sunken p-4">
-                          <span className="text-body-compact font-semibold">{m.key}</span>
-                          {m.n ? (
-                            <CountButton name={m.key.toLowerCase()} className="text-title-l font-semibold" {...opener(`method-${m.key}`)}>
-                              {formatCount(m.n)}
+            /* One table: the two groups as subtotal rows with their methods under them,
+               then all disposed, then moves to the long pending register, which are not
+               disposals and stay out of the shares. A column for the baseline gives every
+               row its comparison (owner, 2026-11-14; replaces the method cards and the
+               separate long-pending container). */
+            <div className="min-w-0 rounded-xl border border-hairline p-2">
+              <Table aria-labelledby="dash-ended" className="tabular-nums">
+                <TableHeader>
+                  <TableRow className={TABLE_HEAD_ROW}>
+                    <TableHead scope="col" className={cn(TABLE_HEAD, TIGHT)}>Outcome</TableHead>
+                    <TableHead scope="col" className={cn(TABLE_HEAD, TIGHT, "text-right")}>Cases</TableHead>
+                    <TableHead scope="col" className={cn(TABLE_HEAD, TIGHT, "text-right")}>Share</TableHead>
+                    {showBase ? (
+                      <TableHead scope="col" className={cn(TABLE_HEAD, TIGHT, "text-right")}>
+                        {/* Breaks only at a space on phones: "1–14" over "Oct". */}
+                        {name?.split(" ").map((word, k) => (
+                          <React.Fragment key={k}>
+                            {k ? " " : null}
+                            <span className="whitespace-nowrap">{word}</span>
+                          </React.Fragment>
+                        ))}
+                      </TableHead>
+                    ) : null}
+                  </TableRow>
+                </TableHeader>
+                <TableBody className={tableBodyClass({ hover: false })}>
+                  {groups.map((g) => (
+                    <React.Fragment key={g.key}>
+                      <TableRow className={tableRowClass({ hover: false })}>
+                        <th scope="row" className={cn(TABLE_CELL, TIGHT, "font-semibold")}>{g.label}</th>
+                        <TableCell className={cn(TABLE_CELL, TIGHT, "text-right font-semibold")}>
+                          {g.rows.length ? (
+                            <CountButton name={g.key} {...opener(g.key)}>
+                              {formatCount(g.rows.length)}
                             </CountButton>
                           ) : (
-                            <span className="inline-flex min-h-10 items-center text-title-l font-semibold text-muted-foreground">0</span>
+                            <span className="text-muted-foreground">0</span>
                           )}
-                          <span className="text-caption text-muted-foreground tabular-nums">
-                            {m.n ? `${shareOf(m.n, disposedRows.length)}% of disposed` : "None"}
-                          </span>
-                        </li>
+                        </TableCell>
+                        <TableCell className={cn(TABLE_CELL, TIGHT, "text-right font-semibold")}>{shareOf(g.rows.length, disposedRows.length)}%</TableCell>
+                        {showBase ? <TableCell className={cn(TABLE_CELL, TIGHT, "text-right text-muted-foreground")}>{formatCount(baseCount(g.key))}</TableCell> : null}
+                      </TableRow>
+                      {g.methods.map((m) => (
+                        <TableRow key={m.key} className={tableRowClass({ hover: false })}>
+                          <th scope="row" className={cn(TABLE_CELL, TIGHT, "pl-8 font-normal")}>{m.key}</th>
+                          <TableCell className={cn(TABLE_CELL, TIGHT, "text-right")}>
+                            {m.n ? (
+                              <CountButton name={m.key.toLowerCase()} {...opener(`method-${m.key}`)}>
+                                {formatCount(m.n)}
+                              </CountButton>
+                            ) : (
+                              <span className="text-muted-foreground">0</span>
+                            )}
+                          </TableCell>
+                          <TableCell className={cn(TABLE_CELL, TIGHT, "text-right", !m.n && "text-muted-foreground")}>
+                            {m.n ? `${shareOf(m.n, disposedRows.length)}%` : "–"}
+                          </TableCell>
+                          {showBase ? <TableCell className={cn(TABLE_CELL, TIGHT, "text-right text-muted-foreground")}>{formatCount(baseCount(m.key))}</TableCell> : null}
+                        </TableRow>
                       ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-              {/* Moves to the long pending register: the note lists them as a way cases end,
-                  but they are not disposals, so they sit under the cards, out of the shares
-                  (owner, 2026-11-14). */}
-              {out.toLongPending ? (
-                <div className="flex min-w-0 flex-col items-start gap-1 rounded-xl bg-surface-sunken p-4 sm:px-6">
-                  {/* The cards' anatomy: label, number, change, and one fact. No explanatory
-                      sentence (owner, 2026-11-14: read as AI copy). */}
-                  <span className="text-body-compact font-semibold">Moved to the long pending register</span>
-                  <CountButton name="moved to long pending" className="text-title-l font-semibold" {...opener("toLongPending")}>
-                    {formatCount(out.toLongPending)}
-                  </CountButton>
-                  {baseToLongPending !== null && name !== null && reading.compare !== "none"
-                    ? change(out.toLongPending - baseToLongPending, `vs ${name} (${formatCount(baseToLongPending)})`, null)
-                    : null}
-                  <span className="text-caption text-muted-foreground">Not a disposal</span>
-                </div>
-              ) : null}
-            </>
+                    </React.Fragment>
+                  ))}
+                  <TableRow className={tableRowClass({ hover: false })}>
+                    <th scope="row" className={cn(TABLE_CELL, TIGHT, "font-semibold", !out.toLongPending && "border-b-0")}>All disposed</th>
+                    <TableCell className={cn(TABLE_CELL, TIGHT, "text-right font-semibold", !out.toLongPending && "border-b-0")}>{formatCount(disposedRows.length)}</TableCell>
+                    <TableCell className={cn(TABLE_CELL, TIGHT, "text-right font-semibold", !out.toLongPending && "border-b-0")}>100%</TableCell>
+                    {showBase ? <TableCell className={cn(TABLE_CELL, TIGHT, "text-right font-semibold", !out.toLongPending && "border-b-0")}>{formatCount(baseCount("all"))}</TableCell> : null}
+                  </TableRow>
+                  {out.toLongPending ? (
+                    <TableRow className={tableRowClass({ hover: false })}>
+                      <th scope="row" className={cn(TABLE_CELL, TIGHT, "border-b-0 font-normal")}>
+                        <span className="flex flex-col">
+                          Moved to the long pending register
+                          <span className="text-caption text-muted-foreground">Not a disposal</span>
+                        </span>
+                      </th>
+                      <TableCell className={cn(TABLE_CELL, TIGHT, "border-b-0 text-right")}>
+                        <CountButton name="moved to long pending" {...opener("toLongPending")}>
+                          {formatCount(out.toLongPending)}
+                        </CountButton>
+                      </TableCell>
+                      <TableCell className={cn(TABLE_CELL, TIGHT, "border-b-0 text-right text-muted-foreground")}>–</TableCell>
+                      {showBase ? (
+                        <TableCell className={cn(TABLE_CELL, TIGHT, "border-b-0 text-right text-muted-foreground")}>{formatCount(baseToLongPending ?? 0)}</TableCell>
+                      ) : null}
+                    </TableRow>
+                  ) : null}
+                </TableBody>
+              </Table>
+            </div>
           ) : (
             <p className="text-body-compact text-muted-foreground">No cases disposed in this period</p>
           )}
