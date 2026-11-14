@@ -694,17 +694,20 @@ function Overview({
           pending sections come before how cases ended (owner, 2026-11-14). */}
       {pendingView === "cards" ? (
         <>
-          <section aria-labelledby="dash-by-stage" className="flex min-w-0 flex-col gap-3">
+          {/* One section, one heading: the stage cells, then the time table under a rule, in
+              one container (owner, 2026-11-14). */}
+          <section aria-labelledby="dash-pending-split" className="flex min-w-0 flex-col gap-3">
             <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
-              <h3 id="dash-by-stage" className="text-body font-semibold">
-                Pending cases by stage
+              <h3 id="dash-pending-split" className="text-body font-semibold">
+                Pending cases by stage and time
               </h3>
               {viewSwitch}
             </div>
+            <div className={cn(SURFACE, "flex flex-col")}>
             {/* The same cells, grouped either side of cognizance: one row from xl, the
                 groups stacked below that. Cases at registration are not on the CMP register
                 yet, so the groups are named by cognizance, not by register. */}
-            <div className={cn(SURFACE, "flex flex-col gap-6 p-4 sm:px-6 xl:grid xl:grid-cols-6 xl:gap-0")}>
+            <div aria-label="By stage" role="group" className="flex min-w-0 flex-col gap-6 p-4 sm:px-6 xl:grid xl:grid-cols-6 xl:gap-0">
               {STAGE_GROUPS.map((group, g) => {
                 const stages = STAGES.filter((stage) => group.keys.includes(stage.key));
                 const count = stages.reduce((sum, stage) => sum + sets.byStage[stage.key].length, 0);
@@ -740,18 +743,12 @@ function Overview({
                 );
               })}
             </div>
-          </section>
-
-          <section aria-labelledby="dash-ages" className="flex min-w-0 flex-col gap-3">
-            <h3 id="dash-ages" className="text-body font-semibold">
-              Pending cases by time
-            </h3>
             {/* A plain table, oldest last: an ordered split of one total reads as rows, and an
                 empty group is a quiet row rather than a card with a 0 in it. It replaces the
                 four cards, which gave the empty groups as much room as the full ones (owner,
                 2026-11-14). Every non-zero count opens its cases. */}
-            <div className={cn(SURFACE, "p-2")}>
-              <Table aria-labelledby="dash-ages" className="tabular-nums">
+            <div className="border-t border-hairline p-2">
+              <Table aria-label="Pending cases by time in court" className="tabular-nums">
                 <TableHeader>
                   <TableRow className={TABLE_HEAD_ROW}>
                     <TableHead scope="col" className={TABLE_HEAD}>Time in court</TableHead>
@@ -788,6 +785,7 @@ function Overview({
                 </TableBody>
               </Table>
             </div>
+            </div>
           </section>
 
           {disposal}
@@ -797,7 +795,7 @@ function Overview({
         <section aria-labelledby="dash-pending-table" className="flex min-w-0 flex-col gap-3">
           <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
             <h3 id="dash-pending-table" className="text-body font-semibold">
-              Pending cases by stage and time in court
+              Pending cases by stage and time
             </h3>
             {viewSwitch}
           </div>
