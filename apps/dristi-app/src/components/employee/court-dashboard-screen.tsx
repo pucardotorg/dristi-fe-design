@@ -737,15 +737,17 @@ function Overview({
                   2026-11-14). */}
               {out.toLongPending ? (
                 <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 rounded-xl bg-surface-sunken px-4 py-2 sm:px-6">
-                  <span className="text-body-compact font-semibold">Moved to the long pending register</span>
-                  <CountButton name="moved to long pending" className="text-title-s font-semibold" {...opener("toLongPending")}>
-                    {formatCount(out.toLongPending)}
-                  </CountButton>
-                  {baseToLongPending !== null && name !== null && reading.compare !== "none" ? (
-                    <span className="text-body-compact text-muted-foreground tabular-nums">
-                      {formatCount(baseToLongPending)} in {name}
-                    </span>
-                  ) : null}
+                  {/* Number first, then what it is, then its change in the Overview's one form,
+                      then why it sits apart: read left to right like a card. */}
+                  <p className="min-w-0 text-body-compact font-semibold">
+                    <CountButton name="moved to long pending" className="mr-2 align-middle text-title-s" {...opener("toLongPending")}>
+                      {formatCount(out.toLongPending)}
+                    </CountButton>
+                    {out.toLongPending === 1 ? "case" : "cases"} moved to the long pending register
+                  </p>
+                  {baseToLongPending !== null && name !== null && reading.compare !== "none"
+                    ? change(out.toLongPending - baseToLongPending, `vs ${name} (${formatCount(baseToLongPending)})`, null)
+                    : null}
                   <span className="text-caption text-muted-foreground sm:ml-auto">Not a disposal, so not in the shares above</span>
                 </div>
               ) : null}
