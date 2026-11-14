@@ -675,32 +675,37 @@ function Overview({
               onChange={(next) => setCohortPick(next.from === cohortOpening.from && next.to === cohortOpening.to ? null : next)}
             />
           </div>
-          <p className="flex min-w-0 flex-wrap items-center gap-x-6 gap-y-1 text-body-compact text-muted-foreground tabular-nums">
-            <span>
-              <span className="mr-1 text-title-s font-semibold text-foreground">{formatCount(cohortTotal.filed)}</span>filed
-            </span>
-            <span>
-              <span className="mr-1 text-title-s font-semibold text-foreground">
+          {/* The range's totals as small cards in the Overview's sunken form (owner,
+              2026-11-14). */}
+          <ul className="grid min-w-0 grid-cols-2 gap-3 tabular-nums md:grid-cols-4">
+            <li className="flex min-w-0 flex-col items-start gap-1 rounded-xl bg-surface-sunken p-4">
+              <span className="text-body-compact font-semibold">Filed</span>
+              <span className="inline-flex min-h-10 items-center text-title-s font-semibold">{formatCount(cohortTotal.filed)}</span>
+            </li>
+            <li className="flex min-w-0 flex-col items-start gap-1 rounded-xl bg-surface-sunken p-4">
+              <span className="text-body-compact font-semibold">Disposed</span>
+              <span className="inline-flex min-h-10 items-center text-title-s font-semibold">
                 {cohortTotal.filed ? pct(cohortTotal.disposed / cohortTotal.filed) : "–"}
               </span>
-              disposed
-            </span>
-            <span className="inline-flex items-center gap-1">
+              <span className="text-caption text-muted-foreground">{formatCount(cohortTotal.disposed)} cases</span>
+            </li>
+            <li className="flex min-w-0 flex-col items-start gap-1 rounded-xl bg-surface-sunken p-4">
+              <span className="text-body-compact font-semibold">Still pending</span>
               {cohortPending.length ? (
                 <CountButton name="still pending" className="text-title-s font-semibold" {...opener("cohortAll")}>
                   {formatCount(cohortPending.length)}
                 </CountButton>
               ) : (
-                <span className="text-title-s font-semibold text-foreground">0</span>
+                <span className="inline-flex min-h-10 items-center text-title-s font-semibold text-muted-foreground">0</span>
               )}
-              still pending
-            </span>
-            {cohortTotal.lpr ? (
-              <span>
-                <span className="mr-1 text-title-s font-semibold text-foreground">{formatCount(cohortTotal.lpr)}</span>on LPR
+            </li>
+            <li className="flex min-w-0 flex-col items-start gap-1 rounded-xl bg-surface-sunken p-4">
+              <span className="text-body-compact font-semibold">On LPR</span>
+              <span className={cn("inline-flex min-h-10 items-center text-title-s font-semibold", !cohortTotal.lpr && "text-muted-foreground")}>
+                {formatCount(cohortTotal.lpr)}
               </span>
-            ) : null}
-          </p>
+            </li>
+          </ul>
           {cohorts.length ? (
             /* A row per month or quarter. From sm: name, lane, pending in one line; on
                phones the lane drops under the name and count, full width. */
