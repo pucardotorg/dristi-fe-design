@@ -623,8 +623,8 @@ function Overview({
       methods: shown.filter((m) => !isContested(m.key)).sort((a, b) => b.n - a.n),
     },
   ];
-  /* Time to disposal, then how cases ended, in one container, each under its own heading,
-     a hairline between them (owner, 2026-11-14). */
+  /* Time to disposal, how cases ended, then by when cases were filed, in one container,
+     each under its own heading, a hairline between them (owner, 2026-11-14). */
   const disposal = (
     <div className={cn(SECTION, "gap-6")}>
       <section aria-labelledby="dash-time-to-disposal" className="flex min-w-0 flex-col gap-4">
@@ -659,122 +659,6 @@ function Overview({
           />
         </div>
 
-        {/* By when cases were filed: its own range (see cohortPresets). */}
-        <section aria-labelledby="dash-cohorts" className="flex min-w-0 flex-col gap-3 pt-2">
-          <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
-            <h4 id="dash-cohorts" className="text-body-compact font-semibold">
-              By when cases were filed
-            </h4>
-            <DashboardDatePicker
-              docket={docket}
-              value={cohortRange}
-              defaultValue={cohortOpening}
-              defaultLabel="All records"
-              presets={cohortPresets}
-              idPrefix="dash-cohort-picker"
-              dayNote="cases filed on this day"
-              daysNote="of filings"
-              onChange={(next) => setCohortPick(next.from === cohortOpening.from && next.to === cohortOpening.to ? null : next)}
-            />
-          </div>
-          {/* The range's totals as small cards in the Overview's sunken form (owner,
-              2026-11-14). */}
-          <ul className="grid min-w-0 grid-cols-2 gap-3 tabular-nums md:grid-cols-4">
-            <li className="flex min-w-0 flex-col items-start gap-1 rounded-xl bg-surface-sunken p-4">
-              <span className="text-body-compact font-semibold">Filed</span>
-              <span className="inline-flex min-h-10 items-center text-title-s font-semibold">{formatCount(cohortTotal.filed)}</span>
-            </li>
-            <li className="flex min-w-0 flex-col items-start gap-1 rounded-xl bg-surface-sunken p-4">
-              <span className="text-body-compact font-semibold">Disposed</span>
-              <span className="inline-flex min-h-10 items-center text-title-s font-semibold">
-                {cohortTotal.filed ? pct(cohortTotal.disposed / cohortTotal.filed) : "–"}
-              </span>
-              <span className="text-caption text-muted-foreground">{formatCount(cohortTotal.disposed)} cases</span>
-            </li>
-            <li className="flex min-w-0 flex-col items-start gap-1 rounded-xl bg-surface-sunken p-4">
-              <span className="text-body-compact font-semibold">Still pending</span>
-              {cohortPending.length ? (
-                <CountButton name="still pending" className="text-title-s font-semibold" {...opener("cohortAll")}>
-                  {formatCount(cohortPending.length)}
-                </CountButton>
-              ) : (
-                <span className="inline-flex min-h-10 items-center text-title-s font-semibold text-muted-foreground">0</span>
-              )}
-            </li>
-            <li className="flex min-w-0 flex-col items-start gap-1 rounded-xl bg-surface-sunken p-4">
-              <span className="text-body-compact font-semibold">On LPR</span>
-              <span className={cn("inline-flex min-h-10 items-center text-title-s font-semibold", !cohortTotal.lpr && "text-muted-foreground")}>
-                {formatCount(cohortTotal.lpr)}
-              </span>
-            </li>
-          </ul>
-          {cohorts.length ? (
-            /* A row per month or quarter. From sm: name, lane, pending in one line; on
-               phones the lane drops under the name and count, full width. */
-            <div className="flex min-w-0 flex-col gap-2 text-body-compact tabular-nums">
-              <div className={cn(COHORT_ROW, "text-caption font-semibold text-muted-foreground")}>
-                <span>Filed in</span>
-                <span className="max-sm:hidden">Days since filing</span>
-                <span className="text-right">Pending</span>
-              </div>
-              {cohorts.map((c) => (
-                <div key={c.g} className={COHORT_ROW}>
-                  <span className="font-semibold">{c.label}</span>
-                  <div
-                    role="img"
-                    aria-label={`${c.label}: ${formatCount(c.disposed)} of ${formatCount(c.filed)} disposed, ${c.median === null ? "none yet" : `median ${formatCount(c.median)} days`}; the oldest are ${formatCount(c.age)} days old`}
-                    className="relative h-5 min-w-0 max-sm:col-span-2 max-sm:row-start-2"
-                  >
-                    <span className="absolute inset-y-1 left-0 rounded-full bg-surface-sunken" style={{ width: atDays(c.age) }} />
-                    <span
-                      className="absolute inset-y-1 left-0 rounded-full bg-brand-muted-foreground"
-                      style={{ width: `calc(${atDays(c.age)} * ${c.disposed / Math.max(1, c.filed)})` }}
-                    />
-                    {c.median !== null ? (
-                      <span className="absolute inset-y-0 w-0.5 -translate-x-1/2 rounded-full bg-foreground" style={{ left: atDays(c.median) }} />
-                    ) : null}
-                    <span aria-hidden className="absolute -inset-y-1 border-l border-dashed border-muted-foreground" style={{ left: atDays(typicalDays) }} />
-                  </div>
-                  <span className="text-right max-sm:col-start-2 max-sm:row-start-1">
-                    {c.pending.length ? (
-                      <CountButton name={`filed ${c.label}, still pending`} className="-my-3" {...opener(`cohort-${c.g}`)}>
-                        {formatCount(c.pending.length)}
-                      </CountButton>
-                    ) : (
-                      <span className="text-muted-foreground">0</span>
-                    )}
-                  </span>
-                </div>
-              ))}
-              <div className={COHORT_ROW}>
-                <span className="max-sm:hidden" />
-                <div aria-hidden className="relative h-4 text-caption text-muted-foreground max-sm:col-span-2">
-                  {cohortTicks.map((t, i) => (
-                    <span key={t} className={cn("absolute -translate-x-1/2 whitespace-nowrap", i % 2 === 1 && "max-sm:hidden")} style={{ left: atDays(t) }}>
-                      {t === 0 ? "0" : t === 360 ? "1 yr" : t === 720 ? "2 yrs" : `${t} d`}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <p className="text-body-compact text-muted-foreground">No cases filed in this range</p>
-          )}
-          <p className="flex min-w-0 flex-wrap gap-x-4 gap-y-1 text-caption text-muted-foreground">
-            <span className="inline-flex items-center gap-1.5">
-              <span aria-hidden className="h-2 w-4 rounded-full bg-brand-muted-foreground" />
-              Share disposed
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span aria-hidden className="h-3 w-0.5 rounded-full bg-foreground" />
-              Median days
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span aria-hidden className="h-3 border-l border-dashed border-muted-foreground" />
-              Typical, {formatCount(typicalDays)} days
-            </span>
-          </p>
-        </section>
 
       </section>
 
@@ -878,6 +762,124 @@ function Overview({
             <p className="text-body-compact text-muted-foreground">No cases disposed in this period</p>
           )}
         </div>
+      </section>
+
+      {/* By when cases were filed: its own range (see cohortPresets). Last in the container,
+          after how cases ended (owner, 2026-11-14). */}
+      <section aria-labelledby="dash-cohorts" className="flex min-w-0 flex-col gap-4 border-t border-hairline pt-6">
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <h3 id="dash-cohorts" className="text-body font-semibold">
+            By when cases were filed
+          </h3>
+          <DashboardDatePicker
+            docket={docket}
+            value={cohortRange}
+            defaultValue={cohortOpening}
+            defaultLabel="All records"
+            presets={cohortPresets}
+            idPrefix="dash-cohort-picker"
+            dayNote="cases filed on this day"
+            daysNote="of filings"
+            onChange={(next) => setCohortPick(next.from === cohortOpening.from && next.to === cohortOpening.to ? null : next)}
+          />
+        </div>
+        {/* The range's totals as small cards in the Overview's sunken form (owner,
+            2026-11-14). */}
+        <ul className="grid min-w-0 grid-cols-2 gap-3 tabular-nums md:grid-cols-4">
+          <li className="flex min-w-0 flex-col items-start gap-1 rounded-xl bg-surface-sunken p-4">
+            <span className="text-body-compact font-semibold">Filed</span>
+            <span className="inline-flex min-h-10 items-center text-title-s font-semibold">{formatCount(cohortTotal.filed)}</span>
+          </li>
+          <li className="flex min-w-0 flex-col items-start gap-1 rounded-xl bg-surface-sunken p-4">
+            <span className="text-body-compact font-semibold">Disposed</span>
+            <span className="inline-flex min-h-10 items-center text-title-s font-semibold">
+              {cohortTotal.filed ? pct(cohortTotal.disposed / cohortTotal.filed) : "–"}
+            </span>
+            <span className="text-caption text-muted-foreground">{formatCount(cohortTotal.disposed)} cases</span>
+          </li>
+          <li className="flex min-w-0 flex-col items-start gap-1 rounded-xl bg-surface-sunken p-4">
+            <span className="text-body-compact font-semibold">Still pending</span>
+            {cohortPending.length ? (
+              <CountButton name="still pending" className="text-title-s font-semibold" {...opener("cohortAll")}>
+                {formatCount(cohortPending.length)}
+              </CountButton>
+            ) : (
+              <span className="inline-flex min-h-10 items-center text-title-s font-semibold text-muted-foreground">0</span>
+            )}
+          </li>
+          <li className="flex min-w-0 flex-col items-start gap-1 rounded-xl bg-surface-sunken p-4">
+            <span className="text-body-compact font-semibold">On LPR</span>
+            <span className={cn("inline-flex min-h-10 items-center text-title-s font-semibold", !cohortTotal.lpr && "text-muted-foreground")}>
+              {formatCount(cohortTotal.lpr)}
+            </span>
+          </li>
+        </ul>
+        {cohorts.length ? (
+          /* A row per month or quarter. From sm: name, lane, pending in one line; on
+             phones the lane drops under the name and count, full width. */
+          <div className="flex min-w-0 flex-col gap-2 text-body-compact tabular-nums">
+            <div className={cn(COHORT_ROW, "text-caption font-semibold text-muted-foreground")}>
+              <span>Filed in</span>
+              <span className="max-sm:hidden">Days since filing</span>
+              <span className="text-right">Pending</span>
+            </div>
+            {cohorts.map((c) => (
+              <div key={c.g} className={COHORT_ROW}>
+                <span className="font-semibold">{c.label}</span>
+                <div
+                  role="img"
+                  aria-label={`${c.label}: ${formatCount(c.disposed)} of ${formatCount(c.filed)} disposed, ${c.median === null ? "none yet" : `median ${formatCount(c.median)} days`}; the oldest are ${formatCount(c.age)} days old`}
+                  className="relative h-5 min-w-0 max-sm:col-span-2 max-sm:row-start-2"
+                >
+                  <span className="absolute inset-y-1 left-0 rounded-full bg-surface-sunken" style={{ width: atDays(c.age) }} />
+                  <span
+                    className="absolute inset-y-1 left-0 rounded-full bg-brand-muted-foreground"
+                    style={{ width: `calc(${atDays(c.age)} * ${c.disposed / Math.max(1, c.filed)})` }}
+                  />
+                  {c.median !== null ? (
+                    <span className="absolute inset-y-0 w-0.5 -translate-x-1/2 rounded-full bg-foreground" style={{ left: atDays(c.median) }} />
+                  ) : null}
+                  <span aria-hidden className="absolute -inset-y-1 border-l border-dashed border-muted-foreground" style={{ left: atDays(typicalDays) }} />
+                </div>
+                <span className="text-right max-sm:col-start-2 max-sm:row-start-1">
+                  {c.pending.length ? (
+                    <CountButton name={`filed ${c.label}, still pending`} className="-my-3" {...opener(`cohort-${c.g}`)}>
+                      {formatCount(c.pending.length)}
+                    </CountButton>
+                  ) : (
+                    <span className="text-muted-foreground">0</span>
+                  )}
+                </span>
+              </div>
+            ))}
+            <div className={COHORT_ROW}>
+              <span className="max-sm:hidden" />
+              <div aria-hidden className="relative h-4 text-caption text-muted-foreground max-sm:col-span-2">
+                {cohortTicks.map((t, i) => (
+                  <span key={t} className={cn("absolute -translate-x-1/2 whitespace-nowrap", i % 2 === 1 && "max-sm:hidden")} style={{ left: atDays(t) }}>
+                    {t === 0 ? "0" : t === 360 ? "1 yr" : t === 720 ? "2 yrs" : `${t} d`}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <p className="text-body-compact text-muted-foreground">No cases filed in this range</p>
+        )}
+        <p className="flex min-w-0 flex-wrap gap-x-4 gap-y-1 text-caption text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5">
+            <span aria-hidden className="h-2 w-4 rounded-full bg-brand-muted-foreground" />
+            Share disposed
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span aria-hidden className="h-3 w-0.5 rounded-full bg-foreground" />
+            Median days
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span aria-hidden className="h-3 border-l border-dashed border-muted-foreground" />
+            Typical, {formatCount(typicalDays)} days
+          </span>
+        </p>
       </section>
     </div>
   );
