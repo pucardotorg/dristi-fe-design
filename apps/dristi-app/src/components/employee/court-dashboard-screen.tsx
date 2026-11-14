@@ -15,7 +15,6 @@ import {
   useCaseList,
 } from "@/components/employee/court-dashboard-attention";
 import { CountUp, TrickleDots, useGrowIn } from "@/components/employee/court-dashboard-motion";
-import { Trends } from "@/components/employee/court-dashboard-trends";
 import { DashboardDatePicker } from "@/components/employee/dashboard-date-picker";
 import { useCourtDocket } from "@/components/employee/docket-table";
 import { useCourtSession } from "@/components/employee/use-court-role";
@@ -73,10 +72,14 @@ import { cn } from "@/lib/utils";
  *    is pending and how long it has been in court, and the stage path: each stage's cases,
  *    how long they have waited, what came in and left, and what moved on. A stage opens
  *    in detail below the path. Every count opens its cases in the panel.
- * 2. **Trends** — five measures month by month, one at a time in detail.
  *
  * "Where the pending cases are" (`StagesPanel`) and "Needs attention" left the page on
  * 2026-11-14: they belong to role views (owner). Both are kept for those.
+ *
+ * "Trends" left the page on 2026-11-15 (owner): two of its measures repeat the Overview
+ * (pending, median days to disposal), two are role items taken off on 2026-11-14 (past a
+ * review point, days to serve summons), and the Overview's comparison already says what
+ * got better or worse. `court-dashboard-trends.tsx` is kept for the role views.
  *
  * "How cases were closed" left the page on 2026-11-14: the Overview's "How cases ended"
  * and "Time to disposal" carry its outcomes and median (owner).
@@ -199,8 +202,8 @@ export function CourtDashboardScreen() {
         />
         {/* The all-users dashboard is the Overview (note 1.2, all users a–e). "Where the
             pending cases are" (bench clerk C) and "Needs attention" (magistrate, CMO/FSO,
-            bench clerk) left it on 2026-11-14 (owner); their code stays for the role views. */}
-        <Trends docket={docket} />
+            bench clerk) left it on 2026-11-14 (owner), and Trends on 2026-11-15; their code
+            stays for the role views. */}
       </div>
     </TooltipProvider>
   );
