@@ -780,18 +780,18 @@ function Overview({
             2026-11-14). */}
         <ul className="grid min-w-0 grid-cols-2 gap-3 tabular-nums md:grid-cols-4">
           <li className="flex min-w-0 flex-col items-start gap-1 rounded-xl bg-surface-sunken p-4">
-            <span className="text-body-compact font-semibold">Filed</span>
+            <span className="text-body-compact font-medium">Filed</span>
             <span className="inline-flex min-h-10 items-center text-title-s font-semibold">{formatCount(cohortTotal.filed)}</span>
           </li>
           <li className="flex min-w-0 flex-col items-start gap-1 rounded-xl bg-surface-sunken p-4">
-            <span className="text-body-compact font-semibold">Disposed</span>
+            <span className="text-body-compact font-medium">Disposed</span>
             <span className="inline-flex min-h-10 items-center text-title-s font-semibold">
               {cohortTotal.filed ? pct(cohortTotal.disposed / cohortTotal.filed) : "–"}
             </span>
             <span className="text-caption text-muted-foreground">{formatCount(cohortTotal.disposed)} cases</span>
           </li>
           <li className="flex min-w-0 flex-col items-start gap-1 rounded-xl bg-surface-sunken p-4">
-            <span className="text-body-compact font-semibold">Still pending</span>
+            <span className="text-body-compact font-medium">Still pending</span>
             {cohortPending.length ? (
               <CountButton name="still pending" className="text-title-s font-semibold" {...opener("cohortAll")}>
                 {formatCount(cohortPending.length)}
@@ -801,7 +801,7 @@ function Overview({
             )}
           </li>
           <li className="flex min-w-0 flex-col items-start gap-1 rounded-xl bg-surface-sunken p-4">
-            <span className="text-body-compact font-semibold">On LPR</span>
+            <span className="text-body-compact font-medium">On LPR</span>
             <span className={cn("inline-flex min-h-10 items-center text-title-s font-semibold", !cohortTotal.lpr && "text-muted-foreground")}>
               {formatCount(cohortTotal.lpr)}
             </span>
@@ -811,14 +811,14 @@ function Overview({
           /* A row per month or quarter. From sm: name, lane, pending in one line; on
              phones the lane drops under the name and count, full width. */
           <div className="flex min-w-0 flex-col gap-2 text-body-compact tabular-nums">
-            <div className={cn(COHORT_ROW, "text-caption font-semibold text-muted-foreground")}>
+            <div className={cn(COHORT_ROW, "text-body-compact font-semibold text-muted-foreground")}>
               <span>Filed in</span>
               <span className="max-sm:hidden">Days since filing</span>
               <span className="text-right">Pending</span>
             </div>
             {cohorts.map((c) => (
               <div key={c.g} className={COHORT_ROW}>
-                <span className="font-semibold">{c.label}</span>
+                <span>{c.label}</span>
                 <div
                   role="img"
                   aria-label={`${c.label}: ${formatCount(c.disposed)} of ${formatCount(c.filed)} disposed, ${c.median === null ? "none yet" : `median ${formatCount(c.median)} days`}; the oldest are ${formatCount(c.age)} days old`}
@@ -950,7 +950,7 @@ function Overview({
             ] as [string, number, OverviewList, string][]
           ).map(([label, n, key, sub]) => (
             <li key={label} className="flex min-w-0 flex-col items-start gap-1 rounded-xl bg-surface-sunken p-4">
-              <span className="text-body-compact font-semibold">{label}</span>
+              <span className="text-body-compact font-medium">{label}</span>
               {n ? (
                 <CountButton name={label.toLowerCase()} className="text-title-s font-semibold" {...opener(key)}>
                   {formatCount(n)}
@@ -1041,7 +1041,7 @@ function Overview({
                     const n = ages[i];
                     return (
                       <TableRow key={label} className={tableRowClass({ hover: false })}>
-                        <th scope="row" className={cn(TABLE_CELL, "font-semibold")}>{label}</th>
+                        <th scope="row" className={cn(TABLE_CELL, "font-normal")}>{label}</th>
                         <TableCell className={cn(TABLE_CELL, "text-right")}>
                           {n ? (
                             <CountButton name={`in court ${label.toLowerCase()}`} {...opener(`age-${i as 0 | 1 | 2 | 3}`)}>
@@ -1097,7 +1097,7 @@ function Overview({
                   for (const r of rows) split[pendingAgeGroup(r.case.filed, to)]++;
                   return (
                     <TableRow key={stage.key} className={tableRowClass({ hover: false })}>
-                      <th scope="row" className={cn(TABLE_CELL, "font-semibold")}>{stage.label}</th>
+                      <th scope="row" className={cn(TABLE_CELL, "font-normal")}>{stage.label}</th>
                       {split.map((n, i) => (
                         <TableCell key={i} className={cn(TABLE_CELL, "text-right")}>
                           {n ? (
@@ -1197,13 +1197,13 @@ function PendingCount({
         className,
       )}
     >
-      <span className="text-body-compact font-semibold">{label}</span>
+      <span className="text-body-compact font-medium">{label}</span>
       {count ? (
-        <CountButton name={name} className="text-title-l font-semibold" {...opener}>
+        <CountButton name={name} className="text-title-s font-semibold" {...opener}>
           {formatCount(count)}
         </CountButton>
       ) : (
-        <span className="inline-flex min-h-10 items-center text-title-l font-semibold text-muted-foreground">0</span>
+        <span className="inline-flex min-h-10 items-center text-title-s font-semibold text-muted-foreground">0</span>
       )}
       <span className="text-caption text-muted-foreground">
         {count ? `${pct(count / Math.max(1, total))} of pending` : "None"}
@@ -1225,7 +1225,7 @@ function OverviewCard({
 }) {
   return (
     <div className="flex min-w-0 flex-col items-start gap-1 rounded-xl bg-surface-sunken p-4 sm:px-6">
-      <p className="text-body-compact font-semibold">{label}</p>
+      <p className="text-body-compact font-medium">{label}</p>
       {count}
       {change}
       <p className="mt-2 w-full border-t border-hairline pt-2 text-caption text-muted-foreground tabular-nums">{fact}</p>
