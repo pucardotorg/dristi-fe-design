@@ -732,26 +732,20 @@ function Overview({
                 ))}
               </div>
               {/* Moves to the long pending register: the note lists them as a way cases end,
-                  but they are not disposals. A full-width band in the cards' fill, under them:
-                  read as data beside the cards, not a lone card or a footnote (owner,
-                  2026-11-14). */}
+                  but they are not disposals, so they sit under the cards, out of the shares
+                  (owner, 2026-11-14). */}
               {out.toLongPending ? (
-                <div className="grid min-w-0 gap-3 rounded-xl bg-surface-sunken p-4 sm:px-6 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] md:gap-6">
-                  {/* The cards' anatomy, label then number then change, with the reason it
-                      sits apart beside it behind a rule (owner, 2026-11-14: one line of three
-                      messages read as confusing). */}
-                  <div className="flex min-w-0 flex-col items-start gap-1">
-                    <span className="text-body-compact font-semibold">Moved to the long pending register</span>
-                    <CountButton name="moved to long pending" className="text-title-l font-semibold" {...opener("toLongPending")}>
-                      {formatCount(out.toLongPending)}
-                    </CountButton>
-                    {baseToLongPending !== null && name !== null && reading.compare !== "none"
-                      ? change(out.toLongPending - baseToLongPending, `vs ${name} (${formatCount(baseToLongPending)})`, null)
-                      : null}
-                  </div>
-                  <p className="min-w-0 self-center border-t border-hairline pt-3 text-body-compact text-muted-foreground md:border-t-0 md:border-l md:pt-0 md:pl-6">
-                    These cases leave the pending count but are not disposals, so they are not in the contested or uncontested shares above.
-                  </p>
+                <div className="flex min-w-0 flex-col items-start gap-1 rounded-xl bg-surface-sunken p-4 sm:px-6">
+                  {/* The cards' anatomy: label, number, change, and one fact. No explanatory
+                      sentence (owner, 2026-11-14: read as AI copy). */}
+                  <span className="text-body-compact font-semibold">Moved to the long pending register</span>
+                  <CountButton name="moved to long pending" className="text-title-l font-semibold" {...opener("toLongPending")}>
+                    {formatCount(out.toLongPending)}
+                  </CountButton>
+                  {baseToLongPending !== null && name !== null && reading.compare !== "none"
+                    ? change(out.toLongPending - baseToLongPending, `vs ${name} (${formatCount(baseToLongPending)})`, null)
+                    : null}
+                  <span className="text-caption text-muted-foreground">Not a disposal</span>
                 </div>
               ) : null}
             </>
