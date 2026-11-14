@@ -276,165 +276,172 @@ export function DashboardDatePicker({
               apply();
             }
           }}
-          className="w-auto max-w-(--radix-popover-content-available-width) gap-0 overflow-y-auto p-0 max-h-(--radix-popover-content-available-height)"
+          className="w-auto max-w-(--radix-popover-content-available-width) gap-0 overflow-hidden p-0 max-h-(--radix-popover-content-available-height)"
         >
-          <div className="flex flex-col sm:flex-row">
-            <div
-              role="group"
-              aria-labelledby={`${idPrefix}-quick`}
-              className="flex flex-row flex-wrap gap-2 border-b border-hairline p-3 sm:w-44 sm:flex-col sm:flex-nowrap sm:gap-0.5 sm:border-r sm:border-b-0"
-            >
-              <p id={`${idPrefix}-quick`} className="w-full px-2 pb-1 text-body-compact text-muted-foreground max-sm:sr-only">
-                Quick pick
-              </p>
-              {presets.map((preset) => {
-                const pressed =
-                  b !== null && lo === preset.period.from && hi === preset.period.to;
-                return (
-                  <Button
-                    key={preset.label}
-                    type="button"
-                    variant="ghost"
-                    aria-pressed={pressed}
-                    onClick={() => choose(preset.period)}
-                    className={cn(
-                      "justify-start text-body-compact font-normal max-sm:rounded-full max-sm:border-hairline sm:w-full",
-                      pressed && "bg-accent-strong font-semibold",
-                    )}
-                  >
-                    {preset.label}
-                  </Button>
-                );
-              })}
-            </div>
-
-            <div className="flex min-w-0 flex-col gap-3 p-3">
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  aria-label="Previous month"
-                  disabled={month <= firstMonth}
-                  onClick={() => setMonth((m) => Math.max(firstMonth, m - 1))}
-                >
-                  <ChevronLeftIcon aria-hidden />
-                </Button>
-                <Select value={String(month)} onValueChange={(next) => setMonth(Number(next))}>
-                  <SelectTrigger aria-label="Month" className="h-10 min-w-0 flex-1 font-semibold">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {months.map((key) => (
-                      <SelectItem key={key} value={String(key)}>
-                        {monthName(key)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  aria-label="Next month"
-                  disabled={month >= lastMonth}
-                  onClick={() => setMonth((m) => Math.min(lastMonth, m + 1))}
-                >
-                  <ChevronRightIcon aria-hidden />
-                </Button>
+          {/* The body scrolls when the window is short; the footer with Apply never does
+              (owner, 2026-11-14: Apply had scrolled out of reach). */}
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+            <div className="flex flex-col sm:flex-row">
+              <div
+                role="group"
+                aria-labelledby={`${idPrefix}-quick`}
+                className="flex flex-row flex-wrap gap-2 border-b border-hairline p-3 sm:w-44 sm:flex-col sm:flex-nowrap sm:gap-0.5 sm:border-r sm:border-b-0"
+              >
+                <p id={`${idPrefix}-quick`} className="w-full px-2 pb-1 text-body-compact text-muted-foreground max-sm:sr-only">
+                  Quick pick
+                </p>
+                {presets.map((preset) => {
+                  const pressed =
+                    b !== null && lo === preset.period.from && hi === preset.period.to;
+                  return (
+                    <Button
+                      key={preset.label}
+                      type="button"
+                      variant="ghost"
+                      aria-pressed={pressed}
+                      onClick={() => choose(preset.period)}
+                      className={cn(
+                        "justify-start text-body-compact font-normal max-sm:rounded-full max-sm:border-hairline sm:w-full",
+                        pressed && "bg-accent-strong font-semibold",
+                      )}
+                    >
+                      {preset.label}
+                    </Button>
+                  );
+                })}
               </div>
 
-              <Calendar
-                mode="range"
-                autoFocus
-                hideNavigation
-                showOutsideDays={false}
-                weekStartsOn={1}
-                month={toDate(monthStart(month))}
-                onMonthChange={(date) => setMonth(monthKey(toDay(date)))}
-                startMonth={toDate(first)}
-                endMonth={toDate(latest)}
-                disabled={[{ before: toDate(first) }, { after: toDate(latest) }]}
-                selected={
-                  lo === null || hi === null
-                    ? undefined
-                    : { from: toDate(lo), to: b === null ? undefined : toDate(hi) }
-                }
-                onSelect={(_range, day) => pickDay(toDay(day))}
-                modifiers={{ latest: toDate(latest) }}
-                formatters={{
-                  formatWeekdayName: (date) =>
-                    date.toLocaleDateString("en-GB", { weekday: "short" }).slice(0, 2),
-                }}
-                labels={{
-                  labelDayButton: (date, modifiers) => {
-                    const why = modifiers.disabled ? `, ${disabledWhy(date)}` : "";
-                    return `${formatDay(toDay(date))}${modifiers.latest ? ", latest data" : ""}${why}${
-                      modifiers.selected ? ", selected" : ""
-                    }`;
-                  },
-                }}
-                components={{ DayButton: LatestDayButton }}
-                classNames={{ month_caption: "sr-only" }}
-                className="p-0 [--cell-size:--spacing(10)]"
-              />
-
-              {compare === undefined ? null : (
-                <fieldset className="flex flex-col gap-2 border-t border-hairline pt-3 sm:w-72">
-                  <legend className="float-left mb-1 w-full text-body-compact text-muted-foreground">Compare with</legend>
-                  <RadioGroup
-                    value={draftCompare}
-                    onValueChange={(next) => setDraftCompare(next as CompareMode)}
-                    className="gap-0"
-                  >
-                    {COMPARE_OPTIONS.map((option) => {
-                      const id = `${idPrefix}-compare-${option.value}`;
-                      const range =
-                        lo === null || hi === null ? value : { from: lo, to: b === null ? lo : hi };
-                      return (
-                        <div key={option.value} className="flex items-start gap-3 rounded-md px-2 py-1.5 hover:bg-accent">
-                          <RadioGroupItem id={id} value={option.value} className="mt-0.5" />
-                          <Label htmlFor={id} className="flex cursor-pointer flex-col items-start gap-0 font-normal">
-                            <span className="text-body-compact font-medium">{option.label ?? previousName(range)}</span>
-                            <span className="text-caption text-muted-foreground">{option.description}</span>
-                          </Label>
-                        </div>
-                      );
-                    })}
-                  </RadioGroup>
-                </fieldset>
-              )}
-
-              <div className="flex flex-col gap-3 border-t border-hairline pt-3 sm:w-72">
-                <p aria-live="polite" className="min-h-10 text-body-compact text-muted-foreground tabular-nums">
-                  {status}
-                </p>
+              <div className="flex min-w-0 flex-col gap-3 p-3">
                 <div className="flex items-center gap-2">
-                  {/* Reset lives in the picker, beside the actions it feeds: it puts the
-                      draft back to the opening period (and comparison), to be applied like
-                      any other choice. No second control outside the trigger (owner,
-                      2026-10-19). */}
                   <Button
                     type="button"
-                    variant="ghost"
-                    className="mr-auto"
-                    disabled={draftIsDefault}
-                    onClick={() => {
-                      setDraft({ a: defaultValue.from, b: defaultValue.to });
-                      setMonth(monthKey(defaultValue.to));
-                      if (compare !== undefined) setDraftCompare(defaultCompare);
-                    }}
+                    variant="outline"
+                    size="icon"
+                    aria-label="Previous month"
+                    disabled={month <= firstMonth}
+                    onClick={() => setMonth((m) => Math.max(firstMonth, m - 1))}
                   >
-                    Reset<span className="sr-only"> to {defaultLabel.toLowerCase()}</span>
+                    <ChevronLeftIcon aria-hidden />
                   </Button>
-                  <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="button" disabled={a === null} onClick={apply}>
-                    Apply
+                  <Select value={String(month)} onValueChange={(next) => setMonth(Number(next))}>
+                    <SelectTrigger aria-label="Month" className="h-10 min-w-0 flex-1 font-semibold">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {months.map((key) => (
+                        <SelectItem key={key} value={String(key)}>
+                          {monthName(key)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    aria-label="Next month"
+                    disabled={month >= lastMonth}
+                    onClick={() => setMonth((m) => Math.min(lastMonth, m + 1))}
+                  >
+                    <ChevronRightIcon aria-hidden />
                   </Button>
                 </div>
+
+                <Calendar
+                  mode="range"
+                  autoFocus
+                  hideNavigation
+                  showOutsideDays={false}
+                  weekStartsOn={1}
+                  month={toDate(monthStart(month))}
+                  onMonthChange={(date) => setMonth(monthKey(toDay(date)))}
+                  startMonth={toDate(first)}
+                  endMonth={toDate(latest)}
+                  disabled={[{ before: toDate(first) }, { after: toDate(latest) }]}
+                  selected={
+                    lo === null || hi === null
+                      ? undefined
+                      : { from: toDate(lo), to: b === null ? undefined : toDate(hi) }
+                  }
+                  onSelect={(_range, day) => pickDay(toDay(day))}
+                  modifiers={{ latest: toDate(latest) }}
+                  formatters={{
+                    formatWeekdayName: (date) =>
+                      date.toLocaleDateString("en-GB", { weekday: "short" }).slice(0, 2),
+                  }}
+                  labels={{
+                    labelDayButton: (date, modifiers) => {
+                      const why = modifiers.disabled ? `, ${disabledWhy(date)}` : "";
+                      return `${formatDay(toDay(date))}${modifiers.latest ? ", latest data" : ""}${why}${
+                        modifiers.selected ? ", selected" : ""
+                      }`;
+                    },
+                  }}
+                  components={{ DayButton: LatestDayButton }}
+                  classNames={{ month_caption: "sr-only" }}
+                  className="p-0 [--cell-size:--spacing(10)]"
+                />
+
               </div>
+            </div>
+
+            {/* Compare with spans the whole width under the quick picks and the month, its
+                options in two columns, so the picker stays short (owner, 2026-11-14). */}
+            {compare === undefined ? null : (
+              <fieldset className="border-t border-hairline px-3 pt-3 pb-2">
+                <legend className="float-left mb-1 w-full px-2 text-body-compact text-muted-foreground">Compare with</legend>
+                <RadioGroup
+                  value={draftCompare}
+                  onValueChange={(next) => setDraftCompare(next as CompareMode)}
+                  className="grid gap-0 sm:grid-cols-2"
+                >
+                  {COMPARE_OPTIONS.map((option) => {
+                    const id = `${idPrefix}-compare-${option.value}`;
+                    const range =
+                      lo === null || hi === null ? value : { from: lo, to: b === null ? lo : hi };
+                    return (
+                      <div key={option.value} className="flex items-start gap-3 rounded-md px-2 py-1.5 hover:bg-accent">
+                        <RadioGroupItem id={id} value={option.value} className="mt-0.5" />
+                        <Label htmlFor={id} className="flex cursor-pointer flex-col items-start gap-0 font-normal">
+                          <span className="text-body-compact font-medium">{option.label ?? previousName(range)}</span>
+                          <span className="text-caption text-muted-foreground">{option.description}</span>
+                        </Label>
+                      </div>
+                    );
+                  })}
+                </RadioGroup>
+              </fieldset>
+            )}
+          </div>
+
+          <div className="flex shrink-0 flex-col gap-3 border-t border-hairline bg-popover p-3 sm:flex-row sm:items-center">
+            <p aria-live="polite" className="min-w-0 flex-1 text-body-compact text-muted-foreground tabular-nums">
+              {status}
+            </p>
+            <div className="flex shrink-0 items-center gap-2">
+              {/* Reset lives in the picker, beside the actions it feeds: it puts the
+                  draft back to the opening period (and comparison), to be applied like
+                  any other choice. No second control outside the trigger (owner,
+                  2026-10-19). */}
+              <Button
+                type="button"
+                variant="ghost"
+                className="mr-auto"
+                disabled={draftIsDefault}
+                onClick={() => {
+                  setDraft({ a: defaultValue.from, b: defaultValue.to });
+                  setMonth(monthKey(defaultValue.to));
+                  if (compare !== undefined) setDraftCompare(defaultCompare);
+                }}
+              >
+                Reset<span className="sr-only"> to {defaultLabel.toLowerCase()}</span>
+              </Button>
+              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="button" disabled={a === null} onClick={apply}>
+                Apply
+              </Button>
             </div>
           </div>
         </PopoverContent>
