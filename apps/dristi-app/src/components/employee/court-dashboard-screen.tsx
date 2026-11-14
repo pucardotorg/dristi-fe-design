@@ -4,6 +4,7 @@ import * as React from "react";
 
 import { useCourtText } from "@/components/court/court-provider";
 import { RESOLVE_IN_PLACE } from "@/components/chrome/motion";
+import { PANEL_CLASS } from "@/components/shell/panel";
 import {
   BOX,
   CaseListBox,
@@ -283,6 +284,14 @@ const METHODS: { key: DisposalMethod; fill: string; ink: string }[] = [
   { key: "Returned", fill: "bg-track", ink: "text-foreground" },
 ];
 
+/**
+ * The Overview's containers. The Overview has no panel of its own: its title and date
+ * picker sit on the page, and each block below sits in its own raised container (the
+ * panel surface: card fill, hairline edge, raised shadow), its heading above it on the
+ * page (owner, 2026-11-14).
+ */
+const SURFACE = cn("min-w-0 rounded-xl border bg-card", PANEL_CLASS);
+
 /** The median of a list of days; `null` for none. */
 const medianOf = (days: number[]) => {
   if (!days.length) return null;
@@ -522,7 +531,7 @@ function Overview({
         <h3 id="dash-ended" className="text-body font-semibold">
           How cases ended
         </h3>
-        <div className={cn(BOX, "flex flex-col gap-3 p-4 sm:px-6")}>
+        <div className={cn(SURFACE, "flex flex-col gap-3 p-4 sm:px-6")}>
           {disposedRows.length ? (
             <>
               <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-6 gap-y-1 text-body-compact tabular-nums">
@@ -598,7 +607,7 @@ function Overview({
         </h3>
         {/* Three medians in the cards' own form: filing to disposal for all disposed cases,
             then for each kind, so a slower kind shows even when the overall figure holds. */}
-        <div className="grid min-w-0 gap-3 md:grid-cols-3">
+        <div className={cn(SURFACE, "grid gap-3 p-4 sm:p-6 md:grid-cols-3")}>
           <OverviewCard
             label="Median, all disposed"
             count={days(medians.all)}
@@ -623,12 +632,13 @@ function Overview({
   );
 
   return (
-    <section aria-labelledby="dash-overview" className={PANEL}>
+    <section aria-labelledby="dash-overview" className="flex min-w-0 flex-col gap-8">
+      <div className="flex min-w-0 flex-col gap-4">
       <PanelHeader id="dash-overview" title="Overview">
         {picker}
       </PanelHeader>
 
-      <div className="flex min-w-0 flex-col gap-3">
+      <div className={cn(SURFACE, "flex flex-col gap-3 p-4 sm:p-6")}>
         <div className="grid min-w-0 gap-3 md:grid-cols-3">
           <OverviewCard
             label="Cases filed"
@@ -673,6 +683,7 @@ function Overview({
           />
         </div>
       </div>
+      </div>
 
       {/* The two ways the pending cases split, one under the other, in the same cells; or,
           by the toggle, as one table of stage by time in court (owner, 2026-11-10: round 5,
@@ -693,7 +704,7 @@ function Overview({
             {/* The same cells, grouped either side of cognizance: one row from xl, the
                 groups stacked below that. Cases at registration are not on the CMP register
                 yet, so the groups are named by cognizance, not by register. */}
-            <div className={cn(BOX, "flex flex-col gap-6 p-4 sm:px-6 xl:grid xl:grid-cols-6 xl:gap-0")}>
+            <div className={cn(SURFACE, "flex flex-col gap-6 p-4 sm:px-6 xl:grid xl:grid-cols-6 xl:gap-0")}>
               {STAGE_GROUPS.map((group, g) => {
                 const stages = STAGES.filter((stage) => group.keys.includes(stage.key));
                 const count = stages.reduce((sum, stage) => sum + sets.byStage[stage.key].length, 0);
@@ -739,7 +750,7 @@ function Overview({
                 empty group is a quiet row rather than a card with a 0 in it. It replaces the
                 four cards, which gave the empty groups as much room as the full ones (owner,
                 2026-11-14). Every non-zero count opens its cases. */}
-            <div className={cn(BOX, "p-2")}>
+            <div className={cn(SURFACE, "p-2")}>
               <Table aria-labelledby="dash-ages" className="tabular-nums">
                 <TableHeader>
                   <TableRow className={TABLE_HEAD_ROW}>
@@ -790,7 +801,7 @@ function Overview({
             </h3>
             {viewSwitch}
           </div>
-          <div className={cn(BOX, "p-2")}>
+          <div className={cn(SURFACE, "p-2")}>
             <Table aria-labelledby="dash-pending-table" className="tabular-nums">
               <TableHeader>
                 <TableRow className={TABLE_HEAD_ROW}>
