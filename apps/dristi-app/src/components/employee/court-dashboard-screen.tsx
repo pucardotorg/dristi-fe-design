@@ -679,7 +679,8 @@ function Overview({
           option A with option C as a table view). Both read the Pending card's cases on
           its day, so neither repeats the total or the day. Stage comes first: for every
           user, the overview cards then pending by stage lead the dashboard (11 Nov call
-          with Satya; owner, 2026-11-14). The switch sits on the first heading's row. */}
+          with Satya; owner, 2026-11-14). The switch sits on the first heading's row. Both
+          pending sections come before how cases ended (owner, 2026-11-14). */}
       {pendingView === "cards" ? (
         <>
           <section aria-labelledby="dash-by-stage" className="flex min-w-0 flex-col gap-3">
@@ -730,8 +731,6 @@ function Overview({
             </div>
           </section>
 
-          {disposal}
-
           <section aria-labelledby="dash-ages" className="flex min-w-0 flex-col gap-3">
             <h3 id="dash-ages" className="text-body font-semibold">
               Pending cases by time in court
@@ -779,6 +778,8 @@ function Overview({
               </Table>
             </div>
           </section>
+
+          {disposal}
         </>
       ) : (
         <>
