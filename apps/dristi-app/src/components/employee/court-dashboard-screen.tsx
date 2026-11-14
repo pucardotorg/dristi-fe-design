@@ -9,7 +9,6 @@ import {
   BOX,
   CaseListBox,
   CountButton,
-  NeedsAttention,
   PANEL,
   PanelHeader,
   plural,
@@ -76,8 +75,10 @@ import { cn } from "@/lib/utils";
  *    is pending and how long it has been in court, and the stage path: each stage's cases,
  *    how long they have waited, what came in and left, and what moved on. A stage opens
  *    in detail below the path. Every count opens its cases in the panel.
- * 2. **Needs attention** — the hearing-date and process checks, on its own date.
- * 3. **Trends** — five measures month by month, one at a time in detail.
+ * 2. **Trends** — five measures month by month, one at a time in detail.
+ *
+ * "Where the pending cases are" (`StagesPanel`) and "Needs attention" left the page on
+ * 2026-11-14: they belong to role views (owner). Both are kept for those.
  *
  * "How cases were closed" left the page on 2026-11-14: the Overview's "How cases ended"
  * and "Time to disposal" carry its outcomes and median (owner).
@@ -198,8 +199,9 @@ export function CourtDashboardScreen() {
             />
           }
         />
-        <StagesPanel docket={docket} />
-        <NeedsAttention docket={docket} />
+        {/* The all-users dashboard is the Overview (note 1.2, all users a–e). "Where the
+            pending cases are" (bench clerk C) and "Needs attention" (magistrate, CMO/FSO,
+            bench clerk) left it on 2026-11-14 (owner); their code stays for the role views. */}
         <Trends docket={docket} />
       </div>
     </TooltipProvider>
@@ -1268,7 +1270,7 @@ function OverviewCard({
  * the material of the note's 1.2 C (outlier cases), so it left the Overview (owner); its
  * content is redesigned next. It reads its own period from its own picker.
  */
-function StagesPanel({ docket }: { docket: CourtDocket }) {
+export function StagesPanel({ docket }: { docket: CourtDocket }) {
   const [picked, setPicked] = React.useState<Period | null>(null);
   const opening = defaultSelection(docket);
   const reading = periodReading(picked ?? opening, docket, "none");
