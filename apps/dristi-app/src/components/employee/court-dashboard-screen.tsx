@@ -685,10 +685,8 @@ function Overview({
             <>
               {/* A card per method under its group's heading, laid out like the stage cells:
                   contested over two columns, uncontested over four, one row from xl, so no
-                  group leaves empty space beside the other (owner, 2026-11-14). Moves to the
-                  long pending register follow as their own group: the note lists them as a
-                  way cases end, but they are not disposals, so they stay out of the shares. */}
-              <div className="flex min-w-0 flex-col gap-6 xl:grid xl:grid-cols-6 xl:gap-3 2xl:grid-cols-7">
+                  group leaves empty space beside the other (owner, 2026-11-14). */}
+              <div className="flex min-w-0 flex-col gap-6 xl:grid xl:grid-cols-6 xl:gap-3">
                 {groups.map((g) => (
                   <div key={g.key} className={cn("flex min-w-0 flex-col gap-3", g.key === "contested" ? "xl:col-span-2" : "xl:col-span-4")}>
                     {/* Total on one line, its change on the next, for both groups, so the two
@@ -732,30 +730,20 @@ function Overview({
                     </ul>
                   </div>
                 ))}
-                <div className="flex min-w-0 flex-col gap-3 xl:col-span-2 2xl:col-span-1">
-                  <div className="flex min-w-0 flex-col border-b border-hairline pb-2">
-                    <p className="inline-flex min-h-10 items-center text-body-compact font-semibold">Not disposed</p>
-                    <p className="text-body-compact text-muted-foreground">Out of the shares</p>
-                  </div>
-                  <div className="grid min-w-0 grid-cols-2 gap-3 2xl:grid-cols-1">
-                  <div className="flex min-w-0 flex-col items-start gap-1 rounded-xl bg-surface-sunken p-4">
-                    <span className="text-body-compact font-semibold">To long pending</span>
-                    {out.toLongPending ? (
-                      <CountButton name="moved to long pending" className="text-title-l font-semibold" {...opener("toLongPending")}>
-                        {formatCount(out.toLongPending)}
-                      </CountButton>
-                    ) : (
-                      <span className="inline-flex min-h-10 items-center text-title-l font-semibold text-muted-foreground">0</span>
-                    )}
-                    <span className="text-caption text-muted-foreground tabular-nums">
-                      {baseToLongPending === null || name === null || reading.compare === "none"
-                        ? "Moved to the register"
-                        : `${formatCount(baseToLongPending)} in ${name}`}
-                    </span>
-                  </div>
-                  </div>
-                </div>
               </div>
+              {/* Moves to the long pending register: the note lists them as a way cases end,
+                  but they are not disposals, so one line under the cards, out of the shares
+                  (owner, 2026-11-14; a card of its own read as a leftover). */}
+              {out.toLongPending ? (
+                <p className="text-body-compact text-muted-foreground tabular-nums">
+                  <CountButton name="moved to long pending" className="-my-3 font-semibold" {...opener("toLongPending")}>
+                    {formatCount(out.toLongPending)}
+                  </CountButton>{" "}
+                  {out.toLongPending === 1 ? "case" : "cases"} moved to the long pending register
+                  {baseToLongPending !== null && name !== null && reading.compare !== "none" ? ` (${formatCount(baseToLongPending)} in ${name})` : ""}, not counted in
+                  the shares above.
+                </p>
+              ) : null}
             </>
           ) : (
             <p className="text-body-compact text-muted-foreground">No cases disposed in this period</p>
