@@ -549,22 +549,47 @@ function Overview({
             <h3 id="dash-ages" className="text-body font-semibold">
               Pending cases by time in court
             </h3>
-            <div className={cn(BOX, "p-4 sm:px-6")}>
-              {/* Four numbers, oldest last, each with its share: an old group gets the same
-                  room as the newest, so it is never a sliver (owner, 2026-11-10). */}
-              <ul className="grid grid-cols-2 gap-y-4 tabular-nums md:grid-cols-4">
-                {PENDING_AGE_GROUPS.map((label, i) => (
-                  <PendingCount
-                    key={label}
-                    label={label}
-                    count={ages[i]}
-                    total={end.pending}
-                    name={`in court ${label.toLowerCase()}`}
-                    opener={opener(`age-${i as 0 | 1 | 2 | 3}`)}
-                    index={i}
-                  />
-                ))}
-              </ul>
+            {/* A plain table, oldest last: an ordered split of one total reads as rows, and an
+                empty group is a quiet row rather than a card with a 0 in it. It replaces the
+                four cards, which gave the empty groups as much room as the full ones (owner,
+                2026-11-14). Every non-zero count opens its cases. */}
+            <div className={cn(BOX, "p-2")}>
+              <Table aria-labelledby="dash-ages" className="tabular-nums">
+                <TableHeader>
+                  <TableRow className={TABLE_HEAD_ROW}>
+                    <TableHead scope="col" className={TABLE_HEAD}>Time in court</TableHead>
+                    <TableHead scope="col" className={cn(TABLE_HEAD, "text-right sm:w-1/4")}>Cases</TableHead>
+                    <TableHead scope="col" className={cn(TABLE_HEAD, "text-right sm:w-1/4")}>Share</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className={tableBodyClass({ hover: false })}>
+                  {PENDING_AGE_GROUPS.map((label, i) => {
+                    const n = ages[i];
+                    return (
+                      <TableRow key={label} className={tableRowClass({ hover: false })}>
+                        <th scope="row" className={cn(TABLE_CELL, "font-semibold")}>{label}</th>
+                        <TableCell className={cn(TABLE_CELL, "text-right")}>
+                          {n ? (
+                            <CountButton name={`in court ${label.toLowerCase()}`} {...opener(`age-${i as 0 | 1 | 2 | 3}`)}>
+                              {formatCount(n)}
+                            </CountButton>
+                          ) : (
+                            <span className="text-muted-foreground">0</span>
+                          )}
+                        </TableCell>
+                        <TableCell className={cn(TABLE_CELL, "text-right", !n && "text-muted-foreground")}>
+                          {n ? pct(n / Math.max(1, end.pending)) : "–"}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  <TableRow className={tableRowClass({ hover: false })}>
+                    <th scope="row" className={cn(TABLE_CELL, "border-b-0 font-semibold")}>All pending</th>
+                    <TableCell className={cn(TABLE_CELL, "border-b-0 text-right font-semibold")}>{formatCount(end.pending)}</TableCell>
+                    <TableCell className={cn(TABLE_CELL, "border-b-0 text-right font-semibold")}>100%</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
             </div>
           </section>
         </>
