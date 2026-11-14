@@ -732,17 +732,22 @@ function Overview({
                 ))}
               </div>
               {/* Moves to the long pending register: the note lists them as a way cases end,
-                  but they are not disposals, so one line under the cards, out of the shares
-                  (owner, 2026-11-14; a card of its own read as a leftover). */}
+                  but they are not disposals. A full-width band in the cards' fill, under them:
+                  read as data beside the cards, not a lone card or a footnote (owner,
+                  2026-11-14). */}
               {out.toLongPending ? (
-                <p className="text-body-compact text-muted-foreground tabular-nums">
-                  <CountButton name="moved to long pending" className="-my-3 font-semibold" {...opener("toLongPending")}>
+                <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 rounded-xl bg-surface-sunken px-4 py-2 sm:px-6">
+                  <span className="text-body-compact font-semibold">Moved to the long pending register</span>
+                  <CountButton name="moved to long pending" className="text-title-s font-semibold" {...opener("toLongPending")}>
                     {formatCount(out.toLongPending)}
-                  </CountButton>{" "}
-                  {out.toLongPending === 1 ? "case" : "cases"} moved to the long pending register
-                  {baseToLongPending !== null && name !== null && reading.compare !== "none" ? ` (${formatCount(baseToLongPending)} in ${name})` : ""}, not counted in
-                  the shares above.
-                </p>
+                  </CountButton>
+                  {baseToLongPending !== null && name !== null && reading.compare !== "none" ? (
+                    <span className="text-body-compact text-muted-foreground tabular-nums">
+                      {formatCount(baseToLongPending)} in {name}
+                    </span>
+                  ) : null}
+                  <span className="text-caption text-muted-foreground sm:ml-auto">Not a disposal, so not in the shares above</span>
+                </div>
               ) : null}
             </>
           ) : (
