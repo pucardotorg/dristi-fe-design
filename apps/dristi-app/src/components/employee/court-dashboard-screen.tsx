@@ -527,9 +527,11 @@ function Overview({
     );
   const swatch = (fill: string) => <span aria-hidden className={cn("size-2.5 shrink-0 rounded-sm", fill)} />;
   const shown = METHODS.map((m) => ({ ...m, n: methodCount(m.key) }));
+  /* How cases ended and time to disposal share one container, each under its own heading,
+     a hairline between them (owner, 2026-11-14). */
   const disposal = (
-    <>
-      <section aria-labelledby="dash-ended" className={SECTION}>
+    <div className={cn(SECTION, "gap-6")}>
+      <section aria-labelledby="dash-ended" className="flex min-w-0 flex-col gap-4">
         <h3 id="dash-ended" className="text-body font-semibold">
           How cases ended
         </h3>
@@ -603,7 +605,7 @@ function Overview({
         </div>
       </section>
 
-      <section aria-labelledby="dash-time-to-disposal" className={SECTION}>
+      <section aria-labelledby="dash-time-to-disposal" className="flex min-w-0 flex-col gap-4 border-t border-hairline pt-6">
         <h3 id="dash-time-to-disposal" className="text-body font-semibold">
           Time to disposal
         </h3>
@@ -630,7 +632,7 @@ function Overview({
           />
         </div>
       </section>
-    </>
+    </div>
   );
 
   return (
