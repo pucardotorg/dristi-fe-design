@@ -665,23 +665,6 @@ function Overview({
           </p>
         </section>
 
-        {/* Mediated or not (note 1.2, all users e): DRISTI does not record mediation yet, so
-            the comparison is held open rather than left out (owner, 2026-11-14). */}
-        <section aria-labelledby="dash-mediation" className="flex min-w-0 flex-col gap-3 pt-2">
-          <h4 id="dash-mediation" className="text-body-compact font-semibold">
-            Mediated or not
-          </h4>
-          <div className="grid min-w-0 gap-3 md:grid-cols-2">
-            {["Median, mediated", "Median, not mediated"].map((label) => (
-              <div key={label} className="flex min-w-0 flex-col items-start gap-1 rounded-xl bg-surface-sunken p-4">
-                <span className="text-body-compact font-semibold">{label}</span>
-                <span className="inline-flex min-h-10 items-center text-title-s font-semibold text-muted-foreground">–</span>
-                <span className="text-caption text-muted-foreground">No data yet</span>
-              </div>
-            ))}
-          </div>
-          <p className="text-caption text-muted-foreground">DRISTI does not yet record whether a case went to mediation.</p>
-        </section>
       </section>
 
       <section aria-labelledby="dash-ended" className="flex min-w-0 flex-col gap-4 border-t border-hairline pt-6">
