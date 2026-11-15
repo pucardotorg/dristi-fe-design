@@ -18,7 +18,7 @@ import { CountUp, TrickleDots, useGrowIn } from "@/components/employee/court-das
 import { DashboardDatePicker } from "@/components/employee/dashboard-date-picker";
 import { EndedTable, OverviewCard, StageCells } from "@/components/employee/court-dashboard-parts";
 import { useCourtDocket } from "@/components/employee/docket-table";
-import { ForYouView, forYouCount } from "@/components/employee/court-dashboard-for-you";
+import { FOR_YOU_COUNT_NOTE, ForYouView, forYouCount, MagistrateSections } from "@/components/employee/court-dashboard-for-you";
 import { useCourtRole, useCourtSession } from "@/components/employee/use-court-role";
 import { CourtDayMark } from "@/components/employee/cause-list-date";
 import { useCourtToday } from "@/components/employee/use-court-today";
@@ -188,6 +188,7 @@ export function CourtDashboardScreen() {
   const { court: state } = useCourt();
   const view = React.useSyncExternalStore(subscribeToDashboardView, dashboardView, serverDashboardView);
   const mineCount = forYouCount(docket, role);
+  const magistrate = role === "magistrate";
 
   return (
     <TooltipProvider>
@@ -207,9 +208,39 @@ export function CourtDashboardScreen() {
           </div>
         </header>
 
-        {/* Two views on every seat (owner, 2026-11-15): the court's, the same for everyone,
-            and the seat's own. A line tab list, as the court queues draw theirs; only "For
-            you" carries a count, because counts mean work. */}
+        {magistrate ? (
+          /* The magistrate's dashboard is one page, no tabs (owner, 2026-11-16): their
+             judgments, the cases waiting on them, then their court under its own heading —
+             the same sections every seat's Court tab shows. */
+          <>
+            <MagistrateSections docket={docket} court={state} />
+            <section id="court" aria-labelledby="your-court" className="flex min-w-0 scroll-mt-20 flex-col gap-4 border-t border-hairline pt-8">
+              <h2 id="your-court" className="text-title-s font-semibold">
+                Your court
+              </h2>
+              <Overview
+                docket={docket}
+                reading={reading}
+                withoutJudgments
+                picker={
+                  <DashboardDatePicker
+                    docket={docket}
+                    value={reading.selection}
+                    compare={compare}
+                    defaultValue={opening}
+                    onChange={(next, mode) => {
+                      setPicked(next.from === opening.from && next.to === opening.to ? null : next);
+                      setCompare(mode);
+                    }}
+                  />
+                }
+              />
+            </section>
+          </>
+        ) : (
+        /* Two views on every other seat (owner, 2026-11-15): the court's, the same for
+           everyone, and the seat's own. A line tab list, as the court queues draw theirs;
+           only "For you" carries a count, because counts mean work. */
         <Tabs
           value={view}
           onValueChange={(next) => setDashboardView(next as DashboardView)}
@@ -220,10 +251,22 @@ export function CourtDashboardScreen() {
               <TabsTrigger value="court" className="h-10 flex-none gap-2 text-body-compact">
                 Court
               </TabsTrigger>
-              <TabsTrigger value="mine" className="h-10 flex-none gap-2 text-body-compact">
-                For you
-                {mineCount ? <span className="font-normal tabular-nums">{formatCount(mineCount)}</span> : null}
-              </TabsTrigger>
+              {/* The count says what it counts on hover and focus (owner, 2026-11-15). */}
+              {mineCount ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <TabsTrigger value="mine" className="h-10 flex-none gap-2 text-body-compact">
+                      For you
+                      <span className="font-normal tabular-nums">{formatCount(mineCount)}</span>
+                    </TabsTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs text-pretty">{FOR_YOU_COUNT_NOTE}</TooltipContent>
+                </Tooltip>
+              ) : (
+                <TabsTrigger value="mine" className="h-10 flex-none gap-2 text-body-compact">
+                  For you
+                </TabsTrigger>
+              )}
             </TabsList>
           </div>
           <TabsContent value="court" className="min-w-0 outline-none">
@@ -250,6 +293,7 @@ export function CourtDashboardScreen() {
             {view !== "mine" ? null : <ForYouView docket={docket} role={role} court={state} />}
           </TabsContent>
         </Tabs>
+        )}
       </div>
     </TooltipProvider>
   );
@@ -310,10 +354,14 @@ function Overview({
   docket,
   reading,
   picker,
+  withoutJudgments = false,
 }: {
   docket: CourtDocket;
   reading: PeriodReading;
   picker: React.ReactNode;
+  /** The registers without their judgments count, which the magistrate's page shows at
+      its top (owner, 2026-11-16). */
+  withoutJudgments?: boolean;
 }) {
   const latest = docket.today;
   const { from, to } = reading.selection;
@@ -538,12 +586,47 @@ function Overview({
         <span className="text-body font-medium text-muted-foreground">days</span>
       </span>
     );
+  /* The registers (note 1.2, all users a(i)): the counts staff check against the paper
+     registers. Pending is read on the period's last day; disposed and judgments over the
+     period. Judgments read like the other disposed counts, no bars; cases awaiting
+     registration are on the Cases filed card, not repeated here (owner, 2026-11-15). */
+  const registers = (
+      <section aria-labelledby="dash-registers" className="flex min-w-0 flex-col gap-3 border-t border-hairline pt-6">
+        <h3 id="dash-registers" className="text-body font-semibold">
+          Registers
+        </h3>
+        <ul className={cn("grid min-w-0 grid-cols-2 gap-3 md:grid-cols-3", withoutJudgments ? "xl:grid-cols-5" : "xl:grid-cols-6")}>
+          {(
+            [
+              ["ST pending", sets.st.length, "st", "after cognizance"],
+              ["ST disposed", stDisposed.length, "stDisposed", spanShort],
+              ["CMP pending", sets.cmp.length, "cmp", "awaiting cognizance"],
+              ["CMP disposed", cmpDisposed.length, "cmpDisposed", spanShort],
+              ["LPR", end.longPending, "longPending", `on the register · ${formatCount(out.toLongPending)} moved in`],
+              ["Judgments", contestedRows.length, "contested", spanShort],
+            ] as [string, number, OverviewList, string][]
+          ).filter(([label]) => !(withoutJudgments && label === "Judgments")).map(([label, n, key, sub]) => (
+            <li key={label} className="flex min-w-0 flex-col items-start gap-1 rounded-xl bg-surface-sunken p-4">
+              <span className="text-body-compact font-medium">{label}</span>
+              {n ? (
+                <CountButton name={label.toLowerCase()} className="text-title-s font-semibold" {...opener(key)}>
+                  {formatCount(n)}
+                </CountButton>
+              ) : (
+                <span className="inline-flex min-h-10 items-center text-title-s font-semibold text-muted-foreground">0</span>
+              )}
+              <span className="text-caption text-muted-foreground">{sub}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+  );
   /* Time to disposal, then how cases ended, in one container, each under its own heading,
      a hairline between them (owner, 2026-11-14). "By when cases were filed" left on
      2026-11-15: its filing-cohort framing is the public dashboard's (note 1.1), not the
      magistrate dashboard's 1.2 e, which asks for time to disposal only (owner). */
   const disposal = (
-    <div className={cn(SECTION, "gap-6")}>
+    <div id="disposal" className={cn(SECTION, "scroll-mt-20 gap-6")}>
       <h2 className="text-title-s font-semibold">Disposal</h2>
       <section aria-labelledby="dash-time-to-disposal" className="flex min-w-0 flex-col gap-4">
         <h3 id="dash-time-to-disposal" className="text-body font-semibold">
@@ -644,39 +727,7 @@ function Overview({
         </div>
       </div>
 
-      {/* The registers (note 1.2, all users a(i)): the counts staff check against the paper
-          registers. Pending is read on the period's last day; disposed and judgments over the
-          period. Judgments read like the other disposed counts, no bars; cases awaiting
-          registration are on the Cases filed card, not repeated here (owner, 2026-11-15). */}
-      <section aria-labelledby="dash-registers" className="flex min-w-0 flex-col gap-3 border-t border-hairline pt-6">
-        <h3 id="dash-registers" className="text-body font-semibold">
-          Registers
-        </h3>
-        <ul className="grid min-w-0 grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-          {(
-            [
-              ["ST pending", sets.st.length, "st", "after cognizance"],
-              ["ST disposed", stDisposed.length, "stDisposed", spanShort],
-              ["CMP pending", sets.cmp.length, "cmp", "awaiting cognizance"],
-              ["CMP disposed", cmpDisposed.length, "cmpDisposed", spanShort],
-              ["LPR", end.longPending, "longPending", `on the register · ${formatCount(out.toLongPending)} moved in`],
-              ["Judgments", contestedRows.length, "contested", spanShort],
-            ] as [string, number, OverviewList, string][]
-          ).map(([label, n, key, sub]) => (
-            <li key={label} className="flex min-w-0 flex-col items-start gap-1 rounded-xl bg-surface-sunken p-4">
-              <span className="text-body-compact font-medium">{label}</span>
-              {n ? (
-                <CountButton name={label.toLowerCase()} className="text-title-s font-semibold" {...opener(key)}>
-                  {formatCount(n)}
-                </CountButton>
-              ) : (
-                <span className="inline-flex min-h-10 items-center text-title-s font-semibold text-muted-foreground">0</span>
-              )}
-              <span className="text-caption text-muted-foreground">{sub}</span>
-            </li>
-          ))}
-        </ul>
-      </section>
+      {registers}
       </div>
 
       {/* The two ways the pending cases split, one under the other, in the same cells; or,
@@ -690,7 +741,7 @@ function Overview({
         <>
           {/* One section, one heading: the stage cells, then the time table under a rule, in
               one container (owner, 2026-11-14). */}
-          <section aria-labelledby="dash-pending-split" className={SECTION}>
+          <section id="pending" aria-labelledby="dash-pending-split" className={cn(SECTION, "scroll-mt-20")}>
             <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
               <h2 id="dash-pending-split" className="text-title-s font-semibold">
                 Pending cases by stage and time
@@ -756,7 +807,7 @@ function Overview({
         </>
       ) : (
         <>
-        <section aria-labelledby="dash-pending-table" className={SECTION}>
+        <section id="pending" aria-labelledby="dash-pending-table" className={cn(SECTION, "scroll-mt-20")}>
           <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
             <h2 id="dash-pending-table" className="text-title-s font-semibold">
               Pending cases by stage and time

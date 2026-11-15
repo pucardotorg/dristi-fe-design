@@ -34,6 +34,7 @@ import {
   cognizanceTabCount,
 } from "./cognizance";
 import { type CognizanceLayout, readCognizanceLayout } from "./cognizance-layout";
+import { forYouListBySlug } from "./for-you-lists";
 import { hearingById, TODAYS_HEARING_COUNT } from "./hearings";
 import type { CourtNavLayout } from "./nav-layout";
 import { findCaseRecord } from "../cases/party-cases";
@@ -886,6 +887,13 @@ const NESTED_ROUTES: {
    */
   keepsView?: boolean;
 }[] = [
+  /* One of the magistrate's lists from the dashboard's "For you" tab, in full, named by
+     the list ("Dashboard › Silent cases"). */
+  {
+    queue: COURT_DASHBOARD.href,
+    pattern: /^\/employee\/for-you\/([^/]+)\/?$/,
+    identify: (slug) => forYouListBySlug(slug)?.title,
+  },
   {
     queue: "/employee/hearings",
     pattern: /^\/employee\/hearings\/([^/]+)(\/order)?\/?$/,

@@ -43,6 +43,22 @@ export function judgmentMonths(docket: CourtDocket, months = 6): JudgmentMonth[]
   return out;
 }
 
+/** Judgments in every month from `fromMonth` to `toMonth` (month keys); the current one is partial. */
+export function judgmentsByMonth(docket: CourtDocket, fromMonth: number, toMonth: number): JudgmentMonth[] {
+  const now = monthKey(docket.today);
+  const counts = new Map<number, number>();
+  for (const c of docket.cases) {
+    if (!isJudgment(c)) continue;
+    const k = monthKey(c.disposal!.date);
+    if (k >= fromMonth && k <= toMonth) counts.set(k, (counts.get(k) ?? 0) + 1);
+  }
+  const out: JudgmentMonth[] = [];
+  for (let month = fromMonth; month <= Math.min(toMonth, now); month++) {
+    out.push({ month, value: counts.get(month) ?? 0, partial: month === now });
+  }
+  return out;
+}
+
 export type ReservedCase = { case: DocketCase; days: number; since: number };
 
 /** Cases reserved for judgment, longest waiting first: the judgments still to be written. */
