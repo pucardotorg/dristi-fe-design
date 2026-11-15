@@ -18,6 +18,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { useReturnFocus } from "@/components/employee/return-focus";
 
 /**
  * The honest end of a row whose next screen is not built yet.
@@ -47,9 +48,10 @@ export function NotBuiltDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const returnFocus = useReturnFocus();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <ChromeDialogContent className="sm:max-w-md">
+      <ChromeDialogContent className="sm:max-w-md" {...returnFocus}>
         {/* Radix needs a titled dialog; the visible title lives in the Empty below, so the
             header is spoken only. */}
         <DialogTitle className="sr-only">Not built yet</DialogTitle>
