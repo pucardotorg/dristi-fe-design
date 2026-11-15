@@ -2,7 +2,7 @@
 
 import * as React from "react";
 
-import { useCourtText } from "@/components/court/court-provider";
+import { useCourt, useCourtText } from "@/components/court/court-provider";
 import { RESOLVE_IN_PLACE } from "@/components/chrome/motion";
 import { PANEL_CLASS } from "@/components/shell/panel";
 import {
@@ -16,14 +16,17 @@ import {
 } from "@/components/employee/court-dashboard-attention";
 import { CountUp, TrickleDots, useGrowIn } from "@/components/employee/court-dashboard-motion";
 import { DashboardDatePicker } from "@/components/employee/dashboard-date-picker";
+import { EndedTable, OverviewCard, StageCells } from "@/components/employee/court-dashboard-parts";
 import { useCourtDocket } from "@/components/employee/docket-table";
-import { useCourtSession } from "@/components/employee/use-court-role";
+import { ForYouView, forYouCount } from "@/components/employee/court-dashboard-for-you";
+import { useCourtRole, useCourtSession } from "@/components/employee/use-court-role";
 import { CourtDayMark } from "@/components/employee/cause-list-date";
 import { useCourtToday } from "@/components/employee/use-court-today";
 import { TABLE_CELL, TABLE_HEAD, TABLE_HEAD_ROW, tableBodyClass, tableRowClass } from "@/components/chrome/table-plate";
 import { Button } from "@/components/ui/button";
 import { SegmentedControl, SegmentedControlItem } from "@/components/ui/segmented-control";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   COURT_LIMITS,
@@ -60,6 +63,13 @@ import {
   type Period,
   type PeriodReading,
 } from "@/lib/employee/court-flow";
+import {
+  dashboardView,
+  serverDashboardView,
+  setDashboardView,
+  subscribeToDashboardView,
+  type DashboardView,
+} from "@/lib/employee/dashboard-view";
 import { formatCourtDay } from "@/lib/employee/hearings";
 import { formatCount } from "@/lib/employee/register-rows";
 import { cn } from "@/lib/utils";
@@ -174,6 +184,10 @@ export function CourtDashboardScreen() {
   const [compare, setCompare] = React.useState<CompareMode>("prev");
   const opening = defaultSelection(docket);
   const reading = periodReading(picked ?? opening, docket, compare);
+  const role = useCourtRole();
+  const { court: state } = useCourt();
+  const view = React.useSyncExternalStore(subscribeToDashboardView, dashboardView, serverDashboardView);
+  const mineCount = forYouCount(docket, role);
 
   return (
     <TooltipProvider>
@@ -193,26 +207,49 @@ export function CourtDashboardScreen() {
           </div>
         </header>
 
-        <Overview
-          docket={docket}
-          reading={reading}
-          picker={
-            <DashboardDatePicker
-              docket={docket}
-              value={reading.selection}
-              compare={compare}
-              defaultValue={opening}
-              onChange={(next, mode) => {
-                setPicked(next.from === opening.from && next.to === opening.to ? null : next);
-                setCompare(mode);
-              }}
-            />
-          }
-        />
-        {/* The all-users dashboard is the Overview (note 1.2, all users a–e). "Where the
-            pending cases are" (bench clerk C) and "Needs attention" (magistrate, CMO/FSO,
-            bench clerk) left it on 2026-11-14 (owner), and Trends on 2026-11-15; their code
-            stays for the role views. */}
+        {/* Two views on every seat (owner, 2026-11-15): the court's, the same for everyone,
+            and the seat's own. A line tab list, as the court queues draw theirs; only "For
+            you" carries a count, because counts mean work. */}
+        <Tabs
+          value={view}
+          onValueChange={(next) => setDashboardView(next as DashboardView)}
+          className="flex min-w-0 flex-col gap-6"
+        >
+          <div className="overflow-x-auto border-b border-hairline [scrollbar-width:none]">
+            <TabsList variant="line" aria-label="Dashboard views" className="h-10 w-max min-w-full justify-start rounded-none">
+              <TabsTrigger value="court" className="h-10 flex-none gap-2 text-body-compact">
+                Court
+              </TabsTrigger>
+              <TabsTrigger value="mine" className="h-10 flex-none gap-2 text-body-compact">
+                For you
+                {mineCount ? <span className="font-normal tabular-nums">{formatCount(mineCount)}</span> : null}
+              </TabsTrigger>
+            </TabsList>
+          </div>
+          <TabsContent value="court" className="min-w-0 outline-none">
+            {view !== "court" ? null : (
+              <Overview
+                docket={docket}
+                reading={reading}
+                picker={
+                  <DashboardDatePicker
+                    docket={docket}
+                    value={reading.selection}
+                    compare={compare}
+                    defaultValue={opening}
+                    onChange={(next, mode) => {
+                      setPicked(next.from === opening.from && next.to === opening.to ? null : next);
+                      setCompare(mode);
+                    }}
+                  />
+                }
+              />
+            )}
+          </TabsContent>
+          <TabsContent value="mine" className="flex min-w-0 flex-col gap-4 outline-none">
+            {view !== "mine" ? null : <ForYouView docket={docket} role={role} court={state} />}
+          </TabsContent>
+        </Tabs>
       </div>
     </TooltipProvider>
   );
@@ -247,20 +284,6 @@ type OverviewList =
   | "cmp"
   | "stDisposed"
   | "cmpDisposed";
-
-/**
- * How cases ended: a card per method, contested first. The bar that summed them went on
- * 2026-11-14: the cards and the group headings already carry every count and share
- * (owner).
- */
-const METHODS: { key: DisposalMethod }[] = [
-  { key: "Convicted" },
-  { key: "Acquitted" },
-  { key: "Settled" },
-  { key: "Withdrawn" },
-  { key: "Dismissed" },
-  { key: "Returned" },
-];
 
 /**
  * The Overview's containers: one per section, each holding its own heading and controls
@@ -323,7 +346,6 @@ function Overview({
   const contestedRows = disposedRows.filter((r) => isContested(r.method));
   const uncontestedRows = disposedRows.filter((r) => !isContested(r.method));
   const baseContested = baseDisposed.filter((r) => isContested(r.method));
-  const shareOf = (part: number, whole: number) => (whole ? Math.round((part / whole) * 100) : null);
   const methodCount = (key: DisposalMethod) => disposedRows.filter((r) => r.method === key).length;
   const medians = {
     all: medianOf(disposedRows.map((r) => r.days)),
@@ -342,9 +364,6 @@ function Overview({
   const spanShort = from === to ? formatDayShort(to) : formatSpan(from, to, latest);
   const stDisposed = disposedRows.filter((r) => !r.beforeCognizance);
   const cmpDisposed = disposedRows.filter((r) => r.beforeCognizance);
-  const baseToLongPending = reading.baseline.length
-    ? Math.round(reading.baseline.reduce((sum, p) => sum + closedCases(docket, p).filter((r) => r.outcome === "toLongPending").length, 0) / reading.baseline.length)
-    : null;
 
   const resolve = (key: OverviewList): ListSpec | null => {
     const inCourt = "Days in court";
@@ -519,27 +538,6 @@ function Overview({
         <span className="text-body font-medium text-muted-foreground">days</span>
       </span>
     );
-  const shown = METHODS.map((m) => ({ ...m, n: methodCount(m.key) }));
-  /* Four columns fit a phone only with narrower cell padding, and headings allowed to
-     wrap, there. */
-  const TIGHT = "max-sm:px-2 max-sm:whitespace-normal";
-  /* The baseline column: each count averaged over the baseline's windows. */
-  const showBase = reading.compare !== "none" && name !== null && reading.baseline.length > 0;
-  const baseCount = (key: "contested" | "uncontested" | "all" | DisposalMethod) => {
-    const rows =
-      key === "all" ? baseDisposed : key === "contested" ? baseContested : key === "uncontested" ? baseDisposed.filter((r) => !isContested(r.method)) : baseDisposed.filter((r) => r.method === key);
-    return Math.round(rows.length / Math.max(1, reading.baseline.length));
-  };
-  /* Contested in a fixed order; uncontested largest first. */
-  const groups = [
-    { key: "contested" as const, label: "Contested", rows: contestedRows, methods: shown.filter((m) => isContested(m.key)) },
-    {
-      key: "uncontested" as const,
-      label: "Uncontested",
-      rows: uncontestedRows,
-      methods: shown.filter((m) => !isContested(m.key)).sort((a, b) => b.n - a.n),
-    },
-  ];
   /* Time to disposal, then how cases ended, in one container, each under its own heading,
      a hairline between them (owner, 2026-11-14). "By when cases were filed" left on
      2026-11-15: its filing-cohort framing is the public dashboard's (note 1.1), not the
@@ -587,100 +585,7 @@ function Overview({
           How cases ended
         </h3>
         <div className="flex min-w-0 flex-col gap-3">
-          {disposedRows.length ? (
-            /* One table: the two groups as subtotal rows with their methods under them,
-               then all disposed, then moves to the long pending register, which are not
-               disposals and stay out of the shares. A column for the baseline gives every
-               row its comparison (owner, 2026-11-14; replaces the method cards and the
-               separate long-pending container). */
-            <div className="min-w-0">
-              <Table aria-labelledby="dash-ended" className="tabular-nums">
-                <TableHeader>
-                  <TableRow className={TABLE_HEAD_ROW}>
-                    <TableHead scope="col" className={cn(TABLE_HEAD, TIGHT)}>Outcome</TableHead>
-                    <TableHead scope="col" className={cn(TABLE_HEAD, TIGHT, "text-right")}>Cases</TableHead>
-                    <TableHead scope="col" className={cn(TABLE_HEAD, TIGHT, "text-right")}>Share</TableHead>
-                    {showBase ? (
-                      <TableHead scope="col" className={cn(TABLE_HEAD, TIGHT, "text-right")}>
-                        {/* Breaks only at a space on phones: "1–14" over "Oct". */}
-                        {name?.split(" ").map((word, k) => (
-                          <React.Fragment key={k}>
-                            {k ? " " : null}
-                            <span className="whitespace-nowrap">{word}</span>
-                          </React.Fragment>
-                        ))}
-                      </TableHead>
-                    ) : null}
-                  </TableRow>
-                </TableHeader>
-                <TableBody className={tableBodyClass({ hover: false })}>
-                  {groups.map((g) => (
-                    <React.Fragment key={g.key}>
-                      <TableRow className={tableRowClass({ hover: false })}>
-                        <th scope="row" className={cn(TABLE_CELL, TIGHT, "font-semibold")}>{g.label}</th>
-                        <TableCell className={cn(TABLE_CELL, TIGHT, "text-right font-semibold")}>
-                          {g.rows.length ? (
-                            <CountButton name={g.key} {...opener(g.key)}>
-                              {formatCount(g.rows.length)}
-                            </CountButton>
-                          ) : (
-                            <span className="text-muted-foreground">0</span>
-                          )}
-                        </TableCell>
-                        <TableCell className={cn(TABLE_CELL, TIGHT, "text-right font-semibold")}>{shareOf(g.rows.length, disposedRows.length)}%</TableCell>
-                        {showBase ? <TableCell className={cn(TABLE_CELL, TIGHT, "text-right text-muted-foreground")}>{formatCount(baseCount(g.key))}</TableCell> : null}
-                      </TableRow>
-                      {g.methods.map((m) => (
-                        <TableRow key={m.key} className={tableRowClass({ hover: false })}>
-                          <th scope="row" className={cn(TABLE_CELL, TIGHT, "pl-8 font-normal")}>{m.key}</th>
-                          <TableCell className={cn(TABLE_CELL, TIGHT, "text-right")}>
-                            {m.n ? (
-                              <CountButton name={m.key.toLowerCase()} {...opener(`method-${m.key}`)}>
-                                {formatCount(m.n)}
-                              </CountButton>
-                            ) : (
-                              <span className="text-muted-foreground">0</span>
-                            )}
-                          </TableCell>
-                          <TableCell className={cn(TABLE_CELL, TIGHT, "text-right", !m.n && "text-muted-foreground")}>
-                            {m.n ? `${shareOf(m.n, disposedRows.length)}%` : "–"}
-                          </TableCell>
-                          {showBase ? <TableCell className={cn(TABLE_CELL, TIGHT, "text-right text-muted-foreground")}>{formatCount(baseCount(m.key))}</TableCell> : null}
-                        </TableRow>
-                      ))}
-                    </React.Fragment>
-                  ))}
-                  <TableRow className={tableRowClass({ hover: false })}>
-                    <th scope="row" className={cn(TABLE_CELL, TIGHT, "font-semibold", !out.toLongPending && "border-b-0")}>All disposed</th>
-                    <TableCell className={cn(TABLE_CELL, TIGHT, "text-right font-semibold", !out.toLongPending && "border-b-0")}>{formatCount(disposedRows.length)}</TableCell>
-                    <TableCell className={cn(TABLE_CELL, TIGHT, "text-right font-semibold", !out.toLongPending && "border-b-0")}>100%</TableCell>
-                    {showBase ? <TableCell className={cn(TABLE_CELL, TIGHT, "text-right font-semibold", !out.toLongPending && "border-b-0")}>{formatCount(baseCount("all"))}</TableCell> : null}
-                  </TableRow>
-                  {out.toLongPending ? (
-                    <TableRow className={tableRowClass({ hover: false })}>
-                      <th scope="row" className={cn(TABLE_CELL, TIGHT, "border-b-0 font-normal")}>
-                        <span className="flex flex-col">
-                          Moved to the long pending register
-                          <span className="text-caption text-muted-foreground">Not a disposal</span>
-                        </span>
-                      </th>
-                      <TableCell className={cn(TABLE_CELL, TIGHT, "border-b-0 text-right")}>
-                        <CountButton name="moved to long pending" {...opener("toLongPending")}>
-                          {formatCount(out.toLongPending)}
-                        </CountButton>
-                      </TableCell>
-                      <TableCell className={cn(TABLE_CELL, TIGHT, "border-b-0 text-right text-muted-foreground")}>–</TableCell>
-                      {showBase ? (
-                        <TableCell className={cn(TABLE_CELL, TIGHT, "border-b-0 text-right text-muted-foreground")}>{formatCount(baseToLongPending ?? 0)}</TableCell>
-                      ) : null}
-                    </TableRow>
-                  ) : null}
-                </TableBody>
-              </Table>
-            </div>
-          ) : (
-            <p className="text-body-compact text-muted-foreground">No cases disposed in this period</p>
-          )}
+          <EndedTable docket={docket} reading={reading} baseline={name} opener={opener} labelledBy="dash-ended" />
         </div>
       </section>
     </div>
@@ -796,42 +701,12 @@ function Overview({
             {/* The same cells, grouped either side of cognizance: one row from xl, the
                 groups stacked below that. Cases at registration are not on the CMP register
                 yet, so the groups are named by cognizance, not by register. */}
-            <div aria-label="By stage" role="group" className="flex min-w-0 flex-col gap-6 xl:grid xl:grid-cols-6 xl:gap-0">
-              {STAGE_GROUPS.map((group, g) => {
-                const stages = STAGES.filter((stage) => group.keys.includes(stage.key));
-                const count = stages.reduce((sum, stage) => sum + sets.byStage[stage.key].length, 0);
-                const id = `dash-by-stage-${group.keys[0]}`;
-                return (
-                  <div
-                    key={id}
-                    className={cn(
-                      "flex min-w-0 flex-col gap-3",
-                      g === 0 ? "xl:col-span-2 xl:pr-4" : "xl:col-span-4 xl:border-l xl:border-hairline xl:pl-4",
-                    )}
-                  >
-                    <p id={id} className="border-b border-hairline pb-1.5 text-caption text-muted-foreground tabular-nums">
-                      {group.label} · {formatCount(count)}
-                    </p>
-                    <ul
-                      aria-labelledby={id}
-                      className={cn("grid grid-cols-2 gap-y-4 tabular-nums md:grid-cols-4", g === 0 && "xl:grid-cols-2")}
-                    >
-                      {stages.map((stage, i) => (
-                        <PendingCount
-                          key={stage.key}
-                          label={stage.label}
-                          count={sets.byStage[stage.key].length}
-                          total={end.pending}
-                          name={`pending at ${stage.label.toLowerCase()}`}
-                          opener={opener(`stage-${stage.key}`)}
-                          index={i}
-                        />
-                      ))}
-                    </ul>
-                  </div>
-                );
-              })}
-            </div>
+            <StageCells
+              counts={Object.fromEntries(STAGES.map((stage) => [stage.key, sets.byStage[stage.key].length])) as Record<StageKey, number>}
+              total={end.pending}
+              opener={opener}
+              idPrefix="dash-by-stage"
+            />
             {/* A plain table, oldest last: an ordered split of one total reads as rows, and an
                 empty group is a quiet row rather than a card with a 0 in it. It replaces the
                 four cards, which gave the empty groups as much room as the full ones (owner,
@@ -965,80 +840,6 @@ function Overview({
         ) : null}
       </div>
     </section>
-  );
-}
-
-/** One Overview card: label, count, change, and one fact line — the same parts on all three. */
-/** The two groups of the stage card, either side of cognizance. */
-const STAGE_GROUPS: { label: string; keys: StageKey[] }[] = [
-  { label: "Before cognizance", keys: ["registration", "cognizance"] },
-  { label: "After cognizance", keys: ["appearance", "bail", "trial", "judgement"] },
-];
-
-/**
- * One count in the age and stage cards: label, number that opens its cases, share of
- * pending. Rules between columns: every second one on phones, all but the first from md.
- */
-function PendingCount({
-  label,
-  count,
-  total,
-  name,
-  opener,
-  index,
-  className,
-}: {
-  label: string;
-  count: number;
-  total: number;
-  name: string;
-  opener: { expanded: boolean; controls: string; onOpen: (from: HTMLElement) => void };
-  index: number;
-  className?: string;
-}) {
-  return (
-    <li
-      className={cn(
-        "flex min-w-0 flex-col items-start gap-1 px-4",
-        index % 2 === 1 ? "border-l border-hairline" : "max-md:pl-0",
-        index === 0 && "pl-0",
-        index === 2 && "md:border-l md:border-hairline",
-        className,
-      )}
-    >
-      <span className="text-body-compact font-medium">{label}</span>
-      {count ? (
-        <CountButton name={name} className="text-title-s font-semibold" {...opener}>
-          {formatCount(count)}
-        </CountButton>
-      ) : (
-        <span className="inline-flex min-h-10 items-center text-title-s font-semibold text-muted-foreground">0</span>
-      )}
-      <span className="text-caption text-muted-foreground">
-        {count ? `${pct(count / Math.max(1, total))} of pending` : "None"}
-      </span>
-    </li>
-  );
-}
-
-function OverviewCard({
-  label,
-  count,
-  change,
-  fact,
-}: {
-  label: string;
-  count: React.ReactNode;
-  change: React.ReactNode;
-  fact: React.ReactNode;
-}) {
-  return (
-    <div className="flex min-w-0 flex-col items-start gap-1 rounded-xl bg-surface-sunken p-4 sm:px-6">
-      <p className="text-body-compact font-medium">{label}</p>
-      {count}
-      {change}
-      <p className="mt-2 w-full border-t border-hairline pt-2 text-caption text-muted-foreground tabular-nums">{fact}</p>
-    </div>
   );
 }
 
