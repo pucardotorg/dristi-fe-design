@@ -1,8 +1,26 @@
 # Court dashboard and registers
-Updated: 2026-11-10
+Updated: 2026-11-15
 Status: in progress. The Overview redesign is implemented and committed on `feature-courtside-dashboard-v3` (not pushed); v3 is merged to `main` through PR #148
 
 ## Current outcome
+
+**2026-11-15, Court and For you (current).** Every seat's dashboard now has two tabs:
+**Court**, the all-users dashboard as before, and **For you**, the seat's own view. The
+magistrate's view is built from canvas round 18 (https://claude.ai/artifact/C1mN8ALhhcnwpfwG1tSvFj),
+with each section designed around an act only the magistrate does there:
+- **Judgments:** this month against the magistrate's own monthly target (set, change or
+  remove it in a dialog), last month, and the cases reserved for judgment, longest waiting
+  first; over 10 days carries a warning badge.
+- **Registers:** the last 6 months and this month: judgments, ST and CMP disposed, moves to
+  the LPR, then ST, CMP and LPR at each month's end, to check against the paper registers.
+- **Next hearing dates:** no next date (rows open scheduling), then dates far off, judged
+  against twice the stage's usual gap.
+- **Silent cases:** nothing on the case for 60 days, with what happened last; empty state.
+- **Pending cases by stage** and **How cases ended**, the Court view's own parts.
+Other seats show the product's "Not built yet" until rounds 19 (CMO/FSO) and 20 (bench
+clerk). Files: `court-dashboard-for-you.tsx`, `court-dashboard-parts.tsx`,
+`magistrate-view.ts`, `judgment-target.ts`, `dashboard-view.ts`. Commits `65927065`,
+`f073a837`, `ebeb5108`; not pushed.
 
 **2026-11-10, section-by-section redesign (current).** The owner found the v4 dashboard
 visually inconsistent. Example: "compared with before" appeared as grey text, red text,
@@ -229,6 +247,10 @@ artifact (https://claude.ai/artifact/Vn5JjfdhnAGAzJRfQ4Db9k). Only Direction 1 a
 | 2026-11-15 | **Today's date in the header, as Today's hearings draws it (trial).** The owner asked for the Today's hearings date on the dashboard without its function, to see how it looks. `CourtDayMark` shows the month, the day large in a square and the weekday, left of the title with a hairline, from lg up; below lg the subtitle keeps the date. Open: the square looks like the clickable one on Today's hearings but does nothing, and the page's numbers follow the Overview period, not this day. Kept for now. | Owner | trial |
 | 2026-11-10 | **The stage panel becomes "Cases running late" (note 1.2 C)**, proposed name: the cases past each stage's limit. In / out, typical days and the day bars are decided in that round; the panel's own date picker goes. Until then the panel is unchanged, so stage counts briefly appear twice. | Coordinator proposal in round 5, not yet confirmed | proposed |
 | 2026-11-15 | **Type weight and size cleanup after an independent review.** The owner tagged the ui-designer and ui-reviewer; both found the heading ladder consistent (24 / 20 / 16 / 14) and traced the "feels off" problem to the numbers and too much bold. Changed: stage cells drop from the headline number size (32px) to the small-card size (20px), so 32px is left to the six headline cards; card labels go from semibold to medium; leaf row labels in the time-in-court table, the Table view's stage rows and the filing lanes go to regular (subtotals and totals stay semibold); the filing lanes' column headers move from 12px to 14px to match the table header above. Bold 14px text fell from 73 pieces to 41. Open with the DS owner: the DS has no role for stat numbers (they borrow heading sizes, so headline numbers outsize the 24px page title) and one heading tier too few (section headings inside a container sit at body size by owner choice). | Owner, from the ui-designer and ui-reviewer reports | implemented |
+| 2026-11-15 | **Two views on every seat: Court and For you.** One page for everything was overwhelming and gave no clean way to rank court data against a seat's own items (owner). Tabs on every seat, not only the magistrate, so the pattern does not differ by seat (owner). Only For you carries a count, the distinct cases on the seat's lists; the page opens on Court (Satya: overview first for everyone), then on the view used last (coordinator). Round 17 weighed five structures; this is A. | Owner; opening rule is the coordinator's | implemented |
+| 2026-11-15 | **The magistrate's For you, built from round 18.** After two rejected passes (stubs and option switches; then parts placed per note line without thinking through each section), each section answers one question tied to one act: judgments with the cases reserved for judgment (what can still become this month's), registers month by month (round 11 gives item a as the register counts), next dates (no date first, as round 11 puts it first), silent cases, then the two items round 11 adds for the magistrate. Time to disposal is left out: round 11 does not give it to the magistrate. | Owner | implemented |
+| 2026-11-15 | **Defaults for undecided questions:** far-off is twice the stage's usual gap (the dashboard's existing rule; a single x days flagged 43 cognizance cases of 59); silent is 60 days (`COURT_LIMITS.silentDays`, placeholder); the target is kept per court in this browser and starts unset. | Coordinator; owner had no answer yet and asked to decide on the build | implemented, open |
+| 2026-11-15 | **Dialogs opened from state return focus to their opener** (`useReturnFocus`): the "Not built yet" dialog left focus on the page body, on Schedule hearing too. Fixed at the shared dialog. | Coordinator (ACCESSIBILITY.md §5) | implemented |
 
 ## Changes and tradeoffs
 
@@ -246,6 +268,22 @@ artifact (https://claude.ai/artifact/Vn5JjfdhnAGAzJRfQ4Db9k). Only Direction 1 a
   - Stat-tile figures use the title text role, because the DS has no stat-figure role.
 
 ## Verification and open work
+
+**Court and For you, checked 2026-11-15 against `ebeb5108` on `localhost:3000` (serves this
+checkout; DS matches pin `e2cce9b88c2f`).** As the magistrate and bench clerk seats, 1280 and
+390 wide, light and dark: no page errors or page overflow. Counts open their case lists;
+rows open "Not built yet"; the target dialog ignores outside clicks, rejects 0, saves,
+survives a reload and can be removed; the tab is remembered; focus returns to the opener
+after Escape. The Court view's text is unchanged after its parts moved. Typecheck clean
+apart from stale `.next` types; ESLint and the tokens, typography, spacing, table-rows and
+ds-retired checks pass on the changed files (failures remain only in untouched files). The
+review was the coordinator's own pass, not independent.
+
+Open: the far-off rule and whether x should be the magistrate's setting; the silent
+threshold, and whether a case with a hearing listed can count as silent; "No next hearing
+date" reads 32 from the dashboard's demo docket while the Schedule hearing queue reads 17
+from its own demo data; the target lives in one browser, not with the magistrate's account;
+case tables scroll sideways on phones instead of becoming cards.
 
 **Overview redesign, checked 2026-11-10 against `628b6f73` + `d5994dff` on
 `localhost:3000`, which serves this checkout. The DS matches pin `e2cce9b88c2f`.**
