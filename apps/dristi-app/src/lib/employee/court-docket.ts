@@ -60,6 +60,9 @@ export const COURT_LIMITS = {
     deliveryPendingDays: 14,
     hearingWithinDays: 14,
   },
+  /** Days with nothing on a pending case before it counts as silent. The note gives no
+      number (monitoring query 7); 60 holds the place until it does. */
+  silentDays: 60,
 } as const;
 
 export type Stage = {
