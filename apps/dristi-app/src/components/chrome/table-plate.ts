@@ -155,6 +155,22 @@ const HOVER = [
 ].join(" ");
 
 /**
+ * An inert row (`hover: false`). The DS `TableRow` paints its own hover band on the cells
+ * and the DS `TableBody` clears the rule above a hovered row, so leaving `HOVER` out was
+ * not enough: inert rows still lit up under the pointer (measured, owner, 2026-11-15).
+ * These name the same properties at rest values, so `cn` replaces the DS ones.
+ */
+const INERT = [
+  "hover:[&>td]:border-hairline",
+  "hover:[&>td]:bg-card",
+  "hover:[&>td:first-child]:rounded-none",
+  "hover:[&>td:last-child]:rounded-none",
+].join(" ");
+
+/** The body's half of an inert row: keep the rule above it. */
+const BODY_INERT = "[&>tr:has(+_tr:hover)>td]:border-hairline";
+
+/**
  * A row whose own menu is open. The pointer has usually left the row by then, so
  * without this the band vanishes while the menu it belongs to is still standing.
  */
@@ -241,7 +257,7 @@ export function tableRowClass({
 }: TableRowOptions = {}): string {
   return cn(
     REST,
-    hover && HOVER,
+    hover ? HOVER : INERT,
     hover && MENU_OPEN,
     selectable && SELECTED,
     /* Last, so it outranks the rest fill it replaces. */
@@ -257,7 +273,7 @@ export function tableBodyClass({
 }: TableBodyOptions = {}): string {
   return cn(
     BODY_REST,
-    hover && BODY_HOVER,
+    hover ? BODY_HOVER : BODY_INERT,
     selectable && BODY_SELECTED,
     marksOpenRow && BODY_OPEN,
   );
