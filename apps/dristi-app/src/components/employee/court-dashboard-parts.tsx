@@ -32,13 +32,22 @@ export function OverviewCard({
   fact?: React.ReactNode;
 }) {
   return (
-    <div className="flex min-w-0 flex-col items-start gap-1 rounded-xl bg-surface-sunken p-4 sm:px-6">
+    /* The four parts sit on the row's shared lines (subgrid), so every card in a row puts its
+       number, change and divider at one height, whatever wraps or a progress bar adds. Empty
+       parts keep their slot. */
+    <div className="row-span-4 grid min-w-0 grid-rows-subgrid justify-items-start gap-1 rounded-xl bg-surface-sunken p-4 sm:px-6">
       <p className="text-body-compact font-medium">{label}</p>
       {count}
-      {change}
+      {/* The change line sits on the divider, so across a row these lines share one
+          baseline and any spare height opens under the count instead. */}
+      <div className="self-end justify-self-stretch">{change}</div>
       {fact ? (
-        <p className="mt-2 w-full border-t border-hairline pt-2 text-caption text-muted-foreground tabular-nums">{fact}</p>
-      ) : null}
+        <div className="justify-self-stretch pt-2">
+          <p className="border-t border-hairline pt-2 text-caption text-muted-foreground tabular-nums">{fact}</p>
+        </div>
+      ) : (
+        <span />
+      )}
     </div>
   );
 }
@@ -161,6 +170,10 @@ const METHODS: DisposalMethod[] = ["Convicted", "Acquitted", "Settled", "Withdra
    there. */
 const TIGHT = "max-sm:px-2 max-sm:whitespace-normal";
 
+/* Compact rows (owner, 2026-11-16: nine rows at the plate's full height read as too long):
+   the row is the count link's own 40px touch target, no padding around it. */
+const ROW = "h-10 py-0";
+
 /**
  * How cases ended in a period: one table, the two groups as subtotal rows with their methods
  * under them, then all disposed, then moves to the long pending register, which are not
@@ -252,8 +265,8 @@ export function EndedTable({
           {groups.map((g) => (
             <React.Fragment key={g.key}>
               <TableRow className={tableRowClass({ hover: false })}>
-                <th scope="row" className={cn(TABLE_CELL, TIGHT, "font-semibold")}>{g.label}</th>
-                <TableCell className={cn(TABLE_CELL, TIGHT, "text-right font-semibold")}>
+                <th scope="row" className={cn(TABLE_CELL, TIGHT, ROW, "font-semibold")}>{g.label}</th>
+                <TableCell className={cn(TABLE_CELL, TIGHT, ROW, "text-right font-semibold")}>
                   {g.rows.length ? (
                     <CountButton name={g.key} {...opener(g.key)}>
                       {formatCount(g.rows.length)}
@@ -262,13 +275,13 @@ export function EndedTable({
                     <span className="text-muted-foreground">0</span>
                   )}
                 </TableCell>
-                <TableCell className={cn(TABLE_CELL, TIGHT, "text-right font-semibold")}>{shareOf(g.rows.length, disposedRows.length)}%</TableCell>
-                {showBase ? <TableCell className={cn(TABLE_CELL, TIGHT, "text-right text-muted-foreground")}>{formatCount(baseCount(g.key))}</TableCell> : null}
+                <TableCell className={cn(TABLE_CELL, TIGHT, ROW, "text-right font-semibold")}>{shareOf(g.rows.length, disposedRows.length)}%</TableCell>
+                {showBase ? <TableCell className={cn(TABLE_CELL, TIGHT, ROW, "text-right text-muted-foreground")}>{formatCount(baseCount(g.key))}</TableCell> : null}
               </TableRow>
               {g.methods.map((m) => (
                 <TableRow key={m.key} className={tableRowClass({ hover: false })}>
-                  <th scope="row" className={cn(TABLE_CELL, TIGHT, "pl-8 font-normal")}>{m.key}</th>
-                  <TableCell className={cn(TABLE_CELL, TIGHT, "text-right")}>
+                  <th scope="row" className={cn(TABLE_CELL, TIGHT, ROW, "pl-8 font-normal text-muted-foreground")}>{m.key}</th>
+                  <TableCell className={cn(TABLE_CELL, TIGHT, ROW, "text-right")}>
                     {m.n ? (
                       <CountButton name={m.key.toLowerCase()} {...opener(`method-${m.key}`)}>
                         {formatCount(m.n)}
@@ -277,36 +290,36 @@ export function EndedTable({
                       <span className="text-muted-foreground">0</span>
                     )}
                   </TableCell>
-                  <TableCell className={cn(TABLE_CELL, TIGHT, "text-right", !m.n && "text-muted-foreground")}>
+                  <TableCell className={cn(TABLE_CELL, TIGHT, ROW, "text-right", !m.n && "text-muted-foreground")}>
                     {m.n ? `${shareOf(m.n, disposedRows.length)}%` : "–"}
                   </TableCell>
-                  {showBase ? <TableCell className={cn(TABLE_CELL, TIGHT, "text-right text-muted-foreground")}>{formatCount(baseCount(m.key))}</TableCell> : null}
+                  {showBase ? <TableCell className={cn(TABLE_CELL, TIGHT, ROW, "text-right text-muted-foreground")}>{formatCount(baseCount(m.key))}</TableCell> : null}
                 </TableRow>
               ))}
             </React.Fragment>
           ))}
           <TableRow className={tableRowClass({ hover: false })}>
-            <th scope="row" className={last(cn(TABLE_CELL, TIGHT, "font-semibold"), !toLongPending)}>All disposed</th>
-            <TableCell className={last(cn(TABLE_CELL, TIGHT, "text-right font-semibold"), !toLongPending)}>{formatCount(disposedRows.length)}</TableCell>
-            <TableCell className={last(cn(TABLE_CELL, TIGHT, "text-right font-semibold"), !toLongPending)}>100%</TableCell>
-            {showBase ? <TableCell className={last(cn(TABLE_CELL, TIGHT, "text-right font-semibold"), !toLongPending)}>{formatCount(baseCount("all"))}</TableCell> : null}
+            <th scope="row" className={last(cn(TABLE_CELL, TIGHT, ROW, "font-semibold"), !toLongPending)}>All disposed</th>
+            <TableCell className={last(cn(TABLE_CELL, TIGHT, ROW, "text-right font-semibold"), !toLongPending)}>{formatCount(disposedRows.length)}</TableCell>
+            <TableCell className={last(cn(TABLE_CELL, TIGHT, ROW, "text-right font-semibold"), !toLongPending)}>100%</TableCell>
+            {showBase ? <TableCell className={last(cn(TABLE_CELL, TIGHT, ROW, "text-right font-semibold"), !toLongPending)}>{formatCount(baseCount("all"))}</TableCell> : null}
           </TableRow>
           {toLongPending ? (
             <TableRow className={tableRowClass({ hover: false })}>
-              <th scope="row" className={cn(TABLE_CELL, TIGHT, "border-b-0 font-normal")}>
+              <th scope="row" className={cn(TABLE_CELL, TIGHT, ROW, "border-b-0 py-1.5 font-normal")}>
                 <span className="flex flex-col">
                   Moved to the long pending register
                   <span className="text-caption text-muted-foreground">Not a disposal</span>
                 </span>
               </th>
-              <TableCell className={cn(TABLE_CELL, TIGHT, "border-b-0 text-right")}>
+              <TableCell className={cn(TABLE_CELL, TIGHT, ROW, "border-b-0 text-right")}>
                 <CountButton name="moved to long pending" {...opener("toLongPending")}>
                   {formatCount(toLongPending)}
                 </CountButton>
               </TableCell>
-              <TableCell className={cn(TABLE_CELL, TIGHT, "border-b-0 text-right text-muted-foreground")}>–</TableCell>
+              <TableCell className={cn(TABLE_CELL, TIGHT, ROW, "border-b-0 text-right text-muted-foreground")}>–</TableCell>
               {showBase ? (
-                <TableCell className={cn(TABLE_CELL, TIGHT, "border-b-0 text-right text-muted-foreground")}>{formatCount(baseToLongPending ?? 0)}</TableCell>
+                <TableCell className={cn(TABLE_CELL, TIGHT, ROW, "border-b-0 text-right text-muted-foreground")}>{formatCount(baseToLongPending ?? 0)}</TableCell>
               ) : null}
             </TableRow>
           ) : null}
