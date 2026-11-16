@@ -358,7 +358,7 @@ function OtherCell({
         <button
           type="button"
           disabled={busy}
-          aria-label={docs.length ? `${docs.length} other ${docs.length === 1 ? "document" : "documents"}` : "Add another document"}
+          aria-label={docs.length ? `${docs.length} other ${docs.length === 1 ? "document" : "documents"}` : "Add other document"}
           className={cn(
             "inline-flex h-9 min-w-9 items-center justify-center rounded-full px-2.5 text-body-compact font-medium tabular-nums transition-colors focus-visible:ring-3 focus-visible:ring-focus-ring focus-visible:outline-none disabled:opacity-60",
             docs.length
@@ -405,7 +405,7 @@ function OtherCell({
             }}
           >
             <Label htmlFor={nameId} className="text-body-compact">
-              {docs.length ? "Add another" : "Document name"}
+              {docs.length ? "Add other document" : "Document name"}
             </Label>
             <div className="flex gap-2">
               <Input
@@ -492,8 +492,6 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
   const closed = !!batch.clubbedInto;
   const demo = useDemoTools();
   const [search, setSearch] = React.useState("");
-  // Optional documents the filer has added to the table as columns.
-  const [extra, setExtra] = React.useState<string[]>([]);
   // The "Other" column, opened before any case has a paper of its own; and whose
   // "Other" popover is open (from the row menu).
   const [otherCol, setOtherCol] = React.useState(false);
@@ -601,18 +599,15 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
       const key = typeOf(d);
       if (!columns.some((col) => col.key === key)) columns.push({ key, required: true });
     }
-  // An optional paper becomes a column of its own once the filer adds it to the table, or
-  // once any case has one (owner, 2026-11-12: a new document is a new column), so a reply
-  // to the notice is collected down the batch like every other document.
-  const optionalTypes: string[] = [];
-  for (const c of open)
+  // The optional papers a case's own sections offer (a reply to the notice) are columns too,
+  // always: the grid lists what individual filing's Documents step lists, nothing more, and
+  // a document for a section the case lacks, such as a second cheque, waits until that
+  // section is added on Case details (BLK-11e).
+  for (const c of listed)
     for (const d of c.documents.filter((x) => !own(x) && !x.required && !x.custom)) {
       const key = typeOf(d);
-      if (!optionalTypes.includes(key)) optionalTypes.push(key);
-      if (d.file && !extra.includes(key) && !columns.some((col) => col.key === key)) columns.push({ key, required: false });
+      if (!columns.some((col) => col.key === key)) columns.push({ key, required: false });
     }
-  for (const key of extra) if (!columns.some((col) => col.key === key)) columns.push({ key, required: false });
-  const addable = optionalTypes.filter((t) => !columns.some((col) => col.key === t));
   // Papers only one case has share a trailing "Other" column, shown once any case has one
   // or the filer starts one, so a one-off never adds a column every case would carry.
   const customOf = (c: CaseView) => c.documents.filter((x) => x.custom);
@@ -652,8 +647,8 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
             window.requestAnimationFrame(() => setOtherFor(id));
           }}
         >
-          {/* A paper only this case has: added right here, in the row's Other cell, never
-              by leaving for the case (owner, 2026-11-12). */}
+          {/* Individual filing's "Add other document" for the case's own section: added
+              right here, in the row's Other cell, never by leaving for the case. */}
           <DropdownMenuItem
             onSelect={() => {
               setOtherCol(true);
@@ -661,7 +656,7 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
             }}
           >
             <PlusIcon aria-hidden />
-            Another document for this case
+            Add other document
           </DropdownMenuItem>
           {demo && c.docs.have < c.docs.need ? (
             <DropdownMenuItem disabled={!!busy} onSelect={() => void fillDemo([c])}>
@@ -725,31 +720,6 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
             { id: "complete", label: "Documents added", count: open.length - lackingCases.length },
           ]}
         />
-        {/* A new document is a new column, collected down the batch (owner, 2026-11-12). */}
-        {(addable.length || !showOther) && !closed ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="text-body-compact">
-                <PlusIcon data-icon="inline-start" aria-hidden />
-                Add a document
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="min-w-56">
-              {addable.map((t) => (
-                <DropdownMenuItem key={t} onSelect={() => setExtra((x) => [...x, t])}>
-                  {t}
-                  <span className="ml-auto text-muted-foreground">Every case</span>
-                </DropdownMenuItem>
-              ))}
-              {showOther ? null : (
-                <DropdownMenuItem onSelect={() => setOtherCol(true)}>
-                  Another document
-                  <span className="ml-auto text-muted-foreground">Some cases</span>
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : null}
         <CaseSearch
           id="documents-search"
           value={search}
