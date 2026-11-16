@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Spinner } from "@/components/ui/spinner";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
@@ -352,7 +352,6 @@ function OtherCell({
   const addInput = React.useRef<HTMLInputElement>(null);
   const replaceInput = React.useRef<HTMLInputElement>(null);
   const [target, setTarget] = React.useState<Doc | null>(null);
-  const nameId = React.useId();
   if (locked && !docs.length) return <span className="text-muted-foreground">—</span>;
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
@@ -406,21 +405,23 @@ function OtherCell({
               if (name.trim()) addInput.current?.click();
             }}
           >
-            <Label htmlFor={nameId} className="text-body-compact">
-              {docs.length ? "Add other document" : "Document name"}
-            </Label>
-            <div className="flex gap-2">
-              <Input
-                id={nameId}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Loan agreement"
-                className="flex-1"
-              />
-              <Button type="submit" variant="secondary" disabled={!name.trim()}>
-                Choose file
-              </Button>
-            </div>
+            {/* In a DS Field, so the label is tied to the input (Input takes its id from it). */}
+            <Field className="gap-2">
+              <FieldLabel className="text-body-compact">
+                {docs.length ? "Add other document" : "Document name"}
+              </FieldLabel>
+              <div className="flex gap-2">
+                <Input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. Loan agreement"
+                  className="flex-1"
+                />
+                <Button type="submit" variant="secondary" disabled={!name.trim()}>
+                  Choose file
+                </Button>
+              </div>
+            </Field>
           </form>
         )}
         <input
