@@ -27,11 +27,12 @@ import {
 import { aiModeFrom } from "./ai-review";
 import type { ApiBatchRequest, ApiBatchResponse, ApiDocument } from "./contract";
 import { localizeCaseNumber } from "@/lib/court/localize";
+import { newId } from "@/lib/filing/data";
 import { buildBatch, validateRequest, writeFacts } from "./intake";
 import { applyParties, type BatchParties } from "./parties";
 import { caseFlags } from "./scrutiny";
 import { draftNumber, type BulkStore, type FileMeta } from "./store";
-import type { Batch, BulkSignMethod } from "./types";
+import type { Batch, BulkSignMethod, NotCreated } from "./types";
 import type { FilingDraft, StoredFileRef } from "@/lib/filing/types";
 
 /** A handler's answer: JSON with a status, or a stored file. */
@@ -52,7 +53,73 @@ export async function listSummaries(store: BulkStore): Promise<Reply> {
   return ok(all.map((b) => summarise(b, all)).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)));
 }
 
+/* ───────────────────────────── Not created yet ───────────────────────────── */
+
+/** What the setup screens keep of an upload left before Create (BLK-10m). */
+export type SetupBody = Omit<Extract<NotCreated, { kind: "excel" }>, "kind" | "setupId"> & { client: string };
+
+const setupOf = (b: Batch, setupId: string) => b.notCreated?.kind === "excel" && b.notCreated.setupId === setupId;
+
+/**
+ * Keep an upload's setup as an unfinished batch in the list, or bring the one kept up to
+ * date. It gets its B-number when first kept, so the list can name it.
+ */
+export async function saveSetup(store: BulkStore, setupId: string, body: SetupBody): Promise<Reply> {
+  const notCreated: NotCreated = {
+    kind: "excel",
+    setupId,
+    path: body.path,
+    where: body.where,
+    draft: body.draft,
+    ...(body.upload ? { upload: body.upload } : {}),
+  };
+  const source = { kind: "excel" as const, system: "Excel upload", ...(body.upload?.fileName ? { reference: body.upload.fileName } : {}) };
+  const all = await store.listBatches();
+  // Created already: a save that arrives late changes nothing.
+  const made = all.find((b) => b.setupId === setupId && !b.notCreated);
+  if (made) return fail("This upload is already a batch.", 409);
+  const kept = all.find((b) => setupOf(b, setupId));
+  if (kept) {
+    const out = await store.updateBatch(kept.id, (b) => ({ ...b, client: body.client || b.client, source, notCreated }));
+    return ok({ batchId: out!.id, batchNumber: out!.number });
+  }
+  const now = new Date().toISOString();
+  const saved = await store.insertBatch({
+    id: newId("batch"),
+    source,
+    client: body.client,
+    createdAt: now,
+    updatedAt: now,
+    cases: [],
+    payments: [],
+    signings: [],
+    clubbedInto: null,
+    clubbedFrom: [],
+    openedAt: now,
+    notCreated,
+  });
+  return ok({ batchId: saved.id, batchNumber: saved.number }, 201);
+}
+
+/** The kept setup, to reopen it in the tab Continue opens. */
+export async function getSetup(store: BulkStore, setupId: string): Promise<Reply> {
+  const kept = (await store.listBatches()).find((b) => setupOf(b, setupId));
+  if (!kept || kept.notCreated?.kind !== "excel") return fail("No such upload.", 404);
+  return ok({ batchId: kept.id, batchNumber: kept.number, ...kept.notCreated });
+}
+
+/** Delete a batch that is not created yet, from the list's Delete. Created batches stay. */
+export async function deleteNotCreated(store: BulkStore, batchId: string): Promise<Reply> {
+  const batch = await store.getBatch(batchId);
+  if (!batch) return fail("No such batch.", 404);
+  if (!batch.notCreated) return fail("A created batch is not deleted here.", 409);
+  await store.deleteBatch(batchId);
+  return ok({ deleted: batch.number });
+}
+
 export type CreateBody = {
+  /** The setup this upload was made in: an unfinished batch kept for it becomes the batch. */
+  setupId?: string;
   request: ApiBatchRequest;
   fileName: string;
   /** "documents": cases read from one document each, and reviewed (AI-assisted upload). */
@@ -90,6 +157,13 @@ export async function createBatch(store: BulkStore, body: CreateBody): Promise<R
     bc.docText = { ...bc.docText, [o.file.id]: o.text };
   }
   if (parties) built.common = { ...parties, adr: request.adr ?? built.cases[0]?.draft.adr.adr ?? "" };
+  if (body.setupId) built.setupId = body.setupId;
+  // The unfinished batch kept for this upload becomes the batch, keeping its number.
+  const kept = body.setupId ? (await store.listBatches()).find((b) => setupOf(b, body.setupId!)) : undefined;
+  if (kept) {
+    const out = await store.updateBatch(kept.id, (b) => ({ ...built, id: b.id, number: b.number }));
+    return ok({ batchId: out!.id, batchNumber: out!.number }, 201);
+  }
   const batch = await store.insertBatch(built);
   return ok({ batchId: batch.id, batchNumber: batch.number }, 201);
 }

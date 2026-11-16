@@ -39,6 +39,7 @@ import {
   type Workbookish,
 } from "@/lib/bulk/excel";
 import { LISTS, type ListName } from "@/lib/bulk/excel-spec";
+import { useSetupKeeper } from "./setup-keeper";
 import { money } from "@/lib/filing/format";
 import type { FilingDraft, StoredFileRef } from "@/lib/filing/types";
 import type { ApiBatchRequest } from "@/lib/bulk/contract";
@@ -303,9 +304,11 @@ export function UploadScreen() {
   const [originals, setOriginals] = React.useState<
     Record<string, { file: StoredFileRef; text: string | null }>
   >({});
+  // A file read before the filer left, when Continue reopens the upload (BLK-10m).
+  const [keptName, setKeptName] = React.useState("");
   const fileName = docs
     ? `${files.length} case document${files.length === 1 ? "" : "s"}`
-    : (file?.name ?? "");
+    : (file?.name ?? keptName);
   const [book, setBook] = React.useState<Workbookish | null>(null);
   // Which step is on screen is in the address, so the sections rail can link to each; one
   // that needs a file read falls back to the file until there is one.
@@ -328,6 +331,42 @@ export function UploadScreen() {
   const [template, setTemplate] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+
+  // Reopened from the batch list: start from what was kept, once (BLK-10m).
+  const keeper = useSetupKeeper();
+  const restored = React.useRef(false);
+  React.useEffect(() => {
+    const k = keeper.kept?.upload;
+    if (restored.current || !k || book) return;
+    restored.current = true;
+    setFormat(k.format);
+    setTemplate(k.template);
+    setKeptName(k.fileName);
+    setBook(k.book);
+    setMap(k.map);
+    setValues(k.values as ValueMap);
+    setCounts(k.counts as InstanceCounts);
+    setLater(new Set(k.later));
+    setFactsChoice(k.factsChoice);
+    setEveryCase(k.everyCase);
+  }, [keeper.kept, book]);
+  // Everything chosen on the file, kept as the filer goes, so leaving keeps it.
+  const keep = keeper.report;
+  React.useEffect(() => {
+    if (!book || docs) return;
+    keep({
+      format,
+      template,
+      fileName,
+      book,
+      map,
+      values: values as Record<string, Record<string, string>>,
+      counts: counts as Record<string, number>,
+      later: [...later],
+      factsChoice,
+      everyCase,
+    });
+  }, [keep, book, docs, format, template, fileName, map, values, counts, later, factsChoice, everyCase]);
 
   // A sample spreadsheet, fetched and chosen as if it had been dropped.
   const [sampling, setSampling] = React.useState<string | null>(null);
@@ -511,13 +550,15 @@ export function UploadScreen() {
       const built = requestFor();
       if (!built) return;
       const { request } = built;
+      // The batch kept for this upload becomes the batch: stop keeping it.
+      keeper.stop();
       const res = await bulkFetch("/api/bulk/batches", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(
           docs
-            ? { request, fileName, from: "documents", originals, parties }
-            : { request, fileName, parties },
+            ? { request, fileName, from: "documents", originals, parties, setupId }
+            : { request, fileName, parties, setupId },
         ),
       });
       const json = await res.json();

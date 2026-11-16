@@ -55,6 +55,7 @@ import { batchMarks } from "./batch-marks";
 import { BatchAdr } from "./batch-parties";
 import { BulkSteps, StageRow, type BulkStepId, type Stage, type StepMark } from "./bulk-steps";
 import { useGujarat } from "./court-guard";
+import { SetupKeeper, useKeptSetup } from "./setup-keeper";
 
 /** The sections the setup walks, in order. */
 const SETUP_STEPS: StepId[] = ["complainant", "advocate", "documents"];
@@ -123,6 +124,8 @@ export function BulkSetupFlow({
   children: React.ReactNode;
 }) {
   const ready = useGujarat();
+  // An upload kept in the batch list (BLK-10m) reopens where it was left.
+  const kept = useKeptSetup(setupId, !batch);
   const pathname = usePathname();
   const step = stepFromPathname(pathname);
   const params = useSearchParams();
@@ -210,6 +213,32 @@ export function BulkSetupFlow({
   );
 
   if (!ready) return null;
+  if (kept === undefined)
+    return (
+      <div role="status" aria-live="polite" className="flex flex-1 items-center justify-center py-16 text-body-compact text-muted-foreground">
+        <Spinner className="mr-2 size-4" />
+        Opening the upload…
+      </div>
+    );
+
+  const body = (
+    <UploadStateContext.Provider value={setUpload}>
+      <SetupPolicy policy={policy} locked={!!batch}>
+        <FilingShell
+          rail={false}
+          banner={
+            batch ? (
+              <BatchCommonSteps batch={batch} step={step} ai={ai} />
+            ) : (
+              <SetupSteps setupId={setupId} step={step} uploadStep={uploadStep} upload={upload} ai={ai} />
+            )
+          }
+        >
+          {children}
+        </FilingShell>
+      </SetupPolicy>
+    </UploadStateContext.Provider>
+  );
 
   return (
     <FilingProvider
@@ -238,8 +267,8 @@ export function BulkSetupFlow({
                 This upload has expired
               </EmptyTitle>
               <EmptyDescription className="text-body">
-                An upload that was not finished is kept only in the browser tab it was
-                started in. Start a new one.
+                It was never kept: an upload joins your batch list once you move past
+                its first section. Start a new one.
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
@@ -256,22 +285,13 @@ export function BulkSetupFlow({
       ) : (
         <DraftBreadcrumbLabel label={ai === "on" ? "Upload cases" : "Upload Excel"} />
       )}
-      <UploadStateContext.Provider value={setUpload}>
-        <SetupPolicy policy={policy} locked={!!batch}>
-          <FilingShell
-            rail={false}
-            banner={
-              batch ? (
-                <BatchCommonSteps batch={batch} step={step} ai={ai} />
-              ) : (
-                <SetupSteps setupId={setupId} step={step} uploadStep={uploadStep} upload={upload} ai={ai} />
-              )
-            }
-          >
-            {children}
-          </FilingShell>
-        </SetupPolicy>
-      </UploadStateContext.Provider>
+      {batch ? (
+        body
+      ) : (
+        <SetupKeeper setupId={setupId} kept={kept}>
+          {body}
+        </SetupKeeper>
+      )}
     </FilingProvider>
   );
 }

@@ -8,6 +8,7 @@
  * deliberately, which moves the cases into a new batch and closes the originals.
  */
 
+import type { ApiBatchRequest } from "./contract";
 import type {
   FilingDraft,
   SignInstrument,
@@ -145,7 +146,41 @@ export type Batch = {
    * stored before this existed: those read them from the first case, which got them first.
    */
   common?: BatchCommon;
+  /** The upload setup this batch was created from, so a late save of it never makes another. */
+  setupId?: string;
+  /** Set until the batch is created (`NotCreated`); absent on a created batch. */
+  notCreated?: NotCreated;
 };
+
+/**
+ * An Excel upload's screens as the filer left them, to come back to (BLK-10m): the setup's
+ * Common details and, once a file is read, the file and every choice made on it.
+ */
+export type UploadSnapshot = {
+  format: "template" | "own" | null;
+  template: boolean;
+  fileName: string;
+  book: { cases: { name: string; headers: string[]; rows: string[][]; discarded: number; rowNumbers?: number[] } };
+  map: Record<string, number | { every: string } | null>;
+  values: Record<string, Record<string, string>>;
+  counts: Record<string, number>;
+  later: string[];
+  factsChoice: { id: string | undefined; html: string } | null;
+  everyCase: boolean | null;
+};
+
+/**
+ * A batch that is not created yet, listed so the filer can come back to it or delete it.
+ *
+ *  · `excel`: an upload left before Create (BLK-10m). `path` is where it was left, under
+ *    the setup (`advocate`, `file?step=map`), and `where` says it in words.
+ *  · `api`: a push from a client's system. Its cases are built (their documents fetched)
+ *    on arrival, but it starts at Facts of the case and becomes a batch on Create (§3):
+ *    `request` is what was sent, for the Facts preview.
+ */
+export type NotCreated =
+  | { kind: "excel"; setupId: string; path: string; where: string; draft: FilingDraft; upload?: UploadSnapshot }
+  | { kind: "api"; request: ApiBatchRequest };
 
 /** Where one case stands in its batch. */
 export type CaseStage = "held" | "ready" | "signed" | "filed";

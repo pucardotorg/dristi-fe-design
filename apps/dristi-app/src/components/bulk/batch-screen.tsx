@@ -91,6 +91,11 @@ export function BatchScreen({ batchId }: { batchId: string }) {
     bulkApi.get(batchId).then(setBatch, (e: Error) => setError(e.message));
   }, [ready, batchId, ai]);
 
+  // A batch not created yet has no steps to show: it opens where it was left (BLK-10m, §3).
+  React.useEffect(() => {
+    if (batch?.notCreated) router.replace(batch.notCreated.href);
+  }, [batch, router]);
+
   // Common details reopen on the pages they were filled on, never as a summary.
   React.useEffect(() => {
     if (tab === "common") router.replace(commonHref(batchId));
@@ -140,7 +145,7 @@ export function BatchScreen({ batchId }: { batchId: string }) {
     );
   }
 
-  if (!batch) {
+  if (!batch || batch.notCreated) {
     return (
       <div
         className={cn(

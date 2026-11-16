@@ -112,6 +112,11 @@ export type BatchSummary = {
   openedAt: string | null;
   /** Who the batch was sent to: the first advocate on its cases. */
   filingAdvocate: { name: string; barNumber: string } | null;
+  /**
+   * Set while the batch is not created yet (BLK-10m, §3 API): how it came, where it was
+   * left in words, and where Continue goes. Absent on a created batch.
+   */
+  notCreated: { kind: "excel" | "api"; where: string; href: string } | null;
 };
 
 export type BatchView = BatchSummary & {
@@ -244,7 +249,16 @@ export function summarise(
     flagged,
     openedAt: batch.openedAt === undefined ? batch.createdAt : batch.openedAt,
     filingAdvocate: filingAdvocate(batch),
+    notCreated: notCreatedSummary(batch),
   };
+}
+
+/** Where a batch not created yet was left, and where Continue takes the filer. */
+function notCreatedSummary(batch: Batch): BatchSummary["notCreated"] {
+  const n = batch.notCreated;
+  if (!n) return null;
+  if (n.kind === "api") return { kind: "api", where: "Facts of the case, then Create", href: `/filings/bulk/${batch.id}/start` };
+  return { kind: "excel", where: n.where, href: `/filings/bulk/upload/${encodeURIComponent(n.setupId)}/${n.path}` };
 }
 
 export function batchView(

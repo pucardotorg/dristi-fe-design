@@ -3,12 +3,17 @@
 import * as React from "react";
 
 import type { BatchSummary, BatchView, CaseView } from "@/lib/bulk/actions.server";
+import type { SetupBody } from "@/lib/bulk/handlers";
+import type { NotCreated } from "@/lib/bulk/types";
 import { firstFlaggedStep } from "@/lib/bulk/flag-place";
 import { getStep } from "@/lib/filing/steps";
 import type { StepId } from "@/lib/filing/types";
 import type { AiMode } from "@/lib/court/profiles";
 
 export type { BatchSummary, BatchView, CaseView } from "@/lib/bulk/actions.server";
+
+/** An upload kept before Create, as the setup screens reopen it. */
+export type KeptSetup = Omit<Extract<NotCreated, { kind: "excel" }>, "kind"> & { batchId: string; batchNumber: string };
 
 /* ───────────────────────────── Where batches live ───────────────────────────── */
 
@@ -64,7 +69,10 @@ export async function bulkFetch(url: string, init: RequestInit = {}): Promise<Re
   let reply: Awaited<ReturnType<typeof h.getFile>> | null = null;
   const [a, id, b, caseId] = parts;
   if (a === "batches" && !id) reply = method === "POST" ? await h.createBatch(store, json()) : await h.listSummaries(store);
-  else if (a === "batches" && !b) reply = await h.getBatchView(store, id, ai);
+  else if (a === "batches" && !b)
+    reply = method === "DELETE" ? await h.deleteNotCreated(store, id) : await h.getBatchView(store, id, ai);
+  else if (a === "setups" && id)
+    reply = method === "PUT" ? await h.saveSetup(store, id, json()) : await h.getSetup(store, id);
   else if (a === "batches" && b === "actions") reply = await h.act(store, id, json());
   else if (a === "batches" && b === "drafts") reply = await h.batchDrafts(store, id);
   else if (a === "batches" && b === "cases" && caseId)
@@ -120,6 +128,21 @@ export const bulkApi = {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ ...body, ai: aiMode }),
     }).then((r) => json<BatchView>(r)),
+  /** Keep an upload left before Create in the batch list (BLK-10m). */
+  saveSetup: (setupId: string, body: SetupBody) =>
+    bulkFetch(`/api/bulk/setups/${encodeURIComponent(setupId)}`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    }).then((r) => json<{ batchId: string; batchNumber: string }>(r)),
+  /** The upload kept for a setup, or `null` when none was. */
+  getSetup: (setupId: string) =>
+    bulkFetch(`/api/bulk/setups/${encodeURIComponent(setupId)}`, { cache: "no-store" }).then((r) =>
+      r.status === 404 ? null : json<KeptSetup>(r),
+    ),
+  /** The list's Delete, for a batch not created yet. */
+  deleteNotCreated: (id: string) =>
+    bulkFetch(`/api/bulk/batches/${id}`, { method: "DELETE" }).then((r) => json<{ deleted: string }>(r)),
   /** Take a case out; the reply says when that was the batch's last and the batch is gone. */
   remove: (id: string, caseId: string) =>
     bulkFetch(`/api/bulk/batches/${id}/actions`, {

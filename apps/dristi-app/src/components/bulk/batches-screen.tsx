@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
+  ArrowRightIcon,
   CircleCheckIcon,
   DownloadIcon,
   Layers2Icon,
@@ -57,6 +58,7 @@ import { StageBar } from "./stage";
 import { waitingOnOthers } from "./signing-round";
 import { StatusLine } from "@/components/feedback";
 import { notify } from "@/components/ui/notify";
+import { ConfirmDialog } from "@/components/shell/confirm-dialog";
 import { DELETED_PARAM } from "./remove-case";
 
 export async function downloadTemplate() {
@@ -181,12 +183,26 @@ export function BatchesScreen() {
     }
   };
 
+  // A batch not created yet opens where it was left: the upload's step, or an API batch's
+  // Facts of the case (BLK-10m, §3).
+  const hrefOf = (b: BatchSummary) => b.notCreated?.href ?? `/filings/bulk/${b.id}`;
+  const [deleting, setDeleting] = React.useState<BatchSummary | null>(null);
+  const remove = async (b: BatchSummary) => {
+    try {
+      await bulkApi.deleteNotCreated(b.id);
+      notify.success(`${b.number} deleted`);
+      load();
+    } catch (e) {
+      notify.error(`${b.number} could not be deleted`, { description: (e as Error).message });
+    }
+  };
+
   const row = (b: BatchSummary, selectable: boolean) => (
     <TableRow
       key={b.id}
       className={cn(tableRowClass({ selectable }), "cursor-pointer")}
       data-state={picked.has(b.id) ? "selected" : undefined}
-      onClick={() => router.push(`/filings/bulk/${b.id}`)}
+      onClick={() => router.push(hrefOf(b))}
     >
       <TableCell
         className={cn(TABLE_CELL, "w-12 pl-6")}
@@ -209,7 +225,7 @@ export function BatchesScreen() {
       </TableCell>
       <TableCell className={cn(TABLE_CELL, "font-medium tabular-nums")}>
         <Link
-          href={`/filings/bulk/${b.id}`}
+          href={hrefOf(b)}
           className="hover:underline"
           onClick={(e) => e.stopPropagation()}
         >
@@ -239,10 +255,12 @@ export function BatchesScreen() {
         {toLongDate(b.createdAt.slice(0, 10))}
       </TableCell>
       <TableCell className={cn(TABLE_CELL, "text-right tabular-nums")}>
-        {b.total}
+        {b.notCreated?.kind === "excel" ? <span className="text-muted-foreground">—</span> : b.total}
       </TableCell>
       <TableCell className={cn(TABLE_CELL, "pr-6 whitespace-normal")}>
-        {b.clubbedInto ? (
+        {b.notCreated ? (
+          <NotCreatedStatus b={b} onDelete={() => setDeleting(b)} />
+        ) : b.clubbedInto ? (
           <Badge variant="outline">Clubbed into {b.clubbedIntoNumber}</Badge>
         ) : b.total > 0 && b.counts.filed === b.total ? (
           <Badge variant="success">
@@ -373,7 +391,7 @@ export function BatchesScreen() {
               aria-label="Batches"
             >
               {shown.map((b) => {
-                const selectable = !finished(b);
+                const selectable = !finished(b) && !b.notCreated;
                 return (
                   <li key={b.id} className="flex items-start gap-3 px-4 py-3">
                     {selectable ? (
@@ -393,7 +411,7 @@ export function BatchesScreen() {
                       </span>
                     ) : null}
                     <Link
-                      href={`/filings/bulk/${b.id}`}
+                      href={hrefOf(b)}
                       className="flex min-w-0 flex-1 flex-col gap-2 rounded-lg focus-visible:ring-3 focus-visible:ring-focus-ring focus-visible:outline-none"
                     >
                       <span className="flex min-h-10 flex-wrap items-center gap-2">
@@ -416,7 +434,12 @@ export function BatchesScreen() {
                             : null
                         }
                       />
-                      {b.clubbedInto ? (
+                      {b.notCreated ? (
+                        <span className="flex flex-col text-body-compact">
+                          <span className="font-medium">Not created yet</span>
+                          <span className="text-muted-foreground">{sentence(b.notCreated.where)}</span>
+                        </span>
+                      ) : b.clubbedInto ? (
                         <Badge variant="outline">
                           Clubbed into {b.clubbedIntoNumber}
                         </Badge>
@@ -459,13 +482,61 @@ export function BatchesScreen() {
                   </TableRow>
                 </TableHeader>
                 <TableBody className={tableBodyClass({ selectable: true })}>
-                  {shown.map((b) => row(b, !finished(b)))}
+                  {shown.map((b) => row(b, !finished(b) && !b.notCreated))}
                 </TableBody>
               </Table>
             </div>
           </>
         )}
       </Card>
+
+      <ConfirmDialog
+        open={!!deleting}
+        onOpenChange={(o) => {
+          if (!o) setDeleting(null);
+        }}
+        title={deleting ? `Delete ${deleting.number}?` : "Delete this batch?"}
+        description="It isn't created yet, so no case is lost: what you entered for this upload goes. Your Excel file stays as it is."
+        confirmLabel="Delete"
+        cancelLabel="Back"
+        onConfirm={() => {
+          if (deleting) void remove(deleting);
+          setDeleting(null);
+        }}
+      />
     </div>
+  );
+}
+
+/** "stopped at Match values" → "Stopped at Match values". */
+const sentence = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/**
+ * A batch not created yet, where it stands: the words, then Continue (back where it was
+ * left) and, for an upload, Delete (BLK-10m). An API batch can't be deleted here; it waits
+ * for Facts of the case and Create (§3).
+ */
+function NotCreatedStatus({ b, onDelete }: { b: BatchSummary; onDelete: () => void }) {
+  const n = b.notCreated!;
+  return (
+    <span className="flex flex-wrap items-center gap-x-4 gap-y-2">
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="font-medium">Not created yet</span>
+        <span className="text-body-compact text-muted-foreground">{sentence(n.where)}</span>
+      </span>
+      <span className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+        <Button asChild size="sm" variant="outline">
+          <Link href={n.href}>
+            Continue
+            <ArrowRightIcon data-icon="inline-end" aria-hidden />
+          </Link>
+        </Button>
+        {n.kind === "excel" ? (
+          <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={onDelete}>
+            Delete
+          </Button>
+        ) : null}
+      </span>
+    </span>
   );
 }
