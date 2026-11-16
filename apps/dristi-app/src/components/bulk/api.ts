@@ -4,6 +4,7 @@ import * as React from "react";
 
 import type { BatchSummary, BatchView, CaseView } from "@/lib/bulk/actions.server";
 import type { SetupBody } from "@/lib/bulk/handlers";
+import type { ApiBatchRequest } from "@/lib/bulk/contract";
 import type { NotCreated } from "@/lib/bulk/types";
 import { firstFlaggedStep } from "@/lib/bulk/flag-place";
 import { getStep } from "@/lib/filing/steps";
@@ -74,6 +75,8 @@ export async function bulkFetch(url: string, init: RequestInit = {}): Promise<Re
   else if (a === "setups" && id)
     reply = method === "PUT" ? await h.saveSetup(store, id, json()) : await h.getSetup(store, id);
   else if (a === "batches" && b === "actions") reply = await h.act(store, id, json());
+  else if (a === "batches" && b === "start")
+    reply = method === "POST" ? await h.createPush(store, id, json()) : await h.getPush(store, id);
   else if (a === "batches" && b === "drafts") reply = await h.batchDrafts(store, id);
   else if (a === "batches" && b === "cases" && caseId)
     reply = method === "PUT" ? await h.putCase(store, id, caseId, json()) : await h.getCase(store, id, caseId);
@@ -140,6 +143,18 @@ export const bulkApi = {
     bulkFetch(`/api/bulk/setups/${encodeURIComponent(setupId)}`, { cache: "no-store" }).then((r) =>
       r.status === 404 ? null : json<KeptSetup>(r),
     ),
+  /** A push before it is created: what was sent (§3). */
+  getPush: (id: string) =>
+    bulkFetch(`/api/bulk/batches/${id}/start`, { cache: "no-store" }).then((r) =>
+      json<{ batchId: string; batchNumber: string; client: string; source: BatchSummary["source"]; request: ApiBatchRequest }>(r),
+    ),
+  /** Create a push with the facts chosen on Facts of the case. */
+  createPush: (id: string, detailsFormat: ApiBatchRequest["detailsFormat"]) =>
+    bulkFetch(`/api/bulk/batches/${id}/start`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ detailsFormat }),
+    }).then((r) => json<{ batchId: string; batchNumber: string }>(r)),
   /** The list's Delete, for a batch not created yet. */
   deleteNotCreated: (id: string) =>
     bulkFetch(`/api/bulk/batches/${id}`, { method: "DELETE" }).then((r) => json<{ deleted: string }>(r)),

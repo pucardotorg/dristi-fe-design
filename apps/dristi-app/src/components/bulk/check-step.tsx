@@ -100,6 +100,12 @@ export type CheckCase = {
  * The cases the request makes, judged as Case details will judge them. `null` while they
  * are being built. Rebuilt a moment after the request stops changing (typing in the facts).
  */
+/**
+ * Where cases' own stories came from, in the screens' words: "the Excel" for an upload,
+ * "Provakil's request" for a push (§3), so Facts of the case never names a file there isn't.
+ */
+export const StoriesFrom = React.createContext<string>("the Excel");
+
 export function useCheckCases(request: ApiBatchRequest | null, parties: BatchParties | null): CheckCase[] | null {
   const [cases, setCases] = React.useState<CheckCase[] | null>(null);
   React.useEffect(() => {
@@ -290,6 +296,7 @@ export function FactsCard({
   /** The cases as Create will make them, for the preview; `null` while they are built. */
   cases: CheckCase[] | null;
 }) {
+  const from = React.useContext(StoriesFrom);
   const editor = React.useRef<RichTextEditorHandle>(null);
   const [pending, setPending] = React.useState<DetailsFormat | null>(null);
   const [previewKey, setPreviewKey] = React.useState<string>("");
@@ -338,7 +345,7 @@ export function FactsCard({
         {own > 0 ? (
           <div className="flex flex-col gap-0.5 tabular-nums">
             <p className="text-body-compact font-semibold">
-              Writing for the {total - own} {total - own === 1 ? "case" : "cases"} with no story in the Excel
+              Writing for the {total - own} {total - own === 1 ? "case" : "cases"} with no story in {from}
             </p>
             <p className="text-body-compact text-muted-foreground">
               {own === 1
@@ -434,7 +441,7 @@ export function FactsCard({
                   <div className="w-60 min-w-0">
                     <CasePicker cases={listed} value={preview} onChange={(c) => setPreviewKey(c.key)} />
                   </div>
-                  {preview.own && !preview.fromBatch ? <Badge variant="secondary">From the Excel</Badge> : null}
+                  {preview.own && !preview.fromBatch ? <Badge variant="secondary">From {from}</Badge> : null}
                   {/* The pager where mail and document viewers keep it: count, then arrows. */}
                   <div className="ml-auto flex items-center gap-1">
                     <span className="mr-2 text-body-compact text-muted-foreground tabular-nums">
@@ -520,10 +527,11 @@ function CasePicker({
   value: CheckCase;
   onChange: (c: CheckCase) => void;
 }) {
+  const from = React.useContext(StoriesFrom);
   const label = (c: CheckCase) => c.accused || c.reference.replace(/^R/, "Excel row ");
   const fromExcel = cases.filter((c) => c.own && !c.fromBatch);
   const groups: CaseGroup[] = [
-    { value: `From the Excel · ${fromExcel.length}`, items: fromExcel },
+    { value: `From ${from} · ${fromExcel.length}`, items: fromExcel },
     { value: `Batch text · ${cases.length - fromExcel.length}`, items: cases.filter((c) => !(c.own && !c.fromBatch)) },
   ].filter((g) => g.items.length);
   return (
@@ -583,12 +591,13 @@ export function FactsQuestion({
   initial: boolean;
   onChoose: (everyCase: boolean) => void;
 }) {
+  const from = React.useContext(StoriesFrom);
   const [every, setEvery] = React.useState(initial);
   const go = React.useRef<HTMLButtonElement>(null);
   const empty = total - own;
   const choices = [
-    { value: "keep", label: "Keep them", detail: `The batch text goes into the other ${empty}.` },
-    { value: "replace", label: "Replace them", detail: `All ${total} cases use the batch text.` },
+    { value: "keep", label: own === 1 ? "Keep it" : "Keep them", detail: `The batch text goes into the other ${empty}.` },
+    { value: "replace", label: own === 1 ? "Replace it" : "Replace them", detail: `All ${total} cases use the batch text.` },
   ];
   return (
     <Dialog
@@ -611,12 +620,14 @@ export function FactsQuestion({
           <DialogTitle className="tabular-nums">
             {own === 1 ? "1 case already has its own story" : `${own} cases already have their own story`}
           </DialogTitle>
-          <DialogDescription>It came in the Excel. What should happen to {own === 1 ? "it" : "them"}?</DialogDescription>
+          <DialogDescription>
+            {own === 1 ? "It" : "They"} came in {from}. What should happen to {own === 1 ? "it" : "them"}?
+          </DialogDescription>
         </DialogHeader>
         <RadioGroup
           value={every ? "replace" : "keep"}
           onValueChange={(v) => setEvery(v === "replace")}
-          aria-label="What happens to the stories in the Excel"
+          aria-label={`What happens to the stories in ${from}`}
           className="flex flex-col gap-4 py-1"
         >
           {choices.map((c) => (

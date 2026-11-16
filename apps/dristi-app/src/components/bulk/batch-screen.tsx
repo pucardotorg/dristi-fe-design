@@ -187,6 +187,13 @@ export function BatchScreen({ batchId }: { batchId: string }) {
           { id: "facts", title: "Facts of the case", done: true },
           { id: "cases", title: "Check", href: q("cases") },
         ]
+      : step === "cases" && batch.source.kind === "api"
+      ? // A push started at Facts of the case and was created on its Check (§3).
+        [
+          { id: "sent", title: `Sent by ${batch.source.system}`, done: true },
+          { id: "facts", title: "Facts of the case", done: true },
+          { id: "cases", title: "Check", href: q("cases") },
+        ]
       : step === "sign"
       ? [
           { id: "review", title: "Review", href: workable ? q("review") : undefined },
@@ -205,7 +212,7 @@ export function BatchScreen({ batchId }: { batchId: string }) {
   // counts are the subtitle's (audit rule 2, owner 2026-11-11).
   const title = {
     common: "Common details",
-    cases: fromFile ? "Check" : "Cases",
+    cases: fromFile || batch.source.kind === "api" ? "Check" : "Cases",
     scrutiny: "Case details",
     documents: "Documents",
     review: "Review",

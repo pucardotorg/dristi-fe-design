@@ -101,6 +101,48 @@ export async function saveSetup(store: BulkStore, setupId: string, body: SetupBo
   return ok({ batchId: saved.id, batchNumber: saved.number }, 201);
 }
 
+/** A push waiting for Facts of the case and Create: what was sent, for the preview (§3). */
+export async function getPush(store: BulkStore, batchId: string): Promise<Reply> {
+  const batch = await store.getBatch(batchId);
+  if (!batch) return fail("No such batch.", 404);
+  if (batch.notCreated?.kind !== "api") return fail("This batch is already created.", 409);
+  // Opening it is what clears its notification, as opening a created batch does.
+  if (batch.openedAt === null) await store.updateBatch(batchId, (b) => ({ ...b, openedAt: new Date().toISOString() }));
+  return ok({ batchId: batch.id, batchNumber: batch.number, client: batch.client, source: batch.source, request: batch.notCreated.request });
+}
+
+/**
+ * Create a pushed batch with the facts chosen for it (§3.5): each case without its own
+ * text gets the batch's, or every case does when the filer chose that. The cases were
+ * built on arrival; from here the steps are the same as for an Excel file.
+ */
+export async function createPush(
+  store: BulkStore,
+  batchId: string,
+  body: { detailsFormat?: ApiBatchRequest["detailsFormat"] },
+): Promise<Reply> {
+  let problem: string | null = null;
+  const out = await store.updateBatch(batchId, (b) => {
+    if (b.notCreated?.kind !== "api") {
+      problem = "This batch is already created.";
+      return null;
+    }
+    const sent = b.notCreated.request.cases;
+    const format = body.detailsFormat;
+    if (format && format.html.replace(/<[^>]*>|&nbsp;/g, "").trim())
+      b.cases.forEach((bc, i) => {
+        const own = !!sent[i]?.otherDetails?.trim();
+        if (format.everyCase || !own) writeFacts(bc.draft, format);
+      });
+    const { notCreated: _done, ...created } = b;
+    void _done;
+    return { ...created, openedAt: b.openedAt ?? new Date().toISOString() };
+  });
+  if (problem) return fail(problem, 409);
+  if (!out) return fail("No such batch.", 404);
+  return ok({ batchId: out.id, batchNumber: out.number });
+}
+
 /** The kept setup, to reopen it in the tab Continue opens. */
 export async function getSetup(store: BulkStore, setupId: string): Promise<Reply> {
   const kept = (await store.listBatches()).find((b) => setupOf(b, setupId));
@@ -195,6 +237,10 @@ export async function receivePush(store: BulkStore, body: unknown, origin: strin
     { kind: "api", system: request.source.system, reference: request.source.reference, sentBy: request.source.sentBy },
     fetchDocument
   );
+  // A push is not a batch yet: it starts at Facts of the case and is created there (§3).
+  // Its cases are built now, so the documents the sender listed are fetched while they
+  // can be.
+  built.notCreated = { kind: "api", request };
   const batch = await store.insertBatch(built);
   const response: ApiBatchResponse = {
     batchId: batch.id,
