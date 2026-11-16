@@ -34,19 +34,23 @@ import { cn } from "@/lib/utils";
 import { useCourt } from "@/components/court/court-provider";
 import { bulkFetch, type BatchSummary } from "@/components/bulk/api";
 import { toLongDate } from "@/lib/filing/format";
+import { batchRows } from "@/lib/bulk/queue-rows";
 
 /**
  * The most recent bulk batch, read from the batch store (`/api/bulk/batches`) — a client's
  * API push or an Excel upload. Bulk filing is built (docs/design/features/bulk-filing.md).
  */
-function useLatestBatch(): { batch: BulkBatch | null; needAction: number } {
+function useLatestBatch(): { batch: BulkBatch | null; needAction: number; all: BatchSummary[] } {
   const [batch, setBatch] = React.useState<BulkBatch | null>(null);
+  // Every batch, for Your filings' one row per batch (Tej, 2026-11-16).
+  const [all, setAll] = React.useState<BatchSummary[]>([]);
   // Open batches with any case not yet filed: something in them is waiting on the filer.
   const [needAction, setNeedAction] = React.useState(0);
   React.useEffect(() => {
     bulkFetch("/api/bulk/batches", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : []))
       .then((list: BatchSummary[]) => {
+        setAll(list);
         setNeedAction(list.filter((x) => !x.clubbedInto && x.counts.filed < x.total).length);
         const b = list.find((x) => !x.clubbedInto);
         if (!b) return;
@@ -62,7 +66,7 @@ function useLatestBatch(): { batch: BulkBatch | null; needAction: number } {
       })
       .catch(() => undefined);
   }, []);
-  return { batch, needAction };
+  return { batch, needAction, all };
 }
 
 /**
@@ -77,7 +81,7 @@ function useLatestBatch(): { batch: BulkBatch | null; needAction: number } {
 export function FilingsDashboard() {
   // What a pending payment costs follows the selected state's schedule (Settings).
   const courtFees = useCourt().profile.fees;
-  const { batch: latestBatch, needAction } = useLatestBatch();
+  const { batch: latestBatch, needAction, all: batches } = useLatestBatch();
   const mounted = useMounted();
   const { profile } = useProfile();
   const { ready, error, readAt, drafts, discard, reload } = useDrafts();
@@ -95,17 +99,19 @@ export function FilingsDashboard() {
   const firstName = firstNameOf(profile?.name ?? "");
   const today = new Date(readAt).toISOString().slice(0, 10);
 
-  const data = React.useMemo<QueueData>(
-    () => ({
-      drafts: draftRows(drafts),
-      pendingSignature: pendingSignatureRows(drafts, profile),
-      pendingPayment: pendingPaymentRows(drafts, profile, courtFees),
+  const data = React.useMemo<QueueData>(() => {
+    // Bulk batches sit with the single filings, one row each, on the tabs where they
+    // have cases (Tej, 2026-11-16).
+    const bulk = batchRows(batches);
+    return {
+      drafts: [...draftRows(drafts), ...(bulk.drafts ?? [])],
+      pendingSignature: [...pendingSignatureRows(drafts, profile), ...(bulk.pendingSignature ?? [])],
+      pendingPayment: [...pendingPaymentRows(drafts, profile, courtFees), ...(bulk.pendingPayment ?? [])],
       scrutiny: scrutinyRows(today),
       returned: returnedRows(tasks, taskCases),
       registered: registeredRows(today),
-    }),
-    [drafts, profile, courtFees, tasks, taskCases, today]
-  );
+    };
+  }, [drafts, profile, courtFees, tasks, taskCases, today, batches]);
 
   return (
     <div className={cn("flex w-full flex-1 flex-col gap-6", PAGE_GROUND, PAGE_GUTTER)}>

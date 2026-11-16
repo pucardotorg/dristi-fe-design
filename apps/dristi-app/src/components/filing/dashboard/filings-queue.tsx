@@ -7,6 +7,7 @@ import {
   ArrowRightIcon,
   ChevronDownIcon,
   InboxIcon,
+  Layers2Icon,
   PenToolIcon,
   SearchIcon,
   Trash2Icon,
@@ -68,6 +69,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { rowActivation, rowOpener } from "@/lib/employee/row-activation";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 
 /** The tone words, so a colour is never the only thing saying "this one is late". */
@@ -97,6 +99,8 @@ const DESK_PAGER = "hidden md:pointer-fine:flex md:landscape:flex";
 /** The view, as it lives in the URL — so back, refresh and a shared link all restore it. */
 type View = {
   tab: QueueTab;
+  /** Single filings, bulk batches, or both (Tej, 2026-11-16). */
+  kind: Kind;
   q: string;
   court: string;
   sort: string;
@@ -104,12 +108,16 @@ type View = {
   size: number;
 };
 
+type Kind = "all" | "single" | "bulk";
+
 function readView(params: URLSearchParams): View {
   const tabParam = params.get("tab");
+  const kindParam = params.get("kind");
   const tab: QueueTab = isQueueTab(tabParam) ? tabParam : "drafts";
   const size = Number(params.get("size"));
   return {
     tab,
+    kind: kindParam === "single" || kindParam === "bulk" ? kindParam : "all",
     q: params.get("q") ?? "",
     court: params.get("court") ?? "",
     sort: sortOptionFor(tab, params.get("sort")).value,
@@ -122,6 +130,7 @@ function readView(params: URLSearchParams): View {
 function writeView(view: View): string {
   const params = new URLSearchParams();
   if (view.tab !== "drafts") params.set("tab", view.tab);
+  if (view.kind !== "all") params.set("kind", view.kind);
   if (view.q) params.set("q", view.q);
   if (view.court) params.set("court", view.court);
   if (view.sort !== defaultSortFor(view.tab)) params.set("sort", view.sort);
@@ -155,11 +164,13 @@ const BULK_KIND: Partial<Record<QueueTab, "discard" | "sign" | "pay">> = {
  * promise a signature the batch cannot actually collect.
  */
 function rowBulkable(tab: QueueTab, row: QueueRow): boolean {
+  // A batch is acted on in its own steps, never ticked here with single filings.
+  if (row.batch) return false;
   return tab === "pendingSignature" ? !!row.youPending : true;
 }
 
 export function FilingsQueue({
-  data,
+  data: everything,
   ready,
   onDiscard,
   onBulk,
@@ -177,6 +188,13 @@ export function FilingsQueue({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const view = readView(new URLSearchParams(searchParams.toString()));
+  // Single filings, bulk batches, or both: the tabs count what the switch shows.
+  const hasBulk = Object.values(everything).some((rows) => rows.some((r) => r.batch));
+  const data = React.useMemo<QueueData>(() => {
+    if (view.kind === "all") return everything;
+    const keep = (r: QueueRow) => (view.kind === "bulk" ? !!r.batch : !r.batch);
+    return Object.fromEntries(Object.entries(everything).map(([t, rows]) => [t, rows.filter(keep)])) as QueueData;
+  }, [everything, view.kind]);
 
   /* Drafts, pending-signature and pending-payment rows can be ticked and acted on
      together; the other tabs have no bulk act to offer. The selection is this screen's,
@@ -295,11 +313,26 @@ export function FilingsQueue({
           <Input
             value={view.q}
             onChange={(event) => go({ q: event.target.value, page: 1 })}
-            placeholder="Search by party name or number"
+            placeholder={hasBulk ? "Search by party, number or batch" : "Search by party name or number"}
             aria-label="Filter this list by party name or number"
             className="pl-9"
           />
         </div>
+        {hasBulk ? (
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            spacing={0}
+            value={view.kind}
+            onValueChange={(v) => v && go({ kind: v as Kind, page: 1 })}
+            aria-label="Show single filings, bulk batches, or both"
+            className="col-span-2 shrink-0"
+          >
+            <ToggleGroupItem value="all">All</ToggleGroupItem>
+            <ToggleGroupItem value="single">Single</ToggleGroupItem>
+            <ToggleGroupItem value="bulk">Bulk</ToggleGroupItem>
+          </ToggleGroup>
+        ) : null}
         {courts.length > 1 ? (
           <NativeSelect
             value={court}
@@ -373,7 +406,7 @@ export function FilingsQueue({
             {slice.map((row) => (
               <li key={row.id}>
                 <RegisterTrayCard
-                  title={row.parties}
+                  title={row.batch ? `${row.parties} · ${row.batch.number}` : row.parties}
                   open={tray.isOpen(row.id)}
                   onOpenChange={tray.toggle(row.id)}
                   marked={selected.has(row.id)}
@@ -414,6 +447,11 @@ export function FilingsQueue({
                   {/* The Pending tasks card's grammar: under the title, the one line
                       that says how urgent this is; under a hairline, what identifies
                       it (or, for a draft, how far along it is). */}
+                  {row.batch ? (
+                    <p className={cn("-mt-2 text-body-compact text-muted-foreground tabular-nums", selectable && "pl-8")}>
+                      {row.batch.cases}
+                    </p>
+                  ) : null}
                   <p
                     className={cn(
                       "-mt-2 text-body-compact text-muted-foreground",
@@ -542,6 +580,8 @@ export function FilingsQueue({
                 <TableRow className="border-hairline">
                   {selectable ? (
                     <TableHead className="w-10 pl-6">
+                      {/* A page of batches alone has nothing to tick: the column stays, empty. */}
+                      {pageIds.length ? (
                       <Checkbox
                         checked={pageState}
                         onCheckedChange={(checked) => setManySelected(pageIds, checked === true)}
@@ -551,6 +591,7 @@ export function FilingsQueue({
                             : "Select every row on this page that can be acted on"
                         }
                       />
+                      ) : null}
                     </TableHead>
                   ) : null}
                   {layout.columns.map((column) => (
@@ -790,7 +831,7 @@ function renderCell(
         <Identifier value={row.ref} copyable={false} className="font-medium" />
       ) : null;
     case "parties":
-      return row.parties;
+      return row.batch ? <BatchParties row={row} /> : row.parties;
     case "caseType":
       return row.caseType ?? "—";
     case "court":
@@ -864,6 +905,29 @@ function renderCell(
         </div>
       );
   }
+}
+
+/**
+ * A batch's Parties cell: the bulk mark and its B-number beside the complainant, and how
+ * many of its cases are at this tab's stage, so it never reads as one case.
+ */
+function BatchParties({ row }: { row: QueueRow }) {
+  const b = row.batch!;
+  return (
+    <span className="flex items-center gap-3">
+      <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-brand-muted text-brand-muted-foreground" aria-hidden>
+        <Layers2Icon className="size-4" />
+      </span>
+      <span className="flex min-w-0 flex-col">
+        <span>
+          {row.parties}
+          <span className="font-mono font-normal text-muted-foreground"> · {b.number}</span>
+          <span className="sr-only">, bulk batch</span>
+        </span>
+        <span className="text-body-compact font-normal text-muted-foreground tabular-nums">{b.cases}</span>
+      </span>
+    </span>
+  );
 }
 
 function goto(go: (next: { page: number }) => void, page: number) {

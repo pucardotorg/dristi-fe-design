@@ -100,6 +100,7 @@ export type BatchSummary = {
   source: Batch["source"];
   client: string;
   createdAt: string;
+  updatedAt: string;
   clubbedInto: string | null;
   clubbedIntoNumber: string | null;
   clubbedFrom: string[];
@@ -117,6 +118,8 @@ export type BatchSummary = {
    * left in words, and where Continue goes. Absent on a created batch.
    */
   notCreated: { kind: "excel" | "api"; where: string; href: string } | null;
+  /** The earliest last day to file among its cases not yet signed; `null` when none has one. */
+  fileBy: string | null;
 };
 
 export type BatchView = BatchSummary & {
@@ -220,6 +223,13 @@ export function summarise(
   };
   const states: Record<CaseState, number> = { fix: 0, docs: 0, check: 0, complete: 0, signed: 0, filed: 0 };
   let flagged = 0;
+  // The earliest last day to file among the cases not yet signed, for Your filings.
+  let fileBy: string | null = null;
+  for (const bc of batch.cases) {
+    if (bc.signedWith || bc.draft.status === "filed") continue;
+    const by = addMonth(causeOfActionDate(bc.draft));
+    if (by && (!fileBy || by < fileBy)) fileBy = by;
+  }
   for (const bc of batch.cases) {
     const flags = openFlags(bc);
     const stage = caseStage(bc, flags);
@@ -240,6 +250,7 @@ export function summarise(
     source: batch.source,
     client: batch.client,
     createdAt: batch.createdAt,
+    updatedAt: batch.updatedAt,
     clubbedInto: batch.clubbedInto,
     clubbedIntoNumber: into?.number ?? null,
     clubbedFrom: batch.clubbedFrom,
@@ -250,6 +261,7 @@ export function summarise(
     openedAt: batch.openedAt === undefined ? batch.createdAt : batch.openedAt,
     filingAdvocate: filingAdvocate(batch),
     notCreated: notCreatedSummary(batch),
+    fileBy,
   };
 }
 

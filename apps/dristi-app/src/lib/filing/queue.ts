@@ -55,7 +55,7 @@ export function isQueueTab(value: string | null): value is QueueTab {
 export type InfoTone = "default" | "warning" | "danger";
 
 /** Sorts last in every ascending (most-pressing-first) order. */
-const NO_URGENCY = "9999-12-31";
+export const NO_URGENCY = "9999-12-31";
 
 export type QueueRow = {
   id: string;
@@ -90,6 +90,11 @@ export type QueueRow = {
    * *visible* column shows, or that column reads as unsorted. Defaults to `recencyAt`.
    */
   tieAt?: string;
+  /**
+   * A bulk batch, listed as one row on each tab where it has cases (Tej, 2026-11-16): its
+   * B-number, and how many of its cases are at this stage. Absent on a single filing.
+   */
+  batch?: { number: string; cases: string };
   /** Drafts can be thrown away; a filed case cannot. Drives the row's ghost action. */
   discardable?: boolean;
   /** Everything the search box matches against, pre-lowered. */
