@@ -1,7 +1,16 @@
 "use client";
 
 import * as React from "react";
-import { CheckIcon, CirclePlayIcon, EllipsisVerticalIcon, PlusIcon, TriangleAlertIcon, WandSparklesIcon } from "lucide-react";
+import {
+  CheckIcon,
+  CirclePlayIcon,
+  EllipsisVerticalIcon,
+  FileCheck2Icon,
+  FlaskConicalIcon,
+  PlusIcon,
+  TriangleAlertIcon,
+  WandSparklesIcon,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -10,10 +19,12 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Spinner } from "@/components/ui/spinner";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -479,6 +490,13 @@ type Show = "missing" | "complete" | "all";
  * every row unless one is missing. Cases still being fixed join later; signed and filed
  * cases are locked. Read 25 at a time.
  */
+/** The sandbox's three ways to fill a batch's documents (`sandboxDocuments`). */
+const SANDBOX_FILLS = [
+  { id: "all", label: "Every document", detail: "Every case ready to sign" },
+  { id: "most", label: "Most documents", detail: "About one case in seven still missing one or two" },
+  { id: "issues", label: "Every document, some unreadable", detail: "One scan in twenty too blurry to read" },
+] as const;
+
 export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
   const { ask: askRemove, dialog: removeDialog } = useRemoveCase(batch, setBatch);
   // The walkthrough, once per browser, the first time there is something to add. The tab
@@ -581,6 +599,19 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
         }
       }
     setBusy(null);
+  };
+
+  // Sandbox: the whole batch at once, on the server (300 cases would be 1,800 uploads).
+  const sandboxFill = async (scenario: (typeof SANDBOX_FILLS)[number]["id"]) => {
+    setError(null);
+    setBusy("sandbox");
+    try {
+      setBatch(await bulkApi.sandboxDocuments(batch.id, scenario));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
   };
 
   const term = search.trim().toLowerCase();
@@ -890,6 +921,42 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
             <WandSparklesIcon data-icon="inline-start" aria-hidden />
             Demo files for all
           </Button>
+        ) : null}
+        {/* Sandbox, the product's flask: the whole batch's documents in one go, in one of
+            three states, so a 300-case batch can be taken past Documents in a moment. */}
+        {lackingCases.length && !closed ? (
+          <DropdownMenu>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label="Sandbox: fill the documents"
+                      disabled={!!busy}
+                      className="ml-auto text-muted-foreground"
+                    >
+                      {busy === "sandbox" ? <Spinner /> : <FlaskConicalIcon aria-hidden />}
+                    </Button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent>Sandbox: fill the documents</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <DropdownMenuContent align="end" className="w-80">
+              <DropdownMenuLabel>Fill every case&apos;s documents</DropdownMenuLabel>
+              {SANDBOX_FILLS.map((x) => (
+                <DropdownMenuItem key={x.id} className="items-start" onSelect={() => void sandboxFill(x.id)}>
+                  <FileCheck2Icon aria-hidden className="mt-0.5" />
+                  <span className="flex min-w-0 flex-col">
+                    <span>{x.label}</span>
+                    <span className="text-body-compact text-muted-foreground">{x.detail}</span>
+                  </span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         ) : null}
       </div>
 

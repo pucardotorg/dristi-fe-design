@@ -91,6 +91,9 @@ export async function bulkFetch(url: string, init: RequestInit = {}): Promise<Re
     });
   } else if (a === "files" && id)
     reply = method === "PUT" ? await h.putFile(store, id, fileIn(form(), "file")) : await h.getFile(store, id);
+  else if (a === "batches" && b === "sandbox-documents")
+    reply = await h.sandboxDocuments(store, id, json().scenario, ai);
+  else if (a === "sandbox" && id === "push") reply = await h.sandboxPushScenario(store, json().scenario, window.location.origin);
   else if (a === "club") reply = await h.club(store, json().batchIds);
   else if (a === "extract") {
     const f = form();
@@ -155,6 +158,20 @@ export const bulkApi = {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ detailsFormat }),
     }).then((r) => json<{ batchId: string; batchNumber: string }>(r)),
+  /** Sandbox: Provakil pushes one of the 300-case scenarios. */
+  sandboxPush: (scenario: string) =>
+    bulkFetch("/api/bulk/sandbox/push", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ scenario }),
+    }).then((r) => json<{ batchId: string; batchNumber: string }>(r)),
+  /** Sandbox: every case's documents filed at once, in one of three states. */
+  sandboxDocuments: (id: string, scenario: "all" | "most" | "issues") =>
+    bulkFetch(`/api/bulk/batches/${id}/sandbox-documents?ai=${aiMode}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ scenario }),
+    }).then((r) => json<BatchView>(r)),
   /** The list's Delete, for a batch not created yet. */
   deleteNotCreated: (id: string) =>
     bulkFetch(`/api/bulk/batches/${id}`, { method: "DELETE" }).then((r) => json<{ deleted: string }>(r)),

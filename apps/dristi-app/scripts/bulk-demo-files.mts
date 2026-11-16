@@ -41,6 +41,7 @@ import {
   type ListName,
 } from "../src/lib/bulk/excel-spec";
 import { FINAL_RELIEF_TEMPLATE, INTERIM_RELIEF_TEMPLATE } from "../src/lib/filing/options";
+import { scaleCases, type ScaleCase } from "../src/lib/bulk/sandbox-scale";
 
 const OUT = path.join(import.meta.dirname, "..", "..", "..", "demo-files");
 
@@ -54,7 +55,7 @@ const dmy = (d: Date, sep = "-") =>
   `${String(d.getUTCDate()).padStart(2, "0")}${sep}${String(d.getUTCMonth() + 1).padStart(2, "0")}${sep}${d.getUTCFullYear()}`;
 const label = (list: ListName, value: string) => LISTS[list].find((o) => o.value === value)!.label;
 
-type Demo = {
+type Demo = Partial<Pick<ScaleCase, "story" | "missing" | "oddReason">> & {
   ref: string;
   name: string;
   type: "individual" | "institution";
@@ -170,7 +171,11 @@ const STORIES: Record<string, string> = {
     "The accused firm availed a working-capital loan for its fabrication business. Its partner, Mahesh B. Anand, signed the loan agreement and the cheque in question on behalf of the firm and was in charge of and responsible for the conduct of its business at the time of the offence.",
 };
 
-async function templateFile(name = "tata-capital-bulk-filing-template.xlsx", stories: Record<string, string> = {}) {
+async function templateFile(
+  name = "tata-capital-bulk-filing-template.xlsx",
+  stories: Record<string, string> = {},
+  cases: Demo[] = CASES,
+) {
   const wb = new ExcelJS.Workbook();
   wb.creator = "SARAS 2.0 bulk filing (demo)";
   const ws = wb.addWorksheet(CASES_SHEET);
@@ -193,7 +198,8 @@ async function templateFile(name = "tata-capital-bulk-filing-template.xlsx", sto
     r.eachCell({ includeEmpty: true }, (cell) => (cell.fill = grey));
   }
 
-  for (const c of CASES) {
+  for (const c of cases) {
+    const miss = new Set(c.missing ?? []);
     const t = timeline(c);
     const x = texts(c);
     const row: Record<string, string | number> = {};
@@ -208,7 +214,7 @@ async function templateFile(name = "tata-capital-bulk-filing-template.xlsx", sto
       set("accusedAddress", [n, 1], c.address);
       set("accusedCity", [n, 1], c.city);
       set("accusedPin", [n, 1], c.pin);
-      set("accusedPolice", [n, 1], c.police);
+      set("accusedPolice", [n, 1], miss.has("police") ? "" : c.police);
       set("accusedJurisdiction", [n], "Yes");
     };
     accused(1, c);
@@ -224,13 +230,13 @@ async function templateFile(name = "tata-capital-bulk-filing-template.xlsx", sto
     if (c.coAccused) accused(2, { type: "individual", ...c.coAccused });
     const cheque = (n: number, number: string, amount: number) => {
       set("chequeNumber", [n], number);
-      set("chequeDate", [n], dmy(t.dated));
+      set("chequeDate", [n], miss.has("chequeDate") ? "" : dmy(t.dated));
       set("chequeAmount", [n], amount);
       set("chequeIfsc", [n], c.ifsc);
       set("chequeAccount", [n], c.account);
-      set("presentDate", [n], dmy(t.presented));
+      set("presentDate", [n], miss.has("presentDate") ? "" : dmy(t.presented));
       set("returnDate", [n], dmy(t.returned));
-      set("returnReason", [n], label("returnReason", c.reason));
+      set("returnReason", [n], c.oddReason ?? label("returnReason", c.reason));
       set("payeeIfsc", [n], "HDFC0000060");
       set("payeePolice", [n], "Navrangpura Police Station");
     };
@@ -241,7 +247,7 @@ async function templateFile(name = "tata-capital-bulk-filing-template.xlsx", sto
     set("mode", [1], label("modeOfService", c.mode));
     set("tracking", [1], `RG${c.cheque}11IN`);
     set("delivered", [1], c.delivered ? "Yes" : "No");
-    set("deliveryDate", [1], c.delivered ? dmy(t.served) : "");
+    set("deliveryDate", [1], c.delivered && !miss.has("deliveryDate") ? dmy(t.served) : "");
     set("noticeReturnDate", [1], c.delivered ? "" : dmy(t.served));
     set("nonDelivery", [1], c.delivered ? "" : label("nonDelivery", "unclaimed"));
     set("replied", [1], c.replied ? "Yes" : "No");
@@ -256,7 +262,7 @@ async function templateFile(name = "tata-capital-bulk-filing-template.xlsx", sto
     set("interimRelief", [], x.interim);
     set("finalRelief", [], x.final);
     set("affidavit", [], x.affidavit);
-    if (stories[c.ref]) set("otherDetails", [], stories[c.ref]);
+    if (stories[c.ref] ?? c.story) set("otherDetails", [], stories[c.ref] ?? c.story!);
     (c.witnesses ?? []).forEach((w, i) => {
       const n = i + 1;
       set("witnessName", [n], w.name);
@@ -285,7 +291,7 @@ const MIS_REASON: Record<string, string> = {
   "account-closed": "A/C CLOSED",
 };
 
-async function misFile() {
+async function misFile(cases: Demo[] = CASES, name = "tata-capital-recovery-mis.xlsx") {
   const wb = new ExcelJS.Workbook();
   wb.creator = "Tata Capital recovery MIS (demo)";
   const ws = wb.addWorksheet("NI 138 MIS");
@@ -341,19 +347,32 @@ async function misFile() {
         : {}),
     };
   };
-  CASES.forEach((c, i) => ws.addRow(rowOf(c, i)));
+  cases.forEach((c, i) => ws.addRow(rowOf(c, i)));
   // Two rows a real export carries and the upload leaves out on Check (owner and PM,
   // 2026-11-04): the first case exported twice, and a row with a cheque but nothing that
   // says whose case it is.
-  ws.addRow(rowOf(CASES[0], CASES.length));
+  ws.addRow(rowOf(cases[0], cases.length));
   ws.addRow({ "Sr No": CASES.length + 2, "Chq No": "498120", "Chq Amount (Rs)": "75,000", "Bounce Reason": "INSUFFICIENT FUNDS" });
-  const file = path.join(OUT, "tata-capital-recovery-mis.xlsx");
+  // At scale, a few more of each: repeated exports and rows with no name (BLK-37).
+  if (cases.length > CASES.length) {
+    for (const k of [40, 120, 210]) ws.addRow(rowOf(cases[k], cases.length + k));
+    for (const k of [1, 2]) ws.addRow({ "Sr No": cases.length + 10 + k, "Chq No": String(498120 + k), "Chq Amount (Rs)": "75,000", "Bounce Reason": "INSUFFICIENT FUNDS" });
+  }
+  const file = path.join(OUT, name);
   await wb.xlsx.writeFile(file);
   return file;
 }
 
 mkdirSync(OUT, { recursive: true });
-const files = [await templateFile(), await misFile(), await templateFile("tata-capital-template-with-stories.xlsx", STORIES)];
+const files = [
+  await templateFile(),
+  await misFile(),
+  await templateFile("tata-capital-template-with-stories.xlsx", STORIES),
+  // At scale (owner, 2026-11-16): 300 cases each, the three scenarios of `sandbox-scale.ts`.
+  await templateFile("scale-300-clean-template.xlsx", {}, scaleCases("clean")),
+  await misFile(scaleCases("gaps"), "scale-300-lender-export-with-gaps.xlsx"),
+  await templateFile("scale-300-every-edge.xlsx", {}, scaleCases("mixed")),
+];
 for (const f of files) console.log(`Wrote ${path.relative(process.cwd(), f)}`);
 
 // The upload's sample buttons serve the same two files as static assets, so they work

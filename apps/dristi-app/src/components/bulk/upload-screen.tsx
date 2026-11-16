@@ -124,6 +124,16 @@ const SAMPLES = [
   { key: "tata-capital-template-with-stories.xlsx", label: "Sample 3: the template, some rows with their own facts", format: "template" },
 ] as const;
 
+/**
+ * The same three at scale, 300 cases each (owner, 2026-11-16), from `lib/bulk/sandbox-scale.ts`:
+ * to see how every step holds up at the size a recovery team files.
+ */
+const SCALE_SAMPLES = [
+  { key: "scale-300-clean-template.xlsx", label: "300 cases, a well-kept book", detail: "The template · nearly all go through", format: "template" },
+  { key: "scale-300-lender-export-with-gaps.xlsx", label: "300 cases with gaps", detail: "A lender's export · matching, rows left out", format: "own" },
+  { key: "scale-300-every-edge.xlsx", label: "300 cases, every edge", detail: "The template · two accused or cheques, own facts", format: "template" },
+] as const;
+
 type ReadingRow = {
   name: string;
   state: "waiting" | "reading" | "done" | "failed";
@@ -679,7 +689,7 @@ export function UploadScreen() {
                           <TooltipContent>Sandbox: sample files</TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
-                      <DropdownMenuContent align="end" className="w-72">
+                      <DropdownMenuContent align="end" className="w-80">
                         <DropdownMenuLabel>Use a sample file</DropdownMenuLabel>
                         {SAMPLES.map((x) => (
                           <DropdownMenuItem
@@ -695,8 +705,26 @@ export function UploadScreen() {
                           </DropdownMenuItem>
                         ))}
                         <DropdownMenuSeparator />
+                        <DropdownMenuLabel>At scale · 300 cases</DropdownMenuLabel>
+                        {SCALE_SAMPLES.map((x) => (
+                          <DropdownMenuItem
+                            key={x.key}
+                            className="items-start"
+                            onSelect={() => {
+                              if (x.format !== format) setFormat(x.format);
+                              void chooseSample(x.key);
+                            }}
+                          >
+                            <FileSpreadsheetIcon aria-hidden className="mt-0.5" />
+                            <span className="flex min-w-0 flex-col">
+                              <span>{x.label}</span>
+                              <span className="text-body-compact text-muted-foreground">{x.detail}</span>
+                            </span>
+                          </DropdownMenuItem>
+                        ))}
+                        <DropdownMenuSeparator />
                         <DropdownMenuLabel>Download to upload yourself</DropdownMenuLabel>
-                        {SAMPLES.map((x) => (
+                        {[...SAMPLES, ...SCALE_SAMPLES].map((x) => (
                           <DropdownMenuItem key={x.key} asChild>
                             <a href={`/samples/${x.key}`} download={x.key}>
                               <DownloadIcon aria-hidden />

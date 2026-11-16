@@ -60,6 +60,7 @@ import { StatusLine } from "@/components/feedback";
 import { notify } from "@/components/ui/notify";
 import { ConfirmDialog } from "@/components/shell/confirm-dialog";
 import { DELETED_PARAM } from "./remove-case";
+import { SandboxPushMenu } from "./sandbox-push";
 
 export async function downloadTemplate() {
   const blob = await buildTemplate();
@@ -295,7 +296,9 @@ export function BatchesScreen() {
             own batch.
           </p>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row md:ml-auto">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center md:ml-auto">
+          {/* Sandbox: a client's system pushes 300 cases, as a real push arrives. */}
+          <SandboxPushMenu />
           <Button variant="outline" onClick={() => void downloadTemplate()}>
             <DownloadIcon data-icon="inline-start" aria-hidden />
             Download Excel template

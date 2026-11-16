@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
+import { SandboxPushMenu } from "@/components/bulk/sandbox-push";
 import { EntryHead, EntryOption, OPTION_TRAY } from "./start-filing-card";
 
 /**
@@ -125,7 +126,11 @@ function ApiDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open:
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-1.5">
-          <span className="text-body-compact font-medium">Address for their IT team</span>
+          {/* Sandbox: a push as their system would send it, at scale, beside the address it uses. */}
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-body-compact font-medium">Address for their IT team</span>
+            <SandboxPushMenu />
+          </div>
           <div className="flex items-center gap-2 rounded-lg bg-surface-sunken py-1 pr-1 pl-3">
             <code className="min-w-0 flex-1 truncate font-mono text-body-compact">{endpoint}</code>
             <Button variant="ghost" onClick={() => void copy()}>

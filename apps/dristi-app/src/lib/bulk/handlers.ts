@@ -11,6 +11,7 @@ import {
   applyFix,
   attachToSlot,
   batchView,
+  caseView,
   changePart,
   clubBatches,
   draftForScreen,
@@ -32,6 +33,7 @@ import { buildBatch, validateRequest, writeFacts } from "./intake";
 import { applyParties, type BatchParties } from "./parties";
 import { caseFlags } from "./scrutiny";
 import { draftNumber, type BulkStore, type FileMeta } from "./store";
+import { SCALE_SCENARIOS, sandboxPush, type ScaleScenario } from "./sandbox-scale";
 import type { Batch, BulkSignMethod, NotCreated } from "./types";
 import type { FilingDraft, StoredFileRef } from "@/lib/filing/types";
 
@@ -275,6 +277,15 @@ export async function receivePush(store: BulkStore, body: unknown, origin: strin
     cases: batch.cases.map((c) => ({ reference: c.reference, caseId: c.id, status: "draft" })),
   };
   return ok(response, 201);
+}
+
+/**
+ * Sandbox: a client's system pushes one of the 300-case scenarios (`sandbox-scale.ts`),
+ * exactly as a real push arrives, so the API path can be seen at scale.
+ */
+export async function sandboxPushScenario(store: BulkStore, scenario: string, origin: string): Promise<Reply> {
+  if (!SCALE_SCENARIOS.some((s) => s.id === scenario)) return fail("Unknown sandbox scenario.", 400);
+  return receivePush(store, sandboxPush(scenario as ScaleScenario), origin);
 }
 
 /** The sender's view of what it has pushed (`GET /api/bulk/v1/batches`). */
@@ -564,6 +575,39 @@ export async function attach(
   });
   if (!saved || !done) return fail("That case or document slot is not open.", 409);
   return ok(batchView(saved, await store.listBatches(), ai));
+}
+
+/** A one-page PDF the sandbox files into slots: small, valid, and the same every time. */
+const SANDBOX_PDF = new TextEncoder().encode(
+  "%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 595 842]>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n",
+);
+
+export type SandboxDocs = "all" | "most" | "issues";
+
+/**
+ * Sandbox, at scale: the batch's documents filed in one go on the server, so 300 cases
+ * don't take 1,800 uploads. `all` fills every required slot; `most` leaves one or two out
+ * in roughly one case in seven; `issues` fills them all and marks one scan in twenty too
+ * blurry to read.
+ */
+export async function sandboxDocuments(store: BulkStore, batchId: string, scenario: SandboxDocs, aiRaw: string | null): Promise<Reply> {
+  if (!["all", "most", "issues"].includes(scenario)) return fail("Unknown sandbox scenario.", 400);
+  const ref = await store.saveFile(SANDBOX_PDF, "Sandbox document.pdf", "application/pdf");
+  let n = 0;
+  const saved = await store.updateBatch(batchId, (batch) => {
+    batch.cases.forEach((bc, i) => {
+      if (bc.signedWith || bc.draft.status === "filed") return;
+      const slots = caseView(bc, "").documents.filter((d) => d.required && !d.file && d.slotKey);
+      slots.forEach((d, k) => {
+        if (scenario === "most" && i % 7 === 3 && k >= slots.length - (i % 2 ? 2 : 1)) return;
+        const poor = scenario === "issues" && (i * 7 + k) % 20 === 0;
+        if (attachToSlot(bc, d.slotKey!, ref, poor)) n += 1;
+      });
+    });
+    return n ? batch : null;
+  });
+  if (!saved) return fail("Every document is already in.", 409);
+  return ok(batchView(saved, await store.listBatches(), aiModeFrom(aiRaw)));
 }
 
 const MAX_FILES = 200;
