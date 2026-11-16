@@ -14,9 +14,12 @@
 
 import { addressToString, nameList, rupees, toLongDate } from "./format";
 import {
+  ACCUSED_ENTITY_TYPES,
   COURT,
+  ENTITY_TYPES,
   MODE_OF_SERVICE,
   NATURE_OF_DEBT,
+  NON_DELIVERY_REASONS,
   RETURN_REASONS,
   type Option,
 } from "./options";
@@ -256,7 +259,92 @@ export const DETAIL_FIELD_GROUPS: DetailFieldGroup[] = [
 
 export const DETAIL_FIELDS: DetailField[] = DETAIL_FIELD_GROUPS.flatMap((g) => g.fields);
 
-const BY_NAME = new Map(DETAIL_FIELDS.map((f) => [f.name.toLowerCase(), f]));
+const yesNo = (v: string) => (v === "yes" ? "Yes" : v === "no" ? "No" : "");
+
+/**
+ * The rest of the e-filing fields a bulk template can use (BLK-10c: "Any field of the
+ * e-filing flow can be used in a template"), by the section they are entered in. They
+ * resolve wherever a text names them, but only bulk's Facts of the case lists them
+ * (`TEMPLATE_FIELD_GROUPS`), so single filing's Insert field is unchanged.
+ */
+export const MORE_FIELD_GROUPS: DetailFieldGroup[] = [
+  {
+    label: "Complainant",
+    fields: [
+      { name: "Complainant Type of Institution", step: "complainant", resolve: (d) => each(d.complainants.filter((c) => c.type === "institution"), (c) => label(ENTITY_TYPES, c.entType)) },
+      { name: "Complainant CIN or PAN", step: "complainant", resolve: (d) => each(d.complainants.filter((c) => c.type === "institution"), (c) => c.entCinPan) },
+      { name: "Complainant Mobile", step: "complainant", resolve: (d) => each(d.complainants, (c) => (c.type === "institution" ? c.entPhone : c.mobile)) },
+      { name: "Complainant Email", step: "complainant", resolve: (d) => each(d.complainants, (c) => (c.type === "institution" ? c.entEmail : c.email)) },
+      { name: "Representative Name", step: "complainant", resolve: (d) => each(d.complainants.filter((c) => c.type === "institution"), (c) => c.rep.name) },
+      { name: "Representative Designation", step: "complainant", resolve: (d) => each(d.complainants.filter((c) => c.type === "institution"), (c) => c.rep.designation) },
+    ],
+  },
+  {
+    label: "Accused",
+    fields: [
+      { name: "Accused Type of Institution", step: "accused", resolve: (d) => each(d.accused.filter((a) => a.type === "institution"), (a) => label(ACCUSED_ENTITY_TYPES, a.entType)) },
+      { name: "Accused Mobile", step: "accused", resolve: (d) => each(d.accused, (a) => a.contacts[0]?.mobile ?? "") },
+      { name: "Accused Email", step: "accused", resolve: (d) => each(d.accused, (a) => a.contacts[0]?.email ?? "") },
+      { name: "Person Responsible Name", step: "accused", resolve: (d) => each(d.accused.flatMap((a) => a.reps), (r) => r.name) },
+      { name: "Person Responsible Designation", step: "accused", resolve: (d) => each(d.accused.flatMap((a) => a.reps), (r) => r.designation) },
+      { name: "Accused Resides Within Jurisdiction", step: "accused", resolve: (d) => each(d.accused, (a) => yesNo(a.jurisdiction)) },
+    ],
+  },
+  {
+    label: "Cheque",
+    fields: [
+      { name: "Drawer Bank IFSC", step: "cheque", resolve: (d) => each(d.cheques, (c) => c.ifsc) },
+      { name: "Drawer Bank Branch", step: "cheque", resolve: (d) => each(d.cheques, (c) => c.bankBranch) },
+      { name: "Number of Cheques", step: "cheque", resolve: (d) => (d.cheques.length ? String(d.cheques.length) : "") },
+    ],
+  },
+  {
+    label: "Demand notice",
+    fields: [
+      { name: "Notice Tracking Number", step: "demand-notice", resolve: (d) => each(d.notices, (n) => n.tracking) },
+      { name: "Notice Delivered", step: "demand-notice", resolve: (d) => each(d.notices, (n) => yesNo(n.delivered)) },
+      { name: "Notice Returned On", step: "demand-notice", resolve: (d) => each(d.notices.filter((n) => n.delivered === "no"), (n) => toLongDate(n.returnDate)) },
+      { name: "Reason for Non-delivery", step: "demand-notice", resolve: (d) => each(d.notices.filter((n) => n.delivered === "no"), (n) => label(NON_DELIVERY_REASONS, n.nonDeliveryReason)) },
+      { name: "Accused Replied", step: "demand-notice", resolve: (d) => each(d.notices, (n) => yesNo(n.replied)) },
+    ],
+  },
+  {
+    label: "Jurisdiction & limitation",
+    fields: [
+      { name: "Deposited in Complainant's Account", step: "jurisdiction", resolve: (d) => yesNo(d.jurisdiction.deposited) },
+      { name: "Complainant Bank IFSC", step: "jurisdiction", resolve: (d) => (d.jurisdiction.deposited === "yes" ? d.jurisdiction.ifsc.trim() : "") },
+      { name: "Drawer Bank Police Station", step: "jurisdiction", resolve: (d) => d.jurisdiction.drawerPolice.trim() },
+      { name: "Other Case Pending", step: "jurisdiction", resolve: (d) => yesNo(d.jurisdiction.otherPending) },
+      { name: "Reason for Delay", step: "jurisdiction", resolve: (d) => d.jurisdiction.condonationReason.trim() },
+    ],
+  },
+  {
+    label: "Witnesses",
+    fields: [
+      { name: "Witness Name", step: "witnesses", resolve: (d) => each(d.witnesses, (w) => w.fullName) },
+      { name: "Witness Designation", step: "witnesses", resolve: (d) => each(d.witnesses, (w) => w.designation) },
+      { name: "Number of Witnesses", step: "witnesses", resolve: (d) => (d.witnesses.length ? String(d.witnesses.length) : "") },
+    ],
+  },
+];
+
+/**
+ * Every field a bulk template can use, one group per e-filing section (BLK-10c): the
+ * standard fields first in each, then the rest.
+ */
+export const TEMPLATE_FIELD_GROUPS: DetailFieldGroup[] = [...DETAIL_FIELD_GROUPS, ...MORE_FIELD_GROUPS].reduce<DetailFieldGroup[]>(
+  (out, g) => {
+    const at = out.find((x) => x.label === g.label);
+    if (at) at.fields = [...at.fields, ...g.fields];
+    else out.push({ label: g.label, fields: [...g.fields] });
+    return out;
+  },
+  [],
+);
+
+const BY_NAME = new Map(
+  [...DETAIL_FIELDS, ...MORE_FIELD_GROUPS.flatMap((g) => g.fields)].map((f) => [f.name.toLowerCase(), f]),
+);
 
 /** The field a bracket names, ignoring case; undefined for a blank to write over. */
 export function detailField(name: string): DetailField | undefined {

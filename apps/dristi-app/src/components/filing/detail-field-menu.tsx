@@ -8,7 +8,7 @@
 import * as React from "react";
 import { BracesIcon } from "lucide-react";
 
-import { DETAIL_FIELD_GROUPS, type DetailField } from "@/lib/filing/detail-fields";
+import { DETAIL_FIELD_GROUPS, type DetailField, type DetailFieldGroup } from "@/lib/filing/detail-fields";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -24,8 +24,11 @@ export function DetailFieldMenu({
   onPick,
   describe,
   label = "Insert field",
+  groups = DETAIL_FIELD_GROUPS,
 }: {
   onPick: (field: DetailField) => void;
+  /** The fields offered, by section; bulk templates offer every e-filing field (BLK-10c). */
+  groups?: DetailFieldGroup[];
   /** A second line under each field — its value in this filing, or its section. */
   describe: (field: DetailField) => string;
   label?: string;
@@ -51,7 +54,7 @@ export function DetailFieldMenu({
           <CommandInput placeholder="Search fields" />
           <CommandList className="max-h-80">
             <CommandEmpty>No field by that name.</CommandEmpty>
-            {DETAIL_FIELD_GROUPS.map((group) => (
+            {groups.map((group) => (
               <CommandGroup key={group.label} heading={group.label}>
                 {group.fields.map((field) => (
                   <CommandItem

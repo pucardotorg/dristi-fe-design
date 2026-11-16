@@ -12,12 +12,13 @@
 
 import * as React from "react";
 import {
+  BookmarkPlusIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   ExternalLinkIcon,
   FileTextIcon,
   ChevronDownIcon,
-  PlusIcon,
+  Settings2Icon,
   TriangleAlertIcon,
 } from "lucide-react";
 
@@ -25,8 +26,14 @@ import type { ApiBatchRequest } from "@/lib/bulk/contract";
 import { buildBatch, writeFacts } from "@/lib/bulk/intake";
 import { applyParties, type BatchParties } from "@/lib/bulk/parties";
 import { caseFlags, type Flag } from "@/lib/bulk/scrutiny";
-import { DETAIL_FIELDS, DETAIL_FIELD_GROUPS, detailField, bracketsIn } from "@/lib/filing/detail-fields";
-import { formatForFiler, type DetailsFormat } from "@/lib/filing/details-formats";
+import { TEMPLATE_FIELD_GROUPS, detailField, bracketsIn } from "@/lib/filing/detail-fields";
+import {
+  DEFAULT_FORMATS,
+  formatForFiler,
+  newFormatId,
+  saveDetailsFormat,
+  type DetailsFormat,
+} from "@/lib/filing/details-formats";
 import { totalChequeAmount } from "@/lib/filing/selectors";
 import {
   AlertDialog,
@@ -56,6 +63,8 @@ import { RichTextEditor, type BracketMarks, type RichTextEditorHandle } from "@/
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Field, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Combobox,
@@ -136,7 +145,7 @@ export function useCheckCases(request: ApiBatchRequest | null, parties: BatchPar
               facts: bc.draft.adr.otherDetails ?? "",
               own: ownText.has(bc.reference),
               fromBatch: !!bc.draft.adr.detailsFormat,
-              sample: i === 0 ? Object.fromEntries(DETAIL_FIELDS.map((f) => [f.name, f.resolve(bc.draft)])) : undefined,
+              sample: i === 0 ? Object.fromEntries(TEMPLATE_FIELD_GROUPS.flatMap((g) => g.fields).map((f) => [f.name, f.resolve(bc.draft)])) : undefined,
               flags,
               state: flags.some((f) => f.level === "hold") ? "fix" : flags.length ? "check" : "ready",
             };
@@ -252,7 +261,9 @@ export function writtenBlanks(html: string): string[] {
   return bracketsIn(html).filter((name) => !detailField(name));
 }
 
-const FIELD_LIST = DETAIL_FIELD_GROUPS.flatMap((g) => g.fields.map((f) => ({ name: f.name, group: g.label })));
+// Every e-filing field, by the section it is entered in (BLK-10c); typing after `[` searches
+// across sections.
+const FIELD_LIST = TEMPLATE_FIELD_GROUPS.flatMap((g) => g.fields.map((f) => ({ name: f.name, group: g.label })));
 /** The story reads as prose: body size, open leading, room between its paragraphs. */
 const STORY_CLASS = "px-6 py-5 text-body leading-7 [&_li]:mb-2 [&_li]:pl-1 [&_ol]:ml-1 [&_p]:mb-4";
 
@@ -303,6 +314,19 @@ export function FactsCard({
   const [mode, setMode] = React.useState<"write" | "preview">("write");
 
   const current = formats.find((f) => f.id === templateId);
+  // The default everyone has, and the filer's own templates (BLK-10d, Q-18).
+  const builtIn = formats.filter((f) => DEFAULT_FORMATS.some((d) => d.id === f.id));
+  const mine = formats.filter((f) => !builtIn.includes(f));
+  // The name being typed for "Save this text as a template"; `null` when not saving.
+  const [saving, setSaving] = React.useState<string | null>(null);
+  const save = () => {
+    const name = saving?.trim();
+    if (!name) return;
+    const id = newFormatId();
+    saveDetailsFormat({ id, name, html, mappings: {} });
+    onChange(id, html);
+    setSaving(null);
+  };
   const edited = current ? html !== formatForFiler(current) : !isEmpty(html);
   const blanks = writtenBlanks(html);
   const empty = isEmpty(html);
@@ -380,8 +404,9 @@ export function FactsCard({
                         <ChevronDownIcon data-icon="inline-end" aria-hidden />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="min-w-64">
-                      <DropdownMenuLabel>Start from a template</DropdownMenuLabel>
+                    <DropdownMenuContent align="end" className="w-72">
+                      {/* One default everyone starts from, then the filer's own, which only they
+                          see (BLK-10d; sharing is a later version). */}
                       <DropdownMenuRadioGroup
                         value={current?.id ?? ""}
                         onValueChange={(id) => {
@@ -389,26 +414,54 @@ export function FactsCard({
                           if (format) choose(format);
                         }}
                       >
-                        {formats.map((f) => (
+                        <DropdownMenuLabel>Start from</DropdownMenuLabel>
+                        {builtIn.map((f) => (
                           <DropdownMenuRadioItem key={f.id} value={f.id}>
-                            {f.name || "Untitled"}
+                            <span className="min-w-0 flex-1 truncate">
+                              <span className="text-muted-foreground">Default · </span>
+                              {f.name}
+                            </span>
                           </DropdownMenuRadioItem>
                         ))}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuLabel>My templates</DropdownMenuLabel>
+                        {mine.length ? (
+                          mine.map((f) => (
+                            <DropdownMenuRadioItem key={f.id} value={f.id}>
+                              <span className="min-w-0 flex-1 truncate">{f.name || "Untitled"}</span>
+                            </DropdownMenuRadioItem>
+                          ))
+                        ) : (
+                          <p className="px-2 py-1.5 text-body-compact text-muted-foreground">None yet. Save this text to make one.</p>
+                        )}
                       </DropdownMenuRadioGroup>
                       <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        disabled={empty}
+                        // Opened once the menu has closed, so the menu handing focus back never closes it.
+                        onSelect={() => {
+                          const name = current && !builtIn.includes(current) ? `${current.name} (copy)` : "";
+                          window.setTimeout(() => setSaving(name), 0);
+                        }}
+                      >
+                        <BookmarkPlusIcon aria-hidden />
+                        Save this text as a template
+                      </DropdownMenuItem>
                       <DropdownMenuItem asChild>
                         <a href={FORMATS_HREF} target="_blank" rel="noopener">
-                          <PlusIcon aria-hidden />
-                          New template
+                          <Settings2Icon aria-hidden />
+                          Manage my templates
                           <ExternalLinkIcon aria-hidden className="ml-auto text-muted-foreground" />
                           <span className="sr-only">(opens in a new tab)</span>
                         </a>
                       </DropdownMenuItem>
+                      <p className="px-2 pt-1 pb-1.5 text-body-compact text-muted-foreground">Only you see your templates.</p>
                     </DropdownMenuContent>
                   </DropdownMenu>
                   <DetailFieldMenu
+                    groups={TEMPLATE_FIELD_GROUPS}
                     onPick={(field) => editor.current?.insertText(`[${field.name}]`)}
-                    describe={() => "Filled in from each case"}
+                    describe={(field) => first?.sample?.[field.name] || "Filled in from each case"}
                   />
                 </>
               }
@@ -506,6 +559,40 @@ export function FactsCard({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {/* Naming the text to keep it as one of the filer's own templates. */}
+      <Dialog open={saving !== null} onOpenChange={(o) => !o && setSaving(null)}>
+        <ChromeDialogContent className="sm:max-w-md">
+          <form
+            className="flex flex-col gap-5"
+            onSubmit={(e) => {
+              e.preventDefault();
+              save();
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle>Save as a template</DialogTitle>
+              <DialogDescription>Only you see it. It starts any batch&apos;s facts from this text.</DialogDescription>
+            </DialogHeader>
+            <Field>
+              <FieldLabel>Name</FieldLabel>
+              <Input
+                autoFocus
+                value={saving ?? ""}
+                onChange={(e) => setSaving(e.target.value)}
+                placeholder="e.g. Personal loan, one cheque"
+              />
+            </Field>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setSaving(null)}>
+                Back
+              </Button>
+              <Button type="submit" disabled={!saving?.trim()}>
+                Save template
+              </Button>
+            </DialogFooter>
+          </form>
+        </ChromeDialogContent>
+      </Dialog>
     </Card>
   );
 }
