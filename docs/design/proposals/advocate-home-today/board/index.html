@@ -1,0 +1,1510 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Advocate Home board</title>
+<style>
+  :root {
+    --bg: #f3f2ee; --dot: #d9d6cc; --ink: #1d1d1b; --mut: #77756d; --line: #c9c6bb;
+    --box: #ffffff; --fill: #e9e7e0; --fill2: #dcd9cf; --note: #fff3b8; --noteInk: #5b4a00;
+    --pin: #e0592a; --flag: #c0392b;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--ink);
+    font: 14px/1.35 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #view { position: fixed; inset: 0; cursor: grab;
+    background-image: radial-gradient(var(--dot) 1.2px, transparent 1.2px); background-size: 24px 24px; }
+  #view.drag { cursor: grabbing; }
+  #world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+  .abs { position: absolute; }
+
+  /* Board furniture */
+  .title h1 { font-size: 44px; margin: 0 0 8px; letter-spacing: -0.5px; }
+  .title p { font-size: 20px; margin: 0; color: var(--mut); }
+  .label { font-size: 22px; font-weight: 700; margin-bottom: 14px; white-space: nowrap; }
+  .label span { font-weight: 400; color: var(--mut); margin-left: 10px; font-size: 18px; }
+  .note { white-space: pre-line; background: var(--note); color: var(--noteInk); padding: 12px 14px; border-radius: 4px;
+    box-shadow: 0 1px 0 rgba(0,0,0,.08), 0 6px 14px rgba(0,0,0,.06); font-size: 16px; width: 260px; }
+  .note b { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px;
+    border-radius: 50%; background: var(--pin); color: #fff; font-size: 12px; margin-right: 8px; }
+  .pin { position: absolute; width: 24px; height: 24px; border-radius: 50%; background: var(--pin); color: #fff;
+    font: 700 12px/24px system-ui; text-align: center; box-shadow: 0 0 0 3px rgba(224,89,42,.25); z-index: 2; }
+
+  /* Wireframe primitives */
+  .frame { background: var(--box); border: 2px solid var(--ink); border-radius: 10px; overflow: hidden; }
+  .chrome { height: 36px; border-bottom: 1.5px solid var(--line); display: flex; align-items: center; gap: 8px; padding: 0 14px; color: var(--mut); font-size: 12px; }
+  .rail { position: absolute; left: 0; top: 36px; bottom: 0; width: 64px; border-right: 1.5px solid var(--line); background: #fbfaf7; }
+  .rail i { display: block; width: 26px; height: 8px; background: var(--fill2); border-radius: 4px; margin: 18px auto; }
+  .page { position: absolute; left: 64px; right: 0; top: 36px; bottom: 0; padding: 22px 26px; }
+  .phone .page { position: static; padding: 14px; }
+  .hdr { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 18px; }
+  .hdr small { color: var(--mut); display: block; font-size: 12px; }
+  .hdr h2 { margin: 2px 0 0; font-size: 22px; }
+  .flows { display: flex; gap: 6px; flex-wrap: wrap; }
+  .btn { border: 1.5px solid var(--ink); border-radius: 6px; padding: 5px 10px; font-size: 12px; background: #fff; white-space: nowrap; }
+  .btn.solid { background: var(--ink); color: #fff; }
+  .cols { display: grid; grid-template-columns: 1.35fr 1fr; gap: 16px; }
+  .stack { display: flex; flex-direction: column; gap: 14px; }
+  .card { border: 1.5px solid var(--line); border-radius: 8px; padding: 12px 14px; background: #fff; position: relative; }
+  .q { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+  .q .n { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--ink); font-size: 11px; font-weight: 700;
+    display: inline-flex; align-items: center; justify-content: center; flex: none; }
+  .q h3 { margin: 0; font-size: 14px; }
+  .q .meta { margin-left: auto; color: var(--mut); font-size: 11px; white-space: nowrap; }
+  .row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid #eeece6; font-size: 12.5px; }
+  .row:first-of-type { border-top: 0; }
+  .row .t { flex: 1; min-width: 0; }
+  .row .t div:last-child { color: var(--mut); font-size: 11px; }
+  .ic { width: 22px; height: 22px; border-radius: 50%; background: var(--fill); flex: none; }
+  .due { color: var(--mut); font-size: 11px; white-space: nowrap; }
+  .due.red { color: var(--flag); font-weight: 700; }
+  .flag { color: var(--flag); font-size: 11px; font-weight: 700; white-space: nowrap; }
+  .chip { display: inline-block; border: 1.2px solid var(--ink); border-radius: 10px; padding: 0 6px; font-size: 11px; margin-right: 3px; }
+  .track { position: relative; height: 4px; background: var(--fill); border-radius: 2px; margin: 6px 0 2px; }
+  .track > span { position: absolute; left: 0; top: 0; bottom: 0; background: var(--mut); border-radius: 2px; }
+  .track > em { position: absolute; top: -6px; width: 16px; height: 16px; border-radius: 50%; background: #fff; border: 2px solid var(--ink); transform: translateX(-50%); }
+  .track > em.r { border-color: var(--flag); }
+  .more { color: var(--mut); font-size: 11.5px; padding-top: 6px; }
+  .link { font-size: 11.5px; text-decoration: underline; }
+  .empty { color: var(--mut); font-size: 12.5px; padding: 4px 0 2px; }
+  .week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+  .day { border: 1.2px solid var(--line); border-radius: 6px; padding: 6px 4px; text-align: center; font-size: 11px; }
+  .day.on { border: 2px solid var(--ink); }
+  .day b { display: block; font-size: 12px; }
+  .day span { color: var(--mut); display: block; }
+
+  /* Controls */
+  #ui { position: fixed; right: 16px; bottom: 16px; display: flex; gap: 6px; z-index: 10; }
+  #ui button { font: 600 14px system-ui; border: 1.5px solid var(--ink); background: #fff; border-radius: 8px; padding: 8px 12px; cursor: pointer; }
+  #hint { position: fixed; left: 16px; bottom: 16px; color: var(--mut); font-size: 13px; z-index: 10; background: rgba(243,242,238,.9); padding: 6px 10px; border-radius: 6px; }
+</style>
+</head>
+<body>
+<div id="view"><div id="world"></div></div>
+<div id="hint">Drag to move · scroll or pinch to zoom</div>
+<div id="ui"><button id="out" aria-label="Zoom out">−</button><button id="in" aria-label="Zoom in">+</button><button id="fit">Fit</button><button id="r2">Round 2</button><button id="r3">Round 3</button><button id="r4">Round 4</button><button id="r5">Round 5</button><button id="r6">Round 6</button><button id="r7">Round 7</button><button id="r8">Round 8</button><button id="r9">Round 9</button><button id="r10">Round 10</button><button id="r11">Round 11</button><button id="r12">Round 12</button></div>
+
+<script>
+/* ── Example data (sandbox names; low fidelity) ───────────────────────── */
+const STATES = {
+  busy: {
+    name: "Busy day", sub: "Friday, 6 courts listed",
+    courts: [
+      { c: "Court A", at: 9, items: [14, 22], flagged: [[14, "Fathima Beevi v. Anil Kumar K.", "Not ready: process fee unpaid"]] },
+      { c: "Court B", at: 1, items: [3, 11], flagged: [] },
+      { c: "Court C", at: 20, items: [26], flagged: [[26, "Lakshmi Menon v. P. J. Thomas", "Passed over on Monday, listed again today"]] },
+      { c: "Court D", at: 0, items: [7], flagged: [] },
+    ], moreCourts: 2,
+    tasks: [
+      ["File the reply to the objection", "Muralidharan P. v. Sherin Thomas", "Window closes today", true, "File"],
+      ["Pay the process fee for the summons", "Fathima Beevi v. Anil Kumar K. · item 14", "Before item 14", true, "Pay"],
+      ["Pay the copying fee", "Kerala Agro Mart v. Biju Varghese", "2 days overdue", true, "Pay"],
+      ["Sign the bail application", "Anitha Joseph v. Latheef M.", "Due today", false, "Sign"],
+      ["Produce PW-2 for cross-examination", "Lakshmi Menon v. P. J. Thomas", "Due today", false, "Mark done"],
+    ], moreTasks: 7,
+    waiting: [
+      ["Proof affidavit", "Lakshmi Menon v. P. J. Thomas", "Prepared by Rahul Iyer, yesterday", "Sign"],
+      ["Vakalatnama", "Sree Durga Traders v. Ajmal K.", "Prepared by S. Prakash, today", "Sign"],
+      ["Request to remove you from the case", "Nimmy George v. Saji Kurian", "Raised by Deepa Varghese", "Respond"],
+    ],
+    know: [
+      ["Sree Durga Traders v. Ajmal K.", "Summons served on the accused"],
+      ["Nimmy George v. Saji Kurian", "Adjournment application rejected"],
+      ["Objection invited", "Discharge application · due Thu"],
+    ], moreKnow: 5,
+    week: [["Fri", 8, 6, true], ["Sat", 0, 1], ["Mon", 7, 4], ["Tue", 5, 3], ["Wed", 3, 2], ["Thu", 6, 2], ["Fri", 4, 1]],
+  },
+  light: {
+    name: "Light day", sub: "One court, little due",
+    courts: [{ c: "Court B", at: 2, items: [6], flagged: [] }], moreCourts: 0,
+    tasks: [["Pay the court fee", "Jaya Textiles v. Noufal A.", "Due today", false, "Pay"]], moreTasks: 0,
+    waiting: [],
+    know: [["Aiswarya Agencies v. Deepa Mohan", "Next date set: 2 Dec"]], moreKnow: 0,
+    week: [["Fri", 1, 1, true], ["Sat", 0, 0], ["Mon", 4, 2], ["Tue", 2, 0], ["Wed", 0, 1], ["Thu", 3, 0], ["Fri", 2, 0]],
+  },
+  none: {
+    name: "No court today", sub: "Saturday, or nothing listed",
+    courts: [], next: "Next listed: Monday · 7 hearings in 3 courts", moreCourts: 0,
+    tasks: [
+      ["Correct 2 defects and re-file", "Malabar Steels v. Rafeeq T.", "Due Mon", false, "Re-file"],
+      ["Pay the copying fee", "Kerala Agro Mart v. Biju Varghese", "2 days overdue", true, "Pay"],
+    ], moreTasks: 0, tasksTitle: "Nothing due today. Coming up first:",
+    waiting: [["Proof affidavit", "Lakshmi Menon v. P. J. Thomas", "Prepared by Rahul Iyer, yesterday", "Sign"]],
+    know: [], moreKnow: 0,
+    week: [["Sat", 0, 0, true], ["Mon", 7, 4], ["Tue", 5, 3], ["Wed", 3, 2], ["Thu", 6, 2], ["Fri", 4, 1], ["Sat", 0, 0]],
+  },
+};
+
+/* ── Wireframe pieces ──────────────────────────────────────────────────── */
+const q = (n, title, meta = "") =>
+  `<div class="q"><span class="n">${n}</span><h3>${title}</h3>${meta ? `<span class="meta">${meta}</span>` : ""}</div>`;
+
+function courtsCard(s) {
+  const items = (c) => (c.items.length === 1 ? `Item ${c.items[0]}` : `Items ${c.items.slice(0, -1).join(", ")} and ${c.items.at(-1)}`);
+  const ahead = (c) => {
+    if (!c.at) return "Not sitting yet";
+    const next = c.items.find((i) => i > c.at);
+    return next ? `On item ${c.at} · ${next - c.at - 1} before yours` : "Your matters heard";
+  };
+  const body = s.courts.length
+    ? s.courts.map(c => `
+      <div class="row" style="display:block">
+        <div style="display:flex;gap:8px;align-items:baseline">
+          <b style="font-size:12.5px;min-width:56px">${c.c}</b>
+          <span>${items(c)}</span>
+          <span class="due" style="margin-left:auto">${ahead(c)}</span>
+        </div>
+        ${c.flagged.map(([i, t, why]) => `<div style="margin:4px 0 0 64px;font-size:11.5px"><span>Item ${i} · ${t}</span><div class="flag">${why}</div></div>`).join("")}
+      </div>`).join("") + (s.moreCourts ? `<div class="more">+${s.moreCourts} more courts · <span class="link">Open hearings</span></div>` : "")
+    : `<div class="empty">Nothing listed today.</div><div class="row"><div class="t"><div>${s.next}</div></div><span class="link">Open hearings</span></div>`;
+  return `<div class="card">${q(1, "Where you need to be", s.courts.length ? `${s.courts.length + s.moreCourts} courts` : "")}${body}</div>`;
+}
+
+function tasksCard(s) {
+  const rows = s.tasks.map(([t, sub, due, red, verb]) => `
+    <div class="row"><span class="ic"></span><div class="t"><div>${t}</div><div>${sub}</div></div>
+    <span class="due ${red ? "red" : ""}">${due}</span><span class="btn">${verb}</span></div>`).join("");
+  const head = s.tasksTitle ? `<div class="empty">${s.tasksTitle}</div>` : "";
+  const more = s.moreTasks ? `<div class="more">+${s.moreTasks} more today · <span class="link">Take action</span></div>` : "";
+  return `<div class="card">${q(2, "Must do today", s.tasks.length && !s.tasksTitle ? "worst first" : "")}${head}${rows}${more}</div>`;
+}
+
+function waitingCard(s) {
+  const body = s.waiting.length
+    ? s.waiting.map(([what, kase, who, verb]) => `<div class="row"><span class="ic"></span><div class="t"><div>${what} · ${kase}</div><div>${who}</div></div><span class="btn">${verb}</span></div>`).join("")
+    : `<div class="empty">Nothing waiting on you.</div>`;
+  return `<div class="card">${q(3, "Waiting on you")}${body}</div>`;
+}
+
+function knowCard(s) {
+  const body = s.know.length
+    ? s.know.map(([c, w]) => `<div class="row"><div class="t"><div>${w}</div><div>${c}</div></div><span class="link">Open</span></div>`).join("") +
+      (s.moreKnow ? `<div class="more">+${s.moreKnow} more updates</div>` : "")
+    : `<div class="empty">No updates since yesterday.</div>`;
+  return `<div class="card">${q(4, "Updates on your cases", "since yesterday, newest first")}${body}</div>`;
+}
+
+function weekCard(s) {
+  return `<div class="card">${q(5, "Coming up")}<div class="week">${s.week
+    .map(([d, m, due, on]) => `<div class="day ${on ? "on" : ""}"><b>${on ? "Today" : d}</b><span>${m} hearings</span><span>${due} tasks due</span></div>`)
+    .join("")}</div></div>`;
+}
+
+function header(phone) {
+  const flows = `<div class="flows"><span class="btn solid">File a case</span><span class="btn">Raise application</span><span class="btn">Join a case</span><span class="btn">Vakalatnama</span></div>`;
+  return phone
+    ? `<div style="margin-bottom:14px"><small style="color:var(--mut);font-size:12px">Friday, 13 Nov</small><h2 style="margin:2px 0 10px;font-size:20px">Good morning, Anjali</h2>${flows}</div>`
+    : `<div class="hdr"><div><small>Friday, 13 November</small><h2>Good morning, Anjali</h2></div>${flows}</div>`;
+}
+
+function desktop(s) {
+  return `<div class="frame" style="width:1200px;height:800px;position:relative">
+    <div class="chrome">DRISTI · Home</div><div class="rail"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="page">${header(false)}
+      <div class="cols">
+        <div class="stack">${courtsCard(s)}${tasksCard(s)}</div>
+        <div class="stack">${waitingCard(s)}${knowCard(s)}${weekCard(s)}</div>
+      </div>
+    </div></div>`;
+}
+
+function phone(s) {
+  return `<div class="frame phone" style="width:390px;position:relative">
+    <div class="chrome">DRISTI · Home</div>
+    <div class="page"><div class="stack">${header(true)}${courtsCard(s)}${tasksCard(s)}${waitingCard(s)}${knowCard(s)}${weekCard(s)}</div></div></div>`;
+}
+
+/* ── Board layout ──────────────────────────────────────────────────────── */
+const world = document.getElementById("world");
+const place = (x, y, html, w) => {
+  const el = document.createElement("div");
+  el.className = "abs";
+  el.style.left = x + "px"; el.style.top = y + "px";
+  if (w) el.style.width = w + "px";
+  el.innerHTML = html;
+  world.appendChild(el);
+  return el;
+};
+const note = (x, y, text, n) => place(x, y, `<div class="note">${n ? `<b>${n}</b>` : ""}${text}</div>`);
+const pin = (x, y, n) => place(x, y, `<div class="pin">${n}</div>`);
+
+place(0, 0, `<div class="title"><h1>Advocate Home</h1><p>Five fixed questions, same order every day. Low fidelity.</p></div>`, 1400);
+
+// The frame, as a strip of the five questions
+place(0, 130, `<div style="display:flex;gap:10px">${[
+  "Where you need to be", "Must do today", "Waiting on you", "Updates on your cases", "Coming up",
+].map((t, i) => `<div class="note" style="width:220px;background:#fff;border:1.5px solid var(--ink);color:var(--ink)"><b>${i + 1}</b>${t}</div>`).join("")}</div>`);
+
+note(1210, 120, "Order follows the clock: court is morning, work through the day, then the rest.");
+
+// Row 1: desktop, three states
+const Y = 300, GAP = 1500;
+["busy", "light", "none"].forEach((k, i) => {
+  const s = STATES[k];
+  place(i * GAP, Y, `<div class="label">${s.name}<span>${s.sub}</span></div>`);
+  place(i * GAP, Y + 50, desktop(s));
+});
+
+// Annotations on the busy desktop (frame top-left = 0, Y+50; page starts x 64+26, y 36+22)
+const fx = 0, fy = Y + 50;
+note(fx - 300, fy + 140, "A line per court. A matter only shows when something is wrong with it, with the reason.", 1);
+note(fx - 300, fy + 460, "Top 5 in the product's urgency order. Act here.", 2);
+note(fx + 1230, fy + 90, "What it is, which case, who prepared it.", 3);
+note(fx + 1230, fy + 330, "Every update since yesterday, not a pick. Picking \"notable\" needs typed updates from the backend.", 4);
+note(fx + 1230, fy + 600, "Hearings listed and tasks due, per day.", 5);
+note(fx + 1230, fy + 230, "Not ready is flagged in ①. The fix lives in ②. One place to act.");
+
+// What differs in the other states
+note(GAP + 1230, fy + 120, "Empty questions stay, in one line. The shape never changes.");
+note(2 * GAP + 1230, fy + 120, "No court: ① names the next listed day.");
+note(2 * GAP + 1230, fy + 260, "Nothing due today: ② shows what's due first.");
+
+// Row 2: phones
+const PY = Y + 1000;
+place(0, PY, `<div class="label">Phone<span>same order, 1 → 5</span></div>`);
+place(0, PY + 50, phone(STATES.busy));
+place(520, PY + 50, phone(STATES.none));
+note(960, PY + 60, "Stacks 1 → 5. Flows stay on top.");
+note(960, PY + 200, "Caps don't change on a phone.");
+
+// Rules
+const RX = 1500, RY = PY + 50;
+place(RX, PY, `<div class="label">Rules<span>what keeps it deterministic</span></div>`);
+[
+  "Fixed order: ① to ⑤. Every day.",
+  "One sort rule per question.",
+  "Each item appears once. ② wins over ③.",
+  "Every question has a cap and a way in.",
+  "Only data advocate screens already show.",
+].forEach((t, i) => note(RX + (i % 3) * 290, RY + Math.floor(i / 3) * 110, t));
+
+/* ── Round 2: visual ───────────────────────────────────────────────────── */
+const V = {
+  courts: [
+    { c: "Court A", at: 9, last: 40, mine: [{ i: 14, bad: "Fee unpaid" }, { i: 22 }] },
+    { c: "Court B", at: 1, last: 18, mine: [{ i: 3 }, { i: 11 }] },
+    { c: "Court C", at: 20, last: 32, mine: [{ i: 26, bad: "Passed over Mon" }] },
+    { c: "Court D", at: 0, last: 25, mine: [{ i: 7 }] },
+  ],
+};
+const RED = "#c0392b", AMB = "#d68910", INK = "#1d1d1b", MUT = "#77756d", TRK = "#e9e7e0";
+
+/* Option A: the court's list as a labelled bar. */
+function courtBar(c, w = 520) {
+  const px = (n) => Math.round((n / c.last) * w);
+  const now = c.at
+    ? `<div style="position:absolute;left:${px(c.at)}px;top:-16px;transform:translateX(-50%);font-size:10px;color:${INK};font-weight:700;white-space:nowrap">Now ${c.at}</div>
+       <div style="position:absolute;left:${px(c.at)}px;top:-3px;width:2px;height:14px;background:${INK}"></div>`
+    : `<div style="position:absolute;left:0;top:-16px;font-size:10px;color:${MUT}">Not sitting yet</div>`;
+  const flags = c.mine.map((m) => `
+    <div style="position:absolute;left:${px(m.i)}px;top:12px;transform:translateX(-50%);text-align:center">
+      <div style="width:2px;height:6px;background:${m.bad ? RED : INK};margin:0 auto"></div>
+      <div style="border:1.5px solid ${m.bad ? RED : INK};color:${m.bad ? RED : INK};background:#fff;border-radius:4px;padding:0 5px;font:700 11px/16px system-ui">${m.i}</div>
+      ${m.bad ? `<div style="font-size:10px;color:${RED};white-space:nowrap;margin-top:2px">${m.bad}</div>` : ""}
+    </div>`).join("");
+  return `<div style="display:flex;gap:12px;align-items:flex-start;padding:22px 0 30px;border-top:1px solid #eeece6">
+    <b style="font-size:12.5px;width:58px;flex:none">${c.c}</b>
+    <div style="position:relative;width:${w}px;height:8px;background:${TRK};border-radius:4px">
+      <div style="position:absolute;left:0;top:0;bottom:0;width:${px(c.at)}px;background:#b7b4aa;border-radius:4px"></div>
+      ${now}${flags}
+      <div style="position:absolute;left:0;top:12px;font-size:9px;color:${MUT}">1</div>
+      <div style="position:absolute;right:0;top:12px;font-size:9px;color:${MUT}">${c.last}</div>
+    </div></div>`;
+}
+
+/* Option B: the wait as countable dots, then your item. */
+function courtDots(c) {
+  const next = c.mine.find((m) => m.i > c.at);
+  const ahead = next ? (c.at ? next.i - c.at - 1 : next.i - 1) : 0;
+  const shown = Math.min(ahead, 12);
+  const dots = Array.from({ length: shown }, () => `<span style="width:9px;height:9px;border-radius:50%;background:#b7b4aa;display:inline-block"></span>`).join("");
+  const tag = (m) => `<span style="border:1.5px solid ${m.bad ? RED : INK};color:${m.bad ? RED : INK};border-radius:4px;padding:0 5px;font:700 11px/16px system-ui">${m.i}</span>`;
+  return `<div style="display:flex;gap:10px;align-items:center;padding:9px 0;border-top:1px solid #eeece6;font-size:12px">
+    <b style="width:58px;flex:none">${c.c}</b>
+    <span style="width:96px;flex:none;color:${MUT}">${c.at ? `Now ${c.at}` : "Not sitting"}</span>
+    <span style="display:flex;gap:3px;align-items:center;flex-wrap:wrap;width:150px">${dots}${ahead > 12 ? `<span style="color:${MUT}">+${ahead - 12}</span>` : ""}</span>
+    <span style="width:70px;color:${MUT}">${ahead} to go</span>
+    ${next ? tag(next) : ""}
+    ${next && next.bad ? `<span style="color:${RED};font-size:11px">${next.bad}</span>` : ""}
+    <span style="margin-left:auto;color:${MUT}">${c.mine.filter((m) => m !== next).map((m) => `then ${m.i}`).join(" ")}</span>
+  </div>`;
+}
+
+/* ② urgency as coloured bands, counted on top. */
+function vTasks() {
+  const bands = [["Overdue or closes today", 3, RED], ["Before court today", 2, AMB], ["Due today", 7, "#b7b4aa"]];
+  const tot = bands.reduce((n, b) => n + b[1], 0);
+  const rows = [
+    ["File the reply to the objection", "Muralidharan P. v. Sherin Thomas", RED, "File"],
+    ["Pay the copying fee", "Kerala Agro Mart v. Biju Varghese", RED, "Pay"],
+    ["Pay the process fee", "Item 14 · Fathima Beevi v. Anil Kumar K.", AMB, "Pay"],
+    ["Sign the bail application", "Item 3 · Anitha Joseph v. Latheef M.", AMB, "Sign"],
+    ["Produce PW-2 for cross-examination", "Lakshmi Menon v. P. J. Thomas", "#b7b4aa", "Mark done"],
+  ].map(([t, sub, c, v]) => `<div class="row"><span style="width:4px;align-self:stretch;background:${c};border-radius:2px"></span><div class="t"><div>${t}</div><div>${sub}</div></div><span class="btn">${v}</span></div>`).join("");
+  return `<div class="card">${q(2, "Must do today", "12")}
+    <div style="display:flex;height:10px;border-radius:5px;overflow:hidden;gap:2px;margin:2px 0 6px">${bands.map((b) => `<span style="flex:${b[1]};background:${b[2]}"></span>`).join("")}</div>
+    <div style="display:flex;gap:14px;font-size:11px;color:${MUT};margin-bottom:6px">${bands.map((b) => `<span><b style="color:${INK}">${b[1]}</b> ${b[0].toLowerCase()}</span>`).join("")}</div>
+    ${rows}<div class="more">+7 more · <span class="link">Take action</span></div></div>`;
+}
+
+/* ③ where work is sitting: you vs each person. */
+function vWaiting() {
+  const segs = [["You", 3, INK], ["Deepa Varghese", 2, "#8c897f"], ["Rahul Iyer", 1, "#b7b4aa"]];
+  return `<div class="card">${q(3, "Who's holding what")}
+    <div style="display:flex;height:22px;border-radius:5px;overflow:hidden;gap:2px;margin:2px 0 6px">${segs.map((s) => `<span style="flex:${s[1]};background:${s[2]};color:#fff;font:700 11px/22px system-ui;padding-left:6px">${s[1]}</span>`).join("")}</div>
+    <div style="display:flex;gap:12px;font-size:11px;color:${MUT};margin-bottom:6px">${segs.map((s) => `<span><i style="display:inline-block;width:8px;height:8px;background:${s[2]};border-radius:2px;margin-right:4px"></i>${s[0]}</span>`).join("")}</div>
+    <div class="row"><span class="ic"></span><div class="t"><div>Proof affidavit · Lakshmi Menon v. P. J. Thomas</div><div>Prepared by Rahul Iyer, yesterday</div></div><span class="btn">Sign</span></div>
+    <div class="row"><span class="ic"></span><div class="t"><div>Vakalatnama · Sree Durga Traders v. Ajmal K.</div><div>Prepared by S. Prakash, today</div></div><span class="btn">Sign</span></div>
+    <div class="more">2 waiting on Deepa Varghese · <span class="link">View</span></div></div>`;
+}
+
+/* ④ updates on a time line, yesterday to now. */
+function vUpdates() {
+  const pts = [[0.18, 1], [0.42, 2], [0.55, 3], [0.9, 4]];
+  const items = ["Adjournment application rejected · Nimmy George v. Saji Kurian", "Summons served · Sree Durga Traders v. Ajmal K.", "Next date set: 2 Dec · Aiswarya Agencies v. Deepa Mohan", "Objection invited: discharge application, due Thu · Fathima Beevi v. Anil Kumar K."];
+  return `<div class="card">${q(4, "Updates on your cases", "since yesterday")}
+    <div style="position:relative;height:34px;margin:6px 4px 4px">
+      <div style="position:absolute;left:0;right:0;top:12px;height:2px;background:${TRK}"></div>
+      <div style="position:absolute;left:58%;top:4px;bottom:8px;width:1px;background:${MUT}"></div>
+      ${pts.map(([p, n]) => `<span style="position:absolute;left:${p * 100}%;top:4px;transform:translateX(-50%);width:18px;height:18px;border-radius:50%;background:#fff;border:1.5px solid ${INK};font:700 10px/15px system-ui;text-align:center">${n}</span>`).join("")}
+      <span style="position:absolute;left:0;top:22px;font-size:9.5px;color:${MUT}">Yesterday 9 am</span>
+      <span style="position:absolute;left:58%;top:22px;font-size:9.5px;color:${MUT};transform:translateX(-50%)">Midnight</span>
+      <span style="position:absolute;right:0;top:22px;font-size:9.5px;color:${MUT}">Now</span>
+    </div>
+    ${items.map((t, i) => `<div class="row" style="font-size:12px"><span style="font:700 10px/16px system-ui;width:16px;height:16px;border:1.2px solid ${INK};border-radius:50%;text-align:center;flex:none">${i + 1}</span><div class="t"><div>${t}</div></div></div>`).join("")}</div>`;
+}
+
+/* ⑤ the week as paired bars: hearings and tasks due. */
+function vWeek() {
+  const days = [["Today", 8, 6], ["Sat", 0, 1], ["Mon", 7, 4], ["Tue", 5, 3], ["Wed", 3, 2], ["Thu", 6, 2], ["Fri", 4, 1]];
+  const max = 8, H = 70;
+  const bar = (n, c) => `<div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:${H + 14}px"><span style="font:700 10px system-ui">${n}</span><span style="width:12px;height:${Math.max(2, (n / max) * H)}px;background:${c};border-radius:2px 2px 0 0"></span></div>`;
+  return `<div class="card">${q(5, "Coming up")}
+    <div style="display:flex;gap:12px;font-size:11px;color:${MUT};margin-bottom:4px"><span><i style="display:inline-block;width:8px;height:8px;background:${INK};margin-right:4px"></i>Hearings</span><span><i style="display:inline-block;width:8px;height:8px;background:#b7b4aa;margin-right:4px"></i>Tasks due</span></div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;border-bottom:1px solid var(--line)">${days.map(([d, h, t], i) => `<div style="display:flex;gap:2px;justify-content:center;${i === 0 ? "outline:2px solid " + INK + ";outline-offset:2px;border-radius:4px" : ""}">${bar(h, INK)}${bar(t, "#b7b4aa")}</div>`).join("")}</div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;font-size:11px;margin-top:4px">${days.map(([d], i) => `<span style="${i === 0 ? "font-weight:700" : `color:${MUT}`}">${d}</span>`).join("")}</div></div>`;
+}
+
+function vDesktop(courtsHtml) {
+  return `<div class="frame" style="width:1300px;height:880px;position:relative">
+    <div class="chrome">DRISTI · Home</div><div class="rail"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="page">${header(false)}
+      <div class="cols" style="grid-template-columns:1.45fr 1fr">
+        <div class="stack"><div class="card">${q(1, "Where you need to be", "4 of 6 courts")}${courtsHtml}<div class="more">+2 more courts · <span class="link">Open hearings</span></div></div>${vTasks()}</div>
+        <div class="stack">${vWaiting()}${vUpdates()}${vWeek()}</div>
+      </div></div></div>`;
+}
+
+const VY = 3100;
+place(0, VY - 40, `<div class="title"><h1 style="font-size:36px">Round 2 · Visual</h1><p>Same five questions. Each answered with a picture first, words second.</p></div>`, 1400);
+place(0, VY + 90, `<div class="label">Option A<span>court list as a labelled bar</span></div>`);
+place(0, VY + 140, vDesktop(V.courts.map((c) => courtBar(c, 440)).join("")));
+place(1600, VY + 90, `<div class="label">Option B<span>the wait as dots</span></div>`);
+place(1600, VY + 140, vDesktop(V.courts.map(courtDots).join("")));
+
+const ny = VY + 140;
+note(-300, ny + 150, "Bar = the court's whole list. Grey = heard. Now = where it is. Tags = your items.", 1);
+note(-300, ny + 520, "Colour = how urgent. The strip counts each band.", 2);
+note(1330, ny + 110, "The strip shows who's holding the work.", 3);
+note(1330, ny + 360, "Dots placed in time, numbered. List below.", 4);
+note(1330, ny + 640, "Dark = hearings, light = tasks due. Today outlined.", 5);
+note(1600 + 1330, ny + 150, "Each dot = one matter before yours. Count, don't read.", 1);
+note(1600 + 1330, ny + 300, "A or B for ①? Rest is the same.");
+note(-300, ny + 760, "Red only where something is wrong.");
+
+/* ── Round 3: ② by date, ③ by who's waiting ───────────────────────────── */
+function vWaiting3() {
+  const rows = [
+    ["Request to remove you from the case", "Nimmy George v. Saji Kurian", "Raised by Deepa Varghese", 5, "Respond"],
+    ["Proof affidavit", "Lakshmi Menon v. P. J. Thomas", "Prepared by Rahul Iyer", 3, "Sign"],
+    ["Vakalatnama", "Sree Durga Traders v. Ajmal K.", "Prepared by S. Prakash", 1, "Sign"],
+    ["Application for certified copy", "Kerala Agro Mart v. Biju Varghese", "Prepared by Rahul Iyer", 0, "Sign"],
+  ];
+  /* The history-clock icon (Lucide "history"): reads as "waiting since". */
+  const clock = (d) => {
+    const c = d >= 3 ? INK : MUT;
+    return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>`;
+  };
+  const age = (d) => (d === 0 ? "Today" : d === 1 ? "1 day" : `${d} days`);
+  return `<div class="card">${q(3, "Waiting on you", "6 · longest first")}
+    ${rows.map(([what, kase, who, d, verb]) => `
+      <div class="row">
+        <div class="t"><div>${what} · ${kase}</div><div>${who}</div></div>
+        <div style="display:flex;align-items:center;gap:6px;width:76px;flex:none">${clock(d)}<span style="font-size:11px;color:${d >= 3 ? INK : MUT};font-weight:${d >= 3 ? 700 : 400}">${age(d)}</span></div>
+        <span class="btn">${verb}</span>
+      </div>`).join("")}
+    <div class="more">+2 more · <span class="link">Take action</span></div></div>`;
+}
+
+/* ② the product's own three groups, in its own urgency order. */
+function vTasks3() {
+  const GRY = "#b7b4aa";
+  const bands = [["Overdue", 2, RED], ["Before court today", 2, AMB], ["Due today", 8, GRY]];
+  const rows = [
+    ["Pay the copying fee", "Kerala Agro Mart v. Biju Varghese", "2 days overdue", RED, "Pay"],
+    ["Pay the process fee", "Item 14 · Fathima Beevi v. Anil Kumar K.", "Before item 14", AMB, "Pay"],
+    ["Sign the bail application", "Item 3 · Anitha Joseph v. Latheef M.", "Before item 3", AMB, "Sign"],
+    ["File the reply to the objection", "Muralidharan P. v. Sherin Thomas", "Closes today", GRY, "File"],
+    ["Produce PW-2 for cross-examination", "Lakshmi Menon v. P. J. Thomas", "Due today", GRY, "Mark done"],
+  ].map(([t, sub, due, c, v]) => `<div class="row"><span style="width:4px;align-self:stretch;background:${c};border-radius:2px"></span><div class="t"><div>${t}</div><div>${sub}</div></div><span class="due" style="color:${c === GRY ? MUT : c};font-weight:${c === GRY ? 400 : 700}">${due}</span><span class="btn">${v}</span></div>`).join("");
+  return `<div class="card">${q(2, "Must do today", "12")}
+    <div style="display:flex;height:10px;border-radius:5px;overflow:hidden;gap:2px;margin:2px 0 6px">${bands.map((b) => `<span style="flex:${b[1]};background:${b[2]}"></span>`).join("")}</div>
+    <div style="display:flex;gap:14px;font-size:11px;color:${MUT};margin-bottom:6px">${bands.map((b) => `<span><i style="display:inline-block;width:8px;height:8px;background:${b[2]};border-radius:2px;margin-right:4px"></i><b style="color:${INK}">${b[1]}</b> ${b[0].toLowerCase()}</span>`).join("")}</div>
+    ${rows}<div class="more">+7 more · <span class="link">Take action</span></div></div>`;
+}
+
+/* ④ plain list, newest first. */
+function vUpdates3() {
+  const items = [
+    ["Objection invited: discharge application, due Thu", "Fathima Beevi v. Anil Kumar K.", "Today 9:20 am"],
+    ["Next date set: 2 Dec", "Aiswarya Agencies v. Deepa Mohan", "Yesterday 4:05 pm"],
+    ["Summons served", "Sree Durga Traders v. Ajmal K.", "Yesterday 1:30 pm"],
+    ["Adjournment application rejected", "Nimmy George v. Saji Kurian", "Yesterday 12:10 pm"],
+  ];
+  return `<div class="card">${q(4, "Updates on your cases", "since yesterday")}
+    ${items.map(([w, c, t]) => `<div class="row"><div class="t"><div>${w}</div><div>${c}</div></div><span class="due">${t}</span><span class="link">Open</span></div>`).join("")}
+    <div class="more">+5 more updates</div></div>`;
+}
+
+function vDesktop3() {
+  /* Round 2's frame; ②, ③ and ④ swapped as asked. */
+  return vDesktop(V.courts.map((c) => courtBar(c, 440)).join(""))
+    .replace(vWaiting(), vWaiting3())
+    .replace(vTasks(), vTasks3())
+    .replace(vUpdates(), vUpdates3())
+    .replace("height:880px", "height:960px");
+}
+
+const R3 = VY + 1150;
+place(0, R3 - 40, `<div class="title"><h1 style="font-size:36px">Round 3 · Date vs person</h1><p>Round 2, with ②, ③ and ④ corrected.</p></div>`, 1600);
+place(0, R3 + 90, vDesktop3());
+note(-300, R3 + 520, "② The product's three groups: overdue · before court today · due today.", 2);
+note(1330, R3 + 110, "③ Someone prepared it or asked you. No pressing date. Longest wait first.", 3);
+note(1330, R3 + 260, "History icon + how long it has waited on you.");
+note(1330, R3 + 520, "④ Plain list, newest first.", 4);
+note(1330, R3 + 400, "Rule: dated today or earlier → ②. Else someone waiting → ③. Else neither.");
+
+/* ── Round 4: bookmarked cases (round 3 untouched) ─────────────────────── */
+const STAR = "#6b4fd8";
+/* One mark for "bookmarked", in a colour nothing else uses. Optional number inside. */
+let MARK = "star";
+const starGlyph = (size = 14, n) => `<span style="position:relative;display:inline-flex;width:${size}px;height:${size}px;flex:none;vertical-align:-2px" aria-label="Bookmarked">
+  <svg width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true"><path fill="${STAR}" d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3 6.1 20.6l1.3-6.6L2.5 9.4l6.6-.8z"/></svg>
+  ${n !== undefined ? `<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font:700 ${Math.round(size * 0.42)}px/1 system-ui;padding-top:2px">${n}</span>` : ""}</span>`;
+
+/* The Cases page's own mark: Lucide "bookmark", filled. A number sits beside it, not inside. */
+const bookmarkGlyph = (size = 14, n) => `<span style="display:inline-flex;align-items:center;gap:2px;vertical-align:-2px" aria-label="Bookmarked">
+  <svg width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true"><path fill="${STAR}" stroke="${STAR}" stroke-width="2" stroke-linejoin="round" d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
+  ${n !== undefined ? `<span style="color:${STAR};font:700 ${Math.round(size * 0.6)}px/1 system-ui">${n}</span>` : ""}</span>`;
+const star = (size = 14, n) => (MARK === "star" ? starGlyph(size, n) : bookmarkGlyph(size, n));
+
+const V4courts = [
+  { c: "Court A", at: 9, last: 40, mine: [{ i: 14, bad: "Fee unpaid", star: true }, { i: 22 }] },
+  { c: "Court B", at: 1, last: 18, mine: [{ i: 3 }, { i: 11 }] },
+  { c: "Court C", at: 20, last: 32, mine: [{ i: 26, bad: "Passed over Mon" }] },
+  { c: "Court D", at: 0, last: 25, mine: [{ i: 7, star: true }] },
+];
+
+function courtBar4(c, w = 440) {
+  const px = (n) => Math.round((n / c.last) * w);
+  const now = c.at
+    ? `<div style="position:absolute;left:${px(c.at)}px;top:-16px;transform:translateX(-50%);font-size:10px;color:${INK};font-weight:700;white-space:nowrap">Now ${c.at}</div>
+       <div style="position:absolute;left:${px(c.at)}px;top:-3px;width:2px;height:14px;background:${INK}"></div>`
+    : `<div style="position:absolute;left:0;top:-16px;font-size:10px;color:${MUT}">Not sitting yet</div>`;
+  const flags = c.mine.map((m) => `
+    <div style="position:absolute;left:${px(m.i)}px;top:12px;transform:translateX(-50%);text-align:center">
+      <div style="width:2px;height:6px;background:${m.bad ? RED : INK};margin:0 auto"></div>
+      <div style="position:relative;border:1.5px solid ${m.bad ? RED : INK};color:${m.bad ? RED : INK};background:#fff;border-radius:4px;padding:0 5px;font:700 11px/16px system-ui">${m.i}
+        ${m.star ? `<span style="position:absolute;right:-9px;top:-9px">${star(15)}</span>` : ""}</div>
+      ${m.bad ? `<div style="font-size:10px;color:${RED};white-space:nowrap;margin-top:2px">${m.bad}</div>` : ""}
+    </div>`).join("");
+  return `<div style="display:flex;gap:12px;align-items:flex-start;padding:22px 0 30px;border-top:1px solid #eeece6">
+    <b style="font-size:12.5px;width:58px;flex:none">${c.c}</b>
+    <div style="position:relative;width:${w}px;height:8px;background:${TRK};border-radius:4px">
+      <div style="position:absolute;left:0;top:0;bottom:0;width:${px(c.at)}px;background:#b7b4aa;border-radius:4px"></div>
+      ${now}${flags}
+      <div style="position:absolute;left:0;top:12px;font-size:9px;color:${MUT}">1</div>
+      <div style="position:absolute;right:0;top:12px;font-size:9px;color:${MUT}">${c.last}</div>
+    </div></div>`;
+}
+
+function vTasks4() {
+  const GRY = "#b7b4aa";
+  const bands = [["Overdue", 2, RED], ["Before court today", 2, AMB], ["Due today", 8, GRY]];
+  const rows = [
+    ["Pay the copying fee", "Kerala Agro Mart v. Biju Varghese", "2 days overdue", RED, "Pay", false],
+    ["Pay the process fee", "Item 14 · Fathima Beevi v. Anil Kumar K.", "Before item 14", AMB, "Pay", true],
+    ["Sign the bail application", "Item 3 · Anitha Joseph v. Latheef M.", "Before item 3", AMB, "Sign", false],
+    ["File the reply to the objection", "Muralidharan P. v. Sherin Thomas", "Closes today", GRY, "File", false],
+    ["Produce PW-2 for cross-examination", "Lakshmi Menon v. P. J. Thomas", "Due today", GRY, "Mark done", false],
+  ].map(([t, sub, due, c, v, st]) => `<div class="row"><span style="width:4px;align-self:stretch;background:${c};border-radius:2px"></span><div class="t"><div>${st ? star(13) + " " : ""}${t}</div><div>${sub}</div></div><span class="due" style="color:${c === GRY ? MUT : c};font-weight:${c === GRY ? 400 : 700}">${due}</span><span class="btn">${v}</span></div>`).join("");
+  return `<div class="card">${q(2, "Must do today", "12")}
+    <div style="display:flex;height:10px;border-radius:5px;overflow:hidden;gap:2px;margin:2px 0 6px">${bands.map((b) => `<span style="flex:${b[1]};background:${b[2]}"></span>`).join("")}</div>
+    <div style="display:flex;gap:14px;font-size:11px;color:${MUT};margin-bottom:6px">${bands.map((b) => `<span><i style="display:inline-block;width:8px;height:8px;background:${b[2]};border-radius:2px;margin-right:4px"></i><b style="color:${INK}">${b[1]}</b> ${b[0].toLowerCase()}</span>`).join("")}</div>
+    ${rows}<div class="more">+7 more · <span class="link">Take action</span></div></div>`;
+}
+
+function vWaiting4() {
+  /* Bookmarked first, then longest wait. */
+  const rows = [
+    ["Request to remove you from the case", "Nimmy George v. Saji Kurian", "Raised by Deepa Varghese", 5, "Respond", true],
+    ["Vakalatnama", "Sree Durga Traders v. Ajmal K.", "Prepared by S. Prakash", 1, "Sign", true],
+    ["Proof affidavit", "Lakshmi Menon v. P. J. Thomas", "Prepared by Rahul Iyer", 3, "Sign", false],
+    ["Application for certified copy", "Kerala Agro Mart v. Biju Varghese", "Prepared by Rahul Iyer", 0, "Sign", false],
+  ];
+  const hist = (d) => `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="${d >= 3 ? INK : MUT}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>`;
+  const age = (d) => (d === 0 ? "Today" : d === 1 ? "1 day" : `${d} days`);
+  return `<div class="card">${q(3, "Waiting on you", "6 · bookmarked first")}
+    ${rows.map(([what, kase, who, d, verb, st]) => `
+      <div class="row">
+        <div class="t"><div>${st ? star(13) + " " : ""}${what} · ${kase}</div><div>${who}</div></div>
+        <div style="display:flex;align-items:center;gap:6px;width:76px;flex:none">${hist(d)}<span style="font-size:11px;color:${d >= 3 ? INK : MUT};font-weight:${d >= 3 ? 700 : 400}">${age(d)}</span></div>
+        <span class="btn">${verb}</span>
+      </div>`).join("")}
+    <div class="more">+2 more · <span class="link">Take action</span></div></div>`;
+}
+
+function vUpdates4() {
+  /* Bookmarked first, then newest. */
+  const items = [
+    ["Objection invited: discharge application, due Thu", "Fathima Beevi v. Anil Kumar K.", "Today 9:20 am", true],
+    ["Summons served", "Sree Durga Traders v. Ajmal K.", "Yesterday 1:30 pm", true],
+    ["Adjournment application rejected", "Nimmy George v. Saji Kurian", "Yesterday 12:10 pm", true],
+    ["Next date set: 2 Dec", "Aiswarya Agencies v. Deepa Mohan", "Yesterday 4:05 pm", false],
+  ];
+  return `<div class="card">${q(4, "Updates on your cases", "bookmarked first")}
+    ${items.map(([w, c, t, st]) => `<div class="row"><div class="t"><div>${st ? star(13) + " " : ""}${w}</div><div>${c}</div></div><span class="due">${t}</span><span class="link">Open</span></div>`).join("")}
+    <div class="more">+5 more updates</div></div>`;
+}
+
+function vWeek4() {
+  const days = [["Today", 8, 6, 2], ["Sat", 0, 1, 0], ["Mon", 7, 4, 2], ["Tue", 5, 3, 0], ["Wed", 3, 2, 0], ["Thu", 6, 2, 1], ["Fri", 4, 1, 0]];
+  const max = 8, H = 70;
+  const bar = (n, c) => `<div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:${H + 14}px"><span style="font:700 10px system-ui">${n}</span><span style="width:12px;height:${Math.max(2, (n / max) * H)}px;background:${c};border-radius:2px 2px 0 0"></span></div>`;
+  return `<div class="card">${q(5, "Coming up")}
+    <div style="display:flex;gap:12px;font-size:11px;color:${MUT};margin-bottom:4px"><span><i style="display:inline-block;width:8px;height:8px;background:${INK};margin-right:4px"></i>Hearings</span><span><i style="display:inline-block;width:8px;height:8px;background:#b7b4aa;margin-right:4px"></i>Tasks due</span><span>${star(13)} Bookmarked hearings</span></div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;height:22px">${days.map(([, , , b]) => `<span>${b ? star(20, b) : ""}</span>`).join("")}</div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;border-bottom:1px solid var(--line)">${days.map(([d, h, t], i) => `<div style="display:flex;gap:2px;justify-content:center;${i === 0 ? "outline:2px solid " + INK + ";outline-offset:2px;border-radius:4px" : ""}">${bar(h, INK)}${bar(t, "#b7b4aa")}</div>`).join("")}</div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;font-size:11px;margin-top:4px">${days.map(([d], i) => `<span style="${i === 0 ? "font-weight:700" : `color:${MUT}`}">${d}</span>`).join("")}</div></div>`;
+}
+
+function vDesktop4() {
+  return vDesktop(V4courts.map((c) => courtBar4(c, 440)).join(""))
+    .replace(vWaiting(), vWaiting4())
+    .replace(vTasks(), vTasks4())
+    .replace(vUpdates(), vUpdates4())
+    .replace(vWeek(), vWeek4())
+    .replace("height:880px", "height:1000px");
+}
+
+const R4 = R3 + 1250;
+place(0, R4 - 40, `<div class="title"><h1 style="font-size:36px">Round 4 · Bookmarks</h1><p>Round 3, plus one mark for bookmarked cases.</p></div>`, 1600);
+const r4el = place(0, R4 + 90, vDesktop4());
+const markToggle = place(1000, R4 - 20, `<div data-ui style="display:flex;align-items:center;gap:8px;font-size:15px">
+  <span style="color:var(--mut)">Bookmark mark:</span>
+  <div style="display:flex;border:1.5px solid var(--ink);border-radius:8px;overflow:hidden">
+    <button data-mark="star" style="font:600 15px system-ui;padding:6px 14px;border:0;cursor:pointer">★ Star</button>
+    <button data-mark="bookmark" style="font:600 15px system-ui;padding:6px 14px;border:0;border-left:1.5px solid var(--ink);cursor:pointer">Bookmark</button>
+  </div></div>`);
+function paintToggle() {
+  markToggle.querySelectorAll("[data-mark]").forEach((b) => {
+    const on = b.dataset.mark === MARK;
+    b.style.background = on ? "var(--ink)" : "#fff";
+    b.style.color = on ? "#fff" : "var(--ink)";
+    b.setAttribute("aria-pressed", String(on));
+  });
+}
+markToggle.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-mark]");
+  if (!b) return;
+  MARK = b.dataset.mark;
+  r4el.innerHTML = vDesktop4();
+  paintToggle();
+});
+paintToggle();
+note(-300, R4 + 200, "Mark on the item. Order unchanged.", 1);
+note(-300, R4 + 520, "Mark on the row. Urgency order unchanged.", 2);
+note(1330, R4 + 110, "Bookmarked first, then longest wait. A 1-day bookmarked item sits above a 3-day plain one.", 3);
+note(1330, R4 + 420, "Bookmarked first, then newest.", 4);
+note(1330, R4 + 720, "Mark with a number = bookmarked hearings that day.", 5);
+note(1330, R4 + 860, "Its colour is used for nothing else. Red = wrong, amber = before court.");
+
+/* ── Round 5: quick actions, four patterns (round 4 untouched) ─────────── */
+const QA_ICON = {
+  file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 12v6M9 15h6"/>',
+  app: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/>',
+  join: '<circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0"/><path d="M19 8v6M16 11h6"/>',
+  vak: '<path d="M8 21h12a2 2 0 0 0 2-2v-2H10v2a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v3h4"/><path d="M19 17V5a2 2 0 0 0-2-2H4"/><path d="M15 8h-5M15 12h-5"/>',
+};
+const QA = [
+  ["File a case", "file", "New complaint"],
+  ["Raise application", "app", "On a case you're on"],
+  ["Join a case", "join", "With case number or code"],
+  ["Vakalatnama", "vak", "Prepare, sign, share"],
+];
+const qaIcon = (k, size = 20, color = INK) =>
+  `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${QA_ICON[k]}</svg>`;
+const greet = `<div><small style="color:var(--mut);font-size:12px">Friday, 13 November</small><h2 style="margin:2px 0 0;font-size:22px">Good morning, Anjali</h2></div>`;
+
+const QA_VARIANTS = {
+  A: {
+    name: "A · Launcher band",
+    note: "Full-width band under the greeting. Four tiles, one click each. Reads as one launcher.",
+    header: () => `<div style="margin-bottom:16px">${greet}
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px;padding:10px;background:#f6f5f1;border:1.5px solid var(--line);border-radius:10px">
+        ${QA.map(([l, k, h]) => `<div style="display:flex;align-items:center;gap:10px;background:#fff;border:1.5px solid var(--ink);border-radius:8px;padding:10px 12px">
+          <span style="width:34px;height:34px;border-radius:8px;background:var(--fill);display:flex;align-items:center;justify-content:center;flex:none">${qaIcon(k)}</span>
+          <span><b style="font-size:13px;display:block">${l}</b><span style="font-size:11px;color:var(--mut)">${h}</span></span></div>`).join("")}
+      </div></div>`,
+    height: 1090,
+  },
+  B: {
+    name: "B · One New menu",
+    note: "One big button. The four sit in its menu, shown open here. Compact, but two clicks.",
+    header: () => `<div class="hdr" style="position:relative">${greet}
+      <div style="position:relative">
+        <span class="btn solid" style="font-size:14px;padding:9px 16px;display:inline-flex;gap:6px;align-items:center">+ New <span style="opacity:.7">▾</span></span>
+        <div style="position:absolute;right:0;top:44px;width:250px;background:#fff;border:1.5px solid var(--ink);border-radius:10px;box-shadow:0 10px 24px rgba(0,0,0,.12);padding:6px;z-index:3">
+          ${QA.map(([l, k, h]) => `<div style="display:flex;gap:10px;align-items:center;padding:8px;border-radius:6px">${qaIcon(k, 18)}<span><b style="font-size:12.5px;display:block">${l}</b><span style="font-size:11px;color:var(--mut)">${h}</span></span></div>`).join("")}
+        </div></div></div>`,
+    height: 1000,
+  },
+  C: {
+    name: "C · Start card",
+    note: "A card in the grid, 2×2. Visible, but it competes with the five questions.",
+    header: () => `<div class="hdr">${greet}</div>`,
+    card: () => `<div class="card"><div class="q"><h3>Start something</h3></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        ${QA.map(([l, k]) => `<div style="display:flex;align-items:center;gap:8px;border:1.5px solid var(--ink);border-radius:8px;padding:10px">${qaIcon(k, 18)}<b style="font-size:12.5px">${l}</b></div>`).join("")}
+      </div></div>`,
+    height: 1160,
+  },
+  D: {
+    name: "D · Grouped row",
+    note: "Today's row, bigger, in one tinted container. Smallest change. Still reads as a toolbar.",
+    header: () => `<div class="hdr">${greet}
+      <div style="display:flex;gap:8px;padding:6px;background:#f6f5f1;border:1.5px solid var(--line);border-radius:10px">
+        ${QA.map(([l, k], i) => `<span style="display:inline-flex;align-items:center;gap:6px;border:1.5px solid var(--ink);border-radius:8px;padding:8px 12px;font-size:12.5px;font-weight:600;${i === 0 ? "background:var(--ink);color:#fff" : "background:#fff"}">${qaIcon(k, 16, i === 0 ? "#fff" : INK)}${l}</span>`).join("")}
+      </div></div>`,
+    height: 1000,
+  },
+};
+
+let QV = "A";
+function vDesktop5() {
+  const v = QA_VARIANTS[QV];
+  let html = vDesktop4().replace(header(false), v.header()).replace("height:1000px", `height:${v.height}px`);
+  if (v.card) html = html.replace(vWaiting4(), v.card() + vWaiting4());
+  return html;
+}
+
+const R5 = R4 + 1350;
+place(0, R5 - 40, `<div class="title"><h1 style="font-size:36px">Round 5 · Quick actions</h1><p>Round 4, with four ways to show the quick actions.</p></div>`, 1600);
+const r5el = place(0, R5 + 90, vDesktop5());
+const qaToggle = place(820, R5 - 20, `<div data-ui style="display:flex;border:1.5px solid var(--ink);border-radius:8px;overflow:hidden">
+  ${Object.entries(QA_VARIANTS).map(([k, v], i) => `<button data-qv="${k}" style="font:600 15px system-ui;white-space:nowrap;padding:8px 14px;border:0;${i ? "border-left:1.5px solid var(--ink);" : ""}cursor:pointer">${v.name}</button>`).join("")}
+</div>`);
+const r5note = place(1330, R5 + 110, `<div class="note"></div>`);
+function paintQA() {
+  qaToggle.querySelectorAll("[data-qv]").forEach((b) => {
+    const on = b.dataset.qv === QV;
+    b.style.background = on ? "var(--ink)" : "#fff";
+    b.style.color = on ? "#fff" : "var(--ink)";
+    b.setAttribute("aria-pressed", String(on));
+  });
+  r5note.firstElementChild.textContent = QA_VARIANTS[QV].note;
+}
+qaToggle.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-qv]");
+  if (!b) return;
+  QV = b.dataset.qv;
+  r5el.innerHTML = vDesktop5();
+  paintQA();
+});
+paintQA();
+/* The mark toggle on round 4 also repaints round 5, so both read the same. */
+markToggle.addEventListener("click", () => { r5el.innerHTML = vDesktop5(); });
+
+/* ── Round 6: a new advocate, launcher band (round 5 untouched) ────────── */
+/* Empty cards keep round 5's size (owner): measured from round 5's busy frame, by question. */
+const R5_CARD_H = (() => {
+  const map = {};
+  r5el.querySelectorAll(".card").forEach((c) => {
+    const n = c.querySelector(".q .n");
+    if (n && !map[n.textContent]) map[n.textContent] = c.offsetHeight;
+  });
+  return map;
+})();
+const emptyLine = (n, title, text, link) =>
+  `<div class="card" style="min-height:${R5_CARD_H[n] || 120}px;display:flex;flex-direction:column">${q(n, title)}
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;color:var(--mut);font-size:12.5px">
+      <span>${text}</span>${link ? `<span class="link" style="color:var(--ink)">${link}</span>` : ""}</div></div>`;
+
+/* No cases yet: the launcher is the biggest thing on the page, Join and File lead. */
+function heroLauncher() {
+  const order = [
+    ["Join a case", "join", "You're on a case already. Use its number or code."],
+    ["File a case", "file", "Start a new complaint under section 138."],
+    ["Vakalatnama", "vak", "Prepare and sign one for a client."],
+    ["Raise application", "app", "Once you're on a case."],
+  ];
+  return `<div style="margin-bottom:16px">${greet}
+    <p style="margin:6px 0 0;font-size:13px;color:var(--mut)">Your day will show here once you're on a case. Start with one of these.</p>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:14px;padding:12px;background:#f6f5f1;border:1.5px solid var(--line);border-radius:12px">
+      ${order.map(([l, k, h], i) => `<div style="display:flex;flex-direction:column;gap:10px;background:#fff;border:${i < 2 ? "2px" : "1.5px"} solid var(--ink);border-radius:10px;padding:16px">
+        <span style="width:44px;height:44px;border-radius:10px;background:${i < 2 ? "var(--ink)" : "var(--fill)"};display:flex;align-items:center;justify-content:center">${qaIcon(k, 24, i < 2 ? "#fff" : INK)}</span>
+        <b style="font-size:15px">${l}</b><span style="font-size:12px;color:var(--mut)">${h}</span></div>`).join("")}
+    </div></div>`;
+}
+
+function frame6(head, left, right, height) {
+  return `<div class="frame" style="width:1300px;height:${height}px;position:relative">
+    <div class="chrome">DRISTI · Home</div><div class="rail"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="page">${head}
+      <div class="cols" style="grid-template-columns:1.45fr 1fr"><div class="stack">${left}</div><div class="stack">${right}</div></div>
+    </div></div>`;
+}
+
+/* State 1: just joined, nothing anywhere. */
+function vNew0() {
+  return frame6(
+    heroLauncher(),
+    emptyLine(1, "Where you need to be", "No hearings yet.") + emptyLine(2, "Must do today", "Nothing due."),
+    emptyLine(3, "Waiting on you", "Nothing waiting.") + emptyLine(4, "Updates on your cases", "None yet.") + emptyLine(5, "Coming up", "Nothing in the next 7 days."),
+    1230,
+  );
+}
+
+/* State 2: first week, one case joined. */
+function vNew1() {
+  const court = { c: "Court B", at: 4, last: 18, mine: [{ i: 9 }] };
+  const tasks = `<div class="card" style="min-height:${R5_CARD_H[2]}px">${q(2, "Must do today", "1")}
+    <div class="row"><span style="width:4px;align-self:stretch;background:${AMB};border-radius:2px"></span><div class="t"><div>Pay the process fee</div><div>Item 9 · Jaya Textiles v. Noufal A.</div></div><span class="due" style="color:${AMB};font-weight:700">Before item 9</span><span class="btn">Pay</span></div></div>`;
+  const updates = `<div class="card" style="min-height:${R5_CARD_H[4]}px">${q(4, "Updates on your cases", "since yesterday")}
+    <div class="row"><div class="t"><div>You joined the case</div><div>Jaya Textiles v. Noufal A.</div></div><span class="due">Yesterday 3:10 pm</span><span class="link">Open</span></div></div>`;
+  const week = (() => {
+    const days = [["Today", 1, 1], ["Sat", 0, 0], ["Mon", 0, 0], ["Tue", 0, 1], ["Wed", 0, 0], ["Thu", 1, 0], ["Fri", 0, 0]];
+    const H = 40;
+    const bar = (n, c) => `<div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:${H + 14}px"><span style="font:700 10px system-ui">${n || ""}</span><span style="width:12px;height:${n ? (n / 2) * H : 2}px;background:${c};border-radius:2px 2px 0 0"></span></div>`;
+    return `<div class="card" style="min-height:${R5_CARD_H[5]}px">${q(5, "Coming up")}
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;border-bottom:1px solid var(--line)">${days.map(([d, h, t], i) => `<div style="display:flex;gap:2px;justify-content:center;${i === 0 ? "outline:2px solid " + INK + ";outline-offset:2px;border-radius:4px" : ""}">${bar(h, INK)}${bar(t, "#b7b4aa")}</div>`).join("")}</div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;font-size:11px;margin-top:4px">${days.map(([d], i) => `<span style="${i === 0 ? "font-weight:700" : `color:${MUT}`}">${d}</span>`).join("")}</div></div>`;
+  })();
+  return frame6(
+    QA_VARIANTS.A.header(),
+    `<div class="card" style="min-height:${R5_CARD_H[1]}px">${q(1, "Where you need to be", "1 court")}${courtBar4(court, 440)}</div>` + tasks,
+    emptyLine(3, "Waiting on you", "Nothing waiting.") + updates + week,
+    1090,
+  );
+}
+
+const R6 = R5 + 1400;
+place(0, R6 - 40, `<div class="title"><h1 style="font-size:36px">Round 6 · New advocate</h1><p>Launcher band (A). What Home looks like before there's much to show.</p></div>`, 1600);
+place(0, R6 + 90, `<div class="label">Just joined<span>no cases yet</span></div>`);
+place(0, R6 + 140, vNew0());
+place(1600, R6 + 90, `<div class="label">First week<span>one case</span></div>`);
+place(1600, R6 + 140, vNew1());
+note(-300, R6 + 200, "No cases: the launcher becomes the biggest thing. Join and File lead.");
+note(-300, R6 + 360, "One line of help, only in this state.");
+note(-300, R6 + 520, "Empty cards keep their size. They just say nothing is there.");
+note(1330, R6 + 200, "Same frame. Nothing moves when data arrives.");
+note(1600 + 1330, R6 + 200, "Cards fill as work arrives. Launcher back to normal size.");
+note(1600 + 1330, R6 + 360, "Still-empty cards keep their size.");
+note(1330, R6 + 380, "Main today shows a separate new-account Home here. This would replace it.");
+
+/* ── Round 7: new advocate, launcher stays the same size ───────────────── */
+/* Option 2: the empty cards point at the action that would fill them. */
+function vNewEmptyCTA() {
+  return frame6(
+    QA_VARIANTS.A.header(),
+    emptyLine(1, "Where you need to be", "No hearings yet.", "Join a case you're on →") + emptyLine(2, "Must do today", "Nothing due."),
+    emptyLine(3, "Waiting on you", "Nothing waiting.") + emptyLine(4, "Updates on your cases", "Updates appear once you're on a case.", "File a case →") + emptyLine(5, "Coming up", "Nothing in the next 7 days."),
+    1090,
+  );
+}
+
+/* Option 3: a one-time Get started card, gone for good once there's a case. */
+function vNewGetStarted() {
+  const steps = [
+    ["join", "Join a case you're on", "With its case number or the code on the summons.", "Join a case"],
+    ["file", "Or file a new one", "Start a complaint under section 138.", "File a case"],
+    ["vak", "Prepare a vakalatnama", "For a client you're about to act for.", "Vakalatnama"],
+  ];
+  const card = `<div class="card" style="margin-bottom:14px;border:1.5px solid var(--ink)">
+    <div class="q"><h3>Get started</h3><span class="meta">Goes away once you're on a case</span></div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+      ${steps.map(([k, t, h, b], i) => `<div style="display:flex;gap:10px;align-items:flex-start;border:1.2px solid var(--line);border-radius:8px;padding:12px">
+        <span style="width:22px;height:22px;border-radius:50%;border:1.5px solid var(--ink);font:700 11px/19px system-ui;text-align:center;flex:none">${i + 1}</span>
+        <div style="flex:1"><b style="font-size:13px;display:block">${t}</b><span style="font-size:11px;color:var(--mut)">${h}</span>
+          <div style="margin-top:8px"><span class="btn ${i === 0 ? "solid" : ""}">${b}</span></div></div></div>`).join("")}
+    </div></div>`;
+  return frame6(
+    QA_VARIANTS.A.header() + card,
+    emptyLine(1, "Where you need to be", "No hearings yet.") + emptyLine(2, "Must do today", "Nothing due."),
+    emptyLine(3, "Waiting on you", "Nothing waiting.") + emptyLine(4, "Updates on your cases", "None yet.") + emptyLine(5, "Coming up", "Nothing in the next 7 days."),
+    1240,
+  );
+}
+
+const R7 = R6 + 1450;
+place(0, R7 - 40, `<div class="title"><h1 style="font-size:36px">Round 7 · New advocate, fixed launcher</h1><p>Launcher stays the same size. Two ways to point a new advocate at it.</p></div>`, 1800);
+place(0, R7 + 90, `<div class="label">Option 2<span>empty cards point at the action</span></div>`);
+place(0, R7 + 140, vNewEmptyCTA());
+place(1600, R7 + 90, `<div class="label">Option 3<span>one-time Get started card</span></div>`);
+place(1600, R7 + 140, vNewGetStarted());
+note(-300, R7 + 300, "Each empty card names what would fill it, with one link.");
+note(-300, R7 + 440, "Nothing changes size. Same Home for everyone.");
+note(1330, R7 + 200, "Launcher identical to the busy day.");
+note(1600 + 1330, R7 + 200, "Three first steps, one primary. Disappears for good once there's a case.");
+note(1600 + 1330, R7 + 360, "Closest to main's new-account Home, folded into this one.");
+
+/* ── Round 8: ② with an Insights view; card-like launcher (rounds 1–7 untouched) ── */
+const GRN = "#3f8f4a", LGRN = "#9cc79a";
+
+/* Hover tips: any element with data-tip shows it beside the pointer. */
+const tipEl = document.createElement("div");
+tipEl.style.cssText = "position:fixed;z-index:50;pointer-events:none;background:#1d1d1b;color:#fff;font:12px/1.45 system-ui;padding:8px 10px;border-radius:8px;max-width:300px;display:none;white-space:pre-line;box-shadow:0 6px 18px rgba(0,0,0,.2)";
+document.body.appendChild(tipEl);
+document.addEventListener("mousemove", (e) => {
+  const t = e.target.closest && e.target.closest("[data-tip]");
+  if (!t) { tipEl.style.display = "none"; return; }
+  tipEl.textContent = t.dataset.tip;
+  tipEl.style.display = "block";
+  tipEl.style.left = Math.min(e.clientX + 14, innerWidth - 320) + "px";
+  tipEl.style.top = e.clientY + 14 + "px";
+});
+
+/* Launcher between round 5 (sleek) and round 6 (thick): small cards, icon on top. */
+function launcher8() {
+  return `<div style="margin-bottom:16px">${greet}
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px">
+      ${QA.map(([l, k, h]) => `<div style="display:flex;flex-direction:column;gap:8px;background:#fff;border:1.5px solid var(--ink);border-radius:10px;padding:12px 14px">
+        <span style="width:36px;height:36px;border-radius:9px;background:var(--fill);display:flex;align-items:center;justify-content:center">${qaIcon(k, 20)}</span>
+        <span><b style="font-size:13.5px;display:block">${l}</b><span style="font-size:11px;color:var(--mut)">${h}</span></span></div>`).join("")}
+    </div></div>`;
+}
+
+/* The gavel: this task blocks a hearing. The tip says which. */
+const gavel = (tip) => `<span data-tip="${tip}" style="display:inline-flex;vertical-align:-2px;cursor:help;margin-left:4px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${AMB}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-label="Blocks a hearing"><path d="m14 13-7.5 7.5a2.12 2.12 0 0 1-3-3L11 10"/><path d="m16 16 6-6"/><path d="m8 8 6-6"/><path d="m9 7 8 8"/><path d="m21 11-8-8"/></svg></span>`;
+
+const TASKS8 = [
+  ["Overdue", RED, [["Pay the copying fee", "Kerala Agro Mart v. Biju Varghese", "2 days overdue", "Pay", false, ""]]],
+  ["Due today", AMB, [
+    ["Pay the process fee", "Fathima Beevi v. Anil Kumar K.", "Today", "Pay", true, "Blocks item 14 in Court A today"],
+    ["Sign the bail application", "Anitha Joseph v. Latheef M.", "Today", "Sign", false, "Blocks item 3 in Court B today"],
+    ["File the reply to the objection", "Muralidharan P. v. Sherin Thomas", "Today", "File", false, ""],
+  ]],
+  ["Due tomorrow", "#8c897f", [
+    ["Produce PW-2 for cross-examination", "Lakshmi Menon v. P. J. Thomas", "Tomorrow", "Mark done", false, ""],
+    ["Pay the court fee", "Jaya Textiles v. Noufal A.", "Tomorrow", "Pay", false, ""],
+  ]],
+];
+
+/* 14 days of completed tasks: [what, days early]. Negative = late. Ends today (Fri 13). */
+const HIST = [
+  ["S", 31, []], ["S", 1, []],
+  ["M", 2, [["Process fee · ST 412/2025", -2], ["Certified copy · ST 76/2026", 0]]],
+  ["T", 3, [["Proof affidavit · ST 330/2026", -1]]],
+  ["W", 4, [["Vakalatnama · ST 905/2026", 0], ["Court fee · ST 6/2025", -3]]],
+  ["T", 5, [["Witness list · ST 112/2026", -1], ["Process fee · ST 847/2026", 0]]],
+  ["F", 6, [["Reply to objection · ST 431/2026", 0]]],
+  ["S", 7, []], ["S", 8, []],
+  ["M", 9, [["Bail application · ST 1201/2026", 1], ["Process fee · ST 76/2026", 0]]],
+  ["T", 10, [["Affidavit · ST 240/2026", 1], ["Copying fee · ST 512/2026", 2]]],
+  ["W", 11, [["Vakalatnama · ST 905/2026", 2], ["Process fee · ST 330/2026", 1], ["Memo · ST 431/2026", 3]]],
+  ["T", 12, [["Court fee · ST 6/2025", 2], ["Proof affidavit · ST 330/2026", 1]]],
+  ["F", 13, [["Process fee · ST 847/2026", 1]]],
+];
+const leadColor = (d) => (d < 0 ? RED : d === 0 ? AMB : d === 1 ? LGRN : GRN);
+const leadWord = (d) => (d < 0 ? `${-d} day${d === -1 ? "" : "s"} late` : d === 0 ? "on the due day" : `${d} day${d === 1 ? "" : "s"} early`);
+const dayName = (h) => `${{ S: "", M: "Mon", T: "", W: "Wed", F: "Fri" }[h[0]] || ""}`;
+const LEGEND = [["Late", RED], ["On the day", AMB], ["1 day early", LGRN], ["2+ days early", GRN]];
+const legend = () => `<div style="display:flex;gap:12px;font-size:11px;color:${MUT}">${LEGEND.map(([l, c]) => `<span><i style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${c};margin-right:4px"></i>${l}</span>`).join("")}</div>`;
+const insightLine = `<div style="display:flex;flex-direction:column;gap:2px;font-size:12.5px;margin-bottom:8px">
+  <span><b style="color:${GRN}">Last 4 days: everything done before it was due.</b></span>
+  <span style="color:${MUT}">Week before: 4 went overdue. 1 is overdue right now.</span></div>`;
+
+/* Insight 1: one stacked bar per day, coloured by how early the work was done. */
+function insightBars() {
+  const U = 30;
+  return `${insightLine}
+    <div style="display:grid;grid-template-columns:repeat(14,1fr);gap:4px;align-items:end;height:${U * 3 + 4}px;border-bottom:1px solid var(--line)">
+      ${HIST.map(([w, d, tasks]) => {
+        const tip = tasks.length ? `${d} Nov\n` + tasks.map(([t, l]) => `${t} · ${leadWord(l)}`).join("\n") : `${d} Nov · nothing due`;
+        return `<div data-tip="${tip}" style="display:flex;flex-direction:column-reverse;gap:2px;cursor:default;min-height:6px">${tasks.length ? tasks.map(([, l]) => `<span style="height:${U}px;border-radius:3px;background:${leadColor(l)}"></span>`).join("") : `<span style="height:2px;background:${TRK}"></span>`}</div>`;
+      }).join("")}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(14,1fr);gap:4px;text-align:center;font-size:10px;color:${MUT};margin:3px 0 8px">${HIST.map(([w, d], i) => `<span style="${i === 13 ? `color:${INK};font-weight:700` : ""}">${i === 13 ? "Today" : d}</span>`).join("")}</div>
+    ${legend()}`;
+}
+
+/* Insight 2: one dot per task, placed by how early it was done. Recent days darker. */
+function insightDots() {
+  const xs = [-3, -2, -1, 0, 1, 2, 3];
+  const cols = {};
+  HIST.forEach(([w, d, tasks], i) => tasks.forEach(([t, l]) => (cols[l] = cols[l] || []).push({ t, d, recent: i >= 9 })));
+  return `<div style="display:flex;flex-direction:column;gap:2px;font-size:12.5px;margin-bottom:8px">
+      <span><b style="color:${GRN}">Since Mon 9, your work has moved right of the due line.</b></span>
+      <span style="color:${MUT}">Dark dots: last 5 days. Light: the week before.</span></div>
+    <div style="position:relative;display:grid;grid-template-columns:repeat(7,1fr);align-items:end;height:84px;border-bottom:1px solid var(--line)">
+      ${xs.map((x) => `<div style="display:flex;flex-direction:column-reverse;align-items:center;gap:3px;${x === 0 ? "border-left:1.5px dashed " + INK + ";border-right:1.5px dashed " + INK + ";" : ""}">
+        ${(cols[x] || []).map((p) => `<span data-tip="${p.t}\nDone ${leadWord(x)} · ${p.d} Nov" style="width:13px;height:13px;border-radius:50%;background:${p.recent ? leadColor(x) : "#fff"};border:2px solid ${leadColor(x)};cursor:default"></span>`).join("")}
+      </div>`).join("")}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:10px;color:${MUT};margin:3px 0 8px">
+      <span>3 late</span><span>2 late</span><span>1 late</span><span style="color:${INK};font-weight:700">Due day</span><span>1 early</span><span>2 early</span><span>3 early</span></div>
+    ${legend()}`;
+}
+
+/* Insight 3: a score, its change, and a sparkline of the daily share done early. */
+function insightScore() {
+  const pts = HIST.map(([w, d, tasks]) => (tasks.length ? { d, v: tasks.filter(([, l]) => l > 0).length / tasks.length, tasks } : null));
+  const W = 300, H = 56;
+  const valid = pts.map((p, i) => (p ? { ...p, x: (i / 13) * W, y: H - p.v * H } : null)).filter(Boolean);
+  const path = valid.map((p, i) => `${i ? "L" : "M"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+  return `<div style="display:flex;gap:18px;align-items:center;margin-bottom:8px">
+      <div><div style="font:700 34px/1 system-ui;color:${GRN}">100%</div><div style="font-size:11px;color:${MUT};margin-top:4px">done early, last 4 days</div></div>
+      <div style="font-size:12px;line-height:1.6"><div><b style="color:${GRN}">▲ from 0%</b> the week before</div><div style="color:${MUT}">4-day streak · 1 overdue now</div></div>
+    </div>
+    <div style="position:relative;width:${W}px;height:${H}px;margin:6px 0 4px">
+      <svg width="${W}" height="${H}" style="overflow:visible"><line x1="0" x2="${W}" y1="${H}" y2="${H}" stroke="${TRK}"/><line x1="0" x2="${W}" y1="0" y2="0" stroke="${TRK}" stroke-dasharray="3 3"/><path d="${path}" fill="none" stroke="${INK}" stroke-width="2"/></svg>
+      ${valid.map((p) => `<span data-tip="${p.d} Nov · ${Math.round(p.v * 100)}% done early\n${p.tasks.map(([t, l]) => `${t} · ${leadWord(l)}`).join("\n")}" style="position:absolute;left:${p.x - 6}px;top:${p.y - 6}px;width:12px;height:12px;border-radius:50%;background:#fff;border:2px solid ${p.v >= 0.5 ? GRN : RED};cursor:default"></span>`).join("")}
+      <span style="position:absolute;right:-34px;top:-6px;font-size:10px;color:${MUT}">100%</span><span style="position:absolute;right:-22px;bottom:-6px;font-size:10px;color:${MUT}">0%</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;width:${W}px;font-size:10px;color:${MUT}"><span>31 Oct</span><span>Today</span></div>`;
+}
+
+let MODE8 = "list", STYLE8 = 1;
+function card8() {
+  const seg = (k, l) => `<button data-ui data-m8="${k}" style="font:600 11.5px system-ui;padding:4px 10px;border:0;cursor:pointer;background:${MODE8 === k ? INK : "#fff"};color:${MODE8 === k ? "#fff" : INK}">${l}</button>`;
+  const toggle = `<span style="margin-left:auto;display:inline-flex;border:1.5px solid ${INK};border-radius:7px;overflow:hidden">${seg("list", "List")}${seg("viz", "Insights")}</span>`;
+  const head = `<div class="q"><span class="n">2</span><h3>Must do today</h3>${toggle}</div>`;
+  let body;
+  if (MODE8 === "list") {
+    const counts = TASKS8.map(([g, c, rows]) => `<span><i style="display:inline-block;width:8px;height:8px;background:${c};border-radius:2px;margin-right:4px"></i><b style="color:${INK}">${rows.length}</b> ${g.toLowerCase()}</span>`).join("");
+    body = `<div style="display:flex;gap:14px;font-size:11px;color:${MUT};margin:2px 0 6px">${counts}</div>
+      ${TASKS8.map(([g, c, rows]) => `<div style="font-size:10.5px;font-weight:700;color:${c};margin:8px 0 0;text-transform:uppercase;letter-spacing:.3px">${g}</div>
+        ${rows.map(([t, sub, due, v, st, blk]) => `<div class="row"><span style="width:4px;align-self:stretch;background:${c};border-radius:2px"></span>
+          <div class="t"><div>${st ? star(13) + " " : ""}${t}${blk ? gavel(blk) : ""}</div><div>${sub}</div></div>
+          <span class="due" style="color:${g === "Overdue" ? RED : MUT};font-weight:${g === "Overdue" ? 700 : 400}">${due}</span><span class="btn">${v}</span></div>`).join("")}`).join("")}
+      <div class="more">+3 more tomorrow · <span class="link">Take action</span></div>`;
+  } else {
+    body = [null, insightBars, insightDots, insightScore][STYLE8]();
+  }
+  return `<div class="card" style="height:470px;overflow:hidden">${head}${body}</div>`;
+}
+
+function vDesktop8() {
+  return vDesktop4()
+    .replace(header(false), launcher8())
+    .replace(vTasks4(), card8())
+    .replace("height:1000px", "height:1180px");
+}
+
+const R8 = R7 + 1450;
+place(0, R8 - 40, `<div class="title"><h1 style="font-size:36px">Round 8 · Must do today, with insights</h1><p>Round 5, with a card-like launcher and ② reworked. Hover the gavel and the charts.</p></div>`, 1800);
+const r8el = place(0, R8 + 90, vDesktop8());
+const styleToggle = place(1000, R8 - 20, `<div data-ui style="display:flex;align-items:center;gap:8px;font-size:15px"><span style="color:var(--mut)">Insights style:</span>
+  <div style="display:flex;border:1.5px solid var(--ink);border-radius:8px;overflow:hidden">
+    ${[[1, "1 · Bars by day"], [2, "2 · Dots by lead"], [3, "3 · Score"]].map(([k, l], i) => `<button data-s8="${k}" style="font:600 15px system-ui;white-space:nowrap;padding:8px 14px;border:0;${i ? "border-left:1.5px solid var(--ink);" : ""}cursor:pointer">${l}</button>`).join("")}
+  </div></div>`);
+function paint8() {
+  styleToggle.querySelectorAll("[data-s8]").forEach((b) => {
+    const on = Number(b.dataset.s8) === STYLE8;
+    b.style.background = on ? "var(--ink)" : "#fff";
+    b.style.color = on ? "#fff" : "var(--ink)";
+  });
+}
+styleToggle.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-s8]");
+  if (!b) return;
+  STYLE8 = Number(b.dataset.s8);
+  MODE8 = "viz";
+  r8el.innerHTML = vDesktop8();
+  paint8();
+});
+r8el.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-m8]");
+  if (!b) return;
+  MODE8 = b.dataset.m8;
+  r8el.innerHTML = vDesktop8();
+});
+paint8();
+note(-300, R8 + 120, "Launcher: cards, icon on top. Between round 5 and round 6 in height.");
+note(-300, R8 + 420, "Overdue · Due today · Due tomorrow. Tomorrow's work belongs to today.", 2);
+note(-300, R8 + 580, "Gavel = blocks a hearing. Hover says which item.");
+note(-300, R8 + 720, "List | Insights inside the card. Same card size in both.");
+note(1330, R8 + 420, "Insights: how early your work gets done. Hover a bar, dot or point for the tasks.");
+note(1330, R8 + 580, "Only the advocate's own data. Who else sees it: open, for the lead designer.");
+markToggle.addEventListener("click", () => { r8el.innerHTML = vDesktop8(); });
+
+/* ── Round 9: one square per due day (round 8 untouched) ───────────────── */
+/* By the day things were DUE. Each task: [what, when it was done, days early]; null = still open. */
+const DUE9 = [
+  [31, "S", []], [1, "S", []],
+  [2, "M", [["Process fee · ST 412/2025", "paid 4 Nov", -2], ["Certified copy · ST 76/2026", "done 2 Nov", 0]]],
+  [3, "T", [["Proof affidavit · ST 330/2026", "filed 4 Nov", -1]]],
+  [4, "W", [["Vakalatnama · ST 905/2026", "signed 4 Nov", 0]]],
+  [5, "T", [["Court fee · ST 6/2025", "paid 8 Nov", -3], ["Process fee · ST 847/2026", "paid 5 Nov", 0]]],
+  [6, "F", [["Reply to objection · ST 431/2026", "filed 6 Nov", 0]]],
+  [7, "S", []], [8, "S", []],
+  [9, "M", [["Bail application · ST 1201/2026", "signed 8 Nov", 1], ["Witness list · ST 112/2026", "filed 7 Nov", 2]]],
+  [10, "T", [["Affidavit · ST 240/2026", "filed 9 Nov", 1]]],
+  [11, "W", [["Copying fee · ST 76/2026", "still open", null], ["Memo · ST 431/2026", "filed 8 Nov", 3]]],
+  [12, "T", [["Court fee · ST 6/2025", "paid 10 Nov", 2]]],
+];
+const OPEN9 = [
+  ["Today", 13, [["Process fee · ST 847/2026", "open"], ["Bail application · ST 1201/2026", "open"], ["Reply to objection · ST 431/2026", "open"]]],
+  ["Tomorrow", 14, [["Produce PW-2 · ST 330/2026", "open"], ["Court fee · ST 6/2025", "open"]]],
+];
+/* The day's colour, by one fixed rule. */
+function dayState(tasks) {
+  if (!tasks.length) return "none";
+  if (tasks.some(([, , l]) => l === null || l < 0)) return "late";
+  if (tasks.some(([, , l]) => l === 0)) return "onday";
+  return "ahead";
+}
+const STATE9 = { ahead: [GRN, "Done ahead"], onday: [AMB, "Done on the day"], late: [RED, "Went overdue"], none: [TRK, "Nothing due"] };
+const doneWord = (l) => (l === null ? "overdue" : l < 0 ? `${-l} day${l === -1 ? "" : "s"} late` : l === 0 ? "on the due day" : `${l} day${l === 1 ? "" : "s"} early`);
+
+function insightStrip() {
+  const sq = 30;
+  const cell = ([d, w, tasks]) => {
+    const st = dayState(tasks);
+    const tip = tasks.length
+      ? `${w === "S" ? "" : ""}${d} Nov · ${tasks.length} due\n` + tasks.map(([t, when, l]) => `${t} · ${when}, ${doneWord(l)}`).join("\n")
+      : `${d} Nov · nothing due`;
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:3px">
+      <span data-tip="${tip}" style="width:${sq}px;height:${sq}px;border-radius:6px;background:${STATE9[st][0]};cursor:default"></span>
+      <span style="font-size:10px;color:${MUT}">${d}</span></div>`;
+  };
+  const open = ([label, d, tasks]) => `<div style="display:flex;flex-direction:column;align-items:center;gap:3px">
+      <span data-tip="${label} · ${tasks.length} due, not done yet\n${tasks.map(([t]) => t).join("\n")}" style="width:${sq}px;height:${sq}px;border-radius:6px;border:2px dashed ${INK};display:flex;align-items:center;justify-content:center;font:700 12px system-ui;cursor:default">${tasks.length}</span>
+      <span style="font-size:10px;color:${INK};font-weight:700">${label}</span></div>`;
+  const week1 = DUE9.slice(2, 7).filter((x) => x[2].length), week2 = DUE9.slice(9).filter((x) => x[2].length);
+  const ahead = (arr) => arr.filter((x) => dayState(x[2]) === "ahead").length;
+  return `<div style="display:flex;flex-direction:column;gap:2px;font-size:12.5px;margin-bottom:12px">
+      <span><b>This week: ${ahead(week2)} of ${week2.length} due days done ahead.</b> <span style="color:${MUT}">Last week: ${ahead(week1)} of ${week1.length}.</span></span>
+      <span style="color:${RED}">1 still overdue from Wed 11.</span></div>
+    <div style="display:flex;align-items:flex-end;gap:5px;flex-wrap:nowrap">
+      ${DUE9.map(cell).join("")}
+      <span style="width:1px;align-self:stretch;background:var(--line);margin:0 4px"></span>
+      ${OPEN9.map(open).join("")}
+    </div>
+    <div style="margin-top:12px;padding:8px 10px;background:#f6f5f1;border-radius:8px;font-size:12px">Do tomorrow's 2 today and tomorrow turns green.</div>
+    <div style="display:flex;gap:12px;font-size:11px;color:${MUT};margin-top:12px">${["ahead", "onday", "late", "none"].map((k) => `<span><i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${STATE9[k][0]};margin-right:4px"></i>${STATE9[k][1]}</span>`).join("")}<span><i style="display:inline-block;width:9px;height:9px;border-radius:2px;border:1.5px dashed ${INK};margin-right:4px"></i>Still open</span></div>`;
+}
+
+let MODE9 = "viz";
+function card9() {
+  const seg = (k, l) => `<button data-ui data-m9="${k}" style="font:600 11.5px system-ui;padding:4px 10px;border:0;cursor:pointer;background:${MODE9 === k ? INK : "#fff"};color:${MODE9 === k ? "#fff" : INK}">${l}</button>`;
+  const head = `<div class="q"><span class="n">2</span><h3>Must do today</h3><span style="margin-left:auto;display:inline-flex;border:1.5px solid ${INK};border-radius:7px;overflow:hidden">${seg("list", "List")}${seg("viz", "Insights")}</span></div>`;
+  if (MODE9 === "list") {
+    const saved = MODE8;
+    MODE8 = "list";
+    const listHtml = card8().replace(/data-m8=/g, "data-m9=").replace("Insights</button>", "Insights</button>");
+    MODE8 = saved;
+    return listHtml;
+  }
+  return `<div class="card" style="height:470px;overflow:hidden">${head}${insightStrip()}</div>`;
+}
+
+function vDesktop9() {
+  return vDesktop4()
+    .replace(header(false), launcher8())
+    .replace(vTasks4(), card9())
+    .replace("height:1000px", "height:1180px");
+}
+
+const R9 = R8 + 1450;
+place(0, R9 - 40, `<div class="title"><h1 style="font-size:36px">Round 9 · Done ahead, day by day</h1><p>Round 8, with one simple insight in ②. Hover any square.</p></div>`, 1800);
+const r9el = place(0, R9 + 90, vDesktop9());
+r9el.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-m9]");
+  if (!b) return;
+  MODE9 = b.dataset.m9;
+  r9el.innerHTML = vDesktop9();
+});
+note(-300, R9 + 420, "One square per day things were due. Colour by one rule.", 2);
+note(-300, R9 + 580, "Green = all done before the day. Amber = on the day. Red = went overdue.");
+note(-300, R9 + 740, "Today and tomorrow are open. You can still make them green.");
+note(1330, R9 + 420, "Same 16 squares whether 2 tasks a day or 30.");
+note(1330, R9 + 580, "Sentence is counted from the squares. Same data, same words.");
+markToggle.addEventListener("click", () => { r9el.innerHTML = vDesktop9(); });
+
+/* ── Round 10: a month, GitHub-style (round 9 untouched) ───────────────── */
+/* Five weeks, Mon 19 Oct to Sun 22 Nov. Today is Fri 13 Nov. Past days: tasks due that day,
+   [what, when done, days early] (null = still open). Today/tomorrow: open tasks. Later: count due. */
+const t10 = (what, when, l) => [what, when, l];
+const M10 = [
+  // week of 19 Oct
+  [[19, "Oct", [t10("Process fee · ST 18/2026", "paid 21 Oct", -2)]], [20, "Oct", [t10("Vakalatnama · ST 22/2026", "signed 20 Oct", 0)]], [21, "Oct", []],
+   [22, "Oct", [t10("Proof affidavit · ST 40/2026", "filed 23 Oct", -1)]], [23, "Oct", [t10("Court fee · ST 6/2025", "paid 23 Oct", 0)]], [24, "Oct", []], [25, "Oct", []]],
+  // week of 26 Oct
+  [[26, "Oct", [t10("Witness list · ST 112/2026", "filed 26 Oct", 0)]], [27, "Oct", [t10("Process fee · ST 76/2026", "paid 29 Oct", -2)]], [28, "Oct", [t10("Memo · ST 431/2026", "filed 26 Oct", 2)]],
+   [29, "Oct", [t10("Affidavit · ST 240/2026", "filed 29 Oct", 0)]], [30, "Oct", [t10("Copying fee · ST 512/2026", "paid 2 Nov", -3)]], [31, "Oct", []], [1, "Nov", []]],
+  // week of 2 Nov (from round 9)
+  DUE9.slice(2, 9).map(([d, , tasks]) => [d, "Nov", tasks]),
+  // week of 9 Nov
+  [...DUE9.slice(9).map(([d, , tasks]) => [d, "Nov", tasks]), [13, "Nov", "today"], [14, "Nov", "tomorrow"], [15, "Nov", []]],
+];
+const WD = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+/* How many are due, as a corner badge, so every square keeps its date. */
+const badge = (n, c) => `<span style="position:absolute;top:-6px;right:-6px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:${c};color:#fff;font:700 10px/16px system-ui;text-align:center">${n}</span>`;
+function cell10([d, mon, v], showDate, h = 36) {
+  const base = `width:100%;height:${h}px;border-radius:6px;display:flex;align-items:center;justify-content:center;font:600 11.5px system-ui;cursor:default`;
+  if (v === "today" || v === "tomorrow") {
+    const o = OPEN9.find(([l]) => l.toLowerCase() === v);
+    return `<span data-tip="${o[0]} · ${o[2].length} tasks still to do\n${o[2].map(([x]) => x).join("\n")}" style="${base};border:2px dashed ${INK};color:${INK}">${o[2].length} to do</span>`;
+  }
+  const st = dayState(v);
+  const tip = v.length ? `${d} ${mon} · ${v.length} due\n` + v.map(([x, when, l]) => `${x} · ${when}, ${doneWord(l)}`).join("\n") : `${d} ${mon} · nothing due`;
+  return `<span data-tip="${tip}" style="${base};background:${STATE9[st][0]};color:${st === "none" ? MUT : "#fff"}">${showDate ? d : ""}</span>`;
+}
+
+function monthSummary() {
+  const past = M10.flat().filter(([, , v]) => Array.isArray(v) && v.length);
+  const thisWeek = M10[3].filter(([, , v]) => Array.isArray(v) && v.length);
+  const ahead = (arr) => arr.filter(([, , v]) => dayState(v) === "ahead").length;
+  return `<div style="display:flex;flex-direction:column;gap:2px;font-size:12.5px;margin-bottom:10px">
+    <span><b>This week: ${ahead(thisWeek)} of ${thisWeek.length} due days done ahead.</b> <span style="color:${MUT}">Last 4 weeks: ${ahead(past)} of ${past.length}.</span></span>
+    <span style="color:${RED}">1 still overdue from Wed 11.</span></div>`;
+}
+const legend10 = () => `<div style="display:flex;gap:12px;font-size:11px;color:${MUT};margin-top:10px">${["ahead", "onday", "late", "none"].map((k) => `<span><i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${STATE9[k][0]};margin-right:4px"></i>${STATE9[k][1]}</span>`).join("")}<span><i style="display:inline-block;width:9px;height:9px;border-radius:2px;border:1.5px dashed ${INK};margin-right:4px"></i>Still to do</span></div>`;
+
+/* A: GitHub's own layout. Weeks are columns, weekdays are rows. */
+function monthGitHub() {
+  const weeks = ["19 Oct", "26 Oct", "2 Nov", "This week"];
+  return `${monthSummary()}
+    <div style="display:grid;grid-template-columns:44px repeat(${M10.length}, 1fr);gap:6px 8px;align-items:center;margin-bottom:4px">
+      <span></span>${weeks.map((w, i) => `<span style="font-size:10.5px;color:${i === 3 ? INK : MUT};font-weight:${i === 3 ? 700 : 400};text-align:center">${w}</span>`).join("")}
+      ${WD.map((name, r) => `<span style="font-size:10.5px;color:${MUT}">${name}</span>${M10.map((wk) => cell10(wk[r], false)).join("")}`).join("")}
+    </div>${legend10()}`;
+}
+
+/* B: the same squares as a month calendar. Weeks are rows, weekdays are columns. */
+function monthCalendar() {
+  return `${monthSummary()}
+    <div style="display:grid;grid-template-columns:repeat(7, 1fr);gap:5px">
+      ${WD.map((n) => `<span style="font-size:10.5px;color:${MUT};text-align:center">${n}</span>`).join("")}
+      ${M10.map((wk) => wk.map((c) => cell10(c, true, 60)).join("")).join("")}
+    </div>${legend10()}`;
+}
+
+/* November 2026 as a plain month calendar. Past days coloured by the day's tasks;
+   today and tomorrow dashed (still to do); the rest of the month plain. */
+function monthView() {
+  const byDay = {};
+  DUE9.slice(1).forEach(([d, , tasks]) => (byDay[d] = tasks)); // 1 to 12 Nov
+  const lead = 6; // 1 Nov 2026 is a Sunday; Monday-first grid
+  /* Calendar convention: the date sits small in the corner. The middle carries the state,
+     as a tint plus an icon, so no number in the middle can be read as a count. */
+  const TINT = { ahead: ["#e6f2e7", GRN, "✓"], onday: ["#fbf0dc", AMB, "•"], late: ["#f9e1de", RED, "!"], none: ["#f4f3ef", MUT, ""] };
+  const date = (d, c) => `<span style="position:absolute;top:4px;left:6px;font:600 10.5px system-ui;color:${c}">${d}</span>`;
+  const base = "position:relative;height:44px;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:default";
+  const cells = [];
+  for (let i = 0; i < lead; i++) cells.push(`<span></span>`);
+  for (let d = 1; d <= 30; d++) {
+    if (d === 13 || d === 14) {
+      const o = OPEN9[d === 13 ? 0 : 1];
+      cells.push(`<span data-tip="${o[0]}, ${d} Nov · ${o[2].length} still to do\n${o[2].map(([x]) => x).join("\n")}" style="${base};border:2px dashed ${INK}">${date(d, INK)}<span style="font:600 10px system-ui;color:${INK};margin-top:10px">${o[0]}</span></span>`);
+    } else if (d > 14) {
+      cells.push(`<span style="${base};border:1px solid var(--line)">${date(d, MUT)}</span>`);
+    } else {
+      const tasks = byDay[d] || [];
+      const st = dayState(tasks);
+      const [bg, fg, icon] = TINT[st];
+      const tip = tasks.length ? `Due ${d} Nov · ${tasks.length} task${tasks.length === 1 ? "" : "s"}\n` + tasks.map(([x, when, l]) => `${x} · ${when}, ${doneWord(l)}`).join("\n") : `${d} Nov · nothing due`;
+      cells.push(`<span data-tip="${tip}" style="${base};background:${bg}">${date(d, st === "none" ? MUT : fg)}${icon ? `<span style="font:800 15px system-ui;color:${fg};margin-top:8px">${icon}</span>` : ""}</span>`);
+    }
+  }
+  const past = Object.entries(byDay).filter(([d, t]) => t.length && Number(d) <= 12);
+  const thisWeek = past.filter(([d]) => Number(d) >= 9);
+  const ahead = (arr) => arr.filter(([, t]) => dayState(t) === "ahead").length;
+  const key = [["ahead", "Done ahead"], ["onday", "Done on the due day"], ["late", "Done late or still overdue"]];
+  return `<div style="display:flex;flex-direction:column;gap:2px;font-size:12.5px;margin-bottom:10px">
+      <span><b>This week: ${ahead(thisWeek)} of ${thisWeek.length} due days done ahead.</b> <span style="color:${MUT}">November so far: ${ahead(past)} of ${past.length}.</span></span>
+      <span style="color:${RED}">1 still overdue, due Wed 11.</span></div>
+    <div style="font:700 12.5px system-ui;margin-bottom:6px">November 2026 · <span style="font-weight:400;color:${MUT}">each day shows the tasks due on it</span></div>
+    <div style="display:grid;grid-template-columns:repeat(7, 1fr);gap:5px">
+      ${WD.map((n) => `<span style="font-size:10.5px;color:${MUT};text-align:center">${n}</span>`).join("")}
+      ${cells.join("")}
+    </div>
+    <div style="display:flex;gap:12px;font-size:11px;color:${MUT};margin-top:10px">${key.map(([k, l]) => `<span><span style="display:inline-flex;width:14px;height:14px;border-radius:3px;background:${TINT[k][0]};color:${TINT[k][1]};font:800 10px/14px system-ui;justify-content:center;margin-right:4px">${TINT[k][2]}</span>${l}</span>`).join("")}<span><i style="display:inline-block;width:12px;height:12px;border-radius:3px;border:1.5px dashed ${INK};margin-right:4px;vertical-align:-2px"></i>Still to do</span></div>`;
+}
+
+let LAYOUT10 = "github", MODE10 = "viz";
+function card10() {
+  if (MODE10 === "list") {
+    const saved = MODE8; MODE8 = "list";
+    const html = card8().replace(/data-m8=/g, "data-m10=");
+    MODE8 = saved;
+    return html;
+  }
+  const seg = (k, l) => `<button data-ui data-m10="${k}" style="font:600 11.5px system-ui;padding:4px 10px;border:0;cursor:pointer;background:${MODE10 === k ? INK : "#fff"};color:${MODE10 === k ? "#fff" : INK}">${l}</button>`;
+  const head = `<div class="q"><span class="n">2</span><h3>Must do today</h3><span style="margin-left:auto;display:inline-flex;border:1.5px solid ${INK};border-radius:7px;overflow:hidden">${seg("list", "List")}${seg("viz", "Insights")}</span></div>`;
+  return `<div class="card" style="height:470px;overflow:hidden">${head}${monthView()}</div>`;
+}
+function vDesktop10() {
+  return vDesktop4().replace(header(false), launcher8()).replace(vTasks4(), card10()).replace("height:1000px", "height:1180px");
+}
+
+const R10 = R9 + 1450;
+place(0, R10 - 40, `<div class="title"><h1 style="font-size:36px">Round 10 · This month</h1><p>Round 9, with the strip as a plain month calendar. Hover any day.</p></div>`, 1800);
+const r10el = place(0, R10 + 90, vDesktop10());
+r10el.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-m10]");
+  if (!b) return;
+  MODE10 = b.dataset.m10;
+  r10el.innerHTML = vDesktop10();
+});
+note(-300, R10 + 420, "Date small in the corner, like any calendar. The middle shows the state: ✓ ahead, • on the day, ! late.", 2);
+note(-300, R10 + 580, "A task marks only the day it was due. Done late or still overdue: that day stays red. Later days are not marked.");
+note(-300, R10 + 740, "Today and tomorrow: dashed, with how many are still to do.");
+note(1330, R10 + 420, "Hover a day: what was due and when each was done.");
+note(1330, R10 + 580, "Next week and beyond: plain. Coming up already covers them.");
+markToggle.addEventListener("click", () => { r10el.innerHTML = vDesktop10(); });
+
+/* ── Round 11: what you carried, and what you finished early (round 10 untouched) ── */
+/* Every task with its due day and the day it was done (null = still open). November, today = 13. */
+const TASKS11 = [
+  ["Process fee · ST 412/2025", 2, 4],
+  ["Certified copy · ST 76/2026", 2, 2],
+  ["Proof affidavit · ST 330/2026", 3, 4],
+  ["Vakalatnama · ST 905/2026", 4, 4],
+  ["Court fee · ST 6/2025", 5, 8],
+  ["Process fee · ST 847/2026", 5, 5],
+  ["Reply to objection · ST 431/2026", 6, 6],
+  ["Witness list · ST 112/2026", 9, 7],
+  ["Bail application · ST 1201/2026", 9, 8],
+  ["Affidavit · ST 240/2026", 10, 9],
+  ["Copying fee · ST 76/2026", 11, null],
+  ["Memo · ST 431/2026", 11, 8],
+  ["Copying fee · ST 512/2026", 11, 9],
+  ["Court fee · ST 6/2025", 12, 10],
+  ["Process fee · ST 847/2026", 13, 12],
+];
+const TODAY11 = 13;
+/* Carried on day D: due before D's end and not done by D's end. Rule, not judgement. */
+const carriedOn = (D) => TASKS11.filter(([, due, done]) => due < D + 1 && D >= due && (done === null || done > D) && D <= TODAY11);
+const earlyOn = (D) => TASKS11.filter(([, due, done]) => done === D && done < due);
+const LOAD = ["#f4f3ef", "#f6cdc7", "#e58b80", "#c0392b"];
+
+function monthLoad() {
+  const lead = 6;
+  const cells = [];
+  for (let i = 0; i < lead; i++) cells.push(`<span></span>`);
+  for (let d = 1; d <= 30; d++) {
+    const base = "position:relative;height:46px;border-radius:6px;cursor:default";
+    const date = (c) => `<span style="position:absolute;top:4px;left:6px;font:600 10.5px system-ui;color:${c}">${d}</span>`;
+    if (d > TODAY11) {
+      cells.push(`<span style="${base};border:1px solid var(--line)">${date(MUT)}</span>`);
+      continue;
+    }
+    const carried = carriedOn(d), early = earlyOn(d);
+    const lvl = Math.min(carried.length, 3);
+    const tip = [
+      `${d} Nov${d === TODAY11 ? " · today so far" : ""}`,
+      carried.length ? `Carrying ${carried.length} overdue:\n` + carried.map(([t, due]) => `  ${t} · ${d - due === 0 ? "due this day, not done" : `${d - due} day${d - due === 1 ? "" : "s"} late`}`).join("\n") : "Nothing overdue",
+      early.length ? `Finished early:\n` + early.map(([t, due, done]) => `  ${t} · ${due - done} day${due - done === 1 ? "" : "s"} before due`).join("\n") : "",
+    ].filter(Boolean).join("\n");
+    const dots = early.map(() => `<i style="width:8px;height:8px;border-radius:50%;background:${GRN};border:1.5px solid #fff;display:inline-block"></i>`).join("");
+    cells.push(`<span data-tip="${tip}" style="${base};background:${LOAD[lvl]};${d === TODAY11 ? `outline:2px solid ${INK};outline-offset:1px;` : ""}">${date(lvl >= 2 ? "#fff" : lvl === 1 ? RED : MUT)}${lvl ? `<span style="position:absolute;top:4px;right:6px;font:700 10px system-ui;color:${lvl >= 2 ? "#fff" : RED}">${carried.length} late</span>` : ""}<span style="position:absolute;left:6px;bottom:5px;display:flex;gap:2px">${dots}</span></span>`);
+  }
+  const open = TASKS11.filter(([, due, done]) => done === null && due < TODAY11);
+  const earlyWeek = TASKS11.filter(([, due, done]) => done !== null && done >= 9 && done < due).length;
+  const clearDays = Array.from({ length: TODAY11 }, (_, i) => i + 1).filter((d) => !carriedOn(d).length).length;
+  return `<div style="display:flex;flex-direction:column;gap:2px;font-size:12.5px;margin-bottom:10px">
+      <span style="color:${RED}"><b>Carrying ${open.length} overdue since Wed ${open[0][1]}</b> · ${open[0][0]}.</span>
+      <span><b style="color:${GRN}">Finished early this week: ${earlyWeek}.</b> <span style="color:${MUT}">November: ${clearDays} of ${TODAY11} days with nothing overdue.</span></span></div>
+    <div style="font:700 12.5px system-ui;margin-bottom:6px">November 2026</div>
+    <div style="display:grid;grid-template-columns:repeat(7, 1fr);gap:5px">
+      ${WD.map((n) => `<span style="font-size:10.5px;color:${MUT};text-align:center">${n}</span>`).join("")}
+      ${cells.join("")}
+    </div>
+    <div style="display:flex;gap:14px;align-items:center;font-size:11px;color:${MUT};margin-top:10px">
+      <span>Overdue carried:</span>${["none", "1", "2", "3+"].map((l, i) => `<span><i style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${LOAD[i]};margin-right:3px;vertical-align:-2px"></i>${l}</span>`).join("")}
+      <span style="margin-left:6px"><i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${GRN};margin-right:4px"></i>Finished early</span></div>`;
+}
+
+let MODE11 = "viz";
+function card11() {
+  if (MODE11 === "list") {
+    const saved = MODE8; MODE8 = "list";
+    const html = card8().replace(/data-m8=/g, "data-m11=");
+    MODE8 = saved;
+    return html;
+  }
+  const seg = (k, l) => `<button data-ui data-m11="${k}" style="font:600 11.5px system-ui;padding:4px 10px;border:0;cursor:pointer;background:${MODE11 === k ? INK : "#fff"};color:${MODE11 === k ? "#fff" : INK}">${l}</button>`;
+  const head = `<div class="q"><span class="n">2</span><h3>Must do today</h3><span style="margin-left:auto;display:inline-flex;border:1.5px solid ${INK};border-radius:7px;overflow:hidden">${seg("list", "List")}${seg("viz", "Insights")}</span></div>`;
+  return `<div class="card" style="height:470px;overflow:hidden">${head}${monthLoad()}</div>`;
+}
+function vDesktop11() {
+  return vDesktop4().replace(header(false), launcher8()).replace(vTasks4(), card11()).replace("height:1000px", "height:1180px");
+}
+
+const R11 = R10 + 1450;
+place(0, R11 - 40, `<div class="title"><h1 style="font-size:36px">Round 11 · Carried and finished early</h1><p>Round 10's calendar, measuring two things. Hover any day.</p></div>`, 1800);
+const r11el = place(0, R11 + 90, vDesktop11());
+r11el.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-m11]");
+  if (!b) return;
+  MODE11 = b.dataset.m11;
+  r11el.innerHTML = vDesktop11();
+});
+note(-300, R11 + 420, "Square colour = overdue tasks you were carrying that day. A task 3 days late darkens 3 days.", 2);
+note(-300, R11 + 600, "Green dot = a task you finished before it was due, on the day you finished it.");
+note(-300, R11 + 760, "Red patches: where you fell behind and for how long. Clear squares with dots: working ahead.");
+note(1330, R11 + 420, "Hover: what you carried that day and how late each was, and what you finished early.");
+note(1330, R11 + 580, "Carried on a day = due by then and not done by that day's end. One rule.");
+markToggle.addEventListener("click", () => { r11el.innerHTML = vDesktop11(); });
+
+/* ── Round 12: one daily chart, three marks (round 11 untouched) ───────── */
+/* Working days, Mon to Sat. For each day: tomorrow's tasks that could be done early (target),
+   how many of them were finished that day (ahead), overdue tasks still open at the day's end (carried).
+   Excluded from the target: tasks created less than a day before due, court-only hearing tasks.
+   Monday's target is counted on Saturday (previous working day). */
+const DAYS12 = [
+  ["Mon 2", 3, 0, 1, ["Proof affidavit", "Vakalatnama", "Court fee"], [], ["Process fee · ST 412/2025"]],
+  ["Tue 3", 2, 0, 2, ["Vakalatnama", "Court fee"], [], ["Process fee · ST 412/2025", "Proof affidavit · ST 330/2026"]],
+  ["Wed 4", 3, 1, 0, ["Court fee", "Process fee", "Reply to objection"], ["Court fee"], []],
+  ["Thu 5", 2, 0, 1, ["Process fee", "Reply to objection"], [], ["Court fee · ST 6/2025"]],
+  ["Fri 6", 2, 1, 1, ["Reply to objection", "Witness list"], ["Witness list"], ["Court fee · ST 6/2025"]],
+  ["Sat 7", 2, 1, 1, ["Bail application", "Witness list"], ["Bail application"], ["Court fee · ST 6/2025"]],
+  ["Mon 9", 3, 2, 0, ["Affidavit", "Memo", "Copying fee"], ["Affidavit", "Copying fee"], []],
+  ["Tue 10", 2, 2, 0, ["Memo", "Court fee"], ["Memo", "Court fee"], []],
+  ["Wed 11", 3, 2, 1, ["Court fee", "Process fee", "Bail bond"], ["Court fee", "Process fee"], ["Copying fee · ST 76/2026"]],
+  ["Thu 12", 3, 3, 1, ["Process fee", "Bail application", "Reply to objection"], ["Process fee", "Bail application", "Reply to objection"], ["Copying fee · ST 76/2026"]],
+  ["Today", 2, 0, 1, ["Produce PW-2 (excluded: in court)", "Court fee"], [], ["Copying fee · ST 76/2026"]],
+];
+
+function chart12() {
+  const W = 520, H = 190, PL = 26, PB = 26, PT = 10, max = 4;
+  const n = DAYS12.length;
+  const x = (i) => PL + (i / (n - 1)) * (W - PL - 10);
+  const y = (v) => PT + (1 - v / max) * (H - PT - PB);
+  const pts = (k) => DAYS12.map((d, i) => `${x(i).toFixed(1)},${y(d[k]).toFixed(1)}`).join(" ");
+  const area = `${x(0)},${y(0)} ${pts(2)} ${x(n - 1)},${y(0)}`;
+  const grid = [0, 1, 2, 3, 4].map((v) => `<line x1="${PL}" x2="${W - 10}" y1="${y(v)}" y2="${y(v)}" stroke="${TRK}"/><text x="${PL - 8}" y="${y(v) + 4}" font-size="10" fill="${MUT}" text-anchor="end">${v}</text>`).join("");
+  const labels = DAYS12.map((d, i) => `<text x="${x(i)}" y="${H - 6}" font-size="10" fill="${i === n - 1 ? INK : MUT}" font-weight="${i === n - 1 ? 700 : 400}" text-anchor="middle">${d[0]}</text>`).join("");
+  const dots = (k, c) => DAYS12.map((d, i) => `<circle cx="${x(i)}" cy="${y(d[k])}" r="3.5" fill="#fff" stroke="${c}" stroke-width="2"/>`).join("");
+  const bands = DAYS12.map((d, i) => {
+    const [day, t, a, c, tl, al, cl] = d;
+    const tip = `${day}${i === n - 1 ? " (so far)" : ""}\nTomorrow's tasks: ${t}\nDone a day ahead: ${a} of ${t}${al.length ? " · " + al.join(", ") : ""}\nCarrying overdue: ${c}${cl.length ? " · " + cl.join(", ") : ""}`;
+    const bw = (W - PL - 10) / (n - 1);
+    return `<rect data-tip="${tip}" x="${x(i) - bw / 2}" y="${PT}" width="${bw}" height="${H - PT - PB}" fill="transparent" style="cursor:default"/>`;
+  }).join("");
+  return `<svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:visible">
+      ${grid}
+      <polygon points="${area}" fill="${GRN}" fill-opacity=".28"/>
+      <polyline points="${pts(2)}" fill="none" stroke="${GRN}" stroke-width="2"/>
+      <polyline points="${pts(1)}" fill="none" stroke="#3b6fd8" stroke-width="2.5"/>
+      <polyline points="${pts(3)}" fill="none" stroke="${RED}" stroke-width="2.5"/>
+      ${dots(1, "#3b6fd8")}${dots(3, RED)}
+      <line x1="${x(n - 1)}" x2="${x(n - 1)}" y1="${PT}" y2="${H - PB}" stroke="${INK}" stroke-dasharray="3 3"/>
+      ${labels}${bands}
+    </svg>`;
+}
+
+function insight12() {
+  const y = DAYS12[DAYS12.length - 2];
+  return `<div style="display:flex;flex-direction:column;gap:2px;font-size:12.5px;margin-bottom:8px">
+      <span><b style="color:${GRN}">Yesterday you did all ${y[1]} of today's tasks a day ahead.</b></span>
+      <span style="color:${RED}">Carrying 1 overdue since Wed 11 · Copying fee.</span></div>
+    ${chart12()}
+    <div style="display:flex;gap:14px;font-size:11px;color:${MUT};margin-top:8px">
+      <span><i style="display:inline-block;width:14px;height:3px;background:#3b6fd8;margin-right:4px;vertical-align:3px"></i>Tomorrow's tasks</span>
+      <span><i style="display:inline-block;width:12px;height:10px;background:${GRN};opacity:.45;margin-right:4px;vertical-align:-1px"></i>Done a day ahead</span>
+      <span><i style="display:inline-block;width:14px;height:3px;background:${RED};margin-right:4px;vertical-align:3px"></i>Overdue still carried</span></div>
+    <div style="margin-top:10px;padding:8px 10px;background:#f6f5f1;border-radius:8px;font-size:12px">Good day: green fills up to blue, red at zero.</div>`;
+}
+
+let MODE12 = "viz";
+function card12() {
+  if (MODE12 === "list") {
+    const saved = MODE8; MODE8 = "list";
+    const html = card8().replace(/data-m8=/g, "data-m12=");
+    MODE8 = saved;
+    return html;
+  }
+  const seg = (k, l) => `<button data-ui data-m12="${k}" style="font:600 11.5px system-ui;padding:4px 10px;border:0;cursor:pointer;background:${MODE12 === k ? INK : "#fff"};color:${MODE12 === k ? "#fff" : INK}">${l}</button>`;
+  const head = `<div class="q"><span class="n">2</span><h3>Must do today</h3><span style="margin-left:auto;display:inline-flex;border:1.5px solid ${INK};border-radius:7px;overflow:hidden">${seg("list", "List")}${seg("viz", "Insights")}</span></div>`;
+  return `<div class="card" style="height:470px;overflow:hidden">${head}${insight12()}</div>`;
+}
+function vDesktop12() {
+  return vDesktop4().replace(header(false), launcher8()).replace(vTasks4(), card12()).replace("height:1000px", "height:1180px");
+}
+
+const R12 = R11 + 1450;
+place(0, R12 - 40, `<div class="title"><h1 style="font-size:36px">Round 12 · One daily chart</h1><p>Two questions, three marks. Hover any day.</p></div>`, 1800);
+const r12el = place(0, R12 + 90, vDesktop12());
+r12el.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-m12]");
+  if (!b) return;
+  MODE12 = b.dataset.m12;
+  r12el.innerHTML = vDesktop12();
+});
+note(-300, R12 + 400, "Blue = tomorrow's tasks. What you could get ahead on.", 2);
+note(-300, R12 + 540, "Green = how many of those you finished a day early. How you work.");
+note(-300, R12 + 680, "Red = overdue you were still carrying that day. Stays up until done. What you carry.");
+note(1330, R12 + 400, "Left out of blue: tasks created less than a day before due, and court-only tasks. Monday counts on Saturday.");
+note(1330, R12 + 580, "Good day: green reaches blue, red at zero.");
+markToggle.addEventListener("click", () => { r12el.innerHTML = vDesktop12(); });
+
+
+/* ── Pan and zoom ──────────────────────────────────────────────────────── */
+const view = document.getElementById("view");
+let s = 0.4, x = 60, y = 40;
+const apply = () => {
+  world.style.transform = `translate(${x}px,${y}px) scale(${s})`;
+  view.style.backgroundSize = `${24 * s}px ${24 * s}px`;
+  view.style.backgroundPosition = `${x}px ${y}px`;
+};
+const zoomAt = (cx, cy, k) => {
+  const ns = Math.min(2.5, Math.max(0.08, s * k));
+  x = cx - (cx - x) * (ns / s); y = cy - (cy - y) * (ns / s); s = ns; apply();
+};
+view.addEventListener("wheel", (e) => {
+  e.preventDefault();
+  if (e.ctrlKey || e.metaKey) zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.01));
+  else { x -= e.deltaX; y -= e.deltaY; apply(); }
+}, { passive: false });
+let drag = null;
+view.addEventListener("pointerdown", (e) => { if (e.target.closest("[data-ui]")) return; drag = { px: e.clientX, py: e.clientY, x, y }; view.classList.add("drag"); view.setPointerCapture(e.pointerId); });
+view.addEventListener("pointermove", (e) => { if (!drag) return; x = drag.x + e.clientX - drag.px; y = drag.y + e.clientY - drag.py; apply(); });
+view.addEventListener("pointerup", () => { drag = null; view.classList.remove("drag"); });
+document.getElementById("in").onclick = () => zoomAt(innerWidth / 2, innerHeight / 2, 1.25);
+document.getElementById("out").onclick = () => zoomAt(innerWidth / 2, innerHeight / 2, 0.8);
+function fit() {
+  const w = world.scrollWidth + 400, h = world.scrollHeight + 200;
+  s = Math.min(innerWidth / w, innerHeight / h); x = 40 + 300 * s; y = 30; apply();
+}
+document.getElementById("fit").onclick = fit;
+function goR2() { s = Math.min(innerWidth / 3400, innerHeight / 1200); x = 320 * s + 20; y = -(3040) * s + 20; apply(); }
+document.getElementById("r2").onclick = goR2;
+function goR3() { s = Math.min(innerWidth / 2100, innerHeight / 1350); x = 320 * s + 20; y = -(4210) * s + 20; apply(); }
+document.getElementById("r3").onclick = goR3;
+function goR4() { s = Math.min(innerWidth / 2100, innerHeight / 1400); x = 320 * s + 20; y = -(R4 - 60) * s + 20; apply(); }
+document.getElementById("r4").onclick = goR4;
+function goR5() { s = Math.min(innerWidth / 2100, innerHeight / 1450); x = 320 * s + 20; y = -(R5 - 60) * s + 20; apply(); }
+document.getElementById("r5").onclick = goR5;
+function goR6() { s = Math.min(innerWidth / 3600, innerHeight / 1100); x = 320 * s + 20; y = -(R6 - 60) * s + 20; apply(); }
+document.getElementById("r6").onclick = goR6;
+function goR7() { s = Math.min(innerWidth / 3600, innerHeight / 1050); x = 320 * s + 20; y = -(R7 - 60) * s + 20; apply(); }
+document.getElementById("r7").onclick = goR7;
+function goR8() { s = Math.min(innerWidth / 2100, innerHeight / 1480); x = 320 * s + 20; y = -(R8 - 60) * s + 20; apply(); }
+document.getElementById("r8").onclick = goR8;
+function goR9() { s = Math.min(innerWidth / 2100, innerHeight / 1480); x = 320 * s + 20; y = -(R9 - 60) * s + 20; apply(); }
+document.getElementById("r9").onclick = goR9;
+function goR10() { s = Math.min(innerWidth / 2100, innerHeight / 1480); x = 320 * s + 20; y = -(R10 - 60) * s + 20; apply(); }
+document.getElementById("r10").onclick = goR10;
+function goR11() { s = Math.min(innerWidth / 2100, innerHeight / 1480); x = 320 * s + 20; y = -(R11 - 60) * s + 20; apply(); }
+document.getElementById("r11").onclick = goR11;
+function goR12() { s = Math.min(innerWidth / 2100, innerHeight / 1480); x = 320 * s + 20; y = -(R12 - 60) * s + 20; apply(); }
+document.getElementById("r12").onclick = goR12;
+apply(); requestAnimationFrame(goR8);
+</script>
+</body>
+</html>
