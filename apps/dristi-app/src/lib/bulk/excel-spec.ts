@@ -257,11 +257,16 @@ export const CASES_SHEET = "Cases";
 export const LISTS_SHEET = "Lists";
 
 /** The value for a label in a list, read leniently (case, spacing and punctuation ignored). */
+/**
+ * The list value a cell means, matched ignoring letter case only (BLK-33): "insufficient
+ * funds" is "Funds insufficient"'s list entry, but "A/C-CLOSED" is not "Account closed".
+ * Anything else goes to Match values, for the filer to choose rather than for us to guess.
+ */
 export function listValue(list: ListName, label: string): string | null {
-  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const norm = (s: string) => s.trim().toLowerCase();
   const n = norm(label);
   if (!n) return null;
-  const hit = LISTS[list].find((o) => norm(o.label) === n || norm(o.value) === n);
+  const hit = LISTS[list].find((o) => norm(o.label) === n);
   return hit?.value ?? null;
 }
 

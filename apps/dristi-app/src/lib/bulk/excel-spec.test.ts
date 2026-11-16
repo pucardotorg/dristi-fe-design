@@ -66,9 +66,12 @@ test("headers and aliases never collide", () => {
   }
 });
 
-test("list values read leniently, unknowns stay unknown", () => {
+test("list values match ignoring letter case only; spacing and punctuation go to Match values (BLK-33)", () => {
   assert.equal(listValue("returnReason", "funds insufficient"), "funds-insufficient");
-  assert.equal(listValue("modeOfService", "Registered Post (RPAD)"), "rpad");
+  assert.equal(listValue("returnReason", "FUNDS INSUFFICIENT"), "funds-insufficient");
+  assert.equal(listValue("modeOfService", "registered post (rpad)"), "rpad");
+  assert.equal(listValue("returnReason", "Funds insufficient."), null);
+  assert.equal(listValue("returnReason", "Funds-insufficient"), null);
   assert.equal(listValue("returnReason", "Funds Insuff."), null);
 });
 

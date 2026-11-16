@@ -36,10 +36,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Combobox,
+  ComboboxCollection,
   ComboboxContent,
   ComboboxEmpty,
+  ComboboxGroup,
   ComboboxInput,
   ComboboxItem,
+  ComboboxLabel,
   ComboboxList,
   ComboboxTrigger,
   useComboboxAnchor,
@@ -259,6 +262,9 @@ type PickOption = {
   kind: "none" | "column" | "every";
 };
 
+/** `label` heads the group; the lone "fill in later" choice needs none. */
+type PickGroup = { value: string; label: string; items: PickOption[] };
+
 /**
  * The column picker: the DS Combobox, as ComboField uses it in the filing forms, so the
  * filer can type to find a column by its name or by what it holds. Each option is the
@@ -289,30 +295,40 @@ function ColumnPicker({
 }) {
   const used = React.useContext(UsedContext);
   const anchor = useComboboxAnchor();
-  const options = React.useMemo<PickOption[]>(
-    () => [
-      { value: NONE, name: SKIP, kind: "none" },
-      ...headers.map((h, k): PickOption => ({
-        value: String(k),
-        name: h || `Column ${k + 1}`,
-        sample: firsts[k],
-        kind: "column",
-      })),
-      ...(list
-        ? LISTS[list].map((o): PickOption => ({
-            value: `every:${o.label}`,
-            name: o.label,
-            kind: "every",
-          }))
-        : []),
-    ],
+  // Three kinds of answer, each under its own heading: for a field whose values come from
+  // a list, one value of that list for every row (BLK-38b); leaving the field to each case;
+  // or a column of the file. The short groups come first, so the long list of columns never
+  // buries them.
+  const groups = React.useMemo<PickGroup[]>(
+    () =>
+      [
+        {
+          value: "every",
+          label: "One value for every row",
+          items: list
+            ? LISTS[list].map((o): PickOption => ({ value: `every:${o.label}`, name: o.label, kind: "every" }))
+            : [],
+        },
+        { value: "later", label: "", items: [{ value: NONE, name: SKIP, kind: "none" } as PickOption] },
+        {
+          value: "columns",
+          label: "Columns of your file",
+          items: headers.map((h, k): PickOption => ({
+            value: String(k),
+            name: h || `Column ${k + 1}`,
+            sample: firsts[k],
+            kind: "column",
+          })),
+        },
+      ].filter((g) => g.items.length),
     [headers, firsts, list],
   );
+  const options = React.useMemo(() => groups.flatMap((g) => g.items), [groups]);
   // Nothing chosen yet: the field waits with a placeholder, not a decision (v8).
-  const selected = value === "" ? null : (options.find((o) => o.value === value) ?? options[0]);
+  const selected = value === "" ? null : (options.find((o) => o.value === value) ?? options.find((o) => o.kind === "none")!);
   return (
     <Combobox
-      items={options}
+      items={groups}
       value={selected}
       onValueChange={(o) => {
         if (o) onPick((o as PickOption).value);
@@ -351,7 +367,7 @@ function ColumnPicker({
           )}
           autoComplete="off"
           showTrigger={false}
-          placeholder={suggestion != null ? `Suggested: ${headers[suggestion]}` : "Choose a column…"}
+          placeholder={suggestion != null ? `Suggested: ${headers[suggestion]}` : list ? "Choose a column or value…" : "Choose a column…"}
           // A chosen column's name is selected on focus, so typing starts a new search.
           onFocus={(e) => e.currentTarget.select()}
         >
@@ -381,32 +397,39 @@ function ColumnPicker({
       >
         <ComboboxEmpty>No column matches</ComboboxEmpty>
         <ComboboxList className="overflow-x-hidden overscroll-x-none">
-          {(o: PickOption) => (
-            <ComboboxItem
-              key={o.value}
-              value={o}
-              // Room for the tick only on the chosen option; the rest use the full width.
-              className="pr-2.5 aria-selected:pr-8"
+          {(group: PickGroup) => (
+            // A hairline between groups, so a heading never reads as one more option.
+            <ComboboxGroup
+              key={group.value}
+              items={group.items}
+              className="not-first:mt-1 not-first:border-t not-first:border-hairline not-first:pt-1"
             >
-              {o.kind === "column" ? (
-                <ColumnOption
-                  name={o.name}
-                  sample={o.sample ?? ""}
-                  usedFor={
-                    o.value === value
-                      ? []
-                      : (used[Number(o.value)] ?? []).map((u) => u.label)
-                  }
-                />
-              ) : o.kind === "every" ? (
-                <span>
-                  <span className="text-muted-foreground">Every row: </span>
-                  {o.name}
-                </span>
-              ) : (
-                <span className="text-muted-foreground">{o.name}</span>
-              )}
-            </ComboboxItem>
+              {group.label ? (
+                <ComboboxLabel className="text-body-compact font-medium">{group.label}</ComboboxLabel>
+              ) : null}
+              <ComboboxCollection>
+                {(o: PickOption) => (
+                  <ComboboxItem
+                    key={o.value}
+                    value={o}
+                    // Room for the tick only on the chosen option; the rest use the full width.
+                    className="pr-2.5 aria-selected:pr-8"
+                  >
+                    {o.kind === "column" ? (
+                      <ColumnOption
+                        name={o.name}
+                        sample={o.sample ?? ""}
+                        usedFor={o.value === value ? [] : (used[Number(o.value)] ?? []).map((u) => u.label)}
+                      />
+                    ) : o.kind === "every" ? (
+                      <span>{o.name}</span>
+                    ) : (
+                      <span className="text-muted-foreground">{o.name}</span>
+                    )}
+                  </ComboboxItem>
+                )}
+              </ComboboxCollection>
+            </ComboboxGroup>
           )}
         </ComboboxList>
       </ComboboxContent>
