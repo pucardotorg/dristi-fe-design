@@ -35,12 +35,13 @@ test("every police station the PRD asks for is required in the sheet", () => {
   assert.equal(req("drawerPolice"), "When not deposited in complainant's account");
 });
 
-test("the template is the PRD's 79 columns, every repeat numbered", () => {
+test("the template is the PRD's 78 columns, every repeat numbered, with no case reference", () => {
   const all = templateColumns();
-  assert.equal(all.length, 79);
+  assert.equal(all.length, 78);
   const headers = all.map((t) => t.header);
-  assert.equal(new Set(headers).size, 79, "no header twice");
-  for (const h of ["Case reference", "Accused 1 name", "Accused 2 name", "Accused 1 address 1 pincode", "Accused 2 person responsible 1 police station", "Cheque 1 complainant branch IFSC", "Demand notice 1 dispatch date", "Other complaint pending between the same parties", "Other pending case 1 case number", "Interim relief", "Affidavit", "Witness 1 address 1 pincode"])
+  assert.equal(new Set(headers).size, 78, "no header twice");
+  assert.ok(!headers.includes("Case reference"), "BLK-07 withdrawn: a case is known by its draft number");
+  for (const h of ["Accused 1 name", "Accused 2 name", "Accused 1 address 1 pincode", "Accused 2 person responsible 1 police station", "Cheque 1 complainant branch IFSC", "Demand notice 1 dispatch date", "Other complaint pending between the same parties", "Other pending case 1 case number", "Interim relief", "Affidavit", "Witness 1 address 1 pincode"])
     assert.ok(headers.includes(h), h);
   assert.ok(!headers.some((h) => /complainant (name|type)/i.test(h)), "no complainant columns: they are set on the upload screen");
 });

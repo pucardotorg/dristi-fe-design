@@ -117,7 +117,7 @@ export function CaseRows({
                 <TableHeader>
                   <TableRow className={TABLE_HEAD_ROW}>
                     <TableHead className={TABLE_HEAD}>Accused</TableHead>
-                    <TableHead className={TABLE_HEAD}>Your reference</TableHead>
+                    <TableHead className={TABLE_HEAD}>Draft number</TableHead>
                     <TableHead className={TABLE_HEAD}>Status</TableHead>
                   </TableRow>
                 </TableHeader>

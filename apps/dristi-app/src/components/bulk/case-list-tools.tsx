@@ -19,10 +19,10 @@ import type { CaseView } from "./api";
 
 export const PAGE_SIZE = 25;
 
-/** Whether a case answers a search: by accused, title, reference or cheque. */
+/** Whether a case answers a search: by accused, title, draft number or cheque. */
 export function caseMatches(c: CaseView, term: string): boolean {
   const t = term.trim().toLowerCase();
-  return !t || [c.accused, c.title, c.reference, c.cheque].some((v) => v.toLowerCase().includes(t));
+  return !t || [c.accused, c.title, c.draftNumber, c.cheque].some((v) => v.toLowerCase().includes(t));
 }
 
 /** One page of a list, and the page actually shown when the list got shorter. */
@@ -58,7 +58,7 @@ export function CaseSearch({
           autoComplete="off"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="Accused, reference or cheque"
+          placeholder="Accused, draft number or cheque"
         />
       </InputGroup>
     </div>

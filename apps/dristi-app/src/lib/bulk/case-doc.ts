@@ -156,7 +156,6 @@ function tidy(c: Column, raw: string): { value: string; confidence: Confidence; 
 
 /** Patterns for required values a document states without a label we know. */
 const PATTERNS: { key: string; re: RegExp; note: string }[] = [
-  { key: "reference", re: /\b(?:loan|account|lan|ref(?:erence)?)\b[^:\n]*?\b([A-Z]{2,}[-/][A-Z0-9][A-Z0-9-/]{3,})\b/i, note: "Read from the text, not a labelled field" },
   { key: "chequeNumber", re: /cheque\s*(?:no\.?|number|#)?\s*[:.-]?\s*(\d{6})\b/i, note: "Read from the text, not a labelled field" },
   { key: "chequeAmount", re: /(?:rs\.?|₹|inr)\s*([\d,]+(?:\.\d+)?)/i, note: "The first amount in the document" },
   { key: "chequeIfsc", re: /\b([A-Z]{4}0[A-Z0-9]{6})\b/, note: "The first IFSC in the document" },

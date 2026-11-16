@@ -520,7 +520,7 @@ function CasePicker({
   value: CheckCase;
   onChange: (c: CheckCase) => void;
 }) {
-  const label = (c: CheckCase) => c.accused || c.reference;
+  const label = (c: CheckCase) => c.accused || c.reference.replace(/^R/, "Excel row ");
   const fromExcel = cases.filter((c) => c.own && !c.fromBatch);
   const groups: CaseGroup[] = [
     { value: `From the Excel · ${fromExcel.length}`, items: fromExcel },

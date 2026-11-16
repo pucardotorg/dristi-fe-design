@@ -44,7 +44,8 @@ Complainant branch IFSC: HDFC0000060`;
 test("a case document is read section by section, by label", () => {
   const x = extractCase("brief.docx", DOC);
   const v = (k: string) => x.fields[k]?.value;
-  assert.equal(v("Case reference"), "TCL-AHD-BL-1003");
+  // No case reference field (BLK-07 withdrawn): a loan number in the text is just text.
+  assert.equal(v("Case reference"), undefined);
   assert.equal(v("Accused name"), "Pravin D. Solanki");
   assert.equal(v("Accused name_2"), "Kusum P. Solanki");
   assert.equal(v("Accused city"), "Ahmedabad");
@@ -63,7 +64,7 @@ test("what no label names is found by pattern and marked to check", () => {
   assert.equal(x.fields["Cheque number"].value, "560921");
   assert.equal(x.fields["Cheque number"].confidence, "check");
   assert.equal(x.fields["Drawer bank IFSC"].value, "KKBK0002561");
-  assert.equal(x.fields["Case reference"].value, "TCL-AHD-PL-1004");
+  assert.equal(x.fields["Case reference"], undefined);
 });
 
 test("an unreadable document gives nothing", () => {

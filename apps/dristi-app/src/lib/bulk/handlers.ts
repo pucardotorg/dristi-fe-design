@@ -30,7 +30,7 @@ import { localizeCaseNumber } from "@/lib/court/localize";
 import { buildBatch, validateRequest, writeFacts } from "./intake";
 import { applyParties, type BatchParties } from "./parties";
 import { caseFlags } from "./scrutiny";
-import type { BulkStore, FileMeta } from "./store";
+import { draftNumber, type BulkStore, type FileMeta } from "./store";
 import type { BulkSignMethod } from "./types";
 import type { FilingDraft, StoredFileRef } from "@/lib/filing/types";
 
@@ -345,7 +345,7 @@ export async function getCase(store: BulkStore, batchId: string, caseId: string)
   const bc = batch.cases[at];
   return ok({
     batchNumber: batch.number,
-    reference: bc.reference,
+    draftNumber: draftNumber(batch, bc, at),
     draft: draftForScreen(bc),
     prev: batch.cases[at - 1]?.id ?? null,
     next: batch.cases[at + 1]?.id ?? null,

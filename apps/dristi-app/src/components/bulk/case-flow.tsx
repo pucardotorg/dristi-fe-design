@@ -416,7 +416,7 @@ function CaseTitle() {
 
 /**
  * Where this case sits in its queue, pinned under the top bar: "Case 1 of 2 to fix", the
- * filer's reference, and the cases either side. The case itself is named in the
+ * case's draft number, and the cases either side. The case itself is named in the
  * breadcrumb and the way back is the breadcrumb's "Case details", so neither is repeated
  * here. A bar across the page, not a card in it, so the section's title stays first.
  */
@@ -528,7 +528,7 @@ function CaseBar({
         <span aria-hidden className="text-muted-foreground max-sm:hidden">
           ·
         </span>
-        <span className="font-mono text-muted-foreground max-sm:hidden">{c.reference}</span>
+        <span className="font-mono text-muted-foreground max-sm:hidden">{c.draftNumber}</span>
         {/* The moment a case is finished, said where the eye already is. */}
         {done && inQueue ? (
           <span key="done" role="status" className="fb-rise inline-flex items-center gap-1.5 font-medium text-success-ink">

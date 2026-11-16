@@ -14,7 +14,7 @@
 
 import type { StoredFileRef } from "@/lib/filing/types";
 
-import type { Batch } from "./types";
+import type { Batch, BatchCase } from "./types";
 
 export type FileMeta = Omit<StoredFileRef, "id">;
 
@@ -38,16 +38,31 @@ export interface BulkStore {
 /** File ids a store serves: its own (`bf_…`) and those the filing screens mint (`f_…`). */
 export const FILE_ID = /^(bf|f)_[a-z0-9]+$/i;
 
-/** "BLK-2026-0007": numbered in the order batches arrive, per year. */
-export function numberFor(all: Batch[], at: Date): string {
-  const year = at.getFullYear();
-  const prefix = `BLK-${year}-`;
-  const last = all
-    .map((b) => b.number)
-    .filter((n) => n.startsWith(prefix))
-    .map((n) => Number(n.slice(prefix.length)) || 0)
-    .reduce((max, n) => Math.max(max, n), 0);
-  return `${prefix}${String(last + 1).padStart(4, "0")}`;
+/**
+ * "B7": B and a count of the filer's own batches (BLK-04a), so two filers can each have a
+ * B1. The sandbox keeps one filer's batches, so the count runs over all of them.
+ */
+export function numberFor(all: Pick<Batch, "number">[]): string {
+  const last = all.map((b) => countOf(b.number)).reduce((max, n) => Math.max(max, n), 0);
+  return `B${last + 1}`;
+}
+
+/** The count in a batch number: 7 for "B7", and for one stored as "BLK-2026-0007". */
+function countOf(number: string): number {
+  return Number(/^B(\d+)$/.exec(number)?.[1] ?? /^BLK-\d{4}-(\d+)$/.exec(number)?.[1] ?? 0);
+}
+
+/** A batch stored before BLK-04a ("BLK-2026-0007") read in the filer's count ("B7"). */
+export function currentNumber(number: string): string {
+  return /^BLK-\d{4}-\d+$/.test(number) ? `B${countOf(number)}` : number;
+}
+
+/**
+ * A case's draft number: its batch number, R, and its row in the Excel file (BLK-04b).
+ * A case from the API has no row; its place in the request stands in.
+ */
+export function draftNumber(batch: Pick<Batch, "number">, bc: Pick<BatchCase, "row">, index: number): string {
+  return `${currentNumber(batch.number)}-R${bc.row ?? index + 1}`;
 }
 
 export function metaFor(name: string, size: number, type: string): FileMeta {
@@ -68,9 +83,11 @@ export function serialQueue() {
 /** The batch operations every store shares, over a whole-list read and write. */
 export function batchOps(
   serial: <T>(work: () => Promise<T>) => Promise<T>,
-  readAll: () => Promise<Batch[]>,
+  readStored: () => Promise<Batch[]>,
   writeAll: (batches: Batch[]) => Promise<void>,
 ): Pick<BulkStore, "listBatches" | "getBatch" | "insertBatch" | "updateBatch" | "applyBatches"> {
+  // Batches stored before B-numbers read in the filer's count.
+  const readAll = async () => (await readStored()).map((b) => ({ ...b, number: currentNumber(b.number) }));
   return {
     listBatches: () => serial(readAll),
     async getBatch(id) {
@@ -79,7 +96,7 @@ export function batchOps(
     insertBatch: (batch) =>
       serial(async () => {
         const all = await readAll();
-        const saved: Batch = { ...batch, number: numberFor(all, new Date(batch.createdAt)) };
+        const saved: Batch = { ...batch, number: numberFor(all) };
         all.push(saved);
         await writeAll(all);
         return saved;
@@ -99,7 +116,7 @@ export function batchOps(
       serial(async () => {
         const before = await readAll();
         const { all, result } = change(structuredClone(before));
-        if (!result.number) result.number = numberFor(before, new Date(result.createdAt));
+        if (!result.number) result.number = numberFor(before);
         await writeAll(all.map((b) => (b.id === result.id ? result : b)));
         return result;
       }),

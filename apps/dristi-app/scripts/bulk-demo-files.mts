@@ -211,7 +211,6 @@ async function templateFile(name = "tata-capital-bulk-filing-template.xlsx", sto
       set("accusedPolice", [n, 1], c.police);
       set("accusedJurisdiction", [n], "Yes");
     };
-    set("reference", [], c.ref);
     accused(1, c);
     if (c.person) {
       set("personName", [1, 1], c.person[0]);

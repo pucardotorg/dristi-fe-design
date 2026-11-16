@@ -34,6 +34,7 @@ import type { AiMode } from "./ai-review";
 import { caseFacts, type CaseFact } from "./case-fields";
 import { resolveBar, resolveIfsc, resolvePin } from "./reference";
 import { caseState, type CaseState } from "./case-state";
+import { draftNumber } from "./store";
 import { caseFlags, caseStage, openFlags, type Flag } from "./scrutiny";
 import {
   AADHAAR_DOCS_PER_OTP,
@@ -52,7 +53,8 @@ export const FEES = GUJARAT_FEES;
 
 export type CaseView = {
   id: string;
-  reference: string;
+  /** "B7-R12": the batch, then the case's Excel row (BLK-04b). How the filer finds a case. */
+  draftNumber: string;
   title: string;
   accused: string;
   /** The first cheque's number, to tell cases apart at a glance. */
@@ -132,7 +134,7 @@ function addMonth(iso: string): string {
   return d.toISOString().slice(0, 10);
 }
 
-export function caseView(bc: BatchCase): CaseView {
+export function caseView(bc: BatchCase, draft: string): CaseView {
   const flags = openFlags(bc);
   const every = caseFlags(bc);
   const d = bc.draft;
@@ -146,7 +148,7 @@ export function caseView(bc: BatchCase): CaseView {
     .reduce((n, l) => n + l.amount, 0);
   return {
     id: bc.id,
-    reference: bc.reference,
+    draftNumber: draft,
     title: draftTitle(d),
     accused: d.accused
       .map((a) => a.name)
@@ -255,7 +257,7 @@ export function batchView(
   return {
     ...summarise(batch, all),
     ai,
-    cases: batch.cases.map((bc) => caseView(bc)),
+    cases: batch.cases.map((bc, i) => caseView(bc, draftNumber(batch, bc, i))),
     payments: batch.payments,
     signings: batch.signings,
     advocates: (first?.advocates ?? []).map((a) => ({
@@ -569,7 +571,7 @@ export function payCases(
     d.status = "filed";
     d.filedAt = at;
     d.updatedAt = at;
-    bc.receiptNumber = `${batch.number.replace("BLK", "RCPT")}-${String(serialBase + i + 1).padStart(3, "0")}`;
+    bc.receiptNumber = `RCPT-${batch.number}-${String(serialBase + i + 1).padStart(3, "0")}`;
   });
   batch.payments.push({ ref, at, amount, caseIds: cases.map((c) => c.id) });
   return { ref, amount };

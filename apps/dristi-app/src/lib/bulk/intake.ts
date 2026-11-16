@@ -378,11 +378,15 @@ export async function buildBatch(
 ): Promise<Omit<Batch, "number">> {
   const now = new Date().toISOString();
   const cases: BatchCase[] = [];
-  for (const c of req.cases) {
+  for (const [i, c] of req.cases.entries()) {
     const built = await buildDraft(req, c, fetchDocument);
+    // An Excel case's key is its row ("R12"), which its draft number carries (BLK-04b); a
+    // pushed case has no row, so its place in the request stands in.
+    const excelRow = source.kind === "api" ? null : /^R(\d+)$/.exec(trim(c.reference));
     cases.push({
       id: newId("bc"),
       reference: trim(c.reference),
+      row: excelRow ? Number(excelRow[1]) : i + 1,
       draft: built.draft,
       skipped: [],
       noContactDeclared: [],

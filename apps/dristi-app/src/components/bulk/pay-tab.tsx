@@ -89,7 +89,7 @@ function Receipts({
               <TableCell
                 className={cn(TABLE_CELL, "pl-4 font-medium tabular-nums")}
               >
-                {c.reference}
+                {c.draftNumber}
               </TableCell>
               <TableCell className={cn(TABLE_CELL, "tabular-nums")}>
                 {c.receiptNumber}
@@ -300,7 +300,7 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
                     />
                   </TableHead>
                   <TableHead className={TABLE_HEAD}>Accused</TableHead>
-                  <TableHead className={TABLE_HEAD}>Your reference</TableHead>
+                  <TableHead className={TABLE_HEAD}>Draft number</TableHead>
                   <TableHead className={cn(TABLE_HEAD, "pr-4 text-right")}>
                     Fees
                   </TableHead>
@@ -324,11 +324,11 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
                             return next;
                           })
                         }
-                        aria-label={`Select ${c.reference}`}
+                        aria-label={`Select ${c.draftNumber}`}
                       />
                     </TableCell>
                     <TableCell className={cn(TABLE_CELL, "whitespace-normal")}>{c.accused || c.title}</TableCell>
-                    <TableCell className={cn(TABLE_CELL, "font-mono")}>{c.reference}</TableCell>
+                    <TableCell className={cn(TABLE_CELL, "font-mono")}>{c.draftNumber}</TableCell>
                     <TableCell className={cn(TABLE_CELL, "pr-4 text-right tabular-nums")}>{money(c.fee)}</TableCell>
                   </TableRow>
                 ))}
@@ -448,7 +448,7 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
                               <span className="flex min-w-0 flex-1 flex-col gap-1">
                                 <span className="flex flex-wrap items-center gap-2">
                                   <span className="text-body-compact font-medium tabular-nums">
-                                    {c.reference}
+                                    {c.draftNumber}
                                   </span>
                                   <CaseBadge c={c} />
                                 </span>

@@ -66,8 +66,14 @@ export const SIGN_INSTRUMENT: Record<BulkSignMethod, SignInstrument> = {
 
 export type BatchCase = {
   id: string;
-  /** The sender's reference (loan account number), shown beside the parties. */
+  /**
+   * The key the case came in under: the sender's reference for an API push, "R12" for
+   * Excel row 12. Never shown: the filer knows a case by its draft number (`draftNumber`,
+   * BLK-04b), and the filer's own reference is withdrawn (BLK-07).
+   */
   reference: string;
+  /** The case's row in the Excel file, which its draft number carries (B7-R12). */
+  row?: number;
   draft: FilingDraft;
   /** Soft flags the filer chose to skip, by flag id. */
   skipped: string[];
@@ -115,7 +121,7 @@ export type BatchSigning = {
 
 export type Batch = {
   id: string;
-  /** "BLK-2026-0003" — what the filer calls it. */
+  /** "B3": B and a count of the filer's own batches (BLK-04a). */
   number: string;
   source: BatchSource;
   /** The complainant, as the batch list names it. */

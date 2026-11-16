@@ -211,7 +211,7 @@ function SharedFix({
 
 /**
  * Case details: the batch's open cases as v8 lists them. The list starts on the cases to
- * fix, can be searched by accused, reference or cheque, and is read 25 at a time. A case
+ * fix, can be searched by accused, draft number or cheque, and is read 25 at a time. A case
  * opens in the single filing's own sections (`case-flow.tsx`), at the first section with
  * something to fix. The footer's primary is the work itself ("Fix the first case"), with
  * "Continue with N complete" beside it, so cases still to fix never hold the rest up.
@@ -361,10 +361,10 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
                           >
                             {c.accused || c.title}
                           </Link>
-                          {/* The filer's own reference, to find the case by (BLK-07): a quiet
+                          {/* The case's draft number, to find it by (BLK-04b): a quiet
                               fact under the name, as on a phone, not a column of its own. */}
                           <span className="block truncate text-body-compact text-muted-foreground tabular-nums">
-                            <span className="font-mono">{c.reference}</span>
+                            <span className="font-mono">{c.draftNumber}</span>
                             {c.amount ? ` · ${money(c.amount)}` : ""}
                           </span>
                         </TableCell>
@@ -417,7 +417,7 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
                     <Link href={href} className="flex min-w-0 flex-col gap-1 rounded-lg focus-visible:ring-3 focus-visible:ring-focus-ring focus-visible:outline-none">
                       <span className="text-body-compact font-medium">{c.accused || c.title}</span>
                       <span className="text-body-compact text-muted-foreground">
-                        <span className="font-mono">{c.reference}</span>
+                        <span className="font-mono">{c.draftNumber}</span>
                         {c.amount ? <span className="tabular-nums"> · {money(c.amount)}</span> : null}
                       </span>
                       <span className="text-body-compact">
@@ -488,7 +488,7 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
           if (!o) setRemoving(null);
         }}
         title="Remove this case from the batch?"
-        description={removing ? `${removing.title} · ${removing.reference} won't be filed with this batch.` : undefined}
+        description={removing ? `${removing.title} · ${removing.draftNumber} won't be filed with this batch.` : undefined}
         confirmLabel="Remove"
         cancelLabel="Back"
         onConfirm={() => {

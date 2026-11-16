@@ -22,7 +22,7 @@ test("a header splits into its column and its repeat", () => {
 
 test("_2 columns become the second cheque, accused and witness; _1_2 a second address", () => {
   const headers = [
-    "Case reference", "Accused name", "Accused address", "Accused address_1_2", "Accused name_2", "Accused address_2",
+    "Loan account", "Accused name", "Accused address", "Accused address_1_2", "Accused name_2", "Accused address_2",
     "Cheque number", "Cheque number_2", "Witness name", "Witness name_2",
   ];
   const row = ["R-1", "A One", "Addr 1", "Addr 1b", "A Two", "Addr 2", "111111", "222222", "W1", "W2"];
@@ -38,11 +38,13 @@ test("_2 columns become the second cheque, accused and witness; _1_2 a second ad
   assert.deepEqual(c.cheques.map((q) => q.number), ["111111", "222222"]);
   assert.deepEqual(c.witnesses?.map((w) => w.name), ["W1", "W2"]);
   assert.equal(c.complainants, undefined);
+  // No reference column: the case is keyed by its Excel row, which its draft number carries.
+  assert.equal(c.reference, "R2");
 });
 
 test("numbered template headers are read, and a file may carry more than the template", () => {
   const headers = [
-    "Case reference", "Accused 1 name", "Accused 1 address 1 line", "Accused 1 address 2 line", "Accused 2 name", "Accused 2 address 1 line",
+    "Loan account", "Accused 1 name", "Accused 1 address 1 line", "Accused 1 address 2 line", "Accused 2 name", "Accused 2 address 1 line",
     "Cheque 1 number", "Cheque 1 complainant branch IFSC", "Cheque 2 number", "Deposited in complainant's account",
     "Other complaint pending between the same parties", "Interim relief", "Final relief", "Affidavit",
   ];
@@ -59,7 +61,7 @@ test("numbered template headers are read, and a file may carry more than the tem
 });
 
 test("an optional section left blank on a row adds nothing to that case", () => {
-  const headers = ["Case reference", "Cheque number", "Witness name", "Witness name_2"];
+  const headers = ["Loan account", "Cheque number", "Witness name", "Witness name_2"];
   const req = buildRequest(book(headers, ["R-1", "111111", "", ""]), autoMap(headers), {}, { complainant, barNumbers: [], adr: "no", fileName: "t" });
   assert.equal(req.cases[0].witnesses?.length, 0);
   assert.equal(req.cases[0].cheques.length, 1);
@@ -75,7 +77,7 @@ test("in a filer's own layout, a matched column's _2 is read for the second inst
 });
 
 test("repeats are per case: one row uses the _2 columns, the next leaves them blank", () => {
-  const headers = ["Case reference", "Accused name", "Accused address", "Accused name_2", "Accused address_2", "Cheque number", "Cheque number_2"];
+  const headers = ["Loan account", "Accused name", "Accused address", "Accused name_2", "Accused address_2", "Cheque number", "Cheque number_2"];
   const req = buildRequest(
     book(headers, ["R-1", "A One", "Addr 1", "A Two", "Addr 2", "111111", "222222"], ["R-2", "B One", "Addr 3", "", "", "333333", ""]),
     autoMap(headers),
@@ -99,7 +101,7 @@ test("a matched column is checked against its field: dates, pincodes, list words
 });
 
 test("jurisdiction and a person responsible's police station are read from their columns", () => {
-  const headers = ["Case reference", "Accused 1 type", "Accused 1 name", "Accused 1 resides within jurisdiction", "Accused 1 person responsible 1 name", "Accused 1 person responsible 1 address line", "Accused 1 person responsible 1 police station", "Cheque 1 number"];
+  const headers = ["Loan account", "Accused 1 type", "Accused 1 name", "Accused 1 resides within jurisdiction", "Accused 1 person responsible 1 name", "Accused 1 person responsible 1 address line", "Accused 1 person responsible 1 police station", "Cheque 1 number"];
   const req = buildRequest(
     book(headers, ["R-1", "Institution", "A Pvt Ltd", "No", "P One", "Plot 4", "Naroda Police Station", "111111"]),
     autoMap(headers),
@@ -127,7 +129,7 @@ test("a required field no column fills is reported, so every case is known to la
 });
 
 test("deposited and replied with no column are left unstated, not read as Yes and No", () => {
-  const headers = ["Case reference", "Cheque number"];
+  const headers = ["Loan account", "Cheque number"];
   const req = buildRequest(book(headers, ["R-1", "111111"]), autoMap(headers), {}, { complainant, barNumbers: [], adr: "no", fileName: "t" });
   assert.equal(req.cases[0].jurisdiction.depositedInOwnAccount, null);
   assert.equal(req.cases[0].notices[0].replied, null);
@@ -144,21 +146,20 @@ test("the template is recognised without its optional columns, and not with a co
   assert.equal(followsTemplate(required.filter((h) => h !== "Cheque 1 number")), false);
 });
 
-test("a row becomes a case unless nothing identifies it or it repeats an earlier one", () => {
-  const headers = ["Case reference", "Accused name", "Cheque number", "Cheque amount", "Date of return"];
+test("a row is left out only for no accused name, or a cheque and amount repeated from above (BLK-37)", () => {
+  const headers = ["Loan account", "Accused name", "Cheque number", "Cheque amount", "Date of return"];
   const b = book(
     headers,
     ["R-1", "A One", "111111", "50000", ""], // missing date: still a case, fixed later
-    ["", "", "222222", "60000", "2026-09-01"], // nothing identifies it
-    ["R-1", "A Two", "333333", "70000", ""], // same reference as row 2
+    ["R-2", "", "222222", "60000", "2026-09-01"], // no accused name
+    ["R-1", "A Two", "333333", "70000", ""], // a repeated loan number is no reason now
     ["R-4", "A Four", "111111", "50,000", ""], // same cheque and amount as row 2
     ["", "A Five", "", "", ""], // a name alone is enough
     ["R-6", "A Six", "111111", "90000", ""], // same cheque, another amount: a case
   );
   const p = rowsThatCannotBeCreated(b, autoMap(headers));
-  assert.deepEqual(p.map((x) => x.row), [3, 4, 5]);
-  assert.match(p[0].why, /Nothing identifies/);
-  assert.equal(p[1].why, "Same reference as row 2");
-  assert.equal(p[2].why, "Same cheque and amount as row 2");
-  assert.equal(p[1].who, "A Two");
+  assert.deepEqual(p.map((x) => x.row), [3, 5]);
+  assert.equal(p[0].why, "No accused name");
+  assert.equal(p[1].why, "Same cheque number and amount as row 2");
+  assert.equal(p[1].who, "A Four");
 });

@@ -14,7 +14,7 @@ import { CaseBadge } from "./stage";
 
 /**
  * The batch's cases as a panel beside the case on screen: who each is against, its
- * reference, and where it stands; only a case that still needs something says so, so
+ * draft number, and where it stands; only a case that still needs something says so, so
  * Complete stays the quiet default (round 3). It can be searched, as every list of the
  * batch's cases can. When the list runs past its height, a fade and a count
  * at the hidden edge say how many more there are, and take you to them.
@@ -115,7 +115,7 @@ export function CaseList({
                       {c.accused || c.title}
                     </span>
                     <span className="w-full truncate text-body-compact text-muted-foreground">
-                      <span className="font-mono">{c.reference}</span>
+                      <span className="font-mono">{c.draftNumber}</span>
                       {c.cheque ? <span className="tabular-nums"> · {c.cheque}</span> : null}
                     </span>
                     <CaseBadge c={c} reason={false} />

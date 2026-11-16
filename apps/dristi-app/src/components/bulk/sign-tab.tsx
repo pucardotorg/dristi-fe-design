@@ -303,7 +303,7 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
                           />
                         </TableHead>
                         <TableHead className={TABLE_HEAD}>Accused</TableHead>
-                        <TableHead className={TABLE_HEAD}>Your reference</TableHead>
+                        <TableHead className={TABLE_HEAD}>Draft number</TableHead>
                         <TableHead className={cn(TABLE_HEAD, "text-right")}>Cheque amount</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -314,7 +314,7 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
                           <TableRow key={c.id} className={tableRowClass({ selectable: true })} data-state={on ? "selected" : undefined}>
                             <TableCell className={TABLE_CELL}>
                               <Checkbox
-                                aria-label={`Sign ${c.reference}`}
+                                aria-label={`Sign ${c.draftNumber}`}
                                 disabled={!!inRound}
                                 checked={on}
                                 onCheckedChange={(v) =>
@@ -328,7 +328,7 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
                               />
                             </TableCell>
                             <TableCell className={TABLE_CELL}>{c.accused}</TableCell>
-                            <TableCell className={cn(TABLE_CELL, "font-mono")}>{c.reference}</TableCell>
+                            <TableCell className={cn(TABLE_CELL, "font-mono")}>{c.draftNumber}</TableCell>
                             <TableCell className={cn(TABLE_CELL, "text-right tabular-nums")}>{money(c.amount)}</TableCell>
                           </TableRow>
                         );
@@ -448,7 +448,7 @@ function SignWindow({
     setDownloading(true);
     try {
       const blob = await buildPrintPack(
-        cases.map((c) => ({ reference: c.reference, title: c.title, accused: c.accused, cheque: c.cheque, amount: money(c.amount) })),
+        cases.map((c) => ({ draftNumber: c.draftNumber, title: c.title, accused: c.accused, cheque: c.cheque, amount: money(c.amount) })),
         [you, ...others].map((s) => s.name),
       );
       const a = document.createElement("a");
@@ -668,7 +668,7 @@ function SignWindow({
               <span className="font-mono">
                 {cases
                   .slice(first - 1, last)
-                  .map((c) => c.reference)
+                  .map((c) => c.draftNumber)
                   .join(", ")}
               </span>
               .
@@ -713,7 +713,7 @@ function SignWindow({
                 setFiles((prev) => [...prev, ...picked]);
                 const map: Record<string, string> = { ...matched };
                 for (const f of picked) {
-                  const c = cases.find((x) => f.name.toLowerCase().startsWith(`${x.reference.toLowerCase()}_signed`));
+                  const c = cases.find((x) => f.name.toLowerCase().startsWith(`${x.draftNumber.toLowerCase()}_signed`));
                   if (c) map[c.id] = f.name;
                 }
                 setMatched(map);
@@ -726,7 +726,7 @@ function SignWindow({
             {cases.map((c) => (
               <li key={c.id} className="flex items-center gap-3 border-b border-hairline px-3 py-2 text-body-compact last:border-b-0">
                 <FileUpIcon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-                <span className="min-w-0 flex-1 truncate font-mono">{c.reference}</span>
+                <span className="min-w-0 flex-1 truncate font-mono">{c.draftNumber}</span>
                 {matched[c.id] ? (
                   <Badge variant="success" className="text-body-compact">Matched</Badge>
                 ) : (

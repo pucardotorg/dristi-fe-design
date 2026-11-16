@@ -28,6 +28,7 @@ import {
   buildRequest,
   followsTemplate,
   readWorkbook,
+  rowNumberOf,
   rowsThatCannotBeCreated,
   unknownValues,
   unmatchedRequired,
@@ -124,7 +125,7 @@ const SAMPLES = [
 type ReadingRow = {
   name: string;
   state: "waiting" | "reading" | "done" | "failed";
-  /** What was read from it: reference, accused, cheque, amount. */
+  /** What was read from it: accused, cheque, amount. */
   found?: string;
 };
 
@@ -465,7 +466,6 @@ export function UploadScreen() {
         mark(i, {
           state: "done",
           found: [
-            f("Case reference"),
             f("Accused name"),
             f("Cheque number") && `Cheque ${f("Cheque number")}`,
             amount ? money(amount) : "",
@@ -479,22 +479,12 @@ export function UploadScreen() {
       Array.from({ length: Math.min(3, files.length) }, worker),
     );
     await new Promise((r) => setTimeout(r, 500));
-    const values = read.map((x) => {
-      const v = Object.fromEntries(
-        Object.entries(x.fields).map(([k, f]) => [k, f.value]),
-      );
-      // No reference in the document: the file's name stands in.
-      if (!v["Case reference"]?.trim())
-        v["Case reference"] = x.fileName.replace(/\.[^.]+$/, "");
-      return v;
-    });
+    const values = read.map((x) =>
+      Object.fromEntries(Object.entries(x.fields).map(([k, f]) => [k, f.value])),
+    );
+    // Each document is a row of its own, keyed as the row its case is made from ("R2").
     setOriginals(
-      Object.fromEntries(
-        read.map((x, i) => [
-          values[i]["Case reference"].trim(),
-          { file: x.original, text: x.text },
-        ]),
-      ),
+      Object.fromEntries(read.map((x, i) => [`R${i + 2}`, { file: x.original, text: x.text }])),
     );
     const headers = [...new Set(values.flatMap((v) => Object.keys(v)))];
     return {
@@ -503,6 +493,7 @@ export function UploadScreen() {
         headers,
         rows: values.map((v) => headers.map((h) => v[h] ?? "")),
         discarded: 0,
+        rowNumbers: values.map((_, i) => i + 2),
       },
     };
   };
@@ -807,7 +798,7 @@ export function UploadScreen() {
     if (!book) return [];
     const left = new Set(cannot.map((x) => x.index));
     return book.cases.rows
-      .map((cells, i) => ({ cells, row: i + 2 + (book.cases.discarded ?? 0), i }))
+      .map((cells, i) => ({ cells, row: rowNumberOf(book.cases, i), i }))
       .filter((x) => !left.has(x.i));
   };
   const ownFacts = (rows: { cells: unknown[] }[]) =>

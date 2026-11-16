@@ -181,9 +181,6 @@ export type Column = {
 };
 
 export const COLUMNS: Column[] = [
-  /* Case */
-  { key: "reference", group: "case", header: "Case reference", sheet: "Case reference", field: "BLK-07", kind: "text", required: "Yes, unique in the file", aliases: ["LAN", "Loan account number", "Loan account no", "Reference", "Ref no", "Account number"], example: "EXAMPLE-0001" },
-
   /* Accused N */
   { key: "accusedType", group: "accused", header: "Accused type", sheet: "Accused {n} type", field: "ACC-1", kind: "list", list: "accusedType", required: "Yes", aliases: ["Borrower type", "Party type"], example: "Individual" },
   { key: "accusedName", group: "accused", header: "Accused name", sheet: "Accused {n} name", field: "ACC-2", kind: "text", required: "Yes", aliases: ["Borrower name", "Borrower", "Drawer name", "Customer name", "Name of accused"], example: "Bhavesh N. Thakkar" },
@@ -281,7 +278,7 @@ export function toSheetDate(iso: string): string {
 
 /* ───────────────────────────── Guide rows ───────────────────────────── */
 
-/** An example row's Case reference starts with this; upload skips such rows. */
+/** A value starting with this marks a guide row; upload skips such rows. */
 export const EXAMPLE_PREFIX = "EXAMPLE";
 
 /** What a column takes, in a few words: "Date, DD-MM-YYYY. Required". */
@@ -317,10 +314,9 @@ export function formatHint(c: Column): string {
  * The template's own guide rows, which upload discards. A row is one when any of these
  * holds, so the example is caught even if someone edits part of it:
  *
- * - a value starts with EXAMPLE (the example's Case reference);
+ * - a value starts with EXAMPLE;
  * - three or more values are format hints (the format row);
- * - most of its distinctive values are the example's own (an example with the reference
- *   changed). Distinctive means not a Yes/No or list value any real case would share.
+ * - most of its distinctive values are the example's own (an example partly edited). Distinctive means not a Yes/No or list value any real case would share.
  */
 export function isGuideRow(cells: string[]): boolean {
   const filled = cells.map((c) => c.trim()).filter(Boolean);
@@ -328,7 +324,7 @@ export function isGuideRow(cells: string[]): boolean {
   if (filled.some((c) => c.toUpperCase().startsWith(EXAMPLE_PREFIX))) return true;
   const hints = new Set(COLUMNS.map(formatHint));
   if (filled.filter((c) => hints.has(c)).length >= 3) return true;
-  const distinctive = COLUMNS.filter((c) => c.kind !== "list" && c.example && c.key !== "reference").map((c) => c.example);
+  const distinctive = COLUMNS.filter((c) => c.kind !== "list" && c.example).map((c) => c.example);
   const hits = distinctive.filter((v) => filled.includes(v)).length;
   return hits >= Math.ceil(distinctive.length * 0.6);
 }
@@ -402,7 +398,8 @@ const keysOf = (...groups: GroupId[]) => COLUMNS.filter((c) => groups.includes(c
 const byKey = (...keys: string[]) => keys.map((k) => COLUMNS.find((c) => c.key === k)!);
 
 /**
- * The template's columns in order (PRD §4.3): the case reference; each accused with its
+ * The template's columns in order (PRD §4.3). There is no case reference column: a case is
+ * known by its draft number, its batch and Excel row (BLK-04b; BLK-07 withdrawn). Each accused with its
  * addresses and persons responsible; the cheques; the notices; jurisdiction and the other
  * pending cases; the prayers and additional details; the witnesses.
  */
@@ -411,7 +408,6 @@ export function templateColumns(counts: Partial<Record<GroupId, number>> = TEMPL
   const out: TemplateColumn[] = [];
   const add = (cols: Column[], instance: Instance) =>
     cols.forEach((c) => out.push({ column: c, instance, header: headerFor(c, instance) }));
-  add(byKey("reference"), []);
   for (let a = 1; a <= n("accused"); a += 1) {
     add(keysOf("accused").filter((c) => c.key !== "accusedJurisdiction"), [a]);
     for (let m = 1; m <= n("address"); m += 1) add(keysOf("address"), [a, m]);

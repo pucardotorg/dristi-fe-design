@@ -171,8 +171,16 @@ export async function buildTemplate(): Promise<Blob> {
 
 /* ───────────────────────────── Reading ───────────────────────────── */
 
-/** A sheet's rows, without the template's guide rows; `discarded` counts those. */
-export type Sheet = { name: string; headers: string[]; rows: string[][]; discarded: number };
+/**
+ * A sheet's rows, without the template's guide rows; `discarded` counts those. `rowNumbers`
+ * holds each kept row's own number in the file, which the case's draft number carries
+ * (BLK-04b: B7-R12 is row 12 of the file). Absent on sheets built before it existed.
+ */
+export type Sheet = { name: string; headers: string[]; rows: string[][]; discarded: number; rowNumbers?: number[] };
+
+/** The file's own number for a kept row. */
+export const rowNumberOf = (sheet: Sheet, index: number) =>
+  sheet.rowNumbers?.[index] ?? index + 2 + (sheet.discarded ?? 0);
 
 function cellText(v: unknown): string {
   if (v === null || v === undefined) return "";
@@ -193,15 +201,19 @@ function readSheet(ws: Worksheet): Sheet {
   const headers: string[] = [];
   ws.getRow(1).eachCell({ includeEmpty: true }, (cell, col) => (headers[col - 1] = cellText(cell.value)));
   const rows: string[][] = [];
+  const rowNumbers: number[] = [];
   let discarded = 0;
   ws.eachRow({ includeEmpty: false }, (row, n) => {
     if (n === 1) return;
     const out = headers.map((_, i) => cellText(row.getCell(i + 1).value));
     if (!out.some(Boolean)) return;
     if (isGuideRow(out)) discarded += 1;
-    else rows.push(out);
+    else {
+      rows.push(out);
+      rowNumbers.push(n);
+    }
   });
-  return { name: ws.name, headers, rows, discarded };
+  return { name: ws.name, headers, rows, discarded, rowNumbers };
 }
 
 export type Workbookish = { cases: Sheet };
@@ -216,11 +228,19 @@ export async function readWorkbook(file: File): Promise<Workbookish> {
   const data = await file.arrayBuffer();
   if (/\.csv$/i.test(file.name)) {
     const text = new TextDecoder().decode(data);
-    const lines = text.split(/\r?\n/).filter((l) => l.trim());
+    const lines = text.split(/\r?\n/).map((l, i) => ({ l, n: i + 1 })).filter(({ l }) => l.trim());
     const split = (l: string) => l.match(/("([^"]|"")*"|[^,]*)(,|$)/g)!.slice(0, -1).map((c) => c.replace(/,$/, "").replace(/^"|"$/g, "").replace(/""/g, '"').trim());
-    const [h, ...all] = lines.map(split);
-    const r = all.filter((row) => !isGuideRow(row));
-    return { cases: { name: file.name, headers: h ?? [], rows: r, discarded: all.length - r.length } };
+    const [h, ...all] = lines.map(({ l, n }) => ({ cells: split(l), n }));
+    const kept = all.filter((row) => !isGuideRow(row.cells));
+    return {
+      cases: {
+        name: file.name,
+        headers: h?.cells ?? [],
+        rows: kept.map((x) => x.cells),
+        discarded: all.length - kept.length,
+        rowNumbers: kept.map((x) => x.n),
+      },
+    };
   }
   await wb.xlsx.load(data);
   const sheets = wb.worksheets.map(readSheet);
@@ -546,7 +566,9 @@ export function buildRequest(
     const firstCheque: Instance = [1];
     const otherPending = yesNo(r.list("otherPending", one));
     return {
-      reference: r.raw("reference", one) || `Row ${n + 2}`,
+      // No reference column (BLK-07 withdrawn): the row number stands in, and the case's
+      // draft number is its batch and this row (BLK-04b).
+      reference: `R${rowNumberOf(book.cases, n)}`,
       accused: used("accused").map(([a]) => accusedFrom(r, a, inst)),
       cheques: used("cheque").map((i) => ({
         number: r.raw("chequeNumber", i),
@@ -619,36 +641,30 @@ export function buildRequest(
 export type RowProblem = { index: number; row: number; who: string; why: string };
 
 /**
- * The rows that can't become cases. Only two things stop a row: nothing identifies it (no
- * reference and no accused name), or it repeats a case already in the file (the same
- * reference, or the same cheque number for the same amount). Anything else a row lacks is
- * a gap its case is created with and fixed in the filing form on Case details, so a
- * missing cheque number or date never costs the filer the whole row.
+ * The rows that can't become cases, for exactly two reasons (BLK-37): a row with no accused
+ * name, and a row repeating the cheque number and amount of a row higher in the file.
+ * Anything else a row lacks is a gap its case is created with and fixed in the filing form
+ * on Case details, so a missing cheque date never costs the filer the whole row.
  */
 export function rowsThatCannotBeCreated(
   book: Workbookish,
   map: ColumnMap,
   values: ValueMap = {},
 ): RowProblem[] {
-  const { headers, rows, discarded } = book.cases;
+  const { headers, rows } = book.cases;
   const first: Instance = [1];
-  const none: Instance = [];
-  const refs = new Map<string, number>();
   const cheques = new Map<string, number>();
   const problems: RowProblem[] = [];
   rows.forEach((row, index) => {
     const r = reader(row, headers, map, values);
-    const sheetRow = index + 2 + discarded;
-    const reference = r.raw("reference", none);
+    const sheetRow = rowNumberOf(book.cases, index);
     const who = r.raw("accusedName", first);
     const number = r.raw("chequeNumber", first);
     const amount = r.raw("chequeAmount", first).replace(/[^\d.]/g, "");
     const say = (why: string) => problems.push({ index, row: sheetRow, who, why });
-    if (!reference && !who) return say("Nothing identifies the case: no reference and no accused name");
-    if (reference && refs.has(reference)) return say(`Same reference as row ${refs.get(reference)}`);
+    if (!who) return say("No accused name");
     const cheque = number && amount ? `${number}|${Number(amount)}` : "";
-    if (cheque && cheques.has(cheque)) return say(`Same cheque and amount as row ${cheques.get(cheque)}`);
-    if (reference) refs.set(reference, sheetRow);
+    if (cheque && cheques.has(cheque)) return say(`Same cheque number and amount as row ${cheques.get(cheque)}`);
     if (cheque) cheques.set(cheque, sheetRow);
   });
   return problems;
@@ -710,7 +726,6 @@ const SHORT: Record<string, string> = {
   addr: "address",
   add: "address",
   pin: "pincode",
-  ref: "reference",
   bnc: "return",
   bounce: "return",
   ret: "return",

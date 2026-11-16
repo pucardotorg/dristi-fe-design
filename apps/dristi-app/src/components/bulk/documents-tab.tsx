@@ -581,7 +581,7 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
 
   const term = search.trim().toLowerCase();
   const matches = (c: CaseView) =>
-    !term || [c.accused, c.title, c.reference, c.cheque].some((v) => v.toLowerCase().includes(term));
+    !term || [c.accused, c.title, c.draftNumber, c.cheque].some((v) => v.toLowerCase().includes(term));
   const base = { missing: open.filter((c) => startedOpen.has(c.id)), complete: open.filter((c) => !needsWork(c)), all: open }[show];
   const shownCases = base.filter(matches);
   const listed = shownCases.slice(0, limit);
@@ -776,7 +776,7 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
                           <span className="block truncate font-medium" title={c.accused || c.title}>
                             {c.accused || c.title}
                           </span>
-                          <span className="block truncate font-mono text-body-compact text-muted-foreground">{c.reference}</span>
+                          <span className="block truncate font-mono text-body-compact text-muted-foreground">{c.draftNumber}</span>
                         </TableCell>
                         {columns.map((col) => {
                           const ds = mine.filter((x) => typeOf(x) === col.key);
@@ -841,7 +841,7 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
                 <li key={c.id} className="flex flex-col gap-2 border-b border-hairline px-2 py-3.5 last:border-b-0">
                   <span className="flex min-w-0 flex-col text-body-compact">
                     <span className="font-medium">{c.accused || c.title}</span>
-                    <span className="font-mono text-muted-foreground">{c.reference}</span>
+                    <span className="font-mono text-muted-foreground">{c.draftNumber}</span>
                   </span>
                   <span className="flex flex-wrap items-center gap-2" role="group" aria-label={`Documents for ${c.accused || c.title}`}>
                     {c.documents

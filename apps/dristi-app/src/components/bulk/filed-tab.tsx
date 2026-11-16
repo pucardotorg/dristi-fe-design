@@ -168,7 +168,7 @@ export function FiledTab({ batch, go }: BatchCtx) {
                             setOpenId(c.id);
                           }}
                         >
-                          {c.reference}
+                          {c.draftNumber}
                         </button>
                       </TableCell>
                       <TableCell
@@ -208,7 +208,7 @@ export function FiledTab({ batch, go }: BatchCtx) {
                   {opened.title}
                 </DialogTitle>
                 <DialogDescription className="tabular-nums">
-                  {opened.reference} · Case file {opened.caseFileNumber} ·
+                  {opened.draftNumber} · Case file {opened.caseFileNumber} ·
                   Receipt {opened.receiptNumber}
                 </DialogDescription>
               </div>
