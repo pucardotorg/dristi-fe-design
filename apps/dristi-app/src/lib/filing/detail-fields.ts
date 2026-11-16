@@ -42,15 +42,41 @@ const label = (options: Option[], value: string) =>
   options.find((o) => o.value === value)?.label ?? "";
 
 /**
+ * While `valueCount` runs a field, how many values each row-wise part of it found; the
+ * most is the field's count (two accused: Accused Name has 2).
+ */
+let counting: number[] | null = null;
+const counted = (values: string[]) => {
+  counting?.push(values.length);
+  return nameList(values);
+};
+
+/**
  * One value per row, said as a sentence: "123456 and 123457". Blanks drop out, and a
  * value two cheques share is said once — "dated 20 August 2026", not twice over.
  */
 const each = <T,>(rows: T[], read: (row: T) => string) =>
-  nameList([...new Set(rows.map(read).map((v) => v.trim()).filter(Boolean))]);
+  counted([...new Set(rows.map(read).map((v) => v.trim()).filter(Boolean))]);
 
 /** As `each`, but every row counts: two cheques of ₹50,000 are two amounts. */
 const every = <T,>(rows: T[], read: (row: T) => string) =>
-  nameList(rows.map(read).map((v) => v.trim()).filter(Boolean));
+  counted(rows.map(read).map((v) => v.trim()).filter(Boolean));
+
+/**
+ * How many values a field has in this filing: 0 when it holds none, 2 for two accused's
+ * names or two cheques' numbers, 1 otherwise. Bulk filing fills only a field with exactly
+ * one (BLK-10h).
+ */
+export function valueCount(field: DetailField, draft: FilingDraft): number {
+  counting = [];
+  try {
+    const value = field.resolve(draft).trim();
+    const most = counting.length ? Math.max(...counting) : value ? 1 : 0;
+    return value ? Math.max(1, most) : 0;
+  } finally {
+    counting = null;
+  }
+}
 
 const comma = (...parts: string[]) => parts.map((p) => p.trim()).filter(Boolean).join(", ");
 
@@ -261,15 +287,37 @@ const asIs: Voice = (t) => t;
  * Once generated it is simply text — nothing in it is tied to the form any more.
  * Only text between tags is touched.
  */
-export function generateDetails(html: string, draft: FilingDraft, voice: Voice = asIs): string {
+export function generateDetails(
+  html: string,
+  draft: FilingDraft,
+  voice: Voice = asIs,
+  /**
+   * Bulk filing's rule (BLK-10h): a field with more than one value in this filing (two
+   * accused, two cheques) stays in brackets too, never joined. Single filing joins them.
+   */
+  { single = false }: { single?: boolean } = {},
+): string {
   return String(html ?? "").replace(/(^|>)([^<]*)/g, (_, open: string, text: string) =>
     open +
     text.replace(/\[([^\]\n]+)\]/g, (whole, name: string) => {
       const field = detailField(name);
-      const value = field ? voice(field.resolve(draft)) : "";
+      if (!field || (single && valueCount(field, draft) !== 1)) return whole;
+      const value = voice(field.resolve(draft));
       return value ? escapeHtml(value) : whole;
     }),
   );
+}
+
+/**
+ * The fields a text still names in brackets, with how many values each has in this filing:
+ * the ones bulk filing left unfilled (BLK-10h). A bracket that names no field is a part for
+ * the filer to write, not listed here.
+ */
+export function unfilledFields(html: string, draft: FilingDraft): { name: string; values: number }[] {
+  return bracketsIn(html).flatMap((name) => {
+    const field = detailField(name);
+    return field ? [{ name: field.name, values: valueCount(field, draft) }] : [];
+  });
 }
 
 /**

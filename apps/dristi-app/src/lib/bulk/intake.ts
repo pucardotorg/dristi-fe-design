@@ -322,10 +322,13 @@ async function buildDraft(
  */
 export function writeFacts(draft: FilingDraft, format: NonNullable<ApiBatchRequest["detailsFormat"]>): void {
   const court = format.court;
+  // A field with no value or several in this case stays unfilled, and the case is marked
+  // Needs fixing until the filer writes it (BLK-10h).
   draft.adr.otherDetails = generateDetails(
     formattingOnly(format.html),
     draft,
     court ? (text) => localizeCourtText(text, court) : undefined,
+    { single: true },
   );
   draft.adr.detailsFormat = format.id;
 }

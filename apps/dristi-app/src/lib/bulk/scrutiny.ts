@@ -17,7 +17,7 @@
  * filing would also call it complete (PRD constraint 2, one set of validation rules).
  */
 
-import { bracketsIn } from "@/lib/filing/detail-fields";
+import { bracketsIn, unfilledFields } from "@/lib/filing/detail-fields";
 import {
   ACCUSED_ENTITY_TYPES,
   ENTITY_TYPES,
@@ -1195,12 +1195,28 @@ export function caseFlags(bc: BatchCase): Flag[] {
   }
 
   /*
-   * ── Additional details (PRY-1): blanks nobody has written ──
-   * A format generated for the batch leaves its "[Describe …]" parts, and any field the
-   * row did not hold, in brackets. Signed as is, the complaint would say "[Describe …]",
-   * so the case waits under To check until they are written (owner, 2026-11-10).
+   * ── Facts of the case (PRY-1): fields left unfilled, and blanks nobody has written ──
+   * A field the case has no value for, or more than one (two accused, two cheques), is
+   * left in brackets and the case Needs fixing until the filer writes it (BLK-10h). The
+   * format's own "[Describe …]" parts still wait under To check: signed as is, the
+   * complaint would say "[Describe …]" (owner, 2026-11-10).
    */
-  const blanks = bracketsIn(d.adr.otherDetails ?? "");
+  const facts = d.adr.otherDetails ?? "";
+  const unfilled = unfilledFields(facts, d);
+  if (unfilled.length) {
+    const say = (f: { name: string; values: number }) =>
+      f.values ? `${f.name} has ${f.values} values in this case` : `${f.name} has none`;
+    push({
+      rule: "pry-1-unfilled",
+      field: "PRY-1",
+      section: "adr-prayer",
+      where: "Facts of the case",
+      level: "hold",
+      at: "adr.otherDetails.fields",
+      message: `${unfilled.length === 1 ? "1 field needs" : `${unfilled.length} fields need`} you: ${new Intl.ListFormat("en", { type: "conjunction" }).format(unfilled.map(say))}. Write ${unfilled.length === 1 ? "it" : "them"} in the text.`,
+    });
+  }
+  const blanks = bracketsIn(facts).filter((b) => !unfilled.some((f) => f.name.toLowerCase() === b.trim().toLowerCase()));
   if (blanks.length)
     push({
       rule: "pry-1-blanks",

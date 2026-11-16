@@ -8,6 +8,8 @@ import {
   bracketsIn,
   detailField,
   generateDetails,
+  unfilledFields,
+  valueCount,
 } from "./detail-fields";
 import { COURT } from "./options";
 
@@ -22,6 +24,27 @@ describe("additional details fields", () => {
       generateDetails(html, draft),
       "<p>Cheque no. 004512 dated 15 March 2026, drawn on [Drawer Bank]. [How they met]</p>",
     );
+  });
+
+  it("bulk fills only a field with exactly one value; single filing joins (BLK-10h)", () => {
+    const draft = createBlankDraft("d9");
+    draft.accused[0].name = "Pravin D. Solanki";
+    draft.accused.push({ ...structuredClone(draft.accused[0]), name: "Kusum P. Solanki" });
+    draft.cheques[0].chequeNumber = "004512";
+    const html = "<p>[Accused Name], cheque [Cheque Number], delivered [Notice Delivery Date].</p>";
+    assert.equal(valueCount(detailField("Accused Name")!, draft), 2);
+    assert.equal(valueCount(detailField("Cheque Number")!, draft), 1);
+    assert.equal(valueCount(detailField("Notice Delivery Date")!, draft), 0);
+    assert.equal(
+      generateDetails(html, draft),
+      "<p>Pravin D. Solanki and Kusum P. Solanki, cheque 004512, delivered [Notice Delivery Date].</p>",
+    );
+    const bulk = generateDetails(html, draft, undefined, { single: true });
+    assert.equal(bulk, "<p>[Accused Name], cheque 004512, delivered [Notice Delivery Date].</p>");
+    assert.deepEqual(unfilledFields(bulk, draft), [
+      { name: "Accused Name", values: 2 },
+      { name: "Notice Delivery Date", values: 0 },
+    ]);
   });
 
   it("leaves the total in brackets until an amount is typed", () => {
