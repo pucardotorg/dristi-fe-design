@@ -45,6 +45,7 @@ import { bulkApi, type BatchView } from "./api";
 import { PaymentGateway } from "./payment-gateway";
 import { BatchFooter } from "./batch-footer";
 import type { BatchCtx } from "./batch-screen";
+import { RemoveCaseMenu, useRemoveCase } from "./remove-case";
 import { FilingFooter } from "@/components/filing/filing-footer";
 import { CaseBadge } from "./stage";
 import { caseState } from "./batch-marks";
@@ -120,6 +121,7 @@ function Receipts({
  * exactly as it does for a single filing.
  */
 export function PayTab({ batch, setBatch, go }: BatchCtx) {
+  const { ask: askRemove, dialog: removeDialog } = useRemoveCase(batch, setBatch);
   const due = batch.cases.filter((c) => c.stage === "signed");
   // Arriving from signing, only the cases just signed are ticked; otherwise every one due.
   const asked = useSearchParams().get("case")?.split(",").filter(Boolean) ?? [];
@@ -301,8 +303,11 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
                   </TableHead>
                   <TableHead className={TABLE_HEAD}>Accused</TableHead>
                   <TableHead className={TABLE_HEAD}>Draft number</TableHead>
-                  <TableHead className={cn(TABLE_HEAD, "pr-4 text-right")}>
+                  <TableHead className={cn(TABLE_HEAD, "text-right")}>
                     Fees
+                  </TableHead>
+                  <TableHead className={cn(TABLE_HEAD, "w-12 pr-4")}>
+                    <span className="sr-only">More</span>
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -329,7 +334,10 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
                     </TableCell>
                     <TableCell className={cn(TABLE_CELL, "whitespace-normal")}>{c.accused || c.title}</TableCell>
                     <TableCell className={cn(TABLE_CELL, "font-mono")}>{c.draftNumber}</TableCell>
-                    <TableCell className={cn(TABLE_CELL, "pr-4 text-right tabular-nums")}>{money(c.fee)}</TableCell>
+                    <TableCell className={cn(TABLE_CELL, "text-right tabular-nums")}>{money(c.fee)}</TableCell>
+                    <TableCell className={cn(TABLE_CELL, "w-12 pr-4")}>
+                      <RemoveCaseMenu c={c} onSelect={askRemove} />
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -337,6 +345,8 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
           </div>
             ) : null}
           </Card>
+
+          {removeDialog}
 
           <BatchFooter>
             <FilingFooter

@@ -56,6 +56,8 @@ import { useGujarat } from "./court-guard";
 import { StageBar } from "./stage";
 import { waitingOnOthers } from "./signing-round";
 import { StatusLine } from "@/components/feedback";
+import { notify } from "@/components/ui/notify";
+import { DELETED_PARAM } from "./remove-case";
 
 export async function downloadTemplate() {
   const blob = await buildTemplate();
@@ -131,6 +133,17 @@ export function BatchesScreen() {
   React.useEffect(() => {
     if (ready) load();
   }, [ready, load]);
+
+  // Arriving from a batch whose last case was removed: say where it went (BLK-08b), once.
+  const deleted = params.get(DELETED_PARAM);
+  React.useEffect(() => {
+    if (!deleted) return;
+    notify.success(`${deleted} was deleted with its last case`);
+    const next = new URLSearchParams(window.location.search);
+    next.delete(DELETED_PARAM);
+    const q = next.toString();
+    router.replace(q ? `?${q}` : "?", { scroll: false });
+  }, [deleted, router]);
 
   // Finished batches (all filed, or clubbed into another) move to Completed, so the
   // working list holds only what still needs something done.

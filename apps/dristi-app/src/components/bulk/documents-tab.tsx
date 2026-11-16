@@ -10,6 +10,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Spinner } from "@/components/ui/spinner";
@@ -31,6 +32,7 @@ import { demoBlurryScan, demoPdf } from "./demo-fill";
 import { bulkApi, useBulkFileUrl, type CaseView } from "./api";
 import { BatchFooter } from "./batch-footer";
 import type { BatchCtx } from "./batch-screen";
+import { RemoveCaseItem, useRemoveCase } from "./remove-case";
 import { batchTallies, caseState } from "./batch-marks";
 import { CaseSearch } from "./case-list-tools";
 import { FilterPills } from "./filter-pills";
@@ -477,6 +479,7 @@ type Show = "missing" | "complete" | "all";
  * cases are locked. Read 25 at a time.
  */
 export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
+  const { ask: askRemove, dialog: removeDialog } = useRemoveCase(batch, setBatch);
   // The walkthrough, once per browser, the first time there is something to add. The tab
   // only mounts once the batch has loaded in the browser, so storage can be read here.
   const [guide, setGuide] = React.useState(
@@ -664,6 +667,8 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
               Demo files
             </DropdownMenuItem>
           ) : null}
+          <DropdownMenuSeparator />
+          <RemoveCaseItem c={c} onSelect={askRemove} />
         </DropdownMenuContent>
       </DropdownMenu>
     );
@@ -886,6 +891,8 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
           </Button>
         ) : null}
       </div>
+
+      {removeDialog}
 
       <BatchFooter>
         <FilingFooter

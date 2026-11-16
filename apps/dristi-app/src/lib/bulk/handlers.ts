@@ -31,7 +31,7 @@ import { buildBatch, validateRequest, writeFacts } from "./intake";
 import { applyParties, type BatchParties } from "./parties";
 import { caseFlags } from "./scrutiny";
 import { draftNumber, type BulkStore, type FileMeta } from "./store";
-import type { BulkSignMethod } from "./types";
+import type { Batch, BulkSignMethod } from "./types";
 import type { FilingDraft, StoredFileRef } from "@/lib/filing/types";
 
 /** A handler's answer: JSON with a status, or a stored file. */
@@ -330,8 +330,14 @@ export async function act(store: BulkStore, batchId: string, body: Action & { ai
 
   if (problem) return fail(problem, 409);
   if (!saved) return fail("No such batch or case.", 404);
+  // The last case gone, the batch goes with it (BLK-08b).
+  const kept = saved as Batch;
+  if (body.action === "remove" && kept.cases.length === 0) {
+    await store.deleteBatch(kept.id);
+    return ok({ deleted: kept.number });
+  }
   const all = await store.listBatches();
-  return ok(batchView(saved, all, ai));
+  return ok(batchView(kept, all, ai));
 }
 
 /* ───────────────────────────── One case ───────────────────────────── */

@@ -120,6 +120,13 @@ export const bulkApi = {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ ...body, ai: aiMode }),
     }).then((r) => json<BatchView>(r)),
+  /** Take a case out; the reply says when that was the batch's last and the batch is gone. */
+  remove: (id: string, caseId: string) =>
+    bulkFetch(`/api/bulk/batches/${id}/actions`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "remove", caseId, ai: aiMode }),
+    }).then((r) => json<BatchView | { deleted: string }>(r)),
   /** `poor`: the browser's readability check found the scan too small to read. */
   attach: (id: string, caseId: string, slotKey: string, file: File, poor = false) => {
     const form = new FormData();

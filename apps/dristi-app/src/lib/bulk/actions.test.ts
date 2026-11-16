@@ -30,13 +30,15 @@ test("only listed fields can be written", () => {
   assert.ok(!editable("status"));
 });
 
-test("a case leaves its batch unless it is signed or filed", () => {
+test("a case leaves its batch until it is filed, signed ones included (BLK-08)", () => {
   const one = (id: string) => ({ id, reference: id, draft: createBlankDraft(id, null), skipped: [], noContactDeclared: [] });
   const batch = { cases: [one("a"), one("b"), one("c")] } as unknown as Batch;
   assert.equal(removeCase(batch, "b"), null);
   assert.deepEqual(batch.cases.map((c) => c.id), ["a", "c"]);
   (batch.cases[0] as { signedWith?: string }).signedWith = "dsc";
-  assert.match(removeCase(batch, "a") ?? "", /signed or filed/);
+  assert.equal(removeCase(batch, "a"), null);
+  batch.cases[0].draft.status = "filed";
+  assert.match(removeCase(batch, "c") ?? "", /filed case/);
   assert.match(removeCase(batch, "x") ?? "", /not in this batch/);
-  assert.equal(batch.cases.length, 2);
+  assert.equal(batch.cases.length, 1);
 });

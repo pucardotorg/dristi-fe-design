@@ -62,6 +62,7 @@ import { BatchFooter } from "./batch-footer";
 import { batchTallies } from "./batch-marks";
 import { readRound, writeRound, type Round } from "./signing-round";
 import type { BatchCtx } from "./batch-screen";
+import { RemoveCaseMenu, useRemoveCase } from "./remove-case";
 import { FileDrop } from "./file-drop";
 
 type Signer = { id: string; name: string; role: string; initials: string; you?: boolean; mobile?: string };
@@ -85,6 +86,7 @@ export const maskMobile = (m: string) => {
 };
 
 export function SignTab({ batch, setBatch, go }: BatchCtx) {
+  const { ask: askRemove, dialog: removeDialog } = useRemoveCase(batch, setBatch);
   const tallies = batchTallies(batch);
   const clear = tallies.completeCases;
   const [picked, setPicked] = React.useState<Set<string>>(() => new Set(clear.map((c) => c.id)));
@@ -305,6 +307,9 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
                         <TableHead className={TABLE_HEAD}>Accused</TableHead>
                         <TableHead className={TABLE_HEAD}>Draft number</TableHead>
                         <TableHead className={cn(TABLE_HEAD, "text-right")}>Cheque amount</TableHead>
+                        <TableHead className={cn(TABLE_HEAD, "w-12")}>
+                          <span className="sr-only">More</span>
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody className={tableBodyClass({ selectable: true })}>
@@ -330,6 +335,9 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
                             <TableCell className={TABLE_CELL}>{c.accused}</TableCell>
                             <TableCell className={cn(TABLE_CELL, "font-mono")}>{c.draftNumber}</TableCell>
                             <TableCell className={cn(TABLE_CELL, "text-right tabular-nums")}>{money(c.amount)}</TableCell>
+                            <TableCell className={cn(TABLE_CELL, "w-12")}>
+                              <RemoveCaseMenu c={c} onSelect={askRemove} disabled={!!inRound} />
+                            </TableCell>
                           </TableRow>
                         );
                       })}
@@ -341,6 +349,8 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
           </Card>
         </>
       )}
+
+      {removeDialog}
 
       {clear.length ? (
         <BatchFooter>

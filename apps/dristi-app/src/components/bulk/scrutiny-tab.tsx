@@ -8,7 +8,6 @@ import {
   CircleAlertIcon,
   EllipsisVerticalIcon,
   OctagonAlertIcon,
-  Trash2Icon,
   Undo2Icon,
   WandSparklesIcon,
 } from "lucide-react";
@@ -17,14 +16,12 @@ import type { Flag } from "@/lib/bulk/scrutiny";
 import { money } from "@/lib/filing/format";
 import { cn } from "@/lib/utils";
 import { FilingFooter } from "@/components/filing/filing-footer";
-import { ConfirmDialog } from "@/components/shell/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
@@ -43,6 +40,7 @@ import { BatchFooter } from "./batch-footer";
 import { caseState, detailFlags, isOpen } from "./batch-marks";
 import type { BatchCtx } from "./batch-screen";
 import { CaseSearch, Pager, caseMatches, pageOf } from "./case-list-tools";
+import { RemoveCaseItem, useRemoveCase } from "./remove-case";
 import { FilterPills } from "./filter-pills";
 import { StatusWord, shortReason } from "./stage";
 import { StatusLine } from "@/components/feedback";
@@ -232,7 +230,7 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
   const [show, setShow] = React.useState<Show>(fixing.length ? "fix" : "all");
   const [search, setSearch] = React.useState("");
   const [page, setPage] = React.useState(0);
-  const [removing, setRemoving] = React.useState<CaseView | null>(null);
+  const { ask: askRemove, dialog: removeDialog } = useRemoveCase(batch, setBatch);
 
   const term = search.trim().toLowerCase();
   const inShow = { fix: fixing, check: checking, all: open }[show];
@@ -391,11 +389,8 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
                                     <EllipsisVerticalIcon aria-hidden />
                                   </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem variant="destructive" onSelect={() => setRemoving(c)}>
-                                    <Trash2Icon aria-hidden />
-                                    Remove {c.title} from this batch
-                                  </DropdownMenuItem>
+                                <DropdownMenuContent align="end" className="min-w-56">
+                                  <RemoveCaseItem c={c} onSelect={askRemove} />
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             ) : null}
@@ -439,11 +434,8 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
                               <EllipsisVerticalIcon aria-hidden />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem variant="destructive" onSelect={() => setRemoving(c)}>
-                              <Trash2Icon aria-hidden />
-                              Remove from this batch
-                            </DropdownMenuItem>
+                          <DropdownMenuContent align="end" className="min-w-56">
+                            <RemoveCaseItem c={c} onSelect={askRemove} />
                           </DropdownMenuContent>
                         </DropdownMenu>
                       ) : null}
@@ -482,20 +474,7 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
         </section>
       ) : null}
 
-      <ConfirmDialog
-        open={!!removing}
-        onOpenChange={(o) => {
-          if (!o) setRemoving(null);
-        }}
-        title="Remove this case from the batch?"
-        description={removing ? `${removing.title} · ${removing.draftNumber} won't be filed with this batch.` : undefined}
-        confirmLabel="Remove"
-        cancelLabel="Back"
-        onConfirm={() => {
-          if (removing) void act({ action: "remove", caseId: removing.id });
-          setRemoving(null);
-        }}
-      />
+      {removeDialog}
 
       <BatchFooter>
         <FilingFooter

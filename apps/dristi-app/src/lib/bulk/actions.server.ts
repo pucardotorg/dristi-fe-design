@@ -500,14 +500,15 @@ export function signable(batch: Batch): BatchCase[] {
 
 /**
  * Take a case out of its batch, for one that won't be filed (PM review, 2026-11-03: a
- * simple way to unblock the rest). Gone from the batch and every count; a signed or filed
- * case can't be taken out. Returns the problem, or null when it was removed.
+ * simple way to unblock the rest). Any case not yet filed can leave, signed ones included
+ * (BLK-08); it is gone from the batch and every count. Returns the problem, or null when it
+ * was removed. A batch left with no cases is the caller's to delete (BLK-08b).
  */
 export function removeCase(batch: Batch, caseId: string): string | null {
   const at = batch.cases.findIndex((c) => c.id === caseId);
   if (at < 0) return "That case is not in this batch.";
   const bc = batch.cases[at];
-  if (bc.draft.status === "filed" || bc.signedWith) return "A signed or filed case can't be removed.";
+  if (bc.draft.status === "filed") return "A filed case can't be removed.";
   batch.cases.splice(at, 1);
   return null;
 }

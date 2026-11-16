@@ -25,6 +25,8 @@ export interface BulkStore {
   insertBatch(batch: Omit<Batch, "number">): Promise<Batch>;
   /** Change one batch in place; `change` returns the new one, or `null` to leave it. */
   updateBatch(id: string, change: (batch: Batch, all: Batch[]) => Batch | null): Promise<Batch | null>;
+  /** Forget one batch: one whose every case was removed no longer exists (BLK-08b). */
+  deleteBatch(id: string): Promise<void>;
   /** Replace several batches at once: clubbing closes the originals and opens a new one. */
   applyBatches(change: (all: Batch[]) => { all: Batch[]; result: Batch }): Promise<Batch>;
   saveFile(bytes: Uint8Array, name: string, type: string): Promise<StoredFileRef>;
@@ -85,7 +87,7 @@ export function batchOps(
   serial: <T>(work: () => Promise<T>) => Promise<T>,
   readStored: () => Promise<Batch[]>,
   writeAll: (batches: Batch[]) => Promise<void>,
-): Pick<BulkStore, "listBatches" | "getBatch" | "insertBatch" | "updateBatch" | "applyBatches"> {
+): Pick<BulkStore, "listBatches" | "getBatch" | "insertBatch" | "updateBatch" | "applyBatches" | "deleteBatch"> {
   // Batches stored before B-numbers read in the filer's count.
   const readAll = async () => (await readStored()).map((b) => ({ ...b, number: currentNumber(b.number) }));
   return {
@@ -111,6 +113,10 @@ export function batchOps(
         all[i] = { ...next, updatedAt: new Date().toISOString() };
         await writeAll(all);
         return all[i];
+      }),
+    deleteBatch: (id) =>
+      serial(async () => {
+        await writeAll((await readAll()).filter((b) => b.id !== id));
       }),
     applyBatches: (change) =>
       serial(async () => {
