@@ -89,6 +89,25 @@ export async function prefillKnownComplainant(draft: FilingDraft, clientId = CLI
   if (slot) slot.file = ref;
 }
 
+const AGAIN = (id: string) => `bulk-again:${id}`;
+
+/**
+ * An upload made to replace a created batch's drafts (BLK-40): its setup carries the
+ * batch's Common details, and Create replaces that batch instead of making a new one.
+ */
+export function markUploadAgain(setupId: string, batchId: string): void {
+  window.sessionStorage.setItem(AGAIN(setupId), batchId);
+}
+
+/** The batch this upload replaces the drafts of, or `null` for a new batch. */
+export function uploadAgainFor(setupId: string): string | null {
+  try {
+    return window.sessionStorage.getItem(AGAIN(setupId));
+  } catch {
+    return null;
+  }
+}
+
 export function readSetupRaw(id: string): string | null {
   try {
     return window.sessionStorage.getItem(KEY(id));

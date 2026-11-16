@@ -29,6 +29,7 @@ import {
   BulkSetupRepository,
   commonDraft,
   prefillKnownComplainant,
+  uploadAgainFor,
 } from "@/lib/bulk/setup-repository";
 import { complainantName } from "@/lib/bulk/parties";
 import { Field, FieldLabel } from "@/components/ui/field";
@@ -125,7 +126,9 @@ export function BulkSetupFlow({
 }) {
   const ready = useGujarat();
   // An upload kept in the batch list (BLK-10m) reopens where it was left.
-  const kept = useKeptSetup(setupId, !batch);
+  // An upload replacing a created batch's drafts is not a new batch: nothing to keep.
+  const [againFor] = React.useState(() => (batch ? null : uploadAgainFor(setupId)));
+  const kept = useKeptSetup(setupId, !batch && !againFor);
   const pathname = usePathname();
   const step = stepFromPathname(pathname);
   const params = useSearchParams();
@@ -283,9 +286,9 @@ export function BulkSetupFlow({
       {batch ? (
         <BatchBreadcrumbLabel number={batch.number} id={batch.id} />
       ) : (
-        <DraftBreadcrumbLabel label={ai === "on" ? "Upload cases" : "Upload Excel"} />
+        <DraftBreadcrumbLabel label={againFor ? "Upload the file again" : ai === "on" ? "Upload cases" : "Upload Excel"} />
       )}
-      {batch ? (
+      {batch || againFor ? (
         body
       ) : (
         <SetupKeeper setupId={setupId} kept={kept}>

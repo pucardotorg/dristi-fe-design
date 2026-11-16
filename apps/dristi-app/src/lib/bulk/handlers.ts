@@ -162,6 +162,11 @@ export async function deleteNotCreated(store: BulkStore, batchId: string): Promi
 export type CreateBody = {
   /** The setup this upload was made in: an unfinished batch kept for it becomes the batch. */
   setupId?: string;
+  /**
+   * The file again for a created batch (BLK-40): the batch's drafts are replaced by the
+   * new file's cases, and its filed cases stay. Rows are not matched to existing cases.
+   */
+  replaceBatchId?: string;
   request: ApiBatchRequest;
   fileName: string;
   /** "documents": cases read from one document each, and reviewed (AI-assisted upload). */
@@ -199,6 +204,26 @@ export async function createBatch(store: BulkStore, body: CreateBody): Promise<R
     bc.docText = { ...bc.docText, [o.file.id]: o.text };
   }
   if (parties) built.common = { ...parties, adr: request.adr ?? built.cases[0]?.draft.adr.adr ?? "" };
+  if (body.replaceBatchId) {
+    let problem: string | null = null;
+    const out = await store.updateBatch(body.replaceBatchId, (b) => {
+      if (b.notCreated || b.clubbedInto) {
+        problem = "This batch can't take its file again.";
+        return null;
+      }
+      // Only cases already filed are not touched; drafts and signed cases go (BLK-40).
+      const filed = b.cases.filter((c) => c.draft.status === "filed");
+      return {
+        ...b,
+        source: { ...b.source, reference: fileName },
+        cases: [...filed, ...built.cases],
+        ...(built.common ? { common: built.common } : {}),
+      };
+    });
+    if (problem) return fail(problem, 409);
+    if (!out) return fail("No such batch.", 404);
+    return ok({ batchId: out.id, batchNumber: out.number }, 201);
+  }
   if (body.setupId) built.setupId = body.setupId;
   // The unfinished batch kept for this upload becomes the batch, keeping its number.
   const kept = body.setupId ? (await store.listBatches()).find((b) => setupOf(b, body.setupId!)) : undefined;

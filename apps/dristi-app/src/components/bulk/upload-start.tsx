@@ -12,6 +12,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import {
   createSetupDraft,
+  markUploadAgain,
   prefillKnownComplainant,
   writeSetupDraft,
 } from "@/lib/bulk/setup-repository";
@@ -19,6 +20,7 @@ import { buildDocumentGroups } from "@/lib/filing/blank";
 import { useProfile } from "@/lib/filing/profile";
 import { Spinner } from "@/components/ui/spinner";
 
+import { bulkApi } from "./api";
 import { setupHref, uploadHref } from "./setup-flow";
 
 export function UploadStart() {
@@ -39,6 +41,25 @@ export function UploadStart() {
     if (!ready) return;
     started.current = true;
     const draft = createSetupDraft(profile);
+    // The file again for a created batch (BLK-40): its Common details stay as they are, so
+    // the upload starts at the file, with them already in place.
+    const again = params.get("again");
+    if (again) {
+      void bulkApi.get(again).then(
+        (batch) => {
+          draft.complainants = structuredClone(batch.common.complainants);
+          draft.advocates = structuredClone(batch.common.advocates);
+          draft.intake.parties = structuredClone(batch.common.documents);
+          draft.adr.adr = batch.common.adr;
+          draft.documents = buildDocumentGroups(draft);
+          writeSetupDraft(draft);
+          markUploadAgain(draft.id, again);
+          router.replace(uploadHref(draft.id, "format", params.get("ai")));
+        },
+        () => router.replace(`/filings/bulk/${again}?tab=cases`),
+      );
+      return;
+    }
     // Prototype: the complainant is a known client, so it arrives filled in. Should the
     // demo file not store, the filer still gets the complainant and adds the proof.
     void prefillKnownComplainant(draft)

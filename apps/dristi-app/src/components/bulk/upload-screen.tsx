@@ -40,6 +40,7 @@ import {
 } from "@/lib/bulk/excel";
 import { LISTS, type ListName } from "@/lib/bulk/excel-spec";
 import { useSetupKeeper } from "./setup-keeper";
+import { uploadAgainFor } from "@/lib/bulk/setup-repository";
 import { money } from "@/lib/filing/format";
 import type { FilingDraft, StoredFileRef } from "@/lib/filing/types";
 import type { ApiBatchRequest } from "@/lib/bulk/contract";
@@ -332,6 +333,9 @@ export function UploadScreen() {
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
+  // The file again for a created batch (BLK-40): Create replaces its drafts.
+  const [againFor] = React.useState(() => uploadAgainFor(setupId));
+
   // Reopened from the batch list: start from what was kept, once (BLK-10m).
   const keeper = useSetupKeeper();
   const restored = React.useRef(false);
@@ -552,13 +556,14 @@ export function UploadScreen() {
       const { request } = built;
       // The batch kept for this upload becomes the batch: stop keeping it.
       keeper.stop();
+      const replaceBatchId = againFor ?? undefined;
       const res = await bulkFetch("/api/bulk/batches", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(
           docs
-            ? { request, fileName, from: "documents", originals, parties, setupId }
-            : { request, fileName, parties, setupId },
+            ? { request, fileName, from: "documents", originals, parties, setupId, replaceBatchId }
+            : { request, fileName, parties, setupId, replaceBatchId },
         ),
       });
       const json = await res.json();
@@ -1036,10 +1041,14 @@ export function UploadScreen() {
           continueHint={coreMissing.length ? "Match the missing columns first" : undefined}
           continueLabel={
             busy
-              ? "Creating batch…"
+              ? againFor
+                ? "Replacing drafts…"
+                : "Creating batch…"
               : coreMissing.length
                 ? "Create cases"
-                : `Create ${creating} case${creating === 1 ? "" : "s"}`
+                : againFor
+                  ? `Replace drafts with ${creating} case${creating === 1 ? "" : "s"}`
+                  : `Create ${creating} case${creating === 1 ? "" : "s"}`
           }
         />
       </>
