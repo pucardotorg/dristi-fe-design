@@ -19,19 +19,22 @@ export function FilterPills({
   total,
   filters,
   label = "Show cases",
+  size = "lg",
 }: {
   value: string;
   onChange: (value: string) => void;
   total: number;
   filters: { id: string; label: string; count: number }[];
   label?: string;
+  /** `sm` inside a popover's toolbar (the case finder); lists keep the full size. */
+  size?: "sm" | "lg";
 }) {
   // Takes what the row leaves beside the search, and scrolls sideways inside it on a phone.
   return (
     <div className="min-w-0 flex-1">
       <ToggleGroup
         type="single"
-        size="lg"
+        size={size === "sm" ? "default" : "lg"}
         variant="ghost"
         value={value}
         onValueChange={(v) => onChange(v || "all")}
