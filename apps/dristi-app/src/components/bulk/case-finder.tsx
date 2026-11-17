@@ -16,12 +16,12 @@
  */
 
 import * as React from "react";
-import { CheckIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, SearchIcon } from "lucide-react";
+import { Command as CommandPrimitive } from "cmdk";
+import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, SearchIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Input } from "@/components/ui/input";
+import { Command, CommandEmpty, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 import { FilterPills } from "./filter-pills";
@@ -34,7 +34,10 @@ export type FinderCase = {
   cheque?: string;
   /** Which of the screen's filters it is in. */
   group: string;
-  /** Its status in a few words, as the screen's list says it. */
+  /**
+   * Its status as a mark, the word and its icon only (owner, 2026-11-17: the list flags a
+   * case; the case itself says what is wrong). Nothing for a case with nothing open.
+   */
   status?: React.ReactNode;
 };
 
@@ -83,22 +86,37 @@ export function CaseFinder({
       <PopoverTrigger asChild>
         <Button
           variant="outline"
-          className={cn("h-10 min-w-0 max-w-full justify-between gap-3 px-3 text-left font-normal", className)}
+          // A field on the card, not a pressed button: it keeps the card's white when open and
+          // shows it is open by its edge (owner, 2026-11-17: the grey fill read as dirty).
+          className={cn(
+            "h-10 min-w-0 max-w-full justify-between gap-3 px-3 text-left font-normal hover:bg-card aria-expanded:border-ring aria-expanded:bg-card dark:bg-card",
+            className,
+          )}
           aria-label={current ? `${label}: ${current.title}, ${current.draftNumber}` : label}
         >
           <span className="flex min-w-0 items-baseline gap-2">
             <span className="truncate font-medium">{current?.title ?? label}</span>
-            {current ? <span className="shrink-0 font-mono text-body-compact text-muted-foreground">{current.draftNumber}</span> : null}
+            {current ? <span className="shrink-0 font-mono text-body-compact text-muted-foreground tabular-nums">{current.draftNumber}</span> : null}
           </span>
           <ChevronDownIcon className="shrink-0 text-muted-foreground" aria-hidden />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-[min(36rem,calc(100vw-2rem))] p-0">
-        <Command shouldFilter={false} label={label}>
-          <CommandInput value={q} onValueChange={setQ} placeholder="Search by party, draft number or cheque" />
+      <PopoverContent align="start" className="w-[min(32rem,calc(100vw-2rem))] gap-0 overflow-hidden p-0">
+        <Command shouldFilter={false} label={label} className="rounded-none bg-transparent p-0">
+          {/* A quiet search line, not a filled box: the hairline under it is its edge. */}
+          <label className="flex h-11 items-center gap-2 border-b border-hairline px-3 text-muted-foreground">
+            <SearchIcon className="size-4 shrink-0" aria-hidden />
+            <CommandPrimitive.Input
+              value={q}
+              onValueChange={setQ}
+              placeholder="Search by party, draft number or cheque"
+              className="h-full min-w-0 flex-1 bg-transparent text-body-compact text-foreground outline-none placeholder:text-muted-foreground"
+            />
+          </label>
           {groups.length ? (
-            <div className="flex border-b border-hairline px-2 py-2">
+            <div className="flex border-b border-hairline px-3 py-2">
               <FilterPills
+                size="sm"
                 value={group}
                 onChange={setGroup}
                 total={cases.length}
@@ -107,8 +125,10 @@ export function CaseFinder({
               />
             </div>
           ) : null}
-          <CommandList className="max-h-[min(24rem,50vh)]">
-            <CommandEmpty>{term ? `No case matches “${q.trim()}”.` : "No case here."}</CommandEmpty>
+          <CommandList className="max-h-[min(22rem,50vh)] p-1.5">
+            <CommandEmpty className="py-6 text-center text-body-compact text-muted-foreground">
+              {term ? `No case matches “${q.trim()}”.` : "No case here."}
+            </CommandEmpty>
             {shown.map((c) => (
               <CommandItem
                 key={c.id}
@@ -117,28 +137,25 @@ export function CaseFinder({
                   onSelect(c.id);
                   setOpen(false);
                 }}
-                className="items-start gap-3 py-2.5"
+                // One height for every row: two lines, nothing wraps (title truncates).
+                data-checked={c.id === value}
+                className="h-14 gap-3 rounded-md px-2.5 py-0 data-selected:bg-surface-sunken"
               >
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span className="truncate text-body-compact font-medium text-foreground">{c.title}</span>
-                  <span className="flex flex-wrap items-center gap-x-2 text-body-compact text-muted-foreground">
-                    <span className="font-mono">{c.draftNumber}</span>
-                    {c.status ? (
-                      <>
-                        <span aria-hidden>·</span>
-                        {c.status}
-                      </>
-                    ) : null}
+                  <span className="flex min-w-0 items-center gap-3 text-body-compact text-muted-foreground">
+                    <span className="shrink-0 font-mono tabular-nums">{c.draftNumber}</span>
+                    {c.status ? <span className="min-w-0 truncate">{c.status}</span> : null}
                   </span>
                 </span>
-                {c.id === value ? <CheckIcon className="mt-1 shrink-0" aria-label="This case" /> : null}
+                {c.id === value ? <span className="sr-only">(this case)</span> : null}
               </CommandItem>
             ))}
           </CommandList>
+          {/* Said only when the list is cut short, and quietly. */}
           {matches.length > SHOWN ? (
-            <p className="flex items-center gap-2 border-t border-hairline px-3 py-2 text-body-compact text-muted-foreground tabular-nums">
-              <SearchIcon className="size-4" aria-hidden />
-              {SHOWN} of {matches.length} shown. Type a name or draft number to narrow them.
+            <p className="border-t border-hairline px-3 py-2 text-body-compact text-muted-foreground tabular-nums">
+              First {SHOWN} of {matches.length}. Search to find the rest.
             </p>
           ) : null}
         </Command>
@@ -148,8 +165,9 @@ export function CaseFinder({
 }
 
 /**
- * "‹ [7] of 300 ›": the case's place among `count`, where the number can be typed and Enter
- * goes there, with the case before and after.
+ * "‹ 7 / 300 ›": the case's place among `count` as one quiet control. The number is a
+ * borderless field that shows its edge on hover and focus; typing a number and Enter goes
+ * there, Escape puts it back (owner, 2026-11-17: the boxed input read as unpolished).
  */
 export function CaseStepper({
   at,
@@ -163,7 +181,7 @@ export function CaseStepper({
   at: number;
   count: number;
   onGo: (index: number) => void;
-  /** What the count is of: "to fix or check". */
+  /** What the count is of, for the field's label: "to fix or check". */
   of?: string;
   prevLabel?: string;
   nextLabel?: string;
@@ -174,35 +192,51 @@ export function CaseStepper({
     if (Number.isInteger(n) && n >= 1 && n <= count && n - 1 !== at) onGo(n - 1);
     setDraft(null);
   };
+  // Wide enough for the batch's largest number, so the control never shifts as it changes.
+  const digits = String(count).length;
   return (
-    <div className="flex shrink-0 items-center gap-1 text-body-compact tabular-nums">
-      <Button variant="ghost" size="icon-sm" disabled={at <= 0} onClick={() => onGo(at - 1)} aria-label={prevLabel ?? "Previous case"}>
+    <div className="flex h-8 shrink-0 items-center rounded-lg border border-hairline bg-card text-body-compact tabular-nums">
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        className="rounded-r-none text-muted-foreground"
+        disabled={at <= 0}
+        onClick={() => onGo(at - 1)}
+        aria-label={prevLabel ?? "Previous case"}
+      >
         <ChevronLeftIcon aria-hidden />
       </Button>
-      <Input
-        inputMode="numeric"
-        aria-label={`Case number, of ${count}${of ? ` ${of}` : ""}. Type a number and press Enter to go to it.`}
-        value={draft ?? String(at + 1)}
-        onFocus={(e) => {
-          setDraft(String(at + 1));
-          e.currentTarget.select();
-        }}
-        onChange={(e) => setDraft(e.target.value.replace(/\D/g, "").slice(0, 4))}
-        onBlur={go}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") e.currentTarget.blur();
-          if (e.key === "Escape") {
-            setDraft(null);
-            e.currentTarget.blur();
-          }
-        }}
-        className="h-8 w-14 px-2 text-center"
-      />
-      <span className="whitespace-nowrap text-muted-foreground">
-        of {count}
-        {of ? ` ${of}` : ""}
+      <span className="flex h-full items-center gap-1 border-x border-hairline pr-2.5 pl-1">
+        <input
+          inputMode="numeric"
+          aria-label={`Case number, of ${count}${of ? ` ${of}` : ""}. Type a number and press Enter to go to it.`}
+          value={draft ?? String(at + 1)}
+          onFocus={(e) => {
+            setDraft(String(at + 1));
+            e.currentTarget.select();
+          }}
+          onChange={(e) => setDraft(e.target.value.replace(/\D/g, "").slice(0, 4))}
+          onBlur={go}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") e.currentTarget.blur();
+            if (e.key === "Escape") {
+              setDraft(null);
+              e.currentTarget.blur();
+            }
+          }}
+          style={{ width: `calc(${digits}ch + 0.75rem)` }}
+          className="h-6 rounded-sm border border-transparent bg-transparent px-1 text-right font-medium text-foreground outline-none transition-colors hover:border-input focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-focus-ring"
+        />
+        <span className="text-muted-foreground">/ {count}</span>
       </span>
-      <Button variant="ghost" size="icon-sm" disabled={at >= count - 1} onClick={() => onGo(at + 1)} aria-label={nextLabel ?? "Next case"}>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        className="rounded-l-none text-muted-foreground"
+        disabled={at >= count - 1}
+        onClick={() => onGo(at + 1)}
+        aria-label={nextLabel ?? "Next case"}
+      >
         <ChevronRightIcon aria-hidden />
       </Button>
     </div>

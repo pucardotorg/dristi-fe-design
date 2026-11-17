@@ -66,7 +66,9 @@ import { useDemoTools } from "./demo-tools";
 import { caseState, detailFlags } from "./batch-marks";
 import { OriginalDoc } from "./original-doc";
 import { CaseFinder, CaseStepper, type FinderCase } from "./case-finder";
-import { CaseBadge } from "./stage";
+import { CaseBadge, STATE } from "./stage";
+
+const FixIcon = STATE.fix.icon;
 import { StatusLine } from "@/components/feedback";
 
 /** Where the batch is, on one of its tabs. */
@@ -505,8 +507,11 @@ function CaseBar({
     draftNumber: x.draftNumber,
     cheque: x.cheque,
     group: groupOf(x),
-    status: <CaseBadge c={x} />,
+    status: groupOf(x) === "done" ? undefined : <CaseBadge c={x} reason={false} />,
   }));
+  // What is left in the batch, by the finder's own groups.
+  const toFix = finderCases.filter((x) => x.group === "fix").length;
+  const toCheck = finderCases.filter((x) => x.group === "check").length;
 
   return strip(
     <div className="flex w-full items-center gap-4">
@@ -553,6 +558,26 @@ function CaseBar({
         </Label>
       </div>
       <span aria-hidden className="h-5 w-px bg-border max-sm:hidden" />
+      {/* What is still left, so walking the batch has an end in sight (owner, 2026-11-17).
+          The mark only on what blocks filing; checking is a count. */}
+      {toFix || toCheck ? (
+        <p className="flex shrink-0 items-center gap-2 text-body-compact text-muted-foreground tabular-nums max-md:hidden">
+          {toFix ? (
+            <span className="inline-flex items-center gap-1.5">
+              <FixIcon aria-hidden className={cn("size-4", STATE.fix.ink)} />
+              <span>
+                <span className="text-foreground">{toFix}</span> to fix
+              </span>
+            </span>
+          ) : null}
+          {toFix && toCheck ? <span aria-hidden>·</span> : null}
+          {toCheck ? (
+            <span>
+              <span className="text-foreground">{toCheck}</span> to check
+            </span>
+          ) : null}
+        </p>
+      ) : null}
       <nav aria-label="Cases in this batch">
         <CaseStepper
           at={at}
