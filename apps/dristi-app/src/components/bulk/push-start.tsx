@@ -140,7 +140,7 @@ export function PushStart({ batchId }: { batchId: string }) {
                   ? push
                     ? `${total} case${total === 1 ? "" : "s"} sent by ${system} · not created yet`
                     : "Reading the batch…"
-                  : "Optional. Every case starts with this text, and each can change it on its own."}
+                  : "Optional. What each complaint says under Facts of the case; every case can change its own."}
               </p>
             </div>
             {error ? (

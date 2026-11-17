@@ -24,12 +24,10 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeftIcon,
   CheckIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
   FileQuestionIcon,
   WandSparklesIcon,
 } from "lucide-react";
@@ -67,6 +65,8 @@ import { demoFill } from "./demo-fill";
 import { useDemoTools } from "./demo-tools";
 import { caseState, detailFlags } from "./batch-marks";
 import { OriginalDoc } from "./original-doc";
+import { CaseFinder, CaseStepper, type FinderCase } from "./case-finder";
+import { CaseBadge } from "./stage";
 import { StatusLine } from "@/components/feedback";
 
 /** Where the batch is, on one of its tabs. */
@@ -440,6 +440,7 @@ function CaseBar({
   onFocus: (focus: boolean) => void;
 }) {
   const demo = useDemoTools();
+  const router = useRouter();
   const { update } = useFiling();
   const [kept] = React.useState(() => readQueue(batchId));
   const live = batch ? batch.cases.filter((x) => caseState(x) === "fix" || caseState(x) === "check").map((x) => x.id) : [];
@@ -491,47 +492,43 @@ function CaseBar({
     );
   };
 
-  const move = (x: CaseView | null, dir: "prev" | "next") => {
-    const label = dir === "prev" ? "Previous" : "Next";
-    const icon = dir === "prev" ? <ChevronLeftIcon data-icon="inline-start" aria-hidden /> : <ChevronRightIcon data-icon="inline-end" aria-hidden />;
-    const body =
-      dir === "prev" ? (
-        <>
-          {icon}
-          {label}
-        </>
-      ) : (
-        <>
-          {label}
-          {icon}
-        </>
-      );
-    return x ? (
-      <Button asChild variant="ghost" size="sm" className="text-body-compact" title={x.title}>
-        <Link href={withFrom(openAt(x), dir)} aria-label={`${label} case: ${x.title}`}>
-          {body}
-        </Link>
-      </Button>
-    ) : (
-      <Button variant="ghost" size="sm" className="text-body-compact" disabled>
-        {body}
-      </Button>
-    );
+  // Any case of the batch, found by its title, draft number or cheque (owner, 2026-11-17:
+  // Previous and Next alone don't carry a filer across 300 cases).
+  const goTo = (x: CaseView, dir: "prev" | "next") => router.push(withFrom(openAt(x), dir));
+  const groupOf = (x: CaseView) => {
+    const s = caseState(x);
+    return s === "fix" ? "fix" : s === "check" ? "check" : "done";
   };
+  const finderCases: FinderCase[] = cases.map((x) => ({
+    id: x.id,
+    title: x.title,
+    draftNumber: x.draftNumber,
+    cheque: x.cheque,
+    group: groupOf(x),
+    status: <CaseBadge c={x} />,
+  }));
 
   return strip(
     <div className="flex w-full items-center gap-4">
-      <p className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 text-body-compact tabular-nums">
-        <span className="font-medium">
-          {inQueue ? `Case ${at + 1} of ${queue.length} to fix or check` : `Case ${at + 1} of ${cases.length}`}
-        </span>
-        <span aria-hidden className="text-muted-foreground max-sm:hidden">
-          ·
-        </span>
-        <span className="font-mono text-muted-foreground max-sm:hidden">{c.draftNumber}</span>
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <CaseFinder
+          cases={finderCases}
+          groups={[
+            { id: "fix", label: "To fix" },
+            { id: "check", label: "To check" },
+            { id: "done", label: "Details done" },
+          ]}
+          value={c.id}
+          onSelect={(id) => {
+            const x = cases.find((y) => y.id === id);
+            if (x) goTo(x, cases.indexOf(x) < cases.indexOf(c) ? "prev" : "next");
+          }}
+          label="Find a case in this batch"
+          className="max-w-[28rem]"
+        />
         {/* The moment a case is finished, said where the eye already is. */}
         {done && inQueue ? (
-          <span key="done" role="status" className="fb-rise inline-flex items-center gap-1.5 font-medium text-success-ink">
+          <span key="done" role="status" className="fb-rise inline-flex shrink-0 items-center gap-1.5 text-body-compact font-medium text-success-ink">
             <CheckIcon className="size-4" aria-hidden />
             Details done
           </span>
@@ -541,7 +538,7 @@ function CaseBar({
             <OriginalDoc original={c.original} />
           </span>
         ) : null}
-      </p>
+      </div>
       {demo && editable(c) ? (
         <Button variant="ghost" size="sm" className="max-sm:hidden" onClick={() => update(demoFill)}>
           <WandSparklesIcon data-icon="inline-start" aria-hidden />
@@ -556,9 +553,15 @@ function CaseBar({
         </Label>
       </div>
       <span aria-hidden className="h-5 w-px bg-border max-sm:hidden" />
-      <nav aria-label="Cases in this batch" className="flex shrink-0 items-center">
-        {move(prev, "prev")}
-        {move(next, "next")}
+      <nav aria-label="Cases in this batch">
+        <CaseStepper
+          at={at}
+          count={walk.length}
+          of={inQueue ? "to fix or check" : ""}
+          onGo={(i) => goTo(walk[i], i < at ? "prev" : "next")}
+          prevLabel={prev ? `Previous case: ${prev.title}` : "Previous case"}
+          nextLabel={next ? `Next case: ${next.title}` : "Next case"}
+        />
       </nav>
     </div>,
   );

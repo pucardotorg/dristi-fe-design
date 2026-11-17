@@ -896,7 +896,7 @@ export function UploadScreen() {
         <FilingMain>
           <FilingPageHeader
             title="Facts of the case"
-            description="Optional. Every case starts with this text, and each can change it on its own."
+            description="Optional. What each complaint says under Facts of the case; every case can change its own."
           />
           {errorNotice}
           <FactsCard

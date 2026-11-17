@@ -13,8 +13,6 @@
 import * as React from "react";
 import {
   BookmarkPlusIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
   ExternalLinkIcon,
   FileTextIcon,
   ChevronDownIcon,
@@ -34,7 +32,7 @@ import {
   saveDetailsFormat,
   type DetailsFormat,
 } from "@/lib/filing/details-formats";
-import { totalChequeAmount } from "@/lib/filing/selectors";
+import { draftTitle, totalChequeAmount } from "@/lib/filing/selectors";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -45,7 +43,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -66,21 +63,11 @@ import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } fr
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Combobox,
-  ComboboxCollection,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxGroup,
-  ComboboxInput,
-  ComboboxItem,
-  ComboboxLabel,
-  ComboboxList,
-} from "@/components/ui/combobox";
 import { ChromeDialogContent } from "@/components/chrome/app-chrome";
 import { cn } from "@/lib/utils";
 
 import { aboutDetails } from "./batch-marks";
+import { CaseFinder, CaseStepper, type FinderCase } from "./case-finder";
 import { STATE } from "./stage";
 
 /* ───────────────────────────── The cases, as Create will make them ───────────────────────────── */
@@ -88,6 +75,8 @@ import { STATE } from "./stage";
 export type CheckCase = {
   key: string;
   reference: string;
+  /** "Tata Capital Ltd vs. Paresh V. Panchal": how a case is read. */
+  title: string;
   accused: string;
   cheque: string;
   cheques: number;
@@ -138,6 +127,7 @@ export function useCheckCases(request: ApiBatchRequest | null, parties: BatchPar
             return {
               key: `${bc.reference}-${i}`,
               reference: bc.reference,
+              title: draftTitle(bc.draft),
               accused: bc.draft.accused.map((a) => a.name).filter(Boolean).join(", "),
               cheque: bc.draft.cheques[0]?.chequeNumber ?? "",
               cheques: bc.draft.cheques.length,
@@ -264,8 +254,8 @@ export function writtenBlanks(html: string): string[] {
 // Every e-filing field, by the section it is entered in (BLK-10c); typing after `[` searches
 // across sections.
 const FIELD_LIST = TEMPLATE_FIELD_GROUPS.flatMap((g) => g.fields.map((f) => ({ name: f.name, group: g.label })));
-/** The story reads as prose: body size, open leading, room between its paragraphs. */
-const STORY_CLASS = "px-6 py-5 text-body leading-7 [&_li]:mb-2 [&_li]:pl-1 [&_ol]:ml-1 [&_p]:mb-4";
+/** The details read as prose: body size, open leading, room between its paragraphs. */
+const PROSE_CLASS = "px-6 py-5 text-body leading-7 [&_li]:mb-2 [&_li]:pl-1 [&_ol]:ml-1 [&_p]:mb-4";
 
 /** A case's facts, read-only, with any part still to write marked as the editor marks it. */
 function previewHtml(html: string): string {
@@ -276,6 +266,62 @@ function previewHtml(html: string): string {
       (_w, name: string) =>
         `<mark class="rounded-md border border-dashed border-warning-ink bg-warning-muted px-1 text-warning-muted-foreground">${name}</mark>`,
     ),
+  );
+}
+
+/** A case as the finder lists it: its title, and its row before the batch has a number. */
+const finderCase = (from: string) => (c: CheckCase): FinderCase => ({
+  id: c.key,
+  title: c.title,
+  draftNumber: /^R\d+$/.test(c.reference) ? `Row ${c.reference.slice(1)}` : c.reference,
+  cheque: c.cheque,
+  group: c.own && !c.fromBatch ? "own" : "batch",
+  status: c.own && !c.fromBatch ? `From ${from}` : "This text",
+});
+
+/**
+ * The details the advocate wrote in the file for some rows, read first and kept as written
+ * (owner, 2026-11-17). One case at a time, found by the case finder or its number.
+ */
+function OwnDetails({ cases, from }: { cases: CheckCase[]; from: string }) {
+  const [key, setKey] = React.useState(cases[0]?.key ?? "");
+  const c = cases.find((x) => x.key === key) ?? cases[0];
+  if (!c) return null;
+  return (
+    <Card variant="raised">
+      <CardContent className="flex flex-col gap-5">
+        <div className="flex flex-col gap-1 tabular-nums">
+          <h2 className="text-title-s font-semibold">
+            Your own details · {cases.length} {cases.length === 1 ? "case" : "cases"}
+          </h2>
+          <p className="text-body-compact text-muted-foreground">
+            Written in {from}. They go into their cases as written; you&apos;ll be asked when you continue
+            whether the text below should replace them.
+          </p>
+        </div>
+        <div className="flex min-w-0 flex-col rounded-xl border border-input bg-card">
+          <div className="flex flex-wrap items-center gap-2 border-b border-hairline px-3 py-2">
+            <CaseFinder
+              cases={cases.map(finderCase(from))}
+              groups={[]}
+              value={c.key}
+              onSelect={setKey}
+              label="Read a case's own details"
+              className="max-w-96"
+            />
+            <div className="ml-auto">
+              <CaseStepper at={cases.indexOf(c)} count={cases.length} onGo={(i) => setKey(cases[i].key)} />
+            </div>
+          </div>
+          <div
+            key={c.key}
+            className={cn("animate-in text-foreground duration-200 fade-in-0 [&_p:last-child]:mb-0", PROSE_CLASS)}
+            // The row's own text, escaped by the app when the case was built.
+            dangerouslySetInnerHTML={{ __html: previewHtml(c.facts) || "<p>No details.</p>" }}
+          />
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -333,8 +379,10 @@ export function FactsCard({
   const ownCases = cases?.filter((c) => c.own) ?? [];
   // The cases with their own story first: they are the ones the question on Continue is about.
   const listed = cases ? [...ownCases, ...cases.filter((c) => !c.own)] : [];
-  const preview = listed.find((c) => c.key === previewKey) ?? listed[0] ?? null;
-  const at = preview ? listed.indexOf(preview) : -1;
+  // The preview walks the cases this text is for: those with nothing of their own, or all
+  // of them when no row brought any.
+  const pool = listed.some((c) => !c.own) ? listed.filter((c) => !c.own) : listed;
+  const shownPreview = pool.find((c) => c.key === previewKey) ?? pool[0] ?? null;
   // The editor's brackets: fields it offers on `[`, and a real case to show a field's value.
   const first = cases?.[0];
   const marks = React.useMemo<BracketMarks>(
@@ -362,19 +410,20 @@ export function FactsCard({
   };
 
   return (
+    <div className="flex flex-col gap-6">
+      {/* What the advocate wrote comes first (owner, 2026-11-17: the batch's text took the
+          screen and the rows' own details came second). They are kept as written; what
+          becomes of them is asked on Continue (owner, 2026-11-12). */}
+      {own > 0 && ownCases.length ? <OwnDetails cases={ownCases} from={from} /> : null}
     <Card variant="raised">
       <CardContent className="flex flex-col gap-5">
-        {/* What this text is for, up front: the empty rows. What becomes of the rows that
-            already have a story is asked on Continue (owner, 2026-11-12). */}
         {own > 0 ? (
-          <div className="flex flex-col gap-0.5 tabular-nums">
-            <p className="text-body-compact font-semibold">
-              Writing for the {total - own} {total - own === 1 ? "case" : "cases"} with no story in {from}
-            </p>
+          <div className="flex flex-col gap-1 tabular-nums">
+            <h2 className="text-title-s font-semibold">
+              Details for the other {total - own} {total - own === 1 ? "case" : "cases"}
+            </h2>
             <p className="text-body-compact text-muted-foreground">
-              {own === 1
-                ? "1 case already has its own. You'll choose what happens to it when you continue."
-                : `${own} cases already have their own. You'll choose what happens to them when you continue.`}
+              The cases with nothing in {from} start with this text, and each can change it on its own.
             </p>
           </div>
         ) : null}
@@ -390,7 +439,7 @@ export function FactsCard({
               placeholder="Write the facts, or start from a template"
               ariaLabel="Facts of the case"
               minHeightClassName="min-h-96"
-              contentClassName={STORY_CLASS}
+              contentClassName={PROSE_CLASS}
               handleRef={editor}
               marks={marks}
               toolbarStart={modeTabs}
@@ -486,50 +535,31 @@ export function FactsCard({
             {/* One document, read in the page's own scroll (owner, 2026-11-12: a list beside
                 it scrolled inside the scroll). Its toolbar moves between cases the way the
                 Write box's toolbar formats text: the same frame in both tabs. */}
-            {preview ? (
+            {shownPreview ? (
               <div className="flex min-w-0 flex-col rounded-xl border border-input bg-card">
                 <div className="flex flex-wrap items-center gap-2 border-b border-hairline px-3 py-2">
                   {modeTabs}
                   <span aria-hidden className="mx-1 h-5 w-px bg-border" />
-                  <div className="w-60 min-w-0">
-                    <CasePicker cases={listed} value={preview} onChange={(c) => setPreviewKey(c.key)} />
-                  </div>
-                  {preview.own && !preview.fromBatch ? <Badge variant="secondary">From {from}</Badge> : null}
-                  {/* The pager where mail and document viewers keep it: count, then arrows. */}
-                  <div className="ml-auto flex items-center gap-1">
-                    <span className="mr-2 text-body-compact text-muted-foreground tabular-nums">
-                      {at + 1} of {listed.length}
-                    </span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label="Previous case"
-                      disabled={at <= 0}
-                      onClick={() => setPreviewKey(listed[at - 1].key)}
-                    >
-                      <ChevronLeftIcon aria-hidden />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label="Next case"
-                      disabled={at >= listed.length - 1}
-                      onClick={() => setPreviewKey(listed[at + 1].key)}
-                    >
-                      <ChevronRightIcon aria-hidden />
-                    </Button>
+                  <CaseFinder
+                    cases={pool.map(finderCase(from))}
+                    groups={[]}
+                    value={shownPreview.key}
+                    onSelect={setPreviewKey}
+                    label="Preview a case"
+                    className="max-w-96"
+                  />
+                  <div className="ml-auto">
+                    <CaseStepper at={pool.indexOf(shownPreview)} count={pool.length} onGo={(i) => setPreviewKey(pool[i].key)} />
                   </div>
                 </div>
                 <div
-                  key={`${preview.key}-${preview.fromBatch}`}
+                  key={`${shownPreview.key}-${shownPreview.fromBatch}`}
                   className={cn(
                     "min-h-72 animate-in text-foreground duration-200 fade-in-0 [&_li]:ml-4 [&_ol]:list-decimal [&_ul]:list-disc [&_p:last-child]:mb-0",
-                    STORY_CLASS,
+                    PROSE_CLASS,
                   )}
                   // The case's own facts, built by the app from its text and row (escaped there).
-                  dangerouslySetInnerHTML={{ __html: previewHtml(preview.facts) || "<p>No facts of the case.</p>" }}
+                  dangerouslySetInnerHTML={{ __html: previewHtml(shownPreview.facts) || "<p>No facts of the case.</p>" }}
                 />
               </div>
             ) : null}
@@ -594,66 +624,10 @@ export function FactsCard({
         </ChromeDialogContent>
       </Dialog>
     </Card>
+    </div>
   );
 }
 
-type CaseGroup = { value: string; items: CheckCase[] };
-
-/**
- * Preview's case picker, typeable like the filing's selects, with the cases grouped by
- * where their story comes from, so the list itself says which are which (owner,
- * 2026-11-12). Only the batch's own cases, so it lives here rather than in the shared
- * `OptionSelect`.
- */
-function CasePicker({
-  cases,
-  value,
-  onChange,
-}: {
-  cases: CheckCase[];
-  value: CheckCase;
-  onChange: (c: CheckCase) => void;
-}) {
-  const from = React.useContext(StoriesFrom);
-  const label = (c: CheckCase) => c.accused || c.reference.replace(/^R/, "Excel row ");
-  const fromExcel = cases.filter((c) => c.own && !c.fromBatch);
-  const groups: CaseGroup[] = [
-    { value: `From ${from} · ${fromExcel.length}`, items: fromExcel },
-    { value: `Batch text · ${cases.length - fromExcel.length}`, items: cases.filter((c) => !(c.own && !c.fromBatch)) },
-  ].filter((g) => g.items.length);
-  return (
-    <Combobox
-      items={groups}
-      value={value}
-      onValueChange={(c) => {
-        if (c) onChange(c as CheckCase);
-      }}
-      itemToStringLabel={(c) => label(c as CheckCase)}
-      isItemEqualToValue={(a, b) => (a as CheckCase).key === (b as CheckCase).key}
-      openOnInputClick
-      autoHighlight
-    >
-      <ComboboxInput aria-label="Case to preview" autoComplete="off" className="w-full" />
-      <ComboboxContent className="pointer-events-auto">
-        <ComboboxEmpty>No match</ComboboxEmpty>
-        <ComboboxList>
-          {(group: CaseGroup) => (
-            <ComboboxGroup key={group.value} items={group.items} className="not-first:mt-1">
-              <ComboboxLabel className="text-body-compact tabular-nums">{group.value}</ComboboxLabel>
-              <ComboboxCollection>
-                {(c: CheckCase) => (
-                  <ComboboxItem key={c.key} value={c}>
-                    {label(c)}
-                  </ComboboxItem>
-                )}
-              </ComboboxCollection>
-            </ComboboxGroup>
-          )}
-        </ComboboxList>
-      </ComboboxContent>
-    </Combobox>
-  );
-}
 
 /**
  * On leaving Facts, when some rows already have a story and the batch text exists: keep
@@ -705,7 +679,7 @@ export function FactsQuestion({
       >
         <DialogHeader>
           <DialogTitle className="tabular-nums">
-            {own === 1 ? "1 case already has its own story" : `${own} cases already have their own story`}
+            {own === 1 ? "1 case already has its own details" : `${own} cases already have their own details`}
           </DialogTitle>
           <DialogDescription>
             {own === 1 ? "It" : "They"} came in {from}. What should happen to {own === 1 ? "it" : "them"}?
@@ -714,7 +688,7 @@ export function FactsQuestion({
         <RadioGroup
           value={every ? "replace" : "keep"}
           onValueChange={(v) => setEvery(v === "replace")}
-          aria-label={`What happens to the stories in ${from}`}
+          aria-label={`What happens to the details in ${from}`}
           className="flex flex-col gap-4 py-1"
         >
           {choices.map((c) => (
