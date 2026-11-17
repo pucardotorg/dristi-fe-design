@@ -63,6 +63,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChromeDialogContent } from "@/components/chrome/app-chrome";
 import { cn } from "@/lib/utils";
@@ -626,3 +628,86 @@ export function FactsCard({
   );
 }
 
+
+/**
+ * On leaving Facts, when some cases still carry their own text and the batch text exists:
+ * keep them, or give those cases the batch text too (owner, 2026-11-12; brought back
+ * 2026-11-17: the All cases tab makes the choice case by case, but the decision still
+ * deserves its moment before Check). Counts only, so it reads the same for 4 cases or 400;
+ * keeping is first and chosen.
+ */
+export function FactsQuestion({
+  open,
+  onOpenChange,
+  own,
+  batch,
+  onChoose,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** Cases on their own text now. */
+  own: number;
+  /** Cases on the batch text now. */
+  batch: number;
+  onChoose: (useBatch: boolean) => void;
+}) {
+  const from = React.useContext(StoriesFrom);
+  const [replace, setReplace] = React.useState(false);
+  const go = React.useRef<HTMLButtonElement>(null);
+  const choices = [
+    { value: "keep", label: own === 1 ? "Keep it" : "Keep them", detail: `The batch text goes into the other ${batch}.` },
+    { value: "replace", label: "Use the batch text", detail: `All ${own + batch} cases use the batch text.` },
+  ];
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (next) setReplace(false);
+        onOpenChange(next);
+      }}
+    >
+      <ChromeDialogContent
+        showCloseButton={false}
+        className="sm:max-w-md"
+        // Focus lands on Continue: keeping is already chosen.
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          go.current?.focus();
+        }}
+      >
+        <DialogHeader>
+          <DialogTitle className="tabular-nums">
+            {own === 1 ? "1 case has its own details" : `${own} cases have their own details`}
+          </DialogTitle>
+          <DialogDescription>
+            From {from}. Keep {own === 1 ? "it" : "them"}, or use the batch text instead?
+          </DialogDescription>
+        </DialogHeader>
+        <RadioGroup
+          value={replace ? "replace" : "keep"}
+          onValueChange={(v) => setReplace(v === "replace")}
+          aria-label="What happens to their own details"
+          className="flex flex-col gap-4 py-1"
+        >
+          {choices.map((c) => (
+            <div key={c.value} className="flex items-start gap-3">
+              <RadioGroupItem value={c.value} id={`facts-${c.value}`} className="mt-0.5" />
+              <Label htmlFor={`facts-${c.value}`} className="flex flex-col items-start gap-0.5 tabular-nums">
+                <span className="text-body-compact font-medium">{c.label}</span>
+                <span className="text-body-compact font-normal text-muted-foreground">{c.detail}</span>
+              </Label>
+            </div>
+          ))}
+        </RadioGroup>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Back
+          </Button>
+          <Button ref={go} type="button" onClick={() => onChoose(replace)}>
+            Continue
+          </Button>
+        </DialogFooter>
+      </ChromeDialogContent>
+    </Dialog>
+  );
+}

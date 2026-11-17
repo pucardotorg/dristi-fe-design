@@ -79,8 +79,8 @@ import {
   serverDetailsFormats,
   subscribeToDetailsFormats,
 } from "@/lib/filing/details-formats";
-import { CheckCard, FactsCard, FactsLine, checkCounts, useCheckCases, withoutOwn } from "./check-step";
-import { NO_PICKS } from "./facts-cases";
+import { CheckCard, FactsCard, FactsLine, FactsQuestion, checkCounts, useCheckCases, withoutOwn } from "./check-step";
+import { NO_PICKS, pickBatch } from "./facts-cases";
 import { FileDrop } from "./file-drop";
 import { FormatChoice, type UploadFormat } from "./format-choice";
 import { bulkFetch } from "./api";
@@ -305,6 +305,7 @@ export function UploadScreen() {
   const [everyCase, setEveryCase] = React.useState<boolean | null>(null);
   // Each case's facts as chosen on Facts of the case, case by case (owner, 2026-11-17).
   const [factsPicks, setFactsPicks] = React.useState<FactsPicks>(NO_PICKS);
+  const [askFacts, setAskFacts] = React.useState(false);
   const formats = React.useSyncExternalStore(
     subscribeToDetailsFormats,
     readDetailsFormats,
@@ -896,6 +897,10 @@ export function UploadScreen() {
   if (step === "facts" && book) {
     const rows = createdRows();
     const ownCount = ownFacts(rows);
+    // Asked on Continue while cases still carry their own text and the batch text exists.
+    const ownNow = checkCases?.filter((c) => c.source === "own") ?? [];
+    const batchNow = checkCases?.filter((c) => c.source === "batch").length ?? 0;
+    const hasText = !!factsHtml.replace(/<[^>]*>|&nbsp;/g, "").trim();
     return (
       <>
         <FilingMain>
@@ -919,10 +924,20 @@ export function UploadScreen() {
         <FilingFooter
           showSaveState={false}
           onBack={() => setStep(backFromFacts)}
-          onContinue={() => setStep("review")}
+          onContinue={() => (ownNow.length && hasText ? setAskFacts(true) : setStep("review"))}
           continueLabel="Continue"
         />
-
+        <FactsQuestion
+          open={askFacts}
+          onOpenChange={setAskFacts}
+          own={ownNow.length}
+          batch={batchNow}
+          onChoose={(useBatch) => {
+            if (useBatch) setFactsPicks(pickBatch(factsPicks, ownNow));
+            setAskFacts(false);
+            setStep("review");
+          }}
+        />
       </>
     );
   }

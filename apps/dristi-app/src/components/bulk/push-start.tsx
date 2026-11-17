@@ -33,8 +33,8 @@ import { StatusLine } from "@/components/feedback";
 import { bulkApi, type BatchSummary } from "./api";
 import { BatchFooter, FooterSlot } from "./batch-footer";
 import { BULK_COLUMN, BulkSteps, StageRow, type BulkStepId, type StepMark } from "./bulk-steps";
-import { CheckCard, FactsCard, FactsLine, StoriesFrom, useCheckCases, withoutOwn } from "./check-step";
-import { NO_PICKS } from "./facts-cases";
+import { CheckCard, FactsCard, FactsLine, FactsQuestion, StoriesFrom, useCheckCases, withoutOwn } from "./check-step";
+import { NO_PICKS, pickBatch } from "./facts-cases";
 import type { FactsPicks } from "@/lib/bulk/types";
 import { useGujarat } from "./court-guard";
 
@@ -75,6 +75,7 @@ export function PushStart({ batchId }: { batchId: string }) {
   const factsHtml = choice?.html ?? sent?.html ?? (first ? formatForFiler(first) : "");
   // Each case's facts as chosen on Facts of the case, case by case (owner, 2026-11-17).
   const [picks, setPicks] = React.useState<FactsPicks>(NO_PICKS);
+  const [asking, setAsking] = React.useState(false);
 
   const format: ApiBatchRequest["detailsFormat"] = plain(factsHtml)
     ? { id: factsId ?? "batch", html: factsHtml, court, ...(picks.batchFor.length ? { batchFor: picks.batchFor } : {}) }
@@ -88,6 +89,9 @@ export function PushStart({ batchId }: { batchId: string }) {
   const cases = useCheckCases(request, null);
   const total = push?.request.cases.length ?? 0;
   const own = push?.request.cases.filter((c) => c.otherDetails?.trim()).length ?? 0;
+  // Asked on Continue while cases still carry their own text and the batch text exists.
+  const ownNow = cases?.filter((c) => c.source === "own") ?? [];
+  const batchNow = cases?.filter((c) => c.source === "batch").length ?? 0;
 
   const create = async () => {
     setBusy(true);
@@ -200,7 +204,7 @@ export function PushStart({ batchId }: { batchId: string }) {
             showSaveState={false}
             onBack={() => router.push("/filings/bulk")}
             backLabel="Batches"
-            onContinue={() => setStep("review")}
+            onContinue={() => (ownNow.length && plain(factsHtml) ? setAsking(true) : setStep("review"))}
             continueLabel="Continue"
             continueDisabled={!push}
           />
@@ -216,6 +220,17 @@ export function PushStart({ batchId }: { batchId: string }) {
       </BatchFooter>
 
 
+      <FactsQuestion
+        open={asking}
+        onOpenChange={setAsking}
+        own={ownNow.length}
+        batch={batchNow}
+        onChoose={(useBatch) => {
+          if (useBatch) setPicks(pickBatch(picks, ownNow));
+          setAsking(false);
+          setStep("review");
+        }}
+      />
       </StoriesFrom.Provider>
     </FooterSlot.Provider>
   );
