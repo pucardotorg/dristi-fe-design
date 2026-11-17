@@ -1,15 +1,15 @@
 "use client";
 
 /**
- * Bulk filing: the batches, as a queue of what needs the filer (owner, 2026-11-17: the
- * list of every batch with a progress bar and legend each "looks horribly bad"; redesigned
- * from the ux-designer's "Needs you" recommendation).
+ * Bulk filing: the batches, each one's steps as columns (owner, 2026-11-17: the list with
+ * a bar and legend per batch "looks horribly bad", and one next act per row then made every
+ * batch look the same, filed or not).
  *
- *  · Opens on Needs you: created batches whose next step is the filer's, soonest File by
- *    first, since a missed limitation date is the costly mistake.
- *  · Each batch says where it stands in one line and offers its one next act, verb and
- *    count ("Fix · 71"), in a column of equal buttons. No bar, no legend.
- *  · Uploads not created yet have their own filter and one sentence above the list.
+ *  · Fix & check · Add documents · Sign · Pay count the cases waiting at each step, each a
+ *    link to that step; Filed shows how many of the batch, with a thin bar, so a finished
+ *    batch reads as done at a glance. Red only for to fix, green only for filed.
+ *  · Opens on Needs you, soonest File by first, since a missed limitation date is the
+ *    costly mistake. Uploads not created yet have their own filter and one sentence.
  *  · The Complainant column shows only when batches are for more than one complainant.
  */
 
@@ -41,6 +41,7 @@ import { useCourt } from "@/components/court/court-provider";
 
 import { bulkApi, type BatchSummary } from "./api";
 import { useGujarat } from "./court-guard";
+import { bulkStepTitle, type BulkStepId } from "./bulk-steps";
 import { FilterPills } from "./filter-pills";
 import { waitingOnOthers } from "./signing-round";
 import { StatusLine } from "@/components/feedback";
@@ -68,6 +69,21 @@ const VIEWS: { id: View; label: string }[] = [
   { id: "waiting", label: "Waiting on others" },
   { id: "notCreated", label: "Not created" },
   { id: "done", label: "Done" },
+];
+
+/**
+ * The batch's steps as columns, each counting the cases at it (owner, 2026-11-17: a single
+ * next act per row made every batch look the same). The counts are the batch's own
+ * exclusive ones (`progressState`), so across a row they add up to its cases. "To check"
+ * is not a stage of its own: a warning never holds a case, so those cases count where
+ * they actually wait (documents or signing), as the stepper counts them.
+ */
+type Stage = { id: BulkStepId; state: "fix" | "docs" | "complete" | "signed"; tab: string; words: string; short: string };
+const STAGES: Stage[] = [
+  { id: "details", state: "fix", tab: "scrutiny", words: "to fix", short: "to fix" },
+  { id: "documents", state: "docs", tab: "documents", words: "missing documents", short: "missing docs" },
+  { id: "sign", state: "complete", tab: "sign", words: "ready to sign", short: "to sign" },
+  { id: "pay", state: "signed", tab: "pay", words: "signed, to pay for", short: "to pay" },
 ];
 
 /** The filer's one next act on a batch, first match wins; `null` when nothing is theirs. */
@@ -245,45 +261,10 @@ export function BatchesScreen() {
     );
   };
 
-  /** Where it stands: what's done, then any blocker the action doesn't already name. */
-  const stands = (b: BatchSummary, act: Act | null): { line: React.ReactNode; sub?: string } => {
-    // On its own filter "Not created yet" would repeat the pill on every row.
-    if (b.notCreated)
-      return view === "notCreated" ? { line: sentence(b.notCreated.where) } : { line: "Not created yet", sub: sentence(b.notCreated.where) };
-    if (b.clubbedInto) return { line: <span className="text-muted-foreground">Clubbed into {b.clubbedIntoNumber}</span> };
-    if (isDone(b))
-      return {
-        line: (
-          <span className="inline-flex items-center gap-1.5 text-success-ink">
-            <CircleCheckIcon className="size-4" aria-hidden />
-            All {b.total} filed
-          </span>
-        ),
-      };
-    const s = b.states;
-    const done = [s.filed ? `${s.filed} filed` : "", s.signed ? `${s.signed} signed` : "", s.complete ? `${s.complete} ready to sign` : ""].filter(Boolean);
-    const blockers = [
-      s.fix && act?.verb !== "Fix" ? `${s.fix} to fix` : "",
-      s.docs && act?.verb !== "Add documents" ? `${s.docs} missing ${s.docs === 1 ? "a document" : "documents"}` : "",
-    ].filter(Boolean);
-    if (awaiting.has(b.id)) return { line: "Waiting for another party to sign", sub: done.join(" · ") || undefined };
-    return {
-      line: done.length ? done.join(" · ") : <span className="text-muted-foreground">None ready yet</span>,
-      sub: blockers.join(" · ") || undefined,
-    };
-  };
-
-  const actionCell = (b: BatchSummary, act: Act | null, className?: string) => (
-    <span className={cn("flex items-center justify-end gap-1", className)} onClick={(e) => e.stopPropagation()}>
-      {act ? (
-        <Button asChild variant="outline" className="w-36 justify-between md:w-44">
-          <Link href={act.href} aria-label={act.count ? `${act.verb} ${plural(act.count, "case")} in ${b.number}` : `${act.verb} ${b.number}`}>
-            <span>{act.verb}</span>
-            {act.count ? <span className="text-muted-foreground tabular-nums">{act.count}</span> : null}
-          </Link>
-        </Button>
-      ) : null}
-      {b.notCreated?.kind === "excel" ? (
+  /** The ⋯ menu: only an upload not created yet has anything in it (Delete). */
+  const menuCell = (b: BatchSummary) =>
+    b.notCreated?.kind === "excel" ? (
+      <span onClick={(e) => e.stopPropagation()}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="text-muted-foreground" aria-label={`More for ${b.number}`}>
@@ -297,13 +278,61 @@ export function BatchesScreen() {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-      ) : b.notCreated ? (
-        <span aria-hidden className="size-10" />
-      ) : null}
-    </span>
-  );
+      </span>
+    ) : null;
 
-  const anyMenu = shown.some((b) => b.notCreated);
+  /** One stage's count, opening that step of the batch; a dash when none is there. */
+  const stageCount = (b: BatchSummary, st: Stage) => {
+    const n = b.states[st.state];
+    if (!n) return <span className="text-muted-foreground" aria-label={`None ${st.words} in ${b.number}`}>—</span>;
+    return (
+      <Link
+        href={open(b, st.tab)}
+        onClick={(e) => e.stopPropagation()}
+        aria-label={`${n} ${st.words} in ${b.number}`}
+        className={cn(
+          "inline-flex h-8 min-w-10 items-center justify-center rounded-md px-2 font-medium tabular-nums outline-none transition-colors",
+          "underline-offset-4 hover:bg-accent hover:underline focus-visible:ring-3 focus-visible:ring-focus-ring",
+          st.state === "fix" ? "text-destructive-ink" : "text-foreground",
+        )}
+      >
+        {n}
+      </Link>
+    );
+  };
+
+  /** Filed: how many of the batch, with a thin bar so a finished batch reads as done. */
+  const filedCell = (b: BatchSummary) => {
+    const n = b.states.filed;
+    const pct = b.total ? Math.round((n / b.total) * 100) : 0;
+    return (
+      // The bar hangs under the count, out of the flow, so the count sits on the same line
+      // as every other column's.
+      <span className="relative flex flex-col">
+        <span className="flex h-8 items-center gap-1.5 tabular-nums">
+          {n === b.total && n ? <CircleCheckIcon aria-hidden className="size-4 text-success-ink" /> : null}
+          {n ? (
+            <Link
+              href={open(b, "filed")}
+              onClick={(e) => e.stopPropagation()}
+              aria-label={`${n} of ${b.total} filed in ${b.number}`}
+              className="rounded-sm font-medium text-success-ink underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-focus-ring"
+            >
+              {n}
+            </Link>
+          ) : (
+            <span className="text-muted-foreground">0</span>
+          )}
+          <span className="text-muted-foreground">of {b.total}</span>
+        </span>
+        <span aria-hidden className="absolute inset-x-0 top-full -mt-0.5 h-1 overflow-hidden rounded-full bg-surface-sunken">
+          <span className="block h-full rounded-full bg-success" style={{ width: `${pct}%` }} />
+        </span>
+      </span>
+    );
+  };
+
+  const anyMenu = shown.some((b) => b.notCreated?.kind === "excel");
   const showClient = clients > 1;
 
   /* ── Empty states ── */
@@ -424,65 +453,117 @@ export function BatchesScreen() {
               </Empty>
             ) : (
               <>
-                {/* Phones: one stacked row per batch, the act beside its number. */}
+                {/* Phones: one item per batch, its stages as one line of links. */}
                 <ul className="flex flex-col divide-y divide-hairline md:hidden" aria-label="Batches">
-                  {shown.map((b) => {
-                    const act = actOf(b);
-                    const st = stands(b, act);
-                    return (
-                      <li key={b.id} className="flex flex-col gap-1 px-4 py-3 text-body-compact">
-                        <span className="flex min-h-10 items-center gap-2">
-                          {clubbable(b) ? (
-                            <Checkbox checked={picked.has(b.id)} onCheckedChange={(v) => toggle(b.id, v === true)} aria-label={`Select ${b.number}`} />
+                  {shown.map((b) => (
+                    <li key={b.id} className="flex flex-col gap-1 px-4 py-3 text-body-compact">
+                      <span className="flex min-h-10 items-center gap-2">
+                        {clubbable(b) ? (
+                          <Checkbox checked={picked.has(b.id)} onCheckedChange={(v) => toggle(b.id, v === true)} aria-label={`Select ${b.number}`} />
+                        ) : null}
+                        <Link href={open(b)} className="font-medium tabular-nums hover:underline">
+                          {b.number}
+                        </Link>
+                        {b.openedAt === null ? <Badge variant="outline">New</Badge> : null}
+                        <span className="ml-auto flex items-center gap-1">
+                          {b.notCreated ? (
+                            <Button asChild variant="outline" size="sm">
+                              <Link href={b.notCreated.href}>Continue</Link>
+                            </Button>
                           ) : null}
-                          <Link href={open(b)} className="font-medium tabular-nums hover:underline">
-                            {b.number}
-                          </Link>
-                          {b.openedAt === null ? <Badge variant="outline">New</Badge> : null}
-                          {actionCell(b, act, "ml-auto")}
+                          {menuCell(b)}
                         </span>
-                        <span>{st.line}</span>
-                        {st.sub ? <span className="text-muted-foreground">{st.sub}</span> : null}
-                        <span className="text-muted-foreground tabular-nums">
-                          {b.fileBy && !b.notCreated && !isDone(b) ? (
-                            <>
-                              File by {shortDate(b.fileBy)}
-                              {b.fileBy < today() ? <span className="font-medium text-destructive-ink"> · Past</span> : null}
-                              {" · "}
-                            </>
-                          ) : null}
-                          {b.notCreated?.kind === "excel" ? "" : plural(b.total, "case")}
+                      </span>
+                      <span className="text-muted-foreground tabular-nums">
+                        {b.fileBy && !b.notCreated && !isDone(b) ? (
+                          <>
+                            File by {shortDate(b.fileBy)}
+                            {b.fileBy < today() ? <span className="font-medium text-destructive-ink"> · Past</span> : null}
+                          </>
+                        ) : (
+                          originLine(b).text
+                        )}
+                      </span>
+                      {b.notCreated ? (
+                        <span className="text-muted-foreground">{sentence(b.notCreated.where)}</span>
+                      ) : b.clubbedInto ? (
+                        <span className="text-muted-foreground">Clubbed into {b.clubbedIntoNumber}</span>
+                      ) : (
+                        <span className="flex flex-wrap items-center gap-x-1 tabular-nums">
+                          {STAGES.filter((st) => b.states[st.state]).map((st) => (
+                            <React.Fragment key={st.id}>
+                              <Link
+                                href={open(b, st.tab)}
+                                aria-label={`${b.states[st.state]} ${st.words} in ${b.number}`}
+                                className={cn("font-medium hover:underline", st.state === "fix" ? "text-destructive-ink" : "text-foreground")}
+                              >
+                                {b.states[st.state]} {st.short}
+                              </Link>
+                              <span aria-hidden className="text-muted-foreground">·</span>
+                            </React.Fragment>
+                          ))}
+                          <span className={b.states.filed ? "font-medium text-success-ink" : "text-muted-foreground"}>
+                            {b.states.filed} of {b.total} filed
+                          </span>
                         </span>
-                      </li>
-                    );
-                  })}
+                      )}
+                    </li>
+                  ))}
                 </ul>
 
                 <div className="hidden overflow-x-auto md:block">
-                  <Table className="border-separate border-spacing-0" aria-label="Batches">
+                  <Table className="table-fixed border-separate border-spacing-0" aria-label="Batches">
+                    <colgroup>
+                      {canPick ? <col className="w-10" /> : null}
+                      <col />
+                      {showClient ? <col className="w-40" /> : null}
+                      <col className="w-28" />
+                      {STAGES.map((st) => (
+                        <col key={st.id} className="w-24" />
+                      ))}
+                      <col className="w-32" />
+                      {anyMenu ? <col className="w-14" /> : null}
+                    </colgroup>
                     <TableHeader>
                       <TableRow className={TABLE_HEAD_ROW}>
                         {canPick ? (
-                          <TableHead className={cn(TABLE_HEAD, "w-10 pr-0")}>
+                          <TableHead className={cn(TABLE_HEAD, "pr-0")}>
                             <span className="sr-only">Select to club</span>
                           </TableHead>
                         ) : null}
                         <TableHead className={TABLE_HEAD}>Batch</TableHead>
                         {showClient ? <TableHead className={TABLE_HEAD}>Complainant</TableHead> : null}
-                        <TableHead className={cn(TABLE_HEAD, "w-32 whitespace-nowrap")}>File by</TableHead>
-                        <TableHead className={cn(TABLE_HEAD, "w-24 text-right")}>Cases</TableHead>
-                        <TableHead className={cn(TABLE_HEAD, "w-72")}>Where it stands</TableHead>
-                        <TableHead className={cn(TABLE_HEAD, anyMenu ? "w-60" : "w-52")}>
-                          <span className="sr-only">Next step</span>
-                        </TableHead>
+                        <TableHead className={cn(TABLE_HEAD, "whitespace-nowrap")}>File by</TableHead>
+                        {STAGES.map((st) => (
+                          <TableHead key={st.id} className={cn(TABLE_HEAD, "h-auto px-2 text-center leading-5 whitespace-normal")}>
+                            {bulkStepTitle(st.id)}
+                          </TableHead>
+                        ))}
+                        <TableHead className={TABLE_HEAD}>Filed</TableHead>
+                        {anyMenu ? (
+                          <TableHead className={TABLE_HEAD}>
+                            <span className="sr-only">More</span>
+                          </TableHead>
+                        ) : null}
                       </TableRow>
                     </TableHeader>
                     <TableBody className={tableBodyClass({ selectable: canPick })}>
                       {shown.map((b) => {
-                        const act = actOf(b);
-                        const st = stands(b, act);
                         const origin = originLine(b);
                         const on = picked.has(b.id);
+                        // Not created, or clubbed away: no stages to count; one muted line across them.
+                        const across = b.notCreated ? (
+                          <span className="flex items-center gap-4">
+                            <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                              Not created · {sentence(b.notCreated.where)}
+                            </span>
+                            <Button asChild variant="outline" size="sm" onClick={(e) => e.stopPropagation()}>
+                              <Link href={b.notCreated.href}>Continue</Link>
+                            </Button>
+                          </span>
+                        ) : b.clubbedInto ? (
+                          <span className="text-muted-foreground">Clubbed into {b.clubbedIntoNumber}</span>
+                        ) : null;
                         return (
                           <TableRow
                             key={b.id}
@@ -491,13 +572,13 @@ export function BatchesScreen() {
                             onClick={() => router.push(open(b))}
                           >
                             {canPick ? (
-                              <TableCell className={cn(TABLE_CELL, "w-10 pr-0")} onClick={(e) => e.stopPropagation()}>
+                              <TableCell className={cn(TABLE_CELL, "pr-0")} onClick={(e) => e.stopPropagation()}>
                                 {clubbable(b) ? (
                                   <Checkbox checked={on} onCheckedChange={(v) => toggle(b.id, v === true)} aria-label={`Select ${b.number}`} />
                                 ) : null}
                               </TableCell>
                             ) : null}
-                            <TableCell className={cn(TABLE_CELL, "w-full max-w-0 min-w-48")}>
+                            <TableCell className={TABLE_CELL}>
                               <span className="flex items-center gap-2">
                                 <Link
                                   href={open(b)}
@@ -513,17 +594,24 @@ export function BatchesScreen() {
                               </span>
                             </TableCell>
                             {showClient ? (
-                              <TableCell className={cn(TABLE_CELL, "min-w-40 whitespace-normal")}>{b.client || "—"}</TableCell>
+                              <TableCell className={cn(TABLE_CELL, "truncate")}>{b.client || "—"}</TableCell>
                             ) : null}
-                            <TableCell className={TABLE_CELL}>{fileByCell(b)}</TableCell>
-                            <TableCell className={cn(TABLE_CELL, "text-right tabular-nums")}>
-                              {b.notCreated?.kind === "excel" ? <span className="text-muted-foreground">—</span> : b.total}
-                            </TableCell>
-                            <TableCell className={cn(TABLE_CELL, "min-w-64 whitespace-nowrap tabular-nums")}>
-                              <span className="block text-foreground">{st.line}</span>
-                              {st.sub ? <span className="block text-muted-foreground">{st.sub}</span> : null}
-                            </TableCell>
-                            <TableCell className={TABLE_CELL}>{actionCell(b, act)}</TableCell>
+                            <TableCell className={cn(TABLE_CELL, "whitespace-nowrap")}>{fileByCell(b)}</TableCell>
+                            {across ? (
+                              <TableCell className={TABLE_CELL} colSpan={STAGES.length + 1}>
+                                {across}
+                              </TableCell>
+                            ) : (
+                              <>
+                                {STAGES.map((st) => (
+                                  <TableCell key={st.id} className={cn(TABLE_CELL, "px-2 text-center")}>
+                                    {stageCount(b, st)}
+                                  </TableCell>
+                                ))}
+                                <TableCell className={TABLE_CELL}>{filedCell(b)}</TableCell>
+                              </>
+                            )}
+                            {anyMenu ? <TableCell className={cn(TABLE_CELL, "px-2")}>{menuCell(b)}</TableCell> : null}
                           </TableRow>
                         );
                       })}
