@@ -210,7 +210,10 @@ export function CaseStepper({
       >
         <ChevronLeftIcon aria-hidden />
       </Button>
-      <span className="flex h-full items-center gap-1 border-x border-hairline pr-2.5 pl-1">
+      {/* The number's own edge-room (its padding and border) is the space before the slash,
+          and the slash's word space the one after it, so "7 / 300" reads evenly spaced
+          (owner, 2026-11-17: the spacing around "/ 239" looked off). */}
+      <span className="flex h-full items-center border-x border-hairline pr-2.5 pl-1">
         <input
           inputMode="numeric"
           aria-label={`Case number, of ${count}${of ? ` ${of}` : ""}. Type a number and press Enter to go to it.`}
