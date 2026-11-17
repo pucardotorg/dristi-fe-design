@@ -111,6 +111,13 @@ const PAGE_LEFT_FOLDED = "md:left-20";
 const ChromeRailFoldContext = React.createContext(false);
 
 /**
+ * Does the open rail lie over the page rather than push it? Then the page column's left
+ * edge is the strip's in both states. Only `ChromeRailFolds` sets it; `ChromeShell` never
+ * does, so the court's frame is untouched.
+ */
+const ChromeRailOverlayContext = React.createContext(false);
+
+/**
  * One nav row.
  *
  * `h-10` and a 20px glyph against the DS's 32px row and 16px mark: primary navigation
@@ -260,9 +267,11 @@ export const RAIL_BRAND_ROW = `${BAR} flex flex-row items-center justify-between
  */
 export function useChromePageDialog(): string {
   const folds = React.useContext(ChromeRailFoldContext);
+  const overlay = React.useContext(ChromeRailOverlayContext);
   const state = useSidebarStateOrNull();
   if (!state) return "";
-  const left = folds && state === "collapsed" ? PAGE_LEFT_FOLDED : PAGE_LEFT_OPEN;
+  const left =
+    folds && (state === "collapsed" || overlay) ? PAGE_LEFT_FOLDED : PAGE_LEFT_OPEN;
   // `transition-[left]` because ⌘B is bound at the window and fires with a dialog open:
   // without it the box jumps 192px while the rail behind it takes 200ms to get there.
   return `${left} md:right-4 md:mx-auto md:w-auto md:translate-x-0 md:transition-[left] md:duration-200 md:ease-linear`;
@@ -342,10 +351,22 @@ export function ChromeAlertDialogContent({
  * (list vs flow, plus ⌘B) but is not that shell yet, so it wraps itself with this
  * or page-column overlays would keep a 17rem left edge against a 4rem strip.
  */
-export function ChromeRailFolds({ children }: { children: React.ReactNode }) {
+export function ChromeRailFolds({
+  children,
+  overlay = false,
+}: {
+  children: React.ReactNode;
+  /**
+   * The open rail lies over the page instead of beside it (the advocate shell below its
+   * desk width), so the page column keeps the strip's left edge in both states.
+   */
+  overlay?: boolean;
+}) {
   return (
     <ChromeRailFoldContext.Provider value={true}>
-      {children}
+      <ChromeRailOverlayContext.Provider value={overlay}>
+        {children}
+      </ChromeRailOverlayContext.Provider>
     </ChromeRailFoldContext.Provider>
   );
 }
