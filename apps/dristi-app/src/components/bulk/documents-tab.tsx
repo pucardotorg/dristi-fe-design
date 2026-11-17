@@ -254,7 +254,7 @@ function SlotChip({
             </a>
           </DropdownMenuItem>
           {canUpload ? <DropdownMenuItem onSelect={choose}>Replace</DropdownMenuItem> : null}
-          {poor && onKeep && canUpload ? <DropdownMenuItem onSelect={onKeep}>Keep this file</DropdownMenuItem> : null}
+          {poor && onKeep && canUpload ? <DropdownMenuItem onSelect={onKeep}>Keep this scan</DropdownMenuItem> : null}
         </DropdownMenuContent>
       </DropdownMenu>
       {picker}
@@ -807,7 +807,7 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
       <Card variant="raised" className="gap-0 p-2">
         {listed.length === 0 ? (
           <p className="p-4 text-body-compact text-muted-foreground">
-            {term ? `No case matches “${search.trim()}”.` : show === "complete" ? "No case has all its documents yet." : "Every case has its documents."}
+            {term ? `No case matches “${search.trim()}”.` : show === "complete" ? "No case has every document yet." : "Every case has its documents."}
           </p>
         ) : (
           <>
@@ -1001,7 +1001,7 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
           // Cases still missing a file never hold the ready ones up (v8, BLK-08); with none
           // ready there is nothing to take on yet.
           continueVariant={lackingCases.length ? "outline" : "default"}
-          continueLabel={lackingCases.length && complete ? `Continue with ${complete} ready to sign` : "Continue to Sign"}
+          continueLabel={lackingCases.length && complete ? `Continue with ${complete} ready to sign` : "Continue to signing"}
           continueDisabled={!complete}
           onContinue={() => go("sign")}
         />

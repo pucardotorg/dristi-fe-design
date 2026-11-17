@@ -185,7 +185,7 @@ function SharedFix({
         <span className="text-body-compact font-medium tabular-nums">
           {cases.length} cases have no {label.toLowerCase()}
         </span>
-        <span className="text-body-compact text-muted-foreground">Choose it once and it goes on all of them.</span>
+        <span className="text-body-compact text-muted-foreground">Choose once for all of them.</span>
       </div>
       <div className="w-full sm:w-72">
         <Label htmlFor={id} className="sr-only">
@@ -268,7 +268,7 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
       <StatusLine tone="neutral" still>
         Nothing open here.{" "}
         <button type="button" className="underline" onClick={() => go("sign")}>
-          Go to Sign
+          Continue to signing
         </button>
       </StatusLine>
     );
