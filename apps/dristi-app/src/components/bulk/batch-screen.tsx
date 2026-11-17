@@ -240,9 +240,9 @@ export function BatchScreen({ batchId }: { batchId: string }) {
     // What to do, not the counts the pills already give (BLK-08, BLK-12; owner, 2026-11-17:
     // say clearly what needs doing).
     scrutiny: fixing
-      ? `Open each case to fix and correct it before filing.${checking ? " Cases to check can be filed as they are." : ""}`
+      ? `Open a case to fix it before filing.${checking ? " Cases to check can be filed as they are." : ""}`
       : checking
-        ? "Cases to check can be filed as they are, or opened to review."
+        ? "Cases to check can be filed as they are."
         : "Every case's details are done.",
     documents: docsMissing
       ? `${plural(docsMissing, "case is", "cases are")} missing documents.`
