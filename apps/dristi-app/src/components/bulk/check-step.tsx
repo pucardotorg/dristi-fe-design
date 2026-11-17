@@ -465,7 +465,8 @@ export function FactsCard({
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-72">
                       {/* One default everyone starts from, then the filer's own, which only they
-                          see (BLK-10d; sharing is a later version). */}
+                          see (BLK-10d; sharing is a later version). Said by the list, not a
+                          note under it (owner, 2026-11-17). */}
                       <DropdownMenuRadioGroup
                         value={current?.id ?? ""}
                         onValueChange={(id) => {
@@ -491,7 +492,7 @@ export function FactsCard({
                             </DropdownMenuRadioItem>
                           ))
                         ) : (
-                          <p className="px-2 py-1.5 text-body-compact text-muted-foreground">None yet. Save the batch text to make one.</p>
+                          <p className="px-2 py-1.5 text-body-compact text-muted-foreground">None yet</p>
                         )}
                       </DropdownMenuRadioGroup>
                       <DropdownMenuSeparator />
@@ -504,17 +505,16 @@ export function FactsCard({
                         }}
                       >
                         <BookmarkPlusIcon aria-hidden />
-                        Save this text as a template
+                        Save as template
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
                         <a href={FORMATS_HREF} target="_blank" rel="noopener">
                           <Settings2Icon aria-hidden />
-                          Manage my templates
+                          Manage templates
                           <ExternalLinkIcon aria-hidden className="ml-auto text-muted-foreground" />
                           <span className="sr-only">(opens in a new tab)</span>
                         </a>
                       </DropdownMenuItem>
-                      <p className="px-2 pt-1 pb-1.5 text-body-compact text-muted-foreground">Only you see your templates.</p>
                     </DropdownMenuContent>
                   </DropdownMenu>
                   <DetailFieldMenu
@@ -613,7 +613,7 @@ export function FactsCard({
           >
             <DialogHeader>
               <DialogTitle>Save as a template</DialogTitle>
-              <DialogDescription>Only you can see it. Start any batch&apos;s facts from it.</DialogDescription>
+              <DialogDescription>Start any batch&apos;s facts from it.</DialogDescription>
             </DialogHeader>
             <Field>
               <FieldLabel>Name</FieldLabel>
