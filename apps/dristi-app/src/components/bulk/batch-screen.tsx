@@ -331,7 +331,7 @@ export function BatchScreen({ batchId }: { batchId: string }) {
         {body}
         </div>
       </div>
-      <div ref={setFooterSlot} className="sticky bottom-0 z-30" />
+      <div ref={setFooterSlot} data-bulk-footer className="sticky bottom-0 z-30" />
     </div>
     </FooterSlot.Provider>
   );

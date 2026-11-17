@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 
 import type { CaseView } from "./api";
+import { toListTop } from "./list-dock";
 
 export const PAGE_SIZE = 25;
 
@@ -39,8 +40,11 @@ export function CaseSearch({
   onChange,
   className,
   placeholder = "Accused, draft number or cheque",
+  label = "Search cases",
 }: {
   id: string;
+  /** The field's name for a screen reader (the placeholder is only a hint). */
+  label?: string;
   value: string;
   onChange: (v: string) => void;
   className?: string;
@@ -49,7 +53,7 @@ export function CaseSearch({
   return (
     <div className={cn("w-full sm:ml-auto sm:w-72", className)}>
       <Label htmlFor={id} className="sr-only">
-        Search cases
+        {label}
       </Label>
       <InputGroup>
         <InputGroupAddon>
@@ -87,19 +91,25 @@ export function PagerTop({
   /** Rows a page holds, where the list lets the filer choose (`Pager`'s `sizes`). */
   size?: number;
 }) {
+  const ref = React.useRef<HTMLDivElement>(null);
   if (total <= size) return null;
+  // Pinned with the list's toolbar, a page turned from here starts at its first row.
+  const go = (p: number) => {
+    onPage(p);
+    toListTop(ref.current);
+  };
   return (
-    <div className="flex shrink-0 items-center gap-1 text-body-compact text-muted-foreground">
+    <div ref={ref} className="flex shrink-0 items-center gap-1 text-body-compact text-muted-foreground">
       <span className="px-1 tabular-nums">
         <span className="text-foreground">
           {at * size + 1}–{Math.min(total, (at + 1) * size)}
         </span>{" "}
         of {total}
       </span>
-      <Button variant="ghost" size="icon-sm" aria-label="Previous page" disabled={at === 0} onClick={() => onPage(at - 1)}>
+      <Button variant="ghost" size="icon-sm" aria-label="Previous page" disabled={at === 0} onClick={() => go(at - 1)}>
         <ChevronLeftIcon aria-hidden />
       </Button>
-      <Button variant="ghost" size="icon-sm" aria-label="Next page" disabled={at >= pages - 1} onClick={() => onPage(at + 1)}>
+      <Button variant="ghost" size="icon-sm" aria-label="Next page" disabled={at >= pages - 1} onClick={() => go(at + 1)}>
         <ChevronRightIcon aria-hidden />
       </Button>
     </div>
@@ -148,7 +158,8 @@ export function Pager({
   if (total <= (choose ? sizes[0] : size)) return null;
   const go = (p: number) => {
     onPage(p);
-    // The list this pager closes: the panel it sits in.
+    // A docked list goes back to its pinned toolbar's place; any other to its panel's top.
+    if (toListTop(ref.current)) return;
     const list = ref.current?.closest("[data-slot=card]") ?? ref.current?.parentElement;
     requestAnimationFrame(() => list?.scrollIntoView({ block: "start", behavior: "smooth" }));
   };
@@ -156,6 +167,7 @@ export function Pager({
     <nav
       ref={ref}
       aria-label="Pages"
+      data-list-pager
       className="flex flex-wrap items-center justify-between gap-3 border-t border-hairline px-2 pt-3 pb-1 text-body-compact text-muted-foreground"
     >
       <span className="flex items-center gap-3">

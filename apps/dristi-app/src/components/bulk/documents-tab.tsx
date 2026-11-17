@@ -49,6 +49,7 @@ import { StepMeta } from "./step-meta";
 import { bulkStepTitle } from "./bulk-steps";
 import { notify } from "@/components/ui/notify";
 import { CaseSearch, Pager, PagerTop, pageOf } from "./case-list-tools";
+import { ListDock, dockBox, dockHead, useFitRows, useListDock } from "./list-dock";
 import { FilterPills } from "./filter-pills";
 import { DocumentsGuide, guideSeen } from "./documents-guide";
 import { useDemoTools } from "./demo-tools";
@@ -494,56 +495,21 @@ function OtherView({ fileId }: { fileId: string }) {
 
 type Show = "missing" | "complete" | "all";
 
-/**
- * Documents, case by case: one row per case with a chip for each of its documents, so
- * what is missing across the batch is seen at once and added where it is (BLK-11). The
- * batch's own documents (the complainant's, set in Common details) are not repeated in
- * every row unless one is missing. Cases still being fixed join later; signed and filed
- * cases are locked. Read 10 or 15 at a time: a row is a full line of marks, and a longer
- * page only buries the pager (owner, 2026-11-17).
- */
 /** The sandbox's three ways to fill a batch's documents (`sandboxDocuments`). */
-/** Cases a page of the grid holds: 10 or 15, never more. */
-const DOC_PAGE_SIZES = [10, 15] as const;
-
-/**
- * The grid's headings rest under the page's sticky stack (the top bar and the batch's
- * steps), measured, since the steps row can wrap or carry a second row. Where even the
- * two-line column names can't make the grid fit (a narrow desk with the rail open), it
- * scrolls sideways instead and the headings stop pinning: a scrolling box would hold
- * them, and a clipped column is worse than headings that scroll away (as the Filings
- * queue does).
- */
-export function useStickyHead() {
-  const box = React.useRef<HTMLDivElement>(null);
-  const [tight, setTight] = React.useState(false);
-  const [top, setTop] = React.useState(0);
-  React.useEffect(() => {
-    const el = box.current;
-    if (!el) return;
-    const steps = document.querySelector('nav[aria-label="Batch steps"]')?.parentElement ?? null;
-    const check = () => {
-      const table = el.querySelector("table");
-      setTight(!!table && table.scrollWidth > el.clientWidth + 1);
-      if (steps) setTop((parseFloat(getComputedStyle(steps).top) || 0) + steps.offsetHeight);
-    };
-    check();
-    const ro = new ResizeObserver(check);
-    ro.observe(el);
-    const table = el.querySelector("table");
-    if (table) ro.observe(table);
-    if (steps) ro.observe(steps);
-    return () => ro.disconnect();
-  });
-  return { boxRef: box, tight, top };
-}
-
 const SANDBOX_FILLS = [
   { id: "all", label: "Every document", detail: "Every case ready to sign" },
   { id: "most", label: "Most documents", detail: "About one case in seven still missing one or two" },
   { id: "issues", label: "Every document, some unreadable", detail: "One scan in twenty too blurry to read" },
 ] as const;
 
+/**
+ * Documents, case by case: one row per case with a chip for each of its documents, so
+ * what is missing across the batch is seen at once and added where it is (BLK-11). The
+ * batch's own documents (the complainant's, set in Common details) are not repeated in
+ * every row unless one is missing. Cases still being fixed join later; signed and filed
+ * cases are locked. A page holds as many rows as the window does under the pinned toolbar
+ * (`useFitRows`), so the pager is never buried.
+ */
 export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
   const { ask: askRemove, dialog: removeDialog } = useRemoveCase(batch, setBatch);
   // The walkthrough, once per browser, the first time there is something to add. The tab
@@ -568,8 +534,10 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
   // Asked for from a row menu: opened once that menu has closed and handed focus back.
   const pendingOther = React.useRef<string | null>(null);
   const [page, setPage] = React.useState(0);
-  const [size, setSize] = React.useState<number>(DOC_PAGE_SIZES[0]);
-  const { boxRef: headBox, tight: headTight, top: headTop } = useStickyHead();
+  const { dock, sentinelRef, barRef, boxRef } = useListDock();
+  // As many rows as the window holds under the pinned toolbar, keeping the first in view.
+  const fit = useFitRows(dock, { onResize: (from, to) => setPage((p) => Math.floor((p * from) / to)) });
+  const size = fit.size;
 
   // Cases missing something first, in the order they had when the tab opened, so a case
   // does not jump away the moment its last document goes in.
@@ -791,32 +759,8 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
 
       {error ? <StatusLine tone="error">{error}</StatusLine> : null}
 
-      <div className="flex flex-wrap items-center gap-3">
-        <FilterPills
-          value={show}
-          onChange={(v) => {
-            setShow(v as Show);
-            setPage(0);
-          }}
-          total={open.length}
-          filters={[
-            { id: "missing", label: "Missing documents", count: startedOpen.size ? lackingCases.length : 0 },
-            { id: "complete", label: "Documents added", count: open.length - lackingCases.length },
-          ]}
-        />
-        <CaseSearch
-          id="documents-search"
-          value={search}
-          onChange={(v) => {
-            setSearch(v);
-            setPage(0);
-          }}
-        />
-        <PagerTop total={shownCases.length} at={at} pages={pages} onPage={setPage} size={size} />
-      </div>
-
-      {/* Visible, not hidden: the Card's clip would hold the grid's headings in place of
-          the page, so they could never pin. */}
+      {/* Visible, not hidden: the Card's clip would hold the toolbar and headings in place
+          of the page, so they could never pin. */}
       <Card variant="raised" className="gap-0 overflow-visible p-2">
         {/* The list's first row: the batch's cases this list leaves out and where they are,
             and the warnings skipped here (owner, 2026-11-17: on the page it floated). */}
@@ -831,6 +775,35 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
             onUndo: (c, f) => void unkeep(c, f),
           }}
         />
+        {/* The list's toolbar, pinned with the headings as one unit (`list-dock.tsx`). */}
+        <ListDock dock={dock} sentinelRef={sentinelRef} barRef={barRef} className="flex flex-wrap items-center gap-3 px-4 py-3">
+          <FilterPills
+            className="sm:min-w-fit"
+            value={show}
+            onChange={(v) => {
+              setShow(v as Show);
+              setPage(0);
+            }}
+            total={open.length}
+            filters={[
+              { id: "missing", label: "Missing documents", count: startedOpen.size ? lackingCases.length : 0 },
+              { id: "complete", label: "Documents added", count: open.length - lackingCases.length },
+            ]}
+          />
+          {/* On a phone the search takes the line and the page count wraps under it. */}
+          <div className="flex w-full min-w-0 flex-wrap items-center gap-3 sm:ml-auto sm:w-auto sm:flex-nowrap">
+            <CaseSearch
+              id="documents-search"
+              className="min-w-56 flex-1 sm:min-w-0 sm:flex-none"
+              value={search}
+              onChange={(v) => {
+                setSearch(v);
+                setPage(0);
+              }}
+            />
+            <PagerTop total={shownCases.length} at={at} pages={pages} onPage={setPage} size={size} />
+          </div>
+        </ListDock>
         {listed.length === 0 ? (
           <p className="p-4 text-body-compact text-muted-foreground">
             {term ? `No case matches “${search.trim()}”.` : show === "complete" ? "No case has every document yet." : "Every case has its documents."}
@@ -841,20 +814,10 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
                 column, and each cell only its state, so what is missing across the batch
                 reads at a glance (owner, 2026-11-12: the chip rows repeated every name on
                 every case and painted fifty red chips). */}
-            <div
-              ref={headBox}
-              className={cn(
-                "hidden md:block",
-                headTight ? "overflow-x-auto" : "overflow-x-clip [&>[data-slot=table-container]]:overflow-visible",
-              )}
-            >
+            <div ref={boxRef} className={cn("hidden md:block", dockBox(dock))}>
               <Table className="border-separate border-spacing-0" aria-label="Documents for each case">
-                {/* Pinned under the steps while the grid scrolls by; the card's white behind
-                    the well's rounded ends, so no row shows through its corners. */}
-                <TableHeader
-                  className={headTight ? undefined : "sticky z-10 bg-card"}
-                  style={headTight ? undefined : { top: headTop }}
-                >
+                {/* Pinned under the toolbar while the grid scrolls by, on its plate. */}
+                <TableHeader {...dockHead(dock)}>
                   <TableRow className={TABLE_HEAD_ROW}>
                     <TableHead className={cn(TABLE_HEAD, "w-full min-w-44")}>Accused</TableHead>
                     {columns.map((col) => (
@@ -880,7 +843,9 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
                     const have = need.filter((d) => d.file).length;
                     return (
                       <TableRow key={c.id} className={tableRowClass({ hover: false })}>
-                        <TableCell className={cn(TABLE_CELL, "max-w-64")}>
+                        {/* max-w-0: a long name truncates rather than widening the grid
+                            past the page, which would stop its headings pinning. */}
+                        <TableCell className={cn(TABLE_CELL, "max-w-0")}>
                           {/* The marks say what is missing; a screen reader gets it as a count. */}
                           <span className="sr-only">{`${have} of ${need.length} required documents added. `}</span>
                           <span className="block truncate font-medium" title={c.accused || c.title}>
@@ -946,7 +911,7 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
               </Table>
             </div>
             {/* A phone has no width for columns: each case keeps its row of named chips. */}
-            <ul className="flex flex-col md:hidden">
+            <ul data-list-rows className="flex flex-col md:hidden">
               {listed.map((c) => (
                 <li key={c.id} className="flex flex-col gap-2 border-b border-hairline px-2 py-3.5 last:border-b-0">
                   <span className="flex min-w-0 flex-col text-body-compact">
@@ -983,10 +948,10 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
           pages={pages}
           onPage={setPage}
           size={size}
-          sizes={DOC_PAGE_SIZES}
+          sizes={fit.sizes}
           onSize={(n) => {
-            setSize(n);
-            setPage(0);
+            setPage(Math.floor((at * size) / n));
+            fit.pick(n);
           }}
         />
       </Card>

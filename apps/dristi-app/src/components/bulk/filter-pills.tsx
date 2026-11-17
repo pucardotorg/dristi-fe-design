@@ -6,6 +6,7 @@ import {
   PILL_ROW,
 } from "@/components/chrome/pill-plate";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { cn } from "@/lib/utils";
 
 /**
  * A bulk list's filter: the product's one pill row (`chrome/pill-plate.ts`, born on
@@ -20,6 +21,7 @@ export function FilterPills({
   filters,
   label = "Show cases",
   size = "lg",
+  className,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -28,10 +30,12 @@ export function FilterPills({
   label?: string;
   /** `sm` inside a popover's toolbar (the case finder); lists keep the full size. */
   size?: "sm" | "lg";
+  /** The wrapper's sizing in its row, e.g. `sm:min-w-fit` to wrap whole rather than scroll. */
+  className?: string;
 }) {
   // Takes what the row leaves beside the search, and scrolls sideways inside it on a phone.
   return (
-    <div className="min-w-0 flex-1">
+    <div className={cn("min-w-0 flex-1", className)}>
       <ToggleGroup
         type="single"
         size={size === "sm" ? "default" : "lg"}

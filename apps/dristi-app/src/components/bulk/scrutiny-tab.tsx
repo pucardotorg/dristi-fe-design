@@ -38,7 +38,7 @@ import { bulkApi, caseFlowHref, type CaseView } from "./api";
 import { BatchFooter } from "./batch-footer";
 import { aboutDetails, caseState, detailFlags, isOpen } from "./batch-marks";
 import { StepMeta } from "./step-meta";
-import { useStickyHead } from "./documents-tab";
+import { ListDock, dockBox, dockHead, useFitRows, useListDock } from "./list-dock";
 import type { BatchCtx } from "./batch-screen";
 import { CaseSearch, Pager, PagerTop, caseMatches, pageOf } from "./case-list-tools";
 import { RemoveCaseItem, useRemoveCase } from "./remove-case";
@@ -210,16 +210,16 @@ function SharedFix({
 
 /**
  * Case details: the batch's open cases as v8 lists them. The list starts on the cases to
- * fix, can be searched by accused, draft number or cheque, and is read 25 at a time. A case
- * opens in the single filing's own sections (`case-flow.tsx`), at the first section with
- * something to fix. The footer's primary is the work itself ("Fix the first case"), with
+ * fix, can be searched by accused, draft number or cheque, and is read a windowful at a
+ * time (`useFitRows`). A case opens in the single filing's own sections (`case-flow.tsx`),
+ * at the first section with something to fix. The footer's primary is the work itself ("Fix the first case"), with
  * "Continue with N complete" beside it, so cases still to fix never hold the rest up.
  */
 export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const closed = !!batch.clubbedInto;
-  const { boxRef: headBox, tight: headTight, top: headTop } = useStickyHead();
+  const { dock, sentinelRef, barRef, boxRef } = useListDock();
   const params = useSearchParams();
   const router = useRouter();
   const ai = params.get("ai");
@@ -232,12 +232,14 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
   const [show, setShow] = React.useState<Show>(fixing.length ? "fix" : "all");
   const [search, setSearch] = React.useState("");
   const [page, setPage] = React.useState(0);
+  // As many rows as the window holds under the pinned toolbar, keeping the first in view.
+  const fit = useFitRows(dock, { onResize: (from, to) => setPage((p) => Math.floor((p * from) / to)) });
   const { ask: askRemove, dialog: removeDialog } = useRemoveCase(batch, setBatch);
 
   const term = search.trim().toLowerCase();
   const inShow = { fix: fixing, check: checking, all: open }[show];
   const listed = [...inShow].sort((a, b) => rankOf(a) - rankOf(b)).filter((c) => caseMatches(c, term));
-  const { pages, at, shown } = pageOf(listed, page);
+  const { pages, at, shown } = pageOf(listed, page, fit.size);
 
   // Shared gaps the batch can fix once: a batch-wide value fix on more than one case.
   const shared = new Map<string, { label: string; options: { value: string; label: string }[]; cases: CaseView[] }>();
@@ -300,34 +302,40 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
           onUndo: (c, f) => void act({ action: "unskip", caseId: c.id, flagId: f.id }),
         }}
       />
-      <div className="flex flex-wrap items-center gap-3">
-        <FilterPills
-          value={show}
-          onChange={(v) => {
-            setShow(v as Show);
-            setPage(0);
-          }}
-          total={open.length}
-          filters={[
-            { id: "fix", label: "To fix", count: fixing.length },
-            { id: "check", label: "To check", count: checking.length },
-          ]}
-        />
-        <CaseSearch
-          id="details-search"
-          value={search}
-          onChange={(v) => {
-            setSearch(v);
-            setPage(0);
-          }}
-        />
-        <PagerTop total={listed.length} at={at} pages={pages} onPage={setPage} />
-      </div>
-
       {error ? <StatusLine tone="error">{error}</StatusLine> : null}
 
-      {/* overflow-visible: a clipping card would make the pinned headings inert. */}
+      {/* overflow-visible: a clipping card would make the pinned toolbar inert. */}
       <Card variant="raised" className="gap-0 overflow-visible p-2">
+        {/* The list's toolbar is its panel's first row, and pins with the headings as one
+            unit under the steps (`list-dock.tsx`). */}
+        <ListDock dock={dock} sentinelRef={sentinelRef} barRef={barRef} className="flex flex-wrap items-center gap-3 px-4 py-3">
+          <FilterPills
+            className="sm:min-w-fit"
+            value={show}
+            onChange={(v) => {
+              setShow(v as Show);
+              setPage(0);
+            }}
+            total={open.length}
+            filters={[
+              { id: "fix", label: "To fix", count: fixing.length },
+              { id: "check", label: "To check", count: checking.length },
+            ]}
+          />
+          {/* On a phone the search takes the line and the page count wraps under it. */}
+          <div className="flex w-full min-w-0 flex-wrap items-center gap-3 sm:ml-auto sm:w-auto sm:flex-nowrap">
+            <CaseSearch
+              id="details-search"
+              className="min-w-56 flex-1 sm:min-w-0 sm:flex-none"
+              value={search}
+              onChange={(v) => {
+                setSearch(v);
+                setPage(0);
+              }}
+            />
+            <PagerTop total={listed.length} at={at} pages={pages} onPage={setPage} size={fit.size} />
+          </div>
+        </ListDock>
         {shown.length === 0 ? (
           <p className="flex flex-wrap items-center gap-x-2 p-4 text-body-compact text-muted-foreground">
             {term ? `No case matches “${search.trim()}”.` : show === "fix" ? "Nothing left to fix." : show === "check" ? "Nothing left to check." : "No case here."}
@@ -340,19 +348,10 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
         ) : (
           <>
             {/* A table from md up; on a phone each case is a stacked row. */}
-            {/* The headings pin under the top bar and the steps, as on Documents. */}
-            <div
-              ref={headBox}
-              className={cn(
-                "hidden md:block",
-                headTight ? "overflow-x-auto" : "overflow-x-clip [&>[data-slot=table-container]]:overflow-visible"
-              )}
-            >
+            {/* The headings pin under the toolbar, as on Documents. */}
+            <div ref={boxRef} className={cn("hidden md:block", dockBox(dock))}>
               <Table className="border-separate border-spacing-0" aria-label="Cases">
-                <TableHeader
-                  className={headTight ? undefined : "sticky z-10 bg-card"}
-                  style={headTight ? undefined : { top: headTop }}
-                >
+                <TableHeader {...dockHead(dock)}>
                   <TableRow className={TABLE_HEAD_ROW}>
                     <TableHead className={cn(TABLE_HEAD, "w-full")}>Accused</TableHead>
                     <TableHead className={TABLE_HEAD}>Status</TableHead>
@@ -426,7 +425,7 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
             </div>
             {/* Phone: the case is the link, Fix is the visible action, and Remove waits in a
                 menu so the destructive action is never the most prominent (round 3). */}
-            <ul className="flex flex-col divide-y divide-hairline md:hidden">
+            <ul data-list-rows className="flex flex-col divide-y divide-hairline md:hidden">
               {shown.map((c) => {
                 const href = caseFlowHref(batch.id, c, undefined, ai);
                 return (
@@ -468,7 +467,18 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
             </ul>
           </>
         )}
-        <Pager total={listed.length} at={at} pages={pages} onPage={setPage} />
+        <Pager
+          total={listed.length}
+          at={at}
+          pages={pages}
+          onPage={setPage}
+          size={fit.size}
+          sizes={fit.sizes}
+          onSize={(n) => {
+            setPage(Math.floor((at * fit.size) / n));
+            fit.pick(n);
+          }}
+        />
       </Card>
 
       {removeDialog}
