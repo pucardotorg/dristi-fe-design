@@ -33,7 +33,7 @@ import type { FilingDraft, StoredFileRef } from "@/lib/filing/types";
 import type { AiMode } from "./ai-review";
 import { caseFacts, type CaseFact } from "./case-fields";
 import { resolveBar, resolveIfsc, resolvePin } from "./reference";
-import { caseState, type CaseState } from "./case-state";
+import { aboutDetails, progressState, type CaseState } from "./case-state";
 import { draftNumber } from "./store";
 import { caseFlags, caseStage, openFlags, type Flag } from "./scrutiny";
 import {
@@ -237,7 +237,7 @@ export function summarise(
     // Only the facts caseState reads. A full caseView per case (fees, limitation, every
     // flag) made this list take minutes on a few hundred cases.
     const required = bc.draft.documents.flatMap((g) => g.docs).filter((d) => d.required);
-    states[caseState({ stage, flags, docs: { have: required.filter((d) => d.file).length, need: required.length } })] += 1;
+    states[progressState({ stage, flags, docs: { have: required.filter((d) => d.file).length, need: required.length } })] += 1;
     if (flags.length && bc.draft.status !== "filed" && !bc.signedWith)
       flagged += 1;
   }
@@ -515,12 +515,17 @@ function attachCustom(bc: BatchCase, key: string, ref: StoredFileRef): boolean {
 /* ───────────────────────────── Sign and pay ───────────────────────────── */
 
 /** Cases that may be signed now: nothing holds them and no soft flag is left open. */
+/**
+ * The cases that can be signed: nothing holds them and their documents are in. A warning
+ * left on a case's details doesn't stop it (`readyToSign`, the screens' own rule).
+ */
 export function signable(batch: Batch): BatchCase[] {
   return batch.cases.filter(
     (bc) =>
       bc.draft.status !== "filed" &&
       !bc.signedWith &&
-      openFlags(bc).length === 0,
+      openFlags(bc).every((f) => f.level !== "hold" && aboutDetails(f)) &&
+      bc.draft.documents.flatMap((g) => g.docs).every((d) => !d.required || !!d.file),
   );
 }
 

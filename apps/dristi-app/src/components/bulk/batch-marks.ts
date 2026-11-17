@@ -12,8 +12,8 @@
 import type { BatchView, CaseView } from "./api";
 import type { BulkStepId, StepMark } from "./bulk-steps";
 
-export { aboutDetails, caseState, detailFlags, documentFlags, type CaseState } from "@/lib/bulk/case-state";
-import { caseState, documentFlags, type CaseState } from "@/lib/bulk/case-state";
+export { aboutDetails, caseState, detailFlags, documentFlags, progressState, readyToSign, type CaseState } from "@/lib/bulk/case-state";
+import { caseState, documentFlags, readyToSign, type CaseState } from "@/lib/bulk/case-state";
 
 /** Cases that can still change: everything before signing. */
 export const isOpen = (c: CaseView) => c.stage === "held" || c.stage === "ready";
@@ -23,7 +23,9 @@ export function batchTallies(batch: BatchView) {
   const by = (s: CaseState) => open.filter((c) => caseState(c) === s);
   const fixingCases = by("fix");
   const checkingCases = by("check");
-  const completeCases = by("complete");
+  // Ready to sign: details hold nothing and documents are in. A case with only warnings
+  // on its details is ready too (`readyToSign`).
+  const completeCases = open.filter(readyToSign);
   const workable = open.length;
   const allFiled = batch.total > 0 && batch.counts.filed === batch.total;
   // Documents works on every case not still being fixed (v8: those join it later).

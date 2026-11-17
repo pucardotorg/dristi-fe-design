@@ -32,6 +32,30 @@ export type CaseState = "fix" | "check" | "docs" | "complete" | "signed" | "file
 /** What `caseState` reads: a case view, or the same few facts without building one. */
 export type StateFacts = Pick<CaseView, "stage" | "flags" | "docs">;
 
+/**
+ * Whether a case can be signed: nothing holds it, its documents are all in and readable,
+ * and it is not signed or filed yet. Warnings on its details don't stop it: Case details
+ * says those cases "can go ahead without changes", and they do (owner, 2026-11-17: 161
+ * cases had their documents but only the 48 without a warning could be signed).
+ */
+export function readyToSign(c: StateFacts): boolean {
+  if (c.stage === "filed" || c.stage === "signed") return false;
+  if (detailFlags(c).some((f) => f.level === "hold")) return false;
+  return documentFlags(c).length === 0 && c.docs.have >= c.docs.need;
+}
+
+/**
+ * Where a case is in the steps, for counts that must add up (the batch list's bar): to fix,
+ * missing a document, ready to sign, signed, filed. A warning on its details is not a stage
+ * of its own here; Case details still lists such cases under To check (`caseState`).
+ */
+export function progressState(c: StateFacts): CaseState {
+  if (c.stage === "filed") return "filed";
+  if (c.stage === "signed") return "signed";
+  if (detailFlags(c).some((f) => f.level === "hold")) return "fix";
+  return readyToSign(c) ? "complete" : "docs";
+}
+
 export function caseState(c: StateFacts): CaseState {
   if (c.stage === "filed") return "filed";
   if (c.stage === "signed") return "signed";

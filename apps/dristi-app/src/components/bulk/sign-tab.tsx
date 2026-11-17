@@ -145,8 +145,9 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
   const signedIds = round?.signed ?? [];
   const allSigned = !!round && signers.every((s) => signedIds.includes(s.id));
   // Why the other open cases can't be signed yet, by cause, each with the step that fixes it.
-  const { fixing, checking, docsMissing } = tallies;
-  const waiting = fixing + checking + docsMissing;
+  // Each case not ready is held by exactly one thing, so the causes add up to the total.
+  const { fixing, docsMissing } = tallies;
+  const waiting = tallies.open.filter((c) => c.stage !== "signed").length - clear.length;
 
   /** Every party has signed: the batch's cases are signed, by the method used, and pay opens. */
   const complete = async (r: Round) => {
@@ -190,10 +191,9 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
           }
         >
           <span className="flex flex-col gap-1">
-            {fixing || checking ? (
+            {fixing ? (
               <span className="tabular-nums">
-                {[fixing ? `${fixing} to fix` : "", checking ? `${checking} to check` : ""].filter(Boolean).join(" and ")}{" "}
-                at{" "}
+                {fixing} to fix at{" "}
                 <button type="button" className="underline" onClick={() => go("scrutiny")}>
                   Case details
                 </button>

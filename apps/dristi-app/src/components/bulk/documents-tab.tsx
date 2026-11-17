@@ -44,7 +44,7 @@ import { bulkApi, useBulkFileUrl, type CaseView } from "./api";
 import { BatchFooter } from "./batch-footer";
 import type { BatchCtx } from "./batch-screen";
 import { RemoveCaseItem, useRemoveCase } from "./remove-case";
-import { batchTallies, caseState } from "./batch-marks";
+import { batchTallies, caseState, readyToSign } from "./batch-marks";
 import { CaseSearch } from "./case-list-tools";
 import { FilterPills } from "./filter-pills";
 import { DocumentsGuide, guideSeen } from "./documents-guide";
@@ -550,7 +550,8 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
   // as they are finished, so the list never moves under the filer's hand.
   const [startedOpen] = React.useState(() => new Set(open.filter(needsWork).map((c) => c.id)));
   const [show, setShow] = React.useState<Show>(() => (startedOpen.size ? "missing" : "all"));
-  const complete = open.filter((c) => caseState(c) === "complete").length;
+  // Ready to sign: the same rule Sign uses, so the two steps agree (`readyToSign`).
+  const complete = open.filter(readyToSign).length;
 
   const upload = async (c: CaseView, d: Doc, file: File) => {
     if (!d.slotKey) return;
