@@ -134,10 +134,10 @@ function nextToFix(cases: CaseView[], at: number): { c: CaseView; verb: "fix" | 
 /** Why nothing in a case can be changed here, or `null` when it can. */
 function closedBecause(batch: BatchView | null, c: CaseView | null): string | null {
   if (batch?.clubbedInto)
-    return `This batch was clubbed into ${batch.clubbedIntoNumber ?? "another batch"} and is closed, so its cases cannot be changed here.`;
+    return `Clubbed into ${batch.clubbedIntoNumber ?? "another batch"}. Change its cases there.`;
   if (c?.stage === "filed") return "This case is filed, so it cannot be changed.";
   if (c?.stage === "signed")
-    return "This case is signed, so it cannot be changed here. A change would void the signatures.";
+    return "This case is signed. Changing it would void the signatures.";
   return null;
 }
 
@@ -356,7 +356,7 @@ export function BulkCaseFlow({
               </EmptyMedia>
               <EmptyTitle className="text-body font-semibold">This case isn&apos;t in the batch</EmptyTitle>
               <EmptyDescription className="text-body">
-                It may have been clubbed into another batch, or the link is old.
+                It may have been clubbed into another batch, or the link is out of date.
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
@@ -721,7 +721,7 @@ function FixList({
             action={
               <span className="flex items-center gap-1">
                 <FlagAction f={f} caseId={c.id} busy={busy} act={act} />
-                {go ? <GoToButton onClick={go} /> : null}
+                {go ? <GoToButton onClick={go} label={`Go to ${f.fix && "label" in f.fix ? f.fix.label : f.where}`} /> : null}
               </span>
             }
           >
@@ -738,7 +738,7 @@ function FixList({
             )}
             {n ? (
               <span className="block font-normal text-muted-foreground">
-                Fill it in, then use it on the {others(n)} missing it.
+                Fill it in, then apply it to the {others(n)} missing it.
               </span>
             ) : null}
           </StatusLine>
@@ -756,12 +756,12 @@ function FixList({
                 void act({ action: "fix", caseId: c.id, path: o.fix.path, value: o.value, everyCase: true }, true)
               }
             >
-              {o.n === 1 ? "Use on it" : `Use on all ${o.n}`}
+              {o.n === 1 ? "Apply to this case" : `Apply to all ${o.n}`}
             </Button>
           }
         >
           <span className="tabular-nums">{others(o.n)}</span> {o.n === 1 ? "is" : "are"} missing the{" "}
-          {o.fix.label.toLowerCase()}. Use {o.shown} on {o.n === 1 ? "it" : "them"} too?
+          {o.fix.label.toLowerCase()}. Apply {o.shown} to {o.n === 1 ? "it" : "them"} too?
         </StatusLine>
       ))}
       {problem ? <StatusLine tone="error">{problem}</StatusLine> : null}
@@ -770,16 +770,16 @@ function FixList({
 }
 
 /** The target on a note: go to the place the note is about. */
-function GoToButton({ onClick }: { onClick: () => void }) {
+function GoToButton({ onClick, label }: { onClick: () => void; label: string }) {
   return (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon-sm" className="text-muted-foreground hover:text-foreground" onClick={onClick} aria-label="Go to it">
+          <Button variant="ghost" size="icon-sm" className="text-muted-foreground hover:text-foreground" onClick={onClick} aria-label={label}>
             <LocateFixedIcon aria-hidden />
           </Button>
         </TooltipTrigger>
-        <TooltipContent>Go to it</TooltipContent>
+        <TooltipContent>{label}</TooltipContent>
       </Tooltip>
     </TooltipProvider>
   );
@@ -817,7 +817,7 @@ function FlagAction({
         disabled={busy}
         onClick={() => void act({ action: "skip", caseId, flagId: f.id })}
       >
-        {f.rule === "dcm-poor" ? "Keep this file" : "Skip this check"}
+        {f.rule === "dcm-poor" ? "Keep this scan" : "Skip this check"}
       </Button>
     );
   return null;

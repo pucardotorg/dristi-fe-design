@@ -119,7 +119,7 @@ export function CaseFinder({
             <CommandPrimitive.Input
               value={q}
               onValueChange={setQ}
-              placeholder="Search by party, draft number or cheque"
+              placeholder="Party, draft number or cheque"
               className="h-full min-w-0 flex-1 bg-transparent text-body-compact text-foreground outline-none placeholder:text-muted-foreground"
             />
           </label>
