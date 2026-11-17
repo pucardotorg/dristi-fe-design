@@ -838,7 +838,7 @@ export function FilingsQueue({
     <Card variant="raised" className="gap-0 overflow-visible py-0">
       <div className={cn("flex flex-col gap-1 px-4 pt-4 pb-4", DESK_HEAD)}>
         <h2 className="text-title-s font-semibold text-foreground">Your filings</h2>
-        <p className="text-body-compact text-muted-foreground">
+        <p className="text-body text-muted-foreground">
           Continue a draft, or check where each filing stands.
         </p>
       </div>
