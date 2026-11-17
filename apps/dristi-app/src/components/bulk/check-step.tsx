@@ -428,17 +428,26 @@ export function FactsCard({
       </TabsContent>
       <TabsContent value="text" className="mt-0 outline-none">
     <Card variant="raised">
-      <CardContent className="flex flex-col gap-4">
+      <CardContent className="flex flex-col gap-3">
+        {/* What the box is, named once over both its tabs (owner, 2026-11-17). */}
+        <div className="flex items-baseline gap-2">
+          <h2 className="text-body font-semibold">
+            Batch text
+          </h2>
+          <span className="text-body-compact text-muted-foreground tabular-nums">
+            For {usingBatch} {usingBatch === 1 ? "case" : "cases"}
+          </span>
+        </div>
         {/* Write and Preview are the box's own header, as on a comment box: one frame,
             its first control the mode, its tools after it (owner, 2026-11-12). */}
         <Tabs value={mode} onValueChange={(v) => setMode(v as "write" | "preview")} className="flex flex-col gap-4">
           <TabsContent value="write" className="mt-0">
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-4">
             <RichTextEditor
               value={html}
               onChange={(next) => onChange(templateId, next)}
               placeholder="Write the facts, or start from a template"
-              ariaLabel="Facts of the case"
+              ariaLabel="Batch text"
               minHeightClassName="min-h-96"
               contentClassName={PROSE_CLASS}
               handleRef={editor}
@@ -524,11 +533,11 @@ export function FactsCard({
                 Left empty, these cases have no facts of the case. Add them in each case later.
               </p>
             ) : blanks.length ? (
-              <p className="flex items-start gap-2 text-body-compact">
+              <p className="flex items-start gap-2 px-1 text-body-compact tabular-nums">
                 <TriangleAlertIcon aria-hidden className="mt-0.5 size-4 shrink-0 text-warning-ink" />
                 <span>
-                  {blanks.length === 1 ? "1 highlighted part" : `${blanks.length} highlighted parts`} to write. Write{" "}
-                  {blanks.length === 1 ? "it" : "them"} here for all cases, or in each case.
+                  {blanks.length === 1 ? "1 part" : `${blanks.length} parts`} to fill in
+                  <span className="text-muted-foreground"> · here for every case, or in each one</span>
                 </span>
               </p>
             ) : null}
