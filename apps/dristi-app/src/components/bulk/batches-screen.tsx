@@ -137,9 +137,16 @@ const isDone = (b: BatchSummary) => !!b.clubbedInto || (b.total > 0 && b.counts.
 function originLine(b: BatchSummary): { text: string; title?: string } {
   const when = shortDate(b.createdAt);
   if (b.source.kind === "clubbed") return { text: `Clubbed from ${b.clubbedFrom.join(", ")} · ${when}` };
-  const kind = b.source.kind === "api" ? `${b.source.system} API` : b.source.kind === "documents" ? "Case documents" : "Excel";
+  // How it came in has its own column; this line is the file or reference and the day.
   const ref = b.source.reference;
-  return { text: [kind, ref ? middle(ref) : "", when].filter(Boolean).join(" · "), title: ref ?? undefined };
+  return { text: [ref ? middle(ref, 26) : "", when].filter(Boolean).join(" · "), title: ref ?? undefined };
+}
+
+/** How the batch came in, for its own column: "Excel" or "Provakil API". */
+function sourceOf(b: BatchSummary): string {
+  if (b.source.kind === "clubbed") return "Clubbed";
+  if (b.source.kind === "api") return `${b.source.system} API`;
+  return b.source.kind === "documents" ? "Documents" : "Excel";
 }
 
 /* ───────────────────────────── The screen ───────────────────────────── */
@@ -342,7 +349,7 @@ export function BatchesScreen() {
    */
   const filedCell = (b: BatchSummary) => {
     const n = b.states.filed;
-    if (!n) return <span className="text-muted-foreground/40" aria-label={`None of ${b.total} filed`}>–</span>;
+    if (!n) return <span className="text-muted-foreground tabular-nums">0 of {b.total}</span>;
     const done = n === b.total;
     return (
       <Link
@@ -505,7 +512,7 @@ export function BatchesScreen() {
                             {b.fileBy < today() ? <span className="font-medium text-destructive-ink"> · Past</span> : null}
                           </>
                         ) : (
-                          originLine(b).text
+                          `${sourceOf(b)} · ${originLine(b).text}`
                         )}
                       </span>
                       {b.notCreated ? (
@@ -538,22 +545,24 @@ export function BatchesScreen() {
                 <div className="hidden overflow-x-auto md:block">
                   <Table className="table-fixed border-separate border-spacing-0" aria-label="Batches">
                     <colgroup>
-                      <col className="w-[30%]" />
+                      <col className="w-[24%]" />
                       {showClient ? <col className="w-40" /> : null}
+                      <col className="w-28" />
                       <col className="w-28" />
                       {STAGES.map((st) => (
                         <col key={st.id} />
                       ))}
-                      <col className="w-40" />
+                      <col className="w-36" />
                       {anyMenu ? <col className="w-14" /> : null}
                     </colgroup>
                     <TableHeader>
                       <TableRow className={TABLE_HEAD_ROW}>
                         <TableHead className={TABLE_HEAD}>Batch</TableHead>
                         {showClient ? <TableHead className={TABLE_HEAD}>Complainant</TableHead> : null}
+                        <TableHead className={TABLE_HEAD}>Source</TableHead>
                         <TableHead className={cn(TABLE_HEAD, "whitespace-nowrap")}>File by</TableHead>
                         {STAGES.map((st) => (
-                          <TableHead key={st.id} className={cn(TABLE_HEAD, "px-2 text-center whitespace-nowrap")} title={bulkStepTitle(st.id)}>
+                          <TableHead key={st.id} className={cn(TABLE_HEAD, "px-2 text-center leading-5")} title={bulkStepTitle(st.id)}>
                             {st.head}
                           </TableHead>
                         ))}
@@ -605,6 +614,7 @@ export function BatchesScreen() {
                             {showClient ? (
                               <TableCell className={cn(TABLE_CELL, "truncate")}>{b.client || "—"}</TableCell>
                             ) : null}
+                            <TableCell className={cn(TABLE_CELL, "whitespace-nowrap text-foreground")}>{sourceOf(b)}</TableCell>
                             <TableCell className={cn(TABLE_CELL, "whitespace-nowrap")}>{fileByCell(b)}</TableCell>
                             {across ? (
                               <TableCell className={TABLE_CELL} colSpan={STAGES.length + 1}>
