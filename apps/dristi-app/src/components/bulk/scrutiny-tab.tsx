@@ -39,7 +39,7 @@ import { BatchFooter } from "./batch-footer";
 import { aboutDetails, caseState, detailFlags, isOpen } from "./batch-marks";
 import { SkippedWarnings } from "./skipped-warnings";
 import type { BatchCtx } from "./batch-screen";
-import { CaseSearch, Pager, caseMatches, pageOf } from "./case-list-tools";
+import { CaseSearch, Pager, PagerTop, caseMatches, pageOf } from "./case-list-tools";
 import { RemoveCaseItem, useRemoveCase } from "./remove-case";
 import { FilterPills } from "./filter-pills";
 import { StatusWord, shortReason } from "./stage";
@@ -291,6 +291,11 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
           />
         ))}
 
+      <SkippedWarnings
+        items={skipped}
+        busy={busy || closed}
+        onUndo={(c, f) => void act({ action: "unskip", caseId: c.id, flagId: f.id })}
+      />
       <div className="flex flex-wrap items-center gap-3">
         <FilterPills
           value={show}
@@ -312,6 +317,7 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
             setPage(0);
           }}
         />
+        <PagerTop total={listed.length} at={at} pages={pages} onPage={setPage} />
       </div>
 
       {error ? <StatusLine tone="error">{error}</StatusLine> : null}
@@ -449,11 +455,6 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
         )}
         <Pager total={listed.length} at={at} pages={pages} onPage={setPage} />
       </Card>
-      <SkippedWarnings
-        items={skipped}
-        busy={busy || closed}
-        onUndo={(c, f) => void act({ action: "unskip", caseId: c.id, flagId: f.id })}
-      />
 
       {removeDialog}
 

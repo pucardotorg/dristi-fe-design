@@ -67,7 +67,12 @@ export function CaseSearch({
   );
 }
 
-export function Pager({
+/**
+ * A list's place in its pages, at the top of the list where the eye already is (owner,
+ * 2026-11-17: at 25 tall rows a page runs two screens, and a pager only at its foot was
+ * found only by scrolling past it all). "1–25 of 229" with the page either side.
+ */
+export function PagerTop({
   total,
   at,
   pages,
@@ -80,22 +85,99 @@ export function Pager({
 }) {
   if (total <= PAGE_SIZE) return null;
   return (
-    <div className="flex items-center justify-between gap-3 px-2 pt-3 pb-1 text-body-compact text-muted-foreground">
+    <div className="flex shrink-0 items-center gap-1 text-body-compact text-muted-foreground">
+      <span className="px-1 tabular-nums">
+        <span className="text-foreground">
+          {at * PAGE_SIZE + 1}–{Math.min(total, (at + 1) * PAGE_SIZE)}
+        </span>{" "}
+        of {total}
+      </span>
+      <Button variant="ghost" size="icon-sm" aria-label="Previous page" disabled={at === 0} onClick={() => onPage(at - 1)}>
+        <ChevronLeftIcon aria-hidden />
+      </Button>
+      <Button variant="ghost" size="icon-sm" aria-label="Next page" disabled={at >= pages - 1} onClick={() => onPage(at + 1)}>
+        <ChevronRightIcon aria-hidden />
+      </Button>
+    </div>
+  );
+}
+
+/** The page numbers to show: the first, the last, and the current one with its neighbours. */
+function pageNumbers(at: number, pages: number): (number | "gap")[] {
+  const keep = new Set([0, pages - 1, at - 1, at, at + 1].filter((p) => p >= 0 && p < pages));
+  const out: (number | "gap")[] = [];
+  [...keep]
+    .sort((x, y) => x - y)
+    .forEach((p, i, all) => {
+      if (i && p - all[i - 1] > 1) out.push(p - all[i - 1] === 2 ? p - 1 : "gap");
+      out.push(p);
+    });
+  return out;
+}
+
+/**
+ * The foot of a list: the range, and every page within reach by number, so page 7 of 10 is
+ * one press, not six. Changing page from here brings the list's top back into view.
+ */
+export function Pager({
+  total,
+  at,
+  pages,
+  onPage,
+}: {
+  total: number;
+  at: number;
+  pages: number;
+  onPage: (p: number) => void;
+}) {
+  const ref = React.useRef<HTMLElement>(null);
+  if (total <= PAGE_SIZE) return null;
+  const go = (p: number) => {
+    onPage(p);
+    // The list this pager closes: the panel it sits in.
+    const list = ref.current?.closest("[data-slot=card]") ?? ref.current?.parentElement;
+    requestAnimationFrame(() => list?.scrollIntoView({ block: "start", behavior: "smooth" }));
+  };
+  return (
+    <nav
+      ref={ref}
+      aria-label="Pages"
+      className="flex flex-wrap items-center justify-between gap-3 border-t border-hairline px-2 pt-3 pb-1 text-body-compact text-muted-foreground"
+    >
       <span className="tabular-nums">
         {at * PAGE_SIZE + 1}–{Math.min(total, (at + 1) * PAGE_SIZE)} of {total}
       </span>
-      <span className="flex items-center gap-1">
-        <Button variant="ghost" size="icon" aria-label="Previous page" disabled={at === 0} onClick={() => onPage(at - 1)}>
+      <span className="flex items-center gap-1 tabular-nums">
+        <Button variant="ghost" size="icon-sm" aria-label="Previous page" disabled={at === 0} onClick={() => go(at - 1)}>
           <ChevronLeftIcon aria-hidden />
         </Button>
-        <span className="tabular-nums">
-          Page {at + 1} of {pages}
-        </span>
-        <Button variant="ghost" size="icon" aria-label="Next page" disabled={at >= pages - 1} onClick={() => onPage(at + 1)}>
+        {pageNumbers(at, pages).map((p, i) =>
+          p === "gap" ? (
+            <span key={`gap-${i}`} aria-hidden className="w-6 text-center">
+              …
+            </span>
+          ) : (
+            <Button
+              key={p}
+              variant="ghost"
+              size="sm"
+              aria-label={`Page ${p + 1}`}
+              aria-current={p === at ? "page" : undefined}
+              onClick={() => p !== at && go(p)}
+              className={cn(
+                "min-w-8 px-2 font-normal text-muted-foreground",
+                p === at && "bg-accent font-medium text-foreground hover:bg-accent",
+              )}
+            >
+              {p + 1}
+            </Button>
+          ),
+        )}
+        <Button variant="ghost" size="icon-sm" aria-label="Next page" disabled={at >= pages - 1} onClick={() => go(at + 1)}>
           <ChevronRightIcon aria-hidden />
         </Button>
       </span>
-    </div>
+    </nav>
   );
 }
 

@@ -404,12 +404,6 @@ export function FactsCard({
       <TabsContent value="text" className="mt-0 outline-none">
     <Card variant="raised">
       <CardContent className="flex flex-col gap-4">
-        <p className="text-body-compact text-muted-foreground tabular-nums">
-          {own > 0
-            ? `For the ${usingBatch} ${usingBatch === 1 ? "case" : "cases"} without their own text in ${from}. Switch or edit any one under All cases.`
-            : `For every case. Edit any one on its own under All cases.`}
-        </p>
-
         {/* Write and Preview are the box's own header, as on a comment box: one frame,
             its first control the mode, its tools after it (owner, 2026-11-12). */}
         <Tabs value={mode} onValueChange={(v) => setMode(v as "write" | "preview")} className="flex flex-col gap-4">

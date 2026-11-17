@@ -25,7 +25,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-import { CaseSearch, Pager, pageOf } from "./case-list-tools";
+import { CaseSearch, Pager, PagerTop, pageOf } from "./case-list-tools";
 import { FilterPills } from "./filter-pills";
 
 export type CaseRow = {
@@ -104,6 +104,7 @@ export function CaseRows({
             setPage(0);
           }}
         />
+        <PagerTop total={list.length} at={at} pages={pages} onPage={setPage} />
       </div>
       <Card variant="raised" className="gap-0 p-2">
         {shown.length === 0 ? (

@@ -46,7 +46,8 @@ import type { BatchCtx } from "./batch-screen";
 import { RemoveCaseItem, useRemoveCase } from "./remove-case";
 import { aboutDetails, batchTallies, caseState, readyToSign } from "./batch-marks";
 import { SkippedWarnings } from "./skipped-warnings";
-import { CaseSearch } from "./case-list-tools";
+import { notify } from "@/components/ui/notify";
+import { CaseSearch, Pager, PagerTop, pageOf } from "./case-list-tools";
 import { FilterPills } from "./filter-pills";
 import { DocumentsGuide, guideSeen } from "./documents-guide";
 import { useDemoTools } from "./demo-tools";
@@ -58,7 +59,6 @@ type Flag = CaseView["flags"][number];
 
 const ACCEPT = ".pdf,.jpg,.jpeg,.png";
 /** Cases listed at a time; a batch of hundreds is read in pages, not one long scroll. */
-const PAGE = 25;
 
 function sizeOf(bytes: number): string {
   return bytes >= 1_000_000
@@ -521,7 +521,7 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
   const [otherFor, setOtherFor] = React.useState<string | null>(null);
   // Asked for from a row menu: opened once that menu has closed and handed focus back.
   const pendingOther = React.useRef<string | null>(null);
-  const [limit, setLimit] = React.useState(PAGE);
+  const [page, setPage] = React.useState(0);
 
   // Cases missing something first, in the order they had when the tab opened, so a case
   // does not jump away the moment its last document goes in.
@@ -586,6 +586,11 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
     setError(null);
     try {
       setBatch(await bulkApi.act(batch.id, { action: "skip", caseId: c.id, flagId: f.id }));
+      // Said where the filer is: the list of skipped warnings is above the table.
+      notify.neutral("Warning skipped", {
+        icon: TriangleAlertIcon,
+        action: { label: "Undo", onClick: () => void unkeep(c, f) },
+      });
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -634,7 +639,7 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
     !term || [c.accused, c.title, c.draftNumber, c.cheque].some((v) => v.toLowerCase().includes(term));
   const base = { missing: open.filter((c) => startedOpen.has(c.id)), complete: open.filter((c) => !needsWork(c)), all: open }[show];
   const shownCases = base.filter(matches);
-  const listed = shownCases.slice(0, limit);
+  const { pages, at, shown: listed } = pageOf(shownCases, page);
   // The batch's own documents: shown in a row only while one is missing.
   const own = (d: Doc) => d.group.startsWith("Complainant") && !!d.file;
 
@@ -759,12 +764,18 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
 
       {error ? <StatusLine tone="error">{error}</StatusLine> : null}
 
+      {/* File warnings the filer chose to keep as they are (a scan kept though blurry). */}
+      <SkippedWarnings
+        items={open.flatMap((c) => c.skipped.filter((f) => !aboutDetails(f)).map((f) => ({ c, f })))}
+        busy={!!busy || closed}
+        onUndo={(c, f) => void unkeep(c, f)}
+      />
       <div className="flex flex-wrap items-center gap-3">
         <FilterPills
           value={show}
           onChange={(v) => {
             setShow(v as Show);
-            setLimit(PAGE);
+            setPage(0);
           }}
           total={open.length}
           filters={[
@@ -777,9 +788,10 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
           value={search}
           onChange={(v) => {
             setSearch(v);
-            setLimit(PAGE);
+            setPage(0);
           }}
         />
+        <PagerTop total={shownCases.length} at={at} pages={pages} onPage={setPage} />
       </div>
 
       <Card variant="raised" className="gap-0 p-2">
@@ -919,11 +931,7 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
             </ul>
           </>
         )}
-        {shownCases.length > listed.length ? (
-          <Button variant="ghost" size="sm" className="m-2 w-fit" onClick={() => setLimit((n) => n + PAGE)}>
-            Show {Math.min(PAGE, shownCases.length - listed.length)} more of {shownCases.length - listed.length}
-          </Button>
-        ) : null}
+        <Pager total={shownCases.length} at={at} pages={pages} onPage={setPage} />
       </Card>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -974,13 +982,6 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
           </DropdownMenu>
         ) : null}
       </div>
-
-      {/* File warnings the filer chose to keep as they are (a scan kept though blurry). */}
-      <SkippedWarnings
-        items={open.flatMap((c) => c.skipped.filter((f) => !aboutDetails(f)).map((f) => ({ c, f })))}
-        busy={!!busy || closed}
-        onUndo={(c, f) => void unkeep(c, f)}
-      />
 
       {removeDialog}
 

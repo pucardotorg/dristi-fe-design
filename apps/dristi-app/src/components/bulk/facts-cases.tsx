@@ -39,7 +39,7 @@ import { SidePanel, SIDE_PANEL_INSET } from "@/components/ui/side-panel";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { RichTextEditor, type BracketMarks } from "@/components/filing/rich-text-editor";
 
-import { CaseSearch, Pager, pageOf } from "./case-list-tools";
+import { CaseSearch, Pager, PagerTop, pageOf } from "./case-list-tools";
 import { FilterPills } from "./filter-pills";
 
 /** Where a case's facts come from, as the table says it. */
@@ -233,6 +233,7 @@ export function FactsCases({
             setPage(0);
           }}
         />
+        <PagerTop total={list.length} at={at} pages={pages} onPage={setPage} />
       </div>
 
       {/* Standing, not summoned: its acts wait on a selection (as on pending tasks). */}
@@ -246,7 +247,7 @@ export function FactsCases({
             <span className="tabular-nums">
               {chosen.length
                 ? `${chosen.length} case${chosen.length === 1 ? "" : "s"} selected.`
-                : "Select cases to switch several at once."}
+                : "None selected"}
             </span>
             {chosen.length ? (
               <Button variant="link" className="h-auto p-0 font-normal underline" onClick={() => setSelected(new Set())}>
@@ -463,15 +464,7 @@ function FactsPanel({
 
   const acts = r ? actsFor(r, hasBatch) : { toBatch: null, toOwn: null };
   const whence =
-    r?.source === "own"
-      ? `Its own text, from ${from}.`
-      : r?.source === "batch"
-        ? r.own
-          ? `The batch text, in place of its own from ${from}.`
-          : "The batch text, filled in for this case."
-        : r?.source === "written"
-          ? "Edited here for this case only."
-          : "No facts of the case yet.";
+    r?.source === "own" ? `Your own, from ${from}` : r ? SOURCE_LABEL[r.source] : "";
 
   return (
     <SidePanel
@@ -491,7 +484,7 @@ function FactsPanel({
         r ? (
           <div className={cn(SIDE_PANEL_INSET, "flex flex-col gap-3 border-b border-hairline pb-4")}>
             <div className="flex items-center gap-3">
-              <p className="min-w-0 flex-1 text-body-compact text-muted-foreground">{draft !== null ? "Editing for this case only. The batch text doesn't change." : whence}</p>
+              <p className="min-w-0 flex-1 text-body-compact text-muted-foreground">{draft !== null ? "Editing this case" : whence}</p>
               {list.length > 1 && at >= 0 && draft === null ? (
                 <div className="-mr-2 flex shrink-0 items-center gap-1 text-body-compact text-muted-foreground tabular-nums">
                   <Button variant="ghost" size="icon-sm" disabled={at <= 0} onClick={() => onGo(list[at - 1].key)} aria-label="Previous case">
