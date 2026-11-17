@@ -106,7 +106,7 @@ export async function saveSetup(store: BulkStore, setupId: string, body: SetupBo
 /** The link's page: what the representative swears to, for which batch (`OathLink`). */
 export async function getOath(store: BulkStore, batchId: string): Promise<Reply> {
   const batch = await store.getBatch(batchId);
-  if (!batch || batch.notCreated) return fail("No such batch.", 404);
+  if (!batch || batch.notCreated) return fail("This batch could not be found.", 404);
   const rep = (batch.common?.complainants ?? batch.cases[0]?.draft.complainants ?? [])[0]?.rep;
   return ok({
     batchNumber: batch.number,
@@ -122,14 +122,14 @@ export async function recordOath(store: BulkStore, batchId: string, file: File |
   if (!file) return fail("No recording.", 400);
   const ref = await store.saveFile(new Uint8Array(await file.arrayBuffer()), file.name, file.type);
   const out = await store.updateBatch(batchId, (b) => ({ ...b, oath: { ...b.oath, takenAt: new Date().toISOString(), video: ref, by } }));
-  if (!out) return fail("No such batch.", 404);
+  if (!out) return fail("This batch could not be found.", 404);
   return ok({ takenAt: out.oath?.takenAt });
 }
 
 /** A push waiting for Facts of the case and Create: what was sent, for the preview (§3). */
 export async function getPush(store: BulkStore, batchId: string): Promise<Reply> {
   const batch = await store.getBatch(batchId);
-  if (!batch) return fail("No such batch.", 404);
+  if (!batch) return fail("This batch could not be found.", 404);
   if (batch.notCreated?.kind !== "api") return fail("This batch is already created.", 409);
   // Opening it is what clears its notification, as opening a created batch does.
   if (batch.openedAt === null) await store.updateBatch(batchId, (b) => ({ ...b, openedAt: new Date().toISOString() }));
@@ -168,22 +168,22 @@ export async function createPush(
     return { ...created, openedAt: b.openedAt ?? new Date().toISOString() };
   });
   if (problem) return fail(problem, 409);
-  if (!out) return fail("No such batch.", 404);
+  if (!out) return fail("This batch could not be found.", 404);
   return ok({ batchId: out.id, batchNumber: out.number });
 }
 
 /** The kept setup, to reopen it in the tab Continue opens. */
 export async function getSetup(store: BulkStore, setupId: string): Promise<Reply> {
   const kept = (await store.listBatches()).find((b) => setupOf(b, setupId));
-  if (!kept || kept.notCreated?.kind !== "excel") return fail("No such upload.", 404);
+  if (!kept || kept.notCreated?.kind !== "excel") return fail("This upload could not be found.", 404);
   return ok({ batchId: kept.id, batchNumber: kept.number, ...kept.notCreated });
 }
 
 /** Delete a batch that is not created yet, from the list's Delete. Created batches stay. */
 export async function deleteNotCreated(store: BulkStore, batchId: string): Promise<Reply> {
   const batch = await store.getBatch(batchId);
-  if (!batch) return fail("No such batch.", 404);
-  if (!batch.notCreated) return fail("A created batch is not deleted here.", 409);
+  if (!batch) return fail("This batch could not be found.", 404);
+  if (!batch.notCreated) return fail("A created batch can't be deleted here.", 409);
   await store.deleteBatch(batchId);
   return ok({ deleted: batch.number });
 }
@@ -237,7 +237,7 @@ export async function createBatch(store: BulkStore, body: CreateBody): Promise<R
     let problem: string | null = null;
     const out = await store.updateBatch(body.replaceBatchId, (b) => {
       if (b.notCreated || b.clubbedInto) {
-        problem = "This batch can't take its file again.";
+        problem = "This batch can't be uploaded again.";
         return null;
       }
       // Only cases already filed are not touched; drafts and signed cases go (BLK-40).
@@ -250,7 +250,7 @@ export async function createBatch(store: BulkStore, body: CreateBody): Promise<R
       };
     });
     if (problem) return fail(problem, 409);
-    if (!out) return fail("No such batch.", 404);
+    if (!out) return fail("This batch could not be found.", 404);
     return ok({ batchId: out.id, batchNumber: out.number }, 201);
   }
   if (body.setupId) built.setupId = body.setupId;
@@ -340,7 +340,7 @@ export async function getBatchView(store: BulkStore, batchId: string, aiRaw: str
   const ai = aiModeFrom(aiRaw);
   const all = await store.listBatches();
   let batch = all.find((b) => b.id === batchId);
-  if (!batch) return fail("No such batch.", 404);
+  if (!batch) return fail("This batch could not be found.", 404);
   // Opening a pushed batch is what clears its notification.
   if (batch.openedAt === null) {
     const at = new Date().toISOString();
@@ -352,7 +352,7 @@ export async function getBatchView(store: BulkStore, batchId: string, aiRaw: str
 /** Every case's draft in a batch, at once. */
 export async function batchDrafts(store: BulkStore, batchId: string): Promise<Reply> {
   const batch = await store.getBatch(batchId);
-  if (!batch) return fail("No such batch.", 404);
+  if (!batch) return fail("This batch could not be found.", 404);
   return ok({ drafts: Object.fromEntries(batch.cases.map((c) => [c.id, c.draft])) });
 }
 
@@ -472,7 +472,7 @@ export async function act(store: BulkStore, batchId: string, body: Action & { ai
       case "pay": {
         // As in individual filing, the court fee waits for the oath.
         if (!batch.oath?.takenAt) {
-          problem = "The complainant's oath isn't in yet. Paying waits for it.";
+          problem = "The complainant's oath isn't in yet.";
           return null;
         }
         const cases = batch.cases.filter((c) => body.caseIds.includes(c.id) && c.signedWith && c.draft.status !== "filed");
@@ -495,7 +495,7 @@ export async function act(store: BulkStore, batchId: string, body: Action & { ai
     if (!editable(body.path)) return fail("That field cannot be changed here.", 400);
     const all = await store.listBatches();
     const batch = all.find((b) => b.id === batchId);
-    if (!batch) return fail("No such batch.", 404);
+    if (!batch) return fail("This batch could not be found.", 404);
     const targets = body.everyCase
       ? batch.cases.filter((c) => c.draft.status !== "filed" && !c.signedWith)
       : batch.cases.filter((c) => c.id === body.caseId);
@@ -528,7 +528,7 @@ export async function act(store: BulkStore, batchId: string, body: Action & { ai
   }
 
   if (problem) return fail(problem, 409);
-  if (!saved) return fail("No such batch or case.", 404);
+  if (!saved) return fail("This batch or case could not be found.", 404);
   // The last case gone, the batch goes with it (BLK-08b).
   const kept = saved as Batch;
   if (body.action === "remove" && kept.cases.length === 0) {
@@ -544,9 +544,9 @@ export async function act(store: BulkStore, batchId: string, body: Action & { ai
 /** One case of a batch, whole: its draft, for the single filing's sections. */
 export async function getCase(store: BulkStore, batchId: string, caseId: string): Promise<Reply> {
   const batch = await store.getBatch(batchId);
-  if (!batch) return fail("No such batch.", 404);
+  if (!batch) return fail("This batch could not be found.", 404);
   const at = batch.cases.findIndex((c) => c.id === caseId);
-  if (at < 0) return fail("No such case in this batch.", 404);
+  if (at < 0) return fail("This case isn't in this batch.", 404);
   const bc = batch.cases[at];
   return ok({
     batchNumber: batch.number,
@@ -567,14 +567,14 @@ export async function putCase(
   body: { draft?: FilingDraft } | null,
 ): Promise<Reply> {
   if (!body?.draft) return fail("No draft sent.", 400);
-  let problem: string | null = "No such case in this batch.";
+  let problem: string | null = "This case isn't in this batch.";
   const saved = await store.updateBatch(batchId, (batch) => {
     const bc = batch.cases.find((c) => c.id === caseId);
     if (!bc) return null;
     problem = replaceDraft(bc, body.draft!);
     return problem ? null : batch;
   });
-  if (!saved) return fail("No such batch.", 404);
+  if (!saved) return fail("This batch could not be found.", 404);
   if (problem) return fail(problem, 409);
   return ok({ ok: true });
 }

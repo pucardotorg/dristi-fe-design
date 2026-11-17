@@ -63,7 +63,7 @@ export class BulkCaseRepository implements FilingRepository {
   }
 
   async deleteDraft(): Promise<void> {
-    throw new Error("A case is removed from its batch, not discarded here.");
+    throw new Error("Remove the case from its batch instead.");
   }
 
   /* Files: the bulk file store. */

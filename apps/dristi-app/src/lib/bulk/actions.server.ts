@@ -342,7 +342,7 @@ function setPath(target: Record<string, unknown>, path: string, value: string) {
   for (const k of keys.slice(0, -1)) {
     const next = node[k];
     if (next === null || typeof next !== "object")
-      throw new Error(`No such field: ${path}`);
+      throw new Error("This field can't be changed.");
     node = next as Record<string, unknown>;
   }
   node[keys.at(-1)!] = value;

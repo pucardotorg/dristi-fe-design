@@ -478,7 +478,7 @@ export function caseFlags(bc: BatchCase): Flag[] {
         level: "hold",
         at: `${p}.contact`,
         message:
-          "Neither mobile nor email is on record. Add one, or declare that neither is known.",
+          "No mobile or email. Add one, or declare neither is known.",
         fix: { kind: "declare-no-contact", accusedId: a.id },
       });
     if (contact.mobile && !MOBILE.test(contact.mobile))
@@ -508,7 +508,7 @@ export function caseFlags(bc: BatchCase): Flag[] {
         level: "hold",
         at: `${p}.mobile-dup`,
         message:
-          "Mobile is the same as the complainant's. Each party needs their own number.",
+          "Same mobile as the complainant's. Each party needs their own.",
         fix: {
           kind: "text",
           path: `${p}.contacts.0.mobile`,
@@ -833,7 +833,7 @@ export function caseFlags(bc: BatchCase): Flag[] {
         level: "hold",
         at: `${p}.delivered`,
         message:
-          "Delivery status is not known yet. The cause of action runs from service, so the case cannot be filed until it is.",
+          "Delivery status unknown. The case can't be filed until the notice is served.",
         fix: {
           kind: "select",
           path: `${p}.delivered`,
@@ -925,7 +925,7 @@ export function caseFlags(bc: BatchCase): Flag[] {
         field: "LDN-9",
         level: "hold",
         at: `${p}.replied`,
-        message: "Whether the accused replied is not stated.",
+        message: "Accused's reply not stated.",
         fix: {
           kind: "select",
           path: `${p}.replied`,
@@ -962,7 +962,7 @@ export function caseFlags(bc: BatchCase): Flag[] {
         field: "LDN-10",
         level: "hold",
         at: `${p}.paymentStatus`,
-        message: "Payment after notice is not stated.",
+        message: "Payment after notice not stated.",
         fix: {
           kind: "select",
           path: `${p}.paymentStatus`,
@@ -1069,7 +1069,7 @@ export function caseFlags(bc: BatchCase): Flag[] {
       level: "hold",
       at: "jurisdiction.deposited",
       message:
-        "Whether the cheque was deposited in the complainant's own account is not stated.",
+        "Deposit account not stated.",
       fix: {
         kind: "select",
         path: "jurisdiction.deposited",
@@ -1134,7 +1134,7 @@ export function caseFlags(bc: BatchCase): Flag[] {
       at: "jur.cause",
       message:
         served && served > today
-          ? `${toLongDate(served)} is in the future. Enter the day the notice was actually delivered.`
+          ? `${toLongDate(served)} is in the future. Enter the day it was delivered.`
           : `To file today, the notice must have been served on or before ${toLongDate(latest)} (15 days ago). If it was served later, this case can be filed from ${toLongDate(lim.causeDate)}.`,
     });
   } else if (
@@ -1170,7 +1170,7 @@ export function caseFlags(bc: BatchCase): Flag[] {
           level: "soft",
           at: `doc.${doc.intakeKey ?? doc.id}.poor`,
           message:
-            "This scan looks blurry or cropped. Please re-upload a clearer copy so the court can read it.",
+            "Blurry or cropped. Upload a clearer scan.",
           fix: doc.intakeKey
             ? { kind: "upload", slotKey: doc.intakeKey, label: doc.name }
             : { kind: "documents" },
@@ -1186,7 +1186,7 @@ export function caseFlags(bc: BatchCase): Flag[] {
         where: "Documents",
         level: "hold",
         at: `doc.${doc.intakeKey ?? doc.id}`,
-        message: `${code ? DOC_CODE_LABEL[code.code] : doc.name}${code && code.index && (code.code === "DCM-1" || code.code === "DCM-2" ? d.cheques : d.notices).length > 1 ? ` ${code.index}` : ""} is missing.${bc.fetchFailed.length ? " It was sent but could not be fetched." : ""}`,
+        message: `${code ? DOC_CODE_LABEL[code.code] : doc.name}${code && code.index && (code.code === "DCM-1" || code.code === "DCM-2" ? d.cheques : d.notices).length > 1 ? ` ${code.index}` : ""} is missing.${bc.fetchFailed.length ? " It was sent but couldn't be fetched." : ""}`,
         fix: doc.intakeKey
           ? { kind: "upload", slotKey: doc.intakeKey, label: doc.name }
           : { kind: "documents" },
@@ -1205,7 +1205,7 @@ export function caseFlags(bc: BatchCase): Flag[] {
   const unfilled = unfilledFields(facts, d);
   if (unfilled.length) {
     const say = (f: { name: string; values: number }) =>
-      f.values ? `${f.name} has ${f.values} values in this case` : `${f.name} has none`;
+      f.values ? `${f.name} has ${f.values} values here` : `${f.name} has none`;
     push({
       rule: "pry-1-unfilled",
       field: "PRY-1",
@@ -1253,7 +1253,7 @@ export function caseFlags(bc: BatchCase): Flag[] {
         where: "Case",
         level: "hold",
         at: `section.${step}`,
-        message: "This section is not complete by the filing rules.",
+        message: "This section is incomplete.",
       });
   }
 
