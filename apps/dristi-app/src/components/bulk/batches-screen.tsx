@@ -16,7 +16,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { CircleCheckIcon, DownloadIcon, EllipsisIcon, Layers2Icon, SearchIcon, Trash2Icon, UploadIcon } from "lucide-react";
+import { CircleCheckIcon, DownloadIcon, EllipsisIcon, Layers2Icon, Trash2Icon, UploadIcon } from "lucide-react";
 
 import { buildTemplate, TEMPLATE_FILE } from "@/lib/bulk/excel";
 import { cn } from "@/lib/utils";
@@ -33,7 +33,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import {
   Pagination,
@@ -54,6 +53,8 @@ import { bulkApi, type BatchSummary } from "./api";
 import { useGujarat } from "./court-guard";
 import { bulkStepTitle, type BulkStepId } from "./bulk-steps";
 import { FilterPills } from "./filter-pills";
+import { CaseSearch } from "./case-list-tools";
+import { ListDock, dockBox, dockHead, toListTop, useFitRows, useListDock } from "./list-dock";
 import { waitingOnOthers } from "./signing-round";
 import { StatusLine } from "@/components/feedback";
 import { notify } from "@/components/ui/notify";
@@ -80,7 +81,6 @@ const SORTS: { id: SortId; label: string }[] = [
   { id: "fix", label: "Most to fix" },
   { id: "number", label: "Newest batch" },
 ];
-const PAGE_SIZES = [10, 25, 50] as const;
 
 type View = "needs" | "partly" | "waiting" | "notCreated" | "done";
 
@@ -159,6 +159,9 @@ export function BatchesScreen() {
   const router = useRouter();
   const [batches, setBatches] = React.useState<BatchSummary[] | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  // The toolbar and headings pin as one unit; a page holds the rows the window does.
+  const { dock, sentinelRef, barRef, boxRef } = useListDock();
+  const fit = useFitRows(dock);
 
   // Batches with a signing round out, waiting on another party (kept in this browser).
   const [awaiting, setAwaiting] = React.useState<Set<string>>(new Set());
@@ -226,7 +229,10 @@ export function BatchesScreen() {
   const sortId = SORTS.some((x) => x.id === params.get("sort"))
     ? (params.get("sort") as SortId)
     : view === "needs" || view === "partly" ? "deadline" : "recent";
-  const size = PAGE_SIZES.includes(Number(params.get("size")) as (typeof PAGE_SIZES)[number]) ? Number(params.get("size")) : PAGE_SIZES[0];
+  // A size the filer picked is kept in the address; otherwise the window decides (`useFitRows`).
+  const asked = Number(params.get("size"));
+  const size = Number.isInteger(asked) && asked >= 5 && asked <= 100 ? asked : fit.fit;
+  const sizes = [...new Set([fit.fit, 25, 50, size])].sort((a, b) => a - b);
   const setParams = (updates: Record<string, string | null>) => {
     const next = new URLSearchParams(params.toString());
     for (const [k, v] of Object.entries(updates)) {
@@ -235,6 +241,11 @@ export function BatchesScreen() {
     }
     const qs = next.toString();
     router.replace(qs ? `?${qs}` : "?", { scroll: false });
+  };
+  // A page turned below the pinned toolbar starts at its first row.
+  const turn = (from: Element, p: number) => {
+    setParams({ page: String(p) });
+    toListTop(from);
   };
   const sorter: Record<SortId, (a: BatchSummary, b: BatchSummary) => number> = {
     deadline: byFileBy,
@@ -408,7 +419,8 @@ export function BatchesScreen() {
 
       {error ? <StatusLine tone="error">{error}</StatusLine> : null}
 
-      <Card variant="raised" className="gap-0 p-2">
+      {/* overflow-visible: a clipping card would make the pinned toolbar inert. */}
+      <Card variant="raised" className="gap-0 overflow-visible p-2">
         <h2 className="sr-only">Batches</h2>
         {batches === null ? (
           <div className="flex flex-col gap-2 p-2">
@@ -435,29 +447,26 @@ export function BatchesScreen() {
           </Empty>
         ) : (
           <>
-            {/* The filters, and what the selection can do, on one line. */}
-            <div className="flex flex-wrap items-center gap-3 px-4 pt-2 pb-3">
+            {/* One toolbar row, as Your filings has: the filters, then search and order at
+                the right; it pins with the headings as one unit (`list-dock.tsx`). */}
+            <ListDock dock={dock} sentinelRef={sentinelRef} barRef={barRef} className="flex flex-wrap items-center gap-3 px-4 py-3">
               <FilterPills
+                className="sm:min-w-fit"
                 value={view}
                 onChange={setView}
                 total={all.length}
                 filters={VIEWS.map((v) => ({ ...v, count: count(v.id) }))}
                 label="Show batches"
               />
-            </div>
-            {/* Search and order, as on every list. */}
-            <div className="flex flex-wrap items-center gap-3 px-4 pb-3">
-              <div className="relative min-w-0 flex-1">
-                <SearchIcon aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  type="search"
-                  value={q}
-                  onChange={(e) => setParams({ q: e.target.value, page: null })}
-                  placeholder="Search by batch, complainant or file"
-                  aria-label="Search batches"
-                  className="pl-9"
-                />
-              </div>
+              <div className="flex w-full min-w-0 flex-wrap items-center gap-3 sm:ml-auto sm:w-auto sm:flex-nowrap">
+              <CaseSearch
+                id="batches-search"
+                label="Search batches"
+                className="flex-1 sm:flex-none"
+                value={q}
+                onChange={(v) => setParams({ q: v, page: null })}
+                placeholder="Batch, complainant or file"
+              />
               <NativeSelect
                 value={sortId}
                 onChange={(e) => setParams({ sort: e.target.value, page: null })}
@@ -470,7 +479,8 @@ export function BatchesScreen() {
                   </NativeSelectOption>
                 ))}
               </NativeSelect>
-            </div>
+              </div>
+            </ListDock>
 
 
             {shown.length === 0 ? (
@@ -488,7 +498,7 @@ export function BatchesScreen() {
             ) : (
               <>
                 {/* Phones: one item per batch, its stages as one line of links. */}
-                <ul className="flex flex-col divide-y divide-hairline md:hidden" aria-label="Batches">
+                <ul data-list-rows className="flex flex-col divide-y divide-hairline md:hidden" aria-label="Batches">
                   {shown.map((b) => (
                     <li key={b.id} className="flex flex-col gap-1 px-4 py-3 text-body-compact">
                       <span className="flex min-h-10 items-center gap-2">
@@ -542,7 +552,7 @@ export function BatchesScreen() {
                   ))}
                 </ul>
 
-                <div className="hidden overflow-x-auto md:block">
+                <div ref={boxRef} className={cn("hidden md:block", dockBox(dock))}>
                   <Table className="table-fixed border-separate border-spacing-0" aria-label="Batches">
                     <colgroup>
                       <col className="w-[24%]" />
@@ -555,7 +565,7 @@ export function BatchesScreen() {
                       <col className="w-36" />
                       {anyMenu ? <col className="w-14" /> : null}
                     </colgroup>
-                    <TableHeader>
+                    <TableHeader {...dockHead(dock)}>
                       <TableRow className={TABLE_HEAD_ROW}>
                         <TableHead className={TABLE_HEAD}>Batch</TableHead>
                         {showClient ? <TableHead className={TABLE_HEAD}>Complainant</TableHead> : null}
@@ -641,20 +651,23 @@ export function BatchesScreen() {
             )}
           </>
         )}
-        {listed.length > PAGE_SIZES[0] ? (
-          <div className="flex flex-wrap items-center justify-between gap-4 border-t border-hairline px-4 pt-4 pb-2">
+        {listed.length > sizes[0] ? (
+          <div data-list-pager className="flex flex-wrap items-center justify-between gap-4 border-t border-hairline px-4 pt-4 pb-2">
             <div className="flex items-center gap-3">
               <p className="text-body-compact text-muted-foreground tabular-nums">
                 Showing {start + 1}–{Math.min(start + size, listed.length)} of {listed.length}
               </p>
               <NativeSelect
                 value={String(size)}
-                onChange={(e) => setParams({ size: e.target.value, page: null })}
+                onChange={(e) => {
+                  const n = Number(e.target.value);
+                  setParams({ size: n === fit.fit ? null : String(n), page: null });
+                }}
                 aria-label="Batches per page"
                 size="sm"
                 className="w-auto"
               >
-                {PAGE_SIZES.map((n) => (
+                {sizes.map((n) => (
                   <NativeSelectOption key={n} value={String(n)}>
                     {n} per page
                   </NativeSelectOption>
@@ -666,7 +679,7 @@ export function BatchesScreen() {
                 <PaginationContent>
                   {page > 1 ? (
                     <PaginationItem>
-                      <PaginationPrevious href="#" onClick={(e) => (e.preventDefault(), setParams({ page: String(page - 1) }))} />
+                      <PaginationPrevious href="#" onClick={(e) => (e.preventDefault(), turn(e.currentTarget, page - 1))} />
                     </PaginationItem>
                   ) : null}
                   {pageWindow(page, pageCount).map((entry, i) => (
@@ -678,7 +691,7 @@ export function BatchesScreen() {
                           href="#"
                           isActive={entry === page}
                           aria-label={`Go to page ${entry}`}
-                          onClick={(e) => (e.preventDefault(), setParams({ page: String(entry) }))}
+                          onClick={(e) => (e.preventDefault(), turn(e.currentTarget, entry))}
                         >
                           {entry}
                         </PaginationLink>
@@ -687,7 +700,7 @@ export function BatchesScreen() {
                   ))}
                   {page < pageCount ? (
                     <PaginationItem>
-                      <PaginationNext href="#" onClick={(e) => (e.preventDefault(), setParams({ page: String(page + 1) }))} />
+                      <PaginationNext href="#" onClick={(e) => (e.preventDefault(), turn(e.currentTarget, page + 1))} />
                     </PaginationItem>
                   ) : null}
                 </PaginationContent>
