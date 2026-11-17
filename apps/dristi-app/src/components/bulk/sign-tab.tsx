@@ -20,7 +20,7 @@
  */
 
 import * as React from "react";
-import { ClipboardListIcon, DownloadIcon, FileUpIcon, SignatureIcon } from "lucide-react";
+import { ChevronDownIcon, DownloadIcon, FileUpIcon, SignatureIcon } from "lucide-react";
 
 import { DiscardQuestion, useDiscardGuard } from "@/components/chrome/discard-guard";
 import { StagedOverlay, useStagedFlow } from "@/components/chrome/staged-overlay";
@@ -54,6 +54,9 @@ import {
   tableRowClass,
 } from "@/components/chrome/table-plate";
 import { StatusLine } from "@/components/feedback";
+import { StepMeta } from "./step-meta";
+import { Pager, pageOf } from "./case-list-tools";
+import { bulkStepTitle } from "./bulk-steps";
 import { notify } from "@/components/ui/notify";
 
 import { buildPrintPack } from "@/lib/bulk/print-pack";
@@ -92,6 +95,8 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
   const clear = tallies.completeCases;
   const [picked, setPicked] = React.useState<Set<string>>(() => new Set(clear.map((c) => c.id)));
   const [listOpen, setListOpen] = React.useState(false);
+  // 25 at a time, as every list of a batch's cases reads (`case-list-tools`).
+  const [listPage, setListPage] = React.useState(0);
   const [flowOpen, setFlowOpen] = React.useState(false);
   const [round, setRoundState] = React.useState<Round | null>(() => readRound(batch.id));
   const [busy, setBusy] = React.useState(false);
@@ -182,38 +187,16 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Not a warning: cases not open to sign yet, each cause a link to the step that
+          clears it, in the same quiet line Documents uses. */}
       {waiting ? (
-        /* A gate, not a warning: these cases aren't open to sign yet. Each cause links to
-           the step that clears it (round 3: a missing file was sent to Case details). */
-        <StatusLine
-          tone="neutral"
-          icon={ClipboardListIcon}
-          still
-          title={
-            <span className="tabular-nums">
-              {waiting} case{waiting === 1 ? " isn't" : "s aren't"} ready to sign yet
-            </span>
-          }
-        >
-          <span className="flex flex-col gap-1">
-            {fixing ? (
-              <span className="tabular-nums">
-                {fixing} to fix at{" "}
-                <button type="button" className="underline" onClick={() => go("scrutiny")}>
-                  Fix &amp; check
-                </button>
-              </span>
-            ) : null}
-            {docsMissing ? (
-              <span className="tabular-nums">
-                {docsMissing} missing a document at{" "}
-                <button type="button" className="underline" onClick={() => go("documents")}>
-                  Documents
-                </button>
-              </span>
-            ) : null}
-          </span>
-        </StatusLine>
+        <StepMeta
+          lead={`${waiting} not ready yet`}
+          elsewhere={[
+            { count: fixing, label: `to fix in ${bulkStepTitle("details")}`, onGo: () => go("scrutiny") },
+            { count: docsMissing, label: `missing documents in ${bulkStepTitle("documents")}`, onGo: () => go("documents") },
+          ]}
+        />
       ) : null}
 
       {error ? <StatusLine tone="error">{error}</StatusLine> : null}
@@ -284,22 +267,30 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
               <CardTitle className="text-body font-semibold tabular-nums">
                 {allOn ? `All ${plural(clear.length, "ready complaint")}` : `${chosen.length} of ${clear.length} complaints`}
               </CardTitle>
-              <CardDescription>
-                {inRound
-                  ? "Locked until every party signs."
-                  : listOpen
-                    ? "Untick any to sign later."
-                    : "Untick any to sign later."}
-              </CardDescription>
+              <CardDescription>{inRound ? "Locked until every party signs." : "Untick any to sign later."}</CardDescription>
               <CardAction>
-                <Button variant="outline" size="sm" onClick={() => setListOpen((v) => !v)}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-expanded={listOpen}
+                  className="text-muted-foreground hover:text-foreground"
+                  onClick={() => setListOpen((v) => !v)}
+                >
                   {listOpen ? "Hide the list" : "Review the list"}
+                  <ChevronDownIcon
+                    data-icon="inline-end"
+                    aria-hidden
+                    className={cn("transition-transform duration-200", listOpen && "rotate-180")}
+                  />
                 </Button>
               </CardAction>
             </CardHeader>
             {listOpen ? (
               <CardContent className="px-2">
                 <div className="overflow-x-auto">
+                  {/* Every ready case is ticked to begin with, so a tick is the norm, not news:
+                      no fill on ticked rows (a whole table of grey bands, owner 2026-11-17).
+                      A case left for later is the exception, and its row goes quiet. */}
                   <Table className="border-separate border-spacing-0" aria-label="Complaints to sign">
                     <TableHeader>
                       <TableRow className={TABLE_HEAD_ROW}>
@@ -312,18 +303,21 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
                           />
                         </TableHead>
                         <TableHead className={TABLE_HEAD}>Accused</TableHead>
-                        <TableHead className={TABLE_HEAD}>Draft number</TableHead>
-                        <TableHead className={cn(TABLE_HEAD, "text-right")}>Cheque amount</TableHead>
-                        <TableHead className={cn(TABLE_HEAD, "w-12")}>
+                        <TableHead className={cn(TABLE_HEAD, "w-44")}>Draft number</TableHead>
+                        <TableHead className={cn(TABLE_HEAD, "w-40 text-right")}>Cheque amount</TableHead>
+                        <TableHead className={cn(TABLE_HEAD, "w-14")}>
                           <span className="sr-only">More</span>
                         </TableHead>
                       </TableRow>
                     </TableHeader>
-                    <TableBody className={tableBodyClass({ selectable: true })}>
-                      {clear.map((c) => {
+                    <TableBody className={tableBodyClass({ hover: false })}>
+                      {pageOf(clear, listPage).shown.map((c) => {
                         const on = inRound ? inRound.includes(c) : picked.has(c.id);
                         return (
-                          <TableRow key={c.id} className={tableRowClass({ selectable: true })} data-state={on ? "selected" : undefined}>
+                          <TableRow
+                            key={c.id}
+                            className={cn(tableRowClass({ hover: false }), "transition-colors", !on && "[&>td]:text-muted-foreground")}
+                          >
                             <TableCell className={TABLE_CELL}>
                               <Checkbox
                                 aria-label={`Sign ${c.draftNumber}`}
@@ -339,10 +333,10 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
                                 }
                               />
                             </TableCell>
-                            <TableCell className={TABLE_CELL}>{c.accused}</TableCell>
-                            <TableCell className={cn(TABLE_CELL, "font-mono")}>{c.draftNumber}</TableCell>
+                            <TableCell className={cn(TABLE_CELL, "font-medium", !on && "font-normal")}>{c.accused}</TableCell>
+                            <TableCell className={cn(TABLE_CELL, "font-mono text-muted-foreground")}>{c.draftNumber}</TableCell>
                             <TableCell className={cn(TABLE_CELL, "text-right tabular-nums")}>{money(c.amount)}</TableCell>
-                            <TableCell className={cn(TABLE_CELL, "w-12")}>
+                            <TableCell className={cn(TABLE_CELL, "px-2 text-right")}>
                               <RemoveCaseMenu c={c} onSelect={askRemove} disabled={!!inRound} />
                             </TableCell>
                           </TableRow>
@@ -351,6 +345,12 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
                     </TableBody>
                   </Table>
                 </div>
+                <Pager
+                  total={clear.length}
+                  at={pageOf(clear, listPage).at}
+                  pages={pageOf(clear, listPage).pages}
+                  onPage={setListPage}
+                />
               </CardContent>
             ) : null}
           </Card>
