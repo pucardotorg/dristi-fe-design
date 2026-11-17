@@ -62,10 +62,13 @@ export async function downloadTemplate() {
 
 /* ───────────────────────────── Where a batch stands ───────────────────────────── */
 
-type View = "needs" | "waiting" | "notCreated" | "done";
+type View = "needs" | "partly" | "waiting" | "notCreated" | "done";
 
 const VIEWS: { id: View; label: string }[] = [
   { id: "needs", label: "Needs you" },
+  // Some cases filed and the rest still to come back to (owner, 2026-11-17: "filed 50 of
+  // 300 and I need to come back to the unfiled ones"). Overlaps Needs you; a lens, not a stage.
+  { id: "partly", label: "Partly filed" },
   { id: "waiting", label: "Waiting on others" },
   { id: "notCreated", label: "Not created" },
   { id: "done", label: "Done" },
@@ -105,6 +108,8 @@ function middle(name: string, max = 28): string {
   const tail = Math.ceil((max - 1) / 2);
   return `${name.slice(0, max - 1 - tail)}…${name.slice(-tail)}`;
 }
+
+const isPartly = (b: BatchSummary) => !b.notCreated && !b.clubbedInto && b.states.filed > 0 && b.states.filed < b.total;
 
 const isDone = (b: BatchSummary) => !!b.clubbedInto || (b.total > 0 && b.counts.filed === b.total);
 
@@ -189,9 +194,10 @@ export function BatchesScreen() {
   // Soonest File by first (none last), then the most recently worked on.
   const byFileBy = (a: BatchSummary, b: BatchSummary) =>
     (a.fileBy ?? "9999") === (b.fileBy ?? "9999") ? byUpdated(a, b) : (a.fileBy ?? "9999").localeCompare(b.fileBy ?? "9999");
-  const shown = all.filter((b) => view === "all" || viewOf(b) === view).sort(view === "needs" ? byFileBy : byUpdated);
+  const inView = (b: BatchSummary, v: View) => (v === "partly" ? isPartly(b) : viewOf(b) === v);
+  const shown = all.filter((b) => view === "all" || inView(b, view)).sort(view === "needs" || view === "partly" ? byFileBy : byUpdated);
 
-  const count = (v: View) => all.filter((b) => viewOf(b) === v).length;
+  const count = (v: View) => all.filter((b) => inView(b, v)).length;
   const needs = all.filter((b) => viewOf(b) === "needs").sort(byFileBy);
   const clients = new Set(all.map((b) => b.client).filter(Boolean)).size;
 
@@ -305,36 +311,28 @@ export function BatchesScreen() {
     );
   };
 
-  /** Filed: "48/300" with a short bar beside it on the same line, full and ticked when done. */
+  /**
+   * Filed, as an indicator rather than a chart (owner, 2026-11-17): nothing filed stays
+   * quiet; a batch partly filed carries a small ring and what's left, so the ones to come
+   * back to catch the eye; a finished one is ticked.
+   */
   const filedCell = (b: BatchSummary) => {
     const n = b.states.filed;
-    const pct = b.total ? Math.round((n / b.total) * 100) : 0;
-    const done = n > 0 && n === b.total;
-    const count = (
-      <span className={cn("inline-block w-16 tabular-nums", n ? "font-medium text-success-ink" : "text-muted-foreground")}>
-        {n}
-        <span className="font-normal text-muted-foreground">/{b.total}</span>
-      </span>
-    );
+    if (!n) return <span className="text-muted-foreground/40" aria-label={`None of ${b.total} filed`}>–</span>;
+    const done = n === b.total;
     return (
-      <span className="flex items-center gap-3">
-        {n ? (
-          <Link
-            href={open(b, "filed")}
-            onClick={(e) => e.stopPropagation()}
-            aria-label={`${n} of ${b.total} filed in ${b.number}`}
-            className="rounded-sm outline-none hover:underline focus-visible:ring-3 focus-visible:ring-focus-ring"
-          >
-            {count}
-          </Link>
-        ) : (
-          <span aria-label={`None of ${b.total} filed`}>{count}</span>
-        )}
-        <span aria-hidden className="h-1.5 w-14 shrink-0 overflow-hidden rounded-full bg-surface-sunken">
-          <span className="block h-full rounded-full bg-success" style={{ width: `${pct}%` }} />
+      <Link
+        href={open(b, "filed")}
+        onClick={(e) => e.stopPropagation()}
+        aria-label={done ? `All ${b.total} filed in ${b.number}` : `${n} of ${b.total} filed in ${b.number}, ${b.total - n} left`}
+        className="inline-flex items-center gap-2.5 rounded-md pr-2 outline-none hover:bg-surface-sunken focus-visible:ring-3 focus-visible:ring-focus-ring"
+      >
+        {done ? <CircleCheckIcon aria-hidden className="size-5 shrink-0 text-success-ink" /> : <FiledRing filed={n} total={b.total} />}
+        <span className="flex flex-col leading-5">
+          <span className="font-medium text-foreground tabular-nums">{done ? `All ${b.total}` : `${n} of ${b.total}`}</span>
+          {done ? null : <span className="text-muted-foreground tabular-nums">{b.total - n} left</span>}
         </span>
-        {done ? <CircleCheckIcon aria-hidden className="-ml-1 size-4 shrink-0 text-success-ink" /> : null}
-      </span>
+      </Link>
     );
   };
 
@@ -345,6 +343,7 @@ export function BatchesScreen() {
 
   const emptyFor: Record<View | "all", { title: string; line: string }> = {
     needs: { title: "Nothing needs you", line: "Every batch is waiting on someone else or done." },
+    partly: { title: "No batch is partly filed", line: "A batch shows here once some of its cases are filed." },
     waiting: { title: "Nothing waiting on others", line: "No signing round is out." },
     notCreated: { title: "No unfinished uploads", line: "Every upload has been created." },
     done: { title: "No batches done yet", line: "A batch moves here once all its cases are filed." },
@@ -639,3 +638,25 @@ export function BatchesScreen() {
 
 /** "stopped at Match values" → "Stopped at Match values". */
 const sentence = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/** A small ring: the filed share of a batch, as an indicator beside its count. */
+function FiledRing({ filed, total }: { filed: number; total: number }) {
+  const r = 8;
+  const c = 2 * Math.PI * r;
+  const share = total ? filed / total : 0;
+  return (
+    <svg viewBox="0 0 20 20" className="size-5 shrink-0 -rotate-90" aria-hidden>
+      <circle cx="10" cy="10" r={r} fill="none" strokeWidth="3" className="stroke-border" />
+      <circle
+        cx="10"
+        cy="10"
+        r={r}
+        fill="none"
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeDasharray={`${Math.max(share * c, 2)} ${c}`}
+        className="stroke-success"
+      />
+    </svg>
+  );
+}
