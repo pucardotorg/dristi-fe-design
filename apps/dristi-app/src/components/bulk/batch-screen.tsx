@@ -17,6 +17,13 @@ import {
 import { BatchBreadcrumbLabel } from "@/components/filing/chrome";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import {
+  DescriptionDetails,
+  DescriptionList,
+  DescriptionRow,
+  DescriptionTerm,
+} from "@/components/ui/description-list";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { bulkApi, caseFlowHref, setBulkAiMode, type BatchView } from "./api";
@@ -228,8 +235,8 @@ export function BatchScreen({ batchId }: { batchId: string }) {
   }[shown];
   const subtitle: string | null = {
     common: null,
-    // The file, as on Check before Create; the card counts the cases.
-    cases: fromFile ? (batch.source.reference ?? null) : casesLine(batch),
+    // What to do here; the batch's facts sit in their own strip below (owner, 2026-11-17).
+    cases: batch.source.kind === "api" ? `Check what ${batch.source.system} sent.` : "Check what this file made.",
     scrutiny: fixing || checking
       ? // The rule, not the counts the pills already give (BLK-08, BLK-12).
         "Fix these before filing. Cases to check can go ahead as they are."
@@ -282,6 +289,7 @@ export function BatchScreen({ batchId }: { batchId: string }) {
           <h1 className={cn(PAGE_TITLE, "text-foreground")}>{title}</h1>
           {subtitle ? <p className="text-body text-muted-foreground tabular-nums">{subtitle}</p> : null}
         </div>
+        {shown === "cases" ? <BatchFacts facts={batchFacts(batch)} /> : null}
 
         {/* A standing condition, said still (skill `feedback-states`). */}
         {ai === "unavailable" ? (
@@ -326,8 +334,73 @@ export function BatchScreen({ batchId }: { batchId: string }) {
   );
 }
 
-/** The Cases step's subtitle: how many cases, and from where. The filters carry the counts. */
-function casesLine(batch: BatchView): string {
-  const from = batch.source.kind === "api" ? `, sent by ${batch.source.system}` : ` from ${batch.source.reference}`;
-  return `${batch.total} case${batch.total === 1 ? "" : "s"}${from}.`;
+/* ───────────────────────────── The batch's facts ───────────────────────────── */
+
+export type BatchFact = { label: string; value: React.ReactNode };
+
+/** "12 Nov", with the year only when it isn't this one (as the batch list writes dates). */
+function shortDate(iso: string): string {
+  const d = new Date(`${iso.slice(0, 10)}T00:00:00Z`);
+  const sameYear = d.getUTCFullYear() === new Date().getUTCFullYear();
+  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", ...(sameYear ? {} : { year: "numeric" }), timeZone: "UTC" });
+}
+
+/** "Anjali Parmar", or "Anjali Parmar +2" when more are on record. */
+export function withMore(names: string[]): string {
+  const [first, ...rest] = names.filter(Boolean);
+  return first ? `${first}${rest.length ? ` +${rest.length}` : ""}` : "—";
+}
+
+/**
+ * Who the batch is for and where its cases came from, as facts rather than a subtitle
+ * (owner, 2026-11-17: "show this information as proper info"). Only what the batch holds.
+ */
+function batchFacts(batch: BatchView): BatchFact[] {
+  const past = !!batch.fileBy && batch.fileBy < new Date().toISOString().slice(0, 10);
+  return [
+    { label: "Complainant", value: batch.client || "—" },
+    { label: "Advocate", value: withMore(batch.advocates.map((a) => a.name)) },
+    batch.source.kind === "api"
+      ? { label: "Sent by", value: batch.source.system }
+      : { label: "File", value: batch.source.reference ?? "—" },
+    { label: "Cases", value: batch.total },
+    { label: "Created", value: shortDate(batch.createdAt) },
+    ...(batch.fileBy
+      ? [
+          {
+            label: "File by",
+            value: (
+              <>
+                {shortDate(batch.fileBy)}
+                {past ? <span className="text-destructive-ink"> · Past</span> : null}
+              </>
+            ),
+          },
+        ]
+      : []),
+  ];
+}
+
+/**
+ * The batch's facts in one lifted strip under the page's title: label over value, side by
+ * side from `lg`, and the DS's own label-and-value rows on a phone.
+ */
+export function BatchFacts({ facts, label = "About this batch" }: { facts: BatchFact[]; label?: string }) {
+  return (
+    <Card variant="raised" className="gap-0 px-6 py-2 lg:py-4">
+      <DescriptionList aria-label={label} className="lg:flex-row lg:flex-wrap lg:gap-x-12 lg:gap-y-4">
+        {facts.map((f) => (
+          <DescriptionRow
+            key={f.label}
+            className="border-hairline lg:flex lg:min-w-0 lg:flex-col lg:gap-1 lg:border-b-0 lg:py-0"
+          >
+            <DescriptionTerm className="text-body-compact">{f.label}</DescriptionTerm>
+            <DescriptionDetails className="min-w-0 text-body-compact font-medium break-words tabular-nums">
+              {f.value}
+            </DescriptionDetails>
+          </DescriptionRow>
+        ))}
+      </DescriptionList>
+    </Card>
+  );
 }

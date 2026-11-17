@@ -22,7 +22,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 
 import { aiModeFrom } from "@/lib/bulk/ai-review";
 import type { CaseExtraction } from "@/lib/bulk/case-doc";
-import { advocatesMissing, apiComplainantOf, partiesOf } from "@/lib/bulk/parties";
+import { advocatesMissing, apiComplainantOf, complainantName, partiesOf } from "@/lib/bulk/parties";
 import { useFiling } from "@/lib/filing/store";
 import {
   autoMap,
@@ -85,6 +85,7 @@ import { NO_PICKS, pickBatch } from "./facts-cases";
 import { FileDrop } from "./file-drop";
 import { FormatChoice, type UploadFormat } from "./format-choice";
 import { bulkFetch } from "./api";
+import { BatchFacts, withMore } from "./batch-screen";
 import { setupHref, uploadHref, useReportUploadState, type UploadStep } from "./setup-flow";
 import { StatusMark } from "@/components/feedback";
 import { StatusLine } from "@/components/feedback";
@@ -960,17 +961,36 @@ export function UploadScreen() {
               coreMissing.length
                 ? undefined
                 : counted
-                  ? // The file and what became of its rows (BLK-10, BLK-36), as the page's facts.
-                    [
-                      fileName,
-                      `${book.cases.rows.length + (book.cases.discarded ?? 0)} rows`,
-                      book.cases.discarded ? `${book.cases.discarded} template ${book.cases.discarded === 1 ? "row" : "rows"} set aside` : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")
+                  ? "Check what this file makes before creating the cases."
                   : `Reading ${fileName}…`
             }
           />
+          {/* The file and what became of its rows (BLK-10, BLK-36), with who the cases are
+              for, as facts rather than a subtitle (owner, 2026-11-17). */}
+          {counted && !coreMissing.length ? (
+            <BatchFacts
+              label="About these cases"
+              facts={[
+                { label: "Complainant", value: withMore(setup.complainants.map(complainantName)) },
+                { label: "Advocate", value: withMore(setup.advocates.map((a) => a.name)) },
+                { label: docs ? "Documents" : "File", value: fileName || "—" },
+                ...(docs
+                  ? []
+                  : [
+                      { label: "Rows", value: book.cases.rows.length + (book.cases.discarded ?? 0) },
+                      ...(book.cases.discarded
+                        ? [{ label: "Set aside", value: `${book.cases.discarded} template ${book.cases.discarded === 1 ? "row" : "rows"}` }]
+                        : []),
+                    ]),
+                ...(cannot.length
+                  ? [{ label: "Left out", value: `${cannot.length} ${cannot.length === 1 ? "row" : "rows"}` }]
+                  : []),
+                ...(checkCases?.length
+                  ? [{ label: "Cheques total", value: money(checkCases.reduce((n, c) => n + c.amount, 0)) }]
+                  : []),
+              ]}
+            />
+          ) : null}
           {errorNotice}
           {coreMissing.length ? (
             <StatusLine
