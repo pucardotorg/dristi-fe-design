@@ -16,7 +16,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { CircleCheckIcon, DownloadIcon, EllipsisIcon, Layers2Icon, Trash2Icon, UploadIcon } from "lucide-react";
+import { CircleCheckIcon, DownloadIcon, EllipsisIcon, Layers2Icon, SearchIcon, Trash2Icon, UploadIcon } from "lucide-react";
 
 import { buildTemplate, TEMPLATE_FILE } from "@/lib/bulk/excel";
 import { cn } from "@/lib/utils";
@@ -34,6 +34,18 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+import { pageWindow } from "@/lib/filing/queue";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 import { aiModeFrom } from "@/lib/bulk/ai-review";
@@ -61,6 +73,15 @@ export async function downloadTemplate() {
 }
 
 /* ───────────────────────────── Where a batch stands ───────────────────────────── */
+
+type SortId = "deadline" | "recent" | "fix" | "number";
+const SORTS: { id: SortId; label: string }[] = [
+  { id: "deadline", label: "File by, soonest" },
+  { id: "recent", label: "Recently worked on" },
+  { id: "fix", label: "Most to fix" },
+  { id: "number", label: "Newest batch" },
+];
+const PAGE_SIZES = [10, 25, 50] as const;
 
 type View = "needs" | "partly" | "waiting" | "notCreated" | "done";
 
@@ -185,6 +206,7 @@ export function BatchesScreen() {
     const next = new URLSearchParams(params.toString());
     if (v === "needs") next.delete("view");
     else next.set("view", v);
+    next.delete("page");
     setPicked(new Set());
     const q = next.toString();
     router.replace(q ? `?${q}` : "?", { scroll: false });
@@ -195,7 +217,38 @@ export function BatchesScreen() {
   const byFileBy = (a: BatchSummary, b: BatchSummary) =>
     (a.fileBy ?? "9999") === (b.fileBy ?? "9999") ? byUpdated(a, b) : (a.fileBy ?? "9999").localeCompare(b.fileBy ?? "9999");
   const inView = (b: BatchSummary, v: View) => (v === "partly" ? isPartly(b) : viewOf(b) === v);
-  const shown = all.filter((b) => view === "all" || inView(b, view)).sort(view === "needs" || view === "partly" ? byFileBy : byUpdated);
+  // Search, order and pages, kept in the address like every other list (owner, 2026-11-17).
+  const q = params.get("q") ?? "";
+  const term = q.trim().toLowerCase();
+  const sortId = SORTS.some((x) => x.id === params.get("sort"))
+    ? (params.get("sort") as SortId)
+    : view === "needs" || view === "partly" ? "deadline" : "recent";
+  const size = PAGE_SIZES.includes(Number(params.get("size")) as (typeof PAGE_SIZES)[number]) ? Number(params.get("size")) : PAGE_SIZES[0];
+  const setParams = (updates: Record<string, string | null>) => {
+    const next = new URLSearchParams(params.toString());
+    for (const [k, v] of Object.entries(updates)) {
+      if (v === null || v === "") next.delete(k);
+      else next.set(k, v);
+    }
+    const qs = next.toString();
+    router.replace(qs ? `?${qs}` : "?", { scroll: false });
+  };
+  const sorter: Record<SortId, (a: BatchSummary, b: BatchSummary) => number> = {
+    deadline: byFileBy,
+    recent: byUpdated,
+    fix: (a, b) => b.states.fix - a.states.fix || byFileBy(a, b),
+    number: (a, b) => Number(b.number.replace(/\D/g, "")) - Number(a.number.replace(/\D/g, "")),
+  };
+  const matches = (b: BatchSummary) =>
+    !term ||
+    [b.number, b.client, b.source.reference ?? "", b.source.kind === "api" ? b.source.system : "Excel"].some((v) =>
+      v.toLowerCase().includes(term),
+    );
+  const listed = all.filter((b) => (view === "all" || inView(b, view)) && matches(b)).sort(sorter[sortId]);
+  const pageCount = Math.max(1, Math.ceil(listed.length / size));
+  const page = Math.min(Math.max(1, Number(params.get("page")) || 1), pageCount);
+  const start = (page - 1) * size;
+  const shown = listed.slice(start, start + size);
 
   const count = (v: View) => all.filter((b) => inView(b, v)).length;
   const needs = all.filter((b) => viewOf(b) === "needs").sort(byFileBy);
@@ -428,6 +481,32 @@ export function BatchesScreen() {
                 </div>
               ) : null}
             </div>
+            {/* Search and order, as on every list. */}
+            <div className="flex flex-wrap items-center gap-3 px-4 pb-3">
+              <div className="relative min-w-0 flex-1">
+                <SearchIcon aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="search"
+                  value={q}
+                  onChange={(e) => setParams({ q: e.target.value, page: null })}
+                  placeholder="Search by batch, complainant or file"
+                  aria-label="Search batches"
+                  className="pl-9"
+                />
+              </div>
+              <NativeSelect
+                value={sortId}
+                onChange={(e) => setParams({ sort: e.target.value, page: null })}
+                aria-label="Order the batches"
+                className="w-full sm:w-auto"
+              >
+                {SORTS.map((x) => (
+                  <NativeSelectOption key={x.id} value={x.id}>
+                    {x.label}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            </div>
             {chosen.length > 1 && !sameClient ? (
               <p className="px-4 pb-3 text-body-compact text-warning-ink">Only batches for the same complainant can be clubbed.</p>
             ) : null}
@@ -436,12 +515,12 @@ export function BatchesScreen() {
             {shown.length === 0 ? (
               <Empty className="border-0 py-12">
                 <EmptyHeader>
-                  <EmptyTitle>{emptyFor[view].title}</EmptyTitle>
-                  {emptyFor[view].line ? <EmptyDescription>{emptyFor[view].line}</EmptyDescription> : null}
+                  <EmptyTitle>{term ? `No batch matches “${q.trim()}”` : emptyFor[view].title}</EmptyTitle>
+                  {!term && emptyFor[view].line ? <EmptyDescription>{emptyFor[view].line}</EmptyDescription> : null}
                 </EmptyHeader>
                 <EmptyContent>
-                  <Button variant="outline" onClick={() => setView("all")}>
-                    Show all batches
+                  <Button variant="outline" onClick={() => (term ? setParams({ q: null, page: null }) : setView("all"))}>
+                    {term ? "Clear search" : "Show all batches"}
                   </Button>
                 </EmptyContent>
               </Empty>
@@ -616,6 +695,60 @@ export function BatchesScreen() {
             )}
           </>
         )}
+        {listed.length > PAGE_SIZES[0] ? (
+          <div className="flex flex-wrap items-center justify-between gap-4 border-t border-hairline px-4 pt-4 pb-2">
+            <div className="flex items-center gap-3">
+              <p className="text-body-compact text-muted-foreground tabular-nums">
+                Showing {start + 1}–{Math.min(start + size, listed.length)} of {listed.length}
+              </p>
+              <NativeSelect
+                value={String(size)}
+                onChange={(e) => setParams({ size: e.target.value, page: null })}
+                aria-label="Batches per page"
+                size="sm"
+                className="w-auto"
+              >
+                {PAGE_SIZES.map((n) => (
+                  <NativeSelectOption key={n} value={String(n)}>
+                    {n} per page
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            </div>
+            {pageCount > 1 ? (
+              <Pagination className="mx-0 w-auto justify-end">
+                <PaginationContent>
+                  {page > 1 ? (
+                    <PaginationItem>
+                      <PaginationPrevious href="#" onClick={(e) => (e.preventDefault(), setParams({ page: String(page - 1) }))} />
+                    </PaginationItem>
+                  ) : null}
+                  {pageWindow(page, pageCount).map((entry, i) => (
+                    <PaginationItem key={`${entry}-${i}`}>
+                      {entry === "gap" ? (
+                        <PaginationEllipsis />
+                      ) : (
+                        <PaginationLink
+                          href="#"
+                          isActive={entry === page}
+                          aria-label={`Go to page ${entry}`}
+                          onClick={(e) => (e.preventDefault(), setParams({ page: String(entry) }))}
+                        >
+                          {entry}
+                        </PaginationLink>
+                      )}
+                    </PaginationItem>
+                  ))}
+                  {page < pageCount ? (
+                    <PaginationItem>
+                      <PaginationNext href="#" onClick={(e) => (e.preventDefault(), setParams({ page: String(page + 1) }))} />
+                    </PaginationItem>
+                  ) : null}
+                </PaginationContent>
+              </Pagination>
+            ) : null}
+          </div>
+        ) : null}
       </Card>
 
       <ConfirmDialog
