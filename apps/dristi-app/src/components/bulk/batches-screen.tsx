@@ -25,7 +25,6 @@ import { PAGE_GROUND, PAGE_GUTTER, PAGE_SUBTITLE, PAGE_TITLE } from "@/component
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -153,8 +152,6 @@ export function BatchesScreen() {
   const router = useRouter();
   const [batches, setBatches] = React.useState<BatchSummary[] | null>(null);
   const [error, setError] = React.useState<string | null>(null);
-  const [picked, setPicked] = React.useState<Set<string>>(new Set());
-  const [clubbing, setClubbing] = React.useState(false);
 
   // Batches with a signing round out, waiting on another party (kept in this browser).
   const [awaiting, setAwaiting] = React.useState<Set<string>>(new Set());
@@ -207,7 +204,6 @@ export function BatchesScreen() {
     if (v === "needs") next.delete("view");
     else next.set("view", v);
     next.delete("page");
-    setPicked(new Set());
     const q = next.toString();
     router.replace(q ? `?${q}` : "?", { scroll: false });
   };
@@ -253,31 +249,6 @@ export function BatchesScreen() {
   const count = (v: View) => all.filter((b) => inView(b, v)).length;
   const needs = all.filter((b) => viewOf(b) === "needs").sort(byFileBy);
   const clients = new Set(all.map((b) => b.client).filter(Boolean)).size;
-
-  const clubbable = (b: BatchSummary) => !b.notCreated && !isDone(b);
-  const canPick = shown.some(clubbable);
-  const chosen = all.filter((b) => picked.has(b.id) && clubbable(b));
-  const sameClient = new Set(chosen.map((b) => b.client)).size <= 1;
-  const toggle = (id: string, on: boolean) =>
-    setPicked((prev) => {
-      const next = new Set(prev);
-      if (on) next.add(id);
-      else next.delete(id);
-      return next;
-    });
-
-  const club = async () => {
-    setClubbing(true);
-    setError(null);
-    try {
-      const out = await bulkApi.club(chosen.map((b) => b.id));
-      notify.success(`${chosen.length} batches clubbed into ${out.batchNumber}`);
-      router.push(`/filings/bulk/${out.batchId}`);
-    } catch (e) {
-      setError((e as Error).message);
-      setClubbing(false);
-    }
-  };
 
   const [deleting, setDeleting] = React.useState<BatchSummary | null>(null);
   const remove = async (b: BatchSummary) => {
@@ -466,20 +437,6 @@ export function BatchesScreen() {
                 filters={VIEWS.map((v) => ({ ...v, count: count(v.id) }))}
                 label="Show batches"
               />
-              {chosen.length ? (
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="text-body-compact text-muted-foreground tabular-nums" aria-live="polite">
-                    {chosen.length} selected
-                  </span>
-                  <Button variant="outline" disabled={chosen.length < 2 || !sameClient || clubbing} onClick={() => void club()}>
-                    <Layers2Icon data-icon="inline-start" aria-hidden />
-                    Club {chosen.length} batches
-                  </Button>
-                  <Button variant="link" className="h-auto p-0 font-normal text-muted-foreground underline" onClick={() => setPicked(new Set())}>
-                    Clear
-                  </Button>
-                </div>
-              ) : null}
             </div>
             {/* Search and order, as on every list. */}
             <div className="flex flex-wrap items-center gap-3 px-4 pb-3">
@@ -507,9 +464,6 @@ export function BatchesScreen() {
                 ))}
               </NativeSelect>
             </div>
-            {chosen.length > 1 && !sameClient ? (
-              <p className="px-4 pb-3 text-body-compact text-warning-ink">Only batches for the same complainant can be clubbed.</p>
-            ) : null}
 
 
             {shown.length === 0 ? (
@@ -531,9 +485,6 @@ export function BatchesScreen() {
                   {shown.map((b) => (
                     <li key={b.id} className="flex flex-col gap-1 px-4 py-3 text-body-compact">
                       <span className="flex min-h-10 items-center gap-2">
-                        {clubbable(b) ? (
-                          <Checkbox checked={picked.has(b.id)} onCheckedChange={(v) => toggle(b.id, v === true)} aria-label={`Select ${b.number}`} />
-                        ) : null}
                         <Link href={open(b)} className="font-medium tabular-nums hover:underline">
                           {b.number}
                         </Link>
@@ -587,7 +538,6 @@ export function BatchesScreen() {
                 <div className="hidden overflow-x-auto md:block">
                   <Table className="table-fixed border-separate border-spacing-0" aria-label="Batches">
                     <colgroup>
-                      {canPick ? <col className="w-12" /> : null}
                       <col className="w-[30%]" />
                       {showClient ? <col className="w-40" /> : null}
                       <col className="w-28" />
@@ -599,11 +549,6 @@ export function BatchesScreen() {
                     </colgroup>
                     <TableHeader>
                       <TableRow className={TABLE_HEAD_ROW}>
-                        {canPick ? (
-                          <TableHead className={cn(TABLE_HEAD, "pr-0")}>
-                            <span className="sr-only">Select to club</span>
-                          </TableHead>
-                        ) : null}
                         <TableHead className={TABLE_HEAD}>Batch</TableHead>
                         {showClient ? <TableHead className={TABLE_HEAD}>Complainant</TableHead> : null}
                         <TableHead className={cn(TABLE_HEAD, "whitespace-nowrap")}>File by</TableHead>
@@ -620,10 +565,9 @@ export function BatchesScreen() {
                         ) : null}
                       </TableRow>
                     </TableHeader>
-                    <TableBody className={tableBodyClass({ selectable: canPick })}>
+                    <TableBody className={tableBodyClass()}>
                       {shown.map((b) => {
                         const origin = originLine(b);
-                        const on = picked.has(b.id);
                         // Not created, or clubbed away: no stages to count; one muted line across them.
                         const across = b.notCreated ? (
                           <span className="flex items-center gap-4">
@@ -640,17 +584,9 @@ export function BatchesScreen() {
                         return (
                           <TableRow
                             key={b.id}
-                            className={cn(tableRowClass({ selectable: canPick }), "cursor-pointer")}
-                            data-state={on ? "selected" : undefined}
+                            className={cn(tableRowClass(), "cursor-pointer")}
                             onClick={() => router.push(open(b))}
                           >
-                            {canPick ? (
-                              <TableCell className={cn(TABLE_CELL, "pr-0")} onClick={(e) => e.stopPropagation()}>
-                                {clubbable(b) ? (
-                                  <Checkbox checked={on} onCheckedChange={(v) => toggle(b.id, v === true)} aria-label={`Select ${b.number}`} />
-                                ) : null}
-                              </TableCell>
-                            ) : null}
                             <TableCell className={TABLE_CELL}>
                               <span className="flex items-center gap-2">
                                 <Link
