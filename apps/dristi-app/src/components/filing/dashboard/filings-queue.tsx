@@ -663,7 +663,7 @@ export function FilingsQueue({
           >
             <Table aria-label={layout.label}>
               <TableHeader
-                className={tight ? undefined : "sticky z-[11]"}
+                className={tight ? undefined : "sticky z-[21]"}
                 style={tight ? undefined : { top: `calc(3.5rem + ${bandHeight}px + 0.5rem)` }}
               >
                 <TableRow className="border-hairline">
@@ -843,7 +843,12 @@ export function FilingsQueue({
         </p>
       </div>
 
+      {/* At least a screen tall from the top bar down (the page's bottom gutter and the
+          card's border taken off, the tab gap added), so the page can always scroll far enough to dock. A
+          short list otherwise stopped the scroll half-way: heading clipped under the top
+          bar, band never docked. */}
       <Tabs
+        className="md:pointer-fine:min-h-[calc(100svh-5rem-1px)] md:landscape:min-h-[calc(100svh-5rem-1px)]"
         value={view.tab}
         onValueChange={(value) => {
           // More hands over a value no tab owns when nothing is folded behind it.
@@ -862,7 +867,9 @@ export function FilingsQueue({
           ref={band}
           data-docked={docked || undefined}
           className={cn(
-            "sticky top-14 z-10 bg-card",
+            // z-20: rows lift their own controls to z-10 (the batch mark, buttons over the
+            // row link); at an equal z they would paint over the band, later in the page.
+            "sticky top-14 z-20 bg-card",
             cards && "border-b border-hairline px-4",
             !cards &&
               (tight ? "before:bottom-0 " : "before:-bottom-14 ") +
