@@ -55,7 +55,7 @@ export function FilingBreadcrumbs() {
     // 2026-11-12: the trail, not a Back button, is the way out of a case).
     if (inCase && batchCrumb && parts[1] === batchCrumb.id) {
       crumbs.push({
-        label: "Case details",
+        label: "Fix & check",
         href: `/filings/bulk/${batchCrumb.id}?tab=scrutiny&case=${encodeURIComponent(parts[3])}`,
       });
     }

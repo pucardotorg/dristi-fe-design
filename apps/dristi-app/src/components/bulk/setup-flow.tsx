@@ -54,7 +54,7 @@ import { Spinner } from "@/components/ui/spinner";
 import type { BatchView } from "./api";
 import { batchMarks } from "./batch-marks";
 import { BatchAdr } from "./batch-parties";
-import { BulkSteps, StageRow, type BulkStepId, type Stage, type StepMark } from "./bulk-steps";
+import { BulkSteps, StageRow, bulkStepTitle, type BulkStepId, type Stage, type StepMark } from "./bulk-steps";
 import { useGujarat } from "./court-guard";
 import { SetupKeeper, useKeptSetup } from "./setup-keeper";
 
@@ -346,7 +346,7 @@ function SetupPolicy({
 }
 
 /** Why a created batch's Common details can't be typed over, said once above the section. */
-const LOCKED = "Set for every case when this batch was created. A case's own parties are changed in that case, from Case details.";
+const LOCKED = "Set for every case when this batch was created. A case's own parties are changed in that case, from Fix & check.";
 
 /**
  * A created batch's steps over its Common details: the batch's own counts on the step
@@ -372,7 +372,7 @@ function BatchCommonSteps({ batch, step, ai }: { batch: BatchView; step: StepId 
   return (
     <BulkSteps
       marks={marks}
-      second={<StageRow label="Step 1 · Common details" stages={stages} current={step ?? "complainant"} />}
+      second={<StageRow label={`Step 1 · ${bulkStepTitle("common")}`} stages={stages} current={step ?? "complainant"} />}
     />
   );
 }
@@ -465,7 +465,7 @@ function SetupSteps({
       marks={marks}
       second={
         <StageRow
-          label={inCases ? "Step 2 · Cases" : "Step 1 · Common details"}
+          label={inCases ? `Step 2 · ${bulkStepTitle("cases")}` : `Step 1 · ${bulkStepTitle("common")}`}
           stages={stages.map((x, i) => ({ ...x, done: x.done ?? i < at }))}
           current={current ?? ""}
         />

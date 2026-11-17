@@ -27,14 +27,21 @@ import { Badge } from "@/components/ui/badge";
 export type BulkStepId = "common" | "cases" | "details" | "documents" | "sign" | "pay";
 
 /** The batch's steps, in the order the owner set for v8: details are fixed before documents. */
+/**
+ * Named as what the filer does there, all in one form (owner, 2026-11-17: "Case details" said
+ * nothing, since every step is about a case's details).
+ */
 export const BULK_STEPS: { id: BulkStepId; title: string }[] = [
-  { id: "common", title: "Common details" },
-  { id: "cases", title: "Cases" },
-  { id: "details", title: "Case details" },
-  { id: "documents", title: "Documents" },
-  { id: "sign", title: "Review and sign" },
+  { id: "common", title: "Set up" },
+  { id: "cases", title: "Add cases" },
+  { id: "details", title: "Fix & check" },
+  { id: "documents", title: "Add documents" },
+  { id: "sign", title: "Sign" },
   { id: "pay", title: "Pay" },
 ];
+
+/** A step's name, wherever a screen or the trail names it. */
+export const bulkStepTitle = (id: BulkStepId) => BULK_STEPS.find((s) => s.id === id)!.title;
 
 export type StepMark = {
   status: "complete" | "current" | "upcoming";
@@ -75,10 +82,10 @@ export const BULK_COLUMN: Record<BulkWidth, string> = {
 };
 
 /**
- * How much of the row has to give way to fit: 0 shows everything; 1 drops the names of the
- * steps you are not on (the dot and the count stay); 2 drops their counts too; 3 closes up
- * the rules between the dots, which only a phone needs. The step you are on always keeps
- * its name, and nothing scrolls or clips.
+ * How much of the row has to give way to fit. Every step keeps its name at every level
+ * (owner, 2026-11-17: dots with only a count beside them were unintuitive). 0 shows
+ * everything; 1 shortens each count to its number ("71"); 2 closes up the rules and the
+ * padding; 3, a phone's width, lets the row scroll sideways rather than drop a name.
  */
 function useFit(key: string) {
   const ref = React.useRef<HTMLOListElement>(null);
@@ -100,6 +107,7 @@ function useFit(key: string) {
     const check = () => {
       widths.current[level] = ol.scrollWidth;
       if (ol.scrollWidth > ol.clientWidth + 1 && level < 3) setLevel(level + 1);
+      // At 3 the row scrolls; it comes back once the row is wide enough for level 2.
       else if (level > 0 && ol.clientWidth >= (widths.current[level - 1] ?? Infinity)) setLevel(level - 1);
     };
     check();
@@ -140,7 +148,10 @@ export function BulkSteps({
       style={{ top: TOP_BAR_HEIGHT }}
     >
       <nav aria-label="Batch steps" className={gutter}>
-        <ol ref={ref} className={cn(STEPS_COLUMN, "flex items-center gap-1 overflow-hidden py-3")}>
+        <ol
+          ref={ref}
+          className={cn(STEPS_COLUMN, "flex items-center gap-1 py-3", level > 2 ? "overflow-x-auto [scrollbar-width:none]" : "overflow-hidden")}
+        >
           {BULK_STEPS.map((s, i) => {
             const m = marks[s.id];
             const current = m.status === "current";
@@ -162,30 +173,34 @@ export function BulkSteps({
             );
             // Past level 1 the count is left to the link's label: a badge can't be hidden
             // with `sr-only`, whose 1px loses to the badge's own width.
+            // Tight, the count keeps its number and its tone; the words go to the label.
+            const short = level > 0 ? (m.note?.match(/^\d[\d,]*/)?.[0] ?? m.note) : m.note;
             const count =
-              m.note && !current && level < 2 ? (
+              m.note && !current ? (
                 <Badge
                   variant={m.tone === "ready" || m.tone === "neutral" ? "secondary" : m.tone === "fix" ? "destructive" : "warning"}
-                  className="text-body-compact tabular-nums"
+                  className={cn("text-body-compact tabular-nums", level > 0 && "min-w-6 justify-center px-1.5")}
+                  aria-hidden={level > 0 || undefined}
                 >
-                  {m.note}
+                  {short}
                 </Badge>
               ) : null;
-            const label = <span className={current || level === 0 ? undefined : "sr-only"}>{s.title}</span>;
+            const label = <span>{s.title}</span>;
             const cls = cn(
-              "inline-flex h-10 items-center gap-2 rounded-lg text-body-compact whitespace-nowrap transition-colors",
-              i ? (level > 2 ? "px-1" : "px-2") : "pr-2",
+              "inline-flex h-10 items-center rounded-lg text-body-compact whitespace-nowrap transition-colors",
+              level > 1 ? "gap-1.5" : "gap-2",
+              i ? (level > 1 ? "px-1" : "px-2") : "pr-2",
             );
             return (
               <React.Fragment key={s.id}>
-                {i ? <li aria-hidden className={cn("h-px max-w-6 min-w-2 flex-1 bg-border", level > 2 && "hidden")} /> : null}
+                {i ? <li aria-hidden className={cn("h-px max-w-6 flex-1 bg-border", level > 1 ? "min-w-1" : "min-w-2")} /> : null}
                 <li className="shrink-0">
                   {m.href && !current ? (
                     <Link
                       href={m.href}
                       className={cn(cls, "text-foreground hover:bg-accent")}
                       aria-label={m.note ? `${s.title}, ${m.note}` : undefined}
-                      title={level ? s.title : undefined}
+                      title={level && m.note ? `${s.title}: ${m.note}` : undefined}
                     >
                       {dot}
                       {label}

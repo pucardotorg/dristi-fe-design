@@ -71,7 +71,7 @@ export function CasesTab({ batch, go }: BatchCtx) {
         title="Replace this batch's draft cases?"
         description={
           <>
-            Every draft case, its documents and the changes made on Case details are discarded, and a case is made for
+            Every draft case, its documents and the changes made on Fix & check are discarded, and a case is made for
             each row of the new file. Signed cases not yet filed are replaced too.
             {filed ? ` The ${filed} filed ${filed === 1 ? "case stays" : "cases stay"} as ${filed === 1 ? "it is" : "they are"}.` : ""}
           </>

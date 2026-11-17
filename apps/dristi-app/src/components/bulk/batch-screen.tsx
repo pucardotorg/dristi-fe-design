@@ -29,7 +29,7 @@ import { ReviewTab } from "./review-tab";
 import { OathTab } from "./oath-tab";
 import { ScrutinyTab } from "./scrutiny-tab";
 import { SignTab } from "./sign-tab";
-import { BULK_COLUMN, BulkSteps, StageRow, type BulkStepId, type BulkWidth } from "./bulk-steps";
+import { BULK_COLUMN, BulkSteps, StageRow, bulkStepTitle, type BulkStepId, type BulkWidth } from "./bulk-steps";
 import { StatusLine } from "@/components/feedback";
 import { FooterSlot } from "./batch-footer";
 import { commonHref } from "./setup-flow";
@@ -216,9 +216,9 @@ export function BatchScreen({ batchId }: { batchId: string }) {
   // The title is the step's (or sub-step's) name, so it never changes between visits; the
   // counts are the subtitle's (audit rule 2, owner 2026-11-11).
   const title = {
-    common: "Common details",
+    common: bulkStepTitle("common"),
     cases: fromFile || batch.source.kind === "api" ? "Check" : "Cases",
-    scrutiny: "Case details",
+    scrutiny: bulkStepTitle("details"),
     documents: "Documents",
     review: "Review",
     oath: "Oath",
@@ -265,7 +265,7 @@ export function BatchScreen({ batchId }: { batchId: string }) {
         second={
           stages ? (
             <StageRow
-              label={step === "cases" ? "Step 2 · Cases" : `Step ${step === "sign" ? 5 : 6} · ${step === "sign" ? "Review and sign" : "Pay"}`}
+              label={`Step ${step === "cases" ? 2 : step === "sign" ? 5 : 6} · ${bulkStepTitle(step === "cases" ? "cases" : step === "sign" ? "sign" : "pay")}`}
               stages={stages}
               current={tab}
             />

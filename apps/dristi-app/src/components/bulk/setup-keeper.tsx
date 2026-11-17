@@ -38,9 +38,9 @@ export const useSetupKeeper = () => React.useContext(KeeperContext);
 
 /** Where the filer is, in the list's words: "stopped at Match values". */
 const WHERE: Record<string, string> = {
-  complainant: "Common details",
-  advocate: "Common details · Advocate",
-  documents: "Common details · Documents",
+  complainant: "Set up",
+  advocate: "Set up · Advocate",
+  documents: "Set up · Documents",
   format: "Choose a format",
   file: "Excel file",
   map: "Match columns",
@@ -95,7 +95,7 @@ export function SetupKeeper({ setupId, kept, children }: { setupId: string; kept
       void bulkApi
         .saveSetup(setupId, {
           path,
-          where: `stopped at ${WHERE[step] ?? "Common details"}`,
+          where: `stopped at ${WHERE[step] ?? "Set up"}`,
           draft,
           client: draft.complainants[0] ? complainantName(draft.complainants[0]) : "",
           ...(snapshot ? { upload: snapshot } : {}),
