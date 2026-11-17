@@ -4,11 +4,10 @@ import * as React from "react";
 import {
   AlignLeftIcon,
   BoldIcon,
+  BracketsIcon,
   ItalicIcon,
-  LinkIcon,
   ListIcon,
   ListOrderedIcon,
-  PencilLineIcon,
   Redo2Icon,
   Trash2Icon,
   Undo2Icon,
@@ -34,11 +33,12 @@ const TOOLS: { cmd: Command; label: string; icon: React.ComponentType<{ classNam
 /**
  * Brackets shown for what they are (bulk filing's facts of the case, owner 2026-11-12):
  *
- *   · a `[Field]` the cases fill is a token that cannot be typed over; clicked, it says what
- *     it is connected to and what it reads as in a sample case, and can be removed;
- *   · any other `[…]` is a part to write, selected whole on click with a hint that typing
- *     replaces it for every case;
- *   · typing `[` opens a list of fields that narrows as you type; Enter or Tab inserts one.
+ *   · a `[Field]` the cases fill is a variable: a chip that cannot be typed over; clicked, it
+ *     says what it is connected to and what it reads as in a sample case, and can be removed;
+ *   · any other `[…]` is a part to write, and behaves as a field inside the text: with the
+ *     caret in it (click, or arrow keys) it takes the focus ring and a caret, its prompt is
+ *     replaced by the first key typed, and once left it is plain text (owner, 2026-11-17);
+ *   · typing `[` opens a list of variables that narrows as you type; Enter or Tab inserts one.
  *
  * The value stays plain brackets: the display is converted on the way in and out.
  */
@@ -52,13 +52,16 @@ export type BracketMarks = {
   sampleLabel?: string;
 };
 
-/* A field reads as data already in place: body ink, a dotted underline, no pill. A part to
-   write reads as a blank to fill: italic in a dashed amber box. `data-active` is the one the
-   filer clicked, outlined so it is plainly the thing in hand. */
+/* Two kinds of bracket, never confused (owner, 2026-11-17: a dotted underline did not read as
+   a variable). A variable is a chip of the brand tint, upright and medium: something the case
+   puts there. A part to write is the blank: italic in a dashed amber box. In hand, each takes
+   the focus ring: the chip outlined while its card is open; the blank as a focused field,
+   its edge solid, a caret at its start, its prompt kept unselected-looking until a key
+   replaces it (`data-whole`), then upright body ink as it is written (`data-typed`). */
 const TOKEN_CLASS =
-  "cursor-pointer rounded-sm font-medium text-foreground underline decoration-muted-foreground decoration-dotted decoration-1 underline-offset-4 transition-colors hover:bg-accent data-[active]:bg-brand-muted data-[active]:text-brand-muted-foreground data-[active]:no-underline";
+  "cursor-pointer whitespace-nowrap rounded-md bg-brand-muted px-1 py-0.5 font-medium text-brand-muted-foreground transition-colors hover:bg-brand-muted-hover data-[active]:ring-2 data-[active]:ring-ring";
 const PROMPT_CLASS =
-  "mx-0.5 cursor-text rounded-md border border-dashed border-warning-ink bg-warning-muted px-1.5 py-0.5 italic text-warning-muted-foreground transition-shadow data-[active]:border-solid data-[active]:ring-2 data-[active]:ring-warning-ink";
+  "mx-0.5 cursor-text rounded-md border border-dashed border-warning-ink bg-warning-muted box-decoration-clone px-1.5 py-0.5 italic text-warning-muted-foreground transition-shadow hover:bg-warning-muted-hover data-[active]:border-solid data-[active]:border-ring data-[active]:ring-3 data-[active]:ring-ring/50 data-[typed]:text-foreground data-[typed]:not-italic data-[whole]:selection:bg-transparent data-[whole]:before:-mr-px data-[whole]:before:inline-block data-[whole]:before:h-4 data-[whole]:before:w-px data-[whole]:before:animate-caret-blink data-[whole]:before:bg-foreground data-[whole]:before:align-middle data-[whole]:before:content-['']";
 
 const attr = (t: string) => t.replace(/"/g, "&quot;");
 
@@ -156,8 +159,45 @@ export function RichTextEditor({
   const typed = React.useRef<{ node: Text; start: number; end: number } | null>(null);
   const [picker, setPicker] = React.useState<Picker | null>(null);
   const [card, setCard] = React.useState<Card | null>(null);
-  const [hint, setHint] = React.useState<Spot | null>(null);
   const activeMark = React.useRef<HTMLElement | null>(null);
+  // The part to write the caret is in: shown as a focused field while it is.
+  const activePrompt = React.useRef<HTMLElement | null>(null);
+
+  /** Leave a part to write: back to a blank, or, written, plain text where it stands. */
+  const leavePrompt = (el: HTMLElement) => {
+    if (activePrompt.current === el) activePrompt.current = null;
+    el.removeAttribute("data-active");
+    el.removeAttribute("data-whole");
+    if (el.isConnected && el.hasAttribute("data-typed")) el.replaceWith(...el.childNodes);
+  };
+
+  /**
+   * Follow the caret into and out of the parts to write. Entering an unwritten one takes its
+   * prompt whole, so the first key replaces it; the selection is hidden and a caret drawn at
+   * its start, as an empty field shows its placeholder.
+   */
+  const syncPrompt = (sel: Selection) => {
+    const box = ref.current;
+    const node = sel.rangeCount ? sel.getRangeAt(0).startContainer : null;
+    const host = node && box?.contains(node) ? (node.nodeType === Node.TEXT_NODE ? node.parentElement : (node as Element)) : null;
+    const el = host?.closest<HTMLElement>("mark[data-prompt]") ?? null;
+    const prev = activePrompt.current;
+    if (prev && prev !== el) leavePrompt(prev);
+    if (!el) return;
+    activePrompt.current = el;
+    el.setAttribute("data-active", "");
+    if (el.hasAttribute("data-typed")) {
+      el.removeAttribute("data-whole");
+      return;
+    }
+    if (sel.isCollapsed) {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+    el.toggleAttribute("data-whole", sel.toString() === (el.textContent ?? ""));
+  };
 
   React.useEffect(() => {
     const keep = () => {
@@ -165,10 +205,13 @@ export function RichTextEditor({
       if (!sel?.rangeCount || !ref.current) return;
       const range = sel.getRangeAt(0);
       if (ref.current.contains(range.commonAncestorContainer)) caret.current = range.cloneRange();
+      if (marks) syncPrompt(sel);
     };
     document.addEventListener("selectionchange", keep);
     return () => document.removeEventListener("selectionchange", keep);
-  }, []);
+    // `syncPrompt` reads refs only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [marks]);
 
   // Only write into the DOM when the incoming value differs from what we last emitted,
   // so the caret is not reset on every keystroke.
@@ -196,6 +239,7 @@ export function RichTextEditor({
   /** Redraw the marks from the value: a written part turns plain, a typed field a token. */
   const redecorate = () => {
     if (!marks || !ref.current) return;
+    activePrompt.current = null;
     ref.current.innerHTML = toDisplay(lastValue.current, marks);
   };
 
@@ -249,7 +293,6 @@ export function RichTextEditor({
   const closeFloats = () => {
     setPicker(null);
     setCard(null);
-    setHint(null);
     clearActive();
   };
 
@@ -435,7 +478,12 @@ export function RichTextEditor({
           contentEditable
           suppressContentEditableWarning
           onInput={() => {
-            setHint(null);
+            // A key in a part to write: its prompt is gone, what is typed reads as text.
+            const prompt = activePrompt.current;
+            if (prompt && (prompt.textContent ?? "").trim() !== (prompt.dataset.prompt ?? "").trim()) {
+              prompt.setAttribute("data-typed", "");
+              prompt.removeAttribute("data-whole");
+            }
             setCard(null);
             clearActive();
             emit();
@@ -455,9 +503,23 @@ export function RichTextEditor({
                 return;
               }
             }
-            if (e.key === "Escape" && (picker || card || hint)) {
+            if (e.key === "Escape" && (picker || card)) {
               e.preventDefault();
               closeFloats();
+              return;
+            }
+            // Arrows step over an unwritten part as over a field, not into its prompt.
+            const prompt = activePrompt.current;
+            if (prompt?.hasAttribute("data-whole") && !e.shiftKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+              e.preventDefault();
+              const range = document.createRange();
+              if (e.key === "ArrowRight") range.setStartAfter(prompt);
+              else range.setStartBefore(prompt);
+              range.collapse(true);
+              leavePrompt(prompt);
+              const sel = document.getSelection();
+              sel?.removeAllRanges();
+              sel?.addRange(range);
               return;
             }
             if (!marks || !(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "z") return;
@@ -473,28 +535,15 @@ export function RichTextEditor({
             if (!marks) return;
             const target = e.target as HTMLElement;
             const token = target.closest<HTMLElement>("[data-token]");
-            const mark = target.closest<HTMLElement>("mark[data-prompt]");
             setPicker(null);
             clearActive();
             setCard(null);
-            setHint(null);
+            // A part to write is taken by the caret (`syncPrompt`); a variable says what it
+            // is connected to.
             if (token) {
-              // A field says what it is connected to.
               token.setAttribute("data-active", "");
               activeMark.current = token;
               setCard({ ...spotOf(token.getBoundingClientRect()), name: token.dataset.token ?? "" });
-              return;
-            }
-            if (mark && (mark.textContent ?? "").trim() === (mark.dataset.prompt ?? "").trim()) {
-              // A part to write is taken whole, outlined, and says what typing does.
-              const range = document.createRange();
-              range.selectNodeContents(mark);
-              const sel = document.getSelection();
-              sel?.removeAllRanges();
-              sel?.addRange(range);
-              mark.setAttribute("data-active", "");
-              activeMark.current = mark;
-              setHint(spotOf(mark.getBoundingClientRect()));
             }
           }}
           className={cn(
@@ -510,7 +559,7 @@ export function RichTextEditor({
         <div className="flex items-center gap-2 border-t border-hairline px-4 py-2 text-body-compact text-muted-foreground">
           Type
           <kbd className="rounded-md border border-border bg-surface-sunken px-1.5 font-mono text-body-compact text-foreground">[</kbd>
-          to insert a field from each case.
+          to insert a variable.
         </div>
       ) : null}
 
@@ -518,7 +567,7 @@ export function RichTextEditor({
       {picker ? (
         <div
           role="listbox"
-          aria-label="Fields"
+          aria-label="Variables"
           className="absolute z-30 w-80 overflow-hidden rounded-lg bg-popover p-1.5 text-popover-foreground shadow-overlay ring-1 ring-foreground/10"
           style={{ top: picker.top, left: picker.left }}
           onMouseDown={(e) => e.preventDefault()}
@@ -542,22 +591,22 @@ export function RichTextEditor({
               </button>
             ))
           ) : (
-            <p className="px-2.5 py-2 text-body-compact text-muted-foreground">No field matches “{picker.query}”</p>
+            <p className="px-2.5 py-2 text-body-compact text-muted-foreground">No variable matches “{picker.query}”</p>
           )}
         </div>
       ) : null}
 
-      {/* A field, clicked: what it is connected to, and what it reads as in a case. */}
+      {/* A variable, clicked: what it is connected to, and what it reads as in a case. */}
       {card ? (
         <div
           role="dialog"
-          aria-label={`${card.name}, a field`}
+          aria-label={`${card.name}, a variable`}
           className="absolute z-30 flex w-80 flex-col gap-2 rounded-lg bg-popover p-3 text-popover-foreground shadow-overlay ring-1 ring-foreground/10"
           style={{ top: card.top, left: card.left }}
           onMouseDown={(e) => e.preventDefault()}
         >
           <div className="flex items-center gap-2">
-            <LinkIcon aria-hidden className="size-4 shrink-0 text-brand-muted-foreground" />
+            <BracketsIcon aria-hidden className="size-4 shrink-0 text-brand-muted-foreground" />
             <span className="text-body-compact font-semibold">{card.name}</span>
           </div>
           <p className="text-body-compact text-muted-foreground">Filled in from each case&apos;s details.</p>
@@ -575,22 +624,11 @@ export function RichTextEditor({
             onClick={() => removeField(card.name)}
           >
             <Trash2Icon data-icon="inline-start" aria-hidden />
-            Remove field
+            Remove variable
           </Button>
         </div>
       ) : null}
 
-      {/* A part to write, clicked: what typing does. */}
-      {hint ? (
-        <div
-          role="status"
-          className="pointer-events-none absolute z-30 flex items-center gap-2 rounded-md bg-foreground px-2.5 py-1.5 text-body-compact text-background shadow-overlay"
-          style={{ top: hint.top, left: hint.left }}
-        >
-          <PencilLineIcon aria-hidden className="size-4 shrink-0" />
-          Type to write this for every case
-        </div>
-      ) : null}
     </div>
   );
 }
