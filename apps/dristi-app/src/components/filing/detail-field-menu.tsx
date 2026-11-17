@@ -6,7 +6,7 @@
  */
 
 import * as React from "react";
-import { BracesIcon } from "lucide-react";
+import { BracketsIcon } from "lucide-react";
 
 import { DETAIL_FIELD_GROUPS, type DetailField, type DetailFieldGroup } from "@/lib/filing/detail-fields";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ export function DetailFieldMenu({
   onPick,
   describe,
   label = "Insert field",
+  noun = "field",
   groups = DETAIL_FIELD_GROUPS,
 }: {
   onPick: (field: DetailField) => void;
@@ -32,6 +33,8 @@ export function DetailFieldMenu({
   /** A second line under each field — its value in this filing, or its section. */
   describe: (field: DetailField) => string;
   label?: string;
+  /** What the list calls an entry, in the search and its empty line ("variable" in bulk). */
+  noun?: string;
 }) {
   const [open, setOpen] = React.useState(false);
 
@@ -45,15 +48,16 @@ export function DetailFieldMenu({
           // Keep the caret in the text box, so the field lands where it was.
           onMouseDown={(e) => e.preventDefault()}
         >
-          <BracesIcon data-icon="inline-start" aria-hidden />
+          {/* Square brackets: what a variable is written in, in every text it goes into. */}
+          <BracketsIcon data-icon="inline-start" aria-hidden />
           {label}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 p-0">
         <Command>
-          <CommandInput placeholder="Search fields" />
+          <CommandInput placeholder={`Search ${noun}s`} />
           <CommandList className="max-h-80">
-            <CommandEmpty>No field by that name.</CommandEmpty>
+            <CommandEmpty>No {noun} by that name.</CommandEmpty>
             {groups.map((group) => (
               <CommandGroup key={group.label} heading={group.label}>
                 {group.fields.map((field) => (

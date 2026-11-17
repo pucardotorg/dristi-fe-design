@@ -509,6 +509,8 @@ export function FactsCard({
                     </DropdownMenuContent>
                   </DropdownMenu>
                   <DetailFieldMenu
+                    label="Insert variable"
+                    noun="variable"
                     groups={TEMPLATE_FIELD_GROUPS}
                     onPick={(field) => editor.current?.insertText(`[${field.name}]`)}
                     describe={(field) => first?.sample?.[field.name] || "Filled in from each case"}
