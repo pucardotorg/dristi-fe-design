@@ -2,10 +2,7 @@
 
 import * as React from "react";
 import { useSearchParams } from "next/navigation";
-import {
-  ChevronRightIcon,
-  FlagIcon,
-} from "lucide-react";
+import { ChevronRightIcon } from "lucide-react";
 
 import { money } from "@/lib/filing/format";
 import { cn } from "@/lib/utils";
@@ -47,8 +44,19 @@ import { BatchFooter } from "./batch-footer";
 import type { BatchCtx } from "./batch-screen";
 import { RemoveCaseMenu, useRemoveCase } from "./remove-case";
 import { FilingFooter } from "@/components/filing/filing-footer";
-import { CaseBadge } from "./stage";
-import { caseState } from "./batch-marks";
+import { STATE_ORDER, StatusWord } from "./stage";
+import { bulkStepTitle, type BulkStepId } from "./bulk-steps";
+import { caseState, type CaseState } from "./batch-marks";
+import type { TabId } from "./batch-screen";
+
+/** Where a case still waits, by its state: the tab that opens it and its step's name. */
+const WAITS_ON: Record<Exclude<CaseState, "filed">, { tab: TabId; step: BulkStepId }> = {
+  fix: { tab: "scrutiny", step: "details" },
+  check: { tab: "scrutiny", step: "details" },
+  docs: { tab: "documents", step: "documents" },
+  complete: { tab: "sign", step: "sign" },
+  signed: { tab: "pay", step: "pay" },
+};
 
 const ist = (iso: string) =>
   `${new Date(iso).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" })} IST`;
@@ -170,19 +178,12 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
   const last = batch.payments.at(-1);
   // What the batch still has to do after this payment, shown on the success screen.
   const pendingAfter = batch.cases.filter((c) => c.stage !== "filed");
-  /** The step a case waits on: paying, fixing or checking, or signing. */
-  const openPending = (c: (typeof pendingAfter)[number]) => {
-    setDialog(null);
-    const state = caseState(c);
-    go(state === "signed" ? "pay" : state === "fix" || state === "check" ? "scrutiny" : state === "docs" ? "documents" : "sign");
-    window.setTimeout(
-      () =>
-        document
-          .getElementById(`bulk-case-${c.id}`)
-          ?.scrollIntoView({ behavior: "smooth", block: "start" }),
-      300,
-    );
-  };
+  // The pending cases told by where they wait, not one by one (design-mode 20).
+  const waiting = STATE_ORDER.flatMap((state) => {
+    if (state === "filed") return [];
+    const n = pendingAfter.filter((c) => caseState(c) === state).length;
+    return n ? [{ state, n, ...WAITS_ON[state] }] : [];
+  });
 
   const pay = async () => {
     setDialog("processing");
@@ -467,53 +468,32 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
                   </TabsContent>
                   {pendingAfter.length ? (
                     <TabsContent value="pending">
+                      {/* Where the rest wait, a line each, opening that step: a note, not a list. */}
                       <ul className="flex flex-col divide-y divide-hairline overflow-hidden rounded-lg border border-hairline">
-                        {pendingAfter.map((c) => (
-                          <li key={c.id}>
-                            {/* Each opens the step the case waits on, scrolled to it. */}
+                        {waiting.map((w) => (
+                          <li key={w.state}>
                             <button
                               type="button"
-                              onClick={() => openPending(c)}
-                              className="flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-focus-ring focus-visible:outline-none"
+                              onClick={() => {
+                                setDialog(null);
+                                go(w.tab);
+                              }}
+                              className="flex min-h-12 w-full items-center gap-4 px-4 py-3 text-left transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-focus-ring focus-visible:outline-none"
                             >
-                              <span className="flex min-w-0 flex-1 flex-col gap-1">
-                                <span className="flex flex-wrap items-center gap-2">
-                                  <span className="text-body-compact font-medium tabular-nums">
-                                    {c.draftNumber}
-                                  </span>
-                                  <CaseBadge c={c} />
-                                </span>
-                                {c.flags.slice(0, 2).map((f) => (
-                                  <span
-                                    key={f.id}
-                                    className="flex items-start gap-1.5 text-caption text-muted-foreground"
-                                  >
-                                    <FlagIcon
-                                      className={cn(
-                                        "mt-0.5 size-3 shrink-0",
-                                        f.level === "hold"
-                                          ? "text-destructive-ink"
-                                          : "text-warning-ink",
-                                      )}
-                                      aria-label={
-                                        f.level === "hold"
-                                          ? "To fix"
-                                          : "To check"
-                                      }
-                                    />
-                                    {f.message}
-                                  </span>
-                                ))}
-                                {c.flags.length > 2 ? (
-                                  <span className="text-caption text-muted-foreground tabular-nums">
-                                    and {c.flags.length - 2} more
-                                  </span>
-                                ) : null}
+                              <span className="min-w-0 flex-1">
+                                <StatusWord
+                                  state={w.state}
+                                  reason={
+                                    <span className="tabular-nums">
+                                      {w.n} {w.n === 1 ? "case" : "cases"}
+                                    </span>
+                                  }
+                                />
                               </span>
-                              <ChevronRightIcon
-                                className="size-4 shrink-0 text-muted-foreground"
-                                aria-hidden
-                              />
+                              <span className="flex shrink-0 items-center gap-1 text-body-compact text-muted-foreground">
+                                {bulkStepTitle(w.step)}
+                                <ChevronRightIcon className="size-4" aria-hidden />
+                              </span>
                             </button>
                           </li>
                         ))}
