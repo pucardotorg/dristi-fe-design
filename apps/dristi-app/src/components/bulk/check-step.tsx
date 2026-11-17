@@ -206,10 +206,12 @@ export function CheckCard({
 }) {
   const ready = Math.max(0, total - fix - check);
   const lines: { state: "fix" | "check" | "ready"; text: string }[] = [];
+  // One line per count, the count first, so the column scans down the numbers (owner,
+  // 2026-11-17): what to fix, what to check, what is ready, what the file can't make.
   if (fix) lines.push({ state: "fix", text: `${fix} to fix before filing` });
   if (check) lines.push({ state: "check", text: `${check} to check` });
-  if (ready && (fix || check)) lines.push({ state: "ready", text: `${ready === total ? "All" : `The other ${ready}`} ${ready === 1 ? "is" : "are"} ready` });
-  if (cannot) lines.push({ state: "fix", text: `${cannot} ${cannot === 1 ? "row" : "rows"} left out: ${cannot === 1 ? "it" : "they"} can't become cases` });
+  if (ready && (fix || check)) lines.push({ state: "ready", text: `${ready} ready` });
+  if (cannot) lines.push({ state: "fix", text: `${cannot} ${cannot === 1 ? "row" : "rows"} can't become ${cannot === 1 ? "a case" : "cases"}` });
   const parts = { total, ready, check, fix };
   return (
     <Card variant="raised" className="gap-0 overflow-hidden p-0">
@@ -267,10 +269,12 @@ export function FactsLine({ name, cases, onEdit }: { name: string | null; cases:
       <span>
         {name ? (
           <>
-            Facts of the case: <span className="text-foreground">{name}</span>, for {n}.
+            {n} {cases === 1 ? "uses" : "use"} <span className="text-foreground">{name}</span>.
           </>
         ) : (
-          <>No facts of the case for {n}.</>
+          <>
+            {n} {cases === 1 ? "has" : "have"} no facts of the case.
+          </>
         )}
       </span>
       <Button type="button" variant="link" className="h-auto p-0 text-body-compact" onClick={onEdit}>
