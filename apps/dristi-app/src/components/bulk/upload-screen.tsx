@@ -43,6 +43,7 @@ import { useSetupKeeper } from "./setup-keeper";
 import { uploadAgainFor } from "@/lib/bulk/setup-repository";
 import { money } from "@/lib/filing/format";
 import type { FilingDraft, StoredFileRef } from "@/lib/filing/types";
+import type { FactsPicks } from "@/lib/bulk/types";
 import type { ApiBatchRequest } from "@/lib/bulk/contract";
 import { cn } from "@/lib/utils";
 import { useCourt } from "@/components/court/court-provider";
@@ -78,7 +79,8 @@ import {
   serverDetailsFormats,
   subscribeToDetailsFormats,
 } from "@/lib/filing/details-formats";
-import { CheckCard, FactsCard, FactsLine, FactsQuestion, checkCounts, useCheckCases } from "./check-step";
+import { CheckCard, FactsCard, FactsLine, checkCounts, useCheckCases, withoutOwn } from "./check-step";
+import { NO_PICKS } from "./facts-cases";
 import { FileDrop } from "./file-drop";
 import { FormatChoice, type UploadFormat } from "./format-choice";
 import { bulkFetch } from "./api";
@@ -236,6 +238,7 @@ function makeRequest({
   factsHtml,
   factsId,
   everyCase,
+  picks,
   court,
 }: {
   book: Workbookish;
@@ -247,8 +250,10 @@ function makeRequest({
   fileName: string;
   factsHtml: string;
   factsId: string | undefined;
-  /** The batch's text replaces rows' own text too. */
+  /** The batch's text replaces rows' own text too (setups kept before case-by-case picks). */
   everyCase: boolean;
+  /** Each case's facts as chosen on Facts of the case. */
+  picks: FactsPicks;
   court: NonNullable<ApiBatchRequest["detailsFormat"]>["court"];
 }) {
   const parties = partiesOf(setup);
@@ -267,10 +272,13 @@ function makeRequest({
       // Asked with the complainants on Common details (BLK-05).
       adr: setup.adr.adr,
       fileName,
-      detailsFormat: hasFacts ? { id: factsId ?? "batch", html: factsHtml, court, everyCase } : undefined,
+      detailsFormat: hasFacts
+        ? { id: factsId ?? "batch", html: factsHtml, court, everyCase, ...(picks.batchFor.length ? { batchFor: picks.batchFor } : {}) }
+        : undefined,
     },
     counts,
   );
+  if (Object.keys(picks.written).length) request.factsFor = picks.written;
   return { request, parties };
 }
 
@@ -295,7 +303,8 @@ export function UploadScreen() {
   // Whether the batch's facts replace rows' own text: asked on leaving Facts when rows
   // bring some (owner, 2026-11-12); `null` until answered, then remembered.
   const [everyCase, setEveryCase] = React.useState<boolean | null>(null);
-  const [askFacts, setAskFacts] = React.useState(false);
+  // Each case's facts as chosen on Facts of the case, case by case (owner, 2026-11-17).
+  const [factsPicks, setFactsPicks] = React.useState<FactsPicks>(NO_PICKS);
   const formats = React.useSyncExternalStore(
     subscribeToDetailsFormats,
     readDetailsFormats,
@@ -363,6 +372,7 @@ export function UploadScreen() {
     setLater(new Set(k.later));
     setFactsChoice(k.factsChoice);
     setEveryCase(k.everyCase);
+    setFactsPicks(k.factsPicks ?? NO_PICKS);
   }, [keeper.kept, book]);
   // Everything chosen on the file, kept as the filer goes, so leaving keeps it.
   const keep = keeper.report;
@@ -379,8 +389,9 @@ export function UploadScreen() {
       later: [...later],
       factsChoice,
       everyCase,
+      factsPicks,
     });
-  }, [keep, book, docs, format, template, fileName, map, values, counts, later, factsChoice, everyCase]);
+  }, [keep, book, docs, format, template, fileName, map, values, counts, later, factsChoice, everyCase, factsPicks]);
 
   // A sample spreadsheet, fetched and chosen as if it had been dropped.
   const [sampling, setSampling] = React.useState<string | null>(null);
@@ -416,7 +427,7 @@ export function UploadScreen() {
   const creating = book ? book.cases.rows.length - cannot.length : 0;
 
   const requestFor = () =>
-    book ? makeRequest({ book, setup, cannot, map, values, counts, fileName, factsHtml, factsId, everyCase: !!everyCase, court }) : null;
+    book ? makeRequest({ book, setup, cannot, map, values, counts, fileName, factsHtml, factsId, everyCase: !!everyCase, picks: factsPicks, court }) : null;
 
   // Check judges each case as Case details will: built here as Create builds it.
   const blocked = coreMissing.length > 0;
@@ -424,9 +435,9 @@ export function UploadScreen() {
     () =>
       // Built on Facts too, so its preview shows a real case as Create will make it.
       (step === "review" || step === "facts") && book && !blocked && !docs
-        ? makeRequest({ book, setup, cannot, map, values, counts, fileName, factsHtml, factsId, everyCase: !!everyCase, court })
+        ? makeRequest({ book, setup, cannot, map, values, counts, fileName, factsHtml, factsId, everyCase: !!everyCase, picks: factsPicks, court })
         : null,
-    [step, book, blocked, docs, setup, cannot, map, values, counts, fileName, factsHtml, factsId, everyCase, court],
+    [step, book, blocked, docs, setup, cannot, map, values, counts, fileName, factsHtml, factsId, everyCase, factsPicks, court],
   );
   const checkCases = useCheckCases(preview?.request ?? null, preview?.parties ?? null);
   const valuesDone = unknownLists.every((l) =>
@@ -885,12 +896,6 @@ export function UploadScreen() {
   if (step === "facts" && book) {
     const rows = createdRows();
     const ownCount = ownFacts(rows);
-    const hasText = !!factsHtml.replace(/<[^>]*>|&nbsp;/g, "").trim();
-    const leave = (every: boolean) => {
-      setEveryCase(every);
-      setAskFacts(false);
-      setStep("review");
-    };
     return (
       <>
         <FilingMain>
@@ -907,32 +912,23 @@ export function UploadScreen() {
             own={ownCount}
             total={rows.length}
             cases={checkCases}
+            picks={factsPicks}
+            onPicks={setFactsPicks}
           />
         </FilingMain>
         <FilingFooter
           showSaveState={false}
           onBack={() => setStep(backFromFacts)}
-          onContinue={() => (ownCount && hasText ? setAskFacts(true) : setStep("review"))}
+          onContinue={() => setStep("review")}
           continueLabel="Continue"
         />
-        {/* Asked when it matters: the text exists and some rows already have a story. A
-            choice between two outcomes, each with what it does; Back stays on Facts. */}
-        <FactsQuestion
-          open={askFacts}
-          onOpenChange={setAskFacts}
-          own={ownCount}
-          total={rows.length}
-          initial={everyCase === true}
-          onChoose={leave}
-        />
+
       </>
     );
   }
 
   if (step === "review" && book) {
-    const created = createdRows();
     const counted = checkCases ? checkCounts(checkCases) : null;
-    const own = ownFacts(created);
     return (
       <>
         <FilingMain width="wide">
@@ -994,10 +990,10 @@ export function UploadScreen() {
               fix={checkCases.filter((c) => c.state === "fix").length}
               check={checkCases.filter((c) => c.state === "check").length}
               footer={
-                created.length && !(own === created.length && !everyCase) ? (
+                withoutOwn(checkCases) ? (
                   <FactsLine
                     name={factsHtml.replace(/<[^>]*>|&nbsp;/g, "").trim() ? (formats.find((f) => f.id === factsId)?.name ?? "Your own text") : null}
-                    cases={everyCase ? created.length : created.length - own}
+                    cases={withoutOwn(checkCases)}
                     onEdit={() => setStep("facts")}
                   />
                 ) : undefined

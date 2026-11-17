@@ -33,7 +33,9 @@ import { StatusLine } from "@/components/feedback";
 import { bulkApi, type BatchSummary } from "./api";
 import { BatchFooter, FooterSlot } from "./batch-footer";
 import { BULK_COLUMN, BulkSteps, StageRow, type BulkStepId, type StepMark } from "./bulk-steps";
-import { CheckCard, FactsCard, FactsLine, FactsQuestion, StoriesFrom, useCheckCases } from "./check-step";
+import { CheckCard, FactsCard, FactsLine, StoriesFrom, useCheckCases, withoutOwn } from "./check-step";
+import { NO_PICKS } from "./facts-cases";
+import type { FactsPicks } from "@/lib/bulk/types";
 import { useGujarat } from "./court-guard";
 
 type Push = { batchId: string; batchNumber: string; client: string; source: BatchSummary["source"]; request: ApiBatchRequest };
@@ -71,16 +73,17 @@ export function PushStart({ batchId }: { batchId: string }) {
   const sent = push?.request.detailsFormat;
   const factsId = choice ? choice.id : (sent?.id ?? first?.id);
   const factsHtml = choice?.html ?? sent?.html ?? (first ? formatForFiler(first) : "");
-  const [everyCase, setEveryCase] = React.useState<boolean | null>(null);
-  const [asking, setAsking] = React.useState(false);
+  // Each case's facts as chosen on Facts of the case, case by case (owner, 2026-11-17).
+  const [picks, setPicks] = React.useState<FactsPicks>(NO_PICKS);
 
   const format: ApiBatchRequest["detailsFormat"] = plain(factsHtml)
-    ? { id: factsId ?? "batch", html: factsHtml, court, everyCase: !!everyCase }
+    ? { id: factsId ?? "batch", html: factsHtml, court, ...(picks.batchFor.length ? { batchFor: picks.batchFor } : {}) }
     : undefined;
+  const factsFor = Object.keys(picks.written).length ? picks.written : undefined;
   const request = React.useMemo<ApiBatchRequest | null>(
-    () => (push ? { ...push.request, detailsFormat: format } : null),
+    () => (push ? { ...push.request, detailsFormat: format, factsFor } : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `format` is rebuilt from these each render
-    [push, factsHtml, factsId, court, everyCase],
+    [push, factsHtml, factsId, court, picks],
   );
   const cases = useCheckCases(request, null);
   const total = push?.request.cases.length ?? 0;
@@ -90,7 +93,7 @@ export function PushStart({ batchId }: { batchId: string }) {
     setBusy(true);
     setError(null);
     try {
-      await bulkApi.createPush(batchId, format);
+      await bulkApi.createPush(batchId, format, factsFor);
       router.push(`/filings/bulk/${batchId}?tab=scrutiny`);
     } catch (e) {
       setError((e as Error).message);
@@ -162,6 +165,8 @@ export function PushStart({ batchId }: { batchId: string }) {
                 own={own}
                 total={total}
                 cases={cases}
+                picks={picks}
+                onPicks={setPicks}
               />
             ) : cases ? (
               <CheckCard
@@ -170,10 +175,10 @@ export function PushStart({ batchId }: { batchId: string }) {
                 fix={cases.filter((c) => c.state === "fix").length}
                 check={cases.filter((c) => c.state === "check").length}
                 footer={
-                  total && !(own === total && !everyCase) ? (
+                  withoutOwn(cases) ? (
                     <FactsLine
                       name={plain(factsHtml) ? (formats.find((f) => f.id === factsId)?.name ?? "Your own text") : null}
-                      cases={everyCase ? total : total - own}
+                      cases={withoutOwn(cases)}
                       onEdit={() => setStep("facts")}
                     />
                   ) : undefined
@@ -195,7 +200,7 @@ export function PushStart({ batchId }: { batchId: string }) {
             showSaveState={false}
             onBack={() => router.push("/filings/bulk")}
             backLabel="Batches"
-            onContinue={() => (own && plain(factsHtml) ? setAsking(true) : setStep("review"))}
+            onContinue={() => setStep("review")}
             continueLabel="Continue"
             continueDisabled={!push}
           />
@@ -210,19 +215,7 @@ export function PushStart({ batchId }: { batchId: string }) {
         )}
       </BatchFooter>
 
-      {/* Asked when it matters, as for an upload: some cases came with their own facts. */}
-      <FactsQuestion
-        open={asking}
-        onOpenChange={setAsking}
-        own={own}
-        total={total}
-        initial={everyCase === true}
-        onChoose={(every) => {
-          setEveryCase(every);
-          setAsking(false);
-          setStep("review");
-        }}
-      />
+
       </StoriesFrom.Provider>
     </FooterSlot.Provider>
   );

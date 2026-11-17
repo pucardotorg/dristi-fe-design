@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 
 import type { ApiBatchRequest } from "@/lib/bulk/contract";
+import type { FactsPicks } from "@/lib/bulk/types";
 import { buildBatch, writeFacts } from "@/lib/bulk/intake";
 import { applyParties, type BatchParties } from "@/lib/bulk/parties";
 import { caseFlags, type Flag } from "@/lib/bulk/scrutiny";
@@ -58,16 +59,16 @@ import {
 import { DetailFieldMenu } from "@/components/filing/detail-field-menu";
 import { RichTextEditor, type BracketMarks, type RichTextEditorHandle } from "@/components/filing/rich-text-editor";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ChromeDialogContent } from "@/components/chrome/app-chrome";
 import { cn } from "@/lib/utils";
 
 import { aboutDetails } from "./batch-marks";
 import { CaseFinder, CaseStepper, type FinderCase } from "./case-finder";
+import { FactsCases, type FactsSource } from "./facts-cases";
 import { STATE } from "./stage";
 
 /* ───────────────────────────── The cases, as Create will make them ───────────────────────────── */
@@ -87,6 +88,8 @@ export type CheckCase = {
   own: boolean;
   /** Its facts come from the batch's text (for an `own` case: chosen instead of the row's). */
   fromBatch: boolean;
+  /** Where its facts come from: its own, the batch's text, written for it on the screen. */
+  source: FactsSource;
   /** What each field reads as in this case (first case only, for the editor's field card). */
   sample?: Record<string, string>;
   /** About the case's details; documents are the Documents step's. */
@@ -135,6 +138,13 @@ export function useCheckCases(request: ApiBatchRequest | null, parties: BatchPar
               facts: bc.draft.adr.otherDetails ?? "",
               own: ownText.has(bc.reference),
               fromBatch: !!bc.draft.adr.detailsFormat,
+              source: request.factsFor?.[bc.reference]
+                ? "written"
+                : bc.draft.adr.detailsFormat
+                  ? "batch"
+                  : ownText.has(bc.reference)
+                    ? "own"
+                    : "none",
               sample: i === 0 ? Object.fromEntries(TEMPLATE_FIELD_GROUPS.flatMap((g) => g.fields).map((f) => [f.name, f.resolve(bc.draft)])) : undefined,
               flags,
               state: flags.some((f) => f.level === "hold") ? "fix" : flags.length ? "check" : "ready",
@@ -152,6 +162,9 @@ export function useCheckCases(request: ApiBatchRequest | null, parties: BatchPar
   }, [request, parties]);
   return request ? cases : null;
 }
+
+/** The cases the batch's text is for (or would be): none of their own kept or written. */
+export const withoutOwn = (cases: CheckCase[]) => cases.filter((c) => c.source === "batch" || c.source === "none").length;
 
 export function checkCounts(cases: CheckCase[]) {
   return {
@@ -280,59 +293,13 @@ const finderCase = (from: string) => (c: CheckCase): FinderCase => ({
 });
 
 /**
- * The details the advocate wrote in the file for some rows, read first and kept as written
- * (owner, 2026-11-17). One case at a time, found by the case finder or its number.
- */
-function OwnDetails({ cases, from }: { cases: CheckCase[]; from: string }) {
-  const [key, setKey] = React.useState(cases[0]?.key ?? "");
-  const c = cases.find((x) => x.key === key) ?? cases[0];
-  if (!c) return null;
-  return (
-    <Card variant="raised">
-      <CardContent className="flex flex-col gap-5">
-        <div className="flex flex-col gap-1 tabular-nums">
-          <h2 className="text-title-s font-semibold">
-            Your own details · {cases.length} {cases.length === 1 ? "case" : "cases"}
-          </h2>
-          <p className="text-body-compact text-muted-foreground">
-            Written in {from}. They go into their cases as written; you&apos;ll be asked when you continue
-            whether the text below should replace them.
-          </p>
-        </div>
-        <div className="flex min-w-0 flex-col rounded-xl border border-input bg-card">
-          <div className="flex flex-wrap items-center gap-2 border-b border-hairline px-3 py-2">
-            <CaseFinder
-              cases={cases.map(finderCase(from))}
-              groups={[]}
-              value={c.key}
-              onSelect={setKey}
-              label="Read a case's own details"
-              className="max-w-96"
-            />
-            <div className="ml-auto">
-              <CaseStepper at={cases.indexOf(c)} count={cases.length} onGo={(i) => setKey(cases[i].key)} />
-            </div>
-          </div>
-          <div
-            key={c.key}
-            className={cn("animate-in text-foreground duration-200 fade-in-0 [&_p:last-child]:mb-0", PROSE_CLASS)}
-            // The row's own text, escaped by the app when the case was built.
-            dangerouslySetInnerHTML={{ __html: previewHtml(c.facts) || "<p>No details.</p>" }}
-          />
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-/**
  * Facts of the case (PRD PRY-1, "Additional details" in the file; optional): the story the
  * advocate tells, written once here for the batch (owner, 2026-11-12). Fields in the text
  * are tokens each case fills; the parts no field can fill are highlighted to write here.
  *
- * Rows that bring their own story in the file: whether this text replaces theirs is asked
- * on Continue, once the text exists (owner, 2026-11-12; `upload-screen.tsx`). Here Preview
- * only shows where each case's story comes from, so the filer can read them first.
+ * Two tabs (owner, 2026-11-17): the batch text, open first because it is the work, and
+ * every case with the facts it will hold, where each can take its own text, the batch's,
+ * or text written for it alone (`facts-cases.tsx`). Nothing is asked on Continue.
  */
 export function FactsCard({
   formats,
@@ -342,6 +309,8 @@ export function FactsCard({
   own,
   total,
   cases,
+  picks,
+  onPicks,
 }: {
   formats: readonly DetailsFormat[];
   templateId: string | undefined;
@@ -352,6 +321,8 @@ export function FactsCard({
   total: number;
   /** The cases as Create will make them, for the preview; `null` while they are built. */
   cases: CheckCase[] | null;
+  picks: FactsPicks;
+  onPicks: (next: FactsPicks) => void;
 }) {
   const from = React.useContext(StoriesFrom);
   const editor = React.useRef<RichTextEditorHandle>(null);
@@ -376,12 +347,10 @@ export function FactsCard({
   const edited = current ? html !== formatForFiler(current) : !isEmpty(html);
   const blanks = writtenBlanks(html);
   const empty = isEmpty(html);
-  const ownCases = cases?.filter((c) => c.own) ?? [];
-  // The cases with their own story first: they are the ones the question on Continue is about.
-  const listed = cases ? [...ownCases, ...cases.filter((c) => !c.own)] : [];
-  // The preview walks the cases this text is for: those with nothing of their own, or all
-  // of them when no row brought any.
-  const pool = listed.some((c) => !c.own) ? listed.filter((c) => !c.own) : listed;
+  const [view, setView] = React.useState<"text" | "cases">("text");
+  // The preview walks the cases this text is for.
+  const pool = cases?.filter((c) => c.source === "batch") ?? [];
+  const usingBatch = cases ? pool.length : total - own;
   const shownPreview = pool.find((c) => c.key === previewKey) ?? pool[0] ?? null;
   // The editor's brackets: fields it offers on `[`, and a real case to show a field's value.
   const first = cases?.[0];
@@ -398,7 +367,7 @@ export function FactsCard({
   const modeTabs = (
     <TabsList>
       <TabsTrigger value="write">Write</TabsTrigger>
-      <TabsTrigger value="preview" disabled={(empty && !own) || !cases?.length}>
+      <TabsTrigger value="preview" disabled={empty || !pool.length}>
         Preview
       </TabsTrigger>
     </TabsList>
@@ -410,23 +379,36 @@ export function FactsCard({
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* What the advocate wrote comes first (owner, 2026-11-17: the batch's text took the
-          screen and the rows' own details came second). They are kept as written; what
-          becomes of them is asked on Continue (owner, 2026-11-12). */}
-      {own > 0 && ownCases.length ? <OwnDetails cases={ownCases} from={from} /> : null}
-    <Card variant="raised">
-      <CardContent className="flex flex-col gap-5">
-        {own > 0 ? (
-          <div className="flex flex-col gap-1 tabular-nums">
-            <h2 className="text-title-s font-semibold">
-              Details for the other {total - own} {total - own === 1 ? "case" : "cases"}
-            </h2>
-            <p className="text-body-compact text-muted-foreground">
-              The cases with nothing in {from} start with this text, and each can change it on its own.
-            </p>
+    <Tabs value={view} onValueChange={(v) => setView(v as "text" | "cases")} className="flex flex-col gap-5">
+      {/* The page's two views, as section tabs on the ground: the work first. */}
+      <TabsList variant="line" aria-label="Facts of the case" className="h-10 w-full justify-start gap-1 rounded-none border-b border-hairline">
+        <TabsTrigger value="text" className="h-10 flex-none gap-2 rounded-b-none px-3 text-body-compact">
+          Batch text
+          <span className="font-normal text-muted-foreground tabular-nums">{usingBatch}</span>
+        </TabsTrigger>
+        <TabsTrigger value="cases" className="h-10 flex-none gap-2 rounded-b-none px-3 text-body-compact">
+          All cases
+          <span className="font-normal text-muted-foreground tabular-nums">{total}</span>
+        </TabsTrigger>
+      </TabsList>
+      <TabsContent value="cases" className="mt-0 outline-none">
+        {cases ? (
+          <FactsCases rows={cases} from={from} hasBatch={!empty} picks={picks} onPicks={onPicks} />
+        ) : (
+          <div className="flex flex-col gap-3">
+            <Skeleton className="h-10" />
+            <Skeleton className="h-96" />
           </div>
-        ) : null}
+        )}
+      </TabsContent>
+      <TabsContent value="text" className="mt-0 outline-none">
+    <Card variant="raised">
+      <CardContent className="flex flex-col gap-4">
+        <p className="text-body-compact text-muted-foreground tabular-nums">
+          {own > 0
+            ? `For the ${usingBatch} ${usingBatch === 1 ? "case" : "cases"} without their own text in ${from}. Switch or edit any one under All cases.`
+            : `For every case. Edit any one on its own under All cases.`}
+        </p>
 
         {/* Write and Preview are the box's own header, as on a comment box: one frame,
             its first control the mode, its tools after it (owner, 2026-11-12). */}
@@ -624,92 +606,7 @@ export function FactsCard({
         </ChromeDialogContent>
       </Dialog>
     </Card>
-    </div>
-  );
-}
-
-
-/**
- * On leaving Facts, when some rows already have a story and the batch text exists: keep
- * their stories, or give every case the batch text. Built as plainly as
- * the DS dialog, title, a plain radio list and the footer band, with no more copy than
- * the two outcomes (owner, 2026-11-12). Counts only, so it reads the same for 4 cases or
- * 400; the safe choice is first and chosen unless the filer chose the other before.
- */
-export function FactsQuestion({
-  open,
-  onOpenChange,
-  own,
-  total,
-  initial,
-  onChoose,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  own: number;
-  total: number;
-  /** The filer chose to replace them before. */
-  initial: boolean;
-  onChoose: (everyCase: boolean) => void;
-}) {
-  const from = React.useContext(StoriesFrom);
-  const [every, setEvery] = React.useState(initial);
-  const go = React.useRef<HTMLButtonElement>(null);
-  const empty = total - own;
-  const choices = [
-    { value: "keep", label: own === 1 ? "Keep it" : "Keep them", detail: `The batch text goes into the other ${empty}.` },
-    { value: "replace", label: own === 1 ? "Replace it" : "Replace them", detail: `All ${total} cases use the batch text.` },
-  ];
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        if (next) setEvery(initial);
-        onOpenChange(next);
-      }}
-    >
-      <ChromeDialogContent
-        showCloseButton={false}
-        className="sm:max-w-md"
-        // Focus lands on Continue, not on a radio: the choice is already made by default.
-        onOpenAutoFocus={(e) => {
-          e.preventDefault();
-          go.current?.focus();
-        }}
-      >
-        <DialogHeader>
-          <DialogTitle className="tabular-nums">
-            {own === 1 ? "1 case already has its own details" : `${own} cases already have their own details`}
-          </DialogTitle>
-          <DialogDescription>
-            {own === 1 ? "It" : "They"} came in {from}. What should happen to {own === 1 ? "it" : "them"}?
-          </DialogDescription>
-        </DialogHeader>
-        <RadioGroup
-          value={every ? "replace" : "keep"}
-          onValueChange={(v) => setEvery(v === "replace")}
-          aria-label={`What happens to the details in ${from}`}
-          className="flex flex-col gap-4 py-1"
-        >
-          {choices.map((c) => (
-            <div key={c.value} className="flex items-start gap-3">
-              <RadioGroupItem value={c.value} id={`facts-${c.value}`} className="mt-0.5" />
-              <Label htmlFor={`facts-${c.value}`} className="flex flex-col items-start gap-0.5 tabular-nums">
-                <span className="text-body-compact font-medium">{c.label}</span>
-                <span className="text-body-compact font-normal text-muted-foreground">{c.detail}</span>
-              </Label>
-            </div>
-          ))}
-        </RadioGroup>
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Back
-          </Button>
-          <Button ref={go} type="button" onClick={() => onChoose(every)}>
-            Continue
-          </Button>
-        </DialogFooter>
-      </ChromeDialogContent>
-    </Dialog>
+      </TabsContent>
+    </Tabs>
   );
 }

@@ -37,11 +37,13 @@ export function CaseSearch({
   value,
   onChange,
   className,
+  placeholder = "Accused, draft number or cheque",
 }: {
   id: string;
   value: string;
   onChange: (v: string) => void;
   className?: string;
+  placeholder?: string;
 }) {
   return (
     <div className={cn("w-full sm:ml-auto sm:w-72", className)}>
@@ -58,7 +60,7 @@ export function CaseSearch({
           autoComplete="off"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="Accused, draft number or cheque"
+          placeholder={placeholder}
         />
       </InputGroup>
     </div>
