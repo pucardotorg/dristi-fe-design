@@ -1,5 +1,6 @@
 "use client";
 
+import { notify } from "@/components/ui/notify";
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -591,6 +592,9 @@ export function UploadScreen() {
       const json = await res.json();
       if (!res.ok)
         throw new Error([json.error, ...(json.details ?? [])].join(" "));
+      notify.success(
+        againFor ? `${json.batchNumber} updated from the file` : `${json.batchNumber} created · ${request.cases.length} case${request.cases.length === 1 ? "" : "s"}`,
+      );
       router.push(`/filings/bulk/${json.batchId}?tab=scrutiny`);
     } catch (e) {
       setError((e as Error).message);

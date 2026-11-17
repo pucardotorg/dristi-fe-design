@@ -12,6 +12,7 @@
  *    the start and wait on a selection.
  */
 
+import { notify } from "@/components/ui/notify";
 import * as React from "react";
 import { ChevronLeftIcon, ChevronRightIcon, EllipsisIcon, PencilLineIcon, Undo2Icon } from "lucide-react";
 
@@ -196,9 +197,16 @@ export function FactsCases({
   const pageOn = pageKeys.filter((k) => selected.has(k)).length;
   const open = rows.find((r) => r.key === openKey) ?? null;
 
-  const apply = (next: FactsPicks) => {
+  // Several switched at once, said with the way back: the rows may have left the filter.
+  const apply = (next: FactsPicks, toBatch: boolean) => {
+    const before = picks;
+    // Only the cases this changes: an own-text switch skips rows that brought none.
+    const n = chosen.filter((r) => (toBatch ? r.source !== "batch" : r.own && r.source !== "own")).length;
     onPicks(next);
     setSelected(new Set());
+    notify.success(`${n} ${n === 1 ? "case uses" : "cases use"} ${toBatch ? "the batch text" : n === 1 ? "its own text" : "their own text"}`, {
+      action: { label: "Undo", onClick: () => onPicks(before) },
+    });
   };
   const toggle = (key: string, on: boolean) =>
     setSelected((prev) => {
@@ -256,10 +264,10 @@ export function FactsCases({
             ) : null}
           </p>
           <div className="flex flex-wrap gap-2 @2xl:flex-nowrap [&>button]:flex-1 @2xl:[&>button]:flex-none">
-            <Button variant="outline" disabled={!canOwn} onClick={() => apply(pickOwn(picks, chosen))}>
+            <Button variant="outline" disabled={!canOwn} onClick={() => apply(pickOwn(picks, chosen), false)}>
               Use their own text
             </Button>
-            <Button variant="outline" disabled={!canBatch} onClick={() => apply(pickBatch(picks, chosen))}>
+            <Button variant="outline" disabled={!canBatch} onClick={() => apply(pickBatch(picks, chosen), true)}>
               Use the batch text
             </Button>
           </div>
@@ -508,6 +516,7 @@ function FactsPanel({
                   disabled={!plainText(draft)}
                   onClick={() => {
                     onPicks(pickWritten(picks, r, draft));
+                    notify.success("Saved for this case");
                     setDraft(null);
                   }}
                 >

@@ -10,6 +10,7 @@
  * read with `caseFlags`, so a case says the same thing on both sides of Create.
  */
 
+import { notify } from "@/components/ui/notify";
 import * as React from "react";
 import {
   BookmarkPlusIcon,
@@ -366,6 +367,7 @@ export function FactsCard({
     saveDetailsFormat({ id, name, html, mappings: {} });
     onChange(id, html);
     setSaving(null);
+    notify.success("Template saved");
   };
   const edited = current ? html !== formatForFiler(current) : !isEmpty(html);
   const blanks = writtenBlanks(html);

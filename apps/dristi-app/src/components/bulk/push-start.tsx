@@ -11,6 +11,7 @@
  * Common details, which the request brought.
  */
 
+import { notify } from "@/components/ui/notify";
 import * as React from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
@@ -97,7 +98,8 @@ export function PushStart({ batchId }: { batchId: string }) {
     setBusy(true);
     setError(null);
     try {
-      await bulkApi.createPush(batchId, format, factsFor);
+      const out = await bulkApi.createPush(batchId, format, factsFor);
+      notify.success(`${out.batchNumber} created · ${total} case${total === 1 ? "" : "s"}`);
       router.push(`/filings/bulk/${batchId}?tab=scrutiny`);
     } catch (e) {
       setError((e as Error).message);

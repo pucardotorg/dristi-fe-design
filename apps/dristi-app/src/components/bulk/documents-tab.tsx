@@ -629,14 +629,17 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
         }
       }
     setBusy(null);
+    notify.success(cases.length === 1 ? "Demo files added" : `Demo files added to ${cases.length} cases`);
   };
 
   // Sandbox: the whole batch at once, on the server (300 cases would be 1,800 uploads).
   const sandboxFill = async (scenario: (typeof SANDBOX_FILLS)[number]["id"]) => {
     setError(null);
     setBusy("sandbox");
+    const n = lackingCases.length;
     try {
       setBatch(await bulkApi.sandboxDocuments(batch.id, scenario));
+      notify.success(`Documents filled for ${n} case${n === 1 ? "" : "s"}`);
     } catch (e) {
       setError((e as Error).message);
     } finally {
