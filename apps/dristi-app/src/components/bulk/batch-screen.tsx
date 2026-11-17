@@ -237,10 +237,13 @@ export function BatchScreen({ batchId }: { batchId: string }) {
     common: null,
     // What to do here; the batch's facts sit in their own strip below (owner, 2026-11-17).
     cases: batch.source.kind === "api" ? `Check what ${batch.source.system} sent.` : "Check what this file made.",
-    scrutiny: fixing || checking
-      ? // The rule, not the counts the pills already give (BLK-08, BLK-12).
-        "Fix these before filing. Cases to check can go ahead as they are."
-      : "Every case's details are done.",
+    // What to do, not the counts the pills already give (BLK-08, BLK-12; owner, 2026-11-17:
+    // say clearly what needs doing).
+    scrutiny: fixing
+      ? `Open each case to fix and correct it before filing.${checking ? " Cases to check can be filed as they are." : ""}`
+      : checking
+        ? "Cases to check can be filed as they are, or opened to review."
+        : "Every case's details are done.",
     documents: docsMissing
       ? `${plural(docsMissing, "case is", "cases are")} missing documents.`
       : "Every case here has its documents.",
