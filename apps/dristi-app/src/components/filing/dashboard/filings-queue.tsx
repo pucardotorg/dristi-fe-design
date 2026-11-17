@@ -423,7 +423,7 @@ export function FilingsQueue({
       {order}
     </div>
   ) : (
-    <div className="flex flex-wrap items-center gap-3 px-6 py-4">
+    <div className="flex flex-wrap items-center gap-3 px-6 pt-4 pb-2">
       {pills ? <div className="flex min-w-fit flex-1">{pills}</div> : null}
       <div className="ml-auto flex min-w-0 items-center gap-3">
         {search}
@@ -655,17 +655,20 @@ export function FilingsQueue({
             ref={tableBox}
             className={cn(
               tight ? "overflow-x-auto" : "overflow-x-clip [&>[data-slot=table-container]]:overflow-visible",
+              // Inset like every other register: the heading well and the row fills sit
+              // 8px inside the card's edge instead of running into its border.
+              "px-2",
               REGISTER_TABLE_ONLY
             )}
           >
             <Table aria-label={layout.label}>
               <TableHeader
                 className={tight ? undefined : "sticky z-[11]"}
-                style={tight ? undefined : { top: `calc(3.5rem + ${bandHeight}px)` }}
+                style={tight ? undefined : { top: `calc(3.5rem + ${bandHeight}px + 0.5rem)` }}
               >
                 <TableRow className="border-hairline">
                   {selectable ? (
-                    <TableHead className="w-10 pl-6">
+                    <TableHead className="w-10 pl-4">
                       {/* A page of batches alone has nothing to tick: the column stays, empty. */}
                       {pageIds.length ? (
                       <Checkbox
@@ -684,8 +687,8 @@ export function FilingsQueue({
                     <TableHead
                       key={column}
                       className={cn(
-                        column === layout.columns[0] && !selectable && "pl-6",
-                        column === "action" && "pr-6 text-right"
+                        column === layout.columns[0] && !selectable && "pl-4",
+                        column === "action" && "pr-4 text-right"
                       )}
                     >
                       {headingFor(column, layout)}
@@ -710,7 +713,7 @@ export function FilingsQueue({
                     data-state={selected.has(row.id) ? "selected" : undefined}
                   >
                     {selectable ? (
-                      <TableCell className="w-10 pl-6">
+                      <TableCell className="w-10 pl-4">
                         {/* Waiting entirely on other parties, on Pending signature, is
                             not something a bulk sign can act on — the cell stays, so the
                             column still lines up, but there is nothing to tick. */}
@@ -737,8 +740,8 @@ export function FilingsQueue({
                       <TableCell
                         key={column}
                         className={cn(
-                          column === layout.columns[0] && !selectable && "pl-6",
-                          column === "action" && "pr-6",
+                          column === layout.columns[0] && !selectable && "pl-4",
+                          column === "action" && "pr-4",
                           column === "parties" && "font-medium",
                           column === "court" && "text-muted-foreground",
                           // Names may take two lines on a narrow desk, so the table fits
@@ -862,7 +865,7 @@ export function FilingsQueue({
             "sticky top-14 z-10 bg-card",
             cards && "border-b border-hairline px-4",
             !cards &&
-              (tight ? "before:bottom-0 " : "before:-bottom-12 ") +
+              (tight ? "before:bottom-0 " : "before:-bottom-14 ") +
               "before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:-z-10 before:bg-card before:opacity-0 before:transition-[left,right,opacity,box-shadow] before:duration-300 before:ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:before:transition-none data-docked:before:-inset-x-8 data-docked:before:opacity-100 data-docked:before:shadow-overlay"
           )}
         >
@@ -875,7 +878,7 @@ export function FilingsQueue({
               if (!isQueueTab(value)) return;
               go({ tab: value, sort: defaultSortFor(value), page: 1 });
             }}
-            className="h-10 w-full justify-start rounded-none"
+            className="-ml-3 h-10 w-[calc(100%+--spacing(3))] justify-start rounded-none"
             triggerClassName="h-10 flex-none gap-2 text-body-compact"
             items={QUEUE_TABS.map((entry) => {
               const count = ready ? String(data[entry.id].length) : "–";
