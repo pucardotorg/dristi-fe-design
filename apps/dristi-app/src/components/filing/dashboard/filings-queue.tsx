@@ -185,11 +185,15 @@ export function FilingsQueue({
   const view = readView(new URLSearchParams(searchParams.toString()));
   // Single filings, bulk batches, or both: the tabs count what the switch shows.
   const hasBulk = Object.values(everything).some((rows) => rows.some((r) => r.batch));
+  // The switch shows only where this tab holds both kinds; elsewhere a kind picked on
+  // another tab must not quietly empty the list.
+  const tabRows = everything[view.tab];
+  const bothKinds = tabRows.some((r) => r.batch) && tabRows.some((r) => !r.batch);
   const data = React.useMemo<QueueData>(() => {
-    if (view.kind === "all") return everything;
+    if (view.kind === "all" || !bothKinds) return everything;
     const keep = (r: QueueRow) => (view.kind === "bulk" ? !!r.batch : !r.batch);
     return Object.fromEntries(Object.entries(everything).map(([t, rows]) => [t, rows.filter(keep)])) as QueueData;
-  }, [everything, view.kind]);
+  }, [everything, view.kind, bothKinds]);
 
   /* Drafts, pending-signature and pending-payment rows can be ticked and acted on
      together; the other tabs have no bulk act to offer. The selection is this screen's,
@@ -329,7 +333,9 @@ export function FilingsQueue({
     single: everything[view.tab].filter((r) => !r.batch).length,
     bulk: everything[view.tab].filter((r) => r.batch).length,
   };
-  const pills = hasBulk ? (
+  // Only when this tab holds both kinds: "All 2 · Single 2" says the same thing twice.
+  // The search and selects sit right-aligned, so nothing moves when the pills go.
+  const pills = hasBulk && bothKinds ? (
     <FilterPills
       value={view.kind}
       onChange={(v) => go({ kind: v as Kind, page: 1 })}
@@ -843,12 +849,7 @@ export function FilingsQueue({
         </p>
       </div>
 
-      {/* At least a screen tall from the top bar down (the page's bottom gutter and the
-          card's border taken off, the tab gap added), so the page can always scroll far enough to dock. A
-          short list otherwise stopped the scroll half-way: heading clipped under the top
-          bar, band never docked. */}
       <Tabs
-        className="md:pointer-fine:min-h-[calc(100svh-5rem-1px)] md:landscape:min-h-[calc(100svh-5rem-1px)]"
         value={view.tab}
         onValueChange={(value) => {
           // More hands over a value no tab owns when nothing is folded behind it.
