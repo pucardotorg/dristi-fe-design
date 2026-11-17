@@ -54,7 +54,7 @@ import { useGujarat } from "./court-guard";
 import { bulkStepTitle, type BulkStepId } from "./bulk-steps";
 import { FilterPills } from "./filter-pills";
 import { CaseSearch } from "./case-list-tools";
-import { ListDock, dockBox, dockHead, toListTop, useFitRows, useListDock } from "./list-dock";
+import { ListBox, dockHead, sizesWith, toListTop, useFitRows, useListDock } from "./list-dock";
 import { waitingOnOthers } from "./signing-round";
 import { StatusLine } from "@/components/feedback";
 import { notify } from "@/components/ui/notify";
@@ -159,9 +159,9 @@ export function BatchesScreen() {
   const router = useRouter();
   const [batches, setBatches] = React.useState<BatchSummary[] | null>(null);
   const [error, setError] = React.useState<string | null>(null);
-  // The toolbar and headings pin as one unit; a page holds the rows the window does.
-  const { dock, sentinelRef, barRef, boxRef } = useListDock();
-  const fit = useFitRows(dock);
+  // Only the headings pin; a page holds the rows the window does.
+  const list = useListDock();
+  const fit = useFitRows(list.dock);
 
   // Batches with a signing round out, waiting on another party (kept in this browser).
   const [awaiting, setAwaiting] = React.useState<Set<string>>(new Set());
@@ -232,7 +232,7 @@ export function BatchesScreen() {
   // A size the filer picked is kept in the address; otherwise the window decides (`useFitRows`).
   const asked = Number(params.get("size"));
   const size = Number.isInteger(asked) && asked >= 5 && asked <= 100 ? asked : fit.fit;
-  const sizes = [...new Set([fit.fit, 25, 50, size])].sort((a, b) => a - b);
+  const sizes = sizesWith(size);
   const setParams = (updates: Record<string, string | null>) => {
     const next = new URLSearchParams(params.toString());
     for (const [k, v] of Object.entries(updates)) {
@@ -242,7 +242,7 @@ export function BatchesScreen() {
     const qs = next.toString();
     router.replace(qs ? `?${qs}` : "?", { scroll: false });
   };
-  // A page turned below the pinned toolbar starts at its first row.
+  // A turned page starts at its first row.
   const turn = (from: Element, p: number) => {
     setParams({ page: String(p) });
     toListTop(from);
@@ -419,7 +419,7 @@ export function BatchesScreen() {
 
       {error ? <StatusLine tone="error">{error}</StatusLine> : null}
 
-      {/* overflow-visible: a clipping card would make the pinned toolbar inert. */}
+      {/* overflow-visible: a clipping card would make the pinned headings inert. */}
       <Card variant="raised" className="gap-0 overflow-visible p-2">
         <h2 className="sr-only">Batches</h2>
         {batches === null ? (
@@ -448,8 +448,8 @@ export function BatchesScreen() {
         ) : (
           <>
             {/* One toolbar row, as Your filings has: the filters, then search and order at
-                the right; it pins with the headings as one unit (`list-dock.tsx`). */}
-            <ListDock dock={dock} sentinelRef={sentinelRef} barRef={barRef} className="flex flex-wrap items-center gap-3 px-4 py-3">
+                the right. It scrolls away; only the headings pin (`list-dock.tsx`). */}
+            <div className="flex flex-wrap items-center gap-3 px-4 py-3">
               <FilterPills
                 className="sm:min-w-fit"
                 value={view}
@@ -480,7 +480,7 @@ export function BatchesScreen() {
                 ))}
               </NativeSelect>
               </div>
-            </ListDock>
+            </div>
 
 
             {shown.length === 0 ? (
@@ -552,7 +552,7 @@ export function BatchesScreen() {
                   ))}
                 </ul>
 
-                <div ref={boxRef} className={cn("hidden md:block", dockBox(dock))}>
+                <ListBox list={list} className="hidden md:block">
                   <Table className="table-fixed border-separate border-spacing-0" aria-label="Batches">
                     <colgroup>
                       <col className="w-[24%]" />
@@ -565,7 +565,7 @@ export function BatchesScreen() {
                       <col className="w-36" />
                       {anyMenu ? <col className="w-14" /> : null}
                     </colgroup>
-                    <TableHeader {...dockHead(dock)}>
+                    <TableHeader {...dockHead(list.dock)}>
                       <TableRow className={TABLE_HEAD_ROW}>
                         <TableHead className={TABLE_HEAD}>Batch</TableHead>
                         {showClient ? <TableHead className={TABLE_HEAD}>Complainant</TableHead> : null}
@@ -646,7 +646,7 @@ export function BatchesScreen() {
                       })}
                     </TableBody>
                   </Table>
-                </div>
+                </ListBox>
               </>
             )}
           </>

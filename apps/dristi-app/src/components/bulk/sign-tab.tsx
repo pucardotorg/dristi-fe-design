@@ -56,7 +56,7 @@ import {
 import { StatusLine } from "@/components/feedback";
 import { StepMeta } from "./step-meta";
 import { Pager, pageOf } from "./case-list-tools";
-import { ListDock, dockBox, dockHead, useFitRows, useListDock } from "./list-dock";
+import { ListBox, dockHead, useFitRows, useListDock } from "./list-dock";
 import { bulkStepTitle } from "./bulk-steps";
 import { notify } from "@/components/ui/notify";
 
@@ -96,12 +96,11 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
   const clear = tallies.completeCases;
   const [picked, setPicked] = React.useState<Set<string>>(() => new Set(clear.map((c) => c.id)));
   const [listOpen, setListOpen] = React.useState(false);
-  // As many at a time as the window holds under the pinned head (`useFitRows`). The
-  // card's head pins with the headings, with 16px of its own air above it
-  // and the card's 16px gap kept below it.
+  // As many at a time as the window holds under the pinned headings (`useFitRows`); the
+  // card's head scrolls away with the page.
   const [listPage, setListPage] = React.useState(0);
-  const { dock, sentinelRef, barRef, boxRef } = useListDock({ lift: 16, gap: 16 });
-  const fit = useFitRows(dock, { onResize: (from, to) => setListPage((p) => Math.floor((p * from) / to)) });
+  const list = useListDock();
+  const fit = useFitRows(list.dock, { onFit: (from, to) => setListPage((p) => Math.floor((p * from) / to)) });
   const [flowOpen, setFlowOpen] = React.useState(false);
   const [round, setRoundState] = React.useState<Round | null>(() => readRound(batch.id));
   const [busy, setBusy] = React.useState(false);
@@ -272,9 +271,8 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
             </CardContent>
           </Card>
 
-          {/* overflow-visible: a clipping card would make the pinned head inert. */}
+          {/* overflow-visible: a clipping card would make the pinned headings inert. */}
           <Card variant="raised" className={cn("overflow-visible", listOpen && "gap-4")}>
-            <ListDock dock={dock} sentinelRef={sentinelRef} barRef={barRef} className={cn(!listOpen && "md:static")}>
             <CardHeader>
               <CardTitle className="text-body font-semibold tabular-nums">
                 {allOn ? `All ${plural(clear.length, "ready complaint")}` : `${chosen.length} of ${clear.length} complaints`}
@@ -297,16 +295,15 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
                 </Button>
               </CardAction>
             </CardHeader>
-            </ListDock>
             {notReady}
             {listOpen ? (
               <CardContent className="px-2">
-                <div ref={boxRef} className={dockBox(dock)}>
+                <ListBox list={list}>
                   {/* Every ready case is ticked to begin with, so a tick is the norm, not news:
                       no fill on ticked rows (a whole table of grey bands, owner 2026-11-17).
                       A case left for later is the exception, and its row goes quiet. */}
                   <Table className="border-separate border-spacing-0" aria-label="Complaints to sign">
-                    <TableHeader {...dockHead(dock)}>
+                    <TableHeader {...dockHead(list.dock)}>
                       <TableRow className={TABLE_HEAD_ROW}>
                         <TableHead className={cn(TABLE_HEAD, "w-10")}>
                           <Checkbox
@@ -358,7 +355,7 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
                       })}
                     </TableBody>
                   </Table>
-                </div>
+                </ListBox>
                 <Pager
                   total={clear.length}
                   at={pageOf(clear, listPage, fit.size).at}

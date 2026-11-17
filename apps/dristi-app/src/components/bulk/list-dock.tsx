@@ -3,20 +3,22 @@
 /**
  * How every bulk list pins, and how many rows a page of it holds.
  *
- * The pinned thing is one whole unit: the list's toolbar (its filters, search and place in
- * the pages) with the column headings under it, on one opaque white plate as wide as the
- * list's panel, flush under the page's sticky stack (the top bar and, on a batch, its
- * steps). Once pinned, a hairline and a soft shadow ease in under it, so the list reads as
- * running on beneath its own head (owner, 2026-11-17: the headings' rounded well pinned on
- * its own, rows peeking around it, "a broken piece that just got stuck"; the Your filings
- * dock and the Pending tasks toolbar were the references).
+ * Only the column headings pin, so the table can be read as it scrolls; the toolbar above
+ * (filters, search, place in the pages) scrolls away with the page (owner, 2026-11-17:
+ * "I don't want the pills and search bar and everything sticky ... the table remain sticky
+ * so you can read the table properly as you scroll").
+ *
+ * Pinned, the headings are one whole band, not their rounded well alone: the panel's white
+ * reaches its inner edges on either side and keeps the panel's own 8px inset above and
+ * below the well, so nothing scrolls into view between the band and the page's sticky
+ * stack (the top bar and, on a batch, its steps), and the well's rounded ends stay framed
+ * in white. A hairline and a soft shadow ease in under the band only while it is pinned
+ * (owner, 2026-11-17, on the earlier well pinned alone: "a broken piece that just got
+ * stuck"). At rest there is no band: the panel behind is the same white.
  *
  * The headings pin only while the table fits its width. Where it can't (a narrow desk with
- * the rail open) the table scrolls sideways instead, a scrolling box would hold the
- * headings in place of the page, and the toolbar pins alone.
- *
- * Under `md` nothing pins: the toolbar wraps to several lines on a phone and would eat
- * the screen.
+ * the rail open) the table scrolls sideways instead, and a scrolling box would hold the
+ * headings in place of the page, so they don't pin. Under `md` nothing pins.
  */
 
 import * as React from "react";
@@ -25,35 +27,31 @@ import { cn } from "@/lib/utils";
 
 /** The app's top bar (`TOP_BAR_HEIGHT`, 3.5rem), in rem. */
 const TOP_BAR_REM = 3.5;
-/** White under the headings' well once pinned: the panel's own inset (`p-2`). */
-const PLATE_FOOT = 8;
+/** White the band keeps above and below the headings' well: the panel's own inset (`p-2`). */
+const BAND_AIR = 8;
+/** Air between the sticky stack and a list's panel when a page change brings it back. */
+const LIST_AIR = 16;
 
 type ElRef = (el: HTMLDivElement | null) => void;
 type SpanRef = (el: HTMLSpanElement | null) => void;
 
 export type ListDock = {
-  bar: HTMLDivElement | null;
-  /** The bar has reached its pinned place (and pins at this width). */
+  box: HTMLDivElement | null;
+  /** The headings have reached their pinned place (and pin at this width). */
   stuck: boolean;
   /** The table can't fit its width: it scrolls sideways and its headings don't pin. */
   tight: boolean;
-  /** Where the bar pins, in px from the viewport's top. */
+  /** Where the band's top pins: the bottom of the page's sticky stack, in px. */
   top: number;
-  /** Space above the bar's content the plate covers once pinned (a card header's air). */
-  lift: number;
-  /** Space between the bar and the pinned headings (a card's own gap under its header). */
-  gap: number;
-  barH: number;
   headH: number;
-  /** The plate's reach past the bar to the panel's inner edges, left and right. */
-  left: number;
-  right: number;
 };
 
-type Measure = Pick<ListDock, "top" | "barH" | "headH" | "tight" | "left" | "right"> & { pins: boolean };
+/** `useListDock`'s result: hand it whole to `<ListBox>`, and `dock` to the rest. */
+export type ListDockHandle = { dock: ListDock; boxRef: ElRef; sentinelRef: SpanRef };
 
-const same = (a: Measure, b: Measure) =>
-  (Object.keys(a) as (keyof Measure)[]).every((k) => a[k] === b[k]);
+type Measure = Pick<ListDock, "top" | "headH" | "tight">;
+
+const same = (a: Measure, b: Measure) => a.top === b.top && a.headH === b.headH && a.tight === b.tight;
 
 /** Where the page's sticky stack ends: the batch's steps row if there is one, else the top bar. */
 function stackBottom(): number {
@@ -65,55 +63,38 @@ function stackBottom(): number {
 }
 
 /**
- * The dock's measurements, and its callback refs apart (a ref is never read during
- * render): `dock`, `sentinelRef` and `barRef` to `<ListDock>`, which places the last two,
- * `boxRef` to the box around the table, and `dockHead(dock)` to its `TableHeader`.
- * `lift` is the air above the bar's content that pins with it (a card header, whose own
- * padding scrolls away); `gap` the space kept between the bar and the pinned headings.
+ * The list's pinning: pass the result to `<ListBox>` around the table and `dockHead(dock)`
+ * to its `TableHeader`. Callback refs, so nothing reads a ref during render.
  */
-export function useListDock({ lift = 0, gap = 0 }: { lift?: number; gap?: number } = {}): { dock: ListDock; sentinelRef: SpanRef; barRef: ElRef; boxRef: ElRef } {
+export function useListDock(): ListDockHandle {
   const [sentinel, setSentinel] = React.useState<HTMLSpanElement | null>(null);
-  const [bar, setBar] = React.useState<HTMLDivElement | null>(null);
   const [box, setBox] = React.useState<HTMLDivElement | null>(null);
-  const [m, setM] = React.useState<Measure>({ top: 56 + lift, barH: 0, headH: 0, tight: false, left: 0, right: 0, pins: false });
+  const [m, setM] = React.useState<Measure>({ top: 56, headH: 0, tight: false });
   const [past, setPast] = React.useState(false);
 
   const measure = React.useCallback(() => {
     const table = box?.querySelector("table");
     const head = box?.querySelector("thead");
-    const card = bar?.closest<HTMLElement>("[data-slot=card]");
-    let left = 0;
-    let right = 0;
-    if (bar && card) {
-      const c = card.getBoundingClientRect();
-      const b = bar.getBoundingClientRect();
-      const borderR = card.offsetWidth - card.clientWidth - card.clientLeft;
-      left = Math.round(b.left - c.left - card.clientLeft);
-      right = Math.round(c.right - borderR - b.right);
-    }
+    const container = box?.querySelector<HTMLElement>("[data-slot=table-container]");
     const next: Measure = {
-      top: Math.round(stackBottom()) + lift,
-      barH: bar?.offsetHeight ?? 0,
+      top: Math.round(stackBottom()),
       headH: head?.offsetHeight ?? 0,
-      tight: !!table && !!box && table.scrollWidth > box.clientWidth + 1,
-      left,
-      right,
-      pins: !!bar && getComputedStyle(bar).position === "sticky",
+      // The table's own width, not its scroll width: the pinned band reaches past it.
+      tight: !!table && !!container && table.offsetWidth > container.clientWidth + 1,
     };
     setM((prev) => (same(prev, next) ? prev : next));
-  }, [bar, box, lift]);
+  }, [box]);
 
   // Measured on every size change of what decides it (a ResizeObserver also reports once
-  // on observing): the bar's wrap, the steps row, the panel, the table and its headings.
-  // The table comes and goes with what the list shows, so it is re-found on each change
-  // inside the box. State changes only when a number does.
+  // on observing): the steps row, the box, the table and its headings. The table comes
+  // and goes with what the list shows, so it is re-found on each change inside the box.
+  // State changes only when a number does.
   React.useEffect(() => {
     const ro = new ResizeObserver(() => measure());
     const watch = () => {
       ro.disconnect();
       const steps = document.querySelector('nav[aria-label="Batch steps"]')?.parentElement;
-      for (const el of [bar, box, box?.querySelector("table"), box?.querySelector("thead"), steps, bar?.closest("[data-slot=card]")])
-        if (el) ro.observe(el);
+      for (const el of [box, box?.querySelector("table"), box?.querySelector("thead"), steps]) if (el) ro.observe(el);
     };
     watch();
     const mo = new MutationObserver(watch);
@@ -124,13 +105,13 @@ export function useListDock({ lift = 0, gap = 0 }: { lift?: number; gap?: number
       ro.disconnect();
       mo.disconnect();
     };
-  }, [bar, box, measure]);
+  }, [box, measure]);
 
-  // Pinned once a hair-line just above the bar's top (it rides with the bar) is under the
-  // sticky stack: at rest the bar sits lower and the line is in view.
+  // Pinned once a hair-line at the table's top has gone above where the headings pin
+  // (under the band's top air): at rest the table sits lower and the line is in view.
   React.useEffect(() => {
     if (!sentinel) return;
-    const edge = m.top;
+    const edge = m.top + BAND_AIR;
     const io = new IntersectionObserver(
       ([e]) => setPast(!e.isIntersecting && e.boundingClientRect.top < edge),
       { rootMargin: `-${edge}px 0px 0px 0px` },
@@ -139,198 +120,166 @@ export function useListDock({ lift = 0, gap = 0 }: { lift?: number; gap?: number
     return () => io.disconnect();
   }, [sentinel, m.top]);
 
-  const dock = {
-    bar,
-    stuck: past && m.pins,
-    tight: m.tight,
-    top: m.top,
-    lift,
-    gap,
-    barH: m.barH,
-    headH: m.headH,
-    left: m.left,
-    right: m.right,
+  return {
+    dock: { box, stuck: past && !m.tight, tight: m.tight, top: m.top, headH: m.headH },
+    boxRef: setBox,
+    sentinelRef: setSentinel,
   };
-  return { dock, sentinelRef: setSentinel, barRef: setBar, boxRef: setBox };
-}
-
-/** The `TableHeader`'s pin: under the bar, above the plate, unless the table scrolls sideways. */
-export function dockHead(d: ListDock): { className?: string; style?: React.CSSProperties } {
-  return d.tight ? {} : {
-        className: "z-[11] md:sticky md:top-(--head-top)",
-        style: { "--head-top": `${d.top + d.barH + d.gap}px` } as React.CSSProperties,
-      };
-}
-
-/** The box around the table: clipped, not scrolled, so its headings can pin to the page. */
-export function dockBox(d: ListDock): string {
-  return d.tight ? "overflow-x-auto" : "overflow-x-clip [&>[data-slot=table-container]]:overflow-visible";
 }
 
 /**
- * The pinned bar. Once pinned it stands on an opaque, square-cornered white plate that
- * reaches the panel's inner edges and runs on down behind the headings, so nothing shows
- * through or around it; the hairline and shadow under the plate ease in. At rest there is
- * no plate: the panel behind is the same white, and keeps its rounded corners. The panel around it must not clip (`overflow-visible`).
+ * The `TableHeader`'s pin, and the band it stands on once pinned: two layers behind the
+ * well, reaching the panel's inner edges and `BAND_AIR` above and below it. The first is
+ * the opaque white, shown only while pinned (at rest the panel is that white already);
+ * the second its edge, a hairline and the overlay shadow, clipped to show below the band
+ * only, easing in. Nothing, where the table scrolls sideways.
  */
-export function ListDock({
-  dock,
-  sentinelRef,
-  barRef,
+export function dockHead(d: ListDock): { className?: string; style?: React.CSSProperties; "data-stuck"?: true } {
+  if (d.tight) return {};
+  return {
+    "data-stuck": d.stuck || undefined,
+    className: cn(
+      "z-[11] md:sticky md:top-(--head-top)",
+      "before:pointer-events-none before:absolute before:-inset-x-2 before:-inset-y-2 before:-z-10 before:hidden before:bg-card md:data-stuck:before:block",
+      "after:pointer-events-none after:absolute after:-inset-x-2 after:-inset-y-2 after:-z-10 after:border-b after:border-hairline after:opacity-0 after:shadow-overlay after:[clip-path:inset(0_0_-3rem_0)] after:transition-opacity after:duration-200 after:ease-out motion-reduce:after:transition-none md:data-stuck:after:opacity-100",
+    ),
+    style: { "--head-top": `${d.top + BAND_AIR}px` } as React.CSSProperties,
+  };
+}
+
+/**
+ * The box around the table. It runs out over the panel's 8px inset (and pads it back), so
+ * the band can reach the panel's inner edges; clipped there, not scrolled, so the headings
+ * can pin to the page. A table too wide for it scrolls sideways in it instead.
+ *
+ * Whatever takes focus in a row is scrolled clear of the pinned band, not under it.
+ */
+export function ListBox({
+  list,
   className,
   children,
-  ...props
-}: { dock: ListDock; sentinelRef: SpanRef; barRef: ElRef; className?: string; children: React.ReactNode } & Omit<
-  React.ComponentProps<"div">,
-  "ref" | "className" | "children"
->) {
-  const foot = dock.stuck && dock.headH && !dock.tight ? dock.gap + dock.headH + PLATE_FOOT : 0;
-  const reach = { left: -dock.left, right: -dock.right, top: dock.stuck ? -dock.lift : 0, bottom: -foot };
+}: {
+  list: ListDockHandle;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const { dock, boxRef, sentinelRef } = list;
+  const clear = dock.tight ? undefined : dock.top + dock.headH + 2 * BAND_AIR + BAND_AIR;
   return (
-    <>
-      <div
-        {...props}
-        ref={barRef}
-        data-list-bar
-        data-stuck={dock.stuck || undefined}
-        // The offset applies only where the bar pins: on a relative bar it would shift it.
-        className={cn("group/dock relative z-10 md:sticky md:top-(--dock-top)", className)}
-        style={{ "--dock-top": `${dock.top}px` } as React.CSSProperties}
-      >
-        {/* Says when the bar is pinned (`useListDock`): a line 2px above its top. */}
-        <span ref={sentinelRef} aria-hidden className="pointer-events-none absolute inset-x-0 -top-0.5 h-px" />
-        {/* The plate, then its edge over it (same layer, later in order): a hairline and the
-            overlay shadow, clipped to show below the plate only. */}
-        <span
-          aria-hidden
-          className={cn("pointer-events-none absolute -z-10 bg-card", !dock.stuck && "hidden")}
-          style={reach}
-        />
-        <span
-          aria-hidden
-          className="pointer-events-none absolute -z-10 border-b border-hairline opacity-0 shadow-overlay transition-opacity duration-200 ease-out group-data-stuck/dock:opacity-100 motion-reduce:transition-none"
-          style={{ ...reach, clipPath: "inset(0 0 -3rem 0)" }}
-        />
-        {children}
-      </div>
-    </>
+    <div
+      ref={boxRef}
+      data-list-box
+      className={cn(
+        "relative -mx-2 px-2",
+        dock.tight
+          ? "overflow-x-auto"
+          : "overflow-x-clip md:[&_tbody_*]:scroll-mt-(--row-clear) [&>[data-slot=table-container]]:overflow-visible",
+        className,
+      )}
+      style={clear ? ({ "--row-clear": `${clear}px` } as React.CSSProperties) : undefined}
+    >
+      {/* Says when the headings are pinned (`useListDock`): a line just above the table. */}
+      <span ref={sentinelRef} aria-hidden className="pointer-events-none absolute inset-x-0 -top-px h-px" />
+      {children}
+    </div>
   );
 }
 
 /**
- * Back to the top of the list when a page changes below the pinned bar, so the new page
- * reads from its first row: the page scrolls until the bar is back at its resting place.
- * False where the list has no dock.
+ * Back to the top of the list when its page changes, so the new page reads from its first
+ * row: the page scrolls until the list's panel sits just under the sticky stack, when it
+ * has gone above it. False where the list has no `ListBox`.
  */
 export function toListTop(from: Element | null) {
-  const bar = from?.closest("[data-slot=card]")?.querySelector<HTMLElement>("[data-list-bar]");
-  if (!bar) return false;
+  const card = from?.closest<HTMLElement>("[data-slot=card]");
+  if (!card?.querySelector("[data-list-box]")) return false;
   requestAnimationFrame(() => {
-    // The bar's resting top, read off the first shown thing after it (a pinned bar's own
-    // box is where it is pinned, not where it rests).
-    let next = bar.nextElementSibling as HTMLElement | null;
-    while (next && !next.getClientRects().length) next = next.nextElementSibling as HTMLElement | null;
-    if (!next) return;
-    const gap = parseFloat(getComputedStyle(bar.parentElement!).rowGap) || 0;
-    const rest = next.getBoundingClientRect().top - (parseFloat(getComputedStyle(next).marginTop) || 0) - gap - bar.offsetHeight;
-    const pin = parseFloat(bar.style.getPropertyValue("--dock-top")) || 0;
-    if (rest >= pin - 1) return;
+    const target = stackBottom() + LIST_AIR;
+    const top = card.getBoundingClientRect().top;
+    if (top >= target - 1) return;
     const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    window.scrollBy({ top: rest - pin, behavior: smooth ? "smooth" : "auto" });
+    window.scrollBy({ top: top - target, behavior: smooth ? "smooth" : "auto" });
   });
   return true;
 }
 
 /* ───────────────────────────── Rows per page ───────────────────────────── */
 
-const FIT_MIN = 8;
-const FIT_MAX = 25;
-/** Before a row can be measured. */
-const FIT_FALLBACK = 12;
+/** The page sizes a list fits itself to, smallest first; the smallest is the floor. */
+const FIT_STEPS = [10, 12, 15, 20] as const;
+/** Every size the per-page select offers, on every bulk list. */
+export const PAGE_SIZES: readonly number[] = [...FIT_STEPS, 25, 50];
 /** Air kept between the last row and the pager, so the page never ends on a cut row. */
 const FIT_AIR = 16;
 /** A pager row, when none is drawn yet (one page). */
 const PAGER_GUESS = 56;
 
-/** How many rows of this list fit the viewport under everything that stays on screen. */
-function fitOf(d: ListDock): number | null {
-  const card = d.bar?.closest("[data-slot=card]");
+/** The largest step whose rows fit the window under everything that stays on screen. */
+function fitOf(box: HTMLElement): number | null {
+  const card = box.closest("[data-slot=card]");
   if (!card) return null;
   const rows = [...card.querySelectorAll<HTMLElement>("tbody > tr, [data-list-rows] > li")]
     .filter((r) => r.offsetHeight > 0)
     .slice(0, 8);
   if (!rows.length) return null;
   const rowH = rows.reduce((n, r) => n + r.getBoundingClientRect().height, 0) / rows.length;
+  const head = box.querySelector<HTMLElement>("thead");
+  const band = head && head.offsetHeight && getComputedStyle(head).position === "sticky" ? head.offsetHeight + 2 * BAND_AIR : 0;
   const pager = card.querySelector<HTMLElement>("[data-list-pager]")?.offsetHeight || PAGER_GUESS;
   const footer = document.querySelector<HTMLElement>("[data-bulk-footer]")?.offsetHeight ?? 0;
-  const head = d.headH && !d.tight ? d.gap + d.headH + PLATE_FOOT : 0;
-  const room = window.innerHeight - d.top - d.barH - head - pager - footer - FIT_AIR;
-  return Math.min(FIT_MAX, Math.max(FIT_MIN, Math.floor(room / rowH)));
+  const room = window.innerHeight - stackBottom() - band - pager - footer - FIT_AIR;
+  return [...FIT_STEPS].reverse().find((n) => n * rowH <= room) ?? FIT_STEPS[0];
 }
 
 /**
- * Rows a page holds: as many as fit the viewport once the list is pinned (the top bar, the
- * steps, the bar and headings, the pager and the footer taken off), from 8 to 25, measured
- * on the real rows. Worked out once the rows are drawn and again when the window is
- * resized by more than half a row, never on smaller changes, so a page doesn't reshuffle
- * under the reader. A size the filer picks from the select is kept.
+ * Rows a page holds: the largest of 10, 12, 15 and 20 whose rows fit the window with the
+ * list scrolled under its pinned headings (the top bar, the steps, the band, the pager and
+ * the footer taken off), measured on the real rows; never under 10. Decided once, when the
+ * list's rows are first drawn, and kept for as long as the list is open: a resize doesn't
+ * reshuffle the page under the reader. A size the filer picks from the select wins.
  *
- * `onResize(from, to)` lets the list keep its first row in view when the size changes.
+ * `onFit(from, to)` lets the list keep its first row in view when the decided size lands.
  */
-export function useFitRows(d: ListDock, { onResize }: { onResize?: (from: number, to: number) => void } = {}) {
-  const [fit, setFit] = React.useState(FIT_FALLBACK);
+export function useFitRows(d: ListDock, { onFit }: { onFit?: (from: number, to: number) => void } = {}) {
+  const [fit, setFit] = React.useState<number>(FIT_STEPS[0]);
   const [picked, setPicked] = React.useState<number | null>(null);
-  // What the size was last worked out for; null until it first is.
-  const basis = React.useRef<{ h: number; w: number; row: number } | null>(null);
-  const latest = React.useRef({ d, fit, picked, onResize });
+  const decided = React.useRef(false);
+  const latest = React.useRef({ fit, onFit });
   React.useEffect(() => {
-    latest.current = { d, fit, picked, onResize };
+    latest.current = { fit, onFit };
   });
 
-  const measured = d.barH > 0;
+  const box = d.box;
   React.useEffect(() => {
-    // Not before the dock has measured its bar: an unmeasured bar would count as no height.
-    if (!measured || !d.bar) return;
-    const card = d.bar.closest("[data-slot=card]");
-    if (!card) return;
-    const apply = () => {
-      const { d: now, fit: was, picked: chose, onResize: cb } = latest.current;
-      const b = basis.current;
-      // Kept until the window changes by more than half a row (or a column's worth across).
-      if (b && Math.abs(window.innerHeight - b.h) < b.row / 2 && Math.abs(window.innerWidth - b.w) < 40) return;
-      const n = fitOf(now);
+    const card = box?.closest("[data-slot=card]");
+    if (!box || !card || decided.current) return;
+    // Once the rows are drawn: the panel grows with them, and a ResizeObserver reports then.
+    const ro = new ResizeObserver(() => {
+      if (decided.current) return;
+      const n = fitOf(box);
       if (n === null) return;
-      const row = card.querySelector<HTMLElement>("tbody > tr, [data-list-rows] > li")?.offsetHeight || 64;
-      basis.current = { h: window.innerHeight, w: window.innerWidth, row };
+      decided.current = true;
+      ro.disconnect();
+      const { fit: was, onFit: cb } = latest.current;
       if (n === was) return;
       setFit(n);
-      if (chose === null) cb?.(was, n);
-    };
-    // First once the rows are drawn (the panel grows with them), then on resizes, settled.
-    const ro = new ResizeObserver(() => {
-      if (!basis.current) apply();
+      cb?.(was, n);
     });
     ro.observe(card);
-    let t: number | undefined;
-    const onWin = () => {
-      window.clearTimeout(t);
-      t = window.setTimeout(apply, 200);
-    };
-    window.addEventListener("resize", onWin);
-    return () => {
-      ro.disconnect();
-      window.clearTimeout(t);
-      window.removeEventListener("resize", onWin);
-    };
-  }, [measured, d.bar]);
+    return () => ro.disconnect();
+  }, [box]);
 
   const size = picked ?? fit;
-  const sizes = [...new Set([fit, 25, 50, ...(picked ? [picked] : [])])].sort((a, b) => a - b);
   return {
     size,
     fit,
-    sizes,
-    /** The filer's pick; picking the fitted size goes back to following the window. */
+    sizes: sizesWith(size),
+    /** The filer's pick; picking the fitted size goes back to it. */
     pick: (n: number) => setPicked(n === fit ? null : n),
   };
+}
+
+/** The per-page choices, with a size from elsewhere (an address) kept among them. */
+export function sizesWith(size: number): number[] {
+  return [...new Set([...PAGE_SIZES, size])].sort((a, b) => a - b);
 }

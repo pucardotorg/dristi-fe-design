@@ -93,7 +93,7 @@ export function PagerTop({
 }) {
   const ref = React.useRef<HTMLDivElement>(null);
   if (total <= size) return null;
-  // Pinned with the list's toolbar, a page turned from here starts at its first row.
+  // A page turned from here starts at its first row, with the list's panel in view.
   const go = (p: number) => {
     onPage(p);
     toListTop(ref.current);
@@ -158,7 +158,7 @@ export function Pager({
   if (total <= (choose ? sizes[0] : size)) return null;
   const go = (p: number) => {
     onPage(p);
-    // A docked list goes back to its pinned toolbar's place; any other to its panel's top.
+    // A list with pinned headings goes back under the sticky stack; any other to its panel's top.
     if (toListTop(ref.current)) return;
     const list = ref.current?.closest("[data-slot=card]") ?? ref.current?.parentElement;
     requestAnimationFrame(() => list?.scrollIntoView({ block: "start", behavior: "smooth" }));

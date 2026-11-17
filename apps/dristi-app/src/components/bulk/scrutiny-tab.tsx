@@ -38,7 +38,7 @@ import { bulkApi, caseFlowHref, type CaseView } from "./api";
 import { BatchFooter } from "./batch-footer";
 import { aboutDetails, caseState, detailFlags, isOpen } from "./batch-marks";
 import { StepMeta } from "./step-meta";
-import { ListDock, dockBox, dockHead, useFitRows, useListDock } from "./list-dock";
+import { ListBox, dockHead, useFitRows, useListDock } from "./list-dock";
 import type { BatchCtx } from "./batch-screen";
 import { CaseSearch, Pager, PagerTop, caseMatches, pageOf } from "./case-list-tools";
 import { RemoveCaseItem, useRemoveCase } from "./remove-case";
@@ -219,7 +219,7 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const closed = !!batch.clubbedInto;
-  const { dock, sentinelRef, barRef, boxRef } = useListDock();
+  const list = useListDock();
   const params = useSearchParams();
   const router = useRouter();
   const ai = params.get("ai");
@@ -232,8 +232,8 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
   const [show, setShow] = React.useState<Show>(fixing.length ? "fix" : "all");
   const [search, setSearch] = React.useState("");
   const [page, setPage] = React.useState(0);
-  // As many rows as the window holds under the pinned toolbar, keeping the first in view.
-  const fit = useFitRows(dock, { onResize: (from, to) => setPage((p) => Math.floor((p * from) / to)) });
+  // As many rows as the window holds under the pinned headings, keeping the first in view.
+  const fit = useFitRows(list.dock, { onFit: (from, to) => setPage((p) => Math.floor((p * from) / to)) });
   const { ask: askRemove, dialog: removeDialog } = useRemoveCase(batch, setBatch);
 
   const term = search.trim().toLowerCase();
@@ -304,11 +304,11 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
       />
       {error ? <StatusLine tone="error">{error}</StatusLine> : null}
 
-      {/* overflow-visible: a clipping card would make the pinned toolbar inert. */}
+      {/* overflow-visible: a clipping card would make the pinned headings inert. */}
       <Card variant="raised" className="gap-0 overflow-visible p-2">
-        {/* The list's toolbar is its panel's first row, and pins with the headings as one
-            unit under the steps (`list-dock.tsx`). */}
-        <ListDock dock={dock} sentinelRef={sentinelRef} barRef={barRef} className="flex flex-wrap items-center gap-3 px-4 py-3">
+        {/* The list's toolbar is its panel's first row; it scrolls away, and only the
+            headings pin (`list-dock.tsx`). */}
+        <div className="flex flex-wrap items-center gap-3 px-4 py-3">
           <FilterPills
             className="sm:min-w-fit"
             value={show}
@@ -335,7 +335,7 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
             />
             <PagerTop total={listed.length} at={at} pages={pages} onPage={setPage} size={fit.size} />
           </div>
-        </ListDock>
+        </div>
         {shown.length === 0 ? (
           <p className="flex flex-wrap items-center gap-x-2 p-4 text-body-compact text-muted-foreground">
             {term ? `No case matches “${search.trim()}”.` : show === "fix" ? "Nothing left to fix." : show === "check" ? "Nothing left to check." : "No case here."}
@@ -348,10 +348,10 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
         ) : (
           <>
             {/* A table from md up; on a phone each case is a stacked row. */}
-            {/* The headings pin under the toolbar, as on Documents. */}
-            <div ref={boxRef} className={cn("hidden md:block", dockBox(dock))}>
+            {/* The headings pin under the steps, as on Documents. */}
+            <ListBox list={list} className="hidden md:block">
               <Table className="border-separate border-spacing-0" aria-label="Cases">
-                <TableHeader {...dockHead(dock)}>
+                <TableHeader {...dockHead(list.dock)}>
                   <TableRow className={TABLE_HEAD_ROW}>
                     <TableHead className={cn(TABLE_HEAD, "w-full")}>Accused</TableHead>
                     <TableHead className={TABLE_HEAD}>Status</TableHead>
@@ -422,7 +422,7 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
                   })}
                 </TableBody>
               </Table>
-            </div>
+            </ListBox>
             {/* Phone: the case is the link, Fix is the visible action, and Remove waits in a
                 menu so the destructive action is never the most prominent (round 3). */}
             <ul data-list-rows className="flex flex-col divide-y divide-hairline md:hidden">

@@ -49,7 +49,7 @@ import { StepMeta } from "./step-meta";
 import { bulkStepTitle } from "./bulk-steps";
 import { notify } from "@/components/ui/notify";
 import { CaseSearch, Pager, PagerTop, pageOf } from "./case-list-tools";
-import { ListDock, dockBox, dockHead, useFitRows, useListDock } from "./list-dock";
+import { ListBox, dockHead, useFitRows, useListDock } from "./list-dock";
 import { FilterPills } from "./filter-pills";
 import { DocumentsGuide, guideSeen } from "./documents-guide";
 import { useDemoTools } from "./demo-tools";
@@ -507,7 +507,7 @@ const SANDBOX_FILLS = [
  * what is missing across the batch is seen at once and added where it is (BLK-11). The
  * batch's own documents (the complainant's, set in Common details) are not repeated in
  * every row unless one is missing. Cases still being fixed join later; signed and filed
- * cases are locked. A page holds as many rows as the window does under the pinned toolbar
+ * cases are locked. A page holds as many rows as the window does under the pinned headings
  * (`useFitRows`), so the pager is never buried.
  */
 export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
@@ -534,9 +534,9 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
   // Asked for from a row menu: opened once that menu has closed and handed focus back.
   const pendingOther = React.useRef<string | null>(null);
   const [page, setPage] = React.useState(0);
-  const { dock, sentinelRef, barRef, boxRef } = useListDock();
-  // As many rows as the window holds under the pinned toolbar, keeping the first in view.
-  const fit = useFitRows(dock, { onResize: (from, to) => setPage((p) => Math.floor((p * from) / to)) });
+  const list = useListDock();
+  // As many rows as the window holds under the pinned headings, keeping the first in view.
+  const fit = useFitRows(list.dock, { onFit: (from, to) => setPage((p) => Math.floor((p * from) / to)) });
   const size = fit.size;
 
   // Cases missing something first, in the order they had when the tab opened, so a case
@@ -759,8 +759,8 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
 
       {error ? <StatusLine tone="error">{error}</StatusLine> : null}
 
-      {/* Visible, not hidden: the Card's clip would hold the toolbar and headings in place
-          of the page, so they could never pin. */}
+      {/* Visible, not hidden: the Card's clip would hold the headings in place of the
+          page, so they could never pin. */}
       <Card variant="raised" className="gap-0 overflow-visible p-2">
         {/* The list's first row: the batch's cases this list leaves out and where they are,
             and the warnings skipped here (owner, 2026-11-17: on the page it floated). */}
@@ -775,8 +775,8 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
             onUndo: (c, f) => void unkeep(c, f),
           }}
         />
-        {/* The list's toolbar, pinned with the headings as one unit (`list-dock.tsx`). */}
-        <ListDock dock={dock} sentinelRef={sentinelRef} barRef={barRef} className="flex flex-wrap items-center gap-3 px-4 py-3">
+        {/* The list's toolbar scrolls away; only the headings pin (`list-dock.tsx`). */}
+        <div className="flex flex-wrap items-center gap-3 px-4 py-3">
           <FilterPills
             className="sm:min-w-fit"
             value={show}
@@ -803,7 +803,7 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
             />
             <PagerTop total={shownCases.length} at={at} pages={pages} onPage={setPage} size={size} />
           </div>
-        </ListDock>
+        </div>
         {listed.length === 0 ? (
           <p className="p-4 text-body-compact text-muted-foreground">
             {term ? `No case matches “${search.trim()}”.` : show === "complete" ? "No case has every document yet." : "Every case has its documents."}
@@ -814,10 +814,10 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
                 column, and each cell only its state, so what is missing across the batch
                 reads at a glance (owner, 2026-11-12: the chip rows repeated every name on
                 every case and painted fifty red chips). */}
-            <div ref={boxRef} className={cn("hidden md:block", dockBox(dock))}>
+            <ListBox list={list} className="hidden md:block">
               <Table className="border-separate border-spacing-0" aria-label="Documents for each case">
-                {/* Pinned under the toolbar while the grid scrolls by, on its plate. */}
-                <TableHeader {...dockHead(dock)}>
+                {/* Pinned under the steps while the grid scrolls by, as one band. */}
+                <TableHeader {...dockHead(list.dock)}>
                   <TableRow className={TABLE_HEAD_ROW}>
                     <TableHead className={cn(TABLE_HEAD, "w-full min-w-44")}>Accused</TableHead>
                     {columns.map((col) => (
@@ -909,7 +909,7 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
                   })}
                 </TableBody>
               </Table>
-            </div>
+            </ListBox>
             {/* A phone has no width for columns: each case keeps its row of named chips. */}
             <ul data-list-rows className="flex flex-col md:hidden">
               {listed.map((c) => (
