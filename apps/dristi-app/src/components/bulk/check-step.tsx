@@ -433,15 +433,23 @@ export function FactsCard({
       <TabsContent value="text" className="mt-0 outline-none">
     <Card variant="raised">
       <CardContent className="flex flex-col gap-3">
-        {/* What the box is, named once over both its tabs (owner, 2026-11-17). */}
-        <div className="flex items-baseline gap-2">
-          <h2 className="text-body font-semibold">
-            Batch text
-          </h2>
-          <span className="text-body-compact text-muted-foreground tabular-nums">
-            For {usingBatch} {usingBatch === 1 ? "case" : "cases"}
-          </span>
-        </div>
+        {/* What the section does, in one plain line over the box (owner, 2026-11-17: a
+            "Batch text · For 225 cases" heading repeated the tab). The yellow parts are
+            named in their own look, so the words point at what they mean. */}
+        <p className="text-body text-muted-foreground tabular-nums">
+          {usingBatch
+            ? `Written once, used in ${usingBatch} ${usingBatch === 1 ? "case" : "cases"}.`
+            : "Not used in any case yet."}
+          {blanks.length ? (
+            <>
+              {" "}Fill in the{" "}
+              <span className="rounded-md border border-dashed border-warning-ink bg-warning-muted px-1 italic text-warning-muted-foreground">
+                yellow parts
+              </span>
+              .
+            </>
+          ) : null}
+        </p>
         {/* Write and Preview are the box's own header, as on a comment box: one frame,
             its first control the mode, its tools after it (owner, 2026-11-12). */}
         <Tabs value={mode} onValueChange={(v) => setMode(v as "write" | "preview")} className="flex flex-col gap-4">
