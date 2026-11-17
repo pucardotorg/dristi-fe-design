@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Label } from "@/components/ui/label";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 
 import type { CaseView } from "./api";
 
@@ -26,10 +27,10 @@ export function caseMatches(c: CaseView, term: string): boolean {
 }
 
 /** One page of a list, and the page actually shown when the list got shorter. */
-export function pageOf<T>(list: T[], page: number) {
-  const pages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+export function pageOf<T>(list: T[], page: number, size: number = PAGE_SIZE) {
+  const pages = Math.max(1, Math.ceil(list.length / size));
   const at = Math.min(page, pages - 1);
-  return { pages, at, shown: list.slice(at * PAGE_SIZE, (at + 1) * PAGE_SIZE) };
+  return { pages, at, shown: list.slice(at * size, (at + 1) * size) };
 }
 
 export function CaseSearch({
@@ -77,18 +78,21 @@ export function PagerTop({
   at,
   pages,
   onPage,
+  size = PAGE_SIZE,
 }: {
   total: number;
   at: number;
   pages: number;
   onPage: (p: number) => void;
+  /** Rows a page holds, where the list lets the filer choose (`Pager`'s `sizes`). */
+  size?: number;
 }) {
-  if (total <= PAGE_SIZE) return null;
+  if (total <= size) return null;
   return (
     <div className="flex shrink-0 items-center gap-1 text-body-compact text-muted-foreground">
       <span className="px-1 tabular-nums">
         <span className="text-foreground">
-          {at * PAGE_SIZE + 1}–{Math.min(total, (at + 1) * PAGE_SIZE)}
+          {at * size + 1}–{Math.min(total, (at + 1) * size)}
         </span>{" "}
         of {total}
       </span>
@@ -117,21 +121,31 @@ function pageNumbers(at: number, pages: number): (number | "gap")[] {
 
 /**
  * The foot of a list: the range, and every page within reach by number, so page 7 of 10 is
- * one press, not six. Changing page from here brings the list's top back into view.
+ * one press, not six. Changing page from here brings the list's top back into view. A list
+ * whose rows are tall can offer a choice of page size (`sizes`), read beside the range.
  */
 export function Pager({
   total,
   at,
   pages,
   onPage,
+  size = PAGE_SIZE,
+  sizes,
+  onSize,
 }: {
   total: number;
   at: number;
   pages: number;
   onPage: (p: number) => void;
+  size?: number;
+  /** The page sizes on offer, smallest first; with `onSize`, a "10 per page" select. */
+  sizes?: readonly number[];
+  onSize?: (n: number) => void;
 }) {
   const ref = React.useRef<HTMLElement>(null);
-  if (total <= PAGE_SIZE) return null;
+  const choose = sizes && onSize && sizes.length > 1;
+  // A choice of size stays on offer while the list is longer than the smallest page.
+  if (total <= (choose ? sizes[0] : size)) return null;
   const go = (p: number) => {
     onPage(p);
     // The list this pager closes: the panel it sits in.
@@ -144,8 +158,25 @@ export function Pager({
       aria-label="Pages"
       className="flex flex-wrap items-center justify-between gap-3 border-t border-hairline px-2 pt-3 pb-1 text-body-compact text-muted-foreground"
     >
-      <span className="tabular-nums">
-        {at * PAGE_SIZE + 1}–{Math.min(total, (at + 1) * PAGE_SIZE)} of {total}
+      <span className="flex items-center gap-3">
+        <span className="tabular-nums">
+          {at * size + 1}–{Math.min(total, (at + 1) * size)} of {total}
+        </span>
+        {choose ? (
+          <NativeSelect
+            size="sm"
+            aria-label="Cases per page"
+            value={String(size)}
+            onChange={(e) => onSize(Number(e.target.value))}
+            className="w-auto [&_select]:text-body-compact"
+          >
+            {sizes.map((n) => (
+              <NativeSelectOption key={n} value={String(n)}>
+                {n} per page
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+        ) : null}
       </span>
       <span className="flex items-center gap-1 tabular-nums">
         <Button variant="ghost" size="icon-sm" aria-label="Previous page" disabled={at === 0} onClick={() => go(at - 1)}>

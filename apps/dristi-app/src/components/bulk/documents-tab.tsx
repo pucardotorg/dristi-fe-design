@@ -499,9 +499,45 @@ type Show = "missing" | "complete" | "all";
  * what is missing across the batch is seen at once and added where it is (BLK-11). The
  * batch's own documents (the complainant's, set in Common details) are not repeated in
  * every row unless one is missing. Cases still being fixed join later; signed and filed
- * cases are locked. Read 25 at a time.
+ * cases are locked. Read 10 or 15 at a time: a row is a full line of marks, and a longer
+ * page only buries the pager (owner, 2026-11-17).
  */
 /** The sandbox's three ways to fill a batch's documents (`sandboxDocuments`). */
+/** Cases a page of the grid holds: 10 or 15, never more. */
+const DOC_PAGE_SIZES = [10, 15] as const;
+
+/**
+ * The grid's headings rest under the page's sticky stack (the top bar and the batch's
+ * steps), measured, since the steps row can wrap or carry a second row. Where even the
+ * two-line column names can't make the grid fit (a narrow desk with the rail open), it
+ * scrolls sideways instead and the headings stop pinning: a scrolling box would hold
+ * them, and a clipped column is worse than headings that scroll away (as the Filings
+ * queue does).
+ */
+function useStickyHead() {
+  const box = React.useRef<HTMLDivElement>(null);
+  const [tight, setTight] = React.useState(false);
+  const [top, setTop] = React.useState(0);
+  React.useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const steps = document.querySelector('nav[aria-label="Batch steps"]')?.parentElement ?? null;
+    const check = () => {
+      const table = el.querySelector("table");
+      setTight(!!table && table.scrollWidth > el.clientWidth + 1);
+      if (steps) setTop((parseFloat(getComputedStyle(steps).top) || 0) + steps.offsetHeight);
+    };
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    const table = el.querySelector("table");
+    if (table) ro.observe(table);
+    if (steps) ro.observe(steps);
+    return () => ro.disconnect();
+  });
+  return { boxRef: box, tight, top };
+}
+
 const SANDBOX_FILLS = [
   { id: "all", label: "Every document", detail: "Every case ready to sign" },
   { id: "most", label: "Most documents", detail: "About one case in seven still missing one or two" },
@@ -532,6 +568,8 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
   // Asked for from a row menu: opened once that menu has closed and handed focus back.
   const pendingOther = React.useRef<string | null>(null);
   const [page, setPage] = React.useState(0);
+  const [size, setSize] = React.useState<number>(DOC_PAGE_SIZES[0]);
+  const { boxRef: headBox, tight: headTight, top: headTop } = useStickyHead();
 
   // Cases missing something first, in the order they had when the tab opened, so a case
   // does not jump away the moment its last document goes in.
@@ -652,7 +690,7 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
     !term || [c.accused, c.title, c.draftNumber, c.cheque].some((v) => v.toLowerCase().includes(term));
   const base = { missing: open.filter((c) => startedOpen.has(c.id)), complete: open.filter((c) => !needsWork(c)), all: open }[show];
   const shownCases = base.filter(matches);
-  const { pages, at, shown: listed } = pageOf(shownCases, page);
+  const { pages, at, shown: listed } = pageOf(shownCases, page, size);
   // The batch's own documents: shown in a row only while one is missing.
   const own = (d: Doc) => d.group.startsWith("Complainant") && !!d.file;
 
@@ -774,10 +812,12 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
             setPage(0);
           }}
         />
-        <PagerTop total={shownCases.length} at={at} pages={pages} onPage={setPage} />
+        <PagerTop total={shownCases.length} at={at} pages={pages} onPage={setPage} size={size} />
       </div>
 
-      <Card variant="raised" className="gap-0 p-2">
+      {/* Visible, not hidden: the Card's clip would hold the grid's headings in place of
+          the page, so they could never pin. */}
+      <Card variant="raised" className="gap-0 overflow-visible p-2">
         {/* The list's first row: the batch's cases this list leaves out and where they are,
             and the warnings skipped here (owner, 2026-11-17: on the page it floated). */}
         <StepMeta
@@ -801,9 +841,20 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
                 column, and each cell only its state, so what is missing across the batch
                 reads at a glance (owner, 2026-11-12: the chip rows repeated every name on
                 every case and painted fifty red chips). */}
-            <div className="hidden overflow-x-auto md:block">
+            <div
+              ref={headBox}
+              className={cn(
+                "hidden md:block",
+                headTight ? "overflow-x-auto" : "overflow-x-clip [&>[data-slot=table-container]]:overflow-visible",
+              )}
+            >
               <Table className="border-separate border-spacing-0" aria-label="Documents for each case">
-                <TableHeader>
+                {/* Pinned under the steps while the grid scrolls by; the card's white behind
+                    the well's rounded ends, so no row shows through its corners. */}
+                <TableHeader
+                  className={headTight ? undefined : "sticky z-10 bg-card"}
+                  style={headTight ? undefined : { top: headTop }}
+                >
                   <TableRow className={TABLE_HEAD_ROW}>
                     <TableHead className={cn(TABLE_HEAD, "w-full min-w-44")}>Accused</TableHead>
                     {columns.map((col) => (
@@ -926,7 +977,18 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
             </ul>
           </>
         )}
-        <Pager total={shownCases.length} at={at} pages={pages} onPage={setPage} />
+        <Pager
+          total={shownCases.length}
+          at={at}
+          pages={pages}
+          onPage={setPage}
+          size={size}
+          sizes={DOC_PAGE_SIZES}
+          onSize={(n) => {
+            setSize(n);
+            setPage(0);
+          }}
+        />
       </Card>
 
       <div className="flex flex-wrap items-center gap-2">
