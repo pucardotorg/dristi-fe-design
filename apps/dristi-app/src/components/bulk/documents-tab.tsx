@@ -55,6 +55,12 @@ import { StatusLine } from "@/components/feedback";
 import { FilingFooter } from "@/components/filing/filing-footer";
 
 type Doc = CaseView["documents"][number];
+
+/** A document column: the same width for each, so their marks sit on an even grid. */
+const DOC_COL = "w-28 min-w-28 px-1";
+
+/** Column names too long for one line at that width, said shorter (the full name is the title). */
+const COLUMN_SHORT: Record<string, string> = { "Reply to notice": "Reply" };
 type Flag = CaseView["flags"][number];
 
 const ACCEPT = ".pdf,.jpg,.jpeg,.png";
@@ -809,19 +815,31 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
               <Table className="border-separate border-spacing-0" aria-label="Documents for each case">
                 <TableHeader>
                   <TableRow className={TABLE_HEAD_ROW}>
-                    <TableHead className={cn(TABLE_HEAD, "w-full min-w-48")}>Accused</TableHead>
-                    {columns.map((col) => (
-                      // Two-word names wrap to two lines, so six documents fit the page's width.
-                      <TableHead key={col.key} className={cn(TABLE_HEAD, "w-20 px-2 text-center leading-tight whitespace-normal", !col.required && "font-normal")}>
-                        {col.key}
-                        {col.required ? null : <span className="sr-only"> (optional)</span>}
-                      </TableHead>
-                    ))}
+                    <TableHead className={cn(TABLE_HEAD, "w-full min-w-44")}>Accused</TableHead>
+                    {/* One width for every document, each name on one line: the marks fall
+                        on an even grid and the header strip stays one line tall (owner,
+                        2026-11-17: names wrapped to two and three lines). */}
+                    {columns.map((col) => {
+                      const short = COLUMN_SHORT[col.key];
+                      return (
+                        <TableHead key={col.key} title={short ? col.key : undefined} className={cn(TABLE_HEAD, DOC_COL, "text-center whitespace-nowrap")}>
+                          {short ? (
+                            <>
+                              <span aria-hidden>{short}</span>
+                              <span className="sr-only">{col.key}</span>
+                            </>
+                          ) : (
+                            col.key
+                          )}
+                          {col.required ? null : <span className="sr-only"> (optional)</span>}
+                        </TableHead>
+                      );
+                    })}
                     {showOther ? (
-                      <TableHead className={cn(TABLE_HEAD, "w-20 px-2 text-center font-normal")}>Other</TableHead>
+                      <TableHead className={cn(TABLE_HEAD, DOC_COL, "text-center whitespace-nowrap")}>Other</TableHead>
                     ) : null}
                     {closed ? null : (
-                      <TableHead className={TABLE_HEAD}>
+                      <TableHead className={cn(TABLE_HEAD, "w-12 px-2")}>
                         <span className="sr-only">More</span>
                       </TableHead>
                     )}
@@ -846,12 +864,12 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
                           const ds = mine.filter((x) => typeOf(x) === col.key);
                           if (!ds.length)
                             return (
-                              <TableCell key={col.key} className={cn(TABLE_CELL, "px-2 text-center text-muted-foreground")}>
+                              <TableCell key={col.key} className={cn(TABLE_CELL, DOC_COL, "text-center text-muted-foreground")}>
                                 <span aria-label="Not needed for this case">—</span>
                               </TableCell>
                             );
                           return (
-                            <TableCell key={col.key} className={cn(TABLE_CELL, "px-2 text-center")}>
+                            <TableCell key={col.key} className={cn(TABLE_CELL, DOC_COL, "text-center")}>
                               {ds.length > 1 ? (
                                 <GroupCell
                                   docs={ds}
@@ -880,7 +898,7 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
                           );
                         })}
                         {showOther ? (
-                          <TableCell className={cn(TABLE_CELL, "px-2 text-center")}>
+                          <TableCell className={cn(TABLE_CELL, DOC_COL, "text-center")}>
                             <OtherCell
                               docs={customOf(c)}
                               locked={closed}
@@ -892,7 +910,7 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
                             />
                           </TableCell>
                         ) : null}
-                        {closed ? null : <TableCell className={cn(TABLE_CELL, "w-12")}>{rowMenu(c)}</TableCell>}
+                        {closed ? null : <TableCell className={cn(TABLE_CELL, "w-12 px-2 text-center")}>{rowMenu(c)}</TableCell>}
                       </TableRow>
                     );
                   })}
