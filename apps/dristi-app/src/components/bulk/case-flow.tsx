@@ -462,7 +462,9 @@ function CaseBar({
   const gutter = "px-6 lg:px-12 lg:[main:has([data-source-open])_&]:px-6";
   const strip = (body: React.ReactNode) => (
     <div
-      className={cn("sticky z-20 flex min-h-14 items-center border-b border-hairline bg-card py-2", gutter)}
+      // The page's warm ground, so the case picker on it reads as the lifted control it is
+      // (owner, 2026-11-17: "if the bar is beige, the dropdown will look more prominent").
+      className={cn("sticky z-20 flex min-h-16 items-center border-b border-hairline bg-muted py-3 dark:bg-background", gutter)}
       style={{ top: TOP_BAR_HEIGHT }}
     >
       {body}
@@ -535,7 +537,8 @@ function CaseBar({
             if (x) goTo(x, cases.indexOf(x) < cases.indexOf(c) ? "prev" : "next");
           }}
           label="Find a case in this batch"
-          className="max-w-[28rem]"
+          // Lifted off the bar's warm ground: the white control, its edge and a raised shadow.
+          className="max-w-[28rem] shrink px-4 shadow-raised"
         />
         {/* The moment a case is finished, said where the eye already is. */}
         {done && inQueue ? (
