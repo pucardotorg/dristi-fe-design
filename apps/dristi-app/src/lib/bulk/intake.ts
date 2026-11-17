@@ -259,7 +259,8 @@ async function buildDraft(
 
   /* ADR and prayers (PRY). The prayers and affidavit keep the standard templates. */
   if (req.adr) draft.adr.adr = req.adr;
-  draft.adr.otherDetails = paragraphs(c.otherDetails);
+  const written = req.factsFor?.[trim(c.reference)];
+  draft.adr.otherDetails = written ? formattingOnly(written) : paragraphs(c.otherDetails);
   if (trim(c.interimRelief)) draft.adr.interimRelief = paragraphs(c.interimRelief);
   if (trim(c.finalRelief)) draft.adr.finalRelief = paragraphs(c.finalRelief);
   if (trim(c.affidavit)) draft.affidavit = paragraphs(c.affidavit);
@@ -307,12 +308,20 @@ async function buildDraft(
   draft.lastStep = "preview";
   /* PRY-1 from the batch's format, for a case that brought no additional details. Written
      last, so every value the format names is already on the draft. */
-  if (req.detailsFormat && (req.detailsFormat.everyCase || !trim(c.otherDetails))) writeFacts(draft, req.detailsFormat);
+  if (req.detailsFormat && !written && takesBatchText(req.detailsFormat, c)) writeFacts(draft, req.detailsFormat);
 
   draft.createdAt = now;
   draft.updatedAt = now;
 
   return { draft, unknownBar, fetchFailed, unknownService, unstated, docText };
+}
+
+/** Whether a case gets the batch's facts: it brought none, or the filer chose them for it. */
+export function takesBatchText(
+  format: NonNullable<ApiBatchRequest["detailsFormat"]>,
+  c: { reference: string; otherDetails?: string },
+): boolean {
+  return !!format.everyCase || !trim(c.otherDetails) || !!format.batchFor?.includes(trim(c.reference));
 }
 
 /**

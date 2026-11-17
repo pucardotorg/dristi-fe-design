@@ -225,9 +225,15 @@ export type ApiBatchRequest = {
    */
   /**
    * The facts of the case (PRY-1) for cases without their own. `everyCase` gives it to rows
-   * that bring their own text too, replacing it (the filer's choice on Facts of the case).
+   * that bring their own text too, replacing it; `batchFor` gives it to just those rows,
+   * by reference (the filer's choices on Facts of the case, case by case).
    */
-  detailsFormat?: { id: string; html: string; court?: CourtId; everyCase?: boolean };
+  detailsFormat?: { id: string; html: string; court?: CourtId; everyCase?: boolean; batchFor?: string[] };
+  /**
+   * Facts of the case written for one case on Facts of the case, by reference: kept as
+   * written (plain formatting only), in place of its own text or the batch's.
+   */
+  factsFor?: Record<string, string>;
   cases: ApiCase[];
 };
 

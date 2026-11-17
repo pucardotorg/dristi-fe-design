@@ -173,7 +173,15 @@ export type UploadSnapshot = {
   later: string[];
   factsChoice: { id: string | undefined; html: string } | null;
   everyCase: boolean | null;
+  /** Each case's facts as chosen on Facts of the case (absent in setups kept before). */
+  factsPicks?: FactsPicks;
 };
+
+/**
+ * Facts of the case chosen case by case, by reference: rows whose own text gives way to the
+ * batch's, and text written for one case on the screen.
+ */
+export type FactsPicks = { batchFor: string[]; written: Record<string, string> };
 
 /**
  * A batch that is not created yet, listed so the filer can come back to it or delete it.

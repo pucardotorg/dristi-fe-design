@@ -157,11 +157,11 @@ export const bulkApi = {
       json<{ batchId: string; batchNumber: string; client: string; source: BatchSummary["source"]; request: ApiBatchRequest }>(r),
     ),
   /** Create a push with the facts chosen on Facts of the case. */
-  createPush: (id: string, detailsFormat: ApiBatchRequest["detailsFormat"]) =>
+  createPush: (id: string, detailsFormat: ApiBatchRequest["detailsFormat"], factsFor?: ApiBatchRequest["factsFor"]) =>
     bulkFetch(`/api/bulk/batches/${id}/start`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ detailsFormat }),
+      body: JSON.stringify({ detailsFormat, factsFor }),
     }).then((r) => json<{ batchId: string; batchNumber: string }>(r)),
   /** Sandbox: Provakil pushes one of the 300-case scenarios. */
   sandboxPush: (scenario: string) =>

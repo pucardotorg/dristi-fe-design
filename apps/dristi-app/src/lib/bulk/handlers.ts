@@ -29,7 +29,7 @@ import { aiModeFrom } from "./ai-review";
 import type { ApiBatchRequest, ApiBatchResponse, ApiDocument } from "./contract";
 import { localizeCaseNumber } from "@/lib/court/localize";
 import { newId } from "@/lib/filing/data";
-import { buildBatch, validateRequest, writeFacts } from "./intake";
+import { buildBatch, formattingOnly, takesBatchText, validateRequest, writeFacts } from "./intake";
 import { applyParties, type BatchParties } from "./parties";
 import { caseFlags } from "./scrutiny";
 import { draftNumber, type BulkStore, type FileMeta } from "./store";
@@ -144,7 +144,7 @@ export async function getPush(store: BulkStore, batchId: string): Promise<Reply>
 export async function createPush(
   store: BulkStore,
   batchId: string,
-  body: { detailsFormat?: ApiBatchRequest["detailsFormat"] },
+  body: { detailsFormat?: ApiBatchRequest["detailsFormat"]; factsFor?: ApiBatchRequest["factsFor"] },
 ): Promise<Reply> {
   let problem: string | null = null;
   const out = await store.updateBatch(batchId, (b) => {
@@ -154,11 +154,15 @@ export async function createPush(
     }
     const sent = b.notCreated.request.cases;
     const format = body.detailsFormat;
-    if (format && format.html.replace(/<[^>]*>|&nbsp;/g, "").trim())
-      b.cases.forEach((bc, i) => {
-        const own = !!sent[i]?.otherDetails?.trim();
-        if (format.everyCase || !own) writeFacts(bc.draft, format);
-      });
+    b.cases.forEach((bc, i) => {
+      const c = sent[i];
+      const written = c ? body.factsFor?.[c.reference.trim()] : undefined;
+      if (written) {
+        bc.draft.adr.otherDetails = formattingOnly(written);
+        bc.draft.adr.detailsFormat = undefined;
+      } else if (c && format && format.html.replace(/<[^>]*>|&nbsp;/g, "").trim() && takesBatchText(format, c))
+        writeFacts(bc.draft, format);
+    });
     const { notCreated: _done, ...created } = b;
     void _done;
     return { ...created, openedAt: b.openedAt ?? new Date().toISOString() };
