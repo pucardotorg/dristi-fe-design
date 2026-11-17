@@ -177,6 +177,7 @@ export function BatchesScreen() {
     setError(null);
     try {
       const out = await bulkApi.club(chosen.map((b) => b.id));
+      notify.success(`${chosen.length} batches clubbed into ${out.batchNumber}`);
       router.push(`/filings/bulk/${out.batchId}`);
     } catch (e) {
       setError((e as Error).message);

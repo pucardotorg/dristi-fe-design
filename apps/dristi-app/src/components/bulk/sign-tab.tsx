@@ -54,6 +54,7 @@ import {
   tableRowClass,
 } from "@/components/chrome/table-plate";
 import { StatusLine } from "@/components/feedback";
+import { notify } from "@/components/ui/notify";
 
 import { buildPrintPack } from "@/lib/bulk/print-pack";
 
@@ -156,6 +157,8 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
     try {
       setBatch(await bulkApi.act(batch.id, { action: "sign", method: r.method, caseIds: r.caseIds }));
       setRound(null);
+      // The page moves on to the oath or Pay, so the signing is confirmed in a toast.
+      notify.success(`${r.caseIds.length} complaint${r.caseIds.length === 1 ? "" : "s"} signed`);
       // The oath comes next, unless it's already in (owner, 2026-11-17).
       if (batch.oath.takenAt) go("pay", r.caseIds.join(","));
       else go("oath");

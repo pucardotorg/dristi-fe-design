@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { StatusLine } from "@/components/feedback";
+import { notify } from "@/components/ui/notify";
 
 import { bulkApi } from "./api";
 import { BatchFooter } from "./batch-footer";
@@ -58,6 +59,10 @@ export function OathTab({ batch, setBatch, go }: BatchCtx) {
     setError(null);
     try {
       setBatch(await bulkApi.act(batch.id, { action }));
+      // The act is confirmed where the filer is looking, as the panel's row changes.
+      const to = rep?.mobile ? ` to •••• ${rep.mobile.slice(-4)}` : "";
+      if (action === "oath-taken") notify.success("Oath marked as taken");
+      else notify.success(oath.sentAt ? `Oath link sent again${to}` : `Oath link sent${to}`);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -71,7 +76,11 @@ export function OathTab({ batch, setBatch, go }: BatchCtx) {
   React.useEffect(() => {
     if (!waiting) return;
     const timer = window.setInterval(() => {
-      bulkApi.get(batch.id).then(setBatch, () => undefined);
+      bulkApi.get(batch.id).then((next) => {
+        // Taken on their phone while this page waited: said once, as it lands.
+        if (next.oath.takenAt) notify.success(`Oath taken by ${next.oath.by || next.representative?.name || "the representative"}`);
+        setBatch(next);
+      }, () => undefined);
     }, 5000);
     return () => window.clearInterval(timer);
   }, [waiting, batch.id, setBatch]);
