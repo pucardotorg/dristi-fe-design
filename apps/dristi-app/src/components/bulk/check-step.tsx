@@ -13,6 +13,7 @@
 import * as React from "react";
 import {
   BookmarkPlusIcon,
+  CheckIcon,
   ExternalLinkIcon,
   FileTextIcon,
   ChevronDownIcon,
@@ -69,6 +70,7 @@ import { cn } from "@/lib/utils";
 import { aboutDetails } from "./batch-marks";
 import { CaseFinder, CaseStepper, type FinderCase } from "./case-finder";
 import { FactsCases, type FactsSource } from "./facts-cases";
+import { CheckArt, ProportionBar } from "./check-art";
 import { STATE } from "./stage";
 
 /* ───────────────────────────── The cases, as Create will make them ───────────────────────────── */
@@ -199,31 +201,50 @@ export function CheckCard({
   /** The facts of the case line, with its way back. */
   footer?: React.ReactNode;
 }) {
-  const lines: { state: "fix" | "check"; text: string }[] = [];
+  const ready = Math.max(0, total - fix - check);
+  const lines: { state: "fix" | "check" | "ready"; text: string }[] = [];
   if (fix) lines.push({ state: "fix", text: `${fix} ${fix === 1 ? "needs" : "need"} fixing before ${fix === 1 ? "it can" : "they can"} be filed` });
   if (check) lines.push({ state: "check", text: `${check} ${check === 1 ? "has" : "have"} warnings to look at` });
+  if (ready && (fix || check)) lines.push({ state: "ready", text: `${ready === total ? "All" : `The other ${ready}`} ${ready === 1 ? "is" : "are"} complete` });
   if (cannot) lines.push({ state: "fix", text: `${cannot} ${cannot === 1 ? "row" : "rows"} can't be created and ${cannot === 1 ? "is" : "are"} left out` });
+  const parts = { total, ready, check, fix };
   return (
-    <Card variant="raised" className="gap-0 p-0">
-      <div className="flex flex-col gap-4 p-6">
-        <h2 className="text-title-s font-semibold tabular-nums">
-          {total} {total === 1 ? "case" : "cases"} {created ? "in this batch" : "will be created"}
-        </h2>
-        {lines.length ? (
-          <ul className="flex flex-col gap-2">
-            {lines.map((l) => {
-              const Icon = STATE[l.state].icon;
-              return (
-                <li key={l.text} className="flex items-center gap-3 text-body tabular-nums">
-                  <Icon aria-hidden className={cn("size-4 shrink-0", STATE[l.state].ink)} />
-                  {l.text}
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <p className="text-body text-muted-foreground">Every case is complete.</p>
-        )}
+    <Card variant="raised" className="gap-0 overflow-hidden p-0">
+      {/* The batch drawn beside what it holds: the picture first, the plain lines after
+          (owner, 2026-11-17: the bare card read bland; tiles and a ledger were ruled out). */}
+      <div className="grid md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+        <div className="m-2 flex items-center justify-center rounded-lg bg-brand-muted px-10 py-10">
+          <CheckArt {...parts} />
+        </div>
+        <div className="flex flex-col justify-center gap-5 p-6 md:py-8 md:pr-8 md:pl-6">
+          <div className="flex flex-col gap-3">
+            <h2 className="text-title-s font-semibold tabular-nums">
+              {total} {total === 1 ? "case" : "cases"} {created ? "in this batch" : "will be created"}
+            </h2>
+            {total ? <ProportionBar {...parts} /> : null}
+          </div>
+          {lines.length ? (
+            <ul className="flex flex-col gap-2.5">
+              {lines.map((l) => {
+                const Icon = l.state === "ready" ? CheckIcon : STATE[l.state].icon;
+                return (
+                  <li
+                    key={l.text}
+                    className={cn("flex items-center gap-3 text-body tabular-nums", l.state === "ready" && "text-muted-foreground")}
+                  >
+                    <Icon aria-hidden className={cn("size-4 shrink-0", l.state === "ready" ? "text-muted-foreground" : STATE[l.state].ink)} />
+                    {l.text}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="flex items-center gap-3 text-body text-muted-foreground">
+              <CheckIcon aria-hidden className="size-4 shrink-0" />
+              Every case is complete.
+            </p>
+          )}
+        </div>
       </div>
       {footer ? <div className="border-t border-hairline px-6 py-4">{footer}</div> : null}
     </Card>
@@ -604,3 +625,4 @@ export function FactsCard({
     </Tabs>
   );
 }
+
