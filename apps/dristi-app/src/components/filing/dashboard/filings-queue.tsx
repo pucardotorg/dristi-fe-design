@@ -40,6 +40,7 @@ import {
   REGISTER_TABLE_ONLY,
   SHOW_MORE_STEP,
 } from "@/components/cases/register-layout";
+import { FilterPills } from "@/components/bulk/filter-pills";
 import { Identifier } from "@/components/chrome/identifier";
 import { OverflowTabsList } from "@/components/chrome/overflow-tabs";
 import { Badge } from "@/components/ui/badge";
@@ -54,7 +55,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import {
   Pagination,
@@ -69,7 +70,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { rowActivation, rowOpener } from "@/lib/employee/row-activation";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 
 /** The tone words, so a colour is never the only thing saying "this one is late". */
@@ -87,11 +87,6 @@ export type QueueData = Record<QueueTab, QueueRow[]>;
 
 /* The desk layout, stated twice because Tailwind has no "or": a mouse from `md`, or any
    landscape screen from `md`. Everything else (phones, upright tablets) is the base. */
-const DESK_TOOLBAR =
-  "md:pointer-fine:flex md:pointer-fine:flex-wrap md:pointer-fine:gap-3 md:pointer-fine:px-6 md:landscape:flex md:landscape:flex-wrap md:landscape:gap-3 md:landscape:px-6";
-const DESK_SEARCH =
-  "md:pointer-fine:min-w-60 md:pointer-fine:flex-1 md:landscape:min-w-60 md:landscape:flex-1";
-const DESK_AUTO = "md:pointer-fine:w-auto md:landscape:w-auto";
 const DESK_GUTTER = "md:pointer-fine:px-6 md:landscape:px-6";
 const DESK_HEAD = "md:pointer-fine:px-6 md:pointer-fine:pt-6 md:landscape:px-6 md:landscape:pt-6";
 const DESK_PAGER = "hidden md:pointer-fine:flex md:landscape:flex";
@@ -325,87 +320,118 @@ export function FilingsQueue({
         ? true
         : "indeterminate";
 
-  /* The search, the switch and the order. On a desk they ride in the docking band with
-     the tabs; under a finger they scroll with the list, where a pinned block of
-     controls would eat the screen. */
-  const toolbar = (
-      <div className={cn("grid grid-cols-2 items-center gap-2 px-4 py-4", DESK_TOOLBAR)}>
-        {bulkKind === "discard" && selectedIds.length > 0 && !cards ? (
-          <Button
-            variant="destructive"
-            onClick={() => onDiscard(selectedIds)}
-            className={cn("col-span-2 shrink-0", DESK_AUTO)}
-          >
-            <Trash2Icon data-icon="inline-start" aria-hidden />
-            Discard {selectedIds.length} {selectedIds.length === 1 ? "draft" : "drafts"}
-          </Button>
-        ) : bulkKind === "sign" && selectedRows.length > 0 && !cards ? (
-          <Button onClick={() => onBulk("sign", selectedRows)} className="shrink-0 tabular-nums">
-            <PenToolIcon data-icon="inline-start" aria-hidden />
-            Sign {selectedRows.length} {selectedRows.length === 1 ? "document" : "documents"}
-          </Button>
-        ) : bulkKind === "pay" && selectedRows.length > 0 && !cards ? (
-          <Button onClick={() => onBulk("pay", selectedRows)} className="shrink-0 tabular-nums">
-            <WalletIcon data-icon="inline-start" aria-hidden />
-            Pay {money(selectedRows.reduce((sum, row) => sum + (row.amount ?? 0), 0))}
-          </Button>
-        ) : null}
-        <div className={cn("relative col-span-2", DESK_SEARCH)}>
-          <SearchIcon
-            aria-hidden
-            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-          />
-          <Input
-            value={view.q}
-            onChange={(event) => go({ q: event.target.value, page: 1 })}
-            placeholder={hasBulk ? "Search by party, number or batch" : "Search by party name or number"}
-            aria-label="Filter this list by party name or number"
-            className="pl-9"
-          />
-        </div>
-        {hasBulk ? (
-          <ToggleGroup
-            type="single"
-            variant="outline"
-            spacing={0}
-            value={view.kind}
-            onValueChange={(v) => v && go({ kind: v as Kind, page: 1 })}
-            aria-label="Show single filings, bulk batches, or both"
-            className="col-span-2 shrink-0"
-          >
-            <ToggleGroupItem value="all">All</ToggleGroupItem>
-            <ToggleGroupItem value="single">Single</ToggleGroupItem>
-            <ToggleGroupItem value="bulk">Bulk</ToggleGroupItem>
-          </ToggleGroup>
-        ) : null}
-        {courts.length > 1 ? (
-          <NativeSelect
-            value={court}
-            onChange={(event) => go({ court: event.target.value, page: 1 })}
-            aria-label="Filter by court"
-            className={cn("w-full", DESK_AUTO)}
-          >
-            <NativeSelectOption value="">All courts</NativeSelectOption>
-            {courts.map((name) => (
-              <NativeSelectOption key={name} value={name}>
-                {name}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-        ) : null}
-        <NativeSelect
-          value={sort.value}
-          onChange={(event) => go({ sort: event.target.value, page: 1 })}
-          aria-label="Order this list"
-          className={cn("w-full", courts.length > 1 ? null : "col-span-2", DESK_AUTO)}
-        >
-          {TAB_SORTS[view.tab].map((option) => (
-            <NativeSelectOption key={option.value} value={option.value}>
-              {option.label}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
+  /* Single filings, bulk batches, or both, as the product's filter pills (owner,
+     2026-11-17: the segmented switch read as a different kind of control from every
+     other list). Each pill counts what pressing it yields on this tab, so the pill and
+     the tab above it never disagree. */
+  const kindCounts = {
+    all: everything[view.tab].length,
+    single: everything[view.tab].filter((r) => !r.batch).length,
+    bulk: everything[view.tab].filter((r) => r.batch).length,
+  };
+  const pills = hasBulk ? (
+    <FilterPills
+      value={view.kind}
+      onChange={(v) => go({ kind: v as Kind, page: 1 })}
+      total={ready ? kindCounts.all : 0}
+      filters={[
+        { id: "single", label: "Single", count: ready ? kindCounts.single : 0 },
+        { id: "bulk", label: "Bulk", count: ready ? kindCounts.bulk : 0 },
+      ]}
+      label="Show single filings, bulk batches, or both"
+    />
+  ) : null;
+
+  const search = (
+    <InputGroup className={cards ? undefined : "w-72 flex-none"}>
+      <InputGroupAddon>
+        <SearchIcon aria-hidden />
+      </InputGroupAddon>
+      <InputGroupInput
+        type="search"
+        autoComplete="off"
+        value={view.q}
+        onChange={(event) => go({ q: event.target.value, page: 1 })}
+        placeholder={hasBulk ? "Search by party, number or batch" : "Search by party name or number"}
+        aria-label="Filter this list by party name or number"
+      />
+    </InputGroup>
+  );
+
+  const courtFilter =
+    courts.length > 1 ? (
+      <NativeSelect
+        value={court}
+        onChange={(event) => go({ court: event.target.value, page: 1 })}
+        aria-label="Filter by court"
+        className={cards ? "w-full" : "max-w-60"}
+      >
+        <NativeSelectOption value="">All courts</NativeSelectOption>
+        {courts.map((name) => (
+          <NativeSelectOption key={name} value={name}>
+            {name}
+          </NativeSelectOption>
+        ))}
+      </NativeSelect>
+    ) : null;
+
+  const order = (
+    <NativeSelect
+      value={sort.value}
+      onChange={(event) => go({ sort: event.target.value, page: 1 })}
+      aria-label="Order this list"
+      className={cards ? cn("w-full", !courtFilter && "col-span-2") : undefined}
+    >
+      {TAB_SORTS[view.tab].map((option) => (
+        <NativeSelectOption key={option.value} value={option.value}>
+          {option.label}
+        </NativeSelectOption>
+      ))}
+    </NativeSelect>
+  );
+
+  /* The selection's one act, at the row's far end, over the table's action column.
+     Under a finger it rides the bottom bar instead. */
+  const selectionAct =
+    bulkKind === "discard" && selectedIds.length > 0 ? (
+      <Button variant="destructive" onClick={() => onDiscard(selectedIds)} className="shrink-0 tabular-nums">
+        <Trash2Icon data-icon="inline-start" aria-hidden />
+        Discard {selectedIds.length} {selectedIds.length === 1 ? "draft" : "drafts"}
+      </Button>
+    ) : bulkKind === "sign" && selectedRows.length > 0 ? (
+      <Button onClick={() => onBulk("sign", selectedRows)} className="shrink-0 tabular-nums">
+        <PenToolIcon data-icon="inline-start" aria-hidden />
+        Sign {selectedRows.length} {selectedRows.length === 1 ? "document" : "documents"}
+      </Button>
+    ) : bulkKind === "pay" && selectedRows.length > 0 ? (
+      <Button onClick={() => onBulk("pay", selectedRows)} className="shrink-0 tabular-nums">
+        <WalletIcon data-icon="inline-start" aria-hidden />
+        Pay {money(selectedRows.reduce((sum, row) => sum + (row.amount ?? 0), 0))}
+      </Button>
+    ) : null;
+
+  /* One line, as on Pending tasks and Bulk filing: the pills on the left say which
+     filings, the search and the selects on the right narrow and order them. The pills
+     never shrink below their own width, so on a narrow desk the controls drop to a
+     second line (the band is measured) rather than clipping a pill. On a desk the row rides the docking band with the tabs; under
+     a finger it scrolls with the cards, stacked: pills, search, then the two selects. */
+  const toolbar = cards ? (
+    <div className="grid grid-cols-2 items-center gap-3 px-4 py-4">
+      {pills ? <div className="col-span-2 flex min-w-0">{pills}</div> : null}
+      <div className="col-span-2">{search}</div>
+      {courtFilter}
+      {order}
+    </div>
+  ) : (
+    <div className="flex flex-wrap items-center gap-3 px-6 py-4">
+      {pills ? <div className="flex min-w-fit flex-1">{pills}</div> : null}
+      <div className="ml-auto flex min-w-0 items-center gap-3">
+        {search}
+        {courtFilter}
+        {order}
+        {selectionAct}
       </div>
+    </div>
   );
 
   const body = (
