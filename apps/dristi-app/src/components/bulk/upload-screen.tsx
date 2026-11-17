@@ -565,7 +565,9 @@ export function UploadScreen() {
   };
 
   const create = async () => {
-    if (!book || !file) return;
+    // A kept upload comes back with its rows but not the file itself, which Create
+    // doesn't need: only the per-case documents path reads the files again.
+    if (!book || (docs && !file)) return;
     setBusy(true);
     setError(null);
     try {
