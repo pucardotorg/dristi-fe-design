@@ -628,7 +628,13 @@ export function FilingsQueue({
                         {/* Waiting entirely on other parties, on Pending signature, is
                             not something a bulk sign can act on — the cell stays, so the
                             column still lines up, but there is nothing to tick. */}
-                        {rowBulkable(view.tab, row) ? (
+                        {row.batch ? (
+                          // A batch is never ticked here: its bulk mark takes the box's place,
+                          // so its name starts on the same line as a single filing's.
+                          <span className="-ml-1 flex">
+                            <BatchMark />
+                          </span>
+                        ) : rowBulkable(view.tab, row) ? (
                           // z-10 lifts the box above the row's stretched action link, so
                           // a click ticks the row instead of opening it.
                           <div className="relative z-10 flex items-center">
@@ -651,7 +657,7 @@ export function FilingsQueue({
                           column === "court" && "text-muted-foreground"
                         )}
                       >
-                        {renderCell(column, row, onDiscard, here)}
+                        {renderCell(column, row, onDiscard, here, selectable)}
                       </TableCell>
                     ))}
                   </TableRow>
@@ -819,7 +825,9 @@ function renderCell(
   column: ColumnId,
   row: QueueRow,
   onDiscard: (ids: string[]) => void,
-  here: string
+  here: string,
+  /** The first column holds the batch mark, so the Parties cell doesn't repeat it. */
+  markInBox = false
 ): React.ReactNode {
   switch (column) {
     case "ref":
@@ -831,7 +839,7 @@ function renderCell(
         <Identifier value={row.ref} copyable={false} className="font-medium" />
       ) : null;
     case "parties":
-      return row.batch ? <BatchParties row={row} /> : row.parties;
+      return row.batch ? <BatchParties row={row} mark={!markInBox} /> : row.parties;
     case "caseType":
       return row.caseType ?? "—";
     case "court":
@@ -901,6 +909,9 @@ function renderCell(
             >
               <Trash2Icon aria-hidden />
             </Button>
+          ) : row.batch ? (
+            // Drafts beside it have a bin; holding its width keeps every button on one edge.
+            <span aria-hidden className="size-9 shrink-0" />
           ) : null}
         </div>
       );
@@ -911,13 +922,19 @@ function renderCell(
  * A batch's Parties cell: the bulk mark and its B-number beside the complainant, and how
  * many of its cases are at this tab's stage, so it never reads as one case.
  */
-function BatchParties({ row }: { row: QueueRow }) {
+function BatchMark() {
+  return (
+    <span className="relative z-10 flex size-6 items-center justify-center rounded-md bg-brand-muted text-brand-muted-foreground" aria-hidden>
+      <Layers2Icon className="size-3.5" />
+    </span>
+  );
+}
+
+function BatchParties({ row, mark }: { row: QueueRow; mark: boolean }) {
   const b = row.batch!;
   return (
     <span className="flex items-center gap-3">
-      <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-brand-muted text-brand-muted-foreground" aria-hidden>
-        <Layers2Icon className="size-4" />
-      </span>
+      {mark ? <BatchMark /> : null}
       <span className="flex min-w-0 flex-col">
         <span>
           {row.parties}

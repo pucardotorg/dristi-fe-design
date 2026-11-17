@@ -64,7 +64,7 @@ export function batchRows(batches: BatchSummary[]): Partial<Record<QueueTab, Que
         batch: { number: b.number, cases: [`${draft} of ${plural(b.total, "case")} in draft`, ...needs].join(" · ") },
         // File by: the earliest of its cases', as a draft's own date (drawn so; to settle).
         info: b.fileBy
-          ? { lead: toDisplayDate(b.fileBy), sub: b.fileBy < today ? `Past it · earliest of ${draft}` : `Earliest of ${draft}`, tone }
+          ? { lead: toDisplayDate(b.fileBy), sub: `Earliest of ${plural(draft, "case")}`, tone }
           : { lead: "NA", tone: "default" },
         urgencyAt: b.fileBy ?? NO_URGENCY,
         action: { label: "Open batch", href: open(s.fix || s.check ? "" : "documents") },
