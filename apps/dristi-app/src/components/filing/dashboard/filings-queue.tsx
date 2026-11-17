@@ -6,18 +6,12 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowRightIcon,
   ChevronDownIcon,
-  FilePenLineIcon,
-  FileTextIcon,
-  FolderOpenIcon,
   InboxIcon,
   Layers2Icon,
   PenToolIcon,
   SearchIcon,
   Trash2Icon,
-  VideoIcon,
   WalletIcon,
-  WrenchIcon,
-  type LucideIcon,
 } from "lucide-react";
 
 import {
@@ -1047,15 +1041,14 @@ function renderCell(
     case "action":
       return (
         <div className="flex items-center justify-end gap-1">
-          {/* One width for every row's act, its icon and words starting on one edge: a
-              column of buttons rather than a ragged stack, each still telling its act
-              apart by icon and label (owner, 2026-11-18). */}
-          <Button asChild variant="outline" size="sm" className="w-44 justify-start">
+          {/* Each act as wide as its words, every one ending on the same right edge on
+              every tab (the bin's slot is held only where a row on the page has one). */}
+          <Button asChild variant="outline" size="sm">
             {/* The row's opener: a click anywhere on the row is handed to it
                 (`rowActivation`), so the button is only where it is visible. */}
             <Link href={withOrigin(row.action.href, here)} {...rowOpener}>
-              <ActionIcon label={row.action.label} />
-              <span className="truncate">{row.action.label}</span>
+              {row.action.label}
+              <ArrowRightIcon data-icon="inline-end" aria-hidden />
             </Link>
           </Button>
           {row.discardable ? (
@@ -1081,26 +1074,6 @@ function renderCell(
  * A batch's Parties cell: the bulk mark and its B-number beside the complainant, and how
  * many of its cases are at this tab's stage, so it never reads as one case.
  */
-/** The act's own mark, so a column of equal buttons still reads at a glance. */
-const ACTION_ICONS: Record<string, LucideIcon> = {
-  "Continue filing": FilePenLineIcon,
-  Continue: FilePenLineIcon,
-  "Open batch": Layers2Icon,
-  Sign: PenToolIcon,
-  "Continue signing": PenToolIcon,
-  "Sign and take oath": PenToolIcon,
-  "Take oath": VideoIcon,
-  "Pay court fee": WalletIcon,
-  "View case file": FileTextIcon,
-  "Fix defects": WrenchIcon,
-  "Open case": FolderOpenIcon,
-};
-
-function ActionIcon({ label }: { label: string }) {
-  const Icon = ACTION_ICONS[label] ?? ArrowRightIcon;
-  return <Icon data-icon="inline-start" aria-hidden />;
-}
-
 function BatchMark() {
   return (
     <span className="relative z-10 flex size-6 items-center justify-center rounded-md bg-brand-muted text-brand-muted-foreground" aria-hidden>
