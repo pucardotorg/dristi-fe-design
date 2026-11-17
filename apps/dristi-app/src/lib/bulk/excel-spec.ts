@@ -365,6 +365,18 @@ const SHEET_PATTERNS = COLUMNS.map((c) => ({
  * is not a numbered template header ("Accused 2 address 1 pincode" → accused pincode, `[2, 1]`).
  */
 export function matchTemplateHeader(header: string): { column: Column; instance: Instance } | null {
+  // Pure and asked of the same few hundred headers on every change to a setup (each
+  // keystroke in the facts editor rebuilt the request: ~1s of regex in dev), so cached.
+  // Callers only read the result.
+  if (MATCHED.has(header)) return MATCHED.get(header)!;
+  const found = matchHeaderOnce(header);
+  MATCHED.set(header, found);
+  return found;
+}
+
+const MATCHED = new Map<string, { column: Column; instance: Instance } | null>();
+
+function matchHeaderOnce(header: string): { column: Column; instance: Instance } | null {
   const h = normHeader(header);
   for (const { c, re } of SHEET_PATTERNS) {
     const m = re.exec(h);
