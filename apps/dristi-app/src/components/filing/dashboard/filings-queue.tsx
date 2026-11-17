@@ -6,12 +6,18 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowRightIcon,
   ChevronDownIcon,
+  FilePenLineIcon,
+  FileTextIcon,
+  FolderOpenIcon,
   InboxIcon,
   Layers2Icon,
   PenToolIcon,
   SearchIcon,
   Trash2Icon,
+  VideoIcon,
   WalletIcon,
+  WrenchIcon,
+  type LucideIcon,
 } from "lucide-react";
 
 import {
@@ -183,7 +189,7 @@ export function FilingsQueue({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const view = readView(new URLSearchParams(searchParams.toString()));
-  // Single filings, bulk batches, or both: the tabs count what the switch shows.
+  // Single filings, bulk batches, or both: the pills split the open tab; tabs count all.
   const hasBulk = Object.values(everything).some((rows) => rows.some((r) => r.batch));
   // The switch shows only where this tab holds both kinds; elsewhere a kind picked on
   // another tab must not quietly empty the list.
@@ -213,6 +219,33 @@ export function FilingsQueue({
   const sentinel = React.useRef<HTMLDivElement>(null);
   const band = React.useRef<HTMLDivElement>(null);
   const [docked, setDocked] = React.useState(false);
+  /* Switching tabs while scrolled into the list: a shorter tab would shorten the page, the browser would
+     pull the scroll up, and the whole list would jump. The list keeps the height it had
+     until the page can let go of it without moving (the reader has scrolled up enough
+     that the extra is all below the window). */
+  const tabsRef = React.useRef<HTMLDivElement>(null);
+  const [heldHeight, setHeldHeight] = React.useState<number | null>(null);
+  const switchTab = (tab: QueueTab) => {
+    if (tabsRef.current) setHeldHeight(tabsRef.current.offsetHeight);
+    go({ tab, sort: defaultSortFor(tab), page: 1 });
+  };
+  React.useEffect(() => {
+    if (heldHeight === null) return;
+    const release = () => {
+      const el = tabsRef.current;
+      if (!el) return setHeldHeight(null);
+      const kids = [...el.children] as HTMLElement[];
+      const natural = kids.length
+        ? kids[kids.length - 1].getBoundingClientRect().bottom - kids[0].getBoundingClientRect().top
+        : 0;
+      const extra = heldHeight - natural;
+      if (extra <= 0 || window.scrollY + window.innerHeight <= document.documentElement.scrollHeight - extra) {
+        setHeldHeight(null);
+      }
+    };
+    window.addEventListener("scroll", release, { passive: true });
+    return () => window.removeEventListener("scroll", release);
+  }, [heldHeight]);
   const [bandHeight, setBandHeight] = React.useState(0);
   React.useEffect(() => {
     const mark = sentinel.current;
@@ -755,7 +788,7 @@ export function FilingsQueue({
                           (column === "parties" || column === "court") && "whitespace-normal"
                         )}
                       >
-                        {renderCell(column, row, onDiscard, here, selectable)}
+                        {renderCell(column, row, onDiscard, here, selectable, slice.some((r) => r.discardable))}
                       </TableCell>
                     ))}
                   </TableRow>
@@ -850,13 +883,15 @@ export function FilingsQueue({
       </div>
 
       <Tabs
+        ref={tabsRef}
+        style={heldHeight !== null ? { minHeight: heldHeight } : undefined}
         value={view.tab}
         onValueChange={(value) => {
           // More hands over a value no tab owns when nothing is folded behind it.
           if (!isQueueTab(value)) return;
           const tab = value;
           // The order belongs to the tab, so it resets with the tab; the search follows.
-          go({ tab, sort: defaultSortFor(tab), page: 1 });
+          switchTab(tab);
         }}
       >
         {/* The heading above is read once and scrolls away; the band pins. Under a
@@ -884,12 +919,15 @@ export function FilingsQueue({
             value={view.tab}
             onSelect={(value) => {
               if (!isQueueTab(value)) return;
-              go({ tab: value, sort: defaultSortFor(value), page: 1 });
+              switchTab(value);
             }}
             className="-ml-3 h-10 w-[calc(100%+--spacing(3))] justify-start rounded-none"
             triggerClassName="h-10 flex-none gap-2 text-body-compact"
             items={QUEUE_TABS.map((entry) => {
-              const count = ready ? String(data[entry.id].length) : "–";
+              // Each stage's whole count, whatever the Single/Bulk pills pick: the pills
+              // split the open tab, and a count that changed with them changed every
+              // tab's width, so the strip slid sideways on each pick.
+              const count = ready ? String(everything[entry.id].length) : "–";
               return {
                 value: entry.id,
                 measure: count,
@@ -943,7 +981,9 @@ function renderCell(
   onDiscard: (ids: string[]) => void,
   here: string,
   /** The first column holds the batch mark, so the Parties cell doesn't repeat it. */
-  markInBox = false
+  markInBox = false,
+  /** Some row on the page has a bin: the others hold its width so every act lines up. */
+  binSlot = false
 ): React.ReactNode {
   switch (column) {
     case "ref":
@@ -1007,12 +1047,15 @@ function renderCell(
     case "action":
       return (
         <div className="flex items-center justify-end gap-1">
-          <Button asChild variant="outline" size="sm">
+          {/* One width for every row's act, its icon and words starting on one edge: a
+              column of buttons rather than a ragged stack, each still telling its act
+              apart by icon and label (owner, 2026-11-18). */}
+          <Button asChild variant="outline" size="sm" className="w-44 justify-start">
             {/* The row's opener: a click anywhere on the row is handed to it
                 (`rowActivation`), so the button is only where it is visible. */}
             <Link href={withOrigin(row.action.href, here)} {...rowOpener}>
-              {row.action.label}
-              <ArrowRightIcon data-icon="inline-end" aria-hidden />
+              <ActionIcon label={row.action.label} />
+              <span className="truncate">{row.action.label}</span>
             </Link>
           </Button>
           {row.discardable ? (
@@ -1025,7 +1068,7 @@ function renderCell(
             >
               <Trash2Icon aria-hidden />
             </Button>
-          ) : row.batch ? (
+          ) : binSlot ? (
             // Drafts beside it have a bin; holding its width keeps every button on one edge.
             <span aria-hidden className="size-9 shrink-0" />
           ) : null}
@@ -1038,6 +1081,26 @@ function renderCell(
  * A batch's Parties cell: the bulk mark and its B-number beside the complainant, and how
  * many of its cases are at this tab's stage, so it never reads as one case.
  */
+/** The act's own mark, so a column of equal buttons still reads at a glance. */
+const ACTION_ICONS: Record<string, LucideIcon> = {
+  "Continue filing": FilePenLineIcon,
+  Continue: FilePenLineIcon,
+  "Open batch": Layers2Icon,
+  Sign: PenToolIcon,
+  "Continue signing": PenToolIcon,
+  "Sign and take oath": PenToolIcon,
+  "Take oath": VideoIcon,
+  "Pay court fee": WalletIcon,
+  "View case file": FileTextIcon,
+  "Fix defects": WrenchIcon,
+  "Open case": FolderOpenIcon,
+};
+
+function ActionIcon({ label }: { label: string }) {
+  const Icon = ACTION_ICONS[label] ?? ArrowRightIcon;
+  return <Icon data-icon="inline-start" aria-hidden />;
+}
+
 function BatchMark() {
   return (
     <span className="relative z-10 flex size-6 items-center justify-center rounded-md bg-brand-muted text-brand-muted-foreground" aria-hidden>
