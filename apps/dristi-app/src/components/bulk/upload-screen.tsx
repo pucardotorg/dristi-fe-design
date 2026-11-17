@@ -461,12 +461,12 @@ export function UploadScreen() {
     setError(null);
     try {
       if (files.length > 1 && !docs)
-        throw new Error("Upload one Excel file, or Word files and PDFs only.");
+        throw new Error("Upload one Excel file, or only Word files and PDFs.");
       const b = docs
         ? await readDocuments()
         : await readWorkbook(file).catch(() => {
             throw new Error(
-              `We couldn't read ${file.name}. It may be damaged or protected by a password. Open it in Excel, save a copy as .xlsx without a password, and upload that.`,
+              `${file.name} couldn't be read. Save a copy as .xlsx without a password and upload that.`,
             );
           });
       if (!b.cases.rows.length)
@@ -572,7 +572,7 @@ export function UploadScreen() {
       const parties = partiesOf(setup);
       // Reachable from the stepper without passing the Advocate section's own hold.
       const noAdvocate = advocatesMissing(parties.advocates);
-      if (noAdvocate) throw new Error(`${noAdvocate}, in Common details.`);
+      if (noAdvocate) throw new Error(`${noAdvocate}, in Set up.`);
       const built = requestFor();
       if (!built) return;
       const { request } = built;
@@ -614,8 +614,8 @@ export function UploadScreen() {
             entry is gone, owner 2026-11-10). */}
         <FilingMain width="wide">
           <FilingPageHeader
-            title="How will you send the cases?"
-            description="Put one case on each row. The cases in one file are filed together."
+            title="How will you add the cases?"
+            description="One case per row. One file makes one batch."
           />
           <FormatChoice
             onChoose={(f) => {
@@ -640,8 +640,8 @@ export function UploadScreen() {
             title={template ? "Upload the filled template" : ai === "on" ? "Upload your Excel or case documents" : "Upload your Excel"}
             description={
               template
-                ? "The cases go straight in. Every row is checked as soon as the file is read."
-                : "Upload it as it comes from your system. You match its columns next."
+                ? "Every row is checked as soon as the file is read."
+                : "Upload it as it is. You'll match its columns next."
             }
           />
           {errorNotice}
@@ -668,8 +668,8 @@ export function UploadScreen() {
                       <StepNumber n={2} />
                       <span className="text-body-compact font-medium">Fill one row per case, then upload it</span>
                       <span className="text-body-compact text-muted-foreground">
-                        Leave a cell blank if you don&apos;t have it yet. You can complete it on
-                        Case details.
+                        Leave a cell blank if you don&apos;t have it yet. You can complete it in
+                        Fix &amp; check.
                       </span>
                     </li>
                   </ol>
@@ -791,7 +791,7 @@ export function UploadScreen() {
         <FilingMain width="wide">
           <FilingPageHeader
             title="Match columns"
-            description={`${fileName} uses its own layout. Say which column holds each field, or that it's filled in each case later.`}
+            description={`${fileName} uses its own layout. Choose the column for each field, or fill it in each case later.`}
           />
           {errorNotice}
           <ColumnMapping
@@ -828,7 +828,7 @@ export function UploadScreen() {
         <FilingMain>
           <FilingPageHeader
             title="Match values"
-            description="These values in your sheet are not in the court's lists. Choose what each one means; every row using it follows."
+            description="These values aren't in the court's lists. Choose what each means; every row with it changes too."
           />
           {errorNotice}
           {unknownLists.map((l) => (
@@ -906,7 +906,7 @@ export function UploadScreen() {
         <FilingMain>
           <FilingPageHeader
             title="Facts of the case"
-            description="Optional. What each complaint says under Facts of the case; every case can change its own."
+            description="Optional. The facts each complaint states. Any case can change its own."
           />
           {errorNotice}
           <FactsCard
@@ -993,7 +993,7 @@ export function UploadScreen() {
             >
               Every case will arrive without{" "}
               {new Intl.ListFormat("en", { type: "conjunction" }).format(missing.map((c) => c.header.toLowerCase()))}
-              . Each case stays in draft until you enter {missing.length === 1 ? "it" : "them"} on its Case details.
+              . Each case stays in draft until you enter {missing.length === 1 ? "it" : "them"} in Fix &amp; check.
             </StatusLine>
           ) : null}
           {/* The decision, first: what the file makes, judged as Case details will judge it
@@ -1055,7 +1055,7 @@ export function UploadScreen() {
                 </ul>
                 {cannot.length > 5 ? (
                   <p className="pt-3 text-body-compact text-muted-foreground tabular-nums">
-                    And {cannot.length - 5} more in the download.
+                    {cannot.length - 5} more in the download.
                   </p>
                 ) : null}
               </CardContent>
@@ -1086,7 +1086,7 @@ export function UploadScreen() {
               : coreMissing.length
                 ? "Create cases"
                 : againFor
-                  ? `Replace drafts with ${creating} case${creating === 1 ? "" : "s"}`
+                  ? `Replace the drafts with ${creating} case${creating === 1 ? "" : "s"}`
                   : `Create ${creating} case${creating === 1 ? "" : "s"}`
           }
         />

@@ -131,7 +131,7 @@ function foundSentence(
     more.length
       ? `Some cases have up to ${join(more)}.`
       : "Each case has 1 accused, 1 cheque and 1 demand notice.",
-    "These are the most any one case has. Cases with fewer leave the extra columns blank.",
+    "The most any one case has. Leave the extra columns blank for cases with fewer.",
   ];
 }
 
@@ -793,7 +793,7 @@ export function ColumnMapping(props: Props) {
               </div>
             ) : null}
             {need.length ? sections(need) : (
-              <p className="text-body-compact text-muted-foreground">Every required field was found by its column name.</p>
+              <p className="text-body-compact text-muted-foreground">Every required field matched by column name.</p>
             )}
           </CardContent>
         </Card>
@@ -804,7 +804,7 @@ export function ColumnMapping(props: Props) {
               {found.length} found by name
             </CardTitle>
             {found_open ? null : (
-              <CardDescription>Matched by their column names. Open them to check or change one.</CardDescription>
+              <CardDescription>Matched by column name. Open to check or change.</CardDescription>
             )}
             <CardAction>
               <Button variant="ghost" size="sm" aria-expanded={found_open} onClick={() => setFoundOpen((v) => !v)}>

@@ -205,10 +205,10 @@ export function CheckCard({
 }) {
   const ready = Math.max(0, total - fix - check);
   const lines: { state: "fix" | "check" | "ready"; text: string }[] = [];
-  if (fix) lines.push({ state: "fix", text: `${fix} ${fix === 1 ? "needs" : "need"} fixing before ${fix === 1 ? "it can" : "they can"} be filed` });
-  if (check) lines.push({ state: "check", text: `${check} ${check === 1 ? "has" : "have"} warnings to look at` });
-  if (ready && (fix || check)) lines.push({ state: "ready", text: `${ready === total ? "All" : `The other ${ready}`} ${ready === 1 ? "is" : "are"} complete` });
-  if (cannot) lines.push({ state: "fix", text: `${cannot} ${cannot === 1 ? "row" : "rows"} can't be created and ${cannot === 1 ? "is" : "are"} left out` });
+  if (fix) lines.push({ state: "fix", text: `${fix} to fix before filing` });
+  if (check) lines.push({ state: "check", text: `${check} to check` });
+  if (ready && (fix || check)) lines.push({ state: "ready", text: `${ready === total ? "All" : `The other ${ready}`} ${ready === 1 ? "is" : "are"} ready` });
+  if (cannot) lines.push({ state: "fix", text: `${cannot} ${cannot === 1 ? "row" : "rows"} left out: ${cannot === 1 ? "it" : "they"} can't become cases` });
   const parts = { total, ready, check, fix };
   return (
     <Card variant="raised" className="gap-0 overflow-hidden p-0">
@@ -312,7 +312,7 @@ const finderCase = (from: string) => (c: CheckCase): FinderCase => ({
   draftNumber: /^R\d+$/.test(c.reference) ? `Row ${c.reference.slice(1)}` : c.reference,
   cheque: c.cheque,
   group: c.own && !c.fromBatch ? "own" : "batch",
-  status: c.own && !c.fromBatch ? `From ${from}` : "This text",
+  status: c.own && !c.fromBatch ? `From ${from}` : "Batch text",
 });
 
 /**
@@ -480,7 +480,7 @@ export function FactsCard({
                             </DropdownMenuRadioItem>
                           ))
                         ) : (
-                          <p className="px-2 py-1.5 text-body-compact text-muted-foreground">None yet. Save this text to make one.</p>
+                          <p className="px-2 py-1.5 text-body-compact text-muted-foreground">None yet. Save the batch text to make one.</p>
                         )}
                       </DropdownMenuRadioGroup>
                       <DropdownMenuSeparator />
@@ -517,14 +517,14 @@ export function FactsCard({
             {/* One line, and only when something is left: the highlighted parts are the story. */}
             {empty ? (
               <p className="text-body-compact text-muted-foreground">
-                Left empty, these cases go without facts of the case. They can still be written in each case.
+                Left empty, these cases have no facts of the case. Add them in each case later.
               </p>
             ) : blanks.length ? (
               <p className="flex items-start gap-2 text-body-compact">
                 <TriangleAlertIcon aria-hidden className="mt-0.5 size-4 shrink-0 text-warning-ink" />
                 <span>
-                  {blanks.length === 1 ? "1 highlighted part is" : `${blanks.length} highlighted parts are`} still to
-                  write. Write {blanks.length === 1 ? "it" : "them"} here for every case, or later in each one.
+                  {blanks.length === 1 ? "1 highlighted part" : `${blanks.length} highlighted parts`} to write. Write{" "}
+                  {blanks.length === 1 ? "it" : "them"} here for all cases, or in each case.
                 </span>
               </p>
             ) : null}
@@ -563,7 +563,7 @@ export function FactsCard({
               </div>
             ) : null}
             <p className="text-body-compact text-muted-foreground">
-              As it reads in each complaint, under Facts of the case.
+              As it reads in each complaint.
             </p>
           </TabsContent>
         </Tabs>
@@ -573,7 +573,7 @@ export function FactsCard({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Replace the text with &ldquo;{pending?.name}&rdquo;?</AlertDialogTitle>
-            <AlertDialogDescription>Your changes to the text in the box will be lost.</AlertDialogDescription>
+            <AlertDialogDescription>Your changes to the batch text will be lost.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Keep my text</AlertDialogCancel>
@@ -600,7 +600,7 @@ export function FactsCard({
           >
             <DialogHeader>
               <DialogTitle>Save as a template</DialogTitle>
-              <DialogDescription>Only you see it. It starts any batch&apos;s facts from this text.</DialogDescription>
+              <DialogDescription>Only you can see it. Start any batch&apos;s facts from it.</DialogDescription>
             </DialogHeader>
             <Field>
               <FieldLabel>Name</FieldLabel>
@@ -677,16 +677,16 @@ export function FactsQuestion({
       >
         <DialogHeader>
           <DialogTitle className="tabular-nums">
-            {own === 1 ? "1 case has its own details" : `${own} cases have their own details`}
+            {own === 1 ? "1 case has its own text" : `${own} cases have their own text`}
           </DialogTitle>
           <DialogDescription>
-            From {from}. Keep {own === 1 ? "it" : "them"}, or use the batch text instead?
+            It came from {from}. Keep {own === 1 ? "it" : "them"}, or use the batch text?
           </DialogDescription>
         </DialogHeader>
         <RadioGroup
           value={replace ? "replace" : "keep"}
           onValueChange={(v) => setReplace(v === "replace")}
-          aria-label="What happens to their own details"
+          aria-label="What happens to their own text"
           className="flex flex-col gap-4 py-1"
         >
           {choices.map((c) => (

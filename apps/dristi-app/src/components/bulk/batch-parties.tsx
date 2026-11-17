@@ -33,7 +33,7 @@ export function BatchAdr() {
     <Card variant="raised">
       <CardHeader>
         <CardTitle className="text-body font-semibold">Settlement</CardTitle>
-        <CardDescription>For every case in this batch. Each case can still be changed on its own.</CardDescription>
+        <CardDescription>For every case. Any case can be changed on its own.</CardDescription>
       </CardHeader>
       <CardContent>
         <Field className="gap-1.5">

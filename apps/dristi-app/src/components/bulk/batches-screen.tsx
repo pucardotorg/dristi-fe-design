@@ -141,7 +141,7 @@ export function BatchesScreen() {
   const deleted = params.get(DELETED_PARAM);
   React.useEffect(() => {
     if (!deleted) return;
-    notify.success(`${deleted} was deleted with its last case`);
+    notify.success(`${deleted} deleted with its last case`);
     const next = new URLSearchParams(window.location.search);
     next.delete(DELETED_PARAM);
     const q = next.toString();
@@ -474,14 +474,14 @@ export function BatchesScreen() {
                       <span className="sr-only">Select</span>
                     </TableHead>
                     <TableHead className={TABLE_HEAD}>Batch</TableHead>
-                    <TableHead className={TABLE_HEAD}>Came in by</TableHead>
+                    <TableHead className={TABLE_HEAD}>Source</TableHead>
                     <TableHead className={TABLE_HEAD}>Complainant</TableHead>
                     <TableHead className={TABLE_HEAD}>Received</TableHead>
                     <TableHead className={cn(TABLE_HEAD, "text-right")}>
                       Cases
                     </TableHead>
                     <TableHead className={cn(TABLE_HEAD, "pr-6")}>
-                      Where they stand
+                      Progress
                     </TableHead>
                   </TableRow>
                 </TableHeader>
@@ -500,7 +500,7 @@ export function BatchesScreen() {
           if (!o) setDeleting(null);
         }}
         title={deleting ? `Delete ${deleting.number}?` : "Delete this batch?"}
-        description="It isn't created yet, so no case is lost: what you entered for this upload goes. Your Excel file stays as it is."
+        description="No case is lost. Your choices for this upload are deleted; the Excel file isn't touched."
         confirmLabel="Delete"
         cancelLabel="Back"
         onConfirm={() => {

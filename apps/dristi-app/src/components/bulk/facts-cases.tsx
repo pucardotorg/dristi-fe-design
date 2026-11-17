@@ -158,7 +158,7 @@ export function pickWritten(picks: FactsPicks, r: FactsRow, html: string): Facts
 /** What a case's menu offers, in the words of its source. */
 function actsFor(r: FactsRow, hasBatch: boolean) {
   return {
-    toBatch: hasBatch && r.source !== "batch" ? (r.source === "written" && !r.own ? "Go back to the batch text" : "Use the batch text") : null,
+    toBatch: hasBatch && r.source !== "batch" ? "Use the batch text" : null,
     toOwn: r.own && r.source !== "own" ? "Use its own text again" : null,
   };
 }
@@ -411,7 +411,7 @@ function RowMenu({
       <DropdownMenuContent align="end" className="w-60">
         <DropdownMenuItem onSelect={onEdit}>
           <PencilLineIcon aria-hidden />
-          Read and edit
+          Open
         </DropdownMenuItem>
         {acts.toOwn || acts.toBatch ? <DropdownMenuSeparator /> : null}
         {acts.toOwn ? (
@@ -556,7 +556,7 @@ function FactsPanel({
             {plainText(r.facts) ? (
               <div className={READ_CLASS} dangerouslySetInnerHTML={{ __html: markedHtml(r.facts) }} />
             ) : (
-              <p className="text-body text-muted-foreground">Nothing written for this case.</p>
+              <p className="text-body text-muted-foreground">No facts of the case yet.</p>
             )}
           </div>
         )

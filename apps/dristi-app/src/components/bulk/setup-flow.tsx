@@ -267,11 +267,10 @@ export function BulkSetupFlow({
                 <FileQuestionIcon aria-hidden />
               </EmptyMedia>
               <EmptyTitle className="text-body font-semibold">
-                This upload has expired
+                This upload wasn&apos;t saved
               </EmptyTitle>
               <EmptyDescription className="text-body">
-                It was never kept: an upload joins your batch list once you move past
-                its first section. Start a new one.
+                Uploads are saved once you move past their first section.
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
@@ -346,7 +345,7 @@ function SetupPolicy({
 }
 
 /** Why a created batch's Common details can't be typed over, said once above the section. */
-const LOCKED = "Set for every case when this batch was created. A case's own parties are changed in that case, from Fix & check.";
+const LOCKED = "Applies to every case. To change one case's parties, open it in Fix & check.";
 
 /**
  * A created batch's steps over its Common details: the batch's own counts on the step

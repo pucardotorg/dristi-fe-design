@@ -91,7 +91,7 @@ export function FormatChoice({
           </span>
         </span>
         <span className="flex flex-col gap-2 text-body-compact text-foreground">
-          {["No matching: the cases go straight in", "The fewest corrections afterwards"].map((t) => (
+          {["No column matching", "The fewest corrections afterwards"].map((t) => (
             <span key={t} className="flex items-center gap-2">
               <CheckIcon className="size-4 shrink-0 text-success-ink" aria-hidden />
               {t}
@@ -123,7 +123,7 @@ export function FormatChoice({
           </span>
         </span>
         <span className="flex flex-col gap-2 text-body-compact text-muted-foreground">
-          {["You match its columns to the case's fields", "What it lacks is filled in by hand"].map((t) => (
+          {["You match its columns", "Anything missing is filled in by hand"].map((t) => (
             <span key={t} className="flex items-center gap-2">
               <MinusIcon className="size-4 shrink-0" aria-hidden />
               {t}
