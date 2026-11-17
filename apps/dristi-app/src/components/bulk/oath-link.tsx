@@ -7,7 +7,7 @@
  */
 
 import * as React from "react";
-import { CheckIcon, IdCardIcon, ScanFaceIcon, UserIcon, VideoIcon } from "lucide-react";
+import { IdCardIcon, ScanFaceIcon, UserIcon, VideoIcon } from "lucide-react";
 
 import { batchOathText } from "@/lib/bulk/oath";
 import { BrandLockup } from "@/components/brand-lockup";
@@ -29,9 +29,9 @@ type Oath = {
 };
 
 const ON_CAMERA = [
-  { icon: ScanFaceIcon, text: "Keep your face clearly visible, in good light." },
-  { icon: UserIcon, text: "Be the only person in the frame." },
-  { icon: IdCardIcon, text: "Hold up your ID card to the camera as you begin." },
+  { icon: ScanFaceIcon, text: "Face visible, good light" },
+  { icon: UserIcon, text: "Only you in the frame" },
+  { icon: IdCardIcon, text: "Show your ID card first" },
 ] as const;
 
 export function OathLink({ batchId }: { batchId: string }) {
@@ -82,29 +82,28 @@ export function OathLink({ batchId }: { batchId: string }) {
           <>
             <div className="flex flex-col gap-2">
               <h1 className="text-title text-balance font-semibold">
-                {oath.takenAt ? "Your oath is recorded" : "You have been asked to take an oath"}
+                {oath.takenAt ? "Oath recorded" : "Take your oath"}
               </h1>
               <p className="text-body text-pretty text-muted-foreground tabular-nums">
-                {oath.representative ? `${oath.representative.name}, for ${oath.client}. ` : ""}
-                Once, for all {oath.cases} complaints in batch {oath.batchNumber}.
+                {oath.client} · {oath.cases} complaints · batch {oath.batchNumber}
               </p>
             </div>
             {oath.takenAt ? (
-              <StatusLine tone="success" still title="Nothing more is needed from you">
-                The advocate filing the batch can see it&apos;s done.
+              <StatusLine tone="success" still>
+                Nothing more is needed from you.
               </StatusLine>
             ) : (
               <Card variant="raised">
                 <CardContent className="flex flex-col gap-5">
                   <div className="flex flex-col gap-2">
                     <h2 className="text-body font-semibold">Say these words</h2>
-                    <blockquote className="rounded-lg bg-surface-sunken px-4 py-3 text-body leading-7">
+                    <blockquote className="border-l-2 border-brand-accent pl-4 text-body leading-7">
                       {batchOathText(oath.client, oath.batchNumber, oath.cases)}
                     </blockquote>
                   </div>
-                  <ul className="flex flex-col gap-2">
+                  <ul className="flex flex-wrap gap-x-5 gap-y-2 border-t border-hairline pt-4">
                     {ON_CAMERA.map(({ icon: Icon, text }) => (
-                      <li key={text} className="flex items-center gap-2 text-body-compact">
+                      <li key={text} className="flex items-center gap-2 text-body-compact text-muted-foreground">
                         <Icon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
                         {text}
                       </li>
@@ -121,15 +120,11 @@ export function OathLink({ batchId }: { batchId: string }) {
                       }}
                     />
                   ) : (
-                    <Button size="lg" className="self-start" disabled={sending} onClick={() => setRecording(true)}>
+                    <Button size="lg" className="w-full sm:w-auto sm:self-start" disabled={sending} onClick={() => setRecording(true)}>
                       {sending ? <Spinner data-icon="inline-start" /> : <VideoIcon data-icon="inline-start" aria-hidden />}
                       {sending ? "Sending…" : "Record my oath"}
                     </Button>
                   )}
-                  <p className="flex items-center gap-2 text-body-compact text-muted-foreground">
-                    <CheckIcon className="size-4" aria-hidden />
-                    Up to 2 minutes, recorded here. Nothing is uploaded from your phone&apos;s gallery.
-                  </p>
                 </CardContent>
               </Card>
             )}

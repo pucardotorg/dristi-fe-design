@@ -20,9 +20,8 @@ import {
 
 import { batchOathText, oathLinkPath } from "@/lib/bulk/oath";
 import { FilingFooter } from "@/components/filing/filing-footer";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,9 +38,9 @@ import type { BatchCtx } from "./batch-screen";
 
 /** How to be on camera, as individual filing asks (`oath-capture.tsx`). */
 const ON_CAMERA = [
-  { icon: ScanFaceIcon, text: "Face clearly visible, in good light" },
-  { icon: UserIcon, text: "The only person in the frame" },
-  { icon: IdCardIcon, text: "ID card held up to the camera at the start" },
+  { icon: ScanFaceIcon, text: "Face visible, good light" },
+  { icon: UserIcon, text: "Only them in the frame" },
+  { icon: IdCardIcon, text: "ID card shown first" },
 ] as const;
 
 const time = (iso: string) =>
@@ -77,101 +76,123 @@ export function OathTab({ batch, setBatch, go }: BatchCtx) {
     return () => window.clearInterval(timer);
   }, [waiting, batch.id, setBatch]);
 
-  const status = oath.takenAt ? (
-    <Badge variant="success" className="text-body-compact">
-      <CheckIcon data-icon="inline-start" aria-hidden />
-      Oath taken
-    </Badge>
-  ) : oath.sentAt ? (
-    <Badge variant="info" className="text-body-compact">Link sent</Badge>
-  ) : (
-    <Badge variant="secondary" className="text-body-compact">Not sent</Badge>
-  );
+  const who = oath.by || rep?.name || "The representative";
+  const initials = (rep?.name ?? "?").split(/\s+/).map((w) => w[0]).slice(0, 2).join("");
 
   return (
     <div className="flex flex-col gap-6">
-      {oath.takenAt ? (
-        <StatusLine tone="success" still title={`${oath.by || rep?.name || "The representative"} took the oath`}>
-          {time(oath.takenAt)}
-          {oath.video ? ", on camera." : " (sandbox)."} The batch can be paid for.
-        </StatusLine>
-      ) : !signed ? (
-        <StatusLine tone="neutral" still title="The oath follows the signatures">
-          Sign the batch first; the link can go out now so it&apos;s ready.
+      {!signed && !oath.takenAt ? (
+        <StatusLine tone="neutral" still>
+          Sign the batch first.
         </StatusLine>
       ) : null}
       {error ? <StatusLine tone="error">{error}</StatusLine> : null}
 
-      <Card variant="raised">
-        <CardHeader>
-          <CardTitle className="text-body font-semibold">Who takes the oath</CardTitle>
-          <CardDescription>Once, for every case in {batch.number}. The court fee waits for it.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-muted text-body-compact font-semibold text-brand-muted-foreground" aria-hidden>
-              {(rep?.name ?? "?").split(/\s+/).map((w) => w[0]).slice(0, 2).join("")}
+      {/* One panel: who swears, where it stands, and the one thing to do about it. */}
+      <Card variant="raised" className="gap-0 py-0">
+        <div className="flex items-center gap-4 px-6 py-5">
+          <span
+            aria-hidden
+            className="flex size-11 shrink-0 items-center justify-center rounded-full bg-brand-muted text-body-compact font-semibold text-brand-muted-foreground"
+          >
+            {initials}
+          </span>
+          <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span className="text-body font-semibold">{rep?.name ?? "The complainant's representative"}</span>
+            <span className="truncate text-body-compact text-muted-foreground">
+              {[rep?.designation, batch.client].filter(Boolean).join(", ")}
             </span>
-            <span className="flex min-w-0 flex-1 flex-col">
-              <span className="text-body-compact font-medium">{rep?.name ?? "The complainant's representative"}</span>
-              <span className="text-body-compact text-muted-foreground">
-                {[rep?.designation, batch.client].filter(Boolean).join(", ")}
-                {rep?.mobile ? ` · link to •••••• ${rep.mobile.slice(-4)}` : ""}
+          </span>
+          {/* Sandbox, the product's flask: be the representative, or skip the recording. */}
+          <DropdownMenu>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon-sm" aria-label="Sandbox: the oath" className="self-start text-muted-foreground">
+                      <FlaskConicalIcon aria-hidden />
+                    </Button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent>Sandbox: the oath</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <DropdownMenuContent align="end" className="w-72">
+              <DropdownMenuLabel>Sandbox</DropdownMenuLabel>
+              <DropdownMenuItem asChild>
+                <a href={oathLinkPath(batch.id)} target="_blank" rel="noopener">
+                  <ExternalLinkIcon aria-hidden />
+                  Open the link as {rep?.name?.split(" ")[0] ?? "them"}
+                </a>
+              </DropdownMenuItem>
+              <DropdownMenuItem disabled={busy || !!oath.takenAt} onSelect={() => void act("oath-taken")}>
+                <CheckIcon aria-hidden />
+                Mark the oath as taken
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        <div className="flex flex-col gap-4 border-t border-hairline px-6 py-5 sm:flex-row sm:items-center">
+          {oath.takenAt ? (
+            <p className="flex min-w-0 flex-1 items-start gap-3 text-body-compact">
+              <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-success text-success-foreground">
+                <CheckIcon className="size-3.5" aria-hidden />
               </span>
-            </span>
-            {status}
-            {!oath.takenAt ? (
-              <Button variant={oath.sentAt ? "outline" : "default"} disabled={busy} onClick={() => void act("oath-send")}>
-                <SendIcon data-icon="inline-start" aria-hidden />
-                {oath.sentAt ? "Send again" : "Send oath link"}
-              </Button>
-            ) : null}
-            {/* Sandbox, the product's flask: be the representative, or skip the recording. */}
-            <DropdownMenu>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon-sm" aria-label="Sandbox: the oath" className="text-muted-foreground">
-                        <FlaskConicalIcon aria-hidden />
-                      </Button>
-                    </DropdownMenuTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent>Sandbox: the oath</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <DropdownMenuContent align="end" className="w-72">
-                <DropdownMenuLabel>Sandbox</DropdownMenuLabel>
-                <DropdownMenuItem asChild>
-                  <a href={oathLinkPath(batch.id)} target="_blank" rel="noopener">
-                    <ExternalLinkIcon aria-hidden />
-                    Open the link as {rep?.name?.split(" ")[0] ?? "them"}
-                  </a>
-                </DropdownMenuItem>
-                <DropdownMenuItem disabled={busy || !!oath.takenAt} onSelect={() => void act("oath-taken")}>
-                  <CheckIcon aria-hidden />
-                  Mark the oath as taken
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-          {oath.sentAt && !oath.takenAt ? (
-            <p className="mt-3 text-body-compact text-muted-foreground">Sent {time(oath.sentAt)}. This page updates when it&apos;s done.</p>
+              <span className="flex flex-col gap-0.5">
+                <span className="font-medium text-foreground">Oath taken</span>
+                <span className="text-muted-foreground tabular-nums">
+                  {who}, {time(oath.takenAt)}
+                  {oath.video ? "" : " (sandbox)"}
+                </span>
+              </span>
+            </p>
+          ) : oath.sentAt ? (
+            <p className="flex min-w-0 flex-1 items-start gap-3 text-body-compact">
+              <span aria-hidden className="relative mt-1.5 flex size-2.5 shrink-0">
+                <span className="absolute inline-flex size-full animate-ping rounded-full bg-info opacity-60 motion-reduce:animate-none" />
+                <span className="relative inline-flex size-2.5 rounded-full bg-info" />
+              </span>
+              <span className="flex flex-col gap-0.5">
+                <span className="font-medium text-foreground">Waiting for the oath</span>
+                <span className="text-muted-foreground tabular-nums">
+                  Sent {time(oath.sentAt)}
+                  {rep?.mobile ? ` to •••••• ${rep.mobile.slice(-4)}` : ""}
+                </span>
+              </span>
+            </p>
+          ) : (
+            <p className="flex min-w-0 flex-1 flex-col gap-0.5 text-body-compact">
+              <span className="font-medium text-foreground">Oath not sent</span>
+              <span className="text-muted-foreground tabular-nums">
+                Once for all {cases} cases{rep?.mobile ? ` · SMS to •••••• ${rep.mobile.slice(-4)}` : ""}
+              </span>
+            </p>
+          )}
+          {!oath.takenAt ? (
+            <Button
+              variant={oath.sentAt ? "outline" : "default"}
+              disabled={busy}
+              onClick={() => void act("oath-send")}
+              className="shrink-0 self-start sm:self-center"
+            >
+              <SendIcon data-icon="inline-start" aria-hidden />
+              {oath.sentAt ? "Send again" : "Send oath link"}
+            </Button>
           ) : null}
-        </CardContent>
+        </div>
       </Card>
 
       <Card variant="raised">
         <CardHeader>
           <CardTitle className="text-body font-semibold">What they&apos;ll say</CardTitle>
-          <CardDescription>A general statement for the whole batch, not about any one case.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <blockquote className="rounded-lg bg-surface-sunken px-4 py-3 text-body leading-7">
+          <blockquote className="border-l-2 border-brand-accent pl-4 text-body leading-7 text-foreground">
             {batchOathText(batch.client, batch.number, cases)}
           </blockquote>
-          <div className="flex flex-col gap-2">
-            <span className="text-body-compact font-medium">Recorded on their phone, through the link</span>
+          <div className="flex flex-col gap-2 border-t border-hairline pt-4">
+            <span className="text-body-compact font-medium">On camera</span>
             <ul className="flex flex-wrap gap-x-6 gap-y-2">
               {ON_CAMERA.map(({ icon: Icon, text }) => (
                 <li key={text} className="flex items-center gap-2 text-body-compact text-muted-foreground">
