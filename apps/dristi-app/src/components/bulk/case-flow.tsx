@@ -721,11 +721,11 @@ function FixList({
         const path = valueFixOf(f)?.path;
         const n = f.batchWide && path ? (shared.get(path)?.n ?? 0) : 0;
         const go = located.has(f.id) ? () => locate(f) : null;
-        return (
+        const line = (
           <StatusLine
-            key={f.id}
             tone={f.level === "hold" ? "error" : "warning"}
             still={i > 0}
+            className={go ? "cursor-pointer transition-colors group-hover/flag:bg-accent" : undefined}
             action={
               <span className="flex items-center gap-1">
                 <FlagAction f={f} caseId={c.id} busy={busy} act={act} />
@@ -733,23 +733,29 @@ function FixList({
               </span>
             }
           >
-            {go ? (
-              // The words take the press too; the target button is the keyboard's way there.
-              <span
-                className="cursor-pointer decoration-1 underline-offset-4 hover:underline"
-                onClick={go}
-              >
-                {f.message}
-              </span>
-            ) : (
-              f.message
-            )}
+            {f.message}
             {n ? (
               <span className="block font-normal text-muted-foreground">
                 Fill it in, then apply it to the {others(n)} missing it.
               </span>
             ) : null}
           </StatusLine>
+        );
+        // The whole note goes there when pressed (owner, 2026-11-17); its own controls keep
+        // their acts, and the target button stays the keyboard's way there.
+        return go ? (
+          <div
+            key={f.id}
+            className="group/flag"
+            onClick={(e) => {
+              if ((e.target as HTMLElement).closest("button, a, input, [role=menuitem]")) return;
+              go();
+            }}
+          >
+            {line}
+          </div>
+        ) : (
+          <React.Fragment key={f.id}>{line}</React.Fragment>
         );
       })}
       {offers.map((o) => (
@@ -783,7 +789,13 @@ function GoToButton({ onClick, label }: { onClick: () => void; label: string }) 
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon-sm" className="text-muted-foreground hover:text-foreground" onClick={onClick} aria-label={label}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="text-muted-foreground group-hover/flag:text-foreground hover:text-foreground"
+            onClick={onClick}
+            aria-label={label}
+          >
             <LocateFixedIcon aria-hidden />
           </Button>
         </TooltipTrigger>
