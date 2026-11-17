@@ -29,6 +29,7 @@ import {
   ArrowLeftIcon,
   CheckIcon,
   FileQuestionIcon,
+  LocateFixedIcon,
   WandSparklesIcon,
 } from "lucide-react";
 
@@ -57,6 +58,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Spinner } from "@/components/ui/spinner";
 
 import { bulkApi, caseFlowHref, setBulkAiMode, type BatchView, type CaseView } from "./api";
@@ -66,6 +68,7 @@ import { useDemoTools } from "./demo-tools";
 import { caseState, detailFlags } from "./batch-marks";
 import { OriginalDoc } from "./original-doc";
 import { CaseFinder, CaseStepper, type FinderCase } from "./case-finder";
+import { findTarget, goToFlag } from "./locate-flag";
 import { CaseBadge, STATE } from "./stage";
 
 const FixIcon = STATE.fix.icon;
@@ -632,6 +635,25 @@ function FixList({
   const { flush, draft } = useFiling();
   const [busy, setBusy] = React.useState(false);
   const [problem, setProblem] = React.useState<string | null>(null);
+  // Which open checks have a place on the page to go to, read once the page has drawn.
+  const [located, setLocated] = React.useState<Set<string>>(() => new Set());
+  const [turns, setTurns] = React.useState<Record<string, number>>({});
+  const hereKey = detailFlags(c)
+    .filter((f) => f.section === step)
+    .map((f) => f.id + f.message)
+    .join("|");
+  React.useEffect(() => {
+    const flags = detailFlags(c).filter((f) => f.section === step);
+    const read = () => setLocated(new Set(flags.filter((f) => findTarget(f)).map((f) => f.id)));
+    // The section's fields arrive a moment after the case: read again once they settle.
+    const timers = [80, 500, 1500].map((ms) => window.setTimeout(read, ms));
+    return () => timers.forEach(window.clearTimeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `hereKey` is the flags' identity
+  }, [hereKey, step, draft]);
+  const locate = (f: Flag) => {
+    const turn = turns[f.id] ?? 0;
+    if (goToFlag(f, turn)) setTurns((t) => ({ ...t, [f.id]: turn + 1 }));
+  };
 
   if (!editable(c)) return null;
 
@@ -684,22 +706,39 @@ function FixList({
   // What is open here, as the product's one inline note, one per thing: red to fix, amber
   // to check, with what can be done from here as the note's action. Other sections say
   // their own on the rail and in the footer's "Next to fix", so they are not listed here.
+  // Each note that has a place on the page goes there when pressed (`locate-flag.ts`).
   return (
-    <div className="flex flex-col gap-2">
+    <div data-fix-list className="flex flex-col gap-2">
       {here.map((f, i) => {
         const path = valueFixOf(f)?.path;
         const n = f.batchWide && path ? (shared.get(path)?.n ?? 0) : 0;
+        const go = located.has(f.id) ? () => locate(f) : null;
         return (
           <StatusLine
             key={f.id}
             tone={f.level === "hold" ? "error" : "warning"}
             still={i > 0}
-            action={<FlagAction f={f} caseId={c.id} busy={busy} act={act} />}
+            action={
+              <span className="flex items-center gap-1">
+                <FlagAction f={f} caseId={c.id} busy={busy} act={act} />
+                {go ? <GoToButton onClick={go} /> : null}
+              </span>
+            }
           >
-            {f.message}
+            {go ? (
+              // The words take the press too; the target button is the keyboard's way there.
+              <span
+                className="cursor-pointer decoration-1 underline-offset-4 hover:underline"
+                onClick={go}
+              >
+                {f.message}
+              </span>
+            ) : (
+              f.message
+            )}
             {n ? (
               <span className="block font-normal text-muted-foreground">
-                Fill it in below; then you can use it for the {others(n)} missing it too.
+                Fill it in, then use it on the {others(n)} missing it.
               </span>
             ) : null}
           </StatusLine>
@@ -730,6 +769,22 @@ function FixList({
   );
 }
 
+/** The target on a note: go to the place the note is about. */
+function GoToButton({ onClick }: { onClick: () => void }) {
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="icon-sm" className="text-muted-foreground hover:text-foreground" onClick={onClick} aria-label="Go to it">
+            <LocateFixedIcon aria-hidden />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Go to it</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
 /** What can be done about one open check from here, if anything: skip it, or declare. */
 function FlagAction({
   f,
@@ -755,7 +810,13 @@ function FlagAction({
     );
   if (f.level === "soft")
     return (
-      <Button variant="ghost" disabled={busy} onClick={() => void act({ action: "skip", caseId, flagId: f.id })}>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="text-muted-foreground hover:text-foreground"
+        disabled={busy}
+        onClick={() => void act({ action: "skip", caseId, flagId: f.id })}
+      >
         {f.rule === "dcm-poor" ? "Keep this file" : "Skip this check"}
       </Button>
     );
