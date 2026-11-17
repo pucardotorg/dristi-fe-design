@@ -225,9 +225,9 @@ export function CaseStepper({
             }
           }}
           style={{ width: `calc(${digits}ch + 0.75rem)` }}
-          className="h-6 rounded-sm border border-transparent bg-transparent px-1 text-right font-medium text-foreground outline-none transition-colors hover:border-input focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-focus-ring"
+          className="h-6 rounded-sm border border-transparent bg-transparent px-1 py-0 text-right text-body-compact leading-6 font-medium text-foreground outline-none transition-colors hover:border-input focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-focus-ring"
         />
-        <span className="text-muted-foreground">/ {count}</span>
+        <span className="leading-6 text-muted-foreground">/ {count}</span>
       </span>
       <Button
         variant="ghost"
