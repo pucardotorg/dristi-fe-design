@@ -8,7 +8,6 @@ import {
   CircleAlertIcon,
   EllipsisVerticalIcon,
   OctagonAlertIcon,
-  Undo2Icon,
   WandSparklesIcon,
 } from "lucide-react";
 
@@ -37,7 +36,8 @@ import {
 
 import { bulkApi, caseFlowHref, type CaseView } from "./api";
 import { BatchFooter } from "./batch-footer";
-import { caseState, detailFlags, isOpen } from "./batch-marks";
+import { aboutDetails, caseState, detailFlags, isOpen } from "./batch-marks";
+import { SkippedWarnings } from "./skipped-warnings";
 import type { BatchCtx } from "./batch-screen";
 import { CaseSearch, Pager, caseMatches, pageOf } from "./case-list-tools";
 import { RemoveCaseItem, useRemoveCase } from "./remove-case";
@@ -259,7 +259,8 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
     }
   };
 
-  const skipped = open.flatMap((c) => c.skipped.map((f) => ({ c, f })));
+  // Only warnings about details here; a skipped file warning is Documents' to show.
+  const skipped = open.flatMap((c) => c.skipped.filter(aboutDetails).map((f) => ({ c, f })));
 
   if (!open.length)
     return (
@@ -448,31 +449,11 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
         )}
         <Pager total={listed.length} at={at} pages={pages} onPage={setPage} />
       </Card>
-      {skipped.length ? (
-        <section className="flex flex-col gap-2">
-          <h3 className="text-body font-semibold">Skipped checks</h3>
-          <Card variant="raised" className="gap-0 px-4 py-1">
-            <ul className="flex flex-col divide-y divide-hairline">
-              {skipped.map(({ c, f }) => (
-                <li key={`${c.id}-${f.id}`} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center">
-                  <div className="min-w-0 flex-1">
-                    <span className="text-body-compact font-medium">{c.title}</span>
-                    <FlagLine flag={f} />
-                  </div>
-                  <Button
-                    variant="ghost"
-                    disabled={busy || closed}
-                    onClick={() => void act({ action: "unskip", caseId: c.id, flagId: f.id })}
-                  >
-                    <Undo2Icon data-icon="inline-start" aria-hidden />
-                    Undo skip
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          </Card>
-        </section>
-      ) : null}
+      <SkippedWarnings
+        items={skipped}
+        busy={busy || closed}
+        onUndo={(c, f) => void act({ action: "unskip", caseId: c.id, flagId: f.id })}
+      />
 
       {removeDialog}
 

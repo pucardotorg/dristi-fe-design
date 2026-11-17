@@ -44,7 +44,8 @@ import { bulkApi, useBulkFileUrl, type CaseView } from "./api";
 import { BatchFooter } from "./batch-footer";
 import type { BatchCtx } from "./batch-screen";
 import { RemoveCaseItem, useRemoveCase } from "./remove-case";
-import { batchTallies, caseState, readyToSign } from "./batch-marks";
+import { aboutDetails, batchTallies, caseState, readyToSign } from "./batch-marks";
+import { SkippedWarnings } from "./skipped-warnings";
 import { CaseSearch } from "./case-list-tools";
 import { FilterPills } from "./filter-pills";
 import { DocumentsGuide, guideSeen } from "./documents-guide";
@@ -567,6 +568,19 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
     }
   };
 
+  // A kept scan, counted again (`SkippedWarnings`).
+  const unkeep = async (c: CaseView, f: Flag) => {
+    setBusy(`${c.id}:unskip`);
+    setError(null);
+    try {
+      setBatch(await bulkApi.act(batch.id, { action: "unskip", caseId: c.id, flagId: f.id }));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const keep = async (c: CaseView, f: Flag) => {
     setBusy(`${c.id}:${f.fix?.kind === "upload" ? f.fix.slotKey : ""}`);
     setError(null);
@@ -960,6 +974,13 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
           </DropdownMenu>
         ) : null}
       </div>
+
+      {/* File warnings the filer chose to keep as they are (a scan kept though blurry). */}
+      <SkippedWarnings
+        items={open.flatMap((c) => c.skipped.filter((f) => !aboutDetails(f)).map((f) => ({ c, f })))}
+        busy={!!busy || closed}
+        onUndo={(c, f) => void unkeep(c, f)}
+      />
 
       {removeDialog}
 
