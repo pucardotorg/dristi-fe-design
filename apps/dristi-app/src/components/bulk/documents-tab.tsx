@@ -46,6 +46,7 @@ import type { BatchCtx } from "./batch-screen";
 import { RemoveCaseItem, useRemoveCase } from "./remove-case";
 import { aboutDetails, batchTallies, caseState, readyToSign } from "./batch-marks";
 import { SkippedWarnings } from "./skipped-warnings";
+import { bulkStepTitle } from "./bulk-steps";
 import { notify } from "@/components/ui/notify";
 import { CaseSearch, Pager, PagerTop, pageOf } from "./case-list-tools";
 import { FilterPills } from "./filter-pills";
@@ -56,11 +57,12 @@ import { FilingFooter } from "@/components/filing/filing-footer";
 
 type Doc = CaseView["documents"][number];
 
-/** A document column: the same width for each, so their marks sit on an even grid. */
-const DOC_COL = "w-28 min-w-28 px-1";
-
-/** Column names too long for one line at that width, said shorter (the full name is the title). */
-const COLUMN_SHORT: Record<string, string> = { "Reply to notice": "Reply" };
+/**
+ * A document column: one compact width for each, so the marks sit close on an even grid and
+ * a two-word name takes two lines (owner, 2026-11-17: one-line names spread the marks too far
+ * apart; the compact first version read as less work).
+ */
+const DOC_COL = "w-20 min-w-20 px-1";
 type Flag = CaseView["flags"][number];
 
 const ACCEPT = ".pdf,.jpg,.jpeg,.png";
@@ -222,7 +224,9 @@ function SlotChip({
               poor
                 ? "bg-warning-muted text-warning-ink hover:bg-warning-muted/80"
                 : cell
-                  ? "bg-success-muted text-success-ink hover:ring-2 hover:ring-success/40"
+                  ? // Done is the quiet state: a bare tick, filled only under the pointer, so
+                    // the grid's eye goes to what is still missing or hard to read.
+                    "text-success hover:bg-success-muted"
                   : "bg-muted text-foreground hover:bg-accent",
               over && "ring-2 ring-ring",
             )}
@@ -735,15 +739,15 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
   const away = [
     fixing ? (
       <span key="fix">
-        {fixing} still being fixed at{" "}
+        {fixing} at{" "}
         <button type="button" className="underline" onClick={() => go("scrutiny")}>
-          Case details
+          {bulkStepTitle("details")}
         </button>
       </span>
     ) : null,
     locked ? (
       <span key="locked">
-        {locked} signed or filed, at{" "}
+        {locked} at{" "}
         <button type="button" className="underline" onClick={() => go(batch.counts.signed ? "pay" : "filed")}>
           {batch.counts.signed ? "Pay" : "Filed"}
         </button>
@@ -757,7 +761,7 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
 
       {away.length ? (
         <p className="text-body-compact text-muted-foreground tabular-nums">
-          {fixing + locked} {fixing + locked === 1 ? "case isn't" : "cases aren't"} here:{" "}
+          Not shown:{" "}
           {away.map((x, i) => (
             <React.Fragment key={i}>
               {i ? "; " : ""}
@@ -816,27 +820,14 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
                 <TableHeader>
                   <TableRow className={TABLE_HEAD_ROW}>
                     <TableHead className={cn(TABLE_HEAD, "w-full min-w-44")}>Accused</TableHead>
-                    {/* One width for every document, each name on one line: the marks fall
-                        on an even grid and the header strip stays one line tall (owner,
-                        2026-11-17: names wrapped to two and three lines). */}
-                    {columns.map((col) => {
-                      const short = COLUMN_SHORT[col.key];
-                      return (
-                        <TableHead key={col.key} title={short ? col.key : undefined} className={cn(TABLE_HEAD, DOC_COL, "text-center whitespace-nowrap")}>
-                          {short ? (
-                            <>
-                              <span aria-hidden>{short}</span>
-                              <span className="sr-only">{col.key}</span>
-                            </>
-                          ) : (
-                            col.key
-                          )}
-                          {col.required ? null : <span className="sr-only"> (optional)</span>}
-                        </TableHead>
-                      );
-                    })}
+                    {columns.map((col) => (
+                      <TableHead key={col.key} className={cn(TABLE_HEAD, DOC_COL, "h-auto py-2.5 text-center leading-tight whitespace-normal text-balance")}>
+                        {col.key}
+                        {col.required ? null : <span className="sr-only"> (optional)</span>}
+                      </TableHead>
+                    ))}
                     {showOther ? (
-                      <TableHead className={cn(TABLE_HEAD, DOC_COL, "text-center whitespace-nowrap")}>Other</TableHead>
+                      <TableHead className={cn(TABLE_HEAD, DOC_COL, "h-auto py-2.5 text-center leading-tight")}>Other</TableHead>
                     ) : null}
                     {closed ? null : (
                       <TableHead className={cn(TABLE_HEAD, "w-12 px-2")}>

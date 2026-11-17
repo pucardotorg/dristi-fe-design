@@ -6,24 +6,27 @@
  * its case; Undo makes it count again. Each step lists only its own: details on Case
  * details, files on Documents.
  *
- * It sits above the list, not under it (owner, 2026-11-17: below 25 rows it was found only
- * by scrolling to the end). One line with the count, opening to the warnings themselves;
- * open from the start while there are few.
+ * Above the list, so it is never found only by scrolling to the end, but quiet (owner,
+ * 2026-11-17: the full sentences made the page feel overwhelming): one closed line with the
+ * count, opening to one line per warning, case · short reason · Undo.
  */
 
 import * as React from "react";
-import { ChevronDownIcon, TriangleAlertIcon, Undo2Icon } from "lucide-react";
+import { ChevronDownIcon, TriangleAlertIcon } from "lucide-react";
 
 import type { Flag } from "@/lib/bulk/scrutiny";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 import type { CaseView } from "./api";
-import { FlagLine } from "./scrutiny-tab";
 
-/** Up to this many, the list starts open. */
-const OPEN_UP_TO = 3;
+/** A warning in a few words, for this list only; the full sentence is its title. */
+const SHORT: Record<string, string> = {
+  "dcm-poor": "Blurry scan",
+  "pry-1-blanks": "Parts still to write",
+};
+
+const shortOf = (f: Flag) => SHORT[f.rule] ?? f.message.split(/(?<=\.)\s/)[0].replace(/\.$/, "");
 
 export function SkippedWarnings({
   items,
@@ -34,47 +37,45 @@ export function SkippedWarnings({
   busy?: boolean;
   onUndo: (c: CaseView, f: Flag) => void;
 }) {
-  const [open, setOpen] = React.useState(items.length <= OPEN_UP_TO);
+  const [open, setOpen] = React.useState(false);
+  const listId = React.useId();
   if (!items.length) return null;
   const n = items.length;
   return (
-    <Collapsible open={open} onOpenChange={setOpen} asChild>
-      <section aria-label="Warnings you chose to skip" className="rounded-lg border border-hairline bg-card">
-        <CollapsibleTrigger asChild>
+    <section aria-label="Warnings you chose to skip" className="flex flex-col gap-2">
           <button
             type="button"
-            className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left text-body-compact outline-none hover:bg-surface-sunken/60 focus-visible:ring-3 focus-visible:ring-focus-ring"
+            aria-expanded={open}
+            aria-controls={listId}
+            onClick={() => setOpen((o) => !o)}
+            className="-mx-1 flex w-fit items-center gap-2 rounded-md px-1 py-0.5 text-body-compact text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-focus-ring"
           >
             <TriangleAlertIcon aria-hidden className="size-4 shrink-0 text-warning-ink" />
-            <span className="min-w-0 flex-1 tabular-nums">
-              <span className="font-medium text-foreground">
-                {n} {n === 1 ? "warning" : "warnings"} skipped
-              </span>
+            <span className="tabular-nums">
+              {n} {n === 1 ? "warning" : "warnings"} skipped
             </span>
-            <span className="flex shrink-0 items-center gap-1 text-muted-foreground">
-              {open ? "Hide" : "Show"}
-              <ChevronDownIcon aria-hidden className={cn("size-4 transition-transform duration-200", open && "rotate-180")} />
-            </span>
+            <ChevronDownIcon aria-hidden className={cn("size-4 transition-transform duration-200", open && "rotate-180")} />
           </button>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <ul className="mx-4 flex flex-col divide-y divide-hairline border-t border-hairline">
+        {open ? (
+          <ul id={listId} className="flex animate-in flex-col divide-y duration-200 fade-in-0 slide-in-from-top-1 divide-hairline rounded-lg border border-hairline bg-card px-4">
             {items.map(({ c, f }) => (
-              <li key={`${c.id}-${f.id}`} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center">
-                <div className="min-w-0 flex-1">
-                  <span className="text-body-compact font-medium">{c.title}</span>
-                  <span className="ml-2 font-mono text-body-compact text-muted-foreground">{c.draftNumber}</span>
-                  <FlagLine flag={f} />
-                </div>
+              <li key={`${c.id}-${f.id}`} className="flex min-h-12 items-center gap-3 py-1.5 text-body-compact">
+                <span className="min-w-0 flex-1 truncate" title={`${c.title} · ${f.message}`}>
+                  <span className="font-medium text-foreground">{c.accused || c.title}</span>
+                  <span className="ml-2 font-mono text-muted-foreground">{c.draftNumber}</span>
+                  <span className="text-muted-foreground">
+                    {" "}
+                    · {shortOf(f)}
+                    {f.where ? ` · ${f.where}` : ""}
+                  </span>
+                </span>
                 <Button variant="ghost" size="sm" disabled={busy} onClick={() => onUndo(c, f)}>
-                  <Undo2Icon data-icon="inline-start" aria-hidden />
-                  Undo skip
+                  Undo
                 </Button>
               </li>
             ))}
           </ul>
-        </CollapsibleContent>
-      </section>
-    </Collapsible>
+        ) : null}
+    </section>
   );
 }
