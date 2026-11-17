@@ -19,7 +19,6 @@ import {
   FileTextIcon,
   ChevronDownIcon,
   Settings2Icon,
-  TriangleAlertIcon,
 } from "lucide-react";
 
 import type { ApiBatchRequest } from "@/lib/bulk/contract";
@@ -304,7 +303,7 @@ function previewHtml(html: string): string {
     text.replace(
       /\[([^\]\n]+)\]/g,
       (_w, name: string) =>
-        `<mark class="rounded-md border border-dashed border-warning-ink bg-warning-muted px-1 text-warning-muted-foreground">${name}</mark>`,
+        `<mark class="rounded-md border border-dashed border-warning-ink bg-warning-muted px-1 text-warning-muted-foreground box-decoration-clone">${name}</mark>`,
     ),
   );
 }
@@ -538,18 +537,11 @@ export function FactsCard({
                 </>
               }
             />
-            {/* One line, and only when something is left: the highlighted parts are the story. */}
+            {/* Only when empty: the parts to fill in are said by the line over the box
+                (owner, 2026-11-17), not a count under it as well. */}
             {empty ? (
               <p className="text-body-compact text-muted-foreground">
                 Left empty, these cases have no facts of the case. Add them in each case later.
-              </p>
-            ) : blanks.length ? (
-              <p className="flex items-start gap-2 px-1 text-body-compact tabular-nums">
-                <TriangleAlertIcon aria-hidden className="mt-0.5 size-4 shrink-0 text-warning-ink" />
-                <span>
-                  {blanks.length === 1 ? "1 part" : `${blanks.length} parts`} to fill in
-                  <span className="text-muted-foreground"> · here for every case, or in each one</span>
-                </span>
               </p>
             ) : null}
           </div>
