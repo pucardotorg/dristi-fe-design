@@ -62,9 +62,8 @@ import { DetailFieldMenu } from "@/components/filing/detail-field-menu";
 import { RichTextEditor, type BracketMarks, type RichTextEditorHandle } from "@/components/filing/rich-text-editor";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Field, FieldLabel } from "@/components/ui/field";
+import { Field, FieldContent, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChromeDialogContent } from "@/components/chrome/app-chrome";
@@ -73,7 +72,7 @@ import { cn } from "@/lib/utils";
 import { aboutDetails } from "./batch-marks";
 import { CaseFinder, CaseStepper, type FinderCase } from "./case-finder";
 import { FactsCases, type FactsSource } from "./facts-cases";
-import { CheckArt, ProportionBar } from "./check-art";
+import { BatchTextArt, CheckArt, OwnTextArt, ProportionBar } from "./check-art";
 import { STATE } from "./stage";
 
 /* ───────────────────────────── The cases, as Create will make them ───────────────────────────── */
@@ -660,6 +659,12 @@ export function FactsCard({
  * 2026-11-17: the All cases tab makes the choice case by case, but the decision still
  * deserves its moment before Check). Counts only, so it reads the same for 4 cases or 400;
  * keeping is first and chosen.
+ *
+ * It decides what every one of those complaints says, so it is asked with weight (owner,
+ * 2026-11-17: two radios read as a minor question): two large cards, each drawn as where
+ * the text comes from (`check-art.tsx`), named by its act, with the counts it leaves. The
+ * DS choice card (`FieldLabel` around a `Field`) gives the chosen one its primary edge and
+ * tint; the radios inside keep the group's arrow keys and names. One primary action.
  */
 export function FactsQuestion({
   open,
@@ -679,11 +684,23 @@ export function FactsQuestion({
   const from = React.useContext(StoriesFrom);
   const [replace, setReplace] = React.useState(false);
   const go = React.useRef<HTMLButtonElement>(null);
-  // Read at a glance (owner, 2026-11-17): the count as the title, then two choices, each
-  // its act and the one fact it changes. No sentence to read first.
+  const id = React.useId();
+  const keeps = own === 1 ? "1 keeps its own" : `${own} keep their own`;
+  const uses = batch === 1 ? "1 uses the batch text" : `${batch} use the batch text`;
   const choices = [
-    { value: "keep", label: `Keep the text from ${from}`, detail: `Batch text for the other ${batch}` },
-    { value: "replace", label: "Use the batch text", detail: `For all ${own + batch}` },
+    {
+      value: "keep",
+      art: <OwnTextArt />,
+      label: own === 1 ? "Keep its own text" : "Keep their own text",
+      // Two groups, a line each, so neither count breaks mid-phrase.
+      detail: batch ? [keeps, uses] : [keeps],
+    },
+    {
+      value: "replace",
+      art: <BatchTextArt />,
+      label: "Use the batch text",
+      detail: [`All ${own + batch} use the batch text`],
+    },
   ];
   return (
     <Dialog
@@ -695,7 +712,7 @@ export function FactsQuestion({
     >
       <ChromeDialogContent
         showCloseButton={false}
-        className="sm:max-w-md"
+        className="sm:max-w-2xl"
         aria-describedby={undefined}
         // Focus lands on Continue: keeping is already chosen.
         onOpenAutoFocus={(e) => {
@@ -704,24 +721,47 @@ export function FactsQuestion({
         }}
       >
         <DialogHeader>
-          <DialogTitle className="tabular-nums">
-            {own === 1 ? "1 case has its own text" : `${own} cases have their own text`}
+          <DialogTitle className="text-title-s font-semibold text-balance tabular-nums">
+            {own === 1 ? `1 case has its own text in ${from}` : `${own} cases have their own text in ${from}`}
           </DialogTitle>
         </DialogHeader>
         <RadioGroup
           value={replace ? "replace" : "keep"}
           onValueChange={(v) => setReplace(v === "replace")}
-          aria-label="What happens to their own text"
-          className="flex flex-col gap-4 py-1"
+          aria-label="Which text these cases use"
+          className="grid gap-4 sm:grid-cols-2"
         >
           {choices.map((c) => (
-            <div key={c.value} className="flex items-start gap-3">
-              <RadioGroupItem value={c.value} id={`facts-${c.value}`} className="mt-0.5" />
-              <Label htmlFor={`facts-${c.value}`} className="flex flex-col items-start gap-0.5 tabular-nums">
-                <span className="text-body-compact font-medium">{c.label}</span>
-                <span className="text-body-compact font-normal text-muted-foreground">{c.detail}</span>
-              </Label>
-            </div>
+            <FieldLabel
+              key={c.value}
+              htmlFor={`${id}-${c.value}`}
+              className="cursor-pointer rounded-xl bg-card transition-colors hover:bg-accent has-data-checked:hover:bg-brand-muted has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50"
+            >
+              <Field className="gap-4">
+                <span className="flex h-36 items-center justify-center rounded-lg bg-surface-sunken px-6 transition-colors group-has-data-checked/field-label:bg-card sm:h-40">
+                  {c.art}
+                </span>
+                <span className="flex items-start gap-3 px-1.5 pb-1.5">
+                  <RadioGroupItem
+                    value={c.value}
+                    id={`${id}-${c.value}`}
+                    aria-labelledby={`${id}-${c.value}-label`}
+                    aria-describedby={`${id}-${c.value}-detail`}
+                    className="mt-1"
+                  />
+                  <FieldContent className="gap-1">
+                    <span id={`${id}-${c.value}-label`} className="text-body font-semibold text-foreground">
+                      {c.label}
+                    </span>
+                    <span id={`${id}-${c.value}-detail`} className="flex flex-col text-body-compact font-normal text-muted-foreground tabular-nums">
+                      {c.detail.map((line) => (
+                        <span key={line}>{line}</span>
+                      ))}
+                    </span>
+                  </FieldContent>
+                </span>
+              </Field>
+            </FieldLabel>
           ))}
         </RadioGroup>
         <DialogFooter>

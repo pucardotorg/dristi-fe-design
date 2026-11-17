@@ -69,3 +69,59 @@ export function ProportionBar(parts: Parts) {
     </span>
   );
 }
+
+/*
+ * The facts question's two answers, drawn in the same language (owner, 2026-11-17: the
+ * choice read as a minor radio question). Where the cases' text comes from: their own rows
+ * of the Excel, each with its facts in its last column; or the one batch text, a page whose
+ * lines carry a variable chip and a part to write, as the editor marks them.
+ */
+
+/** Rows of the Excel, each bringing its own facts. */
+export function OwnTextArt() {
+  return (
+    <span
+      aria-hidden
+      className="flex w-full max-w-56 flex-col overflow-hidden rounded-lg border border-hairline bg-card shadow-raised"
+    >
+      <span className="flex bg-surface-sunken text-caption font-medium text-muted-foreground">
+        <span className="w-12 shrink-0 border-r border-hairline px-2 py-1">Row</span>
+        <span className="min-w-0 flex-1 px-2 py-1">Facts</span>
+      </span>
+      {["w-full", "w-11/12", "w-full"].map((w, r) => (
+        <span key={r} className="flex border-t border-hairline">
+          <span className="flex w-12 shrink-0 items-center border-r border-hairline px-2">
+            <span className="h-1.5 w-4 rounded-full bg-track" />
+          </span>
+          <span className="flex min-w-0 flex-1 flex-col gap-1.5 px-2 py-2">
+            <span className={cn("h-1.5 rounded-full bg-muted-foreground/35", w)} />
+            <span className="h-1.5 w-2/3 rounded-full bg-muted-foreground/35" />
+          </span>
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/** The one batch text: a page with a variable and a part to write in its lines. */
+export function BatchTextArt() {
+  return (
+    <span
+      aria-hidden
+      className="flex w-full max-w-56 flex-col gap-2.5 rounded-lg border border-hairline bg-card p-4 shadow-raised"
+    >
+      <span className="h-2 w-2/5 rounded-full bg-muted-foreground/35" />
+      <span className="flex items-center gap-1.5">
+        <span className="h-1.5 w-1/4 rounded-full bg-track" />
+        <span className="h-3 w-1/3 rounded-sm bg-brand-muted" />
+        <span className="h-1.5 flex-1 rounded-full bg-track" />
+      </span>
+      <span className="h-1.5 w-full rounded-full bg-track" />
+      <span className="flex items-center gap-1.5">
+        <span className="h-3 w-1/2 rounded-sm border border-dashed border-warning-ink bg-warning-muted" />
+        <span className="h-1.5 flex-1 rounded-full bg-track" />
+      </span>
+      <span className="h-1.5 w-3/4 rounded-full bg-track" />
+    </span>
+  );
+}
