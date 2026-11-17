@@ -623,13 +623,18 @@ export function DocumentsSection() {
                       <TableHead className="px-4">Sl. no</TableHead>
                       <TableHead>Document name</TableHead>
                       <TableHead>File</TableHead>
-                      <TableHead className={guide ? undefined : "text-center"}>
-                        <span className="inline-flex items-center gap-1">
+                      {/* The words are centred over the boxes and the tip hangs past them,
+                          so the label and its column share one centre line (owner,
+                          2026-11-17: the box sat off its heading). */}
+                      <TableHead className="text-center">
+                        <span className="relative inline-flex items-center">
                           Natively digital
-                          <LabelTip>
-                            Tick only for original digital files, not scans of physical
-                            documents.
-                          </LabelTip>
+                          <span className="absolute left-full ml-1 inline-flex items-center">
+                            <LabelTip>
+                              Tick only for original digital files, not scans of physical
+                              documents.
+                            </LabelTip>
+                          </span>
                         </span>
                       </TableHead>
                       <TableHead className="px-4 text-right">
@@ -655,7 +660,7 @@ export function DocumentsSection() {
                           {cells.file}
                         </TableCell>
 
-                        <TableCell className={cn("py-2 align-middle", !guide && "text-center")}>
+                        <TableCell className="py-2 text-center align-middle [&:has([role=checkbox])]:pr-4">
                           {cells.digital}
                         </TableCell>
 
