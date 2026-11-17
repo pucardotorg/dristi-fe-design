@@ -45,7 +45,7 @@ import { BatchFooter } from "./batch-footer";
 import type { BatchCtx } from "./batch-screen";
 import { RemoveCaseItem, useRemoveCase } from "./remove-case";
 import { aboutDetails, batchTallies, caseState, readyToSign } from "./batch-marks";
-import { SkippedWarnings } from "./skipped-warnings";
+import { StepMeta } from "./step-meta";
 import { bulkStepTitle } from "./bulk-steps";
 import { notify } from "@/components/ui/notify";
 import { CaseSearch, Pager, PagerTop, pageOf } from "./case-list-tools";
@@ -738,51 +738,33 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
       </DropdownMenu>
     );
 
-  // The one line about cases that aren't here, and where they are.
+  // The cases that aren't here, and where they are, as links to those steps.
   const away = [
-    fixing ? (
-      <span key="fix">
-        {fixing} at{" "}
-        <button type="button" className="underline" onClick={() => go("scrutiny")}>
-          {bulkStepTitle("details")}
-        </button>
-      </span>
-    ) : null,
-    locked ? (
-      <span key="locked">
-        {locked} at{" "}
-        <button type="button" className="underline" onClick={() => go(batch.counts.signed ? "pay" : "filed")}>
-          {batch.counts.signed ? "Pay" : "Filed"}
-        </button>
-      </span>
-    ) : null,
-  ].filter(Boolean);
+    { count: fixing, label: `in ${bulkStepTitle("details")}`, onGo: () => go("scrutiny") },
+    {
+      count: locked,
+      label: batch.counts.signed ? `at ${bulkStepTitle("pay")}` : "filed",
+      onGo: () => go(batch.counts.signed ? "pay" : "filed"),
+    },
+  ];
 
   return (
     <div className="flex flex-col gap-4">
       <DocumentsGuide open={guide} onOpenChange={setGuide} />
 
-      {away.length ? (
-        <p className="text-body-compact text-muted-foreground tabular-nums">
-          Not shown:{" "}
-          {away.map((x, i) => (
-            <React.Fragment key={i}>
-              {i ? "; " : ""}
-              {x}
-            </React.Fragment>
-          ))}
-          .
-        </p>
-      ) : null}
+      {/* One quiet line: where the other cases are, and the warnings skipped here. */}
+      <StepMeta
+        lead="Not here"
+        elsewhere={away}
+        skipped={{
+          items: open.flatMap((c) => c.skipped.filter((f) => !aboutDetails(f)).map((f) => ({ c, f }))),
+          busy: !!busy || closed,
+          onUndo: (c, f) => void unkeep(c, f),
+        }}
+      />
 
       {error ? <StatusLine tone="error">{error}</StatusLine> : null}
 
-      {/* File warnings the filer chose to keep as they are (a scan kept though blurry). */}
-      <SkippedWarnings
-        items={open.flatMap((c) => c.skipped.filter((f) => !aboutDetails(f)).map((f) => ({ c, f })))}
-        busy={!!busy || closed}
-        onUndo={(c, f) => void unkeep(c, f)}
-      />
       <div className="flex flex-wrap items-center gap-3">
         <FilterPills
           value={show}

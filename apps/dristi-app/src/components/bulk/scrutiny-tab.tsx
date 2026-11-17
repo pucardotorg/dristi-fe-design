@@ -37,7 +37,7 @@ import {
 import { bulkApi, caseFlowHref, type CaseView } from "./api";
 import { BatchFooter } from "./batch-footer";
 import { aboutDetails, caseState, detailFlags, isOpen } from "./batch-marks";
-import { SkippedWarnings } from "./skipped-warnings";
+import { StepMeta } from "./step-meta";
 import type { BatchCtx } from "./batch-screen";
 import { CaseSearch, Pager, PagerTop, caseMatches, pageOf } from "./case-list-tools";
 import { RemoveCaseItem, useRemoveCase } from "./remove-case";
@@ -291,10 +291,12 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
           />
         ))}
 
-      <SkippedWarnings
-        items={skipped}
-        busy={busy || closed}
-        onUndo={(c, f) => void act({ action: "unskip", caseId: c.id, flagId: f.id })}
+      <StepMeta
+        skipped={{
+          items: skipped,
+          busy: busy || closed,
+          onUndo: (c, f) => void act({ action: "unskip", caseId: c.id, flagId: f.id }),
+        }}
       />
       <div className="flex flex-wrap items-center gap-3">
         <FilterPills
