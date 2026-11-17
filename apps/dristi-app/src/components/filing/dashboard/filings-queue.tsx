@@ -207,6 +207,49 @@ export function FilingsQueue({
   /* Under a finger the list is cards that grow by "Show more" and has no pages (owner,
      Sept 21); the table keeps its pager. One tray open at a time. */
   const cards = useMediaQuery(REGISTER_CARDS_QUERY);
+  /* The dock (owner, 2026-11-17): once the list reaches the top bar, the tabs, the
+     controls and the column headings pin together and widen to the page's edges, so
+     the list becomes the page's section. A sentinel says when; the band's height tells
+     the headings where to rest under it. */
+  const sentinel = React.useRef<HTMLDivElement>(null);
+  const band = React.useRef<HTMLDivElement>(null);
+  const [docked, setDocked] = React.useState(false);
+  const [bandHeight, setBandHeight] = React.useState(0);
+  React.useEffect(() => {
+    const mark = sentinel.current;
+    if (!mark) return;
+    const io = new IntersectionObserver(
+      ([entry]) => setDocked(!entry.isIntersecting && entry.boundingClientRect.top < 64),
+      { rootMargin: "-56px 0px 0px 0px" }
+    );
+    io.observe(mark);
+    return () => io.disconnect();
+  }, []);
+  /* Where even wrapped names can't make the table fit (a narrow desk with the rail
+     open), it scrolls sideways as before and the headings stop pinning: a clipped
+     column is worse than headings that scroll away. */
+  const tableBox = React.useRef<HTMLDivElement>(null);
+  const [tight, setTight] = React.useState(false);
+  React.useEffect(() => {
+    const box = tableBox.current;
+    if (!box) return;
+    const check = () => {
+      const table = box.querySelector("table");
+      setTight(!!table && table.scrollWidth > box.clientWidth + 1);
+    };
+    const ro = new ResizeObserver(check);
+    ro.observe(box);
+    const table = box.querySelector("table");
+    if (table) ro.observe(table);
+    return () => ro.disconnect();
+  });
+  React.useEffect(() => {
+    const el = band.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setBandHeight(el.offsetHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const [visible, setVisible] = React.useState(SHOW_MORE_STEP);
   const tray = useOneOpen<string>();
   if (selectedTab !== view.tab) {
@@ -282,8 +325,10 @@ export function FilingsQueue({
         ? true
         : "indeterminate";
 
-  const body = (
-    <>
+  /* The search, the switch and the order. On a desk they ride in the docking band with
+     the tabs; under a finger they scroll with the list, where a pinned block of
+     controls would eat the screen. */
+  const toolbar = (
       <div className={cn("grid grid-cols-2 items-center gap-2 px-4 py-4", DESK_TOOLBAR)}>
         {bulkKind === "discard" && selectedIds.length > 0 && !cards ? (
           <Button
@@ -361,7 +406,11 @@ export function FilingsQueue({
           ))}
         </NativeSelect>
       </div>
+  );
 
+  const body = (
+    <>
+      {cards ? toolbar : null}
       {!ready ? (
         <div className={cn("flex flex-col gap-3 px-4 pb-8", DESK_GUTTER)} aria-hidden>
           {Array.from({ length: 4 }, (_, i) => (
@@ -574,9 +623,20 @@ export function FilingsQueue({
             </div>
           ) : null}
 
-          <div className={cn("overflow-x-auto", REGISTER_TABLE_ONLY)}>
+          {/* Clip, not scroll: a scrolling box would hold the headings in place of the page.
+              The table container gets the same, for the same reason. */}
+          <div
+            ref={tableBox}
+            className={cn(
+              tight ? "overflow-x-auto" : "overflow-x-clip [&>[data-slot=table-container]]:overflow-visible",
+              REGISTER_TABLE_ONLY
+            )}
+          >
             <Table aria-label={layout.label}>
-              <TableHeader>
+              <TableHeader
+                className={tight ? undefined : "sticky z-[11]"}
+                style={tight ? undefined : { top: `calc(3.5rem + ${bandHeight}px)` }}
+              >
                 <TableRow className="border-hairline">
                   {selectable ? (
                     <TableHead className="w-10 pl-6">
@@ -654,7 +714,10 @@ export function FilingsQueue({
                           column === layout.columns[0] && !selectable && "pl-6",
                           column === "action" && "pr-6",
                           column === "parties" && "font-medium",
-                          column === "court" && "text-muted-foreground"
+                          column === "court" && "text-muted-foreground",
+                          // Names may take two lines on a narrow desk, so the table fits
+                          // rather than clipping: the pinned headings rule out a sideways scroll.
+                          (column === "parties" || column === "court") && "whitespace-normal"
                         )}
                       >
                         {renderCell(column, row, onDiscard, here, selectable)}
@@ -761,9 +824,23 @@ export function FilingsQueue({
           go({ tab, sort: defaultSortFor(tab), page: 1 });
         }}
       >
-        {/* Only the strip pins: the heading above it is read once, and keeping it on
-            screen cost 90px of every scroll. */}
-        <div className={cn("sticky top-14 z-10 border-b border-hairline bg-card px-4", DESK_GUTTER)}>
+        {/* The heading above is read once and scrolls away; the band pins. Under a
+            finger it is the tabs alone. On a desk it carries the controls too, and once
+            docked a card-coloured plate behind it reaches the page's edges and runs on
+            under the column headings, with the one shadow beneath them all. */}
+        <div ref={sentinel} aria-hidden />
+        <div
+          ref={band}
+          data-docked={docked || undefined}
+          className={cn(
+            "sticky top-14 z-10 bg-card",
+            cards && "border-b border-hairline px-4",
+            !cards &&
+              (tight ? "before:bottom-0 " : "before:-bottom-12 ") +
+              "before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:-z-10 before:bg-card before:opacity-0 before:transition-[left,right,opacity,box-shadow] before:duration-300 before:ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:before:transition-none data-docked:before:-inset-x-8 data-docked:before:opacity-100 data-docked:before:shadow-overlay"
+          )}
+        >
+          <div className={cn(!cards && "border-b border-hairline px-4", !cards && DESK_GUTTER)}>
           {/* Never a sideways scroll: what does not fit folds into More (owner, Sept 21). */}
           <OverflowTabsList
             aria-label="Filing states"
@@ -788,6 +865,8 @@ export function FilingsQueue({
               };
             })}
           />
+          </div>
+          {cards ? null : toolbar}
         </div>
 
         {/* One panel per tab so the tablist actually controls something; only the
@@ -941,7 +1020,9 @@ function BatchParties({ row, mark }: { row: QueueRow; mark: boolean }) {
           <span className="font-mono font-normal text-muted-foreground"> · {b.number}</span>
           <span className="sr-only">, bulk batch</span>
         </span>
-        <span className="text-body-compact font-normal text-muted-foreground tabular-nums">{b.cases}</span>
+        {/* May wrap: on a narrow desk the table fits by this line taking two, never by
+            scrolling sideways (the headings pin, so the table can't scroll). */}
+        <span className="text-body-compact font-normal whitespace-normal text-muted-foreground tabular-nums">{b.cases}</span>
       </span>
     </span>
   );
