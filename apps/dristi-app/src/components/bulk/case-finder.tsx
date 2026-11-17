@@ -41,8 +41,8 @@ export type FinderCase = {
   status?: React.ReactNode;
 };
 
-/** Rows drawn at once; the search narrows the rest. */
-const SHOWN = 60;
+/** Rows drawn with the popover; the rest follow on the next frame. */
+const FIRST_ROWS = 40;
 
 export function CaseFinder({
   cases,
@@ -70,7 +70,17 @@ export function CaseFinder({
   const matches = term
     ? inGroup.filter((c) => [c.title, c.draftNumber, c.cheque ?? ""].some((v) => v.toLowerCase().includes(term)))
     : inGroup;
-  const shown = matches.slice(0, SHOWN);
+  // Every match, never a first page (owner, 2026-11-17: "I came here specifically to find
+  // it"). The first rows draw with the popover and the rest a frame later, so opening on
+  // 300 cases stays instant; nothing is left out.
+  const key = `${open}|${group}|${term}`;
+  const [fullFor, setFullFor] = React.useState("");
+  React.useEffect(() => {
+    if (!open) return;
+    const id = requestAnimationFrame(() => requestAnimationFrame(() => setFullFor(key)));
+    return () => cancelAnimationFrame(id);
+  }, [open, key]);
+  const shown = fullFor === key ? matches : matches.slice(0, FIRST_ROWS);
 
   return (
     <Popover
@@ -152,12 +162,6 @@ export function CaseFinder({
               </CommandItem>
             ))}
           </CommandList>
-          {/* Said only when the list is cut short, and quietly. */}
-          {matches.length > SHOWN ? (
-            <p className="border-t border-hairline px-3 py-2 text-body-compact text-muted-foreground tabular-nums">
-              First {SHOWN} of {matches.length}. Search to find the rest.
-            </p>
-          ) : null}
         </Command>
       </PopoverContent>
     </Popover>
