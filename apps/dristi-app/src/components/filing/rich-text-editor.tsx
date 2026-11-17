@@ -60,19 +60,28 @@ export type BracketMarks = {
 
    Entered, a blank is a focused field (owner, 2026-11-17: the prompt selected under a drawn
    caret, a ring on every wrapped line, read as broken). Its text is emptied to one
-   zero-width space that holds the caret inside it (`ZW`), its prompt shown after the caret as
-   a placeholder (`data-empty`, an `::after` drawn from `data-prompt`, never text), its edge
-   the input focus ring. A wrapped blank is one box broken across lines (the default slice,
-   not a clone per line), so it reads as one field. What is typed is upright body ink; on
-   leaving, it is plain text, and an unwritten blank is a blank again. */
+   zero-width joiner that holds the caret inside it (`ZW`), its prompt shown after the caret
+   as a placeholder (`data-empty`, an `::after` drawn from `data-prompt`, never text).
+
+   Entering moves nothing (owner, 2026-11-17: a ring cut off by the next line, the field
+   shifting as it took focus). The box is the blank's own box, every line keeping its place:
+   only colours change, and the one edge that grows (the underline, 2px) is vertical, which
+   never moves a line. Each wrapped line is a whole piece with its own padding and corners
+   (`box-decoration-clone`), at rest and entered alike, so focus never re-wraps it. A box
+   edge on every line drew two parallel rules between a wrapped field's lines, so the field
+   is a filled field instead: the well's fill and the focus colour underlining each line,
+   nothing reaching past the line's own leading into its neighbours. Not colour alone: the
+   dashed amber edge goes, the prompt turns into a placeholder, the caret is in it. */
 const TOKEN_CLASS =
   "cursor-pointer whitespace-nowrap rounded-md bg-brand-muted px-1 py-0.5 font-medium text-brand-muted-foreground transition-colors hover:bg-brand-muted-hover data-[active]:ring-2 data-[active]:ring-ring";
 const PROMPT_CLASS =
-  "mx-0.5 cursor-text rounded-md border border-dashed border-warning-ink bg-warning-muted px-1.5 py-0.5 italic text-warning-muted-foreground transition-[background-color,box-shadow] not-data-[active]:hover:bg-warning-muted-hover data-[active]:border-solid data-[active]:border-ring data-[active]:bg-card data-[active]:text-foreground data-[active]:not-italic data-[active]:ring-3 data-[active]:ring-ring/50 data-[empty]:after:italic data-[empty]:after:text-muted-foreground data-[empty]:after:content-[attr(data-prompt)]";
+  "mx-0.5 cursor-text rounded-md border border-dashed border-warning-ink bg-warning-muted px-1.5 py-0.5 italic text-warning-muted-foreground box-decoration-clone transition-[background-color,border-color,border-radius] duration-150 ease-out motion-reduce:transition-none not-data-[active]:hover:bg-warning-muted-hover data-[active]:rounded-b-none data-[active]:border-solid data-[active]:border-transparent data-[active]:border-b-2 data-[active]:border-b-ring data-[active]:bg-surface-sunken data-[active]:text-foreground data-[active]:not-italic data-[empty]:after:italic data-[empty]:after:text-muted-foreground data-[empty]:after:content-[attr(data-prompt)]";
 
-/** Holds the caret inside an emptied field; never part of the value. */
-const ZW = "​";
-const stripZw = (t: string) => t.replace(/​/g, "");
+/** Holds the caret inside an emptied field; never part of the value. A word joiner, not a
+    zero-width space: a space is a place to break the line, so an entered field could leave
+    its caret behind on the line above and wrap its prompt onto the next (owner, 2026-11-17). */
+const ZW = "\u2060";
+const stripZw = (t: string) => t.replace(/[\u2060\u200b]/g, "");
 
 const attr = (t: string) => t.replace(/"/g, "&quot;");
 
