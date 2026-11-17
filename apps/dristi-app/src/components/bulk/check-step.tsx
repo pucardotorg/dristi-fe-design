@@ -667,9 +667,11 @@ export function FactsQuestion({
   const from = React.useContext(StoriesFrom);
   const [replace, setReplace] = React.useState(false);
   const go = React.useRef<HTMLButtonElement>(null);
+  // Read at a glance (owner, 2026-11-17): the count as the title, then two choices, each
+  // its act and the one fact it changes. No sentence to read first.
   const choices = [
-    { value: "keep", label: own === 1 ? "Keep it" : "Keep them", detail: `The batch text goes into the other ${batch}.` },
-    { value: "replace", label: "Use the batch text", detail: `All ${own + batch} cases use the batch text.` },
+    { value: "keep", label: `Keep the text from ${from}`, detail: `Batch text for the other ${batch}` },
+    { value: "replace", label: "Use the batch text", detail: `For all ${own + batch}` },
   ];
   return (
     <Dialog
@@ -682,6 +684,7 @@ export function FactsQuestion({
       <ChromeDialogContent
         showCloseButton={false}
         className="sm:max-w-md"
+        aria-describedby={undefined}
         // Focus lands on Continue: keeping is already chosen.
         onOpenAutoFocus={(e) => {
           e.preventDefault();
@@ -692,9 +695,6 @@ export function FactsQuestion({
           <DialogTitle className="tabular-nums">
             {own === 1 ? "1 case has its own text" : `${own} cases have their own text`}
           </DialogTitle>
-          <DialogDescription>
-            It came from {from}. Keep {own === 1 ? "it" : "them"}, or use the batch text?
-          </DialogDescription>
         </DialogHeader>
         <RadioGroup
           value={replace ? "replace" : "keep"}
