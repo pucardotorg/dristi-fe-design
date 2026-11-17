@@ -738,30 +738,18 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
       </DropdownMenu>
     );
 
-  // The cases that aren't here, and where they are, as links to those steps.
+  // The cases that aren't here, and where they are, as links to those steps: still being
+  // fixed, signed and waiting at Pay, or filed.
   const away = [
     { count: fixing, label: `in ${bulkStepTitle("details")}`, onGo: () => go("scrutiny") },
-    {
-      count: locked,
-      label: batch.counts.signed ? `at ${bulkStepTitle("pay")}` : "filed",
-      onGo: () => go(batch.counts.signed ? "pay" : "filed"),
-    },
+    { count: batch.counts.signed, label: `at ${bulkStepTitle("pay")}`, onGo: () => go("pay") },
+    { count: batch.counts.filed, label: "filed", onGo: () => go("filed") },
   ];
+  const awayCount = fixing + locked;
 
   return (
     <div className="flex flex-col gap-4">
       <DocumentsGuide open={guide} onOpenChange={setGuide} />
-
-      {/* One quiet line: where the other cases are, and the warnings skipped here. */}
-      <StepMeta
-        lead="Not here"
-        elsewhere={away}
-        skipped={{
-          items: open.flatMap((c) => c.skipped.filter((f) => !aboutDetails(f)).map((f) => ({ c, f }))),
-          busy: !!busy || closed,
-          onUndo: (c, f) => void unkeep(c, f),
-        }}
-      />
 
       {error ? <StatusLine tone="error">{error}</StatusLine> : null}
 
@@ -790,6 +778,19 @@ export function DocumentsTab({ batch, setBatch, go }: BatchCtx) {
       </div>
 
       <Card variant="raised" className="gap-0 p-2">
+        {/* The list's first row: the batch's cases this list leaves out and where they are,
+            and the warnings skipped here (owner, 2026-11-17: on the page it floated). */}
+        <StepMeta
+          attached
+          className="-mx-2 mb-2 border-b border-hairline px-6 pt-2 pb-3"
+          lead={`${awayCount} ${awayCount === 1 ? "case" : "cases"} not in this step`}
+          elsewhere={away}
+          skipped={{
+            items: open.flatMap((c) => c.skipped.filter((f) => !aboutDetails(f)).map((f) => ({ c, f }))),
+            busy: !!busy || closed,
+            onUndo: (c, f) => void unkeep(c, f),
+          }}
+        />
         {listed.length === 0 ? (
           <p className="p-4 text-body-compact text-muted-foreground">
             {term ? `No case matches “${search.trim()}”.` : show === "complete" ? "No case has every document yet." : "Every case has its documents."}

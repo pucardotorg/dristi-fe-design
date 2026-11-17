@@ -11,6 +11,12 @@
  *
  * Counts in the foreground, the rest muted; each link is the step it names. The skipped list
  * opens below the line, one aligned row per warning.
+ *
+ * Where the line speaks for a list (Documents' grid, Sign's complaints), it sits inside
+ * that list's panel as its first row, `attached`, rather than loose on the page (owner,
+ * 2026-11-17: the strip "looks like it's floating"). The lead says which cases are missing
+ * from the list and each link where they are: "10 cases not in this step · 2 in Fix &
+ * check ›". Inside a panel the skipped list is a sunken well, not a second card.
  */
 
 import * as React from "react";
@@ -44,9 +50,14 @@ export function StepMeta({
   lead,
   elsewhere = [],
   skipped,
+  attached = false,
+  className,
 }: {
-  /** Names the links: "Not here", "Not ready yet". */
+  /** Names the links, with the cases' count: "10 cases not in this step". */
   lead?: string;
+  /** Inside the panel of the list it speaks for: the first row, not a line on the page. */
+  attached?: boolean;
+  className?: string;
   elsewhere?: ElsewhereItem[];
   skipped?: {
     items: { c: CaseView; f: Flag }[];
@@ -62,7 +73,7 @@ export function StepMeta({
   const n = skips.length;
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className={cn("flex flex-col gap-3", className)}>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-body-compact tabular-nums">
         {links.length ? (
           <nav aria-label={lead ?? "Other cases"} className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -106,7 +117,10 @@ export function StepMeta({
         <ul
           id={listId}
           aria-label="Warnings you chose to skip"
-          className="flex animate-in flex-col divide-y divide-hairline rounded-lg border border-hairline bg-card px-4 duration-200 fade-in-0 slide-in-from-top-1 motion-reduce:animate-none"
+          className={cn(
+            "flex animate-in flex-col divide-y divide-hairline rounded-lg border border-hairline px-4 duration-200 fade-in-0 slide-in-from-top-1 motion-reduce:animate-none",
+            attached ? "bg-surface-sunken" : "bg-card",
+          )}
         >
           {skips.map(({ c, f }) => (
             <li

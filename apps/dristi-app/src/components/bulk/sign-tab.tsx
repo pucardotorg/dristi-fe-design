@@ -185,20 +185,24 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
 
   const allOn = chosen.length === clear.length;
 
+  // Not a warning: the open cases not ready to sign, each cause a link to the step that
+  // clears it. It belongs to the list of complaints, so it sits in that panel, under its
+  // heading, the way Documents' sits atop its grid (owner, 2026-11-17: loose on the page it
+  // floated, and "to fix in Fix & check" said the step twice).
+  const notReady = waiting ? (
+    <StepMeta
+      attached
+      className="border-t border-hairline px-6 pt-6"
+      lead={`${waiting} ${waiting === 1 ? "case" : "cases"} not ready to sign`}
+      elsewhere={[
+        { count: fixing, label: `in ${bulkStepTitle("details")}`, onGo: () => go("scrutiny") },
+        { count: docsMissing, label: `in ${bulkStepTitle("documents")}`, onGo: () => go("documents") },
+      ]}
+    />
+  ) : null;
+
   return (
     <div className="flex flex-col gap-6">
-      {/* Not a warning: cases not open to sign yet, each cause a link to the step that
-          clears it, in the same quiet line Documents uses. */}
-      {waiting ? (
-        <StepMeta
-          lead={`${waiting} not ready yet`}
-          elsewhere={[
-            { count: fixing, label: `to fix in ${bulkStepTitle("details")}`, onGo: () => go("scrutiny") },
-            { count: docsMissing, label: `missing documents in ${bulkStepTitle("documents")}`, onGo: () => go("documents") },
-          ]}
-        />
-      ) : null}
-
       {error ? <StatusLine tone="error">{error}</StatusLine> : null}
 
       {clear.length === 0 ? (
@@ -207,6 +211,7 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
             <CardContent className="text-body-compact text-muted-foreground">
               Nothing to sign yet. Cases appear here once their details and documents are done.
             </CardContent>
+            {notReady}
           </Card>
           <BatchFooter>
             <FilingFooter
@@ -285,6 +290,7 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
                 </Button>
               </CardAction>
             </CardHeader>
+            {notReady}
             {listOpen ? (
               <CardContent className="px-2">
                 <div className="overflow-x-auto">
