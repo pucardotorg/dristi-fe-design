@@ -506,22 +506,15 @@ export function DocumentsSection() {
           />
         )}
 
-        {guide ? (
-          /* One hint line, said quietly: a bordered notice card outweighed the documents
-             it explains. */
-          <p className="flex items-center gap-2 text-body-compact text-muted-foreground">
-            <InfoIcon aria-hidden className="size-4 shrink-0" />
-            A natively digital file was made on a computer, like an e-signed PDF, not scanned
-            from paper.
-          </p>
-        ) : (
+        {/* Bulk says this inside the first panel, under its head (below). */}
+        {guide ? null : (
           <SectionNotice variant="neutral">
             Tick <strong className="font-semibold">Natively digital</strong> for an
             original digital file, such as an e-signed PDF, not a scan of a paper copy.
           </SectionNotice>
         )}
 
-        {groups.map((group) => {
+        {groups.map((group, groupIndex) => {
           const heading = groupHeading(group);
           return (
           <section
@@ -541,14 +534,25 @@ export function DocumentsSection() {
                 /* One line: whose papers these are, then their role, muted. The name sits on
                    the same left line as the column labels below (24px: the table's 8px inset
                    plus its 16px cell padding). */
-                <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 px-4 pt-6 pb-4 md:pointer-fine:px-6 md:landscape:px-6">
-                  {/* A clear step above the 14px semibold column labels under it, so the
-                      block's title leads (owner, 2026-11-11). */}
-                  <h2 id={`doc-group-${group.id}`} className="text-title-s font-semibold">
-                    {heading.title}
-                  </h2>
-                  {heading.eyebrow ? (
-                    <span className="text-body-compact text-muted-foreground">{heading.eyebrow}</span>
+                <div className="flex flex-col gap-2 px-4 pt-6 pb-4 md:pointer-fine:px-6 md:landscape:px-6">
+                  <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+                    {/* A clear step above the 14px semibold column labels under it, so the
+                        block's title leads (owner, 2026-11-11). */}
+                    <h2 id={`doc-group-${group.id}`} className="text-title-s font-semibold">
+                      {heading.title}
+                    </h2>
+                    {heading.eyebrow ? (
+                      <span className="text-body-compact text-muted-foreground">{heading.eyebrow}</span>
+                    ) : null}
+                  </div>
+                  {/* The one hint, said quietly inside the panel it explains (owner,
+                      2026-11-17: on the canvas it floated), once, in the first panel. */}
+                  {groupIndex === 0 ? (
+                    <p className="flex items-center gap-2 text-body-compact text-muted-foreground">
+                      <InfoIcon aria-hidden className="size-4 shrink-0" />
+                      A natively digital file was made on a computer, like an e-signed PDF, not
+                      scanned from paper.
+                    </p>
                   ) : null}
                 </div>
               ) : null}
