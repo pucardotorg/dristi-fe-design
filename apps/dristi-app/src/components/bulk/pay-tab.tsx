@@ -43,6 +43,8 @@ import { PayCourtFees, PayProcessing, type FeePart } from "./payment-gateway";
 import { BatchFooter } from "./batch-footer";
 import type { BatchCtx } from "./batch-screen";
 import { RemoveCaseMenu, useRemoveCase } from "./remove-case";
+import { Pager, pageOf } from "./case-list-tools";
+import { ListDock, dockBox, dockHead, useFitRows, useListDock } from "./list-dock";
 import { FilingFooter } from "@/components/filing/filing-footer";
 import { STATE_ORDER, StatusWord } from "./stage";
 import { bulkStepTitle, type BulkStepId } from "./bulk-steps";
@@ -175,6 +177,13 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
   // Payments recorded before the parts existed fall back to the one sum.
   const unexplained = total - parts.reduce((n, p) => n + p.sum, 0);
   const [listOpen, setListOpen] = React.useState(false);
+  // Read in pages of what the window holds under the pinned head, as every bulk list is
+  // (`useFitRows`); the card's head pins with the headings, with 16px of its own air
+  // above it and the card's 16px gap kept below it.
+  const [listPage, setListPage] = React.useState(0);
+  const { dock, sentinelRef, barRef, boxRef } = useListDock({ lift: 16, gap: 16 });
+  const fit = useFitRows(dock, { onResize: (from, to) => setListPage((p) => Math.floor((p * from) / to)) });
+  const { pages, at, shown } = pageOf(due, listPage, fit.size);
   const last = batch.payments.at(-1);
   // What the batch still has to do after this payment, shown on the success screen.
   const pendingAfter = batch.cases.filter((c) => c.stage !== "filed");
@@ -272,7 +281,9 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
             </CardContent>
           </Card>
 
-          <Card variant="raised" className={cn(listOpen && "gap-4")}>
+          {/* overflow-visible: a clipping card would make the pinned head inert. */}
+          <Card variant="raised" className={cn("overflow-visible", listOpen && "gap-4")}>
+            <ListDock dock={dock} sentinelRef={sentinelRef} barRef={barRef} className={cn(!listOpen && "md:static")}>
             <CardHeader>
               <CardTitle className="text-body font-semibold tabular-nums">
                 {chosen.length === due.length
@@ -288,13 +299,15 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
                 </Button>
               </CardAction>
             </CardHeader>
+            </ListDock>
             {listOpen ? (
-          <div className="overflow-x-auto px-2 pb-2">
+          <div className="px-2 pb-2">
+          <div ref={boxRef} className={dockBox(dock)}>
             <Table
               className="border-separate border-spacing-0"
               aria-label="Cases to pay for"
             >
-              <TableHeader>
+              <TableHeader {...dockHead(dock)}>
                 <TableRow className={TABLE_HEAD_ROW}>
                   <TableHead className={cn(TABLE_HEAD, "w-12 pl-4")}>
                     <Checkbox
@@ -326,7 +339,7 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
                 </TableRow>
               </TableHeader>
               <TableBody className={tableBodyClass({ selectable: true })}>
-                {due.map((c) => (
+                {shown.map((c) => (
                   <TableRow
                     key={c.id}
                     className={tableRowClass({ selectable: true })}
@@ -356,6 +369,19 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
                 ))}
               </TableBody>
             </Table>
+          </div>
+          <Pager
+            total={due.length}
+            at={at}
+            pages={pages}
+            onPage={setListPage}
+            size={fit.size}
+            sizes={fit.sizes}
+            onSize={(n) => {
+              setListPage(Math.floor((at * fit.size) / n));
+              fit.pick(n);
+            }}
+          />
           </div>
             ) : null}
           </Card>
