@@ -26,6 +26,7 @@ import { DocumentsTab } from "./documents-tab";
 import { FiledTab, ist } from "./filed-tab";
 import { PayTab } from "./pay-tab";
 import { ReviewTab } from "./review-tab";
+import { OathTab } from "./oath-tab";
 import { ScrutinyTab } from "./scrutiny-tab";
 import { SignTab } from "./sign-tab";
 import { BULK_COLUMN, BulkSteps, StageRow, type BulkStepId, type BulkWidth } from "./bulk-steps";
@@ -49,6 +50,7 @@ const TABS = [
   "documents",
   "review",
   "sign",
+  "oath",
   "pay",
   "filed",
 ] as const;
@@ -61,6 +63,7 @@ const STEP_OF: Record<TabId, BulkStepId> = {
   documents: "documents",
   review: "sign",
   sign: "sign",
+  oath: "sign",
   pay: "pay",
   filed: "pay",
 };
@@ -197,7 +200,9 @@ export function BatchScreen({ batchId }: { batchId: string }) {
       : step === "sign"
       ? [
           { id: "review", title: "Review", href: workable ? q("review") : undefined },
-          { id: "sign", title: "Sign", href: q("sign") },
+          { id: "sign", title: "Sign", href: q("sign"), done: batch.counts.signed + batch.counts.filed > 0 && workable === 0 },
+          // The complainant's one oath for the batch, after the signatures (owner, 2026-11-17).
+          { id: "oath", title: "Oath", href: q("oath"), done: !!batch.oath.takenAt },
         ]
       : step === "pay"
         ? [
@@ -216,6 +221,7 @@ export function BatchScreen({ batchId }: { batchId: string }) {
     scrutiny: "Case details",
     documents: "Documents",
     review: "Review",
+    oath: "Oath",
     sign: "Sign",
     pay: "Pay",
     filed: "Filed",
@@ -232,6 +238,7 @@ export function BatchScreen({ batchId }: { batchId: string }) {
       ? `${plural(docsMissing, "case is", "cases are")} missing documents. The complainant's are already on every case.`
       : "Every case here has its documents.",
     review: null,
+    oath: batch.oath.takenAt ? "Taken. The batch can be paid for." : "The complainant's representative swears once for the batch.",
     sign: clear ? `${plural(clear, "case is", "cases are")} ready to sign.` : null,
     pay: batch.counts.signed ? `${plural(batch.counts.signed, "signed case", "signed cases")} to pay and file.` : null,
     filed: `${plural(batch.counts.filed, "case", "cases")} filed.`,
@@ -242,6 +249,7 @@ export function BatchScreen({ batchId }: { batchId: string }) {
     scrutiny: <ScrutinyTab {...ctx} />,
     documents: <DocumentsTab {...ctx} />,
     review: <ReviewTab {...ctx} />,
+    oath: <OathTab {...ctx} />,
     sign: <SignTab {...ctx} />,
     pay: <PayTab {...ctx} />,
     filed: <FiledTab {...ctx} />,

@@ -156,7 +156,9 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
     try {
       setBatch(await bulkApi.act(batch.id, { action: "sign", method: r.method, caseIds: r.caseIds }));
       setRound(null);
-      go("pay", r.caseIds.join(","));
+      // The oath comes next, unless it's already in (owner, 2026-11-17).
+      if (batch.oath.takenAt) go("pay", r.caseIds.join(","));
+      else go("oath");
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -224,9 +226,11 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
             <FilingFooter
               showSaveState={false}
               onBack={() => go("documents")}
-              continueLabel={batch.counts.signed ? `Pay for ${batch.counts.signed} signed` : "Continue to signing"}
+              continueLabel={
+                !batch.counts.signed ? "Continue to signing" : batch.oath.takenAt ? `Pay for ${batch.counts.signed} signed` : "Continue to the oath"
+              }
               continueDisabled={!batch.counts.signed}
-              onContinue={() => go("pay")}
+              onContinue={() => go(batch.oath.takenAt ? "pay" : "oath")}
             />
           </BatchFooter>
         </>

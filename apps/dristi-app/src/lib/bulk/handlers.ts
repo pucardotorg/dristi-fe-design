@@ -103,6 +103,29 @@ export async function saveSetup(store: BulkStore, setupId: string, body: SetupBo
   return ok({ batchId: saved.id, batchNumber: saved.number }, 201);
 }
 
+/** The link's page: what the representative swears to, for which batch (`OathLink`). */
+export async function getOath(store: BulkStore, batchId: string): Promise<Reply> {
+  const batch = await store.getBatch(batchId);
+  if (!batch || batch.notCreated) return fail("No such batch.", 404);
+  const rep = (batch.common?.complainants ?? batch.cases[0]?.draft.complainants ?? [])[0]?.rep;
+  return ok({
+    batchNumber: batch.number,
+    client: batch.client,
+    cases: batch.cases.filter((c) => c.draft.status !== "filed").length,
+    representative: rep?.name ? { name: rep.name, designation: rep.designation } : null,
+    takenAt: batch.oath?.takenAt ?? null,
+  });
+}
+
+/** The representative's recording, from the link: the oath is in. */
+export async function recordOath(store: BulkStore, batchId: string, file: File | null, by: string): Promise<Reply> {
+  if (!file) return fail("No recording.", 400);
+  const ref = await store.saveFile(new Uint8Array(await file.arrayBuffer()), file.name, file.type);
+  const out = await store.updateBatch(batchId, (b) => ({ ...b, oath: { ...b.oath, takenAt: new Date().toISOString(), video: ref, by } }));
+  if (!out) return fail("No such batch.", 404);
+  return ok({ takenAt: out.oath?.takenAt });
+}
+
 /** A push waiting for Facts of the case and Create: what was sent, for the preview (§3). */
 export async function getPush(store: BulkStore, batchId: string): Promise<Reply> {
   const batch = await store.getBatch(batchId);
@@ -358,7 +381,9 @@ export type Action =
   | { action: "part"; caseId: string; op: "add" | "remove"; part: Part; accused?: number }
   | { action: "sign"; caseIds: string[]; method: BulkSignMethod; round?: number }
   | { action: "pay"; caseIds: string[] }
-  | { action: "remove"; caseId: string };
+  | { action: "remove"; caseId: string }
+  | { action: "oath-send" }
+  | { action: "oath-taken" };
 
 const METHODS: BulkSignMethod[] = ["mobile-otp", "dsc", "aadhaar", "upload"];
 
@@ -431,7 +456,21 @@ export async function act(store: BulkStore, batchId: string, body: Action & { ai
         batch.signings.push({ method: body.method, at, caseIds: ready.map((c) => c.id), rounds: roundsFor(body.method, ready.length) });
         return batch;
       }
+      case "oath-send": {
+        batch.oath = { ...batch.oath, sentAt: at };
+        return batch;
+      }
+      case "oath-taken": {
+        // Sandbox: marked taken without a recording, as individual filing's shortcut does.
+        batch.oath = { ...batch.oath, takenAt: at, video: null };
+        return batch;
+      }
       case "pay": {
+        // As in individual filing, the court fee waits for the oath.
+        if (!batch.oath?.takenAt) {
+          problem = "The complainant's oath isn't in yet. Paying waits for it.";
+          return null;
+        }
         const cases = batch.cases.filter((c) => body.caseIds.includes(c.id) && c.signedWith && c.draft.status !== "filed");
         if (cases.length === 0) {
           problem = "None of these cases is signed and unpaid.";

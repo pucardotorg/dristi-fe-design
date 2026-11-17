@@ -146,6 +146,12 @@ export type Batch = {
    * stored before this existed: those read them from the first case, which got them first.
    */
   common?: BatchCommon;
+  /**
+   * The complainant's oath for the batch (owner, 2026-11-17): one general affirmation, by
+   * whoever signs for the complainant, recorded on camera through a link, as in individual
+   * filing (`OTH`). Paying waits for it.
+   */
+  oath?: BatchOath;
   /** The upload setup this batch was created from, so a late save of it never makes another. */
   setupId?: string;
   /** Set until the batch is created (`NotCreated`); absent on a created batch. */
@@ -181,6 +187,17 @@ export type UploadSnapshot = {
 export type NotCreated =
   | { kind: "excel"; setupId: string; path: string; where: string; draft: FilingDraft; upload?: UploadSnapshot }
   | { kind: "api"; request: ApiBatchRequest };
+
+export type BatchOath = {
+  /** When the link was last sent to the complainant's representative. */
+  sentAt?: string;
+  /** When the oath was recorded. */
+  takenAt?: string;
+  /** The recording; `null` for the sandbox shortcut that marks it taken. */
+  video?: StoredFileRef | null;
+  /** Who took it, as their link named them. */
+  by?: string;
+};
 
 /** Where one case stands in its batch. */
 export type CaseStage = "held" | "ready" | "signed" | "filed";

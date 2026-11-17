@@ -75,7 +75,12 @@ export async function bulkFetch(url: string, init: RequestInit = {}): Promise<Re
   else if (a === "setups" && id)
     reply = method === "PUT" ? await h.saveSetup(store, id, json()) : await h.getSetup(store, id);
   else if (a === "batches" && b === "actions") reply = await h.act(store, id, json());
-  else if (a === "batches" && b === "start")
+  else if (a === "batches" && b === "oath") {
+    if (method === "POST") {
+      const f = form();
+      reply = await h.recordOath(store, id, fileIn(f, "file"), String(f.get("by") ?? ""));
+    } else reply = await h.getOath(store, id);
+  } else if (a === "batches" && b === "start")
     reply = method === "POST" ? await h.createPush(store, id, json()) : await h.getPush(store, id);
   else if (a === "batches" && b === "drafts") reply = await h.batchDrafts(store, id);
   else if (a === "batches" && b === "cases" && caseId)

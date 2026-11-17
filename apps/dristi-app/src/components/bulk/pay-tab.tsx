@@ -224,6 +224,21 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
         </>
       ) : (
         <>
+          {/* As in individual filing, the court fee waits for the complainant's oath. */}
+          {!batch.oath.takenAt ? (
+            <StatusLine
+              tone="neutral"
+              still
+              title="Paying waits for the complainant's oath"
+              action={
+                <Button variant="outline" onClick={() => go("oath")}>
+                  Go to the oath
+                </Button>
+              }
+            >
+              {batch.oath.sentAt ? "The link is with them; this opens once they've recorded it." : "Send them the oath link first."}
+            </StatusLine>
+          ) : null}
           {/* The fees first, as one sum (v8); the cases it covers behind "Review the list". */}
           <Card variant="raised">
             <CardHeader>
@@ -351,14 +366,14 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
           <BatchFooter>
             <FilingFooter
               showSaveState={false}
-              onBack={() => go("sign")}
+              onBack={() => go("oath")}
               status={
                 <span className="text-body-compact text-muted-foreground">
                   You&apos;ll go to the payment gateway and come back here.
                 </span>
               }
               continueLabel={`Pay ${money(total)}`}
-              continueDisabled={!chosen.length || !!batch.clubbedInto}
+              continueDisabled={!chosen.length || !!batch.clubbedInto || !batch.oath.takenAt}
               onContinue={() => setDialog("confirm")}
             />
           </BatchFooter>

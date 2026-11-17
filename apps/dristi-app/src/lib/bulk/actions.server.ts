@@ -131,6 +131,8 @@ export type BatchView = BatchSummary & {
   /** Everyone on record for the complainant; the first is the filing advocate. */
   advocates: { name: string; barNumber: string }[];
   representative: { name: string; designation: string; mobile: string } | null;
+  /** The complainant's oath for the batch (`BatchOath`); paying waits for it. */
+  oath: { sentAt: string | null; takenAt: string | null; video: StoredFileRef | null; by: string | null };
   /** Common details as filled, for the step's own pages (`BatchCommon`). */
   common: BatchCommon;
 };
@@ -293,6 +295,12 @@ export function batchView(
     representative: rep?.name
       ? { name: rep.name, designation: rep.designation, mobile: rep.mobile }
       : null,
+    oath: {
+      sentAt: batch.oath?.sentAt ?? null,
+      takenAt: batch.oath?.takenAt ?? null,
+      video: batch.oath?.video ?? null,
+      by: batch.oath?.by ?? null,
+    },
     common: batch.common ?? {
       complainants: first?.complainants ?? [],
       advocates: first?.advocates ?? [],
