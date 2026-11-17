@@ -133,7 +133,7 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
               `${batch.representative.designation}, ${batch.client}`,
               maskMobile(batch.representative.mobile)
                 ? `signs by link on ${maskMobile(batch.representative.mobile)}`
-                : "no mobile in Common details",
+                : "no mobile in Set up",
             ].join(" · "),
             initials: initialsOf(batch.representative.name),
             mobile: maskMobile(batch.representative.mobile),
@@ -200,7 +200,7 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
               <span className="tabular-nums">
                 {fixing} to fix at{" "}
                 <button type="button" className="underline" onClick={() => go("scrutiny")}>
-                  Case details
+                  Fix &amp; check
                 </button>
               </span>
             ) : null}
@@ -222,7 +222,7 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
         <>
           <Card variant="raised">
             <CardContent className="text-body-compact text-muted-foreground">
-              Nothing to sign yet. Cases arrive here once their details and documents are complete.
+              Nothing to sign yet. Cases appear here once their details and documents are done.
             </CardContent>
           </Card>
           <BatchFooter>
@@ -286,10 +286,10 @@ export function SignTab({ batch, setBatch, go }: BatchCtx) {
               </CardTitle>
               <CardDescription>
                 {inRound
-                  ? "Being signed now, so the list is fixed until every party has signed."
+                  ? "Locked until every party signs."
                   : listOpen
                     ? "Untick any to sign later."
-                    : "Read the list, or leave some to sign later."}
+                    : "Untick any to sign later."}
               </CardDescription>
               <CardAction>
                 <Button variant="outline" size="sm" onClick={() => setListOpen((v) => !v)}>
@@ -534,8 +534,8 @@ function SignWindow({
 
   const copy: Record<Stage, { title: string; description?: string }> = {
     choose: { title: "How will these complaints be signed?", description: `${plural(n, "complaint")}, one way for all of them.` },
-    fallback: { title: "Unable to e-sign?", description: "Tell us what went wrong. Nothing changes until you continue." },
-    sign: { title: "Add your e-signature", description: "Either one is your own signature. Use whichever you have." },
+    fallback: { title: "Unable to e-sign?", description: "Tell us what went wrong." },
+    sign: { title: "Add your e-signature", description: "Use whichever you have." },
     otp: {
       title: "Enter the OTP",
       description:
@@ -547,7 +547,7 @@ function SignWindow({
     done: { title: "Signature added" },
     paper: {
       title: "Upload the signed complaints",
-      description: "Print each one, have every party sign it by hand, and upload the scans.",
+      description: "Print, have every party sign by hand, then upload the scans.",
     },
     uploaded: { title: "Signed copies accepted" },
   };
@@ -704,7 +704,7 @@ function SignWindow({
           rows={roster(base)}
           footnote={
             pending.length
-              ? `You signed ${plural(n, "complaint")}. The court fee opens once ${names(pending)} ${pending.length === 1 ? "signs" : "sign"}.`
+              ? `You signed ${plural(n, "complaint")}. Pay opens once ${names(pending)} ${pending.length === 1 ? "signs" : "sign"}.`
               : "You can pay the court fee now."
           }
         />
@@ -712,7 +712,7 @@ function SignWindow({
         <StageColumn>
           <div className="flex flex-col gap-2 rounded-lg border border-hairline bg-surface-sunken p-4 sm:flex-row sm:items-center">
             <p className="min-w-0 flex-1 text-body-compact text-muted-foreground">
-              Each is already named the way it is matched back. Keep the name when you scan it.
+              Keep each file&apos;s name when you scan it; that&apos;s how it&apos;s matched.
             </p>
             <Button variant="outline" className="w-fit shrink-0" disabled={downloading} onClick={() => void download()}>
               <DownloadIcon data-icon="inline-start" aria-hidden />

@@ -74,7 +74,7 @@ export function FiledTab({ batch, go }: BatchCtx) {
       <>
         <Card variant="raised">
           <CardContent className="text-body-compact text-muted-foreground">
-            Nothing filed yet. Cases show here once they are paid for.
+            Nothing filed yet. Cases appear here once paid.
           </CardContent>
         </Card>
       <BatchFooter>
@@ -95,7 +95,7 @@ export function FiledTab({ batch, go }: BatchCtx) {
           still
           title={<span className="tabular-nums">{`${filed.length} of ${batch.total} cases filed`}</span>}
         >
-            Each case now goes to the court on its own for checking.
+            Each case now goes to court scrutiny on its own.
             {left ? (
               <>
                 {" "}

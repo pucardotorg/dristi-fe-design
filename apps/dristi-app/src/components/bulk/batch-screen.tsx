@@ -232,13 +232,13 @@ export function BatchScreen({ batchId }: { batchId: string }) {
     cases: fromFile ? (batch.source.reference ?? null) : casesLine(batch),
     scrutiny: fixing || checking
       ? // The rule, not the counts the pills already give (BLK-08, BLK-12).
-        "Cases to fix wait until they're fixed. Cases to check can go ahead without changes."
+        "Fix these before filing. Cases to check can go ahead as they are."
       : "Every case's details are done.",
     documents: docsMissing
-      ? `${plural(docsMissing, "case is", "cases are")} missing documents. The complainant's are already on every case.`
+      ? `${plural(docsMissing, "case is", "cases are")} missing documents.`
       : "Every case here has its documents.",
     review: null,
-    oath: batch.oath.takenAt ? "Taken. The batch can be paid for." : "The complainant's representative swears once for the batch.",
+    oath: batch.oath.takenAt ? "Oath taken. Pay when ready." : "The complainant's representative takes one oath for the batch.",
     sign: clear ? `${plural(clear, "case is", "cases are")} ready to sign.` : null,
     pay: batch.counts.signed ? `${plural(batch.counts.signed, "signed case", "signed cases")} to pay and file.` : null,
     filed: `${plural(batch.counts.filed, "case", "cases")} filed.`,

@@ -63,7 +63,7 @@ export function useRemoveCase(batch: BatchView, setBatch: (b: BatchView) => void
         last
           ? `${name} is the only case in ${batch.number}, so the batch will be deleted too.`
           : signed
-            ? `${name} won't be filed with this batch. It isn't filed yet, so it can still be removed.`
+            ? `${name} won't be filed with this batch.`
             : `${name} won't be filed with this batch.`
       }
       confirmLabel={last ? `Remove and delete ${batch.number}` : "Remove"}

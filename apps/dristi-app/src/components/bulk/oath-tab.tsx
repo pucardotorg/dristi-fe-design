@@ -220,7 +220,7 @@ export function OathTab({ batch, setBatch, go }: BatchCtx) {
           onBack={() => go("sign")}
           continueLabel="Continue to Pay"
           continueDisabled={!oath.takenAt || !batch.counts.signed}
-          continueHint={!oath.takenAt ? "Paying waits for the oath" : undefined}
+          continueHint={!oath.takenAt ? "Pay opens after the oath" : undefined}
           onContinue={() => go("pay")}
         />
       </BatchFooter>

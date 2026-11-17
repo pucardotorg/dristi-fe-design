@@ -371,7 +371,7 @@ export function PaymentGateway({
                 ? `Sent to ${upi}. Approves in ${left}s.`
                 : stage === "neft-wait"
                   ? `Found in ${left}s.`
-                  : "Please don't close this window."}
+                  : "Don't close this window."}
             </p>
           </div>
         )}

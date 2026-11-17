@@ -214,7 +214,7 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
             <CardContent className="text-body-compact text-muted-foreground">
               Nothing to pay yet. Cases come here once every party has signed them.{" "}
               <button type="button" className="text-foreground underline" onClick={() => go("sign")}>
-                Go to Review and sign
+                Go to Sign
               </button>
             </CardContent>
           </Card>
@@ -229,14 +229,14 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
             <StatusLine
               tone="neutral"
               still
-              title="Paying waits for the complainant's oath"
+              title="Pay opens after the complainant's oath"
               action={
                 <Button variant="outline" onClick={() => go("oath")}>
                   Go to the oath
                 </Button>
               }
             >
-              {batch.oath.sentAt ? "The link is with them; this opens once they've recorded it." : "Send them the oath link first."}
+              {batch.oath.sentAt ? "Waiting for their oath." : "Send them the oath link first."}
             </StatusLine>
           ) : null}
           {/* The fees first, as one sum (v8); the cases it covers behind "Review the list". */}
@@ -281,7 +281,7 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
                   : `${chosen.length} of ${due.length} signed cases`}
               </CardTitle>
               <CardDescription>
-                {listOpen ? "Untick any to pay for later." : "One payment files every case you keep ticked."}
+                {listOpen ? "Untick any to pay for later." : "One payment files every ticked case."}
               </CardDescription>
               <CardAction>
                 <Button variant="outline" size="sm" onClick={() => setListOpen((v) => !v)}>
@@ -491,7 +491,7 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
                                       )}
                                       aria-label={
                                         f.level === "hold"
-                                          ? "Needs fixing"
+                                          ? "To fix"
                                           : "To check"
                                       }
                                     />

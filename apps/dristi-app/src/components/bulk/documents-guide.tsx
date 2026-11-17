@@ -28,15 +28,15 @@ const SCENES: Record<Frame, string> = { need: "need", drop: "drop", order: "orde
 const COPY: Record<Frame, { title: string; body: string }> = {
   need: {
     title: "Each case asks for its own documents",
-    body: "Its answers decide them: a notice that came back undelivered asks for the returned envelope instead of proof of delivery.",
+    body: "They follow its answers. An undelivered notice needs the returned envelope, not proof of delivery.",
   },
   drop: {
     title: "Drop each file into its place",
-    body: "Click a slot or drag a file onto it. What the file is called doesn't matter.",
+    body: "Click a slot or drag a file onto it. File names don't matter.",
   },
   order: {
     title: "Cases missing something stay on top",
-    body: "Work down from the top until every case is complete. Optional papers go in from the case's own Documents.",
+    body: "Work down until every case is complete. Add optional papers inside each case.",
   },
 };
 
