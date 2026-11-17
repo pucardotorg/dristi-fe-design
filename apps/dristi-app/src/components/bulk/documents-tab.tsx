@@ -514,7 +514,7 @@ const DOC_PAGE_SIZES = [10, 15] as const;
  * them, and a clipped column is worse than headings that scroll away (as the Filings
  * queue does).
  */
-function useStickyHead() {
+export function useStickyHead() {
   const box = React.useRef<HTMLDivElement>(null);
   const [tight, setTight] = React.useState(false);
   const [top, setTop] = React.useState(0);

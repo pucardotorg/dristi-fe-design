@@ -38,6 +38,7 @@ import { bulkApi, caseFlowHref, type CaseView } from "./api";
 import { BatchFooter } from "./batch-footer";
 import { aboutDetails, caseState, detailFlags, isOpen } from "./batch-marks";
 import { StepMeta } from "./step-meta";
+import { useStickyHead } from "./documents-tab";
 import type { BatchCtx } from "./batch-screen";
 import { CaseSearch, Pager, PagerTop, caseMatches, pageOf } from "./case-list-tools";
 import { RemoveCaseItem, useRemoveCase } from "./remove-case";
@@ -218,6 +219,7 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const closed = !!batch.clubbedInto;
+  const { boxRef: headBox, tight: headTight, top: headTop } = useStickyHead();
   const params = useSearchParams();
   const router = useRouter();
   const ai = params.get("ai");
@@ -324,7 +326,8 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
 
       {error ? <StatusLine tone="error">{error}</StatusLine> : null}
 
-      <Card variant="raised" className="gap-0 p-2">
+      {/* overflow-visible: a clipping card would make the pinned headings inert. */}
+      <Card variant="raised" className="gap-0 overflow-visible p-2">
         {shown.length === 0 ? (
           <p className="flex flex-wrap items-center gap-x-2 p-4 text-body-compact text-muted-foreground">
             {term ? `No case matches “${search.trim()}”.` : show === "fix" ? "Nothing left to fix." : show === "check" ? "Nothing left to check." : "No case here."}
@@ -337,9 +340,19 @@ export function ScrutinyTab({ batch, setBatch, go }: BatchCtx) {
         ) : (
           <>
             {/* A table from md up; on a phone each case is a stacked row. */}
-            <div className="hidden overflow-x-auto md:block">
+            {/* The headings pin under the top bar and the steps, as on Documents. */}
+            <div
+              ref={headBox}
+              className={cn(
+                "hidden md:block",
+                headTight ? "overflow-x-auto" : "overflow-x-clip [&>[data-slot=table-container]]:overflow-visible"
+              )}
+            >
               <Table className="border-separate border-spacing-0" aria-label="Cases">
-                <TableHeader>
+                <TableHeader
+                  className={headTight ? undefined : "sticky z-10 bg-card"}
+                  style={headTight ? undefined : { top: headTop }}
+                >
                   <TableRow className={TABLE_HEAD_ROW}>
                     <TableHead className={cn(TABLE_HEAD, "w-full")}>Accused</TableHead>
                     <TableHead className={TABLE_HEAD}>Status</TableHead>
