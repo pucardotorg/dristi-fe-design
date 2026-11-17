@@ -31,9 +31,14 @@ import { BrandGlyph } from "@/components/brand-lockup";
 import { ConfirmDialog } from "@/components/shell/confirm-dialog";
 import { YourDetailsItem } from "@/components/filing/your-details-item";
 import { useAppSearch } from "@/components/shell/app-search";
-import { useChrome } from "@/components/shell/chrome";
+import {
+  focusNavTrigger,
+  navTriggerAttr,
+  useChrome,
+} from "@/components/shell/chrome";
 import { useProfile, type ProfileRole } from "@/components/shell/profile";
 import { VIEWER_CLERK_NAME } from "@/lib/cases/viewer";
+import { cn } from "@/lib/utils";
 import { RAIL_THEMES, useRailTheme } from "@/components/shell/rail-theme";
 import { Button } from "@/components/ui/button";
 import {
@@ -264,13 +269,15 @@ function SearchShortcut() {
 
 function NavRow({ item, onAction }: { item: NavItem; onAction?: () => void }) {
   const pathname = usePathname();
-  const { crumbRoot } = useChrome();
-  // On a phone the rail is a sheet over the page. Choosing where to go is the
-  // end of its job, so it puts itself away; left open, it sat over the screen
-  // that had just loaded behind it (owner, Sept 21). A no-op on desktop.
+  const { crumbRoot, navOverlay, foldNav } = useChrome();
+  // On a phone the rail is a sheet over the page, and below the desk width an overlay
+  // on it. Choosing where to go is the end of its job either way, so it puts itself
+  // away; left open, it sat over the screen that had just loaded behind it (owner,
+  // Sept 21). A no-op on a desk, where the rail sits beside the page.
   const { isMobile, setOpenMobile } = useSidebar();
   const closeSheet = () => {
     if (isMobile) setOpenMobile(false);
+    else if (navOverlay) foldNav();
   };
   const { id, label, icon: Icon, href } = item;
 
@@ -747,19 +754,50 @@ function RailPlate({ vars, children }: { vars: React.CSSProperties; children: Re
   );
 }
 
-/** Main navigation for the whole app. Icon rail from `md`, sheet below it. */
-export function AppSidebar() {
+/** The rail's id, for the triggers' `aria-controls`. */
+export const MAIN_NAV_ID = "main-navigation";
+
+/**
+ * Main navigation for the whole app. Icon rail from `md`, sheet below it.
+ *
+ * `overlayOpen`: below the desk width the open rail lies over the page (see `AppShell`),
+ * so it takes the overlay's elevation and sits above the page's sticky bars.
+ * `hydrated`: until the client knows the window's width the server's guess is a desk,
+ * so below it the strip is drawn as a bare plate rather than flashing the labelled rail.
+ */
+export function AppSidebar({
+  overlayOpen = false,
+  hydrated = true,
+}: {
+  overlayOpen?: boolean;
+  hydrated?: boolean;
+}) {
   const { theme } = useRailTheme();
   const { profileRole } = useProfile();
   const { open: openSearch } = useAppSearch();
+  const { navOverlay } = useChrome();
   const { state, isMobile, setOpen } = useSidebar();
+  const collapsed = state === "collapsed";
 
-  // Folded, the whole strip is the way back: a click anywhere on it — the empty plate or
-  // any of its icons — unfolds the rail. Capture phase, and nothing is stopped, so an
-  // icon still does its own job (a link still goes, search still opens) as the rail opens.
-  const unfoldOnClick = React.useCallback(() => {
-    if (state === "collapsed" && !isMobile) setOpen(true);
-  }, [state, isMobile, setOpen]);
+  // Folded on a desk, the whole strip is the way back: a click anywhere on it — the empty
+  // plate or any of its icons — unfolds the rail. Capture phase, and nothing is stopped, so
+  // an icon still does its own job (a link still goes, search still opens) as the rail
+  // opens. As an overlay an icon only does its own job: opening a panel over the page
+  // just to have navigation put it away again is a flicker, not a feature. The empty
+  // plate still opens it.
+  const unfoldOnClick = React.useCallback(
+    (event: React.MouseEvent) => {
+      if (!collapsed || isMobile) return;
+      if (
+        navOverlay &&
+        event.target instanceof Element &&
+        event.target.closest("a, button, [role=button]")
+      )
+        return;
+      setOpen(true);
+    },
+    [collapsed, isMobile, navOverlay, setOpen],
+  );
 
   // Home is role-aware: the advocate's home and the litigant's home are different
   // screens on the same shell. The rest of the nav is shared.
@@ -784,7 +822,19 @@ export function AppSidebar() {
       // element above where these vars land — so the colour computes against the DS
       // default, not the theme. Re-declaring it here, beside the vars, is what makes
       // the foreground actually the theme's.
-      className="text-(--sidebar-foreground) group-data-[collapsible=icon]:cursor-pointer"
+      id={MAIN_NAV_ID}
+      className={cn(
+        "text-(--sidebar-foreground) group-data-[collapsible=icon]:cursor-pointer motion-reduce:transition-none",
+        // Over the page: above its sticky bar (z-30), under dialogs and popovers (z-50),
+        // and lifted with the sheet elevation so it reads as a layer, not a wider rail.
+        overlayOpen && "z-40 shadow-modal",
+        // Server HTML assumes a desk. Below one (`DESK_QUERY` in `app-shell.tsx`), until
+        // the client has said so, the strip stays the strip — its plate painted, its
+        // contents held back — so the labelled rail never flashes over the page on a
+        // first load.
+        !hydrated &&
+          "max-[1440px]:w-(--sidebar-width-icon) max-[1440px]:[&_[data-slot=sidebar-inner]>*]:invisible",
+      )}
       style={theme.vars as React.CSSProperties}
       onClickCapture={unfoldOnClick}
     >
@@ -809,7 +859,12 @@ export function AppSidebar() {
           wordmarkClassName="group-data-[collapsible=icon]:hidden"
         />
         <SidebarTrigger
+          {...navTriggerAttr("collapse")}
           aria-label="Collapse main navigation"
+          aria-controls={MAIN_NAV_ID}
+          // It leaves with the labels: the keyboard goes to the bar's expand control,
+          // which takes its place.
+          onClick={() => focusNavTrigger("expand")}
           className={`size-8 shrink-0 group-data-[collapsible=icon]:hidden [&_svg]:size-5 ${MUTED} hover:bg-sidebar-accent hover:text-sidebar-accent-foreground`}
         />
       </SidebarHeader>

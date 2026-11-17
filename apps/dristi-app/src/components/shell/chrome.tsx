@@ -29,6 +29,11 @@ export type ChromeValue = {
   setCrumbRoot: (root: Crumb | null) => void;
   /** Whether the main nav shows its labels (true) or only its icon rail (false). */
   navOpen: boolean;
+  /**
+   * Whether the open nav lies over the page rather than beside it — true below the desk
+   * width, where the rail starts as its icon strip and opens only on request.
+   */
+  navOverlay: boolean;
   /** Collapse the main nav to its icon rail — used when a side panel opens. */
   foldNav: () => void;
   /** Bring the labels back — used when the panel that folded it closes. */
@@ -36,6 +41,34 @@ export type ChromeValue = {
 };
 
 export const ChromeContext = React.createContext<ChromeValue | null>(null);
+
+/**
+ * The main nav's two fold controls: the bar's expand control and the rail's collapse
+ * control. Exactly one is on screen at a time, and each hands the keyboard to the other.
+ */
+export type NavTriggerRole = "expand" | "collapse";
+export const navTriggerAttr = (role: NavTriggerRole) => ({ "data-nav-trigger": role });
+
+/**
+ * Put the keyboard on one of the fold controls once the rail has drawn the new state.
+ *
+ * Named rather than "whichever takes focus": the control being left can still accept
+ * focus for a moment (a just-hidden element is blurred only on the browser's next style
+ * pass), so a first-come search hands focus straight back to it. And retried for a few
+ * frames, because the fold is not always committed by the next one — Escape is heard by
+ * a document listener, outside React's own events, and its update lands later.
+ */
+export function focusNavTrigger(role: NavTriggerRole, frames = 4) {
+  requestAnimationFrame(() => {
+    const control = document.querySelector<HTMLElement>(
+      `[data-nav-trigger="${role}"]`,
+    );
+    control?.focus();
+    if (document.activeElement !== control && frames > 1) {
+      focusNavTrigger(role, frames - 1);
+    }
+  });
+}
 
 /**
  * State the app chrome shares with the screens: what the breadcrumb should say, and a

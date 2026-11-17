@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
+import { MAIN_NAV_ID } from "@/components/shell/app-sidebar";
 import { taskHref } from "@/lib/tasks/routes";
 import { areaOf } from "@/lib/nav/origin";
 import { cn } from "@/lib/utils";
@@ -23,7 +24,12 @@ import { COLLAPSE_MOTION } from "@/components/cases/motion";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { caseOf, tasksInView } from "@/lib/tasks/selectors";
 import { compareUrgency, daysUntil, isOverdue } from "@/lib/tasks/urgency";
-import { useChrome, type Crumb } from "@/components/shell/chrome";
+import {
+  focusNavTrigger,
+  navTriggerAttr,
+  useChrome,
+  type Crumb,
+} from "@/components/shell/chrome";
 import { CourtSwitch } from "@/components/court/court-switch";
 import { useLocale } from "@/components/shell/locale";
 import { useProfile } from "@/components/shell/profile";
@@ -271,22 +277,44 @@ function ChromeBreadcrumb({
 const FOLD_BUTTON_WIDTH = 24;
 
 /**
- * The DS trigger. No `aria-expanded`: the ghost Button paints `aria-expanded` as its
- * pressed fill, so the trigger would read as a filled square on every view where the
- * rail is open — the DS's own `SidebarTrigger` carries the state in its label instead.
+ * The DS trigger. On a laptop or desk `aria-expanded` only ever says `false`: this control
+ * is on screen while the rail is folded, and the ghost Button paints `aria-expanded="true"`
+ * as its pressed fill — the rail's own collapse control carries the open state in its
+ * label instead. On a phone it opens the sheet, and says so while the sheet is up.
  */
 function NavTrigger() {
-  const { open, isMobile } = useSidebar();
+  const { open, openMobile, isMobile } = useSidebar();
+  const { navOverlay } = useChrome();
   // An open rail carries its own collapse control, in its header. Repeating it here
   // would put it back at the head of the breadcrumb row — which is what made it read as
   // the trail's first crumb. It returns only when the rail is a strip with no room.
-  if (!isMobile && open) return null;
+  //
+  // Hidden by a media query rather than left unrendered: the server assumes a desk with
+  // the rail open, and a narrower window must still get the control from its first paint
+  // or the trail jumps right when hydration puts it back. `min-[1440px]` is
+  // `DESK_QUERY` in `app-shell.tsx`. Over the page (below that width) it keeps its place,
+  // hidden under the open rail, so the trail does not move as the rail opens and closes.
+  const deskOpen = !isMobile && open && !navOverlay;
+  const covered = !isMobile && open && navOverlay;
   return (
     <>
       <SidebarTrigger
+        {...navTriggerAttr("expand")}
         size="icon"
         aria-label="Expand main navigation"
-        className="shrink-0 text-muted-foreground [&_svg]:size-5"
+        aria-expanded={isMobile && openMobile}
+        // The sheet below `md` mounts only while open, under no id of ours.
+        aria-controls={isMobile ? undefined : MAIN_NAV_ID}
+        // Into the rail it opened, onto its collapse control: the way back out, and the
+        // head of the rail's tab order.
+        onClick={() => {
+          if (!isMobile) focusNavTrigger("collapse");
+        }}
+        className={cn(
+          "shrink-0 text-muted-foreground [&_svg]:size-5",
+          covered && "invisible",
+          deskOpen && "min-[1440px]:hidden",
+        )}
       />
       {/* The trigger belongs to the rail, the crumbs to the page. With the rail collapsed
           they sit side by side with nothing between them and the button reads as the
@@ -294,7 +322,10 @@ function NavTrigger() {
           here, with the trigger, so the two appear and disappear together. */}
       <Separator
         orientation="vertical"
-        className="h-5! shrink-0 self-center! bg-hairline"
+        className={cn(
+          "h-5! shrink-0 self-center! bg-hairline",
+          deskOpen && "min-[1440px]:hidden",
+        )}
       />
     </>
   );
