@@ -31,7 +31,10 @@ import {
   FileQuestionIcon,
   LocateFixedIcon,
   WandSparklesIcon,
+  SkipForwardIcon,
 } from "lucide-react";
+
+import { notify } from "@/components/ui/notify";
 
 import { aiModeFrom } from "@/lib/bulk/ai-review";
 import { cn } from "@/lib/utils";
@@ -665,8 +668,10 @@ function FixList({
       await flush();
       setBatch(await bulkApi.act(batchId, body));
       if (batchWide) onBatchFixed();
+      return true;
     } catch (e) {
       setProblem((e as Error).message);
+      return false;
     } finally {
       setBusy(false);
     }
@@ -795,9 +800,17 @@ function FlagAction({
   f: Flag;
   caseId: string;
   busy: boolean;
-  act: (body: Record<string, unknown>, batchWide?: boolean) => Promise<void>;
+  act: (body: Record<string, unknown>, batchWide?: boolean) => Promise<boolean>;
 }) {
   const fix = f.fix;
+  // Skipping moves the check out of the list, so it is said, with the way back.
+  const skip = async () => {
+    if (!(await act({ action: "skip", caseId, flagId: f.id }))) return;
+    notify.neutral(f.rule === "dcm-poor" ? "Scan kept" : "Check skipped", {
+      icon: SkipForwardIcon,
+      action: { label: "Undo", onClick: () => void act({ action: "unskip", caseId, flagId: f.id }) },
+    });
+  };
   if (fix?.kind === "declare-no-contact")
     return (
       <Button
@@ -815,7 +828,7 @@ function FlagAction({
         size="sm"
         className="text-muted-foreground hover:text-foreground"
         disabled={busy}
-        onClick={() => void act({ action: "skip", caseId, flagId: f.id })}
+        onClick={() => void skip()}
       >
         {f.rule === "dcm-poor" ? "Keep this scan" : "Skip this check"}
       </Button>
