@@ -19,7 +19,7 @@ import {
   tableRowClass,
 } from "@/components/chrome/table-plate";
 import { OutcomeAmount, OutcomeHeader, StatusLine } from "@/components/feedback";
-import { PaymentFacts } from "@/components/payment/payment-steps";
+import { GATEWAY_MS, PaymentFacts } from "@/components/payment/payment-steps";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -42,7 +42,7 @@ import {
 } from "@/components/ui/table";
 
 import { bulkApi, type BatchView } from "./api";
-import { PaymentGateway } from "./payment-gateway";
+import { PayCourtFees, PayProcessing, type FeePart } from "./payment-gateway";
 import { BatchFooter } from "./batch-footer";
 import type { BatchCtx } from "./batch-screen";
 import { RemoveCaseMenu, useRemoveCase } from "./remove-case";
@@ -148,7 +148,7 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
   const total = chosen.reduce((s, c) => s + c.fee, 0);
   // The fee's parts across the chosen cases: each shown as cases × rate when every case
   // pays the same, else as a sum the list breaks down (round 3: one unexplained lump).
-  const parts = (
+  const parts: FeePart[] = (
     [
       ["court", "Court fee"],
       ["condonation", "Delay condonation fee"],
@@ -188,7 +188,8 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
     setDialog("processing");
     setError(null);
     try {
-      await new Promise((r) => setTimeout(r, 1800));
+      // The gateway's round trip, as long as e-filing's.
+      await new Promise((r) => setTimeout(r, GATEWAY_MS));
       setBatch(
         await bulkApi.act(batch.id, {
           action: "pay",
@@ -197,17 +198,14 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
       );
       setDialog("done");
     } catch (e) {
+      // Said in the window, on the bill it came from (DS: inside a dialog, StatusLine).
       setError((e as Error).message);
-      setDialog(null);
+      setDialog("confirm");
     }
   };
 
   return (
     <div className="flex flex-col gap-6">
-      {error ? (
-        <StatusLine tone="error">{error}</StatusLine>
-      ) : null}
-
       {due.length === 0 ? (
         <>
           <Card variant="raised">
@@ -374,7 +372,10 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
               }
               continueLabel={`Pay ${money(total)}`}
               continueDisabled={!chosen.length || !!batch.clubbedInto || !batch.oath.takenAt}
-              onContinue={() => setDialog("confirm")}
+              onContinue={() => {
+                setError(null);
+                setDialog("confirm");
+              }}
             />
           </BatchFooter>
         </>
@@ -398,14 +399,19 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
         open={!!dialog}
         onOpenChange={(v) => !v && dialog !== "processing" && setDialog(null)}
       >
-        {/* Capped to the viewport: a batch's receipts can run to hundreds of rows. */}
+        {/* One window, e-filing's three: the bill, the gateway's round trip, the outcome.
+            Capped to the viewport: a batch's receipts can run to hundreds of rows. */}
         <ChromeDialogContent
           onInteractOutside={(event) => event.preventDefault()}
+          onEscapeKeyDown={(event) => dialog === "processing" && event.preventDefault()}
           mobileSheet
-          showCloseButton={dialog !== "done"}
+          showCloseButton={dialog === "confirm"}
           className={cn(
-            // The gateway and the outcome each lay out their own edges: no dialog padding.
-            "flex max-h-[90dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg",
+            "sm:max-w-xl",
+            dialog === "done"
+              ? // The outcome lays out its own edges: no dialog padding.
+                "flex max-h-[90dvh] flex-col gap-0 overflow-hidden p-0"
+              : "grid-rows-[auto_minmax(0,1fr)_auto] max-h-[calc(100svh-2rem)]",
           )}
         >
           {dialog === "done" && last ? (
@@ -554,13 +560,16 @@ export function PayTab({ batch, setBatch, go }: BatchCtx) {
                   </Button>
               </footer>
             </>
+          ) : dialog === "processing" ? (
+            <PayProcessing />
           ) : (
-            /* A sandbox payment gateway: UPI, card or NEFT, each ending in the payment. */
-            <PaymentGateway
+            <PayCourtFees
               amount={total}
-              cases={chosen.length}
-              onPaid={() => void pay()}
-              onCancel={() => setDialog(null)}
+              count={chosen.length}
+              parts={parts}
+              unexplained={unexplained}
+              error={error}
+              onPay={() => void pay()}
             />
           )}
         </ChromeDialogContent>
