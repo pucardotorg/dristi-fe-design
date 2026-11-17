@@ -1119,9 +1119,6 @@ export function caseFlags(bc: BatchCase): Flag[] {
     // Say what to enter, not only what is wrong: a service date in the future is a typing
     // slip; a real but recent one means the case waits, or the date allows filing today.
     const today = new Date().toISOString().slice(0, 10);
-    const latest = new Date(Date.now() - 15 * 86_400_000)
-      .toISOString()
-      .slice(0, 10);
     const served =
       d.notices
         .map((n) => (n.delivered === "no" ? n.returnDate : n.deliveryDate))
@@ -1135,7 +1132,7 @@ export function caseFlags(bc: BatchCase): Flag[] {
       message:
         served && served > today
           ? `${toLongDate(served)} is in the future. Enter the day it was delivered.`
-          : `To file today, the notice must have been served on or before ${toLongDate(latest)} (15 days ago). If it was served later, this case can be filed from ${toLongDate(lim.causeDate)}.`,
+          : `Too early to file. It can be filed from ${toLongDate(lim.causeDate)}, when the cause of action arises.`,
     });
   } else if (
     lim.elapsed !== null &&
@@ -1148,7 +1145,7 @@ export function caseFlags(bc: BatchCase): Flag[] {
       field: "JUR-12",
       level: "hold",
       at: "jur.condonation",
-      message: `Filed ${lim.overBy} day${lim.overBy === 1 ? "" : "s"} after the one-month limit. A reason for condonation of delay is needed.`,
+      message: `${lim.overBy} day${lim.overBy === 1 ? "" : "s"} past the one-month limit. Add a reason for condonation of delay.`,
       fix: {
         kind: "text",
         path: "jurisdiction.condonationReason",
@@ -1213,7 +1210,8 @@ export function caseFlags(bc: BatchCase): Flag[] {
       where: "Facts of the case",
       level: "hold",
       at: "adr.otherDetails.fields",
-      message: `${unfilled.length === 1 ? "1 field needs" : `${unfilled.length} fields need`} you: ${new Intl.ListFormat("en", { type: "conjunction" }).format(unfilled.map(say))}. Write ${unfilled.length === 1 ? "it" : "them"} in the text.`,
+      // What is wrong, then what to do: no count prefix, the fields name themselves.
+      message: `${new Intl.ListFormat("en", { type: "conjunction" }).format(unfilled.map(say))}. Write ${unfilled.length === 1 ? (unfilled[0].values ? "the right one" : "it") : "them"} in the text.`,
     });
   }
   const blanks = bracketsIn(facts).filter((b) => !unfilled.some((f) => f.name.toLowerCase() === b.trim().toLowerCase()));
@@ -1226,7 +1224,7 @@ export function caseFlags(bc: BatchCase): Flag[] {
       level: "soft",
       at: "adr.otherDetails.blanks",
       // The parts themselves are in the box, in brackets, where the case opens.
-      message: `${blanks.length === 1 ? "1 part" : `${blanks.length} parts`} in brackets still to write.`,
+      message: `${blanks.length === 1 ? "1 bracketed part" : `${blanks.length} bracketed parts`} to write.`,
     });
 
   /*

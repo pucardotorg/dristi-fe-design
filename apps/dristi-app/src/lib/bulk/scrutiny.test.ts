@@ -7,6 +7,8 @@ import type { StoredFileRef } from "@/lib/filing/types";
 import { attachToSlot } from "./actions.server";
 import { buildBatch } from "./intake";
 import { caseFlags, caseStage, openFlags } from "./scrutiny";
+import { toLongDate } from "@/lib/filing/format";
+import { limitationView } from "@/lib/filing/selectors";
 import type { Batch } from "./types";
 
 const iso = (daysAgo: number) => {
@@ -133,6 +135,9 @@ test("a late case needs a reason for condonation; a notice in transit holds the 
   const batch = await batchOf([late, transit]);
   const [a, b] = batch.cases.map((bc) => caseFlags(bc));
   assert.ok(a.some((f) => f.field === "JUR-12" && f.level === "hold"));
+  // What is wrong, then what to do, with the day count computed.
+  const over = a.find((f) => f.field === "JUR-12")!;
+  assert.match(over.message, /^\d+ days? past the one-month limit\. Add a reason for condonation of delay\.$/);
   assert.ok(b.some((f) => f.field === "LDN-5" && f.level === "hold"));
 });
 
@@ -190,6 +195,18 @@ test("a format's unwritten blanks hold a case under To check, and only the case 
   const blanks = (i: number) => caseFlags(b.cases[i]).filter((f) => f.rule === "pry-1-blanks");
   assert.equal(blanks(0).length, 1);
   assert.equal(blanks(0)[0].level, "soft");
-  assert.match(blanks(0)[0].message, /^1 part in brackets still to write/);
+  assert.equal(blanks(0)[0].message, "1 bracketed part to write.");
   assert.equal(blanks(1).length, 0);
+});
+
+test("a case served under 15 days ago is too early, and says the day it can be filed", async () => {
+  const early = goodCase("F-1", {
+    cheques: [{ ...goodCase("x").cheques[0], date: iso(30), presentedOn: iso(25), returnedOn: iso(22) }],
+    notices: [{ ...goodCase("x").notices[0], dispatchedOn: iso(10), deliveredOn: iso(5) }],
+  });
+  const batch = await batchOf([early]);
+  const flag = caseFlags(batch.cases[0]).find((f) => f.rule === "jur-9-early");
+  assert.ok(flag, "held as too early");
+  const cause = limitationView(batch.cases[0].draft).causeDate;
+  assert.equal(flag!.message, `Too early to file. It can be filed from ${toLongDate(cause)}, when the cause of action arises.`);
 });
