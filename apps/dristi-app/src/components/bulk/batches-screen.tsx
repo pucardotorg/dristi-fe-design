@@ -78,12 +78,12 @@ const VIEWS: { id: View; label: string }[] = [
  * is not a stage of its own: a warning never holds a case, so those cases count where
  * they actually wait (documents or signing), as the stepper counts them.
  */
-type Stage = { id: BulkStepId; state: "fix" | "docs" | "complete" | "signed"; tab: string; words: string; short: string };
+type Stage = { id: BulkStepId; state: "fix" | "docs" | "complete" | "signed"; tab: string; words: string; short: string; head: string };
 const STAGES: Stage[] = [
-  { id: "details", state: "fix", tab: "scrutiny", words: "to fix", short: "to fix" },
-  { id: "documents", state: "docs", tab: "documents", words: "missing documents", short: "missing docs" },
-  { id: "sign", state: "complete", tab: "sign", words: "ready to sign", short: "to sign" },
-  { id: "pay", state: "signed", tab: "pay", words: "signed, to pay for", short: "to pay" },
+  { id: "details", state: "fix", tab: "scrutiny", words: "to fix", short: "to fix", head: "To fix" },
+  { id: "documents", state: "docs", tab: "documents", words: "missing documents", short: "missing docs", head: "Documents" },
+  { id: "sign", state: "complete", tab: "sign", words: "ready to sign", short: "to sign", head: "To sign" },
+  { id: "pay", state: "signed", tab: "pay", words: "signed, to pay for", short: "to pay", head: "To pay" },
 ];
 
 /** The filer's one next act on a batch, first match wins; `null` when nothing is theirs. */
@@ -193,7 +193,6 @@ export function BatchesScreen() {
 
   const count = (v: View) => all.filter((b) => viewOf(b) === v).length;
   const needs = all.filter((b) => viewOf(b) === "needs").sort(byFileBy);
-  const notCreated = count("notCreated");
   const clients = new Set(all.map((b) => b.client).filter(Boolean)).size;
 
   const clubbable = (b: BatchSummary) => !b.notCreated && !isDone(b);
@@ -249,14 +248,14 @@ export function BatchesScreen() {
   /* ── Cells ── */
 
   const fileByCell = (b: BatchSummary) => {
-    if (!b.fileBy || b.notCreated || isDone(b)) return <span className="text-muted-foreground">—</span>;
+    if (!b.fileBy || b.notCreated || isDone(b)) return <span className="text-muted-foreground/40">–</span>;
     // Past: the date stays readable and only the word carries the red, so a long list of
     // late batches doesn't turn into a wall of red.
     const past = b.fileBy < today();
     return (
-      <span className="text-foreground tabular-nums">
+      <span className={cn("inline-flex items-center gap-2 tabular-nums", past ? "text-destructive-ink" : "text-foreground")}>
         {shortDate(b.fileBy)}
-        {past ? <span className="font-medium text-destructive-ink"> · Past</span> : null}
+        {past ? <span className="sr-only">, passed</span> : null}
       </span>
     );
   };
@@ -284,16 +283,21 @@ export function BatchesScreen() {
   /** One stage's count, opening that step of the batch; a dash when none is there. */
   const stageCount = (b: BatchSummary, st: Stage) => {
     const n = b.states[st.state];
-    if (!n) return <span className="text-muted-foreground" aria-label={`None ${st.words} in ${b.number}`}>—</span>;
+    if (!n)
+      return (
+        <span className="text-muted-foreground/40" aria-label={`None ${st.words} in ${b.number}`}>
+          –
+        </span>
+      );
     return (
       <Link
         href={open(b, st.tab)}
         onClick={(e) => e.stopPropagation()}
         aria-label={`${n} ${st.words} in ${b.number}`}
         className={cn(
-          "inline-flex h-8 min-w-10 items-center justify-center rounded-md px-2 font-medium tabular-nums outline-none transition-colors",
-          "underline-offset-4 hover:bg-accent hover:underline focus-visible:ring-3 focus-visible:ring-focus-ring",
-          st.state === "fix" ? "text-destructive-ink" : "text-foreground",
+          "inline-flex h-8 min-w-10 items-center justify-center rounded-md px-2 tabular-nums outline-none transition-colors",
+          "hover:bg-surface-sunken focus-visible:ring-3 focus-visible:ring-focus-ring",
+          st.state === "fix" ? "font-medium text-destructive-ink" : "text-foreground",
         )}
       >
         {n}
@@ -301,33 +305,35 @@ export function BatchesScreen() {
     );
   };
 
-  /** Filed: how many of the batch, with a thin bar so a finished batch reads as done. */
+  /** Filed: "48/300" with a short bar beside it on the same line, full and ticked when done. */
   const filedCell = (b: BatchSummary) => {
     const n = b.states.filed;
     const pct = b.total ? Math.round((n / b.total) * 100) : 0;
+    const done = n > 0 && n === b.total;
+    const count = (
+      <span className={cn("inline-block w-16 tabular-nums", n ? "font-medium text-success-ink" : "text-muted-foreground")}>
+        {n}
+        <span className="font-normal text-muted-foreground">/{b.total}</span>
+      </span>
+    );
     return (
-      // The bar hangs under the count, out of the flow, so the count sits on the same line
-      // as every other column's.
-      <span className="relative flex flex-col">
-        <span className="flex h-8 items-center gap-1.5 tabular-nums">
-          {n === b.total && n ? <CircleCheckIcon aria-hidden className="size-4 text-success-ink" /> : null}
-          {n ? (
-            <Link
-              href={open(b, "filed")}
-              onClick={(e) => e.stopPropagation()}
-              aria-label={`${n} of ${b.total} filed in ${b.number}`}
-              className="rounded-sm font-medium text-success-ink underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-focus-ring"
-            >
-              {n}
-            </Link>
-          ) : (
-            <span className="text-muted-foreground">0</span>
-          )}
-          <span className="text-muted-foreground">of {b.total}</span>
-        </span>
-        <span aria-hidden className="absolute inset-x-0 top-full -mt-0.5 h-1 overflow-hidden rounded-full bg-surface-sunken">
+      <span className="flex items-center gap-3">
+        {n ? (
+          <Link
+            href={open(b, "filed")}
+            onClick={(e) => e.stopPropagation()}
+            aria-label={`${n} of ${b.total} filed in ${b.number}`}
+            className="rounded-sm outline-none hover:underline focus-visible:ring-3 focus-visible:ring-focus-ring"
+          >
+            {count}
+          </Link>
+        ) : (
+          <span aria-label={`None of ${b.total} filed`}>{count}</span>
+        )}
+        <span aria-hidden className="h-1.5 w-14 shrink-0 overflow-hidden rounded-full bg-surface-sunken">
           <span className="block h-full rounded-full bg-success" style={{ width: `${pct}%` }} />
         </span>
+        {done ? <CircleCheckIcon aria-hidden className="-ml-1 size-4 shrink-0 text-success-ink" /> : null}
       </span>
     );
   };
@@ -426,18 +432,7 @@ export function BatchesScreen() {
             {chosen.length > 1 && !sameClient ? (
               <p className="px-4 pb-3 text-body-compact text-warning-ink">Only batches for the same complainant can be clubbed.</p>
             ) : null}
-            {view === "needs" && notCreated ? (
-              <p className="px-4 pb-3 text-body-compact text-muted-foreground tabular-nums">
-                {notCreated === 1 ? "1 upload isn't" : `${notCreated} uploads aren't`} created yet.{" "}
-                <Button
-                  variant="link"
-                  className="h-auto p-0 align-baseline text-body-compact font-normal underline"
-                  onClick={() => setView("notCreated")}
-                >
-                  Show {notCreated === 1 ? "it" : "them"}
-                </Button>
-              </p>
-            ) : null}
+
 
             {shown.length === 0 ? (
               <Empty className="border-0 py-12">
@@ -514,14 +509,14 @@ export function BatchesScreen() {
                 <div className="hidden overflow-x-auto md:block">
                   <Table className="table-fixed border-separate border-spacing-0" aria-label="Batches">
                     <colgroup>
-                      {canPick ? <col className="w-10" /> : null}
-                      <col />
+                      {canPick ? <col className="w-12" /> : null}
+                      <col className="w-[30%]" />
                       {showClient ? <col className="w-40" /> : null}
                       <col className="w-28" />
                       {STAGES.map((st) => (
-                        <col key={st.id} className="w-24" />
+                        <col key={st.id} />
                       ))}
-                      <col className="w-32" />
+                      <col className="w-40" />
                       {anyMenu ? <col className="w-14" /> : null}
                     </colgroup>
                     <TableHeader>
@@ -535,8 +530,8 @@ export function BatchesScreen() {
                         {showClient ? <TableHead className={TABLE_HEAD}>Complainant</TableHead> : null}
                         <TableHead className={cn(TABLE_HEAD, "whitespace-nowrap")}>File by</TableHead>
                         {STAGES.map((st) => (
-                          <TableHead key={st.id} className={cn(TABLE_HEAD, "h-auto px-2 text-center leading-5 whitespace-normal")}>
-                            {bulkStepTitle(st.id)}
+                          <TableHead key={st.id} className={cn(TABLE_HEAD, "px-2 text-center whitespace-nowrap")} title={bulkStepTitle(st.id)}>
+                            {st.head}
                           </TableHead>
                         ))}
                         <TableHead className={TABLE_HEAD}>Filed</TableHead>
