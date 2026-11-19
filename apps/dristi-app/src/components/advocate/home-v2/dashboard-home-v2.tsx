@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import {
+  ArrowRightIcon,
   BookmarkIcon,
   FilePlusIcon,
   FileTextIcon,
@@ -284,43 +285,44 @@ function HomeCard({
 /* ── Launcher ─────────────────────────────────────────────────────────── */
 
 /**
- * The four ways to start something (owner, 2026-11-19: plain outline buttons didn't draw the
- * eye). One white panel titled "Quick actions", two by two with a hairline cross (owner,
- * 2026-11-19): each action its icon in a brand-tinted chip and its name. Above Updates on a wide desktop, at its width; under
- * the greeting everywhere else.
+ * The four ways to start something (owner, 2026-11-19), two by two, as tall as the date component
+ * beside the greeting (120px). No title: the space goes to the actions. Each says it can be
+ * pressed: a straight arrow after its name, and a brand-tinted hover.
+ * One white panel split by a hairline cross (owner's pick over separate tiles).
  */
 function QuickActions() {
   return (
-    <nav
-      aria-labelledby="home-quick-actions"
-      className={cn("flex min-w-0 flex-col gap-0.5 rounded-xl border bg-card px-3 pt-2 pb-1", PANEL_CLASS)}
-    >
-      <h2 id="home-quick-actions" className="text-caption font-semibold text-muted-foreground">
-        Quick actions
-      </h2>
-      {/* Two by two with a hairline cross between the four (owner, 2026-11-19). Sized so the
-          panel stands as tall as the date component beside the greeting (120px). */}
+    <nav aria-label="Quick actions" className={cn("min-w-0 rounded-xl border bg-card p-1", PANEL_CLASS)}>
       <ul className="grid grid-cols-2">
         {START.map(({ label, href, icon: Icon }, i) => (
           <li
             key={label}
             className={cn(
-              "flex min-w-0 py-1",
-              i % 2 === 0 ? "border-r border-hairline pr-1" : "pl-1",
-              i < 2 && "border-b border-hairline",
+              "flex min-w-0",
+              i % 2 === 0 && "border-r border-hairline",
+              /* 4px from every hover edge to the panel edge or a hairline, all round. */
+              i < 2 ? "border-b border-hairline pb-1" : "pt-1",
             )}
           >
             <Link
               href={href}
-              className="group/qa flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1.5 py-1 text-caption font-semibold outline-none transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-focus-ring motion-reduce:transition-none pointer-coarse:min-h-10"
+              className={cn(
+                "group/qa flex h-12.5 min-w-0 flex-1 items-center gap-2 rounded-lg px-2.5 text-body-compact font-semibold outline-none transition-colors hover:bg-brand-muted/50 focus-visible:ring-3 focus-visible:ring-focus-ring motion-reduce:transition-none",
+                i % 2 === 0 ? "mr-1" : "ml-1",
+              )}
             >
               <span
                 aria-hidden="true"
-                className="flex size-7 shrink-0 items-center justify-center rounded-md bg-brand-muted text-brand-muted-foreground transition-colors group-hover/qa:bg-brand-muted-hover"
+                className="flex size-7 shrink-0 items-center justify-center rounded-md bg-brand-muted text-brand-muted-foreground"
               >
                 <Icon className="size-3.5" />
               </span>
-              <span className="min-w-0 truncate">{label}</span>
+              <span className="line-clamp-2 min-w-0 flex-1 leading-tight">{label}</span>
+              {/* A straight arrow after the name (owner, 2026-11-19: not the corner ↗). */}
+              <ArrowRightIcon
+                aria-hidden="true"
+                className="size-3.5 shrink-0 text-muted-foreground transition-[color,translate] group-hover/qa:translate-x-0.5 group-hover/qa:text-brand-muted-foreground motion-reduce:transition-none"
+              />
             </Link>
           </li>
         ))}
